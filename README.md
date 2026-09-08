@@ -167,7 +167,7 @@ When `aapp init` runs against a project:
   - **Adoption:** If your existing `.agents/AGENTS.md` does not have markers, the AAPP protocol block is cleanly appended, preserving all your custom rules above it.
   - **In-Place Upgrades:** If markers are present, running `aapp init` updates only the delimited protocol block to the latest version, preserving all custom rules above and below it.
   - **Legacy Flat Migration:** If a legacy `AGENTS.md` exists at the project root, it is automatically migrated into the `.agents/` worktree.
-* **Core Infrastructure Sync:** `.githooks/pre-commit` and `.githooks/blast-radius-guard` are deterministically updated to the latest version and made executable.
+* **Core Infrastructure Sync:** `.githooks/aapp-pre-commit` and `.githooks/blast-radius-guard` are deterministically updated to the latest version and made executable, while `.githooks/pre-commit` is guarded.
 * **Non-Destructive `.claude/settings.json` Merge:** Existing Claude Code settings and custom hooks are preserved, and the `PreToolUse` blast-radius guard is merged safely.
 * **Automatic Consumption:** In drop-in mode, `aapp init` automatically consumes the temporary `aapp-kit/` directory upon success.
 
@@ -177,7 +177,7 @@ If your repository already uses a hook manager (`core.hooksPath` set to `.husky`
 * It installs the AAPP hooks into `.githooks/` and prints the non-destructive subprocess wiring line:
 
 ```sh
-"$(git rev-parse --show-toplevel)/.githooks/pre-commit" || exit 1
+"$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit" || exit 1
 ```
 
 > [!TIP]

@@ -222,9 +222,9 @@ Located at `.githooks/blast-radius-guard`, this executable intercepts AI tool ca
 
 ---
 
-### Layer 2: Commit-Time Pre-Commit Engine (`pre-commit`)
+### Layer 2: Commit-Time Pre-Commit Engine (`aapp-pre-commit`)
 
-Located at `.githooks/pre-commit`, this Git hook runs on every `git commit`.
+Located at `.githooks/aapp-pre-commit` (invoked directly or via `.githooks/pre-commit`), this Git hook runs on every `git commit`.
 
 #### Key Responsibilities:
 1. **Changelog Enforcement**: Whenever any source code file is modified, `CHANGELOG.md` must be staged. Rules files (`.agents/*`) and planning files (`.plans/*`) are exempt.
@@ -445,79 +445,158 @@ Add a workspace instruction pointing to `.agents/AGENTS.md` so Copilot and Gemin
 
 ---
 
-## 7. Hook Manager Interoperability Recipes
+## 7. Hook Manager Interoperability Recipes & Multi-Language Integration
 
-If your project already uses a hook manager, `aapp init` leaves your configuration untouched and provides a non-destructive subprocess wiring snippet.
+If your project already uses custom pre-commit hooks (in Perl, Python, Node, Ruby, or Bash) or uses a hook manager like Husky/Lefthook, AAPP's blast-radius engine runs alongside them safely without interfering.
 
 ### Subprocess vs. Source Rationale
 
 > [!IMPORTANT]
 > **Always wire hooks as a subprocess (`"path/to/hook" || exit 1`) rather than `source` or `exec`.**
 > 
-> - `source .githooks/pre-commit`: Shares shell variables and environment, meaning an internal `exit 0` in the child hook will terminate the parent hook immediately, skipping your remaining linters.
-> - `exec .githooks/pre-commit`: Replaces the current process image entirely, preventing any subsequent commands from running.
-> - **`".../.githooks/pre-commit" || exit 1`**: Runs in an isolated subprocess. Exit code `0` continues execution; exit code `1` aborts the commit cleanly.
+> - `source .githooks/aapp-pre-commit`: Shares shell variables and execution scope, meaning an internal `exit 0` in a child script will terminate the parent hook immediately, skipping your remaining linters.
+> - `exec .githooks/aapp-pre-commit`: Replaces the current process image entirely, preventing any subsequent commands from running.
+> - **`".../.githooks/aapp-pre-commit" || exit 1`**: Runs in an isolated subprocess. Exit code `0` continues execution; exit code `1` aborts the commit cleanly and propagates `SKIP_BLAST_RADIUS=1` correctly.
 
 ---
 
-### Native Git Hooks
+### The Multi-File Hook Architecture (Master Runner Pattern)
 
-File: `.git/hooks/pre-commit`
+When your project has multiple specialized checks (e.g. AAPP blast radius + Perl linter + Python type checker + Prettier), structure your `.githooks/` worktree cleanly with modular scripts coordinated by a master `pre-commit` runner:
 
-```sh
+```text
+.githooks/
+├── pre-commit              # Master executable runner (dispatches all checks)
+├── aapp-pre-commit         # AAPP commit-time blast radius engine (managed by AAPP)
+├── blast-radius-guard      # AAPP write-time guard (PreToolUse)
+├── lint-perl.pl            # Custom Perl linter
+├── check-types.py          # Custom Python / mypy check
+└── format.sh               # Shell / Prettier formatting check
+```
+
+#### Master Runner (`.githooks/pre-commit`):
+```bash
 #!/usr/bin/env bash
 set -e
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# Run existing linter/test checks
-npm test
+# 1. AAPP Blast Radius & Changelog Enforcement (must run first)
+"$REPO_ROOT/.githooks/aapp-pre-commit" || exit 1
 
-# Run AAPP Blast Radius & Changelog Enforcement
-"$(git rev-parse --show-toplevel)/.githooks/pre-commit" || exit 1
+# 2. Custom Perl Linters / Tests
+if [ -f "$REPO_ROOT/.githooks/lint-perl.pl" ]; then
+    perl "$REPO_ROOT/.githooks/lint-perl.pl" || exit 1
+fi
+
+# 3. Custom Python / Node Checks
+if [ -f "$REPO_ROOT/.githooks/check-types.py" ]; then
+    python3 "$REPO_ROOT/.githooks/check-types.py" || exit 1
+fi
+
+echo "✅ All pre-commit checks passed!"
 ```
 
 ---
 
-### Husky
+### Polyglot Invocation Cheat Sheet
 
-File: `.husky/pre-commit`
+If your primary pre-commit hook is written in a language other than Bash, here is how to invoke the AAPP pre-commit engine safely:
 
+#### 1. Perl (`pre-commit` in Perl)
+```perl
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+# --- Run AAPP Blast Radius Engine ---
+my $repo_root = `git rev-parse --show-toplevel`;
+chomp($repo_root);
+my $aapp_hook = "$repo_root/.githooks/aapp-pre-commit";
+
+if (-x $aapp_hook) {
+    system($aapp_hook) == 0 or exit 1;
+}
+
+# --- Project-Specific Perl Checks ---
+# ... your custom Perl linting / validation code ...
+```
+
+#### 2. Python (`pre-commit` in Python)
+```python
+#!/usr/bin/env python3
+import subprocess, sys
+
+# --- Run AAPP Blast Radius Engine ---
+repo_root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+res = subprocess.run([f"{repo_root}/.githooks/aapp-pre-commit"])
+if res.returncode != 0:
+    sys.exit(res.returncode)
+
+# --- Project-Specific Python Checks ---
+# ... your custom Python validation code ...
+```
+
+#### 3. Node.js / JavaScript (`pre-commit` in Node)
+```javascript
+#!/usr/bin/env node
+const { execSync } = require('child_process');
+
+// --- Run AAPP Blast Radius Engine ---
+const repoRoot = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
+try {
+  execSync(`"${repoRoot}/.githooks/aapp-pre-commit"`, { stdio: 'inherit' });
+} catch (error) {
+  process.exit(1);
+}
+
+// --- Project-Specific JS/TS Checks ---
+```
+
+#### 4. Ruby (`pre-commit` in Ruby)
+```ruby
+#!/usr/bin/env ruby
+
+# --- Run AAPP Blast Radius Engine ---
+repo_root = `git rev-parse --show-toplevel`.strip
+system("#{repo_root}/.githooks/aapp-pre-commit") || exit(1)
+
+# --- Project-Specific Ruby Checks ---
+```
+
+---
+
+### Hook Manager Integration Recipes
+
+#### Husky (`.husky/pre-commit`)
 ```sh
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+# Run AAPP Blast Radius Engine
+"$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit" || exit 1
+
 # Run project linting
 npm run lint-staged
-
-# Run AAPP Blast Radius Engine
-"$(git rev-parse --show-toplevel)/.githooks/pre-commit" || exit 1
 ```
 
----
-
-### Lefthook
-
-File: `lefthook.yml`
-
+#### Lefthook (`lefthook.yml`)
 ```yaml
 pre-commit:
   commands:
     aapp-blast-radius:
-      run: "$(git rev-parse --show-toplevel)/.githooks/pre-commit"
+      run: "$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit"
+    lint:
+      run: npm run lint
 ```
 
----
-
-### Pre-Commit (Python Framework)
-
-File: `.pre-commit-config.yaml`
-
+#### Pre-Commit Framework (`.pre-commit-config.yaml`)
 ```yaml
 repos:
   - repo: local
     hooks:
       - id: aapp-blast-radius
         name: AAPP Blast Radius Engine
-        entry: .githooks/pre-commit
+        entry: .githooks/aapp-pre-commit
         language: script
         pass_filenames: false
 ```
@@ -534,7 +613,7 @@ aapp init
 (Or drop-in `./aapp-kit/aapp init`).
 `aapp init` automatically:
 1. Swaps the delimited protocol block in `.agents/AGENTS.md` (`<!-- AAPP-PROTOCOL:START ... -->` to `<!-- AAPP-PROTOCOL:END -->`) while leaving all your custom project rules above and below 100% untouched.
-2. Updates `.githooks/pre-commit` and `.githooks/blast-radius-guard` to the latest engine.
+2. Updates `.githooks/aapp-pre-commit` and `.githooks/blast-radius-guard` to the latest engine.
 3. Merges any missing Claude Code hooks into `.claude/settings.json` non-destructively.
 4. In drop-in mode, automatically consumes the temporary clone directory upon success.
 
