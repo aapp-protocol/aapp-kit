@@ -71,6 +71,8 @@ AAPP solves this structurally through native Git plumbing: **Git Worktrees mount
 │ • current/*.md   │      │ • AGENTS.md      │       │ • pre-commit      │
 │ • done/*.md      │      │ • PROJECT.MD     │       │ • blast-radius-   │
 │ • pickup.md      │      │ • rules/*.md     │       │   guard           │
+│ • issues_road_   │      │                  │       │                   │
+│   map.md         │      │                  │       │                   │
 │ • state_matrix.md│      │                  │       │                   │
 └──────────────────┘      └──────────────────┘       └───────────────────┘
 ```
@@ -88,7 +90,7 @@ By decoupling these concerns into independent Git worktrees:
 | `ARCHITECTURE.md` | Repo Root | Invariant technical rules, forbidden libraries, and core abstractions. |
 | `CHANGELOG.md` | Repo Root | Keep-a-Changelog record of user-facing changes (enforced on code commits). |
 | `ISSUES.md` | Repo Root | Canonical record of active and historical defects/bugs. |
-| `.plans/` | `plans` worktree | Active blueprints (`current/`), archives (`done/`), scratchpad (`pickup.md`), and state matrix (`state_matrix.md`). |
+| `.plans/` | `plans` worktree | Active blueprints (`current/`), archives (`done/`), scratchpad (`pickup.md`), issue triage roadmap (`issues_road_map.md`), and state matrix (`state_matrix.md`). |
 | `.agents/` | `agents` worktree | Agent behavioral contracts (`AGENTS.md`) and project-specific personas (`PROJECT.MD`). |
 | `.githooks/` | `githooks` worktree | Dual-layer blast radius enforcement scripts (`pre-commit`, `blast-radius-guard`). |
 | `.claude/settings.json` | Repo Root | Configures Claude Code to trigger `.githooks/blast-radius-guard` on `PreToolUse`. |

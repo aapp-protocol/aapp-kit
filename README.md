@@ -50,6 +50,7 @@ your-project/ (main/dev branch - contains only pure application source code)
 │   ├── done/            --> Permanent historical record of finished plans
 │   ├── aborted/         --> Discarded plans
 │   ├── pickup.md        --> Fast agent scratchpad for active context
+│   ├── issues_road_map.md --> Defect priority roadmap & triage queue
 │   └── state_matrix.md  --> State matrix & architectural brain
 ├── .agents/             --> Worktree mounted on orphan branch 'agents'
 │   ├── AGENTS.md        --> Agent behavioral contracts & slash commands
