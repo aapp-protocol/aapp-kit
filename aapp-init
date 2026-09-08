@@ -1,0 +1,402 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Asymmetric Agent Planning Protocol (AAPP) - Project Initializer (`aapp-init`)
+#
+# Sets up isolated Git worktrees mounted on orphan branches:
+# 1. 'plans'    --> mounted at ./.plans/ (Blueprints, State Matrix, Release Runbooks)
+# 2. 'agents'   --> mounted at ./.agents/ (Agent Behavioral Rules, Project Context)
+# 3. 'githooks' --> mounted at ./.githooks/ (Version-Controlled Git Hooks)
+#
+# Completely decouples planning, agent rules, hooks, and application source code
+# to eliminate merge conflicts, context drift, and agent hallucinations.
+# ==============================================================================
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ------------------------------------------------------------------------------
+# 1. Base Resolution (Templates & Tests)
+# ------------------------------------------------------------------------------
+has_kit_signature() {
+    local dir="$1"
+    [ -d "$dir/templates" ] && \
+    [ -f "$dir/templates/pre-commit" ] && \
+    [ -f "$dir/templates/AGENTS.md" ] && \
+    [ -f "$dir/templates/blast-radius-guard.sh" ]
+}
+
+if has_kit_signature "$SCRIPT_DIR"; then
+    BASE="$SCRIPT_DIR"
+    IS_DROP_IN=1
+elif [ -n "${XDG_DATA_HOME:-}" ] && has_kit_signature "$XDG_DATA_HOME/aapp-kit"; then
+    BASE="$XDG_DATA_HOME/aapp-kit"
+    IS_DROP_IN=0
+elif [ -d "$HOME/.local/share/aapp-kit" ] && has_kit_signature "$HOME/.local/share/aapp-kit"; then
+    BASE="$HOME/.local/share/aapp-kit"
+    IS_DROP_IN=0
+else
+    echo "❌ Error: AAPP templates not found."
+    echo "   Looked in:"
+    echo "     • $SCRIPT_DIR/templates"
+    echo "     • ${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/templates"
+    echo ""
+    echo "   aapp-init cannot run on its own without templates."
+    echo "   Clone the kit into your project or install it globally:"
+    echo ""
+    echo "     # Option 1: Drop-in project setup"
+    echo "     git clone <kit-url> aapp-kit"
+    echo "     ./aapp-kit/aapp-init"
+    echo ""
+    echo "     # Option 2: Global installation"
+    echo "     git clone <kit-url> aapp-kit"
+    echo "     ./aapp-kit/aapp-install"
+    echo ""
+    exit 1
+fi
+
+# ------------------------------------------------------------------------------
+# 2. Target Repository Resolution
+# ------------------------------------------------------------------------------
+IS_INSIDE_PROJECT=0
+if [ "$IS_DROP_IN" -eq 1 ]; then
+    PARENT_DIR="$(cd "$SCRIPT_DIR/.." 2>/dev/null && pwd || true)"
+    REPO_ROOT="$(cd "$PARENT_DIR" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -z "$REPO_ROOT" ]; then
+        echo "❌ No git repository here. Did you mean ./aapp-kit/aapp-install ?"
+        exit 1
+    fi
+    case "$SCRIPT_DIR" in
+        "$REPO_ROOT"/*)
+            IS_INSIDE_PROJECT=1
+            ;;
+    esac
+else
+    REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -z "$REPO_ROOT" ]; then
+        echo "❌ Error: Not a git repository. Run 'git init' first."
+        exit 1
+    fi
+fi
+
+# ------------------------------------------------------------------------------
+# 3. Flags & Options
+# ------------------------------------------------------------------------------
+DO_CLEANUP=0
+for ARG in "$@"; do
+    case "$ARG" in
+        --cleanup)
+            DO_CLEANUP=1
+            ;;
+        -h|--help)
+            echo "Usage: aapp-init [--cleanup]"
+            echo ""
+            echo "  Initializes AAPP worktrees, hooks, and templates in the target repository."
+            echo ""
+            echo "Options:"
+            echo "  --cleanup   Remove the drop-in kit folder after reconciling files"
+            echo "  -h, --help  Show this help message and exit"
+            exit 0
+            ;;
+        *)
+            echo "❌ Unknown option: $ARG (try --help)"
+            exit 1
+            ;;
+    esac
+done
+
+if [ "$DO_CLEANUP" -eq 1 ]; then
+    KIT_GIT_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ "$IS_DROP_IN" -eq 1 ] && [ "$SCRIPT_DIR" != "$KIT_GIT_ROOT" ] && [ -d "$SCRIPT_DIR" ]; then
+        rm -rf "$SCRIPT_DIR"
+        echo "🧹 Removed kit folder '$SCRIPT_DIR'."
+        exit 0
+    elif [ -d "$REPO_ROOT/aapp-kit" ]; then
+        rm -rf "$REPO_ROOT/aapp-kit"
+        echo "🧹 Removed '$REPO_ROOT/aapp-kit'."
+        exit 0
+    else
+        echo "ℹ️  No aapp-kit directory found to clean up."
+        exit 0
+    fi
+fi
+
+# ------------------------------------------------------------------------------
+# 4. Target Repository Validation
+# ------------------------------------------------------------------------------
+cd "$REPO_ROOT"
+
+GIT_DIR_ABS="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo .)"
+GIT_COMMON_ABS="$(cd "$GIT_COMMON_DIR" 2>/dev/null && pwd || true)"
+if [ -n "$GIT_DIR_ABS" ] && [ -n "$GIT_COMMON_ABS" ] && [ "$GIT_DIR_ABS" != "$GIT_COMMON_ABS" ]; then
+    echo "❌ Error: '$REPO_ROOT' is a linked worktree, not the main working tree."
+    echo "   Run this script from the main working tree root."
+    exit 1
+fi
+
+MAIN_BRANCH="$(git branch --show-current 2>/dev/null || true)"
+if [ -z "$MAIN_BRANCH" ]; then
+    echo "❌ Error: HEAD is detached. Check out a branch before initializing AAPP."
+    exit 1
+fi
+
+echo "🚀 Initializing Asymmetric Agent Planning Protocol (AAPP)..."
+echo "📍 Repository root: $REPO_ROOT"
+
+# ------------------------------------------------------------------------------
+# 5. Check for Restore Mode (Remote or Existing Branches)
+# ------------------------------------------------------------------------------
+IS_RESTORE=0
+for B in plans agents githooks; do
+    if git show-ref --verify --quiet "refs/heads/$B" || \
+       git show-ref --verify --quiet "refs/remotes/origin/$B"; then
+        IS_RESTORE=1
+        break
+    fi
+done
+
+# ------------------------------------------------------------------------------
+# 6. Configure .gitignore on Main Branch
+# ------------------------------------------------------------------------------
+for IGNORE_ENTRY in ".plans/" ".agents/" ".githooks/"; do
+    if ! grep -qxF "${IGNORE_ENTRY}" .gitignore 2>/dev/null; then
+        if [ -s .gitignore ] && [ -n "$(tail -c 1 .gitignore)" ]; then
+            echo "" >> .gitignore
+        fi
+        echo "${IGNORE_ENTRY}" >> .gitignore
+        echo "📝 Added '${IGNORE_ENTRY}' to .gitignore on active code branch."
+    fi
+done
+
+# ------------------------------------------------------------------------------
+# 7. Helper: Worktree Mounting with Collision Guard
+# ------------------------------------------------------------------------------
+mount_or_create_worktree() {
+    local branch="$1"
+    local dir="$2"
+
+    if [ -d "$dir" ] && [ -e "$dir/.git" ]; then
+        echo "ℹ️  Worktree '$dir' already mounted."
+        return 0
+    fi
+
+    if [ -d "$dir" ] && [ ! -e "$dir/.git" ]; then
+        echo "❌ Error: '$dir' exists as a normal directory, not an AAPP worktree."
+        echo "   Move or remove '$dir' before running aapp-init."
+        exit 1
+    fi
+
+    # 1. Local branch exists
+    if git show-ref --quiet "refs/heads/$branch"; then
+        echo "ℹ️  Local branch '$branch' exists. Mounting worktree at '$dir'..."
+        git worktree add "$dir" "$branch" --quiet
+    # 2. Remote tracking branch exists
+    elif git show-ref --quiet "refs/remotes/origin/$branch"; then
+        echo "🌐 Remote branch 'origin/$branch' detected. Mounting and tracking at '$dir'..."
+        git worktree add --track -b "$branch" "$dir" "origin/$branch" --quiet
+    # 3. Create brand-new orphan branch
+    else
+        echo "📦 Creating isolated '$branch' orphan branch..."
+        if git worktree add -h 2>&1 | grep -q -- "--orphan"; then
+            git worktree add --orphan -b "$branch" "$dir" --quiet
+        else
+            git checkout --orphan "$branch" --quiet
+            git rm -rf . --quiet 2>/dev/null || true
+            git commit --allow-empty -m "chore: initialize orphan $branch branch" --quiet
+            git checkout "$MAIN_BRANCH" --quiet
+            git worktree add "$dir" "$branch" --quiet
+        fi
+    fi
+}
+
+SKIPPED_FILES=()
+
+copy_guarded() {
+    local src="$1"
+    local dest="$2"
+    local desc="$3"
+
+    if [ -f "$dest" ]; then
+        SKIPPED_FILES+=("$dest -> $src")
+    elif [ -f "$src" ]; then
+        cp "$src" "$dest"
+        if [ -n "$desc" ]; then
+            echo "$desc"
+        fi
+    fi
+    return 0
+}
+
+# ------------------------------------------------------------------------------
+# PHASE 1: 'plans' Worktree
+# ------------------------------------------------------------------------------
+mount_or_create_worktree "plans" ".plans"
+mkdir -p .plans/current .plans/release .plans/done .plans/aborted
+
+copy_guarded "$BASE/templates/pickup.md" ".plans/pickup.md" ""
+copy_guarded "$BASE/templates/state_matrix.md" ".plans/state_matrix.md" ""
+copy_guarded "$BASE/templates/issues_road_map.md" ".plans/issues_road_map.md" ""
+copy_guarded "$BASE/templates/plan-template.md" ".plans/plan-template.md" ""
+copy_guarded "$BASE/templates/release_checklist.md" ".plans/release/release_checklist.md" ""
+
+(
+    cd .plans
+    git add .
+    if ! git rev-parse --verify HEAD >/dev/null 2>&1 || ! git diff-index --quiet HEAD -- 2>/dev/null; then
+        git commit -m "chore: initialize planning state machine structures" --quiet 2>/dev/null || true
+    fi
+)
+
+# ------------------------------------------------------------------------------
+# PHASE 2: 'agents' Worktree
+# ------------------------------------------------------------------------------
+mount_or_create_worktree "agents" ".agents"
+
+copy_guarded "$BASE/templates/AGENTS.md" ".agents/AGENTS.md" ""
+copy_guarded "$BASE/templates/PROJECT.MD" ".agents/PROJECT.MD" ""
+
+(
+    cd .agents
+    git add .
+    if ! git rev-parse --verify HEAD >/dev/null 2>&1 || ! git diff-index --quiet HEAD -- 2>/dev/null; then
+        git commit -m "chore: initialize agent behavioral rules and project context" --quiet 2>/dev/null || true
+    fi
+)
+
+# ------------------------------------------------------------------------------
+# PHASE 3: 'githooks' Worktree
+# ------------------------------------------------------------------------------
+mount_or_create_worktree "githooks" ".githooks"
+
+if [ -f .githooks/pre-commit ]; then
+    SKIPPED_FILES+=(".githooks/pre-commit -> $BASE/templates/pre-commit")
+elif [ -f "$BASE/templates/pre-commit" ]; then
+    cp "$BASE/templates/pre-commit" .githooks/pre-commit
+    chmod +x .githooks/pre-commit
+fi
+
+if [ -f .githooks/blast-radius-guard ]; then
+    SKIPPED_FILES+=(".githooks/blast-radius-guard -> $BASE/templates/blast-radius-guard.sh")
+elif [ -f "$BASE/templates/blast-radius-guard.sh" ]; then
+    cp "$BASE/templates/blast-radius-guard.sh" .githooks/blast-radius-guard
+    chmod +x .githooks/blast-radius-guard
+fi
+
+(
+    cd .githooks
+    git add .
+    if ! git rev-parse --verify HEAD >/dev/null 2>&1 || ! git diff-index --quiet HEAD -- 2>/dev/null; then
+        git commit -m "chore: initialize version-controlled pre-commit hook" --quiet 2>/dev/null || true
+    fi
+)
+
+# Safe Hook Manager Wiring (Q8)
+HOOK_MANAGER_NOTICE=0
+CURRENT_HOOKS_PATH="$(git config --get core.hooksPath 2>/dev/null || true)"
+NATIVE_HOOK_EXISTS=0
+[ -x .git/hooks/pre-commit ] && NATIVE_HOOK_EXISTS=1
+
+if [ -z "$CURRENT_HOOKS_PATH" ] && [ "$NATIVE_HOOK_EXISTS" -eq 0 ]; then
+    git config core.hooksPath .githooks
+elif [ "$CURRENT_HOOKS_PATH" = ".githooks" ]; then
+    : # already configured
+else
+    HOOK_MANAGER_NOTICE=1
+fi
+
+# ------------------------------------------------------------------------------
+# PHASE 4: Project Root Anchors
+# ------------------------------------------------------------------------------
+copy_guarded "$BASE/templates/codemap.md" "CODEMAP.md" "🗺️  Created starter CODEMAP.md at project root."
+copy_guarded "$BASE/templates/architecture.md" "ARCHITECTURE.md" "🏛️  Created starter ARCHITECTURE.md at project root."
+copy_guarded "$BASE/templates/changelog.md" "CHANGELOG.md" "📜 Created starter CHANGELOG.md at project root."
+copy_guarded "$BASE/templates/issues.md" "ISSUES.md" "🐛 Created starter ISSUES.md at project root."
+
+# ------------------------------------------------------------------------------
+# PHASE 5: Write-Time Enforcement Hook (.claude/settings.json)
+# ------------------------------------------------------------------------------
+if [ -f .githooks/blast-radius-guard ]; then
+    if [ ! -f .claude/settings.json ]; then
+        mkdir -p .claude
+        cat > .claude/settings.json <<'JSON'
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.githooks/blast-radius-guard"
+          }
+        ]
+      }
+    ]
+  }
+}
+JSON
+        echo "🛡️  Wrote .claude/settings.json - writes outside the Blast Radius are now refused."
+    else
+        SKIPPED_FILES+=(".claude/settings.json -> (kit default hook config)")
+    fi
+fi
+
+# ------------------------------------------------------------------------------
+# PHASE 6: Reporting & Warnings
+# ------------------------------------------------------------------------------
+if [ "$IS_RESTORE" -eq 1 ]; then
+    echo ""
+    echo "ℹ️  Existing AAPP project restored (plans/agents/githooks branches found). Files already present were left as-is."
+elif [ "${#SKIPPED_FILES[@]}" -gt 0 ]; then
+    echo ""
+    echo "⚠️  These files already existed and were kept as-is:"
+    for SKIPPED in "${SKIPPED_FILES[@]}"; do
+        echo "      • $SKIPPED"
+    done
+    echo ""
+    echo "    Your existing files were preserved, so they may not carry the workflow"
+    echo "    rules or hooks expected by the agents. Reconcile these by hand, or hand"
+    echo "    the merge to your AI assistant."
+    echo ""
+    if [ "$IS_DROP_IN" -eq 1 ] && [ "$IS_INSIDE_PROJECT" -eq 1 ]; then
+        KIT_REL="$(realpath --relative-to="$REPO_ROOT" "$SCRIPT_DIR" 2>/dev/null || basename "$SCRIPT_DIR")"
+        echo "    The kit folder was KEPT so you can compare."
+        echo "    When you are done:  ./$KIT_REL/aapp-init --cleanup"
+    fi
+fi
+
+if [ "$HOOK_MANAGER_NOTICE" -eq 1 ]; then
+    echo ""
+    echo "ℹ️  An existing hook configuration was detected:"
+    if [ -n "$CURRENT_HOOKS_PATH" ]; then
+        echo "     core.hooksPath is currently set to: '$CURRENT_HOOKS_PATH'"
+    else
+        echo "     Executable hook found at '.git/hooks/pre-commit'"
+    fi
+    echo "   Git config was left untouched. To wire AAPP blast-radius checks into your existing hook,"
+    echo "   add this subprocess call to your pre-commit script:"
+    echo ""
+    echo "     \"\$(git rev-parse --show-toplevel)/.githooks/pre-commit\" || exit 1"
+    echo ""
+fi
+
+# ------------------------------------------------------------------------------
+# PHASE 7: Drop-in Folder Consumption (Q9 Rule)
+# ------------------------------------------------------------------------------
+if [ "$IS_DROP_IN" -eq 1 ] && [ "$IS_INSIDE_PROJECT" -eq 1 ]; then
+    if [ "$IS_RESTORE" -eq 1 ] || [ "${#SKIPPED_FILES[@]}" -eq 0 ]; then
+        rm -rf "$SCRIPT_DIR"
+        echo ""
+        echo "🧹 Consumed kit folder '$SCRIPT_DIR'."
+    fi
+fi
+
+echo ""
+echo "✨ Multi-Orphan Worktree Setup Complete!"
+echo "➡️  Planning workspace:   .plans/    (branch: 'plans')"
+echo "➡️  Agent rules & ctx:    .agents/   (branch: 'agents')"
+echo "➡️  Git hooks engine:     .githooks/ (branch: 'githooks')"
+echo "➡️  Active scratchpad:    .plans/pickup.md"
+echo "➡️  State Matrix Brain:   .plans/state_matrix.md"
+echo "➡️  Release Runbooks:     .plans/release/"
+echo "➡️  Write-time guard:    .githooks/blast-radius-guard"
