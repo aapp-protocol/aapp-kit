@@ -117,7 +117,7 @@ Ideal for single projects. Clones a self-contained folder directly into your pro
 cd /path/to/my-project
 
 # 1. Clone into aapp-kit folder
-git clone https://github.com/dard/agent-planning-kit.git aapp-kit
+git clone https://github.com/aapp-protocol/aapp-kit.git aapp-kit
 
 # 2. Run initialization
 ./aapp-kit/aapp-init
@@ -132,7 +132,7 @@ Ideal for developers managing multiple projects:
 
 ```bash
 # 1. Clone kit
-git clone https://github.com/dard/agent-planning-kit.git aapp-kit
+git clone https://github.com/aapp-protocol/aapp-kit.git aapp-kit
 
 # 2. Run global installer
 ./aapp-kit/aapp-install
