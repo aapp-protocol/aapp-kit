@@ -273,4 +273,4 @@ AAPP includes 65 automated regression test cases verifying hook enforcement, wri
 
 ## 10. License
 
-Released under the [MIT License](LICENSE).
+Released under the [BSD 3-Clause License](LICENSE).
