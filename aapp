@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Asymmetric Agent Planning Protocol (AAPP CLI)
+#
+# Primary executable and dispatcher.
+# ==============================================================================
+set -e
+
+AAPP_VERSION="1.0.0"
+AAPP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ------------------------------------------------------------------------------
+# 1. Base Resolution (Templates & Libraries)
+# ------------------------------------------------------------------------------
+has_kit_signature() {
+    local dir="$1"
+    [ -d "$dir/templates" ] && \
+    [ -f "$dir/templates/pre-commit" ] && \
+    [ -f "$dir/templates/AGENTS.md" ] && \
+    [ -d "$dir/lib" ] && \
+    [ -f "$dir/lib/cmd_init.sh" ]
+}
+
+if has_kit_signature "$AAPP_SCRIPT_DIR"; then
+    AAPP_BASE="$AAPP_SCRIPT_DIR"
+    AAPP_IS_DROP_IN=1
+elif [ -n "${XDG_DATA_HOME:-}" ] && has_kit_signature "$XDG_DATA_HOME/aapp-kit"; then
+    AAPP_BASE="$XDG_DATA_HOME/aapp-kit"
+    AAPP_IS_DROP_IN=0
+elif [ -d "$HOME/.local/share/aapp-kit" ] && has_kit_signature "$HOME/.local/share/aapp-kit"; then
+    AAPP_BASE="$HOME/.local/share/aapp-kit"
+    AAPP_IS_DROP_IN=0
+else
+    # Allow version and help without full libraries if needed
+    case "${1:-}" in
+        version|-v|--version)
+            echo "aapp version $AAPP_VERSION"
+            exit 0
+            ;;
+        help|-h|--help)
+            echo "AAPP v$AAPP_VERSION (templates not found locally)."
+            echo "Run 'git clone https://github.com/aapp-protocol/aapp-kit.git && ./aapp-kit/aapp install'"
+            exit 0
+            ;;
+    esac
+
+    echo "❌ Error: AAPP shared libraries not found."
+    echo "   Looked in:"
+    echo "     • $AAPP_SCRIPT_DIR/lib"
+    echo "     • ${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/lib"
+    echo ""
+    echo "   To install AAPP globally on this system, run:"
+    echo "     git clone https://github.com/aapp-protocol/aapp-kit.git"
+    echo "     ./aapp-kit/aapp install"
+    echo ""
+    exit 1
+fi
+
+AAPP_LIB="$AAPP_BASE/lib"
+AAPP_TEMPLATES="$AAPP_BASE/templates"
+
+export AAPP_VERSION AAPP_BASE AAPP_LIB AAPP_TEMPLATES AAPP_IS_DROP_IN AAPP_SCRIPT_DIR
+
+# ------------------------------------------------------------------------------
+# 2. Command Dispatcher
+# ------------------------------------------------------------------------------
+CMD="${1:-help}"
+shift || true
+
+case "$CMD" in
+    init)
+        source "$AAPP_LIB/cmd_init.sh" "$@"
+        ;;
+    install)
+        source "$AAPP_LIB/cmd_install.sh" "$@"
+        ;;
+    upgrade|update)
+        source "$AAPP_LIB/cmd_upgrade.sh" "$@"
+        ;;
+    uninstall)
+        source "$AAPP_LIB/cmd_uninstall.sh" "$@"
+        ;;
+    status)
+        source "$AAPP_LIB/cmd_status.sh" "$@"
+        ;;
+    version|-v|--version)
+        echo "aapp version $AAPP_VERSION"
+        exit 0
+        ;;
+    help|-h|--help)
+        source "$AAPP_LIB/cmd_help.sh" "$@"
+        exit 0
+        ;;
+    *)
+        echo "❌ Unknown command: '$CMD'"
+        echo ""
+        source "$AAPP_LIB/cmd_help.sh"
+        exit 1
+        ;;
+esac
