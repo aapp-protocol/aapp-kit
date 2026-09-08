@@ -2,6 +2,8 @@
 
 > **Zero-Drift Autonomous Pair-Programming Architecture for Antigravity, Claude Code, Cursor, Copilot & AI Coding Agents.**  
 > Completely decouples planning, agent rules, and git enforcement from your application source code using isolated Git worktrees mounted on orphan branches.
+>
+> 📚 **Deep Dive**: For the full architecture, Git plumbing, and operational guide, see [MANUAL.md](MANUAL.md).
 
 ---
 
@@ -19,7 +21,7 @@
 * [6. Remote Sync & Multi-Machine Workflow](#6-remote-sync--multi-machine-workflow)
 * [7. Daily Agent Workflow & Slash Commands](#7-daily-agent-workflow--slash-commands)
 * [8. Testing & Verification Suites](#8-testing--verification-suites)
-* [9. Blueprint Example & Reference](#9-blueprint-example--reference)
+* [9. Blueprint Example & Technical Manual](#9-blueprint-example--technical-manual)
 * [10. License](#10-license)
 
 ---
@@ -264,12 +266,10 @@ AAPP includes 65 automated regression test cases verifying hook enforcement, wri
 
 ---
 
-## 9. Blueprint Example & Reference
-
-See [examples/example-plan-distribution-rework.md](examples/example-plan-distribution-rework.md) for a real-world, fully refined AAPP blueprint demonstrating:
-- Blast Radius and System Boundary declarations
-- Technical decision logs (Q1–Q9 resolution)
-- Step-by-step implementation and verification matrix
+## 9. Blueprint Example & Technical Manual
+ 
+* **Complete Blueprint Example**: See [examples/example-plan-distribution-rework.md](examples/example-plan-distribution-rework.md) for a real-world, fully refined AAPP blueprint demonstrating Blast Radius declarations, technical decision logs (Q1–Q9), and verification matrix.
+* **Comprehensive Technical Manual**: See [MANUAL.md](MANUAL.md) for low-level Git worktree plumbing, Two Lanes protocol, state machine lifecycle, multi-agent IDE integration, hook manager recipes, and operations.
 
 ---
 
