@@ -119,12 +119,12 @@ cd /path/to/my-project
 git clone https://github.com/aapp-protocol/aapp-kit.git aapp-kit
 
 # 2. Run initialization
-./aapp-kit/aapp-init
+./aapp-kit/aapp init
 ```
 
 * **What it does:** Sets up `.plans/`, `.agents/`, and `.githooks/` worktrees, creates documentation anchors, wires hooks, and **consumes the `aapp-kit/` directory upon success**.
-* **Clean & Reversible:** Right up until you run `aapp-init`, you can cancel adoption with `rm -rf aapp-kit`.
-* **Source retention:** If you want to keep the kit source checkout, copy the folder before running `aapp-init`.
+* **Clean & Reversible:** Right up until you run `aapp init`, you can cancel adoption with `rm -rf aapp-kit`.
+* **Source retention:** If you want to keep the kit source checkout, copy the folder before running `aapp init`.
 
 ### Option 2: Global Installation
 Ideal for developers managing multiple projects:
@@ -134,47 +134,46 @@ Ideal for developers managing multiple projects:
 git clone https://github.com/aapp-protocol/aapp-kit.git aapp-kit
 
 # 2. Run global installer
-./aapp-kit/aapp-install
+./aapp-kit/aapp install
 ```
 
-* **What it does:** Installs `aapp-init` and `aapp-install` into `$HOME/.local/bin/` and copies templates/tests to `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/`. Consumes the temporary clone folder once installed.
+* **What it does:** Installs `aapp` into `$HOME/.local/bin/` and copies libraries/templates/tests to `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/`. Consumes the temporary clone folder once installed.
 * **Usage in any project:**
   ```bash
   cd /path/to/any-project
-  aapp-init
+  aapp init
+  ```
+* **Context Recovery Briefing:**
+  ```bash
+  aapp status
+  ```
+* **Updating Global Tools:**
+  ```bash
+  aapp upgrade
   ```
 * **Uninstallation:**
   ```bash
-  aapp-install --uninstall
+  aapp uninstall
   ```
-  Removes AAPP binaries and share files while leaving shared directories and shell rc PATH configuration completely intact.
-* **Updating:** To update, re-clone and re-run `aapp-install`.
+  Removes AAPP binary and share files while leaving shared directories and shell rc PATH configuration completely intact.
 
 ---
 
-## 5. Existing Project Conflicts & Hook Interoperability
+## 5. Existing Project Conflicts, Adoption & Upgrades
 
-### Conflict Handling & Silent-Skipping Warnings
-When `aapp-init` runs against a project that already has some documentation or rules:
-* **Nothing is overwritten:** Every copy is guarded. Existing `AGENTS.md`, `PROJECT.MD`, `CODEMAP.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, `ISSUES.md`, or `.claude/settings.json` are preserved untouched.
-* **Silent-Skipping Warning Block:** Because your existing file is kept, the kit's default agent rules and hooks may not be present in your file. `aapp-init` detects skipped files and prints a warning before the completion banner.
-* **Kit Folder Retention on Conflict:** If any file was skipped, `aapp-init` **retains the `aapp-kit/` folder** so you can diff against `aapp-kit/templates/<file>`:
-  ```
-  ⚠️  These files already existed and were kept as-is:
-        • CODEMAP.md -> /path/to/aapp-kit/templates/codemap.md
-
-      Your existing files were preserved, so they may not carry the workflow
-      rules or hooks expected by the agents. Reconcile these by hand, or hand
-      the merge to your AI assistant.
-
-      The kit folder was KEPT so you can compare.
-      When you are done:  ./aapp-kit/aapp-init --cleanup
-  ```
-* Once you have reconciled the files, run `./aapp-kit/aapp-init --cleanup` to remove the temporary folder.
+### Seamless Adoption & In-Place Protocol Upgrades
+When `aapp init` runs against a project:
+* **Deterministic Delimited Block Sync:** `aapp init` isolates the core protocol rules between `<!-- AAPP-PROTOCOL:START v1.0.0 -->` and `<!-- AAPP-PROTOCOL:END -->`.
+  - **Adoption:** If your existing `.agents/AGENTS.md` does not have markers, the AAPP protocol block is cleanly appended, preserving all your custom rules above it.
+  - **In-Place Upgrades:** If markers are present, running `aapp init` updates only the delimited protocol block to the latest version, preserving all custom rules above and below it.
+  - **Legacy Flat Migration:** If a legacy `AGENTS.md` exists at the project root, it is automatically migrated into the `.agents/` worktree.
+* **Core Infrastructure Sync:** `.githooks/pre-commit` and `.githooks/blast-radius-guard` are deterministically updated to the latest version and made executable.
+* **Non-Destructive `.claude/settings.json` Merge:** Existing Claude Code settings and custom hooks are preserved, and the `PreToolUse` blast-radius guard is merged safely.
+* **Automatic Consumption:** In drop-in mode, `aapp init` automatically consumes the temporary `aapp-kit/` directory upon success.
 
 ### Existing Hook Managers (Husky, Lefthook, Native Hooks)
 If your repository already uses a hook manager (`core.hooksPath` set to `.husky` or `.lefthook`) or has an executable `.git/hooks/pre-commit`:
-* `aapp-init` **will never overwrite your Git hook configuration**.
+* `aapp init` **will never overwrite your Git hook configuration**.
 * It installs the AAPP hooks into `.githooks/` and prints the non-destructive subprocess wiring line:
 
 ```sh
@@ -209,9 +208,9 @@ git clone <your-repo-url> my-project
 cd my-project
 
 # Initialize and mount existing remote orphan branches
-aapp-init
+aapp init
 ```
-`aapp-init` automatically detects `origin/plans`, `origin/agents`, and `origin/githooks` and mounts tracking worktrees without conflict warnings.
+`aapp init` automatically detects `origin/plans`, `origin/agents`, and `origin/githooks` and mounts tracking worktrees without conflict warnings.
 
 ---
 
@@ -221,7 +220,7 @@ When pair programming with AI assistants, use the standard AAPP command lifecycl
 
 | Command | Lifecycle Phase | Description |
 | :--- | :--- | :--- |
-| `/status` | **Orient** | Scan `.plans/pickup.md` and active plans to report current progress. |
+| `/status` (or `aapp status`) | **Orient** | Scan `.plans/pickup.md` and active plans to report current progress. |
 | `/digest` | **Sync** | Refresh `.plans/state_matrix.md` and update scratchpad. |
 | `/freeze <file>` | **Lock** | Freeze blueprint status to `🟢 Ready for Execution`. Sets hard boundaries. |
 | `/done <file>` | **Archive** | Move completed plan to `.plans/done/` and update `CHANGELOG.md`. |
@@ -250,16 +249,16 @@ Every plan in `.plans/current/<name>.md` defines strict boundaries:
 
 ## 8. Testing & Verification Suites
 
-AAPP includes 65 automated regression test cases verifying hook enforcement, write-guard protection, and installer resolution:
+AAPP includes 69 automated regression test cases verifying hook enforcement, write-guard protection, and installer resolution:
 
 ```bash
-# Run complete test verification suite (65 tests)
+# Run complete test verification suite (69 tests)
 ./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh
 ```
 
 | Suite | File | Tests | Coverage |
 | :--- | :--- | :--- | :--- |
-| **Installer & Resolution** | [tests/install_test.sh](tests/install_test.sh) | 27 cases | Drop-in / installed resolution, collision protection, `--cleanup`, `--uninstall`, Husky wiring. |
+| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 31 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`), adoption, in-place block upgrades, migration, `.claude/settings.json` merge, Husky wiring. |
 | **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 12 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal. |
 | **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 26 cases | PreToolUse Claude Code JSON payload, self-protection invariants, fail-open behavior, OOB denial. |
 

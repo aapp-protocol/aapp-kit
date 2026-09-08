@@ -1,71 +1,24 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Asymmetric Agent Planning Protocol (AAPP) - Project Initializer (`aapp-init`)
+# AAPP Command: `init`
 #
-# Sets up isolated Git worktrees mounted on orphan branches:
+# Sets up or syncs isolated Git worktrees mounted on orphan branches:
 # 1. 'plans'    --> mounted at ./.plans/ (Blueprints, State Matrix, Release Runbooks)
 # 2. 'agents'   --> mounted at ./.agents/ (Agent Behavioral Rules, Project Context)
 # 3. 'githooks' --> mounted at ./.githooks/ (Version-Controlled Git Hooks)
-#
-# Completely decouples planning, agent rules, hooks, and application source code
-# to eliminate merge conflicts, context drift, and agent hallucinations.
 # ==============================================================================
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# ------------------------------------------------------------------------------
-# 1. Base Resolution (Templates & Tests)
-# ------------------------------------------------------------------------------
-has_kit_signature() {
-    local dir="$1"
-    [ -d "$dir/templates" ] && \
-    [ -f "$dir/templates/pre-commit" ] && \
-    [ -f "$dir/templates/AGENTS.md" ] && \
-    [ -f "$dir/templates/blast-radius-guard.sh" ]
-}
-
-if has_kit_signature "$SCRIPT_DIR"; then
-    BASE="$SCRIPT_DIR"
-    IS_DROP_IN=1
-elif [ -n "${XDG_DATA_HOME:-}" ] && has_kit_signature "$XDG_DATA_HOME/aapp-kit"; then
-    BASE="$XDG_DATA_HOME/aapp-kit"
-    IS_DROP_IN=0
-elif [ -d "$HOME/.local/share/aapp-kit" ] && has_kit_signature "$HOME/.local/share/aapp-kit"; then
-    BASE="$HOME/.local/share/aapp-kit"
-    IS_DROP_IN=0
-else
-    echo "❌ Error: AAPP templates not found."
-    echo "   Looked in:"
-    echo "     • $SCRIPT_DIR/templates"
-    echo "     • ${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/templates"
-    echo ""
-    echo "   aapp-init cannot run on its own without templates."
-    echo "   Clone the kit into your project or install it globally:"
-    echo ""
-    echo "     # Option 1: Drop-in project setup"
-    echo "     git clone <kit-url> aapp-kit"
-    echo "     ./aapp-kit/aapp-init"
-    echo ""
-    echo "     # Option 2: Global installation"
-    echo "     git clone <kit-url> aapp-kit"
-    echo "     ./aapp-kit/aapp-install"
-    echo ""
-    exit 1
-fi
-
-# ------------------------------------------------------------------------------
-# 2. Target Repository Resolution
-# ------------------------------------------------------------------------------
+# Target Repository Resolution
 IS_INSIDE_PROJECT=0
-if [ "$IS_DROP_IN" -eq 1 ]; then
-    PARENT_DIR="$(cd "$SCRIPT_DIR/.." 2>/dev/null && pwd || true)"
+if [ "$AAPP_IS_DROP_IN" -eq 1 ]; then
+    PARENT_DIR="$(cd "$AAPP_SCRIPT_DIR/.." 2>/dev/null && pwd || true)"
     REPO_ROOT="$(cd "$PARENT_DIR" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
     if [ -z "$REPO_ROOT" ]; then
-        echo "❌ No git repository here. Did you mean ./aapp-kit/aapp-install ?"
+        echo "❌ No git repository here. Did you mean ./aapp-kit/aapp install ?"
         exit 1
     fi
-    case "$SCRIPT_DIR" in
+    case "$AAPP_SCRIPT_DIR" in
         "$REPO_ROOT"/*)
             IS_INSIDE_PROJECT=1
             ;;
@@ -78,53 +31,9 @@ else
     fi
 fi
 
-# ------------------------------------------------------------------------------
-# 3. Flags & Options
-# ------------------------------------------------------------------------------
-DO_CLEANUP=0
-for ARG in "$@"; do
-    case "$ARG" in
-        --cleanup)
-            DO_CLEANUP=1
-            ;;
-        -h|--help)
-            echo "Usage: aapp-init [--cleanup]"
-            echo ""
-            echo "  Initializes AAPP worktrees, hooks, and templates in the target repository."
-            echo ""
-            echo "Options:"
-            echo "  --cleanup   Remove the drop-in kit folder after reconciling files"
-            echo "  -h, --help  Show this help message and exit"
-            exit 0
-            ;;
-        *)
-            echo "❌ Unknown option: $ARG (try --help)"
-            exit 1
-            ;;
-    esac
-done
-
-if [ "$DO_CLEANUP" -eq 1 ]; then
-    KIT_GIT_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
-    if [ "$IS_DROP_IN" -eq 1 ] && [ "$SCRIPT_DIR" != "$KIT_GIT_ROOT" ] && [ -d "$SCRIPT_DIR" ]; then
-        rm -rf "$SCRIPT_DIR"
-        echo "🧹 Removed kit folder '$SCRIPT_DIR'."
-        exit 0
-    elif [ -d "$REPO_ROOT/aapp-kit" ]; then
-        rm -rf "$REPO_ROOT/aapp-kit"
-        echo "🧹 Removed '$REPO_ROOT/aapp-kit'."
-        exit 0
-    else
-        echo "ℹ️  No aapp-kit directory found to clean up."
-        exit 0
-    fi
-fi
-
-# ------------------------------------------------------------------------------
-# 4. Target Repository Validation
-# ------------------------------------------------------------------------------
 cd "$REPO_ROOT"
 
+# Target Repository Validation
 GIT_DIR_ABS="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
 GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo .)"
 GIT_COMMON_ABS="$(cd "$GIT_COMMON_DIR" 2>/dev/null && pwd || true)"
@@ -140,12 +49,10 @@ if [ -z "$MAIN_BRANCH" ]; then
     exit 1
 fi
 
-echo "🚀 Initializing Asymmetric Agent Planning Protocol (AAPP)..."
+echo "🚀 Initializing / Syncing Asymmetric Agent Planning Protocol (AAPP v$AAPP_VERSION)..."
 echo "📍 Repository root: $REPO_ROOT"
 
-# ------------------------------------------------------------------------------
-# 5. Check for Restore Mode (Remote or Existing Branches)
-# ------------------------------------------------------------------------------
+# Check for Restore Mode (Remote or Existing Branches)
 IS_RESTORE=0
 for B in plans agents githooks; do
     if git show-ref --verify --quiet "refs/heads/$B" || \
@@ -155,9 +62,7 @@ for B in plans agents githooks; do
     fi
 done
 
-# ------------------------------------------------------------------------------
-# 6. Configure .gitignore on Main Branch
-# ------------------------------------------------------------------------------
+# Configure .gitignore on Main Branch
 for IGNORE_ENTRY in ".plans/" ".agents/" ".githooks/"; do
     if ! grep -qxF "${IGNORE_ENTRY}" .gitignore 2>/dev/null; then
         if [ -s .gitignore ] && [ -n "$(tail -c 1 .gitignore)" ]; then
@@ -168,9 +73,7 @@ for IGNORE_ENTRY in ".plans/" ".agents/" ".githooks/"; do
     fi
 done
 
-# ------------------------------------------------------------------------------
-# 7. Helper: Worktree Mounting with Collision Guard
-# ------------------------------------------------------------------------------
+# Worktree Mounting Helper
 mount_or_create_worktree() {
     local branch="$1"
     local dir="$2"
@@ -182,7 +85,7 @@ mount_or_create_worktree() {
 
     if [ -d "$dir" ] && [ ! -e "$dir/.git" ]; then
         echo "❌ Error: '$dir' exists as a normal directory, not an AAPP worktree."
-        echo "   Move or remove '$dir' before running aapp-init."
+        echo "   Move or remove '$dir' before running aapp init."
         exit 1
     fi
 
@@ -209,15 +112,13 @@ mount_or_create_worktree() {
     fi
 }
 
-SKIPPED_FILES=()
-
 copy_guarded() {
     local src="$1"
     local dest="$2"
     local desc="$3"
 
     if [ -f "$dest" ]; then
-        SKIPPED_FILES+=("$dest -> $src")
+        return 0
     elif [ -f "$src" ]; then
         cp "$src" "$dest"
         if [ -n "$desc" ]; then
@@ -233,11 +134,11 @@ copy_guarded() {
 mount_or_create_worktree "plans" ".plans"
 mkdir -p .plans/current .plans/release .plans/done .plans/aborted
 
-copy_guarded "$BASE/templates/pickup.md" ".plans/pickup.md" ""
-copy_guarded "$BASE/templates/state_matrix.md" ".plans/state_matrix.md" ""
-copy_guarded "$BASE/templates/issues_road_map.md" ".plans/issues_road_map.md" ""
-copy_guarded "$BASE/templates/plan-template.md" ".plans/plan-template.md" ""
-copy_guarded "$BASE/templates/release_checklist.md" ".plans/release/release_checklist.md" ""
+copy_guarded "$AAPP_TEMPLATES/pickup.md" ".plans/pickup.md" ""
+copy_guarded "$AAPP_TEMPLATES/state_matrix.md" ".plans/state_matrix.md" ""
+copy_guarded "$AAPP_TEMPLATES/issues_road_map.md" ".plans/issues_road_map.md" ""
+copy_guarded "$AAPP_TEMPLATES/plan-template.md" ".plans/plan-template.md" ""
+copy_guarded "$AAPP_TEMPLATES/release_checklist.md" ".plans/release/release_checklist.md" ""
 
 (
     cd .plans
@@ -248,37 +149,102 @@ copy_guarded "$BASE/templates/release_checklist.md" ".plans/release/release_chec
 )
 
 # ------------------------------------------------------------------------------
-# PHASE 2: 'agents' Worktree
+# PHASE 2: 'agents' Worktree & Deterministic Protocol Sync
 # ------------------------------------------------------------------------------
 mount_or_create_worktree "agents" ".agents"
 
-copy_guarded "$BASE/templates/AGENTS.md" ".agents/AGENTS.md" ""
-copy_guarded "$BASE/templates/PROJECT.MD" ".agents/PROJECT.MD" ""
+# Legacy flat AGENTS.md migration
+if [ -f "AGENTS.md" ] && [ ! -f ".agents/AGENTS.md" ]; then
+    mv "AGENTS.md" ".agents/AGENTS.md"
+    echo "📦 Migrated legacy project-root AGENTS.md to .agents/AGENTS.md."
+fi
+
+sync_agent_rules() {
+    local target=".agents/AGENTS.md"
+    local template="$AAPP_TEMPLATES/AGENTS.md"
+
+    if [ ! -f "$template" ]; then
+        return 0
+    fi
+
+    if [ ! -f "$target" ]; then
+        cp "$template" "$target"
+        echo "🤖 Initialized .agents/AGENTS.md with AAPP protocol rules."
+        return 0
+    fi
+
+    local block_tmp
+    block_tmp="$(mktemp)"
+    awk '
+        /<!-- AAPP-PROTOCOL:START/ { inside=1 }
+        inside { print }
+        /<!-- AAPP-PROTOCOL:END -->/ { inside=0 }
+    ' "$template" > "$block_tmp"
+
+    if [ ! -s "$block_tmp" ]; then
+        rm -f "$block_tmp"
+        return 0
+    fi
+
+    if grep -q "<!-- AAPP-PROTOCOL:START" "$target"; then
+        local target_tmp
+        target_tmp="$(mktemp)"
+        awk -v block_file="$block_tmp" '
+            BEGIN {
+                while ((getline line < block_file) > 0) {
+                    new_block = (new_block == "" ? "" : new_block "\n") line
+                }
+                close(block_file)
+            }
+            /<!-- AAPP-PROTOCOL:START/ {
+                in_block=1
+                print new_block
+                next
+            }
+            /<!-- AAPP-PROTOCOL:END -->/ {
+                in_block=0
+                next
+            }
+            !in_block {
+                print
+            }
+        ' "$target" > "$target_tmp" && mv "$target_tmp" "$target"
+        echo "🔄 Updated AAPP protocol block in .agents/AGENTS.md to v$AAPP_VERSION (custom rules preserved)."
+    else
+        if [ -s "$target" ] && [ -n "$(tail -c 1 "$target")" ]; then
+            echo "" >> "$target"
+        fi
+        echo "" >> "$target"
+        cat "$block_tmp" >> "$target"
+        echo "" >> "$target"
+        echo "➕ Appended AAPP protocol block to existing .agents/AGENTS.md (custom rules preserved)."
+    fi
+    rm -f "$block_tmp"
+}
+
+sync_agent_rules
+copy_guarded "$AAPP_TEMPLATES/PROJECT.MD" ".agents/PROJECT.MD" ""
 
 (
     cd .agents
     git add .
     if ! git rev-parse --verify HEAD >/dev/null 2>&1 || ! git diff-index --quiet HEAD -- 2>/dev/null; then
-        git commit -m "chore: initialize agent behavioral rules and project context" --quiet 2>/dev/null || true
+        git commit -m "chore: sync agent behavioral rules and project context" --quiet 2>/dev/null || true
     fi
 )
 
 # ------------------------------------------------------------------------------
-# PHASE 3: 'githooks' Worktree
+# PHASE 3: 'githooks' Worktree (Deterministic Infrastructure Sync)
 # ------------------------------------------------------------------------------
 mount_or_create_worktree "githooks" ".githooks"
 
-if [ -f .githooks/pre-commit ]; then
-    SKIPPED_FILES+=(".githooks/pre-commit -> $BASE/templates/pre-commit")
-elif [ -f "$BASE/templates/pre-commit" ]; then
-    cp "$BASE/templates/pre-commit" .githooks/pre-commit
+if [ -f "$AAPP_TEMPLATES/pre-commit" ]; then
+    cp "$AAPP_TEMPLATES/pre-commit" .githooks/pre-commit
     chmod +x .githooks/pre-commit
 fi
 
-if [ -f .githooks/blast-radius-guard ]; then
-    SKIPPED_FILES+=(".githooks/blast-radius-guard -> $BASE/templates/blast-radius-guard.sh")
-elif [ -f "$BASE/templates/blast-radius-guard.sh" ]; then
-    cp "$BASE/templates/blast-radius-guard.sh" .githooks/blast-radius-guard
+if [ -f "$AAPP_TEMPLATES/blast-radius-guard.sh" ]; then
+    cp "$AAPP_TEMPLATES/blast-radius-guard.sh" .githooks/blast-radius-guard
     chmod +x .githooks/blast-radius-guard
 fi
 
@@ -286,11 +252,11 @@ fi
     cd .githooks
     git add .
     if ! git rev-parse --verify HEAD >/dev/null 2>&1 || ! git diff-index --quiet HEAD -- 2>/dev/null; then
-        git commit -m "chore: initialize version-controlled pre-commit hook" --quiet 2>/dev/null || true
+        git commit -m "chore: sync version-controlled git hooks" --quiet 2>/dev/null || true
     fi
 )
 
-# Safe Hook Manager Wiring (Q8)
+# Safe Hook Manager Wiring
 HOOK_MANAGER_NOTICE=0
 CURRENT_HOOKS_PATH="$(git config --get core.hooksPath 2>/dev/null || true)"
 NATIVE_HOOK_EXISTS=0
@@ -307,10 +273,10 @@ fi
 # ------------------------------------------------------------------------------
 # PHASE 4: Project Root Anchors
 # ------------------------------------------------------------------------------
-copy_guarded "$BASE/templates/codemap.md" "CODEMAP.md" "🗺️  Created starter CODEMAP.md at project root."
-copy_guarded "$BASE/templates/architecture.md" "ARCHITECTURE.md" "🏛️  Created starter ARCHITECTURE.md at project root."
-copy_guarded "$BASE/templates/changelog.md" "CHANGELOG.md" "📜 Created starter CHANGELOG.md at project root."
-copy_guarded "$BASE/templates/issues.md" "ISSUES.md" "🐛 Created starter ISSUES.md at project root."
+copy_guarded "$AAPP_TEMPLATES/codemap.md" "CODEMAP.md" "🗺️  Created starter CODEMAP.md at project root."
+copy_guarded "$AAPP_TEMPLATES/architecture.md" "ARCHITECTURE.md" "🏛️  Created starter ARCHITECTURE.md at project root."
+copy_guarded "$AAPP_TEMPLATES/changelog.md" "CHANGELOG.md" "📜 Created starter CHANGELOG.md at project root."
+copy_guarded "$AAPP_TEMPLATES/issues.md" "ISSUES.md" "🐛 Created starter ISSUES.md at project root."
 
 # ------------------------------------------------------------------------------
 # PHASE 5: Write-Time Enforcement Hook (.claude/settings.json)
@@ -337,34 +303,59 @@ if [ -f .githooks/blast-radius-guard ]; then
 JSON
         echo "🛡️  Wrote .claude/settings.json - writes outside the Blast Radius are now refused."
     else
-        SKIPPED_FILES+=(".claude/settings.json -> (kit default hook config)")
+        if ! grep -qs "blast-radius-guard" .claude/settings.json; then
+            if command -v python3 >/dev/null 2>&1; then
+                python3 - <<'PYEOF'
+import json, sys
+
+settings_path = ".claude/settings.json"
+try:
+    with open(settings_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+except Exception:
+    data = {}
+
+if not isinstance(data, dict):
+    data = {}
+
+if "hooks" not in data or not isinstance(data["hooks"], dict):
+    data["hooks"] = {}
+
+if "PreToolUse" not in data["hooks"] or not isinstance(data["hooks"]["PreToolUse"], list):
+    data["hooks"]["PreToolUse"] = []
+
+hook_cmd = "${CLAUDE_PROJECT_DIR}/.githooks/blast-radius-guard"
+has_hook = False
+for entry in data["hooks"]["PreToolUse"]:
+    if isinstance(entry, dict) and "hooks" in entry and isinstance(entry["hooks"], list):
+        for h in entry["hooks"]:
+            if isinstance(h, dict) and h.get("command") == hook_cmd:
+                has_hook = True
+                break
+
+if not has_hook:
+    data["hooks"]["PreToolUse"].append({
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+            {
+                "type": "command",
+                "command": hook_cmd
+            }
+        ]
+    })
+    with open(settings_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+    print("🛡️  Merged blast-radius-guard into existing .claude/settings.json.")
+PYEOF
+            fi
+        fi
     fi
 fi
 
 # ------------------------------------------------------------------------------
 # PHASE 6: Reporting & Warnings
 # ------------------------------------------------------------------------------
-if [ "$IS_RESTORE" -eq 1 ]; then
-    echo ""
-    echo "ℹ️  Existing AAPP project restored (plans/agents/githooks branches found). Files already present were left as-is."
-elif [ "${#SKIPPED_FILES[@]}" -gt 0 ]; then
-    echo ""
-    echo "⚠️  These files already existed and were kept as-is:"
-    for SKIPPED in "${SKIPPED_FILES[@]}"; do
-        echo "      • $SKIPPED"
-    done
-    echo ""
-    echo "    Your existing files were preserved, so they may not carry the workflow"
-    echo "    rules or hooks expected by the agents. Reconcile these by hand, or hand"
-    echo "    the merge to your AI assistant."
-    echo ""
-    if [ "$IS_DROP_IN" -eq 1 ] && [ "$IS_INSIDE_PROJECT" -eq 1 ]; then
-        KIT_REL="$(realpath --relative-to="$REPO_ROOT" "$SCRIPT_DIR" 2>/dev/null || basename "$SCRIPT_DIR")"
-        echo "    The kit folder was KEPT so you can compare."
-        echo "    When you are done:  ./$KIT_REL/aapp-init --cleanup"
-    fi
-fi
-
 if [ "$HOOK_MANAGER_NOTICE" -eq 1 ]; then
     echo ""
     echo "ℹ️  An existing hook configuration was detected:"
@@ -381,13 +372,13 @@ if [ "$HOOK_MANAGER_NOTICE" -eq 1 ]; then
 fi
 
 # ------------------------------------------------------------------------------
-# PHASE 7: Drop-in Folder Consumption (Q9 Rule)
+# PHASE 7: Drop-in Folder Consumption
 # ------------------------------------------------------------------------------
-if [ "$IS_DROP_IN" -eq 1 ] && [ "$IS_INSIDE_PROJECT" -eq 1 ]; then
-    if [ "$IS_RESTORE" -eq 1 ] || [ "${#SKIPPED_FILES[@]}" -eq 0 ]; then
-        rm -rf "$SCRIPT_DIR"
+if [ "$AAPP_IS_DROP_IN" -eq 1 ] && [ "$IS_INSIDE_PROJECT" -eq 1 ]; then
+    if [ "$(basename "$AAPP_SCRIPT_DIR")" != "agent-planning-kit" ]; then
+        rm -rf "$AAPP_SCRIPT_DIR"
         echo ""
-        echo "🧹 Consumed kit folder '$SCRIPT_DIR'."
+        echo "🧹 Consumed kit folder '$AAPP_SCRIPT_DIR'."
     fi
 fi
 

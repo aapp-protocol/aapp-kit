@@ -103,7 +103,7 @@ By decoupling these concerns into independent Git worktrees:
 
 An **orphan branch** in Git is a branch that has no parent commits and shares no common history with the main branch. A **worktree** allows a single repository to have multiple working trees attached simultaneously.
 
-When `aapp-init` sets up a worktree (for example `.plans`), it executes:
+When `aapp init` sets up a worktree (for example `.plans`), it executes:
 
 ```bash
 # 1. Check if the orphan branch already exists locally or remotely
@@ -153,10 +153,10 @@ git clone git@github.com:your-org/your-repo.git
 cd your-repo
 
 # Initialize AAPP — automatically detects remote orphan branches and mounts worktrees
-aapp-init
+aapp init
 ```
 
-`aapp-init` detects `origin/plans`, `origin/agents`, and `origin/githooks` and mounts tracking worktrees without generating conflict warnings.
+`aapp init` detects `origin/plans`, `origin/agents`, and `origin/githooks` and mounts tracking worktrees without generating conflict warnings.
 
 ### Re-Attaching and Repairing Worktrees
 
@@ -447,7 +447,7 @@ Add a workspace instruction pointing to `.agents/AGENTS.md` so Copilot and Gemin
 
 ## 7. Hook Manager Interoperability Recipes
 
-If your project already uses a hook manager, `aapp-init` leaves your configuration untouched and provides a non-destructive subprocess wiring snippet.
+If your project already uses a hook manager, `aapp init` leaves your configuration untouched and provides a non-destructive subprocess wiring snippet.
 
 ### Subprocess vs. Source Rationale
 
@@ -526,20 +526,33 @@ repos:
 
 ## 8. Maintenance, Operations & Troubleshooting FAQ
 
-### Q: How do I clean up the temporary clone folder after adoption?
-If you used the drop-in clone method (`git clone ... aapp-kit`), run:
+### Q: How do I upgrade an existing project to a newer AAPP version?
+Upgrading is completely zero-parameter. In your project root, run:
 ```bash
-./aapp-kit/aapp-init --cleanup
+aapp init
 ```
-This safely verifies that all worktrees are mounted before deleting `aapp-kit/`.
+(Or drop-in `./aapp-kit/aapp init`).
+`aapp init` automatically:
+1. Swaps the delimited protocol block in `.agents/AGENTS.md` (`<!-- AAPP-PROTOCOL:START ... -->` to `<!-- AAPP-PROTOCOL:END -->`) while leaving all your custom project rules above and below 100% untouched.
+2. Updates `.githooks/pre-commit` and `.githooks/blast-radius-guard` to the latest engine.
+3. Merges any missing Claude Code hooks into `.claude/settings.json` non-destructively.
+4. In drop-in mode, automatically consumes the temporary clone directory upon success.
+
+---
+
+### Q: How do I update globally installed AAPP tools?
+```bash
+aapp upgrade
+```
+This shallow-clones the latest release from upstream and refreshes `$HOME/.local/bin/aapp` and `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/`.
 
 ---
 
 ### Q: How do I completely uninstall globally installed AAPP binaries?
 ```bash
-aapp-install --uninstall
+aapp uninstall
 ```
-This removes `aapp-init` and `aapp-install` from `$HOME/.local/bin/` and deletes `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/`, leaving your project worktrees and shell configuration intact.
+This removes `aapp` from `$HOME/.local/bin/` and deletes `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/`, leaving your project worktrees and shell configuration intact.
 
 ---
 
