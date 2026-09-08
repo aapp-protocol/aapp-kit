@@ -33,10 +33,8 @@ Working with AI coding assistants through unconstrained flat chat creates **agen
 * **Context Hallucination**: AI instructions, scratchpads, and planning state pollute your main code commits and git history, causing merge conflicts.
 * **Lack of Invariants**: Changes bypass project boundaries, security perimeters, and documentation requirements.
 
-### 🔍 Real-World Evidence
-This repository stands as evidence of the exact problem AAPP solves: in unconstrained development, agents modify files outside their scope, invent unrequested abstractions, and silently bypass unstated assumptions. Every defect was caught only because a human developer pushed back.
-
-A frozen blueprint with a declared **Blast Radius** converts that from *luck* into *deterministic structure*: the agent executes the developer's exact architectural shape, and anything outside it is refused at write-time and commit-time.
+### 🎯 The Solution: Deterministic Blast Radius
+A frozen blueprint with a declared **Blast Radius** converts agent execution from probabilistic guesswork into a **deterministic structure**: the agent executes within the developer's exact architectural shape, and any file modifications outside declared boundaries are refused at both write-time and commit-time.
 
 ---
 
