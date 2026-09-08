@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Regression harness for templates/pre-commit
+# Regression harness for templates/aapp-pre-commit
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HOOK="${AAPP_HOOK:-$KIT/templates/pre-commit}"
+HOOK="${AAPP_HOOK:-$KIT/templates/aapp-pre-commit}"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 

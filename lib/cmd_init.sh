@@ -234,18 +234,38 @@ copy_guarded "$AAPP_TEMPLATES/PROJECT.MD" ".agents/PROJECT.MD" ""
 )
 
 # ------------------------------------------------------------------------------
-# PHASE 3: 'githooks' Worktree (Deterministic Infrastructure Sync)
+# PHASE 3: 'githooks' Worktree (Namespaced Infrastructure Sync)
 # ------------------------------------------------------------------------------
 mount_or_create_worktree "githooks" ".githooks"
 
-if [ -f "$AAPP_TEMPLATES/pre-commit" ]; then
-    cp "$AAPP_TEMPLATES/pre-commit" .githooks/pre-commit
-    chmod +x .githooks/pre-commit
+# 1. Always update AAPP core engine files byte-for-byte
+if [ -f "$AAPP_TEMPLATES/aapp-pre-commit" ]; then
+    cp "$AAPP_TEMPLATES/aapp-pre-commit" .githooks/aapp-pre-commit
+    chmod +x .githooks/aapp-pre-commit
 fi
 
 if [ -f "$AAPP_TEMPLATES/blast-radius-guard.sh" ]; then
     cp "$AAPP_TEMPLATES/blast-radius-guard.sh" .githooks/blast-radius-guard
     chmod +x .githooks/blast-radius-guard
+fi
+
+# 2. Master pre-commit hook (project entrypoint) - never overwrite custom user hook
+if [ ! -f .githooks/pre-commit ]; then
+    if [ -f "$AAPP_TEMPLATES/pre-commit" ]; then
+        cp "$AAPP_TEMPLATES/pre-commit" .githooks/pre-commit
+        chmod +x .githooks/pre-commit
+    fi
+else
+    # Existing hook found: ensure aapp-pre-commit is wired if shell script
+    if ! grep -qs "aapp-pre-commit" .githooks/pre-commit; then
+        if grep -qs '^#!/.*sh' .githooks/pre-commit; then
+            echo "" >> .githooks/pre-commit
+            echo '# Wire AAPP Blast Radius Engine' >> .githooks/pre-commit
+            echo '"$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit" || exit 1' >> .githooks/pre-commit
+            chmod +x .githooks/pre-commit
+            echo "🛡️  Wired .githooks/aapp-pre-commit into existing .githooks/pre-commit."
+        fi
+    fi
 fi
 
 (

@@ -223,29 +223,34 @@ report "project root anchors (CODEMAP, ARCHITECTURE) preserved untouched" "PASS"
 
 echo "== 4. Core Infrastructure & Claude Settings =="
 
-# Test 11: .githooks/pre-commit and .githooks/blast-radius-guard overwritten and +x
+# Test 11: Namespaced hook sync: aapp-pre-commit updated, user custom pre-commit preserved
 PROJ="$R/t11_proj"; make_dummy_project "$PROJ"
 (
   cd "$PROJ"
   git checkout --orphan githooks -q
   git rm -rf . -q 2>/dev/null || true
-  echo "# old hook" > pre-commit
+  cat > pre-commit <<'EOF'
+#!/usr/bin/env bash
+# Custom Project Perl / Linter Hook
+perl -e 'print "custom check\n"' || exit 1
+EOF
   echo "# old guard" > blast-radius-guard
   git add .
-  git commit -qm "old hooks branch"
+  git commit -qm "custom hooks branch"
   git checkout main -q
 )
 make_kit_clone "$PROJ/aapp-kit"
 (cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
-if [ -x "$PROJ/.githooks/pre-commit" ] && \
+if [ -x "$PROJ/.githooks/aapp-pre-commit" ] && \
    [ -x "$PROJ/.githooks/blast-radius-guard" ] && \
-   grep -q "AAPP" "$PROJ/.githooks/pre-commit" && \
-   ! grep -q "# old hook" "$PROJ/.githooks/pre-commit"; then
+   [ -x "$PROJ/.githooks/pre-commit" ] && \
+   grep -q "custom check" "$PROJ/.githooks/pre-commit" && \
+   grep -q "aapp-pre-commit" "$PROJ/.githooks/pre-commit"; then
   got="PASS"
 else
   got="FAIL"
 fi
-report "deterministic infrastructure sync: hooks overwritten and chmod +x" "PASS" "$got"
+report "namespaced hook sync: aapp-pre-commit updated, custom pre-commit preserved" "PASS" "$got"
 
 # Test 12: Fresh install writes .claude/settings.json
 PROJ="$R/t12_proj"; make_dummy_project "$PROJ"
