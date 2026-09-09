@@ -10,14 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial project architecture and foundation.
-
-### Changed
+- Claude Code `hookSpecificOutput.permissionDecision: "deny"` and exit code 2 in `blast-radius-guard.sh` (ISSUE-001).
+- Non-destructive git plumbing orphan branch creation fallback in `cmd_init.sh` for git < 2.42 (ISSUE-003).
+- Deletion (`D`) diff-filter enforcement in `aapp-pre-commit` to prevent deleting Out-of-Bounds files (ISSUE-005).
+- Shell extension (`.sh`, `.bash`, `.zsh`) and CLI binary support in `CORE_CODE_REGEX` (ISSUE-036).
+- Extended regression tests for backticked targets, deletions, and Claude Code JSON schema (ISSUE-031, ISSUE-032, ISSUE-040).
 
 ### Fixed
+- Fixed target extraction in `blast-radius-guard.sh` and `aapp-pre-commit` when targets use backticked markers like `` `NEW FILE` -> `path` `` (ISSUE-035).
+- Fixed path normalization in `blast-radius-guard.sh` to strip `$REPO_ROOT/` from absolute paths provided by Claude Code (ISSUE-002).
+- Fixed subfolder cwd-relative fail-open behavior in `blast-radius-guard.sh` and `aapp-pre-commit` (ISSUE-004).
+- Fixed `SKIP_BLAST_RADIUS=1` bypass evaluation order in `aapp-pre-commit` to precede CHANGELOG enforcement (ISSUE-008).
+- Fixed unquoted plan variables in `cmd_status.sh` to safely handle plan filenames containing spaces (ISSUE-006).
+- Fixed `ISSUES.md` table parsing in `cmd_status.sh` for bold markdown IDs and `Resolved` status filtering (ISSUE-037).
+- Fixed hook manager detection in `cmd_init.sh` to warn when custom non-shell hooks are present (ISSUE-038).
 
-### Deprecated
-
-### Removed
-
-### Security
+### Changed
+- Moved `SKIP_BLAST_RADIUS=1` check to hook entrypoints to guarantee emergency bypass.
