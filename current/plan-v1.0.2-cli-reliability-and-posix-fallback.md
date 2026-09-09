@@ -2,7 +2,7 @@
 
 * **Created:** 2026-09-09 | **Last Refined:** 2026-09-09
 * **Target Issue / Milestone:** `ISSUE-009` (Batch 3: CLI, Init, Upgrade & POSIX Fallback Reliability Fixes)
-* **Status:** 🔴 Under Review
+* **Status:** 🟢 Ready for Execution
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
