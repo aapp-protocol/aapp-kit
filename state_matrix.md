@@ -6,21 +6,21 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🚦 Recommended Implementation Roadmap
 
-1. 🔴 **[Plan: Decouple Root Anchors and Move Changelog/Issues/Codemap into Worktrees](current/plan-decouple-root-anchors-to-worktrees.md)**
+1. 🟢 **[Plan: Decouple Root Anchors and Move Changelog/Issues/Codemap into Worktrees](current/plan-decouple-root-anchors-to-worktrees.md)**
 
 ---
 
 ## 🧠 1. Human Thought & Refinement (The Incubator)
 
-* **[Decouple Root Anchors into Worktrees](current/plan-decouple-root-anchors-to-worktrees.md)**
-  * *Status:* 🔴 Draft under review.
-  * *Open Questions:* See Section 4 of plan file (pre-commit verification logic for `.plans/CHANGELOG.md`).
+*(No unpolished drafts currently in incubator)*
 
 ---
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-*(No frozen plans currently awaiting execution)*
+* [ ] **[Plan: Decouple Root Anchors and Move Changelog/Issues/Codemap into Worktrees](current/plan-decouple-root-anchors-to-worktrees.md)**
+  * *Target Files:* `templates/AGENTS.md`, `templates/aapp-pre-commit`, `templates/blast-radius-guard.sh`, `lib/cmd_init.sh`, `lib/cmd_status.sh`, `README.md`, `MANUAL.md`, `tests/install_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, `CODEMAP.md`, `ARCHITECTURE.md`, `CHANGELOG.md`
+  * *Status:* Approved. Blast radius locked. Ready to code.
 
 ---
 
