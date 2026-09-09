@@ -56,7 +56,8 @@ your-project/ (main/dev branch - contains only pure application source code)
 │   ├── AGENTS.md        --> Agent behavioral contracts & slash commands
 │   └── PROJECT.MD       --> Master architectural specification & rules
 ├── .githooks/           --> Worktree mounted on orphan branch 'githooks'
-│   ├── pre-commit       --> Deterministic commit-time blast radius engine
+│   ├── pre-commit       --> Master runner (dispatches checks, project-owned)
+│   ├── aapp-pre-commit  --> Deterministic commit-time blast radius engine (managed by AAPP)
 │   └── blast-radius-guard --> PreToolUse write-time guard for AI agents
 ├── .claude/
 │   └── settings.json    --> Wires write-time guard to Claude Code
@@ -96,7 +97,7 @@ graph TD
    - Rejects file modifications outside the active blueprint's declared `### 📂 Target Files`.
    - **Fail-Open Safety**: Never bricks the developer when no active blueprints exist or on invalid inputs.
 
-2. **Layer 2: Commit-Time Hook (`.githooks/pre-commit`)**
+2. **Layer 2: Commit-Time Hook (`.githooks/aapp-pre-commit` / `.githooks/pre-commit`)**
    - Enforces `CHANGELOG.md` updates whenever core code changes.
    - Validates staged files against the active plan in `.plans/current/*.md`.
    - Supports concurrent active plans without cross-blocking.

@@ -40,37 +40,48 @@ fi
 # 2. Issues
 echo ""
 echo "🐛 [2/4] ISSUES (Canonical Bugs & Road Map)"
+HAS_ISSUES=0
 if [ -f ".plans/issues_road_map.md" ]; then
-    TOP_ISSUES=$(grep -E '^[0-9]+\.|^- \[' ".plans/issues_road_map.md" 2>/dev/null | head -n 5 || true)
+    TOP_ISSUES=$(grep -E '^[0-9]+\.|^- \[' ".plans/issues_road_map.md" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | head -n 5 || true)
     if [ -n "$TOP_ISSUES" ]; then
         echo "$TOP_ISSUES" | sed 's/^/  /'
-    else
-        echo "  (No open issues in .plans/issues_road_map.md)"
+        HAS_ISSUES=1
     fi
+fi
+
+ISSUES_FILE=""
+if [ -f ".plans/ISSUES.md" ]; then
+    ISSUES_FILE=".plans/ISSUES.md"
 elif [ -f "ISSUES.md" ]; then
-    OPEN_ISSUES=$(grep -E '^\| ISSUE-[0-9]+' ISSUES.md 2>/dev/null | grep -v 'DONE' | head -n 5 || true)
+    ISSUES_FILE="ISSUES.md"
+fi
+
+if [ -n "$ISSUES_FILE" ] && [ "$HAS_ISSUES" -eq 0 ]; then
+    OPEN_ISSUES=$(grep -E '^\s*\|\s*(\*\*)?ISSUE-[0-9]+' "$ISSUES_FILE" 2>/dev/null | grep -v -E 'Resolved|DONE' | head -n 5 || true)
     if [ -n "$OPEN_ISSUES" ]; then
         echo "$OPEN_ISSUES" | sed 's/^/  /'
-    else
-        echo "  (No open issues in ISSUES.md)"
+        HAS_ISSUES=1
     fi
-else
-    echo "  (No ISSUES.md or issues_road_map.md found)"
+fi
+
+if [ "$HAS_ISSUES" -eq 0 ]; then
+    echo "  (No open issues in issues_road_map.md or ISSUES.md)"
 fi
 
 # 3. Plans
 echo ""
 echo "🗺️  [3/4] PLANS (State Matrix / Active Blueprints)"
 if [ -d ".plans/current" ]; then
-    CURRENT_PLANS="$(find .plans/current -maxdepth 1 -name "*.md" 2>/dev/null | sort || true)"
-    if [ -n "$CURRENT_PLANS" ]; then
-        for P in $CURRENT_PLANS; do
-            BASENAME="$(basename "$P")"
-            STATUS="$(grep -m 1 "^\* \*\*Status:\*\*" "$P" 2>/dev/null || echo "* **Status:** 🟡 Active")"
-            STATUS_CLEAN="$(echo "$STATUS" | sed 's/^\* \*\*Status:\*\* //')"
-            echo "  • $BASENAME  ($STATUS_CLEAN)"
-        done
-    else
+    HAS_PLANS=0
+    while IFS= read -r -d '' P; do
+        BASENAME="$(basename "$P")"
+        STATUS="$(grep -m 1 "^\* \*\*Status:\*\*" "$P" 2>/dev/null || echo "* **Status:** 🟡 Active")"
+        STATUS_CLEAN="$(echo "$STATUS" | sed 's/^\* \*\*Status:\*\* //')"
+        echo "  • $BASENAME  ($STATUS_CLEAN)"
+        HAS_PLANS=1
+    done < <(find .plans/current -maxdepth 1 -name "*.md" -print0 2>/dev/null | sort -z)
+    
+    if [ "$HAS_PLANS" -eq 0 ]; then
         echo "  (No active plans in .plans/current/)"
     fi
 else
@@ -81,7 +92,7 @@ fi
 echo ""
 echo "💡 [4/4] PICKUP QUEUE (Unprocessed Ideas)"
 if [ -f ".plans/pickup.md" ]; then
-    IDEAS=$(grep -E '^[0-9]+\.|^- ' ".plans/pickup.md" 2>/dev/null || true)
+    IDEAS=$(grep -E '^[0-9]+\.|^- ' ".plans/pickup.md" 2>/dev/null | grep -v '\[Feature or Problem Title\]' || true)
     if [ -n "$IDEAS" ]; then
         COUNT=$(echo "$IDEAS" | wc -l)
         echo "  ($COUNT unworked ideas found in pickup.md):"

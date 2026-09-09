@@ -10,7 +10,7 @@ setup() {
   git init -q .; git config user.email t@t; git config user.name T
   git config commit.gpgsign false; git config tag.gpgsign false
   mkdir -p src .plans/current
-  echo "x=1" > src/a.py; echo "# CL" > CHANGELOG.md
+  echo "x=1" > src/a.py; echo "secret=1" > src/secret.py; echo "# CL" > CHANGELOG.md
   git add -A >/dev/null; git commit -qm init
   cp "$HOOK" .git/hooks/pre-commit; chmod +x .git/hooks/pre-commit
 }
@@ -20,7 +20,8 @@ check() {
   echo "- bump $(date +%s%N)" >> CHANGELOG.md
   local f
   for f in "$@"; do
-    [ -e "$f" ] && printf '# touch %s\n' "$(date +%s%N)" >> "$f"
+    mkdir -p "$(dirname "$f")"
+    [ -e "$f" ] && printf '# touch %s\n' "$(date +%s%N)" >> "$f" || echo "x=1" > "$f"
   done
   git add CHANGELOG.md "$@" 2>/dev/null
   local out; out=$(git commit -m "t" 2>&1); local rc=$?
@@ -69,6 +70,20 @@ plan p.md <<'EOF'
 EOF
 echo "def h(): pass" > src/new_mod.py
 check "NEW FILE marker skipped, path taken" PASS src/new_mod.py
+
+echo "== 2c. backticked marker resolves to path =="
+setup
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `NEW FILE` -> `src/backticked_new.py` -> Fresh component.
+- [ ] `MODIFY` -> `src/modified_target.py` -> Modify component.
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+echo "def bn(): pass" > src/backticked_new.py
+check "backticked NEW FILE marker resolves to path" PASS src/backticked_new.py
+echo "def mt(): pass" > src/modified_target.py
+check "backticked MODIFY marker resolves to path" PASS src/modified_target.py
 
 echo "== 3. concurrent plans must not cross-block =="
 setup
@@ -140,6 +155,53 @@ plan p.md <<'EOF'
 EOF
 mkdir -p "src/my dir"; echo "def bad(: pass" > "src/my dir/bad.py"
 check "broken python in spaced path is caught" BLOCK "src/my dir/bad.py"
+
+echo "== 6. deleting explicitly out-of-bounds file is blocked =="
+setup
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> target
+### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `src/secret.py` -> forbidden to modify or delete
+## end
+EOF
+git rm -q src/secret.py
+echo "- bump changelog" >> CHANGELOG.md; git add CHANGELOG.md
+rc_del=0
+out_del=$(git commit -m "delete secret" 2>&1) || rc_del=$?
+if [ $rc_del -ne 0 ]; then
+  got_del=BLOCK
+else
+  got_del=PASS
+fi
+if [ "$got_del" = "BLOCK" ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "deleting out-of-bounds file is blocked" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got %s\n" "deleting out-of-bounds file is blocked" "$got_del"; FAIL=$((FAIL+1))
+fi
+
+echo "== 7. SKIP_BLAST_RADIUS=1 bypasses even without CHANGELOG =="
+setup
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+echo "hotfix=1" >> src/a.py
+git add src/a.py
+rc_skip=0
+out_skip=$(SKIP_BLAST_RADIUS=1 git commit -m "emergency hotfix" 2>&1) || rc_skip=$?
+if [ $rc_skip -eq 0 ]; then
+  got_skip=PASS
+else
+  got_skip=FAIL
+fi
+if [ "$got_skip" = "PASS" ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "SKIP_BLAST_RADIUS=1 bypasses without CHANGELOG" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS got %s\n" "SKIP_BLAST_RADIUS=1 bypasses without CHANGELOG" "$got_skip"; FAIL=$((FAIL+1))
+fi
 
 echo ""
 echo "  passed=$PASS failed=$FAIL"

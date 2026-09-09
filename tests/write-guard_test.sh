@@ -5,6 +5,10 @@ GUARD="${AAPP_GUARD:-$KIT/templates/blast-radius-guard.sh}"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 
+green() { printf "  \033[32m✔\033[0m %-48s %s\n" "$1" "$2"; }
+red()   { printf "  \033[31m✘\033[0m %-48s want %s got %s\n" "$1" "$2" "$3"; }
+assert_rc() { [ $? -eq 0 ] && green "$1" "ALLOW" && PASS=$((PASS+1)) || { red "$1" "ALLOW" "FAIL"; FAIL=$((FAIL+1)); }; }
+
 setup() {
   rm -rf "$R"/repo; mkdir -p "$R"/repo; cd "$R"/repo
   git init -q .; git config user.email t@t; git config user.name T
@@ -33,14 +37,22 @@ call_guard_json() {
 
 check_decision() {
   local name="$1" expect="$2" path="$3"
-  local rc
+  local rc_cli rc_json
   call_guard_cli "$path"
-  rc=$?
-  local got=DENY; [ $rc -eq 0 ] && got=ALLOW
-  if [ "$got" = "$expect" ]; then
-    printf "  \033[32m✔\033[0m %-48s %s\n" "$name" "$got"; PASS=$((PASS+1))
+  rc_cli=$?
+  local got_cli=DENY; [ $rc_cli -eq 0 ] && got_cli=ALLOW
+  
+  # Also test with Claude Code JSON payload and absolute path
+  local abs_path="$path"
+  [[ "$path" != /* ]] && abs_path="$R/repo/$path"
+  call_guard_json "Edit" "$abs_path"
+  rc_json=$?
+  local got_json=DENY; [ $rc_json -eq 0 ] && got_json=ALLOW
+
+  if [ "$got_cli" = "$expect" ] && [ "$got_json" = "$expect" ]; then
+    green "$name (CLI & JSON payload)" "$got_cli"; PASS=$((PASS+1))
   else
-    printf "  \033[31m✘\033[0m %-48s want %s got %s\n" "$name" "$expect" "$got"; FAIL=$((FAIL+1))
+    red "$name" "$expect" "cli=$got_cli json=$got_json"; FAIL=$((FAIL+1))
   fi
 }
 
@@ -49,12 +61,14 @@ setup
 plan p.md <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/a.py` -> allowed
+- [ ] `NEW FILE` -> `src/new_mod.py` -> allowed with backticks
 - [ ] `src/my dir/b.py` -> allowed with spaces
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `src/secret.py` -> excluded
 ## end
 EOF
 check_decision "declared target" ALLOW "src/a.py"
+check_decision "backticked new target" ALLOW "src/new_mod.py"
 check_decision "file no plan targets" DENY "src/untracked.py"
 check_decision "out of bounds" DENY "src/secret.py"
 check_decision "path named only in prose" DENY "src/prose.py"
@@ -109,11 +123,6 @@ check_decision "no active plans" ALLOW "src/any.py"
 check_decision "self-protection holds with no plans" DENY ".githooks/blast-radius-guard"
 
 # Garbage stdin -> exit 0
-echo "invalid json" | "$GUARD" >/dev/null 2>&1
-assert_rc() { [ $? -eq 0 ] && green "$1" "ALLOW" && PASS=$((PASS+1)) || { red "$1" "ALLOW" "FAIL"; FAIL=$((FAIL+1)); }; }
-green() { printf "  \033[32m✔\033[0m %-48s %s\n" "$1" "$2"; }
-red()   { printf "  \033[31m✘\033[0m %-48s want %s got %s\n" "$1" "$2" "$3"; }
-
 echo "garbage json" | "$GUARD" >/dev/null 2>&1; assert_rc "garbage stdin"
 echo "{}" | "$GUARD" >/dev/null 2>&1; assert_rc "empty object"
 echo '{"tool_name":"Read","tool_input":{"file_path":"a.py"}}' | "$GUARD" >/dev/null 2>&1; assert_rc "non-file tool"
@@ -130,12 +139,22 @@ plan p.md <<'EOF'
 - [ ] `src/forbidden.py` -> denied
 ## end
 EOF
-PAYLOAD=$(python3 -c "import json; print(json.dumps({'tool_name': 'Write', 'tool_input': {'file_path': 'src/forbidden.py'}}))" | "$GUARD" 2>&1 || true)
-VALID_JSON=$(python3 -c "import json, sys; d=json.loads(sys.argv[1]); print('OK' if d.get('decision') == 'deny' else 'ERR')" "$PAYLOAD" 2>/dev/null || echo "INVALID")
+PAYLOAD=$(python3 -c "import json; print(json.dumps({'tool_name': 'Write', 'tool_input': {'file_path': '$R/repo/src/forbidden.py'}}))" | "$GUARD" 2>&1 || true)
+VALID_JSON=$(python3 -c "
+import json, sys
+try:
+    d = json.loads(sys.argv[1])
+    if d.get('decision') == 'deny' and d.get('hookSpecificOutput', {}).get('permissionDecision') == 'deny':
+        print('OK')
+    else:
+        print('SCHEMA_MISMATCH')
+except Exception as e:
+    print('INVALID_JSON')
+" "$PAYLOAD" 2>/dev/null || echo "INVALID")
 if [ "$VALID_JSON" = "OK" ]; then
-  green "deny payload well-formed" "OK"; PASS=$((PASS+1))
+  green "deny payload schema includes hookSpecificOutput" "OK"; PASS=$((PASS+1))
 else
-  red "deny payload well-formed" "OK" "$VALID_JSON"; FAIL=$((FAIL+1))
+  red "deny payload schema includes hookSpecificOutput" "OK" "$VALID_JSON"; FAIL=$((FAIL+1))
 fi
 
 echo ""

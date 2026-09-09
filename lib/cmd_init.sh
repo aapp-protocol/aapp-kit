@@ -52,16 +52,6 @@ fi
 echo "🚀 Initializing / Syncing Asymmetric Agent Planning Protocol (AAPP v$AAPP_VERSION)..."
 echo "📍 Repository root: $REPO_ROOT"
 
-# Check for Restore Mode (Remote or Existing Branches)
-IS_RESTORE=0
-for B in plans agents githooks; do
-    if git show-ref --verify --quiet "refs/heads/$B" || \
-       git show-ref --verify --quiet "refs/remotes/origin/$B"; then
-        IS_RESTORE=1
-        break
-    fi
-done
-
 # Configure .gitignore on Main Branch
 for IGNORE_ENTRY in ".plans/" ".agents/" ".githooks/"; do
     if ! grep -qxF "${IGNORE_ENTRY}" .gitignore 2>/dev/null; then
@@ -97,16 +87,16 @@ mount_or_create_worktree() {
     elif git show-ref --quiet "refs/remotes/origin/$branch"; then
         echo "🌐 Remote branch 'origin/$branch' detected. Mounting and tracking at '$dir'..."
         git worktree add --track -b "$branch" "$dir" "origin/$branch" --quiet
-    # 3. Create brand-new orphan branch
+    # 3. Create brand-new orphan branch (safe plumbing fallback without wiping working tree)
     else
         echo "📦 Creating isolated '$branch' orphan branch..."
         if git worktree add -h 2>&1 | grep -q -- "--orphan"; then
             git worktree add --orphan -b "$branch" "$dir" --quiet
         else
-            git checkout --orphan "$branch" --quiet
-            git rm -rf . --quiet 2>/dev/null || true
-            git commit --allow-empty -m "chore: initialize orphan $branch branch" --quiet
-            git checkout "$MAIN_BRANCH" --quiet
+            local empty_tree commit
+            empty_tree="$(git hash-object -t tree /dev/null)"
+            commit="$(git commit-tree "$empty_tree" -m "chore: initialize orphan $branch branch")"
+            git branch "$branch" "$commit"
             git worktree add "$dir" "$branch" --quiet
         fi
     fi
@@ -186,7 +176,12 @@ sync_agent_rules() {
         return 0
     fi
 
-    if grep -q "<!-- AAPP-PROTOCOL:START" "$target"; then
+    # Dynamically stamp current AAPP_VERSION
+    if command -v sed >/dev/null 2>&1; then
+        sed -i "s/<!-- AAPP-PROTOCOL:START.*/<!-- AAPP-PROTOCOL:START v${AAPP_VERSION} -->/" "$block_tmp" 2>/dev/null || true
+    fi
+
+    if grep -q "<!-- AAPP-PROTOCOL:START" "$target" && grep -q "<!-- AAPP-PROTOCOL:END -->" "$target"; then
         local target_tmp
         target_tmp="$(mktemp)"
         awk -v block_file="$block_tmp" '
@@ -249,6 +244,7 @@ if [ -f "$AAPP_TEMPLATES/blast-radius-guard.sh" ]; then
     chmod +x .githooks/blast-radius-guard
 fi
 
+NON_SHELL_HOOK_EXISTS=0
 # 2. Master pre-commit hook (project entrypoint) - never overwrite custom user hook
 if [ ! -f .githooks/pre-commit ]; then
     if [ -f "$AAPP_TEMPLATES/pre-commit" ]; then
@@ -264,6 +260,8 @@ else
             echo '"$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit" || exit 1' >> .githooks/pre-commit
             chmod +x .githooks/pre-commit
             echo "🛡️  Wired .githooks/aapp-pre-commit into existing .githooks/pre-commit."
+        else
+            NON_SHELL_HOOK_EXISTS=1
         fi
     fi
 fi
@@ -284,8 +282,13 @@ NATIVE_HOOK_EXISTS=0
 
 if [ -z "$CURRENT_HOOKS_PATH" ] && [ "$NATIVE_HOOK_EXISTS" -eq 0 ]; then
     git config core.hooksPath .githooks
+    if [ "$NON_SHELL_HOOK_EXISTS" -eq 1 ]; then
+        HOOK_MANAGER_NOTICE=1
+    fi
 elif [ "$CURRENT_HOOKS_PATH" = ".githooks" ]; then
-    : # already configured
+    if [ "$NON_SHELL_HOOK_EXISTS" -eq 1 ]; then
+        HOOK_MANAGER_NOTICE=1
+    fi
 else
     HOOK_MANAGER_NOTICE=1
 fi
@@ -368,6 +371,8 @@ if not has_hook:
         f.write("\n")
     print("🛡️  Merged blast-radius-guard into existing .claude/settings.json.")
 PYEOF
+            else
+                echo "⚠️  Warning: python3 not found. Could not automatically merge blast-radius-guard into .claude/settings.json."
             fi
         fi
     fi
@@ -381,13 +386,15 @@ if [ "$HOOK_MANAGER_NOTICE" -eq 1 ]; then
     echo "ℹ️  An existing hook configuration was detected:"
     if [ -n "$CURRENT_HOOKS_PATH" ]; then
         echo "     core.hooksPath is currently set to: '$CURRENT_HOOKS_PATH'"
+    elif [ -f .githooks/pre-commit ] && [ "$NON_SHELL_HOOK_EXISTS" -eq 1 ]; then
+        echo "     Custom non-shell hook detected at '.githooks/pre-commit'"
     else
         echo "     Executable hook found at '.git/hooks/pre-commit'"
     fi
     echo "   Git config was left untouched. To wire AAPP blast-radius checks into your existing hook,"
     echo "   add this subprocess call to your pre-commit script:"
     echo ""
-    echo "     \"\$(git rev-parse --show-toplevel)/.githooks/pre-commit\" || exit 1"
+    echo "     \"\$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit\" || exit 1"
     echo ""
 fi
 

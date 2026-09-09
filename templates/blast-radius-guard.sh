@@ -14,6 +14,9 @@ if [ "${SKIP_BLAST_RADIUS:-0}" = "1" ]; then
     exit 0
 fi
 
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$REPO_ROOT"
+
 # ------------------------------------------------------------------------------
 # 1. Parse Input (CLI Argument or PreToolUse JSON payload on stdin)
 # ------------------------------------------------------------------------------
@@ -28,7 +31,8 @@ elif [ ! -t 0 ]; then
         exit 0
     fi
     # Parse JSON payload via python3
-    PARSED=$(python3 -c '
+    if command -v python3 >/dev/null 2>&1; then
+        PARSED=$(python3 -c '
 import json, sys
 try:
     data = json.loads(sys.argv[1])
@@ -39,12 +43,15 @@ try:
 except Exception:
     sys.exit(0)
 ' "$RAW_INPUT" 2>/dev/null || true)
-    
-    if [ -z "$PARSED" ]; then
-        exit 0
+        if [ -n "$PARSED" ]; then
+            TOOL_NAME=$(echo "$PARSED" | cut -f1)
+            TARGET_FILE=$(echo "$PARSED" | cut -f2)
+        fi
+    else
+        # POSIX fallback
+        TARGET_FILE=$(echo "$RAW_INPUT" | grep -oE '"(file_path|path|target_file)"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')
+        TOOL_NAME=$(echo "$RAW_INPUT" | grep -oE '"tool_name"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')
     fi
-    TOOL_NAME=$(echo "$PARSED" | cut -f1)
-    TARGET_FILE=$(echo "$PARSED" | cut -f2)
 fi
 
 if [ -z "$TARGET_FILE" ]; then
@@ -52,34 +59,43 @@ if [ -z "$TARGET_FILE" ]; then
 fi
 
 # Normalize path relative to project root
+TARGET_FILE="${TARGET_FILE#$REPO_ROOT/}"
 TARGET_FILE="${TARGET_FILE#./}"
+
+deny_action() {
+    local reason="$1"
+    if [ -n "$TOOL_NAME" ] && command -v python3 >/dev/null 2>&1; then
+        python3 -c '
+import json, sys
+out = {
+    "decision": "deny",
+    "reason": sys.argv[1],
+    "hookSpecificOutput": {
+        "permissionDecision": "deny"
+    }
+}
+print(json.dumps(out))
+' "$reason"
+    else
+        echo "❌ [Blast Radius Guard Violation] $reason" >&2
+    fi
+    exit 2
+}
 
 # ------------------------------------------------------------------------------
 # 2. Self-Protection Invariants (ALWAYS PROTECTED - Hard Block)
 # ------------------------------------------------------------------------------
 case "$TARGET_FILE" in
     .claude/settings.json|.claude/settings.local.json|*/.claude/settings.json|*/.claude/settings.local.json)
-        DENY_REASON="Tampering with Claude Code hook settings (.claude/settings.json) is strictly prohibited."
+        deny_action "Tampering with Claude Code hook settings (.claude/settings.json) is strictly prohibited."
         ;;
     .githooks/*|*/.githooks/*|.git/hooks/*|*/.git/hooks/*)
-        DENY_REASON="Tampering with AAPP git hooks engine is strictly prohibited."
+        deny_action "Tampering with AAPP git hooks engine is strictly prohibited."
         ;;
     .cursor/rules/*|*/.cursor/rules/*)
-        DENY_REASON="Tampering with agent rule files (.cursor/rules/) is strictly prohibited."
+        deny_action "Tampering with agent rule files (.cursor/rules/) is strictly prohibited."
         ;;
 esac
-
-if [ -n "${DENY_REASON:-}" ]; then
-    if [ -n "$TOOL_NAME" ]; then
-        python3 -c '
-import json, sys
-print(json.dumps({"decision": "deny", "reason": sys.argv[1]}))
-' "$DENY_REASON"
-    else
-        echo "❌ [Blast Radius Guard Violation] $DENY_REASON" >&2
-    fi
-    exit 1
-fi
 
 # ------------------------------------------------------------------------------
 # 3. Always-Allowed Invariants (Plans, Rules, Root Anchors)
@@ -117,7 +133,7 @@ parse_plan_section() {
         flag {
             line = $0
             sub(/^[[:space:]]*-[[:space:]]*\[[ xX]\][[:space:]]*/, "", line)
-            sub(/^[[:space:]]*NEW FILE[[:space:]]*->[[:space:]]*/, "", line)
+            sub(/^[[:space:]]*(`?(NEW FILE|MODIFY|DELETE|ADD|REPLACE)`?)?[[:space:]]*->[[:space:]]*/, "", line)
             if (match(line, /`[^`]+`/)) {
                 item = substr(line, RSTART+1, RLENGTH-2)
                 if (item !~ /^(NEW FILE|MODIFY|DELETE|ADD|REPLACE)$/) {
@@ -206,12 +222,4 @@ else
     REASON="File '$TARGET_FILE' is outside the declared Target Files of all active plans."
 fi
 
-if [ -n "$TOOL_NAME" ]; then
-    python3 -c '
-import json, sys
-print(json.dumps({"decision": "deny", "reason": sys.argv[1]}))
-' "$REASON"
-else
-    echo "❌ [Blast Radius Violation] $REASON" >&2
-fi
-exit 1
+deny_action "$REASON"

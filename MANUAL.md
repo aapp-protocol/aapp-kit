@@ -69,9 +69,9 @@ AAPP solves this structurally through native Git plumbing: **Git Worktrees mount
 │  Orphan Branch   │      │  Orphan Branch   │       │   Orphan Branch   │
 ├──────────────────┤      ├──────────────────┤       ├───────────────────┤
 │ • current/*.md   │      │ • AGENTS.md      │       │ • pre-commit      │
-│ • done/*.md      │      │ • PROJECT.MD     │       │ • blast-radius-   │
-│ • pickup.md      │      │ • rules/*.md     │       │   guard           │
-│ • issues_road_   │      │                  │       │                   │
+│ • done/*.md      │      │ • PROJECT.MD     │       │ • aapp-pre-commit │
+│ • pickup.md      │      │ • rules/*.md     │       │ • blast-radius-   │
+│ • issues_road_   │      │                  │       │   guard           │
 │   map.md         │      │                  │       │                   │
 │ • state_matrix.md│      │                  │       │                   │
 └──────────────────┘      └──────────────────┘       └───────────────────┘
@@ -92,7 +92,7 @@ By decoupling these concerns into independent Git worktrees:
 | `ISSUES.md` | Repo Root | Canonical record of active and historical defects/bugs. |
 | `.plans/` | `plans` worktree | Active blueprints (`current/`), archives (`done/`), scratchpad (`pickup.md`), issue triage roadmap (`issues_road_map.md`), and state matrix (`state_matrix.md`). |
 | `.agents/` | `agents` worktree | Agent behavioral contracts (`AGENTS.md`) and project-specific personas (`PROJECT.MD`). |
-| `.githooks/` | `githooks` worktree | Dual-layer blast radius enforcement scripts (`pre-commit`, `blast-radius-guard`). |
+| `.githooks/` | `githooks` worktree | Dual-layer blast radius enforcement scripts (`aapp-pre-commit`, `pre-commit`, `blast-radius-guard`). |
 | `.claude/settings.json` | Repo Root | Configures Claude Code to trigger `.githooks/blast-radius-guard` on `PreToolUse`. |
 
 ---
@@ -182,7 +182,7 @@ sequenceDiagram
     actor Dev as Developer / AI Agent
     participant Guard as Layer 1: blast-radius-guard (PreToolUse)
     participant Disk as Working Tree (Disk)
-    participant Hook as Layer 2: pre-commit (Git Hook)
+    participant Hook as Layer 2: aapp-pre-commit (Git Hook)
     participant Git as Git Object Store
 
     Dev->>Guard: Attempt file edit via AI Tool
