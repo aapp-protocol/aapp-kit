@@ -85,6 +85,7 @@ Batch 3 addresses reliability edge-cases across CLI commands (`init`, `upgrade`,
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `templates/blast-radius-guard.sh` -> POSIX JSON output fallback in `deny_action()`.
+- [ ] `templates/aapp-pre-commit` -> Strict Status line regex matching for BLOCKED check.
 - [ ] `lib/cmd_init.sh` -> Unclosed marker protection, python3 warning, `aapp-develop-kit` protection.
 - [ ] `lib/cmd_upgrade.sh` -> Subshell version export fix and upgrade flag.
 - [ ] `lib/cmd_install.sh` -> Protect `aapp-develop-kit` and `AAPP_IS_UPGRADE`.
