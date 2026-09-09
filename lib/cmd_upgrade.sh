@@ -28,12 +28,13 @@ if [ ! -f "$TMP_DIR/aapp" ] || [ ! -d "$TMP_DIR/templates" ]; then
 fi
 
 echo "🔄 Applying upgrade..."
+AAPP_VERSION="$(grep -m 1 'AAPP_VERSION=' "$TMP_DIR/aapp" | cut -d'"' -f2)"
+export AAPP_VERSION
 (
     cd "$TMP_DIR"
     AAPP_SCRIPT_DIR="$TMP_DIR"
-    # Run the installer from the temporary clone
-    AAPP_IS_DROP_IN=1
-    AAPP_VERSION="$(grep -m 1 'AAPP_VERSION=' "$TMP_DIR/aapp" | cut -d'"' -f2)"
+    AAPP_IS_UPGRADE=1
+    export AAPP_SCRIPT_DIR AAPP_IS_UPGRADE
     source "$TMP_DIR/lib/cmd_install.sh"
 )
 

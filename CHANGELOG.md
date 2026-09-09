@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Phased Implementation Steps & Execution Checklist section in `templates/plan-template.md` and `.plans/plan-template.md`.
 - Dual-location CHANGELOG modification check in `templates/aapp-pre-commit` supporting both root and `.plans/CHANGELOG.md`.
 - Dual-location documentation resolution in `templates/AGENTS.md`, `cmd_init.sh`, and `cmd_status.sh` for `CODEMAP.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, and `ISSUES.md`.
+- Pure POSIX JSON decision fallback in `blast-radius-guard.sh` for zero-dependency execution without `python3` (ISSUE-009).
+- Developer workspace exemption for `aapp-develop-kit` and `agent-planning-kit` in `cmd_install.sh` and `cmd_init.sh` (ISSUE-014).
+- Corrupted/unclosed marker protection in `sync_agent_rules` preventing data loss when `<!-- AAPP-PROTOCOL:END -->` is missing (ISSUE-017).
 
 ### Fixed
 - Fixed target extraction in `blast-radius-guard.sh` and `aapp-pre-commit` when targets use backticked markers like `` `NEW FILE` -> `path` `` (ISSUE-035).
@@ -27,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed unquoted plan variables in `cmd_status.sh` to safely handle plan filenames containing spaces (ISSUE-006).
 - Fixed `ISSUES.md` table parsing in `cmd_status.sh` for bold markdown IDs and `Resolved` status filtering (ISSUE-037).
 - Fixed hook manager detection in `cmd_init.sh` to warn when custom non-shell hooks are present (ISSUE-038).
+- Fixed `AAPP_VERSION` subshell capture in `cmd_upgrade.sh` and suppressed installer consumption notice on upgrades (ISSUE-013).
+- Fixed drop-in target repository detection in `cmd_init.sh` when initialized from standalone kit clones (ISSUE-015).
+- Removed unused dead variable assignments (`IS_RESTORE`, `AAPP_IS_DROP_IN`) across CLI commands (ISSUE-018).
 
 ### Changed
 - Moved `SKIP_BLAST_RADIUS=1` check to hook entrypoints to guarantee emergency bypass.

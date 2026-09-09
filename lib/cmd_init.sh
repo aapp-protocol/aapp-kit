@@ -12,15 +12,31 @@ set -e
 # Target Repository Resolution
 IS_INSIDE_PROJECT=0
 if [ "$AAPP_IS_DROP_IN" -eq 1 ]; then
+    KIT_DIR_GIT_ROOT="$(cd "$AAPP_SCRIPT_DIR" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
     PARENT_DIR="$(cd "$AAPP_SCRIPT_DIR/.." 2>/dev/null && pwd || true)"
-    REPO_ROOT="$(cd "$PARENT_DIR" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
-    if [ -z "$REPO_ROOT" ]; then
-        echo "❌ No git repository here. Did you mean ./aapp-kit/aapp install ?"
-        exit 1
-    fi
-    case "$AAPP_SCRIPT_DIR" in
-        "$REPO_ROOT"/*)
-            IS_INSIDE_PROJECT=1
+    PARENT_GIT_ROOT="$(cd "$PARENT_DIR" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
+
+    case "$(basename "$AAPP_SCRIPT_DIR")" in
+        aapp-develop-kit|agent-planning-kit)
+            if [ -n "$KIT_DIR_GIT_ROOT" ] && [ "$KIT_DIR_GIT_ROOT" = "$AAPP_SCRIPT_DIR" ]; then
+                REPO_ROOT="$KIT_DIR_GIT_ROOT"
+                IS_INSIDE_PROJECT=0
+            elif [ -n "$PARENT_GIT_ROOT" ]; then
+                REPO_ROOT="$PARENT_GIT_ROOT"
+                IS_INSIDE_PROJECT=1
+            else
+                echo "❌ No git repository here. Did you mean ./aapp-kit/aapp install ?"
+                exit 1
+            fi
+            ;;
+        *)
+            if [ -n "$PARENT_GIT_ROOT" ]; then
+                REPO_ROOT="$PARENT_GIT_ROOT"
+                IS_INSIDE_PROJECT=1
+            else
+                echo "❌ No git repository here. Did you mean ./aapp-kit/aapp install ?"
+                exit 1
+            fi
             ;;
     esac
 else
@@ -212,6 +228,9 @@ sync_agent_rules() {
             }
         ' "$target" > "$target_tmp" && mv "$target_tmp" "$target"
         echo "🔄 Updated AAPP protocol block in .agents/AGENTS.md to v$AAPP_VERSION (custom rules preserved)."
+    elif grep -q "<!-- AAPP-PROTOCOL:START" "$target" && ! grep -q "<!-- AAPP-PROTOCOL:END -->" "$target"; then
+        echo "⚠️  Warning: Found unclosed <!-- AAPP-PROTOCOL:START --> marker without matching END marker in $target."
+        echo "   Skipping protocol block replacement to prevent data loss. Please repair markers manually."
     else
         if [ -s "$target" ] && [ -n "$(tail -c 1 "$target")" ]; then
             echo "" >> "$target"
@@ -414,11 +433,16 @@ fi
 # PHASE 7: Drop-in Folder Consumption
 # ------------------------------------------------------------------------------
 if [ "$AAPP_IS_DROP_IN" -eq 1 ] && [ "$IS_INSIDE_PROJECT" -eq 1 ]; then
-    if [ "$(basename "$AAPP_SCRIPT_DIR")" != "agent-planning-kit" ]; then
-        rm -rf "$AAPP_SCRIPT_DIR"
-        echo ""
-        echo "🧹 Consumed kit folder '$AAPP_SCRIPT_DIR'."
-    fi
+    case "$(basename "$AAPP_SCRIPT_DIR")" in
+        aapp-develop-kit|agent-planning-kit)
+            # Development workspace: do not self-consume
+            ;;
+        *)
+            rm -rf "$AAPP_SCRIPT_DIR"
+            echo ""
+            echo "🧹 Consumed kit folder '$AAPP_SCRIPT_DIR'."
+            ;;
+    esac
 fi
 
 echo ""

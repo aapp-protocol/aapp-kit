@@ -64,8 +64,9 @@ TARGET_FILE="${TARGET_FILE#./}"
 
 deny_action() {
     local reason="$1"
-    if [ -n "$TOOL_NAME" ] && command -v python3 >/dev/null 2>&1; then
-        python3 -c '
+    if [ -n "$TOOL_NAME" ]; then
+        if command -v python3 >/dev/null 2>&1; then
+            python3 -c '
 import json, sys
 out = {
     "decision": "deny",
@@ -76,6 +77,11 @@ out = {
 }
 print(json.dumps(out))
 ' "$reason"
+        else
+            local escaped_reason
+            escaped_reason=$(printf '%s' "$reason" | sed 's/\\/\\\\/g; s/"/\\"/g')
+            printf '{"decision":"deny","reason":"%s","hookSpecificOutput":{"permissionDecision":"deny"}}\n' "$escaped_reason"
+        fi
     else
         echo "❌ [Blast Radius Guard Violation] $reason" >&2
     fi
@@ -173,7 +179,7 @@ while IFS= read -r PLAN; do
     [ -z "$PLAN" ] && continue
     
     # Check if plan is BLOCKED
-    if grep -qE "(Status:.*🚫|🚫.*BLOCKED)" "$PLAN"; then
+    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|BLOCKED)' "$PLAN"; then
         continue
     fi
     UNBLOCKED_PLANS=$((UNBLOCKED_PLANS + 1))

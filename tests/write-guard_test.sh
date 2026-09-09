@@ -157,6 +157,31 @@ else
   red "deny payload schema includes hookSpecificOutput" "OK" "$VALID_JSON"; FAIL=$((FAIL+1))
 fi
 
+echo "== POSIX fallback JSON output without python3 =="
+setup
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `src/forbidden.py` -> denied
+## end
+EOF
+
+NO_PY_DIR=$(mktemp -d)
+mkdir -p "$NO_PY_DIR/bin"
+for cmd in sh bash sed awk grep ls cat mktemp printf cut head tail; do
+  cmd_path=$(command -v "$cmd" 2>/dev/null || true)
+  [ -n "$cmd_path" ] && ln -sf "$cmd_path" "$NO_PY_DIR/bin/$cmd"
+done
+
+POSIX_OUTPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/repo/src/forbidden.py"}}\n' "$R" | PATH="$NO_PY_DIR/bin" "$GUARD" 2>&1 || true)
+rm -rf "$NO_PY_DIR"
+
+if echo "$POSIX_OUTPUT" | grep -q '"decision"[[:space:]]*:[[:space:]]*"deny"' && echo "$POSIX_OUTPUT" | grep -q '"permissionDecision"[[:space:]]*:[[:space:]]*"deny"'; then
+  green "deny payload valid JSON via POSIX fallback" "OK"; PASS=$((PASS+1))
+else
+  red "deny payload valid JSON via POSIX fallback" "OK" "$POSIX_OUTPUT"; FAIL=$((FAIL+1))
+fi
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]

@@ -564,6 +564,42 @@ else
 fi
 report "aapp status prints all 4 pillars of context recovery" "PASS" "$got" "$out_status"
 
+# Test 32: aapp-develop-kit directory is preserved on install
+DEV_KIT_DIR="$R/aapp-develop-kit"; make_kit_clone "$DEV_KIT_DIR"
+DEV_HOME="$R/t32_home"; mkdir -p "$DEV_HOME"
+(
+  cd "$DEV_KIT_DIR"
+  PATH="/usr/bin:/bin" HOME="$DEV_HOME" XDG_DATA_HOME="$DEV_HOME/.local/share" ./aapp install >/dev/null 2>&1
+)
+if [ -d "$DEV_KIT_DIR" ] && [ -f "$DEV_KIT_DIR/aapp" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp install preserves aapp-develop-kit folder without self-consuming" "PASS" "$got"
+
+# Test 33: unclosed <!-- AAPP-PROTOCOL:START --> marker skips replacement to prevent data loss
+PROJ_33="$R/t33_proj"; make_dummy_project "$PROJ_33"
+make_kit_clone "$PROJ_33/aapp-kit"
+(cd "$PROJ_33" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+# Intentionally corrupt .agents/AGENTS.md by removing END marker
+cat > "$PROJ_33/.agents/AGENTS.md" <<'EOF'
+# Custom Header
+<!-- AAPP-PROTOCOL:START v1.0.0 -->
+Some content that was not closed properly
+# Important custom notes that must not be deleted
+EOF
+make_kit_clone "$PROJ_33/aapp-kit2"
+out_corrupt=$(cd "$PROJ_33" && HOME="$TEST_HOME" ./aapp-kit2/aapp init 2>&1)
+agents_content=$(cat "$PROJ_33/.agents/AGENTS.md")
+if echo "$out_corrupt" | grep -q "Found unclosed <!-- AAPP-PROTOCOL:START --> marker" && \
+   echo "$agents_content" | grep -q "Important custom notes that must not be deleted"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "unclosed START marker logs warning and preserves file untouched" "PASS" "$got" "$out_corrupt"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"

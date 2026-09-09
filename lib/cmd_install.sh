@@ -88,10 +88,17 @@ else
 fi
 
 # Consume Temporary Clone Folder
-if [ "$(basename "$AAPP_SCRIPT_DIR")" != "agent-planning-kit" ]; then
-    rm -rf "$AAPP_SCRIPT_DIR"
-    echo ""
-    echo "🧹 Consumed installer directory '$AAPP_SCRIPT_DIR'."
+if [ "${AAPP_IS_UPGRADE:-0}" -ne 1 ]; then
+    case "$(basename "$AAPP_SCRIPT_DIR")" in
+        aapp-develop-kit|agent-planning-kit)
+            # Development workspace: do not self-consume
+            ;;
+        *)
+            rm -rf "$AAPP_SCRIPT_DIR"
+            echo ""
+            echo "🧹 Consumed installer directory '$AAPP_SCRIPT_DIR'."
+            ;;
+    esac
 fi
 
 echo ""

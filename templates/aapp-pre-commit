@@ -147,7 +147,7 @@ if [ -n "$ACTIVE_PLANS" ]; then
         while IFS= read -r PLAN; do
             [ -z "$PLAN" ] && continue
 
-            if grep -qE "(Status:.*🚫|🚫.*BLOCKED)" "$PLAN"; then
+            if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|BLOCKED)' "$PLAN"; then
                 continue
             fi
             UNBLOCKED_PLANS=$((UNBLOCKED_PLANS + 1))
