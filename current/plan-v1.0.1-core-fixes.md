@@ -56,6 +56,12 @@ This blueprint resolves critical Layer 1 write-guard enforcement failures, path 
 - [ ] `lib/cmd_status.sh` -> Quote plan file loop variables and update regex.
 - [ ] `tests/pre-commit_test.sh` -> Add backticked marker and deletion test assertions.
 - [ ] `tests/write-guard_test.sh` -> Add absolute path and JSON payload regression tests.
+- [ ] `.claude/settings.json` -> Claude Code write-guard configuration.
+- [ ] `CODEMAP.md` -> Project root codemap anchor.
+- [ ] `ARCHITECTURE.md` -> Project root architecture anchor.
+- [ ] `MANUAL.md` -> Documentation sync.
+- [ ] `README.md` -> Documentation sync.
+- [ ] `.gitignore` -> Project root ignore file.
 - [ ] `CHANGELOG.md` -> Document v1.0.1 fixes.
 
 ### 🛑 Out of Bounds (Do Not Touch)
