@@ -43,6 +43,19 @@ Co-authored-by: <Agent Name> <agent@vendor.tld>
 | Antigravity | `Co-authored-by: Antigravity <antigravity@google.com>` |
 | *anything else* | *use your vendor's documented address — do not guess* |
 
+### 📜 Worktree Commit & Plan Lifecycle Conventions
+When committing changes inside the `.plans/`, `.agents/`, or `.githooks/` worktrees, use structured lifecycle prefixes so `git log` provides a clean, searchable architectural audit trail:
+
+| Scope | Prefix | Purpose / Example |
+| :--- | :--- | :--- |
+| **Plan Draft** | `plan(draft):` | `plan(draft): scaffold <plan-name> from pickup` |
+| **Plan Refinement** | `plan(refine):` | `plan(refine): resolve open questions & checklist for <plan-name>` |
+| **Plan Freeze** | `plan(freeze):` | `plan(freeze): lock blast radius and greenlight <plan-name>` |
+| **Plan Archival** | `plan(done):` | `plan(done): archive <plan-name> to done/ and update state matrix` |
+| **Issue Triage** | `issue(triage):` | `issue(triage): log ISSUE-00X in .plans/ISSUES.md` |
+| **Agent Rules** | `rules(agents):` | `rules(agents): update behavioral guidelines in .agents/AGENTS.md` |
+| **Git Hooks** | `feat(hooks):` | `feat(hooks): update blast radius enforcement engine` |
+
 ### 💥 Blast Radius Enforcement
 When you write a `### 📂 Target Files` entry, the **first** `backticked path` on the line is the target and everything after it is prose. Mentioning another file in a description does **not** put it in scope — give every file its own line. You cannot widen your own blast radius by writing about a path.
 
