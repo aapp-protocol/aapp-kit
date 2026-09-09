@@ -6,7 +6,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🚦 Recommended Implementation Roadmap
 
-1. 🟢 **[Plan: AAPP v1.0.1 Core Engine, Layer 1 Write-Guard & Parser Fixes](current/plan-v1.0.1-core-fixes.md)**
+1. 🟡 **[Batch 3 & 4: Documentation Drift, Templates & Final Polish](current/plan-v1.0.1-docs-and-polish.md)**
 
 ---
 
@@ -18,14 +18,13 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-* [ ] **[Plan: AAPP v1.0.1 Core Engine, Layer 1 Write-Guard & Parser Fixes](current/plan-v1.0.1-core-fixes.md)**
-  * *Target Files:* `templates/blast-radius-guard.sh`, `templates/aapp-pre-commit`, `lib/cmd_init.sh`, `lib/cmd_status.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, `CHANGELOG.md`
-  * *Status:* Approved. Blast radius locked. Ready to code.
+*(No frozen plans currently awaiting execution)*
 
 ---
 
 ## 📦 3. Archival Ledger (Recently Completed)
 
+* [x] **[Plan: AAPP v1.0.1 Core Engine, Layer 1 Write-Guard & Parser Fixes](done/plan-v1.0.1-core-fixes.md)** | Verified: `b9e0daf` (2026-09-09)
 * [x] **[Core System Initialization](done/)** | Verified: 2026-09-08
 
 ---
