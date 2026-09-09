@@ -2,7 +2,7 @@
 
 * **Created:** 2026-09-09 | **Last Refined:** 2026-09-09
 * **Target Issue / Milestone:** `ISSUE-009` (Batch 3: CLI, Init, Upgrade & POSIX Fallback Reliability Fixes)
-* **Status:** 🟢 Ready for Execution
+* **Status:** 100% DONE (Verified `43ce5d7`)
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -65,37 +65,37 @@ Batch 3 addresses reliability edge-cases across CLI commands (`init`, `upgrade`,
 *Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Pure POSIX Fallback in Guard
-- [ ] 1.1 Implement POSIX JSON serializer in `templates/blast-radius-guard.sh` `deny_action()`.
-- [ ] 1.2 Copy to `.githooks/blast-radius-guard`.
+- [x] 1.1 Implement POSIX JSON serializer in `templates/blast-radius-guard.sh` `deny_action()`.
+- [x] 1.2 Copy to `.githooks/blast-radius-guard`.
 
 ### Phase 2: CLI Robustness & Upgrades
-- [ ] 2.1 Update `lib/cmd_init.sh` for unclosed marker safety, missing python3 warning, and `aapp-develop-kit` protection.
-- [ ] 2.2 Update `lib/cmd_upgrade.sh` to hoist `AAPP_VERSION` and handle upgrade suppression cleanly.
-- [ ] 2.3 Update `lib/cmd_install.sh` to handle `AAPP_IS_UPGRADE` and protect `aapp-develop-kit`.
+- [x] 2.1 Update `lib/cmd_init.sh` for unclosed marker safety, missing python3 warning, and `aapp-develop-kit` protection.
+- [x] 2.2 Update `lib/cmd_upgrade.sh` to hoist `AAPP_VERSION` and handle upgrade suppression cleanly.
+- [x] 2.3 Update `lib/cmd_install.sh` to handle `AAPP_IS_UPGRADE` and protect `aapp-develop-kit`.
 
 ### Phase 3: Documentation & Verification
-- [ ] 3.1 Soften shell tool description in `README.md` and `MANUAL.md`.
-- [ ] 3.2 Add regression test coverage in `tests/write-guard_test.sh` asserting POSIX fallback JSON output without `python3`.
-- [ ] 3.3 Add regression test in `tests/install_test.sh` for `aapp-develop-kit` protection and missing `END` marker.
-- [ ] 3.4 Run full regression suite (`tests/install_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`).
+- [x] 3.1 Soften shell tool description in `README.md` and `MANUAL.md`.
+- [x] 3.2 Add regression test coverage in `tests/write-guard_test.sh` asserting POSIX fallback JSON output without `python3`.
+- [x] 3.3 Add regression test in `tests/install_test.sh` for `aapp-develop-kit` protection and missing `END` marker.
+- [x] 3.4 Run full regression suite (`tests/install_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`).
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `templates/blast-radius-guard.sh` -> POSIX JSON output fallback in `deny_action()`.
-- [ ] `templates/aapp-pre-commit` -> Strict Status line regex matching for BLOCKED check.
-- [ ] `lib/cmd_init.sh` -> Unclosed marker protection, python3 warning, `aapp-develop-kit` protection.
-- [ ] `lib/cmd_upgrade.sh` -> Subshell version export fix and upgrade flag.
-- [ ] `lib/cmd_install.sh` -> Protect `aapp-develop-kit` and `AAPP_IS_UPGRADE`.
-- [ ] `README.md` -> Soften shell redirection invariant claim.
-- [ ] `MANUAL.md` -> Update POSIX fallback notes.
-- [ ] `tests/write-guard_test.sh` -> Test JSON output under no-python3 simulation.
-- [ ] `tests/install_test.sh` -> Test `aapp-develop-kit` folder protection and unclosed marker handling.
+- [x] `templates/blast-radius-guard.sh` -> POSIX JSON output fallback in `deny_action()`.
+- [x] `templates/aapp-pre-commit` -> Strict Status line regex matching for BLOCKED check.
+- [x] `lib/cmd_init.sh` -> Unclosed marker protection, python3 warning, `aapp-develop-kit` protection.
+- [x] `lib/cmd_upgrade.sh` -> Subshell version export fix and upgrade flag.
+- [x] `lib/cmd_install.sh` -> Protect `aapp-develop-kit` and `AAPP_IS_UPGRADE`.
+- [x] `README.md` -> Soften shell redirection invariant claim.
+- [x] `MANUAL.md` -> Update POSIX fallback notes.
+- [x] `tests/write-guard_test.sh` -> Test JSON output under no-python3 simulation.
+- [x] `tests/install_test.sh` -> Test `aapp-develop-kit` folder protection and unclosed marker handling.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `LICENSE` -> License file.
+- [x] `LICENSE` -> License file.
 
 ---
 
