@@ -84,6 +84,10 @@ The workspace tracks two separate phases. Routing an item into the wrong lane co
 - **Routing rule:** If it is wrong behaviour in code that already ships, it is an **issue** — and it is recorded in `.plans/ISSUES.md` (or root `ISSUES.md`) first, always. If it is something not yet built, it is a **plan**. Never file a raw feature request in `issues_road_map.md`, and never drop a raw bug into `state_matrix.md` — what legitimately appears there is a *fix plan* carrying the issue's ID (see **Promotion** below).
 - **Ordering rule:** Both priority files are ordered by **human judgement** — appetite, dependency, and available context, not a severity calculation. Read the order as given, report it as given, and append new items into the correct priority band. Do **not** re-sort, re-rank, or "optimize" either list unless the user explicitly asks you to.
 
+### 📏 Issue Conciseness Invariant (2–3 Lines Maximum)
+- **Table entries in `ISSUES.md` must never be long transcripts or essays.** State the location, the exact symptom, and the 1-line fix direction in **2–3 concise sentences maximum**.
+- **The Complexity Rule:** If describing the bug, reproduction steps, or root cause requires multi-paragraph explanations, diagrams, or architectural analysis, **do not bloat `ISSUES.md`**. Log a 2-sentence summary in `ISSUES.md` and immediately promote it to a draft blueprint (`/digest ISSUE-00X`), where full technical blueprints belong.
+
 ---
 ### ⬆️ Promotion: an Issue becoming a Plan is a normal path
 The lanes are separate, **not sealed**. A fix too large to simply *do* deserves a proper blueprint. This is not an exception or an escalation — it is ordinary engineering, and for a wide code touch it is the **expected** path, because a locked Blast Radius is exactly what you want around a big refactor.
