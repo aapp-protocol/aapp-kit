@@ -83,39 +83,39 @@ your-project/
 *Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Core Templates & Agent Rules
-- [ ] 1.1 Update `templates/AGENTS.md` and `.agents/AGENTS.md` to reference `.agents/CODEMAP.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, `.plans/ISSUES.md` with dual fallback.
-- [ ] 1.2 Update `templates/aapp-pre-commit` and `.githooks/aapp-pre-commit` to support dual-location CHANGELOG modification checks and updated doc reminders.
-- [ ] 1.3 Update `templates/blast-radius-guard.sh` and `.githooks/blast-radius-guard` always-allowed lists.
+- [x] 1.1 Update `templates/AGENTS.md` and `.agents/AGENTS.md` to reference `.agents/CODEMAP.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, `.plans/ISSUES.md` with dual fallback.
+- [x] 1.2 Update `templates/aapp-pre-commit` and `.githooks/aapp-pre-commit` to support dual-location CHANGELOG modification checks and updated doc reminders.
+- [x] 1.3 Update `templates/blast-radius-guard.sh` and `.githooks/blast-radius-guard` always-allowed lists.
 
 ### Phase 2: CLI Commands & Initialization
-- [ ] 2.1 Update `lib/cmd_init.sh` to seed `CODEMAP.md` into `.agents/`, `ISSUES.md` into `.plans/`, and `CHANGELOG.md` & `ARCHITECTURE.md` to root by default (with interactive prompt support).
-- [ ] 2.2 Update `lib/cmd_status.sh` with dual-location parsing for `CHANGELOG.md` and `ISSUES.md`.
+- [x] 2.1 Update `lib/cmd_init.sh` to seed `CODEMAP.md` into `.agents/`, `ISSUES.md` into `.plans/`, and `CHANGELOG.md` & `ARCHITECTURE.md` to root by default (with interactive prompt support).
+- [x] 2.2 Update `lib/cmd_status.sh` with dual-location parsing for `CHANGELOG.md` and `ISSUES.md`.
 
 ### Phase 3: Documentation & Manual Invariants
-- [ ] 3.1 Update `README.md` architectural overview, directory structure, and workflow guides.
-- [ ] 3.2 Update `MANUAL.md` with detailed 3-domain architecture diagrams, configuration options, and fallback rules.
+- [x] 3.1 Update `README.md` architectural overview, directory structure, and workflow guides.
+- [x] 3.2 Update `MANUAL.md` with detailed 3-domain architecture diagrams, configuration options, and fallback rules.
 
 ### Phase 4: Test Suite Verification & Execution
-- [ ] 4.1 Update `tests/install_test.sh` to assert new seeding locations and verify `aapp init`.
-- [ ] 4.2 Update `tests/pre-commit_test.sh` to verify dual-location changelog modification checks.
-- [ ] 4.3 Update `tests/write-guard_test.sh` and run full test suite.
-- [ ] 4.4 Verify all tests pass cleanly.
+- [x] 4.1 Update `tests/install_test.sh` to assert new seeding locations and verify `aapp init`.
+- [x] 4.2 Update `tests/pre-commit_test.sh` to verify dual-location changelog modification checks.
+- [x] 4.3 Update `tests/write-guard_test.sh` and run full test suite.
+- [x] 4.4 Verify all tests pass cleanly.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `templates/AGENTS.md` -> Update references to point to `.agents/CODEMAP.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, `.plans/ISSUES.md` with dual fallback.
-- [ ] `templates/aapp-pre-commit` -> Adjust changelog and doc verification to inspect both root and worktree locations.
-- [ ] `templates/blast-radius-guard.sh` -> Align always-allowed rules with dual-location support.
-- [ ] `lib/cmd_init.sh` -> Update template seeding targets (CODEMAP to `.agents/`, ISSUES to `.plans/`, CHANGELOG & ARCHITECTURE to root).
-- [ ] `lib/cmd_status.sh` -> Support dual-lookup for changelog and issues.
-- [ ] `README.md` -> Document architectural layout, domain rationale, and dual-location flexibility.
-- [ ] `MANUAL.md` -> Update detailed manual diagrams, configuration options, and fallback behavior.
-- [ ] `tests/install_test.sh` -> Update assertion checks for `.agents/CODEMAP.md`, root `ARCHITECTURE.md`, root `CHANGELOG.md`, and `.plans/ISSUES.md`.
-- [ ] `tests/pre-commit_test.sh` -> Add test coverage for root and `.plans/` changelog modifications.
-- [ ] `tests/write-guard_test.sh` -> Update test anchors.
+- [x] `templates/AGENTS.md` -> Update references to point to `.agents/CODEMAP.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, `.plans/ISSUES.md` with dual fallback.
+- [x] `templates/aapp-pre-commit` -> Adjust changelog and doc verification to inspect both root and worktree locations.
+- [x] `templates/blast-radius-guard.sh` -> Align always-allowed rules with dual-location support.
+- [x] `lib/cmd_init.sh` -> Update template seeding targets (CODEMAP to `.agents/`, ISSUES to `.plans/`, CHANGELOG & ARCHITECTURE to root).
+- [x] `lib/cmd_status.sh` -> Support dual-lookup for changelog and issues.
+- [x] `README.md` -> Document architectural layout, domain rationale, and dual-location flexibility.
+- [x] `MANUAL.md` -> Update detailed manual diagrams, configuration options, and fallback behavior.
+- [x] `tests/install_test.sh` -> Update assertion checks for `.agents/CODEMAP.md`, root `ARCHITECTURE.md`, root `CHANGELOG.md`, and `.plans/ISSUES.md`.
+- [x] `tests/pre-commit_test.sh` -> Add test coverage for root and `.plans/` changelog modifications.
+- [x] `tests/write-guard_test.sh` -> Update test anchors.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `LICENSE` -> License file.

@@ -6,7 +6,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🚦 Recommended Implementation Roadmap
 
-1. 🟢 **[Plan: Decouple Root Anchors and Move Changelog/Issues/Codemap into Worktrees](current/plan-decouple-root-anchors-to-worktrees.md)**
+*(All active blueprints currently implemented & verified)*
 
 ---
 
@@ -18,14 +18,13 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-* [ ] **[Plan: Decouple Root Anchors and Move Changelog/Issues/Codemap into Worktrees](current/plan-decouple-root-anchors-to-worktrees.md)**
-  * *Target Files:* `templates/AGENTS.md`, `templates/aapp-pre-commit`, `templates/blast-radius-guard.sh`, `lib/cmd_init.sh`, `lib/cmd_status.sh`, `README.md`, `MANUAL.md`, `tests/install_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, `CODEMAP.md`, `ARCHITECTURE.md`, `CHANGELOG.md`
-  * *Status:* Approved. Blast radius locked. Ready to code.
+*(No blueprints currently frozen for coding)*
 
 ---
 
 ## 📦 3. Archival Ledger (Recently Completed)
 
+* [x] **[Plan: Architectural Layout Refinement & Dual-Location Worktree Flexibility](done/plan-decouple-root-anchors-to-worktrees.md)** | Verified: 2026-09-09
 * [x] **[Plan: AAPP v1.0.1 Core Engine, Layer 1 Write-Guard & Parser Fixes](done/plan-v1.0.1-core-fixes.md)** | Verified: `b9e0daf` (2026-09-09)
 * [x] **[Core System Initialization](done/)** | Verified: 2026-09-08
 
