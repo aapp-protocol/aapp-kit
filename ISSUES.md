@@ -5,7 +5,10 @@ Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 ful
 
 **Status values:** 🟡 `Incubated` (recorded, unscheduled) · 🔵 `Planned` (promoted to a blueprint) · 🟠 `In Progress` · ✅ `Resolved`
 
-**Verification:** all 3 suites pass (75/75). Every issue below was reproduced by hand.
+> ### 📏 Issue Authoring Invariant (2–3 Sentences Max)
+> Keep rows concise (2–3 sentences max per cell). Avoid lengthy essays. If a bug requires detailed architectural analysis or multi-step breakdown, summarize the symptom here and promote it to a plan (`/digest ISSUE-00X`).
+
+**Verification:** all 3 suites pass (79/79). Every issue below was reproduced by hand.
 
 ---
 
