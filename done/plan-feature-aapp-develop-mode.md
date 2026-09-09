@@ -2,7 +2,7 @@
 
 * **Created:** 2026-09-10 | **Last Refined:** 2026-09-10
 * **Target Issue / Milestone:** Feature: Developer Mode (`aapp develop`)
-* **Status:** 🟢 Ready for Execution
+* **Status:** 100% DONE (Verified `22586a8`)
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -74,34 +74,34 @@ For core developers and contributors developing on AAPP itself (`aapp-develop-ki
 *Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Command Implementation & Dispatcher
-- [ ] 1.1 Create `lib/cmd_develop.sh` with symlink linking logic and diagnostic reporting.
-- [ ] 1.2 Wire `develop` verb into `aapp` dispatcher.
-- [ ] 1.3 Add `develop` command to `lib/cmd_help.sh`.
+- [x] 1.1 Create `lib/cmd_develop.sh` with symlink linking logic and diagnostic reporting.
+- [x] 1.2 Wire `develop` verb into `aapp` dispatcher.
+- [x] 1.3 Add `develop` command to `lib/cmd_help.sh`.
 
 ### Phase 2: Documentation & Developer Guides
-- [ ] 2.1 Document `aapp develop` workflow in `README.md`.
-- [ ] 2.2 Document `aapp develop` in `MANUAL.md`.
+- [x] 2.1 Document `aapp develop` workflow in `README.md`.
+- [x] 2.2 Document `aapp develop` in `MANUAL.md`.
 
 ### Phase 3: Automated Test Verification
-- [ ] 3.1 Add regression tests in `tests/install_test.sh` verifying symlink creation, live edits propagation, and non-consumption.
-- [ ] 3.2 Run full regression test suites (`install_test.sh`, `pre-commit_test.sh`, `write-guard_test.sh`).
+- [x] 3.1 Add regression tests in `tests/install_test.sh` verifying symlink creation, live edits propagation, and non-consumption.
+- [x] 3.2 Run full regression test suites (`install_test.sh`, `pre-commit_test.sh`, `write-guard_test.sh`).
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `lib/cmd_develop.sh` -> Symlink linking engine for developer mode.
-- [ ] `aapp` -> Wire `develop` verb in command dispatcher.
-- [ ] `lib/cmd_help.sh` -> Add `develop` command description.
-- [ ] `README.md` -> Document contributor / developer setup workflow.
-- [ ] `MANUAL.md` -> Add `aapp develop` reference documentation.
-- [ ] `tests/install_test.sh` -> Automated tests for `aapp develop` symlinks and live edit behavior.
+- [x] `NEW FILE` -> `lib/cmd_develop.sh` -> Symlink linking engine for developer mode.
+- [x] `aapp` -> Wire `develop` verb in command dispatcher.
+- [x] `lib/cmd_help.sh` -> Add `develop` command description.
+- [x] `README.md` -> Document contributor / developer setup workflow.
+- [x] `MANUAL.md` -> Add `aapp develop` reference documentation.
+- [x] `tests/install_test.sh` -> Automated tests for `aapp develop` symlinks and live edit behavior.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `templates/blast-radius-guard.sh` -> Guard logic is stable.
-- [ ] `templates/aapp-pre-commit` -> Pre-commit hook is stable.
-- [ ] `LICENSE` -> License file.
+- [x] `templates/blast-radius-guard.sh` -> Guard logic is stable.
+- [x] `templates/aapp-pre-commit` -> Pre-commit hook is stable.
+- [x] `LICENSE` -> License file.
 
 ---
 
