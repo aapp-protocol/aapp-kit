@@ -26,7 +26,7 @@
 13. `ISSUE-011` -> Read both `ISSUES.md` and `issues_road_map.md` in `cmd_status.sh`
 14. `ISSUE-012` -> Skip bracketed placeholder lines in `pickup.md` parser
 15. `ISSUE-013` -> Export `AAPP_VERSION` outside subshell in `cmd_upgrade.sh`
-16. `ISSUE-014` -> Document kit folder consumption exemption or add `--keep` flag
+16. `ISSUE-014` -> Protect `aapp-develop-kit` and `agent-planning-kit` from self-consumption
 17. `ISSUE-015` -> Target repository detection in drop-in mode
 18. `ISSUE-016` -> Dynamic version stamping in `templates/AGENTS.md` markers
 19. `ISSUE-017` -> Safeguard for missing `<!-- AAPP-PROTOCOL:END -->` tag
