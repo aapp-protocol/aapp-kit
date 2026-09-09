@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Git Pre-Commit Hook (Project Master Entrypoint)
+#
+# Co-executes AAPP Blast Radius Engine alongside custom project checks.
+# ==============================================================================
+set -e
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "$REPO_ROOT" ]; then
+    exit 0
+fi
+
+# 1. AAPP Blast Radius & Changelog Enforcement (must run first)
+if [ -x "$REPO_ROOT/.githooks/aapp-pre-commit" ]; then
+    "$REPO_ROOT/.githooks/aapp-pre-commit" || exit 1
+fi
+
+# 2. Project-Specific Checks (Add your linters, tests, or scripts below)
+# e.g., perl "$REPO_ROOT/.githooks/lint.pl" || exit 1
+# e.g., npm test || exit 1
