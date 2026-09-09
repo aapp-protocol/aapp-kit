@@ -600,6 +600,30 @@ else
 fi
 report "unclosed START marker logs warning and preserves file untouched" "PASS" "$got" "$out_corrupt"
 
+# Test 34: aapp develop creates symlinks and live changes propagate
+DEV_HOME_34="$R/t34_home"; mkdir -p "$DEV_HOME_34"
+DEV_KIT_34="$R/t34_dev_kit"; make_kit_clone "$DEV_KIT_34"
+out_dev=$(
+  cd "$DEV_KIT_34"
+  PATH="/usr/bin:/bin" HOME="$DEV_HOME_34" XDG_DATA_HOME="$DEV_HOME_34/.local/share" ./aapp develop 2>&1
+)
+bin_symlink="$DEV_HOME_34/.local/bin/aapp"
+share_symlink="$DEV_HOME_34/.local/share/aapp-kit"
+
+is_symlinks=0
+[ -L "$bin_symlink" ] && [ -L "$share_symlink" ] && is_symlinks=1
+
+echo "# test_live_marker=1" >> "$DEV_KIT_34/lib/cmd_status.sh"
+live_edit=0
+[ -f "$share_symlink/lib/cmd_status.sh" ] && grep -q "test_live_marker=1" "$share_symlink/lib/cmd_status.sh" && live_edit=1
+
+if [ $is_symlinks -eq 1 ] && [ $live_edit -eq 1 ] && [ -d "$DEV_KIT_34" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp develop links live clone globally without copying or consuming" "PASS" "$got" "$out_dev"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"

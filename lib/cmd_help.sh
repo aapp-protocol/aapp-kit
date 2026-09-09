@@ -9,6 +9,7 @@ and git hooks from application source code using isolated Git worktrees.
 
 Commands:
   init       Initialize or update AAPP in the current git repository
+  develop    Link development repository into global paths via symlinks
   upgrade    Upgrade global AAPP binaries & templates from upstream
   status     Display the 4-pillar context recovery briefing
   install    Install AAPP globally into ~/.local/bin and configure PATH
@@ -18,6 +19,7 @@ Commands:
 
 Examples:
   aapp init              # Set up or sync worktrees in current repository
+  aapp develop           # Link local development clone globally (live editable)
   aapp status            # Print Shipped, Issues, Plans, and Pickup briefing
   aapp upgrade           # Pull latest upstream release into ~/.local/share
   aapp install           # Install aapp globally into ~/.local/bin

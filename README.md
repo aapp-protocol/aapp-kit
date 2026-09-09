@@ -160,6 +160,20 @@ git clone https://github.com/aapp-protocol/aapp-kit.git aapp-kit
   ```
   Removes AAPP binary and share files while leaving shared directories and shell rc PATH configuration completely intact.
 
+### Option 3: Contributor / Development Setup (`aapp develop`)
+Ideal for core developers and contributors actively working on AAPP itself:
+
+```bash
+# 1. Clone kit to aapp-develop-kit
+git clone https://github.com/aapp-protocol/aapp-kit.git aapp-develop-kit
+cd aapp-develop-kit
+
+# 2. Link repository globally for live development
+./aapp develop
+```
+
+* **What it does:** Symlinks `~/.local/bin/aapp` and `~/.local/share/aapp-kit` directly to your local clone. All local edits to templates and libraries are **instantly live globally** across your machine without re-copying files or self-consuming.
+
 ---
 
 ## 5. Existing Project Conflicts, Adoption & Upgrades

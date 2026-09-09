@@ -74,6 +74,9 @@ case "$CMD" in
     install)
         source "$AAPP_LIB/cmd_install.sh" "$@"
         ;;
+    develop)
+        source "$AAPP_LIB/cmd_develop.sh" "$@"
+        ;;
     upgrade|update)
         source "$AAPP_LIB/cmd_upgrade.sh" "$@"
         ;;

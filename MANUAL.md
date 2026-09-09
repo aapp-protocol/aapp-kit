@@ -629,6 +629,17 @@ This shallow-clones the latest release from upstream and refreshes `$HOME/.local
 
 ---
 
+### Q: How do I develop or contribute to AAPP locally (Editable Development Mode)?
+For developers working directly on the AAPP codebase itself:
+```bash
+git clone https://github.com/aapp-protocol/aapp-kit.git aapp-develop-kit
+cd aapp-develop-kit
+./aapp develop
+```
+`aapp develop` creates symbolic links (`~/.local/bin/aapp` and `~/.local/share/aapp-kit`) pointing directly to your local development clone. All local changes to templates, libraries, and hooks are immediately active globally across your machine without re-installing or copying files.
+
+---
+
 ### Q: How do I completely uninstall globally installed AAPP binaries?
 ```bash
 aapp uninstall
