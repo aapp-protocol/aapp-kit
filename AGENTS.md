@@ -1,6 +1,6 @@
 # Project Rules: [Project Name]
 
-See `CODEMAP.md` at the repo root before assuming where a concern lives -- it names the canonical owner for path resolution, configuration parsing, and module boundaries.
+See `.agents/CODEMAP.md` (or `CODEMAP.md` at the repo root) before assuming where a concern lives -- it names the canonical owner for path resolution, configuration parsing, and module boundaries.
 
 ---
 
@@ -12,10 +12,10 @@ See `CODEMAP.md` at the repo root before assuming where a concern lives -- it na
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP-INIT. PLACE CUSTOM RULES OUTSIDE. -->
 
 ## 🚦 Code Verification & Changelog Rule
-- **Every commit that touches code updates `CHANGELOG.md`. No exceptions — a one-character typo fix still gets a line.** The pre-commit hook enforces this, and it is not up for negotiation or optimization. Length is handled at release time, not by skipping entries.
+- **Every commit that touches code updates `CHANGELOG.md` (or `.plans/CHANGELOG.md` if configured). No exceptions — a one-character typo fix still gets a line.** The pre-commit hook enforces this, and it is not up for negotiation or optimization. Length is handled at release time, not by skipping entries.
 - **For Code Changes:** You MUST run syntax checks, build steps, and automated tests BEFORE updating `CHANGELOG.md`.
 - **For Rules & Internal Config (`.agents/*`):** Do NOT update `CHANGELOG.md`.
-- When updating `CHANGELOG.md`, follow Keep a Changelog format: place entries under `## [Unreleased]`, categorize by `### Added`, `### Changed`, `### Fixed`, etc., with concise bullet points.
+- When updating `CHANGELOG.md`, follow Keep a Changelog format: place entries under `## [Unreleased]` or version headers, categorize by `### Added`, `### Changed`, `### Fixed`, etc., with concise bullet points.
 
 ---
 
@@ -63,12 +63,12 @@ The workspace tracks two separate phases. Routing an item into the wrong lane co
 | | **Issue Lane** (bugs & gaps) | **Plan Lane** (implementations) |
 | :--- | :--- | :--- |
 | **Describes** | Something that exists and behaves wrongly | Something that does not exist yet |
-| **Canonical record** | `ISSUES.md` (repo root) | `.plans/current/<plan>.md` |
+| **Canonical record** | `.plans/ISSUES.md` (or repo root) | `.plans/current/<plan>.md` |
 | **Priority ordering** | `.plans/issues_road_map.md` | `.plans/state_matrix.md` |
 | **Holds** | Bugs, regressions, edge-case gaps | Features, refactors, new capabilities |
 | **Blast Radius?** | No — fixed in place | Yes — locked before execution |
 
-- **Routing rule:** If it is wrong behaviour in code that already ships, it is an **issue** — and it is recorded in `ISSUES.md` first, always. If it is something not yet built, it is a **plan**. Never file a raw feature request in `issues_road_map.md`, and never drop a raw bug into `state_matrix.md` — what legitimately appears there is a *fix plan* carrying the issue's ID (see **Promotion** below).
+- **Routing rule:** If it is wrong behaviour in code that already ships, it is an **issue** — and it is recorded in `.plans/ISSUES.md` (or root `ISSUES.md`) first, always. If it is something not yet built, it is a **plan**. Never file a raw feature request in `issues_road_map.md`, and never drop a raw bug into `state_matrix.md` — what legitimately appears there is a *fix plan* carrying the issue's ID (see **Promotion** below).
 - **Ordering rule:** Both priority files are ordered by **human judgement** — appetite, dependency, and available context, not a severity calculation. Read the order as given, report it as given, and append new items into the correct priority band. Do **not** re-sort, re-rank, or "optimize" either list unless the user explicitly asks you to.
 
 ---
@@ -82,7 +82,7 @@ The lanes are separate, **not sealed**. A fix too large to simply *do* deserves 
 - A *blocking* bug hit mid-execution is a different case — use `### 🚨 Emergency Hotfix Extensions` (see *Issue Escape Triage*), not a promotion.
 
 **How promotion works:**
-1. The issue is **never deleted or moved out of `ISSUES.md`**. It stays the record of *what is wrong*; the plan becomes the record of *how it will be fixed*.
+1. The issue is **never deleted or moved out of `.plans/ISSUES.md`**. It stays the record of *what is wrong*; the plan becomes the record of *how it will be fixed*.
 2. Run `digest ISSUE-00X` to scaffold the blueprint from `.plans/plan-template.md`.
 3. Link the two records with the fields the templates already carry: put the issue ID in the plan's `**Target Issue / Milestone:**` field, and a link to the blueprint in the issue's `Proposed Fix / Target Plan` cell.
 4. Set the issue's status to 🔵 `Planned` and **leave it on `issues_road_map.md`** — it is still an open issue until the fix ships.
@@ -106,8 +106,8 @@ All planning and architectural tracking operates in the isolated `.plans/` workt
 The agent must support and execute these shorthand workflow triggers immediately without requiring manual prompt setup:
 
 - **`status` (or `/status`)**: Act as a Context Recovery agent upon desk return.
-  1. Inspect `CHANGELOG.md` (`## [Unreleased]`) to identify recently shipped code.
-  2. **Issue lane:** Inspect `ISSUES.md` (the canonical issue record) and `.plans/issues_road_map.md` (the human's fix ordering over it). Report the top open issues **in the order the board gives them**.
+  1. Inspect `CHANGELOG.md` (or `.plans/CHANGELOG.md`) to identify recently shipped code.
+  2. **Issue lane:** Inspect `.plans/ISSUES.md` (or root `ISSUES.md`) and `.plans/issues_road_map.md` (the human's fix ordering over it). Report the top open issues **in the order the board gives them**.
   3. **Plan lane:** Inspect `.plans/state_matrix.md` (future implementations only) for active incubator plans, blockers, and greenlit tasks. Keep this separate from the issue lane in your briefing — never blend the two into one list.
   4. **Pickup queue:** Inspect `.plans/pickup.md` and **list the unprocessed ideas by name, with a count**. These are live and unworked — often the most valuable thing on the board when the user has just returned to the desk. Surface them so the user can pick one; do **not** digest them, and do not compress them away into a single "you have some notes" line.
   5. Print a concise, structured briefing across all **four pillars — Shipped, Issues, Plans, Pickup** — with immediate next actions. **Never omit a pillar**, even when it is empty: write `Pickup: empty` rather than silently dropping the section. Where the Pickup queue is non-empty, offer `/digest <idea>` on a named entry as a next action.
@@ -116,7 +116,7 @@ The agent must support and execute these shorthand workflow triggers immediately
 
   **Step 1 — Resolve the idea.** `<idea>` may be raw text typed inline, or a reference to an entry in `.plans/pickup.md`. If `<idea>` is omitted, list the open entries in `pickup.md` and **ask the user which one to digest**. Never choose for them, and never process the whole file at once.
 
-  **Step 2 — Route it to a lane.** If the idea describes wrong behaviour in code that already ships, it is an issue: **record it in `ISSUES.md` and place it on `.plans/issues_road_map.md` first — always.** Then judge the size of the fix:
+  **Step 2 — Route it to a lane.** If the idea describes wrong behaviour in code that already ships, it is an issue: **record it in `.plans/ISSUES.md` (or root `ISSUES.md`) and place it on `.plans/issues_road_map.md` first — always.** Then judge the size of the fix:
   - **Small / obvious fix** → stop there. The issue record is enough; no blueprint.
   - **Large fix** (several modules, needs a Blast Radius, real design decisions, spans sessions, or is a refactor) → **promote it and continue to Step 3.** Draft the blueprint, then state plainly that you promoted it and why. Do not stop to ask first — the draft is unfrozen and costs nothing. **Unless it is blocking work already in flight** — then stop and ask (see *Issue Escape Triage*).
   - **`<idea>` is itself an issue ID** (e.g. `digest ISSUE-004`) → the user has already chosen promotion. Go straight to Step 3 and carry the issue ID into the plan.
@@ -129,16 +129,16 @@ The agent must support and execute these shorthand workflow triggers immediately
   - If the match is ambiguous, **ask**. Never silently fold an idea into an unrelated blueprint. State which path you chose, and for AMEND name the plan you matched and why.
 
   **Step 4a — NEW plan (from scratch):**
-  1. Cross-reference `CODEMAP.md` and `ARCHITECTURE.md` so the design extends existing modules instead of adding duplicate helpers or wrappers.
+  1. Cross-reference `.agents/CODEMAP.md` (or `CODEMAP.md`) and `ARCHITECTURE.md` so the design extends existing modules instead of adding duplicate helpers or wrappers.
   2. Scaffold `.plans/current/<feature-name>.md` from `.plans/plan-template.md`.
-  3. Fill in *Context & Architectural Goal* and a first-pass *Technical Blueprint*.
+  3. Fill in *Context & Architectural Goal*, *Technical Blueprint*, and *Implementation Steps & Execution Checklist*.
   4. Propose a Blast Radius. Mark it **PROPOSED** — it is not locked and confers no execution rights.
   5. Write every unresolved decision into *Open Questions*. A first draft with no open questions is usually an under-examined draft.
   6. Register it in `.plans/state_matrix.md` under the Incubator with status 🔴/🟡.
 
   **Step 4b — AMEND an existing plan:**
-  1. Fold the new detail into the section it belongs to — *Technical Blueprint*, *Open Questions*, or *Blast Radius*.
-  2. Append a dated line to that plan's `## 📦 5. Change Log & Refinement History` recording what changed and why.
+  1. Fold the new detail into the section it belongs to — *Technical Blueprint*, *Implementation Steps*, *Open Questions*, or *Blast Radius*.
+  2. Append a dated line to that plan's `## 📦 6. Change Log & Refinement History` recording what changed and why.
   3. **If the plan is already frozen / greenlit:** changing its Blast Radius changes what the pre-commit hook will permit. Stop, get explicit approval, and move the plan back to the Incubator in `state_matrix.md` until it is re-frozen.
   4. Update its `state_matrix.md` entry if the status changed.
 
@@ -162,13 +162,13 @@ The agent must support and execute these shorthand workflow triggers immediately
   1. Inspect `.plans/release/release_checklist.md` (the canonical release runbook for the project).
   2. If the checklist contains unconfigured placeholders, assist the developer in tailoring the audit and test commands to the project's actual stack.
   3. Step through the defined test suites, linters, and security audit checks.
-  4. Verify `CHANGELOG.md` has version entries staged and ready for tagging.
+  4. Verify `CHANGELOG.md` (or `.plans/CHANGELOG.md`) has version entries staged and ready for tagging.
   5. Report a structured release posture assessment (Tests, Linters, Docs, Rollback readiness) to the user.
 
 ---
 
 ## 🐛 Issue Escape Triage (Mid-Execution Bugs)
-If you discover an unexpected bug while executing a plan inside a locked Blast Radius, **record it in `ISSUES.md` first — always** — then take one of three paths:
+If you discover an unexpected bug while executing a plan inside a locked Blast Radius, **record it in `.plans/ISSUES.md` (or root `ISSUES.md`) first — always** — then take one of three paths:
 
 - **Non-blocking:** Do not fix it. Continue the assigned plan. Do not add it to `state_matrix.md`, and do not re-prioritize `issues_road_map.md` on your own — append it and let the human place it.
 
