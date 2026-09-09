@@ -61,10 +61,10 @@
 
 ---
 
-## ❓ 5. Open Questions & Decision Matrix
-*If this section contains open items, the plan is blocked and cannot be marked as [READY] in the State Matrix.*
-* [ ] **Question 1:** [e.g., Which error response format should we standardize on?]
-* [ ] **Question 2:** [e.g., Do we need retry logic here or fail-fast?]
+## ❓ 5. Open Questions (Optional / Gate)
+*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
+*Do NOT populate with already-decided choices or answer questions yourself.*
+* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
 
 ---
 
