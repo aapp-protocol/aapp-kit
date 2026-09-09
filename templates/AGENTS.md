@@ -172,8 +172,9 @@ The agent must support and execute these shorthand workflow triggers immediately
 
 - **`done <plan>` (or `/done <plan>`)**: Complete lifecycle and archive implemented blueprint.
   1. Move the plan file: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
-  2. Update `.plans/state_matrix.md` to mark the plan `100% DONE` in the summary table and Archival Ledger.
-  3. Commit the transition to the `plans` worktree.
+  2. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` with plan file link, target issue, verification commit, and repo-relative impact summary.
+  3. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items).
+  4. Commit the transition to the `plans` worktree.
 
 - **`release <version>` (or `/release <version>`, `/preflight`)**: Execute release pre-flight verification runbook.
   1. Inspect `.plans/release/release_checklist.md` (the canonical release runbook for the project).
@@ -204,7 +205,7 @@ If you discover an unexpected bug while executing a plan inside a locked Blast R
 
 ## 🧹 Token Efficiency & Archival Scoping
 - **Active Focus Only:** When inspecting `.plans/state_matrix.md`, focus strictly on active sections (`Roadmap`, `1. The Incubator`, and `2. The Greenlight Zone`).
-- **Ignore Collapsed Archives:** Strictly ignore all collapsed `<details>` tags, historical milestone ledgers, or files in `.plans/done/` unless the user explicitly requests a historical lookup or audit.
+- **Ignore Archived History:** Strictly ignore `.plans/done/` and `.plans/done/000-archive-ledger.md` unless the user explicitly requests a historical lookup or audit.
 
 ---
 

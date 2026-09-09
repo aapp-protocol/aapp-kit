@@ -44,20 +44,5 @@ This document is the central dashboard for all active ideas, drafts, ready plans
 
 ---
 
-## 📦 3. Archival Ledger (Recently Completed)
-*When verified in code, completed plans are logged here.*
-
-* [x] **[Core System Initialization](done/)** | Verified: [Commit / Date]
-
----
-
-## 🗄️ 4. Historical Milestone Archives
-<!-- Execution agents: Ignore collapsed blocks below during standard planning sessions -->
-<details>
-<summary>📦 Completed Milestone: v1.0.0 (Click to expand history)</summary>
-
-| Plan File | Date Shipped | Primary Impact |
-| :--- | :--- | :--- |
-| `done/foundation-setup.md` | YYYY-MM-DD | Initial workspace & architecture scaffold |
-
-</details>
+## 🏛️ 3. Archival Ledger (Completed Plans DB)
+Completed blueprints are permanently archived in [`done/000-archive-ledger.md`](done/000-archive-ledger.md).

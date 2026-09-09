@@ -80,7 +80,7 @@ make_kit_clone "$PROJ/aapp-kit"
   HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1
 )
 rc=$?
-if [ $rc -eq 0 ] && [ -d "$PROJ/.plans" ] && [ -d "$PROJ/.agents" ] && [ -d "$PROJ/.githooks" ]; then
+if [ $rc -eq 0 ] && [ -d "$PROJ/.plans" ] && [ -d "$PROJ/.agents" ] && [ -d "$PROJ/.githooks" ] && [ -f "$PROJ/.plans/done/000-archive-ledger.md" ]; then
   got="PASS"
 else
   got="FAIL"

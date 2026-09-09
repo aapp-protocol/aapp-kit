@@ -152,6 +152,7 @@ copy_guarded "$AAPP_TEMPLATES/issues_road_map.md" ".plans/issues_road_map.md" ""
 copy_guarded "$AAPP_TEMPLATES/plan-template.md" ".plans/plan-template.md" ""
 copy_guarded "$AAPP_TEMPLATES/release_checklist.md" ".plans/release/release_checklist.md" ""
 copy_guarded "$AAPP_TEMPLATES/issues.md" ".plans/ISSUES.md" ""
+copy_guarded "$AAPP_TEMPLATES/000-archive-ledger.md" ".plans/done/000-archive-ledger.md" ""
 
 (
     cd .plans
