@@ -6,13 +6,15 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🚦 Recommended Implementation Roadmap
 
-*(All active blueprints currently implemented & verified)*
+1. 🔴 **[Plan: CLI Reliability, POSIX Fallback & Upgrade Robustness](current/plan-v1.0.2-cli-reliability-and-posix-fallback.md)** (`ISSUE-009` / Batch 3)
 
 ---
 
 ## 🧠 1. Human Thought & Refinement (The Incubator)
 
-*(No unpolished drafts currently in incubator)*
+* [ ] **[Plan: CLI Reliability, POSIX Fallback & Upgrade Robustness](current/plan-v1.0.2-cli-reliability-and-posix-fallback.md)**
+  * *Target Issue:* `ISSUE-009` (Batch 3: CLI, Init, Upgrade & POSIX Fallback Reliability Fixes)
+  * *Status:* 🔴 Under Review / Drafting
 
 ---
 
