@@ -9,6 +9,9 @@ When a bug or a missing edge case is discovered during an active coding session:
 * **Non-blocking Bug:** Do NOT stop or fix immediately. Log it in the **Active Issues Backlog** below and continue the current plan.
 * **Blocking Bug:** If the bug halts the current plan, pause execution, document an `### 🚨 Emergency Hotfix Extensions` subsection in the active plan's Blast Radius, fix the blocker, log the resolution here, and resume.
 
+> ### 📏 Issue Authoring Invariant (2–3 Sentences Max)
+> Keep rows concise (2–3 sentences max per cell). Avoid lengthy essays. If a bug requires detailed architectural analysis or multi-step breakdown, summarize the symptom here and promote it to a plan (`/digest ISSUE-00X`).
+
 ---
 
 ## 🔍 2. Active Issues Backlog
