@@ -43,17 +43,35 @@ done
 # 1. CHANGELOG.md ENFORCEMENT (BLOCKING FOR CORE CODE)
 # ------------------------------------------------------------------------------
 if [ "$STAGED_CORE_COUNT" -gt 0 ]; then
-    CHANGELOG_STAGED=0
+    CHANGELOG_UPDATED=0
+    # Check if root CHANGELOG.md or .plans/CHANGELOG.md is staged in this commit
     for F in "${STAGED_FILES[@]}"; do
-        if [ "$F" = "CHANGELOG.md" ]; then
-            CHANGELOG_STAGED=1
+        if [ "$F" = "CHANGELOG.md" ] || [ "$F" = ".plans/CHANGELOG.md" ]; then
+            CHANGELOG_UPDATED=1
             break
         fi
     done
-    if [ "$CHANGELOG_STAGED" -eq 0 ]; then
+
+    # If not staged in current git index, check if .plans/CHANGELOG.md exists in worktree and was updated
+    if [ "$CHANGELOG_UPDATED" -eq 0 ] && [ -d ".plans" ]; then
+        if git -C .plans rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            if git -C .plans status --porcelain 2>/dev/null | grep -qE 'CHANGELOG\.md'; then
+                CHANGELOG_UPDATED=1
+            elif [ -f ".plans/CHANGELOG.md" ]; then
+                # Check modification time within last 15 minutes (900 seconds)
+                CHANGELOG_MTIME=$(stat -c %Y .plans/CHANGELOG.md 2>/dev/null || stat -f %m .plans/CHANGELOG.md 2>/dev/null || echo 0)
+                NOW=$(date +%s)
+                if [ $((NOW - CHANGELOG_MTIME)) -le 900 ]; then
+                    CHANGELOG_UPDATED=1
+                fi
+            fi
+        fi
+    fi
+
+    if [ "$CHANGELOG_UPDATED" -eq 0 ]; then
         echo ""
-        echo "❌ [Pre-Commit Error] Core code files were modified, but CHANGELOG.md is not staged!"
-        echo "   👉 Please document your changes under '## [Unreleased]' in CHANGELOG.md and stage it:"
+        echo "❌ [Pre-Commit Error] Core code files were modified, but CHANGELOG.md was not updated!"
+        echo "   👉 Please document your changes in CHANGELOG.md (or .plans/CHANGELOG.md) and stage it:"
         echo "      git add CHANGELOG.md"
         echo ""
         exit 1
@@ -191,15 +209,20 @@ fi
 # ------------------------------------------------------------------------------
 # 3. DOCUMENTATION REMINDER (NON-BLOCKING WARNING)
 # ------------------------------------------------------------------------------
-DOCS_STAGED=0
+DOCS_UPDATED=0
 for F in "${STAGED_FILES[@]}"; do
-    if echo "$F" | grep -qE '^(README\.md|MANUAL\.md|CODEMAP\.md|ARCHITECTURE\.md)$'; then
-        DOCS_STAGED=1
+    if echo "$F" | grep -qE '^(README\.md|MANUAL\.md|CODEMAP\.md|ARCHITECTURE\.md|\.agents/CODEMAP\.md|\.agents/ARCHITECTURE\.md)$'; then
+        DOCS_UPDATED=1
         break
     fi
 done
-if [ "$STAGED_CORE_COUNT" -gt 0 ] && [ "$DOCS_STAGED" -eq 0 ]; then
-    echo "⚠️  [Pre-Commit Reminder] Documentation (README.md, CODEMAP.md, ARCHITECTURE.md) was not staged."
+if [ "$DOCS_UPDATED" -eq 0 ] && [ -d ".agents" ] && git -C .agents rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    if git -C .agents status --porcelain 2>/dev/null | grep -qE '(CODEMAP|ARCHITECTURE)\.md'; then
+        DOCS_UPDATED=1
+    fi
+fi
+if [ "$STAGED_CORE_COUNT" -gt 0 ] && [ "$DOCS_UPDATED" -eq 0 ]; then
+    echo "⚠️  [Pre-Commit Reminder] Documentation (README.md, ARCHITECTURE.md, or .agents/CODEMAP.md) was not updated."
     echo "   If this commit introduces new interfaces, routes, or behaviors, ensure documentation stays in sync."
 fi
 

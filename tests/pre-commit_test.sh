@@ -203,6 +203,33 @@ else
   printf "  \033[31m✘\033[0m %-52s want PASS got %s\n" "SKIP_BLAST_RADIUS=1 bypasses without CHANGELOG" "$got_skip"; FAIL=$((FAIL+1))
 fi
 
+echo "== 8. .plans/CHANGELOG.md satisfies changelog requirement =="
+setup
+rm -f CHANGELOG.md
+git commit -qm "remove root changelog" --allow-empty
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+mkdir -p .plans
+touch .plans/CHANGELOG.md
+echo "x=2" > src/a.py
+git add src/a.py
+rc_plan_cl=0
+out_plan_cl=$(git commit -m "code with .plans changelog" 2>&1) || rc_plan_cl=$?
+if [ $rc_plan_cl -eq 0 ]; then
+  got_plan_cl=PASS
+else
+  got_plan_cl=FAIL
+fi
+if [ "$got_plan_cl" = "PASS" ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" ".plans/CHANGELOG.md satisfies changelog requirement" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS got %s\n" ".plans/CHANGELOG.md satisfies changelog requirement" "$got_plan_cl"; FAIL=$((FAIL+1))
+fi
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]

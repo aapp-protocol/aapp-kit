@@ -12,14 +12,31 @@
 ## 1. Context & Architectural Goal
 *Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
 
+---
+
 ## 2. Technical Blueprint
-*Detailed checklist, data structures, flow, or pseudo-code written for both human and agent understanding.*
-- [ ] Step 1: ...
-- [ ] Step 2: ...
+*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
 
 ---
 
-## 💥 3. Blast Radius & System Boundaries
+## 🔨 3. Implementation Steps & Execution Checklist
+*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
+
+### Phase 1: Foundation & Setup
+- [ ] Task 1.1: ...
+- [ ] Task 1.2: ...
+
+### Phase 2: Core Implementation
+- [ ] Task 2.1: ...
+- [ ] Task 2.2: ...
+
+### Phase 3: Verification & Edge Cases
+- [ ] Task 3.1: Run automated test suites and verify edge cases.
+- [ ] Task 3.2: Verify changelog updates and documentation synchronization.
+
+---
+
+## 💥 4. Blast Radius & System Boundaries
 *Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
@@ -35,14 +52,14 @@
 
 ---
 
-## ❓ 4. Open Questions & Decision Matrix
+## ❓ 5. Open Questions & Decision Matrix
 *If this section contains open items, the plan is blocked and cannot be marked as [READY] in the State Matrix.*
 * [ ] **Question 1:** [e.g., Which error response format should we standardize on?]
 * [ ] **Question 2:** [e.g., Do we need retry logic here or fail-fast?]
 
 ---
 
-## 📦 5. Change Log & Refinement History
+## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
 * **[YYYY-MM-DD]:** Plan initialized from `pickup.md`.
 * **[YYYY-MM-DD]:** Refined blast radius and locked module boundaries.

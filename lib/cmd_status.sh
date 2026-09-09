@@ -26,8 +26,19 @@ echo "============================================================"
 # 1. Shipped
 echo ""
 echo "📦 [1/4] SHIPPED (Recently Landed / Unreleased)"
+CHANGELOG_PATH=""
 if [ -f "CHANGELOG.md" ]; then
-    UNRELEASED=$(awk '/## \[Unreleased\]/ {flag=1; next} /^## / {flag=0} flag' CHANGELOG.md | sed '/^[[:space:]]*$/d' | head -n 5)
+    CHANGELOG_PATH="CHANGELOG.md"
+elif [ -f ".plans/CHANGELOG.md" ]; then
+    CHANGELOG_PATH=".plans/CHANGELOG.md"
+fi
+
+if [ -n "$CHANGELOG_PATH" ]; then
+    UNRELEASED=$(awk '/## \[Unreleased\]/ {flag=1; next} /^## / {flag=0} flag' "$CHANGELOG_PATH" | sed '/^[[:space:]]*$/d' | head -n 5)
+    if [ -z "$UNRELEASED" ]; then
+        # Fallback: display entries under the first header section
+        UNRELEASED=$(awk '/^## / {if (count++) exit} count {print}' "$CHANGELOG_PATH" | sed '/^[[:space:]]*$/d' | head -n 5)
+    fi
     if [ -n "$UNRELEASED" ]; then
         echo "$UNRELEASED" | sed 's/^/  /'
     else

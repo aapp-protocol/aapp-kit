@@ -86,12 +86,14 @@ By decoupling these concerns into independent Git worktrees:
 
 | Directory / File | Mount Type | Canonical Purpose |
 | :--- | :--- | :--- |
-| `CODEMAP.md` | Repo Root | Canonical directory ownership, module boundaries, and entrypoints. |
-| `ARCHITECTURE.md` | Repo Root | Invariant technical rules, forbidden libraries, and core abstractions. |
-| `CHANGELOG.md` | Repo Root | Keep-a-Changelog record of user-facing changes (enforced on code commits). |
-| `ISSUES.md` | Repo Root | Canonical record of active and historical defects/bugs. |
-| `.plans/` | `plans` worktree | Active blueprints (`current/`), archives (`done/`), scratchpad (`pickup.md`), issue triage roadmap (`issues_road_map.md`), and state matrix (`state_matrix.md`). |
-| `.agents/` | `agents` worktree | Agent behavioral contracts (`AGENTS.md`) and project-specific personas (`PROJECT.MD`). |
+| `README.md` | Repo Root | Public overview, installation, and user-facing entrypoint. |
+| `CHANGELOG.md` | Repo Root *(or `.plans/`)* | Keep-a-Changelog record of user-facing changes (enforced on code commits; dual-location supported). |
+| `ARCHITECTURE.md` | Repo Root *(or `.agents/`)* | Public technical design rules, system constraints, and core abstractions. |
+| `.agents/CODEMAP.md` | `agents` worktree *(or root)* | Canonical directory ownership, module boundaries, and entrypoints. |
+| `.agents/AGENTS.md` | `agents` worktree | Agent behavioral contracts, protocol rules, and slash command bindings. |
+| `.agents/PROJECT.MD` | `agents` worktree | Project-specific personas, milestones, and high-level architectural rules. |
+| `.plans/ISSUES.md` | `plans` worktree *(or root)* | Canonical defect audit trail, bug triage ledger, and resolution notes. |
+| `.plans/` | `plans` worktree | Active blueprints (`current/`), archives (`done/`), scratchpad (`pickup.md`), priority roadmap (`issues_road_map.md`), and state matrix (`state_matrix.md`). |
 | `.githooks/` | `githooks` worktree | Dual-layer blast radius enforcement scripts (`aapp-pre-commit`, `pre-commit`, `blast-radius-guard`). |
 | `.claude/settings.json` | Repo Root | Configures Claude Code to trigger `.githooks/blast-radius-guard` on `PreToolUse`. |
 

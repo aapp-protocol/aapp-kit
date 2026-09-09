@@ -126,7 +126,7 @@ make_kit_clone "$PROJ/aapp-kit"
   HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1
 )
 rc=$?
-if [ $rc -eq 0 ] && [ ! -d "$PROJ/aapp-kit" ] && [ -f "$PROJ/CODEMAP.md" ]; then
+if [ $rc -eq 0 ] && [ ! -d "$PROJ/aapp-kit" ] && [ -f "$PROJ/.agents/CODEMAP.md" ]; then
   got="PASS"
 else
   got="FAIL"
@@ -148,55 +148,54 @@ PROJ="$R/t7_proj"; make_dummy_project "$PROJ"
   git checkout main -q
 )
 make_kit_clone "$PROJ/aapp-kit"
-out_t7=$(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1)
-if grep -q "# Custom Project Rules (No Markers)" "$PROJ/.agents/AGENTS.md" && \
-   grep -q "rule 1: always write tests" "$PROJ/.agents/AGENTS.md" && \
-   grep -q "<!-- AAPP-PROTOCOL:START v1.0.0 -->" "$PROJ/.agents/AGENTS.md" && \
-   grep -q "<!-- AAPP-PROTOCOL:END -->" "$PROJ/.agents/AGENTS.md"; then
+(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+if grep -q "<!-- AAPP-PROTOCOL:START v1.0.0 -->" "$PROJ/.agents/AGENTS.md" && \
+   grep -q "# Custom Project Rules (No Markers)" "$PROJ/.agents/AGENTS.md"; then
   got="PASS"
 else
   got="FAIL"
 fi
-report "adoption: existing rules without markers get AAPP block appended" "PASS" "$got"
+report "adoption: unmanaged .agents/AGENTS.md gets protocol block appended" "PASS" "$got"
 
-# Test 8: Upgrade: existing .agents/AGENTS.md with markers has block swapped, surrounding rules intact
+# Test 8: Protocol Upgrade: existing block updated, custom rules outside block preserved
 PROJ="$R/t8_proj"; make_dummy_project "$PROJ"
 (
   cd "$PROJ"
   git checkout --orphan agents -q
   git rm -rf . -q 2>/dev/null || true
   cat > AGENTS.md <<'EOF'
-# Header Rule 1
+# Project Custom Rules
+Custom rule: always use snake_case for functions.
 
-<!-- AAPP-PROTOCOL:START v0.8.0 -->
-old protocol version 0.8.0 content
+<!-- AAPP-PROTOCOL:START v0.9.0 -->
+Old protocol block v0.9.0 content that should be replaced.
 <!-- AAPP-PROTOCOL:END -->
 
-# Footer Rule 2
-Custom user footer rule that must never be deleted.
+# Post-Protocol Custom Rules
+Custom rule: enforce 80 chars max line length.
 EOF
   git add AGENTS.md
-  git commit -qm "old version agents branch"
+  git commit -qm "v0.9.0 agents branch"
   git checkout main -q
 )
 make_kit_clone "$PROJ/aapp-kit"
-out_t8=$(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1)
-if grep -q "# Header Rule 1" "$PROJ/.agents/AGENTS.md" && \
-   grep -q "# Footer Rule 2" "$PROJ/.agents/AGENTS.md" && \
-   grep -q "Custom user footer rule that must never be deleted." "$PROJ/.agents/AGENTS.md" && \
-   grep -q "<!-- AAPP-PROTOCOL:START v1.0.0 -->" "$PROJ/.agents/AGENTS.md" && \
-   ! grep -q "old protocol version 0.8.0 content" "$PROJ/.agents/AGENTS.md"; then
+(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+agents_content=$(cat "$PROJ/.agents/AGENTS.md")
+if echo "$agents_content" | grep -q "<!-- AAPP-PROTOCOL:START v1.0.0 -->" && \
+   echo "$agents_content" | grep -q "Custom rule: always use snake_case for functions." && \
+   echo "$agents_content" | grep -q "Custom rule: enforce 80 chars max line length." && \
+   ! echo "$agents_content" | grep -q "Old protocol block v0.9.0 content"; then
   got="PASS"
 else
   got="FAIL"
 fi
-report "upgrade: delimited block swapped in-place, header and footer rules intact" "PASS" "$got"
+report "upgrade: protocol block upgraded in-place preserving surrounding rules" "PASS" "$got"
 
-# Test 9: Legacy flat AGENTS.md at repo root migrated into .agents/AGENTS.md
+# Test 9: Migration: project-root AGENTS.md migrated into .agents/ worktree
 PROJ="$R/t9_proj"; make_dummy_project "$PROJ"
 echo "# Legacy Root AGENTS File" > "$PROJ/AGENTS.md"
 make_kit_clone "$PROJ/aapp-kit"
-out_t9=$(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1)
+(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
 if [ ! -f "$PROJ/AGENTS.md" ] && \
    [ -f "$PROJ/.agents/AGENTS.md" ] && \
    grep -q "# Legacy Root AGENTS File" "$PROJ/.agents/AGENTS.md" && \
@@ -207,19 +206,19 @@ else
 fi
 report "migration: legacy flat AGENTS.md migrated into .agents/ worktree" "PASS" "$got"
 
-# Test 10: Existing project root anchors (CODEMAP, ARCHITECTURE, etc.) preserved
+# Test 10: Existing project root anchors (CODEMAP, ARCHITECTURE, etc.) preserved / migrated
 PROJ="$R/t10_proj"; make_dummy_project "$PROJ"
 echo "# User Custom CODEMAP" > "$PROJ/CODEMAP.md"
 echo "# User Custom ARCHITECTURE" > "$PROJ/ARCHITECTURE.md"
 make_kit_clone "$PROJ/aapp-kit"
 (cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
-if [ "$(cat "$PROJ/CODEMAP.md")" = "# User Custom CODEMAP" ] && \
+if [ "$(cat "$PROJ/.agents/CODEMAP.md")" = "# User Custom CODEMAP" ] && \
    [ "$(cat "$PROJ/ARCHITECTURE.md")" = "# User Custom ARCHITECTURE" ]; then
   got="PASS"
 else
   got="FAIL"
 fi
-report "project root anchors (CODEMAP, ARCHITECTURE) preserved untouched" "PASS" "$got"
+report "project root anchors (CODEMAP, ARCHITECTURE) preserved/migrated" "PASS" "$got"
 
 echo "== 4. Core Infrastructure & Claude Settings =="
 

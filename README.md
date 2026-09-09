@@ -43,34 +43,36 @@ A frozen blueprint with a declared **Blast Radius** converts agent execution fro
 AAPP isolates planning, behavioral rules, and enforcement into **three Git worktrees mounted on independent orphan branches**:
 
 ```text
-your-project/ (main/dev branch - contains only pure application source code)
+your-project/ (main/dev branch - contains application source code & public docs)
+├── README.md            --> Public project overview & quickstart
+├── CHANGELOG.md         --> Public release notes (default root; .plans/ supported)
+├── ARCHITECTURE.md      --> Public system architecture & design invariants (or in .agents/)
 ├── .plans/              --> Worktree mounted on orphan branch 'plans'
 │   ├── current/         --> Active RFC blueprints & plans (e.g. plan-auth.md)
 │   ├── release/         --> Production checklists & release runbooks
 │   ├── done/            --> Permanent historical record of finished plans
 │   ├── aborted/         --> Discarded plans
 │   ├── pickup.md        --> Fast agent scratchpad for active context
+│   ├── ISSUES.md        --> Canonical defect audit trail & triage ledger
 │   ├── issues_road_map.md --> Defect priority roadmap & triage queue
 │   └── state_matrix.md  --> State matrix & architectural brain
 ├── .agents/             --> Worktree mounted on orphan branch 'agents'
 │   ├── AGENTS.md        --> Agent behavioral contracts & slash commands
+│   ├── CODEMAP.md       --> Module ownership & structural interface mapping
 │   └── PROJECT.MD       --> Master architectural specification & rules
 ├── .githooks/           --> Worktree mounted on orphan branch 'githooks'
 │   ├── pre-commit       --> Master runner (dispatches checks, project-owned)
 │   ├── aapp-pre-commit  --> Deterministic commit-time blast radius engine (managed by AAPP)
 │   └── blast-radius-guard --> PreToolUse write-time guard for AI agents
-├── .claude/
-│   └── settings.json    --> Wires write-time guard to Claude Code
-├── CODEMAP.md           --> Module ownership & structural interface mapping
-├── ARCHITECTURE.md      --> System architecture invariants
-├── CHANGELOG.md         --> Keep-a-Changelog formatted changelog
-└── ISSUES.md            --> Defect tracking & historical resolutions
+└── .claude/
+    └── settings.json    --> Wires write-time guard to Claude Code
 ```
 
 ### 💎 Key Architectural Benefits
-1. **Zero Git History Pollution**: Your `main` branch contains only pure application code. Planning notes, RFCs, and prompt modifications never appear in application commit logs.
+1. **Zero Git History Pollution**: Your `main` branch contains only pure application code and public-facing documentation. Planning notes, RFCs, and prompt modifications never appear in application commit logs.
 2. **Branch Independent**: Switch, rebase, or merge application feature branches without losing your active planning scratchpads or agent state.
 3. **Multi-Agent Interoperability**: Antigravity, Claude Code, Cursor, Copilot, Gemini CLI, and human developers all share the same state and contracts.
+4. **Dual-Location Flexibility**: Public-facing files (`CHANGELOG.md`, `ARCHITECTURE.md`) can live at the repository root or be fully decoupled into worktrees according to your project's preference.
 
 ---
 

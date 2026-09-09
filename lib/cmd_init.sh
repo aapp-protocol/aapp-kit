@@ -124,11 +124,18 @@ copy_guarded() {
 mount_or_create_worktree "plans" ".plans"
 mkdir -p .plans/current .plans/release .plans/done .plans/aborted
 
+# Legacy project-root ISSUES.md migration
+if [ -f "ISSUES.md" ] && [ ! -f ".plans/ISSUES.md" ]; then
+    mv "ISSUES.md" ".plans/ISSUES.md"
+    echo "📦 Migrated legacy project-root ISSUES.md to .plans/ISSUES.md."
+fi
+
 copy_guarded "$AAPP_TEMPLATES/pickup.md" ".plans/pickup.md" ""
 copy_guarded "$AAPP_TEMPLATES/state_matrix.md" ".plans/state_matrix.md" ""
 copy_guarded "$AAPP_TEMPLATES/issues_road_map.md" ".plans/issues_road_map.md" ""
 copy_guarded "$AAPP_TEMPLATES/plan-template.md" ".plans/plan-template.md" ""
 copy_guarded "$AAPP_TEMPLATES/release_checklist.md" ".plans/release/release_checklist.md" ""
+copy_guarded "$AAPP_TEMPLATES/issues.md" ".plans/ISSUES.md" ""
 
 (
     cd .plans
@@ -217,8 +224,15 @@ sync_agent_rules() {
     rm -f "$block_tmp"
 }
 
+# Legacy project-root CODEMAP.md migration
+if [ -f "CODEMAP.md" ] && [ ! -f ".agents/CODEMAP.md" ]; then
+    mv "CODEMAP.md" ".agents/CODEMAP.md"
+    echo "📦 Migrated legacy project-root CODEMAP.md to .agents/CODEMAP.md."
+fi
+
 sync_agent_rules
 copy_guarded "$AAPP_TEMPLATES/PROJECT.MD" ".agents/PROJECT.MD" ""
+copy_guarded "$AAPP_TEMPLATES/codemap.md" ".agents/CODEMAP.md" ""
 
 (
     cd .agents
@@ -294,12 +308,10 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# PHASE 4: Project Root Anchors
+# PHASE 4: Public Project Root Anchors
 # ------------------------------------------------------------------------------
-copy_guarded "$AAPP_TEMPLATES/codemap.md" "CODEMAP.md" "🗺️  Created starter CODEMAP.md at project root."
 copy_guarded "$AAPP_TEMPLATES/architecture.md" "ARCHITECTURE.md" "🏛️  Created starter ARCHITECTURE.md at project root."
 copy_guarded "$AAPP_TEMPLATES/changelog.md" "CHANGELOG.md" "📜 Created starter CHANGELOG.md at project root."
-copy_guarded "$AAPP_TEMPLATES/issues.md" "ISSUES.md" "🐛 Created starter ISSUES.md at project root."
 
 # ------------------------------------------------------------------------------
 # PHASE 5: Write-Time Enforcement Hook (.claude/settings.json)
