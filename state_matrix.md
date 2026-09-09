@@ -6,13 +6,15 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🚦 Recommended Implementation Roadmap
 
-1. 🟡 **[Batch 3 & 4: Documentation Drift, Templates & Final Polish](current/plan-v1.0.1-docs-and-polish.md)**
+1. 🔴 **[Plan: Decouple Root Anchors and Move Changelog/Issues/Codemap into Worktrees](current/plan-decouple-root-anchors-to-worktrees.md)**
 
 ---
 
 ## 🧠 1. Human Thought & Refinement (The Incubator)
 
-*(No unpolished drafts currently in incubator)*
+* **[Decouple Root Anchors into Worktrees](current/plan-decouple-root-anchors-to-worktrees.md)**
+  * *Status:* 🔴 Draft under review.
+  * *Open Questions:* See Section 4 of plan file (pre-commit verification logic for `.plans/CHANGELOG.md`).
 
 ---
 
