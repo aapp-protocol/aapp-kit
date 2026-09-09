@@ -6,13 +6,15 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🚦 Recommended Implementation Roadmap
 
-*(All active blueprints currently implemented & verified)*
+1. 🔴 **[Plan: Developer Mode Verb (`aapp develop`) & Live Symlink Engine](current/plan-feature-aapp-develop-mode.md)** (Developer Mode / `aapp develop`)
 
 ---
 
 ## 🧠 1. Human Thought & Refinement (The Incubator)
 
-*(No unpolished drafts currently in incubator)*
+* [ ] **[Plan: Developer Mode Verb (`aapp develop`) & Live Symlink Engine](current/plan-feature-aapp-develop-mode.md)**
+  * *Target Feature:* `aapp develop` (Live Symlink Engine for Core Contributor Workspaces)
+  * *Status:* 🔴 Under Review / Drafting
 
 ---
 
