@@ -55,11 +55,11 @@
 40. `ISSUE-040` -> Add test coverage in `pre-commit_test.sh` for backticked `NEW FILE` markers ✅ `Resolved`
 
 ## 🔴 Batch 5: Edge Cases, Security & Portability Hardening
-41. `ISSUE-041` -> Stream JSON stdin in `blast-radius-guard.sh` avoiding `ARG_MAX` crash on large files 🟡 `Incubated`
-42. `ISSUE-042` -> Filter resolved/done items in `cmd_status.sh` `issues_road_map.md` parser 🟡 `Incubated`
-43. `ISSUE-043` -> Unlink `$SHARE_DIR` symlink before install to prevent deleting repo files 🟡 `Incubated`
-44. `ISSUE-044` -> Replace BSD `sed -i` in `cmd_init.sh` with portable awk version stamping 🟡 `Incubated`
-45. `ISSUE-045` -> Clean up broken symlinks in `cmd_uninstall.sh` using `[ -e ] || [ -L ]` 🟡 `Incubated`
-46. `ISSUE-046` -> Update deprecated `head -1` to `head -n 1` and quote `$REPO_ROOT` in `blast-radius-guard.sh` 🟡 `Incubated`
-47. `ISSUE-047` -> Flexible plan status bullet matching and pickup queue count trimming in `cmd_status.sh` 🟡 `Incubated`
-48. `ISSUE-048` -> Run `aapp-pre-commit` via shell in `pre-commit` and specify UTF-8 encoding in schema check 🟡 `Incubated`
+41. `ISSUE-041` -> Stream JSON stdin in `blast-radius-guard.sh` avoiding `ARG_MAX` crash on large files ✅ `Resolved`
+42. `ISSUE-042` -> Filter resolved/done items in `cmd_status.sh` `issues_road_map.md` parser ✅ `Resolved`
+43. `ISSUE-043` -> Unlink `$SHARE_DIR` symlink before install to prevent deleting repo files ✅ `Resolved`
+44. `ISSUE-044` -> Replace BSD `sed -i` in `cmd_init.sh` with portable awk version stamping ✅ `Resolved`
+45. `ISSUE-045` -> Clean up broken symlinks in `cmd_uninstall.sh` using `[ -e ] || [ -L ]` ✅ `Resolved`
+46. `ISSUE-046` -> Update deprecated `head -1` to `head -n 1` and quote `$REPO_ROOT` in `blast-radius-guard.sh` ✅ `Resolved`
+47. `ISSUE-047` -> Flexible plan status bullet matching and pickup queue count trimming in `cmd_status.sh` ✅ `Resolved`
+48. `ISSUE-048` -> Run `aapp-pre-commit` via shell in `pre-commit` and specify UTF-8 encoding in schema check ✅ `Resolved`
