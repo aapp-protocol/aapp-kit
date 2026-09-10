@@ -68,7 +68,7 @@ elif [ -f "ISSUES.md" ]; then
 fi
 
 if [ -n "$ISSUES_FILE" ] && [ "$HAS_ISSUES" -eq 0 ]; then
-    OPEN_ISSUES=$(grep -E '^\s*\|\s*(\*\*)?ISSUE-[0-9]+' "$ISSUES_FILE" 2>/dev/null | grep -v -E 'Resolved|DONE' | head -n 5 || true)
+    OPEN_ISSUES=$(sed '/## 📦 .*Resolved Issues/,$d' "$ISSUES_FILE" 2>/dev/null | grep -E '^\s*\|\s*(\*\*)?ISSUE-[0-9]+' | grep -v -E 'Resolved|DONE' | head -n 5 || true)
     if [ -n "$OPEN_ISSUES" ]; then
         echo "$OPEN_ISSUES" | sed 's/^/  /'
         HAS_ISSUES=1
