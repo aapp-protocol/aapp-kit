@@ -9,7 +9,7 @@ See `.agents/CODEMAP.md` (or `CODEMAP.md` at the repo root) before assuming wher
 - Maintain a single source of truth for paths, state, and configuration.
 
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
-<!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP-INIT. PLACE CUSTOM RULES OUTSIDE. -->
+<!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOM RULES OUTSIDE. -->
 
 ## 🚦 Code Verification & Changelog Rule
 - **Every commit that touches code updates `CHANGELOG.md` (or `.plans/CHANGELOG.md` if configured). No exceptions — a one-character typo fix still gets a line.** The pre-commit hook enforces this, and it is not up for negotiation or optimization. Length is handled at release time, not by skipping entries.
