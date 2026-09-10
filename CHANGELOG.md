@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First-class `aapp develop` command linking development repositories into global paths via symlinks for live editable development.
 - Master Archival Ledger seeded at `.plans/done/000-archive-ledger.md` using repo-relative paths, decoupling completed history from active `state_matrix.md` dashboards.
 - Formalized `/aapp:` family command triggers and Stable vs. Edge release conventions in `templates/AGENTS.md` and `templates/release_checklist.md`.
+- Smart Adaptive Branch Protection Guard in `templates/aapp-pre-commit` preventing accidental direct commits to stable branches (`main`, `master`, `production`) when active development branches exist, with full trunk-based fail-open support and `ALLOW_MAIN_COMMIT` bypass.
 
 ### Fixed
 - Fixed target extraction in `blast-radius-guard.sh` and `aapp-pre-commit` when targets use backticked markers like `` `NEW FILE` -> `path` `` (ISSUE-035).
