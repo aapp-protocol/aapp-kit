@@ -122,16 +122,16 @@ All planning and architectural tracking operates in the isolated `.plans/` workt
 
 The agent must support and execute these shorthand workflow triggers immediately without requiring manual prompt setup:
 
-- **`status` (or `/status`)**: Act as a Context Recovery agent upon desk return.
+- **`status` (or `/aapp:status`, `/aapp status`, `/status`)**: Act as a Context Recovery agent upon desk return.
   1. Inspect `CHANGELOG.md` (or `.plans/CHANGELOG.md`) to identify recently shipped code.
   2. **Issue lane:** Inspect `.plans/ISSUES.md` (or root `ISSUES.md`) and `.plans/issues_road_map.md` (the human's fix ordering over it). Report the top open issues **in the order the board gives them**.
   3. **Plan lane:** Inspect `.plans/state_matrix.md` (future implementations only) for active incubator plans, blockers, and greenlit tasks. Keep this separate from the issue lane in your briefing — never blend the two into one list.
   4. **Pickup queue:** Inspect `.plans/pickup.md` and **list the unprocessed ideas by name, with a count**. These are live and unworked — often the most valuable thing on the board when the user has just returned to the desk. Surface them so the user can pick one; do **not** digest them, and do not compress them away into a single "you have some notes" line.
-  5. Print a concise, structured briefing across all **four pillars — Shipped, Issues, Plans, Pickup** — with immediate next actions. **Never omit a pillar**, even when it is empty: write `Pickup: empty` rather than silently dropping the section. Where the Pickup queue is non-empty, offer `/digest <idea>` on a named entry as a next action.
+  5. Print a concise, structured briefing across all **four pillars — Shipped, Issues, Plans, Pickup** — with immediate next actions. **Never omit a pillar**, even when it is empty: write `Pickup: empty` rather than silently dropping the section. Where the Pickup queue is non-empty, offer `/aapp:digest <idea>` on a named entry as a next action.
 
-- **`digest <idea>` (or `/digest <idea>`)**: Take **one** idea and work it toward a plan. This is a targeted operation — never a bulk sweep of `pickup.md`.
+- **`digest <idea>` (or `/aapp:digest <idea>`, `/aapp digest <idea>`, `/digest <idea>`)**: Take **one** idea and work it toward a plan. This is a targeted operation — never a bulk sweep of `pickup.md`.
 
-  **Step 1 — Resolve the idea.** `<idea>` may be raw text typed inline, or a reference to an entry in `.plans/pickup.md`. If `<idea>` is omitted, list the open entries in `pickup.md` and **ask the user which one to digest**. Never choose for them, and never process the whole file at once.
+  **Step 1 — Resolve the idea.** `<idea>` may be raw text typed inline, or a reference to an entry in `.plans/pickup.md` (or a reference file in `.plans/pickup/`). If `<idea>` is omitted, list the open entries in `pickup.md` and **ask the user which one to digest**. Never choose for them, and never process the whole file at once.
 
   **Step 2 — Route it to a lane.** If the idea describes wrong behaviour in code that already ships, it is an issue: **record it in `.plans/ISSUES.md` (or root `ISSUES.md`) and place it on `.plans/issues_road_map.md` first — always.** Then judge the size of the fix:
   - **Small / obvious fix** → stop there. The issue record is enough; no blueprint.
@@ -165,20 +165,20 @@ The agent must support and execute these shorthand workflow triggers immediately
 
   > **`digest` produces a draft, never a green light.** The output is an Incubator entry to be refined. Only `freeze` makes a plan executable.
 
-- **`freeze <plan>` (or `/freeze <plan>`)**: Lock and greenlight a blueprint for code execution.
+- **`freeze <plan>` (or `/aapp:freeze <plan>`, `/aapp freeze <plan>`, `/freeze <plan>`)**: Lock and greenlight a blueprint for code execution.
   1. Scan `.plans/current/<plan>.md` to verify all Open Questions are resolved and Blast Radius (`Target Files` / `Out of Bounds`) is explicitly defined.
   2. Move the plan in `.plans/state_matrix.md` from the Incubator into `## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)`.
   3. Seal the boundary: the execution session may only touch files in the locked Blast Radius.
 
-- **`done <plan>` (or `/done <plan>`)**: Complete lifecycle and archive implemented blueprint.
+- **`done <plan>` (or `/aapp:done <plan>`, `/aapp done <plan>`, `/done <plan>`)**: Complete lifecycle and archive implemented blueprint.
   1. Move the plan file: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
   2. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` with plan file link, target issue, verification commit, and repo-relative impact summary.
   3. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items).
   4. Commit the transition to the `plans` worktree.
 
-- **`release <version>` (or `/release <version>`, `/preflight`)**: Execute release pre-flight verification runbook.
+- **`release <version>` (or `/aapp:release <version>`, `/aapp release <version>`, `/release <version>`, `/preflight`)**: Execute release pre-flight verification runbook.
   1. Inspect `.plans/release/release_checklist.md` (the canonical release runbook for the project).
-  2. If the checklist contains unconfigured placeholders, assist the developer in tailoring the audit and test commands to the project's actual stack.
+  2. Enforce the Stable vs. Edge convention (Section 0 of checklist): `main` is strictly STABLE (clean tag `vX.Y.Z`), `develop` is EDGE (`-dev`). `develop` must fast-forward cleanly into `main` before tagging.
   3. Step through the defined test suites, linters, and security audit checks.
   4. Verify `CHANGELOG.md` (or `.plans/CHANGELOG.md`) has version entries staged and ready for tagging.
   5. Report a structured release posture assessment (Tests, Linters, Docs, Rollback readiness) to the user.
