@@ -1,7 +1,7 @@
 # 🗺️ Plan: Documentation, Templates & Test Alignment (Batch 4)
 * **Created:** 2026-09-10 | **Last Refined:** 2026-09-10
 * **Target Issue / Milestone:** #ISSUE-020 (Batch 4: ISSUE-020 to ISSUE-030, ISSUE-033, ISSUE-034, ISSUE-039)
-* **Status:** 🟡 Refining
+* **Status:** 🟢 Ready for Execution
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -74,6 +74,7 @@ This ensures that generated template files (`templates/*`), technical manuals (`
 - [ ] `templates/architecture.md` -> Fix tree paths
 - [ ] `templates/AGENTS.md` -> Update comment reference
 - [ ] `examples/example-plan-unified-install-and-upgrade.md` -> Renamed and modernized example
+- [ ] `examples/example_plan_unified_install_and_upgrade.md` -> Legacy snake_case example replaced by kebab-case
 - [ ] `tests/write-guard_test.sh` -> Clean up test assertions and remove dead call
 - [ ] `CHANGELOG.md` -> Record Batch 4 resolution
 

@@ -12,13 +12,13 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🧠 1. Human Thought & Refinement (The Incubator)
 
-* 🔴 [plan-v1.0.3-docs-templates-and-test-alignment.md](current/plan-v1.0.3-docs-templates-and-test-alignment.md) - **Documentation, Templates & Test Alignment** - Drafted, pending open question resolution.
+*(No unpolished drafts currently in incubator)*
 
 ---
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-*(No blueprints currently frozen for coding)*
+* 🟢 [plan-v1.0.3-docs-templates-and-test-alignment.md](current/plan-v1.0.3-docs-templates-and-test-alignment.md) - **Documentation, Templates & Test Alignment (Batch 4)** - `0% DONE` -> Frozen and ready for execution.
 
 ---
 
