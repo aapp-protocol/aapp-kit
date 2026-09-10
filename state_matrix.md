@@ -20,8 +20,8 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ---
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
-
-- 🟢 [`plan-feature-aapp-adaptive-branch-guard.md`](current/plan-feature-aapp-adaptive-branch-guard.md) — Smart Adaptive Branch Protection (`main` protection with trunk/dual-branch auto-detection).
+ 
+*(No plans currently frozen — greenlight zone empty)*
 
 ---
 
