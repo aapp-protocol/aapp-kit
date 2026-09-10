@@ -16,13 +16,12 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🔴 [`plan-feature-aapp-slash-commands.md`](current/plan-feature-aapp-slash-commands.md) — Ship the five lifecycle verbs as real `.claude/commands/aapp/*.md`, synced into every project by `aapp init` (`ISSUE-061`).
 - 🔴 [`plan-feature-aapp-airgapped-pickup.md`](current/plan-feature-aapp-airgapped-pickup.md) — Air-Gapped Reference Store (`.plans/pickup/`) & 5-Layer Leak Protection Architecture.
 - 🔴 [`plan-feature-aapp-lifecycle-hooks.md`](current/plan-feature-aapp-lifecycle-hooks.md) — Lifecycle Plugin Hooks Architecture (`.plans/hooks/`) with POSIX JSON stdio contract.
-- 🔴 [`plan-feature-aapp-adaptive-branch-guard.md`](current/plan-feature-aapp-adaptive-branch-guard.md) — Smart Adaptive Branch Protection (`main` protection with trunk/dual-branch auto-detection).
 
 ---
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-*(No blueprints currently frozen for coding)*
+- 🟢 [`plan-feature-aapp-adaptive-branch-guard.md`](current/plan-feature-aapp-adaptive-branch-guard.md) — Smart Adaptive Branch Protection (`main` protection with trunk/dual-branch auto-detection).
 
 ---
 

@@ -1,7 +1,7 @@
 # 🗺️ Plan: Smart Adaptive Branch Protection & Getting Started Docs
 * **Created:** 2026-09-10 | **Last Refined:** 2026-09-10
 * **Target Issue / Milestone:** Milestone v1.1.0 (Branch Protection & Onboarding)
-* **Status:** 🔴 Under Review
+* **Status:** 🟢 Ready for Execution
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
@@ -85,7 +85,7 @@ When a direct commit to a protected branch is blocked:
 ### Phase 1: Pre-Commit Hook Engine Implementation
 - [ ] Task 1.1: Add Phase 0 Branch Protection in `templates/aapp-pre-commit`.
 - [ ] Task 1.2: Implement `git config aapp.*` resolution with defaults.
-- [ ] Task 1.3: Implement local branch existence probe (`git show-ref --verify --quiet refs/heads/<branch>`).
+- [ ] Task 1.3: Implement local branch existence probe (`git show-ref --verify --quiet refs/heads/<branch>`), with fallback to remote tracking branches (`refs/remotes/*/<branch>`).
 - [ ] Task 1.4: Support bypass via `ALLOW_MAIN_COMMIT=1` and `SKIP_BLAST_RADIUS=1`.
 
 ### Phase 2: Documentation in "Getting Started"
@@ -106,7 +106,7 @@ When a direct commit to a protected branch is blocked:
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*(Marked: **PROPOSED** — confers no execution rights until frozen)*
+*(Marked: **LOCKED** — greenlit for code execution)*
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `templates/aapp-pre-commit` -> Implement adaptive branch guard.
@@ -124,10 +124,11 @@ When a direct commit to a protected branch is blocked:
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 (Auto-detection Scope):** Should the hook check only local branches (`refs/heads/<branch>`) or also remote tracking branches (`refs/remotes/origin/<branch>`) when checking if `develop` exists? (Recommended: Check local branches first, fall back to remote tracking branches so freshly cloned repos with an un-checked-out `develop` are still protected).
-* [ ] **Question 2 (Merge Commit Exemption):** When `develop` is merged into `main` (fast-forward or merge commit during release), should the hook automatically exempt merge commits? (Recommended: Yes, fast-forward merges do not fire pre-commit, and `ALLOW_MAIN_COMMIT=1` handles non-fast-forward release merges).
+* [x] **Question 1 (Auto-detection Scope — Resolved 2026-09-10):** Check local branches (`refs/heads/<branch>`) first, then fall back to remote tracking branches (`refs/remotes/*/<branch>`) so freshly cloned repositories with an un-checked-out dev branch remain protected.
+* [x] **Question 2 (Merge Commit Exemption — Resolved 2026-09-10):** Fast-forward release merges do not trigger pre-commit hooks, and non-fast-forward release merges can be run with `ALLOW_MAIN_COMMIT=1`.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-10:** Plan frozen for execution. Resolved Open Questions 1 & 2 with recommended solutions; locked blast radius.
 * **2026-09-10:** Plan drafted to eliminate accidental commits to `main` with existence-aware auto-detection and Getting Started onboarding documentation.
