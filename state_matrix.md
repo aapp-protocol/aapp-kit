@@ -13,6 +13,8 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ## 🧠 1. Human Thought & Refinement (The Incubator)
 
 - 🔴 [`plan-feature-aapp-remote-sync.md`](current/plan-feature-aapp-remote-sync.md) — Remote Worktree Synchronization (`aapp push`, `aapp pull`, `aapp sync`) with A/C hybrid configuration model.
+- 🔴 [`plan-feature-aapp-slash-commands.md`](current/plan-feature-aapp-slash-commands.md) — Ship the five lifecycle verbs as real `.claude/commands/aapp/*.md`, synced into every project by `aapp init` (`ISSUE-061`).
+- 🔴 [`plan-feature-aapp-airgapped-pickup.md`](current/plan-feature-aapp-airgapped-pickup.md) — Air-Gapped Reference Store (`.plans/pickup/`) & 5-Layer Leak Protection Architecture.
 
 ---
 

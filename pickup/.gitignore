@@ -1,0 +1,5 @@
+# AAPP Local Scratchpad — Air-Gapped Reference Store
+# Ignore all transcripts, audio dumps, and sensitive references dropped here
+*
+!.gitignore
+!.gitkeep

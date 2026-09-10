@@ -1,0 +1,5 @@
+# AAPP .plans Worktree Git Ignore
+# Air-gapped local reference store (transcripts, chat dumps, private notes)
+pickup/*
+!pickup/.gitkeep
+!pickup/.gitignore

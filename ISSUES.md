@@ -1,18 +1,18 @@
 # 🐛 Issues: Audit Trail & Technical Backlog
 
-Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 full sweep of
-`aapp`, `lib/`, `templates/`, `tests/`, `README.md`, and `MANUAL.md`.
+Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 full sweep and the
+2026-09-10 sweep of `aapp`, `lib/`, `templates/`, `tests/`, `README.md`, and `MANUAL.md`.
 
 **Status values:** 🟡 `Incubated` (recorded, unscheduled) · 🔵 `Planned` (promoted to a blueprint) · 🟠 `In Progress` · ✅ `Resolved`
 
 > ### 📏 Issue Authoring Invariant (2–3 Sentences Max)
 > Keep rows concise (2–3 sentences max per cell). Avoid lengthy essays. If a bug requires detailed architectural analysis or multi-step breakdown, summarize the symptom here and promote it to a plan (`/digest ISSUE-00X`).
 
-**Verification:** all 3 suites pass (79/79). Every issue below was reproduced by hand.
+**Verification:** all 3 suites pass (84/84 — 36 + 18 + 30). Every issue below was reproduced by hand.
 
 ---
 
-## 🔴 1. Critical — Layer 1 enforcement does not work
+## 🔴 1. Critical
 
 | ID | Location | Problem | Fix | Status |
 | :--- | :--- | :--- | :--- | :--- |
@@ -20,6 +20,9 @@ Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 ful
 | **ISSUE-002** | `templates/blast-radius-guard.sh:55` | Only `./` is stripped; Claude Code sends **absolute** `file_path`. Every allow-case at `:87-97` matches relative paths only, so with an active plan even `CHANGELOG.md` and the plan file itself are denied. Must be fixed together with ISSUE-001. | Strip `$(git rev-parse --show-toplevel)/` before matching. | ✅ `Resolved` |
 | **ISSUE-003** | `lib/cmd_init.sh:105-110` | Pre-2.42 git fallback runs `git rm -rf .` in the **main working tree**: uncommitted edits and staged new files are destroyed (verified). On a repo with zero commits, `git checkout $MAIN_BRANCH` fails and `set -e` aborts, leaving the repo on `plans`. | Require a clean tree, or use safe plumbing orphan branch creation. | ✅ `Resolved` |
 | **ISSUE-035** | `blast-radius-guard.sh:120-126`, `aapp-pre-commit:75-81` | Backticked `NEW FILE` marker (e.g. `- [ ] `NEW FILE` -> `src/path`` in `plan-template.md:30`) is not stripped by `sub(/^[[:space:]]*NEW FILE[[:space:]]*->/, "", line)`. `match` captures `"NEW FILE"`, `item !~ /^(NEW FILE...)$/` evaluates to false, and the line is dropped without extracting the target file. Every new file target in blueprints following the official template is silently rejected. | Strip backticked and unbackticked markers: `sub(/^[[:space:]]*(`?(NEW FILE\|MODIFY\|DELETE\|ADD\|REPLACE)`?)?[[:space:]]*->[[:space:]]*/, "", line)`. | ✅ `Resolved` |
+| **ISSUE-049** | `lib/cmd_upgrade.sh:19` | `aapp upgrade` clones the upstream default branch, but `main` is 13 commits behind `develop` and still carries the pre-fix guard (`exit 1` + `{"decision":"deny"}`, i.e. ISSUE-001). Every upgrade therefore silently downgrades Layer 1 to inert, and no version comparison exists to detect it. | Publish `develop` to `main` and tag releases; read the upstream `AAPP_VERSION` and refuse downgrades; honour an `AAPP_UPSTREAM_REF` override. | 🟡 `Incubated` |
+| **ISSUE-050** | `lib/cmd_init.sh:19-31` | In drop-in mode a kit whose basename is `agent-planning-kit` or `aapp-develop-kit` resolves `REPO_ROOT` to its **own** git root and ignores the cwd. Running `/path/to/agent-planning-kit/aapp init` from an unrelated project initializes the kit repo instead, printing a full success banner (verified). | Prefer the kit's own root only when the cwd is inside it; otherwise resolve from `$PWD`, and print the resolved root before any mutation. | 🟡 `Incubated` |
+| **ISSUE-051** | `lib/cmd_install.sh:95-106`, `cmd_init.sh:435-446` | Self-consumption `rm -rf "$AAPP_SCRIPT_DIR"` is gated on a basename allowlist rather than on directory contents. Dropping the kit into an existing project and running `./aapp install` deletes that entire directory including `.git` and unrelated sources, with no confirmation (verified). | Consume only when nothing beyond the kit signature is present, confirm when `[ -t 0 ]`, and add a `--keep` flag. | 🟡 `Incubated` |
 
 ---
 
@@ -35,6 +38,9 @@ Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 ful
 | **ISSUE-036** | `templates/aapp-pre-commit:24` | `CORE_CODE_REGEX` omits shell extensions (`.sh`, `.bash`, `.zsh`) and extensionless executables (`aapp`). Modifying shell scripts or CLI binaries never increments `STAGED_CORE_COUNT`, bypassing `CHANGELOG.md` enforcement entirely for shell-based repositories. | Add `sh\|bash\|zsh` to `CORE_CODE_REGEX` and support extensionless scripts. | ✅ `Resolved` |
 | **ISSUE-041** | `templates/blast-radius-guard.sh:45` | Large JSON payloads passed via command argument `"$RAW_INPUT"` exceed system `ARG_MAX` (>256KB on macOS), causing Python to crash with exit code 126. Because of `2>/dev/null || true`, `$PARSED` is empty, causing the guard to fail open and allow writes to any file outside the Blast Radius. | Stream JSON payload to Python via `stdin` (`sys.stdin`) instead of CLI arguments. | ✅ `Resolved` |
 | **ISSUE-043** | `lib/cmd_install.sh:27` | Running `aapp install` after `aapp develop` executes `rm -rf "${SHARE_DIR:?}/lib"` through the symlink. This traverses into the development clone and destroys `lib/` in the active source repository. | Unlink `$SHARE_DIR` and `$BIN_DIR/aapp` symlinks before creating directories and copying. | ✅ `Resolved` |
+| **ISSUE-052** | `templates/blast-radius-guard.sh:65-89` | The deny payload omits `hookEventName` and `permissionDecisionReason`; the text sits in a top-level `reason` field that PreToolUse does not read, and stderr is left empty. `exit 2` still blocks the write, but the agent is denied with no reason and cannot self-correct. | Emit `hookSpecificOutput.{hookEventName,permissionDecision,permissionDecisionReason}` and mirror the reason to stderr. | 🟡 `Incubated` |
+| **ISSUE-053** | `lib/cmd_init.sh:346`, `MANUAL.md`, `.claude/settings.json` | The matcher `Write\|Edit\|NotebookEdit` matches exact tool names, so `MultiEdit` writes never reach Layer 1. ISSUE-007 reconciled `MANUAL.md` against the code by dropping `MultiEdit` rather than adding it. | Add `MultiEdit` to the matcher in `cmd_init.sh`, `MANUAL.md`, and the shipped `.claude/settings.json`. | 🟡 `Incubated` |
+| **ISSUE-054** | `templates/blast-radius-guard.sh:94-104` | Self-protection covers `.githooks/*` and `.git/hooks/*` but not `.git/config`, which holds `core.hooksPath`. With no active plan the guard fail-opens and the file is writable (verified), so a single edit disables Layer 2 entirely. | Add `.git/config\|*/.git/config` to the self-protection `case`. | 🟡 `Incubated` |
 
 ---
 
@@ -61,6 +67,12 @@ Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 ful
 | **ISSUE-046** | `templates/blast-radius-guard.sh:52-53,62` | Uses deprecated POSIX `head -1` in POSIX fallback and unquoted `$REPO_ROOT` pattern expansion (SC2295). Paths with glob characters fail to strip the repository root. | Change to `head -n 1` and quote pattern `"${TARGET_FILE#"$REPO_ROOT"/}"`. | ✅ `Resolved` |
 | **ISSUE-047** | `lib/cmd_status.sh:89,106` | Plan status grep requires `* **Status:**`, falling back to `🟡 Active` for dash-listed plans. `pickup.md` counts completed `[x]` ideas, and `wc -l` on macOS emits leading spaces. | Support `-` and `*` bullets, filter `\[x\]`, and strip whitespace in pickup count. | ✅ `Resolved` |
 | **ISSUE-048** | `templates/pre-commit:14`, `aapp-pre-commit:265` | `[ -x ]` in `pre-commit` skips enforcement if execute bit was dropped on checkout. JSON schema check in `aapp-pre-commit` relies on system default locale instead of explicit UTF-8. | Execute via `bash "$REPO_ROOT/.githooks/aapp-pre-commit"` and specify `encoding='utf-8'`. | ✅ `Resolved` |
+| **ISSUE-055** | `templates/aapp-pre-commit:60-67` | CHANGELOG enforcement accepts `.plans/CHANGELOG.md` on a 900-second mtime window, so a committed and unmodified changelog satisfies the gate purely because it was touched recently, while the identical commit is blocked 15 minutes later (verified). Wall-clock dependence contradicts the protocol's determinism guarantee. | Drop the mtime branch — `git -C .plans status --porcelain` already covers the legitimate case. | 🟡 `Incubated` |
+| **ISSUE-056** | `blast-radius-guard.sh:166`, `aapp-pre-commit:123` | `[[ "$target" == $pattern ]]` lets `*` cross `/`, so a target of `src/*.py` admits `src/deep/nested/evil.py` and a bare `*` admits everything (verified). The effective Blast Radius is wider than blueprint authors intend. | Document the glob semantics in `plan-template.md`, or match path segments explicitly. | 🟡 `Incubated` |
+| **ISSUE-057** | `blast-radius-guard.sh:203-212`, `aapp-pre-commit:171-180` | A file marked Out of Bounds by one plan is allowed when a second active plan lists it as a target — `write-guard_test.sh:106` pins this as intended. Since `.plans/*` is unconditionally writable, an agent can author a new plan granting itself any path. | Decide the contract: make OOB a global veto, or state the drift-rail (not sandbox) limit at `README.md:37`. | 🟡 `Incubated` |
+| **ISSUE-058** | `aapp:9` | `AAPP_VERSION` has stayed `1.0.0` across 13 commits of fixes and the repo carries no tags, so the protocol block still stamps `v1.0.0` after every upgrade. Users cannot tell which protocol version is actually installed. | Bump `AAPP_VERSION` per release, tag it, and surface it in `aapp status`. | 🟡 `Incubated` |
+| **ISSUE-059** | `lib/cmd_status.sh:93` | `sort -z` is GNU / newer-BSD only and fails on older macOS `sort`, breaking the Plans pillar of the briefing. Every other portability path in the kit already carries a BSD fallback (`stat -c` / `-f`). | Iterate the `find -print0` stream unsorted, or probe `sort -z` support and fall back. | 🟡 `Incubated` |
+| **ISSUE-060** | `blast-radius-guard.sh:124`, `aapp-pre-commit:84` | `ACTIVE_PLANS=$(ls -1 .plans/current/*.md)` read line-by-line handles spaces but breaks on newlines in plan filenames. It is the last non-NUL-safe path left in the enforcement engine. | Use `find .plans/current -maxdepth 1 -name '*.md' -print0` with a NUL-delimited read. | 🟡 `Incubated` |
 
 ---
 
@@ -80,6 +92,7 @@ Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 ful
 | **ISSUE-029** | `templates/architecture.md:24-25` | Tree places `pickup.md` and `state_matrix.md` under `.plans/current/`; init writes them to `.plans/`. | Correct the tree. | ✅ `Resolved` |
 | **ISSUE-030** | `templates/AGENTS.md:12` | Says "MANAGED BY AAPP-INIT" — that binary no longer exists post-unification. | Say `aapp init`. | ✅ `Resolved` |
 | **ISSUE-039** | `examples/example_plan_unified_install_and_upgrade.md` | Inconsistent filename casing (`snake_case` vs `kebab-case`) and contains outdated references to standalone `aapp-init` / `aapp-install` binaries rather than the unified `aapp` CLI. | Rename file to `kebab-case` and update binary references to `aapp init` / `aapp install`. | ✅ `Resolved` |
+| **ISSUE-061** | `README.md:241-245` | The lifecycle table presents `/status`, `/digest`, `/freeze`, `/done` and `/release` as slash commands, but they exist only as prose conventions in `AGENTS.md`. In Claude Code these resolve to unknown commands. | [`current/plan-feature-aapp-slash-commands.md`](current/plan-feature-aapp-slash-commands.md) — ship `.claude/commands/aapp/*.md` synced by `aapp init`. | 🔵 `Planned` |
 
 ---
 
@@ -92,6 +105,8 @@ Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 ful
 | **ISSUE-033** | `tests/write-guard_test.sh:112-117` | Guard is run against garbage stdin, then `assert_rc` is *defined* on the next line — that first invocation asserts nothing; line 117 duplicates it. | Delete the dead call; hoist the helpers. | ✅ `Resolved` |
 | **ISSUE-034** | `tests/` | No coverage for the pre-2.42 git fallback (ISSUE-003), deletions (ISSUE-005), or a non-root cwd (ISSUE-004). | Add regression cases. | ✅ `Resolved` |
 | **ISSUE-040** | `tests/pre-commit_test.sh:66` | Test 2b tests unbackticked `- [ ] NEW FILE -> `src/new_mod.py``, masking the parser bug where backticked `` `NEW FILE` `` (from `plan-template.md`) drops declared target files. | Add test assertions for backticked markers (` `NEW FILE` `, ` `MODIFY` `, etc.). | ✅ `Resolved` |
+| **ISSUE-062** | `tests/write-guard_test.sh:147` | The deny-schema assertion checks only `decision == 'deny'` and `permissionDecision == 'deny'`, so the missing `permissionDecisionReason` of ISSUE-052 passes unnoticed. Nothing asserts that the denial reason actually reaches the caller. | Assert `hookEventName == 'PreToolUse'` and a non-empty `permissionDecisionReason`. | 🟡 `Incubated` |
+| **ISSUE-063** | `tests/`, repository CI | No CI runs the three suites, and no release gate blocks publishing a `main` that trails `develop` — the direct cause of ISSUE-049. All 84 cases pass locally, but nothing enforces that on push. | Add a GitHub Actions workflow running all three suites plus a branch-parity check, and a `tests/run_all.sh` entrypoint. | 🟡 `Incubated` |
 
 ---
 
