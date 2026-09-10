@@ -93,7 +93,7 @@ By decoupling these concerns into independent Git worktrees:
 | `.agents/AGENTS.md` | `agents` worktree | Agent behavioral contracts, protocol rules, and slash command bindings. |
 | `.agents/PROJECT.MD` | `agents` worktree | Project-specific personas, milestones, and high-level architectural rules. |
 | `.plans/ISSUES.md` | `plans` worktree *(or root)* | Canonical defect audit trail, bug triage ledger, and resolution notes. |
-| `.plans/` | `plans` worktree | Active blueprints (`current/`), archives (`done/`), scratchpad (`pickup.md`), priority roadmap (`issues_road_map.md`), and state matrix (`state_matrix.md`). |
+| `.plans/` | `plans` worktree | Active blueprints (`current/`), historical archives and master ledger (`done/000-archive-ledger.md`), scratchpad (`pickup.md`), priority roadmap (`issues_road_map.md`), and state matrix (`state_matrix.md`). |
 | `.githooks/` | `githooks` worktree | Dual-layer blast radius enforcement scripts (`aapp-pre-commit`, `pre-commit`, `blast-radius-guard`). |
 | `.claude/settings.json` | Repo Root | Configures Claude Code to trigger `.githooks/blast-radius-guard` on `PreToolUse`. |
 
@@ -305,10 +305,18 @@ AAPP enforces a strict conceptual separation between **fixing what exists** and 
 | Property | **Issue Lane** (Bugs & Gaps) | **Plan Lane** (Implementations) |
 | :--- | :--- | :--- |
 | **Describes** | Something that exists and behaves wrongly | Something that does not exist yet |
-| **Canonical Record** | `ISSUES.md` (repo root) | `.plans/current/<plan>.md` |
+| **Canonical Record** | `ISSUES.md` (repo root or `.plans/`) | `.plans/current/<plan>.md` |
 | **Priority Ordering** | `.plans/issues_road_map.md` | `.plans/state_matrix.md` |
 | **Contents** | Bugs, regressions, edge-case gaps | Features, refactors, new capabilities |
 | **Blast Radius?** | No — fixed in place | Yes — locked before execution |
+
+---
+
+### 📏 Issue Conciseness Invariant (2–3 Lines Maximum)
+
+To prevent context bloat and keep triage boards scan-friendly:
+- **Concise Summaries**: Table entries in `ISSUES.md` must never be long transcripts or essays. State the exact location, the specific symptom, and the 1-line fix direction in **2–3 concise sentences maximum**.
+- **The Complexity Rule**: If describing a bug, reproduction steps, or root cause requires multi-paragraph explanations, diagrams, or architectural analysis, **do not bloat `ISSUES.md`**. Log a 2-sentence summary in `ISSUES.md` and immediately promote it to a draft blueprint (`/digest ISSUE-00X`), where full technical blueprints and RFCs belong.
 
 ---
 
@@ -380,11 +388,12 @@ Transitions a refined blueprint into the Greenlight Zone:
 - Changes status to `🟢 Ready for Execution`.
 - Enables commit-time and write-time enforcement for the plan's targets.
 
-#### `/done <plan>` — Archival Ledger
+#### `/done <plan>` — Master Archival Ledger & Completion
 Completes the lifecycle:
 - Moves blueprint: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
-- Updates `.plans/state_matrix.md` to `100% DONE` in the Archival Ledger.
-- Prompts for `CHANGELOG.md` verification.
+- Appends a 1-line completion record to `.plans/done/000-archive-ledger.md` (recording plan link, target issue, verification commit, and repo-relative impact summary).
+- Removes the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items, eliminating folded historical archives).
+- Verifies tests, linters, and `CHANGELOG.md` entry.
 
 #### `/release <version>` or `/preflight` — Release Runbook
 Executes `.plans/release/release_checklist.md`:
@@ -396,9 +405,9 @@ Executes `.plans/release/release_checklist.md`:
 
 ### Token Management & Context Efficiency
 
-To optimize LLM context windows and reduce token costs:
-- **Focus strictly on active sections**: When reading `.plans/state_matrix.md`, ignore collapsed `<details>` blocks containing historical milestones.
-- **Archive Isolation**: Files in `.plans/done/` and `.plans/aborted/` are historical archives; agents should not load them unless specifically requested for historical auditing.
+To optimize LLM context windows and reduce token consumption:
+- **Active Focus Only**: When reading `.plans/state_matrix.md`, focus strictly on active sections (`Roadmap`, `1. The Incubator`, and `2. The Greenlight Zone`).
+- **Archive Isolation**: Historical blueprints in `.plans/done/` and the master ledger `.plans/done/000-archive-ledger.md` are isolated archives; agents should not load them unless specifically requested by the user for an architectural audit or historical lookup.
 
 ---
 

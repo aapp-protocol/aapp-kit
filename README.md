@@ -50,12 +50,12 @@ your-project/ (main/dev branch - contains application source code & public docs)
 ├── .plans/              --> Worktree mounted on orphan branch 'plans'
 │   ├── current/         --> Active RFC blueprints & plans (e.g. plan-auth.md)
 │   ├── release/         --> Production checklists & release runbooks
-│   ├── done/            --> Permanent historical record of finished plans
+│   ├── done/            --> Historical blueprint archives & master ledger (000-archive-ledger.md)
 │   ├── aborted/         --> Discarded plans
 │   ├── pickup.md        --> Fast agent scratchpad for active context
 │   ├── ISSUES.md        --> Canonical defect audit trail & triage ledger
 │   ├── issues_road_map.md --> Defect priority roadmap & triage queue
-│   └── state_matrix.md  --> State matrix & architectural brain
+│   └── state_matrix.md  --> State matrix & active incubator brain
 ├── .agents/             --> Worktree mounted on orphan branch 'agents'
 │   ├── AGENTS.md        --> Agent behavioral contracts & slash commands
 │   ├── CODEMAP.md       --> Module ownership & structural interface mapping
@@ -237,11 +237,11 @@ When pair programming with AI assistants, use the standard AAPP command lifecycl
 
 | Command | Lifecycle Phase | Description |
 | :--- | :--- | :--- |
-| `/status` (or `aapp status`) | **Orient** | Scan `.plans/pickup.md` and active plans to report current progress. |
-| `/digest` | **Sync** | Refresh `.plans/state_matrix.md` and update scratchpad. |
-| `/freeze <file>` | **Lock** | Freeze blueprint status to `🟢 Ready for Execution`. Sets hard boundaries. |
-| `/done <file>` | **Archive** | Move completed plan to `.plans/done/` and update `CHANGELOG.md`. |
-| `/abort <file>` | **Discard** | Move abandoned plan to `.plans/aborted/` with rationale. |
+| `/status` (or `aapp status`) | **Orient** | Scan four pillars (Shipped, Issues, Plans, Pickup) to report current posture. |
+| `/digest <idea>` | **Ingest** | Ingest idea into Issue Lane (`ISSUES.md`) or Plan Lane (`.plans/current/`). |
+| `/freeze <plan>` | **Lock** | Lock Blast Radius boundaries and greenlight blueprint for execution. |
+| `/done <plan>` | **Archive** | Move plan to `done/`, append to `000-archive-ledger.md`, and clean `state_matrix.md`. |
+| `/release <ver>` | **Preflight** | Execute release verification runbook and check changelog staging. |
 
 ### Blueprint Anatomy (Blast Radius Declaration)
 Every plan in `.plans/current/<name>.md` defines strict boundaries:
@@ -266,18 +266,18 @@ Every plan in `.plans/current/<name>.md` defines strict boundaries:
 
 ## 8. Testing & Verification Suites
 
-AAPP includes 69 automated regression test cases verifying hook enforcement, write-guard protection, and installer resolution:
+AAPP includes 80 automated regression test cases verifying hook enforcement, write-guard protection, and installer resolution:
 
 ```bash
-# Run complete test verification suite (69 tests)
+# Run complete test verification suite (80 tests)
 ./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh
 ```
 
 | Suite | File | Tests | Coverage |
 | :--- | :--- | :--- | :--- |
-| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 31 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`), adoption, in-place block upgrades, migration, `.claude/settings.json` merge, Husky wiring. |
-| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 12 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal. |
-| **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 26 cases | PreToolUse Claude Code JSON payload, self-protection invariants, fail-open behavior, OOB denial. |
+| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 34 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` merge, Husky wiring. |
+| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 17 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal regex, pure POSIX JSON parser. |
+| **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 29 cases | PreToolUse Claude Code JSON payload, self-protection invariants, fail-open behavior, OOB denial, pure POSIX json parser fallback. |
 
 ---
 
