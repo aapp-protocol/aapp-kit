@@ -25,7 +25,9 @@ This ensures that generated template files (`templates/*`), technical manuals (`
 
 ### A. Documentation & TOC Fixes (`README.md`, `MANUAL.md`)
 - **TOC Regeneration (ISSUE-020, ISSUE-024)**: Rebuild the Table of Contents in `README.md` and `MANUAL.md` to ensure all anchors match rendered headings and include new sections (e.g. `aapp develop` Contributor Mode, Master Archival Ledger).
-- **Hook Wiring Recommendation Alignment (ISSUE-021)**: Ensure `README.md`, `MANUAL.md`, and CLI output (`cmd_init.sh`) consistently recommend the deterministic engine `$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit` for subprocess invocation from custom master hooks (Perl, Python, Node, Ruby, Husky, Lefthook).
+- **Hook Architecture & Wiring Clarity (ISSUE-021)**:
+  - Clearly document the separation between `.githooks/pre-commit` (the project-owned master runner, installed once and never overwritten on upgrade) and `.githooks/aapp-pre-commit` (the AAPP-managed blast-radius engine, updated automatically on upgrades).
+  - Highlight the Polyglot Invocation Cheat Sheet in `MANUAL.md` (Perl, Python, Node.js, Ruby, Husky, Lefthook) showing how developers wire `.githooks/aapp-pre-commit` into their master hooks alongside custom project linters/tests in their preferred execution order.
 - **Syntax Validator Claims (ISSUE-025)**: Correct `MANUAL.md` syntax check descriptions to reflect supported linters (Python `py_compile`, PHP `php -l`, JSON syntax).
 - **Orphan Branch & Error Codes (ISSUE-027)**: Update `MANUAL.md` explanation of orphan branch creation to match the safe non-destructive Git plumbing algorithm (`commit-tree`), and update Claude Code decision handling (`exit code 2` / `hookSpecificOutput`).
 
@@ -51,7 +53,7 @@ This ensures that generated template files (`templates/*`), technical manuals (`
 
 ### Phase 2: Documentation & Manual Alignment
 - [ ] Task 2.1: Regenerate Table of Contents in `README.md` and `MANUAL.md` (`ISSUE-020`, `ISSUE-024`).
-- [ ] Task 2.2: Harmonize hook wiring instructions between `cmd_init.sh` and documentation (`ISSUE-021`).
+- [ ] Task 2.2: Clarify master `.githooks/pre-commit` vs managed `.githooks/aapp-pre-commit` upgrade architecture and polyglot wiring in `README.md` and `MANUAL.md` (`ISSUE-021`).
 - [ ] Task 2.3: Correct syntax validation and orphan branch explanations in `MANUAL.md` (`ISSUE-025`, `ISSUE-027`).
 - [ ] Task 2.4: Align No-Plan Grace Period description in `MANUAL.md` (`ISSUE-026`).
 
@@ -86,10 +88,10 @@ This ensures that generated template files (`templates/*`), technical manuals (`
 ## ❓ 5. Open Questions (Optional / Gate)
 *(None — design is fully specified)*
 * **Q1 (Resolved):** Standard Git rename of `examples/example_plan_unified_install_and_upgrade.md` to `examples/example-plan-unified-install-and-upgrade.md` (kebab-case).
-* **Q2 (Resolved):** Polyglot Invocation Cheat Sheet in `MANUAL.md` demonstrates how custom pre-commit hooks written in any language (Perl, Python, Node, Ruby, Husky, Lefthook) invoke `.githooks/aapp-pre-commit` at the desired position in their check pipeline. `cmd_init.sh` and `README.md` are aligned with this recommendation.
+* **Q2 (Resolved):** Separation of concerns locked: `.githooks/pre-commit` is installed once as the customizable project entrypoint (never overwritten on upgrade). `.githooks/aapp-pre-commit` is the managed engine (upgraded automatically). `MANUAL.md` showcases polyglot cheat sheets (Perl, Python, Node, Ruby, Husky, Lefthook) for custom hook wiring.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-09-10:** Plan drafted from `/digest ISSUE-020` (Batch 4 items).
-* **2026-09-10:** Resolved Q1 (Git rename) and Q2 (Polyglot cheat sheet alignment). Ready for freeze.
+* **2026-09-10:** Refined hook architecture: locked `.githooks/pre-commit` (project-owned entrypoint) vs `.githooks/aapp-pre-commit` (managed engine) with polyglot wiring recipes. Ready for freeze.
