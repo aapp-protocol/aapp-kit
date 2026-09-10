@@ -13,14 +13,14 @@ BIN_DIR="$HOME/.local/bin"
 echo "🗑️  Uninstalling AAPP global tools..."
 REMOVED_ANY=0
 for BIN in "$BIN_DIR/aapp" "$BIN_DIR/aapp-init" "$BIN_DIR/aapp-install"; do
-    if [ -f "$BIN" ]; then
+    if [ -e "$BIN" ] || [ -L "$BIN" ]; then
         rm -f "$BIN"
         echo "   • Removed $BIN"
         REMOVED_ANY=1
     fi
 done
 
-if [ -d "$SHARE_DIR" ]; then
+if [ -e "$SHARE_DIR" ] || [ -L "$SHARE_DIR" ]; then
     rm -rf "$SHARE_DIR"
     echo "   • Removed $SHARE_DIR"
     REMOVED_ANY=1

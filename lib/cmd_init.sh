@@ -189,8 +189,12 @@ sync_agent_rules() {
 
     local block_tmp
     block_tmp="$(mktemp)"
-    awk '
-        /<!-- AAPP-PROTOCOL:START/ { inside=1 }
+    awk -v ver="$AAPP_VERSION" '
+        /<!-- AAPP-PROTOCOL:START/ {
+            inside=1
+            print "<!-- AAPP-PROTOCOL:START v" ver " -->"
+            next
+        }
         inside { print }
         /<!-- AAPP-PROTOCOL:END -->/ { inside=0 }
     ' "$template" > "$block_tmp"
@@ -198,11 +202,6 @@ sync_agent_rules() {
     if [ ! -s "$block_tmp" ]; then
         rm -f "$block_tmp"
         return 0
-    fi
-
-    # Dynamically stamp current AAPP_VERSION
-    if command -v sed >/dev/null 2>&1; then
-        sed -i "s/<!-- AAPP-PROTOCOL:START.*/<!-- AAPP-PROTOCOL:START v${AAPP_VERSION} -->/" "$block_tmp" 2>/dev/null || true
     fi
 
     if grep -q "<!-- AAPP-PROTOCOL:START" "$target" && grep -q "<!-- AAPP-PROTOCOL:END -->" "$target"; then

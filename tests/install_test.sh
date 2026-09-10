@@ -624,8 +624,54 @@ else
 fi
 report "aapp develop links live clone globally without copying or consuming" "PASS" "$got" "$out_dev"
 
+# Test 35: aapp install after aapp develop safely unlinks symlink and preserves source files
+DEV_HOME_35="$R/t35_home"; mkdir -p "$DEV_HOME_35"
+DEV_KIT_35="$R/t35_dev_kit"; make_kit_clone "$DEV_KIT_35"
+(
+  cd "$DEV_KIT_35"
+  PATH="/usr/bin:/bin" HOME="$DEV_HOME_35" XDG_DATA_HOME="$DEV_HOME_35/.local/share" ./aapp develop >/dev/null 2>&1
+)
+INSTALLER_35="$R/t35_installer"; make_kit_clone "$INSTALLER_35"
+(
+  cd "$INSTALLER_35"
+  PATH="/usr/bin:/bin" HOME="$DEV_HOME_35" XDG_DATA_HOME="$DEV_HOME_35/.local/share" ./aapp install >/dev/null 2>&1 < /dev/null
+)
+if [ -d "$DEV_KIT_35/lib" ] && \
+   [ -f "$DEV_KIT_35/lib/cmd_init.sh" ] && \
+   [ -d "$DEV_HOME_35/.local/share/aapp-kit" ] && \
+   [ ! -L "$DEV_HOME_35/.local/share/aapp-kit" ] && \
+   [ ! -L "$DEV_HOME_35/.local/bin/aapp" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "install after develop unlinks safely without deleting repo source" "PASS" "$got"
+
+# Test 36: aapp uninstall cleans up broken/dangling symlinks
+DEV_HOME_36="$R/t36_home"; mkdir -p "$DEV_HOME_36"
+DEV_KIT_36="$R/t36_dev_kit"; make_kit_clone "$DEV_KIT_36"
+(
+  cd "$DEV_KIT_36"
+  PATH="/usr/bin:/bin" HOME="$DEV_HOME_36" XDG_DATA_HOME="$DEV_HOME_36/.local/share" ./aapp develop >/dev/null 2>&1
+)
+rm -rf "$DEV_KIT_36"
+out_uninst_broken=$(
+  PATH="/usr/bin:/bin" HOME="$DEV_HOME_36" XDG_DATA_HOME="$DEV_HOME_36/.local/share" "$KIT/aapp" uninstall 2>&1
+)
+bin_remains=0
+[ -e "$DEV_HOME_36/.local/bin/aapp" ] || [ -L "$DEV_HOME_36/.local/bin/aapp" ] && bin_remains=1
+share_remains=0
+[ -e "$DEV_HOME_36/.local/share/aapp-kit" ] || [ -L "$DEV_HOME_36/.local/share/aapp-kit" ] && share_remains=1
+if [ $bin_remains -eq 0 ] && [ $share_remains -eq 0 ] && echo "$out_uninst_broken" | grep -q "Removed"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "uninstall removes broken/dangling symlinks cleanly" "PASS" "$got" "$out_uninst_broken"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"
 echo "============================================================"
 [ $FAIL -eq 0 ] || exit 1
+

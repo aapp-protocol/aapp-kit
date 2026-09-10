@@ -21,6 +21,10 @@ echo "🚀 Installing Asymmetric Agent Planning Protocol (AAPP v$AAPP_VERSION)..
 BIN_CREATED=0
 [ ! -d "$BIN_DIR" ] && BIN_CREATED=1
 
+# If previously linked via 'aapp develop', unlink symlinks first to prevent traversing into source repo
+[ -L "$SHARE_DIR" ] && rm -f "$SHARE_DIR"
+[ -L "$BIN_DIR/aapp" ] && rm -f "$BIN_DIR/aapp"
+
 mkdir -p "$SHARE_DIR" "$BIN_DIR"
 
 echo "📦 Copying libraries, templates, and test suites to $SHARE_DIR..."

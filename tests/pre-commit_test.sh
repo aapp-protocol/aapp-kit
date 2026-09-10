@@ -230,6 +230,35 @@ else
   printf "  \033[31m✘\033[0m %-52s want PASS got %s\n" ".plans/CHANGELOG.md satisfies changelog requirement" "$got_plan_cl"; FAIL=$((FAIL+1))
 fi
 
+echo "== 9. pre-commit executes even if aapp-pre-commit lost execute bit (+x) =="
+setup
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> allowed target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+mkdir -p .githooks
+cp "$KIT/templates/aapp-pre-commit" .githooks/aapp-pre-commit
+chmod -x .githooks/aapp-pre-commit
+cp "$KIT/templates/pre-commit" .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+echo "bad=1" > src/untracked.py
+echo "- bump changelog" >> CHANGELOG.md
+git add src/untracked.py CHANGELOG.md
+rc_non_exec=0
+out_non_exec=$(git commit -m "commit untracked" 2>&1) || rc_non_exec=$?
+if [ $rc_non_exec -ne 0 ] && echo "$out_non_exec" | grep -q "Pre-Commit Blast Radius Violation"; then
+  got_non_exec=BLOCK
+else
+  got_non_exec=PASS
+fi
+if [ "$got_non_exec" = "BLOCK" ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "pre-commit catches violation without +x bit" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got %s\n" "pre-commit catches violation without +x bit" "$got_non_exec"; FAIL=$((FAIL+1))
+fi
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]

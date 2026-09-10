@@ -182,6 +182,23 @@ else
   red "deny payload valid JSON via POSIX fallback" "OK" "$POSIX_OUTPUT"; FAIL=$((FAIL+1))
 fi
 
+echo "== large JSON payload (>300KB) does not fail-open via ARG_MAX =="
+setup
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `src/forbidden.py` -> denied
+## end
+EOF
+LARGE_PAYLOAD=$(python3 -c "import json; print(json.dumps({'tool_name': 'Write', 'tool_input': {'file_path': '$R/repo/src/forbidden.py', 'content': 'x' * 350000}}))")
+rc_large=0
+echo "$LARGE_PAYLOAD" | "$GUARD" >/dev/null 2>&1 || rc_large=$?
+if [ $rc_large -eq 2 ]; then
+  green "large payload (>300KB) blocked with exit code 2" "DENY"; PASS=$((PASS+1))
+else
+  red "large payload (>300KB) blocked with exit code 2" "DENY" "rc=$rc_large"; FAIL=$((FAIL+1))
+fi
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]

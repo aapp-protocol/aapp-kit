@@ -39,6 +39,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Corrected directory structure mapping in `templates/architecture.md` and `ARCHITECTURE.md` (ISSUE-029).
 - Modernized and renamed example blueprint to kebab-case `examples/example-plan-unified-install-and-upgrade.md` (ISSUE-039).
 - Synchronized Table of Contents anchors, syntax check descriptions, and safe orphan branch plumbing docs in `README.md` and `MANUAL.md` (ISSUE-020, ISSUE-021, ISSUE-024, ISSUE-025, ISSUE-026, ISSUE-027).
+- Streamed JSON stdin in `blast-radius-guard.sh` to prevent `ARG_MAX` argument length crashes and fail-open bypass on large writes (ISSUE-041).
+- Filtered resolved issues in `cmd_status.sh` roadmap parser to ensure accurate context recovery briefings (ISSUE-042).
+- Safely unlinked `$SHARE_DIR` and `$BIN_DIR` symlinks before installation in `cmd_install.sh` to prevent traversing into and deleting source code (ISSUE-043).
+- Replaced non-portable BSD `sed -i` with dynamic `awk` version stamping in `cmd_init.sh` (ISSUE-044).
+- Cleaned up broken/dangling symlinks in `cmd_uninstall.sh` (ISSUE-045).
+- Replaced obsolete POSIX `head -1` with `head -n 1` and quoted repository root expansions in `blast-radius-guard.sh` (ISSUE-046).
+- Supported dash list bullets in plan status parser and trimmed leading spaces in pickup idea count in `cmd_status.sh` (ISSUE-047).
+- Executed `aapp-pre-commit` via shell in `pre-commit` to prevent silent bypass when execute bit is dropped, and added explicit UTF-8 encoding in schema check (ISSUE-048).
 
 ### Changed
 - Moved `SKIP_BLAST_RADIUS=1` check to hook entrypoints to guarantee emergency bypass.

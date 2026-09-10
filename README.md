@@ -267,18 +267,18 @@ Every plan in `.plans/current/<name>.md` defines strict boundaries:
 
 ## 8. Testing & Verification Suites
 
-AAPP includes 80 automated regression test cases verifying hook enforcement, write-guard protection, and installer resolution:
+AAPP includes 84 automated regression test cases verifying hook enforcement, write-guard protection, and installer resolution:
 
 ```bash
-# Run complete test verification suite (80 tests)
+# Run complete test verification suite (84 tests)
 ./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh
 ```
 
 | Suite | File | Tests | Coverage |
 | :--- | :--- | :--- | :--- |
-| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 34 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` merge, Husky wiring. |
-| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 17 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal regex, pure POSIX JSON parser. |
-| **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 29 cases | PreToolUse Claude Code JSON payload, self-protection invariants, fail-open behavior, OOB denial, pure POSIX json parser fallback. |
+| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 36 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` merge, Husky wiring. |
+| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 18 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution. |
+| **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 30 cases | PreToolUse Claude Code JSON payload, self-protection invariants, fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
 
 ---
 
