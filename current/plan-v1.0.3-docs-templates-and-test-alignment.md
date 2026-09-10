@@ -1,7 +1,7 @@
 # 🗺️ Plan: Documentation, Templates & Test Alignment (Batch 4)
 * **Created:** 2026-09-10 | **Last Refined:** 2026-09-10
 * **Target Issue / Milestone:** #ISSUE-020 (Batch 4: ISSUE-020 to ISSUE-030, ISSUE-033, ISSUE-034, ISSUE-039)
-* **Status:** 🔴 Under Review
+* **Status:** 🟡 Refining
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -25,7 +25,7 @@ This ensures that generated template files (`templates/*`), technical manuals (`
 
 ### A. Documentation & TOC Fixes (`README.md`, `MANUAL.md`)
 - **TOC Regeneration (ISSUE-020, ISSUE-024)**: Rebuild the Table of Contents in `README.md` and `MANUAL.md` to ensure all anchors match rendered headings and include new sections (e.g. `aapp develop` Contributor Mode, Master Archival Ledger).
-- **Hook Wiring Recommendation Alignment (ISSUE-021)**: Ensure `README.md`, `MANUAL.md`, and CLI output (`cmd_init.sh`) consistently recommend the master runner (`.githooks/aapp-pre-commit` or `.githooks/pre-commit`).
+- **Hook Wiring Recommendation Alignment (ISSUE-021)**: Ensure `README.md`, `MANUAL.md`, and CLI output (`cmd_init.sh`) consistently recommend the deterministic engine `$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit` for subprocess invocation from custom master hooks (Perl, Python, Node, Ruby, Husky, Lefthook).
 - **Syntax Validator Claims (ISSUE-025)**: Correct `MANUAL.md` syntax check descriptions to reflect supported linters (Python `py_compile`, PHP `php -l`, JSON syntax).
 - **Orphan Branch & Error Codes (ISSUE-027)**: Update `MANUAL.md` explanation of orphan branch creation to match the safe non-destructive Git plumbing algorithm (`commit-tree`), and update Claude Code decision handling (`exit code 2` / `hookSpecificOutput`).
 
@@ -84,10 +84,12 @@ This ensures that generated template files (`templates/*`), technical manuals (`
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Q1:** In `examples/`, should we delete the legacy `snake_case` file `examples/example_plan_unified_install_and_upgrade.md` once renamed to `examples/example-plan-unified-install-and-upgrade.md`? (Recommended: Yes, standard Git rename).
-* [ ] **Q2:** For `ISSUE-021` hook wiring, should `cmd_init.sh` and `README.md` consistently recommend `$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit` for custom hooks (or the master runner `.githooks/pre-commit`)?
+*(None — design is fully specified)*
+* **Q1 (Resolved):** Standard Git rename of `examples/example_plan_unified_install_and_upgrade.md` to `examples/example-plan-unified-install-and-upgrade.md` (kebab-case).
+* **Q2 (Resolved):** Polyglot Invocation Cheat Sheet in `MANUAL.md` demonstrates how custom pre-commit hooks written in any language (Perl, Python, Node, Ruby, Husky, Lefthook) invoke `.githooks/aapp-pre-commit` at the desired position in their check pipeline. `cmd_init.sh` and `README.md` are aligned with this recommendation.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-09-10:** Plan drafted from `/digest ISSUE-020` (Batch 4 items).
+* **2026-09-10:** Resolved Q1 (Git rename) and Q2 (Polyglot cheat sheet alignment). Ready for freeze.
