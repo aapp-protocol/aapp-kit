@@ -32,25 +32,25 @@ elif [ ! -t 0 ]; then
     fi
     # Parse JSON payload via python3
     if command -v python3 >/dev/null 2>&1; then
-        PARSED=$(python3 -c '
+        PARSED=$(printf '%s' "$RAW_INPUT" | python3 -c '
 import json, sys
 try:
-    data = json.loads(sys.argv[1])
+    data = json.load(sys.stdin)
     tool = data.get("tool_name", "")
     inp = data.get("tool_input", {})
     path = inp.get("file_path") or inp.get("path") or inp.get("target_file") or ""
     print(f"{tool}\t{path}")
 except Exception:
     sys.exit(0)
-' "$RAW_INPUT" 2>/dev/null || true)
+' 2>/dev/null || true)
         if [ -n "$PARSED" ]; then
             TOOL_NAME=$(echo "$PARSED" | cut -f1)
             TARGET_FILE=$(echo "$PARSED" | cut -f2)
         fi
     else
         # POSIX fallback
-        TARGET_FILE=$(echo "$RAW_INPUT" | grep -oE '"(file_path|path|target_file)"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')
-        TOOL_NAME=$(echo "$RAW_INPUT" | grep -oE '"tool_name"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')
+        TARGET_FILE=$(echo "$RAW_INPUT" | grep -oE '"(file_path|path|target_file)"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')
+        TOOL_NAME=$(echo "$RAW_INPUT" | grep -oE '"tool_name"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')
     fi
 fi
 
@@ -59,7 +59,7 @@ if [ -z "$TARGET_FILE" ]; then
 fi
 
 # Normalize path relative to project root
-TARGET_FILE="${TARGET_FILE#$REPO_ROOT/}"
+TARGET_FILE="${TARGET_FILE#"$REPO_ROOT"/}"
 TARGET_FILE="${TARGET_FILE#./}"
 
 deny_action() {
@@ -79,7 +79,7 @@ print(json.dumps(out))
 ' "$reason"
         else
             local escaped_reason
-            escaped_reason=$(printf '%s' "$reason" | sed 's/\\/\\\\/g; s/"/\\"/g')
+            escaped_reason=$(printf '%s' "$reason" | awk '{printf "%s%s", (NR>1?" ":""), $0}' | sed 's/\\/\\\\/g; s/"/\\"/g')
             printf '{"decision":"deny","reason":"%s","hookSpecificOutput":{"permissionDecision":"deny"}}\n' "$escaped_reason"
         fi
     else

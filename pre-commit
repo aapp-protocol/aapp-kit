@@ -11,8 +11,8 @@ if [ -z "$REPO_ROOT" ]; then
 fi
 
 # 1. AAPP Blast Radius & Changelog Enforcement (must run first)
-if [ -x "$REPO_ROOT/.githooks/aapp-pre-commit" ]; then
-    "$REPO_ROOT/.githooks/aapp-pre-commit" || exit 1
+if [ -f "$REPO_ROOT/.githooks/aapp-pre-commit" ]; then
+    bash "$REPO_ROOT/.githooks/aapp-pre-commit" || exit 1
 fi
 
 # 2. Project-Specific Checks (Add your linters, tests, or scripts below)
