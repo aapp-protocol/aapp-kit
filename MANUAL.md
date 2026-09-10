@@ -17,6 +17,7 @@
 * [3. Dual-Layer Blast Radius Enforcement Engine](#3-dual-layer-blast-radius-enforcement-engine)
   * [Layer 1: Write-Time PreToolUse Guard (`blast-radius-guard`)](#layer-1-write-time-pretooluse-guard-blast-radius-guard)
   * [Layer 2: Commit-Time Pre-Commit Engine (`aapp-pre-commit`)](#layer-2-commit-time-pre-commit-engine-aapp-pre-commit)
+  * [Adaptive Branch Protection & Repository Topologies](#adaptive-branch-protection--repository-topologies)
   * [Parsing Invariants & Prose Isolation](#parsing-invariants--prose-isolation)
   * [Escape Hatches & Fail-Open Design](#escape-hatches--fail-open-design)
 * [4. The Two-Lane Protocol: Issues vs. Plans](#4-the-two-lane-protocol-issues-vs-plans)
@@ -227,11 +228,70 @@ Located at `.githooks/blast-radius-guard`, this executable intercepts AI tool ca
 Located at `.githooks/aapp-pre-commit` (invoked directly or via `.githooks/pre-commit`), this Git hook runs on every `git commit`.
 
 #### Key Responsibilities:
-1. **Changelog Enforcement**: Whenever any source code file is modified, `CHANGELOG.md` must be staged. Rules files (`.agents/*`) and planning files (`.plans/*`) are exempt.
-2. **Blast Radius Verification**: Compares all staged files against the union of `### 📂 Target Files` across all active blueprints in `.plans/current/*.md`.
-3. **Concurrent Plan Support**: If two developers or agents work on separate active plans (`plan-a.md` and `plan-b.md`), files declared in *either* plan are permitted.
-4. **Blocked Plan Refusal**: If a plan's status is `🚫 BLOCKED`, commits targeting its files are rejected until the human unblocks the plan.
-5. **Syntax Validation**: Automatically runs syntax verification on staged files (e.g., Python `python3 -m py_compile`, PHP `php -l`, JSON syntax).
+1. **Adaptive Branch Protection**: Prevents accidental direct commits to stable production branches (`main`, `master`, `production`) whenever active development branches exist.
+2. **Changelog Enforcement**: Whenever any source code file is modified, `CHANGELOG.md` must be staged. Rules files (`.agents/*`) and planning files (`.plans/*`) are exempt.
+3. **Blast Radius Verification**: Compares all staged files against the union of `### 📂 Target Files` across all active blueprints in `.plans/current/*.md`.
+4. **Concurrent Plan Support**: If two developers or agents work on separate active plans (`plan-a.md` and `plan-b.md`), files declared in *either* plan are permitted.
+5. **Blocked Plan Refusal**: If a plan's status is `🚫 BLOCKED`, commits targeting its files are rejected until the human unblocks the plan.
+6. **Syntax Validation**: Automatically runs syntax verification on staged files (e.g., Python `python3 -m py_compile`, PHP `php -l`, JSON syntax).
+
+---
+
+### Adaptive Branch Protection & Repository Topologies
+
+AAPP supports two primary development models, adapting automatically without requiring manual configuration:
+
+#### 1. Trunk-Based Development (Single Branch)
+In single-branch repositories where developers or teams commit directly to `main` (or `master`):
+- No separate development branch (`develop`, `dev`, `development`) exists.
+- The pre-commit engine probes local branches (`refs/heads/*`) and remote tracking branches (`refs/remotes/*/*`).
+- When no development branch is found, **the branch protection guard automatically fails open**, permitting all commits directly on `main`.
+
+#### 2. Dual-Branch Topology: Stable vs. Edge (Recommended)
+In multi-branch repositories, AAPP enforces the **2-Rule Law**:
+- **Branch Law**:
+  - `main` is strictly **STABLE** (clean semantic release tags `vX.Y.Z`).
+  - `develop` (or `dev`) is **EDGE** (active day-to-day engineering and feature development).
+- **Release Law**:
+  - Active engineering stays on `develop`.
+  - Releases fast-forward cleanly into `main` before tagging:
+    ```bash
+    git checkout main
+    git merge develop --ff-only
+    git tag -a v1.2.0 -m "Release v1.2.0"
+    ```
+
+#### Enforcement & Auto-Detection Algorithm
+When committing on a protected branch (`main`, `master`, `production`), the pre-commit engine executes:
+```sh
+1. Is ALLOW_MAIN_COMMIT=1? -> Allow commit (emergency/release bypass).
+2. Is aapp.protectStable configured to false? -> Allow commit (opt-out).
+3. Is current branch in $PROTECTED_BRANCHES?
+   -> Check if any branch in $DEV_BRANCHES exists:
+      - git show-ref --verify --quiet "refs/heads/$DB" (local)
+      - git show-ref --verify --quiet "refs/remotes/origin/$DB" (remote origin)
+      - git show-ref --quiet -- "refs/remotes/*/$DB" (any remote)
+   -> If dev branch exists: Block commit with instructions to switch branches.
+   -> If no dev branch exists: Allow commit (trunk-based fallback).
+```
+
+#### Configuration Options (`git config`)
+You can fine-tune branch protection per-repository or globally:
+| Git Config Key | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `aapp.protectStable` | bool | `true` | Set to `false` to disable branch protection entirely. |
+| `aapp.protectedBranches` | string | `"main master production"` | Space-separated list of protected production branches. |
+| `aapp.devBranch` | string | `"develop dev development"` | Space-separated list of candidate development branches. |
+
+#### Bypassing Branch Protection
+- **Intentional Release or Hotfix Commit on `main`**:
+  ```bash
+  ALLOW_MAIN_COMMIT=1 git commit -m "hotfix: critical security patch"
+  ```
+- **Complete Blast Radius & Hook Bypass**:
+  ```bash
+  SKIP_BLAST_RADIUS=1 git commit -m "emergency bypass"
+  ```
 
 ---
 

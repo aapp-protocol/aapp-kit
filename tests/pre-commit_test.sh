@@ -259,6 +259,88 @@ else
   printf "  \033[31m✘\033[0m %-52s want BLOCK got %s\n" "pre-commit catches violation without +x bit" "$got_non_exec"; FAIL=$((FAIL+1))
 fi
 
+echo "== 10. adaptive branch protection guard =="
+setup
+# 10a. Single-branch repository (main only) allows commits
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+echo "x=10" > src/a.py
+check "single-branch repo allows commit on main" PASS src/a.py
+
+# 10b. Dual-branch repository (main + develop) blocks direct commits on main
+git branch develop
+echo "x=11" > src/a.py
+git add src/a.py CHANGELOG.md
+rc_main=0
+out_main=$(git commit -m "direct to main" 2>&1) || rc_main=$?
+if [ $rc_main -ne 0 ] && echo "$out_main" | grep -q "Direct commits to 'main' are prohibited"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "dual-branch blocks direct commit on main" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got rc=%d\n" "dual-branch blocks direct commit on main" "$rc_main"; FAIL=$((FAIL+1))
+fi
+git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null
+
+# 10c. Commits on develop branch succeed
+git checkout -q develop
+echo "x=12" > src/a.py
+check "commit on develop branch succeeds" PASS src/a.py
+
+# 10d. Emergency bypass ALLOW_MAIN_COMMIT=1 permits commit on main
+git checkout -q main
+echo "x=13" > src/a.py
+echo "- emergency fix" >> CHANGELOG.md
+git add src/a.py CHANGELOG.md
+rc_bypass=0
+out_bypass=$(ALLOW_MAIN_COMMIT=1 git commit -m "emergency commit on main" 2>&1) || rc_bypass=$?
+if [ $rc_bypass -eq 0 ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "ALLOW_MAIN_COMMIT=1 permits commit on main" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS got rc=%d\n" "ALLOW_MAIN_COMMIT=1 permits commit on main" "$rc_bypass"; FAIL=$((FAIL+1))
+fi
+
+# 10e. Opt-out via git config aapp.protectStable false permits commit on main
+git config --bool aapp.protectStable false
+echo "x=14" > src/a.py
+echo "- bump" >> CHANGELOG.md
+git add src/a.py CHANGELOG.md
+rc_optout=0
+out_optout=$(git commit -m "commit on main with protectStable=false" 2>&1) || rc_optout=$?
+if [ $rc_optout -eq 0 ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "aapp.protectStable false permits commit on main" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS got rc=%d\n" "aapp.protectStable false permits commit on main" "$rc_optout"; FAIL=$((FAIL+1))
+fi
+git config --unset aapp.protectStable
+
+# 10f. Custom dev branch config (aapp.devBranch)
+setup
+git branch staging
+git config aapp.devBranch "staging"
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+echo "x=15" > src/a.py
+echo "- bump" >> CHANGELOG.md
+git add src/a.py CHANGELOG.md
+rc_custom=0
+out_custom=$(git commit -m "direct to main with staging dev" 2>&1) || rc_custom=$?
+if [ $rc_custom -ne 0 ] && echo "$out_custom" | grep -q "staging"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "custom devBranch staging triggers protection" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got rc=%d\n" "custom devBranch staging triggers protection" "$rc_custom"; FAIL=$((FAIL+1))
+fi
+git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null
+git checkout -q staging
+echo "x=16" > src/a.py
+check "commit on custom dev branch staging succeeds" PASS src/a.py
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]

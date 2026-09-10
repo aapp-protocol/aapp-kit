@@ -16,14 +16,18 @@
   * [Option 1: Drop-In Project Setup (Self-Consuming)](#option-1-drop-in-project-setup-self-consuming)
   * [Option 2: Global Installation](#option-2-global-installation)
   * [Option 3: Contributor / Development Setup (aapp develop)](#option-3-contributor--development-setup-aapp-develop)
-* [5. Existing Project Conflicts, Adoption & Upgrades](#5-existing-project-conflicts-adoption--upgrades)
+* [5. Branching Topologies & Adaptive Branch Protection](#5-branching-topologies--adaptive-branch-protection)
+  * [Option A: Trunk-Based Development (Single Branch)](#option-a-trunk-based-development-single-branch)
+  * [Option B: Dual-Branch Topology (Stable vs. Edge — Recommended)](#option-b-dual-branch-topology-stable-vs-edge--recommended)
+  * [🛡️ Smart Adaptive Branch Protection](#-smart-adaptive-branch-protection)
+* [6. Existing Project Conflicts, Adoption & Upgrades](#6-existing-project-conflicts-adoption--upgrades)
   * [Seamless Adoption & In-Place Protocol Upgrades](#seamless-adoption--in-place-protocol-upgrades)
   * [Existing Hook Managers (Husky, Lefthook, Native Hooks)](#existing-hook-managers-husky-lefthook-native-hooks)
-* [6. Remote Sync & Multi-Machine Workflow](#6-remote-sync--multi-machine-workflow)
-* [7. Daily Agent Workflow & Slash Commands](#7-daily-agent-workflow--slash-commands)
-* [8. Testing & Verification Suites](#8-testing--verification-suites)
-* [9. Blueprint Example & Technical Manual](#9-blueprint-example--technical-manual)
-* [10. License](#10-license)
+* [7. Remote Sync & Multi-Machine Workflow](#7-remote-sync--multi-machine-workflow)
+* [8. Daily Agent Workflow & Slash Commands](#8-daily-agent-workflow--slash-commands)
+* [9. Testing & Verification Suites](#9-testing--verification-suites)
+* [10. Blueprint Example & Technical Manual](#10-blueprint-example--technical-manual)
+* [11. License](#11-license)
 
 ---
 
@@ -91,6 +95,7 @@ graph TD
     F -->|CHANGELOG missing on code change| G[❌ Commit Blocked]
     F -->|Staged file outside Target Files| G
     F -->|Syntax / Linter Failure| G
+    F -->|Direct commit to protected main with active dev branch| G
     F -->|All Invariants & Blast Radius Valid| H[✅ Commit Successful]
 ```
 
@@ -105,7 +110,8 @@ graph TD
    - Validates staged files against the active plan in `.plans/current/*.md`.
    - Supports concurrent active plans without cross-blocking.
    - Performs syntax checking on modified files.
-   - Escape hatch available when needed: `SKIP_BLAST_RADIUS=1 git commit`.
+   - **Adaptive Branch Protection**: Prevents accidental direct commits to `main` when active development branches exist.
+   - Escape hatches available when needed: `SKIP_BLAST_RADIUS=1` or `ALLOW_MAIN_COMMIT=1`.
 
 ---
 
@@ -177,7 +183,50 @@ cd aapp-develop-kit
 
 ---
 
-## 5. Existing Project Conflicts, Adoption & Upgrades
+## 5. Branching Topologies & Adaptive Branch Protection
+
+AAPP adapts seamlessly to how your team works, whether you prefer simple trunk-based development or a production-grade dual-branch model.
+
+### Option A: Trunk-Based Development (Single Branch)
+If your repository works directly on `main` (or `master`):
+- All application commits occur on `main`.
+- Planning (`.plans/`), rules (`.agents/`), and hooks (`.githooks/`) remain completely isolated on their orphan branches.
+- **Zero friction**: The pre-commit hook automatically detects that no development branch exists, permitting direct commits to `main` without extra configuration.
+
+### Option B: Dual-Branch Topology (Stable vs. Edge — Recommended)
+To prevent unreleased features or experimental agent code from landing in production, adopt the **2-Rule Law**:
+1. **Branch Law**:
+   - `main` is strictly **STABLE** (contains only tagged releases, clean tags e.g. `v1.0.0`).
+   - `develop` (or `dev`) is **EDGE** (active day-to-day engineering and feature incubation).
+2. **Release Law**:
+   - Development happens on `develop`.
+   - Releases fast-forward cleanly into `main` before tagging:
+     ```bash
+     git checkout main
+     git merge develop --ff-only
+     git tag -a v1.0.1 -m "Release v1.0.1"
+     ```
+
+### 🛡️ Smart Adaptive Branch Protection
+When a development branch (`develop`, `dev`, or `development`) exists, `.githooks/aapp-pre-commit` automatically activates branch protection:
+- **Direct commits to protected branches (`main`, `master`, `production`) are refused** with clear guidance directing you to switch to your development branch.
+- **Emergency Release/Hotfix Bypass**: If you intentionally need to commit directly to `main`:
+  ```bash
+  ALLOW_MAIN_COMMIT=1 git commit -m "hotfix: critical security patch"
+  ```
+- **Custom Branch Names**: If your team uses custom branch names (e.g. `staging` for development):
+  ```bash
+  git config aapp.devBranch "staging"
+  git config aapp.protectedBranches "main production"
+  ```
+- **Opting Out**: To permanently disable branch protection for trunk-based development:
+  ```bash
+  git config --bool aapp.protectStable false
+  ```
+
+---
+
+## 6. Existing Project Conflicts, Adoption & Upgrades
 
 ### Seamless Adoption & In-Place Protocol Upgrades
 When `aapp init` runs against a project:
@@ -203,7 +252,7 @@ If your repository already uses a hook manager (`core.hooksPath` set to `.husky`
 
 ---
 
-## 6. Remote Sync & Multi-Machine Workflow
+## 7. Remote Sync & Multi-Machine Workflow
 
 AAPP worktrees exist on separate orphan branches (`plans`, `agents`, `githooks`). You can push and pull them to your remote repository independently:
 
@@ -232,17 +281,17 @@ aapp init
 
 ---
 
-## 7. Daily Agent Workflow & Slash Commands
+## 8. Daily Agent Workflow & Slash Commands
 
-When pair programming with AI assistants, use the standard AAPP command lifecycle:
+When pair programming with AI assistants, use the standard AAPP command lifecycle (invoked as shorthand or `/aapp:<command>`):
 
-| Command | Lifecycle Phase | Description |
+| Shorthand / Slash Command | Lifecycle Phase | Description |
 | :--- | :--- | :--- |
-| `/status` (or `aapp status`) | **Orient** | Scan four pillars (Shipped, Issues, Plans, Pickup) to report current posture. |
-| `/digest <idea>` | **Ingest** | Ingest idea into Issue Lane (`ISSUES.md`) or Plan Lane (`.plans/current/`). |
-| `/freeze <plan>` | **Lock** | Lock Blast Radius boundaries and greenlight blueprint for execution. |
-| `/done <plan>` | **Archive** | Move plan to `done/`, append to `000-archive-ledger.md`, and clean `state_matrix.md`. |
-| `/release <ver>` | **Preflight** | Execute release verification runbook and check changelog staging. |
+| `/aapp:status` (or `status`, `aapp status`) | **Orient** | Scan four pillars (Shipped, Issues, Plans, Pickup) to report current posture. |
+| `/aapp:digest <idea>` (or `digest <idea>`) | **Ingest** | Ingest idea into Issue Lane (`ISSUES.md`) or Plan Lane (`.plans/current/`). |
+| `/aapp:freeze <plan>` (or `freeze <plan>`) | **Lock** | Lock Blast Radius boundaries and greenlight blueprint for execution. |
+| `/aapp:done <plan>` (or `done <plan>`) | **Archive** | Move plan to `done/`, append to `000-archive-ledger.md`, and clean `state_matrix.md`. |
+| `/aapp:release <ver>` (or `release <ver>`) | **Preflight** | Execute release verification runbook and check changelog staging. |
 
 ### Blueprint Anatomy (Blast Radius Declaration)
 Every plan in `.plans/current/<name>.md` defines strict boundaries:
@@ -265,30 +314,30 @@ Every plan in `.plans/current/<name>.md` defines strict boundaries:
 
 ---
 
-## 8. Testing & Verification Suites
+## 9. Testing & Verification Suites
 
-AAPP includes 84 automated regression test cases verifying hook enforcement, write-guard protection, and installer resolution:
+AAPP includes 91 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, and installer resolution:
 
 ```bash
-# Run complete test verification suite (84 tests)
+# Run complete test verification suite (91 tests)
 ./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh
 ```
 
 | Suite | File | Tests | Coverage |
 | :--- | :--- | :--- | :--- |
 | **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 36 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` merge, Husky wiring. |
-| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 18 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution. |
+| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 25 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection (single-branch, dual-branch, bypass, opt-out, custom dev branches). |
 | **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 30 cases | PreToolUse Claude Code JSON payload, self-protection invariants, fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
 
 ---
 
-## 9. Blueprint Example & Technical Manual
+## 10. Blueprint Example & Technical Manual
  
 * **Complete Blueprint Example**: See [examples/example-plan-distribution-rework.md](examples/example-plan-distribution-rework.md) for a real-world, fully refined AAPP blueprint demonstrating Blast Radius declarations, technical decision logs (Q1–Q9), and verification matrix.
 * **Comprehensive Technical Manual**: See [MANUAL.md](MANUAL.md) for low-level Git worktree plumbing, Two Lanes protocol, state machine lifecycle, multi-agent IDE integration, hook manager recipes, and operations.
 
 ---
 
-## 10. License
+## 11. License
 
 Released under the [BSD 3-Clause License](LICENSE).

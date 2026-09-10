@@ -28,6 +28,57 @@ if [ ${#STAGED_FILES[@]} -eq 0 ]; then
     exit 0
 fi
 
+# ------------------------------------------------------------------------------
+# 0. ADAPTIVE BRANCH PROTECTION (STABLE VS. EDGE GUARD)
+# ------------------------------------------------------------------------------
+if [ "${ALLOW_MAIN_COMMIT:-0}" != "1" ]; then
+    PROTECT_STABLE="$(git config --bool aapp.protectStable 2>/dev/null || echo "true")"
+    if [ "$PROTECT_STABLE" != "false" ]; then
+        CURRENT_BRANCH="$(git branch --show-current 2>/dev/null || true)"
+        if [ -n "$CURRENT_BRANCH" ]; then
+            PROTECTED_BRANCHES="$(git config aapp.protectedBranches 2>/dev/null || echo "main master production")"
+            DEV_BRANCHES="$(git config aapp.devBranch 2>/dev/null || echo "develop dev development")"
+
+            IS_PROTECTED=0
+            for PB in $PROTECTED_BRANCHES; do
+                if [ "$CURRENT_BRANCH" = "$PB" ]; then
+                    IS_PROTECTED=1
+                    break
+                fi
+            done
+
+            if [ "$IS_PROTECTED" -eq 1 ]; then
+                # Probe if an active development branch exists (local or remote tracking)
+                DEV_BRANCH_FOUND=""
+                for DB in $DEV_BRANCHES; do
+                    if git show-ref --verify --quiet "refs/heads/$DB" 2>/dev/null || \
+                       git show-ref --verify --quiet "refs/remotes/origin/$DB" 2>/dev/null || \
+                       git show-ref --quiet -- "refs/remotes/*/$DB" 2>/dev/null; then
+                        DEV_BRANCH_FOUND="$DB"
+                        break
+                    fi
+                done
+
+                if [ -n "$DEV_BRANCH_FOUND" ]; then
+                    echo ""
+                    echo "❌ [AAPP Branch Protection] Direct commits to '$CURRENT_BRANCH' are prohibited!"
+                    echo "   A development branch ('$DEV_BRANCH_FOUND') exists for active engineering."
+                    echo ""
+                    echo "   👉 Switch to your development branch before committing:"
+                    echo "      git checkout $DEV_BRANCH_FOUND"
+                    echo ""
+                    echo "   💡 If this is an intentional release or hotfix commit on '$CURRENT_BRANCH':"
+                    echo "      ALLOW_MAIN_COMMIT=1 git commit -m \"...\""
+                    echo "   💡 Or to disable branch protection for trunk-based development:"
+                    echo "      git config --bool aapp.protectStable false"
+                    echo ""
+                    exit 1
+                fi
+            fi
+        fi
+    fi
+fi
+
 ALWAYS_ALLOWED_REGEX='^(CHANGELOG\.md|README\.md|MANUAL\.md|CODEMAP\.md|ARCHITECTURE\.md|ISSUES\.md|\.gitignore|package\.json|package-lock\.json|composer\.json|composer\.lock|go\.mod|go\.sum|Cargo\.toml|Cargo\.lock|pyproject\.toml|requirements\.txt)$'
 
 CORE_CODE_REGEX='\.(php|js|jsx|ts|tsx|py|go|rs|c|cpp|h|hpp|java|rb|css|scss|sql|html|sh|bash|zsh)$|^schema/.*\.json$|^aapp$'

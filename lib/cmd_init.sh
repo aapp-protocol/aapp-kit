@@ -454,3 +454,20 @@ echo "➡️  Active scratchpad:    .plans/pickup.md"
 echo "➡️  State Matrix Brain:   .plans/state_matrix.md"
 echo "➡️  Release Runbooks:     .plans/release/"
 echo "➡️  Write-time guard:    .githooks/blast-radius-guard"
+
+# Detect Branching Topology
+DEV_EXISTS=0
+for DB in develop dev development; do
+    if git show-ref --verify --quiet "refs/heads/$DB" 2>/dev/null || \
+       git show-ref --verify --quiet "refs/remotes/origin/$DB" 2>/dev/null; then
+        DEV_EXISTS=1
+        break
+    fi
+done
+
+if [ "$DEV_EXISTS" -eq 1 ]; then
+    echo "➡️  Branch topology:     Dual-Branch (Stable/Edge guard active)"
+else
+    echo "➡️  Branch topology:     Trunk-based ($MAIN_BRANCH)"
+fi
+
