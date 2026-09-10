@@ -16,11 +16,12 @@
   * [Re-Attaching and Repairing Worktrees](#re-attaching-and-repairing-worktrees)
 * [3. Dual-Layer Blast Radius Enforcement Engine](#3-dual-layer-blast-radius-enforcement-engine)
   * [Layer 1: Write-Time PreToolUse Guard (`blast-radius-guard`)](#layer-1-write-time-pretooluse-guard-blast-radius-guard)
-  * [Layer 2: Commit-Time Pre-Commit Engine (`pre-commit`)](#layer-2-commit-time-pre-commit-engine-pre-commit)
+  * [Layer 2: Commit-Time Pre-Commit Engine (`aapp-pre-commit`)](#layer-2-commit-time-pre-commit-engine-aapp-pre-commit)
   * [Parsing Invariants & Prose Isolation](#parsing-invariants--prose-isolation)
   * [Escape Hatches & Fail-Open Design](#escape-hatches--fail-open-design)
 * [4. The Two-Lane Protocol: Issues vs. Plans](#4-the-two-lane-protocol-issues-vs-plans)
   * [Strict Lane Separation](#strict-lane-separation)
+  * [📏 Issue Conciseness Invariant (2–3 Lines Maximum)](#-issue-conciseness-invariant-23-lines-maximum)
   * [Issue Promotion Protocol](#issue-promotion-protocol)
   * [Mid-Execution Issue Escape Triage](#mid-execution-issue-escape-triage)
 * [5. AAPP State Machine & Lifecycle Commands](#5-aapp-state-machine--lifecycle-commands)
@@ -32,12 +33,11 @@
   * [Anthropic Claude Code Integration](#anthropic-claude-code-integration)
   * [Cursor & VS Code Integration](#cursor--vs-code-integration)
   * [GitHub Copilot & Gemini CLI](#github-copilot--gemini-cli)
-* [7. Hook Manager Interoperability Recipes](#7-hook-manager-interoperability-recipes)
-  * [Native Git Hooks](#native-git-hooks)
-  * [Husky](#husky)
-  * [Lefthook](#lefthook)
-  * [Pre-Commit (Python Framework)](#pre-commit-python-framework)
+* [7. Hook Manager Interoperability Recipes & Multi-Language Integration](#7-hook-manager-interoperability-recipes--multi-language-integration)
   * [Subprocess vs. Source Rationale](#subprocess-vs-source-rationale)
+  * [The Multi-File Hook Architecture (Master Runner Pattern)](#the-multi-file-hook-architecture-master-runner-pattern)
+  * [Polyglot Invocation Cheat Sheet](#polyglot-invocation-cheat-sheet)
+  * [Hook Manager Integration Recipes](#hook-manager-integration-recipes)
 * [8. Maintenance, Operations & Troubleshooting FAQ](#8-maintenance-operations--troubleshooting-faq)
 
 ---
@@ -64,9 +64,9 @@ AAPP solves this structurally through native Git plumbing: **Git Worktrees mount
         │                          │                           │
         ▼                          ▼                           ▼
 ┌──────────────────┐      ┌──────────────────┐       ┌───────────────────┐
-│     .plans/      │      │     .agents/     │       │    .githooks/     │
-│ (Worktree: plans)│      │(Worktree: agents)│       │(Worktree: githooks│
-│  Orphan Branch   │      │  Orphan Branch   │       │   Orphan Branch   │
+│     .plans/      │      │     .agents/     │       │     .githooks/    │
+│  (orphan branch: │      │  (orphan branch: │       │  (orphan branch:  │
+│     'plans')     │      │     'agents')    │       │    'githooks')    │
 ├──────────────────┤      ├──────────────────┤       ├───────────────────┤
 │ • current/*.md   │      │ • AGENTS.md      │       │ • pre-commit      │
 │ • done/*.md      │      │ • PROJECT.MD     │       │ • aapp-pre-commit │
@@ -105,7 +105,7 @@ By decoupling these concerns into independent Git worktrees:
 
 An **orphan branch** in Git is a branch that has no parent commits and shares no common history with the main branch. A **worktree** allows a single repository to have multiple working trees attached simultaneously.
 
-When `aapp init` sets up a worktree (for example `.plans`), it executes:
+When `aapp init` sets up a worktree (for example `.plans`), it executes a safe, non-destructive Git plumbing algorithm:
 
 ```bash
 # 1. Check if the orphan branch already exists locally or remotely
@@ -116,15 +116,13 @@ elif git rev-parse --verify origin/plans >/dev/null 2>&1; then
     # Remote tracking branch exists: track it
     git worktree add --track -b plans .plans origin/plans
 else
-    # Create new orphan branch and worktree
+    # Create new detached worktree and root orphan commit without touching main index
     git worktree add --detach .plans
     (
         cd .plans
-        git checkout --orphan plans
-        git rm -rf . >/dev/null 2>&1 || true
-        # Scaffold templates...
-        git add -A
-        git commit -m "chore: initialize plans worktree"
+        EMPTY_TREE="$(git hash-object -t tree /dev/null 2>/dev/null || echo "4b825dc642cb6eb9a060e54bf8d69288fbee4904")"
+        INITIAL_COMMIT="$(git commit-tree "$EMPTY_TREE" -m "chore: initialize plans worktree")"
+        git checkout -b plans "$INITIAL_COMMIT" --quiet
     )
 fi
 ```
@@ -189,7 +187,7 @@ sequenceDiagram
 
     Dev->>Guard: Attempt file edit via AI Tool
     alt File outside Target Files OR in Self-Protection Perimeter
-        Guard-->>Dev: ❌ Edit Denied (exit code 1 / hook error)
+        Guard-->>Dev: ❌ Edit Denied (exit code 2 / hookSpecificOutput.permissionDecision: deny)
     else File matches Target Files or no active plans
         Guard->>Disk: ✅ Allow write to disk
     end
@@ -219,7 +217,7 @@ Located at `.githooks/blast-radius-guard`, this executable intercepts AI tool ca
    - `.claude/settings.json`
    - `.cursor/rules/*`
 2. **Blast Radius Enforcement**: If an active, non-blocked plan exists in `.plans/current/*.md`, any write outside the plan's `### 📂 Target Files` is blocked immediately with a clear error payload.
-3. **Zero Dependency JSON Parsing**: Uses standard POSIX tools (`awk`/`sed`/`grep`) to parse hook payloads without requiring `jq` or external binaries.
+3. **Zero Dependency JSON Parsing**: Uses standard POSIX tools (`awk`/`sed`/`grep`) to parse hook payloads without requiring `python3`, `jq`, or external dependencies.
 4. **Fail-Open Resilience**: If no active plan exists, or on malformed input, the guard fails open so developer workflows are never bricked.
 
 ---
@@ -233,7 +231,7 @@ Located at `.githooks/aapp-pre-commit` (invoked directly or via `.githooks/pre-c
 2. **Blast Radius Verification**: Compares all staged files against the union of `### 📂 Target Files` across all active blueprints in `.plans/current/*.md`.
 3. **Concurrent Plan Support**: If two developers or agents work on separate active plans (`plan-a.md` and `plan-b.md`), files declared in *either* plan are permitted.
 4. **Blocked Plan Refusal**: If a plan's status is `🚫 BLOCKED`, commits targeting its files are rejected until the human unblocks the plan.
-5. **Syntax Validation**: Automatically runs syntax verification on staged files (e.g., `bash -n`, `python -m py_compile`, `node --check`).
+5. **Syntax Validation**: Automatically runs syntax verification on staged files (e.g., Python `python3 -m py_compile`, PHP `php -l`, JSON syntax).
 
 ---
 
@@ -261,7 +259,7 @@ AAPP is designed to assist developers, not trap them.
   SKIP_BLAST_RADIUS=1 git commit -m "emergency: hotfix bypass"
   ```
   Setting `SKIP_BLAST_RADIUS=1` bypasses both CHANGELOG and Blast Radius validation.
-- **No-Plan Grace Period**: If `.plans/current/` has no markdown files (or only templates/placeholders), the pre-commit hook logs a notice and allows all commits.
+- **No-Plan Grace Period**: If `.plans/current/` has no active markdown blueprints, the pre-commit hook allows all commits, ensuring bootstrapping and free-form human commits are never blocked.
 
 ---
 
@@ -432,8 +430,13 @@ AAPP integrates with Claude Code's tool execution lifecycle:
      "hooks": {
        "PreToolUse": [
          {
-           "matcher": "Edit|Write|MultiEdit",
-           "command": "\"$CLAUDE_PROJECT_DIR/.githooks/blast-radius-guard\""
+           "matcher": "Write|Edit|NotebookEdit",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "${CLAUDE_PROJECT_DIR}/.githooks/blast-radius-guard"
+             }
+           ]
          }
        ]
      }

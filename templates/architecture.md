@@ -22,10 +22,19 @@
 ```text
 ├── src/               # Application source code
 ├── .plans/             # Isolated planning worktree (mounted on orphan branch)
-│   ├── current/       # Active drafts, pickup scratchpad, state matrix
-│   ├── done/          # Permanent archive of completed blueprints
-│   └── aborted/       # Discarded concepts
-├── CODEMAP.md         # Module ownership and interface registry
+│   ├── current/       # Active RFC blueprints
+│   ├── done/          # Completed blueprints & master ledger (000-archive-ledger.md)
+│   ├── pickup.md      # Fast agent scratchpad for active context
+│   ├── ISSUES.md      # Canonical defect audit trail & triage ledger
+│   ├── issues_road_map.md # Defect priority roadmap & triage queue
+│   └── state_matrix.md # State matrix & active incubator brain
+├── .agents/            # Agent behavioral contracts & codemap worktree
+│   ├── AGENTS.md      # Agent behavioral contracts & protocol rules
+│   └── CODEMAP.md     # Module ownership and interface registry
+├── .githooks/          # Blast radius enforcement worktree
+│   ├── pre-commit     # Master runner (project-owned)
+│   └── aapp-pre-commit # Managed blast radius engine
+├── CHANGELOG.md       # Public release notes & keep-a-changelog ledger
 └── ARCHITECTURE.md    # High-level architecture and invariants
 ```
 

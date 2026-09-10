@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `AAPP_VERSION` subshell capture in `cmd_upgrade.sh` and suppressed installer consumption notice on upgrades (ISSUE-013).
 - Fixed drop-in target repository detection in `cmd_init.sh` when initialized from standalone kit clones (ISSUE-015).
 - Removed unused dead variable assignments (`IS_RESTORE`, `AAPP_IS_DROP_IN`) across CLI commands (ISSUE-018).
+- Fixed relative blueprint link path in `templates/issues.md` (ISSUE-028).
+- Corrected directory structure mapping in `templates/architecture.md` and `ARCHITECTURE.md` (ISSUE-029).
+- Modernized and renamed example blueprint to kebab-case `examples/example-plan-unified-install-and-upgrade.md` (ISSUE-039).
+- Synchronized Table of Contents anchors, syntax check descriptions, and safe orphan branch plumbing docs in `README.md` and `MANUAL.md` (ISSUE-020, ISSUE-021, ISSUE-024, ISSUE-025, ISSUE-026, ISSUE-027).
 
 ### Changed
 - Moved `SKIP_BLAST_RADIUS=1` check to hook entrypoints to guarantee emergency bypass.

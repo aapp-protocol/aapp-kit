@@ -1,4 +1,4 @@
-# 🗺️ Plan: Unified Deterministic Install & Upgrade via `aapp-init`
+# 🗺️ Plan: Unified Deterministic Install & Upgrade via `aapp init`
 
 * **Created:** 2026-09-08 | **Last Refined:** 2026-09-08
 * **Target Issue / Milestone:** —
@@ -11,18 +11,18 @@
 
 AAPP currently treats initialization as a one-time operation: if a target file exists, it skips it. This creates three critical problems:
 1. **Adoption Friction**: When adopting AAPP in a repository with an existing `AGENTS.md`, the existing file is kept untouched, but it lacks the AAPP slash commands (`/status`, `/digest`, `/freeze`, `/done`, `/release`), Changelog rules, and Blast Radius rules.
-2. **The Upgrade Barrier**: When new AAPP versions ship (with new hooks, bug fixes, or workflow improvements), running `aapp-init` skips all existing files, leaving projects stranded on old versions unless manually updated.
+2. **The Upgrade Barrier**: When new AAPP versions ship (with new hooks, bug fixes, or workflow improvements), running `aapp init` skips all existing files, leaving projects stranded on old versions unless manually updated.
 3. **The LLM Reliability Risk**: Asking an AI coding agent to merge upstream templates byte-for-byte is error-prone (agents hallucinate, drop regexes, omit edge-case lines, or summarize strict rules).
 
-**Goal:** Transform `aapp-init` into a **single, zero-parameter command** that handles **Initial Setup**, **Adoption into Existing Projects**, and **Future Upgrades** with 100% bit-exact determinism in native Bash without staging folders or LLM copying.
+**Goal:** Transform `aapp init` into a **single, zero-parameter command** that handles **Initial Setup**, **Adoption into Existing Projects**, and **Future Upgrades** with 100% bit-exact determinism in native Bash without staging folders or LLM copying.
 
 ---
 
 ## 2. Technical Blueprint & Architecture
 
 ```text
-                                `aapp-init` executed
-                                         │
+                                 `aapp init` executed
+                                          │
                    ┌─────────────────────┴─────────────────────┐
                    ▼                                           ▼
          [INFRASTRUCTURE SCRIPTS]                      [RULE & DOC FILES]
@@ -45,8 +45,8 @@ AAPP currently treats initialization as a one-time operation: if a target file e
 ---
 
 ### 2.1 Single Source of Truth for Version (`AAPP_VERSION`)
-* Define `AAPP_VERSION="1.0.0"` at the top of `aapp-init` and `aapp-install`.
-* Add `-v` / `--version` flags to both binaries to output `aapp v1.0.0`.
+* Define `AAPP_VERSION="1.0.0"` in `aapp` dispatcher and libraries.
+* Support `-v` / `--version` flags on `aapp` to output `aapp v1.0.0`.
 * Delimited block headers dynamically use `$AAPP_VERSION` to tag the installed block: `<!-- AAPP-PROTOCOL:START v1.0.0 -->`.
 
 ---
@@ -62,7 +62,7 @@ AAPP currently treats initialization as a one-time operation: if a target file e
 <!-- AAPP-PROTOCOL:END -->
 ```
 
-#### Behavior Modes in `aapp-init`:
+#### Behavior Modes in `aapp init`:
 1. **Fresh Install** (No `AGENTS.md` exists):
    - Copies `templates/AGENTS.md` with default headers and markers into `.agents/AGENTS.md`.
 2. **Legacy Flat Root Migration** (`/AGENTS.md` exists at repo root, but `.agents/` was not yet mounted):
@@ -81,7 +81,8 @@ AAPP currently treats initialization as a one-time operation: if a target file e
 
 For pure enforcement code where bit-exact execution is mandatory:
 * **`.githooks/blast-radius-guard`**: Refreshed directly from `templates/blast-radius-guard.sh` and chmodded `+x`.
-* **`.githooks/pre-commit`**: Refreshed directly from `templates/pre-commit` and chmodded `+x`.
+* **`.githooks/aapp-pre-commit`**: Refreshed directly from `templates/aapp-pre-commit` and chmodded `+x`.
+* **`.githooks/pre-commit`**: Project-owned entrypoint installed once from template if not present; never overwritten on upgrade.
 * **`.claude/settings.json`**:
   - If missing: created with the `PreToolUse` matcher for `.githooks/blast-radius-guard`.
   - If existing: safely parses JSON and adds/updates the `PreToolUse` hook matcher **without clobbering** existing custom tool configurations or environment variables.
@@ -130,15 +131,16 @@ For pure enforcement code where bit-exact execution is mandatory:
 ## 3. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `aapp-init` -> Add version constant, marker detection, block insertion/replacement logic, infrastructure refresh, flat root migration, and `.claude/settings.json` non-destructive merge
-- [ ] `aapp-install` -> Add version constant and `-v`/`--version` support
+- [ ] `aapp` -> Main unified dispatcher with verb routing and version constant
+- [ ] `lib/cmd_init.sh` -> Add marker detection, block insertion/replacement logic, infrastructure refresh, flat root migration, and `.claude/settings.json` non-destructive merge
+- [ ] `lib/cmd_install.sh` -> Installer logic and global symlink management
 - [ ] `templates/AGENTS.md` -> Wrap AAPP protocol invariants with `<!-- AAPP-PROTOCOL:START v1.0.0 -->` and `<!-- AAPP-PROTOCOL:END -->`
 - [ ] `tests/install_test.sh` -> Add test cases for marker replacement on upgrade, appending on adoption, flat root migration, and idempotent re-runs
 - [ ] `README.md` -> Document the unified install/upgrade workflow and marker protocol
 - [ ] `MANUAL.md` -> Document the block delimiter specification and upgrade mechanics
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `templates/pre-commit` -> Commit-time hook enforcement engine is frozen
+- [ ] `templates/aapp-pre-commit` -> Commit-time hook enforcement engine is frozen
 - [ ] `templates/blast-radius-guard.sh` -> Write-time guard enforcement engine is frozen
 - [ ] `tests/pre-commit_test.sh` -> Pre-commit test suite is frozen
 - [ ] `tests/write-guard_test.sh` -> Write-guard test suite is frozen
@@ -149,7 +151,7 @@ For pure enforcement code where bit-exact execution is mandatory:
 
 ### 🗑️ Deleted Functionalities
 - [ ] **Delete Passive Skipping of `AGENTS.md`**: No longer leave existing `AGENTS.md` orphaned without protocol rules.
-- [ ] **Delete `--cleanup` Flag Dependency**: Since `aapp-init` now automatically adopts and upgrades without leaving unmerged conflicts, `aapp-kit/` is always safely consumed on success. `--cleanup` becomes a harmless legacy no-op.
+- [ ] **Delete `--cleanup` Flag Dependency**: Since `aapp init` now automatically adopts and upgrades without leaving unmerged conflicts, `aapp-kit/` is always safely consumed on success. `--cleanup` becomes a harmless legacy no-op.
 - [ ] **Delete "Conflict Warning Block" for `AGENTS.md`**: Replaced by the positive **Adoption / Upgrade Banner** (`✨ AAPP Protocol adopted into .agents/AGENTS.md`).
 
 ### 🧪 Tests to Delete & Replace in `tests/install_test.sh`
@@ -173,16 +175,17 @@ For pure enforcement code where bit-exact execution is mandatory:
 - [ ] Update `templates/AGENTS.md` with standard `<!-- AAPP-PROTOCOL:START v1.0.0 -->` and `<!-- AAPP-PROTOCOL:END -->` delimiters around the AAPP protocol sections.
 - [ ] Ensure the template retains a top-level placeholder for project-specific rules above/below the delimited section.
 
-### Phase 2: `aapp-init` Replacement Engine
-- [ ] Define `AAPP_VERSION="1.0.0"` in `aapp-init` and `aapp-install` with `-v`/`--version` flag handling.
+### Phase 2: `aapp init` Replacement Engine
+- [ ] Define `AAPP_VERSION="1.0.0"` in `aapp` with `-v`/`--version` flag handling.
 - [ ] Implement flat root `AGENTS.md` migration into `.agents/AGENTS.md`.
-- [ ] Implement `sync_agent_rules()` in `aapp-init`:
+- [ ] Implement `sync_agent_rules()` in `lib/cmd_init.sh`:
   - Detect if `.agents/AGENTS.md` exists.
   - If not exists $\rightarrow$ standard copy from template.
   - If exists and contains `<!-- AAPP-PROTOCOL:START` $\rightarrow$ replace delimited block in-place using `awk`.
   - If exists and does NOT contain `<!-- AAPP-PROTOCOL:START` $\rightarrow$ append delimited block to the end of the file.
-- [ ] Implement `sync_infrastructure()` in `aapp-init`:
-  - Update `.githooks/blast-radius-guard` and `.githooks/pre-commit` byte-for-byte.
+- [ ] Implement `sync_infrastructure()` in `lib/cmd_init.sh`:
+  - Update `.githooks/blast-radius-guard` and `.githooks/aapp-pre-commit` byte-for-byte.
+  - Ensure `.githooks/pre-commit` is created if missing.
   - Chmod `+x` and verify syntax via `bash -n`.
   - Non-destructively ensure `.claude/settings.json` has `PreToolUse` hook matcher.
 - [ ] Update commit logic in worktrees (`agents` and `githooks`) to record clean update commits only if files changed.
@@ -195,9 +198,9 @@ For pure enforcement code where bit-exact execution is mandatory:
 - [ ] **Test Case 4 (Upgrade Mode)**: Existing project with older v1.0 markers has AAPP block updated to v1.1 between markers; custom rules above and below untouched.
 - [ ] **Test Case 5 (Infrastructure Upgrade)**: Existing `.githooks/pre-commit` and `.githooks/blast-radius-guard` updated to latest byte-for-byte.
 - [ ] **Test Case 6 (Non-destructive Claude Settings)**: Existing custom `.claude/settings.json` preserves existing keys while wiring `PreToolUse`.
-- [ ] **Test Case 7 (Idempotent Re-run)**: Re-running `aapp-init` when already up to date is a clean, harmless no-op with zero changes.
+- [ ] **Test Case 7 (Idempotent Re-run)**: Re-running `aapp init` when already up to date is a clean, harmless no-op with zero changes.
 - [ ] **Test Case 8 (Drop-in Consumption on Adoption)**: Drop-in clone folder `aapp-kit/` is consumed on successful adoption.
-- [ ] **Test Case 9 (Version Flags)**: `aapp-init -v` and `aapp-install --version` output valid version string.
+- [ ] **Test Case 9 (Version Flags)**: `aapp -v` and `aapp --version` output valid version string.
 
 ### Phase 4: Documentation & Manual Updates
 - [ ] Update `README.md` to highlight zero-parameter upgrade & adoption simplicity.
@@ -214,9 +217,9 @@ For pure enforcement code where bit-exact execution is mandatory:
 
 | Suite | Scope | Target |
 | :--- | :--- | :--- |
-| `tests/install_test.sh` | Installer, Resolution, Adoption & Upgrade | 35+ cases passing with exit code 0 |
-| `tests/pre-commit_test.sh` | Commit-Time Blast Radius | 12 cases passing |
-| `tests/write-guard_test.sh` | Write-Time PreToolUse Guard | 26 cases passing |
+| `tests/install_test.sh` | Installer, Resolution, Adoption & Upgrade | 34+ cases passing with exit code 0 |
+| `tests/pre-commit_test.sh` | Commit-Time Blast Radius | 17 cases passing |
+| `tests/write-guard_test.sh` | Write-Time PreToolUse Guard | 29 cases passing |
 
 ---
 
@@ -227,6 +230,6 @@ For pure enforcement code where bit-exact execution is mandatory:
 * **Q2: What happens if a user customized something inside the AAPP block?**
   * *Answer:* The comment clearly warns `<!-- AAPP-PROTOCOL:START: DO NOT EDIT THIS BLOCK DIRECTLY; PLACE CUSTOM RULES OUTSIDE -->`. User rules outside the block are 100% protected.
 * **Q3: Does this require any new CLI commands or flags?**
-  * *Answer:* No. The user only ever types `aapp-init`. It detects whether the project is fresh, an adoption, or an upgrade automatically.
+  * *Answer:* No. The user only ever types `aapp init`. It detects whether the project is fresh, an adoption, or an upgrade automatically.
 * **Q4: How are worktree commits managed during an upgrade?**
-  * *Answer:* `aapp-init` checks `git status --porcelain` inside `.agents` and `.githooks`. If modified, it records an atomic update commit. If unchanged, it skips committing for complete idempotency.
+  * *Answer:* `aapp init` checks `git status --porcelain` inside `.agents` and `.githooks`. If modified, it records an atomic update commit. If unchanged, it skips committing for complete idempotency.

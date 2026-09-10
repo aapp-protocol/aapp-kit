@@ -19,7 +19,7 @@ When a bug or a missing edge case is discovered during an active coding session:
 | Issue ID | Severity | Component | Summary & Impact | Proposed Fix / Target Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **ISSUE-001** | `Medium` | `core` | Example issue description. | Fix in place — no plan needed. | 🟡 `Incubated` |
-| **ISSUE-002** | `High` | `parser` | Example issue whose fix spans several modules. | [`.plans/current/parser-refactor.md`](../.plans/current/parser-refactor.md) | 🔵 `Planned` |
+| **ISSUE-002** | `High` | `parser` | Example issue whose fix spans several modules. | [`current/parser-refactor.md`](current/parser-refactor.md) | 🔵 `Planned` |
 
 **Status values:** 🟡 `Incubated` (recorded, unscheduled) · 🔵 `Planned` (promoted to a blueprint — see below) · 🟠 `In Progress` · ✅ `Resolved`
 
