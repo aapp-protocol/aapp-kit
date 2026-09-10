@@ -6,7 +6,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🚦 Recommended Implementation Roadmap
 
-1. [plan-v1.0.3-docs-templates-and-test-alignment.md](current/plan-v1.0.3-docs-templates-and-test-alignment.md) - Batch 4: Documentation Drift, Templates & Test Suite Gaps (`ISSUE-020` to `ISSUE-030`, `ISSUE-039`)
+*(All active blueprints currently implemented & verified)*
 
 ---
 
@@ -18,7 +18,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-* 🟢 [plan-v1.0.3-docs-templates-and-test-alignment.md](current/plan-v1.0.3-docs-templates-and-test-alignment.md) - **Documentation, Templates & Test Alignment (Batch 4)** - `0% DONE` -> Frozen and ready for execution.
+*(No blueprints currently frozen for coding)*
 
 ---
 

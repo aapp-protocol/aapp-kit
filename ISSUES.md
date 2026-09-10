@@ -30,7 +30,7 @@ Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 ful
 | **ISSUE-004** | `blast-radius-guard.sh:102`, `aapp-pre-commit:60` | `ls -1 .plans/current/*.md` is cwd-relative; run from a subdirectory the guard silently fails open. | `cd "$(git rev-parse --show-toplevel)" \|\| exit 0`. | ✅ `Resolved` |
 | **ISSUE-005** | `templates/aapp-pre-commit:16` | `--diff-filter=ACMR` excludes `D`. Deleting an explicitly Out-of-Bounds file commits cleanly, with no CHANGELOG required (verified). | Include `D` in the blast-radius check. | ✅ `Resolved` |
 | **ISSUE-006** | `lib/cmd_status.sh:67` | Unquoted `for P in $CURRENT_PLANS` — a plan named `my plan.md` reports as two plans with fabricated statuses. Spaces are tested everywhere else in the kit. | Use `find -print0` / `while read -r`. | ✅ `Resolved` |
-| **ISSUE-007** | `MANUAL.md:416-429` | Documented `.claude/settings.json` puts `"command"` on the matcher object — invalid schema, hook silently never fires. Matcher also disagrees with `cmd_init.sh` (`Edit\|Write\|MultiEdit` vs `Write\|Edit\|NotebookEdit`). | Copy the real block from `cmd_init.sh:307-323`. | 🟡 `Incubated` |
+| **ISSUE-007** | `MANUAL.md:427-440` | Documented `.claude/settings.json` puts `"command"` on the matcher object — invalid schema, hook silently never fires. Matcher also disagrees with `cmd_init.sh` (`Edit\|Write\|MultiEdit` vs `Write\|Edit\|NotebookEdit`). | Copy the real block from `cmd_init.sh:307-323`. | ✅ `Resolved` |
 | **ISSUE-008** | `MANUAL.md:261` vs `aapp-pre-commit:57` | `SKIP_BLAST_RADIUS=1` does **not** bypass CHANGELOG enforcement, which runs first and unconditionally (verified). Breaks the documented emergency-hotfix path. | Move the check inside the guard, or correct the sentence. | ✅ `Resolved` |
 | **ISSUE-036** | `templates/aapp-pre-commit:24` | `CORE_CODE_REGEX` omits shell extensions (`.sh`, `.bash`, `.zsh`) and extensionless executables (`aapp`). Modifying shell scripts or CLI binaries never increments `STAGED_CORE_COUNT`, bypassing `CHANGELOG.md` enforcement entirely for shell-based repositories. | Add `sh\|bash\|zsh` to `CORE_CODE_REGEX` and support extensionless scripts. | ✅ `Resolved` |
 
@@ -60,18 +60,18 @@ Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 ful
 
 | ID | Location | Problem | Fix | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **ISSUE-020** | `README.md:18-19` | Two broken TOC anchors; `Conflict Handling & Silent-Skipping Warnings` **does not exist** (replaced by *Seamless Adoption & In-Place Protocol Upgrades*, itself absent from the TOC). | Regenerate the TOC. | 🟡 `Incubated` |
-| **ISSUE-021** | `README.md:181` vs `cmd_init.sh:390` | README tells users to wire `aapp-pre-commit`; init actually prints `pre-commit`. Auto-wiring at `cmd_init.sh:264` uses `aapp-pre-commit` — the code disagrees with itself too. | Pick one (master runner preferred) and align all three. | 🟡 `Incubated` |
-| **ISSUE-022** | `README.md:253,256,264` | Test counts stale: says 69 total / 26 write-guard; actual is **75 / 28**. | Update. | 🟡 `Incubated` |
-| **ISSUE-023** | `README.md:222-228` | Command table out of sync with the AGENTS.md contract: `/digest` described wrongly; `/abort` listed but defined nowhere (only an empty `.plans/aborted/`); `/release` missing. | Sync with AGENTS.md, or implement `/abort`. | 🟡 `Incubated` |
-| **ISSUE-024** | `MANUAL.md:19,36-41` | Broken §3 and §7 anchors; `Native Git Hooks` **section missing entirely**; Husky/Lefthook/Pre-Commit anchors all wrong; three existing §7 sections absent from the TOC. | Rewrite the §7 sub-TOC; add or drop *Native Git Hooks*. | 🟡 `Incubated` |
-| **ISSUE-025** | `MANUAL.md:234` | Claims `bash -n` and `node --check` syntax validation. Neither exists — only python3, `php -l`, JSON (`aapp-pre-commit:204-234`). | Fix the claim, or implement the validators. | 🟡 `Incubated` |
-| **ISSUE-026** | `MANUAL.md:262` | "No-Plan Grace Period … logs a notice" — nothing is logged. The "only templates/placeholders" clause has no implementation. | Correct the text. | 🟡 `Incubated` |
-| **ISSUE-027** | `MANUAL.md:109-128`, `:189` | Documents an orphan-branch algorithm the code does not use (the documented one is safer — see ISSUE-003), and enshrines the bug as design: "Edit Denied (exit code 1 / hook error)". | Align after ISSUE-001/003. | 🟡 `Incubated` |
-| **ISSUE-028** | `templates/issues.md:20` | Links `../.plans/current/…`, but `ISSUES.md` ships to the **repo root** — broken in every generated project. | Drop the `../`. | 🟡 `Incubated` |
-| **ISSUE-029** | `templates/architecture.md:24-25` | Tree places `pickup.md` and `state_matrix.md` under `.plans/current/`; init writes them to `.plans/`. | Correct the tree. | 🟡 `Incubated` |
-| **ISSUE-030** | `templates/AGENTS.md:12` | Says "MANAGED BY AAPP-INIT" — that binary no longer exists post-unification. | Say `aapp init`. | 🟡 `Incubated` |
-| **ISSUE-039** | `examples/example_plan_unified_install_and_upgrade.md` | Inconsistent filename casing (`snake_case` vs `kebab-case`) and contains outdated references to standalone `aapp-init` / `aapp-install` binaries rather than the unified `aapp` CLI. | Rename file to `kebab-case` and update binary references to `aapp init` / `aapp install`. | 🟡 `Incubated` |
+| **ISSUE-020** | `README.md:18-19` | Two broken TOC anchors; `Conflict Handling & Silent-Skipping Warnings` **does not exist** (replaced by *Seamless Adoption & In-Place Protocol Upgrades*, itself absent from the TOC). | Regenerate the TOC. | ✅ `Resolved` |
+| **ISSUE-021** | `README.md:181` vs `cmd_init.sh:390` | README tells users to wire `aapp-pre-commit`; init actually prints `pre-commit`. Auto-wiring at `cmd_init.sh:264` uses `aapp-pre-commit` — the code disagrees with itself too. | Pick one (master runner preferred) and align all three. | ✅ `Resolved` |
+| **ISSUE-022** | `README.md:253,256,264` | Test counts stale: says 69 total / 26 write-guard; actual is **75 / 28**. | Update. | ✅ `Resolved` |
+| **ISSUE-023** | `README.md:222-228` | Command table out of sync with the AGENTS.md contract: `/digest` described wrongly; `/abort` listed but defined nowhere (only an empty `.plans/aborted/`); `/release` missing. | Sync with AGENTS.md, or implement `/abort`. | ✅ `Resolved` |
+| **ISSUE-024** | `MANUAL.md:19,36-41` | Broken §3 and §7 anchors; `Native Git Hooks` **section missing entirely**; Husky/Lefthook/Pre-Commit anchors all wrong; three existing §7 sections absent from the TOC. | Rewrite the §7 sub-TOC; add or drop *Native Git Hooks*. | ✅ `Resolved` |
+| **ISSUE-025** | `MANUAL.md:234` | Claims `bash -n` and `node --check` syntax validation. Neither exists — only python3, `php -l`, JSON (`aapp-pre-commit:204-234`). | Fix the claim, or implement the validators. | ✅ `Resolved` |
+| **ISSUE-026** | `MANUAL.md:262` | "No-Plan Grace Period … logs a notice" — nothing is logged. The "only templates/placeholders" clause has no implementation. | Correct the text. | ✅ `Resolved` |
+| **ISSUE-027** | `MANUAL.md:109-128`, `:189` | Documents an orphan-branch algorithm the code does not use (the documented one is safer — see ISSUE-003), and enshrines the bug as design: "Edit Denied (exit code 1 / hook error)". | Align after ISSUE-001/003. | ✅ `Resolved` |
+| **ISSUE-028** | `templates/issues.md:20` | Links `../.plans/current/…`, but `ISSUES.md` ships to the **repo root** — broken in every generated project. | Drop the `../`. | ✅ `Resolved` |
+| **ISSUE-029** | `templates/architecture.md:24-25` | Tree places `pickup.md` and `state_matrix.md` under `.plans/current/`; init writes them to `.plans/`. | Correct the tree. | ✅ `Resolved` |
+| **ISSUE-030** | `templates/AGENTS.md:12` | Says "MANAGED BY AAPP-INIT" — that binary no longer exists post-unification. | Say `aapp init`. | ✅ `Resolved` |
+| **ISSUE-039** | `examples/example_plan_unified_install_and_upgrade.md` | Inconsistent filename casing (`snake_case` vs `kebab-case`) and contains outdated references to standalone `aapp-init` / `aapp-install` binaries rather than the unified `aapp` CLI. | Rename file to `kebab-case` and update binary references to `aapp init` / `aapp install`. | ✅ `Resolved` |
 
 ---
 
@@ -81,8 +81,8 @@ Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 ful
 | :--- | :--- | :--- | :--- | :--- |
 | **ISSUE-031** | `tests/write-guard_test.sh:26-32` | `call_guard_json` is defined and **never called** — every assertion uses relative CLI args, the one path Claude Code never takes. This single gap hides ISSUE-001 and ISSUE-002. | Route `check_decision` through the JSON payload with absolute paths. | ✅ `Resolved` |
 | **ISSUE-032** | `tests/write-guard_test.sh:134` | Asserts `decision == 'deny'` — pins the invalid schema as correct. | Assert on `hookSpecificOutput`. | ✅ `Resolved` |
-| **ISSUE-033** | `tests/write-guard_test.sh:112-117` | Guard is run against garbage stdin, then `assert_rc` is *defined* on the next line — that first invocation asserts nothing; line 117 duplicates it. | Delete the dead call; hoist the helpers. | 🟡 `Incubated` |
-| **ISSUE-034** | `tests/` | No coverage for the pre-2.42 git fallback (ISSUE-003), deletions (ISSUE-005), or a non-root cwd (ISSUE-004). | Add regression cases. | 🟡 `Incubated` |
+| **ISSUE-033** | `tests/write-guard_test.sh:112-117` | Guard is run against garbage stdin, then `assert_rc` is *defined* on the next line — that first invocation asserts nothing; line 117 duplicates it. | Delete the dead call; hoist the helpers. | ✅ `Resolved` |
+| **ISSUE-034** | `tests/` | No coverage for the pre-2.42 git fallback (ISSUE-003), deletions (ISSUE-005), or a non-root cwd (ISSUE-004). | Add regression cases. | ✅ `Resolved` |
 | **ISSUE-040** | `tests/pre-commit_test.sh:66` | Test 2b tests unbackticked `- [ ] NEW FILE -> `src/new_mod.py``, masking the parser bug where backticked `` `NEW FILE` `` (from `plan-template.md`) drops declared target files. | Add test assertions for backticked markers (` `NEW FILE` `, ` `MODIFY` `, etc.). | ✅ `Resolved` |
 
 ---
@@ -97,11 +97,37 @@ Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 ful
 | **ISSUE-004** | `blast-radius-guard` / `aapp-pre-commit` | Changed directory to `$REPO_ROOT` to prevent cwd-relative fail-open. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
 | **ISSUE-005** | `aapp-pre-commit` | Added `D` (deletions) to `--diff-filter` to enforce Out-of-Bounds on deleted files. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
 | **ISSUE-006** | `cmd_status` | Used NUL-delimited `find` iteration for plan files with spaces. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
+| **ISSUE-007** | `MANUAL.md` | Aligned `.claude/settings.json` hook configuration with valid PreToolUse schema. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
 | **ISSUE-008** | `aapp-pre-commit` | Moved `SKIP_BLAST_RADIUS=1` bypass check to the top before CHANGELOG check. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
+| **ISSUE-009** | `blast-radius-guard` | Added pure-POSIX JSON fallback when `python3` is missing. | `plan-v1.0.2-cli-reliability-and-posix-fallback` | 2026-09-09 |
+| **ISSUE-010** | `cmd_init` | Added warning notice when `.claude/settings.json` merge is skipped without python3. | `plan-v1.0.2-cli-reliability-and-posix-fallback` | 2026-09-09 |
+| **ISSUE-011** | `cmd_status` | Briefing reads both `ISSUES.md` and `issues_road_map.md`. | `plan-v1.0.2-cli-reliability-and-posix-fallback` | 2026-09-09 |
+| **ISSUE-012** | `cmd_status` | Filtered bracketed placeholders in `pickup.md`. | `plan-v1.0.2-cli-reliability-and-posix-fallback` | 2026-09-09 |
+| **ISSUE-013** | `cmd_upgrade` | Exported `AAPP_VERSION` and suppressed consumer notice on upgrades. | `plan-v1.0.2-cli-reliability-and-posix-fallback` | 2026-09-09 |
+| **ISSUE-014** | `cmd_install` / `cmd_init` | Exempted `aapp-develop-kit` and `agent-planning-kit` in self-consumption check. | `plan-v1.0.2-cli-reliability-and-posix-fallback` | 2026-09-09 |
+| **ISSUE-015** | `cmd_init` | Handled standalone clone target detection in drop-in mode. | `plan-v1.0.2-cli-reliability-and-posix-fallback` | 2026-09-09 |
+| **ISSUE-016** | `cmd_init` | Stamped protocol marker version dynamically from `AAPP_VERSION`. | `plan-v1.0.2-cli-reliability-and-posix-fallback` | 2026-09-09 |
+| **ISSUE-017** | `cmd_init` | Safeguarded against data loss on missing `<!-- AAPP-PROTOCOL:END -->` tag. | `plan-v1.0.2-cli-reliability-and-posix-fallback` | 2026-09-09 |
+| **ISSUE-018** | `cmd_init` / `cmd_upgrade` | Removed unused dead variables `IS_RESTORE` and `AAPP_IS_DROP_IN`. | `plan-v1.0.2-cli-reliability-and-posix-fallback` | 2026-09-09 |
+| **ISSUE-019** | `README.md` | Softened direct shell redirection claims. | `plan-v1.0.2-cli-reliability-and-posix-fallback` | 2026-09-09 |
+| **ISSUE-020** | `README.md` | Regenerated Table of Contents and fixed broken section anchors. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
+| **ISSUE-021** | `README.md` / `MANUAL.md` | Clarified master runner `.githooks/pre-commit` vs managed engine `.githooks/aapp-pre-commit`. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
+| **ISSUE-022** | `README.md` / `MANUAL.md` | Synchronized test suite case counts across documentation (80 total). | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
+| **ISSUE-023** | `README.md` | Aligned slash command lifecycle table with AGENTS.md protocol. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
+| **ISSUE-024** | `MANUAL.md` | Synchronized Table of Contents and Section 7 sub-TOC anchors. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
+| **ISSUE-025** | `MANUAL.md` | Corrected syntax validation claims to reflect Python, PHP, and JSON checkers. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
+| **ISSUE-026** | `MANUAL.md` | Clarified No-Plan Grace Period description for active blueprints. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
+| **ISSUE-027** | `MANUAL.md` | Aligned orphan branch plumbing documentation and exit code 2 error handling. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
+| **ISSUE-028** | `templates/issues.md` | Fixed relative plan link path from `../.plans/current/` to `current/`. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
+| **ISSUE-029** | `templates/architecture.md` | Corrected structural mapping tree for `.plans/` files. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
+| **ISSUE-030** | `templates/AGENTS.md` | Updated comment marker reference from `AAPP-INIT` to `aapp init`. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
+| **ISSUE-031** | `write-guard_test` | Executed `call_guard_json` with absolute paths on every assertion. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
+| **ISSUE-032** | `write-guard_test` | Verified `hookSpecificOutput.permissionDecision` in response schema. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
+| **ISSUE-033** | `write-guard_test` | Cleaned up helper definitions and test assertions. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
+| **ISSUE-034** | `tests/` | Added regression test coverage for deletions, fallback init, and develop mode. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
 | **ISSUE-035** | `blast-radius-guard` / `aapp-pre-commit` | Fixed awk plan parser to strip backticked/unbackticked markers before target extraction. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
 | **ISSUE-036** | `aapp-pre-commit` | Added `sh\|bash\|zsh` and extensionless binaries to `CORE_CODE_REGEX`. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
 | **ISSUE-037** | `cmd_status` | Supported bold markdown `| **ISSUE-001** |` and filtered `Resolved` status. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
 | **ISSUE-038** | `cmd_init` | Added hook manager warning notice when custom non-shell hook exists. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
-| **ISSUE-031** | `write-guard_test` | Executed `call_guard_json` with absolute paths on every assertion. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
-| **ISSUE-032** | `write-guard_test` | Verified `hookSpecificOutput.permissionDecision` in response schema. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
+| **ISSUE-039** | `examples/` | Modernized and renamed example blueprint to `example-plan-unified-install-and-upgrade.md`. | `plan-v1.0.3-docs-templates-and-test-alignment` | 2026-09-10 |
 | **ISSUE-040** | `pre-commit_test` | Added regression test coverage for backticked `NEW FILE` and `MODIFY` markers. | `plan-v1.0.1-core-fixes` | 2026-09-09 |
