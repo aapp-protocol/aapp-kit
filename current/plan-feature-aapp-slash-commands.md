@@ -33,8 +33,8 @@
    - `aapp init` wires Claude Code compatibility via `.claude/skills` (symlink or directory mirror).
 3. **Progressive Disclosure & Token Economics**:
    - Instead of injecting 20 KB of `AGENTS.md` on every turn, agents only register ~100 tokens of skill names and 1-line descriptions. Full procedure text is loaded on-demand *only* when the skill or slash command is triggered.
-4. **Execution Isolation (`context: fork`)**:
-   - Intensive workflows like `/aapp-digest` (codebase research and blueprint scaffolding) or `/aapp-release` (running full test suites and linters) run in an isolated fork or subagent context, reporting only clean summaries back to the primary chat.
+4. **Execution Isolation (`context: fork` vs Inline)**:
+   - Heavy automated verification workflows like `/aapp-release` (running full test suites and linters) run in an isolated fork/subagent context (`context: fork`), reporting only clean summaries back to the primary chat. Conversational workflows like `/aapp-digest` run inline to preserve full chat context and access user interaction.
 5. **Deterministic Tool Execution**:
    - Eliminates brittle pre-render `` !`aapp status` `` macro injections that crash Claude sessions on missing binaries or permission checks. The agent inspects `aapp status` via standard tool execution or falls back gracefully to reading the four pillar markdown files directly.
 
@@ -119,22 +119,26 @@ sync_skills() {
         local skill_name
         skill_name="$(basename "$skill_dir")"
 
-        # 1. Sync canonical engine skill into .agents/skills/ (engine overwrite)
+        # 1. Sync canonical engine skill into .agents/skills/ (clean overwrite)
+        rm -rf ".agents/skills/$skill_name"
         mkdir -p ".agents/skills/$skill_name"
-        cp -R "$skill_dir"/* ".agents/skills/$skill_name/"
+        cp -R "$skill_dir/." ".agents/skills/$skill_name/"
 
-        # 2. Granular Claude Code symlink bridge with fallback
+        # 2. Granular Claude Code symlink bridge with verified resolution
         rm -rf ".claude/skills/$skill_name"
-        if ln -s "../../.agents/skills/$skill_name" ".claude/skills/$skill_name" 2>/dev/null; then
-            : # Relative symlink established
+        ln -s "../../.agents/skills/$skill_name" ".claude/skills/$skill_name" 2>/dev/null || true
+        if [ -e ".claude/skills/$skill_name/SKILL.md" ]; then
+            : # Relative symlink established and verified
         else
-            cp -R ".agents/skills/$skill_name" ".claude/skills/" # Cross-platform fallback
+            rm -rf ".claude/skills/$skill_name"
+            cp -R ".agents/skills/$skill_name" ".claude/skills/" # Cross-platform fallback copy
         fi
     done
 }
 ```
 * **User Skill Preservation**: Any custom skills in `.claude/skills/` or `.agents/skills/` that do not begin with `aapp-` remain 100% untouched.
-* **Cross-Platform Resilience**: On systems where unprivileged symlinks are disallowed (Windows NTFS, certain Docker volumes), directory copying seamlessly succeeds.
+* **Clean Upgrade Guarantee**: Removing destination directories prior to copying ensures that files dropped or renamed across AAPP releases never persist as stale artifacts.
+* **Cross-Platform Resilience**: On systems where unprivileged symlinks fail or produce broken link stubs (Windows NTFS, certain Docker volumes), directory copying seamlessly succeeds.
 
 ### 2.4 Anatomy of an AAPP `SKILL.md` File
 
@@ -143,7 +147,6 @@ sync_skills() {
 name: aapp-status
 description: Act as a Context Recovery agent upon desk return. Scan the four pillars (Shipped, Issues, Plans, Pickup) and report a concise structured briefing.
 disable-model-invocation: false
-context: inline
 argument-hint: ""
 ---
 
@@ -156,7 +159,8 @@ Execute the 5-step four-pillar context recovery procedure...
   - `name`: `aapp-status`, `aapp-digest`, `aapp-freeze`, `aapp-done`, `aapp-release`.
   - `description`: Crisp 1-sentence explanation used by agent skill catalogs for progressive disclosure.
   - `disable-model-invocation: true` on `freeze`, `done`, and `release`: Critical state transitions (granting commit rights, archiving plans, running releases) must be human-initiated. `status` and `digest` remain model-invocable.
-  - `context: fork` on `digest` and `release`: Heavy research and test runs execute in an isolated subagent/fork context. `status`, `freeze`, and `done` remain `context: inline`.
+  - `context: fork` strictly on `release`: Heavy preflight test runs and linters execute in an isolated subagent/fork context, preventing noisy test logs from cluttering primary chat.
+  - **Inline Execution (Default)**: `status`, `digest`, `freeze`, and `done` omit the `context` field (the standard Claude Code default for running inline in the active conversation). In particular, `digest` requires conversational context and recent chat notes to scaffold blueprints.
 * **Zero-Crash Execution Logic (No Brittle Macros)**:
   - `status` instructs the agent to run `./aapp status` if available. If absent or unpermitted, the agent directly inspects the four pillar files (`CHANGELOG.md`, `ISSUES.md` / `issues_road_map.md`, `state_matrix.md`, `pickup.md`) without ever failing or aborting the session.
 * **Canonical Pointer**:
@@ -207,7 +211,11 @@ esac
 Because Section 2 takes precedence:
 * Attempts by an agent to modify `.claude/settings.json` or `.agents/claude/*` are **hard-blocked**.
 * Attempts by an agent to modify `.agents/skills/aapp-*` or `.claude/skills/aapp-*` are **hard-blocked**.
-* Edits to custom user skills (e.g. `.agents/skills/my-deploy/`) fall through to Section 3 and remain freely writable.
+* Edits to custom user skills in `.agents/skills/` (e.g. `.agents/skills/my-deploy/`) fall through to Section 3 and remain freely writable.
+
+#### Asymmetry Rule: Where to Author Custom Skills
+* Notice that `.agents/skills/my-deploy/` is always-allowed (matching Section 3 `.agents/*`), but a write directed to `.claude/skills/my-deploy/` falls through to blast radius validation.
+* **The Rule**: Custom skills must always be authored in `.agents/skills/<name>/SKILL.md` (the canonical workspace root). The `.claude/skills/` directory is an AAPP-managed bridge. Skills authored in `.agents/skills/` are universally discovered across Antigravity, Cursor, and Codex, and bridged to Claude Code during `aapp init`.
 
 ### 2.7 Granular Claude Configuration Bridge & Architectural Caveats
 
@@ -225,6 +233,72 @@ To enforce the core AAPP invariant that application code branches (`main`/`devel
 #### Why Monolithic Symlinking `.claude -> .agents/claude` is Prohibited:
 Claude Code generates local, machine-specific state into `.claude/` (e.g., `settings.local.json`, telemetry, session caches). If `.claude` were a wholesale symlink to `.agents/claude`, this local churn would land directly inside the orphan `agents` git worktree, creating untracked noise in `git -C .agents status` and standing accidental-commit risks. The granular bridge pattern ensures that only AAPP-governed configuration is versioned.
 
+#### Non-Destructive Adopter Migration Pattern:
+`lib/cmd_init.sh` executes a migration algorithm that preserves existing user settings and hook configurations (satisfying `tests/install_test.sh:290, 300` / `ISSUE-007` & `ISSUE-010`):
+```bash
+sync_claude_settings() {
+    mkdir -p .agents/claude
+    [ ! -d .claude ] && mkdir -p .claude
+
+    local canonical_settings=".agents/claude/settings.json"
+    local bridge_settings=".claude/settings.json"
+
+    # Step 1: Non-destructive migration of pre-existing adopter settings
+    if [ -f "$bridge_settings" ] && [ ! -L "$bridge_settings" ]; then
+        if [ ! -f "$canonical_settings" ]; then
+            mv "$bridge_settings" "$canonical_settings"
+        else
+            rm -f "$bridge_settings"
+        fi
+    fi
+
+    # Step 2: Ensure canonical template settings exist
+    if [ ! -f "$canonical_settings" ]; then
+        if [ -f "$AAPP_TEMPLATES/claude/settings.json" ]; then
+            cp "$AAPP_TEMPLATES/claude/settings.json" "$canonical_settings"
+        else
+            cat > "$canonical_settings" <<'JSON'
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.githooks/blast-radius-guard"
+          }
+        ]
+      }
+    ]
+  }
+}
+JSON
+        fi
+    fi
+
+    # Step 3: Run existing non-destructive python3 merge against canonical settings
+    # Preserves existing user keys ("userCustomSetting", custom hooks, MCP config)
+    merge_blast_radius_guard "$canonical_settings"
+
+    # Step 4: Transparent git index untracking for code branch hygiene
+    if git ls-files --error-unmatch "$bridge_settings" >/dev/null 2>&1; then
+        git rm --cached "$bridge_settings" >/dev/null 2>&1 || true
+        echo "ℹ️  Untracked $bridge_settings from git index (migrated to $canonical_settings; ignored via .gitignore)."
+    fi
+
+    # Step 5: Establish granular symlink with verified resolution
+    rm -rf "$bridge_settings"
+    ln -s "../$canonical_settings" "$bridge_settings" 2>/dev/null || true
+    if [ -e "$bridge_settings" ]; then
+        : # Symlink verified
+    else
+        rm -rf "$bridge_settings"
+        cp "$canonical_settings" "$bridge_settings" # Cross-platform copy fallback
+    fi
+}
+```
+
 #### The Two Architectural Caveats:
 1. **The Activation Pre-requisite (Fresh Clones)**:
    On a fresh repository clone, `.claude/` is gitignored and the orphan worktrees (`.plans/`, `.agents/`, `.githooks/`) do not yet exist. Running `./aapp init` is the required activation step that mounts worktrees, generates the `.claude/` directory, untracks legacy code-branch `.claude/settings.json` if present, and establishes the symlinks. (Note: write protection via `.githooks/blast-radius-guard` already required `aapp init` to mount `.githooks/`, so this preserves existing workflow expectations).
@@ -239,23 +313,23 @@ Claude Code generates local, machine-specific state into `.claude/` (e.g., `sett
 - [ ] Task 0.1: Empirically verify that Claude Code runtime traverses relative symlinks for `.claude/settings.json` (triggering `PreToolUse` on denied paths) and `.claude/skills/*/SKILL.md` (registering `/aapp-*` slash commands).
 
 ### Phase 1: Author the Universal Skill Templates
-- [ ] Task 1.1: Create `templates/skills/aapp-status/SKILL.md` — frontmatter (`name: aapp-status`, `description`, `context: inline`), 5-step four-pillar briefing contract with deterministic fallback file reading.
-- [ ] Task 1.2: Create `templates/skills/aapp-digest/SKILL.md` — frontmatter (`name: aapp-digest`, `context: fork`, `argument-hint: [idea or ISSUE-ID]`), 6-step routing procedure (resolve → route to lane → NEW/AMEND → scaffold → clean pickup → report).
+- [ ] Task 1.1: Create `templates/skills/aapp-status/SKILL.md` — frontmatter (`name: aapp-status`, `description`, omitted `context` executes inline), 5-step four-pillar briefing contract with deterministic fallback file reading.
+- [ ] Task 1.2: Create `templates/skills/aapp-digest/SKILL.md` — frontmatter (`name: aapp-digest`, `argument-hint: [idea or ISSUE-ID]`, omitted `context` executes inline to access chat conversation context), 6-step routing procedure (resolve → route to lane → NEW/AMEND → scaffold → clean pickup → report).
 - [ ] Task 1.3: Create `templates/skills/aapp-freeze/SKILL.md` — frontmatter (`name: aapp-freeze`, `disable-model-invocation: true`, `argument-hint: [plan-name]`), 3-step boundary verification and greenlight lock procedure.
 - [ ] Task 1.4: Create `templates/skills/aapp-done/SKILL.md` — frontmatter (`name: aapp-done`, `disable-model-invocation: true`, `argument-hint: [plan-name]`), 4-step archive procedure (move → ledger append → state matrix prune → worktree commit).
 - [ ] Task 1.5: Create `templates/skills/aapp-release/SKILL.md` — frontmatter (`name: aapp-release`, `disable-model-invocation: true`, `context: fork`, `argument-hint: [version]`), 5-step preflight verification runbook against `.plans/release/release_checklist.md`.
 
 ### Phase 2: Wire Settings Decoupling, Skill Sync, Gitignore & Claude Bridge into `aapp init`
-- [ ] Task 2.1: Add `.claude/` to the `.gitignore` setup loop in `lib/cmd_init.sh` and untrack `.claude/settings.json` from git index on code branch (`git rm --cached .claude/settings.json 2>/dev/null || true`).
-- [ ] Task 2.2: Author canonical `templates/claude/settings.json` and implement `sync_claude_settings()` in `lib/cmd_init.sh`: checks if `.claude/` exists (creates if not), installs canonical settings to `.agents/claude/settings.json`, and establishes granular symlink `.claude/settings.json -> ../.agents/claude/settings.json` with copy fallback.
-- [ ] Task 2.3: Implement granular `sync_skills()` in `lib/cmd_init.sh`: checks if `.claude/skills/` (and `.agents/skills/`) exist (creates if not), installs canonical skills to `.agents/skills/aapp-*`, and creates relative symlinks in `.claude/skills/aapp-*` with directory-copy fallback.
+- [ ] Task 2.1: Add `.claude/` to the `.gitignore` setup loop in `lib/cmd_init.sh` and transparently untrack `.claude/settings.json` from git index on code branch with notice (`git rm --cached .claude/settings.json` if tracked).
+- [ ] Task 2.2: Author canonical `templates/claude/settings.json` and implement non-destructive `sync_claude_settings()` in `lib/cmd_init.sh`: migrates existing real settings if present, merges `blast-radius-guard` preserving adopter custom keys (`tests/install_test.sh:290, 300`), and establishes verified symlink `.claude/settings.json -> ../.agents/claude/settings.json` with copy fallback.
+- [ ] Task 2.3: Implement clean `sync_skills()` in `lib/cmd_init.sh`: removes destination dir prior to copy to eliminate stale dropped files, checks if `.claude/skills/` (and `.agents/skills/`) exist (creates if not), installs canonical skills to `.agents/skills/aapp-*`, and creates verified relative symlinks in `.claude/skills/aapp-*` with directory-copy fallback.
 - [ ] Task 2.4: Call `sync_claude_settings()` and `sync_skills()` during `aapp init` (Phase 5) and update the completion banner with `➡️  Universal Skills: .agents/skills/ (bridged to .claude/skills/)`.
 - [ ] Task 2.5: Add `.agents/claude/*`, `.claude/settings.local.json`, `.agents/skills/aapp-*`, and `.claude/skills/aapp-*` to Section 2 self-protection in `templates/blast-radius-guard.sh` and sync to `.githooks/blast-radius-guard`.
 - [ ] Task 2.6: Update `templates/AGENTS.md` to document the Universal Skills, `/aapp-<verb>` slash command triggers, and `/aapp <verb>` aliases.
 - [ ] Task 2.7: Update next-action advice footer in `lib/cmd_status.sh` from `/digest <idea>` to `/aapp-digest <idea>`.
 
 ### Phase 3: Automated Verification & Documentation
-- [ ] Task 3.1: Extend `tests/install_test.sh` — verify `.claude/` added to `.gitignore`, canonical settings installation in `.agents/claude/settings.json`, `.claude/settings.json` symlink, skill installation in `.agents/skills/`, `.claude/skills/` bridge creation, preservation of non-AAPP custom skills and `settings.local.json`, and byte-for-byte upgrade overwrites.
+- [ ] Task 3.1: Extend `tests/install_test.sh` — verify `.claude/` added to `.gitignore`, canonical settings installation in `.agents/claude/settings.json`, `.claude/settings.json` symlink, skill installation in `.agents/skills/`, `.claude/skills/` bridge creation, preservation of non-AAPP custom skills and `settings.local.json`, and byte-for-byte upgrade overwrites without stale files.
 - [ ] Task 3.2: Extend `tests/write-guard_test.sh` — verify Section 2 self-protection denies edits to `.agents/claude/settings.json` (closing the inode aliasing bypass), `.claude/settings.json`, `.claude/settings.local.json`, `.agents/skills/aapp-freeze/SKILL.md`, and `.claude/skills/aapp-freeze/SKILL.md` while permitting user skills.
 - [ ] Task 3.3: Add drift assertions in `tests/install_test.sh` verifying all five skills declare valid frontmatter and match `AGENTS.md` invariants.
 - [ ] Task 3.4: Update `README.md` and `MANUAL.md` documentation covering Universal Skills, `aapp-<verb>` naming, the depth-1 path invariant (`skills/*/SKILL.md`), the decoupled `.agents/claude/settings.json` configuration, and out-of-the-box compatibility across Cursor, OpenAI Codex, Google Antigravity, and Claude Code.
@@ -294,6 +368,8 @@ Claude Code generates local, machine-specific state into `.claude/` (e.g., `sett
 - [ ] `templates/aapp-pre-commit` -> Commit-time enforcement is unchanged by this work.
 - [ ] `aapp` -> No dispatcher verb is added; these are agent skills, not CLI subcommands.
 
+> **Concurrent Incubator Plan Alignment**: Note that [`plan-feature-aapp-lifecycle-hooks.md`](plan-feature-aapp-lifecycle-hooks.md) is also in the Incubator and touches `lib/cmd_init.sh` and documentation. Skill synchronization (`sync_skills()`) and Claude settings management (`sync_claude_settings()`) are modularized as isolated helper functions in `lib/cmd_init.sh` to prevent git conflicts.
+
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
@@ -301,11 +377,12 @@ Claude Code generates local, machine-specific state into `.claude/` (e.g., `sett
 * [x] **Question 1 — Namespace & Naming Convention (Resolved 2026-09-13):** **Adopt canonical `aapp-<verb>` naming.** Formally name skills and slash commands as `aapp-<verb>` (e.g. `/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-done`, `/aapp-release`) to guarantee 100% cross-platform Windows NTFS filesystem safety (colons `:` are forbidden characters on Windows). Retain `/aapp <verb>` and bare words as natural-language aliases in `AGENTS.md`.
 * [x] **Question 2 — Commands vs. Skills (Resolved 2026-09-13):** **Adopt Universal AAPP Skills (`.agents/skills/`).** Pivoted from Claude-only flat commands (`.claude/commands/`) to cross-agent `SKILL.md` files housed in `.agents/skills/` and bridged to Claude Code (`.claude/skills/`). Provides native discovery in Google Antigravity, Cursor, Codex, and Claude Code, progressive disclosure, and context forking.
 * [x] **Question 3 — Tool & Status Coupling (Resolved 2026-09-13):** **Standard Tool Execution with Direct Markdown Fallback.** Replaced brittle pre-render `` !`aapp status` `` macro with normal agent execution (`./aapp status`) and direct fallback to reading the 4 pillar files (`CHANGELOG.md`, `ISSUES.md` + `issues_road_map.md`, `state_matrix.md`, `pickup.md`). Guarantees the session never aborts on missing binaries or strict tool permissions.
-* [x] **Question 4 — Canonical Claude Configuration & Inode Aliasing Bypass (Resolved 2026-09-14):** **Adopt Granular Configuration Bridge (`.agents/claude/settings.json`).** Untrack `.claude/settings.json` from the code branch and manage canonical configuration inside the orphan `agents` worktree. Protect both ends of the symlink in `templates/blast-radius-guard.sh` Section 2 (`.agents/claude/*` and `.claude/settings.json`) to completely close the path-string inode aliasing bypass. Documented the fresh-clone activation requirement and the Windows copy-fallback caveat.
+* [x] **Question 4 — Canonical Claude Configuration & Inode Aliasing Bypass (Resolved 2026-09-14):** **Adopt Granular Configuration Bridge (`.agents/claude/settings.json`).** Untrack `.claude/settings.json` from the code branch and manage canonical configuration inside the orphan `agents` worktree. Protect both ends of the symlink in `templates/blast-radius-guard.sh` Section 2 (`.agents/claude/*` and `.claude/settings.json`) to completely close the path-string inode aliasing bypass. Documented non-destructive adopter settings migration (preserving tests 13 & 14), fresh-clone activation requirement, and Windows copy-fallback caveat.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-14:** Hardened blueprint against regressions: added non-destructive settings migration algorithm preserving pre-existing user configurations (tests/install_test.sh:290, 300), resolved stale files on upgrade via clean destination directory recreation (`rm -rf` before `cp`), verified symlink resolution via target file check (`[ -e ... ]`), removed `context: fork` from digest to preserve chat history, and documented skill authoring asymmetry.
 * **2026-09-14:** Upgraded blueprint with canonical Claude configuration decoupling (`.agents/claude/settings.json` -> `.claude/settings.json`), closed the inode aliasing bypass in `blast-radius-guard.sh` Section 2 (`.agents/claude/*`), added empirical pre-freeze verification task (Task 0.1), and documented fresh-clone activation and Windows fallback caveats.
 * **2026-09-13:** Integrated granular per-skill symlinking with directory existence check, cross-platform Windows symlink fallback, self-protection precedence rules, and `cmd_status.sh` next-action footer alignment to `/aapp-digest`.
 * **2026-09-13:** Added `.claude/` to the `.gitignore` configuration loop in `aapp init` (Phase 2 Task 2.1) to guarantee `.claude/settings.json` and `.claude/skills/` never pollute application code branches or git logs.
