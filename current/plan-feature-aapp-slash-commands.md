@@ -243,11 +243,20 @@ sync_claude_settings() {
     local canonical_settings=".agents/claude/settings.json"
     local bridge_settings=".claude/settings.json"
 
-    # Step 1: Non-destructive migration of pre-existing adopter settings
+    # Step 1: Non-destructive migration & divergence reconciliation
+    # Handles initial adopter migration, Windows copy-fallback, and Claude UI permission updates
     if [ -f "$bridge_settings" ] && [ ! -L "$bridge_settings" ]; then
         if [ ! -f "$canonical_settings" ]; then
+            # Initial migration for fresh AAPP adopter
             mv "$bridge_settings" "$canonical_settings"
+        elif ! cmp -s "$bridge_settings" "$canonical_settings"; then
+            # File diverged (e.g. Windows copy-fallback or Claude UI added permissions/config)
+            cp "$bridge_settings" "${canonical_settings}.bak"
+            echo "ℹ️  Merging diverged .claude/settings.json into canonical (backup: ${canonical_settings}.bak)."
+            merge_blast_radius_guard "$canonical_settings" "$bridge_settings"
+            rm -f "$bridge_settings"
         else
+            # Identical to canonical (clean copy from previous init)
             rm -f "$bridge_settings"
         fi
     fi
@@ -277,8 +286,8 @@ JSON
         fi
     fi
 
-    # Step 3: Run existing non-destructive python3 merge against canonical settings
-    # Preserves existing user keys ("userCustomSetting", custom hooks, MCP config)
+    # Step 3: Run path-parameterized Python merge against canonical settings
+    # Guarantees blast-radius-guard hook is present without disturbing custom user keys
     merge_blast_radius_guard "$canonical_settings"
 
     # Step 4: Transparent git index untracking for code branch hygiene
@@ -287,14 +296,91 @@ JSON
         echo "ℹ️  Untracked $bridge_settings from git index (migrated to $canonical_settings; ignored via .gitignore)."
     fi
 
-    # Step 5: Establish granular symlink with verified resolution
+    # Step 5: Establish granular symlink with verified resolution and content check
     rm -rf "$bridge_settings"
     ln -s "../$canonical_settings" "$bridge_settings" 2>/dev/null || true
-    if [ -e "$bridge_settings" ]; then
-        : # Symlink verified
+    if [ -s "$bridge_settings" ] && grep -q 'blast-radius-guard' "$bridge_settings" 2>/dev/null; then
+        : # Symlink verified and readable
     else
         rm -rf "$bridge_settings"
         cp "$canonical_settings" "$bridge_settings" # Cross-platform copy fallback
+    fi
+}
+```
+
+#### Path-Parameterized Settings Merge Helper:
+The inline Python merge in `lib/cmd_init.sh` (which previously hardcoded `.claude/settings.json`) is extracted into a path-parameterized helper `merge_blast_radius_guard "$target" ["$source"]`:
+```bash
+merge_blast_radius_guard() {
+    local target_file="$1"
+    local source_file="${2:-}"
+
+    if command -v python3 >/dev/null 2>&1; then
+        python3 - "$target_file" "$source_file" <<'PYEOF'
+import json, sys, os
+
+target_path = sys.argv[1]
+source_path = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None
+
+def load_json(p):
+    if not p or not os.path.isfile(p):
+        return {}
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            d = json.load(f)
+            return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+target_data = load_json(target_path)
+
+# If source file provided (e.g. migrating existing or diverged .claude/settings.json),
+# merge all top-level keys and union nested permissions/lists
+if source_path and os.path.isfile(source_path):
+    source_data = load_json(source_path)
+    for k, v in source_data.items():
+        if k not in target_data:
+            target_data[k] = v
+        elif isinstance(v, dict) and isinstance(target_data[k], dict):
+            for sub_k, sub_v in v.items():
+                if sub_k not in target_data[k]:
+                    target_data[k][sub_k] = sub_v
+                elif isinstance(sub_v, list) and isinstance(target_data[k][sub_k], list):
+                    for item in sub_v:
+                        if item not in target_data[k][sub_k]:
+                            target_data[k][sub_k].append(item)
+
+# Ensure blast-radius-guard hook is present in PreToolUse
+if "hooks" not in target_data or not isinstance(target_data["hooks"], dict):
+    target_data["hooks"] = {}
+if "PreToolUse" not in target_data["hooks"] or not isinstance(target_data["hooks"]["PreToolUse"], list):
+    target_data["hooks"]["PreToolUse"] = []
+
+hook_cmd = "${CLAUDE_PROJECT_DIR}/.githooks/blast-radius-guard"
+has_hook = False
+for entry in target_data["hooks"]["PreToolUse"]:
+    if isinstance(entry, dict) and "hooks" in entry and isinstance(entry["hooks"], list):
+        for h in entry["hooks"]:
+            if isinstance(h, dict) and h.get("command") == hook_cmd:
+                has_hook = True
+                break
+
+if not has_hook:
+    target_data["hooks"]["PreToolUse"].append({
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+            {
+                "type": "command",
+                "command": hook_cmd
+            }
+        ]
+    })
+
+os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
+with open(target_path, "w", encoding="utf-8") as f:
+    json.dump(target_data, f, indent=2)
+    f.write("\n")
+PYEOF
     fi
 }
 ```
@@ -303,7 +389,7 @@ JSON
 1. **The Activation Pre-requisite (Fresh Clones)**:
    On a fresh repository clone, `.claude/` is gitignored and the orphan worktrees (`.plans/`, `.agents/`, `.githooks/`) do not yet exist. Running `./aapp init` is the required activation step that mounts worktrees, generates the `.claude/` directory, untracks legacy code-branch `.claude/settings.json` if present, and establishes the symlinks. (Note: write protection via `.githooks/blast-radius-guard` already required `aapp init` to mount `.githooks/`, so this preserves existing workflow expectations).
 2. **Windows Asymmetry & Copy-Fallback**:
-   On systems where unprivileged symlink creation is disallowed (e.g., Windows without Developer Mode or restricted container volumes), `settings.json` falls back to a file copy. On these systems, `.agents/claude/settings.json` is the canonical source of truth; any edits made directly to `.claude/settings.json` will not propagate to `.agents/` and will be overwritten on subsequent `aapp init` executions. Windows developers must edit `.agents/claude/settings.json` directly.
+   On systems where unprivileged symlink creation is disallowed (e.g., Windows without Developer Mode or restricted container volumes), `settings.json` falls back to a file copy. When `.claude/settings.json` diverges from `.agents/claude/settings.json` (e.g. if Claude Code writes new permissions or configs into `.claude/settings.json`), `sync_claude_settings()` automatically creates a `.bak` backup and merges divergent keys into the canonical file upon `aapp init`.
 
 ---
 
@@ -321,7 +407,7 @@ JSON
 
 ### Phase 2: Wire Settings Decoupling, Skill Sync, Gitignore & Claude Bridge into `aapp init`
 - [ ] Task 2.1: Add `.claude/` to the `.gitignore` setup loop in `lib/cmd_init.sh` and transparently untrack `.claude/settings.json` from git index on code branch with notice (`git rm --cached .claude/settings.json` if tracked).
-- [ ] Task 2.2: Author canonical `templates/claude/settings.json` and implement non-destructive `sync_claude_settings()` in `lib/cmd_init.sh`: migrates existing real settings if present, merges `blast-radius-guard` preserving adopter custom keys (`tests/install_test.sh:290, 300`), and establishes verified symlink `.claude/settings.json -> ../.agents/claude/settings.json` with copy fallback.
+- [ ] Task 2.2: Author canonical `templates/claude/settings.json`, extract inline Python merge into path-parameterized `merge_blast_radius_guard "$target" ["$source"]`, and implement non-destructive `sync_claude_settings()` in `lib/cmd_init.sh`: migrates existing real settings if present, merges diverged settings with backup (`${canonical_settings}.bak`) on Windows/Claude UI changes, ensures `blast-radius-guard` is merged preserving custom keys (`tests/install_test.sh:290, 300`), and establishes verified symlink with content check (`[ -s ] && grep`) and copy fallback.
 - [ ] Task 2.3: Implement clean `sync_skills()` in `lib/cmd_init.sh`: removes destination dir prior to copy to eliminate stale dropped files, checks if `.claude/skills/` (and `.agents/skills/`) exist (creates if not), installs canonical skills to `.agents/skills/aapp-*`, and creates verified relative symlinks in `.claude/skills/aapp-*` with directory-copy fallback.
 - [ ] Task 2.4: Call `sync_claude_settings()` and `sync_skills()` during `aapp init` (Phase 5) and update the completion banner with `➡️  Universal Skills: .agents/skills/ (bridged to .claude/skills/)`.
 - [ ] Task 2.5: Add `.agents/claude/*`, `.claude/settings.local.json`, `.agents/skills/aapp-*`, and `.claude/skills/aapp-*` to Section 2 self-protection in `templates/blast-radius-guard.sh` and sync to `.githooks/blast-radius-guard`.
@@ -382,6 +468,7 @@ JSON
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-14:** Eliminated settings deletion bug on divergence: added auto-backup and key-merging for diverged `.claude/settings.json`, extracted path-parameterized `merge_blast_radius_guard()` helper, and strengthened symlink verification (`[ -s ] && grep 'blast-radius-guard'`).
 * **2026-09-14:** Hardened blueprint against regressions: added non-destructive settings migration algorithm preserving pre-existing user configurations (tests/install_test.sh:290, 300), resolved stale files on upgrade via clean destination directory recreation (`rm -rf` before `cp`), verified symlink resolution via target file check (`[ -e ... ]`), removed `context: fork` from digest to preserve chat history, and documented skill authoring asymmetry.
 * **2026-09-14:** Upgraded blueprint with canonical Claude configuration decoupling (`.agents/claude/settings.json` -> `.claude/settings.json`), closed the inode aliasing bypass in `blast-radius-guard.sh` Section 2 (`.agents/claude/*`), added empirical pre-freeze verification task (Task 0.1), and documented fresh-clone activation and Windows fallback caveats.
 * **2026-09-13:** Integrated granular per-skill symlinking with directory existence check, cross-platform Windows symlink fallback, self-protection precedence rules, and `cmd_status.sh` next-action footer alignment to `/aapp-digest`.
