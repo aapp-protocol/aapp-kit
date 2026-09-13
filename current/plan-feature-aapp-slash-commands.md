@@ -26,7 +26,7 @@
 ### Architectural Advantages of Universal Skills over Flat Commands:
 1. **Multi-Agent Interoperability**:
    - **Google Antigravity** natively discovers workspace skills in `.agents/skills/<name>/SKILL.md` via progressive disclosure.
-   - **Claude Code** natively discovers `.claude/skills/<name>/SKILL.md` and exposes them as slash commands (e.g. `/aapp:status`, `/aapp:digest`).
+   - **Claude Code** natively discovers `.claude/skills/<name>/SKILL.md` and exposes them as slash commands (e.g. `/aapp-status`, `/aapp-digest`).
    - Standardizes on the open `SKILL.md` format with YAML frontmatter across AI pair-programming tools.
 2. **Decoupled Worktree Alignment**:
    - Canonical skill files live in the orphan `agents` worktree (`.agents/skills/`), never polluting the application code branch or commit history.
@@ -34,7 +34,7 @@
 3. **Progressive Disclosure & Token Economics**:
    - Instead of injecting 20 KB of `AGENTS.md` on every turn, agents only register ~100 tokens of skill names and 1-line descriptions. Full procedure text is loaded on-demand *only* when the skill or slash command is triggered.
 4. **Execution Isolation (`context: fork`)**:
-   - Intensive workflows like `/aapp:digest` (codebase research and blueprint scaffolding) or `/aapp:release` (running full test suites and linters) run in an isolated fork or subagent context, reporting only clean summaries back to the primary chat.
+   - Intensive workflows like `/aapp-digest` (codebase research and blueprint scaffolding) or `/aapp-release` (running full test suites and linters) run in an isolated fork or subagent context, reporting only clean summaries back to the primary chat.
 5. **Deterministic Tool Execution**:
    - Eliminates brittle pre-render `` !`aapp status` `` macro injections that crash Claude sessions on missing binaries or permission checks. The agent inspects `aapp status` via standard tool execution or falls back gracefully to reading the four pillar markdown files directly.
 
@@ -100,7 +100,7 @@ Previously, `.claude/` was omitted from this loop. As a result, `.claude/setting
 | User-owned scaffold | `pickup.md`, `ISSUES.md` | `copy_guarded` (create if absent) | ✗ |
 | AAPP-owned engine | `aapp-pre-commit`, `blast-radius-guard` | `cp` / symlink byte-for-byte every init | ✓ |
 
-The skill files encode core protocol behaviour that must stay in lockstep with the installed `AAPP` release. A new `sync_skills()` helper in `lib/cmd_init.sh` manages `.agents/skills/` and wires `.claude/skills/`. User skills elsewhere in `.agents/skills/` or `.claude/skills/` (not starting with `aapp-`) are strictly preserved.
+The skill files encode core protocol behaviour that must stay in lockstep with the installed `AAPP` release. A noew `sync_skills()` helper in `lib/cmd_init.sh` manages `.agents/skills/` and wires `.claude/skills/`. User skills elsewhere in `.agents/skills/` or `.claude/skills/` (not starting with `aapp-`) are strictly preserved.
 
 ### 2.4 Anatomy of an AAPP `SKILL.md` File
 
@@ -158,7 +158,7 @@ Project-specific skills (e.g. `.agents/skills/deploy/`) remain freely writable b
 - [ ] Task 2.2: Implement `sync_skills()` in `lib/cmd_init.sh` to copy `templates/skills/aapp-*` into `.agents/skills/` and create symlink/bridge `.claude/skills`.
 - [ ] Task 2.3: Call `sync_skills()` during `aapp init` (Phase 5) and update the completion banner with `➡️  Universal Skills: .agents/skills/ (bridged to .claude/skills/)`.
 - [ ] Task 2.4: Add `.agents/skills/aapp-*` and `.claude/skills/aapp-*` to self-protection in `templates/blast-radius-guard.sh` and sync to `.githooks/blast-radius-guard`.
-- [ ] Task 2.5: Update `templates/AGENTS.md` to document the Universal Skills and `/aapp:` slash command triggers.
+- [ ] Task 2.5: Update `templates/AGENTS.md` to document the Universal Skills, `/aapp-<verb>` slash command triggers, and `/aapp <verb>` aliases.
 
 ### Phase 3: Automated Verification & Documentation
 - [ ] Task 3.1: Extend `tests/install_test.sh` — verify `.claude/` added to `.gitignore`, skill installation in `.agents/skills/`, `.claude/skills/` bridge creation, preservation of non-AAPP custom skills, and byte-for-byte upgrade overwrites.
