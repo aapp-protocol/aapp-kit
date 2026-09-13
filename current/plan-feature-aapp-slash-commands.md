@@ -77,10 +77,23 @@ templates/skills/
 When `aapp init` executes:
 1. Installs canonical skills into `.agents/skills/aapp-*/SKILL.md`.
 2. Creates `.claude/skills/` as a symlink to `../.agents/skills` (with POSIX directory mirror fallback where symlinks are unsupported or on native Windows).
-3. In Claude Code, this generates slash commands `/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-done`, and `/aapp-release`.
-4. In Antigravity, Cursor, and Codex, the skills are immediately indexed and available via progressive disclosure.
+3. Adds `.claude/` to `.gitignore` on the active code branch alongside `.plans/`, `.agents/`, and `.githooks/` so `.claude/settings.json` and `.claude/skills/` never pollute the application repository.
+4. In Claude Code, this generates slash commands `/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-done`, and `/aapp-release`.
+5. In Antigravity, Cursor, and Codex, the skills are immediately indexed and available via progressive disclosure.
 
-### 2.2 Sync Semantics — Engine Files, Not User Templates
+### 2.2 Clean Codebase Invariant: `.claude/` in `.gitignore`
+
+When `aapp init` runs, it configures `.gitignore` on the user's active code branch to ignore the decoupled worktree mounts:
+```bash
+for IGNORE_ENTRY in ".plans/" ".agents/" ".githooks/" ".claude/"; do
+    if ! grep -qxF "${IGNORE_ENTRY}" .gitignore 2>/dev/null; then
+        echo "${IGNORE_ENTRY}" >> .gitignore
+    fi
+done
+```
+Previously, `.claude/` was omitted from this loop. As a result, `.claude/settings.json` (and the newly created `.claude/skills/` bridge) would appear as untracked files in `git status`, risking accidental commits to application code branches. Including `.claude/` in the initial `.gitignore` setup ensures zero repository pollution while keeping agent configuration fully functional.
+
+### 2.3 Sync Semantics — Engine Files, Not User Templates
 
 | Class | Existing example | Sync verb | Applies here |
 | :--- | :--- | :--- | :--- |
@@ -89,7 +102,7 @@ When `aapp init` executes:
 
 The skill files encode core protocol behaviour that must stay in lockstep with the installed `AAPP` release. A new `sync_skills()` helper in `lib/cmd_init.sh` manages `.agents/skills/` and wires `.claude/skills/`. User skills elsewhere in `.agents/skills/` or `.claude/skills/` (not starting with `aapp-`) are strictly preserved.
 
-### 2.3 Anatomy of an AAPP `SKILL.md` File
+### 2.4 Anatomy of an AAPP `SKILL.md` File
 
 ```markdown
 ---
@@ -115,14 +128,14 @@ Execute the 5-step four-pillar context recovery procedure...
 * **Canonical Pointer**:
   - Each skill references the canonical specification in `.agents/AGENTS.md` for deep edge-case resolution.
 
-### 2.4 Drift Control
+### 2.5 Drift Control
 
 `templates/AGENTS.md` remains canonical protocol prose; the skill files are the executable procedures. A new assertion block in `tests/install_test.sh` verifies, for each of the five verbs, that:
 1. `SKILL.md` exists and contains valid YAML frontmatter (`name`, `description`).
 2. Mandatory invariant markers (`state_matrix.md`, `000-archive-ledger.md`, `release_checklist.md`) are present.
 3. Frontmatter fields match expected safety flags (`disable-model-invocation: true` for freeze/done/release).
 
-### 2.5 Self-Protection & Blast Radius Guard
+### 2.6 Self-Protection & Blast Radius Guard
 
 An agent must not be able to tamper with its own governance skills. `templates/blast-radius-guard.sh` expands its self-protection `case` to include:
 - `.agents/skills/aapp-*`
@@ -140,14 +153,15 @@ Project-specific skills (e.g. `.agents/skills/deploy/`) remain freely writable b
 - [ ] Task 1.4: Create `templates/skills/aapp-done/SKILL.md` — frontmatter (`name: aapp-done`, `disable-model-invocation: true`, `argument-hint: [plan-name]`), 4-step archive procedure (move → ledger append → state matrix prune → worktree commit).
 - [ ] Task 1.5: Create `templates/skills/aapp-release/SKILL.md` — frontmatter (`name: aapp-release`, `disable-model-invocation: true`, `context: fork`, `argument-hint: [version]`), 5-step preflight verification runbook against `.plans/release/release_checklist.md`.
 
-### Phase 2: Wire Skill Sync & Claude Bridge into `aapp init`
-- [ ] Task 2.1: Implement `sync_skills()` in `lib/cmd_init.sh` to copy `templates/skills/aapp-*` into `.agents/skills/` and create symlink/bridge `.claude/skills`.
-- [ ] Task 2.2: Call `sync_skills()` during `aapp init` (Phase 5) and update the completion banner with `➡️  Universal Skills: .agents/skills/ (bridged to .claude/skills/)`.
-- [ ] Task 2.3: Add `.agents/skills/aapp-*` and `.claude/skills/aapp-*` to self-protection in `templates/blast-radius-guard.sh` and sync to `.githooks/blast-radius-guard`.
-- [ ] Task 2.4: Update `templates/AGENTS.md` to document the Universal Skills and `/aapp:` slash command triggers.
+### Phase 2: Wire Skill Sync, Gitignore & Claude Bridge into `aapp init`
+- [ ] Task 2.1: Add `.claude/` to the `.gitignore` setup loop in `lib/cmd_init.sh` (alongside `.plans/`, `.agents/`, and `.githooks/`) to ensure `.claude/settings.json` and `.claude/skills/` never pollute application code branches.
+- [ ] Task 2.2: Implement `sync_skills()` in `lib/cmd_init.sh` to copy `templates/skills/aapp-*` into `.agents/skills/` and create symlink/bridge `.claude/skills`.
+- [ ] Task 2.3: Call `sync_skills()` during `aapp init` (Phase 5) and update the completion banner with `➡️  Universal Skills: .agents/skills/ (bridged to .claude/skills/)`.
+- [ ] Task 2.4: Add `.agents/skills/aapp-*` and `.claude/skills/aapp-*` to self-protection in `templates/blast-radius-guard.sh` and sync to `.githooks/blast-radius-guard`.
+- [ ] Task 2.5: Update `templates/AGENTS.md` to document the Universal Skills and `/aapp:` slash command triggers.
 
 ### Phase 3: Automated Verification & Documentation
-- [ ] Task 3.1: Extend `tests/install_test.sh` — verify skill installation in `.agents/skills/`, `.claude/skills/` bridge creation, preservation of non-AAPP custom skills, and byte-for-byte upgrade overwrites.
+- [ ] Task 3.1: Extend `tests/install_test.sh` — verify `.claude/` added to `.gitignore`, skill installation in `.agents/skills/`, `.claude/skills/` bridge creation, preservation of non-AAPP custom skills, and byte-for-byte upgrade overwrites.
 - [ ] Task 3.2: Extend `tests/write-guard_test.sh` — verify self-protection denies edits to `.agents/skills/aapp-freeze/SKILL.md` and `.claude/skills/aapp-freeze/SKILL.md` while permitting user skills.
 - [ ] Task 3.3: Add drift assertions in `tests/install_test.sh` verifying all five skills declare valid frontmatter and match `AGENTS.md` invariants.
 - [ ] Task 3.4: Update `README.md` and `MANUAL.md` documentation covering Universal Skills, `aapp-<verb>` naming, the depth-1 path invariant (`skills/*/SKILL.md`), and out-of-the-box compatibility across Cursor, OpenAI Codex, Google Antigravity, and Claude Code.
@@ -195,6 +209,7 @@ Project-specific skills (e.g. `.agents/skills/deploy/`) remain freely writable b
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-13:** Added `.claude/` to the `.gitignore` configuration loop in `aapp init` (Phase 2 Task 2.1) to guarantee `.claude/settings.json` and `.claude/skills/` never pollute application code branches or git logs.
 * **2026-09-13:** Standardized canonical skill directory and slash command naming to `aapp-<verb>` for cross-platform Windows NTFS safety (`:` forbidden on Windows). Defined depth-1 path invariant (`skills/*/SKILL.md`) ensuring out-of-the-box discovery across Cursor, Codex, Antigravity, and Claude Code; added README compatibility documentation requirement.
 * **2026-09-13:** Pivoted from Claude-only flat commands (`.claude/commands/`) to Universal AAPP Skills (`.agents/skills/` with `.claude/skills/` bridge) per human decision (Option 1). Resolved Open Questions 2 and 3; updated blueprint, sync architecture, and execution tasks.
 * **2026-09-10:** User confirmed `aapp` command family namespace (`/aapp:<verb>` and `/aapp <verb>`) to eliminate cross-environment collisions across Antigravity CLI and Claude Code; marked Open Question 1 resolved.
