@@ -1,5 +1,5 @@
-# 🗺️ Plan: Shippable AAPP Slash Commands (`.claude/commands/`)
-* **Created:** 2026-09-10 | **Last Refined:** 2026-09-10
+# 🗺️ Plan: Universal AAPP Skills & Slash Commands (`.agents/skills/` & `.claude/skills/`)
+* **Created:** 2026-09-10 | **Last Refined:** 2026-09-13
 * **Target Issue / Milestone:** `ISSUE-061`
 * **Status:** 🔴 Under Review
 
@@ -19,120 +19,146 @@
 
 ## 1. Context & Architectural Goal
 
-`README.md:241-245` presents `/status`, `/digest`, `/freeze`, `/done` and `/release` as slash commands, but they exist **only as prose** inside `templates/AGENTS.md`. In Claude Code they resolve to unknown commands. Today the protocol works only when the agent has already read a ~20 KB `AGENTS.md` into context — which is exactly what does *not* happen on a cold session, in a subagent, or in any project the user has just adopted AAPP into.
+`README.md:241-245` presents `/status`, `/digest`, `/freeze`, `/done` and `/release` as slash commands, but they previously existed **only as prose** inside `templates/AGENTS.md`. In active agent sessions (Claude Code, Antigravity, Cursor) they resolve to unknown commands or require reading a ~20 KB `AGENTS.md` into full conversational context — which does *not* happen on a cold start, in subagents, or upon fresh repository adoption.
 
-**Goal:** ship the five lifecycle verbs as real, self-contained command files that `aapp init` installs into **every** AAPP project, so the protocol is executable from a cold start with no prior context load.
+**Goal:** Ship the five lifecycle verbs as **Universal AAPP Skills** (`skills/<name>/SKILL.md`) natively housed within the orphan `agents` worktree (`.agents/skills/`) and bridged to Claude Code (`.claude/skills/`). This ensures cross-agent interoperability (Antigravity, Claude Code, Cursor), eliminates prompt context pollution through progressive disclosure, and enables isolated subagent execution.
 
-Three constraints drive the design:
-
-1. **Portability.** The commands ship as `templates/`, are synced by `aapp init`, and must work in a project that has never seen AAPP before. They cannot assume `aapp` is on `PATH`, that `python3` exists, or that `AGENTS.md` is in context.
-2. **Self-containment over indirection.** Each file carries its own procedure inline. `@`-referencing `.agents/AGENTS.md` would pull ~20 KB into context on every invocation and would break in projects using the root-`AGENTS.md` layout.
-3. **Single source of truth.** Inlining duplicates procedure text that also lives in `templates/AGENTS.md`. That duplication is the main risk this plan carries, and Phase 3 pins it with a drift test rather than a build step.
+### Architectural Advantages of Universal Skills over Flat Commands:
+1. **Multi-Agent Interoperability**:
+   - **Google Antigravity** natively discovers workspace skills in `.agents/skills/<name>/SKILL.md` via progressive disclosure.
+   - **Claude Code** natively discovers `.claude/skills/<name>/SKILL.md` and exposes them as slash commands (e.g. `/aapp:status`, `/aapp:digest`).
+   - Standardizes on the open `SKILL.md` format with YAML frontmatter across AI pair-programming tools.
+2. **Decoupled Worktree Alignment**:
+   - Canonical skill files live in the orphan `agents` worktree (`.agents/skills/`), never polluting the application code branch or commit history.
+   - `aapp init` wires Claude Code compatibility via `.claude/skills` (symlink or directory mirror).
+3. **Progressive Disclosure & Token Economics**:
+   - Instead of injecting 20 KB of `AGENTS.md` on every turn, agents only register ~100 tokens of skill names and 1-line descriptions. Full procedure text is loaded on-demand *only* when the skill or slash command is triggered.
+4. **Execution Isolation (`context: fork`)**:
+   - Intensive workflows like `/aapp:digest` (codebase research and blueprint scaffolding) or `/aapp:release` (running full test suites and linters) run in an isolated fork or subagent context, reporting only clean summaries back to the primary chat.
+5. **Deterministic Tool Execution**:
+   - Eliminates brittle pre-render `` !`aapp status` `` macro injections that crash Claude sessions on missing binaries or permission checks. The agent inspects `aapp status` via standard tool execution or falls back gracefully to reading the four pillar markdown files directly.
 
 ---
 
 ## 2. Technical Blueprint
 
-### 2.1 Namespace: `.claude/commands/aapp/` → `/aapp:status`
+### 2.1 Skill Hierarchy & Namespace
 
-Custom commands **override built-ins of the same name**. A flat `.claude/commands/status.md` would therefore shadow Claude Code's own `/status` in *every project that adopts AAPP* — a surprising, protocol-wide regression for anyone who relies on it.
+Each lifecycle verb is authored as an isolated skill directory:
+```text
+templates/skills/
+├── aapp-status/
+│   └── SKILL.md
+├── aapp-digest/
+│   └── SKILL.md
+├── aapp-freeze/
+│   └── SKILL.md
+├── aapp-done/
+│   └── SKILL.md
+└── aapp-release/
+    └── SKILL.md
+```
 
-Namespacing under a subdirectory yields `/aapp:status`, `/aapp:digest`, `/aapp:freeze`, `/aapp:done`, `/aapp:release`. This buys three things:
+When `aapp init` executes:
+1. Installs canonical skills into `.agents/skills/aapp-*/SKILL.md`.
+2. Creates `.claude/skills/` as a symlink to `../.agents/skills` (with POSIX directory mirror fallback where symlinks are unsupported).
+3. In Claude Code, this generates slash commands `/aapp:status` (or `/aapp-status`), `/aapp:digest`, `/aapp:freeze`, `/aapp:done`, and `/aapp:release`.
+4. In Antigravity, the skills are immediately indexed and available via progressive disclosure and slash command triggers.
 
-* **No collisions** — not with built-ins, not with a project's own `/deploy`-style commands.
-* **Clean ownership** — the whole `aapp/` directory is AAPP-owned, so `aapp init` may overwrite it byte-for-byte on every run, exactly as it already does for `.githooks/aapp-pre-commit`. User files elsewhere in `.claude/commands/` are never touched.
-* **Discoverability** — typing `/aapp:` autocompletes the full lifecycle.
-
-The bare words (`status`, `digest <idea>`, …) remain valid natural-language triggers, because `templates/AGENTS.md` already defines them as prose triggers. Nothing regresses for existing users; they gain a tab-completable path.
-
-### 2.2 Sync semantics — engine files, not user templates
+### 2.2 Sync Semantics — Engine Files, Not User Templates
 
 | Class | Existing example | Sync verb | Applies here |
 | :--- | :--- | :--- | :--- |
 | User-owned scaffold | `pickup.md`, `ISSUES.md` | `copy_guarded` (create if absent) | ✗ |
-| AAPP-owned engine | `aapp-pre-commit`, `blast-radius-guard` | `cp` byte-for-byte every init | ✓ |
+| AAPP-owned engine | `aapp-pre-commit`, `blast-radius-guard` | `cp` / symlink byte-for-byte every init | ✓ |
 
-The command files encode protocol behaviour that must stay in lockstep with the installed `AGENTS.md` version, so they follow the **engine** rule. A new `sync_slash_commands()` helper in `lib/cmd_init.sh` runs `mkdir -p .claude/commands/aapp` and copies all five files unconditionally. This makes `aapp init` the upgrade path for commands, matching how the hooks already upgrade.
+The skill files encode core protocol behaviour that must stay in lockstep with the installed `AAPP` release. A new `sync_skills()` helper in `lib/cmd_init.sh` manages `.agents/skills/` and wires `.claude/skills/`. User skills elsewhere in `.agents/skills/` or `.claude/skills/` (not starting with `aapp-`) are strictly preserved.
 
-### 2.3 Anatomy of a command file
+### 2.3 Anatomy of an AAPP `SKILL.md` File
 
 ```markdown
 ---
-description: <one line — Claude uses this to decide when to auto-invoke>
-argument-hint: [plan-name]
-allowed-tools: Bash(aapp status), Read, Glob
+name: aapp-status
+description: Act as a Context Recovery agent upon desk return. Scan the four pillars (Shipped, Issues, Plans, Pickup) and report a concise structured briefing.
+disable-model-invocation: false
+context: inline
+argument-hint: ""
 ---
+
+# AAPP Status (Context Recovery)
+
+Execute the 5-step four-pillar context recovery procedure...
 ```
 
-* **`$ARGUMENTS` / `$1`** carry the verb's operand (`/aapp:digest ISSUE-049` → `$1`).
-* **`disable-model-invocation: true`** on `freeze`, `done` and `release` — these are state transitions with real consequences (`freeze` grants commit rights; `done` moves files and commits). They must be human-triggered only. `status` and `digest` stay model-invocable.
-* **`!`aapp status`` injection** is used *only* in `status.md`, guarded so a missing binary degrades gracefully rather than erroring:
+* **Frontmatter Contract**:
+  - `name`: `aapp-status`, `aapp-digest`, `aapp-freeze`, `aapp-done`, `aapp-release`.
+  - `description`: Crisp 1-sentence explanation used by agent skill catalogs for progressive disclosure.
+  - `disable-model-invocation: true` on `freeze`, `done`, and `release`: Critical state transitions (granting commit rights, archiving plans, running releases) must be human-initiated. `status` and `digest` remain model-invocable.
+  - `context: fork` on `digest` and `release`: Heavy research and test runs execute in an isolated subagent/fork context. `status`, `freeze`, and `done` remain `context: inline`.
+* **Zero-Crash Execution Logic (No Brittle Macros)**:
+  - `status` instructs the agent to run `./aapp status` if available. If absent or unpermitted, the agent directly inspects the four pillar files (`CHANGELOG.md`, `ISSUES.md` / `issues_road_map.md`, `state_matrix.md`, `pickup.md`) without ever failing or aborting the session.
+* **Canonical Pointer**:
+  - Each skill references the canonical specification in `.agents/AGENTS.md` for deep edge-case resolution.
 
-  ```
-  !`command -v aapp >/dev/null 2>&1 && aapp status || echo "(aapp CLI not on PATH — read the four pillar files directly)"`
-  ```
+### 2.4 Drift Control
 
-  This is the key win: the deterministic CLI briefing is injected as real data, and the agent's job narrows to interpreting it and proposing next actions.
+`templates/AGENTS.md` remains canonical protocol prose; the skill files are the executable procedures. A new assertion block in `tests/install_test.sh` verifies, for each of the five verbs, that:
+1. `SKILL.md` exists and contains valid YAML frontmatter (`name`, `description`).
+2. Mandatory invariant markers (`state_matrix.md`, `000-archive-ledger.md`, `release_checklist.md`) are present.
+3. Frontmatter fields match expected safety flags (`disable-model-invocation: true` for freeze/done/release).
 
-  **Failure semantics are harsher than they look, and Phase 1 must respect them.** A non-zero exit from an injected command **aborts the entire invocation** — Claude never sees the command file at all, so an unguarded `` !`aapp status` `` turns a missing binary into a dead command rather than a degraded one. Two rules follow:
+### 2.5 Self-Protection & Blast Radius Guard
 
-  1. The expression must always exit 0. The `&& … || echo …` form above satisfies this; every injected command added later needs the same treatment or a trailing `|| true`.
-  2. **Injected commands never prompt for permission — if the permission check returns anything but `allow`, the invocation aborts.** A compound expression (`command -v … && aapp status || echo …`) is unlikely to match a narrow `allowed-tools: Bash(aapp status)` pattern, so Phase 1 must verify the real matching behaviour and widen the pattern, or move the guard logic into a tiny shipped helper script that can be allow-listed as a single stable command.
-* Each file ends with a pointer line — *"Full protocol contract: `.agents/AGENTS.md` (or root `AGENTS.md`)"* — so the agent can escalate to the canonical text when a case is genuinely ambiguous, without paying for it on every call.
-
-### 2.4 Drift control
-
-`templates/AGENTS.md` remains canonical prose; the command files are the executable summary. A new assertion block in `tests/install_test.sh` verifies, for each of the five verbs, that the command file exists, parses as YAML frontmatter + body, declares a `description`, and mentions the same canonical artefact paths as its `AGENTS.md` section (`.plans/state_matrix.md` for `freeze`, `000-archive-ledger.md` for `done`, and so on). This catches the realistic drift — a step being added to `AGENTS.md` and not to the command — without a generator.
-
-### 2.5 Self-protection
-
-An agent that can rewrite `.claude/commands/aapp/freeze.md` can rewrite its own gate. `templates/blast-radius-guard.sh` currently hard-blocks `.claude/settings.json` and `.githooks/*`; the same `case` gains `.claude/commands/aapp/*` so the AAPP namespace is tamper-proof while a project's own commands stay freely editable.
+An agent must not be able to tamper with its own governance skills. `templates/blast-radius-guard.sh` expands its self-protection `case` to include:
+- `.agents/skills/aapp-*`
+- `.claude/skills/aapp-*`
+Project-specific skills (e.g. `.agents/skills/deploy/`) remain freely writable by agents.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Author the command templates
-- [ ] Task 1.1: Create `templates/commands/` and author `status.md` — frontmatter (`description`, `allowed-tools: Bash(aapp status), Read, Glob`), guarded `!`aapp status`` injection, and the 5-step four-pillar briefing contract. Must state "never omit a pillar".
-- [ ] Task 1.2: Author `digest.md` — `argument-hint: [idea or ISSUE-ID]`, `$ARGUMENTS`, and the 6-step routing procedure (resolve → route to lane → NEW/AMEND → scaffold → clean pickup → report). Must preserve "produces a draft, never a green light".
-- [ ] Task 1.3: Author `freeze.md` — `disable-model-invocation: true`, `argument-hint: [plan-name]`, the 3-step lock procedure, and an explicit note that freezing grants commit rights under the pre-commit hook.
-- [ ] Task 1.4: Author `done.md` — `disable-model-invocation: true`, the 4-step archive procedure (move → ledger line → strip from `state_matrix.md` → commit the `plans` worktree).
-- [ ] Task 1.5: Author `release.md` — `disable-model-invocation: true`, `argument-hint: [version]`, the 5-step preflight runbook against `.plans/release/release_checklist.md`.
+### Phase 1: Author the Universal Skill Templates
+- [ ] Task 1.1: Create `templates/skills/aapp-status/SKILL.md` — frontmatter (`name: aapp-status`, `description`, `context: inline`), 5-step four-pillar briefing contract with deterministic fallback file reading.
+- [ ] Task 1.2: Create `templates/skills/aapp-digest/SKILL.md` — frontmatter (`name: aapp-digest`, `context: fork`, `argument-hint: [idea or ISSUE-ID]`), 6-step routing procedure (resolve → route to lane → NEW/AMEND → scaffold → clean pickup → report).
+- [ ] Task 1.3: Create `templates/skills/aapp-freeze/SKILL.md` — frontmatter (`name: aapp-freeze`, `disable-model-invocation: true`, `argument-hint: [plan-name]`), 3-step boundary verification and greenlight lock procedure.
+- [ ] Task 1.4: Create `templates/skills/aapp-done/SKILL.md` — frontmatter (`name: aapp-done`, `disable-model-invocation: true`, `argument-hint: [plan-name]`), 4-step archive procedure (move → ledger append → state matrix prune → worktree commit).
+- [ ] Task 1.5: Create `templates/skills/aapp-release/SKILL.md` — frontmatter (`name: aapp-release`, `disable-model-invocation: true`, `context: fork`, `argument-hint: [version]`), 5-step preflight verification runbook against `.plans/release/release_checklist.md`.
 
-### Phase 2: Wire the sync into `aapp init`
-- [ ] Task 2.1: Add `sync_slash_commands()` to `lib/cmd_init.sh` — `mkdir -p .claude/commands/aapp`, unconditional `cp` of all five, guarded by `[ -d "$AAPP_TEMPLATES/commands" ]`.
-- [ ] Task 2.2: Call it from the existing `.claude/` phase (PHASE 5), and extend the completion banner with `➡️  Slash commands:  .claude/commands/aapp/`.
-- [ ] Task 2.3: Add `.claude/commands/aapp/*` to the self-protection `case` in `templates/blast-radius-guard.sh`, then run `aapp init` to propagate into `.githooks/blast-radius-guard`.
-- [ ] Task 2.4: Document the five commands and the `/aapp:` namespace in `templates/AGENTS.md`; run `aapp init` to re-sync the protocol block into `.agents/AGENTS.md`.
+### Phase 2: Wire Skill Sync & Claude Bridge into `aapp init`
+- [ ] Task 2.1: Implement `sync_skills()` in `lib/cmd_init.sh` to copy `templates/skills/aapp-*` into `.agents/skills/` and create symlink/bridge `.claude/skills`.
+- [ ] Task 2.2: Call `sync_skills()` during `aapp init` (Phase 5) and update the completion banner with `➡️  Universal Skills: .agents/skills/ (bridged to .claude/skills/)`.
+- [ ] Task 2.3: Add `.agents/skills/aapp-*` and `.claude/skills/aapp-*` to self-protection in `templates/blast-radius-guard.sh` and sync to `.githooks/blast-radius-guard`.
+- [ ] Task 2.4: Update `templates/AGENTS.md` to document the Universal Skills and `/aapp:` slash command triggers.
 
-### Phase 3: Verification & Edge Cases
-- [ ] Task 3.1: Extend `tests/install_test.sh` — fresh `aapp init` creates all five files; a second `init` overwrites a locally modified AAPP command (engine semantics); an unrelated `.claude/commands/mine.md` survives untouched; a pre-existing `.claude/settings.json` still merges correctly.
-- [ ] Task 3.2: Extend `tests/write-guard_test.sh` — `.claude/commands/aapp/freeze.md` is DENIED, `.claude/commands/mine.md` is ALLOWED.
-- [ ] Task 3.3: Add the Section 2.4 drift assertions for all five verbs.
-- [ ] Task 3.4: Verify degraded paths by hand — `aapp` absent from `PATH` (the invocation must still render, not abort), an `allowed-tools` pattern that actually matches the guarded compound command, and a project with no `.claude/` directory at all.
-- [ ] Task 3.5: Run all three suites; update the case counts in `README.md:279-281` and the `.plans/ISSUES.md` verification line.
-- [ ] Task 3.6: Update `README.md` §7 table to `/aapp:<verb>`, add a MANUAL.md section, add `.claude/commands/` to both architecture trees, and write the `CHANGELOG.md` entry.
+### Phase 3: Automated Verification & Documentation
+- [ ] Task 3.1: Extend `tests/install_test.sh` — verify skill installation in `.agents/skills/`, `.claude/skills/` bridge creation, preservation of non-AAPP custom skills, and byte-for-byte upgrade overwrites.
+- [ ] Task 3.2: Extend `tests/write-guard_test.sh` — verify self-protection denies edits to `.agents/skills/aapp-freeze/SKILL.md` and `.claude/skills/aapp-freeze/SKILL.md` while permitting user skills.
+- [ ] Task 3.3: Add drift assertions in `tests/install_test.sh` verifying all five skills declare valid frontmatter and match `AGENTS.md` invariants.
+- [ ] Task 3.4: Update `README.md` and `MANUAL.md` documentation covering Universal Skills and multi-agent IDE integration.
+- [ ] Task 3.5: Run full test suite (`install_test.sh`, `pre-commit_test.sh`, `write-guard_test.sh`) to ensure 100% pass rate.
+- [ ] Task 3.6: Update `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
+*(Marked: **PROPOSED** — incubator draft)*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
-- [ ] `NEW FILE` -> `templates/commands/status.md` -> Four-pillar context recovery briefing.
-- [ ] `NEW FILE` -> `templates/commands/digest.md` -> Idea/issue routing and blueprint scaffolding.
-- [ ] `NEW FILE` -> `templates/commands/freeze.md` -> Blast Radius lock and greenlight.
-- [ ] `NEW FILE` -> `templates/commands/done.md` -> Archive lifecycle and ledger append.
-- [ ] `NEW FILE` -> `templates/commands/release.md` -> Release preflight runbook.
-- [ ] `lib/cmd_init.sh` -> Add `sync_slash_commands()`, call site in PHASE 5, completion banner line.
-- [ ] `templates/blast-radius-guard.sh` -> Add the AAPP command namespace to self-protection.
-- [ ] `templates/AGENTS.md` -> Document the `/aapp:` namespace alongside the existing prose triggers.
-- [ ] `tests/install_test.sh` -> Sync, overwrite, preservation and drift assertions.
-- [ ] `tests/write-guard_test.sh` -> Self-protection assertions for the command namespace.
-- [ ] `README.md` -> §7 lifecycle table, test counts.
-- [ ] `MANUAL.md` -> Slash command reference section.
-- [ ] `templates/architecture.md` -> Add `.claude/commands/` to the structural tree.
-- [ ] `ARCHITECTURE.md` -> Mirror the tree change.
+- [ ] `NEW FILE` -> `templates/skills/aapp-status/SKILL.md` -> Four-pillar context recovery skill.
+- [ ] `NEW FILE` -> `templates/skills/aapp-digest/SKILL.md` -> Idea/issue routing and blueprint scaffolding skill.
+- [ ] `NEW FILE` -> `templates/skills/aapp-freeze/SKILL.md` -> Blast Radius lock and greenlight skill.
+- [ ] `NEW FILE` -> `templates/skills/aapp-done/SKILL.md` -> Archival lifecycle and ledger append skill.
+- [ ] `NEW FILE` -> `templates/skills/aapp-release/SKILL.md` -> Release preflight runbook skill.
+- [ ] `lib/cmd_init.sh` -> Add `sync_skills()`, wire into initialization flow, update completion banner.
+- [ ] `templates/blast-radius-guard.sh` -> Add `.agents/skills/aapp-*` and `.claude/skills/aapp-*` to self-protection.
+- [ ] `templates/AGENTS.md` -> Document Universal Skills and `/aapp:` slash command triggers.
+- [ ] `tests/install_test.sh` -> Skill sync, symlink bridge, upgrade, and drift assertions.
+- [ ] `tests/write-guard_test.sh` -> Self-protection assertions for AAPP skill namespace.
+- [ ] `README.md` -> Document Universal Skills, slash command table, and updated test counts.
+- [ ] `MANUAL.md` -> Multi-agent skills reference section.
+- [ ] `templates/architecture.md` -> Add `.agents/skills/` to the structural architecture tree.
+- [ ] `ARCHITECTURE.md` -> Mirror structural tree update.
 - [ ] `CHANGELOG.md` -> Unreleased entry citing ISSUE-061.
 
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -141,19 +167,20 @@ An agent that can rewrite `.claude/commands/aapp/freeze.md` can rewrite its own 
 - [ ] `lib/cmd_upgrade.sh` -> Distribution fixes belong to ISSUE-049, not this plan.
 - [ ] `lib/cmd_install.sh` -> Self-consumption fixes belong to ISSUE-051, not this plan.
 - [ ] `templates/aapp-pre-commit` -> Commit-time enforcement is unchanged by this work.
-- [ ] `aapp` -> No dispatcher verb is added; these are agent commands, not CLI subcommands.
+- [ ] `aapp` -> No dispatcher verb is added; these are agent skills, not CLI subcommands.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 
-* [x] **Question 1 — Namespace (Resolved 2026-09-10):** **Adopt the `aapp` command family namespace.** Formally namespace all lifecycle commands as `/aapp:<verb>` (e.g. `/aapp:status`, `/aapp:digest`, `/aapp:freeze`, `/aapp:done`, `/aapp:release`, `/aapp:sync`) with `/aapp <verb>` dispatcher alias support. This eliminates collisions with built-ins across Claude Code (`/status`, `/init`, `/compact`), Antigravity CLI (`/goal`, `/plan`), and future agent environments.
-* [ ] **Question 2 — Commands vs. Skills.** Claude Code has merged custom commands into skills, and its docs now recommend `.claude/skills/<name>/SKILL.md` for new work; that form also produces `/<name>` and additionally supports supporting files and `context: fork`. This plan implements `.claude/commands/*.md` as requested. Confirm that, or re-target Phase 1 at `.claude/skills/`.
-* [ ] **Question 3 — `aapp status` coupling.** `status.md` injects the CLI's output via `` !`aapp status` ``, which makes the briefing deterministic but ties the command to an installed binary (drop-in projects may not have one). **Verified 2026-09-10:** the failure mode is abort-the-whole-invocation, not graceful degradation, and the permission check must return `allow` or the invocation aborts too (see §2.3). Confirm the guarded-fallback approach, or drop the injection entirely and have the agent read the four pillar files directly — the safer option if `allowed-tools` cannot cleanly match the guarded expression.
+* [x] **Question 1 — Namespace (Resolved 2026-09-10):** **Adopt the `aapp` command family namespace.** Formally namespace all lifecycle commands as `/aapp:<verb>` (e.g. `/aapp:status`, `/aapp:digest`, `/aapp:freeze`, `/aapp:done`, `/aapp:release`, `/aapp:sync`) with `/aapp <verb>` dispatcher alias support.
+* [x] **Question 2 — Commands vs. Skills (Resolved 2026-09-13):** **Adopt Universal AAPP Skills (`.agents/skills/`).** Pivoted from Claude-only flat commands (`.claude/commands/`) to cross-agent `SKILL.md` files housed in `.agents/skills/` and bridged to Claude Code (`.claude/skills/`). Provides native discovery in Google Antigravity and Claude Code, progressive disclosure, and context forking.
+* [x] **Question 3 — Tool & Status Coupling (Resolved 2026-09-13):** **Standard Tool Execution with Direct Markdown Fallback.** Replaced brittle pre-render `` !`aapp status` `` macro with normal agent execution (`./aapp status`) and direct fallback to reading the 4 pillar files (`CHANGELOG.md`, `ISSUES.md` + `issues_road_map.md`, `state_matrix.md`, `pickup.md`). Guarantees the session never aborts on missing binaries or strict tool permissions.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-13:** Pivoted from Claude-only flat commands (`.claude/commands/`) to Universal AAPP Skills (`.agents/skills/` with `.claude/skills/` bridge) per human decision (Option 1). Resolved Open Questions 2 and 3; updated blueprint, sync architecture, and execution tasks.
 * **2026-09-10:** User confirmed `aapp` command family namespace (`/aapp:<verb>` and `/aapp <verb>`) to eliminate cross-environment collisions across Antigravity CLI and Claude Code; marked Open Question 1 resolved.
 * **2026-09-10:** Verified `!` injection semantics: execution is pre-render and non-discretionary, a non-zero exit aborts the whole invocation, and a non-`allow` permission check does the same. Hardened §2.3, Task 3.4 and Open Question 3 accordingly.
 * **2026-09-10:** Verified against the slash-command spec that no command-to-command delegation exists and that shadowing a built-in is total; recorded in Open Question 1.
