@@ -42,7 +42,7 @@
 
 ## 2. Technical Blueprint
 
-### 2.1 Skill Hierarchy & Namespace
+### 2.1 Skill Hierarchy, Naming & Path Depth Invariant
 
 Each lifecycle verb is authored as an isolated skill directory:
 ```text
@@ -59,11 +59,26 @@ templates/skills/
     └── SKILL.md
 ```
 
+#### Naming Convention: `aapp-<verb>` vs `aapp:<verb>`
+* **Cross-Platform Filesystem Safety (Windows NTFS)**: Colons (`:`) are strictly forbidden in directory and file names on Windows (`NTFS` / `FAT32`). Naming directories `aapp:status` breaks Windows checkouts, git clones, and WSL shared mounts. Therefore, the canonical skill directory and identifier is **`aapp-<verb>`** (e.g. `aapp-status`, `aapp-digest`).
+* **Slash Command Registration**:
+  * In Claude Code, a skill directory named `aapp-status` registers the slash command **`/aapp-status`**.
+  * Prose triggers (`/aapp status`, `aapp status`, `status`) remain supported as natural language aliases in `templates/AGENTS.md`.
+* **Zero Collision**: Prefixing with `aapp-` guarantees zero collisions with built-ins (`/status`, `/init`, `/compact`) across all agent tools.
+
+#### Path Depth Invariant for Cursor, Codex & Antigravity Compatibility
+* **The Depth Rule**: Agent skill discovery engines in Google Antigravity, Cursor, and OpenAI Codex look for skills matching the exact glob `skills/*/SKILL.md` (depth = 1 directory level below `skills/`).
+* **Why Subdirectories Break**: If skills were organized into nested subtrees like `skills/aapp/status/SKILL.md`, the discovery engines in Antigravity, Cursor, and Codex would silently ignore them due to fixed-depth directory traversal.
+* **Universal Discovery**: By placing each verb at `.agents/skills/aapp-<verb>/SKILL.md`, the depth requirement is satisfied across all major agent environments:
+  1. **Google Antigravity**: Discovers `.agents/skills/aapp-*/SKILL.md` natively in workspace root.
+  2. **Cursor & Codex**: Automatically index `.agents/skills/aapp-*/SKILL.md` as workspace skills.
+  3. **Claude Code**: Discovers `.claude/skills/aapp-*/SKILL.md` via the symlink bridge.
+
 When `aapp init` executes:
 1. Installs canonical skills into `.agents/skills/aapp-*/SKILL.md`.
-2. Creates `.claude/skills/` as a symlink to `../.agents/skills` (with POSIX directory mirror fallback where symlinks are unsupported).
-3. In Claude Code, this generates slash commands `/aapp:status` (or `/aapp-status`), `/aapp:digest`, `/aapp:freeze`, `/aapp:done`, and `/aapp:release`.
-4. In Antigravity, the skills are immediately indexed and available via progressive disclosure and slash command triggers.
+2. Creates `.claude/skills/` as a symlink to `../.agents/skills` (with POSIX directory mirror fallback where symlinks are unsupported or on native Windows).
+3. In Claude Code, this generates slash commands `/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-done`, and `/aapp-release`.
+4. In Antigravity, Cursor, and Codex, the skills are immediately indexed and available via progressive disclosure.
 
 ### 2.2 Sync Semantics — Engine Files, Not User Templates
 
@@ -135,7 +150,7 @@ Project-specific skills (e.g. `.agents/skills/deploy/`) remain freely writable b
 - [ ] Task 3.1: Extend `tests/install_test.sh` — verify skill installation in `.agents/skills/`, `.claude/skills/` bridge creation, preservation of non-AAPP custom skills, and byte-for-byte upgrade overwrites.
 - [ ] Task 3.2: Extend `tests/write-guard_test.sh` — verify self-protection denies edits to `.agents/skills/aapp-freeze/SKILL.md` and `.claude/skills/aapp-freeze/SKILL.md` while permitting user skills.
 - [ ] Task 3.3: Add drift assertions in `tests/install_test.sh` verifying all five skills declare valid frontmatter and match `AGENTS.md` invariants.
-- [ ] Task 3.4: Update `README.md` and `MANUAL.md` documentation covering Universal Skills and multi-agent IDE integration.
+- [ ] Task 3.4: Update `README.md` and `MANUAL.md` documentation covering Universal Skills, `aapp-<verb>` naming, the depth-1 path invariant (`skills/*/SKILL.md`), and out-of-the-box compatibility across Cursor, OpenAI Codex, Google Antigravity, and Claude Code.
 - [ ] Task 3.5: Run full test suite (`install_test.sh`, `pre-commit_test.sh`, `write-guard_test.sh`) to ensure 100% pass rate.
 - [ ] Task 3.6: Update `CHANGELOG.md` under `## [Unreleased]`.
 
@@ -152,11 +167,11 @@ Project-specific skills (e.g. `.agents/skills/deploy/`) remain freely writable b
 - [ ] `NEW FILE` -> `templates/skills/aapp-release/SKILL.md` -> Release preflight runbook skill.
 - [ ] `lib/cmd_init.sh` -> Add `sync_skills()`, wire into initialization flow, update completion banner.
 - [ ] `templates/blast-radius-guard.sh` -> Add `.agents/skills/aapp-*` and `.claude/skills/aapp-*` to self-protection.
-- [ ] `templates/AGENTS.md` -> Document Universal Skills and `/aapp:` slash command triggers.
+- [ ] `templates/AGENTS.md` -> Document Universal Skills, `aapp-<verb>` naming, and slash command triggers.
 - [ ] `tests/install_test.sh` -> Skill sync, symlink bridge, upgrade, and drift assertions.
 - [ ] `tests/write-guard_test.sh` -> Self-protection assertions for AAPP skill namespace.
-- [ ] `README.md` -> Document Universal Skills, slash command table, and updated test counts.
-- [ ] `MANUAL.md` -> Multi-agent skills reference section.
+- [ ] `README.md` -> Document Universal Skills, Cursor/Codex depth compatibility, slash command table, and updated test counts.
+- [ ] `MANUAL.md` -> Multi-agent skills reference section and path depth invariant.
 - [ ] `templates/architecture.md` -> Add `.agents/skills/` to the structural architecture tree.
 - [ ] `ARCHITECTURE.md` -> Mirror structural tree update.
 - [ ] `CHANGELOG.md` -> Unreleased entry citing ISSUE-061.
@@ -173,13 +188,14 @@ Project-specific skills (e.g. `.agents/skills/deploy/`) remain freely writable b
 
 ## ❓ 5. Open Questions (Optional / Gate)
 
-* [x] **Question 1 — Namespace (Resolved 2026-09-10):** **Adopt the `aapp` command family namespace.** Formally namespace all lifecycle commands as `/aapp:<verb>` (e.g. `/aapp:status`, `/aapp:digest`, `/aapp:freeze`, `/aapp:done`, `/aapp:release`, `/aapp:sync`) with `/aapp <verb>` dispatcher alias support.
-* [x] **Question 2 — Commands vs. Skills (Resolved 2026-09-13):** **Adopt Universal AAPP Skills (`.agents/skills/`).** Pivoted from Claude-only flat commands (`.claude/commands/`) to cross-agent `SKILL.md` files housed in `.agents/skills/` and bridged to Claude Code (`.claude/skills/`). Provides native discovery in Google Antigravity and Claude Code, progressive disclosure, and context forking.
+* [x] **Question 1 — Namespace & Naming Convention (Resolved 2026-09-13):** **Adopt canonical `aapp-<verb>` naming.** Formally name skills and slash commands as `aapp-<verb>` (e.g. `/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-done`, `/aapp-release`) to guarantee 100% cross-platform Windows NTFS filesystem safety (colons `:` are forbidden characters on Windows). Retain `/aapp <verb>` and bare words as natural-language aliases in `AGENTS.md`.
+* [x] **Question 2 — Commands vs. Skills (Resolved 2026-09-13):** **Adopt Universal AAPP Skills (`.agents/skills/`).** Pivoted from Claude-only flat commands (`.claude/commands/`) to cross-agent `SKILL.md` files housed in `.agents/skills/` and bridged to Claude Code (`.claude/skills/`). Provides native discovery in Google Antigravity, Cursor, Codex, and Claude Code, progressive disclosure, and context forking.
 * [x] **Question 3 — Tool & Status Coupling (Resolved 2026-09-13):** **Standard Tool Execution with Direct Markdown Fallback.** Replaced brittle pre-render `` !`aapp status` `` macro with normal agent execution (`./aapp status`) and direct fallback to reading the 4 pillar files (`CHANGELOG.md`, `ISSUES.md` + `issues_road_map.md`, `state_matrix.md`, `pickup.md`). Guarantees the session never aborts on missing binaries or strict tool permissions.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-13:** Standardized canonical skill directory and slash command naming to `aapp-<verb>` for cross-platform Windows NTFS safety (`:` forbidden on Windows). Defined depth-1 path invariant (`skills/*/SKILL.md`) ensuring out-of-the-box discovery across Cursor, Codex, Antigravity, and Claude Code; added README compatibility documentation requirement.
 * **2026-09-13:** Pivoted from Claude-only flat commands (`.claude/commands/`) to Universal AAPP Skills (`.agents/skills/` with `.claude/skills/` bridge) per human decision (Option 1). Resolved Open Questions 2 and 3; updated blueprint, sync architecture, and execution tasks.
 * **2026-09-10:** User confirmed `aapp` command family namespace (`/aapp:<verb>` and `/aapp <verb>`) to eliminate cross-environment collisions across Antigravity CLI and Claude Code; marked Open Question 1 resolved.
 * **2026-09-10:** Verified `!` injection semantics: execution is pre-render and non-discretionary, a non-zero exit aborts the whole invocation, and a non-`allow` permission check does the same. Hardened §2.3, Task 3.4 and Open Question 3 accordingly.
