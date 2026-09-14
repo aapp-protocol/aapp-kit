@@ -669,6 +669,100 @@ else
 fi
 report "uninstall removes broken/dangling symlinks cleanly" "PASS" "$got" "$out_uninst_broken"
 
+echo "== 8. Universal Skills, Claude Bridge, and Settings Decoupling =="
+
+# Test 37: Fresh install decouples .claude/settings.json into canonical .agents/claude/settings.json and creates granular symlink
+PROJ_37="$R/t37_proj"; make_dummy_project "$PROJ_37"
+make_kit_clone "$PROJ_37/aapp-kit"
+(cd "$PROJ_37" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+if [ -L "$PROJ_37/.claude/settings.json" ] && \
+   [ -f "$PROJ_37/.agents/claude/settings.json" ] && \
+   [ "$(readlink "$PROJ_37/.claude/settings.json")" = "../.agents/claude/settings.json" ] && \
+   grep -q "blast-radius-guard" "$PROJ_37/.claude/settings.json"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "settings decoupling: .claude/settings.json symlinks to canonical .agents/claude/settings.json" "PASS" "$got"
+
+# Test 38: Fresh install adds .claude/ to .gitignore on code branch
+if grep -qxF ".claude/" "$PROJ_37/.gitignore"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "clean codebase: .claude/ added to .gitignore on code branch" "PASS" "$got"
+
+# Test 39: Fresh install synchronizes canonical .agents/skills/ and bridges .claude/skills/ via granular relative symlinks
+skills_ok=1
+for v in aapp-status aapp-digest aapp-freeze aapp-done aapp-release; do
+  [ -f "$PROJ_37/.agents/skills/$v/SKILL.md" ] || skills_ok=0
+  [ -L "$PROJ_37/.claude/skills/$v" ] || skills_ok=0
+  [ "$(readlink "$PROJ_37/.claude/skills/$v")" = "../../.agents/skills/$v" ] || skills_ok=0
+  [ -s "$PROJ_37/.claude/skills/$v/SKILL.md" ] || skills_ok=0
+done
+if [ $skills_ok -eq 1 ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "universal skills: installed in .agents/skills and bridged to .claude/skills via relative symlinks" "PASS" "$got"
+
+# Test 40: Non-destructive: preserves custom user skills and local settings
+PROJ_40="$R/t40_proj"; make_dummy_project "$PROJ_40"
+mkdir -p "$PROJ_40/.claude/skills/custom-deploy"
+echo "# Custom Deploy" > "$PROJ_40/.claude/skills/custom-deploy/SKILL.md"
+echo '{"localSecret": "123"}' > "$PROJ_40/.claude/settings.local.json"
+make_kit_clone "$PROJ_40/aapp-kit"
+(cd "$PROJ_40" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+if [ -f "$PROJ_40/.claude/skills/custom-deploy/SKILL.md" ] && \
+   [ ! -L "$PROJ_40/.claude/skills/custom-deploy" ] && \
+   grep -q "Custom Deploy" "$PROJ_40/.claude/skills/custom-deploy/SKILL.md" && \
+   [ -f "$PROJ_40/.claude/settings.local.json" ] && \
+   grep -q "localSecret" "$PROJ_40/.claude/settings.local.json"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "non-destructive: preserves custom user skills and local settings" "PASS" "$got"
+
+# Test 41: Clean upgrade: drops stale files on skill re-sync
+PROJ_41="$R/t41_proj"; make_dummy_project "$PROJ_41"
+make_kit_clone "$PROJ_41/aapp-kit"
+(cd "$PROJ_41" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+touch "$PROJ_41/.agents/skills/aapp-status/stale-old-file.txt"
+make_kit_clone "$PROJ_41/aapp-kit"
+(cd "$PROJ_41" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+if [ ! -f "$PROJ_41/.agents/skills/aapp-status/stale-old-file.txt" ] && \
+   [ -f "$PROJ_41/.agents/skills/aapp-status/SKILL.md" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "clean upgrade: drops stale files on skill re-sync" "PASS" "$got"
+
+# Test 42: Drift control: all 5 skills declare valid frontmatter, flags, and inline/fork contracts
+drift_ok=1
+for v in aapp-status aapp-digest aapp-freeze aapp-done aapp-release; do
+  skill_file="$KIT/templates/skills/$v/SKILL.md"
+  [ -f "$skill_file" ] || { drift_ok=0; break; }
+  grep -q "^name: $v$" "$skill_file" || drift_ok=0
+  grep -q "^description: " "$skill_file" || drift_ok=0
+done
+grep -q "^disable-model-invocation: true$" "$KIT/templates/skills/aapp-freeze/SKILL.md" || drift_ok=0
+grep -q "^disable-model-invocation: true$" "$KIT/templates/skills/aapp-done/SKILL.md" || drift_ok=0
+grep -q "^disable-model-invocation: true$" "$KIT/templates/skills/aapp-release/SKILL.md" || drift_ok=0
+grep -q "^context: fork$" "$KIT/templates/skills/aapp-release/SKILL.md" || drift_ok=0
+grep -q "context: fork" "$KIT/templates/skills/aapp-digest/SKILL.md" && drift_ok=0
+grep -q "context: fork" "$KIT/templates/skills/aapp-status/SKILL.md" && drift_ok=0
+
+if [ $drift_ok -eq 1 ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "drift control: all 5 skills declare valid frontmatter, flags, and inline/fork contracts" "PASS" "$got"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"

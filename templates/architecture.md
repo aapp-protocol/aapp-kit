@@ -30,7 +30,10 @@
 │   └── state_matrix.md # State matrix & active incubator brain
 ├── .agents/            # Agent behavioral contracts & codemap worktree
 │   ├── AGENTS.md      # Agent behavioral contracts & protocol rules
-│   └── CODEMAP.md     # Module ownership and interface registry
+│   ├── CODEMAP.md     # Module ownership and interface registry
+│   ├── claude/        # Canonical Claude Code configuration (settings.json)
+│   └── skills/        # Universal AAPP skills (aapp-*/SKILL.md)
+├── .claude/            # Gitignored Claude Code bridge (symlinked to .agents/)
 ├── .githooks/          # Blast radius enforcement worktree
 │   ├── pre-commit     # Master runner (project-owned)
 │   └── aapp-pre-commit # Managed blast radius engine

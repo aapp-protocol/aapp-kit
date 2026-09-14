@@ -69,7 +69,7 @@ echo "🚀 Initializing / Syncing Asymmetric Agent Planning Protocol (AAPP v$AAP
 echo "📍 Repository root: $REPO_ROOT"
 
 # Configure .gitignore on Main Branch
-for IGNORE_ENTRY in ".plans/" ".agents/" ".githooks/"; do
+for IGNORE_ENTRY in ".plans/" ".agents/" ".githooks/" ".claude/"; do
     if ! grep -qxF "${IGNORE_ENTRY}" .gitignore 2>/dev/null; then
         if [ -s .gitignore ] && [ -n "$(tail -c 1 .gitignore)" ]; then
             echo "" >> .gitignore
@@ -333,12 +333,114 @@ copy_guarded "$AAPP_TEMPLATES/architecture.md" "ARCHITECTURE.md" "🏛️  Creat
 copy_guarded "$AAPP_TEMPLATES/changelog.md" "CHANGELOG.md" "📜 Created starter CHANGELOG.md at project root."
 
 # ------------------------------------------------------------------------------
-# PHASE 5: Write-Time Enforcement Hook (.claude/settings.json)
+# PHASE 5: Write-Time Enforcement Hook & Universal Skills Synchronization
 # ------------------------------------------------------------------------------
-if [ -f .githooks/blast-radius-guard ]; then
-    if [ ! -f .claude/settings.json ]; then
-        mkdir -p .claude
-        cat > .claude/settings.json <<'JSON'
+merge_blast_radius_guard() {
+    local target_file="$1"
+    local source_file="${2:-}"
+
+    if command -v python3 >/dev/null 2>&1; then
+        python3 - "$target_file" "$source_file" <<'PYEOF'
+import json, sys, os
+
+target_path = sys.argv[1]
+source_path = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None
+
+def load_json(p):
+    if not p or not os.path.isfile(p):
+        return {}
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            d = json.load(f)
+            return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+target_data = load_json(target_path)
+
+# If source file provided (e.g. migrating existing or diverged .claude/settings.json),
+# merge all top-level keys and union nested permissions/lists
+if source_path and os.path.isfile(source_path):
+    source_data = load_json(source_path)
+    for k, v in source_data.items():
+        if k not in target_data:
+            target_data[k] = v
+        elif isinstance(v, dict) and isinstance(target_data[k], dict):
+            for sub_k, sub_v in v.items():
+                if sub_k not in target_data[k]:
+                    target_data[k][sub_k] = sub_v
+                elif isinstance(sub_v, list) and isinstance(target_data[k][sub_k], list):
+                    for item in sub_v:
+                        if item not in target_data[k][sub_k]:
+                            target_data[k][sub_k].append(item)
+
+# Ensure blast-radius-guard hook is present in PreToolUse
+if "hooks" not in target_data or not isinstance(target_data["hooks"], dict):
+    target_data["hooks"] = {}
+if "PreToolUse" not in target_data["hooks"] or not isinstance(target_data["hooks"]["PreToolUse"], list):
+    target_data["hooks"]["PreToolUse"] = []
+
+hook_cmd = "${CLAUDE_PROJECT_DIR}/.githooks/blast-radius-guard"
+has_hook = False
+for entry in target_data["hooks"]["PreToolUse"]:
+    if isinstance(entry, dict) and "hooks" in entry and isinstance(entry["hooks"], list):
+        for h in entry["hooks"]:
+            if isinstance(h, dict) and h.get("command") == hook_cmd:
+                has_hook = True
+                break
+
+if not has_hook:
+    target_data["hooks"]["PreToolUse"].append({
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+            {
+                "type": "command",
+                "command": hook_cmd
+            }
+        ]
+    })
+
+os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
+with open(target_path, "w", encoding="utf-8") as f:
+    json.dump(target_data, f, indent=2)
+    f.write("\n")
+PYEOF
+    else
+        echo "⚠️  Warning: python3 not found. Could not automatically merge blast-radius-guard into $target_file."
+    fi
+}
+
+sync_claude_settings() {
+    mkdir -p .agents/claude
+    [ ! -d .claude ] && mkdir -p .claude
+
+    local canonical_settings=".agents/claude/settings.json"
+    local bridge_settings=".claude/settings.json"
+
+    # Step 1: Non-destructive migration & divergence reconciliation
+    # Handles initial adopter migration, Windows copy-fallback, and Claude UI permission updates
+    if [ -f "$bridge_settings" ] && [ ! -L "$bridge_settings" ]; then
+        if [ ! -f "$canonical_settings" ]; then
+            # Initial migration for fresh AAPP adopter
+            mv "$bridge_settings" "$canonical_settings"
+        elif ! cmp -s "$bridge_settings" "$canonical_settings"; then
+            # File diverged (e.g. Windows copy-fallback or Claude UI added permissions/config)
+            cp "$bridge_settings" "${canonical_settings}.bak"
+            echo "ℹ️  Merging diverged .claude/settings.json into canonical (backup: ${canonical_settings}.bak)."
+            merge_blast_radius_guard "$canonical_settings" "$bridge_settings"
+            rm -f "$bridge_settings"
+        else
+            # Identical to canonical (clean copy from previous init)
+            rm -f "$bridge_settings"
+        fi
+    fi
+
+    # Step 2: Ensure canonical template settings exist
+    if [ ! -f "$canonical_settings" ]; then
+        if [ -f "$AAPP_TEMPLATES/claude/settings.json" ]; then
+            cp "$AAPP_TEMPLATES/claude/settings.json" "$canonical_settings"
+        else
+            cat > "$canonical_settings" <<'JSON'
 {
   "hooks": {
     "PreToolUse": [
@@ -355,58 +457,73 @@ if [ -f .githooks/blast-radius-guard ]; then
   }
 }
 JSON
-        echo "🛡️  Wrote .claude/settings.json - writes outside the Blast Radius are now refused."
-    else
-        if ! grep -qs "blast-radius-guard" .claude/settings.json; then
-            if command -v python3 >/dev/null 2>&1; then
-                python3 - <<'PYEOF'
-import json, sys
-
-settings_path = ".claude/settings.json"
-try:
-    with open(settings_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-except Exception:
-    data = {}
-
-if not isinstance(data, dict):
-    data = {}
-
-if "hooks" not in data or not isinstance(data["hooks"], dict):
-    data["hooks"] = {}
-
-if "PreToolUse" not in data["hooks"] or not isinstance(data["hooks"]["PreToolUse"], list):
-    data["hooks"]["PreToolUse"] = []
-
-hook_cmd = "${CLAUDE_PROJECT_DIR}/.githooks/blast-radius-guard"
-has_hook = False
-for entry in data["hooks"]["PreToolUse"]:
-    if isinstance(entry, dict) and "hooks" in entry and isinstance(entry["hooks"], list):
-        for h in entry["hooks"]:
-            if isinstance(h, dict) and h.get("command") == hook_cmd:
-                has_hook = True
-                break
-
-if not has_hook:
-    data["hooks"]["PreToolUse"].append({
-        "matcher": "Write|Edit|NotebookEdit",
-        "hooks": [
-            {
-                "type": "command",
-                "command": hook_cmd
-            }
-        ]
-    })
-    with open(settings_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-        f.write("\n")
-    print("🛡️  Merged blast-radius-guard into existing .claude/settings.json.")
-PYEOF
-            else
-                echo "⚠️  Warning: python3 not found. Could not automatically merge blast-radius-guard into .claude/settings.json."
-            fi
         fi
+        echo "🛡️  Wrote $canonical_settings (bridged to $bridge_settings) - writes outside the Blast Radius are now refused."
     fi
+
+    # Step 3: Run path-parameterized Python merge against canonical settings
+    # Guarantees blast-radius-guard hook is present without disturbing custom user keys
+    merge_blast_radius_guard "$canonical_settings"
+
+    # Step 4: Transparent git index untracking for code branch hygiene
+    if git ls-files --error-unmatch "$bridge_settings" >/dev/null 2>&1; then
+        git rm --cached "$bridge_settings" >/dev/null 2>&1 || true
+        echo "ℹ️  Untracked $bridge_settings from git index (migrated to $canonical_settings; ignored via .gitignore)."
+    fi
+
+    # Step 5: Establish granular symlink with verified resolution and content check
+    rm -rf "$bridge_settings"
+    ln -s "../$canonical_settings" "$bridge_settings" 2>/dev/null || true
+    if [ -s "$bridge_settings" ] && grep -q 'blast-radius-guard' "$bridge_settings" 2>/dev/null; then
+        : # Symlink verified and readable
+    else
+        rm -rf "$bridge_settings"
+        cp "$canonical_settings" "$bridge_settings" # Cross-platform copy fallback
+    fi
+}
+
+sync_skills() {
+    local templates_skills="$AAPP_TEMPLATES/skills"
+    [ ! -d "$templates_skills" ] && return 0
+
+    [ ! -d .agents/skills ] && mkdir -p .agents/skills
+    [ ! -d .claude/skills ] && mkdir -p .claude/skills
+
+    for skill_dir in "$templates_skills"/aapp-*; do
+        [ ! -d "$skill_dir" ] && continue
+        local skill_name
+        skill_name="$(basename "$skill_dir")"
+
+        # 1. Sync canonical engine skill into .agents/skills/ (clean overwrite)
+        rm -rf ".agents/skills/$skill_name"
+        mkdir -p ".agents/skills/$skill_name"
+        cp -R "$skill_dir/." ".agents/skills/$skill_name/"
+
+        # 2. Granular Claude Code symlink bridge with verified resolution
+        rm -rf ".claude/skills/$skill_name"
+        ln -s "../../.agents/skills/$skill_name" ".claude/skills/$skill_name" 2>/dev/null || true
+        if [ -e ".claude/skills/$skill_name/SKILL.md" ]; then
+            : # Relative symlink established and verified
+        else
+            rm -rf ".claude/skills/$skill_name"
+            cp -R ".agents/skills/$skill_name" ".claude/skills/" # Cross-platform fallback copy
+        fi
+    done
+}
+
+if [ -f .githooks/blast-radius-guard ]; then
+    sync_claude_settings
+fi
+sync_skills
+
+if [ -d .agents ] && [ -e .agents/.git ]; then
+    (
+        cd .agents
+        git add .
+        if ! git rev-parse --verify HEAD >/dev/null 2>&1 || ! git diff-index --quiet HEAD -- 2>/dev/null; then
+            git commit -m "chore: sync universal skills and claude configuration" --quiet 2>/dev/null || true
+        fi
+    )
 fi
 
 # ------------------------------------------------------------------------------
@@ -454,6 +571,7 @@ echo "➡️  Active scratchpad:    .plans/pickup.md"
 echo "➡️  State Matrix Brain:   .plans/state_matrix.md"
 echo "➡️  Release Runbooks:     .plans/release/"
 echo "➡️  Write-time guard:    .githooks/blast-radius-guard"
+echo "➡️  Universal Skills:     .agents/skills/ (bridged to .claude/skills/)"
 
 # Detect Branching Topology
 DEV_EXISTS=0

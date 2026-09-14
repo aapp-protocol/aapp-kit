@@ -118,4 +118,4 @@ fi
 
 echo ""
 echo "============================================================"
-echo "➡️  Next Action: Run 'aapp init' to sync worktrees, or use /digest <idea> in chat."
+echo "➡️  Next Action: Run 'aapp init' to sync worktrees, or use /aapp-digest <idea> in chat."

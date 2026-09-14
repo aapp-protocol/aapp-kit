@@ -281,17 +281,22 @@ aapp init
 
 ---
 
-## 8. Daily Agent Workflow & Slash Commands
+## 8. Daily Agent Workflow & Universal Skills
 
-When pair programming with AI assistants, use the standard AAPP command lifecycle (invoked as shorthand or `/aapp:<command>`):
+AAPP ships core lifecycle verbs as **Universal AAPP Skills** (`skills/<name>/SKILL.md`) natively stored in the orphan `agents` worktree (`.agents/skills/`) and bridged to Claude Code (`.claude/skills/`).
 
-| Shorthand / Slash Command | Lifecycle Phase | Description |
-| :--- | :--- | :--- |
-| `/aapp:status` (or `status`, `aapp status`) | **Orient** | Scan four pillars (Shipped, Issues, Plans, Pickup) to report current posture. |
-| `/aapp:digest <idea>` (or `digest <idea>`) | **Ingest** | Ingest idea into Issue Lane (`ISSUES.md`) or Plan Lane (`.plans/current/`). |
-| `/aapp:freeze <plan>` (or `freeze <plan>`) | **Lock** | Lock Blast Radius boundaries and greenlight blueprint for execution. |
-| `/aapp:done <plan>` (or `done <plan>`) | **Archive** | Move plan to `done/`, append to `000-archive-ledger.md`, and clean `state_matrix.md`. |
-| `/aapp:release <ver>` (or `release <ver>`) | **Preflight** | Execute release verification runbook and check changelog staging. |
+### Cross-Agent Progressive Disclosure & Compatibility
+* **Universal Discovery**: Skills follow the standard depth-1 invariant (`skills/*/SKILL.md`), enabling out-of-the-box discovery in **Google Antigravity**, **Anthropic Claude Code**, **Cursor**, and **OpenAI Codex**.
+* **Progressive Disclosure**: Agents only index lightweight names and descriptions (~100 tokens), loading full execution procedures on-demand when triggered.
+* **Execution Models**: Long-running preflight checks (`/aapp-release`) run in an isolated subagent fork (`context: fork`), while conversational workflows (`/aapp-digest`, `/aapp-status`) run inline to preserve active conversation context.
+
+| Slash Command | Natural Alias | Lifecycle Phase | Description |
+| :--- | :--- | :--- | :--- |
+| `/aapp-status` | `status`, `/status`, `/aapp status` | **Orient** | Scan four pillars (Shipped, Issues, Plans, Pickup) to report current posture. |
+| `/aapp-digest <idea>` | `digest <idea>`, `/digest` | **Ingest** | Ingest idea into Issue Lane (`ISSUES.md`) or Plan Lane (`.plans/current/`). |
+| `/aapp-freeze <plan>` | `freeze <plan>`, `/freeze` | **Lock** | Lock Blast Radius boundaries and greenlight blueprint for execution. |
+| `/aapp-done <plan>` | `done <plan>`, `/done` | **Archive** | Move plan to `done/`, append to `000-archive-ledger.md`, and clean `state_matrix.md`. |
+| `/aapp-release <ver>` | `release <ver>`, `/preflight` | **Preflight** | Execute release verification runbook and check changelog staging. |
 
 ### Blueprint Anatomy (Blast Radius Declaration)
 Every plan in `.plans/current/<name>.md` defines strict boundaries:
@@ -316,18 +321,18 @@ Every plan in `.plans/current/<name>.md` defines strict boundaries:
 
 ## 9. Testing & Verification Suites
 
-AAPP includes 91 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, and installer resolution:
+AAPP includes 101 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, skill synchronization, and installer resolution:
 
 ```bash
-# Run complete test verification suite (91 tests)
+# Run complete test verification suite (101 tests)
 ./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh
 ```
 
 | Suite | File | Tests | Coverage |
 | :--- | :--- | :--- | :--- |
-| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 36 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` merge, Husky wiring. |
+| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 42 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` decoupling & merge, Universal Skills sync, drift control, Husky wiring. |
 | **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 25 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection (single-branch, dual-branch, bypass, opt-out, custom dev branches). |
-| **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 30 cases | PreToolUse Claude Code JSON payload, self-protection invariants, fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
+| **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 34 cases | PreToolUse Claude Code JSON payload, self-protection invariants (`.agents/claude/*`, `.claude/settings.json`, `.agents/skills/aapp-*`, `.claude/skills/aapp-*`), fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
 
 ---
 

@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Universal AAPP Skills (`templates/skills/aapp-*/SKILL.md`) natively stored in `.agents/skills/` and bridged to `.claude/skills/` via granular relative symlinks, exposing slash commands (`/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-done`, `/aapp-release`) across Google Antigravity, Claude Code, Cursor, and OpenAI Codex (ISSUE-061).
+- Decoupled Claude Code configuration (`.agents/claude/settings.json`) versioned on the orphan `agents` worktree and bridged to `.claude/settings.json`, with non-destructive adopter migration, divergence key-merging, and `.claude/` gitignore hygiene.
+- Section 2 write-guard self-protection in `blast-radius-guard.sh` for `.agents/claude/*`, `.claude/settings.json`, `.agents/skills/aapp-*`, and `.claude/skills/aapp-*` closing the inode aliasing bypass.
+- Automated tests for settings decoupling, gitignore hygiene, granular skill bridging, user skill preservation, clean upgrades, and frontmatter drift control, expanding the test suite to 101 automated test cases.
 - Claude Code `hookSpecificOutput.permissionDecision: "deny"` and exit code 2 in `blast-radius-guard.sh` (ISSUE-001).
 - Non-destructive git plumbing orphan branch creation fallback in `cmd_init.sh` for git < 2.42 (ISSUE-003).
 - Deletion (`D`) diff-filter enforcement in `aapp-pre-commit` to prevent deleting Out-of-Bounds files (ISSUE-005).

@@ -93,10 +93,12 @@ By decoupling these concerns into independent Git worktrees:
 | `.agents/CODEMAP.md` | `agents` worktree *(or root)* | Canonical directory ownership, module boundaries, and entrypoints. |
 | `.agents/AGENTS.md` | `agents` worktree | Agent behavioral contracts, protocol rules, and slash command bindings. |
 | `.agents/PROJECT.MD` | `agents` worktree | Project-specific personas, milestones, and high-level architectural rules. |
+| `.agents/claude/` | `agents` worktree | Canonical Claude Code configuration (`settings.json`). |
+| `.agents/skills/` | `agents` worktree | Canonical Universal AAPP Skills (`aapp-*/SKILL.md`). |
+| `.claude/` | Gitignored Bridge | Granular symlinks to canonical settings and skills in `.agents/`. |
 | `.plans/ISSUES.md` | `plans` worktree *(or root)* | Canonical defect audit trail, bug triage ledger, and resolution notes. |
 | `.plans/` | `plans` worktree | Active blueprints (`current/`), historical archives and master ledger (`done/000-archive-ledger.md`), scratchpad (`pickup.md`), priority roadmap (`issues_road_map.md`), and state matrix (`state_matrix.md`). |
 | `.githooks/` | `githooks` worktree | Dual-layer blast radius enforcement scripts (`aapp-pre-commit`, `pre-commit`, `blast-radius-guard`). |
-| `.claude/settings.json` | Repo Root | Configures Claude Code to trigger `.githooks/blast-radius-guard` on `PreToolUse`. |
 
 ---
 
@@ -423,41 +425,49 @@ If an agent discovers an unexpected bug while executing a frozen plan:
 
 ---
 
-### Command Reference
+### Command Reference (Universal Skills)
 
-#### `/status` — Context Recovery
-Executed when returning to a project or starting a session. Reports across the **Four Pillars**:
+AAPP lifecycle verbs are authored as **Universal AAPP Skills** in `.agents/skills/<name>/SKILL.md` and bridged to `.claude/skills/`. They adhere to standard YAML frontmatter, depth-1 filesystem invariants, and progressive disclosure:
+
+#### `/aapp-status` (or `status`, `aapp status`, `/status`) — Context Recovery
+Executed when returning to a project or starting a session. Runs `./aapp status` (or inspects files directly) to report across the **Four Pillars**:
 1. **Shipped**: Recent entries in `CHANGELOG.md` (`## [Unreleased]`).
 2. **Issues**: Top open issues from `ISSUES.md` and `.plans/issues_road_map.md`.
 3. **Plans**: Active incubator plans and greenlit tasks in `.plans/state_matrix.md`.
 4. **Pickup**: Unprocessed ideas in `.plans/pickup.md` with count.
+*Runs inline to preserve full conversation context.*
 
-#### `/digest <idea>` — Targeted Idea Ingestion
+#### `/aapp-digest <idea>` (or `digest <idea>`, `/digest`) — Targeted Idea Ingestion
 Ingests a single idea from `pickup.md` or raw text:
 - Routes to Issue Lane (`ISSUES.md`) or Plan Lane (`.plans/current/`).
 - Decides whether to **NEW** (scaffold fresh plan) or **AMEND** (fold into existing plan).
 - Cross-references `CODEMAP.md` and `ARCHITECTURE.md`.
 - Formulates `Open Questions` and leaves status in the Incubator (`🔴 Draft`).
+*Runs inline to read chat notes and interactively query the developer.*
 
-#### `/freeze <plan>` — Boundary Lock & Greenlight
+#### `/aapp-freeze <plan>` (or `freeze <plan>`, `/freeze`) — Boundary Lock & Greenlight
 Transitions a refined blueprint into the Greenlight Zone:
 - Verifies all Open Questions are answered.
 - Validates explicit `### 📂 Target Files` and `### 🛑 Out of Bounds`.
-- Changes status to `🟢 Ready for Execution`.
+- Changes status to `🟢 Ready for Execution` and marks Blast Radius `LOCKED`.
 - Enables commit-time and write-time enforcement for the plan's targets.
+*Safety: Model invocation disabled (`disable-model-invocation: true`).*
 
-#### `/done <plan>` — Master Archival Ledger & Completion
+#### `/aapp-done <plan>` (or `done <plan>`, `/done`) — Master Archival Ledger & Completion
 Completes the lifecycle:
 - Moves blueprint: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
 - Appends a 1-line completion record to `.plans/done/000-archive-ledger.md` (recording plan link, target issue, verification commit, and repo-relative impact summary).
-- Removes the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items, eliminating folded historical archives).
+- Removes the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items).
 - Verifies tests, linters, and `CHANGELOG.md` entry.
+*Safety: Model invocation disabled (`disable-model-invocation: true`).*
 
-#### `/release <version>` or `/preflight` — Release Runbook
+#### `/aapp-release <version>` (or `release <version>`, `/preflight`) — Release Runbook
 Executes `.plans/release/release_checklist.md`:
 - Runs full test suites, static analysis, and security checks.
+- Enforces Stable vs. Edge branch convention (`develop` cleanly fast-forwards into `main`).
 - Validates `CHANGELOG.md` release staging.
 - Reports release posture assessment to the developer.
+*Execution: Runs in an isolated subagent/fork context (`context: fork`) to keep test logs out of primary chat.*
 
 ---
 
@@ -482,9 +492,10 @@ Antigravity natively discovers workspace rules and skills.
 
 ### Anthropic Claude Code Integration
 
-AAPP integrates with Claude Code's tool execution lifecycle:
+AAPP integrates with Claude Code's tool execution lifecycle and slash command engine:
 
-1. **Hook Configuration (`.claude/settings.json`)**:
+1. **Configuration Decoupling (`.agents/claude/settings.json`)**:
+   Canonical settings live inside the orphan `agents` worktree. The local repository directory `.claude/` is gitignored on application branches, and `.claude/settings.json` is maintained as a granular relative symlink (`../.agents/claude/settings.json`).
    ```json
    {
      "hooks": {
@@ -502,7 +513,9 @@ AAPP integrates with Claude Code's tool execution lifecycle:
      }
    }
    ```
-2. **Interception**: Claude Code passes JSON payloads to `.githooks/blast-radius-guard`. If a tool targets a file outside `### 📂 Target Files`, the tool execution is aborted with a structured failure message.
+2. **Slash Command Bridging (`.claude/skills/`)**:
+   `aapp init` bridges Universal Skills from `.agents/skills/aapp-*` into `.claude/skills/aapp-*` via granular relative symlinks (with directory copy fallback on Windows). Claude Code exposes these as `/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-done`, and `/aapp-release`.
+3. **Write-Time Interception**: Claude Code passes JSON payloads to `.githooks/blast-radius-guard`. If a tool targets a file outside `### 📂 Target Files`, the tool execution is aborted with a structured failure message. Section 2 self-protection denies modifications to `.agents/claude/*` and `.claude/settings.json` on both sides of symlinks.
 
 ---
 
