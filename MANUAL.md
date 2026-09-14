@@ -236,6 +236,7 @@ Located at `.githooks/aapp-pre-commit` (invoked directly or via `.githooks/pre-c
 4. **Concurrent Plan Support**: If two developers or agents work on separate active plans (`plan-a.md` and `plan-b.md`), files declared in *either* plan are permitted.
 5. **Blocked Plan Refusal**: If a plan's status is `🚫 BLOCKED`, commits targeting its files are rejected until the human unblocks the plan.
 6. **Syntax Validation**: Automatically runs syntax verification on staged files (e.g., Python `python3 -m py_compile`, PHP `php -l`, JSON syntax).
+7. **Roadmap Hygiene**: Automatically prunes resolved issues (`✅` or `Resolved`) from `issues_road_map.md` (<5ms), keeping the priority queue strictly focused on active items while permanent records remain in `ISSUES.md`.
 
 ---
 
@@ -391,7 +392,7 @@ When a bug requires architectural decisions, spans multiple modules, or requires
    - Add the blueprint link to the issue's row in `ISSUES.md`.
 4. **Update Status**: Mark the issue as 🔵 `Planned` in `issues_road_map.md`.
 5. **Register Plan**: Add the plan to `.plans/state_matrix.md` in the Incubator.
-6. **Close upon Archive**: Close the issue only when the plan is implemented, verified, and archived via `/done`.
+6. **Close & Prune upon Archive**: Close the issue in `ISSUES.md` only when the plan is implemented, verified, and archived via `/done`. Prune the issue from `issues_road_map.md` (the pre-commit hook automatically purges any resolved items).
 
 ---
 

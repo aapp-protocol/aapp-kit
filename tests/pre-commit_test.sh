@@ -341,6 +341,33 @@ git checkout -q staging
 echo "x=16" > src/a.py
 check "commit on custom dev branch staging succeeds" PASS src/a.py
 
+echo "== 11. issue roadmap hygiene (auto-prune resolved items) =="
+setup
+mkdir -p .plans
+cat > .plans/issues_road_map.md <<'EOF'
+# 🗺️ Issue Priority Board
+1. `ISSUE-001` -> Still open
+2. `ISSUE-002` -> All done ✅ `Resolved`
+- [ ] `ISSUE-003` -> Open edge case
+EOF
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+echo "x=20" > src/a.py
+echo "- bump" >> CHANGELOG.md
+git add src/a.py CHANGELOG.md
+rc_prune=0
+out_prune=$(git commit -m "commit with resolved issue in roadmap" 2>&1) || rc_prune=$?
+if [ $rc_prune -eq 0 ] && ! grep -q "ISSUE-002" .plans/issues_road_map.md && grep -q "ISSUE-001" .plans/issues_road_map.md; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "pre-commit auto-prunes resolved issue from roadmap" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS (pruned) got rc=%d\n" "pre-commit auto-prunes resolved issue from roadmap" "$rc_prune"; FAIL=$((FAIL+1))
+fi
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]
+

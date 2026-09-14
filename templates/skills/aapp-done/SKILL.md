@@ -23,15 +23,16 @@ Inspect git history to identify the verification or landing commit SHA. Append a
 - `YYYY-MM-DD` | [`<plan>.md`](<plan>.md) | Target: `<ISSUE-ID>` | Verified: `<commit-sha>` | Impact: <1-sentence repo-relative summary>
 ```
 
-### Step 3: Prune Active State Matrix
-Edit `.plans/state_matrix.md`:
+### Step 3: Prune Active State Matrix & Roadmap
+Edit `.plans/state_matrix.md` and `.plans/issues_road_map.md`:
 * Remove the plan entry from `## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)` (or Incubator).
-* Keep `state_matrix.md` strictly focused on active, in-flight roadmaps and incubations.
+* If the blueprint resolved a target issue (`Target Issue / Milestone`), mark it resolved in `.plans/ISSUES.md` and prune its line from `.plans/issues_road_map.md`.
+* Keep `state_matrix.md` and `issues_road_map.md` strictly focused on active, in-flight work.
 
 ### Step 4: Record Worktree Commit
 Commit the archive transition inside the isolated `plans` worktree:
 ```bash
-git -C .plans add "current/<plan>.md" "done/<plan>.md" done/000-archive-ledger.md state_matrix.md
+git -C .plans add "current/<plan>.md" "done/<plan>.md" done/000-archive-ledger.md state_matrix.md issues_road_map.md ISSUES.md
 git -C .plans commit -m "plan(done): archive <plan> to done/ and update state matrix"
 ```
 

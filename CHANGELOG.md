@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Automated Issue Roadmap Hygiene in `templates/aapp-pre-commit` (Section 3b) auto-pruning resolved issues (`✅` or `Resolved`) from `issues_road_map.md` in under 5ms, enforcing an active-only priority board.
 - Universal AAPP Skills (`templates/skills/aapp-*/SKILL.md`) natively stored in `.agents/skills/` and bridged to `.claude/skills/` via granular relative symlinks, exposing slash commands (`/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-done`, `/aapp-release`) across Google Antigravity, Claude Code, Cursor, and OpenAI Codex (ISSUE-061).
 - Decoupled Claude Code configuration (`.agents/claude/settings.json`) versioned on the orphan `agents` worktree and bridged to `.claude/settings.json`, with non-destructive adopter migration, divergence key-merging, and `.claude/` gitignore hygiene.
 - Section 2 write-guard self-protection in `blast-radius-guard.sh` for `.agents/claude/*`, `.claude/settings.json`, `.agents/skills/aapp-*`, and `.claude/skills/aapp-*` closing the inode aliasing bypass.
