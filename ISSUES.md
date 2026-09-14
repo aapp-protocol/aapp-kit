@@ -92,7 +92,7 @@ Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 ful
 | **ISSUE-029** | `templates/architecture.md:24-25` | Tree places `pickup.md` and `state_matrix.md` under `.plans/current/`; init writes them to `.plans/`. | Correct the tree. | ✅ `Resolved` |
 | **ISSUE-030** | `templates/AGENTS.md:12` | Says "MANAGED BY AAPP-INIT" — that binary no longer exists post-unification. | Say `aapp init`. | ✅ `Resolved` |
 | **ISSUE-039** | `examples/example_plan_unified_install_and_upgrade.md` | Inconsistent filename casing (`snake_case` vs `kebab-case`) and contains outdated references to standalone `aapp-init` / `aapp-install` binaries rather than the unified `aapp` CLI. | Rename file to `kebab-case` and update binary references to `aapp init` / `aapp install`. | ✅ `Resolved` |
-| **ISSUE-061** | `README.md:241-245` | The lifecycle table presents `/status`, `/digest`, `/freeze`, `/done` and `/release` as slash commands, but they exist only as prose conventions in `AGENTS.md`. In Claude Code these resolve to unknown commands. | [`current/plan-feature-aapp-slash-commands.md`](current/plan-feature-aapp-slash-commands.md) — ship `.claude/commands/aapp/*.md` synced by `aapp init`. | 🔵 `Planned` |
+| **ISSUE-061** | `README.md:241-245` | The lifecycle table presents `/status`, `/digest`, `/freeze`, `/done` and `/release` as slash commands, but they exist only as prose conventions in `AGENTS.md`. In Claude Code these resolve to unknown commands. | [`done/plan-feature-aapp-slash-commands.md`](done/plan-feature-aapp-slash-commands.md) — Universal Skills in `templates/skills/` bridged to `.claude/skills/`. | ✅ `Resolved` |
 
 ---
 
@@ -162,3 +162,4 @@ Canonical issue record for the AAPP kit itself. Findings from the 2026-09-09 ful
 | **ISSUE-046** | `blast-radius-guard` | Used POSIX head -n 1 and quoted REPO_ROOT in pattern expansion. | `97706af` | 2026-09-10 |
 | **ISSUE-047** | `cmd_status` | Supported dash plan status bullets and trimmed pickup idea whitespace. | `97706af` | 2026-09-10 |
 | **ISSUE-048** | `pre-commit` / `aapp-pre-commit` | Executed pre-commit via shell and specified UTF-8 in schema check. | `97706af` | 2026-09-10 |
+| **ISSUE-061** | Universal Skills | Shipped Universal Skills in templates/skills/, bridged to .claude/skills/, and decoupled Claude settings. | plan-feature-aapp-slash-commands | 2026-09-14 |

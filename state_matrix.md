@@ -20,7 +20,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
  
-- 🟢 [`plan-feature-aapp-slash-commands.md`](current/plan-feature-aapp-slash-commands.md) — Universal AAPP Skills (`.agents/skills/` & `.claude/skills/`) for Antigravity & Claude Code (`ISSUE-061`).
+*(No plans currently frozen — greenlight zone empty)*
 
 ---
 

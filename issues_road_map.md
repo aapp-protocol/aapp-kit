@@ -63,3 +63,4 @@
 46. `ISSUE-046` -> Update deprecated `head -1` to `head -n 1` and quote `$REPO_ROOT` in `blast-radius-guard.sh` ✅ `Resolved`
 47. `ISSUE-047` -> Flexible plan status bullet matching and pickup queue count trimming in `cmd_status.sh` ✅ `Resolved`
 48. `ISSUE-048` -> Run `aapp-pre-commit` via shell in `pre-commit` and specify UTF-8 encoding in schema check ✅ `Resolved`
+49. `ISSUE-061` -> Implement Universal AAPP Skills and slash commands across agent environments ✅ `Resolved`
