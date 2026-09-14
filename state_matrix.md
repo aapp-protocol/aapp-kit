@@ -16,6 +16,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🔴 [`plan-feature-aapp-remote-sync.md`](current/plan-feature-aapp-remote-sync.md) — Remote Worktree Synchronization (`aapp push`, `aapp pull`, `aapp sync`) with A/C hybrid configuration model.
 - 🔴 [`plan-feature-aapp-airgapped-pickup.md`](current/plan-feature-aapp-airgapped-pickup.md) — Air-Gapped Reference Store (`.plans/pickup/`) & 5-Layer Leak Protection Architecture.
 - 🔴 [`plan-feature-aapp-lifecycle-hooks.md`](current/plan-feature-aapp-lifecycle-hooks.md) — Lifecycle Plugin Hooks Architecture (`.plans/hooks/`) with POSIX JSON stdio contract.
+- 🔴 [`plan-feature-aapp-plan-ids-and-shorthand-resolution.md`](current/plan-feature-aapp-plan-ids-and-shorthand-resolution.md) — Plan IDs, ADR-Style Filenames & Command Shorthand Resolution (`P-13`): Canonical `P-<num>` namespace, ergonomic shorthand for `/aapp-freeze` and `/aapp-done`, and health integrity engine.
 
 ---
 
