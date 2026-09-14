@@ -287,7 +287,7 @@ elif [ -f ".plans/issues_road_map.md" ]; then
     ROADMAP_FILE=".plans/issues_road_map.md"
 fi
 
-ROADMAP_RESOLVED_REGEX='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?[0-9]+`?.*(✅|[Rr]esolved)'
+ROADMAP_RESOLVED_REGEX='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)'
 
 if [ -n "$ROADMAP_FILE" ] && grep -qE "$ROADMAP_RESOLVED_REGEX" "$ROADMAP_FILE" 2>/dev/null; then
     TMP_ROADMAP="$(mktemp 2>/dev/null || echo "$ROADMAP_FILE.tmp")"
@@ -310,7 +310,7 @@ elif [ -f ".plans/ISSUES.md" ]; then
     ISSUES_FILE=".plans/ISSUES.md"
 fi
 
-ISSUES_RESOLVED_ROW_REGEX='^[[:space:]]*\|[[:space:]]*`?#?[0-9]+`?.*(✅|[Rr]esolved)'
+ISSUES_RESOLVED_ROW_REGEX='^[[:space:]]*\|[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)'
 
 if [ -n "$ISSUES_FILE" ] && grep -qE "$ISSUES_RESOLVED_ROW_REGEX" "$ISSUES_FILE" 2>/dev/null; then
     echo ""
