@@ -1,7 +1,7 @@
 # 🗺️ Plan: Universal AAPP Skills & Slash Commands (`.agents/skills/` & `.claude/skills/`)
 * **Created:** 2026-09-10 | **Last Refined:** 2026-09-13
 * **Target Issue / Milestone:** `ISSUE-061`
-* **Status:** 🔴 Under Review
+* **Status:** 🟢 Ready for Execution
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -425,7 +425,7 @@ PYEOF
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*(Marked: **PROPOSED** — incubator draft)*
+*(Marked: **LOCKED** — greenlit for execution)*
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `NEW FILE` -> `templates/skills/aapp-status/SKILL.md` -> Four-pillar context recovery skill.
@@ -468,6 +468,7 @@ PYEOF
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-14:** Plan frozen and greenlit for execution (all open questions resolved, blast radius locked).
 * **2026-09-14:** Eliminated settings deletion bug on divergence: added auto-backup and key-merging for diverged `.claude/settings.json`, extracted path-parameterized `merge_blast_radius_guard()` helper, and strengthened symlink verification (`[ -s ] && grep 'blast-radius-guard'`).
 * **2026-09-14:** Hardened blueprint against regressions: added non-destructive settings migration algorithm preserving pre-existing user configurations (tests/install_test.sh:290, 300), resolved stale files on upgrade via clean destination directory recreation (`rm -rf` before `cp`), verified symlink resolution via target file check (`[ -e ... ]`), removed `context: fork` from digest to preserve chat history, and documented skill authoring asymmetry.
 * **2026-09-14:** Upgraded blueprint with canonical Claude configuration decoupling (`.agents/claude/settings.json` -> `.claude/settings.json`), closed the inode aliasing bypass in `blast-radius-guard.sh` Section 2 (`.agents/claude/*`), added empirical pre-freeze verification task (Task 0.1), and documented fresh-clone activation and Windows fallback caveats.
