@@ -28,12 +28,6 @@
 
   **Rejected:** `aapp peer-review --agent=claude` shelling out to a vendor CLI. Makes an API key load-bearing for a core verb; `set -e` at `aapp:8` means a peer-agent non-zero exit kills the dispatcher; and an unattended agent writing `.plans/reviews/` inherits unconditional write access to every blueprint via `blast-radius-guard.sh:110`. Findings belong in the plan's own §6 / §5, not a fifth pillar.
 
-- [ ] **🔴 ISSUE-064: Status enum is not enforced (prerequisite to consensus tiers)**: `blast-radius-guard.sh:182` and `aapp-pre-commit:195` grep the plan Status line for `🚫|BLOCKED` only; every other value falls through to `UNBLOCKED_PLANS++`. `🔴 Under Review`, `🟡 Refining` and `🟢 Ready for Execution` are byte-identical to both engines.
-  - **Empirically verified 2026-09-14:** `.githooks/blast-radius-guard templates/skills/aapp-status/SKILL.md` → exit 0, while `plan-feature-aapp-slash-commands.md` reads `🔴 Under Review`. The Greenlight Zone in `state_matrix.md` is currently a human convention, not an enforcement gate — a plan confers write rights the moment its Blast Radius is written.
-  - **Required Fix:** Invert the engine logic: deny by default, allow **only** if Status contains `🟢` (or `Ready for Execution` / `Execution Ready`). For peer review, also permit `🔵 Peer-Reviewed` **if and only if** the plan is mechanically verified as `Tier: L`.
-  - **Breaking Change for Adopters:** In-flight plans in `🔴 Under Review` or `🟡 Refining` will immediately be blocked from writing to target files until promoted to `🟢` via `/aapp-freeze` (or `🔵` for Tier L). Scaffolding remains free inside `.plans/`, but code remains read-only. Requires a minor version bump (v1.1.0 or v1.2.0) and explicit release notes.
-  - **Blocks Consensus Tiers:** Without this fix, a Tier-L auto-execute lane grants nothing not already granted, and a Tier-A human gate guards an open door.
-
 - [ ] **Consensus tiers for peer review (extends the Adversarial Peer Review blueprint)**: Insert agent-consensus states into the plan lifecycle, with routing by recoverability tier. Depends on ISSUE-064 above.
 
   **State machine — one new status, not two lanes.** Tier is a plan *attribute*, consensus is a *state*: `🔴 Under Review → 🟡 Refining ⇄ (aapp review → peer audit → findings into §6) → 🔵 Peer-Reviewed`.

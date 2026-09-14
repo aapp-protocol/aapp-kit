@@ -2,7 +2,7 @@
 
 > **Role:** This file does one thing — it puts the issues recorded in root `ISSUES.md` into the order you intend to fix them. It is an **active view**, not a historical record. `ISSUES.md` holds the detail; this holds the sequence.
 >
-> **Active-Only Queue Invariant:** This board only tracks active, unresolved issues. When an issue is resolved, it is pruned from this board (the pre-commit hook automatically purges any marked ✅ or Resolved). Historical records belong exclusively in `ISSUES.md`.
+> **Active-Only Queue Invariant:** This board only tracks active, unresolved issues. When an issue is resolved, it is pruned from this board (the pre-commit hook automatically purges any marked ✅ or Resolved). Historical records belong exclusively in `.plans/done/000-issues-archive.md`.
 >
 > **Not for future implementations.** Raw feature requests and new capabilities never appear here — they belong in `.plans/state_matrix.md`.
 >
@@ -12,16 +12,29 @@
 
 ---
 
-## 🔴 High Priority (Immediate Focus)
-1. `ISSUE-049` -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
-2. `ISSUE-052` -> Deny payload omits `hookEventName` and `permissionDecisionReason`; agent blocked with no reason to self-correct.
-3. `ISSUE-064` -> Status enum is not enforced in write-guard/pre-commit (`🚫|BLOCKED` check only; `🔴` and `🟡` fall through to unblocked).
+## ⭐ User Priority (Pinned / Immediate Human Focus)
+*Direct developer overrides based on current focus and appetite.*
+- [ ] #53 -> Add `MultiEdit` to hook matcher to prevent bypass.
 
-## 🟡 Medium Priority (Upcoming Iteration)
-- [ ] `ISSUE-050` -> Drop-in mode on `agent-planning-kit` or `aapp-develop-kit` resolves root to kit itself rather than cwd.
-- [ ] `ISSUE-051` -> Self-consumption `rm -rf` gated on basename allowlist rather than directory contents/signatures.
-- [ ] `ISSUE-053` -> Matcher uses `Write|Edit|NotebookEdit`; `MultiEdit` writes bypass Layer 1 write guard.
+## 🔴 High Priority (Technical Urgency)
+1. #49 -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
+2. #52 -> Deny payload omits `hookEventName` and `permissionDecisionReason`; agent blocked with no reason to self-correct.
+3. #64 -> Status enum is not enforced in write-guard/pre-commit (`🚫|BLOCKED` check only; `🔴` and `🟡` fall through to unblocked).
+
+## 🟡 Medium Priority (Upcoming Iterations)
+- [ ] #50 -> Drop-in mode on `agent-planning-kit` or `aapp-develop-kit` resolves root to kit itself rather than cwd.
+- [ ] #51 -> Self-consumption `rm -rf` gated on basename allowlist rather than directory contents/signatures.
 
 ## 🟢 Low Priority (Test Infrastructure & Verification)
-- [ ] `ISSUE-062` -> Deny-schema assertion checks only `decision == 'deny'`, not that denial reason reaches caller.
-- [ ] `ISSUE-063` -> No CI runs the three test suites and no release gate blocks publishing `main` that trails `develop`.
+- [ ] #62 -> Deny-schema assertion checks only `decision == 'deny'`, not that denial reason reaches caller.
+- [ ] #63 -> No CI runs test suites (102 test cases) and no release gate blocks publishing `main` trailing `develop`.
+
+## 📥 Triage (Incoming / Unsequenced)
+*Newly logged issues awaiting prioritization.*
+- [ ] #54 -> Self-protection covers `.githooks/*` but not `.git/config`, so a single edit can disable Layer 2 hooks.
+- [ ] #55 -> CHANGELOG enforcement accepts `.plans/CHANGELOG.md` on a 900s mtime window; wall-clock dependence is non-deterministic.
+- [ ] #56 -> Glob matching lets `*` cross `/`; blast radius is wider than blueprint authors intend.
+- [ ] #57 -> File marked Out of Bounds by one plan is allowed when second active plan lists it as target.
+- [ ] #58 -> `AAPP_VERSION` stayed 1.0.0 without release tags, so protocol block still stamps `v1.0.0` after upgrade.
+- [ ] #59 -> `sort -z` is GNU/newer-BSD only and fails on older macOS `sort`, breaking the Plans pillar of briefing.
+- [ ] #60 -> Plan filenames with newlines break unquoted `ls -1` iteration in enforcement engine.
