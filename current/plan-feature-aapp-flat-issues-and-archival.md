@@ -119,12 +119,11 @@ Append-only historical ledger of verified and resolved issues.
 
 ### D. Enforcement & Context Recovery Updates
 
-1. **`lib/cmd_status.sh` Parser**:
-   Simplify the Issue pillar extraction. Because `ISSUES.md` has no subheadings and `issues_road_map.md` has `#<num>`, parsing becomes a clean one-liner:
-   ```bash
-   # Extract top 5 from issues_road_map.md (ignoring section headers)
-   grep -E '^\s*([0-9]+\.|-\s*\[\s*\])\s*#?[0-9]+' .plans/issues_road_map.md | head -n 5
-   ```
+1. **Dynamic Roadmap Reconciliation in `cmd_status.sh` (`status` verb)**:
+   Before rendering the Context Recovery briefing, `cmd_status.sh` actively reconciles `issues_road_map.md` against `ISSUES.md` to eliminate staleness:
+   - **Step 1 (Auto-Prune Resolved Ghost Items)**: Strips any lines marked `✅` or `Resolved` (or present in `000-issues-archive.md`), preventing dead issues from lingering.
+   - **Step 2 (Auto-Seed Unsequenced Issues)**: Scans active `#<num>` entries in `ISSUES.md`. Any issue not yet present on `issues_road_map.md` is automatically appended under `## 📥 Triage (Incoming / Unsequenced)` so newly logged defects are immediately visible.
+   - **Step 3 (Immediate Ground-Truth Reporting)**: Pillar 2 extracts the top items directly from the freshly synchronized roadmap. If new items were appended to Triage, a 1-line notice alerts the user to prioritize them.
 2. **`aapp-pre-commit` Integrity Guard**:
    Add a fast check (<5ms) during `.plans/` commits:
    - Ensure no issue appears in both `ISSUES.md` and `.plans/done/000-issues-archive.md`.
@@ -142,10 +141,10 @@ Append-only historical ledger of verified and resolved issues.
 - [ ] Task 1.1: Rewrite `templates/issues.md` into the flat database table format with `Sev`, `Type`, `Date`, and clean `#` IDs.
 - [ ] Task 1.2: Add standard `Type` taxonomy documentation in `templates/issues.md` and `MANUAL.md`.
 - [ ] Task 1.3: Author starter template `templates/done-issues-archive.md` for `.plans/done/000-issues-archive.md`.
-- [ ] Task 1.4: Update `templates/issues_road_map.md` to include `## ⭐ User Priority (Pinned / Immediate Human Focus)`.
+- [ ] Task 1.4: Update `templates/issues_road_map.md` to include `## ⭐ User Priority (Pinned / Immediate Human Focus)` and `## 📥 Triage (Incoming / Unsequenced)`.
 
 ### Phase 2: Engine & Skill Synchronization
-- [ ] Task 2.1: Update `lib/cmd_status.sh` to parse flat `ISSUES.md` and `#<num>` syntax cleanly.
+- [ ] Task 2.1: Update `lib/cmd_status.sh` to dynamically reconcile `issues_road_map.md` (prune resolved, auto-append incoming issues from `ISSUES.md` to Triage) before reporting Pillar 2.
 - [ ] Task 2.2: Update `templates/skills/aapp-done/SKILL.md` and `.agents/skills/aapp-done/SKILL.md` to relocate resolved issues to `000-issues-archive.md`.
 - [ ] Task 2.3: Update `templates/aapp-pre-commit` and `.githooks/aapp-pre-commit` with an anti-duplication integrity check for `.plans/` commits.
 
@@ -203,3 +202,4 @@ Append-only historical ledger of verified and resolved issues.
 
 ## 📦 6. Change Log & Refinement History
 * **2026-09-14:** Initial draft scaffolded from user architectural proposal on flat issue ledger, universal domain taxonomy, and relocation archival protocol.
+* **2026-09-14:** Added dynamic roadmap reconciliation in `cmd_status.sh` (`status` verb) to automatically prune ghost resolved items, auto-seed incoming unsequenced issues into `## 📥 Triage`, and report the freshly updated ground truth upon desk return.
