@@ -121,39 +121,54 @@ Append-only historical ledger of verified and resolved issues.
 - [ ] #63 -> Add GitHub Actions CI workflow running test suites.
 ```
 
-#### Bulletproof ID-Anchored Auto-Prune Regex Invariant:
-In `templates/aapp-pre-commit`, auto-pruning requires an issue number token (`#?[0-9]+`) immediately following the list marker:
+#### Bulletproof POSIX ID-Anchored Auto-Prune Regex Invariant:
+In `templates/aapp-pre-commit`, roadmap auto-pruning requires a valid list prefix followed by an issue ID token with optional backticks, using standard POSIX character classes and no stray escapes:
 ```bash
-grep -v -E '^\s*([0-9]+\.|-\s*\[[ xX]?\]|\*)\s*#?[0-9]+.*(\✅|Resolved)'
+grep -v -E '^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?[0-9]+`?.*(✅|[Rr]esolved)'
 ```
-This guarantees that explanatory bullets, rules, or instructions containing the word "resolved" (e.g. `* Note: Resolved issues are pruned automatically`) are **never** accidentally deleted.
+- **POSIX Compliant**: Uses `[[:space:]]` instead of GNU `\s` extension (portable across BSD/macOS and Linux).
+- **No Stray Escapes**: Clean unescaped unicode `✅` (avoids `ugrep` / strict parser syntax errors).
+- **Backtick Tolerant**: Correctly matches both bare `#49` and backticked `` `#49` `` or `` `ISSUE-049` ``.
+- **Case-Insensitive Status**: Matches both `✅` and `[Rr]esolved`.
+- **Prose Immune**: Never deletes explanatory bullets, rules, or blockquotes containing the word "resolved".
 
 ---
 
 ### D. Enforcement & Context Recovery Updates
 
-1. **Dynamic Roadmap Reconciliation in `cmd_status.sh` (`status` verb)**:
-   Before rendering the Context Recovery briefing, `cmd_status.sh` actively reconciles `issues_road_map.md` against `ISSUES.md`:
+1. **Strictly Read-Only Context Recovery in `cmd_status.sh` (`status` verb)**:
+   The `status` command is an **idempotent, read-only observer**. It must **never write to disk, dirty worktrees, or race across concurrent agent sessions**:
    - **Delete Legacy Workarounds**: Remove both brittle heuristics in `cmd_status.sh` (the `sed '/Resolved Issues/,$d'` cutoff and older `grep -v 'Resolved|DONE'`).
-   - **Step 1 (Auto-Prune Resolved Ghost Items)**: Strips any issue rows marked `✅` or `Resolved` using the bulletproof ID-anchored regex.
-   - **Step 2 (Auto-Seed Unsequenced Issues)**: Scans active `#<num>` entries in `ISSUES.md`. Any issue not yet present on `issues_road_map.md` is automatically appended under `## 📥 Triage (Incoming / Unsequenced)` so newly logged defects are immediately visible.
-   - **Step 3 (Immediate Ground-Truth Reporting)**: Pillar 2 extracts the top items directly from the freshly synchronized roadmap. If new items were appended to Triage, a 1-line notice alerts the user to prioritize them.
-2. **Three-Pair Planning-Health Engine (`lib/planning_health.sh` / `templates/aapp-pre-commit`)**:
-   Enforce comprehensive consistency during `.plans/` commits and `aapp health`:
+   - **Pillar 2 Issue Briefing**: Directly extracts top active issues from `issues_road_map.md` and `ISSUES.md`.
+   - **Non-Destructive Drift Detection**:
+     - If a roadmap entry has no corresponding detail row in `ISSUES.md` (e.g. phantom `#64`), prints:
+       `⚠️ [Roadmap Drift] #64 is on the priority board but missing from ISSUES.md.`
+     - If active issues in `ISSUES.md` are unsequenced on the roadmap, prints:
+       `ℹ️ [Unsequenced] Active issues (#50, #51) are not yet on the priority board.`
+   - Mutation and auto-synchronization are strictly forbidden on the read path.
+2. **Three-Pair Planning-Health Engine (`lib/planning_health.sh`)**:
+   Provides reusable consistency validation across hooks and CLI:
    - **Pair 1 (`ISSUES ↔ archive`)**: IDs in `ISSUES.md` and `.plans/done/000-issues-archive.md` must be mutually disjoint. Normalizes IDs numerically (`int()` / `10#$num`) so `#1` and `#01` cannot collide. No row in active `ISSUES.md` may carry `✅` or `Resolved`.
    - **Pair 2 (`roadmap ↔ ISSUES`)**: Referential integrity. Every `#<num>` listed on `issues_road_map.md` must have a corresponding detail row in `ISSUES.md` (prevents phantom roadmap entries like `#64`).
    - **Pair 3 (`pickup ↔ ISSUES`)**: Clean routing. When an issue is logged from `pickup.md`, its pickup draft must be removed.
-3. **Pre-Commit Auto-Relocation for Direct (Non-Promoted) Fixes (`templates/aapp-pre-commit`)**:
-   When an engineer or agent fixes a bug directly in code without drafting a feature plan ("*Do not promote a small, obvious fix. Just make it*"):
-   - They simply mark the issue row as `✅ Resolved` (or `Resolved`) in `ISSUES.md`.
-   - On `git commit`, `aapp-pre-commit` intercepts rows marked `✅|Resolved` in `ISSUES.md`.
-   - It extracts the row, transforms it into the archive schema (`Date Resolved = today`, staged commit hash), and appends it to `.plans/done/000-issues-archive.md`.
-   - It cuts the row from `ISSUES.md`, purges `#<num>` from `issues_road_map.md`, and stages all modified files.
-   - The **Relocation Invariant** is thus **self-enforcing and zero-friction**.
-4. **`/aapp-done` Skill Automation (`templates/skills/aapp-done/SKILL.md`)**:
-   When archiving a plan that targets an issue (e.g. `Target Issue: #61`):
-   - Move row from `ISSUES.md` to `.plans/done/000-issues-archive.md`.
-   - Delete entry from `issues_road_map.md`.
+3. **Detect-and-Block Relocation Invariant in `templates/aapp-pre-commit`**:
+   The hook does **not** attempt unreviewed, schema-altering in-hook mutations (active 8 columns → archive 7 columns) or invent commit hashes that do not exist before commit object creation. Instead, it **detects and blocks**:
+   - **Dedicated Table-Row Matcher**:
+     ```bash
+     grep -E '^[[:space:]]*\|[[:space:]]*`?#?[0-9]+`?.*(✅|[Rr]esolved)'
+     ```
+   - If any resolved row is found in `ISSUES.md`, `aapp-pre-commit` refuses the commit with an actionable error:
+     ```text
+     ❌ [Pre-Commit Violation] Found resolved issue in active ISSUES.md.
+        The Relocation Invariant requires resolved rows to be moved to .plans/done/000-issues-archive.md.
+        Resolution is a physical row relocation, never an in-place status badge.
+     ```
+   - **Hook Execution Order**:
+     1. Roadmap list hygiene: Prune resolved items from `issues_road_map.md` using the bulletproof POSIX regex.
+     2. Planning-health validation: Check disjointness and referential integrity. Block if violations exist.
+4. **Issue Archival Workflow**:
+   - **With a Plan**: `/aapp-done <plan>` moves the target issue row from `ISSUES.md` to `000-issues-archive.md` upon plan verification, filling in the verified commit hash and archiving the plan.
+   - **Direct (Non-Promoted) Fixes**: The committer manually relocates the row to `000-issues-archive.md` (recording the target release milestone or post-commit hash) and commits both files.
 5. **Non-Destructive Guidance at Init Time (`lib/cmd_init.sh`)**:
    In arbitrary wild codebases, `ISSUES.md` may exist in custom formats (Jira dumps, prose, bullet lists). `aapp init` must **never destructively alter** or corrupt arbitrary existing files:
    - If an existing non-flat `ISSUES.md` is detected, `cmd_init.sh` leaves it untouched and prints a clean informational notice directing the developer to `MANUAL.md` and `templates/issues.md` to format it at their own pace.
@@ -169,15 +184,15 @@ This guarantees that explanatory bullets, rules, or instructions containing the 
 - [ ] Task 1.4: Update `templates/issues_road_map.md` to include `## ⭐ User Priority (Pinned / Immediate Human Focus)` and `## 📥 Triage (Incoming / Unsequenced)`.
 
 ### Phase 2: Engine, Health & Skill Synchronization
-- [ ] Task 2.1: Update `lib/cmd_status.sh` to delete legacy parser workarounds (`sed` cutoff and unanchored grep) and dynamically reconcile `issues_road_map.md` before reporting Pillar 2.
-- [ ] Task 2.2: Author shared integrity check module `lib/planning_health.sh` verifying the three pairs (`ISSUES ↔ archive`, `roadmap ↔ ISSUES`, and format/status validity) with numerical ID normalization.
-- [ ] Task 2.3: Update `templates/aapp-pre-commit` to use bulletproof ID-anchored auto-prune regex `^\s*([0-9]+\.|-\s*\[[ xX]?\]|\*)\s*#?[0-9]+.*(\✅|Resolved)`, invoke planning-health integrity checks, and auto-relocate direct `✅|Resolved` rows to `000-issues-archive.md`.
-- [ ] Task 2.4: Update `templates/skills/aapp-done/SKILL.md` to relocate resolved issues to `000-issues-archive.md` and prune roadmap entries.
+- [ ] Task 2.1: Update `lib/cmd_status.sh` to be strictly read-only, remove legacy parser workarounds (`sed` cutoff and unanchored grep), and non-destructively surface roadmap drift and unsequenced issues.
+- [ ] Task 2.2: Author shared integrity check module `lib/planning_health.sh` verifying the three pairs (`ISSUES ↔ archive`, `roadmap ↔ ISSUES`, and format/status validity) with numerical ID normalization and dedicated table row matcher.
+- [ ] Task 2.3: Update `templates/aapp-pre-commit` to use bulletproof POSIX ID-anchored auto-prune regex for `issues_road_map.md` and detect-and-block validation for `ISSUES.md` resolved rows.
+- [ ] Task 2.4: Update `templates/skills/aapp-done/SKILL.md` to relocate resolved issues to `000-issues-archive.md` and prune roadmap entries upon plan completion.
 - [ ] Task 2.5: Update `lib/cmd_init.sh` to check for existing custom `ISSUES.md` files non-destructively and print formatting guidance to `MANUAL.md`.
 - [ ] Task 2.6: Run `aapp init` to propagate updated templates into `.githooks/` and `.agents/skills/` without violating Section 2 write guards.
 
 ### Phase 3: Repository Migration & Data Integrity Verification
-- [ ] Task 3.1: Create `.plans/done/000-issues-archive.md` and migrate all 49 historical resolved issues from `.plans/ISSUES.md`.
+- [ ] Task 3.1: Create `.plans/done/000-issues-archive.md` and migrate all 49 historical resolved issues from `.plans/ISSUES.md` using unpadded integer IDs.
 - [ ] Task 3.2: Log the missing row for `#64` (`Status enum is not enforced in write-guard/pre-commit`) into `.plans/ISSUES.md` and prune its unworked note from `.plans/pickup.md`.
 - [ ] Task 3.3: Reformat `.plans/ISSUES.md` into the single flat table containing all 15 active open issues (`#49`–`#60`, `#62`–`#64`).
 - [ ] Task 3.4: **Count-Preservation Assertion**: Run an automated ID set-difference script verifying `49 (archived) + 15 (active) = 64 (unique project issues #01..#64)`. Assert zero dropped IDs and zero duplicate collisions.
@@ -185,9 +200,10 @@ This guarantees that explanatory bullets, rules, or instructions containing the 
 
 ### Phase 4: Documentation & Test Verification
 - [ ] Task 4.1: Update `MANUAL.md` and `README.md` documenting the Flat Issue Ledger, Domain Taxonomy, Direct-Fix Archival, and Relocation Invariant.
-- [ ] Task 4.2: Update `tests/install_test.sh` and `tests/pre-commit_test.sh` with assertions for flat template generation, bulletproof auto-prune preservation, pre-commit auto-relocation, and referential integrity checks.
-- [ ] Task 4.3: Verify all test suites pass (all 102+ test cases across `install_test.sh`, `pre-commit_test.sh`, and `write-guard_test.sh`).
-- [ ] Task 4.4: Record changelog entry in `CHANGELOG.md`.
+- [ ] Task 4.2: Update `tests/install_test.sh` and `tests/pre-commit_test.sh` with assertions for flat template generation, bulletproof POSIX auto-pruning, detect-and-block validation, and referential integrity checks.
+- [ ] Task 4.3: Verify all test suites pass (all 102+ test cases across `install_test.sh`, `pre-commit_test.sh`, and `write-guard_test.sh`) and align test count in `ISSUE-063`.
+- [ ] Task 4.4: Bump `AAPP_VERSION="1.1.0"` in `aapp` CLI and sync `tests/install_test.sh`.
+- [ ] Task 4.5: Record changelog entry in `CHANGELOG.md`.
 
 ---
 
@@ -197,19 +213,19 @@ This guarantees that explanatory bullets, rules, or instructions containing the 
 - [ ] `templates/issues.md` -> Flat single-table schema with Sev, Type, Date, # ID.
 - [ ] `templates/issues_road_map.md` -> Add ⭐ User Priority section and # ID format.
 - [ ] `NEW FILE` -> `templates/done-issues-archive.md` -> Template for historical issue archive ledger.
-- [ ] `lib/cmd_status.sh` -> Streamline status briefing issue parser, delete workarounds, add dynamic reconciliation.
+- [ ] `lib/cmd_status.sh` -> Read-only status briefing, delete workarounds, non-destructive drift reporting.
 - [ ] `NEW FILE` -> `lib/planning_health.sh` -> Shared planning-health integrity validator for hooks and CLI.
-- [ ] `templates/aapp-pre-commit` -> Bulletproof ID-anchored auto-pruning, pre-commit auto-relocation, and planning-health checks.
+- [ ] `templates/aapp-pre-commit` -> Bulletproof POSIX auto-pruning and detect-and-block Relocation Invariant.
 - [ ] `templates/skills/aapp-done/SKILL.md` -> Update aapp-done procedure to relocate issues to archive ledger.
 - [ ] `lib/cmd_init.sh` -> Non-destructive advisory for existing custom ISSUES.md files.
 - [ ] `templates/AGENTS.md` -> Document Relocation Invariant, taxonomy, and issue archival.
-- [ ] `.agents/AGENTS.md` -> Synchronize protocol rules.
+- [ ] `aapp` -> Bump version constant to 1.1.0.
 - [ ] `MANUAL.md` -> Comprehensive documentation of issue taxonomy and archival.
 - [ ] `README.md` -> Update structural trees and issue management overview.
 - [ ] `CHANGELOG.md` -> Document v1.1.0 issue ledger evolution.
-- [ ] `tests/install_test.sh` -> Regression coverage for new templates, non-destructive init, and propagation.
-- [ ] `tests/pre-commit_test.sh` -> Regression coverage for ID-anchored auto-pruning, pre-commit auto-relocation, and integrity validation.
-- [ ] `.plans/ISSUES.md` -> Migrate active issues to flat table and add missing #64.
+- [ ] `tests/install_test.sh` -> Regression coverage for new templates, non-destructive init, version bump, and propagation.
+- [ ] `tests/pre-commit_test.sh` -> Regression coverage for POSIX auto-pruning, detect-and-block validation, and integrity validation.
+- [ ] `.plans/ISSUES.md` -> Migrate active issues to flat table, update ISSUE-063 count, and add missing #64.
 - [ ] `.plans/issues_road_map.md` -> Reformat active board with # IDs and User Priority.
 - [ ] `.plans/pickup.md` -> Prune digested ISSUE-064 entry.
 - [ ] `NEW FILE` -> `.plans/done/000-issues-archive.md` -> Master archive ledger of resolved issues.
@@ -217,6 +233,7 @@ This guarantees that explanatory bullets, rules, or instructions containing the 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/aapp-pre-commit` -> Protected by Section 2 self-protection. Propagated from `templates/aapp-pre-commit` via `aapp init`.
 - [ ] `.agents/skills/aapp-done/SKILL.md` -> Protected by Section 2 self-protection. Propagated from `templates/skills/` via `aapp init`.
+- [ ] `.agents/AGENTS.md` -> Delimited protocol block generated from `templates/AGENTS.md` via `aapp init`.
 - [ ] `templates/blast-radius-guard.sh` -> Write-time guard remains stable and unmodified.
 - [ ] `.githooks/blast-radius-guard` -> Inode self-protection and tool filters remain untouched.
 - [ ] `lib/cmd_develop.sh` -> Symlink development engine is out of bounds.
@@ -238,13 +255,14 @@ This guarantees that explanatory bullets, rules, or instructions containing the 
 
 ## 📦 6. Change Log & Refinement History
 * **2026-09-14:** Initial draft scaffolded from user architectural proposal on flat issue ledger, universal domain taxonomy, and relocation archival protocol.
-* **2026-09-14:** Added dynamic roadmap reconciliation in `cmd_status.sh` (`status` verb) to automatically prune ghost resolved items, auto-seed incoming unsequenced issues into `## 📥 Triage`, and report the freshly updated ground truth upon desk return.
-* **2026-09-14:** Refined blueprint following adversarial peer review (Claude red team audit):
+* **2026-09-14:** Refined blueprint following adversarial peer review rounds 1 & 2 (Claude red team audits):
   - **Engine Protection**: Moved `.githooks/aapp-pre-commit` and `.agents/skills/aapp-done/SKILL.md` to Out of Bounds (protected by write-guard Section 2); added Task 2.6 to propagate via `aapp init`.
-  - **Roadmap Preamble Protection**: Fixed destructive auto-prune bug in `templates/aapp-pre-commit` by specifying bulletproof ID-anchored row regex `^\s*([0-9]+\.|-\s*\[[ xX]?\]|\*)\s*#?[0-9]+.*(\✅|Resolved)`.
-  - **Three-Pair Planning-Health Engine**: Expanded consistency verification beyond `ISSUES ↔ archive` to cover `roadmap ↔ ISSUES` (referential integrity) and `pickup ↔ ISSUES`, architected into `lib/planning_health.sh` with integer ID normalization.
+  - **POSIX Bulletproof Roadmap Auto-Prune**: Fixed regex portability and backtick tolerance with `^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?[0-9]+`?.*(✅|[Rr]esolved)`.
+  - **Separate Matchers**: Dedicated table-row matcher `^[[:space:]]*\|[[:space:]]*`?#?[0-9]+`?.*(✅|[Rr]esolved)` for `ISSUES.md`.
+  - **Detect-and-Block Invariant**: Replaced unsafe pre-commit content transforms and non-existent commit hash guessing with strict detect-and-block validation.
+  - **Read-Only Status**: Restored `cmd_status.sh` to strictly read-only, non-destructive drift reporting, preserving worktree hygiene and CI safety.
+  - **Three-Pair Planning-Health Engine**: Consistency verification across `ISSUES ↔ archive`, `roadmap ↔ ISSUES`, and `pickup ↔ ISSUES` in `lib/planning_health.sh` with integer normalization.
   - **Active Range & Missing #64**: Corrected active range to `#49`–`#60`, `#62`–`#63` (14 items) and added Task 3.2 to author the missing `#64` detail row in `ISSUES.md`.
   - **Count-Preservation Assertion**: Added explicit Task 3.4 asserting `49 archived + 15 active = 64 unique IDs` with an automated set diff.
-  - **Pre-Commit Auto-Relocation for Direct Fixes**: Specified pre-commit interception of `✅|Resolved` rows in `ISSUES.md` for zero-friction archival without plans.
   - **Non-Destructive Init Guidance**: Specified safe advisory guidance in `lib/cmd_init.sh` for existing codebases with custom `ISSUES.md` layouts.
-  - **Resolved Open Questions**: Formalized resolutions for Q1 (open vocabulary), Q2 (`000-issues-archive.md`), and Q3 (`#49` unpadded syntax).
+  - **Milestone & Convention Alignment**: Included version bump to `v1.1.0` in `aapp`, aligned `.agents/AGENTS.md` as generated, and updated test counts.
