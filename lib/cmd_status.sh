@@ -7,6 +7,8 @@
 # 2. Issues    (ISSUES.md and .plans/issues_road_map.md)
 # 3. Plans     (.plans/state_matrix.md active plans)
 # 4. Pickup    (.plans/pickup.md unprocessed ideas)
+#
+# Strictly read-only observer: never writes to disk or dirties working trees.
 # ==============================================================================
 set -e
 
@@ -17,6 +19,14 @@ if [ -z "$REPO_ROOT" ]; then
 fi
 
 cd "$REPO_ROOT"
+
+# Source planning_health engine if available
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/planning_health.sh" ]; then
+    source "$SCRIPT_DIR/planning_health.sh"
+elif [ -f "$REPO_ROOT/lib/planning_health.sh" ]; then
+    source "$REPO_ROOT/lib/planning_health.sh"
+fi
 
 echo "============================================================"
 echo "  🧭 AAPP Context Recovery Briefing"
@@ -52,8 +62,16 @@ fi
 echo ""
 echo "🐛 [2/4] ISSUES (Canonical Bugs & Road Map)"
 HAS_ISSUES=0
+ROADMAP_FILE=""
 if [ -f ".plans/issues_road_map.md" ]; then
-    TOP_ISSUES=$(grep -E '^[0-9]+\.|^- \[' ".plans/issues_road_map.md" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '✅|Resolved|DONE|\[x\]|\[X\]' | head -n 5 || true)
+    ROADMAP_FILE=".plans/issues_road_map.md"
+elif [ -f "issues_road_map.md" ]; then
+    ROADMAP_FILE="issues_road_map.md"
+fi
+
+if [ -n "$ROADMAP_FILE" ]; then
+    ROADMAP_ACTIVE_REGEX='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ ]?\]|\*)[[:space:]]*`?#?[0-9]+'
+    TOP_ISSUES=$(grep -E "$ROADMAP_ACTIVE_REGEX" "$ROADMAP_FILE" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '✅|[Rr]esolved|DONE' | head -n 5 || true)
     if [ -n "$TOP_ISSUES" ]; then
         echo "$TOP_ISSUES" | sed 's/^/  /'
         HAS_ISSUES=1
@@ -68,7 +86,8 @@ elif [ -f "ISSUES.md" ]; then
 fi
 
 if [ -n "$ISSUES_FILE" ] && [ "$HAS_ISSUES" -eq 0 ]; then
-    OPEN_ISSUES=$(sed '/## 📦 .*Resolved Issues/,$d' "$ISSUES_FILE" 2>/dev/null | grep -E '^\s*\|\s*(\*\*)?ISSUE-[0-9]+' | grep -v -E 'Resolved|DONE' | head -n 5 || true)
+    # Active ISSUES.md holds only active rows
+    OPEN_ISSUES=$(grep -E '^[[:space:]]*\|[[:space:]]*`?#?[0-9]+' "$ISSUES_FILE" 2>/dev/null | head -n 5 || true)
     if [ -n "$OPEN_ISSUES" ]; then
         echo "$OPEN_ISSUES" | sed 's/^/  /'
         HAS_ISSUES=1
@@ -77,6 +96,22 @@ fi
 
 if [ "$HAS_ISSUES" -eq 0 ]; then
     echo "  (No open issues in issues_road_map.md or ISSUES.md)"
+fi
+
+# Non-destructive drift and unsequenced reporting
+if [ -n "$ROADMAP_FILE" ] && [ -n "$ISSUES_FILE" ]; then
+    if command -v check_pair2_referential_integrity >/dev/null 2>&1; then
+        DRIFT_OUT=$(check_pair2_referential_integrity "$ROADMAP_FILE" "$ISSUES_FILE" 2>/dev/null || true)
+        if [ -n "$DRIFT_OUT" ]; then
+            echo "$DRIFT_OUT" | sed 's/^/  /'
+        fi
+    fi
+    if command -v get_unsequenced_issues >/dev/null 2>&1; then
+        UNSEQ=$(get_unsequenced_issues "$ROADMAP_FILE" "$ISSUES_FILE" 2>/dev/null || true)
+        if [ -n "$UNSEQ" ]; then
+            echo "  ℹ️  [Unsequenced] Active issues ($UNSEQ) are not yet on the priority board."
+        fi
+    fi
 fi
 
 # 3. Plans

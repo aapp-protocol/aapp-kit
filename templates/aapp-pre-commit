@@ -278,7 +278,7 @@ if [ "$STAGED_CORE_COUNT" -gt 0 ] && [ "$DOCS_UPDATED" -eq 0 ]; then
 fi
 
 # ------------------------------------------------------------------------------
-# 3b. ISSUE ROADMAP HYGIENE (AUTO-PRUNE RESOLVED ITEMS)
+# 3b. ISSUE ROADMAP & LEDGER HYGIENE (AUTO-PRUNE & DETECT-AND-BLOCK)
 # ------------------------------------------------------------------------------
 ROADMAP_FILE=""
 if [ -f "issues_road_map.md" ]; then
@@ -287,9 +287,11 @@ elif [ -f ".plans/issues_road_map.md" ]; then
     ROADMAP_FILE=".plans/issues_road_map.md"
 fi
 
-if [ -n "$ROADMAP_FILE" ] && grep -qE '✅|Resolved' "$ROADMAP_FILE" 2>/dev/null; then
+ROADMAP_RESOLVED_REGEX='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)'
+
+if [ -n "$ROADMAP_FILE" ] && grep -qE "$ROADMAP_RESOLVED_REGEX" "$ROADMAP_FILE" 2>/dev/null; then
     TMP_ROADMAP="$(mktemp 2>/dev/null || echo "$ROADMAP_FILE.tmp")"
-    if grep -v -E '✅|Resolved' "$ROADMAP_FILE" > "$TMP_ROADMAP" 2>/dev/null; then
+    if grep -v -E "$ROADMAP_RESOLVED_REGEX" "$ROADMAP_FILE" > "$TMP_ROADMAP" 2>/dev/null; then
         mv "$TMP_ROADMAP" "$ROADMAP_FILE"
         if [ "$ROADMAP_FILE" = "issues_road_map.md" ]; then
             git add "$ROADMAP_FILE" 2>/dev/null || true
@@ -298,6 +300,25 @@ if [ -n "$ROADMAP_FILE" ] && grep -qE '✅|Resolved' "$ROADMAP_FILE" 2>/dev/null
     else
         rm -f "$TMP_ROADMAP"
     fi
+fi
+
+# Detect-and-block resolved rows in active ISSUES.md
+ISSUES_FILE=""
+if [ -f "ISSUES.md" ]; then
+    ISSUES_FILE="ISSUES.md"
+elif [ -f ".plans/ISSUES.md" ]; then
+    ISSUES_FILE=".plans/ISSUES.md"
+fi
+
+ISSUES_RESOLVED_ROW_REGEX='^[[:space:]]*\|[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)'
+
+if [ -n "$ISSUES_FILE" ] && grep -qE "$ISSUES_RESOLVED_ROW_REGEX" "$ISSUES_FILE" 2>/dev/null; then
+    echo ""
+    echo "❌ [Pre-Commit Violation] Found resolved issue in active $ISSUES_FILE."
+    echo "   The Relocation Invariant requires resolved rows to be moved to .plans/done/000-issues-archive.md."
+    echo "   Resolution is a physical row relocation, never an in-place status badge."
+    echo ""
+    exit 1
 fi
 
 # ------------------------------------------------------------------------------

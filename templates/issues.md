@@ -1,34 +1,38 @@
-# 🐛 Issues: Audit Trail & Technical Backlog
+# 🐛 Issues: Active Technical Backlog
 
-This document is the canonical issue record for the project — bugs, regressions, and missing edge-case coverage.
+> **Active Backlog Only:** Every row below is an unresolved defect or gap. When resolved, issues are relocated to `.plans/done/000-issues-archive.md` and pruned from `issues_road_map.md`.
 
----
-
-## 🚦 1. Issue Triage & Escape Protocol (AAPP)
-When a bug or a missing edge case is discovered during an active coding session:
-* **Non-blocking Bug:** Do NOT stop or fix immediately. Log it in the **Active Issues Backlog** below and continue the current plan.
-* **Blocking Bug:** If the bug halts the current plan, pause execution, document an `### 🚨 Emergency Hotfix Extensions` subsection in the active plan's Blast Radius, fix the blocker, log the resolution here, and resume.
-
-> ### 📏 Issue Authoring Invariant (2–3 Sentences Max)
-> Keep rows concise (2–3 sentences max per cell). Avoid lengthy essays. If a bug requires detailed architectural analysis or multi-step breakdown, summarize the symptom here and promote it to a plan (`/digest ISSUE-00X`).
+| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #1 | `Medium` | `CORE` | YYYY-MM-DD | `src/core.py:42` | Example issue description stating exact symptom. | Fix in place — no plan needed. | 🟡 `Incubated` |
+| #2 | `High` | `CLI` | YYYY-MM-DD | `src/cli.py:110` | Example issue whose fix spans multiple modules. | Promoted: [`current/cli-refactor.md`](current/cli-refactor.md) | 🔵 `Planned` |
 
 ---
 
-## 🔍 2. Active Issues Backlog
+### 📋 Schema & Metadata Specification
 
-| Issue ID | Severity | Component | Summary & Impact | Proposed Fix / Target Plan | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **ISSUE-001** | `Medium` | `core` | Example issue description. | Fix in place — no plan needed. | 🟡 `Incubated` |
-| **ISSUE-002** | `High` | `parser` | Example issue whose fix spans several modules. | [`current/parser-refactor.md`](current/parser-refactor.md) | 🔵 `Planned` |
-
-**Status values:** 🟡 `Incubated` (recorded, unscheduled) · 🔵 `Planned` (promoted to a blueprint — see below) · 🟠 `In Progress` · ✅ `Resolved`
-
-> **An issue may be promoted to a plan.** When a fix is too large to simply make — several modules, real design decisions, or a refactor — scaffold a blueprint with `digest ISSUE-00X` and link it in the **Proposed Fix / Target Plan** column above. The issue **stays here** and stays open: this file records *what is wrong*, the plan records *how it will be fixed*. Close it only when the fix ships. Small fixes need no plan.
-
----
-
-## 📦 3. Resolved Issues & Fix History
-
-| Issue ID | Component | Summary & Resolution | Resolved In | Date |
-| :--- | :--- | :--- | :--- | :--- |
-| **FIX-001** | `core` | Initial setup validation. | `commit-hash` | YYYY-MM-DD |
+* **`#`**: Numeric identifier prefixed with `#` (e.g. `#1`, `#49`). Use unpadded positive integers.
+* **`Sev` (Severity)**: Technical impact:
+  - `Critical`: Breaks core runtime, causes data corruption, or bypasses security/write-guards.
+  - `High`: Major functionality failure or unexpected crash.
+  - `Medium`: Isolated feature failure, CLI ergonomics, portability issue.
+  - `Low`: Formatting, cosmetic, or documentation drift.
+* **`Type` (Extensible Domain Taxonomy)**: Uppercase token conforming to `^[A-Z0-9_-]+$`.
+  - **Recommended Core Vocabulary**:
+    - `CORE`: Core execution engine, runtime algorithms, language internals.
+    - `CLI`: Command-line interface, argument parsing, terminal output, prompts.
+    - `UI`: User interface, web views, components, layout, styling, UX.
+    - `DB`: Database, ORM, schemas, migrations, persistent storage.
+    - `NET`: Networking, API endpoints, HTTP/gRPC, socket protocols, remote sync.
+    - `SEC`: Security, authentication, authorization, write guards, sandboxing.
+    - `HOOK`: Git hooks, tool use interceptors, lifecycle plugins.
+    - `DOCS`: Documentation, README, user manuals, starter templates.
+    - `TEST`: Test suites, regression harnesses, CI/CD pipelines, assertions.
+    - `PERF`: Performance, memory leaks, latency, caching, stream buffering.
+  - **Extensibility Rule**: Projects may declare custom domain tags (e.g., `ML`, `AUDIO`, `3D`). Linters warn on unknown tokens, never block.
+* **`Date`**: Date discovered (`YYYY-MM-DD`).
+* **`Location`**: File path and line reference (`path/to/file.ext:123`).
+* **`Symptom / Problem`**: Exact defect description (2–3 concise sentences maximum).
+* **`Target Plan / Fix`**: Direction of fix, or link to promoted blueprint (`current/plan-<name>.md`).
+* **`Status`**: `🟡 Incubated` (recorded, unscheduled) · `🔵 Planned` (promoted to a blueprint) · `🟠 In Progress` (active execution).
+  *(Note: `✅ Resolved` does NOT exist in this table; resolved items are relocated to `.plans/done/000-issues-archive.md`).*

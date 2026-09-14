@@ -96,8 +96,9 @@ By decoupling these concerns into independent Git worktrees:
 | `.agents/claude/` | `agents` worktree | Canonical Claude Code configuration (`settings.json`). |
 | `.agents/skills/` | `agents` worktree | Canonical Universal AAPP Skills (`aapp-*/SKILL.md`). |
 | `.claude/` | Gitignored Bridge | Granular symlinks to canonical settings and skills in `.agents/`. |
-| `.plans/ISSUES.md` | `plans` worktree *(or root)* | Canonical defect audit trail, bug triage ledger, and resolution notes. |
-| `.plans/` | `plans` worktree | Active blueprints (`current/`), historical archives and master ledger (`done/000-archive-ledger.md`), scratchpad (`pickup.md`), priority roadmap (`issues_road_map.md`), and state matrix (`state_matrix.md`). |
+| `.plans/ISSUES.md` | `plans` worktree *(or root)* | Active flat technical backlog & defect ledger (Relocation Invariant). |
+| `.plans/done/000-issues-archive.md` | `plans` worktree | Master historical archive ledger of verified and resolved issues. |
+| `.plans/` | `plans` worktree | Active blueprints (`current/`), historical archives (`done/000-archive-ledger.md` & `done/000-issues-archive.md`), scratchpad (`pickup.md`), priority board with ⭐ User Priority (`issues_road_map.md`), and state matrix (`state_matrix.md`). |
 | `.githooks/` | `githooks` worktree | Dual-layer blast radius enforcement scripts (`aapp-pre-commit`, `pre-commit`, `blast-radius-guard`). |
 
 ---
@@ -373,6 +374,78 @@ AAPP enforces a strict conceptual separation between **fixing what exists** and 
 
 ---
 
+### 🏛️ Flat Issue Ledger Schema (`ISSUES.md`)
+
+`ISSUES.md` is strictly an active technical backlog. It consists of a preamble and a single flat database table with **zero subheadings**:
+
+```markdown
+| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #49 | `Critical` | `CORE` | 2026-09-10 | `lib/cmd_upgrade.sh:19` | Upgrade clones default branch but main trails develop. | Publish develop to main. | 🟡 `Incubated` |
+```
+
+#### Field Specifications:
+- **`#`**: Numeric identifier prefixed with `#` (e.g. `#1`, `#49`). Uses unpadded positive integers.
+- **`Sev` (Severity)**: Technical impact classification:
+  - `Critical`: Core runtime breakage, data corruption, or write-guard bypass.
+  - `High`: Major functionality failure or unexpected crash.
+  - `Medium`: Isolated feature failure, CLI ergonomics, portability issue.
+  - `Low`: Formatting, cosmetic, or documentation drift.
+- **`Type` (Extensible Domain Taxonomy)**: Uppercase token conforming to `^[A-Z0-9_-]+$`.
+  - **Recommended Core Vocabulary**:
+    - `CORE`: Core execution engine, runtime algorithms, language internals.
+    - `CLI`: Command-line interface, argument parsing, terminal output, prompts.
+    - `UI`: User interface, web views, components, layout, styling, UX.
+    - `DB`: Database, ORM, schemas, migrations, persistent storage.
+    - `NET`: Networking, API endpoints, HTTP/gRPC, socket protocols, remote sync.
+    - `SEC`: Security, authentication, authorization, write guards, sandboxing.
+    - `HOOK`: Git hooks, tool use interceptors, lifecycle plugins.
+    - `DOCS`: Documentation, README, user manuals, starter templates.
+    - `TEST`: Test suites, regression harnesses, CI/CD pipelines, assertions.
+    - `PERF`: Performance, memory leaks, latency, caching, stream buffering.
+  - **Extensibility Rule**: Projects may declare custom domain tags (e.g., `ML`, `AUDIO`, `3D`). Linters warn on unknown tokens, never block.
+- **`Date`**: Date discovered (`YYYY-MM-DD`).
+- **`Location`**: File path and line reference (`path/to/file.ext:123`).
+- **`Symptom / Problem`**: Exact defect description (2–3 concise sentences maximum).
+- **`Target Plan / Fix`**: Direction of fix, or link to promoted blueprint (`current/plan-<name>.md`).
+- **`Status`**: `🟡 Incubated` (recorded, unscheduled) · `🔵 Planned` (promoted to a blueprint) · `🟠 In Progress` (active execution).
+  *(Note: `✅ Resolved` does NOT exist in this table; resolved items are relocated to `.plans/done/000-issues-archive.md`).*
+
+---
+
+### 🏛️ The Relocation Invariant & Archival Protocol
+
+Active tables hold **ONLY** active items. Resolution is a **physical row relocation** out of `ISSUES.md` and into `.plans/done/000-issues-archive.md`.
+
+#### Archive Schema (`000-issues-archive.md`):
+```markdown
+# 🏛️ Master Issue Archive Ledger
+
+| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #1 | `Critical` | `SEC` | 2026-09-09 | 2026-09-09 | `b9e0daf` (`v1.0.1`) | Added hookSpecificOutput.permissionDecision output. |
+```
+
+#### Archival Workflows:
+1. **With a Blueprint**: When an issue was promoted to a blueprint, completing the plan via `/aapp-done <plan>` automatically relocates the issue row to `.plans/done/000-issues-archive.md`, records the landing commit hash, and archives the plan.
+2. **Direct (Non-Promoted) Fixes**: For small, in-place fixes without a blueprint, the developer or agent manually cuts the row from `ISSUES.md`, appends it to `000-issues-archive.md`, and commits both files.
+3. **Commit-Time Enforcement**: `.githooks/aapp-pre-commit` detects any resolved rows (`grep -E '^[[:space:]]*\|[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)'`) left in `ISSUES.md` and blocks the commit.
+
+---
+
+### 🗺️ Priority Board (`issues_road_map.md`) & User Priority
+
+`issues_road_map.md` puts active issues into the order you intend to fix them based on human judgement. It includes:
+- **`## ⭐ User Priority (Pinned / Immediate Human Focus)`**: Developer overrides for immediate appetite.
+- **`## 🔴 High Priority (Technical Urgency)`**: Architecturally critical items.
+- **`## 🟡 Medium Priority (Upcoming Iteration)`**: Feature gaps and CLI ergonomics.
+- **`## 🟢 Low Priority (Edge Cases & Tooling)`**: Cosmetic and minor tooling items.
+- **`## 📥 Triage (Incoming / Unsequenced)`**: Freshly triaged issues awaiting sequencing.
+
+**POSIX ID-Anchored Auto-Pruning**: The pre-commit hook auto-prunes any resolved list item using the POSIX ID-anchored regex `^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)`, preserving prose headers and explanatory text.
+
+---
+
 ### 📏 Issue Conciseness Invariant (2–3 Lines Maximum)
 
 To prevent context bloat and keep triage boards scan-friendly:
@@ -392,7 +465,7 @@ When a bug requires architectural decisions, spans multiple modules, or requires
    - Add the blueprint link to the issue's row in `ISSUES.md`.
 4. **Update Status**: Mark the issue as 🔵 `Planned` in `issues_road_map.md`.
 5. **Register Plan**: Add the plan to `.plans/state_matrix.md` in the Incubator.
-6. **Close & Prune upon Archive**: Close the issue in `ISSUES.md` only when the plan is implemented, verified, and archived via `/done`. Prune the issue from `issues_road_map.md` (the pre-commit hook automatically purges any resolved items).
+6. **Relocate upon Archive**: Relocate the issue row from `ISSUES.md` to `.plans/done/000-issues-archive.md` only when the plan is implemented, verified, and archived via `/done`. Prune the issue from `issues_road_map.md` (the pre-commit hook automatically purges any resolved items).
 
 ---
 

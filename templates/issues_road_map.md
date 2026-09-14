@@ -2,7 +2,7 @@
 
 > **Role:** This file does one thing — it puts the issues recorded in root `ISSUES.md` into the order you intend to fix them. It is an **active view**, not a historical record. `ISSUES.md` holds the detail; this holds the sequence.
 >
-> **Active-Only Queue Invariant:** This board only tracks active, unresolved issues. When an issue is resolved, it is pruned from this board (the pre-commit hook automatically purges any marked ✅ or Resolved). Historical records belong exclusively in `ISSUES.md`.
+> **Active-Only Queue Invariant:** This board only tracks active, unresolved issues. When an issue is resolved, it is pruned from this board (the pre-commit hook automatically purges any marked ✅ or Resolved). Historical records belong exclusively in `.plans/done/000-issues-archive.md`.
 >
 > **Not for future implementations.** Raw feature requests and new capabilities never appear here — they belong in `.plans/state_matrix.md`.
 >
@@ -12,12 +12,19 @@
 
 ---
 
-## 🔴 High Priority (Immediate Focus)
-1. `ISSUE-001` -> One-line restatement of the issue.
-2. `ISSUE-002` -> Larger fix. 🔵 `Planned` -> [`current/parser-refactor.md`](current/parser-refactor.md)
+## ⭐ User Priority (Pinned / Immediate Human Focus)
+*Direct developer overrides based on current focus and appetite.*
+- [ ] #1 -> Add `MultiEdit` to hook matcher to prevent bypass.
+
+## 🔴 High Priority (Technical Urgency)
+1. #2 -> Example critical engine or execution bug.
 
 ## 🟡 Medium Priority (Upcoming Iteration)
-- [ ] `ISSUE-00X` -> One-line restatement of the issue.
+- [ ] #3 -> Example feature failure or CLI ergonomics.
 
 ## 🟢 Low Priority (Accepted Edge Cases / Deferred)
-- [ ] `ISSUE-00X` -> Known gap, tolerated for now. Revisit when it bites.
+- [ ] #4 -> Known gap, tolerated for now. Revisit when it bites.
+
+## 📥 Triage (Incoming / Unsequenced)
+*Newly logged issues awaiting prioritization.*
+- [ ] #5 -> Freshly triaged issue pending placement.

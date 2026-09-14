@@ -88,6 +88,11 @@ The workspace tracks two separate phases. Routing an item into the wrong lane co
 - **Table entries in `ISSUES.md` must never be long transcripts or essays.** State the location, the exact symptom, and the 1-line fix direction in **2–3 concise sentences maximum**.
 - **The Complexity Rule:** If describing the bug, reproduction steps, or root cause requires multi-paragraph explanations, diagrams, or architectural analysis, **do not bloat `ISSUES.md`**. Log a 2-sentence summary in `ISSUES.md` and immediately promote it to a draft blueprint (`/digest ISSUE-00X`), where full technical blueprints belong.
 
+### 🏛️ Flat Issue Ledger & Relocation Invariant
+- **Single Flat Table:** `ISSUES.md` consists of exactly one markdown table with zero subheadings: `| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |`.
+- **The Relocation Invariant:** Active `ISSUES.md` holds ONLY active items (`🟡 Incubated`, `🔵 Planned`, `🟠 In Progress`). Resolved issues are physically relocated to `.plans/done/000-issues-archive.md`. The status badge `✅ Resolved` does NOT exist in active `ISSUES.md`. Pre-commit hooks detect and block any commit leaving resolved rows in `ISSUES.md`.
+- **Universal Domain Taxonomy:** The `Type` column uses an uppercase token conforming to `^[A-Z0-9_-]+$` (recommended core: `CORE`, `CLI`, `UI`, `DB`, `NET`, `SEC`, `HOOK`, `DOCS`, `TEST`, `PERF`).
+
 ---
 ### ⬆️ Promotion: an Issue becoming a Plan is a normal path
 The lanes are separate, **not sealed**. A fix too large to simply *do* deserves a proper blueprint. This is not an exception or an escalation — it is ordinary engineering, and for a wide code touch it is the **expected** path, because a locked Blast Radius is exactly what you want around a big refactor.
@@ -104,7 +109,7 @@ The lanes are separate, **not sealed**. A fix too large to simply *do* deserves 
 3. Link the two records with the fields the templates already carry: put the issue ID in the plan's `**Target Issue / Milestone:**` field, and a link to the blueprint in the issue's `Proposed Fix / Target Plan` cell.
 4. Set the issue's status to 🔵 `Planned` and **leave it on `issues_road_map.md`** — it is still an open issue until the fix ships.
 5. Register the plan in `state_matrix.md` like any other, with the issue ID visible in its entry.
-6. Close the issue only when the fix is verified and the plan is archived via `done`. Prune it from `issues_road_map.md` (keeping the roadmap active-only; the pre-commit hook also auto-prunes resolved lines).
+6. Close the issue only when the fix is verified and the plan is archived via `done`. Relocate the issue row from `ISSUES.md` to `.plans/done/000-issues-archive.md` (per the Relocation Invariant) and prune it from `issues_road_map.md` (the pre-commit hook also auto-prunes resolved lines).
 
 **Visibility, not permission.** Promote when it fits, then **say plainly what you did and why** — "ISSUE-004 touches four modules and the parser contract, so I promoted it to a draft blueprint." The human can refine, abort, or ignore it; a draft costs nothing. What you must never do is promote *silently*.
 
@@ -175,7 +180,7 @@ The agent must support and execute these shorthand workflow triggers immediately
 - **`done <plan>` (or `/aapp-done <plan>`, `/aapp:done <plan>`, `/aapp done <plan>`, `/done <plan>`)**: Complete lifecycle and archive implemented blueprint.
   1. Move the plan file: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
   2. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` with plan file link, target issue, verification commit, and repo-relative impact summary.
-  3. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items). If the plan resolved a target issue, mark it resolved in `ISSUES.md` and prune it from `issues_road_map.md` (the pre-commit hook also auto-prunes resolved lines).
+  3. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items). If the plan resolved a target issue, relocate it from `ISSUES.md` to `.plans/done/000-issues-archive.md` (enforcing the Relocation Invariant) and prune it from `issues_road_map.md` (the pre-commit hook also auto-prunes resolved lines).
   4. Commit the transition to the `plans` worktree.
 
 - **`release <version>` (or `/aapp-release <version>`, `/aapp:release <version>`, `/aapp release <version>`, `/release <version>`, `/preflight`)**: Execute release pre-flight verification runbook.

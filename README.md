@@ -55,11 +55,11 @@ your-project/ (main/dev branch - contains application source code & public docs)
 ├── .plans/              --> Worktree mounted on orphan branch 'plans'
 │   ├── current/         --> Active RFC blueprints & plans (e.g. plan-auth.md)
 │   ├── release/         --> Production checklists & release runbooks
-│   ├── done/            --> Historical blueprint archives & master ledger (000-archive-ledger.md)
+│   ├── done/            --> Historical archives (000-archive-ledger.md & 000-issues-archive.md)
 │   ├── aborted/         --> Discarded plans
 │   ├── pickup.md        --> Fast agent scratchpad for active context
-│   ├── ISSUES.md        --> Canonical defect audit trail & triage ledger
-│   ├── issues_road_map.md --> Defect priority roadmap & active triage queue (auto-pruned by hook)
+│   ├── ISSUES.md        --> Active flat technical backlog & defect ledger (Relocation Invariant)
+│   ├── issues_road_map.md --> Defect priority board with ⭐ User Priority (auto-pruned by hook)
 │   └── state_matrix.md  --> State matrix & active incubator brain
 ├── .agents/             --> Worktree mounted on orphan branch 'agents'
 │   ├── AGENTS.md        --> Agent behavioral contracts & slash commands
@@ -322,17 +322,17 @@ Every plan in `.plans/current/<name>.md` defines strict boundaries:
 
 ## 9. Testing & Verification Suites
 
-AAPP includes 101 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, skill synchronization, and installer resolution:
+AAPP includes 109 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, skill synchronization, flat issue ledger, planning-health validation, and installer resolution:
 
 ```bash
-# Run complete test verification suite (101 tests)
+# Run complete test verification suite (109 tests)
 ./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh
 ```
 
 | Suite | File | Tests | Coverage |
 | :--- | :--- | :--- | :--- |
-| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 42 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` decoupling & merge, Universal Skills sync, drift control, Husky wiring. |
-| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 25 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection (single-branch, dual-branch, bypass, opt-out, custom dev branches). |
+| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 45 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` decoupling & merge, Universal Skills sync, drift control, archive provisioning, non-destructive custom `ISSUES.md` advisory, flat schema. |
+| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 30 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection, POSIX ID-anchored roadmap auto-pruning, detect-and-block Relocation Invariant, planning-health integrity validation. |
 | **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 34 cases | PreToolUse Claude Code JSON payload, self-protection invariants (`.agents/claude/*`, `.claude/settings.json`, `.agents/skills/aapp-*`, `.claude/skills/aapp-*`), fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
 
 ---

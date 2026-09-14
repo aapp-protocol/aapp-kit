@@ -763,6 +763,55 @@ else
 fi
 report "drift control: all 5 skills declare valid frontmatter, flags, and inline/fork contracts" "PASS" "$got"
 
+# Test 43: aapp init provisions .plans/done/000-issues-archive.md from template
+PROJ_43="$R/t43_proj"; make_dummy_project "$PROJ_43"
+make_kit_clone "$PROJ_43/aapp-kit"
+(cd "$PROJ_43" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+if [ -f "$PROJ_43/.plans/done/000-issues-archive.md" ] && \
+   grep -q "Master Issue Archive Ledger" "$PROJ_43/.plans/done/000-issues-archive.md" && \
+   grep -q "| Date Opened | Date Resolved |" "$PROJ_43/.plans/done/000-issues-archive.md"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "archive ledger: aapp init provisions .plans/done/000-issues-archive.md" "PASS" "$got"
+
+# Test 44: non-destructive init preserves custom ISSUES.md and prints advisory
+PROJ_44="$R/t44_proj"; make_dummy_project "$PROJ_44"
+cat > "$PROJ_44/ISSUES.md" <<'EOF'
+# Custom Jira Export
+- ISSUE-1234: Custom issue description in prose format
+EOF
+(
+  cd "$PROJ_44"
+  git add ISSUES.md
+  git commit -qm "add custom issues"
+)
+make_kit_clone "$PROJ_44/aapp-kit"
+init_out=$(cd "$PROJ_44" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1)
+if [ -f "$PROJ_44/.plans/ISSUES.md" ] && \
+   grep -q "Custom Jira Export" "$PROJ_44/.plans/ISSUES.md" && \
+   echo "$init_out" | grep -q "Found existing custom .plans/ISSUES.md"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "non-destructive init: preserves custom ISSUES.md with advisory notice" "PASS" "$got"
+
+# Test 45: templates/issues.md conforms to flat single-table schema (zero subheadings)
+template_issues="$KIT/templates/issues.md"
+subheading_count=$(grep -E '^## ' "$template_issues" 2>/dev/null | wc -l | tr -d ' ')
+has_flat_columns=0
+if grep -q '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' "$template_issues"; then
+  has_flat_columns=1
+fi
+if [ "$subheading_count" -eq 0 ] && [ "$has_flat_columns" -eq 1 ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "flat schema: templates/issues.md has zero subheadings and 8-column format" "PASS" "$got"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"

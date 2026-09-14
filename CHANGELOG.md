@@ -10,6 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Flat Issue Ledger (`templates/issues.md`, `.plans/ISSUES.md`): Single flat database table (zero subheadings) with standardized columns (`#`, `Sev`, `Type`, `Date`, `Location`, `Symptom / Problem`, `Target Plan / Fix`, `Status`) and unpadded numeric identifiers (`#1`, `#49`, `#64`).
+- Universal Extensible Domain Taxonomy (`Type` column) with 10 recommended core tokens (`CORE`, `CLI`, `UI`, `DB`, `NET`, `SEC`, `HOOK`, `DOCS`, `TEST`, `PERF`) and open regex `^[A-Z0-9_-]+$` with non-blocking advisory warnings.
+- The Relocation Invariant & Master Issue Archive Ledger (`templates/done-issues-archive.md`, `.plans/done/000-issues-archive.md`): Physical relocation of resolved issues out of active backlog to an append-only archive ledger, preserving active table purity (`✅ Resolved` does not exist in active `ISSUES.md`).
+- Priority Board `⭐ User Priority` Band (`templates/issues_road_map.md`, `.plans/issues_road_map.md`): Human appetite overrides taking precedence over architectural severity.
+- Three-Pair Planning-Health Integrity Engine (`lib/planning_health.sh`): Validates numeric disjointness between active issues and archive ledger, referential integrity between priority board and active issues, and clean pickup note routing.
+- Detect-and-Block Pre-Commit Guard (`templates/aapp-pre-commit`): Detects and blocks commits if any resolved rows remain in active `ISSUES.md`, and auto-prunes resolved issues from `issues_road_map.md` with bulletproof POSIX ID-anchored regex `^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)`.
+- Non-destructive custom `ISSUES.md` initialization in `lib/cmd_init.sh` emitting advisory guidance pointing to `MANUAL.md` without modifying existing non-flat files.
+- Automated regression test cases for flat schema, non-destructive init, bulletproof POSIX auto-pruning, detect-and-block validation, and planning health, expanding the test suite to 109 automated test cases.
+- Missing `#64` issue row added to `.plans/ISSUES.md`, with count-preservation assertion verifying `49 (archived) + 15 (active) = 64 (unique project issues #1..#64)`.
+
+### Changed
+- Updated `lib/cmd_status.sh` to be strictly read-only and idempotent, removing brittle legacy parser heuristics (`sed '/Resolved Issues/,$d'` and unanchored grep) while reporting priority board drift and unsequenced active issues non-destructively.
+- Updated `templates/skills/aapp-done/SKILL.md` to enforce the Relocation Invariant by moving resolved issues to `000-issues-archive.md` upon plan verification.
 - Automated Issue Roadmap Hygiene in `templates/aapp-pre-commit` (Section 3b) auto-pruning resolved issues (`✅` or `Resolved`) from `issues_road_map.md` in under 5ms, enforcing an active-only priority board.
 - Universal AAPP Skills (`templates/skills/aapp-*/SKILL.md`) natively stored in `.agents/skills/` and bridged to `.claude/skills/` via granular relative symlinks, exposing slash commands (`/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-done`, `/aapp-release`) across Google Antigravity, Claude Code, Cursor, and OpenAI Codex (ISSUE-061).
 - Decoupled Claude Code configuration (`.agents/claude/settings.json`) versioned on the orphan `agents` worktree and bridged to `.claude/settings.json`, with non-destructive adopter migration, divergence key-merging, and `.claude/` gitignore hygiene.

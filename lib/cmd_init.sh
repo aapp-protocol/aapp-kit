@@ -152,7 +152,14 @@ copy_guarded "$AAPP_TEMPLATES/issues_road_map.md" ".plans/issues_road_map.md" ""
 copy_guarded "$AAPP_TEMPLATES/plan-template.md" ".plans/plan-template.md" ""
 copy_guarded "$AAPP_TEMPLATES/release_checklist.md" ".plans/release/release_checklist.md" ""
 copy_guarded "$AAPP_TEMPLATES/issues.md" ".plans/ISSUES.md" ""
+copy_guarded "$AAPP_TEMPLATES/done-issues-archive.md" ".plans/done/000-issues-archive.md" ""
 copy_guarded "$AAPP_TEMPLATES/000-archive-ledger.md" ".plans/done/000-archive-ledger.md" ""
+
+# Non-destructive advisory for existing custom ISSUES.md
+if [ -f ".plans/ISSUES.md" ] && ! grep -qE '\|[[:space:]]*(#|Issue ID)[[:space:]]*\|' ".plans/ISSUES.md" 2>/dev/null; then
+    echo "ℹ️  Found existing custom .plans/ISSUES.md. Leaving untouched."
+    echo "   To adapt to the AAPP Flat Issue Ledger schema, see MANUAL.md and templates/issues.md."
+fi
 
 (
     cd .plans

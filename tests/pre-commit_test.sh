@@ -367,6 +367,99 @@ else
   printf "  \033[31m✘\033[0m %-52s want PASS (pruned) got rc=%d\n" "pre-commit auto-prunes resolved issue from roadmap" "$rc_prune"; FAIL=$((FAIL+1))
 fi
 
+echo "== 11b. POSIX ID-anchored roadmap auto-pruning preserves prose =="
+setup
+mkdir -p .plans
+cat > .plans/issues_road_map.md <<'EOF'
+# 🗺️ Issue Priority Board
+> **Role:** Resolved issues are auto-pruned.
+## 🔴 High Priority
+1. #1 -> Still open
+2. #2 -> All done ✅ Resolved
+- [ ] #3 -> Done Resolved
+EOF
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+echo "x=21" > src/a.py
+echo "- bump" >> CHANGELOG.md
+git add src/a.py CHANGELOG.md
+rc_posix_prune=0
+out_posix_prune=$(git commit -m "commit with prose containing resolved" 2>&1) || rc_posix_prune=$?
+if [ $rc_posix_prune -eq 0 ] && \
+   grep -q "Resolved issues are auto-pruned" .plans/issues_road_map.md && \
+   grep -q "#1" .plans/issues_road_map.md && \
+   ! grep -q "#2" .plans/issues_road_map.md && \
+   ! grep -q "#3" .plans/issues_road_map.md; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "POSIX auto-prune preserves prose with 'resolved'" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS got rc=%d\n" "POSIX auto-prune preserves prose with 'resolved'" "$rc_posix_prune"; FAIL=$((FAIL+1))
+fi
+
+echo "== 12. Relocation Invariant detect-and-block for active ISSUES.md =="
+setup
+mkdir -p .plans
+cat > .plans/ISSUES.md <<'EOF'
+# 🐛 Issues: Active Technical Backlog
+| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #1 | `Critical` | `SEC` | 2026-09-09 | `src/a.py:1` | Issue symptom. | Fix. | ✅ `Resolved` |
+EOF
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+echo "x=22" > src/a.py
+echo "- bump" >> CHANGELOG.md
+git add src/a.py CHANGELOG.md
+rc_reloc=0
+out_reloc=$(git commit -m "commit with resolved issue in ISSUES.md" 2>&1) || rc_reloc=$?
+if [ $rc_reloc -ne 0 ] && echo "$out_reloc" | grep -q "Found resolved issue in active"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "pre-commit blocks resolved row in active ISSUES.md" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got rc=%d\n" "pre-commit blocks resolved row in active ISSUES.md" "$rc_reloc"; FAIL=$((FAIL+1))
+fi
+
+echo "== 13. Planning Health Integrity Engine validations =="
+setup
+mkdir -p .plans .plans/done
+cat > .plans/ISSUES.md <<'EOF'
+# 🐛 Issues: Active Technical Backlog
+| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #1 | `Critical` | `CORE` | 2026-09-10 | `src/a.py:1` | Issue symptom. | Fix. | 🟡 `Incubated` |
+EOF
+cat > .plans/done/000-issues-archive.md <<'EOF'
+# 🏛️ Master Issue Archive Ledger
+| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #2 | `High` | `CLI` | 2026-09-09 | 2026-09-09 | `commit` | Resolved description. |
+EOF
+cat > .plans/issues_road_map.md <<'EOF'
+# 🗺️ Issue Priority Board
+1. #1 -> Active issue
+EOF
+
+source "$KIT/lib/planning_health.sh"
+if check_planning_health "$PWD" >/dev/null 2>&1; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "planning_health passes on valid state" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "planning_health passes on valid state"; FAIL=$((FAIL+1))
+fi
+
+# Detect collision (ID #1 in both)
+echo '| #1 | `High` | `CLI` | 2026-09-09 | 2026-09-09 | `commit` | Collision summary. |' >> .plans/done/000-issues-archive.md
+if ! check_planning_health "$PWD" >/dev/null 2>&1; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "planning_health blocks ID collision in active/archive" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "planning_health blocks ID collision in active/archive"; FAIL=$((FAIL+1))
+fi
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]
