@@ -138,8 +138,8 @@ Unanchored `grep -v -E '✅|Resolved'` is strictly prohibited as it destroys exp
    - **Step 1 (Auto-Prune Resolved Ghost Items)**: Strips any issue rows marked `✅` or `Resolved` using the anchored regex.
    - **Step 2 (Auto-Seed Unsequenced Issues)**: Scans active `#<num>` entries in `ISSUES.md`. Any issue not yet present on `issues_road_map.md` is automatically appended under `## 📥 Triage (Incoming / Unsequenced)` so newly logged defects are immediately visible.
    - **Step 3 (Immediate Ground-Truth Reporting)**: Pillar 2 extracts the top items directly from the freshly synchronized roadmap. If new items were appended to Triage, a 1-line notice alerts the user to prioritize them.
-2. **Three-Pair Planning Integrity Engine (`lib/planning_doctor.sh` / `templates/aapp-pre-commit`)**:
-   Enforce comprehensive consistency during `.plans/` commits and `aapp doctor`:
+2. **Three-Pair Planning-Health Engine (`lib/planning_health.sh` / `templates/aapp-pre-commit`)**:
+   Enforce comprehensive consistency during `.plans/` commits and `aapp health`:
    - **Pair 1 (`ISSUES ↔ archive`)**: IDs in `ISSUES.md` and `.plans/done/000-issues-archive.md` must be mutually disjoint. No row in `ISSUES.md` may carry `✅` or `Resolved`.
    - **Pair 2 (`roadmap ↔ ISSUES`)**: Referential integrity. Every `#<num>` listed on `issues_road_map.md` must have a corresponding detail row in `ISSUES.md` (prevents phantom roadmap entries like `#64`).
    - **Pair 3 (`pickup ↔ ISSUES`)**: Clean routing. When an issue is logged from `pickup.md`, its pickup draft must be removed.
@@ -158,10 +158,10 @@ Unanchored `grep -v -E '✅|Resolved'` is strictly prohibited as it destroys exp
 - [ ] Task 1.3: Author starter template `templates/done-issues-archive.md` for `.plans/done/000-issues-archive.md`.
 - [ ] Task 1.4: Update `templates/issues_road_map.md` to include `## ⭐ User Priority (Pinned / Immediate Human Focus)` and `## 📥 Triage (Incoming / Unsequenced)`.
 
-### Phase 2: Engine, Doctor & Skill Synchronization
+### Phase 2: Engine, Health & Skill Synchronization
 - [ ] Task 2.1: Update `lib/cmd_status.sh` to delete legacy parser workarounds (`sed` cutoff and unanchored grep) and dynamically reconcile `issues_road_map.md` before reporting Pillar 2.
-- [ ] Task 2.2: Author shared integrity check module `lib/planning_doctor.sh` verifying the three pairs (`ISSUES ↔ archive`, `roadmap ↔ ISSUES`, and format/status validity).
-- [ ] Task 2.3: Update `templates/aapp-pre-commit` to use anchored auto-prune regex `^\s*([0-9]+\.|-\s*\[[ xX]?\]|\*).*(\✅|Resolved)` and invoke planning integrity validation on `.plans/` commits.
+- [ ] Task 2.2: Author shared integrity check module `lib/planning_health.sh` verifying the three pairs (`ISSUES ↔ archive`, `roadmap ↔ ISSUES`, and format/status validity).
+- [ ] Task 2.3: Update `templates/aapp-pre-commit` to use anchored auto-prune regex `^\s*([0-9]+\.|-\s*\[[ xX]?\]|\*).*(\✅|Resolved)` and invoke planning-health integrity validation on `.plans/` commits.
 - [ ] Task 2.4: Update `templates/skills/aapp-done/SKILL.md` to relocate resolved issues to `000-issues-archive.md` and prune roadmap entries.
 - [ ] Task 2.5: Run `aapp init` to propagate updated templates into `.githooks/` and `.agents/skills/` without violating Section 2 write guards.
 
@@ -187,8 +187,8 @@ Unanchored `grep -v -E '✅|Resolved'` is strictly prohibited as it destroys exp
 - [ ] `templates/issues_road_map.md` -> Add ⭐ User Priority section and # ID format.
 - [ ] `NEW FILE` -> `templates/done-issues-archive.md` -> Template for historical issue archive ledger.
 - [ ] `lib/cmd_status.sh` -> Streamline status briefing issue parser, delete workarounds, add dynamic reconciliation.
-- [ ] `NEW FILE` -> `lib/planning_doctor.sh` -> Shared planning integrity validator for hooks and CLI.
-- [ ] `templates/aapp-pre-commit` -> Anchored auto-pruning regex and planning doctor integrity checks.
+- [ ] `NEW FILE` -> `lib/planning_health.sh` -> Shared planning-health integrity validator for hooks and CLI.
+- [ ] `templates/aapp-pre-commit` -> Anchored auto-pruning regex and planning-health integrity checks.
 - [ ] `templates/skills/aapp-done/SKILL.md` -> Update aapp-done procedure to relocate issues to archive ledger.
 - [ ] `templates/AGENTS.md` -> Document Relocation Invariant, taxonomy, and issue archival.
 - [ ] `.agents/AGENTS.md` -> Synchronize protocol rules.
@@ -230,7 +230,7 @@ Unanchored `grep -v -E '✅|Resolved'` is strictly prohibited as it destroys exp
 * **2026-09-14:** Refined blueprint following adversarial peer review (Claude red team audit):
   - **Engine Protection**: Moved `.githooks/aapp-pre-commit` and `.agents/skills/aapp-done/SKILL.md` to Out of Bounds (protected by write-guard Section 2); added Task 2.5 to propagate via `aapp init`.
   - **Roadmap Preamble Protection**: Fixed destructive auto-prune bug in `templates/aapp-pre-commit` by specifying anchored row regex `^\s*([0-9]+\.|-\s*\[[ xX]?\]|\*).*(\✅|Resolved)`.
-  - **Three-Pair Integrity Doctor**: Expanded consistency verification beyond `ISSUES ↔ archive` to cover `roadmap ↔ ISSUES` (referential integrity) and `pickup ↔ ISSUES`, architected into `lib/planning_doctor.sh`.
+  - **Three-Pair Planning-Health Engine**: Expanded consistency verification beyond `ISSUES ↔ archive` to cover `roadmap ↔ ISSUES` (referential integrity) and `pickup ↔ ISSUES`, architected into `lib/planning_health.sh`.
   - **Active Range & Missing #64**: Corrected active range to `#49`–`#60`, `#62`–`#63` (14 items) and added Task 3.2 to author the missing `#64` detail row in `ISSUES.md`.
   - **Count-Preservation Assertion**: Added explicit Task 3.4 asserting `49 archived + 15 active = 64 unique IDs` with an automated set diff.
   - **Resolved Open Questions**: Formalized resolutions for Q1 (open vocabulary), Q2 (`000-issues-archive.md`), and Q3 (`#49` syntax).
