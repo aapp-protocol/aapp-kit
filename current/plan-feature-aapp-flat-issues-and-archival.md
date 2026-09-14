@@ -178,55 +178,55 @@ grep -v -E '^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?[0
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Templates & Taxonomy Specification
-- [ ] Task 1.1: Rewrite `templates/issues.md` into the flat database table format with `Sev`, `Type`, `Date`, and clean unpadded `#<num>` IDs.
-- [ ] Task 1.2: Add extensible `Type` taxonomy documentation in `templates/issues.md` and `MANUAL.md`.
-- [ ] Task 1.3: Author starter template `templates/done-issues-archive.md` for `.plans/done/000-issues-archive.md`.
-- [ ] Task 1.4: Update `templates/issues_road_map.md` to include `## ⭐ User Priority (Pinned / Immediate Human Focus)` and `## 📥 Triage (Incoming / Unsequenced)`.
+- [x] Task 1.1: Rewrite `templates/issues.md` into the flat database table format with `Sev`, `Type`, `Date`, and clean unpadded `#<num>` IDs.
+- [x] Task 1.2: Add extensible `Type` taxonomy documentation in `templates/issues.md` and `MANUAL.md`.
+- [x] Task 1.3: Author starter template `templates/done-issues-archive.md` for `.plans/done/000-issues-archive.md`.
+- [x] Task 1.4: Update `templates/issues_road_map.md` to include `## ⭐ User Priority (Pinned / Immediate Human Focus)` and `## 📥 Triage (Incoming / Unsequenced)`.
 
 ### Phase 2: Engine, Health & Skill Synchronization
-- [ ] Task 2.1: Update `lib/cmd_status.sh` to be strictly read-only, remove legacy parser workarounds (`sed` cutoff and unanchored grep), and non-destructively surface roadmap drift and unsequenced issues.
-- [ ] Task 2.2: Author shared integrity check module `lib/planning_health.sh` verifying the three pairs (`ISSUES ↔ archive`, `roadmap ↔ ISSUES`, and format/status validity) with numerical ID normalization and dedicated table row matcher.
-- [ ] Task 2.3: Update `templates/aapp-pre-commit` to use bulletproof POSIX ID-anchored auto-prune regex for `issues_road_map.md` and detect-and-block validation for `ISSUES.md` resolved rows.
-- [ ] Task 2.4: Update `templates/skills/aapp-done/SKILL.md` to relocate resolved issues to `000-issues-archive.md` and prune roadmap entries upon plan completion.
-- [ ] Task 2.5: Update `lib/cmd_init.sh` to check for existing custom `ISSUES.md` files non-destructively and print formatting guidance to `MANUAL.md`.
-- [ ] Task 2.6: Run `aapp init` to propagate updated templates into `.githooks/` and `.agents/skills/` without violating Section 2 write guards.
+- [x] Task 2.1: Update `lib/cmd_status.sh` to be strictly read-only, remove legacy parser workarounds (`sed` cutoff and unanchored grep), and non-destructively surface roadmap drift and unsequenced issues.
+- [x] Task 2.2: Author shared integrity check module `lib/planning_health.sh` verifying the three pairs (`ISSUES ↔ archive`, `roadmap ↔ ISSUES`, and format/status validity) with numerical ID normalization and dedicated table row matcher.
+- [x] Task 2.3: Update `templates/aapp-pre-commit` to use bulletproof POSIX ID-anchored auto-prune regex for `issues_road_map.md` and detect-and-block validation for `ISSUES.md` resolved rows.
+- [x] Task 2.4: Update `templates/skills/aapp-done/SKILL.md` to relocate resolved issues to `000-issues-archive.md` and prune roadmap entries upon plan completion.
+- [x] Task 2.5: Update `lib/cmd_init.sh` to check for existing custom `ISSUES.md` files non-destructively and print formatting guidance to `MANUAL.md`.
+- [x] Task 2.6: Run `aapp init` to propagate updated templates into `.githooks/` and `.agents/skills/` without violating Section 2 write guards.
 
 ### Phase 3: Repository Migration & Data Integrity Verification
-- [ ] Task 3.1: Create `.plans/done/000-issues-archive.md` and migrate all 49 historical resolved issues from `.plans/ISSUES.md` using unpadded integer IDs.
-- [ ] Task 3.2: Log the missing row for `#64` (`Status enum is not enforced in write-guard/pre-commit`) into `.plans/ISSUES.md` and prune its unworked note from `.plans/pickup.md`.
-- [ ] Task 3.3: Reformat `.plans/ISSUES.md` into the single flat table containing all 15 active open issues (`#49`–`#60`, `#62`–`#64`).
-- [ ] Task 3.4: **Count-Preservation Assertion**: Run an automated ID set-difference script verifying `49 (archived) + 15 (active) = 64 (unique project issues #01..#64)`. Assert zero dropped IDs and zero duplicate collisions.
-- [ ] Task 3.5: Update `.plans/issues_road_map.md` with the new `#<num>` syntax and `⭐ User Priority` header.
+- [x] Task 3.1: Create `.plans/done/000-issues-archive.md` and migrate all 49 historical resolved issues from `.plans/ISSUES.md` using unpadded integer IDs.
+- [x] Task 3.2: Log the missing row for `#64` (`Status enum is not enforced in write-guard/pre-commit`) into `.plans/ISSUES.md` and prune its unworked note from `.plans/pickup.md`.
+- [x] Task 3.3: Reformat `.plans/ISSUES.md` into the single flat table containing all 15 active open issues (`#49`–`#60`, `#62`–`#64`).
+- [x] Task 3.4: **Count-Preservation Assertion**: Run an automated ID set-difference script verifying `49 (archived) + 15 (active) = 64 (unique project issues #01..#64)`. Assert zero dropped IDs and zero duplicate collisions.
+- [x] Task 3.5: Update `.plans/issues_road_map.md` with the new `#<num>` syntax and `⭐ User Priority` header.
 
 ### Phase 4: Documentation & Test Verification
-- [ ] Task 4.1: Update `MANUAL.md` and `README.md` documenting the Flat Issue Ledger, Domain Taxonomy, Direct-Fix Archival, and Relocation Invariant.
-- [ ] Task 4.2: Update `tests/install_test.sh` and `tests/pre-commit_test.sh` with assertions for flat template generation, bulletproof POSIX auto-pruning, detect-and-block validation, and referential integrity checks.
-- [ ] Task 4.3: Verify all test suites pass (all 102+ test cases across `install_test.sh`, `pre-commit_test.sh`, and `write-guard_test.sh`) and align test count in `ISSUE-063`.
-- [ ] Task 4.4: Record changelog entry in `CHANGELOG.md` under `[Unreleased]`.
+- [x] Task 4.1: Update `MANUAL.md` and `README.md` documenting the Flat Issue Ledger, Domain Taxonomy, Direct-Fix Archival, and Relocation Invariant.
+- [x] Task 4.2: Update `tests/install_test.sh` and `tests/pre-commit_test.sh` with assertions for flat template generation, bulletproof POSIX auto-pruning, detect-and-block validation, and referential integrity checks.
+- [x] Task 4.3: Verify all test suites pass (all 102+ test cases across `install_test.sh`, `pre-commit_test.sh`, and `write-guard_test.sh`) and align test count in `ISSUE-063`.
+- [x] Task 4.4: Record changelog entry in `CHANGELOG.md` under `[Unreleased]`.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `templates/issues.md` -> Flat single-table schema with Sev, Type, Date, # ID.
-- [ ] `templates/issues_road_map.md` -> Add ⭐ User Priority section and # ID format.
-- [ ] `NEW FILE` -> `templates/done-issues-archive.md` -> Template for historical issue archive ledger.
-- [ ] `lib/cmd_status.sh` -> Read-only status briefing, delete workarounds, non-destructive drift reporting.
-- [ ] `NEW FILE` -> `lib/planning_health.sh` -> Shared planning-health integrity validator for hooks and CLI.
-- [ ] `templates/aapp-pre-commit` -> Bulletproof POSIX auto-pruning and detect-and-block Relocation Invariant.
-- [ ] `templates/skills/aapp-done/SKILL.md` -> Update aapp-done procedure to relocate issues to archive ledger.
-- [ ] `lib/cmd_init.sh` -> Non-destructive advisory for existing custom ISSUES.md files.
-- [ ] `templates/AGENTS.md` -> Document Relocation Invariant, taxonomy, and issue archival.
-- [ ] `MANUAL.md` -> Comprehensive documentation of issue taxonomy and archival.
-- [ ] `README.md` -> Update structural trees and issue management overview.
-- [ ] `CHANGELOG.md` -> Document flat issue ledger evolution under [Unreleased].
-- [ ] `tests/install_test.sh` -> Regression coverage for new templates, non-destructive init, and propagation.
-- [ ] `tests/pre-commit_test.sh` -> Regression coverage for POSIX auto-pruning, detect-and-block validation, and integrity validation.
-- [ ] `.plans/ISSUES.md` -> Migrate active issues to flat table, update ISSUE-063 count, and add missing #64.
-- [ ] `.plans/issues_road_map.md` -> Reformat active board with # IDs and User Priority.
-- [ ] `.plans/pickup.md` -> Prune digested ISSUE-064 entry.
-- [ ] `NEW FILE` -> `.plans/done/000-issues-archive.md` -> Master archive ledger of resolved issues.
+- [x] `templates/issues.md` -> Flat single-table schema with Sev, Type, Date, # ID.
+- [x] `templates/issues_road_map.md` -> Add ⭐ User Priority section and # ID format.
+- [x] `NEW FILE` -> `templates/done-issues-archive.md` -> Template for historical issue archive ledger.
+- [x] `lib/cmd_status.sh` -> Read-only status briefing, delete workarounds, non-destructive drift reporting.
+- [x] `NEW FILE` -> `lib/planning_health.sh` -> Shared planning-health integrity validator for hooks and CLI.
+- [x] `templates/aapp-pre-commit` -> Bulletproof POSIX auto-pruning and detect-and-block Relocation Invariant.
+- [x] `templates/skills/aapp-done/SKILL.md` -> Update aapp-done procedure to relocate issues to archive ledger.
+- [x] `lib/cmd_init.sh` -> Non-destructive advisory for existing custom ISSUES.md files.
+- [x] `templates/AGENTS.md` -> Document Relocation Invariant, taxonomy, and issue archival.
+- [x] `MANUAL.md` -> Comprehensive documentation of issue taxonomy and archival.
+- [x] `README.md` -> Update structural trees and issue management overview.
+- [x] `CHANGELOG.md` -> Document flat issue ledger evolution under [Unreleased].
+- [x] `tests/install_test.sh` -> Regression coverage for new templates, non-destructive init, and propagation.
+- [x] `tests/pre-commit_test.sh` -> Regression coverage for POSIX auto-pruning, detect-and-block validation, and integrity validation.
+- [x] `.plans/ISSUES.md` -> Migrate active issues to flat table, update ISSUE-063 count, and add missing #64.
+- [x] `.plans/issues_road_map.md` -> Reformat active board with # IDs and User Priority.
+- [x] `.plans/pickup.md` -> Prune digested ISSUE-064 entry.
+- [x] `NEW FILE` -> `.plans/done/000-issues-archive.md` -> Master archive ledger of resolved issues.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/aapp-pre-commit` -> Protected by Section 2 self-protection. Propagated from `templates/aapp-pre-commit` via `aapp init`.
