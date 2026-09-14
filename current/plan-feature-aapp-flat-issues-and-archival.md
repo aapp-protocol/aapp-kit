@@ -1,6 +1,6 @@
 # 🗺️ Plan: Flat Issue Ledger, Universal Domain Taxonomy & Archival Protocol
 * **Created:** 2026-09-14 | **Last Refined:** 2026-09-14
-* **Target Issue / Milestone:** Milestone v1.1.0 (Flat Issue Ledger & Archival)
+* **Target Issue / Milestone:** Flat Issue Ledger & Archival Protocol
 * **Status:** 🟡 Refining
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
 
@@ -202,8 +202,7 @@ grep -v -E '^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?[0
 - [ ] Task 4.1: Update `MANUAL.md` and `README.md` documenting the Flat Issue Ledger, Domain Taxonomy, Direct-Fix Archival, and Relocation Invariant.
 - [ ] Task 4.2: Update `tests/install_test.sh` and `tests/pre-commit_test.sh` with assertions for flat template generation, bulletproof POSIX auto-pruning, detect-and-block validation, and referential integrity checks.
 - [ ] Task 4.3: Verify all test suites pass (all 102+ test cases across `install_test.sh`, `pre-commit_test.sh`, and `write-guard_test.sh`) and align test count in `ISSUE-063`.
-- [ ] Task 4.4: Bump `AAPP_VERSION="1.1.0"` in `aapp` CLI and sync `tests/install_test.sh`.
-- [ ] Task 4.5: Record changelog entry in `CHANGELOG.md`.
+- [ ] Task 4.4: Record changelog entry in `CHANGELOG.md` under `[Unreleased]`.
 
 ---
 
@@ -219,11 +218,10 @@ grep -v -E '^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?[0
 - [ ] `templates/skills/aapp-done/SKILL.md` -> Update aapp-done procedure to relocate issues to archive ledger.
 - [ ] `lib/cmd_init.sh` -> Non-destructive advisory for existing custom ISSUES.md files.
 - [ ] `templates/AGENTS.md` -> Document Relocation Invariant, taxonomy, and issue archival.
-- [ ] `aapp` -> Bump version constant to 1.1.0.
 - [ ] `MANUAL.md` -> Comprehensive documentation of issue taxonomy and archival.
 - [ ] `README.md` -> Update structural trees and issue management overview.
-- [ ] `CHANGELOG.md` -> Document v1.1.0 issue ledger evolution.
-- [ ] `tests/install_test.sh` -> Regression coverage for new templates, non-destructive init, version bump, and propagation.
+- [ ] `CHANGELOG.md` -> Document flat issue ledger evolution under [Unreleased].
+- [ ] `tests/install_test.sh` -> Regression coverage for new templates, non-destructive init, and propagation.
 - [ ] `tests/pre-commit_test.sh` -> Regression coverage for POSIX auto-pruning, detect-and-block validation, and integrity validation.
 - [ ] `.plans/ISSUES.md` -> Migrate active issues to flat table, update ISSUE-063 count, and add missing #64.
 - [ ] `.plans/issues_road_map.md` -> Reformat active board with # IDs and User Priority.
@@ -234,6 +232,7 @@ grep -v -E '^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?[0
 - [ ] `.githooks/aapp-pre-commit` -> Protected by Section 2 self-protection. Propagated from `templates/aapp-pre-commit` via `aapp init`.
 - [ ] `.agents/skills/aapp-done/SKILL.md` -> Protected by Section 2 self-protection. Propagated from `templates/skills/` via `aapp init`.
 - [ ] `.agents/AGENTS.md` -> Delimited protocol block generated from `templates/AGENTS.md` via `aapp init`.
+- [ ] `aapp` -> Core executable version string remains stable; version bumping belongs to the release preflight workflow (/aapp-release).
 - [ ] `templates/blast-radius-guard.sh` -> Write-time guard remains stable and unmodified.
 - [ ] `.githooks/blast-radius-guard` -> Inode self-protection and tool filters remain untouched.
 - [ ] `lib/cmd_develop.sh` -> Symlink development engine is out of bounds.
@@ -265,4 +264,4 @@ grep -v -E '^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?[0
   - **Active Range & Missing #64**: Corrected active range to `#49`–`#60`, `#62`–`#63` (14 items) and added Task 3.2 to author the missing `#64` detail row in `ISSUES.md`.
   - **Count-Preservation Assertion**: Added explicit Task 3.4 asserting `49 archived + 15 active = 64 unique IDs` with an automated set diff.
   - **Non-Destructive Init Guidance**: Specified safe advisory guidance in `lib/cmd_init.sh` for existing codebases with custom `ISSUES.md` layouts.
-  - **Milestone & Convention Alignment**: Included version bump to `v1.1.0` in `aapp`, aligned `.agents/AGENTS.md` as generated, and updated test counts.
+  - **Release Workflow Separation**: Confirmed that version bumping belongs strictly to the formal `/aapp-release` workflow upon milestone completion, keeping feature plans focused on capability implementation.
