@@ -92,8 +92,11 @@ print(json.dumps(out))
 # 2. Self-Protection Invariants (ALWAYS PROTECTED - Hard Block)
 # ------------------------------------------------------------------------------
 case "$TARGET_FILE" in
-    .claude/settings.json|.claude/settings.local.json|*/.claude/settings.json|*/.claude/settings.local.json)
-        deny_action "Tampering with Claude Code hook settings (.claude/settings.json) is strictly prohibited."
+    .claude/settings.json|.claude/settings.local.json|*/.claude/settings.json|*/.claude/settings.local.json|\
+    .agents/claude/*|*/.agents/claude/*|\
+    .agents/skills/aapp-*|*/.agents/skills/aapp-*|\
+    .claude/skills/aapp-*|*/.claude/skills/aapp-*)
+        deny_action "Tampering with AAPP core configuration or governance skills is strictly prohibited."
         ;;
     .githooks/*|*/.githooks/*|.git/hooks/*|*/.git/hooks/*)
         deny_action "Tampering with AAPP git hooks engine is strictly prohibited."
