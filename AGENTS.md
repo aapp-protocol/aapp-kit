@@ -104,7 +104,7 @@ The lanes are separate, **not sealed**. A fix too large to simply *do* deserves 
 3. Link the two records with the fields the templates already carry: put the issue ID in the plan's `**Target Issue / Milestone:**` field, and a link to the blueprint in the issue's `Proposed Fix / Target Plan` cell.
 4. Set the issue's status to 🔵 `Planned` and **leave it on `issues_road_map.md`** — it is still an open issue until the fix ships.
 5. Register the plan in `state_matrix.md` like any other, with the issue ID visible in its entry.
-6. Close the issue only when the fix is verified and the plan is archived via `done`.
+6. Close the issue only when the fix is verified and the plan is archived via `done`. Prune it from `issues_road_map.md` (keeping the roadmap active-only; the pre-commit hook also auto-prunes resolved lines).
 
 **Visibility, not permission.** Promote when it fits, then **say plainly what you did and why** — "ISSUE-004 touches four modules and the parser contract, so I promoted it to a draft blueprint." The human can refine, abort, or ignore it; a draft costs nothing. What you must never do is promote *silently*.
 
@@ -175,7 +175,7 @@ The agent must support and execute these shorthand workflow triggers immediately
 - **`done <plan>` (or `/aapp-done <plan>`, `/aapp:done <plan>`, `/aapp done <plan>`, `/done <plan>`)**: Complete lifecycle and archive implemented blueprint.
   1. Move the plan file: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
   2. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` with plan file link, target issue, verification commit, and repo-relative impact summary.
-  3. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items).
+  3. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items). If the plan resolved a target issue, mark it resolved in `ISSUES.md` and prune it from `issues_road_map.md` (the pre-commit hook also auto-prunes resolved lines).
   4. Commit the transition to the `plans` worktree.
 
 - **`release <version>` (or `/aapp-release <version>`, `/aapp:release <version>`, `/aapp release <version>`, `/release <version>`, `/preflight`)**: Execute release pre-flight verification runbook.
