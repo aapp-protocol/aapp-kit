@@ -278,6 +278,29 @@ if [ "$STAGED_CORE_COUNT" -gt 0 ] && [ "$DOCS_UPDATED" -eq 0 ]; then
 fi
 
 # ------------------------------------------------------------------------------
+# 3b. ISSUE ROADMAP HYGIENE (AUTO-PRUNE RESOLVED ITEMS)
+# ------------------------------------------------------------------------------
+ROADMAP_FILE=""
+if [ -f "issues_road_map.md" ]; then
+    ROADMAP_FILE="issues_road_map.md"
+elif [ -f ".plans/issues_road_map.md" ]; then
+    ROADMAP_FILE=".plans/issues_road_map.md"
+fi
+
+if [ -n "$ROADMAP_FILE" ] && grep -qE '✅|Resolved' "$ROADMAP_FILE" 2>/dev/null; then
+    TMP_ROADMAP="$(mktemp 2>/dev/null || echo "$ROADMAP_FILE.tmp")"
+    if grep -v -E '✅|Resolved' "$ROADMAP_FILE" > "$TMP_ROADMAP" 2>/dev/null; then
+        mv "$TMP_ROADMAP" "$ROADMAP_FILE"
+        if [ "$ROADMAP_FILE" = "issues_road_map.md" ]; then
+            git add "$ROADMAP_FILE" 2>/dev/null || true
+        fi
+        echo "🧹 [Pre-Commit Notice] Auto-pruned resolved issues from $ROADMAP_FILE"
+    else
+        rm -f "$TMP_ROADMAP"
+    fi
+fi
+
+# ------------------------------------------------------------------------------
 # 4. OPTIONAL SYNTAX & LINTER VALIDATIONS (BLOCKING)
 # ------------------------------------------------------------------------------
 for FILE in "${STAGED_FILES[@]}"; do
