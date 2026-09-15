@@ -21,7 +21,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🟢 **P-13**: [`P13-plan-ids-and-shorthand-resolution.md`](current/P13-plan-ids-and-shorthand-resolution.md) — Plan IDs, ADR-Style Filenames & Command Shorthand Resolution (`P-13`): Canonical unpadded `P-<num>` namespace, ergonomic shorthand for `/aapp-freeze` and `/aapp-done`, archive ledger ID field, and health integrity engine (Pairs 4 & 5).
+*(No frozen blueprints currently in flight)*
 
 ---
 
