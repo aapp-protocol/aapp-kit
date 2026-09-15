@@ -24,21 +24,22 @@
 
 ## 1. Context & Architectural Goal
 
-**What.** Establish a canonical numbering standard for blueprints (`P-<num>` / `P<NN>`), adopt chronological ADR-style file naming (e.g. `P09-guard-path-authorization.md`), build a zero-dependency POSIX shorthand resolver for all lifecycle skills (`/aapp-freeze`, `/aapp-done`, `/aapp-digest`), and add **Pair 5: Target Files vs Guard Section 2 Self-Protection** to the Planning-Health engine.
+**What.** Establish an unpadded integer numbering standard for blueprints (`P-<num>` / `P<N>`), adopt unpadded chronological ADR-style file naming (e.g. `P9-guard-path-authorization.md`), build a zero-dependency POSIX shorthand resolver for all lifecycle skills (`/aapp-freeze`, `/aapp-done`, `/aapp-digest`), add a `Plan ID` field to the master archive ledger without touching historical filenames on disk, and add **Pair 5: Target Files vs Guard Section 2 Self-Protection** to the Planning-Health engine.
 
 **Why.**
 1. **Ergonomic Friction & Typing Fatigue:** Today, interacting with blueprints requires typing or copy-pasting lengthy file paths like `/aapp-freeze plan-feature-aapp-flat-issues-and-archival.md` (55+ characters). This is tedious, error-prone in CLI and chat environments, and clutters cross-agent handoffs.
 2. **Loss of Chronological Hierarchy:** Filesystem listings (`ls .plans/current/`, `ls .plans/done/`) sort purely alphabetically rather than chronologically by architecture sequence.
-3. **Strict Lane Separation Invariant:** The workspace strictly separates the **Issue Lane** (`ISSUES.md`, using `#1`..`#64` or `ISSUE-064`) from the **Plan Lane** (`state_matrix.md`). Plans cannot use bare numbers or `#` like `#8` without creating namespace collisions. A distinct `P-<num>` namespace preserves this separation.
-4. **Multi-Agent Interoperability:** Compact canonical identifiers (`P-9`, `P-13`) enable crisp context transfer across heterogeneous agents (Claude Code, Google Antigravity, Cursor, Codex).
-5. **Recurring Authoring Defect (Target Files vs Section 2):** Three consecutive blueprints accidentally declared `.agents/skills/aapp-*` under Target Files despite carrying the warning banner. Introducing Pair 5 to `planning_health.sh` converts this recurring authoring mistake into an automated, machine-caught invariant.
+3. **Strict Lane Separation Invariant:** The workspace strictly separates the **Issue Lane** (`ISSUES.md`, using unpadded `#1`..`#64`) from the **Plan Lane** (`state_matrix.md`). Plans cannot use bare numbers or `#` like `#8` without creating namespace collisions. A distinct `P-<num>` namespace preserves this separation.
+4. **No-Padding Invariant (Grep Ergonomics):** Just as issues standardized on unpadded numbers (`#1`, `#49`, `#64`), plans standardize on unpadded numbers (`P-1`, `P-9`, `P-13`). Zero-padding (`09`, `009`) complicates regexes, causes grepping mismatches, and introduces cognitive overhead. Unpadded integer tokens are exact, unambiguous, and trivial to grep (`grep 'Plan ID: P-9'` or `grep -E 'P-9\b'`).
+5. **Multi-Agent Interoperability:** Compact canonical identifiers (`P-9`, `P-13`) enable crisp context transfer across heterogeneous agents (Claude Code, Google Antigravity, Cursor, Codex).
+6. **Recurring Authoring Defect (Target Files vs Section 2):** Three consecutive blueprints accidentally declared `.agents/skills/aapp-*` under Target Files despite carrying the warning banner. Introducing Pair 5 to `planning_health.sh` converts this recurring authoring mistake into an automated, machine-caught invariant.
 
 **Verified Engine Posture.**
 * Parser safety verified: all three active plan consumers (`blast-radius-guard.sh:127`, `aapp-pre-commit:135`, `cmd_status.sh:128`) match plans via `*.md` globs. None depend on a `plan-` filename prefix. Renaming active plans is 100% parser-safe.
 
 **Constraints.**
 * Zero-dependency POSIX bash (`/bin/sh` and `/bin/bash` compatible). No python or jq required.
-* Complete backward compatibility: existing historical plans in `.plans/done/` keep their filenames on disk to preserve prior commit links and external URLs.
+* Complete backward compatibility: existing historical plans in `.plans/done/` keep their filenames on disk to preserve prior commit links and external URLs. The archive ledger gains a canonical `Plan ID` column.
 * Deterministic resolution: shorthand expansion must resolve unambiguously or cleanly fail with helpful candidate listings if ambiguous.
 * State-transition safety: empty queries are strictly forbidden on destructive/state-changing verbs (`freeze`, `done`).
 
@@ -47,21 +48,21 @@
 ## 2. Technical Blueprint
 
 ### A. The Plan Identifier Standard (`P-<num>`)
-1. **Syntax & Canonical Token:**
-   - Standard token format: `P-<num>` (e.g. `P-1`, `P-8`, `P-13`) in prose, status reporting, and state matrices.
-   - Padded token format in filenames: `P<NN>-<slug>.md` (e.g. `P09-guard-path-authorization.md`, `P13-plan-ids-and-shorthand-resolution.md`) to guarantee natural filesystem sorting up to 99 plans, scaling seamlessly to `P<NNN>` as needed.
+1. **Syntax & Canonical Token (Strictly Unpadded):**
+   - Standard token format: `P-<num>` (e.g. `P-1`, `P-8`, `P-9`, `P-13`) in prose, status reporting, state matrices, and archive ledgers. No zero-padding.
+   - Unpadded token format in active filenames: `P<N>-<slug>.md` (e.g. `P9-guard-path-authorization.md`, `P13-plan-ids-and-shorthand-resolution.md`).
 2. **Plan Header Contract (`templates/plan-template.md`):**
    ```markdown
-   # 🗺️ Plan P-XX: [Feature or Refactor Name]
+   # 🗺️ Plan P-X: [Feature or Refactor Name]
    * **Created:** YYYY-MM-DD | **Last Refined:** YYYY-MM-DD
    * **Target Issue / Milestone:** #[Issue ID or Milestone]
-   * **Plan ID:** P-XX
+   * **Plan ID:** P-X
    * **Status:** 🔴 Under Review
    ```
 3. **Archive Ledger & State Matrix Alignment:**
    - In `.plans/state_matrix.md`:
-     `- 🔴 **P-09**: [P09-guard-path-authorization.md](current/P09-guard-path-authorization.md) — Guard Path Authorization...`
-   - In `.plans/done/000-archive-ledger.md`: Add a `Plan ID` column. Exactly 8 physical plan files exist in `done/`, mapped to `P-01` through `P-08`. Row `507e4a3` (historical bootstrap commit) is indexed as `P-00 (Bootstrap)`:
+     `- 🔴 **P-9**: [P9-guard-path-authorization.md](current/P9-guard-path-authorization.md) — Guard Path Authorization...`
+   - In `.plans/done/000-archive-ledger.md`: Add a `Plan ID` column. Exactly 8 physical plan files exist in `done/`, mapped to `P-1` through `P-8`. Row `507e4a3` (historical bootstrap commit) is indexed as `P-0 (Bootstrap)`. Files on disk in `done/` keep their original filenames:
      `| Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary |`
 
 ### B. Shorthand Resolver Engine (`lib/plan_resolver.sh`)
@@ -71,8 +72,8 @@ Author a centralized, reusable POSIX resolution routine `resolve_plan_path`:
 # resolve_plan_path <query> <context_verb> [search_scope: current|done|all] [repo_root]
 # Resolves <query> to an existing relative path under .plans/
 # Supports:
-#   1. Exact relative/absolute filepath (.plans/current/P09-guard-path-authorization.md)
-#   2. Plan ID: "P-9", "p-9", "P09", "p9", "9"
+#   1. Exact relative/absolute filepath (.plans/current/P9-guard-path-authorization.md)
+#   2. Plan ID: "P-9", "p-9", "P9", "p9", "9"
 #   3. Slug keyword: "guard-path", "remote-sync", "flat-issues"
 ```
 
@@ -82,10 +83,10 @@ Author a centralized, reusable POSIX resolution routine `resolve_plan_path`:
    - If `<query>` is empty and `<context_verb>` is a state transition (`freeze`, `done`): **REFUSE**. Emit `❌ You must specify a target plan. Active plans: [list]` with exit code 1.
    - If `<query>` is empty and `<context_verb>` is read-only (`status`, `inspect`): resolve to the single active plan if count == 1.
 3. **Namespace Collision Guard:**
-   - If `<query>` starts with `#` (e.g. `#9`, `#09`): **REFUSE**. Emit `❌ '#9' is an issue reference. Did you mean 'P-9'?` with exit code 1.
-4. **ID Matcher:**
+   - If `<query>` starts with `#` (e.g. `#9`): **REFUSE**. Emit `❌ '#9' is an issue reference. Did you mean 'P-9'?` with exit code 1.
+4. **ID Matcher (Unpadded):**
    - Normalize `<query>` by stripping leading `P-`, `p-`, `P`, or `p`.
-   - If remainder is numeric (`^[0-9]+$`): match filenames matching `P0*<num>-*.md` or inspect headers for `* **Plan ID:** P-0*<num>`.
+   - If remainder is numeric (`^[0-9]+$`): match filenames matching `P${num}-*.md` (or legacy `plan-*.md` by reading `* **Plan ID:** P-${num}`). Also tolerate leading zeros if user enters `P09`, normalizing to `9`.
    - Bare numbers (`9`) are accepted in command position only as shorthand for `P-9`.
 5. **Slug / Keyword Substring Matcher:**
    - Perform case-insensitive substring search across blueprint filenames in `.plans/<scope>/`.
@@ -107,15 +108,15 @@ Update the canonical skill instructions in `templates/skills/`:
 2. **`/aapp-done <plan>`**:
    - Accepts shorthand reference; empty query refused. Resolves plan; moves to `.plans/done/`; records completion in `000-archive-ledger.md` using its `Plan ID`.
 3. **`/aapp-digest <idea>`**:
-   - When scaffolding a new plan, scans highest existing Plan ID across `.plans/current/` and `.plans/done/`, increments by 1, and scaffolds `P<NN>-<slug>.md` with `* **Plan ID:** P-<NN>`.
+   - When scaffolding a new plan, scans highest existing Plan ID across `.plans/current/` and `.plans/done/`, increments by 1, and scaffolds `P<N>-<slug>.md` with `* **Plan ID:** P-<N>`.
 4. **`/aapp-status` (`lib/cmd_status.sh`)**:
    - Formats active blueprints in Section [3/4] as:
-     `• P-09 [🔴 Under Review] Guard Path Authorization (P09-guard-path-authorization.md)`
+     `• P-9 [🔴 Under Review] Guard Path Authorization (P9-guard-path-authorization.md)`
 
 ### E. Planning-Health Engine Extensions (`lib/planning_health.sh`)
 Extend `planning_health.sh` with two new integrity checks:
 1. **Pair 4: Plan ID Uniqueness & Reference Integrity (`check_pair4_plan_id_integrity`)**:
-   - Ensures every blueprint in `.plans/current/` has a unique, non-colliding `Plan ID`.
+   - Ensures every blueprint in `.plans/current/` has a unique, non-colliding unpadded `Plan ID`.
    - Verifies that `Plan ID` in header matches filename prefix where applicable.
    - Verifies that `state_matrix.md` and `000-archive-ledger.md` references resolve cleanly.
 2. **Pair 5: Target Files vs Guard Section 2 Self-Protection (`check_pair5_target_files_self_protection`)**:
@@ -128,10 +129,10 @@ Extend `planning_health.sh` with two new integrity checks:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Resolver Engine & Health Validator (Pairs 4 & 5)
-- [ ] Task 1.1: Author `lib/plan_resolver.sh` implementing POSIX `resolve_plan_path` with ID matching, slug matching, empty-query guard on transitions, `#` issue collision refusal, and diagnostic formatting.
+- [ ] Task 1.1: Author `lib/plan_resolver.sh` implementing POSIX `resolve_plan_path` with unpadded ID matching, slug matching, empty-query guard on transitions, `#` issue collision refusal, and diagnostic formatting.
 - [ ] Task 1.2: Add Pair 4 validation (`check_pair4_plan_id_integrity`) to `lib/planning_health.sh`.
 - [ ] Task 1.3: Add Pair 5 validation (`check_pair5_target_files_self_protection`) to `lib/planning_health.sh` to mechanically block Section 2 files in Target Files.
-- [ ] Task 1.4: Author unit test suite `tests/plan_resolver_test.sh` covering exact paths, numeric IDs (`P-9`, `9`, `P09`), slugs, `#` issue rejection, transition verb empty-query guards, ambiguities, and Pair 5 self-protection catches.
+- [ ] Task 1.4: Author unit test suite `tests/plan_resolver_test.sh` covering exact paths, unpadded numeric IDs (`P-9`, `9`), slugs, `#` issue rejection, transition verb empty-query guards, ambiguities, and Pair 5 self-protection catches.
 
 ### Phase 2: Status & CLI Integration
 - [ ] Task 2.1: Update `lib/cmd_status.sh` to extract and display Plan IDs alongside filenames and status badges in Pillar [3/4].
@@ -139,15 +140,15 @@ Extend `planning_health.sh` with two new integrity checks:
 
 ### Phase 3: Templates, Governance Rules & Universal Skills
 - [ ] Task 3.1: Update `templates/plan-template.md` to include `Plan ID` field in header.
-- [ ] Task 3.2: Update `templates/state_matrix.md` and `templates/done-archive-ledger.md` schema with Plan ID columns.
+- [ ] Task 3.2: Update `templates/state_matrix.md` and `templates/done-archive-ledger.md` schema with unpadded Plan ID columns (`P-1`, `P-8`).
 - [ ] Task 3.3: Update `templates/skills/aapp-freeze/SKILL.md`, `templates/skills/aapp-done/SKILL.md`, and `templates/skills/aapp-digest/SKILL.md` to document shorthand resolution and mandatory target naming.
 - [ ] Task 3.4: Update `templates/AGENTS.md` to document Plan ID syntax, ADR naming rules, the Two Lanes namespace distinction, and Pair 5 self-protection authoring rules.
 - [ ] Task 3.5: Run `aapp init` to propagate templates into `.agents/skills/` and `.agents/AGENTS.md`.
 
 ### Phase 4: Retroactive Indexing & Migration of Active Blueprints
-- [ ] Task 4.1: Index existing 8 archived plans in `.plans/done/000-archive-ledger.md` with retroactive IDs `P-01` through `P-08` (leaving disk filenames unchanged to preserve historical URLs and commit references), and index bootstrap commit as `P-00`.
+- [ ] Task 4.1: Index existing 8 archived plans in `.plans/done/000-archive-ledger.md` with retroactive IDs `P-1` through `P-8` (leaving disk filenames unchanged to preserve historical URLs and commit references), and index bootstrap commit as `P-0`.
 - [ ] Task 4.2: Rename and assign IDs to active Incubator plans in `.plans/current/`:
-  - `P-09`: `P09-guard-path-authorization.md`
+  - `P-9`: `P9-guard-path-authorization.md`
   - `P-10`: `P10-remote-sync.md`
   - `P-11`: `P11-airgapped-pickup.md`
   - `P-12`: `P12-lifecycle-hooks.md`
@@ -179,8 +180,8 @@ Extend `planning_health.sh` with two new integrity checks:
 - [ ] `MANUAL.md` -> User documentation for plan IDs and shorthand commands.
 - [ ] `README.md` -> Feature description for plan ergonomics.
 - [ ] `CHANGELOG.md` -> Keep a Changelog entries under `[Unreleased]`.
-- [ ] `.plans/done/000-archive-ledger.md` -> Add retroactive Plan IDs (P-00 to P-08).
-- [ ] `.plans/state_matrix.md` -> Update active incubator list with P-09 to P-13.
+- [ ] `.plans/done/000-archive-ledger.md` -> Add retroactive Plan IDs (P-0 to P-8).
+- [ ] `.plans/state_matrix.md` -> Update active incubator list with P-9 to P-13.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.agents/skills/aapp-*` -> Governed engine skill copies; write-protected by Section 2. Updated via `templates/skills/` and `aapp init`.
@@ -193,7 +194,7 @@ Extend `planning_health.sh` with two new integrity checks:
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*(None — design is fully specified and aligned with red team findings)*
+*(None — design is fully specified: unpadded IDs everywhere for grep ergonomics; historical filenames preserved on disk with ID column in archive ledger)*
 
 ---
 
@@ -202,8 +203,11 @@ Extend `planning_health.sh` with two new integrity checks:
 * **2026-09-15:** Refined blueprint following red team audit:
   1. Moved `.agents/skills/aapp-*` from Target Files to Out of Bounds;
   2. Added **Pair 5 (Target Files vs Guard Section 2 Self-Protection)** to `planning_health.sh`;
-  3. Corrected historical archive count (8 files on disk, `P-01`..`P-08`, with `foundation-setup.md` indexed as `P-00 (Bootstrap)`);
+  3. Corrected historical archive count (8 files on disk, `P-1`..`P-8`, with `foundation-setup.md` indexed as `P-0 (Bootstrap)`);
   4. Restricted empty-query defaulting to read-only verbs (transition verbs `freeze`/`done` must name targets);
   5. Added explicit rejection of `#`-prefixed numbers with helpful prompt;
   6. Documented multi-agent ID allocation & git collision safety;
   7. Locked decision to leave historical filenames in `done/` untouched on disk while renaming `current/` plans.
+* **2026-09-15:** Aligned with user decisions on Q1 and Q2:
+  1. Standardized strictly on **unpadded IDs** (`P-1`, `P-8`, `P-9`, `P-13`) and filenames (`P9-guard-path-authorization.md`, `P13-plan-ids-...md`) for superior grepping and consistency with issue IDs (`#1`, `#49`, `#64`);
+  2. Preserved original filenames on disk in `.plans/done/` and added `Plan ID` field to `.plans/done/000-archive-ledger.md`.
