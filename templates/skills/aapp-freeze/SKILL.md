@@ -2,7 +2,7 @@
 name: aapp-freeze
 description: Lock and greenlight a blueprint for code execution. Verifies open questions, marks blast radius locked, and moves plan to Greenlight Zone.
 disable-model-invocation: true
-argument-hint: "[plan-name]"
+argument-hint: "<plan-id or plan-name>"
 ---
 
 # AAPP Freeze (Greenlight & Blast Radius Lock)
@@ -11,8 +11,9 @@ Lock and greenlight an incubator blueprint for code execution. Freezing transiti
 
 ## Three-Step Execution Procedure
 
-### Step 1: Verify Blueprint Readiness
-Scan `.plans/current/<plan>.md` (or the single active incubator plan if `<plan>` is omitted):
+### Step 1: Resolve & Verify Blueprint Readiness
+1. **Resolve Blueprint:** Resolve `<plan>` using `resolve_plan_path <plan> freeze current` (or match Plan ID `P-9`, `9`, slug, or filename). The target plan must be explicitly specified — bare `/aapp-freeze` without arguments is strictly refused.
+2. **Scan Blueprint:** In `.plans/current/<plan>.md`:
 1. **Open Questions:** Verify that all entries in `## ❓ 5. Open Questions` are checked off and marked resolved (`[x]`). A plan with unresolved questions cannot be frozen.
 2. **Blast Radius:** Verify that `### 📂 Target Files` and `### 🛑 Out of Bounds` are explicitly declared, with one canonical backticked file path per line.
 3. **Status Line:** Update the status in the plan header to `* **Status:** 🟢 Ready for Execution`.

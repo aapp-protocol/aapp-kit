@@ -2,7 +2,7 @@
 # ==============================================================================
 # AAPP Planning Health & Integrity Validator
 #
-# Verifies three-pair planning consistency and schema constraints:
+# Verifies five-pair planning consistency and schema constraints:
 # 1. Pair 1 (ISSUES <-> archive):
 #    - Disjointness: Active issues and archive ledger must share zero IDs.
 #    - Relocation Invariant: Active ISSUES.md must contain zero resolved rows.
@@ -11,6 +11,11 @@
 #    - Drift & Unsequenced Detection: Flags phantom entries and unsequenced active issues.
 # 3. Pair 3 (pickup <-> ISSUES):
 #    - Routing Cleanliness: Prevents stale unpruned pickup notes for logged issues.
+# 4. Pair 4 (Plan IDs & Reference Integrity):
+#    - Uniqueness: No colliding Plan IDs across active and archived blueprints.
+#    - Header / Filename Agreement: Header Plan ID matches filename prefix.
+# 5. Pair 5 (Target Files vs Section 2 Self-Protection):
+#    - Mechanically blocks declared Target Files that match Guard Section 2 patterns.
 # ==============================================================================
 
 normalize_issue_id() {
@@ -269,6 +274,144 @@ check_taxonomy_and_schema() {
     return $errors
 }
 
+# Pair 4: Plan ID Uniqueness & Reference Integrity
+check_pair4_plan_id_integrity() {
+    local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    local current_dir="$repo_root/.plans/current"
+    local errors=0
+
+    [ ! -d "$current_dir" ] && return 0
+
+    local seen_ids=()
+    local seen_files=()
+
+    while IFS= read -r -d '' plan_path; do
+        local bname
+        bname="$(basename "$plan_path")"
+        
+        # Extract Plan ID from header
+        local header_id
+        header_id="$(grep -m 1 -E '^[[:space:]]*[\*|-][[:space:]]*\*\*Plan ID:\*\*' "$plan_path" 2>/dev/null | sed -E 's/^[[:space:]]*[\*|-][[:space:]]*\*\*Plan ID:\*\*[[:space:]]*//; s/[[:space:]]*$//' | tr -d '`' || true)"
+        
+        # Extract Plan ID from filename prefix P<num>-
+        local file_id=""
+        if [[ "$bname" =~ ^[pP]([0-9]+)- ]]; then
+            file_id="P-${BASH_REMATCH[1]}"
+        fi
+
+        local effective_id="${header_id:-$file_id}"
+
+        if [ -n "$effective_id" ]; then
+            # Verify agreement if both exist
+            if [ -n "$header_id" ] && [ -n "$file_id" ]; then
+                local norm_h
+                norm_h="$(echo "$header_id" | sed -E 's/^[pP]-?0*//')"
+                local norm_f
+                norm_f="$(echo "$file_id" | sed -E 's/^[pP]-?0*//')"
+                if [ "$norm_h" != "$norm_f" ]; then
+                    echo "❌ [Pair 4 Violation] Plan '$bname' header ID ($header_id) does not match filename prefix ($file_id)!"
+                    errors=$((errors + 1))
+                fi
+            fi
+
+            # Check uniqueness across active blueprints
+            local idx=0
+            local duplicate=0
+            local norm_eff
+            norm_eff="$(echo "$effective_id" | sed -E 's/^[pP]-?0*//')"
+            for sid in "${seen_ids[@]}"; do
+                local norm_s
+                norm_s="$(echo "$sid" | sed -E 's/^[pP]-?0*//')"
+                if [ "$norm_eff" = "$norm_s" ]; then
+                    echo "❌ [Pair 4 Violation] Duplicate Plan ID '$effective_id' detected in '$bname' and '${seen_files[$idx]}'!"
+                    errors=$((errors + 1))
+                    duplicate=1
+                    break
+                fi
+                idx=$((idx + 1))
+            done
+
+            if [ "$duplicate" -eq 0 ]; then
+                seen_ids+=("$effective_id")
+                seen_files+=("$bname")
+            fi
+        fi
+    done < <(find "$current_dir" -maxdepth 1 -name "*.md" ! -name "000-*" -print0 2>/dev/null | sort -z)
+
+    return $errors
+}
+
+# Pair 5: Target Files vs Guard Section 2 Self-Protection
+check_pair5_target_files_self_protection() {
+    local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    local current_dir="$repo_root/.plans/current"
+    local errors=0
+
+    [ ! -d "$current_dir" ] && return 0
+
+    while IFS= read -r -d '' plan_path; do
+        local bname
+        bname="$(basename "$plan_path")"
+        local in_target_files=0
+
+        while IFS= read -r line; do
+            if [[ "$line" =~ ^###[[:space:]]+.*Target[[:space:]]+Files ]]; then
+                in_target_files=1
+                continue
+            fi
+            if [ "$in_target_files" -eq 1 ]; then
+                # Stop when reaching next subsection or section
+                if [[ "$line" =~ ^###[[:space:]]+ || "$line" =~ ^##[[:space:]]+ ]]; then
+                    in_target_files=0
+                    continue
+                fi
+
+                # Extract first backticked path on the line
+                local target_file=""
+                if [[ "$line" =~ \`([^\`]+)\` ]]; then
+                    target_file="${BASH_REMATCH[1]}"
+                    # Skip non-path markers like NEW FILE, MODIFY, DELETE
+                    if [[ "$target_file" =~ ^(NEW[[:space:]]+FILE|MODIFY|DELETE)$ ]]; then
+                        local rest="${line#*\`$target_file\`}"
+                        if [[ "$rest" =~ \`([^\`]+)\` ]]; then
+                            target_file="${BASH_REMATCH[1]}"
+                        fi
+                    fi
+                fi
+
+                if [ -n "$target_file" ]; then
+                    # Check against Section 2 self-protection patterns
+                    case "$target_file" in
+                        .claude/settings.json|.claude/settings.local.json|*/.claude/settings.json|*/.claude/settings.local.json|\
+                        .agents/claude/*|*/.agents/claude/*|\
+                        .agents/skills/aapp-*|*/.agents/skills/aapp-*|\
+                        .claude/skills/aapp-*|*/.claude/skills/aapp-*)
+                            echo "❌ [Pair 5 Violation] Plan '$bname' declares Target File '$target_file' which violates Guard Section 2 self-protection!"
+                            echo "   -> Tampering with AAPP core configuration or governance skills is strictly prohibited."
+                            echo "   -> Move '$target_file' to Out of Bounds and edit 'templates/' instead."
+                            errors=$((errors + 1))
+                            ;;
+                        .githooks/*|*/.githooks/*|.git/hooks/*|*/.git/hooks/*)
+                            echo "❌ [Pair 5 Violation] Plan '$bname' declares Target File '$target_file' which violates Guard Section 2 self-protection!"
+                            echo "   -> Tampering with AAPP git hooks engine is strictly prohibited."
+                            echo "   -> Move '$target_file' to Out of Bounds."
+                            errors=$((errors + 1))
+                            ;;
+                        .cursor/rules/*|*/.cursor/rules/*)
+                            echo "❌ [Pair 5 Violation] Plan '$bname' declares Target File '$target_file' which violates Guard Section 2 self-protection!"
+                            echo "   -> Tampering with agent rule files (.cursor/rules/) is strictly prohibited."
+                            echo "   -> Move '$target_file' to Out of Bounds."
+                            errors=$((errors + 1))
+                            ;;
+                    esac
+                fi
+            fi
+        done < "$plan_path"
+    done < <(find "$current_dir" -maxdepth 1 -name "*.md" ! -name "000-*" -print0 2>/dev/null | sort -z)
+
+    return $errors
+}
+
 # Master check runner
 check_planning_health() {
     local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
@@ -294,6 +437,12 @@ check_planning_health() {
 
     # Pair 3
     check_pair3_pickup_routing "$pickup_file" "$issues_file" "$archive_file" || true
+
+    # Pair 4
+    check_pair4_plan_id_integrity "$repo_root" || total_errors=$((total_errors + $?))
+
+    # Pair 5
+    check_pair5_target_files_self_protection "$repo_root" || total_errors=$((total_errors + $?))
 
     # Schema & Taxonomy
     check_taxonomy_and_schema "$issues_file" || total_errors=$((total_errors + $?))

@@ -20,12 +20,17 @@ fi
 
 cd "$REPO_ROOT"
 
-# Source planning_health engine if available
+# Source planning_health and plan_resolver engines if available
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "$SCRIPT_DIR/planning_health.sh" ]; then
     source "$SCRIPT_DIR/planning_health.sh"
 elif [ -f "$REPO_ROOT/lib/planning_health.sh" ]; then
     source "$REPO_ROOT/lib/planning_health.sh"
+fi
+if [ -f "$SCRIPT_DIR/plan_resolver.sh" ]; then
+    source "$SCRIPT_DIR/plan_resolver.sh"
+elif [ -f "$REPO_ROOT/lib/plan_resolver.sh" ]; then
+    source "$REPO_ROOT/lib/plan_resolver.sh"
 fi
 
 echo "============================================================"
@@ -123,7 +128,15 @@ if [ -d ".plans/current" ]; then
         BASENAME="$(basename "$P")"
         STATUS="$(grep -m 1 -E '^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*' "$P" 2>/dev/null || echo "* **Status:** 🟡 Active")"
         STATUS_CLEAN="$(echo "$STATUS" | sed -E 's/^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*[[:space:]]*//')"
-        echo "  • $BASENAME  ($STATUS_CLEAN)"
+        PLAN_ID=""
+        if command -v get_plan_id >/dev/null 2>&1; then
+            PLAN_ID="$(get_plan_id "$P" 2>/dev/null || true)"
+        fi
+        if [ -n "$PLAN_ID" ]; then
+            echo "  • $PLAN_ID: $BASENAME  ($STATUS_CLEAN)"
+        else
+            echo "  • $BASENAME  ($STATUS_CLEAN)"
+        fi
         HAS_PLANS=1
     done < <(find .plans/current -maxdepth 1 -name "*.md" -print0 2>/dev/null | sort -z)
     

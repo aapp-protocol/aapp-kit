@@ -460,7 +460,47 @@ else
   printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "planning_health blocks ID collision in active/archive"; FAIL=$((FAIL+1))
 fi
 
+# Reset archive for Pair 4 & Pair 5 checks
+sed -i '/Collision summary/d' .plans/done/000-issues-archive.md
+
+# Pair 4: Plan ID collision in active plans
+cat > .plans/current/P1-feature.md <<'EOF'
+# 🗺️ Plan P-1: Feature
+* **Plan ID:** P-1
+* **Status:** 🔴 Under Review
+EOF
+cat > .plans/current/P1-conflict.md <<'EOF'
+# 🗺️ Plan P-1: Conflict
+* **Plan ID:** P-1
+* **Status:** 🔴 Under Review
+EOF
+
+if ! check_pair4_plan_id_integrity "$PWD" >/dev/null 2>&1; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "planning_health blocks duplicate Plan ID in active plans" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "planning_health blocks duplicate Plan ID in active plans"; FAIL=$((FAIL+1))
+fi
+rm -f .plans/current/P1-conflict.md
+
+# Pair 5: Plan declaring Section 2 self-protection in Target Files
+cat > .plans/current/P2-bad.md <<'EOF'
+# 🗺️ Plan P-2: Bad Plan
+* **Plan ID:** P-2
+* **Status:** 🔴 Under Review
+
+### 📂 Target Files (Modifications & Additions)
+- [ ] `.githooks/aapp-pre-commit` -> Illegal direct hook edit
+EOF
+
+if ! check_pair5_target_files_self_protection "$PWD" >/dev/null 2>&1; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "planning_health blocks Section 2 target in Pair 5" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "planning_health blocks Section 2 target in Pair 5"; FAIL=$((FAIL+1))
+fi
+rm -f .plans/current/P1-feature.md .plans/current/P2-bad.md
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]
+
 

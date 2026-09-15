@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Plan ID Canonical Standard & Shorthand Resolver Engine (`lib/plan_resolver.sh`): Adds POSIX resolution for blueprints via unpadded Plan IDs (`P-9`, `9`), slugs (`guard-path`), or filenames, with strict `#` issue collision rejection and transition verb empty-query protection.
+- Planning-Health Pairs 4 & 5 (`lib/planning_health.sh`): Adds Pair 4 (Plan ID uniqueness, reference integrity, and header/filename agreement) and Pair 5 (mechanical blocking of Section 2 self-protection files in blueprint Target Files).
+- ADR-Style Chronological Blueprint Filenames (`P<N>-<slug>.md`): Migrated active incubator blueprints to unpadded `P<N>-<slug>.md` (`P9` through `P13`).
+- Plan ID column added to Master Archival Ledger (`templates/000-archive-ledger.md`, `.plans/done/000-archive-ledger.md`), indexing historical completed blueprints `P-0` through `P-8` without renaming historical files on disk.
+- Test suite expanded to 132 automated test cases with dedicated `tests/plan_resolver_test.sh` (19 test cases), plus additions in `tests/install_test.sh` and `tests/pre-commit_test.sh`.
 - Flat Issue Ledger (`templates/issues.md`, `.plans/ISSUES.md`): Single flat database table (zero subheadings) with standardized columns (`#`, `Sev`, `Type`, `Date`, `Location`, `Symptom / Problem`, `Target Plan / Fix`, `Status`) and unpadded numeric identifiers (`#1`, `#49`, `#64`).
 - Universal Extensible Domain Taxonomy (`Type` column) with 10 recommended core tokens (`CORE`, `CLI`, `UI`, `DB`, `NET`, `SEC`, `HOOK`, `DOCS`, `TEST`, `PERF`) and open regex `^[A-Z0-9_-]+$` with non-blocking advisory warnings.
 - The Relocation Invariant & Master Issue Archive Ledger (`templates/done-issues-archive.md`, `.plans/done/000-issues-archive.md`): Physical relocation of resolved issues out of active backlog to an append-only archive ledger, preserving active table purity (`✅ Resolved` does not exist in active `ISSUES.md`).
@@ -21,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Missing `#64` issue row added to `.plans/ISSUES.md`, with count-preservation assertion verifying `49 (archived) + 15 (active) = 64 (unique project issues #1..#64)`.
 
 ### Changed
+- Updated `lib/cmd_status.sh` to extract and display Plan IDs alongside status badges in Pillar [3/4], and to source `lib/plan_resolver.sh`.
+- Updated `templates/plan-template.md` to include `Plan ID: P-XX` metadata header.
+- Updated Universal Skills (`aapp-freeze`, `aapp-done`, `aapp-digest`) and `templates/AGENTS.md` to support shorthand resolution and enforce explicit plan targets on state transitions.
 - Updated `lib/cmd_status.sh` to be strictly read-only and idempotent, removing brittle legacy parser heuristics (`sed '/Resolved Issues/,$d'` and unanchored grep) while reporting priority board drift and unsequenced active issues non-destructively.
 - Updated `templates/skills/aapp-done/SKILL.md` to enforce the Relocation Invariant by moving resolved issues to `000-issues-archive.md` upon plan verification.
 - Automated Issue Roadmap Hygiene in `templates/aapp-pre-commit` (Section 3b) auto-pruning resolved issues (`✅` or `Resolved`) from `issues_road_map.md` in under 5ms, enforcing an active-only priority board.

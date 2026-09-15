@@ -1,6 +1,7 @@
-# 🗺️ Plan: [Feature or Refactor Name]
+# 🗺️ Plan P-XX: [Feature or Refactor Name]
 * **Created:** [YYYY-MM-DD] | **Last Refined:** [YYYY-MM-DD]
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Plan ID:** P-XX
 * **Status:** 🔴 Under Review
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED
      The pre-commit hook reads this line. A plan whose Status says BLOCKED grants no

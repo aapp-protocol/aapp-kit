@@ -521,16 +521,19 @@ Ingests a single idea from `pickup.md` or raw text:
 
 #### `/aapp-freeze <plan>` (or `freeze <plan>`, `/freeze`) — Boundary Lock & Greenlight
 Transitions a refined blueprint into the Greenlight Zone:
+- Accepts shorthand references: Plan ID (`P-9`, `9`), slug (`guard-path`), or filename (`P9-guard-path-authorization.md`). Target must be explicitly named (empty query refused).
+- Rejects issue references (`#9`) with helpful guidance to preserve lane separation.
 - Verifies all Open Questions are answered.
-- Validates explicit `### 📂 Target Files` and `### 🛑 Out of Bounds`.
+- Validates explicit `### 📂 Target Files` and `### 🛑 Out of Bounds` (enforcing Pair 5 self-protection).
 - Changes status to `🟢 Ready for Execution` and marks Blast Radius `LOCKED`.
 - Enables commit-time and write-time enforcement for the plan's targets.
 *Safety: Model invocation disabled (`disable-model-invocation: true`).*
 
 #### `/aapp-done <plan>` (or `done <plan>`, `/done`) — Master Archival Ledger & Completion
 Completes the lifecycle:
+- Accepts shorthand references: Plan ID (`P-9`, `9`), slug, or filename. Target must be explicitly named.
 - Moves blueprint: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
-- Appends a 1-line completion record to `.plans/done/000-archive-ledger.md` (recording plan link, target issue, verification commit, and repo-relative impact summary).
+- Appends a 1-line completion record to `.plans/done/000-archive-ledger.md` (recording Plan ID, plan link, target issue, verification commit, and repo-relative impact summary).
 - Removes the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items).
 - Verifies tests, linters, and `CHANGELOG.md` entry.
 *Safety: Model invocation disabled (`disable-model-invocation: true`).*

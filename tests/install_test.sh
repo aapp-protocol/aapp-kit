@@ -812,6 +812,24 @@ else
 fi
 report "flat schema: templates/issues.md has zero subheadings and 8-column format" "PASS" "$got"
 
+# Test 46: templates/plan-template.md includes Plan ID header
+template_plan="$KIT/templates/plan-template.md"
+if grep -q '\* \*\*Plan ID:\*\* P-XX' "$template_plan"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "plan template: templates/plan-template.md includes Plan ID header" "PASS" "$got"
+
+# Test 47: templates/000-archive-ledger.md includes Plan ID column
+template_ledger="$KIT/templates/000-archive-ledger.md"
+if grep -q '| Plan ID |' "$template_ledger"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "archive ledger: templates/000-archive-ledger.md includes Plan ID column" "PASS" "$got"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"

@@ -12,24 +12,24 @@ This document is the central dashboard for all active ideas, drafts, ready plans
 
 ## 🚦 Recommended Implementation Roadmap
 
-1. 🟢 **[Step 1: Core Foundation Blueprint](current/approved-feature.md)**
-2. 🟡 **[Step 2: Secondary Feature](current/feature-name.md)**
+1. 🟢 **P-1: [Core Foundation Blueprint](current/P1-approved-feature.md)**
+2. 🟡 **P-2: [Secondary Feature](current/P2-feature-name.md)**
 
 ---
 
 ## 🧠 1. Human Thought & Refinement (The Incubator)
 *Ideas that are unpolished, missing edge cases, or require user clarification. The execution agent must not write code for items in this section.*
 
-* **[Idea: Feature Name](current/feature-name.md)**
+* **P-2: [Idea: Feature Name](current/P2-feature-name.md)**
   * *Status:* Drafted. Needs edge-case handling for timeout conditions.
-  * *Open Questions:* See Section 4 of plan file.
+  * *Open Questions:* See Section 5 of plan file.
 
 ---
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 *Blueprints where architecture, blast radius, and interfaces are locked down. Execution sessions safely build off these.*
 
-* [ ] **[Feature: Implementation Blueprint](current/approved-feature.md)**
+* [ ] **P-1: [Feature: Implementation Blueprint](current/P1-approved-feature.md)**
   * *Target Files:* `src/path/to/file.ext`
   * *Status:* Approved. Blast radius locked. Ready to code.
 

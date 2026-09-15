@@ -322,18 +322,19 @@ Every plan in `.plans/current/<name>.md` defines strict boundaries:
 
 ## 9. Testing & Verification Suites
 
-AAPP includes 109 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, skill synchronization, flat issue ledger, planning-health validation, and installer resolution:
+AAPP includes 132 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, skill synchronization, flat issue ledger, Plan ID shorthand resolution, five-pair planning-health validation, and installer resolution:
 
 ```bash
-# Run complete test verification suite (109 tests)
-./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh
+# Run complete test verification suite (132 tests)
+./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh && ./tests/plan_resolver_test.sh
 ```
 
 | Suite | File | Tests | Coverage |
 | :--- | :--- | :--- | :--- |
-| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 45 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` decoupling & merge, Universal Skills sync, drift control, archive provisioning, non-destructive custom `ISSUES.md` advisory, flat schema. |
-| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 30 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection, POSIX ID-anchored roadmap auto-pruning, detect-and-block Relocation Invariant, planning-health integrity validation. |
+| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 47 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` decoupling & merge, Universal Skills sync, drift control, archive provisioning, non-destructive custom `ISSUES.md` advisory, flat schema, Plan ID template headers. |
+| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 32 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection, POSIX ID-anchored roadmap auto-pruning, detect-and-block Relocation Invariant, planning-health Pairs 1–5 integrity validation. |
 | **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 34 cases | PreToolUse Claude Code JSON payload, self-protection invariants (`.agents/claude/*`, `.claude/settings.json`, `.agents/skills/aapp-*`, `.claude/skills/aapp-*`), fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
+| **Plan Resolver & Health** | [tests/plan_resolver_test.sh](tests/plan_resolver_test.sh) | 19 cases | Plan ID resolution (`P-9`, `9`, `P13`), slug matching, Issue `#` collision rejection, transition verb empty-query guards, `get_plan_id`/`get_next_plan_id`, Pair 4 Plan ID uniqueness, Pair 5 Section 2 target blocks. |
 
 ---
 

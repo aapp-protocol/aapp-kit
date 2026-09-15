@@ -2,7 +2,7 @@
 name: aapp-done
 description: Complete lifecycle and archive an implemented blueprint. Moves plan to done/, appends to archive ledger, and cleans active state matrix.
 disable-model-invocation: true
-argument-hint: "[plan-name]"
+argument-hint: "<plan-id or plan-name>"
 ---
 
 # AAPP Done (Plan Completion & Archival)
@@ -11,16 +11,17 @@ Complete the implementation lifecycle and archive a finished blueprint.
 
 ## Four-Step Execution Procedure
 
-### Step 1: Archive Blueprint File
-Move the implemented plan from `.plans/current/` to `.plans/done/`:
+### Step 1: Resolve & Archive Blueprint File
+1. **Resolve Blueprint:** Resolve `<plan>` using `resolve_plan_path <plan> done current` (or match Plan ID `P-9`, `9`, slug, or filename). The target plan must be explicitly specified — bare `/aapp-done` without arguments is strictly refused.
+2. **Move File:** Move the implemented plan from `.plans/current/` to `.plans/done/`:
 ```bash
 mv ".plans/current/<plan>.md" ".plans/done/<plan>.md"
 ```
 
 ### Step 2: Append to Archival Ledger
-Inspect git history to identify the verification or landing commit SHA. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` using the canonical format:
+Inspect git history to identify the verification or landing commit SHA. Extract the plan's `Plan ID` (e.g. `P-9`). Append a 1-line completion record to `.plans/done/000-archive-ledger.md` using the canonical format:
 ```markdown
-- `YYYY-MM-DD` | [`<plan>.md`](<plan>.md) | Target: `<ISSUE-ID>` | Verified: `<commit-sha>` | Impact: <1-sentence repo-relative summary>
+| `YYYY-MM-DD` | `P-X` | [`<plan>.md`](<plan>.md) | Target: `<ISSUE-ID>` | `<commit-sha>` | <1-sentence repo-relative summary> |
 ```
 
 ### Step 3: Relocate Resolved Issue & Prune Roadmap
