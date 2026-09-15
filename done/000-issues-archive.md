@@ -51,5 +51,6 @@ Append-only historical ledger of verified and resolved issues.
 | #45 | `Medium` | `CLI` | 2026-09-10 | 2026-09-10 | `97706af` | Cleaned up broken/dangling symlinks using -e \|\| -L checks in `cmd_uninstall.sh`. |
 | #46 | `Medium` | `SEC` | 2026-09-10 | 2026-09-10 | `97706af` | Used POSIX head -n 1 and quoted REPO_ROOT in pattern expansion in `blast-radius-guard.sh`. |
 | #47 | `Medium` | `CLI` | 2026-09-10 | 2026-09-10 | `97706af` | Supported dash plan status bullets and trimmed pickup idea whitespace in `cmd_status.sh`. |
-| #48 | `Medium` | `HOOK` | 2026-09-10 | 2026-09-10 | `97706af` | Executed pre-commit via shell and specified UTF-8 in schema check in `templates/aapp-pre-commit`. |
+| #53 | `High` | `SEC` | 2026-09-10 | 2026-09-15 | `acd15a4` | [`P9-guard-path-authorization.md`](P9-guard-path-authorization.md): Added `MultiEdit` to PreToolUse matcher across settings templates, init merger, and `.claude/settings.json`. |
+| #54 | `High` | `SEC` | 2026-09-10 | 2026-09-15 | `acd15a4` | [`P9-guard-path-authorization.md`](P9-guard-path-authorization.md): Added `.git/config` and `*/.git/config` to Section 2 self-protection in `blast-radius-guard.sh`. |
 | #61 | `High` | `CORE` | 2026-09-14 | 2026-09-14 | `362cf80` (`v1.1.0`) | Universal AAPP Skills in `templates/skills/`, bridged to `.claude/skills/`, decoupled settings. |

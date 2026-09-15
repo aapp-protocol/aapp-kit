@@ -14,7 +14,7 @@
 
 ## ⭐ User Priority (Pinned / Immediate Human Focus)
 *Direct developer overrides based on current focus and appetite.*
-- [ ] #53 -> Add `MultiEdit` to hook matcher to prevent bypass.
+*(No pinned user overrides)*
 
 ## 🔴 High Priority (Technical Urgency)
 1. #49 -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
@@ -31,7 +31,6 @@
 
 ## 📥 Triage (Incoming / Unsequenced)
 *Newly logged issues awaiting prioritization.*
-- [ ] #54 -> Self-protection covers `.githooks/*` but not `.git/config`, so a single edit can disable Layer 2 hooks.
 - [ ] #55 -> CHANGELOG enforcement accepts `.plans/CHANGELOG.md` on a 900s mtime window; wall-clock dependence is non-deterministic.
 - [ ] #56 -> Glob matching lets `*` cross `/`; blast radius is wider than blueprint authors intend.
 - [ ] #57 -> File marked Out of Bounds by one plan is allowed when second active plan lists it as target.

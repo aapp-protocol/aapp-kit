@@ -20,7 +20,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🟢 **P-9**: [`P9-guard-path-authorization.md`](current/P9-guard-path-authorization.md) — Guard Path Authorization: external agent-path allowlist (`aapp.allowPath`), lexical canonicalization, and `MultiEdit` matcher coverage (`#65`, matcher half of `#53`).
+*(No frozen blueprints currently in flight)*
 
 ---
 
