@@ -2,7 +2,7 @@
 * **Created:** 2026-09-15 | **Last Refined:** 2026-09-15
 * **Target Issue / Milestone:** `#65` (external-path false denial) — also closes the matcher half of `#53`
 * **Plan ID:** P-9
-* **Status:** 🟡 Refining
+* **Status:** 🟢 Ready for Execution
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
@@ -248,7 +248,7 @@ git config --add aapp.allowPath "$HOME/.local/state/myagent/"
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*(Marked: **PROPOSED** — incubator draft, confers no execution rights until frozen)*
+*(Marked: **LOCKED** — greenlit for code execution)*
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `templates/blast-radius-guard.sh` -> Canonicalization, Section 2b hard-deny, Section 2c allowlist, `.git/config` self-protection.
