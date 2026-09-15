@@ -2,7 +2,7 @@
 * **Created:** 2026-09-15 | **Last Refined:** 2026-09-15
 * **Target Issue / Milestone:** `#65` (external-path false denial) — also closes the matcher half of `#53`
 * **Plan ID:** P-9
-* **Status:** 🔴 Under Review
+* **Status:** 🟡 Refining
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
@@ -154,13 +154,16 @@ The effective allowlist is the **union** of two tiers:
 | Prefix | Agent / purpose |
 | :--- | :--- |
 | `$HOME/.claude/` | Claude Code — per-project memory, todos, session state |
+| `$HOME/.gemini/` | Google Antigravity — artifacts, brain transcripts, scratchpad state |
 | `$HOME/.codex/` | OpenAI Codex CLI |
 | `$HOME/.cursor/` | Cursor |
 | `$HOME/.config/` and `$XDG_CONFIG_HOME` | XDG-conformant agents and tooling |
 | `$HOME/.local/share/` and `$XDG_DATA_HOME` | XDG data, including `aapp-kit` itself |
 | `$TMPDIR`, `/tmp/`, `/var/folders/` | Agent scratchpads (`/var/folders` is the macOS `$TMPDIR` root) |
 
-Section 2 still wins inside these prefixes: `$HOME/.claude/settings.json` and `$HOME/.claude/skills/aapp-*` remain hard-denied.
+**Prefix boundary hygiene:** Every directory prefix in the allowlist must be strictly normalized with a trailing `/` before evaluation. This prevents prefix aliasing where allowlisting `/home/user/.claude` might inadvertently match an unauthorized `/home/user/.claude_fake/*`.
+
+Section 2 still wins inside these prefixes: `$HOME/.claude/settings.json`, `$HOME/.claude/skills/aapp-*`, and corresponding protected files remain hard-denied.
 
 #### E.2 External hard deny (Section 2b) — never allowlistable
 
@@ -181,14 +184,14 @@ Rationale: shell rc files and `~/.local/bin` are executable-on-next-login surfac
 * **`MultiEdit`** — add to the matcher in `templates/claude/settings.json` and both occurrences in `lib/cmd_init.sh` (lines 401 and 455). This closes the standing half of `#53`.
 * **`Bash`** — a `PreToolUse` payload for `Bash` carries a command string, not a `file_path`. There is no reliable way to extract write targets from arbitrary shell (`sed -i`, `tee`, `>`, `>>`, `python -c`, `install`, `cp`, heredocs, and any of them behind a variable or a pipe). Attempting regex interception would produce both false negatives and false positives while implying a guarantee the guard cannot make.
 
-  **Resolution: document the boundary rather than fake it.** `templates/AGENTS.md` must state plainly that Layer 1 evaluates file-writing *tools* only, that shell writes are not intercepted, and that Layer 2 (`aapp-pre-commit`) is the authoritative gate for anything reaching a commit. The existing "do not work around a refusal with a shell heredoc" instruction stays, now correctly framed as an honor-system rule with a named reason instead of an unexplained prohibition. See Open Question 1 if a heuristic is wanted anyway.
+  **Resolution: document the boundary rather than fake it.** `templates/AGENTS.md` must state plainly that Layer 1 evaluates file-writing *tools* only, that shell writes are not intercepted, and that Layer 2 (`aapp-pre-commit`) is the authoritative gate for anything reaching a commit. The existing "do not work around a refusal with a shell heredoc" instruction stays, now correctly framed as an honor-system rule with a named reason instead of an unexplained prohibition.
 
 ### G. Discoverability
 
 `aapp init` prints the effective allowlist in its completion banner:
 
 ```text
-➡️  Guard allowlist: 6 built-in + 2 from git config (aapp.allowPath)
+➡️  Guard allowlist: 7 built-in + 2 from git config (aapp.allowPath)
 ```
 
 Add one `MANUAL.md` example so users can extend it without reading the guard source:
@@ -214,7 +217,7 @@ git config --add aapp.allowPath "$HOME/.local/state/myagent/"
 ### Phase 2: Allowlist & Hard-Deny Engine
 - [ ] Task 2.1: Add Section 2b external hard-deny patterns (§E.2), evaluated immediately after existing Section 2.
 - [ ] Task 2.2: Add `.git/config` and `*/.git/config` to Section 2 self-protection.
-- [ ] Task 2.3: Implement `resolve_allowlist()` — built-in defaults union `git config --get-all aapp.allowPath`, with `$HOME`/`$XDG_*`/`$TMPDIR` expansion and trailing-slash prefix semantics. Empty or unset variables must never expand to a bare `/`.
+- [ ] Task 2.3: Implement `resolve_allowlist()` — built-in defaults union `git config --get-all aapp.allowPath`, with `$HOME`/`$XDG_*`/`$TMPDIR` expansion and strict trailing-slash prefix semantics (guarantee every prefix ends with `/` to prevent prefix aliasing). Empty or unset variables must never expand to a bare `/`.
 - [ ] Task 2.4: Add Section 2c allowlist evaluation between the hard-deny block and Section 3.
 - [ ] Task 2.5: Run `aapp init`; re-run the write-guard suite.
 
@@ -227,6 +230,7 @@ git config --add aapp.allowPath "$HOME/.local/state/myagent/"
 ### Phase 4: Tests & Documentation
 - [ ] Task 4.1: Extend `tests/write-guard_test.sh` using the existing `check_decision <name> ALLOW|DENY <path>` and `call_guard_json <tool> <path>` helpers:
   - ALLOW: an allowlisted external memory path (`$HOME/.claude/projects/x/memory/n.md`).
+  - ALLOW: an allowlisted Antigravity brain/artifact path (`$HOME/.gemini/antigravity-ide/brain/test.md`).
   - ALLOW: a path added only via `git config --add aapp.allowPath`.
   - DENY: an external path matching no allowlist entry.
   - DENY: `$HOME/.claude/settings.json` — proves Section 2 precedence over the allowlist.
@@ -238,7 +242,7 @@ git config --add aapp.allowPath "$HOME/.local/state/myagent/"
 - [ ] Task 4.3: Document in `MANUAL.md` — the evaluation order, the built-in defaults, `git config --add aapp.allowPath`, the hard-deny list, and the explicit statement that Layer 1 is write-tool-scoped while Layer 2 is authoritative.
 - [ ] Task 4.4: Update `README.md` guard overview with the allowlist concept in one short paragraph.
 - [ ] Task 4.5: Update `templates/AGENTS.md` per §F to state the shell-write boundary and the reason behind the no-workaround rule.
-- [ ] Task 4.6: Run all three suites (`install_test.sh`, `pre-commit_test.sh`, `write-guard_test.sh`); report actual pass counts against the Phase 0 baseline. Do not assert a target number in advance.
+- [ ] Task 4.6: Run all four suites (`install_test.sh`, `pre-commit_test.sh`, `write-guard_test.sh`, `plan_resolver_test.sh`); report actual pass counts against the Phase 0 baseline. Do not assert a target number in advance.
 - [ ] Task 4.7: Update `CHANGELOG.md` under `## [Unreleased]`. **No version number.**
 
 ---
@@ -259,24 +263,29 @@ git config --add aapp.allowPath "$HOME/.local/state/myagent/"
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/blast-radius-guard` -> Section 2 protected. Propagated from `templates/` via `aapp init`.
 - [ ] `.agents/skills/aapp-*` -> Section 2 protected. Propagated via `aapp init`.
-- [ ] `templates/aapp-pre-commit` -> Layer 2 is unchanged by this plan, **and it is an active Target File of `plan-feature-aapp-flat-issues-and-archival.md`**. Do not touch it here.
-- [ ] `lib/cmd_status.sh` -> Also owned by the flat-issues blueprint. Do not touch.
-- [ ] `.plans/ISSUES.md`, `.plans/issues_road_map.md` -> Mid-migration under the flat-issues blueprint. Log `#65` through the human, not from inside this plan's execution.
-- [ ] `aapp` -> No dispatcher verb is added by this plan (see Open Question 3).
+- [ ] `templates/aapp-pre-commit` -> Layer 2 commit-time verification is unaffected by this plan.
+- [ ] `lib/cmd_status.sh` -> Status reporting is unaffected by this plan.
+- [ ] `.plans/ISSUES.md`, `.plans/issues_road_map.md` -> Issue records are managed in the issue lane.
+- [ ] `aapp` -> No dispatcher verb is added by this plan.
 - [ ] `lib/cmd_upgrade.sh`, `lib/cmd_install.sh`, `lib/cmd_develop.sh` -> Unrelated surfaces.
 
-> **Concurrent Plan Alignment**: `plan-feature-aapp-flat-issues-and-archival.md` is active and targets `templates/aapp-pre-commit`, `lib/cmd_status.sh`, and both issue files. This plan deliberately avoids all four to prevent a merge collision. The only shared file is `CHANGELOG.md`; append a separate entry rather than editing theirs.
+> **Concurrent Plan Alignment**: Prior plans `P-8` (flat issues & archival) and `P-13` (Plan IDs & resolver) are fully verified and archived in `000-archive-ledger.md`. `P-9` has zero concurrent lock contention on target files.
 
 ---
 
-## ❓ 5. Open Questions (Optional / Gate)
+## ❓ 5. Open Questions (Resolved)
 
-* [ ] **Question 1 — `Bash` interception.** Should the guard attempt heuristic interception of shell writes (matching `>`, `>>`, `tee`, `sed -i` against repo paths), or formally document Layer 1 as write-tool-scoped with Layer 2 authoritative? *(Recommendation: document. A heuristic is defeated by variables, pipes, and `python -c`, while generating false positives that push agents toward the very bypass it targets. A guarantee that cannot be kept is worse than a boundary that is stated honestly.)*
-* [ ] **Question 2 — Default allowlist breadth.** Ship the §E.1 built-in defaults, or ship an empty list requiring explicit opt-in? *(Recommendation: ship defaults. Zero-config correctness is the kit's core pitch, and an empty default reproduces the exact false-denial that motivated this plan for every new adopter.)*
-* [ ] **Question 3 — Management UX.** Is `git config --add aapp.allowPath` sufficient, or should `aapp` gain a `guard allow` / `guard list` verb? *(Recommendation: `git config` only for now. A dispatcher verb is easy to add later and hard to remove; see whether anyone actually asks.)*
-* [ ] **Question 4 — Scope of `$HOME/.config/`.** Defaulting this prefix is broad — it covers unrelated application configuration, not just agents. Narrow to specific known agent subdirectories, or accept the breadth given §E.2 protects the dangerous paths? *(No recommendation; this is a genuine risk-appetite call.)*
+* [x] **Question 1 — `Bash` interception.** Should the guard attempt heuristic interception of shell writes (matching `>`, `>>`, `tee`, `sed -i` against repo paths), or formally document Layer 1 as write-tool-scoped with Layer 2 authoritative?
+  - **Decision:** Document the boundary. Formally declare Layer 1 as write-tool-scoped and Layer 2 (`aapp-pre-commit`) as authoritative. Avoid brittle shell regex parsing that leads to false bypass heuristics.
+* [x] **Question 2 — Default allowlist breadth.** Ship the §E.1 built-in defaults, or ship an empty list requiring explicit opt-in?
+  - **Decision:** Ship built-in defaults (including Claude, Antigravity, Codex, Cursor, XDG, tmp) for out-of-the-box multi-agent usability.
+* [x] **Question 3 — Management UX.** Is `git config --add aapp.allowPath` sufficient, or should `aapp` gain a `guard allow` / `guard list` verb?
+  - **Decision:** Stick to `git config --add aapp.allowPath` for now to keep CLI dispatcher lean.
+* [x] **Question 4 — Scope of `$HOME/.config/`.** Defaulting this prefix is broad — it covers unrelated application configuration, not just agents. Narrow to specific known agent subdirectories, or accept the breadth given §E.2 protects the dangerous paths?
+  - **Decision:** Accept `$HOME/.config/` breadth; Section 2b hard-denies `*/.config/git/*` and other sensitive targets.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-* **2026-09-15:** Plan initialized. Scoped from an adoption defect surfaced live: a write to `~/.claude/projects/<slug>/memory/` was denied by Section 4, and probing showed every external absolute path (`~/.config`, `/tmp`, `~/notes.md`) denies identically — an all-agents defect, not a vendor quirk. Blueprint records the verified Section 2 absolute-path property that makes a user-editable allowlist safe, the traversal hazard that makes canonicalization mandatory, the configuration-location analysis rejecting `.agents/`, `.plans/`, and env vars, and the honest limits of Layer 1 given `Bash` is not interceptable.
+* **2026-09-15 (Refinement):** Refined blueprint based on architectural review: added Google Antigravity (`$HOME/.gemini/`) to §E.1 built-in defaults for multi-agent parity; formalized strict trailing-slash prefix normalization to eliminate prefix-aliasing vulnerabilities; updated Out of Bounds and Concurrent Alignment to reflect completed archival of `P-8` and `P-13`; fully resolved Open Questions 1–4; advanced status to `🟡 Refining`.
+* **2026-09-15 (Initial Draft):** Plan initialized. Scoped from an adoption defect surfaced live: a write to `~/.claude/projects/<slug>/memory/` was denied by Section 4, and probing showed every external absolute path (`~/.config`, `/tmp`, `~/notes.md`) denies identically — an all-agents defect, not a vendor quirk. Blueprint records the verified Section 2 absolute-path property that makes a user-editable allowlist safe, the traversal hazard that makes canonicalization mandatory, the configuration-location analysis rejecting `.agents/`, `.plans/`, and env vars, and the honest limits of Layer 1 given `Bash` is not interceptable.
