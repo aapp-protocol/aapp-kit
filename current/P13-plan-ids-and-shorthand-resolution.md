@@ -129,37 +129,37 @@ Extend `planning_health.sh` with two new integrity checks:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Resolver Engine & Health Validator (Pairs 4 & 5)
-- [ ] Task 1.1: Author `lib/plan_resolver.sh` implementing POSIX `resolve_plan_path` with unpadded ID matching, slug matching, empty-query guard on transitions, `#` issue collision refusal, and diagnostic formatting.
-- [ ] Task 1.2: Add Pair 4 validation (`check_pair4_plan_id_integrity`) to `lib/planning_health.sh`.
-- [ ] Task 1.3: Add Pair 5 validation (`check_pair5_target_files_self_protection`) to `lib/planning_health.sh` to mechanically block Section 2 files in Target Files.
-- [ ] Task 1.4: Author unit test suite `tests/plan_resolver_test.sh` covering exact paths, unpadded numeric IDs (`P-9`, `9`), slugs, `#` issue rejection, transition verb empty-query guards, ambiguities, and Pair 5 self-protection catches.
+- [x] Task 1.1: Author `lib/plan_resolver.sh` implementing POSIX `resolve_plan_path` with unpadded ID matching, slug matching, empty-query guard on transitions, `#` issue collision refusal, and diagnostic formatting.
+- [x] Task 1.2: Add Pair 4 validation (`check_pair4_plan_id_integrity`) to `lib/planning_health.sh`.
+- [x] Task 1.3: Add Pair 5 validation (`check_pair5_target_files_self_protection`) to `lib/planning_health.sh` to mechanically block Section 2 files in Target Files.
+- [x] Task 1.4: Author unit test suite `tests/plan_resolver_test.sh` covering exact paths, unpadded numeric IDs (`P-9`, `9`), slugs, `#` issue rejection, transition verb empty-query guards, ambiguities, and Pair 5 self-protection catches.
 
 ### Phase 2: Status & CLI Integration
-- [ ] Task 2.1: Update `lib/cmd_status.sh` to extract and display Plan IDs alongside filenames and status badges in Pillar [3/4].
-- [ ] Task 2.2: Expose `aapp plan <query>` or CLI helper resolution if applicable.
+- [x] Task 2.1: Update `lib/cmd_status.sh` to extract and display Plan IDs alongside filenames and status badges in Pillar [3/4].
+- [x] Task 2.2: Expose `aapp plan <query>` or CLI helper resolution if applicable.
 
 ### Phase 3: Templates, Governance Rules & Universal Skills
-- [ ] Task 3.1: Update `templates/plan-template.md` to include `Plan ID` field in header.
-- [ ] Task 3.2: Update `templates/state_matrix.md` and `templates/done-archive-ledger.md` schema with unpadded Plan ID columns (`P-1`, `P-8`).
-- [ ] Task 3.3: Update `templates/skills/aapp-freeze/SKILL.md`, `templates/skills/aapp-done/SKILL.md`, and `templates/skills/aapp-digest/SKILL.md` to document shorthand resolution and mandatory target naming.
-- [ ] Task 3.4: Update `templates/AGENTS.md` to document Plan ID syntax, ADR naming rules, the Two Lanes namespace distinction, and Pair 5 self-protection authoring rules.
-- [ ] Task 3.5: Run `aapp init` to propagate templates into `.agents/skills/` and `.agents/AGENTS.md`.
+- [x] Task 3.1: Update `templates/plan-template.md` to include `Plan ID` field in header.
+- [x] Task 3.2: Update `templates/state_matrix.md` and `templates/000-archive-ledger.md` schema with unpadded Plan ID columns (`P-1`, `P-8`).
+- [x] Task 3.3: Update `templates/skills/aapp-freeze/SKILL.md`, `templates/skills/aapp-done/SKILL.md`, and `templates/skills/aapp-digest/SKILL.md` to document shorthand resolution and mandatory target naming.
+- [x] Task 3.4: Update `templates/AGENTS.md` to document Plan ID syntax, ADR naming rules, the Two Lanes namespace distinction, and Pair 5 self-protection authoring rules.
+- [x] Task 3.5: Run `aapp init` to propagate templates into `.agents/skills/` and `.agents/AGENTS.md`.
 
 ### Phase 4: Retroactive Indexing & Migration of Active Blueprints
-- [ ] Task 4.1: Index existing 8 archived plans in `.plans/done/000-archive-ledger.md` with retroactive IDs `P-1` through `P-8` (leaving disk filenames unchanged to preserve historical URLs and commit references), and index bootstrap commit as `P-0`.
-- [ ] Task 4.2: Rename and assign IDs to active Incubator plans in `.plans/current/`:
+- [x] Task 4.1: Index existing 8 archived plans in `.plans/done/000-archive-ledger.md` with retroactive IDs `P-1` through `P-8` (leaving disk filenames unchanged to preserve historical URLs and commit references), and index bootstrap commit as `P-0`.
+- [x] Task 4.2: Rename and assign IDs to active Incubator plans in `.plans/current/`:
   - `P-9`: `P9-guard-path-authorization.md`
   - `P-10`: `P10-remote-sync.md`
   - `P-11`: `P11-airgapped-pickup.md`
   - `P-12`: `P12-lifecycle-hooks.md`
   - `P-13`: `P13-plan-ids-and-shorthand-resolution.md` (this blueprint)
-- [ ] Task 4.3: Update `.plans/state_matrix.md` with new filenames and `P-` ID prefixes.
+- [x] Task 4.3: Update `.plans/state_matrix.md` with new filenames and `P-` ID prefixes.
 
 ### Phase 5: Test Suite Expansion & Documentation
-- [ ] Task 5.1: Update `tests/install_test.sh` and `tests/pre-commit_test.sh` to verify Plan ID handling, Pair 4/5 health checks, and resolver availability.
-- [ ] Task 5.2: Run all test suites (`tests/install_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, `tests/plan_resolver_test.sh`).
-- [ ] Task 5.3: Update `MANUAL.md` and `README.md` with Plan ID documentation and shorthand command examples.
-- [ ] Task 5.4: Record all changes in `CHANGELOG.md` under `[Unreleased]`.
+- [x] Task 5.1: Update `tests/install_test.sh` and `tests/pre-commit_test.sh` to verify Plan ID handling, Pair 4/5 health checks, and resolver availability.
+- [x] Task 5.2: Run all test suites (`tests/install_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, `tests/plan_resolver_test.sh`).
+- [x] Task 5.3: Update `MANUAL.md` and `README.md` with Plan ID documentation and shorthand command examples.
+- [x] Task 5.4: Record all changes in `CHANGELOG.md` under `[Unreleased]`.
 
 ---
 
