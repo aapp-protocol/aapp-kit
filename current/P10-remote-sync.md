@@ -1,6 +1,7 @@
-# 🗺️ Plan: Remote Worktree Synchronization (`aapp push`, `aapp pull`, `aapp sync`)
+# 🗺️ Plan P-10: Remote Worktree Synchronization (`aapp push`, `aapp pull`, `aapp sync`)
 * **Created:** 2026-09-10 | **Last Refined:** 2026-09-10
 * **Target Issue / Milestone:** Milestone v1.1.0 (Remote Worktree Automation)
+* **Plan ID:** P-10
 * **Status:** 🔴 Under Review
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
 

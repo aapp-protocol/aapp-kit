@@ -1,6 +1,7 @@
-# 🗺️ Plan: Guard Path Authorization — External Allowlist & Tool-Matcher Coverage
+# 🗺️ Plan P-9: Guard Path Authorization — External Allowlist & Tool-Matcher Coverage
 * **Created:** 2026-09-15 | **Last Refined:** 2026-09-15
 * **Target Issue / Milestone:** `#65` (external-path false denial) — also closes the matcher half of `#53`
+* **Plan ID:** P-9
 * **Status:** 🔴 Under Review
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
 

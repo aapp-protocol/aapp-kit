@@ -1,6 +1,7 @@
-# 🗺️ Plan: Lifecycle Plugin Hooks Architecture (`.plans/hooks/`)
+# 🗺️ Plan P-12: Lifecycle Plugin Hooks Architecture (`.plans/hooks/`)
 * **Created:** 2026-09-10 | **Last Refined:** 2026-09-10
 * **Target Issue / Milestone:** Milestone v1.2.0 (Lifecycle Extension Engine)
+* **Plan ID:** P-12
 * **Status:** 🔴 Under Review
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
 

@@ -1,6 +1,7 @@
-# 🗺️ Plan: Air-Gapped Reference Store & Leak Protection (`.plans/pickup/`)
+# 🗺️ Plan P-11: Air-Gapped Reference Store & Leak Protection (`.plans/pickup/`)
 * **Created:** 2026-09-10 | **Last Refined:** 2026-09-10
 * **Target Issue / Milestone:** Milestone v1.1.0 (Air-Gapped Reference Store)
+* **Plan ID:** P-11
 * **Status:** 🔴 Under Review
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
 
