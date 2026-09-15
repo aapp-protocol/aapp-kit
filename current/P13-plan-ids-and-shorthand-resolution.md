@@ -173,7 +173,7 @@ Extend `planning_health.sh` with two new integrity checks:
 - [ ] `lib/cmd_status.sh` -> Display Plan IDs in Pillar 3 reporting.
 - [ ] `templates/plan-template.md` -> Add `Plan ID` header and metadata fields.
 - [ ] `templates/state_matrix.md` -> Incorporate `Plan ID` column/prefix in incubator and greenlight zones.
-- [ ] `templates/done-archive-ledger.md` -> Incorporate `Plan ID` column in completed plans table.
+- [ ] `templates/000-archive-ledger.md` -> Incorporate `Plan ID` column in completed plans table.
 - [ ] `templates/skills/aapp-freeze/SKILL.md` -> Document shorthand resolution in freeze skill.
 - [ ] `templates/skills/aapp-done/SKILL.md` -> Document shorthand resolution in done skill.
 - [ ] `templates/skills/aapp-digest/SKILL.md` -> Document auto-incrementing ID assignment in digest skill.
