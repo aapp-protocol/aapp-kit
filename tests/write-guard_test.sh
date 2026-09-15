@@ -203,6 +203,61 @@ else
   red "large payload (>300KB) blocked with exit code 2" "DENY" "rc=$rc_large"; FAIL=$((FAIL+1))
 fi
 
+echo "== external path authorization & precedence =="
+setup
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> allowed
+### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `src/forbidden.py` -> forbidden
+## end
+EOF
+
+# 1. ALLOW: allowlisted external memory & scratch paths
+check_decision "claude memory path allowlisted" ALLOW "$HOME/.claude/projects/test/memory/note.md"
+check_decision "antigravity brain path allowlisted" ALLOW "$HOME/.gemini/antigravity-ide/brain/test.md"
+check_decision "temp scratchpad allowlisted" ALLOW "/tmp/scratchpad_aapp_test.txt"
+
+# 2. ALLOW: path added only via git config --add aapp.allowPath
+CUSTOM_EXT_DIR="$R/custom_external"
+mkdir -p "$CUSTOM_EXT_DIR"
+git config --add aapp.allowPath "$CUSTOM_EXT_DIR"
+check_decision "custom git config allowPath" ALLOW "$CUSTOM_EXT_DIR/notes.md"
+
+# 3. DENY: external path matching no allowlist entry
+check_decision "external path without allowlist entry" DENY "/var/data/arbitrary/file.txt"
+
+# 4. DENY: Section 2 self-protection precedence over allowlist
+check_decision "section 2 claude settings precedence" DENY "$HOME/.claude/settings.json"
+check_decision "section 2 governance skill precedence" DENY "$HOME/.claude/skills/aapp-done/SKILL.md"
+check_decision "section 2 git config precedence" DENY "$R/repo/.git/config"
+
+# 5. DENY: Section 2b hard-deny precedence even if $HOME is explicitly allowlisted
+git config --add aapp.allowPath "$HOME"
+check_decision "section 2b ssh key denied despite HOME in allowlist" DENY "$HOME/.ssh/authorized_keys"
+check_decision "section 2b shell rc denied despite HOME in allowlist" DENY "$HOME/.bashrc"
+check_decision "section 2b local bin denied despite HOME in allowlist" DENY "$HOME/.local/bin/evil_script"
+
+# 6. DENY: Traversal attempt through allowlisted prefix into repo
+check_decision "canonicalization closes traversal into repo" DENY "/tmp/..$R/repo/src/forbidden.py"
+
+# 7. Matcher coverage: MultiEdit tool support
+call_guard_json "MultiEdit" "$R/repo/src/forbidden.py"
+rc_multiedit=$?
+if [ $rc_multiedit -eq 2 ]; then
+  green "MultiEdit tool intercepted and enforced" "DENY"; PASS=$((PASS+1))
+else
+  red "MultiEdit tool intercepted and enforced" "DENY" "rc=$rc_multiedit"; FAIL=$((FAIL+1))
+fi
+
+call_guard_json "MultiEdit" "$R/repo/src/a.py"
+rc_multiedit_allow=$?
+if [ $rc_multiedit_allow -eq 0 ]; then
+  green "MultiEdit tool allowed for target file" "ALLOW"; PASS=$((PASS+1))
+else
+  red "MultiEdit tool allowed for target file" "ALLOW" "rc=$rc_multiedit_allow"; FAIL=$((FAIL+1))
+fi
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]

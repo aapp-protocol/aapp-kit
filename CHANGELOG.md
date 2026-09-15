@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Multi-Agent Path Authorization & External Allowlist (`templates/blast-radius-guard.sh`): Adds Section 2c external path allowlist supporting built-in defaults for Claude Code (`~/.claude/`), Google Antigravity (`~/.gemini/`), OpenAI Codex (`~/.codex/`), Cursor (`~/.cursor/`), XDG directories, and temporary directories (`/tmp/`, `$TMPDIR/`, `/var/folders/`), plus user additions via `git config --add aapp.allowPath` (`#65`).
+- Section 2b External Hard-Deny (`templates/blast-radius-guard.sh`): Blocks modifications to credentials, SSH keys, GPG keys, AWS/Azure/Kube credentials, shell startup files, git configs, and system binaries regardless of allowlist breadth.
+- POSIX Lexical Path Canonicalization (`templates/blast-radius-guard.sh`): Resolves `.` and `..` lexically without expanding symlinks to defeat directory traversal attempts while preserving dual-path inode protection.
+- Test suite expanded to 146 automated test cases (+14 cases in `tests/write-guard_test.sh`) covering external paths, allowlists, Section 2/2b precedences, canonicalization traversal, and `MultiEdit` tool interception.
 - Plan ID Canonical Standard & Shorthand Resolver Engine (`lib/plan_resolver.sh`): Adds POSIX resolution for blueprints via unpadded Plan IDs (`P-9`, `9`), slugs (`guard-path`), or filenames, with strict `#` issue collision rejection and transition verb empty-query protection.
 - Planning-Health Pairs 4 & 5 (`lib/planning_health.sh`): Adds Pair 4 (Plan ID uniqueness, reference integrity, and header/filename agreement) and Pair 5 (mechanical blocking of Section 2 self-protection files in blueprint Target Files).
 - ADR-Style Chronological Blueprint Filenames (`P<N>-<slug>.md`): Migrated active incubator blueprints to unpadded `P<N>-<slug>.md` (`P9` through `P13`).
@@ -26,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Missing `#64` issue row added to `.plans/ISSUES.md`, with count-preservation assertion verifying `49 (archived) + 15 (active) = 64 (unique project issues #1..#64)`.
 
 ### Changed
+- PreToolUse Matcher Coverage: Added `MultiEdit` to PreToolUse matcher in `templates/claude/settings.json` and `lib/cmd_init.sh` with automatic non-destructive settings upgrade during `aapp init` (closing matcher half of `#53`).
+- Added `.git/config` and `*/.git/config` to Section 2 self-protection in `templates/blast-radius-guard.sh`.
+- Added Guard allowlist metrics line to `aapp init` completion banner.
+- Updated `MANUAL.md`, `README.md`, and `templates/AGENTS.md` to document the Layer 1 evaluation pipeline, allowlist configuration, and the Layer 1 tool-scoped vs. Layer 2 commit gate boundary.
 - Updated `lib/cmd_status.sh` to extract and display Plan IDs alongside status badges in Pillar [3/4], and to source `lib/plan_resolver.sh`.
 - Updated `templates/plan-template.md` to include `Plan ID: P-XX` metadata header.
 - Updated Universal Skills (`aapp-freeze`, `aapp-done`, `aapp-digest`) and `templates/AGENTS.md` to support shorthand resolution and enforce explicit plan targets on state transitions.

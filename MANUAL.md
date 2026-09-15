@@ -213,16 +213,37 @@ sequenceDiagram
 
 ### Layer 1: Write-Time PreToolUse Guard (`blast-radius-guard`)
 
-Located at `.githooks/blast-radius-guard`, this executable intercepts AI tool calls before disk writes occur (e.g. Claude Code's `PreToolUse` hook).
+Located at `.githooks/blast-radius-guard`, this executable intercepts AI tool calls before disk writes occur (e.g. Claude Code's `PreToolUse` hook across `Write`, `Edit`, `MultiEdit`, `NotebookEdit`).
 
-#### Key Responsibilities:
-1. **Self-Protection Perimeter**: AI tools are strictly forbidden from modifying enforcement configuration:
-   - `.githooks/*`
-   - `.claude/settings.json`
+#### Evaluation Order & Engine Pipeline:
+1. **Input Parsing & Canonicalization**: Standardizes paths using zero-dependency POSIX lexical resolution, collapsing `.` and `..` without dereferencing symlinks to close path traversal escapes while preserving dual-path inode protection.
+2. **Section 2 — Self-Protection Perimeter**: AI tools are strictly forbidden from modifying enforcement configuration and governance skills:
+   - `.githooks/*`, `.git/hooks/*`, `.git/config`
+   - `.claude/settings.json`, `.agents/claude/*`
+   - `.agents/skills/aapp-*`, `.claude/skills/aapp-*`
    - `.cursor/rules/*`
-2. **Blast Radius Enforcement**: If an active, non-blocked plan exists in `.plans/current/*.md`, any write outside the plan's `### 📂 Target Files` is blocked immediately with a clear error payload.
-3. **Zero Dependency JSON Parsing**: Uses standard POSIX tools (`awk`/`sed`/`grep`) to parse hook payloads without requiring `python3`, `jq`, or external dependencies.
-4. **Fail-Open Resilience**: If no active plan exists, or on malformed input, the guard fails open so developer workflows are never bricked.
+3. **Section 2b — External Hard-Deny**: Inviolable credentials, shell startup files, and system binaries are blocked regardless of allowlist breadth:
+   - Credentials & keys: `~/.ssh/*`, `~/.gnupg/*`, `~/.aws/*`, `~/.azure/*`, `~/.kube/*`, `~/.docker/config.json`, `~/.netrc`, `~/.npmrc`, `~/.pypirc`, `~/.git-credentials`
+   - Git configs: `~/.gitconfig`, `~/.config/git/*`
+   - Shell profiles & rc files: `~/.bashrc`, `~/.bash_profile`, `~/.zshrc`, `~/.zprofile`, `~/.profile`, `~/.config/fish/*`
+   - Binaries & cron: `~/.local/bin/*`, `*/crontab`
+4. **Section 2c — External Path Allowlist**: Authorizes agent scratchpads, memory stores, and caches outside the repository:
+   - **Built-in multi-agent defaults**:
+     - Claude Code: `$HOME/.claude/` (project memory, session state)
+     - Google Antigravity: `$HOME/.gemini/` (artifacts, brain logs, scratchpads)
+     - OpenAI Codex: `$HOME/.codex/`
+     - Cursor: `$HOME/.cursor/`
+     - XDG directories: `$XDG_CONFIG_HOME/`, `$XDG_DATA_HOME/`, `$HOME/.config/`, `$HOME/.local/share/`
+     - Temporary scratchpads: `/tmp/`, `$TMPDIR/`, `/var/folders/`
+   - **User-configurable allowlist**: Extend via git config:
+     ```bash
+     git config --add aapp.allowPath "$HOME/.local/state/myagent/"
+     ```
+   - **Trailing-slash normalization**: All allowlisted directories enforce strict trailing slashes to prevent prefix aliasing (`~/.claude/` never matches `~/.claude_fake/*`).
+5. **Section 3 — Always-Allowed Repository Invariants**: Project architecture documents, package manifests, rules, and plans (`.plans/*`, `.agents/*`, `CHANGELOG.md`, `README.md`, `MANUAL.md`, etc.) are always permitted.
+6. **Section 4 — Blast Radius Validation**: If an active, non-blocked plan exists in `.plans/current/*.md`, any write outside the plan's `### 📂 Target Files` (or listed in `### 🛑 Out of Bounds`) is blocked immediately with exit code 2 and a structured failure message.
+7. **Tool-Scoped Boundary vs. Layer 2 Gate**: Layer 1 evaluates structured file-writing tools only (`Write`, `Edit`, `MultiEdit`, `NotebookEdit`). Because shell executions (`Bash`) carry command strings rather than structured paths, shell writes cannot be safely parsed; Layer 2 (`aapp-pre-commit`) serves as the strict, inescapable gate for all committed code.
+8. **Fail-Open Resilience**: If no active plan exists, or on malformed input, normal repository files are permitted so developer workflows are never bricked.
 
 ---
 

@@ -63,8 +63,8 @@ Enforcement runs at **two moments**, and neither is optional:
 
 | When | What |
 | :--- | :--- |
-| **Write time** | `.githooks/blast-radius-guard` (a `PreToolUse` hook) refuses the edit itself. A file outside the Target Files never changes on disk. |
-| **Commit time** | `.githooks/pre-commit` refuses to record staged files outside the plan. |
+| **Write time** | `.githooks/blast-radius-guard` (a `PreToolUse` hook) intercepts structured file-writing tools (`Write`, `Edit`, `MultiEdit`, `NotebookEdit`). External agent scratchpads and memories (e.g. `~/.claude/`, `~/.gemini/`, `/tmp/`, or configured via `git config aapp.allowPath`) are authorized, while repository edits outside declared Target Files are refused before touching disk. |
+| **Commit time** | `.githooks/pre-commit` is the authoritative boundary that refuses to record staged files outside the plan. Because shell executions (`Bash`) carry command strings rather than structured file targets, write-time tool interception cannot safely parse raw shell writes; Layer 2 (`pre-commit`) serves as the strict, inescapable gate for all committed code. |
 
 If a write is refused, **do not work around it** — not with a shell heredoc, not with `sed`, not by disabling the hook. A refusal means the file is outside the plan you were given. Either stay inside the Target Files, or stop and ask the human to add the file to `### 📂 Target Files` first. Both layers also refuse any work on a plan marked `🚫 BLOCKED`.
 

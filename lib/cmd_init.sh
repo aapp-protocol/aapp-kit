@@ -394,11 +394,13 @@ for entry in target_data["hooks"]["PreToolUse"]:
         for h in entry["hooks"]:
             if isinstance(h, dict) and h.get("command") == hook_cmd:
                 has_hook = True
+                if "matcher" in entry and isinstance(entry["matcher"], str) and "MultiEdit" not in entry["matcher"]:
+                    entry["matcher"] = "Write|Edit|MultiEdit|NotebookEdit"
                 break
 
 if not has_hook:
     target_data["hooks"]["PreToolUse"].append({
-        "matcher": "Write|Edit|NotebookEdit",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
             {
                 "type": "command",
@@ -452,7 +454,7 @@ sync_claude_settings() {
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write|Edit|NotebookEdit",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -579,6 +581,8 @@ echo "➡️  State Matrix Brain:   .plans/state_matrix.md"
 echo "➡️  Release Runbooks:     .plans/release/"
 echo "➡️  Write-time guard:    .githooks/blast-radius-guard"
 echo "➡️  Universal Skills:     .agents/skills/ (bridged to .claude/skills/)"
+CUSTOM_ALLOW_COUNT=$(git config --get-all aapp.allowPath 2>/dev/null | grep -c . || true)
+echo "➡️  Guard allowlist:      7 built-in + ${CUSTOM_ALLOW_COUNT} from git config (aapp.allowPath)"
 
 # Detect Branching Topology
 DEV_EXISTS=0

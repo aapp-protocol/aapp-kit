@@ -100,9 +100,10 @@ graph TD
 ```
 
 1. **Layer 1: Write-Time Hook (`.githooks/blast-radius-guard`)**
-   - Intercepts AI tool executions (e.g. Claude Code `PreToolUse` events).
-   - Prevents AI from tampering with enforcement hooks (`.githooks/*`, `.claude/settings.json`, `.cursor/rules/*`).
+   - Intercepts AI tool executions across `Write`, `Edit`, `MultiEdit`, and `NotebookEdit`.
+   - Prevents AI from tampering with enforcement hooks and configs (`.githooks/*`, `.claude/settings.json`, `.git/config`, `.cursor/rules/*`).
    - Rejects file modifications outside the active blueprint's declared `### 📂 Target Files`.
+   - **Multi-Agent Allowlist**: Authorizes agent memory stores and scratchpads outside the repository (`~/.claude/`, `~/.gemini/`, `~/.codex/`, `~/.cursor/`, `/tmp/`, or via `git config aapp.allowPath`) with strict lexical canonicalization and credential protection.
    - **Fail-Open Safety**: Never bricks the developer when no active blueprints exist or on invalid inputs.
 
 2. **Layer 2: Commit-Time Hook (`.githooks/aapp-pre-commit` / `.githooks/pre-commit`)**
@@ -322,10 +323,10 @@ Every plan in `.plans/current/<name>.md` defines strict boundaries:
 
 ## 9. Testing & Verification Suites
 
-AAPP includes 132 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, skill synchronization, flat issue ledger, Plan ID shorthand resolution, five-pair planning-health validation, and installer resolution:
+AAPP includes 146 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, skill synchronization, flat issue ledger, Plan ID shorthand resolution, five-pair planning-health validation, and installer resolution:
 
 ```bash
-# Run complete test verification suite (132 tests)
+# Run complete test verification suite (146 tests)
 ./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh && ./tests/plan_resolver_test.sh
 ```
 
@@ -333,7 +334,7 @@ AAPP includes 132 automated regression test cases verifying hook enforcement, wr
 | :--- | :--- | :--- | :--- |
 | **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 47 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` decoupling & merge, Universal Skills sync, drift control, archive provisioning, non-destructive custom `ISSUES.md` advisory, flat schema, Plan ID template headers. |
 | **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 32 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection, POSIX ID-anchored roadmap auto-pruning, detect-and-block Relocation Invariant, planning-health Pairs 1–5 integrity validation. |
-| **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 34 cases | PreToolUse Claude Code JSON payload, self-protection invariants (`.agents/claude/*`, `.claude/settings.json`, `.agents/skills/aapp-*`, `.claude/skills/aapp-*`), fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
+| **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 48 cases | PreToolUse Claude Code JSON payload, self-protection invariants (`.agents/claude/*`, `.claude/settings.json`, `.git/config`, `.agents/skills/aapp-*`, `.claude/skills/aapp-*`), Section 2b external hard-deny (credentials, shell rc, local bin), Section 2c external path allowlist (Claude, Antigravity, temp, git config `aapp.allowPath`), lexical canonicalization traversal prevention, `MultiEdit` matcher coverage, fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
 | **Plan Resolver & Health** | [tests/plan_resolver_test.sh](tests/plan_resolver_test.sh) | 19 cases | Plan ID resolution (`P-9`, `9`, `P13`), slug matching, Issue `#` collision rejection, transition verb empty-query guards, `get_plan_id`/`get_next_plan_id`, Pair 4 Plan ID uniqueness, Pair 5 Section 2 target blocks. |
 
 ---
