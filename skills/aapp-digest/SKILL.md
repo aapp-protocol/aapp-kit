@@ -32,11 +32,11 @@ Scan `.plans/current/*.md` before drafting:
 
 ### Step 4a: NEW Plan (From Scratch)
 1. Cross-reference `.agents/CODEMAP.md` (or `CODEMAP.md`) and `ARCHITECTURE.md` to ensure the design extends existing modules rather than adding duplicate helpers.
-2. Scaffold `.plans/current/<feature-name>.md` from `.plans/plan-template.md`.
+2. Allocate the next unpadded Plan ID using `get_next_plan_id` (scanning highest existing ID across `.plans/current/` and `.plans/done/` and incrementing by 1: `P-<num>`). Scaffold `.plans/current/P<num>-<slug>.md` from `.plans/plan-template.md`, populating `* **Plan ID:** P-<num>` in the header.
 3. Fill in *Context & Architectural Goal*, *Technical Blueprint*, and *Implementation Steps & Execution Checklist*.
-4. Propose a Blast Radius (`### 📂 Target Files` and `### 🛑 Out of Bounds`). Mark it **PROPOSED** — it is not locked and confers no code execution rights.
+4. Propose a Blast Radius (`### 📂 Target Files` and `### 🛑 Out of Bounds`). Mark it **PROPOSED** — it is not locked and confers no code execution rights. Ensure no files matching Guard Section 2 self-protection are placed in Target Files (enforced by Pair 5).
 5. Record every unresolved technical decision in `## ❓ 5. Open Questions`.
-6. Register the plan in `.plans/state_matrix.md` under `## 🧠 1. Human Thought & Refinement (The Incubator)` with status 🔴.
+6. Register the plan in `.plans/state_matrix.md` under `## 🧠 1. Human Thought & Refinement (The Incubator)` with status 🔴 and format `- 🔴 **P-<num>**: [P<num>-<slug>.md](current/P<num>-<slug>.md) — ...`.
 
 ### Step 4b: AMEND Existing Plan
 1. Fold the new requirements into the appropriate sections (*Technical Blueprint*, *Implementation Steps*, *Open Questions*, or *Blast Radius*).
