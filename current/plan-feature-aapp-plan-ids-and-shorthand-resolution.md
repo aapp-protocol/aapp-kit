@@ -2,7 +2,7 @@
 * **Created:** 2026-09-15 | **Last Refined:** 2026-09-15
 * **Target Issue / Milestone:** Ergonomic Enhancement (Plan Lane Identity & CLI/Skill Shorthand)
 * **Plan ID:** P-13
-* **Status:** 🔴 Under Review
+* **Status:** 🟢 Ready for Execution
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
@@ -166,6 +166,7 @@ Extend `planning_health.sh` with two new integrity checks:
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
+*(Marked: **LOCKED** — greenlit for execution)*
 - [ ] `NEW FILE` -> `lib/plan_resolver.sh` -> Reusable POSIX plan resolution helper.
 - [ ] `NEW FILE` -> `tests/plan_resolver_test.sh` -> Test suite for plan ID & shorthand resolution.
 - [ ] `lib/planning_health.sh` -> Add Pair 4 (Plan IDs) and Pair 5 (Target Files vs Section 2) validation.
@@ -177,6 +178,8 @@ Extend `planning_health.sh` with two new integrity checks:
 - [ ] `templates/skills/aapp-done/SKILL.md` -> Document shorthand resolution in done skill.
 - [ ] `templates/skills/aapp-digest/SKILL.md` -> Document auto-incrementing ID assignment in digest skill.
 - [ ] `templates/AGENTS.md` -> Formalize Plan ID specification and Two Lanes namespace distinction.
+- [ ] `tests/install_test.sh` -> Test suite updates for Plan ID verification and resolver integration.
+- [ ] `tests/pre-commit_test.sh` -> Test suite updates for Pair 4 & Pair 5 health validations.
 - [ ] `MANUAL.md` -> User documentation for plan IDs and shorthand commands.
 - [ ] `README.md` -> Feature description for plan ergonomics.
 - [ ] `CHANGELOG.md` -> Keep a Changelog entries under `[Unreleased]`.
@@ -211,3 +214,5 @@ Extend `planning_health.sh` with two new integrity checks:
 * **2026-09-15:** Aligned with user decisions on Q1 and Q2:
   1. Standardized strictly on **unpadded IDs** (`P-1`, `P-8`, `P-9`, `P-13`) and filenames (`P9-guard-path-authorization.md`, `P13-plan-ids-...md`) for superior grepping and consistency with issue IDs (`#1`, `#49`, `#64`);
   2. Preserved original filenames on disk in `.plans/done/` and added `Plan ID` field to `.plans/done/000-archive-ledger.md`.
+* **2026-09-15:** Plan frozen and greenlit for execution. Blast radius locked.
+
