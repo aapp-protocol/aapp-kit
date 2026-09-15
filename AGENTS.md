@@ -93,6 +93,12 @@ The workspace tracks two separate phases. Routing an item into the wrong lane co
 - **The Relocation Invariant:** Active `ISSUES.md` holds ONLY active items (`🟡 Incubated`, `🔵 Planned`, `🟠 In Progress`). Resolved issues are physically relocated to `.plans/done/000-issues-archive.md`. The status badge `✅ Resolved` does NOT exist in active `ISSUES.md`. Pre-commit hooks detect and block any commit leaving resolved rows in `ISSUES.md`.
 - **Universal Domain Taxonomy:** The `Type` column uses an uppercase token conforming to `^[A-Z0-9_-]+$` (recommended core: `CORE`, `CLI`, `UI`, `DB`, `NET`, `SEC`, `HOOK`, `DOCS`, `TEST`, `PERF`).
 
+### 🏷️ Distinct Identifiers: Issue IDs (`#<num>`) vs. Plan IDs (`P-<num>`)
+- **Issues use `#<num>`**: Unpadded integer IDs prefixed with `#` (e.g. `#1`, `#49`, `#64`).
+- **Plans use `P-<num>`**: Unpadded integer IDs prefixed with `P-` (e.g. `P-1`, `P-8`, `P-9`, `P-13`). Active blueprint filenames adopt ADR-style naming: `P<num>-<slug>.md` (e.g. `P9-guard-path-authorization.md`).
+- **Namespace Separation**: Issue references (`#9`) and Plan references (`P-9`) must never be interchanged. Commands (`/aapp-freeze`, `/aapp-done`) accept Plan IDs (`P-9`, `9`), slugs (`guard-path`), or filenames, and reject `#9` with an advisory notice.
+- **Pair 5 Self-Protection Rule**: When declaring `### 📂 Target Files`, never list files matching Guard Section 2 self-protection (`.githooks/*`, `.agents/skills/aapp-*`, `.claude/settings*`, `.cursor/rules/*`). Pair 5 of the planning-health engine mechanically blocks any blueprint violating this rule.
+
 ---
 ### ⬆️ Promotion: an Issue becoming a Plan is a normal path
 The lanes are separate, **not sealed**. A fix too large to simply *do* deserves a proper blueprint. This is not an exception or an escalation — it is ordinary engineering, and for a wide code touch it is the **expected** path, because a locked Blast Radius is exactly what you want around a big refactor.
@@ -154,11 +160,11 @@ The agent must support and execute these shorthand workflow triggers immediately
 
   **Step 4a — NEW plan (from scratch):**
   1. Cross-reference `.agents/CODEMAP.md` (or `CODEMAP.md`) and `ARCHITECTURE.md` so the design extends existing modules instead of adding duplicate helpers or wrappers.
-  2. Scaffold `.plans/current/<feature-name>.md` from `.plans/plan-template.md`.
+  2. Allocate the next unpadded Plan ID (`get_next_plan_id`) and scaffold `.plans/current/P<num>-<slug>.md` from `.plans/plan-template.md`.
   3. Fill in *Context & Architectural Goal*, *Technical Blueprint*, and *Implementation Steps & Execution Checklist*.
-  4. Propose a Blast Radius. Mark it **PROPOSED** — it is not locked and confers no execution rights.
+  4. Propose a Blast Radius. Mark it **PROPOSED** — it is not locked and confers no execution rights. Never declare files matching Guard Section 2 self-protection in Target Files (enforced by Pair 5).
   5. Write every unresolved decision into *Open Questions*. A first draft with no open questions is usually an under-examined draft.
-  6. Register it in `.plans/state_matrix.md` under the Incubator with status 🔴/🟡.
+  6. Register it in `.plans/state_matrix.md` under the Incubator with status 🔴/🟡 and `P-<num>` handle.
 
   **Step 4b — AMEND an existing plan:**
   1. Fold the new detail into the section it belongs to — *Technical Blueprint*, *Implementation Steps*, *Open Questions*, or *Blast Radius*.
@@ -173,15 +179,17 @@ The agent must support and execute these shorthand workflow triggers immediately
   > **`digest` produces a draft, never a green light.** The output is an Incubator entry to be refined. Only `freeze` makes a plan executable.
 
 - **`freeze <plan>` (or `/aapp-freeze <plan>`, `/aapp:freeze <plan>`, `/aapp freeze <plan>`, `/freeze <plan>`)**: Lock and greenlight a blueprint for code execution.
-  1. Scan `.plans/current/<plan>.md` to verify all Open Questions are resolved and Blast Radius (`Target Files` / `Out of Bounds`) is explicitly defined.
-  2. Move the plan in `.plans/state_matrix.md` from the Incubator into `## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)`.
-  3. Seal the boundary: the execution session may only touch files in the locked Blast Radius.
+  1. Resolve `<plan>` using shorthand resolution (Plan ID `P-9`, `9`, slug, or filename). Target must be explicitly named — empty queries are strictly refused.
+  2. Scan `.plans/current/<plan>.md` to verify all Open Questions are resolved and Blast Radius (`Target Files` / `Out of Bounds`) is explicitly defined.
+  3. Move the plan in `.plans/state_matrix.md` from the Incubator into `## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)`.
+  4. Seal the boundary: the execution session may only touch files in the locked Blast Radius.
 
 - **`done <plan>` (or `/aapp-done <plan>`, `/aapp:done <plan>`, `/aapp done <plan>`, `/done <plan>`)**: Complete lifecycle and archive implemented blueprint.
-  1. Move the plan file: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
-  2. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` with plan file link, target issue, verification commit, and repo-relative impact summary.
-  3. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items). If the plan resolved a target issue, relocate it from `ISSUES.md` to `.plans/done/000-issues-archive.md` (enforcing the Relocation Invariant) and prune it from `issues_road_map.md` (the pre-commit hook also auto-prunes resolved lines).
-  4. Commit the transition to the `plans` worktree.
+  1. Resolve `<plan>` using shorthand resolution (Plan ID `P-9`, `9`, slug, or filename). Target must be explicitly named — empty queries are strictly refused.
+  2. Move the plan file: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
+  3. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` with `Plan ID`, plan file link, target issue, verification commit, and repo-relative impact summary.
+  4. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items). If the plan resolved a target issue, relocate it from `ISSUES.md` to `.plans/done/000-issues-archive.md` (enforcing the Relocation Invariant) and prune it from `issues_road_map.md` (the pre-commit hook also auto-prunes resolved lines).
+  5. Commit the transition to the `plans` worktree.
 
 - **`release <version>` (or `/aapp-release <version>`, `/aapp:release <version>`, `/aapp release <version>`, `/release <version>`, `/preflight`)**: Execute release pre-flight verification runbook.
   1. Inspect `.plans/release/release_checklist.md` (the canonical release runbook for the project).
