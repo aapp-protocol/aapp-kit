@@ -58,9 +58,38 @@ if [ -z "$TARGET_FILE" ]; then
     exit 0
 fi
 
-# Normalize path relative to project root
-TARGET_FILE="${TARGET_FILE#"$REPO_ROOT"/}"
-TARGET_FILE="${TARGET_FILE#./}"
+# POSIX lexical path canonicalization (resolves . and .. without expanding symlinks)
+canonicalize_path() {
+    local p="$1"
+    case "$p" in /*) ;; *) p="$PWD/$p" ;; esac
+    local out="" seg
+    local IFS=/
+    for seg in $p; do
+        case "$seg" in
+            ''|.) continue ;;
+            ..)   out="${out%/*}" ;;
+            *)    out="$out/$seg" ;;
+        esac
+    done
+    printf '%s\n' "${out:-/}"
+}
+
+ORIGINAL_TARGET="$TARGET_FILE"
+CANONICAL_TARGET=$(canonicalize_path "$TARGET_FILE")
+REPO_ROOT=$(canonicalize_path "$REPO_ROOT")
+
+# Normalize path relative to project root for repo-internal matching
+case "$CANONICAL_TARGET" in
+    "$REPO_ROOT")
+        TARGET_FILE="."
+        ;;
+    "$REPO_ROOT"/*)
+        TARGET_FILE="${CANONICAL_TARGET#"$REPO_ROOT"/}"
+        ;;
+    *)
+        TARGET_FILE="$CANONICAL_TARGET"
+        ;;
+esac
 
 deny_action() {
     local reason="$1"
@@ -101,8 +130,93 @@ case "$TARGET_FILE" in
     .githooks/*|*/.githooks/*|.git/hooks/*|*/.git/hooks/*)
         deny_action "Tampering with AAPP git hooks engine is strictly prohibited."
         ;;
+    .git/config|*/.git/config)
+        deny_action "Tampering with git configuration (.git/config) is strictly prohibited."
+        ;;
     .cursor/rules/*|*/.cursor/rules/*)
         deny_action "Tampering with agent rule files (.cursor/rules/) is strictly prohibited."
+        ;;
+esac
+
+# ------------------------------------------------------------------------------
+# 2b. External Hard-Deny (Credentials, Shell Startup Files, System Binaries)
+# ------------------------------------------------------------------------------
+case "$CANONICAL_TARGET" in
+    */.ssh/*|*/.gnupg/*|*/.aws/*|*/.azure/*|*/.kube/*|*/.docker/config.json|\
+    */.netrc|*/.npmrc|*/.pypirc|*/.git-credentials|\
+    */.gitconfig|*/.config/git/*|\
+    */.bashrc|*/.bash_profile|*/.zshrc|*/.zprofile|*/.profile|\
+    */.config/fish/*|*/crontab|*/.local/bin/*)
+        deny_action "Modifying sensitive credentials, shell configuration, or external binaries is strictly prohibited."
+        ;;
+esac
+
+# ------------------------------------------------------------------------------
+# 2c. External Path Allowlist (Agent Memory, Scratchpads, and User Allowlist)
+# ------------------------------------------------------------------------------
+resolve_allowlist() {
+    local list=()
+
+    add_prefix() {
+        local p="$1"
+        [ -z "$p" ] && return 0
+        case "$p" in
+            "~") p="$HOME" ;;
+            "~/"*) p="$HOME/${p#\~/}" ;;
+        esac
+        if [ -n "$HOME" ]; then
+            p="${p/\$HOME/$HOME}"
+        fi
+        local canon
+        canon=$(canonicalize_path "$p")
+        if [ -n "$canon" ] && [ "$canon" != "/" ]; then
+            # Strictly normalize with trailing slash to prevent prefix-aliasing
+            list+=("${canon%/}/")
+        fi
+    }
+
+    # Built-in multi-agent defaults
+    [ -n "$HOME" ] && add_prefix "$HOME/.claude"
+    [ -n "$HOME" ] && add_prefix "$HOME/.gemini"
+    [ -n "$HOME" ] && add_prefix "$HOME/.codex"
+    [ -n "$HOME" ] && add_prefix "$HOME/.cursor"
+    if [ -n "$XDG_CONFIG_HOME" ]; then
+        add_prefix "$XDG_CONFIG_HOME"
+    elif [ -n "$HOME" ]; then
+        add_prefix "$HOME/.config"
+    fi
+    if [ -n "$XDG_DATA_HOME" ]; then
+        add_prefix "$XDG_DATA_HOME"
+    elif [ -n "$HOME" ]; then
+        add_prefix "$HOME/.local/share"
+    fi
+    [ -n "$TMPDIR" ] && add_prefix "$TMPDIR"
+    add_prefix "/tmp"
+    [ -d "/var/folders" ] && add_prefix "/var/folders"
+
+    # User-configured additions from git config
+    local custom
+    while IFS= read -r custom; do
+        [ -n "$custom" ] && add_prefix "$custom"
+    done < <(git config --get-all aapp.allowPath 2>/dev/null || true)
+
+    printf '%s\n' "${list[@]}"
+}
+
+case "$CANONICAL_TARGET" in
+    "$REPO_ROOT"/*)
+        # Inside repository, proceed to Section 3 and Section 4 blast radius checks
+        ;;
+    *)
+        # External path: check against authorized allowlist
+        while IFS= read -r allowed_prefix; do
+            [ -z "$allowed_prefix" ] && continue
+            case "$CANONICAL_TARGET" in
+                "$allowed_prefix"*)
+                    exit 0
+                    ;;
+            esac
+        done < <(resolve_allowlist)
         ;;
 esac
 
@@ -128,7 +242,14 @@ ACTIVE_PLANS=$(ls -1 .plans/current/*.md 2>/dev/null || true)
 
 if [ -z "$ACTIVE_PLANS" ]; then
     # Fail-open: if no active blueprints exist, allow edits to normal project files
-    exit 0
+    case "$CANONICAL_TARGET" in
+        "$REPO_ROOT"/*)
+            exit 0
+            ;;
+        *)
+            deny_action "File '$ORIGINAL_TARGET' is outside repository and not in the authorized path allowlist."
+            ;;
+    esac
 fi
 
 parse_plan_section() {
@@ -226,9 +347,9 @@ fi
 
 # Target is outside blast radius or in OOB
 if [ -n "$DENIED_BY_PLAN" ]; then
-    REASON="File '$TARGET_FILE' is explicitly OUT OF BOUNDS in active plan '$DENIED_BY_PLAN'."
+    REASON="File '$ORIGINAL_TARGET' is explicitly OUT OF BOUNDS in active plan '$DENIED_BY_PLAN'."
 else
-    REASON="File '$TARGET_FILE' is outside the declared Target Files of all active plans."
+    REASON="File '$ORIGINAL_TARGET' is outside the declared Target Files of all active plans."
 fi
 
 deny_action "$REASON"
