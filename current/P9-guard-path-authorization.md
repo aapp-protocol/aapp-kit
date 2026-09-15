@@ -205,30 +205,30 @@ git config --add aapp.allowPath "$HOME/.local/state/myagent/"
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 0: Empirical Verification (before any code)
-- [ ] Task 0.1: Confirm each candidate prefix in §E.1 against a real installation on this machine. Record what exists and what does not; drop every unverified path from the built-in defaults and move it to a documented `git config` example.
-- [ ] Task 0.2: Capture the current `tests/write-guard_test.sh` pass count as the regression baseline.
-- [ ] Task 0.3: Confirm the Section 2 absolute-path property from §A still holds (`~/.claude/settings.json` → Section 2, not Section 4). Every later ordering assertion depends on it.
+- [x] Task 0.1: Confirm each candidate prefix in §E.1 against a real installation on this machine. Record what exists and what does not; drop every unverified path from the built-in defaults and move it to a documented `git config` example.
+- [x] Task 0.2: Capture the current `tests/write-guard_test.sh` pass count as the regression baseline.
+- [x] Task 0.3: Confirm the Section 2 absolute-path property from §A still holds (`~/.claude/settings.json` → Section 2, not Section 4). Every later ordering assertion depends on it.
 
 ### Phase 1: Canonicalization
-- [ ] Task 1.1: Add `canonicalize()` to `templates/blast-radius-guard.sh` per §C, with `realpath -m` primary and lexical POSIX fallback. Do not resolve symlinks.
-- [ ] Task 1.2: Canonicalize both `$REPO_ROOT` and `$TARGET_FILE` before the existing prefix-strip; preserve the original string for denial messages.
-- [ ] Task 1.3: Run `aapp init` to propagate, then run `tests/write-guard_test.sh` and confirm the Phase 0 baseline still passes with zero regressions.
+- [x] Task 1.1: Add `canonicalize()` to `templates/blast-radius-guard.sh` per §C, with `realpath -m` primary and lexical POSIX fallback. Do not resolve symlinks.
+- [x] Task 1.2: Canonicalize both `$REPO_ROOT` and `$TARGET_FILE` before the existing prefix-strip; preserve the original string for denial messages.
+- [x] Task 1.3: Run `aapp init` to propagate, then run `tests/write-guard_test.sh` and confirm the Phase 0 baseline still passes with zero regressions.
 
 ### Phase 2: Allowlist & Hard-Deny Engine
-- [ ] Task 2.1: Add Section 2b external hard-deny patterns (§E.2), evaluated immediately after existing Section 2.
-- [ ] Task 2.2: Add `.git/config` and `*/.git/config` to Section 2 self-protection.
-- [ ] Task 2.3: Implement `resolve_allowlist()` — built-in defaults union `git config --get-all aapp.allowPath`, with `$HOME`/`$XDG_*`/`$TMPDIR` expansion and strict trailing-slash prefix semantics (guarantee every prefix ends with `/` to prevent prefix aliasing). Empty or unset variables must never expand to a bare `/`.
-- [ ] Task 2.4: Add Section 2c allowlist evaluation between the hard-deny block and Section 3.
-- [ ] Task 2.5: Run `aapp init`; re-run the write-guard suite.
+- [x] Task 2.1: Add Section 2b external hard-deny patterns (§E.2), evaluated immediately after existing Section 2.
+- [x] Task 2.2: Add `.git/config` and `*/.git/config` to Section 2 self-protection.
+- [x] Task 2.3: Implement `resolve_allowlist()` — built-in defaults union `git config --get-all aapp.allowPath`, with `$HOME`/`$XDG_*`/`$TMPDIR` expansion and strict trailing-slash prefix semantics (guarantee every prefix ends with `/` to prevent prefix aliasing). Empty or unset variables must never expand to a bare `/`.
+- [x] Task 2.4: Add Section 2c allowlist evaluation between the hard-deny block and Section 3.
+- [x] Task 2.5: Run `aapp init`; re-run the write-guard suite.
 
 ### Phase 3: Matcher Coverage & Propagation
-- [ ] Task 3.1: Add `MultiEdit` to the matcher in `templates/claude/settings.json` (closes the matcher half of `#53`).
-- [ ] Task 3.2: Add `MultiEdit` to both matcher strings in `lib/cmd_init.sh` (lines 401 and 455) and to the settings-merge logic so existing adopters are upgraded non-destructively.
-- [ ] Task 3.3: Add the effective-allowlist line to the `aapp init` completion banner (§G).
-- [ ] Task 3.4: Run `aapp init` and verify `.claude/settings.json` receives the new matcher without clobbering user keys.
+- [x] Task 3.1: Add `MultiEdit` to the matcher in `templates/claude/settings.json` (closes the matcher half of `#53`).
+- [x] Task 3.2: Add `MultiEdit` to both matcher strings in `lib/cmd_init.sh` (lines 401 and 455) and to the settings-merge logic so existing adopters are upgraded non-destructively.
+- [x] Task 3.3: Add the effective-allowlist line to the `aapp init` completion banner (§G).
+- [x] Task 3.4: Run `aapp init` and verify `.claude/settings.json` receives the new matcher without clobbering user keys.
 
 ### Phase 4: Tests & Documentation
-- [ ] Task 4.1: Extend `tests/write-guard_test.sh` using the existing `check_decision <name> ALLOW|DENY <path>` and `call_guard_json <tool> <path>` helpers:
+- [x] Task 4.1: Extend `tests/write-guard_test.sh` using the existing `check_decision <name> ALLOW|DENY <path>` and `call_guard_json <tool> <path>` helpers:
   - ALLOW: an allowlisted external memory path (`$HOME/.claude/projects/x/memory/n.md`).
   - ALLOW: an allowlisted Antigravity brain/artifact path (`$HOME/.gemini/antigravity-ide/brain/test.md`).
   - ALLOW: a path added only via `git config --add aapp.allowPath`.
@@ -238,12 +238,12 @@ git config --add aapp.allowPath "$HOME/.local/state/myagent/"
   - DENY: `$HOME/.ssh/authorized_keys` **with `$HOME` explicitly allowlisted** — proves the §E.2 hard-deny precedence.
   - DENY: `$HOME/.claude/../<repo>/lib/cmd_init.sh` **with `~/.claude/` allowlisted** — proves canonicalization closes traversal.
   - Route every new case through **both** `call_guard_cli` and `call_guard_json` (the JSON path is the one agents actually take; `#31` records what happens when only the CLI path is tested).
-- [ ] Task 4.2: Add a `MultiEdit` assertion to the matcher coverage tests.
-- [ ] Task 4.3: Document in `MANUAL.md` — the evaluation order, the built-in defaults, `git config --add aapp.allowPath`, the hard-deny list, and the explicit statement that Layer 1 is write-tool-scoped while Layer 2 is authoritative.
-- [ ] Task 4.4: Update `README.md` guard overview with the allowlist concept in one short paragraph.
-- [ ] Task 4.5: Update `templates/AGENTS.md` per §F to state the shell-write boundary and the reason behind the no-workaround rule.
-- [ ] Task 4.6: Run all four suites (`install_test.sh`, `pre-commit_test.sh`, `write-guard_test.sh`, `plan_resolver_test.sh`); report actual pass counts against the Phase 0 baseline. Do not assert a target number in advance.
-- [ ] Task 4.7: Update `CHANGELOG.md` under `## [Unreleased]`. **No version number.**
+- [x] Task 4.2: Add a `MultiEdit` assertion to the matcher coverage tests.
+- [x] Task 4.3: Document in `MANUAL.md` — the evaluation order, the built-in defaults, `git config --add aapp.allowPath`, the hard-deny list, and the explicit statement that Layer 1 is write-tool-scoped while Layer 2 is authoritative.
+- [x] Task 4.4: Update `README.md` guard overview with the allowlist concept in one short paragraph.
+- [x] Task 4.5: Update `templates/AGENTS.md` per §F to state the shell-write boundary and the reason behind the no-workaround rule.
+- [x] Task 4.6: Run all four suites (`install_test.sh`, `pre-commit_test.sh`, `write-guard_test.sh`, `plan_resolver_test.sh`); report actual pass counts against the Phase 0 baseline. Do not assert a target number in advance.
+- [x] Task 4.7: Update `CHANGELOG.md` under `## [Unreleased]`. **No version number.**
 
 ---
 
