@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# AAPP Post-Commit Staged Note Attacher
+#
+# Attaches customizable AI attribution notes pre-staged via Option C:
+# 1. Byte-faithful commit body hash extraction (B1)
+# 2. Keyed note buffer attachment with atomic unlinking on success (B3)
+# 3. Mismatch diagnostic warnings (B5)
+# 4. Portable TTL reaping sweep for abandoned notes (B5)
+# ==============================================================================
+set -e
+
+NOTE_DIR="$(git rev-parse --git-path . 2>/dev/null || echo ".git")"
+if [ ! -d "$NOTE_DIR" ]; then
+    exit 0
+fi
+
+# 1. Count pending notes in buffer directory
+PENDING_COUNT=$(find "$NOTE_DIR" -maxdepth 1 -name 'aapp_pending_note.*' 2>/dev/null | wc -l)
+if [ "$PENDING_COUNT" -eq 0 ]; then
+    # Silent no-op when no pending notes exist
+    exit 0
+fi
+
+# 2. Extract byte-faithful commit body hash (B1)
+HEAD_HASH="$(git cat-file commit HEAD 2>/dev/null | sed '1,/^$/d' | sha256sum | awk '{print $1}')"
+
+# 3. Match and attach staged note
+NOTE_FILE="$NOTE_DIR/aapp_pending_note.$HEAD_HASH"
+if [ -f "$NOTE_FILE" ]; then
+    if git notes add -f -F "$NOTE_FILE" HEAD 2>&1; then
+        rm -f "$NOTE_FILE"
+    else
+        echo "⚠️  [Post-Commit Warning] Failed to attach git note to HEAD from $NOTE_FILE" >&2
+    fi
+else
+    echo "⚠️  [Post-Commit Warning] Found $PENDING_COUNT pending AI note buffer(s) in $NOTE_DIR, but none matched commit message hash ($HEAD_HASH)." >&2
+fi
+
+# 4. Reaping sweep for expired notes (B5)
+TTL_MINS="$(git config aapp.noteTTL 2>/dev/null || echo "1440")"
+find "$NOTE_DIR" -maxdepth 1 -name 'aapp_pending_note.*' -mmin "+$TTL_MINS" -exec rm -f {} + 2>/dev/null || true
+
+exit 0

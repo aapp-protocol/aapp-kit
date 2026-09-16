@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Git Post-Commit Hook (Project Master Entrypoint)
+#
+# Dispatches to AAPP post-commit staged note attacher.
+# ==============================================================================
+set -e
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "$REPO_ROOT" ]; then
+    exit 0
+fi
+
+# 1. AAPP Post-Commit Staged Note Attacher
+if [ -f "$REPO_ROOT/.githooks/aapp-post-commit" ]; then
+    bash "$REPO_ROOT/.githooks/aapp-post-commit" "$@"
+fi
+
+# 2. Project-Specific Checks (Add custom post-commit notifications below)
