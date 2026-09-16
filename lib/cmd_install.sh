@@ -32,6 +32,7 @@ rm -rf "${SHARE_DIR:?}/lib" "${SHARE_DIR:?}/templates" "${SHARE_DIR:?}/tests"
 [ -d "$AAPP_SCRIPT_DIR/lib" ] && cp -r "$AAPP_SCRIPT_DIR/lib" "$SHARE_DIR/"
 cp -r "$AAPP_SCRIPT_DIR/templates" "$SHARE_DIR/"
 [ -d "$AAPP_SCRIPT_DIR/tests" ] && cp -r "$AAPP_SCRIPT_DIR/tests" "$SHARE_DIR/"
+chmod +x "$SHARE_DIR"/templates/* "$SHARE_DIR"/lib/*.sh 2>/dev/null || true
 
 echo "🔧 Installing binary into $BIN_DIR..."
 cp "$AAPP_SCRIPT_DIR/aapp" "$BIN_DIR/aapp"

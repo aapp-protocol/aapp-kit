@@ -86,6 +86,12 @@ case "$CMD" in
     status)
         source "$AAPP_LIB/cmd_status.sh" "$@"
         ;;
+    ai-status|ai-commit|ai-notes|ai-off|ai-credits|ai-note)
+        source "$AAPP_LIB/cmd_ai.sh" "$CMD" "$@"
+        ;;
+    ai)
+        source "$AAPP_LIB/cmd_ai.sh" "$@"
+        ;;
     version|-v|--version)
         echo "aapp version $AAPP_VERSION"
         exit 0
