@@ -53,6 +53,12 @@
   - [ ] `aapp:9`: `AAPP_VERSION="1.0.0"`
   - [ ] `templates/AGENTS.md:12`: `<!-- AAPP-PROTOCOL:START v1.0.0 -->`
   - [ ] `README.md` & `MANUAL.md`: Automated test count reflects 84 passing tests.
+- [ ] **Cheat Sheet Review (`CHEATSHEET.md`):**
+  - [ ] Every command shown still exists and behaves as described (`aapp help`, the five `/aapp-*` skills).
+  - [ ] The four-pillar table, worktree map, and status enum match the shipped engines — not an earlier draft.
+  - [ ] Plan/issue ID examples resolve against the real resolver.
+  - [ ] Still fits one screen. If it has grown past that, cut rather than reorganize.
+  - [ ] No content restated from `README.md`/`MANUAL.md` that could drift independently — link instead.
 - [ ] **CHANGELOG.md Rollup:**
   - [ ] Move unreleased changes from `## [Unreleased]` into a tagged release section:
     ```markdown
