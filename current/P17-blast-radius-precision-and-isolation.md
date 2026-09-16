@@ -20,7 +20,7 @@
 * **What**: Implement the **Single-Active-Plan Architecture**, introducing enterprise-grade execution lifecycle scaling, native Git worktree physical isolation for multi-agent swarms, and flagless CLI ergonomics:
   1. **Decoupled 5th Plan State (`🟠 In Development`)**: Decouple architectural specification approval (`🟢 Frozen`) from active in-flight execution (`🟠 In Development`), solving multi-agent allowlist inflation and enterprise scaling across large backlogs.
   2. **O(1) Worktree Stash / Pointer Buffer (`.git/aapp_active_plan`)**: Enable sub-millisecond execution checks (< 0.001ms) by pointing directly to the single active blueprint, eliminating O(N) directory sweeps and allowing native parallel agent execution across linked Git worktrees without cross-worktree interference.
-  3. **Flagless Switchboard & Non-Interactive Progression**: Implement parameterless single-token CLI verbs (`aapp start`, `aapp plan`, `aapp plan-swap`, `aapp plan-clear`) and a non-interactive `/aapp-freeze` -> `/aapp-start` flow to eliminate agent stalls.
+  3. **Flagless Switchboard & Non-Interactive Progression**: Implement parameterless single-token CLI verbs (`aapp freeze-start`, `aapp start`, `aapp plan`, `aapp plan-swap`, `aapp plan-clear`), a non-interactive `/aapp-freeze` -> `/aapp-start` flow, and an atomic workflow accelerator `/aapp-freeze-start <plan>` to eliminate agent stalls and execution latency.
   4. **Compile-Time Integrity (Planning Health Pair 7)**: Prevent in-flight collisions by ensuring two blueprints cannot be actively `🟠 In Development` concurrently in the same working tree if their Target Files overlap.
   5. **Clean Vocabulary Migration**: Perform a clean, direct migration across active templates and documents to establish the 5-state lifecycle vocabulary without permanent legacy aliases.
 * **Why**:
@@ -58,14 +58,15 @@ AAPP Plan Lifecycle:
 | **🚫 BLOCKED** | Execution halted on a critical defect. | **Zero**. All commits and edits refused until cleared. |
 | **🏛️ Done** | Verified, merged, and archived in `.plans/done/`. | **Zero**. Historical record. |
 
-#### Non-Interactive Progression: `/aapp-freeze` vs `/aapp-start`
+#### Non-Interactive Progression: `/aapp-freeze`, `/aapp-start`, and the `/aapp-freeze-start` Accelerator
 To eliminate agent stalls and human friction, state transitions are strictly non-interactive:
 1. `/aapp-freeze <plan>`: Verifies checklist & open questions, sets status to `🟢 Frozen`, marks blast radius `LOCKED`, and moves entry in `state_matrix.md` to the Greenlight Backlog. Non-interactive, zero stdin prompts.
 2. `/aapp-start <plan>`: Transitions plan from `🟢 Frozen` to `🟠 In Development`, sets the local worktree pointer buffer (`.git/aapp_active_plan`), and unlocks code execution for that plan.
+3. `/aapp-freeze-start <plan>` (CLI: `aapp freeze-start <plan>`): **The Atomic Workflow Accelerator.** Chains freeze verification and in-flight activation in a single step for immediate execution. Validates open questions and checklist, locks the blast radius, verifies the Disjointness Activation Gate, transitions the plan directly to `🟠 In Development`, binds the local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`), and unlocks code execution without requiring two separate commands.
 
 #### The Disjointness Activation Gate
-When an agent or developer activates a plan via `aapp start <plan>`:
-1. Verifies that the plan is in `🟢 Frozen` status.
+When an agent or developer activates a plan via `aapp start <plan>` or `aapp freeze-start <plan>`:
+1. Verifies that the plan is in `🟢 Frozen` status (or for `freeze-start`, validates open questions/checklist first).
 2. Checks whether any other plan is currently `🟠 In Development` in the same working tree.
    - If another plan is in flight: performs an intersection check between their `Target Files`.
    - If target files overlap: **Hard Block**: `"Cannot activate P-X: shares target files with in-flight plan P-Y. Finish P-Y first or isolate on a separate branch/worktree."`
@@ -98,14 +99,24 @@ PREV_PLAN_FILE="$(git rev-parse --git-path aapp_active_plan.prev 2>/dev/null || 
 3. **Sub-Millisecond O(1) Speed**: Hook reads 1 line (`P-10`) in 0.001ms and opens exactly that 1 blueprint directly.
 4. **Authoritative Single Source of Truth**: The buffer file is authoritative. No environment variable overrides exist, preventing agents from self-granting unauthorized permissions.
 
-#### 3. Flagless Active Plan Switchboard (`aapp plan*`)
+#### 3. Flagless Active Plan Switchboard (`aapp plan*` & `aapp freeze-start`)
 Following the clean, parameterless AAPP command style (`aapp ai-commit`, `aapp ai-off`), commands are single-token verbs:
 ```bash
-aapp start <plan-id>  # Transition plan from 🟢 Frozen to 🟠 In Development and activate buffer
-aapp plan <plan-id>   # Point execution context to plan (stashing prior in .prev)
-aapp plan-swap        # Swap between current and previous active plan (like 'git checkout -' / 'cd -')
-aapp plan-clear       # Clear active plan buffer (revert to auto-discovery mode)
-aapp plan             # Display current active plan and its declared boundaries
+aapp freeze-start <plan-id> # Atomically freeze specification, transition to 🟠 In Development, and activate buffer
+aapp start <plan-id>        # Transition plan from 🟢 Frozen to 🟠 In Development and activate buffer
+aapp plan <plan-id>         # Point execution context to plan (stashing prior in .prev)
+aapp plan-swap              # Swap between current and previous active plan (like 'git checkout -' / 'cd -')
+aapp plan-clear             # Clear active plan buffer (revert to auto-discovery mode)
+aapp plan                   # Display current active plan and its declared boundaries
+```
+
+**Zero-Duplication Composition in `lib/cmd_plan.sh`**:
+`cmd_freeze_start` is composed cleanly from the atomic primitives:
+```bash
+cmd_freeze_start() {
+    local plan="$1"
+    cmd_freeze "$plan" && cmd_start "$plan"
+}
 ```
 
 ---
@@ -172,10 +183,10 @@ Beyond runtime hook enforcement, compile-time planning health verification in `l
    - Update header status enum: `🔴 Under Review | 🟡 Refining | 🟢 Frozen | 🟠 In Development | 🚫 BLOCKED`.
    - Update attribution trailer placeholder to standard semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`).
 2. **`templates/AGENTS.md`**:
-   - Document the 5-state lifecycle and active plan swap buffer protocol (`aapp start <id>`, `aapp plan <id>`, `aapp plan-swap`, `$(git rev-parse --git-path aapp_active_plan)`).
+   - Document the 5-state lifecycle, atomic `aapp freeze-start <id>`, `aapp start <id>`, and active plan swap buffer protocol (`aapp plan <id>`, `aapp plan-swap`, `$(git rev-parse --git-path aapp_active_plan)`).
    - Update `### 💥 Blast Radius Enforcement` with plan-scoped execution rules.
 3. **`MANUAL.md` & `CHEATSHEET.md`**:
-   - Add `/aapp-start <plan>`, `aapp plan`, `aapp plan-swap`, and `aapp plan-clear` to command reference tables and user workflow sections.
+   - Add `/aapp-freeze-start <plan>`, `/aapp-start <plan>`, `aapp freeze-start`, `aapp start`, `aapp plan`, `aapp plan-swap`, and `aapp plan-clear` to command reference tables and user workflow sections.
 
 ---
 
@@ -188,13 +199,14 @@ Beyond runtime hook enforcement, compile-time planning health verification in `l
 
 ### Phase 2: Flagless Active Plan Switchboard (`lib/cmd_plan.sh`)
 - [ ] Task 2.1: Implement `lib/cmd_plan.sh` supporting flagless single-token verbs:
+  - `aapp freeze-start <id>` (atomic freeze verification + activation into `🟠 In Development` + buffer set).
   - `aapp start <id>` (transitions `🟢 Frozen` -> `🟠 In Development` and sets buffer).
   - `aapp plan [id]` (sets buffer, stashes prior in `.prev`).
   - `aapp plan-swap` (toggles between current and `.prev`).
   - `aapp plan-clear` (removes buffer).
   - `aapp plan` (displays current active plan context and declared bounds).
-- [ ] Task 2.2: Wire `start`, `plan`, `plan-swap`, and `plan-clear` subcommands into main `aapp` dispatcher.
-- [ ] Task 2.3: Implement disjointness activation gate in `aapp start` (checks target file overlap with in-flight plans).
+- [ ] Task 2.2: Wire `freeze-start`, `start`, `plan`, `plan-swap`, and `plan-clear` subcommands into main `aapp` dispatcher.
+- [ ] Task 2.3: Implement disjointness activation gate in `aapp start` and `aapp freeze-start` (checks target file overlap with in-flight plans).
 
 ### Phase 3: Planning Health Pair 7 & Status Vocabulary
 - [ ] Task 3.1: Update status recognition in `lib/planning_health.sh` to support `🟢 Frozen` and `🟠 In Development`.
@@ -205,15 +217,18 @@ Beyond runtime hook enforcement, compile-time planning health verification in `l
 - [ ] Task 4.2: Update `templates/AGENTS.md` blast radius rules, lifecycle definitions, and multi-agent plan context protocol.
 - [ ] Task 4.3: Update `templates/skills/aapp-freeze/SKILL.md` to transition plans to `🟢 Frozen` (approved backlog) without interactive prompts.
 - [ ] Task 4.4: Create `templates/skills/aapp-start/SKILL.md` to transition plans from `🟢 Frozen` to `🟠 In Development` and populate the active buffer.
-- [ ] Task 4.5: Create `templates/skills/aapp-plan/SKILL.md` for context switching (`plan`, `plan-swap`, `plan-clear`).
-- [ ] Task 4.6: Update `MANUAL.md` and `CHEATSHEET.md` with the new lifecycle commands and tables.
-- [ ] Task 4.7: Perform clean vocabulary migration across active blueprints in `.plans/current/`.
+- [ ] Task 4.5: Create `templates/skills/aapp-freeze-start/SKILL.md` for atomic freeze and immediate execution activation.
+- [ ] Task 4.6: Create `templates/skills/aapp-plan/SKILL.md` for context switching (`plan`, `plan-swap`, `plan-clear`).
+- [ ] Task 4.7: Update `templates/state_matrix.md` to synchronize state matrix template with 5-state lifecycle (Backlog vs In-Development).
+- [ ] Task 4.8: Update `MANUAL.md` and `CHEATSHEET.md` with the new lifecycle commands (`freeze-start`, `start`, `plan`, `plan-swap`, `plan-clear`) and tables.
+- [ ] Task 4.9: Perform clean vocabulary migration across active blueprints in `.plans/current/`.
 
 ### Phase 5: Verification & Automated Test Suites
 - [ ] Task 5.1: Extend `tests/write-guard_test.sh` with test cases:
   - Plan lifecycle enforcement: `🟢 Frozen` grants zero write rights; `🟠 In Development` enforces declared boundaries.
   - Active plan buffer scoping: Plan A's OOB holds for Plan A, does not block Plan B when Plan B is active in buffer.
   - Flagless plan swap functionality (`aapp plan <id>`, `aapp plan-swap`).
+  - Atomic workflow accelerator (`aapp freeze-start <id>`).
 - [ ] Task 5.2: Extend `tests/pre-commit_test.sh` with pre-commit parity test cases.
 - [ ] Task 5.3: Extend `tests/plan_resolver_test.sh` with Pair 7 collision validation and status resolution test cases.
 - [ ] Task 5.4: Sync hooks via `./aapp init` and run all test suites.
@@ -225,17 +240,19 @@ Beyond runtime hook enforcement, compile-time planning health verification in `l
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `templates/blast-radius-guard.sh` -> Implement active plan buffer resolution and `🟠 In Development` enforcement.
 - [ ] `templates/aapp-pre-commit` -> Implement active plan buffer resolution and pre-commit enforcement.
-- [ ] `NEW FILE` -> `lib/cmd_plan.sh` -> Implement `aapp plan`, `aapp plan-swap`, `aapp plan-clear`, and `aapp start` CLI switchboard.
-- [ ] `aapp` -> Dispatch `plan`, `plan-swap`, `plan-clear`, and `start` commands to `lib/cmd_plan.sh`.
+- [ ] `NEW FILE` -> `lib/cmd_plan.sh` -> Implement `aapp freeze-start`, `aapp start`, `aapp plan`, `aapp plan-swap`, and `aapp plan-clear` CLI switchboard.
+- [ ] `aapp` -> Dispatch `freeze-start`, `start`, `plan`, `plan-swap`, and `plan-clear` commands to `lib/cmd_plan.sh`.
 - [ ] `lib/planning_health.sh` -> Implement Pair 7 Active Blueprint Boundary Collision Validator and updated status vocabulary.
 - [ ] `templates/plan-template.md` -> Document 5-state lifecycle and active plan swap buffer protocol.
 - [ ] `templates/AGENTS.md` -> Synchronize protocol blast radius rules, state definitions, and multi-agent execution conventions.
 - [ ] `templates/skills/aapp-freeze/SKILL.md` -> Update freeze verb to set status `🟢 Frozen` (backlog greenlight) non-interactively.
 - [ ] `NEW FILE` -> `templates/skills/aapp-start/SKILL.md` -> Universal skill for activating plan into `🟠 In Development`.
+- [ ] `NEW FILE` -> `templates/skills/aapp-freeze-start/SKILL.md` -> Universal skill for atomic freeze and start into `🟠 In Development`.
 - [ ] `NEW FILE` -> `templates/skills/aapp-plan/SKILL.md` -> Universal skill for active plan buffer switching.
-- [ ] `MANUAL.md` -> Document full command reference for `aapp start`, `aapp plan`, `aapp plan-swap`, `aapp plan-clear`.
-- [ ] `CHEATSHEET.md` -> Update cheat sheet loop and command tables with `aapp start` and plan switching.
-- [ ] `tests/write-guard_test.sh` -> Add active plan buffer scoping, lifecycle, and swap test cases.
+- [ ] `templates/state_matrix.md` -> Synchronize state matrix template with 5-state lifecycle (Backlog vs In-Development).
+- [ ] `MANUAL.md` -> Document full command reference for `aapp freeze-start`, `aapp start`, `aapp plan`, `aapp plan-swap`, `aapp plan-clear`.
+- [ ] `CHEATSHEET.md` -> Update cheat sheet loop and command tables with `aapp freeze-start`, `aapp start`, and plan switching.
+- [ ] `tests/write-guard_test.sh` -> Add active plan buffer scoping, lifecycle, swap, and freeze-start test cases.
 - [ ] `tests/pre-commit_test.sh` -> Add pre-commit active plan buffer and lifecycle parity tests.
 - [ ] `tests/plan_resolver_test.sh` -> Add Pair 7 integrity test cases and status resolution coverage.
 
@@ -253,7 +270,7 @@ Beyond runtime hook enforcement, compile-time planning health verification in `l
 ## ❓ 5. Open Questions (Optional / Gate)
 
 * [x] **Question 1: Multi-Agent Concurrency, State Decoupling & Flagless Buffer Protocol**
-  - *Resolution:* Adopted decoupled 5-state lifecycle (`🟢 Frozen` = approved backlog spec, `🟠 In Development` = active coding) combined with local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`). Non-interactive `/aapp-freeze` and `/aapp-start` flow. Flagless verbs (`aapp plan-swap`, `aapp plan-clear`). Native Git worktree physical isolation. Dropped environment variable override to prevent self-granted permissions.
+  - *Resolution:* Adopted decoupled 5-state lifecycle (`🟢 Frozen` = approved backlog spec, `🟠 In Development` = active coding) combined with local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`). Non-interactive `/aapp-freeze` and `/aapp-start` flow, augmented by atomic `/aapp-freeze-start`. Flagless verbs (`aapp plan-swap`, `aapp plan-clear`). Native Git worktree physical isolation. Dropped environment variable override to prevent self-granted permissions.
 
 * [x] **Question 2: Scope of Planning Health Pair 7 (In-Flight Collisions vs Backlog Warnings)**
   - *Resolution:* Strictly scoped to `🟠 In Development` plans executing in the same workspace. Blueprints sitting in `🟢 Frozen` emit **zero warnings** at freeze time. Roadmap specifications often touch the same modules across sequential milestones; emitting warnings during freeze creates unnecessary friction. Pair 7 boundary collision checks enforce hard blocks exclusively when two plans are actively marked `🟠 In Development` concurrently in the same working tree. Any advisory notices must explicitly report the conflicting filenames.
@@ -261,6 +278,7 @@ Beyond runtime hook enforcement, compile-time planning health verification in `l
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-17:** Added `aapp freeze-start` and `/aapp-freeze-start` compound workflow verb: atomically freezes specification and activates plan into `🟠 In Development` with worktree buffer binding in a single command, accelerating immediate single-plan execution without multi-command friction.
 * **2026-09-17:** Plan refocused on Multi-Agent Lifecycle Switchboard and Worktree Buffer Architecture following red team evaluation: decoupled Issue #56 (glob traversal precision) into P-18 to be implemented prior to P-17; confirmed Issue #57 is structurally superseded and dissolved by the single active plan model; dropped `$AAPP_ACTIVE_PLAN` environment variable to prevent self-granted permissions; marked new targets with `NEW FILE ->`; dropped `lib/plan_resolver.sh` from target files; updated attribution trailer invariant to P-14 standard; and adopted direct vocabulary migration (zero lifetime aliases).
 * **2026-09-16:** Resolved Open Questions 2 & 3: established strict syntax rules for parameterized patterns and bracket character classes (`[...]`) to prevent raw regex or malformed file names, backed by Planning Health pattern validation. Confirmed Planning Health Pair 7 collision check is strictly scoped to in-flight (`🟠 In Development`) plans, ensuring `🟢 Frozen` backlog plans emit zero false alarms at freeze time.
 * **2026-09-16:** Plan refined following ergonomic review: adopted non-interactive two-step progression (`/aapp-freeze` -> `/aapp-start`), eliminating interactive stdin prompts. Formulated single-token flagless command suite (`aapp plan-swap`, `aapp plan-clear`). Added documentation target files (`MANUAL.md`, `CHEATSHEET.md`, skills).
