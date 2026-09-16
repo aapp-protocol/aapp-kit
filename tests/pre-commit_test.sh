@@ -522,6 +522,31 @@ else
 fi
 rm -f .plans/current/P1-feature.md .plans/current/P2-bad.md
 
+echo "== 14. glob path traversal precision & bracket safety =="
+setup
+plan glob.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/*.py` -> single segment wildcard
+- [ ] `pkg/**/*.go` -> recursive wildcard
+- [ ] `scripts/?.sh` -> single character wildcard
+- [ ] `migrations/[0-9]*.sql` -> bracket class range
+- [ ] `docs/` -> recursive directory prefix
+### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `src/forbidden_*.py` -> single segment oob wildcard
+## end
+EOF
+check "single segment glob passes in directory" PASS "src/app.py"
+check "single segment wildcard blocks nested subdirectories" BLOCK "src/deep/nested/app.py"
+check "recursive globstar passes root of glob" PASS "pkg/main.go"
+check "recursive globstar passes nested subdirectory" PASS "pkg/sub/deep/worker.go"
+check "single char wildcard passes single char" PASS "scripts/a.sh"
+check "single char wildcard blocks multiple chars" BLOCK "scripts/ab.sh"
+check "bracket class range passes digit" PASS "migrations/001_init.sql"
+check "bracket class range blocks non-digit" BLOCK "migrations/test.sql"
+check "directory prefix passes subfiles" PASS "docs/guide.md"
+check "directory prefix passes nested subfiles" PASS "docs/api/v1/spec.md"
+check "single segment oob wildcard blocks match" BLOCK "src/forbidden_test.py"
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]

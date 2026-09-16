@@ -269,6 +269,31 @@ else
   red "MultiEdit tool allowed for target file" "ALLOW" "rc=$rc_multiedit_allow"; FAIL=$((FAIL+1))
 fi
 
+echo "== glob path traversal precision & bracket safety =="
+setup
+plan glob.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/*.py` -> single segment wildcard
+- [ ] `pkg/**/*.go` -> recursive wildcard
+- [ ] `scripts/?.sh` -> single character wildcard
+- [ ] `migrations/[0-9]*.sql` -> bracket class range
+- [ ] `docs/` -> recursive directory prefix
+### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `src/forbidden_*.py` -> single segment oob wildcard
+## end
+EOF
+check_decision "single segment glob matches in directory" ALLOW "src/app.py"
+check_decision "single segment wildcard rejects nested subdirectories" DENY "src/deep/nested/app.py"
+check_decision "recursive globstar matches root of glob" ALLOW "pkg/main.go"
+check_decision "recursive globstar matches nested subdirectory" ALLOW "pkg/sub/deep/worker.go"
+check_decision "single char wildcard matches single char" ALLOW "scripts/a.sh"
+check_decision "single char wildcard rejects multiple chars" DENY "scripts/ab.sh"
+check_decision "bracket class range matches digit" ALLOW "migrations/001_init.sql"
+check_decision "bracket class range rejects non-digit" DENY "migrations/test.sql"
+check_decision "directory prefix matches subfiles" ALLOW "docs/guide.md"
+check_decision "directory prefix matches nested subfiles" ALLOW "docs/api/v1/spec.md"
+check_decision "single segment oob wildcard blocks match" DENY "src/forbidden_test.py"
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]

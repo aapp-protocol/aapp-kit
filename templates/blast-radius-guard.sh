@@ -291,21 +291,68 @@ parse_plan_section() {
     ' "$file"
 }
 
+glob_to_regex() {
+    local p="$1"
+    # 1. Escape regex metacharacters: \ . + ^ $ ( ) { } |
+    p="${p//\\/\\\\}"
+    p="${p//./\\.}"
+    p="${p//+/\\+}"
+    p="${p//^/\\^}"
+    p="${p//\$/\\\$}"
+    p="${p//(/\\(}"
+    p="${p//)/\\)}"
+    p="${p//\{/\\\{}"
+    p="${p//\}/\\\}}"
+    p="${p//|/\\|}"
+
+    # 2. Protect multi-segment globstars using collision-free sentinels
+    p="${p//\/\*\*\//__SLASH_GLOBSTAR_SLASH__}"
+    # Leading **/
+    if [[ "$p" == \*\** ]]; then
+        p="${p/#\*\*\//__LEADING_GLOBSTAR_SLASH__}"
+    fi
+    # Trailing /**
+    if [[ "$p" == *\/\*\* ]]; then
+        p="${p/%\/\*\*/__SLASH_TRAILING_GLOBSTAR__}"
+    fi
+    p="${p//\*\*/__GLOBSTAR__}"
+
+    # 3. Translate single-segment wildcard and single-char tokens
+    p="${p//\*/[^/]*}"
+    p="${p//\?/[^/]}"
+
+    # 4. Expand sentinels into POSIX regex
+    p="${p//__SLASH_GLOBSTAR_SLASH__/\/(.*\/)?}"
+    p="${p//__LEADING_GLOBSTAR_SLASH__/(.*\/)?}"
+    p="${p//__SLASH_TRAILING_GLOBSTAR__/\/(.*)?}"
+    p="${p//__GLOBSTAR__/.*}"
+
+    echo "^${p}\$"
+}
+
 match_pattern_list() {
     local target="$1"
     shift
     local pattern
     for pattern in "$@"; do
         [ -z "$pattern" ] && continue
+        # Tier 1 (Exact Match)
         if [ "$target" = "$pattern" ]; then
             return 0
         fi
-        local dir_pattern="${pattern%/}/"
-        if [[ "$target" == "$dir_pattern"* ]]; then
-            return 0
+        # Tier 2 (Directory Prefix Match)
+        if [[ "$pattern" == */ ]]; then
+            if [[ "$target" == "$pattern"* ]]; then
+                return 0
+            fi
         fi
-        if [[ "$target" == $pattern ]]; then
-            return 0
+        # Tier 3 (Glob / Regex Match)
+        if [[ "$pattern" == *[*?\[]* ]]; then
+            local regex
+            regex=$(glob_to_regex "$pattern")
+            if [[ "$target" =~ $regex ]]; then
+                return 0
+            fi
         fi
     done
     return 1
