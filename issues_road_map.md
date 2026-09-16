@@ -19,7 +19,7 @@
 ## 🔴 High Priority (Technical Urgency)
 1. #49 -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
 2. #52 -> Deny payload omits `hookEventName` and `permissionDecisionReason`; agent blocked with no reason to self-correct.
-3. #64 -> Status enum is not enforced in write-guard/pre-commit (`🚫|BLOCKED` check only; `🔴` and `🟡` fall through to unblocked).
+
 
 ## 🟡 Medium Priority (Upcoming Iterations)
 - [ ] #50 -> Drop-in mode on `agent-planning-kit` or `aapp-develop-kit` resolves root to kit itself rather than cwd.

@@ -55,3 +55,4 @@ Append-only historical ledger of verified and resolved issues.
 | #54 | `High` | `SEC` | 2026-09-10 | 2026-09-15 | `acd15a4` | [`P9-guard-path-authorization.md`](P9-guard-path-authorization.md): Added `.git/config` and `*/.git/config` to Section 2 self-protection in `blast-radius-guard.sh`. |
 | #61 | `High` | `CORE` | 2026-09-14 | 2026-09-14 | `362cf80` (`v1.1.0`) | Universal AAPP Skills in `templates/skills/`, bridged to `.claude/skills/`, decoupled settings. |
 | #66 | `High` | `CORE` | 2026-09-15 | 2026-09-16 | `d2ce9ea` | [`P14-ai-attribution-suite.md`](P14-ai-attribution-suite.md): Safe-by-default attribution switchboard (`ai-commit`/`ai-notes`/`ai-off`), hook infrastructure, Option C staged notes, and history scrubber (partially delivered per §E.9). |
+| #64 | `High` | `SEC` | 2026-09-14 | 2026-09-16 | `2ff5a86` | Filtered out incubator drafts (`🔴`, `🟡`) from active plans in write-guard and pre-commit, ensuring drafts do not lock commits. |
