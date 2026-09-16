@@ -88,67 +88,101 @@ To guarantee zero performance degradation for literal paths and directory prefix
 
 ---
 
-### B. Two-Phase Active Boundary Evaluation & Global OOB Veto Engine
-Currently, both `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit` iterate through active plans in a single loop:
+### B. Multi-Agent Active Plan Stash / Swap Buffer (`.git/aapp_active_plan`)
+
+#### 1. The Real-Life Multi-Agent Concurrency Reality
+In practical development, two or more agents (or a human and an agent, or concurrent subagents) frequently work on different blueprints simultaneously:
+- **Agent 1** implements `P-10` (Remote Sync).
+- **Agent 2** implements `P-12` (Lifecycle Hooks).
+
+Neither git hooks (`pre-commit`) nor agent tool interceptors (Claude Code `PreToolUse` / Antigravity) permit passing runtime command-line parameters when triggered. However, **hooks run locally on disk and can inspect the filesystem**.
+
+By introducing an active plan **stash/swap buffer**, an agent or human designates which plan their current execution session is executing. The hook inspects this buffer to know precisely which plan's boundaries apply.
+
+#### 2. Buffer Location & Native Worktree Isolation
+The active plan buffer is stored at:
 ```bash
-# FLAGGED IN ISSUE #57:
-if match_pattern_list "$TARGET" "${PLAN_OOB[@]}"; then
-    DENIED_BY_PLAN="$PLAN"
-    continue # <-- Bypassed if subsequent plan matches targets!
-fi
-if match_pattern_list "$TARGET" "${PLAN_TARGETS[@]}"; then
-    ALLOWED_BY_A_PLAN=1
-    break
-fi
+ACTIVE_PLAN_FILE="$(git rev-parse --git-path aapp_active_plan 2>/dev/null || echo ".git/aapp_active_plan")"
+PREV_PLAN_FILE="$(git rev-parse --git-path aapp_active_plan.prev 2>/dev/null || echo ".git/aapp_active_plan.prev")"
 ```
 
-We restructure the evaluation into two strict, non-bypassable phases:
+**Why this location is architecturally optimal:**
+1. **Never Committed / Pristine Git State**: Located inside `.git/`, it is automatically untracked, completely private to the local environment, and cannot leak into git commits or remote branches.
+2. **Native Git Worktree Isolation**:
+   - In the primary working tree, `git rev-parse --git-path aapp_active_plan` resolves to `.git/aapp_active_plan`.
+   - In a linked git worktree (e.g. `git worktree add ../wt-agent2 feature-hooks`), Git automatically resolves the path to `.git/worktrees/wt-agent2/aapp_active_plan`.
+   - **Result:** Two agents working in parallel in separate worktrees get **100% collision-free, isolated active plan contexts natively without any special coordination!**
+3. **Shell / Process Override**: In addition to the buffer file, the hook inspects `$AAPP_ACTIVE_PLAN`. If set in the current subshell, it overrides the filesystem buffer without disk I/O.
 
+#### 3. Active Plan Switchboard & Swap Lifecycle (`aapp plan`)
+Developers and agents manage the active plan buffer via concise CLI commands:
+```bash
+aapp plan <plan-id>   # Set active plan (stashes current active plan to .prev)
+aapp plan --swap      # Swap between current and previous active plan (like 'git checkout -')
+aapp plan --clear     # Clear active plan buffer (revert to auto-discovery mode)
+aapp plan             # Display current active plan and its declared boundaries
+```
+
+#### 4. Hook Evaluation Hierarchy (Layer 1 & Layer 2)
+When `blast-radius-guard.sh` or `aapp-pre-commit` evaluates a target file:
 ```text
-┌────────────────────────────────────────────────────────┐
-│ Target File Evaluated: staged file or tool write target │
-└──────────────────────────┬─────────────────────────────┘
-                           │
-                           ▼
-          Phase 1: Global Out of Bounds Scan
-    (Iterate ALL active unblocked plans in .plans/current/)
-                           │
-       Is file matched by ANY plan's OOB?
-              ├── YES ──► 🛑 HARD DENIAL (Exit immediately)
-              │            "File is explicitly OUT OF BOUNDS in active plan 'P-X'."
-              └── NO
-                           │
-                           ▼
-          Phase 2: Target File Authorization
-       Is file matched by ANY plan's Target Files?
-              ├── YES ──► ✅ AUTHORIZED (Allow write / commit)
-              └── NO  ──► 🛑 REFUSED (Outside declared blast radius)
+┌─────────────────────────────────────────────────────────┐
+│              Target File Evaluated by Hook               │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+    1. Check Section 2 Self-Protection (.githooks/*, etc.)
+       └── MATCH? ──► 🛑 HARD DENIAL (Invariant quarantine)
+                            │
+                            ▼
+    2. Resolve Active Plan Execution Context
+       (Check $AAPP_ACTIVE_PLAN -> .git/aapp_active_plan -> Auto-discovery)
+                            │
+       ┌────────────────────┴────────────────────┐
+       ▼                                         ▼
+[Specific Plan Designated]             [No Plan Designated]
+       │                                         │
+       ▼                                         ▼
+Check Designated Plan Only:             Count 🟢 Greenlit Plans:
+- Target in Plan OOB?                   - Exactly 1 plan?
+  ├── YES ──► 🛑 DENIED (OOB veto)        └── Auto-designate that plan!
+- Target in Plan Targets?               - 0 plans?
+  ├── YES ──► ✅ ALLOWED                  └── Fail-open (normal files allowed)
+  └── NO  ──► 🛑 DENIED (Out of scope)   - 2+ plans?
+                                          └── Two-Phase Global Scan or Prompt
 ```
 
-#### Phase 1: Global Veto Check
-If any active unblocked plan declares a file in `### 🛑 Out of Bounds`, execution halts immediately. No plan's Target Files can override another active plan's OOB fence.
-
-#### Phase 2: Target Authorization
-Only when Phase 1 yields zero OOB vetoes is the target checked against active target files (`### 📂 Target Files` or `### 🚨 Emergency Hotfix Extensions`).
+**Key Concurrency Benefits:**
+- **Zero Cross-Plan Interference**: When Agent 1 executes `P-10`, Plan `P-12`'s Out of Bounds does NOT block Agent 1, and Plan `P-12`'s Target Files do NOT grant unauthorized access to Agent 1.
+- **Drift-Rails Restored**: A plan's `### 🛑 Out of Bounds` safely functions as a plan-local drift rail without locking out other concurrent agents who legitimately need to touch those files under their own plans!
 
 ---
 
-### C. Planning Health Pair 7: Active Blueprint Boundary Collision Validator
+### C. Two-Phase Active Boundary Evaluation (Fallback Mode)
+When multiple plans are greenlit and NO active plan has been designated in `.git/aapp_active_plan`, the hook executes a two-phase fallback:
+1. **Phase 1 (Global Out of Bounds Scan)**: If any greenlit plan lists the file in OOB, it is rejected immediately.
+2. **Phase 2 (Target Authorization)**: If no greenlit plan excludes it, verify if any greenlit plan authorises it.
+3. **Advisory Diagnostic**: The hook emits a notice advising the user/agent to designate an active plan (`aapp plan <id>`) to eliminate cross-plan ambiguity.
+
+---
+
+### D. Planning Health Pair 7: Active Blueprint Boundary Collision Validator
 Beyond runtime hook enforcement, we introduce compile-time / planning health verification in `lib/planning_health.sh`:
 - **Pair 7 (Target Files vs Concurrent OOB Collision)**:
-  - When multiple blueprints in `.plans/current/` are greenlit (`🟢 Ready for Execution`), their boundaries must be mutually disjoint.
+  - When multiple blueprints in `.plans/current/` are greenlit (`🟢 Ready for Execution`), their boundaries must be mutually disjoint unless active plan isolation is maintained.
   - If Plan A targets `path` and Plan B declares `path` Out of Bounds, `check_planning_health` emits:
     ```text
     ❌ [Pair 7 Violation] Active Blueprint Boundary Collision!
        -> Plan 'P-12' targets 'src/core/router.sh'
        -> Plan 'P-10' marks 'src/core/router.sh' OUT OF BOUNDS
-       -> Concurrent plans cannot have conflicting boundary declarations.
+       -> Concurrent plans cannot have conflicting boundary declarations in shared mode.
+       -> To resolve: Use worktree isolation with 'aapp plan', or align plan boundaries.
     ```
-  - Pre-commit and `aapp freeze` immediately halt before allowing contradictory plans to be simultaneously active.
+  - Pre-commit and `aapp freeze` warn or halt before allowing contradictory plans to execute in shared fallback mode.
 
 ---
 
-### D. Documentation & Authoring Semantics Alignment
+### E. Documentation & Authoring Semantics Alignment
 1. **`templates/plan-template.md`**:
    - Explicitly document glob semantics in `### 📂 Target Files` and `### 🛑 Out of Bounds`:
      - `src/foo.py` -> exact file match
@@ -156,7 +190,8 @@ Beyond runtime hook enforcement, we introduce compile-time / planning health ver
      - `src/*.py` -> single-directory glob (`*` does not cross `/`)
      - `src/**/*.py` -> recursive glob (`**` crosses `/`)
 2. **`templates/AGENTS.md`**:
-   - Update `### 💥 Blast Radius Enforcement` with exact glob semantics and global OOB veto rules.
+   - Document the active plan stash/swap protocol (`aapp plan <id>`, `aapp plan --swap`, `$(git rev-parse --git-path aapp_active_plan)`).
+   - Update `### 💥 Blast Radius Enforcement` with exact glob semantics and plan-scoped execution rules.
 
 ---
 
@@ -167,22 +202,26 @@ Beyond runtime hook enforcement, we introduce compile-time / planning health ver
 - [ ] Task 1.2: Implement pure-Bash `glob_to_regex` helper in `templates/aapp-pre-commit`.
 - [ ] Task 1.3: Fix bash regex syntax error in `lib/plan_resolver.sh:267` (avoid unquoted backticks inside `[[ =~ ]]`).
 
-### Phase 2: Boundary Engine Hardening
-- [ ] Task 2.1: Refactor `templates/blast-radius-guard.sh` Section 4 into two-phase evaluation (Global OOB Veto -> Target Authorization).
-- [ ] Task 2.2: Refactor `templates/aapp-pre-commit` Section 4 into two-phase evaluation (Global OOB Veto -> Target Authorization).
-- [ ] Task 2.3: Implement Pair 7 Boundary Collision check in `lib/planning_health.sh`.
+### Phase 2: Active Plan Stash/Swap Buffer & Boundary Engine
+- [ ] Task 2.1: Implement active plan resolution (`$AAPP_ACTIVE_PLAN` -> `$(git rev-parse --git-path aapp_active_plan)` -> auto-discovery) in `templates/blast-radius-guard.sh`.
+- [ ] Task 2.2: Implement active plan resolution in `templates/aapp-pre-commit`.
+- [ ] Task 2.3: Implement `aapp plan` CLI management verb in `lib/cmd_plan.sh` (`set`, `--swap`, `--clear`, `--show`).
+- [ ] Task 2.4: Wire `plan` subcommand into main `aapp` dispatcher.
+- [ ] Task 2.5: Implement Pair 7 Boundary Collision check in `lib/planning_health.sh`.
 
 ### Phase 3: Template & Rule Updates
-- [ ] Task 3.1: Update `templates/plan-template.md` with explicit glob semantics and OOB veto invariant.
-- [ ] Task 3.2: Update `templates/AGENTS.md` blast radius rules.
+- [ ] Task 3.1: Update `templates/plan-template.md` with explicit glob semantics, swap buffer conventions, and OOB invariant.
+- [ ] Task 3.2: Update `templates/AGENTS.md` blast radius rules and multi-agent plan context protocol.
+- [ ] Task 3.3: Update `templates/skills/aapp-freeze/SKILL.md` to auto-seed active plan buffer on freeze if unset.
 
 ### Phase 4: Verification & Automated Test Suites
 - [ ] Task 4.1: Extend `tests/write-guard_test.sh` with test cases:
   - Single-segment wildcard (`src/*.py` matches `src/a.py`, blocks `src/sub/a.py`).
   - Recursive globstar (`src/**/*.py` matches `src/sub/a.py`).
   - Question mark (`src/?.py` matches single char).
-  - Global OOB veto across concurrent plans (Plan A's OOB blocks Plan B's target).
-- [ ] Task 4.2: Extend `tests/pre-commit_test.sh` with parity test cases for pre-commit.
+  - Active plan buffer scoping: Plan A's OOB holds for Plan A, does not block Plan B when Plan B is active in buffer.
+  - Plan swap functionality (`aapp plan <id>`, `aapp plan --swap`).
+- [ ] Task 4.2: Extend `tests/pre-commit_test.sh` with pre-commit parity test cases.
 - [ ] Task 4.3: Extend `tests/plan_resolver_test.sh` with Pair 7 collision validation test cases.
 - [ ] Task 4.4: Sync hooks via `./aapp init` and run all test suites (188+ tests).
 
@@ -191,14 +230,17 @@ Beyond runtime hook enforcement, we introduce compile-time / planning health ver
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `templates/blast-radius-guard.sh` -> Implement `glob_to_regex` and two-phase global OOB evaluation in Layer 1.
-- [ ] `templates/aapp-pre-commit` -> Implement `glob_to_regex` and two-phase global OOB evaluation in Layer 2.
-- [ ] `templates/plan-template.md` -> Document glob semantics (`*`, `**`, `dir/`) and OOB invariant.
-- [ ] `templates/AGENTS.md` -> Synchronize protocol blast radius rules.
+- [ ] `templates/blast-radius-guard.sh` -> Implement `glob_to_regex`, active plan swap buffer resolution, and scoped OOB evaluation.
+- [ ] `templates/aapp-pre-commit` -> Implement `glob_to_regex`, active plan swap buffer resolution, and pre-commit enforcement.
+- [ ] `lib/cmd_plan.sh` -> Implement `aapp plan` CLI command for active plan buffer management (`set`, `--swap`, `--clear`, `--show`).
+- [ ] `aapp` -> Dispatch `plan` command to `lib/cmd_plan.sh`.
+- [ ] `templates/plan-template.md` -> Document glob semantics (`*`, `**`, `dir/`) and active plan swap buffer protocol.
+- [ ] `templates/AGENTS.md` -> Synchronize protocol blast radius rules and multi-agent execution conventions.
+- [ ] `templates/skills/aapp-freeze/SKILL.md` -> Auto-seed active plan swap buffer upon blueprint freeze.
 - [ ] `lib/planning_health.sh` -> Implement Pair 7 Active Blueprint Boundary Collision Validator.
 - [ ] `lib/plan_resolver.sh` -> Fix unquoted backtick syntax error in archive ledger parsing.
-- [ ] `tests/write-guard_test.sh` -> Add glob precision and OOB veto test cases.
-- [ ] `tests/pre-commit_test.sh` -> Add pre-commit glob and OOB parity tests.
+- [ ] `tests/write-guard_test.sh` -> Add glob precision, active plan buffer scoping, and swap test cases.
+- [ ] `tests/pre-commit_test.sh` -> Add pre-commit glob, active plan buffer, and OOB parity tests.
 - [ ] `tests/plan_resolver_test.sh` -> Add Pair 7 integrity test cases.
 
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -206,42 +248,31 @@ Beyond runtime hook enforcement, we introduce compile-time / planning health ver
 - [ ] `.agents/skills/*` -> Section 2 self-protection (governance skills are locked).
 - [ ] `.claude/*` -> Section 2 self-protection.
 - [ ] `.cursor/rules/*` -> Section 2 self-protection.
-- [ ] `lib/cmd_*.sh` -> CLI command implementations outside planning/enforcement engine.
+- [ ] `lib/cmd_ai.sh`, `lib/cmd_init.sh`, `lib/cmd_status.sh` -> Unrelated CLI command implementations.
 - [ ] `src/` -> Application source code is completely outside hook engine scope.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 
-* [ ] **Question 1: Strict Global OOB Veto vs Plan-Attributed Scoping vs Syntactic Carve-Out**
-  - *The Core Dilemma:* In single-plan execution, `### 🛑 Out of Bounds` serves two purposes simultaneously:
-    1. **Internal Drift-Rail**: Prevents the executing agent from straying outside its intended scope (e.g. subtracting `src/auth/` from a broad `src/**` target).
-    2. **Sandbox Safety Fence**: Quarantines sensitive or frozen files across the repository (e.g. `config/production.env` or `db/schema.sql`).
-    When multiple blueprints are simultaneously greenlit (`🟢 Ready for Execution`), these two purposes conflict violently:
-    - If Plan A targets `src/**` but puts `src/b.py` in OOB, and Plan B targets `src/b.py`:
-      - Under the *drift-rail* model, Plan B should be allowed to edit `src/b.py`.
-      - Under the *safety fence* model, Plan A's OOB is a hard repository-wide stop; touching `src/b.py` violates Plan A's environment assumptions.
-    - Crucially, in agentic runtimes (Claude Code PreToolUse / Antigravity), tool interceptors receive only `{file_path: "..."}` with **zero runtime plan attribution**—the hook cannot distinguish whether an agent is editing `src/b.py` on behalf of Plan A or Plan B! If Plan B authorises `src/b.py`, Plan A's drift-rail is completely nullified for any agent in the workspace.
-  - *Three Evaluated Architecture Options:*
-    - **Option A (Strict Global Veto — Recommended)**:
-      - *Rule:* If *any* active unblocked plan declares a path in `### 🛑 Out of Bounds`, that path is unconditionally forbidden across all tools and commits.
-      - *Authoring Contract:* Authors only list files in OOB if they must remain untouched across the *entire project*. If a file simply belongs to another plan, authors do *not* list it in OOB; they rely on the default-deny invariant of `### 📂 Target Files`.
-      - *Integrity Gate:* Pair 7 in planning-health mechanistically rejects any greenlight attempt where Plan A's OOB intersects Plan B's Target Files.
-      - *Pros:* 100% deterministic, zero tool-interception ambiguity, unbypassable security posture, zero stateful CLI overhead.
-      - *Cons:* Blueprint authors cannot use OOB as a convenience exclusion subtractor against a broad target glob if another active plan touches that excluded directory.
-    - **Option B (Plan-Attributed Execution Context)**:
-      - *Rule:* The developer or agent sets an active plan context before executing (e.g. `git config aapp.activePlan P-12`, `export AAPP_ACTIVE_PLAN=P-12`, or commit trailer `AI-Plan: P-12`). Hooks evaluate boundaries solely against that designated plan.
-      - *Pros:* Complete isolation; Plan A and Plan B can have overlapping, contradictory boundaries without interference.
-      - *Cons:* Heavy operational friction; requires stateful switching commands (`aapp switch P-12`); fails in multi-agent environments or when an agent runs subtasks without shell state inheritance; PreToolUse hooks cannot reliably identify active plan identity from prompt context.
-    - **Option C (Syntactic Disambiguation: `Out of Bounds` vs `Negative Target Globs`)**:
-      - *Rule:* Reserve `### 🛑 Out of Bounds` strictly for Global Veto Fences. Support negative target globs in `### 📂 Target Files` (e.g. `- [ ] !src/auth/**`) or an explicit `### 🚫 Excluded Targets` section that acts purely as a plan-local subtraction filter against that plan's own positive target patterns.
-      - *Pros:* Provides authors with clean exclusion filtering from broad globs without locking out concurrent plans.
-      - *Cons:* Slightly more complex parsing logic in pre-commit; does not solve the problem that an agent ostensibly working on Plan A could still modify `src/auth/**` if Plan B is concurrently active.
-  - *Recommendation:* Adopt **Option A (Strict Global Veto)** as the foundational engine invariant for Layer 1 and Layer 2, reinforced by Pair 7 compile-time detection. If negative target subtraction is desired in the future, it can be added as Option C without weakening the global veto invariant of `### 🛑 Out of Bounds`.
+* [ ] **Question 1: Active Plan Stash / Swap Buffer Protocol & Multi-Agent Ergonomics**
+  - *The Real-Life Multi-Agent Context:*
+    In multi-agent environments, two or more agents work concurrently on different plans (e.g. Agent 1 on P-10, Agent 2 on P-12). Because hooks cannot accept CLI arguments at invocation time, the hook inspects the filesystem buffer at `$(git rev-parse --git-path aapp_active_plan)`.
+    - **In Git Worktrees:** `git rev-parse --git-path` automatically resolves to each worktree's private git directory (`.git/worktrees/<wt>/aapp_active_plan`), providing native, collision-free physical isolation out of the box!
+    - **In a Single Worktree:** Agents swap execution contexts via `aapp plan <id>`, with previous plan stashed in `.git/aapp_active_plan.prev` for instant toggling (`aapp plan --swap`).
+  - *Specific Design Choices for User Confirmation:*
+    1. **Auto-seeding on `/aapp-freeze`**: When `/aapp-freeze <plan>` greenlights a blueprint, should it automatically write that plan ID into `aapp_active_plan` if the buffer is currently empty?
+       - *Recommendation:* Yes. In single-plan workflows, this provides zero-friction progression directly into coding without requiring a manual `aapp plan <id>` invocation.
+    2. **Fallback Behavior when Buffer is Unset and 2+ Plans are Greenlit**: If multiple plans are greenlit in `.plans/current/` and `aapp_active_plan` is empty:
+       - *Option A (Strict Gate):* Refuse and instruct: `"Multiple plans are greenlit [P-10, P-12]. Set active plan context via 'aapp plan <id>' before editing."`
+       - *Option B (Shared Fallback):* Evaluate against the union of greenlit plans with global OOB veto, emitting a non-blocking diagnostic.
+       - *Recommendation:* Option A. Strict designation prevents accidental cross-plan boundary leakage when multiple plans are active.
+    3. **Buffer Depth**: Is a 1-level swap buffer (`aapp_active_plan` and `aapp_active_plan.prev`, identical to `cd -` / `git checkout -`) sufficient, or is a full multi-item stack needed?
+       - *Recommendation:* A 1-level swap buffer is lean, POSIX-simple, and covers 99% of hotfix/toggling workflows without state-stack corruption risks.
 
 * [ ] **Question 2: Scope of Planning Health Pair 7 (Greenlit Only vs Incubated)**
   - *Context:* Should Pair 7 check collisions only between 🟢 `Ready for Execution` plans, or also warn when incubated drafts (🔴/🟡) have boundary collisions?
-  - *Recommendation:* Pair 7 should strictly block (`FAIL`) when two 🟢 plans collide, and emit a soft advisory warning (`INFO`) when an incubated draft collides with an active plan.
+  - *Recommendation:* Pair 7 should strictly block (`FAIL`) when two 🟢 plans collide without worktree isolation, and emit a soft advisory warning (`INFO`) when an incubated draft collides with an active plan.
 
 * [ ] **Question 3: Bracket Expression Semantics (`[...]`)**
   - *Context:* Should bracket character classes (e.g. `[0-9]`, `[a-z]`) be officially supported in Target Files globs?
