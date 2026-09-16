@@ -388,7 +388,7 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 - [x] Task 3.7: Implement `aapp ai-note` in `lib/cmd_ai.sh` supporting `--stage` to write/customize metadata into `aapp_pending_note.<msg-sha256>`.
 
 ### Phase 4: Automated Test Suite
-- [ ] Task 4.1: Create `tests/ai_attribution_test.sh` testing:
+- [x] Task 4.1: Create `tests/ai_attribution_test.sh` testing:
   - Default `none` state from `aapp init`.
   - State switching via `aapp ai-commit`, `aapp ai-notes`, and `aapp ai-off`.
   - Commit message validation in `aapp-commit-msg` (subject length overflow, missing trailer in commit mode, revert bypass).
@@ -397,17 +397,17 @@ are not read again, and a deferred commitment recorded only there is a commitmen
   - TTL cleanup sweep (`find ... -mmin +TTL -exec rm -f {} +`) and mismatch diagnostics.
   - Refspec idempotency during repeated `aapp ai-notes` invocations.
   - `notes.rewriteRef` is set by `ai-notes`, and a note survives `git commit --amend` and `git rebase`.
-- [ ] Task 4.2: Extend `tests/ai_attribution_test.sh` for `ai-credits`: union preserves names absent from a shallow history; regeneration is byte-identical when unchanged; `LC_ALL=C` ordering is stable; notes mode is a no-op that neither generates nor erases an existing block (§E.8); unparseable block refuses; missing `README.md` skips; alias map merges duplicate identities; `ai-off` leaves the block intact.
-- [ ] Task 4.3: Verify all test suites pass (146+ tests + new attribution & health tests).
+- [x] Task 4.2: Extend `tests/ai_attribution_test.sh` for `ai-credits`: union preserves names absent from a shallow history; regeneration is byte-identical when unchanged; `LC_ALL=C` ordering is stable; notes mode is a no-op that neither generates nor erases an existing block (§E.8); unparseable block refuses; missing `README.md` skips; alias map merges duplicate identities; `ai-off` leaves the block intact.
+- [x] Task 4.3: Verify all test suites pass (146+ tests + new attribution & health tests).
 
 ### Phase 5: Historical Scrubber Script & Documentation
-- [ ] Task 5.1: Author `scripts/scrub-attribution.sh` with `--dry-run`, timestamp preservation, SHA map parsing, and ledger rewriting.
-- [ ] Task 5.2: Update `MANUAL.md` and `README.md` documenting the AI attribution suite, benchmarking workflows, and the commit-msg / post-commit hooks. **Must include the §E.8 mode-boundary rationale in full**: why the footer follows the public trailer record and never the private notes record, and that notes mode is a deliberate privacy choice serving internal benchmarking rather than a degraded form of commit mode.
-- [ ] Task 5.3: Seed the initial `AI Contributors` block in `README.md` (§E.7) — impartially crediting `Antigravity (Google)` and `Claude (Anthropic)` as resolved in Q2.
-- [ ] Task 5.4: Add an `AI Contributors` review line to `.plans/release/release_checklist.md` §2 and `templates/release_checklist.md` alongside the cheat-sheet review item.
-- [ ] Task 5.5: Update `CHEATSHEET.md` with quick reference for `aapp ai-*` commands.
-- [ ] Task 5.6: Update `CHANGELOG.md` under `[Unreleased]` recording the attribution switchboard, commit/post-commit hooks, and Pair 6 SHA validator.
-- [ ] Task 5.7: Before archiving, log a carried-forward issue in `.plans/ISSUES.md` for automatic reviewer extraction (§E.9), scoped to the adversarial-review plugin, and reference it in this plan's archive-ledger row. Archive as **partially delivered**, never as fully closed.
+- [x] Task 5.1: Author `scripts/scrub-attribution.sh` with `--dry-run`, timestamp preservation, SHA map parsing, and ledger rewriting.
+- [x] Task 5.2: Update `MANUAL.md` and `README.md` documenting the AI attribution suite, benchmarking workflows, and the commit-msg / post-commit hooks. **Must include the §E.8 mode-boundary rationale in full**: why the footer follows the public trailer record and never the private notes record, and that notes mode is a deliberate privacy choice serving internal benchmarking rather than a degraded form of commit mode.
+- [x] Task 5.3: Seed the initial `AI Contributors` block in `README.md` (§E.7) — impartially crediting `Antigravity (Google)` and `Claude (Anthropic)` as resolved in Q2.
+- [x] Task 5.4: Add an `AI Contributors` review line to `.plans/release/release_checklist.md` §2 and `templates/release_checklist.md` alongside the cheat-sheet review item.
+- [x] Task 5.5: Update `CHEATSHEET.md` with quick reference for `aapp ai-*` commands.
+- [x] Task 5.6: Update `CHANGELOG.md` under `[Unreleased]` recording the attribution switchboard, commit/post-commit hooks, and Pair 6 SHA validator.
+- [x] Task 5.7: Before archiving, log a carried-forward issue in `.plans/ISSUES.md` for automatic reviewer extraction (§E.9), scoped to the adversarial-review plugin, and reference it in this plan's archive-ledger row. Archive as **partially delivered**, never as fully closed.
 
 ---
 
@@ -431,15 +431,15 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 - [x] `lib/cmd_init.sh` -> Install commit-msg and post-commit hooks and initialize safe-by-default git config.
 - [x] `lib/cmd_install.sh` -> Ensure `lib/cmd_ai.sh` and hook templates are packaged during installation.
 - [x] `lib/planning_health.sh` -> Add Pair 6 (Recorded SHA Integrity) validator.
-- [ ] `NEW FILE` -> `tests/ai_attribution_test.sh` -> Automated test suite for AI attribution switchboard, hooks & credits.
+- [x] `NEW FILE` -> `tests/ai_attribution_test.sh` -> Automated test suite for AI attribution switchboard, hooks & credits.
 - [x] `tests/plan_resolver_test.sh` -> Add test coverage for Pair 6 SHA integrity verification.
-- [ ] `NEW FILE` -> `scripts/scrub-attribution.sh` -> Historical conversion scrubber and ledger SHA repair utility.
-- [ ] `README.md` -> Document AI attribution commands and host the seeded `AAPP-AI-CREDITS` block.
+- [x] `NEW FILE` -> `scripts/scrub-attribution.sh` -> Historical conversion scrubber and ledger SHA repair utility.
+- [x] `README.md` -> Document AI attribution commands and host the seeded `AAPP-AI-CREDITS` block.
 - [x] `CHANGELOG.md` -> Document changes under `[Unreleased]`.
-- [ ] `CHEATSHEET.md` -> Add `aapp ai-*` commands quick reference.
-- [ ] `.plans/release/release_checklist.md` -> Add AI Contributors footer review item.
-- [ ] `templates/release_checklist.md` -> Keep release checklist template aligned with .plans/release/release_checklist.md.
-- [ ] `MANUAL.md` -> Document multi-vendor benchmarking, git notes caveats, post-commit staging, and commit shape rules.
+- [x] `CHEATSHEET.md` -> Add `aapp ai-*` commands quick reference.
+- [x] `.plans/release/release_checklist.md` -> Add AI Contributors footer review item.
+- [x] `templates/release_checklist.md` -> Keep release checklist template aligned with .plans/release/release_checklist.md.
+- [x] `MANUAL.md` -> Document multi-vendor benchmarking, git notes caveats, post-commit staging, and commit shape rules.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `templates/blast-radius-guard.sh` -> Tool interception write-guard is frozen.
@@ -473,6 +473,8 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-16:** Phase 5 implemented: authored `scripts/scrub-attribution.sh` with `--dry-run` and ledger rewrite verification; documented Section 8 in `MANUAL.md` with full §E.8 mode-boundary rationale; seeded impartial `AI Contributors` block in `README.md`; added cheatsheet reference table and release checklist gates; logged carried-forward issue `#67` in `.plans/ISSUES.md` and `.plans/issues_road_map.md` for deferred automatic reviewer extraction (§E.9); verified Planning Health (all 185 automated tests pass).
+* **2026-09-16:** Phase 4 implemented: authored comprehensive test suite `tests/ai_attribution_test.sh` with 34 tests covering safe-by-default init, mode switching, commit-msg conciseness and trailers, Option C hash-keyed staged notes, failure safety, TTL sweeps, rewriteRef amend durability, and credits generation. All 185 test cases pass cleanly across the 5 test suites.
 * **2026-09-16:** Phase 3 implemented: CLI switchboard (`lib/cmd_ai.sh`), `ai-status`, `ai-commit`, `ai-notes`, `ai-off`, `ai-credits` (with `LC_ALL=C` sorting, alias mapping, and §E.8 mode-boundary refusal matrix), `ai-note --stage`, `lib/cmd_install.sh` executable sync, and root dispatcher (`aapp`)/help (`lib/cmd_help.sh`) registration verified.
 * **2026-09-16:** Plan frozen and greenlit for execution (/aapp-freeze P-14). Blast radius locked.
 * **2026-09-16:** Hardened staged notes following second red-team review: adopted Message-SHA keying (`aapp_pending_note.<sha256>`), closed the B1 `format=%B` newline divergence using `git cat-file | sed`, specified `&&` atomic unlinking to preserve buffers on attachment failure (B3), added B5 TTL cleanup (`find ... -exec rm -f {} +`) and mismatch warnings to `post-commit`, and documented amend/collision invariants.

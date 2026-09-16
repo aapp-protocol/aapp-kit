@@ -54,11 +54,15 @@
   - [ ] `templates/AGENTS.md:12`: `<!-- AAPP-PROTOCOL:START v1.0.0 -->`
   - [ ] `README.md` & `MANUAL.md`: Automated test count reflects 84 passing tests.
 - [ ] **Cheat Sheet Review (`CHEATSHEET.md`):**
-  - [ ] Every command shown still exists and behaves as described (`aapp help`, the five `/aapp-*` skills).
+  - [ ] Every command shown still exists and behaves as described (`aapp help`, the five `/aapp-*` skills, `aapp ai-*` commands).
   - [ ] The four-pillar table, worktree map, and status enum match the shipped engines — not an earlier draft.
   - [ ] Plan/issue ID examples resolve against the real resolver.
   - [ ] Still fits one screen. If it has grown past that, cut rather than reorganize.
   - [ ] No content restated from `README.md`/`MANUAL.md` that could drift independently — link instead.
+- [ ] **AI Contributors Roster Review (`README.md`):**
+  - [ ] Run `aapp ai-credits` to ensure all commit-mode agent contributors are recorded in the `AI Contributors` block.
+  - [ ] Verify alphabetical sorting under `LC_ALL=C` and confirm that aliases (via `aapp.aiAlias`) merge any duplicate agent identities.
+  - [ ] Confirm that hand-maintained or review-only contributor entries remain intact.
 - [ ] **CHANGELOG.md Rollup:**
   - [ ] Move unreleased changes from `## [Unreleased]` into a tagged release section:
     ```markdown

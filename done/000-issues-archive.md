@@ -10,39 +10,39 @@ Append-only historical ledger of verified and resolved issues.
 | #4 | `High` | `SEC` | 2026-09-09 | 2026-09-09 | `b9e0daf` (`v1.0.1`) | Changed directory to `$REPO_ROOT` in guard and pre-commit to prevent cwd-relative fail-open. |
 | #5 | `High` | `HOOK` | 2026-09-09 | 2026-09-09 | `b9e0daf` (`v1.0.1`) | Added `D` (deletions) to `--diff-filter` to enforce Out-of-Bounds on deleted files. |
 | #6 | `High` | `CLI` | 2026-09-09 | 2026-09-09 | `b9e0daf` (`v1.0.1`) | Used NUL-delimited `find` iteration in `cmd_status.sh` for plan files containing spaces. |
-| #7 | `High` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Aligned `.claude/settings.json` hook configuration with valid PreToolUse schema in `MANUAL.md`. |
+| #7 | `High` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Aligned `.claude/settings.json` hook configuration with valid PreToolUse schema in `MANUAL.md`. |
 | #8 | `High` | `HOOK` | 2026-09-09 | 2026-09-09 | `b9e0daf` (`v1.0.1`) | Moved `SKIP_BLAST_RADIUS=1` bypass check to the top before CHANGELOG enforcement. |
-| #9 | `Medium` | `SEC` | 2026-09-09 | 2026-09-09 | `1c6fa52` (`v1.0.2`) | Added pure-POSIX JSON fallback in `deny_action()` when `python3` is missing. |
-| #10 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `1c6fa52` (`v1.0.2`) | Added warning notice in `cmd_init.sh` when `.claude/settings.json` merge is skipped without python3. |
-| #11 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `1c6fa52` (`v1.0.2`) | Briefing in `cmd_status.sh` reads both `ISSUES.md` and `issues_road_map.md`. |
-| #12 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `1c6fa52` (`v1.0.2`) | Filtered bracketed placeholder lines in `pickup.md` during status briefing. |
-| #13 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `1c6fa52` (`v1.0.2`) | Exported `AAPP_VERSION` outside subshell and suppressed consumer notice on upgrades. |
-| #14 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `1c6fa52` (`v1.0.2`) | Exempted `aapp-develop-kit` and `agent-planning-kit` in self-consumption check. |
-| #15 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `1c6fa52` (`v1.0.2`) | Handled standalone clone target detection in drop-in mode in `cmd_init.sh`. |
-| #16 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `1c6fa52` (`v1.0.2`) | Stamped protocol marker version dynamically from `AAPP_VERSION` at sync time. |
-| #17 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `1c6fa52` (`v1.0.2`) | Safeguarded against data loss on missing `<!-- AAPP-PROTOCOL:END -->` tag in `cmd_init.sh`. |
-| #18 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `1c6fa52` (`v1.0.2`) | Removed unused dead variables `IS_RESTORE` and `AAPP_IS_DROP_IN`. |
-| #19 | `Medium` | `DOCS` | 2026-09-09 | 2026-09-09 | `1c6fa52` (`v1.0.2`) | Softened direct shell redirection claims in `README.md`. |
-| #20 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Regenerated Table of Contents and fixed broken section anchors in `README.md`. |
-| #21 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Clarified master runner `.githooks/pre-commit` vs managed engine `.githooks/aapp-pre-commit`. |
-| #22 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Synchronized test suite case counts across documentation. |
-| #23 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Aligned slash command lifecycle table in `README.md` with `AGENTS.md` protocol. |
-| #24 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Synchronized Table of Contents and Section 7 sub-TOC anchors in `MANUAL.md`. |
-| #25 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Corrected syntax validation claims in `MANUAL.md` to reflect Python, PHP, and JSON checkers. |
-| #26 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Clarified No-Plan Grace Period description for active blueprints in `MANUAL.md`. |
-| #27 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Aligned orphan branch plumbing documentation and exit code 2 error handling in `MANUAL.md`. |
-| #28 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Fixed relative plan link path from `../.plans/current/` to `current/` in `templates/issues.md`. |
-| #29 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Corrected structural mapping tree for `.plans/` files in `templates/architecture.md`. |
-| #30 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Updated comment marker reference from `AAPP-INIT` to `aapp init` in `templates/AGENTS.md`. |
+| #9 | `Medium` | `SEC` | 2026-09-09 | 2026-09-09 | `43ce5d7` (`v1.0.2`) | Added pure-POSIX JSON fallback in `deny_action()` when `python3` is missing. |
+| #10 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `43ce5d7` (`v1.0.2`) | Added warning notice in `cmd_init.sh` when `.claude/settings.json` merge is skipped without python3. |
+| #11 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `43ce5d7` (`v1.0.2`) | Briefing in `cmd_status.sh` reads both `ISSUES.md` and `issues_road_map.md`. |
+| #12 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `43ce5d7` (`v1.0.2`) | Filtered bracketed placeholder lines in `pickup.md` during status briefing. |
+| #13 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `43ce5d7` (`v1.0.2`) | Exported `AAPP_VERSION` outside subshell and suppressed consumer notice on upgrades. |
+| #14 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `43ce5d7` (`v1.0.2`) | Exempted `aapp-develop-kit` and `agent-planning-kit` in self-consumption check. |
+| #15 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `43ce5d7` (`v1.0.2`) | Handled standalone clone target detection in drop-in mode in `cmd_init.sh`. |
+| #16 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `43ce5d7` (`v1.0.2`) | Stamped protocol marker version dynamically from `AAPP_VERSION` at sync time. |
+| #17 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `43ce5d7` (`v1.0.2`) | Safeguarded against data loss on missing `<!-- AAPP-PROTOCOL:END -->` tag in `cmd_init.sh`. |
+| #18 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `43ce5d7` (`v1.0.2`) | Removed unused dead variables `IS_RESTORE` and `AAPP_IS_DROP_IN`. |
+| #19 | `Medium` | `DOCS` | 2026-09-09 | 2026-09-09 | `43ce5d7` (`v1.0.2`) | Softened direct shell redirection claims in `README.md`. |
+| #20 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Regenerated Table of Contents and fixed broken section anchors in `README.md`. |
+| #21 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Clarified master runner `.githooks/pre-commit` vs managed engine `.githooks/aapp-pre-commit`. |
+| #22 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Synchronized test suite case counts across documentation. |
+| #23 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Aligned slash command lifecycle table in `README.md` with `AGENTS.md` protocol. |
+| #24 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Synchronized Table of Contents and Section 7 sub-TOC anchors in `MANUAL.md`. |
+| #25 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Corrected syntax validation claims in `MANUAL.md` to reflect Python, PHP, and JSON checkers. |
+| #26 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Clarified No-Plan Grace Period description for active blueprints in `MANUAL.md`. |
+| #27 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Aligned orphan branch plumbing documentation and exit code 2 error handling in `MANUAL.md`. |
+| #28 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Fixed relative plan link path from `../.plans/current/` to `current/` in `templates/issues.md`. |
+| #29 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Corrected structural mapping tree for `.plans/` files in `templates/architecture.md`. |
+| #30 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Updated comment marker reference from `AAPP-INIT` to `aapp init` in `templates/AGENTS.md`. |
 | #31 | `Medium` | `TEST` | 2026-09-09 | 2026-09-09 | `b9e0daf` (`v1.0.1`) | Executed `call_guard_json` with absolute paths on every assertion in `tests/write-guard_test.sh`. |
 | #32 | `Medium` | `TEST` | 2026-09-09 | 2026-09-09 | `b9e0daf` (`v1.0.1`) | Verified `hookSpecificOutput.permissionDecision` in response schema in `tests/write-guard_test.sh`. |
-| #33 | `Medium` | `TEST` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Cleaned up helper definitions and test assertions in `tests/write-guard_test.sh`. |
-| #34 | `Medium` | `TEST` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Added regression test coverage for deletions, fallback init, and develop mode in `tests/`. |
+| #33 | `Medium` | `TEST` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Cleaned up helper definitions and test assertions in `tests/write-guard_test.sh`. |
+| #34 | `Medium` | `TEST` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Added regression test coverage for deletions, fallback init, and develop mode in `tests/`. |
 | #35 | `Critical` | `HOOK` | 2026-09-09 | 2026-09-09 | `b9e0daf` (`v1.0.1`) | Fixed awk plan parser to strip backticked/unbackticked markers before target extraction. |
 | #36 | `High` | `HOOK` | 2026-09-09 | 2026-09-09 | `b9e0daf` (`v1.0.1`) | Added `sh\|bash\|zsh` and extensionless binaries to `CORE_CODE_REGEX` in `templates/aapp-pre-commit`. |
 | #37 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `b9e0daf` (`v1.0.1`) | Supported bold markdown `\| **ISSUE-001** \|` and filtered `Resolved` status in `cmd_status.sh`. |
 | #38 | `Medium` | `CLI` | 2026-09-09 | 2026-09-09 | `b9e0daf` (`v1.0.1`) | Added hook manager warning notice when custom non-shell hook exists in `cmd_init.sh`. |
-| #39 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `41c0989` (`v1.0.3`) | Modernized and renamed example blueprint to `example-plan-unified-install-and-upgrade.md`. |
+| #39 | `Low` | `DOCS` | 2026-09-10 | 2026-09-10 | `ebff63e` (`v1.0.3`) | Modernized and renamed example blueprint to `example-plan-unified-install-and-upgrade.md`. |
 | #40 | `Medium` | `TEST` | 2026-09-09 | 2026-09-09 | `b9e0daf` (`v1.0.1`) | Added regression test coverage for backticked `NEW FILE` and `MODIFY` markers in `tests/pre-commit_test.sh`. |
 | #41 | `High` | `SEC` | 2026-09-10 | 2026-09-10 | `97706af` | Streamed JSON stdin to Python eliminating ARG_MAX crash on large writes in `blast-radius-guard.sh`. |
 | #42 | `Medium` | `CLI` | 2026-09-10 | 2026-09-10 | `97706af` | Filtered resolved and done items in `issues_road_map.md` parser in `cmd_status.sh`. |
