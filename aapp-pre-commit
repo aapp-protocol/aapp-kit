@@ -79,7 +79,7 @@ if [ "${ALLOW_MAIN_COMMIT:-0}" != "1" ]; then
     fi
 fi
 
-ALWAYS_ALLOWED_REGEX='^(CHANGELOG\.md|README\.md|MANUAL\.md|CODEMAP\.md|ARCHITECTURE\.md|ISSUES\.md|\.gitignore|package\.json|package-lock\.json|composer\.json|composer\.lock|go\.mod|go\.sum|Cargo\.toml|Cargo\.lock|pyproject\.toml|requirements\.txt)$'
+ALWAYS_ALLOWED_REGEX='^(CHANGELOG\.md|README\.md|MANUAL\.md|CHEATSHEET\.md|CODEMAP\.md|ARCHITECTURE\.md|ISSUES\.md|\.gitignore|package\.json|package-lock\.json|composer\.json|composer\.lock|go\.mod|go\.sum|Cargo\.toml|Cargo\.lock|pyproject\.toml|requirements\.txt)$'
 
 CORE_CODE_REGEX='\.(php|js|jsx|ts|tsx|py|go|rs|c|cpp|h|hpp|java|rb|css|scss|sql|html|sh|bash|zsh)$|^schema/.*\.json$|^aapp$'
 
