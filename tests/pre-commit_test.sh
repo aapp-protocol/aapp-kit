@@ -218,7 +218,7 @@ EOF
 mkdir -p .plans
 touch .plans/CHANGELOG.md
 echo "x=2" > src/a.py
-git add src/a.py
+git add src/a.py .plans/CHANGELOG.md
 rc_plan_cl=0
 out_plan_cl=$(git commit -m "code with .plans changelog" 2>&1) || rc_plan_cl=$?
 if [ $rc_plan_cl -eq 0 ]; then
@@ -231,6 +231,27 @@ if [ "$got_plan_cl" = "PASS" ]; then
 else
   printf "  \033[31m✘\033[0m %-52s want PASS got %s\n" ".plans/CHANGELOG.md satisfies changelog requirement" "$got_plan_cl"; FAIL=$((FAIL+1))
 fi
+
+# 8b. .plans worktree git status verification (no mtime reliance)
+git init -q .plans
+git -C .plans config user.email "test@example.com"
+git -C .plans config user.name "Tester"
+echo "uncommitted changelog entry" >> .plans/CHANGELOG.md
+echo "x=3" > src/a.py
+git add src/a.py
+rc_wt=0
+out_wt=$(git commit -m "code with .plans worktree changelog" 2>&1) || rc_wt=$?
+if [ $rc_wt -eq 0 ]; then
+  got_wt=PASS
+else
+  got_wt=FAIL
+fi
+if [ "$got_wt" = "PASS" ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" ".plans worktree status satisfies changelog requirement" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS got %s\n" ".plans worktree status satisfies changelog requirement" "$got_wt"; FAIL=$((FAIL+1))
+fi
+rm -rf .plans/.git
 
 echo "== 9. pre-commit executes even if aapp-pre-commit lost execute bit (+x) =="
 setup

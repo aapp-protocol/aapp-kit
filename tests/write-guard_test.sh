@@ -144,23 +144,30 @@ plan p.md <<'EOF'
 - [ ] `src/forbidden.py` -> denied
 ## end
 EOF
-PAYLOAD=$(python3 -c "import json; print(json.dumps({'tool_name': 'Write', 'tool_input': {'file_path': '$R/repo/src/forbidden.py'}}))" | "$GUARD" 2>&1 || true)
+ERR_LOG=$(mktemp)
+PAYLOAD=$(python3 -c "import json; print(json.dumps({'tool_name': 'Write', 'tool_input': {'file_path': '$R/repo/src/forbidden.py'}}))" | "$GUARD" 2>"$ERR_LOG" || true)
 VALID_JSON=$(python3 -c "
 import json, sys
 try:
     d = json.loads(sys.argv[1])
-    if d.get('decision') == 'deny' and d.get('hookSpecificOutput', {}).get('permissionDecision') == 'deny':
+    hso = d.get('hookSpecificOutput', {})
+    if (d.get('decision') == 'deny' and
+        d.get('reason') and
+        hso.get('hookEventName') == 'PreToolUse' and
+        hso.get('permissionDecision') == 'deny' and
+        hso.get('permissionDecisionReason') == d.get('reason')):
         print('OK')
     else:
         print('SCHEMA_MISMATCH')
 except Exception as e:
     print('INVALID_JSON')
 " "$PAYLOAD" 2>/dev/null || echo "INVALID")
-if [ "$VALID_JSON" = "OK" ]; then
+if [ "$VALID_JSON" = "OK" ] && grep -q "Blast Radius Guard Violation" "$ERR_LOG"; then
   green "deny payload schema includes hookSpecificOutput" "OK"; PASS=$((PASS+1))
 else
   red "deny payload schema includes hookSpecificOutput" "OK" "$VALID_JSON"; FAIL=$((FAIL+1))
 fi
+rm -f "$ERR_LOG"
 
 echo "== POSIX fallback JSON output without python3 =="
 setup
@@ -181,7 +188,10 @@ done
 POSIX_OUTPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/repo/src/forbidden.py"}}\n' "$R" | PATH="$NO_PY_DIR/bin" "$GUARD" 2>&1 || true)
 rm -rf "$NO_PY_DIR"
 
-if echo "$POSIX_OUTPUT" | grep -q '"decision"[[:space:]]*:[[:space:]]*"deny"' && echo "$POSIX_OUTPUT" | grep -q '"permissionDecision"[[:space:]]*:[[:space:]]*"deny"'; then
+if echo "$POSIX_OUTPUT" | grep -q '"decision"[[:space:]]*:[[:space:]]*"deny"' && \
+   echo "$POSIX_OUTPUT" | grep -q '"hookEventName"[[:space:]]*:[[:space:]]*"PreToolUse"' && \
+   echo "$POSIX_OUTPUT" | grep -q '"permissionDecision"[[:space:]]*:[[:space:]]*"deny"' && \
+   echo "$POSIX_OUTPUT" | grep -q '"permissionDecisionReason"[[:space:]]*:'; then
   green "deny payload valid JSON via POSIX fallback" "OK"; PASS=$((PASS+1))
 else
   red "deny payload valid JSON via POSIX fallback" "OK" "$POSIX_OUTPUT"; FAIL=$((FAIL+1))

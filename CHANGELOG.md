@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Missing `#64` issue row added to `.plans/ISSUES.md`, with count-preservation assertion verifying `49 (archived) + 15 (active) = 64 (unique project issues #1..#64)`.
 
 ### Fixed
+- Write-Guard Deny Schema & Telemetry (`templates/blast-radius-guard.sh`, `tests/write-guard_test.sh`): Adds `hookEventName: "PreToolUse"` and `permissionDecisionReason` to `hookSpecificOutput` in both Python and POSIX fallback paths and mirrors violation notices to stderr so agents receive actionable self-correction feedback (#52), with complete test assertions (#62).
+- Deterministic Pre-Commit Worktree Changelog Verification (`templates/aapp-pre-commit`, `tests/pre-commit_test.sh`): Replaced non-deterministic 900s wall-clock mtime check on `.plans/CHANGELOG.md` with git-verified worktree status checks (`status --porcelain` and latest commit inspection) and root index staging checks (#55), expanding test coverage to 188 automated tests.
 - Hook Status Enum & Draft Plan Isolation (`templates/blast-radius-guard.sh`, `templates/aapp-pre-commit`): Filters out incubator drafts (`🔴 Under Review`, `🟡 Refining`) from active plans in write-guard and pre-commit, ensuring unfrozen blueprints do not lock the blast radius or block repository commits before being greenlit (#64).
 
 ### Changed

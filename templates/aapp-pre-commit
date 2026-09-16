@@ -108,13 +108,8 @@ if [ "$STAGED_CORE_COUNT" -gt 0 ]; then
         if git -C .plans rev-parse --is-inside-work-tree >/dev/null 2>&1; then
             if git -C .plans status --porcelain 2>/dev/null | grep -qE 'CHANGELOG\.md'; then
                 CHANGELOG_UPDATED=1
-            elif [ -f ".plans/CHANGELOG.md" ]; then
-                # Check modification time within last 15 minutes (900 seconds)
-                CHANGELOG_MTIME=$(stat -c %Y .plans/CHANGELOG.md 2>/dev/null || stat -f %m .plans/CHANGELOG.md 2>/dev/null || echo 0)
-                NOW=$(date +%s)
-                if [ $((NOW - CHANGELOG_MTIME)) -le 900 ]; then
-                    CHANGELOG_UPDATED=1
-                fi
+            elif git -C .plans log -1 --name-only --format="" 2>/dev/null | grep -qE '^CHANGELOG\.md$'; then
+                CHANGELOG_UPDATED=1
             fi
         fi
     fi
