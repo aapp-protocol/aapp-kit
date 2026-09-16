@@ -284,6 +284,16 @@ if [ -f "$AAPP_TEMPLATES/blast-radius-guard.sh" ]; then
     chmod +x .githooks/blast-radius-guard
 fi
 
+if [ -f "$AAPP_TEMPLATES/aapp-commit-msg" ]; then
+    cp "$AAPP_TEMPLATES/aapp-commit-msg" .githooks/aapp-commit-msg
+    chmod +x .githooks/aapp-commit-msg
+fi
+
+if [ -f "$AAPP_TEMPLATES/aapp-post-commit" ]; then
+    cp "$AAPP_TEMPLATES/aapp-post-commit" .githooks/aapp-post-commit
+    chmod +x .githooks/aapp-post-commit
+fi
+
 NON_SHELL_HOOK_EXISTS=0
 # 2. Master pre-commit hook (project entrypoint) - never overwrite custom user hook
 if [ ! -f .githooks/pre-commit ]; then
@@ -302,6 +312,44 @@ else
             echo "🛡️  Wired .githooks/aapp-pre-commit into existing .githooks/pre-commit."
         else
             NON_SHELL_HOOK_EXISTS=1
+        fi
+    fi
+fi
+
+# 3. Master commit-msg hook
+if [ ! -f .githooks/commit-msg ]; then
+    if [ -f "$AAPP_TEMPLATES/commit-msg" ]; then
+        cp "$AAPP_TEMPLATES/commit-msg" .githooks/commit-msg
+        chmod +x .githooks/commit-msg
+    fi
+else
+    if ! grep -qs "aapp-commit-msg" .githooks/commit-msg; then
+        if grep -qs '^#!/.*sh' .githooks/commit-msg; then
+            echo "" >> .githooks/commit-msg
+            echo '# Wire AAPP Commit-Msg Engine' >> .githooks/commit-msg
+            echo '"$(git rev-parse --show-toplevel)/.githooks/aapp-commit-msg" "$@" || exit 1' >> .githooks/commit-msg
+            chmod +x .githooks/commit-msg
+            echo "🛡️  Wired .githooks/aapp-commit-msg into existing .githooks/commit-msg."
+        else
+            NON_SHELL_HOOK_EXISTS=1
+        fi
+    fi
+fi
+
+# 4. Master post-commit hook
+if [ ! -f .githooks/post-commit ]; then
+    if [ -f "$AAPP_TEMPLATES/post-commit" ]; then
+        cp "$AAPP_TEMPLATES/post-commit" .githooks/post-commit
+        chmod +x .githooks/post-commit
+    fi
+else
+    if ! grep -qs "aapp-post-commit" .githooks/post-commit; then
+        if grep -qs '^#!/.*sh' .githooks/post-commit; then
+            echo "" >> .githooks/post-commit
+            echo '# Wire AAPP Post-Commit Engine' >> .githooks/post-commit
+            echo '"$(git rev-parse --show-toplevel)/.githooks/aapp-post-commit" "$@"' >> .githooks/post-commit
+            chmod +x .githooks/post-commit
+            echo "🛡️  Wired .githooks/aapp-post-commit into existing .githooks/post-commit."
         fi
     fi
 fi
@@ -331,6 +379,14 @@ elif [ "$CURRENT_HOOKS_PATH" = ".githooks" ]; then
     fi
 else
     HOOK_MANAGER_NOTICE=1
+fi
+
+# Safe-by-default AI Attribution configuration
+if [ -z "$(git config --get aapp.aiAttribution 2>/dev/null || true)" ]; then
+    git config aapp.aiAttribution none
+fi
+if [ -z "$(git config --get aapp.aiCredits 2>/dev/null || true)" ]; then
+    git config aapp.aiCredits false
 fi
 
 # ------------------------------------------------------------------------------
@@ -583,6 +639,8 @@ echo "➡️  Write-time guard:    .githooks/blast-radius-guard"
 echo "➡️  Universal Skills:     .agents/skills/ (bridged to .claude/skills/)"
 CUSTOM_ALLOW_COUNT=$(git config --get-all aapp.allowPath 2>/dev/null | grep -c . || true)
 echo "➡️  Guard allowlist:      7 built-in + ${CUSTOM_ALLOW_COUNT} from git config (aapp.allowPath)"
+ATTR_CURRENT="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
+echo "➡️  AI Attribution:     $ATTR_CURRENT (switch via 'aapp ai-commit' or 'aapp ai-notes')"
 
 # Detect Branching Topology
 DEV_EXISTS=0

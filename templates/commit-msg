@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Git Commit-Msg Hook (Project Master Entrypoint)
+#
+# Dispatches to AAPP commit-msg enforcement engine.
+# ==============================================================================
+set -e
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "$REPO_ROOT" ]; then
+    exit 0
+fi
+
+# 1. AAPP Commit-Msg Enforcement Hook (must run first)
+if [ -f "$REPO_ROOT/.githooks/aapp-commit-msg" ]; then
+    bash "$REPO_ROOT/.githooks/aapp-commit-msg" "$@" || exit 1
+fi
+
+# 2. Project-Specific Checks (Add custom message linters below)

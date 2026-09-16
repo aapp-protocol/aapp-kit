@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# AAPP Commit-Msg Enforcement Hook
+#
+# Check 1: Subject Length & Shape (G4)
+#   - First non-comment line is evaluated against aapp.subjectMaxLen (default 72).
+# Check 2: Attribution Policy & Revert Safety (G2)
+#   - Revert commits are exempt from attribution enforcement.
+#   - commit mode: requires valid AI-Agent: trailer, blocks synthetic emails.
+#   - none / notes mode: disallows AI-Agent: trailers in commit messages.
+#   - Prohibits synthetic vendor email addresses in Co-authored-by: across all modes.
+# Message-Hash Sync (G1)
+#   - Re-keys pre-staged note buffer if commit message was edited in $EDITOR.
+# ==============================================================================
+set -e
+
+MSG_FILE="$1"
+if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
+    exit 0
+fi
+
+# Ignore empty files
+if [ ! -s "$MSG_FILE" ]; then
+    exit 0
+fi
+
+# Extract first non-comment line as subject
+SUBJECT=""
+while IFS= read -r line; do
+    # Skip comment lines
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    # Skip leading empty lines
+    [[ -z "$line" ]] && continue
+    SUBJECT="$line"
+    break
+done < "$MSG_FILE"
+
+if [ -z "$SUBJECT" ]; then
+    exit 0
+fi
+
+# ------------------------------------------------------------------------------
+# Check 1: Subject Length & Shape (G4)
+# ------------------------------------------------------------------------------
+SUBJECT_MAX_LEN="$(git config --int aapp.subjectMaxLen 2>/dev/null || echo "72")"
+SUBJECT_LEN="${#SUBJECT}"
+
+if [ "$SUBJECT_LEN" -gt "$SUBJECT_MAX_LEN" ]; then
+    echo "" >&2
+    echo "❌ [Commit-Msg Violation] Commit subject exceeds maximum length ($SUBJECT_LEN > $SUBJECT_MAX_LEN chars)!" >&2
+    echo "   Subject: $SUBJECT" >&2
+    echo "" >&2
+    echo "   👉 The Commit Conciseness Invariant requires concise, imperative subject lines (<= $SUBJECT_MAX_LEN chars)." >&2
+    echo "   👉 Move detailed technical analysis and explanations into the commit body." >&2
+    echo "" >&2
+    exit 1
+fi
+
+# ------------------------------------------------------------------------------
+# Check 2: Attribution Policy & Revert Safety (G2)
+# ------------------------------------------------------------------------------
+# Revert exemption: git revert standard commits or quoted revert lines
+if [[ "$SUBJECT" =~ ^Revert[[:space:]]+\" || "$SUBJECT" =~ ^This[[:space:]]+reverts[[:space:]]+commit ]]; then
+    exit 0
+fi
+
+if grep -qE '^(This reverts commit [0-9a-fA-F]+|> This reverts commit [0-9a-fA-F]+)' "$MSG_FILE" 2>/dev/null; then
+    exit 0
+fi
+
+ATTR_MODE="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
+
+# Check for AI-Agent: trailer
+HAS_AI_AGENT=0
+if grep -qE '^[[:space:]]*AI-Agent:[[:space:]]*[^[:space:]]+' "$MSG_FILE" 2>/dev/null; then
+    HAS_AI_AGENT=1
+fi
+
+# Check for banned Co-authored-by trailers with synthetic AI emails or hijacked addresses
+BANNED_COAUTHORS=0
+BANNED_MATCH=""
+while IFS= read -r line; do
+    if [[ "$line" =~ ^[[:space:]]*[Cc]o-[Aa]uthored-[Bb]y:[[:space:]]*(.*) ]]; then
+        coauthor="${BASH_REMATCH[1]}"
+        if echo "$coauthor" | grep -qiE 'Claude|Antigravity|GPT|Copilot|Codex|Cursor|Gemini|noreply\.anthropic\.com|antigravity@google\.com'; then
+            BANNED_COAUTHORS=1
+            BANNED_MATCH="$coauthor"
+            break
+        fi
+    fi
+done < "$MSG_FILE"
+
+if [ "$BANNED_COAUTHORS" -eq 1 ]; then
+    echo "" >&2
+    echo "❌ [Commit-Msg Violation] Prohibited AI co-author trailer detected: '$BANNED_MATCH'" >&2
+    echo "   Synthetic email addresses in Co-authored-by: trailers link commits to unvetted" >&2
+    echo "   or third-party GitHub accounts (e.g. shimonenator)." >&2
+    echo "" >&2
+    echo "   👉 In 'commit' mode, use email-free semantic trailers:" >&2
+    echo "      AI-Agent: <Agent Name>" >&2
+    echo "      AI-Vendor: <Vendor Name>" >&2
+    echo "      AI-Model: <Model ID>" >&2
+    echo "   👉 Or switch attribution mode via:" >&2
+    echo "      aapp ai-commit   (enable emailless trailers)" >&2
+    echo "      aapp ai-notes    (enable local git notes)" >&2
+    echo "      aapp ai-off      (disable AI attribution)" >&2
+    echo "" >&2
+    exit 1
+fi
+
+case "$ATTR_MODE" in
+    commit)
+        if [ "$HAS_AI_AGENT" -eq 0 ]; then
+            echo "" >&2
+            echo "❌ [Commit-Msg Violation] Missing 'AI-Agent:' trailer in 'commit' attribution mode!" >&2
+            echo "   Repository attribution mode is set to 'commit' (aapp.aiAttribution=commit)." >&2
+            echo "" >&2
+            echo "   👉 Append the required emailless trailers to your commit message:" >&2
+            echo "      AI-Agent: <Agent Name>" >&2
+            echo "      AI-Vendor: <Vendor Name>" >&2
+            echo "      AI-Model: <Model ID>" >&2
+            echo "" >&2
+            echo "   👉 If this is a purely human commit with no AI assistance, switch mode:" >&2
+            echo "      aapp ai-off" >&2
+            echo "" >&2
+            exit 1
+        fi
+        ;;
+    notes)
+        if [ "$HAS_AI_AGENT" -eq 1 ]; then
+            echo "" >&2
+            echo "❌ [Commit-Msg Violation] 'AI-Agent:' trailer detected in 'notes' mode!" >&2
+            echo "   Repository attribution mode is set to 'notes' (aapp.aiAttribution=notes)." >&2
+            echo "   Commit messages in 'notes' mode must remain human-only." >&2
+            echo "" >&2
+            echo "   👉 Remove 'AI-Agent:' from the commit message and stage it via:" >&2
+            echo "      aapp ai-note --stage" >&2
+            echo "   👉 Or switch to commit mode: aapp ai-commit" >&2
+            echo "" >&2
+            exit 1
+        fi
+        ;;
+    none|*)
+        if [ "$HAS_AI_AGENT" -eq 1 ]; then
+            echo "" >&2
+            echo "❌ [Commit-Msg Violation] 'AI-Agent:' trailer detected in 'none' attribution mode!" >&2
+            echo "   Repository attribution mode is set to 'none' (aapp.aiAttribution=none)." >&2
+            echo "" >&2
+            echo "   👉 Remove the AI trailer, or enable commit attribution mode:" >&2
+            echo "      aapp ai-commit" >&2
+            echo "" >&2
+            exit 1
+        fi
+        ;;
+esac
+
+# ------------------------------------------------------------------------------
+# Message-Hash Sync (G1)
+# ------------------------------------------------------------------------------
+if [ "$ATTR_MODE" = "notes" ] && command -v git >/dev/null 2>&1; then
+    NOTE_DIR="$(git rev-parse --git-path . 2>/dev/null || echo ".git")"
+    FINAL_HASH="$(git stripspace --strip-comments < "$MSG_FILE" 2>/dev/null | sha256sum | awk '{print $1}')"
+    if [ -d "$NOTE_DIR" ] && [ -n "$FINAL_HASH" ]; then
+        if [ ! -f "$NOTE_DIR/aapp_pending_note.$FINAL_HASH" ]; then
+            pending_files=()
+            while IFS= read -r -d '' pfile; do
+                pending_files+=("$pfile")
+            done < <(find "$NOTE_DIR" -maxdepth 1 -name 'aapp_pending_note.*' -print0 2>/dev/null)
+
+            if [ ${#pending_files[@]} -eq 1 ]; then
+                mv "${pending_files[0]}" "$NOTE_DIR/aapp_pending_note.$FINAL_HASH"
+            fi
+        fi
+    fi
+fi
+
+exit 0
