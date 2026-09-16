@@ -366,17 +366,17 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 - [x] Task 1.2: Add unit tests for Pair 6 in `tests/plan_resolver_test.sh` verifying that both valid and dangling SHAs are correctly evaluated.
 
 ### Phase 2: Template Specifications & Hook Infrastructure
-- [ ] Task 2.1: Update `templates/AGENTS.md` to specify:
+- [x] Task 2.1: Update `templates/AGENTS.md` to specify:
   - Configuration source: `git config aapp.aiAttribution` (`none` | `commit` | `notes`).
   - Semantic trailer standard (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`).
   - Numeric Commit Conciseness Invariant (subject <= 72 chars, imperative mood).
   - Explicit asymmetry: trailers are primary; notes are opt-in and local-first.
   - Staged note buffer protocol (`aapp_pending_note.<msg-sha256>`) for customizable notes.
-- [ ] Task 2.2: Create `templates/aapp-commit-msg` implementing subject length validation, attribution policy checks with revert exemption, and message-hash synchronization renaming pre-staged notes (`chmod +x`).
-- [ ] Task 2.3: Create thin runner `templates/commit-msg` dispatching to `.githooks/aapp-commit-msg "$1"` (`chmod +x`).
-- [ ] Task 2.4: Create `templates/aapp-post-commit` implementing byte-faithful hash extraction (`git cat-file commit HEAD | sed '1,/^$/d' | sha256sum`), atomic `&&` unlinking with stderr preservation on failure, mismatch diagnostic warnings, and portable TTL reaping (`find ... -mmin +TTL -exec rm -f {} +`) (`chmod +x`).
-- [ ] Task 2.5: Create thin runner `templates/post-commit` dispatching to `.githooks/aapp-post-commit` (`chmod +x`).
-- [ ] Task 2.6: Update `lib/cmd_init.sh` to install `commit-msg`, `aapp-commit-msg`, `post-commit`, and `aapp-post-commit` to `.githooks/` with executable permissions, and set `aapp.aiAttribution=none` by default.
+- [x] Task 2.2: Create `templates/aapp-commit-msg` implementing subject length validation, attribution policy checks with revert exemption, and message-hash synchronization renaming pre-staged notes (`chmod +x`).
+- [x] Task 2.3: Create thin runner `templates/commit-msg` dispatching to `.githooks/aapp-commit-msg "$1"` (`chmod +x`).
+- [x] Task 2.4: Create `templates/aapp-post-commit` implementing byte-faithful hash extraction (`git cat-file commit HEAD | sed '1,/^$/d' | sha256sum`), atomic `&&` unlinking with stderr preservation on failure, mismatch diagnostic warnings, and portable TTL reaping (`find ... -mmin +TTL -exec rm -f {} +`) (`chmod +x`).
+- [x] Task 2.5: Create thin runner `templates/post-commit` dispatching to `.githooks/aapp-post-commit` (`chmod +x`).
+- [x] Task 2.6: Update `lib/cmd_init.sh` to install `commit-msg`, `aapp-commit-msg`, `post-commit`, and `aapp-post-commit` to `.githooks/` with executable permissions, and set `aapp.aiAttribution=none` by default.
 
 ### Phase 3: CLI Switchboard Implementation
 - [ ] Task 3.1: Author `lib/cmd_ai.sh` supporting `ai-status`, `ai-commit`, `ai-notes`, and `ai-off`. Update `ai-status` to report pending notes count and age.
@@ -423,12 +423,12 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 - [ ] `aapp` -> Register `ai-commit`, `ai-notes`, `ai-off`, `ai-status`, `ai-credits`, and `ai-note` in root CLI dispatcher.
 - [ ] `lib/cmd_help.sh` -> Document AI attribution command family in help text.
 - [ ] `NEW FILE` -> `lib/cmd_ai.sh` -> Core attribution switchboard, note staging manager, and credits generator.
-- [ ] `templates/AGENTS.md` -> Document git config attribution model, semantic trailers, and subject conciseness invariant.
-- [ ] `NEW FILE` -> `templates/commit-msg` -> Thin hook dispatcher for commit-msg event.
-- [ ] `NEW FILE` -> `templates/aapp-commit-msg` -> Attribution and subject-length enforcement engine.
-- [ ] `NEW FILE` -> `templates/post-commit` -> Thin hook dispatcher for post-commit event.
-- [ ] `NEW FILE` -> `templates/aapp-post-commit` -> Staged note attacher for notes mode.
-- [ ] `lib/cmd_init.sh` -> Install commit-msg and post-commit hooks and initialize safe-by-default git config.
+- [x] `templates/AGENTS.md` -> Document git config attribution model, semantic trailers, and subject conciseness invariant.
+- [x] `NEW FILE` -> `templates/commit-msg` -> Thin hook dispatcher for commit-msg event.
+- [x] `NEW FILE` -> `templates/aapp-commit-msg` -> Attribution and subject-length enforcement engine.
+- [x] `NEW FILE` -> `templates/post-commit` -> Thin hook dispatcher for post-commit event.
+- [x] `NEW FILE` -> `templates/aapp-post-commit` -> Staged note attacher for notes mode.
+- [x] `lib/cmd_init.sh` -> Install commit-msg and post-commit hooks and initialize safe-by-default git config.
 - [ ] `lib/cmd_install.sh` -> Ensure `lib/cmd_ai.sh` and hook templates are packaged during installation.
 - [x] `lib/planning_health.sh` -> Add Pair 6 (Recorded SHA Integrity) validator.
 - [ ] `NEW FILE` -> `tests/ai_attribution_test.sh` -> Automated test suite for AI attribution switchboard, hooks & credits.
