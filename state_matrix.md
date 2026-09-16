@@ -6,7 +6,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🚦 Recommended Implementation Roadmap
 
-1. 🔴 **P-18**: [`P18-glob-path-traversal-precision.md`](current/P18-glob-path-traversal-precision.md) — Glob Path Traversal Precision & Bracket Syntax Safety (#56) *(Engine bugfix; prior to P-17)*
+1. 🟢 **P-18**: [`P18-glob-path-traversal-precision.md`](current/P18-glob-path-traversal-precision.md) — Glob Path Traversal Precision & Bracket Syntax Safety (#56) *(Engine bugfix; prior to P-17)*
 2. 🔴 **P-17**: [`P17-blast-radius-precision-and-isolation.md`](current/P17-blast-radius-precision-and-isolation.md) — Multi-Agent Lifecycle Switchboard & Worktree Isolation (#57)
 
 ---
@@ -19,13 +19,12 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🔴 **P-15**: [`P15-adversarial-review-plugin.md`](current/P15-adversarial-review-plugin.md) — ✏️ **SKETCH — do not refine** — Adversarial Review Packet, Layer 6 Agent Egress Boundary & reference review plugin. Settled ground only; blocked on `#64`, `#57`, `#56`.
 - 🔴 **P-16**: [`P16-frozen-plan-immutability.md`](current/P16-frozen-plan-immutability.md) — Frozen Plan Immutability & Design-Lock Enforcement: a 🟢 plan accepts progress updates but refuses edits to its Technical Blueprint and Blast Radius (`#68`).
 - 🔴 **P-17**: [`P17-blast-radius-precision-and-isolation.md`](current/P17-blast-radius-precision-and-isolation.md) — Multi-Agent Lifecycle Switchboard & Worktree Isolation (#57).
-- 🔴 **P-18**: [`P18-glob-path-traversal-precision.md`](current/P18-glob-path-traversal-precision.md) — Glob Path Traversal Precision & Bracket Syntax Safety (#56).
 
 ---
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-*(No currently frozen blueprints)*
+- 🟢 **P-18**: [`P18-glob-path-traversal-precision.md`](current/P18-glob-path-traversal-precision.md) — Glob Path Traversal Precision & Bracket Syntax Safety (#56).
 
 ---
 

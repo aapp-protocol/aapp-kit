@@ -2,7 +2,7 @@
 * **Created:** 2026-09-17 | **Last Refined:** 2026-09-17
 * **Target Issue / Milestone:** #56
 * **Plan ID:** P-18
-* **Status:** 🔴 Under Review
+* **Status:** 🟢 Ready for Execution
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
@@ -130,6 +130,7 @@ To guarantee zero performance degradation for literal paths and directory prefix
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
+*(Marked: **LOCKED** — greenlit for execution)*
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `templates/blast-radius-guard.sh` -> Implement `glob_to_regex` and 3-tier fast path matching.
@@ -152,4 +153,5 @@ To guarantee zero performance degradation for literal paths and directory prefix
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-17:** Plan frozen and greenlit for execution via `/aapp-freeze P-18`. Blast radius locked to 4 target files.
 * **2026-09-17:** Plan scaffolded as a dedicated, focused security fix for Issue #56, decoupled from P-17 following red team evaluation. Delivers pure-Bash `glob_to_regex` engine, bracket class syntax rules, and Tier 1-3 fast path in a compact 4-file blast radius.
