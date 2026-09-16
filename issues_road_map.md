@@ -30,6 +30,7 @@
 - [ ] #63 -> No CI runs test suites (102 test cases) and no release gate blocks publishing `main` trailing `develop`.
 
 ## 📥 Triage (Incoming / Unsequenced)
+- [ ] #68 -> Frozen plan documents are editable; design can change under in-flight execution (`.plans/*` is always-allowed).
 *Newly logged issues awaiting prioritization.*
 - [ ] #55 -> CHANGELOG enforcement accepts `.plans/CHANGELOG.md` on a 900s mtime window; wall-clock dependence is non-deterministic.
 - [ ] #56 -> Glob matching lets `*` cross `/`; blast radius is wider than blueprint authors intend.
