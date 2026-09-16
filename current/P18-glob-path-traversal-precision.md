@@ -114,18 +114,18 @@ To guarantee zero performance degradation for literal paths and directory prefix
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Pure-Bash Regex Engine Implementation
-- [ ] Task 1.1: Implement `glob_to_regex` helper and 3-tier fast-path matching in `templates/blast-radius-guard.sh`.
-- [ ] Task 1.2: Implement `glob_to_regex` helper and 3-tier fast-path matching in `templates/aapp-pre-commit`.
+- [x] Task 1.1: Implement `glob_to_regex` helper and 3-tier fast-path matching in `templates/blast-radius-guard.sh`.
+- [x] Task 1.2: Implement `glob_to_regex` helper and 3-tier fast-path matching in `templates/aapp-pre-commit`.
 
 ### Phase 2: Automated Test Suites & Hook Verification
-- [ ] Task 2.1: Add glob precision unit tests to `tests/write-guard_test.sh`:
+- [x] Task 2.1: Add glob precision unit tests to `tests/write-guard_test.sh`:
   - Verify `src/*.py` matches `src/a.py` and blocks `src/sub/a.py`.
   - Verify `src/**/*.py` matches `src/sub/a.py` and `src/sub/deep/a.py`.
   - Verify `src/?.py` matches single-character filenames and blocks multi-character filenames.
   - Verify `migrations/[0-9]*.sql` matches digit-prefixed SQL files and blocks letter-prefixed files.
   - Verify directory prefix `src/` matches all files under `src/`.
-- [ ] Task 2.2: Add matching pre-commit tests to `tests/pre-commit_test.sh`.
-- [ ] Task 2.3: Sync active hooks via `./aapp init` and run all regression suites.
+- [x] Task 2.2: Add matching pre-commit tests to `tests/pre-commit_test.sh`.
+- [x] Task 2.3: Sync active hooks via `./aapp init` and run all regression suites.
 
 ---
 
@@ -133,10 +133,10 @@ To guarantee zero performance degradation for literal paths and directory prefix
 *(Marked: **LOCKED** — greenlit for execution)*
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `templates/blast-radius-guard.sh` -> Implement `glob_to_regex` and 3-tier fast path matching.
-- [ ] `templates/aapp-pre-commit` -> Implement `glob_to_regex` and 3-tier fast path matching in pre-commit.
-- [ ] `tests/write-guard_test.sh` -> Add glob precision, recursive globstar, and bracket test cases.
-- [ ] `tests/pre-commit_test.sh` -> Add pre-commit glob precision regression tests.
+- [x] `templates/blast-radius-guard.sh` -> Implement `glob_to_regex` and 3-tier fast path matching.
+- [x] `templates/aapp-pre-commit` -> Implement `glob_to_regex` and 3-tier fast path matching in pre-commit.
+- [x] `tests/write-guard_test.sh` -> Add glob precision, recursive globstar, and bracket test cases.
+- [x] `tests/pre-commit_test.sh` -> Add pre-commit glob precision regression tests.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/*` -> Section 2 self-protection (managed via `templates/` and `aapp init`).
