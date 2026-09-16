@@ -238,7 +238,15 @@ esac
 # ------------------------------------------------------------------------------
 # 4. Blast Radius Validation Against Active Plans
 # ------------------------------------------------------------------------------
-ACTIVE_PLANS=$(ls -1 .plans/current/*.md 2>/dev/null || true)
+ACTIVE_PLANS=""
+if [ -d .plans/current ]; then
+    while IFS= read -r -d '' plan_file; do
+        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🔴|🟡|Under Review|Refining)' "$plan_file" 2>/dev/null; then
+            continue
+        fi
+        ACTIVE_PLANS="${ACTIVE_PLANS:+$ACTIVE_PLANS"$'\n'"}$plan_file"
+    done < <(find .plans/current -maxdepth 1 -name "*.md" ! -name "000-*" -print0 2>/dev/null | sort -z)
+fi
 
 if [ -z "$ACTIVE_PLANS" ]; then
     # Fail-open: if no active blueprints exist, allow edits to normal project files
