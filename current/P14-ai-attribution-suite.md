@@ -379,13 +379,13 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 - [x] Task 2.6: Update `lib/cmd_init.sh` to install `commit-msg`, `aapp-commit-msg`, `post-commit`, and `aapp-post-commit` to `.githooks/` with executable permissions, and set `aapp.aiAttribution=none` by default.
 
 ### Phase 3: CLI Switchboard Implementation
-- [ ] Task 3.1: Author `lib/cmd_ai.sh` supporting `ai-status`, `ai-commit`, `ai-notes`, and `ai-off`. Update `ai-status` to report pending notes count and age.
-- [ ] Task 3.2: Implement safe, idempotent git-notes configuration in `ai-notes`: refspecs (`+refs/heads/*:refs/heads/*` + `+refs/notes/*:refs/notes/*` with `--replace-all`), `notes.mergeStrategy=cat_sort_uniq`, `notes.rewriteMode=concatenate`, and **`notes.rewriteRef=refs/notes/commits`** — the last is mandatory or notes are dropped on amend/rebase.
-- [ ] Task 3.3: Register `ai-status`, `ai-commit`, `ai-notes`, and `ai-off` in `./aapp` command dispatcher and help output (`lib/cmd_help.sh`).
-- [ ] Task 3.4: Update `lib/cmd_install.sh` to install `lib/cmd_ai.sh` and hook templates.
-- [ ] Task 3.5: Implement `aapp ai-credits` in `lib/cmd_ai.sh` per §E — union generation, `LC_ALL=C` ordering, alias map resolution, and the §E.3 refusal matrix.
-- [ ] Task 3.6: Register `ai-credits` in the `./aapp` dispatcher and `lib/cmd_help.sh`; add `aapp.aiCredits` (default `false`) to safe-by-default init.
-- [ ] Task 3.7: Implement `aapp ai-note` in `lib/cmd_ai.sh` supporting `--stage` to write/customize metadata into `aapp_pending_note.<msg-sha256>`.
+- [x] Task 3.1: Author `lib/cmd_ai.sh` supporting `ai-status`, `ai-commit`, `ai-notes`, and `ai-off`. Update `ai-status` to report pending notes count and age.
+- [x] Task 3.2: Implement safe, idempotent git-notes configuration in `ai-notes`: refspecs (`+refs/heads/*:refs/heads/*` + `+refs/notes/*:refs/notes/*` with `--replace-all`), `notes.mergeStrategy=cat_sort_uniq`, `notes.rewriteMode=concatenate`, and **`notes.rewriteRef=refs/notes/commits`** — the last is mandatory or notes are dropped on amend/rebase.
+- [x] Task 3.3: Register `ai-status`, `ai-commit`, `ai-notes`, and `ai-off` in `./aapp` command dispatcher and help output (`lib/cmd_help.sh`).
+- [x] Task 3.4: Update `lib/cmd_install.sh` to install `lib/cmd_ai.sh` and hook templates.
+- [x] Task 3.5: Implement `aapp ai-credits` in `lib/cmd_ai.sh` per §E — union generation, `LC_ALL=C` ordering, alias map resolution, and the §E.3 refusal matrix.
+- [x] Task 3.6: Register `ai-credits` in the `./aapp` dispatcher and `lib/cmd_help.sh`; add `aapp.aiCredits` (default `false`) to safe-by-default init.
+- [x] Task 3.7: Implement `aapp ai-note` in `lib/cmd_ai.sh` supporting `--stage` to write/customize metadata into `aapp_pending_note.<msg-sha256>`.
 
 ### Phase 4: Automated Test Suite
 - [ ] Task 4.1: Create `tests/ai_attribution_test.sh` testing:
@@ -420,22 +420,22 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 >
 > Note: In accordance with Pair 5 self-protection, files installed into `.githooks/` are updated exclusively via `lib/cmd_init.sh` from source templates in `templates/`.
 
-- [ ] `aapp` -> Register `ai-commit`, `ai-notes`, `ai-off`, `ai-status`, `ai-credits`, and `ai-note` in root CLI dispatcher.
-- [ ] `lib/cmd_help.sh` -> Document AI attribution command family in help text.
-- [ ] `NEW FILE` -> `lib/cmd_ai.sh` -> Core attribution switchboard, note staging manager, and credits generator.
+- [x] `aapp` -> Register `ai-commit`, `ai-notes`, `ai-off`, `ai-status`, `ai-credits`, and `ai-note` in root CLI dispatcher.
+- [x] `lib/cmd_help.sh` -> Document AI attribution command family in help text.
+- [x] `NEW FILE` -> `lib/cmd_ai.sh` -> Core attribution switchboard, note staging manager, and credits generator.
 - [x] `templates/AGENTS.md` -> Document git config attribution model, semantic trailers, and subject conciseness invariant.
 - [x] `NEW FILE` -> `templates/commit-msg` -> Thin hook dispatcher for commit-msg event.
 - [x] `NEW FILE` -> `templates/aapp-commit-msg` -> Attribution and subject-length enforcement engine.
 - [x] `NEW FILE` -> `templates/post-commit` -> Thin hook dispatcher for post-commit event.
 - [x] `NEW FILE` -> `templates/aapp-post-commit` -> Staged note attacher for notes mode.
 - [x] `lib/cmd_init.sh` -> Install commit-msg and post-commit hooks and initialize safe-by-default git config.
-- [ ] `lib/cmd_install.sh` -> Ensure `lib/cmd_ai.sh` and hook templates are packaged during installation.
+- [x] `lib/cmd_install.sh` -> Ensure `lib/cmd_ai.sh` and hook templates are packaged during installation.
 - [x] `lib/planning_health.sh` -> Add Pair 6 (Recorded SHA Integrity) validator.
 - [ ] `NEW FILE` -> `tests/ai_attribution_test.sh` -> Automated test suite for AI attribution switchboard, hooks & credits.
 - [x] `tests/plan_resolver_test.sh` -> Add test coverage for Pair 6 SHA integrity verification.
 - [ ] `NEW FILE` -> `scripts/scrub-attribution.sh` -> Historical conversion scrubber and ledger SHA repair utility.
 - [ ] `README.md` -> Document AI attribution commands and host the seeded `AAPP-AI-CREDITS` block.
-- [ ] `CHANGELOG.md` -> Document changes under `[Unreleased]`.
+- [x] `CHANGELOG.md` -> Document changes under `[Unreleased]`.
 - [ ] `CHEATSHEET.md` -> Add `aapp ai-*` commands quick reference.
 - [ ] `.plans/release/release_checklist.md` -> Add AI Contributors footer review item.
 - [ ] `templates/release_checklist.md` -> Keep release checklist template aligned with .plans/release/release_checklist.md.
@@ -473,6 +473,7 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-16:** Phase 3 implemented: CLI switchboard (`lib/cmd_ai.sh`), `ai-status`, `ai-commit`, `ai-notes`, `ai-off`, `ai-credits` (with `LC_ALL=C` sorting, alias mapping, and §E.8 mode-boundary refusal matrix), `ai-note --stage`, `lib/cmd_install.sh` executable sync, and root dispatcher (`aapp`)/help (`lib/cmd_help.sh`) registration verified.
 * **2026-09-16:** Plan frozen and greenlit for execution (/aapp-freeze P-14). Blast radius locked.
 * **2026-09-16:** Hardened staged notes following second red-team review: adopted Message-SHA keying (`aapp_pending_note.<sha256>`), closed the B1 `format=%B` newline divergence using `git cat-file | sed`, specified `&&` atomic unlinking to preserve buffers on attachment failure (B3), added B5 TTL cleanup (`find ... -exec rm -f {} +`) and mismatch warnings to `post-commit`, and documented amend/collision invariants.
 * **2026-09-16:** Integrated post-commit staged note attacher (`templates/post-commit`, `templates/aapp-post-commit`) enabling atomic, customizable notes. Resolved open questions Q1 (post-implementation backup before live scrub) and Q2 (impartial seeding of both Antigravity and Claude). Added `CHANGELOG.md`, `CHEATSHEET.md`, and `templates/release_checklist.md` to Target Files; corrected test suite path to `tests/plan_resolver_test.sh`.
