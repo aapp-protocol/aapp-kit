@@ -52,7 +52,7 @@ We introduce an efficient pure-Bash helper `glob_to_regex` that translates stand
 - `**` -> `.*` (matches zero or more characters across arbitrary directory depths)
 - `/**/` -> `/(.*/)?` (matches zero or more directory levels cleanly)
 - `?` -> `[^/]` (matches exactly one non-slash character)
-- Metacharacters `\ . + ^ $ ( ) [ ] { } |` are escaped.
+- Metacharacters `\ . + ^ $ ( ) { } |` are escaped; standard POSIX bracket expressions (`[...]`) are preserved.
 
 #### Translation Algorithm
 ```bash
@@ -86,11 +86,33 @@ glob_to_regex() {
 }
 ```
 
+#### Parameterized Bracket Grammar & Syntax Safety Rules (`[...]`)
+To prevent "funny regex file names" or arbitrary regex injection into target declarations:
+1. **Permitted Pattern Grammar**:
+   - Repository-relative paths composed of standard path characters: `[a-zA-Z0-9._/-]`.
+   - Wildcards: `*` (single segment, non-slash), `**` (recursive directory tree), `?` (single character, non-slash).
+   - Character classes: `[...]` within a path segment.
+2. **Permitted Bracket Expressions**:
+   - Digit ranges: `[0-9]` (e.g. `migrations/[0-9]*.sql`)
+   - Letter ranges: `[a-z]`, `[A-Z]`, `[a-zA-Z]`
+   - Alphanumeric ranges: `[a-zA-Z0-9]`
+   - Discrete character sets: `[abc]`, `[01]`, `[a-f0-9]`
+   - Negated classes: Leading `^` or `!` (e.g. `[^0-9]`, `[!a-z]`)
+3. **Strict Invariants to Prevent "Funny Regex" Names**:
+   - **Path Separator Prohibition**: A slash `/` is **strictly forbidden** inside bracket expressions (e.g. `[a/b]` is an error). Path segments must always be explicitly delimited by literal `/`.
+   - **No Raw Regex Quantifiers / Repetition**: `+`, `{1,3}`, `*?` are forbidden. Patterns are **POSIX globs, never raw regular expressions**.
+   - **No Alternation or Grouping**: `(foo|bar)`, `foo|bar`, or parentheses `(...)` are forbidden. If multiple files or extensions are needed, list them on separate lines.
+   - **No Shell Brace Expansion**: `{ts,js}` is forbidden. Declare distinct lines in `### 📂 Target Files`.
+   - **No Regex Shorthand Classes**: `\d`, `\w`, `\s` are forbidden. Use explicit POSIX classes (`[0-9]`, `[a-zA-Z0-9]`).
+4. **Well-Formedness & Planning Health Validation**:
+   - Brackets must be balanced and non-empty. Unclosed brackets (`foo/[a-z.py`), empty brackets (`[]`), or nested brackets (`[[0-9]]`) are caught and rejected at blueprint review time by `lib/planning_health.sh`.
+   - Any pattern failing this grammar check halts `/aapp-freeze` and `aapp start`.
+
 #### Fast-Path Optimized `match_pattern_list`
 To guarantee zero performance degradation for literal paths and directory prefixes, `match_pattern_list` executes a 3-tier fast path:
 1. **Tier 1 (Exact Match)**: `[ "$target" = "$pattern" ]` -> return 0.
 2. **Tier 2 (Directory Prefix)**: If `pattern` ends in `/`, check `[[ "$target" == "$pattern"* ]]` -> return 0.
-3. **Tier 3 (Glob / Regex Match)**: If pattern contains `*` or `?`, compile via `glob_to_regex` and match via `[[ "$target" =~ $regex ]]`.
+3. **Tier 3 (Glob / Regex Match)**: If pattern contains `*`, `?`, or `[`, compile via `glob_to_regex` and match via `[[ "$target" =~ $regex ]]`.
 
 ---
 
@@ -203,19 +225,26 @@ Check Designated Plan Only:            Count 🟠 In Development Plans:
 
 ---
 
-### E. Planning Health Pair 7: Active Blueprint Boundary Collision Validator
-Beyond runtime hook enforcement, compile-time / planning health verification in `lib/planning_health.sh` enforces safety:
-- **Pair 7 (Target Files vs Concurrent OOB Collision)**:
-  - When multiple blueprints in `.plans/current/` are marked `🟠 In Development` simultaneously in the same workspace, their Target Files must be strictly disjoint.
-  - If Plan A targets `path` and Plan B targets `path`, `check_planning_health` emits:
-    ```text
-    ❌ [Pair 7 Violation] In-Flight Blueprint Collision!
-       -> Plan 'P-12' targets 'src/core/router.sh'
-       -> Plan 'P-10' also targets 'src/core/router.sh'
-       -> In-flight plans in the same workspace cannot share target files.
-       -> To resolve: Isolate execution on separate git worktrees/branches, or finish P-10 first.
-    ```
-  - Pre-commit and `aapp start` immediately halt before allowing contradictory plans to execute concurrently in the same working tree.
+### E. Planning Health Integrity: In-Flight Collision & Pattern Syntax Validation
+Beyond runtime hook enforcement, compile-time planning health verification in `lib/planning_health.sh` enforces static safety:
+
+1. **Pair 7: In-Flight Boundary Collision Validator (Strictly `🟠 In Development`)**:
+   - **Scope**: Checks collisions exclusively between active, in-flight (`🟠 In Development`) plans in the same workspace.
+   - **Zero False Alarms for Backlog (`🟢 Frozen`)**: Blueprints sitting in `🟢 Frozen` are approved roadmap specifications awaiting work. Because roadmap milestones often touch the same core modules sequentially, backlog plans emit **zero collision warnings at freeze time**.
+   - **Hard Block for In-Flight Overlaps**: If two blueprints in `.plans/current/` are marked `🟠 In Development` simultaneously in the same workspace, their Target Files must be strictly disjoint. If Plan A targets `path` and Plan B targets `path`:
+     ```text
+     ❌ [Pair 7 Violation] In-Flight Blueprint Collision!
+        -> Plan 'P-12' targets 'src/core/router.sh'
+        -> Plan 'P-10' also targets 'src/core/router.sh'
+        -> In-flight plans in the same workspace cannot share target files.
+        -> To resolve: Isolate execution on separate git worktrees/branches, or finish P-10 first.
+     ```
+   - Pre-commit and `aapp start` immediately halt before allowing contradictory plans to execute concurrently in the same working tree.
+
+2. **Target Files Pattern Grammar Validator (Pair 5 Extension)**:
+   - Inspects every backticked path/pattern in `### 📂 Target Files` and `### 🛑 Out of Bounds`.
+   - Rejects "funny regex" file names: flags raw regex constructs (`+`, `{1,3}`, `|`, `(...)`), slashes inside brackets (`[/]`), unclosed brackets, or shell brace expansions (`{ts,js}`).
+   - Ensures all patterns conform to clean, predictable POSIX glob and bracket class grammar before a blueprint can be frozen or executed.
 
 ---
 
@@ -311,17 +340,16 @@ Beyond runtime hook enforcement, compile-time / planning health verification in 
 * [x] **Question 1: Multi-Agent Concurrency, State Decoupling & Flagless Buffer Protocol**
   - *Resolution:* Adopted decoupled 4-state lifecycle (`🟢 Frozen` = approved backlog spec, `🟠 In Development` = active coding) combined with local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`). Non-interactive `/aapp-freeze` and `/aapp-start` flow. Flagless verbs (`aapp plan-swap`, `aapp plan-clear`). Native Git worktree physical isolation.
 
-* [ ] **Question 2: Scope of Planning Health Pair 7 (In-Flight Collisions vs Backlog Warnings)**
-  - *Context:* Should Pair 7 check collisions only between `🟠 In Development` plans, or also warn when two `🟢 Frozen` backlog plans have overlapping boundaries?
-  - *Recommendation:* Pair 7 should strictly block (`FAIL`) when two `🟠 In Development` plans share target files in the same workspace. For `🟢 Frozen` plans, it should emit an advisory notice (`INFO`) reminding authors that those plans must be executed sequentially or in separate worktrees.
+* [x] **Question 2: Scope of Planning Health Pair 7 (In-Flight Collisions vs Backlog Warnings)**
+  - *Resolution:* Strictly scoped to `🟠 In Development` plans executing in the same workspace. Blueprints sitting in `🟢 Frozen` emit **zero warnings** at freeze time. Roadmap specifications often touch the same modules across sequential milestones; emitting warnings during freeze creates unnecessary friction. Pair 7 boundary collision checks enforce hard blocks exclusively when two plans are actively marked `🟠 In Development` concurrently in the same working tree, or when `aapp start` attempts to activate a plan whose targets collide with an already running plan.
 
-* [ ] **Question 3: Bracket Expression Semantics (`[...]`)**
-  - *Context:* Should bracket character classes (e.g. `[0-9]`, `[a-z]`) be officially supported in Target Files globs?
-  - *Recommendation:* Yes, preserving standard POSIX bracket expressions allows authors to write patterns like `migrations/[0-9]*.sql` without needing full regex syntax.
+* [x] **Question 3: Parameterized Pattern & Bracket Expression Rules (`[...]`)**
+  - *Resolution:* Officially support parameterized bracket character classes (`[...]`) with strict syntax boundaries to prevent "funny regex" file names. Allowed: standard character ranges (`[0-9]`, `[a-z]`, `[A-Z]`, `[a-zA-Z0-9]`), discrete character sets (`[abc]`, `[01]`), and negation (`[^0-9]`, `[!a-z]`). Strictly forbidden: slashes inside brackets (`[/]`), raw regex quantifiers (`+`, `{1,3}`), alternation/groups (`(...)`, `|`), brace expansion (`{a,b}`), and unclosed brackets. Planning Health actively validates Target File patterns and rejects any malformed or raw regex expressions at blueprint review time.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-16:** Resolved Open Questions 2 & 3: established strict syntax rules for parameterized patterns and bracket character classes (`[...]`) to prevent raw regex or malformed file names, backed by Planning Health pattern validation. Confirmed Planning Health Pair 7 collision check is strictly scoped to in-flight (`🟠 In Development`) plans, ensuring `🟢 Frozen` backlog plans emit zero false alarms at freeze time.
 * **2026-09-16:** Plan refined following ergonomic review: adopted non-interactive two-step progression (`/aapp-freeze` -> `/aapp-start`), eliminating interactive stdin prompts. Formulated single-token flagless command suite (`aapp plan-swap`, `aapp plan-clear`). Added documentation target files (`MANUAL.md`, `CHEATSHEET.md`, skills).
 * **2026-09-16:** Plan amended following architectural review: introduced the 4th plan lifecycle state (`🟠 In Development`) to decouple specification approval (`🟢 Frozen`) from active execution, eliminating O(N) multi-plan allowlist inflation. Designed the O(1) Worktree Stash / Pointer Buffer architecture (`$(git rev-parse --git-path aapp_active_plan)`), providing sub-millisecond execution and native Git worktree multi-agent physical isolation.
 * **2026-09-16:** Plan initialized and drafted from issues #56 and #57 (`aapp-digest`). Proposed `glob_to_regex` translation engine, two-phase global OOB veto, Pair 7 collision validation, and authoring doc updates.
