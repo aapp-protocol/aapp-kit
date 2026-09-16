@@ -21,27 +21,44 @@ See `.agents/CODEMAP.md` (or `CODEMAP.md` at the repo root) before assuming wher
 
 ## 🛡️ Git Commit & Workflow Rule
 
-### ✍️ Agent Attribution — Opt-In
-> **Setting: `ENABLED`** — change to `DISABLED`, or delete this subsection entirely, to turn agent attribution off. Off is a perfectly good default; this is a matter of taste, not correctness.
+### ✍️ AI Attribution Switchboard & Commit Standards
 
-While enabled, every commit you make carries a trailer naming **the agent that actually wrote the change**, so `git log` records which tool did what:
+Attribution mode is governed by repository configuration (`git config aapp.aiAttribution`):
+
+| Mode | Command | Scope & Behavior |
+| :--- | :--- | :--- |
+| `none` | `aapp ai-off` | **Default.** Pure human authoring; no AI trailers or git notes are generated or validated. |
+| `commit` | `aapp ai-commit` | **Public attribution.** Appends emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) to commit messages. |
+| `notes` | `aapp ai-notes` | **Local-first / private attribution.** Leaves commit messages pristine; records attribution metadata in `refs/notes/commits`. |
+
+#### 🏷️ Semantic Trailer Standard (`commit` mode)
+When `aapp.aiAttribution = commit`, every AI commit MUST carry semantic, emailless trailers. **Synthetic or fake email addresses (`Co-authored-by: Agent <email>`) are strictly forbidden** to prevent GitHub account hijacking and spoofing:
 
 ```text
-Co-authored-by: <Agent Name> <agent@vendor.tld>
+AI-Agent: <Agent Name>
+AI-Vendor: <Vendor Name>
+AI-Model: <Model ID>
 ```
 
-**Rules while this is enabled:**
-- **Use your own identity.** You know which agent you are — fill it in. **Never copy a trailer you found in the existing `git log`**, and never inherit one left by a different agent. Pattern-matching the previous commit is the natural failure mode here, and it silently makes the history wrong.
-- **Use your vendor's documented no-reply address.** If you do not actually know it, **ask the human rather than inventing one** — a fabricated address is worse than no trailer at all.
-- **One trailer per agent** that genuinely contributed. If two agents worked the change, list both.
-- **The human remains the commit `author`.** This is a co-author trailer only; it never replaces authorship.
-- Applies equally to code commits and to commits inside the `plans`, `agents`, and `githooks` worktrees.
-
-| Agent | Trailer |
+| Agent | Semantic Trailers |
 | :--- | :--- |
-| Claude Code | `Co-authored-by: Claude <noreply@anthropic.com>` |
-| Antigravity | `Co-authored-by: Antigravity <antigravity@google.com>` |
-| *anything else* | *use your vendor's documented address — do not guess* |
+| Claude Code | `AI-Agent: Claude`<br>`AI-Vendor: Anthropic`<br>`AI-Model: claude-3-5-sonnet-20241022` |
+| Antigravity | `AI-Agent: Antigravity`<br>`AI-Vendor: Google`<br>`AI-Model: gemini-1.5-pro` |
+
+#### 📏 Numeric Commit Conciseness Invariant
+- **Subject Length**: Commit subject lines must not exceed `72` characters (configurable via `git config aapp.subjectMaxLen`).
+- **Imperative Mood**: Write subject lines in the imperative mood (e.g. `feat: add ...`, `fix: handle ...`).
+- **Concise Body**: Explain *why* and *what*, leaving detailed architectural design to `.plans/current/<plan>.md`.
+
+#### ⚖️ Commit vs. Notes Asymmetry
+- **Trailers are primary**: They become immutable parts of the commit object, survive `git cherry-pick`, `git rebase`, and display natively on GitHub/GitLab without requiring special push refspecs.
+- **Notes are opt-in and local-first**: Notes keep commit messages pristine for internal or private benchmarking. Notes require explicit push refspecs (`+refs/notes/*:refs/notes/*`), merge strategies (`cat_sort_uniq`), and `notes.rewriteRef=refs/notes/commits` to persist across amends and rebases.
+
+#### 📝 Staged Note Protocol (`notes` mode)
+When operating in `notes` mode, an agent or developer customizes attribution by pre-staging a note buffer before `git commit`:
+- Note buffer path: `$(git rev-parse --git-path aapp_pending_note).<message-sha256>`
+- `aapp-post-commit` automatically matches the commit body hash, attaches the note via `git notes add -f -F`, and unlinks the buffer on success (`&&`).
+
 
 ### 📜 Worktree Commit & Plan Lifecycle Conventions
 When committing changes inside the `.plans/`, `.agents/`, or `.githooks/` worktrees, use structured lifecycle prefixes so `git log` provides a clean, searchable architectural audit trail:
