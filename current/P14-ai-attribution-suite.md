@@ -362,8 +362,8 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Planning Health Pair 6 & Test Baseline
-- [ ] Task 1.1: Author `check_recorded_sha_integrity()` (Pair 6) in `lib/planning_health.sh`.
-- [ ] Task 1.2: Add unit tests for Pair 6 in `tests/plan_resolver_test.sh` verifying that both valid and dangling SHAs are correctly evaluated.
+- [x] Task 1.1: Author `check_recorded_sha_integrity()` (Pair 6) in `lib/planning_health.sh`.
+- [x] Task 1.2: Add unit tests for Pair 6 in `tests/plan_resolver_test.sh` verifying that both valid and dangling SHAs are correctly evaluated.
 
 ### Phase 2: Template Specifications & Hook Infrastructure
 - [ ] Task 2.1: Update `templates/AGENTS.md` to specify:
@@ -430,9 +430,9 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 - [ ] `NEW FILE` -> `templates/aapp-post-commit` -> Staged note attacher for notes mode.
 - [ ] `lib/cmd_init.sh` -> Install commit-msg and post-commit hooks and initialize safe-by-default git config.
 - [ ] `lib/cmd_install.sh` -> Ensure `lib/cmd_ai.sh` and hook templates are packaged during installation.
-- [ ] `lib/planning_health.sh` -> Add Pair 6 (Recorded SHA Integrity) validator.
+- [x] `lib/planning_health.sh` -> Add Pair 6 (Recorded SHA Integrity) validator.
 - [ ] `NEW FILE` -> `tests/ai_attribution_test.sh` -> Automated test suite for AI attribution switchboard, hooks & credits.
-- [ ] `tests/plan_resolver_test.sh` -> Add test coverage for Pair 6 SHA integrity verification.
+- [x] `tests/plan_resolver_test.sh` -> Add test coverage for Pair 6 SHA integrity verification.
 - [ ] `NEW FILE` -> `scripts/scrub-attribution.sh` -> Historical conversion scrubber and ledger SHA repair utility.
 - [ ] `README.md` -> Document AI attribution commands and host the seeded `AAPP-AI-CREDITS` block.
 - [ ] `CHANGELOG.md` -> Document changes under `[Unreleased]`.
