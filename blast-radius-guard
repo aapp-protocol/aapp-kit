@@ -240,12 +240,16 @@ esac
 # ------------------------------------------------------------------------------
 ACTIVE_PLANS=""
 if [ -d .plans/current ]; then
-    while IFS= read -r -d '' plan_file; do
+    for plan_file in .plans/current/*.md; do
+        [ ! -f "$plan_file" ] && continue
+        case "$(basename "$plan_file")" in
+            000-*) continue ;;
+        esac
         if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🔴|🟡|Under Review|Refining)' "$plan_file" 2>/dev/null; then
             continue
         fi
         ACTIVE_PLANS="${ACTIVE_PLANS:+$ACTIVE_PLANS"$'\n'"}$plan_file"
-    done < <(find .plans/current -maxdepth 1 -name "*.md" ! -name "000-*" -print0 2>/dev/null | sort -z)
+    done
 fi
 
 if [ -z "$ACTIVE_PLANS" ]; then
