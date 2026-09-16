@@ -18,21 +18,17 @@
 
 ## 🔴 High Priority (Technical Urgency)
 1. #49 -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
-2. #52 -> Deny payload omits `hookEventName` and `permissionDecisionReason`; agent blocked with no reason to self-correct.
-
 
 ## 🟡 Medium Priority (Upcoming Iterations)
 - [ ] #50 -> Drop-in mode on `agent-planning-kit` or `aapp-develop-kit` resolves root to kit itself rather than cwd.
 - [ ] #51 -> Self-consumption `rm -rf` gated on basename allowlist rather than directory contents/signatures.
 
 ## 🟢 Low Priority (Test Infrastructure & Verification)
-- [ ] #62 -> Deny-schema assertion checks only `decision == 'deny'`, not that denial reason reaches caller.
 - [ ] #63 -> No CI runs test suites (102 test cases) and no release gate blocks publishing `main` trailing `develop`.
 
 ## 📥 Triage (Incoming / Unsequenced)
 - [ ] #68 -> Frozen plan documents are editable; design can change under in-flight execution (`.plans/*` is always-allowed).
 *Newly logged issues awaiting prioritization.*
-- [ ] #55 -> CHANGELOG enforcement accepts `.plans/CHANGELOG.md` on a 900s mtime window; wall-clock dependence is non-deterministic.
 - [ ] #56 -> Glob matching lets `*` cross `/`; blast radius is wider than blueprint authors intend.
 - [ ] #57 -> File marked Out of Bounds by one plan is allowed when second active plan lists it as target.
 - [ ] #58 -> `AAPP_VERSION` stayed 1.0.0 without release tags, so protocol block still stamps `v1.0.0` after upgrade.

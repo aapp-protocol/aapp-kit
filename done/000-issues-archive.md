@@ -56,3 +56,7 @@ Append-only historical ledger of verified and resolved issues.
 | #61 | `High` | `CORE` | 2026-09-14 | 2026-09-14 | `12b2ba7` (`v1.1.0`) | Universal AAPP Skills in `templates/skills/`, bridged to `.claude/skills/`, decoupled settings. |
 | #66 | `High` | `CORE` | 2026-09-15 | 2026-09-16 | `3ffa3cf` | [`P14-ai-attribution-suite.md`](P14-ai-attribution-suite.md): Safe-by-default attribution switchboard (`ai-commit`/`ai-notes`/`ai-off`), hook infrastructure, Option C staged notes, and history scrubber (partially delivered per §E.9). |
 | #64 | `High` | `SEC` | 2026-09-14 | 2026-09-16 | `fc68376` | Filtered out incubator drafts (`🔴`, `🟡`) from active plans in write-guard and pre-commit, ensuring drafts do not lock commits. |
+| #52 | `High` | `SEC` | 2026-09-10 | 2026-09-16 | `ae9b4dc` | Added `hookEventName: 'PreToolUse'` and `permissionDecisionReason` to `blast-radius-guard.sh` deny payload and mirrored reason to stderr. |
+| #55 | `Medium` | `HOOK` | 2026-09-10 | 2026-09-16 | `ae9b4dc` | Removed non-deterministic 900s wall-clock mtime check for `.plans/CHANGELOG.md` in `aapp-pre-commit`, replacing with git-verified status. |
+| #62 | `Medium` | `TEST` | 2026-09-10 | 2026-09-16 | `ae9b4dc` | Added assertions in `write-guard_test.sh` validating `hookEventName`, `permissionDecisionReason`, and mirrored stderr. |
+
