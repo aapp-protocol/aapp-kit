@@ -213,9 +213,31 @@ Beyond runtime hook enforcement, we introduce compile-time / planning health ver
 
 ## ❓ 5. Open Questions (Optional / Gate)
 
-* [ ] **Question 1: Strict Global OOB Veto vs Plan-Attributed Scoping**
-  - *Context:* When Plan A marks `src/critical.py` Out of Bounds, should this be an unconditional global veto that blocks ANY plan from touching it (Option A, recommended), or should an agent be able to declare which plan it is currently executing so Plan B can proceed if the human explicitly scoped Plan A's OOB as an internal drift-rail (Option B)?
-  - *Recommendation:* Option A (Strict Global Veto). Out of Bounds signifies a frozen boundary or dangerous territory for the entire repository while that plan executes. If Plan B legitimately needs to touch `src/critical.py`, Plan A should simply omit `src/critical.py` from Target Files rather than declaring it Out of Bounds.
+* [ ] **Question 1: Strict Global OOB Veto vs Plan-Attributed Scoping vs Syntactic Carve-Out**
+  - *The Core Dilemma:* In single-plan execution, `### 🛑 Out of Bounds` serves two purposes simultaneously:
+    1. **Internal Drift-Rail**: Prevents the executing agent from straying outside its intended scope (e.g. subtracting `src/auth/` from a broad `src/**` target).
+    2. **Sandbox Safety Fence**: Quarantines sensitive or frozen files across the repository (e.g. `config/production.env` or `db/schema.sql`).
+    When multiple blueprints are simultaneously greenlit (`🟢 Ready for Execution`), these two purposes conflict violently:
+    - If Plan A targets `src/**` but puts `src/b.py` in OOB, and Plan B targets `src/b.py`:
+      - Under the *drift-rail* model, Plan B should be allowed to edit `src/b.py`.
+      - Under the *safety fence* model, Plan A's OOB is a hard repository-wide stop; touching `src/b.py` violates Plan A's environment assumptions.
+    - Crucially, in agentic runtimes (Claude Code PreToolUse / Antigravity), tool interceptors receive only `{file_path: "..."}` with **zero runtime plan attribution**—the hook cannot distinguish whether an agent is editing `src/b.py` on behalf of Plan A or Plan B! If Plan B authorises `src/b.py`, Plan A's drift-rail is completely nullified for any agent in the workspace.
+  - *Three Evaluated Architecture Options:*
+    - **Option A (Strict Global Veto — Recommended)**:
+      - *Rule:* If *any* active unblocked plan declares a path in `### 🛑 Out of Bounds`, that path is unconditionally forbidden across all tools and commits.
+      - *Authoring Contract:* Authors only list files in OOB if they must remain untouched across the *entire project*. If a file simply belongs to another plan, authors do *not* list it in OOB; they rely on the default-deny invariant of `### 📂 Target Files`.
+      - *Integrity Gate:* Pair 7 in planning-health mechanistically rejects any greenlight attempt where Plan A's OOB intersects Plan B's Target Files.
+      - *Pros:* 100% deterministic, zero tool-interception ambiguity, unbypassable security posture, zero stateful CLI overhead.
+      - *Cons:* Blueprint authors cannot use OOB as a convenience exclusion subtractor against a broad target glob if another active plan touches that excluded directory.
+    - **Option B (Plan-Attributed Execution Context)**:
+      - *Rule:* The developer or agent sets an active plan context before executing (e.g. `git config aapp.activePlan P-12`, `export AAPP_ACTIVE_PLAN=P-12`, or commit trailer `AI-Plan: P-12`). Hooks evaluate boundaries solely against that designated plan.
+      - *Pros:* Complete isolation; Plan A and Plan B can have overlapping, contradictory boundaries without interference.
+      - *Cons:* Heavy operational friction; requires stateful switching commands (`aapp switch P-12`); fails in multi-agent environments or when an agent runs subtasks without shell state inheritance; PreToolUse hooks cannot reliably identify active plan identity from prompt context.
+    - **Option C (Syntactic Disambiguation: `Out of Bounds` vs `Negative Target Globs`)**:
+      - *Rule:* Reserve `### 🛑 Out of Bounds` strictly for Global Veto Fences. Support negative target globs in `### 📂 Target Files` (e.g. `- [ ] !src/auth/**`) or an explicit `### 🚫 Excluded Targets` section that acts purely as a plan-local subtraction filter against that plan's own positive target patterns.
+      - *Pros:* Provides authors with clean exclusion filtering from broad globs without locking out concurrent plans.
+      - *Cons:* Slightly more complex parsing logic in pre-commit; does not solve the problem that an agent ostensibly working on Plan A could still modify `src/auth/**` if Plan B is concurrently active.
+  - *Recommendation:* Adopt **Option A (Strict Global Veto)** as the foundational engine invariant for Layer 1 and Layer 2, reinforced by Pair 7 compile-time detection. If negative target subtraction is desired in the future, it can be added as Option C without weakening the global veto invariant of `### 🛑 Out of Bounds`.
 
 * [ ] **Question 2: Scope of Planning Health Pair 7 (Greenlit Only vs Incubated)**
   - *Context:* Should Pair 7 check collisions only between 🟢 `Ready for Execution` plans, or also warn when incubated drafts (🔴/🟡) have boundary collisions?
