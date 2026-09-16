@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Planning-Health Pair 6: Recorded SHA Integrity (`lib/planning_health.sh`): Adds Pair 6 validator verifying that all 7-40 character hexadecimal commit hashes recorded in archival ledgers, issue logs, and changelogs resolve to valid commits in the git object database, expanding `tests/plan_resolver_test.sh` to 24 automated test cases.
 - Multi-Agent Path Authorization & External Allowlist (`templates/blast-radius-guard.sh`): Adds Section 2c external path allowlist supporting built-in defaults for Claude Code (`~/.claude/`), Google Antigravity (`~/.gemini/`), OpenAI Codex (`~/.codex/`), Cursor (`~/.cursor/`), XDG directories, and temporary directories (`/tmp/`, `$TMPDIR/`, `/var/folders/`), plus user additions via `git config --add aapp.allowPath` (`#65`).
 - Section 2b External Hard-Deny (`templates/blast-radius-guard.sh`): Blocks modifications to credentials, SSH keys, GPG keys, AWS/Azure/Kube credentials, shell startup files, git configs, and system binaries regardless of allowlist breadth.
 - POSIX Lexical Path Canonicalization (`templates/blast-radius-guard.sh`): Resolves `.` and `..` lexically without expanding symlinks to defeat directory traversal attempts while preserving dual-path inode protection.

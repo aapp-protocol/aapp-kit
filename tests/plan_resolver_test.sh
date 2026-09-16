@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Tests: Plan Shorthand Resolver Engine & Health Invariants (Pairs 4 & 5)
+# Tests: Plan Shorthand Resolver Engine & Health Invariants (Pairs 4, 5 & 6)
 # ==============================================================================
 set -e
 
@@ -160,6 +160,83 @@ else
     printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "pair 5 catches Section 2 violation in Target Files"; FAIL=$((FAIL+1))
 fi
 rm -f .plans/current/P99-bad-target.md
+
+echo "== 9. Planning Health Pair 6: Recorded SHA Integrity =="
+git config user.name "Test User"
+git config user.email "test@example.com"
+git add .
+git commit -m "fixture commit" -q
+TEST_SHA=$(git rev-parse --short HEAD)
+
+# 1. Valid commit SHA in 000-archive-ledger.md passes
+cat > .plans/done/000-archive-ledger.md << EOF
+# 🏛️ Archival Ledger
+| Date Completed | Plan ID | Plan File | Target Issue | Verification Commit | Impact Summary |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-15 | \`P-7\` | [\`plan.md\`](plan.md) | \`#61\` | \`$TEST_SHA\` | Completed feature. |
+EOF
+
+if check_pair6_recorded_sha_integrity "$PWD" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 6 passes on valid recorded commit SHA" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "pair 6 passes on valid recorded commit SHA"; FAIL=$((FAIL+1))
+fi
+
+# 2. Dangling commit SHA in 000-archive-ledger.md is blocked
+cat > .plans/done/000-archive-ledger.md << 'EOF'
+# 🏛️ Archival Ledger
+| Date Completed | Plan ID | Plan File | Target Issue | Verification Commit | Impact Summary |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-15 | `P-7` | [`plan.md`](plan.md) | `#61` | `deadbeef12` | Completed feature. |
+EOF
+
+if ! check_pair6_recorded_sha_integrity "$PWD" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 6 catches dangling SHA in archive ledger" "BLOCK"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "pair 6 catches dangling SHA in archive ledger"; FAIL=$((FAIL+1))
+fi
+
+# 3. Restore valid archive ledger, add dangling commit SHA to CHANGELOG.md
+cat > .plans/done/000-archive-ledger.md << EOF
+# 🏛️ Archival Ledger
+| Date Completed | Plan ID | Plan File | Target Issue | Verification Commit | Impact Summary |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-15 | \`P-7\` | [\`plan.md\`](plan.md) | \`#61\` | \`$TEST_SHA\` | Completed feature. |
+EOF
+
+cat > CHANGELOG.md << 'EOF'
+# Changelog
+## [Unreleased]
+- Bugfix recorded in commit `cafebabe99`.
+EOF
+
+if ! check_pair6_recorded_sha_integrity "$PWD" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 6 catches dangling SHA in CHANGELOG.md" "BLOCK"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "pair 6 catches dangling SHA in CHANGELOG.md"; FAIL=$((FAIL+1))
+fi
+
+# 4. Valid commit SHA in CHANGELOG.md passes
+cat > CHANGELOG.md << EOF
+# Changelog
+## [Unreleased]
+- Bugfix recorded in commit \`$TEST_SHA\`.
+EOF
+
+if check_pair6_recorded_sha_integrity "$PWD" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 6 passes on valid SHA in CHANGELOG.md" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "pair 6 passes on valid SHA in CHANGELOG.md"; FAIL=$((FAIL+1))
+fi
+
+# 5. Alias check_recorded_sha_integrity functions identically
+if check_recorded_sha_integrity "$PWD" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "check_recorded_sha_integrity alias functions" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "check_recorded_sha_integrity alias functions"; FAIL=$((FAIL+1))
+fi
+
+rm -f .plans/done/000-archive-ledger.md CHANGELOG.md
 
 echo ""
 echo "============================================================"

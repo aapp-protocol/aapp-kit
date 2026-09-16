@@ -2,7 +2,7 @@
 # ==============================================================================
 # AAPP Planning Health & Integrity Validator
 #
-# Verifies five-pair planning consistency and schema constraints:
+# Verifies six-pair planning consistency and schema constraints:
 # 1. Pair 1 (ISSUES <-> archive):
 #    - Disjointness: Active issues and archive ledger must share zero IDs.
 #    - Relocation Invariant: Active ISSUES.md must contain zero resolved rows.
@@ -16,6 +16,8 @@
 #    - Header / Filename Agreement: Header Plan ID matches filename prefix.
 # 5. Pair 5 (Target Files vs Section 2 Self-Protection):
 #    - Mechanically blocks declared Target Files that match Guard Section 2 patterns.
+# 6. Pair 6 (Recorded SHA Integrity):
+#    - Validates all commit hashes in archival ledgers, issues, and changelogs resolve in git.
 # ==============================================================================
 
 normalize_issue_id() {
@@ -61,6 +63,20 @@ find_aapp_file() {
                 echo "$repo_root/.plans/pickup.md"
             elif [ -f "$repo_root/pickup.md" ]; then
                 echo "$repo_root/pickup.md"
+            fi
+            ;;
+        ledger)
+            if [ -f "$repo_root/.plans/done/000-archive-ledger.md" ]; then
+                echo "$repo_root/.plans/done/000-archive-ledger.md"
+            elif [ -f "$repo_root/done/000-archive-ledger.md" ]; then
+                echo "$repo_root/done/000-archive-ledger.md"
+            fi
+            ;;
+        changelog)
+            if [ -f "$repo_root/CHANGELOG.md" ]; then
+                echo "$repo_root/CHANGELOG.md"
+            elif [ -f "$repo_root/.plans/CHANGELOG.md" ]; then
+                echo "$repo_root/.plans/CHANGELOG.md"
             fi
             ;;
     esac
@@ -412,6 +428,100 @@ check_pair5_target_files_self_protection() {
     return $errors
 }
 
+# Extract commit SHAs (7-40 hex chars) from markdown text
+get_file_commit_shas() {
+    local target_file="$1"
+    [ ! -f "$target_file" ] && return 0
+
+    awk '
+    {
+        temp = $0
+        while (match(temp, /`[0-9a-fA-F]{7,40}`/)) {
+            token = substr(temp, RSTART + 1, RLENGTH - 2)
+            print tolower(token)
+            temp = substr(temp, RSTART + RLENGTH)
+        }
+
+        n = split($0, words, /[^0-9a-zA-Z]/)
+        for (i = 1; i <= n; i++) {
+            w = words[i]
+            len = length(w)
+            if (len >= 7 && len <= 40 && w ~ /^[0-9a-fA-F]+$/) {
+                if (len == 40 || (w ~ /[0-9]/ && w ~ /[a-fA-F]/)) {
+                    print tolower(w)
+                }
+            }
+        }
+    }
+    ' "$target_file" | sort -u
+}
+
+# Pair 6: Recorded SHA Integrity
+check_pair6_recorded_sha_integrity() {
+    local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    local errors=0
+
+    # Ensure git repository is reachable
+    if ! git -C "$repo_root" rev-parse --git-dir >/dev/null 2>&1; then
+        return 0
+    fi
+
+    local scan_files=()
+    local ledger_file
+    ledger_file=$(find_aapp_file ledger "$repo_root")
+    [ -n "$ledger_file" ] && scan_files+=("$ledger_file")
+
+    local archive_file
+    archive_file=$(find_aapp_file archive "$repo_root")
+    [ -n "$archive_file" ] && scan_files+=("$archive_file")
+
+    local issues_file
+    issues_file=$(find_aapp_file issues "$repo_root")
+    [ -n "$issues_file" ] && scan_files+=("$issues_file")
+
+    if [ -f "$repo_root/CHANGELOG.md" ]; then
+        scan_files+=("$repo_root/CHANGELOG.md")
+    fi
+    if [ -f "$repo_root/.plans/CHANGELOG.md" ] && [ "$repo_root/.plans/CHANGELOG.md" != "$repo_root/CHANGELOG.md" ]; then
+        scan_files+=("$repo_root/.plans/CHANGELOG.md")
+    fi
+
+    local unique_files=()
+    for f in "${scan_files[@]}"; do
+        [ ! -f "$f" ] && continue
+        local already=0
+        for u in "${unique_files[@]}"; do
+            if [ "$u" = "$f" ]; then
+                already=1
+                break
+            fi
+        done
+        [ "$already" -eq 0 ] && unique_files+=("$f")
+    done
+
+    for target_file in "${unique_files[@]}"; do
+        local shas
+        shas=$(get_file_commit_shas "$target_file")
+        [ -z "$shas" ] && continue
+
+        while IFS= read -r sha; do
+            [ -z "$sha" ] && continue
+            if ! git -C "$repo_root" cat-file -e "${sha}^{commit}" 2>/dev/null; then
+                echo "❌ [Pair 6 Violation] Recorded commit SHA '$sha' in $(basename "$target_file") cannot be resolved in git!"
+                echo "   -> File: $target_file"
+                echo "   -> Every commit hash recorded in archival ledgers, issues, and changelogs must exist in git."
+                errors=$((errors + 1))
+            fi
+        done <<< "$shas"
+    done
+
+    return $errors
+}
+
+check_recorded_sha_integrity() {
+    check_pair6_recorded_sha_integrity "$@"
+}
+
 # Master check runner
 check_planning_health() {
     local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
@@ -443,6 +553,9 @@ check_planning_health() {
 
     # Pair 5
     check_pair5_target_files_self_protection "$repo_root" || total_errors=$((total_errors + $?))
+
+    # Pair 6
+    check_pair6_recorded_sha_integrity "$repo_root" || total_errors=$((total_errors + $?))
 
     # Schema & Taxonomy
     check_taxonomy_and_schema "$issues_file" || total_errors=$((total_errors + $?))
