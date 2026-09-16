@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Invariant Root Documentation Allowlist (`templates/blast-radius-guard.sh`, `templates/aapp-pre-commit`, `MANUAL.md`): Added `CHEATSHEET.md` to Section 3 always-allowed repository invariants and pre-commit `ALWAYS_ALLOWED_REGEX` alongside `README.md` and `MANUAL.md`, expanding automated test coverage to 187 test cases.
 - Historical AI Attribution Scrubber & SHA Reference Repair (`scripts/scrub-attribution.sh`): Adds migration script supporting `--dry-run` and `--confirm` to convert legacy `Co-authored-by:` commit trailers to email-free `AI-Agent:` and `AI-Vendor:` trailers, parse rewrite SHA maps, update historical hashes in ledgers, and verify integrity via Planning Health Pair 6.
 - Planning-Health Pair 5 Refinement (`lib/planning_health.sh`): Constrains target file inspection to checklist items, ensuring non-list blockquotes and prose notes under Target Files are not treated as target paths.
 - Documentation & AI Contributors Roster: Added Section 8 (AI Attribution Suite & Multi-Vendor Benchmarking) to `MANUAL.md` with the complete §E.8 mode-boundary rationale, seeded initial `AI Contributors` block in `README.md` crediting Antigravity (Google) and Claude (Anthropic), added `aapp ai-*` reference table to `CHEATSHEET.md`, and added `AI Contributors` audit gates to `templates/release_checklist.md` and `.plans/release/release_checklist.md`.
@@ -35,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Non-destructive custom `ISSUES.md` initialization in `lib/cmd_init.sh` emitting advisory guidance pointing to `MANUAL.md` without modifying existing non-flat files.
 - Automated regression test cases for flat schema, non-destructive init, bulletproof POSIX auto-pruning, detect-and-block validation, and planning health, expanding the test suite to 109 automated test cases.
 - Missing `#64` issue row added to `.plans/ISSUES.md`, with count-preservation assertion verifying `49 (archived) + 15 (active) = 64 (unique project issues #1..#64)`.
+
+### Fixed
+- Hook Status Enum & Draft Plan Isolation (`templates/blast-radius-guard.sh`, `templates/aapp-pre-commit`): Filters out incubator drafts (`🔴 Under Review`, `🟡 Refining`) from active plans in write-guard and pre-commit, ensuring unfrozen blueprints do not lock the blast radius or block repository commits before being greenlit (#64).
 
 ### Changed
 - PreToolUse Matcher Coverage: Added `MultiEdit` to PreToolUse matcher in `templates/claude/settings.json` and `lib/cmd_init.sh` with automatic non-destructive settings upgrade during `aapp init` (closing matcher half of `#53`).

@@ -227,7 +227,7 @@ case "$TARGET_FILE" in
     .plans/*|.agents/*)
         exit 0
         ;;
-    CHANGELOG.md|README.md|MANUAL.md|CODEMAP.md|ARCHITECTURE.md|ISSUES.md|.gitignore)
+    CHANGELOG.md|README.md|MANUAL.md|CHEATSHEET.md|CODEMAP.md|ARCHITECTURE.md|ISSUES.md|.gitignore)
         exit 0
         ;;
     package.json|package-lock.json|composer.json|composer.lock|go.mod|go.sum|Cargo.toml|Cargo.lock|pyproject.toml|requirements.txt)
@@ -238,7 +238,21 @@ esac
 # ------------------------------------------------------------------------------
 # 4. Blast Radius Validation Against Active Plans
 # ------------------------------------------------------------------------------
-ACTIVE_PLANS=$(ls -1 .plans/current/*.md 2>/dev/null || true)
+ACTIVE_PLANS=""
+if [ -d .plans/current ]; then
+    NL='
+'
+    for plan_file in .plans/current/*.md; do
+        [ ! -f "$plan_file" ] && continue
+        case "$(basename "$plan_file")" in
+            000-*) continue ;;
+        esac
+        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🔴|🟡|Under Review|Refining)' "$plan_file" 2>/dev/null; then
+            continue
+        fi
+        ACTIVE_PLANS="${ACTIVE_PLANS:+$ACTIVE_PLANS$NL}$plan_file"
+    done
+fi
 
 if [ -z "$ACTIVE_PLANS" ]; then
     # Fail-open: if no active blueprints exist, allow edits to normal project files

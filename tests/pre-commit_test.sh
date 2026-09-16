@@ -104,6 +104,8 @@ echo "b=1" > src/b.py
 check "plan B's own target not blocked by plan A" PASS src/b.py
 echo "c=1" > src/c.py
 check "file in no plan still blocked" BLOCK src/c.py
+echo "# Cheatsheet" > CHEATSHEET.md
+check "invariant anchor CHEATSHEET.md passes without plan targets" PASS CHEATSHEET.md
 
 echo "== 3b. a plan's own Out of Bounds still blocks it =="
 setup

@@ -75,6 +75,7 @@ check_decision "path named only in prose" DENY "src/prose.py"
 check_decision "agent may write plans" ALLOW ".plans/current/new.md"
 check_decision "agent may write its rules" ALLOW ".agents/AGENTS.md"
 check_decision "invariant anchor" ALLOW "CHANGELOG.md"
+check_decision "invariant anchor CHEATSHEET.md" ALLOW "CHEATSHEET.md"
 check_decision "second stray file" DENY "src/other.py"
 
 echo "== self-protection: the agent cannot disable the guard =="
