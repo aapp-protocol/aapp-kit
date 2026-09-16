@@ -21,7 +21,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🟢 **P-14**: [`P14-ai-attribution-suite.md`](current/P14-ai-attribution-suite.md) — AI Attribution Suite (`aapp ai-commit`, `aapp ai-notes`, `aapp ai-off`, `aapp ai-credits`), Safe-by-Default Protocol & Historical Scrubber (#66).
+*(No currently frozen blueprints)*
 
 ---
 
