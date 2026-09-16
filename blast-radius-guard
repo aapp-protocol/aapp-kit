@@ -101,7 +101,9 @@ out = {
     "decision": "deny",
     "reason": sys.argv[1],
     "hookSpecificOutput": {
-        "permissionDecision": "deny"
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "deny",
+        "permissionDecisionReason": sys.argv[1]
     }
 }
 print(json.dumps(out))
@@ -109,8 +111,9 @@ print(json.dumps(out))
         else
             local escaped_reason
             escaped_reason=$(printf '%s' "$reason" | awk '{printf "%s%s", (NR>1?" ":""), $0}' | sed 's/\\/\\\\/g; s/"/\\"/g')
-            printf '{"decision":"deny","reason":"%s","hookSpecificOutput":{"permissionDecision":"deny"}}\n' "$escaped_reason"
+            printf '{"decision":"deny","reason":"%s","hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$escaped_reason" "$escaped_reason"
         fi
+        echo "❌ [Blast Radius Guard Violation] $reason" >&2
     else
         echo "❌ [Blast Radius Guard Violation] $reason" >&2
     fi
