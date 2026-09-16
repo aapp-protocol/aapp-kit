@@ -59,4 +59,5 @@ Append-only historical ledger of verified and resolved issues.
 | #52 | `High` | `SEC` | 2026-09-10 | 2026-09-16 | `ae9b4dc` | Added `hookEventName: 'PreToolUse'` and `permissionDecisionReason` to `blast-radius-guard.sh` deny payload and mirrored reason to stderr. |
 | #55 | `Medium` | `HOOK` | 2026-09-10 | 2026-09-16 | `ae9b4dc` | Removed non-deterministic 900s wall-clock mtime check for `.plans/CHANGELOG.md` in `aapp-pre-commit`, replacing with git-verified status. |
 | #62 | `Medium` | `TEST` | 2026-09-10 | 2026-09-16 | `ae9b4dc` | Added assertions in `write-guard_test.sh` validating `hookEventName`, `permissionDecisionReason`, and mirrored stderr. |
+| #56 | `Medium` | `SEC` | 2026-09-10 | 2026-09-17 | `c98c982` | [`P18-glob-path-traversal-precision.md`](P18-glob-path-traversal-precision.md): Implemented pure-Bash `glob_to_regex` compiler, safe bracket grammar (`[...]`), and 3-tier fast path matching in `blast-radius-guard.sh` and `aapp-pre-commit`. |
 

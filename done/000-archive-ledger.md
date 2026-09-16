@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-17 | `P-18` | [`P18-glob-path-traversal-precision.md`](P18-glob-path-traversal-precision.md) | `#56` | `c98c982` | Pure-Bash `glob_to_regex` compiler, safe bracket class grammar (`[...]`), and 3-tier fast path matching in `blast-radius-guard.sh` and `aapp-pre-commit`. |
 | 2026-09-16 | `P-14` | [`P14-ai-attribution-suite.md`](P14-ai-attribution-suite.md) | `#66` (carried forward to `#67`) | `3ffa3cf` | Multi-mode AI attribution suite (`none`/`commit`/`notes`), hook infrastructure, Option C staged notes, append-only `ai-credits` roster, scrubber utility, and Pair 6 SHA validator (partially delivered per §E.9). |
 | 2026-09-15 | `P-9` | [`P9-guard-path-authorization.md`](P9-guard-path-authorization.md) | `#65` (also closes `#53`, `#54`) | `7d00a00` | External path allowlist (Claude, Antigravity, Codex, Cursor, XDG, tmp), Section 2b hard-deny, lexical canonicalization, and `MultiEdit` matcher coverage. |
 | 2026-09-15 | `P-13` | [`P13-plan-ids-and-shorthand-resolution.md`](P13-plan-ids-and-shorthand-resolution.md) | Ergonomic Plan IDs & Resolver | `83d3cc1` | Canonical unpadded `P-<num>` standard, POSIX shorthand resolver (`lib/plan_resolver.sh`), Planning Health Pairs 4 & 5 (`lib/planning_health.sh`), and 132 passing tests. |
