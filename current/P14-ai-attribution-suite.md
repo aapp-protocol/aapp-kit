@@ -95,21 +95,51 @@ Active attribution state is held strictly in Git configuration, **never** in `AG
 3. **`NOTES` Mode (`aapp ai-notes`)**:
    - Keeps commit messages clean and human-only.
    - **Private by intent.** Notes stay local unless the operator configures refspecs, so this mode suits teams that want per-commit agent benchmarking without publishing it. Choosing notes is a deliberate privacy decision and the kit must not undermine it — see §E.8.
-   - **Staged Note Buffer Architecture & Post-Commit Hook**:
-     - Note creation is decoupled from direct commit invocation to enable **developer and tool customization**.
-     - Worktree-aware staging path: `NOTE_FILE="$(git rev-parse --git-path aapp_pending_note)"`.
-     - Prior to committing, an agent, developer, review plugin, or benchmarking script stages structured YAML into `$NOTE_FILE` (manually or via `aapp ai-note --stage`):
+   - **Staged Note Buffer Architecture (`aapp_pending_note.<msg-sha256>`)**:
+     - **Message-SHA Keying**: To prevent concurrent overwrites (B4) and misattribution from abandoned commits (B2), the buffer is keyed strictly by the SHA-256 hash of the commit message:
+       ```text
+       $(git rev-parse --git-path aapp_pending_note).<message-sha256>
+       ```
+       *(Token trailers were rejected to avoid polluting commit messages; tree hashes were rejected because subsequent `git add` operations invalidate them).*
+     - **Byte-Faithful Hashing Invariant (B1)**:
+       - `git log -1 --format=%B` is **not** byte-faithful: it injects an extra trailing newline, corrupting the hash.
+       - Command substitution `$(...)` strips trailing newlines, producing a third distinct hash.
+       - **Canonical Reader**: Both `commit-msg` and `post-commit` calculate the commit message hash using the exact byte stream from the commit object:
+         ```bash
+         MSG_HASH=$(git cat-file commit HEAD 2>/dev/null | sed '1,/^$/d' | sha256sum | awk '{print $1}')
+         ```
+     - **Staged Telemetry Payload**:
+       Prior to committing, the agent or developer stages structured YAML into `$NOTE_DIR/aapp_pending_note.<msg-sha256>` (via `aapp ai-note --stage`):
        ```yaml
        agent: Antigravity
        vendor: Google
        model: gemini-3.8-flash-high
        task: guard-path-authorization
        custom:
-         reviewed-by: Claude
          test-pass-rate: 100%
+         duration-sec: 42
        ```
-     - **Atomicity & Failure-Safety**: If `git commit` aborts or is rejected by `pre-commit` or `commit-msg`, the pending note remains unattached. When `git commit` succeeds, `templates/aapp-post-commit` automatically attaches the staged note to the newly minted `HEAD` (`git notes add -f -F "$NOTE_FILE" HEAD`) and unlinks the buffer.
-     - **Silent No-Op on Human Commits**: If `$NOTE_FILE` does not exist (e.g. standard developer commits in terminal), `aapp-post-commit` exits cleanly in 1ms with zero action.
+       *(Note: `custom` fields here represent private local benchmarking telemetry, separate from the public `AAPP-AI-CREDITS` README footer — see §E.6 and §E.8).*
+     - **Atomic Attachment & Failure Safety (B3)**:
+       When `git commit` succeeds, `templates/aapp-post-commit` locates the matching note buffer by `MSG_HASH`.
+       **Unlink on Success Only (`&&`)**:
+       ```bash
+       git notes add -f -F "$MATCHED_NOTE_FILE" HEAD 2>/dev/null && rm -f "$MATCHED_NOTE_FILE" || {
+           echo "❌ [aapp notes] Failed to attach note to HEAD. Preserving buffer: $MATCHED_NOTE_FILE" >&2
+       }
+       ```
+       If `git notes add` fails (e.g. ref lock or disk error), the note is preserved on disk and reported to `stderr`.
+     - **Reaping & TTL Sweep (B5)**:
+       On every commit, `aapp-post-commit` reaps orphaned notes older than `aapp.noteTTL` (default 1440 mins / 24h) using portable `-exec rm -f {} +`:
+       ```bash
+       find "$NOTE_DIR" -maxdepth 1 -name 'aapp_pending_note.*' -mmin "+${TTL_MINS:-1440}" -exec rm -f {} + 2>/dev/null
+       ```
+     - **Mismatch Warning (B5)**:
+       If `post-commit` finds pending note files in `$NOTE_DIR` but none matches `MSG_HASH`, it emits an immediate diagnostic warning to `stderr` while the operator is still at the terminal.
+     - **Identical Message Collisions (G3)**:
+       If two commits share identical byte-for-byte messages, the first attaches and unlinks the buffer; the second finds no buffer and safely receives no note (fails safe).
+     - **Amend Durability (G2)**:
+       On `git commit --amend`, `notes.rewriteRef` copies the previous note to the new SHA. If a new note was staged for the amended message, `post-commit` attaches it with `-f`, cleanly superseding the copied note. If no note was staged, the copied note persists untouched.
    - Configures push refspecs idempotently with `--replace-all` and includes heads so branch pushes remain intact (G1):
      ```bash
      git config --replace-all remote.origin.push "+refs/heads/*:refs/heads/*"
@@ -134,20 +164,24 @@ Active attribution state is held strictly in Git configuration, **never** in `AG
 
 ### B. Hook Enforcement & Post-Commit Infrastructure
 
-AAPP establishes two complementary hook layers for the commit lifecycle:
+AAPP establishes three coordinated hook layers for the commit lifecycle:
 
 1. **Commit-Msg Enforcement Hook (`templates/aapp-commit-msg`)**:
    - Invoked by thin runner `templates/commit-msg` (`core.hooksPath=.githooks`).
    - Evaluates two check pairs:
      - **Check 1: Subject Length & Shape (G4)**: Reads `git config aapp.subjectMaxLen` (default 72). Refuses commits exceeding length with actionable advice. Enforces Commit Conciseness Invariant.
      - **Check 2: Attribution Policy & Revert Safety (G2)**: Reads `git config aapp.aiAttribution`. Ignores revert commits (`^This reverts commit [0-9a-f]+` or quoted lines `^>`). In `commit` mode, requires valid `AI-Agent:` trailer and blocks synthetic vendor emails (`Co-authored-by:`). In `none` mode, verifies no AI attribution trailers are present.
+   - **Message-Hash Sync (G1)**: If a human edits the commit message in `$EDITOR` during `git commit`, `commit-msg` receives the final buffer `$1`. It computes `sha256sum "$1"` and renames any pre-staged `aapp_pending_note.<initial-hash>` to `aapp_pending_note.<final-hash>`, ensuring post-commit matches seamlessly.
 
 2. **Post-Commit Staged Note Attacher (`templates/aapp-post-commit`)**:
    - Invoked by thin runner `templates/post-commit`.
-   - Resolves canonical path: `NOTE_FILE="$(git rev-parse --git-path aapp_pending_note 2>/dev/null)"`.
-   - If `$NOTE_FILE` exists, attaches to `HEAD` via `git notes add -f -F "$NOTE_FILE" HEAD` and deletes the buffer file.
-   - If no note is staged, exits immediately with zero side-effects.
-   - Both hooks strictly enforce the `chmod +x` permission invariant upon installation.
+   - Resolves canonical directory: `NOTE_DIR="$(git rev-parse --git-path .)"`.
+   - Recomputes exact commit body hash via `git cat-file commit HEAD | sed '1,/^$/d' | sha256sum | awk '{print $1}'` (B1).
+   - If `aapp_pending_note.<hash>` exists, attaches to `HEAD` via `git notes add -f -F` and unlinks on success (`&&`) (B3).
+   - If pending notes exist but none match `HEAD`, warns to `stderr` (B5).
+   - Reaps expired notes older than `aapp.noteTTL` (default 1440m) via `find ... -mmin +TTL -exec rm -f {} +` (B5).
+   - Silent no-op when no pending notes exist.
+   - Both hooks enforce the `chmod +x` permission invariant upon installation.
 
 ### C. Planning Health Pair 6: Recorded SHA Integrity (`lib/planning_health.sh`)
 
@@ -337,28 +371,30 @@ are not read again, and a deferred commitment recorded only there is a commitmen
   - Semantic trailer standard (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`).
   - Numeric Commit Conciseness Invariant (subject <= 72 chars, imperative mood).
   - Explicit asymmetry: trailers are primary; notes are opt-in and local-first.
-  - Staged note buffer protocol for customizable notes.
-- [ ] Task 2.2: Create `templates/aapp-commit-msg` implementing subject length validation and attribution policy checks with revert exemption (`chmod +x`).
+  - Staged note buffer protocol (`aapp_pending_note.<msg-sha256>`) for customizable notes.
+- [ ] Task 2.2: Create `templates/aapp-commit-msg` implementing subject length validation, attribution policy checks with revert exemption, and message-hash synchronization renaming pre-staged notes (`chmod +x`).
 - [ ] Task 2.3: Create thin runner `templates/commit-msg` dispatching to `.githooks/aapp-commit-msg "$1"` (`chmod +x`).
-- [ ] Task 2.4: Create `templates/aapp-post-commit` implementing atomic staged note attachment from `git rev-parse --git-path aapp_pending_note` (`chmod +x`).
+- [ ] Task 2.4: Create `templates/aapp-post-commit` implementing byte-faithful hash extraction (`git cat-file commit HEAD | sed '1,/^$/d' | sha256sum`), atomic `&&` unlinking with stderr preservation on failure, mismatch diagnostic warnings, and portable TTL reaping (`find ... -mmin +TTL -exec rm -f {} +`) (`chmod +x`).
 - [ ] Task 2.5: Create thin runner `templates/post-commit` dispatching to `.githooks/aapp-post-commit` (`chmod +x`).
 - [ ] Task 2.6: Update `lib/cmd_init.sh` to install `commit-msg`, `aapp-commit-msg`, `post-commit`, and `aapp-post-commit` to `.githooks/` with executable permissions, and set `aapp.aiAttribution=none` by default.
 
 ### Phase 3: CLI Switchboard Implementation
-- [ ] Task 3.1: Author `lib/cmd_ai.sh` supporting `ai-status`, `ai-commit`, `ai-notes`, and `ai-off`.
+- [ ] Task 3.1: Author `lib/cmd_ai.sh` supporting `ai-status`, `ai-commit`, `ai-notes`, and `ai-off`. Update `ai-status` to report pending notes count and age.
 - [ ] Task 3.2: Implement safe, idempotent git-notes configuration in `ai-notes`: refspecs (`+refs/heads/*:refs/heads/*` + `+refs/notes/*:refs/notes/*` with `--replace-all`), `notes.mergeStrategy=cat_sort_uniq`, `notes.rewriteMode=concatenate`, and **`notes.rewriteRef=refs/notes/commits`** — the last is mandatory or notes are dropped on amend/rebase.
 - [ ] Task 3.3: Register `ai-status`, `ai-commit`, `ai-notes`, and `ai-off` in `./aapp` command dispatcher and help output (`lib/cmd_help.sh`).
 - [ ] Task 3.4: Update `lib/cmd_install.sh` to install `lib/cmd_ai.sh` and hook templates.
 - [ ] Task 3.5: Implement `aapp ai-credits` in `lib/cmd_ai.sh` per §E — union generation, `LC_ALL=C` ordering, alias map resolution, and the §E.3 refusal matrix.
 - [ ] Task 3.6: Register `ai-credits` in the `./aapp` dispatcher and `lib/cmd_help.sh`; add `aapp.aiCredits` (default `false`) to safe-by-default init.
-- [ ] Task 3.7: Implement `aapp ai-note` in `lib/cmd_ai.sh` supporting `--stage` to write/customize metadata into the pending note buffer before committing.
+- [ ] Task 3.7: Implement `aapp ai-note` in `lib/cmd_ai.sh` supporting `--stage` to write/customize metadata into `aapp_pending_note.<msg-sha256>`.
 
 ### Phase 4: Automated Test Suite
 - [ ] Task 4.1: Create `tests/ai_attribution_test.sh` testing:
   - Default `none` state from `aapp init`.
   - State switching via `aapp ai-commit`, `aapp ai-notes`, and `aapp ai-off`.
   - Commit message validation in `aapp-commit-msg` (subject length overflow, missing trailer in commit mode, revert bypass).
-  - Post-commit staged note attachment, developer customization, and silent no-op on unstaged commits.
+  - Post-commit staged note attachment via byte-faithful message-SHA, developer customization, and silent no-op on unstaged commits.
+  - Failure safety (failed attachment preserves buffer; unlinks only on `&&` success).
+  - TTL cleanup sweep (`find ... -mmin +TTL -exec rm -f {} +`) and mismatch diagnostics.
   - Refspec idempotency during repeated `aapp ai-notes` invocations.
   - `notes.rewriteRef` is set by `ai-notes`, and a note survives `git commit --amend` and `git rebase`.
 - [ ] Task 4.2: Extend `tests/ai_attribution_test.sh` for `ai-credits`: union preserves names absent from a shallow history; regeneration is byte-identical when unchanged; `LC_ALL=C` ordering is stable; notes mode is a no-op that neither generates nor erases an existing block (§E.8); unparseable block refuses; missing `README.md` skips; alias map merges duplicate identities; `ai-off` leaves the block intact.
@@ -425,6 +461,9 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 - **Credit vs Telemetry**: The footer carries equal, name-only credit. Review provenance stays in the plan lane (`§6` of each blueprint, later formalised by the adversarial-review plugin). No ledger column is added.
 - **Initial Roster Seeding (Resolved Q2)**: Impartially seed both `Antigravity (Google)` and `Claude (Anthropic)` in the initial `README.md` block, reflecting both planning/review and code contributions per §E.1.
 - **Scrubber Execution Timing (Resolved Q1)**: Implement and unit-test the suite within the P-14 cycle; live execution of `scripts/scrub-attribution.sh` on this repository takes place after human backup of the project.
+- **Message-SHA Keying**: Staged notes are keyed strictly by the SHA-256 of the commit message (`aapp_pending_note.<message-sha256>`), preventing concurrent staging races (B4) and abandoned-note misattribution (B2).
+- **Byte-Faithful Hashing Invariant**: Message body hashes must be computed via `git cat-file commit HEAD | sed '1,/^$/d' | sha256sum | awk '{print $1}'` (B1), avoiding formatting newline injection (`%B`) or truncation (`$(...)`).
+- **Failure Safety & TTL Cleanup**: Staged buffer unlinks only on success (`&&`), preserving on failure with stderr logging (B3). `post-commit` sweeps expired notes via `find ... -mmin +TTL -exec rm -f {} +` (B5).
 
 ### Open Questions (Gate):
 *(None — design is fully specified and greenlight ready)*
@@ -432,6 +471,7 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-16:** Hardened staged notes following second red-team review: adopted Message-SHA keying (`aapp_pending_note.<sha256>`), closed the B1 `format=%B` newline divergence using `git cat-file | sed`, specified `&&` atomic unlinking to preserve buffers on attachment failure (B3), added B5 TTL cleanup (`find ... -exec rm -f {} +`) and mismatch warnings to `post-commit`, and documented amend/collision invariants.
 * **2026-09-16:** Integrated post-commit staged note attacher (`templates/post-commit`, `templates/aapp-post-commit`) enabling atomic, customizable notes. Resolved open questions Q1 (post-implementation backup before live scrub) and Q2 (impartial seeding of both Antigravity and Claude). Added `CHANGELOG.md`, `CHEATSHEET.md`, and `templates/release_checklist.md` to Target Files; corrected test suite path to `tests/plan_resolver_test.sh`.
 * **2026-09-15:** Closed a silent data-loss path in notes mode: `notes.rewriteRef` was unset, and git documents it as having no default — without it `notes.rewriteMode` is inert and notes are dropped on every `amend` and `rebase`. Now set explicitly in `ai-notes` with test coverage. Documented the residual limits (`cherry-pick` outside git's default rewrite set; `filter-branch` carries no notes) and added a mandatory notes pre-flight to the scrubber runbook — a no-op in this repository today, but required for adopters.
 * **2026-09-15:** Recorded partial-completion boundary (§E.9 plus a header banner): automatic reviewer extraction depends on the adversarial-review plugin, since agents that review without committing leave no trailer to discover. Interim roster seeding stays manual and supported; deferral carries no schema debt because generation is union-only and append-only, so the plugin will only ever add. Task 5.5 requires the remainder be logged as an open issue and referenced in the archive-ledger row, so the plan is archived as partially delivered rather than closed.
