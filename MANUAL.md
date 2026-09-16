@@ -39,7 +39,14 @@
   * [The Multi-File Hook Architecture (Master Runner Pattern)](#the-multi-file-hook-architecture-master-runner-pattern)
   * [Polyglot Invocation Cheat Sheet](#polyglot-invocation-cheat-sheet)
   * [Hook Manager Integration Recipes](#hook-manager-integration-recipes)
-* [8. Maintenance, Operations & Troubleshooting FAQ](#8-maintenance-operations--troubleshooting-faq)
+* [8. AI Attribution Suite & Multi-Vendor Benchmarking](#8-ai-attribution-suite--multi-vendor-benchmarking)
+  * [Attribution Models: Trailers vs. Notes Asymmetry](#attribution-models-trailers-vs-notes-asymmetry)
+  * [The Switchboard Command Family](#the-switchboard-command-family)
+  * [Commit Conciseness Invariant & Commit-Msg Enforcement](#commit-conciseness-invariant--commit-msg-enforcement)
+  * [Option C Staged Note Protocol & Amend Durability](#option-c-staged-note-protocol--amend-durability)
+  * [The Mode-Boundary Rationale (§E.8)](#the-mode-boundary-rationale-e8)
+  * [The AI Contributors Roster (`README.md`)](#the-ai-contributors-roster-readmemd)
+* [9. Maintenance, Operations & Troubleshooting FAQ](#9-maintenance-operations--troubleshooting-faq)
 
 ---
 
@@ -788,7 +795,79 @@ repos:
 
 ---
 
-## 8. Maintenance, Operations & Troubleshooting FAQ
+## 8. AI Attribution Suite & Multi-Vendor Benchmarking
+
+AAPP replaces legacy synthetic co-author email trailers (`Co-authored-by: Agent <agent@vendor.com>`) with an explicit, multi-mode AI attribution suite governed by repository configuration (`git config aapp.aiAttribution`).
+
+### Attribution Models: Trailers vs. Notes Asymmetry
+
+Public git servers (such as GitHub) scan commit trailers for `Co-authored-by:` email addresses. When synthetic addresses (such as `antigravity@google.com`) are present, GitHub matches unrelated accounts in its global registry that verified that email, permanently misattributing repository contributions. Furthermore, human email addresses force external account linkage.
+
+AAPP introduces two distinct, purpose-driven attribution channels:
+
+| Mode | Command | Target Ref / Layer | Visibility & Durability |
+| :--- | :--- | :--- | :--- |
+| `none` | `aapp ai-off` | Working tree only | **Default.** Pure human authoring. Accidental AI trailers are blocked by `commit-msg`. |
+| `commit` | `aapp ai-commit` | Commit object trailers | **Public attribution.** Emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Survives git rebase, cherry-pick, and clones. Synthetic `Co-authored-by:` emails are strictly rejected. |
+| `notes` | `aapp ai-notes` | `refs/notes/commits` | **Local-first / private benchmarking.** Commit messages remain pristine. Metadata attaches via staged note buffers and `post-commit`. |
+
+### The Switchboard Command Family
+
+The `aapp ai-*` command family manages configuration and staged buffers without manual config editing:
+
+- **`aapp ai-status`**: Displays active attribution mode, `aapp.subjectMaxLen`, `aapp.aiCredits` toggle status, and scans for pending note buffers reporting count, message hash, and age.
+- **`aapp ai-commit`**: Enables public emailless trailers.
+- **`aapp ai-notes`**: Enables private git notes, idempotently configures push/fetch refspecs (`+refs/notes/*:refs/notes/*`), sets `notes.mergeStrategy=cat_sort_uniq`, `notes.rewriteMode=concatenate`, and sets **`notes.rewriteRef=refs/notes/commits`**.
+- **`aapp ai-off`**: Disables AI attribution (pure human authoring; does not erase existing `README.md` blocks).
+- **`aapp ai-note --stage`**: Stages customizable attribution metadata for the upcoming commit.
+- **`aapp ai-credits`**: Generates or updates the `AI Contributors` block in `README.md`.
+
+### Commit Conciseness Invariant & Commit-Msg Enforcement
+
+Every commit message is evaluated by `.githooks/aapp-commit-msg` against two primary invariants:
+
+1. **Numeric Commit Conciseness Invariant (G4)**: The subject line must not exceed 72 characters (`git config aapp.subjectMaxLen`). Subject lines must be written in the imperative mood (`feat: ...`, `fix: ...`), leaving architectural analysis to commit bodies and blueprints.
+2. **Attribution Policy & Revert Safety (G2)**:
+   - In `commit` mode, `AI-Agent:` is mandatory; synthetic `Co-authored-by:` emails are blocked across all modes.
+   - In `none` and `notes` modes, AI trailers in the commit message are prohibited.
+   - Revert commits (`Revert "..."` or containing `This reverts commit <sha>`) are automatically exempted.
+
+### Option C Staged Note Protocol & Amend Durability
+
+In `notes` mode, notes are staged prior to committing to prevent concurrent staging collisions or stale misattribution:
+
+1. **Buffer Staging**: The note is saved to `$(git rev-parse --git-path aapp_pending_note).<msg-sha256>`.
+2. **Byte-Faithful Hashing Invariant (B1)**: Message hashes are computed from the exact commit object bytes:
+   ```bash
+   git cat-file commit HEAD | sed '1,/^$/d' | sha256sum | awk '{print $1}'
+   ```
+3. **Atomic Attachment & Failure Safety (B3)**: `post-commit` attaches the note via `git notes add -f -F` and unlinks the buffer **only on success (`&&`)**. On failure, the buffer is preserved on disk.
+4. **TTL Sweep (B5)**: `post-commit` reaps orphaned notes older than `aapp.noteTTL` (default 1440m / 24h) via `find ... -mmin +TTL -exec rm -f {} +`.
+5. **Amend Durability**: `notes.rewriteRef=refs/notes/commits` ensures git copies the note to the new SHA during `git commit --amend` and `git rebase`.
+   - *Durability limits:* `git cherry-pick` is outside git's default rewrite set; `git filter-branch` requires explicit note remapping (see `scripts/scrub-attribution.sh`).
+
+### The Mode-Boundary Rationale (§E.8)
+
+> [!IMPORTANT]
+> **The AI Contributors footer is generated solely when `aapp.aiAttribution = commit`.**
+
+Choosing `ai-notes` is a decision to keep the record of AI involvement internal — a legitimate one, and often the point of the mode. A tool that then published a roster distilled from that record would defeat it. The footer therefore follows the public record (trailers) and never the private one (notes). Notes mode remains fully useful for its own purpose: identical per-commit benchmarking data, held locally, queryable by the team that produced it. Notes mode is an intentional privacy choice, not a degraded form of commit mode.
+
+Two operational consequences:
+- In `notes` mode, `aapp ai-credits` exits with an explanatory notice without modifying `README.md` (no-op by design).
+- Because generation is append-only and union-based, a `notes`-mode project that *does* want a footer may maintain the block by hand — the tool will never generate it, and equally will never erase it.
+
+### The AI Contributors Roster (`README.md`)
+
+When `aapp ai-credits` runs under `commit` mode:
+- **Union, never subtraction**: `new roster = existing block ∪ git history trailers`. Names are never removed.
+- **Deterministic ordering**: Sorted with `LC_ALL=C sort -u`.
+- **Byte-identical when unchanged**: Contains no timestamps, durations, or commit counts that dirty git status.
+- **Alias map normalization (§E.4)**: Renames or merges duplicate identities via `git config --add aapp.aiAlias "Claude Code=Claude"`.
+
+---
+
+## 9. Maintenance, Operations & Troubleshooting FAQ
 
 ### Q: How do I upgrade an existing project to a newer AAPP version?
 Upgrading is completely zero-parameter. In your project root, run:

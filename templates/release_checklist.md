@@ -58,6 +58,10 @@
   - Update version string in package manifest (`package.json`, `Cargo.toml`, `pyproject.toml`, or configuration constants).
 - [ ] **Architecture & Codemap Sync:**
   - Verify `CODEMAP.md` and `ARCHITECTURE.md` reflect any newly added modules, endpoints, or interfaces.
+- [ ] **AI Contributors Roster Review (`README.md`):**
+  - Run `aapp ai-credits` to ensure all commit-mode agent contributors are recorded in the `AI Contributors` block.
+  - Verify alphabetical sorting under `LC_ALL=C` and confirm that aliases (via `aapp.aiAlias`) merge any duplicate agent identities.
+  - Confirm that hand-maintained or review-only contributor entries remain intact.
 
 ---
 

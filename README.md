@@ -321,13 +321,37 @@ Every plan in `.plans/current/<name>.md` defines strict boundaries:
 
 ---
 
-## 9. Testing & Verification Suites
+## 9. AI Attribution & Multi-Vendor Benchmarking (`aapp ai-*`)
 
-AAPP includes 146 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, skill synchronization, flat issue ledger, Plan ID shorthand resolution, five-pair planning-health validation, and installer resolution:
+AAPP replaces insecure, synthetic co-author emails (`Co-authored-by: Agent <email>`) with an explicit, multi-mode AI attribution suite governed by repository configuration (`git config aapp.aiAttribution`):
 
 ```bash
-# Run complete test verification suite (146 tests)
-./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh && ./tests/plan_resolver_test.sh
+aapp ai-status   # Display active mode, subject max length, and pending notes
+aapp ai-commit   # Switch to public, emailless semantic git trailers (AI-Agent:)
+aapp ai-notes    # Switch to local-first / private git notes (refs/notes/commits)
+aapp ai-off      # Disable AI attribution (pure human commit messages)
+aapp ai-credits  # Generate or update AI Contributors roster in README.md
+```
+
+### Attribution Modes & Security Model
+| Mode | Command | Scope & Behavior |
+| :--- | :--- | :--- |
+| `none` | `aapp ai-off` | **Default.** Pure human authoring. Any accidental AI trailers are caught and blocked by `commit-msg`. |
+| `commit` | `aapp ai-commit` | **Public attribution.** Requires emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails (`Co-authored-by:`) are strictly prohibited to prevent GitHub account hijacking. |
+| `notes` | `aapp ai-notes` | **Local-first / private benchmarking.** Keeps commit messages pristine. Attribution metadata attaches to `refs/notes/commits` via `aapp ai-note --stage` and `post-commit`. |
+
+### The Mode Boundary (§E.8 Rationale)
+Choosing `ai-notes` is a decision to keep the record of AI involvement internal — a legitimate one, and often the point of the mode. A tool that then published a roster distilled from that record would defeat it. The `AI Contributors` footer therefore follows the public record (trailers) and never the private one (notes). In `notes` mode, `aapp ai-credits` is an explanatory no-op that neither generates nor erases a hand-maintained block.
+
+---
+
+## 10. Testing & Verification Suites
+
+AAPP includes 185 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, skill synchronization, flat issue ledger, Plan ID shorthand resolution, six-pair planning-health validation, and the AI attribution switchboard:
+
+```bash
+# Run complete test verification suite (185 tests)
+./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh && ./tests/plan_resolver_test.sh && ./tests/ai_attribution_test.sh
 ```
 
 | Suite | File | Tests | Coverage |
@@ -335,17 +359,30 @@ AAPP includes 146 automated regression test cases verifying hook enforcement, wr
 | **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 47 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` decoupling & merge, Universal Skills sync, drift control, archive provisioning, non-destructive custom `ISSUES.md` advisory, flat schema, Plan ID template headers. |
 | **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 32 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection, POSIX ID-anchored roadmap auto-pruning, detect-and-block Relocation Invariant, planning-health Pairs 1–5 integrity validation. |
 | **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 48 cases | PreToolUse Claude Code JSON payload, self-protection invariants (`.agents/claude/*`, `.claude/settings.json`, `.git/config`, `.agents/skills/aapp-*`, `.claude/skills/aapp-*`), Section 2b external hard-deny (credentials, shell rc, local bin), Section 2c external path allowlist (Claude, Antigravity, temp, git config `aapp.allowPath`), lexical canonicalization traversal prevention, `MultiEdit` matcher coverage, fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
-| **Plan Resolver & Health** | [tests/plan_resolver_test.sh](tests/plan_resolver_test.sh) | 19 cases | Plan ID resolution (`P-9`, `9`, `P13`), slug matching, Issue `#` collision rejection, transition verb empty-query guards, `get_plan_id`/`get_next_plan_id`, Pair 4 Plan ID uniqueness, Pair 5 Section 2 target blocks. |
+| **Plan Resolver & Health** | [tests/plan_resolver_test.sh](tests/plan_resolver_test.sh) | 24 cases | Plan ID resolution (`P-9`, `9`, `P13`), slug matching, Issue `#` collision rejection, transition verb empty-query guards, `get_plan_id`/`get_next_plan_id`, Pair 4 Plan ID uniqueness, Pair 5 Section 2 target blocks, Pair 6 Recorded SHA Integrity. |
+| **AI Attribution Suite** | [tests/ai_attribution_test.sh](tests/ai_attribution_test.sh) | 34 cases | Default `none` config, switchboard transitions, refspec idempotency, commit-msg conciseness (<=72 chars) and trailer checks, revert bypass, Option C hash-keyed note staging and post-commit attachment, amend durability (`notes.rewriteRef`), TTL reaping, failure safety, `ai-credits` mode boundary, `LC_ALL=C` sorting, and alias mapping. |
 
 ---
 
-## 10. Blueprint Example & Technical Manual
+## 11. Blueprint Example & Technical Manual
  
 * **Complete Blueprint Example**: See [examples/example-plan-distribution-rework.md](examples/example-plan-distribution-rework.md) for a real-world, fully refined AAPP blueprint demonstrating Blast Radius declarations, technical decision logs (Q1–Q9), and verification matrix.
 * **Comprehensive Technical Manual**: See [MANUAL.md](MANUAL.md) for low-level Git worktree plumbing, Two Lanes protocol, state machine lifecycle, multi-agent IDE integration, hook manager recipes, and operations.
 
 ---
 
-## 11. License
+## 12. License
 
 Released under the [BSD 3-Clause License](LICENSE).
+
+<!-- AAPP-AI-CREDITS:START -->
+## AI Contributors
+
+The following AI coding agents contributed to this codebase — planning, code, and review.
+Listed alphabetically; the ordering carries no meaning, and no division of work is implied.
+
+- Antigravity (Google)
+- Claude (Anthropic)
+
+Authorship of, and responsibility for, this code rest with its human contributors.
+<!-- AAPP-AI-CREDITS:END -->

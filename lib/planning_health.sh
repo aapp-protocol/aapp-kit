@@ -382,6 +382,9 @@ check_pair5_target_files_self_protection() {
                     continue
                 fi
 
+                # Only inspect list items (- [ ] or - [x] or - `path` or * `path`)
+                [[ ! "$line" =~ ^[[:space:]]*[-*] ]] && continue
+
                 # Extract first backticked path on the line
                 local target_file=""
                 if [[ "$line" =~ \`([^\`]+)\` ]]; then
