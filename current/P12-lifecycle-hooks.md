@@ -89,6 +89,7 @@ Every hook receives a validated JSON envelope on `stdin`:
 * **`0` (Success / Proceed)**: Hook succeeded. AAPP proceeds with the lifecycle transition.
 * **`1` (Abort / Hard Gate)**: Hook failed or explicitly rejected the transition. AAPP prints the hook's `stderr` to the terminal and immediately halts the operation, rolling back uncommitted changes if applicable.
 * **`2` (Non-Blocking Warning)**: Hook emitted a non-fatal warning. AAPP logs the hook's `stderr` to the user and continues execution without aborting.
+* **`124` / timeout — UNDEFINED, must be decided (see Open Question 1)**: §E specifies a watchdog but the contract never says what a timeout *means*. Today it is ambiguous whether a timed-out hook is treated as `1` (abort the lifecycle transition) or `2` (warn and continue). This matters more than the timeout value: a slow Slack webhook must never block a plan from being archived.
 
 ### E. Dispatcher Engine Architecture (`lib/hook_dispatcher.sh`)
 * Provides a shared internal function `dispatch_hook <event_name> <json_data_generator_fn>`.
@@ -96,6 +97,18 @@ Every hook receives a validated JSON envelope on `stdin`:
 * If not present or not executable: silently and instantly passes (zero overhead).
 * If present: constructs the standard metadata header, streams payload to hook's `stdin`, captures exit code and `stderr`, and enforces the contract.
 * Includes a configurable timeout (default 10s via `timeout` or portable POSIX subshell watchdog) to prevent hung network calls from blocking local developer workflows.
+
+> **⏱️ Timeout calibration — field evidence (2026-09-16).** A 10-second default assumes every hook is a
+> fire-and-forget notification. That holds for the Slack/webhook cases in the §B matrix, but not for the
+> projects most likely to adopt hooks at all:
+> * The `logsniffer` project runs a **pre-commit of up to 30 seconds** (test suite + `perltidy`).
+>   Teams that invest in hooks invest in *slow* hooks.
+> * An `on-done` hook that triggers CI or writes an audit record to a corporate database is not
+>   fire-and-forget either.
+> * An adversarial-review hook (`P-15` layer L2) runs **1–5 minutes** against a large blueprint.
+>
+> The consequence is not that 10s is wrong everywhere — it is right for notifications — but that a
+> single global default cannot serve both classes. Resolve via Open Question 1 before freeze.
 
 ---
 
@@ -151,10 +164,13 @@ Every hook receives a validated JSON envelope on `stdin`:
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 (Default Timeout):** Should the hook execution timeout be fixed at 10 seconds with override via `git config aapp.hookTimeout <seconds>`? (Recommended: Yes, prevents broken network requests in custom hooks from freezing developer commits/transitions).
+* [ ] **Question 1 (Timeout Default *and* Semantics):** Two decisions, previously conflated as one.
+  * **(a) What does a timeout mean?** The exit-code contract in §D covers `0`/`1`/`2` but never defines a timeout, so it is currently ambiguous whether a timed-out hook aborts the lifecycle transition or merely warns. *Recommendation: treat a timeout as `2` (warn and continue) for notification events, and `1` (abort) only where the hook is a declared gate. A slow webhook must never block archival.*
+  * **(b) What default, and is one default enough?** 10s suits the notification cases in §B, but field evidence (§E) shows real hooks running 30s (`logsniffer` pre-commit: test suite + perltidy) to several minutes (adversarial review, `P-15` L2). *Recommendation: per-event defaults rather than one global value — short for `on-pickup`/`post-sync`, generous for `on-done`/`on-refine` — with `git config aapp.hookTimeout` overriding globally and `aapp.hookTimeout.<event>` per event.*
 * [ ] **Question 2 (Async vs Synchronous Execution):** Should notifications (like `on-pickup` or `post-sync`) be run synchronously or permitted to fork asynchronously into the background if configured? (Recommended: Synchronous by default for determinism; scripts that wish to run asynchronously can background themselves via `&`).
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-16:** Split Open Question 1 into timeout *semantics* and timeout *value* after review of P-14 surfaced both. §D never defined what a timeout means, leaving it ambiguous whether a timed-out hook aborts a transition or warns — a slow webhook must not block archival. Added field evidence to §E that a 10s global default cannot serve both notification hooks and working hooks: a real pre-commit runs 30s (test suite + perltidy) and an adversarial-review hook (P-15 L2) runs 1–5 minutes. Recommends per-event defaults. Closes the first of the three P-12 mismatches recorded in P-15 §2.8.
 * **2026-09-10:** Plan initialized from `hooks-transcript.md` architectural specification. Defined 6-event lifecycle matrix, POSIX stdio contract, JSON envelope schema, and exit-code semantics.
