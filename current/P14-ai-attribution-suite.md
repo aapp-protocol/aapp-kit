@@ -1,7 +1,7 @@
 # 🗺️ Plan: P-14 AI Attribution Suite, Safe-by-Default Protocol & Historical Scrubber
 * **Created:** 2026-09-15 | **Last Refined:** 2026-09-15
 * **Target Issue / Milestone:** #66
-* **Status:** 🔴 Under Review
+* **Status:** 🟢 Ready for Execution
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED
      The pre-commit hook reads this line. A plan whose Status says BLOCKED grants no
      commit rights at all — its Blast Radius stops admitting files until you clear it. -->
@@ -414,6 +414,8 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
+*(Marked: **LOCKED** — greenlit for execution)*
+
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > Note: In accordance with Pair 5 self-protection, files installed into `.githooks/` are updated exclusively via `lib/cmd_init.sh` from source templates in `templates/`.
@@ -471,6 +473,7 @@ are not read again, and a deferred commitment recorded only there is a commitmen
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-16:** Plan frozen and greenlit for execution (/aapp-freeze P-14). Blast radius locked.
 * **2026-09-16:** Hardened staged notes following second red-team review: adopted Message-SHA keying (`aapp_pending_note.<sha256>`), closed the B1 `format=%B` newline divergence using `git cat-file | sed`, specified `&&` atomic unlinking to preserve buffers on attachment failure (B3), added B5 TTL cleanup (`find ... -exec rm -f {} +`) and mismatch warnings to `post-commit`, and documented amend/collision invariants.
 * **2026-09-16:** Integrated post-commit staged note attacher (`templates/post-commit`, `templates/aapp-post-commit`) enabling atomic, customizable notes. Resolved open questions Q1 (post-implementation backup before live scrub) and Q2 (impartial seeding of both Antigravity and Claude). Added `CHANGELOG.md`, `CHEATSHEET.md`, and `templates/release_checklist.md` to Target Files; corrected test suite path to `tests/plan_resolver_test.sh`.
 * **2026-09-15:** Closed a silent data-loss path in notes mode: `notes.rewriteRef` was unset, and git documents it as having no default — without it `notes.rewriteMode` is inert and notes are dropped on every `amend` and `rebase`. Now set explicitly in `ai-notes` with test coverage. Documented the residual limits (`cherry-pick` outside git's default rewrite set; `filter-branch` carries no notes) and added a mandatory notes pre-flight to the scrubber runbook — a no-op in this repository today, but required for adopters.
