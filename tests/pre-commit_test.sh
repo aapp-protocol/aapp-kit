@@ -547,6 +547,100 @@ check "directory prefix passes subfiles" PASS "docs/guide.md"
 check "directory prefix passes nested subfiles" PASS "docs/api/v1/spec.md"
 check "single segment oob wildcard blocks match" BLOCK "src/forbidden_test.py"
 
+echo "== 15. frozen plan immutability & design-lock enforcement =="
+setup
+
+create_and_commit_plan() {
+  local status="$1"
+  cat > .plans/current/p.md <<EOF
+# 🗺️ Plan P-1: Test Plan
+* **Plan ID:** P-1
+* **Status:** $status
+
+## 1. Context & Goal
+Original context.
+
+## 2. Technical Blueprint
+Original technical blueprint architecture.
+
+## 🔨 3. Implementation Steps & Checklist
+- [ ] Task 1.1
+- [ ] Task 1.2
+
+## 💥 4. Blast Radius & System Boundaries
+### 📂 Target Files
+- [ ] \`src/a.py\`
+### 🛑 Out of Bounds
+- [ ] \`src/secret.py\`
+
+## ❓ 5. Open Questions
+* [ ] Question 1
+
+## 📦 6. Change Log & Refinement History
+* 2026-09-17: Initial entry.
+EOF
+  git add .plans/current/p.md >/dev/null 2>&1
+  git commit -qm "add plan with status $status"
+  BASE_COMMIT=$(git rev-parse HEAD)
+}
+
+check_plan_commit() {
+  local name="$1" expect="$2"
+  git add .plans/current/p.md 2>/dev/null
+  local out; out=$(git commit -m "update plan" 2>&1); local rc=$?
+  local got=BLOCK; [ $rc -eq 0 ] && got=PASS
+  if [ "$got" = "$expect" ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "$name" "$got"; PASS=$((PASS+1))
+  else
+    printf "  \033[31m✘\033[0m %-52s want %s got %s\n" "$name" "$expect" "$got"; FAIL=$((FAIL+1))
+    echo "$out" | grep -E "❌|Violation|Staged" | head -2 | sed 's/^/       /'
+  fi
+  git reset -q --hard "$BASE_COMMIT" 2>/dev/null
+}
+
+# 1. Tests on 🟢 plan
+create_and_commit_plan "🟢 Ready for Execution"
+
+# Task checkbox tick in Sec 3: PASS
+sed -i 's/- \[ \] Task 1.1/- [x] Task 1.1/' .plans/current/p.md
+check_plan_commit "checkbox tick on frozen plan is permitted" PASS
+
+# Change log append in Sec 6: PASS
+echo "* 2026-09-17: Verified phase 1." >> .plans/current/p.md
+check_plan_commit "changelog append on frozen plan is permitted" PASS
+
+# Open question update in Sec 5: PASS
+sed -i 's/\* \[ \] Question 1/* [x] Question 1: answered/' .plans/current/p.md
+check_plan_commit "open question update on frozen plan is permitted" PASS
+
+# Sec 2 edit on 🟢 plan: BLOCK
+sed -i 's/Original technical blueprint architecture./Tampered architecture./' .plans/current/p.md
+check_plan_commit "editing blueprint on frozen plan is blocked" BLOCK
+
+# Sec 4 edit on 🟢 plan: BLOCK
+sed -i 's/src\/a\.py/src\/extra\.py/' .plans/current/p.md
+check_plan_commit "editing blast radius on frozen plan is blocked" BLOCK
+
+# Unfreeze (status changed to 🟡 Refining with untouched Sec 2/4): PASS
+sed -i 's/🟢 Ready for Execution/🟡 Refining/' .plans/current/p.md
+check_plan_commit "unfreezing status without design change is permitted" PASS
+
+# Smuggled unfreeze (status changed to 🟡 Refining AND Sec 2 modified): BLOCK
+sed -i 's/🟢 Ready for Execution/🟡 Refining/' .plans/current/p.md
+sed -i 's/Original technical blueprint architecture./Smuggled architecture./' .plans/current/p.md
+check_plan_commit "smuggling blueprint edit during unfreeze is blocked" BLOCK
+
+# 2. Tests on 🔴 Under Review plan
+create_and_commit_plan "🔴 Under Review"
+
+# Sec 2 edit on 🔴 plan: PASS
+sed -i 's/Original technical blueprint architecture./Refined draft architecture./' .plans/current/p.md
+check_plan_commit "editing blueprint on draft plan is permitted" PASS
+
+# Sec 4 edit on 🔴 plan: PASS
+sed -i 's/src\/a\.py/src\/draft\.py/' .plans/current/p.md
+check_plan_commit "editing blast radius on draft plan is permitted" PASS
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]

@@ -555,6 +555,8 @@ Transitions a refined blueprint into the Greenlight Zone:
 - Validates explicit `### 📂 Target Files` and `### 🛑 Out of Bounds` (enforcing Pair 5 self-protection).
 - Changes status to `🟢 Ready for Execution` and marks Blast Radius `LOCKED`.
 - Enables commit-time and write-time enforcement for the plan's targets.
+- **Design-Lock Immutability**: Once frozen, the plan's specification (`## 2. Technical Blueprint`) and allowlist (`## 4. Blast Radius`) become immutable. Pre-commit strictly refuses commits altering these sections. Execution progress (`## 3.` task checkboxes, `## 5.` open questions, and `## 6.` change log) remains writable.
+- **Unfreezing**: To revise a frozen design, revert the plan's status back to `🟡 Refining` in an explicit commit before amending the blueprint.
 *Safety: Model invocation disabled (`disable-model-invocation: true`).*
 
 #### `/aapp-done <plan>` (or `done <plan>`, `/done`) — Master Archival Ledger & Completion
