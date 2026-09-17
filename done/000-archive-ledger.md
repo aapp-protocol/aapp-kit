@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-17 | `P-16` | [`P16-frozen-plan-immutability.md`](P16-frozen-plan-immutability.md) | `#68` | `98bf317` | Pre-commit design-lock immutability engine for frozen plans (`templates/aapp-pre-commit`), preventing in-flight edits to §2 and §4 while keeping checkboxes and changelog writable; 9 regression tests (54 passing). |
 | 2026-09-17 | `P-18` | [`P18-glob-path-traversal-precision.md`](P18-glob-path-traversal-precision.md) | `#56` | `c98c982` | Pure-Bash `glob_to_regex` compiler, safe bracket class grammar (`[...]`), and 3-tier fast path matching in `blast-radius-guard.sh` and `aapp-pre-commit`. |
 | 2026-09-16 | `P-14` | [`P14-ai-attribution-suite.md`](P14-ai-attribution-suite.md) | `#66` (carried forward to `#67`) | `3ffa3cf` | Multi-mode AI attribution suite (`none`/`commit`/`notes`), hook infrastructure, Option C staged notes, append-only `ai-credits` roster, scrubber utility, and Pair 6 SHA validator (partially delivered per §E.9). |
 | 2026-09-15 | `P-9` | [`P9-guard-path-authorization.md`](P9-guard-path-authorization.md) | `#65` (also closes `#53`, `#54`) | `7d00a00` | External path allowlist (Claude, Antigravity, Codex, Cursor, XDG, tmp), Section 2b hard-deny, lexical canonicalization, and `MultiEdit` matcher coverage. |

@@ -6,8 +6,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🚦 Recommended Implementation Roadmap
 
-1. 🟢 **P-16**: [`P16-frozen-plan-immutability.md`](current/P16-frozen-plan-immutability.md) — Frozen Plan Immutability & Design-Lock Enforcement (#68)
-2. 🔴 **P-17**: [`P17-blast-radius-precision-and-isolation.md`](current/P17-blast-radius-precision-and-isolation.md) — Multi-Agent Lifecycle Switchboard & Worktree Isolation (#57)
+1. 🔴 **P-17**: [`P17-blast-radius-precision-and-isolation.md`](current/P17-blast-radius-precision-and-isolation.md) — Multi-Agent Lifecycle Switchboard & Worktree Isolation (#57)
 
 ---
 
@@ -23,9 +22,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-* [ ] **P-16: [Frozen Plan Immutability & Design-Lock Enforcement](current/P16-frozen-plan-immutability.md)**
-  * *Target Files:* `templates/aapp-pre-commit`, `tests/pre-commit_test.sh`, `templates/AGENTS.md`, `MANUAL.md`, `CHANGELOG.md`
-  * *Status:* Approved. Blast radius locked. Ready to code.
+*(No currently frozen blueprints)*
 
 ---
 
