@@ -2,7 +2,7 @@
 * **Created:** 2026-09-16 | **Last Refined:** 2026-09-17
 * **Target Issue / Milestone:** #57 *(Superseded: dissolved by Single-Active-Plan Architecture)*
 * **Plan ID:** P-17
-* **Status:** 🔴 Under Review
+* **Status:** 🟢 Ready for Execution
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Frozen | 🟠 In Development | 🚫 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
@@ -98,6 +98,31 @@ PREV_PLAN_FILE="$(git rev-parse --git-path aapp_active_plan.prev 2>/dev/null || 
    - **Result:** Two agents working in parallel in separate worktrees get **100% collision-free, isolated active plan contexts natively without any special coordination!**
 3. **Sub-Millisecond O(1) Speed**: Hook reads 1 line (`P-10`) in 0.001ms and opens exactly that 1 blueprint directly.
 4. **Authoritative Single Source of Truth**: The buffer file is authoritative. No environment variable overrides exist, preventing agents from self-granting unauthorized permissions.
+
+#### 2b. Canonical `.plans/` Resolution & Linked Worktree Isolation
+1. **Canonical `.plans/` Worktree Resolution**:
+   In linked Git worktrees (`git worktree add`), the orphan `plans` branch is not mounted locally (Git enforces that a branch cannot be checked out simultaneously in two worktrees). Hooks resolve the primary root dynamically:
+   ```bash
+   COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
+   if [ -d "$COMMON_DIR" ]; then
+       PRIMARY_ROOT="$(cd "$COMMON_DIR/.." 2>/dev/null && pwd)"
+   else
+       PRIMARY_ROOT="$REPO_ROOT"
+   fi
+   if [ -d "$REPO_ROOT/.plans" ]; then
+       PLANS_DIR="$REPO_ROOT/.plans"
+   elif [ -n "$PRIMARY_ROOT" ] && [ -d "$PRIMARY_ROOT/.plans" ]; then
+       PLANS_DIR="$PRIMARY_ROOT/.plans"
+   else
+       PLANS_DIR=""
+   fi
+   ```
+2. **Fail-Closed Quarantine in AAPP Repositories**:
+   If an AAPP-managed repository is detected (e.g. hook executed from `.githooks/` or `aapp` configuration active), but `$PLANS_DIR/current` is unreachable or unmounted, hooks fail closed with a diagnostic quarantine rather than silently failing open.
+3. **Physical Worktree Boundary Invariant**:
+   Multi-agent concurrency strictly requires **one Git worktree per active agent**. Same-worktree multi-agent concurrency is forbidden to prevent buffer collisions on `.git/aapp_active_plan`.
+4. **Design-Lock Prerequisite**:
+   Grounded on **Plan P-16** delivered: because Section 2 and Section 4 of frozen blueprints are locked by pre-commit, no concurrent agent can mutate another agent's active blast radius via background file writes.
 
 #### 3. Flagless Active Plan Switchboard (`aapp plan*` & `aapp freeze-start`)
 Following the clean, parameterless AAPP command style (`aapp ai-commit`, `aapp ai-off`), commands are single-token verbs:
@@ -236,6 +261,7 @@ Beyond runtime hook enforcement, compile-time planning health verification in `l
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
+*(Marked: **LOCKED** — Greenlit for implementation)*
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `templates/blast-radius-guard.sh` -> Implement active plan buffer resolution and `🟠 In Development` enforcement.
@@ -278,6 +304,7 @@ Beyond runtime hook enforcement, compile-time planning health verification in `l
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-17:** Plan frozen and greenlit (`🟢 Ready for Execution`). Integrated linked worktree primary root resolution (`PRIMARY_ROOT` via `git-common-dir`), fail-closed quarantine for missing `.plans/`, and Physical Worktree Boundary Invariant (1 worktree per agent). Grounded on P-16 design-lock delivery. Blast radius locked.
 * **2026-09-17:** Added `aapp freeze-start` and `/aapp-freeze-start` compound workflow verb: atomically freezes specification and activates plan into `🟠 In Development` with worktree buffer binding in a single command, accelerating immediate single-plan execution without multi-command friction.
 * **2026-09-17:** Plan refocused on Multi-Agent Lifecycle Switchboard and Worktree Buffer Architecture following red team evaluation: decoupled Issue #56 (glob traversal precision) into P-18 to be implemented prior to P-17; confirmed Issue #57 is structurally superseded and dissolved by the single active plan model; dropped `$AAPP_ACTIVE_PLAN` environment variable to prevent self-granted permissions; marked new targets with `NEW FILE ->`; dropped `lib/plan_resolver.sh` from target files; updated attribution trailer invariant to P-14 standard; and adopted direct vocabulary migration (zero lifetime aliases).
 * **2026-09-16:** Resolved Open Questions 2 & 3: established strict syntax rules for parameterized patterns and bracket character classes (`[...]`) to prevent raw regex or malformed file names, backed by Planning Health pattern validation. Confirmed Planning Health Pair 7 collision check is strictly scoped to in-flight (`🟠 In Development`) plans, ensuring `🟢 Frozen` backlog plans emit zero false alarms at freeze time.
