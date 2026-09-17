@@ -201,18 +201,37 @@ The agent must support and execute these shorthand workflow triggers immediately
 
   > **`digest` produces a draft, never a green light.** The output is an Incubator entry to be refined. Only `freeze` makes a plan executable.
 
-- **`freeze <plan>` (or `/aapp-freeze <plan>`, `/aapp:freeze <plan>`, `/aapp freeze <plan>`, `/freeze <plan>`)**: Lock and greenlight a blueprint for code execution.
+- **`freeze-start <plan>` (or `/aapp-freeze-start <plan>`, `aapp freeze-start <plan>`)**: The atomic workflow accelerator.
+  1. Validates open questions (`[x]`) and explicit Target Files.
+  2. Runs the Disjointness Activation Gate: verifies zero overlapping Target Files with other in-flight (`🟠 In Development`) blueprints in the same workspace.
+  3. Transitions blueprint directly to `🟠 In Development`, sets the lock marker, updates the change log, and binds the local worktree buffer (`$(git rev-parse --git-path aapp_active_plan)`).
+  4. Immediately greenlights code execution in the working tree.
+
+- **`freeze <plan>` (or `/aapp-freeze <plan>`, `/aapp:freeze <plan>`, `/aapp freeze <plan>`, `/freeze <plan>`)**: Lock and greenlight a blueprint for the backlog.
   1. Resolve `<plan>` using shorthand resolution (Plan ID `P-9`, `9`, slug, or filename). Target must be explicitly named — empty queries are strictly refused.
   2. Scan `.plans/current/<plan>.md` to verify all Open Questions are resolved and Blast Radius (`Target Files` / `Out of Bounds`) is explicitly defined.
-  3. Move the plan in `.plans/state_matrix.md` from the Incubator into `## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)`.
-  4. Seal the boundary: the execution session may only touch files in the locked Blast Radius.
+  3. Move the plan in `.plans/state_matrix.md` from the Incubator into `## 🟢 2b. Frozen Backlog (Approved Specifications)`.
+  4. Locks the technical blueprint and blast radius into the backlog. (To begin implementation, run `aapp start <plan>` or use `aapp freeze-start <plan>`).
+
+- **`start <plan>` (or `/aapp-start <plan>`, `aapp start <plan>`)**: Activate a frozen backlog blueprint into development.
+  1. Verifies plan is in `🟢 Frozen` status.
+  2. Runs the Disjointness Activation Gate against other in-flight plans.
+  3. Transitions status to `🟠 In Development` and binds local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).
+  4. Activates enforcement of the plan's locked Blast Radius for tool writes and commits.
+
+- **`plan [plan-id]` (or `/aapp-plan`, `aapp plan`, `aapp plan-swap`, `aapp plan-clear`)**: Manage active execution context.
+  1. `aapp plan <id>`: Set local worktree active buffer to `<id>`.
+  2. `aapp plan`: Display active plan context, status, Target Files, and Out of Bounds.
+  3. `aapp plan-swap`: Toggle between current and previous active plan context.
+  4. `aapp plan-clear`: Clear active buffer, reverting to auto-discovery mode.
 
 - **`done <plan>` (or `/aapp-done <plan>`, `/aapp:done <plan>`, `/aapp done <plan>`, `/done <plan>`)**: Complete lifecycle and archive implemented blueprint.
   1. Resolve `<plan>` using shorthand resolution (Plan ID `P-9`, `9`, slug, or filename). Target must be explicitly named — empty queries are strictly refused.
   2. Move the plan file: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
-  3. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` with `Plan ID`, plan file link, target issue, verification commit, and repo-relative impact summary.
-  4. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items). If the plan resolved a target issue, relocate it from `ISSUES.md` to `.plans/done/000-issues-archive.md` (enforcing the Relocation Invariant) and prune it from `issues_road_map.md` (the pre-commit hook also auto-prunes resolved lines).
-  5. Commit the transition to the `plans` worktree.
+  3. Clear or update active plan buffer if it matched the completed plan.
+  4. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` with `Plan ID`, plan file link, target issue, verification commit, and repo-relative impact summary.
+  5. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items). If the plan resolved a target issue, relocate it from `ISSUES.md` to `.plans/done/000-issues-archive.md` (enforcing the Relocation Invariant) and prune it from `issues_road_map.md` (the pre-commit hook also auto-prunes resolved lines).
+  6. Commit the transition to the `plans` worktree.
 
 - **`release <version>` (or `/aapp-release <version>`, `/aapp:release <version>`, `/aapp release <version>`, `/release <version>`, `/preflight`)**: Execute release pre-flight verification runbook.
   1. Inspect `.plans/release/release_checklist.md` (the canonical release runbook for the project).
