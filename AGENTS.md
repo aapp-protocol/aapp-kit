@@ -85,6 +85,12 @@ Enforcement runs at **two moments**, and neither is optional:
 
 If a write is refused, **do not work around it** — not with a shell heredoc, not with `sed`, not by disabling the hook. A refusal means the file is outside the plan you were given. Either stay inside the Target Files, or stop and ask the human to add the file to `### 📂 Target Files` first. Both layers also refuse any work on a plan marked `🚫 BLOCKED`.
 
+### 🔒 Frozen Plan Immutability & Design-Lock Contract
+Once a blueprint is frozen (`🟢 Ready for Execution`), its **design** is locked while its **execution progress** remains writable:
+- **Locked Regions**: `## 2. Technical Blueprint` and `## 4. Blast Radius & System Boundaries`. Attempting to modify these sections while a plan is frozen is strictly blocked by `pre-commit`.
+- **Permitted Regions**: Task checkboxes in `## 3.` (`- [ ]` → `- [x]`), `## 5. Open Questions`, and `## 6. Change Log` remain freely editable to record execution progress and verification history.
+- **Unfreezing**: To modify a frozen blueprint or blast radius, the plan must be explicitly unfrozen first by reverting status to `🟡 Refining` (with §2 and §4 untouched in that unfreeze commit).
+
 ---
 
 ## 🛤️ Two Lanes: Issues vs. Plans (Never Merge Them)
