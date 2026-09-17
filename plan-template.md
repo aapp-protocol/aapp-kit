@@ -15,6 +15,7 @@
 >    - *Non-blocking*: Log in `.plans/ISSUES.md` and continue your plan.
 >    - *Blocking & small*: Add file under `### 🚨 Emergency Hotfix Extensions` with a 1-sentence justification.
 >    - *Blocking & substantial*: Set status to `🚫 BLOCKED`, stop, and ask the user.
+> 5. **Architecture & Codemap Sync**: If your implementation introduces new files, functions, CLI verbs, or alters architectural boundaries, you **must** update `ARCHITECTURE.md` and `.agents/CODEMAP.md` (or repo-root `CODEMAP.md`). Both files are always-allowed workspace invariants.
 
 ---
 
@@ -39,9 +40,10 @@
 - [ ] Task 2.1: ...
 - [ ] Task 2.2: ...
 
-### Phase 3: Verification & Edge Cases
+### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Verify changelog updates and documentation synchronization.
+- [ ] Task 3.2: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [ ] Task 3.3: Verify `CHANGELOG.md` updates and run syntax/build checks.
 
 ---
 
