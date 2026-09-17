@@ -20,7 +20,7 @@
 1. #49 -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
 
 ## 🟡 Medium Priority (Upcoming Iterations)
-- [ ] #51 -> Self-consumption `rm -rf` gated on basename allowlist rather than directory contents/signatures.
+*(No medium priority items currently queued)*
 
 ## 🟢 Low Priority (Test Infrastructure & Verification)
 - [ ] #63 -> No CI runs test suites (102 test cases) and no release gate blocks publishing `main` trailing `develop`.
