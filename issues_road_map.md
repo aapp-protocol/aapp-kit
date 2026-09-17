@@ -28,7 +28,6 @@
 
 ## 📥 Triage (Incoming / Unsequenced)
 *Newly logged issues awaiting prioritization.*
-- [ ] #57 -> File marked Out of Bounds by one plan is allowed when second active plan lists it as target. (🔵 Planned in [P-17](current/P17-blast-radius-precision-and-isolation.md) - Superseded by Single-Active-Plan Architecture)
 - [ ] #58 -> `AAPP_VERSION` stayed 1.0.0 without release tags, so protocol block still stamps `v1.0.0` after upgrade.
 - [ ] #59 -> `sort -z` is GNU/newer-BSD only and fails on older macOS `sort`, breaking the Plans pillar of briefing.
 - [ ] #60 -> Plan filenames with newlines break unquoted `ls -1` iteration in enforcement engine.

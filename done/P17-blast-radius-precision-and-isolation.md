@@ -206,7 +206,6 @@ Beyond runtime hook enforcement, compile-time planning health verification in `l
 ### E. Clean Vocabulary & Template Alignment
 1. **`templates/plan-template.md`**:
    - Update header status enum: `🔴 Under Review | 🟡 Refining | 🟢 Frozen | 🟠 In Development | 🚫 BLOCKED`.
-   - Update attribution trailer placeholder to standard semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`).
 2. **`templates/AGENTS.md`**:
    - Document the 5-state lifecycle, atomic `aapp freeze-start <id>`, `aapp start <id>`, and active plan swap buffer protocol (`aapp plan <id>`, `aapp plan-swap`, `$(git rev-parse --git-path aapp_active_plan)`).
    - Update `### 💥 Blast Radius Enforcement` with plan-scoped execution rules.
@@ -218,45 +217,45 @@ Beyond runtime hook enforcement, compile-time planning health verification in `l
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Hook Engine Buffer Resolution & Concurrency Isolation
-- [ ] Task 1.1: Implement active plan context resolution (`$(git rev-parse --git-path aapp_active_plan)` -> auto-discovery of single `🟠` plan) in `templates/blast-radius-guard.sh`.
-- [ ] Task 1.2: Implement designated active plan evaluation in `templates/blast-radius-guard.sh` (evaluates strictly the active plan's Target Files and Out of Bounds).
-- [ ] Task 1.3: Implement active plan context resolution and enforcement in `templates/aapp-pre-commit`.
+- [x] Task 1.1: Implement active plan context resolution (`$(git rev-parse --git-path aapp_active_plan)` -> auto-discovery of single `🟠` plan) in `templates/blast-radius-guard.sh`.
+- [x] Task 1.2: Implement designated active plan evaluation in `templates/blast-radius-guard.sh` (evaluates strictly the active plan's Target Files and Out of Bounds).
+- [x] Task 1.3: Implement active plan context resolution and enforcement in `templates/aapp-pre-commit`.
 
 ### Phase 2: Flagless Active Plan Switchboard (`lib/cmd_plan.sh`)
-- [ ] Task 2.1: Implement `lib/cmd_plan.sh` supporting flagless single-token verbs:
+- [x] Task 2.1: Implement `lib/cmd_plan.sh` supporting flagless single-token verbs:
   - `aapp freeze-start <id>` (atomic freeze verification + activation into `🟠 In Development` + buffer set).
   - `aapp start <id>` (transitions `🟢 Frozen` -> `🟠 In Development` and sets buffer).
   - `aapp plan [id]` (sets buffer, stashes prior in `.prev`).
   - `aapp plan-swap` (toggles between current and `.prev`).
   - `aapp plan-clear` (removes buffer).
   - `aapp plan` (displays current active plan context and declared bounds).
-- [ ] Task 2.2: Wire `freeze-start`, `start`, `plan`, `plan-swap`, and `plan-clear` subcommands into main `aapp` dispatcher.
-- [ ] Task 2.3: Implement disjointness activation gate in `aapp start` and `aapp freeze-start` (checks target file overlap with in-flight plans).
+- [x] Task 2.2: Wire `freeze-start`, `start`, `plan`, `plan-swap`, and `plan-clear` subcommands into main `aapp` dispatcher.
+- [x] Task 2.3: Implement disjointness activation gate in `aapp start` and `aapp freeze-start` (checks target file overlap with in-flight plans).
 
 ### Phase 3: Planning Health Pair 7 & Status Vocabulary
-- [ ] Task 3.1: Update status recognition in `lib/planning_health.sh` to support `🟢 Frozen` and `🟠 In Development`.
-- [ ] Task 3.2: Implement Pair 7 In-Flight Boundary Collision check in `lib/planning_health.sh`, reporting exact overlapping file paths upon collision.
+- [x] Task 3.1: Update status recognition in `lib/planning_health.sh` to support `🟢 Frozen` and `🟠 In Development`.
+- [x] Task 3.2: Implement Pair 7 In-Flight Boundary Collision check in `lib/planning_health.sh`, reporting exact overlapping file paths upon collision.
 
 ### Phase 4: Skills, Manual & Clean Vocabulary Migration
-- [ ] Task 4.1: Update `templates/plan-template.md` with the 5-state lifecycle and updated attribution trailer placeholder.
-- [ ] Task 4.2: Update `templates/AGENTS.md` blast radius rules, lifecycle definitions, and multi-agent plan context protocol.
-- [ ] Task 4.3: Update `templates/skills/aapp-freeze/SKILL.md` to transition plans to `🟢 Frozen` (approved backlog) without interactive prompts.
-- [ ] Task 4.4: Create `templates/skills/aapp-start/SKILL.md` to transition plans from `🟢 Frozen` to `🟠 In Development` and populate the active buffer.
-- [ ] Task 4.5: Create `templates/skills/aapp-freeze-start/SKILL.md` for atomic freeze and immediate execution activation.
-- [ ] Task 4.6: Create `templates/skills/aapp-plan/SKILL.md` for context switching (`plan`, `plan-swap`, `plan-clear`).
-- [ ] Task 4.7: Update `templates/state_matrix.md` to synchronize state matrix template with 5-state lifecycle (Backlog vs In-Development).
-- [ ] Task 4.8: Update `MANUAL.md` and `CHEATSHEET.md` with the new lifecycle commands (`freeze-start`, `start`, `plan`, `plan-swap`, `plan-clear`) and tables.
-- [ ] Task 4.9: Perform clean vocabulary migration across active blueprints in `.plans/current/`.
+- [x] Task 4.1: Update `templates/plan-template.md` with the 5-state lifecycle and updated attribution trailer placeholder.
+- [x] Task 4.2: Update `templates/AGENTS.md` blast radius rules, lifecycle definitions, and multi-agent plan context protocol.
+- [x] Task 4.3: Update `templates/skills/aapp-freeze/SKILL.md` to transition plans to `🟢 Frozen` (approved backlog) without interactive prompts.
+- [x] Task 4.4: Create `templates/skills/aapp-start/SKILL.md` to transition plans from `🟢 Frozen` to `🟠 In Development` and populate the active buffer.
+- [x] Task 4.5: Create `templates/skills/aapp-freeze-start/SKILL.md` for atomic freeze and immediate execution activation.
+- [x] Task 4.6: Create `templates/skills/aapp-plan/SKILL.md` for context switching (`plan`, `plan-swap`, `plan-clear`).
+- [x] Task 4.7: Update `templates/state_matrix.md` to synchronize state matrix template with 5-state lifecycle (Backlog vs In-Development).
+- [x] Task 4.8: Update `MANUAL.md` and `CHEATSHEET.md` with the new lifecycle commands (`freeze-start`, `start`, `plan`, `plan-swap`, `plan-clear`) and tables.
+- [x] Task 4.9: Perform clean vocabulary migration across active blueprints in `.plans/current/`.
 
 ### Phase 5: Verification & Automated Test Suites
-- [ ] Task 5.1: Extend `tests/write-guard_test.sh` with test cases:
+- [x] Task 5.1: Extend `tests/write-guard_test.sh` with test cases:
   - Plan lifecycle enforcement: `🟢 Frozen` grants zero write rights; `🟠 In Development` enforces declared boundaries.
   - Active plan buffer scoping: Plan A's OOB holds for Plan A, does not block Plan B when Plan B is active in buffer.
   - Flagless plan swap functionality (`aapp plan <id>`, `aapp plan-swap`).
   - Atomic workflow accelerator (`aapp freeze-start <id>`).
-- [ ] Task 5.2: Extend `tests/pre-commit_test.sh` with pre-commit parity test cases.
-- [ ] Task 5.3: Extend `tests/plan_resolver_test.sh` with Pair 7 collision validation and status resolution test cases.
-- [ ] Task 5.4: Sync hooks via `./aapp init` and run all test suites.
+- [x] Task 5.2: Extend `tests/pre-commit_test.sh` with pre-commit parity test cases.
+- [x] Task 5.3: Extend `tests/plan_resolver_test.sh` with Pair 7 collision validation and status resolution test cases.
+- [x] Task 5.4: Sync hooks via `./aapp init` and run all test suites.
 
 ---
 
@@ -304,6 +303,7 @@ Beyond runtime hook enforcement, compile-time planning health verification in `l
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-17:** Completed and verified in commit `df1828b`. All 247 automated test cases passing. Archiving to `.plans/done/`.
 * **2026-09-17:** Plan activated into 🟠 In Development via start.
 * **2026-09-17:** Plan frozen and greenlit (`🟢 Ready for Execution`). Integrated linked worktree primary root resolution (`PRIMARY_ROOT` via `git-common-dir`), fail-closed quarantine for missing `.plans/`, and Physical Worktree Boundary Invariant (1 worktree per agent). Grounded on P-16 design-lock delivery. Blast radius locked.
 * **2026-09-17:** Added `aapp freeze-start` and `/aapp-freeze-start` compound workflow verb: atomically freezes specification and activates plan into `🟠 In Development` with worktree buffer binding in a single command, accelerating immediate single-plan execution without multi-command friction.

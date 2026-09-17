@@ -6,7 +6,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🚦 Recommended Implementation Roadmap
 
-1. 🟠 **P-17**: [`P17-blast-radius-precision-and-isolation.md`](current/P17-blast-radius-precision-and-isolation.md) — Multi-Agent Lifecycle Switchboard & Worktree Isolation (#57)
+*No plans currently active on roadmap. Incubate or freeze from backlog below.*
 
 ---
 
@@ -21,9 +21,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-* [ ] **P-17: [Multi-Agent Lifecycle Switchboard & Worktree Isolation](current/P17-blast-radius-precision-and-isolation.md)**
-  * *Target Files:* `templates/blast-radius-guard.sh`, `templates/aapp-pre-commit`, `lib/cmd_plan.sh`, `aapp`, `lib/planning_health.sh`, `templates/plan-template.md`, `templates/AGENTS.md`, `templates/skills/aapp-freeze/SKILL.md`, `templates/skills/aapp-start/SKILL.md`, `templates/skills/aapp-freeze-start/SKILL.md`, `templates/skills/aapp-plan/SKILL.md`, `templates/state_matrix.md`, `MANUAL.md`, `CHEATSHEET.md`, `tests/write-guard_test.sh`, `tests/pre-commit_test.sh`, `tests/plan_resolver_test.sh`
-  * *Status:* Approved. Blast radius locked. Ready to code.
+*No blueprints currently frozen or in development.*
 
 ---
 

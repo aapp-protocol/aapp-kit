@@ -61,4 +61,5 @@ Append-only historical ledger of verified and resolved issues.
 | #62 | `Medium` | `TEST` | 2026-09-10 | 2026-09-16 | `ae9b4dc` | Added assertions in `write-guard_test.sh` validating `hookEventName`, `permissionDecisionReason`, and mirrored stderr. |
 | #56 | `Medium` | `SEC` | 2026-09-10 | 2026-09-17 | `c98c982` | [`P18-glob-path-traversal-precision.md`](P18-glob-path-traversal-precision.md): Implemented pure-Bash `glob_to_regex` compiler, safe bracket grammar (`[...]`), and 3-tier fast path matching in `blast-radius-guard.sh` and `aapp-pre-commit`. |
 | #68 | `High` | `SEC` | 2026-09-16 | 2026-09-17 | `98bf317` | [`P16-frozen-plan-immutability.md`](P16-frozen-plan-immutability.md): Implemented Section 2b design-lock immutability engine in `templates/aapp-pre-commit`, refusing in-flight edits to §2 and §4 of frozen blueprints while keeping checkboxes and changelog writable. |
+| #57 | `Medium` | `SEC` | 2026-09-10 | 2026-09-17 | `df1828b` | [`P17-blast-radius-precision-and-isolation.md`](P17-blast-radius-precision-and-isolation.md): Structurally dissolved by Single-Active-Plan Architecture and per-worktree pointer buffer isolation (`.git/aapp_active_plan`). |
 
