@@ -84,7 +84,7 @@ Rejection must name the section and point at the unfreeze path, in the style of 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Contract Definition & Test Harness
-- [ ] Task 1.1: Add failing regression cases to `tests/pre-commit_test.sh`:
+- [x] Task 1.1: Add failing regression cases to `tests/pre-commit_test.sh`:
   - Checkbox tick (`- [ ]` -> `- [x]`) on a 🟢 plan ALLOWED.
   - §6 Change Log append on a 🟢 plan ALLOWED.
   - §5 Open Questions update on a 🟢 plan ALLOWED.
@@ -93,19 +93,19 @@ Rejection must name the section and point at the unfreeze path, in the style of 
   - §2 / §4 edits on a 🔴/🟡 plan ALLOWED.
   - Unfreeze commit (status revert to 🟡 with unchanged §2/§4) ALLOWED.
   - Smuggled unfreeze (status revert to 🟡 with modified §2) BLOCKED.
-- [ ] Task 1.2: Record current test suite baseline (`45 passed, 0 failed`).
+- [x] Task 1.2: Record current test suite baseline (`45 passed, 0 failed`).
 
 ### Phase 2: Enforcement Engine
-- [ ] Task 2.1: Implement section extraction and design-lock validation in `templates/aapp-pre-commit`.
-- [ ] Task 2.2: Add refusal diagnostic message naming the modified section and unfreeze resolution.
-- [ ] Task 2.3: Run `aapp init` to propagate into `.githooks/pre-commit`.
-- [ ] Task 2.4: Run `tests/pre-commit_test.sh` and verify all new tests pass.
+- [x] Task 2.1: Implement section extraction and design-lock validation in `templates/aapp-pre-commit`.
+- [x] Task 2.2: Add refusal diagnostic message naming the modified section and unfreeze resolution.
+- [x] Task 2.3: Run `aapp init` to propagate into `.githooks/pre-commit`.
+- [x] Task 2.4: Run `tests/pre-commit_test.sh` and verify all new tests pass.
 
 ### Phase 3: Documentation & Verification
-- [ ] Task 3.1: Document the frozen-plan mutability contract in `templates/AGENTS.md`.
-- [ ] Task 3.2: Document the contract and unfreeze procedure in `MANUAL.md`.
-- [ ] Task 3.3: Update `CHANGELOG.md` under `## [Unreleased]`, citing `#68`.
-- [ ] Task 3.4: Run all test suites and verify 100% green.
+- [x] Task 3.1: Document the frozen-plan mutability contract in `templates/AGENTS.md`.
+- [x] Task 3.2: Document the contract and unfreeze procedure in `MANUAL.md`.
+- [x] Task 3.3: Update `CHANGELOG.md` under `## [Unreleased]`, citing `#68`.
+- [x] Task 3.4: Run all test suites and verify 100% green.
 
 ---
 
@@ -113,11 +113,11 @@ Rejection must name the section and point at the unfreeze path, in the style of 
 *(Marked: **LOCKED** — Greenlit for implementation)*
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `templates/aapp-pre-commit` -> Section extractor, design-lock check for 🟢 plans, unfreeze path.
-- [ ] `tests/pre-commit_test.sh` -> Regression coverage for permitted and refused regions at each plan status.
-- [ ] `templates/AGENTS.md` -> Document the frozen-plan mutability contract.
-- [ ] `MANUAL.md` -> Document the contract and the unfreeze procedure.
-- [ ] `CHANGELOG.md` -> Unreleased entry citing `#68`.
+- [x] `templates/aapp-pre-commit` -> Section extractor, design-lock check for 🟢 plans, unfreeze path.
+- [x] `tests/pre-commit_test.sh` -> Regression coverage for permitted and refused regions at each plan status.
+- [x] `templates/AGENTS.md` -> Document the frozen-plan mutability contract.
+- [x] `MANUAL.md` -> Document the contract and the unfreeze procedure.
+- [x] `CHANGELOG.md` -> Unreleased entry citing `#68`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/*` -> Section 2 self-protection. Propagated from `templates/` via `aapp init`.
@@ -144,5 +144,6 @@ Rejection must name the section and point at the unfreeze path, in the style of 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-17:** Implementation delivered and verified in commit `98bf317`: added Section 2b frozen plan design-lock immutability check to `templates/aapp-pre-commit`, expanded `tests/pre-commit_test.sh` with 9 regression tests (all 54 passing, 219 suite-wide passing), documented contract in `templates/AGENTS.md` and `MANUAL.md`, updated `CHANGELOG.md`, and synced `.githooks/`.
 * **2026-09-17:** Plan refined and frozen (`🟢 Ready for Execution`). Resolved all 4 Open Questions: locked §2 and §4 in pre-commit, allowed §3 checkboxes, §5 open questions, and §6 change log; permitted explicit status-only unfreezing; kept write guard binary without warning noise; locked Blast Radius to 5 target files.
 * **2026-09-16:** Plan scaffolded from `#68` via `/aapp-digest`. Established that enforcement must live in `aapp-pre-commit` rather than the write guard, since the guard is path-based and a frozen plan must remain writable for progress updates. Defined the mutability contract (checkboxes and §6 permitted; §2 and §4 refused), recorded the live incident that produced the issue, and separated the four genuine design decisions into Open Questions rather than pre-empting them.
