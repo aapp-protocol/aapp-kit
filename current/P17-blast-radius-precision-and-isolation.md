@@ -2,7 +2,7 @@
 * **Created:** 2026-09-16 | **Last Refined:** 2026-09-17
 * **Target Issue / Milestone:** #57 *(Superseded: dissolved by Single-Active-Plan Architecture)*
 * **Plan ID:** P-17
-* **Status:** 🟢 Ready for Execution
+* **Status:** 🟠 In Development
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Frozen | 🟠 In Development | 🚫 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
@@ -304,6 +304,7 @@ Beyond runtime hook enforcement, compile-time planning health verification in `l
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-17:** Plan activated into 🟠 In Development via start.
 * **2026-09-17:** Plan frozen and greenlit (`🟢 Ready for Execution`). Integrated linked worktree primary root resolution (`PRIMARY_ROOT` via `git-common-dir`), fail-closed quarantine for missing `.plans/`, and Physical Worktree Boundary Invariant (1 worktree per agent). Grounded on P-16 design-lock delivery. Blast radius locked.
 * **2026-09-17:** Added `aapp freeze-start` and `/aapp-freeze-start` compound workflow verb: atomically freezes specification and activates plan into `🟠 In Development` with worktree buffer binding in a single command, accelerating immediate single-plan execution without multi-command friction.
 * **2026-09-17:** Plan refocused on Multi-Agent Lifecycle Switchboard and Worktree Buffer Architecture following red team evaluation: decoupled Issue #56 (glob traversal precision) into P-18 to be implemented prior to P-17; confirmed Issue #57 is structurally superseded and dissolved by the single active plan model; dropped `$AAPP_ACTIVE_PLAN` environment variable to prevent self-granted permissions; marked new targets with `NEW FILE ->`; dropped `lib/plan_resolver.sh` from target files; updated attribution trailer invariant to P-14 standard; and adopted direct vocabulary migration (zero lifetime aliases).

@@ -6,7 +6,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🚦 Recommended Implementation Roadmap
 
-1. 🟢 **P-17**: [`P17-blast-radius-precision-and-isolation.md`](current/P17-blast-radius-precision-and-isolation.md) — Multi-Agent Lifecycle Switchboard & Worktree Isolation (#57)
+1. 🟠 **P-17**: [`P17-blast-radius-precision-and-isolation.md`](current/P17-blast-radius-precision-and-isolation.md) — Multi-Agent Lifecycle Switchboard & Worktree Isolation (#57)
 
 ---
 
