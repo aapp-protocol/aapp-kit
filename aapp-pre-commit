@@ -314,6 +314,79 @@ if [ -n "$ACTIVE_PLANS" ]; then
 fi
 
 # ------------------------------------------------------------------------------
+# 2b. FROZEN PLAN IMMUTABILITY & DESIGN-LOCK ENFORCEMENT (#68)
+# ------------------------------------------------------------------------------
+extract_plan_section() {
+    local sec="$1"
+    awk -v s="$sec" '
+        $0 ~ "^## ([^0-9]*[[:space:]])?" s "\\." { flag=1; print; next }
+        $0 ~ "^## ([^0-9]*[[:space:]])?[0-9]+\\." && flag { flag=0 }
+        flag { print }
+    '
+}
+
+for STAGED in "${STAGED_FILES[@]}"; do
+    case "$STAGED" in
+        .plans/current/*.md|current/*.md)
+            case "$(basename "$STAGED")" in
+                000-*) continue ;;
+            esac
+            ;;
+        *)
+            continue
+            ;;
+    esac
+
+    # Skip if file was deleted/removed from index (e.g. archiving via /aapp-done)
+    if ! git cat-file -e ":$STAGED" 2>/dev/null; then
+        continue
+    fi
+
+    # Check committed version in HEAD
+    HEAD_CONTENT="$(git show "HEAD:$STAGED" 2>/dev/null || true)"
+    [ -z "$HEAD_CONTENT" ] && continue
+
+    # Check if HEAD version was frozen / greenlit
+    if ! printf '%s\n' "$HEAD_CONTENT" | grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟢|🟠|Ready for Execution|Frozen|In Development)'; then
+        continue
+    fi
+
+    INDEX_CONTENT="$(git show ":$STAGED" 2>/dev/null || true)"
+
+    HEAD_SEC2="$(printf '%s\n' "$HEAD_CONTENT" | extract_plan_section 2)"
+    INDEX_SEC2="$(printf '%s\n' "$INDEX_CONTENT" | extract_plan_section 2)"
+
+    HEAD_SEC4="$(printf '%s\n' "$HEAD_CONTENT" | extract_plan_section 4)"
+    INDEX_SEC4="$(printf '%s\n' "$INDEX_CONTENT" | extract_plan_section 4)"
+
+    DESIGN_VIOLATION=""
+    if [ "$HEAD_SEC2" != "$INDEX_SEC2" ]; then
+        DESIGN_VIOLATION="Section 2 (Technical Blueprint)"
+    fi
+    if [ "$HEAD_SEC4" != "$INDEX_SEC4" ]; then
+        if [ -n "$DESIGN_VIOLATION" ]; then
+            DESIGN_VIOLATION="$DESIGN_VIOLATION and Section 4 (Blast Radius & System Boundaries)"
+        else
+            DESIGN_VIOLATION="Section 4 (Blast Radius & System Boundaries)"
+        fi
+    fi
+
+    if [ -n "$DESIGN_VIOLATION" ]; then
+        echo ""
+        echo "❌ [Pre-Commit Design Lock Violation] Cannot edit locked design sections of a frozen plan!"
+        echo "   Staged plan : $STAGED"
+        echo "   Violation   : Attempted modifications to $DESIGN_VIOLATION"
+        echo "   Status      : 🟢 Frozen (Design Locked)"
+        echo ""
+        echo "   👉 To resolve this:"
+        echo "      1. Revert changes to Section 2 and Section 4."
+        echo "      2. Or unfreeze the plan by changing status back to '🟡 Refining' before amending the design."
+        echo ""
+        exit 1
+    fi
+done
+
+# ------------------------------------------------------------------------------
 # 3. DOCUMENTATION REMINDER (NON-BLOCKING WARNING)
 # ------------------------------------------------------------------------------
 DOCS_UPDATED=0
