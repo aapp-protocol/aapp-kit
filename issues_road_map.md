@@ -32,3 +32,5 @@
 - [ ] #60 -> Plan filenames with newlines break unquoted `ls -1` iteration in enforcement engine.
 - [ ] #67 -> AI credits generator relies on commit trailers and cannot mechanically extract agents that contributed review without committing (awaiting adversarial-review plugin).
 - [ ] #69 -> Unquoted backtick inside `[[ =~ ]]` is evaluated as command substitution at runtime in `get_next_plan_id`.
+- [ ] #70 -> disable-model-invocation: true suppresses skills in Antigravity IDE, hiding new slash commands (/aapp-start, etc.) from chat autocomplete.
+

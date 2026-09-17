@@ -11,3 +11,5 @@
 | #63 | `Medium` | `TEST` | 2026-09-10 | `tests/` | No CI runs test suites (102 test cases) and no release gate blocks publishing `main` trailing `develop`. | Add a GitHub Actions workflow running all three suites plus branch-parity check. | 🟡 `Incubated` |
 | #67 | `Low` | `CORE` | 2026-09-16 | `lib/cmd_ai.sh:287` | AI credits generator derives roster from commit trailers and cannot mechanically extract agents that contributed review without committing. | Await adversarial-review plugin to produce structured plan review provenance, then extend ai-credits to ingest reviewer records (§E.9). | 🟡 `Incubated` |
 | #69 | `Low` | `CLI` | 2026-09-17 | `lib/plan_resolver.sh:267` | Unquoted backtick inside `[[ =~ ]]` is evaluated as command substitution at runtime in `get_next_plan_id`. | Store regex in variable or escape backtick delimiter. | 🟡 `Incubated` |
+| #70 | `Medium` | `CLI` | 2026-09-17 | `templates/skills/*/SKILL.md` | `disable-model-invocation: true` suppresses skills in Antigravity IDE, hiding new slash commands from chat autocomplete. | Set `disable-model-invocation: false` across templates, update Test 42 drift control, and re-sync. | 🟡 `Incubated` |
+
