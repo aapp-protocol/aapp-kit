@@ -345,7 +345,18 @@ Choosing `ai-notes` is a decision to keep the record of AI involvement internal 
 
 ---
 
-## 10. Testing & Verification Suites
+## 10. Security, Threat Model & Trust Boundaries
+
+AAPP is an **alignment, cognitive-drift prevention, and architectural governance framework**, not an adversarial execution sandbox.
+
+* **Collaborative Pair-Programming Trust Assumption:** AAPP assumes the AI agent operates in good faith according to `.agents/AGENTS.md`. It provides the rails, signaling, and mechanical verification needed to keep an aligned agent disciplined.
+* **Cognitive Drift vs. Malice:** AI coding agents fail predominantly due to *context window compaction*, *hallucinated scope*, and *overeagerness*—never conscious malice. AAPP's mechanical layers (`blast-radius-guard`, `pre-commit`, design locks) act as high-friction tactile guardrails that intercept unforced errors and accidental scope creep before touching disk or entering Git history.
+* **Friction and Semantic Signaling:** When a guard refuses an action, it does not treat the agent as an adversary; it provides structured, deterministic feedback that snaps the model back to the blueprint and forces explicit conversation with the developer.
+* **Adversarial Containment is an OS/Host Boundary:** Because coding agents require terminal/shell execution (`run_command`, `Bash`) to run compilers, linters, and test suites, an agent with shell access inherently possesses the user's process privileges. Absolute containment of untrusted models or malicious code cannot be solved at the Git-hook or tool-filter layer—it requires OS-level virtualization (Docker containers, Dev Containers, gVisor, or seccomp sandboxing). AAPP governs *software engineering lifecycle discipline*, operating inside the developer's execution environment.
+
+---
+
+## 11. Testing & Verification Suites
 
 AAPP includes 188 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, skill synchronization, flat issue ledger, Plan ID shorthand resolution, six-pair planning-health validation, and the AI attribution switchboard:
 
@@ -364,14 +375,14 @@ AAPP includes 188 automated regression test cases verifying hook enforcement, wr
 
 ---
 
-## 11. Blueprint Example & Technical Manual
+## 12. Blueprint Example & Technical Manual
  
 * **Complete Blueprint Example**: See [examples/example-plan-distribution-rework.md](examples/example-plan-distribution-rework.md) for a real-world, fully refined AAPP blueprint demonstrating Blast Radius declarations, technical decision logs (Q1–Q9), and verification matrix.
 * **Comprehensive Technical Manual**: See [MANUAL.md](MANUAL.md) for low-level Git worktree plumbing, Two Lanes protocol, state machine lifecycle, multi-agent IDE integration, hook manager recipes, and operations.
 
 ---
 
-## 12. License
+## 13. License
 
 Released under the [BSD 3-Clause License](LICENSE).
 
