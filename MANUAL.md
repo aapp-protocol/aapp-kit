@@ -915,6 +915,11 @@ AAPP implements four concentric layers of governance:
 | **Layer 2** | **Tool Interception** | `.githooks/blast-radius-guard` (`PreToolUse`) | **Pre-Disk Interception.** Intercepts structured tool-writing calls (`Write`, `Edit`, `MultiEdit`) to block file modifications outside `### 📂 Target Files` before touching disk. |
 | **Layer 3** | **Commit-Time Boundary** | `.githooks/aapp-pre-commit` | **Immutable Gate.** Authoritative git commit inspection that halts any commit staging undeclared files, locked blueprint sections, or dirty changelogs. |
 
+> [!NOTE]
+> **Adopter Responsibility (Layer 0 vs. AAPP Protocol Scope):**
+> AAPP provides and automates **Layers 1 through 3** natively within the Git repository. 
+> **Layer 0 (Host / OS Boundary)** is external infrastructure that the adopter or organization provisions according to their own threat model (e.g., using Docker, Dev Containers, or sandbox runners). AAPP assumes it is running within an execution environment the adopter has deemed appropriate for agent operation.
+
 ### Why Shell Access Dictates the Containment Boundary
 
 AI agents require shell execution (`Bash`, `run_command`) to run compilers, linters, and test suites. Because shell commands execute with the developer's process privileges:
