@@ -416,16 +416,18 @@ else
         PLAN_LIST=$(for p in "${DEV_PLANS[@]}"; do basename "$p" .md; done | tr '\n' ',' | sed 's/,$//')
         deny_action "Multiple plans in development [$PLAN_LIST]. Run 'aapp plan <id>' to select context."
     else
-        # Check if any blueprints exist in .plans/current
-        has_plans=0
+        # Check if any frozen blueprints exist in .plans/current
+        has_frozen_plans=0
         for pf in "$PLANS_DIR"/current/*.md; do
             [ ! -f "$pf" ] && continue
             case "$(basename "$pf")" in 000-*) continue ;; esac
-            has_plans=1
-            break
+            if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟢|Frozen|Ready for Execution)' "$pf" 2>/dev/null; then
+                has_frozen_plans=1
+                break
+            fi
         done
 
-        if [ "$has_plans" -eq 1 ]; then
+        if [ "$has_frozen_plans" -eq 1 ]; then
             deny_action "No plan is currently in development. Run 'aapp start <id>' or 'aapp freeze-start <id>' to begin execution."
         fi
 

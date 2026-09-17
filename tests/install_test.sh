@@ -133,6 +133,35 @@ else
 fi
 report "drop-in: aapp-kit/ consumed automatically on success" "PASS" "$got"
 
+# Test 6b: ./agent-planning-kit/aapp init from project root targets project (#50)
+PROJ="$R/t6b_proj"; make_dummy_project "$PROJ"
+make_kit_clone "$PROJ/agent-planning-kit"
+(
+  cd "$PROJ"
+  HOME="$TEST_HOME" ./agent-planning-kit/aapp init >/dev/null 2>&1
+)
+rc=$?
+if [ $rc -eq 0 ] && [ -d "$PROJ/.plans" ] && [ -d "$PROJ/.agents" ] && [ -d "$PROJ/.githooks" ] && [ -d "$PROJ/agent-planning-kit" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "drop-in: ./agent-planning-kit/aapp init from project root targets project (#50)" "PASS" "$got"
+
+# Test 6c: cd agent-planning-kit && ./aapp init targets kit itself (#50)
+KIT_ONLY="$R/t6c_dir/agent-planning-kit"; make_kit_clone "$KIT_ONLY"
+(
+  cd "$KIT_ONLY"
+  HOME="$TEST_HOME" ./aapp init >/dev/null 2>&1
+)
+rc=$?
+if [ $rc -eq 0 ] && [ -d "$KIT_ONLY/.plans" ] && [ -d "$KIT_ONLY/.agents" ] && [ -d "$KIT_ONLY/.githooks" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "drop-in: cd agent-planning-kit && ./aapp init targets kit itself (#50)" "PASS" "$got"
+
 echo "== 3. Delimited Block Sync, Adoption, and Upgrades =="
 
 # Test 7: Adoption: existing .agents/AGENTS.md without markers gets block appended

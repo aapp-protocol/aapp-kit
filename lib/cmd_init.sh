@@ -15,12 +15,23 @@ if [ "$AAPP_IS_DROP_IN" -eq 1 ]; then
     KIT_DIR_GIT_ROOT="$(cd "$AAPP_SCRIPT_DIR" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
     PARENT_DIR="$(cd "$AAPP_SCRIPT_DIR/.." 2>/dev/null && pwd || true)"
     PARENT_GIT_ROOT="$(cd "$PARENT_DIR" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
+    CWD_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+
+    CWD_REAL="$(pwd -P 2>/dev/null || pwd)"
+    KIT_REAL="$(cd "$AAPP_SCRIPT_DIR" 2>/dev/null && pwd -P || echo "$AAPP_SCRIPT_DIR")"
+    IS_CWD_INSIDE_KIT=0
+    if [ "$CWD_REAL" = "$KIT_REAL" ] || [[ "$CWD_REAL" == "$KIT_REAL"/* ]]; then
+        IS_CWD_INSIDE_KIT=1
+    fi
 
     case "$(basename "$AAPP_SCRIPT_DIR")" in
         aapp-develop-kit|agent-planning-kit)
-            if [ -n "$KIT_DIR_GIT_ROOT" ] && [ "$KIT_DIR_GIT_ROOT" = "$AAPP_SCRIPT_DIR" ]; then
+            if [ "$IS_CWD_INSIDE_KIT" -eq 1 ] && [ -n "$KIT_DIR_GIT_ROOT" ] && [ "$KIT_DIR_GIT_ROOT" = "$AAPP_SCRIPT_DIR" ]; then
                 REPO_ROOT="$KIT_DIR_GIT_ROOT"
                 IS_INSIDE_PROJECT=0
+            elif [ -n "$CWD_GIT_ROOT" ]; then
+                REPO_ROOT="$CWD_GIT_ROOT"
+                IS_INSIDE_PROJECT=1
             elif [ -n "$PARENT_GIT_ROOT" ]; then
                 REPO_ROOT="$PARENT_GIT_ROOT"
                 IS_INSIDE_PROJECT=1
@@ -30,7 +41,10 @@ if [ "$AAPP_IS_DROP_IN" -eq 1 ]; then
             fi
             ;;
         *)
-            if [ -n "$PARENT_GIT_ROOT" ]; then
+            if [ -n "$CWD_GIT_ROOT" ] && [ "$IS_CWD_INSIDE_KIT" -eq 0 ]; then
+                REPO_ROOT="$CWD_GIT_ROOT"
+                IS_INSIDE_PROJECT=1
+            elif [ -n "$PARENT_GIT_ROOT" ]; then
                 REPO_ROOT="$PARENT_GIT_ROOT"
                 IS_INSIDE_PROJECT=1
             else
