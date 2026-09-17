@@ -9,6 +9,63 @@
 # ==============================================================================
 set -e
 
+KEEP_KIT="${AAPP_KEEP_KIT:-0}"
+for arg in "$@"; do
+    case "$arg" in
+        --help|-h)
+            echo "Usage: aapp init [--keep|-k]"
+            echo ""
+            echo "Initializes or updates AAPP worktrees in the target git repository."
+            echo ""
+            echo "Options:"
+            echo "  --keep, -k    Preserve drop-in kit folder without self-consuming"
+            echo "  --help, -h    Show this help message"
+            return 0 2>/dev/null || exit 0
+            ;;
+        --keep|-k)
+            KEEP_KIT=1
+            ;;
+    esac
+done
+
+if ! declare -f is_safe_to_consume_kit_dir >/dev/null 2>&1; then
+    is_safe_to_consume_kit_dir() {
+        local dir="$1"
+        local keep="${2:-0}"
+        [ "$keep" -eq 1 ] && return 1
+        [ ! -d "$dir" ] && return 1
+        case "$(basename "$dir")" in
+            aapp-develop-kit|agent-planning-kit) return 1 ;;
+        esac
+        if ! declare -f has_kit_signature >/dev/null 2>&1; then
+            has_kit_signature() {
+                local d="$1"
+                [ -d "$d/templates" ] && [ -f "$d/templates/pre-commit" ] && \
+                [ -f "$d/templates/AGENTS.md" ] && [ -d "$d/lib" ] && [ -f "$d/lib/cmd_init.sh" ]
+            }
+        fi
+        ! has_kit_signature "$dir" && return 1
+        local item base
+        for item in "$dir"/* "$dir"/.*; do
+            [ ! -e "$item" ] && [ ! -L "$item" ] && continue
+            base="$(basename "$item")"
+            case "$base" in
+                .|..) continue ;;
+                aapp|lib|templates|tests|examples|scripts) continue ;;
+                README*|MANUAL*|CHEATSHEET*|CHANGELOG*|LICENSE*|COPYING*|CODEMAP*|ARCHITECTURE*) continue ;;
+                .git*|.agents|.plans|.githooks|.claude|.cursor|.gemini|.github) continue ;;
+                *) return 1 ;;
+            esac
+        done
+        if [ -d "$dir/.git" ] || git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            local git_status
+            git_status="$(git -C "$dir" status --porcelain 2>/dev/null || true)"
+            [ -n "$git_status" ] && return 1
+        fi
+        return 0
+    }
+fi
+
 # Target Repository Resolution
 IS_INSIDE_PROJECT=0
 if [ "$AAPP_IS_DROP_IN" -eq 1 ]; then
@@ -629,16 +686,24 @@ fi
 # PHASE 7: Drop-in Folder Consumption
 # ------------------------------------------------------------------------------
 if [ "$AAPP_IS_DROP_IN" -eq 1 ] && [ "$IS_INSIDE_PROJECT" -eq 1 ]; then
-    case "$(basename "$AAPP_SCRIPT_DIR")" in
-        aapp-develop-kit|agent-planning-kit)
-            # Development workspace: do not self-consume
-            ;;
-        *)
-            rm -rf "$AAPP_SCRIPT_DIR"
-            echo ""
-            echo "🧹 Consumed kit folder '$AAPP_SCRIPT_DIR'."
-            ;;
-    esac
+    if [ "$KEEP_KIT" -eq 1 ]; then
+        echo ""
+        echo "ℹ️  Preserved kit folder '$AAPP_SCRIPT_DIR' (--keep)."
+    elif is_safe_to_consume_kit_dir "$AAPP_SCRIPT_DIR" 0; then
+        rm -rf "$AAPP_SCRIPT_DIR"
+        echo ""
+        echo "🧹 Consumed kit folder '$AAPP_SCRIPT_DIR'."
+    else
+        case "$(basename "$AAPP_SCRIPT_DIR")" in
+            aapp-develop-kit|agent-planning-kit)
+                # Development workspace: do not self-consume
+                ;;
+            *)
+                echo ""
+                echo "ℹ️  Preserved kit folder '$AAPP_SCRIPT_DIR' (contains files or modifications beyond kit signature)."
+                ;;
+        esac
+    fi
 fi
 
 echo ""

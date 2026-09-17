@@ -34,6 +34,8 @@ Examples:
   aapp ai-note --stage   # Pre-stage customizable note buffer for next commit
   aapp upgrade           # Pull latest upstream release into ~/.local/share
   aapp install           # Install aapp globally into ~/.local/bin
+  aapp install --keep    # Install globally without self-consuming clone folder
+  aapp init --keep       # Initialize repository preserving drop-in clone
   aapp uninstall         # Remove global installation
 
 For documentation, see: https://github.com/aapp-protocol/aapp-kit

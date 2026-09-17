@@ -21,6 +21,49 @@ has_kit_signature() {
     [ -f "$dir/lib/cmd_init.sh" ]
 }
 
+is_safe_to_consume_kit_dir() {
+    local dir="$1"
+    local keep="${2:-0}"
+
+    [ "$keep" -eq 1 ] && return 1
+    [ ! -d "$dir" ] && return 1
+
+    case "$(basename "$dir")" in
+        aapp-develop-kit|agent-planning-kit)
+            return 1
+            ;;
+    esac
+
+    if ! has_kit_signature "$dir"; then
+        return 1
+    fi
+
+    local item base
+    for item in "$dir"/* "$dir"/.*; do
+        [ ! -e "$item" ] && [ ! -L "$item" ] && continue
+        base="$(basename "$item")"
+        case "$base" in
+            .|..) continue ;;
+            aapp|lib|templates|tests|examples|scripts) continue ;;
+            README*|MANUAL*|CHEATSHEET*|CHANGELOG*|LICENSE*|COPYING*|CODEMAP*|ARCHITECTURE*) continue ;;
+            .git*|.agents|.plans|.githooks|.claude|.cursor|.gemini|.github) continue ;;
+            *)
+                return 1
+                ;;
+        esac
+    done
+
+    if [ -d "$dir/.git" ] || git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        local git_status
+        git_status="$(git -C "$dir" status --porcelain 2>/dev/null || true)"
+        if [ -n "$git_status" ]; then
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
 if has_kit_signature "$AAPP_SCRIPT_DIR"; then
     AAPP_BASE="$AAPP_SCRIPT_DIR"
     AAPP_IS_DROP_IN=1

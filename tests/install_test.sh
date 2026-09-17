@@ -162,6 +162,37 @@ else
 fi
 report "drop-in: cd agent-planning-kit && ./aapp init targets kit itself (#50)" "PASS" "$got"
 
+# Test 6d: drop-in: ./aapp-kit/aapp init --keep preserves drop-in folder (#51)
+PROJ="$R/t6d_proj"; make_dummy_project "$PROJ"
+make_kit_clone "$PROJ/aapp-kit"
+(
+  cd "$PROJ"
+  HOME="$TEST_HOME" ./aapp-kit/aapp init --keep >/dev/null 2>&1
+)
+rc=$?
+if [ $rc -eq 0 ] && [ -d "$PROJ/aapp-kit" ] && [ -f "$PROJ/.agents/CODEMAP.md" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "drop-in: ./aapp-kit/aapp init --keep preserves drop-in folder (#51)" "PASS" "$got"
+
+# Test 6e: drop-in: extra file in aapp-kit/ preserves drop-in folder without self-consuming (#51)
+PROJ="$R/t6e_proj"; make_dummy_project "$PROJ"
+make_kit_clone "$PROJ/aapp-kit"
+touch "$PROJ/aapp-kit/custom_notes.txt"
+(
+  cd "$PROJ"
+  HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1
+)
+rc=$?
+if [ $rc -eq 0 ] && [ -d "$PROJ/aapp-kit" ] && [ -f "$PROJ/aapp-kit/custom_notes.txt" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "drop-in: extra file in aapp-kit/ preserves folder without self-consuming (#51)" "PASS" "$got"
+
 echo "== 3. Delimited Block Sync, Adoption, and Upgrades =="
 
 # Test 7: Adoption: existing .agents/AGENTS.md without markers gets block appended
@@ -501,6 +532,53 @@ else
   got="FAIL"
 fi
 report "aapp install consumes installer clone folder on success" "PASS" "$got"
+
+# Test 25b: aapp install --keep preserves installer clone folder (#51)
+GLOBAL_HOME_25B="$R/t25b_home"; mkdir -p "$GLOBAL_HOME_25B"
+INSTALLER_DIR_25B="$R/t25b_installer"; make_kit_clone "$INSTALLER_DIR_25B"
+(
+  cd "$INSTALLER_DIR_25B"
+  HOME="$GLOBAL_HOME_25B" XDG_DATA_HOME="$GLOBAL_HOME_25B/.local/share" ./aapp install --keep >/dev/null 2>&1
+)
+rc=$?
+if [ $rc -eq 0 ] && [ -d "$INSTALLER_DIR_25B" ] && [ -x "$GLOBAL_HOME_25B/.local/bin/aapp" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp install --keep preserves installer clone folder (#51)" "PASS" "$got"
+
+# Test 25c: aapp install preserves installer folder when extra non-kit files are present (#51)
+GLOBAL_HOME_25C="$R/t25c_home"; mkdir -p "$GLOBAL_HOME_25C"
+INSTALLER_DIR_25C="$R/t25c_installer"; make_kit_clone "$INSTALLER_DIR_25C"
+touch "$INSTALLER_DIR_25C/user_data.txt"
+(
+  cd "$INSTALLER_DIR_25C"
+  HOME="$GLOBAL_HOME_25C" XDG_DATA_HOME="$GLOBAL_HOME_25C/.local/share" ./aapp install >/dev/null 2>&1
+)
+rc=$?
+if [ $rc -eq 0 ] && [ -d "$INSTALLER_DIR_25C" ] && [ -f "$INSTALLER_DIR_25C/user_data.txt" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp install preserves installer folder when extra non-kit files are present (#51)" "PASS" "$got"
+
+# Test 25d: aapp install preserves installer folder when uncommitted modifications are present (#51)
+GLOBAL_HOME_25D="$R/t25d_home"; mkdir -p "$GLOBAL_HOME_25D"
+INSTALLER_DIR_25D="$R/t25d_installer"; make_kit_clone "$INSTALLER_DIR_25D"
+echo "# uncommitted change" >> "$INSTALLER_DIR_25D/templates/pre-commit"
+(
+  cd "$INSTALLER_DIR_25D"
+  HOME="$GLOBAL_HOME_25D" XDG_DATA_HOME="$GLOBAL_HOME_25D/.local/share" ./aapp install >/dev/null 2>&1
+)
+rc=$?
+if [ $rc -eq 0 ] && [ -d "$INSTALLER_DIR_25D" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp install preserves installer folder when uncommitted modifications are present (#51)" "PASS" "$got"
 
 # Test 26: tests/ and lib/ reachable from installed share dir
 if [ -d "$GLOBAL_HOME/.local/share/aapp-kit/tests" ] && [ -f "$GLOBAL_HOME/.local/share/aapp-kit/lib/cmd_status.sh" ]; then
