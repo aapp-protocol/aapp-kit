@@ -1,8 +1,8 @@
 # 🗺️ Plan: P-16 Frozen Plan Immutability & Design-Lock Enforcement
-* **Created:** 2026-09-16 | **Last Refined:** 2026-09-16
+* **Created:** 2026-09-16 | **Last Refined:** 2026-09-17
 * **Target Issue / Milestone:** `#68`
 * **Plan ID:** P-16
-* **Status:** 🔴 Under Review
+* **Status:** 🟢 Ready for Execution
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
@@ -37,7 +37,7 @@
 1. It cannot distinguish a task checkbox tick from a rewritten Blast Radius — both are "a write to the same path".
 2. A blanket deny on frozen plans would break execution outright, since ticking checkboxes and appending to §6 are required parts of executing a plan.
 
-Enforcement therefore belongs in **`templates/aapp-pre-commit`**, which already reads the staged set (`git diff --cached --name-only -z`, line 25) and can read staged hunks. The write guard is deliberately left unchanged — see Open Question 4 for whether it gains an advisory warning.
+Enforcement therefore belongs in **`templates/aapp-pre-commit`**, which already reads the staged set (`git diff --cached --name-only -z`, line 25) and can read staged hunks. The write guard is deliberately left unchanged.
 
 ### B. The Mutability Contract for a 🟢 Plan
 
@@ -45,56 +45,75 @@ Enforcement therefore belongs in **`templates/aapp-pre-commit`**, which already 
 | :--- | :--- | :--- |
 | Task checkboxes (`- [ ]` → `- [x]`) | **permitted** | Recording progress is the point of executing |
 | `## 6. Change Log & Refinement History` | **permitted** | Execution notes and verification records belong here |
+| `## 5. Open Questions` | **permitted** | Resolving and documenting decisions during execution |
 | `## 2.` Technical Blueprint | **refused** | Changing the design under in-flight execution |
 | `## 4.` Blast Radius & System Boundaries | **refused** | Changing what the agent may write, post-greenlight |
-| `**Status:**` line | see Open Question 2 | The unfreeze path must not be self-blocking |
-| `## 1.`, `## 3.` prose, `## 5.` | see Open Question 3 | Genuinely ambiguous — needs a human decision |
+| `**Status:**` unfreeze transition | **permitted** | Reverting status to `🟡 Refining` without altering §2/§4 |
 
-Rejection must name the section and point at the unfreeze path, in the style of the existing blast-radius refusal message.
+Rejection must name the section and point at the unfreeze path, in the style of the existing blast-radius refusal message:
+```text
+❌ [Pre-Commit Design Lock Violation] Cannot edit locked design sections of a frozen plan!
+   Staged plan : .plans/current/P16-frozen-plan-immutability.md
+   Violation   : Attempted modifications to '## 2. Technical Blueprint' or '## 4. Blast Radius'
+   Status      : 🟢 Frozen (Design Locked)
 
-### C. Implementation Notes
+   👉 To resolve this:
+      1. Revert changes to Section 2 and Section 4.
+      2. Or unfreeze the plan by changing status back to '🟡 Refining' before amending the design.
+```
 
-* **Reuse `parse_plan_section`** (`templates/aapp-pre-commit:148`) rather than adding a second markdown parser. It already extracts a delimited region and is exercised by the existing suite.
-* **Key on section *number*, never title.** Headings vary in wording and emoji across plans — `## 2. Technical Blueprint` in `P-14` versus `## 2. Settled Ground` in `P-15` — but the numbering is stable. Match `^## (.*[[:space:]])?2\.` and `^## (.*[[:space:]])?4\.`.
-* **Detect changed regions from staged hunks**, e.g. `git diff --cached -U0 -- "$plan"`, mapping changed line numbers onto section ranges. Do not diff rendered text.
-* Applies to `.plans/current/*.md` only; `000-*` index files are excluded, matching the existing `ACTIVE_PLANS` loop.
-* Must be POSIX-portable and fast — this runs on every commit. No `python3` requirement.
+### C. Implementation Mechanics in Pre-Commit Hook
 
-### D. Unfreeze Path
-
-Amending a frozen plan is legitimate; doing it silently is not. Whatever mechanism Open Question 2 selects must be **explicit, visible in git history, and human-initiated** — consistent with `/aapp-freeze` and `/aapp-done` carrying `disable-model-invocation: true`.
-
-### E. Archived Plans
-
-`.plans/done/*.md` is equally editable today (verified: the guard returns ALLOW for archived plans). An archived blueprint is the permanent record that the archive ledger and Pair 6 SHA references point at, so silent edits there are arguably worse than edits to a frozen plan. Scope decision deferred to Open Question 1.
+1. **Extract Section Content from HEAD vs Index**:
+   Use `awk` to extract Section 2 and Section 4 content:
+   - Section 2 pattern: `^## ([^0-9]*[[:space:]])?2\.` up to next `^## ([^0-9]*[[:space:]])?[0-9]+\.`
+   - Section 4 pattern: `^## ([^0-9]*[[:space:]])?4\.` up to next `^## ([^0-9]*[[:space:]])?[0-9]+\.`
+2. **Detection Logic**:
+   For every staged plan file matching `*(.plans/)current/*.md` or `current/*.md`:
+   - Check status in `HEAD:"$STAGED"`:
+     If `HEAD` status is `🟢` (or `Ready for Execution` or `Frozen`):
+     - Compare `HEAD` Section 2 vs staged (`:$STAGED`) Section 2. If different: **BLOCK**.
+     - Compare `HEAD` Section 4 vs staged (`:$STAGED`) Section 4. If different: **BLOCK**.
+3. **Unfreeze Path**:
+   If a plan's status in `:$STAGED` is changed from `🟢` to `🟡 Refining`, the commit is permitted **provided Section 2 and Section 4 are unchanged in that same commit**. To alter Section 2 or Section 4, the unfreeze must be committed first (or status must not be 🟢).
+4. **POSIX-pure and Fast**:
+   Runs in pure POSIX awk/bash without requiring external python3 runtimes.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Contract Definition & Test Harness
-- [ ] Task 1.1: Add failing regression cases to `tests/pre-commit_test.sh`: checkbox tick on a 🟢 plan ALLOWED; §6 append ALLOWED; §2 edit BLOCKED; §4 edit BLOCKED; all four operations ALLOWED on a 🔴 plan.
-- [ ] Task 1.2: Record the current suite pass count as the regression baseline before any engine change.
+- [ ] Task 1.1: Add failing regression cases to `tests/pre-commit_test.sh`:
+  - Checkbox tick (`- [ ]` -> `- [x]`) on a 🟢 plan ALLOWED.
+  - §6 Change Log append on a 🟢 plan ALLOWED.
+  - §5 Open Questions update on a 🟢 plan ALLOWED.
+  - §2 Technical Blueprint edit on a 🟢 plan BLOCKED.
+  - §4 Blast Radius edit on a 🟢 plan BLOCKED.
+  - §2 / §4 edits on a 🔴/🟡 plan ALLOWED.
+  - Unfreeze commit (status revert to 🟡 with unchanged §2/§4) ALLOWED.
+  - Smuggled unfreeze (status revert to 🟡 with modified §2) BLOCKED.
+- [ ] Task 1.2: Record current test suite baseline (`45 passed, 0 failed`).
 
 ### Phase 2: Enforcement Engine
-- [ ] Task 2.1: Implement the section-range mapper in `templates/aapp-pre-commit`, reusing `parse_plan_section` and matching section *numbers*.
-- [ ] Task 2.2: Implement the design-lock check: for each staged `.plans/current/*.md` whose Status is 🟢, refuse when changed lines fall inside a protected section; emit a refusal naming the section and the unfreeze path.
-- [ ] Task 2.3: Implement the unfreeze path selected in Open Question 2.
-- [ ] Task 2.4: Run `aapp init` to propagate into `.githooks/`, then re-run the suite against the Phase 1 baseline.
+- [ ] Task 2.1: Implement section extraction and design-lock validation in `templates/aapp-pre-commit`.
+- [ ] Task 2.2: Add refusal diagnostic message naming the modified section and unfreeze resolution.
+- [ ] Task 2.3: Run `aapp init` to propagate into `.githooks/pre-commit`.
+- [ ] Task 2.4: Run `tests/pre-commit_test.sh` and verify all new tests pass.
 
 ### Phase 3: Documentation & Verification
-- [ ] Task 3.1: Document the mutability contract in `templates/AGENTS.md` beside the existing freeze/execution rules.
-- [ ] Task 3.2: Document the contract and the unfreeze path in `MANUAL.md`.
-- [ ] Task 3.3: Run all suites; report actual counts against the Phase 1 baseline. Do not assert a target number in advance.
-- [ ] Task 3.4: Update `CHANGELOG.md` under `## [Unreleased]`, citing `#68`.
+- [ ] Task 3.1: Document the frozen-plan mutability contract in `templates/AGENTS.md`.
+- [ ] Task 3.2: Document the contract and unfreeze procedure in `MANUAL.md`.
+- [ ] Task 3.3: Update `CHANGELOG.md` under `## [Unreleased]`, citing `#68`.
+- [ ] Task 3.4: Run all test suites and verify 100% green.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*(Marked: **PROPOSED** — incubator draft, confers no execution rights until frozen)*
+*(Marked: **LOCKED** — Greenlit for implementation)*
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `templates/aapp-pre-commit` -> Section-range mapper, design-lock check for 🟢 plans, unfreeze path.
+- [ ] `templates/aapp-pre-commit` -> Section extractor, design-lock check for 🟢 plans, unfreeze path.
 - [ ] `tests/pre-commit_test.sh` -> Regression coverage for permitted and refused regions at each plan status.
 - [ ] `templates/AGENTS.md` -> Document the frozen-plan mutability contract.
 - [ ] `MANUAL.md` -> Document the contract and the unfreeze procedure.
@@ -102,20 +121,28 @@ Amending a frozen plan is legitimate; doing it silently is not. Whatever mechani
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/*` -> Section 2 self-protection. Propagated from `templates/` via `aapp init`.
-- [ ] `templates/blast-radius-guard.sh` -> Deliberately unchanged: it is path-based and structurally cannot make this distinction (§2.A). Revisit only if Open Question 4 is answered "yes".
-- [ ] `lib/planning_health.sh` -> Only in scope if Open Question 1 selects a health-check approach.
+- [ ] `templates/blast-radius-guard.sh` -> Deliberately unchanged: it is path-based and structurally cannot make this distinction (§2.A).
+- [ ] `lib/planning_health.sh` -> Planning health engine unchanged.
 - [ ] `lib/plan_resolver.sh`, `lib/cmd_status.sh` -> Unrelated surfaces.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 
-* [ ] **Question 1 — Archived plans.** Should `.plans/done/*.md` be immutable too? It is the permanent record that the archive ledger and Pair 6 SHA references depend on, so silent edits are arguably worse there than in `current/`. Against: legitimate corrections (a broken link, a typo in an Impact Summary) would need the same unfreeze ceremony. A softer option is a planning-health warning rather than a pre-commit refusal.
-* [ ] **Question 2 — How is a plan unfrozen?** Editing the `**Status:**` line is itself a write to the file being protected, so the mechanism must not be self-blocking. Options: (a) always permit a change that touches *only* the Status line; (b) add an `aapp unfreeze <plan>` verb; (c) require `SKIP_BLAST_RADIUS=1` as a deliberate override. Option (a) is the least machinery; (b) is the most visible in history.
-* [ ] **Question 3 — Which sections beyond §2 and §4?** §5 Open Questions arguably *should* stay editable, since resolving a question during execution is normal. §1 Context and §3 task text arguably should not drift. Needs a human call on where design ends and bookkeeping begins.
-* [ ] **Question 4 — Should the write guard warn?** It cannot enforce this, but it could emit a non-blocking notice when an agent writes to a 🟢 plan — feedback at edit time rather than at commit time. Against: the guard's contract is binary allow/deny, and a warning channel would be new surface.
+* [x] **Question 1 — Archived plans.** Should `.plans/done/*.md` be immutable too?
+  - *Resolution:* No pre-commit block on `done/`. Planning Health (Pair 6 SHA reference integrity) provides soft integrity checking. Pre-commit focuses strictly on active plans in `.plans/current/` to avoid friction when correcting historical typos, metadata, or documentation links in archived ledgers.
+
+* [x] **Question 2 — How is a plan unfrozen?**
+  - *Resolution:* Pre-commit permits commits that change the `**Status:**` line from `🟢` back to `🟡 Refining`, provided Section 2 and Section 4 are not modified in the same commit. This makes unfreezing an explicit, traceable step in Git history.
+
+* [x] **Question 3 — Which sections beyond §2 and §4?**
+  - *Resolution:* Strictly lock §2 (Technical Blueprint) and §4 (Blast Radius). Task checkboxes in §3 (`- [ ]` -> `- [x]`), §5 (Open Questions updates/resolutions), and §6 (Change Log appends) remain freely writable during execution.
+
+* [x] **Question 4 — Should the write guard warn?**
+  - *Resolution:* No. The write guard remains strictly binary allow/deny. Adding non-blocking warning channels creates noisy tool output; pre-commit is the authoritative gate.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-17:** Plan refined and frozen (`🟢 Ready for Execution`). Resolved all 4 Open Questions: locked §2 and §4 in pre-commit, allowed §3 checkboxes, §5 open questions, and §6 change log; permitted explicit status-only unfreezing; kept write guard binary without warning noise; locked Blast Radius to 5 target files.
 * **2026-09-16:** Plan scaffolded from `#68` via `/aapp-digest`. Established that enforcement must live in `aapp-pre-commit` rather than the write guard, since the guard is path-based and a frozen plan must remain writable for progress updates. Defined the mutability contract (checkboxes and §6 permitted; §2 and §4 refused), recorded the live incident that produced the issue, and separated the four genuine design decisions into Open Questions rather than pre-empting them.
