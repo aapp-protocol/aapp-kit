@@ -100,12 +100,15 @@ plan b.md <<'EOF'
 ### 🛑 Out of Bounds (Do Not Touch)
 ## end
 EOF
+echo "# Cheatsheet" > CHEATSHEET.md
+check "invariant anchor CHEATSHEET.md passes without plan targets" PASS CHEATSHEET.md
+echo "b" > .git/aapp_active_plan
 echo "b=1" > src/b.py
 check "plan B's own target not blocked by plan A" PASS src/b.py
 echo "c=1" > src/c.py
 check "file in no plan still blocked" BLOCK src/c.py
-echo "# Cheatsheet" > CHEATSHEET.md
-check "invariant anchor CHEATSHEET.md passes without plan targets" PASS CHEATSHEET.md
+rm -f .git/aapp_active_plan
+check "multiple in-development plans without buffer blocked" BLOCK src/b.py
 
 echo "== 3b. a plan's own Out of Bounds still blocks it =="
 setup
@@ -640,6 +643,58 @@ check_plan_commit "editing blueprint on draft plan is permitted" PASS
 # Sec 4 edit on 🔴 plan: PASS
 sed -i 's/src\/a\.py/src\/draft\.py/' .plans/current/p.md
 check_plan_commit "editing blast radius on draft plan is permitted" PASS
+
+echo "== 16. multi-agent worktree isolation & fail-closed quarantine =="
+setup
+# Mark as AAPP repo
+touch aapp
+# Fail-closed quarantine when .plans/current is missing in AAPP repo:
+rm -rf .plans/current
+echo "bad=1" > src/a.py
+check "missing .plans/current in AAPP repo triggers fail-closed quarantine" BLOCK src/a.py
+
+# Restore .plans/current and test frozen backlog vs start
+mkdir -p .plans/current
+plan p17.md <<'EOF'
+* **Plan ID:** P-17
+* **Status:** 🟢 Ready for Execution
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/p17.py` -> plan 17 target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+echo "p17=1" > src/p17.py
+check "frozen backlog plan without active buffer is blocked" BLOCK src/p17.py
+
+# Start plan P-17
+"$KIT/aapp" start 17 >/dev/null 2>&1
+check "started plan is in development and allowed to commit" PASS src/p17.py
+
+# Clear buffer: single dev plan auto-discovered
+"$KIT/aapp" plan-clear >/dev/null 2>&1
+check "single in-development plan auto-discovered without buffer" PASS src/p17.py
+
+# Add second plan P-18 in development
+plan p18.md <<'EOF'
+* **Plan ID:** P-18
+* **Status:** 🟠 In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/p18.py` -> plan 18 target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+echo "p18=1" > src/p18.py
+check "two dev plans without buffer blocked" BLOCK src/p18.py
+
+# Designate plan 18
+"$KIT/aapp" plan 18 >/dev/null 2>&1
+check "active plan 18 buffer allows plan 18 commit" PASS src/p18.py
+check "active plan 18 buffer blocks plan 17 commit" BLOCK src/p17.py
+
+# Swap back to plan 17
+"$KIT/aapp" plan-swap >/dev/null 2>&1
+check "swapped active plan buffer allows plan 17 commit" PASS src/p17.py
+check "swapped active plan buffer blocks plan 18 commit" BLOCK src/p18.py
 
 echo ""
 echo "  passed=$PASS failed=$FAIL"

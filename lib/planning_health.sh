@@ -18,6 +18,8 @@
 #    - Mechanically blocks declared Target Files that match Guard Section 2 patterns.
 # 6. Pair 6 (Recorded SHA Integrity):
 #    - Validates all commit hashes in archival ledgers, issues, and changelogs resolve in git.
+# 7. Pair 7 (In-Flight Boundary Collision):
+#    - Ensures blueprints actively 🟠 In Development share zero overlapping Target Files.
 # ==============================================================================
 
 normalize_issue_id() {
@@ -525,6 +527,89 @@ check_recorded_sha_integrity() {
     check_pair6_recorded_sha_integrity "$@"
 }
 
+# Pair 7: In-Flight Boundary Collision Validator (Strictly 🟠 In Development)
+check_pair7_inflight_boundary_collision() {
+    local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    local current_dir="$repo_root/.plans/current"
+    [ ! -d "$current_dir" ] && [ -d "$repo_root/current" ] && current_dir="$repo_root/current"
+    [ ! -d "$current_dir" ] && return 0
+
+    local errors=0
+    local dev_plans=()
+
+    while IFS= read -r -d '' plan_path; do
+        local bname
+        bname="$(basename "$plan_path")"
+        case "$bname" in 000-*) continue ;; esac
+
+        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟠|In Development)' "$plan_path" 2>/dev/null; then
+            dev_plans+=("$plan_path")
+        fi
+    done < <(find "$current_dir" -maxdepth 1 -name "*.md" ! -name "000-*" -print0 2>/dev/null | sort -z)
+
+    # If fewer than 2 plans are in development, no collision is possible
+    [ ${#dev_plans[@]} -lt 2 ] && return 0
+
+    get_plan_targets() {
+        local file="$1"
+        awk '
+            /^### 📂 Target Files/ { flag=1; next }
+            (/^### 🛑 Out of Bounds/ || /^## /) && flag { flag=0 }
+            flag {
+                line = $0
+                sub(/^[[:space:]]*-[[:space:]]*\[[ xX]\][[:space:]]*/, "", line)
+                sub(/^[[:space:]]*(`?(NEW FILE|MODIFY|DELETE|ADD|REPLACE)`?)?[[:space:]]*->[[:space:]]*/, "", line)
+                if (match(line, /`[^`]+`/)) {
+                    item = substr(line, RSTART+1, RLENGTH-2)
+                    if (item !~ /^(NEW FILE|MODIFY|DELETE|ADD|REPLACE)$/) {
+                        print item
+                    }
+                }
+            }
+        ' "$file"
+    }
+
+    local i j
+    for ((i=0; i<${#dev_plans[@]}; i++)); do
+        local plan_a="${dev_plans[i]}"
+        local id_a
+        id_a="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_a" 2>/dev/null || true)"
+        [ -z "$id_a" ] && id_a="$(basename "$plan_a" .md)"
+
+        local targets_a=()
+        while IFS= read -r t; do
+            [ -n "$t" ] && targets_a+=("$t")
+        done < <(get_plan_targets "$plan_a")
+
+        for ((j=i+1; j<${#dev_plans[@]}; j++)); do
+            local plan_b="${dev_plans[j]}"
+            local id_b
+            id_b="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_b" 2>/dev/null || true)"
+            [ -z "$id_b" ] && id_b="$(basename "$plan_b" .md)"
+
+            local targets_b=()
+            while IFS= read -r t; do
+                [ -n "$t" ] && targets_b+=("$t")
+            done < <(get_plan_targets "$plan_b")
+
+            for ta in "${targets_a[@]}"; do
+                for tb in "${targets_b[@]}"; do
+                    if [ "$ta" = "$tb" ]; then
+                        echo "❌ [Pair 7 Violation] In-Flight Blueprint Collision!"
+                        echo "   -> Plan '$id_a' ($(basename "$plan_a")) targets '$ta'"
+                        echo "   -> Plan '$id_b' ($(basename "$plan_b")) also targets '$tb'"
+                        echo "   -> In-flight plans in the same workspace cannot share target files."
+                        echo "   -> To resolve: Isolate execution on separate git worktrees/branches, or finish $id_a first."
+                        errors=$((errors + 1))
+                    fi
+                done
+            done
+        done
+    done
+
+    return $errors
+}
+
 # Master check runner
 check_planning_health() {
     local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
@@ -559,6 +644,9 @@ check_planning_health() {
 
     # Pair 6
     check_pair6_recorded_sha_integrity "$repo_root" || total_errors=$((total_errors + $?))
+
+    # Pair 7
+    check_pair7_inflight_boundary_collision "$repo_root" || total_errors=$((total_errors + $?))
 
     # Schema & Taxonomy
     check_taxonomy_and_schema "$issues_file" || total_errors=$((total_errors + $?))

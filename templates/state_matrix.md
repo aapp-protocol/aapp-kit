@@ -26,16 +26,25 @@ This document is the central dashboard for all active ideas, drafts, ready plans
 
 ---
 
-## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)
-*Blueprints where architecture, blast radius, and interfaces are locked down. Execution sessions safely build off these.*
+## 🟠 2a. In Development (Active Implementation Context)
+*Blueprints actively being coded in the working tree. Governed by the local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).*
 
 * [ ] **P-1: [Feature: Implementation Blueprint](current/P1-approved-feature.md)**
   * *Target Files:* `src/path/to/file.ext`
-  * *Status:* Approved. Blast radius locked. Ready to code.
+  * *Status:* 🟠 In Development. Active execution buffer set.
 
 ---
 
-## 🚫 2b. Blocked (Halted on an Issue)
+## 🟢 2b. Frozen Backlog (Approved Specifications)
+*Blueprints where architecture, blast radius, and interfaces are locked down. Approved for implementation, but not yet active in development.*
+
+* [ ] **P-3: [Approved Feature](current/P3-approved-feature.md)**
+  * *Target Files:* `src/path/to/other.ext`
+  * *Status:* 🟢 Frozen. Ready to activate via `aapp start P-3`.
+
+---
+
+## 🚫 2c. Blocked (Halted on an Issue)
 *Plans that were in flight and hit a blocking bug too substantial to hotfix. **Not executable** — an execution session must not pick these up, even though their Blast Radius is still locked. They return to the Greenlight Zone only when the human unblocks them.*
 
 * [ ] **[Feature: Implementation Blueprint](current/approved-feature.md)**

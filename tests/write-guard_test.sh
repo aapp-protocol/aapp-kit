@@ -44,7 +44,7 @@ check_decision() {
   
   # Also test with Claude Code JSON payload and absolute path
   local abs_path="$path"
-  [[ "$path" != /* ]] && abs_path="$R/repo/$path"
+  [[ "$path" != /* ]] && abs_path="$(pwd)/$path"
   call_guard_json "Edit" "$abs_path"
   rc_json=$?
   local got_json=DENY; [ $rc_json -eq 0 ] && got_json=ALLOW
@@ -93,9 +93,11 @@ check_decision "another agent's rule file" DENY ".cursor/rules/aapp.mdc"
 check_decision "plans still writable" ALLOW ".plans/state_matrix.md"
 check_decision "agent rules still writable" ALLOW ".agents/PROJECT.MD"
 
-echo "== concurrent plans do not cross-block =="
+echo "== concurrent plans do not cross-block via active buffer =="
 setup
 plan a.md <<'EOF'
+* **Plan ID:** P-1
+* **Status:** 🟠 In Development
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/a.py` -> allowed in a
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -103,12 +105,23 @@ plan a.md <<'EOF'
 ## end
 EOF
 plan b.md <<'EOF'
+* **Plan ID:** P-2
+* **Status:** 🟠 In Development
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/b.py` -> allowed in b
 ### 🛑 Out of Bounds (Do Not Touch)
 ## end
 EOF
-check_decision "plan B's target, plan A's exclusion" ALLOW "src/b.py"
+echo "P-2" > .git/aapp_active_plan
+check_decision "plan B active in buffer: Plan B target allowed, Plan A exclusion ignored" ALLOW "src/b.py"
+check_decision "plan B active in buffer: Plan A target denied" DENY "src/a.py"
+
+echo "P-1" > .git/aapp_active_plan
+check_decision "plan A active in buffer: Plan A target allowed" ALLOW "src/a.py"
+check_decision "plan A active in buffer: Plan A exclusion enforced" DENY "src/b.py"
+
+rm -f .git/aapp_active_plan
+check_decision "multiple in-development plans without buffer denied" DENY "src/b.py"
 
 echo "== BLOCKED plan grants nothing =="
 setup
@@ -293,6 +306,104 @@ check_decision "bracket class range rejects non-digit" DENY "migrations/test.sql
 check_decision "directory prefix matches subfiles" ALLOW "docs/guide.md"
 check_decision "directory prefix matches nested subfiles" ALLOW "docs/api/v1/spec.md"
 check_decision "single segment oob wildcard blocks match" DENY "src/forbidden_test.py"
+
+echo "== plan lifecycle enforcement (🟢 Frozen grants zero rights, 🟠 In Development enforces targets) =="
+setup
+plan frozen.md <<'EOF'
+* **Plan ID:** P-10
+* **Status:** 🟢 Frozen
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/frozen_target.py` -> in backlog, not in dev
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+check_decision "frozen backlog plan grants zero write rights (no buffer)" DENY "src/frozen_target.py"
+
+plan active.md <<'EOF'
+* **Plan ID:** P-11
+* **Status:** 🟠 In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/active_target.py` -> in flight
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+check_decision "in-development plan target is allowed" ALLOW "src/active_target.py"
+check_decision "frozen backlog plan target remains denied while other plan is in dev" DENY "src/frozen_target.py"
+
+echo "== flagless plan switchboard (aapp plan, plan-swap, plan-clear) =="
+setup
+plan p1.md <<'EOF'
+* **Plan ID:** P-20
+* **Status:** 🟠 In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/p1_target.py` -> plan 1
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+plan p2.md <<'EOF'
+* **Plan ID:** P-21
+* **Status:** 🟠 In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/p2_target.py` -> plan 2
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+
+# Use kit aapp CLI
+AAPP_CLI="$KIT/aapp"
+"$AAPP_CLI" plan P-20 >/dev/null 2>&1
+check_decision "switched to P-20: p1 target allowed" ALLOW "src/p1_target.py"
+check_decision "switched to P-20: p2 target denied" DENY "src/p2_target.py"
+
+"$AAPP_CLI" plan P-21 >/dev/null 2>&1
+check_decision "switched to P-21: p2 target allowed" ALLOW "src/p2_target.py"
+check_decision "switched to P-21: p1 target denied" DENY "src/p1_target.py"
+
+"$AAPP_CLI" plan-swap >/dev/null 2>&1
+check_decision "plan-swap returns to P-20: p1 target allowed" ALLOW "src/p1_target.py"
+check_decision "plan-swap returns to P-20: p2 target denied" DENY "src/p2_target.py"
+
+"$AAPP_CLI" plan-clear >/dev/null 2>&1
+check_decision "plan-clear reverts to auto-discovery (multiple dev plans denied)" DENY "src/p1_target.py"
+
+echo "== atomic workflow accelerator (aapp freeze-start) =="
+setup
+plan draft.md <<'EOF'
+* **Plan ID:** P-30
+* **Status:** 🟡 Refining
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/fast_feature.py` -> feature target
+### 🛑 Out of Bounds (Do Not Touch)
+## ❓ 5. Open Questions
+* [x] Question 1 resolved
+## 📦 6. Change Log
+EOF
+"$AAPP_CLI" freeze-start P-30 >/dev/null 2>&1
+check_decision "freeze-start activates plan: target allowed immediately" ALLOW "src/fast_feature.py"
+check_decision "freeze-start activates plan: undeclared file denied" DENY "src/other.py"
+
+echo "== linked worktree resolution & fail-closed quarantine =="
+setup
+plan p_wt.md <<'EOF'
+* **Plan ID:** P-40
+* **Status:** 🟠 In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/wt_target.py` -> worktree feature target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+git add -A >/dev/null; git commit -qm "add wt plan"
+# Create a git linked worktree
+git worktree add -q "$R/wt-agent2" HEAD >/dev/null 2>&1
+cd "$R/wt-agent2"
+# Set active plan in wt-agent2
+"$AAPP_CLI" plan P-40 >/dev/null 2>&1
+check_decision "linked worktree resolves primary .plans and allows declared target" ALLOW "src/wt_target.py"
+check_decision "linked worktree denies undeclared file" DENY "src/secret_wt.py"
+
+cd "$R/repo"
+rm -rf "$R/wt-agent2"
+git worktree prune >/dev/null 2>&1
 
 echo ""
 echo "  passed=$PASS failed=$FAIL"

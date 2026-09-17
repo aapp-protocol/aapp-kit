@@ -16,13 +16,13 @@ Lock and greenlight an incubator blueprint for code execution. Freezing transiti
 2. **Scan Blueprint:** In `.plans/current/<plan>.md`:
 1. **Open Questions:** Verify that all entries in `## ❓ 5. Open Questions` are checked off and marked resolved (`[x]`). A plan with unresolved questions cannot be frozen.
 2. **Blast Radius:** Verify that `### 📂 Target Files` and `### 🛑 Out of Bounds` are explicitly declared, with one canonical backticked file path per line.
-3. **Status Line:** Update the status in the plan header to `* **Status:** 🟢 Ready for Execution`.
-4. **Lock Marker:** Change `*(Marked: **PROPOSED** — incubator draft)*` to `*(Marked: **LOCKED** — greenlit for execution)*`.
-5. **Change Log:** Append a dated entry to `## 📦 6. Change Log & Refinement History` noting that the plan was frozen and greenlit.
+3. **Status Line:** Update the status in the plan header to `* **Status:** 🟢 Frozen` (or `🟢 Ready for Execution`).
+4. **Lock Marker:** Change `*(Marked: **PROPOSED** — incubator draft)*` to `*(Marked: **LOCKED** — Greenlit for implementation)*`.
+5. **Change Log:** Append a dated entry to `## 📦 6. Change Log & Refinement History` noting that the plan was frozen and greenlit for the backlog.
 
 ### Step 2: Update State Matrix
 1. Edit `.plans/state_matrix.md`:
-   - Move the plan entry from `## 🧠 1. Human Thought & Refinement (The Incubator)` into `## 🟢 2. Frozen & Ready for Coding (The Greenlight Zone)`.
+   - Move the plan entry from `## 🧠 1. Human Thought & Refinement (The Incubator)` into `## 🟢 2. Frozen Backlog (Approved Specifications)`.
    - Update its status indicator to 🟢.
 2. Commit the transition to the `plans` worktree:
    ```bash
@@ -30,10 +30,11 @@ Lock and greenlight an incubator blueprint for code execution. Freezing transiti
    git -C .plans commit -m "plan(freeze): lock blast radius and greenlight <plan>"
    ```
 
-### Step 3: Seal the Boundary
-Inform the developer that the plan is now active in the Greenlight Zone:
-- The pre-commit hook and write-guard now enforce the locked Blast Radius on code changes.
-- The coding agent is authorized to implement the tasks defined in the execution checklist, modifying only files declared in `### 📂 Target Files`.
+### Step 3: Backlog Placement & Execution Activation
+Inform the developer that the specification is frozen in the backlog:
+- The technical blueprint and blast radius are design-locked against tampering.
+- To activate execution in the working tree, run `/aapp-start <plan>` (or CLI: `aapp start <plan>`).
+- To freeze and immediately begin coding in one command, use `/aapp-freeze-start <plan>` (or CLI: `aapp freeze-start <plan>`).
 
 ---
 *Canonical Specification: Refer to `.agents/AGENTS.md` for full protocol governance.*

@@ -3,15 +3,16 @@
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-XX
 * **Status:** 🔴 Under Review
-<!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED
-     The pre-commit hook reads this line. A plan whose Status says BLOCKED grants no
-     commit rights at all — its Blast Radius stops admitting files until you clear it. -->
+<!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Frozen | 🟠 In Development | 🚫 BLOCKED
+     The pre-commit hook and write-guard read this line. A 🟢 Frozen plan is an approved backlog
+     specification. An 🟠 In Development plan enforces the locked blast radius during implementation.
+     A plan whose Status says BLOCKED grants no commit rights at all. -->
 <!-- * **Blocked On:** ISSUE-00X   <- add this line while BLOCKED, remove it when unblocked -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
 > 2. **Changelog Requirement**: Every commit touching source code **must** update `CHANGELOG.md` (or `.plans/CHANGELOG.md`). Run syntax checks and automated tests *before* updating the changelog.
-> 3. **Attribution Trailer**: Every commit you make must include your co-author trailer (e.g., `Co-authored-by: Antigravity <antigravity@google.com>` or `Claude <noreply@anthropic.com>`).
+> 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`). When operating in `commit` mode, append standard semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Mid-Execution Bugs**:
 >    - *Non-blocking*: Log in `.plans/ISSUES.md` and continue your plan.
 >    - *Blocking & small*: Add file under `### 🚨 Emergency Hotfix Extensions` with a 1-sentence justification.

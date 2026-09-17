@@ -92,6 +92,9 @@ case "$CMD" in
     ai)
         source "$AAPP_LIB/cmd_ai.sh" "$@"
         ;;
+    freeze-start|start|plan|plan-swap|plan-clear)
+        source "$AAPP_LIB/cmd_plan.sh" "$CMD" "$@"
+        ;;
     version|-v|--version)
         echo "aapp version $AAPP_VERSION"
         exit 0

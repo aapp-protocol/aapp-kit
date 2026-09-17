@@ -14,7 +14,10 @@ git worktrees — and stops an AI agent from editing files your plan never decla
 | Just had an idea | jot it in `.plans/pickup.md` | Nothing yet. It's a queue, not a to-do list. |
 | Ready to think it through | `/aapp-digest <idea>` | One idea becomes a blueprint in `.plans/current/`. |
 | Blueprint needs work | edit the plan directly | Fill in §2 Technical Blueprint and §4 Blast Radius. |
-| Ready to write code | `/aapp-freeze <plan>` | Locks the Blast Radius. **Now** the agent may touch those files. |
+| Approved for backlog | `/aapp-freeze <plan>` | Locks the Blast Radius into `🟢 Frozen` backlog. |
+| Ready to write code | `/aapp-start <plan>` | Activates plan into `🟠 In Development` & binds buffer. |
+| One-step freeze & start | `/aapp-freeze-start <plan>` | Atomically freezes and activates implementation in one step. |
+| Context switching | `aapp plan [id]` / `aapp plan-swap` | Display active bounds or switch execution buffer. |
 | Fix shipped | `/aapp-done <plan>` | Moves to `.plans/done/`, appends the archive ledger. |
 | Coming back after days away | `/aapp-status` or `aapp status` | Briefing across all four pillars. Start here. |
 
@@ -45,10 +48,10 @@ Four pillars — what `aapp status` reads:
 
 ---
 
-## Plan status — these four words only
+## Plan status — these five words only
 
 ```
-🔴 Under Review  →  🟡 Refining  →  🟢 Ready for Execution      🚫 BLOCKED
+🔴 Under Review  →  🟡 Refining  →  🟢 Frozen  →  🟠 In Development      🚫 BLOCKED
 ```
 
 `🚫 BLOCKED` withdraws all commit rights for that plan.

@@ -239,36 +239,8 @@ case "$TARGET_FILE" in
 esac
 
 # ------------------------------------------------------------------------------
-# 4. Blast Radius Validation Against Active Plans
+# 4. Blast Radius Validation Against Active Plan
 # ------------------------------------------------------------------------------
-ACTIVE_PLANS=""
-if [ -d .plans/current ]; then
-    NL='
-'
-    for plan_file in .plans/current/*.md; do
-        [ ! -f "$plan_file" ] && continue
-        case "$(basename "$plan_file")" in
-            000-*) continue ;;
-        esac
-        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🔴|🟡|Under Review|Refining)' "$plan_file" 2>/dev/null; then
-            continue
-        fi
-        ACTIVE_PLANS="${ACTIVE_PLANS:+$ACTIVE_PLANS$NL}$plan_file"
-    done
-fi
-
-if [ -z "$ACTIVE_PLANS" ]; then
-    # Fail-open: if no active blueprints exist, allow edits to normal project files
-    case "$CANONICAL_TARGET" in
-        "$REPO_ROOT"/*)
-            exit 0
-            ;;
-        *)
-            deny_action "File '$ORIGINAL_TARGET' is outside repository and not in the authorized path allowlist."
-            ;;
-    esac
-fi
-
 parse_plan_section() {
     local file="$1"
     local start_pattern="$2"
@@ -358,62 +330,145 @@ match_pattern_list() {
     return 1
 }
 
-UNBLOCKED_PLANS=0
-HAS_ANY_ACTIVE_TARGETS=0
-ALLOWED_BY_A_PLAN=0
-DENIED_BY_PLAN=""
-
-while IFS= read -r PLAN; do
-    [ -z "$PLAN" ] && continue
-    
-    # Check if plan is BLOCKED
-    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|BLOCKED)' "$PLAN"; then
-        continue
-    fi
-    UNBLOCKED_PLANS=$((UNBLOCKED_PLANS + 1))
-
-    PLAN_TARGETS=()
-    PLAN_OOB=()
-
-    while IFS= read -r ITEM; do
-        [ -n "$ITEM" ] && PLAN_TARGETS+=("$ITEM")
-    done < <(parse_plan_section "$PLAN" '^### 📂 Target Files|^### 🚨 Emergency Hotfix' '^### 🛑 Out of Bounds|^## ')
-
-    while IFS= read -r ITEM; do
-        [ -n "$ITEM" ] && PLAN_OOB+=("$ITEM")
-    done < <(parse_plan_section "$PLAN" '^### 🛑 Out of Bounds' '^## ')
-
-    if [ ${#PLAN_TARGETS[@]} -gt 0 ]; then
-        HAS_ANY_ACTIVE_TARGETS=1
-    fi
-
-    # Check if this plan's own OOB excludes target
-    if [ ${#PLAN_OOB[@]} -gt 0 ] && match_pattern_list "$TARGET_FILE" "${PLAN_OOB[@]}"; then
-        DENIED_BY_PLAN="$PLAN"
-        continue
-    fi
-
-    # Check if this plan allows target
-    if [ ${#PLAN_TARGETS[@]} -gt 0 ] && match_pattern_list "$TARGET_FILE" "${PLAN_TARGETS[@]}"; then
-        ALLOWED_BY_A_PLAN=1
-        break
-    fi
-done <<< "$ACTIVE_PLANS"
-
-if [ "$ALLOWED_BY_A_PLAN" -eq 1 ]; then
-    exit 0
-fi
-
-if [ "$UNBLOCKED_PLANS" -gt 0 ] && [ "$HAS_ANY_ACTIVE_TARGETS" -eq 0 ] && [ -z "$DENIED_BY_PLAN" ]; then
-    # Out-of-bounds only plans exist, but this file is not in OOB
-    exit 0
-fi
-
-# Target is outside blast radius or in OOB
-if [ -n "$DENIED_BY_PLAN" ]; then
-    REASON="File '$ORIGINAL_TARGET' is explicitly OUT OF BOUNDS in active plan '$DENIED_BY_PLAN'."
+# 1. Canonical Worktree & .plans/ Resolution
+GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
+if [ -d "$GIT_COMMON_DIR" ]; then
+    PRIMARY_ROOT="$(cd "$GIT_COMMON_DIR/.." 2>/dev/null && pwd)"
 else
-    REASON="File '$ORIGINAL_TARGET' is outside the declared Target Files of all active plans."
+    PRIMARY_ROOT="$REPO_ROOT"
 fi
 
-deny_action "$REASON"
+if [ -d "$REPO_ROOT/.plans" ]; then
+    PLANS_DIR="$REPO_ROOT/.plans"
+elif [ -n "$PRIMARY_ROOT" ] && [ -d "$PRIMARY_ROOT/.plans" ]; then
+    PLANS_DIR="$PRIMARY_ROOT/.plans"
+else
+    PLANS_DIR=""
+fi
+
+# 2. Fail-Closed Quarantine in AAPP Repositories
+if [ -z "$PLANS_DIR" ] || [ ! -d "$PLANS_DIR/current" ]; then
+    if [ -f "$REPO_ROOT/.githooks/blast-radius-guard" ] || [ -f "$PRIMARY_ROOT/.githooks/blast-radius-guard" ] || \
+       [ -f "$REPO_ROOT/aapp" ] || [ -f "$PRIMARY_ROOT/aapp" ]; then
+        deny_action "AAPP repository detected but .plans/current directory is missing or unmounted."
+    else
+        case "$CANONICAL_TARGET" in
+            "$REPO_ROOT"/*) exit 0 ;;
+            *) deny_action "File '$ORIGINAL_TARGET' is outside repository and not in the authorized path allowlist." ;;
+        esac
+    fi
+fi
+
+# Check if target file belongs to any BLOCKED plan in workspace
+for pf in "$PLANS_DIR"/current/*.md; do
+    [ ! -f "$pf" ] && continue
+    case "$(basename "$pf")" in 000-*) continue ;; esac
+    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|BLOCKED)' "$pf" 2>/dev/null; then
+        BLOCKED_TARGETS=()
+        while IFS= read -r ITEM; do
+            [ -n "$ITEM" ] && BLOCKED_TARGETS+=("$ITEM")
+        done < <(parse_plan_section "$pf" '^### 📂 Target Files|^### 🚨 Emergency Hotfix' '^### 🛑 Out of Bounds|^## ')
+        if [ ${#BLOCKED_TARGETS[@]} -gt 0 ] && match_pattern_list "$TARGET_FILE" "${BLOCKED_TARGETS[@]}"; then
+            deny_action "Plan '$(basename "$pf")' is BLOCKED. All modifications are refused."
+        fi
+    fi
+done
+
+# 3. Active Plan Context Resolution (Pointer Buffer -> Single 🟠 Auto-Discovery)
+ACTIVE_PLAN_FILE="$(git rev-parse --git-path aapp_active_plan 2>/dev/null || echo ".git/aapp_active_plan")"
+DESIGNATED_PLAN_ID=""
+if [ -f "$ACTIVE_PLAN_FILE" ]; then
+    DESIGNATED_PLAN_ID="$(head -n 1 "$ACTIVE_PLAN_FILE" 2>/dev/null | tr -d '[:space:]')"
+fi
+
+ACTIVE_PLAN_PATH=""
+if [ -n "$DESIGNATED_PLAN_ID" ]; then
+    for pf in "$PLANS_DIR"/current/*.md; do
+        [ ! -f "$pf" ] && continue
+        case "$(basename "$pf")" in 000-*) continue ;; esac
+        local_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" 2>/dev/null || true)"
+        bname="$(basename "$pf" .md)"
+        if [ "$local_id" = "$DESIGNATED_PLAN_ID" ] || [ "$bname" = "$DESIGNATED_PLAN_ID" ] || \
+           [[ "$bname" == "$DESIGNATED_PLAN_ID-"* ]] || [[ "$bname" == "P$DESIGNATED_PLAN_ID-"* ]] || \
+           [[ "$bname" == "P-$DESIGNATED_PLAN_ID-"* ]]; then
+            ACTIVE_PLAN_PATH="$pf"
+            break
+        fi
+    done
+    if [ -z "$ACTIVE_PLAN_PATH" ]; then
+        deny_action "Designated active plan '$DESIGNATED_PLAN_ID' not found in $PLANS_DIR/current/. Run 'aapp plan-clear' or 'aapp plan <id>'."
+    fi
+else
+    DEV_PLANS=()
+    for pf in "$PLANS_DIR"/current/*.md; do
+        [ ! -f "$pf" ] && continue
+        case "$(basename "$pf")" in 000-*) continue ;; esac
+        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟠|In Development)' "$pf" 2>/dev/null; then
+            DEV_PLANS+=("$pf")
+        elif ! grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*' "$pf" 2>/dev/null; then
+            DEV_PLANS+=("$pf")
+        fi
+    done
+
+    if [ ${#DEV_PLANS[@]} -eq 1 ]; then
+        ACTIVE_PLAN_PATH="${DEV_PLANS[0]}"
+    elif [ ${#DEV_PLANS[@]} -gt 1 ]; then
+        PLAN_LIST=$(for p in "${DEV_PLANS[@]}"; do basename "$p" .md; done | tr '\n' ',' | sed 's/,$//')
+        deny_action "Multiple plans in development [$PLAN_LIST]. Run 'aapp plan <id>' to select context."
+    else
+        # Check if any blueprints exist in .plans/current
+        has_plans=0
+        for pf in "$PLANS_DIR"/current/*.md; do
+            [ ! -f "$pf" ] && continue
+            case "$(basename "$pf")" in 000-*) continue ;; esac
+            has_plans=1
+            break
+        done
+
+        if [ "$has_plans" -eq 1 ]; then
+            deny_action "No plan is currently in development. Run 'aapp start <id>' or 'aapp freeze-start <id>' to begin execution."
+        fi
+
+        case "$CANONICAL_TARGET" in
+            "$REPO_ROOT"/*)
+                exit 0
+                ;;
+            *)
+                deny_action "File '$ORIGINAL_TARGET' is outside repository and not in the authorized path allowlist."
+                ;;
+        esac
+    fi
+fi
+
+# 4. Enforce Boundaries for Active Plan
+if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|BLOCKED)' "$ACTIVE_PLAN_PATH"; then
+    deny_action "Active plan '$(basename "$ACTIVE_PLAN_PATH")' is BLOCKED. All modifications are refused."
+fi
+
+PLAN_TARGETS=()
+PLAN_OOB=()
+
+while IFS= read -r ITEM; do
+    [ -n "$ITEM" ] && PLAN_TARGETS+=("$ITEM")
+done < <(parse_plan_section "$ACTIVE_PLAN_PATH" '^### 📂 Target Files|^### 🚨 Emergency Hotfix' '^### 🛑 Out of Bounds|^## ')
+
+while IFS= read -r ITEM; do
+    [ -n "$ITEM" ] && PLAN_OOB+=("$ITEM")
+done < <(parse_plan_section "$ACTIVE_PLAN_PATH" '^### 🛑 Out of Bounds' '^## ')
+
+# 1. Out of Bounds veto
+if [ ${#PLAN_OOB[@]} -gt 0 ] && match_pattern_list "$TARGET_FILE" "${PLAN_OOB[@]}"; then
+    deny_action "File '$ORIGINAL_TARGET' is explicitly OUT OF BOUNDS in active plan '$(basename "$ACTIVE_PLAN_PATH")'."
+fi
+
+# 2. Target Files allow
+if [ ${#PLAN_TARGETS[@]} -gt 0 ] && match_pattern_list "$TARGET_FILE" "${PLAN_TARGETS[@]}"; then
+    exit 0
+fi
+
+# 3. Out-of-bounds only plan without declared targets
+if [ ${#PLAN_TARGETS[@]} -eq 0 ] && [ ${#PLAN_OOB[@]} -gt 0 ]; then
+    exit 0
+fi
+
+deny_action "File '$ORIGINAL_TARGET' is outside the declared Target Files of active plan '$(basename "$ACTIVE_PLAN_PATH")'."
