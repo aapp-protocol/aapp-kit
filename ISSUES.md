@@ -5,7 +5,6 @@
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | #49 | `Critical` | `CORE` | 2026-09-10 | `lib/cmd_upgrade.sh:19` | `aapp upgrade` clones default branch, but `main` trails `develop`; downgrades Layer 1. | Publish `develop` to `main`, check upstream version. | 🟡 `Incubated` |
-| #50 | `High` | `CLI` | 2026-09-10 | `lib/cmd_init.sh:19` | Drop-in mode on `agent-planning-kit` resolves root to kit repo instead of `$PWD`. | Prefer kit root only when cwd is inside it. | 🟡 `Incubated` |
 | #51 | `High` | `CLI` | 2026-09-10 | `lib/cmd_install.sh:95` | Self-consumption `rm -rf` gated on basename allowlist rather than directory contents/signatures. | Consume only when nothing beyond kit signature is present, add `--keep` flag. | 🟡 `Incubated` |
 | #58 | `Low` | `CLI` | 2026-09-10 | `aapp:9` | `AAPP_VERSION` stayed 1.0.0 without release tags, so protocol block still stamps `v1.0.0` after upgrade. | Bump `AAPP_VERSION` per formal release, tag release, and surface in status. | 🟡 `Incubated` |
 | #59 | `Medium` | `CLI` | 2026-09-10 | `lib/cmd_status.sh:93` | `sort -z` is GNU/newer-BSD only and fails on older macOS `sort`, breaking the Plans pillar of briefing. | Iterate `find -print0` stream unsorted or probe `sort -z` with fallback. | 🟡 `Incubated` |

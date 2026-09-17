@@ -20,7 +20,6 @@
 1. #49 -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
 
 ## 🟡 Medium Priority (Upcoming Iterations)
-- [ ] #50 -> Drop-in mode on `agent-planning-kit` or `aapp-develop-kit` resolves root to kit itself rather than cwd.
 - [ ] #51 -> Self-consumption `rm -rf` gated on basename allowlist rather than directory contents/signatures.
 
 ## 🟢 Low Priority (Test Infrastructure & Verification)
