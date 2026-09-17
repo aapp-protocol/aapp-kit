@@ -47,3 +47,4 @@
 1. **Zero Reinvention:** Always check `CODEMAP.md` before creating helper functions.
 2. **State Isolation:** Follow the project's single source of truth pattern for memory and configuration.
 3. **Graceful Handling:** Always log structured errors and clean up filehandles/resources.
+4. **Documentation Synchronization:** Every implementation introducing new files, interfaces, or architectural contracts must update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.

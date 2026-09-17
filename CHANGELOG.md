@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hook Status Enum & Draft Plan Isolation (`templates/blast-radius-guard.sh`, `templates/aapp-pre-commit`): Filters out incubator drafts (`🔴 Under Review`, `🟡 Refining`) from active plans in write-guard and pre-commit, ensuring unfrozen blueprints do not lock the blast radius or block repository commits before being greenlit (#64).
 
 ### Changed
+- Architecture & Codemap Sync Invariant (`ARCHITECTURE.md`, `templates/plan-template.md`, `templates/architecture.md`): Aligns blueprint template execution invariants (Invariant 5) and Phase 3 verification checklist to require keeping `ARCHITECTURE.md` and `CODEMAP.md` in sync whenever new modules, commands, or interface contracts are implemented, and updates root system architecture documentation to accurately reflect the multi-worktree engine.
 - PreToolUse Matcher Coverage: Added `MultiEdit` to PreToolUse matcher in `templates/claude/settings.json` and `lib/cmd_init.sh` with automatic non-destructive settings upgrade during `aapp init` (closing matcher half of `#53`).
 - Added `.git/config` and `*/.git/config` to Section 2 self-protection in `templates/blast-radius-guard.sh`.
 - Added Guard allowlist metrics line to `aapp init` completion banner.
