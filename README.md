@@ -15,19 +15,21 @@
 * [4. Quick Start & Distribution Modes](#4-quick-start--distribution-modes)
   * [Option 1: Drop-In Project Setup (Self-Consuming)](#option-1-drop-in-project-setup-self-consuming)
   * [Option 2: Global Installation](#option-2-global-installation)
-  * [Option 3: Contributor / Development Setup (aapp develop)](#option-3-contributor--development-setup-aapp-develop)
+  * [Option 3: Contributor / Development Setup (`aapp develop`)](#option-3-contributor--development-setup-aapp-develop)
 * [5. Branching Topologies & Adaptive Branch Protection](#5-branching-topologies--adaptive-branch-protection)
   * [Option A: Trunk-Based Development (Single Branch)](#option-a-trunk-based-development-single-branch)
   * [Option B: Dual-Branch Topology (Stable vs. Edge — Recommended)](#option-b-dual-branch-topology-stable-vs-edge--recommended)
-  * [🛡️ Smart Adaptive Branch Protection](#-smart-adaptive-branch-protection)
+  * [Smart Adaptive Branch Protection](#smart-adaptive-branch-protection)
 * [6. Existing Project Conflicts, Adoption & Upgrades](#6-existing-project-conflicts-adoption--upgrades)
   * [Seamless Adoption & In-Place Protocol Upgrades](#seamless-adoption--in-place-protocol-upgrades)
   * [Existing Hook Managers (Husky, Lefthook, Native Hooks)](#existing-hook-managers-husky-lefthook-native-hooks)
 * [7. Remote Sync & Multi-Machine Workflow](#7-remote-sync--multi-machine-workflow)
-* [8. Daily Agent Workflow & Slash Commands](#8-daily-agent-workflow--slash-commands)
-* [9. Testing & Verification Suites](#9-testing--verification-suites)
-* [10. Blueprint Example & Technical Manual](#10-blueprint-example--technical-manual)
-* [11. License](#11-license)
+* [8. Daily Agent Workflow & Universal Skills](#8-daily-agent-workflow--universal-skills)
+* [9. AI Attribution & Multi-Vendor Benchmarking (`aapp ai-*`)](#9-ai-attribution--multi-vendor-benchmarking-aapp-ai-)
+* [10. Security, Threat Model & Trust Boundaries](#10-security-threat-model--trust-boundaries)
+* [11. Testing & Verification Suites](#11-testing--verification-suites)
+* [12. Blueprint Example & Technical Manual](#12-blueprint-example--technical-manual)
+* [13. License](#13-license)
 
 ---
 
@@ -209,7 +211,7 @@ To prevent unreleased features or experimental agent code from landing in produc
      git tag -a v1.0.1 -m "Release v1.0.1"
      ```
 
-### 🛡️ Smart Adaptive Branch Protection
+### Smart Adaptive Branch Protection
 When a development branch (`develop`, `dev`, or `development`) exists, `.githooks/aapp-pre-commit` automatically activates branch protection:
 - **Direct commits to protected branches (`main`, `master`, `production`) are refused** with clear guidance directing you to switch to your development branch.
 - **Emergency Release/Hotfix Bypass**: If you intentionally need to commit directly to `main`:

@@ -22,12 +22,15 @@
   * [Escape Hatches & Fail-Open Design](#escape-hatches--fail-open-design)
 * [4. The Two-Lane Protocol: Issues vs. Plans](#4-the-two-lane-protocol-issues-vs-plans)
   * [Strict Lane Separation](#strict-lane-separation)
-  * [📏 Issue Conciseness Invariant (2–3 Lines Maximum)](#-issue-conciseness-invariant-23-lines-maximum)
+  * [Flat Issue Ledger Schema (`ISSUES.md`)](#flat-issue-ledger-schema-issuesmd)
+  * [The Relocation Invariant & Archival Protocol](#the-relocation-invariant--archival-protocol)
+  * [Priority Board (`issues_road_map.md`) & User Priority](#priority-board-issues_road_mapmd--user-priority)
+  * [Issue Conciseness Invariant (2–3 Lines Maximum)](#issue-conciseness-invariant-23-lines-maximum)
   * [Issue Promotion Protocol](#issue-promotion-protocol)
   * [Mid-Execution Issue Escape Triage](#mid-execution-issue-escape-triage)
 * [5. AAPP State Machine & Lifecycle Commands](#5-aapp-state-machine--lifecycle-commands)
   * [The Lifecycle Pipeline](#the-lifecycle-pipeline)
-  * [Command Reference (`/status`, `/digest`, `/freeze`, `/done`, `/release`)](#command-reference)
+  * [Command Reference (Universal Skills)](#command-reference-universal-skills)
   * [Token Management & Context Efficiency](#token-management--context-efficiency)
 * [6. Agent & IDE Integration Guide](#6-agent--ide-integration-guide)
   * [Google Antigravity Integration](#google-antigravity-integration)
@@ -407,7 +410,7 @@ AAPP enforces a strict conceptual separation between **fixing what exists** and 
 
 ---
 
-### 🏛️ Flat Issue Ledger Schema (`ISSUES.md`)
+### Flat Issue Ledger Schema (`ISSUES.md`)
 
 `ISSUES.md` is strictly an active technical backlog. It consists of a preamble and a single flat database table with **zero subheadings**:
 
@@ -446,7 +449,7 @@ AAPP enforces a strict conceptual separation between **fixing what exists** and 
 
 ---
 
-### 🏛️ The Relocation Invariant & Archival Protocol
+### The Relocation Invariant & Archival Protocol
 
 Active tables hold **ONLY** active items. Resolution is a **physical row relocation** out of `ISSUES.md` and into `.plans/done/000-issues-archive.md`.
 
@@ -466,7 +469,7 @@ Active tables hold **ONLY** active items. Resolution is a **physical row relocat
 
 ---
 
-### 🗺️ Priority Board (`issues_road_map.md`) & User Priority
+### Priority Board (`issues_road_map.md`) & User Priority
 
 `issues_road_map.md` puts active issues into the order you intend to fix them based on human judgement. It includes:
 - **`## ⭐ User Priority (Pinned / Immediate Human Focus)`**: Developer overrides for immediate appetite.
@@ -479,7 +482,7 @@ Active tables hold **ONLY** active items. Resolution is a **physical row relocat
 
 ---
 
-### 📏 Issue Conciseness Invariant (2–3 Lines Maximum)
+### Issue Conciseness Invariant (2–3 Lines Maximum)
 
 To prevent context bloat and keep triage boards scan-friendly:
 - **Concise Summaries**: Table entries in `ISSUES.md` must never be long transcripts or essays. State the exact location, the specific symptom, and the 1-line fix direction in **2–3 concise sentences maximum**.
