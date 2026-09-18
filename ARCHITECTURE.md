@@ -27,7 +27,7 @@
 ├── lib/                   # Operational command libraries & lifecycle modules
 │   ├── cmd_init.sh        # Target resolution, orphan worktrees, rules & skills sync
 │   ├── cmd_install.sh     # Global installer & signature-gated self-consumption
-│   ├── cmd_plan.sh        # Flagless switchboard & disjointness activation gate
+│   ├── cmd_plan.sh        # Active buffer manager, plan-status inspector & lifecycle triggers
 │   ├── cmd_ai.sh          # AI attribution switchboard & credits manager
 │   ├── cmd_status.sh      # 4-pillar context recovery agent briefing
 │   ├── cmd_develop.sh     # Live editable development symlinking

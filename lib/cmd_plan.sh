@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# AAPP Command: `plan`, `start`, `freeze-start`, `plan-swap`, `plan-clear`
+# AAPP Command: `active`, `plan-status`, `plan`, `start`, `freeze-start`
 #
-# Multi-Agent Lifecycle Switchboard & Active Plan Context Manager
+# Multi-Agent Planning Switchboard & Active Execution Buffer Manager
 # ==============================================================================
 set -e
 
@@ -261,122 +261,233 @@ cmd_start() {
     echo "   Active Buffer: $ACTIVE_FILE"
 }
 
-cmd_plan_set_or_show() {
+cmd_active() {
+    local sub="$1"
+    case "$sub" in
+        swap)
+            if [ ! -f "$PREV_FILE" ]; then
+                echo "ℹ️  No previous active plan found to swap to."
+                return 0
+            fi
+
+            local prev_val cur_val
+            prev_val="$(head -n 1 "$PREV_FILE" 2>/dev/null | tr -d '[:space:]')"
+            cur_val="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]' || true)"
+
+            if [ -z "$prev_val" ]; then
+                echo "ℹ️  Previous active plan buffer is empty."
+                return 0
+            fi
+
+            if [ -n "$cur_val" ]; then
+                echo "$cur_val" > "$PREV_FILE"
+            else
+                rm -f "$PREV_FILE"
+            fi
+            echo "$prev_val" > "$ACTIVE_FILE"
+
+            echo "🔄 [Active Buffer] Swapped active execution plan to '$prev_val' (previous: '${cur_val:-none}')."
+            ;;
+        clear)
+            if [ -f "$ACTIVE_FILE" ]; then
+                local cur_val
+                cur_val="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
+                [ -n "$cur_val" ] && echo "$cur_val" > "$PREV_FILE"
+                rm -f "$ACTIVE_FILE"
+                echo "🧹 [Active Buffer] Active plan buffer cleared. Reverted to auto-discovery mode."
+            else
+                echo "ℹ️  Active plan buffer is already empty."
+            fi
+            ;;
+        "")
+            # Show current active plan or auto-discovery
+            local active_id=""
+            if [ -f "$ACTIVE_FILE" ]; then
+                active_id="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
+            fi
+
+            if [ -n "$active_id" ]; then
+                echo "🎯 Active Plan Buffer: '$active_id'"
+                echo "   Buffer File       : $ACTIVE_FILE"
+                if [ -n "$PLANS_DIR" ] && [ -d "$PLANS_DIR/current" ]; then
+                    for pf in "$PLANS_DIR"/current/*.md; do
+                        [ ! -f "$pf" ] && continue
+                        local pid bname
+                        pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" 2>/dev/null || true)"
+                        bname="$(basename "$pf" .md)"
+                        if [ "$pid" = "$active_id" ] || [ "$bname" = "$active_id" ] || \
+                           [[ "$bname" == "$active_id-"* ]] || [[ "$bname" == "P$active_id-"* ]]; then
+                            echo "   Blueprint File    : $pf"
+                            local status
+                            status="$(grep -E '^\* \*\*Status:\*\*' "$pf" | head -n 1 | sed 's/^\* \*\*Status:\*\*[[:space:]]*//')"
+                            echo "   Status            : $status"
+                            echo "   Declared Targets  :"
+                            parse_plan_target_paths "$pf" | sed 's/^/     • /'
+                            break
+                        fi
+                    done
+                fi
+                return 0
+            fi
+
+            # Auto-discovery inspection
+            if [ -n "$PLANS_DIR" ] && [ -d "$PLANS_DIR/current" ]; then
+                local dev_plans=()
+                for pf in "$PLANS_DIR"/current/*.md; do
+                    [ ! -f "$pf" ] && continue
+                    case "$(basename "$pf")" in 000-*) continue ;; esac
+                    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟠|In Development)' "$pf" 2>/dev/null; then
+                        dev_plans+=("$pf")
+                    fi
+                done
+
+                if [ ${#dev_plans[@]} -eq 1 ]; then
+                    local auto_pf="${dev_plans[0]}"
+                    local auto_id
+                    auto_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$auto_pf" 2>/dev/null || true)"
+                    [ -z "$auto_id" ] && auto_id="$(basename "$auto_pf" .md)"
+                    echo "🎯 Active Plan Buffer: '$auto_id' (auto-discovered in 🟠 In Development)"
+                    echo "   Blueprint File    : $auto_pf"
+                    echo "   Declared Targets  :"
+                    parse_plan_target_paths "$auto_pf" | sed 's/^/     • /'
+                    return 0
+                elif [ ${#dev_plans[@]} -gt 1 ]; then
+                    echo "⚠️  Multiple plans are currently in development:"
+                    for dp in "${dev_plans[@]}"; do
+                        echo "     • $(basename "$dp" .md)"
+                    done
+                    echo "   Run 'aapp active <id>' to designate the active execution plan."
+                    return 0
+                fi
+            fi
+
+            echo "ℹ️  No active plan in buffer or in development. (Auto-discovery / fail-open mode)"
+            ;;
+        *)
+            # Set active plan
+            local plan_file
+            plan_file="$(resolve_plan_file "$sub" "active")" || exit 1
+            local plan_id
+            plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
+            [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
+
+            write_active_buffer "$plan_id"
+            echo "🎯 [Active Buffer] Active execution plan set to '$plan_id'."
+            echo "   Blueprint: $plan_file"
+            echo "   Buffer   : $ACTIVE_FILE"
+            echo "   Declared Targets:"
+            parse_plan_target_paths "$plan_file" | sed 's/^/     • /'
+            ;;
+    esac
+}
+
+cmd_plan_status() {
     local query="$1"
 
     if [ -n "$query" ]; then
         local plan_file
-        plan_file="$(resolve_plan_file "$query" "plan")" || exit 1
-        local plan_id
+        plan_file="$(resolve_plan_file "$query" "plan-status")" || exit 1
+        local plan_id status title
         plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
         [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
+        status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$plan_file" | head -n 1 | sed 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*[[:space:]]*//')"
+        title="$(grep -E '^# ' "$plan_file" | head -n 1 | sed 's/^# [[:space:]]*//')"
 
-        write_active_buffer "$plan_id"
-        echo "🎯 [Plan Switchboard] Active execution context set to '$plan_id'."
-        echo "   Blueprint: $plan_file"
-        echo "   Buffer   : $ACTIVE_FILE"
+        echo "📄 Plan: $plan_id — $title"
+        echo "   Status      : $status"
+        echo "   Blueprint   : $plan_file"
+
+        local open_q
+        open_q=$(awk '
+            /^## ❓ 5\. Open Questions/ { in_q=1; next }
+            /^## / && in_q { in_q=0 }
+            in_q && /^[[:space:]]*\*[[:space:]]*\[[[:space:]]\]/ { print $0 }
+        ' "$plan_file")
+        if [ -n "$open_q" ]; then
+            echo "   Open Questions: (unresolved)"
+            echo "$open_q" | sed 's/^/     • /'
+        else
+            echo "   Open Questions: All resolved"
+        fi
+
+        echo "   Declared Targets:"
+        local targets
+        targets="$(parse_plan_target_paths "$plan_file")"
+        if [ -n "$targets" ]; then
+            echo "$targets" | sed 's/^/     • /'
+        else
+            echo "     (none declared)"
+        fi
         return 0
     fi
 
-    # Show current context
-    local active_id=""
+    # Matrix overview
+    echo "📊 Plan Lane Matrix (.plans/current/)"
+    if [ -z "$PLANS_DIR" ] || [ ! -d "$PLANS_DIR/current" ]; then
+        echo "   (no .plans/current directory found)"
+        return 0
+    fi
+
+    local in_dev=()
+    local frozen=()
+    local incubator=()
+
+    for pf in "$PLANS_DIR"/current/*.md; do
+        [ ! -f "$pf" ] && continue
+        case "$(basename "$pf")" in 000-*) continue ;; esac
+        local pid status
+        pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" 2>/dev/null || true)"
+        [ -z "$pid" ] && pid="$(basename "$pf" .md)"
+        status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$pf" | head -n 1 || true)"
+
+        if echo "$status" | grep -qE '🟠|In Development'; then
+            in_dev+=("$pid ($(basename "$pf"))")
+        elif echo "$status" | grep -qE '🟢|Ready for Execution|Frozen'; then
+            frozen+=("$pid ($(basename "$pf"))")
+        else
+            incubator+=("$pid ($(basename "$pf"))")
+        fi
+    done
+
+    echo "   🟠 In Development : ${#in_dev[@]}"
+    for item in "${in_dev[@]}"; do echo "      • $item"; done
+
+    echo "   🟢 Frozen Backlog : ${#frozen[@]}"
+    for item in "${frozen[@]}"; do echo "      • $item"; done
+
+    echo "   🟡 Incubator      : ${#incubator[@]}"
+    for item in "${incubator[@]}"; do echo "      • $item"; done
+
     if [ -f "$ACTIVE_FILE" ]; then
+        local active_id
         active_id="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
+        echo ""
+        echo "🎯 Active Execution Buffer: '$active_id'"
     fi
-
-    if [ -n "$active_id" ]; then
-        echo "🎯 Active Plan Buffer: '$active_id'"
-        echo "   Buffer File       : $ACTIVE_FILE"
-        if [ -n "$PLANS_DIR" ] && [ -d "$PLANS_DIR/current" ]; then
-            for pf in "$PLANS_DIR"/current/*.md; do
-                [ ! -f "$pf" ] && continue
-                local pid bname
-                pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" 2>/dev/null || true)"
-                bname="$(basename "$pf" .md)"
-                if [ "$pid" = "$active_id" ] || [ "$bname" = "$active_id" ] || \
-                   [[ "$bname" == "$active_id-"* ]] || [[ "$bname" == "P$active_id-"* ]]; then
-                    echo "   Blueprint File    : $pf"
-                    local status
-                    status="$(grep -E '^\* \*\*Status:\*\*' "$pf" | head -n 1 | sed 's/^\* \*\*Status:\*\*[[:space:]]*//')"
-                    echo "   Status            : $status"
-                    echo "   Declared Targets  :"
-                    parse_plan_target_paths "$pf" | sed 's/^/     • /'
-                    break
-                fi
-            done
-        fi
-        return 0
-    fi
-
-    # Auto-discovery inspection
-    if [ -n "$PLANS_DIR" ] && [ -d "$PLANS_DIR/current" ]; then
-        local dev_plans=()
-        for pf in "$PLANS_DIR"/current/*.md; do
-            [ ! -f "$pf" ] && continue
-            case "$(basename "$pf")" in 000-*) continue ;; esac
-            if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟠|In Development)' "$pf" 2>/dev/null; then
-                dev_plans+=("$pf")
-            fi
-        done
-
-        if [ ${#dev_plans[@]} -eq 1 ]; then
-            local auto_pf="${dev_plans[0]}"
-            local auto_id
-            auto_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$auto_pf" 2>/dev/null || true)"
-            [ -z "$auto_id" ] && auto_id="$(basename "$auto_pf" .md)"
-            echo "🎯 Active Plan Context: '$auto_id' (auto-discovered in 🟠 In Development)"
-            echo "   Blueprint File     : $auto_pf"
-            echo "   Declared Targets   :"
-            parse_plan_target_paths "$auto_pf" | sed 's/^/     • /'
-            return 0
-        elif [ ${#dev_plans[@]} -gt 1 ]; then
-            echo "⚠️  Multiple plans are currently in development:"
-            for dp in "${dev_plans[@]}"; do
-                echo "     • $(basename "$dp" .md)"
-            done
-            echo "   Run 'aapp plan <id>' to designate the active execution context."
-            return 0
-        fi
-    fi
-
-    echo "ℹ️  No active plan in buffer or in development. (Fail-open mode)"
 }
 
-cmd_plan_swap() {
-    if [ ! -f "$PREV_FILE" ]; then
-        echo "ℹ️  No previous active plan found to swap to."
-        return 0
+cmd_plan_switchboard() {
+    local query="$1"
+
+    echo "🗺️  AAPP Planning Switchboard"
+    echo "--------------------------------------------------"
+    if [ -n "$query" ]; then
+        echo "ℹ️  To inspect plan status: aapp plan-status $query"
+        echo "ℹ️  To set execution buffer: aapp active $query"
+        echo "ℹ️  To draft a blueprint: use '/plan <idea>' in chat"
+        echo ""
     fi
-
-    local prev_val cur_val
-    prev_val="$(head -n 1 "$PREV_FILE" 2>/dev/null | tr -d '[:space:]')"
-    cur_val="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]' || true)"
-
-    if [ -z "$prev_val" ]; then
-        echo "ℹ️  Previous active plan buffer is empty."
-        return 0
-    fi
-
-    if [ -n "$cur_val" ]; then
-        echo "$cur_val" > "$PREV_FILE"
-    else
-        rm -f "$PREV_FILE"
-    fi
-    echo "$prev_val" > "$ACTIVE_FILE"
-
-    echo "🔄 [Plan Swap] Swapped active execution context to '$prev_val' (previous: '${cur_val:-none}')."
-}
-
-cmd_plan_clear() {
-    if [ -f "$ACTIVE_FILE" ]; then
-        local cur_val
-        cur_val="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
-        [ -n "$cur_val" ] && echo "$cur_val" > "$PREV_FILE"
-        rm -f "$ACTIVE_FILE"
-        echo "🧹 [Plan Clear] Active plan buffer cleared. Reverted to auto-discovery mode."
-    else
-        echo "ℹ️  Active plan buffer is already empty."
-    fi
+    echo "To inspect plans or the active matrix:"
+    echo "  aapp plan-status              Inspect plan lane matrix"
+    echo "  aapp plan-status <plan-id>    Inspect specific plan details & targets"
+    echo ""
+    echo "To manage the execution buffer:"
+    echo "  aapp active <plan-id>         Set active plan buffer for guard enforcement"
+    echo "  aapp active swap              Swap active buffer with previous plan"
+    echo "  aapp active clear             Clear buffer (revert to auto-discovery)"
+    echo ""
+    echo "To draft or execute blueprints:"
+    echo "  Use '/plan <idea>' or '/aapp-plan <idea>' in your AI agent chat."
 }
 
 # Dispatcher
@@ -390,30 +501,32 @@ case "$ACTION" in
     start)
         cmd_start "$@"
         ;;
+    active)
+        cmd_active "$@"
+        ;;
+    plan-status)
+        cmd_plan_status "$@"
+        ;;
     plan)
-        cmd_plan_set_or_show "$@"
-        ;;
-    plan-swap)
-        cmd_plan_swap "$@"
-        ;;
-    plan-clear)
-        cmd_plan_clear "$@"
+        cmd_plan_switchboard "$@"
         ;;
     help|-h|--help)
         cat <<EOF
-Usage: aapp <command> [plan-id]
+Usage: aapp <command> [args]
 
-Multi-Agent Lifecycle Switchboard Commands:
+Multi-Agent Planning & Execution Commands:
   freeze-start <id>  Atomically freeze blueprint, transition to 🟠 In Development, and bind buffer
   start <id>         Transition 🟢 Frozen blueprint to 🟠 In Development and bind buffer
-  plan [id]          Display active plan or switch active execution context to [id]
-  plan-swap          Toggle between current and previous active plan
-  plan-clear         Clear active plan buffer (revert to auto-discovery)
+  active [id]        Display or set active execution plan buffer (.git/aapp_active_plan)
+  active swap        Swap between current and previous active plan
+  active clear       Clear active plan buffer (revert to auto-discovery)
+  plan-status [id]   Inspect plan matrix or specific blueprint (read-only)
+  plan [query]       Display educational planning switchboard
 EOF
         ;;
     *)
         echo "❌ Unknown plan command: '$ACTION'" >&2
-        echo "   Available: freeze-start, start, plan, plan-swap, plan-clear" >&2
+        echo "   Available: freeze-start, start, active, plan-status, plan" >&2
         exit 1
         ;;
 esac

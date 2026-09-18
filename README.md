@@ -307,6 +307,8 @@ AAPP ships core lifecycle verbs as **Universal AAPP Skills** (`skills/<name>/SKI
 | :--- | :--- | :--- | :--- |
 | `/aapp-status` | `status`, `/status`, `/aapp status` | **Orient** | Scan four pillars (Shipped, Issues, Plans, Pickup) to report current posture. |
 | `/aapp-digest <idea>` | `digest <idea>`, `/digest` | **Ingest** | Ingest idea into Issue Lane (`ISSUES.md`) or Plan Lane (`.plans/current/`). |
+| `/plan <idea>` | `/aapp-plan`, `aapp plan-status` | **Plan** | Author durable blueprints under Git Blast Radius; inspect status matrix. |
+| `/aapp-active <plan>` | `aapp active [id]`, `active` | **Switch** | Manage active execution plan buffer (`.git/aapp_active_plan`). |
 | `/aapp-freeze <plan>` | `freeze <plan>`, `/freeze` | **Lock** | Lock Blast Radius boundaries and greenlight blueprint for execution. |
 | `/aapp-done <plan>` | `done <plan>`, `/done` | **Archive** | Move plan to `done/`, append to `000-archive-ledger.md`, and clean `state_matrix.md`. |
 | `/aapp-release <ver>` | `release <ver>`, `/preflight` | **Preflight** | Execute release verification runbook and check changelog staging. |

@@ -8,6 +8,7 @@ See `.agents/CODEMAP.md` (or `CODEMAP.md` at the repo root) before assuming wher
 - Prioritize clean, low-dependency, and high-performance design.
 - Maintain a single source of truth for paths, state, and configuration.
 - Enforce strict repository portability: never write absolute machine paths or `file://` URIs into project files.
+- Enforce canonical planning: implementation blueprints belong in `.plans/current/` under Git-level Blast Radius protection, never in proprietary ephemeral IDE scratchpads (`implementation_plan.md`).
 
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOM RULES OUTSIDE. -->
@@ -160,7 +161,13 @@ The lanes are separate, **not sealed**. A fix too large to simply *do* deserves 
 ## 🤖 Asymmetric Planning Protocol (AAPP) & Universal Skills
 All planning and architectural tracking operates in the isolated `.plans/` worktree (on orphan branch `plans`), keeping design text decoupled from active code branches.
 
-Lifecycle verbs are authored as **Universal AAPP Skills** in `.agents/skills/` (`skills/<name>/SKILL.md`) and bridged to Claude Code (`.claude/skills/`). They are exposed as slash commands (`/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-done`, `/aapp-release`) in Claude Code and indexed natively via progressive disclosure in Google Antigravity, Cursor, and OpenAI Codex.
+### 📋 Canonical Planning Invariant (AAPP Blueprints Over IDE Ephemeral Artifacts)
+- **Universal Blueprint Standard**: When asked to plan, architect, or scaffold an implementation (in natural language or via `/plan` / `/aapp-plan`), the agent MUST NEVER generate internal IDE scratchpads (such as `implementation_plan.md` in IDE cache directories).
+- **Two-Lane Routing**: Evaluate whether the request describes a bug in existing code (route to `.plans/ISSUES.md` first) or a new capability (scaffold in `.plans/current/`).
+- **Single Source of Truth**: All implementation plans MUST be authored as canonical AAPP blueprints in `.plans/current/P<num>-<slug>.md` using `templates/plan-template.md` and registered in `.plans/state_matrix.md`.
+- **Visible Artifact Standard**: Canonical planning always leaves a committed or staged file in `.plans/current/' that is visible in 'aapp status'.
+
+Lifecycle verbs are authored as **Universal AAPP Skills** in `.agents/skills/` (`skills/<name>/SKILL.md`) and bridged to Claude Code (`.claude/skills/`). They are exposed as slash commands (`/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-done`, `/aapp-release`, `/aapp-active`, `/aapp-plan`, `/plan`) in Claude Code and indexed natively via progressive disclosure in Google Antigravity, Cursor, and OpenAI Codex.
 
 The agent must support and execute these shorthand workflow triggers immediately without requiring manual prompt setup:
 
@@ -232,11 +239,17 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
   3. Transitions status to `🟠 In Development` and binds local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).
   4. Activates enforcement of the plan's locked Blast Radius for tool writes and commits.
 
-- **`plan [plan-id]` (or `/aapp-plan`, `aapp plan`, `aapp plan-swap`, `aapp plan-clear`)**: Manage active execution context.
-  1. `aapp plan <id>`: Set local worktree active buffer to `<id>`.
-  2. `aapp plan`: Display active plan context, status, Target Files, and Out of Bounds.
-  3. `aapp plan-swap`: Toggle between current and previous active plan context.
-  4. `aapp plan-clear`: Clear active buffer, reverting to auto-discovery mode.
+- **`plan <idea>` (or `/plan <idea>`, `/aapp-plan <idea>`)**: Canonical blueprint planning and lane routing.
+  1. Enforces the Canonical Planning Invariant: author blueprints in `.plans/current/P<num>-<slug>.md`, never in ephemeral IDE scratchpads (`implementation_plan.md`).
+  2. Routes defects to `.plans/ISSUES.md` first; features and refactors to `.plans/current/`.
+  3. Scaffolds using `templates/plan-template.md` and registers in `.plans/state_matrix.md`.
+  4. In the shell: bare `aapp plan` acts as an educational switchboard; `aapp plan-status [id]` acts as the deterministic read-only inspector.
+
+- **`active [plan-id]` (or `/aapp-active`, `aapp active`, `aapp active swap`, `aapp active clear`)**: Manage local worktree active execution buffer (`$(git rev-parse --git-path aapp_active_plan)`).
+  1. `aapp active <id>`: Set active plan buffer to `<id>` (stashing previous in `.prev`).
+  2. `aapp active`: Display currently designated active plan, status, and declared Target Files.
+  3. `aapp active swap`: Toggle between current and previous active plan buffer.
+  4. `aapp active clear`: Clear active buffer, reverting to auto-discovery mode.
 
 - **`done <plan>` (or `/aapp-done <plan>`, `/aapp:done <plan>`, `/aapp done <plan>`, `/done <plan>`)**: Complete lifecycle and archive implemented blueprint.
   1. Resolve `<plan>` using shorthand resolution (Plan ID `P-9`, `9`, slug, or filename). Target must be explicitly named — empty queries are strictly refused.

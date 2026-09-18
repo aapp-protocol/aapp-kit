@@ -621,7 +621,7 @@ sync_skills() {
     [ ! -d .agents/skills ] && mkdir -p .agents/skills
     [ ! -d .claude/skills ] && mkdir -p .claude/skills
 
-    for skill_dir in "$templates_skills"/aapp-*; do
+    for skill_dir in "$templates_skills"/aapp-* "$templates_skills"/plan; do
         [ ! -d "$skill_dir" ] && continue
         local skill_name
         skill_name="$(basename "$skill_dir")"

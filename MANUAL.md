@@ -596,11 +596,23 @@ Activates an approved `🟢 Frozen` blueprint from the backlog into active imple
 - Runs Disjointness Activation Gate against other in-flight plans in the workspace.
 - Transitions status to `🟠 In Development` and sets the local worktree active plan buffer.
 
-#### `/aapp-plan` (or `aapp plan [id]`, `aapp plan-swap`, `aapp plan-clear`) — Active Plan Context Switchboard
-- `aapp plan <id>`: Manually point local worktree execution context to `<id>`.
-- `aapp plan`: Display current active plan, its boundaries, and status.
-- `aapp plan-swap`: Toggle between current and previously active plan.
-- `aapp plan-clear`: Clear active buffer, reverting to auto-discovery mode.
+#### `/aapp-active` (or `aapp active [id]`, `aapp active swap`, `aapp active clear`) — Execution Buffer Switchboard
+- `aapp active <id>`: Set local worktree active buffer (`.git/aapp_active_plan`) to `<id>`.
+- `aapp active`: Display current active plan, its boundaries, and status.
+- `aapp active swap`: Toggle between current and previously active plan buffer.
+- `aapp active clear`: Clear active buffer, reverting to auto-discovery mode.
+
+#### `aapp plan-status [id]` — Deterministic Plan Lane Inspector
+- `aapp plan-status`: Displays the plan lane matrix (counts and blueprints across In-Development, Backlog, and Incubator).
+- `aapp plan-status <id>`: Read-only inspection of `<id>` displaying status, blueprint path, target files, and open questions. Safe for scripts and automation.
+
+#### `/plan <idea>` & `/aapp-plan` — Canonical Blueprint Planning & IDE Bridging
+- **Canonical Planning Invariant**: Enforces that all implementation plans are saved as version-controlled blueprints in `.plans/current/P<num>-<slug>.md`, overriding ephemeral IDE scratchpads (`implementation_plan.md`).
+- **Two-Lane Routing**: Evaluates whether an idea is a bug (routes to `.plans/ISSUES.md` first) or a new capability (scaffolds blueprint).
+- **Bare `aapp plan [query]`**: Educational switchboard output in the shell guiding humans and agents to `plan-status`, `active`, and `/plan`.
+- **Tool Precedence & Coverage (Phase 0)**:
+  - *Claude Code*: Workspace skill `.claude/skills/plan/SKILL.md` takes direct precedence for `/plan`.
+  - *Antigravity IDE & Cursor*: Where built-in `/plan` modes exist, the Tier 1 `AGENTS.md` prose invariant catches natural language prompts and forces canonical blueprint generation; the Visible Artifact Standard confirms banking in `.plans/current/`.
 
 #### `/aapp-done <plan>` (or `done <plan>`, `/done`) — Master Archival Ledger & Completion
 Completes the lifecycle:

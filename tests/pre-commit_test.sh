@@ -687,12 +687,12 @@ echo "p18=1" > src/p18.py
 check "two dev plans without buffer blocked" BLOCK src/p18.py
 
 # Designate plan 18
-"$KIT/aapp" plan 18 >/dev/null 2>&1
+"$KIT/aapp" active 18 >/dev/null 2>&1
 check "active plan 18 buffer allows plan 18 commit" PASS src/p18.py
 check "active plan 18 buffer blocks plan 17 commit" BLOCK src/p17.py
 
 # Swap back to plan 17
-"$KIT/aapp" plan-swap >/dev/null 2>&1
+"$KIT/aapp" active swap >/dev/null 2>&1
 check "swapped active plan buffer allows plan 17 commit" PASS src/p17.py
 check "swapped active plan buffer blocks plan 18 commit" BLOCK src/p18.py
 
@@ -707,7 +707,7 @@ plan p_port.md <<'EOF'
 ### 🛑 Out of Bounds (Do Not Touch)
 ## end
 EOF
-"$KIT/aapp" plan 30 >/dev/null 2>&1
+"$KIT/aapp" active 30 >/dev/null 2>&1
 
 # 1. BLOCK: staged doc containing file:/// URI
 echo "See [doc](file:///home/user/repo/doc.md)" > doc.md

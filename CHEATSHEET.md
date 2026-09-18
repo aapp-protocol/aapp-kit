@@ -18,7 +18,8 @@ git worktrees — and stops an AI agent from editing files your plan never decla
 | Approved for backlog | `/aapp-freeze <plan>` | Locks the Blast Radius into `🟢 Frozen` backlog. |
 | Ready to write code | `/aapp-start <plan>` | Activates plan into `🟠 In Development` & binds buffer. |
 | One-step freeze & start | `/aapp-freeze-start <plan>` | Atomically freezes and activates implementation in one step. |
-| Context switching | `aapp plan [id]` / `aapp plan-swap` | Display active bounds or switch execution buffer. |
+| Buffer switching | `aapp active [id]` / `aapp active swap` | Display active bounds or switch execution buffer. |
+| Plan inspection | `aapp plan-status [id]` | Inspect plan lane matrix or specific blueprint. |
 | Fix shipped | `/aapp-done <plan>` | Moves to `.plans/done/`, appends the archive ledger. |
 | Coming back after days away | `/aapp-status` or `aapp status` | Briefing across all four pillars. Start here. |
 

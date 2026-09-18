@@ -133,7 +133,7 @@ case "$CMD" in
     ai)
         source "$AAPP_LIB/cmd_ai.sh" "$@"
         ;;
-    freeze-start|start|plan|plan-swap|plan-clear)
+    freeze-start|start|plan|active|plan-status)
         source "$AAPP_LIB/cmd_plan.sh" "$CMD" "$@"
         ;;
     version|-v|--version)

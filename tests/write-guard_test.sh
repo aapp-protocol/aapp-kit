@@ -84,6 +84,8 @@ check_decision "local settings override" DENY ".claude/settings.local.json"
 check_decision "canonical claude settings" DENY ".agents/claude/settings.json"
 check_decision "canonical aapp governance skill" DENY ".agents/skills/aapp-freeze/SKILL.md"
 check_decision "bridged aapp governance skill" DENY ".claude/skills/aapp-freeze/SKILL.md"
+check_decision "canonical plan governance skill" DENY ".agents/skills/plan/SKILL.md"
+check_decision "bridged plan governance skill" DENY ".claude/skills/plan/SKILL.md"
 check_decision "user custom skill allowed" ALLOW ".agents/skills/custom-deploy/SKILL.md"
 check_decision "the commit-time hook" DENY ".githooks/pre-commit"
 check_decision "the namespaced commit-time hook" DENY ".githooks/aapp-pre-commit"
@@ -330,7 +332,7 @@ EOF
 check_decision "in-development plan target is allowed" ALLOW "src/active_target.py"
 check_decision "frozen backlog plan target remains denied while other plan is in dev" DENY "src/frozen_target.py"
 
-echo "== flagless plan switchboard (aapp plan, plan-swap, plan-clear) =="
+echo "== active plan buffer switchboard (aapp active, active swap, active clear) =="
 setup
 plan p1.md <<'EOF'
 * **Plan ID:** P-20
@@ -351,20 +353,20 @@ EOF
 
 # Use kit aapp CLI
 AAPP_CLI="$KIT/aapp"
-"$AAPP_CLI" plan P-20 >/dev/null 2>&1
-check_decision "switched to P-20: p1 target allowed" ALLOW "src/p1_target.py"
-check_decision "switched to P-20: p2 target denied" DENY "src/p2_target.py"
+"$AAPP_CLI" active P-20 >/dev/null 2>&1
+check_decision "active set to P-20: p1 target allowed" ALLOW "src/p1_target.py"
+check_decision "active set to P-20: p2 target denied" DENY "src/p2_target.py"
 
-"$AAPP_CLI" plan P-21 >/dev/null 2>&1
-check_decision "switched to P-21: p2 target allowed" ALLOW "src/p2_target.py"
-check_decision "switched to P-21: p1 target denied" DENY "src/p1_target.py"
+"$AAPP_CLI" active P-21 >/dev/null 2>&1
+check_decision "active set to P-21: p2 target allowed" ALLOW "src/p2_target.py"
+check_decision "active set to P-21: p1 target denied" DENY "src/p1_target.py"
 
-"$AAPP_CLI" plan-swap >/dev/null 2>&1
-check_decision "plan-swap returns to P-20: p1 target allowed" ALLOW "src/p1_target.py"
-check_decision "plan-swap returns to P-20: p2 target denied" DENY "src/p2_target.py"
+"$AAPP_CLI" active swap >/dev/null 2>&1
+check_decision "active swap returns to P-20: p1 target allowed" ALLOW "src/p1_target.py"
+check_decision "active swap returns to P-20: p2 target denied" DENY "src/p2_target.py"
 
-"$AAPP_CLI" plan-clear >/dev/null 2>&1
-check_decision "plan-clear reverts to auto-discovery (multiple dev plans denied)" DENY "src/p1_target.py"
+"$AAPP_CLI" active clear >/dev/null 2>&1
+check_decision "active clear reverts to auto-discovery (multiple dev plans denied)" DENY "src/p1_target.py"
 
 echo "== atomic workflow accelerator (aapp freeze-start) =="
 setup
