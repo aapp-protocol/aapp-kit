@@ -2,7 +2,7 @@
 * **Created:** 2026-09-18 | **Last Refined:** 2026-09-18
 * **Target Issue / Milestone:** None
 * **Plan ID:** P-20
-* **Status:** 🔴 Under Review
+* **Status:** 🟡 Refining
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Frozen | 🟠 In Development | 🚫 BLOCKED
      The pre-commit hook and write-guard read this line. A 🟢 Frozen plan is an approved backlog
      specification. An 🟠 In Development plan enforces the locked blast radius during implementation.
@@ -23,129 +23,148 @@
 
 ## 1. Context & Architectural Goal
 
-In AAPP v1.0.0 / P-17, the flagless switchboard introduced `aapp plan [id]`, `aapp plan-swap`, and `aapp plan-clear` to manage the local worktree active plan buffer (`.git/aapp_active_plan`). While mechanically effective, this creates two severe usability and conceptual problems:
+In AAPP v1.0.0 / P-17, the flagless switchboard introduced `aapp plan [id]`, `aapp plan-swap`, and `aapp plan-clear` to manage the local worktree active plan buffer (`.git/aapp_active_plan`). While mechanically effective, this architecture suffers from two severe usability and structural problems:
 
-1. **Semantic Misalignment of `plan`**:
-   The verb `plan` strongly implies creating, authoring, or reviewing plans. Using `plan` merely to toggle a pointer buffer violates developer intuition and creates cognitive friction.
+1. **Semantic Misalignment & Silent Meaning Reversal**:
+   - The verb `plan` implies authoring, reviewing, or tracking plans. Using `aapp plan <id>` to set an execution buffer causes severe cognitive friction.
+   - If `aapp plan <arg>` is repurposed without care, running `aapp plan P-15` silently reverses meaning from "switch context" to "scaffold/amend a plan", breaking muscle memory and existing scripts.
 2. **The Ephemeral IDE Scratchpad Trap**:
-   AI IDEs (such as Antigravity IDE and Cursor) feature built-in planning modes (e.g. `/plan`) that output implementation plans into proprietary, ephemeral cache directories (such as `~/.gemini/antigravity-ide/brain/<conv-id>/implementation_plan.md`). These internal scratchpads:
-   - Cannot be shared with other agents (Claude Code, Cursor, Codex, team members).
-   - Are deleted or orphaned when conversation context resets.
-   - Lack deterministic Git-level Blast Radius protection.
-   - Are never permanently banked in the project's historical archive ledger (`000-archive-ledger.md`).
+   - AI IDEs (such as Antigravity IDE and Cursor) feature built-in planning modes (e.g. `/plan`) that output implementation plans into proprietary, ephemeral cache directories (such as `~/.gemini/antigravity-ide/brain/<conv-id>/implementation_plan.md`).
+   - These internal scratchpads cannot be shared with other agents (Claude Code, Cursor, Codex, team members), are wiped when conversation context resets, lack deterministic Git-level Blast Radius enforcement, and are never permanently banked in the project's historical archive ledger (`000-archive-ledger.md`).
 
-### The Architectural Goal:
-1. **Decouple Buffer Switching to `aapp context`**: Move pointer buffer management to `aapp context [id|swap|clear]` and `/aapp-context`, preserving legacy `aapp plan-swap` / `plan-clear` CLI aliases.
-2. **Repurpose `/aapp-plan` (and `/plan`) to Canonical AAPP Planning**:
-   - **Bare `/plan` or `/aapp-plan`**: Displays the active planning state matrix (`state_matrix.md`) and in-development context.
-   - **`/plan <idea>` or `/aapp-plan <idea>`**: Directly scaffolds or amends canonical blueprints in `.plans/current/P<num>-<slug>.md`, registers them in `state_matrix.md`, and initiates technical refinement.
-3. **Establish IDE Planning Override Invariant (`AGENTS.md`)**: Instruct agents across all IDEs that any planning request or `/plan` command MUST target `.plans/current/` blueprints and NEVER internal ephemeral scratchpads.
-4. **First-Class `/plan` Universal Skill**: Bridge `/plan` directly into `.agents/skills/plan/` and `.claude/skills/plan/` so developers have native chat autocomplete.
+### The Two-Tier Defense Architecture
+
+Catching developers who instinctively type `/plan` or request planning in natural language requires a structured defense:
+
+* **Tier 1 (Primary Defense — Universal Coverage)**: The **`AGENTS.md` Canonical Planning Invariant**. Most planning requests are expressed in natural language ("plan out how we'd do X", "write an implementation plan", "let's design this"). The prose governance rule in `AGENTS.md` catches **all** of these across every AI tool with zero collision risk.
+* **Tier 2 (Secondary Catch — Direct Token Interception)**: A thin `/plan` workspace skill registration. In IDEs where workspace skills take precedence over built-ins, typing `/plan` routes directly into AAPP.
+* **Visible Artifact Invariant**: The honest catch is protected against inconsistency: the kit's path always leaves a visible artifact in `.plans/current/` that is visible in `aapp status`. If no file appears in `.plans/current/`, the developer immediately knows the IDE built-in intercepted the prompt.
 
 ---
 
 ## 2. Technical Blueprint
 
-### A. Execution Context Switchboard Decoupling (`lib/cmd_plan.sh` -> `lib/cmd_context.sh` & `aapp`)
+### A. Execution Context Switchboard Decoupling (`aapp context`)
 
-Refactor execution buffer operations into clean `context` verbs while maintaining backwards compatibility:
+Move pointer buffer management to a dedicated, intuitive verb and make `aapp plan` read-only:
 
 ```bash
-# New Canonical Context Verbs
-aapp context              # Display active execution context and boundaries
-aapp context <plan-id>    # Set active execution context buffer
-aapp context swap         # Swap between active and previous buffer
+# 1. Canonical Context Verbs (Buffer Management)
+aapp context              # Display active execution context and declared targets
+aapp context <plan-id>    # Designate active execution plan in .git/aapp_active_plan
+aapp context swap         # Swap between active and previous buffer (.prev)
 aapp context clear        # Clear buffer (revert to auto-discovery)
 
-# Backwards-Compatible Aliases (Preserved)
+# 2. Backwards-Compatible Aliases (Preserved Permanently)
 aapp plan-swap            # Alias for 'aapp context swap'
 aapp plan-clear           # Alias for 'aapp context clear'
+
+# 3. Read-Only Planning Inspection (Zero Silent Breakage)
+aapp plan                 # Displays active plan + overview of in-dev/backlog/incubator
+aapp plan <plan-id>       # Read-only inspection of <plan-id> with guidance:
+                          # "ℹ️  To set execution context buffer, run: aapp context <id>"
 ```
 
-### B. Canonical Planning Command (`aapp plan` & `/aapp-plan` / `/plan`)
+### B. Two-Lane Routing in Planning Workflows
 
-Repurpose `aapp plan` and the slash commands `/aapp-plan` and `/plan`:
+To prevent bypassing the Two-Lanes invariant (`Never merge them`), `/plan <idea>` and `/aapp-plan <idea>` must execute the identical Step 2 lane-routing logic established in `/aapp-digest`:
 
-1. **Inspection Mode (`aapp plan` or `/plan` without arguments)**:
-   - Reads `.plans/state_matrix.md` and current buffer (`.git/aapp_active_plan`).
-   - Displays a clean visual dashboard of:
-     - 🟠 **In Development**: Currently executing plan and its declared target files.
-     - 🟢 **Frozen Backlog**: Approved specifications ready for execution (`aapp start`).
-     - 🔴 / 🟡 **Incubator**: Draft blueprints under thought and refinement.
-2. **Scaffolding Mode (`/plan <idea>` or `/aapp-plan <idea>`)**:
-   - Resolves whether `<idea>` amends an existing plan or requires a new plan.
-   - For new plans: Allocates the next Plan ID (`get_next_plan_id`), scaffolds `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`, registers it in `state_matrix.md`, and prompts for technical refinement.
+1. **Step 1: Check lane**:
+   - If `<idea>` describes wrong behavior, broken tests, or a bug in existing code -> Route to `.plans/ISSUES.md` and `.plans/issues_road_map.md` first. Only promote to a blueprint if the fix is large/architectural.
+   - If `<idea>` describes a new capability, architectural feature, or refactor -> Route to the Plan lane.
+2. **Step 2: Scaffold or Amend**:
+   - Check `.plans/current/*.md` for related active blueprints (Amend vs. New).
+   - If New: Allocate next unpadded ID (`get_next_plan_id`), scaffold `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`, and register in `.plans/state_matrix.md` under the Incubator.
 
-### C. Agent Governance Rules (`templates/AGENTS.md` & `.agents/AGENTS.md`)
+### C. Thin Shim Architecture & Section 2 Guard Protection
 
-Add the **Canonical Planning Invariant** to `## 🏛️ Core Philosophy & Role` and `## 🤖 Asymmetric Planning Protocol (AAPP)`:
+To prevent the `plan` skill from becoming the only unprotected governance skill in the repository:
+
+1. **Thin Shim (`templates/skills/plan/SKILL.md`)**:
+   - `templates/skills/aapp-plan/SKILL.md` contains the full canonical procedure (protected by Section 2 pattern `*/.agents/skills/aapp-*`).
+   - `templates/skills/plan/SKILL.md` is a thin 1-line pointer shim that delegates directly to `aapp-plan`.
+2. **Narrow Section 2 Self-Protection Extension**:
+   - Update `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit` to explicitly protect the `plan` skill without restricting user-authored custom skills:
+     ```bash
+     .agents/skills/aapp-*|*/.agents/skills/aapp-*|\
+     .claude/skills/aapp-*|*/.claude/skills/aapp-*|\
+     .agents/skills/plan|*/.agents/skills/plan|.agents/skills/plan/*|*/.agents/skills/plan/*|\
+     .claude/skills/plan|*/.claude/skills/plan|.claude/skills/plan/*|*/.claude/skills/plan/*)
+         deny_action "Tampering with AAPP core configuration or governance skills is strictly prohibited."
+         ;;
+     ```
+
+### D. Agent Governance Rules (`templates/AGENTS.md`)
+
+Add the **Canonical Planning Invariant** to `templates/AGENTS.md`:
 
 ```markdown
 ### 📋 Canonical Planning Invariant (AAPP Blueprints Over IDE Ephemeral Artifacts)
-- **Universal Blueprint Standard**: When asked to plan, architect, or scaffold an implementation (or when '/plan' / '/aapp-plan' is invoked), the agent MUST NEVER generate internal IDE scratchpads (such as 'implementation_plan.md' in IDE cache directories).
+- **Universal Blueprint Standard**: When asked to plan, architect, or scaffold an implementation (in natural language or via '/plan' / '/aapp-plan'), the agent MUST NEVER generate internal IDE scratchpads (such as 'implementation_plan.md' in IDE cache directories).
+- **Two-Lane Routing**: Evaluate whether the request describes a bug in existing code (route to '.plans/ISSUES.md' first) or a new capability (scaffold in '.plans/current/').
 - **Single Source of Truth**: All implementation plans MUST be authored as canonical AAPP blueprints in '.plans/current/P<num>-<slug>.md' using 'templates/plan-template.md' and registered in '.plans/state_matrix.md'.
-- **Shared & Banked**: Blueprints in '.plans/' are Git-tracked on an isolated branch, accessible to all AI agents and collaborators, protected by pre-commit blast radius enforcement, and permanently archived to '.plans/done/000-archive-ledger.md' upon completion.
+- **Visible Artifact Standard**: Canonical planning always leaves a committed or staged file in '.plans/current/' that is visible in 'aapp status'.
 ```
-
-### D. Universal Skills Architecture (`templates/skills/`)
-
-1. **`templates/skills/aapp-context/SKILL.md`**:
-   - Manages active buffer (`context`, `context <id>`, `context swap`, `context clear`).
-2. **`templates/skills/aapp-plan/SKILL.md`**:
-   - Canonical planning dashboard and blueprint authoring.
-3. **`templates/skills/plan/SKILL.md`**:
-   - Direct alias for `/plan` in IDE chat autocompletes, routing to AAPP blueprint planning.
-4. **`lib/cmd_init.sh` (`sync_skills`)**:
-   - Updates skill installer to sync both `aapp-*` skills and the canonical `plan` skill into `.agents/skills/` and `.claude/skills/`.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Context Switchboard Refactoring & CLI Ergonomics
-- [ ] Task 1.1: Extend `lib/cmd_plan.sh` (or create `lib/cmd_context.sh`) to support `aapp context [id|swap|clear]`.
-- [ ] Task 1.2: Update `aapp` CLI dispatcher and help text (`lib/cmd_help.sh`) documenting `context` and repurposed `plan`.
-- [ ] Task 1.3: Update `aapp plan` bare invocation to display the full planning matrix overview alongside active context.
+### Phase 0: Empirical Collision Verification
+- [ ] Task 0.1: Empirically verify tool precedence for workspace skills named `plan` across Claude Code, Antigravity, and Cursor. Document known coverage in `MANUAL.md`.
 
-### Phase 2: Universal Skills & Bridging
-- [ ] Task 2.1: Author `templates/skills/aapp-context/SKILL.md`.
-- [ ] Task 2.2: Rewrite `templates/skills/aapp-plan/SKILL.md` for blueprint inspection and creation.
-- [ ] Task 2.3: Author `templates/skills/plan/SKILL.md` for native `/plan` IDE autocomplete.
-- [ ] Task 2.4: Update `lib/cmd_init.sh` `sync_skills` to provision both `aapp-*` and `plan` skills.
+### Phase 1: Guard Section 2 Self-Protection Extension
+- [ ] Task 1.1: Add `.agents/skills/plan` and `.claude/skills/plan` to Section 2 self-protection in `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit`.
+- [ ] Task 1.2: Add regression test in `tests/write-guard_test.sh` asserting write denial on `plan/SKILL.md`.
 
-### Phase 3: Agent Governance & Documentation
-- [ ] Task 3.1: Add Canonical Planning Invariant to `templates/AGENTS.md` and `.agents/AGENTS.md`.
-- [ ] Task 3.2: Update `README.md`, `MANUAL.md`, and `CHEATSHEET.md` with `context` and `/plan` documentation.
-- [ ] Task 3.3: Update `CODEMAP.md` and `ARCHITECTURE.md` interface registries.
+### Phase 2: Context Switchboard & CLI Ergonomics
+- [ ] Task 2.1: Update `lib/cmd_plan.sh` to implement `aapp context [id|swap|clear]`.
+- [ ] Task 2.2: Make `aapp plan <id>` a read-only inspector displaying blueprint metadata and printing an actionable diagnostic pointer to `aapp context <id>`.
+- [ ] Task 2.3: Preserve `aapp plan-swap` and `aapp plan-clear` as permanent backward-compatible aliases.
+- [ ] Task 2.4: Update `aapp` dispatcher and `lib/cmd_help.sh` documenting `aapp context`.
 
-### Phase 4: Automated Verification & Test Coverage
-- [ ] Task 4.1: Update `tests/write-guard_test.sh` to verify `aapp context` verbs alongside legacy aliases.
-- [ ] Task 4.2: Update `tests/install_test.sh` to verify `plan` and `aapp-context` skill synchronization.
-- [ ] Task 4.3: Run full automated regression suite (all test suites and planning health).
-- [ ] Task 4.4: Record release notes in `CHANGELOG.md`.
+### Phase 3: Universal Skills & Thin Shim Bridging
+- [ ] Task 3.1: Author `templates/skills/aapp-context/SKILL.md` for active buffer management.
+- [ ] Task 3.2: Update `templates/skills/aapp-plan/SKILL.md` with two-lane routing and visible artifact guidance.
+- [ ] Task 3.3: Author `templates/skills/plan/SKILL.md` as a thin shim pointing to `aapp-plan`.
+- [ ] Task 3.4: Update `lib/cmd_init.sh` (`sync_skills`) to synchronize both `aapp-*` skills and the `plan` shim to `.agents/skills/` and `.claude/skills/`.
+
+### Phase 4: Agent Governance & Documentation
+- [ ] Task 4.1: Add Canonical Planning Invariant to `templates/AGENTS.md`.
+- [ ] Task 4.2: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` with `context` and `plan` contracts.
+- [ ] Task 4.3: Update `README.md`, `MANUAL.md`, and `CHEATSHEET.md`.
+
+### Phase 5: Automated Verification & Test Coverage
+- [ ] Task 5.1: Update `tests/write-guard_test.sh` for `aapp context` verbs and `plan` skill protection.
+- [ ] Task 5.2: Update `tests/install_test.sh` asserting `aapp-context` and `plan` skill sync and Claude bridging.
+- [ ] Task 5.3: Run full automated regression suite (all test suites and planning health).
+- [ ] Task 5.4: Record release notes in `CHANGELOG.md`.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `lib/cmd_plan.sh` -> Support `aapp context` verbs and matrix inspection on `aapp plan`.
-- [ ] `aapp` -> CLI router updates for `context` and updated `plan` help.
+- [ ] `templates/blast-radius-guard.sh` -> Protect `plan` skill in Section 2 self-protection.
+- [ ] `templates/aapp-pre-commit` -> Protect `plan` skill in Section 2 self-protection.
+- [ ] `lib/cmd_plan.sh` -> Support `aapp context` verbs, read-only `aapp plan [id]`, and aliases.
+- [ ] `aapp` -> CLI router updates for `context`.
 - [ ] `lib/cmd_help.sh` -> CLI help output updates.
-- [ ] `templates/skills/aapp-context/SKILL.md` -> NEW FILE: Active context management skill.
-- [ ] `templates/skills/aapp-plan/SKILL.md` -> Repurposed canonical blueprint planning skill.
-- [ ] `templates/skills/plan/SKILL.md` -> NEW FILE: Native `/plan` IDE slash command.
 - [ ] `lib/cmd_init.sh` -> Update `sync_skills` to bridge `plan` alongside `aapp-*`.
-- [ ] `templates/AGENTS.md` -> Add Canonical Planning Invariant.
-- [ ] `README.md` -> Lifecycle documentation alignment.
-- [ ] `MANUAL.md` -> Chapter 5 lifecycle pipeline documentation.
+- [ ] `templates/skills/aapp-context/SKILL.md` -> NEW FILE: Active execution context buffer switchboard.
+- [ ] `templates/skills/aapp-plan/SKILL.md` -> Repurposed canonical blueprint planning & matrix inspection.
+- [ ] `templates/skills/plan/SKILL.md` -> NEW FILE: Thin shim pointing to `aapp-plan`.
+- [ ] `templates/AGENTS.md` -> Add Canonical Planning Invariant (Tier 1 defense).
+- [ ] `ARCHITECTURE.md` -> Update architecture interface definitions.
+- [ ] `.agents/CODEMAP.md` -> Update callable contracts for `cmd_plan.sh` and skills.
+- [ ] `README.md` -> Documentation alignment for `aapp context` and `/plan`.
+- [ ] `MANUAL.md` -> Document context buffer decoupling and collision coverage in Chapter 5.
 - [ ] `CHEATSHEET.md` -> Command reference table updates.
-- [ ] `tests/write-guard_test.sh` -> Context switchboard regression tests.
-- [ ] `tests/install_test.sh` -> Skill synchronization assertions.
+- [ ] `tests/write-guard_test.sh` -> Context switchboard and Section 2 protection tests.
+- [ ] `tests/install_test.sh` -> Skill synchronization assertions for `plan` and `aapp-context`.
 - [ ] `CHANGELOG.md` -> Feature release notes.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `templates/aapp-pre-commit` -> Pre-commit hook evaluation engine is stable.
 - [ ] `lib/plan_resolver.sh` -> Shorthand resolver parsing engine is untouched.
 - [ ] `lib/planning_health.sh` -> Planning health integrity engine is untouched.
 - [ ] `.githooks/*` -> Hook dispatcher entrypoints are untouched.
@@ -154,17 +173,17 @@ Add the **Canonical Planning Invariant** to `## 🏛️ Core Philosophy & Role` 
 
 ## ❓ 5. Open Questions (Optional / Gate)
 
-* [ ] **Question 1: Bare `aapp plan` Output Formatting**
-  - *Context:* When a user runs `aapp plan` in the shell without arguments, should it output only the active context or the full matrix?
-  - *Proposal:* Output a composite status: if an active buffer is set, display the active plan details first; then print the active development count, frozen backlog count, and incubator count from `state_matrix.md`.
-* [ ] **Question 2: Non-Destructive Backward Compatibility for `aapp plan-swap` / `plan-clear`**
-  - *Context:* Many scripts and tests invoke `aapp plan-swap` and `aapp plan-clear`.
-  - *Proposal:* Keep `plan-swap` and `plan-clear` as permanent zero-overhead aliases in `aapp` calling the underlying context routines, ensuring 100% backward compatibility without breaking changes.
-* [ ] **Question 3: `/plan` vs `/aapp-digest` Ergonomics**
-  - *Context:* How does `/plan <idea>` relate to `/aapp-digest <idea>`?
-  - *Proposal:* `/aapp-digest` remains the formal lane router (checking whether an idea is an issue vs. a plan and consuming from `pickup.md`). `/plan <idea>` is the direct IDE shortcut that executes the same canonical blueprint scaffolding flow for developers who type `/plan` instinctively.
+* [x] **Question 1: CLI `aapp plan <id>` Invocation Safety**
+  - *Resolution:* `aapp plan <id>` is strictly read-only inspection. It displays the plan's status, blueprint path, and declared targets, followed by an actionable hint: `ℹ️  To set execution context buffer, run: aapp context <id>`. It never scrambles state or mutates the buffer.
+* [x] **Question 2: Non-Destructive Backward Compatibility for `aapp plan-swap` / `plan-clear`**
+  - *Resolution:* `plan-swap` and `plan-clear` are preserved as permanent zero-overhead aliases in `aapp` calling `context swap` and `context clear`, ensuring 100% backward compatibility.
+* [x] **Question 3: Two-Lane Routing in `/plan <idea>`**
+  - *Resolution:* `/plan <idea>` incorporates the mandatory Step 2 routing check from `/aapp-digest`: bugs in existing code route to `ISSUES.md` first; new capabilities scaffold in `.plans/current/`.
+* [x] **Question 4: Section 2 Protection Scope for `plan` Skill**
+  - *Resolution:* Narrowly protect `.agents/skills/plan` and `.claude/skills/plan` in Section 2 without widening to all `.agents/skills/*`, preserving user autonomy to author custom skills.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-* **2026-09-18:** Plan drafted in `.plans/current/P20-canonical-plan-command-and-context-decoupling.md`. Scaffolds decoupling of execution context buffer (`aapp context`) from canonical blueprint planning (`/plan`, `/aapp-plan`), establishes the Canonical Planning Invariant overriding ephemeral IDE scratchpads, and defines native `/plan` skill bridging.
+* **2026-09-18:** Plan refined to address Red Team findings: inverted priority making `AGENTS.md` prose invariant the primary Tier 1 catch; designed thin shim architecture for `templates/skills/plan/SKILL.md` delegating to `aapp-plan`; extended Section 2 self-protection to protect `plan` from agent tampering; disambiguated `aapp plan <id>` as a read-only inspector directing to `aapp context <id>`; integrated Two-Lane routing into planning workflows; added empirical Phase 0 collision testing; and aligned Blast Radius target files.
+* **2026-09-18:** Plan drafted in `.plans/current/P20-canonical-plan-command-and-context-decoupling.md`.
