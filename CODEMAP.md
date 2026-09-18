@@ -40,8 +40,10 @@
 * **Key Commands:**
   * `aapp freeze-start <plan>` -> Atomic validator, disjointness check, status update (`🟠`), and buffer binding.
   * `aapp start <plan>` -> Activates frozen specification (`🟢`) into development (`🟠`).
-  * `aapp plan [id]` -> Inspects or sets active plan pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).
-  * `aapp plan-swap` / `aapp plan-clear` -> Toggles between current and previous buffer or clears context.
+  * `aapp active [id]` -> Displays or sets active plan pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).
+  * `aapp active swap` / `aapp active clear` -> Toggles between current and previous buffer or clears context.
+  * `aapp plan-status [id]` -> Deterministic read-only inspector for plan matrix or specific blueprint.
+  * `aapp plan [query]` -> Educational planning switchboard guiding users and agents.
   * Disjointness Activation Gate -> Enforces non-overlapping target file sets between concurrent `🟠 In Development` plans.
 * **Anti-Wrapper Warning:** Never manually write to `.git/aapp_active_plan` without going through `cmd_plan.sh`.
 
