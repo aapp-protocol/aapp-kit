@@ -2,7 +2,7 @@
 * **Created:** 2026-09-18 | **Last Refined:** 2026-09-19
 * **Target Issue / Milestone:** None
 * **Plan ID:** P-20
-* **Status:** 🟡 Refining
+* **Status:** 🟠 In Development
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Frozen | 🟠 In Development | 🚫 BLOCKED
      The pre-commit hook and write-guard read this line. A 🟢 Frozen plan is an approved backlog
      specification. An 🟠 In Development plan enforces the locked blast radius during implementation.
@@ -212,6 +212,7 @@ Add the **Canonical Planning Invariant** to `templates/AGENTS.md`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Plan frozen and activated into 🟠 In Development via freeze-start.
 * **2026-09-19:** Adopted `aapp plan-status [id]` as the canonical CLI inspector and made bare `aapp plan [query]` an educational switchboard guiding humans and agents to `plan-status`, `active`, and `/plan`.
 * **2026-09-18:** Question 2 resolved per user decision: rejected backward compatibility aliases (`plan-swap`, `plan-clear`) to eliminate baggage and enforce clean CLI grammar (`aapp active [id|swap|clear]`).
 * **2026-09-18:** Adopted `aapp active` and `/aapp-active` in place of `context` to eliminate cognitive collision with agent token context window and `aapp onboard` project context.
