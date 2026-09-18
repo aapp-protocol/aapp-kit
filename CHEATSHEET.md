@@ -11,6 +11,7 @@ git worktrees — and stops an AI agent from editing files your plan never decla
 
 | You're doing this | Run | What happens |
 | :--- | :--- | :--- |
+| Day 1 in a new repo | `/aapp-digest Onboarding` | Scaffolds blueprint to map codebase into `CODEMAP.md`, `ARCHITECTURE.md`, `PROJECT.MD`. |
 | Just had an idea | jot it in `.plans/pickup.md` | Nothing yet. It's a queue, not a to-do list. |
 | Ready to think it through | `/aapp-digest <idea>` | One idea becomes a blueprint in `.plans/current/`. |
 | Blueprint needs work | edit the plan directly | Fill in §2 Technical Blueprint and §4 Blast Radius. |

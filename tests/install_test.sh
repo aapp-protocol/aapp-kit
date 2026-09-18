@@ -935,6 +935,27 @@ else
 fi
 report "archive ledger: templates/000-archive-ledger.md includes Plan ID column" "PASS" "$got"
 
+# Test 48: templates/pickup.md pre-seeds Onboarding queue item
+template_pickup="$KIT/templates/pickup.md"
+if grep -q '\- \[ \] Onboarding: Inspect repository codebase to populate \.agents/CODEMAP\.md, ARCHITECTURE\.md, and \.agents/PROJECT\.MD' "$template_pickup"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "pickup template: templates/pickup.md pre-seeds Onboarding task" "PASS" "$got"
+
+# Test 49: aapp init outputs First AAPP Loop onboarding next steps
+PROJ="$R/t49_proj"; make_dummy_project "$PROJ"
+make_kit_clone "$PROJ/aapp-kit"
+init_out=$(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1)
+if echo "$init_out" | grep -q "Experience Your First AAPP Loop" && \
+   echo "$init_out" | grep -q "/aapp-digest Onboarding"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "init banner: aapp init outputs First AAPP Loop onboarding guidance" "PASS" "$got"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"

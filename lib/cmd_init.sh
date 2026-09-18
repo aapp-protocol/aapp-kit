@@ -730,3 +730,10 @@ else
     echo "➡️  Branch topology:     Trunk-based ($MAIN_BRANCH)"
 fi
 
+echo ""
+echo "🚀 Next Steps — Experience Your First AAPP Loop:"
+echo "   1. Open your AI agent (Claude Code, Antigravity, Cursor)."
+echo "   2. Run '/aapp-status' (or 'aapp status') to inspect the 4 pillars."
+echo "   3. Run '/aapp-digest Onboarding' to map your codebase into"
+echo "      .agents/CODEMAP.md, ARCHITECTURE.md, and .agents/PROJECT.MD!"
+

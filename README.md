@@ -16,6 +16,7 @@
   * [Option 1: Drop-In Project Setup (Self-Consuming)](#option-1-drop-in-project-setup-self-consuming)
   * [Option 2: Global Installation](#option-2-global-installation)
   * [Option 3: Contributor / Development Setup (`aapp develop`)](#option-3-contributor--development-setup-aapp-develop)
+  * [The First-Run Onboarding Loop (Day 1 Experience)](#the-first-run-onboarding-loop-day-1-experience)
 * [5. Branching Topologies & Adaptive Branch Protection](#5-branching-topologies--adaptive-branch-protection)
   * [Option A: Trunk-Based Development (Single Branch)](#option-a-trunk-based-development-single-branch)
   * [Option B: Dual-Branch Topology (Stable vs. Edge — Recommended)](#option-b-dual-branch-topology-stable-vs-edge--recommended)
@@ -184,6 +185,14 @@ cd aapp-develop-kit
 ```
 
 * **What it does:** Symlinks `~/.local/bin/aapp` and `~/.local/share/aapp-kit` directly to your local clone. All local edits to templates and libraries are **instantly live globally** across your machine without re-copying files or self-consuming.
+
+### The First-Run Onboarding Loop (Day 1 Experience)
+After initializing AAPP in your project, your project architecture files (`.agents/CODEMAP.md`, `ARCHITECTURE.md`, `.agents/PROJECT.MD`) are initialized with starter skeletons. Experience your first complete AAPP loop immediately:
+
+1. **Inspect Pillars**: Open your AI agent and run `/aapp-status` (or `aapp status`). You will see an `Onboarding` item waiting in Pillar 4 (Pickup).
+2. **Digest Blueprint**: Run `/aapp-digest Onboarding`. The agent will draft a blueprint (`P-1`) whose Blast Radius is strictly confined to `.agents/CODEMAP.md`, `ARCHITECTURE.md`, and `.agents/PROJECT.MD`.
+3. **Freeze & Execute**: Run `/aapp-freeze-start P-1`. The agent inspects your codebase (directories, build manifests, dependencies, entrypoints) and populates your architecture maps.
+4. **Archive**: Run `/aapp-done P-1`. The blueprint is permanently archived into `.plans/done/000-archive-ledger.md`. Your repository is now fully mapped and governed!
 
 ---
 

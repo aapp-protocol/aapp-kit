@@ -30,6 +30,7 @@
   * [Mid-Execution Issue Escape Triage](#mid-execution-issue-escape-triage)
 * [5. AAPP State Machine & Lifecycle Commands](#5-aapp-state-machine--lifecycle-commands)
   * [The Lifecycle Pipeline](#the-lifecycle-pipeline)
+  * [Repository Onboarding (The Day 1 Loop)](#repository-onboarding-the-day-1-loop)
   * [Command Reference (Universal Skills)](#command-reference-universal-skills)
   * [Token Management & Context Efficiency](#token-management--context-efficiency)
 * [6. Agent & IDE Integration Guide](#6-agent--ide-integration-guide)
@@ -532,6 +533,21 @@ If an agent discovers an unexpected bug while executing a frozen plan:
   │            │        │ 🟡 Refined  │        │  (Execution) │        │  done/    │
   └────────────┘        └─────────────┘        └──────────────┘        └───────────┘
 ```
+
+### Repository Onboarding (The Day 1 Loop)
+
+When adopting AAPP in an existing codebase or initializing a fresh repository, AAPP intentionally avoids unconstrained setup wizards or external scripts that bypass the planning engine. Instead, onboarding is executed as a **real AAPP blueprint** under a locked Blast Radius:
+
+1. **Initial Seed**: Running `aapp init` pre-seeds `.plans/pickup.md` with:
+   ```markdown
+   - [ ] Onboarding: Inspect repository codebase to populate .agents/CODEMAP.md, ARCHITECTURE.md, and .agents/PROJECT.MD
+   ```
+2. **Context Discovery**: Opening your AI agent and running `/aapp-status` (or `aapp status`) immediately reports the queued `Onboarding` item in Pillar 4 (Pickup).
+3. **Blueprint Scaffolding**: Running `/aapp-digest Onboarding` drafts a blueprint whose Target Files are strictly confined to `.agents/CODEMAP.md`, `ARCHITECTURE.md`, and `.agents/PROJECT.MD`.
+4. **Execution & Self-Cleanup**: Running `/aapp-freeze-start <plan>` greenlights the agent to inspect the codebase (directories, manifests, entrypoints) and replace the generic template placeholders with real project context.
+5. **Archival**: Running `/aapp-done <plan>` archives the completed plan to `.plans/done/000-archive-ledger.md`.
+
+Within minutes, both the developer and the agent have experienced the entire 4-pillar lifecycle loop on real repository code.
 
 ---
 

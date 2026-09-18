@@ -201,6 +201,13 @@ The agent must support and execute these shorthand workflow triggers immediately
 
   > **`digest` produces a draft, never a green light.** The output is an Incubator entry to be refined. Only `freeze` makes a plan executable.
 
+### 🗺️ First-Run Repository Onboarding (Day 1 Experience)
+When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` contains an initial `Onboarding` queue item:
+1. **Trigger**: The user runs `/aapp-status` (or `status`) and sees `Onboarding` in Pillar 4 (Pickup), then runs `/aapp-digest Onboarding`.
+2. **Target Files**: The onboarding blueprint confines modifications strictly to `.agents/CODEMAP.md`, `ARCHITECTURE.md`, and `.agents/PROJECT.MD`.
+3. **Execution**: The agent inspects the codebase (directory layout, build manifests, dependencies, primary entrypoints) and replaces generic template placeholders (`[Module 1: Name & Path]`, `[What the application does]`, `[Project Name]`) with actual module ownership, exported APIs, runtime rules, and active milestone tracks.
+4. **Completion**: Running `/aapp-done <plan>` archives the blueprint and establishes the canonical codemap and architecture foundation for all subsequent agent work.
+
 - **`freeze-start <plan>` (or `/aapp-freeze-start <plan>`, `aapp freeze-start <plan>`)**: The atomic workflow accelerator.
   1. Validates open questions (`[x]`) and explicit Target Files.
   2. Runs the Disjointness Activation Gate: verifies zero overlapping Target Files with other in-flight (`🟠 In Development`) blueprints in the same workspace.
