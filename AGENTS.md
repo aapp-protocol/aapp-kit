@@ -7,6 +7,7 @@ See `.agents/CODEMAP.md` (or `CODEMAP.md` at the repo root) before assuming wher
 ## 🏛️ Core Philosophy & Role
 - Prioritize clean, low-dependency, and high-performance design.
 - Maintain a single source of truth for paths, state, and configuration.
+- Enforce strict repository portability: never write absolute machine paths or `file://` URIs into project files.
 
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOM RULES OUTSIDE. -->
@@ -20,6 +21,11 @@ See `.agents/CODEMAP.md` (or `CODEMAP.md` at the repo root) before assuming wher
 ---
 
 ## 🛡️ Git Commit & Workflow Rule
+
+### 🌐 Portability & Relative Path Invariant (Zero Machine-Specific `file://` URIs)
+- **Relative paths only**: All paths written into repository files (`.plans/*`, `.agents/*`, `README.md`, `MANUAL.md`, templates, source code, and commit messages) MUST be repository-relative or plain backticked basenames.
+- **Strictly forbidden in tracked files**: Machine-specific absolute paths (e.g. `/home/user/...`, `/Users/user/...`, `C:\...`) and `file:///` URI schemes are strictly prohibited. They break portability across clones, corrupt web links on GitHub/GitLab, and leak local filesystem paths.
+- **Chat vs. Workspace Boundary**: AI IDE instructions requiring clickable `file://` links apply **exclusively to conversational chat output** presented in the IDE interface. They must **never** bleed into files written to the workspace. The pre-commit hook mechanically rejects any commit introducing `file:///` URIs or absolute home paths into tracked files.
 
 ### ✍️ AI Attribution Switchboard & Commit Standards
 
