@@ -73,15 +73,15 @@ When adopting AAPP in an existing codebase, `.plans/pickup.md` contains an initi
 
 Document the first-run onboarding workflow across three public surfaces:
 
-1. **[`README.md`](file:///home/lorand/000/agent-planning-kit/README.md)**:
+1. **`README.md`**:
    - In Section 4 (*Quick Start & Distribution Modes*), add a dedicated subsection:
      `### 🚀 The First-Run Onboarding Loop (Day 1 Experience)`
    - Explains the 4-step walk-through (`/aapp-status` → `/aapp-digest Onboarding` → `/aapp-freeze-start` → `/aapp-done`).
-2. **[`MANUAL.md`](file:///home/lorand/000/agent-planning-kit/MANUAL.md)**:
+2. **`MANUAL.md`**:
    - In Section 5 (*AAPP State Machine & Lifecycle Commands*), under `### The Lifecycle Pipeline`, add:
      `#### Repository Onboarding (The Day 1 Loop)`
    - Documents the rationale: why onboarding runs as a real blueprint under a locked Blast Radius rather than a hidden CLI wizard.
-3. **[`CHEATSHEET.md`](file:///home/lorand/000/agent-planning-kit/CHEATSHEET.md)**:
+3. **`CHEATSHEET.md`**:
    - In the `## The loop` table, add a dedicated row:
      `| Day 1 in a new repo | /aapp-digest Onboarding | Maps your codebase into CODEMAP.md, ARCHITECTURE.md, PROJECT.MD |`
 
