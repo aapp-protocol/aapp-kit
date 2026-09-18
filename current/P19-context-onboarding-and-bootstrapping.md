@@ -2,7 +2,7 @@
 * **Created:** 2026-09-18 | **Last Refined:** 2026-09-18
 * **Target Issue / Milestone:** None
 * **Plan ID:** P-19
-* **Status:** 🟡 Refining
+* **Status:** 🟠 In Development
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Frozen | 🟠 In Development | 🚫 BLOCKED
      The pre-commit hook and write-guard read this line. A 🟢 Frozen plan is an approved backlog
      specification. An 🟠 In Development plan enforces the locked blast radius during implementation.
@@ -134,5 +134,6 @@ Document the first-run onboarding workflow across three public surfaces:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-18:** Plan frozen and activated into 🟠 In Development via freeze-start.
 * **2026-09-18:** Plan drafted in `.plans/current/P19-context-onboarding-and-bootstrapping.md`.
 * **2026-09-18:** Refined blueprint from a separate `aapp onboard` CLI command to native pickup queue ingestion (`/aapp-digest Onboarding`), preserving zero-bloat CLI minimalism and providing Day 1 hands-on protocol experience.
