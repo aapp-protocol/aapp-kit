@@ -26,9 +26,10 @@
 In AAPP v1.0.0 / P-17, the flagless switchboard introduced `aapp plan [id]`, `aapp plan-swap`, and `aapp plan-clear` to manage the local worktree active plan buffer (`.git/aapp_active_plan`). While mechanically effective, this architecture suffers from two severe usability and structural problems:
 
 1. **Semantic Misalignment & Silent Meaning Reversal**:
-   - The verb `plan` implies authoring, reviewing, or tracking plans. Using `aapp plan <id>` to set an execution buffer causes severe cognitive friction.
-   - If `aapp plan <arg>` is repurposed without care, running `aapp plan P-15` silently reverses meaning from "switch buffer" to "scaffold/amend a plan", breaking muscle memory and existing scripts.
-   - Using the term `context` was considered, but in agentic development "context" is heavily overloaded with the agent's token context window and project codebase context (`aapp onboard`). The term **`active`** directly reflects `.git/aapp_active_plan`, maps to `🟠 Active / In Development`, and is immediately self-explanatory (`aapp active`, `aapp active P-15`, `aapp active clear`).
+   - The verb `plan` implies authoring, reviewing, or tracking plans. Using `aapp plan <id>` to set an execution buffer causes cognitive friction.
+   - If `aapp plan <arg>` is repurposed without care, running `aapp plan P-15` silently reverses meaning from "switch buffer" to "scaffold/amend a plan".
+   - The term **`active`** directly reflects `.git/aapp_active_plan`, maps cleanly to `🟠 Active / In Development`, and avoids cognitive collision with the agent's token context window and project codebase context.
+   - Because AAPP does not yet have external adopters in the wild, **no backward compatibility aliases (`plan-swap`, `plan-clear`) are retained**. Unnecessary alias baggage is cleanly eliminated; buffer operations exclusively use `aapp active [id|swap|clear]`.
 2. **The Ephemeral IDE Scratchpad Trap**:
    - AI IDEs (such as Antigravity IDE and Cursor) feature built-in planning modes (e.g. `/plan`) that output implementation plans into proprietary, ephemeral cache directories (such as `~/.gemini/antigravity-ide/brain/<conv-id>/implementation_plan.md`).
    - These internal scratchpads cannot be shared with other agents (Claude Code, Cursor, Codex, team members), are wiped when conversation context resets, lack deterministic Git-level Blast Radius enforcement, and are never permanently banked in the project's historical archive ledger (`000-archive-ledger.md`).
@@ -56,11 +57,7 @@ aapp active <plan-id>    # Designate active execution plan in .git/aapp_active_p
 aapp active swap         # Swap between active and previous buffer (.prev)
 aapp active clear        # Clear buffer (revert to auto-discovery)
 
-# 2. Backwards-Compatible Aliases (Preserved Permanently)
-aapp plan-swap           # Alias for 'aapp active swap'
-aapp plan-clear          # Alias for 'aapp active clear'
-
-# 3. Read-Only Planning Inspection (Zero Silent Breakage)
+# 2. Read-Only Planning Inspection (Zero Silent Breakage)
 aapp plan                # Displays active plan + overview of in-dev/backlog/incubator
 aapp plan <plan-id>      # Read-only inspection of <plan-id> with guidance:
                          # "ℹ️  To set execution buffer, run: aapp active <id>"
@@ -121,7 +118,7 @@ Add the **Canonical Planning Invariant** to `templates/AGENTS.md`:
 ### Phase 2: Active Plan Switchboard & CLI Ergonomics
 - [ ] Task 2.1: Update `lib/cmd_plan.sh` to implement `aapp active [id|swap|clear]`.
 - [ ] Task 2.2: Make `aapp plan <id>` a read-only inspector displaying blueprint metadata and printing an actionable diagnostic pointer to `aapp active <id>`.
-- [ ] Task 2.3: Preserve `aapp plan-swap` and `aapp plan-clear` as permanent backward-compatible aliases.
+- [ ] Task 2.3: Cleanly retire `plan-swap` and `plan-clear` from `aapp` dispatcher and `lib/cmd_plan.sh` without keeping deprecated alias baggage.
 - [ ] Task 2.4: Update `aapp` dispatcher and `lib/cmd_help.sh` documenting `aapp active`.
 
 ### Phase 3: Universal Skills & Thin Shim Bridging
@@ -136,10 +133,11 @@ Add the **Canonical Planning Invariant** to `templates/AGENTS.md`:
 - [ ] Task 4.3: Update `README.md`, `MANUAL.md`, and `CHEATSHEET.md`.
 
 ### Phase 5: Automated Verification & Test Coverage
-- [ ] Task 5.1: Update `tests/write-guard_test.sh` for `aapp active` verbs and `plan` skill protection.
-- [ ] Task 5.2: Update `tests/install_test.sh` asserting `aapp-active` and `plan` skill sync and Claude bridging.
-- [ ] Task 5.3: Run full automated regression suite (all test suites and planning health).
-- [ ] Task 5.4: Record release notes in `CHANGELOG.md`.
+- [ ] Task 5.1: Update `tests/write-guard_test.sh` for `aapp active [id|swap|clear]` verbs and `plan` skill protection.
+- [ ] Task 5.2: Update `tests/pre-commit_test.sh` to migrate `plan` buffer tests to `aapp active [id|swap]`.
+- [ ] Task 5.3: Update `tests/install_test.sh` asserting `aapp-active` and `plan` skill sync and Claude bridging.
+- [ ] Task 5.4: Run full automated regression suite (all test suites and planning health).
+- [ ] Task 5.5: Record release notes in `CHANGELOG.md`.
 
 ---
 
@@ -148,8 +146,8 @@ Add the **Canonical Planning Invariant** to `templates/AGENTS.md`:
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `templates/blast-radius-guard.sh` -> Protect `plan` skill in Section 2 self-protection.
 - [ ] `templates/aapp-pre-commit` -> Protect `plan` skill in Section 2 self-protection.
-- [ ] `lib/cmd_plan.sh` -> Support `aapp active` verbs, read-only `aapp plan [id]`, and aliases.
-- [ ] `aapp` -> CLI router updates for `active`.
+- [ ] `lib/cmd_plan.sh` -> Support `aapp active` verbs, read-only `aapp plan [id]`, and remove aliases.
+- [ ] `aapp` -> CLI router updates for `active` and removal of `plan-swap`/`plan-clear`.
 - [ ] `lib/cmd_help.sh` -> CLI help output updates.
 - [ ] `lib/cmd_init.sh` -> Update `sync_skills` to bridge `plan` alongside `aapp-*`.
 - [ ] `templates/skills/aapp-active/SKILL.md` -> NEW FILE: Active execution buffer switchboard (`/aapp-active`).
@@ -162,6 +160,7 @@ Add the **Canonical Planning Invariant** to `templates/AGENTS.md`:
 - [ ] `MANUAL.md` -> Document active buffer decoupling and collision coverage in Chapter 5.
 - [ ] `CHEATSHEET.md` -> Command reference table updates.
 - [ ] `tests/write-guard_test.sh` -> Active buffer switchboard and Section 2 protection tests.
+- [ ] `tests/pre-commit_test.sh` -> Migrate buffer test assertions to `aapp active`.
 - [ ] `tests/install_test.sh` -> Skill synchronization assertions for `plan` and `aapp-active`.
 - [ ] `CHANGELOG.md` -> Feature release notes.
 
@@ -177,7 +176,7 @@ Add the **Canonical Planning Invariant** to `templates/AGENTS.md`:
 * [x] **Question 1: CLI `aapp plan <id>` Invocation Safety**
   - *Resolution:* `aapp plan <id>` is strictly read-only inspection. It displays the plan's status, blueprint path, and declared targets, followed by an actionable hint: `ℹ️  To set execution buffer, run: aapp active <id>`. It never scrambles state or mutates the buffer.
 * [x] **Question 2: Non-Destructive Backward Compatibility for `aapp plan-swap` / `plan-clear`**
-  - *Resolution:* `plan-swap` and `plan-clear` are preserved as permanent zero-overhead aliases in `aapp` calling `active swap` and `active clear`, ensuring 100% backward compatibility.
+  - *Resolution:* No backward compatibility or legacy aliases (`plan-swap`, `plan-clear`) are retained. As AAPP does not yet have adopters in the wild, clean design without deprecated alias baggage is strictly preferred. All active plan buffer operations exclusively use `aapp active [id|swap|clear]`.
 * [x] **Question 3: Two-Lane Routing in `/plan <idea>`**
   - *Resolution:* `/plan <idea>` incorporates the mandatory Step 2 routing check from `/aapp-digest`: bugs in existing code route to `ISSUES.md` first; new capabilities scaffold in `.plans/current/`.
 * [x] **Question 4: Section 2 Protection Scope for `plan` Skill**
@@ -186,6 +185,7 @@ Add the **Canonical Planning Invariant** to `templates/AGENTS.md`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-18:** Question 2 resolved per user decision: rejected backward compatibility aliases (`plan-swap`, `plan-clear`) to eliminate baggage and enforce clean CLI grammar (`aapp active [id|swap|clear]`).
 * **2026-09-18:** Adopted `aapp active` and `/aapp-active` in place of `context` to eliminate cognitive collision with agent token context window and `aapp onboard` project context.
 * **2026-09-18:** Plan refined to address Red Team findings: inverted priority making `AGENTS.md` prose invariant the primary Tier 1 catch; designed thin shim architecture for `templates/skills/plan/SKILL.md` delegating to `aapp-plan`; extended Section 2 self-protection to protect `plan` from agent tampering; disambiguated `aapp plan <id>` as a read-only inspector directing to `aapp active <id>`; integrated Two-Lane routing into planning workflows; added empirical Phase 0 collision testing; and aligned Blast Radius target files.
 * **2026-09-18:** Plan drafted in `.plans/current/P20-canonical-plan-command-and-context-decoupling.md`.
