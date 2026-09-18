@@ -135,36 +135,36 @@ Add the **Canonical Planning Invariant** to `templates/AGENTS.md`:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 0: Empirical Collision Verification
-- [ ] Task 0.1: Empirically verify tool precedence for workspace skills named `plan` across Claude Code, Antigravity, and Cursor. Document known coverage in `MANUAL.md`.
+- [x] Task 0.1: Empirically verify tool precedence for workspace skills named `plan` across Claude Code, Antigravity, and Cursor. Document known coverage in `MANUAL.md`.
 
 ### Phase 1: Guard Section 2 Self-Protection Extension
-- [ ] Task 1.1: Add `.agents/skills/plan` and `.claude/skills/plan` to Section 2 self-protection in `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit`.
-- [ ] Task 1.2: Add regression test in `tests/write-guard_test.sh` asserting write denial on `plan/SKILL.md`.
+- [x] Task 1.1: Add `.agents/skills/plan` and `.claude/skills/plan` to Section 2 self-protection in `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit`.
+- [x] Task 1.2: Add regression test in `tests/write-guard_test.sh` asserting write denial on `plan/SKILL.md`.
 
 ### Phase 2: Active Plan Switchboard & CLI Ergonomics
-- [ ] Task 2.1: Update `lib/cmd_plan.sh` to implement `aapp active [id|swap|clear]`.
-- [ ] Task 2.2: Implement `aapp plan-status [id]` in `lib/cmd_plan.sh` as the deterministic read-only inspector.
-- [ ] Task 2.3: Implement bare `aapp plan [query]` as the educational switchboard guiding users and agents.
-- [ ] Task 2.4: Cleanly retire `plan-swap` and `plan-clear` from `aapp` dispatcher and `lib/cmd_plan.sh`.
-- [ ] Task 2.5: Update `aapp` dispatcher and `lib/cmd_help.sh` documenting `active`, `plan-status`, and `plan`.
+- [x] Task 2.1: Update `lib/cmd_plan.sh` to implement `aapp active [id|swap|clear]`.
+- [x] Task 2.2: Implement `aapp plan-status [id]` in `lib/cmd_plan.sh` as the deterministic read-only inspector.
+- [x] Task 2.3: Implement bare `aapp plan [query]` as the educational switchboard guiding users and agents.
+- [x] Task 2.4: Cleanly retire `plan-swap` and `plan-clear` from `aapp` dispatcher and `lib/cmd_plan.sh`.
+- [x] Task 2.5: Update `aapp` dispatcher and `lib/cmd_help.sh` documenting `active`, `plan-status`, and `plan`.
 
 ### Phase 3: Universal Skills & Thin Shim Bridging
-- [ ] Task 3.1: Author `templates/skills/aapp-active/SKILL.md` for active buffer management (`/aapp-active`).
-- [ ] Task 3.2: Update `templates/skills/aapp-plan/SKILL.md` with two-lane routing and visible artifact guidance.
-- [ ] Task 3.3: Author `templates/skills/plan/SKILL.md` as a thin shim pointing to `aapp-plan`.
-- [ ] Task 3.4: Update `lib/cmd_init.sh` (`sync_skills`) to synchronize both `aapp-*` skills and the `plan` shim to `.agents/skills/` and `.claude/skills/`.
+- [x] Task 3.1: Author `templates/skills/aapp-active/SKILL.md` for active buffer management (`/aapp-active`).
+- [x] Task 3.2: Update `templates/skills/aapp-plan/SKILL.md` with two-lane routing and visible artifact guidance.
+- [x] Task 3.3: Author `templates/skills/plan/SKILL.md` as a thin shim pointing to `aapp-plan`.
+- [x] Task 3.4: Update `lib/cmd_init.sh` (`sync_skills`) to synchronize both `aapp-*` skills and the `plan` shim to `.agents/skills/` and `.claude/skills/`.
 
 ### Phase 4: Agent Governance & Documentation
-- [ ] Task 4.1: Add Canonical Planning Invariant to `templates/AGENTS.md`.
-- [ ] Task 4.2: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` with `active`, `plan-status`, and `plan` contracts.
-- [ ] Task 4.3: Update `README.md`, `MANUAL.md`, and `CHEATSHEET.md`.
+- [x] Task 4.1: Add Canonical Planning Invariant to `templates/AGENTS.md`.
+- [x] Task 4.2: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` with `active`, `plan-status`, and `plan` contracts.
+- [x] Task 4.3: Update `README.md`, `MANUAL.md`, and `CHEATSHEET.md`.
 
 ### Phase 5: Automated Verification & Test Coverage
-- [ ] Task 5.1: Update `tests/write-guard_test.sh` for `aapp active [id|swap|clear]` verbs, `plan-status`, and `plan` skill protection.
-- [ ] Task 5.2: Update `tests/pre-commit_test.sh` to migrate buffer test assertions from `plan-swap` to `aapp active swap`.
-- [ ] Task 5.3: Update `tests/install_test.sh` asserting `aapp-active` and `plan` skill sync and Claude bridging.
-- [ ] Task 5.4: Run full automated regression suite (all test suites and planning health).
-- [ ] Task 5.5: Record release notes in `CHANGELOG.md`.
+- [x] Task 5.1: Update `tests/write-guard_test.sh` for `aapp active [id|swap|clear]` verbs, `plan-status`, and `plan` skill protection.
+- [x] Task 5.2: Update `tests/pre-commit_test.sh` to migrate buffer test assertions from `plan-swap` to `aapp active swap`.
+- [x] Task 5.3: Update `tests/install_test.sh` asserting `aapp-active` and `plan` skill sync and Claude bridging.
+- [x] Task 5.4: Run full automated regression suite (all test suites and planning health).
+- [x] Task 5.5: Record release notes in `CHANGELOG.md`.
 
 ---
 
