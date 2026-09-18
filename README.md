@@ -318,7 +318,7 @@ Every plan in `.plans/current/<name>.md` defines strict boundaries:
 
 ```markdown
 # 🗺️ Plan: Authentication Refactor
-* **Status:** 🟢 Ready for Execution
+* **Status:** 🔷 Ready for Execution
 
 ## 💥 3. Blast Radius & System Boundaries
 

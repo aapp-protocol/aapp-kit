@@ -568,7 +568,7 @@ Ingests a single idea from `pickup.md` or raw text:
 - Routes to Issue Lane (`ISSUES.md`) or Plan Lane (`.plans/current/`).
 - Decides whether to **NEW** (scaffold fresh plan) or **AMEND** (fold into existing plan).
 - Cross-references `CODEMAP.md` and `ARCHITECTURE.md`.
-- Formulates `Open Questions` and leaves status in the Incubator (`🔴 Draft`).
+- Formulates `Open Questions` and leaves status in the Incubator (`🟣 Draft`).
 *Runs inline to read chat notes and interactively query the developer.*
 
 #### `/aapp-freeze <plan>` (or `freeze <plan>`, `/freeze`) — Boundary Lock & Backlog Placement
@@ -577,9 +577,9 @@ Transitions a refined blueprint into the Greenlight Backlog:
 - Rejects issue references (`#9`) with helpful guidance to preserve lane separation.
 - Verifies all Open Questions are answered.
 - Validates explicit `### 📂 Target Files` and `### 🛑 Out of Bounds` (enforcing Pair 5 self-protection).
-- Changes status to `🟢 Frozen` (or `🟢 Ready for Execution`) and marks Blast Radius `LOCKED`.
+- Changes status to `🔷 Frozen` (or `🔷 Ready for Execution`) and marks Blast Radius `LOCKED`.
 - **Design-Lock Immutability**: Once frozen, the plan's specification (`## 2. Technical Blueprint`) and allowlist (`## 4. Blast Radius`) become immutable. Pre-commit strictly refuses commits altering these sections. Execution progress (`## 3.` task checkboxes, `## 5.` open questions, and `## 6.` change log) remains writable.
-- **Unfreezing**: To revise a frozen design, revert the plan's status back to `🟡 Refining` in an explicit commit before amending the blueprint.
+- **Unfreezing**: To revise a frozen design, revert the plan's status back to `🟠 Refining` in an explicit commit before amending the blueprint.
 *Safety: Model invocation disabled (`disable-model-invocation: true`).*
 
 #### `/aapp-freeze-start <plan>` (or `aapp freeze-start <plan>`) — Atomic Workflow Accelerator

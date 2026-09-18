@@ -365,7 +365,7 @@ fi
 for pf in "$PLANS_DIR"/current/*.md; do
     [ ! -f "$pf" ] && continue
     case "$(basename "$pf")" in 000-*) continue ;; esac
-    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|BLOCKED)' "$pf" 2>/dev/null; then
+    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|🟥|BLOCKED)' "$pf" 2>/dev/null; then
         BLOCKED_TARGETS=()
         while IFS= read -r ITEM; do
             [ -n "$ITEM" ] && BLOCKED_TARGETS+=("$ITEM")
@@ -423,7 +423,7 @@ else
         for pf in "$PLANS_DIR"/current/*.md; do
             [ ! -f "$pf" ] && continue
             case "$(basename "$pf")" in 000-*) continue ;; esac
-            if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟢|Frozen|Ready for Execution)' "$pf" 2>/dev/null; then
+            if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟢|🔷|Frozen|Ready for Execution)' "$pf" 2>/dev/null; then
                 has_frozen_plans=1
                 break
             fi
@@ -445,7 +445,7 @@ else
 fi
 
 # 4. Enforce Boundaries for Active Plan
-if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|BLOCKED)' "$ACTIVE_PLAN_PATH"; then
+if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|🟥|BLOCKED)' "$ACTIVE_PLAN_PATH"; then
     deny_action "Active plan '$(basename "$ACTIVE_PLAN_PATH")' is BLOCKED. All modifications are refused."
 fi
 

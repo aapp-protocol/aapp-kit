@@ -2,8 +2,8 @@
 
 * **Created:** 2026-09-07 | **Last Refined:** 2026-09-07
 * **Target Issue / Milestone:** —
-* **Status:** 🟢 Ready for Execution
-<!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
+* **Status:** 🔷 Ready for Execution
+<!-- Status must be exactly ONE of: 🟣 Under Review | 🟠 Refining | 🔷 Ready for Execution | 🟥 BLOCKED -->
 
 ---
 
@@ -68,7 +68,7 @@ whether it is allowed does not.
   - [x] Synchronize Table of Contents and relative anchors
 - [x] **Phase 5: Archival & Reference Example**
   - [x] Move frozen blueprint to `examples/example-plan-distribution-rework.md`
-  - [x] Update status to `🟢 Ready for Execution` as canonical reference blueprint
+  - [x] Update status to `🔷 Ready for Execution` as canonical reference blueprint
 
 ---
 

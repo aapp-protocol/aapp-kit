@@ -13,7 +13,7 @@ Activate an approved, frozen blueprint from the backlog into active implementati
 
 ### Step 1: Disjointness Check & Activation
 1. **Resolve Blueprint:** Resolve `<plan>` using `resolve_plan_path <plan> start current` (or Plan ID / slug).
-2. **Verify Status:** Verify that the blueprint is in `🟢 Frozen` (or `🟢 Ready for Execution`) status.
+2. **Verify Status:** Verify that the blueprint is in `🔷 Frozen` (or `🔷 Ready for Execution`) status.
 3. **Disjointness Activation Gate:** Ensure no other plan currently in `🟠 In Development` in the same workspace shares overlapping Target Files.
 4. **Transition Header:** Update plan header:
    ```markdown

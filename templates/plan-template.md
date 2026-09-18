@@ -2,9 +2,9 @@
 * **Created:** [YYYY-MM-DD] | **Last Refined:** [YYYY-MM-DD]
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-XX
-* **Status:** 🔴 Under Review
-<!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Frozen | 🟠 In Development | 🚫 BLOCKED
-     The pre-commit hook and write-guard read this line. A 🟢 Frozen plan is an approved backlog
+* **Status:** 🟣 Under Review
+<!-- Status must be exactly ONE of: 🟣 Under Review | 🟠 Refining | 🔷 Frozen | 🟠 In Development | 🟥 BLOCKED
+     The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. An 🟠 In Development plan enforces the locked blast radius during implementation.
      A plan whose Status says BLOCKED grants no commit rights at all. -->
 <!-- * **Blocked On:** ISSUE-00X   <- add this line while BLOCKED, remove it when unblocked -->
@@ -16,7 +16,7 @@
 > 4. **Mid-Execution Bugs**:
 >    - *Non-blocking*: Log in `.plans/ISSUES.md` and continue your plan.
 >    - *Blocking & small*: Add file under `### 🚨 Emergency Hotfix Extensions` with a 1-sentence justification.
->    - *Blocking & substantial*: Set status to `🚫 BLOCKED`, stop, and ask the user.
+>    - *Blocking & substantial*: Set status to `🟥 BLOCKED`, stop, and ask the user.
 > 5. **Architecture & Codemap Sync**: If your implementation introduces new files, functions, CLI verbs, or alters architectural boundaries, you **must** update `ARCHITECTURE.md` and `.agents/CODEMAP.md` (or repo-root `CODEMAP.md`). Both files are always-allowed workspace invariants.
 
 ---

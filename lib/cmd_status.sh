@@ -126,7 +126,7 @@ if [ -d ".plans/current" ]; then
     HAS_PLANS=0
     while IFS= read -r -d '' P; do
         BASENAME="$(basename "$P")"
-        STATUS="$(grep -m 1 -E '^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*' "$P" 2>/dev/null || echo "* **Status:** 🟡 Active")"
+        STATUS="$(grep -m 1 -E '^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*' "$P" 2>/dev/null || echo "* **Status:** 🟣 Active")"
         STATUS_CLEAN="$(echo "$STATUS" | sed -E 's/^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*[[:space:]]*//')"
         PLAN_ID=""
         if command -v get_plan_id >/dev/null 2>&1; then

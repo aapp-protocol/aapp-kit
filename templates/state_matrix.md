@@ -12,8 +12,8 @@ This document is the central dashboard for all active ideas, drafts, ready plans
 
 ## 🚦 Recommended Implementation Roadmap
 
-1. 🟢 **P-1: [Core Foundation Blueprint](current/P1-approved-feature.md)**
-2. 🟡 **P-2: [Secondary Feature](current/P2-feature-name.md)**
+1. 🔷 **P-1: [Core Foundation Blueprint](current/P1-approved-feature.md)**
+2. 🟠 **P-2: [Secondary Feature](current/P2-feature-name.md)**
 
 ---
 
@@ -35,12 +35,12 @@ This document is the central dashboard for all active ideas, drafts, ready plans
 
 ---
 
-## 🟢 2b. Frozen Backlog (Approved Specifications)
+## 🔷 2b. Frozen Backlog (Approved Specifications)
 *Blueprints where architecture, blast radius, and interfaces are locked down. Approved for implementation, but not yet active in development.*
 
 * [ ] **P-3: [Approved Feature](current/P3-approved-feature.md)**
   * *Target Files:* `src/path/to/other.ext`
-  * *Status:* 🟢 Frozen. Ready to activate via `aapp start P-3`.
+  * *Status:* 🔷 Frozen. Ready to activate via `aapp start P-3`.
 
 ---
 

@@ -229,7 +229,7 @@ check_pair3_pickup_routing() {
     [ -f "$archive_file" ] && archive_ids=$(get_archived_issue_ids "$archive_file")
 
     # Look for list items in pickup whose title explicitly drafts an issue
-    local issue_bullet_regex='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*(\*\*)?[[:alnum:][:space:]]*(🔴|🟠|🟡|🟢)?[[:space:]]*(#|ISSUE-)[0-9]+'
+    local issue_bullet_regex='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*(\*\*)?[[:alnum:][:space:]]*(🔴|🟠|🟡|🟢|🟣|🔷|🟥)?[[:space:]]*(#|ISSUE-)[0-9]+'
     while IFS= read -r line; do
         local raw_title
         raw_title=$(echo "$line" | cut -d: -f1)

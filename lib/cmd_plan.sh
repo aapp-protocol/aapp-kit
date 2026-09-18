@@ -195,7 +195,7 @@ cmd_freeze_start() {
     # Update state matrix if present
     local sm_file="$PLANS_DIR/state_matrix.md"
     if [ -f "$sm_file" ]; then
-        sed -i -E "/$plan_id/s/🔴|🟡|🟢/🟠/g" "$sm_file"
+        sed -i -E "/$plan_id/s/🔴|🟡|🟢|🟣|🔷/🟠/g" "$sm_file"
     fi
 
     # Write buffer
@@ -221,7 +221,7 @@ cmd_start() {
     # Verify status is 🟢 Frozen / Ready for Execution or already 🟠
     local cur_status
     cur_status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$plan_file" | head -n 1 || true)"
-    if ! echo "$cur_status" | grep -qE '🟢|Ready for Execution|Frozen|🟠|In Development'; then
+    if ! echo "$cur_status" | grep -qE '🟢|🔷|Ready for Execution|Frozen|🟠|In Development'; then
         echo "❌ [Start Refusal] Plan is not frozen (current status: $cur_status)." >&2
         echo "   Freeze the plan first with 'aapp freeze $query' or run 'aapp freeze-start $query'." >&2
         exit 1
@@ -246,7 +246,7 @@ cmd_start() {
 
     local sm_file="$PLANS_DIR/state_matrix.md"
     if [ -f "$sm_file" ]; then
-        sed -i -E "/$plan_id/s/🔴|🟡|🟢/🟠/g" "$sm_file"
+        sed -i -E "/$plan_id/s/🔴|🟡|🟢|🟣|🔷/🟠/g" "$sm_file"
     fi
 
     write_active_buffer "$plan_id"
@@ -442,7 +442,7 @@ cmd_plan_status() {
 
         if echo "$status" | grep -qE '🟠|In Development'; then
             in_dev+=("$pid ($(basename "$pf"))")
-        elif echo "$status" | grep -qE '🟢|Ready for Execution|Frozen'; then
+        elif echo "$status" | grep -qE '🟢|🔷|Ready for Execution|Frozen'; then
             frozen+=("$pid ($(basename "$pf"))")
         else
             incubator+=("$pid ($(basename "$pf"))")
@@ -452,10 +452,10 @@ cmd_plan_status() {
     echo "   🟠 In Development : ${#in_dev[@]}"
     for item in "${in_dev[@]}"; do echo "      • $item"; done
 
-    echo "   🟢 Frozen Backlog : ${#frozen[@]}"
+    echo "   🔷 Frozen Backlog : ${#frozen[@]}"
     for item in "${frozen[@]}"; do echo "      • $item"; done
 
-    echo "   🟡 Incubator      : ${#incubator[@]}"
+    echo "   🟣 Incubator      : ${#incubator[@]}"
     for item in "${incubator[@]}"; do echo "      • $item"; done
 
     if [ -f "$ACTIVE_FILE" ]; then

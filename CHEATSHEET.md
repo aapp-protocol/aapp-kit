@@ -53,10 +53,10 @@ Four pillars — what `aapp status` reads:
 ## Plan status — these five words only
 
 ```
-🔴 Under Review  →  🟡 Refining  →  🟢 Frozen  →  🟠 In Development      🚫 BLOCKED
+🟣 Under Review  →  🟠 Refining  →  🔷 Frozen  →  🟠 In Development      🟥 BLOCKED
 ```
 
-`🚫 BLOCKED` withdraws all commit rights for that plan.
+`🟥 BLOCKED` withdraws all commit rights for that plan.
 
 ---
 
