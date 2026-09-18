@@ -2,8 +2,8 @@
 * **Created:** 2026-09-16 | **Last Refined:** 2026-09-16
 * **Target Issue / Milestone:** Cross-agent review workflow (Layer 6 + reference plugin)
 * **Plan ID:** P-15
-* **Status:** 🔴 Under Review
-<!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
+* **Status:** 🟣 Under Review
+<!-- Status must be exactly ONE of: 🟣 Under Review | 🟠 Refining | 🔷 Ready for Execution | 🟥 BLOCKED -->
 
 > ### ✏️ THIS IS A SKETCH — NOT READY FOR REFINEMENT OR EXECUTION
 > It exists to capture decisions already settled so they are not re-derived or re-argued later. The
