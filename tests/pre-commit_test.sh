@@ -696,8 +696,74 @@ check "active plan 18 buffer blocks plan 17 commit" BLOCK src/p17.py
 check "swapped active plan buffer allows plan 17 commit" PASS src/p17.py
 check "swapped active plan buffer blocks plan 18 commit" BLOCK src/p18.py
 
+echo "== 16. portability & machine-agnostic path enforcement =="
+setup
+plan p_port.md <<'EOF'
+* **Plan ID:** P-30
+* **Status:** 🟠 In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `doc.md` -> doc target
+- [ ] `README.md` -> readme target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+"$KIT/aapp" plan 30 >/dev/null 2>&1
+
+# 1. BLOCK: staged doc containing file:/// URI
+echo "See [doc](file:///home/user/repo/doc.md)" > doc.md
+echo "- bump $(date +%s%N)" >> CHANGELOG.md
+git add CHANGELOG.md doc.md
+out=$(git commit -m "t" 2>&1); rc=$?
+got=BLOCK; [ $rc -eq 0 ] && got=PASS
+if [ "$got" = "BLOCK" ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "staged markdown with file:/// URI is blocked" "$got"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "staged markdown with file:/// URI is blocked"; FAIL=$((FAIL+1))
+fi
+git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null; git clean -qfd -e .plans 2>/dev/null
+
+# 2. BLOCK: staged doc containing /home/ path in link
+echo "See [doc](/home/user/repo/doc.md)" > doc.md
+echo "- bump $(date +%s%N)" >> CHANGELOG.md
+git add CHANGELOG.md doc.md
+out=$(git commit -m "t" 2>&1); rc=$?
+got=BLOCK; [ $rc -eq 0 ] && got=PASS
+if [ "$got" = "BLOCK" ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "staged markdown with /home/ absolute link is blocked" "$got"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "staged markdown with /home/ absolute link is blocked"; FAIL=$((FAIL+1))
+fi
+git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null; git clean -qfd -e .plans 2>/dev/null
+
+# 3. PASS: staged doc with relative link
+echo "See [doc](doc.md) and [other](../other.md)" > doc.md
+echo "- bump $(date +%s%N)" >> CHANGELOG.md
+git add CHANGELOG.md doc.md
+out=$(git commit -m "t" 2>&1); rc=$?
+got=BLOCK; [ $rc -eq 0 ] && got=PASS
+if [ "$got" = "PASS" ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "staged markdown with relative link is allowed" "$got"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS got BLOCK\n" "staged markdown with relative link is allowed"; FAIL=$((FAIL+1))
+fi
+git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null; git clean -qfd -e .plans 2>/dev/null
+
+# 4. PASS: staged doc mentioning file:// in prose without URI
+echo "Never use file:// URIs in repository files." > doc.md
+echo "- bump $(date +%s%N)" >> CHANGELOG.md
+git add CHANGELOG.md doc.md
+out=$(git commit -m "t" 2>&1); rc=$?
+got=BLOCK; [ $rc -eq 0 ] && got=PASS
+if [ "$got" = "PASS" ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "staged markdown mentioning file:// in prose passes" "$got"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS got BLOCK\n" "staged markdown mentioning file:// in prose passes"; FAIL=$((FAIL+1))
+fi
+git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null; git clean -qfd -e .plans 2>/dev/null
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]
+
 
 
