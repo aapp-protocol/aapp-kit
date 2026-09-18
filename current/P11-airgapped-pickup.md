@@ -2,8 +2,8 @@
 * **Created:** 2026-09-10 | **Last Refined:** 2026-09-10
 * **Target Issue / Milestone:** Milestone v1.1.0 (Air-Gapped Reference Store)
 * **Plan ID:** P-11
-* **Status:** 🔴 Under Review
-<!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
+* **Status:** 🟣 Under Review
+<!-- Status must be exactly ONE of: 🟣 Under Review | 🟠 Refining | 🔷 Ready for Execution | 🟥 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -12,7 +12,7 @@
 > 4. **Mid-Execution Bugs**:
 >    - *Non-blocking*: Log in `.plans/ISSUES.md` and continue your plan.
 >    - *Blocking & small*: Add file under `### 🚨 Emergency Hotfix Extensions` with a 1-sentence justification.
->    - *Blocking & substantial*: Set status to `🚫 BLOCKED`, stop, and ask the user.
+>    - *Blocking & substantial*: Set status to `🟥 BLOCKED`, stop, and ask the user.
 
 ---
 
