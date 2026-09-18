@@ -1,6 +1,8 @@
 # 🗺️ Code Map & Interface Registry: Agent Planning Kit (AAPP)
 
 > **Rule for All Agents:** Before creating a new file, script, function, or wrapper, you MUST scan this map. If a module exists that covers the concern, you must extend or import it. Maintain single sources of truth for path resolution, state transitions, and configuration.
+>
+> **The Callable Contract Standard:** For each component, record the callable contract: invocation forms (arguments, stdin), outputs (stdout, stderr), exit codes, environment variables read, and files touched. An agent must be able to call or test it without reading the source.
 
 ---
 
@@ -28,9 +30,9 @@
 
 ### 🌐 Global Installer & Self-Consumption Manager (`lib/cmd_install.sh`)
 * **Purpose:** Installs binary to `~/.local/bin/aapp` and shared libraries/templates to `${XDG_DATA_HOME:-~/.local/share}/aapp-kit/`.
-* **Key Flags & Behaviors:**
-  * `--keep`, `-k` / `AAPP_KEEP_KIT=1` -> Explicitly bypasses self-consumption.
+* **Key Behaviors:**
   * Evaluates `is_safe_to_consume_kit_dir` before unlinking temporary installer clones.
+  * Preserves development checkouts and existing projects automatically with zero-flag minimalism.
 * **Anti-Wrapper Warning:** Do not alter PATH or rc files destructively.
 
 ### 🎯 Plan Lifecycle Switchboard (`lib/cmd_plan.sh`)
