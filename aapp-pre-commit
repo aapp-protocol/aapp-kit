@@ -125,6 +125,47 @@ if [ "$STAGED_CORE_COUNT" -gt 0 ]; then
 fi
 
 # ------------------------------------------------------------------------------
+# 1b. PORTABILITY & MACHINE-AGNOSTIC PATH ENFORCEMENT
+# ------------------------------------------------------------------------------
+# Blocks machine-specific file:/// URIs and absolute local paths in repository files.
+# Preserves test suites where mock URIs and error fixtures may be legitimately exercised.
+URI_VIOLATIONS=0
+URI_PATTERN='(\]\(file:///|<file:///|file:///(home|Users|root|tmp|var|etc|opt|usr|srv|[a-zA-Z]:)|\]\((/home/|/Users/|/root/|[a-zA-Z]:[/\\]))'
+
+for F in "${STAGED_FILES[@]}"; do
+    [ -f "$F" ] || continue
+    case "$F" in
+        tests/*|test/*|*_test.*|*.test.*|*test_*|spec/*|*/tests/*|*pre-commit*|*.githooks/*)
+            continue
+            ;;
+    esac
+
+    MATCHES=$(git show ":$F" 2>/dev/null | grep -nE "$URI_PATTERN" || true)
+    if [ -n "$MATCHES" ]; then
+        if [ "$URI_VIOLATIONS" -eq 0 ]; then
+            echo ""
+            echo "❌ [Pre-Commit Error] Machine-specific absolute path or 'file://' URI detected in staged files!"
+            echo "   Repository files must use relative paths to preserve portability and prevent local path leaks."
+            echo ""
+        fi
+        URI_VIOLATIONS=$((URI_VIOLATIONS + 1))
+        echo "   📄 $F:"
+        echo "$MATCHES" | head -n 5 | while IFS= read -r line; do
+            echo "      line $line"
+        done
+        echo ""
+    fi
+done
+
+if [ "$URI_VIOLATIONS" -gt 0 ]; then
+    echo "   👉 Replace absolute paths and 'file:///' URIs with relative paths (e.g. 'README.md' or '../doc.md')."
+    echo "   💡 Note: IDE system prompt rules requiring 'file://' links apply only to conversational chat,"
+    echo "      never to committed files."
+    echo ""
+    exit 1
+fi
+
+# ------------------------------------------------------------------------------
 # 2. DETERMINISTIC BLAST RADIUS ENFORCEMENT (BLOCKING WHEN ACTIVE PLANS EXIST)
 # ------------------------------------------------------------------------------
 # 1. Helper to parse target paths from plan sections

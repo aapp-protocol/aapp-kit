@@ -127,7 +127,9 @@ case "$TARGET_FILE" in
     .claude/settings.json|.claude/settings.local.json|*/.claude/settings.json|*/.claude/settings.local.json|\
     .agents/claude/*|*/.agents/claude/*|\
     .agents/skills/aapp-*|*/.agents/skills/aapp-*|\
-    .claude/skills/aapp-*|*/.claude/skills/aapp-*)
+    .claude/skills/aapp-*|*/.claude/skills/aapp-*|\
+    .agents/skills/plan|*/.agents/skills/plan|.agents/skills/plan/*|*/.agents/skills/plan/*|\
+    .claude/skills/plan|*/.claude/skills/plan|.claude/skills/plan/*|*/.claude/skills/plan/*)
         deny_action "Tampering with AAPP core configuration or governance skills is strictly prohibited."
         ;;
     .githooks/*|*/.githooks/*|.git/hooks/*|*/.git/hooks/*)
