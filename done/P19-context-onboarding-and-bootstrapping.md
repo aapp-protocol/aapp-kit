@@ -90,20 +90,20 @@ Document the first-run onboarding workflow across three public surfaces:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Core Setup & Guidance
-- [ ] Task 1.1: Pre-seed `templates/pickup.md` with the initial `Onboarding` task.
-- [ ] Task 1.2: Update `lib/cmd_init.sh` completion banner to output the 3-step First AAPP Loop sequence.
+- [x] Task 1.1: Pre-seed `templates/pickup.md` with the initial `Onboarding` task.
+- [x] Task 1.2: Update `lib/cmd_init.sh` completion banner to output the 3-step First AAPP Loop sequence.
 
 ### Phase 2: Agent Governance Rules
-- [ ] Task 2.1: Add the Repository Onboarding & Day 1 Bootstrap rule to `templates/AGENTS.md`.
-- [ ] Task 2.2: Sync rule to `.agents/AGENTS.md`.
+- [x] Task 2.1: Add the Repository Onboarding & Day 1 Bootstrap rule to `templates/AGENTS.md`.
+- [x] Task 2.2: Sync rule to `.agents/AGENTS.md`.
 
 ### Phase 3: Documentation & Verification
-- [ ] Task 3.1: Document the First-Run Onboarding Loop in `README.md` (Section 4).
-- [ ] Task 3.2: Document the onboarding architecture in `MANUAL.md` (Section 5).
-- [ ] Task 3.3: Add Day 1 onboarding row to `CHEATSHEET.md`.
-- [ ] Task 3.4: Add regression test assertions in `tests/install_test.sh` verifying `templates/pickup.md` seeding and `cmd_init.sh` banner output.
-- [ ] Task 3.5: Run full test verification suite (`install_test.sh`, `pre-commit_test.sh`, `write-guard_test.sh`, `plan_resolver_test.sh`, `ai_attribution_test.sh`, `planning_health.sh`).
-- [ ] Task 3.6: Update `CHANGELOG.md` under `## [Unreleased]`.
+- [x] Task 3.1: Document the First-Run Onboarding Loop in `README.md` (Section 4).
+- [x] Task 3.2: Document the onboarding architecture in `MANUAL.md` (Section 5).
+- [x] Task 3.3: Add Day 1 onboarding row to `CHEATSHEET.md`.
+- [x] Task 3.4: Add regression test assertions in `tests/install_test.sh` verifying `templates/pickup.md` seeding and `cmd_init.sh` banner output.
+- [x] Task 3.5: Run full test verification suite (`install_test.sh`, `pre-commit_test.sh`, `write-guard_test.sh`, `plan_resolver_test.sh`, `ai_attribution_test.sh`, `planning_health.sh`).
+- [x] Task 3.6: Update `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
@@ -134,6 +134,7 @@ Document the first-run onboarding workflow across three public surfaces:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-18:** Completed and verified in commit `d06da51`. All 256 automated test cases passing. Archiving to `.plans/done/`.
 * **2026-09-18:** Plan frozen and activated into 🟠 In Development via freeze-start.
 * **2026-09-18:** Plan drafted in `.plans/current/P19-context-onboarding-and-bootstrapping.md`.
 * **2026-09-18:** Refined blueprint from a separate `aapp onboard` CLI command to native pickup queue ingestion (`/aapp-digest Onboarding`), preserving zero-bloat CLI minimalism and providing Day 1 hands-on protocol experience.
