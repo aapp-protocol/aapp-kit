@@ -7,21 +7,19 @@
 # ==============================================================================
 set -e
 
-KEEP_KIT="${AAPP_KEEP_KIT:-0}"
 for arg in "$@"; do
     case "$arg" in
         --help|-h)
-            echo "Usage: aapp install [--keep|-k]"
+            echo "Usage: aapp install"
             echo ""
             echo "Installs AAPP globally into ~/.local/bin and ~/.local/share/aapp-kit."
             echo ""
-            echo "Options:"
-            echo "  --keep, -k    Preserve installer directory without self-consuming"
-            echo "  --help, -h    Show this help message"
             return 0 2>/dev/null || exit 0
             ;;
-        --keep|-k)
-            KEEP_KIT=1
+        *)
+            echo "❌ Error: Unknown option '$arg'."
+            echo "Usage: aapp install"
+            return 1 2>/dev/null || exit 1
             ;;
     esac
 done
@@ -32,8 +30,6 @@ BIN_DIR="$HOME/.local/bin"
 if ! declare -f is_safe_to_consume_kit_dir >/dev/null 2>&1; then
     is_safe_to_consume_kit_dir() {
         local dir="$1"
-        local keep="${2:-0}"
-        [ "$keep" -eq 1 ] && return 1
         [ ! -d "$dir" ] && return 1
         case "$(basename "$dir")" in
             aapp-develop-kit|agent-planning-kit) return 1 ;;
@@ -151,10 +147,7 @@ fi
 
 # Consume Temporary Clone Folder
 if [ "${AAPP_IS_UPGRADE:-0}" -ne 1 ]; then
-    if [ "$KEEP_KIT" -eq 1 ]; then
-        echo ""
-        echo "ℹ️  Preserved installer directory '$AAPP_SCRIPT_DIR' (--keep)."
-    elif is_safe_to_consume_kit_dir "$AAPP_SCRIPT_DIR" 0; then
+    if is_safe_to_consume_kit_dir "$AAPP_SCRIPT_DIR"; then
         rm -rf "$AAPP_SCRIPT_DIR"
         echo ""
         echo "🧹 Consumed installer directory '$AAPP_SCRIPT_DIR'."

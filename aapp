@@ -23,9 +23,7 @@ has_kit_signature() {
 
 is_safe_to_consume_kit_dir() {
     local dir="$1"
-    local keep="${2:-0}"
 
-    [ "$keep" -eq 1 ] && return 1
     [ ! -d "$dir" ] && return 1
 
     case "$(basename "$dir")" in

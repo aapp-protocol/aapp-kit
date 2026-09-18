@@ -9,21 +9,19 @@
 # ==============================================================================
 set -e
 
-KEEP_KIT="${AAPP_KEEP_KIT:-0}"
 for arg in "$@"; do
     case "$arg" in
         --help|-h)
-            echo "Usage: aapp init [--keep|-k]"
+            echo "Usage: aapp init"
             echo ""
             echo "Initializes or updates AAPP worktrees in the target git repository."
             echo ""
-            echo "Options:"
-            echo "  --keep, -k    Preserve drop-in kit folder without self-consuming"
-            echo "  --help, -h    Show this help message"
             return 0 2>/dev/null || exit 0
             ;;
-        --keep|-k)
-            KEEP_KIT=1
+        *)
+            echo "❌ Error: Unknown option '$arg'."
+            echo "Usage: aapp init"
+            return 1 2>/dev/null || exit 1
             ;;
     esac
 done
@@ -31,8 +29,6 @@ done
 if ! declare -f is_safe_to_consume_kit_dir >/dev/null 2>&1; then
     is_safe_to_consume_kit_dir() {
         local dir="$1"
-        local keep="${2:-0}"
-        [ "$keep" -eq 1 ] && return 1
         [ ! -d "$dir" ] && return 1
         case "$(basename "$dir")" in
             aapp-develop-kit|agent-planning-kit) return 1 ;;
@@ -686,10 +682,7 @@ fi
 # PHASE 7: Drop-in Folder Consumption
 # ------------------------------------------------------------------------------
 if [ "$AAPP_IS_DROP_IN" -eq 1 ] && [ "$IS_INSIDE_PROJECT" -eq 1 ]; then
-    if [ "$KEEP_KIT" -eq 1 ]; then
-        echo ""
-        echo "ℹ️  Preserved kit folder '$AAPP_SCRIPT_DIR' (--keep)."
-    elif is_safe_to_consume_kit_dir "$AAPP_SCRIPT_DIR" 0; then
+    if is_safe_to_consume_kit_dir "$AAPP_SCRIPT_DIR"; then
         rm -rf "$AAPP_SCRIPT_DIR"
         echo ""
         echo "🧹 Consumed kit folder '$AAPP_SCRIPT_DIR'."

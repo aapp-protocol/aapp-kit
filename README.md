@@ -136,7 +136,7 @@ git clone https://github.com/aapp-protocol/aapp-kit.git aapp-kit
 
 * **What it does:** Sets up `.plans/`, `.agents/`, and `.githooks/` worktrees, creates documentation anchors, wires hooks, and **consumes the `aapp-kit/` directory upon success**.
 * **Clean & Reversible:** Right up until you run `aapp init`, you can cancel adoption with `rm -rf aapp-kit`.
-* **Source retention:** If you want to keep the kit source checkout, pass `--keep` (e.g. `./aapp-kit/aapp init --keep`) or copy the folder before running `aapp init`. Self-consumption is automatically skipped if the folder contains files or modifications beyond the kit signature.
+* **Source retention:** Self-consumption is automatically skipped if the folder contains files or uncommitted modifications beyond the kit signature. If you intend to contribute to AAPP or develop the kit itself, use `aapp develop`.
 
 ### Option 2: Global Installation
 Ideal for developers managing multiple projects:
@@ -149,7 +149,7 @@ git clone https://github.com/aapp-protocol/aapp-kit.git aapp-kit
 ./aapp-kit/aapp install
 ```
 
-* **What it does:** Installs `aapp` into `$HOME/.local/bin/` and copies libraries/templates/tests to `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/`. Consumes the temporary clone folder once installed (unless `--keep` is passed or extra files/modifications are detected).
+* **What it does:** Installs `aapp` into `$HOME/.local/bin/` and copies libraries/templates/tests to `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/`. Consumes the temporary clone folder once installed (unless extra files or uncommitted modifications are detected).
 * **Usage in any project:**
   ```bash
   cd /path/to/any-project

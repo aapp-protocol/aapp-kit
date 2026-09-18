@@ -92,8 +92,8 @@ Do this instead:
 ## Setup
 
 ```bash
-aapp install [--keep]  # install globally into ~/.local/bin (preserves kit if --keep)
-aapp init [--keep]     # set up worktrees in current repo (preserves drop-in if --keep)
+aapp install           # install globally into ~/.local/bin
+aapp init              # set up worktrees in current repo
 aapp status            # four-pillar briefing
 aapp ai-status   # check AI attribution mode & pending notes
 aapp upgrade     # pull the latest kit

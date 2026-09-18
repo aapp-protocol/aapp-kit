@@ -162,20 +162,19 @@ else
 fi
 report "drop-in: cd agent-planning-kit && ./aapp init targets kit itself (#50)" "PASS" "$got"
 
-# Test 6d: drop-in: ./aapp-kit/aapp init --keep preserves drop-in folder (#51)
+# Test 6d: drop-in: ./aapp-kit/aapp init rejects unknown flag --keep (#51)
 PROJ="$R/t6d_proj"; make_dummy_project "$PROJ"
 make_kit_clone "$PROJ/aapp-kit"
-(
+out_6d=$(
   cd "$PROJ"
-  HOME="$TEST_HOME" ./aapp-kit/aapp init --keep >/dev/null 2>&1
+  HOME="$TEST_HOME" ./aapp-kit/aapp init --keep 2>&1 || true
 )
-rc=$?
-if [ $rc -eq 0 ] && [ -d "$PROJ/aapp-kit" ] && [ -f "$PROJ/.agents/CODEMAP.md" ]; then
+if echo "$out_6d" | grep -q "Unknown option '--keep'" && [ -d "$PROJ/aapp-kit" ]; then
   got="PASS"
 else
   got="FAIL"
 fi
-report "drop-in: ./aapp-kit/aapp init --keep preserves drop-in folder (#51)" "PASS" "$got"
+report "drop-in: ./aapp-kit/aapp init rejects unknown flag --keep" "PASS" "$got"
 
 # Test 6e: drop-in: extra file in aapp-kit/ preserves drop-in folder without self-consuming (#51)
 PROJ="$R/t6e_proj"; make_dummy_project "$PROJ"
@@ -533,20 +532,19 @@ else
 fi
 report "aapp install consumes installer clone folder on success" "PASS" "$got"
 
-# Test 25b: aapp install --keep preserves installer clone folder (#51)
+# Test 25b: aapp install rejects unknown flag --keep (#51)
 GLOBAL_HOME_25B="$R/t25b_home"; mkdir -p "$GLOBAL_HOME_25B"
 INSTALLER_DIR_25B="$R/t25b_installer"; make_kit_clone "$INSTALLER_DIR_25B"
-(
+out_25b=$(
   cd "$INSTALLER_DIR_25B"
-  HOME="$GLOBAL_HOME_25B" XDG_DATA_HOME="$GLOBAL_HOME_25B/.local/share" ./aapp install --keep >/dev/null 2>&1
+  HOME="$GLOBAL_HOME_25B" XDG_DATA_HOME="$GLOBAL_HOME_25B/.local/share" ./aapp install --keep 2>&1 || true
 )
-rc=$?
-if [ $rc -eq 0 ] && [ -d "$INSTALLER_DIR_25B" ] && [ -x "$GLOBAL_HOME_25B/.local/bin/aapp" ]; then
+if echo "$out_25b" | grep -q "Unknown option '--keep'" && [ -d "$INSTALLER_DIR_25B" ]; then
   got="PASS"
 else
   got="FAIL"
 fi
-report "aapp install --keep preserves installer clone folder (#51)" "PASS" "$got"
+report "aapp install rejects unknown flag --keep" "PASS" "$got"
 
 # Test 25c: aapp install preserves installer folder when extra non-kit files are present (#51)
 GLOBAL_HOME_25C="$R/t25c_home"; mkdir -p "$GLOBAL_HOME_25C"
