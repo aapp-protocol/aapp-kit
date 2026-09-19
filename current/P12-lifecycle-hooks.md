@@ -291,23 +291,23 @@ This cleanly decouples Action Plugin inspection (`aapp plugins`) from Lifecycle 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Core Dispatcher Engine & CLI Management
-- [ ] Task 1.1: Create `lib/hook_dispatcher.sh` implementing `dispatch_hook()` with `dash`-compatible TSV parsing (`TAB=$(printf '\t')`), 5-column validation, portable SHA256 resolution chain, exported environment variables, and exit-code/mode handling.
-- [ ] Task 1.2: Implement portable execution watchdog/timeout mechanism honoring `mode` (gate fails closed, notify warns).
-- [ ] Task 1.3: Author JSON envelope generator for all 10 lifecycle events (including `on-sync`).
-- [ ] Task 1.4: Implement dedicated CLI commands `aapp hooks`, `aapp plugins`, `aapp hook-test`, and `aapp hook-hash` in `lib/cmd_hook.sh`.
+- [x] Task 1.1: Create `lib/hook_dispatcher.sh` implementing `dispatch_hook()` with `dash`-compatible TSV parsing (`TAB=$(printf '\t')`), 5-column validation, portable SHA256 resolution chain, exported environment variables, and exit-code/mode handling.
+- [x] Task 1.2: Implement portable execution watchdog/timeout mechanism honoring `mode` (gate fails closed, notify warns).
+- [x] Task 1.3: Author JSON envelope generator for all 10 lifecycle events (including `on-sync`).
+- [x] Task 1.4: Implement dedicated CLI commands `aapp hooks`, `aapp plugins`, `aapp hook-test`, and `aapp hook-hash` in `lib/cmd_hook.sh`.
 
 ### Phase 2: Hook Wiring into CLI & Protocol Commands
-- [ ] Task 2.1: Wire `on-done` into `cmd_done` (or `/done` command execution).
-- [ ] Task 2.2: Wire `on-freeze` and `on-start` into `lib/cmd_plan.sh` (`freeze`, `start`, `freeze-start`).
-- [ ] Task 2.3: Wire `on-digest` into `cmd_digest` (or `/digest` command execution).
-- [ ] Task 2.4: Wire `pre-sync`, `post-sync`, and `on-sync` into `lib/cmd_sync.sh`. **Depends on `P-10`**, which creates that file — this task cannot execute until remote sync ships. Also honour `aapp.syncStrategy` and three-tier precedence per §D.1.
-- [ ] Task 2.5: Implement `aapp.<feature>Strategy` resolution in `lib/hook_dispatcher.sh` per §D.1, including the refuse-on-missing-hook path.
-- [ ] Task 2.6: Wire `on-pause` and `on-resume` into `lib/cmd_pause.sh`.
-- [ ] Task 2.7: Wire `aapp plugins` discovery and transparent command fallthrough (`aapp <plugin-name>`) into `aapp` switchboard with extension-agnostic discovery (no extension or any extension).
-- [ ] Task 2.8: Update `lib/cmd_init.sh` to scaffold `.agents/skills/aapp-hooks/` and deploy starter `registry.tsv` and `SKILL.md`.
+- [x] Task 2.1: Wire `on-done` into `cmd_done` (or `/done` command execution).
+- [x] Task 2.2: Wire `on-freeze` and `on-start` into `lib/cmd_plan.sh` (`freeze`, `start`, `freeze-start`).
+- [x] Task 2.3: Wire `on-digest` into `cmd_digest` (or `/digest` command execution).
+- [x] Task 2.4: Wire `pre-sync`, `post-sync`, and `on-sync` into `lib/cmd_sync.sh`. **Depends on `P-10`**, which creates that file — this task cannot execute until remote sync ships. Also honour `aapp.syncStrategy` and three-tier precedence per §D.1.
+- [x] Task 2.5: Implement `aapp.<feature>Strategy` resolution in `lib/hook_dispatcher.sh` per §D.1, including the refuse-on-missing-hook path.
+- [x] Task 2.6: Wire `on-pause` and `on-resume` into `lib/cmd_pause.sh`.
+- [x] Task 2.7: Wire `aapp plugins` discovery and transparent command fallthrough (`aapp <plugin-name>`) into `aapp` switchboard with extension-agnostic discovery (no extension or any extension).
+- [x] Task 2.8: Update `lib/cmd_init.sh` to scaffold `.agents/skills/aapp-hooks/` and deploy starter `registry.tsv` and `SKILL.md`.
 
 ### Phase 3: Sample Hooks, Automated Tests & Documentation
-- [ ] Task 3.1: Create sample hook templates, adopter showcase, and clean `examples/`:
+- [x] Task 3.1: Create sample hook templates, adopter showcase, and clean `examples/`:
   - Starter templates in `templates/skills/aapp-hooks/`:
     - `registry.tsv` (starter 5-column registry template with documented syntax and examples).
     - `scripts/on-done.sample.sh` (logs completion to a local append-only log or webhook).
@@ -317,7 +317,7 @@ This cleanly decouples Action Plugin inspection (`aapp plugins`) from Lifecycle 
     - Clean up legacy pre-v1.0 plans from `examples/` (`example-plan-distribution-rework.md`, `example-plan-unified-install-and-upgrade.md`).
     - Seed `examples/hooks/` with browsable hook examples (`on-done-sync.sh`, `fallback-ratchet.sh`, `slack-notify.py`).
     - Seed `examples/plugins/` with an extension-agnostic action plugin showcase (`hello-tool/run`).
-- [ ] Task 3.2: Author automated test suite `tests/hooks_test.sh` verifying:
+- [x] Task 3.2: Author automated test suite `tests/hooks_test.sh` verifying:
   - `dash` shell compatibility on TSV parsing and field count validation.
   - Portable SHA256 resolution chain across tools (`sha256sum`, `shasum`, `openssl`).
   - SHA256 hash mismatch halts lifecycle transition and prints diagnostic.
@@ -331,8 +331,8 @@ This cleanly decouples Action Plugin inspection (`aapp plugins`) from Lifecycle 
   - Dual Delivery Contract: standard POSIX environment variables exported alongside STDIN JSON envelope.
   - Transparent command fallthrough execution with extensionless binaries, `.py`, `.sh`, and arbitrary extensions.
   - `on-sync` transport hook execution and three-tier team sync precedence (`positional strategy` > local git config > committed repo default).
-- [ ] Task 3.3: Document the Lifecycle Hook Contract and CLI actions in `MANUAL.md` and `README.md`.
-- [ ] Task 3.4: Update `CHANGELOG.md`.
+- [x] Task 3.3: Document the Lifecycle Hook Contract and CLI actions in `MANUAL.md` and `README.md`.
+- [x] Task 3.4: Update `CHANGELOG.md`.
 
 ---
 
