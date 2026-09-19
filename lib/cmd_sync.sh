@@ -193,7 +193,13 @@ dispatch_observer_hook() {
         source "$REPO_ROOT/lib/hook_dispatcher.sh"
     fi
     if declare -f dispatch_hook >/dev/null 2>&1; then
-        dispatch_hook "$event_name" "$ACTION" "$TARGET_REMOTE" "${ACTIVE_WTS[*]}"
+        local obs_wts=""
+        for w in "${ACTIVE_WTS[@]}"; do
+            bname="$(basename "$w")"
+            bname="${bname#.}"
+            if [ -z "$obs_wts" ]; then obs_wts="\"$bname\""; else obs_wts="$obs_wts, \"$bname\""; fi
+        done
+        dispatch_hook "$event_name" "{\"action\": \"$ACTION\", \"remote\": \"$TARGET_REMOTE\", \"worktrees\": [$obs_wts]}" || true
     fi
 }
 
@@ -227,20 +233,28 @@ if [ "$RESOLVED_STRATEGY" = "hook" ]; then
         fi
     done
 
-    PAYLOAD="{\"event\": \"on-sync\", \"data\": {\"action\": \"$ACTION\", \"remote\": \"$TARGET_REMOTE\", \"worktrees\": [$WTS_JSON]}}"
-
     echo "🚀 Delegating '$ACTION' transport to on-sync hook ($ON_SYNC_HANDLER)..."
 
-    # Export Dual Delivery standard environment variables
     export AAPP_EVENT="on-sync"
     export AAPP_ACTION="$ACTION"
     export AAPP_REMOTE="$TARGET_REMOTE"
     export AAPP_WORKTREES="${ACTIVE_WTS[*]}"
     export AAPP_MODE="gate"
 
-    if ! echo "$PAYLOAD" | "$ON_SYNC_HANDLER"; then
-        echo "❌ Hook transport failed during $ACTION." >&2
-        return 1 2>/dev/null || exit 1
+    sync_data="{\"action\": \"$ACTION\", \"remote\": \"$TARGET_REMOTE\", \"worktrees\": [$WTS_JSON]}"
+    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+        # shellcheck source=/dev/null
+        source "$REPO_ROOT/lib/hook_dispatcher.sh"
+        if ! dispatch_hook "on-sync" "$sync_data"; then
+            echo "❌ Hook transport failed during $ACTION." >&2
+            return 1 2>/dev/null || exit 1
+        fi
+    else
+        PAYLOAD="{\"event\": \"on-sync\", \"data\": $sync_data}"
+        if ! echo "$PAYLOAD" | "$ON_SYNC_HANDLER"; then
+            echo "❌ Hook transport failed during $ACTION." >&2
+            return 1 2>/dev/null || exit 1
+        fi
     fi
 
     # Fire post-sync observer hook

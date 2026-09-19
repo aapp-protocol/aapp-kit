@@ -387,6 +387,13 @@ EOF
     done
     echo "   All codebase modifications and commits are strictly refused."
     echo "   To resume: aapp resume"
+
+    # Dispatch on-pause lifecycle event
+    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+        # shellcheck source=/dev/null
+        source "$REPO_ROOT/lib/hook_dispatcher.sh"
+        dispatch_hook "on-pause" "{\"reason\": \"$reason\", \"shared\": $( [ "$shared" -eq 1 ] && echo "true" || echo "false" )}" || true
+    fi
 }
 
 # ------------------------------------------------------------------------------
@@ -537,6 +544,13 @@ except Exception as e:
     [ "$restored_count" -gt 0 ] && echo "   Restored : $restored_count worktree stash(es)"
     [ "$drift_found" -eq 0 ] && echo "   Drift    : 0 foreign changes detected while paused"
     echo "   Status   : Active"
+
+    # Dispatch on-resume lifecycle event
+    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+        # shellcheck source=/dev/null
+        source "$REPO_ROOT/lib/hook_dispatcher.sh"
+        dispatch_hook "on-resume" "{\"restored_count\": $restored_count, \"drift_found\": $drift_found}" || true
+    fi
 }
 
 # ------------------------------------------------------------------------------

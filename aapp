@@ -133,7 +133,7 @@ case "$CMD" in
     ai)
         source "$AAPP_LIB/cmd_ai.sh" "$@"
         ;;
-    freeze-start|start|plan|active|plan-status)
+    freeze-start|start|freeze|done|plan|active|plan-status)
         source "$AAPP_LIB/cmd_plan.sh" "$CMD" "$@"
         ;;
     pause|resume|unpause)
@@ -141,6 +141,9 @@ case "$CMD" in
         ;;
     push|pull|sync)
         source "$AAPP_LIB/cmd_sync.sh" "$CMD" "$@"
+        ;;
+    hooks|hook-status|plugins|plugin-status|hook-test|hook-run|hook-hash)
+        source "$AAPP_LIB/cmd_hook.sh" "$CMD" "$@"
         ;;
     version|-v|--version)
         echo "aapp version $AAPP_VERSION"
@@ -151,6 +154,36 @@ case "$CMD" in
         exit 0
         ;;
     *)
+        # Action Plugin Fallthrough (.agents/skills/$CMD/)
+        CWD_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+        if [ -n "$CWD_GIT_ROOT" ] && [ -d "$CWD_GIT_ROOT/.agents/skills/$CMD" ]; then
+            PLUGIN_DIR="$CWD_GIT_ROOT/.agents/skills/$CMD"
+            CANDIDATE=""
+            # 1. Canonical Extensionless
+            if [ -x "$PLUGIN_DIR/run" ]; then
+                CANDIDATE="$PLUGIN_DIR/run"
+            elif [ -x "$PLUGIN_DIR/$CMD" ]; then
+                CANDIDATE="$PLUGIN_DIR/$CMD"
+            # 2. Subdirectory Extensionless
+            elif [ -x "$PLUGIN_DIR/scripts/run" ]; then
+                CANDIDATE="$PLUGIN_DIR/scripts/run"
+            elif [ -x "$PLUGIN_DIR/scripts/$CMD" ]; then
+                CANDIDATE="$PLUGIN_DIR/scripts/$CMD"
+            else
+                # 3. Extension-Agnostic Pattern Search (Any Extension)
+                for f in "$PLUGIN_DIR/$CMD".* "$PLUGIN_DIR/run".* "$PLUGIN_DIR/scripts/$CMD".* "$PLUGIN_DIR/scripts/run".*; do
+                    if [ -x "$f" ]; then
+                        CANDIDATE="$f"
+                        break
+                    fi
+                done
+            fi
+
+            if [ -n "$CANDIDATE" ]; then
+                exec "$CANDIDATE" "$@"
+            fi
+        fi
+
         echo "❌ Unknown command: '$CMD'"
         echo ""
         source "$AAPP_LIB/cmd_help.sh"

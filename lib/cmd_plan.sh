@@ -208,9 +208,103 @@ cmd_freeze_start() {
         git -C "$PLANS_DIR" commit -m "plan(start): freeze and activate $plan_id into development" 2>/dev/null || true
     fi
 
+    # Dispatch on-freeze and on-start lifecycle events
+    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+        # shellcheck source=/dev/null
+        source "$REPO_ROOT/lib/hook_dispatcher.sh"
+        local targets_json=""
+        while IFS= read -r t; do
+            [ -z "$t" ] && continue
+            if [ -z "$targets_json" ]; then
+                targets_json="\"$t\""
+            else
+                targets_json="$targets_json, \"$t\""
+            fi
+        done < <(parse_plan_target_paths "$plan_file")
+        local freeze_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"target_files\": [$targets_json]}"
+        dispatch_hook "on-freeze" "$freeze_data" || exit 1
+        dispatch_hook "on-start" "$freeze_data" || true
+    fi
+
     echo "⚡ [Freeze-Start] Plan '$plan_id' frozen and activated into ⚡ In Development."
     echo "   Blueprint    : $plan_file"
     echo "   Active Buffer: $ACTIVE_FILE"
+}
+
+cmd_freeze() {
+    local query="$1"
+    local plan_file
+    plan_file="$(resolve_plan_file "$query" "freeze")" || exit 1
+
+    # Verify Open Questions
+    local unresolved_q
+    unresolved_q=$(awk '
+        /^## ❓ 5\. Open Questions/ { in_q=1; next }
+        /^## / && in_q { in_q=0 }
+        in_q && /^[[:space:]]*\*[[:space:]]*\[[[:space:]]\]/ { print $0 }
+    ' "$plan_file")
+
+    if [ -n "$unresolved_q" ]; then
+        echo "❌ [Freeze Refusal] Plan has unresolved open questions in ## ❓ 5. Open Questions:" >&2
+        echo "$unresolved_q" | sed 's/^/     /' >&2
+        echo "   All open questions must be resolved and checked off ([x]) before freeze." >&2
+        exit 1
+    fi
+
+    # Verify Target Files declared
+    local targets
+    targets="$(parse_plan_target_paths "$plan_file")"
+    if [ -z "$targets" ]; then
+        echo "❌ [Freeze Refusal] Plan declares no Target Files under '### 📂 Target Files'." >&2
+        exit 1
+    fi
+
+    local plan_id
+    plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
+    [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
+
+    # Update plan header & lock status
+    sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* 🔷 Frozen/' "$plan_file"
+    sed -i -E 's/\*\(Marked:[[:space:]]*\*\*PROPOSED\*\*.*\)/\*(Marked: **LOCKED** — Greenlit for implementation)*/' "$plan_file"
+
+    local today
+    today="$(date +%Y-%m-%d)"
+    if grep -q '^## 📦 6\. Change Log' "$plan_file"; then
+        sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* Plan locked and frozen into 🔷 Frozen via freeze." "$plan_file"
+    fi
+
+    # Update state matrix if present
+    local sm_file="$PLANS_DIR/state_matrix.md"
+    if [ -f "$sm_file" ]; then
+        sed -i -E "/$plan_id/s/🔴|🟡|🟣|📝/🔷/g" "$sm_file"
+    fi
+
+    # Commit transition in plans worktree if available
+    if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+        git -C "$PLANS_DIR" add "current/$(basename "$plan_file")" 2>/dev/null || true
+        [ -f "$sm_file" ] && git -C "$PLANS_DIR" add "state_matrix.md" 2>/dev/null || true
+        git -C "$PLANS_DIR" commit -m "plan(freeze): lock blast radius and greenlight $plan_id" 2>/dev/null || true
+    fi
+
+    # Dispatch on-freeze lifecycle event
+    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+        # shellcheck source=/dev/null
+        source "$REPO_ROOT/lib/hook_dispatcher.sh"
+        local targets_json=""
+        while IFS= read -r t; do
+            [ -z "$t" ] && continue
+            if [ -z "$targets_json" ]; then
+                targets_json="\"$t\""
+            else
+                targets_json="$targets_json, \"$t\""
+            fi
+        done < <(parse_plan_target_paths "$plan_file")
+        local freeze_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"target_files\": [$targets_json]}"
+        dispatch_hook "on-freeze" "$freeze_data" || exit 1
+    fi
+
+    echo "🔷 [Freeze] Plan '$plan_id' locked and transitioned to 🔷 Frozen."
+    echo "   Blueprint    : $plan_file"
 }
 
 cmd_start() {
@@ -257,8 +351,90 @@ cmd_start() {
         git -C "$PLANS_DIR" commit -m "plan(start): activate $plan_id into development" 2>/dev/null || true
     fi
 
+    # Dispatch on-start lifecycle event
+    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+        # shellcheck source=/dev/null
+        source "$REPO_ROOT/lib/hook_dispatcher.sh"
+        local targets_json=""
+        while IFS= read -r t; do
+            [ -z "$t" ] && continue
+            if [ -z "$targets_json" ]; then
+                targets_json="\"$t\""
+            else
+                targets_json="$targets_json, \"$t\""
+            fi
+        done < <(parse_plan_target_paths "$plan_file")
+        local start_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"target_files\": [$targets_json]}"
+        dispatch_hook "on-start" "$start_data" || true
+    fi
+
     echo "⚡ [Start] Plan '$plan_id' activated into ⚡ In Development."
     echo "   Active Buffer: $ACTIVE_FILE"
+}
+
+cmd_done() {
+    local query="$1"
+    local plan_file
+    plan_file="$(resolve_plan_file "$query" "done")" || exit 1
+
+    local plan_id
+    plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
+    [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
+
+    local bname
+    bname="$(basename "$plan_file")"
+    local done_file="$PLANS_DIR/done/$bname"
+
+    # Move to done/
+    mv "$plan_file" "$done_file"
+
+    local today commit_sha
+    today="$(date +%Y-%m-%d)"
+    commit_sha="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "0000000")"
+
+    # Append to 000-archive-ledger.md
+    local ledger_file="$PLANS_DIR/done/000-archive-ledger.md"
+    if [ -f "$ledger_file" ]; then
+        local summary
+        summary="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*What:\*\*' "$done_file" | head -n 1 | sed -E 's/^[[:space:]]*\*[[:space:]]*\*\*What:\*\*[[:space:]]*//' || echo "Completed implementation")"
+        local ledger_line="| $today | \`$plan_id\` | [\`$bname\`]($bname) | None | \`$commit_sha\` | $summary |"
+        sed -i -E "/^\| :--- \| :--- \| :--- \|/a $ledger_line" "$ledger_file"
+    fi
+
+    # Remove from state_matrix.md
+    local sm_file="$PLANS_DIR/state_matrix.md"
+    if [ -f "$sm_file" ]; then
+        sed -i -E "/$plan_id/d" "$sm_file"
+    fi
+
+    # Clear active buffer if matching
+    if [ -f "$ACTIVE_FILE" ]; then
+        local cur_act
+        cur_act="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
+        if [ "$cur_act" = "$plan_id" ] || [ "$cur_act" = "$bname" ]; then
+            rm -f "$ACTIVE_FILE"
+        fi
+    fi
+
+    # Commit transition in plans worktree
+    if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+        git -C "$PLANS_DIR" add "current/$bname" "done/$bname" 2>/dev/null || true
+        [ -f "$ledger_file" ] && git -C "$PLANS_DIR" add "done/000-archive-ledger.md" 2>/dev/null || true
+        [ -f "$sm_file" ] && git -C "$PLANS_DIR" add "state_matrix.md" 2>/dev/null || true
+        git -C "$PLANS_DIR" commit -m "plan(done): archive $plan_id to done/ and update state matrix" 2>/dev/null || true
+    fi
+
+    # Dispatch on-done lifecycle event
+    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+        # shellcheck source=/dev/null
+        source "$REPO_ROOT/lib/hook_dispatcher.sh"
+        local done_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"done/$bname\", \"commit_hash\": \"$commit_sha\"}"
+        dispatch_hook "on-done" "$done_data" || true
+    fi
+
+    echo "🏛️  [Done] Plan '$plan_id' archived to done/$bname."
+    echo "   Commit SHA   : $commit_sha"
+    echo "   Ledger       : $ledger_file"
 }
 
 cmd_active() {
@@ -498,8 +674,14 @@ case "$ACTION" in
     freeze-start)
         cmd_freeze_start "$@"
         ;;
+    freeze)
+        cmd_freeze "$@"
+        ;;
     start)
         cmd_start "$@"
+        ;;
+    done)
+        cmd_done "$@"
         ;;
     active)
         cmd_active "$@"
@@ -516,7 +698,9 @@ Usage: aapp <command> [args]
 
 Multi-Agent Planning & Execution Commands:
   freeze-start <id>  Atomically freeze blueprint, transition to ⚡ In Development, and bind buffer
+  freeze <id>        Lock blueprint into 🔷 Frozen backlog specification
   start <id>         Transition 🔷 Frozen blueprint to ⚡ In Development and bind buffer
+  done <id>          Archive implemented blueprint to done/ and update ledger
   active [id]        Display or set active execution plan buffer (.git/aapp_active_plan)
   active swap        Swap between current and previous active plan
   active clear       Clear active plan buffer (revert to auto-discovery)
@@ -526,7 +710,7 @@ EOF
         ;;
     *)
         echo "❌ Unknown plan command: '$ACTION'" >&2
-        echo "   Available: freeze-start, start, active, plan-status, plan" >&2
+        echo "   Available: freeze-start, freeze, start, done, active, plan-status, plan" >&2
         exit 1
         ;;
 esac

@@ -647,10 +647,20 @@ sync_skills() {
         local skill_name
         skill_name="$(basename "$skill_dir")"
 
-        # 1. Sync canonical engine skill into .agents/skills/ (clean overwrite)
+        # 1. Sync canonical engine skill into .agents/skills/ (preserving user registry.tsv)
+        local saved_reg=""
+        if [ "$skill_name" = "aapp-hooks" ] && [ -f ".agents/skills/aapp-hooks/registry.tsv" ]; then
+            saved_reg="$(mktemp)"
+            cp ".agents/skills/aapp-hooks/registry.tsv" "$saved_reg"
+        fi
+
         rm -rf ".agents/skills/$skill_name"
         mkdir -p ".agents/skills/$skill_name"
         cp -R "$skill_dir/." ".agents/skills/$skill_name/"
+
+        if [ -n "$saved_reg" ] && [ -f "$saved_reg" ]; then
+            mv "$saved_reg" ".agents/skills/aapp-hooks/registry.tsv"
+        fi
 
         # 2. Granular Claude Code symlink bridge with verified resolution
         rm -rf ".claude/skills/$skill_name"

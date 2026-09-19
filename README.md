@@ -26,11 +26,12 @@
   * [Existing Hook Managers (Husky, Lefthook, Native Hooks)](#existing-hook-managers-husky-lefthook-native-hooks)
 * [7. Remote Sync & Multi-Machine Workflow](#7-remote-sync--multi-machine-workflow)
 * [8. Daily Agent Workflow & Universal Skills](#8-daily-agent-workflow--universal-skills)
-* [9. AI Attribution & Multi-Vendor Benchmarking (`aapp ai-*`)](#9-ai-attribution--multi-vendor-benchmarking-aapp-ai-)
-* [10. Security, Threat Model & Trust Boundaries](#10-security-threat-model--trust-boundaries)
-* [11. Testing & Verification Suites](#11-testing--verification-suites)
-* [12. Blueprint Example & Technical Manual](#12-blueprint-example--technical-manual)
-* [13. License](#13-license)
+* [9. Extensibility: Lifecycle Hooks & Action Plugins](#9-extensibility-lifecycle-hooks--action-plugins)
+* [10. AI Attribution & Multi-Vendor Benchmarking (`aapp ai-*`)](#10-ai-attribution--multi-vendor-benchmarking-aapp-ai-)
+* [11. Security, Threat Model & Trust Boundaries](#11-security-threat-model--trust-boundaries)
+* [12. Testing & Verification Suites](#12-testing--verification-suites)
+* [13. Architectural Manual & Adopter Examples](#13-architectural-manual--adopter-examples)
+* [14. License](#14-license)
 
 ---
 
@@ -359,7 +360,29 @@ Every plan in `.plans/current/<name>.md` defines strict boundaries:
 
 ---
 
-## 9. AI Attribution & Multi-Vendor Benchmarking (`aapp ai-*`)
+## 9. Extensibility: Lifecycle Hooks & Action Plugins
+
+AAPP features an extensible, zero-dependency lifecycle hook and action plugin engine. It enables custom quality ratchets (e.g. fallback detectors), remote sync transports, and notification webhooks (Slack, Jira, GitHub Issues) to intercept planning events via standard POSIX stdio contracts:
+
+```tsv
+# .agents/skills/aapp-hooks/registry.tsv (5 columns)
+# event<TAB>handler_path<TAB>expected_sha256<TAB>timeout<TAB>mode
+on-freeze	.agents/skills/migration-guard/scripts/check.sh	sha256:9f3c8e4...	30	gate
+on-done	.agents/skills/archiver/scripts/push.sh	sha256:1a7e2b8...	60	notify
+on-sync	.agents/skills/team-transport/sync.sh	sha256:4d8a1c3...	45	gate
+```
+
+### 🪝 Key Capabilities
+* **Pure Planning Invariant**: Executables never live in `.plans/`. Handler scripts live cleanly in skills (e.g. `.agents/skills/<name>/scripts/`).
+* **Anti-Self-Modification Gate**: The hook registry is permanently protected under Section 2 of `blast-radius-guard`. Entrypoints are verified with portable SHA256 hashing before execution, preventing autonomous agents from bypassing quality gates.
+* **Dual Delivery Contract**: Handlers receive full event context via standard input JSON envelopes while standard POSIX environment variables (`AAPP_EVENT`, `AAPP_PLAN_ID`, `AAPP_ACTION`, `AAPP_REMOTE`, `AAPP_MODE`, `AAPP_TIMEOUT`) are exported for zero-dependency shell scripts.
+* **Exit Code Semantics**: `0` = pass; `1` = fatal failure (aborts lifecycle in `gate` mode; logs warning in `notify` mode); `2` = non-fatal advisory warning; `124` = watchdog timeout.
+* **Transparent Action Plugins (`aapp <plugin>`)**: Extension-agnostic command fallthrough. Drop an executable script or binary into `.agents/skills/<plugin>/run` (or `.py`, `.sh`, etc.) and invoke it directly via `aapp <plugin> [args...]`.
+* **Management CLI**: `aapp hooks` audits registered hooks; `aapp plugins` discovers installed action plugins; `aapp hook-test <event>` tests handlers safely; `aapp hook-hash <file>` generates ready-to-paste TSV lines.
+
+---
+
+## 10. AI Attribution & Multi-Vendor Benchmarking (`aapp ai-*`)
 
 AAPP replaces insecure, synthetic co-author emails (`Co-authored-by: Agent <email>`) with an explicit, multi-mode AI attribution suite governed by repository configuration (`git config aapp.aiAttribution`):
 
@@ -383,7 +406,7 @@ Choosing `ai-notes` is a decision to keep the record of AI involvement internal 
 
 ---
 
-## 10. Security, Threat Model & Trust Boundaries
+## 11. Security, Threat Model & Trust Boundaries
 
 AAPP is an **alignment, cognitive-drift prevention, and architectural governance framework**, not an adversarial execution sandbox.
 
@@ -394,33 +417,36 @@ AAPP is an **alignment, cognitive-drift prevention, and architectural governance
 
 ---
 
-## 11. Testing & Verification Suites
+## 12. Testing & Verification Suites
 
-AAPP includes 188 automated regression test cases verifying hook enforcement, write-guard protection, branch protection, skill synchronization, flat issue ledger, Plan ID shorthand resolution, six-pair planning-health validation, and the AI attribution switchboard:
+AAPP includes 321 automated regression test cases verifying hook enforcement, remote sync automation, lifecycle extension hooks, write-guard protection, branch protection, skill synchronization, flat issue ledger, Plan ID shorthand resolution, six-pair planning-health validation, and the AI attribution switchboard:
 
 ```bash
-# Run complete test verification suite (188 tests)
-./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh && ./tests/plan_resolver_test.sh && ./tests/ai_attribution_test.sh
+# Run complete test verification suite (321 tests)
+./tests/install_test.sh && ./tests/pre-commit_test.sh && ./tests/write-guard_test.sh && ./tests/plan_resolver_test.sh && ./tests/ai_attribution_test.sh && ./tests/sync_test.sh && ./tests/hooks_test.sh
 ```
 
 | Suite | File | Tests | Coverage |
 | :--- | :--- | :--- | :--- |
-| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 47 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` decoupling & merge, Universal Skills sync, drift control, archive provisioning, non-destructive custom `ISSUES.md` advisory, flat schema, Plan ID template headers. |
-| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 34 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, always-allowed invariant anchors (`CHEATSHEET.md`, `README.md`, etc.), BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection, POSIX ID-anchored roadmap auto-pruning, detect-and-block Relocation Invariant, planning-health Pairs 1–5 integrity validation, git-verified worktree changelog checks. |
-| **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 49 cases | PreToolUse Claude Code JSON payload, self-protection invariants (`.agents/claude/*`, `.claude/settings.json`, `.git/config`, `.agents/skills/aapp-*`, `.claude/skills/aapp-*`), invariant anchors (`CHEATSHEET.md`, `CHANGELOG.md`), Section 2b external hard-deny (credentials, shell rc, local bin), Section 2c external path allowlist (Claude, Antigravity, temp, git config `aapp.allowPath`), lexical canonicalization traversal prevention, `MultiEdit` matcher coverage, fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
+| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 58 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` decoupling & merge, Universal Skills sync, drift control, archive provisioning, non-destructive custom `ISSUES.md` advisory, flat schema, Plan ID template headers. |
+| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 78 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, always-allowed invariant anchors (`CHEATSHEET.md`, `README.md`, etc.), BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection, POSIX ID-anchored roadmap auto-pruning, detect-and-block Relocation Invariant, planning-health Pairs 1–6 integrity validation, git-verified worktree changelog checks. |
+| **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 96 cases | PreToolUse Claude Code JSON payload, self-protection invariants (`.agents/claude/*`, `.claude/settings.json`, `.git/config`, `.agents/skills/aapp-*`, `.claude/skills/aapp-*`), invariant anchors (`CHEATSHEET.md`, `CHANGELOG.md`), Section 2b external hard-deny (credentials, shell rc, local bin), Section 2c external path allowlist (Claude, Antigravity, temp, git config `aapp.allowPath`), lexical canonicalization traversal prevention, `MultiEdit` matcher coverage, fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
 | **Plan Resolver & Health** | [tests/plan_resolver_test.sh](tests/plan_resolver_test.sh) | 24 cases | Plan ID resolution (`P-9`, `9`, `P13`), slug matching, Issue `#` collision rejection, transition verb empty-query guards, `get_plan_id`/`get_next_plan_id`, Pair 4 Plan ID uniqueness, Pair 5 Section 2 target blocks, Pair 6 Recorded SHA Integrity. |
 | **AI Attribution Suite** | [tests/ai_attribution_test.sh](tests/ai_attribution_test.sh) | 34 cases | Default `none` config, switchboard transitions, refspec idempotency, commit-msg conciseness (<=72 chars) and trailer checks, revert bypass, Option C hash-keyed note staging and post-commit attachment, amend durability (`notes.rewriteRef`), TTL reaping, failure safety, `ai-credits` mode boundary, `LC_ALL=C` sorting, and alias mapping. |
+| **Remote Sync** | [tests/sync_test.sh](tests/sync_test.sh) | 15 cases | Worktree push/pull/sync, upstream tracking branch detection, fast-forward verification, dirty worktree pre-flight checks, selective worktree filtering (`aapp.syncWorktrees`), three-tier sync strategy hierarchy (`aapp.syncStrategy`), and `on-sync` hook delegation. |
+| **Lifecycle Plugin Hooks** | [tests/hooks_test.sh](tests/hooks_test.sh) | 16 cases | 5-column TSV parsing, portable fail-closed SHA256 resolution chain, integrity checking, Dual Delivery env vars & STDIN JSON, exit code semantics (0, 1, 2), watchdog timeout handling (gate vs. notify), local git config overrides, CI confinement, `aapp hooks`, `aapp plugins`, `aapp hook-test`, `aapp hook-hash`, and transparent extension-agnostic action plugin execution. |
 
 ---
 
-## 12. Blueprint Example & Technical Manual
+## 13. Architectural Manual & Adopter Examples
  
-* **Complete Blueprint Example**: See [examples/example-plan-distribution-rework.md](examples/example-plan-distribution-rework.md) for a real-world, fully refined AAPP blueprint demonstrating Blast Radius declarations, technical decision logs (Q1–Q9), and verification matrix.
+* **Archived Blueprints & Ledgers**: See [.plans/done/](.plans/done/) (e.g. `P10-remote-sync.md`, `P12-lifecycle-hooks.md`) for real-world, completed AAPP blueprints demonstrating Blast Radius declarations, technical decision logs, and verification matrices.
+* **Adopter Reference Examples**: See [examples/hooks/](examples/hooks/) (e.g. `on-done-sync.sh`, `fallback-ratchet.sh`) and [examples/plugins/](examples/plugins/) (e.g. `hello-tool/run`) for browsable, ready-to-use hooks and action plugins.
 * **Comprehensive Technical Manual**: See [MANUAL.md](MANUAL.md) for low-level Git worktree plumbing, Two Lanes protocol, state machine lifecycle, multi-agent IDE integration, hook manager recipes, and operations.
 
 ---
 
-## 13. License
+## 14. License
 
 Released under the [BSD 3-Clause License](LICENSE).
 

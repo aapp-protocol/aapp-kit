@@ -44,19 +44,29 @@
   * [The Multi-File Hook Architecture (Master Runner Pattern)](#the-multi-file-hook-architecture-master-runner-pattern)
   * [Polyglot Invocation Cheat Sheet](#polyglot-invocation-cheat-sheet)
   * [Hook Manager Integration Recipes](#hook-manager-integration-recipes)
-* [8. AI Attribution Suite & Multi-Vendor Benchmarking](#8-ai-attribution-suite--multi-vendor-benchmarking)
+* [8. Lifecycle Plugin Hooks & Action Plugins Engine](#8-lifecycle-plugin-hooks--action-plugins-engine)
+  * [System Architecture & The Pure Planning Invariant](#system-architecture--the-pure-planning-invariant)
+  * [Protected Registry & Hash-Lock Contract (`registry.tsv`)](#protected-registry--hash-lock-contract-registrytsv)
+  * [The Dual Delivery Contract (STDIN JSON + POSIX Environment)](#the-dual-delivery-contract-stdin-json--posix-environment)
+  * [Exit Code Semantics & Watchdog Timeouts](#exit-code-semantics--watchdog-timeouts)
+  * [Lifecycle Event Matrix (10 Lifecycle Triggers)](#lifecycle-event-matrix-10-lifecycle-triggers)
+  * [Team Sync Governance & Transport Hooks (`aapp.syncStrategy`)](#team-sync-governance--transport-hooks-aappsyncstrategy)
+  * [Local Developer Overrides & CI Confinement](#local-developer-overrides--ci-confinement)
+  * [CLI Management Suite (`aapp hooks`, `plugins`, `hook-test`, `hook-hash`)](#cli-management-suite-aapp-hooks-plugins-hook-test-hook-hash)
+  * [Transparent Command Fallthrough & Polyglot Plugins](#transparent-command-fallthrough--polyglot-plugins)
+* [9. AI Attribution Suite & Multi-Vendor Benchmarking](#9-ai-attribution-suite--multi-vendor-benchmarking)
   * [Attribution Models: Trailers vs. Notes Asymmetry](#attribution-models-trailers-vs-notes-asymmetry)
   * [The Switchboard Command Family](#the-switchboard-command-family)
   * [Commit Conciseness Invariant & Commit-Msg Enforcement](#commit-conciseness-invariant--commit-msg-enforcement)
   * [Option C Staged Note Protocol & Amend Durability](#option-c-staged-note-protocol--amend-durability)
   * [The Mode-Boundary Rationale (§E.8)](#the-mode-boundary-rationale-e8)
   * [The AI Contributors Roster (`README.md`)](#the-ai-contributors-roster-readmemd)
-* [9. Security, Threat Model & Trust Boundaries](#9-security-threat-model--trust-boundaries)
+* [10. Security, Threat Model & Trust Boundaries](#10-security-threat-model--trust-boundaries)
   * [The Pair-Programming Trust Model](#the-pair-programming-trust-model)
   * [Defense-in-Depth Architecture](#defense-in-depth-architecture)
   * [Why Shell Access Dictates the Containment Boundary](#why-shell-access-dictates-the-containment-boundary)
   * [Structural Gates vs. Brittle Client Flags](#structural-gates-vs-brittle-client-flags)
-* [10. Maintenance, Operations & Troubleshooting FAQ](#10-maintenance-operations--troubleshooting-faq)
+* [11. Maintenance, Operations & Troubleshooting FAQ](#11-maintenance-operations--troubleshooting-faq)
 
 ---
 
@@ -878,7 +888,212 @@ repos:
 
 ---
 
-## 8. AI Attribution Suite & Multi-Vendor Benchmarking
+## 8. Lifecycle Plugin Hooks & Action Plugins Engine
+
+AAPP provides an extensible, zero-dependency lifecycle hook and action plugin engine. It allows external scripts, linters, quality ratchets (e.g. fallback detectors), remote sync transports, and issue trackers (Jira, Linear, GitHub Issues) to intercept planning events via standard POSIX stdio contracts.
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                        AAPP LIFECYCLE ENGINE                           │
+│  (on-freeze, on-start, on-done, on-pause, on-resume, on-sync, ...)     │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+                                   ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                     FAIL-CLOSED INTEGRITY CHECK                        │
+│   • Parse .agents/skills/aapp-hooks/registry.tsv (5 columns)           │
+│   • Compute SHA256 of entrypoint via portable resolution chain         │
+│   • Verify hash matches expected_sha256 (Anti-Self-Modification Gate)  │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+                                   ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                        DUAL DELIVERY DISPATCH                          │
+│   • STDIN: Stream full JSON envelope (event, plan metadata, actor)     │
+│   • POSIX ENV: Export AAPP_EVENT, AAPP_PLAN_ID, AAPP_ACTION, etc.      │
+│   • Watchdog: Enforce timeout (default 10s) with POSIX subshell timer  │
+│   • Mode: 'gate' (exit 1 aborts) vs. 'notify' (exit 1 warns)           │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### System Architecture & The Pure Planning Invariant
+
+1. **Pure Planning Invariant**: `.plans/` is reserved strictly for human-readable planning markdown (blueprints, issues, pickup queue, archive ledgers). Executable hook scripts and registry files **never live in `.plans/`**.
+2. **Anti-Self-Modification Gate**: Section 2 of `blast-radius-guard` permanently protects `.agents/skills/aapp-*` from agent writes. If hook registration lived in an unprotected directory, an agent encountering a quality gate (like a fallback ratchet) could simply rewrite the hook script or repoint the registry to exit 0. By housing the registry in `.agents/skills/aapp-hooks/registry.tsv` and verifying each entrypoint's SHA256 before execution, neither the registry nor the handler scripts can be silently modified without invalidating the recorded hash and aborting the lifecycle operation.
+
+---
+
+### Protected Registry & Hash-Lock Contract (`registry.tsv`)
+
+The hook registry is a tab-delimited, line-oriented flat file (`.agents/skills/aapp-hooks/registry.tsv`) conforming to a strict 5-column schema:
+
+```tsv
+# event<TAB>handler_path<TAB>expected_sha256<TAB>timeout<TAB>mode
+on-freeze	.agents/skills/migration-guard/scripts/check.sh	sha256:9f3c8e4...	30	gate
+on-done	.agents/skills/archiver/scripts/push.sh	sha256:1a7e2b8...	60	notify
+on-sync	.agents/skills/team-transport/sync.sh	sha256:4d8a1c3...	45	gate
+```
+
+* **5-Column Schema**:
+  1. `event`: The lifecycle trigger name (e.g. `on-freeze`, `on-done`, `on-sync`).
+  2. `handler_path`: Relative repository path to the executable script or binary.
+  3. `expected_sha256`: Expected SHA256 checksum prefixed with `sha256:`.
+  4. `timeout`: Execution timeout in seconds (positive integer; defaults to `10` if empty or omitted).
+  5. `mode`: Execution mode — `gate` (fails closed, aborts lifecycle on failure/timeout) or `notify` (logs advisory warning and proceeds). Defaults to `gate`.
+* **Pure POSIX Line Parsing**: Parsed using `TAB=$(printf '\t')` to guarantee 100% compatibility with `dash` (`/bin/sh` on Debian/Ubuntu), avoiding non-portable bashisms (`$'\t'`). Malformed lines with unexpected 6th fields are rejected with an explicit error.
+* **Portable SHA256 Resolution Chain (Fail-Closed)**: Computes hashes dynamically by resolving host binaries: `sha256sum` (Linux) -> `shasum -a 256` (macOS) -> `sha256` (BSD) -> `openssl dgst -sha256`. If no SHA256 utility exists on the system, the dispatcher hard-aborts.
+* **Integrity Gate**: If the live file's SHA256 does not match `expected_sha256`, the lifecycle transition is refused with an integrity violation diagnostic.
+* **Multi-Hook Multiplexing**: Multiple handlers may bind to the same event. They execute sequentially in order of registration.
+
+---
+
+### The Dual Delivery Contract (STDIN JSON + POSIX Environment)
+
+To accommodate both zero-dependency shell scripts and rich polyglot webhook integrations, AAPP dispatches events via **Dual Delivery**:
+
+#### 1. JSON Envelope on `stdin`
+Handlers receive a structured JSON payload on standard input containing metadata and event-specific context:
+```json
+{
+  "event": "on-done",
+  "timestamp": "2026-09-19T21:30:00Z",
+  "pid": 12345,
+  "actor": "lorand",
+  "repo_root": "/path/to/project",
+  "plan": {
+    "id": "P-12",
+    "file": ".plans/current/P12-lifecycle-hooks.md",
+    "status": "⚡ In Development"
+  },
+  "data": {
+    "archive_file": ".plans/done/P12-lifecycle-hooks.md"
+  }
+}
+```
+
+#### 2. Exported POSIX Environment Variables
+For shell scripts that avoid parsing JSON, standard variables are exported into the handler's execution environment:
+* `AAPP_EVENT`: Name of the triggering lifecycle event (e.g. `on-done`).
+* `AAPP_PLAN_ID`: Identifier of the associated plan (e.g. `P-12`).
+* `AAPP_PLAN_FILE`: Path to the plan blueprint.
+* `AAPP_ACTION`: Specific sub-action for composite events (e.g. `push`, `pull`, `sync`).
+* `AAPP_REMOTE`: Target remote repository (e.g. `origin`).
+* `AAPP_MODE`: Handler mode (`gate` or `notify`).
+* `AAPP_TIMEOUT`: Execution timeout in seconds.
+* `AAPP_ACTOR`: Current system user executing the command.
+
+---
+
+### Exit Code Semantics & Watchdog Timeouts
+
+Handlers communicate their results through standard POSIX process exit codes:
+
+| Exit Code | Gate Mode (`gate`) | Notify Mode (`notify`) | Semantic Meaning |
+| :---: | :--- | :--- | :--- |
+| `0` | **Pass**: Operation proceeds. | **Pass**: Operation proceeds. | Success / Validated |
+| `1` | **Hard Abort**: Lifecycle operation cancelled immediately; stderr streamed. | **Warning**: Diagnostic logged; operation proceeds. | Validation failure or fatal error |
+| `2` | **Advisory Warning**: Diagnostic logged; operation proceeds. | **Advisory Warning**: Diagnostic logged; operation proceeds. | Non-fatal check warning |
+| `124` | **Hard Abort**: Process terminated by watchdog timeout; operation cancelled. | **Warning**: Timeout logged; operation proceeds. | Watchdog timeout exceeded |
+| Other | **Hard Abort**: Treated as Exit Code 1. | **Warning**: Treated as Exit Code 1. | Non-standard failure |
+
+#### Subprocess Watchdog
+Every handler executes under an automated watchdog timer running in an isolated subshell. If the handler exceeds its configured `timeout`, the watchdog terminates the handler process with `SIGTERM` (followed by `SIGKILL` if unresponsive) and returns exit code 124.
+
+---
+
+### Lifecycle Event Matrix (10 Lifecycle Triggers)
+
+AAPP wires 10 distinct lifecycle events across all planning and workflow operations:
+
+| Event | Triggering Command | Default Mode | Delivered Context (`data`) |
+| :--- | :--- | :---: | :--- |
+| `on-pickup` | `/aapp-digest` / `aapp digest` | `notify` | Idea text or pickup file being ingested. |
+| `on-digest` | `/aapp-digest` / `aapp digest` | `gate` | Scaffolded draft blueprint path & Plan ID. |
+| `on-freeze` | `/aapp-freeze` / `aapp freeze` | `gate` | Plan ID, declared Target Files, locked blueprint path. |
+| `on-start` | `/aapp-start` / `aapp start` | `gate` | Plan ID, status transition to `⚡ In Development`. |
+| `on-done` | `/aapp-done` / `aapp done` | `notify` | Plan ID, destination archive path in `.plans/done/`. |
+| `on-pause` | `/aapp-pause` / `aapp pause` | `gate` | Pause reason, dirty worktree inventory, pause buffer path. |
+| `on-resume` | `/aapp-resume` / `aapp resume` | `gate` | Restored plan ID, restored worktree count. |
+| `pre-sync` | `aapp push`, `pull`, `sync` | `notify` | Action (`push`/`pull`/`sync`), remote, worktrees. |
+| `on-sync` | `aapp push`, `pull`, `sync` | `gate` | Action, remote, worktrees (transports remote state). |
+| `post-sync` | `aapp push`, `pull`, `sync` | `notify` | Action, remote, worktrees, transport result. |
+
+---
+
+### Team Sync Governance & Transport Hooks (`aapp.syncStrategy`)
+
+For teams collaborating via custom infrastructure (e.g. S3 buckets, central databases, or internal git mirrors), remote synchronization can be delegated to a team plugin hook (`on-sync`). AAPP establishes a strict three-tier precedence hierarchy:
+
+```text
+1. CLI Positional Strategy Override
+   aapp push origin hook  (or: aapp sync origin builtin)
+        │
+        ▼ (if not specified on CLI)
+2. Local Developer Configuration
+   git config aapp.syncStrategy [builtin|hook]
+        │
+        ▼ (if unset in .git/config)
+3. Repository Team Standard
+   • Defaults to 'hook' if an 'on-sync' handler is registered in registry.tsv
+   • Defaults to 'builtin' otherwise
+```
+
+#### Fail-Closed Transport Invariant
+If `aapp.syncStrategy` resolves to `hook` but no executable handler is registered in `.agents/skills/aapp-hooks/registry.tsv` or git config, AAPP **strictly refuses** the operation:
+```text
+❌ aapp.syncStrategy=hook but no executable handler is registered for on-sync in .agents/skills/aapp-hooks/registry.tsv or git config.
+```
+Silently degrading to `builtin` or doing nothing is forbidden — refusal is the only outcome where a configuration error is immediately visible.
+
+---
+
+### Local Developer Overrides & CI Confinement
+
+Developers can register local observation hooks in `.git/config` without modifying committed files:
+```bash
+git config --add aapp.hook.on-done "/path/to/local/desktop-notify.sh"
+```
+
+* **Observation Invariant**: Local git config hooks run **exclusively in `mode=notify`**. They can observe events, stream notifications, or play audio alerts, but can **never gate or abort** a lifecycle transition. Only committed handlers in `registry.tsv` can gate.
+* **CI Confinement**: In CI/CD pipelines or strict build runners, uncommitted hooks are disabled by setting:
+  ```bash
+  git config aapp.allowLocalHooks false
+  ```
+
+---
+
+### CLI Management Suite (`aapp hooks`, `plugins`, `hook-test`, `hook-hash`)
+
+AAPP provides dedicated CLI commands for managing and testing hooks:
+
+* **`aapp hooks`**: Audits all registered lifecycle hooks. Validates file existence, executable bit (`+x`), and live SHA256 integrity against `registry.tsv`:
+  ```text
+  🪝 AAPP Lifecycle Hook Registry (.agents/skills/aapp-hooks/registry.tsv)
+    • on-freeze -> .agents/skills/migration-guard/scripts/check.sh [gate, 30s] (hash: valid)
+    • on-done   -> .agents/skills/archiver/scripts/push.sh [notify, 60s] (hash: valid)
+  ```
+* **`aapp plugins`**: Scans `.agents/skills/` and lists all discovered Action Plugins with their resolved entrypoints.
+* **`aapp hook-test <event> [plan-id]`**: Dry-runs registered handlers for a lifecycle event with mock payload data, testing timeout watchdog and exit code semantics without modifying repository state.
+* **`aapp hook-hash <file> [event] [timeout] [mode]`**: Helper utility that computes the portable SHA256 of `<file>` and outputs a formatted 5-column TSV line ready to paste into `registry.tsv`.
+
+---
+
+### Transparent Command Fallthrough & Polyglot Plugins
+
+Action Plugins are standalone CLI tools authored as project skills in `.agents/skills/<name>/`.
+
+#### Extension-Agnostic Resolution Invariant
+Plugin discovery **never relies on a specific script extension (`.sh`)**. When `aapp <cmd> [args...]` is called and `<cmd>` is not a core built-in command, the CLI switchboard scans `.agents/skills/$CMD/` in deterministic order:
+1. `run` or `$CMD` (extensionless executable binary or shebang script)
+2. `scripts/run` or `scripts/$CMD` (extensionless executable in subfolder)
+3. Any executable matching `$CMD.*` or `run.*` (e.g. `.py`, `.sh`, `.bash`, `.js`, `.rb`)
+4. Any executable in `scripts/` matching `$CMD.*` or `run.*`
+
+When an entrypoint matches, AAPP immediately delegates execution via `exec "$CANDIDATE" "$@"`, forwarding all standard streams, arguments, and process exit codes without overhead.
+
+---
+
+## 9. AI Attribution Suite & Multi-Vendor Benchmarking
 
 AAPP replaces legacy synthetic co-author email trailers (`Co-authored-by: Agent <agent@vendor.com>`) with an explicit, multi-mode AI attribution suite governed by repository configuration (`git config aapp.aiAttribution`).
 
@@ -950,7 +1165,7 @@ When `aapp ai-credits` runs under `commit` mode:
 
 ---
 
-## 9. Security, Threat Model & Trust Boundaries
+## 10. Security, Threat Model & Trust Boundaries
 
 Understanding AAPP's threat model and security boundaries is essential for properly deploying AI coding agents in professional engineering environments.
 
@@ -994,7 +1209,7 @@ A critical architectural lesson in AAPP's design is the distinction between **st
 
 ---
 
-## 10. Maintenance, Operations & Troubleshooting FAQ
+## 11. Maintenance, Operations & Troubleshooting FAQ
 
 ### Q: How do I upgrade an existing project to a newer AAPP version?
 Upgrading is completely zero-parameter. In your project root, run:

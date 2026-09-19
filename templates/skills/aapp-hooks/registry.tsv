@@ -1,0 +1,25 @@
+# ==============================================================================
+# AAPP Lifecycle Hook Registry (.agents/skills/aapp-hooks/registry.tsv)
+#
+# Schema: 5 tab-separated columns
+# event<TAB>handler_path<TAB>expected_sha256<TAB>timeout<TAB>mode
+#
+# Events:
+#   on-pickup   - New idea added to pickup queue
+#   on-digest   - Idea digested into issue or draft plan
+#   on-freeze   - Plan locked into 🔷 Frozen backlog
+#   on-start    - Plan activated into ⚡ In Development
+#   on-done     - Plan completed and archived to done/
+#   on-pause    - Emergency brake engaged (aapp pause)
+#   on-resume   - Emergency brake released (aapp resume)
+#   pre-sync    - Before worktree sync transport runs
+#   on-sync     - Delegated worktree sync transport (aapp.syncStrategy = hook)
+#   post-sync   - After worktree sync transport completes
+#
+# Modes:
+#   gate   - Aborts lifecycle transition on failure/timeout (exit code 1)
+#   notify - Emits advisory warning and proceeds on failure/timeout
+#
+# Register hooks using: aapp hook-hash <path> [event] [timeout] [mode]
+# Audit hooks using:    aapp hooks
+# ==============================================================================
