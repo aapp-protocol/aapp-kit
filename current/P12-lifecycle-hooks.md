@@ -2,7 +2,7 @@
 * **Created:** 2026-09-10 | **Last Refined:** 2026-09-19
 * **Target Issue / Milestone:** Milestone v1.2.0 (Lifecycle Extension Engine)
 * **Plan ID:** P-12
-* **Status:** 🟣 Under Review
+* **Status:** ⚡ In Development
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
@@ -337,7 +337,7 @@ This cleanly decouples Action Plugin inspection (`aapp plugins`) from Lifecycle 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*(Marked: **PROPOSED** — confers no execution rights until frozen)*
+*(Marked: **LOCKED** — Greenlit for implementation)**
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `aapp` -> Add `hooks`, `plugins`, `hook-test`, `hook-hash` commands and extension-agnostic transparent plugin fallthrough.
@@ -377,6 +377,7 @@ This cleanly decouples Action Plugin inspection (`aapp plugins`) from Lifecycle 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-09-19:** Added `on-done-sync.sample.sh` reference template to Task 3.1 and Target Files to demonstrate automated remote worktree synchronization upon plan archival, resolving P-10 Open Question 3 without hardcoding prompts into `AGENTS.md`.
 * **2026-09-19:** Decoupled action plugins from lifecycle hooks and completed execution invariants: (1) Added dedicated `aapp plugins` CLI command to inspect discovered action plugins without overloading `aapp hooks` or introducing double-dash flags. (2) Added Dual Delivery Contract in §C (streaming rich JSON on `stdin` while exporting standard POSIX environment variables for zero-dependency shell hooks). (3) Resolved Open Question 2 establishing synchronous execution as an invariant. (4) Replaced double-dash CLI sync flags with clean positional strategy arguments. (5) Aligned attribution trailer invariant header with current protocol standards.
 * **2026-09-19:** Refined plugin discovery and team sync governance: (1) Mandated extension-agnostic plugin discovery in §D.4 (supporting extensionless executables, .py, .sh, or any extension with deterministic resolution). (2) Formalized `on-sync` transport execution contract and three-tier precedence for team sync governance in §D.1 (positional override > local git config > committed registry default). (3) Expanded event matrix to 10 events.
