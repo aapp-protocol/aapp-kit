@@ -424,8 +424,15 @@ check_decision "before pause: declared target allowed" ALLOW "src/paused_target.
 check_decision "while paused: declared target denied" DENY "src/paused_target.py"
 check_decision "while paused: untracked codebase file denied" DENY "src/random.py"
 check_decision "while paused: anchor README.md denied" DENY "README.md"
-check_decision "while paused: plans still writable" ALLOW ".plans/ISSUES.md"
-check_decision "while paused: agents still writable" ALLOW ".agents/CODEMAP.md"
+check_decision "while paused: plans ISSUES still writable" ALLOW ".plans/ISSUES.md"
+check_decision "while paused: plans issues_road_map still writable" ALLOW ".plans/issues_road_map.md"
+check_decision "while paused: plans pickup still writable" ALLOW ".plans/pickup.md"
+check_decision "while paused: plans pickup subfolder writable" ALLOW ".plans/pickup/note.md"
+check_decision "while paused: plans current still writable" ALLOW ".plans/current/P99.md"
+check_decision "while paused: plans done denied" DENY ".plans/done/000-archive-ledger.md"
+check_decision "while paused: plans state_matrix denied" DENY ".plans/state_matrix.md"
+check_decision "while paused: agents rules denied" DENY ".agents/AGENTS.md"
+check_decision "while paused: agents codemap denied" DENY ".agents/CODEMAP.md"
 check_decision "while paused: external scratchpad allowed" ALLOW "/tmp/scratch.txt"
 
 # Resume

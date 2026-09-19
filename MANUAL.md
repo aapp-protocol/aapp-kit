@@ -654,7 +654,7 @@ Disengages the emergency brake and restores developer velocity:
 When developers work across multiple IDE windows or companion terminals:
 - **Layer 1 (Local Session)**: For sessions rooted in this repository, `blast-radius-guard` intercepts write tools before touching disk.
 - **Layer 2 (Cross-Repo / External Session)**: For sessions rooted in other directories or plain terminals, Layer 2 (`pre-commit`) serves as the strict, inescapable gate that rejects any commit touching codebase files.
-- **Permitted Reflection**: Code reading, Q&A, logging defects in `.plans/ISSUES.md`, drafting blueprints in `.plans/current/`, and updating `.agents/` remain 100% operational while paused.
+- **Permitted Reflection**: Code reading, Q&A, capturing notes in `.plans/pickup*`, logging defects in `.plans/ISSUES.md` (and `issues_road_map.md`), and drafting blueprints in `.plans/current/` remain 100% operational while paused. All modifications to codebase files, the `.agents/` control plane, templates, and hooks are strictly blocked.
 - **Emergency Escape Hatches**: `SKIP_BLAST_RADIUS=1` bypasses Layer 1 and Layer 2; `git commit --no-verify` bypasses Layer 2.
 
 ---

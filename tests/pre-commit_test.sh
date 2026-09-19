@@ -798,15 +798,41 @@ else
 fi
 git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null
 
-# 3. Committing within .plans while paused is permitted
+# 3. Committing within .plans (pickup) while paused is permitted
 echo "new note" > .plans/pickup.md
 git add .plans/pickup.md 2>/dev/null || true
 out=$(git commit -m "chore(plans): add note while paused" 2>&1)
 rc=$?
 if [ $rc -eq 0 ]; then
-  printf "  \033[32m✔\033[0m %-52s %s\n" "committing .plans while paused is permitted" "PASS"; PASS=$((PASS+1))
+  printf "  \033[32m✔\033[0m %-52s %s\n" "committing .plans/pickup while paused is permitted" "PASS"; PASS=$((PASS+1))
 else
-  printf "  \033[31m✘\033[0m %-52s want PASS got rc=%d\n" "committing .plans while paused is permitted" "$rc"; FAIL=$((FAIL+1))
+  printf "  \033[31m✘\033[0m %-52s want PASS got rc=%d\n" "committing .plans/pickup while paused is permitted" "$rc"; FAIL=$((FAIL+1))
+fi
+
+# 3b. Committing outside pickup/issues/current (.agents) while paused is refused
+mkdir -p .agents
+echo "rule" > .agents/AGENTS.md
+git add .agents/AGENTS.md 2>/dev/null || true
+out=$(git commit -m "chore(agents): add rule while paused" 2>&1)
+rc=$?
+git reset -q .agents/AGENTS.md >/dev/null 2>&1; rm -rf .agents
+if [ $rc -ne 0 ] && echo "$out" | grep -q "Project Circuit Breaker"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "committing .agents while paused is refused" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got rc=%d\n" "committing .agents while paused is refused" "$rc"; FAIL=$((FAIL+1))
+fi
+
+# 3c. Committing outside pickup/issues/current (.plans/done) while paused is refused
+mkdir -p .plans/done
+echo "done plan" > .plans/done/P01.md
+git add .plans/done/P01.md 2>/dev/null || true
+out=$(git commit -m "chore(plans): archive while paused" 2>&1)
+rc=$?
+git reset -q .plans/done/P01.md >/dev/null 2>&1; rm -rf .plans/done
+if [ $rc -ne 0 ] && echo "$out" | grep -q "Project Circuit Breaker"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "committing .plans/done while paused is refused" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got rc=%d\n" "committing .plans/done while paused is refused" "$rc"; FAIL=$((FAIL+1))
 fi
 
 # 4. In-flight operation guard refusal

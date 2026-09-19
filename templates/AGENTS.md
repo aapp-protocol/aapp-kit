@@ -271,7 +271,7 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
   2. Runs In-Flight Operation Guard across all worktrees (`git worktree list --porcelain`), verifying zero active merges, rebases, or cherry-picks via canonical gitdir plumbing (`git rev-parse --git-path MERGE_HEAD`, `rebase-merge`, `CHERRY_PICK_HEAD`).
   3. Quarantines uncommitted in-flight code per-worktree into SHA-addressed stashes (`aapp-pause-<timestamp>:<branch>`) using `--include-untracked` (strictly forbidding `--all` to respect `.gitignore` air-gaps).
   4. Enforces the Atomic Rollback Invariant: validates 40-character hexadecimal commit SHAs; rolls back all stashes if any worktree fails.
-  5. Engages Circuit Breaker: locks all codebase writes and commits across worktrees while keeping reflection and planning (`.plans/*`, `.agents/*`) 100% operational.
+  5. Engages Circuit Breaker: locks all codebase and control-plane (`.agents/*`) writes and commits across worktrees while keeping reflection strictly within `.plans/` (pickup, issues, current) operational.
 
 - **`resume` (or `/aapp-pause resume`, `aapp resume`, `aapp unpause`)**: Disengage the emergency brake and wake workspace.
   1. Detects forensic drift by comparing current HEAD SHAs against the pause snapshot (reporting foreign commits without auto-rebasing).
@@ -287,7 +287,7 @@ When switching focus across projects, stepping away from the desk, or preventing
 - **Dynamic Multi-Worktree Stash Quarantine**: In-flight code across all mounted worktrees (`git worktree list --porcelain`) is quarantined into named, SHA-addressed stashes (`aapp-pause-<timestamp>:<branch>`), leaving all working trees clean.
 - **State Buffer Scope**: Defaults to `$(git rev-parse --git-common-dir)/aapp_paused` (uncommitted, shared across all linked worktrees). Optional `--shared` commits `.plans/PAUSED.md` for remote team freeze.
 - **Cross-Medium Hook Realism ("Uncommittable, Not Untouchable")**: For sessions rooted in this repository, Layer 1 (`blast-radius-guard`) intercepts write tools before disk touches. For external or companion chat sessions rooted elsewhere, Layer 2 (`pre-commit`) serves as the strict, inescapable gate that rejects any commit touching codebase files.
-- **Permitted Paths While Paused**: Only `.plans/*` (issues, blueprints, pickup) and `.agents/*` (codemap, rules) are permitted.
+- **Permitted Paths While Paused**: Only `.plans/` reflections (`pickup*`, `ISSUES.md`, `issues*`, `current/*`) are permitted. All writes to codebase files, `.agents/*` control plane, templates, or hooks are strictly blocked.
 - **Emergency Escape Hatches**: `SKIP_BLAST_RADIUS=1` bypasses Layer 1 and Layer 2; `git commit --no-verify` bypasses Layer 2. Stashes are recoverable manually via `git stash list` and `git stash apply <sha>`.
 
 ---
