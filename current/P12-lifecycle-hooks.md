@@ -1,5 +1,5 @@
-# 🗺️ Plan P-12: Lifecycle Plugin Hooks Architecture (`.plans/hooks/`)
-* **Created:** 2026-09-10 | **Last Refined:** 2026-09-10
+# 🗺️ Plan P-12: Lifecycle Plugin Hooks Architecture (`.agents/skills/aapp-hooks/`)
+* **Created:** 2026-09-10 | **Last Refined:** 2026-09-19
 * **Target Issue / Milestone:** Milestone v1.2.0 (Lifecycle Extension Engine)
 * **Plan ID:** P-12
 * **Status:** 🟣 Under Review
@@ -17,9 +17,13 @@
 ---
 
 ## 1. Context & Architectural Goal
-* **What**: Implement an extensible, zero-dependency Git-style lifecycle hook engine (`.plans/hooks/*`) for AAPP, allowing external scripts, webhooks, issue trackers (Jira, Linear, GitHub Issues), and distributed databases (SQLite/Turso, CouchDB, Postgres) to intercept planning events via standard POSIX `stdin` JSON envelopes and exit codes.
-* **Why**: Core AAPP must remain 100% offline, lightning-fast, and POSIX-pure (zero npm/Python/Go dependencies). Forcing issue tracker integrations or remote databases directly into the core CLI causes API churn, authentication complexity, and fragile networking. By specifying a clean disk-and-stdio protocol contract (following Git's native `.git/hooks/*` design), adopters can build arbitrary enterprise integrations in 10 lines of Bash, Python, or Go without modifying core AAPP.
-* **The Invariant**: AAPP core knows nothing about external SaaS APIs or remote networks. It only dispatches structured JSON payloads to executable hook scripts in `.plans/hooks/` and evaluates their standard exit codes.
+* **What**: Implement an extensible, zero-dependency lifecycle hook and plugin engine for AAPP governed by a protected registry (`.agents/skills/aapp-hooks/registry.tsv`) and hash-locked execution contract, allowing external scripts, webhooks, issue trackers (Jira, Linear, GitHub Issues), and project-level quality gates (fallback ratchets, security scanners) to intercept planning events via standard POSIX `stdin` JSON envelopes and exit codes.
+* **Why**:
+  1. **Pure Planning Invariant**: Core AAPP keeps `.plans/` 100% pure markdown planning data (blueprints, issues, pickup, archive). No executables or hook directories live in `.plans/`. Handler scripts naturally live alongside role skills (e.g. `.agents/skills/<name>/scripts/`).
+  2. **Anti-Self-Modification Gate**: Section 2 of `blast-radius-guard` already protects `.agents/skills/aapp-*` from agent writes. If hook registration lived in an unprotected path, an agent encountering a gate (like an un-annotated fallback check) could simply rewrite the gate script or repoint the hook to exit 0 and pass itself. By housing the registry in `.agents/skills/aapp-hooks/registry.tsv` and recording each handler's SHA256, the registry cannot be repointed and handlers cannot be silently modified without invalidating the recorded hash.
+  3. **Zero-Dependency Pure POSIX Registry**: A line-oriented TSV registry parses with `while IFS=$'\t' read -r event path hash`, honoring the zero-dependency invariant without requiring `python3` or `jq` (avoiding the runtime dependency trap of `#9`/`ISSUE-009`).
+  4. **Multi-Hook Multiplexing & Local Overrides**: Multiple hooks can bind to the same event. Adopters get a committed team standard in the repo, paired with `git config --get-all aapp.hook.<event>` for local developer experimentation.
+* **The Invariant**: AAPP core knows nothing about external SaaS APIs or language-specific linters. It only validates the registered SHA256, dispatches structured JSON payloads to executable hook scripts, and evaluates standard POSIX exit codes.
 
 ---
 
@@ -31,14 +35,16 @@
 │     AAPP CLI Engine       │
 │ (/done, /freeze, sync, …) │
 └─────────────┬─────────────┘
-              │ 1. Discovers executable: .plans/hooks/<event>
-              │ 2. Streams Event Envelope via STDIN (JSON)
+              │ 1. Reads protected registry: .agents/skills/aapp-hooks/registry.tsv
+              │    and local overrides (git config --get-all aapp.hook.<event>)
+              │ 2. Verifies handler executable and checks SHA256 integrity
+              │ 3. Streams Event Envelope via STDIN (JSON)
               ▼
 ┌───────────────────────────┐
-│   .plans/hooks/<event>    │ ───► External SaaS / Database / Slack / Webhook
+│  Target Handler Script    │ ───► External SaaS / Linter / Ratchet / Slack / DB
 │ (Bash, Python, Go, Node)  │
 └─────────────┬─────────────┘
-              │ 3. Returns POSIX Exit Code & STDERR
+              │ 4. Returns POSIX Exit Code & STDERR
               ▼
 ┌───────────────────────────┐
 │     AAPP Action Gate      │
@@ -115,7 +121,7 @@ corresponding `.plans/hooks/<event>` is absent or not executable, the operation 
 explicit message naming the config key and the expected path:
 
 ```text
-❌ aapp.syncStrategy=hook but .plans/hooks/post-sync is missing or not executable.
+❌ aapp.syncStrategy=hook but no executable handler is registered for post-sync in .agents/skills/aapp-hooks/registry.tsv or git config.
 ```
 
 Silently doing nothing is the dangerous option — the operator believes the work happened. Silently
@@ -126,12 +132,43 @@ Refusal is the only outcome where a mistake is visible at the moment it is made.
 is `aapp.syncStrategy`, declared in `P-10` §B. Subsequent overridable features cost one config key,
 not a new design.
 
+### D.2 Protected Registry & Hash-Lock Contract (`.agents/skills/aapp-hooks/registry.tsv`)
+To guarantee that quality gates (such as fallback ratchets, linter checks, or security audits) cannot be silently bypassed or rewritten by autonomous agents, the hook registry is housed inside `.agents/skills/aapp-hooks/`, which is permanently protected under Section 2 of `blast-radius-guard`.
+
+1. **Registry Format**: A tab-delimited, line-oriented flat file (`registry.tsv`):
+   ```tsv
+   # event<TAB>handler_path<TAB>expected_sha256
+   on-freeze	.agents/skills/migration-guard/scripts/check.sh	sha256:9f3c8e4...
+   on-done	.agents/skills/archiver/scripts/push.sh	sha256:1a7e2b8...
+   ```
+2. **Pure POSIX Line-Oriented Parsing**: Parsed in standard POSIX shell with zero external dependencies:
+   ```bash
+   while IFS=$'\t' read -r event handler expected_hash; do
+       [ -z "$event" ] || [ "${event#\#}" != "$event" ] && continue
+       # match event, verify sha256 of handler, dispatch
+   done < "$REGISTRY_FILE"
+   ```
+3. **Hash-Lock Verification**: Before executing any handler defined in the registry, the dispatcher computes `sha256sum "$handler"`. If the current file hash does not match `expected_hash`:
+   - The operation is **hard-aborted** with an integrity violation notice.
+   - An agent cannot modify the handler script to pass itself because altering the script breaks the registered hash, and the agent is denied write access to `registry.tsv`.
+   - Modifying a handler or registering a new gate is a deliberate human act requiring an update to the protected registry.
+4. **Multi-Hook Multiplexing**: Multiple lines with the same `<event>` are permitted. The dispatcher iterates through all registered handlers in sequence. An exit code `1` from any handler halts the entire lifecycle event.
+
+### D.3 Local Developer Override Contract (`git config aapp.hook.<event>`)
+For local debugging or temporary hook scripts that should not be committed to the repository:
+- `git config --get-all aapp.hook.<event>` allows specifying ad-hoc handler paths.
+- Local overrides run in addition to committed registry hooks.
+- If a project wishes to disable local overrides in CI, setting `git config aapp.allowLocalHooks false` confines execution strictly to the committed `registry.tsv`.
+
 ### E. Dispatcher Engine Architecture (`lib/hook_dispatcher.sh`)
 * Provides a shared internal function `dispatch_hook <event_name> <json_data_generator_fn>`.
-* Checks if `.plans/hooks/<event_name>` exists and has executable permissions (`[ -x ... ]`).
-* If not present or not executable: silently and instantly passes (zero overhead).
-* If present: constructs the standard metadata header, streams payload to hook's `stdin`, captures exit code and `stderr`, and enforces the contract.
-* Includes a configurable timeout (default 10s via `timeout` or portable POSIX subshell watchdog) to prevent hung network calls from blocking local developer workflows.
+* Discovers handlers from `.agents/skills/aapp-hooks/registry.tsv` and local `git config --get-all aapp.hook.<event_name>`.
+* If no handlers are registered: silently and instantly passes (zero overhead).
+* For each handler:
+  1. Asserts handler path exists and is executable (`[ -x ... ]`).
+  2. If registered in `registry.tsv`, asserts SHA256 integrity. If hash mismatches, prints error to `stderr` and aborts (exit 1).
+  3. Constructs the standard metadata header, streams payload to handler's `stdin`, captures exit code and `stderr`, and enforces the contract.
+* Includes a configurable timeout (default per-event or 10s via portable POSIX subshell watchdog) to prevent hung network calls from blocking workflows.
 
 > **⏱️ Timeout calibration — field evidence (2026-09-16).** A 10-second default assumes every hook is a
 > fire-and-forget notification. That holds for the Slack/webhook cases in the §B matrix, but not for the
@@ -150,7 +187,7 @@ not a new design.
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Core Dispatcher Engine & Schema Validator
-- [ ] Task 1.1: Create `lib/hook_dispatcher.sh` implementing `dispatch_hook()` with `stdin` streaming and exit-code handling.
+- [ ] Task 1.1: Create `lib/hook_dispatcher.sh` implementing `dispatch_hook()` with TSV parsing, SHA256 hash verification, `stdin` streaming, and exit-code handling.
 - [ ] Task 1.2: Implement portable execution watchdog/timeout mechanism (default 10 seconds).
 - [ ] Task 1.3: Author JSON envelope generator for all 6 lifecycle events.
 
@@ -160,18 +197,21 @@ not a new design.
 - [ ] Task 2.3: Wire `on-digest` into `cmd_digest` (or `/digest` command execution).
 - [ ] Task 2.4: Wire `pre-sync` and `post-sync` into `lib/cmd_sync.sh`. **Depends on `P-10`**, which creates that file — this task cannot execute until remote sync ships. Also honour `aapp.syncStrategy` per §D.1.
 - [ ] Task 2.5: Implement `aapp.<feature>Strategy` resolution in `lib/hook_dispatcher.sh` per §D.1, including the refuse-on-missing-hook path.
-- [ ] Task 2.5: Update `lib/cmd_init.sh` to scaffold `.plans/hooks/` and deploy `.plans/hooks/README.md`.
+- [ ] Task 2.6: Update `lib/cmd_init.sh` to scaffold `.agents/skills/aapp-hooks/` and deploy `registry.tsv` and `SKILL.md`.
 
 ### Phase 3: Sample Hooks, Automated Tests & Documentation
-- [ ] Task 3.1: Create sample hook templates in `templates/hooks/`:
-  - `on-done.sample.sh` (logs completion to a local append-only log or webhook).
-  - `on-pickup.sample.py` (demonstrates JSON reading and external notification).
+- [ ] Task 3.1: Create sample hook templates in `templates/skills/aapp-hooks/`:
+  - `registry.tsv` (starter registry template with documented syntax and examples).
+  - `scripts/on-done.sample.sh` (logs completion to a local append-only log or webhook).
+  - `scripts/on-pickup.sample.py` (demonstrates JSON reading and external notification).
 - [ ] Task 3.2: Author automated test suite `tests/hooks_test.sh` verifying:
   - Exit code 0 allows lifecycle transition.
   - Exit code 1 halts lifecycle transition and prints stderr.
   - Exit code 2 emits warning and proceeds.
   - Non-executable hook is safely skipped.
+  - SHA256 hash mismatch halts lifecycle transition and prints diagnostic.
   - Timeout protection on hung scripts.
+  - Local `git config` overrides execute cleanly alongside registry entries.
 - [ ] Task 3.3: Document the Lifecycle Hook Contract in `MANUAL.md` and `README.md`.
 - [ ] Task 3.4: Update `CHANGELOG.md`.
 
@@ -182,13 +222,14 @@ not a new design.
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `NEW FILE` -> `lib/hook_dispatcher.sh` -> Core POSIX hook execution and dispatch engine.
-- [ ] `NEW FILE` -> `templates/hooks-readme.md` -> Starter guide deployed into `.plans/hooks/README.md`.
-- [ ] `NEW FILE` -> `templates/hooks/on-done.sample.sh` -> Reference hook script in Bash.
-- [ ] `NEW FILE` -> `templates/hooks/on-pickup.sample.py` -> Reference hook script in Python.
-- [ ] `lib/cmd_init.sh` -> Scaffold `.plans/hooks/` directory during initialization.
+- [ ] `NEW FILE` -> `templates/skills/aapp-hooks/SKILL.md` -> Skill interface and registry documentation.
+- [ ] `NEW FILE` -> `templates/skills/aapp-hooks/registry.tsv` -> Starter registry template with commented schema.
+- [ ] `NEW FILE` -> `templates/skills/aapp-hooks/scripts/on-done.sample.sh` -> Reference hook script in Bash.
+- [ ] `NEW FILE` -> `templates/skills/aapp-hooks/scripts/on-pickup.sample.py` -> Reference hook script in Python.
+- [ ] `lib/cmd_init.sh` -> Scaffold `.agents/skills/aapp-hooks/` and seed starter `registry.tsv`.
 - [ ] `lib/cmd_sync.sh` -> Wire `pre-sync` and `post-sync` hook dispatches.
 - [ ] `NEW FILE` -> `tests/hooks_test.sh` -> Automated regression test suite for lifecycle hooks.
-- [ ] `MANUAL.md` -> Comprehensive specification of JSON envelope schemas and exit codes.
+- [ ] `MANUAL.md` -> Comprehensive specification of JSON envelope schemas, registry format, and exit codes.
 - [ ] `README.md` -> Document extensibility and plugin architecture.
 - [ ] `CHANGELOG.md` -> Record v1.2.0 feature additions.
 
@@ -208,6 +249,8 @@ not a new design.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Architectural refinement: Replaced directory-based `.plans/hooks/` with the Protected Registry & Hash-Lock Contract (`.agents/skills/aapp-hooks/registry.tsv`). Neutralizes the agent self-modification vulnerability (an agent rewriting its own gate script to pass) by housing the registry under Section-2 protected `.agents/skills/aapp-*` with SHA256 integrity verification. Adopts pure POSIX line-oriented TSV parsing (`while IFS=$'\t' read -r event path hash`) eliminating runtime dependencies on `python3`/`jq` (#9), supports multi-hook multiplexing per event, provisions local developer overrides via `git config --get-all aapp.hook.<event>`, and preserves `.plans/` as 100% pure planning data.
 * **2026-09-19:** Added §D.1 Core/Plugin Override Contract, paired with the matching amendment to `P-10`. Events previously allowed plugins only to *add* behaviour, so a core feature and a hook doing the same job would both run. `aapp.<feature>Strategy` (`builtin` default, `hook`) lets a plugin replace a built-in while the event still fires either way. Missing-hook behaviour is refusal rather than silent no-op or silent fallback. This plan owns the pattern; `P-10` declares the first instance (`aapp.syncStrategy`). Also recorded the previously undeclared dependency on `P-10` in Task 2.4, which wires hooks into a file `P-10` creates.
 * **2026-09-16:** Split Open Question 1 into timeout *semantics* and timeout *value* after review of P-14 surfaced both. §D never defined what a timeout means, leaving it ambiguous whether a timed-out hook aborts a transition or warns — a slow webhook must not block archival. Added field evidence to §E that a 10s global default cannot serve both notification hooks and working hooks: a real pre-commit runs 30s (test suite + perltidy) and an adversarial-review hook (P-15 L2) runs 1–5 minutes. Recommends per-event defaults. Closes the first of the three P-12 mismatches recorded in P-15 §2.8.
 * **2026-09-10:** Plan initialized from `hooks-transcript.md` architectural specification. Defined 6-event lifecycle matrix, POSIX stdio contract, JSON envelope schema, and exit-code semantics.
+
