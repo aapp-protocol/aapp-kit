@@ -71,8 +71,8 @@ the core implementation.
 * **The events fire either way.** A team can notify Slack on every sync while still using the built-in
   transport; choosing `hook` is a separate decision from wanting notifications.
 * **Missing hook is refused, not skipped.** With `syncStrategy=hook` and no executable
-  `.plans/hooks/post-sync`, the command refuses and names the missing path. A silent no-op would leave
-  the operator believing their plans were archived.
+  registered handler in `.agents/skills/aapp-hooks/registry.tsv` (or git config), the command refuses and names the missing configuration. A silent no-op would leave
+  the operator believing their plans were synchronized.
 * **Pattern ownership:** the `aapp.<feature>Strategy` mechanism is specified in `P-12` §D.1. This plan
   only declares the key, its default, and which operations it governs.
 
@@ -142,5 +142,6 @@ the core implementation.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Aligned missing-hook refusal path in §B.1 with P-12's protected registry architecture (`.agents/skills/aapp-hooks/registry.tsv`) and clarified team sync transport delegation.
 * **2026-09-19:** Added §B.1 declaring `aapp.syncStrategy` as the first instance of the core/plugin override contract specified in `P-12` §D.1, amended in the same pass so the two agree from the outset rather than the first to ship setting the contract by accident. Core remains the zero-config default for solo developers; teams with their own transport replace it with a hook. Events fire under either strategy, and a missing hook is refused rather than silently skipped. Recorded the cross-plan dependency: `P-12` Task 2.4 modifies `lib/cmd_sync.sh`, which this plan creates.
 * **2026-09-10:** Plan drafted from user request with A/C hybrid configuration model.
