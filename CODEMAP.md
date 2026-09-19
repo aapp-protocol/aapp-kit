@@ -38,13 +38,13 @@
 ### 🎯 Plan Lifecycle Switchboard (`lib/cmd_plan.sh`)
 * **Purpose:** Single source of truth for in-flight plan execution state and worktree context buffers.
 * **Key Commands:**
-  * `aapp freeze-start <plan>` -> Atomic validator, disjointness check, status update (`🟠`), and buffer binding.
-  * `aapp start <plan>` -> Activates frozen specification (`🟢`) into development (`🟠`).
+  * `aapp freeze-start <plan>` -> Atomic validator, disjointness check, status update (`⚡`), and buffer binding.
+  * `aapp start <plan>` -> Activates frozen specification (`🔷`) into development (`⚡`).
   * `aapp active [id]` -> Displays or sets active plan pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).
   * `aapp active swap` / `aapp active clear` -> Toggles between current and previous buffer or clears context.
   * `aapp plan-status [id]` -> Deterministic read-only inspector for plan matrix or specific blueprint.
   * `aapp plan [query]` -> Educational planning switchboard guiding users and agents.
-  * Disjointness Activation Gate -> Enforces non-overlapping target file sets between concurrent `🟠 In Development` plans.
+  * Disjointness Activation Gate -> Enforces non-overlapping target file sets between concurrent `⚡ In Development` plans.
 * **Anti-Wrapper Warning:** Never manually write to `.git/aapp_active_plan` without going through `cmd_plan.sh`.
 
 ### 🧭 Plan ID Standards & Shorthand Resolver (`lib/plan_resolver.sh`)
@@ -63,7 +63,7 @@
   * **Pair 4:** Plan ID uniqueness, header agreement, and reference integrity.
   * **Pair 5:** Self-protection safety (blocks Section 2 targets in blueprint `Target Files`).
   * **Pair 6:** Recorded hexadecimal commit SHA existence in git object database.
-  * **Pair 7:** Concurrent boundary collision detection for multiple `🟠 In Development` plans.
+  * **Pair 7:** Concurrent boundary collision detection for multiple `⚡ In Development` plans.
 * **Anti-Wrapper Warning:** Keep health checks mechanical, fast, and free of external runtime dependencies.
 
 ### 🏷️ AI Attribution Switchboard (`lib/cmd_ai.sh`)
@@ -106,7 +106,7 @@
   5. Section 2d: Project Circuit Breaker (emergency pause check; allows `.plans/*` and `.agents/*` only).
   6. Section 3: Workspace invariant allowlists (`.plans/*`, `.agents/*`, documentation anchors).
   7. Section 4: Blueprint Blast Radius matching (3-tier fast path: exact, prefix, pure-Bash glob).
-  8. Section 5: Single-active-plan isolation (evaluates designated `🟠` buffer or single active plan).
+  8. Section 5: Single-active-plan isolation (evaluates designated `⚡` buffer or single active plan).
 
 ### 🛑 Layer 2 Commit-Time Gate (`templates/aapp-pre-commit`)
 * **Purpose:** Authoritative git pre-commit gate verifying staged changes before recording commit objects.

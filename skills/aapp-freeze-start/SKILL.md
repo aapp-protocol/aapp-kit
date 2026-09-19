@@ -1,13 +1,13 @@
 ---
 name: aapp-freeze-start
-description: Atomically freeze an incubator blueprint, lock its blast radius, transition to 🟠 In Development, and bind worktree execution context.
+description: Atomically freeze an incubator blueprint, lock its blast radius, transition to ⚡ In Development, and bind worktree execution context.
 disable-model-invocation: true
 argument-hint: "<plan-id or plan-name>"
 ---
 
 # AAPP Freeze-Start (Atomic Workflow Accelerator)
 
-Atomically greenlight an incubator blueprint and activate it for immediate execution in a single command. Verifies open questions, locks the technical blueprint and blast radius, verifies the Disjointness Activation Gate, transitions status directly to `🟠 In Development`, and binds the local worktree buffer.
+Atomically greenlight an incubator blueprint and activate it for immediate execution in a single command. Verifies open questions, locks the technical blueprint and blast radius, verifies the Disjointness Activation Gate, transitions status directly to `⚡ In Development`, and binds the local worktree buffer.
 
 ## Execution Procedure
 
@@ -16,12 +16,12 @@ Atomically greenlight an incubator blueprint and activate it for immediate execu
 2. **Scan Blueprint:**
    - **Open Questions:** Verify all items in `## ❓ 5. Open Questions` are checked off (`[x]`).
    - **Target Files:** Verify `### 📂 Target Files` has explicit declarations.
-3. **Disjointness Activation Gate:** Ensure no currently in-flight (`🟠 In Development`) blueprint shares overlapping Target Files.
+3. **Disjointness Activation Gate:** Ensure no currently in-flight (`⚡ In Development`) blueprint shares overlapping Target Files.
 
 ### Step 2: Atomic State Transition & Lock
 1. Update blueprint header:
    ```markdown
-   * **Status:** 🟠 In Development
+   * **Status:** ⚡ In Development
    ```
 2. Set lock marker:
    `*(Marked: **LOCKED** — Greenlit for implementation)*`
@@ -31,7 +31,7 @@ Atomically greenlight an incubator blueprint and activate it for immediate execu
    ACTIVE_BUFFER="$(git rev-parse --git-path aapp_active_plan)"
    echo "<plan-id>" > "$ACTIVE_BUFFER"
    ```
-5. Update `.plans/state_matrix.md` with status `🟠`.
+5. Update `.plans/state_matrix.md` with status `⚡`.
 6. Commit to the `plans` worktree:
    ```bash
    git -C .plans add "current/<plan>.md" state_matrix.md
