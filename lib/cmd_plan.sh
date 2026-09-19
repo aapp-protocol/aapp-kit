@@ -112,7 +112,7 @@ check_disjointness_activation_gate() {
         [ "$(basename "$pf")" = "$target_bname" ] && continue
         case "$(basename "$pf")" in 000-*) continue ;; esac
 
-        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(⚡|🟠|In Development)' "$pf" 2>/dev/null; then
+        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null; then
             local other_targets=()
             while IFS= read -r ot; do
                 [ -n "$ot" ] && other_targets+=("$ot")
@@ -195,7 +195,7 @@ cmd_freeze_start() {
     # Update state matrix if present
     local sm_file="$PLANS_DIR/state_matrix.md"
     if [ -f "$sm_file" ]; then
-        sed -i -E "/$plan_id/s/🔴|🟡|🟢|🟣|🔷|🟠/⚡/g" "$sm_file"
+        sed -i -E "/$plan_id/s/🔴|🟡|🟣|🔷|📝/⚡/g" "$sm_file"
     fi
 
     # Write buffer
@@ -218,10 +218,10 @@ cmd_start() {
     local plan_file
     plan_file="$(resolve_plan_file "$query" "start")" || exit 1
 
-    # Verify status is 🟢 Frozen / Ready for Execution or already 🟠
+    # Verify status is 🔷 Frozen or already ⚡ In Development
     local cur_status
     cur_status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$plan_file" | head -n 1 || true)"
-    if ! echo "$cur_status" | grep -qE '🟢|🔷|Ready for Execution|Frozen|⚡|🟠|In Development'; then
+    if ! echo "$cur_status" | grep -qE '🔷[[:space:]]*Frozen|⚡[[:space:]]*In Development'; then
         echo "❌ [Start Refusal] Plan is not frozen (current status: $cur_status)." >&2
         echo "   Freeze the plan first with 'aapp freeze $query' or run 'aapp freeze-start $query'." >&2
         exit 1
@@ -246,7 +246,7 @@ cmd_start() {
 
     local sm_file="$PLANS_DIR/state_matrix.md"
     if [ -f "$sm_file" ]; then
-        sed -i -E "/$plan_id/s/🔴|🟡|🟢|🟣|🔷|🟠/⚡/g" "$sm_file"
+        sed -i -E "/$plan_id/s/🔴|🟡|🟣|🔷|📝/⚡/g" "$sm_file"
     fi
 
     write_active_buffer "$plan_id"
@@ -336,7 +336,7 @@ cmd_active() {
                 for pf in "$PLANS_DIR"/current/*.md; do
                     [ ! -f "$pf" ] && continue
                     case "$(basename "$pf")" in 000-*) continue ;; esac
-                    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(⚡|🟠|In Development)' "$pf" 2>/dev/null; then
+                    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null; then
                         dev_plans+=("$pf")
                     fi
                 done
@@ -440,9 +440,9 @@ cmd_plan_status() {
         [ -z "$pid" ] && pid="$(basename "$pf" .md)"
         status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$pf" | head -n 1 || true)"
 
-        if echo "$status" | grep -qE '⚡|🟠|In Development'; then
+        if echo "$status" | grep -qE '⚡[[:space:]]*In Development'; then
             in_dev+=("$pid ($(basename "$pf"))")
-        elif echo "$status" | grep -qE '🟢|🔷|Ready for Execution|Frozen'; then
+        elif echo "$status" | grep -qE '🔷[[:space:]]*Frozen'; then
             frozen+=("$pid ($(basename "$pf"))")
         else
             incubator+=("$pid ($(basename "$pf"))")

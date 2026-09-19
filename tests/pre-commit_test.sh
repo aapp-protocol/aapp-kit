@@ -601,8 +601,8 @@ check_plan_commit() {
   git reset -q --hard "$BASE_COMMIT" 2>/dev/null
 }
 
-# 1. Tests on 🟢 plan
-create_and_commit_plan "🟢 Ready for Execution"
+# 1. Tests on 🔷 Frozen plan
+create_and_commit_plan "🔷 Frozen"
 
 # Task checkbox tick in Sec 3: PASS
 sed -i 's/- \[ \] Task 1.1/- [x] Task 1.1/' .plans/current/p.md
@@ -616,26 +616,22 @@ check_plan_commit "changelog append on frozen plan is permitted" PASS
 sed -i 's/\* \[ \] Question 1/* [x] Question 1: answered/' .plans/current/p.md
 check_plan_commit "open question update on frozen plan is permitted" PASS
 
-# Sec 2 edit on 🟢 plan: BLOCK
+# Sec 2 edit on 🔷 plan: BLOCK
 sed -i 's/Original technical blueprint architecture./Tampered architecture./' .plans/current/p.md
 check_plan_commit "editing blueprint on frozen plan is blocked" BLOCK
 
-# Sec 4 edit on 🟢 plan: BLOCK
+# Sec 4 edit on 🔷 plan: BLOCK
 sed -i 's/src\/a\.py/src\/extra\.py/' .plans/current/p.md
 check_plan_commit "editing blast radius on frozen plan is blocked" BLOCK
 
 # Unfreeze (status changed to 📝 Refining with untouched Sec 2/4): PASS
-sed -i 's/🟢 Ready for Execution/📝 Refining/' .plans/current/p.md
+sed -i 's/🔷 Frozen/📝 Refining/' .plans/current/p.md
 check_plan_commit "unfreezing status to 📝 Refining without design change is permitted" PASS
 
 # Smuggled unfreeze (status changed to 📝 Refining AND Sec 2 modified): BLOCK
-sed -i 's/🟢 Ready for Execution/📝 Refining/' .plans/current/p.md
+sed -i 's/🔷 Frozen/📝 Refining/' .plans/current/p.md
 sed -i 's/Original technical blueprint architecture./Smuggled architecture./' .plans/current/p.md
 check_plan_commit "smuggling blueprint edit during unfreeze is blocked" BLOCK
-
-# Unfreeze legacy (status changed to 🟡 Refining with untouched Sec 2/4): PASS
-sed -i 's/🟢 Ready for Execution/🟡 Refining/' .plans/current/p.md
-check_plan_commit "unfreezing status to legacy 🟡 Refining without design change is permitted" PASS
 
 # 2. Tests on 🔴 Under Review plan
 create_and_commit_plan "🔴 Under Review"
@@ -661,7 +657,7 @@ check "missing .plans/current in AAPP repo triggers fail-closed quarantine" BLOC
 mkdir -p .plans/current
 plan p17.md <<'EOF'
 * **Plan ID:** P-17
-* **Status:** 🟢 Ready for Execution
+* **Status:** 🔷 Frozen
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/p17.py` -> plan 17 target
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -681,7 +677,7 @@ check "single in-development plan auto-discovered without buffer" PASS src/p17.p
 # Add second plan P-18 in development
 plan p18.md <<'EOF'
 * **Plan ID:** P-18
-* **Status:** 🟠 In Development
+* **Status:** ⚡ In Development
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/p18.py` -> plan 18 target
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -704,7 +700,7 @@ echo "== 16. portability & machine-agnostic path enforcement =="
 setup
 plan p_port.md <<'EOF'
 * **Plan ID:** P-30
-* **Status:** 🟠 In Development
+* **Status:** ⚡ In Development
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `doc.md` -> doc target
 - [ ] `README.md` -> readme target
@@ -769,7 +765,7 @@ echo "== 17. project circuit breaker & multi-worktree pause/resume =="
 setup
 plan p_pause.md <<'EOF'
 * **Plan ID:** P-60
-* **Status:** 🟠 In Development
+* **Status:** ⚡ In Development
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/pause_code.py` -> target
 ### 🛑 Out of Bounds (Do Not Touch)

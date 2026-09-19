@@ -99,7 +99,7 @@ echo "== concurrent plans do not cross-block via active buffer =="
 setup
 plan a.md <<'EOF'
 * **Plan ID:** P-1
-* **Status:** 🟠 In Development
+* **Status:** ⚡ In Development
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/a.py` -> allowed in a
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -108,7 +108,7 @@ plan a.md <<'EOF'
 EOF
 plan b.md <<'EOF'
 * **Plan ID:** P-2
-* **Status:** 🟠 In Development
+* **Status:** ⚡ In Development
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/b.py` -> allowed in b
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -332,7 +332,7 @@ EOF
 check_decision "⚡ in-development plan target is allowed" ALLOW "src/active_target.py"
 check_decision "frozen backlog plan target remains denied while other plan is in dev" DENY "src/frozen_target.py"
 
-# Backward compatibility: legacy 🟠 In Development
+# Clean Break: legacy 🟠 In Development is refused
 rm -f .plans/current/active.md
 plan legacy.md <<'EOF'
 * **Plan ID:** P-11
@@ -342,13 +342,13 @@ plan legacy.md <<'EOF'
 ### 🛑 Out of Bounds (Do Not Touch)
 ## end
 EOF
-check_decision "legacy 🟠 in-development plan target is allowed" ALLOW "src/legacy_target.py"
+check_decision "legacy 🟠 is refused (clean break enforced)" DENY "src/legacy_target.py"
 
 echo "== active plan buffer switchboard (aapp active, active swap, active clear) =="
 setup
 plan p1.md <<'EOF'
 * **Plan ID:** P-20
-* **Status:** 🟠 In Development
+* **Status:** ⚡ In Development
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/p1_target.py` -> plan 1
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -356,7 +356,7 @@ plan p1.md <<'EOF'
 EOF
 plan p2.md <<'EOF'
 * **Plan ID:** P-21
-* **Status:** 🟠 In Development
+* **Status:** ⚡ In Development
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/p2_target.py` -> plan 2
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -400,7 +400,7 @@ echo "== linked worktree resolution & fail-closed quarantine =="
 setup
 plan p_wt.md <<'EOF'
 * **Plan ID:** P-40
-* **Status:** 🟠 In Development
+* **Status:** ⚡ In Development
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/wt_target.py` -> worktree feature target
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -423,7 +423,7 @@ echo "== project circuit breaker (aapp pause & resume) =="
 setup
 plan p_pause.md <<'EOF'
 * **Plan ID:** P-50
-* **Status:** 🟠 In Development
+* **Status:** ⚡ In Development
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/paused_target.py` -> target file
 ### 🛑 Out of Bounds (Do Not Touch)

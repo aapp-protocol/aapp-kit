@@ -439,7 +439,7 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
             for pf in "$PLANS_DIR"/current/*.md; do
                 [ ! -f "$pf" ] && continue
                 case "$(basename "$pf")" in 000-*) continue ;; esac
-                if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(⚡|🟠|In Development)' "$pf" 2>/dev/null; then
+                if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null; then
                     DEV_PLANS+=("$pf")
                 elif ! grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*' "$pf" 2>/dev/null; then
                     DEV_PLANS+=("$pf")
@@ -460,7 +460,7 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
                 for pf in "$PLANS_DIR"/current/*.md; do
                     [ ! -f "$pf" ] && continue
                     case "$(basename "$pf")" in 000-*) continue ;; esac
-                    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟢|🔷|Frozen|Ready for Execution)' "$pf" 2>/dev/null; then
+                    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*🔷[[:space:]]*Frozen' "$pf" 2>/dev/null; then
                         has_frozen_plans=1
                         break
                     fi
@@ -576,7 +576,7 @@ for STAGED in "${STAGED_FILES[@]}"; do
     [ -z "$HEAD_CONTENT" ] && continue
 
     # Check if HEAD version was frozen / greenlit
-    if ! printf '%s\n' "$HEAD_CONTENT" | grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟢|🔷|⚡|🟠|Ready for Execution|Frozen|In Development)'; then
+    if ! printf '%s\n' "$HEAD_CONTENT" | grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🔷[[:space:]]*Frozen|⚡[[:space:]]*In Development)'; then
         continue
     fi
 

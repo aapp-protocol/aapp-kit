@@ -33,7 +33,7 @@ EOF
 cat > .plans/current/P13-plan-ids-and-shorthand-resolution.md << 'EOF'
 # 🗺️ Plan P-13: Plan IDs and Shorthand Resolution
 * **Plan ID:** P-13
-* **Status:** 🟢 Ready for Execution
+* **Status:** 🔷 Frozen
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/plan_resolver.sh` -> Resolver engine.
