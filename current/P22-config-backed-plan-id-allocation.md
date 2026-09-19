@@ -261,23 +261,6 @@ That is the entire parsing surface: one prefix strip, one integer check, one err
 
 `examples/plugins/planid-remote/run` — a **mock only**, matching the style of the existing `examples/plugins/hello-tool/run`. It simulates fetching an ID from a remote authority and prints a single `P-<n>` line. It performs no network I/O, is not installed by `aapp init`, and exists purely so an adopter can see the contract and copy it.
 
-### 2.7 Installation Asset Preservation (`examples/`)
-
-AAPP's mock examples are actively expanding (`examples/hooks/`, `examples/plugins/`, and future mock providers like `planid-remote/run`). Adopters and AI agents require these reference examples on the machine to inspect canonical patterns and copy working templates.
-
-Currently, `lib/cmd_install.sh:84-87` copies `lib/`, `templates/`, and `tests/` to `$SHARE_DIR` (`~/.local/share/aapp-kit/`), but omits `examples/`. When the installer self-consumes the temporary clone directory, all examples are permanently lost from the machine.
-
-1. **Global Installation (`aapp install`)**:
-   `lib/cmd_install.sh` is updated to copy `examples/` to `$SHARE_DIR/examples/` alongside templates and libraries:
-   ```bash
-   [ -d "$AAPP_SCRIPT_DIR/examples" ] && cp -r "$AAPP_SCRIPT_DIR/examples" "$SHARE_DIR/"
-   ```
-2. **Drop-In Mode (`./aapp-kit/aapp init`) — Explicitly Undecided & Untouched**:
-   In drop-in mode, an adopting repository consumes the kit directory upon successful initialization (`lib/cmd_init.sh:715-731`). **It is yet not decided what will happen to `examples/` at drop-in.**
-   - Therefore, drop-in mode is **strictly untouched** in this plan.
-   - Phase 7 of `lib/cmd_init.sh` remains completely unchanged.
-   - The question of whether drop-in should preserve examples to `$SHARE_DIR/examples/`, copy them into the adopter project, leave drop-in minimal, or provide an opt-in mechanism is deferred and held open under **Open Question 6** for future consideration.
-
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: **one declared fallback** — `aapp-planid` plugin absent -> local `aapp.lastPlanId` git-config counter (§2.6).
@@ -299,7 +282,6 @@ Currently, `lib/cmd_install.sh:84-87` copies `lib/`, `templates/`, and `tests/` 
 - [ ] Task 2.2: Add `allocate_plan_id()` as the single mutating claim path.
 - [ ] Task 2.3: Seed `aapp.lastPlanId` in `lib/cmd_init.sh` via `seed_last_plan_id`, using the idempotent guard pattern already at lines 452-476. Confirm no `sort`, `grep -o`, or `ls` enters the path.
 - [ ] Task 2.4: Surface the key in the `aapp init` summary banner alongside the existing `aapp.remote` / `aapp.syncStrategy` lines.
-- [ ] Task 2.5: Update `lib/cmd_install.sh` to copy `examples/` to `$SHARE_DIR/examples/` during `aapp install` (§2.7). (Global install only; drop-in mode in `cmd_init.sh` is untouched as its disposition is not yet decided).
 
 ### Phase 3: Instruction & Template Sync
 - [ ] Task 3.1: Update `templates/skills/aapp-digest/SKILL.md` step 2 — it currently instructs agents to allocate "by scanning highest existing ID across `.plans/current/` and `.plans/done/`". Replace with `allocate_plan_id`.
@@ -317,7 +299,6 @@ Currently, `lib/cmd_install.sh:84-87` copies `lib/`, `templates/`, and `tests/` 
 - [ ] Task 4.3: Confirm Pair 4 still passes and remains capable of detecting a duplicate ID (§2.5).
 - [ ] Task 4.3b: Cover the plugin path in `tests/plan_resolver_test.sh`: absent plugin -> config counter; mock provider -> its id is used and ratchets `aapp.lastPlanId`; failing provider -> non-zero, **no** local allocation.
 - [ ] Task 4.3c: Test `normalize_plan_id` on `P-42` and `42` (both -> `P-42`) and on a non-integer (error + non-zero, no allocation).
-- [ ] Task 4.3d: Update `tests/install_test.sh` to assert `examples/` is copied to `$SHARE_DIR/examples/` during `aapp install`.
 - [ ] Task 4.4: Run all suites; confirm the total moves from 321 with no regressions.
 - [ ] Task 4.5: Document `aapp.lastPlanId` in `MANUAL.md` / `README.md` config tables; update `ARCHITECTURE.md` and `.agents/CODEMAP.md` for the resolver's changed contract (a new exported function is an interface change).
 - [ ] Task 4.6: Update `CHANGELOG.md` and run syntax checks before committing.
@@ -330,8 +311,6 @@ Currently, `lib/cmd_install.sh:84-87` copies `lib/`, `templates/`, and `tests/` 
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 - [ ] `lib/plan_resolver.sh` -> Delete three-tier scan; reimplement `get_next_plan_id` as read-only config peek; add `allocate_plan_id`.
 - [ ] `lib/cmd_init.sh` -> Seed `aapp.lastPlanId` idempotently with the one-time bootstrap; surface it in the init summary.
-- [ ] `lib/cmd_install.sh` -> Copy `examples/` to `$SHARE_DIR/examples/` during `aapp install` (global install only).
-- [ ] `tests/install_test.sh` -> Assert `examples/` copied to `$SHARE_DIR` on install.
 - [ ] `tests/plan_resolver_test.sh` -> Rewrite ID-allocation assertions against the counter; add stderr-cleanliness assertion.
 - [ ] `templates/skills/aapp-digest/SKILL.md` -> Replace scan-based allocation instruction with `allocate_plan_id`.
 - [ ] `templates/skills/aapp-plan/SKILL.md` -> Same instruction update.
@@ -346,6 +325,8 @@ Currently, `lib/cmd_install.sh:84-87` copies `lib/`, `templates/`, and `tests/` 
 - [ ] `CHANGELOG.md` -> Record under Unreleased.
 
 ### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `lib/cmd_install.sh` -> Installation asset preservation decoupled into P-24.
+- [ ] `tests/install_test.sh` -> Installer testing decoupled into P-24.
 - [ ] `lib/planning_health.sh` -> Pair 4 is the independent collision backstop; it must keep scanning and must not be coupled to the counter.
 - [ ] `.claude/skills/aapp-*` -> Guard Section 2 self-protected. Regenerate via `aapp init`, never edit.
 - [ ] `.agents/skills/aapp-*` -> Guard Section 2 self-protected. Same rule.
@@ -358,7 +339,6 @@ Currently, `lib/cmd_install.sh:84-87` copies `lib/`, `templates/`, and `tests/` 
 - [ ] `aapp` -> The switchboard's inline copy of plugin resolution (`:157-175`) is left as-is; consolidating all three copies is a separate refactor.
 - [ ] `lib/hook_dispatcher.sh` dispatch logic -> Only the relocated helper is added; event dispatch, registry parsing, and watchdog behaviour are untouched.
 - [ ] `.agents/skills/aapp-planid/` -> Adopter-supplied and Guard Section 2 protected. This plan defines the contract and ships a mock under `examples/`; it never installs a provider.
-- [ ] `lib/cmd_init.sh` (Phase 7 drop-in consumption) -> Drop-in folder consumption is untouched; what will happen to `examples/` at drop-in is not yet decided and is strictly out of scope.
 
 ---
 
@@ -369,8 +349,7 @@ Currently, `lib/cmd_install.sh:84-87` copies `lib/`, `templates/`, and `tests/` 
 * [ ] **Question 3 — Should `#69` close as fixed or as obsolete?** The defective line is deleted rather than corrected. It affects how the archive ledger records this work.
 * [ ] **Question 4 — Template drift discovered during digest.** `.plans/plan-template.md` is stale against canonical `templates/plan-template.md`: it still carries the retired status enum (`🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED`) and lacks the `* **Plan ID:**` field entirely. Any plan scaffolded from the worktree copy would be born with an invalid status under the strict enum from `a782e5e`. Fold into this plan, or log as its own issue? *Unrelated to the counter redesign — still open.*
 * [ ] **Question 5 — Severity of `#69`.** Recorded as `Low` and sitting unsequenced in Triage, but verified behaviour is a hard failure (`get_next_plan_id` returns empty, exit `1`, under `set -e` callers). Correct the `Sev` field? *Board ordering is your judgement call — I have not re-sequenced it.*
-* [ ] **Question 6 — Drop-In Mode Asset Handling (Undecided).** It is yet not decided what will happen to `examples/` at drop-in (`./aapp-kit/aapp init`) when the kit folder self-consumes. Possible approaches for future decision: (a) Copy `examples/` to `$HOME/.local/share/aapp-kit/examples/` so the host machine retains them without polluting the adopter repository; (b) Copy into adopter repo (e.g. `examples/` or `.plans/examples/`); (c) Keep drop-in minimal with kit folder self-consumed and no examples copied; (d) Interactive prompt or user opt-in flag. *Held strictly open with zero drop-in code modifications in this plan per developer directive.*
-
+* [x] **Question 6 — Drop-In Mode Asset Handling & Installation Asset Preservation. → DECOUPLED (developer, 2026-09-19): split into dedicated blueprint P-24.** All distribution, installation asset preservation (`$SHARE_DIR/examples/`), `.sample` convention, and drop-in mode questions moved to P-24 to keep P-22 strictly focused on core plan identity (`#69`).
 * [ ] **Question 7 — Blast Radius collides with P-23.** P-23 (*Lifecycle Hook Sequencing & Pre-Mutation Gates*, scaffolded concurrently) shares **5 Target Files** with this plan: `lib/hook_dispatcher.sh`, `lib/cmd_hook.sh`, `MANUAL.md`, `README.md`, `CHANGELOG.md`. Per the Disjointness Activation Gate (`.agents/AGENTS.md:233`) both cannot be in flight at once. The docs three are routine; the two `lib/` files are substantive — this plan *moves* `resolve_plugin_entrypoint` between them while P-23 *restructures dispatch sequencing* in the same files. Options: (a) sequence P-23 first, since it reshapes the dispatcher this plan borrows from; (b) move the `resolve_plugin_entrypoint` relocation into P-23, where those files are already open, and have P-22 consume it; (c) accept a merge conflict and serialise by hand. *(b) looks cleanest, but plan sequencing is your call.*
 * [ ] **Question 8 — Should a corrupt `aapp.lastPlanId` degrade to `0`, or error?** §2.2/§2.6 currently do `case "$LAST" in ''|*[!0-9]*) LAST=0 ;; esac`, so a garbage config value silently yields `P-1` — colliding with every existing plan. That contradicts the principle applied to provider output in §2.6 ("not a clear int -> error out"). An unset key legitimately means zero; a *non-empty, non-numeric* key means something is wrong and arguably should refuse rather than restart the sequence. Recommend splitting the two cases; flagged rather than changed because it alters designed behaviour.
 
@@ -388,4 +367,6 @@ Currently, `lib/cmd_install.sh:84-87` copies `lib/`, `templates/`, and `tests/` 
 * **2026-09-19 (amendment 7):** **Drop-in mode explicitly affirmed as undecided on developer direction** — Clarified across §2.7, §3 (Task 2.5), §4 (Out of Bounds), and Open Question 6 that what happens to `examples/` at drop-in is not yet decided. Drop-in mode (`lib/cmd_init.sh` Phase 7) is strictly out of scope and left untouched; only global `aapp install` (`lib/cmd_install.sh`) preserves `examples/` to `$SHARE_DIR/examples/`.
 * **2026-09-19 (amendment 8):** **Parsing simplified on developer direction — no elaborate matching.** The amendment-5 normalizer was over-built: it folded case, trimmed whitespace, collapsed zero-padding, matched four input shapes and carried a special exit code for `#`-prefixed values. Replaced with one prefix strip and one integer check; a non-integer is an error with a message and no allocation. Either form (`P-42` or `42`) is still accepted, per the namespace-marker rationale in §2.1. Emitting a well-formed id is the third party's responsibility — our side does not normalize, repair, or interpret provider output.
 * **2026-09-19 (amendment 9):** **Review pass requested by the developer.** Fixed a real defect in §2.6's `allocate_plan_id`: `OUT="$(normalize_plan_id "$OUT")"` clobbered `OUT` before the `||` branch executed, so the error message reported `''` instead of the offending value and duplicated the message `normalize_plan_id` already emits — now captured via `RAW` with the redundant echo dropped (demonstrated by execution). Renumbered this session's parsing-simplification entry from a duplicate 'amendment 6' to 'amendment 8' — a concurrent session had independently written amendments 6 and 7 into this file. Raised Open Question 7 (Blast Radius collides with P-23 on 5 Target Files, 2 of them substantive) and Open Question 8 (a corrupt `aapp.lastPlanId` silently degrades to `0` and re-issues `P-1`, contradicting the error-out principle applied to provider output). Verified the concurrently-added §2.7 against the source: `AAPP_SCRIPT_DIR` and the `lib/cmd_install.sh:85-87` copy block it cites are both accurate.
+* **2026-09-19 (amendment 10):** **Plan split on developer direction** — Decoupled installation asset preservation (§2.7), Task 2.5, Task 4.3d, installer target files, and Open Question 6 into dedicated blueprint P-24 (Example Asset Preservation & Sample Hook/Plugin Convention). P-22's Blast Radius is now razor-focused on core plan identity (#69) and runtime allocation.
+
 
