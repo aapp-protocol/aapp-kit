@@ -228,34 +228,34 @@ Author `templates/skills/aapp-pause/SKILL.md` (exposing `/aapp-pause` and `/aapp
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Core CLI, Dynamic Discovery & Multi-Worktree Stash Engine
-- [ ] Task 1.1: Author `lib/cmd_pause.sh` implementing `cmd_pause` with dynamic worktree discovery (`git worktree list --porcelain`), canonical gitdir in-flight merge/rebase guard, `--include-untracked` stash quarantine, 40-char SHA assertion, and atomic rollback on failure.
-- [ ] Task 1.2: Implement `cmd_resume` in `lib/cmd_pause.sh` with forensic drift comparison, SHA-addressed `git stash apply`, staged-file reporting, short-circuit buffer retention on conflict, conditional stash drop, and planning health check.
-- [ ] Task 1.3: Add idempotent inspector handling to `cmd_pause` (inspecting active pause) and `cmd_resume` (handling unpaused state).
-- [ ] Task 1.4: Integrate `pause`, `resume`, and `unpause` into `aapp` command router.
-- [ ] Task 1.5: Update `lib/cmd_status.sh` to surface project pause status, reason, duration, and quarantined worktree stashes in Context Recovery briefing.
-- [ ] Task 1.6: Update `lib/cmd_help.sh` documenting `aapp pause` and `aapp resume`.
+- [x] Task 1.1: Author `lib/cmd_pause.sh` implementing `cmd_pause` with dynamic worktree discovery (`git worktree list --porcelain`), canonical gitdir in-flight merge/rebase guard, `--include-untracked` stash quarantine, 40-char SHA assertion, and atomic rollback on failure.
+- [x] Task 1.2: Implement `cmd_resume` in `lib/cmd_pause.sh` with forensic drift comparison, SHA-addressed `git stash apply`, staged-file reporting, short-circuit buffer retention on conflict, conditional stash drop, and planning health check.
+- [x] Task 1.3: Add idempotent inspector handling to `cmd_pause` (inspecting active pause) and `cmd_resume` (handling unpaused state).
+- [x] Task 1.4: Integrate `pause`, `resume`, and `unpause` into `aapp` command router.
+- [x] Task 1.5: Update `lib/cmd_status.sh` to surface project pause status, reason, duration, and quarantined worktree stashes in Context Recovery briefing.
+- [x] Task 1.6: Update `lib/cmd_help.sh` documenting `aapp pause` and `aapp resume`.
 
 ### Phase 2: Guard & Hook Enforcement
-- [ ] Task 2.1: Add Circuit Breaker check to `templates/blast-radius-guard.sh` using `--git-common-dir`, allowing `.plans/*` and `.agents/*`.
-- [ ] Task 2.2: Add Circuit Breaker check to `templates/aapp-pre-commit` refusing code commits while paused.
-- [ ] Task 2.3: Add `.agents/skills/aapp-pause` and `.claude/skills/aapp-pause` to Guard Section 2 self-protection.
+- [x] Task 2.1: Add Circuit Breaker check to `templates/blast-radius-guard.sh` using `--git-common-dir`, allowing `.plans/*` and `.agents/*`.
+- [x] Task 2.2: Add Circuit Breaker check to `templates/aapp-pre-commit` refusing code commits while paused.
+- [x] Task 2.3: Add `.agents/skills/aapp-pause` and `.claude/skills/aapp-pause` to Guard Section 2 self-protection.
 
 ### Phase 3: Universal Skill & Adoption Sync
-- [ ] Task 3.1: Author `templates/skills/aapp-pause/SKILL.md` for agent chat interaction.
-- [ ] Task 3.2: Update `lib/cmd_init.sh` to synchronize `aapp-pause` skill and mount hooks.
+- [x] Task 3.1: Author `templates/skills/aapp-pause/SKILL.md` for agent chat interaction.
+- [x] Task 3.2: Update `lib/cmd_init.sh` to synchronize `aapp-pause` skill and mount hooks.
 
 ### Phase 4: Governance & Documentation
-- [ ] Task 4.1: Document the Hibernate & Wake protocol, stash quarantine invariants, and escape hatches in `templates/AGENTS.md`.
-- [ ] Task 4.2: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` with pause/resume contracts.
-- [ ] Task 4.3: Update `README.md`, `MANUAL.md`, and `CHEATSHEET.md`.
+- [x] Task 4.1: Document the Hibernate & Wake protocol, stash quarantine invariants, and escape hatches in `templates/AGENTS.md`.
+- [x] Task 4.2: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` with pause/resume contracts.
+- [x] Task 4.3: Update `README.md`, `MANUAL.md`, and `CHEATSHEET.md`.
 
 ### Phase 5: Automated Verification & Regression Suite
-- [ ] Task 5.1: Add test cases in `tests/write-guard_test.sh` asserting write refusal on code while paused, allowing `.plans/*` and `.agents/*`.
-- [ ] Task 5.2: Add test cases in `tests/pre-commit_test.sh` asserting commit refusal on code while paused across linked worktrees (`--git-common-dir`).
-- [ ] Task 5.3: Add test cases validating dynamic worktree discovery, in-flight merge guard refusal, atomic rollback on pause failure, SHA-addressed restore, conflict buffer retention, and drift detection.
-- [ ] Task 5.4: Add test cases in `tests/install_test.sh` validating `aapp-pause` skill sync and drift control.
-- [ ] Task 5.5: Run full regression suite across all suites against 262-test baseline (target: 275+ passing tests).
-- [ ] Task 5.6: Update `CHANGELOG.md` with release notes.
+- [x] Task 5.1: Add test cases in `tests/write-guard_test.sh` asserting write refusal on code while paused, allowing `.plans/*` and `.agents/*`.
+- [x] Task 5.2: Add test cases in `tests/pre-commit_test.sh` asserting commit refusal on code while paused across linked worktrees (`--git-common-dir`).
+- [x] Task 5.3: Add test cases validating dynamic worktree discovery, in-flight merge guard refusal, atomic rollback on pause failure, SHA-addressed restore, conflict buffer retention, and drift detection.
+- [x] Task 5.4: Add test cases in `tests/install_test.sh` validating `aapp-pause` skill sync and drift control.
+- [x] Task 5.5: Run full regression suite across all suites against 262-test baseline (target: 275+ passing tests).
+- [x] Task 5.6: Update `CHANGELOG.md` with release notes.
 
 ---
 
@@ -312,6 +312,7 @@ Author `templates/skills/aapp-pause/SKILL.md` (exposing `/aapp-pause` and `/aapp
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Implementation complete: multi-worktree SHA-addressed stash quarantine engine (`cmd_pause`), dual-layer circuit breaker hooks (Layer 1 write-guard & Layer 2 pre-commit), universal skill bridging (`aapp-pause`), documentation updates, and 280 automated regression tests passing across all suites.
 * **2026-09-19:** Plan frozen and activated into 🟠 In Development via freeze-start.
 * **2026-09-19:** Plan hardened with failure-path invariants: Atomic Pause Rollback Invariant (asserting 40-char hex SHA and rolling back on partial failure), Pause Buffer Survival Invariant (retaining pause buffer on stash conflict until clean restoration), canonical plumbing for in-flight operation checks (`git rev-parse --git-path`), and documented design rationale for staged file forensics vs `--index`.
 * **2026-09-19:** Plan refined with Dynamic Worktree Discovery (`git worktree list --porcelain`), In-Flight Merge/Rebase Guard (`MERGE_HEAD`/`rebase-merge`/`CHERRY_PICK_HEAD` check), Staged File Forensic Snapshotting (preserving cherry-picked visibility without fragile index restoration), and Idempotent Inspector CLI ergonomics.
