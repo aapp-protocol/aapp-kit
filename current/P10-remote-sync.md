@@ -157,13 +157,17 @@ When strategy resolves to `hook`:
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 (Atomic Abort vs Partial Skip):** If one worktree has uncommitted changes when `aapp pull` or `aapp sync` is invoked, should the entire operation abort immediately before touching any worktree (Recommended: Yes, strict atomicity prevents inconsistent states across worktrees), or should it skip the dirty worktree and proceed with the clean ones?
-* [ ] **Question 2 (Pull Default Behavior):** Should `--ff-only` be the non-negotiable default for `aapp pull`, refusing merges and directing developers to resolve manually inside the affected worktree if divergence occurs? (Recommended: Yes, automatic recursive merge or rebase on orphan branches without human oversight is error-prone).
-* [ ] **Question 3 (Agent Integration):** Should `aapp push` or `aapp sync` be suggested in `.agents/AGENTS.md` during `/done <plan>` or `/release <version>` briefings?
+* [x] **Question 1 (Atomic Abort vs Partial Skip):** *(Resolved 2026-09-19)*
+  Closed: Strict atomicity. If any active worktree has uncommitted modifications during pre-flight checks, `aapp pull` and `aapp sync` immediately halt before touching or pulling into any worktree, preventing inconsistent state across worktrees.
+* [x] **Question 2 (Pull Default Behavior):** *(Resolved 2026-09-19)*
+  Closed: `--ff-only` is the strict, non-negotiable default for `aapp pull`. Automatic recursive merges or rebases across orphan branches are refused; non-fast-forward divergence requires manual human resolution within the affected worktree.
+* [x] **Question 3 (Agent Integration):** *(Resolved 2026-09-19)*
+  Closed: Keep core `.agents/AGENTS.md` clean and decoupled. Rather than hardcoding push reminders into agent instructions, automated post-completion sync is provided via an optional `on-done` sample lifecycle hook in P-12 templates (`templates/skills/aapp-hooks/scripts/on-done-sync.sample.sh`) that calls `aapp push`.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Resolved all Open Questions: (1) Q1 confirmed strict atomic abort before touching any worktree when any active worktree is dirty. (2) Q2 confirmed `--ff-only` as strict non-negotiable pull default. (3) Q3 decided against hardcoding sync prompts in `AGENTS.md`, designating an optional `on-done` sample hook in P-12 templates to handle post-completion sync.
 * **2026-09-19:** Formalized team sync governance and three-tier precedence: (1) Added ad-hoc positional strategy arguments (`builtin` / `hook`) to `aapp push/pull/sync` strictly avoiding double-dash flags. (2) Codified three-tier precedence hierarchy (CLI positional override > local git config clone override > committed `registry.tsv` repo default). (3) Specified `on-sync` structured JSON envelope payload (action, remote, worktrees) and observer roles for `pre-sync` and `post-sync`. (4) Reaffirmed fail-closed refusal when hook strategy lacks an executable `on-sync` handler. (5) Aligned attribution trailer invariant header with current protocol standards.
 * **2026-09-19:** Aligned missing-hook refusal path in §B.1 with P-12's protected registry architecture (`.agents/skills/aapp-hooks/registry.tsv`) and clarified team sync transport delegation.
 * **2026-09-19:** Added §B.1 declaring `aapp.syncStrategy` as the first instance of the core/plugin override contract specified in `P-12` §D.1, amended in the same pass so the two agree from the outset rather than the first to ship setting the contract by accident. Core remains the zero-config default for solo developers; teams with their own transport replace it with a hook. Events fire under either strategy, and a missing hook is refused rather than silently skipped. Recorded the cross-plan dependency: `P-12` Task 2.4 modifies `lib/cmd_sync.sh`, which this plan creates.

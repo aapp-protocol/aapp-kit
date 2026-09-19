@@ -310,6 +310,7 @@ This cleanly decouples Action Plugin inspection (`aapp plugins`) from Lifecycle 
 - [ ] Task 3.1: Create sample hook templates in `templates/skills/aapp-hooks/`:
   - `registry.tsv` (starter 5-column registry template with documented syntax and examples).
   - `scripts/on-done.sample.sh` (logs completion to a local append-only log or webhook).
+  - `scripts/on-done-sync.sample.sh` (demonstrates automated remote worktree sync upon plan completion via `aapp push`).
   - `scripts/on-pickup.sample.py` (demonstrates JSON reading and external notification).
 - [ ] Task 3.2: Author automated test suite `tests/hooks_test.sh` verifying:
   - `dash` shell compatibility on TSV parsing and field count validation.
@@ -343,6 +344,7 @@ This cleanly decouples Action Plugin inspection (`aapp plugins`) from Lifecycle 
 - [ ] `NEW FILE` -> `templates/skills/aapp-hooks/SKILL.md` -> Skill interface and registry documentation.
 - [ ] `NEW FILE` -> `templates/skills/aapp-hooks/registry.tsv` -> Starter registry template with commented 5-column schema.
 - [ ] `NEW FILE` -> `templates/skills/aapp-hooks/scripts/on-done.sample.sh` -> Reference hook script in Bash.
+- [ ] `NEW FILE` -> `templates/skills/aapp-hooks/scripts/on-done-sync.sample.sh` -> Reference hook script triggering `aapp push` on plan completion.
 - [ ] `NEW FILE` -> `templates/skills/aapp-hooks/scripts/on-pickup.sample.py` -> Reference hook script in Python.
 - [ ] `lib/cmd_init.sh` -> Scaffold `.agents/skills/aapp-hooks/` and seed starter `registry.tsv`.
 - [ ] `NEW FILE` -> `tests/hooks_test.sh` -> Automated regression test suite for lifecycle hooks.
@@ -365,6 +367,7 @@ This cleanly decouples Action Plugin inspection (`aapp plugins`) from Lifecycle 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Added `on-done-sync.sample.sh` reference template to Task 3.1 and Target Files to demonstrate automated remote worktree synchronization upon plan archival, resolving P-10 Open Question 3 without hardcoding prompts into `AGENTS.md`.
 * **2026-09-19:** Decoupled action plugins from lifecycle hooks and completed execution invariants: (1) Added dedicated `aapp plugins` CLI command to inspect discovered action plugins without overloading `aapp hooks` or introducing double-dash flags. (2) Added Dual Delivery Contract in §C (streaming rich JSON on `stdin` while exporting standard POSIX environment variables for zero-dependency shell hooks). (3) Resolved Open Question 2 establishing synchronous execution as an invariant. (4) Replaced double-dash CLI sync flags with clean positional strategy arguments. (5) Aligned attribution trailer invariant header with current protocol standards.
 * **2026-09-19:** Refined plugin discovery and team sync governance: (1) Mandated extension-agnostic plugin discovery in §D.4 (supporting extensionless executables, .py, .sh, or any extension with deterministic resolution). (2) Formalized `on-sync` transport execution contract and three-tier precedence for team sync governance in §D.1 (positional override > local git config > committed registry default). (3) Expanded event matrix to 10 events.
 * **2026-09-19:** Expanded workflow actions and team sync governance: (1) Added CLI inspection & management actions: `aapp hooks` (audit & SHA256 integrity check), `aapp hook-test` (dry-run testing), and `aapp hook-hash` (portable registration helper). (2) Added §D.4 Transparent Command Fallthrough enabling `aapp <plugin>` to execute `.agents/skills/<plugin>/run` directly. (3) Expanded lifecycle event matrix from 6 to 9 events: added `on-start` (implementation start), `on-pause` (emergency brake), and `on-resume` (brake release). (4) Clarified team sync override in §D.1 and aligned with P-10.
