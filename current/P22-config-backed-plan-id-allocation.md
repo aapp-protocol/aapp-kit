@@ -198,7 +198,7 @@ It also gains `aapp plugins` discovery and `aapp aapp-planid` direct invocation 
 
 ```bash
 allocate_plan_id() {
-    local ROOT PDIR ENTRY OUT LAST NEXT
+    local ROOT PDIR ENTRY RAW OUT LAST NEXT
     ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
     PDIR="$ROOT/.agents/skills/aapp-planid"
 
@@ -208,9 +208,10 @@ allocate_plan_id() {
             echo "❌ [Plan ID] Provider plugin failed; refusing to allocate locally." >&2
             return 1
         }
-        OUT="$(normalize_plan_id "$OUT")" || {
-            echo "❌ [Plan ID] Provider returned unusable id: '$OUT'" >&2; return 1
-        }
+        # NB: capture into RAW first. Assigning the substitution straight back into
+        # OUT clobbers it before the || branch runs, losing the offending value.
+        RAW="$OUT"
+        OUT="$(normalize_plan_id "$RAW")" || return 1   # normalize_plan_id already reported why
         # Ratchet the local counter forward so the fallback never regresses.
         LAST="$(git config --get aapp.lastPlanId 2>/dev/null || echo 0)"
         case "$LAST" in ''|*[!0-9]*) LAST=0 ;; esac
@@ -232,37 +233,29 @@ allocate_plan_id() {
 Four contract points that are deliberate rather than incidental:
 
 - **Only absence falls back.** A plugin that is installed but *fails* is fatal (`return 1`), never a silent downgrade to local allocation. Falling back on failure would reintroduce exactly the collision the provider exists to prevent — and would do it invisibly, at the worst moment.
-- **Output is normalized, then validated.** A provider may return **either `P-42` or bare `42`** — the `P-` is only a namespace marker (§2.1), so requiring it would be arbitrary. `normalize_plan_id` accepts `P-42`, `p-42`, `P42` and `42`, trims surrounding whitespace, collapses legacy zero-padding to the canonical unpadded form of P-13 (`P-007` -> `P-7`), and returns `P-<digits>`. It rejects empty output, `P-`, non-numeric text, decimals, negatives, and trailing junk (`P-42 extra`). A `#`-prefixed value is rejected with a **distinct exit code (2)**, since an issue id arriving in the plan namespace signals a provider bug rather than mere malformed text, and should not be silently coerced.
+- **Either form accepted, integer enforced.** A provider may return `P-42` or bare `42` — the `P-` is only a namespace marker (§2.1), so demanding it would be arbitrary. Beyond stripping that optional prefix we check one thing: is it an integer? If not, error out and refuse to allocate. We do not normalize, repair, or interpret third-party output.
 - **The local counter ratchets forward on every plugin success.** If the provider is later uninstalled, the git-config fallback resumes from the highest ID actually issued rather than from a stale local value.
 - **`get_next_plan_id` (the read-only peek) never calls the plugin.** Peeking must stay free of side effects and must not depend on a provider being reachable; it reports the local counter only, and documents that the real ID may come from the provider.
 
-#### The normalizer
+#### Id validation
+
+Accept either form — `P-42` or bare `42` — then check it is an integer. Nothing more. A provider that returns anything else has a bug, and it is the provider's job to emit a well-formed id, not ours to guess at one.
 
 ```bash
-# Accepts "P-42", "p-42", "P42" or "42"; emits canonical "P-<digits>".
-# rc 1 = malformed; rc 2 = issue-namespace id (#42) supplied by mistake.
+# Accepts "P-42" or "42". Anything that is not a plain integer is an error.
 normalize_plan_id() {
-    local RAW="$1" N=""
-    while :; do
-        case "$RAW" in
-            [[:space:]]*) RAW="${RAW#?}" ;;
-            *[[:space:]]) RAW="${RAW%?}" ;;
-            *) break ;;
-        esac
-    done
-    case "$RAW" in
-        '#'*)       return 2 ;;
-        [Pp]-*)     N="${RAW#[Pp]-}" ;;
-        [Pp][0-9]*) N="${RAW#[Pp]}" ;;
-        *)          N="$RAW" ;;
+    local N="${1#P-}"
+    case "$N" in
+        ''|*[!0-9]*)
+            echo "❌ [Plan ID] Provider must return an integer id (got: '$1')" >&2
+            return 1
+            ;;
     esac
-    case "$N" in ''|*[!0-9]*) return 1 ;; esac
-    while [ "${N#0}" != "$N" ] && [ -n "${N#0}" ]; do N="${N#0}"; done
     printf 'P-%s\n' "$N"
 }
 ```
 
-Verified across both `bash` and `dash` on 16 inputs: `P-42`/`42`/`p-42`/`P42`/`  P-42  ` -> `P-42`; `P-007`/`007` -> `P-7`; `0`/`P-0` -> `P-0`; and `""`, `P-`, `abc`, `P-1.2`, `-5`, `P-42 extra` rejected, `#69` rejected with rc 2.
+That is the entire parsing surface: one prefix strip, one integer check, one error message. No whitespace normalization, no case folding, no zero-padding logic, no pattern matching on shapes of input. Canonical formatting is the provider's responsibility — if it emits `P-007`, it gets `P-007`; the comparison below is unaffected because POSIX `test -gt` reads it as decimal.
 
 #### Shipped mock example
 
@@ -323,7 +316,7 @@ Currently, `lib/cmd_install.sh:84-87` copies `lib/`, `templates/`, and `tests/` 
 - [ ] Task 4.2: Assert `get_next_plan_id` emits **nothing on stderr** — the assertion that would have caught #69.
 - [ ] Task 4.3: Confirm Pair 4 still passes and remains capable of detecting a duplicate ID (§2.5).
 - [ ] Task 4.3b: Cover the plugin path in `tests/plan_resolver_test.sh`: absent plugin -> config counter; mock provider -> its id is used and ratchets `aapp.lastPlanId`; failing provider -> non-zero, **no** local allocation.
-- [ ] Task 4.3c: Table-test `normalize_plan_id` over the 16 verified inputs (§2.6), asserting rc 2 specifically for `#`-prefixed values.
+- [ ] Task 4.3c: Test `normalize_plan_id` on `P-42` and `42` (both -> `P-42`) and on a non-integer (error + non-zero, no allocation).
 - [ ] Task 4.3d: Update `tests/install_test.sh` to assert `examples/` is copied to `$SHARE_DIR/examples/` during `aapp install`.
 - [ ] Task 4.4: Run all suites; confirm the total moves from 321 with no regressions.
 - [ ] Task 4.5: Document `aapp.lastPlanId` in `MANUAL.md` / `README.md` config tables; update `ARCHITECTURE.md` and `.agents/CODEMAP.md` for the resolver's changed contract (a new exported function is an interface change).
@@ -378,6 +371,9 @@ Currently, `lib/cmd_install.sh:84-87` copies `lib/`, `templates/`, and `tests/` 
 * [ ] **Question 5 — Severity of `#69`.** Recorded as `Low` and sitting unsequenced in Triage, but verified behaviour is a hard failure (`get_next_plan_id` returns empty, exit `1`, under `set -e` callers). Correct the `Sev` field? *Board ordering is your judgement call — I have not re-sequenced it.*
 * [ ] **Question 6 — Drop-In Mode Asset Handling (Undecided).** It is yet not decided what will happen to `examples/` at drop-in (`./aapp-kit/aapp init`) when the kit folder self-consumes. Possible approaches for future decision: (a) Copy `examples/` to `$HOME/.local/share/aapp-kit/examples/` so the host machine retains them without polluting the adopter repository; (b) Copy into adopter repo (e.g. `examples/` or `.plans/examples/`); (c) Keep drop-in minimal with kit folder self-consumed and no examples copied; (d) Interactive prompt or user opt-in flag. *Held strictly open with zero drop-in code modifications in this plan per developer directive.*
 
+* [ ] **Question 7 — Blast Radius collides with P-23.** P-23 (*Lifecycle Hook Sequencing & Pre-Mutation Gates*, scaffolded concurrently) shares **5 Target Files** with this plan: `lib/hook_dispatcher.sh`, `lib/cmd_hook.sh`, `MANUAL.md`, `README.md`, `CHANGELOG.md`. Per the Disjointness Activation Gate (`.agents/AGENTS.md:233`) both cannot be in flight at once. The docs three are routine; the two `lib/` files are substantive — this plan *moves* `resolve_plugin_entrypoint` between them while P-23 *restructures dispatch sequencing* in the same files. Options: (a) sequence P-23 first, since it reshapes the dispatcher this plan borrows from; (b) move the `resolve_plugin_entrypoint` relocation into P-23, where those files are already open, and have P-22 consume it; (c) accept a merge conflict and serialise by hand. *(b) looks cleanest, but plan sequencing is your call.*
+* [ ] **Question 8 — Should a corrupt `aapp.lastPlanId` degrade to `0`, or error?** §2.2/§2.6 currently do `case "$LAST" in ''|*[!0-9]*) LAST=0 ;; esac`, so a garbage config value silently yields `P-1` — colliding with every existing plan. That contradicts the principle applied to provider output in §2.6 ("not a clear int -> error out"). An unset key legitimately means zero; a *non-empty, non-numeric* key means something is wrong and arguably should refuse rather than restart the sequence. Recommend splitting the two cases; flagged rather than changed because it alters designed behaviour.
+
 ---
 
 ## 📦 6. Change Log & Refinement History
@@ -390,5 +386,6 @@ Currently, `lib/cmd_install.sh:84-87` copies `lib/`, `templates/`, and `tests/` 
 * **2026-09-19 (amendment 5):** **Provider output contract relaxed on developer direction** — the `P-` prefix is a namespace marker distinguishing plan ids from issue ids, not part of the value, so a provider may return either `P-42` or bare `42`. Replaced the strict `P-[0-9]*` check with `normalize_plan_id`, which accepts `P-42`/`p-42`/`P42`/`42`, trims whitespace, and collapses legacy zero-padding to the canonical unpadded form of P-13 (`P-007` -> `P-7`). Rejects empty, `P-`, non-numeric, decimal, negative and trailing-junk values; rejects `#`-prefixed ids with a distinct rc 2, since an issue id in the plan namespace indicates a provider bug rather than malformed text. Made the number/prefix split explicit in §2.1: `aapp.lastPlanId` stores a bare integer and `P-` is applied only on output. Verified across `bash` and `dash` on 16 inputs.
 * **2026-09-19 (amendment 6):** **Security rationale confirmed & installation asset preservation added on developer direction** — (1) Affirmed the defined canonical name `.agents/skills/aapp-planid/` over a `git config` key to prevent rogue/lost agents with shell access from hijacking the provider without a gate (Guard Section 2 mechanically blocks agent tampering with `aapp-*`). (2) Added §2.7 and updated `lib/cmd_install.sh` and `tests/install_test.sh` to preserve `examples/` in `$SHARE_DIR/examples/` during `aapp install` as mock examples expand. (3) Recorded drop-in mode handling of `examples/` as deferred under Open Question 6 per developer directive.
 * **2026-09-19 (amendment 7):** **Drop-in mode explicitly affirmed as undecided on developer direction** — Clarified across §2.7, §3 (Task 2.5), §4 (Out of Bounds), and Open Question 6 that what happens to `examples/` at drop-in is not yet decided. Drop-in mode (`lib/cmd_init.sh` Phase 7) is strictly out of scope and left untouched; only global `aapp install` (`lib/cmd_install.sh`) preserves `examples/` to `$SHARE_DIR/examples/`.
-
+* **2026-09-19 (amendment 8):** **Parsing simplified on developer direction — no elaborate matching.** The amendment-5 normalizer was over-built: it folded case, trimmed whitespace, collapsed zero-padding, matched four input shapes and carried a special exit code for `#`-prefixed values. Replaced with one prefix strip and one integer check; a non-integer is an error with a message and no allocation. Either form (`P-42` or `42`) is still accepted, per the namespace-marker rationale in §2.1. Emitting a well-formed id is the third party's responsibility — our side does not normalize, repair, or interpret provider output.
+* **2026-09-19 (amendment 9):** **Review pass requested by the developer.** Fixed a real defect in §2.6's `allocate_plan_id`: `OUT="$(normalize_plan_id "$OUT")"` clobbered `OUT` before the `||` branch executed, so the error message reported `''` instead of the offending value and duplicated the message `normalize_plan_id` already emits — now captured via `RAW` with the redundant echo dropped (demonstrated by execution). Renumbered this session's parsing-simplification entry from a duplicate 'amendment 6' to 'amendment 8' — a concurrent session had independently written amendments 6 and 7 into this file. Raised Open Question 7 (Blast Radius collides with P-23 on 5 Target Files, 2 of them substantive) and Open Question 8 (a corrupt `aapp.lastPlanId` silently degrades to `0` and re-issues `P-1`, contradicting the error-out principle applied to provider output). Verified the concurrently-added §2.7 against the source: `AAPP_SCRIPT_DIR` and the `lib/cmd_install.sh:85-87` copy block it cites are both accurate.
 
