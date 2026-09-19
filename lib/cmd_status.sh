@@ -83,7 +83,8 @@ try:
                 rel = f"{mins // 60} hour(s) ago"
             else:
                 rel = f"{mins // 1440} day(s) ago"
-            time_info = f"{dt.strftime(\"%Y-%m-%d %H:%M:%S\")} ({rel})"
+            formatted_date = dt.strftime("%Y-%m-%d %H:%M:%S")
+            time_info = f"{formatted_date} ({rel})"
         except Exception:
             time_info = ts_str
 
@@ -93,8 +94,9 @@ try:
     for s in stashes:
         wt = s.get("worktree", "")
         name = os.path.basename(wt)
-        if s.get("branch"):
-            name = f"{name} ({s.get(\"branch\")})"
+        branch = s.get("branch")
+        if branch:
+            name = f"{name} ({branch})"
         stash_names.append(name)
 
     print("🛑 PROJECT STATUS: PAUSED")
@@ -253,4 +255,8 @@ fi
 
 echo ""
 echo "============================================================"
-echo "➡️  Next Action: Run 'aapp init' to sync worktrees, or use /aapp-digest <idea> in chat."
+if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; }; then
+    echo "➡️  Next Action: Project is PAUSED. Run 'aapp resume' to wake, or refine notes in .plans/ (pickup, issues, current)."
+else
+    echo "➡️  Next Action: Run 'aapp init' to sync worktrees, or use /aapp-digest <idea> in chat."
+fi
