@@ -8,6 +8,7 @@ See `.agents/CODEMAP.md` (or `CODEMAP.md` at the repo root) before assuming wher
 - Prioritize clean, low-dependency, and high-performance design.
 - Maintain a single source of truth for paths, state, and configuration.
 - Enforce strict repository portability: never write absolute machine paths or `file://` URIs into project files.
+- Enforce canonical planning: implementation blueprints belong in `.plans/current/` under Git-level Blast Radius protection, never in proprietary ephemeral IDE scratchpads (`implementation_plan.md`).
 
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOM RULES OUTSIDE. -->
