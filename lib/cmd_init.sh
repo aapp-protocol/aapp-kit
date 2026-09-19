@@ -456,6 +456,27 @@ if [ -z "$(git config --get aapp.aiCredits 2>/dev/null || true)" ]; then
     git config aapp.aiCredits false
 fi
 
+# Safe-by-default Remote Sync configuration (A/C Hybrid)
+if [ -z "$(git config --get aapp.remote 2>/dev/null || true)" ]; then
+    DEFAULT_REMOTE="$(git remote 2>/dev/null | head -n 1 || true)"
+    [ -z "$DEFAULT_REMOTE" ] && DEFAULT_REMOTE="origin"
+    git config aapp.remote "$DEFAULT_REMOTE"
+fi
+if [ -z "$(git config --get aapp.syncWorktrees 2>/dev/null || true)" ]; then
+    git config aapp.syncWorktrees "plans agents githooks"
+fi
+if [ -z "$(git config --get aapp.pullStrategy 2>/dev/null || true)" ]; then
+    git config aapp.pullStrategy "ff-only"
+fi
+if [ -z "$(git config --get aapp.syncStrategy 2>/dev/null || true)" ]; then
+    REG_FILE=".agents/skills/aapp-hooks/registry.tsv"
+    if [ -f "$REG_FILE" ] && grep -qE '^[[:space:]]*on-sync([[:space:]]|$)' "$REG_FILE"; then
+        git config aapp.syncStrategy "hook"
+    else
+        git config aapp.syncStrategy "builtin"
+    fi
+fi
+
 # ------------------------------------------------------------------------------
 # PHASE 4: Public Project Root Anchors
 # ------------------------------------------------------------------------------
@@ -713,6 +734,10 @@ CUSTOM_ALLOW_COUNT=$(git config --get-all aapp.allowPath 2>/dev/null | grep -c .
 echo "➡️  Guard allowlist:      7 built-in + ${CUSTOM_ALLOW_COUNT} from git config (aapp.allowPath)"
 ATTR_CURRENT="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
 echo "➡️  AI Attribution:     $ATTR_CURRENT (switch via 'aapp ai-commit' or 'aapp ai-notes')"
+SYNC_REMOTE="$(git config aapp.remote 2>/dev/null || echo "origin")"
+SYNC_STRAT="$(git config aapp.syncStrategy 2>/dev/null || echo "builtin")"
+SYNC_WTS="$(git config aapp.syncWorktrees 2>/dev/null || echo "plans agents githooks")"
+echo "➡️  Remote sync:        remote=$SYNC_REMOTE, strategy=$SYNC_STRAT, worktrees=$SYNC_WTS"
 
 # Detect Branching Topology
 DEV_EXISTS=0

@@ -139,6 +139,9 @@ case "$CMD" in
     pause|resume|unpause)
         source "$AAPP_LIB/cmd_pause.sh" "$CMD" "$@"
         ;;
+    push|pull|sync)
+        source "$AAPP_LIB/cmd_sync.sh" "$CMD" "$@"
+        ;;
     version|-v|--version)
         echo "aapp version $AAPP_VERSION"
         exit 0

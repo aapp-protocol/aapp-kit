@@ -267,19 +267,36 @@ If your repository already uses a hook manager (`core.hooksPath` set to `.husky`
 
 ## 7. Remote Sync & Multi-Machine Workflow
 
-AAPP worktrees exist on separate orphan branches (`plans`, `agents`, `githooks`). You can push and pull them to your remote repository independently:
+AAPP worktrees exist on separate orphan branches (`plans`, `agents`, `githooks`). AAPP provides native, automated commands to synchronize all active worktrees with remote repositories in a single step:
 
-### Pushing Planning & Agent State
+### Automated Remote Synchronization
 ```bash
-# Push planning worktree to remote
-git -C .plans push origin plans
+# Push all active worktrees to remote (sets upstream tracking on first push)
+aapp push [remote] [strategy]
 
-# Push agent contracts to remote
-git -C .agents push origin agents
+# Pull remote updates across all worktrees with strict --ff-only safety
+aapp pull [remote] [strategy]
 
-# Push githooks engine to remote
-git -C .githooks push origin githooks
+# Bi-directional sync: pull updates followed by push
+aapp sync [remote] [strategy]
 ```
+
+### Safety Invariants & Pre-Flight Checks
+* **Strict Atomicity**: Before performing `pull` or `sync`, AAPP verifies that all active worktrees are clean. If any worktree contains uncommitted modifications, the operation immediately halts before touching any branch, preserving uncommitted drafts and preventing merge conflicts.
+* **Non-Negotiable Fast-Forward**: `aapp pull` strictly defaults to `--ff-only`. Non-fast-forward divergence requires manual inspection in the affected worktree.
+* **Three-Tier Precedence & Team Governance**:
+  1. **CLI Positional Override**: `aapp sync origin hook` or `aapp sync origin builtin` overrides all settings for that invocation.
+  2. **Local Clone Override**: `git config aapp.syncStrategy [builtin|hook]` lets individual developers override team defaults in their local clone.
+  3. **Committed Team Standard**: Repositories registering an `on-sync` lifecycle gate in `.agents/skills/aapp-hooks/registry.tsv` default to delegated hook transport; otherwise, core native git worktree sync executes by default.
+* **Fail-Closed Missing Hook Refusal**: If strategy resolves to `hook` but no executable handler is registered for `on-sync`, AAPP strictly refuses rather than silently degrading or skipping transport.
+
+### Configuration (`git config aapp.*`)
+| Key | Default | Description |
+| :--- | :--- | :--- |
+| `aapp.remote` | `origin` | Target git remote for worktree sync operations. |
+| `aapp.syncWorktrees` | `"plans agents githooks"` | Space-delimited list of worktree paths to sync. |
+| `aapp.pullStrategy` | `"ff-only"` | Pull strategy (`ff-only`, `rebase`, `merge`). |
+| `aapp.syncStrategy` | `"builtin"` | Transport strategy: `builtin` (native git) or `hook` (delegated to `on-sync`). |
 
 ### Restoring on a New Machine / CI
 When cloning your repository onto a second workstation:

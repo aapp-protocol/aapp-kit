@@ -15,6 +15,9 @@ Commands:
   active       Display or manage active execution plan buffer (swap, clear)
   pause        Engage project emergency brake; quarantine code per-worktree into stashes
   resume       Disengage brake, verify drift, and restore quarantined stashes
+  push         Push active AAPP worktrees (.plans, .agents, .githooks) to remote
+  pull         Pull updates for active AAPP worktrees from remote (--ff-only)
+  sync         Bi-directional sync: pull updates followed by push
   plan-status  Inspect plan lane matrix or specific blueprint (read-only)
   plan         Display educational planning switchboard
   freeze-start Atomically freeze blueprint, transition to In Development, bind buffer
@@ -34,6 +37,10 @@ Examples:
   aapp init              # Set up or sync worktrees in current repository
   aapp develop           # Link local development clone globally (live editable)
   aapp status            # Print Shipped, Issues, Plans, and Pickup briefing
+  aapp push              # Push all active worktrees (.plans, .agents, .githooks)
+  aapp pull              # Pull remote changes with --ff-only
+  aapp sync              # Pull then push active worktrees
+  aapp sync origin hook  # Sync delegating transport to on-sync hook
   aapp pause "away"      # Engage emergency brake and quarantine in-flight changes
   aapp resume            # Disengage brake, verify drift, and restore stashed work
   aapp active P-20       # Designate P-20 as active execution plan buffer
