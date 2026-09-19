@@ -91,6 +91,41 @@ Every hook receives a validated JSON envelope on `stdin`:
 * **`2` (Non-Blocking Warning)**: Hook emitted a non-fatal warning. AAPP logs the hook's `stderr` to the user and continues execution without aborting.
 * **`124` / timeout — UNDEFINED, must be decided (see Open Question 1)**: §E specifies a watchdog but the contract never says what a timeout *means*. Today it is ambiguous whether a timed-out hook is treated as `1` (abort the lifecycle transition) or `2` (warn and continue). This matters more than the timeout value: a slow Slack webhook must never block a plan from being archived.
 
+### D.1 Core/Plugin Override Contract (`aapp.<feature>Strategy`)
+
+Events alone let a plugin **add** behaviour; they never let it **replace** a built-in. Without a
+replacement mechanism, a core feature and a hook that does the same job both run — two transports,
+possibly two destinations, no defined relationship. This contract closes that.
+
+```
+git config aapp.<feature>Strategy   →   builtin (default) | hook
+```
+
+| Strategy | Core action | Event fires | Meaning |
+| :--- | :--- | :--- | :--- |
+| `builtin` *(default)* | runs | **yes** | Core performs the work; hooks observe. Unchanged behaviour for anyone who never sets this. |
+| `hook` | **stands down** | **yes** | The hook is responsible for the work. |
+
+**Invariant — the event always fires, regardless of strategy.** Notification is independent of who
+performs the work, so "post to Slack *and* let the built-in sync run" remains the default rather than
+a special case.
+
+**Missing-hook behaviour — refuse, never degrade.** If a feature's strategy is `hook` but the
+corresponding `.plans/hooks/<event>` is absent or not executable, the operation is **refused** with an
+explicit message naming the config key and the expected path:
+
+```text
+❌ aapp.syncStrategy=hook but .plans/hooks/post-sync is missing or not executable.
+```
+
+Silently doing nothing is the dangerous option — the operator believes the work happened. Silently
+falling back to the built-in is nearly as bad, because a misconfiguration then looks like success.
+Refusal is the only outcome where a mistake is visible at the moment it is made.
+
+**Naming rule.** This plan owns the *pattern*; each core feature declares its own instance. The first
+is `aapp.syncStrategy`, declared in `P-10` §B. Subsequent overridable features cost one config key,
+not a new design.
+
 ### E. Dispatcher Engine Architecture (`lib/hook_dispatcher.sh`)
 * Provides a shared internal function `dispatch_hook <event_name> <json_data_generator_fn>`.
 * Checks if `.plans/hooks/<event_name>` exists and has executable permissions (`[ -x ... ]`).
@@ -123,7 +158,8 @@ Every hook receives a validated JSON envelope on `stdin`:
 - [ ] Task 2.1: Wire `on-done` into `cmd_done` (or `/done` command execution).
 - [ ] Task 2.2: Wire `on-freeze` into `cmd_freeze` (or `/freeze` command execution).
 - [ ] Task 2.3: Wire `on-digest` into `cmd_digest` (or `/digest` command execution).
-- [ ] Task 2.4: Wire `pre-sync` and `post-sync` into `lib/cmd_sync.sh`.
+- [ ] Task 2.4: Wire `pre-sync` and `post-sync` into `lib/cmd_sync.sh`. **Depends on `P-10`**, which creates that file — this task cannot execute until remote sync ships. Also honour `aapp.syncStrategy` per §D.1.
+- [ ] Task 2.5: Implement `aapp.<feature>Strategy` resolution in `lib/hook_dispatcher.sh` per §D.1, including the refuse-on-missing-hook path.
 - [ ] Task 2.5: Update `lib/cmd_init.sh` to scaffold `.plans/hooks/` and deploy `.plans/hooks/README.md`.
 
 ### Phase 3: Sample Hooks, Automated Tests & Documentation
@@ -172,5 +208,6 @@ Every hook receives a validated JSON envelope on `stdin`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Added §D.1 Core/Plugin Override Contract, paired with the matching amendment to `P-10`. Events previously allowed plugins only to *add* behaviour, so a core feature and a hook doing the same job would both run. `aapp.<feature>Strategy` (`builtin` default, `hook`) lets a plugin replace a built-in while the event still fires either way. Missing-hook behaviour is refusal rather than silent no-op or silent fallback. This plan owns the pattern; `P-10` declares the first instance (`aapp.syncStrategy`). Also recorded the previously undeclared dependency on `P-10` in Task 2.4, which wires hooks into a file `P-10` creates.
 * **2026-09-16:** Split Open Question 1 into timeout *semantics* and timeout *value* after review of P-14 surfaced both. §D never defined what a timeout means, leaving it ambiguous whether a timed-out hook aborts a transition or warns — a slow webhook must not block archival. Added field evidence to §E that a 10s global default cannot serve both notification hooks and working hooks: a real pre-commit runs 30s (test suite + perltidy) and an adversarial-review hook (P-15 L2) runs 1–5 minutes. Recommends per-event defaults. Closes the first of the three P-12 mismatches recorded in P-15 §2.8.
 * **2026-09-10:** Plan initialized from `hooks-transcript.md` architectural specification. Defined 6-event lifecycle matrix, POSIX stdio contract, JSON envelope schema, and exit-code semantics.

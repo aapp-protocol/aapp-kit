@@ -55,6 +55,29 @@ aapp sync [remote]    # Bi-directional sync: pull (--ff-only) followed by push
 | `aapp.remote` | string | `origin` (or first detected remote) | Target git remote for sync operations. |
 | `aapp.syncWorktrees` | string | `"plans agents githooks"` | Space-delimited list of worktrees to sync. |
 | `aapp.pullStrategy` | string | `"ff-only"` | Strategy for pulling (`ff-only`, `rebase`, `merge`). |
+| `aapp.syncStrategy` | string | `builtin` | `builtin` = core performs sync; `hook` = a lifecycle plugin performs it (see §B.1 and `P-12` §D.1). |
+
+### B.1 Plugin Override (`aapp.syncStrategy`) — First Instance of the `P-12` Contract
+
+Remote sync is the built-in default that serves a solo developer with zero configuration. Teams with
+their own transport, auth or destination policy replace it with a hook rather than being forced onto
+the core implementation.
+
+| `git config aapp.syncStrategy` | `aapp push` / `pull` / `sync` | `pre-sync` / `post-sync` |
+| :--- | :--- | :--- |
+| `builtin` *(default)* | performs the transfer | fire — hooks observe |
+| `hook` | stands down entirely | fire — the hook performs the transfer |
+
+* **The events fire either way.** A team can notify Slack on every sync while still using the built-in
+  transport; choosing `hook` is a separate decision from wanting notifications.
+* **Missing hook is refused, not skipped.** With `syncStrategy=hook` and no executable
+  `.plans/hooks/post-sync`, the command refuses and names the missing path. A silent no-op would leave
+  the operator believing their plans were archived.
+* **Pattern ownership:** the `aapp.<feature>Strategy` mechanism is specified in `P-12` §D.1. This plan
+  only declares the key, its default, and which operations it governs.
+
+> **Cross-plan dependency:** `P-12` Task 2.4 wires `pre-sync`/`post-sync` into `lib/cmd_sync.sh`, which
+> **this plan creates**. `P-10` must ship first, or that task has no file to modify.
 
 ### C. Core Safety & Resilience Mechanisms
 1. **Pre-flight Cleanliness Check**: Before performing `pull` or `sync`, every active worktree in `aapp.syncWorktrees` is checked via `git -C <dir> status --porcelain`. If any worktree has uncommitted modifications, the operation immediately halts to protect uncommitted drafts from merge conflicts or dirty states.
@@ -119,4 +142,5 @@ aapp sync [remote]    # Bi-directional sync: pull (--ff-only) followed by push
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Added §B.1 declaring `aapp.syncStrategy` as the first instance of the core/plugin override contract specified in `P-12` §D.1, amended in the same pass so the two agree from the outset rather than the first to ship setting the contract by accident. Core remains the zero-config default for solo developers; teams with their own transport replace it with a hook. Events fire under either strategy, and a missing hook is refused rather than silently skipped. Recorded the cross-plan dependency: `P-12` Task 2.4 modifies `lib/cmd_sync.sh`, which this plan creates.
 * **2026-09-10:** Plan drafted from user request with A/C hybrid configuration model.
