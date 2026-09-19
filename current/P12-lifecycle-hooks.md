@@ -307,11 +307,16 @@ This cleanly decouples Action Plugin inspection (`aapp plugins`) from Lifecycle 
 - [ ] Task 2.8: Update `lib/cmd_init.sh` to scaffold `.agents/skills/aapp-hooks/` and deploy starter `registry.tsv` and `SKILL.md`.
 
 ### Phase 3: Sample Hooks, Automated Tests & Documentation
-- [ ] Task 3.1: Create sample hook templates in `templates/skills/aapp-hooks/`:
-  - `registry.tsv` (starter 5-column registry template with documented syntax and examples).
-  - `scripts/on-done.sample.sh` (logs completion to a local append-only log or webhook).
-  - `scripts/on-done-sync.sample.sh` (demonstrates automated remote worktree sync upon plan completion via `aapp push`).
-  - `scripts/on-pickup.sample.py` (demonstrates JSON reading and external notification).
+- [ ] Task 3.1: Create sample hook templates, adopter showcase, and clean `examples/`:
+  - Starter templates in `templates/skills/aapp-hooks/`:
+    - `registry.tsv` (starter 5-column registry template with documented syntax and examples).
+    - `scripts/on-done.sample.sh` (logs completion to a local append-only log or webhook).
+    - `scripts/on-done-sync.sample.sh` (demonstrates automated remote worktree sync upon plan completion via `aapp push`).
+    - `scripts/on-pickup.sample.py` (demonstrates JSON reading and external notification).
+  - Adopter showcase in `examples/`:
+    - Clean up legacy pre-v1.0 plans from `examples/` (`example-plan-distribution-rework.md`, `example-plan-unified-install-and-upgrade.md`).
+    - Seed `examples/hooks/` with browsable hook examples (`on-done-sync.sh`, `fallback-ratchet.sh`, `slack-notify.py`).
+    - Seed `examples/plugins/` with an extension-agnostic action plugin showcase (`hello-tool/run`).
 - [ ] Task 3.2: Author automated test suite `tests/hooks_test.sh` verifying:
   - `dash` shell compatibility on TSV parsing and field count validation.
   - Portable SHA256 resolution chain across tools (`sha256sum`, `shasum`, `openssl`).
@@ -347,6 +352,11 @@ This cleanly decouples Action Plugin inspection (`aapp plugins`) from Lifecycle 
 - [ ] `NEW FILE` -> `templates/skills/aapp-hooks/scripts/on-done-sync.sample.sh` -> Reference hook script triggering `aapp push` on plan completion.
 - [ ] `NEW FILE` -> `templates/skills/aapp-hooks/scripts/on-pickup.sample.py` -> Reference hook script in Python.
 - [ ] `lib/cmd_init.sh` -> Scaffold `.agents/skills/aapp-hooks/` and seed starter `registry.tsv`.
+- [ ] `NEW FILE` -> `examples/hooks/on-done-sync.sh` -> Root-visible adopter reference hook for remote sync.
+- [ ] `NEW FILE` -> `examples/hooks/fallback-ratchet.sh` -> Root-visible adopter reference gate for fallback prevention.
+- [ ] `NEW FILE` -> `examples/plugins/hello-tool/run` -> Root-visible adopter reference action plugin.
+- [ ] `DELETE` -> `examples/example-plan-distribution-rework.md` -> Remove stale pre-v1.0 legacy mock plan.
+- [ ] `DELETE` -> `examples/example-plan-unified-install-and-upgrade.md` -> Remove stale pre-v1.0 legacy mock plan.
 - [ ] `NEW FILE` -> `tests/hooks_test.sh` -> Automated regression test suite for lifecycle hooks.
 - [ ] `MANUAL.md` -> Comprehensive specification of JSON envelope schemas, 5-column registry format, and exit codes.
 - [ ] `README.md` -> Document extensibility and plugin architecture.
