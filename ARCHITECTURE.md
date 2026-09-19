@@ -10,6 +10,7 @@
   * **Worktree Isolation:** Blueprints (`plans`), agent behavioral rules (`agents`), and enforcement hooks (`githooks`) reside on isolated orphan git branches, keeping design text completely decoupled from active application code branches.
   * **Dual-Layer Blast Radius Enforcement:** Layer 1 write-time interception (PreToolUse hook) prevents out-of-bounds file edits before touching disk; Layer 2 authoritative pre-commit gate blocks unauthorized staged commits.
   * **Single-Active-Plan Architecture:** Per-worktree execution pointer buffers (`$(git rev-parse --git-path aapp_active_plan)`) eliminate cross-plan interference and enable deterministic parallel multi-agent workflows.
+  * **Master Emergency Brake & Multi-Worktree State Preserver ("Hibernate & Wake"):** Circuit Breaker (`aapp pause`, `aapp resume`) quarantines in-flight changes into SHA-addressed stashes across dynamically discovered worktrees, blocks codebase modifications, and safely wakes with drift forensics.
   * **Zero Non-Core Dependencies:** Pure POSIX shell and git plumbing, with optional Python for fast-path JSON serialization and complete POSIX fallback.
 
 ---
@@ -28,6 +29,7 @@
 │   ├── cmd_init.sh        # Target resolution, orphan worktrees, rules & skills sync
 │   ├── cmd_install.sh     # Global installer & signature-gated self-consumption
 │   ├── cmd_plan.sh        # Active buffer manager, plan-status inspector & lifecycle triggers
+│   ├── cmd_pause.sh       # Emergency brake, multi-worktree stash quarantine & wake engine
 │   ├── cmd_ai.sh          # AI attribution switchboard & credits manager
 │   ├── cmd_status.sh      # 4-pillar context recovery agent briefing
 │   ├── cmd_develop.sh     # Live editable development symlinking

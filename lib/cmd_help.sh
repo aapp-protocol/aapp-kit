@@ -13,6 +13,8 @@ Commands:
   upgrade      Upgrade global AAPP binaries & templates from upstream
   status       Display the 4-pillar context recovery briefing
   active       Display or manage active execution plan buffer (swap, clear)
+  pause        Engage project emergency brake; quarantine code per-worktree into stashes
+  resume       Disengage brake, verify drift, and restore quarantined stashes
   plan-status  Inspect plan lane matrix or specific blueprint (read-only)
   plan         Display educational planning switchboard
   freeze-start Atomically freeze blueprint, transition to In Development, bind buffer
@@ -32,6 +34,8 @@ Examples:
   aapp init              # Set up or sync worktrees in current repository
   aapp develop           # Link local development clone globally (live editable)
   aapp status            # Print Shipped, Issues, Plans, and Pickup briefing
+  aapp pause "away"      # Engage emergency brake and quarantine in-flight changes
+  aapp resume            # Disengage brake, verify drift, and restore stashed work
   aapp active P-20       # Designate P-20 as active execution plan buffer
   aapp plan-status       # Inspect current plan lane matrix
   aapp plan              # Display educational planning switchboard

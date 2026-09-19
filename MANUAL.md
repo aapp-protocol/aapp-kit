@@ -32,6 +32,7 @@
   * [The Lifecycle Pipeline](#the-lifecycle-pipeline)
   * [Repository Onboarding (The Day 1 Loop)](#repository-onboarding-the-day-1-loop)
   * [Command Reference (Universal Skills)](#command-reference-universal-skills)
+  * [Master Emergency Brake & State Preserver ("Hibernate & Wake")](#aapp-pause-reason-or-aapp-pause-reason--master-emergency-brake-hibernate)
   * [Token Management & Context Efficiency](#token-management--context-efficiency)
 * [6. Agent & IDE Integration Guide](#6-agent--ide-integration-guide)
   * [Google Antigravity Integration](#google-antigravity-integration)
@@ -630,6 +631,31 @@ Executes `.plans/release/release_checklist.md`:
 - Validates `CHANGELOG.md` release staging.
 - Reports release posture assessment to the developer.
 *Execution: Runs in an isolated subagent/fork context (`context: fork`) to keep test logs out of primary chat.*
+
+#### `/aapp-pause [reason]` (or `aapp pause [reason]`) — Master Emergency Brake ("Hibernate")
+Freezes codebase modifications and quarantees in-flight uncommitted work across all mounted worktrees into Git stashes:
+- **Dynamic Worktree Discovery**: Discovers all mounted worktrees via `git worktree list --porcelain`.
+- **In-Flight Operation Guard**: Pre-checks for active merges, rebases, or cherry-picks via canonical plumbing (`git rev-parse --git-path MERGE_HEAD`, `rebase-merge`, `CHERRY_PICK_HEAD`). Refuses to pause if an operation is unresolved.
+- **Staged File Forensics**: Records the exact list of staged vs. unstaged files in the snapshot before stashing, preserving cherry-picked visibility without fragile index restoration.
+- **Air-Gap Safety Invariant**: Strictly uses `git stash push --include-untracked` and forbids `--all`, preserving `.gitignore` boundaries (e.g. private notes in `.plans/pickup/`).
+- **Atomic Rollback Invariant**: Asserts that every captured stash SHA is a valid 40-character hexadecimal string; if any worktree fails, all stashes created in that invocation are immediately rolled back, guaranteeing an all-or-nothing operation.
+- **State Buffer Scoping**: Defaults to repo-wide `$(git rev-parse --git-common-dir)/aapp_paused` (uncommitted, shared across all linked worktrees). With `--shared`, commits `.plans/PAUSED.md` for remote team freeze.
+- **Idempotency**: If the project is already paused, running `aapp pause` acts as a non-destructive inspector.
+
+#### `/aapp-pause resume` (or `aapp resume`, `aapp unpause`) — State Restoration & Wake
+Disengages the emergency brake and restores developer velocity:
+- **Forensic Drift Detection**: Compares current HEAD commit SHAs across all worktrees against the pause snapshot, reporting foreign commits for human evaluation (without auto-rebasing).
+- **SHA-Addressed Stash Restoration**: Restores quarantined stashes explicitly by 40-character commit SHA (immune to stash stack reordering).
+- **Pause Buffer Survival & No-Loss Conflict Invariant**: If a merge conflict occurs during stash apply, the stash entry is permanently preserved in `git stash list` and the pause buffer remains active on disk. The project remains PAUSED until conflicts are resolved.
+- **Conditional Stash Drop**: Drops stash entries only after clean restoration (exit code 0).
+- **Sanity Verification**: Runs `lib/planning_health.sh` across all 7 pairs before deactivating the pause buffer.
+
+#### Circuit Breaker & Cross-Medium Hook Realism ("Uncommittable, Not Untouchable")
+When developers work across multiple IDE windows or companion terminals:
+- **Layer 1 (Local Session)**: For sessions rooted in this repository, `blast-radius-guard` intercepts write tools before touching disk.
+- **Layer 2 (Cross-Repo / External Session)**: For sessions rooted in other directories or plain terminals, Layer 2 (`pre-commit`) serves as the strict, inescapable gate that rejects any commit touching codebase files.
+- **Permitted Reflection**: Code reading, Q&A, logging defects in `.plans/ISSUES.md`, drafting blueprints in `.plans/current/`, and updating `.agents/` remain 100% operational while paused.
+- **Emergency Escape Hatches**: `SKIP_BLAST_RADIUS=1` bypasses Layer 1 and Layer 2; `git commit --no-verify` bypasses Layer 2.
 
 ---
 

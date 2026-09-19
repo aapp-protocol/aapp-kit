@@ -21,6 +21,8 @@ git worktrees — and stops an AI agent from editing files your plan never decla
 | Buffer switching | `aapp active [id]` / `aapp active swap` | Display active bounds or switch execution buffer. |
 | Plan inspection | `aapp plan-status [id]` | Inspect plan lane matrix or specific blueprint. |
 | Fix shipped | `/aapp-done <plan>` | Moves to `.plans/done/`, appends the archive ledger. |
+| Stepping away or switching focus | `aapp pause [reason]` | Quarantines code per-worktree into stashes, engages circuit breaker. |
+| Resuming focus | `aapp resume` | Checks drift, restores stashes by SHA, verifies health, wakes repo. |
 | Coming back after days away | `/aapp-status` or `aapp status` | Briefing across all four pillars. Start here. |
 
 Plans are `P-<num>`, issues are `#<num>`. `/aapp-freeze P-9`, `/aapp-freeze 9`, and
@@ -97,6 +99,8 @@ Do this instead:
 aapp install           # install globally into ~/.local/bin
 aapp init              # set up worktrees in current repo
 aapp status            # four-pillar briefing
+aapp pause "away"      # quarantine in-flight work and freeze codebase
+aapp resume            # restore quarantined stashes and wake workspace
 aapp ai-status   # check AI attribution mode & pending notes
 aapp upgrade     # pull the latest kit
 aapp help        # full command list

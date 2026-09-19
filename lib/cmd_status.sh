@@ -38,6 +38,93 @@ echo "  🧭 AAPP Context Recovery Briefing"
 echo "  📍 Repo: $REPO_ROOT"
 echo "============================================================"
 
+# 0. Master Emergency Brake / Pause Banner
+GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
+if [ -d "$GIT_COMMON_DIR" ]; then
+    PRIMARY_ROOT="$(cd "$GIT_COMMON_DIR/.." 2>/dev/null && pwd)"
+else
+    PRIMARY_ROOT="$REPO_ROOT"
+fi
+
+PAUSED_FILE="$GIT_COMMON_DIR/aapp_paused"
+SHARED_PAUSED_FILE=""
+if [ -d "$REPO_ROOT/.plans" ]; then
+    SHARED_PAUSED_FILE="$REPO_ROOT/.plans/PAUSED.md"
+elif [ -n "$PRIMARY_ROOT" ] && [ -d "$PRIMARY_ROOT/.plans" ]; then
+    SHARED_PAUSED_FILE="$PRIMARY_ROOT/.plans/PAUSED.md"
+fi
+
+if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; }; then
+    echo ""
+    if [ -f "$PAUSED_FILE" ] && command -v python3 >/dev/null 2>&1; then
+        python3 -c '
+import json, sys, datetime, os
+
+try:
+    with open(sys.argv[1]) as f:
+        d = json.load(f)
+    reason = d.get("reason", "unspecified")
+    ts_str = d.get("timestamp", "")
+    time_info = ts_str
+    if ts_str:
+        try:
+            clean_ts = ts_str.replace("Z", "+00:00")
+            dt = datetime.datetime.fromisoformat(clean_ts)
+            now = datetime.datetime.now(datetime.timezone.utc)
+            diff = now - dt
+            mins = int(diff.total_seconds() // 60)
+            if mins < 1:
+                rel = "just now"
+            elif mins == 1:
+                rel = "1 minute ago"
+            elif mins < 60:
+                rel = f"{mins} minutes ago"
+            elif mins < 1440:
+                rel = f"{mins // 60} hour(s) ago"
+            else:
+                rel = f"{mins // 1440} day(s) ago"
+            time_info = f"{dt.strftime(\"%Y-%m-%d %H:%M:%S\")} ({rel})"
+        except Exception:
+            time_info = ts_str
+
+    stashes = d.get("snapshot", {}).get("stashes", [])
+    stashes_count = len(stashes)
+    stash_names = []
+    for s in stashes:
+        wt = s.get("worktree", "")
+        name = os.path.basename(wt)
+        if s.get("branch"):
+            name = f"{name} ({s.get(\"branch\")})"
+        stash_names.append(name)
+
+    print("🛑 PROJECT STATUS: PAUSED")
+    print(f"   Reason : {reason}")
+    print(f"   Paused : {time_info}")
+    if stashes_count > 0:
+        names_str = ", ".join(stash_names)
+        print(f"   Stashes: {stashes_count} worktree(s) quarantined ({names_str})")
+    else:
+        print("   Stashes: 0 worktrees quarantined (clean on pause)")
+    print("   Notice : All codebase modifications and commits are strictly refused.")
+    print("   To resume: aapp resume")
+except Exception as e:
+    print("🛑 PROJECT STATUS: PAUSED")
+    print(f"   (Failed to parse pause buffer: {e})")
+' "$PAUSED_FILE"
+    elif [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; then
+        echo "🛑 PROJECT STATUS: PAUSED"
+        echo "   Scope  : Team-Wide (.plans/PAUSED.md)"
+        grep -E '^\*[[:space:]]+\*\*(Reason|Timestamp|Initiator):\*\*' "$SHARED_PAUSED_FILE" | sed 's/^\*[[:space:]]*\*\*/   /; s/\*\*:[[:space:]]*/ : /' || true
+        echo "   Notice : All codebase modifications and commits are strictly refused."
+        echo "   To resume: aapp resume"
+    else
+        echo "🛑 PROJECT STATUS: PAUSED"
+        echo "   Buffer : $PAUSED_FILE"
+        echo "   Notice : All codebase modifications and commits are strictly refused."
+        echo "   To resume: aapp resume"
+    fi
+fi
+
 # 1. Shipped
 echo ""
 echo "📦 [1/4] SHIPPED (Recently Landed / Unreleased)"

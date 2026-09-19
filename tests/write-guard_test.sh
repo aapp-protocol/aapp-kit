@@ -407,6 +407,31 @@ cd "$R/repo"
 rm -rf "$R/wt-agent2"
 git worktree prune >/dev/null 2>&1
 
+echo "== project circuit breaker (aapp pause & resume) =="
+setup
+plan p_pause.md <<'EOF'
+* **Plan ID:** P-50
+* **Status:** 🟠 In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/paused_target.py` -> target file
+### 🛑 Out of Bounds (Do Not Touch)
+EOF
+"$AAPP_CLI" active P-50 >/dev/null 2>&1
+check_decision "before pause: declared target allowed" ALLOW "src/paused_target.py"
+
+# Engage pause
+"$AAPP_CLI" pause "away on vacation" >/dev/null 2>&1
+check_decision "while paused: declared target denied" DENY "src/paused_target.py"
+check_decision "while paused: untracked codebase file denied" DENY "src/random.py"
+check_decision "while paused: anchor README.md denied" DENY "README.md"
+check_decision "while paused: plans still writable" ALLOW ".plans/ISSUES.md"
+check_decision "while paused: agents still writable" ALLOW ".agents/CODEMAP.md"
+check_decision "while paused: external scratchpad allowed" ALLOW "/tmp/scratch.txt"
+
+# Resume
+"$AAPP_CLI" resume >/dev/null 2>&1
+check_decision "after resume: declared target allowed again" ALLOW "src/paused_target.py"
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]

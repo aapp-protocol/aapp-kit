@@ -958,6 +958,31 @@ else
 fi
 report "init banner: aapp init outputs First AAPP Loop onboarding guidance" "PASS" "$got"
 
+# Test 50: aapp init syncs aapp-pause skill into .agents/skills and .claude/skills
+PROJ="$R/t50_proj"; make_dummy_project "$PROJ"
+make_kit_clone "$PROJ/aapp-kit"
+(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+rc=$?
+if [ $rc -eq 0 ] && \
+   [ -f "$PROJ/.agents/skills/aapp-pause/SKILL.md" ] && \
+   [ -e "$PROJ/.claude/skills/aapp-pause/SKILL.md" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "skill sync: aapp init syncs aapp-pause into .agents/skills and .claude/skills" "PASS" "$got"
+
+# Test 51: templates/skills/aapp-pause/SKILL.md has valid name and argument hints
+pause_skill="$KIT/templates/skills/aapp-pause/SKILL.md"
+if [ -f "$pause_skill" ] && \
+   grep -q "^name: aapp-pause" "$pause_skill" && \
+   grep -q "^argument-hint:" "$pause_skill"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "pause skill schema: templates/skills/aapp-pause/SKILL.md has valid frontmatter" "PASS" "$got"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"

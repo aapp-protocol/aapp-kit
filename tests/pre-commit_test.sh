@@ -761,6 +761,127 @@ else
 fi
 git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null; git clean -qfd -e .plans 2>/dev/null
 
+echo "== 17. project circuit breaker & multi-worktree pause/resume =="
+setup
+plan p_pause.md <<'EOF'
+* **Plan ID:** P-60
+* **Status:** 🟠 In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/pause_code.py` -> target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+echo "def f(): pass" > src/pause_code.py
+echo "- entry" >> CHANGELOG.md
+git add src/pause_code.py CHANGELOG.md .plans
+out=$(git commit -m "feat: add pause target" 2>&1)
+rc=$?
+if [ $rc -eq 0 ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "commit before pause succeeds" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS got rc=%d\n" "commit before pause succeeds" "$rc"; FAIL=$((FAIL+1))
+fi
+
+# 1. Engage pause
+"$KIT/aapp" pause "focusing on another project" >/dev/null 2>&1
+
+# 2. Attempting to commit code while paused is refused
+echo "def f2(): pass" >> src/pause_code.py
+echo "- bump" >> CHANGELOG.md
+git add src/pause_code.py CHANGELOG.md
+out=$(git commit -m "feat: modify code while paused" 2>&1)
+rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "Project Circuit Breaker"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "code commit while paused is refused" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got rc=%d\n" "code commit while paused is refused" "$rc"; FAIL=$((FAIL+1))
+fi
+git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null
+
+# 3. Committing within .plans while paused is permitted
+echo "new note" > .plans/pickup.md
+git add .plans/pickup.md 2>/dev/null || true
+out=$(git commit -m "chore(plans): add note while paused" 2>&1)
+rc=$?
+if [ $rc -eq 0 ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "committing .plans while paused is permitted" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS got rc=%d\n" "committing .plans while paused is permitted" "$rc"; FAIL=$((FAIL+1))
+fi
+
+# 4. In-flight operation guard refusal
+touch "$(git rev-parse --git-path MERGE_HEAD)"
+out=$("$KIT/aapp" pause "in-flight test" 2>&1)
+rc=$?
+rm -f "$(git rev-parse --git-path MERGE_HEAD)"
+if [ $rc -ne 0 ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "pause refused when in-flight merge active" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got rc=%d\n" "pause refused when in-flight merge active" "$rc"; FAIL=$((FAIL+1))
+fi
+
+# 5. Resume disengages brake and allows code commits
+"$KIT/aapp" resume >/dev/null 2>&1
+echo "def f3(): pass" >> src/pause_code.py
+echo "- bump resume" >> CHANGELOG.md
+git add src/pause_code.py CHANGELOG.md
+out=$(git commit -m "feat: commit after resume" 2>&1)
+rc=$?
+if [ $rc -eq 0 ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "code commit after resume succeeds" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS got rc=%d\n" "code commit after resume succeeds" "$rc"; FAIL=$((FAIL+1))
+fi
+
+# 6. Multi-worktree dynamic stash quarantine and clean restore
+git worktree add -q "$R/wt-branch2" -b branch2 >/dev/null 2>&1
+echo "dirty develop" > src/dirty_dev.txt
+echo "dirty wt2" > "$R/wt-branch2/src/dirty_wt.txt"
+# Pause quarantines changes across both worktrees
+"$KIT/aapp" pause "quarantine multi-worktree" >/dev/null 2>&1
+status_dev=$(git status --porcelain)
+status_wt2=$(git -C "$R/wt-branch2" status --porcelain)
+if [ -z "$status_dev" ] && [ -z "$status_wt2" ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "pause leaves all worktrees clean" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want clean worktrees got dev='%s' wt2='%s'\n" "pause leaves all worktrees clean" "$status_dev" "$status_wt2"; FAIL=$((FAIL+1))
+fi
+
+# Resume restores changes in both worktrees
+"$KIT/aapp" resume >/dev/null 2>&1
+if [ -f src/dirty_dev.txt ] && [ -f "$R/wt-branch2/src/dirty_wt.txt" ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "resume restores changes across all worktrees" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want restored files across worktrees\n" "resume restores changes across all worktrees"; FAIL=$((FAIL+1))
+fi
+rm -f src/dirty_dev.txt "$R/wt-branch2/src/dirty_wt.txt"
+rm -rf "$R/wt-branch2"
+git worktree prune >/dev/null 2>&1
+
+# 7. No-loss conflict guarantee & buffer survival
+echo "conflict base" > src/conflict.txt
+git add src/conflict.txt; git commit -qm "add conflict base"
+echo "modified for stash" > src/conflict.txt
+"$KIT/aapp" pause "conflict test" >/dev/null 2>&1
+# Introduce conflicting commit while paused via --no-verify bypass
+echo "conflicting change while away" > src/conflict.txt
+git commit --no-verify -am "upstream conflicting commit" >/dev/null 2>&1
+# Resume will conflict
+rc_resume=0
+out_resume=$("$KIT/aapp" resume 2>&1) || rc_resume=$?
+# Stash must be preserved and pause file must still exist
+stashes_after=$(git stash list)
+common_dir=$(git rev-parse --git-common-dir)
+if [ $rc_resume -ne 0 ] && [ -f "$common_dir/aapp_paused" ] && [ -n "$stashes_after" ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "resume conflict keeps pause buffer and stash stack" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want buffer survival and preserved stash\n" "resume conflict keeps pause buffer and stash stack"; FAIL=$((FAIL+1))
+fi
+# Clean up conflict test state
+rm -f "$common_dir/aapp_paused"
+git stash clear >/dev/null 2>&1
+git reset --hard HEAD~1 >/dev/null 2>&1
+
 echo ""
 echo "  passed=$PASS failed=$FAIL"
 [ $FAIL -eq 0 ]

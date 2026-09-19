@@ -136,6 +136,9 @@ case "$CMD" in
     freeze-start|start|plan|active|plan-status)
         source "$AAPP_LIB/cmd_plan.sh" "$CMD" "$@"
         ;;
+    pause|resume|unpause)
+        source "$AAPP_LIB/cmd_pause.sh" "$CMD" "$@"
+        ;;
     version|-v|--version)
         echo "aapp version $AAPP_VERSION"
         exit 0

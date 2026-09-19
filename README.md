@@ -312,6 +312,14 @@ AAPP ships core lifecycle verbs as **Universal AAPP Skills** (`skills/<name>/SKI
 | `/aapp-freeze <plan>` | `freeze <plan>`, `/freeze` | **Lock** | Lock Blast Radius boundaries and greenlight blueprint for execution. |
 | `/aapp-done <plan>` | `done <plan>`, `/done` | **Archive** | Move plan to `done/`, append to `000-archive-ledger.md`, and clean `state_matrix.md`. |
 | `/aapp-release <ver>` | `release <ver>`, `/preflight` | **Preflight** | Execute release verification runbook and check changelog staging. |
+| `/aapp-pause [reason]` | `pause`, `aapp pause`, `/aapp-pause` | **Hibernate** | Emergency brake: quarantine in-flight work into SHA stashes, freeze edits. |
+| `/aapp-pause resume` | `resume`, `aapp resume`, `unpause` | **Wake** | Verify drift, restore stashes by SHA, run health checks, and wake workspace. |
+
+### Master Emergency Brake & State Preserver ("Hibernate & Wake")
+When switching focus to another project, stepping away from the desk, or preventing accidental cross-window modifications:
+- **Engage**: `aapp pause "switching to project-2"` (or `/aapp-pause`). Automatically discovers all worktrees (`git worktree list --porcelain`), verifies no in-flight merges/rebases, and quarantines uncommitted changes per-worktree into SHA-addressed stashes (`aapp-pause-<timestamp>:<branch>`). Codebase modifications and commits are strictly locked.
+- **Inspect**: Running `aapp pause` while paused (or `aapp status`) acts as an idempotent inspector displaying pause reason, elapsed duration, and quarantined worktrees.
+- **Wake**: `aapp resume` verifies commit drift against the pause snapshot, restores stashes per-worktree by commit SHA (keeping stashes intact on conflict), runs planning health checks, and disengages the circuit breaker.
 
 ### Blueprint Anatomy (Blast Radius Declaration)
 Every plan in `.plans/current/<name>.md` defines strict boundaries:
