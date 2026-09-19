@@ -99,45 +99,54 @@ fi
 
 if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; }; then
     CURRENT_WT_NAME="$(basename "$REPO_ROOT")"
-    IS_DOCS_WORKTREE=0
-    if [ "$CURRENT_WT_NAME" = ".plans" ] || [ "$CURRENT_WT_NAME" = ".agents" ]; then
-        IS_DOCS_WORKTREE=1
-    fi
+    PAUSE_BLOCKED_TOUCHED=0
 
-    if [ "$IS_DOCS_WORKTREE" -eq 0 ]; then
-        PAUSE_CODE_TOUCHED=0
+    if [ "$CURRENT_WT_NAME" = ".plans" ]; then
         for F in "${STAGED_FILES[@]}"; do
             case "$F" in
-                .plans/*|.agents/*)
+                pickup*|ISSUES.md|issues*|current/*)
                     ;;
                 *)
-                    PAUSE_CODE_TOUCHED=1
+                    PAUSE_BLOCKED_TOUCHED=1
                     break
                     ;;
             esac
         done
+    else
+        for F in "${STAGED_FILES[@]}"; do
+            case "$F" in
+                .plans/pickup*|.plans/ISSUES.md|.plans/issues*|.plans/current/*)
+                    ;;
+                *)
+                    PAUSE_BLOCKED_TOUCHED=1
+                    break
+                    ;;
+            esac
+        done
+    fi
 
-        if [ "$PAUSE_CODE_TOUCHED" -eq 1 ]; then
-            PAUSE_REASON=""
-            if [ -f "$PAUSED_FILE" ]; then
-                if command -v python3 >/dev/null 2>&1; then
-                    PAUSE_REASON=$(python3 -c 'import json, sys; d=json.load(open(sys.argv[1])); print(d.get("reason", ""))' "$PAUSED_FILE" 2>/dev/null || true)
-                else
-                    PAUSE_REASON=$(grep -oE '"reason"[[:space:]]*:[[:space:]]*"[^"]+"' "$PAUSED_FILE" 2>/dev/null | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/' || true)
-                fi
+    if [ "$PAUSE_BLOCKED_TOUCHED" -eq 1 ]; then
+        PAUSE_REASON=""
+        if [ -f "$PAUSED_FILE" ]; then
+            if command -v python3 >/dev/null 2>&1; then
+                PAUSE_REASON=$(python3 -c 'import json, sys; d=json.load(open(sys.argv[1])); print(d.get("reason", ""))' "$PAUSED_FILE" 2>/dev/null || true)
+            else
+                PAUSE_REASON=$(grep -oE '"reason"[[:space:]]*:[[:space:]]*"[^"]+"' "$PAUSED_FILE" 2>/dev/null | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/' || true)
             fi
-            if [ -z "$PAUSE_REASON" ] && [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; then
-                PAUSE_REASON=$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Reason:\*\*[[:space:]]*(.*)/\1/p' "$SHARED_PAUSED_FILE" 2>/dev/null | head -n 1 || true)
-            fi
-            [ -z "$PAUSE_REASON" ] && PAUSE_REASON="developer paused project"
-
-            echo ""
-            echo "❌ [Project Circuit Breaker] Commits to codebase are refused while the project is PAUSED."
-            echo "   Reason: $PAUSE_REASON"
-            echo "   To resume commits, run 'aapp resume'."
-            echo ""
-            exit 1
         fi
+        if [ -z "$PAUSE_REASON" ] && [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; then
+            PAUSE_REASON=$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Reason:\*\*[[:space:]]*(.*)/\1/p' "$SHARED_PAUSED_FILE" 2>/dev/null | head -n 1 || true)
+        fi
+        [ -z "$PAUSE_REASON" ] && PAUSE_REASON="developer paused project"
+
+        echo ""
+        echo "❌ [Project Circuit Breaker] Commits are refused while the project is PAUSED."
+        echo "   Reason: $PAUSE_REASON"
+        echo "   While paused, only reflections within .plans/ (pickup, issues, current) may be committed."
+        echo "   All other commits (codebase, .agents/, templates, hooks) are blocked."
+        echo "   To resume commits across the repository, run 'aapp resume'."
+        echo ""
+        exit 1
     fi
 fi
 

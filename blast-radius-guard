@@ -244,15 +244,19 @@ elif [ -n "$PRIMARY_ROOT" ] && [ -d "$PRIMARY_ROOT/.plans" ]; then
 fi
 
 if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; }; then
-    # While paused, allow reflections and governance strictly within .plans/* and .agents/*
+    # While paused, allow reflections strictly within .plans/ (pickup, issues, current)
     case "$TARGET_FILE" in
-        .plans/*|.agents/*)
+        .plans/pickup*|.plans/ISSUES.md|.plans/issues*|.plans/current/*)
             exit 0
             ;;
     esac
     case "$(basename "$REPO_ROOT")" in
-        .plans|.agents)
-            exit 0
+        .plans)
+            case "$TARGET_FILE" in
+                pickup*|ISSUES.md|issues*|current/*)
+                    exit 0
+                    ;;
+            esac
             ;;
     esac
 
@@ -272,7 +276,8 @@ if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUS
     deny_action "🛑 [Project Circuit Breaker] The project is currently PAUSED.
    Reason : $PAUSE_REASON
    Stashes: In-flight changes quarantined across worktrees
-   All code and template modifications are strictly refused.
+   Only .plans/ (pickup, issues, current) reflections may be modified while paused.
+   All other modifications (codebase, .agents/, templates, hooks) are strictly refused.
    To resume modifications, run 'aapp resume'."
 fi
 
