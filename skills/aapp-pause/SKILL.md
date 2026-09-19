@@ -25,7 +25,7 @@ Engage or disengage the Master Emergency Brake & Multi-Worktree State Preserver 
 3. **Atomic Rollback**: Asserts valid 40-character commit SHAs for every stash created; rolls back all stashes if any worktree fails.
 4. **Air-Gap Safety**: Stashing strictly uses `--include-untracked` and forbids `--all`, preserving `.gitignore` boundaries and protecting air-gapped stores (e.g. private notes in `.plans/pickup/`).
 5. **No-Loss Conflict Guarantee & Buffer Survival**: On `resume`, if a stash apply encounters a conflict, the stash entry is permanently preserved in `git stash list` and the pause buffer remains active on disk until manually resolved.
-6. **Permitted Cognitive Functions**: While paused, reading code, logging defects in `.plans/ISSUES.md`, drafting blueprints in `.plans/current/`, recording behavioral notes in `.agents/`, and capturing ideas in `.plans/pickup.md` remain 100% operational.
+6. **Permitted Cognitive Functions**: While paused, reading code, capturing ideas in `.plans/pickup*`, logging defects in `.plans/ISSUES.md` (and `issues_road_map.md`), and drafting blueprints in `.plans/current/` remain 100% operational. Modifications to the codebase, the `.agents/` control plane, templates, and hooks are strictly blocked.
 
 ---
 *Canonical Specification: Refer to `.agents/AGENTS.md` for full protocol governance.*
