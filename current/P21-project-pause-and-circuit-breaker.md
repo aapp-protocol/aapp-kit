@@ -25,30 +25,67 @@
 
 During modern agentic pair programming, developers frequently operate across multiple mediums simultaneously: multiple IDE windows, parallel terminal tabs, background subagents, or companion chats across different repositories. When no blueprint is actively in development (`🟠 In Development`), the AAPP governance engine operates in fail-open mode for repository files to preserve rapid developer velocity for quick scripts, tests, and typo fixes.
 
-However, this creates a distinct operational vulnerability: **the un-planned cross-window and cross-project collision**. When a developer shifts attention to work on another project ("Project 2"), a loosely framed instruction in that secondary window or terminal can inadvertently find homonymous files (e.g. `templates/AGENTS.md` vs `.agents/AGENTS.md`, or matching filenames across repos) and alter or commit code in this repository without an active plan.
+However, this creates a distinct operational vulnerability: **the un-planned cross-window and cross-project collision**. When a developer shifts attention to work on another project ("Project 2"), a loosely framed instruction in that secondary window or terminal can inadvertently find homonymous files (e.g. `templates/AGENTS.md` vs `.agents/AGENTS.md`, or matching filenames across repos) and alter or commit code in this repository without an active plan. Furthermore, half-finished, uncommitted changes left sitting in the working tree are exposed to accidental corruption or overwrites by stray processes.
 
-Rather than imposing bureaucratic ceremony on everyday single-line fixes, this plan introduces the **Master Emergency Brake / Project Circuit Breaker** (`aapp pause [reason]` and `aapp resume`):
+This plan introduces the **Master Emergency Brake & State Preserver ("Hibernate & Wake")** (`aapp pause [reason]` and `aapp resume`):
 1. **Zero Daily Friction**: When inactive (normal mode), developers and agents work at full velocity with zero overhead.
-2. **Intentional Project Freeze**: When paused, the project is placed into a locked, read-only mode for codebase modifications.
+2. **Transactional State Snapshot & Stash Quarantine**:
+   - On `aapp pause`, in-flight uncommitted code is quarantined into a named stash (`aapp-pause-<timestamp>`), leaving the working tree pristine and clean.
+   - An atomic snapshot captures worktree commit SHAs (`develop`, `agents`, `plans`), branch state, and dirty file counts.
 3. **Cross-Medium Hook Realism ("Uncommittable, Not Untouchable")**:
    - **Local Session Writes (Layer 1)**: For sessions rooted in this repository, `blast-radius-guard` intercepts and blocks write tools at execution time.
    - **External & Cross-Repo Sessions (Layer 2)**: For sessions rooted in other directories or plain terminals (where Project 1's PreToolUse hook is not in the call stack), Layer 2 (`pre-commit`) serves as the strict, inescapable gate that executes inside this repository and rejects any code commit attempt.
-4. **Preserved Cognitive Functions**: Reading code, codebase analysis, conversational Q&A, logging defects in `.plans/ISSUES.md`, drafting blueprints in `.plans/current/`, recording behavioral notes in `.agents/`, and capturing ideas in `.plans/pickup.md` remain 100% functional.
+4. **Resumption Sanity & Drift Detection**:
+   - On `aapp resume`, the engine verifies workspace integrity against the pause snapshot, detecting any commits or untracked file intrusions that occurred while away.
+   - The named stash is safely popped, planning health integrity checks are verified, and full developer velocity is restored.
+5. **Preserved Cognitive Functions**: Reading code, codebase analysis, conversational Q&A, logging defects in `.plans/ISSUES.md`, drafting blueprints in `.plans/current/`, recording behavioral notes in `.agents/`, and capturing ideas in `.plans/pickup.md` remain 100% functional throughout the pause.
 
 ---
 
 ## 2. Technical Blueprint
 
-### A. State Storage & Scoping (`--git-common-dir`)
-The pause state is recorded in a lightweight, atomic state buffer:
-- **Repo-Wide Scope (Default)**: `$(git rev-parse --git-common-dir)/aapp_paused`. Contains a single JSON or delimited record:
+### A. State Storage, Snapshot Schema & Scoping (`--git-common-dir`)
+The pause state and workspace snapshot are recorded in a lightweight, atomic state buffer:
+- **Repo-Wide Scope (Default)**: `$(git rev-parse --git-common-dir)/aapp_paused`. Contains an atomic JSON record:
   ```json
-  {"paused": true, "reason": "Switching focus to project-2", "timestamp": "2026-09-19T02:15:00Z", "user": "lorand"}
+  {
+    "paused": true,
+    "timestamp": "2026-09-19T02:25:00Z",
+    "reason": "switching focus to project-2",
+    "user": "lorand",
+    "snapshot": {
+      "head_sha": "ce81102",
+      "branch": "develop",
+      "worktrees": {
+        "develop": "ce81102",
+        "agents": "3f335d0",
+        "plans": "f3a59eb"
+      },
+      "dirty_files_count": 3,
+      "untracked_files_count": 0,
+      "stashed": true,
+      "stash_ref": "aapp-pause-20260919-022500"
+    }
+  }
   ```
-  *Scoping Invariant:* Using `--git-common-dir` rather than `--git-path` ensures the pause buffer is physically shared across all linked worktrees (`develop`, `.plans`, `.agents`) without isolation splits, while remaining uncommitted with zero git history noise.
+  *Scoping Invariant:* Using `--git-common-dir` ensures the pause buffer is physically shared across all linked worktrees (`develop`, `.plans`, `.agents`) without isolation splits, while remaining uncommitted with zero git history noise.
 - **Team-Wide Shared Scope (Optional `--shared`)**: If invoked with `--shared`, creates or updates `.plans/PAUSED.md`, committing the freeze to the `plans` branch so remote clones, team members, and CI pipelines inherit the project pause.
 
-### B. Layer 1: Write-Time Interception (`templates/blast-radius-guard.sh`)
+### B. Named Stash Quarantine Engine (`cmd_pause`)
+When `aapp pause [reason]` is invoked:
+1. Inspect working directory state on the code branch (`git status --porcelain`).
+2. If dirty files exist:
+   - Generate a unique timestamp tag: `STASH_TAG="aapp-pause-$(date +%Y%m%d-%H%M%S)"`.
+   - Quarantine uncommitted changes via:
+     ```bash
+     git stash push --include-untracked -m "$STASH_TAG: ${reason:-unspecified}"
+     ```
+   - Record `stashed: true` and `stash_ref: "$STASH_TAG"` in snapshot.
+3. If working directory is clean:
+   - Record `stashed: false` and `stash_ref: null`.
+4. The working copy on `develop` is left in a pristine, unmodified state.
+
+### C. Layer 1: Write-Time Interception (`templates/blast-radius-guard.sh`)
 Add an early Circuit Breaker check in `templates/blast-radius-guard.sh` before Section 3:
 1. Probe for pause state in `$(git rev-parse --git-common-dir 2>/dev/null)/aapp_paused` or `.plans/PAUSED.md`.
 2. If paused:
@@ -57,12 +94,13 @@ Add an early Circuit Breaker check in `templates/blast-radius-guard.sh` before S
    - Deny all other file writes inside the repository:
      ```text
      🛑 [Project Circuit Breaker] The project is currently PAUSED.
-        Reason: <reason>
+        Reason : <reason>
+        Stash  : In-flight changes quarantined (<stash_ref>)
         All code and template modifications are strictly refused.
         To resume modifications, run 'aapp resume'.
      ```
 
-### C. Layer 2: Commit-Time Gate (`templates/aapp-pre-commit`)
+### D. Layer 2: Commit-Time Gate (`templates/aapp-pre-commit`)
 Add a Circuit Breaker check in `templates/aapp-pre-commit`:
 1. Probe for pause state in `$(git rev-parse --git-common-dir 2>/dev/null)/aapp_paused` or `.plans/PAUSED.md`.
 2. If paused:
@@ -74,35 +112,52 @@ Add a Circuit Breaker check in `templates/aapp-pre-commit`:
         To resume commits, run 'aapp resume'.
      ```
 
-### D. Emergency Escape Hatches
-The circuit breaker provides explicit, standard escape hatches for emergency overrides:
+### E. Resumption, Drift Detection & Sanity Verification (`cmd_resume`)
+When `aapp resume` is invoked:
+1. **Drift Detection**:
+   - Compare current HEAD SHAs of `develop`, `agents`, and `plans` against the snapshot.
+   - Check if foreign untracked files appeared.
+   - If drift is detected, display a clear warning detailing the discrepancy.
+2. **Stash Restoration**:
+   - If `stashed: true`, locate the stash entry matching `stash_ref` in `git stash list`.
+   - Pop the stash: `git stash pop "$STASH_INDEX"`.
+   - Restore uncommitted in-flight work to the working tree with zero merge conflicts.
+3. **Sanity Verification**:
+   - Execute `lib/planning_health.sh` to confirm planning integrity across all 7 pairs.
+4. **Buffer Deactivation**:
+   - Remove `$(git rev-parse --git-common-dir)/aapp_paused` (and remove `.plans/PAUSED.md` if shared).
+5. **Briefing Output**:
+   - Output clean wakeup report summarizing restored files, drift status, and planning health results.
+
+### F. Emergency Escape Hatches
 - Write-time bypass: `SKIP_BLAST_RADIUS=1` bypasses Layer 1.
 - Commit-time bypass: `git commit --no-verify` or `SKIP_BLAST_RADIUS=1` bypasses Layer 2.
-These mechanisms are documented as deliberate emergency overrides for developer agency.
+- Manual stash recovery: `git stash list` / `git stash apply` if manual inspection is desired.
 
-### E. CLI Ergonomics & Switchboard (`lib/cmd_pause.sh` & `aapp`)
-Provide intuitive, memorable verbs:
-- `aapp pause [reason]`: Engage the emergency brake with an optional descriptive reason.
+### G. CLI Ergonomics & Switchboard (`lib/cmd_pause.sh` & `aapp`)
+- `aapp pause [reason]`: Snapshot workspace, quarantine uncommitted code into named stash, and engage brake.
 - `aapp pause --shared [reason]`: Engage team-wide freeze via `.plans/PAUSED.md`.
-- `aapp resume` (or `aapp unpause`): Disengage the emergency brake and restore normal operation.
-- `aapp status`: Display prominent warning banner when paused in Context Recovery briefing:
+- `aapp resume` (or `aapp unpause`): Verify drift, pop named stash, verify planning health, and disengage brake.
+- `aapp status`: Display prominent warning banner when paused:
   ```text
   🛑 PROJECT STATUS: PAUSED
-     Reason: Switching focus to project-2
+     Reason: switching focus to project-2
+     Stash : aapp-pause-20260919-022500 (3 dirty files quarantined)
   ```
 
-### F. Universal Skills Bridging
+### H. Universal Skills Bridging
 Author `templates/skills/aapp-pause/SKILL.md` (exposing `/aapp-pause` and `/aapp-resume`), bridged to `.agents/skills/` and `.claude/skills/`, and protected under Guard Section 2 self-protection.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Core CLI & State Engine
-- [ ] Task 1.1: Author `lib/cmd_pause.sh` implementing `cmd_pause` (using `--git-common-dir`), `cmd_resume`, and shared `.plans/PAUSED.md` support.
-- [ ] Task 1.2: Integrate `pause`, `resume`, and `unpause` into `aapp` command router.
-- [ ] Task 1.3: Update `lib/cmd_status.sh` to surface project pause status in the header of Context Recovery.
-- [ ] Task 1.4: Update `lib/cmd_help.sh` documenting `aapp pause` and `aapp resume`.
+### Phase 1: Core CLI, Snapshot & Stash Quarantine Engine
+- [ ] Task 1.1: Author `lib/cmd_pause.sh` implementing `cmd_pause` (snapshot capture, named stash quarantine, `--git-common-dir` storage, shared mode).
+- [ ] Task 1.2: Implement `cmd_resume` in `lib/cmd_pause.sh` (drift verification against snapshot, named stash restoration, planning health sanity check, buffer deactivation).
+- [ ] Task 1.3: Integrate `pause`, `resume`, and `unpause` into `aapp` command router.
+- [ ] Task 1.4: Update `lib/cmd_status.sh` to surface project pause status, reason, and stash presence in Context Recovery briefing.
+- [ ] Task 1.5: Update `lib/cmd_help.sh` documenting `aapp pause` and `aapp resume`.
 
 ### Phase 2: Guard & Hook Enforcement
 - [ ] Task 2.1: Add Circuit Breaker check to `templates/blast-radius-guard.sh` using `--git-common-dir`, allowing `.plans/*` and `.agents/*`.
@@ -114,38 +169,39 @@ Author `templates/skills/aapp-pause/SKILL.md` (exposing `/aapp-pause` and `/aapp
 - [ ] Task 3.2: Update `lib/cmd_init.sh` to synchronize `aapp-pause` skill and mount hooks.
 
 ### Phase 4: Governance & Documentation
-- [ ] Task 4.1: Document the Emergency Brake & Circuit Breaker protocol and escape hatches in `templates/AGENTS.md`.
+- [ ] Task 4.1: Document the Hibernate & Wake protocol, stash quarantine, and escape hatches in `templates/AGENTS.md`.
 - [ ] Task 4.2: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` with pause state contracts.
 - [ ] Task 4.3: Update `README.md`, `MANUAL.md`, and `CHEATSHEET.md`.
 
 ### Phase 5: Automated Verification & Regression Suite
 - [ ] Task 5.1: Add test cases in `tests/write-guard_test.sh` asserting write refusal on code while paused, and allowing `.plans/*` and `.agents/*`.
 - [ ] Task 5.2: Add test cases in `tests/pre-commit_test.sh` asserting commit refusal on code while paused across linked worktrees (`--git-common-dir`).
-- [ ] Task 5.3: Add test cases in `tests/install_test.sh` validating `aapp-pause` skill sync and drift control.
-- [ ] Task 5.4: Run full regression suite across all suites against 262-test baseline (target: 270+ passing tests).
-- [ ] Task 5.5: Update `CHANGELOG.md` with release notes.
+- [ ] Task 5.3: Add test cases validating the full pause-snapshot-stash-resume-restore lifecycle and drift detection.
+- [ ] Task 5.4: Add test cases in `tests/install_test.sh` validating `aapp-pause` skill sync and drift control.
+- [ ] Task 5.5: Run full regression suite across all suites against 262-test baseline (target: 275+ passing tests).
+- [ ] Task 5.6: Update `CHANGELOG.md` with release notes.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `lib/cmd_pause.sh` -> NEW FILE: Implementation of pause and resume commands.
+- [ ] `lib/cmd_pause.sh` -> NEW FILE: Implementation of pause, snapshot, stash quarantine, drift detection, and resume commands.
 - [ ] `aapp` -> Add router cases for pause, resume, and unpause.
-- [ ] `lib/cmd_status.sh` -> Display pause state in briefing banner.
+- [ ] `lib/cmd_status.sh` -> Display pause state and quarantined stash in briefing banner.
 - [ ] `lib/cmd_help.sh` -> Catalog and usage examples for pause/resume.
 - [ ] `lib/cmd_init.sh` -> Sync aapp-pause skill and self-protection.
 - [ ] `templates/blast-radius-guard.sh` -> Write-time interception on paused state.
 - [ ] `templates/aapp-pre-commit` -> Pre-commit interception on paused state.
 - [ ] `templates/skills/aapp-pause/SKILL.md` -> NEW FILE: Slash command for pause/resume.
-- [ ] `templates/AGENTS.md` -> Document Project Circuit Breaker protocol.
-- [ ] `ARCHITECTURE.md` -> Architectural boundary documentation for pause buffer.
+- [ ] `templates/AGENTS.md` -> Document Project Circuit Breaker & Hibernate/Wake protocol.
+- [ ] `ARCHITECTURE.md` -> Architectural boundary documentation for pause buffer and stash quarantine.
 - [ ] `.agents/CODEMAP.md` -> Callable contracts for cmd_pause.sh.
-- [ ] `README.md` -> User documentation for emergency brake.
+- [ ] `README.md` -> User documentation for emergency brake and state preserver.
 - [ ] `MANUAL.md` -> Comprehensive operational guide in Chapter 5.
 - [ ] `CHEATSHEET.md` -> Command cheat sheet updates.
-- [ ] `tests/write-guard_test.sh` -> Automated tests for write-guard circuit breaker.
-- [ ] `tests/pre-commit_test.sh` -> Automated tests for pre-commit circuit breaker.
+- [ ] `tests/write-guard_test.sh` -> Automated tests for write-guard circuit breaker and pause lifecycle.
+- [ ] `tests/pre-commit_test.sh` -> Automated tests for pre-commit circuit breaker and worktree sharing.
 - [ ] `tests/install_test.sh` -> Skill synchronization test coverage.
 - [ ] `CHANGELOG.md` -> Feature entry under Unreleased.
 
@@ -160,13 +216,16 @@ Author `templates/skills/aapp-pause/SKILL.md` (exposing `/aapp-pause` and `/aapp
 
 * [x] **Question 1: State Buffer Scoping Architecture**
   - *Resolution:* Default scope strictly uses `$(git rev-parse --git-common-dir)/aapp_paused` (repo-wide uncommitted, shared across all linked worktrees `.plans`, `.agents`, and code worktrees without git commit noise). An optional `--shared` flag creates or updates `.plans/PAUSED.md` (committed to `plans` branch for team-wide/remote synchronization). Per-worktree scoping (`--git-path`) is rejected as an architectural bug.
-* [x] **Question 2: Complementary `aapp.planRequired` Globs**
-  - *Resolution:* P-21 remains strictly focused on the Master Emergency Brake switch (`aapp pause` / `aapp resume`). Fine-grained permanent path gating (`aapp.planRequired`) is tracked as an orthogonal follow-up issue.
-* [x] **Question 3: Permitted Path Boundaries During Pause**
+* [x] **Question 2: In-Flight Code Quarantine Strategy**
+  - *Resolution:* When dirty files exist at pause time, uncommitted changes are automatically quarantined into a named stash (`aapp-pause-<timestamp>`) with untracked files included. This leaves the working tree clean to prevent corruption from external processes. At resume, the stash is automatically popped and re-applied.
+* [x] **Question 3: Drift Verification Policy on Resume**
+  - *Resolution:* On `aapp resume`, the engine verifies current worktree commit SHAs against the snapshot. If external commits or foreign untracked files occurred while paused, it outputs a visible drift warning before popping the stash and running sanity health checks.
+* [x] **Question 4: Permitted Path Boundaries During Pause**
   - *Resolution:* Both Layer 1 and Layer 2 permit writes and commits exclusively confined to `.plans/*` (planning, issues, pickup) and `.agents/*` (codemap, agent behavioral rules, project notes), enabling reflection and triage while blocking all code, templates, libraries, and tests.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Plan expanded with Snapshot & Stash Quarantine ("Hibernate & Wake") architecture: automated named stash quarantine on pause (`aapp-pause-<timestamp>`), pristine working tree preservation, drift detection against worktree commit snapshot on resume, stash restoration, and post-resume planning sanity verification.
 * **2026-09-19:** Plan refined from Red Team insights: corrected state buffer scoping from per-worktree (`--git-path`) to repo-wide (`--git-common-dir`); aligned `.agents/*` and `.plans/*` permission across both Layer 1 and Layer 2; documented cross-repo hook execution reality ("uncommittable, not untouchable"); added explicit documentation for `SKIP_BLAST_RADIUS=1` and `--no-verify` emergency escapes; calibrated test baselines against 262 passing tests; and resolved Open Questions 1, 2, and 3.
 * **2026-09-19:** Plan initialized from user request for project-level blockage and multi-window pause mechanism.
