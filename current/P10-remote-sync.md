@@ -2,7 +2,7 @@
 * **Created:** 2026-09-10 | **Last Refined:** 2026-09-10
 * **Target Issue / Milestone:** Milestone v1.1.0 (Remote Worktree Automation)
 * **Plan ID:** P-10
-* **Status:** 🟣 Under Review
+* **Status:** ⚡ In Development
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
@@ -138,7 +138,7 @@ When strategy resolves to `hook`:
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*(Marked: **PROPOSED** — confers no execution rights until frozen)*
+*(Marked: **LOCKED** — Greenlit for implementation)**
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `aapp` -> Add `push`, `pull`, `sync` commands to CLI dispatcher.
@@ -167,6 +167,7 @@ When strategy resolves to `hook`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-09-19:** Resolved all Open Questions: (1) Q1 confirmed strict atomic abort before touching any worktree when any active worktree is dirty. (2) Q2 confirmed `--ff-only` as strict non-negotiable pull default. (3) Q3 decided against hardcoding sync prompts in `AGENTS.md`, designating an optional `on-done` sample hook in P-12 templates to handle post-completion sync.
 * **2026-09-19:** Formalized team sync governance and three-tier precedence: (1) Added ad-hoc positional strategy arguments (`builtin` / `hook`) to `aapp push/pull/sync` strictly avoiding double-dash flags. (2) Codified three-tier precedence hierarchy (CLI positional override > local git config clone override > committed `registry.tsv` repo default). (3) Specified `on-sync` structured JSON envelope payload (action, remote, worktrees) and observer roles for `pre-sync` and `post-sync`. (4) Reaffirmed fail-closed refusal when hook strategy lacks an executable `on-sync` handler. (5) Aligned attribution trailer invariant header with current protocol standards.
 * **2026-09-19:** Aligned missing-hook refusal path in §B.1 with P-12's protected registry architecture (`.agents/skills/aapp-hooks/registry.tsv`) and clarified team sync transport delegation.
