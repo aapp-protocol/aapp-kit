@@ -29,6 +29,11 @@
 ## 2. Technical Blueprint
 *Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
 
+### 🔄 Migration & Compatibility Strategy
+- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Fallback Inventory**: `None (Clean Break)`
+  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist

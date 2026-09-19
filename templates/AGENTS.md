@@ -9,6 +9,7 @@ See `.agents/CODEMAP.md` (or `CODEMAP.md` at the repo root) before assuming wher
 - Maintain a single source of truth for paths, state, and configuration.
 - Enforce strict repository portability: never write absolute machine paths or `file://` URIs into project files.
 - Enforce canonical planning: implementation blueprints belong in `.plans/current/` under Git-level Blast Radius protection, never in proprietary ephemeral IDE scratchpads (`implementation_plan.md`).
+- Enforce clean breaks: in refactors and migrations, clean breaks are the mandatory default; backwards-compatibility fallbacks, duplicate aliases, or dual-syntax parser regexes are strictly forbidden unless explicitly itemized and justified in Section 2 (Technical Blueprint).
 
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOM RULES OUTSIDE. -->
@@ -97,6 +98,12 @@ Once a blueprint is frozen (`🔷 Ready for Execution`), its **design** is locke
 - **Locked Regions**: `## 2. Technical Blueprint` and `## 4. Blast Radius & System Boundaries`. Attempting to modify these sections while a plan is frozen is strictly blocked by `pre-commit`.
 - **Permitted Regions**: Task checkboxes in `## 3.` (`- [ ]` → `- [x]`), `## 5. Open Questions`, and `## 6. Change Log` remain freely editable to record execution progress and verification history.
 - **Unfreezing**: To modify a frozen blueprint or blast radius, the plan must be explicitly unfrozen first by reverting status to `📝 Refining` (with §2 and §4 untouched in that unfreeze commit).
+
+### 🔄 Clean Break Invariant & Fallback Governance
+In refactors, schema migrations, and API updates, **clean breaks are the mandatory default**:
+- **Zero Un-named Fallbacks**: Autonomous coding agents must NEVER unilaterally introduce backwards-compatibility fallbacks, legacy shim wrappers, duplicate aliases, or dual-syntax parser regexes.
+- **Explicit Declaration in Section 2**: If an adopter or project constraint genuinely requires backwards compatibility, every preserved fallback, alias, or legacy schema MUST be explicitly itemized in the plan's `## 2. Technical Blueprint` under `### 🔄 Migration & Compatibility Strategy`, accompanied by a clear justification and retirement/deprecation date.
+- **Unlisted Fallbacks Prohibited**: Any fallback, legacy alias, or dual-syntax regex introduced into the codebase that is not explicitly registered in Section 2 is considered architectural debt and a protocol violation.
 
 ---
 
