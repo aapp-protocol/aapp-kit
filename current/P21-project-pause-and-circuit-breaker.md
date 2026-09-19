@@ -31,7 +31,8 @@ This plan introduces the **Master Emergency Brake & Multi-Worktree State Preserv
 1. **Zero Daily Friction**: When inactive (normal mode), developers and agents work at full velocity with zero overhead.
 2. **Dynamic Multi-Worktree Stash Quarantine & Snapshot**:
    - On `aapp pause`, in-flight uncommitted code across **all dynamically discovered worktrees** (`git worktree list --porcelain`) is quarantined into named, SHA-addressed stashes (`aapp-pause-<timestamp>:<branch>`), leaving every working tree pristine and clean.
-   - **In-Flight Operation Guard**: Pre-checks for active merges, rebases, or cherry-picks (`MERGE_HEAD`, `rebase-merge/`, `CHERRY_PICK_HEAD`) and refuses to pause if a conflict is unresolved, preventing corrupted stashes.
+   - **In-Flight Operation Guard**: Pre-checks for active merges, rebases, or cherry-picks via canonical plumbing (`git rev-parse --git-path MERGE_HEAD`, `rebase-merge`, `CHERRY_PICK_HEAD`) and refuses to pause if a conflict is unresolved, preventing corrupted stashes across linked worktrees.
+   - **Atomic Rollback Invariant**: Validates that all stash commit SHAs are valid 40-character hexadecimal strings; if any worktree fails or returns an invalid SHA, triggers an immediate rollback of all stashes created in that invocation so the project is never left half-paused.
    - **Staged File Forensics**: Records the exact list of staged vs. unstaged files in the snapshot before stashing, providing full visibility into cherry-picked selections without risking index merge failures.
    - **Air-Gap Safety Invariant**: Stashing strictly uses `--include-untracked` and forbids `--all`, preserving `.gitignore` boundaries and guaranteeing that air-gapped stores (such as private notes in `.plans/pickup/`) are never swept into Git objects.
    - An atomic snapshot captures worktree commit SHAs, branches, staged file lists, and exact stash commit SHAs (immune to Git stash index shifting).
@@ -41,7 +42,7 @@ This plan introduces the **Master Emergency Brake & Multi-Worktree State Preserv
 4. **Resumption Sanity & Forensic Drift Verification**:
    - On `aapp resume`, the engine verifies workspace integrity against the pause snapshot, detecting any commits or untracked file intrusions that occurred while away.
    - Stashes are safely restored per-worktree using 40-character commit SHAs (never fragile indices).
-   - **No-Loss Conflict Guarantee**: If a stash apply encounters a conflict, the stash entry is permanently preserved in the stash list—never dropped.
+   - **No-Loss Conflict & Buffer Survival Invariants**: If a stash apply encounters a conflict, the stash entry is permanently preserved in the stash list—never dropped—and the pause buffer remains active on disk. A partially-resumed project remains PAUSED until all worktrees restore cleanly.
    - Planning health integrity checks are verified, and full developer velocity is restored.
 5. **Preserved Cognitive Functions**: Reading code, codebase analysis, conversational Q&A, logging defects in `.plans/ISSUES.md`, drafting blueprints in `.plans/current/`, recording behavioral notes in `.agents/`, and capturing ideas in `.plans/pickup.md` remain 100% functional throughout the pause.
 
@@ -102,10 +103,14 @@ When `aapp pause [reason]` is invoked:
    - If project is already paused, act as an inspector: display current pause reason, timestamp, duration, snapshot details, and quarantined stashes without modifying state.
 2. **Dynamic Worktree Discovery**:
    - Discover all mounted worktrees dynamically via `git worktree list --porcelain | grep '^worktree ' | cut -d' ' -f2-`.
-3. **In-Flight Operation Guard**:
-   - For each worktree, verify no merge, rebase, or cherry-pick is in progress (check `.git/MERGE_HEAD`, `.git/rebase-merge`, `.git/CHERRY_PICK_HEAD` or per-worktree gitdir equivalents).
-   - If an operation is in-flight, abort pause with advisory: `❌ Cannot pause while a merge/rebase/cherry-pick is in progress in worktree '<wt>'. Complete or abort it first.`
-4. **Per-Worktree Stash & Forensic Capture**:
+3. **In-Flight Operation Guard (Canonical Plumbing)**:
+   - For each worktree `$wt`, verify no merge, rebase, or cherry-pick is in progress using canonical gitdir resolution:
+     - `MERGE_FILE=$(git -C "$wt" rev-parse --git-path MERGE_HEAD)`
+     - `REBASE_DIR=$(git -C "$wt" rev-parse --git-path rebase-merge)`
+     - `CHERRY_FILE=$(git -C "$wt" rev-parse --git-path CHERRY_PICK_HEAD)`
+   - If any of these paths exist on disk, abort pause with advisory: `❌ Cannot pause while a merge/rebase/cherry-pick is in progress in worktree '<wt>'. Complete or abort it first.`
+4. **Per-Worktree Stash, SHA Assertion & Atomic Rollback**:
+   - Initialize tracking array: `CREATED_STASHES=()`.
    - For each worktree directory `$wt`:
      - Inspect status: `STATUS=$(git -C "$wt" status --porcelain 2>/dev/null)`.
      - Record staged files (`git -C "$wt" diff --name-only --cached`) and unstaged files (`git -C "$wt" diff --name-only`).
@@ -117,11 +122,17 @@ When `aapp pause [reason]` is invoked:
          git -C "$wt" stash push --include-untracked -m "$STASH_TAG"
          ```
        - **Air-Gap Invariant**: `--include-untracked` strictly respects `.gitignore` rules (preserving private/air-gapped reference stores such as `.plans/pickup/`). `--all` is strictly prohibited.
-       - **SHA Capture (Immunity to Index Shifting)**: Immediately extract the 40-character commit SHA corresponding to the tag:
-         ```bash
-         STASH_SHA=$(git stash list --format='%H %gs' | grep -F "$STASH_TAG" | head -n 1 | cut -d' ' -f1)
-         ```
-       - Record `{"worktree": "$wt", "branch": "$BRANCH", "sha": "$STASH_SHA", "tag": "$STASH_TAG"}` in `snapshot.stashes`.
+       - **SHA Capture & Hex Assertion**:
+         - Extract the 40-character commit SHA:
+           ```bash
+           STASH_SHA=$(git stash list --format='%H %gs' | grep -F "$STASH_TAG" | head -n 1 | cut -d' ' -f1)
+           ```
+         - **Atomic Rollback Invariant**: If stash push failed or `STASH_SHA` does not match `^[0-9a-f]{40}$`:
+           - Roll back all stashes created during this invocation: for each entry in `$CREATED_STASHES`, run `git -C "$created_wt" stash apply "$created_sha" && git stash drop "$created_idx"`.
+           - Abort with error: `❌ Failed to capture valid stash SHA for worktree '$wt'. All stashes rolled back. Pause aborted.`
+           - Exit code 1. All-or-nothing guarantee.
+         - Record `CREATED_STASHES+=("$wt:$BRANCH:$STASH_SHA:$STASH_TAG")`.
+         - Record `{"worktree": "$wt", "branch": "$BRANCH", "sha": "$STASH_SHA", "tag": "$STASH_TAG"}` in `snapshot.stashes`.
 5. Capture HEAD commit SHAs across all worktrees.
 6. Write state JSON to `$(git rev-parse --git-common-dir)/aapp_paused`.
 7. Every worktree is left in a clean, pristine state with in-flight code safely quarantined in Git's object store.
@@ -162,24 +173,32 @@ When `aapp resume` is invoked:
    - Check if foreign untracked files appeared.
    - If drift is detected, output exact forensic details (worktree, previous SHA, current SHA).
    - *No Auto-Rebase Invariant:* Drift is reported for human inspection, not automatically rebased, preventing silent endorsement of unauthorized `--no-verify` commits.
-3. **SHA-Addressed Stash Restoration & Forensic Reporting**:
+3. **SHA-Addressed Stash Restoration & Pause Buffer Survival**:
    - For each entry in `snapshot.stashes`:
      - Apply explicitly by commit SHA:
        ```bash
        git -C "$worktree" stash apply "$STASH_SHA"
        ```
-     - **No-Loss Conflict Invariant**:
-       - If `stash apply` exits non-zero (merge conflict), **STOP AND KEEP THE STASH**. The stash entry remains intact in `git stash list` so no work can ever be lost. The developer is alerted to inspect conflicts.
+     - **Pause Buffer Survival & No-Loss Conflict Invariant**:
+       - If `stash apply` exits non-zero (merge conflict or failure):
+         - **STOP IMMEDIATELY AND KEEP THE STASH**. The stash entry remains intact in `git stash list` so no work can ever be lost.
+         - **DO NOT REMOVE THE PAUSE BUFFER (`aapp_paused`)**. The project remains PAUSED.
+         - Alert the developer: `❌ Merge conflict encountered in worktree '$worktree'. Project remains PAUSED to protect integrity. Stash preserved in git stash list. Resolve conflicts, then re-run 'aapp resume'.`
+         - Abort resumption with exit code 1.
        - Only if `stash apply` exits with 0: drop the stash entry by locating its current index matching `$STASH_SHA`:
          ```bash
          STASH_IDX=$(git stash list --format='%gd %H' | grep -F "$STASH_SHA" | head -n 1 | cut -d' ' -f1)
          [ -n "$STASH_IDX" ] && git stash drop "$STASH_IDX"
          ```
-     - If the snapshot recorded files that were staged prior to pause, output an informative notice:
-       `ℹ️ Prior to pause, the following files were staged: [files...]. Restored unstaged for review.`
+     - **Forensic Notice vs. `--index` Design Rationale**:
+       - If the snapshot recorded files that were staged prior to pause, output an informative notice:
+         `ℹ️ Prior to pause, the following files were staged: [files...]. Restored unstaged for review.`
+       - *Deliberate Architecture Decision:* Using standard SHA apply with forensic reporting rather than `git stash apply --index` is an intentional trade: `--index` frequently aborts on minor hunk or index boundary differences, whereas standard apply + forensic reporting guarantees reliable restoration without risking spurious failures.
 4. **Sanity Verification**:
+   - Only reached when ALL stashes have applied cleanly with exit code 0.
    - Execute `lib/planning_health.sh` to confirm planning integrity across all 7 pairs.
 5. **Buffer Deactivation**:
+   - Only reached after all stashes have been restored and sanity checks pass.
    - Remove `$(git rev-parse --git-common-dir)/aapp_paused` (and remove `.plans/PAUSED.md` if shared).
 6. **Briefing Output**:
    - Output clean wakeup report summarizing restored worktrees, drift status, and planning health results.
@@ -209,8 +228,8 @@ Author `templates/skills/aapp-pause/SKILL.md` (exposing `/aapp-pause` and `/aapp
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Core CLI, Dynamic Discovery & Multi-Worktree Stash Engine
-- [ ] Task 1.1: Author `lib/cmd_pause.sh` implementing `cmd_pause` with dynamic worktree discovery (`git worktree list --porcelain`), in-flight merge/rebase guard, `--include-untracked` stash quarantine, and 40-char SHA capture from `git stash list`.
-- [ ] Task 1.2: Implement `cmd_resume` in `lib/cmd_pause.sh` with forensic drift comparison, SHA-addressed `git stash apply`, staged-file reporting, no-loss conflict guarantee, conditional stash drop, and planning health check.
+- [ ] Task 1.1: Author `lib/cmd_pause.sh` implementing `cmd_pause` with dynamic worktree discovery (`git worktree list --porcelain`), canonical gitdir in-flight merge/rebase guard, `--include-untracked` stash quarantine, 40-char SHA assertion, and atomic rollback on failure.
+- [ ] Task 1.2: Implement `cmd_resume` in `lib/cmd_pause.sh` with forensic drift comparison, SHA-addressed `git stash apply`, staged-file reporting, short-circuit buffer retention on conflict, conditional stash drop, and planning health check.
 - [ ] Task 1.3: Add idempotent inspector handling to `cmd_pause` (inspecting active pause) and `cmd_resume` (handling unpaused state).
 - [ ] Task 1.4: Integrate `pause`, `resume`, and `unpause` into `aapp` command router.
 - [ ] Task 1.5: Update `lib/cmd_status.sh` to surface project pause status, reason, duration, and quarantined worktree stashes in Context Recovery briefing.
@@ -233,7 +252,7 @@ Author `templates/skills/aapp-pause/SKILL.md` (exposing `/aapp-pause` and `/aapp
 ### Phase 5: Automated Verification & Regression Suite
 - [ ] Task 5.1: Add test cases in `tests/write-guard_test.sh` asserting write refusal on code while paused, allowing `.plans/*` and `.agents/*`.
 - [ ] Task 5.2: Add test cases in `tests/pre-commit_test.sh` asserting commit refusal on code while paused across linked worktrees (`--git-common-dir`).
-- [ ] Task 5.3: Add test cases validating dynamic worktree discovery, in-flight merge guard refusal, SHA-addressed restore, conflict preservation, and drift detection.
+- [ ] Task 5.3: Add test cases validating dynamic worktree discovery, in-flight merge guard refusal, atomic rollback on pause failure, SHA-addressed restore, conflict buffer retention, and drift detection.
 - [ ] Task 5.4: Add test cases in `tests/install_test.sh` validating `aapp-pause` skill sync and drift control.
 - [ ] Task 5.5: Run full regression suite across all suites against 262-test baseline (target: 275+ passing tests).
 - [ ] Task 5.6: Update `CHANGELOG.md` with release notes.
@@ -276,7 +295,7 @@ Author `templates/skills/aapp-pause/SKILL.md` (exposing `/aapp-pause` and `/aapp
 * [x] **Question 2: Multi-Worktree Stash Isolation & SHA-Addressing**
   - *Resolution:* Worktrees are discovered dynamically (`git worktree list --porcelain`) and stashed per-worktree using `--include-untracked` and unique tags (`aapp-pause-$TS:$branch`). Commit SHAs are immediately captured from `git stash list` and stored in the snapshot JSON. Restoration applies explicitly by commit SHA, eliminating vulnerability to index shifting on the shared stash stack.
 * [x] **Question 3: In-Flight Operation Safety Guard**
-  - *Resolution:* Pre-checks for active merges, rebases, or cherry-picks (`MERGE_HEAD`, `rebase-merge/`, `CHERRY_PICK_HEAD`). If an operation is in-flight, `aapp pause` is refused, preventing stashing half-resolved merge conflicts.
+  - *Resolution:* Pre-checks for active merges, rebases, or cherry-picks using canonical plumbing (`git rev-parse --git-path MERGE_HEAD`, `rebase-merge`, `CHERRY_PICK_HEAD`). If an operation is in-flight, `aapp pause` is refused, preventing stashing half-resolved merge conflicts.
 * [x] **Question 4: Staged File Forensics vs. Index Restoration**
   - *Resolution:* Rather than risking fragile `--index` merge conflicts on cherry-picked changes, the snapshot captures the exact list of staged vs. unstaged files prior to pause. Changes are restored cleanly via standard SHA apply, and `aapp resume` prints the exact list of previously staged files so the developer has full visibility without index corruption.
 * [x] **Question 5: Air-Gap Safety Invariant**
@@ -285,10 +304,15 @@ Author `templates/skills/aapp-pause/SKILL.md` (exposing `/aapp-pause` and `/aapp
   - *Resolution:* If `git stash apply <sha>` encounters a merge conflict, the stash entry is permanently preserved in the stash stack (never dropped). On resume, drift between snapshot HEAD SHAs and current worktree HEADs is reported as forensic data for human evaluation; auto-rebasing is rejected to prevent silent endorsement of unauthorized `--no-verify` commits.
 * [x] **Question 7: Permitted Path Boundaries During Pause**
   - *Resolution:* Both Layer 1 and Layer 2 permit writes and commits exclusively confined to `.plans/*` (planning, issues, pickup) and `.agents/*` (codemap, agent behavioral rules, project notes), enabling reflection and triage while blocking all code, templates, libraries, and tests.
+* [x] **Question 8: Atomic Pause Rollback Invariant**
+  - *Resolution:* On `aapp pause`, if any stash push fails or `STASH_SHA` fails 40-character hexadecimal validation, an immediate rollback is executed: all stashes created in that invocation are re-applied and dropped, and the pause is aborted with exit code 1. No half-paused state is possible.
+* [x] **Question 9: Pause Buffer Survival on Resume Conflict**
+  - *Resolution:* On `aapp resume`, if any worktree hits a merge conflict during stash apply, resumption short-circuits immediately. The pause buffer (`aapp_paused`) remains on disk and the project remains PAUSED. Buffer deactivation occurs exclusively when all stashes restore cleanly (exit code 0).
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Plan hardened with failure-path invariants: Atomic Pause Rollback Invariant (asserting 40-char hex SHA and rolling back on partial failure), Pause Buffer Survival Invariant (retaining pause buffer on stash conflict until clean restoration), canonical plumbing for in-flight operation checks (`git rev-parse --git-path`), and documented design rationale for staged file forensics vs `--index`.
 * **2026-09-19:** Plan refined with Dynamic Worktree Discovery (`git worktree list --porcelain`), In-Flight Merge/Rebase Guard (`MERGE_HEAD`/`rebase-merge`/`CHERRY_PICK_HEAD` check), Staged File Forensic Snapshotting (preserving cherry-picked visibility without fragile index restoration), and Idempotent Inspector CLI ergonomics.
 * **2026-09-19:** Plan refined with Multi-Worktree SHA-Addressed Stash Quarantine: per-worktree dirty detection (`develop`, `.plans`, `.agents`), 40-character commit SHA tracking (immune to index reordering), safe SHA-based `stash apply` with conditional drop, No-Loss Conflict Guarantee (stash preserved on conflict), Air-Gap Safety Invariant (`--include-untracked` strictly preserving `.gitignore` boundaries), and forensic drift reporting without auto-rebase.
 * **2026-09-19:** Plan expanded with Snapshot & Stash Quarantine ("Hibernate & Wake") architecture: automated named stash quarantine on pause (`aapp-pause-<timestamp>`), pristine working tree preservation, drift detection against worktree commit snapshot on resume, stash restoration, and post-resume planning sanity verification.
