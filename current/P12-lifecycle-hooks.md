@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** Milestone v1.2.0 (Lifecycle Extension Engine)
 * **Plan ID:** P-12
 * **Status:** 🟣 Under Review
-<!-- Status must be exactly ONE of: 🟣 Under Review | 🟠 Refining | 🔷 Ready for Execution | 🟥 BLOCKED -->
+<!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -53,7 +53,7 @@
 | :--- | :--- | :--- | :--- |
 | `on-pickup` | New idea added to `pickup.md` or via CLI | `raw_text`, `author`, `timestamp` | Push to Slack triage channel, sync with mobile note intake. |
 | `on-digest` | Idea promoted to Issue or Draft Blueprint | `lane` ("issue" \| "plan"), `id`, `file_path`, `title` | Scaffold tickets in Jira/Linear, assign project milestones. |
-| `on-freeze` | Plan blast radius locked into 🟢 Ready | `plan_file`, `target_files`, `blocked_files` | Post lock status to team dashboard, notify PR reviewers. |
+| `on-freeze` | Plan blast radius locked into `🔷 Frozen` | `plan_file`, `target_files`, `blocked_files` | Post lock status to team dashboard, notify PR reviewers. |
 | `on-done` | Blueprint archived to `done/` and ledger | `plan_file`, `commit_hash`, `timestamp`, `linked_issues` | Close Jira/GitHub issues, write audit record to corporate DB, trigger CI. |
 | `pre-sync` | Before `aapp sync` initiates pulls | `worktrees`, `remote_urls` | Pull remote DB updates and materialize local markdown. |
 | `post-sync` | After `aapp sync` completes all pushes | `synced_worktrees`, `status` | Ping deployment webhooks, update status monitors. |
