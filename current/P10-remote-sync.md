@@ -110,18 +110,18 @@ When strategy resolves to `hook`:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Core Command Implementation (`lib/cmd_push.sh`, `lib/cmd_pull.sh`, `lib/cmd_sync.sh`)
-- [ ] Task 1.1: Create shared sync helper library or modular commands implementing remote resolution, worktree discovery, cleanliness checks, push/pull primitives, and three-tier strategy resolution (`positional strategy` > `local git config` > `committed registry default`).
-- [ ] Task 1.2: Implement `aapp push [remote] [strategy]` with upstream detection, `-u` tracking setup, and `on-sync` delegation.
-- [ ] Task 1.3: Implement `aapp pull [remote] [strategy]` with pre-flight dirty checks, `--ff-only` strategy, and `on-sync` delegation.
-- [ ] Task 1.4: Implement `aapp sync [remote] [strategy]` orchestrating pull followed by push (or dispatching `on-sync` with `action=sync`).
+- [x] Task 1.1: Create shared sync helper library or modular commands implementing remote resolution, worktree discovery, cleanliness checks, push/pull primitives, and three-tier strategy resolution (`positional strategy` > `local git config` > `committed registry default`).
+- [x] Task 1.2: Implement `aapp push [remote] [strategy]` with upstream detection, `-u` tracking setup, and `on-sync` delegation.
+- [x] Task 1.3: Implement `aapp pull [remote] [strategy]` with pre-flight dirty checks, `--ff-only` strategy, and `on-sync` delegation.
+- [x] Task 1.4: Implement `aapp sync [remote] [strategy]` orchestrating pull followed by push (or dispatching `on-sync` with `action=sync`).
 
 ### Phase 2: CLI Dispatcher & `aapp init` Defaults Seeding
-- [ ] Task 2.1: Wire `push`, `pull`, and `sync` commands into `aapp` dispatcher.
-- [ ] Task 2.2: Update `lib/cmd_init.sh` to automatically seed `aapp.remote`, `aapp.syncWorktrees`, and `aapp.pullStrategy` in `.git/config` if not already set. Detect if `on-sync` is registered in `registry.tsv` to seed `aapp.syncStrategy hook`.
-- [ ] Task 2.3: Update `lib/cmd_help.sh` with command syntax, examples, and config guidance.
+- [x] Task 2.1: Wire `push`, `pull`, and `sync` commands into `aapp` dispatcher.
+- [x] Task 2.2: Update `lib/cmd_init.sh` to automatically seed `aapp.remote`, `aapp.syncWorktrees`, and `aapp.pullStrategy` in `.git/config` if not already set. Detect if `on-sync` is registered in `registry.tsv` to seed `aapp.syncStrategy hook`.
+- [x] Task 2.3: Update `lib/cmd_help.sh` with command syntax, examples, and config guidance.
 
 ### Phase 3: Automated Regression Tests & Documentation
-- [ ] Task 3.1: Add automated tests in a new test suite `tests/sync_test.sh` (or `tests/install_test.sh`) covering:
+- [x] Task 3.1: Add automated tests in a new test suite `tests/sync_test.sh` (or `tests/install_test.sh`) covering:
   - Default config seeding during `aapp init`.
   - Pushing orphan branches to a bare local test remote.
   - Pulling changes from remote.
@@ -131,9 +131,9 @@ When strategy resolves to `hook`:
   - Selective worktree syncing (`aapp.syncWorktrees`).
   - Team sync strategy overrides (positional `[strategy]`, local git config, and registered `on-sync` hook dispatch).
   - Missing-hook refusal when strategy is `hook` but no executable handler is registered.
-- [ ] Task 3.2: Update `README.md` and `MANUAL.md` documenting `aapp push`, `aapp pull`, and `aapp sync`.
-- [ ] Task 3.3: Verify all regression test suites pass cleanly.
-- [ ] Task 3.4: Update `CHANGELOG.md` with features and additions.
+- [x] Task 3.2: Update `README.md` and `MANUAL.md` documenting `aapp push`, `aapp pull`, and `aapp sync`.
+- [x] Task 3.3: Verify all regression test suites pass cleanly.
+- [x] Task 3.4: Update `CHANGELOG.md` with features and additions.
 
 ---
 
