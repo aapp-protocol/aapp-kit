@@ -74,8 +74,16 @@
   * `aapp ai-credits` -> Append-only union generator updating `AI Contributors` roster in `README.md`.
 * **Anti-Wrapper Warning:** Never emit fake email addresses (`Co-authored-by: Agent <email>`).
 
+### 🛑 Master Emergency Brake & Multi-Worktree State Preserver (`lib/cmd_pause.sh`)
+* **Purpose:** Freezes codebase modifications and quarantines in-flight uncommitted work across all worktrees into SHA-addressed stashes ("Hibernate & Wake").
+* **Key Commands & Behaviors:**
+  * `aapp pause [reason]` -> Discovers worktrees dynamically via `git worktree list --porcelain`, pre-checks no in-flight merges/rebases (`git rev-parse --git-path MERGE_HEAD`, `rebase-merge`, `CHERRY_PICK_HEAD`), stashes with `--include-untracked`, validates 40-char commit SHA with atomic rollback on failure, and records snapshot to `$(git rev-parse --git-common-dir)/aapp_paused`. Acts as idempotent inspector if already paused.
+  * `aapp pause --shared [reason]` -> Team-wide freeze committed to `.plans/PAUSED.md`.
+  * `aapp resume` (or `aapp unpause`) -> Compares current HEAD SHAs against snapshot (forensic drift detection without auto-rebase), restores stashes by commit SHA, permanently preserves stashes on conflict while keeping pause buffer intact (No-Loss Conflict Invariant), conditionally drops stashes on success, verifies planning health, and removes pause buffer.
+* **Anti-Wrapper Warning:** Never address stashes by index (`stash@{0}`); use 40-character commit SHAs exclusively. Never use `--all` (preserves `.gitignore` air-gaps).
+
 ### 📊 Context Recovery Briefing (`lib/cmd_status.sh`)
-* **Purpose:** Read-only four-pillar context recovery agent inspecting Shipped (`CHANGELOG.md`), Issues (`ISSUES.md`), Plans (`state_matrix.md`), and Pickup (`pickup.md`).
+* **Purpose:** Read-only four-pillar context recovery agent inspecting Shipped (`CHANGELOG.md`), Issues (`ISSUES.md`), Plans (`state_matrix.md`), and Pickup (`pickup.md`). Surfaces prominent pause banner and quarantined worktrees when paused.
 * **Anti-Wrapper Warning:** Must remain strictly non-destructive and idempotent.
 
 ### 🔧 Auxiliary Commands
@@ -95,19 +103,21 @@
   2. Section 2: Repository self-protection (`.git/*`, `.githooks/*`, `.agents/skills/*`, `.claude/settings*`).
   3. Section 2b: External hard-deny (credentials, SSH/GPG keys, shell configs, system binaries).
   4. Section 2c: External path allowlists (agent scratchpads, temp dirs, `aapp.allowPath`).
-  5. Section 3: Workspace invariant allowlists (`.plans/*`, `.agents/*`, documentation anchors).
-  6. Section 4: Blueprint Blast Radius matching (3-tier fast path: exact, prefix, pure-Bash glob).
-  7. Section 5: Single-active-plan isolation (evaluates designated `🟠` buffer or single active plan).
+  5. Section 2d: Project Circuit Breaker (emergency pause check; allows `.plans/*` and `.agents/*` only).
+  6. Section 3: Workspace invariant allowlists (`.plans/*`, `.agents/*`, documentation anchors).
+  7. Section 4: Blueprint Blast Radius matching (3-tier fast path: exact, prefix, pure-Bash glob).
+  8. Section 5: Single-active-plan isolation (evaluates designated `🟠` buffer or single active plan).
 
 ### 🛑 Layer 2 Commit-Time Gate (`templates/aapp-pre-commit`)
 * **Purpose:** Authoritative git pre-commit gate verifying staged changes before recording commit objects.
 * **Enforcement Gates:**
-  1. Blast Radius compliance across non-bypass staged files.
-  2. Frozen Plan Immutability: Rejects edits to `## 2. Technical Blueprint` and `## 4. Blast Radius` on `🟢 Frozen` plans.
-  3. Changelog verification: Enforces `CHANGELOG.md` entry for any code changes.
-  4. Issue roadmap hygiene: Auto-prunes resolved issues (`✅`/`Resolved`) in <5ms.
-  5. Relocation Invariant: Detects and blocks active `ISSUES.md` if resolved rows are committed.
-  6. Worktree isolation & Fail-Closed Quarantine: Refuses execution if `.plans/` is missing or unmounted.
+  1. Section 0b: Project Circuit Breaker (refuses code commits while project is paused; allows `.plans/*` and `.agents/*`).
+  2. Blast Radius compliance across non-bypass staged files.
+  3. Frozen Plan Immutability: Rejects edits to `## 2. Technical Blueprint` and `## 4. Blast Radius` on `🟢 Frozen` plans.
+  4. Changelog verification: Enforces `CHANGELOG.md` entry for any code changes.
+  5. Issue roadmap hygiene: Auto-prunes resolved issues (`✅`/`Resolved`) in <5ms.
+  6. Relocation Invariant: Detects and blocks active `ISSUES.md` if resolved rows are committed.
+  7. Worktree isolation & Fail-Closed Quarantine: Refuses execution if `.plans/` is missing or unmounted.
 
 ### ✍️ Commit Message & Note Hooks
 * `templates/commit-msg` / `templates/aapp-commit-msg`: Enforces <=72 char subject line conciseness, validates semantic trailers (`AI-Agent:`, etc.), permits git reverts.
