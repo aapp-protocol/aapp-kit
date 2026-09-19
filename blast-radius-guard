@@ -461,7 +461,7 @@ else
     for pf in "$PLANS_DIR"/current/*.md; do
         [ ! -f "$pf" ] && continue
         case "$(basename "$pf")" in 000-*) continue ;; esac
-        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟠|In Development)' "$pf" 2>/dev/null; then
+        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(⚡|🟠|In Development)' "$pf" 2>/dev/null; then
             DEV_PLANS+=("$pf")
         elif ! grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*' "$pf" 2>/dev/null; then
             DEV_PLANS+=("$pf")
