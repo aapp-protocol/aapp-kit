@@ -226,6 +226,57 @@ case "$CANONICAL_TARGET" in
 esac
 
 # ------------------------------------------------------------------------------
+# 2d. Project Circuit Breaker (Emergency Pause Check)
+# ------------------------------------------------------------------------------
+GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
+if [ -d "$GIT_COMMON_DIR" ]; then
+    PRIMARY_ROOT="$(cd "$GIT_COMMON_DIR/.." 2>/dev/null && pwd)"
+else
+    PRIMARY_ROOT="$REPO_ROOT"
+fi
+
+PAUSED_FILE="$GIT_COMMON_DIR/aapp_paused"
+SHARED_PAUSED_FILE=""
+if [ -d "$REPO_ROOT/.plans" ]; then
+    SHARED_PAUSED_FILE="$REPO_ROOT/.plans/PAUSED.md"
+elif [ -n "$PRIMARY_ROOT" ] && [ -d "$PRIMARY_ROOT/.plans" ]; then
+    SHARED_PAUSED_FILE="$PRIMARY_ROOT/.plans/PAUSED.md"
+fi
+
+if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; }; then
+    # While paused, allow reflections and governance strictly within .plans/* and .agents/*
+    case "$TARGET_FILE" in
+        .plans/*|.agents/*)
+            exit 0
+            ;;
+    esac
+    case "$(basename "$REPO_ROOT")" in
+        .plans|.agents)
+            exit 0
+            ;;
+    esac
+
+    PAUSE_REASON=""
+    if [ -f "$PAUSED_FILE" ]; then
+        if command -v python3 >/dev/null 2>&1; then
+            PAUSE_REASON=$(python3 -c 'import json, sys; d=json.load(open(sys.argv[1])); print(d.get("reason", ""))' "$PAUSED_FILE" 2>/dev/null || true)
+        else
+            PAUSE_REASON=$(grep -oE '"reason"[[:space:]]*:[[:space:]]*"[^"]+"' "$PAUSED_FILE" 2>/dev/null | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/' || true)
+        fi
+    fi
+    if [ -z "$PAUSE_REASON" ] && [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; then
+        PAUSE_REASON=$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Reason:\*\*[[:space:]]*(.*)/\1/p' "$SHARED_PAUSED_FILE" 2>/dev/null | head -n 1 || true)
+    fi
+    [ -z "$PAUSE_REASON" ] && PAUSE_REASON="developer paused project"
+
+    deny_action "🛑 [Project Circuit Breaker] The project is currently PAUSED.
+   Reason : $PAUSE_REASON
+   Stashes: In-flight changes quarantined across worktrees
+   All code and template modifications are strictly refused.
+   To resume modifications, run 'aapp resume'."
+fi
+
+# ------------------------------------------------------------------------------
 # 3. Always-Allowed Invariants (Plans, Rules, Root Anchors)
 # ------------------------------------------------------------------------------
 case "$TARGET_FILE" in
