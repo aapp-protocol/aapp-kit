@@ -76,6 +76,7 @@ Lifecycle events map directly across the entire project progression (Intake → 
 | `on-pause` | Emergency brake engaged (`aapp pause`) | `quarantined_worktrees`, `reason`, `timestamp` | Pause external CI watchers, alert team of context switch. |
 | `on-resume` | Emergency brake disengaged (`aapp resume`) | `restored_worktrees`, `drift_detected` | Resume background workers, re-verify planning health. |
 | `pre-sync` | Before `aapp sync` initiates pulls | `worktrees`, `remote_urls` | Pull remote DB updates and materialize local markdown. |
+| `on-sync` | Team sync transport execution (`aapp.syncStrategy = hook`) | `action` ("push" \| "pull" \| "sync"), `remote`, `worktrees` | Replaces core git worktree push/pull with team S3, DB, API, or custom transport. |
 | `post-sync` | After `aapp sync` completes all pushes | `synced_worktrees`, `status` | Ping deployment webhooks, update status monitors. |
 
 ### C. The Standard Event Envelope Schema (v1.0)
@@ -134,15 +135,31 @@ git config aapp.<feature>Strategy   →   builtin (default) | hook
 performs the work, so "post to Slack *and* let the built-in sync run" remains the default rather than
 a special case.
 
-**Team Sync Override (`aapp.syncStrategy = hook`)**:
-For teams collaborating via central infrastructure (e.g. S3 buckets, central databases, or custom internal git mirrors), setting `git config aapp.syncStrategy hook` enables a team plugin to take ownership of remote sync. Instead of running native git worktree commands, `aapp push`, `aapp pull`, and `aapp sync` dispatch directly to the registered `pre-sync` and `post-sync` handlers in `registry.tsv`. This provides teams with complete control over transport, auth, and destination policy while preserving standard developer CLI workflows.
+**Team Sync Governance: Default vs. Overwritable Syncing for Teams (`aapp.syncStrategy`)**:
+For teams collaborating via central infrastructure (e.g. S3 buckets, central databases, or custom internal git mirrors), remote sync can be delegated to a team plugin hook. AAPP establishes a strict three-tier precedence hierarchy balancing committed team standards with individual developer autonomy:
 
-**Missing-hook behaviour — refuse, never degrade.** If a feature's strategy is `hook` but no
+1. **CLI Runtime Flag (Ad-hoc Override)**: `aapp sync [remote] --builtin` or `--hook` immediately forces the strategy for that single execution without altering persistent configuration.
+2. **Local Developer Configuration (Clone Override)**: `git config aapp.syncStrategy [builtin|hook]` in the local `.git/config` overrides repository defaults for the current clone. This enables individual developers to operate offline or use native git worktrees even in a repository configured for team hook transport.
+3. **Repository Team Standard (Committed Default)**:
+   - If `aapp.syncStrategy` is unset in `.git/config`:
+     - If an `on-sync` gate handler is registered in `.agents/skills/aapp-hooks/registry.tsv`, AAPP defaults to `hook` transport (and `aapp init` automatically detects the registered handler to seed `aapp.syncStrategy hook`).
+     - Otherwise, AAPP defaults to `builtin` git worktree sync.
+
+**The `on-sync` Transport Execution Contract**:
+When `aapp.syncStrategy = hook`:
+- Core native git worktree push/pull commands stand down.
+- `aapp push` dispatches `on-sync` with payload `{"data": {"action": "push", "remote": "<name>", "worktrees": [...]}}`.
+- `aapp pull` dispatches `on-sync` with payload `{"data": {"action": "pull", "remote": "<name>", "worktrees": [...]}}`.
+- `aapp sync` dispatches `on-sync` with payload `{"data": {"action": "sync", "remote": "<name>", "worktrees": [...]}}`.
+- `pre-sync` fires before transport, and `post-sync` fires after successful transport as observer notification hooks.
+- The `on-sync` handler executes in `mode=gate`; non-zero exit codes immediately abort the sync and stream stderr.
+
+**Missing-hook behaviour — refuse, never degrade.** If a feature's strategy resolves to `hook` but no
 corresponding handler is registered in `.agents/skills/aapp-hooks/registry.tsv` or git config, the
 operation is **refused** with an explicit message naming the config key:
 
 ```text
-❌ aapp.syncStrategy=hook but no executable handler is registered for post-sync in .agents/skills/aapp-hooks/registry.tsv or git config.
+❌ aapp.syncStrategy=hook but no executable handler is registered for on-sync in .agents/skills/aapp-hooks/registry.tsv or git config.
 ```
 
 Silently doing nothing is the dangerous option — the operator believes the work happened. Silently
@@ -207,13 +224,32 @@ For local debugging or temporary hook scripts that should not be committed to th
 - This deletes precedence collisions entirely: registry hooks gate and live in `registry.tsv`; local hooks observe and live in `git config`.
 - **CI Confining**: Setting `git config aapp.allowLocalHooks false` confines execution strictly to committed `registry.tsv` entries.
 
-### D.4 Transparent Command Fallthrough (`aapp <plugin-name>`)
-For standalone CLI tools and Action Plugins authored as project skills (e.g. `adversarial-review`, `check-fallbacks`, `threat-model`), the CLI switchboard in `aapp` provides transparent discovery in its default `*)` branch:
-1. Checks for `.agents/skills/$CMD/run` (executable plugin entrypoint).
-2. Checks for `.agents/skills/$CMD/scripts/$CMD.sh`.
-3. If an executable is found, delegates execution via `exec "$HANDLER" "$@"`, forwarding all positional arguments, stdio streams, and exit codes directly.
-4. If no plugin is found, prints the standard unknown command error and displays `aapp help`.
-This allows projects to add custom CLI verbs to `aapp` without modifying the core CLI codebase.
+### D.4 Transparent Command Fallthrough & Extension-Agnostic Plugin Discovery (`aapp <plugin-name>`)
+For standalone CLI tools and Action Plugins authored as project skills (e.g. `adversarial-review`, `check-fallbacks`, `threat-model`), the CLI switchboard in `aapp` provides transparent discovery in its default `*)` branch.
+
+**Extension-Agnostic Resolution Invariant**:
+Plugin discovery must **never** rely on a specific script extension (`.sh`). The entrypoint may have **any extension or no extension at all** (e.g. extensionless compiled binary or script with shebang, `.py`, `.sh`, `.bash`, `.js`, `.rb`, etc.).
+
+When `aapp <cmd> [args...]` is called and `<cmd>` is not a core built-in command, the CLI switchboard scans candidate paths in `.agents/skills/$CMD/` using a deterministic resolution order:
+
+1. **Canonical Extensionless Entrypoints**:
+   - `[ -x ".agents/skills/$CMD/run" ]`
+   - `[ -x ".agents/skills/$CMD/$CMD" ]`
+2. **Subdirectory Extensionless Entrypoints**:
+   - `[ -x ".agents/skills/$CMD/scripts/run" ]`
+   - `[ -x ".agents/skills/$CMD/scripts/$CMD" ]`
+3. **Extension-Agnostic Pattern Search (Any Extension)**:
+   If no exact extensionless entrypoint exists, search for any executable matching `$CMD` or `run` with arbitrary file extensions:
+   - Search `.agents/skills/$CMD/$CMD.*` for the first file where `[ -x "$f" ]`.
+   - Search `.agents/skills/$CMD/run.*` for the first file where `[ -x "$f" ]`.
+   - Search `.agents/skills/$CMD/scripts/$CMD.*` for the first file where `[ -x "$f" ]`.
+   - Search `.agents/skills/$CMD/scripts/run.*` for the first file where `[ -x "$f" ]`.
+4. **Execution Delegation**:
+   If an executable candidate is discovered, execute immediately via `exec "$CANDIDATE" "$@"`, forwarding all positional arguments, stdio streams, and exit codes directly without overhead.
+5. **Fallback**:
+   If no matching executable candidate is found, print the standard unknown command error and display `aapp help`.
+
+This gives complete language freedom to project teams: plugins can be written in Go, Rust, Python, Node, Ruby, or Bash, with or without file extensions, without touching core AAPP dispatcher code.
 
 ### E. Dispatcher Engine Architecture (`lib/hook_dispatcher.sh`)
 * Provides a shared internal function `dispatch_hook <event_name> <json_data_generator_fn>`.
@@ -232,17 +268,17 @@ This allows projects to add custom CLI verbs to `aapp` without modifying the cor
 ### Phase 1: Core Dispatcher Engine & CLI Management
 - [ ] Task 1.1: Create `lib/hook_dispatcher.sh` implementing `dispatch_hook()` with `dash`-compatible TSV parsing (`TAB=$(printf '\t')`), 5-column validation, portable SHA256 resolution chain, and exit-code/mode handling.
 - [ ] Task 1.2: Implement portable execution watchdog/timeout mechanism honoring `mode` (gate fails closed, notify warns).
-- [ ] Task 1.3: Author JSON envelope generator for all 9 lifecycle events.
+- [ ] Task 1.3: Author JSON envelope generator for all 10 lifecycle events (including `on-sync`).
 - [ ] Task 1.4: Implement CLI commands `aapp hooks`, `aapp hook-test`, and `aapp hook-hash` in `lib/cmd_hook.sh`.
 
 ### Phase 2: Hook Wiring into CLI & Protocol Commands
 - [ ] Task 2.1: Wire `on-done` into `cmd_done` (or `/done` command execution).
 - [ ] Task 2.2: Wire `on-freeze` and `on-start` into `lib/cmd_plan.sh` (`freeze`, `start`, `freeze-start`).
 - [ ] Task 2.3: Wire `on-digest` into `cmd_digest` (or `/digest` command execution).
-- [ ] Task 2.4: Wire `pre-sync` and `post-sync` into `lib/cmd_sync.sh`. **Depends on `P-10`**, which creates that file — this task cannot execute until remote sync ships. Also honour `aapp.syncStrategy` per §D.1.
+- [ ] Task 2.4: Wire `pre-sync`, `post-sync`, and `on-sync` into `lib/cmd_sync.sh`. **Depends on `P-10`**, which creates that file — this task cannot execute until remote sync ships. Also honour `aapp.syncStrategy` and three-tier precedence per §D.1.
 - [ ] Task 2.5: Implement `aapp.<feature>Strategy` resolution in `lib/hook_dispatcher.sh` per §D.1, including the refuse-on-missing-hook path.
 - [ ] Task 2.6: Wire `on-pause` and `on-resume` into `lib/cmd_pause.sh`.
-- [ ] Task 2.7: Wire transparent command fallthrough (`aapp <plugin-name>`) into `aapp` switchboard.
+- [ ] Task 2.7: Wire transparent command fallthrough (`aapp <plugin-name>`) into `aapp` switchboard with extension-agnostic discovery (no extension or any extension).
 - [ ] Task 2.8: Update `lib/cmd_init.sh` to scaffold `.agents/skills/aapp-hooks/` and deploy starter `registry.tsv` and `SKILL.md`.
 
 ### Phase 3: Sample Hooks, Automated Tests & Documentation
@@ -261,7 +297,8 @@ This allows projects to add custom CLI verbs to `aapp` without modifying the cor
   - Local `git config` overrides execute in `notify` mode and cannot gate.
   - `aapp.allowLocalHooks false` cleanly disables uncommitted hooks.
   - `aapp hooks`, `aapp hook-test`, and `aapp hook-hash` CLI actions.
-  - Transparent command fallthrough execution (`aapp <plugin>`).
+  - Transparent command fallthrough execution with extensionless binaries, `.py`, `.sh`, and arbitrary extensions.
+  - `on-sync` transport hook execution and three-tier team sync precedence (`--builtin`/`--hook` CLI flag > local git config > committed repo default).
 - [ ] Task 3.3: Document the Lifecycle Hook Contract and CLI actions in `MANUAL.md` and `README.md`.
 - [ ] Task 3.4: Update `CHANGELOG.md`.
 
@@ -271,12 +308,12 @@ This allows projects to add custom CLI verbs to `aapp` without modifying the cor
 *(Marked: **PROPOSED** — confers no execution rights until frozen)*
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `aapp` -> Add `hooks`, `hook-test`, `hook-hash` commands and transparent plugin fallthrough.
+- [ ] `aapp` -> Add `hooks`, `hook-test`, `hook-hash` commands and extension-agnostic transparent plugin fallthrough.
 - [ ] `NEW FILE` -> `lib/cmd_hook.sh` -> CLI implementation for `hooks`, `hook-test`, and `hook-hash`.
 - [ ] `NEW FILE` -> `lib/hook_dispatcher.sh` -> Core POSIX hook execution and dispatch engine.
 - [ ] `lib/cmd_plan.sh` -> Wire `on-freeze` and `on-start` lifecycle event triggers.
 - [ ] `lib/cmd_pause.sh` -> Wire `on-pause` and `on-resume` lifecycle event triggers.
-- [ ] `lib/cmd_sync.sh` -> Wire `pre-sync` and `post-sync` hook dispatches and `aapp.syncStrategy` resolution.
+- [ ] `lib/cmd_sync.sh` -> Wire `pre-sync`, `post-sync`, and `on-sync` hook dispatches and `aapp.syncStrategy` resolution.
 - [ ] `NEW FILE` -> `templates/skills/aapp-hooks/SKILL.md` -> Skill interface and registry documentation.
 - [ ] `NEW FILE` -> `templates/skills/aapp-hooks/registry.tsv` -> Starter registry template with commented 5-column schema.
 - [ ] `NEW FILE` -> `templates/skills/aapp-hooks/scripts/on-done.sample.sh` -> Reference hook script in Bash.
@@ -301,6 +338,7 @@ This allows projects to add custom CLI verbs to `aapp` without modifying the cor
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Refined plugin discovery and team sync governance: (1) Mandated extension-agnostic plugin discovery in §D.4 (supporting extensionless executables, .py, .sh, or any extension with deterministic resolution). (2) Formalized `on-sync` transport execution contract and three-tier precedence for team sync governance in §D.1 (CLI flag > local git config > committed registry default). (3) Expanded event matrix to 10 events.
 * **2026-09-19:** Expanded workflow actions and team sync governance: (1) Added CLI inspection & management actions: `aapp hooks` (audit & SHA256 integrity check), `aapp hook-test` (dry-run testing), and `aapp hook-hash` (portable registration helper). (2) Added §D.4 Transparent Command Fallthrough enabling `aapp <plugin>` to execute `.agents/skills/<plugin>/run` directly. (3) Expanded lifecycle event matrix from 6 to 9 events: added `on-start` (implementation start), `on-pause` (emergency brake), and `on-resume` (brake release). (4) Clarified team sync override in §D.1 and aligned with P-10.
 * **2026-09-19:** Resolved red-team findings on P-12: (1) Replaced bash-only `IFS=$'\t'` with POSIX `TAB=$(printf '\t')` tested in `dash` with strict 5-column line validation. (2) Added portable SHA256 resolution chain (`sha256sum` -> `shasum -a 256` -> `sha256` -> `openssl`) with fail-closed security. (3) Resolved Open Question 1 by expanding registry schema to 5 columns (`event\tpath\tsha256\ttimeout\tmode`) where `gate` fails closed on timeout and `notify` warns. (4) Established the Local Hook Isolation Invariant (`git config aapp.hook.<event>` handlers observe in notify mode only and cannot gate). (5) Documented shallow entrypoint hashing limits and human-mandatory gate registration.
 * **2026-09-19:** Architectural refinement: Replaced directory-based `.plans/hooks/` with the Protected Registry & Hash-Lock Contract (`.agents/skills/aapp-hooks/registry.tsv`). Neutralizes the agent self-modification vulnerability (an agent rewriting its own gate script to pass) by housing the registry under Section-2 protected `.agents/skills/aapp-*` with SHA256 integrity verification. Adopts pure POSIX line-oriented TSV parsing (`while IFS=$'\t' read -r event path hash`) eliminating runtime dependencies on `python3`/`jq` (#9), supports multi-hook multiplexing per event, provisions local developer overrides via `git config --get-all aapp.hook.<event>`, and preserves `.plans/` as 100% pure planning data.

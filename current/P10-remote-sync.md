@@ -30,9 +30,9 @@
 
 ### A. CLI Commands & User Interface
 ```bash
-aapp push [remote]    # Push active AAPP worktrees to remote
-aapp pull [remote]    # Pull updates for active AAPP worktrees from remote
-aapp sync [remote]    # Bi-directional sync: pull (--ff-only) followed by push
+aapp push [remote] [--builtin | --hook]    # Push active AAPP worktrees to remote
+aapp pull [remote] [--builtin | --hook]    # Pull updates for active AAPP worktrees from remote
+aapp sync [remote] [--builtin | --hook]    # Bi-directional sync: pull (--ff-only) followed by push
 ```
 
 #### Terminal UX Feedback Example
@@ -55,29 +55,49 @@ aapp sync [remote]    # Bi-directional sync: pull (--ff-only) followed by push
 | `aapp.remote` | string | `origin` (or first detected remote) | Target git remote for sync operations. |
 | `aapp.syncWorktrees` | string | `"plans agents githooks"` | Space-delimited list of worktrees to sync. |
 | `aapp.pullStrategy` | string | `"ff-only"` | Strategy for pulling (`ff-only`, `rebase`, `merge`). |
-| `aapp.syncStrategy` | string | `builtin` | `builtin` = core performs sync; `hook` = a lifecycle plugin performs it (see §B.1 and `P-12` §D.1). |
+| `aapp.syncStrategy` | string | `builtin` | `builtin` = core performs native git worktree sync; `hook` = delegates transport to registered `on-sync` lifecycle plugin (see §B.1 and `P-12` §D.1). |
 
-### B.1 Plugin Override (`aapp.syncStrategy`) — First Instance of the `P-12` Contract
+### B.1 Plugin Override (`aapp.syncStrategy`) — Team Sync Governance & Precedence
 
-Remote sync is the built-in default that serves a solo developer with zero configuration. Teams with
-their own transport, auth or destination policy replace it with a hook rather than being forced onto
-the core implementation.
+Remote sync defaults to `builtin` git worktree transfers, serving a solo developer with zero configuration. Teams with their own transport, cloud buckets (S3/GCS), central databases, internal APIs, or auth policies replace it with an `on-sync` lifecycle hook rather than being forced onto core git worktree push/pull.
 
-| `git config aapp.syncStrategy` | `aapp push` / `pull` / `sync` | `pre-sync` / `post-sync` |
-| :--- | :--- | :--- |
-| `builtin` *(default)* | performs the transfer | fire — hooks observe |
-| `hook` | stands down entirely | fire — the hook performs the transfer |
+| Strategy Resolution | `aapp push` / `pull` / `sync` | `on-sync` Transport | `pre-sync` / `post-sync` Observers |
+| :--- | :--- | :--- | :--- |
+| `builtin` *(default)* | Core performs native git transfer | Stands down | Fire — hooks observe |
+| `hook` | Core stands down entirely | **Hook performs transfer** | Fire — hooks observe |
 
-* **The events fire either way.** A team can notify Slack on every sync while still using the built-in
-  transport; choosing `hook` is a separate decision from wanting notifications.
-* **Missing hook is refused, not skipped.** With `syncStrategy=hook` and no executable
-  registered handler in `.agents/skills/aapp-hooks/registry.tsv` (or git config), the command refuses and names the missing configuration. A silent no-op would leave
-  the operator believing their plans were synchronized.
-* **Pattern ownership:** the `aapp.<feature>Strategy` mechanism is specified in `P-12` §D.1. This plan
-  only declares the key, its default, and which operations it governs.
+#### Three-Tier Precedence (Default vs. Overwritable for Teams)
+AAPP establishes a clear three-tier hierarchy balancing committed team standards with individual developer autonomy:
 
-> **Cross-plan dependency:** `P-12` Task 2.4 wires `pre-sync`/`post-sync` into `lib/cmd_sync.sh`, which
-> **this plan creates**. `P-10` must ship first, or that task has no file to modify.
+1. **CLI Runtime Flag (Ad-hoc Override)**:
+   `aapp sync [remote] --builtin` or `aapp sync [remote] --hook` immediately forces the transfer mechanism for that single command invocation without modifying persistent configuration.
+2. **Local Developer Configuration (Clone Override)**:
+   `git config aapp.syncStrategy [builtin|hook]` in local `.git/config` overrides repository defaults for the current clone. This allows individual developers to operate offline or use native git worktrees even in a team repository configured for hook transport.
+3. **Repository Team Standard (Committed Default)**:
+   If `aapp.syncStrategy` is unset in `.git/config`:
+   - If an `on-sync` gate handler is registered in `.agents/skills/aapp-hooks/registry.tsv`, AAPP automatically defaults to `hook` transport (and `aapp init` detects the registered handler to seed `aapp.syncStrategy hook`).
+   - Otherwise, AAPP defaults to `builtin` native git worktree sync.
+
+#### The `on-sync` Transport Execution Contract
+When strategy resolves to `hook`:
+- Core native git worktree push/pull commands stand down.
+- AAPP constructs a structured JSON envelope and dispatches to the registered `on-sync` handler in `.agents/skills/aapp-hooks/registry.tsv` (running in `mode=gate`):
+  - `aapp push` sets `"action": "push"`, `"remote": "<name>"`, and `"worktrees": [...]`.
+  - `aapp pull` sets `"action": "pull"`, `"remote": "<name>"`, and `"worktrees": [...]`.
+  - `aapp sync` sets `"action": "sync"`, `"remote": "<name>"`, and `"worktrees": [...]`.
+- `pre-sync` fires before transport, and `post-sync` fires after successful transport as observer notification hooks.
+- Non-zero exit codes from the `on-sync` handler immediately abort the sync and stream stderr.
+
+#### Safety Invariants
+* **The notification events fire either way.** A team can notify Slack on every sync while still using the built-in transport; choosing `hook` is a separate decision from wanting notifications.
+* **Missing hook is refused, not skipped.** If strategy resolves to `hook` but no executable handler is registered for `on-sync` in `.agents/skills/aapp-hooks/registry.tsv` (or git config), the command **refuses** with an explicit error naming the missing hook:
+  ```text
+  ❌ aapp.syncStrategy=hook but no executable handler is registered for on-sync in .agents/skills/aapp-hooks/registry.tsv or git config.
+  ```
+  A silent no-op would leave the operator believing their plans were synchronized; silent fallback to builtin would mask a configuration failure as success. Refusal ensures misconfigurations are surfaced immediately.
+* **Pattern ownership:** The `aapp.<feature>Strategy` override pattern is owned by `P-12` §D.1. This plan declares `aapp.syncStrategy`, its defaults, its precedence, and which operations it governs.
+
+> **Cross-plan dependency:** `P-12` Task 2.4 wires `pre-sync`, `post-sync`, and `on-sync` into `lib/cmd_sync.sh`, which **this plan creates**. `P-10` must ship first, or that task has no file to modify.
 
 ### C. Core Safety & Resilience Mechanisms
 1. **Pre-flight Cleanliness Check**: Before performing `pull` or `sync`, every active worktree in `aapp.syncWorktrees` is checked via `git -C <dir> status --porcelain`. If any worktree has uncommitted modifications, the operation immediately halts to protect uncommitted drafts from merge conflicts or dirty states.
@@ -90,14 +110,14 @@ the core implementation.
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Core Command Implementation (`lib/cmd_push.sh`, `lib/cmd_pull.sh`, `lib/cmd_sync.sh`)
-- [ ] Task 1.1: Create shared sync helper library or modular commands implementing remote resolution, worktree discovery, cleanliness checks, and push/pull primitives.
-- [ ] Task 1.2: Implement `aapp push [remote]` with upstream detection and `-u` tracking setup.
-- [ ] Task 1.3: Implement `aapp pull [remote]` with pre-flight dirty checks and `--ff-only` strategy.
-- [ ] Task 1.4: Implement `aapp sync [remote]` orchestrating pull followed by push.
+- [ ] Task 1.1: Create shared sync helper library or modular commands implementing remote resolution, worktree discovery, cleanliness checks, push/pull primitives, and three-tier strategy resolution (`CLI flag` > `local git config` > `committed registry default`).
+- [ ] Task 1.2: Implement `aapp push [remote] [--builtin|--hook]` with upstream detection, `-u` tracking setup, and `on-sync` delegation.
+- [ ] Task 1.3: Implement `aapp pull [remote] [--builtin|--hook]` with pre-flight dirty checks, `--ff-only` strategy, and `on-sync` delegation.
+- [ ] Task 1.4: Implement `aapp sync [remote] [--builtin|--hook]` orchestrating pull followed by push (or dispatching `on-sync` with `action=sync`).
 
 ### Phase 2: CLI Dispatcher & `aapp init` Defaults Seeding
 - [ ] Task 2.1: Wire `push`, `pull`, and `sync` commands into `aapp` dispatcher.
-- [ ] Task 2.2: Update `lib/cmd_init.sh` to automatically seed `aapp.remote`, `aapp.syncWorktrees`, and `aapp.pullStrategy` in `.git/config` if not already set.
+- [ ] Task 2.2: Update `lib/cmd_init.sh` to automatically seed `aapp.remote`, `aapp.syncWorktrees`, and `aapp.pullStrategy` in `.git/config` if not already set. Detect if `on-sync` is registered in `registry.tsv` to seed `aapp.syncStrategy hook`.
 - [ ] Task 2.3: Update `lib/cmd_help.sh` with command syntax, examples, and config guidance.
 
 ### Phase 3: Automated Regression Tests & Documentation
@@ -109,6 +129,8 @@ the core implementation.
   - Safety guard aborting when a worktree is dirty.
   - Custom remote argument override.
   - Selective worktree syncing (`aapp.syncWorktrees`).
+  - Team sync strategy overrides (`--builtin` / `--hook` CLI flags, local git config, and registered `on-sync` hook dispatch).
+  - Missing-hook refusal when strategy is `hook` but no executable handler is registered.
 - [ ] Task 3.2: Update `README.md` and `MANUAL.md` documenting `aapp push`, `aapp pull`, and `aapp sync`.
 - [ ] Task 3.3: Verify all regression test suites pass cleanly.
 - [ ] Task 3.4: Update `CHANGELOG.md` with features and additions.
@@ -142,6 +164,7 @@ the core implementation.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Formalized team sync governance and three-tier precedence: (1) Added ad-hoc CLI flags `--builtin` and `--hook` to `aapp push/pull/sync`. (2) Codified three-tier precedence hierarchy (CLI runtime flag > local git config clone override > committed `registry.tsv` repo default). (3) Specified `on-sync` structured JSON envelope payload (action, remote, worktrees) and observer roles for `pre-sync` and `post-sync`. (4) Reaffirmed fail-closed refusal when hook strategy lacks an executable `on-sync` handler.
 * **2026-09-19:** Aligned missing-hook refusal path in §B.1 with P-12's protected registry architecture (`.agents/skills/aapp-hooks/registry.tsv`) and clarified team sync transport delegation.
 * **2026-09-19:** Added §B.1 declaring `aapp.syncStrategy` as the first instance of the core/plugin override contract specified in `P-12` §D.1, amended in the same pass so the two agree from the outset rather than the first to ship setting the contract by accident. Core remains the zero-config default for solo developers; teams with their own transport replace it with a hook. Events fire under either strategy, and a missing hook is refused rather than silently skipped. Recorded the cross-plan dependency: `P-12` Task 2.4 modifies `lib/cmd_sync.sh`, which this plan creates.
 * **2026-09-10:** Plan drafted from user request with A/C hybrid configuration model.
