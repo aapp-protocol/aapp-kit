@@ -306,7 +306,7 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
         for pf in "$PLANS_DIR"/current/*.md; do
             [ ! -f "$pf" ] && continue
             case "$(basename "$pf")" in 000-*) continue ;; esac
-            if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|BLOCKED)' "$pf" 2>/dev/null; then
+            if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|🟥|BLOCKED)' "$pf" 2>/dev/null; then
                 BLOCKED_TARGETS=()
                 while IFS= read -r ITEM; do
                     [ -n "$ITEM" ] && BLOCKED_TARGETS+=("$ITEM")
@@ -389,7 +389,7 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
                 for pf in "$PLANS_DIR"/current/*.md; do
                     [ ! -f "$pf" ] && continue
                     case "$(basename "$pf")" in 000-*) continue ;; esac
-                    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟢|Frozen|Ready for Execution)' "$pf" 2>/dev/null; then
+                    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟢|🔷|Frozen|Ready for Execution)' "$pf" 2>/dev/null; then
                         has_frozen_plans=1
                         break
                     fi
@@ -408,7 +408,7 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
 
     # 4. Enforce Blast Radius for Active Plan
     if [ -n "$ACTIVE_PLAN_PATH" ]; then
-        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|BLOCKED)' "$ACTIVE_PLAN_PATH"; then
+        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|🟥|BLOCKED)' "$ACTIVE_PLAN_PATH"; then
             echo ""
             echo "❌ [Pre-Commit Blast Radius Violation] Active plan '$(basename "$ACTIVE_PLAN_PATH")' is BLOCKED!"
             echo "   All commits are refused while a plan is marked 🚫 BLOCKED."
@@ -505,7 +505,7 @@ for STAGED in "${STAGED_FILES[@]}"; do
     [ -z "$HEAD_CONTENT" ] && continue
 
     # Check if HEAD version was frozen / greenlit
-    if ! printf '%s\n' "$HEAD_CONTENT" | grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟢|🟠|Ready for Execution|Frozen|In Development)'; then
+    if ! printf '%s\n' "$HEAD_CONTENT" | grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟢|🔷|🟠|Ready for Execution|Frozen|In Development)'; then
         continue
     fi
 
@@ -534,11 +534,11 @@ for STAGED in "${STAGED_FILES[@]}"; do
         echo "❌ [Pre-Commit Design Lock Violation] Cannot edit locked design sections of a frozen plan!"
         echo "   Staged plan : $STAGED"
         echo "   Violation   : Attempted modifications to $DESIGN_VIOLATION"
-        echo "   Status      : 🟢 Frozen (Design Locked)"
+        echo "   Status      : 🔷 Frozen (Design Locked)"
         echo ""
         echo "   👉 To resolve this:"
         echo "      1. Revert changes to Section 2 and Section 4."
-        echo "      2. Or unfreeze the plan by changing status back to '🟡 Refining' before amending the design."
+        echo "      2. Or unfreeze the plan by changing status back to '🟠 Refining' before amending the design."
         echo ""
         exit 1
     fi
