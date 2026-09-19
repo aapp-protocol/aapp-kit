@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** Milestone v1.1.0 (Air-Gapped Reference Store)
 * **Plan ID:** P-11
 * **Status:** 🟣 Under Review
-<!-- Status must be exactly ONE of: 🟣 Under Review | 🟠 Refining | 🔷 Ready for Execution | 🟥 BLOCKED -->
+<!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
