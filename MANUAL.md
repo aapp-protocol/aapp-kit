@@ -580,22 +580,22 @@ Transitions a refined blueprint into the Greenlight Backlog:
 - Validates explicit `### 📂 Target Files` and `### 🛑 Out of Bounds` (enforcing Pair 5 self-protection).
 - Changes status to `🔷 Frozen` (or `🔷 Ready for Execution`) and marks Blast Radius `LOCKED`.
 - **Design-Lock Immutability**: Once frozen, the plan's specification (`## 2. Technical Blueprint`) and allowlist (`## 4. Blast Radius`) become immutable. Pre-commit strictly refuses commits altering these sections. Execution progress (`## 3.` task checkboxes, `## 5.` open questions, and `## 6.` change log) remains writable.
-- **Unfreezing**: To revise a frozen design, revert the plan's status back to `🟠 Refining` in an explicit commit before amending the blueprint.
+- **Unfreezing**: To revise a frozen design, revert the plan's status back to `📝 Refining` in an explicit commit before amending the blueprint.
 *Safety: Model invocation disabled (`disable-model-invocation: true`).*
 
 #### `/aapp-freeze-start <plan>` (or `aapp freeze-start <plan>`) — Atomic Workflow Accelerator
 Chains freeze verification and implementation activation in a single atomic operation:
 - Verifies all Open Questions are answered and Target Files are declared.
 - Verifies the Disjointness Activation Gate (no overlapping Target Files with any in-flight plan).
-- Transitions status directly to `🟠 In Development` and marks Blast Radius `LOCKED`.
+- Transitions status directly to `⚡ In Development` and marks Blast Radius `LOCKED`.
 - Binds the local worktree active buffer (`$(git rev-parse --git-path aapp_active_plan)`).
 - Immediately unlocks code writes and commit-time enforcement for the plan's declared Target Files.
 
 #### `/aapp-start <plan>` (or `aapp start <plan>`) — Implementation Activation
-Activates an approved `🟢 Frozen` blueprint from the backlog into active implementation (`🟠 In Development`):
-- Checks that the plan is in `🟢 Frozen` status.
+Activates an approved `🔷 Frozen` blueprint from the backlog into active implementation (`⚡ In Development`):
+- Checks that the plan is in `🔷 Frozen` status.
 - Runs Disjointness Activation Gate against other in-flight plans in the workspace.
-- Transitions status to `🟠 In Development` and sets the local worktree active plan buffer.
+- Transitions status to `⚡ In Development` and sets the local worktree active plan buffer.
 
 #### `/aapp-active` (or `aapp active [id]`, `aapp active swap`, `aapp active clear`) — Execution Buffer Switchboard
 - `aapp active <id>`: Set local worktree active buffer (`.git/aapp_active_plan`) to `<id>`.

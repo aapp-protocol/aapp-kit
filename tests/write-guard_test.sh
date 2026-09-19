@@ -309,11 +309,11 @@ check_decision "directory prefix matches subfiles" ALLOW "docs/guide.md"
 check_decision "directory prefix matches nested subfiles" ALLOW "docs/api/v1/spec.md"
 check_decision "single segment oob wildcard blocks match" DENY "src/forbidden_test.py"
 
-echo "== plan lifecycle enforcement (🟢 Frozen grants zero rights, 🟠 In Development enforces targets) =="
+echo "== plan lifecycle enforcement (🔷 Frozen grants zero rights, ⚡ In Development enforces targets) =="
 setup
 plan frozen.md <<'EOF'
 * **Plan ID:** P-10
-* **Status:** 🟢 Frozen
+* **Status:** 🔷 Frozen
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/frozen_target.py` -> in backlog, not in dev
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -323,14 +323,26 @@ check_decision "frozen backlog plan grants zero write rights (no buffer)" DENY "
 
 plan active.md <<'EOF'
 * **Plan ID:** P-11
-* **Status:** 🟠 In Development
+* **Status:** ⚡ In Development
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/active_target.py` -> in flight
 ### 🛑 Out of Bounds (Do Not Touch)
 ## end
 EOF
-check_decision "in-development plan target is allowed" ALLOW "src/active_target.py"
+check_decision "⚡ in-development plan target is allowed" ALLOW "src/active_target.py"
 check_decision "frozen backlog plan target remains denied while other plan is in dev" DENY "src/frozen_target.py"
+
+# Backward compatibility: legacy 🟠 In Development
+rm -f .plans/current/active.md
+plan legacy.md <<'EOF'
+* **Plan ID:** P-11
+* **Status:** 🟠 In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/legacy_target.py` -> legacy in flight
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+check_decision "legacy 🟠 in-development plan target is allowed" ALLOW "src/legacy_target.py"
 
 echo "== active plan buffer switchboard (aapp active, active swap, active clear) =="
 setup

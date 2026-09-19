@@ -13,7 +13,7 @@ This document is the central dashboard for all active ideas, drafts, ready plans
 ## 🚦 Recommended Implementation Roadmap
 
 1. 🔷 **P-1: [Core Foundation Blueprint](current/P1-approved-feature.md)**
-2. 🟠 **P-2: [Secondary Feature](current/P2-feature-name.md)**
+2. 📝 **P-2: [Secondary Feature](current/P2-feature-name.md)**
 
 ---
 
@@ -26,12 +26,12 @@ This document is the central dashboard for all active ideas, drafts, ready plans
 
 ---
 
-## 🟠 2a. In Development (Active Implementation Context)
+## ⚡ 2a. In Development (Active Implementation Context)
 *Blueprints actively being coded in the working tree. Governed by the local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).*
 
 * [ ] **P-1: [Feature: Implementation Blueprint](current/P1-approved-feature.md)**
   * *Target Files:* `src/path/to/file.ext`
-  * *Status:* 🟠 In Development. Active execution buffer set.
+  * *Status:* ⚡ In Development. Active execution buffer set.
 
 ---
 

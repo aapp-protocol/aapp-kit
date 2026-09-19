@@ -624,14 +624,18 @@ check_plan_commit "editing blueprint on frozen plan is blocked" BLOCK
 sed -i 's/src\/a\.py/src\/extra\.py/' .plans/current/p.md
 check_plan_commit "editing blast radius on frozen plan is blocked" BLOCK
 
-# Unfreeze (status changed to 🟡 Refining with untouched Sec 2/4): PASS
-sed -i 's/🟢 Ready for Execution/🟡 Refining/' .plans/current/p.md
-check_plan_commit "unfreezing status without design change is permitted" PASS
+# Unfreeze (status changed to 📝 Refining with untouched Sec 2/4): PASS
+sed -i 's/🟢 Ready for Execution/📝 Refining/' .plans/current/p.md
+check_plan_commit "unfreezing status to 📝 Refining without design change is permitted" PASS
 
-# Smuggled unfreeze (status changed to 🟡 Refining AND Sec 2 modified): BLOCK
-sed -i 's/🟢 Ready for Execution/🟡 Refining/' .plans/current/p.md
+# Smuggled unfreeze (status changed to 📝 Refining AND Sec 2 modified): BLOCK
+sed -i 's/🟢 Ready for Execution/📝 Refining/' .plans/current/p.md
 sed -i 's/Original technical blueprint architecture./Smuggled architecture./' .plans/current/p.md
 check_plan_commit "smuggling blueprint edit during unfreeze is blocked" BLOCK
+
+# Unfreeze legacy (status changed to 🟡 Refining with untouched Sec 2/4): PASS
+sed -i 's/🟢 Ready for Execution/🟡 Refining/' .plans/current/p.md
+check_plan_commit "unfreezing status to legacy 🟡 Refining without design change is permitted" PASS
 
 # 2. Tests on 🔴 Under Review plan
 create_and_commit_plan "🔴 Under Review"

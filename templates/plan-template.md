@@ -3,9 +3,9 @@
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-XX
 * **Status:** 🟣 Under Review
-<!-- Status must be exactly ONE of: 🟣 Under Review | 🟠 Refining | 🔷 Frozen | 🟠 In Development | 🟥 BLOCKED
+<!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
-     specification. An 🟠 In Development plan enforces the locked blast radius during implementation.
+     specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
      A plan whose Status says BLOCKED grants no commit rights at all. -->
 <!-- * **Blocked On:** ISSUE-00X   <- add this line while BLOCKED, remove it when unblocked -->
 

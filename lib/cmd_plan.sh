@@ -112,7 +112,7 @@ check_disjointness_activation_gate() {
         [ "$(basename "$pf")" = "$target_bname" ] && continue
         case "$(basename "$pf")" in 000-*) continue ;; esac
 
-        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟠|In Development)' "$pf" 2>/dev/null; then
+        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(⚡|🟠|In Development)' "$pf" 2>/dev/null; then
             local other_targets=()
             while IFS= read -r ot; do
                 [ -n "$ot" ] && other_targets+=("$ot")
@@ -183,19 +183,19 @@ cmd_freeze_start() {
     [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
 
     # Update plan header & lock status
-    sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* 🟠 In Development/' "$plan_file"
+    sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* ⚡ In Development/' "$plan_file"
     sed -i -E 's/\*\(Marked:[[:space:]]*\*\*PROPOSED\*\*.*\)/\*(Marked: **LOCKED** — Greenlit for implementation)*/' "$plan_file"
 
     local today
     today="$(date +%Y-%m-%d)"
     if grep -q '^## 📦 6\. Change Log' "$plan_file"; then
-        sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* Plan frozen and activated into 🟠 In Development via freeze-start." "$plan_file"
+        sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* Plan frozen and activated into ⚡ In Development via freeze-start." "$plan_file"
     fi
 
     # Update state matrix if present
     local sm_file="$PLANS_DIR/state_matrix.md"
     if [ -f "$sm_file" ]; then
-        sed -i -E "/$plan_id/s/🔴|🟡|🟢|🟣|🔷/🟠/g" "$sm_file"
+        sed -i -E "/$plan_id/s/🔴|🟡|🟢|🟣|🔷|🟠/⚡/g" "$sm_file"
     fi
 
     # Write buffer
@@ -208,7 +208,7 @@ cmd_freeze_start() {
         git -C "$PLANS_DIR" commit -m "plan(start): freeze and activate $plan_id into development" 2>/dev/null || true
     fi
 
-    echo "⚡ [Freeze-Start] Plan '$plan_id' frozen and activated into 🟠 In Development."
+    echo "⚡ [Freeze-Start] Plan '$plan_id' frozen and activated into ⚡ In Development."
     echo "   Blueprint    : $plan_file"
     echo "   Active Buffer: $ACTIVE_FILE"
 }
@@ -221,7 +221,7 @@ cmd_start() {
     # Verify status is 🟢 Frozen / Ready for Execution or already 🟠
     local cur_status
     cur_status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$plan_file" | head -n 1 || true)"
-    if ! echo "$cur_status" | grep -qE '🟢|🔷|Ready for Execution|Frozen|🟠|In Development'; then
+    if ! echo "$cur_status" | grep -qE '🟢|🔷|Ready for Execution|Frozen|⚡|🟠|In Development'; then
         echo "❌ [Start Refusal] Plan is not frozen (current status: $cur_status)." >&2
         echo "   Freeze the plan first with 'aapp freeze $query' or run 'aapp freeze-start $query'." >&2
         exit 1
@@ -235,18 +235,18 @@ cmd_start() {
     [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
 
     # Update status
-    sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* 🟠 In Development/' "$plan_file"
+    sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* ⚡ In Development/' "$plan_file"
     sed -i -E 's/\*\(Marked:[[:space:]]*\*\*PROPOSED\*\*.*\)/\*(Marked: **LOCKED** — Greenlit for implementation)*/' "$plan_file"
 
     local today
     today="$(date +%Y-%m-%d)"
     if grep -q '^## 📦 6\. Change Log' "$plan_file"; then
-        sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* Plan activated into 🟠 In Development via start." "$plan_file"
+        sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* Plan activated into ⚡ In Development via start." "$plan_file"
     fi
 
     local sm_file="$PLANS_DIR/state_matrix.md"
     if [ -f "$sm_file" ]; then
-        sed -i -E "/$plan_id/s/🔴|🟡|🟢|🟣|🔷/🟠/g" "$sm_file"
+        sed -i -E "/$plan_id/s/🔴|🟡|🟢|🟣|🔷|🟠/⚡/g" "$sm_file"
     fi
 
     write_active_buffer "$plan_id"
@@ -257,7 +257,7 @@ cmd_start() {
         git -C "$PLANS_DIR" commit -m "plan(start): activate $plan_id into development" 2>/dev/null || true
     fi
 
-    echo "🟢 [Start] Plan '$plan_id' activated into 🟠 In Development."
+    echo "⚡ [Start] Plan '$plan_id' activated into ⚡ In Development."
     echo "   Active Buffer: $ACTIVE_FILE"
 }
 
@@ -336,7 +336,7 @@ cmd_active() {
                 for pf in "$PLANS_DIR"/current/*.md; do
                     [ ! -f "$pf" ] && continue
                     case "$(basename "$pf")" in 000-*) continue ;; esac
-                    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟠|In Development)' "$pf" 2>/dev/null; then
+                    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(⚡|🟠|In Development)' "$pf" 2>/dev/null; then
                         dev_plans+=("$pf")
                     fi
                 done
@@ -346,7 +346,7 @@ cmd_active() {
                     local auto_id
                     auto_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$auto_pf" 2>/dev/null || true)"
                     [ -z "$auto_id" ] && auto_id="$(basename "$auto_pf" .md)"
-                    echo "🎯 Active Plan Buffer: '$auto_id' (auto-discovered in 🟠 In Development)"
+                    echo "🎯 Active Plan Buffer: '$auto_id' (auto-discovered in ⚡ In Development)"
                     echo "   Blueprint File    : $auto_pf"
                     echo "   Declared Targets  :"
                     parse_plan_target_paths "$auto_pf" | sed 's/^/     • /'
@@ -440,7 +440,7 @@ cmd_plan_status() {
         [ -z "$pid" ] && pid="$(basename "$pf" .md)"
         status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$pf" | head -n 1 || true)"
 
-        if echo "$status" | grep -qE '🟠|In Development'; then
+        if echo "$status" | grep -qE '⚡|🟠|In Development'; then
             in_dev+=("$pid ($(basename "$pf"))")
         elif echo "$status" | grep -qE '🟢|🔷|Ready for Execution|Frozen'; then
             frozen+=("$pid ($(basename "$pf"))")
@@ -449,7 +449,7 @@ cmd_plan_status() {
         fi
     done
 
-    echo "   🟠 In Development : ${#in_dev[@]}"
+    echo "   ⚡ In Development : ${#in_dev[@]}"
     for item in "${in_dev[@]}"; do echo "      • $item"; done
 
     echo "   🔷 Frozen Backlog : ${#frozen[@]}"
@@ -515,8 +515,8 @@ case "$ACTION" in
 Usage: aapp <command> [args]
 
 Multi-Agent Planning & Execution Commands:
-  freeze-start <id>  Atomically freeze blueprint, transition to 🟠 In Development, and bind buffer
-  start <id>         Transition 🟢 Frozen blueprint to 🟠 In Development and bind buffer
+  freeze-start <id>  Atomically freeze blueprint, transition to ⚡ In Development, and bind buffer
+  start <id>         Transition 🔷 Frozen blueprint to ⚡ In Development and bind buffer
   active [id]        Display or set active execution plan buffer (.git/aapp_active_plan)
   active swap        Swap between current and previous active plan
   active clear       Clear active plan buffer (revert to auto-discovery)

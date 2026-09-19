@@ -19,7 +19,7 @@
 # 6. Pair 6 (Recorded SHA Integrity):
 #    - Validates all commit hashes in archival ledgers, issues, and changelogs resolve in git.
 # 7. Pair 7 (In-Flight Boundary Collision):
-#    - Ensures blueprints actively 🟠 In Development share zero overlapping Target Files.
+#    - Ensures blueprints actively ⚡ In Development share zero overlapping Target Files.
 # ==============================================================================
 
 normalize_issue_id() {
@@ -527,7 +527,7 @@ check_recorded_sha_integrity() {
     check_pair6_recorded_sha_integrity "$@"
 }
 
-# Pair 7: In-Flight Boundary Collision Validator (Strictly 🟠 In Development)
+# Pair 7: In-Flight Boundary Collision Validator (Strictly ⚡ In Development)
 check_pair7_inflight_boundary_collision() {
     local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
     local current_dir="$repo_root/.plans/current"
@@ -542,7 +542,7 @@ check_pair7_inflight_boundary_collision() {
         bname="$(basename "$plan_path")"
         case "$bname" in 000-*) continue ;; esac
 
-        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🟠|In Development)' "$plan_path" 2>/dev/null; then
+        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(⚡|🟠|In Development)' "$plan_path" 2>/dev/null; then
             dev_plans+=("$plan_path")
         fi
     done < <(find "$current_dir" -maxdepth 1 -name "*.md" ! -name "000-*" -print0 2>/dev/null | sort -z)

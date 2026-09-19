@@ -86,6 +86,6 @@
 1. **Zero Reinvention:** Always check `.agents/CODEMAP.md` before creating helper functions or commands.
 2. **Path Resolution Single Source of Truth:** Resolve repository root via `git rev-parse --show-toplevel` or git common directory. Never use brittle relative paths (`../../`).
 3. **Never Edit Hook Targets Directly:** Never edit `.githooks/*` directly; edit `templates/` and run `aapp init` to propagate.
-4. **Frozen Plan Immutability:** Once a blueprint is `🟢 Frozen`, its technical blueprint (§2) and blast radius (§4) are locked. Unfreezing requires explicit reversion to `🟡 Refining`.
+4. **Frozen Plan Immutability:** Once a blueprint is `🔷 Frozen`, its technical blueprint (§2) and blast radius (§4) are locked. Unfreezing requires explicit reversion to `📝 Refining`.
 5. **Two-Lane Boundary:** Never merge bugs into `state_matrix.md` or raw feature requests into `issues_road_map.md`. Large bug fixes are promoted to blueprints via `digest ISSUE-00X`.
 6. **Documentation Synchronization:** Every implementation introducing new files, interfaces, or architectural contracts must update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.

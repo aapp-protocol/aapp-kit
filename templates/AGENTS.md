@@ -96,7 +96,7 @@ If a write is refused, **do not work around it** — not with a shell heredoc, n
 Once a blueprint is frozen (`🔷 Ready for Execution`), its **design** is locked while its **execution progress** remains writable:
 - **Locked Regions**: `## 2. Technical Blueprint` and `## 4. Blast Radius & System Boundaries`. Attempting to modify these sections while a plan is frozen is strictly blocked by `pre-commit`.
 - **Permitted Regions**: Task checkboxes in `## 3.` (`- [ ]` → `- [x]`), `## 5. Open Questions`, and `## 6. Change Log` remain freely editable to record execution progress and verification history.
-- **Unfreezing**: To modify a frozen blueprint or blast radius, the plan must be explicitly unfrozen first by reverting status to `🟠 Refining` (with §2 and §4 untouched in that unfreeze commit).
+- **Unfreezing**: To modify a frozen blueprint or blast radius, the plan must be explicitly unfrozen first by reverting status to `📝 Refining` (with §2 and §4 untouched in that unfreeze commit).
 
 ---
 
@@ -200,7 +200,7 @@ The agent must support and execute these shorthand workflow triggers immediately
   3. Fill in *Context & Architectural Goal*, *Technical Blueprint*, and *Implementation Steps & Execution Checklist*.
   4. Propose a Blast Radius. Mark it **PROPOSED** — it is not locked and confers no execution rights. Never declare files matching Guard Section 2 self-protection in Target Files (enforced by Pair 5).
   5. Write every unresolved decision into *Open Questions*. A first draft with no open questions is usually an under-examined draft.
-  6. Register it in `.plans/state_matrix.md` under the Incubator with status 🟣/🟠 and `P-<num>` handle.
+  6. Register it in `.plans/state_matrix.md` under the Incubator with status 🟣/📝 and `P-<num>` handle.
 
   **Step 4b — AMEND an existing plan:**
   1. Fold the new detail into the section it belongs to — *Technical Blueprint*, *Implementation Steps*, *Open Questions*, or *Blast Radius*.
@@ -223,8 +223,8 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
 
 - **`freeze-start <plan>` (or `/aapp-freeze-start <plan>`, `aapp freeze-start <plan>`)**: The atomic workflow accelerator.
   1. Validates open questions (`[x]`) and explicit Target Files.
-  2. Runs the Disjointness Activation Gate: verifies zero overlapping Target Files with other in-flight (`🟠 In Development`) blueprints in the same workspace.
-  3. Transitions blueprint directly to `🟠 In Development`, sets the lock marker, updates the change log, and binds the local worktree buffer (`$(git rev-parse --git-path aapp_active_plan)`).
+  2. Runs the Disjointness Activation Gate: verifies zero overlapping Target Files with other in-flight (`⚡ In Development`) blueprints in the same workspace.
+  3. Transitions blueprint directly to `⚡ In Development`, sets the lock marker, updates the change log, and binds the local worktree buffer (`$(git rev-parse --git-path aapp_active_plan)`).
   4. Immediately greenlights code execution in the working tree.
 
 - **`freeze <plan>` (or `/aapp-freeze <plan>`, `/aapp:freeze <plan>`, `/aapp freeze <plan>`, `/freeze <plan>`)**: Lock and greenlight a blueprint for the backlog.
@@ -236,7 +236,7 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
 - **`start <plan>` (or `/aapp-start <plan>`, `aapp start <plan>`)**: Activate a frozen backlog blueprint into development.
   1. Verifies plan is in `🔷 Frozen` status.
   2. Runs the Disjointness Activation Gate against other in-flight plans.
-  3. Transitions status to `🟠 In Development` and binds local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).
+  3. Transitions status to `⚡ In Development` and binds local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).
   4. Activates enforcement of the plan's locked Blast Radius for tool writes and commits.
 
 - **`plan <idea>` (or `/plan <idea>`, `/aapp-plan <idea>`)**: Canonical blueprint planning and lane routing.
