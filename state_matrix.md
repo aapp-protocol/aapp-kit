@@ -19,7 +19,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-- ⚡ **P-12**: [`P12-lifecycle-hooks.md`](current/P12-lifecycle-hooks.md) — Lifecycle Plugin Hooks Architecture (`.agents/skills/aapp-hooks/`) and Extension Engine.
 
 
 ---

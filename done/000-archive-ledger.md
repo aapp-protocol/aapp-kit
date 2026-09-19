@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-19 | `P-12` | [`P12-lifecycle-hooks.md`](P12-lifecycle-hooks.md) | None | `bcd0995` |  |
 | 2026-09-19 | `P-10` | [`P10-remote-sync.md`](P10-remote-sync.md) | Milestone v1.1.0 (Remote Worktree Automation) | `362d522` | Automated remote synchronization for orphan worktrees (aapp push, pull, sync), three-tier strategy resolution, pre-flight atomic cleanliness checks, and --ff-only safety; 305 passing tests. |
 | 2026-09-19 | `P-21` | [`P21-project-pause-and-circuit-breaker.md`](P21-project-pause-and-circuit-breaker.md) | None | `2c4b6f2` | Master Emergency Brake & Multi-Worktree State Preserver ("Hibernate & Wake"), dynamic discovery, SHA stash quarantine, in-flight operation guard, atomic rollback, dual-layer circuit breaker, and aapp-pause universal skill; 280 passing tests. |
 | 2026-09-19 | `P-20` | [`P20-canonical-plan-command-and-context-decoupling.md`](P20-canonical-plan-command-and-context-decoupling.md) | None | `5c6c384` | Decoupled active plan execution buffer (`aapp active`), added read-only inspector (`aapp plan-status`) and educational switchboard (`aapp plan`), established Canonical Planning Invariant in `AGENTS.md`, bridged thin shim `/plan` to `aapp-plan` with Section 2 protection, and retired legacy aliases; 256 passing tests. |
