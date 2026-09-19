@@ -44,7 +44,7 @@ This plan introduces the **Master Emergency Brake & Multi-Worktree State Preserv
    - Stashes are safely restored per-worktree using 40-character commit SHAs (never fragile indices).
    - **No-Loss Conflict & Buffer Survival Invariants**: If a stash apply encounters a conflict, the stash entry is permanently preserved in the stash list—never dropped—and the pause buffer remains active on disk. A partially-resumed project remains PAUSED until all worktrees restore cleanly.
    - Planning health integrity checks are verified, and full developer velocity is restored.
-5. **Preserved Cognitive Functions**: Reading code, codebase analysis, conversational Q&A, logging defects in `.plans/ISSUES.md`, drafting blueprints in `.plans/current/`, recording behavioral notes in `.agents/`, and capturing ideas in `.plans/pickup.md` remain 100% functional throughout the pause.
+5. **Preserved Cognitive Functions**: Reading code, codebase analysis, conversational Q&A, capturing ideas in `.plans/pickup*`, logging defects in `.plans/ISSUES.md` (and `issues_road_map.md`), and drafting blueprints in `.plans/current/` remain 100% functional throughout the pause. All modifications to codebase files, the `.agents/` control plane, templates, and hooks are strictly blocked.
 
 ---
 
@@ -142,7 +142,7 @@ Add an early Circuit Breaker check in `templates/blast-radius-guard.sh` before S
 1. Probe for pause state in `$(git rev-parse --git-common-dir 2>/dev/null)/aapp_paused` or `.plans/PAUSED.md`.
 2. If paused:
    - Allow external scratchpads and authorized agent memory paths (Section 2c allowlist).
-   - Allow `.plans/*` paths (blueprints, issues, pickup queue) and `.agents/*` paths (codemap, agent rules, project notes).
+   - Allow `.plans/` reflections strictly confined to `pickup*`, `ISSUES.md`, `issues*`, and `current/*`.
    - Deny all other file writes inside the repository:
      ```text
      🛑 [Project Circuit Breaker] The project is currently PAUSED.
@@ -156,7 +156,7 @@ Add an early Circuit Breaker check in `templates/blast-radius-guard.sh` before S
 Add a Circuit Breaker check in `templates/aapp-pre-commit`:
 1. Probe for pause state in `$(git rev-parse --git-common-dir 2>/dev/null)/aapp_paused` or `.plans/PAUSED.md`.
 2. If paused:
-   - If staged files are strictly confined to `.plans/*` or `.agents/*`, allow the commit (documenting the pause, filing issues, or refining plans).
+   - If staged files are strictly confined to `.plans/` reflections (`pickup*`, `ISSUES.md`, `issues*`, `current/*`), allow the commit (documenting the pause, filing issues, or refining plans).
    - If any staged file touches tracked code, templates, libraries, or hooks, refuse the commit with exit code 1:
      ```text
      ❌ [Project Circuit Breaker] Commits to codebase are refused while the project is PAUSED.
@@ -303,7 +303,7 @@ Author `templates/skills/aapp-pause/SKILL.md` (exposing `/aapp-pause` and `/aapp
 * [x] **Question 6: No-Loss Conflict Guarantee & Forensic Drift Policy**
   - *Resolution:* If `git stash apply <sha>` encounters a merge conflict, the stash entry is permanently preserved in the stash stack (never dropped). On resume, drift between snapshot HEAD SHAs and current worktree HEADs is reported as forensic data for human evaluation; auto-rebasing is rejected to prevent silent endorsement of unauthorized `--no-verify` commits.
 * [x] **Question 7: Permitted Path Boundaries During Pause**
-  - *Resolution:* Both Layer 1 and Layer 2 permit writes and commits exclusively confined to `.plans/*` (planning, issues, pickup) and `.agents/*` (codemap, agent behavioral rules, project notes), enabling reflection and triage while blocking all code, templates, libraries, and tests.
+  - *Resolution:* Both Layer 1 and Layer 2 permit writes and commits exclusively confined to `.plans/` reflections (`pickup*`, `ISSUES.md`, `issues*`, `current/*`), enabling reflection and triage while blocking all code, `.agents/*` control plane, templates, libraries, and tests.
 * [x] **Question 8: Atomic Pause Rollback Invariant**
   - *Resolution:* On `aapp pause`, if any stash push fails or `STASH_SHA` fails 40-character hexadecimal validation, an immediate rollback is executed: all stashes created in that invocation are re-applied and dropped, and the pause is aborted with exit code 1. No half-paused state is possible.
 * [x] **Question 9: Pause Buffer Survival on Resume Conflict**
@@ -312,6 +312,7 @@ Author `templates/skills/aapp-pause/SKILL.md` (exposing `/aapp-pause` and `/aapp
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-19:** Hardened pause circuit breaker permissions: narrowed allowed paths strictly to `.plans/` (pickup, issues, current) across Layer 1 write-guard and Layer 2 pre-commit; blocked `.agents/*` control plane and other repository files to eliminate cross-window prompt collisions and resume stash conflicts.
 * **2026-09-19:** Implementation complete: multi-worktree SHA-addressed stash quarantine engine (`cmd_pause`), dual-layer circuit breaker hooks (Layer 1 write-guard & Layer 2 pre-commit), universal skill bridging (`aapp-pause`), documentation updates, and 280 automated regression tests passing across all suites.
 * **2026-09-19:** Plan frozen and activated into 🟠 In Development via freeze-start.
 * **2026-09-19:** Plan hardened with failure-path invariants: Atomic Pause Rollback Invariant (asserting 40-char hex SHA and rolling back on partial failure), Pause Buffer Survival Invariant (retaining pause buffer on stash conflict until clean restoration), canonical plumbing for in-flight operation checks (`git rev-parse --git-path`), and documented design rationale for staged file forensics vs `--index`.
