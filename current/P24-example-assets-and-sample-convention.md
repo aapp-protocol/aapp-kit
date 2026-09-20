@@ -49,14 +49,17 @@ Update `lib/cmd_install.sh` to copy `examples/` alongside the other directories:
 
 When `aapp install` finishes and self-consumes the temporary source clone, `$SHARE_DIR/examples/` remains intact on the host machine for browsing and reference.
 
-### 2.2 The `.sample` Suffix Convention
+### 2.2 The `.sample` Suffix Convention (Strict In-Place Suffixing)
 
-Mock plugins and hooks adopt a standard `.sample` naming convention:
+Reference examples in `examples/` strictly adopt **in-place `*.sample` naming** with **no duplicate dual shipping**. This guarantees a single source of truth, eliminates maintenance drift between parallel copies, mirrors Git's canonical `.git/hooks/*.sample` paradigm, and ensures reference assets are inert across development checkouts, CI runs, and installed `$SHARE_DIR` directories.
 
-| Asset Type | Sample Convention | Behavior When Ignored | Activation Workflow |
+| Asset Type | Canonical Path in Source | Behavior When Ignored | Activation Workflow |
 | :--- | :--- | :--- | :--- |
-| **Action Plugins** | `run.sample` or `.agents/skills/<name>.sample/` | Completely ignored by dynamic CLI dispatch and plugin resolution. | Developer/agent copies or renames: `cp run.sample run && chmod +x run`. |
-| **Lifecycle Hooks** | `examples/hooks/<name>.sh.sample` | Completely ignored by `hook_dispatcher.sh` (requires explicit registration in `registry.tsv`). | Developer copies script, registers with `aapp hook-hash`, and records hash in `registry.tsv`. |
+| **Action Plugin Showcase** | `examples/plugins/hello-tool/run.sample` | Completely ignored by dynamic CLI dispatch and plugin resolution. | Developer/agent copies or renames: `cp run.sample run && chmod +x run`. |
+| **Team ID Provider Mock** | `examples/plugins/aapp-planid/run.sample` | Completely ignored by `allocate_plan_id`; resolver falls back to local git config. | Developer copies or renames to `run`, adapts to network API, and marks `chmod +x`. |
+| **Quality Gate Hook** | `examples/hooks/fallback-ratchet.sh.sample` | Ignored by `hook_dispatcher.sh` (requires explicit entry in `registry.tsv`). | Developer copies script, registers with `aapp hook-hash`, and records hash in `registry.tsv`. |
+| **Lifecycle Observer Hook** | `examples/hooks/on-done-sync.sh.sample` | Ignored by `hook_dispatcher.sh`. | Developer copies script, registers with `aapp hook-hash`. |
+| **Reference Hook Registry** | `examples/hooks/registry.tsv.sample` | Reference template showing 5-column TSV schema. | Copy reference entries into active `.agents/skills/aapp-hooks/registry.tsv`. |
 
 ### 2.3 Engine Filtering in `resolve_plugin_entrypoint` & `aapp` Switchboard
 
@@ -232,7 +235,7 @@ sync_samples() {
 
 ### Phase 3: Global Installation & Packaging
 - [ ] Task 3.1: Update `lib/cmd_install.sh` to copy `examples/` to `$SHARE_DIR/examples/`.
-- [ ] Task 3.2: Rename shipped source examples in `examples/` to use `.sample` suffix (`run.sample`, `*.sh.sample`).
+- [ ] Task 3.2: Strictly rename shipped source examples in `examples/` to use in-place `.sample` suffix (`examples/plugins/hello-tool/run.sample`, `examples/plugins/aapp-planid/run.sample`, `examples/hooks/fallback-ratchet.sh.sample`, `examples/hooks/on-done-sync.sh.sample`, `examples/hooks/registry.tsv.sample`).
 
 ### Phase 4: Drop-In Initialization Seeding
 - [ ] Task 4.1: Implement `sync_samples()` in `lib/cmd_init.sh` to install `.sample` action plugins and hooks into `.agents/skills/` during drop-in mode.
@@ -258,8 +261,10 @@ sync_samples() {
 - [ ] `aapp` -> Prevent `aapp <cmd>` fallthrough from executing `.sample` directories.
 - [ ] `tests/hooks_test.sh` -> Test `.sample` ignore behavior and `aapp plugins` catalog output.
 - [ ] `examples/plugins/hello-tool/run.sample` -> Renamed sample action plugin.
+- [ ] `examples/plugins/aapp-planid/run.sample` -> Shipped mock planid provider.
 - [ ] `examples/hooks/fallback-ratchet.sh.sample` -> Renamed sample hook.
 - [ ] `examples/hooks/on-done-sync.sh.sample` -> Renamed sample hook.
+- [ ] `examples/hooks/registry.tsv.sample` -> Reference 5-column TSV schema template.
 - [ ] `MANUAL.md` -> Document sample convention and installation assets.
 - [ ] `README.md` -> Document reference samples.
 - [ ] `CHANGELOG.md` -> Record under Unreleased.
@@ -276,7 +281,7 @@ sync_samples() {
 ## ❓ 5. Open Questions (Optional / Gate)
 
 * [x] **Question 1 — Drop-In Mode Asset Handling. → RESOLVED (developer, 2026-09-20): direct `.sample` seeding into `.agents/skills/`.** See §2.5. Drop-in mode copies mock plugins to `.agents/skills/<name>.sample/` and mock hooks to `.agents/skills/aapp-hooks/examples/*.sh.sample`, staging and committing them to the `.agents` worktree before Phase 7 kit consumption. Does not pollute repo root.
-* [ ] **Question 2 — In-Place Rename vs Dual Shipping.** Should reference examples in source `examples/` be renamed strictly to `*.sample`, or should both active and `.sample` files be shipped in distinct folders (e.g. `examples/samples/`)?
+* [x] **Question 2 — In-Place Rename vs Dual Shipping. → RESOLVED (developer, 2026-09-20): strict in-place `*.sample` suffixing.** Reference examples in `examples/` strictly ship single `*.sample` files. Dual shipping introduces duplicate copies that inevitably drift. Mirroring Git's `.git/hooks/*.sample` convention, reference assets remain inert everywhere by default and are tested by copying without `.sample` during test fixture setup.
 * [x] **Question 3 — `aapp plugins` Display & Standard Authority. → RESOLVED (developer, 2026-09-20): hardcoded standard catalog in `cmd_plugins_status`.** Because adopter repositories in production do not retain `CODEMAP.md`, `aapp plugins` hardcodes the catalog of supported standard extension points (`aapp-planid`, `hello-tool`), reporting Active vs Sample Available vs Fallback status directly in the CLI.
 
 ---
@@ -286,5 +291,7 @@ sync_samples() {
 * **2026-09-19:** Plan scaffolded and decoupled from P-22 on developer direction. Formulates installation asset preservation (`$SHARE_DIR/examples/`), the inert `.sample` suffix convention for mock plugins and hooks, and engine filtering guards.
 * **2026-09-20 (amendment 1):** **Drop-in install with `.sample` suffix detailed on developer direction** — Added §2.5 specifying `sync_samples()` in `lib/cmd_init.sh` to extract mock plugins into `.agents/skills/<name>.sample/` and mock hooks into `.agents/skills/aapp-hooks/examples/*.sh.sample` prior to Phase 7 kit consumption. Added test tasks in Phase 1 & 4, added `lib/cmd_init.sh` and `tests/init_test.sh` to Target Files, and resolved Open Question 1.
 * **2026-09-20 (amendment 2):** **Standard plugin catalog hardcoded in `aapp plugins` on developer direction** — Because production adopter repositories do not retain the kit repo's internal `CODEMAP.md`, `cmd_plugins_status()` in `lib/cmd_hook.sh` hardcodes the standard extension points catalog (`aapp-planid`, `hello-tool`) to serve as the runtime source of truth. Added Task 2.3 and resolved Open Question 3.
+* **2026-09-20 (amendment 3):** **Strict in-place suffixing confirmed on developer direction** — Resolved Question 2 in favor of single in-place `*.sample` files across `examples/` (no dual shipping), eliminating duplication and maintenance drift. All three open questions are now resolved.
+
 
 
