@@ -22,7 +22,7 @@
 
 ## 1. Context & Architectural Goal
 
-AAPP's mock examples are actively expanding (`examples/hooks/`, `examples/plugins/`, and future mock providers like `planid-remote/run`). Adopters and AI agents require these reference examples on the machine to inspect canonical patterns and copy working templates.
+AAPP's mock examples are actively expanding (`examples/hooks/`, `examples/plugins/`, and future mock providers like `examples/plugins/aapp-planid/run`). Adopters and AI agents require these reference examples on the machine to inspect canonical patterns and copy working templates.
 
 Currently, `lib/cmd_install.sh:84-87` copies `lib/`, `templates/`, and `tests/` to `$SHARE_DIR` (`~/.local/share/aapp-kit/`), but omits `examples/`. When the installer self-consumes the temporary clone directory, all examples are permanently lost from the machine.
 
