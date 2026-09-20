@@ -2,7 +2,7 @@
 * **Created:** 2026-09-19 | **Last Refined:** 2026-09-19
 * **Target Issue / Milestone:** #69
 * **Plan ID:** P-22
-* **Status:** 🟣 Under Review
+* **Status:** ⚡ In Development
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -77,8 +77,12 @@ A single "get next" call is ambiguous: callers that merely want to display the n
 # Read-only peek. Never mutates. Safe for status output.
 get_next_plan_id() {
     local CUR
-    CUR="$(git config --get aapp.planId 2>/dev/null || echo 1)"
-    case "$CUR" in ''|*[!0-9]*) CUR=1 ;; esac
+    CUR="$(git config --get aapp.planId 2>/dev/null || true)"
+    case "$CUR" in
+        '')       CUR=1 ;;                       # never initialised -> fresh project
+        *[!0-9]*) echo "❌ [Plan ID] aapp.planId is not an integer: '$CUR'. Run 'aapp init' to reseed." >&2
+                  return 1 ;;
+    esac
     printf 'P-%s\n' "$CUR"
 }
 
@@ -88,8 +92,12 @@ get_next_plan_id() {
 # version -- this block shows the fallback path it falls through to.
 allocate_plan_id() {
     local CUR
-    CUR="$(git config --get aapp.planId 2>/dev/null || echo 1)"
-    case "$CUR" in ''|*[!0-9]*) CUR=1 ;; esac
+    CUR="$(git config --get aapp.planId 2>/dev/null || true)"
+    case "$CUR" in
+        '')       CUR=1 ;;
+        *[!0-9]*) echo "❌ [Plan ID] aapp.planId is not an integer: '$CUR'. Run 'aapp init' to reseed." >&2
+                  return 1 ;;
+    esac
     git config aapp.planId "$((CUR + 1))" || return 1
     printf 'P-%s\n' "$CUR"
 }
@@ -160,43 +168,31 @@ Wired into `init` with the existing idempotent guard:
 
 #### Securing the counter across re-init and upgrade
 
-`aapp init` is not a once-per-project command. `aapp upgrade` does not touch git config at all — it ends by instructing the user to *"Run `aapp init` inside any project to sync it to the latest protocol"* (`lib/cmd_upgrade.sh:44`). Init therefore runs repeatedly over a project's lifetime, and the counter has to survive every one of those runs.
+`aapp init` is not a once-per-project command. `aapp upgrade` changes no config at all — it ends by instructing the user to *"Run `aapp init` inside any project to sync it to the latest protocol"* (`lib/cmd_upgrade.sh:44`). Init therefore runs repeatedly over a project's lifetime, and the rule for repeat runs is simple:
 
-The house pattern for every other key is a bare `-z` guard (`lib/cmd_init.sh:450-478`). That is **not sufficient here**, and the difference matters:
-
-- A `-z` guard prevents *overwriting* a counter, which is the obvious hazard.
-- But it also means init can never *correct* a counter that is stale **low** — and that state is reachable in normal use. After `aapp pull` (P-10) brings in a teammate's blueprints, `.plans/` holds ids higher than this clone's counter. The `-z` guard sees a non-empty value and leaves it alone; the next allocation then re-issues a live id.
-
-So the counter is seeded **monotonically**: never lowered, raised whenever the scan finds something higher.
+> **If a numeric `aapp.planId` is already present, leave it alone. Seed only when it is absent or unusable.**
 
 ```bash
-SEED="$(seed_plan_id "$REPO_ROOT/.plans")"
 CUR="$(git config --get aapp.planId 2>/dev/null || true)"
-case "$CUR" in ''|*[!0-9]*) CUR=0 ;; esac    # unset or corrupt -> treat as 0
-if [ "$SEED" -gt "$CUR" ]; then
-    git config aapp.planId "$SEED"
-fi
+case "$CUR" in
+    ''|*[!0-9]*) git config aapp.planId "$(seed_plan_id "$REPO_ROOT/.plans")" ;;
+    *)           : ;;   # numeric -> already correct, do not touch
+esac
 ```
-
-This gives four protections in one comparison:
 
 | State at `init` | Result |
 | :--- | :--- |
 | Unset (fresh clone, first init) | Seeded from scan — `1` on a new project |
-| Already correct | Untouched — re-running `init` is a genuine no-op |
-| Stale **low** (after `aapp pull`, or hand-created plan files) | **Raised** to the scan value |
-| Ahead of the scan (ids issued by an `aapp-planid` provider, or plans archived and pruned) | **Left alone** — never lowered |
-| Corrupt / non-numeric | Repaired from the scan |
+| Numeric | **Left alone.** Re-running `init` is a true no-op. |
+| Absent or non-numeric | Re-seeded from scan |
 
-The "ahead" row is the one that makes this safe to run unconditionally: a provider-issued or already-advanced counter is authoritative over a filesystem scan, so init must not drag it backwards. Monotonicity is the invariant — **`aapp.planId` only ever increases.**
+**Why no ratchet (developer directive, 2026-09-20).** An earlier draft compared the stored value against the scan and *raised* it when the scan was higher, to cover a counter gone stale-low after `aapp pull` imported a teammate's blueprints. That justification does not survive the coordination boundary settled in §2.6: **a repository with more than one contributor requires an `aapp-planid` provider**, so the imported-plans case belongs to the provider, not to the core. For the solo developer the ratchet protected against a state that cannot arise — a single allocator's counter only ever moves forward.
 
-It is also defence in depth. `.git/config` is not gate-protected: an agent with shell access can run `git config aapp.planId 1` without passing `blast-radius-guard` (the same reasoning that put the provider at a fixed `.agents/skills/aapp-planid/` path rather than behind a config key, §2.6). The counter cannot be made tamper-*proof*, but any tampering that lowers it is corrected at the next `init`, and `check_pair4_plan_id_integrity` remains the detector for anything that slips through.
+Removing it also removes a hazard the ratchet itself introduced: a comparison that can *change* a correct value is a comparison that can get the comparison wrong. Leaving a numeric value untouched has no failure mode at all.
 
-**Verified by execution** in `bash` and `dash`, scan = `25`: unset -> `25`; `25` -> `25`; `3` -> `25`; `99` -> `99` (not lowered); `abc` -> `25`; `0` -> `25`. No input regresses the counter.
+`MAX` starts at `0` and `seed_plan_id` returns `MAX + 1`, so a project with no plans seeds to exactly **`1`** — no special-casing, the arithmetic says it. **Verified by execution** in `bash` and `dash`: unset -> seeds `25` here (`1` on an empty `.plans`); `25`, `3` and `99` all left untouched; `abc` re-seeded.
 
-This runs **once per clone** and never again; it is a bootstrap, not an allocation path. **Verified by execution** in both `bash` and `dash`: this repository (highest is `P-24`) -> `25`; an empty `.plans` -> `1`; a `.plans` with empty `current`/`done`/`aborted` lanes -> `1`.
-
-`.plans/aborted/` is included deliberately — an abandoned plan's ID must stay permanently spent.
+`.plans/aborted/` is included in the scan deliberately — an abandoned plan's id must stay permanently spent.
 
 ### 2.4 What is deleted
 
@@ -206,7 +202,11 @@ The entire three-tier scan in `get_next_plan_id` is removed: the `current`/`done
 
 `check_pair4_plan_id_integrity()` (`lib/planning_health.sh:296`) independently verifies that header IDs match filename prefixes and that no two plans share an ID. It does its own scanning and is deliberately **out of scope** — it remains the detector if the counter ever drifts (a hand-created plan file, a restored clone, a config reset).
 
-Concurrency: git config read-modify-write is not atomic, so two agents allocating simultaneously in different worktrees could collide. This is not newly introduced — the scan had the same race — and Pair 4 catches it. `aapp pause` already exists to serialise multi-window work. Hardening beyond that is deferred (see Open Question 2).
+**Concurrency: no lock (settled, 2026-09-20).** `git config` read-modify-write is not atomic, so two allocations racing in different worktrees could in principle collide. **No locking is added, deliberately.**
+
+The reasoning follows directly from the coordination boundary (§2.6): a lock only earns its keep where there are genuinely concurrent allocators, and that is the multi-contributor case — which already requires an `aapp-planid` provider. **Serialisation is the provider's responsibility, not the core's.** A central authority that hands out ids is the natural place to serialise them; reimplementing a weaker version of that locally would add machinery to the one configuration that does not need it.
+
+For the solo developer the core stays simple, which is the point. The residual case is a solo developer allocating from two worktrees at the same instant, and it is already covered without new mechanism: the race window is a single read-then-write, `aapp pause` exists precisely to serialise multi-window work (P-21), and `check_pair4_plan_id_integrity` detects a duplicate if one ever lands. The race is also not newly introduced — the three-tier scan this plan removes had exactly the same exposure.
 
 ### 2.6 Team coordination via a standard action plugin
 
@@ -253,8 +253,8 @@ allocate_plan_id() {
         RAW="$OUT"
         OUT="$(normalize_plan_id "$RAW")" || return 1   # normalize_plan_id already reported why
         # Ratchet the local counter past the issued id so the fallback never regresses.
-        CUR="$(git config --get aapp.planId 2>/dev/null || echo 1)"
-        case "$CUR" in ''|*[!0-9]*) CUR=1 ;; esac
+        CUR="$(git config --get aapp.planId 2>/dev/null || true)"
+        case "$CUR" in ''|*[!0-9]*) CUR=0 ;; esac   # unusable -> 0, so the write below always fires and repairs it
         ISSUED="${OUT#P-}"
         if [ "$ISSUED" -ge "$CUR" ]; then git config aapp.planId "$((ISSUED + 1))"; fi
         printf '%s\n' "$OUT"
@@ -262,8 +262,12 @@ allocate_plan_id() {
     fi
 
     # 2. No plugin installed -> local git config counter.
-    CUR="$(git config --get aapp.planId 2>/dev/null || echo 1)"
-    case "$CUR" in ''|*[!0-9]*) CUR=1 ;; esac
+    CUR="$(git config --get aapp.planId 2>/dev/null || true)"
+    case "$CUR" in
+        '')       CUR=1 ;;
+        *[!0-9]*) echo "❌ [Plan ID] aapp.planId is not an integer: '$CUR'. Run 'aapp init' to reseed." >&2
+                  return 1 ;;
+    esac
     git config aapp.planId "$((CUR + 1))" || return 1
     printf 'P-%s\n' "$CUR"
 }
@@ -320,9 +324,36 @@ Why this name and not the alternatives:
 
 One genuine ambiguity the name cannot resolve on its own, so documentation must: every other `aapp-*` skill is **shipped by the kit**, while `aapp-planid` is **supplied by the adopter**. The docs have to say so explicitly, or a team will reasonably assume it arrives with `aapp init` and wonder why it is missing.
 
-#### Shipped mock example
+#### Shipped mock example — a delegating one-liner
 
-`examples/plugins/aapp-planid/run` — a **mock only**, matching the style of the existing `examples/plugins/hello-tool/run`. It simulates fetching an id from a remote authority and prints a single id line. It performs no network I/O and exists so an adopter can read the contract and copy a correctly-named directory straight into `.agents/skills/`.
+`examples/plugins/aapp-planid/run`. The sample is deliberately **a shim, not an implementation**:
+
+```sh
+#!/bin/sh
+# Mock aapp-planid provider: delegate to an out-of-repo command.
+# The repo never holds the endpoint, the credentials, or the logic.
+exec "${AAPP_PLANID_CMD:-$HOME/.local/bin/aapp-planid-provider}" "$@"
+```
+
+**Why a shim rather than a working remote client (developer directive, 2026-09-20).** A sample that actually fetched an id would need somewhere to put an endpoint and a token, and whatever a sample shows, adopters copy. The moment the provider *logic* lives in the repo, the provider's *secrets* follow it there — into git history, into every clone, into a public fork. A one-line `exec` makes the correct shape the obvious one: **the tracked file names a command; everything sensitive lives outside the repository.**
+
+**The default path is chosen, not arbitrary.** `$HOME/.local/bin/` is hard-denied to agents by Guard Section 2b (`*/.local/bin/*`), so an agent cannot rewrite the real provider. This matters because the two obvious alternatives are worse:
+
+| Candidate | Verdict |
+| :--- | :--- |
+| `$HOME/.local/bin/` | **Chosen.** Hard-denied by Guard 2b; conventional XDG location for user executables. |
+| `$HOME/.config/aapp/` | **Rejected.** `$XDG_CONFIG_HOME` / `$HOME/.config` is on the Section 2c **write allowlist** — an agent could rewrite the provider. |
+| `$HOME/.local/share/` | **Rejected.** Same reason: `$XDG_DATA_HOME` / `$HOME/.local/share` is allowlisted for agent writes. |
+| Anywhere in the repo | **Rejected.** Committed, cloned, and forkable. |
+
+`AAPP_PLANID_CMD` overrides the default, so a team can point at a wrapper, a binary, or a credential-helper of their choosing without editing the tracked shim at all.
+
+The shim is a **recommended pattern, not an enforced one** — the contract constrains only the provider's output, never its contents (Question 11).
+
+**Two honest limitations to document rather than paper over:**
+
+1. **The write-guard blocks tampering, not reading.** An agent with shell access can still `cat` the external provider. The guarantee this design actually delivers is that **nothing sensitive is ever committed** — no endpoint, no token, no history, nothing in a public clone. That is the leak vector that matters for a public repository, and it is the one being closed.
+2. **An installed shim whose backend is missing is fatal by design.** Per §2.6, a provider that is present and fails aborts allocation rather than silently falling back — installing this sample without providing `aapp-planid-provider` will therefore refuse to allocate. That is correct behaviour, not a bug, but it must be documented: the sample lives under `examples/` precisely so it is never active until an adopter deliberately installs it.
 
 #### The coordination boundary (settled, 2026-09-20)
 
@@ -344,8 +375,13 @@ The boundary is the thing that must be documented, in `MANUAL.md` and `README.md
 - Out of the box, plan ids are allocated per clone. **For a solo developer this is correct and needs no action.**
 - **As soon as a repository has more than one contributor, an `aapp-planid` provider is required.** Without one, two contributors can allocate the same id independently, and nothing in the core prevents it.
 - `check_pair4_plan_id_integrity` stays the after-the-fact detector in both modes — the safety net, not the mechanism.
+- **The provider delegates outside the repository.** Document that the tracked plugin should be a thin shim and that the endpoint, credentials and logic belong at an out-of-repo path (default `$HOME/.local/bin/aapp-planid-provider`, overridable via `AAPP_PLANID_CMD`), with the reasoning: anything in the repo is committed, cloned and forkable.
 - **The provider's name is `aapp-planid`** and must be installed at `.agents/skills/aapp-planid/`. State the exact path — this is not discoverable and teams must not have to guess it. Note explicitly that, unlike every other `aapp-*` skill, this one is adopter-supplied and does **not** arrive with `aapp init`; a working reference lives at `examples/plugins/aapp-planid/`.
 - The provider contract (§2.6): return `P-42` or bare `42`, exit non-zero to refuse. Absence falls back to the local counter; presence-and-failure is fatal.
+- **The provider is adopter-owned, and so is its security.** State explicitly that AAPP defines only the contract above — it does not inspect, validate or constrain what a provider contains, and cannot, since providers are extension-agnostic and may be compiled binaries. Accordingly:
+  - Whatever is committed into the repository is **cloned, forked and public**. A credential placed in a provider is in history permanently.
+  - The recommended pattern is the shipped sample: a thin delegation to an out-of-repo command (`AAPP_PLANID_CMD`, default `$HOME/.local/bin/aapp-planid-provider`), keeping logic and secrets outside version control.
+  - This is a documented responsibility, **not an enforced guarantee**. AAPP cannot protect an adopter who commits a secret into their provider, and does not claim to.
 
 The failure mode of under-documenting this is specific enough to state: a team adopts AAPP, watches ids allocate cleanly for weeks while only one person happens to be drafting plans, then collides the first time two people draft concurrently. The threshold has to be explicit rather than discovered.
 
@@ -368,8 +404,8 @@ The failure mode of under-documenting this is specific enough to state: a team a
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: Replace the three-tier scan in `get_next_plan_id` with the read-only config accessor (§2.2). Delete the ledger loop containing the #69 defect. Leave `get_plan_id()` intact.
 - [ ] Task 2.2: Add `allocate_plan_id()` as the single mutating claim path.
-- [ ] Task 2.3: Seed `aapp.planId` in `lib/cmd_init.sh` via `seed_plan_id` using the **monotonic ratchet** of §2.3 — deliberately *not* the bare `-z` guard used by the other keys at lines 450-478, since that cannot correct a stale-low counter after `aapp pull`. Confirm no `sort`, `grep -o`, or `ls` enters the path.
-- [ ] Task 2.3b: Assert the ratchet is safe under repetition: run `aapp init` twice and confirm the second run is a no-op; set the counter low and confirm init raises it; set it high and confirm init leaves it alone.
+- [ ] Task 2.3: Seed `aapp.planId` in `lib/cmd_init.sh` via `seed_plan_id` per §2.3: **a numeric value is left alone**; seed only when absent or non-numeric. Confirm no `sort`, `grep -o`, or `ls` enters the path.
+- [ ] Task 2.3b: Assert repeat-init safety: run `aapp init` twice and confirm the second run leaves `aapp.planId` untouched; confirm a numeric value is never rewritten regardless of what the scan finds; confirm an absent or non-numeric value is reseeded.
 - [ ] Task 2.4: Surface the key in the `aapp init` summary banner alongside the existing `aapp.remote` / `aapp.syncStrategy` lines.
 
 ### Phase 3: Instruction & Template Sync
@@ -379,11 +415,11 @@ The failure mode of under-documenting this is specific enough to state: a team a
 
 - [ ] Task 3.4a: Move `resolve_plugin_entrypoint` from `lib/cmd_hook.sh` into `lib/hook_dispatcher.sh` and have `cmd_hook.sh` consume it there. Do not duplicate it.
 - [ ] Task 3.4b: Wire `aapp-planid` resolution into `allocate_plan_id` per §2.6, sourcing `hook_dispatcher.sh` the way `lib/cmd_sync.sh:193` does. Verify the inherited `set -e` is safe in every `plan_resolver.sh` caller.
-- [ ] Task 3.5: Ship the mock provider at `examples/plugins/aapp-planid/run` — **the canonical name**, so it can be copied to `.agents/skills/` without a rename. Match `hello-tool/run` style; no network I/O. Entrypoint suffix (`run` vs `run.sample`) is P-24's call.
+- [ ] Task 3.5: Ship the mock provider at `examples/plugins/aapp-planid/run` — **the canonical name**, so it copies to `.agents/skills/` without a rename. It is a **one-line `exec` shim** delegating to `${AAPP_PLANID_CMD:-$HOME/.local/bin/aapp-planid-provider}` (§2.6): no endpoint, no credentials, no logic in the repo. Entrypoint suffix (`run` vs `run.sample`) is P-24's call.
 - [ ] Task 3.6: Document **the coordination boundary** (§2.6) in `MANUAL.md` and `README.md`: a solo developer needs nothing; **any repository with more than one contributor requires an `aapp-planid` provider**; without one, concurrent contributors can allocate the same id and nothing in the core prevents it. State the threshold explicitly rather than leaving it to be discovered.
 
 ### Phase 4: Verification & Documentation
-- [ ] Task 4.1: Rewrite the `get_next_plan_id` assertions in `tests/plan_resolver_test.sh` against the counter. Cover: unset key yields `P-1`; peek is a pure read, non-mutating across repeated calls; `allocate_plan_id` returns the current value then stores the successor (`aapp.planId` advances by exactly 1 per call) and is strictly monotonic; a failed config write refuses to issue; a corrupt/non-numeric value currently degrades to `1` rather than aborting — assert whichever behaviour Open Question 8 settles on.
+- [ ] Task 4.1: Rewrite the `get_next_plan_id` assertions in `tests/plan_resolver_test.sh` against the counter. Cover: unset key yields `P-1`; peek is a pure read, non-mutating across repeated calls; `allocate_plan_id` returns the current value then stores the successor (`aapp.planId` advances by exactly 1 per call) and is strictly monotonic; a failed config write refuses to issue; **a non-numeric value errors and allocates nothing** (never restarts at `P-1`).
 - [ ] Task 4.2: Assert `get_next_plan_id` emits **nothing on stderr** — the assertion that would have caught #69.
 - [ ] Task 4.3: Confirm Pair 4 still passes and remains capable of detecting a duplicate ID (§2.5).
 - [ ] Task 4.3b: Cover the plugin path in `tests/plan_resolver_test.sh`: absent plugin -> config counter; mock provider -> its id is used and ratchets `aapp.planId`; failing provider -> non-zero, **no** local allocation.
@@ -395,6 +431,7 @@ The failure mode of under-documenting this is specific enough to state: a team a
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
+*(Marked: **LOCKED** — Greenlit for implementation)*
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
@@ -434,19 +471,28 @@ The failure mode of under-documenting this is specific enough to state: a team a
 ## ❓ 5. Open Questions (Optional / Gate)
 
 * [x] **Question 1 — Counter is local, not shared. → RESOLVED (developer, 2026-09-19): a standard action plugin, not lifecycle hooks.** See §2.6. `allocate_plan_id` resolves `.agents/skills/aapp-planid/` via the existing P-12 discovery; if no provider is installed it uses the local git-config counter. Teams needing shared IDs supply the plugin; this is documented as an opt-in obligation rather than built in. The earlier hook-event approach (`post-sync` re-seed + `on-freeze` gate) is **withdrawn** — no events, no new CLI verbs.
-* [ ] **Question 2 — Concurrency hardening.** Should `allocate_plan_id` take a lock (e.g. `.git/aapp_planid.lock`) to serialise simultaneous allocation across worktrees, or is the existing `aapp pause` discipline plus Pair 4 detection sufficient?
-* [ ] **Question 3 — Should `#69` close as fixed or as obsolete?** The defective line is deleted rather than corrected. It affects how the archive ledger records this work.
-* [ ] **Question 4 — Template drift, root cause now identified.** `.plans/plan-template.md` is stale against canonical `templates/plan-template.md`: it still carries the retired status enum (`🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED`) and lacks the `* **Plan ID:**` field entirely, so any plan scaffolded from the worktree copy is born invalid under the strict enum from `a782e5e`. **The cause is `copy_guarded` (`lib/cmd_init.sh`), which returns early when the destination exists and therefore never overwrites.** `lib/cmd_init.sh:219` copies the template only on first init; every subsequent init silently skips it, so the worktree copy has never been refreshed since it was created. This affects every `copy_guarded` destination, not just the template. Fold into this plan, or log as its own issue? *Still unrelated to the counter redesign.*
-* [ ] **Question 5 — Severity of `#69`.** Recorded as `Low` and sitting unsequenced in Triage, but verified behaviour is a hard failure (`get_next_plan_id` returns empty, exit `1`, under `set -e` callers). Correct the `Sev` field? *Board ordering is your judgement call — I have not re-sequenced it.*
+* [x] **Question 2 — Concurrency hardening. → RESOLVED (developer, 2026-09-20): no lock.** Solo developers should not carry machinery they do not need, and genuine concurrent allocation only arises in the multi-contributor case, which already requires an `aapp-planid` provider — so serialisation belongs to that provider, not to the core. Residual solo multi-worktree racing is covered by the existing `aapp pause` discipline and Pair 4 detection, and is no worse than the scan being removed. See §2.5.
+* [x] **Question 3 — How `#69` closes. → RESOLVED (developer, 2026-09-20): superseded.** Neither *fixed* nor *obsolete*. The backtick defect at `lib/plan_resolver.sh:267` was real and reproducible (stdout empty, exit 1 — §1), so it was never obsolete; but it is not corrected either, because the entire three-tier scan containing it is deleted (§2.4). It is **superseded by the redesign**, and the record should say so.
+  - `.plans/done/000-issues-archive.md` carries no status column — disposition is expressed in the final *Plan / Resolution Summary* cell, so the wording is the decision. On ship, archive `#69` with a summary along the lines of: *"Superseded by P-22. The archive-ledger scan containing the unquoted-backtick regex was removed entirely in favour of config-backed allocation (`aapp.planId`); the defective line was deleted rather than corrected."* Do **not** record it as fixed — a future reader diffing for a repair would find none.
+  - Schema note: the archive row is `| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |`. The `Sev` recorded depends on **Question 5**, which is still open.
+  - `#69` stays open in `ISSUES.md` and `🔵 Planned` on the road map until the fix ships, per the promotion rule in `templates/plan-template.md`.
+* [x] **Question 4 — Template drift. → RESOLVED (developer, 2026-09-20): logged as its own issue, `#73`.** Not folded into this plan — the defect is in `copy_guarded` (`lib/cmd_init.sh`), which returns early whenever the destination exists and therefore never refreshes **any** guarded file after first install. `.plans/plan-template.md` is the visible symptom (retired `🔴 Under Review` enum, no `* **Plan ID:**` field, so plans scaffolded from it are born invalid under `a782e5e`), but the cause is general and the fix belongs to the init engine rather than to plan-id allocation. Logged `#73` in `ISSUES.md` and appended to Triage on the road map without re-sequencing. *Practical note for anyone scaffolding a plan before `#73` is fixed: use canonical `templates/plan-template.md`, not the `.plans/` copy.*
+* [x] **Question 5 — Severity of `#69`. → RESOLVED (developer, 2026-09-20): logged as `High`.** Raised from `Low` on the verified reproduction in §1 — parses clean, fails at runtime, returns empty with exit `1` under `set -e` callers. Held below `Critical` because `get_next_plan_id` has no runtime callers today, so the break is latent rather than active. This is the `Sev` that carries into the archive row when `#69` is closed as **superseded** (Question 3). Board *position* was deliberately not changed — severity is a fact, sequencing is the developer's call, so `#69` stays where it sits in Triage. While updating the row, also corrected its stale *Target Plan / Fix* cell, which still described the abandoned amendment-1 approach ("hoist regex to variable; guard empty capture before `10#`") rather than the deletion this plan actually performs.
 * [x] **Question 6 — Drop-In Mode Asset Handling & Installation Asset Preservation. → DECOUPLED (developer, 2026-09-19): split into dedicated blueprint P-24.** All distribution, installation asset preservation (`$SHARE_DIR/examples/`), `.sample` convention, and drop-in mode questions moved to P-24 to keep P-22 strictly focused on core plan identity (`#69`).
-* [ ] **Question 7 — Three plans now contend for the same two `lib/` files.** The split did not dissolve this; it added a third claimant. `lib/hook_dispatcher.sh` and `lib/cmd_hook.sh` are Target Files in **P-22, P-23 and P-24 simultaneously**, each for a different reason: P-22 *moves* `resolve_plugin_entrypoint` into `hook_dispatcher.sh` so `plan_resolver.sh` can source it; P-23 adds pre/post event alias mapping and validation; P-24 adds a `.sample` exclusion filter **to that same function**. All three also share `MANUAL.md`, `README.md` and `CHANGELOG.md` (routine). The Disjointness Activation Gate (`.agents/AGENTS.md:233`) permits only one in flight.
-  - **Hard ordering dependency:** P-24's Task 2.1 is written as *"add the `.sample` filter to `resolve_plugin_entrypoint` in `lib/hook_dispatcher.sh` (or `lib/cmd_hook.sh`)"* — the parenthetical exists precisely because P-22 has not yet moved it. P-24 cannot be specified definitively until P-22's relocation lands.
-  - **Concrete artefact conflict:** P-22 creates `examples/plugins/aapp-planid/run`; P-24 Task 4.3 requires that same plugin to use `run.sample`. One of the two must change. Naming it `run.sample` in P-22 from the outset is harmless — the mock lives under `examples/`, never under `.agents/skills/`, so it is never resolved as a real provider — but the `.sample` convention is P-24's to settle, so this plan has not pre-empted it.
-  - Suggested sequence: **P-22 -> P-24 -> P-23**, or move the relocation into whichever plan runs first and have the others consume it. *Sequencing is your call.*
-* [ ] **Question 8 — Should a corrupt `aapp.planId` error at allocation time?** The two contexts now want different behaviour, which clarifies this question. At **init** a corrupt value is repaired from the filesystem scan (§2.3) — correct, because init has an authoritative source to repair *from*. At **allocation** `case "$CUR" in ''|*[!0-9]*) CUR=1 ;; esac` silently restarts the sequence at `P-1`, colliding with every existing plan — and allocation has no scan to fall back on. Recommend: keep the repair at init, and make allocation **error out** on a non-empty non-numeric value rather than re-issuing from `1` (an *unset* key still legitimately means `1`). That matches the principle applied to provider output in §2.6. Flagged rather than changed because it alters designed behaviour.
+* [x] **Question 7 — Blast Radius overlap with P-23 / P-24. → RESOLVED (developer, 2026-09-20): not a blocker.** Two agents do not run concurrently, and `freeze`/`start` already guard activation.
+  - **The earlier framing in this plan was overstated.** The Disjointness Activation Gate and `check_pair7_inflight_boundary_collision` (`lib/planning_health.sh:530`) are scoped **strictly to `⚡ In Development`** blueprints — the function's own header says so, and `.agents/AGENTS.md:233` and `:245` confirm the gate compares only against in-flight plans. P-22, P-23 and P-24 are all `🟣 Under Review`, so their shared Target Files claim nothing and collide with nothing. Overlap between incubator plans is a non-event; the gate exists precisely to make serialised execution safe, and it is doing that job.
+  - Under the Single-Active-Plan Architecture (P-17), one plan is in flight at a time and the files are claimed only for that window. Freeze one, finish it, freeze the next — no overlap ever materialises.
+  - **One residual, and it is about plan text rather than gate admission:** whichever of these lands first determines where `resolve_plugin_entrypoint` lives, so the others' wording can go stale. P-24's Task 2.1 already hedges — *"in `lib/hook_dispatcher.sh` (or `lib/cmd_hook.sh`)"* — precisely because P-22 has not moved it yet. That is a documentation-freshness item to check when sequencing, cheap to correct at execution time, not a reason to hold any plan.
+* [x] **Question 8 — Corrupt `aapp.planId`. → RESOLVED (developer, 2026-09-20): allocation refuses; `init` reseeds.** The value is written only by our own code, so if it is not an integer something external broke it — the answer is not repair machinery but a clear refusal. `allocate_plan_id` and `get_next_plan_id` now split the guard: **unset** legitimately means `1` (a project that never ran `init`), while **non-empty non-numeric** errors with `aapp.planId is not an integer: '<value>'. Run 'aapp init' to reseed.` and allocates nothing. This is one extra `case` branch, not added machinery — and it is *simpler* than the previous behaviour, which silently restarted the sequence at `P-1` and collided with every existing plan. The division of labour is clean: **`init` repairs** (it has a filesystem scan to repair from), **allocation refuses and names the repair** (it has no such source). Consistent with the rule already applied to provider output in §2.6.
 
 * [x] **Question 9 — Committed counter file. → RESOLVED (developer, 2026-09-20): not adopted.** A tracked counter detects a split rather than preventing one, so it never becomes the central source of truth that would justify it. `aapp.planId` remains the source of truth and amendment 11 stands unreversed. `.plans/plan-template.md` was in any case the wrong host — a template copied to create plans, which would only have kept the counter across `init` because of the `copy_guarded` defect in Question 4.
 * [x] **Question 10 — Central id authority via CI. → RESOLVED (developer, 2026-09-20): no CI route.** Coordination for a multi-contributor repository comes from **a hook to a central place** — the `aapp-planid` provider — not from GitHub Actions in the core. Settled model: **a solo developer is safe with the local counter; any repository with more than one contributor requires a provider.** See §2.6 *The coordination boundary*, which this plan must document in `MANUAL.md` and `README.md`.
+
+* [x] **Question 11 — Guarding against a leaked provider. → RESOLVED (developer, 2026-09-20): document the responsibility, build no tripwire.**
+  - **The provider's contents cannot be anticipated.** It may be a one-line delegation, a full implementation querying a database, a read-only file supplied by the system, or a compiled binary — in any language. `resolve_plugin_entrypoint` is **deliberately extension-agnostic** (§2.6), so constraining the provider to a recognisable shape would contradict the design that makes it useful.
+  - The shape-tripwire proposed in an earlier draft of this question is therefore **withdrawn**. It assumed the provider stays a one-line shim, which is a *recommendation* in the sample, not a property of the contract. Such a check would fire on every legitimate iteration of a team's provider and would never fire at all on a binary. Chasing the infinite space of what a third party might write is not a solvable problem, and a check that appears to cover it while missing most of it is worse than none.
+  - **AAPP defines the contract; the adopter owns the implementation.** The contract is the whole of the core's concern: emit an id (`P-42` or bare `42`) on stdout, exit non-zero to refuse. Internals, dependencies, credentials and language are the adopter's responsibility and outside the core's reach by design.
+  - **What remains is a documentation duty**, and it is discharged in the documentation obligation below: state plainly that anything committed is cloned, forked and public; recommend the out-of-repo delegation pattern the sample demonstrates; and be explicit that AAPP does not inspect provider contents and cannot protect an adopter who commits a secret into one.
 
 ---
 
@@ -470,4 +516,14 @@ The failure mode of under-documenting this is specific enough to state: a team a
 * **2026-09-20 (amendment 14):** **Coordination model settled by the developer; Questions 9 and 10 closed.** The rule is a boundary, not a mechanism: **a solo developer is safe with the local counter and needs nothing; any repository with more than one contributor requires a hook to a central place — the `aapp-planid` provider.** The committed-counter file (Q9) is **not adopted** — it detects a split rather than preventing one, so `aapp.planId` remains the source of truth and amendment 11 stands unreversed. The CI-arbitration route (Q10) is **not taken** — a workflow runs after push and can only detect, and binding allocation to GitHub would cost the kit its host-agnostic, zero-dependency architecture. The core will not simulate central coordination by either means, on the grounds that a false guarantee is worse than a named limitation. Added §2.6 *The coordination boundary* and restored an explicit documentation obligation (the prior one was dropped during the P-24 split), sharpening Task 3.6 so the threshold is documented in `MANUAL.md` and `README.md` — a team should learn where the line sits before colliding, not after.
 * **2026-09-20 (amendment 15):** **Canonical provider name pinned and the shipped example realigned to it.** The name is **`aapp-planid`**, used verbatim for the installed provider (`.agents/skills/aapp-planid/`), the entrypoint lookup argument, and — newly — the shipped example, which was misnamed `examples/plugins/planid-remote/`. Renaming it matters because `aapp install` keeps `examples/` on disk (P-24), so the reference implementation must be copyable into `.agents/skills/` **without a rename step**; a differently-named sample forces adopters to know a mapping that is nowhere written down. Recorded the rationale rather than just the choice: the `aapp-` prefix is mandatory because Guard Section 2 protection keys on it; `aapp-plan-id` was rejected because the existing `aapp-plan` governance skill would sit adjacent and differ by one segment; `aapp-planid-provider` was rejected as inconsistent with the house convention of naming the domain (`aapp-hooks`, not `aapp-hook-runner`). Added the documentation obligation that the exact install path be stated and that `aapp-planid` is **adopter-supplied**, unlike every other `aapp-*` skill which ships with `aapp init`. Suffix handling (`run` vs `run.sample`) is explicitly left to P-24; Question 7's artefact conflict narrows to that one file rename inside P-24's own scope.
   *Follow-up within amendment 15:* corrected two defects introduced by that same edit — Task 3.5's rewrite was silently defeated because the global `planid-remote` -> `aapp-planid` rename ran first and left its anchor unmatchable, and the pre-existing `#### The standard name` section was left defining the name alongside the new canonical section. The former is now worded as intended; the latter is demoted to `#### Provider discovery` and defers to the canonical section, so the name is specified in exactly one place.
-
+* **2026-09-20 (amendment 16):** **Sample provider redesigned as a delegating one-liner, per developer direction.** `examples/plugins/aapp-planid/run` becomes a single `exec` to an out-of-repo command rather than a working remote client, on the reasoning that whatever a sample demonstrates, adopters copy — and a sample containing provider *logic* invites provider *secrets* into git history, every clone, and any public fork. **Verified the default path against the guard rather than assuming it:** `$HOME/.local/bin/` is hard-denied to agents by Section 2b (`*/.local/bin/*`) and is therefore safe from agent tampering, whereas the two intuitive alternatives — `$HOME/.config/aapp/` and `$HOME/.local/share/` — are both on the Section 2c **write allowlist** (`templates/blast-radius-guard.sh`, XDG entries) and would have left the provider agent-writable. `AAPP_PLANID_CMD` overrides the default. Documented two limitations rather than overstating the protection: the write-guard blocks tampering but not reading, so the guarantee delivered is that nothing sensitive is ever *committed* (the leak vector that matters for a public repo); and an installed shim with a missing backend is fatal by design under the presence-and-failure rule, which is why the sample ships under `examples/` and is never active until deliberately installed.
+* **2026-09-20 (amendment 17):** **Recorded the residual leak risk the shim pattern cannot eliminate.** Developer observation: the convention makes the safe shape obvious, but mistakes happen and pushes go public. Added Question 11 recommending a **shape tripwire over a secret scanner** — "did the file that must never change, change?" is bounded and answerable, where "does this look like a secret?" is unbounded and produces false confidence when it misses. The tripwire is viable precisely because of the shim design just adopted: teams configure via `AAPP_PLANID_CMD` or the out-of-repo command and never by editing the tracked file, so any staged change under `.agents/skills/aapp-planid/` is itself the signal, with no pattern matching. Noted this is already house philosophy (`registry.tsv` pins `expected_sha256` rather than inspecting handler behaviour) and that the mechanism has precedent (`templates/aapp-pre-commit` §1b already scans staged content and exits non-zero to prevent path leaks). Left out of this plan's Blast Radius — `templates/aapp-pre-commit` is Out of Bounds here, it is a guard-engine concern rather than an allocation one, and it would overlap the pre-commit work implied by Question 10. General-purpose secret scanning is explicitly not proposed.
+* **2026-09-20 (amendment 18):** **Question 2 closed by the developer — no lock.** `allocate_plan_id` takes no lock file and no serialisation primitive. The reasoning follows the coordination boundary settled in amendment 14: locking only pays where allocators genuinely run concurrently, that is the multi-contributor case, and that case already mandates an `aapp-planid` provider — so serialising belongs to the central authority issuing the ids, not to the core. Solo developers keep a simple system, which is the objective. §2.5 rewritten from "deferred" to a stated decision, recording that the residual solo multi-worktree race is covered by existing means (`aapp pause` from P-21, Pair 4 detection) and is no worse than the three-tier scan this plan deletes.
+* **2026-09-20 (amendment 19):** **Question 3 closed by the developer — `#69` is superseded, not fixed.** The defect was real and reproducible, so *obsolete* would misrepresent it; but no line is repaired, since the whole three-tier scan containing it is deleted, so *fixed* would misrepresent it too. Recorded the archive wording explicitly because `.plans/done/000-issues-archive.md` has no status column — disposition lives in the *Plan / Resolution Summary* prose, which means the phrasing **is** the decision and would otherwise be re-litigated at ship time by whoever archives it. Noted that the `Sev` value written into that row still depends on the open Question 5, and that `#69` remains open in `ISSUES.md` and `🔵 Planned` on the road map until the fix actually ships.
+* **2026-09-20 (amendment 20):** **Question 4 closed by the developer — logged as `#73` rather than folded in.** The root cause is `copy_guarded` in `lib/cmd_init.sh` returning early when the destination exists, so `aapp init` has never refreshed any guarded file since first install; the stale `.plans/plan-template.md` is only the visible symptom. That is an init-engine defect with a blast radius across every guarded destination, so it is correctly its own issue rather than scope creep into plan-id allocation. `#73` logged in `ISSUES.md` (`Medium`/`CLI`) and appended to the road map's Triage section — existing ordering left untouched, since sequencing is the developer's call.
+* **2026-09-20 (amendment 21):** **Question 5 closed by the developer — `#69` severity logged as `High`.** Raised from `Low` on verified behaviour (empty stdout, exit `1`, `set -e` callers), held below `Critical` because the function has no runtime callers and the break is therefore latent. This value carries into the archive row when the issue closes as superseded (amendment 19). Board position left untouched — severity is a fact, ordering is the developer's. Also repaired a stale cell found in the same row: `#69`'s *Target Plan / Fix* still described the amendment-1 regex repair, four design reversals out of date. It now records the supersession.
+* **2026-09-20 (amendment 22):** **Question 7 closed by the developer — the overlap is not a blocker, and this plan's earlier framing of it was wrong.** Verified rather than assumed: `check_pair7_inflight_boundary_collision` is scoped *"Strictly ⚡ In Development"* (`lib/planning_health.sh:530`) and the Disjointness Activation Gate compares only against in-flight blueprints (`.agents/AGENTS.md:233`, `:245`). All three plans are `🟣 Under Review`, so shared Target Files claim nothing; under the Single-Active-Plan Architecture from P-17 only one plan is in flight at a time and files are claimed only for that window. Describing this as "the freeze blocker" across amendments 9 and 15 was an error. Retained the one genuine residual, reclassified as documentation freshness rather than gate admission: whichever plan lands first fixes where `resolve_plugin_entrypoint` lives, so P-24's hedged Task 2.1 wording will need a pass at sequencing time.
+* **2026-09-20 (amendment 23):** **Ratchet removed and Question 8 closed, per developer direction — the config should not drift if the script is right.** Repeat `init` now follows one rule: **a numeric `aapp.planId` is left alone**; seeding happens only when the value is absent or non-numeric. The monotonic ratchet added in amendment 12 is withdrawn: its sole justification was a counter gone stale-low after `aapp pull` imported a teammate's plans, and the coordination boundary settled in amendment 14 assigns that case to the `aapp-planid` provider rather than the core. For a solo developer — the only configuration the core serves unaided — a single allocator's counter cannot regress, so the ratchet guarded a state that cannot arise while introducing one that can: a comparison able to *change* a correct value is a comparison able to get it wrong. Question 8 resolved in the same pass and in the same spirit: `unset` still legitimately means `1`, but a non-empty non-numeric value now **errors and allocates nothing** rather than silently restarting at `P-1`. That is one extra `case` branch, not machinery, and it is simpler than the behaviour it replaces. Division of labour: `init` repairs because it has a scan to repair from; allocation refuses and names the repair because it does not. **Verified by execution** in `bash` and `dash`: init leaves `25`, `3` and `99` untouched and reseeds only unset/`abc`; allocation issues `P-1` when unset, `P-25` from `25`, and refuses on `abc` with exit 1.
+  *Follow-up within amendment 23:* corrected a stale line left in §2.6's provider path — its guard had two branches doing the same thing and silently treated a non-numeric counter as `1`, contradicting the refusal rule just established. It now normalises an unusable value to `0`, which makes the `ISSUED >= CUR` advance always fire and repair the key. Refusing here would be wrong: the provider has already issued a valid id, so the local counter should be repaired rather than the allocation discarded.
+* **2026-09-20 (amendment 24):** **Question 11 closed by the developer — document the responsibility, build no tripwire.** A provider's contents cannot be anticipated: it may be a one-line delegation, a full database client, a system-supplied read-only file, or a compiled binary, in any language. `resolve_plugin_entrypoint` is deliberately extension-agnostic, so constraining the provider to a recognisable shape would contradict the design that makes it useful. The shape tripwire proposed in the previous draft of this question is **withdrawn**: it assumed the provider stays a one-line shim, which the sample *recommends* but the contract never requires — it would fire on every legitimate iteration of a team's provider and never fire on a binary. Attempting to cover the infinite space of third-party implementations with a partial check produces false confidence, which is the failure this plan has rejected twice before. AAPP's concern ends at the contract (emit an id, exit non-zero to refuse); internals, dependencies and credentials belong to the adopter. The duty that remains is documentary and is now written into the documentation obligation: committed content is cloned, forked and public; the recommended pattern is out-of-repo delegation; and this is a **documented responsibility, not an enforced guarantee** — AAPP does not inspect provider contents and does not claim to protect an adopter who commits a secret into one.
+* **2026-09-20:** Plan frozen and activated into ⚡ In Development via freeze-start. All 11 Open Questions closed; Blast Radius locked at 14 Target Files; Disjointness Activation Gate passed with no in-flight blueprints.
