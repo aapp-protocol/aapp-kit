@@ -51,9 +51,13 @@
 * **Purpose:** Canonical resolver for ADR-style Plan IDs (`P-<num>`), filenames, and slugs.
 * **Key Functions:**
   * `resolve_plan_path(query)` -> Maps `P-13`, `13`, `guard-path`, or `P13-*.md` to absolute blueprint path.
-  * `get_plan_id(path)` / `get_next_plan_id(dir)` -> Extracts or increments unpadded numeric Plan IDs.
+  * `get_plan_id(path)` -> Extracts the declared unpadded Plan ID from a blueprint header.
+  * `get_next_plan_id()` -> **Read-only peek** at the next Plan ID from the `aapp.planId` counter. Never mutates; claims nothing.
+  * `allocate_plan_id()` -> **Claims** a Plan ID and persists the increment. Delegates to an optional `aapp-planid` provider plugin (`.agents/skills/aapp-planid/`); only plugin *absence* falls back to the local counter, a present-but-failing provider is fatal.
+  * `normalize_plan_id(raw)` -> Accepts `P-42` or bare `42`; anything not a plain integer is an error.
   * `verify_transition_target(cmd, target)` -> Rejects empty queries and `#`-prefixed issue collisions.
 * **Anti-Wrapper Warning:** Do not parse plan filenames using raw ad-hoc `grep` or `cut`; use `resolve_plan_path`.
+* **Allocation Warning:** Plan IDs are **stored, not derived**. Never reconstruct an ID by scanning filenames or the archive ledger — that approach was removed (issue `#69`). Use `allocate_plan_id` to claim, `get_next_plan_id` to display.
 
 ### 🛡️ Planning Health Integrity Engine (`lib/planning_health.sh`)
 * **Purpose:** Automated mechanical integrity validator running 7 orthogonal verification pairs:
