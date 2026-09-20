@@ -110,40 +110,6 @@ cmd_hooks_status() {
 # ------------------------------------------------------------------------------
 # 2. Action: `aapp plugins` (Action Plugin Discovery Inspection)
 # ------------------------------------------------------------------------------
-resolve_plugin_entrypoint() {
-    local pdir="$1"
-    local name="$2"
-
-    # 1. Canonical Extensionless
-    if [ -x "$pdir/run" ]; then
-        echo "$pdir/run"; return 0
-    elif [ -x "$pdir/$name" ]; then
-        echo "$pdir/$name"; return 0
-    fi
-
-    # 2. Subdirectory Extensionless
-    if [ -x "$pdir/scripts/run" ]; then
-        echo "$pdir/scripts/run"; return 0
-    elif [ -x "$pdir/scripts/$name" ]; then
-        echo "$pdir/scripts/$name"; return 0
-    fi
-
-    # 3. Extension-Agnostic Pattern Search (Any Extension)
-    for f in "$pdir/$name".*; do
-        if [ -x "$f" ]; then echo "$f"; return 0; fi
-    done
-    for f in "$pdir/run".*; do
-        if [ -x "$f" ]; then echo "$f"; return 0; fi
-    done
-    for f in "$pdir/scripts/$name".*; do
-        if [ -x "$f" ]; then echo "$f"; return 0; fi
-    done
-    for f in "$pdir/scripts/run".*; do
-        if [ -x "$f" ]; then echo "$f"; return 0; fi
-    done
-
-    return 1
-}
 
 cmd_plugins_status() {
     local skills_dir="$REPO_ROOT/.agents/skills"

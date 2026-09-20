@@ -280,3 +280,46 @@ dispatch_hook() {
 
     return 0
 }
+
+# ------------------------------------------------------------------------------
+# Action Plugin Entrypoint Resolution
+# ------------------------------------------------------------------------------
+# Locates a plugin's executable entrypoint under .agents/skills/<name>/.
+# Extension-agnostic by design: a provider may be a shell script, a Python file
+# or a compiled binary. Lives here rather than in lib/cmd_hook.sh because that
+# file carries a top-level dispatcher and cannot be sourced without side effects.
+resolve_plugin_entrypoint() {
+    local pdir="$1"
+    local name="$2"
+
+    # 1. Canonical Extensionless
+    if [ -x "$pdir/run" ]; then
+        echo "$pdir/run"; return 0
+    elif [ -x "$pdir/$name" ]; then
+        echo "$pdir/$name"; return 0
+    fi
+
+    # 2. Subdirectory Extensionless
+    if [ -x "$pdir/scripts/run" ]; then
+        echo "$pdir/scripts/run"; return 0
+    elif [ -x "$pdir/scripts/$name" ]; then
+        echo "$pdir/scripts/$name"; return 0
+    fi
+
+    # 3. Extension-Agnostic Pattern Search (Any Extension)
+    for f in "$pdir/$name".*; do
+        if [ -x "$f" ]; then echo "$f"; return 0; fi
+    done
+    for f in "$pdir/run".*; do
+        if [ -x "$f" ]; then echo "$f"; return 0; fi
+    done
+    for f in "$pdir/scripts/$name".*; do
+        if [ -x "$f" ]; then echo "$f"; return 0; fi
+    done
+    for f in "$pdir/scripts/run".*; do
+        if [ -x "$f" ]; then echo "$f"; return 0; fi
+    done
+
+    return 1
+}
+

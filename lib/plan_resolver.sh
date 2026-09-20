@@ -13,6 +13,23 @@
 #   5. Empty query:     Allowed for read-only verbs if 1 plan; rejected for freeze/done
 # ==============================================================================
 
+# Source the hook dispatcher for resolve_plugin_entrypoint(), used by
+# allocate_plan_id() to discover an optional `aapp-planid` provider plugin.
+# hook_dispatcher.sh is safe to source (no top-level dispatcher); lib/cmd_hook.sh
+# is not, which is why the helper lives in the dispatcher.
+DISPATCHER_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hook_dispatcher.sh"
+if [ -f "$DISPATCHER_LIB" ]; then
+    # hook_dispatcher.sh sets -e at top level. Sourcing it would silently impose
+    # that on every caller of this resolver, so the prior state is restored.
+    # `aapp` and lib/cmd_plan.sh already set -e; nothing else should inherit it.
+    __AAPP_PR_ERREXIT=0
+    case "$-" in *e*) __AAPP_PR_ERREXIT=1 ;; esac
+    # shellcheck source=/dev/null
+    source "$DISPATCHER_LIB"
+    [ "$__AAPP_PR_ERREXIT" -eq 1 ] || set +e
+    unset __AAPP_PR_ERREXIT
+fi
+
 # resolve_plan_path <query> <context_verb> [search_scope: current|done|all] [repo_root]
 resolve_plan_path() {
     local QUERY="$1"
@@ -230,46 +247,80 @@ get_plan_id() {
     return 1
 }
 
-# Calculates next auto-incrementing Plan ID: returns "P-<num>"
+# ------------------------------------------------------------------------------
+# Plan ID Allocation (config-backed)
+# ------------------------------------------------------------------------------
+# `aapp.planId` stores the NEXT id to hand out, as a bare integer. The "P-"
+# prefix is a namespace marker applied on output to distinguish a plan id from
+# an issue id (#69) -- it is never part of the stored value.
+#
+# An unset key legitimately means 1 (a project that never ran `aapp init`).
+# A non-empty, non-numeric value means something external corrupted the key:
+# we refuse rather than silently restarting the sequence at P-1, which would
+# collide with every existing plan. `aapp init` repairs it (it has a filesystem
+# scan to repair from); allocation refuses and names the repair.
+
+# Read-only peek at the next Plan ID. Never mutates. Safe for status output.
 get_next_plan_id() {
-    local REPO_ROOT="${1:-}"
-    if [ -z "$REPO_ROOT" ]; then
-        REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    local CUR
+    CUR="$(git config --get aapp.planId 2>/dev/null || true)"
+    case "$CUR" in
+        '')       CUR=1 ;;
+        *[!0-9]*) echo "❌ [Plan ID] aapp.planId is not an integer: '$CUR'. Run 'aapp init' to reseed." >&2
+                  return 1 ;;
+    esac
+    printf 'P-%s\n' "$CUR"
+}
+
+# Normalises a provider-supplied id. Accepts "P-42" or bare "42"; anything that
+# is not a plain integer is an error. Emitting a well-formed id is the third
+# party's responsibility -- we do not repair or interpret their output.
+normalize_plan_id() {
+    local N="${1#P-}"
+    case "$N" in
+        ''|*[!0-9]*)
+            echo "❌ [Plan ID] Provider must return an integer id (got: '$1')" >&2
+            return 1
+            ;;
+    esac
+    printf 'P-%s\n' "$N"
+}
+
+# Claims a Plan ID and persists the increment. Called exactly once per plan
+# creation. Delegates to an `aapp-planid` provider plugin when one is installed;
+# otherwise uses the local counter. Only plugin ABSENCE falls back -- a plugin
+# that is present and fails is fatal, never a silent local allocation.
+allocate_plan_id() {
+    local ROOT PDIR ENTRY RAW OUT CUR ISSUED
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    PDIR="$ROOT/.agents/skills/aapp-planid"
+
+    # 1. Delegate to the provider plugin when one is installed.
+    if [ -d "$PDIR" ] && ENTRY="$(resolve_plugin_entrypoint "$PDIR" "aapp-planid" 2>/dev/null)"; then
+        OUT="$(AAPP_ACTION=allocate AAPP_REPO_ROOT="$ROOT" "$ENTRY" 2>/dev/null)" || {
+            echo "❌ [Plan ID] Provider plugin failed; refusing to allocate locally." >&2
+            return 1
+        }
+        # Capture into RAW first: assigning the substitution straight back into
+        # OUT would clobber it before the || branch could report the value.
+        RAW="$OUT"
+        OUT="$(normalize_plan_id "$RAW")" || return 1
+        # Ratchet the local counter past the issued id so the fallback never regresses.
+        CUR="$(git config --get aapp.planId 2>/dev/null || true)"
+        case "$CUR" in ''|*[!0-9]*) CUR=0 ;; esac   # unusable -> 0, so the write below repairs it
+        ISSUED="${OUT#P-}"
+        if [ "$ISSUED" -ge "$CUR" ]; then git config aapp.planId "$((ISSUED + 1))"; fi
+        printf '%s\n' "$OUT"
+        return 0
     fi
 
-    local PLANS_DIR="$REPO_ROOT/.plans"
-    local MAX_ID=0
-
-    # Scan active and archived blueprints
-    for DIR in "$PLANS_DIR/current" "$PLANS_DIR/done"; do
-        if [ -d "$DIR" ]; then
-            while IFS= read -r -d '' F; do
-                local BNAME
-                BNAME="$(basename "$F")"
-                if [[ "$BNAME" =~ ^[pP]([0-9]+)- ]]; then
-                    local NUM=$((10#${BASH_REMATCH[1]}))
-                    [ "$NUM" -gt "$MAX_ID" ] && MAX_ID="$NUM"
-                fi
-                local PID
-                PID="$(get_plan_id "$F" 2>/dev/null || true)"
-                if [[ "$PID" =~ ^P-([0-9]+)$ ]]; then
-                    local NUM=$((10#${BASH_REMATCH[1]}))
-                    [ "$NUM" -gt "$MAX_ID" ] && MAX_ID="$NUM"
-                fi
-            done < <(find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" -print0 2>/dev/null)
-        fi
-    done
-
-    # Scan archive ledger table rows if present
-    local LEDGER="$PLANS_DIR/done/000-archive-ledger.md"
-    if [ -f "$LEDGER" ]; then
-        while IFS= read -r LINE; do
-            if [[ "$LINE" =~ \|[[:space:]]*`?P-([0-9]+)`?[[:space:]]*\| ]]; then
-                local NUM=$((10#${BASH_REMATCH[1]}))
-                [ "$NUM" -gt "$MAX_ID" ] && MAX_ID="$NUM"
-            fi
-        done < "$LEDGER"
-    fi
-
-    echo "P-$((MAX_ID + 1))"
+    # 2. No plugin installed -> local git config counter.
+    CUR="$(git config --get aapp.planId 2>/dev/null || true)"
+    case "$CUR" in
+        '')       CUR=1 ;;
+        *[!0-9]*) echo "❌ [Plan ID] aapp.planId is not an integer: '$CUR'. Run 'aapp init' to reseed." >&2
+                  return 1 ;;
+    esac
+    git config aapp.planId "$((CUR + 1))" || return 1
+    printf 'P-%s\n' "$CUR"
 }

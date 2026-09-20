@@ -38,7 +38,7 @@ If the argument is an idea, feature description, or instruction:
    - Scan `.plans/current/*.md`. If an active blueprint already covers this capability, amend it and log the change in Section 6.
 
 3. **Step 3: Scaffold Canonical Blueprint**:
-   - Allocate the next unpadded Plan ID (`get_next_plan_id`).
+   - Allocate the next unpadded Plan ID with `allocate_plan_id` (claims it and persists the increment). `get_next_plan_id` is a read-only peek and must not be used to claim an id.
    - Scaffold `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`.
    - Complete Technical Blueprint (§2), Implementation Tasks (§3), proposed Blast Radius (§4), and Open Questions (§5).
    - Register in `.plans/state_matrix.md` under `## 🧠 1. Human Thought & Refinement (The Incubator)` with status 🟣 or 📝.

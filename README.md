@@ -298,6 +298,7 @@ aapp sync [remote] [strategy]
 | `aapp.syncWorktrees` | `"plans agents githooks"` | Space-delimited list of worktree paths to sync. |
 | `aapp.pullStrategy` | `"ff-only"` | Pull strategy (`ff-only`, `rebase`, `merge`). |
 | `aapp.syncStrategy` | `"builtin"` | Transport strategy: `builtin` (native git) or `hook` (delegated to `on-sync`). |
+| `aapp.planId` | *(seeded at init)* | **Next** Plan ID to hand out, as a bare integer. Seeded to `1` on a new project; a numeric value is never overwritten by repeat `aapp init`. |
 
 ### Restoring on a New Machine / CI
 When cloning your repository onto a second workstation:

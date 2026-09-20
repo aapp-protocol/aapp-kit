@@ -1,0 +1,31 @@
+#!/bin/sh
+# ==============================================================================
+# Reference `aapp-planid` Provider Plugin (MOCK)
+#
+# Install at: .agents/skills/aapp-planid/run
+# Copy this directory as-is -- it already carries the canonical name, so no
+# rename is needed on the way in.
+#
+# CONTRACT
+#   stdout : one plan id, either "P-42" or bare "42"
+#   exit 0 : id issued
+#   exit !0: refuse. AAPP aborts allocation rather than falling back locally.
+#
+# WHY THIS IS A ONE-LINE SHIM
+#   Whatever a sample demonstrates, adopters copy. A sample that really fetched
+#   an id would need an endpoint and a token somewhere -- and anything committed
+#   here is cloned, forked and public, permanently. So the repository holds only
+#   a delegation; the endpoint, credentials and logic live outside it.
+#
+#   The default target sits in ~/.local/bin/, which blast-radius-guard hard-denies
+#   to agents (Section 2b), so the real provider cannot be rewritten by an agent.
+#   Do NOT default this into ~/.config or ~/.local/share -- both are on the
+#   Section 2c agent-write allowlist.
+#
+#   Override the target with AAPP_PLANID_CMD.
+#
+# NOTE: with no backend installed this exits non-zero, and AAPP will then refuse
+# to allocate. That is the contract working as designed, and it is why this file
+# ships under examples/ rather than being installed by `aapp init`.
+# ==============================================================================
+exec "${AAPP_PLANID_CMD:-$HOME/.local/bin/aapp-planid-provider}" "$@"

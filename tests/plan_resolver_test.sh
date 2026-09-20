@@ -109,12 +109,68 @@ else
     printf "  \033[31m✘\033[0m %-52s want P-9 got '%s'\n" "get_plan_id extracts P-9" "$ID9"; FAIL=$((FAIL+1))
 fi
 
-NEXT_ID=$(get_next_plan_id "$PWD")
-if [ "$NEXT_ID" = "P-14" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "get_next_plan_id computes next ID (P-14)" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want P-14 got '%s'\n" "get_next_plan_id computes next ID (P-14)" "$NEXT_ID"; FAIL=$((FAIL+1))
-fi
+# --- Config-backed Plan ID allocation (P-22) -------------------------------
+# aapp.planId stores the NEXT id to hand out. These tests touch the real repo
+# config, so the developer's value is saved and restored at the end.
+PLANID_SAVED="$(git config --get aapp.planId 2>/dev/null || true)"
+
+check() {  # check <label> <expected> <actual>
+    if [ "$2" = "$3" ]; then
+        printf "  \033[32m✔\033[0m %-52s %s\n" "$1" "PASS"; PASS=$((PASS+1))
+    else
+        printf "  \033[31m✘\033[0m %-52s want '%s' got '%s'\n" "$1" "$2" "$3"; FAIL=$((FAIL+1))
+    fi
+}
+
+git config --unset aapp.planId 2>/dev/null || true
+check "unset counter yields P-1" "P-1" "$(get_next_plan_id)"
+
+git config aapp.planId 25
+PEEK1="$(get_next_plan_id)"; PEEK2="$(get_next_plan_id)"
+check "peek is non-mutating" "P-25 P-25 25" "$PEEK1 $PEEK2 $(git config --get aapp.planId)"
+check "peek emits nothing on stderr" "" "$(get_next_plan_id 2>&1 >/dev/null)"
+
+check "allocate issues current value" "P-25" "$(allocate_plan_id)"
+check "allocate advances counter by 1" "26" "$(git config --get aapp.planId)"
+check "allocate is monotonic" "P-26" "$(allocate_plan_id)"
+
+git config aapp.planId "corrupt"
+ALLOC_RC=0; allocate_plan_id >/dev/null 2>&1 || ALLOC_RC=$?
+check "allocate refuses corrupt counter" "1" "$ALLOC_RC"
+check "corrupt counter left untouched" "corrupt" "$(git config --get aapp.planId)"
+PEEK_RC=0; get_next_plan_id >/dev/null 2>&1 || PEEK_RC=$?
+check "peek refuses corrupt counter" "1" "$PEEK_RC"
+
+check "normalize accepts P-42" "P-42" "$(normalize_plan_id 'P-42')"
+check "normalize accepts bare 42" "P-42" "$(normalize_plan_id '42')"
+NRC=0; normalize_plan_id 'not-an-int' >/dev/null 2>&1 || NRC=$?
+check "normalize rejects non-integer" "1" "$NRC"
+NRC=0; normalize_plan_id '' >/dev/null 2>&1 || NRC=$?
+check "normalize rejects empty" "1" "$NRC"
+
+git config aapp.planId 30
+check "no provider uses local counter" "P-30" "$(allocate_plan_id)"
+
+PROVIDER_DIR="$PWD/.agents/skills/aapp-planid"
+mkdir -p "$PROVIDER_DIR"
+printf '#!/bin/sh\necho 88\n' > "$PROVIDER_DIR/run"; chmod +x "$PROVIDER_DIR/run"
+check "provider id is used" "P-88" "$(allocate_plan_id)"
+check "counter ratchets past provider id" "89" "$(git config --get aapp.planId)"
+
+printf '#!/bin/sh\nexit 3\n' > "$PROVIDER_DIR/run"
+PROV_RC=0; allocate_plan_id >/dev/null 2>&1 || PROV_RC=$?
+check "failing provider is fatal" "1" "$PROV_RC"
+check "no local fallback on provider failure" "89" "$(git config --get aapp.planId)"
+
+printf '#!/bin/sh\necho garbage\n' > "$PROVIDER_DIR/run"
+MRC=0; allocate_plan_id >/dev/null 2>&1 || MRC=$?
+check "malformed provider id rejected" "1" "$MRC"
+
+rm -rf "$PROVIDER_DIR"
+rmdir "$PWD/.agents/skills" 2>/dev/null || true
+
+if [ -n "$PLANID_SAVED" ]; then git config aapp.planId "$PLANID_SAVED"
+else git config --unset aapp.planId 2>/dev/null || true; fi
 
 echo "== 7. Planning Health Pair 4: Plan ID Integrity =="
 if check_pair4_plan_id_integrity "$PWD" >/dev/null 2>&1; then

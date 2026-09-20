@@ -448,6 +448,51 @@ else
     HOOK_MANAGER_NOTICE=1
 fi
 
+# ------------------------------------------------------------------------------
+# Plan ID Counter Bootstrap
+# ------------------------------------------------------------------------------
+# Returns the NEXT free Plan ID by scanning blueprint filenames across all three
+# lanes plus the archive ledger (which retains ids whose files were pruned).
+#
+# Pure POSIX by design: no `ls`, no `grep -o`, no `sort`, and no arithmetic on
+# parsed text -- only glob expansion, parameter expansion and `test`. This keeps
+# it portable and immune to filenames containing newlines.
+#
+# MAX starts at 0 and the function returns MAX + 1, so a project with no plans
+# at all seeds to exactly 1 without any special-casing.
+seed_plan_id() {
+    local PLANS="$1"
+    local LEDGER="$1/done/000-archive-ledger.md"
+    local DIR F BNAME LINE N MAX=0
+
+    for DIR in current done aborted; do
+        [ -d "$PLANS/$DIR" ] || continue
+        for F in "$PLANS/$DIR"/[Pp][0-9]*.md; do
+            [ -e "$F" ] || continue          # literal-glob guard when nothing matches
+            BNAME=${F##*/}
+            N=${BNAME#[Pp]}                  # strip the leading P
+            N=${N%%[!0-9]*}                  # keep the leading digit run
+            [ -n "$N" ] || continue
+            # `test -gt` parses decimally, so a legacy P-007 compares as 7.
+            if [ "$N" -gt "$MAX" ]; then MAX=$N; fi
+        done
+    done
+
+    # Ledger rows cover archived plans whose blueprint files were removed.
+    if [ -f "$LEDGER" ]; then
+        while IFS= read -r LINE; do
+            case $LINE in
+                *'`P-'*) N=${LINE#*\`P-}; N=${N%%[!0-9]*} ;;
+                *) continue ;;
+            esac
+            [ -n "$N" ] || continue
+            if [ "$N" -gt "$MAX" ]; then MAX=$N; fi
+        done < "$LEDGER"
+    fi
+
+    printf '%s\n' "$((MAX + 1))"
+}
+
 # Safe-by-default AI Attribution configuration
 if [ -z "$(git config --get aapp.aiAttribution 2>/dev/null || true)" ]; then
     git config aapp.aiAttribution none
@@ -476,6 +521,15 @@ if [ -z "$(git config --get aapp.syncStrategy 2>/dev/null || true)" ]; then
         git config aapp.syncStrategy "builtin"
     fi
 fi
+
+# Plan ID counter (next id to hand out). A numeric value is LEFT ALONE, so
+# repeat `aapp init` -- including the init that follows `aapp upgrade` -- never
+# disturbs a live counter. Seeding happens only when the key is absent or
+# unusable; `seed_plan_id` returns 1 for a project with no plans.
+PLAN_ID_CURRENT="$(git config --get aapp.planId 2>/dev/null || true)"
+case "$PLAN_ID_CURRENT" in
+    ''|*[!0-9]*) git config aapp.planId "$(seed_plan_id ".plans")" ;;
+esac
 
 # ------------------------------------------------------------------------------
 # PHASE 4: Public Project Root Anchors
@@ -747,7 +801,9 @@ echo "➡️  AI Attribution:     $ATTR_CURRENT (switch via 'aapp ai-commit' or 
 SYNC_REMOTE="$(git config aapp.remote 2>/dev/null || echo "origin")"
 SYNC_STRAT="$(git config aapp.syncStrategy 2>/dev/null || echo "builtin")"
 SYNC_WTS="$(git config aapp.syncWorktrees 2>/dev/null || echo "plans agents githooks")"
+PLAN_ID_NEXT="$(git config aapp.planId 2>/dev/null || echo "1")"
 echo "➡️  Remote sync:        remote=$SYNC_REMOTE, strategy=$SYNC_STRAT, worktrees=$SYNC_WTS"
+echo "➡️  Next plan ID:       P-$PLAN_ID_NEXT (aapp.planId)"
 
 # Detect Branching Topology
 DEV_EXISTS=0

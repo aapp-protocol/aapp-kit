@@ -32,7 +32,7 @@ Scan `.plans/current/*.md` before drafting:
 
 ### Step 4a: NEW Plan (From Scratch)
 1. Cross-reference `.agents/CODEMAP.md` (or `CODEMAP.md`) and `ARCHITECTURE.md` to ensure the design extends existing modules rather than adding duplicate helpers.
-2. Allocate the next unpadded Plan ID using `get_next_plan_id` (scanning highest existing ID across `.plans/current/` and `.plans/done/` and incrementing by 1: `P-<num>`). Scaffold `.plans/current/P<num>-<slug>.md` from `.plans/plan-template.md`, populating `* **Plan ID:** P-<num>` in the header.
+2. Allocate the next unpadded Plan ID with `allocate_plan_id` (`lib/plan_resolver.sh`), which claims the id from the `aapp.planId` counter and persists the increment. Do **not** derive an id by scanning filenames. Use `get_next_plan_id` only to *display* the next id — it is a read-only peek and claims nothing. Scaffold `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`, populating `* **Plan ID:** P-<num>` in the header.
 3. Fill in *Context & Architectural Goal*, *Technical Blueprint*, and *Implementation Steps & Execution Checklist*.
 4. Propose a Blast Radius (`### 📂 Target Files` and `### 🛑 Out of Bounds`). Mark it **PROPOSED** — it is not locked and confers no code execution rights. Ensure no files matching Guard Section 2 self-protection are placed in Target Files (enforced by Pair 5).
 5. Record every unresolved technical decision in `## ❓ 5. Open Questions`.

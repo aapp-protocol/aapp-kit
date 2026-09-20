@@ -1020,6 +1020,63 @@ AAPP wires 10 distinct lifecycle events across all planning and workflow operati
 
 ---
 
+### Plan ID Allocation (`aapp.planId`) & the `aapp-planid` Provider
+
+Plan IDs are **stored, not derived**. `aapp.planId` holds the *next* id to hand out, as a bare integer — the `P-` prefix is a namespace marker applied on output to separate a plan id (`P-22`) from an issue id (`#22`), and is never part of the stored value.
+
+```bash
+git config --get aapp.planId     # inspect the next id
+aapp init                        # seeds it; 1 on a brand-new project
+```
+
+`aapp init` seeds the counter once by scanning `.plans/current`, `.plans/done` and `.plans/aborted` plus the archive ledger. **A numeric value is then left alone** — re-running `init`, including the `init` that follows `aapp upgrade`, never disturbs a live counter. Seeding only happens when the key is absent or non-numeric.
+
+If the key is corrupted, allocation **refuses** rather than restarting the sequence at `P-1` (which would collide with every existing plan). Run `aapp init` to reseed it.
+
+#### Solo vs. multi-contributor
+
+| Setup | What you need |
+| :--- | :--- |
+| **Solo developer** | Nothing. The local counter is sufficient and cannot drift — you are the only allocator. |
+| **Any repository with more than one contributor** | An `aapp-planid` provider plugin backed by a central authority. Git config is never pushed, so two contributors would otherwise allocate the same id independently. |
+
+#### Installing a provider
+
+The provider is an **action plugin you supply**. Unlike every other `aapp-*` skill, it does **not** ship with `aapp init`:
+
+```
+.agents/skills/aapp-planid/run          # canonical path -- this exact name
+```
+
+A working reference lives at `examples/plugins/aapp-planid/`. It already carries the canonical name, so it can be copied into place without renaming. Because the path begins with `aapp-`, it is protected by Guard Section 2 — agents cannot rewrite your ID authority.
+
+**Contract:**
+
+| | |
+| :--- | :--- |
+| **stdout** | One plan id, either `P-42` or bare `42` |
+| **exit 0** | Id issued |
+| **exit non-zero** | Refuse — AAPP aborts allocation |
+
+Only plugin **absence** falls back to the local counter. A plugin that is present and fails is **fatal**, never a silent local allocation — falling back on failure would reintroduce exactly the collision the provider exists to prevent.
+
+#### Security: your provider, your responsibility
+
+AAPP defines the contract above and nothing more. It does **not** inspect, validate or constrain what a provider contains — and cannot, since providers are extension-agnostic and may be compiled binaries.
+
+* Anything committed into the repository is **cloned, forked and public**. A credential placed in a provider is in history permanently.
+* The recommended pattern is the shipped sample: a one-line delegation to an out-of-repo command, keeping logic and secrets outside version control.
+
+  ```sh
+  #!/bin/sh
+  exec "${AAPP_PLANID_CMD:-$HOME/.local/bin/aapp-planid-provider}" "$@"
+  ```
+
+  `$HOME/.local/bin/` is chosen deliberately: Guard Section 2b hard-denies it to agents. Do **not** default into `~/.config` or `~/.local/share` — both are on the Section 2c agent-write allowlist.
+* This is a **documented responsibility, not an enforced guarantee**. AAPP cannot protect an adopter who commits a secret into their provider, and does not claim to.
+
+---
+
 ### Team Sync Governance & Transport Hooks (`aapp.syncStrategy`)
 
 For teams collaborating via custom infrastructure (e.g. S3 buckets, central databases, or internal git mirrors), remote synchronization can be delegated to a team plugin hook (`on-sync`). AAPP establishes a strict three-tier precedence hierarchy:
