@@ -32,6 +32,5 @@
 - [ ] #59 -> `sort -z` is GNU/newer-BSD only and fails on older macOS `sort`, breaking the Plans pillar of briefing.
 - [ ] #60 -> Plan filenames with newlines break unquoted `ls -1` iteration in enforcement engine.
 - [ ] #67 -> AI credits generator relies on commit trailers and cannot mechanically extract agents that contributed review without committing (awaiting adversarial-review plugin).
-- [ ] 🔵 `Planned` #69 -> Unquoted backtick inside `[[ =~ ]]` is evaluated as command substitution at runtime in `get_next_plan_id`. -> [`P-22`](current/P22-config-backed-plan-id-allocation.md)
 - [ ] #70 -> disable-model-invocation: true suppresses skills in Antigravity IDE, hiding new slash commands (/aapp-start, etc.) from chat autocomplete.
 - [ ] #73 -> `copy_guarded` never overwrites, so `aapp init` cannot refresh `.plans/plan-template.md`; the stale copy still ships the retired status enum and no `Plan ID` field, and every `copy_guarded` destination is affected.

@@ -21,7 +21,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 2. Frozen & Ready for Coding (The Greenlight Zone)
 
-- ⚡ **P-22**: [`P22-config-backed-plan-id-allocation.md`](current/P22-config-backed-plan-id-allocation.md) — Config-Backed Monotonic Plan ID Allocation (`aapp.planId`) — retires the three-tier ID scan. Promoted from `#69`.
 
 
 
