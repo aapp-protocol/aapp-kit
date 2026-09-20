@@ -40,10 +40,17 @@ This blueprint was decoupled from Plan P-22 on developer direction to maintain s
 
 ### 2.1 Global Installation Asset Preservation (`lib/cmd_install.sh`)
 
-`lib/cmd_install.sh` installs the AAPP suite into the user's home directory (`$SHARE_DIR`, defaulting to `~/.local/share/aapp-kit`). Lines 84-87 currently copy only libraries, templates, and tests.
+`lib/cmd_install.sh` installs the AAPP suite into the user's home directory (`$SHARE_DIR`, defaulting to `~/.local/share/aapp-kit`). Lines 84-87 currently clean and copy only libraries, templates, and tests.
 
-Update `lib/cmd_install.sh` to copy `examples/` alongside the other directories:
+Update `lib/cmd_install.sh` line 84 to include `${SHARE_DIR:?}/examples` in the cleanup list, and copy `examples/` alongside the other directories:
 ```bash
+# Line 84: Clean existing directories before copying (ensures removed/renamed samples do not linger on upgrade)
+rm -rf "${SHARE_DIR:?}/lib" "${SHARE_DIR:?}/templates" "${SHARE_DIR:?}/tests" "${SHARE_DIR:?}/examples"
+
+# Lines 85-88: Copy assets
+[ -d "$AAPP_SCRIPT_DIR/lib" ] && cp -r "$AAPP_SCRIPT_DIR/lib" "$SHARE_DIR/"
+cp -r "$AAPP_SCRIPT_DIR/templates" "$SHARE_DIR/"
+[ -d "$AAPP_SCRIPT_DIR/tests" ] && cp -r "$AAPP_SCRIPT_DIR/tests" "$SHARE_DIR/"
 [ -d "$AAPP_SCRIPT_DIR/examples" ] && cp -r "$AAPP_SCRIPT_DIR/examples" "$SHARE_DIR/"
 ```
 
@@ -55,18 +62,26 @@ Reference examples in `examples/` strictly adopt **in-place `*.sample` naming** 
 
 | Asset Type | Canonical Path in Source | Behavior When Ignored | Activation Workflow |
 | :--- | :--- | :--- | :--- |
-| **Action Plugin Showcase** | `examples/plugins/hello-tool/run.sample` | Completely ignored by dynamic CLI dispatch and plugin resolution. | Developer/agent copies or renames: `cp run.sample run && chmod +x run`. |
-| **Team ID Provider Mock** | `examples/plugins/aapp-planid/run.sample` | Completely ignored by `allocate_plan_id`; resolver falls back to local git config. | Developer copies or renames to `run`, adapts to network API, and marks `chmod +x`. |
-| **Quality Gate Hook** | `examples/hooks/fallback-ratchet.sh.sample` | Ignored by `hook_dispatcher.sh` (requires explicit entry in `registry.tsv`). | Developer copies script, registers with `aapp hook-hash`, and records hash in `registry.tsv`. |
-| **Lifecycle Observer Hook** | `examples/hooks/on-done-sync.sh.sample` | Ignored by `hook_dispatcher.sh`. | Developer copies script, registers with `aapp hook-hash`. |
+| **Action Plugin Showcase** | `examples/plugins/hello-tool/run.sample` | Completely ignored by dynamic CLI dispatch and plugin resolution. | Developer/agent copies directory and renames entrypoint: `cp -r .agents/skills/hello-tool.sample .agents/skills/hello-tool && mv .agents/skills/hello-tool/run.sample .agents/skills/hello-tool/run && chmod +x .agents/skills/hello-tool/run`. |
+| **Team ID Provider Mock** | `examples/plugins/aapp-planid/run.sample` | Completely ignored by `allocate_plan_id`; resolver falls back to local git config. | Developer copies directory, renames entrypoint to `run`, adapts to network API, and marks executable: `cp -r .agents/skills/aapp-planid.sample .agents/skills/aapp-planid && mv .agents/skills/aapp-planid/run.sample .agents/skills/aapp-planid/run && chmod +x .agents/skills/aapp-planid/run`. |
+| **Quality Gate Hook** | `examples/hooks/fallback-ratchet.sh.sample` | Ignored by `hook_dispatcher.sh` (requires explicit entry in `registry.tsv`). | Developer copies script without `.sample`, marks executable, registers with `aapp hook-hash`, and records hash in `registry.tsv`. |
+| **Lifecycle Observer Hook** | `examples/hooks/on-done-sync.sh.sample` | Ignored by `hook_dispatcher.sh`. | Developer copies script without `.sample`, marks executable, and registers with `aapp hook-hash`. |
 | **Reference Hook Registry** | `examples/hooks/registry.tsv.sample` | Reference template showing 5-column TSV schema. | Copy reference entries into active `.agents/skills/aapp-hooks/registry.tsv`. |
+
+#### Canonical Reference Hook Registry Schema (`examples/hooks/registry.tsv.sample`)
+The reference registry template ships illustrative, commented standard hooks showing the strict 5-column TSV format:
+```tsv
+# event	handler_path	expected_sha256	timeout	mode
+# on-freeze	examples/hooks/fallback-ratchet.sh	sha256:0000000000000000000000000000000000000000000000000000000000000000	10	gate
+# on-done	examples/hooks/on-done-sync.sh	sha256:0000000000000000000000000000000000000000000000000000000000000000	15	notify
+```
 
 ### 2.3 Engine Filtering in `resolve_plugin_entrypoint` & `aapp` Switchboard
 
 To guarantee that `.sample` assets cannot be accidentally executed:
 
 1. **Resolver Pattern Filtering (`resolve_plugin_entrypoint`)**:
-   In `lib/hook_dispatcher.sh` (and `lib/cmd_hook.sh`), pattern expansion explicitly skips `.sample` files:
+   In `lib/hook_dispatcher.sh` (relocated from `lib/cmd_hook.sh` under P-22), pattern expansion explicitly skips `.sample` files and backup suffixes:
    ```bash
    for f in "$pdir/$name".* "$pdir/run".* "$pdir/scripts/$name".* "$pdir/scripts/run".*; do
        case "$f" in
@@ -76,12 +91,27 @@ To guarantee that `.sample` assets cannot be accidentally executed:
    done
    ```
 
-2. **Switchboard Directory Guard (`aapp` line 159)**:
-   In the dynamic subcommand fallthrough in `aapp`:
+2. **Switchboard Execution Guard & Delegation Consolidation (`aapp`)**:
+   In `aapp` lines 156-185, replace the duplicated inline pattern search by reusing `resolve_plugin_entrypoint`. This guarantees that typing `aapp <cmd>` never executes an unrenamed `run.sample` even if marked executable:
    ```bash
    case "$CMD" in
        *.sample) exit 127 ;; # Do not execute sample plugins directly
    esac
+   CWD_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+   if [ -n "$CWD_GIT_ROOT" ] && [ -d "$CWD_GIT_ROOT/.agents/skills/$CMD" ]; then
+       PLUGIN_DIR="$CWD_GIT_ROOT/.agents/skills/$CMD"
+       CANDIDATE=""
+       if command -v resolve_plugin_entrypoint >/dev/null 2>&1; then
+           CANDIDATE="$(resolve_plugin_entrypoint "$PLUGIN_DIR" "$CMD" || true)"
+       elif [ -f "$AAPP_LIB/hook_dispatcher.sh" ]; then
+           # shellcheck source=/dev/null
+           source "$AAPP_LIB/hook_dispatcher.sh"
+           CANDIDATE="$(resolve_plugin_entrypoint "$PLUGIN_DIR" "$CMD" || true)"
+       fi
+       if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then
+           exec "$CANDIDATE" "$@"
+       fi
+   fi
    ```
 
 ### 2.4 Inspection & Audit Behavior (`aapp plugins` & `aapp hooks`)
@@ -104,12 +134,16 @@ cmd_plugins_status() {
     if [ -d "$skills_dir/aapp-planid" ] && resolve_plugin_entrypoint "$skills_dir/aapp-planid" "aapp-planid" >/dev/null 2>&1; then
         local entry="$(resolve_plugin_entrypoint "$skills_dir/aapp-planid" "aapp-planid")"
         printf "    • %-16s [Team Plan ID Authority] -> %s (ACTIVE)\n" "aapp-planid" "${entry#$REPO_ROOT/}"
+    elif [ -d "$skills_dir/aapp-planid" ]; then
+        local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
+        printf "    • %-16s [Team Plan ID Authority] -> .agents/skills/aapp-planid/ (CONFIGURED BUT NOT EXECUTABLE)\n" "aapp-planid"
+        printf "      %-16s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
     elif [ -d "$skills_dir/aapp-planid.sample" ]; then
-        local counter="$(git config aapp.planId 2>/dev/null || echo 1)"
+        local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
         printf "    • %-16s [Team Plan ID Authority] -> .agents/skills/aapp-planid.sample/ (SAMPLE AVAILABLE)\n" "aapp-planid"
         printf "      %-16s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
     else
-        local counter="$(git config aapp.planId 2>/dev/null || echo 1)"
+        local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
         printf "    • %-16s [Team Plan ID Authority] -> NOT INSTALLED\n" "aapp-planid"
         printf "      %-16s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
     fi
@@ -118,6 +152,8 @@ cmd_plugins_status() {
     if [ -d "$skills_dir/hello-tool" ] && resolve_plugin_entrypoint "$skills_dir/hello-tool" "hello-tool" >/dev/null 2>&1; then
         local entry="$(resolve_plugin_entrypoint "$skills_dir/hello-tool" "hello-tool")"
         printf "    • %-16s [Custom CLI Showcase]   -> %s (ACTIVE)\n" "hello-tool" "${entry#$REPO_ROOT/}"
+    elif [ -d "$skills_dir/hello-tool" ]; then
+        printf "    • %-16s [Custom CLI Showcase]   -> .agents/skills/hello-tool/ (CONFIGURED BUT NOT EXECUTABLE)\n" "hello-tool"
     elif [ -d "$skills_dir/hello-tool.sample" ]; then
         printf "    • %-16s [Custom CLI Showcase]   -> .agents/skills/hello-tool.sample/ (SAMPLE AVAILABLE)\n" "hello-tool"
     fi
@@ -130,7 +166,7 @@ cmd_plugins_status() {
             [ ! -d "$sdir" ] && continue
             local sname="$(basename "$sdir")"
             case "$sname" in
-                aapp-*|aapp|plan|*.sample|node_modules|vendor) continue ;; # Skip core skills, standard points, and samples
+                aapp-*|aapp|plan|hello-tool|*.sample|node_modules|vendor) continue ;; # Skip core skills, standard points, and samples
             esac
             local entrypoint="$(resolve_plugin_entrypoint "$sdir" "$sname" || true)"
             if [ -n "$entrypoint" ]; then
@@ -146,8 +182,12 @@ cmd_plugins_status() {
 ```
 
 #### 2. Lifecycle Hooks Audit (`aapp hooks`)
-If a user accidentally registers a path ending in `.sample` in `registry.tsv`, `aapp hooks` reports an advisory warning:
-`⚠️ Warning: Registered hook points to an inert sample file (.sample)`
+In `cmd_hooks_status()` (`lib/cmd_hook.sh`), if a registered handler path ends in `.sample`, the audit reports a distinct badge `⚠️  INERT SAMPLE` and outputs an advisory notice indicating the sample must be copied to an active script before triggering:
+```bash
+if [[ "$hp" == *.sample ]]; then
+    status_badge="⚠️  INERT SAMPLE"
+fi
+```
 
 ### 2.5 Drop-in Mode Installation with `.sample` Suffix (`lib/cmd_init.sh`)
 
@@ -179,13 +219,13 @@ sync_samples() {
             local pname
             pname="$(basename "$pdir")"
             local dest=".agents/skills/${pname}.sample"
-            if [ ! -d "$dest" ]; then
-                mkdir -p "$dest"
-                cp -R "$pdir/." "$dest/"
-                # Ensure entrypoint is suffixed with .sample
-                if [ -f "$dest/run" ] && [ ! -f "$dest/run.sample" ]; then
-                    mv "$dest/run" "$dest/run.sample"
-                fi
+            # Overwrite sample directory on init/upgrade so reference templates refresh cleanly
+            rm -rf "$dest"
+            mkdir -p "$dest"
+            cp -R "$pdir/." "$dest/"
+            # Ensure entrypoint carries .sample suffix
+            if [ -f "$dest/run" ] && [ ! -f "$dest/run.sample" ]; then
+                mv "$dest/run" "$dest/run.sample"
             fi
         done
     fi
@@ -202,9 +242,7 @@ sync_samples() {
                 *.sample) ;;
                 *) dest_file="${dest_file}.sample" ;;
             esac
-            if [ ! -f "$dest_file" ]; then
-                cp "$hfile" "$dest_file"
-            fi
+            cp "$hfile" "$dest_file"
         done
     fi
 }
@@ -223,27 +261,30 @@ sync_samples() {
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
+> **Sequencing Dependency Note:** Implementation follows completion of Plan P-22 (`P22-config-backed-plan-id-allocation.md`), inheriting the relocation of `resolve_plugin_entrypoint` to `lib/hook_dispatcher.sh` and the baseline `examples/plugins/aapp-planid/` directory.
+
 ### Phase 1: Foundation & Test Setup
-- [ ] Task 1.1: Add assertions in `tests/install_test.sh` verifying that `examples/` is copied to `$SHARE_DIR/examples/` during `aapp install`.
-- [ ] Task 1.2: Add unit tests in `tests/hooks_test.sh` asserting that `resolve_plugin_entrypoint` ignores `run.sample` and `*.sample` files even if executable.
-- [ ] Task 1.3: Add test cases in `tests/init_test.sh` asserting drop-in initialization copies `.sample` assets into `.agents/skills/` before kit consumption.
+- [ ] Task 1.1: Add assertions in `tests/install_test.sh` verifying that `examples/` is copied to `$SHARE_DIR/examples/` during `aapp install`, and that `${SHARE_DIR:?}/examples` is cleaned before copying.
+- [ ] Task 1.2: Add unit tests in `tests/hooks_test.sh` asserting that `resolve_plugin_entrypoint` ignores `run.sample` and `*.sample` files even if marked executable.
+- [ ] Task 1.3: Add test cases in `tests/install_test.sh` (Section 2) asserting drop-in initialization copies `.sample` assets into `.agents/skills/` before kit consumption, and refreshes them on repeat `aapp init`.
 
 ### Phase 2: Engine Guards & Plugins Catalog Implementation
-- [ ] Task 2.1: Add the `.sample` exclusion filter to `resolve_plugin_entrypoint` in `lib/hook_dispatcher.sh` (or `lib/cmd_hook.sh`).
-- [ ] Task 2.2: Add the `.sample` subcommand block in the `aapp` switchboard.
-- [ ] Task 2.3: Update `cmd_plugins_status()` in `lib/cmd_hook.sh` with the hardcoded standard extension points catalog (`aapp-planid`, `hello-tool`), reporting Active, Sample Available, or Fallback status.
+- [ ] Task 2.1: Add the `.sample` exclusion filter to `resolve_plugin_entrypoint` in `lib/hook_dispatcher.sh`.
+- [ ] Task 2.2: Update the dynamic subcommand fallthrough in `aapp` to block `*.sample` and reuse `resolve_plugin_entrypoint` so unrenamed `run.sample` files cannot be executed via `aapp <cmd>`.
+- [ ] Task 2.3: Update `cmd_plugins_status()` in `lib/cmd_hook.sh` with the hardcoded standard extension points catalog (`aapp-planid`, `hello-tool`), accurately reporting Active, Sample Available, Configured But Not Executable, and Fallback status, while skipping `hello-tool` in the custom plugins loop.
+- [ ] Task 2.4: Update `cmd_hooks_status()` in `lib/cmd_hook.sh` to audit registered hooks and flag `*.sample` paths with `⚠️  INERT SAMPLE`.
 
 ### Phase 3: Global Installation & Packaging
-- [ ] Task 3.1: Update `lib/cmd_install.sh` to copy `examples/` to `$SHARE_DIR/examples/`.
-- [ ] Task 3.2: Strictly rename shipped source examples in `examples/` to use in-place `.sample` suffix (`examples/plugins/hello-tool/run.sample`, `examples/plugins/aapp-planid/run.sample`, `examples/hooks/fallback-ratchet.sh.sample`, `examples/hooks/on-done-sync.sh.sample`, `examples/hooks/registry.tsv.sample`).
+- [ ] Task 3.1: Update `lib/cmd_install.sh` to clean `${SHARE_DIR:?}/examples` on line 84 and copy `examples/` to `$SHARE_DIR/examples/`.
+- [ ] Task 3.2: Strictly rename shipped source examples in `examples/` to use in-place `.sample` suffix (`examples/plugins/hello-tool/run.sample`, `examples/plugins/aapp-planid/run.sample`, `examples/hooks/fallback-ratchet.sh.sample`, `examples/hooks/on-done-sync.sh.sample`), and author `examples/hooks/registry.tsv.sample`.
 
 ### Phase 4: Drop-In Initialization Seeding
-- [ ] Task 4.1: Implement `sync_samples()` in `lib/cmd_init.sh` to install `.sample` action plugins and hooks into `.agents/skills/` during drop-in mode.
+- [ ] Task 4.1: Implement `sync_samples()` in `lib/cmd_init.sh` to seed and refresh `.sample` action plugins and hooks into `.agents/skills/` during drop-in mode.
 - [ ] Task 4.2: Verify `is_safe_to_consume_kit_dir` cleanly consumes `./aapp-kit` after `sync_samples()` executes.
 
 ### Phase 5: Verification & Documentation
-- [ ] Task 5.1: Run all test suites (`tests/install_test.sh`, `tests/init_test.sh`, `tests/hooks_test.sh`); verify zero regressions.
-- [ ] Task 5.2: Document the `.sample` convention and drop-in sample seeding in `MANUAL.md` and `README.md`.
+- [ ] Task 5.1: Run all test suites (`tests/install_test.sh`, `tests/hooks_test.sh`); verify zero regressions.
+- [ ] Task 5.2: Document the `.sample` convention, directory copy activation workflow, and drop-in sample seeding in `MANUAL.md` and `README.md`.
 - [ ] Task 5.3: Update `CHANGELOG.md` and run syntax checks before committing.
 
 ---
@@ -252,20 +293,19 @@ sync_samples() {
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
-- [ ] `lib/cmd_install.sh` -> Copy `examples/` to `$SHARE_DIR/examples/` during `aapp install`.
-- [ ] `lib/cmd_init.sh` -> Implement `sync_samples()` to seed `.sample` assets into `.agents/skills/` during drop-in mode.
-- [ ] `tests/install_test.sh` -> Assert `examples/` copied to `$SHARE_DIR` on install.
-- [ ] `tests/init_test.sh` -> Assert drop-in initialization seeds `.sample` assets into `.agents/skills/`.
+- [ ] `lib/cmd_install.sh` -> Clean and copy `examples/` to `$SHARE_DIR/examples/` during `aapp install`.
+- [ ] `lib/cmd_init.sh` -> Implement `sync_samples()` to seed and refresh `.sample` assets into `.agents/skills/` during drop-in mode.
+- [ ] `tests/install_test.sh` -> Assert `examples/` copied to `$SHARE_DIR` on install, and drop-in initialization seeds `.sample` assets.
 - [ ] `lib/hook_dispatcher.sh` -> Filter `*.sample` in `resolve_plugin_entrypoint`.
-- [ ] `lib/cmd_hook.sh` -> Filter `*.sample`, hardcode standard plugin catalog, and audit sample hooks.
-- [ ] `aapp` -> Prevent `aapp <cmd>` fallthrough from executing `.sample` directories.
+- [ ] `lib/cmd_hook.sh` -> Filter `*.sample`, hardcode standard plugin catalog, and audit sample hooks with `⚠️  INERT SAMPLE`.
+- [ ] `aapp` -> Prevent `aapp <cmd>` fallthrough from executing `.sample` files or directories by delegating to `resolve_plugin_entrypoint`.
 - [ ] `tests/hooks_test.sh` -> Test `.sample` ignore behavior and `aapp plugins` catalog output.
 - [ ] `examples/plugins/hello-tool/run.sample` -> Renamed sample action plugin.
 - [ ] `examples/plugins/aapp-planid/run.sample` -> Shipped mock planid provider.
 - [ ] `examples/hooks/fallback-ratchet.sh.sample` -> Renamed sample hook.
 - [ ] `examples/hooks/on-done-sync.sh.sample` -> Renamed sample hook.
 - [ ] `examples/hooks/registry.tsv.sample` -> Reference 5-column TSV schema template.
-- [ ] `MANUAL.md` -> Document sample convention and installation assets.
+- [ ] `MANUAL.md` -> Document sample convention, activation workflow, and installation assets.
 - [ ] `README.md` -> Document reference samples.
 - [ ] `CHANGELOG.md` -> Record under Unreleased.
 
@@ -292,6 +332,14 @@ sync_samples() {
 * **2026-09-20 (amendment 1):** **Drop-in install with `.sample` suffix detailed on developer direction** — Added §2.5 specifying `sync_samples()` in `lib/cmd_init.sh` to extract mock plugins into `.agents/skills/<name>.sample/` and mock hooks into `.agents/skills/aapp-hooks/examples/*.sh.sample` prior to Phase 7 kit consumption. Added test tasks in Phase 1 & 4, added `lib/cmd_init.sh` and `tests/init_test.sh` to Target Files, and resolved Open Question 1.
 * **2026-09-20 (amendment 2):** **Standard plugin catalog hardcoded in `aapp plugins` on developer direction** — Because production adopter repositories do not retain the kit repo's internal `CODEMAP.md`, `cmd_plugins_status()` in `lib/cmd_hook.sh` hardcodes the standard extension points catalog (`aapp-planid`, `hello-tool`) to serve as the runtime source of truth. Added Task 2.3 and resolved Open Question 3.
 * **2026-09-20 (amendment 3):** **Strict in-place suffixing confirmed on developer direction** — Resolved Question 2 in favor of single in-place `*.sample` files across `examples/` (no dual shipping), eliminating duplication and maintenance drift. All three open questions are now resolved.
+* **2026-09-20 (amendment 4):** **Safety hardening, switchboard consolidation & edge-case corrections** —
+  1. Updated §2.1 to clean `${SHARE_DIR:?}/examples` on line 84 of `lib/cmd_install.sh` before copying.
+  2. Fixed §2.2 activation instructions to specify copying/renaming the `.agents/skills/<name>.sample` directory alongside the entrypoint, and authored the reference `examples/hooks/registry.tsv.sample` schema.
+  3. Closed dynamic switchboard execution loophole in `aapp` by delegating directly to `resolve_plugin_entrypoint`, blocking accidental execution of `run.sample` files.
+  4. Corrected `cmd_plugins_status()` in §2.4 to avoid double-printing `hello-tool` under custom plugins, use `git config --get aapp.planId`, and distinguish `CONFIGURED BUT NOT EXECUTABLE` from `NOT INSTALLED`.
+  5. Updated `sync_samples()` in §2.5 to overwrite `.sample` directories on `aapp init` so reference templates refresh on upgrades.
+  6. Corrected non-existent `tests/init_test.sh` references across Phase 1, Phase 5, and Target Files to `tests/install_test.sh`.
+  7. Formally recorded sequencing dependency following completion of Plan P-22.
 
 
 
