@@ -86,6 +86,15 @@
 * **Purpose:** Read-only four-pillar context recovery agent inspecting Shipped (`CHANGELOG.md`), Issues (`ISSUES.md`), Plans (`state_matrix.md`), and Pickup (`pickup.md`). Surfaces prominent pause banner and quarantined worktrees when paused.
 * **Anti-Wrapper Warning:** Must remain strictly non-destructive and idempotent.
 
+### 🪝 Lifecycle Hooks & Action Plugins Engine (`lib/hook_dispatcher.sh`, `lib/cmd_hook.sh`)
+* **Purpose:** Zero-dependency lifecycle hook dispatch, SHA256-hash-locked quality gating, and dynamic action plugin discovery.
+* **Key Functions:**
+  * `dispatch_hook(event, data_json, repo_root)` -> Dual Delivery dispatcher streaming JSON on `stdin` alongside exported `AAPP_*` environment variables with process watchdog timeout enforcement (exit 124).
+  * `resolve_plugin_entrypoint(pdir, name)` -> Extension-agnostic plugin resolution (`run`, `$name`, `scripts/run`, `scripts/$name`, pattern match) with `.sample` exclusion filtering.
+  * `cmd_plugins_status()` -> Authoritative CLI inspection command (`aapp plugins`) reporting status of hardcoded standard extension points (`aapp-planid`, `hello-tool`) and custom user plugins.
+  * `cmd_hooks_status()` / `cmd_hook_hash()` -> Validates executable bits and live SHA-256 integrity against `.agents/skills/aapp-hooks/registry.tsv`.
+* **Anti-Wrapper Warning:** Never bypass `registry.tsv` hash verification or run unhashed handlers in `mode=gate`.
+
 ### 🔧 Auxiliary Commands
 * `lib/cmd_develop.sh`: Symlinks local development checkout to global bin/share for live editing.
 * `lib/cmd_upgrade.sh`: Upgrades global installation in-place from upstream repository.
@@ -131,3 +140,21 @@
 2. **Never Edit Generated Artifacts Directly:** Never edit `.githooks/*` directly; edit `templates/` and run `aapp init` to synchronize.
 3. **Two-Lane Boundary:** Never merge bugs into `state_matrix.md` or raw feature blueprints into `issues_road_map.md`. Large bug fixes are promoted to blueprints via `digest ISSUE-00X`.
 4. **Relocation Invariant:** Active `ISSUES.md` holds ONLY unresolved items (`🟡`, `🔵`, `🟠`). Resolved issues belong exclusively in `.plans/done/000-issues-archive.md`.
+
+---
+
+## 🔌 5. Canonical Extension Points & Action Plugins Registry
+
+To prevent naming drift across development, blueprint authoring, and runtime tooling, standard plugin extension points are cataloged here. The runtime switchboard and `aapp plugins` inspect these standard names directly:
+
+| Plugin Name | Namespace / Role | Invocation Trigger | Input / Output Contract | Shipped Sample Source | Installed Target |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **`aapp-planid`** | Core Identity | `allocate_plan_id` (`lib/plan_resolver.sh`) | `AAPP_ACTION=allocate` → stdout `P-<int>` (or bare `<int>`) | `examples/plugins/aapp-planid/run.sample` | `.agents/skills/aapp-planid/run` |
+| **`aapp-review`** *(P-15)* | Code Quality | `/aapp-review` / CLI dispatch | Review Packet JSON on `stdin` → Markdown findings on `stdout` | `examples/plugins/aapp-review/run.sample` | `.agents/skills/aapp-review/run` |
+| **`hello-tool`** | Showcase / Demo | `aapp hello-tool` | CLI arguments → stdout greeting | `examples/plugins/hello-tool/run.sample` | `.agents/skills/hello-tool/run` |
+
+### 📋 Extension Point Rules
+1. **Verbatim Naming Invariant:** Shipped sample directories in `examples/plugins/<name>/` match the canonical installed plugin directory in `.agents/skills/<name>/` **verbatim**. No rename translation mapping is permitted.
+2. **The `.sample` Inactive Suffix:** Reference examples carry the `.sample` suffix (`run.sample`, `.sample/` directories). The execution engine and resolver strictly ignore `.sample` assets until an adopter explicitly activates them.
+3. **Runtime Source of Truth:** Because production adopter repositories do not retain `CODEMAP.md`, `cmd_plugins_status()` in `lib/cmd_hook.sh` hardcodes this catalog to report status (Active, Sample Available, or Fallback) directly in the CLI.
+
