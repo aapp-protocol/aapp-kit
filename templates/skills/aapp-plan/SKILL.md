@@ -18,13 +18,19 @@ Author durable, version-controlled architecture blueprints in `.plans/current/` 
 
 ## Execution Workflow
 
+### Scenario 0: Bare Invocation (`/aapp-plan` without arguments)
+If invoked without arguments:
+1. Check `.plans/state_matrix.md` for active incubator blueprints in review (max 10 candidates with overflow summary).
+2. Prompt the user: *"What feature, capability, or architectural refactor would you like to plan? (Or specify an existing plan like P-XX to inspect)"*
+3. Never dead-end or emit empty output.
+
 ### Scenario A: Inspecting an Existing Plan (`/aapp-plan P-<num>`)
 If the argument matches an existing Plan ID or blueprint slug:
 1. Inspect the blueprint in `.plans/current/`.
 2. Report status, declared Target Files, and unresolved Open Questions.
 3. Advise on next lifecycle action:
-   - If `📝 Refining` with resolved questions: run `/aapp-freeze <id>` or `/aapp-freeze-start <id>`.
-   - If `🔷 Frozen`: run `aapp start <id>` or `aapp active <id>`.
+   - If `📝 Refining` with resolved questions: run `/aapp-freeze <id>` (or CLI: `aapp freeze-start <id>`).
+   - If `🔷 Frozen`: run `/aapp-start <id>` (or CLI: `aapp start <id>`).
    - If `⚡ In Development`: report active progress and target boundaries.
 
 ### Scenario B: Planning a New Feature or Change (`/aapp-plan <idea>`)

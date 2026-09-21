@@ -308,8 +308,44 @@ fi
 
 echo ""
 echo "============================================================"
+# Evaluate Next Action Dynamically
+WORKTREES_SYNCED=0
+if [ -d ".plans" ] && [ -d ".agents" ] && [ -d ".githooks" ]; then
+    WORKTREES_SYNCED=1
+fi
+
+ACTIVE_PLAN_BUFFER="$(git rev-parse --git-path aapp_active_plan 2>/dev/null || true)"
+ACTIVE_PLAN_ID=""
+if [ -f "$ACTIVE_PLAN_BUFFER" ]; then
+    ACTIVE_PLAN_ID="$(cat "$ACTIVE_PLAN_BUFFER" 2>/dev/null | tr -d '[:space:]' || true)"
+fi
+
+FROZEN_PLAN=""
+INCUBATOR_PLAN=""
+if [ -n "$STATE_MATRIX" ]; then
+    FROZEN_PLAN="$(awk '/## 🔷 2\. Frozen/ {flag=1; next} /^## / {flag=0} flag' "$STATE_MATRIX" 2>/dev/null | grep -o -E 'P-[0-9]+' | head -n 1 || true)"
+    INCUBATOR_PLAN="$(awk '/## 🧠 1\. Human Thought/ {flag=1; next} /^## / {flag=0} flag' "$STATE_MATRIX" 2>/dev/null | grep -o -E 'P-[0-9]+' | head -n 1 || true)"
+fi
+
+FIRST_ISSUE=""
+if [ -n "$TOP_ROADMAP_ISSUES" ] && [ "$TOP_ROADMAP_ISSUES" != "none" ]; then
+    FIRST_ISSUE="$(echo "$TOP_ROADMAP_ISSUES" | cut -d',' -f1 | tr -d '[:space:]')"
+fi
+
 if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; }; then
     echo "➡️  Next Action: Project is PAUSED. Run 'aapp resume' to wake, or refine notes in .plans/ (pickup, issues, current)."
+elif [ "$WORKTREES_SYNCED" -ne 1 ]; then
+    echo "➡️  Next Action: Run 'aapp init' to complete AAPP worktree setup."
+elif [ "$PICKUP_COUNT" -gt 0 ]; then
+    echo "➡️  Next Action: Run '/aapp-digest <idea>' (or 'aapp digest <idea>') to work a queued pickup idea."
+elif [ -n "$ACTIVE_PLAN_ID" ]; then
+    echo "➡️  Next Action: In development on $ACTIVE_PLAN_ID. Run 'aapp active' to inspect boundaries."
+elif [ -n "$FROZEN_PLAN" ]; then
+    echo "➡️  Next Action: Activate frozen plan $FROZEN_PLAN: run '/aapp-start $FROZEN_PLAN' (or 'aapp start $FROZEN_PLAN')."
+elif [ -n "$FIRST_ISSUE" ]; then
+    echo "➡️  Next Action: Promote or resolve next open issue $FIRST_ISSUE, or inspect .plans/issues_road_map.md."
+elif [ -n "$INCUBATOR_PLAN" ]; then
+    echo "➡️  Next Action: Review incubator plan $INCUBATOR_PLAN, or run '/aapp-freeze $INCUBATOR_PLAN' when ready."
 else
-    echo "➡️  Next Action: Run 'aapp init' to sync worktrees, or use /aapp-digest <idea> in chat."
+    echo "➡️  Next Action: Run '/aapp-plan' to draft a new blueprint, or 'aapp help' to browse available commands."
 fi

@@ -696,12 +696,20 @@ sync_skills() {
     [ ! -d .agents/skills ] && mkdir -p .agents/skills
     [ ! -d .claude/skills ] && mkdir -p .claude/skills
 
+    # 1. Prune retired skills from worktree and Claude bridge
+    for retired in aapp-freeze-start aapp-active; do
+        rm -rf ".agents/skills/$retired"
+        rm -rf ".claude/skills/$retired"
+    done
+    rm -f ".agents/skills/aapp-hooks/SKILL.md"
+    rm -rf ".claude/skills/aapp-hooks"
+
     for skill_dir in "$templates_skills"/aapp-* "$templates_skills"/plan; do
         [ ! -d "$skill_dir" ] && continue
         local skill_name
         skill_name="$(basename "$skill_dir")"
 
-        # 1. Sync canonical engine skill into .agents/skills/ (preserving user registry.tsv)
+        # 2. Sync canonical engine skill/assets into .agents/skills/ (preserving user registry.tsv)
         local saved_reg=""
         if [ "$skill_name" = "aapp-hooks" ] && [ -f ".agents/skills/aapp-hooks/registry.tsv" ]; then
             saved_reg="$(mktemp)"
@@ -716,14 +724,16 @@ sync_skills() {
             mv "$saved_reg" ".agents/skills/aapp-hooks/registry.tsv"
         fi
 
-        # 2. Granular Claude Code symlink bridge with verified resolution
+        # 3. Granular Claude Code symlink bridge with verified resolution (only for skills declaring SKILL.md)
         rm -rf ".claude/skills/$skill_name"
-        ln -s "../../.agents/skills/$skill_name" ".claude/skills/$skill_name" 2>/dev/null || true
-        if [ -e ".claude/skills/$skill_name/SKILL.md" ]; then
-            : # Relative symlink established and verified
-        else
-            rm -rf ".claude/skills/$skill_name"
-            cp -R ".agents/skills/$skill_name" ".claude/skills/" # Cross-platform fallback copy
+        if [ -f "$skill_dir/SKILL.md" ]; then
+            ln -s "../../.agents/skills/$skill_name" ".claude/skills/$skill_name" 2>/dev/null || true
+            if [ -e ".claude/skills/$skill_name/SKILL.md" ]; then
+                : # Relative symlink established and verified
+            else
+                rm -rf ".claude/skills/$skill_name"
+                cp -R ".agents/skills/$skill_name" ".claude/skills/" # Cross-platform fallback copy
+            fi
         fi
     done
 }

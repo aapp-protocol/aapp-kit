@@ -564,75 +564,71 @@ Within minutes, both the developer and the agent have experienced the entire 4-p
 
 ### Command Reference (Universal Skills)
 
-AAPP lifecycle verbs are authored as **Universal AAPP Skills** in `.agents/skills/<name>/SKILL.md` and bridged to `.claude/skills/`. They adhere to standard YAML frontmatter, depth-1 filesystem invariants, and progressive disclosure:
+AAPP lifecycle verbs are authored as **Universal AAPP Skills** in `.agents/skills/<name>/SKILL.md` and bridged to `.claude/skills/`. They adhere to standard YAML frontmatter, depth-1 filesystem invariants, progressive disclosure, and the **No-Dead-End Invariant**:
+
+- **No-Dead-End Invariant**: Bare invocations without arguments must never output a dead-end error or fail silently. Skills infer context from active buffers or display candidate menus.
+- **Candidate Menu Ceiling**: To prevent chat window bloat and token waste, candidate lists displayed by skills are strictly capped at **10 items** (maximum 15), followed by a single concise overflow summary line (`... and N more [items] (inspect via ...)`).
+- **IDE Autocomplete Parity**: All retained skills declare `disable-model-invocation: false` in their frontmatter, ensuring complete visibility in AI IDE slash-command autocompletion (such as Antigravity IDE and Claude Code).
 
 #### `/aapp-status` (or `status`, `aapp status`, `/status`) — Context Recovery
-Executed when returning to a project or starting a session. Runs `./aapp status` (or inspects files directly) to report across the **Four Pillars**:
+Executed when returning to a project or starting a session. Inspects the workspace and reports across the **Four Pillars**:
 1. **Shipped**: Recent entries in `CHANGELOG.md` (`## [Unreleased]`).
 2. **Issues**: Top open issues from `ISSUES.md` and `.plans/issues_road_map.md`.
 3. **Plans**: Active incubator plans and greenlit tasks in `.plans/state_matrix.md`.
 4. **Pickup**: Unprocessed ideas in `.plans/pickup.md` with count.
+5. **Next Action**: State-aware next step evaluator dynamically pointing to in-development work, frozen backlog, unprocessed pickup ideas, or top issues.
 *Runs inline to preserve full conversation context.*
 
-#### `/aapp-digest <idea>` (or `digest <idea>`, `/digest`) — Targeted Idea Ingestion
-Ingests a single idea from `pickup.md` or raw text:
+#### `/aapp-digest [idea]` (or `digest [idea]`, `/digest`) — Targeted Idea Ingestion
+Ingests a single idea from `pickup.md`, open issues, or raw text:
+- **3-Tier Fallback (Bare Invocations)**:
+  1. *Pickup notes*: If `.plans/pickup.md` contains entries, lists them (up to 10) and prompts the user to select one.
+  2. *Open issues*: If pickup is empty, lists active issues from `.plans/ISSUES.md` (up to 10) for promotion.
+  3. *Inline prompt*: If both are empty, asks the user directly what feature, refactor, or bug to scaffold.
 - Routes to Issue Lane (`ISSUES.md`) or Plan Lane (`.plans/current/`).
 - Decides whether to **NEW** (scaffold fresh plan) or **AMEND** (fold into existing plan).
 - Cross-references `CODEMAP.md` and `ARCHITECTURE.md`.
-- Formulates `Open Questions` and leaves status in the Incubator (`🟣 Draft`).
+- Formulates `Open Questions` and leaves status in the Incubator (`🟣 Under Review`).
 *Runs inline to read chat notes and interactively query the developer.*
 
-#### `/aapp-freeze <plan>` (or `freeze <plan>`, `/freeze`) — Boundary Lock & Backlog Placement
+#### `/aapp-freeze [plan]` (or `freeze [plan]`, `/freeze`) — Boundary Lock & Backlog Placement
 Transitions a refined blueprint into the Greenlight Backlog:
-- Accepts shorthand references: Plan ID (`P-9`, `9`), slug (`guard-path`), or filename (`P9-guard-path-authorization.md`). Target must be explicitly named (empty query refused).
+- Accepts shorthand references: Plan ID (`P-9`, `9`), slug (`guard-path`), or filename (`P9-guard-path-authorization.md`).
+- **Bare Fallback**: If called without arguments, scans `.plans/current/` and presents a candidate menu of incubator blueprints (up to 10) ready for freeze.
 - Rejects issue references (`#9`) with helpful guidance to preserve lane separation.
 - Verifies all Open Questions are answered.
 - Validates explicit `### 📂 Target Files` and `### 🛑 Out of Bounds` (enforcing Pair 5 self-protection).
 - Changes status to `🔷 Frozen` (or `🔷 Ready for Execution`) and marks Blast Radius `LOCKED`.
 - **Design-Lock Immutability**: Once frozen, the plan's specification (`## 2. Technical Blueprint`) and allowlist (`## 4. Blast Radius`) become immutable. Pre-commit strictly refuses commits altering these sections. Execution progress (`## 3.` task checkboxes, `## 5.` open questions, and `## 6.` change log) remains writable.
 - **Unfreezing**: To revise a frozen design, revert the plan's status back to `📝 Refining` in an explicit commit before amending the blueprint.
-*Safety: Model invocation disabled (`disable-model-invocation: true`).*
 
-#### `/aapp-freeze-start <plan>` (or `aapp freeze-start <plan>`) — Atomic Workflow Accelerator
-Chains freeze verification and implementation activation in a single atomic operation:
-- Verifies all Open Questions are answered and Target Files are declared.
-- Verifies the Disjointness Activation Gate (no overlapping Target Files with any in-flight plan).
-- Transitions status directly to `⚡ In Development` and marks Blast Radius `LOCKED`.
-- Binds the local worktree active buffer (`$(git rev-parse --git-path aapp_active_plan)`).
-- Immediately unlocks code writes and commit-time enforcement for the plan's declared Target Files.
-
-#### `/aapp-start <plan>` (or `aapp start <plan>`) — Implementation Activation
+#### `/aapp-start [plan]` (or `start [plan]`) — Implementation Activation
 Activates an approved `🔷 Frozen` blueprint from the backlog into active implementation (`⚡ In Development`):
-- Checks that the plan is in `🔷 Frozen` status.
+- **Bare Fallback & Auto-Select**: If called without arguments, inspects `.plans/state_matrix.md`:
+  - If exactly **one** plan is `🔷 Frozen`, automatically selects and activates it.
+  - If multiple plans are frozen, presents a numbered candidate menu (up to 10) for selection.
+  - If no plans are frozen, explains that no backlog plans are ready and suggests candidate incubator plans to freeze.
 - Runs Disjointness Activation Gate against other in-flight plans in the workspace.
-- Transitions status to `⚡ In Development` and sets the local worktree active plan buffer.
+- Transitions status to `⚡ In Development` and sets the local worktree active plan buffer (`.git/aapp_active_plan`).
 
-#### `/aapp-active` (or `aapp active [id]`, `aapp active swap`, `aapp active clear`) — Execution Buffer Switchboard
-- `aapp active <id>`: Set local worktree active buffer (`.git/aapp_active_plan`) to `<id>`.
-- `aapp active`: Display current active plan, its boundaries, and status.
-- `aapp active swap`: Toggle between current and previously active plan buffer.
-- `aapp active clear`: Clear active buffer, reverting to auto-discovery mode.
-
-#### `aapp plan-status [id]` — Deterministic Plan Lane Inspector
-- `aapp plan-status`: Displays the plan lane matrix (counts and blueprints across In-Development, Backlog, and Incubator).
-- `aapp plan-status <id>`: Read-only inspection of `<id>` displaying status, blueprint path, target files, and open questions. Safe for scripts and automation.
-
-#### `/plan <idea>` & `/aapp-plan` — Canonical Blueprint Planning & IDE Bridging
-- **Canonical Planning Invariant**: Enforces that all implementation plans are saved as version-controlled blueprints in `.plans/current/P<num>-<slug>.md`, overriding ephemeral IDE scratchpads (`implementation_plan.md`).
-- **Two-Lane Routing**: Evaluates whether an idea is a bug (routes to `.plans/ISSUES.md` first) or a new capability (scaffolds blueprint).
-- **Bare `aapp plan [query]`**: Educational switchboard output in the shell guiding humans and agents to `plan-status`, `active`, and `/plan`.
-- **Tool Precedence & Coverage (Phase 0)**:
-  - *Claude Code*: Workspace skill `.claude/skills/plan/SKILL.md` takes direct precedence for `/plan`.
-  - *Antigravity IDE & Cursor*: Where built-in `/plan` modes exist, the Tier 1 `AGENTS.md` prose invariant catches natural language prompts and forces canonical blueprint generation; the Visible Artifact Standard confirms banking in `.plans/current/`.
-
-#### `/aapp-done <plan>` (or `done <plan>`, `/done`) — Master Archival Ledger & Completion
-Completes the lifecycle:
-- Accepts shorthand references: Plan ID (`P-9`, `9`), slug, or filename. Target must be explicitly named.
+#### `/aapp-done [plan]` (or `done [plan]`, `/done`) — Master Archival Ledger & Completion
+Completes the lifecycle and archives the plan:
+- Accepts shorthand references: Plan ID (`P-9`, `9`), slug, or filename.
+- **Bare Fallback & Active Inference**: If called without arguments, inspects the local active buffer (`.git/aapp_active_plan`). If an active plan is bound, infers it automatically; otherwise presents in-development plans (up to 10) for selection.
 - Moves blueprint: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
 - Appends a 1-line completion record to `.plans/done/000-archive-ledger.md` (recording Plan ID, plan link, target issue, verification commit, and repo-relative impact summary).
-- Removes the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items).
+- Removes the plan entry from `.plans/state_matrix.md`.
 - Verifies tests, linters, and `CHANGELOG.md` entry.
-*Safety: Model invocation disabled (`disable-model-invocation: true`).*
+
+#### `/aapp-pause [reason]` (or `pause [reason]`) — Plan Pause & Master Emergency Brake
+Pauses active implementation or quarantines in-flight uncommitted work across mounted worktrees:
+- When executed in agent chat, captures completed vs. remaining tasks, records an archival refinement entry, and transitions the blueprint to `⏸️ Paused`.
+- When invoked via CLI (`aapp pause [reason]`), quarantines uncommitted modifications into Git stashes and halts write operations.
+
+#### `/plan [idea]` & `/aapp-plan` — Canonical Blueprint Planning & IDE Bridging
+- **Canonical Planning Invariant**: Enforces that all implementation plans are saved as version-controlled blueprints in `.plans/current/P<num>-<slug>.md`, overriding ephemeral IDE scratchpads (`implementation_plan.md`).
+- **Two-Lane Routing**: Evaluates whether an idea is a bug (routes to `.plans/ISSUES.md` first) or a new capability (scaffolds blueprint).
+- **Bare Fallback**: When called without an idea, prompts the developer for the architectural goal or feature requirements.
 
 #### `/aapp-release <version>` (or `release <version>`, `/preflight`) — Release Runbook
 Executes `.plans/release/release_checklist.md`:
@@ -641,6 +637,17 @@ Executes `.plans/release/release_checklist.md`:
 - Validates `CHANGELOG.md` release staging.
 - Reports release posture assessment to the developer.
 *Execution: Runs in an isolated subagent/fork context (`context: fork`) to keep test logs out of primary chat.*
+
+---
+
+### Command Reference (CLI Fast Commands)
+
+Repetitive terminal operations and administrative switchboards are maintained as fast CLI commands:
+
+- **`aapp freeze-start <plan>`**: Atomically freezes an incubator plan and activates it into `⚡ In Development` in a single command.
+- **`aapp active [id]` / `aapp active swap` / `aapp active clear`**: Switchboard for inspecting or switching the local execution buffer (`.git/aapp_active_plan`).
+- **`aapp plan-status [id]`**: Read-only inspection of the plan lane matrix or a specific blueprint.
+- **`aapp hooks`**: Lifecycle hook diagnostic inspector and dispatcher.
 
 #### `/aapp-pause [reason]` (or `aapp pause [reason]`) — Master Emergency Brake ("Hibernate")
 Freezes codebase modifications and quarantees in-flight uncommitted work across all mounted worktrees into Git stashes:

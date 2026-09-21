@@ -800,7 +800,7 @@ report "clean codebase: .claude/ added to .gitignore on code branch" "PASS" "$go
 
 # Test 39: Fresh install synchronizes canonical .agents/skills/ and bridges .claude/skills/ via granular relative symlinks
 skills_ok=1
-for v in aapp-status aapp-digest aapp-freeze aapp-done aapp-release aapp-active aapp-plan plan; do
+for v in aapp-status aapp-digest aapp-freeze aapp-start aapp-done aapp-pause aapp-release aapp-plan plan; do
   [ -f "$PROJ_37/.agents/skills/$v/SKILL.md" ] || skills_ok=0
   [ -L "$PROJ_37/.claude/skills/$v" ] || skills_ok=0
   [ "$(readlink "$PROJ_37/.claude/skills/$v")" = "../../.agents/skills/$v" ] || skills_ok=0
@@ -848,16 +848,17 @@ report "clean upgrade: drops stale files on skill re-sync" "PASS" "$got"
 
 # Test 42: Drift control: all governance skills declare valid frontmatter, flags, and inline/fork contracts
 drift_ok=1
-for v in aapp-status aapp-digest aapp-freeze aapp-done aapp-release aapp-active aapp-plan plan; do
+for v in aapp-status aapp-digest aapp-freeze aapp-start aapp-done aapp-pause aapp-release aapp-plan plan; do
   skill_file="$KIT/templates/skills/$v/SKILL.md"
   [ -f "$skill_file" ] || { drift_ok=0; break; }
   grep -q "^name: $v$" "$skill_file" || drift_ok=0
   grep -q "^description: " "$skill_file" || drift_ok=0
+  grep -q "^disable-model-invocation: false$" "$skill_file" || drift_ok=0
 done
-grep -q "^disable-model-invocation: true$" "$KIT/templates/skills/aapp-freeze/SKILL.md" || drift_ok=0
-grep -q "^disable-model-invocation: true$" "$KIT/templates/skills/aapp-done/SKILL.md" || drift_ok=0
-grep -q "^disable-model-invocation: true$" "$KIT/templates/skills/aapp-release/SKILL.md" || drift_ok=0
-grep -q "^disable-model-invocation: true$" "$KIT/templates/skills/aapp-active/SKILL.md" || drift_ok=0
+# Retired skills must not declare SKILL.md
+[ -f "$KIT/templates/skills/aapp-freeze-start/SKILL.md" ] && drift_ok=0
+[ -f "$KIT/templates/skills/aapp-active/SKILL.md" ] && drift_ok=0
+[ -f "$KIT/templates/skills/aapp-hooks/SKILL.md" ] && drift_ok=0
 grep -q "^context: fork$" "$KIT/templates/skills/aapp-release/SKILL.md" || drift_ok=0
 grep -q "context: fork" "$KIT/templates/skills/aapp-digest/SKILL.md" && drift_ok=0
 grep -q "context: fork" "$KIT/templates/skills/aapp-status/SKILL.md" && drift_ok=0
@@ -982,6 +983,34 @@ else
   got="FAIL"
 fi
 report "pause skill schema: templates/skills/aapp-pause/SKILL.md has valid frontmatter" "PASS" "$got"
+
+# Test 52: aapp init prunes retired skills from .agents/skills and .claude/skills while keeping registry.tsv
+PROJ_52="$R/t52_proj"; make_dummy_project "$PROJ_52"
+make_kit_clone "$PROJ_52/aapp-kit"
+(cd "$PROJ_52" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+mkdir -p "$PROJ_52/.agents/skills/aapp-freeze-start" "$PROJ_52/.claude/skills/aapp-freeze-start"
+mkdir -p "$PROJ_52/.agents/skills/aapp-active" "$PROJ_52/.claude/skills/aapp-active"
+touch "$PROJ_52/.agents/skills/aapp-freeze-start/SKILL.md" "$PROJ_52/.claude/skills/aapp-freeze-start/SKILL.md"
+touch "$PROJ_52/.agents/skills/aapp-active/SKILL.md" "$PROJ_52/.claude/skills/aapp-active/SKILL.md"
+touch "$PROJ_52/.agents/skills/aapp-hooks/SKILL.md"
+mkdir -p "$PROJ_52/.claude/skills/aapp-hooks"
+touch "$PROJ_52/.claude/skills/aapp-hooks/SKILL.md"
+printf "on-sync\tcustom_handler.sh\tsha256:dummy\t10\tgate\n" > "$PROJ_52/.agents/skills/aapp-hooks/registry.tsv"
+make_kit_clone "$PROJ_52/aapp-kit"
+(cd "$PROJ_52" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+if [ ! -d "$PROJ_52/.agents/skills/aapp-freeze-start" ] && \
+   [ ! -d "$PROJ_52/.claude/skills/aapp-freeze-start" ] && \
+   [ ! -d "$PROJ_52/.agents/skills/aapp-active" ] && \
+   [ ! -d "$PROJ_52/.claude/skills/aapp-active" ] && \
+   [ ! -f "$PROJ_52/.agents/skills/aapp-hooks/SKILL.md" ] && \
+   [ ! -d "$PROJ_52/.claude/skills/aapp-hooks" ] && \
+   [ -f "$PROJ_52/.agents/skills/aapp-hooks/registry.tsv" ] && \
+   grep -q "custom_handler.sh" "$PROJ_52/.agents/skills/aapp-hooks/registry.tsv"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "skill pruning: aapp init removes retired skills and bridges while preserving registry.tsv" "PASS" "$got"
 
 echo ""
 echo "============================================================"

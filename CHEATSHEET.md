@@ -13,17 +13,17 @@ git worktrees — and stops an AI agent from editing files your plan never decla
 | :--- | :--- | :--- |
 | Day 1 in a new repo | `/aapp-digest Onboarding` | Scaffolds blueprint to map codebase into `CODEMAP.md`, `ARCHITECTURE.md`, `PROJECT.MD`. |
 | Just had an idea | jot it in `.plans/pickup.md` | Nothing yet. It's a queue, not a to-do list. |
-| Ready to think it through | `/aapp-digest <idea>` | One idea becomes a blueprint in `.plans/current/`. |
+| Ready to think it through | `/aapp-digest [idea]` | One idea becomes a blueprint in `.plans/current/`. Bare call falls back to pickup notes, open issues, or inline prompt. |
 | Blueprint needs work | edit the plan directly | Fill in §2 Technical Blueprint and §4 Blast Radius. |
-| Approved for backlog | `/aapp-freeze <plan>` | Locks the Blast Radius into `🔷 Frozen` backlog. |
-| Ready to write code | `/aapp-start <plan>` | Activates plan into `⚡ In Development` & binds buffer. |
-| One-step freeze & start | `/aapp-freeze-start <plan>` | Atomically freezes and activates implementation in one step. |
-| Buffer switching | `aapp active [id]` / `aapp active swap` | Display active bounds or switch execution buffer. |
-| Plan inspection | `aapp plan-status [id]` | Inspect plan lane matrix or specific blueprint. |
-| Fix shipped | `/aapp-done <plan>` | Moves to `.plans/done/`, appends the archive ledger. |
-| Stepping away or switching focus | `aapp pause [reason]` | Quarantines code per-worktree into stashes, engages circuit breaker. |
+| Approved for backlog | `/aapp-freeze [plan]` | Locks the Blast Radius into `🔷 Frozen` backlog. Bare call lists incubator candidates (max 10). |
+| Ready to write code | `/aapp-start [plan]` | Activates plan into `⚡ In Development` & binds buffer. Auto-selects if 1 candidate, else prompts menu. |
+| Fast freeze & start (CLI) | `aapp freeze-start <plan>` | Atomically freezes and activates implementation in one CLI command. |
+| Buffer switching (CLI) | `aapp active [id]` / `aapp active swap` | Display active bounds or switch execution buffer in shell. |
+| Plan inspection (CLI) | `aapp plan-status [id]` | Inspect plan lane matrix or specific blueprint. |
+| Fix shipped / Archival | `/aapp-done [plan]` | Moves to `.plans/done/`, appends ledger. Bare call infers active buffer or lists candidates. |
+| Stepping away or pausing plan | `/aapp-pause [reason]` or `aapp pause` | Pauses active plan or quarantines worktree stashes across repo. |
 | Resuming focus | `aapp resume` | Checks drift, restores stashes by SHA, verifies health, wakes repo. |
-| Coming back after days away | `/aapp-status` or `aapp status` | Briefing across all four pillars. Start here. |
+| Coming back after days away | `/aapp-status` or `aapp status` | Briefing across all four pillars with dynamic Next Action. Start here. |
 
 Plans are `P-<num>`, issues are `#<num>`. `/aapp-freeze P-9`, `/aapp-freeze 9`, and
 `/aapp-freeze guard-path` all resolve to the same blueprint.

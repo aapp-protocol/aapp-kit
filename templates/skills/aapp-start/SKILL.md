@@ -1,8 +1,8 @@
 ---
 name: aapp-start
 description: Activate a frozen blueprint into active implementation (⚡ In Development) and bind the local worktree pointer buffer.
-disable-model-invocation: true
-argument-hint: "<plan-id or plan-name>"
+disable-model-invocation: false
+argument-hint: "[plan-id or plan-name]"
 ---
 
 # AAPP Start (Activate Execution Context)
@@ -11,8 +11,14 @@ Activate an approved, frozen blueprint from the backlog into active implementati
 
 ## Three-Step Execution Procedure
 
-### Step 1: Disjointness Check & Activation
-1. **Resolve Blueprint:** Resolve `<plan>` using `resolve_plan_path <plan> start current` (or Plan ID / slug).
+### Step 1: Resolve Blueprint & Verify (No-Dead-End Invariant)
+1. **Resolve Blueprint:**
+   - **If `<plan>` is provided:** Resolve using `resolve_plan_path <plan> start current` (or match Plan ID `P-9`, `9`, slug, or filename).
+   - **If `<plan>` is omitted (Bare Invocation):**
+     - Scan `.plans/state_matrix.md` and `.plans/current/*.md` for plans in `🔷 Frozen` (or `🔷 Ready for Execution`) status.
+     - **Exactly 1 Frozen Plan:** Automatically target it and notify the user: *"Targeting frozen plan P-XX (<slug>)..."*
+     - **Multiple Frozen Plans:** List candidate plans (max 10, with concise overflow summary line if >10) and ask the user which plan to activate.
+     - **Zero Frozen Plans:** Report: *"No frozen plans available in the Greenlight Zone. Incubator blueprints currently in review: [list up to 10]. Did you mean to freeze one first via /aapp-freeze <plan>?"* Never dead-end with a blank error.
 2. **Verify Status:** Verify that the blueprint is in `🔷 Frozen` (or `🔷 Ready for Execution`) status.
 3. **Disjointness Activation Gate:** Ensure no other plan currently in `⚡ In Development` in the same workspace shares overlapping Target Files.
 4. **Transition Header:** Update plan header:
