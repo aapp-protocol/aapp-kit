@@ -14,6 +14,16 @@ This file provides high-level project staging, task batches, and long-term miles
 
 ---
 
+## 📚 Documentation Conventions & Locations
+*Define where and how user-facing and technical documentation is maintained for this project so agents know exactly where to record behavior changes.*
+
+- **User & Operator Manuals**: [e.g. `MANUAL.md`, `README.md`, or `docs/user-guide/`]
+- **API & Developer Reference**: [e.g. `docs/api/`, `openapi.yaml`, or code-level docstrings]
+- **Documentation Style & Format**: [e.g. Diátaxis framework, standard Markdown, MkDocs, VitePress]
+- **Update Triggers**: Any implementation that introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows must update the documentation locations specified above.
+
+---
+
 ## 🔮 Future Considerations & Backlog
 - [ ] Performance benchmarking under extreme stress loads.
 - [ ] Packaging and distribution release pipeline.
