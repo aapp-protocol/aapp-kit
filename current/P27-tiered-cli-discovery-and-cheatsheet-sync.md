@@ -65,7 +65,7 @@ A zero-dependency TSV file conforming to AAPP's standard tabular conventions (ma
 
 ```tsv
 # verb	tier	standalone	description
-status	daily	yes	4-pillar context recovery briefing (Shipped, Issues, Plans, Pickup)
+status	daily	yes	4-pillar recovery briefing (or 'status short' for 1-line pulse)
 draft	daily	yes	Scaffold blueprint from template, stamp ID & date, register in matrix
 plan	daily	yes	Display educational planning switchboard or query blueprints
 freeze	daily	yes	Lock blueprint blast radius & design into frozen backlog spec
@@ -165,7 +165,7 @@ Implements `cmd_draft` in `lib/cmd_plan.sh` to remove clerical boilerplate for b
 
 | Command | Standalone CLI? | Role & Purpose |
 | :--- | :---: | :--- |
-| `aapp status` | **✅ Yes** | 4-pillar context recovery briefing (Shipped, Issues, Plans, Pickup) |
+| `aapp status [short]` | **✅ Yes** | 4-pillar context recovery briefing (or 'short' for 1-line remote pulse) |
 | `aapp draft <slug>` | **✅ Yes** | Scaffold blueprint from template, stamp ID & date, register in matrix |
 | `aapp freeze <id>` | **✅ Yes** | Lock blueprint blast radius & design into frozen backlog spec |
 | `aapp start <id>` | **✅ Yes** | Bind execution buffer & transition to In Development |
@@ -277,5 +277,6 @@ Add Test 59 and Test 60 to `tests/install_test.sh`:
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-09-21 (Refinement):** Noted `aapp status [short]` positional subcommand in manifest and cheatsheet daily loop table for remote reporting and quick backlog pulse.
 * **2026-09-21 (Refinement):** Refined P-27 to incorporate deterministic mechanical scaffolding (`aapp draft <slug>`), Standalone CLI capability indicator column in `lib/verbs.tsv` and `CHEATSHEET.md`, and conditional editor launch. Harmonized with P-23 pre/on/post timing taxonomy.
 * **2026-09-21:** Drafted initial canonical blueprint P-27 from Issue #75 analysis. Established 5-tier progressive disclosure model, canonical `lib/verbs.tsv` manifest, cheatsheet daily loop hierarchy, and automated 2-way parity tests.
