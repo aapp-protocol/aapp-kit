@@ -67,17 +67,26 @@ An audit of AAPP's Universal Skills layer revealed three structural usability an
 
 Every retained skill must adhere to the **No-Dead-End Invariant**: an invocation without arguments must never abort with an unhelpful error or blank output. It must actively inspect local workspace state, infer the target, or present a numbered candidate menu.
 
+#### Candidate Menu Conciseness & Ceiling Invariant (Max 10–15 Items)
+To protect agent context windows, eliminate chat bloat, and ensure candidate menus remain immediately scannable:
+- **Hard Display Ceiling**: When presenting lists of candidate targets (pickup notes, open issues, frozen plans, incubator blueprints), skills must render at most **10 items** (never exceeding a hard ceiling of 15).
+- **Concise Overflow Summary**: If additional candidates exist beyond the ceiling, the skill must append a single summary line rather than dumping an unbounded list:
+  ```text
+  ... and N more [plans/issues/ideas] (inspect via .plans/state_matrix.md or .plans/ISSUES.md)
+  ```
+- **Deterministic Priority Ordering**: Candidates are listed in canonical order (e.g., human priority order in `issues_road_map.md` for issues; matrix order for incubator plans).
+
 ```
 Bare Skill Invocation
    │
    ├── /aapp-digest (bare)
-   │     ├── pickup.md has entries? ──────> List entries & ask user to select
-   │     ├── ISSUES.md has open items? ───> List top open issues & offer promotion
+   │     ├── pickup.md has entries? ──────> List entries (max 10) & ask user to select
+   │     ├── ISSUES.md has open items? ───> List top open issues (max 10) & offer promotion
    │     └── both empty? ─────────────────> Prompt: "What idea or feature would you like to plan?"
    │
    ├── /aapp-start (bare)
    │     ├── exactly 1 frozen plan? ──────> Auto-select & confirm start: "Starting P-XX..."
-   │     ├── multiple frozen plans? ──────> List frozen candidates & ask user to select
+   │     ├── multiple frozen plans? ──────> List frozen candidates (max 10) & ask user to select
    │     └── 0 frozen plans? ─────────────> Report: "No frozen plans in state_matrix.md. Ready in Incubator: P-YY. Freeze first?"
    │
    ├── /aapp-done (bare)
@@ -86,7 +95,7 @@ Bare Skill Invocation
    │     └── multiple in development? ────> List in-development plans & ask user to select
    │
    └── /aapp-freeze (bare)
-         ├── incubator plans ready? ──────> List incubator candidates & ask user which to freeze
+         ├── incubator plans ready? ──────> List incubator candidates (max 10) & ask user which to freeze
          └── 0 incubator plans? ──────────> Report: "No incubator plans found in .plans/current/."
 ```
 
@@ -158,10 +167,10 @@ argument-hint: "<optional or required parameters>"
 - [ ] Task 2.2: Update `sync_skills()` in `lib/cmd_init.sh` to remove obsolete skill symlinks or directories in `.agents/skills/` and `.claude/skills/`.
 
 ### Phase 3: No-Dead-End Fallback Implementations
-- [ ] Task 3.1: Update `templates/skills/aapp-digest/SKILL.md` with the 3-tier fallback procedure (pickup entries -> open issues -> inline prompt) and `disable-model-invocation: false`.
-- [ ] Task 3.2: Update `templates/skills/aapp-start/SKILL.md` with candidate auto-selection / menu fallback and `disable-model-invocation: false`.
-- [ ] Task 3.3: Update `templates/skills/aapp-done/SKILL.md` with active buffer inference and candidate list fallback and `disable-model-invocation: false`.
-- [ ] Task 3.4: Update `templates/skills/aapp-freeze/SKILL.md`, `templates/skills/aapp-pause/SKILL.md`, `templates/skills/aapp-release/SKILL.md`, and `templates/skills/aapp-plan/SKILL.md` to ensure `disable-model-invocation: false` and actionable instructions.
+- [ ] Task 3.1: Update `templates/skills/aapp-digest/SKILL.md` with the 3-tier fallback procedure (pickup entries -> open issues -> inline prompt), 10-item candidate ceiling with concise overflow summary, and `disable-model-invocation: false`.
+- [ ] Task 3.2: Update `templates/skills/aapp-start/SKILL.md` with candidate auto-selection / menu fallback (max 10 items with overflow summary) and `disable-model-invocation: false`.
+- [ ] Task 3.3: Update `templates/skills/aapp-done/SKILL.md` with active buffer inference and candidate list fallback (max 10 items with overflow summary) and `disable-model-invocation: false`.
+- [ ] Task 3.4: Update `templates/skills/aapp-freeze/SKILL.md` (max 10 candidates with overflow summary), `templates/skills/aapp-pause/SKILL.md`, `templates/skills/aapp-release/SKILL.md`, and `templates/skills/aapp-plan/SKILL.md` to ensure `disable-model-invocation: false` and actionable instructions.
 
 ### Phase 4: Dynamic Status Footer
 - [ ] Task 4.1: Update `lib/cmd_status.sh` to compute `next_action` dynamically based on pickup items, open issues, and plan matrix states.
@@ -180,10 +189,10 @@ argument-hint: "<optional or required parameters>"
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
-- [ ] `templates/skills/aapp-digest/SKILL.md` -> Add 3-tier fallback logic and set `disable-model-invocation: false`.
-- [ ] `templates/skills/aapp-start/SKILL.md` -> Add candidate selection fallback and set `disable-model-invocation: false`.
-- [ ] `templates/skills/aapp-done/SKILL.md` -> Add active buffer inference and set `disable-model-invocation: false`.
-- [ ] `templates/skills/aapp-freeze/SKILL.md` -> Update fallback instructions and set `disable-model-invocation: false`.
+- [ ] `templates/skills/aapp-digest/SKILL.md` -> Add 3-tier fallback logic, 10-item ceiling, and set `disable-model-invocation: false`.
+- [ ] `templates/skills/aapp-start/SKILL.md` -> Add candidate selection fallback, 10-item ceiling, and set `disable-model-invocation: false`.
+- [ ] `templates/skills/aapp-done/SKILL.md` -> Add active buffer inference, 10-item ceiling, and set `disable-model-invocation: false`.
+- [ ] `templates/skills/aapp-freeze/SKILL.md` -> Update fallback instructions, 10-item ceiling, and set `disable-model-invocation: false`.
 - [ ] `templates/skills/aapp-pause/SKILL.md` -> Set `disable-model-invocation: false`.
 - [ ] `templates/skills/aapp-release/SKILL.md` -> Set `disable-model-invocation: false`.
 - [ ] `templates/skills/aapp-plan/SKILL.md` -> Set `disable-model-invocation: false`.
@@ -219,3 +228,4 @@ argument-hint: "<optional or required parameters>"
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
 * **2026-09-21:** Blueprint scaffolded on developer direction. Formulates Universal Skills pruning (retiring `aapp-hooks`, `aapp-freeze-start`, `aapp-active`), the No-Dead-End Invariant across retained skills, Antigravity IDE autocomplete parity (`disable-model-invocation: false`), and dynamic context recovery footer in `lib/cmd_status.sh`. Supersedes issues #70 and #72.
+* **2026-09-21 (refinement 1):** **Added Candidate Menu Ceiling & Overflow Invariant on developer direction** — Specified a strict display ceiling of 10 items (max 15) for all candidate menus (pickup notes, open issues, frozen plans, incubator blueprints), with a single concise overflow summary line (`... and N more [items] (inspect via ...)`) to prevent chat window bloat and token waste.
