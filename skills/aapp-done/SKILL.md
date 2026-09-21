@@ -1,8 +1,8 @@
 ---
 name: aapp-done
 description: Complete lifecycle and archive an implemented blueprint. Moves plan to done/, appends to archive ledger, and cleans active state matrix.
-disable-model-invocation: true
-argument-hint: "<plan-id or plan-name>"
+disable-model-invocation: false
+argument-hint: "[plan-id or plan-name]"
 ---
 
 # AAPP Done (Plan Completion & Archival)
@@ -11,8 +11,13 @@ Complete the implementation lifecycle and archive a finished blueprint.
 
 ## Four-Step Execution Procedure
 
-### Step 1: Resolve & Archive Blueprint File
-1. **Resolve Blueprint:** Resolve `<plan>` using `resolve_plan_path <plan> done current` (or match Plan ID `P-9`, `9`, slug, or filename). The target plan must be explicitly specified — bare `/aapp-done` without arguments is strictly refused.
+### Step 1: Resolve Blueprint File (No-Dead-End Invariant)
+1. **Resolve Blueprint:**
+   - **If `<plan>` is provided:** Resolve `<plan>` using `resolve_plan_path <plan> done current` (or match Plan ID `P-9`, `9`, slug, or filename).
+   - **If `<plan>` is omitted (Bare Invocation):**
+     - Inspect the active execution buffer: check `$(git rev-parse --git-path aapp_active_plan)`.
+     - **Active Buffer Present:** If an active plan is bound in `aapp_active_plan`, ask user for confirmation: *"Active plan in development is P-XX (<slug>). Mark as complete and archive to .plans/done/?"*
+     - **Buffer Empty / Multiple in Development:** Scan `.plans/current/*.md` for plans in `⚡ In Development` status. If exactly 1 exists, target it; if multiple, list candidates (max 10, with concise overflow summary line if >10) and ask which plan was completed; if 0, report: *"No plans currently in ⚡ In Development."* Never dead-end with a blank refusal.
 2. **Move File:** Move the implemented plan from `.plans/current/` to `.plans/done/`:
 ```bash
 mv ".plans/current/<plan>.md" ".plans/done/<plan>.md"

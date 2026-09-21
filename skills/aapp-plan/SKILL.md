@@ -18,13 +18,19 @@ Author durable, version-controlled architecture blueprints in `.plans/current/` 
 
 ## Execution Workflow
 
+### Scenario 0: Bare Invocation (`/aapp-plan` without arguments)
+If invoked without arguments:
+1. Check `.plans/state_matrix.md` for active incubator blueprints in review (max 10 candidates with overflow summary).
+2. Prompt the user: *"What feature, capability, or architectural refactor would you like to plan? (Or specify an existing plan like P-XX to inspect)"*
+3. Never dead-end or emit empty output.
+
 ### Scenario A: Inspecting an Existing Plan (`/aapp-plan P-<num>`)
 If the argument matches an existing Plan ID or blueprint slug:
 1. Inspect the blueprint in `.plans/current/`.
 2. Report status, declared Target Files, and unresolved Open Questions.
 3. Advise on next lifecycle action:
-   - If `📝 Refining` with resolved questions: run `/aapp-freeze <id>` or `/aapp-freeze-start <id>`.
-   - If `🔷 Frozen`: run `aapp start <id>` or `aapp active <id>`.
+   - If `📝 Refining` with resolved questions: run `/aapp-freeze <id>` (or CLI: `aapp freeze-start <id>`).
+   - If `🔷 Frozen`: run `/aapp-start <id>` (or CLI: `aapp start <id>`).
    - If `⚡ In Development`: report active progress and target boundaries.
 
 ### Scenario B: Planning a New Feature or Change (`/aapp-plan <idea>`)
@@ -38,7 +44,7 @@ If the argument is an idea, feature description, or instruction:
    - Scan `.plans/current/*.md`. If an active blueprint already covers this capability, amend it and log the change in Section 6.
 
 3. **Step 3: Scaffold Canonical Blueprint**:
-   - Allocate the next unpadded Plan ID (`get_next_plan_id`).
+   - Allocate the next unpadded Plan ID with `allocate_plan_id` (claims it and persists the increment). `get_next_plan_id` is a read-only peek and must not be used to claim an id.
    - Scaffold `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`.
    - Complete Technical Blueprint (§2), Implementation Tasks (§3), proposed Blast Radius (§4), and Open Questions (§5).
    - Register in `.plans/state_matrix.md` under `## 🧠 1. Human Thought & Refinement (The Incubator)` with status 🟣 or 📝.

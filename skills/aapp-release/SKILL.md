@@ -1,7 +1,7 @@
 ---
 name: aapp-release
 description: Execute release pre-flight verification runbook. Verifies branch parity, executes test suites and linters, and checks changelog readiness.
-disable-model-invocation: true
+disable-model-invocation: false
 context: fork
 argument-hint: "[version]"
 ---

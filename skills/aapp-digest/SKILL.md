@@ -11,9 +11,14 @@ Take **one** idea or issue and work it toward an architectural plan. This is a t
 
 ## Six-Step Execution Procedure
 
-### Step 1: Resolve the Idea
-The argument `<idea>` may be raw text typed inline, a reference to an entry in `.plans/pickup.md`, or a file in `.plans/pickup/`.
-* If `<idea>` is omitted, read the open entries in `.plans/pickup.md` and **ask the user which one to digest**.
+### Step 1: Resolve the Idea (No-Dead-End Invariant)
+The argument `<idea>` may be raw text typed inline, a reference to an entry in `.plans/pickup.md`, or an issue identifier (e.g. `#74` or `ISSUE-74`).
+* **If `<idea>` is provided:** Proceed immediately to Step 2.
+* **If `<idea>` is omitted (Bare Invocation):**
+  1. **Check Pickup Queue (`.plans/pickup.md`):** If open unworked ideas exist, present up to 10 entries (with a concise overflow summary line if more exist) and ask the user which one to digest.
+  2. **Fallback to Issues Backlog (`.plans/ISSUES.md`):** If `pickup.md` is empty, inspect `.plans/ISSUES.md` (respecting the priority ordering in `issues_road_map.md`). Display the top open issues (max 10, with overflow summary) and ask: *"The pickup queue is empty. Would you like to promote one of these open issues to a blueprint?"*
+  3. **Fallback to Inline Prompt:** If both pickup and open issues are empty, prompt: *"No ideas or open issues queued. What feature, bugfix, or architectural refactor would you like to plan?"*
+* **Display Ceiling:** Render at most 10 candidates (never more than 15) to preserve context.
 * Never choose automatically for the user, and never process multiple items at once.
 
 ### Step 2: Route to a Lane
@@ -32,7 +37,7 @@ Scan `.plans/current/*.md` before drafting:
 
 ### Step 4a: NEW Plan (From Scratch)
 1. Cross-reference `.agents/CODEMAP.md` (or `CODEMAP.md`) and `ARCHITECTURE.md` to ensure the design extends existing modules rather than adding duplicate helpers.
-2. Allocate the next unpadded Plan ID using `get_next_plan_id` (scanning highest existing ID across `.plans/current/` and `.plans/done/` and incrementing by 1: `P-<num>`). Scaffold `.plans/current/P<num>-<slug>.md` from `.plans/plan-template.md`, populating `* **Plan ID:** P-<num>` in the header.
+2. Allocate the next unpadded Plan ID with `allocate_plan_id` (`lib/plan_resolver.sh`), which claims the id from the `aapp.planId` counter and persists the increment. Do **not** derive an id by scanning filenames. Use `get_next_plan_id` only to *display* the next id — it is a read-only peek and claims nothing. Scaffold `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`, populating `* **Plan ID:** P-<num>` in the header.
 3. Fill in *Context & Architectural Goal*, *Technical Blueprint*, and *Implementation Steps & Execution Checklist*.
 4. Propose a Blast Radius (`### 📂 Target Files` and `### 🛑 Out of Bounds`). Mark it **PROPOSED** — it is not locked and confers no code execution rights. Ensure no files matching Guard Section 2 self-protection are placed in Target Files (enforced by Pair 5).
 5. Record every unresolved technical decision in `## ❓ 5. Open Questions`.

@@ -1,7 +1,7 @@
 ---
 name: aapp-pause
 description: Engage the project emergency brake, quarantine in-flight work per-worktree into stashes, inspect pause state, or resume normal velocity.
-disable-model-invocation: true
+disable-model-invocation: false
 argument-hint: "[resume | inspect | <reason>]"
 ---
 
