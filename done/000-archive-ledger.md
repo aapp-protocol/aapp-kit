@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-21 | `P-29` | [`P29-universal-skills-pruning-and-fallback-invariants.md`](P29-universal-skills-pruning-and-fallback-invariants.md) | None | `cb28208` |  |
 | 2026-09-20 | `P-22` | [`P22-config-backed-plan-id-allocation.md`](P22-config-backed-plan-id-allocation.md) | `#69` | `f4be7cd` | Config-backed monotonic Plan ID allocation (`aapp.planId`) replacing the three-tier filename/header/ledger scan; read-only `get_next_plan_id` peek split from claiming `allocate_plan_id`, optional `aapp-planid` provider plugin with absence-only fallback, pure-POSIX init seeding that leaves a numeric counter untouched, and `resolve_plugin_entrypoint` relocated into `lib/hook_dispatcher.sh`; 339 passing checks. |
 | 2026-09-19 | `P-12` | [`P12-lifecycle-hooks.md`](P12-lifecycle-hooks.md) | None | `bcd0995` |  |
 | 2026-09-19 | `P-10` | [`P10-remote-sync.md`](P10-remote-sync.md) | Milestone v1.1.0 (Remote Worktree Automation) | `362d522` | Automated remote synchronization for orphan worktrees (aapp push, pull, sync), three-tier strategy resolution, pre-flight atomic cleanliness checks, and --ff-only safety; 305 passing tests. |
