@@ -156,32 +156,32 @@ argument-hint: "<optional or required parameters>"
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Test Setup & Drift Assertions
-- [ ] Task 1.1: Update `tests/install_test.sh` (Test 42 / skill drift control) to expect the pruned list of 8 retained skills instead of 12.
-- [ ] Task 1.2: Add assertions in `tests/install_test.sh` verifying all retained skills have `disable-model-invocation: false`.
+- [x] Task 1.1: Update `tests/install_test.sh` (Test 42 / skill drift control) to expect the pruned list of 8 retained skills instead of 12.
+- [x] Task 1.2: Add assertions in `tests/install_test.sh` verifying all retained skills have `disable-model-invocation: false`.
 
 ### Phase 2: Skill Inventory Pruning
-- [ ] Task 2.1: Remove retired skill directories from `templates/skills/`:
+- [x] Task 2.1: Remove retired skill directories from `templates/skills/`:
   - Delete `templates/skills/aapp-hooks/`
   - Delete `templates/skills/aapp-freeze-start/`
   - Delete `templates/skills/aapp-active/`
-- [ ] Task 2.2: Update `sync_skills()` in `lib/cmd_init.sh` to remove obsolete skill symlinks or directories in `.agents/skills/` and `.claude/skills/`.
+- [x] Task 2.2: Update `sync_skills()` in `lib/cmd_init.sh` to remove obsolete skill symlinks or directories in `.agents/skills/` and `.claude/skills/`.
 
 ### Phase 3: No-Dead-End Fallback Implementations
-- [ ] Task 3.1: Update `templates/skills/aapp-digest/SKILL.md` with the 3-tier fallback procedure (pickup entries -> open issues -> inline prompt), 10-item candidate ceiling with concise overflow summary, and `disable-model-invocation: false`.
-- [ ] Task 3.2: Update `templates/skills/aapp-start/SKILL.md` with candidate auto-selection / menu fallback (max 10 items with overflow summary) and `disable-model-invocation: false`.
-- [ ] Task 3.3: Update `templates/skills/aapp-done/SKILL.md` with active buffer inference and candidate list fallback (max 10 items with overflow summary) and `disable-model-invocation: false`.
-- [ ] Task 3.4: Update `templates/skills/aapp-freeze/SKILL.md` (max 10 candidates with overflow summary), `templates/skills/aapp-pause/SKILL.md`, `templates/skills/aapp-release/SKILL.md`, and `templates/skills/aapp-plan/SKILL.md` to ensure `disable-model-invocation: false` and actionable instructions.
+- [x] Task 3.1: Update `templates/skills/aapp-digest/SKILL.md` with the 3-tier fallback procedure (pickup entries -> open issues -> inline prompt), 10-item candidate ceiling with concise overflow summary, and `disable-model-invocation: false`.
+- [x] Task 3.2: Update `templates/skills/aapp-start/SKILL.md` with candidate auto-selection / menu fallback (max 10 items with overflow summary) and `disable-model-invocation: false`.
+- [x] Task 3.3: Update `templates/skills/aapp-done/SKILL.md` with active buffer inference and candidate list fallback (max 10 items with overflow summary) and `disable-model-invocation: false`.
+- [x] Task 3.4: Update `templates/skills/aapp-freeze/SKILL.md` (max 10 candidates with overflow summary), `templates/skills/aapp-pause/SKILL.md`, `templates/skills/aapp-release/SKILL.md`, and `templates/skills/aapp-plan/SKILL.md` to ensure `disable-model-invocation: false` and actionable instructions.
 
 ### Phase 4: Dynamic Status Footer
-- [ ] Task 4.1: Update `lib/cmd_status.sh` to compute `next_action` dynamically based on pickup items, open issues, and plan matrix states.
-- [ ] Task 4.2: Suppress the `"Run 'aapp init'"` advice in `lib/cmd_status.sh` when worktrees are already mounted and synced.
+- [x] Task 4.1: Update `lib/cmd_status.sh` to compute `next_action` dynamically based on pickup items, open issues, and plan matrix states.
+- [x] Task 4.2: Suppress the `"Run 'aapp init'"` advice in `lib/cmd_status.sh` when worktrees are already mounted and synced.
 
 ### Phase 5: Verification, Worktree Sync & Documentation
-- [ ] Task 5.1: Run `tests/install_test.sh` and verify all tests pass without drift errors.
-- [ ] Task 5.2: Resync local `.agents/skills/` and `.claude/skills/` to reflect the pruned, updated skills.
-- [ ] Task 5.3: Update `CHEATSHEET.md` and `MANUAL.md` to document the streamlined slash commands and fallback behaviors.
-- [ ] Task 5.4: Relocate resolved issues #70 and #72 in `.plans/ISSUES.md` upon completion.
-- [ ] Task 5.5: Update `CHANGELOG.md` and run syntax checks.
+- [x] Task 5.1: Run `tests/install_test.sh` and verify all tests pass without drift errors.
+- [x] Task 5.2: Resync local `.agents/skills/` and `.claude/skills/` to reflect the pruned, updated skills.
+- [x] Task 5.3: Update `CHEATSHEET.md` and `MANUAL.md` to document the streamlined slash commands and fallback behaviors.
+- [x] Task 5.4: Relocate resolved issues #70 and #72 in `.plans/ISSUES.md` upon completion.
+- [x] Task 5.5: Update `CHANGELOG.md` and run syntax checks.
 
 ---
 
