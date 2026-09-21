@@ -203,7 +203,7 @@ The agent must support and execute these shorthand workflow triggers immediately
 
   **Step 4a — NEW plan (from scratch):**
   1. Cross-reference `.agents/CODEMAP.md` (or `CODEMAP.md`) and `ARCHITECTURE.md` so the design extends existing modules instead of adding duplicate helpers or wrappers.
-  2. Allocate the next unpadded Plan ID (`get_next_plan_id`) and scaffold `.plans/current/P<num>-<slug>.md` from `.plans/plan-template.md`.
+  2. Allocate the next unpadded Plan ID with `allocate_plan_id` — it claims the id from the `aapp.planId` counter and persists the increment. `get_next_plan_id` is a read-only peek that claims nothing. Scaffold `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`.
   3. Fill in *Context & Architectural Goal*, *Technical Blueprint*, and *Implementation Steps & Execution Checklist*.
   4. Propose a Blast Radius. Mark it **PROPOSED** — it is not locked and confers no execution rights. Never declare files matching Guard Section 2 self-protection in Target Files (enforced by Pair 5).
   5. Write every unresolved decision into *Open Questions*. A first draft with no open questions is usually an under-examined draft.
