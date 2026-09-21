@@ -40,8 +40,8 @@ During an operational audit of developer onboarding and beginner ergonomics, an 
    - **Tier 3: Team Sync & Emergency Controls** (`push`, `pull`, `sync`, `pause`, `resume`).
    - **Tier 4: Extensibility & Automation (Hooks & Plugins)** (`hooks`, `hook-test`, `hook-run`, `hook-hash`, `plugins`).
    - **Tier 5: Attribution & Metadata (AI Switchboard)** (`ai-commit`, `ai-notes`, `ai-off`, `ai-credits`, `ai-status`, `ai-note`).
-2. **Canonical Verb Manifest (`lib/verbs.tsv`)**: Implement a zero-dependency, tab-separated catalog (`verb<TAB>tier<TAB>standalone<TAB>description`) as the single source of truth for CLI metadata, help generation, standalone readiness, and documentation testing.
-3. **Deterministic Mechanical Scaffolding (`aapp draft <slug>`)**: Provide a pure-CLI command that allocates the next monotonic Plan ID (`aapp.planId`), copies `templates/plan-template.md`, stamps headers, and registers the incubator row in `state_matrix.md`, giving humans and agents frictionless 1-command scaffolding.
+2. **Canonical Verb Manifest (`lib/verbs.tsv`)**: Implement a zero-dependency, tab-separated catalog (`verb[TAB]tier[TAB]standalone[TAB]description`) as the single source of truth for CLI metadata, help generation, standalone readiness, and documentation testing.
+3. **Deterministic Mechanical Scaffolding (`aapp draft [slug]`)**: Provide a pure-CLI command that allocates the next monotonic Plan ID (`aapp.planId`), copies `templates/plan-template.md`, stamps headers, and registers the incubator row in `state_matrix.md`, giving humans and agents frictionless 1-command scaffolding.
 4. **No-Dead-End Invariant in CLI Operations**: When lifecycle commands (`draft`, `start`, `done`, `freeze`) are invoked without arguments, they infer context from active buffers or present candidate menus capped at 10 items (max 15) with an overflow summary line.
 5. **Consolidated Extension Catalog & Timing Taxonomy**: Unify all hook events into a dedicated catalog structured by execution timing:
    - **Pre-Mutation Gates (`pre-*`)**: Run *before* disk mutation or Git commit; can hard abort (exit != 0).
@@ -154,19 +154,19 @@ Attribution & Metadata (AI Switchboard):
 ### 2.3 Deterministic Mechanical Scaffolding (`aapp draft [slug]`)
 
 Implements `cmd_draft` in `lib/cmd_plan.sh` to remove clerical boilerplate for both humans and AI agents:
-1. **Slug Sanitization**: Converts `<slug>` to lowercase alphanumeric hyphenated slug (`^[a-z0-9-]+$`).
-2. **Monotonic Plan ID Allocation**: Calls `allocate_plan_id` to reliably increment and claim next ID `<num>`.
-3. **Template Copy & Header Stamping**: Copies `templates/plan-template.md` to `.plans/current/P<num>-<slug>.md`, replacing:
+1. **Slug Sanitization**: Converts `[slug]` to lowercase alphanumeric hyphenated slug (`^[a-z0-9-]+$`).
+2. **Monotonic Plan ID Allocation**: Calls `allocate_plan_id` to reliably increment and claim next ID `[num]`.
+3. **Template Copy & Header Stamping**: Copies `templates/plan-template.md` to `.plans/current/P[num]-[slug].md`, replacing:
    - `[Feature or Refactor Name]` → Humanized title
    - `[YYYY-MM-DD]` → Current date (`$(date +%Y-%m-%d)`)
-   - `P-XX` → `P-<num>`
+   - `P-XX` → `P-[num]`
    - Status defaults to `🟣 Under Review`
 4. **State Matrix Registration**: Appends row to `.plans/state_matrix.md` under `## 🧠 1. Human Thought & Refinement (The Incubator)`:
-   `- 🟣 **P-<num>**: [\`P<num>-<slug>.md\`](current/P<num>-<slug>.md) — \`<title>\`.`
-5. **Git Commit in `.plans`**: Creates clean commit: `plan(draft): scaffold P-<num> <slug>`.
+   `- 🟣 **P-[num]**: \`P[num]-[slug].md\` — [title]`
+5. **Git Commit in `.plans`**: Creates clean commit: `plan(draft): scaffold P-[num] [slug]`.
 6. **Editor Launch**: If invoked in an interactive human terminal (`[ -t 0 ]`) and `$EDITOR` is set, prompts to open the new file.
 7. **No-Dead-End Invariant (Bare Invocations)**:
-   If invoked as bare `aapp draft` without `<slug>`:
+   If invoked as bare `aapp draft` without `[slug]`:
    - **Tier 1 (Pickup notes)**: Scans `.plans/pickup.md`. If unprocessed notes exist, prints up to 10 candidates (with overflow summary) and prompts the developer to select a note or enter a custom slug.
    - **Tier 2 (Open issues)**: If pickup is empty, scans `.plans/ISSUES.md`. If open issues exist, prints up to 10 candidates for promotion.
    - **Tier 3 (Interactive prompt)**: If both are empty, prompts for the feature/refactor title and converts it to a slug.
@@ -178,15 +178,12 @@ Implements `cmd_draft` in `lib/cmd_plan.sh` to remove clerical boilerplate for b
 
 1. **AI Universal Slash Commands (8 Core Workflows + Alias)**:
    - `/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-start`, `/aapp-done`, `/aapp-pause`, `/aapp-release`, `/aapp-plan` (and `/plan`).
-   - Defined in `.agents/skills/<name>/SKILL.md` with `disable-model-invocation: false` for IDE autocomplete.
+   - Defined in `.agents/skills/[name]/SKILL.md` with `disable-model-invocation: false` for IDE autocomplete.
    - Guided by the No-Dead-End Invariant and 10-item candidate ceiling.
 
 2. **Standalone Unix CLI (Terminal Layer)**:
    - Grouped into the 5 tiers defined by `lib/verbs.tsv`.
    - Core Daily Working Loop prominently displayed with standalone readiness indicators (`✅ Yes`):
-
-```markdown
-### ⚡ The Daily Working Loop (Run Anytime in Shell)
 
 | Command | Standalone CLI? | Role & Purpose |
 | :--- | :---: | :--- |
@@ -194,12 +191,11 @@ Implements `cmd_draft` in `lib/cmd_plan.sh` to remove clerical boilerplate for b
 | `aapp draft [slug]` | **✅ Yes** | Scaffold blueprint from template, stamp ID & date, register in matrix |
 | `aapp freeze [id]` | **✅ Yes** | Lock blueprint blast radius & design into frozen backlog spec |
 | `aapp start [id]` | **✅ Yes** | Bind execution buffer & transition to In Development |
-| `aapp freeze-start <id>` | **✅ Yes** | Atomically freeze blueprint and activate execution buffer |
+| `aapp freeze-start [id]` | **✅ Yes** | Atomically freeze blueprint and activate execution buffer |
 | `aapp done [id]` | **✅ Yes** | Move to `done/`, update archive ledger, clear execution buffer |
 | `aapp active [id]` | **✅ Yes** | Inspect, swap, or clear active plan execution buffer |
 | `aapp plan-status [id]` | **✅ Yes** | Inspect plan lane matrix or specific blueprint details |
 | `aapp plan [query]` | **✅ Yes** | Educational planning switchboard or query blueprints |
-```
 
 ### 2.5 Dedicated Extension Catalog: Timing Taxonomy & Action Plugins
 
@@ -211,8 +207,8 @@ Centralizes hook triggers and plugin contracts structured around execution timin
 | **Action Delegates** | `on-*` | **Delegating**: Executes or replaces the core operation (e.g. custom transport). | `on-sync`, `on-pickup`, `on-digest` |
 | **Post-Mutation Observers** | `post-*` | **Observing**: Runs *after* state is securely recorded. Broadcasts telemetry or triggers downstream sync. | `post-freeze`, `post-start`, `post-done`, `post-sync`, `post-pause`, `post-resume` |
 
-#### Canonical Action Plugins (`.agents/skills/<name>/run`)
-- **Location**: `.agents/skills/<name>/run` (extension-agnostic executable: binary, `.sh`, `.py`).
+#### Canonical Action Plugins (`.agents/skills/{name}/run`)
+- **Location**: `.agents/skills/[name]/run` (extension-agnostic executable: binary, `.sh`, `.py`).
 - **Standard Registry**:
   - `aapp-planid`: Central authority for monotonic Plan ID allocation in multi-contributor teams.
   - Future plugins (e.g. `aapp-review`, `aapp-notify`): Discovered via `aapp plugins`.
@@ -229,20 +225,20 @@ AAPP controls repository behavior via `git config aapp.*`. Plan 27 unifies all 1
 | Setting Key | Type / Enum | Default | Subsystem | Purpose & Behavior |
 | :--- | :--- | :--- | :--- | :--- |
 | `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
-| `aapp.aiAttribution` | `none` \| `commit` \| `notes` | `none` | AI Attribution | Attribution mode (emailless semantic trailers vs. git notes vs. human). |
-| `aapp.aiCredits` | `true` \| `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
+| `aapp.aiAttribution` | `none` / `commit` / `notes` | `none` | AI Attribution | Attribution mode (emailless semantic trailers vs. git notes vs. human). |
+| `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
 | `aapp.subjectMaxLen`| integer | `72` | Git Hooks | Numeric conciseness limit for commit subject lines (enforced in `aapp-commit-msg`). |
-| `aapp.protectStable`| `true` \| `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |
+| `aapp.protectStable`| `true` / `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |
 | `aapp.devBranch` | string | `develop` | Branch Guard | Target development branch for branch protection parity. |
 | `aapp.allowPath` | string (multi) | *(empty)* | Write Guard | External filesystem paths authorized for AI file writes (`blast-radius-guard`). |
 | `aapp.remote` | string | `origin` | Remote Sync | Git remote targeted by `aapp push`, `aapp pull`, and `aapp sync`. |
-| `aapp.syncStrategy` | `builtin` \| `hook` | `builtin` | Remote Sync | Transport engine for worktree sync (`builtin` git plumbing vs custom hook). |
+| `aapp.syncStrategy` | `builtin` / `hook` | `builtin` | Remote Sync | Transport engine for worktree sync (`builtin` git plumbing vs custom hook). |
 | `aapp.syncWorktrees`| string (list) | `plans agents githooks` | Remote Sync | Space-delimited worktrees synchronized across remotes. |
 | `aapp.pullStrategy` | `ff-only` | `ff-only` | Remote Sync | Non-negotiable fast-forward safety invariant for worktree updates. |
-| `aapp.allowLocalHooks`| `true` \| `false` | `true` | Hook Engine | Enables/disables local clone hook overrides (`git config aapp.hook.<event>`). |
+| `aapp.allowLocalHooks`| `true` / `false` | `true` | Hook Engine | Enables/disables local clone hook overrides (`git config aapp.hook.[event]`). |
 | `aapp.hookTimeout` | integer (seconds) | `10` | Hook Engine | Execution timeout ceiling for local notify hook handlers. |
 
-*(Note: The companion interactive CLI management verb `aapp config [list|get|set]` backed by `config.tsv` schema validation is explicitly decoupled into its own follow-up plan to keep P-27's implementation scope focused on discovery and cheatsheet parity).*
+*(Note: The companion interactive CLI management verb `aapp config [list/get/set]` backed by `config.tsv` schema validation is explicitly decoupled into its own follow-up plan to keep P-27's implementation scope focused on discovery and cheatsheet parity).*
 
 ### 2.7 Automated Two-Way Parity Test (`tests/install_test.sh`)
 
@@ -259,7 +255,7 @@ Add Test 59 and Test 60 to `tests/install_test.sh`:
   - [ ] Ensure `aapp install` and `aapp develop` copy/link `lib/verbs.tsv` to share directory.
 
 - [ ] **Phase 2: Deterministic CLI Scaffolding (`lib/cmd_plan.sh`)**
-  - [ ] Implement `cmd_draft <slug>` in `lib/cmd_plan.sh` automating template copy, date stamping, ID stamping, and matrix registration.
+  - [ ] Implement `cmd_draft [slug]` in `lib/cmd_plan.sh` automating template copy, date stamping, ID stamping, and matrix registration.
   - [ ] Wire `draft` verb in `aapp` dispatcher.
 
 - [ ] **Phase 3: Tiered Help Generation (`lib/cmd_help.sh`)**
@@ -334,5 +330,5 @@ Add Test 59 and Test 60 to `tests/install_test.sh`:
 * **2026-09-21 (Refinement 4):** Added Repository Configuration Reference matrix (`git config aapp.*`) across 13 core settings to `CHEATSHEET.md` and `MANUAL.md`. Decoupled `aapp config` CLI verb and `config.tsv` schema validation into a future dedicated plan.
 * **2026-09-21 (Refinement 3):** Harmonized P-27 with Plan P-29 (Universal Skills Pruning & No-Dead-End Invariant). Added `freeze-start`, `plan-status`, and `hook-run` to the canonical manifest (`lib/verbs.tsv`) and Tier 1 daily loop; documented the No-Dead-End Invariant and 10-item candidate ceiling across CLI commands (`draft`, `start`, `done`, `freeze`, `plan-status`); updated cheatsheet dual-workflow reference detailing both AI Universal Slash Commands (8 core skills) and Standalone Unix CLI verbs (37 commands).
 * **2026-09-21 (Refinement 2):** Noted `aapp status [short]` positional subcommand in manifest and cheatsheet daily loop table for remote reporting and quick backlog pulse.
-* **2026-09-21 (Refinement 1):** Refined P-27 to incorporate deterministic mechanical scaffolding (`aapp draft <slug>`), Standalone CLI capability indicator column in `lib/verbs.tsv` and `CHEATSHEET.md`, and conditional editor launch. Harmonized with P-23 pre/on/post timing taxonomy.
+* **2026-09-21 (Refinement 1):** Refined P-27 to incorporate deterministic mechanical scaffolding (`aapp draft [slug]`), Standalone CLI capability indicator column in `lib/verbs.tsv` and `CHEATSHEET.md`, and conditional editor launch. Harmonized with P-23 pre/on/post timing taxonomy.
 * **2026-09-21:** Drafted initial canonical blueprint P-27 from Issue #75 analysis. Established 5-tier progressive disclosure model, canonical `lib/verbs.tsv` manifest, cheatsheet daily loop hierarchy, and automated 2-way parity tests.
