@@ -155,31 +155,21 @@ case "$CMD" in
         ;;
     *)
         # Action Plugin Fallthrough (.agents/skills/$CMD/)
+        case "$CMD" in
+            *.sample) exit 127 ;; # Do not execute sample plugins directly
+        esac
         CWD_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
         if [ -n "$CWD_GIT_ROOT" ] && [ -d "$CWD_GIT_ROOT/.agents/skills/$CMD" ]; then
             PLUGIN_DIR="$CWD_GIT_ROOT/.agents/skills/$CMD"
             CANDIDATE=""
-            # 1. Canonical Extensionless
-            if [ -x "$PLUGIN_DIR/run" ]; then
-                CANDIDATE="$PLUGIN_DIR/run"
-            elif [ -x "$PLUGIN_DIR/$CMD" ]; then
-                CANDIDATE="$PLUGIN_DIR/$CMD"
-            # 2. Subdirectory Extensionless
-            elif [ -x "$PLUGIN_DIR/scripts/run" ]; then
-                CANDIDATE="$PLUGIN_DIR/scripts/run"
-            elif [ -x "$PLUGIN_DIR/scripts/$CMD" ]; then
-                CANDIDATE="$PLUGIN_DIR/scripts/$CMD"
-            else
-                # 3. Extension-Agnostic Pattern Search (Any Extension)
-                for f in "$PLUGIN_DIR/$CMD".* "$PLUGIN_DIR/run".* "$PLUGIN_DIR/scripts/$CMD".* "$PLUGIN_DIR/scripts/run".*; do
-                    if [ -x "$f" ]; then
-                        CANDIDATE="$f"
-                        break
-                    fi
-                done
+            if command -v resolve_plugin_entrypoint >/dev/null 2>&1; then
+                CANDIDATE="$(resolve_plugin_entrypoint "$PLUGIN_DIR" "$CMD" || true)"
+            elif [ -f "$AAPP_LIB/hook_dispatcher.sh" ]; then
+                # shellcheck source=/dev/null
+                source "$AAPP_LIB/hook_dispatcher.sh"
+                CANDIDATE="$(resolve_plugin_entrypoint "$PLUGIN_DIR" "$CMD" || true)"
             fi
-
-            if [ -n "$CANDIDATE" ]; then
+            if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then
                 exec "$CANDIDATE" "$@"
             fi
         fi

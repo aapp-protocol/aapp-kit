@@ -12,6 +12,7 @@ if [ -z "$REPO_ROOT" ]; then
     echo "❌ Error: Not inside a git repository." >&2
     exit 1
 fi
+AAPP_BASE="${AAPP_BASE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 # Source hook dispatcher engine
 DISPATCHER_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hook_dispatcher.sh"
@@ -28,22 +29,21 @@ print_lifecycle_events_catalog() {
     echo ""
     echo "  1. Pre-Mutation Gates (Gating, exit != 0 aborts before state change):"
     echo "     • pre-freeze    Runs before locking plan into frozen backlog spec"
-    echo "     • pre-start     Runs before activating execution buffer"
-    echo "     • pre-done      Runs before archiving plan to done/"
-    echo "     • pre-sync      Runs before executing worktree sync/pull"
+    echo "     • pre-start     Runs before activating plan into ⚡ In Development"
+    echo "     • pre-done      Runs before archiving plan to .plans/done/"
+    echo "     • pre-sync      Runs before synchronizing remote worktrees"
     echo ""
-    echo "  2. Action Delegates (Delegating, custom execution / transport):"
-    echo "     • on-sync       Custom remote synchronization transport"
-    echo "     • on-pickup     Custom idea capture/ingestion processor"
-    echo "     • on-digest     Custom plan digestion/scaffolding engine"
+    echo "  2. On-Mutation Observers (Synchronous, inherits environment/stdin):"
+    echo "     • on-freeze     Triggers immediately after plan freeze state mutation"
+    echo "     • on-start      Triggers immediately after plan activation into development"
+    echo "     • on-done       Triggers immediately after plan archive state mutation"
+    echo "     • on-sync       Triggers immediately after worktree git fetch/rebase"
     echo ""
-    echo "  3. Post-Mutation Observers (Observing, telemetry & downstream sync):"
-    echo "     • post-freeze   Broadcasts event after plan is frozen"
-    echo "     • post-start    Broadcasts event after execution buffer is bound"
-    echo "     • post-done     Broadcasts event after plan is archived"
-    echo "     • post-sync     Broadcasts event after remote sync completes"
-    echo "     • post-pause    Broadcasts event after emergency brake is engaged"
-    echo "     • post-resume   Broadcasts event after emergency brake is released"
+    echo "  3. Post-Mutation Actions (Non-blocking background or reporting):"
+    echo "     • post-freeze   Runs after plan freeze commits land"
+    echo "     • post-start    Runs after plan start commits land"
+    echo "     • post-done     Runs after plan done commits land"
+    echo "     • post-sync     Runs after worktree sync completes"
 }
 
 cmd_hooks_status() {
@@ -76,7 +76,9 @@ cmd_hooks_status() {
             fi
 
             local status_badge="✅ VALID"
-            if [ ! -f "$handler_path" ]; then
+            if [[ "$hp" == *.sample ]]; then
+                status_badge="⚠️  INERT SAMPLE"
+            elif [ ! -f "$handler_path" ]; then
                 status_badge="❌ MISSING"
             elif [ ! -x "$handler_path" ]; then
                 status_badge="❌ NOT EXECUTABLE"
@@ -121,7 +123,9 @@ cmd_hooks_status() {
             fi
 
             local badge="✅ VALID"
-            if [ ! -f "$hpath" ]; then
+            if [[ "$val" == *.sample ]]; then
+                badge="⚠️  INERT SAMPLE"
+            elif [ ! -f "$hpath" ]; then
                 badge="❌ MISSING"
             elif [ ! -x "$hpath" ]; then
                 badge="❌ NOT EXECUTABLE"
@@ -135,6 +139,29 @@ cmd_hooks_status() {
         echo ""
         print_lifecycle_events_catalog
     fi
+
+    # Available Samples Discovery (Zero Repo Clutter)
+    echo ""
+    if [ "${AAPP_IS_DROP_IN:-0}" -eq 0 ] && [ -d "$AAPP_BASE/examples/hooks" ]; then
+        local hook_sample_count=0
+        local hook_sample_names=""
+        for hfile in "$AAPP_BASE/examples/hooks"/*; do
+            [ ! -f "$hfile" ] && continue
+            hook_sample_count=$((hook_sample_count + 1))
+            hook_sample_names="${hook_sample_names:+${hook_sample_names}, }$(basename "$hfile")"
+        done
+        if [ "$hook_sample_count" -gt 0 ]; then
+            echo "  📦 Available Hook Samples ($hook_sample_count):"
+            echo "    • Location:  ${AAPP_BASE/#$HOME/\~}/examples/hooks/"
+            echo "    • Available: $hook_sample_names"
+            echo "    • To adopt:  cp \"$AAPP_BASE/examples/hooks/<file>\" .githooks/ && aapp hook-hash ..."
+        fi
+    else
+        echo "  📦 Reference Samples:"
+        echo "    • Documented in MANUAL.md and at:"
+        echo "      https://github.com/aapp-protocol/aapp-kit/tree/main/examples/hooks"
+        echo "    • Install globally to retain local samples: 'aapp install'"
+    fi
 }
 
 # ------------------------------------------------------------------------------
@@ -143,33 +170,80 @@ cmd_hooks_status() {
 
 cmd_plugins_status() {
     local skills_dir="$REPO_ROOT/.agents/skills"
-    echo "🔌 Installed Action Plugins (.agents/skills/)"
+    echo "🔌 AAPP Action Plugins & Extension Points (.agents/skills/)"
+    echo ""
 
-    if [ ! -d "$skills_dir" ]; then
-        echo "  ℹ️  No .agents/skills/ directory found."
-        return 0
+    # 1. Standard Extension Points (Hardcoded Runtime Authority)
+    echo "  Standard Extension Points:"
+    
+    # aapp-planid
+    if [ -d "$skills_dir/aapp-planid" ] && resolve_plugin_entrypoint "$skills_dir/aapp-planid" "aapp-planid" >/dev/null 2>&1; then
+        local entry="$(resolve_plugin_entrypoint "$skills_dir/aapp-planid" "aapp-planid")"
+        printf "    • %-16s [Team Plan ID Authority] -> %s (ACTIVE)\n" "aapp-planid" "${entry#$REPO_ROOT/}"
+    elif [ -d "$skills_dir/aapp-planid" ]; then
+        local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
+        printf "    • %-16s [Team Plan ID Authority] -> .agents/skills/aapp-planid/ (CONFIGURED BUT NOT EXECUTABLE)\n" "aapp-planid"
+        printf "      %-16s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
+    elif [ -d "$AAPP_BASE/examples/plugins/aapp-planid" ]; then
+        local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
+        printf "    • %-16s [Team Plan ID Authority] -> NOT INSTALLED (SAMPLE AVAILABLE in %s)\n" "aapp-planid" "${AAPP_BASE/#$HOME/\~}/examples/plugins/aapp-planid/"
+        printf "      %-16s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
+    else
+        local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
+        printf "    • %-16s [Team Plan ID Authority] -> NOT INSTALLED\n" "aapp-planid"
+        printf "      %-16s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
     fi
 
-    local count=0
-    for sdir in "$skills_dir"/*; do
-        [ ! -d "$sdir" ] && continue
-        local sname
-        sname="$(basename "$sdir")"
-        case "$sname" in
-            aapp-*|aapp|plan) continue ;; # Skip core protocol skills
-        esac
+    # hello-tool (showcase)
+    if [ -d "$skills_dir/hello-tool" ] && resolve_plugin_entrypoint "$skills_dir/hello-tool" "hello-tool" >/dev/null 2>&1; then
+        local entry="$(resolve_plugin_entrypoint "$skills_dir/hello-tool" "hello-tool")"
+        printf "    • %-16s [Custom CLI Showcase]   -> %s (ACTIVE)\n" "hello-tool" "${entry#$REPO_ROOT/}"
+    elif [ -d "$skills_dir/hello-tool" ]; then
+        printf "    • %-16s [Custom CLI Showcase]   -> .agents/skills/hello-tool/ (CONFIGURED BUT NOT EXECUTABLE)\n" "hello-tool"
+    fi
 
-        local entrypoint
-        entrypoint="$(resolve_plugin_entrypoint "$sdir" "$sname" || true)"
-        if [ -n "$entrypoint" ]; then
-            count=$((count + 1))
-            local rel_entry="${entrypoint#$REPO_ROOT/}"
-            printf "  • %-20s -> %s (executable)\n" "$sname" "$rel_entry"
+    echo ""
+    echo "  Custom Action Plugins:"
+    local custom_count=0
+    if [ -d "$skills_dir" ]; then
+        for sdir in "$skills_dir"/*; do
+            [ ! -d "$sdir" ] && continue
+            local sname="$(basename "$sdir")"
+            case "$sname" in
+                aapp-*|aapp|plan|hello-tool|*.sample|node_modules|vendor) continue ;; # Skip core skills, standard points, and samples
+            esac
+            local entrypoint="$(resolve_plugin_entrypoint "$sdir" "$sname" || true)"
+            if [ -n "$entrypoint" ]; then
+                custom_count=$((custom_count + 1))
+                printf "    • %-16s -> %s (executable via 'aapp %s')\n" "$sname" "${entrypoint#$REPO_ROOT/}" "$sname"
+            fi
+        done
+    fi
+    if [ "$custom_count" -eq 0 ]; then
+        echo "    ℹ️  No custom action plugins found."
+    fi
+
+    # 3. Available Samples Discovery (Zero Repo Clutter)
+    echo ""
+    if [ "${AAPP_IS_DROP_IN:-0}" -eq 0 ] && [ -d "$AAPP_BASE/examples/plugins" ]; then
+        local sample_count=0
+        local sample_names=""
+        for edir in "$AAPP_BASE/examples/plugins"/*; do
+            [ ! -d "$edir" ] && continue
+            sample_count=$((sample_count + 1))
+            sample_names="${sample_names:+${sample_names}, }$(basename "$edir")"
+        done
+        if [ "$sample_count" -gt 0 ]; then
+            echo "  📦 Available Plugin Samples ($sample_count):"
+            echo "    • Location:  ${AAPP_BASE/#$HOME/\~}/examples/plugins/"
+            echo "    • Available: $sample_names"
+            echo "    • To adopt:  cp -r \"$AAPP_BASE/examples/plugins/<name>\" \"$skills_dir/\""
         fi
-    done
-
-    if [ "$count" -eq 0 ]; then
-        echo "  ℹ️  No action plugins found in .agents/skills/."
+    else
+        echo "  📦 Reference Samples:"
+        echo "    • Documented in MANUAL.md and at:"
+        echo "      https://github.com/aapp-protocol/aapp-kit/tree/main/examples/plugins"
+        echo "    • Install globally to retain local samples: 'aapp install'"
     fi
 }
 

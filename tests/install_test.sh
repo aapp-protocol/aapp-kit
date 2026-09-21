@@ -22,6 +22,7 @@ make_kit_clone() {
   chmod +x "$target_dir/aapp"
   cp -r "$KIT/lib" "$KIT/templates" "$target_dir/"
   [ -d "$KIT/tests" ] && cp -r "$KIT/tests" "$target_dir/"
+  [ -d "$KIT/examples" ] && cp -r "$KIT/examples" "$target_dir/"
   (
     cd "$target_dir"
     git init -q .
@@ -1130,6 +1131,36 @@ else
   got="FAIL"
 fi
 report "aapp done: updates plan header status to Done and records archival in changelog" "PASS" "$got"
+
+# Test 61: aapp install copies examples/ to $SHARE_DIR/examples/
+PROJ_61="$R/t61_proj"; make_dummy_project "$PROJ_61"
+HOME_61="$R/t61_home"; mkdir -p "$HOME_61"
+INSTALLER_61="$R/t61_installer"; make_kit_clone "$INSTALLER_61"
+mkdir -p "$HOME_61/.local/share/aapp-kit/examples/stale"
+touch "$HOME_61/.local/share/aapp-kit/examples/stale/stale.txt"
+(cd "$INSTALLER_61" && HOME="$HOME_61" ./aapp install >/dev/null 2>&1)
+if [ -d "$HOME_61/.local/share/aapp-kit/examples" ] && \
+   [ -f "$HOME_61/.local/share/aapp-kit/examples/plugins/hello-tool/run.sample" ] && \
+   [ -f "$HOME_61/.local/share/aapp-kit/examples/hooks/registry.tsv.sample" ] && \
+   [ ! -d "$HOME_61/.local/share/aapp-kit/examples/stale" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp install: preserves examples/ in SHARE_DIR and cleans stale samples" "PASS" "$got"
+
+# Test 62: aapp init preserves zero-footprint isolation without .sample files
+PROJ_62="$R/t62_proj"; make_dummy_project "$PROJ_62"
+make_kit_clone "$PROJ_62/aapp-kit"
+(cd "$PROJ_62" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+if [ ! -d "$PROJ_62/.agents/skills/hello-tool" ] && \
+   [ ! -d "$PROJ_62/.agents/skills/aapp-planid" ] && \
+   ! compgen -G "$PROJ_62/.agents/skills/*.sample" >/dev/null; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "drop-in zero-footprint: aapp init leaves .agents/skills/ free of sample files" "PASS" "$got"
 
 echo ""
 echo "============================================================"

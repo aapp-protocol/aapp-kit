@@ -306,17 +306,11 @@ resolve_plugin_entrypoint() {
         echo "$pdir/scripts/$name"; return 0
     fi
 
-    # 3. Extension-Agnostic Pattern Search (Any Extension)
-    for f in "$pdir/$name".*; do
-        if [ -x "$f" ]; then echo "$f"; return 0; fi
-    done
-    for f in "$pdir/run".*; do
-        if [ -x "$f" ]; then echo "$f"; return 0; fi
-    done
-    for f in "$pdir/scripts/$name".*; do
-        if [ -x "$f" ]; then echo "$f"; return 0; fi
-    done
-    for f in "$pdir/scripts/run".*; do
+    # 3. Extension-Agnostic Pattern Search (skipping .sample and backup files)
+    for f in "$pdir/$name".* "$pdir/run".* "$pdir/scripts/$name".* "$pdir/scripts/run".*; do
+        case "$f" in
+            *.sample|*.sample.*|*.bak|*~) continue ;;
+        esac
         if [ -x "$f" ]; then echo "$f"; return 0; fi
     done
 

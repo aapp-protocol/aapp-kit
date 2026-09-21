@@ -1038,6 +1038,40 @@ AAPP wires 10 distinct lifecycle events across all planning and workflow operati
 
 ---
 
+### Reference Samples, The `.sample` Convention & CLI Discovery
+
+AAPP ships browsable, production-grade reference examples for action plugins and lifecycle hooks under `examples/` (`examples/plugins/`, `examples/hooks/`).
+
+#### 1. The `.sample` Invariant (Zero Accidental Execution)
+Mirroring Git's canonical `.git/hooks/*.sample` pattern, all reference scripts and provider mocks strictly carry the `.sample` extension (e.g. `run.sample`, `on-done-sync.sh.sample`).
+- **Resolver Filtering**: `resolve_plugin_entrypoint` and `aapp` switchboard explicitly ignore `*.sample` files, ensuring that reference samples cannot be executed by accident even if marked executable.
+- **Hook Registry Audit**: If a `.sample` script is registered in `registry.tsv`, `aapp hooks` audits it with an advisory `⚠️  INERT SAMPLE` badge.
+
+#### 2. Centralized Storage vs. Drop-in Zero-Footprint Isolation
+- **Global Installation (`aapp install`)**: Samples are preserved centrally in `~/.local/share/aapp-kit/examples/` (`$SHARE_DIR/examples/`) and refreshed on each upgrade.
+- **Drop-in Mode (`./aapp-kit/aapp init`)**: Drop-in mode maintains 100% self-containment. Samples are not extracted into `.agents/skills/` or written to `$SHARE_DIR`. The `.agents/` worktree remains free of inert sample mocks, protecting AI agent context windows from token bloat.
+
+#### 3. Dynamic CLI Discovery
+Run `aapp plugins` and `aapp hooks` to discover available samples:
+- `aapp plugins`: Inspects active plugins, reports standard extension points (`aapp-planid`, `hello-tool`), and displays available samples with copy commands.
+- `aapp hooks`: Displays registered lifecycle hooks, timing taxonomy, and available reference hook samples.
+
+#### 4. Adopting a Sample
+To activate a sample, copy it into place and strip the `.sample` suffix:
+```bash
+# Adopt custom action plugin:
+cp -r ~/.local/share/aapp-kit/examples/plugins/hello-tool .agents/skills/hello-tool
+mv .agents/skills/hello-tool/run.sample .agents/skills/hello-tool/run
+chmod +x .agents/skills/hello-tool/run
+
+# Adopt lifecycle hook:
+cp ~/.local/share/aapp-kit/examples/hooks/on-done-sync.sh.sample .githooks/on-done-sync.sh
+chmod +x .githooks/on-done-sync.sh
+aapp hook-hash .githooks/on-done-sync.sh on-done 10 notify >> .agents/skills/aapp-hooks/registry.tsv
+```
+
+---
+
 ### Plan ID Allocation (`aapp.planId`) & the `aapp-planid` Provider
 
 Plan IDs are **stored, not derived**. `aapp.planId` holds the *next* id to hand out, as a bare integer — the `P-` prefix is a namespace marker applied on output to separate a plan id (`P-22`) from an issue id (`#22`), and is never part of the stored value.
@@ -1066,7 +1100,13 @@ The provider is an **action plugin you supply**. Unlike every other `aapp-*` ski
 .agents/skills/aapp-planid/run          # canonical path -- this exact name
 ```
 
-A working reference lives at `examples/plugins/aapp-planid/`. It already carries the canonical name, so it can be copied into place without renaming. Because the path begins with `aapp-`, it is protected by Guard Section 2 — agents cannot rewrite your ID authority.
+A working reference lives at `examples/plugins/aapp-planid/run.sample` (stored centrally in `~/.local/share/aapp-kit/examples/plugins/aapp-planid/` for global installations). To adopt it, copy the directory into `.agents/skills/aapp-planid` and rename `run.sample` to `run`:
+```bash
+cp -r ~/.local/share/aapp-kit/examples/plugins/aapp-planid .agents/skills/
+mv .agents/skills/aapp-planid/run.sample .agents/skills/aapp-planid/run
+chmod +x .agents/skills/aapp-planid/run
+```
+Because the path begins with `aapp-`, it is protected by Guard Section 2 — agents cannot rewrite your ID authority.
 
 **Contract:**
 

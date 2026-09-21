@@ -34,6 +34,7 @@ make_kit_clone() {
   cp "$KIT/aapp" "$target_dir/"
   chmod +x "$target_dir/aapp"
   cp -r "$KIT/lib" "$KIT/templates" "$target_dir/"
+  [ -d "$KIT/examples" ] && cp -r "$KIT/examples" "$target_dir/"
   (
     cd "$target_dir" || exit 1
     git init -q .
@@ -388,6 +389,62 @@ else
   got="FAIL"
 fi
 report "aapp <plugin> executes arbitrary extension (.py) action plugin transparently" "PASS" "$got" "$fallthrough_py_out"
+
+# ------------------------------------------------------------------------------
+# Test 15: resolve_plugin_entrypoint ignores run.sample even if marked executable
+# ------------------------------------------------------------------------------
+mkdir -p "$PROJ_DIR/.agents/skills/sample-tool"
+cat << 'EOF' > "$PROJ_DIR/.agents/skills/sample-tool/run.sample"
+#!/bin/sh
+echo "SAMPLE_TOOL_SHOULD_NOT_RUN"
+EOF
+chmod +x "$PROJ_DIR/.agents/skills/sample-tool/run.sample"
+
+sample_entrypoint="$(resolve_plugin_entrypoint "$PROJ_DIR/.agents/skills/sample-tool" "sample-tool" 2>/dev/null || true)"
+if [ -z "$sample_entrypoint" ]; then
+  got="PASS"
+else
+  got="FAIL ($sample_entrypoint)"
+fi
+report "resolve_plugin_entrypoint ignores run.sample even if marked executable" "PASS" "$got"
+
+# ------------------------------------------------------------------------------
+# Test 16: aapp switchboard rejects execution of .sample plugins
+# ------------------------------------------------------------------------------
+sample_run_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" sample-tool 2>&1 || true)"
+if ! echo "$sample_run_out" | grep -q "SAMPLE_TOOL_SHOULD_NOT_RUN" && echo "$sample_run_out" | grep -q "Unknown command"; then
+  got="PASS"
+else
+  got="FAIL ($sample_run_out)"
+fi
+report "aapp switchboard rejects executing sample plugins directly" "PASS" "$got"
+
+# ------------------------------------------------------------------------------
+# Test 17: aapp hooks marks .sample registered handler as INERT SAMPLE
+# ------------------------------------------------------------------------------
+SAMPLE_HOOK_LINE="on-freeze${TAB}examples/hooks/fallback-ratchet.sh.sample${TAB}sha256:0000000000000000000000000000000000000000000000000000000000000000${TAB}10${TAB}gate"
+echo "$SAMPLE_HOOK_LINE" >> "$REG_FILE"
+hooks_sample_audit="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hooks 2>&1)"
+if echo "$hooks_sample_audit" | grep -q "INERT SAMPLE"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp hooks reports INERT SAMPLE badge for registered .sample hook" "PASS" "$got"
+
+# ------------------------------------------------------------------------------
+# Test 18: aapp plugins & aapp hooks show available sample discovery
+# ------------------------------------------------------------------------------
+plugins_discovery="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" plugins 2>&1)"
+hooks_discovery="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hooks 2>&1)"
+if echo "$plugins_discovery" | grep -q "Standard Extension Points:" && \
+   echo "$plugins_discovery" | grep -q "aapp-planid" && \
+   echo "$hooks_discovery" | grep -q "Reference Samples:"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp plugins & aapp hooks display standard extension points and sample discovery" "PASS" "$got"
 
 echo "============================================================"
 echo "📊 Results: $PASS passed, $FAIL failed"

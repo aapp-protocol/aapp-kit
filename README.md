@@ -442,7 +442,7 @@ AAPP includes 321 automated regression test cases verifying hook enforcement, re
 ## 13. Architectural Manual & Adopter Examples
  
 * **Archived Blueprints & Ledgers**: See [.plans/done/](.plans/done/) (e.g. `P10-remote-sync.md`, `P12-lifecycle-hooks.md`) for real-world, completed AAPP blueprints demonstrating Blast Radius declarations, technical decision logs, and verification matrices.
-* **Adopter Reference Examples**: See [examples/hooks/](examples/hooks/) (e.g. `on-done-sync.sh`, `fallback-ratchet.sh`) and [examples/plugins/](examples/plugins/) (e.g. `hello-tool/run`) for browsable, ready-to-use hooks and action plugins.
+* **Adopter Reference Examples**: See [examples/hooks/](examples/hooks/) (e.g. `on-done-sync.sh.sample`, `fallback-ratchet.sh.sample`) and [examples/plugins/](examples/plugins/) (e.g. `hello-tool/run.sample`) for browsable, ready-to-use hooks and action plugins, preserved centrally in `~/.local/share/aapp-kit/examples/` on global install.
 * **Comprehensive Technical Manual**: See [MANUAL.md](MANUAL.md) for low-level Git worktree plumbing, Two Lanes protocol, state machine lifecycle, multi-agent IDE integration, hook manager recipes, and operations.
 
 ---
