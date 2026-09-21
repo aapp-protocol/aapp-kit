@@ -16,7 +16,8 @@
 >    - *Non-blocking*: Log in `.plans/ISSUES.md` and continue your plan.
 >    - *Blocking & small*: Add file under `### 🚨 Emergency Hotfix Extensions` with a 1-sentence justification.
 >    - *Blocking & substantial*: Set status to `🟥 BLOCKED`, stop, and ask the user.
-> 5. **Architecture & Codemap Sync**: If your implementation introduces new files, functions, CLI verbs, or alters architectural boundaries, you **must** update `ARCHITECTURE.md` and `.agents/CODEMAP.md` (or repo-root `CODEMAP.md`). Both files are always-allowed workspace invariants.
+> 5. **User Documentation Sync (`MANUAL.md` / `README.md`)**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update `MANUAL.md` (and `README.md` if applicable). End users and adopters must never be left guessing about new or changed system behavior. Both files are always-allowed workspace invariants.
+> 6. **Architecture & Codemap Sync**: If your implementation introduces new files, functions, CLI verbs, or alters architectural boundaries, you **must** update `ARCHITECTURE.md` and `.agents/CODEMAP.md` (or repo-root `CODEMAP.md`). Both files are always-allowed workspace invariants.
 
 ---
 
