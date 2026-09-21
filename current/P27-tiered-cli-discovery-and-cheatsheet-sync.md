@@ -2,7 +2,7 @@
 * **Created:** 2026-09-21 | **Last Refined:** 2026-09-21
 * **Target Issue / Milestone:** #75 *(supersedes #75 upon completion)*
 * **Plan ID:** P-27
-* **Status:** 🟣 Under Review
+* **Status:** ⚡ In Development
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -326,6 +326,7 @@ Add Test 59 and Test 60 to `tests/install_test.sh`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-21:** Plan frozen and activated into ⚡ In Development via freeze-start.
 
 * **2026-09-21 (Refinement 4):** Added Repository Configuration Reference matrix (`git config aapp.*`) across 13 core settings to `CHEATSHEET.md` and `MANUAL.md`. Decoupled `aapp config` CLI verb and `config.tsv` schema validation into a future dedicated plan.
 * **2026-09-21 (Refinement 3):** Harmonized P-27 with Plan P-29 (Universal Skills Pruning & No-Dead-End Invariant). Added `freeze-start`, `plan-status`, and `hook-run` to the canonical manifest (`lib/verbs.tsv`) and Tier 1 daily loop; documented the No-Dead-End Invariant and 10-item candidate ceiling across CLI commands (`draft`, `start`, `done`, `freeze`, `plan-status`); updated cheatsheet dual-workflow reference detailing both AI Universal Slash Commands (8 core skills) and Standalone Unix CLI verbs (37 commands).
