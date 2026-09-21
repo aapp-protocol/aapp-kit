@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Overview Pulse & Short Status (`lib/cmd_status.sh`): Adds high-density backlog metrics to `aapp status` banner and supports positional `aapp status short` for remote reporting.
 
 ### Changed
+- Blueprint Status Taxonomy & Archival Authoritative Invariant (`templates/plan-template.md`, `templates/AGENTS.md`, `.agents/AGENTS.md`, `templates/skills/aapp-done/SKILL.md`): Adds `✅ Done` to the blueprint status enum and comment taxonomy, establishes the Archival Authoritative Invariant in `AGENTS.md` specifying that presence in `.plans/done/000-archive-ledger.md` or `.plans/done/` is terminal proof of completion, and updates `aapp-done` skill documentation.
 - Project Documentation Strategy & Plan Template Sync: Added Documentation Conventions section to `PROJECT.MD` and anchored plan template doc sync invariant to project conventions.
 - Strict Status Enum Clean Break: Purged legacy dual-syntax fallbacks (`🟠`, `🟢`, `🟡`) in favor of canonical status markers (`⚡ In Development`, `🔷 Frozen`, `📝 Refining`).
 - Color-Blind Friendly Plan Status Standard: Adopted distinct silhouettes across plan lifecycle (`🟣 Under Review`, `📝 Refining`, `🔷 Frozen`, `⚡ In Development`, `🟥 BLOCKED`).
