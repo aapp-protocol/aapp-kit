@@ -1110,6 +1110,27 @@ else
 fi
 report "cheatsheet parity: all verbs in lib/verbs.tsv appear in CHEATSHEET.md" "PASS" "$got"
 
+# Test 60: aapp done moves plan to done/ and updates status to Done
+PROJ_60="$R/t60_proj"; make_dummy_project "$PROJ_60"
+make_kit_clone "$PROJ_60/aapp-kit"
+(cd "$PROJ_60" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_60" && HOME="$TEST_HOME" "$KIT/aapp" draft archive-test >/dev/null 2>&1)
+plan_60="$(compgen -G "$PROJ_60/.plans/current/P*-archive-test.md" | head -n 1)"
+bname_60="$(basename "$plan_60")"
+sed -i 's/^### 📂 Target Files/### 📂 Target Files\n* `dummy.txt` - test file/' "$plan_60"
+(cd "$PROJ_60" && HOME="$TEST_HOME" "$KIT/aapp" freeze "$bname_60" >/dev/null 2>&1)
+(cd "$PROJ_60" && HOME="$TEST_HOME" "$KIT/aapp" start "$bname_60" >/dev/null 2>&1)
+(cd "$PROJ_60" && HOME="$TEST_HOME" "$KIT/aapp" done "$bname_60" >/dev/null 2>&1)
+done_60="$PROJ_60/.plans/done/$bname_60"
+if [ -f "$done_60" ] && \
+   grep -qE '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*[[:space:]]*✅[[:space:]]*Done' "$done_60" && \
+   grep -q "Plan implementation completed and archived to done/" "$done_60"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp done: updates plan header status to Done and records archival in changelog" "PASS" "$got"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"

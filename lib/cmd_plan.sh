@@ -570,9 +570,16 @@ cmd_done() {
     # Move to done/
     mv "$plan_file" "$done_file"
 
+    # Update plan status to Done
+    sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* ✅ Done/' "$done_file"
+
     local today commit_sha
     today="$(date +%Y-%m-%d)"
     commit_sha="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "0000000")"
+
+    if grep -q '^## 📦 6\. Change Log' "$done_file"; then
+        sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* Plan implementation completed and archived to done/." "$done_file"
+    fi
 
     # Append to 000-archive-ledger.md
     local ledger_file="$PLANS_DIR/done/000-archive-ledger.md"
