@@ -2,7 +2,7 @@
 * **Created:** 2026-09-21 | **Last Refined:** 2026-09-21
 * **Target Issue / Milestone:** #74 *(supersedes #74 upon completion)*
 * **Plan ID:** P-26
-* **Status:** 🟣 Under Review
+* **Status:** 📝 Refining
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -123,6 +123,7 @@ This closes the relative `core.hooksPath` loop: Git resolves `$wt_dir/.githooks`
 - [ ] **Phase 1: Shared Test Sandbox Harness (`tests/test_helpers.sh`)**
   - [ ] Implement `assert_test_sandbox()` fail-closed directory verification.
   - [ ] Implement `setup_test_git_identity()` with developer inheritance and CI fallback.
+  - [ ] Configure `AAPP_TEST_SANDBOX_STRICT=1` enforcement by default across all test fixtures.
   - [ ] Implement safe `make_sandboxed_kit_clone()` helper.
 
 - [ ] **Phase 2: Purge `T <t@t>` and Confinement Across Test Suites**
@@ -176,19 +177,20 @@ This closes the relative `core.hooksPath` loop: Git resolves `$wt_dir/.githooks`
 
 ---
 
-## ❓ 5. Open Questions
+## ❓ 5. Open Questions & Settled Decisions
 
 1. **GPG Signing in Test Clones**: Should test clones ever attempt GPG signing?
-   - *Recommendation*: No. All test fixtures must explicitly set `commit.gpgsign false` and `tag.gpgsign false` so tests run headlessly in all environments without triggering GPG pinentry prompts.
+   - **Decision**: **No (Adopted Recommendation)**. All test fixtures explicitly set `commit.gpgsign false` and `tag.gpgsign false` in disposable test sandboxes so test suites execute headlessly and non-interactively across all developer workstations and CI environments without triggering GPG pinentry prompts.
 2. **Worktree Symlink vs Direct Relative Traversal**: Should worktrees rely on symlinks (`.plans/.githooks -> ../.githooks`) or hook dispatchers navigating via `--git-common-dir`?
-   - *Recommendation*: Both in defense-in-depth:
-     - Symlinks ensure Git's native `core.hooksPath = .githooks` discovers the hook directory.
-     - `git-common-dir` inside the hook scripts ensures that once dispatched, sub-hooks (`aapp-commit-msg`, `aapp-pre-commit`) are always resolved from the primary kit root.
+   - **Decision**: **Both in Defense-in-Depth (Adopted Recommendation)**:
+     - Symlinks ensure Git's native `core.hooksPath = .githooks` discoverability mechanism succeeds from inside any linked worktree (`.plans`, `.agents`).
+     - `git rev-parse --git-common-dir` inside hook entrypoints ensures that once dispatched, sub-hooks (`aapp-commit-msg`, `aapp-pre-commit`) are reliably resolved from the primary project root regardless of execution context.
 3. **Test Sandbox Environment Variable**: Should we support `AAPP_TEST_SANDBOX_STRICT=1` to fail CI if any git config write lacks containment?
-   - *Recommendation*: Yes, default strict assertion in all test runs.
+   - **Decision**: **Yes (Adopted Recommendation)**. Strict sandbox verification is enforced by default in all test suites to immediately fail-closed upon any unconfined Git state mutations targeting the host workspace.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-09-21 (Refinement):** Plan refined and all 3 Open Questions settled per developer direction: confirmed strict GPG disabling in test sandboxes (`gpgsign false`), adopted dual defense-in-depth (`.githooks` symlinks + `--git-common-dir` hook dispatch), and enabled `AAPP_TEST_SANDBOX_STRICT=1` by default. Status updated to `📝 Refining`.
 * **2026-09-21:** Drafted initial canonical blueprint P-26. Established dynamic developer identity inheritance, fail-closed test sandbox assertion, `--git-common-dir` universal worktree hook resolution, and worktree `.githooks` symlink wiring.
