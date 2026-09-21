@@ -1,20 +1,22 @@
-# 🗺️ Plan: [Feature or Refactor Name]
+# 🗺️ Plan P-XX: [Feature or Refactor Name]
 * **Created:** [YYYY-MM-DD] | **Last Refined:** [YYYY-MM-DD]
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
-* **Status:** 🔴 Under Review
-<!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED
-     The pre-commit hook reads this line. A plan whose Status says BLOCKED grants no
-     commit rights at all — its Blast Radius stops admitting files until you clear it. -->
+* **Plan ID:** P-XX
+* **Status:** 🟣 Under Review
+<!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
+     The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
+     specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
+     A plan whose Status says BLOCKED grants no commit rights at all. -->
 <!-- * **Blocked On:** ISSUE-00X   <- add this line while BLOCKED, remove it when unblocked -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
 > 2. **Changelog Requirement**: Every commit touching source code **must** update `CHANGELOG.md` (or `.plans/CHANGELOG.md`). Run syntax checks and automated tests *before* updating the changelog.
-> 3. **Attribution Trailer**: Every commit you make must include your co-author trailer (e.g., `Co-authored-by: Antigravity <antigravity@google.com>` or `Claude <noreply@anthropic.com>`).
+> 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`). When operating in `commit` mode, append standard semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Mid-Execution Bugs**:
 >    - *Non-blocking*: Log in `.plans/ISSUES.md` and continue your plan.
 >    - *Blocking & small*: Add file under `### 🚨 Emergency Hotfix Extensions` with a 1-sentence justification.
->    - *Blocking & substantial*: Set status to `🚫 BLOCKED`, stop, and ask the user.
+>    - *Blocking & substantial*: Set status to `🟥 BLOCKED`, stop, and ask the user.
 > 5. **Architecture & Codemap Sync**: If your implementation introduces new files, functions, CLI verbs, or alters architectural boundaries, you **must** update `ARCHITECTURE.md` and `.agents/CODEMAP.md` (or repo-root `CODEMAP.md`). Both files are always-allowed workspace invariants.
 
 ---
@@ -26,6 +28,11 @@
 
 ## 2. Technical Blueprint
 *Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 🔄 Migration & Compatibility Strategy
+- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Fallback Inventory**: `None (Clean Break)`
+  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
