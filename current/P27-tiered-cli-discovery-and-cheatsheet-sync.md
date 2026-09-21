@@ -25,28 +25,30 @@
 
 ### Problem Statement
 During an operational audit of developer onboarding and beginner ergonomics, an acute discovery and usability gap was identified:
-1. **Rapid Surface Growth**: Over 12 days, AAPP's command surface expanded from 8 verbs to 36 verbs across core lifecycle, multi-worktree pause/resume, team sync, hooks, action plugins, and AI attribution.
-2. **Cognitive Overload in Discovery**: `aapp help` prints a flat, unprioritized catalog of 36 commands. A newcomer encountering 36 verbs alongside 93 minutes of comprehensive documentation (`MANUAL.md`, `README.md`, `AGENTS.md`) is paralyzed by choice, unable to discern which 6 verbs constitute the actual daily development loop.
-3. **Severe Cheatsheet Drift**: `CHEATSHEET.md`, intended as the one-screen quick-reference for beginners, only documents 16 of the 36 verbs (44% coverage). Critically, it completely omits the core plan lifecycle verbs (`freeze`, `start`, `done`, `plan`), failing at its primary onboarding purpose.
+1. **Rapid Surface Growth**: Over 12 days, AAPP's command surface expanded from 8 verbs to 37 verbs across core lifecycle, multi-worktree pause/resume, team sync, hooks, action plugins, and AI attribution.
+2. **Cognitive Overload in Discovery**: `aapp help` prints a flat, unprioritized catalog of 37 commands. A newcomer encountering 37 verbs alongside 93 minutes of comprehensive documentation (`MANUAL.md`, `README.md`, `AGENTS.md`) is paralyzed by choice, unable to discern which core verbs constitute the actual daily development loop.
+3. **Severe Cheatsheet Drift**: `CHEATSHEET.md`, intended as the one-screen quick-reference for beginners, only documented 16 of the verbs (44% coverage) and omitted core plan lifecycle verbs (`freeze`, `start`, `done`, `plan`), failing at its primary onboarding purpose.
 4. **Scattered Extension Points**: Lifecycle hook triggers and action plugin contracts are fragmented across distant narrative sections of `MANUAL.md`, leaving developers and agents without a central catalog of valid hook events or plugin signatures.
-5. **Absence of Mechanical Blueprint Scaffolding**: Creating a plan today relies heavily on conversational slash commands (`/plan`, `/aapp-digest`). Terminal CLI help prompts dead-end with *"Use in chat"*, forcing human developers working purely in bash to manually copy templates, format filenames, and edit matrices by hand.
-6. **Lack of Standalone CLI Readiness Signals**: Documentation fails to distinguish between commands that can run 100% standalone on headless/remote servers without an AI agent vs. those that are agent-assisted.
+5. **Absence of Mechanical Blueprint Scaffolding**: Creating a plan previously relied heavily on conversational slash commands (`/plan`, `/aapp-digest`). Terminal CLI help prompts dead-ended with *"Use in chat"*, forcing human developers working purely in bash to manually copy templates, format filenames, and edit matrices by hand.
+6. **Lack of Standalone CLI Readiness Signals**: Documentation failed to distinguish between commands that can run 100% standalone on headless/remote servers without an AI agent vs. those that are agent-assisted.
+7. **Synergy with Universal Skill Pruning (P-29)**: While Plan P-29 trimmed AI Universal Skills to 8 core cognitive workflows (`status`, `digest`, `freeze`, `start`, `done`, `pause`, `release`, `plan`) and established the No-Dead-End Invariant with a 10-item candidate ceiling, the CLI layer requires a matching canonical manifest (`lib/verbs.tsv`) and structured help switchboard to prevent terminal discovery fatigue.
 
 ### Architectural Goal
 1. **Tiered Progressive Disclosure in `aapp help`**: Group commands by ergonomic frequency and operational moment rather than flat catalogs:
-   - **Tier 1: Daily Working Loop** (`status`, `draft`, `freeze`, `start`, `done`, `active`) — the 6 core lifecycle verbs.
-   - **Tier 2: Setup & Lifecycle Management** (`init`, `install`, `upgrade`, `develop`, `uninstall`).
+   - **Tier 1: Daily Working Loop** (`status`, `draft`, `freeze`, `start`, `freeze-start`, `done`, `active`, `plan-status`, `plan`) — the core lifecycle verbs.
+   - **Tier 2: Setup & Lifecycle Management** (`init`, `install`, `upgrade`, `develop`, `uninstall`, `version`, `help`).
    - **Tier 3: Team Sync & Emergency Controls** (`push`, `pull`, `sync`, `pause`, `resume`).
-   - **Tier 4: Extensibility & Automation (Hooks & Plugins)** (`hooks`, `hook-test`, `hook-hash`, `plugins`).
+   - **Tier 4: Extensibility & Automation (Hooks & Plugins)** (`hooks`, `hook-test`, `hook-run`, `hook-hash`, `plugins`).
    - **Tier 5: Attribution & Metadata (AI Switchboard)** (`ai-commit`, `ai-notes`, `ai-off`, `ai-credits`, `ai-status`, `ai-note`).
 2. **Canonical Verb Manifest (`lib/verbs.tsv`)**: Implement a zero-dependency, tab-separated catalog (`verb<TAB>tier<TAB>standalone<TAB>description`) as the single source of truth for CLI metadata, help generation, standalone readiness, and documentation testing.
 3. **Deterministic Mechanical Scaffolding (`aapp draft <slug>`)**: Provide a pure-CLI command that allocates the next monotonic Plan ID (`aapp.planId`), copies `templates/plan-template.md`, stamps headers, and registers the incubator row in `state_matrix.md`, giving humans and agents frictionless 1-command scaffolding.
-4. **Consolidated Extension Catalog & Timing Taxonomy**: Unify all 10+ hook events into a dedicated catalog structured by execution timing:
+4. **No-Dead-End Invariant in CLI Operations**: When lifecycle commands (`draft`, `start`, `done`, `freeze`) are invoked without arguments, they infer context from active buffers or present candidate menus capped at 10 items (max 15) with an overflow summary line.
+5. **Consolidated Extension Catalog & Timing Taxonomy**: Unify all hook events into a dedicated catalog structured by execution timing:
    - **Pre-Mutation Gates (`pre-*`)**: Run *before* disk mutation or Git commit; can hard abort (exit != 0).
    - **Action Delegates (`on-*`)**: Execute or replace core operations (e.g. `on-sync` transport delegate).
    - **Post-Mutation Observers (`post-*`)**: Run *after* state is securely recorded.
-5. **Standalone CLI Transparency in `CHEATSHEET.md`**: Add an explicit readiness indicator column (`✅ CLI` vs `🤖 Hybrid` vs `🚧 In Progress`) so newcomers immediately see that AAPP is a first-class, standalone Unix developer tool.
-6. **Mechanical Cheatsheet Parity Enforcement**: Add automated test assertions in `tests/install_test.sh` verifying:
+6. **Standalone CLI Transparency in `CHEATSHEET.md`**: Add an explicit readiness indicator column (`✅ CLI` vs `🤖 Hybrid`) so newcomers immediately see that AAPP is a first-class, standalone Unix developer tool.
+7. **Mechanical Cheatsheet Parity Enforcement**: Add automated test assertions in `tests/install_test.sh` verifying:
    - (a) Every verb in `aapp`'s dispatcher `case` statement is declared in `lib/verbs.tsv`.
    - (b) Every verb in `lib/verbs.tsv` is documented in `CHEATSHEET.md`.
 
@@ -57,7 +59,7 @@ During an operational audit of developer onboarding and beginner ergonomics, an 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-- All 36 existing verbs remain callable with identical syntax and exit codes. `aapp draft` is added to complete the daily lifecycle.
+- All 37 existing CLI verbs remain callable with identical syntax and exit codes. `aapp draft` is added to complete the daily lifecycle.
 
 ### 2.1 Canonical Manifest Schema (`lib/verbs.tsv`)
 
@@ -68,8 +70,10 @@ A zero-dependency TSV file conforming to AAPP's standard tabular conventions (ma
 status	daily	yes	4-pillar recovery briefing (or 'status short' for 1-line pulse)
 draft	daily	yes	Scaffold blueprint from template, stamp ID & date, register in matrix
 plan	daily	yes	Display educational planning switchboard or query blueprints
+plan-status	daily	yes	Inspect plan lane matrix or specific blueprint details
 freeze	daily	yes	Lock blueprint blast radius & design into frozen backlog spec
 start	daily	yes	Transition frozen blueprint to in-development and bind buffer
+freeze-start	daily	yes	Atomically freeze blueprint and activate execution buffer
 done	daily	yes	Archive implemented blueprint to done/ and update archival ledger
 active	daily	yes	Display or manage active execution plan buffer (swap, clear)
 init	setup	yes	Initialize or update AAPP worktrees in current repository
@@ -77,6 +81,8 @@ install	setup	yes	Install AAPP globally into ~/.local/bin and configure PATH
 upgrade	setup	yes	Upgrade global AAPP binaries & templates from upstream
 develop	setup	yes	Link local development clone globally via symlinks
 uninstall	setup	yes	Remove global AAPP binaries and shared directories
+version	setup	yes	Show installed AAPP version (-v, --version)
+help	setup	yes	Show grouped command catalog (-h, --help)
 push	sync	yes	Push active worktrees (.plans, .agents, .githooks) to remote
 pull	sync	yes	Pull remote updates for active worktrees with non-negotiable --ff-only
 sync	sync	yes	Bi-directional sync: pull updates followed by push
@@ -84,6 +90,7 @@ pause	sync	yes	Emergency brake: quarantine in-flight changes into stashes
 resume	sync	yes	Disengage brake, verify commit drift, and restore stashes
 hooks	hooks	yes	Audit lifecycle hook registry and verify SHA256 integrity
 hook-test	hooks	yes	Dry-run test an event trigger with mock payload
+hook-run	hooks	yes	Execute a registered hook handler with specified payload
 hook-hash	hooks	yes	Compute SHA256 registration hash for hook script
 plugins	hooks	yes	Discover installed action plugins in .agents/skills/
 ai-commit	ai	yes	Switch to public, emailless semantic trailer attribution
@@ -92,8 +99,6 @@ ai-off	ai	yes	Disable AI attribution (pure human authoring)
 ai-credits	ai	yes	Generate or update AI Contributors block in README.md
 ai-status	ai	yes	Display current AI attribution mode and pending notes
 ai-note	ai	yes	Pre-stage customizable note buffer for next commit (--stage)
-version	setup	yes	Show installed AAPP version (-v, --version)
-help	setup	yes	Show grouped command catalog (-h, --help)
 ```
 
 ### 2.2 Tiered Help Rendering (`lib/cmd_help.sh`)
@@ -106,11 +111,13 @@ Asymmetric Agent Planning Protocol (AAPP v1.0.0)
 Daily Working Loop (Core):
   status        4-pillar context recovery briefing (Shipped, Issues, Plans, Pickup)
   draft         Scaffold blueprint from template, stamp ID & date, register in matrix
-  plan          Display educational planning switchboard or query blueprints
   freeze        Lock blueprint blast radius & design into frozen backlog spec
   start         Transition frozen blueprint to in-development and bind buffer
+  freeze-start  Atomically freeze blueprint and activate execution buffer
   done          Archive implemented blueprint to done/ and update archival ledger
   active        Display or manage active execution plan buffer (swap, clear)
+  plan-status   Inspect plan lane matrix or specific blueprint details
+  plan          Display educational planning switchboard or query blueprints
 
 Setup & Maintenance:
   init          Initialize or update AAPP worktrees in current repository
@@ -118,6 +125,8 @@ Setup & Maintenance:
   upgrade       Upgrade global AAPP binaries & templates from upstream
   develop       Link local development clone globally via symlinks
   uninstall     Remove global AAPP binaries and shared directories
+  version       Show installed AAPP version (-v, --version)
+  help          Show grouped command catalog (-h, --help)
 
 Team Sync & Emergency Controls:
   push          Push active worktrees (.plans, .agents, .githooks) to remote
@@ -129,6 +138,7 @@ Team Sync & Emergency Controls:
 Extensibility & Automation (Hooks & Plugins):
   hooks         Audit lifecycle hook registry and verify SHA256 integrity
   hook-test     Dry-run test an event trigger with mock payload
+  hook-run      Execute a registered hook handler with specified payload
   hook-hash     Compute SHA256 registration hash for hook script
   plugins       Discover installed action plugins in .agents/skills/
 
@@ -141,7 +151,7 @@ Attribution & Metadata (AI Switchboard):
   ai-note       Pre-stage customizable note buffer for next commit
 ```
 
-### 2.3 Deterministic Mechanical Scaffolding (`aapp draft <slug>`)
+### 2.3 Deterministic Mechanical Scaffolding (`aapp draft [slug]`)
 
 Implements `cmd_draft` in `lib/cmd_plan.sh` to remove clerical boilerplate for both humans and AI agents:
 1. **Slug Sanitization**: Converts `<slug>` to lowercase alphanumeric hyphenated slug (`^[a-z0-9-]+$`).
@@ -155,10 +165,25 @@ Implements `cmd_draft` in `lib/cmd_plan.sh` to remove clerical boilerplate for b
    `- 🟣 **P-<num>**: [\`P<num>-<slug>.md\`](current/P<num>-<slug>.md) — <title>.`
 5. **Git Commit in `.plans`**: Creates clean commit: `plan(draft): scaffold P-<num> <slug>`.
 6. **Editor Launch**: If invoked in an interactive human terminal (`[ -t 0 ]`) and `$EDITOR` is set, prompts to open the new file.
+7. **No-Dead-End Invariant (Bare Invocations)**:
+   If invoked as bare `aapp draft` without `<slug>`:
+   - **Tier 1 (Pickup notes)**: Scans `.plans/pickup.md`. If unprocessed notes exist, prints up to 10 candidates (with overflow summary) and prompts the developer to select a note or enter a custom slug.
+   - **Tier 2 (Open issues)**: If pickup is empty, scans `.plans/ISSUES.md`. If open issues exist, prints up to 10 candidates for promotion.
+   - **Tier 3 (Interactive prompt)**: If both are empty, prompts for the feature/refactor title and converts it to a slug.
+   - **Candidate Ceiling**: Never displays more than 10 candidates at once, appending `... and N more [items]` to keep terminal output clean.
 
-### 2.4 Cheatsheet Ergonomics & Standalone Readiness (`CHEATSHEET.md`)
+### 2.4 Cheatsheet Ergonomics & Dual-Workflow Clarity (`CHEATSHEET.md`)
 
-`CHEATSHEET.md` is reorganized to place the Daily Working Loop at the top of the card with an explicit **Standalone CLI** indicator:
+`CHEATSHEET.md` establishes unambiguous parity between the **Conversational AI Layer** and the **Standalone Terminal Layer**:
+
+1. **AI Universal Slash Commands (8 Core Workflows + Alias)**:
+   - `/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-start`, `/aapp-done`, `/aapp-pause`, `/aapp-release`, `/aapp-plan` (and `/plan`).
+   - Defined in `.agents/skills/<name>/SKILL.md` with `disable-model-invocation: false` for IDE autocomplete.
+   - Guided by the No-Dead-End Invariant and 10-item candidate ceiling.
+
+2. **Standalone Unix CLI (Terminal Layer)**:
+   - Grouped into the 5 tiers defined by `lib/verbs.tsv`.
+   - Core Daily Working Loop prominently displayed with standalone readiness indicators (`✅ Yes`):
 
 ```markdown
 ### ⚡ The Daily Working Loop (Run Anytime in Shell)
@@ -166,11 +191,14 @@ Implements `cmd_draft` in `lib/cmd_plan.sh` to remove clerical boilerplate for b
 | Command | Standalone CLI? | Role & Purpose |
 | :--- | :---: | :--- |
 | `aapp status [short]` | **✅ Yes** | 4-pillar context recovery briefing (or 'short' for 1-line remote pulse) |
-| `aapp draft <slug>` | **✅ Yes** | Scaffold blueprint from template, stamp ID & date, register in matrix |
-| `aapp freeze <id>` | **✅ Yes** | Lock blueprint blast radius & design into frozen backlog spec |
-| `aapp start <id>` | **✅ Yes** | Bind execution buffer & transition to In Development |
-| `aapp done <id>` | **✅ Yes** | Move to `done/`, update archive ledger, clear execution buffer |
+| `aapp draft [slug]` | **✅ Yes** | Scaffold blueprint from template, stamp ID & date, register in matrix |
+| `aapp freeze [id]` | **✅ Yes** | Lock blueprint blast radius & design into frozen backlog spec |
+| `aapp start [id]` | **✅ Yes** | Bind execution buffer & transition to In Development |
+| `aapp freeze-start <id>` | **✅ Yes** | Atomically freeze blueprint and activate execution buffer |
+| `aapp done [id]` | **✅ Yes** | Move to `done/`, update archive ledger, clear execution buffer |
 | `aapp active [id]` | **✅ Yes** | Inspect, swap, or clear active plan execution buffer |
+| `aapp plan-status [id]` | **✅ Yes** | Inspect plan lane matrix or specific blueprint details |
+| `aapp plan [query]` | **✅ Yes** | Educational planning switchboard or query blueprints |
 ```
 
 ### 2.5 Dedicated Extension Catalog: Timing Taxonomy & Action Plugins
@@ -277,6 +305,7 @@ Add Test 59 and Test 60 to `tests/install_test.sh`:
 
 ## 📦 6. Change Log & Refinement History
 
-* **2026-09-21 (Refinement):** Noted `aapp status [short]` positional subcommand in manifest and cheatsheet daily loop table for remote reporting and quick backlog pulse.
-* **2026-09-21 (Refinement):** Refined P-27 to incorporate deterministic mechanical scaffolding (`aapp draft <slug>`), Standalone CLI capability indicator column in `lib/verbs.tsv` and `CHEATSHEET.md`, and conditional editor launch. Harmonized with P-23 pre/on/post timing taxonomy.
+* **2026-09-21 (Refinement 3):** Harmonized P-27 with Plan P-29 (Universal Skills Pruning & No-Dead-End Invariant). Added `freeze-start`, `plan-status`, and `hook-run` to the canonical manifest (`lib/verbs.tsv`) and Tier 1 daily loop; documented the No-Dead-End Invariant and 10-item candidate ceiling across CLI commands (`draft`, `start`, `done`, `freeze`, `plan-status`); updated cheatsheet dual-workflow reference detailing both AI Universal Slash Commands (8 core skills) and Standalone Unix CLI verbs (37 commands).
+* **2026-09-21 (Refinement 2):** Noted `aapp status [short]` positional subcommand in manifest and cheatsheet daily loop table for remote reporting and quick backlog pulse.
+* **2026-09-21 (Refinement 1):** Refined P-27 to incorporate deterministic mechanical scaffolding (`aapp draft <slug>`), Standalone CLI capability indicator column in `lib/verbs.tsv` and `CHEATSHEET.md`, and conditional editor launch. Harmonized with P-23 pre/on/post timing taxonomy.
 * **2026-09-21:** Drafted initial canonical blueprint P-27 from Issue #75 analysis. Established 5-tier progressive disclosure model, canonical `lib/verbs.tsv` manifest, cheatsheet daily loop hierarchy, and automated 2-way parity tests.
