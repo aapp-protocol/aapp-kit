@@ -17,6 +17,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-23**: [`P23-lifecycle-hook-sequencing-and-pre-gates.md`](current/P23-lifecycle-hook-sequencing-and-pre-gates.md) — Lifecycle Hook Sequencing, Pre-Mutation Quality Gates & Return Code Abort Protocol.
 - 🟣 **P-24**: [`P24-example-assets-and-sample-convention.md`](current/P24-example-assets-and-sample-convention.md) — Example Asset Preservation & Sample Hook/Plugin Convention. Decoupled from P-22.
 - 🟣 **P-25**: [`P25-template-sync-and-document-governance.md`](current/P25-template-sync-and-document-governance.md) — Delimited Template Sync & Tiered Document Governance. Supersedes #73.
+- 🟣 **P-26**: [`P26-test-harness-isolation-and-worktree-hooks.md`](current/P26-test-harness-isolation-and-worktree-hooks.md) — Test Harness Sandbox Confinement & Universal Worktree Hook Enforcement. Supersedes #74.
 
 ---
 
