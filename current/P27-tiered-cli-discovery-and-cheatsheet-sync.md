@@ -222,7 +222,29 @@ This taxonomy is centralized in:
 2. **`MANUAL.md`**: Consolidated "Extensibility Catalog" chapter uniting hooks, payload schemas, and plugin contracts.
 3. **`aapp hooks`**: Enhanced CLI output listing all supported lifecycle events when unconfigured or via `aapp hooks --events`.
 
-### 2.6 Automated Two-Way Parity Test (`tests/install_test.sh`)
+### 2.6 Canonical Configuration Reference (`CHEATSHEET.md` & `MANUAL.md`)
+
+AAPP controls repository behavior via `git config aapp.*`. Plan 27 unifies all 13 canonical configuration keys into a clear, scannable reference table in `CHEATSHEET.md` and `MANUAL.md`:
+
+| Setting Key | Type / Enum | Default | Subsystem | Purpose & Behavior |
+| :--- | :--- | :--- | :--- | :--- |
+| `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
+| `aapp.aiAttribution` | `none` \| `commit` \| `notes` | `none` | AI Attribution | Attribution mode (emailless semantic trailers vs. git notes vs. human). |
+| `aapp.aiCredits` | `true` \| `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
+| `aapp.subjectMaxLen`| integer | `72` | Git Hooks | Numeric conciseness limit for commit subject lines (enforced in `aapp-commit-msg`). |
+| `aapp.protectStable`| `true` \| `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |
+| `aapp.devBranch` | string | `develop` | Branch Guard | Target development branch for branch protection parity. |
+| `aapp.allowPath` | string (multi) | *(empty)* | Write Guard | External filesystem paths authorized for AI file writes (`blast-radius-guard`). |
+| `aapp.remote` | string | `origin` | Remote Sync | Git remote targeted by `aapp push`, `aapp pull`, and `aapp sync`. |
+| `aapp.syncStrategy` | `builtin` \| `hook` | `builtin` | Remote Sync | Transport engine for worktree sync (`builtin` git plumbing vs custom hook). |
+| `aapp.syncWorktrees`| string (list) | `plans agents githooks` | Remote Sync | Space-delimited worktrees synchronized across remotes. |
+| `aapp.pullStrategy` | `ff-only` | `ff-only` | Remote Sync | Non-negotiable fast-forward safety invariant for worktree updates. |
+| `aapp.allowLocalHooks`| `true` \| `false` | `true` | Hook Engine | Enables/disables local clone hook overrides (`git config aapp.hook.<event>`). |
+| `aapp.hookTimeout` | integer (seconds) | `10` | Hook Engine | Execution timeout ceiling for local notify hook handlers. |
+
+*(Note: The companion interactive CLI management verb `aapp config [list|get|set]` backed by `config.tsv` schema validation is explicitly decoupled into its own follow-up plan to keep P-27's implementation scope focused on discovery and cheatsheet parity).*
+
+### 2.7 Automated Two-Way Parity Test (`tests/install_test.sh`)
 
 Add Test 59 and Test 60 to `tests/install_test.sh`:
 - **Test 59 (Dispatcher-to-Manifest Parity)**: Extracts all top-level cases from `aapp` and verifies each non-alias verb exists in `lib/verbs.tsv`.
@@ -245,9 +267,10 @@ Add Test 59 and Test 60 to `tests/install_test.sh`:
   - [ ] Update `aapp help` and bare `aapp` invalid command output to reflect tiered discovery.
 
 - [ ] **Phase 4: Cheatsheet Reorganization & Extension Matrix (`CHEATSHEET.md`)**
-  - [ ] Restructure `CHEATSHEET.md` with the 6-verb Daily Working Loop prominent on the first screen.
+  - [ ] Restructure `CHEATSHEET.md` with the Daily Working Loop prominent on the first screen.
   - [ ] Add standalone CLI capability column (`✅ CLI`).
   - [ ] Add dedicated Extension Points table (Pre/On/Post hook timing + action plugin contracts).
+  - [ ] Add dedicated Repository Configuration table (`git config aapp.*`) documenting all 13 canonical settings.
   - [ ] Ensure all verbs are documented under their respective tier headings.
 
 - [ ] **Phase 5: CLI Event Catalog & Discovery (`lib/cmd_hook.sh`)**
@@ -261,6 +284,7 @@ Add Test 59 and Test 60 to `tests/install_test.sh`:
 
 - [ ] **Phase 7: Documentation & Manual Sync**
   - [ ] Create dedicated "Extensibility Catalog: Lifecycle Hooks & Action Plugins" chapter in `MANUAL.md`.
+  - [ ] Add "Repository Configuration Reference (`git config aapp.*`)" chapter in `MANUAL.md`.
   - [ ] Add "Pure-Human Terminal Workflow" chapter in `MANUAL.md`.
   - [ ] Update `ARCHITECTURE.md` CLI metadata & extension architecture.
   - [ ] Update `CHANGELOG.md`.
@@ -276,9 +300,9 @@ Add Test 59 and Test 60 to `tests/install_test.sh`:
 - [ ] `lib/cmd_hook.sh` -> Lifecycle event catalog discovery (`--events`)
 - [ ] `lib/cmd_install.sh` -> Install verbs.tsv to share directory
 - [ ] `aapp` -> Wire `draft` command in main dispatcher
-- [ ] `CHEATSHEET.md` -> Reorganized 36-verb tiered cheatsheet with extension matrix & standalone badges
+- [ ] `CHEATSHEET.md` -> Reorganized 37-verb tiered cheatsheet with extension matrix, configuration table & standalone badges
 - [ ] `tests/install_test.sh` -> Automated parity assertions (Tests 59 & 60)
-- [ ] `MANUAL.md` -> Consolidated Extensibility Catalog, pure-human workflow, and 5-tier CLI hierarchy
+- [ ] `MANUAL.md` -> Consolidated Extensibility Catalog, configuration reference, pure-human workflow, and 5-tier CLI hierarchy
 - [ ] `ARCHITECTURE.md` -> Document CLI metadata & extension architecture
 - [ ] `CHANGELOG.md` -> Document P-27 implementation
 
@@ -300,11 +324,14 @@ Add Test 59 and Test 60 to `tests/install_test.sh`:
    - **Decision**: Primary canonical verbs are listed in `verbs.tsv`. Shorthands and aliases are noted in the command description or separate alias column without polluting the primary 5-tier listing.
 4. **Editor Launch on `aapp draft`**: Should `aapp draft` automatically invoke `$EDITOR`?
    - **Decision**: **Conditional on TTY**. If stdin is an interactive terminal (`[ -t 0 ]`) and `$EDITOR` is defined, print a prompt or launch editor. In headless, CI, or AI agent subshell invocations, output the created blueprint path to `stdout` without blocking.
+5. **Decoupling `aapp config` CLI Verb into Dedicated Plan**: Should the `aapp config` CLI verb be included in P-27?
+   - **Decision**: **Cheatsheet & Manual Table Only in P-27; CLI in Separate Plan**. Adding a full `aapp config` CLI verb (with `config.tsv` schema, validation, `get`/`set`/`list`) is an operational tool with its own test harness and edge cases. In P-27, we document all 13 `aapp.*` parameters clearly in `CHEATSHEET.md` and `MANUAL.md`, keeping P-27's blast radius strictly focused on verb discovery and cheatsheet parity. A dedicated plan will introduce `aapp config` and wire it to `config.tsv`.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-09-21 (Refinement 4):** Added Repository Configuration Reference matrix (`git config aapp.*`) across 13 core settings to `CHEATSHEET.md` and `MANUAL.md`. Decoupled `aapp config` CLI verb and `config.tsv` schema validation into a future dedicated plan.
 * **2026-09-21 (Refinement 3):** Harmonized P-27 with Plan P-29 (Universal Skills Pruning & No-Dead-End Invariant). Added `freeze-start`, `plan-status`, and `hook-run` to the canonical manifest (`lib/verbs.tsv`) and Tier 1 daily loop; documented the No-Dead-End Invariant and 10-item candidate ceiling across CLI commands (`draft`, `start`, `done`, `freeze`, `plan-status`); updated cheatsheet dual-workflow reference detailing both AI Universal Slash Commands (8 core skills) and Standalone Unix CLI verbs (37 commands).
 * **2026-09-21 (Refinement 2):** Noted `aapp status [short]` positional subcommand in manifest and cheatsheet daily loop table for remote reporting and quick backlog pulse.
 * **2026-09-21 (Refinement 1):** Refined P-27 to incorporate deterministic mechanical scaffolding (`aapp draft <slug>`), Standalone CLI capability indicator column in `lib/verbs.tsv` and `CHEATSHEET.md`, and conditional editor launch. Harmonized with P-23 pre/on/post timing taxonomy.
