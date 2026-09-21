@@ -4,6 +4,8 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #70 | `Medium` | `CLI` | 2026-09-17 | 2026-09-21 | [P-29](done/P29-universal-skills-pruning-and-fallback-invariants.md) | Set `disable-model-invocation: false` across all retained universal skills in `templates/skills/`, restoring autocomplete in Antigravity IDE and Claude Code. |
+| #72 | `Low` | `CLI` | 2026-09-19 | 2026-09-21 | [P-29](done/P29-universal-skills-pruning-and-fallback-invariants.md) | Implemented dynamic context-aware Next Action footer in `cmd_status.sh` and 3-tier fallback in `aapp-digest`, eliminating dead-end recommendations. |
 | #69 | `High` | `CLI` | 2026-09-17 | 2026-09-20 | `f4be7cd` | **Superseded by P-22.** The archive-ledger scan containing the unquoted-backtick regex was removed entirely in favour of config-backed allocation (`aapp.planId`); the defective line was deleted rather than corrected. |
 | #1 | `Critical` | `SEC` | 2026-09-09 | 2026-09-09 | `9a4f92c` (`v1.0.1`) | Added `hookSpecificOutput.permissionDecision` JSON output and exit code 2 in `blast-radius-guard.sh`. |
 | #2 | `Critical` | `SEC` | 2026-09-09 | 2026-09-09 | `9a4f92c` (`v1.0.1`) | Stripped `$REPO_ROOT/` from absolute target file paths in `blast-radius-guard.sh`. |
