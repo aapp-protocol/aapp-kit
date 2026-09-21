@@ -1,7 +1,7 @@
 # 🗺️ Plan: Universal AAPP Skills & Slash Commands (`.agents/skills/` & `.claude/skills/`)
 * **Created:** 2026-09-10 | **Last Refined:** 2026-09-13
 * **Target Issue / Milestone:** `ISSUE-061`
-* **Status:** 🟢 Ready for Execution
+* **Status:** ✅ Done
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.

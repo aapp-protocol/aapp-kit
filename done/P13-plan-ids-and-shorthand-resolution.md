@@ -2,7 +2,7 @@
 * **Created:** 2026-09-15 | **Last Refined:** 2026-09-15
 * **Target Issue / Milestone:** Ergonomic Enhancement (Plan Lane Identity & CLI/Skill Shorthand)
 * **Plan ID:** P-13
-* **Status:** 🟢 Ready for Execution
+* **Status:** ✅ Done
 <!-- Status must be exactly ONE of: 🔴 Under Review | 🟡 Refining | 🟢 Ready for Execution | 🚫 BLOCKED -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
