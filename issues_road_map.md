@@ -14,7 +14,7 @@
 
 ## ⭐ User Priority (Pinned / Immediate Human Focus)
 *Direct developer overrides based on current focus and appetite.*
-1. #77 -> `aapp done` moves plan to `done/` without updating header status, leaving archived plans marked `⚡ In Development`.
+*(No pinned user overrides)*
 
 
 ## 🔴 High Priority (Technical Urgency)
