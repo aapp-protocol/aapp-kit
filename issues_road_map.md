@@ -14,7 +14,8 @@
 
 ## ⭐ User Priority (Pinned / Immediate Human Focus)
 *Direct developer overrides based on current focus and appetite.*
-*(No pinned user overrides)*
+1. #77 -> `aapp done` moves plan to `done/` without updating header status, leaving archived plans marked `⚡ In Development`.
+
 
 ## 🔴 High Priority (Technical Urgency)
 1. #49 -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
