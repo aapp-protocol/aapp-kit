@@ -20,7 +20,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-26**: [`P26-test-harness-isolation-and-worktree-hooks.md`](current/P26-test-harness-isolation-and-worktree-hooks.md) — Test Harness Sandbox Confinement & Universal Worktree Hook Enforcement. Supersedes #74.
 - 🟣 **P-27**: [`P27-tiered-cli-discovery-and-cheatsheet-sync.md`](current/P27-tiered-cli-discovery-and-cheatsheet-sync.md) — Tiered CLI Discovery, Canonical Verb Manifest & Mechanical Cheatsheet Parity. Supersedes #75.
 - 🟣 **P-28**: [`P28-conciseness-enforcement-and-changelog-governance.md`](current/P28-conciseness-enforcement-and-changelog-governance.md) — Conciseness Enforcement, Commit Body Ceiling & Changelog Governance. Supersedes #76.
-- 🟣 **P-29**: [`P29-universal-skills-pruning-and-fallback-invariants.md`](current/P29-universal-skills-pruning-and-fallback-invariants.md) — Universal Skills Pruning, Fallback Invariants & Antigravity Autocomplete Parity. Supersedes #70, #72.
+- ⚡ **P-29**: [`P29-universal-skills-pruning-and-fallback-invariants.md`](current/P29-universal-skills-pruning-and-fallback-invariants.md) — Universal Skills Pruning, Fallback Invariants & Antigravity Autocomplete Parity. Supersedes #70, #72.
 
 ---
 

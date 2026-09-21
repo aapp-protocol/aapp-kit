@@ -2,7 +2,7 @@
 * **Created:** 2026-09-21 | **Last Refined:** 2026-09-21
 * **Target Issue / Milestone:** #70, #72 *(supersedes #70 and #72 upon completion)*
 * **Plan ID:** P-29
-* **Status:** 🟣 Under Review
+* **Status:** ⚡ In Development
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -226,6 +226,7 @@ argument-hint: "<optional or required parameters>"
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-21:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-09-21:** Blueprint scaffolded on developer direction. Formulates Universal Skills pruning (retiring `aapp-hooks`, `aapp-freeze-start`, `aapp-active`), the No-Dead-End Invariant across retained skills, Antigravity IDE autocomplete parity (`disable-model-invocation: false`), and dynamic context recovery footer in `lib/cmd_status.sh`. Supersedes issues #70 and #72.
 * **2026-09-21 (refinement 1):** **Added Candidate Menu Ceiling & Overflow Invariant on developer direction** — Specified a strict display ceiling of 10 items (max 15) for all candidate menus (pickup notes, open issues, frozen plans, incubator blueprints), with a single concise overflow summary line (`... and N more [items] (inspect via ...)`) to prevent chat window bloat and token waste.
