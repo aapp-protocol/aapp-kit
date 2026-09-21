@@ -250,40 +250,40 @@ Add Test 59 and Test 60 to `tests/install_test.sh`:
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-- [ ] **Phase 1: Canonical Verb Manifest**
-  - [ ] Author `lib/verbs.tsv` with all verbs categorized into 5 tiers with standalone capability flags and descriptions.
-  - [ ] Ensure `aapp install` and `aapp develop` copy/link `lib/verbs.tsv` to share directory.
+- [x] **Phase 1: Canonical Verb Manifest**
+  - [x] Author `lib/verbs.tsv` with all verbs categorized into 5 tiers with standalone capability flags and descriptions.
+  - [x] Ensure `aapp install` and `aapp develop` copy/link `lib/verbs.tsv` to share directory.
 
-- [ ] **Phase 2: Deterministic CLI Scaffolding (`lib/cmd_plan.sh`)**
-  - [ ] Implement `cmd_draft [slug]` in `lib/cmd_plan.sh` automating template copy, date stamping, ID stamping, and matrix registration.
-  - [ ] Wire `draft` verb in `aapp` dispatcher.
+- [x] **Phase 2: Deterministic CLI Scaffolding (`lib/cmd_plan.sh`)**
+  - [x] Implement `cmd_draft [slug]` in `lib/cmd_plan.sh` automating template copy, date stamping, ID stamping, and matrix registration.
+  - [x] Wire `draft` verb in `aapp` dispatcher.
 
-- [ ] **Phase 3: Tiered Help Generation (`lib/cmd_help.sh`)**
-  - [ ] Refactor `lib/cmd_help.sh` to parse `lib/verbs.tsv` and output grouped sections.
-  - [ ] Update `aapp help` and bare `aapp` invalid command output to reflect tiered discovery.
+- [x] **Phase 3: Tiered Help Generation (`lib/cmd_help.sh`)**
+  - [x] Refactor `lib/cmd_help.sh` to parse `lib/verbs.tsv` and output grouped sections.
+  - [x] Update `aapp help` and bare `aapp` invalid command output to reflect tiered discovery.
 
-- [ ] **Phase 4: Cheatsheet Reorganization & Extension Matrix (`CHEATSHEET.md`)**
-  - [ ] Restructure `CHEATSHEET.md` with the Daily Working Loop prominent on the first screen.
-  - [ ] Add standalone CLI capability column (`✅ CLI`).
-  - [ ] Add dedicated Extension Points table (Pre/On/Post hook timing + action plugin contracts).
-  - [ ] Add dedicated Repository Configuration table (`git config aapp.*`) documenting all 13 canonical settings.
-  - [ ] Ensure all verbs are documented under their respective tier headings.
+- [x] **Phase 4: Cheatsheet Reorganization & Extension Matrix (`CHEATSHEET.md`)**
+  - [x] Restructure `CHEATSHEET.md` with the Daily Working Loop prominent on the first screen.
+  - [x] Add standalone CLI capability column (`✅ CLI`).
+  - [x] Add dedicated Extension Points table (Pre/On/Post hook timing + action plugin contracts).
+  - [x] Add dedicated Repository Configuration table (`git config aapp.*`) documenting all 13 canonical settings.
+  - [x] Ensure all verbs are documented under their respective tier headings.
 
-- [ ] **Phase 5: CLI Event Catalog & Discovery (`lib/cmd_hook.sh`)**
-  - [ ] Update `aapp hooks` to display available lifecycle event catalog when no hooks are registered.
-  - [ ] Add `aapp hooks --events` catalog flag.
+- [x] **Phase 5: CLI Event Catalog & Discovery (`lib/cmd_hook.sh`)**
+  - [x] Update `aapp hooks` to display available lifecycle event catalog when no hooks are registered.
+  - [x] Add `aapp hooks --events` catalog flag.
 
-- [ ] **Phase 6: Automated Parity Test Suites (`tests/install_test.sh`)**
-  - [ ] Implement Test 59: assert dispatcher `case` statement matches `lib/verbs.tsv`.
-  - [ ] Implement Test 60: assert all `lib/verbs.tsv` verbs exist in `CHEATSHEET.md`.
-  - [ ] Run test suites and verify 100% pass rate.
+- [x] **Phase 6: Automated Parity Test Suites (`tests/install_test.sh`)**
+  - [x] Implement Test 59: assert dispatcher `case` statement matches `lib/verbs.tsv`.
+  - [x] Implement Test 60: assert all `lib/verbs.tsv` verbs exist in `CHEATSHEET.md`.
+  - [x] Run test suites and verify 100% pass rate.
 
-- [ ] **Phase 7: Documentation & Manual Sync**
-  - [ ] Create dedicated "Extensibility Catalog: Lifecycle Hooks & Action Plugins" chapter in `MANUAL.md`.
-  - [ ] Add "Repository Configuration Reference (`git config aapp.*`)" chapter in `MANUAL.md`.
-  - [ ] Add "Pure-Human Terminal Workflow" chapter in `MANUAL.md`.
-  - [ ] Update `ARCHITECTURE.md` CLI metadata & extension architecture.
-  - [ ] Update `CHANGELOG.md`.
+- [x] **Phase 7: Documentation & Manual Sync**
+  - [x] Create dedicated "Extensibility Catalog: Lifecycle Hooks & Action Plugins" chapter in `MANUAL.md`.
+  - [x] Add "Repository Configuration Reference (`git config aapp.*`)" chapter in `MANUAL.md`.
+  - [x] Add "Pure-Human Terminal Workflow" chapter in `MANUAL.md`.
+  - [x] Update `ARCHITECTURE.md` CLI metadata & extension architecture.
+  - [x] Update `CHANGELOG.md`.
 
 ---
 
@@ -326,6 +326,7 @@ Add Test 59 and Test 60 to `tests/install_test.sh`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-22:** Implementation completed. All 7 phases executed, 66 install tests, 96 write-guard tests, and 78 pre-commit tests passing with 100% success rate.
 * **2026-09-21:** Plan frozen and activated into ⚡ In Development via freeze-start.
 
 * **2026-09-21 (Refinement 4):** Added Repository Configuration Reference matrix (`git config aapp.*`) across 13 core settings to `CHEATSHEET.md` and `MANUAL.md`. Decoupled `aapp config` CLI verb and `config.tsv` schema validation into a future dedicated plan.
