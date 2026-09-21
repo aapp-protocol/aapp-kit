@@ -157,12 +157,12 @@ Implements `cmd_draft` in `lib/cmd_plan.sh` to remove clerical boilerplate for b
 1. **Slug Sanitization**: Converts `<slug>` to lowercase alphanumeric hyphenated slug (`^[a-z0-9-]+$`).
 2. **Monotonic Plan ID Allocation**: Calls `allocate_plan_id` to reliably increment and claim next ID `<num>`.
 3. **Template Copy & Header Stamping**: Copies `templates/plan-template.md` to `.plans/current/P<num>-<slug>.md`, replacing:
-   - `[Feature or Refactor Name]` $\rightarrow$ Humanized title
-   - `[YYYY-MM-DD]` $\rightarrow$ Current date (`$(date +%Y-%m-%d)`)
-   - `P-XX` $\rightarrow$ `P-<num>`
+   - `[Feature or Refactor Name]` → Humanized title
+   - `[YYYY-MM-DD]` → Current date (`$(date +%Y-%m-%d)`)
+   - `P-XX` → `P-<num>`
    - Status defaults to `🟣 Under Review`
 4. **State Matrix Registration**: Appends row to `.plans/state_matrix.md` under `## 🧠 1. Human Thought & Refinement (The Incubator)`:
-   `- 🟣 **P-<num>**: [\`P<num>-<slug>.md\`](current/P<num>-<slug>.md) — <title>.`
+   `- 🟣 **P-<num>**: [\`P<num>-<slug>.md\`](current/P<num>-<slug>.md) — \`<title>\`.`
 5. **Git Commit in `.plans`**: Creates clean commit: `plan(draft): scaffold P-<num> <slug>`.
 6. **Editor Launch**: If invoked in an interactive human terminal (`[ -t 0 ]`) and `$EDITOR` is set, prompts to open the new file.
 7. **No-Dead-End Invariant (Bare Invocations)**:
