@@ -18,7 +18,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-24**: [`P24-example-assets-and-sample-convention.md`](current/P24-example-assets-and-sample-convention.md) — Example Asset Preservation & Sample Hook/Plugin Convention. Decoupled from P-22.
 - 🟣 **P-25**: [`P25-template-sync-and-document-governance.md`](current/P25-template-sync-and-document-governance.md) — Delimited Template Sync & Tiered Document Governance. Supersedes #73.
 - 🟣 **P-26**: [`P26-test-harness-isolation-and-worktree-hooks.md`](current/P26-test-harness-isolation-and-worktree-hooks.md) — Test Harness Sandbox Confinement & Universal Worktree Hook Enforcement. Supersedes #74.
-- ⚡ **P-27**: [`P27-tiered-cli-discovery-and-cheatsheet-sync.md`](current/P27-tiered-cli-discovery-and-cheatsheet-sync.md) — Tiered CLI Discovery, Canonical Verb Manifest & Mechanical Cheatsheet Parity. Supersedes #75.
 - 🟣 **P-28**: [`P28-conciseness-enforcement-and-changelog-governance.md`](current/P28-conciseness-enforcement-and-changelog-governance.md) — Conciseness Enforcement, Commit Body Ceiling & Changelog Governance. Supersedes #76.
 
 ---
