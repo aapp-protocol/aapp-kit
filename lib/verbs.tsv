@@ -1,0 +1,33 @@
+# verb	tier	standalone	description
+status	daily	yes	4-pillar recovery briefing (or 'status short' for 1-line pulse)
+draft	daily	yes	Scaffold blueprint from template, stamp ID & date, register in matrix
+plan	daily	yes	Display educational planning switchboard or query blueprints
+plan-status	daily	yes	Inspect plan lane matrix or specific blueprint details
+freeze	daily	yes	Lock blueprint blast radius & design into frozen backlog spec
+start	daily	yes	Transition frozen blueprint to in-development and bind buffer
+freeze-start	daily	yes	Atomically freeze blueprint and activate execution buffer
+done	daily	yes	Archive implemented blueprint to done/ and update archival ledger
+active	daily	yes	Display or manage active execution plan buffer (swap, clear)
+init	setup	yes	Initialize or update AAPP worktrees in current repository
+install	setup	yes	Install AAPP globally into ~/.local/bin and configure PATH
+upgrade	setup	yes	Upgrade global AAPP binaries & templates from upstream
+develop	setup	yes	Link local development clone globally via symlinks
+uninstall	setup	yes	Remove global AAPP binaries and shared directories
+version	setup	yes	Show installed AAPP version (-v, --version)
+help	setup	yes	Show grouped command catalog (-h, --help)
+push	sync	yes	Push active worktrees (.plans, .agents, .githooks) to remote
+pull	sync	yes	Pull remote updates for active worktrees with non-negotiable --ff-only
+sync	sync	yes	Bi-directional sync: pull updates followed by push
+pause	sync	yes	Emergency brake: quarantine in-flight changes into stashes
+resume	sync	yes	Disengage brake, verify commit drift, and restore stashes
+hooks	hooks	yes	Audit lifecycle hook registry and verify SHA256 integrity
+hook-test	hooks	yes	Dry-run test an event trigger with mock payload
+hook-run	hooks	yes	Execute a registered hook handler with specified payload
+hook-hash	hooks	yes	Compute SHA256 registration hash for hook script
+plugins	hooks	yes	Discover installed action plugins in .agents/skills/
+ai-commit	ai	yes	Switch to public, emailless semantic trailer attribution
+ai-notes	ai	yes	Switch to local-first / private git notes attribution
+ai-off	ai	yes	Disable AI attribution (pure human authoring)
+ai-credits	ai	yes	Generate or update AI Contributors block in README.md
+ai-status	ai	yes	Display current AI attribution mode and pending notes
+ai-note	ai	yes	Pre-stage customizable note buffer for next commit (--stage)

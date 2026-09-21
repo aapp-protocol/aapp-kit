@@ -147,6 +147,188 @@ write_active_buffer() {
     echo "$plan_id" > "$ACTIVE_FILE"
 }
 
+cmd_draft() {
+    local raw_slug="$1"
+    local slug=""
+    local title=""
+
+    if [ -z "$PLANS_DIR" ] || [ ! -d "$PLANS_DIR" ]; then
+        echo "❌ [Plan Switchboard] .plans directory not found." >&2
+        return 1
+    fi
+    mkdir -p "$PLANS_DIR/current"
+
+    if [ -n "$raw_slug" ]; then
+        slug="$(echo "$raw_slug" | tr '[:upper:]' '[:lower:]' | sed 's/[ _]/-/g' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
+        title="$(echo "$raw_slug" | sed 's/[-_]/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')"
+    else
+        # No-Dead-End Invariant (Bare Invocations)
+        local pickup_items=()
+        if [ -f "$PLANS_DIR/pickup.md" ]; then
+            while IFS= read -r line; do
+                [ -n "$line" ] && pickup_items+=("$line")
+            done < <(grep -E '^[0-9]+\.|^[\*-] ' "$PLANS_DIR/pickup.md" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '\[x\]|\[X\]' || true)
+        fi
+
+        local issue_items=()
+        if [ -f "$PLANS_DIR/ISSUES.md" ]; then
+            while IFS= read -r line; do
+                [ -n "$line" ] && issue_items+=("$line")
+            done < <(grep -E '^\|[[:space:]]*#[0-9]+' "$PLANS_DIR/ISSUES.md" 2>/dev/null | grep -E '🟠|🔵' | grep -v -E '✅|Resolved' || true)
+        fi
+
+        if [ ${#pickup_items[@]} -gt 0 ]; then
+            echo "💡 Unprocessed notes in .plans/pickup.md:"
+            local limit=10
+            local count=${#pickup_items[@]}
+            [ $count -lt $limit ] && limit=$count
+            for i in $(seq 1 $limit); do
+                local item="${pickup_items[$((i-1))]}"
+                local clean_item
+                clean_item="$(echo "$item" | sed -E 's/^[0-9]+\.[[:space:]]*|^[\*-][[:space:]]*(\[[[:space:]]\])?[[:space:]]*//')"
+                echo "  $i) $clean_item"
+            done
+            if [ $count -gt 10 ]; then
+                echo "  ... and $((count - 10)) more unprocessed notes"
+            fi
+            echo ""
+            if [ -t 0 ]; then
+                printf "Select a note [1-%s], enter a custom title/slug, or Ctrl+C to abort: " "$limit"
+                read -r user_choice
+                if [ -n "$user_choice" ]; then
+                    if [[ "$user_choice" =~ ^[0-9]+$ ]] && [ "$user_choice" -ge 1 ] && [ "$user_choice" -le $limit ]; then
+                        local chosen="${pickup_items[$((user_choice-1))]}"
+                        title="$(echo "$chosen" | sed -E 's/^[0-9]+\.[[:space:]]*|^[\*-][[:space:]]*(\[[[:space:]]\])?[[:space:]]*//')"
+                        slug="$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' _' '--' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
+                    else
+                        title="$user_choice"
+                        slug="$(echo "$user_choice" | tr '[:upper:]' '[:lower:]' | tr ' _' '--' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
+                    fi
+                fi
+            else
+                local chosen="${pickup_items[0]}"
+                title="$(echo "$chosen" | sed -E 's/^[0-9]+\.[[:space:]]*|^[\*-][[:space:]]*(\[[[:space:]]\])?[[:space:]]*//')"
+                slug="$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' _' '--' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
+                echo "ℹ️  Non-interactive terminal: auto-selected first note: $title"
+            fi
+        elif [ ${#issue_items[@]} -gt 0 ]; then
+            echo "🐛 Open issues in .plans/ISSUES.md available for promotion:"
+            local limit=10
+            local count=${#issue_items[@]}
+            [ $count -lt $limit ] && limit=$count
+            for i in $(seq 1 $limit); do
+                local item="${issue_items[$((i-1))]}"
+                local issue_id issue_desc
+                issue_id="$(echo "$item" | awk -F'|' '{print $2}' | tr -d '[:space:]')"
+                issue_desc="$(echo "$item" | awk -F'|' '{print $7}' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+                echo "  $i) $issue_id: $issue_desc"
+            done
+            if [ $count -gt 10 ]; then
+                echo "  ... and $((count - 10)) more open issues"
+            fi
+            echo ""
+            if [ -t 0 ]; then
+                printf "Select an issue [1-%s], enter a custom title/slug, or Ctrl+C to abort: " "$limit"
+                read -r user_choice
+                if [ -n "$user_choice" ]; then
+                    if [[ "$user_choice" =~ ^[0-9]+$ ]] && [ "$user_choice" -ge 1 ] && [ "$user_choice" -le $limit ]; then
+                        local chosen="${issue_items[$((user_choice-1))]}"
+                        local issue_id issue_desc
+                        issue_id="$(echo "$chosen" | awk -F'|' '{print $2}' | tr -d '[:space:]')"
+                        issue_desc="$(echo "$chosen" | awk -F'|' '{print $7}' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+                        title="$issue_id $issue_desc"
+                        slug="$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' _' '--' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
+                    else
+                        title="$user_choice"
+                        slug="$(echo "$user_choice" | tr '[:upper:]' '[:lower:]' | tr ' _' '--' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
+                    fi
+                fi
+            else
+                echo "❌ [Draft Refusal] Please specify a plan slug: aapp draft <slug>" >&2
+                return 1
+            fi
+        else
+            if [ -t 0 ]; then
+                printf "Enter plan title or slug: "
+                read -r user_choice
+                if [ -n "$user_choice" ]; then
+                    title="$user_choice"
+                    slug="$(echo "$user_choice" | tr '[:upper:]' '[:lower:]' | tr ' _' '--' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
+                fi
+            else
+                echo "❌ [Draft Refusal] Please specify a plan slug: aapp draft <slug>" >&2
+                return 1
+            fi
+        fi
+    fi
+
+    if [ -z "$slug" ]; then
+        echo "❌ [Draft Refusal] Plan slug cannot be empty." >&2
+        return 1
+    fi
+
+    # Monotonic Plan ID allocation
+    local plan_id
+    plan_id="$(allocate_plan_id)" || {
+        echo "❌ [Draft Refusal] Failed to allocate Plan ID." >&2
+        return 1
+    }
+    local num="${plan_id#P-}"
+
+    local template_file=""
+    if [ -n "$AAPP_TEMPLATES" ] && [ -f "$AAPP_TEMPLATES/plan-template.md" ]; then
+        template_file="$AAPP_TEMPLATES/plan-template.md"
+    elif [ -f "$REPO_ROOT/templates/plan-template.md" ]; then
+        template_file="$REPO_ROOT/templates/plan-template.md"
+    elif [ -n "$PRIMARY_ROOT" ] && [ -f "$PRIMARY_ROOT/templates/plan-template.md" ]; then
+        template_file="$PRIMARY_ROOT/templates/plan-template.md"
+    fi
+
+    if [ -z "$template_file" ] || [ ! -f "$template_file" ]; then
+        echo "❌ [Draft Refusal] templates/plan-template.md not found." >&2
+        return 1
+    fi
+
+    local target_file="$PLANS_DIR/current/P${num}-${slug}.md"
+    local today
+    today="$(date +%Y-%m-%d)"
+    [ -z "$title" ] && title="$(echo "$slug" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')"
+
+    cp "$template_file" "$target_file"
+    sed -i -E "s/Plan P-XX: \\[Feature or Refactor Name\\]/Plan P-${num}: ${title}/" "$target_file"
+    sed -i -E "s/\\[YYYY-MM-DD\\]/${today}/g" "$target_file"
+    sed -i -E "s/P-XX/P-${num}/g" "$target_file"
+
+    # State matrix registration
+    local sm_file="$PLANS_DIR/state_matrix.md"
+    if [ -f "$sm_file" ]; then
+        if grep -q "## 🧠 1\. Human Thought & Refinement (The Incubator)" "$sm_file"; then
+            sed -i -E "/## 🧠 1\. Human Thought & Refinement \(The Incubator\)/a \\- 🟣 **P-${num}**: [\`P${num}-${slug}.md\`](current/P${num}-${slug}.md) — \`${title}\`." "$sm_file"
+        fi
+    fi
+
+    # Git commit in .plans worktree
+    if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+        git -C "$PLANS_DIR" add "current/P${num}-${slug}.md" 2>/dev/null || true
+        [ -f "$sm_file" ] && git -C "$PLANS_DIR" add "state_matrix.md" 2>/dev/null || true
+        git -C "$PLANS_DIR" commit -m "plan(draft): scaffold P-${num} ${slug}" 2>/dev/null || true
+    fi
+
+    echo "🚀 Blueprint scaffolded: .plans/current/P${num}-${slug}.md"
+    echo "   Plan ID: P-${num}"
+    echo "   Status : 🟣 Under Review (Incubator)"
+
+    # Conditional editor launch
+    if [ -t 0 ] && [ -n "$EDITOR" ]; then
+        printf "Open in \$EDITOR (%s)? [Y/n] " "$EDITOR"
+        read -r open_choice
+        case "$open_choice" in
+            [nN]*) ;;
+            *) "$EDITOR" "$target_file" ;;
+        esac
+    fi
+}
+
 cmd_freeze_start() {
     local query="$1"
     local plan_file
@@ -671,6 +853,9 @@ ACTION="${1:-plan}"
 shift || true
 
 case "$ACTION" in
+    draft)
+        cmd_draft "$@"
+        ;;
     freeze-start)
         cmd_freeze_start "$@"
         ;;
@@ -697,6 +882,7 @@ case "$ACTION" in
 Usage: aapp <command> [args]
 
 Multi-Agent Planning & Execution Commands:
+  draft [slug]       Scaffold blueprint from template, stamp ID & date, register in matrix
   freeze-start <id>  Atomically freeze blueprint, transition to ⚡ In Development, and bind buffer
   freeze <id>        Lock blueprint into 🔷 Frozen backlog specification
   start <id>         Transition 🔷 Frozen blueprint to ⚡ In Development and bind buffer
@@ -710,7 +896,7 @@ EOF
         ;;
     *)
         echo "❌ Unknown plan command: '$ACTION'" >&2
-        echo "   Available: freeze-start, freeze, start, done, active, plan-status, plan" >&2
+        echo "   Available: draft, freeze-start, freeze, start, done, active, plan-status, plan" >&2
         exit 1
         ;;
 esac

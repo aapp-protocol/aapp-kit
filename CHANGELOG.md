@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Tiered CLI Discovery, Canonical Verb Manifest & Cheatsheet Parity (`P-27`): Adds zero-dependency `lib/verbs.tsv` manifest defining 32 verbs across 5 visual discovery tiers, implements deterministic mechanical scaffolding (`aapp draft [slug]`) with No-Dead-End fallback, refactors `aapp help` to render tiered output, adds lifecycle event catalog discovery (`aapp hooks --events`), unifies 13 repository settings into a scannable configuration matrix in `CHEATSHEET.md` and `MANUAL.md`, and adds automated parity test suites (Tests 53–59).
 - Universal Skills Pruning & No-Dead-End Invariant (`P-29`): Prunes Universal Skills from templates down to 8 core cognitive workflows + plan alias, keeping retired verbs strictly in CLI; implements No-Dead-End Invariant across retained skills with 10-item candidate ceilings and dynamic state-aware Next Action footer in status briefings.
 - Config-Backed Monotonic Plan ID Allocation (`P-22`): Replaces three-tier file scanning with an atomic monotonic counter in git config (`aapp.planId`) and adds optional multi-contributor provider plugin contract, superseding `#69`.
 - Lifecycle Plugin Hooks & Action Plugins Engine (`P-12`): Adds zero-dependency lifecycle hook engine with hash-locked registry (`registry.tsv`), Dual Delivery dispatch (`stdin` JSON + POSIX env), and action plugin support.

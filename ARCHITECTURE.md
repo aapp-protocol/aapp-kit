@@ -26,10 +26,13 @@
 ```text
 ├── aapp                   # Primary executable & CLI dispatcher
 ├── lib/                   # Operational command libraries & lifecycle modules
+│   ├── verbs.tsv          # Canonical zero-dependency CLI manifest (32 verbs across 5 tiers)
+│   ├── cmd_help.sh        # Tiered help generator parsing verbs.tsv
 │   ├── cmd_init.sh        # Target resolution, orphan worktrees, rules & skills sync
 │   ├── cmd_install.sh     # Global installer & signature-gated self-consumption
-│   ├── cmd_plan.sh        # Active buffer manager, plan-status inspector & lifecycle triggers
+│   ├── cmd_plan.sh        # Active buffer manager, deterministic drafting & lifecycle triggers
 │   ├── cmd_pause.sh       # Emergency brake, multi-worktree stash quarantine & wake engine
+│   ├── cmd_hook.sh        # Hook audit, event catalog discovery (--events) & testing
 │   ├── cmd_ai.sh          # AI attribution switchboard & credits manager
 │   ├── cmd_status.sh      # 4-pillar context recovery agent briefing
 │   ├── cmd_develop.sh     # Live editable development symlinking

@@ -67,6 +67,17 @@
   * [Why Shell Access Dictates the Containment Boundary](#why-shell-access-dictates-the-containment-boundary)
   * [Structural Gates vs. Brittle Client Flags](#structural-gates-vs-brittle-client-flags)
 * [11. Maintenance, Operations & Troubleshooting FAQ](#11-maintenance-operations--troubleshooting-faq)
+* [12. Tiered CLI Discovery & Pure-Human Terminal Workflow](#12-tiered-cli-discovery--pure-human-terminal-workflow)
+  * [The 5-Tier Discovery Hierarchy](#the-5-tier-discovery-hierarchy)
+  * [Zero-Dependency Canonical Manifest (`lib/verbs.tsv`)](#zero-dependency-canonical-manifest-libverbstsv)
+  * [Deterministic Blueprint Scaffolding (`aapp draft [slug]`)](#deterministic-blueprint-scaffolding-aapp-draft-slug)
+  * [The Pure-Human Terminal Loop](#the-pure-human-terminal-loop)
+* [13. Repository Configuration Reference (`git config aapp.*`)](#13-repository-configuration-reference-git-config-aapp)
+  * [Complete Configuration Settings Matrix](#complete-configuration-settings-matrix)
+  * [Lifecycle & Core Engine Settings](#lifecycle--core-engine-settings)
+  * [Branch & Write Guard Protection](#branch--write-guard-protection)
+  * [Remote Sync & Worktree Transport](#remote-sync--worktree-transport)
+  * [Hook Engine & Local Overrides](#hook-engine--local-overrides)
 
 ---
 
@@ -1341,3 +1352,90 @@ Your main application working tree remains completely unaffected.
 
 ### Q: Can I use AAPP in repositories without AI agents?
 **Yes.** AAPP's Two-Lane protocol, Changelog enforcement, and isolated planning worktrees provide immense value for human teams seeking clean git histories and structured RFC processes.
+
+---
+
+## 12. Tiered CLI Discovery & Pure-Human Terminal Workflow
+
+AAPP is designed with complete parity between conversational AI agent interfaces (Universal Skills like `/aapp-status`, `/aapp-freeze`, `/aapp-start`) and standalone Unix terminal workflows.
+
+### The 5-Tier Discovery Hierarchy
+
+To eliminate cognitive overload, the AAPP CLI organizes its commands into 5 visual discovery tiers:
+1. **Daily Working Loop (Core)**: `status`, `draft`, `plan`, `plan-status`, `freeze`, `start`, `freeze-start`, `done`, `active`. The essential lifecycle commands run daily during feature development.
+2. **Setup & Maintenance**: `init`, `install`, `upgrade`, `develop`, `uninstall`, `version`, `help`. Commands for onboarding repositories, updating tools, and linking developer clones.
+3. **Team Sync & Emergency Controls**: `push`, `pull`, `sync`, `pause`, `resume`. Worktree transport across remotes and the multi-worktree circuit breaker.
+4. **Extensibility & Automation (Hooks & Plugins)**: `hooks`, `hook-test`, `hook-run`, `hook-hash`, `plugins`. Lifecycle hook auditing, testing, and action plugin execution.
+5. **Attribution & Metadata (AI Switchboard)**: `ai-commit`, `ai-notes`, `ai-off`, `ai-credits`, `ai-status`, `ai-note`. Semantic trailers, git notes attribution, and automated credits management.
+
+### Zero-Dependency Canonical Manifest (`lib/verbs.tsv`)
+
+Command metadata is centralized in `lib/verbs.tsv`, a zero-dependency, tab-separated catalog defining command names, tiers, standalone CLI readiness, and descriptions. It acts as the single source of truth for:
+- Grouped help generation in `aapp help` and invalid command suggestions (`lib/cmd_help.sh`).
+- Mechanical test assertions verifying parity between the dispatcher, the manifest, and `CHEATSHEET.md` (Tests 58 & 59 in `tests/install_test.sh`).
+
+### Deterministic Blueprint Scaffolding (`aapp draft [slug]`)
+
+`aapp draft` automates blueprint creation directly from the command line:
+- Allocates the next monotonic Plan ID (`aapp.planId`) via `allocate_plan_id`.
+- Sanitizes the provided slug to alphanumeric lowercase (`^[a-z0-9-]+$`).
+- Copies `templates/plan-template.md` to `.plans/current/P[num]-[slug].md`, stamping humanized titles, monotonic IDs, and current dates.
+- Registers the new blueprint in `.plans/state_matrix.md` under the Incubator (`🟣 Under Review`).
+- Automatically commits the scaffolded plan to the `.plans` worktree.
+- Launches `$EDITOR` if running interactively in a human terminal.
+- **No-Dead-End Invariant**: When invoked without arguments, it scans `.plans/pickup.md` and `.plans/ISSUES.md`, presenting candidate menus capped at 10 items.
+
+### The Pure-Human Terminal Loop
+
+Developers working without AI agents can manage architectural workflows entirely from the terminal:
+```bash
+aapp status            # 1. Inspect context recovery briefing
+aapp draft my-feature  # 2. Scaffold blueprint in .plans/current/
+# Edit .plans/current/P20-my-feature.md: fill in blueprint & blast radius
+aapp freeze P-20       # 3. Lock blast radius into approved backlog
+aapp start P-20        # 4. Activate plan into In Development (binds buffer)
+# Write code & tests in application worktree
+git commit -m "feat: implement my-feature"
+aapp done P-20         # 5. Archive completed blueprint to done/
+```
+
+---
+
+## 13. Repository Configuration Reference (`git config aapp.*`)
+
+AAPP controls repository policies, attribution modes, hook behaviors, and worktree synchronization via standard Git configuration keys (`git config aapp.<key>`).
+
+### Complete Configuration Settings Matrix
+
+| Setting Key | Type / Enum | Default | Subsystem | Purpose & Behavior |
+| :--- | :--- | :--- | :--- | :--- |
+| `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
+| `aapp.aiAttribution` | `none` / `commit` / `notes` | `none` | AI Attribution | Attribution mode (emailless semantic trailers vs. git notes vs. human). |
+| `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
+| `aapp.subjectMaxLen` | integer | `72` | Git Hooks | Numeric conciseness limit for commit subject lines (enforced in `aapp-commit-msg`). |
+| `aapp.protectStable` | `true` / `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |
+| `aapp.devBranch` | string | `develop` | Branch Guard | Target development branch for branch protection parity. |
+| `aapp.allowPath` | string (multi) | *(empty)* | Write Guard | External filesystem paths authorized for AI file writes (`blast-radius-guard`). |
+| `aapp.remote` | string | `origin` | Remote Sync | Git remote targeted by `aapp push`, `aapp pull`, and `aapp sync`. |
+| `aapp.syncStrategy` | `builtin` / `hook` | `builtin` | Remote Sync | Transport engine for worktree sync (`builtin` git plumbing vs custom hook). |
+| `aapp.syncWorktrees` | string (list) | `plans agents githooks` | Remote Sync | Space-delimited worktrees synchronized across remotes. |
+| `aapp.pullStrategy` | `ff-only` | `ff-only` | Remote Sync | Non-negotiable fast-forward safety invariant for worktree updates. |
+| `aapp.allowLocalHooks` | `true` / `false` | `true` | Hook Engine | Enables/disables local clone hook overrides (`git config aapp.hook.[event]`). |
+| `aapp.hookTimeout` | integer (seconds) | `10` | Hook Engine | Execution timeout ceiling for local notify hook handlers. |
+
+### Lifecycle & Core Engine Settings
+- **`aapp.planId`**: The monotonic counter for allocating Plan IDs (`P-1`, `P-2`, etc.). Seeded on `aapp init` and incremented atomically during `aapp draft`.
+- **`aapp.subjectMaxLen`**: Commit message subject line conciseness ceiling enforced at commit time by `.githooks/aapp-commit-msg`.
+
+### Branch & Write Guard Protection
+- **`aapp.protectStable` & `aapp.devBranch`**: Guards stability on primary branches (`main`/`master`) when development branches (`develop`) exist. Direct commits on stable branches are blocked unless overridden with `ALLOW_MAIN_COMMIT=1`.
+- **`aapp.allowPath`**: Authorizes external tool writes outside the repository boundary (e.g. IDE scratchpads, memory stores) in `.githooks/blast-radius-guard`.
+
+### Remote Sync & Worktree Transport
+- **`aapp.remote`**: Primary git remote for worktree push/pull operations (default: `origin`).
+- **`aapp.syncStrategy`**: When set to `builtin`, uses native git fast-forward plumbing. When set to `hook`, delegates transport to the registered `on-sync` lifecycle hook handler.
+- **`aapp.syncWorktrees`**: List of worktree directories synchronized during team sync (`plans agents githooks`).
+
+### Hook Engine & Local Overrides
+- **`aapp.allowLocalHooks`**: In CI or locked production environments, set to `false` to prevent local git config hooks from executing.
+- **`aapp.hookTimeout`**: Watchdog timeout ceiling (in seconds) applied to local hook execution.

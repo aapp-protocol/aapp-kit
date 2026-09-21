@@ -1012,6 +1012,104 @@ else
 fi
 report "skill pruning: aapp init removes retired skills and bridges while preserving registry.tsv" "PASS" "$got"
 
+# Test 53: Canonical Verb Manifest (lib/verbs.tsv) exists and conforms to schema
+manifest="$KIT/lib/verbs.tsv"
+if [ -f "$manifest" ] && \
+   [ "$(grep -v '^[[:space:]]*#' "$manifest" | grep -v '^[[:space:]]*$' | wc -l)" -ge 30 ] && \
+   grep -q "daily" "$manifest" && grep -q "setup" "$manifest" && \
+   grep -q "sync" "$manifest" && grep -q "hooks" "$manifest" && grep -q "ai" "$manifest"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "canonical manifest: lib/verbs.tsv defines verbs across 5 visual tiers" "PASS" "$got"
+
+# Test 54: aapp draft scaffolds blueprint, stamps monotonic ID, registers in matrix
+PROJ_54="$R/t54_proj"; make_dummy_project "$PROJ_54"
+make_kit_clone "$PROJ_54/aapp-kit"
+(cd "$PROJ_54" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_54" && HOME="$TEST_HOME" "$KIT/aapp" draft test-feature >/dev/null 2>&1)
+if compgen -G "$PROJ_54/.plans/current/P*-test-feature.md" >/dev/null && \
+   grep -q "Plan P-.*: Test Feature" "$PROJ_54"/.plans/current/P*-test-feature.md && \
+   grep -q "test-feature.md" "$PROJ_54/.plans/state_matrix.md"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp draft: scaffolds blueprint, stamps ID & date, registers in matrix" "PASS" "$got"
+
+# Test 55: aapp draft no-dead-end fallback auto-selects pickup note in non-interactive mode
+PROJ_55="$R/t55_proj"; make_dummy_project "$PROJ_55"
+make_kit_clone "$PROJ_55/aapp-kit"
+(cd "$PROJ_55" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+echo "1. Automatic Backup System: Implement automated local backup" > "$PROJ_55/.plans/pickup.md"
+(cd "$PROJ_55" && HOME="$TEST_HOME" "$KIT/aapp" draft </dev/null >/dev/null 2>&1)
+if compgen -G "$PROJ_55/.plans/current/P*-automatic-backup-system*.md" >/dev/null; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp draft: bare non-interactive fallback targets candidate pickup note" "PASS" "$got"
+
+# Test 56: Tiered help generation (lib/cmd_help.sh) matches lib/verbs.tsv
+help_out="$("$KIT/aapp" help 2>&1)"
+if echo "$help_out" | grep -q "Daily Working Loop (Core):" && \
+   echo "$help_out" | grep -q "Setup & Maintenance:" && \
+   echo "$help_out" | grep -q "Team Sync & Emergency Controls:" && \
+   echo "$help_out" | grep -q "Extensibility & Automation (Hooks & Plugins):" && \
+   echo "$help_out" | grep -q "Attribution & Metadata (AI Switchboard):"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "tiered help: aapp help groups verbs into 5 canonical visual tiers" "PASS" "$got"
+
+# Test 57: aapp hooks --events prints lifecycle event catalog
+events_out="$("$KIT/aapp" hooks --events 2>&1)"
+if echo "$events_out" | grep -q "Supported Lifecycle Events Catalog" && \
+   echo "$events_out" | grep -q "pre-freeze" && \
+   echo "$events_out" | grep -q "on-sync" && \
+   echo "$events_out" | grep -q "post-freeze"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "hooks catalog: aapp hooks --events displays Pre/On/Post timing taxonomy" "PASS" "$got"
+
+# Test 58: Dispatcher-to-Manifest Parity: all verbs in lib/verbs.tsv handled in aapp
+manifest="$KIT/lib/verbs.tsv"
+missing_verbs=""
+while IFS="$(printf '\t')" read -r v tier stand desc || [ -n "$v" ]; do
+  [ -z "$v" ] && continue
+  [ "${v#\#}" != "$v" ] && continue
+  if ! grep -qE "([|[:space:]]|^)$v([|)][[:space:]]*|$)" "$KIT/aapp"; then
+    missing_verbs="$missing_verbs $v"
+  fi
+done < "$manifest"
+if [ -z "$missing_verbs" ]; then
+  got="PASS"
+else
+  got="FAIL ($missing_verbs)"
+fi
+report "dispatcher parity: all verbs in lib/verbs.tsv are wired into aapp dispatcher" "PASS" "$got"
+
+# Test 59: Manifest-to-Cheatsheet Parity: all verbs in lib/verbs.tsv appear in CHEATSHEET.md
+cheatsheet="$KIT/CHEATSHEET.md"
+missing_cheat=""
+while IFS="$(printf '\t')" read -r v tier stand desc || [ -n "$v" ]; do
+  [ -z "$v" ] && continue
+  [ "${v#\#}" != "$v" ] && continue
+  if ! grep -q "\`aapp $v" "$cheatsheet" && ! grep -q "\`$v" "$cheatsheet"; then
+    missing_cheat="$missing_cheat $v"
+  fi
+done < "$manifest"
+if [ -z "$missing_cheat" ]; then
+  got="PASS"
+else
+  got="FAIL ($missing_cheat)"
+fi
+report "cheatsheet parity: all verbs in lib/verbs.tsv appear in CHEATSHEET.md" "PASS" "$got"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"

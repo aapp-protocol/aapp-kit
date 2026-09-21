@@ -23,7 +23,35 @@ fi
 # ------------------------------------------------------------------------------
 # 1. Action: `aapp hooks` (Lifecycle Hook Audit)
 # ------------------------------------------------------------------------------
+print_lifecycle_events_catalog() {
+    echo "📋 Supported Lifecycle Events Catalog (Pre/On/Post Timing Taxonomy):"
+    echo ""
+    echo "  1. Pre-Mutation Gates (Gating, exit != 0 aborts before state change):"
+    echo "     • pre-freeze    Runs before locking plan into frozen backlog spec"
+    echo "     • pre-start     Runs before activating execution buffer"
+    echo "     • pre-done      Runs before archiving plan to done/"
+    echo "     • pre-sync      Runs before executing worktree sync/pull"
+    echo ""
+    echo "  2. Action Delegates (Delegating, custom execution / transport):"
+    echo "     • on-sync       Custom remote synchronization transport"
+    echo "     • on-pickup     Custom idea capture/ingestion processor"
+    echo "     • on-digest     Custom plan digestion/scaffolding engine"
+    echo ""
+    echo "  3. Post-Mutation Observers (Observing, telemetry & downstream sync):"
+    echo "     • post-freeze   Broadcasts event after plan is frozen"
+    echo "     • post-start    Broadcasts event after execution buffer is bound"
+    echo "     • post-done     Broadcasts event after plan is archived"
+    echo "     • post-sync     Broadcasts event after remote sync completes"
+    echo "     • post-pause    Broadcasts event after emergency brake is engaged"
+    echo "     • post-resume   Broadcasts event after emergency brake is released"
+}
+
 cmd_hooks_status() {
+    if [ "$1" = "--events" ] || [ "$1" = "-e" ]; then
+        print_lifecycle_events_catalog
+        return 0
+    fi
+
     local reg_file="$REPO_ROOT/.agents/skills/aapp-hooks/registry.tsv"
     local TAB
     TAB="$(printf '\t')"
@@ -104,6 +132,8 @@ cmd_hooks_status() {
 
     if [ "$found" -eq 0 ]; then
         echo "  ℹ️  No lifecycle hooks registered in registry.tsv or git config."
+        echo ""
+        print_lifecycle_events_catalog
     fi
 }
 
@@ -247,17 +277,17 @@ case "$SUBCMD" in
         cmd_hook_hash "$@"
         ;;
     --help|-h|help)
-        echo "Usage: aapp hooks | plugins | hook-test <event> [id] | hook-hash <path> [event] [timeout] [mode]"
+        echo "Usage: aapp hooks [--events] | plugins | hook-test <event> [id] | hook-hash <path> [event] [timeout] [mode]"
         echo ""
         echo "Commands:"
-        echo "  hooks                 Audit registered lifecycle hooks and verify SHA256 hashes"
+        echo "  hooks [--events]      Audit registered lifecycle hooks or list supported events catalog"
         echo "  plugins               Inspect discovered standalone action plugins (.agents/skills/*/)"
         echo "  hook-test <event>     Dry-run test a lifecycle event and inspect stdout/stderr"
         echo "  hook-hash <path>      Compute SHA256 hash and format 5-column registry.tsv line"
         ;;
     *)
         echo "❌ Unknown hook command: '$SUBCMD'" >&2
-        echo "   Available: hooks, plugins, hook-test, hook-hash" >&2
+        echo "   Available: hooks, plugins, hook-test, hook-run, hook-hash" >&2
         exit 1
         ;;
 esac
