@@ -63,3 +63,20 @@ When delegating tasks or operating in specialized roles within this repository, 
 ### 4. 🛡️ Security & Boundary Gatekeeper (`blast-radius-guard`, `aapp-pre-commit`)
 * **Responsibility:** Preventing runaway modifications and unauthorized edits.
 * **Behaviors:** Never routes around write refusals. Enforces frozen blueprint design-locks and refuses commits leaving resolved rows in active `ISSUES.md`.
+
+---
+
+## 📚 Documentation Conventions & Locations
+
+For the AAPP Kit repository itself, documentation is organized across canonical locations:
+- **User & Operator Manuals**:
+  - `README.md` — Project overview, installation, quick-start onboarding, and architecture summary.
+  - `MANUAL.md` — Canonical comprehensive technical manual, CLI command catalog, configuration schema, and threat model.
+  - `CHEATSHEET.md` — Quick-reference guide for common commands and daily workflows.
+- **Architecture & Agent Governance References**:
+  - `ARCHITECTURE.md` — Core repository topology, isolation layers, and component diagrams.
+  - `.agents/CODEMAP.md` — Callable contracts, module boundaries, function registries, and CLI interfaces.
+  - `.agents/PROJECT.MD` — High-level roadmap, milestones, subagent personas, and project conventions.
+- **Documentation Style & Update Contract**:
+  - Standard GitHub Flavored Markdown with semantic alerts (`[!IMPORTANT]`, `[!NOTE]`, `[!WARNING]`).
+  - Strict synchronization invariant: Any implementation altering CLI commands, flags, configuration keys, or developer workflows must update `MANUAL.md` (and `README.md` if introductory).
