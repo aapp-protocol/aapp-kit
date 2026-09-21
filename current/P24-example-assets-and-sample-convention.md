@@ -266,28 +266,28 @@ Rather than extracting reference samples into `.agents/skills/` or writing to `~
 > **Sequencing Dependency Note:** Prerequisite Plan P-22 (`P22-config-backed-plan-id-allocation.md`) is completed and archived to `.plans/done/`. The relocation of `resolve_plugin_entrypoint` to `lib/hook_dispatcher.sh` and the baseline `examples/plugins/aapp-planid/` directory are live on `develop` (resolved under commit `d49d201`). Prerequisite gate is 100% satisfied.
 
 ### Phase 1: Foundation & Test Setup
-- [ ] Task 1.1: Add assertions in `tests/install_test.sh` verifying that `examples/` is copied to `$SHARE_DIR/examples/` during `aapp install`, and that `${SHARE_DIR:?}/examples` is cleaned before copying.
-- [ ] Task 1.2: Add unit tests in `tests/hooks_test.sh` asserting that `resolve_plugin_entrypoint` ignores `run.sample` and `*.sample` files even if marked executable.
-- [ ] Task 1.3: Add test cases in `tests/install_test.sh` (Section 2) asserting that `aapp init` (in both drop-in and global modes) leaves `.agents/skills/` completely clean without any `.sample` directories or showcase files.
+- [x] Task 1.1: Add assertions in `tests/install_test.sh` verifying that `examples/` is copied to `$SHARE_DIR/examples/` during `aapp install`, and that `${SHARE_DIR:?}/examples` is cleaned before copying.
+- [x] Task 1.2: Add unit tests in `tests/hooks_test.sh` asserting that `resolve_plugin_entrypoint` ignores `run.sample` and `*.sample` files even if marked executable.
+- [x] Task 1.3: Add test cases in `tests/install_test.sh` (Section 2) asserting that `aapp init` (in both drop-in and global modes) leaves `.agents/skills/` completely clean without any `.sample` directories or showcase files.
 
 ### Phase 2: Engine Guards & Plugins Catalog Implementation
-- [ ] Task 2.1: Add the `.sample` exclusion filter to `resolve_plugin_entrypoint` in `lib/hook_dispatcher.sh`.
-- [ ] Task 2.2: Update the dynamic subcommand fallthrough in `aapp` to block `*.sample` and reuse `resolve_plugin_entrypoint` so unrenamed `run.sample` files cannot be executed via `aapp <cmd>`.
-- [ ] Task 2.3: Update `cmd_plugins_status()` in `lib/cmd_hook.sh` with the hardcoded standard extension points catalog (`aapp-planid`, `hello-tool`), checking `$AAPP_BASE/examples/plugins/` for sample availability, accurately reporting Active, Sample Available, Configured But Not Executable, and Fallback status, and outputting available plugin sample count and copy path.
-- [ ] Task 2.4: Update `cmd_hooks_status()` in `lib/cmd_hook.sh` to audit registered hooks for `*.sample` (reporting `⚠️  INERT SAMPLE`) and output available hook sample count and copy path.
+- [x] Task 2.1: Add the `.sample` exclusion filter to `resolve_plugin_entrypoint` in `lib/hook_dispatcher.sh`.
+- [x] Task 2.2: Update the dynamic subcommand fallthrough in `aapp` to block `*.sample` and reuse `resolve_plugin_entrypoint` so unrenamed `run.sample` files cannot be executed via `aapp <cmd>`.
+- [x] Task 2.3: Update `cmd_plugins_status()` in `lib/cmd_hook.sh` with the hardcoded standard extension points catalog (`aapp-planid`, `hello-tool`), checking `$AAPP_BASE/examples/plugins/` for sample availability, accurately reporting Active, Sample Available, Configured But Not Executable, and Fallback status, and outputting available plugin sample count and copy path.
+- [x] Task 2.4: Update `cmd_hooks_status()` in `lib/cmd_hook.sh` to audit registered hooks for `*.sample` (reporting `⚠️  INERT SAMPLE`) and output available hook sample count and copy path.
 
 ### Phase 3: Global Installation & Packaging
-- [ ] Task 3.1: Update `lib/cmd_install.sh` to clean `${SHARE_DIR:?}/examples` on line 84 and copy `examples/` to `$SHARE_DIR/examples/`.
-- [ ] Task 3.2: Strictly rename shipped source examples in `examples/` to use in-place `.sample` suffix (`examples/plugins/hello-tool/run.sample`, `examples/plugins/aapp-planid/run.sample`, `examples/hooks/fallback-ratchet.sh.sample`, `examples/hooks/on-done-sync.sh.sample`), and author `examples/hooks/registry.tsv.sample`.
+- [x] Task 3.1: Update `lib/cmd_install.sh` to clean `${SHARE_DIR:?}/examples` on line 84 and copy `examples/` to `$SHARE_DIR/examples/`.
+- [x] Task 3.2: Strictly rename shipped source examples in `examples/` to use in-place `.sample` suffix (`examples/plugins/hello-tool/run.sample`, `examples/plugins/aapp-planid/run.sample`, `examples/hooks/fallback-ratchet.sh.sample`, `examples/hooks/on-done-sync.sh.sample`), and author `examples/hooks/registry.tsv.sample`.
 
 ### Phase 4: Drop-In Mode Zero-Footprint Verification
-- [ ] Task 4.1: Verify in `tests/install_test.sh` that `lib/cmd_init.sh` leaves `.agents/skills/` pristine without seeding sample directories into the project worktree.
-- [ ] Task 4.2: Verify `is_safe_to_consume_kit_dir` cleanly consumes `./aapp-kit` in drop-in mode without writing any external files or directories to `~/.local/share/`.
+- [x] Task 4.1: Verify in `tests/install_test.sh` that `lib/cmd_init.sh` leaves `.agents/skills/` pristine without seeding sample directories into the project worktree.
+- [x] Task 4.2: Verify `is_safe_to_consume_kit_dir` cleanly consumes `./aapp-kit` in drop-in mode without writing any external files or directories to `~/.local/share/`.
 
 ### Phase 5: Verification & Documentation
-- [ ] Task 5.1: Run all test suites (`tests/install_test.sh`, `tests/hooks_test.sh`); verify zero regressions.
-- [ ] Task 5.2: Document the `.sample` convention, centralized `$SHARE_DIR/examples/` storage, CLI sample discovery, and drop-in zero-footprint behavior in `MANUAL.md` and `README.md`.
-- [ ] Task 5.3: Update `CHANGELOG.md` and run syntax checks before committing.
+- [x] Task 5.1: Run all test suites (`tests/install_test.sh`, `tests/hooks_test.sh`); verify zero regressions.
+- [x] Task 5.2: Document the `.sample` convention, centralized `$SHARE_DIR/examples/` storage, CLI sample discovery, and drop-in zero-footprint behavior in `MANUAL.md` and `README.md`.
+- [x] Task 5.3: Update `CHANGELOG.md` and run syntax checks before committing.
 
 ---
 
