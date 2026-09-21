@@ -119,7 +119,7 @@ To guarantee that `.sample` assets cannot be accidentally executed:
 In production, adopting repositories initialized with `aapp init` or `aapp install` do not retain the kit development repository's internal `CODEMAP.md`. Therefore, **the runtime code itself (`aapp plugins` in `lib/cmd_hook.sh`) must serve as the authoritative source of truth** by hardcoding the recognized standard extension points.
 
 #### 1. Hardcoded Standard Extension Points Catalog & Sample Discovery (`cmd_plugins_status`)
-`cmd_plugins_status()` in `lib/cmd_hook.sh` defines the known standard extension points, checks their status dynamically, and discovers available samples from `$AAPP_BASE/examples/plugins/` without polluting the project repository:
+`cmd_plugins_status()` in `lib/cmd_hook.sh` defines the known standard extension points, checks their status dynamically, and discovers available samples from `$AAPP_BASE/examples/plugins/` without polluting the project repository *(Note: This implementation is a complete replacement superseding the existing function in `lib/cmd_hook.sh:144-174`, not an in-place patch)*:
 
 ```bash
 cmd_plugins_status() {
@@ -140,7 +140,7 @@ cmd_plugins_status() {
         printf "      %-16s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
     elif [ -d "$AAPP_BASE/examples/plugins/aapp-planid" ]; then
         local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
-        printf "    • %-16s [Team Plan ID Authority] -> NOT INSTALLED (SAMPLE AVAILABLE in %s)\n" "aapp-planid" "${AAPP_BASE#$HOME/~/}/examples/plugins/aapp-planid/"
+        printf "    • %-16s [Team Plan ID Authority] -> NOT INSTALLED (SAMPLE AVAILABLE in %s)\n" "aapp-planid" "${AAPP_BASE/#$HOME/\~}/examples/plugins/aapp-planid/"
         printf "      %-16s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
     else
         local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
@@ -189,7 +189,7 @@ cmd_plugins_status() {
         done
         if [ "$sample_count" -gt 0 ]; then
             echo "  📦 Available Plugin Samples ($sample_count):"
-            echo "    • Location:  ${AAPP_BASE#$HOME/~/}/examples/plugins/"
+            echo "    • Location:  ${AAPP_BASE/#$HOME/\~}/examples/plugins/"
             echo "    • Available: $sample_names"
             echo "    • To adopt:  cp -r \"$AAPP_BASE/examples/plugins/<name>\" \"$skills_dir/\""
         fi
@@ -223,7 +223,7 @@ if [ "${AAPP_IS_DROP_IN:-0}" -eq 0 ] && [ -d "$AAPP_BASE/examples/hooks" ]; then
     done
     if [ "$hook_sample_count" -gt 0 ]; then
         echo "  📦 Available Hook Samples ($hook_sample_count):"
-        echo "    • Location:  ${AAPP_BASE#$HOME/~/}/examples/hooks/"
+        echo "    • Location:  ${AAPP_BASE/#$HOME/\~}/examples/hooks/"
         echo "    • Available: $hook_sample_names"
         echo "    • To adopt:  cp \"$AAPP_BASE/examples/hooks/<file>\" .githooks/ && aapp hook-hash ..."
     fi
@@ -263,7 +263,7 @@ Rather than extracting reference samples into `.agents/skills/` or writing to `~
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-> **Sequencing Dependency Note:** Implementation follows completion of Plan P-22 (`P22-config-backed-plan-id-allocation.md`), inheriting the relocation of `resolve_plugin_entrypoint` to `lib/hook_dispatcher.sh` and the baseline `examples/plugins/aapp-planid/` directory.
+> **Sequencing Dependency Note:** Prerequisite Plan P-22 (`P22-config-backed-plan-id-allocation.md`) is completed and archived to `.plans/done/`. The relocation of `resolve_plugin_entrypoint` to `lib/hook_dispatcher.sh` and the baseline `examples/plugins/aapp-planid/` directory are live on `develop` (resolved under commit `d49d201`). Prerequisite gate is 100% satisfied.
 
 ### Phase 1: Foundation & Test Setup
 - [ ] Task 1.1: Add assertions in `tests/install_test.sh` verifying that `examples/` is copied to `$SHARE_DIR/examples/` during `aapp install`, and that `${SHARE_DIR:?}/examples` is cleaned before copying.
@@ -347,6 +347,10 @@ Rather than extracting reference samples into `.agents/skills/` or writing to `~
   3. **Centralized global samples**: Global installs (`aapp install`) store all reference samples centrally in `$SHARE_DIR/examples/` (`~/.local/share/aapp-kit/examples/`), refreshed in one place on every kit update.
   4. **CLI sample discovery**: Updated `aapp plugins` and `aapp hooks` in §2.4 to dynamically report the count and source path for available samples in global mode, and reference documentation/URL in drop-in mode.
   5. **Pruned blast radius**: Removed `lib/cmd_init.sh` from Target Files since sample sync logic is eliminated, updating Phase 1, Phase 4, and test requirements accordingly.
+* **2026-09-22 (amendment 6):** **Red team re-review refinements prior to freeze** —
+  1. **Fixed parameter expansion syntax**: Replaced broken `${AAPP_BASE#$HOME/~/}` with POSIX/Bash prefix replacement `${AAPP_BASE/#$HOME/\~}` across §2.4 sample location reporting.
+  2. **Clarified `cmd_plugins_status()` scope**: Explicitly specified that `cmd_plugins_status()` is a complete function replacement superseding `lib/cmd_hook.sh:144-174`, avoiding incremental patch confusion.
+  3. **Sequencing clearance**: Verified that prerequisite Plan P-22 is ✅ Done and archived to `.plans/done/`, satisfying the sequencing gate with zero file-collision risk. Confirmed `plan_resolver.sh:299` resolves only against `.agents/skills/aapp-planid`, establishing that renaming `examples/plugins/aapp-planid/run` to `run.sample` carries zero risk to runtime allocation.
 
 
 
