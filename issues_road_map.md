@@ -33,4 +33,4 @@
 - [ ] #60 -> Plan filenames with newlines break unquoted `ls -1` iteration in enforcement engine.
 - [ ] #67 -> AI credits generator relies on commit trailers and cannot mechanically extract agents that contributed review without committing (awaiting adversarial-review plugin).
 - [ ] #70 -> disable-model-invocation: true suppresses skills in Antigravity IDE, hiding new slash commands (/aapp-start, etc.) from chat autocomplete.
-- [ ] #73 -> `copy_guarded` never overwrites, so `aapp init` cannot refresh `.plans/plan-template.md`; the stale copy still ships the retired status enum and no `Plan ID` field, and every `copy_guarded` destination is affected.
+- [ ] #73 -> 🔵 Planned under P-25 (Delimited Template Sync & Tiered Document Governance). Stale templates persist in worktrees; `copy_guarded` never refreshes guarded destinations.
