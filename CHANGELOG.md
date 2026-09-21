@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated Remote Worktree Synchronization (`P-10`): Adds `aapp push`, `aapp pull`, and `aapp sync` to automate synchronization across isolated orphan worktrees (`.plans`, `.agents`, `.githooks`) with `--ff-only` safety.
 - Clean Break Invariant & Migration Strategy: Mandates clean-break default requiring legacy shims, backwards-compatibility fallbacks, and aliases to be explicitly declared in Section 2 of plans.
 - Master Emergency Brake & Multi-Worktree State Preserver (`P-21`): Adds `aapp pause` and `aapp resume` for atomic multi-worktree collision prevention, quarantining in-flight changes into SHA-addressed stashes.
+- Overview Pulse & Short Status (`lib/cmd_status.sh`): Adds high-density backlog metrics to `aapp status` banner and supports positional `aapp status short` for remote reporting.
 
 ### Changed
 - Project Documentation Strategy & Plan Template Sync: Added Documentation Conventions section to `PROJECT.MD` and anchored plan template doc sync invariant to project conventions.

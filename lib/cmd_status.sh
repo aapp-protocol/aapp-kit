@@ -33,9 +33,62 @@ elif [ -f "$REPO_ROOT/lib/plan_resolver.sh" ]; then
     source "$REPO_ROOT/lib/plan_resolver.sh"
 fi
 
+# Compute Overview Metrics
+ISSUES_FILE=""
+if [ -f ".plans/ISSUES.md" ]; then
+    ISSUES_FILE=".plans/ISSUES.md"
+elif [ -f "ISSUES.md" ]; then
+    ISSUES_FILE="ISSUES.md"
+fi
+TOTAL_ISSUES=0
+if [ -n "$ISSUES_FILE" ]; then
+    TOTAL_ISSUES=$(grep -E '^[[:space:]]*\|[[:space:]]*`?#[0-9]+' "$ISSUES_FILE" 2>/dev/null | wc -l | tr -d ' ')
+fi
+
+ROADMAP_FILE=""
+if [ -f ".plans/issues_road_map.md" ]; then
+    ROADMAP_FILE=".plans/issues_road_map.md"
+elif [ -f "issues_road_map.md" ]; then
+    ROADMAP_FILE="issues_road_map.md"
+fi
+TOP_ROADMAP_ISSUES=""
+if [ -n "$ROADMAP_FILE" ]; then
+    TOP_ROADMAP_ISSUES=$(grep -E '^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ ]?\]|\*)[[:space:]]*`?#?[0-9]+' "$ROADMAP_FILE" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '✅|[Rr]esolved|DONE' | grep -o -E '#[0-9]+' | head -n 3 | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+fi
+
+TOTAL_PLANS=0
+if [ -d ".plans/current" ]; then
+    TOTAL_PLANS=$(find .plans/current -maxdepth 1 -name "*.md" ! -name "000-*" 2>/dev/null | wc -l | tr -d ' ')
+fi
+
+STATE_MATRIX=""
+if [ -f ".plans/state_matrix.md" ]; then
+    STATE_MATRIX=".plans/state_matrix.md"
+elif [ -f "state_matrix.md" ]; then
+    STATE_MATRIX="state_matrix.md"
+fi
+ROADMAP_PLANS=""
+if [ -n "$STATE_MATRIX" ]; then
+    ROADMAP_PLANS=$(awk '/## 🚦 Recommended Implementation Roadmap/ {flag=1; next} /^## / {flag=0} flag' "$STATE_MATRIX" 2>/dev/null | grep -o -E 'P-[0-9]+' | head -n 3 | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+fi
+[ -z "$ROADMAP_PLANS" ] && ROADMAP_PLANS="none"
+
+PICKUP_COUNT=0
+if [ -f ".plans/pickup.md" ]; then
+    PICKUP_COUNT=$(grep -E '^[0-9]+\.|^[\*-] ' ".plans/pickup.md" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '\[x\]|\[X\]' | wc -l | tr -d ' ')
+fi
+
+OVERVIEW_LINE="📊 Overview: $TOTAL_ISSUES issues (Next: ${TOP_ROADMAP_ISSUES:-none}) | $TOTAL_PLANS plans (Roadmap: $ROADMAP_PLANS) | $PICKUP_COUNT pickup"
+
+if [ "$1" = "short" ] || [ "$1" = "summary" ]; then
+    echo "$OVERVIEW_LINE"
+    return 0 2>/dev/null || exit 0
+fi
+
 echo "============================================================"
 echo "  🧭 AAPP Context Recovery Briefing"
 echo "  📍 Repo: $REPO_ROOT"
+echo "  $OVERVIEW_LINE"
 echo "============================================================"
 
 # 0. Master Emergency Brake / Pause Banner
