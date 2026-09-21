@@ -21,7 +21,7 @@
 2. #74 -> Tests hardcode throwaway credentials (`T <t@t>`) without sandbox guards; relative `core.hooksPath` blinds linked worktrees (`.plans`, `.agents`). 🔵 Planned under [P-26](current/P26-test-harness-isolation-and-worktree-hooks.md).
 
 ## 🟡 Medium Priority (Upcoming Iterations)
-*(No medium priority items currently queued)*
+1. #75 -> Flat 36-verb catalog causes discovery fatigue for beginners; cheatsheet drifted to 44% coverage (16/36 verbs) missing core lifecycle. 🔵 Planned under [P-27](current/P27-tiered-cli-discovery-and-cheatsheet-sync.md).
 
 ## 🟢 Low Priority (Test Infrastructure & Verification)
 - [ ] #63 -> No CI runs test suites (102 test cases) and no release gate blocks publishing `main` trailing `develop`.
