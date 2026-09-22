@@ -23,11 +23,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-33**: [`P33-centralized-git-root-assertion-and-fail-fast-dispatch.md`](current/P33-centralized-git-root-assertion-and-fail-fast-dispatch.md) — Centralized Git Root Assertion & Fail-Fast Dispatch
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-33**: [`P33-centralized-git-root-assertion-and-fail-fast-dispatch.md`](current/P33-centralized-git-root-assertion-and-fail-fast-dispatch.md) — Centralized Git Root Assertion & Fail-Fast Dispatch
 
 ---
 
