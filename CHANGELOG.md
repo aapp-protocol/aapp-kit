@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status auto-sync (`P-30`): `aapp status` re-derives `state_matrix.md` before reading it, so the Roadmap line and Next Action footer report the real board instead of a stale cache. Silent when already in sync; while paused it still writes and notes that the commit waits for `aapp resume`.
 
 ### Fixed
+- Worktree Hook Test Re-Init Invocation (`P-31`): Fixes re-init test step in `tests/worktree_hooks_test.sh` to target `$KIT/aapp` rather than consumed drop-in clone path.
 - Universal Worktree Hook Dispatching & Root Resolution (`P-26`): Replaces `--show-toplevel` with `git rev-parse --git-common-dir` in Tier 1 master hook wrappers (`templates/pre-commit`, `templates/commit-msg`, `templates/post-commit`) and hook injection templates in `lib/cmd_init.sh`, ensuring hooks resolve the shared `.githooks/` directory reliably across primary branches and linked worktrees.
 - Test Suite Identity & Confinement Purge (`P-26`): Purges hardcoded `T <t@t>` and uncontained host repo configuration mutations across test suites (`sync_test.sh`, `install_test.sh`, `pre-commit_test.sh`, `write-guard_test.sh`, `hooks_test.sh`, `plan_resolver_test.sh`, `ai_attribution_test.sh`).
 - Idempotent Worktree Hook Symlink Seeding & Ignore Hygiene (`P-26`): Seeds `.githooks` symlinks (`.plans/.githooks -> ../.githooks` and `.agents/.githooks -> ../.githooks`) on `aapp init` and ignores `.githooks` in `.plans/.gitignore` and `.agents/.gitignore` to prevent orphan branch pollution.

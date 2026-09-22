@@ -202,7 +202,7 @@ echo "== 5. Idempotent Re-Init and Stability =="
 # Run aapp init again
 (
     cd "$TEST_DIR"
-    ./aapp-kit/aapp init >/dev/null 2>&1
+    "$KIT/aapp" init >/dev/null 2>&1
 )
 
 if [ -L "$TEST_DIR/.plans/.githooks" ] && [ -L "$TEST_DIR/.agents/.githooks" ]; then
