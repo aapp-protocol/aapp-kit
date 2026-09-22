@@ -144,35 +144,35 @@ To prevent Git from treating `.githooks` as an untracked asset inside `.plans` o
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-- [ ] **Phase 1: Shared Test Sandbox Harness (`tests/test_helpers.sh`)**
-  - [ ] Implement `assert_test_sandbox()` fail-closed directory verification using `--git-common-dir`.
-  - [ ] Implement `setup_test_git_identity()` with developer inheritance and robust CI fallback.
-  - [ ] Configure `AAPP_TEST_SANDBOX_STRICT=1` enforcement by default across all test fixtures.
-  - [ ] Implement safe `make_sandboxed_kit_clone()` helper.
+- [x] **Phase 1: Shared Test Sandbox Harness (`tests/test_helpers.sh`)**
+  - [x] Implement `assert_test_sandbox()` fail-closed directory verification using `--git-common-dir`.
+  - [x] Implement `setup_test_git_identity()` with developer inheritance and robust CI fallback.
+  - [x] Configure `AAPP_TEST_SANDBOX_STRICT=1` enforcement by default across all test fixtures.
+  - [x] Implement safe `make_sandboxed_kit_clone()` helper.
 
-- [ ] **Phase 2: Purge `T <t@t>` and Confinement Across Test Suites**
-  - [ ] Refactor `tests/sync_test.sh` to use `setup_test_git_identity`.
-  - [ ] Refactor `tests/install_test.sh` to use `setup_test_git_identity`.
-  - [ ] Refactor `tests/pre-commit_test.sh` to use `setup_test_git_identity`.
-  - [ ] Refactor `tests/write-guard_test.sh` to use `setup_test_git_identity`.
-  - [ ] Refactor `tests/hooks_test.sh` to use `setup_test_git_identity`.
-  - [ ] Refactor `tests/plan_resolver_test.sh` to run in `$R` sandbox instead of mutating host `.git/config`.
-  - [ ] Refactor `tests/ai_attribution_test.sh` to use `setup_test_git_identity`.
+- [x] **Phase 2: Purge `T <t@t>` and Confinement Across Test Suites**
+  - [x] Refactor `tests/sync_test.sh` to use `setup_test_git_identity`.
+  - [x] Refactor `tests/install_test.sh` to use `setup_test_git_identity`.
+  - [x] Refactor `tests/pre-commit_test.sh` to use `setup_test_git_identity`.
+  - [x] Refactor `tests/write-guard_test.sh` to use `setup_test_git_identity`.
+  - [x] Refactor `tests/hooks_test.sh` to use `setup_test_git_identity`.
+  - [x] Refactor `tests/plan_resolver_test.sh` to run in `$R` sandbox instead of mutating host `.git/config`.
+  - [x] Refactor `tests/ai_attribution_test.sh` to use `setup_test_git_identity`.
 
-- [ ] **Phase 3: Universal Worktree Hook Dispatchers & Injection**
-  - [ ] Update Tier 1 master wrappers (`templates/commit-msg`, `templates/pre-commit`, `templates/post-commit`) to use `git-common-dir` resolution.
-  - [ ] Verify Tier 2 engines (`templates/aapp-commit-msg`, `templates/aapp-pre-commit`, `templates/aapp-post-commit`) operate reliably in linked worktrees.
-  - [ ] Update existing hook injection lines in `lib/cmd_init.sh` (lines 377, 397, 417) to use `git-common-dir`.
-  - [ ] Sync live project `.githooks/` via `./aapp init` execution (conforming to Pair 5 self-protection, without direct code edits to `.githooks/*`).
+- [x] **Phase 3: Universal Worktree Hook Dispatchers & Injection**
+  - [x] Update Tier 1 master wrappers (`templates/commit-msg`, `templates/pre-commit`, `templates/post-commit`) to use `git-common-dir` resolution.
+  - [x] Verify Tier 2 engines (`templates/aapp-commit-msg`, `templates/aapp-pre-commit`, `templates/aapp-post-commit`) operate reliably in linked worktrees.
+  - [x] Update existing hook injection lines in `lib/cmd_init.sh` (lines 377, 397, 417) to use `git-common-dir`.
+  - [x] Sync live project `.githooks/` via `./aapp init` execution (conforming to Pair 5 self-protection, without direct code edits to `.githooks/*`).
 
-- [ ] **Phase 4: Worktree Hook Wiring & Ignore Hygiene in `lib/cmd_init.sh`**
-  - [ ] Add idempotent `.githooks` symlink creation for `.plans` and `.agents` in `lib/cmd_init.sh`.
-  - [ ] Add `.githooks` entry to `.plans/.gitignore` to prevent orphan branch pollution.
-  - [ ] Add test verification for worktree hook execution in `tests/install_test.sh`.
+- [x] **Phase 4: Worktree Hook Wiring & Ignore Hygiene in `lib/cmd_init.sh`**
+  - [x] Add idempotent `.githooks` symlink creation for `.plans` and `.agents` in `lib/cmd_init.sh`.
+  - [x] Add `.githooks` entry to `.plans/.gitignore` to prevent orphan branch pollution.
+  - [x] Add test verification for worktree hook execution in `tests/install_test.sh`.
 
-- [ ] **Phase 5: Automated Verification & Regression Suite**
-  - [ ] Add regression test suite `tests/worktree_hooks_test.sh` verifying that commits in `.plans` and `.agents` trigger `aapp-commit-msg` and block banned `Co-authored-by:` trailers.
-  - [ ] Verify complete test suite passes (0 failures across all suites).
+- [x] **Phase 5: Automated Verification & Regression Suite**
+  - [x] Add regression test suite `tests/worktree_hooks_test.sh` verifying that commits in `.plans` and `.agents` trigger `aapp-commit-msg` and block banned `Co-authored-by:` trailers.
+  - [x] Verify complete test suite passes (0 failures across all suites).
 
 ---
 
