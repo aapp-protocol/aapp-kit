@@ -1,8 +1,8 @@
 # 🗺️ Plan P-25: Delimited Template Sync & Tiered Document Governance
-* **Created:** 2026-09-21 | **Last Refined:** 2026-09-21
+* **Created:** 2026-09-21 | **Last Refined:** 2026-09-22
 * **Target Issue / Milestone:** #73 *(supersedes #73 upon completion)*
 * **Plan ID:** P-25
-* **Status:** 🟣 Under Review
+* **Status:** 📝 Refining
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -130,13 +130,15 @@ Configurable via `git config aapp.templateSync <mode>`:
 - [ ] `lib/cmd_init.sh` -> Refactor template provisioning to tiered sync
 - [ ] `lib/cmd_upgrade.sh` -> Trigger template sync on upgrade
 - [ ] `lib/cmd_status.sh` -> Integrate template drift health check
-- [ ] `lib/cmd_help.sh` -> Register sync-templates command
+- [ ] `lib/verbs.tsv` -> Register sync-templates verb in tiered manifest
 - [ ] `aapp` -> Wire sync-templates CLI command
 - [ ] `templates/plan-template.md` -> Add delimited invariants block
 - [ ] `templates/release_checklist.md` -> Add delimited invariants block
 - [ ] `tests/template_sync_test.sh` -> Automated regression test suite
 - [ ] `MANUAL.md` -> Document template sync and configuration
+- [ ] `CHEATSHEET.md` -> Update command matrix with sync-templates verb
 - [ ] `ARCHITECTURE.md` -> Update architecture map with tiered template governance
+- [ ] `CHANGELOG.md` -> Document template sync engine in changelog
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/*` -> Guard engine self-protection
@@ -146,19 +148,18 @@ Configurable via `git config aapp.templateSync <mode>`:
 
 ---
 
-## ❓ 5. Open Questions
+## ❓ 5. Open Questions & Settled Decisions
 
 1. **Conflict Resolution on Modified Tier 1 Templates**: When a user heavily customizes `.plans/plan-template.md` (without delimiters) and AAPP upgrades:
-   - *Option A*: Create `.plans/plan-template.md.new` and print an advisory (similar to `.pacnew` / rpmnew).
-   - *Option B*: Overwrite the invariant header only using fuzzy header anchoring.
-   - *Recommendation*: Option A in `safe` mode, Option B if delimiter markers are present.
+   - **Decision**: **Option A in `safe` mode, Option B with delimiters (Adopted Recommendation)**. If delimiter markers are present, update strictly between markers (Option B). If markers are absent and the template has diverged from upstream, write a `.plans/plan-template.md.new` buffer and emit an advisory so user customizations are never silently overwritten (Option A).
 2. **Sync Scope during `aapp init`**: Should `aapp init` always run `sync-templates` automatically in `safe` mode, or only when explicitly requested?
-   - *Recommendation*: Automatically in `safe` mode so developers don't have to remember a separate command.
+   - **Decision**: **Automatic in `safe` mode (Adopted Recommendation)**. `aapp init` and `aapp upgrade` invoke template synchronization automatically in `safe` mode so developers maintain synchronized invariants without manual command invocations.
 3. **Template Version Stamping**: Should each template file carry an internal schema version (`v1.0.0`) in its marker tag?
-   - *Recommendation*: Yes, matching `<!-- AAPP-PROTOCOL:START vX.Y.Z -->` in `AGENTS.md`.
+   - **Decision**: **Yes, Uniform Schema Versioning (Adopted Recommendation)**. Delimiters standardize on `<!-- AAPP-PROTOCOL:START vX.Y.Z -->` matching `templates/AGENTS.md`.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-09-22 (Refinement):** Settled all Open Questions with recommended answers: (1) adopted hybrid Option A (.new buffer) / Option B (in-place delimiter update) conflict resolution, (2) adopted automatic safe sync during `aapp init` and `aapp upgrade`, and (3) adopted uniform `vX.Y.Z` schema version stamping. Updated Target Files to include `lib/verbs.tsv`, `CHEATSHEET.md`, and `CHANGELOG.md`.
 * **2026-09-21:** Drafted initial canonical blueprint P-25 from issue #73 analysis. Established 3-tier document governance model, HTML delimiter standard, and git config switchboard.
