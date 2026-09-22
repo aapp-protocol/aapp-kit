@@ -22,11 +22,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-31**: [`P31-unified-test-runner-cli.md`](current/P31-unified-test-runner-cli.md) — Unified Test Runner CLI (aapp test)
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-31**: [`P31-unified-test-runner-cli.md`](current/P31-unified-test-runner-cli.md) — Unified Test Runner CLI (aapp test)
 
 ---
 

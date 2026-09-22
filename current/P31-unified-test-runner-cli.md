@@ -2,7 +2,7 @@
 * **Created:** 2026-09-22 | **Last Refined:** 2026-09-22
 * **Target Issue / Milestone:** Partial for #63 *(CLI Unified Test Runner Engine; CI GitHub workflow deferred to dedicated follow-up)*
 * **Plan ID:** P-31
-* **Status:** 🔷 Frozen
+* **Status:** ⚡ In Development
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -272,6 +272,7 @@ To prevent fragile parsing or banner omissions, AAPP establishes a two-pronged c
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-22:** Plan activated into ⚡ In Development via start.
 * **2026-09-22:** Plan locked and frozen into 🔷 Frozen via freeze.
 
 * **2026-09-22 (Refinement - Amendment 2):** Addressed red team review: (1) resolved assertion aggregation discrepancy across 10 suites by defining a standardized summary helper (`print_test_summary` in `test_helpers.sh`) and a dual-layer ANSI-stripping scraper in `cmd_test.sh`, (2) expanded Target Files to include `tests/*_test.sh` for trailing summary normalization, (3) corrected suite inventory to 10 suites (422 assertions), including `matrix_test.sh` and `plan_states_test.sh`, (4) clarified Issue #63 scope boundary as partial runner engine with CI workflow deferred, (5) settled Open Question 2 with dual-mode adopter delegation, and (6) removed `--help` from test parser to preserve the zero-double-dash invariant.
