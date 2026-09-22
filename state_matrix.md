@@ -17,6 +17,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-23**: [`P23-lifecycle-hook-sequencing-and-pre-gates.md`](current/P23-lifecycle-hook-sequencing-and-pre-gates.md) — Lifecycle Hook Sequencing, Pre-Mutation Quality Gates & Return Code Abort Protocol.
 - 🟣 **P-25**: [`P25-template-sync-and-document-governance.md`](current/P25-template-sync-and-document-governance.md) — Delimited Template Sync & Tiered Document Governance. Supersedes #73.
 - 🟣 **P-28**: [`P28-conciseness-enforcement-and-changelog-governance.md`](current/P28-conciseness-enforcement-and-changelog-governance.md) — Conciseness Enforcement, Commit Body Ceiling & Changelog Governance. Supersedes #76.
+- 🟣 **P-32**: [`P32-issue-id-allocation-and-duplicate-detection.md`](current/P32-issue-id-allocation-and-duplicate-detection.md) — Issue ID Allocation & Duplicate Detection
 
 ---
 
