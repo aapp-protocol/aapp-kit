@@ -136,6 +136,9 @@ case "$CMD" in
     draft|freeze-start|start|freeze|done|plan|active|plan-status)
         source "$AAPP_LIB/cmd_plan.sh" "$CMD" "$@"
         ;;
+    matrix)
+        source "$AAPP_LIB/cmd_matrix.sh" "$@"
+        ;;
     pause|resume|unpause)
         source "$AAPP_LIB/cmd_pause.sh" "$CMD" "$@"
         ;;

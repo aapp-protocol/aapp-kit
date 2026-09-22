@@ -34,6 +34,29 @@ elif [ -f "$REPO_ROOT/lib/plan_resolver.sh" ]; then
     source "$REPO_ROOT/lib/plan_resolver.sh"
 fi
 
+# Re-derive state_matrix.md from the plan files before a lifecycle commit, so
+# the commit records a correct board (P-30). Replaces per-verb in-place sed,
+# which could rewrite a row's emoji but never relocate it between sections.
+sync_state_matrix() {
+    local lib_dir=""
+    for cand in "$AAPP_LIB" "$PRIMARY_ROOT/lib" "$REPO_ROOT/lib"; do
+        if [ -n "${cand:-}" ] && [ -f "$cand/cmd_matrix.sh" ]; then
+            lib_dir="$cand"
+            break
+        fi
+    done
+    [ -z "$lib_dir" ] && return 0
+
+    (
+        AAPP_MATRIX_LIB_ONLY=1
+        export AAPP_MATRIX_LIB_ONLY
+        # shellcheck source=/dev/null
+        . "$lib_dir/cmd_matrix.sh" 2>/dev/null || exit 0
+        cmd_matrix >/dev/null 2>&1 || true
+    ) || true
+    return 0
+}
+
 resolve_plan_file() {
     local query="$1"
     local verb="${2:-inspect}"
@@ -299,13 +322,9 @@ cmd_draft() {
     sed -i -E "s/\\[YYYY-MM-DD\\]/${today}/g" "$target_file"
     sed -i -E "s/P-XX/P-${num}/g" "$target_file"
 
-    # State matrix registration
+    # State matrix registration: derived from the new plan's Status line.
     local sm_file="$PLANS_DIR/state_matrix.md"
-    if [ -f "$sm_file" ]; then
-        if grep -q "## 🧠 1\. Human Thought & Refinement (The Incubator)" "$sm_file"; then
-            sed -i -E "/## 🧠 1\. Human Thought & Refinement \(The Incubator\)/a \\- 🟣 **P-${num}**: [\`P${num}-${slug}.md\`](current/P${num}-${slug}.md) — \`${title}\`." "$sm_file"
-        fi
-    fi
+    sync_state_matrix
 
     # Git commit in .plans worktree
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
@@ -376,9 +395,7 @@ cmd_freeze_start() {
 
     # Update state matrix if present
     local sm_file="$PLANS_DIR/state_matrix.md"
-    if [ -f "$sm_file" ]; then
-        sed -i -E "/$plan_id/s/🔴|🟡|🟣|🔷|📝/⚡/g" "$sm_file"
-    fi
+    sync_state_matrix
 
     # Write buffer
     write_active_buffer "$plan_id"
@@ -457,9 +474,7 @@ cmd_freeze() {
 
     # Update state matrix if present
     local sm_file="$PLANS_DIR/state_matrix.md"
-    if [ -f "$sm_file" ]; then
-        sed -i -E "/$plan_id/s/🔴|🟡|🟣|📝/🔷/g" "$sm_file"
-    fi
+    sync_state_matrix
 
     # Commit transition in plans worktree if available
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
@@ -521,9 +536,7 @@ cmd_start() {
     fi
 
     local sm_file="$PLANS_DIR/state_matrix.md"
-    if [ -f "$sm_file" ]; then
-        sed -i -E "/$plan_id/s/🔴|🟡|🟣|🔷|📝/⚡/g" "$sm_file"
-    fi
+    sync_state_matrix
 
     write_active_buffer "$plan_id"
 
@@ -793,25 +806,47 @@ cmd_plan_status() {
         return 0
     fi
 
+    # Bucketing is registry-driven (P-30 §2.7): a status matching no registry
+    # entry is reported as unrecognized rather than folded into the Incubator,
+    # where a typo'd status would otherwise hide.
+    local states_lib=""
+    for cand in "$AAPP_LIB" "$PRIMARY_ROOT/lib" "$REPO_ROOT/lib"; do
+        if [ -n "${cand:-}" ] && [ -f "$cand/plan_states.sh" ]; then
+            states_lib="$cand/plan_states.sh"
+            break
+        fi
+    done
+    if [ -n "$states_lib" ]; then
+        # shellcheck source=/dev/null
+        . "$states_lib" 2>/dev/null || true
+        plan_states_load 2>/dev/null || true
+    fi
+
     local in_dev=()
     local frozen=()
     local incubator=()
+    local unrecognized=()
 
     for pf in "$PLANS_DIR"/current/*.md; do
         [ ! -f "$pf" ] && continue
-        case "$(basename "$pf")" in 000-*) continue ;; esac
-        local pid status
+        case "$(basename "$pf")" in 000-*|plan-template.md) continue ;; esac
+        local pid status slug entry
         pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" 2>/dev/null || true)"
         [ -z "$pid" ] && pid="$(basename "$pf" .md)"
         status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$pf" | head -n 1 || true)"
+        entry="$pid ($(basename "$pf"))"
 
-        if echo "$status" | grep -qE '⚡[[:space:]]*In Development'; then
-            in_dev+=("$pid ($(basename "$pf"))")
-        elif echo "$status" | grep -qE '🔷[[:space:]]*Frozen'; then
-            frozen+=("$pid ($(basename "$pf"))")
-        else
-            incubator+=("$pid ($(basename "$pf"))")
+        slug=""
+        if declare -f plan_state_for_status_line >/dev/null 2>&1; then
+            slug="$(plan_state_for_status_line "$status" 2>/dev/null || true)"
         fi
+
+        case "$slug" in
+            in-development) in_dev+=("$entry") ;;
+            frozen)         frozen+=("$entry") ;;
+            "")             unrecognized+=("$entry") ;;
+            *)              incubator+=("$entry") ;;
+        esac
     done
 
     echo "   ⚡ In Development : ${#in_dev[@]}"
@@ -822,6 +857,13 @@ cmd_plan_status() {
 
     echo "   🟣 Incubator      : ${#incubator[@]}"
     for item in "${incubator[@]}"; do echo "      • $item"; done
+
+    if [ ${#unrecognized[@]} -gt 0 ]; then
+        echo "   ❓ Unrecognized   : ${#unrecognized[@]}"
+        for item in "${unrecognized[@]}"; do echo "      • $item"; done
+        echo "      ↳ Status matches no registry entry. Fix the Status line, or declare it"
+        echo "        via 'git config aapp.planState.<slug>'."
+    fi
 
     if [ -f "$ACTIVE_FILE" ]; then
         local active_id

@@ -61,6 +61,28 @@ if [ -d ".plans/current" ]; then
     TOTAL_PLANS=$(find .plans/current -maxdepth 1 -name "*.md" ! -name "000-*" 2>/dev/null | wc -l | tr -d ' ')
 fi
 
+# Re-derive the matrix before anything reads it, so the briefing reports the
+# real board rather than a stale cache (P-30 §2.10). While paused this still
+# writes: the uncommittable diff is the visible record of what reflection
+# changed, and the advisory below says the commit waits for 'aapp resume'.
+MATRIX_SYNCED=0
+MATRIX_PAUSED_DEFER=0
+if [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_matrix.sh" ] && [ -d ".plans/current" ]; then
+    MATRIX_OUT="$(
+        AAPP_MATRIX_LIB_ONLY=1
+        export AAPP_MATRIX_LIB_ONLY
+        # shellcheck source=/dev/null
+        . "$AAPP_LIB/cmd_matrix.sh" 2>/dev/null || exit 0
+        cmd_matrix 2>/dev/null || true
+    )"
+    case "$MATRIX_OUT" in
+        *"Re-derived"*) MATRIX_SYNCED=1 ;;
+    esac
+    case "$MATRIX_OUT" in
+        *"PAUSED"*) MATRIX_PAUSED_DEFER=1 ;;
+    esac
+fi
+
 STATE_MATRIX=""
 if [ -f ".plans/state_matrix.md" ]; then
     STATE_MATRIX=".plans/state_matrix.md"
@@ -285,6 +307,16 @@ if [ -d ".plans/current" ]; then
     if [ "$HAS_PLANS" -eq 0 ]; then
         echo "  (No active plans in .plans/current/)"
     fi
+
+    # Report what the pre-read sync did (P-30 §2.10). Silent when the matrix was
+    # already in sync, so a correct board adds no noise to the briefing.
+    if [ "$MATRIX_SYNCED" -eq 1 ]; then
+        if [ "$MATRIX_PAUSED_DEFER" -eq 1 ]; then
+            echo "  🔄 [Matrix] state_matrix.md re-derived from .plans/current/ (uncommittable until 'aapp resume')"
+        else
+            echo "  🔄 [Matrix] state_matrix.md re-derived from .plans/current/ (review and commit the diff)"
+        fi
+    fi
 else
     echo "  (.plans/ worktree not mounted. Run 'aapp init' to mount)"
 fi
@@ -320,11 +352,35 @@ if [ -f "$ACTIVE_PLAN_BUFFER" ]; then
     ACTIVE_PLAN_ID="$(cat "$ACTIVE_PLAN_BUFFER" 2>/dev/null | tr -d '[:space:]' || true)"
 fi
 
+# Resolved from each plan's own Status line via the status registry (P-30
+# §2.6), not by matching matrix headings. Headings are generated and vary by
+# adopter, so anchoring on them silently returned nothing when they changed.
 FROZEN_PLAN=""
 INCUBATOR_PLAN=""
-if [ -n "$STATE_MATRIX" ]; then
-    FROZEN_PLAN="$(awk '/## 🔷 2\. Frozen/ {flag=1; next} /^## / {flag=0} flag' "$STATE_MATRIX" 2>/dev/null | grep -o -E 'P-[0-9]+' | head -n 1 || true)"
-    INCUBATOR_PLAN="$(awk '/## 🧠 1\. Human Thought/ {flag=1; next} /^## / {flag=0} flag' "$STATE_MATRIX" 2>/dev/null | grep -o -E 'P-[0-9]+' | head -n 1 || true)"
+if [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/plan_states.sh" ] && [ -d ".plans/current" ]; then
+    PLAN_LANE="$(
+        # shellcheck source=/dev/null
+        . "$AAPP_LIB/plan_states.sh" 2>/dev/null || exit 0
+        plan_states_load 2>/dev/null || exit 0
+        INCUBATOR_HEADING="$(plan_state_field under-review heading 2>/dev/null || true)"
+        for PF in .plans/current/*.md; do
+            [ -f "$PF" ] || continue
+            case "$(basename "$PF")" in 000-*|plan-template.md) continue ;; esac
+            PID="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$PF" 2>/dev/null | head -n 1)"
+            [ -z "$PID" ] && continue
+            SLINE="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$PF" 2>/dev/null | head -n 1)"
+            SLUG="$(plan_state_for_status_line "$SLINE" 2>/dev/null || true)"
+            [ -z "$SLUG" ] && continue
+            if [ "$SLUG" = "frozen" ]; then
+                echo "frozen $PID"
+            elif [ -n "$INCUBATOR_HEADING" ] && \
+                 [ "$(plan_state_field "$SLUG" heading 2>/dev/null || true)" = "$INCUBATOR_HEADING" ]; then
+                echo "incubator $PID"
+            fi
+        done
+    )"
+    FROZEN_PLAN="$(echo "$PLAN_LANE" | awk '$1=="frozen"{print $2; exit}')"
+    INCUBATOR_PLAN="$(echo "$PLAN_LANE" | awk '$1=="incubator"{print $2; exit}')"
 fi
 
 FIRST_ISSUE=""

@@ -31,6 +31,7 @@
 │   ├── cmd_init.sh        # Target resolution, orphan worktrees, rules & skills sync
 │   ├── cmd_install.sh     # Global installer & signature-gated self-consumption
 │   ├── cmd_plan.sh        # Active buffer manager, deterministic drafting & lifecycle triggers
+│   ├── cmd_matrix.sh      # State matrix derivation engine (check & sync)
 │   ├── cmd_pause.sh       # Emergency brake, multi-worktree stash quarantine & wake engine
 │   ├── cmd_hook.sh        # Hook audit, event catalog discovery (--events) & testing
 │   ├── cmd_ai.sh          # AI attribution switchboard & credits manager
@@ -39,6 +40,7 @@
 │   ├── cmd_upgrade.sh     # Upstream release fetch and in-place upgrade
 │   ├── cmd_uninstall.sh   # Global installation cleanup
 │   ├── plan_resolver.sh   # Plan ID standard (P-<num>) & shorthand resolver
+│   ├── plan_states.sh     # Status registry: emoji, name, matrix heading & rank
 │   └── planning_health.sh # 7-pair mechanical integrity validation engine
 ├── templates/             # Version-controlled hook engines and starter blueprints
 │   ├── blast-radius-guard.sh # Layer 1 PreToolUse write-guard engine
@@ -92,6 +94,20 @@
 4. **Frozen Plan Immutability:** Once a blueprint is `🔷 Frozen`, its technical blueprint (§2) and blast radius (§4) are locked. Unfreezing requires explicit reversion to `📝 Refining`.
 5. **Two-Lane Boundary:** Never merge bugs into `state_matrix.md` or raw feature requests into `issues_road_map.md`. Large bug fixes are promoted to blueprints via `digest ISSUE-00X`.
 6. **Documentation Synchronization:** Every implementation introducing new files, interfaces, or architectural contracts must update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
+
+## Plan State: Derived, Not Maintained
+
+`.plans/state_matrix.md` was historically **hand-maintained**: each lifecycle verb patched a row's status emoji in place, and nothing reconciled the file against the blueprints it described. Because the emoji was rewritten where the row already sat, a plan could be frozen or started without ever leaving its old section — a frozen badge under the Incubator. Section headings were also parsed by `cmd_status.sh` with hardcoded `awk` anchors, which returned silently empty once an adopter's headings diverged from the template.
+
+Plan state is now **derived**: the `**Status:**` line inside each `.plans/current/*.md` is authoritative, and the matrix is regenerated from it.
+
+* **One registry.** `lib/plan_states.sh` declares every status — emoji, canonical name, generated section heading, sort rank. Matching is by canonical name, never by glyph, so presentation and semantics stay separable. Adopters add statuses through `git config aapp.planState.<slug>`; a malformed entry warns and is skipped rather than breaking status output.
+* **Headings generated, not parsed.** Sections and their order come from the registry, so no code anchors on heading text and adopter divergence cannot silently break resolution.
+* **Population is `current/` only.** A plan that has left `current/` has no row; the archive ledger is terminal. Orphan rows vanish as a consequence of derivation rather than by special-case deletion.
+* **Human content is preserved.** The Roadmap block is carried verbatim (priority ordering is human judgement, never derived) and each row's annotation after the first em-dash is reattached by Plan ID, so notes follow a plan across sections.
+* **No silent loss.** A status matching no registry entry is reported in a visible *Unrecognized* section by both `aapp matrix` and `aapp plan-status`, instead of being folded into the Incubator where a typo would hide.
+* **One engine, many callers.** `lib/cmd_matrix.sh` implements a single check-and-sync, invoked by `aapp matrix`, by `aapp status` before it reads the matrix, and by `draft` / `freeze` / `freeze-start` / `start` before they stage a lifecycle commit. Sourcing it with `AAPP_MATRIX_LIB_ONLY=1` loads the functions without executing the command.
+* **Pause-aware.** The pause allowlist admits only `.plans/` pickup, issues and `current/` paths, so a matrix written while paused cannot be committed. The sync writes anyway and says the commit waits for `aapp resume`: the uncommitted diff is the record of how the board moved during the pause.
 
 ## Plan Identity: Stored, Not Derived
 

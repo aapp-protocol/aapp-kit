@@ -3,6 +3,7 @@ status	daily	yes	4-pillar recovery briefing (or 'status short' for 1-line pulse)
 draft	daily	yes	Scaffold blueprint from template, stamp ID & date, register in matrix
 plan	daily	yes	Display educational planning switchboard or query blueprints
 plan-status	daily	yes	Inspect plan lane matrix or specific blueprint details
+matrix	daily	yes	Re-derive state matrix from plan Status lines ('--check' to audit)
 freeze	daily	yes	Lock blueprint blast radius & design into frozen backlog spec
 start	daily	yes	Transition frozen blueprint to in-development and bind buffer
 freeze-start	daily	yes	Atomically freeze blueprint and activate execution buffer

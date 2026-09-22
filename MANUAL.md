@@ -658,7 +658,63 @@ Repetitive terminal operations and administrative switchboards are maintained as
 - **`aapp freeze-start <plan>`**: Atomically freezes an incubator plan and activates it into `⚡ In Development` in a single command.
 - **`aapp active [id]` / `aapp active swap` / `aapp active clear`**: Switchboard for inspecting or switching the local execution buffer (`.git/aapp_active_plan`).
 - **`aapp plan-status [id]`**: Read-only inspection of the plan lane matrix or a specific blueprint.
+- **`aapp matrix [--check]`**: Re-derives `.plans/state_matrix.md` from the plan files. `--check` audits without writing.
 - **`aapp hooks`**: Lifecycle hook diagnostic inspector and dispatcher.
+
+#### `aapp matrix` — Derived State Matrix
+
+`.plans/state_matrix.md` is **generated, not maintained**. The `**Status:**` line inside each `.plans/current/*.md` blueprint is the single source of truth; the matrix is a view derived from it.
+
+```bash
+aapp matrix           # check and sync in one pass
+aapp matrix --check   # read-only audit: exit 0 in sync, 1 on drift
+```
+
+You rarely need to run it by hand. The sync is invoked automatically by `aapp status` (before it reads the matrix) and by `draft`, `freeze`, `freeze-start` and `start` (before they commit), so the board stays correct through normal use.
+
+**What is derived:** each row's status emoji, which section it belongs to, and the section headings themselves (from the status registry, in rank order).
+
+**What is yours and never overwritten:**
+- The **Roadmap** block — implementation priority is human judgement.
+- Each row's **annotation**, meaning everything after the first ` — `. Annotations are keyed by Plan ID, so a note follows its plan when the plan changes section. They may contain em-dashes of their own.
+
+**Rows are deleted when their plan leaves `.plans/current/`.** A plan archived to `done/`, moved to `aborted/`, renamed or deleted has no matrix row — the archive ledger is the record from then on.
+
+**Unrecognized statuses are surfaced, not hidden.** A blueprint whose `Status:` line matches no registry entry appears in a visible *Unrecognized Status* section instead of being quietly filed under the Incubator, so a typo is obvious rather than invisible.
+
+**While the project is paused**, the sync still writes the matrix but reports that the commit is deferred:
+
+```text
+⏸️  [Matrix] Project is PAUSED. state_matrix.md was updated on disk but
+   CANNOT be committed until you run 'aapp resume'
+```
+
+This is intentional. The pause allowlist admits only `.plans/` pickup, issues and `current/` files, and pausing permits exactly the reflection that moves plans between statuses — so the uncommitted diff is the visible record of how the board changed while you were away.
+
+#### Plan Statuses & Custom Statuses (`aapp.planState.<slug>`)
+
+The shipped statuses are declared in `lib/plan_states.sh`:
+
+| Status | Matrix Section | Rank |
+| :--- | :--- | :--- |
+| `🟣 Under Review` | Human Thought & Refinement (The Incubator) | 10 |
+| `📝 Refining` | Human Thought & Refinement (The Incubator) | 10 |
+| `🔷 Frozen` | Frozen & Ready for Coding (The Greenlight Zone) | 20 |
+| `⚡ In Development` | In Development (Active Implementation Context) | 30 |
+| `🟥 BLOCKED` | Blocked (Halted on an Issue) | 40 |
+
+Statuses are matched by **canonical name**, not by emoji — the glyph is presentation.
+
+Add your own with a four-field tuple (`<emoji>|<name>|<heading>|<rank>`):
+
+```bash
+git config aapp.planState.awaiting-review "👀|Awaiting Review|👀 Awaiting External Review|25"
+git config --get-regexp '^aapp\.planState\.'   # list what is declared
+```
+
+A slug matching a shipped status **overrides** it, letting you reword a section heading without forking the module. A malformed tuple is skipped with a warning rather than breaking `aapp status`.
+
+> **Accessibility:** the shipped glyphs are chosen to be distinguishable under common colour-vision deficiencies, which is why the retired `🔴`/`🟡` pair was removed outright with no alias. When defining custom statuses, prefer glyphs that differ in **shape or symbol** rather than only in hue.
 
 #### `/aapp-pause [reason]` (or `aapp pause [reason]`) — Master Emergency Brake ("Hibernate")
 Freezes codebase modifications and quarantees in-flight uncommitted work across all mounted worktrees into Git stashes:
@@ -1450,6 +1506,7 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | Setting Key | Type / Enum | Default | Subsystem | Purpose & Behavior |
 | :--- | :--- | :--- | :--- | :--- |
 | `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
+| `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
 | `aapp.aiAttribution` | `none` / `commit` / `notes` | `none` | AI Attribution | Attribution mode (emailless semantic trailers vs. git notes vs. human). |
 | `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
 | `aapp.subjectMaxLen` | integer | `72` | Git Hooks | Numeric conciseness limit for commit subject lines (enforced in `aapp-commit-msg`). |
