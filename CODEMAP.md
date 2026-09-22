@@ -47,6 +47,33 @@
   * Disjointness Activation Gate -> Enforces non-overlapping target file sets between concurrent `⚡ In Development` plans.
 * **Anti-Wrapper Warning:** Never manually write to `.git/aapp_active_plan` without going through `cmd_plan.sh`.
 
+### 🎨 Plan Status Registry (`lib/plan_states.sh`)
+* **Purpose:** Single source of truth for which plan statuses exist and how each one renders. Pure module with no top-level side effects; safe to source anywhere.
+* **Key Functions:**
+  * `plan_states_load()` -> Loads kit defaults, then merges adopter overrides from `git config aapp.planState.*`. Idempotent.
+  * `plan_state_for_status_line(line)` -> Resolves a raw `**Status:**` line to a slug, or empty if unrecognized. Matches by **canonical name, not emoji**.
+  * `plan_state_field(slug, field)` -> Accessor for `emoji` / `name` / `heading` / `rank`.
+  * `plan_state_sections()` -> Unique matrix headings in rank order, deduplicated (`under-review` and `refining` deliberately share one).
+  * `plan_state_emoji_class()` -> Alternation of live status glyphs, for callers that must match any status.
+* **Adopter Extension:** `git config aapp.planState.<slug> "<emoji>|<name>|<heading>|<rank>"`. A slug matching a kit default overrides it in place; a new slug is appended. Malformed tuples warn to stderr and are skipped — never fatal.
+* **Accessibility Invariant:** The shipped glyph set (`🟣 📝 🔷 ⚡ 🟥`) is colour-blind friendly and is a hard design constraint. The retired `🔴`/`🟡` pair is the red/green-family combination that fails common colour-vision deficiency and carries **no alias**; a plan still using one resolves as unrecognized so it gets cleaned up. Adopter-defined glyphs should be shape- or symbol-distinct rather than hue-distinct.
+* **Anti-Wrapper Warning:** Never hardcode a status emoji alternation (`🟣|🔷|📝`) or an `In Development` / `Frozen` regex. Source this module and use the accessors.
+
+### 🔄 State Matrix Derivation Engine (`lib/cmd_matrix.sh`)
+* **Purpose:** Derives `.plans/state_matrix.md` from the `**Status:**` lines in `.plans/current/*.md`. The matrix is a generated view, never a record.
+* **Key Commands:**
+  * `aapp matrix` -> Checks and syncs in one pass. Reports what changed; silent when already in sync.
+  * `aapp matrix --check` -> Read-only audit. Exits `0` in sync, `1` on drift. Never writes.
+* **Callers:** `aapp status` (before reading the matrix, so the briefing reports the real board) and `draft` / `freeze` / `freeze-start` / `start` via `sync_state_matrix()` in `cmd_plan.sh` (before staging, so each lifecycle commit carries a correct matrix).
+* **Library Mode:** Source with `AAPP_MATRIX_LIB_ONLY=1` to load `cmd_matrix()` without executing it.
+* **Derivation Contract:**
+  * Population is strictly `.plans/current/*.md`. A row with no backing plan file disappears; the archive ledger is terminal.
+  * Sections and their order come from the status registry — **no code anchors on heading text.**
+  * Human-owned content is preserved: the Roadmap block verbatim, and each row's annotation after the **first** ` — `, keyed by Plan ID so it follows a plan across sections.
+  * A status matching no registry entry lands in a visible *Unrecognized Status* section rather than being folded into the Incubator.
+* **Pause Behaviour:** The pause allowlist excludes `state_matrix.md`, so a sync while paused cannot be committed. It writes anyway and reports the commit as deferred until `aapp resume` — the uncommitted diff is the record of how the board moved during the pause.
+* **Anti-Wrapper Warning:** Never patch a matrix row with `sed`. That was the previous approach and it could recolour a row but never relocate it, leaving frozen plans under the Incubator. Call `sync_state_matrix` (or `aapp matrix`) instead.
+
 ### 🧭 Plan ID Standards & Shorthand Resolver (`lib/plan_resolver.sh`)
 * **Purpose:** Canonical resolver for ADR-style Plan IDs (`P-<num>`), filenames, and slugs.
 * **Key Functions:**
