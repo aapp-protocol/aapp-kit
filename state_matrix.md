@@ -28,7 +28,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-30**: [`P30-status-registry-and-derived-state-matrix.md`](current/P30-status-registry-and-derived-state-matrix.md) — Status Registry & Derived State Matrix. Plan Status lines become the single source of truth; `aapp matrix` derives the matrix. Bounded against P-25 (Tier 3).
 
 ---
 

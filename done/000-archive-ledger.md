@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-22 | `P-30` | [`P30-status-registry-and-derived-state-matrix.md`](P30-status-registry-and-derived-state-matrix.md) | None | `9a333ab` |  |
 | 2026-09-22 | `P-24` | [`P24-example-assets-and-sample-convention.md`](P24-example-assets-and-sample-convention.md) | None | `83020e0` |  |
 | 2026-09-22 | `P-27` | [`P27-tiered-cli-discovery-and-cheatsheet-sync.md`](P27-tiered-cli-discovery-and-cheatsheet-sync.md) | None | `d49d201` |  |
 | 2026-09-21 | `P-29` | [`P29-universal-skills-pruning-and-fallback-invariants.md`](P29-universal-skills-pruning-and-fallback-invariants.md) | None | `cb28208` |  |
