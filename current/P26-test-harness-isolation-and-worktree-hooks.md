@@ -2,7 +2,7 @@
 * **Created:** 2026-09-21 | **Last Refined:** 2026-09-22
 * **Target Issue / Milestone:** #74 *(supersedes #74 upon completion)*
 * **Plan ID:** P-26
-* **Status:** 📝 Refining
+* **Status:** ⚡ In Development
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -221,6 +221,7 @@ To prevent Git from treating `.githooks` as an untracked asset inside `.plans` o
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-22:** Plan frozen and activated into ⚡ In Development via freeze-start.
 
 * **2026-09-22 (Refinement - Amendment 3):** Clarified two-tier hook template architecture (Tier 1 master wrappers vs Tier 2 AAPP engines) per red team review; explicitly declared both sets in Target Files to ensure complete execution clarity.
 * **2026-09-22 (Refinement - Amendment 2):** Amended blueprint with 6 architectural hardening enhancements: (1) added missing target file `tests/worktree_hooks_test.sh` to blast radius, (2) strengthened `assert_test_sandbox()` using `git-common-dir` matching to catch linked worktrees (`.plans`, `.agents`), (3) added `.githooks` ignore rules to prevent untracked symlink bleed into orphan branches, (4) made worktree symlink seeding in `cmd_init.sh` idempotent across existing mounts, (5) updated hook injection snippets in `cmd_init.sh` to use `git-common-dir`, and (6) clarified live `.githooks` sync workflow via `aapp init` under Pair 5 self-protection.
