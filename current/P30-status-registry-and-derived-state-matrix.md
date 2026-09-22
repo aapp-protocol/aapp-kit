@@ -126,7 +126,7 @@ Enumerated with `git config --get-regexp '^aapp\.planState\.'`. Resolution rules
 
 ### 2.4 `aapp matrix` — One Command, Check and Sync
 
-A single verb with no lifecycle coupling. Not wired into `aapp status`, not invoked from hooks. If enforcement is wanted later, the pre-commit hook can call `aapp matrix --check`, but that is a separate decision.
+A single verb with no *mutating* lifecycle coupling: nothing else invokes the sync, and no hook writes the matrix. `aapp status` carries a **read-only drift advisory** (§2.10) so the staleness is visible where the board is read. If write enforcement is wanted later, the pre-commit hook can call `aapp matrix --check`, but that remains a separate decision.
 
 | Invocation | Behavior | Exit |
 | :--- | :--- | :--- |
@@ -208,6 +208,20 @@ Behavior while paused:
 
 This deliberately leaves a dirty working tree in a paused repo. That is the accepted trade: a visible, reviewable diff is worth more than a clean tree that has quietly lost track of the board.
 
+### 2.10 Status Briefing Drift Advisory (Read-Only)
+
+A derived matrix that nobody re-derives is still stale. The Plans pillar of `aapp status` is exactly where a reader would act on the matrix, so that is where its staleness belongs.
+
+The advisory is **strictly read-only** — it never writes `state_matrix.md`, and `aapp matrix` remains the only thing that does. This preserves the one-command contract (§2.4): the developer is told the board is stale and decides whether to re-derive.
+
+- The Plans pillar performs the same derivation comparison as `--check` and, on mismatch, prints one line naming the remedy:
+  ```text
+  ⚠️  [Matrix] state_matrix.md has drifted from .plans/current/ -> run 'aapp matrix'
+  ```
+- Silent when in sync — no "all clear" noise in the briefing.
+- Follows the precedent already set by the Pillar 2 referential-integrity advisory (`cmd_status.sh:248-262`), which reports drift without repairing it.
+- Never fatal: a failed or unavailable comparison is swallowed so `aapp status` always renders its four pillars.
+
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)` — explicitly including the retired `🔴`/`🟡` status glyphs, which are dropped with no alias, shim, or hidden registry entry (§2.8).
@@ -225,20 +239,21 @@ This deliberately leaves a dirty working tree in a paused repo. That is the acce
 - [x] Task 1.3: Create `tests/plan_states_test.sh` covering default resolution, name-based matching across the Status line shapes at `cmd_plan.sh:115` and `:808`, custom status add, kit-default override, malformed tuple rejection, and many-to-one status→section mapping.
 
 ### Phase 2: Matrix Derivation Engine
-- [ ] Task 2.1: Create `lib/cmd_matrix.sh` implementing the §2.4 walk, bucket, and re-emit algorithm.
-- [ ] Task 2.2: Implement §2.5 annotation harvesting and reattachment, keyed by Plan ID, splitting on the first ` — ` only.
-- [ ] Task 2.3: Implement the Unrecognized Status section, emitted only when non-empty.
-- [ ] Task 2.4: Implement `--check` as read-only with exit code 1 on drift.
-- [ ] Task 2.5: Implement the §2.9 pause advisory: sync normally while paused, then warn that `.plans/state_matrix.md` cannot be committed until `aapp resume`. Fire the warning only when the sync changed the file; reuse the existing pause probe from `cmd_status.sh`.
+- [x] Task 2.1: Create `lib/cmd_matrix.sh` implementing the §2.4 walk, bucket, and re-emit algorithm.
+- [x] Task 2.2: Implement §2.5 annotation harvesting and reattachment, keyed by Plan ID, splitting on the first ` — ` only.
+- [x] Task 2.3: Implement the Unrecognized Status section, emitted only when non-empty.
+- [x] Task 2.4: Implement `--check` as read-only with exit code 1 on drift.
+- [x] Task 2.5: Implement the §2.9 pause advisory: sync normally while paused, then warn that `.plans/state_matrix.md` cannot be committed until `aapp resume`. Fire the warning only when the sync changed the file; reuse the existing pause probe from `cmd_status.sh`.
 
 ### Phase 3: CLI Wiring
-- [ ] Task 3.1: Wire `matrix` into the `aapp` router.
-- [ ] Task 3.2: Register `matrix` in `lib/cmd_help.sh`.
+- [x] Task 3.1: Wire `matrix` into the `aapp` router.
+- [x] Task 3.2: Register `matrix` in the canonical verb manifest (`lib/verbs.tsv`) and `CHEATSHEET.md`. *(Task drafted against `lib/cmd_help.sh`; P-27 made help manifest-driven — see Emergency Hotfix Extensions.)*
 
 ### Phase 4: Call-Site Consolidation
 - [ ] Task 4.1: Source the registry in `lib/cmd_plan.sh` and replace the literals at `:115,380,461,500,525,704` per §2.7.
 - [ ] Task 4.2: Replace the `:808-813` bucketing with registry-driven bucketing, reporting unrecognized statuses distinctly.
 - [ ] Task 4.3: Replace the awk heading reads at `lib/cmd_status.sh:326,327` with registry resolution over `current/*.md`. Leave `:72` (Roadmap) intact.
+- [x] Task 4.4: Add the §2.10 read-only matrix drift advisory to the Plans pillar of `lib/cmd_status.sh`, sourcing the check via `AAPP_MATRIX_LIB_ONLY=1`. Silent when in sync; never writes; never fatal.
 
 ### Phase 5: Verification & Documentation
 - [ ] Task 5.1: Create `tests/matrix_test.sh` covering: full derivation from a fixture `current/`; orphan row deletion; annotation preservation through a section change; unrecognized status bucketing (including a plan carrying a retired `🔴`/`🟡` glyph); Roadmap preservation; `--check` exit codes; **pause advisory** (paused repo still writes the synced matrix, emits the deferred-commit warning naming `aapp resume`, and stays silent when the sync is a no-op); and **idempotency** (scaffold → sync → sync produces a byte-identical file).
@@ -269,8 +284,8 @@ This deliberately leaves a dirty working tree in a paused repo. That is the acce
 
 ### 🚨 Emergency Hotfix Extensions
 > Added mid-execution per Critical Execution Invariant #4 (*blocking & small*). Task 3.2 was drafted against stale information: it names `lib/cmd_help.sh` as the registration point, but P-27 made help output manifest-driven from `lib/verbs.tsv`, with `tests/install_test.sh` Tests 56/59 asserting manifest-to-help and manifest-to-cheatsheet parity. Registering the `matrix` verb therefore requires a manifest row and the matching cheatsheet entry; without them the verb ships invisible to `aapp help`, violating documentation invariant #5. The plan's intent is unchanged — only the mechanism moved.
-- [ ] `lib/verbs.tsv` -> Add the `matrix` verb row (tier, standalone flag, description) so tiered help renders it.
-- [ ] `CHEATSHEET.md` -> Add the matching `matrix` entry required by Test 59 manifest-to-cheatsheet parity.
+- [x] `lib/verbs.tsv` -> Add the `matrix` verb row (tier, standalone flag, description) so tiered help renders it.
+- [x] `CHEATSHEET.md` -> Add the matching `matrix` entry required by Test 59 manifest-to-cheatsheet parity.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/cmd_init.sh` -> `copy_guarded` and template provisioning are owned by P-25.
@@ -296,6 +311,7 @@ This deliberately leaves a dirty working tree in a paused repo. That is the acce
 * **2026-09-22:** Plan activated into ⚡ In Development via start.
 * **2026-09-22:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
+* **2026-09-22 (amendment 2):** **Read-only matrix drift advisory wired into `aapp status` on developer direction** — Reverses the §2.4 position that the verb stays entirely uncoupled from `aapp status`. A derived matrix that nobody re-derives is still stale, and the Plans pillar is where a reader would act on it. Added §2.10 specifying a strictly read-only advisory: it reports drift and names `aapp matrix` as the remedy, never writes, stays silent when in sync, and is never fatal. Follows the existing Pillar 2 referential-integrity precedent (`cmd_status.sh:248-262`). The one-command contract is preserved — `aapp matrix` remains the only writer. Added Task 4.4; `lib/cmd_matrix.sh` gained an `AAPP_MATRIX_LIB_ONLY` guard so the check can be sourced without self-invoking.
 * **2026-09-22 (refinement 1):** **Both open questions resolved on developer direction; accessibility invariant recorded.**
   1. **Retired glyphs dropped with no aliases (Q1)** — Added §2.8 recording that the current status glyph set is deliberately colour-blind friendly and is a hard design constraint. The retired `🔴`/`🟡` pair is the red/green-family combination that fails colour-vision deficiency and is dropped outright; per the Clean Break Invariant no legacy alias or hidden registry entry is retained, so `plan_state_emoji_class()` returns live statuses only and stale glyphs surface in the Unrecognized Status section. `MANUAL.md` must carry glyph-accessibility guidance for adopter-defined statuses.
   2. **Paused sync writes and warns (Q2)** — Verified against `templates/aapp-pre-commit:104-126` that the pause allowlist covers only `pickup*`, `ISSUES.md`, `issues*`, and `current/*`, so `.plans/state_matrix.md` cannot be committed while paused. Developer direction: sync anyway and warn, because pause permits the reflection that moves plans between statuses and the resulting diff is the visible record of what changed on the board — suppressing the write would silently desynchronize the matrix from permitted work. Added §2.9 (write, then emit a deferred-commit advisory naming `aapp resume`, silent on no-op), Task 2.5, and advisory test coverage in Task 5.1.
