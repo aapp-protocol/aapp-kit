@@ -26,8 +26,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-31**: [`P31-unified-test-runner-cli.md`](current/P31-unified-test-runner-cli.md) — Unified Test Runner CLI (aapp test)
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

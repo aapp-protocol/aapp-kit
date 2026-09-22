@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-22 | `P-31` | [`P31-unified-test-runner-cli.md`](P31-unified-test-runner-cli.md) | None | `5d9f9d0` |  |
 | 2026-09-22 | `P-26` | [`P26-test-harness-isolation-and-worktree-hooks.md`](P26-test-harness-isolation-and-worktree-hooks.md) | None | `c4fc5b2` |  |
 | 2026-09-22 | `P-30` | [`P30-status-registry-and-derived-state-matrix.md`](P30-status-registry-and-derived-state-matrix.md) | Planning Brain Integrity | `9a333ab` | `lib/plan_states.sh` status registry + `lib/cmd_matrix.sh` derivation engine; `aapp matrix` verb, auto-sync in `cmd_status.sh` and lifecycle verbs in `cmd_plan.sh` |
 | 2026-09-22 | `P-24` | [`P24-example-assets-and-sample-convention.md`](P24-example-assets-and-sample-convention.md) | Distribution & Packaging Architecture | `83020e0` | `examples/` preserved in `$SHARE_DIR`, inert `*.sample` convention, `.sample` filtering in `hook_dispatcher.sh` and `aapp`, sample discovery in `plugins`/`hooks` |
