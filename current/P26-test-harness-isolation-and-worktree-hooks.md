@@ -1,5 +1,5 @@
 # 🗺️ Plan P-26: Test Harness Sandbox Confinement & Universal Worktree Hook Enforcement
-* **Created:** 2026-09-21 | **Last Refined:** 2026-09-21
+* **Created:** 2026-09-21 | **Last Refined:** 2026-09-22
 * **Target Issue / Milestone:** #74 *(supersedes #74 upon completion)*
 * **Plan ID:** P-26
 * **Status:** 📝 Refining
@@ -27,15 +27,15 @@
 An operational autopsy into un-signed commits and throwaway author credentials (`T <t@t>`) pushed to upstream branches revealed four fundamental architectural gaps across the test harness and Git hook wiring:
 
 1. **Hardcoded Test Author Identities**: Test suites (`tests/sync_test.sh`, `install_test.sh`, `pre-commit_test.sh`, `write-guard_test.sh`, `hooks_test.sh`) hardcode throwaway dummy credentials (`git config user.name T; git config user.email t@t`). When snippets are executed during test authoring or unconfined subshells, they contaminate the host repository's `.git/config` and bypass real developer identity.
-2. **Missing Sandbox Confinement**: No test harness enforces a fail-closed assertion verifying that `git config` and commit operations run strictly inside `$R` (disposable `mktemp -d` sandbox) and never against the host repository (`$KIT`).
+2. **Missing Sandbox Confinement**: No test harness enforces a fail-closed assertion verifying that `git config` and commit operations run strictly inside `$R` (disposable `mktemp -d` sandbox) and never against the host repository (`$KIT`) or its linked worktrees.
 3. **Relative `core.hooksPath` Worktree Blindspot**: The repository configures `core.hooksPath = .githooks`. In Git, relative `hooksPath` is resolved relative to the active worktree's working directory. In linked worktrees (`.plans`, `.agents`), Git looked for `.plans/.githooks` and `.agents/.githooks`. Because neither directory exists, **Git silently executed zero hooks** for any commits made inside `.plans` or `.agents`.
-4. **Worktree Top-Level Resolution Failure**: Hook dispatchers (`templates/commit-msg`, `pre-commit`) resolve `REPO_ROOT` via `git rev-parse --show-toplevel`. Inside a linked worktree, this evaluates to the worktree itself (`.plans`), which has no `.githooks/` directory, causing hook execution to silently no-op. Consequently, banned AI co-author lines (`Co-authored-by: Claude...`, `Co-authored-by: Antigravity...`) sailed right into `.plans` without interception.
+4. **Worktree Top-Level Resolution Failure**: Hook dispatchers (`templates/commit-msg`, `pre-commit`, `post-commit`) and hook injectors resolve `REPO_ROOT` via `git rev-parse --show-toplevel`. Inside a linked worktree, this evaluates to the worktree itself (`.plans`), which has no `.githooks/` directory, causing hook execution to silently no-op. Consequently, banned AI co-author lines (`Co-authored-by: Claude...`, `Co-authored-by: Antigravity...`) sailed right into `.plans` without interception.
 
 ### Architectural Goal
 1. **Dynamic Developer Identity Envelope**: Replace all hardcoded `T <t@t>` fixtures with dynamic inheritance from the developer's real Git environment (`git config --global user.name` / `user.email`), falling back to a clean, professional synthetic CI identity (`AAPP Test Runner <test-runner@aapp.internal>`) in headless CI environments.
-2. **Fail-Closed Sandbox Assertion**: Implement `assert_test_sandbox()` in test fixtures, immediately aborting execution if any test helper attempts to run `git config` or `git commit` within the host repository root.
-3. **Universal Git Common-Directory Hook Resolution**: Re-architect all hook dispatchers (`commit-msg`, `pre-commit`, `post-commit`) to resolve the canonical hook directory via `git rev-parse --git-common-dir`, ensuring hooks execute reliably across the main working tree and all linked worktrees.
-4. **Worktree Hook Wiring in `aapp init`**: Automatically wire or symlink `.githooks` into linked worktrees (`.plans`, `.agents`) so Git natively finds hooks regardless of relative path resolution.
+2. **Fail-Closed Sandbox Assertion (`--git-common-dir`)**: Implement `assert_test_sandbox()` in test fixtures, immediately aborting execution if any test helper attempts to run `git config` or `git commit` within the host repository root or any of its linked worktrees (`.plans`, `.agents`).
+3. **Universal Git Common-Directory Hook Resolution**: Re-architect all hook dispatchers (`commit-msg`, `pre-commit`, `post-commit`) and hook injectors to resolve the canonical hook directory via `git rev-parse --git-common-dir`, ensuring hooks execute reliably across the main working tree and all linked worktrees.
+4. **Worktree Hook Wiring in `aapp init` & Untracked Hygiene**: Automatically wire `.githooks` symlinks idempotently into linked worktrees (`.plans`, `.agents`) and ensure worktree `.gitignore` files ignore `.githooks` so Git natively finds hooks while keeping orphan branches clean of untracked assets.
 
 ---
 
@@ -48,7 +48,7 @@ An operational autopsy into un-signed commits and throwaway author credentials (
 
 ### 2.1 Dynamic Developer Identity Envelope
 
-A shared test utility `tests/test_helpers.sh` provides standard sandbox configuration:
+A shared test utility `tests/test_helpers.sh` provides standard sandbox configuration with robust empty-string guarding:
 
 ```bash
 setup_test_git_identity() {
@@ -59,8 +59,13 @@ setup_test_git_identity() {
     
     # 2. Inherit developer identity or safe CI fallback
     local dev_name dev_email
-    dev_name="$(git config --global user.name 2>/dev/null || git config user.name 2>/dev/null || echo "AAPP Test Runner")"
-    dev_email="$(git config --global user.email 2>/dev/null || git config user.email 2>/dev/null || echo "test-runner@aapp.internal")"
+    dev_name="$(git config --global user.name 2>/dev/null || true)"
+    [ -z "$dev_name" ] && dev_name="$(git config user.name 2>/dev/null || true)"
+    [ -z "$dev_name" ] && dev_name="AAPP Test Runner"
+
+    dev_email="$(git config --global user.email 2>/dev/null || true)"
+    [ -z "$dev_email" ] && dev_email="$(git config user.email 2>/dev/null || true)"
+    [ -z "$dev_email" ] && dev_email="test-runner@aapp.internal"
     
     git -C "$target_dir" config user.name "$dev_name"
     git -C "$target_dir" config user.email "$dev_email"
@@ -69,9 +74,9 @@ setup_test_git_identity() {
 }
 ```
 
-### 2.2 Host Repository Sandbox Confinement
+### 2.2 Host Repository Sandbox Confinement via Common Directory
 
-Every test suite imports and asserts containment before touching Git state:
+Every test suite imports and asserts containment before touching Git state. To prevent unconfined mutations from leaking into the host repository or any linked worktree (`.plans`, `.agents`), containment compares the resolved Git common directory rather than top-level worktree paths:
 
 ```bash
 assert_test_sandbox() {
@@ -80,18 +85,23 @@ assert_test_sandbox() {
     target_abs="$(cd "$target" 2>/dev/null && pwd || echo "$target")"
     host_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)"
 
-    if [ "$target_abs" = "$host_root" ] || [ "$(git -C "$target_abs" rev-parse --show-toplevel 2>/dev/null)" = "$host_root" ]; then
-        echo "❌ [FATAL Test Sandbox Violation] Attempted Git configuration in host repository root!" >&2
-        echo "   Target: $target_abs" >&2
-        echo "   Host:   $host_root" >&2
+    local host_git_common target_git_common
+    host_git_common="$(cd "$(git -C "$host_root" rev-parse --git-common-dir 2>/dev/null || echo "$host_root/.git")" 2>/dev/null && pwd)"
+    target_git_common="$(cd "$(git -C "$target_abs" rev-parse --git-common-dir 2>/dev/null || echo "")" 2>/dev/null && pwd)"
+
+    if [ -n "$target_git_common" ] && [ "$target_git_common" = "$host_git_common" ]; then
+        echo "❌ [FATAL Test Sandbox Violation] Attempted Git operation in host repository or linked worktree!" >&2
+        echo "   Target:  $target_abs" >&2
+        echo "   Host:    $host_root" >&2
+        echo "   Common:  $host_git_common" >&2
         exit 1
     fi
 }
 ```
 
-### 2.3 Universal Worktree Hook Dispatcher (`--git-common-dir`)
+### 2.3 Universal Worktree Hook Dispatcher & Hook Injection (`--git-common-dir`)
 
-All hook entrypoints (`templates/commit-msg`, `templates/pre-commit`, `templates/post-commit`) are updated to locate the canonical project root through Git's common directory:
+All hook entrypoints (`templates/commit-msg`, `templates/pre-commit`, `templates/post-commit`) and hook injectors in `lib/cmd_init.sh` are updated to locate the canonical project root through Git's common directory:
 
 ```bash
 # Resolve primary repository root via git-common-dir (works in main tree & linked worktrees)
@@ -104,26 +114,35 @@ if [ -f "$HOOK_DIR/aapp-commit-msg" ]; then
 fi
 ```
 
-### 2.4 Worktree Hook Symlink Seeding in `lib/cmd_init.sh`
-
-During `aapp init`, `mount_or_create_worktree()` guarantees hook presence in each created worktree:
+In `lib/cmd_init.sh` lines 377, 397, 417, hook wiring injected into existing custom hooks uses the identical `--git-common-dir` pattern:
 
 ```bash
-# Seed .githooks symlink into linked worktree
-if [ -d "$wt_dir" ] && [ ! -e "$wt_dir/.githooks" ]; then
-    ln -sfn ../.githooks "$wt_dir/.githooks" 2>/dev/null || true
-fi
+echo '"$(cd "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/.." && pwd)/.githooks/aapp-pre-commit" || exit 1' >> .githooks/pre-commit
+echo '"$(cd "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/.." && pwd)/.githooks/aapp-commit-msg" "$@" || exit 1' >> .githooks/commit-msg
+echo '"$(cd "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/.." && pwd)/.githooks/aapp-post-commit" "$@"' >> .githooks/post-commit
 ```
 
-This closes the relative `core.hooksPath` loop: Git resolves `$wt_dir/.githooks`, which points directly to the version-controlled `.githooks` engine.
+### 2.4 Idempotent Worktree Hook Symlink Seeding & Ignore Hygiene
+
+In `lib/cmd_init.sh`, worktree hook symlink seeding is executed unconditionally across all mounted worktrees, ensuring existing repositories receive symlinks on idempotent `aapp init` runs:
+
+```bash
+for wt_dir in .plans .agents; do
+    if [ -d "$wt_dir" ] && [ ! -e "$wt_dir/.githooks" ]; then
+        ln -sfn ../.githooks "$wt_dir/.githooks" 2>/dev/null || true
+    fi
+done
+```
+
+To prevent Git from treating `.githooks` as an untracked asset inside `.plans` or `.agents` (which could accidentally be staged into orphan branches via `git add .`), `.plans/.gitignore` and `.agents/.gitignore` explicitly ignore `.githooks`.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 - [ ] **Phase 1: Shared Test Sandbox Harness (`tests/test_helpers.sh`)**
-  - [ ] Implement `assert_test_sandbox()` fail-closed directory verification.
-  - [ ] Implement `setup_test_git_identity()` with developer inheritance and CI fallback.
+  - [ ] Implement `assert_test_sandbox()` fail-closed directory verification using `--git-common-dir`.
+  - [ ] Implement `setup_test_git_identity()` with developer inheritance and robust CI fallback.
   - [ ] Configure `AAPP_TEST_SANDBOX_STRICT=1` enforcement by default across all test fixtures.
   - [ ] Implement safe `make_sandboxed_kit_clone()` helper.
 
@@ -136,18 +155,20 @@ This closes the relative `core.hooksPath` loop: Git resolves `$wt_dir/.githooks`
   - [ ] Refactor `tests/plan_resolver_test.sh` to run in `$R` sandbox instead of mutating host `.git/config`.
   - [ ] Refactor `tests/ai_attribution_test.sh` to use `setup_test_git_identity`.
 
-- [ ] **Phase 3: Universal Worktree Hook Dispatchers**
+- [ ] **Phase 3: Universal Worktree Hook Dispatchers & Injection**
   - [ ] Update `templates/commit-msg` to use `git-common-dir` resolution.
   - [ ] Update `templates/pre-commit` to use `git-common-dir` resolution.
   - [ ] Update `templates/post-commit` to use `git-common-dir` resolution.
-  - [ ] Update live `.githooks/commit-msg`, `pre-commit`, and `post-commit` in project.
+  - [ ] Update existing hook injection lines in `lib/cmd_init.sh` (lines 377, 397, 417) to use `git-common-dir`.
+  - [ ] Sync live project `.githooks/` via `./aapp init` execution (conforming to Pair 5 self-protection, without direct code edits to `.githooks/*`).
 
-- [ ] **Phase 4: Worktree Hook Wiring in `lib/cmd_init.sh`**
-  - [ ] Add `.githooks` symlink creation in `mount_or_create_worktree()`.
+- [ ] **Phase 4: Worktree Hook Wiring & Ignore Hygiene in `lib/cmd_init.sh`**
+  - [ ] Add idempotent `.githooks` symlink creation for `.plans` and `.agents` in `lib/cmd_init.sh`.
+  - [ ] Add `.githooks` entry to `.plans/.gitignore` to prevent orphan branch pollution.
   - [ ] Add test verification for worktree hook execution in `tests/install_test.sh`.
 
 - [ ] **Phase 5: Automated Verification & Regression Suite**
-  - [ ] Add regression test in `tests/worktree_hooks_test.sh` verifying that commits in `.plans` and `.agents` trigger `aapp-commit-msg` and block banned `Co-authored-by:` trailers.
+  - [ ] Add regression test suite `tests/worktree_hooks_test.sh` verifying that commits in `.plans` and `.agents` trigger `aapp-commit-msg` and block banned `Co-authored-by:` trailers.
   - [ ] Verify complete test suite passes (0 failures across all suites).
 
 ---
@@ -156,6 +177,7 @@ This closes the relative `core.hooksPath` loop: Git resolves `$wt_dir/.githooks`
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `tests/test_helpers.sh` -> New shared test harness & sandbox confinement module
+- [ ] `tests/worktree_hooks_test.sh` -> New worktree hook regression test suite
 - [ ] `tests/sync_test.sh` -> Purge hardcoded t@t, wire sandbox confinement
 - [ ] `tests/install_test.sh` -> Purge hardcoded t@t, wire sandbox confinement
 - [ ] `tests/pre-commit_test.sh` -> Purge hardcoded t@t, wire sandbox confinement
@@ -166,7 +188,8 @@ This closes the relative `core.hooksPath` loop: Git resolves `$wt_dir/.githooks`
 - [ ] `templates/commit-msg` -> Adopt git-common-dir hook resolution
 - [ ] `templates/pre-commit` -> Adopt git-common-dir hook resolution
 - [ ] `templates/post-commit` -> Adopt git-common-dir hook resolution
-- [ ] `lib/cmd_init.sh` -> Wire worktree .githooks symlinks
+- [ ] `lib/cmd_init.sh` -> Wire worktree .githooks symlinks and update injection templates
+- [ ] `.plans/.gitignore` -> Ignore .githooks symlink in plans worktree
 - [ ] `MANUAL.md` -> Document test harness sandbox invariants and worktree hook architecture
 - [ ] `ARCHITECTURE.md` -> Document worktree hook resolution and sandbox confinement
 
@@ -193,5 +216,7 @@ This closes the relative `core.hooksPath` loop: Git resolves `$wt_dir/.githooks`
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-09-22 (Refinement - Amendment 2):** Amended blueprint with 6 architectural hardening enhancements: (1) added missing target file `tests/worktree_hooks_test.sh` to blast radius, (2) strengthened `assert_test_sandbox()` using `git-common-dir` matching to catch linked worktrees (`.plans`, `.agents`), (3) added `.githooks` ignore rules to prevent untracked symlink bleed into orphan branches, (4) made worktree symlink seeding in `cmd_init.sh` idempotent across existing mounts, (5) updated hook injection snippets in `cmd_init.sh` to use `git-common-dir`, and (6) clarified live `.githooks` sync workflow via `aapp init` under Pair 5 self-protection.
 * **2026-09-21 (Refinement):** Plan refined and all 3 Open Questions settled per developer direction: confirmed strict GPG disabling in test sandboxes (`gpgsign false`), adopted dual defense-in-depth (`.githooks` symlinks + `--git-common-dir` hook dispatch), and enabled `AAPP_TEST_SANDBOX_STRICT=1` by default. Status updated to `📝 Refining`.
 * **2026-09-21:** Drafted initial canonical blueprint P-26. Established dynamic developer identity inheritance, fail-closed test sandbox assertion, `--git-common-dir` universal worktree hook resolution, and worktree `.githooks` symlink wiring.
+
