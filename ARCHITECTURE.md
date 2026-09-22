@@ -39,6 +39,7 @@
 │   ├── cmd_develop.sh     # Live editable development symlinking
 │   ├── cmd_upgrade.sh     # Upstream release fetch and in-place upgrade
 │   ├── cmd_uninstall.sh   # Global installation cleanup
+│   ├── cmd_test.sh        # Unified test runner orchestrator & assertion aggregator
 │   ├── plan_resolver.sh   # Plan ID standard (P-<num>) & shorthand resolver
 │   ├── plan_states.sh     # Status registry: emoji, name, matrix heading & rank
 │   └── planning_health.sh # 7-pair mechanical integrity validation engine

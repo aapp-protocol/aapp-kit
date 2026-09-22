@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Unified Test Runner CLI (`P-31`): Adds `aapp test` (`lib/cmd_test.sh`) to discover, execute, and aggregate test suites across `tests/*_test.sh` with subshell isolation, execution timing, and assertion metrics. Adheres to the Zero Double-Dash Flags Invariant with bare positional tokens (`list`, `strict`, `quiet`, `bail`). Normalizes suite test summaries via `print_test_summary()` in `tests/test_helpers.sh` and provides adopter-mode fallback with project test runner delegation or protocol environment health audit.
 - Universal Test Harness & Sandbox Confinement (`P-26`): Adds `tests/test_helpers.sh` with fail-closed directory confinement assertion (`assert_test_sandbox`), dynamic developer identity inheritance (`setup_test_git_identity`), safe sandbox kit clone helper (`make_sandboxed_kit_clone`), and non-interactive GPG signing bypass (`commit.gpgsign false`).
 - Linked Worktree Hook Execution & Regression Suite (`P-26`): Adds `tests/worktree_hooks_test.sh` verifying that commits in `.plans` and `.agents` trigger hooks, enforce conciseness invariants, and reject prohibited AI co-author trailers.
 - Plan Status Registry & Derived State Matrix (`P-30`): Adds `lib/plan_states.sh` as the single source of truth for plan statuses (emoji, name, matrix heading, rank), with adopter-defined custom statuses via `git config aapp.planState.<slug>`. Retired `🔴`/`🟡` glyphs are dropped with no alias to keep the status set colour-blind friendly.

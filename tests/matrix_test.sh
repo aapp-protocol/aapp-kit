@@ -14,6 +14,7 @@
 # ==============================================================================
 set -u
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$KIT/tests/test_helpers.sh"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 
@@ -238,8 +239,5 @@ report "empty current/ still renders a well-formed matrix" "6" "$got"
 got="$(run_matrix_rc "$D7" --check)"
 report "empty current/ is idempotent and in sync" "0" "$got"
 
-echo "────────────────────────────────────────────────────────────────────────────"
-printf "  Passed: \033[32m%d\033[0m   Failed: \033[31m%d\033[0m\n" "$PASS" "$FAIL"
-echo ""
-[ "$FAIL" -eq 0 ] || exit 1
-exit 0
+print_test_summary "$PASS" "$FAIL"
+

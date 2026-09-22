@@ -14,6 +14,7 @@
 # ==============================================================================
 set -u
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$KIT/tests/test_helpers.sh"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 
@@ -229,8 +230,5 @@ t_unknown() {
 got="$(in_scratch_repo unknown t_unknown)"
 report "unknown status returns unrecognized, not a default" "unrecognized" "$got"
 
-echo "────────────────────────────────────────────────────────────────────────────"
-printf "  Passed: \033[32m%d\033[0m   Failed: \033[31m%d\033[0m\n" "$PASS" "$FAIL"
-echo ""
-[ "$FAIL" -eq 0 ] || exit 1
-exit 0
+print_test_summary "$PASS" "$FAIL"
+

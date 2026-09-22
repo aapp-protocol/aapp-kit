@@ -66,3 +66,14 @@ make_test_sandbox() {
     local prefix="${1:-aapp-test}"
     mktemp -d "/tmp/${prefix}-XXXXXX"
 }
+
+print_test_summary() {
+    local pass="${1:-$PASS}"
+    local fail="${2:-$FAIL}"
+    echo ""
+    echo "============================================================"
+    echo "  Results: $pass passed, $fail failed"
+    echo "============================================================"
+    [ "$fail" -eq 0 ] || exit 1
+}
+

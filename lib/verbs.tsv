@@ -9,6 +9,7 @@ start	daily	yes	Transition frozen blueprint to in-development and bind buffer
 freeze-start	daily	yes	Atomically freeze blueprint and activate execution buffer
 done	daily	yes	Archive implemented blueprint to done/ and update archival ledger
 active	daily	yes	Display or manage active execution plan buffer (swap, clear)
+test	daily	yes	Run automated test suites across all kit components with aggregation
 init	setup	yes	Initialize or update AAPP worktrees in current repository
 install	setup	yes	Install AAPP globally into ~/.local/bin and configure PATH
 upgrade	setup	yes	Upgrade global AAPP binaries & templates from upstream

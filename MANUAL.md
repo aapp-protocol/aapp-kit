@@ -659,6 +659,7 @@ Repetitive terminal operations and administrative switchboards are maintained as
 - **`aapp active [id]` / `aapp active swap` / `aapp active clear`**: Switchboard for inspecting or switching the local execution buffer (`.git/aapp_active_plan`).
 - **`aapp plan-status [id]`**: Read-only inspection of the plan lane matrix or a specific blueprint.
 - **`aapp matrix [--check]`**: Re-derives `.plans/state_matrix.md` from the plan files. `--check` audits without writing.
+- **`aapp test [filter]`**: Discovers and runs automated test suites with subshell isolation and assertion metrics.
 - **`aapp hooks`**: Lifecycle hook diagnostic inspector and dispatcher.
 
 #### `aapp matrix` — Derived State Matrix
@@ -715,6 +716,29 @@ git config --get-regexp '^aapp\.planState\.'   # list what is declared
 A slug matching a shipped status **overrides** it, letting you reword a section heading without forking the module. A malformed tuple is skipped with a warning rather than breaking `aapp status`.
 
 > **Accessibility:** the shipped glyphs are chosen to be distinguishable under common colour-vision deficiencies, which is why the retired `🔴`/`🟡` pair was removed outright with no alias. When defining custom statuses, prefer glyphs that differ in **shape or symbol** rather than only in hue.
+
+#### `aapp test` — Unified Test Runner & Adopter Environment Health Check
+
+`aapp test` is the central automated testing switchboard for the AAPP kit.
+
+In the kit development repository, it discovers, executes, and aggregates test suites across `tests/*_test.sh` with subshell isolation, execution timing, and assertion metrics. In adopter projects, it delegates to configured or auto-detected test runners, or falls back to an environmental health audit.
+
+```bash
+aapp test                  # Run all discovered test suites
+aapp test hooks            # Run specific suite (tests/hooks_test.sh)
+aapp test strict           # Enforce fail-closed sandbox containment (AAPP_TEST_SANDBOX_STRICT=1)
+aapp test strict hooks     # Run hooks suite under strict sandbox verification
+aapp test list             # List available test suites without running them
+aapp test quiet            # Quiet output: suppress assertion stream, report suite status only
+aapp test bail             # Abort execution immediately upon the first failing suite
+```
+
+**Zero Double-Dash Flags Invariant**: `aapp test` strictly eliminates GNU-style double-dash flags. Modifiers (`list`, `strict`, `quiet`, `bail`) are bare positional tokens.
+
+**Adopter Mode Delegation & Audit Fallback**: In an adopter repository where kit test fixtures in `tests/` are absent:
+1. **Configured Command**: If `git config aapp.testCommand` is defined, `aapp test` executes that command.
+2. **Auto-Detection**: If common project manifests exist (`package.json` with test script, `Cargo.toml`, `composer.json`, `go.mod`, `Makefile`), `aapp test` auto-detects and delegates to `npm test`, `cargo test`, etc.
+3. **Protocol Health Audit**: If no project test runner is detected, `aapp test` verifies that `.plans`, `.agents`, and `.githooks` worktrees are properly mounted and Git hooks are configured.
 
 #### `/aapp-pause [reason]` (or `aapp pause [reason]`) — Master Emergency Brake ("Hibernate")
 Freezes codebase modifications and quarantees in-flight uncommitted work across all mounted worktrees into Git stashes:

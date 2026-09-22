@@ -478,11 +478,5 @@ else
     printf "  \033[31m✘\033[0m %-52s ai-off mutated or deleted block\n" "ai-off preserves existing credits block untouched"; FAIL=$((FAIL+1))
 fi
 
-echo ""
-echo "============================================================"
-echo "  AI Attribution Suite Tests: $PASS passed, $FAIL failed"
-echo "============================================================"
+print_test_summary "$PASS" "$FAIL"
 
-if [ "$FAIL" -gt 0 ]; then
-    exit 1
-fi

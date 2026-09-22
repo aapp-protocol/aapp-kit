@@ -452,6 +452,5 @@ check_decision "while paused: external scratchpad allowed" ALLOW "/tmp/scratch.t
 "$AAPP_CLI" resume >/dev/null 2>&1
 check_decision "after resume: declared target allowed again" ALLOW "src/paused_target.py"
 
-echo ""
-echo "  passed=$PASS failed=$FAIL"
-[ $FAIL -eq 0 ]
+print_test_summary "$PASS" "$FAIL"
+

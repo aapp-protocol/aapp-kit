@@ -1177,6 +1177,42 @@ else
 fi
 report "worktree hooks: aapp init wires .githooks symlinks and ignores them in .plans/.agents" "PASS" "$got"
 
+# Test 64: aapp test list lists discovered test suites without executing them
+list_out=$("$KIT/aapp" test list 2>&1 || true)
+if echo "$list_out" | grep -q "Available AAPP Test Suites" && \
+   echo "$list_out" | grep -q "hooks_test.sh" && \
+   echo "$list_out" | grep -q "install_test.sh"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp test: list mode discovers all suites without executing them" "PASS" "$got"
+
+# Test 65: aapp test quiet [filter] runs targeted suite and aggregates assertions
+filter_out=$("$KIT/aapp" test quiet matrix 2>&1 || true)
+if echo "$filter_out" | grep -q "1 suites selected" && \
+   echo "$filter_out" | grep -q "matrix_test.sh" && \
+   echo "$filter_out" | grep -q "Test Summary: 1/1 suites passed"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp test: selective filtering runs targeted suite with aggregated metrics" "PASS" "$got"
+
+# Test 66: aapp test in adopter repository falls back to protocol health audit
+PROJ_66="$R/t66_proj"; make_dummy_project "$PROJ_66"
+make_kit_clone "$PROJ_66/aapp-kit"
+(cd "$PROJ_66" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+audit_out=$(cd "$PROJ_66" && HOME="$TEST_HOME" "$KIT/aapp" test 2>&1 || true)
+if echo "$audit_out" | grep -q "Executing AAPP Protocol Environment Health Audit" && \
+   echo "$audit_out" | grep -q "Worktree '.plans' mounted" && \
+   echo "$audit_out" | grep -q "AAPP protocol environment is healthy"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp test: adopter repository fallback executes protocol health audit" "PASS" "$got"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"

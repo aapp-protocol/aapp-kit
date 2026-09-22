@@ -139,6 +139,10 @@ case "$CMD" in
     matrix)
         source "$AAPP_LIB/cmd_matrix.sh" "$@"
         ;;
+    test)
+        source "$AAPP_LIB/cmd_test.sh"
+        cmd_test "$@"
+        ;;
     pause|resume|unpause)
         source "$AAPP_LIB/cmd_pause.sh" "$CMD" "$@"
         ;;

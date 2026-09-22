@@ -909,9 +909,8 @@ rm -f "$common_dir/aapp_paused"
 git stash clear >/dev/null 2>&1
 git reset --hard HEAD~1 >/dev/null 2>&1
 
-echo ""
-echo "  passed=$PASS failed=$FAIL"
-[ $FAIL -eq 0 ]
+print_test_summary "$PASS" "$FAIL"
+
 
 
 

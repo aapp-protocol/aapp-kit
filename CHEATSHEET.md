@@ -23,6 +23,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp freeze-start [id]` | **✅ Yes** | Atomically freeze blueprint and activate execution buffer |
 | `aapp done [id]` | **✅ Yes** | Archive implemented blueprint to done/ and update archival ledger |
 | `aapp active [id]` | **✅ Yes** | Inspect, swap, or clear active plan execution buffer |
+| `aapp test [filter]` | **✅ Yes** | Run test suites across repository or audit adopter environment |
 
 AI agent counterparts: `/aapp-status`, `/aapp-digest [idea]`, `/aapp-freeze [plan]`, `/aapp-start [plan]`, `/aapp-done [plan]`, `/aapp-pause [reason]`, `/aapp-release`, `/aapp-plan` (and `/plan`).
 

@@ -295,11 +295,5 @@ fi
 
 rm -f .plans/done/000-archive-ledger.md CHANGELOG.md
 
-echo ""
-echo "============================================================"
-echo "  Plan Resolver & Health Tests: $PASS passed, $FAIL failed"
-echo "============================================================"
+print_test_summary "$PASS" "$FAIL"
 
-if [ "$FAIL" -gt 0 ]; then
-    exit 1
-fi
