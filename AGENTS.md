@@ -261,10 +261,11 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
 - **`done <plan>` (or `/aapp-done <plan>`, `/aapp:done <plan>`, `/aapp done <plan>`, `/done <plan>`)**: Complete lifecycle and archive implemented blueprint.
   1. Resolve `<plan>` using shorthand resolution (Plan ID `P-9`, `9`, slug, or filename). Target must be explicitly named — empty queries are strictly refused.
   2. Move the plan file: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
-  3. Clear or update active plan buffer if it matched the completed plan.
-  4. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` with `Plan ID`, plan file link, target issue, verification commit, and repo-relative impact summary.
-  5. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items). If the plan resolved a target issue, relocate it from `ISSUES.md` to `.plans/done/000-issues-archive.md` (enforcing the Relocation Invariant) and prune it from `issues_road_map.md` (the pre-commit hook also auto-prunes resolved lines).
-  6. Commit the transition to the `plans` worktree.
+  3. Rewrite the blueprint header status line to `* **Status:** ✅ Done` and append an archival completion line to `## 📦 6. Change Log`.
+  4. Clear or update active plan buffer if it matched the completed plan.
+  5. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` with `Plan ID`, plan file link, target issue, verification commit, and repo-relative impact summary.
+  6. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items). If the plan resolved a target issue, relocate it from `ISSUES.md` to `.plans/done/000-issues-archive.md` (enforcing the Relocation Invariant) and prune it from `issues_road_map.md` (the pre-commit hook also auto-prunes resolved lines).
+  7. Commit the transition to the `plans` worktree.
 
 - **`release <version>` (or `/aapp-release <version>`, `/aapp:release <version>`, `/aapp release <version>`, `/release <version>`, `/preflight`)**: Execute release pre-flight verification runbook.
   1. Inspect `.plans/release/release_checklist.md` (the canonical release runbook for the project).
@@ -317,9 +318,13 @@ If you discover an unexpected bug while executing a plan inside a locked Blast R
 
 ---
 
-## 🧹 Token Efficiency & Archival Scoping
+## 🧹 Token Efficiency, Prerequisite Resolution & Archival Scoping
 - **Active Focus Only:** When inspecting `.plans/state_matrix.md`, focus strictly on active sections (`Roadmap`, `1. The Incubator`, and `2. The Greenlight Zone`).
-- **Ignore Archived History:** Strictly ignore `.plans/done/` and `.plans/done/000-archive-ledger.md` unless the user explicitly requests a historical lookup or audit.
+- **Archival Authoritative Invariant (Ledger is Terminal):** Any plan listed in `.plans/done/000-archive-ledger.md` or residing in `.plans/done/` is definitively **COMPLETE and SHIPPED**. When evaluating prerequisites, dependencies, or prior art:
+  1. Presence in `000-archive-ledger.md` or `.plans/done/` is terminal proof of completion.
+  2. Agents MUST NOT re-verify, re-read, or second-guess an archived plan's implementation status.
+  3. If an archived blueprint file is opened for architectural context, its `* **Status:** ✅ Done` header is final.
+- **Ignore Archived History:** Strictly ignore `.plans/done/` and `.plans/done/000-archive-ledger.md` during normal working loops unless resolving an explicit prerequisite, auditing historical context, or directly requested by the user.
 
 ---
 
