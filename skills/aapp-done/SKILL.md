@@ -18,9 +18,10 @@ Complete the implementation lifecycle and archive a finished blueprint.
      - Inspect the active execution buffer: check `$(git rev-parse --git-path aapp_active_plan)`.
      - **Active Buffer Present:** If an active plan is bound in `aapp_active_plan`, ask user for confirmation: *"Active plan in development is P-XX (<slug>). Mark as complete and archive to .plans/done/?"*
      - **Buffer Empty / Multiple in Development:** Scan `.plans/current/*.md` for plans in `⚡ In Development` status. If exactly 1 exists, target it; if multiple, list candidates (max 10, with concise overflow summary line if >10) and ask which plan was completed; if 0, report: *"No plans currently in ⚡ In Development."* Never dead-end with a blank refusal.
-2. **Move File:** Move the implemented plan from `.plans/current/` to `.plans/done/`:
+2. **Move File & Mark Done:** Move the implemented plan from `.plans/current/` to `.plans/done/`, rewrite its header status to `* **Status:** ✅ Done`, and append an archival entry to `## 📦 6. Change Log`:
 ```bash
 mv ".plans/current/<plan>.md" ".plans/done/<plan>.md"
+sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* ✅ Done/' ".plans/done/<plan>.md"
 ```
 
 ### Step 2: Append to Archival Ledger
