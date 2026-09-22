@@ -1,8 +1,8 @@
 # 🗺️ Plan P-31: Unified Test Runner CLI (aapp test)
 * **Created:** 2026-09-22 | **Last Refined:** 2026-09-22
-* **Target Issue / Milestone:** #63 *(Automated Test Execution & Pre-Flight Quality Gates)*
+* **Target Issue / Milestone:** Partial for #63 *(CLI Unified Test Runner Engine; CI GitHub workflow deferred to dedicated follow-up)*
 * **Plan ID:** P-31
-* **Status:** 🟣 Under Review
+* **Status:** 📝 Refining
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -23,20 +23,20 @@
 
 ## 🎯 1. Context & Architectural Goal
 
-### Sequencing Note: Dependency on Plan P-26
-This plan is designed to be executed **strictly after Plan P-26 (`P26-test-harness-isolation-and-worktree-hooks.md`)**. Plan P-26 establishes:
-- The shared test sandbox helper (`tests/test_helpers.sh`),
+### Sequencing Note: Shipped Dependency (Plan P-26)
+This plan builds directly on **Plan P-26 (`P26-test-harness-isolation-and-worktree-hooks.md`)**, which has successfully shipped (`c4fc5b2`). Plan P-26 established:
+- The shared test sandbox harness (`tests/test_helpers.sh`),
 - Strict sandbox containment (`assert_test_sandbox()`),
 - The `AAPP_TEST_SANDBOX_STRICT=1` environment invariant,
 - Dynamic developer identity inheritance without host repository contamination.
 
-Plan P-31 builds directly on top of P-26's isolated test foundations, providing the unified CLI orchestrator to discover, run, and aggregate results across all suites.
+Plan P-31 provides the unified CLI orchestrator on top of these isolated test foundations to discover, execute, and aggregate results across all suites.
 
 ### Problem Statement
-1. **Scattered Test Suite Execution**: The repository contains 8+ independent test suites in `tests/*_test.sh` (`install_test.sh`, `hooks_test.sh`, `write-guard_test.sh`, `pre-commit_test.sh`, `sync_test.sh`, `plan_resolver_test.sh`, `ai_attribution_test.sh`, `worktree_hooks_test.sh`, `plan_states_test.sh`). Running all tests requires manual script-by-script execution or custom terminal loops.
-2. **Missing Canonical Pre-Flight Gate (Issue #63)**: There is no single canonical command for CI pipelines (`.github/workflows/ci.yml`), release pre-flight runbooks (`aapp-release`), or local developer verification to run all test suites with consolidated exit-code reporting.
+1. **Scattered Test Suite Execution**: The repository contains 10 independent test suites in `tests/*_test.sh` (`install_test.sh`, `hooks_test.sh`, `write-guard_test.sh`, `pre-commit_test.sh`, `sync_test.sh`, `plan_resolver_test.sh`, `ai_attribution_test.sh`, `worktree_hooks_test.sh`, `matrix_test.sh`, `plan_states_test.sh`) shipping 422 assertions. Running all tests requires manual script-by-script execution or custom terminal loops.
+2. **Missing Canonical Pre-Flight Gate (Issue #63 - Partial Scope)**: There is no single canonical command for CI pipelines (`.github/workflows/ci.yml`), release pre-flight runbooks (`aapp-release`), or local developer verification to run all test suites with consolidated exit-code reporting. *(Note: P-31 delivers the unified CLI test runner that CI will execute; the actual `.github/workflows/ci.yml` automation and release branch-parity gate remain open on Issue #63 until a dedicated CI follow-up).*
 3. **No Selective Suite Targeting**: Developers debugging a specific subsystem (e.g. hook dispatch or write-guard) have no unified CLI interface to target single suites by name or slug (`aapp test hooks`, `aapp test guard`).
-4. **Adopter Confusion**: In an initialized adopter repository without `tests/`, invoking test workflows is undefined. AAPP needs clear contextual detection: running unit suites in development kits, while providing environmental doctor/health audits in adopter projects.
+4. **Adopter Confusion**: In an initialized adopter repository without `tests/`, invoking test workflows is undefined. AAPP needs clear contextual detection: running unit suites in development kits, delegating to project test runners if configured, and providing environmental health audits in adopter projects.
 
 ### Architectural Goal
 1. **Unified Test Orchestrator (`aapp test`)**: Implement `lib/cmd_test.sh` to discover, execute, and aggregate test suites under `tests/*_test.sh`.
@@ -111,7 +111,7 @@ cmd_test() {
             strict) strict=1 ;;
             bail)   bail=1 ;;
             quiet)  quiet=1 ;;
-            help|-h|--help)
+            help)
                 cmd_test_help
                 return 0
                 ;;
@@ -143,20 +143,22 @@ cmd_test() {
 ============================================================
   🧪 AAPP Unified Test Runner
   📍 Repository: /home/lorand/000/agent-planning-kit
-  🎯 Execution: 8 suites selected | Sandbox Strict: ON
+  🎯 Execution: 10 suites selected | Sandbox Strict: ON
 ============================================================
 
-  ✔ install_test.sh            (69 passed, 0 failed)  [2.1s]
+  ✔ install_test.sh            (70 passed, 0 failed)  [2.1s]
   ✔ hooks_test.sh              (20 passed, 0 failed)  [0.8s]
   ✔ write-guard_test.sh        (96 passed, 0 failed)  [1.4s]
   ✔ pre-commit_test.sh         (78 passed, 0 failed)  [1.9s]
-  ✔ sync_test.sh               (12 passed, 0 failed)  [0.5s]
-  ✔ plan_resolver_test.sh      (24 passed, 0 failed)  [0.6s]
-  ✔ ai_attribution_test.sh     (18 passed, 0 failed)  [0.7s]
-  ✔ worktree_hooks_test.sh     (10 passed, 0 failed)  [0.9s]
+  ✔ sync_test.sh               (15 passed, 0 failed)  [0.5s]
+  ✔ plan_resolver_test.sh      (42 passed, 0 failed)  [0.6s]
+  ✔ ai_attribution_test.sh     (34 passed, 0 failed)  [0.7s]
+  ✔ worktree_hooks_test.sh     (14 passed, 0 failed)  [0.9s]
+  ✔ matrix_test.sh             (34 passed, 0 failed)  [0.5s]
+  ✔ plan_states_test.sh        (19 passed, 0 failed)  [0.4s]
 
 ------------------------------------------------------------
-  📊 Test Results: 8/8 suites passed (327 assertions, 0 failed) in 8.9s
+  📊 Test Results: 10/10 suites passed (422 assertions, 0 failed) in 9.8s
   🎉 All test suites passed cleanly!
 ```
 
@@ -167,14 +169,53 @@ Add to `lib/verbs.tsv` under the `setup` or `daily` tier:
 test	daily	yes	Run automated test suites across all kit components with aggregation
 ```
 
+### 2.5 Assertion Aggregation & Normalization Contract
+
+To prevent fragile parsing or banner omissions, AAPP establishes a two-pronged contract for test assertion aggregation:
+
+1. **Shared Harness Summary Helper (`tests/test_helpers.sh`)**:
+   Add a standard function `print_test_summary()` to `tests/test_helpers.sh`:
+   ```bash
+   print_test_summary() {
+       local pass="${1:-$PASS}"
+       local fail="${2:-$FAIL}"
+       echo ""
+       echo "============================================================"
+       echo "  Results: $pass passed, $fail failed"
+       echo "============================================================"
+       [ "$fail" -eq 0 ] || exit 1
+   }
+   ```
+2. **Suite Summary Normalization**:
+   All 10 test suites (`tests/*_test.sh`) are normalized to emit the canonical machine-readable summary line:
+   `Results: <passed> passed, <failed> failed`
+3. **Dual-Layer Robust Scraper (`lib/cmd_test.sh`)**:
+   When reading a suite's output, `lib/cmd_test.sh` strips ANSI color escape codes and parses assertion metrics:
+   ```bash
+   clean_output="$(echo "$suite_output" | sed -E 's/\x1b\[[0-9;]*m//g')"
+   # Primary canonical parser:
+   if [[ "$clean_output" =~ Results:[[:space:]]*([0-9]+)[[:space:]]*passed,[[:space:]]*([0-9]+)[[:space:]]*failed ]]; then
+       suite_passed="${BASH_REMATCH[1]}"
+       suite_failed="${BASH_REMATCH[2]}"
+   # Fallback scraper for legacy or alternative formats:
+   elif [[ "$clean_output" =~ ([0-9]+)[[:space:]]*passed.*([0-9]+)[[:space:]]*failed ]] || \
+        [[ "$clean_output" =~ Passed:[[:space:]]*([0-9]+).*Failed:[[:space:]]*([0-9]+) ]] || \
+        [[ "$clean_output" =~ passed=([0-9]+).*failed=([0-9]+) ]]; then
+       suite_passed="${BASH_REMATCH[1]}"
+       suite_failed="${BASH_REMATCH[2]}"
+   fi
+   ```
+   This dual-layer approach ensures 100% accurate count extraction without relying on brittle ad-hoc parsing.
+
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Test Runner Module Core (`lib/cmd_test.sh`)
+- [ ] Task 1.0: Add `print_test_summary()` helper to `tests/test_helpers.sh` and normalize trailing summary line format across all 10 suites (`tests/*_test.sh`).
 - [ ] Task 1.1: Implement suite discovery scanning for `tests/*_test.sh`.
 - [ ] Task 1.2: Implement filter matching for positional arguments (`hooks` -> `tests/hooks_test.sh`, `guard` -> `tests/write-guard_test.sh`).
-- [ ] Task 1.3: Implement isolated subshell execution harness capturing exit codes and timing.
+- [ ] Task 1.3: Implement isolated subshell execution harness capturing exit codes, assertion metrics, and timing.
 - [ ] Task 1.4: Implement bare-word modifier parsers: `strict`, `bail`, `quiet`, `list` (zero `--flags`).
 - [ ] Task 1.5: Implement aggregate result summary banner and cumulative exit code logic.
 
@@ -183,10 +224,10 @@ test	daily	yes	Run automated test suites across all kit components with aggregat
 - [ ] Task 2.2: Register `test` in `lib/verbs.tsv` and verify appearance in `aapp help`.
 
 ### Phase 3: Adopter Mode & Health Audit Fallback
-- [ ] Task 3.1: Implement `aapp_adopter_health_audit()` verifying `.plans/`, `.agents/`, and `.githooks/` worktree mounts, permissions, and `core.hooksPath` configuration when `tests/` is absent.
+- [ ] Task 3.1: Implement adopter project test delegation (`aapp.testCommand` / auto-detection) with fallback to protocol environment and health audit when kit unit tests are absent.
 
 ### Phase 4: Automated Verification Suite
-- [ ] Task 4.1: Add tests in `tests/install_test.sh` (or `tests/cmd_test.sh`) verifying `aapp test list`, suite filtering, `aapp test bail` behavior, and proper exit code on simulated test failure.
+- [ ] Task 4.1: Add tests in `tests/install_test.sh` verifying `aapp test list`, suite filtering, `aapp test bail` behavior, and proper exit code on simulated test failure.
 - [ ] Task 4.2: Verify complete test suite execution via `./aapp test strict`.
 
 ### Phase 5: Documentation & Protocol Sync
@@ -203,6 +244,8 @@ test	daily	yes	Run automated test suites across all kit components with aggregat
 - [ ] `lib/cmd_test.sh` -> New unified test runner command module
 - [ ] `aapp` -> Wire test verb in CLI switchboard
 - [ ] `lib/verbs.tsv` -> Register test verb in tiered manifest
+- [ ] `tests/test_helpers.sh` -> Add `print_test_summary()` output standardizer
+- [ ] `tests/*_test.sh` -> Normalize trailing summary line format to canonical `Results: N passed, N failed`
 - [ ] `tests/install_test.sh` -> Add automated CLI test coverage for aapp test
 - [ ] `MANUAL.md` -> Document aapp test command options and workflows
 - [ ] `CHEATSHEET.md` -> Add test verb to CLI discovery matrix
@@ -213,20 +256,24 @@ test	daily	yes	Run automated test suites across all kit components with aggregat
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/*` -> Protected by Pair 5 self-protection rule
 - [ ] `.agents/skills/*` -> Governance skills self-protection
-- [ ] `tests/*_test.sh` -> Existing individual test suites are orchestrated, not modified (governed by P-26)
+- [ ] `.plans/ISSUES.md` -> Issue #63 remains open until CI workflow lands
 
 ---
 
-## ❓ 5. Open Questions
+## ❓ 5. Open Questions & Settled Decisions
 
 1. **CLI Ergonomics Invariant (No Double-Dash Flags)**: Should `aapp test` use flags or positional bare-words?
    - **Decision**: **Bare Words Only (Adopted Directive)**. Strict prohibition of GNU-style `--flag` sprawl across the CLI. Modifiers are parsed as bare positional tokens (`aapp test list`, `aapp test strict`, `aapp test quiet`, `aapp test bail`).
-2. **Adopter Mode Scope**: Should `aapp test` in an adopter repository execute full planning health checks (Pair 1–6 checks from `lib/planning_health.sh`) or stick to a simple worktree and hook audit?
-   - **Recommendation**: Run both worktree/hook integrity and `lib/planning_health.sh` audit, giving adopters a true `aapp doctor` verification command.
+2. **Adopter Mode Scope**: Should `aapp test` in an adopter repository execute project tests, full planning health checks, or a simple worktree and hook audit?
+   - **Decision**: **Dual-Mode Delegation & Protocol Sanity (Adopted Directive)**. In an adopter repository (where kit test fixtures in `tests/` are absent):
+     1. If a project test command is configured via `git config aapp.testCommand` or auto-detected (e.g. `npm test`, `pytest`, `cargo test`, `composer test`, `go test ./...`), `aapp test` delegates execution to the project's own test suite.
+     2. If no project test suite is detected, `aapp test` executes the AAPP protocol environment and health audit (verifying `.plans`, `.agents`, `.githooks` mounts, permissions, and running `lib/planning_health.sh`). Full diagnostic repair remains cleanly separated for `aapp matrix check` or a future `aapp doctor` verb.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-09-22 (Refinement - Amendment 2):** Addressed red team review: (1) resolved assertion aggregation discrepancy across 10 suites by defining a standardized summary helper (`print_test_summary` in `test_helpers.sh`) and a dual-layer ANSI-stripping scraper in `cmd_test.sh`, (2) expanded Target Files to include `tests/*_test.sh` for trailing summary normalization, (3) corrected suite inventory to 10 suites (422 assertions), including `matrix_test.sh` and `plan_states_test.sh`, (4) clarified Issue #63 scope boundary as partial runner engine with CI workflow deferred, (5) settled Open Question 2 with dual-mode adopter delegation, and (6) removed `--help` from test parser to preserve the zero-double-dash invariant.
 * **2026-09-22 (Refinement - Amendment 1):** Amended blueprint to strictly eliminate all GNU-style `--double-dash` flags per developer direction. Replaced all flags with clean bare-word positional tokens (`aapp test list`, `strict`, `quiet`, `bail`).
 * **2026-09-22:** Drafted initial canonical blueprint P-31 from user request. Defined unified test runner architecture, selective suite execution, sandbox strictness propagation, adopter doctor fallback, and explicit sequencing dependency on Plan P-26.
+
