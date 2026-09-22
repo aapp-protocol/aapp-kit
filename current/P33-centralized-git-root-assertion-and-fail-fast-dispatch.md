@@ -30,7 +30,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 This pattern contains critical architectural defects:
 1. **Silent Non-Repo Corruption**: The `|| pwd` fallback silently substitutes `$PWD` as the repository root when invoked outside a Git repository. Downstream commands proceed to evaluate `$PWD/.plans` or `$PWD/.agents` in arbitrary non-git directories (such as `/home/user` or `/tmp`), leading to unexpected side-effects or misleading errors.
 2. **Dead Code**: In `lib/cmd_help.sh:10`, `REPO_ROOT` is declared with the `|| pwd` fallback but is never referenced anywhere in the file.
-3. **Inconsistent Failure Semantics**: Across `lib/`, nine files contain `|| pwd` fallback derivations (`cmd_help.sh`, `cmd_plan.sh`, `cmd_test.sh`, `cmd_matrix.sh`, `cmd_pause.sh`, `cmd_ai.sh`, `planning_health.sh`, and `plan_resolver.sh`), `hook_dispatcher.sh` uses `|| true`, and `cmd_init.sh` uses multi-candidate bootstrap target resolution.
+3. **Inconsistent Failure Semantics**: Across `lib/`, eight files contain `|| pwd` **repository-root** fallback derivations (`cmd_help.sh`, `cmd_plan.sh`, `cmd_test.sh`, `cmd_matrix.sh`, `cmd_pause.sh`, `cmd_ai.sh`, `planning_health.sh`, and `plan_resolver.sh`), `hook_dispatcher.sh` uses `|| true`, and `cmd_init.sh` uses multi-candidate bootstrap target resolution. A ninth file, `cmd_init.sh:73`, matches a naive `grep '|| pwd'` but is **not** a repository-root derivation — it is `CWD_REAL="$(pwd -P 2>/dev/null || pwd)"`, a physical-vs-logical path resolution — and is intentionally out of scope.
 4. **Redundant Execution**: Because `aapp` sources subcommands (`source "$AAPP_LIB/cmd_*.sh"`), re-executing `git rev-parse` across every subcommand is completely unnecessary.
 
 ### Architectural Goal
@@ -47,8 +47,13 @@ Establish a single authoritative entrypoint assertion in `aapp` using a strict *
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
-- **Fallback Inventory**: `None (Clean Break)`
-- All silent `|| pwd` fallbacks for `REPO_ROOT` across `lib/` are purged outright. Invocations of operational verbs outside a Git repository fail fast with exit code 1.
+- **Fallback Inventory**: `None for repository-root derivation (Clean Break)`. All silent `|| pwd` root fallbacks across `lib/` are purged outright. Three `|| pwd` occurrences survive by deliberate decision and are registered here per Invariant #5, so that a future `grep '|| pwd'` does not read as an unresolved violation:
+  | Surviving occurrence | Why it is retained |
+  | :--- | :--- |
+  | `lib/cmd_init.sh:73` | `CWD_REAL="$(pwd -P 2>/dev/null || pwd)"` — physical-vs-logical path resolution, not a repository-root derivation. Bootstrap initializer is exempt (§5 Decision 5). |
+  | `.githooks/blast-radius-guard:17` | Out of Bounds (§5 Decision 6). Runs under Git execution where repository context is already guaranteed. |
+  | `.githooks/aapp-pre-commit:18` | Out of Bounds (§5 Decision 6). Same guarantee; guard engine self-protection forbids editing it from a feature plan. |
+- Invocations of operational verbs outside a Git repository fail fast with exit code 1.
 
 ### 2.1 Front-Door Assertion in `aapp`
 
@@ -202,6 +207,15 @@ Since `aapp` exports `REPO_ROOT`, sourced scripts in `lib/` can safely rely on `
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-09-23 (Red Team Round 3 Refinements):** Resolved Red Team findings F10–F11. Round 3 returned
+  only editorial findings (no defects, no new files, no new search predicate), meeting the
+  empty-round termination signal recorded as `P-15` F7; refinement closed and plan frozen.
+  - F10: Corrected the §1 defect-3 count from nine to eight repository-root `|| pwd` derivations, and
+    named `cmd_init.sh:73` explicitly as a physical-path resolution that matches a naive grep but is
+    out of scope.
+  - F11: Registered the three surviving `|| pwd` occurrences (`cmd_init.sh:73`,
+    `.githooks/blast-radius-guard:17`, `.githooks/aapp-pre-commit:18`) in the §2 Fallback Inventory
+    with reasons, as Invariant #5 requires, replacing the bare `None (Clean Break)` claim.
 * **2026-09-23 (Red Team Round 2 Refinements):** Resolved Red Team findings F7–F9:
   - F7: Expanded Blast Radius to include `lib/cmd_ai.sh` (line 289) and `lib/planning_health.sh` (6 occurrences), purging all remaining `|| pwd` fallbacks across `lib/` and maintaining the clean break invariant.
   - F8: Formally documented the self-protection boundary for `.githooks/*` and `templates/*` in §4 and §5 Decision 6.
