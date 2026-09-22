@@ -962,6 +962,47 @@ repos:
 
 ---
 
+### Linked Worktree Hook Architecture & Universal Dispatching
+
+AAPP enforces commit governance, blast radius boundaries, and AI attribution policies across all project worktrees (including isolated orphan worktrees like `.plans` and `.agents`).
+
+#### Two-Tier Hook Architecture
+Git hooks in AAPP follow a two-tier structure:
+1. **Tier 1: Master Dispatcher Wrappers (`templates/commit-msg`, `templates/pre-commit`, `templates/post-commit`)**: The project-level entrypoints stored in `.githooks/`. They resolve the primary project root via `git rev-parse --git-common-dir` and invoke the namespaced AAPP engines alongside custom user checks.
+2. **Tier 2: AAPP Enforcement Engines (`templates/aapp-commit-msg`, `templates/aapp-pre-commit`, `templates/aapp-post-commit`)**: Core policy and blast-radius engines managed deterministically by AAPP.
+
+#### Universal Root Resolution (`--git-common-dir`)
+Inside linked worktrees, `git rev-parse --show-toplevel` points to the worktree root (e.g. `/repo/.plans`), which does not contain the shared project `.githooks/`. AAPP wrappers and custom hook recipes resolve the primary repository root via `git rev-parse --git-common-dir`:
+
+```bash
+COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
+PRIMARY_ROOT="$(cd "$COMMON_DIR/.." 2>/dev/null && pwd || true)"
+HOOK_DIR="$PRIMARY_ROOT/.githooks"
+
+if [ -f "$HOOK_DIR/aapp-commit-msg" ]; then
+    bash "$HOOK_DIR/aapp-commit-msg" "$@" || exit 1
+fi
+```
+
+#### Dual Defense-in-Depth Wiring
+1. **Symlink Seeding**: During `aapp init`, AAPP seeds symbolic links (`.plans/.githooks -> ../.githooks` and `.agents/.githooks -> ../.githooks`). This ensures Git's native `core.hooksPath = .githooks` discovery mechanism automatically intercepts commits originating inside linked worktrees.
+2. **Ignore Hygiene**: `.plans/.gitignore` and `.agents/.gitignore` explicitly ignore `.githooks` to prevent untracked symlinks from bleeding into version-controlled orphan branches.
+
+---
+
+### Test Suite Harness & Sandbox Confinement Invariant
+
+All automated test suites in AAPP source `tests/test_helpers.sh` to enforce strict sandbox confinement and headless reliability:
+
+* **Fail-Closed Sandbox Assertion (`assert_test_sandbox`)**:
+  Every test fixture must verify that its target execution directory is strictly confined to a temporary sandbox (e.g. `/tmp/`, `$RUNNER_TEMP`, `$TMPDIR`). The assertion inspects `git rev-parse --git-common-dir` to ensure test operations never accidentally mutate the host repository or its linked worktrees. If `AAPP_TEST_SANDBOX_STRICT=1` (default), any unconfined directory immediately triggers a hard error (`exit 1`).
+* **Dynamic Developer Identity Inheritance (`setup_test_git_identity`)**:
+  Test sandboxes inherit the active developer's Git name and email (falling back to standard mock identity on headless CI environments), completely eliminating hardcoded test emails (such as `T <t@t>`).
+* **Non-Interactive GPG Bypass**:
+  Test repository initialization explicitly sets `commit.gpgsign false` and `tag.gpgsign false`. This guarantees tests run headlessly without triggering interactive GPG pinentry prompts or failing on environments with mandatory commit signing configured globally.
+
+---
+
 ## 8. Lifecycle Plugin Hooks & Action Plugins Engine
 
 AAPP provides an extensible, zero-dependency lifecycle hook and action plugin engine. It allows external scripts, linters, quality ratchets (e.g. fallback detectors), remote sync transports, and issue trackers (Jira, Linear, GitHub Issues) to intercept planning events via standard POSIX stdio contracts.

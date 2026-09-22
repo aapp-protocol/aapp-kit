@@ -2,6 +2,7 @@
 # Regression harness for unified aapp CLI workflow (v1.0.0)
 set -u
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$KIT/tests/test_helpers.sh"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 
@@ -26,8 +27,7 @@ make_kit_clone() {
   (
     cd "$target_dir"
     git init -q .
-    git config user.email t@t; git config user.name T
-    git config commit.gpgsign false; git config tag.gpgsign false
+    setup_test_git_identity "$target_dir"
     git add . >/dev/null 2>&1
     git commit -qm "kit clone" >/dev/null 2>&1 || true
   )
@@ -39,8 +39,7 @@ make_dummy_project() {
   (
     cd "$proj_dir"
     git init -q .
-    git config user.email t@t; git config user.name T
-    git config commit.gpgsign false; git config tag.gpgsign false
+    setup_test_git_identity "$proj_dir"
     echo "print('hello')" > main.py
     git add main.py
     git commit -qm "initial commit"
@@ -1162,9 +1161,26 @@ else
 fi
 report "drop-in zero-footprint: aapp init leaves .agents/skills/ free of sample files" "PASS" "$got"
 
+# Test 63: aapp init wires .githooks symlinks in .plans and .agents worktrees
+PROJ_63="$R/t63_proj"; make_dummy_project "$PROJ_63"
+make_kit_clone "$PROJ_63/aapp-kit"
+(cd "$PROJ_63" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+if [ -L "$PROJ_63/.plans/.githooks" ] && \
+   [ "$(readlink "$PROJ_63/.plans/.githooks")" = "../.githooks" ] && \
+   [ -L "$PROJ_63/.agents/.githooks" ] && \
+   [ "$(readlink "$PROJ_63/.agents/.githooks")" = "../.githooks" ] && \
+   grep -qE '^\.githooks' "$PROJ_63/.plans/.gitignore" && \
+   grep -qE '^\.githooks' "$PROJ_63/.agents/.gitignore"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "worktree hooks: aapp init wires .githooks symlinks and ignores them in .plans/.agents" "PASS" "$got"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"
 echo "============================================================"
 [ $FAIL -eq 0 ] || exit 1
+
 

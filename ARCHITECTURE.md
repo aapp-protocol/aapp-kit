@@ -54,10 +54,14 @@
 │   ├── done-issues-archive.md # Relocated defect archive template
 │   ├── 000-archive-ledger.md  # Master architectural archive ledger template
 │   └── skills/            # Universal AAPP lifecycle skills
-├── tests/                 # Automated test suites (254 passing test cases)
-│   ├── install_test.sh    # CLI, init, drop-in, adoption, installer tests
+├── tests/                 # Automated test suites (369 passing test cases)
+│   ├── test_helpers.sh    # Shared test harness: sandbox confinement & identity inheritance
+│   ├── install_test.sh    # CLI, init, drop-in, adoption, installer & worktree tests
 │   ├── write-guard_test.sh# Layer 1 write-guard, allowlists, single-plan isolation
 │   ├── pre-commit_test.sh # Layer 2 pre-commit, design-lock, changelog, isolation
+│   ├── worktree_hooks_test.sh # Worktree hook execution & attribution regression suite
+│   ├── hooks_test.sh      # Lifecycle hooks & plugins engine tests
+│   ├── sync_test.sh       # Remote worktree synchronization & transport tests
 │   ├── plan_resolver_test.sh # Plan ID resolution, pairs 4, 5, 6
 │   └── ai_attribution_test.sh # Switchboard, trailers, Option C notes, credits
 ├── scripts/               # Migration and maintenance utilities
@@ -89,11 +93,13 @@
 
 ## 🚦 4. Invariant Architectural Rules
 1. **Zero Reinvention:** Always check `.agents/CODEMAP.md` before creating helper functions or commands.
-2. **Path Resolution Single Source of Truth:** Resolve repository root via `git rev-parse --show-toplevel` or git common directory. Never use brittle relative paths (`../../`).
+2. **Path Resolution Single Source of Truth:** Resolve repository root via `git rev-parse --show-toplevel` or git common directory (`--git-common-dir`). Master wrappers and hook dispatchers navigate via `git rev-parse --git-common-dir` so hooks execute identically in linked worktrees (`.plans`, `.agents`) and primary code branches. Never use brittle relative paths (`../../`).
 3. **Never Edit Hook Targets Directly:** Never edit `.githooks/*` directly; edit `templates/` and run `aapp init` to propagate.
 4. **Frozen Plan Immutability:** Once a blueprint is `🔷 Frozen`, its technical blueprint (§2) and blast radius (§4) are locked. Unfreezing requires explicit reversion to `📝 Refining`.
 5. **Two-Lane Boundary:** Never merge bugs into `state_matrix.md` or raw feature requests into `issues_road_map.md`. Large bug fixes are promoted to blueprints via `digest ISSUE-00X`.
 6. **Documentation Synchronization:** Every implementation introducing new files, interfaces, or architectural contracts must update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
+7. **Test Harness Sandbox Confinement:** All test fixtures must source `tests/test_helpers.sh` and execute `assert_test_sandbox()` before running test logic to verify that operations remain strictly confined to temporary disposable directories. Identity configuration in test sandboxes inherits developer name/email while explicitly disabling GPG signing (`gpgsign false`) for headless, non-interactive execution.
+8. **Linked Worktree Hook Defense-in-Depth:** Worktrees mount `.githooks` symlinks (`.plans/.githooks -> ../.githooks`) and dispatchers resolve the primary project root via `--git-common-dir`, ensuring attribution checks, conciseness invariants, and commit policies protect commits in all worktrees. Symlinks are explicitly ignored in `.plans/.gitignore` and `.agents/.gitignore` to prevent orphan branch pollution.
 
 ## Plan State: Derived, Not Maintained
 

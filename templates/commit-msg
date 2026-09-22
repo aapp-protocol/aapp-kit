@@ -5,14 +5,15 @@
 # Dispatches to AAPP commit-msg enforcement engine.
 # ==============================================================================
 set -e
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-if [ -z "$REPO_ROOT" ]; then
-    exit 0
-fi
+COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
+PRIMARY_ROOT="$(cd "$COMMON_DIR/.." 2>/dev/null && pwd || true)"
+HOOK_DIR="$PRIMARY_ROOT/.githooks"
 
 # 1. AAPP Commit-Msg Enforcement Hook (must run first)
-if [ -f "$REPO_ROOT/.githooks/aapp-commit-msg" ]; then
-    bash "$REPO_ROOT/.githooks/aapp-commit-msg" "$@" || exit 1
+if [ -f "$HOOK_DIR/aapp-commit-msg" ]; then
+    bash "$HOOK_DIR/aapp-commit-msg" "$@" || exit 1
+elif [ -f "$(git rev-parse --show-toplevel 2>/dev/null)/.githooks/aapp-commit-msg" ]; then
+    bash "$(git rev-parse --show-toplevel)/.githooks/aapp-commit-msg" "$@" || exit 1
 fi
 
 # 2. Project-Specific Checks (Add custom message linters below)

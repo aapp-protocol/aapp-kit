@@ -5,14 +5,15 @@
 # Co-executes AAPP Blast Radius Engine alongside custom project checks.
 # ==============================================================================
 set -e
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-if [ -z "$REPO_ROOT" ]; then
-    exit 0
-fi
+COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
+PRIMARY_ROOT="$(cd "$COMMON_DIR/.." 2>/dev/null && pwd || true)"
+HOOK_DIR="$PRIMARY_ROOT/.githooks"
 
 # 1. AAPP Blast Radius & Changelog Enforcement (must run first)
-if [ -f "$REPO_ROOT/.githooks/aapp-pre-commit" ]; then
-    bash "$REPO_ROOT/.githooks/aapp-pre-commit" || exit 1
+if [ -f "$HOOK_DIR/aapp-pre-commit" ]; then
+    bash "$HOOK_DIR/aapp-pre-commit" || exit 1
+elif [ -f "$(git rev-parse --show-toplevel 2>/dev/null)/.githooks/aapp-pre-commit" ]; then
+    bash "$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit" || exit 1
 fi
 
 # 2. Project-Specific Checks (Add your linters, tests, or scripts below)

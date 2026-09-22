@@ -222,6 +222,23 @@ copy_guarded "$AAPP_TEMPLATES/issues.md" ".plans/ISSUES.md" ""
 copy_guarded "$AAPP_TEMPLATES/done-issues-archive.md" ".plans/done/000-issues-archive.md" ""
 copy_guarded "$AAPP_TEMPLATES/000-archive-ledger.md" ".plans/done/000-archive-ledger.md" ""
 
+if [ ! -f ".plans/.gitignore" ]; then
+    cat > .plans/.gitignore <<'EOF'
+# AAPP .plans Worktree Git Ignore
+# Air-gapped local reference store (transcripts, chat dumps, private notes)
+pickup/*
+!pickup/.gitkeep
+!pickup/.gitignore
+
+# Local worktree hook dispatcher symlink
+.githooks
+EOF
+elif ! grep -qxF ".githooks" .plans/.gitignore 2>/dev/null; then
+    echo "" >> .plans/.gitignore
+    echo "# Local worktree hook dispatcher symlink" >> .plans/.gitignore
+    echo ".githooks" >> .plans/.gitignore
+fi
+
 # Non-destructive advisory for existing custom ISSUES.md
 if [ -f ".plans/ISSUES.md" ] && ! grep -qE '\|[[:space:]]*(#|Issue ID)[[:space:]]*\|' ".plans/ISSUES.md" 2>/dev/null; then
     echo "ℹ️  Found existing custom .plans/ISSUES.md. Leaving untouched."
@@ -232,7 +249,7 @@ fi
     cd .plans
     git add .
     if ! git rev-parse --verify HEAD >/dev/null 2>&1 || ! git diff-index --quiet HEAD -- 2>/dev/null; then
-        git commit -m "chore: initialize planning state machine structures" --quiet 2>/dev/null || true
+        git commit -m "chore: initialize planning state machine structures" --no-verify --quiet 2>/dev/null || true
     fi
 )
 
@@ -327,11 +344,22 @@ sync_agent_rules
 copy_guarded "$AAPP_TEMPLATES/PROJECT.MD" ".agents/PROJECT.MD" ""
 copy_guarded "$AAPP_TEMPLATES/codemap.md" ".agents/CODEMAP.md" ""
 
+if [ ! -f ".agents/.gitignore" ]; then
+    cat > .agents/.gitignore <<'EOF'
+# Local worktree hook dispatcher symlink
+.githooks
+EOF
+elif ! grep -qxF ".githooks" .agents/.gitignore 2>/dev/null; then
+    echo "" >> .agents/.gitignore
+    echo "# Local worktree hook dispatcher symlink" >> .agents/.gitignore
+    echo ".githooks" >> .agents/.gitignore
+fi
+
 (
     cd .agents
     git add .
     if ! git rev-parse --verify HEAD >/dev/null 2>&1 || ! git diff-index --quiet HEAD -- 2>/dev/null; then
-        git commit -m "chore: sync agent behavioral rules and project context" --quiet 2>/dev/null || true
+        git commit -m "chore: sync agent behavioral rules and project context" --no-verify --quiet 2>/dev/null || true
     fi
 )
 
@@ -374,7 +402,7 @@ else
         if grep -qs '^#!/.*sh' .githooks/pre-commit; then
             echo "" >> .githooks/pre-commit
             echo '# Wire AAPP Blast Radius Engine' >> .githooks/pre-commit
-            echo '"$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit" || exit 1' >> .githooks/pre-commit
+            echo '"$(cd "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/.." && pwd)/.githooks/aapp-pre-commit" || exit 1' >> .githooks/pre-commit
             chmod +x .githooks/pre-commit
             echo "🛡️  Wired .githooks/aapp-pre-commit into existing .githooks/pre-commit."
         else
@@ -394,7 +422,7 @@ else
         if grep -qs '^#!/.*sh' .githooks/commit-msg; then
             echo "" >> .githooks/commit-msg
             echo '# Wire AAPP Commit-Msg Engine' >> .githooks/commit-msg
-            echo '"$(git rev-parse --show-toplevel)/.githooks/aapp-commit-msg" "$@" || exit 1' >> .githooks/commit-msg
+            echo '"$(cd "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/.." && pwd)/.githooks/aapp-commit-msg" "$@" || exit 1' >> .githooks/commit-msg
             chmod +x .githooks/commit-msg
             echo "🛡️  Wired .githooks/aapp-commit-msg into existing .githooks/commit-msg."
         else
@@ -414,7 +442,7 @@ else
         if grep -qs '^#!/.*sh' .githooks/post-commit; then
             echo "" >> .githooks/post-commit
             echo '# Wire AAPP Post-Commit Engine' >> .githooks/post-commit
-            echo '"$(git rev-parse --show-toplevel)/.githooks/aapp-post-commit" "$@"' >> .githooks/post-commit
+            echo '"$(cd "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/.." && pwd)/.githooks/aapp-post-commit" "$@"' >> .githooks/post-commit
             chmod +x .githooks/post-commit
             echo "🛡️  Wired .githooks/aapp-post-commit into existing .githooks/post-commit."
         fi
@@ -425,7 +453,7 @@ fi
     cd .githooks
     git add .
     if ! git rev-parse --verify HEAD >/dev/null 2>&1 || ! git diff-index --quiet HEAD -- 2>/dev/null; then
-        git commit -m "chore: sync version-controlled git hooks" --quiet 2>/dev/null || true
+        git commit -m "chore: sync version-controlled git hooks" --no-verify --quiet 2>/dev/null || true
     fi
 )
 
@@ -447,6 +475,13 @@ elif [ "$CURRENT_HOOKS_PATH" = ".githooks" ]; then
 else
     HOOK_MANAGER_NOTICE=1
 fi
+
+# Wire worktree hook symlinks for linked worktrees (.plans, .agents)
+for wt_dir in .plans .agents; do
+    if [ -d "$wt_dir" ] && [ ! -e "$wt_dir/.githooks" ]; then
+        ln -sfn ../.githooks "$wt_dir/.githooks" 2>/dev/null || true
+    fi
+done
 
 # ------------------------------------------------------------------------------
 # Plan ID Counter Bootstrap
@@ -748,7 +783,7 @@ if [ -d .agents ] && [ -e .agents/.git ]; then
         cd .agents
         git add .
         if ! git rev-parse --verify HEAD >/dev/null 2>&1 || ! git diff-index --quiet HEAD -- 2>/dev/null; then
-            git commit -m "chore: sync universal skills and claude configuration" --quiet 2>/dev/null || true
+            git commit -m "chore: sync universal skills and claude configuration" --no-verify --quiet 2>/dev/null || true
         fi
     )
 fi
@@ -769,7 +804,7 @@ if [ "$HOOK_MANAGER_NOTICE" -eq 1 ]; then
     echo "   Git config was left untouched. To wire AAPP blast-radius checks into your existing hook,"
     echo "   add this subprocess call to your pre-commit script:"
     echo ""
-    echo "     \"\$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit\" || exit 1"
+    echo "     \"\$(cd \"\$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/..\" && pwd)/.githooks/aapp-pre-commit\" || exit 1"
     echo ""
 fi
 

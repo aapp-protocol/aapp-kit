@@ -15,13 +15,14 @@
 # ==============================================================================
 set -u
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$KIT/tests/test_helpers.sh"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 
 report() {
   local name="$1" expect="$2" got="$3" details="${4:-}"
-  if [ "$got" = "$expect" ]; then
-    printf "  \033[32m✔\033[0m %-65s %s\n" "$name" "$got"; PASS=$((PASS+1))
+  if [ "$expect" = "$got" ]; then
+    printf "  \033[32m✔\033[0m %-65s %s\n" "$name" "PASS"; PASS=$((PASS+1))
   else
     printf "  \033[31m✘\033[0m %-65s want %s got %s\n" "$name" "$expect" "$got"; FAIL=$((FAIL+1))
     [ -n "$details" ] && echo "$details" | sed 's/^/       /'
@@ -38,8 +39,7 @@ make_kit_clone() {
   (
     cd "$target_dir" || exit 1
     git init -q .
-    git config user.email t@t; git config user.name T
-    git config commit.gpgsign false; git config tag.gpgsign false
+    setup_test_git_identity "$target_dir"
     git add . >/dev/null 2>&1
     git commit -qm "kit clone" >/dev/null 2>&1 || true
   )
@@ -51,8 +51,7 @@ make_project() {
   (
     cd "$proj_dir" || exit 1
     git init -q .
-    git config user.email t@t; git config user.name T
-    git config commit.gpgsign false; git config tag.gpgsign false
+    setup_test_git_identity "$proj_dir"
     echo "print('hello')" > main.py
     git add main.py
     git commit -qm "initial commit"

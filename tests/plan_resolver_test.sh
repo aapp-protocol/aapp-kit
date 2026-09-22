@@ -10,12 +10,14 @@ FAIL=0
 
 source "$KIT/lib/plan_resolver.sh"
 source "$KIT/lib/planning_health.sh"
+source "$KIT/tests/test_helpers.sh"
 
 TEST_DIR=$(mktemp -d /tmp/aapp-plan-resolver-test-XXXXXX)
 trap 'rm -rf "$TEST_DIR"' EXIT
 
 cd "$TEST_DIR"
 git init -q
+setup_test_git_identity "$TEST_DIR"
 git branch -M main
 
 mkdir -p .plans/current .plans/done
@@ -218,8 +220,7 @@ fi
 rm -f .plans/current/P99-bad-target.md
 
 echo "== 9. Planning Health Pair 6: Recorded SHA Integrity =="
-git config user.name "Test User"
-git config user.email "test@example.com"
+setup_test_git_identity "$TEST_DIR"
 git add .
 git commit -m "fixture commit" -q
 TEST_SHA=$(git rev-parse --short HEAD)

@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Regression harness for templates/aapp-pre-commit
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$KIT/tests/test_helpers.sh"
 HOOK="${AAPP_HOOK:-$KIT/templates/aapp-pre-commit}"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 
 setup() {
   rm -rf "$R"/repo; mkdir -p "$R"/repo; cd "$R"/repo
-  git init -q .; git config user.email t@t; git config user.name T
-  git config commit.gpgsign false; git config tag.gpgsign false
+  git init -q .
+  setup_test_git_identity "$R/repo"
   mkdir -p src .plans/current
   echo "x=1" > src/a.py; echo "secret=1" > src/secret.py; echo "# CL" > CHANGELOG.md
   git add -A >/dev/null; git commit -qm init

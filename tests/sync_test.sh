@@ -15,6 +15,7 @@
 # ==============================================================================
 set -u
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$KIT/tests/test_helpers.sh"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 
@@ -37,8 +38,7 @@ make_kit_clone() {
   (
     cd "$target_dir" || exit 1
     git init -q .
-    git config user.email t@t; git config user.name T
-    git config commit.gpgsign false; git config tag.gpgsign false
+    setup_test_git_identity "$target_dir"
     git add . >/dev/null 2>&1
     git commit -qm "kit clone" >/dev/null 2>&1 || true
   )
@@ -50,8 +50,7 @@ make_project() {
   (
     cd "$proj_dir" || exit 1
     git init -q .
-    git config user.email t@t; git config user.name T
-    git config commit.gpgsign false; git config tag.gpgsign false
+    setup_test_git_identity "$proj_dir"
     echo "print('hello')" > main.py
     git add main.py
     git commit -qm "initial commit"
@@ -153,8 +152,7 @@ TMP_CLONE="$R/tmp_clone"
 git clone -q "$REMOTE_ORIGIN" -b plans "$TMP_CLONE" >/dev/null 2>&1
 (
   cd "$TMP_CLONE" || exit 1
-  git config user.email t@t; git config user.name T
-  git config commit.gpgsign false; git config tag.gpgsign false
+  setup_test_git_identity "$TMP_CLONE"
   echo "updated from clone" >> test.md
   git commit -qam "update plan from remote"
   git push -q origin plans

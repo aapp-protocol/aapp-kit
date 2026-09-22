@@ -8,14 +8,15 @@ KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PASS=0
 FAIL=0
 
+source "$KIT/tests/test_helpers.sh"
+
 TEST_DIR=$(mktemp -d /tmp/aapp-attribution-test-XXXXXX)
 trap 'rm -rf "$TEST_DIR"' EXIT
 
 cd "$TEST_DIR"
 git init -q
 git branch -M main
-git config user.name "Test Developer"
-git config user.email "developer@example.com"
+setup_test_git_identity "$TEST_DIR"
 
 # Setup AAPP via drop-in init
 cp -r "$KIT" "$TEST_DIR/aapp-kit"

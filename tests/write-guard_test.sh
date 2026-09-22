@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Regression test suite for blast-radius-guard (PreToolUse write-time guard)
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$KIT/tests/test_helpers.sh"
 GUARD="${AAPP_GUARD:-$KIT/templates/blast-radius-guard.sh}"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
@@ -11,8 +12,8 @@ assert_rc() { [ $? -eq 0 ] && green "$1" "ALLOW" && PASS=$((PASS+1)) || { red "$
 
 setup() {
   rm -rf "$R"/repo; mkdir -p "$R"/repo; cd "$R"/repo
-  git init -q .; git config user.email t@t; git config user.name T
-  git config commit.gpgsign false; git config tag.gpgsign false
+  git init -q .
+  setup_test_git_identity "$R/repo"
   mkdir -p src .plans/current .agents .githooks
   echo "x=1" > src/a.py; echo "# CL" > CHANGELOG.md; echo "# CM" > CODEMAP.md; echo "# AR" > ARCHITECTURE.md
   git add -A >/dev/null; git commit -qm init
