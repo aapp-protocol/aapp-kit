@@ -4,8 +4,8 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 2026-09-22 | `P-30` | [`P30-status-registry-and-derived-state-matrix.md`](P30-status-registry-and-derived-state-matrix.md) | None | `9a333ab` |  |
-| 2026-09-22 | `P-24` | [`P24-example-assets-and-sample-convention.md`](P24-example-assets-and-sample-convention.md) | None | `83020e0` |  |
+| 2026-09-22 | `P-30` | [`P30-status-registry-and-derived-state-matrix.md`](P30-status-registry-and-derived-state-matrix.md) | Planning Brain Integrity | `9a333ab` | `lib/plan_states.sh` status registry + `lib/cmd_matrix.sh` derivation engine; `aapp matrix` verb, auto-sync in `cmd_status.sh` and lifecycle verbs in `cmd_plan.sh` |
+| 2026-09-22 | `P-24` | [`P24-example-assets-and-sample-convention.md`](P24-example-assets-and-sample-convention.md) | Distribution & Packaging Architecture | `83020e0` | `examples/` preserved in `$SHARE_DIR`, inert `*.sample` convention, `.sample` filtering in `hook_dispatcher.sh` and `aapp`, sample discovery in `plugins`/`hooks` |
 | 2026-09-22 | `P-27` | [`P27-tiered-cli-discovery-and-cheatsheet-sync.md`](P27-tiered-cli-discovery-and-cheatsheet-sync.md) | None | `d49d201` |  |
 | 2026-09-21 | `P-29` | [`P29-universal-skills-pruning-and-fallback-invariants.md`](P29-universal-skills-pruning-and-fallback-invariants.md) | None | `cb28208` |  |
 | 2026-09-20 | `P-22` | [`P22-config-backed-plan-id-allocation.md`](P22-config-backed-plan-id-allocation.md) | `#69` | `f4be7cd` | Config-backed monotonic Plan ID allocation (`aapp.planId`) replacing the three-tier filename/header/ledger scan; read-only `get_next_plan_id` peek split from claiming `allocate_plan_id`, optional `aapp-planid` provider plugin with absence-only fallback, pure-POSIX init seeding that leaves a numeric counter untouched, and `resolve_plugin_entrypoint` relocated into `lib/hook_dispatcher.sh`; 339 passing checks. |

@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #77 | `Medium` | `CLI` | 2026-09-22 | `lib/cmd_plan.sh` (`cmd_done`) | `aapp done` writes ledger rows with `Target Issue` as `None` and an empty `Impact Summary`, ignoring the blueprint's `Target Issue / Milestone` field (affected `P-24` and `P-30`). | Read the milestone from the plan header and derive a summary from Target Files or the commit subject. | 🟡 `Incubated` |
 | #49 | `Critical` | `CORE` | 2026-09-10 | `lib/cmd_upgrade.sh:19` | `aapp upgrade` clones default branch, but `main` trails `develop`; downgrades Layer 1. | Publish `develop` to `main`, check upstream version. | 🟡 `Incubated` |
 | #58 | `Low` | `CLI` | 2026-09-10 | `aapp:9` | `AAPP_VERSION` stayed 1.0.0 without release tags, so protocol block still stamps `v1.0.0` after upgrade. | Bump `AAPP_VERSION` per formal release, tag release, and surface in status. | 🟡 `Incubated` |
 | #59 | `Medium` | `CLI` | 2026-09-10 | `lib/cmd_status.sh:93` | `sort -z` is GNU/newer-BSD only and fails on older macOS `sort`, breaking the Plans pillar of briefing. | Iterate `find -print0` stream unsorted or probe `sort -z` with fallback. | 🟡 `Incubated` |
