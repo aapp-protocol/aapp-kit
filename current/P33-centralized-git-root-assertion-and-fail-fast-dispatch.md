@@ -2,7 +2,7 @@
 * **Created:** 2026-09-22 | **Last Refined:** 2026-09-22
 * **Target Issue / Milestone:** #80 *(supersedes #80 upon completion)*
 * **Plan ID:** P-33
-* **Status:** 🟣 Under Review
+* **Status:** 📝 Refining
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -13,10 +13,7 @@
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
 > 2. **Changelog Requirement**: Every commit touching source code **must** update `CHANGELOG.md` (or `.plans/CHANGELOG.md`). Run syntax checks and automated tests *before* updating the changelog.
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`). When operating in `commit` mode, append standard semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
-> 4. **Mid-Execution Bugs**:
->    - *Non-blocking*: Log in `.plans/ISSUES.md` and continue your plan.
->    - *Blocking & small*: Add file under `### 🚨 Emergency Hotfix Extensions` with a 1-sentence justification.
->    - *Blocking & substantial*: Set status to `🟥 BLOCKED`, stop, and ask the user.
+> 4. **Failure-First TDD Invariant**: When implementing code, you **must invert execution order**: write the negative/failure tests first (Phase 1), verify that they fail against current code (Red 🔴), implement the guard clauses to turn tests green (Phase 2), and only then clean up happy-path logic and subcommands (Phase 3). Never write production code before its corresponding failure test is in place.
 > 5. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
 > 6. **Architecture & Codemap Sync**: If your implementation introduces new files, functions, CLI verbs, or alters architectural boundaries, you **must** update `ARCHITECTURE.md` and `.agents/CODEMAP.md` (or repo-root `CODEMAP.md`). Both files are always-allowed workspace invariants.
 
@@ -36,7 +33,7 @@ This pattern contains critical architectural defects:
 4. **Redundant Execution**: Because `aapp` sources subcommands (`source "$AAPP_LIB/cmd_*.sh"`), re-executing `git rev-parse` across every subcommand is completely unnecessary.
 
 ### Architectural Goal
-Establish a single authoritative entrypoint assertion in `aapp`:
+Establish a single authoritative entrypoint assertion in `aapp` using a strict **Failure-First TDD (Negative-First)** workflow:
 1. Validate Git repository membership once at the front door before command dispatch.
 2. Fail fast with exit code 1 and a human-readable diagnostic message if operational commands are invoked outside a Git repository.
 3. Exempt non-repo commands: `version`, `help`, `install`, `uninstall`, `upgrade`, `develop`, and `init` (which provides bootstrap target resolution).
@@ -91,24 +88,27 @@ Since `aapp` exports `REPO_ROOT`, sourced scripts in `lib/` can safely rely on `
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Dispatcher Root Assertion (`aapp`)
-- [ ] Task 1.1: Add front-door repository assertion in `aapp` with command exemption switchboard.
-- [ ] Task 1.2: Export canonical `REPO_ROOT` for all operational commands.
+### Phase 1: Failure-First Negative Test Harness (Red 🔴)
+- [ ] Task 1.1: Add Test 67 in `tests/install_test.sh`: Invoke operational commands (`status`, `plan`, `test`, `freeze`) in an isolated non-git `/tmp` directory. Assert `exit code == 1` and assert stderr contains `'must be run inside a Git repository'`.
+- [ ] Task 1.2: Add Test 68 in `tests/install_test.sh`: Assert that exempt verbs (`version`, `help`, `install`) executed in a non-git directory succeed with `exit code == 0`.
+- [ ] Task 1.3: Run `bash tests/install_test.sh` to confirm Test 67 FAILS (Red 🔴) against current code (current code silently uses `|| pwd` and returns exit 0).
 
-### Phase 2: Subcommand Cleanup & Dead Code Removal (`lib/cmd_*.sh`)
-- [ ] Task 2.1: Delete dead `REPO_ROOT` declaration from `lib/cmd_help.sh`.
-- [ ] Task 2.2: Purge `|| pwd` fallback from `lib/cmd_plan.sh`, `lib/cmd_matrix.sh`, and `lib/cmd_pause.sh`.
-- [ ] Task 2.3: Remove redundant `git rev-parse` calls from `lib/cmd_hook.sh`, `lib/cmd_sync.sh`, and `lib/cmd_status.sh`.
-- [ ] Task 2.4: Standardize standalone fallback in `lib/plan_resolver.sh` and `lib/hook_dispatcher.sh` without `|| pwd`.
+### Phase 2: Front-Door Guard Clauses & Precondition Enforcement (Green 🟢)
+- [ ] Task 2.1: Add front-door repository assertion in `aapp` with command exemption switchboard.
+- [ ] Task 2.2: Export canonical `REPO_ROOT` for all operational commands.
+- [ ] Task 2.3: Re-run `bash tests/install_test.sh` to confirm Test 67 and Test 68 turn Green 🟢.
 
-### Phase 3: Automated Regression Tests (`tests/install_test.sh`)
-- [ ] Task 3.1: Add test asserting `aapp status`, `aapp plan`, and `aapp test` outside a git repository fail with exit code 1 and stderr message.
-- [ ] Task 3.2: Add test asserting exempt commands (`aapp version`, `aapp help`, `aapp install`) succeed outside a git repository.
-- [ ] Task 3.3: Verify all 10 test suites pass cleanly via `./aapp test strict`.
+### Phase 3: Subcommand De-Duplication & Dead Code Removal
+- [ ] Task 3.1: Delete dead `REPO_ROOT` declaration from `lib/cmd_help.sh`.
+- [ ] Task 3.2: Purge `|| pwd` fallback and redundant `git rev-parse` calls from `lib/cmd_plan.sh`, `lib/cmd_matrix.sh`, `lib/cmd_pause.sh`, `lib/cmd_hook.sh`, `lib/cmd_sync.sh`, and `lib/cmd_status.sh`.
+- [ ] Task 3.3: Standardize standalone fallback in `lib/plan_resolver.sh` and `lib/hook_dispatcher.sh` without `|| pwd`.
 
-### Phase 4: Documentation & Protocol Sync
-- [ ] Task 4.1: Update `ARCHITECTURE.md` documenting front-door repository assertion.
-- [ ] Task 4.2: Update `CHANGELOG.md` under `### Fixed`.
+### Phase 4: Full Suite Regression Verification
+- [ ] Task 4.1: Run `./aapp test strict quiet` across all 10 test suites to verify complete suite pass.
+
+### Phase 5: Documentation & Protocol Sync
+- [ ] Task 5.1: Update `ARCHITECTURE.md` documenting front-door repository assertion and failure-first invariant.
+- [ ] Task 5.2: Update `CHANGELOG.md` under `### Fixed`.
 
 ---
 
@@ -150,4 +150,5 @@ Since `aapp` exports `REPO_ROOT`, sourced scripts in `lib/` can safely rely on `
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-09-22 (Refinement):** Inverted implementation checklist to Failure-First TDD (Negative-First Engineering). Phase 1 mandates writing failing tests for non-repo error cases and verifying failure (Red 🔴) before authoring the front-door guard clauses (Green 🟢). Transitioned status to `📝 Refining`.
 * **2026-09-22:** Drafted initial canonical blueprint P-33 from Issue #80. Centralized Git repository membership assertion in `aapp` dispatcher, established strict command exemption matrix, and purged silent `|| pwd` fallbacks across `lib/cmd_*.sh`.
