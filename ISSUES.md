@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #80 | `Medium` | `CLI` | 2026-09-22 | `aapp`, `lib/cmd_*.sh` | Subcommands duplicate `REPO_ROOT` derivation with dangerous `|| pwd` fallbacks that silently treat non-repo directories as valid roots, and `cmd_help.sh` contains dead `REPO_ROOT` code. | [P-33](current/P33-centralized-git-root-assertion-and-fail-fast-dispatch.md) | 🔵 `Planned` |
 | #79 | `Medium` | `CORE` | 2026-09-22 | `lib/planning_health.sh` (Pair 4) | Issue IDs are hand-assigned with no allocator and no duplicate check, so an ID already relocated to `000-issues-archive.md` looks free when scanning only `ISSUES.md` (`#77` was reused this way). Pair 4 validates Plan IDs only. | [P-32](current/P32-issue-id-allocation-and-duplicate-detection.md) | 🔵 `Planned` |
 | #78 | `Medium` | `CLI` | 2026-09-22 | `lib/cmd_plan.sh` (`cmd_done`) | `aapp done` writes ledger rows with `Target Issue` as `None` and an empty `Impact Summary`, ignoring the blueprint's `Target Issue / Milestone` field (affected `P-24`, `P-26`, `P-27`, `P-30`). | Read the milestone from the plan header and derive a summary from Target Files or the commit subject. | 🟡 `Incubated` |
 | #49 | `Critical` | `CORE` | 2026-09-10 | `lib/cmd_upgrade.sh:19` | `aapp upgrade` clones default branch, but `main` trails `develop`; downgrades Layer 1. | Publish `develop` to `main`, check upstream version. | 🟡 `Incubated` |

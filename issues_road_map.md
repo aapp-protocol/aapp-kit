@@ -33,3 +33,6 @@
 - [ ] #60 -> Plan filenames with newlines break unquoted `ls -1` iteration in enforcement engine.
 - [ ] #67 -> AI credits generator relies on commit trailers and cannot mechanically extract agents that contributed review without committing (awaiting adversarial-review plugin).
 - [ ] #73 -> 🔵 Planned under P-25 (Delimited Template Sync & Tiered Document Governance). Stale templates persist in worktrees; `copy_guarded` never refreshes guarded destinations.
+- [ ] #78 -> `aapp done` writes ledger rows with Target Issue as None and empty summary.
+- [ ] #79 -> 🔵 Planned under P-32 (Issue ID Allocation & Duplicate Detection Engine). Issue IDs lack monotonic allocator and duplicate checks.
+- [ ] #80 -> 🔵 Planned under P-33 (Centralized Git Root Assertion & Fail-Fast Dispatch). Centralize REPO_ROOT assertion in aapp dispatcher and purge silent || pwd fallbacks.
