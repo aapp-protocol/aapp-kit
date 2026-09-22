@@ -195,6 +195,36 @@ active blueprints. Populate at refinement.)*
 * **F6 — Correction to a figure cited in Question 2.** Question 2 cites `pickup/` at 516 KB of an
   832 KB `.plans/`. As of 2026-09-23 `pickup/` measures 12 KB; it has been pruned since sketching.
   The size half of the retention argument is materially weaker than recorded.
+* **F7 — Round termination: two independent conditions, and agreement is not one of them.** The
+  round count is currently unspecified, and §2.7 already warns that agreement is weak evidence and
+  that rewarding it creates pressure to agree. That rules agreement out as a terminator — if
+  agreeing ends the loop, it becomes the cheapest exit. Two conditions that do not have that defect:
+  * **Cost bound (always applies):** a configured maximum round count. Hitting it means
+    *unresolved*, not *complete*.
+  * **Early stop (may terminate sooner):** a round that produces no new findings. This extends
+    §2.7's existing standard — an audit returning zero findings and zero unverifiables is a failed
+    audit — from judging a single review to terminating a loop.
+
+  Rationale from observed behaviour: in a two-round exchange on `P-33`, round 1 searched for the
+  identifier `REPO_ROOT` and missed `cmd_test.sh:140`, where the variable is lowercase `repo_root`.
+  The blue team's response surfaced it, which revealed the *search predicate* was wrong; round 2
+  searched for the defect (`|| pwd`) instead and found seven further sites in `planning_health.sh`
+  and `cmd_ai.sh`. The second round was productive because the first round's method was corrected —
+  not because of adversarial pressure. This is a concrete instance of the shared-blind-spot risk
+  §2.7 records: both agents anchored on the same identifier, and only an artifact exchange broke it.
+  Round count therefore varies by problem — a dead-variable finding resolves in one round, a
+  mis-predicated sweep needs two — which is what a fixed count cannot accommodate and an
+  empty-round check can. Arithmetic to expect: the terminating round still costs a full round, since
+  emptiness is only observable by running it.
+* **F8 — Mechanical termination constrains the artifact format (bears on Question 2).** Deciding
+  "no new findings" without trusting either agent's self-report means comparing findings across
+  rounds mechanically — a new `(file, line, claim)` tuple, or the round counts as empty. That also
+  closes the restatement loophole, where a reviewer keeps a loop alive by rephrasing prior findings.
+  It requires findings to be **parseable**, not prose: these very findings (F1–F8) are readable but
+  not diffable. Note the limit — a script can compare findings, but cannot detect that a reviewer
+  *should* have looked somewhere it did not; that judgement stays with the reviewer. This is a mild
+  argument for the separate per-plan artifact over inline notes, since a structured findings block
+  is easier to keep machine-readable in its own file. Format itself is refinement-session work.
 
 ---
 
@@ -205,3 +235,8 @@ active blueprints. Populate at refinement.)*
   Question 1; F4 reframes Question 2 around asynchronous multi-machine execution rather than size;
   F5 records that `cmd_done` moves only the plan file, so §2.5's archival-survival requirement needs
   code; F6 corrects the `pickup/` figure cited in Question 2 (12 KB, not 516 KB).
+* **2026-09-23:** Added F7–F8 to §5 from an observed two-round exchange on `P-33`. F7 proposes round
+  termination by cost bound plus empty-round early stop, with agreement explicitly excluded per §2.7,
+  and records the predicate-correction mechanism that made round 2 productive. F8 notes that
+  mechanical termination requires parseable findings, bearing on Question 2's artifact shape. Still
+  findings only — no design, no task breakdown, no Target Files.
