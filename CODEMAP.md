@@ -126,6 +126,14 @@
   * `cmd_hooks_status()` / `cmd_hook_hash()` -> Validates executable bits and live SHA-256 integrity against `.agents/skills/aapp-hooks/registry.tsv`.
 * **Anti-Wrapper Warning:** Never bypass `registry.tsv` hash verification or run unhashed handlers in `mode=gate`.
 
+### 🧪 Unified Test Runner Orchestrator (`lib/cmd_test.sh`)
+* **Purpose:** Single entrypoint for automated test discovery, selective filtering, subshell isolation, execution timing, and assertion metric aggregation across all kit components.
+* **Key Behaviors:**
+  * Zero double-dash invariant: bare positional tokens (`list`, `strict`, `quiet`, `bail`).
+  * Fail-closed sandbox propagation (`AAPP_TEST_SANDBOX_STRICT=1`).
+  * Adopter mode fallback: delegates to `aapp.testCommand` / auto-detected project runner (`npm`, `cargo`, etc.) or performs non-destructive AAPP protocol environment health audit.
+* **Anti-Wrapper Warning:** Never bypass subshell sandboxing or alter suite exit codes.
+
 ### 🔧 Auxiliary Commands
 * `lib/cmd_develop.sh`: Symlinks local development checkout to global bin/share for live editing.
 * `lib/cmd_upgrade.sh`: Upgrades global installation in-place from upstream repository.
