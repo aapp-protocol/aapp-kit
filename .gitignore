@@ -3,3 +3,7 @@
 pickup/*
 !pickup/.gitkeep
 !pickup/.gitignore
+
+# Local worktree hook dispatcher symlink
+.githooks
+
