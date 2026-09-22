@@ -101,7 +101,11 @@ assert_test_sandbox() {
 
 ### 2.3 Universal Worktree Hook Dispatcher & Hook Injection (`--git-common-dir`)
 
-All hook entrypoints (`templates/commit-msg`, `templates/pre-commit`, `templates/post-commit`) and hook injectors in `lib/cmd_init.sh` are updated to locate the canonical project root through Git's common directory:
+Git hooks in AAPP follow a two-tier template architecture:
+1. **Tier 1: Master Dispatcher Wrappers (`templates/commit-msg`, `templates/pre-commit`, `templates/post-commit`)**: Project entrypoints that invoke the namespaced AAPP engines alongside custom user checks.
+2. **Tier 2: AAPP Enforcement Engines (`templates/aapp-commit-msg`, `templates/aapp-pre-commit`, `templates/aapp-post-commit`)**: The core verification, blast-radius, and attribution logic.
+
+Both Tier 1 wrappers and existing custom hook injection lines in `lib/cmd_init.sh` are updated to locate the canonical hook directory via Git's common directory:
 
 ```bash
 # Resolve primary repository root via git-common-dir (works in main tree & linked worktrees)
@@ -156,9 +160,8 @@ To prevent Git from treating `.githooks` as an untracked asset inside `.plans` o
   - [ ] Refactor `tests/ai_attribution_test.sh` to use `setup_test_git_identity`.
 
 - [ ] **Phase 3: Universal Worktree Hook Dispatchers & Injection**
-  - [ ] Update `templates/commit-msg` to use `git-common-dir` resolution.
-  - [ ] Update `templates/pre-commit` to use `git-common-dir` resolution.
-  - [ ] Update `templates/post-commit` to use `git-common-dir` resolution.
+  - [ ] Update Tier 1 master wrappers (`templates/commit-msg`, `templates/pre-commit`, `templates/post-commit`) to use `git-common-dir` resolution.
+  - [ ] Verify Tier 2 engines (`templates/aapp-commit-msg`, `templates/aapp-pre-commit`, `templates/aapp-post-commit`) operate reliably in linked worktrees.
   - [ ] Update existing hook injection lines in `lib/cmd_init.sh` (lines 377, 397, 417) to use `git-common-dir`.
   - [ ] Sync live project `.githooks/` via `./aapp init` execution (conforming to Pair 5 self-protection, without direct code edits to `.githooks/*`).
 
@@ -185,9 +188,12 @@ To prevent Git from treating `.githooks` as an untracked asset inside `.plans` o
 - [ ] `tests/hooks_test.sh` -> Purge hardcoded t@t, wire sandbox confinement
 - [ ] `tests/plan_resolver_test.sh` -> Purge host repo mutation, isolate in sandbox
 - [ ] `tests/ai_attribution_test.sh` -> Adopt shared test identity helper
-- [ ] `templates/commit-msg` -> Adopt git-common-dir hook resolution
-- [ ] `templates/pre-commit` -> Adopt git-common-dir hook resolution
-- [ ] `templates/post-commit` -> Adopt git-common-dir hook resolution
+- [ ] `templates/commit-msg` -> Master commit-msg wrapper: adopt git-common-dir resolution
+- [ ] `templates/pre-commit` -> Master pre-commit wrapper: adopt git-common-dir resolution
+- [ ] `templates/post-commit` -> Master post-commit wrapper: adopt git-common-dir resolution
+- [ ] `templates/aapp-commit-msg` -> AAPP commit-msg engine: worktree compatibility
+- [ ] `templates/aapp-pre-commit` -> AAPP pre-commit blast radius engine: worktree compatibility
+- [ ] `templates/aapp-post-commit` -> AAPP post-commit engine: worktree compatibility
 - [ ] `lib/cmd_init.sh` -> Wire worktree .githooks symlinks and update injection templates
 - [ ] `.plans/.gitignore` -> Ignore .githooks symlink in plans worktree
 - [ ] `MANUAL.md` -> Document test harness sandbox invariants and worktree hook architecture
@@ -216,6 +222,7 @@ To prevent Git from treating `.githooks` as an untracked asset inside `.plans` o
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-09-22 (Refinement - Amendment 3):** Clarified two-tier hook template architecture (Tier 1 master wrappers vs Tier 2 AAPP engines) per red team review; explicitly declared both sets in Target Files to ensure complete execution clarity.
 * **2026-09-22 (Refinement - Amendment 2):** Amended blueprint with 6 architectural hardening enhancements: (1) added missing target file `tests/worktree_hooks_test.sh` to blast radius, (2) strengthened `assert_test_sandbox()` using `git-common-dir` matching to catch linked worktrees (`.plans`, `.agents`), (3) added `.githooks` ignore rules to prevent untracked symlink bleed into orphan branches, (4) made worktree symlink seeding in `cmd_init.sh` idempotent across existing mounts, (5) updated hook injection snippets in `cmd_init.sh` to use `git-common-dir`, and (6) clarified live `.githooks` sync workflow via `aapp init` under Pair 5 self-protection.
 * **2026-09-21 (Refinement):** Plan refined and all 3 Open Questions settled per developer direction: confirmed strict GPG disabling in test sandboxes (`gpgsign false`), adopted dual defense-in-depth (`.githooks` symlinks + `--git-common-dir` hook dispatch), and enabled `AAPP_TEST_SANDBOX_STRICT=1` by default. Status updated to `📝 Refining`.
 * **2026-09-21:** Drafted initial canonical blueprint P-26. Established dynamic developer identity inheritance, fail-closed test sandbox assertion, `--git-common-dir` universal worktree hook resolution, and worktree `.githooks` symlink wiring.
