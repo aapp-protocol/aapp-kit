@@ -257,16 +257,16 @@ This is not a second mechanism: it is the one `aapp matrix` behavior, invoked wh
 
 ### Phase 4: Call-Site Consolidation
 - [x] Task 4.1: Replace the in-place matrix `sed` rewrites in `lib/cmd_plan.sh` with a shared `sync_state_matrix` helper called before each lifecycle commit (`draft`, `freeze`, `freeze-start`, `start`), so the commit records a derived board. Remaining read-only status matchers at `:138,500,704` are unaffected.
-- [ ] Task 4.2: Replace the `:808-813` bucketing with registry-driven bucketing, reporting unrecognized statuses distinctly.
-- [ ] Task 4.3: Replace the awk heading reads at `lib/cmd_status.sh:326,327` with registry resolution over `current/*.md`. Leave `:72` (Roadmap) intact.
+- [x] Task 4.2: Replace the `:808-813` bucketing with registry-driven bucketing, reporting unrecognized statuses distinctly.
+- [x] Task 4.3: Replace the awk heading reads at `lib/cmd_status.sh:326,327` with registry resolution over `current/*.md`. Leave `:72` (Roadmap) intact. *(Verified both reads had already gone silently empty once derivation began emitting unnumbered headings — the exact coupling this task removes.)*
 - [x] Task 4.4: Add the §2.10 auto-sync to `lib/cmd_status.sh`, running the check-and-sync via `AAPP_MATRIX_LIB_ONLY=1` before `STATE_MATRIX` is resolved, and reporting in the Plans pillar when a sync occurred. Silent when in sync; writes while paused with a deferred-commit note; never fatal.
 
 ### Phase 5: Verification & Documentation
 - [x] Task 5.1: Create `tests/matrix_test.sh` covering: full derivation from a fixture `current/`; orphan row deletion; annotation preservation through a section change; unrecognized status bucketing (including a plan carrying a retired `🔴`/`🟡` glyph); Roadmap preservation; `--check` exit codes; **pause advisory** (paused repo still writes the synced matrix, emits the deferred-commit warning naming `aapp resume`, and stays silent when the sync is a no-op); and **idempotency** (scaffold → sync → sync produces a byte-identical file).
-- [ ] Task 5.2: Run `tests/install_test.sh` and the full suite; verify zero regressions, particularly the Test 42 drift assertions.
-- [ ] Task 5.3: Document `aapp matrix`, the status registry, and `aapp.planState.<slug>` in `MANUAL.md` and `CHEATSHEET.md`, including the clean-break note on hand-edited headings from §2.7, the colour-blind glyph guidance for custom statuses from §2.8, and the paused-repo behavior from §2.9.
-- [ ] Task 5.4: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` with the registry module, matrix engine, and the derived-state contract.
-- [ ] Task 5.5: Update `CHANGELOG.md` and run syntax checks.
+- [x] Task 5.2: Run `tests/install_test.sh` and the full suite; verify zero regressions, particularly the Test 42 drift assertions.
+- [x] Task 5.3: Document `aapp matrix`, the status registry, and `aapp.planState.<slug>` in `MANUAL.md` and `CHEATSHEET.md`, including the clean-break note on hand-edited headings from §2.7, the colour-blind glyph guidance for custom statuses from §2.8, and the paused-repo behavior from §2.9.
+- [x] Task 5.4: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` with the registry module, matrix engine, and the derived-state contract.
+- [x] Task 5.5: Update `CHANGELOG.md` and run syntax checks.
 
 ---
 
