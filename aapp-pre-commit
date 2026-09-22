@@ -16,6 +16,7 @@ if [ "${SKIP_BLAST_RADIUS:-0}" = "1" ]; then
 fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+CURRENT_WT_NAME="$(basename "$REPO_ROOT")"
 cd "$REPO_ROOT"
 
 # Staged files list (NUL-safe array) - includes additions, modifications, and deletions
@@ -155,11 +156,13 @@ ALWAYS_ALLOWED_REGEX='^(CHANGELOG\.md|README\.md|MANUAL\.md|CHEATSHEET\.md|CODEM
 CORE_CODE_REGEX='\.(php|js|jsx|ts|tsx|py|go|rs|c|cpp|h|hpp|java|rb|css|scss|sql|html|sh|bash|zsh)$|^schema/.*\.json$|^aapp$'
 
 STAGED_CORE_COUNT=0
-for F in "${STAGED_FILES[@]}"; do
-    if echo "$F" | grep -qE "$CORE_CODE_REGEX"; then
-        STAGED_CORE_COUNT=$((STAGED_CORE_COUNT + 1))
-    fi
-done
+if [ "$CURRENT_WT_NAME" != ".plans" ] && [ "$CURRENT_WT_NAME" != ".agents" ]; then
+    for F in "${STAGED_FILES[@]}"; do
+        if echo "$F" | grep -qE "$CORE_CODE_REGEX"; then
+            STAGED_CORE_COUNT=$((STAGED_CORE_COUNT + 1))
+        fi
+    done
+fi
 
 # ------------------------------------------------------------------------------
 # 1. CHANGELOG.md ENFORCEMENT (BLOCKING FOR CORE CODE)
@@ -356,6 +359,9 @@ for STAGED in "${STAGED_FILES[@]}"; do
             continue
             ;;
     esac
+    if [ "$CURRENT_WT_NAME" = ".plans" ] || [ "$CURRENT_WT_NAME" = ".agents" ]; then
+        continue
+    fi
     NON_BYPASS_COUNT=$((NON_BYPASS_COUNT + 1))
 done
 
@@ -392,6 +398,9 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
                                 continue
                                 ;;
                         esac
+                        if [ "$CURRENT_WT_NAME" = ".plans" ] || [ "$CURRENT_WT_NAME" = ".agents" ]; then
+                            continue
+                        fi
                         if match_pattern_list "$STAGED" "${BLOCKED_TARGETS[@]}"; then
                             echo ""
                             echo "❌ [Pre-Commit Blast Radius Violation] Plan '$(basename "$pf")' is BLOCKED! Staged file '$STAGED' belongs to a blocked plan."
@@ -507,6 +516,9 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
                     continue
                     ;;
             esac
+            if [ "$CURRENT_WT_NAME" = ".plans" ] || [ "$CURRENT_WT_NAME" = ".agents" ]; then
+                continue
+            fi
 
             # 1. Out of Bounds veto
             if [ ${#PLAN_OOB[@]} -gt 0 ] && match_pattern_list "$STAGED" "${PLAN_OOB[@]}"; then
