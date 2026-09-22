@@ -2,7 +2,7 @@
 * **Created:** 2026-09-22 | **Last Refined:** 2026-09-22
 * **Target Issue / Milestone:** Planning Brain Integrity
 * **Plan ID:** P-30
-* **Status:** 🔷 Frozen
+* **Status:** ⚡ In Development
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -288,6 +288,7 @@ This deliberately leaves a dirty working tree in a paused repo. That is the acce
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-22:** Plan activated into ⚡ In Development via start.
 * **2026-09-22:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-09-22 (refinement 1):** **Both open questions resolved on developer direction; accessibility invariant recorded.**

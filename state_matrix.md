@@ -18,7 +18,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-25**: [`P25-template-sync-and-document-governance.md`](current/P25-template-sync-and-document-governance.md) — Delimited Template Sync & Tiered Document Governance. Supersedes #73.
 - 🟣 **P-26**: [`P26-test-harness-isolation-and-worktree-hooks.md`](current/P26-test-harness-isolation-and-worktree-hooks.md) — Test Harness Sandbox Confinement & Universal Worktree Hook Enforcement. Supersedes #74.
 - 🟣 **P-28**: [`P28-conciseness-enforcement-and-changelog-governance.md`](current/P28-conciseness-enforcement-and-changelog-governance.md) — Conciseness Enforcement, Commit Body Ceiling & Changelog Governance. Supersedes #76.
-- 🔷 **P-30**: [`P30-status-registry-and-derived-state-matrix.md`](current/P30-status-registry-and-derived-state-matrix.md) — Status Registry & Derived State Matrix. Plan Status lines become the single source of truth; `aapp matrix` derives the matrix. Bounded against P-25 (Tier 3).
+- ⚡ **P-30**: [`P30-status-registry-and-derived-state-matrix.md`](current/P30-status-registry-and-derived-state-matrix.md) — Status Registry & Derived State Matrix. Plan Status lines become the single source of truth; `aapp matrix` derives the matrix. Bounded against P-25 (Tier 3).
 
 ---
 
