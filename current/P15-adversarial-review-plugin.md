@@ -156,7 +156,52 @@ active blueprints. Populate at refinement.)*
 * [ ] **Question 3 — Packet verb naming.** `aapp review <plan>` reads as though it performs a review rather than emitting a packet for one.
 * [ ] **Question 4 — Findings taxonomy stability.** Are 🔴/🟡/🟢 fixed by the contract, or adopter-configurable? Fixing them makes findings comparable across agents; configuring them fits the project-based plugin model.
 
+### Findings Contributed Since Sketching
+*(Findings only, per the banner. No design, no task breakdown, no Target Files.)*
+
+* **F1 — A plan-declared failure-test section would be a manifest input (bears on §2.4).** A separate
+  line of work proposes `aapp harden <id>`: an opt-in, injected `### 🧪 Required Tests` section in
+  which a plan enumerates its failure cases as named test identifiers (`path::name -> asserts …`),
+  language-agnostic by construction. Where it exists, it gives a reviewer something *executable* to
+  check rather than prose to read, which is the proofreader/reviewer distinction §2.4 already draws.
+  Candidate addition to the verification manifest alongside the test suites and guard precedence.
+* **F2 — Ownership of that section resolves to the author (consistent with §2.5).** A reviewer must
+  **propose** missing failure cases as findings; it must not append to the plan's declared tests
+  directly. Three reasons, all already in this plan: §2.5 says the plugin populates records but does
+  not own them; §2.3 makes the packet a one-way egress boundary, which a write path back into an
+  enforced section would invert; and §2.1 rejected unattended agent write access to `.plans/*` for
+  the same reason. A proposed-but-declined case belongs in the waived list of §2.7, where it is
+  traceable if the incident later happens. Operational note: pre-commit would verify declared test
+  files exist, so a reviewer appending un-written tests would block the *author's* next commit.
+* **F3 — That section creates a third candidate position, bearing on Question 1.** Question 1 offers
+  standalone `/aapp-critique` or Step 0 of `/aapp-freeze`. If failure-case enumeration becomes a
+  distinct step, the sequence `draft → harden → critique → freeze` places critique *after* the plan
+  has declared its failure modes. Auditing an enumeration is a different task from deriving one, so
+  this is an input to Question 1, not an answer to it.
+* **F4 — The retention argument for Question 2 is distribution, not size.** Question 2 is framed as a
+  size problem. The stronger consideration is that **this kit is asynchronous: a plan may be drafted
+  on one machine and implemented on another, by a different agent in a different session.** Review
+  deliberation is planning-machine evidence; the implementation machine needs the *decision*, not the
+  argument that produced it. A separate per-plan review artifact keeps the plan the same size for the
+  implementer no matter how many review rounds occurred, and lets the round count stay undecided
+  rather than becoming a structural property of the plan file. Inline notes make N rounds visible to
+  every downstream reader; a sibling artifact does not. This also means the artifact must be
+  **committed**, not local — `pickup/` cannot host it, since `.plans/.gitignore` excludes `pickup/*`
+  entirely and it would never reach the implementing machine.
+* **F5 — "Survives archival" is not free in the current code.** §2.5 requires the log to survive
+  archival into `done/`. `cmd_done` (`lib/cmd_plan.sh`) moves exactly one file and stages exactly that
+  basename, under `|| true`. A companion review artifact would be silently left behind in `current/`
+  on archive. Whatever shape Question 2 settles on, `cmd_done` must learn about companion files.
+* **F6 — Correction to a figure cited in Question 2.** Question 2 cites `pickup/` at 516 KB of an
+  832 KB `.plans/`. As of 2026-09-23 `pickup/` measures 12 KB; it has been pruned since sketching.
+  The size half of the retention argument is materially weaker than recorded.
+
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-09-16:** Sketched from two `pickup.md` entries (adversarial peer review + Layer 6; consensus tiers), both now digested and pruned. Captures settled ground only — rejected approaches with reasons, the L1/L2/L3 layering, the Layer 6 egress boundary, the verification-manifest insight, the provenance model, signing limits, the consensus-tier design and its `#64` blocker, and the three `P-12` substrate mismatches. Logic, task breakdown and Blast Radius are deliberately deferred to a dedicated refinement session by human decision.
+* **2026-09-23:** Added six findings to §5 (F1–F6) from a session on plan-declared failure tests. No
+  design, no task breakdown, no Target Files — the sketch banner holds. F1–F3 bear on §2.4 and
+  Question 1; F4 reframes Question 2 around asynchronous multi-machine execution rather than size;
+  F5 records that `cmd_done` moves only the plan file, so §2.5's archival-survival requirement needs
+  code; F6 corrects the `pickup/` figure cited in Question 2 (12 KB, not 516 KB).
