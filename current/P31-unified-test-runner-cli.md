@@ -41,8 +41,8 @@ Plan P-31 builds directly on top of P-26's isolated test foundations, providing 
 ### Architectural Goal
 1. **Unified Test Orchestrator (`aapp test`)**: Implement `lib/cmd_test.sh` to discover, execute, and aggregate test suites under `tests/*_test.sh`.
 2. **Deterministic Aggregation & Exit Codes**: Execute each suite in an isolated subshell, track execution time, capture test assertions, and exit 0 only if 100% of suites pass (exiting with the non-zero code of failing suites).
-3. **Selective Targeting & Filtering**: Support running all suites (`aapp test`) or individual suites by name/prefix (`aapp test hooks`, `aapp test install`, `aapp test pre-commit`).
-4. **Standardized Strict Execution Flags**: Pass through `--strict` (`AAPP_TEST_SANDBOX_STRICT=1`), `--quiet` (concise 1-line progress per suite), `--bail` (abort upon first suite failure), and `--list` (print discovered suites).
+3. **Selective Targeting & Filtering**: Support running all suites (`aapp test`) or individual suites by name/prefix (`aapp test hooks`, `aapp test install`, `aapp test guard`).
+4. **Zero Double-Dash Flags (CLI Ergonomics Invariant)**: In accordance with the kit's bare-word ergonomics, completely eliminate GNU-style `--flag` sprawl. Modifiers are parsed as bare positional tokens: `aapp test list`, `aapp test strict`, `aapp test quiet`, `aapp test bail`.
 5. **Adopter Mode Graceful Fallback**: Detect when invoked inside an adopter project without kit test suites, executing a non-destructive repository verification audit (`worktree`, `hooks`, `config`).
 
 ---
@@ -54,24 +54,32 @@ Plan P-31 builds directly on top of P-26's isolated test foundations, providing 
 - **Fallback Inventory**: `None (Clean Break)`
 - Adds a new CLI verb `test` to `lib/verbs.tsv` and `aapp`; does not alter existing standalone test scripts.
 
-### 2.1 CLI Interface & Options Contract
+### 2.1 CLI Interface & Options Contract (Pure Bare-Word Tokens)
 
 ```text
-Usage: aapp test [options] [suite-name...]
+Usage: aapp test [modifier] [suite-name...]
 
 Run automated test suites across kit components with consolidated aggregation.
+
+Modifiers (bare-word tokens; no double-dash flags):
+  (default)          Run all discovered test suites with standard real-time output
+  list               List all discovered test suites without running them
+  strict             Enforce fail-closed sandbox containment (AAPP_TEST_SANDBOX_STRICT=1)
+  quiet              Quiet output: suppress assertion stream, report suite-level status only
+  bail               Abort immediately upon first failing suite
 
 Arguments:
   [suite-name...]    Specific test suite name or prefix to run (e.g., 'hooks', 'install', 'guard')
                      If omitted, all discovered 'tests/*_test.sh' suites are executed.
 
-Options:
-  -s, --strict       Enforce fail-closed sandbox containment (AAPP_TEST_SANDBOX_STRICT=1)
-  -b, --bail         Abort immediately upon first failing suite
-  -q, --quiet        Quiet output: suppress individual assertion lines, show suite summary only
-  -v, --verbose      Verbose output: stream complete test stdout/stderr in real-time (default)
-  -l, --list         List all discovered test suites without running them
-  -h, --help         Show this help message
+Examples:
+  aapp test                  Run all test suites
+  aapp test hooks            Run only tests/hooks_test.sh
+  aapp test strict           Run all suites with strict sandbox verification
+  aapp test strict hooks     Run hooks suite with strict sandbox verification
+  aapp test list             List all available test suites
+  aapp test quiet            Run all suites with compact 1-line progress
+  aapp test bail             Run suites and stop on the first failure
 ```
 
 ### 2.2 Suite Discovery & Execution Algorithm (`lib/cmd_test.sh`)
@@ -90,15 +98,42 @@ cmd_test() {
         return $?
     fi
 
-    # 2. Parse flags and target filters
-    # ...
-    # 3. Discover matching suites: tests/*_test.sh
-    # ...
-    # 4. Execute suites in subshells, collecting:
+    # 2. Parse bare-word modifiers (zero double-dash flags)
+    local mode="run"
+    local strict=0
+    local bail=0
+    local quiet=0
+    local suite_filter=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            list)   mode="list" ;;
+            strict) strict=1 ;;
+            bail)   bail=1 ;;
+            quiet)  quiet=1 ;;
+            help|-h|--help)
+                cmd_test_help
+                return 0
+                ;;
+            *)
+                suite_filter="$1"
+                ;;
+        esac
+        shift
+    done
+
+    # 3. Handle list mode
+    if [ "$mode" = "list" ]; then
+        cmd_test_list "$test_dir"
+        return 0
+    fi
+
+    # 4. Discover matching suites: tests/*_test.sh
+    # 5. Execute suites in subshells, collecting:
     #    - PASS/FAIL exit status
     #    - Execution duration (seconds)
     #    - Suite name
-    # 5. Render summary banner and exit with cumulative status code
+    # 6. Render summary banner and exit with cumulative status code
 }
 ```
 
@@ -140,7 +175,7 @@ test	daily	yes	Run automated test suites across all kit components with aggregat
 - [ ] Task 1.1: Implement suite discovery scanning for `tests/*_test.sh`.
 - [ ] Task 1.2: Implement filter matching for positional arguments (`hooks` -> `tests/hooks_test.sh`, `guard` -> `tests/write-guard_test.sh`).
 - [ ] Task 1.3: Implement isolated subshell execution harness capturing exit codes and timing.
-- [ ] Task 1.4: Implement flag parsers: `--strict`, `--bail`, `--quiet`, `--verbose`, `--list`.
+- [ ] Task 1.4: Implement bare-word modifier parsers: `strict`, `bail`, `quiet`, `list` (zero `--flags`).
 - [ ] Task 1.5: Implement aggregate result summary banner and cumulative exit code logic.
 
 ### Phase 2: Switchboard & Manifest Wiring
@@ -151,11 +186,11 @@ test	daily	yes	Run automated test suites across all kit components with aggregat
 - [ ] Task 3.1: Implement `aapp_adopter_health_audit()` verifying `.plans/`, `.agents/`, and `.githooks/` worktree mounts, permissions, and `core.hooksPath` configuration when `tests/` is absent.
 
 ### Phase 4: Automated Verification Suite
-- [ ] Task 4.1: Add tests in `tests/install_test.sh` (or `tests/cmd_test.sh`) verifying `aapp test --list`, suite filtering, `--bail` behavior, and proper exit code on simulated test failure.
-- [ ] Task 4.2: Verify complete test suite execution via `./aapp test --strict`.
+- [ ] Task 4.1: Add tests in `tests/install_test.sh` (or `tests/cmd_test.sh`) verifying `aapp test list`, suite filtering, `aapp test bail` behavior, and proper exit code on simulated test failure.
+- [ ] Task 4.2: Verify complete test suite execution via `./aapp test strict`.
 
 ### Phase 5: Documentation & Protocol Sync
-- [ ] Task 5.1: Update `MANUAL.md` with `aapp test` command reference and examples.
+- [ ] Task 5.1: Update `MANUAL.md` with `aapp test` command reference and bare-word examples.
 - [ ] Task 5.2: Update `CHEATSHEET.md` CLI matrix with `test` verb.
 - [ ] Task 5.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
 - [ ] Task 5.4: Update `CHANGELOG.md` under `### Added`.
@@ -184,8 +219,8 @@ test	daily	yes	Run automated test suites across all kit components with aggregat
 
 ## ❓ 5. Open Questions
 
-1. **Default Output Stream Mode**: Should `aapp test` stream the full verbose test output by default, or default to concise 1-line progress per suite with a `--verbose` flag for details?
-   - **Recommendation**: Default to streaming verbose output so developers and CI immediately see failed assertion details, with `--quiet` / `-q` available for clean high-level summaries.
+1. **CLI Ergonomics Invariant (No Double-Dash Flags)**: Should `aapp test` use flags or positional bare-words?
+   - **Decision**: **Bare Words Only (Adopted Directive)**. Strict prohibition of GNU-style `--flag` sprawl across the CLI. Modifiers are parsed as bare positional tokens (`aapp test list`, `aapp test strict`, `aapp test quiet`, `aapp test bail`).
 2. **Adopter Mode Scope**: Should `aapp test` in an adopter repository execute full planning health checks (Pair 1–6 checks from `lib/planning_health.sh`) or stick to a simple worktree and hook audit?
    - **Recommendation**: Run both worktree/hook integrity and `lib/planning_health.sh` audit, giving adopters a true `aapp doctor` verification command.
 
@@ -193,4 +228,5 @@ test	daily	yes	Run automated test suites across all kit components with aggregat
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-09-22 (Refinement - Amendment 1):** Amended blueprint to strictly eliminate all GNU-style `--double-dash` flags per developer direction. Replaced all flags with clean bare-word positional tokens (`aapp test list`, `strict`, `quiet`, `bail`).
 * **2026-09-22:** Drafted initial canonical blueprint P-31 from user request. Defined unified test runner architecture, selective suite execution, sandbox strictness propagation, adopter doctor fallback, and explicit sequencing dependency on Plan P-26.
