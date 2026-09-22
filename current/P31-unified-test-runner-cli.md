@@ -212,29 +212,29 @@ To prevent fragile parsing or banner omissions, AAPP establishes a two-pronged c
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Test Runner Module Core (`lib/cmd_test.sh`)
-- [ ] Task 1.0: Add `print_test_summary()` helper to `tests/test_helpers.sh` and normalize trailing summary line format across all 10 suites (`tests/*_test.sh`).
-- [ ] Task 1.1: Implement suite discovery scanning for `tests/*_test.sh`.
-- [ ] Task 1.2: Implement filter matching for positional arguments (`hooks` -> `tests/hooks_test.sh`, `guard` -> `tests/write-guard_test.sh`).
-- [ ] Task 1.3: Implement isolated subshell execution harness capturing exit codes, assertion metrics, and timing.
-- [ ] Task 1.4: Implement bare-word modifier parsers: `strict`, `bail`, `quiet`, `list` (zero `--flags`).
-- [ ] Task 1.5: Implement aggregate result summary banner and cumulative exit code logic.
+- [x] Task 1.0: Add `print_test_summary()` helper to `tests/test_helpers.sh` and normalize trailing summary line format across all 10 suites (`tests/*_test.sh`).
+- [x] Task 1.1: Implement suite discovery scanning for `tests/*_test.sh`.
+- [x] Task 1.2: Implement filter matching for positional arguments (`hooks` -> `tests/hooks_test.sh`, `guard` -> `tests/write-guard_test.sh`).
+- [x] Task 1.3: Implement isolated subshell execution harness capturing exit codes, assertion metrics, and timing.
+- [x] Task 1.4: Implement bare-word modifier parsers: `strict`, `bail`, `quiet`, `list` (zero `--flags`).
+- [x] Task 1.5: Implement aggregate result summary banner and cumulative exit code logic.
 
 ### Phase 2: Switchboard & Manifest Wiring
-- [ ] Task 2.1: Add `test)` dispatch case in `aapp` switchboard delegating to `lib/cmd_test.sh`.
-- [ ] Task 2.2: Register `test` in `lib/verbs.tsv` and verify appearance in `aapp help`.
+- [x] Task 2.1: Add `test)` dispatch case in `aapp` switchboard delegating to `lib/cmd_test.sh`.
+- [x] Task 2.2: Register `test` in `lib/verbs.tsv` and verify appearance in `aapp help`.
 
 ### Phase 3: Adopter Mode & Health Audit Fallback
-- [ ] Task 3.1: Implement adopter project test delegation (`aapp.testCommand` / auto-detection) with fallback to protocol environment and health audit when kit unit tests are absent.
+- [x] Task 3.1: Implement adopter project test delegation (`aapp.testCommand` / auto-detection) with fallback to protocol environment and health audit when kit unit tests are absent.
 
 ### Phase 4: Automated Verification Suite
-- [ ] Task 4.1: Add tests in `tests/install_test.sh` verifying `aapp test list`, suite filtering, `aapp test bail` behavior, and proper exit code on simulated test failure.
-- [ ] Task 4.2: Verify complete test suite execution via `./aapp test strict`.
+- [x] Task 4.1: Add tests in `tests/install_test.sh` verifying `aapp test list`, suite filtering, `aapp test bail` behavior, and proper exit code on simulated test failure.
+- [x] Task 4.2: Verify complete test suite execution via `./aapp test strict`.
 
 ### Phase 5: Documentation & Protocol Sync
-- [ ] Task 5.1: Update `MANUAL.md` with `aapp test` command reference and bare-word examples.
-- [ ] Task 5.2: Update `CHEATSHEET.md` CLI matrix with `test` verb.
-- [ ] Task 5.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
-- [ ] Task 5.4: Update `CHANGELOG.md` under `### Added`.
+- [x] Task 5.1: Update `MANUAL.md` with `aapp test` command reference and bare-word examples.
+- [x] Task 5.2: Update `CHEATSHEET.md` CLI matrix with `test` verb.
+- [x] Task 5.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
+- [x] Task 5.4: Update `CHANGELOG.md` under `### Added`.
 
 ---
 
