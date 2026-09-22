@@ -220,9 +220,9 @@ This deliberately leaves a dirty working tree in a paused repo. That is the acce
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Status Registry Foundation
-- [ ] Task 1.1: Create `lib/plan_states.sh` with kit defaults, the five accessors from §2.2, and Bash 3.2-safe storage. Pure module, no top-level side effects.
-- [ ] Task 1.2: Implement `git config aapp.planState.*` merge per §2.3, including override-by-slug and non-fatal skip-with-warning on malformed tuples.
-- [ ] Task 1.3: Create `tests/plan_states_test.sh` covering default resolution, name-based matching across the Status line shapes at `cmd_plan.sh:115` and `:808`, custom status add, kit-default override, malformed tuple rejection, and many-to-one status→section mapping.
+- [x] Task 1.1: Create `lib/plan_states.sh` with kit defaults, the five accessors from §2.2, and Bash 3.2-safe storage. Pure module, no top-level side effects.
+- [x] Task 1.2: Implement `git config aapp.planState.*` merge per §2.3, including override-by-slug and non-fatal skip-with-warning on malformed tuples.
+- [x] Task 1.3: Create `tests/plan_states_test.sh` covering default resolution, name-based matching across the Status line shapes at `cmd_plan.sh:115` and `:808`, custom status add, kit-default override, malformed tuple rejection, and many-to-one status→section mapping.
 
 ### Phase 2: Matrix Derivation Engine
 - [ ] Task 2.1: Create `lib/cmd_matrix.sh` implementing the §2.4 walk, bucket, and re-emit algorithm.
@@ -266,6 +266,11 @@ This deliberately leaves a dirty working tree in a paused repo. That is the acce
 - [ ] `ARCHITECTURE.md` -> Record the derived-state contract and registry module.
 - [ ] `.agents/CODEMAP.md` -> Map the two new `lib/` modules.
 - [ ] `CHANGELOG.md` -> Record under Unreleased.
+
+### 🚨 Emergency Hotfix Extensions
+> Added mid-execution per Critical Execution Invariant #4 (*blocking & small*). Task 3.2 was drafted against stale information: it names `lib/cmd_help.sh` as the registration point, but P-27 made help output manifest-driven from `lib/verbs.tsv`, with `tests/install_test.sh` Tests 56/59 asserting manifest-to-help and manifest-to-cheatsheet parity. Registering the `matrix` verb therefore requires a manifest row and the matching cheatsheet entry; without them the verb ships invisible to `aapp help`, violating documentation invariant #5. The plan's intent is unchanged — only the mechanism moved.
+- [ ] `lib/verbs.tsv` -> Add the `matrix` verb row (tier, standalone flag, description) so tiered help renders it.
+- [ ] `CHEATSHEET.md` -> Add the matching `matrix` entry required by Test 59 manifest-to-cheatsheet parity.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/cmd_init.sh` -> `copy_guarded` and template provisioning are owned by P-25.
