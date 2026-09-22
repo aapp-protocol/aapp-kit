@@ -19,7 +19,6 @@
 
 ## 🔴 High Priority (Technical Urgency)
 1. #49 -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
-2. #74 -> Tests hardcode throwaway credentials (`T <t@t>`) without sandbox guards; relative `core.hooksPath` blinds linked worktrees (`.plans`, `.agents`). 🔵 Planned under [P-26](current/P26-test-harness-isolation-and-worktree-hooks.md).
 
 ## 🟡 Medium Priority (Upcoming Iterations)
 1. #75 -> Flat 36-verb catalog causes discovery fatigue for beginners; cheatsheet drifted to 44% coverage (16/36 verbs) missing core lifecycle. 🔵 Planned under [P-27](current/P27-tiered-cli-discovery-and-cheatsheet-sync.md).
