@@ -127,27 +127,27 @@ Since `aapp` exports `REPO_ROOT`, sourced scripts in `lib/` can safely rely on `
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Failure-First Negative Test Harness (Red 🔴)
-- [ ] Task 1.1: Add non-repo fail-fast test in `tests/install_test.sh`: Invoke operational commands (`status`, `plan`, `test`, `freeze`, `ai-status`) in an isolated non-git `/tmp` directory. Assert `exit code == 1` and assert stderr contains `'must be run inside a Git repository'`.
-- [ ] Task 1.2: Add exempt verbs test in `tests/install_test.sh`: Assert that exempt verbs (`version`, `help`, `install`) executed in a non-git directory succeed with `exit code == 0`.
-- [ ] Task 1.3: Run `bash tests/install_test.sh` to confirm negative tests FAIL (Red 🔴) against current code (current code silently uses `|| pwd` and returns exit 0).
+- [x] Task 1.1: Add non-repo fail-fast test in `tests/install_test.sh`: Invoke operational commands (`status`, `plan`, `test`, `freeze`, `ai-status`) in an isolated non-git `/tmp` directory. Assert `exit code == 1` and assert stderr contains `'must be run inside a Git repository'`.
+- [x] Task 1.2: Add exempt verbs test in `tests/install_test.sh`: Assert that exempt verbs (`version`, `help`, `install`) executed in a non-git directory succeed with `exit code == 0`.
+- [x] Task 1.3: Run `bash tests/install_test.sh` to confirm negative tests FAIL (Red 🔴) against current code (current code silently uses `|| pwd` and returns exit 0).
 
 ### Phase 2: Front-Door Guard Clauses & Precondition Enforcement (Green 🟢)
-- [ ] Task 2.1: Add front-door repository assertion in `aapp` with command exemption switchboard.
-- [ ] Task 2.2: Export canonical `REPO_ROOT` for all operational commands.
-- [ ] Task 2.3: Re-run `bash tests/install_test.sh` to confirm negative tests turn Green 🟢.
+- [x] Task 2.1: Add front-door repository assertion in `aapp` with command exemption switchboard.
+- [x] Task 2.2: Export canonical `REPO_ROOT` for all operational commands.
+- [x] Task 2.3: Re-run `bash tests/install_test.sh` to confirm negative tests turn Green 🟢.
 
 ### Phase 3: Subcommand De-Duplication & Dead Code Removal
-- [ ] Task 3.1: Delete dead `REPO_ROOT` declaration from `lib/cmd_help.sh`.
-- [ ] Task 3.2: Purge `|| pwd` fallback and redundant `git rev-parse` calls from `lib/cmd_plan.sh`, `lib/cmd_test.sh`, `lib/cmd_ai.sh`, `lib/cmd_matrix.sh`, `lib/cmd_pause.sh`, `lib/cmd_hook.sh`, `lib/cmd_sync.sh`, and `lib/cmd_status.sh`.
-- [ ] Task 3.3: Purge 6 occurrences of `|| pwd` in `lib/planning_health.sh` with fail-closed root resolution.
-- [ ] Task 3.4: Standardize standalone fail-closed fallback in `lib/plan_resolver.sh` and `lib/hook_dispatcher.sh` without `|| pwd`.
+- [x] Task 3.1: Delete dead `REPO_ROOT` declaration from `lib/cmd_help.sh`.
+- [x] Task 3.2: Purge `|| pwd` fallback and redundant `git rev-parse` calls from `lib/cmd_plan.sh`, `lib/cmd_test.sh`, `lib/cmd_ai.sh`, `lib/cmd_matrix.sh`, `lib/cmd_pause.sh`, `lib/cmd_hook.sh`, `lib/cmd_sync.sh`, and `lib/cmd_status.sh`.
+- [x] Task 3.3: Purge 6 occurrences of `|| pwd` in `lib/planning_health.sh` with fail-closed root resolution.
+- [x] Task 3.4: Standardize standalone fail-closed fallback in `lib/plan_resolver.sh` and `lib/hook_dispatcher.sh` without `|| pwd`.
 
 ### Phase 4: Full Suite Regression Verification
-- [ ] Task 4.1: Run `./aapp test strict quiet` across all discovered test suites to verify complete suite pass.
+- [x] Task 4.1: Run `./aapp test strict quiet` across all discovered test suites to verify complete suite pass.
 
 ### Phase 5: Documentation & Protocol Sync
-- [ ] Task 5.1: Update `ARCHITECTURE.md` documenting front-door repository assertion and failure-first invariant.
-- [ ] Task 5.2: Update `CHANGELOG.md` under `### Fixed`.
+- [x] Task 5.1: Update `ARCHITECTURE.md` documenting front-door repository assertion and failure-first invariant.
+- [x] Task 5.2: Update `CHANGELOG.md` under `### Fixed`.
 
 ---
 
