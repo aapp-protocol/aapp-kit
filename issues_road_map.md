@@ -37,3 +37,4 @@
 - [ ] #79 -> 🔵 Planned under P-32 (Issue ID Allocation & Duplicate Detection Engine). Issue IDs lack monotonic allocator and duplicate checks.
 - [ ] #80 -> 🔵 Planned under P-33 (Centralized Git Root Assertion & Fail-Fast Dispatch). Centralize REPO_ROOT assertion in aapp dispatcher and purge silent || pwd fallbacks.
 - [ ] #81 -> Worktree hook symlink makes attribution enforcement reject mechanical lifecycle commits; `|| true` hides it, so freeze/start/done report success without committing.
+- [ ] #82 -> Target Files parser does not skip blockquote prose, so template authoring-rule text becomes a phantom declared target in plan-status, pre-commit and the write-guard.
