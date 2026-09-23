@@ -1,8 +1,8 @@
 # 🗺️ Plan P-34: Verb Behaviour Contracts
 * **Created:** 2026-09-23 | **Last Refined:** 2026-09-23
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** #78 *(D2 only; D1 and D3 are unfiled defects this plan introduces and fixes)*
 * **Plan ID:** P-34
-* **Status:** 🟣 Under Review
+* **Status:** 📝 Refining
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -126,8 +126,29 @@ draft	daily	yes	Scaffold blueprint from template, stamp ID & date, register in m
 ```
 
 An explicit path rather than a name derived from the verb: hyphenated verbs (`freeze-start`,
-`plan-status`) then map wherever needed, and `lib/cmd_help.sh` already parses this file positionally,
-so a fifth field costs nothing. `cmd_help.sh` reads fields 1/2/4 and must continue to ignore field 5.
+`plan-status`) then map wherever needed.
+
+**`lib/cmd_help.sh` must be changed, not merely left alone.** `cmd_help.sh:38` reads the file with
+four variable names:
+
+```bash
+while IFS="$TAB" read -r verb tier standalone desc || [ -n "$verb" ]; do
+```
+
+`read` assigns **all trailing fields to the last variable**, so a fifth column lands inside `$desc`.
+Verified: given a five-field line, `desc` evaluates to
+`Scaffold blueprint<TAB>lib/docs/verbs/draft.md`. Every daily verb would print its contract path in
+`aapp help`, and Test 56 in `tests/install_test.sh` (tiered help matches `verbs.tsv`) would fail.
+
+The fix is one line — absorb the extra fields explicitly:
+
+```bash
+while IFS="$TAB" read -r verb tier standalone desc contract rest || [ -n "$verb" ]; do
+```
+
+`cmd_help.sh` is therefore a **Target File**, not Out of Bounds. What stays out of scope is
+*rendering* the contract in help output: `aapp help` remains user-facing and gains nothing but the
+parse fix.
 
 ### 2.3 Correspondence Check
 
@@ -179,7 +200,7 @@ from the contract before it is fixed.
 | ID | Verb | Defect |
 | :--- | :--- | :--- |
 | **D1** | `draft` (bare) | `cmd_plan.sh:324` interpolates `${title}` into `sed -E "s/.../${title}/"` unescaped. The default onboarding pickup note contains `/` (`.agents/CODEMAP.md`), terminating the expression. The command prints `sed: -e expression #1, char 113: unknown option to 's'`, still writes the file, leaves every placeholder unreplaced (`Plan P-XX`, `[YYYY-MM-DD]`, `Plan ID: P-XX`), and leaves it **untracked**. Fires on the first `aapp draft` a new adopter runs. Any title containing `/`, `&` or `\` triggers it. |
-| **D2** | `done` | `cmd_plan.sh:600` derives the ledger Impact Summary by grepping the plan for `**What:**`, a field `templates/plan-template.md` never emits, so the column is always blank — silently, since the write is guarded by `if [ -f ... ]`. `cmd_plan.sh:602` hardcodes the Target Issue column to `None` even when the plan header names one. Blank rows exist today for `P-33`, `P-31` and `P-26`. |
+| **D2** | `done` | **Already filed as `#78`** (2026-09-22) — rediscovered independently by this survey, which is itself evidence for the plan's premise. `cmd_plan.sh:600` derives the ledger Impact Summary by grepping the plan for `**What:**`, a field `templates/plan-template.md` never emits, so the column is always blank — silently, since the write is guarded by `if [ -f ... ]`. `cmd_plan.sh:602` hardcodes the Target Issue column to `None` even when the plan header names one. Blank rows exist for `P-24`, `P-26`, `P-27`, `P-30` per `#78`, and this survey added `P-31` and `P-33`. |
 | **D3** | `draft` (bare) | The named path commits; the bare path leaves the new plan untracked, so the crashed plan from D1 is outside history and cannot be reverted. |
 
 **Verified not defective.** The lifecycle verbs commit correctly and record the right SHA: in the
@@ -199,10 +220,22 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 - [ ] Task 1.2: Author `lib/docs/verbs/status.md`, `plan.md`, `plan-status.md`, `matrix.md`, `active.md`, `test.md` — the six remaining daily verbs. `test.md` states kit-suites-only per §5 Q2 and marks the adopter-runner delegation in `cmd_test.sh` as a recorded divergence, not as documented behaviour.
 - [ ] Task 1.3: Add the fifth `contract` column to `lib/verbs.tsv` for all `daily` rows, and confirm `lib/cmd_help.sh` still renders every tier unchanged (it reads fields 1/2/4).
 
+### 🧪 Required Tests (Failure & Boundary Assertions)
+*Per-test identifiers for the files declared in §4. Failure modes first.*
+- [ ] `tests/verbs/draft.sh::test_title_with_slash` -> asserts a title containing `/` yields a correct plan or a clean refusal, never a half-written one with placeholders intact (D1)
+- [ ] `tests/verbs/draft.sh::test_bare_draft_commits` -> asserts a plan scaffolded from a pickup note is staged and committed, leaving nothing untracked (D3)
+- [ ] `tests/verbs/done.sh::test_ledger_row_populated` -> asserts the archive ledger row carries a non-empty Impact Summary and the plan header's Target Issue rather than hardcoded `None` (D2)
+- [ ] `tests/verb_contracts_test.sh::test_registry_contract_correspondence` -> asserts every daily row resolves to a contract file and every contract is referenced by exactly one row
+- [ ] `tests/verb_contracts_test.sh::test_declared_test_files_exist` -> asserts every file named in a contract's `## Tests` section exists
+- [ ] `tests/install_test.sh::test_help_ignores_contract_column` -> asserts `aapp help` output contains no contract path after the fifth column is added (F1 regression guard)
+- [ ] `tests/install_test.sh::test_develop_hook_seeding` -> asserts the develop engine is absent after `aapp init`, present after `aapp develop`, and unchanged after a second `aapp develop`
+
 ### Phase 2: Failure-First Test Derivation (Red 🔴)
 - [ ] Task 2.1: Add the `verb` token to `lib/cmd_test.sh` (§2.4): `aapp test verb <name>` runs `tests/verbs/<name>.sh`, `aapp test verb` runs all of them, and a bare `aapp test` sweeps `tests/verbs/*.sh` in a second discovery pass alongside the flat `tests/*_test.sh` suites.
 - [ ] Task 2.2: Add `tests/verb_contracts_test.sh` with the bidirectional correspondence check (§2.3): every `daily` row's contract path exists, every file under `lib/docs/verbs/` is referenced by exactly one row, and every test **file** named in a contract's `## Tests` section exists.
-- [ ] Task 2.3: Add `templates/aapp-pre-commit-develop` running the same correspondence check, seeded by `aapp develop` only (§5 Q1). Verify it is absent after a plain `aapp init` and present after `aapp develop`.
+- [ ] Task 2.3: Add `templates/aapp-pre-commit-develop` running the same correspondence check, and the presence-guarded invocation block in `templates/pre-commit`.
+- [ ] Task 2.3b: Wire `lib/cmd_develop.sh` to copy the engine into `$REPO_ROOT/.githooks/` and ensure the wrapper block exists idempotently (the live wrapper is preserved by `cmd_init.sh`, so it will not gain the block by re-propagation). Verify: absent after a plain `aapp init`, present after `aapp develop`, and running `aapp develop` twice changes nothing.
+- [ ] Task 2.3c: Wire `lib/cmd_uninstall.sh` to remove the engine and its wrapper block when invoked inside a repository that has them, and to skip silently when no repository resolves.
 - [ ] Task 2.4: Derive failure-mode assertions into `tests/verbs/<verb>.sh`, one file per verb, including the three defect cases: D1 (title containing `/`), D2 (ledger Impact Summary and Target Issue populated), D3 (bare `draft` leaves no untracked file).
 - [ ] Task 2.5: Derive happy-path assertions from each contract's *Effects* section into the same files.
 - [ ] Task 2.6: Run `aapp test verb` and confirm the D1/D2/D3 assertions FAIL (Red 🔴) against current code.
@@ -259,13 +292,21 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 - [ ] `lib/cmd_uninstall.sh` -> Remove the develop-only hook on uninstall
 - [ ] `templates/pre-commit` -> Invoke the develop hook engine when present
 - [ ] `lib/verbs.tsv` -> Add fifth `contract` column for all daily rows
+- [ ] `lib/cmd_help.sh` -> Absorb the fifth field in the read loop so it does not leak into the description; rendering itself is unchanged
 - [ ] `lib/cmd_plan.sh` -> Fix D1 (unescaped title in sed), D2 (ledger summary & target issue), D3 (bare draft commit)
 - [ ] `ARCHITECTURE.md` -> Record the contract-as-source-of-truth invariant and verbs.tsv linkage
 - [ ] `.agents/CODEMAP.md` -> Name lib/docs/verbs/ as canonical owner of verb behaviour
 - [ ] `CHANGELOG.md` -> Record contracts under Added and D1-D3 under Fixed
 
+### 🧪 Required Test Files
+> Test files that must prove this plan's failure cases. Frozen with the blast radius; per-test
+> identifiers are tracked in §3.
+- `tests/verbs/draft.sh`
+- `tests/verbs/done.sh`
+- `tests/verb_contracts_test.sh`
+- `tests/install_test.sh`
+
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/cmd_help.sh` -> Must keep rendering unchanged from fields 1/2/4; `aapp help` stays user-facing and does not gain contract rendering.
 - [ ] `.agents/skills/*` -> Routing skills through the CLI is downstream work, gated on these contracts existing.
 - [ ] `.githooks/*` -> Guard engine self-protection. The installed hooks are never edited directly (Architectural Rule 3); `templates/pre-commit` is the authoring source and `aapp init` propagates it.
 - [ ] `lib/cmd_init.sh` -> Bootstrap target resolution is out of scope.
@@ -287,9 +328,24 @@ actionable diagnostics; `matrix --check` detects drift without writing.
     check lands as a sibling engine — `.githooks/aapp-pre-commit-develop` — invoked from that
     wrapper only when present, so its absence in an adopter repo is the normal case rather than a
     degraded one.
-  - **Installation.** `lib/cmd_develop.sh` currently performs no hook wiring, so this introduces the
-    mechanism. The hook is seeded on `aapp develop` and removed on `aapp uninstall`; `aapp init`
-    must not seed it.
+  - **Installation.** `lib/cmd_develop.sh` performs no hook wiring today (zero references to
+    `.githooks`), so this introduces the mechanism. `aapp develop` copies
+    `templates/aapp-pre-commit-develop` to `$REPO_ROOT/.githooks/aapp-pre-commit-develop` and makes
+    it executable. `aapp init` must not seed it.
+  - **Invocation without overwriting.** `.githooks/pre-commit` already exists in this repository and
+    in adopter repositories, and `cmd_init.sh` deliberately preserves an existing wrapper rather than
+    overwriting it. The wrapper therefore cannot be relied on to gain the invocation by
+    re-propagation. `templates/pre-commit` gains a presence-guarded block (mirroring how it already
+    guards `aapp-pre-commit`), and `aapp develop` must ensure the block is present in the live
+    `.githooks/pre-commit` for repositories whose wrapper predates it — appending it if absent,
+    idempotently.
+  - **Uninstall boundary.** `lib/cmd_uninstall.sh` is a *global* uninstaller: it removes
+    `$HOME/.local/bin/aapp` and `$SHARE_DIR`, and has no record of which repositories ran
+    `aapp develop`. It can therefore only clean the hook when it happens to be invoked inside such a
+    repository. The task is: if a repository root resolves and
+    `$REPO_ROOT/.githooks/aapp-pre-commit-develop` exists, remove it and its wrapper block; if no
+    repository resolves, skip silently — running `aapp uninstall` outside a repository is normal and
+    must not error.
   - **Consequence for scope.** `tests/verb_contracts_test.sh` still carries the correspondence
     assertions, so the invariant is verifiable without the hook installed and CI stays independent
     of developer-machine state. The hook is the early-warning layer, not the only one.
@@ -315,6 +371,24 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-24 (Red Team Round 1):** Resolved findings F1–F4 from an adversarial review.
+  - **F1 (blocker).** §2.2 claimed `cmd_help.sh` "reads fields 1/2/4 and must continue to ignore
+    field 5". That was wrong and untested. `read` assigns all trailing fields to the last variable,
+    so a fifth column lands inside `$desc` — verified directly: `desc` becomes
+    `Scaffold blueprint<TAB>lib/docs/verbs/draft.md`. Every daily verb would print its contract path
+    in `aapp help` and Test 56 would fail. `lib/cmd_help.sh` moved from Out of Bounds to Target Files
+    for the one-line parse fix; contract *rendering* stays out of scope.
+  - **F2.** `cmd_init.sh` preserves an existing `.githooks/pre-commit` rather than overwriting it, so
+    the wrapper cannot gain the develop-hook invocation by re-propagation. §5 Q1 now tasks
+    `aapp develop` with ensuring the block idempotently, and Task 2.3b covers it.
+  - **F3.** `cmd_uninstall.sh` is a global uninstaller with no record of which repositories ran
+    `aapp develop`; it can only clean the hook when invoked inside one. §5 Q1 now states that, and
+    that running outside a repository skips silently rather than erroring. Task 2.3c covers it.
+  - **F4.** §2.1 claimed the `path::name` syntax matches the plan-level convention, but the plan
+    carried no such section. Added, using the split `P-35` settled: test **files** in §4 frozen with
+    the blast radius, per-test **identifiers** in §3 where they can be ticked during execution.
+  - Also recorded: **D2 duplicates `#78`**, filed 2026-09-22 and rediscovered independently by this
+    survey — which is itself evidence for the plan's premise. Header Target Issue set to `#78`.
 * **2026-09-23 (Refinement):** Added the `## Tests` heading to the contract shape (§2.1) and the
   `tests/verbs/` layout with granular execution (§2.4). Each contract carries a copyable
   `Run: aapp test verb <verb>` line plus per-test identifiers, so a reader cross-checks coverage
