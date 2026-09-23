@@ -19,6 +19,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-28**: [`P28-conciseness-enforcement-and-changelog-governance.md`](current/P28-conciseness-enforcement-and-changelog-governance.md) — Conciseness Enforcement, Commit Body Ceiling & Changelog Governance. Supersedes #76.
 - 🟣 **P-32**: [`P32-issue-id-allocation-and-duplicate-detection.md`](current/P32-issue-id-allocation-and-duplicate-detection.md) — Issue ID Allocation & Duplicate Detection
 - 🟣 **P-34**: [`P34-verb-behaviour-contracts.md`](current/P34-verb-behaviour-contracts.md) — Verb Behaviour Contracts
+- 🟣 **P-35**: [`P35-opt-in-failure-test-declaration.md`](current/P35-opt-in-failure-test-declaration.md) — Opt In Failure Test Declaration
 
 ---
 
