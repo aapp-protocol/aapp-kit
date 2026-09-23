@@ -148,7 +148,7 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 
 ### Phase 1: Contract Authoring (Source of Truth First)
 - [ ] Task 1.1: Author `lib/docs/verbs/draft.md`, `freeze.md`, `start.md`, `freeze-start.md`, `done.md` — the five lifecycle verbs — to the §2.1 shape, read from the current implementation. Record behaviour as it *should* be, marking any line that current code violates.
-- [ ] Task 1.2: Author `lib/docs/verbs/status.md`, `plan.md`, `plan-status.md`, `matrix.md`, `active.md`, `test.md` — the six remaining daily verbs.
+- [ ] Task 1.2: Author `lib/docs/verbs/status.md`, `plan.md`, `plan-status.md`, `matrix.md`, `active.md`, `test.md` — the six remaining daily verbs. `test.md` states kit-suites-only per §5 Q2 and marks the adopter-runner delegation in `cmd_test.sh` as a recorded divergence, not as documented behaviour.
 - [ ] Task 1.3: Add the fifth `contract` column to `lib/verbs.tsv` for all `daily` rows, and confirm `lib/cmd_help.sh` still renders every tier unchanged (it reads fields 1/2/4).
 
 ### Phase 2: Failure-First Test Derivation (Red 🔴)
@@ -232,15 +232,34 @@ actionable diagnostics; `matrix --check` detects drift without writing.
   - **Consequence for scope.** `tests/verb_contracts_test.sh` still carries the correspondence
     assertions, so the invariant is verifiable without the hook installed and CI stays independent
     of developer-machine state. The hook is the early-warning layer, not the only one.
-* [ ] **Question 2 — Does a contract cover `test` at all?** `aapp test` delegates to adopter runners
-  (`aapp.testCommand`, npm, cargo, composer, go) via `cmd_test.sh`. Its effects are therefore
-  project-defined, and a contract can only specify discovery and delegation, not outcomes. Include it
-  with that limit stated, or drop it from the daily set and document ten verbs.
+* [x] **Question 2 — Does a contract cover `test` at all?**
+  - **Decision: yes, and it documents `aapp test` as kit-suites-only (Adopted Directive).** The
+    contract specifies discovery of `tests/*_test.sh`, execution, aggregation, and exit non-zero on
+    any suite failure. No "effects are project-defined" caveat is needed, because running an
+    adopter's suite is not this verb's job.
+  - **Rationale.** The kit ships no linters and no language toolchain integration; outsourcing test
+    execution to `npm`/`cargo`/`composer`/`go` is the same category of thing. Adopters who want their
+    own suite on every commit already have the entry point: `templates/pre-commit` carries a
+    documented slot for project checks (`# e.g., npm test || exit 1`). That extension point is
+    theirs, and it is the correct place for it — the kit does not need a delegation path to duplicate
+    it.
+  - **Scope boundary.** The existing delegation in `lib/cmd_test.sh` (`aapp.testCommand`, npm, cargo,
+    composer, go — `cmd_test.sh:51-90`) is therefore behaviour that should not exist, but **removing
+    it is out of scope for this plan**. P-34 documents the intended contract; the removal is a
+    user-visible behaviour change for anyone relying on it and belongs in its own blueprint. The
+    contract states kit-suites-only, so the divergence is recorded rather than silently tolerated —
+    exactly the condition Task 1.1 asks authors to mark where current code violates a contract line.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-23 (Refinement):** Resolved Question 2 — `test` gets a contract, documenting
+  `aapp test` as kit-suites-only. The kit ships no linters or language toolchain integration, so
+  delegating to `npm`/`cargo`/`composer`/`go` is out of character; adopters wanting their own suite
+  per commit use the project-checks slot already documented in `templates/pre-commit`. Removing the
+  existing delegation in `cmd_test.sh` is a user-visible change and stays out of scope — the contract
+  records it as a divergence instead. All open questions are now resolved.
 * **2026-09-23 (Refinement):** Resolved Question 1 — the correspondence check runs as a develop-only
   pre-commit engine (`.githooks/aapp-pre-commit-develop`), seeded by `aapp develop` and absent in
   adopter repositories, since contract correspondence is a kit-authoring invariant rather than a
