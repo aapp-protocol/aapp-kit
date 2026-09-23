@@ -53,7 +53,7 @@ mechanically, and tests are derived from.
    resolves to the contract in the same read.
 3. Bidirectional correspondence: no declared verb without a contract, no contract without a row.
 4. Tests derived from each contract — failure modes first, then happy-path effects.
-5. The three defects the survey found (D1–D3, §2.4) fixed against those tests.
+5. The three defects the survey found (D1–D3, §2.5) fixed against those tests.
 
 **Scope boundary.** The eleven `daily`-tier verbs only. `aapp help` remains user-facing and is not
 extended to render contracts; the contract is agent- and test-facing, reached via `verbs.tsv`.
@@ -96,6 +96,11 @@ Five fixed headings per contract, in this order:
 
 ## Exit
 - 0 only when every effect above landed
+
+## Tests
+Run: `aapp test verb <verb>`
+
+- `tests/verbs/<verb>.sh::<test_name>` -> which failure mode or effect this covers
 ```
 
 **Ingress is a separate axis from preconditions**, not a subset: preconditions are *state* ("inside a
@@ -103,6 +108,13 @@ git repository"), ingress is *what the verb accepts and where it comes from*. D1
 defect — the bare path takes a pickup note as the title and feeds it to an unescaped `sed`. Each
 ingress item also generates its own failure cases (absent, malformed, colliding), which is what makes
 the failure-modes section enumerable rather than invented.
+
+**The `## Tests` section exists so a reader cross-checks without searching.** The `Run:` line is a
+copyable command; the identifier list below it maps each test to the failure mode or effect it
+covers. A failure mode with no test listed is a visible hole — which is exactly D1's situation today:
+bare `draft` crashes, nothing covers it, and nothing declared that anything should, so the absence
+was invisible. The `path::name -> asserts …` syntax is deliberately identical to the plan-level
+`### 🧪 Required Tests` convention, so one syntax serves both.
 
 ### 2.2 Registry Linkage
 
@@ -123,7 +135,37 @@ Bidirectional, fail-closed: every `daily` row's contract path resolves to an exi
 file under `lib/docs/verbs/` is referenced by exactly one row. This is what stops the contract set
 drifting the way per-skill prose did.
 
-### 2.4 Defects This Plan Fixes
+### 2.4 Verb Test Location & Granular Execution
+
+Contract-derived tests live at `tests/verbs/<verb>.sh` — one file per verb, no `_test.sh` suffix. The
+suffix exists in `tests/` to disambiguate suites in a flat directory; the `verbs/` subdirectory does
+that by location, so `tests/verbs/draft.sh` is self-explanatory.
+
+`lib/cmd_test.sh` gains a `verb` token:
+
+| Invocation | Runs |
+| :--- | :--- |
+| `aapp test verb draft` | `tests/verbs/draft.sh` alone |
+| `aapp test verb` | every `tests/verbs/*.sh` |
+| `aapp test` | the flat `tests/*_test.sh` suites **and** every `tests/verbs/*.sh` |
+
+Three mechanical notes:
+
+1. **Discovery is two passes, not a widened glob.** `cmd_test.sh:182` currently runs
+   `find "$test_dir" -maxdepth 1 -name '*_test.sh'`. `tests/verbs/` is invisible to it, so a bare
+   `aapp test` needs a second `find` over `tests/verbs/*.sh`. Keeping them separate stops the two
+   naming conventions bleeding into each other.
+2. **Execution and reporting are already granular.** Each suite runs as its own
+   `bash "$suite"` subshell and reports through `print_test_summary()`, so one file per verb yields
+   per-verb results through the existing aggregation loop with no new reporting code.
+3. **Existing suites are not relocated.** `install_test.sh`, `matrix_test.sh` and the rest keep their
+   assertions and their sandbox setup. `tests/verbs/` is where *new* contract-derived tests land; a
+   contract may still reference an existing suite where coverage already exists.
+
+This also keeps the `Run:` line to a single command per contract, which is the point: `aapp test verb
+draft` completes in seconds against 65s for the full sweep.
+
+### 2.5 Defects This Plan Fixes
 
 Found by probing the daily verbs in a clean sandbox (2026-09-23). Each becomes a failing test derived
 from the contract before it is fixed.
@@ -152,17 +194,18 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 - [ ] Task 1.3: Add the fifth `contract` column to `lib/verbs.tsv` for all `daily` rows, and confirm `lib/cmd_help.sh` still renders every tier unchanged (it reads fields 1/2/4).
 
 ### Phase 2: Failure-First Test Derivation (Red 🔴)
-- [ ] Task 2.1: Add `tests/verb_contracts_test.sh` with the bidirectional correspondence check (§2.3): every `daily` row's contract path exists, every file under `lib/docs/verbs/` is referenced by exactly one row.
-- [ ] Task 2.1b: Add `templates/aapp-pre-commit-develop` running the same correspondence check, seeded by `aapp develop` only (§5 Q1). Verify it is absent after a plain `aapp init` and present after `aapp develop`.
-- [ ] Task 2.2: Derive failure-mode assertions from each contract's *Failure modes* section, including the three defect cases: D1 (title containing `/`), D2 (ledger Impact Summary and Target Issue populated), D3 (bare `draft` leaves no untracked file).
-- [ ] Task 2.3: Derive happy-path assertions from each contract's *Effects* section.
-- [ ] Task 2.4: Run `bash tests/verb_contracts_test.sh` and confirm the D1/D2/D3 assertions FAIL (Red 🔴) against current code.
+- [ ] Task 2.1: Add the `verb` token to `lib/cmd_test.sh` (§2.4): `aapp test verb <name>` runs `tests/verbs/<name>.sh`, `aapp test verb` runs all of them, and a bare `aapp test` sweeps `tests/verbs/*.sh` in a second discovery pass alongside the flat `tests/*_test.sh` suites.
+- [ ] Task 2.2: Add `tests/verb_contracts_test.sh` with the bidirectional correspondence check (§2.3): every `daily` row's contract path exists, every file under `lib/docs/verbs/` is referenced by exactly one row, and every test **file** named in a contract's `## Tests` section exists.
+- [ ] Task 2.3: Add `templates/aapp-pre-commit-develop` running the same correspondence check, seeded by `aapp develop` only (§5 Q1). Verify it is absent after a plain `aapp init` and present after `aapp develop`.
+- [ ] Task 2.4: Derive failure-mode assertions into `tests/verbs/<verb>.sh`, one file per verb, including the three defect cases: D1 (title containing `/`), D2 (ledger Impact Summary and Target Issue populated), D3 (bare `draft` leaves no untracked file).
+- [ ] Task 2.5: Derive happy-path assertions from each contract's *Effects* section into the same files.
+- [ ] Task 2.6: Run `aapp test verb` and confirm the D1/D2/D3 assertions FAIL (Red 🔴) against current code.
 
 ### Phase 3: Defect Remediation (Green 🟢)
 - [ ] Task 3.1: Fix D1 — escape `${title}` (and any interpolated value) before `sed` substitution in `cmd_draft`, or replace the placeholder substitution with a non-`sed` mechanism. A title containing `/`, `&` or `\` must produce a correct plan or a clean refusal, never a half-written one.
 - [ ] Task 3.2: Fix D3 — the bare `draft` path stages and commits its new plan exactly as the named path does.
 - [ ] Task 3.3: Fix D2 — derive the ledger Impact Summary from a field the template actually emits (or state `None` explicitly), and populate Target Issue from the plan header instead of hardcoding `None`.
-- [ ] Task 3.4: Re-run `bash tests/verb_contracts_test.sh` and confirm Green 🟢.
+- [ ] Task 3.4: Re-run `aapp test verb` and `aapp test verb_contracts` and confirm Green 🟢.
 
 ### Phase 4: Full Suite Regression Verification
 - [ ] Task 4.1: Run `./aapp test strict quiet` across all discovered suites and verify zero regressions.
@@ -192,7 +235,19 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 - [ ] `NEW FILE` -> `lib/docs/verbs/matrix.md` -> Behaviour contract for `matrix`
 - [ ] `NEW FILE` -> `lib/docs/verbs/active.md` -> Behaviour contract for `active`
 - [ ] `NEW FILE` -> `lib/docs/verbs/test.md` -> Behaviour contract for `test`
-- [ ] `NEW FILE` -> `tests/verb_contracts_test.sh` -> Correspondence check and contract-derived assertions
+- [ ] `NEW FILE` -> `tests/verb_contracts_test.sh` -> Bidirectional correspondence check (registry, contracts, named test files)
+- [ ] `NEW FILE` -> `tests/verbs/draft.sh` -> Contract-derived tests for `draft` (covers D1, D3)
+- [ ] `NEW FILE` -> `tests/verbs/freeze.sh` -> Contract-derived tests for `freeze`
+- [ ] `NEW FILE` -> `tests/verbs/start.sh` -> Contract-derived tests for `start`
+- [ ] `NEW FILE` -> `tests/verbs/freeze-start.sh` -> Contract-derived tests for `freeze-start`
+- [ ] `NEW FILE` -> `tests/verbs/done.sh` -> Contract-derived tests for `done` (covers D2)
+- [ ] `NEW FILE` -> `tests/verbs/status.sh` -> Contract-derived tests for `status`
+- [ ] `NEW FILE` -> `tests/verbs/plan.sh` -> Contract-derived tests for `plan`
+- [ ] `NEW FILE` -> `tests/verbs/plan-status.sh` -> Contract-derived tests for `plan-status`
+- [ ] `NEW FILE` -> `tests/verbs/matrix.sh` -> Contract-derived tests for `matrix`
+- [ ] `NEW FILE` -> `tests/verbs/active.sh` -> Contract-derived tests for `active`
+- [ ] `NEW FILE` -> `tests/verbs/test.sh` -> Contract-derived tests for `test`
+- [ ] `lib/cmd_test.sh` -> Add the `verb` token and second discovery pass over tests/verbs/
 - [ ] `NEW FILE` -> `templates/aapp-pre-commit-develop` -> Develop-only correspondence hook engine
 - [ ] `lib/cmd_develop.sh` -> Seed the develop-only hook; introduces hook wiring to this command
 - [ ] `lib/cmd_uninstall.sh` -> Remove the develop-only hook on uninstall
@@ -254,6 +309,14 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-23 (Refinement):** Added the `## Tests` heading to the contract shape (§2.1) and the
+  `tests/verbs/` layout with granular execution (§2.4). Each contract carries a copyable
+  `Run: aapp test verb <verb>` line plus per-test identifiers, so a reader cross-checks coverage
+  without searching and a failure mode with no test is a visible hole. Tests live one file per verb
+  at `tests/verbs/<verb>.sh` — no `_test.sh` suffix, since the subdirectory disambiguates by
+  location. `lib/cmd_test.sh` gains a `verb` token; a bare `aapp test` sweeps `tests/verbs/` in a
+  second discovery pass, because `-maxdepth 1 -name '*_test.sh'` cannot see it. Existing suites are
+  not relocated. Blast radius grew by eleven verb test files and `lib/cmd_test.sh`.
 * **2026-09-23 (Refinement):** Resolved Question 2 — `test` gets a contract, documenting
   `aapp test` as kit-suites-only. The kit ships no linters or language toolchain integration, so
   delegating to `npm`/`cargo`/`composer`/`go` is out of character; adopters wanting their own suite
