@@ -153,8 +153,14 @@ Three mechanical notes:
 
 1. **Discovery is two passes, not a widened glob.** `cmd_test.sh:182` currently runs
    `find "$test_dir" -maxdepth 1 -name '*_test.sh'`. `tests/verbs/` is invisible to it, so a bare
-   `aapp test` needs a second `find` over `tests/verbs/*.sh`. Keeping them separate stops the two
-   naming conventions bleeding into each other.
+   `aapp test` needs a second `find` over `tests/verbs/*.sh`. Two reasons this is the design rather
+   than a workaround for the existing find depth:
+   - **Tight feedback while changing behaviour.** A separately addressable set makes
+     `aapp test verb draft` a first-class path, not a filter over a shared pool. Modifying a verb
+     means re-running seconds of its own tests instead of 65s of everything — which is what keeps
+     the loop usable while adjusting a verb or writing its contract. This is the primary reason.
+   - **Convention isolation.** `tests/verbs/*.sh` and the flat `tests/*_test.sh` suites keep their
+     own naming rules, so neither has to accommodate the other.
 2. **Execution and reporting are already granular.** Each suite runs as its own
    `bash "$suite"` subshell and reports through `print_test_summary()`, so one file per verb yields
    per-verb results through the existing aggregation loop with no new reporting code.
@@ -315,8 +321,10 @@ actionable diagnostics; `matrix --check` detects drift without writing.
   without searching and a failure mode with no test is a visible hole. Tests live one file per verb
   at `tests/verbs/<verb>.sh` — no `_test.sh` suffix, since the subdirectory disambiguates by
   location. `lib/cmd_test.sh` gains a `verb` token; a bare `aapp test` sweeps `tests/verbs/` in a
-  second discovery pass, because `-maxdepth 1 -name '*_test.sh'` cannot see it. Existing suites are
-  not relocated. Blast radius grew by eleven verb test files and `lib/cmd_test.sh`.
+  second discovery pass. That separation is the design, not a workaround for `-maxdepth 1`: its
+  primary purpose is a tight feedback loop while changing a verb's behaviour (seconds for one verb
+  against 65s for the full sweep), with convention isolation as the secondary benefit. Existing
+  suites are not relocated. Blast radius grew by eleven verb test files and `lib/cmd_test.sh`.
 * **2026-09-23 (Refinement):** Resolved Question 2 — `test` gets a contract, documenting
   `aapp test` as kit-suites-only. The kit ships no linters or language toolchain integration, so
   delegating to `npm`/`cargo`/`composer`/`go` is out of character; adopters wanting their own suite
