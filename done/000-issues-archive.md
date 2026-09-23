@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #80 | `Medium` | `CLI` | 2026-09-22 | 2026-09-23 | `432da13` | [P-33](P33-centralized-git-root-assertion-and-fail-fast-dispatch.md) - Centralized repository root assertion and fail-fast dispatch in `aapp`; purged redundant derivations and silent `\|\| pwd` / `\|\| true` fallbacks across `lib/`; fail-closed standalone library roots; `ARCHITECTURE.md` rule 9. |
 | #74 | `High` | `TEST` | 2026-09-21 | 2026-09-22 | `c4fc5b2` | [P-26](done/P26-test-harness-isolation-and-worktree-hooks.md) - Standardized test suites with `test_helpers.sh` sandbox assertion, developer identity inheritance, GPG signing bypass, and wired universal worktree hooks via `git-common-dir`. |
 | #75 | `Medium` | `CLI` | 2026-09-21 | 2026-09-22 | `d49d201` | [P-27](done/P27-tiered-cli-discovery-and-cheatsheet-sync.md) - Replaced the flat verb catalog with tiered `aapp help` output backed by `lib/verbs.tsv`, and restored cheatsheet parity to 33/33 verbs with automated drift tests. |
 | #77 | `Medium` | `CLI` | 2026-09-22 | 2026-09-22 | `d49d201` | Updated `cmd_done` in `lib/cmd_plan.sh` to rewrite blueprint status header to Done and append completion entry to Change Log upon archival. |
