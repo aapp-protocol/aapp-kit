@@ -53,7 +53,7 @@ mechanically, and tests are derived from.
    resolves to the contract in the same read.
 3. Bidirectional correspondence: no declared verb without a contract, no contract without a row.
 4. Tests derived from each contract — failure modes first, then happy-path effects.
-5. The three defects the survey found (D1–D3, §2.5) fixed against those tests.
+5. The three defects the survey found (D1–D3, §2.6) fixed against those tests.
 
 **Scope boundary.** The eleven `daily`-tier verbs only. `aapp help` remains user-facing and is not
 extended to render contracts; the contract is agent- and test-facing, reached via `verbs.tsv`.
@@ -169,6 +169,15 @@ that by location, so `tests/verbs/draft.sh` is self-explanatory.
 | `aapp test verb draft` | `tests/verbs/draft.sh` alone |
 | `aapp test verb` | every `tests/verbs/*.sh` |
 | `aapp test` | the flat `tests/*_test.sh` suites **and** every `tests/verbs/*.sh` |
+| `aapp test list` | both sets, verb suites labelled as such |
+
+**The `verb` token is required, not optional.** A bare `aapp test draft` would be friendlier, but two
+verb names collide with existing suite names: `matrix` (`tests/matrix_test.sh` **and**
+`tests/verbs/matrix.sh`) and `test` itself. The current filter matches by substring
+(`cmd_test.sh:199-201`), so `aapp test matrix` is already meaningful and would silently change
+meaning — or ambiguously match both. Requiring the token keeps every existing invocation working and
+keeps the two sets addressable without a disambiguation rule. `aapp test list` must show both sets so
+the split is discoverable.
 
 Three mechanical notes:
 
@@ -192,7 +201,44 @@ Three mechanical notes:
 This also keeps the `Run:` line to a single command per contract, which is the point: `aapp test verb
 draft` completes in seconds against 65s for the full sweep.
 
-### 2.5 Defects This Plan Fixes
+### 2.5 D1 Remediation: Substitution Mechanism
+
+`sed` is the wrong tool for interpolating arbitrary user text, but the obvious replacement — bash
+parameter expansion — carries two traps of its own. Both were found by testing the candidate, not by
+reading it, and both must be covered by tests rather than assumed away.
+
+**Trap 1 — brackets are glob metacharacters.** The template placeholder contains `[`:
+
+```bash
+content="${content//Plan P-XX: [Feature or Refactor Name]/…}"   # matches nothing
+```
+
+`[Feature or Refactor Name]` is parsed as a character class, so the substitution silently does
+nothing and the placeholder survives — the same failure D1 produces, arrived at differently.
+
+**Trap 2 — `&` in the replacement.** With the brackets escaped, a title containing `&` re-expands to
+the matched text:
+
+```
+title="fix .agents/CODEMAP.md & stuff"
+→ "Plan P-9: fix .agents/CODEMAP.md Plan P-XX: [Feature or Refactor Name] stuff"
+```
+
+**What works** is quoting both operands so neither is treated as a pattern:
+
+```bash
+pat="Plan P-XX: [Feature or Refactor Name]"
+rep="Plan P-${num}: ${title}"
+content="${content//"$pat"/"$rep"}"
+```
+
+Verified on bash 5.2. **Portability caveat:** `&`-in-replacement and quoted-operand semantics differ
+across bash versions, and macOS ships bash 3.2. This repository documents no minimum bash version and
+its scripts use `#!/usr/bin/env bash`, so the implementer must either verify the chosen form on 3.2 or
+declare a floor. An `awk`-based substitution with the title passed via `-v` avoids both traps and the
+version question entirely, and is the safer default if 3.2 cannot be tested.
+
+### 2.6 Defects This Plan Fixes
 
 Found by probing the daily verbs in a clean sandbox (2026-09-23). Each becomes a failing test derived
 from the contract before it is fixed.
@@ -223,6 +269,8 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 *Per-test identifiers for the files declared in §4. Failure modes first.*
 - [ ] `tests/verbs/draft.sh::test_title_with_slash` -> asserts a title containing `/` yields a correct plan or a clean refusal, never a half-written one with placeholders intact (D1)
+- [ ] `tests/verbs/draft.sh::test_title_with_ampersand` -> asserts a title containing `&` appears literally in the plan, never re-expanded to the matched text (§2.5 trap 2)
+- [ ] `tests/verbs/draft.sh::test_no_placeholders_survive` -> asserts no `P-XX`, `[YYYY-MM-DD]` or `[Feature or Refactor Name]` remains in any scaffolded plan, whatever the title (§2.5 trap 1)
 - [ ] `tests/verbs/draft.sh::test_bare_draft_commits` -> asserts a plan scaffolded from a pickup note is staged and committed, leaving nothing untracked (D3)
 - [ ] `tests/verbs/done.sh::test_ledger_row_populated` -> asserts the archive ledger row carries a non-empty Impact Summary and the plan header's Target Issue rather than hardcoded `None` (D2)
 - [ ] `tests/verb_contracts_test.sh::test_registry_contract_correspondence` -> asserts every daily row resolves to a contract file and every contract is referenced by exactly one row
@@ -241,7 +289,7 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 - [ ] Task 2.6: Run `aapp test verb` and confirm the D1/D2/D3 assertions FAIL (Red 🔴) against current code.
 
 ### Phase 3: Defect Remediation (Green 🟢)
-- [ ] Task 3.1: Fix D1 — escape `${title}` (and any interpolated value) before `sed` substitution in `cmd_draft`, or replace the placeholder substitution with a non-`sed` mechanism. A title containing `/`, `&` or `\` must produce a correct plan or a clean refusal, never a half-written one.
+- [ ] Task 3.1: Fix D1 per §2.5 — replace the `sed` placeholder substitution in `cmd_draft`. A title containing `/`, `&`, `\` or `[` must produce a correct plan or a clean refusal, never a half-written one. Whichever mechanism is chosen, the escaping traps in §2.5 must be covered by tests, not assumed.
 - [ ] Task 3.2: Fix D3 — the bare `draft` path stages and commits its new plan exactly as the named path does.
 - [ ] Task 3.3: Fix D2 — derive the ledger Impact Summary from a field the template actually emits (or state `None` explicitly), and populate Target Issue from the plan header instead of hardcoding `None`.
 - [ ] Task 3.4: Re-run `aapp test verb` and `aapp test verb_contracts` and confirm Green 🟢.
@@ -339,6 +387,22 @@ actionable diagnostics; `matrix --check` detects drift without writing.
     guards `aapp-pre-commit`), and `aapp develop` must ensure the block is present in the live
     `.githooks/pre-commit` for repositories whose wrapper predates it — appending it if absent,
     idempotently.
+  - **Alternative considered — a kit-signature guard, no wiring.** Put the check inside the existing
+    `.githooks/aapp-pre-commit` (or `planning_health.sh`), guarded by
+    `[ -d "$REPO_ROOT/lib/docs/verbs" ] && [ -f "$REPO_ROOT/lib/verbs.tsv" ]`. It is inert in adopter
+    repositories for the same reason the develop-only hook is, and it removes four moving parts:
+    the new engine file, the wrapper edit, the `cmd_develop.sh` wiring and the `cmd_uninstall.sh`
+    cleanup. **Rejected, narrowly:** an adopter who vendors the kit into their own repository would
+    match the signature and start running a kit-authoring check they never asked for, which is
+    exactly the adopter-cost the develop-only decision exists to avoid. Signature detection also
+    couples the check to a directory layout rather than to an explicit developer action. The
+    trade is accepted deliberately — four small moving parts for a boundary that cannot be
+    accidentally tripped. If the wiring proves fragile in practice, this alternative is the
+    documented fallback.
+  - **Idempotence is a hard requirement, not a nicety.** `aapp develop` may be run repeatedly on the
+    same repository. Copying the engine is naturally idempotent; appending the wrapper block is not,
+    and must be guarded by a presence check so repeat runs cannot duplicate lines. Task 2.3b asserts
+    this directly.
   - **Uninstall boundary.** `lib/cmd_uninstall.sh` is a *global* uninstaller: it removes
     `$HOME/.local/bin/aapp` and `$SHARE_DIR`, and has no record of which repositories ran
     `aapp develop`. It can therefore only clean the hook when it happens to be invoked inside such a
@@ -371,6 +435,23 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-24 (Red Team Round 2):** Four suggestions reviewed; three adopted, one already done.
+  - **D1 mechanism (§2.5, new).** The proposed pure-bash replacement was tested rather than accepted
+    and **fails twice**: `[Feature or Refactor Name]` is parsed as a glob character class so the
+    substitution silently does nothing (the same outcome as D1), and with brackets escaped, a title
+    containing `&` re-expands to the matched text. Quoting both operands works on bash 5.2, but the
+    semantics differ across versions and macOS ships 3.2, while this repo documents no floor. §2.5
+    records both traps, the working form, the portability caveat, and `awk -v` as the safer default.
+    Two new required tests cover the traps directly.
+  - **`aapp test <verb>` without the token — rejected, with cause.** `matrix` and `test` are both
+    verb names *and* existing suite names, and the runner matches by substring
+    (`cmd_test.sh:199-201`), so a bare form would silently change what `aapp test matrix` means.
+    The token stays required; `aapp test list` must show both sets.
+  - **Develop-hook alternative recorded.** A kit-signature guard inside the existing
+    `aapp-pre-commit` would remove four moving parts. Rejected narrowly — an adopter vendoring the
+    kit would match the signature and inherit a check they never asked for — but documented in §5 Q1
+    as the fallback if the wiring proves fragile. Idempotence promoted to a hard requirement.
+  - **Target Issue `#78`** was already stamped in the header by round 1; no change.
 * **2026-09-24 (Red Team Round 1):** Resolved findings F1–F4 from an adversarial review.
   - **F1 (blocker).** §2.2 claimed `cmd_help.sh` "reads fields 1/2/4 and must continue to ignore
     field 5". That was wrong and untested. `read` assigns all trailing fields to the last variable,
