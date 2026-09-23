@@ -1213,6 +1213,43 @@ else
 fi
 report "aapp test: adopter repository fallback executes protocol health audit" "PASS" "$got"
 
+echo "== 9. Front-Door Git Repository Assertion (P-33) =="
+
+# Test 67 (test_non_repo_failure): operational verbs must fail closed outside a git repository.
+# A non-git sandbox is built under $R, which is itself outside any repository (mktemp -d).
+NONGIT_67="$R/t67_nongit"; mkdir -p "$NONGIT_67"
+nonrepo_fail=0; nonrepo_details=""
+for verb in status plan test freeze ai-status; do
+  # shellcheck disable=SC2086
+  verb_out=$(cd "$NONGIT_67" && HOME="$TEST_HOME" "$KIT/aapp" $verb 2>&1); verb_rc=$?
+  if [ "$verb_rc" -ne 1 ]; then
+    nonrepo_fail=1; nonrepo_details="$nonrepo_details\n  '$verb' exit $verb_rc (want 1)"
+  fi
+  if ! echo "$verb_out" | grep -q "must be run inside a Git repository"; then
+    nonrepo_fail=1; nonrepo_details="$nonrepo_details\n  '$verb' stderr missing diagnostic"
+  fi
+done
+[ "$nonrepo_fail" -eq 0 ] && got="PASS" || got="FAIL"
+report "test_non_repo_failure: operational verbs exit 1 with diagnostic outside a repo" "PASS" "$got" "$(printf '%b' "$nonrepo_details")"
+
+# Test 68 (test_exempt_verbs_succeed): exempt verbs must still work outside a git repository.
+NONGIT_68="$R/t68_nongit"; mkdir -p "$NONGIT_68"
+INSTALL_HOME_68="$R/t68_home"; mkdir -p "$INSTALL_HOME_68"
+exempt_fail=0; exempt_details=""
+for verb in version help; do
+  verb_out=$(cd "$NONGIT_68" && HOME="$TEST_HOME" "$KIT/aapp" "$verb" 2>&1); verb_rc=$?
+  if [ "$verb_rc" -ne 0 ]; then
+    exempt_fail=1; exempt_details="$exempt_details\n  '$verb' exit $verb_rc (want 0)"
+  fi
+done
+# 'install' writes into HOME, so it is exercised against an isolated throwaway HOME.
+install_out=$(cd "$NONGIT_68" && HOME="$INSTALL_HOME_68" "$KIT/aapp" install 2>&1); install_rc=$?
+if [ "$install_rc" -ne 0 ]; then
+  exempt_fail=1; exempt_details="$exempt_details\n  'install' exit $install_rc (want 0)"
+fi
+[ "$exempt_fail" -eq 0 ] && got="PASS" || got="FAIL"
+report "test_exempt_verbs_succeed: exempt verbs exit 0 outside a repo" "PASS" "$got" "$(printf '%b' "$exempt_details")"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"

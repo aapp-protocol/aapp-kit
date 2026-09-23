@@ -6,7 +6,10 @@
 # ==============================================================================
 set -e
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# REPO_ROOT is exported by the `aapp` dispatcher, which asserts repository
+# membership before dispatch (P-33). It carries the *active worktree* root, so
+# GIT_COMMON_DIR/PRIMARY_ROOT resolution below stays necessary to find .plans
+# when running from inside a linked worktree.
 GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
 if [ -d "$GIT_COMMON_DIR" ]; then
     PRIMARY_ROOT="$(cd "$GIT_COMMON_DIR/.." 2>/dev/null && pwd)"

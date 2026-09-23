@@ -7,7 +7,6 @@
 # ==============================================================================
 set -e
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 AAPP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)"
 
 VERBS_TSV=""

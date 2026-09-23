@@ -136,8 +136,8 @@ aapp_adopter_test_or_audit() {
 }
 
 cmd_test() {
-    local repo_root
-    repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    # Exported by the `aapp` dispatcher, which asserts repository membership (P-33).
+    local repo_root="$REPO_ROOT"
     local test_dir="$repo_root/tests"
 
     # 1. Adopter repository mode check

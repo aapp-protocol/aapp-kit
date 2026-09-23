@@ -34,9 +34,28 @@ normalize_issue_id() {
     fi
 }
 
+# Resolve the repository root fail-closed (P-33). Prefers REPO_ROOT exported by
+# the `aapp` dispatcher; when this library is sourced standalone (test fixtures,
+# hooks) it derives the root itself and fails rather than falling back to $PWD.
+resolve_health_repo_root() {
+    local explicit="${1:-}"
+    [ -n "$explicit" ] && { echo "$explicit"; return 0; }
+    if [ -n "${REPO_ROOT:-}" ]; then
+        echo "$REPO_ROOT"
+        return 0
+    fi
+    local derived
+    if ! derived="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+        echo "❌ [Planning Health] Not inside a Git repository." >&2
+        return 1
+    fi
+    echo "$derived"
+}
+
 find_aapp_file() {
     local name="$1"
-    local repo_root="${2:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    local repo_root
+    repo_root="$(resolve_health_repo_root "${2:-}")" || return 1
 
     case "$name" in
         issues)
@@ -294,7 +313,8 @@ check_taxonomy_and_schema() {
 
 # Pair 4: Plan ID Uniqueness & Reference Integrity
 check_pair4_plan_id_integrity() {
-    local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    local repo_root
+    repo_root="$(resolve_health_repo_root "${1:-}")" || return 1
     local current_dir="$repo_root/.plans/current"
     local errors=0
 
@@ -361,7 +381,8 @@ check_pair4_plan_id_integrity() {
 
 # Pair 5: Target Files vs Guard Section 2 Self-Protection
 check_pair5_target_files_self_protection() {
-    local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    local repo_root
+    repo_root="$(resolve_health_repo_root "${1:-}")" || return 1
     local current_dir="$repo_root/.plans/current"
     local errors=0
 
@@ -463,7 +484,8 @@ get_file_commit_shas() {
 
 # Pair 6: Recorded SHA Integrity
 check_pair6_recorded_sha_integrity() {
-    local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    local repo_root
+    repo_root="$(resolve_health_repo_root "${1:-}")" || return 1
     local errors=0
 
     # Ensure git repository is reachable
@@ -529,7 +551,8 @@ check_recorded_sha_integrity() {
 
 # Pair 7: In-Flight Boundary Collision Validator (Strictly ⚡ In Development)
 check_pair7_inflight_boundary_collision() {
-    local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    local repo_root
+    repo_root="$(resolve_health_repo_root "${1:-}")" || return 1
     local current_dir="$repo_root/.plans/current"
     [ ! -d "$current_dir" ] && [ -d "$repo_root/current" ] && current_dir="$repo_root/current"
     [ ! -d "$current_dir" ] && return 0
@@ -612,7 +635,8 @@ check_pair7_inflight_boundary_collision() {
 
 # Master check runner
 check_planning_health() {
-    local repo_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+    local repo_root
+    repo_root="$(resolve_health_repo_root "${1:-}")" || return 1
     local issues_file
     issues_file=$(find_aapp_file issues "$repo_root")
     local archive_file

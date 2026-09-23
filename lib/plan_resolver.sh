@@ -35,10 +35,15 @@ resolve_plan_path() {
     local QUERY="$1"
     local VERB="${2:-inspect}"
     local SCOPE="${3:-current}"
-    local REPO_ROOT="${4:-}"
+    # Explicit argument wins; otherwise inherit the root the `aapp` dispatcher
+    # exported, and only derive it when sourced standalone (P-33).
+    local REPO_ROOT="${4:-${REPO_ROOT:-}}"
 
     if [ -z "$REPO_ROOT" ]; then
-        REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+        REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+            echo "❌ [Plan Resolver] Not inside a Git repository." >&2
+            return 1
+        }
     fi
 
     local PLANS_DIR="$REPO_ROOT/.plans"
@@ -291,8 +296,14 @@ normalize_plan_id() {
 # otherwise uses the local counter. Only plugin ABSENCE falls back -- a plugin
 # that is present and fails is fatal, never a silent local allocation.
 allocate_plan_id() {
+    # Resolve from the current directory, fail-closed (P-33). This deliberately
+    # does NOT prefer an inherited REPO_ROOT: the counter is per-repository, and
+    # a stale exported root would allocate against the wrong repo.
     local ROOT PDIR ENTRY RAW OUT CUR ISSUED
-    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+        echo "❌ [Plan ID] Not inside a Git repository." >&2
+        return 1
+    }
     PDIR="$ROOT/.agents/skills/aapp-planid"
 
     # 1. Delegate to the provider plugin when one is installed.

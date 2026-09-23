@@ -108,6 +108,28 @@ export AAPP_VERSION AAPP_BASE AAPP_LIB AAPP_TEMPLATES AAPP_IS_DROP_IN AAPP_SCRIP
 CMD="${1:-help}"
 shift || true
 
+# ------------------------------------------------------------------------------
+# 2a. Repository Root Assertion (P-33)
+#
+# Operational verbs require a Git repository. Asserting once here — rather than
+# re-deriving REPO_ROOT in every sourced subcommand with a silent `|| pwd`
+# fallback — means a non-repo invocation fails closed with a diagnostic instead
+# of quietly treating $PWD as the repository root.
+# ------------------------------------------------------------------------------
+case "$CMD" in
+    version|-v|--version|help|-h|--help|install|upgrade|update|uninstall|develop|init)
+        # Exempt: pure terminal output, machine-level installers, or bootstrap
+        # setup (init resolves its own target repository).
+        ;;
+    *)
+        if ! REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+            echo "❌ Error: 'aapp $CMD' must be run inside a Git repository." >&2
+            exit 1
+        fi
+        export REPO_ROOT
+        ;;
+esac
+
 case "$CMD" in
     init)
         source "$AAPP_LIB/cmd_init.sh" "$@"

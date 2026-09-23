@@ -18,7 +18,14 @@
 # ==============================================================================
 set -e
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# Resolve from the current directory, fail-closed (P-33). This file is also
+# executed directly as a script, so it derives its own root rather than trusting
+# an inherited REPO_ROOT, which could point at a different repository.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+    echo "❌ [Matrix] Not inside a Git repository." >&2
+    exit 1
+}
+
 GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
 if [ -d "$GIT_COMMON_DIR" ]; then
     PRIMARY_ROOT="$(cd "$GIT_COMMON_DIR/.." 2>/dev/null && pwd)"

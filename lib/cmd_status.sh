@@ -12,7 +12,7 @@
 # ==============================================================================
 set -e
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+# REPO_ROOT is exported by the `aapp` dispatcher (P-33).
 if [ -z "$REPO_ROOT" ]; then
     echo "❌ Error: Not inside a git repository."
     exit 1

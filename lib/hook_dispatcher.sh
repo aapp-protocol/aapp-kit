@@ -14,9 +14,13 @@
 # ==============================================================================
 set -e
 
-# Discover repository root
+# Discover repository root fail-closed (P-33). Normally exported by the `aapp`
+# dispatcher; derived here when sourced standalone from a git hook.
 if [ -z "${REPO_ROOT:-}" ]; then
-    REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+        echo "❌ [Hook Dispatcher] Not inside a Git repository." >&2
+        return 1 2>/dev/null || exit 1
+    }
 fi
 
 # ------------------------------------------------------------------------------

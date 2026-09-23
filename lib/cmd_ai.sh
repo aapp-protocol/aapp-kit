@@ -285,8 +285,8 @@ cmd_ai_credits() {
         return 0
     fi
 
-    local repo_root
-    repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    # Exported by the `aapp` dispatcher, which asserts repository membership (P-33).
+    local repo_root="$REPO_ROOT"
     local readme_file="$repo_root/README.md"
 
     if [ ! -f "$readme_file" ]; then
