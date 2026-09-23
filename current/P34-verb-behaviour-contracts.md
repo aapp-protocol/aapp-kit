@@ -153,6 +153,7 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 
 ### Phase 2: Failure-First Test Derivation (Red 🔴)
 - [ ] Task 2.1: Add `tests/verb_contracts_test.sh` with the bidirectional correspondence check (§2.3): every `daily` row's contract path exists, every file under `lib/docs/verbs/` is referenced by exactly one row.
+- [ ] Task 2.1b: Add `templates/aapp-pre-commit-develop` running the same correspondence check, seeded by `aapp develop` only (§5 Q1). Verify it is absent after a plain `aapp init` and present after `aapp develop`.
 - [ ] Task 2.2: Derive failure-mode assertions from each contract's *Failure modes* section, including the three defect cases: D1 (title containing `/`), D2 (ledger Impact Summary and Target Issue populated), D3 (bare `draft` leaves no untracked file).
 - [ ] Task 2.3: Derive happy-path assertions from each contract's *Effects* section.
 - [ ] Task 2.4: Run `bash tests/verb_contracts_test.sh` and confirm the D1/D2/D3 assertions FAIL (Red 🔴) against current code.
@@ -192,6 +193,10 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 - [ ] `NEW FILE` -> `lib/docs/verbs/active.md` -> Behaviour contract for `active`
 - [ ] `NEW FILE` -> `lib/docs/verbs/test.md` -> Behaviour contract for `test`
 - [ ] `NEW FILE` -> `tests/verb_contracts_test.sh` -> Correspondence check and contract-derived assertions
+- [ ] `NEW FILE` -> `templates/aapp-pre-commit-develop` -> Develop-only correspondence hook engine
+- [ ] `lib/cmd_develop.sh` -> Seed the develop-only hook; introduces hook wiring to this command
+- [ ] `lib/cmd_uninstall.sh` -> Remove the develop-only hook on uninstall
+- [ ] `templates/pre-commit` -> Invoke the develop hook engine when present
 - [ ] `lib/verbs.tsv` -> Add fifth `contract` column for all daily rows
 - [ ] `lib/cmd_plan.sh` -> Fix D1 (unescaped title in sed), D2 (ledger summary & target issue), D3 (bare draft commit)
 - [ ] `ARCHITECTURE.md` -> Record the contract-as-source-of-truth invariant and verbs.tsv linkage
@@ -201,7 +206,7 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/cmd_help.sh` -> Must keep rendering unchanged from fields 1/2/4; `aapp help` stays user-facing and does not gain contract rendering.
 - [ ] `.agents/skills/*` -> Routing skills through the CLI is downstream work, gated on these contracts existing.
-- [ ] `.githooks/*` -> Guard engine self-protection.
+- [ ] `.githooks/*` -> Guard engine self-protection. The installed hooks are never edited directly (Architectural Rule 3); `templates/pre-commit` is the authoring source and `aapp init` propagates it.
 - [ ] `lib/cmd_init.sh` -> Bootstrap target resolution is out of scope.
 
 ---
@@ -209,11 +214,24 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — Where is the correspondence check enforced?** `tests/verb_contracts_test.sh`
-  alone (runs with `aapp test`, no commit cost), `lib/planning_health.sh` (runs under strict test
-  mode and adopter audit), or `.githooks/aapp-pre-commit` (blocks a commit that adds a verb without
-  a contract). Pre-commit is the only option that prevents drift at the moment it is introduced, but
-  it puts a docs check on the commit path for every adopter.
+* [x] **Question 1 — Where is the correspondence check enforced?**
+  - **Decision: a develop-only pre-commit hook, installed by `aapp develop` and not otherwise
+    (Adopted Directive).** Contract correspondence is a *kit-authoring* invariant, not a protocol
+    invariant: adopters consume verbs and never add them, so the check has nothing to catch in their
+    repositories, while a kit developer is the only party who can add a verb without a contract — and
+    gets the check at the moment of introduction. This keeps the drift-prevention benefit of
+    pre-commit without putting a docs check on every adopter's commit path.
+  - **Mechanism.** `.githooks/pre-commit` is already a tier-1 wrapper that composes independent
+    steps (`aapp-pre-commit` runs as step 1, with a documented slot for project checks). The new
+    check lands as a sibling engine — `.githooks/aapp-pre-commit-develop` — invoked from that
+    wrapper only when present, so its absence in an adopter repo is the normal case rather than a
+    degraded one.
+  - **Installation.** `lib/cmd_develop.sh` currently performs no hook wiring, so this introduces the
+    mechanism. The hook is seeded on `aapp develop` and removed on `aapp uninstall`; `aapp init`
+    must not seed it.
+  - **Consequence for scope.** `tests/verb_contracts_test.sh` still carries the correspondence
+    assertions, so the invariant is verifiable without the hook installed and CI stays independent
+    of developer-machine state. The hook is the early-warning layer, not the only one.
 * [ ] **Question 2 — Does a contract cover `test` at all?** `aapp test` delegates to adopter runners
   (`aapp.testCommand`, npm, cargo, composer, go) via `cmd_test.sh`. Its effects are therefore
   project-defined, and a contract can only specify discovery and delegation, not outcomes. Include it
@@ -223,6 +241,12 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-23 (Refinement):** Resolved Question 1 — the correspondence check runs as a develop-only
+  pre-commit engine (`.githooks/aapp-pre-commit-develop`), seeded by `aapp develop` and absent in
+  adopter repositories, since contract correspondence is a kit-authoring invariant rather than a
+  protocol one. Added `templates/aapp-pre-commit-develop`, `lib/cmd_develop.sh`,
+  `lib/cmd_uninstall.sh` and `templates/pre-commit` to the blast radius, plus Task 2.1b. The test
+  suite keeps the same assertions so the invariant stays verifiable without the hook installed.
 * **2026-09-23:** Drafted from a session that probed the daily verbs in a clean sandbox and found
   three defects (D1–D3) none of which any document forbade. Establishes `lib/docs/verbs/<verb>.md`
   as the source of truth for verb behaviour — ingress, preconditions, failure modes, effects, exit —
