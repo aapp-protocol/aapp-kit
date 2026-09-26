@@ -2,7 +2,7 @@
 * **Created:** 2026-09-27 | **Last Refined:** 2026-09-27
 * **Target Issue / Milestone:** #83
 * **Plan ID:** P-36
-* **Status:** 🔷 Frozen
+* **Status:** 📝 Refining
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
