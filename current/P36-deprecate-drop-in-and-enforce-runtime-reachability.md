@@ -2,7 +2,7 @@
 * **Created:** 2026-09-27 | **Last Refined:** 2026-09-27
 * **Target Issue / Milestone:** #83
 * **Plan ID:** P-36
-* **Status:** 🔷 Frozen
+* **Status:** ⚡ In Development
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -299,6 +299,7 @@ To eliminate dependency on uninstalled drop-in clones across test suites, preven
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-27:** Plan activated into ⚡ In Development via start.
 * **2026-09-27:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-09-27 (refinement 4):** Resolved Round 4 Red Team refinements:
   1. Updated `confine_test_runtime` in `tests/test_helpers.sh` to preserve the host `$PATH` (Homebrew bash/git, Nix, Linuxbrew) while dynamically filtering out entries containing a host `aapp` executable.

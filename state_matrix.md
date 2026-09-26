@@ -25,11 +25,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-36**: [`P36-deprecate-drop-in-and-enforce-runtime-reachability.md`](current/P36-deprecate-drop-in-and-enforce-runtime-reachability.md) — Deprecate Drop-In Distribution & Enforce CLI Runtime Reachability
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-36**: [`P36-deprecate-drop-in-and-enforce-runtime-reachability.md`](current/P36-deprecate-drop-in-and-enforce-runtime-reachability.md) — Deprecate Drop-In Distribution & Enforce CLI Runtime Reachability
 
 ---
 
