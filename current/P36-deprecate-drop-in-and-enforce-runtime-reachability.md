@@ -204,14 +204,14 @@ To eliminate dependency on uninstalled drop-in clones across test suites, preven
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Test Runtime Confinement & Reachability Tests (Failure-First TDD)
-- [ ] Task 1.1: Add `confine_test_runtime` with toolchain-preserving PATH filtering and fail-closed sandbox assertion to `tests/test_helpers.sh`.
-- [ ] Task 1.2: Add regression tests in `tests/pre-commit_test.sh`:
+- [x] Task 1.1: Add `confine_test_runtime` with toolchain-preserving PATH filtering and fail-closed sandbox assertion to `tests/test_helpers.sh`.
+- [x] Task 1.2: Add regression tests in `tests/pre-commit_test.sh`:
   - **Negative test (missing aapp):** Run `git commit` in sandbox with `PATH` stripped of `aapp` and `$HOME/.local/bin/aapp` absent; assert commit is blocked with exit code 1 and outputs `INSPECTION-ONLY mode`.
   - **Negative test (missing aapp + skip flag):** Assert `SKIP_BLAST_RADIUS=1` without `aapp` is STILL blocked.
   - **Positive test (reachable aapp):** Assert commit succeeds under standard plan conditions when `aapp` is present in `PATH`.
   - **Fallback test (reachable via ~/.local/bin):** Assert commit succeeds when `command -v aapp` fails but `$HOME/.local/bin/aapp` is executable.
   - **Native bypass test:** Assert `git commit --no-verify` succeeds even without `aapp`.
-- [ ] Task 1.3: Add reachability check to `templates/aapp-pre-commit` and verify all Task 1.2 tests pass green.
+- [x] Task 1.3: Add reachability check to `templates/aapp-pre-commit` and verify all Task 1.2 tests pass green.
 
 ### Phase 2: Dispatcher & Init Simplification
 - [ ] Task 2.1: In `aapp`:
