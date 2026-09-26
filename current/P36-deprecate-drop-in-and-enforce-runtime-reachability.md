@@ -54,7 +54,7 @@ Under this unified architecture, when an adopting repository is cloned on a mach
 - All legacy drop-in flags (`--keep`, `AAPP_IS_DROP_IN`) and consumption checks in `cmd_init.sh` are removed without shims or dual-syntax aliases.
 - `aapp install` self-consumption (`is_safe_to_consume_kit_dir`) is explicitly preserved in `lib/cmd_install.sh`.
 
-### 2.1 Distribution Architecture & Runtime Classification (F11, F12)
+### 2.1 Distribution Architecture & Canonical Fast-Fail Predicate (F11, F12, F14)
 
 ```text
 ┌────────────────────────────────────────────────────────┐
@@ -86,20 +86,21 @@ In `aapp`, the dispatcher resolves `AAPP_BASE` and exports `AAPP_RUNTIME`:
 - `AAPP_RUNTIME="installed"`: resolved via `$XDG_DATA_HOME/aapp-kit`, `$HOME/.local/share/aapp-kit`, or `aapp develop` symlinks.
 - `AAPP_RUNTIME="local"`: resolved via `$AAPP_SCRIPT_DIR` (an uninstalled clone).
 
-#### Fast-Fail Predicate in `cmd_init.sh`
-`aapp init` authorizes execution if and only if:
-1. It is running from an authorized installation: `[ "$AAPP_RUNTIME" = "installed" ]`, OR
-2. The kit repository is initializing or re-syncing itself: `[ "$AAPP_BASE" = "$REPO_ROOT" ]`.
+#### Canonical Physical Path Comparison in `cmd_init.sh` (F14)
+`AAPP_BASE` (derived via `cd && pwd`) and `REPO_ROOT` (derived via `git rev-parse --show-toplevel`) may diverge in the presence of directory symlinks (e.g. `/var` vs `/private/var` on macOS). `cmd_init.sh` canonicalizes both paths via `pwd -P`:
 
 ```bash
 # Sourced inside cmd_init.sh
-if [ "$AAPP_RUNTIME" != "installed" ] && [ "$AAPP_BASE" != "$REPO_ROOT" ]; then
+AAPP_BASE_PHYSICAL="$(cd "$AAPP_BASE" 2>/dev/null && pwd -P || echo "$AAPP_BASE")"
+REPO_ROOT_PHYSICAL="$(cd "$REPO_ROOT" 2>/dev/null && pwd -P || echo "$REPO_ROOT")"
+
+if [ "$AAPP_RUNTIME" != "installed" ] && [ "$AAPP_BASE_PHYSICAL" != "$REPO_ROOT_PHYSICAL" ]; then
     echo "❌ Error: AAPP must be installed globally before initializing projects." >&2
     echo "   Run: ./aapp install" >&2
     exit 1
 fi
 ```
-This rule is 100% name-independent (does not inspect `basename "$REPO_ROOT"`), single-sources classification from the dispatcher, and fast-fails any uninstalled clone run against an external project.
+This rule is 100% name-independent, immune to symlink aliases, single-sources classification from the dispatcher, and fast-fails any uninstalled clone run against an external project.
 
 #### P-33 Front-Door Assertion Alignment (F7)
 In `aapp:120`, `init` is removed from the exemption list:
@@ -157,18 +158,21 @@ fi
 - **Reachability Scope:** `AAPP_BIN` discovery confirms the runtime toolchain is present on the machine.
 - **Strict Gating:** If `AAPP_BIN` is empty, `SKIP_BLAST_RADIUS=1` does not bypass the gate. Only Git's native `--no-verify` flag bypasses pre-commit.
 
-### 2.3 Test Harness Evolution (`tests/test_helpers.sh`) (F1, F1', F4)
+### 2.3 Dedicated Test Runtime Confinement (`tests/test_helpers.sh`) (F1, F1', F4, F15)
 
-To eliminate dependency on uninstalled drop-in clones across all test suites and ensure deterministic test isolation:
-1. **`setup_sandbox_installed_aapp "$SANDBOX_HOME"`**:
-   Added to `tests/test_helpers.sh`. Installs a clean AAPP kit inside the sandbox:
+To eliminate dependency on uninstalled drop-in clones across all test suites, prevent host environment leaks, and ensure deterministic test isolation:
+
+1. **`confine_test_runtime "$SANDBOX_ROOT"` (F15)**:
+   Added to `tests/test_helpers.sh`. Called at the top-level of every test suite.
+   - Sets `SANDBOX_HOME="$SANDBOX_ROOT/home"`.
    - Sets `SANDBOX_BIN="$SANDBOX_HOME/.local/bin"` and `SANDBOX_SHARE="$SANDBOX_HOME/.local/share/aapp-kit"`.
-   - Copies binary to `$SANDBOX_BIN/aapp` and `lib/`, `templates/`, `tests/`, `examples/` to `$SANDBOX_SHARE`.
-   - Exports `PATH="$SANDBOX_BIN:$PATH"` and `XDG_DATA_HOME="$SANDBOX_HOME/.local/share"`.
-2. **Harness-Wide Sandbox PATH Confinement (F4)**:
-   `setup_test_git_identity` ensures that all test sandboxes operate with a controlled `PATH` pointing to the sandbox-installed `aapp` (or stub), decoupling test runs from the developer machine's host environment.
+   - Exports `HOME="$SANDBOX_HOME"`, `XDG_DATA_HOME="$SANDBOX_HOME/.local/share"`, and `PATH="$SANDBOX_BIN:/usr/bin:/bin:/usr/sbin:/sbin"`.
+   - Installs a clean AAPP kit into `$SANDBOX_BIN` and `$SANDBOX_SHARE`.
+   - **Fail-Closed Assertion:** Asserts that `command -v aapp` resolves strictly inside `$SANDBOX_BIN`, failing loudly if it ever resolves to the developer's host binary or a system path outside the sandbox.
+2. **`init_sandbox_project "$PROJ_DIR"`**:
+   Runs `aapp init` inside the project using the sandbox's installed binary, accurately simulating production adoption.
 3. **Suite Migrations (F1')**:
-   - `tests/install_test.sh`: Migrates from `make_kit_clone` to `setup_sandbox_installed_aapp`.
+   - `tests/install_test.sh`: Migrates from `make_kit_clone` to `confine_test_runtime`.
    - `tests/worktree_hooks_test.sh`, `tests/ai_attribution_test.sh`, `tests/hooks_test.sh`, `tests/sync_test.sh`: Migrate their uninstalled clone `init` calls to the sandbox-installed `aapp`.
 
 ### 2.4 Documentation & Skill Updates
@@ -191,8 +195,8 @@ To eliminate dependency on uninstalled drop-in clones across all test suites and
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Test Harness Evolution & Reachability Tests (Failure-First TDD)
-- [ ] Task 1.1: Add `setup_sandbox_installed_aapp` and harness-wide sandbox `PATH` confinement to `tests/test_helpers.sh`.
+### Phase 1: Test Runtime Confinement & Reachability Tests (Failure-First TDD)
+- [ ] Task 1.1: Add `confine_test_runtime` with fail-closed sandbox assertion to `tests/test_helpers.sh`.
 - [ ] Task 1.2: Add regression tests in `tests/pre-commit_test.sh`:
   - **Negative test (missing aapp):** Run `git commit` in sandbox with `PATH` stripped of `aapp` and `$HOME/.local/bin/aapp` absent; assert commit is blocked with exit code 1 and outputs `INSPECTION-ONLY mode`.
   - **Negative test (missing aapp + skip flag):** Assert `SKIP_BLAST_RADIUS=1` without `aapp` is STILL blocked.
@@ -209,18 +213,18 @@ To eliminate dependency on uninstalled drop-in clones across all test suites and
 - [ ] Task 2.2: In `lib/cmd_init.sh`:
   - Remove Phase 7 ("Drop-in Folder Consumption").
   - Remove parent directory climbing (`PARENT_GIT_ROOT`, `IS_CWD_INSIDE_KIT`).
-  - Add fast-fail check: `[ "$AAPP_RUNTIME" != "installed" ] && [ "$AAPP_BASE" != "$REPO_ROOT" ]`.
+  - Add canonical physical path fast-fail check: `[ "$AAPP_RUNTIME" != "installed" ] && [ "$AAPP_BASE_PHYSICAL" != "$REPO_ROOT_PHYSICAL" ]`.
 - [ ] Task 2.3: In `lib/cmd_install.sh`:
   - Verify `is_safe_to_consume_kit_dir` remains intact and self-consumption of the installer clone is preserved.
 
-### Phase 3: Test Suite Migration (F1', F1'')
+### Phase 3: Test Suite Migration (F1', F1'', F14, F15)
 - [ ] Task 3.1: Update `tests/install_test.sh`:
-  - Migrate project setup helpers from drop-in `make_kit_clone` to `setup_sandbox_installed_aapp`.
-  - Retire obsolete drop-in tests (Tests 3, 4, 5, 6, 6b, 6c, 6d, 6e, 20).
+  - Adopt `confine_test_runtime`.
+  - Retire obsolete drop-in tests (Tests 3, 4, 5, 6, 6b, 6d, 6e, 20).
+  - Rewrite Test 6c (#50) to assert kit self-init under physical canonical path resolution.
   - Add test asserting `aapp init` fails fast when run from an uninstalled clone against an external project.
-  - Assert kit self-init (`cd agent-planning-kit && ./aapp init`) succeeds.
-- [ ] Task 3.2: Update `tests/worktree_hooks_test.sh` and `tests/ai_attribution_test.sh` to use sandbox installed `aapp`.
-- [ ] Task 3.3: Update `tests/hooks_test.sh` and `tests/sync_test.sh` to use sandbox installed `aapp`.
+- [ ] Task 3.2: Update `tests/worktree_hooks_test.sh` and `tests/ai_attribution_test.sh` to use `confine_test_runtime`.
+- [ ] Task 3.3: Update `tests/hooks_test.sh` and `tests/sync_test.sh` to use `confine_test_runtime`.
 
 ### Phase 4: Documentation & Skill Synchronization
 - [ ] Task 4.1: Update `templates/skills/aapp-status/SKILL.md` (remove `./aapp status` mention).
@@ -239,17 +243,17 @@ To eliminate dependency on uninstalled drop-in clones across all test suites and
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `tests/test_helpers.sh` -> Add sandbox installed kit helpers and PATH confinement
+- [ ] `tests/test_helpers.sh` -> Add confine_test_runtime helper with PATH/HOME confinement and fail-closed assertion
 - [ ] `templates/aapp-pre-commit` -> Add runtime reachability check (above SKIP_BLAST_RADIUS)
 - [ ] `tests/pre-commit_test.sh` -> Add reachability gate regression tests
 - [ ] `aapp` -> Add AAPP_RUNTIME export, remove drop-in resolution, remove init from front-door exemption
-- [ ] `lib/cmd_init.sh` -> Remove Phase 7 kit consumption and parent-directory climbing; add fast-fail check
+- [ ] `lib/cmd_init.sh` -> Remove Phase 7 kit consumption and parent-directory climbing; add canonical physical fast-fail check
 - [ ] `lib/cmd_install.sh` -> Preserve self-consumption and clean clone handling
-- [ ] `tests/install_test.sh` -> Migrate test cases to installed sandbox architecture; retire drop-in tests
-- [ ] `tests/worktree_hooks_test.sh` -> Use sandbox installed aapp
-- [ ] `tests/ai_attribution_test.sh` -> Use sandbox installed aapp
-- [ ] `tests/hooks_test.sh` -> Use sandbox installed aapp
-- [ ] `tests/sync_test.sh` -> Use sandbox installed aapp
+- [ ] `tests/install_test.sh` -> Migrate test cases to installed sandbox architecture; rewrite Test 6c (#50)
+- [ ] `tests/worktree_hooks_test.sh` -> Use confine_test_runtime
+- [ ] `tests/ai_attribution_test.sh` -> Use confine_test_runtime
+- [ ] `tests/hooks_test.sh` -> Use confine_test_runtime
+- [ ] `tests/sync_test.sh` -> Use confine_test_runtime
 - [ ] `templates/skills/aapp-status/SKILL.md` -> Remove ./aapp fallback
 - [ ] `README.md` -> Replace drop-in setup with global install and document inspection-only mode
 - [ ] `MANUAL.md` -> Purge drop-in references, update installation workflows and Q&A
@@ -281,13 +285,20 @@ To eliminate dependency on uninstalled drop-in clones across all test suites and
 * [x] **Question 4: How should GUI/IDE PATH environments be handled for reachability (F13)?**  
   *Decision:* Probe both `command -v aapp` and `[ -x "$HOME/.local/bin/aapp" ]`. If either is found, reachability succeeds. If neither is found, the Inspection-Only refusal is displayed.
 
+* [x] **Question 5: How are physical vs logical path comparisons and test environment leaks handled (F14, F15)?**  
+  *Decision:* (1) `cmd_init.sh` canonicalizes `AAPP_BASE` and `REPO_ROOT` using `pwd -P` before comparison. (2) `tests/test_helpers.sh` provides a dedicated `confine_test_runtime` helper setting sandbox `HOME`, `XDG_DATA_HOME`, and `PATH` with fail-closed assertion against host leaks.
+
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-27 (refinement 3):** Resolved Round 3 Red Team findings:
+  1. Canonicalized physical paths (`pwd -P`) in `cmd_init.sh` fast-fail predicate, preventing symlink false-positives on macOS `/var` and symlinked test scratchpads (resolving F14).
+  2. Extracted dedicated `confine_test_runtime` helper in `tests/test_helpers.sh` covering `HOME`, `XDG_DATA_HOME`, and `PATH` with fail-closed host leak assertion (resolving F15).
+  3. Rewrote Test 6c (#50) in `install_test.sh` to preserve regression link for kit self-init.
 * **2026-09-27 (refinement 2):** Resolved Round 2 Red Team findings:
   1. Expanded target files to include `tests/hooks_test.sh` and `tests/sync_test.sh` (resolving F1').
   2. Expanded test retirement list in Task 3.1 to include tests 3, 4, 5, 6, 6b, 6c, 6d, 6e, 20 (resolving F1'').
-  3. Single-sourced runtime classification in `aapp` via `AAPP_RUNTIME=installed|local` and made fast-fail predicate in `cmd_init.sh` name-independent: `[ "$AAPP_RUNTIME" != "installed" ] && [ "$AAPP_BASE" != "$REPO_ROOT" ]` (resolving F11, F12).
+  3. Single-sourced runtime classification in `aapp` via `AAPP_RUNTIME=installed|local` and made fast-fail predicate in `cmd_init.sh` name-independent (resolving F11, F12).
   4. Hardened pre-commit reachability gate with `$HOME/.local/bin/aapp` executable check to prevent false lockouts in GUI/macOS clients lacking shell PATH (resolving F13).
   5. Added positive, negative, and fallback test specifications to Task 1.2.
   6. Added `.agents/ARCHITECTURE.md` to Target Files (resolving F8).
