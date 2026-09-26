@@ -2,7 +2,7 @@
 * **Created:** 2026-09-27 | **Last Refined:** 2026-09-27
 * **Target Issue / Milestone:** #83
 * **Plan ID:** P-36
-* **Status:** 📝 Refining
+* **Status:** 🔷 Frozen
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -291,6 +291,7 @@ To eliminate dependency on uninstalled drop-in clones across all test suites, pr
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-27:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-09-27 (refinement 3):** Resolved Round 3 Red Team findings:
   1. Canonicalized physical paths (`pwd -P`) in `cmd_init.sh` fast-fail predicate, preventing symlink false-positives on macOS `/var` and symlinked test scratchpads (resolving F14).
   2. Extracted dedicated `confine_test_runtime` helper in `tests/test_helpers.sh` covering `HOME`, `XDG_DATA_HOME`, and `PATH` with fail-closed host leak assertion (resolving F15).
