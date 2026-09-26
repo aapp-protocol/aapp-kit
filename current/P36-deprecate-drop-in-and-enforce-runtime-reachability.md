@@ -2,7 +2,7 @@
 * **Created:** 2026-09-27 | **Last Refined:** 2026-09-27
 * **Target Issue / Milestone:** #83
 * **Plan ID:** P-36
-* **Status:** 📝 Refining
+* **Status:** 🔷 Frozen
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -87,12 +87,18 @@ In `aapp`, the dispatcher resolves `AAPP_BASE` and exports `AAPP_RUNTIME`:
 - `AAPP_RUNTIME="local"`: resolved via `$AAPP_SCRIPT_DIR` (an uninstalled clone).
 
 #### Canonical Physical Path Comparison in `cmd_init.sh` (F14)
-`AAPP_BASE` (derived via `cd && pwd`) and `REPO_ROOT` (derived via `git rev-parse --show-toplevel`) may diverge in the presence of directory symlinks (e.g. `/var` vs `/private/var` on macOS). `cmd_init.sh` canonicalizes both paths via `pwd -P`:
+`AAPP_BASE` (derived via `cd && pwd`) and `REPO_ROOT` (derived via `git rev-parse --show-toplevel`) may diverge in the presence of directory symlinks (e.g. `/var` vs `/private/var` on macOS). `cmd_init.sh` canonicalizes both paths via `pwd -P` with fail-closed error handling (no `|| echo` fallbacks):
 
 ```bash
 # Sourced inside cmd_init.sh
-AAPP_BASE_PHYSICAL="$(cd "$AAPP_BASE" 2>/dev/null && pwd -P || echo "$AAPP_BASE")"
-REPO_ROOT_PHYSICAL="$(cd "$REPO_ROOT" 2>/dev/null && pwd -P || echo "$REPO_ROOT")"
+AAPP_BASE_PHYSICAL="$(cd "$AAPP_BASE" 2>/dev/null && pwd -P)" || {
+    echo "❌ Error: Could not resolve physical path for AAPP_BASE: $AAPP_BASE" >&2
+    exit 1
+}
+REPO_ROOT_PHYSICAL="$(cd "$REPO_ROOT" 2>/dev/null && pwd -P)" || {
+    echo "❌ Error: Could not resolve physical path for REPO_ROOT: $REPO_ROOT" >&2
+    exit 1
+}
 
 if [ "$AAPP_RUNTIME" != "installed" ] && [ "$AAPP_BASE_PHYSICAL" != "$REPO_ROOT_PHYSICAL" ]; then
     echo "❌ Error: AAPP must be installed globally before initializing projects." >&2
@@ -100,7 +106,7 @@ if [ "$AAPP_RUNTIME" != "installed" ] && [ "$AAPP_BASE_PHYSICAL" != "$REPO_ROOT_
     exit 1
 fi
 ```
-This rule is 100% name-independent, immune to symlink aliases, single-sources classification from the dispatcher, and fast-fails any uninstalled clone run against an external project.
+This rule is 100% name-independent, strictly fail-closed, immune to symlink aliases, single-sources classification from the dispatcher, and fast-fails any uninstalled clone run against an external project.
 
 #### P-33 Front-Door Assertion Alignment (F7)
 In `aapp:120`, `init` is removed from the exemption list:
@@ -160,15 +166,17 @@ fi
 
 ### 2.3 Dedicated Test Runtime Confinement (`tests/test_helpers.sh`) (F1, F1', F4, F15)
 
-To eliminate dependency on uninstalled drop-in clones across all test suites, prevent host environment leaks, and ensure deterministic test isolation:
+To eliminate dependency on uninstalled drop-in clones across test suites, prevent host environment leaks, preserve host toolchains, and ensure deterministic test isolation:
 
 1. **`confine_test_runtime "$SANDBOX_ROOT"` (F15)**:
-   Added to `tests/test_helpers.sh`. Called at the top-level of every test suite.
+   Added to `tests/test_helpers.sh`. Called at the top-level of every suite that runs `init` or commits through the hooks (`install_test.sh`, `worktree_hooks_test.sh`, `ai_attribution_test.sh`, `hooks_test.sh`, `sync_test.sh`, and `pre-commit_test.sh`).
+   - **Identity Inheritance (Rule 7):** Captures the host developer's identity (`git config --global user.name` and `user.email`) *before* redirecting `HOME`, preserving identity inheritance.
    - Sets `SANDBOX_HOME="$SANDBOX_ROOT/home"`.
    - Sets `SANDBOX_BIN="$SANDBOX_HOME/.local/bin"` and `SANDBOX_SHARE="$SANDBOX_HOME/.local/share/aapp-kit"`.
-   - Exports `HOME="$SANDBOX_HOME"`, `XDG_DATA_HOME="$SANDBOX_HOME/.local/share"`, and `PATH="$SANDBOX_BIN:/usr/bin:/bin:/usr/sbin:/sbin"`.
+   - **Toolchain Preservation:** Does NOT hardcode a static system PATH (which breaks Homebrew bash/git or Nix/Linuxbrew). Instead, filters the host `$PATH` to remove any entries containing a host `aapp` binary, and prepends `$SANDBOX_BIN`. Host compilers, interpreters, and tools are preserved while host `aapp` leaks are eliminated.
+   - Exports `HOME="$SANDBOX_HOME"`, `XDG_DATA_HOME="$SANDBOX_HOME/.local/share"`, and the confined `PATH`.
    - Installs a clean AAPP kit into `$SANDBOX_BIN` and `$SANDBOX_SHARE`.
-   - **Fail-Closed Assertion:** Asserts that `command -v aapp` resolves strictly inside `$SANDBOX_BIN`, failing loudly if it ever resolves to the developer's host binary or a system path outside the sandbox.
+   - **Fail-Closed Assertion:** Asserts that `command -v aapp` resolves strictly inside `$SANDBOX_BIN`, failing loudly if it ever resolves to a host binary or outside the sandbox.
 2. **`init_sandbox_project "$PROJ_DIR"`**:
    Runs `aapp init` inside the project using the sandbox's installed binary, accurately simulating production adoption.
 3. **Suite Migrations (F1')**:
@@ -196,7 +204,7 @@ To eliminate dependency on uninstalled drop-in clones across all test suites, pr
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Test Runtime Confinement & Reachability Tests (Failure-First TDD)
-- [ ] Task 1.1: Add `confine_test_runtime` with fail-closed sandbox assertion to `tests/test_helpers.sh`.
+- [ ] Task 1.1: Add `confine_test_runtime` with toolchain-preserving PATH filtering and fail-closed sandbox assertion to `tests/test_helpers.sh`.
 - [ ] Task 1.2: Add regression tests in `tests/pre-commit_test.sh`:
   - **Negative test (missing aapp):** Run `git commit` in sandbox with `PATH` stripped of `aapp` and `$HOME/.local/bin/aapp` absent; assert commit is blocked with exit code 1 and outputs `INSPECTION-ONLY mode`.
   - **Negative test (missing aapp + skip flag):** Assert `SKIP_BLAST_RADIUS=1` without `aapp` is STILL blocked.
@@ -286,12 +294,17 @@ To eliminate dependency on uninstalled drop-in clones across all test suites, pr
   *Decision:* Probe both `command -v aapp` and `[ -x "$HOME/.local/bin/aapp" ]`. If either is found, reachability succeeds. If neither is found, the Inspection-Only refusal is displayed.
 
 * [x] **Question 5: How are physical vs logical path comparisons and test environment leaks handled (F14, F15)?**  
-  *Decision:* (1) `cmd_init.sh` canonicalizes `AAPP_BASE` and `REPO_ROOT` using `pwd -P` before comparison. (2) `tests/test_helpers.sh` provides a dedicated `confine_test_runtime` helper setting sandbox `HOME`, `XDG_DATA_HOME`, and `PATH` with fail-closed assertion against host leaks.
+  *Decision:* (1) `cmd_init.sh` canonicalizes `AAPP_BASE` and `REPO_ROOT` using `pwd -P` with fail-closed error handling before comparison. (2) `tests/test_helpers.sh` provides a dedicated `confine_test_runtime` helper setting sandbox `HOME`, `XDG_DATA_HOME`, and filtering host `PATH` (preserving toolchains while eliminating host `aapp` leaks) with fail-closed assertion.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-09-27:** Plan locked and frozen into 🔷 Frozen via freeze.
+* **2026-09-27 (refinement 4):** Resolved Round 4 Red Team refinements:
+  1. Updated `confine_test_runtime` in `tests/test_helpers.sh` to preserve the host `$PATH` (Homebrew bash/git, Nix, Linuxbrew) while dynamically filtering out entries containing a host `aapp` executable.
+  2. Captured host git identity (`git config --global user.name/email`) before redirecting `HOME`, preserving identity inheritance under Rule 7.
+  3. Purged `|| echo` fallback from `cmd_init.sh` canonicalization, making physical path resolution strictly fail-closed.
+  4. Scoped `confine_test_runtime` precisely to suites that run `init` or commit through hooks.
 * **2026-09-27 (refinement 3):** Resolved Round 3 Red Team findings:
   1. Canonicalized physical paths (`pwd -P`) in `cmd_init.sh` fast-fail predicate, preventing symlink false-positives on macOS `/var` and symlinked test scratchpads (resolving F14).
   2. Extracted dedicated `confine_test_runtime` helper in `tests/test_helpers.sh` covering `HOME`, `XDG_DATA_HOME`, and `PATH` with fail-closed host leak assertion (resolving F15).
