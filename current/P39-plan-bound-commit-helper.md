@@ -87,9 +87,21 @@ The code commit runs in the current worktree. The message is completed per
 
 | Mode | Helper behaviour |
 | :--- | :--- |
-| `commit` | Appends `AI-Agent:` / `AI-Vendor:` / `AI-Model:` from the agent's identity (§5 Q4); refuses with the exact fix when identity is missing |
+| `commit` | Appends `AI-Agent:` / `AI-Vendor:` / `AI-Model:` from the agent's identity (below); refuses with the exact fix when identity is missing |
 | `notes` | Stages the note as `aapp ai-note` does; no trailers in the message |
 | `none` | Message unchanged |
+
+**Agent identity** (only the agent knows its name, vendor and model), most explicit source first:
+
+1. **Parameters** on the verb, as bare tokens: `aapp commit "<msg>" agent <name> vendor <vendor> model <model>`.
+2. **Environment**: `AAPP_AGENT_NAME`, `AAPP_AGENT_VENDOR`, `AAPP_AGENT_MODEL` (`ai-note` already reads the first).
+3. **Per-worktree git config** (`git config --worktree aapp.aiAgent` …, requires `extensions.worktreeConfig`) — last of the explicit sources, used with caution.
+4. **A vendor `Co-Authored-By: Name <email>` trailer** already in the message (agents add them by default): converted to the emailless trailers, email dropped, with a **warning** naming the conversion.
+5. Nothing found → exit 1, printing the parameter and environment forms.
+
+**Plain repository config is never read**: it is shared by every worktree, so two agents in two
+worktrees would overwrite each other's identity. The plans-worktree commit carries the same trailers
+(RFC C2), since the `.plans` hooks enforce attribution too.
 
 A rejected code commit (any hook) exits non-zero with the hook's output and records nothing.
 
@@ -199,7 +211,9 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] `tests/verbs/commit.sh::test_refuses_nothing_staged` -> empty index: exit 1, no commit, header unchanged
 - [ ] `tests/verbs/commit.sh::test_rejected_commit_records_nothing` -> a refusing hook: exit non-zero, header unchanged
 - [ ] `tests/verbs/commit.sh::test_amend_replaces_recorded_sha` -> `amend` swaps the old SHA for the new one in the header
-- [ ] `tests/verbs/commit.sh::test_commit_mode_adds_trailers` -> `commit` attribution: the three trailers present; missing identity refused with the fix
+- [ ] `tests/verbs/commit.sh::test_commit_mode_adds_trailers` -> `commit` attribution: the three trailers present on the code *and* the plan commit; missing identity refused with the fix
+- [ ] `tests/verbs/commit.sh::test_identity_precedence` -> parameters beat environment beat worktree config; plain repository config is ignored
+- [ ] `tests/verbs/commit.sh::test_coauthor_converted_with_warning` -> a `Co-Authored-By: … <email>` trailer becomes emailless trailers, and a warning is printed
 - [ ] `tests/verbs/commit.sh::test_linked_worktree_records_its_own_plan` -> two worktrees bound to two plans each record into their own plan
 - [ ] `tests/verbs/done.sh::test_ledger_uses_recorded_commit` -> an unrelated later commit is not recorded; the ledger takes the last recorded SHA
 - [ ] `tests/verbs/done.sh::test_refuses_empty_commit_list` -> no recorded commits: exit 1, candidates and the repair command printed, nothing moves
@@ -281,7 +295,7 @@ Two hazards follow from the shared index, and the helper must handle both:
 * [ ] **Question 1 — Repair and reminder.** Refusing `done` on an empty list pushes cleanup onto whoever forgot. Proposed: (a) `aapp commit adopt <sha>…` records existing commits without committing code, and `done`'s refusal prints it with the candidate SHAs; (b) pre-commit prints a one-line *warning* (never a refusal) when a code commit is made during an active plan outside the helper, detected by a marker the helper sets. Adopt both, one, or neither?
 * [ ] **Question 2 — Squash merges.** A squash merge replaces the recorded SHAs and the branch may be deleted. Require `done` before merging, accept "recorded branch was merged" as reachable, or record the squash SHA via the repair path?
 * [ ] **Question 3 — Detached `HEAD`.** Refuse the commit, or record `(detached)` and let `done` check reachability from any branch?
-* [ ] **Question 4 — Agent identity for `commit` mode.** Only the agent knows its name, vendor and model. Source: environment (`AAPP_AGENT_NAME` / `AAPP_AGENT_VENDOR` / `AAPP_AGENT_MODEL`; `ai-note` already reads the first), bare tokens on the verb, or per-worktree git config?
+* [x] **Question 4 — Agent identity for `commit` mode.** RESOLVED (user, RFC): parameters, then environment, then per-worktree config (with caution); a vendor `Co-Authored-By` with email is converted with a warning; plain repository config never. See §2.3. Original question: Only the agent knows its name, vendor and model. Source: environment (`AAPP_AGENT_NAME` / `AAPP_AGENT_VENDOR` / `AAPP_AGENT_MODEL`; `ai-note` already reads the first), bare tokens on the verb, or per-worktree git config?
 
 ### Dependencies & Sequencing
 - **After `P-34`** (done): uses the verb-contract shape, `tests/verbs/`, and the status registry gate (#89).
@@ -293,6 +307,7 @@ Two hazards follow from the shared index, and the helper must handle both:
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-27:** User decision (Q4): identity from parameters, environment, then per-worktree config; vendor `Co-Authored-By` converted with a warning; never plain repository config. Plan commits carry the trailers too (RFC C2).
 * **2026-09-27:** User decision (RFC C16): one plan, one worktree — a second binding is a defect, refused by `start`/`freeze-start`/`active`; no AAPP lock. §2.4 states that `aapp commit` owns the plan file and the agent never stages it.
 * **2026-09-27:** User decision (RFC A4): bounded, printed retry on the `.plans` index lock replaces "fail at once".
 * **2026-09-27:** User decision (RFC C15): `start`/`freeze-start` record `* **Base:**` from the worktree running them; planning worktrees refused; first base kept on re-run; detached recorded as such. `done`'s candidate search uses it. Added `start`/`freeze-start` contracts and suites to the blast radius.
