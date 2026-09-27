@@ -40,4 +40,5 @@
 - [ ] #85 -> Status-line regex duplicated across 22 call sites with divergent legacy alias handling.
 - [ ] #86 -> Pair 5 keeps a fifth Target Files parser outside the P-37 library.
 - [ ] #87 -> Emergency Hotfix Extensions live in design-locked §4, so they are refused once a plan is Frozen.
+- [ ] #88 -> 🔵 Planned under P-34. `aapp done` deletes matrix rows by substring (`P-3` hits `P-30`–`P-39`).
 
