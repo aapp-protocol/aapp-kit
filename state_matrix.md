@@ -26,11 +26,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-35**: [`P35-opt-in-failure-test-declaration.md`](current/P35-opt-in-failure-test-declaration.md) — Opt In Failure Test Declaration
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-35**: [`P35-opt-in-failure-test-declaration.md`](current/P35-opt-in-failure-test-declaration.md) — Opt In Failure Test Declaration
 
 ---
 

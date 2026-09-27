@@ -2,7 +2,7 @@
 * **Created:** 2026-09-23 | **Last Refined:** 2026-09-27
 * **Target Issue / Milestone:** Protocol Enhancement (Opt-In Failure Testing)
 * **Plan ID:** P-35
-* **Status:** 🔷 Frozen
+* **Status:** ⚡ In Development
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -293,6 +293,7 @@ they cover — the practice this plan exists to make declarable.*
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-28:** Activated into active implementation (⚡ In Development). Worktree execution buffer bound.
 * **2026-09-28:** Plan frozen and greenlit for implementation. Open Question 2 marked deferred (out of scope). Technical blueprint and Blast Radius design-locked.
 * **2026-09-23:** Drafted from a session on why agents default to silent error suppression. Two
   findings shaped the design. First, running a full suite per commit does not catch `|| true` —
