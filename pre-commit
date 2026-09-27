@@ -18,3 +18,11 @@ fi
 # 2. Project-Specific Checks (Add your linters, tests, or scripts below)
 # e.g., perl "$REPO_ROOT/.githooks/lint.pl" || exit 1
 # e.g., npm test || exit 1
+
+# >>> aapp-pre-commit-develop (P-34) >>>
+# Kit-authoring checks; the engine exists only where `aapp develop` seeded it.
+AAPP_DEV_HOOK="$(cd "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/.." && pwd)/.githooks/aapp-pre-commit-develop"
+if [ -f "$AAPP_DEV_HOOK" ]; then
+    bash "$AAPP_DEV_HOOK" || exit 1
+fi
+# <<< aapp-pre-commit-develop (P-34) <<<
