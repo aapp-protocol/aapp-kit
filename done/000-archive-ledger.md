@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-28 | `P-35` | [`P35-opt-in-failure-test-declaration.md`](P35-opt-in-failure-test-declaration.md) | Protocol Enhancement (Opt-In Failure Testing) | `f727fc5` | Opt In Failure Test Declaration |
 | 2026-09-27 | `P-34` | [`P34-verb-behaviour-contracts.md`](P34-verb-behaviour-contracts.md) | #78 | `8c0c103` | Verb Behaviour Contracts |
 | 2026-09-27 | `P-37` | [`P37-shared-hook-library.md`](P37-shared-hook-library.md) | #82 | `416e115` | Shared hook library `lib/aapp-lib.sh`: one fail-closed plan parser (§4-scoped, fences and blockquotes skipped, Required Test Files target-bearing), glob helpers and `aapp_os` for CLI and both hooks; four inline parser copies removed. |
 | 2026-09-27 | `P-36` | [`P36-deprecate-drop-in-and-enforce-runtime-reachability.md`](P36-deprecate-drop-in-and-enforce-runtime-reachability.md) | #83 | `ae1ff90` | Deprecated broken drop-in installation, single-sourced runtime detection, enforced physical canonical fast-fail check in `cmd_init.sh`, added Section 0 reachability and Inspection-Only gate to pre-commit, and added sandbox test runtime confinement. |

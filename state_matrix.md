@@ -30,8 +30,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-35**: [`P35-opt-in-failure-test-declaration.md`](current/P35-opt-in-failure-test-declaration.md) — Opt In Failure Test Declaration
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
