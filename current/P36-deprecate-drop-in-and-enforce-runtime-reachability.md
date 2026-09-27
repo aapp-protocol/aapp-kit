@@ -243,8 +243,8 @@ To eliminate dependency on uninstalled drop-in clones across test suites, preven
 - [x] Task 4.6: Update `CHANGELOG.md` with drop-in deprecation and inspection-only gate.
 
 ### Phase 5: Verification Suite
-- [ ] Task 5.1: Run syntax checks across modified scripts (`bash -n`).
-- [ ] Task 5.2: Run full regression test suite (`./aapp test strict quiet`) and verify 100% green pass.
+- [x] Task 5.1: Run syntax checks across modified scripts (`bash -n`).
+- [x] Task 5.2: Run full regression test suite (`./aapp test strict quiet`) and verify 100% green pass.
 
 ---
 
