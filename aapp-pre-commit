@@ -9,10 +9,50 @@
 # ==============================================================================
 set -e
 
-# Escape hatch (runs first)
+# ------------------------------------------------------------------------------
+# 0. Pre-Flight: Runtime Reachability & Inspection-Only Gate
+# ------------------------------------------------------------------------------
+AAPP_BIN=""
+if command -v aapp >/dev/null 2>&1; then
+    AAPP_BIN="$(command -v aapp)"
+elif [ -x "$HOME/.local/bin/aapp" ]; then
+    AAPP_BIN="$HOME/.local/bin/aapp"
+fi
+
+if [ -z "$AAPP_BIN" ]; then
+    echo "❌ [AAPP Guard] 'aapp' command not found in PATH or ~/.local/bin." >&2
+    echo "" >&2
+    echo "   This repository is governed by the Asymmetric Agent Planning Protocol." >&2
+    echo "   Without the 'aapp' toolchain installed, this clone is in INSPECTION-ONLY mode." >&2
+    echo "   Commits are locked to prevent un-guarded code and plan desynchronization." >&2
+    echo "" >&2
+    echo "   To enable development and commits, install AAPP globally:" >&2
+    echo "     git clone https://github.com/aapp-protocol/aapp-kit.git && ./aapp-kit/aapp install" >&2
+    echo "" >&2
+    exit 1
+fi
+
+# Escape hatch for blast radius & changelog (runs after reachability assertion)
 if [ "${SKIP_BLAST_RADIUS:-0}" = "1" ]; then
     echo "⚡ [Pre-Commit Notice] Blast Radius and CHANGELOG verification skipped via SKIP_BLAST_RADIUS=1."
     exit 0
+fi
+
+# ------------------------------------------------------------------------------
+# 0b. Shared Library (P-37): plan parsing and glob matching, fail-closed
+# ------------------------------------------------------------------------------
+# Resolved from this hook's own directory; ${0%/*} rather than dirname so the
+# load needs no external binary.
+case "$0" in
+    */*) AAPP_HOOK_DIR="${0%/*}" ;;
+    *)   AAPP_HOOK_DIR="." ;;
+esac
+AAPP_LIB_FILE="$AAPP_HOOK_DIR/aapp-lib.sh"
+# shellcheck source=lib/aapp-lib.sh
+if ! . "$AAPP_LIB_FILE" 2>/dev/null || ! declare -f aapp_lib_loaded >/dev/null; then
+    echo "❌ [AAPP Guard] Shared library missing or unreadable: $AAPP_LIB_FILE" >&2
+    echo "   Run 'aapp init' to reinstall the hook engine." >&2
+    exit 1
 fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -242,96 +282,6 @@ fi
 # ------------------------------------------------------------------------------
 # 2. DETERMINISTIC BLAST RADIUS ENFORCEMENT (BLOCKING WHEN ACTIVE PLANS EXIST)
 # ------------------------------------------------------------------------------
-# 1. Helper to parse target paths from plan sections
-parse_plan_section() {
-    local file="$1"
-    local start_pattern="$2"
-    local end_pattern="$3"
-    
-    awk -v start="$start_pattern" -v end="$end_pattern" '
-        $0 ~ start { flag=1; next }
-        $0 ~ end && flag { flag=0 }
-        flag {
-            line = $0
-            sub(/^[[:space:]]*-[[:space:]]*\[[ xX]\][[:space:]]*/, "", line)
-            sub(/^[[:space:]]*(`?(NEW FILE|MODIFY|DELETE|ADD|REPLACE)`?)?[[:space:]]*->[[:space:]]*/, "", line)
-            if (match(line, /`[^`]+`/)) {
-                item = substr(line, RSTART+1, RLENGTH-2)
-                if (item !~ /^(NEW FILE|MODIFY|DELETE|ADD|REPLACE)$/) {
-                    print item
-                }
-            }
-        }
-    ' "$file"
-}
-
-glob_to_regex() {
-    local p="$1"
-    # 1. Escape regex metacharacters: \ . + ^ $ ( ) { } |
-    p="${p//\\/\\\\}"
-    p="${p//./\\.}"
-    p="${p//+/\\+}"
-    p="${p//^/\\^}"
-    p="${p//\$/\\\$}"
-    p="${p//(/\\(}"
-    p="${p//)/\\)}"
-    p="${p//\{/\\\{}"
-    p="${p//\}/\\\}}"
-    p="${p//|/\\|}"
-
-    # 2. Protect multi-segment globstars using collision-free sentinels
-    p="${p//\/\*\*\//__SLASH_GLOBSTAR_SLASH__}"
-    # Leading **/
-    if [[ "$p" == \*\** ]]; then
-        p="${p/#\*\*\//__LEADING_GLOBSTAR_SLASH__}"
-    fi
-    # Trailing /**
-    if [[ "$p" == *\/\*\* ]]; then
-        p="${p/%\/\*\*/__SLASH_TRAILING_GLOBSTAR__}"
-    fi
-    p="${p//\*\*/__GLOBSTAR__}"
-
-    # 3. Translate single-segment wildcard and single-char tokens
-    p="${p//\*/[^/]*}"
-    p="${p//\?/[^/]}"
-
-    # 4. Expand sentinels into POSIX regex
-    p="${p//__SLASH_GLOBSTAR_SLASH__/\/(.*\/)?}"
-    p="${p//__LEADING_GLOBSTAR_SLASH__/(.*\/)?}"
-    p="${p//__SLASH_TRAILING_GLOBSTAR__/\/(.*)?}"
-    p="${p//__GLOBSTAR__/.*}"
-
-    echo "^${p}\$"
-}
-
-match_pattern_list() {
-    local target="$1"
-    shift
-    local pattern
-    for pattern in "$@"; do
-        [ -z "$pattern" ] && continue
-        # Tier 1 (Exact Match)
-        if [ "$target" = "$pattern" ]; then
-            return 0
-        fi
-        # Tier 2 (Directory Prefix Match)
-        if [[ "$pattern" == */ ]]; then
-            if [[ "$target" == "$pattern"* ]]; then
-                return 0
-            fi
-        fi
-        # Tier 3 (Glob / Regex Match)
-        if [[ "$pattern" == *[*?\[]* ]]; then
-            local regex
-            regex=$(glob_to_regex "$pattern")
-            if [[ "$target" =~ $regex ]]; then
-                return 0
-            fi
-        fi
-    done
-    return 1
-}
-
 # 2. Canonical Worktree & .plans/ Resolution
 GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
 if [ -d "$GIT_COMMON_DIR" ]; then
@@ -387,7 +337,7 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
                 BLOCKED_TARGETS=()
                 while IFS= read -r ITEM; do
                     [ -n "$ITEM" ] && BLOCKED_TARGETS+=("$ITEM")
-                done < <(parse_plan_section "$pf" '^### 📂 Target Files|^### 🚨 Emergency Hotfix' '^### 🛑 Out of Bounds|^## ')
+                done < <(parse_plan_target_paths "$pf")
                 if [ ${#BLOCKED_TARGETS[@]} -gt 0 ]; then
                     for STAGED in "${STAGED_FILES[@]}"; do
                         if echo "$STAGED" | grep -qE "$ALWAYS_ALLOWED_REGEX"; then
@@ -501,11 +451,11 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
 
         while IFS= read -r ITEM; do
             [ -n "$ITEM" ] && PLAN_TARGETS+=("$ITEM")
-        done < <(parse_plan_section "$ACTIVE_PLAN_PATH" '^### 📂 Target Files|^### 🚨 Emergency Hotfix' '^### 🛑 Out of Bounds|^## ')
+        done < <(parse_plan_target_paths "$ACTIVE_PLAN_PATH")
 
         while IFS= read -r ITEM; do
             [ -n "$ITEM" ] && PLAN_OOB+=("$ITEM")
-        done < <(parse_plan_section "$ACTIVE_PLAN_PATH" '^### 🛑 Out of Bounds' '^## ')
+        done < <(parse_plan_oob_paths "$ACTIVE_PLAN_PATH")
 
         for STAGED in "${STAGED_FILES[@]}"; do
             if echo "$STAGED" | grep -qE "$ALWAYS_ALLOWED_REGEX"; then
@@ -557,15 +507,6 @@ fi
 # ------------------------------------------------------------------------------
 # 2b. FROZEN PLAN IMMUTABILITY & DESIGN-LOCK ENFORCEMENT (#68)
 # ------------------------------------------------------------------------------
-extract_plan_section() {
-    local sec="$1"
-    awk -v s="$sec" '
-        $0 ~ "^## ([^0-9]*[[:space:]])?" s "\\." { flag=1; print; next }
-        $0 ~ "^## ([^0-9]*[[:space:]])?[0-9]+\\." && flag { flag=0 }
-        flag { print }
-    '
-}
-
 for STAGED in "${STAGED_FILES[@]}"; do
     case "$STAGED" in
         .plans/current/*.md|current/*.md)
