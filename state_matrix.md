@@ -30,7 +30,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-37**: [`P37-shared-hook-library.md`](current/P37-shared-hook-library.md) — Shared Hook Library
 
 ---
 

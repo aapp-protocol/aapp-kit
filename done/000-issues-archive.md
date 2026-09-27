@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #82 | `Medium` | `CORE` | 2026-09-23 | 2026-09-27 | `416e115` | [P-37](P37-shared-hook-library.md) - Target Files parser single-sourced in `lib/aapp-lib.sh`; blockquotes, foreign subsections and fenced examples no longer grant writes. Pair 5 parser left for #86. |
 | #83 | `High` | `CLI` | 2026-09-27 | 2026-09-27 | `ae1ff90` | [P-36](P36-deprecate-drop-in-and-enforce-runtime-reachability.md) - Deprecated broken drop-in installation, single-sourced runtime detection, enforced physical canonical fast-fail check in `cmd_init.sh`, added Section 0 reachability and Inspection-Only gate to pre-commit, and added sandbox test runtime confinement. |
 | #80 | `Medium` | `CLI` | 2026-09-22 | 2026-09-23 | `432da13` | [P-33](P33-centralized-git-root-assertion-and-fail-fast-dispatch.md) - Centralized repository root assertion and fail-fast dispatch in `aapp`; purged redundant derivations and silent `\|\| pwd` / `\|\| true` fallbacks across `lib/`; fail-closed standalone library roots; `ARCHITECTURE.md` rule 9. |
 | #74 | `High` | `TEST` | 2026-09-21 | 2026-09-22 | `c4fc5b2` | [P-26](done/P26-test-harness-isolation-and-worktree-hooks.md) - Standardized test suites with `test_helpers.sh` sandbox assertion, developer identity inheritance, GPG signing bypass, and wired universal worktree hooks via `git-common-dir`. |
