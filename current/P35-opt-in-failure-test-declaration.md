@@ -2,7 +2,7 @@
 * **Created:** 2026-09-23 | **Last Refined:** 2026-09-27
 * **Target Issue / Milestone:** Protocol Enhancement (Opt-In Failure Testing)
 * **Plan ID:** P-35
-* **Status:** 📝 Refining
+* **Status:** 🔷 Frozen
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -277,7 +277,7 @@ they cover — the practice this plan exists to make declarable.*
   - **Should not imply running tests** — the operation edits two markdown sections. This is why
     `pretest` misleads.
   The name may become obvious once the operation is described precisely; it does not block Phase 1.
-* [ ] **Question 2 — Notation for several tests in one file (deferred, likely its own plan).** §4
+* [x] **Question 2 — Notation for several tests in one file.** DEFERRED (deferred, likely its own plan). §4
   declares paths without counts because a count is only meaningful if something can verify it, and
   verifying it means parsing test bodies in a language the kit does not know. A notation standard
   that makes tests *countable without parsing* would let the pre-commit check compare declared and
@@ -293,6 +293,7 @@ they cover — the practice this plan exists to make declarable.*
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-28:** Plan frozen and greenlit for implementation. Open Question 2 marked deferred (out of scope). Technical blueprint and Blast Radius design-locked.
 * **2026-09-23:** Drafted from a session on why agents default to silent error suppression. Two
   findings shaped the design. First, running a full suite per commit does not catch `|| true` —
   confirmed against a separate project where a 30s suite runs on every commit with pre-written tests
