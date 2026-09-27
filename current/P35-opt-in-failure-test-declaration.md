@@ -191,37 +191,37 @@ When `aapp done` (`lib/cmd_plan.sh:cmd_done`) is invoked on a plan that carries 
 they cover — the practice this plan exists to make declarable.*
 
 ### Phase 1: Failure-First Test Harness (Red 🔴)
-- [ ] Task 1.1: Add negative tests for the injection verb: refuses a plan id that does not resolve; refuses when the section already exists (idempotence, not duplication); refuses outside a Git repository.
-- [ ] Task 1.2: Add negative tests for the conditional check: a plan **without** the section commits freely; a plan **with** it is refused when a §3 identifier names a file absent from §4, and when a §4 file has no §3 identifier.
-- [ ] Task 1.3: Add lifecycle-timing tests per the §2.4 table: a `📝 Refining` plan with unwritten declared tests commits, and the same plan at `⚡ In Development` is refused (per `P-33` §5 Decision 7); `tests/verbs/tdd.sh::test_injection_commit_accepted_while_refining` (the verb's own commit of empty headings succeeds); `aapp freeze` refuses a tdd plan with an empty §3 or §4.
-- [ ] Task 1.4: Add negative tests for `cmd_done` completion verification: refuses archival if any §3 test is unticked (`- [ ]`), and refuses if any §4 test file does not exist on disk/Git.
-- [ ] Task 1.5: Run the new suite and confirm every assertion FAILS (Red 🔴) — none of this exists yet.
+- [x] Task 1.1: Add negative tests for the injection verb: refuses a plan id that does not resolve; refuses when the section already exists (idempotence, not duplication); refuses outside a Git repository.
+- [x] Task 1.2: Add negative tests for the conditional check: a plan **without** the section commits freely; a plan **with** it is refused when a §3 identifier names a file absent from §4, and when a §4 file has no §3 identifier.
+- [x] Task 1.3: Add lifecycle-timing tests per the §2.4 table: a `📝 Refining` plan with unwritten declared tests commits, and the same plan at `⚡ In Development` is refused (per `P-33` §5 Decision 7); `tests/verbs/tdd.sh::test_injection_commit_accepted_while_refining` (the verb's own commit of empty headings succeeds); `aapp freeze` refuses a tdd plan with an empty §3 or §4.
+- [x] Task 1.4: Add negative tests for `cmd_done` completion verification: refuses archival if any §3 test is unticked (`- [ ]`), and refuses if any §4 test file does not exist on disk/Git.
+- [x] Task 1.5: Run the new suite and confirm every assertion FAILS (Red 🔴) — none of this exists yet.
 
 ### Phase 2: CLI Injection & Shared Parsers (Green 🟢)
-- [ ] Task 2.1: Implement the injection verb in `lib/cmd_plan.sh` — resolve the plan, refuse if either heading is already present, inject `### 🧪 Required Test Files` into §4 after Target Files and `### 🧪 Required Tests` into §3, commit the amendment.
-- [ ] Task 2.2: Register `tdd` in `lib/verbs.tsv` (`daily` tier) with the description `Declare a plan's failure-first tests (§3 identifiers, §4 test files) before freeze`, and add its dispatcher case in `aapp`.
-- [ ] Task 2.3: Re-run Phase 1's verb tests and confirm Green 🟢.
-- [ ] Task 2.4: Implement pure functions `parse_plan_required_test_files` and `parse_plan_required_tests` in `lib/aapp-lib.sh`; add unit tests in `tests/aapp_lib_test.sh` and confirm Green 🟢.
+- [x] Task 2.1: Implement the injection verb in `lib/cmd_plan.sh` — resolve the plan, refuse if either heading is already present, inject `### 🧪 Required Test Files` into §4 after Target Files and `### 🧪 Required Tests` into §3, commit the amendment.
+- [x] Task 2.2: Register `tdd` in `lib/verbs.tsv` (`daily` tier) with the description `Declare a plan's failure-first tests (§3 identifiers, §4 test files) before freeze`, and add its dispatcher case in `aapp`.
+- [x] Task 2.3: Re-run Phase 1's verb tests and confirm Green 🟢.
+- [x] Task 2.4: Implement pure functions `parse_plan_required_test_files` and `parse_plan_required_tests` in `lib/aapp-lib.sh`; add unit tests in `tests/aapp_lib_test.sh` and confirm Green 🟢.
 
 ### Phase 3: Conditional Enforcement & Done Gate (Green 🟢)
-- [ ] Task 3.1: In `templates/aapp-pre-commit`, invoke `parse_plan_required_test_files` and `parse_plan_required_tests` from `lib/aapp-lib.sh` to enforce bidirectional correspondence string-level only.
-- [ ] Task 3.2: Apply the §2.4 timing table: tolerate empty sections, mismatches and unwritten tests while `📝 Refining`; refuse empty sections and mismatches in `cmd_freeze`/`cmd_freeze_start` (`lib/cmd_plan.sh`) and in pre-commit from `🔷 Frozen`; enforce file existence at `⚡ In Development`.
-- [ ] Task 3.3: In `lib/cmd_plan.sh` (`cmd_done`), implement mechanical completion gate: refuse archival if any §3 test is unticked (`- [ ]`), verify all declared §4 test files exist on disk and in Git, and append `tdd (N/N)` verification evidence to the archive ledger row in `.plans/done/000-archive-ledger.md`.
-- [ ] Task 3.4: Re-run Phase 1's enforcement, timing, and `cmd_done` gate tests and confirm Green 🟢.
+- [x] Task 3.1: In `templates/aapp-pre-commit`, invoke `parse_plan_required_test_files` and `parse_plan_required_tests` from `lib/aapp-lib.sh` to enforce bidirectional correspondence string-level only.
+- [x] Task 3.2: Apply the §2.4 timing table: tolerate empty sections, mismatches and unwritten tests while `📝 Refining`; refuse empty sections and mismatches in `cmd_freeze`/`cmd_freeze_start` (`lib/cmd_plan.sh`) and in pre-commit from `🔷 Frozen`; enforce file existence at `⚡ In Development`.
+- [x] Task 3.3: In `lib/cmd_plan.sh` (`cmd_done`), implement mechanical completion gate: refuse archival if any §3 test is unticked (`- [ ]`), verify all declared §4 test files exist on disk and in Git, and append `tdd (N/N)` verification evidence to the archive ledger row in `.plans/done/000-archive-ledger.md`.
+- [x] Task 3.4: Re-run Phase 1's enforcement, timing, and `cmd_done` gate tests and confirm Green 🟢.
 
 ### Phase 4: Skill Authoring & Distribution
-- [ ] Task 4.1: Author skill in `templates/skills/aapp-tdd/SKILL.md` (with `disable-model-invocation: false`): call the CLI first, then read §1/§2 and propose failure cases in the project's own idiom, writing identifiers into §3 and their files into §4. Include an explicit failure branch — if the CLI refuses, stop and report rather than hand-editing the plan.
-- [ ] Task 4.2: Update `sync_skills` in `lib/cmd_init.sh` and Test 42 in `tests/install_test.sh` to recognize `aapp-tdd` as a retained skill.
+- [x] Task 4.1: Author skill in `templates/skills/aapp-tdd/SKILL.md` (with `disable-model-invocation: false`): call the CLI first, then read §1/§2 and propose failure cases in the project's own idiom, writing identifiers into §3 and their files into §4. Include an explicit failure branch — if the CLI refuses, stop and report rather than hand-editing the plan.
+- [x] Task 4.2: Update `sync_skills` in `lib/cmd_init.sh` and Test 42 in `tests/install_test.sh` to recognize `aapp-tdd` as a retained skill.
 
 ### Phase 5: Template & Verification
-- [ ] Task 5.1: Add the **Fail-Closed Invariant** to `templates/plan-template.md`'s header invariants — standalone and unconditional, not tied to TDD: silent fallbacks (`|| true`, `|| pwd`, unchecked defaults, empty catch blocks) are prohibited; a benign one is justified in a comment and registered in §2's Fallback Inventory.
-- [ ] Task 5.2: Run `./aapp test strict quiet` across all discovered suites and verify zero regressions.
+- [x] Task 5.1: Add the **Fail-Closed Invariant** to `templates/plan-template.md`'s header invariants — standalone and unconditional, not tied to TDD: silent fallbacks (`|| true`, `|| pwd`, unchecked defaults, empty catch blocks) are prohibited; a benign one is justified in a comment and registered in §2's Fallback Inventory.
+- [x] Task 5.2: Run `./aapp test strict quiet` across all discovered suites and verify zero regressions.
 
 ### Phase 6: Documentation & Protocol Sync
-- [ ] Task 6.1: Update `ARCHITECTURE.md` with the opt-in declaration model, the §3/§4 split, Option A single-entry semantics, and the `cmd_done` mechanical gate.
-- [ ] Task 6.2: Update `.agents/CODEMAP.md`, `MANUAL.md` and `CHEATSHEET.md` for `aapp tdd`. The docs describe what the verb **does**, not the acronym: it injects `### 🧪 Required Tests` (§3) and `### 🧪 Required Test Files` (§4), declares tests only (no test code, no test run), and belongs between `draft` and `freeze`. MANUAL states that the red phase happens at implementation (Phase 1 writes the declared tests and confirms them failing).
-- [ ] Task 6.3a: Author the behaviour contract `lib/docs/verbs/tdd.md` (`P-34` shape: Ingress, Preconditions, Failure modes, Effects, Exit, Tests naming `tests/verbs/tdd.sh`) and reference it in the `verbs.tsv` contract column.
-- [ ] Task 6.3: Update `CHANGELOG.md` under `### Added`.
+- [x] Task 6.1: Update `ARCHITECTURE.md` with the opt-in declaration model, the §3/§4 split, Option A single-entry semantics, and the `cmd_done` mechanical gate.
+- [x] Task 6.2: Update `.agents/CODEMAP.md`, `MANUAL.md` and `CHEATSHEET.md` for `aapp tdd`. The docs describe what the verb **does**, not the acronym: it injects `### 🧪 Required Tests` (§3) and `### 🧪 Required Test Files` (§4), declares tests only (no test code, no test run), and belongs between `draft` and `freeze`. MANUAL states that the red phase happens at implementation (Phase 1 writes the declared tests and confirms them failing).
+- [x] Task 6.3a: Author the behaviour contract `lib/docs/verbs/tdd.md` (`P-34` shape: Ingress, Preconditions, Failure modes, Effects, Exit, Tests naming `tests/verbs/tdd.sh`) and reference it in the `verbs.tsv` contract column.
+- [x] Task 6.3: Update `CHANGELOG.md` under `### Added`.
 
 ---
 
