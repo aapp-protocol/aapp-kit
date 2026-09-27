@@ -1,5 +1,5 @@
 # 🗺️ Plan P-35: Opt In Failure Test Declaration
-* **Created:** 2026-09-23 | **Last Refined:** 2026-09-23
+* **Created:** 2026-09-23 | **Last Refined:** 2026-09-27
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-35
 * **Status:** 🟣 Under Review
@@ -45,7 +45,8 @@ repository), and only then was the guard written.
 Make failure-case declaration an **opt-in** planning step, injected only into the plans that warrant
 it, with enforcement that is language- and project-agnostic.
 
-1. A CLI verb (name undecided — §5 Q1) injects a test-declaration section into an existing plan.
+1. A CLI verb, `aapp tdd <id>` (§5 Q1), injects a test-declaration section into an existing plan.
+   It **declares** tests; it never writes test code and never runs tests (`aapp test` runs them).
 2. The section is **absent by default**. A docs or config plan carries no test checklist, so agents
    never learn that a checked box can mean `N/A`.
 3. Declarations are **paths and identifiers only**, never language-specific syntax, so the section
@@ -162,7 +163,7 @@ they cover — the practice this plan exists to make declarable.*
 
 ### Phase 2: CLI Injection (Green 🟢)
 - [ ] Task 2.1: Implement the injection verb in `lib/cmd_plan.sh` — resolve the plan, refuse if either heading is already present, inject `### 🧪 Required Test Files` into §4 after Target Files and `### 🧪 Required Tests` into §3, commit the amendment.
-- [ ] Task 2.2: Register the verb in `lib/verbs.tsv` (`daily` tier) and add its dispatcher case in `aapp`.
+- [ ] Task 2.2: Register `tdd` in `lib/verbs.tsv` (`daily` tier) with the description `Declare a plan's failure-first tests (§3 identifiers, §4 test files) before freeze`, and add its dispatcher case in `aapp`.
 - [ ] Task 2.3: Re-run Phase 1's verb tests and confirm Green 🟢.
 
 ### Phase 3: Conditional Enforcement (Green 🟢)
@@ -171,7 +172,7 @@ they cover — the practice this plan exists to make declarable.*
 - [ ] Task 3.3: Re-run Phase 1's enforcement and timing tests and confirm Green 🟢.
 
 ### Phase 4: Skill Authoring
-- [ ] Task 4.1: Author the skill: call the CLI first, then read §1/§2 and propose failure cases in the project's own idiom, writing identifiers into §3 and their files into §4. Include an explicit failure branch — if the CLI refuses, stop and report rather than hand-editing the plan.
+- [ ] Task 4.1: Author the `/aapp-tdd` skill: call the CLI first, then read §1/§2 and propose failure cases in the project's own idiom, writing identifiers into §3 and their files into §4. Include an explicit failure branch — if the CLI refuses, stop and report rather than hand-editing the plan.
 
 ### Phase 5: Template & Verification
 - [ ] Task 5.1: Add the **Fail-Closed Invariant** to `templates/plan-template.md`'s header invariants — standalone and unconditional, not tied to TDD: silent fallbacks (`|| true`, `|| pwd`, unchecked defaults, empty catch blocks) are prohibited; a benign one is justified in a comment and registered in §2's Fallback Inventory.
@@ -179,7 +180,8 @@ they cover — the practice this plan exists to make declarable.*
 
 ### Phase 6: Documentation & Protocol Sync
 - [ ] Task 6.1: Update `ARCHITECTURE.md` with the opt-in declaration model and the §3/§4 split.
-- [ ] Task 6.2: Update `.agents/CODEMAP.md`, `MANUAL.md` and `CHEATSHEET.md` for the new verb.
+- [ ] Task 6.2: Update `.agents/CODEMAP.md`, `MANUAL.md` and `CHEATSHEET.md` for `aapp tdd`. The docs describe what the verb **does**, not the acronym: it injects `### 🧪 Required Tests` (§3) and `### 🧪 Required Test Files` (§4), declares tests only (no test code, no test run), and belongs between `draft` and `freeze`. MANUAL states that the red phase happens at implementation (Phase 1 writes the declared tests and confirms them failing).
+- [ ] Task 6.3a: Author the behaviour contract `lib/docs/verbs/tdd.md` (`P-34` shape: Ingress, Preconditions, Failure modes, Effects, Exit, Tests naming `tests/verbs/tdd.sh`) and reference it in the `verbs.tsv` contract column.
 - [ ] Task 6.3: Update `CHANGELOG.md` under `### Added`.
 
 ---
@@ -196,8 +198,9 @@ they cover — the practice this plan exists to make declarable.*
 - [ ] `aapp` -> Add the dispatcher case
 - [ ] `templates/plan-template.md` -> Add the Fail-Closed Invariant to the header invariants
 - [ ] `templates/aapp-pre-commit` -> Conditional correspondence check, active only when the section is present
-- [ ] `NEW FILE` -> `.agents/skills/aapp-<verb>/SKILL.md` -> Skill that enumerates failure cases and writes both sections
-- [ ] `NEW FILE` -> `tests/verbs/<verb>.sh` -> Verb tests (injection, refusals, idempotence)
+- [ ] `NEW FILE` -> `.agents/skills/aapp-tdd/SKILL.md` -> Skill that enumerates failure cases and writes both sections
+- [ ] `NEW FILE` -> `tests/verbs/tdd.sh` -> Verb tests (injection, refusals, idempotence)
+- [ ] `NEW FILE` -> `lib/docs/verbs/tdd.md` -> Behaviour contract for tdd (P-34 correspondence)
 - [ ] `tests/pre-commit_test.sh` -> Conditional enforcement and lifecycle-timing tests
 - [ ] `ARCHITECTURE.md` -> Record the opt-in declaration model and the §3/§4 split
 - [ ] `.agents/CODEMAP.md` -> Name the verb's owner module
@@ -215,9 +218,13 @@ they cover — the practice this plan exists to make declarable.*
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — Verb name (undecided).** Candidates considered and none yet satisfying:
-  `harden`, `require-tests`, `pretest`. Constraints established, which narrow the field even without
-  an answer:
+* [x] **Question 1 — Verb name.** RESOLVED (2026-09-27): **`tdd`** — `aapp tdd <id>`, skill
+  `/aapp-tdd`. Short, and it names the practice the verb applies: tests declared before
+  implementation. Rejected: `harden` (an outcome), `prove`/`cover`/`assert` (read as test results),
+  `expect`, `plan2test` (long, digit), `doplan` (reads as execute, i.e. `start`). The acronym is
+  offset by the help line and docs describing the action, not the expansion (Task 2.2, 6.2); no
+  long-form alias. The "should not name the artifact" constraint below is dropped. Original
+  constraints, kept for the record:
   - **Bare, not hyphenated.** In this CLI a hyphen currently signals an inspector (`plan-status`) or
     a composite (`freeze-start`) — and `freeze-start`, the one hyphenated lifecycle verb, is the one
     that never became a skill.
@@ -251,3 +258,6 @@ they cover — the practice this plan exists to make declarable.*
   is string-level and never opens a test file, for the same reason. Verb name carried as Q1
   (undecided, constraints recorded); multi-test-per-file notation carried as Q2 (deferred, likely its
   own plan).
+* **2026-09-27:** Resolved Q1: the verb is `tdd`. Named `tests/verbs/tdd.sh` and `/aapp-tdd`, added
+  the `lib/docs/verbs/tdd.md` contract (P-34 correspondence) and a docs task stating that the verb
+  declares tests and never writes or runs them.
