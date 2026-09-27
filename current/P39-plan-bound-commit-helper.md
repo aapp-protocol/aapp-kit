@@ -69,6 +69,7 @@ A plan-bound commit helper that agents use **by discipline, not enforcement**:
 | :--- | :--- |
 | `aapp commit "<message>"` | Commit what is staged; record the new SHA and branch in the active plan |
 | `aapp commit amend ["<message>"]` | Amend the last commit; replace its recorded SHA in the header |
+| `aapp commit adopt <sha>…` | Repair: record existing commits made outside the helper; no code commit |
 
 `aapp commit` commits only what is already staged, like `git commit`; it never stages for the agent,
 so the blast-radius decision stays with the agent and the pre-commit hook. All git hooks run as for a
@@ -192,11 +193,27 @@ Two hazards follow from the shared index, and the helper must handle both:
   without changing this contract.
 - **`on-done`** keeps firing after the archive and also gains `"commits": [...]`.
 
+### 2.7b Repair: `adopt`
+`aapp commit adopt <sha>…` records commits that were made with a raw `git commit`:
+- each SHA must be a commit contained by some branch (`git for-each-ref --contains`); the recorded
+  branch is the current worktree's branch when it contains the SHA, otherwise the first containing branch;
+- SHAs already recorded are skipped, not duplicated;
+- the plan file is committed by path, as in §2.4, with the same attribution;
+- it always prints a **warning**: the adopted commits did not pass through the helper, so their
+  attribution trailers were not completed by it.
+
+`done`'s empty-list refusal prints the candidate SHAs as one ready `aapp commit adopt …` line.
+
 ### 2.8 Discipline, Not Enforcement
 - `templates/plan-template.md` gains an execution invariant: *commit implementation through
   `aapp commit` so the plan records its commits; `aapp done` archives only recorded work.* Agents read
   that block before writing code; no skill wraps the verb.
-- Forgetting is cheap to repair (§5 Q1). No hook refuses a raw `git commit`.
+- Forgetting is cheap to repair (`adopt`, §2.7b). No hook refuses a raw `git commit`.
+- **Reminder, never a refusal.** When a code commit is made in a worktree whose buffer binds a `⚡`
+  plan, and the helper did not make it (it exports a marker for its own `git commit`), the pre-commit
+  hook prints one line and lets the commit through: *"💡 P-NN is active: record this commit with
+  `aapp commit adopt <sha>` (or commit through `aapp commit`)."* Commits inside the planning worktrees
+  are never reminded.
 
 ---
 
@@ -215,6 +232,10 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] `tests/verbs/commit.sh::test_identity_precedence` -> parameters beat environment beat worktree config; plain repository config is ignored
 - [ ] `tests/verbs/commit.sh::test_coauthor_converted_with_warning` -> a `Co-Authored-By: … <email>` trailer becomes emailless trailers, and a warning is printed
 - [ ] `tests/verbs/commit.sh::test_linked_worktree_records_its_own_plan` -> two worktrees bound to two plans each record into their own plan
+- [ ] `tests/verbs/commit.sh::test_adopt_records_existing_commit` -> a raw commit is adopted with its branch, the plan is committed, and a warning is printed
+- [ ] `tests/verbs/commit.sh::test_adopt_refuses_unknown_sha` -> an unknown or branchless SHA: exit 1, header unchanged
+- [ ] `tests/verbs/commit.sh::test_adopt_skips_recorded_sha` -> adopting an already-recorded SHA leaves one entry
+- [ ] `tests/pre-commit_test.sh::test_reminder_outside_helper_is_warning_only` -> a raw code commit with an active plan prints the reminder and succeeds; a helper commit prints nothing
 - [ ] `tests/verbs/done.sh::test_ledger_uses_recorded_commit` -> an unrelated later commit is not recorded; the ledger takes the last recorded SHA
 - [ ] `tests/verbs/done.sh::test_refuses_empty_commit_list` -> no recorded commits: exit 1, candidates and the repair command printed, nothing moves
 - [ ] `tests/verbs/done.sh::test_refuses_unreachable_commit` -> a recorded SHA amended away: exit 1 naming it
@@ -240,7 +261,7 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] Task 3.2b: `cmd_start` / `cmd_freeze_start` record the base (§2.4b), refuse planning worktrees, keep the first base on re-run.
 - [ ] Task 3.2c: One plan, one worktree (§2.6): `start`, `freeze-start` and `active <id>` refuse a plan bound in another worktree's buffer.
 - [ ] Task 3.3: `cmd_done` reads the record (§2.7), dispatches `pre-done` before any mutation (non-zero vetoes), and `on-done` gains `commits`.
-- [ ] Task 3.4: Resolved §5 answers (recovery, nudge, squash, detached, identity).
+- [ ] Task 3.4: `adopt` (§2.7b) and the warning-only pre-commit reminder (§2.8); remaining §5 answers (squash, detached).
 - [ ] Task 3.5: Required Tests Green 🟢: `aapp test verb commit`, `aapp test verb done`, `aapp test aapp_lib`.
 
 ### Phase 4: Regression & Docs
@@ -267,8 +288,8 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] `lib/docs/verbs/freeze-start.md` -> Base recording
 - [ ] `lib/docs/verbs/active.md` -> One plan, one worktree refusal
 - [ ] `templates/plan-template.md` -> Commits header line and execution invariant
-- [ ] `templates/aapp-pre-commit` -> Non-blocking reminder, only if §5 Q1 adopts it
-- [ ] `tests/pre-commit_test.sh` -> Reminder test, only if §5 Q1 adopts it
+- [ ] `templates/aapp-pre-commit` -> Warning-only reminder for commits made outside the helper
+- [ ] `tests/pre-commit_test.sh` -> Reminder test
 - [ ] `ARCHITECTURE.md` -> Plan-bound commit rule
 - [ ] `.agents/CODEMAP.md` -> Name the verb's owner module
 - [ ] `MANUAL.md` -> Document the verb
@@ -292,7 +313,7 @@ Two hazards follow from the shared index, and the helper must handle both:
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 — Repair and reminder.** Refusing `done` on an empty list pushes cleanup onto whoever forgot. Proposed: (a) `aapp commit adopt <sha>…` records existing commits without committing code, and `done`'s refusal prints it with the candidate SHAs; (b) pre-commit prints a one-line *warning* (never a refusal) when a code commit is made during an active plan outside the helper, detected by a marker the helper sets. Adopt both, one, or neither?
+* [x] **Question 1 — Repair and reminder.** RESOLVED (user): both — `aapp commit adopt` (§2.7b, itself warning) and the warning-only pre-commit reminder (§2.8). Original question: Refusing `done` on an empty list pushes cleanup onto whoever forgot. Proposed: (a) `aapp commit adopt <sha>…` records existing commits without committing code, and `done`'s refusal prints it with the candidate SHAs; (b) pre-commit prints a one-line *warning* (never a refusal) when a code commit is made during an active plan outside the helper, detected by a marker the helper sets. Adopt both, one, or neither?
 * [ ] **Question 2 — Squash merges.** A squash merge replaces the recorded SHAs and the branch may be deleted. Require `done` before merging, accept "recorded branch was merged" as reachable, or record the squash SHA via the repair path?
 * [ ] **Question 3 — Detached `HEAD`.** Refuse the commit, or record `(detached)` and let `done` check reachability from any branch?
 * [x] **Question 4 — Agent identity for `commit` mode.** RESOLVED (user, RFC): parameters, then environment, then per-worktree config (with caution); a vendor `Co-Authored-By` with email is converted with a warning; plain repository config never. See §2.3. Original question: Only the agent knows its name, vendor and model. Source: environment (`AAPP_AGENT_NAME` / `AAPP_AGENT_VENDOR` / `AAPP_AGENT_MODEL`; `ai-note` already reads the first), bare tokens on the verb, or per-worktree git config?
@@ -307,6 +328,7 @@ Two hazards follow from the shared index, and the helper must handle both:
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-27:** User decision (Q1): `aapp commit adopt <sha>…` as the repair, warning on every use, printed ready-made by `done`'s refusal; plus a warning-only pre-commit reminder for commits made outside the helper. Reminder targets kept (RFC C7).
 * **2026-09-27:** User decision (Q4): identity from parameters, environment, then per-worktree config; vendor `Co-Authored-By` converted with a warning; never plain repository config. Plan commits carry the trailers too (RFC C2).
 * **2026-09-27:** User decision (RFC C16): one plan, one worktree — a second binding is a defect, refused by `start`/`freeze-start`/`active`; no AAPP lock. §2.4 states that `aapp commit` owns the plan file and the agent never stages it.
 * **2026-09-27:** User decision (RFC A4): bounded, printed retry on the `.plans` index lock replaces "fail at once".
