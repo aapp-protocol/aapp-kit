@@ -25,7 +25,7 @@ In active, long-lived projects governed by AAPP, `.plans/done/000-archive-ledger
 ### Architectural Goal
 Establish **Milestone Release Bundling** under `.plans/release/<tag>/`, **1-Row Master Ledger Rollups**, and **Hook-Delegated Versioning**:
 1. **CLI Parameter & Bump Flexibility**: `aapp release <version-or-bump>` accepts explicit version tags (`v1.2.0`, `1.2.0`, `2026.09.1`) or standard SemVer bump tokens (`patch`, `minor`, `major`).
-2. **Hook-Based Version Increment**: Delegates project file mutation to an `on-release-version` (or `pre-release`) lifecycle hook, passing version payload via Dual Delivery (`stdin` JSON + POSIX env).
+2. **Hook-Based Version Increment**: Delegates project file mutation to an `on-release` (or `pre-release`) lifecycle hook, passing version payload via Dual Delivery (`stdin` JSON + POSIX env).
 3. **Milestone Bundling**: Moves completed blueprints in `.plans/done/` and resolved issues in `.plans/done/000-issues-archive.md` into an immutable `.plans/release/<tag>/` bundle.
 4. **Tag Ledger & Master Rollup**: Generates `.plans/release/<tag>/000-archive-ledger.md` with full plan details, while truncating `.plans/done/000-archive-ledger.md` to a **1-line summary row per release** linking directly to the tag ledger.
 5. **Rolling Active Graveyard**: Resets `.plans/done/000-issues-archive.md` to a lean table for the next unreleased cycle.
@@ -93,11 +93,11 @@ aapp release <version-or-bump> [--no-archive] [--dry-run] [-y|--yes]
 2. **Worktree Cleanliness & Branch Parity**:
    - Asserts working tree is clean across `develop`, `plans`, `agents`, `githooks`.
    - On multi-branch topology, verifies `develop` fast-forwards cleanly into `main` (`git merge-base --is-ancestor develop main` or vice-versa).
-3. **Hook-Based Version Increment (`on-release-version`)**:
-   - Invokes `on-release-version` via `dispatch_lifecycle_hook`.
+3. **Hook-Based Version Increment (`on-release`)**:
+   - Invokes `on-release` via `dispatch_lifecycle_hook`.
    - Passes Dual Delivery payload:
      - Env: `AAPP_RELEASE_VERSION="v1.2.0"`, `AAPP_RAW_VERSION="1.2.0"`, `AAPP_PREVIOUS_VERSION="v1.0.0"`, `AAPP_VERSION_BUMP="minor"`.
-     - STDIN: JSON payload `{"event":"on-release-version","version":"v1.2.0","rawVersion":"1.2.0","previousVersion":"v1.0.0","bump":"minor"}`.
+     - STDIN: JSON payload `{"event":"on-release","version":"v1.2.0","rawVersion":"1.2.0","previousVersion":"v1.0.0","bump":"minor"}`.
    - The hook edits project-specific version files (e.g. `package.json`, `pyproject.toml`, `aapp:AAPP_VERSION`).
    - If hook fails (exit non-zero), release aborts cleanly before any Git commits or tags.
 4. **Changelog Rollup**:
@@ -129,7 +129,7 @@ Update `resolve_plan_path` in `lib/plan_resolver.sh`:
 - Scope `done` searches both `.plans/done/` and `.plans/release/*/plans/` recursively.
 - `list_available_plans` and direct lookup use `find "$DIR" -name "*.md" ! -name "000-*"` instead of `-maxdepth 1`.
 
-### 2.5 Reference Hook Sample (`examples/hooks/on-release-version.sh.sample`)
+### 2.5 Reference Hook Sample (`examples/hooks/on-release.sh.sample`)
 
 Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
 - Node.js: `npm version --no-git-tag-version "$AAPP_RAW_VERSION"`
@@ -154,13 +154,13 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
   - Argument parsing for explicit versions (`v1.2.0`) and SemVer tokens (`patch`, `minor`, `major`).
   - `--dry-run` simulation mode.
   - Pre-flight test runner gate (`./aapp test strict quiet`).
-  - `on-release-version` hook dispatch with Dual Delivery payload.
+  - `on-release` hook dispatch with Dual Delivery payload.
   - Milestone bundle generation under `.plans/release/<tag>/`.
   - Master ledger rollup in `000-archive-ledger.md` and archive truncation in `000-issues-archive.md`.
   - `CHANGELOG.md` rollup and git parity merge (`develop` ➔ `main`) with annotated tag.
   - `post-release` hook notification trigger.
 - [ ] Task 2.2: Register `release` in `lib/verbs.tsv` and wire into `aapp` dispatcher.
-- [ ] Task 2.3: Author `examples/hooks/on-release-version.sh.sample` in `examples/hooks/`.
+- [ ] Task 2.3: Author `examples/hooks/on-release.sh.sample` in `examples/hooks/`.
 
 ### Phase 3: Initial v1.0.0 Baseline Migration
 - [ ] Task 3.1: Execute baseline bundle for existing shipped plans (P-9 through P-36) into `.plans/release/v1.0.0/plans/`.
@@ -170,7 +170,7 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
 ### Phase 4: Test Suite & Documentation Sync
 - [ ] Task 4.1: Author `tests/release_test.sh` covering:
   - Explicit version parameter vs SemVer bump calculation.
-  - `on-release-version` hook execution and abort-on-failure.
+  - `on-release` hook execution and abort-on-failure.
   - Bundle creation and master ledger truncation.
   - `--dry-run` execution with zero disk/git mutations.
 - [ ] Task 4.2: Update `templates/skills/aapp-release/SKILL.md` to delegate directly to `aapp release`.
@@ -188,11 +188,11 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
 - [ ] `lib/verbs.tsv` -> Register release verb
 - [ ] `aapp` -> Route release command in dispatcher
 - [ ] `templates/skills/aapp-release/SKILL.md` -> Update release skill to invoke CLI
-- [ ] `NEW FILE` -> `examples/hooks/on-release-version.sh.sample` -> Reference sample for project version bumping
+- [ ] `NEW FILE` -> `examples/hooks/on-release.sh.sample` -> Reference sample for project version bumping
 - [ ] `NEW FILE` -> `tests/release_test.sh` -> Regression test suite for release lifecycle
 - [ ] `tests/plan_resolver_test.sh` -> Add nested release plan resolution tests
 - [ ] `README.md` -> Document aapp release workflow
-- [ ] `MANUAL.md` -> Document milestone bundling, tag ledgers, and on-release-version hook
+- [ ] `MANUAL.md` -> Document milestone bundling, tag ledgers, and on-release hook
 - [ ] `CHEATSHEET.md` -> Add aapp release to command table
 - [ ] `ARCHITECTURE.md` -> Document milestone release bundling invariant
 - [ ] `.agents/ARCHITECTURE.md` -> Record release bundling in agent architecture
@@ -210,7 +210,7 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
 * [x] **Question 1: Should master ledger link directly to the tag ledger?**  
   *Decision:* **Yes.** The master archive ledger maintains a 1-line summary row for each release tag that links directly to `.plans/release/<tag>/000-archive-ledger.md`, enabling quick scanning and deep-drill capability.
 * [x] **Question 2: How should project files be updated with the new version?**  
-  *Decision:* **Hook delegation via `on-release-version`.** Core AAPP is language-agnostic. It dispatches the target version payload to a project hook, which modifies `package.json`, `pyproject.toml`, or other project-specific files.
+  *Decision:* **Hook delegation via `on-release`.** Core AAPP is language-agnostic. It dispatches the target version payload to a project hook, which modifies `package.json`, `pyproject.toml`, or other project-specific files.
 * [x] **Question 3: How should the CLI accept the version?**  
   *Decision:* **Parameter required (`aapp release <version-or-bump>`).** Accepts explicit version string (`v1.2.0`, `2026.09.1`) or SemVer bump token (`patch`, `minor`, `major`). Fails fast if omitted.
 * [x] **Question 4: What if no plans/issues exist to archive, or external hooks manage them?**  
@@ -220,5 +220,5 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
 
 ## 📦 6. Change Log & Refinement History
 * **2026-09-27:** Added `--no-archive` flag and zero-item resilience for out-of-repo plan workflows and empty-archive releases.
-* **2026-09-27:** Refined blueprint to include mandatory CLI version/bump parameter, hook-delegated version updates (`on-release-version`), and `--dry-run` simulation preview.
+* **2026-09-27:** Refined blueprint to include mandatory CLI version/bump parameter, hook-delegated version updates (`on-release`), and `--dry-run` simulation preview.
 * **2026-09-27:** Initial blueprint drafted from developer directive on milestone release bundling, archive truncation, and tag ledgers.
