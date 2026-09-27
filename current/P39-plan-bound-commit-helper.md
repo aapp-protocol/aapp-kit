@@ -140,8 +140,12 @@ Two hazards follow from the shared index, and the helper must handle both:
   otherwise exit 1 naming it (amended or rebased away). Squash merges: §5 Q2.
 - **Ledger**: the Verification Commit column takes the last recorded SHA; the plan header keeps the
   full list.
-- **Lifecycle payload**: the `on-done` event gains `"commits": [...]`, so a review hook — or a human —
-  checks exactly what `done` will archive.
+- **`pre-done` is dispatched** before anything moves, with `{"plan_id", "plan_file", "commits": [...]}`.
+  A non-zero exit vetoes: `done` exits 1 and the plan, ledger and matrix are unchanged. The event is
+  catalogued today but never fired; P-39 fires it so a review hook — or a human — checks exactly what
+  `done` will archive, and can stop it. P-23 may refine pre-hook timing (watchdog, sequencing) later
+  without changing this contract.
+- **`on-done`** keeps firing after the archive and also gains `"commits": [...]`.
 
 ### 2.8 Discipline, Not Enforcement
 - `templates/plan-template.md` gains an execution invariant: *commit implementation through
@@ -167,6 +171,7 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] `tests/verbs/done.sh::test_ledger_uses_recorded_commit` -> an unrelated later commit is not recorded; the ledger takes the last recorded SHA
 - [ ] `tests/verbs/done.sh::test_refuses_empty_commit_list` -> no recorded commits: exit 1, candidates and the repair command printed, nothing moves
 - [ ] `tests/verbs/done.sh::test_refuses_unreachable_commit` -> a recorded SHA amended away: exit 1 naming it
+- [ ] `tests/verbs/done.sh::test_pre_done_veto_blocks_archive` -> a `pre-done` handler exiting non-zero: `done` exits 1, nothing moves; the payload carries the recorded commits
 
 ### Phase 1: Contract & Red Tests
 - [ ] Task 1.1: Author `lib/docs/verbs/commit.md` (P-34 shape) and update `lib/docs/verbs/done.md` (recorded commits replace `HEAD`); add the `commit` row to `lib/verbs.tsv`.
@@ -179,7 +184,7 @@ Two hazards follow from the shared index, and the helper must handle both:
 ### Phase 3: Verb & `done`
 - [ ] Task 3.1: `lib/cmd_commit.sh`: resolution (§2.2), attribution (§2.3), recording and pathspec plan commit (§2.4), `amend` (§2.5), loud partial failure, lock handling (§2.6).
 - [ ] Task 3.2: Dispatcher case in `aapp`.
-- [ ] Task 3.3: `cmd_done` reads the record (§2.7); `on-done` payload gains `commits`.
+- [ ] Task 3.3: `cmd_done` reads the record (§2.7), dispatches `pre-done` before any mutation (non-zero vetoes), and `on-done` gains `commits`.
 - [ ] Task 3.4: Resolved §5 answers (recovery, nudge, squash, detached, identity).
 - [ ] Task 3.5: Required Tests Green 🟢: `aapp test verb commit`, `aapp test verb done`, `aapp test aapp_lib`.
 
@@ -241,4 +246,5 @@ Two hazards follow from the shared index, and the helper must handle both:
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-27:** User decision (RFC C1/C14): `done` fires `pre-done` with the recorded commits before any mutation; a non-zero exit vetoes. Declared `test_pre_done_veto_blocks_archive`.
 * **2026-09-27:** Drafted from a design discussion on `done` recording the newest commit. Settled with the user: a CLI helper used by discipline, taught through a plan-template invariant rather than a skill; attribution completed by the helper; `amend` as a bare token; a header list tolerant of one or many commits (one per plan is the user's preference, not a rule); the plan committed right after each code commit so hooks can read it; `done` refuses an empty list. Branch recorded beside each SHA (work may live on other branches or worktrees). Concurrency verified against a linked worktree: per-worktree buffers, one shared `.plans` index — hence pathspec-limited plan commits and loud lock failures.
