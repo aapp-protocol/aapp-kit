@@ -661,6 +661,36 @@ else
 fi
 report "aapp develop links live clone globally without copying or consuming" "PASS" "$got" "$out_dev"
 
+# P-34: develop-only pre-commit engine — absent after init, seeded by develop,
+# idempotent on re-run, removed by uninstall inside the repository
+DEV_HOME_34B="$R/t34b_home"; mkdir -p "$DEV_HOME_34B"
+DEV_KIT_34B="$R/t34b_dev_kit"; make_kit_clone "$DEV_KIT_34B"
+(cd "$DEV_KIT_34B" && aapp init >/dev/null 2>&1)
+absent_after_init=0
+[ -d "$DEV_KIT_34B/.githooks" ] && [ ! -e "$DEV_KIT_34B/.githooks/aapp-pre-commit-develop" ] && absent_after_init=1
+(cd "$DEV_KIT_34B" && PATH="/usr/bin:/bin" HOME="$DEV_HOME_34B" XDG_DATA_HOME="$DEV_HOME_34B/.local/share" ./aapp develop >/dev/null 2>&1)
+seeded=0
+[ -x "$DEV_KIT_34B/.githooks/aapp-pre-commit-develop" ] && \
+  [ "$(grep -c '^# >>> aapp-pre-commit-develop (P-34) >>>$' "$DEV_KIT_34B/.githooks/pre-commit")" -eq 1 ] && seeded=1
+sum_first="$(cksum < "$DEV_KIT_34B/.githooks/pre-commit")"
+(cd "$DEV_KIT_34B" && PATH="/usr/bin:/bin" HOME="$DEV_HOME_34B" XDG_DATA_HOME="$DEV_HOME_34B/.local/share" ./aapp develop >/dev/null 2>&1)
+sum_second="$(cksum < "$DEV_KIT_34B/.githooks/pre-commit")"
+if [ "$absent_after_init" -eq 1 ] && [ "$seeded" -eq 1 ] && [ "$sum_first" = "$sum_second" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_develop_hook_seeding" "PASS" "$got" "absent_after_init=$absent_after_init seeded=$seeded"
+
+(cd "$DEV_KIT_34B" && PATH="/usr/bin:/bin" HOME="$DEV_HOME_34B" XDG_DATA_HOME="$DEV_HOME_34B/.local/share" ./aapp uninstall >/dev/null 2>&1)
+if [ ! -e "$DEV_KIT_34B/.githooks/aapp-pre-commit-develop" ] && \
+   ! grep -q "aapp-pre-commit-develop" "$DEV_KIT_34B/.githooks/pre-commit"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "uninstall removes the develop-only engine and its wrapper block" "PASS" "$got"
+
 # Test 35: aapp install after aapp develop safely unlinks symlink and preserves source files
 DEV_HOME_35="$R/t35_home"; mkdir -p "$DEV_HOME_35"
 DEV_KIT_35="$R/t35_dev_kit"; make_kit_clone "$DEV_KIT_35"
@@ -692,8 +722,10 @@ DEV_KIT_36="$R/t36_dev_kit"; make_kit_clone "$DEV_KIT_36"
   PATH="/usr/bin:/bin" HOME="$DEV_HOME_36" XDG_DATA_HOME="$DEV_HOME_36/.local/share" ./aapp develop >/dev/null 2>&1
 )
 rm -rf "$DEV_KIT_36"
+# Run outside any repository: uninstall also cleans the develop-only hook of
+# the repository it is invoked in, which must never be the kit under test.
 out_uninst_broken=$(
-  PATH="/usr/bin:/bin" HOME="$DEV_HOME_36" XDG_DATA_HOME="$DEV_HOME_36/.local/share" "$KIT/aapp" uninstall 2>&1
+  cd "$R" && PATH="/usr/bin:/bin" HOME="$DEV_HOME_36" XDG_DATA_HOME="$DEV_HOME_36/.local/share" "$KIT/aapp" uninstall 2>&1
 )
 bin_remains=0
 [ -e "$DEV_HOME_36/.local/bin/aapp" ] || [ -L "$DEV_HOME_36/.local/bin/aapp" ] && bin_remains=1
@@ -983,6 +1015,15 @@ else
   got="FAIL"
 fi
 report "tiered help: aapp help groups verbs into 5 canonical visual tiers" "PASS" "$got"
+
+# P-34: the fifth verbs.tsv column (contract path) never leaks into aapp help
+if [ -n "$help_out" ] && ! echo "$help_out" | grep -q "lib/docs/verbs/" && \
+   echo "$help_out" | grep -qE "^  draft +Scaffold blueprint from template, stamp ID & date, register in matrix$"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_help_ignores_contract_column" "PASS" "$got"
 
 # Test 57: aapp hooks --events prints lifecycle event catalog
 events_out="$("$KIT/aapp" hooks --events 2>&1)"

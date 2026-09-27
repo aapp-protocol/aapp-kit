@@ -8,6 +8,7 @@
 #
 # Usage:
 #   aapp test [modifier] [suite-name...]
+#   aapp test [modifier] verb [verb-name...]
 #
 # Modifiers:
 #   list    List available test suites without running them
@@ -15,12 +16,14 @@
 #   quiet   Quiet output: suppress assertion stream, report suite-level status
 #   bail    Abort execution immediately upon the first failing suite
 #   help    Display usage reference
+#   verb    Select contract-derived verb suites in tests/verbs/ (P-34)
 # ==============================================================================
 set -e
 
 cmd_test_help() {
     cat <<'EOF'
 Usage: aapp test [modifier] [suite-name...]
+       aapp test [modifier] verb [verb-name...]
 
 Run automated test suites across kit components with consolidated aggregation.
 
@@ -31,10 +34,13 @@ Modifiers (bare-word tokens; zero double-dash flags):
   quiet              Quiet output: suppress assertion stream, report suite status only
   bail               Abort execution immediately upon first failing suite
   help               Display this help text
+  verb [name...]     Run contract-derived verb suites (tests/verbs/<name>.sh);
+                     all of them when no name is given
 
 Arguments:
   [suite-name...]    Specific test suite name or prefix to run (e.g. 'hooks', 'guard')
-                     If omitted, all discovered 'tests/*_test.sh' suites are executed.
+                     If omitted, every 'tests/*_test.sh' suite and every
+                     'tests/verbs/*.sh' verb suite is executed.
 
 Examples:
   aapp test                  Run all test suites
@@ -42,6 +48,8 @@ Examples:
   aapp test strict           Run all suites with strict sandbox verification
   aapp test strict hooks     Run hooks suite with strict sandbox verification
   aapp test list             List all available test suites
+  aapp test verb draft       Run only tests/verbs/draft.sh
+  aapp test verb             Run every verb suite
   aapp test quiet            Run all suites with compact progress
   aapp test bail             Run suites and stop on the first failure
 EOF
@@ -152,6 +160,8 @@ cmd_test() {
     local bail=0
     local quiet=0
     local suite_filters=()
+    local verb_mode=0
+    local verb_names=()
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -159,12 +169,17 @@ cmd_test() {
             strict) strict=1 ;;
             bail)   bail=1 ;;
             quiet)  quiet=1 ;;
+            verb)   verb_mode=1 ;;
             help)
                 cmd_test_help
                 return 0
                 ;;
             *)
-                suite_filters+=("$1")
+                if [ "$verb_mode" -eq 1 ]; then
+                    verb_names+=("$1")
+                else
+                    suite_filters+=("$1")
+                fi
                 ;;
         esac
         shift
@@ -175,21 +190,51 @@ cmd_test() {
         export AAPP_TEST_SANDBOX_STRICT=1
     fi
 
-    # 3. Discover test suites
+    # 3. Discover test suites: flat suites, then contract-derived verb suites
+    #    (P-34 §2.4). Two passes keep each set addressable on its own.
     local all_suites=()
     while IFS= read -r f; do
         [ -n "$f" ] && all_suites+=("$f")
     done < <(find "$test_dir" -maxdepth 1 -name '*_test.sh' | sort)
 
-    if [ ${#all_suites[@]} -eq 0 ]; then
+    local verb_suites=()
+    if [ -d "$test_dir/verbs" ]; then
+        while IFS= read -r f; do
+            [ -n "$f" ] && verb_suites+=("$f")
+        done < <(find "$test_dir/verbs" -maxdepth 1 -name '*.sh' | sort)
+    fi
+
+    if [ ${#all_suites[@]} -eq 0 ] && [ ${#verb_suites[@]} -eq 0 ]; then
         echo "ℹ️  No test suites found in '$test_dir'."
         return 0
     fi
 
-    # Filter suites if arguments provided
+    # Select suites
     local selected_suites=()
-    if [ ${#suite_filters[@]} -eq 0 ]; then
-        selected_suites=("${all_suites[@]}")
+    if [ "$verb_mode" -eq 1 ]; then
+        if [ ${#suite_filters[@]} -gt 0 ]; then
+            echo "❌ [Test Runner] 'verb' selects verb suites only; flat suite names cannot follow it." >&2
+            return 1
+        fi
+        if [ ${#verb_names[@]} -eq 0 ]; then
+            selected_suites=("${verb_suites[@]}")
+        else
+            local vn
+            for vn in "${verb_names[@]}"; do
+                if [ ! -f "$test_dir/verbs/$vn.sh" ]; then
+                    echo "❌ [Test Runner] No verb suite 'tests/verbs/$vn.sh'." >&2
+                    echo "   Run 'aapp test list' to view available suites." >&2
+                    return 1
+                fi
+                selected_suites+=("$test_dir/verbs/$vn.sh")
+            done
+        fi
+        if [ ${#selected_suites[@]} -eq 0 ]; then
+            echo "❌ [Test Runner] No verb suites found in '$test_dir/verbs'." >&2
+            return 1
+        fi
+    elif [ ${#suite_filters[@]} -eq 0 ]; then
+        selected_suites=("${all_suites[@]}" "${verb_suites[@]}")
     else
         for suite in "${all_suites[@]}"; do
             local bname="${suite##*/}"
@@ -215,6 +260,14 @@ cmd_test() {
         return 1
     fi
 
+    # Verb suites are labelled verb/<name> so the two sets stay distinguishable.
+    suite_label() {
+        case "$1" in
+            "$test_dir"/verbs/*) local v="${1##*/}"; echo "verb/${v%.sh}" ;;
+            *) echo "${1##*/}" ;;
+        esac
+    }
+
     # 4. Handle list mode
     if [ "$mode" = "list" ]; then
         echo "============================================================"
@@ -222,7 +275,8 @@ cmd_test() {
         echo "  📍 Directory: $test_dir"
         echo "============================================================"
         for suite in "${selected_suites[@]}"; do
-            local bname="${suite##*/}"
+            local bname
+            bname="$(suite_label "$suite")"
             local desc=""
             # Extract first comment line after shebang if present
             desc="$(grep -m 1 -E '^#[[:space:]]*Tests:|^#[[:space:]]*Automated' "$suite" 2>/dev/null | sed -E 's/^#[[:space:]]*//' || true)"
@@ -235,6 +289,7 @@ cmd_test() {
         echo ""
         echo "👉 Run all:              aapp test"
         echo "👉 Run specific suite:   aapp test <name>"
+        echo "👉 Run one verb suite:   aapp test verb <verb>"
         return 0
     fi
 
@@ -260,7 +315,8 @@ cmd_test() {
     local summary_rows=()
 
     for suite in "${selected_suites[@]}"; do
-        local bname="${suite##*/}"
+        local bname
+        bname="$(suite_label "$suite")"
         local suite_start
         suite_start="$(date +%s)"
         local suite_out

@@ -35,7 +35,9 @@ print_tier() {
     if [ -n "$VERBS_TSV" ] && [ -f "$VERBS_TSV" ]; then
         local TAB
         TAB="$(printf '\t')"
-        while IFS="$TAB" read -r verb tier standalone desc || [ -n "$verb" ]; do
+        # `read` assigns leftover fields to its last variable: name the fifth
+        # (contract) column and a catch-all so neither leaks into the description.
+        while IFS="$TAB" read -r verb tier standalone desc contract rest || [ -n "$verb" ]; do
             [ -z "$verb" ] && continue
             [ "${verb#\#}" != "$verb" ] && continue
             if [ "$tier" = "$target_tier" ]; then

@@ -311,10 +311,34 @@ cmd_draft() {
     today="$(date +%Y-%m-%d)"
     [ -z "$title" ] && title="$(echo "$slug" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')"
 
-    cp "$template_file" "$target_file"
-    sed -i -E "s/Plan P-XX: \\[Feature or Refactor Name\\]/Plan P-${num}: ${title}/" "$target_file"
-    sed -i -E "s/\\[YYYY-MM-DD\\]/${today}/g" "$target_file"
-    sed -i -E "s/P-XX/P-${num}/g" "$target_file"
+    # Placeholder substitution (P-34 D1). The title is free text, so it never
+    # passes through a pattern language: sed treats `/`, `&` and `\` in it as
+    # syntax, `awk -v` expands its backslash escapes, and gsub's replacement
+    # expands `&`. It travels via ENVIRON and is spliced with index/substr. The
+    # title goes in last, so a title containing `P-XX` is not rewritten.
+    local tmp_file="$target_file.aapp-draft.$$"
+    if ! AAPP_DRAFT_NUM="$num" AAPP_DRAFT_TODAY="$today" AAPP_DRAFT_TITLE="$title" awk '
+        function replace_all(s, pat, rep,    out, i) {
+            out = ""
+            while ((i = index(s, pat)) > 0) {
+                out = out substr(s, 1, i - 1) rep
+                s = substr(s, i + length(pat))
+            }
+            return out s
+        }
+        {
+            line = replace_all($0, "[YYYY-MM-DD]", ENVIRON["AAPP_DRAFT_TODAY"])
+            line = replace_all(line, "P-XX", "P-" ENVIRON["AAPP_DRAFT_NUM"])
+            line = replace_all(line, "Plan P-" ENVIRON["AAPP_DRAFT_NUM"] ": [Feature or Refactor Name]", \
+                               "Plan P-" ENVIRON["AAPP_DRAFT_NUM"] ": " ENVIRON["AAPP_DRAFT_TITLE"])
+            print line
+        }
+    ' "$template_file" > "$tmp_file"; then
+        rm -f "$tmp_file"
+        echo "❌ [Draft Refusal] Failed to render the plan template." >&2
+        return 1
+    fi
+    mv "$tmp_file" "$target_file"
 
     # State matrix registration: derived from the new plan's Status line.
     local sm_file="$PLANS_DIR/state_matrix.md"
@@ -591,10 +615,26 @@ cmd_done() {
     # Append to 000-archive-ledger.md
     local ledger_file="$PLANS_DIR/done/000-archive-ledger.md"
     if [ -f "$ledger_file" ]; then
-        local summary
-        summary="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*What:\*\*' "$done_file" | head -n 1 | sed -E 's/^[[:space:]]*\*[[:space:]]*\*\*What:\*\*[[:space:]]*//' || echo "Completed implementation")"
-        local ledger_line="| $today | \`$plan_id\` | [\`$bname\`]($bname) | None | \`$commit_sha\` | $summary |"
-        sed -i -E "/^\| :--- \| :--- \| :--- \|/a $ledger_line" "$ledger_file"
+        # Ledger fields come from what every plan carries (P-34 D2, #78): the
+        # Target Issue header (its untouched template placeholder reads as
+        # None) and the plan title as the Impact Summary. Pipes are escaped so
+        # the table stays well-formed.
+        local target_issue summary
+        target_issue="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*//p' "$done_file" | head -n 1)"
+        target_issue="${target_issue%% \*(*}"
+        case "$target_issue" in
+            ""|*"[Issue ID or Milestone]"*) target_issue="None" ;;
+        esac
+        summary="$(grep -m 1 -E '^# ' "$done_file" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*)?Plan[^:]*:[[:space:]]*//')"
+        [ -z "$summary" ] && summary="None"
+        target_issue="${target_issue//|/\\|}"
+        summary="${summary//|/\\|}"
+        local ledger_line="| $today | \`$plan_id\` | [\`$bname\`]($bname) | $target_issue | \`$commit_sha\` | $summary |"
+        local ledger_tmp="$ledger_file.aapp-done.$$"
+        AAPP_LEDGER_LINE="$ledger_line" awk '
+            { print }
+            !done && /^\| :--- \| :--- \| :--- \|/ { print ENVIRON["AAPP_LEDGER_LINE"]; done = 1 }
+        ' "$ledger_file" > "$ledger_tmp" && mv "$ledger_tmp" "$ledger_file"
     fi
 
     # Remove from state_matrix.md

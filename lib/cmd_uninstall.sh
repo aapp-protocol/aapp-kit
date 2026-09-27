@@ -26,6 +26,27 @@ if [ -e "$SHARE_DIR" ] || [ -L "$SHARE_DIR" ]; then
     REMOVED_ANY=1
 fi
 
+# Develop-only pre-commit engine (P-34). The uninstaller is global and keeps
+# no record of which repositories ran `aapp develop`, so it can only clean the
+# repository it is invoked in. Outside a repository there is nothing to clean.
+if UNINSTALL_COMMON="$(git rev-parse --git-common-dir 2>/dev/null)"; then
+    UNINSTALL_ROOT="$(cd "$UNINSTALL_COMMON/.." && pwd)"
+    DEV_HOOK="$UNINSTALL_ROOT/.githooks/aapp-pre-commit-develop"
+    WRAPPER="$UNINSTALL_ROOT/.githooks/pre-commit"
+    if [ -f "$DEV_HOOK" ]; then
+        rm -f "$DEV_HOOK"
+        echo "   • Removed $DEV_HOOK"
+        REMOVED_ANY=1
+    fi
+    if [ -f "$WRAPPER" ] && grep -qF "# >>> aapp-pre-commit-develop (P-34) >>>" "$WRAPPER"; then
+        sed '/^# >>> aapp-pre-commit-develop (P-34) >>>$/,/^# <<< aapp-pre-commit-develop (P-34) <<<$/d' "$WRAPPER" > "$WRAPPER.aapp-tmp"
+        cat "$WRAPPER.aapp-tmp" > "$WRAPPER"
+        rm -f "$WRAPPER.aapp-tmp"
+        echo "   • Removed develop-only block from $WRAPPER"
+        REMOVED_ANY=1
+    fi
+fi
+
 if [ "$REMOVED_ANY" -eq 1 ]; then
     echo "✨ Uninstallation complete."
     echo "ℹ️  Note: Any PATH export lines added to your shell rc file were left untouched."

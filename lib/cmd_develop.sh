@@ -88,6 +88,33 @@ else
     fi
 fi
 
+# Develop-only pre-commit engine (P-34): verb contract correspondence. Seeded
+# here, never by `aapp init`, so adopter repositories do not run a
+# kit-authoring check. Both steps are idempotent: the engine is overwritten,
+# and the wrapper block is appended only when its marker is absent.
+DEV_BLOCK_START="# >>> aapp-pre-commit-develop (P-34) >>>"
+KIT_ROOT="$(git -C "$AAPP_SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)" || KIT_ROOT=""
+if [ -n "$KIT_ROOT" ] && [ -d "$KIT_ROOT/.githooks" ]; then
+    cp "$AAPP_SCRIPT_DIR/templates/aapp-pre-commit-develop" "$KIT_ROOT/.githooks/aapp-pre-commit-develop"
+    chmod +x "$KIT_ROOT/.githooks/aapp-pre-commit-develop"
+    WRAPPER="$KIT_ROOT/.githooks/pre-commit"
+    if [ -f "$WRAPPER" ] && ! grep -qF "$DEV_BLOCK_START" "$WRAPPER"; then
+        {
+            echo ""
+            echo "$DEV_BLOCK_START"
+            echo "# Kit-authoring checks; the engine exists only where \`aapp develop\` seeded it."
+            echo 'AAPP_DEV_HOOK="$(cd "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/.." && pwd)/.githooks/aapp-pre-commit-develop"'
+            echo 'if [ -f "$AAPP_DEV_HOOK" ]; then'
+            echo '    bash "$AAPP_DEV_HOOK" || exit 1'
+            echo 'fi'
+            echo "# <<< aapp-pre-commit-develop (P-34) <<<"
+        } >> "$WRAPPER"
+    fi
+    echo "🧪 Develop-only hook seeded: .githooks/aapp-pre-commit-develop (verb contract correspondence)."
+else
+    echo "ℹ️  No .githooks/ in '$AAPP_SCRIPT_DIR': develop-only hook not seeded. Run 'aapp init' there, then 'aapp develop' again." >&2
+fi
+
 echo ""
 echo "✨ AAPP Development Environment Successfully Linked!"
 echo "➡️  Binary Symlink:  $BIN_DIR/aapp -> $AAPP_SCRIPT_DIR/aapp"

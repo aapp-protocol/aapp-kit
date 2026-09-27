@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Verb behaviour contracts `lib/docs/verbs/` for the 11 daily verbs, linked from `lib/verbs.tsv`; derived suites `tests/verbs/`, `aapp test verb [name]`, develop-only correspondence hook (`P-34`).
 - Runtime Reachability Gate & Inspection-Only Mode (`P-36`): Adds Section 0 to pre-commit hook (`templates/aapp-pre-commit`) verifying that `aapp` is reachable via `$PATH` or `$HOME/.local/bin/aapp`. Clones of AAPP-governed projects on machines without `aapp` installed enter a commit-blocking **Inspection-Only mode** to prevent un-guarded code and plan desynchronization. Only native `git commit --no-verify` bypasses pre-commit.
 - Test Runtime Confinement (`P-36`): Adds `confine_test_runtime` and `init_sandbox_project` to `tests/test_helpers.sh` dynamically filtering host `$PATH` (removing host `aapp` while preserving host developer toolchains like Homebrew, Nix, Linuxbrew), isolating sandbox `$HOME` and `$XDG_DATA_HOME`, and asserting fail-closed test runtime isolation.
 - Unified Test Runner CLI (`P-31`): Adds `aapp test` (`lib/cmd_test.sh`) to discover, execute, and aggregate test suites across `tests/*_test.sh` with subshell isolation, execution timing, and assertion metrics. Adheres to the Zero Double-Dash Flags Invariant with bare positional tokens (`list`, `strict`, `quiet`, `bail`). Normalizes suite test summaries via `print_test_summary()` in `tests/test_helpers.sh` and provides adopter-mode fallback with project test runner delegation or protocol environment health audit.
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status auto-sync (`P-30`): `aapp status` re-derives `state_matrix.md` before reading it, so the Roadmap line and Next Action footer report the real board instead of a stale cache. Silent when already in sync; while paused it still writes and notes that the commit waits for `aapp resume`.
 
 ### Fixed
+- `aapp draft`: titles with `/`, `&` or `\` no longer break scaffolding or leave an untracked half-written plan; `aapp done` ledger rows carry the Target Issue and a summary (`P-34`, #78).
 - Target Files parser no longer reads blockquotes, foreign subsections or fenced examples as write targets (`P-37`, #82).
 - Dispatcher Front-Door Exemption List (`P-36`): Removes `init` from front-door `REPO_ROOT` exemption in `aapp` (Rule 9), ensuring `init` fails fast when run outside an existing git repository.
 - Centralized Git Root Assertion & Fail-Fast Dispatch (`P-33`): `aapp` asserts repository membership once before dispatch and exports `REPO_ROOT`; operational verbs outside a repo exit 1 with a stderr diagnostic instead of treating `$PWD` as the root. Purges the silent `|| pwd` / `|| true` root fallbacks across `lib/`. Adds `ARCHITECTURE.md` rule 9.

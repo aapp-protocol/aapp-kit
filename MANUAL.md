@@ -736,9 +736,13 @@ aapp test strict hooks     # Run hooks suite under strict sandbox verification
 aapp test list             # List available test suites without running them
 aapp test quiet            # Quiet output: suppress assertion stream, report suite status only
 aapp test bail             # Abort execution immediately upon the first failing suite
+aapp test verb draft       # Run one contract-derived verb suite (tests/verbs/draft.sh)
+aapp test verb             # Run every verb suite
 ```
 
 **Zero Double-Dash Flags Invariant**: `aapp test` strictly eliminates GNU-style double-dash flags. Modifiers (`list`, `strict`, `quiet`, `bail`) are bare positional tokens.
+
+**Verb Suites (`verb`)**: Each daily verb has a behaviour contract at `lib/docs/verbs/<verb>.md` (linked from the fifth column of `lib/verbs.tsv`) and a test suite derived from it at `tests/verbs/<verb>.sh`. `aapp test verb <name>` runs one of them in seconds; `aapp test verb` runs all; a bare `aapp test` runs flat and verb suites together, and `aapp test list` shows both, verb suites as `verb/<name>`. The `verb` token is required: `matrix` names both a flat suite and a verb suite.
 
 **Adopter Mode Delegation & Audit Fallback**: In an adopter repository where kit test fixtures in `tests/` are absent:
 1. **Configured Command**: If `git config aapp.testCommand` is defined, `aapp test` executes that command.
