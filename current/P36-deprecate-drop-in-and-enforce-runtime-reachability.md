@@ -214,15 +214,15 @@ To eliminate dependency on uninstalled drop-in clones across test suites, preven
 - [x] Task 1.3: Add reachability check to `templates/aapp-pre-commit` and verify all Task 1.2 tests pass green.
 
 ### Phase 2: Dispatcher & Init Simplification
-- [ ] Task 2.1: In `aapp`:
+- [x] Task 2.1: In `aapp`:
   - Export `AAPP_RUNTIME="installed"` vs `AAPP_RUNTIME="local"` based on base resolution.
   - Remove `AAPP_IS_DROP_IN`.
   - Remove `init` from front-door `REPO_ROOT` exemption list (`aapp:120`).
-- [ ] Task 2.2: In `lib/cmd_init.sh`:
+- [x] Task 2.2: In `lib/cmd_init.sh`:
   - Remove Phase 7 ("Drop-in Folder Consumption").
   - Remove parent directory climbing (`PARENT_GIT_ROOT`, `IS_CWD_INSIDE_KIT`).
   - Add canonical physical path fast-fail check: `[ "$AAPP_RUNTIME" != "installed" ] && [ "$AAPP_BASE_PHYSICAL" != "$REPO_ROOT_PHYSICAL" ]`.
-- [ ] Task 2.3: In `lib/cmd_install.sh`:
+- [x] Task 2.3: In `lib/cmd_install.sh`:
   - Verify `is_safe_to_consume_kit_dir` remains intact and self-consumption of the installer clone is preserved.
 
 ### Phase 3: Test Suite Migration (F1', F1'', F14, F15)
