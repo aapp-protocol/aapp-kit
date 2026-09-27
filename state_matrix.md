@@ -21,6 +21,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 📝 **P-35**: [`P35-opt-in-failure-test-declaration.md`](current/P35-opt-in-failure-test-declaration.md) — Opt In Failure Test Declaration
 - 🟣 **P-38**: [`P38-milestone-release-bundling-and-tag-ledgers.md`](current/P38-milestone-release-bundling-and-tag-ledgers.md) — Milestone Release Bundling & Tag Ledgers
 - 🟣 **P-39**: [`P39-plan-bound-commit-helper.md`](current/P39-plan-bound-commit-helper.md) — Plan Bound Commit Helper
+- 🟣 **P-40**: [`P40-attribution-policy-tiers.md`](current/P40-attribution-policy-tiers.md) — Attribution Policy Tiers
 
 ---
 
