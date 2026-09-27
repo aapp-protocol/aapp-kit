@@ -111,6 +111,26 @@ design-locked (only §2 and §4 are), so this is allowed while `⚡ In Developme
 cannot be undone safely. The helper exits non-zero, prints the recorded line it could not commit and
 the one command that repairs it (§5 Q1), and never swallows the failure (#81 pattern).
 
+### 2.4b Base Recorded at `start`
+`start` and `freeze-start` record where the plan began, in the same form, on its own header line so
+`Commits` stays a pure list:
+
+```markdown
+* **Base:** `52c2c01` (develop)
+```
+
+- **Which branch:** the `HEAD` of the worktree running `start` — the same worktree whose active
+  buffer `start` binds and whose `aapp commit` records into the plan, so base and commits share one
+  origin.
+- **Work may move branches.** The base only marks where the plan started. Work done on `feat/x` or an
+  experiment branch cut from it still descends from the base; each commit records its own branch.
+- **Planning worktrees are refused.** `start` from `.plans/`, `.agents/` or `.githooks/` (orphan
+  branches) exits 1: *run `start` from a code worktree*. This also stops today's latent bind of the
+  active buffer into the plans worktree, where no code is committed.
+- **Re-running `start`** on a `⚡` plan keeps the first base; overwriting it would hide earlier work.
+- **Detached `HEAD`** records `(detached)`; a base is only a starting point, so no branch is needed.
+- The template carries `* **Base:** none` until `start` fills it.
+
 ### 2.5 Amend
 `aapp commit amend` runs `git commit --amend` (message optional) and, when the amended SHA was
 recorded, replaces it in the header and commits the plan. Amending a commit that is not recorded
@@ -134,8 +154,9 @@ Two hazards follow from the shared index, and the helper must handle both:
 
 ### 2.7 `done` Reads the Record
 `done` replaces `rev-parse HEAD` with the header:
-- **Empty list** → exit 1, listing candidate commits (code-branch commits since the plan's `start`
-  that touched its Target Files, via `parse_plan_target_paths`) and the command that records them.
+- **Empty list** → exit 1, listing candidate commits — `git log --branches ^<base> -- <targets>`,
+  every branch's commits after the recorded base that touched a Target File (`parse_plan_target_paths`)
+  — and the command that records them.
 - **Each SHA** must still be reachable from its recorded branch (`git merge-base --is-ancestor`);
   otherwise exit 1 naming it (amended or rebased away). Squash merges: §5 Q2.
 - **Ledger**: the Verification Commit column takes the last recorded SHA; the plan header keeps the
@@ -171,6 +192,10 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] `tests/verbs/done.sh::test_ledger_uses_recorded_commit` -> an unrelated later commit is not recorded; the ledger takes the last recorded SHA
 - [ ] `tests/verbs/done.sh::test_refuses_empty_commit_list` -> no recorded commits: exit 1, candidates and the repair command printed, nothing moves
 - [ ] `tests/verbs/done.sh::test_refuses_unreachable_commit` -> a recorded SHA amended away: exit 1 naming it
+- [ ] `tests/verbs/start.sh::test_records_base_sha_and_branch` -> `start` fills `* **Base:**` with the worktree's `HEAD` and branch
+- [ ] `tests/verbs/start.sh::test_refuses_from_planning_worktree` -> `start` run inside `.plans/`: exit 1, no buffer bound, plan unchanged
+- [ ] `tests/verbs/start.sh::test_restart_keeps_first_base` -> re-running `start` on a `⚡` plan leaves `Base` unchanged
+- [ ] `tests/verbs/freeze-start.sh::test_records_base_sha_and_branch` -> `freeze-start` fills `Base` the same way
 - [ ] `tests/verbs/done.sh::test_pre_done_veto_blocks_archive` -> a `pre-done` handler exiting non-zero: `done` exits 1, nothing moves; the payload carries the recorded commits
 
 ### Phase 1: Contract & Red Tests
@@ -179,11 +204,12 @@ Two hazards follow from the shared index, and the helper must handle both:
 
 ### Phase 2: Library & Template
 - [ ] Task 2.1: `parse_plan_commits` and the header-line writer in `lib/aapp-lib.sh`.
-- [ ] Task 2.2: `* **Commits:** none` header line and the execution invariant in `templates/plan-template.md`.
+- [ ] Task 2.2: `* **Base:** none` and `* **Commits:** none` header lines and the execution invariant in `templates/plan-template.md`.
 
 ### Phase 3: Verb & `done`
 - [ ] Task 3.1: `lib/cmd_commit.sh`: resolution (§2.2), attribution (§2.3), recording and pathspec plan commit (§2.4), `amend` (§2.5), loud partial failure, lock handling (§2.6).
 - [ ] Task 3.2: Dispatcher case in `aapp`.
+- [ ] Task 3.2b: `cmd_start` / `cmd_freeze_start` record the base (§2.4b), refuse planning worktrees, keep the first base on re-run.
 - [ ] Task 3.3: `cmd_done` reads the record (§2.7), dispatches `pre-done` before any mutation (non-zero vetoes), and `on-done` gains `commits`.
 - [ ] Task 3.4: Resolved §5 answers (recovery, nudge, squash, detached, identity).
 - [ ] Task 3.5: Required Tests Green 🟢: `aapp test verb commit`, `aapp test verb done`, `aapp test aapp_lib`.
@@ -206,8 +232,10 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] `aapp` -> Dispatcher case for commit
 - [ ] `lib/verbs.tsv` -> Daily row with contract path
 - [ ] `lib/aapp-lib.sh` -> Commits header parser and writer
-- [ ] `lib/cmd_plan.sh` -> done reads the recorded commits
+- [ ] `lib/cmd_plan.sh` -> done reads the recorded commits; start and freeze-start record the base
 - [ ] `lib/docs/verbs/done.md` -> Recorded commits replace HEAD
+- [ ] `lib/docs/verbs/start.md` -> Base recording and planning-worktree refusal
+- [ ] `lib/docs/verbs/freeze-start.md` -> Base recording
 - [ ] `templates/plan-template.md` -> Commits header line and execution invariant
 - [ ] `templates/aapp-pre-commit` -> Non-blocking reminder, only if §5 Q1 adopts it
 - [ ] `tests/pre-commit_test.sh` -> Reminder test, only if §5 Q1 adopts it
@@ -221,6 +249,8 @@ Two hazards follow from the shared index, and the helper must handle both:
 > Test files that prove this plan's failure cases. Frozen with the blast radius; per-test identifiers are tracked in §3.
 - `NEW FILE` -> `tests/verbs/commit.sh`
 - `tests/verbs/done.sh`
+- `tests/verbs/start.sh`
+- `tests/verbs/freeze-start.sh`
 - `tests/aapp_lib_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -246,5 +276,6 @@ Two hazards follow from the shared index, and the helper must handle both:
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-27:** User decision (RFC C15): `start`/`freeze-start` record `* **Base:**` from the worktree running them; planning worktrees refused; first base kept on re-run; detached recorded as such. `done`'s candidate search uses it. Added `start`/`freeze-start` contracts and suites to the blast radius.
 * **2026-09-27:** User decision (RFC C1/C14): `done` fires `pre-done` with the recorded commits before any mutation; a non-zero exit vetoes. Declared `test_pre_done_veto_blocks_archive`.
 * **2026-09-27:** Drafted from a design discussion on `done` recording the newest commit. Settled with the user: a CLI helper used by discipline, taught through a plan-template invariant rather than a skill; attribution completed by the helper; `amend` as a bare token; a header list tolerant of one or many commits (one per plan is the user's preference, not a rule); the plan committed right after each code commit so hooks can read it; `done` refuses an empty list. Branch recorded beside each SHA (work may live on other branches or worktrees). Concurrency verified against a linked worktree: per-worktree buffers, one shared `.plans` index — hence pathspec-limited plan commits and loud lock failures.
