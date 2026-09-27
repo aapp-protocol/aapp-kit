@@ -34,7 +34,7 @@
 - [ ] #67 -> AI credits generator relies on commit trailers and cannot mechanically extract agents that contributed review without committing (awaiting adversarial-review plugin).
 - [ ] #73 -> 🔵 Planned under P-25 (Delimited Template Sync & Tiered Document Governance). Stale templates persist in worktrees; `copy_guarded` never refreshes guarded destinations.
 - [ ] #79 -> 🔵 Planned under P-32 (Issue ID Allocation & Duplicate Detection Engine). Issue IDs lack monotonic allocator and duplicate checks.
-- [ ] #81 -> 🔵 Planned under P-40 + P-39; closes when both are done. Attribution enforcement rejects human and lifecycle commits; `|| true` hides it.
+- [ ] #81 -> Worktree hook symlink makes attribution enforcement reject mechanical lifecycle commits; `|| true` hides it, so freeze/start/done report success without committing.
 - [ ] #84 -> Write-guard refuses `.plans/*` writes when cwd is inside the `.plans` worktree.
 - [ ] #85 -> Status-line regex duplicated across 22 call sites with divergent legacy alias handling.
 - [ ] #86 -> Pair 5 keeps a fifth Target Files parser outside the P-37 library.
