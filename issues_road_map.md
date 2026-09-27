@@ -39,4 +39,6 @@
 - [ ] #82 -> 🔵 Planned under P-37 (Shared Hook Library). Target Files parser parses blockquote prose and absorbs foreign subsections as write targets.
 - [ ] #84 -> Write-guard refuses `.plans/*` writes when cwd is inside the `.plans` worktree.
 - [ ] #85 -> Status-line regex duplicated across 22 call sites with divergent legacy alias handling.
+- [ ] #86 -> Pair 5 keeps a fifth Target Files parser outside the P-37 library.
+- [ ] #87 -> Emergency Hotfix Extensions live in design-locked §4, so they are refused once a plan is Frozen.
 
