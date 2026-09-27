@@ -22,6 +22,17 @@
 #    - Ensures blueprints actively ⚡ In Development share zero overlapping Target Files.
 # ==============================================================================
 
+# Shared plan parsing (P-37). Resolved relative to this file: callers such as
+# cmd_status.sh, cmd_pause.sh, cmd_test.sh and the test harnesses source this
+# module without the dispatcher's $AAPP_LIB.
+AAPP_LIB_FILE="$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh"
+# shellcheck source=lib/aapp-lib.sh
+if ! . "$AAPP_LIB_FILE" 2>/dev/null || ! declare -f aapp_lib_loaded >/dev/null; then
+    echo "❌ [AAPP] Shared library missing or unreadable: $AAPP_LIB_FILE" >&2
+    echo "   Reinstall the kit: ./aapp-kit/aapp install" >&2
+    exit 1
+fi
+
 normalize_issue_id() {
     local raw="$1"
     # Strip backticks, spaces, #, ISSUE-, and leading zeros
@@ -573,25 +584,6 @@ check_pair7_inflight_boundary_collision() {
     # If fewer than 2 plans are in development, no collision is possible
     [ ${#dev_plans[@]} -lt 2 ] && return 0
 
-    get_plan_targets() {
-        local file="$1"
-        awk '
-            /^### 📂 Target Files/ { flag=1; next }
-            (/^### 🛑 Out of Bounds/ || /^## /) && flag { flag=0 }
-            flag {
-                line = $0
-                sub(/^[[:space:]]*-[[:space:]]*\[[ xX]\][[:space:]]*/, "", line)
-                sub(/^[[:space:]]*(`?(NEW FILE|MODIFY|DELETE|ADD|REPLACE)`?)?[[:space:]]*->[[:space:]]*/, "", line)
-                if (match(line, /`[^`]+`/)) {
-                    item = substr(line, RSTART+1, RLENGTH-2)
-                    if (item !~ /^(NEW FILE|MODIFY|DELETE|ADD|REPLACE)$/) {
-                        print item
-                    }
-                }
-            }
-        ' "$file"
-    }
-
     local i j
     for ((i=0; i<${#dev_plans[@]}; i++)); do
         local plan_a="${dev_plans[i]}"
@@ -602,7 +594,7 @@ check_pair7_inflight_boundary_collision() {
         local targets_a=()
         while IFS= read -r t; do
             [ -n "$t" ] && targets_a+=("$t")
-        done < <(get_plan_targets "$plan_a")
+        done < <(parse_plan_target_paths "$plan_a")
 
         for ((j=i+1; j<${#dev_plans[@]}; j++)); do
             local plan_b="${dev_plans[j]}"
@@ -613,7 +605,7 @@ check_pair7_inflight_boundary_collision() {
             local targets_b=()
             while IFS= read -r t; do
                 [ -n "$t" ] && targets_b+=("$t")
-            done < <(get_plan_targets "$plan_b")
+            done < <(parse_plan_target_paths "$plan_b")
 
             for ta in "${targets_a[@]}"; do
                 for tb in "${targets_b[@]}"; do

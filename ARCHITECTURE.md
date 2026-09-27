@@ -26,6 +26,7 @@
 ```text
 ├── aapp                   # Primary executable & CLI dispatcher
 ├── lib/                   # Operational command libraries & lifecycle modules
+│   ├── aapp-lib.sh        # Shared pure-function library: plan parsing, globs, aapp_os (P-37)
 │   ├── verbs.tsv          # Canonical zero-dependency CLI manifest (32 verbs across 5 tiers)
 │   ├── cmd_help.sh        # Tiered help generator parsing verbs.tsv
 │   ├── cmd_init.sh        # Target resolution, orphan worktrees, rules & skills sync
@@ -46,6 +47,7 @@
 ├── templates/             # Version-controlled hook engines and starter blueprints
 │   ├── blast-radius-guard.sh # Layer 1 PreToolUse write-guard engine
 │   ├── aapp-pre-commit    # Layer 2 Authoritative pre-commit engine
+│   ├── aapp-lib.sh        # Symlink -> ../lib/aapp-lib.sh; init installs a real copy into .githooks/
 │   ├── aapp-commit-msg    # Commit-msg conciseness & trailer validator
 │   ├── aapp-post-commit   # Post-commit Option C staged note attacher
 │   ├── plan-template.md   # ADR-style blueprint template
@@ -103,6 +105,7 @@
 8. **Linked Worktree Hook Defense-in-Depth:** Worktrees mount `.githooks` symlinks (`.plans/.githooks -> ../.githooks`) and dispatchers resolve the primary project root via `--git-common-dir`, ensuring attribution checks, conciseness invariants, and commit policies protect commits in all worktrees. Symlinks are explicitly ignored in `.plans/.gitignore` and `.agents/.gitignore` to prevent orphan branch pollution.
 9. **Front-Door Repository Assertion & Fail-Closed Roots:** The `aapp` dispatcher asserts Git repository membership once, before dispatch, and exports `REPO_ROOT` for every sourced subcommand. Operational verbs invoked outside a repository exit 1 with a stderr diagnostic; only `version`, `help`, `install`, `uninstall`, `upgrade`, and `develop` are exempt. `init` requires an existing repository root and fails fast if invoked outside one. Subcommands must never re-derive the root with a silent `|| pwd` fallback, which substitutes `$PWD` and lets commands operate on an arbitrary directory. Libraries that also run standalone (`lib/plan_resolver.sh`, `lib/hook_dispatcher.sh`, `lib/planning_health.sh`, `lib/cmd_matrix.sh`) derive the root themselves and **fail closed** when there is none. Two of these deliberately derive from the current directory rather than inheriting `REPO_ROOT` — `allocate_plan_id()` because the ID counter is per-repository, and `cmd_matrix.sh` because it is executed directly — so a stale exported root cannot target the wrong repository. `REPO_ROOT` carries the *active worktree* root, so `--git-common-dir`/`PRIMARY_ROOT` resolution (Rule 2) remains necessary to locate `.plans` from a linked worktree.
 10. **Runtime Reachability & Inspection-Only Invariant:** Cloned adopter repositories require an installed `aapp` toolchain in `$PATH` or `~/.local/bin`. If `aapp` is unreachable, `.githooks/aapp-pre-commit` locks commits in **Inspection-Only mode** to prevent un-guarded code changes, plan desynchronization, or blast-radius escapes. The reachability gate executes prior to any bypass flags (`SKIP_BLAST_RADIUS=1`); only Git's native `--no-verify` flag bypasses pre-commit.
+11. **Shared Hook Library & Parser Boundaries (P-37):** `lib/aapp-lib.sh` is the single owner of plan-section parsing (`parse_plan_target_paths`, `parse_plan_oob_paths`, `extract_plan_section`), glob matching (`glob_to_regex`, `match_pattern_list`) and platform detection (`aapp_os`). It holds pure functions only — arguments or stdin in, stdout out, no top-level side effects. `lib/` is the only authored copy; `templates/aapp-lib.sh` is a tracked symlink to it, and `aapp init` installs a real copy into `.githooks/aapp-lib.sh` (from `$AAPP_LIB`, failing loudly if absent). Hooks source it from their own directory; kit modules source it relative to their own file, never via `$AAPP_LIB`. Every consumer asserts the `aapp_lib_loaded` sentinel and refuses when it is missing — the write-guard through `deny_action` (exit 2), since a PreToolUse exit 1 would let the write through. Parser boundaries: target and Out of Bounds headings count only inside `## 💥 4.`, match by full name (`Target Files`, `Emergency Hotfix Extensions`, `Required Test Files` grant writes; `Out of Bounds` vetoes), any other heading ends the region, fenced blocks and `>` lines are never parsed. Add no inline section parser elsewhere; `tests/aapp_lib_test.sh` fails on one. Known exception: Pair 5 (#86).
 
 ## Plan State: Derived, Not Maintained
 

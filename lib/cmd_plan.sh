@@ -6,6 +6,16 @@
 # ==============================================================================
 set -e
 
+# Shared plan parsing (P-37). Resolved relative to this file, not $AAPP_LIB,
+# which is unset when this module is sourced outside the dispatcher.
+AAPP_LIB_FILE="$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh"
+# shellcheck source=lib/aapp-lib.sh
+if ! . "$AAPP_LIB_FILE" 2>/dev/null || ! declare -f aapp_lib_loaded >/dev/null; then
+    echo "❌ [AAPP] Shared library missing or unreadable: $AAPP_LIB_FILE" >&2
+    echo "   Reinstall the kit: ./aapp-kit/aapp install" >&2
+    exit 1
+fi
+
 # REPO_ROOT is exported by the `aapp` dispatcher, which asserts repository
 # membership before dispatch (P-33). It carries the *active worktree* root, so
 # GIT_COMMON_DIR/PRIMARY_ROOT resolution below stays necessary to find .plans
@@ -100,25 +110,6 @@ resolve_plan_file() {
 
     echo "❌ [Plan Switchboard] Plan '$query' not found in $PLANS_DIR/current/." >&2
     return 1
-}
-
-parse_plan_target_paths() {
-    local file="$1"
-    awk '
-        /^### 📂 Target Files/ { flag=1; next }
-        (/^### 🛑 Out of Bounds/ || /^## /) && flag { flag=0 }
-        flag {
-            line = $0
-            sub(/^[[:space:]]*-[[:space:]]*\[[ xX]\][[:space:]]*/, "", line)
-            sub(/^[[:space:]]*(`?(NEW FILE|MODIFY|DELETE|ADD|REPLACE)`?)?[[:space:]]*->[[:space:]]*/, "", line)
-            if (match(line, /`[^`]+`/)) {
-                item = substr(line, RSTART+1, RLENGTH-2)
-                if (item !~ /^(NEW FILE|MODIFY|DELETE|ADD|REPLACE)$/) {
-                    print item
-                }
-            }
-        }
-    ' "$file"
 }
 
 check_disjointness_activation_gate() {

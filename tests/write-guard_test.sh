@@ -18,9 +18,12 @@ setup() {
   echo "x=1" > src/a.py; echo "# CL" > CHANGELOG.md; echo "# CM" > CODEMAP.md; echo "# AR" > ARCHITECTURE.md
   git add -A >/dev/null; git commit -qm init
   cp "$GUARD" .githooks/blast-radius-guard; chmod +x .githooks/blast-radius-guard
+  # The guard sources aapp-lib.sh from its own directory (P-37 §2.7).
+  cp "$(dirname "$GUARD")/aapp-lib.sh" .githooks/aapp-lib.sh
 }
 
-plan() { mkdir -p .plans/current; cat > ".plans/current/$1"; }
+# Fixtures are §4 bodies: target headings count only inside `## 💥 4.` (P-37).
+plan() { mkdir -p .plans/current; { echo "## 💥 4. Blast Radius & System Boundaries"; cat; } > ".plans/current/$1"; }
 
 call_guard_cli() {
   local path="$1"
@@ -309,6 +312,26 @@ check_decision "bracket class range rejects non-digit" DENY "migrations/test.sql
 check_decision "directory prefix matches subfiles" ALLOW "docs/guide.md"
 check_decision "directory prefix matches nested subfiles" ALLOW "docs/api/v1/spec.md"
 check_decision "single segment oob wildcard blocks match" DENY "src/forbidden_test.py"
+
+echo "== parser boundaries: blockquotes, foreign subsections, Required Test Files (#82, P-37) =="
+setup
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+> **Authoring rule:** a quoted `src/quoted.py` in blockquote prose is never a target.
+- [ ] `src/a.py` -> allowed
+### 📝 Implementation Notes
+- `src/notes.py` -> named under a non-target heading
+### 🧪 Required Test Files
+> Test files that must prove this plan's failure cases.
+- `tests/boundary_test.sh`
+### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `src/secret.py` -> excluded
+## end
+EOF
+check_decision "test_blockquote_path_denied" DENY "src/quoted.py"
+check_decision "test_foreign_subsection_path_denied" DENY "src/notes.py"
+check_decision "test_required_test_files_path_allowed" ALLOW "tests/boundary_test.sh"
+check_decision "declared target still allowed beside them" ALLOW "src/a.py"
 
 echo "== plan lifecycle enforcement (🔷 Frozen grants zero rights, ⚡ In Development enforces targets) =="
 setup

@@ -298,6 +298,20 @@ fi
 # ------------------------------------------------------------------------------
 mount_or_create_worktree "githooks" ".githooks"
 
+# 0. Shared library beside the hook engines (P-37). Copied from $AAPP_LIB, never
+#    from templates/aapp-lib.sh: on a `core.symlinks=false` checkout that symlink
+#    is a one-line text stub. The hooks refuse to run without the library, so a
+#    missing source is fatal here rather than deferred to the first commit.
+AAPP_LIB_SRC="$AAPP_LIB/aapp-lib.sh"
+if [ ! -f "$AAPP_LIB_SRC" ] || [ ! -r "$AAPP_LIB_SRC" ]; then
+    echo "❌ [Init Error] Shared library missing or unreadable: $AAPP_LIB_SRC" >&2
+    echo "   Detected OS : $(uname -s 2>/dev/null || echo unknown)" >&2
+    echo "   The hook engines cannot run without it. Reinstall the kit:" >&2
+    echo "     git clone https://github.com/aapp-protocol/aapp-kit.git && ./aapp-kit/aapp install" >&2
+    exit 1
+fi
+cp "$AAPP_LIB_SRC" .githooks/aapp-lib.sh
+
 # 1. Always update AAPP core engine files byte-for-byte
 if [ -f "$AAPP_TEMPLATES/aapp-pre-commit" ]; then
     cp "$AAPP_TEMPLATES/aapp-pre-commit" .githooks/aapp-pre-commit

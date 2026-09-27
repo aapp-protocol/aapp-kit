@@ -14,6 +14,14 @@ if [ "${SKIP_BLAST_RADIUS:-0}" = "1" ]; then
     exit 0
 fi
 
+# Hook directory, captured before the cd below so a relative $0 still resolves
+# (P-37 library load). ${0%/*} rather than dirname: no external binary needed.
+case "$0" in
+    /*)  AAPP_HOOK_DIR="${0%/*}" ;;
+    */*) AAPP_HOOK_DIR="$PWD/${0%/*}" ;;
+    *)   AAPP_HOOK_DIR="$PWD" ;;
+esac
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$REPO_ROOT"
 
@@ -119,6 +127,17 @@ print(json.dumps(out))
     fi
     exit 2
 }
+
+# ------------------------------------------------------------------------------
+# 1b. Shared Library (P-37): plan parsing and glob matching, fail-closed
+# ------------------------------------------------------------------------------
+# Refused through deny_action (exit 2): a PreToolUse hook exiting 1 is a
+# non-blocking error, which would let the write through unguarded.
+AAPP_LIB_FILE="$AAPP_HOOK_DIR/aapp-lib.sh"
+# shellcheck source=lib/aapp-lib.sh
+if ! . "$AAPP_LIB_FILE" 2>/dev/null || ! declare -f aapp_lib_loaded >/dev/null; then
+    deny_action "Shared library missing or unreadable: $AAPP_LIB_FILE. Run 'aapp init' to reinstall the hook engine."
+fi
 
 # ------------------------------------------------------------------------------
 # 2. Self-Protection Invariants (ALWAYS PROTECTED - Hard Block)
@@ -299,94 +318,6 @@ esac
 # ------------------------------------------------------------------------------
 # 4. Blast Radius Validation Against Active Plan
 # ------------------------------------------------------------------------------
-parse_plan_section() {
-    local file="$1"
-    local start_pattern="$2"
-    local end_pattern="$3"
-    
-    awk -v start="$start_pattern" -v end="$end_pattern" '
-        $0 ~ start { flag=1; next }
-        $0 ~ end && flag { flag=0 }
-        flag {
-            line = $0
-            sub(/^[[:space:]]*-[[:space:]]*\[[ xX]\][[:space:]]*/, "", line)
-            sub(/^[[:space:]]*(`?(NEW FILE|MODIFY|DELETE|ADD|REPLACE)`?)?[[:space:]]*->[[:space:]]*/, "", line)
-            if (match(line, /`[^`]+`/)) {
-                item = substr(line, RSTART+1, RLENGTH-2)
-                if (item !~ /^(NEW FILE|MODIFY|DELETE|ADD|REPLACE)$/) {
-                    print item
-                }
-            }
-        }
-    ' "$file"
-}
-
-glob_to_regex() {
-    local p="$1"
-    # 1. Escape regex metacharacters: \ . + ^ $ ( ) { } |
-    p="${p//\\/\\\\}"
-    p="${p//./\\.}"
-    p="${p//+/\\+}"
-    p="${p//^/\\^}"
-    p="${p//\$/\\\$}"
-    p="${p//(/\\(}"
-    p="${p//)/\\)}"
-    p="${p//\{/\\\{}"
-    p="${p//\}/\\\}}"
-    p="${p//|/\\|}"
-
-    # 2. Protect multi-segment globstars using collision-free sentinels
-    p="${p//\/\*\*\//__SLASH_GLOBSTAR_SLASH__}"
-    # Leading **/
-    if [[ "$p" == \*\** ]]; then
-        p="${p/#\*\*\//__LEADING_GLOBSTAR_SLASH__}"
-    fi
-    # Trailing /**
-    if [[ "$p" == *\/\*\* ]]; then
-        p="${p/%\/\*\*/__SLASH_TRAILING_GLOBSTAR__}"
-    fi
-    p="${p//\*\*/__GLOBSTAR__}"
-
-    # 3. Translate single-segment wildcard and single-char tokens
-    p="${p//\*/[^/]*}"
-    p="${p//\?/[^/]}"
-
-    # 4. Expand sentinels into POSIX regex
-    p="${p//__SLASH_GLOBSTAR_SLASH__/\/(.*\/)?}"
-    p="${p//__LEADING_GLOBSTAR_SLASH__/(.*\/)?}"
-    p="${p//__SLASH_TRAILING_GLOBSTAR__/\/(.*)?}"
-    p="${p//__GLOBSTAR__/.*}"
-
-    echo "^${p}\$"
-}
-
-match_pattern_list() {
-    local target="$1"
-    shift
-    local pattern
-    for pattern in "$@"; do
-        [ -z "$pattern" ] && continue
-        # Tier 1 (Exact Match)
-        if [ "$target" = "$pattern" ]; then
-            return 0
-        fi
-        # Tier 2 (Directory Prefix Match)
-        if [[ "$pattern" == */ ]]; then
-            if [[ "$target" == "$pattern"* ]]; then
-                return 0
-            fi
-        fi
-        # Tier 3 (Glob / Regex Match)
-        if [[ "$pattern" == *[*?\[]* ]]; then
-            local regex
-            regex=$(glob_to_regex "$pattern")
-            if [[ "$target" =~ $regex ]]; then
-                return 0
-            fi
-        fi
-    done
-    return 1
-}
 
 # 1. Canonical Worktree & .plans/ Resolution
 GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
@@ -425,7 +356,7 @@ for pf in "$PLANS_DIR"/current/*.md; do
         BLOCKED_TARGETS=()
         while IFS= read -r ITEM; do
             [ -n "$ITEM" ] && BLOCKED_TARGETS+=("$ITEM")
-        done < <(parse_plan_section "$pf" '^### 📂 Target Files|^### 🚨 Emergency Hotfix' '^### 🛑 Out of Bounds|^## ')
+        done < <(parse_plan_target_paths "$pf")
         if [ ${#BLOCKED_TARGETS[@]} -gt 0 ] && match_pattern_list "$TARGET_FILE" "${BLOCKED_TARGETS[@]}"; then
             deny_action "Plan '$(basename "$pf")' is BLOCKED. All modifications are refused."
         fi
@@ -510,11 +441,11 @@ PLAN_OOB=()
 
 while IFS= read -r ITEM; do
     [ -n "$ITEM" ] && PLAN_TARGETS+=("$ITEM")
-done < <(parse_plan_section "$ACTIVE_PLAN_PATH" '^### 📂 Target Files|^### 🚨 Emergency Hotfix' '^### 🛑 Out of Bounds|^## ')
+done < <(parse_plan_target_paths "$ACTIVE_PLAN_PATH")
 
 while IFS= read -r ITEM; do
     [ -n "$ITEM" ] && PLAN_OOB+=("$ITEM")
-done < <(parse_plan_section "$ACTIVE_PLAN_PATH" '^### 🛑 Out of Bounds' '^## ')
+done < <(parse_plan_oob_paths "$ACTIVE_PLAN_PATH")
 
 # 1. Out of Bounds veto
 if [ ${#PLAN_OOB[@]} -gt 0 ] && match_pattern_list "$TARGET_FILE" "${PLAN_OOB[@]}"; then

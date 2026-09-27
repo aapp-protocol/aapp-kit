@@ -15,6 +15,8 @@ setup() {
   echo "x=1" > src/a.py; echo "secret=1" > src/secret.py; echo "# CL" > CHANGELOG.md
   git add -A >/dev/null; git commit -qm init
   cp "$HOOK" .git/hooks/pre-commit; chmod +x .git/hooks/pre-commit
+  # The hook sources aapp-lib.sh from its own directory (P-37 §2.7).
+  cp "$(dirname "$HOOK")/aapp-lib.sh" .git/hooks/aapp-lib.sh
 }
 
 check() {
@@ -37,7 +39,8 @@ check() {
   git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null; git clean -qfd -e .plans 2>/dev/null
 }
 
-plan() { mkdir -p .plans/current; cat > ".plans/current/$1"; }
+# Fixtures are §4 bodies: target headings count only inside `## 💥 4.` (P-37).
+plan() { mkdir -p .plans/current; { echo "## 💥 4. Blast Radius & System Boundaries"; cat; } > ".plans/current/$1"; }
 
 echo "== 1. filenames with spaces =="
 setup
@@ -268,6 +271,7 @@ plan p.md <<'EOF'
 EOF
 mkdir -p .githooks
 cp "$KIT/templates/aapp-pre-commit" .githooks/aapp-pre-commit
+cp "$KIT/lib/aapp-lib.sh" .githooks/aapp-lib.sh
 chmod -x .githooks/aapp-pre-commit
 cp "$KIT/templates/pre-commit" .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
@@ -992,6 +996,43 @@ if [ "$rc_byp" -eq 0 ]; then
 else
   printf "  \033[31m✘\033[0m %-52s want PASS, got rc=%d\n" "native --no-verify bypass succeeds without aapp" "$rc_byp"; FAIL=$((FAIL+1))
   echo "$out_byp" | head -3 | sed 's/^/       /'
+fi
+
+echo "== parser boundaries: blockquotes, foreign subsections, Required Test Files (#82, P-37) =="
+setup
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+> **Authoring rule:** a quoted `src/quoted.py` in blockquote prose is never a target.
+- [ ] `src/a.py` -> allowed
+### 📝 Implementation Notes
+- `src/notes.py` -> named under a non-target heading
+### 🧪 Required Test Files
+> Test files that must prove this plan's failure cases.
+- `tests/boundary_test.sh`
+### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `src/secret.py` -> excluded
+## end
+EOF
+check "test_blockquote_path_denied" BLOCK src/quoted.py
+check "test_foreign_subsection_path_denied" BLOCK src/notes.py
+check "test_required_test_files_path_allowed" PASS tests/boundary_test.sh
+check "declared target still committable beside them" PASS src/a.py
+
+echo "== fail-closed library load (P-37) =="
+setup
+rm -f .git/hooks/aapp-lib.sh
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> allowed
+## end
+EOF
+check "test_missing_library_refuses_commit" BLOCK src/a.py
+out_lib=$(git commit --allow-empty -m "t" 2>&1) || true
+if echo "$out_lib" | grep -q "Shared library missing or unreadable"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "missing library names the diagnostic" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want diagnostic\n" "missing library names the diagnostic"; FAIL=$((FAIL+1))
+  echo "$out_lib" | head -3 | sed 's/^/       /'
 fi
 
 print_test_summary "$PASS" "$FAIL"

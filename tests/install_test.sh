@@ -227,6 +227,34 @@ else
 fi
 report "namespaced hook sync: aapp-pre-commit updated, custom pre-commit preserved" "PASS" "$got"
 
+# P-37: aapp init installs the shared library beside the hook engines as a real file
+if [ -f "$PROJ/.githooks/aapp-lib.sh" ] && [ ! -L "$PROJ/.githooks/aapp-lib.sh" ] && \
+   cmp -s "$PROJ/.githooks/aapp-lib.sh" "$XDG_DATA_HOME/aapp-kit/lib/aapp-lib.sh"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_init_installs_library_as_real_file" "PASS" "$got"
+
+# P-37: aapp init fails loudly when the installed kit has no shared library
+PROJ_LIB="$R/t11b_proj"; make_dummy_project "$PROJ_LIB"
+LIB_SRC="$XDG_DATA_HOME/aapp-kit/lib/aapp-lib.sh"
+LIB_AWAY="$R/aapp-lib.sh.away"
+out_lib=""; rc_lib=0
+if [ -f "$LIB_SRC" ]; then
+  mv "$LIB_SRC" "$LIB_AWAY"
+  out_lib=$(cd "$PROJ_LIB" && aapp init 2>&1) || rc_lib=$?
+  mv "$LIB_AWAY" "$LIB_SRC"
+else
+  out_lib=$(cd "$PROJ_LIB" && aapp init 2>&1) || rc_lib=$?
+fi
+if [ "$rc_lib" -ne 0 ] && echo "$out_lib" | grep -q "aapp-lib.sh" && echo "$out_lib" | grep -q "Detected OS"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_init_fails_loudly_when_lib_missing" "PASS" "$got" "rc=$rc_lib"
+
 # Test 12: Fresh install writes .claude/settings.json
 PROJ="$R/t12_proj"; make_dummy_project "$PROJ"
 (cd "$PROJ" && aapp init >/dev/null 2>&1)
@@ -336,6 +364,7 @@ chmod +x "$PROJ/.husky/pre-commit"
 (cd "$PROJ" && aapp init >/dev/null 2>&1)
 mkdir -p "$PROJ/.plans/current"
 cat > "$PROJ/.plans/current/plan.md" <<'EOF'
+## 💥 4. Blast Radius & System Boundaries
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `a.py` -> modify
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -419,6 +448,16 @@ else
   got="FAIL"
 fi
 report "aapp install creates ~/.local/bin and share lib/templates when missing" "PASS" "$got"
+
+# P-37: install keeps templates/aapp-lib.sh a symlink resolving inside the installed kit
+TPL_LIB="$GLOBAL_HOME/.local/share/aapp-kit/templates/aapp-lib.sh"
+if [ -L "$TPL_LIB" ] && [ "$(readlink "$TPL_LIB")" = "../lib/aapp-lib.sh" ] && \
+   cmp -s "$TPL_LIB" "$GLOBAL_HOME/.local/share/aapp-kit/lib/aapp-lib.sh"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_install_preserves_template_symlink" "PASS" "$got"
 
 # Test 25: aapp install consumes installer clone folder on success
 if [ ! -d "$INSTALLER_DIR" ]; then
