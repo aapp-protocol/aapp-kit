@@ -20,7 +20,6 @@
 - Plan ID allocation fails (including a failing provider plugin) -> exit 1, stderr `[Draft Refusal] Failed to allocate Plan ID.`
 - plan template not found -> exit 1, stderr `[Draft Refusal] templates/plan-template.md not found.`
 - title containing `/`, `&`, `\` or `[` -> no failure: the title appears literally in the plan
-    ⚠️ Divergence (D1): the title is interpolated into `sed -E` unescaped. `sed` aborts, the plan file is left with every placeholder intact (`P-XX`, `[YYYY-MM-DD]`), and the verb exits before committing.
 - plans-worktree commit refused by a hook -> exit non-zero, stderr names the refusal
     ⚠️ Divergence (#81): the commit is run under `|| true`; the refusal is swallowed and the verb exits 0 with the plan staged but uncommitted.
 
@@ -31,7 +30,6 @@
 - `aapp.planId` is advanced past `<N>`
 - `.plans/state_matrix.md` is re-derived and lists the plan in the incubator
 - one commit in the plans worktree, `plan(draft): scaffold P-<N> <slug>`, holds the plan and the matrix; nothing is left untracked
-    ⚠️ Divergence (D3): the bare path leaves the plan untracked, because D1 aborts it before the commit.
 - stdout names the new file, the Plan ID and the `🟣 Under Review` status
 
 ## Exit

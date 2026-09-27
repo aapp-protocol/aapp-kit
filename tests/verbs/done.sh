@@ -55,4 +55,18 @@ else
   bad "test_ledger_row_populated" "issue=[$issue_col] summary=[$summary_col]"
 fi
 
+echo "== matrix row removal (#88) =="
+# IDs that collide as substrings: archiving P-3 must not touch P-30's row.
+git config aapp.planId 3
+short="$(started_plan short-id)"
+git config aapp.planId 30
+long="$(draft_plan long-id)"
+aapp done "$short" >/dev/null 2>&1; rc=$?
+if [ "$rc" -eq 0 ] && [ "$short" = "P-3" ] && [ "$long" = "P-30" ] && \
+   grep -q "long-id" .plans/state_matrix.md && ! grep -q "short-id" .plans/state_matrix.md; then
+  ok "test_matrix_row_removed_exactly"
+else
+  bad "test_matrix_row_removed_exactly" "rc=$rc short=$short long=$long"
+fi
+
 print_test_summary "$PASS" "$FAIL"

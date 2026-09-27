@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status auto-sync (`P-30`): `aapp status` re-derives `state_matrix.md` before reading it, so the Roadmap line and Next Action footer report the real board instead of a stale cache. Silent when already in sync; while paused it still writes and notes that the commit waits for `aapp resume`.
 
 ### Fixed
-- `aapp draft`: titles with `/`, `&` or `\` no longer break scaffolding or leave an untracked half-written plan; `aapp done` ledger rows carry the Target Issue and a summary (`P-34`, #78).
+- `aapp draft`: titles with `/`, `&` or `\` no longer break scaffolding or leave an untracked half-written plan; `aapp done` ledger rows carry the Target Issue and a summary, and it no longer deletes other plans' matrix rows by substring (`P-34`, #78, #88).
 - Target Files parser no longer reads blockquotes, foreign subsections or fenced examples as write targets (`P-37`, #82).
 - Dispatcher Front-Door Exemption List (`P-36`): Removes `init` from front-door `REPO_ROOT` exemption in `aapp` (Rule 9), ensuring `init` fails fast when run outside an existing git repository.
 - Centralized Git Root Assertion & Fail-Fast Dispatch (`P-33`): `aapp` asserts repository membership once before dispatch and exports `REPO_ROOT`; operational verbs outside a repo exit 1 with a stderr diagnostic instead of treating `$PWD` as the root. Purges the silent `|| pwd` / `|| true` root fallbacks across `lib/`. Adds `ARCHITECTURE.md` rule 9.

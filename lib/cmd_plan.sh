@@ -637,11 +637,11 @@ cmd_done() {
         ' "$ledger_file" > "$ledger_tmp" && mv "$ledger_tmp" "$ledger_file"
     fi
 
-    # Remove from state_matrix.md
+    # Re-derive state_matrix.md now that the plan has left current/ (#88). A
+    # `sed "/<id>/d"` here matched by substring: archiving P-3 also deleted the
+    # rows for P-30..P-39.
     local sm_file="$PLANS_DIR/state_matrix.md"
-    if [ -f "$sm_file" ]; then
-        sed -i -E "/$plan_id/d" "$sm_file"
-    fi
+    sync_state_matrix
 
     # Clear active buffer if matching
     if [ -f "$ACTIVE_FILE" ]; then

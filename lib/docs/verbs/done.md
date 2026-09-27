@@ -24,9 +24,8 @@
 - the plan moves from `.plans/current/` to `.plans/done/`
 - its Status line reads `✅ Done`, and `## 📦 6. Change Log` gains a dated archival line
 - `000-archive-ledger.md` gains one row under its header: date, Plan ID, a link to the archived file, the plan header's Target Issue, the verification commit, and a non-empty Impact Summary
-    ⚠️ Divergence (D2, #78): Target Issue is hardcoded `None`, and the summary greps a `**What:**` field the template never emits, so it is always empty.
-- the plan's row leaves `.plans/state_matrix.md`
-    ⚠️ Divergence: rows are removed with `sed "/<id>/d"`, a substring match: archiving `P-3` also deletes the rows for `P-30`–`P-39`.
+    the Impact Summary is the plan title; an untouched template placeholder in the header reads `None` (D2, #78)
+- `.plans/state_matrix.md` is re-derived from the remaining plans: this plan's row leaves, and no other row is touched (#88)
 - the active buffer is cleared when it names this plan
 - one commit in the plans worktree, `plan(done): archive <id> to done/ and update state matrix`, holds the move, the ledger and the matrix
 - the `on-done` lifecycle event is dispatched (a failing handler does not undo the archive)
@@ -41,3 +40,4 @@ Run: `aapp test verb done`
 - `tests/verbs/done.sh::test_archives_and_commits` -> move, `✅ Done`, buffer cleared, one commit
 - `tests/verbs/done.sh::test_ledger_row_populated` -> the row carries the header's Target Issue and a non-empty Impact Summary (D2)
 - `tests/verbs/done.sh::test_refuses_unknown_plan` -> an unresolvable `id`: exit 1, nothing moves
+- `tests/verbs/done.sh::test_matrix_row_removed_exactly` -> archiving `P-3` leaves `P-30`'s matrix row in place (#88)
