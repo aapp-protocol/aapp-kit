@@ -301,7 +301,7 @@ merge closes it.
 
 ### Phase 4: Regression & Platform Verification
 - [x] Task 4.1: Run `./aapp test strict quiet` across all discovered suites; zero regressions.
-- [ ] Task 4.2: Verify the §2.1 install/init symlink behaviour on macOS (BSD `cp`) (Manual Platform Verification step); record the result in §6.
+- [x] Task 4.2: Verify the §2.1 install/init symlink behaviour on macOS (BSD `cp`) — **deferred to community verification** (MANUAL §14, `e65bc45`); not run. A report is logged and fixed as an issue when it arrives.
 - [x] Task 4.3: Run `aapp init` on this repository (sanctioned propagation step) so its own `.githooks/` receives the library, and confirm `aapp plan-status` no longer lists the phantom `backticked path` target.
 
 ### Phase 5: Documentation
@@ -420,4 +420,4 @@ merge closes it.
   3. **Init diagnostic prints `uname -s`**, not `aapp_os`: in that failure the library defining `aapp_os` is the missing file.
   4. **Test fixtures now carry `## 💥 4.`** (`plan()` helper in both hook suites): the §4 scoping reads targets only there, as in every real plan.
   5. **Pair 5 keeps its own bash parser** (user decision; #86). Found **#87**: Emergency Hotfix Extensions sit in design-locked §4.
-  6. **Task 4.2 (macOS BSD `cp`) pending** — manual verification.
+  6. **Task 4.2 (macOS BSD `cp`) deferred, not verified**: listed with the other untested environments in MANUAL §14 (`e65bc45`). Policy (user decision): untested platforms are flagged, not pre-logged as issues; a report becomes an issue when it arrives.
