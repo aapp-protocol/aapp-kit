@@ -235,12 +235,12 @@ To eliminate dependency on uninstalled drop-in clones across test suites, preven
 - [x] Task 3.3: Update `tests/hooks_test.sh` and `tests/sync_test.sh` to use `confine_test_runtime`.
 
 ### Phase 4: Documentation & Skill Synchronization
-- [ ] Task 4.1: Update `templates/skills/aapp-status/SKILL.md` (remove `./aapp status` mention).
-- [ ] Task 4.2: Update `README.md`: replace drop-in quickstart with global install and document Inspection-Only mode.
-- [ ] Task 4.3: Update `MANUAL.md`: purge drop-in references, update installation guides, Q&A, and sample distribution.
-- [ ] Task 4.4: Update `CHEATSHEET.md`: align setup commands.
-- [ ] Task 4.5: Update `ARCHITECTURE.md`, `.agents/ARCHITECTURE.md`, and `.agents/CODEMAP.md` with runtime reachability invariant and Rule 9 update.
-- [ ] Task 4.6: Update `CHANGELOG.md` with drop-in deprecation and inspection-only gate.
+- [x] Task 4.1: Update `templates/skills/aapp-status/SKILL.md` (remove `./aapp status` mention).
+- [x] Task 4.2: Update `README.md`: replace drop-in quickstart with global install and document Inspection-Only mode.
+- [x] Task 4.3: Update `MANUAL.md`: purge drop-in references, update installation guides, Q&A, and sample distribution.
+- [x] Task 4.4: Update `CHEATSHEET.md`: align setup commands.
+- [x] Task 4.5: Update `ARCHITECTURE.md`, `.agents/ARCHITECTURE.md`, and `.agents/CODEMAP.md` with runtime reachability invariant and Rule 9 update.
+- [x] Task 4.6: Update `CHANGELOG.md` with drop-in deprecation and inspection-only gate.
 
 ### Phase 5: Verification Suite
 - [ ] Task 5.1: Run syntax checks across modified scripts (`bash -n`).
