@@ -11,7 +11,7 @@ Act as a Context Recovery agent upon desk return. Execute the five-step four-pil
 
 ## Execution Method
 
-First, attempt to run `./aapp status` or `aapp status` via shell execution. If the command succeeds, present its output to the user.
+First, attempt to run `aapp status` via shell execution. If the command succeeds, present its output to the user.
 
 If the command is unavailable, fails, or tool execution is restricted, execute the deterministic file-inspection procedure below directly:
 
