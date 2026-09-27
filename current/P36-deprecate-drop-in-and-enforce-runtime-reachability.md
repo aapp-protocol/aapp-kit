@@ -226,13 +226,13 @@ To eliminate dependency on uninstalled drop-in clones across test suites, preven
   - Verify `is_safe_to_consume_kit_dir` remains intact and self-consumption of the installer clone is preserved.
 
 ### Phase 3: Test Suite Migration (F1', F1'', F14, F15)
-- [ ] Task 3.1: Update `tests/install_test.sh`:
+- [x] Task 3.1: Update `tests/install_test.sh`:
   - Adopt `confine_test_runtime`.
   - Retire obsolete drop-in tests (Tests 3, 4, 5, 6, 6b, 6d, 6e, 20).
   - Rewrite Test 6c (#50) to assert kit self-init under physical canonical path resolution.
   - Add test asserting `aapp init` fails fast when run from an uninstalled clone against an external project.
-- [ ] Task 3.2: Update `tests/worktree_hooks_test.sh` and `tests/ai_attribution_test.sh` to use `confine_test_runtime`.
-- [ ] Task 3.3: Update `tests/hooks_test.sh` and `tests/sync_test.sh` to use `confine_test_runtime`.
+- [x] Task 3.2: Update `tests/worktree_hooks_test.sh` and `tests/ai_attribution_test.sh` to use `confine_test_runtime`.
+- [x] Task 3.3: Update `tests/hooks_test.sh` and `tests/sync_test.sh` to use `confine_test_runtime`.
 
 ### Phase 4: Documentation & Skill Synchronization
 - [ ] Task 4.1: Update `templates/skills/aapp-status/SKILL.md` (remove `./aapp status` mention).
