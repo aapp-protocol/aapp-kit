@@ -38,3 +38,5 @@
 - [ ] #81 -> Worktree hook symlink makes attribution enforcement reject mechanical lifecycle commits; `|| true` hides it, so freeze/start/done report success without committing.
 - [ ] #82 -> 🔵 Planned under P-37 (Shared Hook Library). Target Files parser parses blockquote prose and absorbs foreign subsections as write targets.
 - [ ] #84 -> Write-guard refuses `.plans/*` writes when cwd is inside the `.plans` worktree.
+- [ ] #85 -> Status-line regex duplicated across 22 call sites with divergent legacy alias handling.
+
