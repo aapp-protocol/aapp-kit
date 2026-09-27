@@ -1,8 +1,8 @@
 # 🗺️ Plan P-35: Opt In Failure Test Declaration
 * **Created:** 2026-09-23 | **Last Refined:** 2026-09-27
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** Protocol Enhancement (Opt-In Failure Testing)
 * **Plan ID:** P-35
-* **Status:** 🟣 Under Review
+* **Status:** 📝 Refining
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -96,7 +96,7 @@ its declared tests, because they sat in §4 and §4 is design-locked once a plan
 lock working correctly; the placement was wrong. A filename does not change when the test inside it
 passes, so §4 carries no checkboxes and needs no lock exception. Execution state belongs in §3.
 
-### 2.2 The §4 Declaration Is Project-Agnostic
+### 2.2 The §4 Declaration Is Project-Agnostic & Target-Bearing (Option A)
 
 `templates/plan-template.md` ships to adopters, so §4 must not assume this kit's own test layout.
 It declares paths in whatever the project uses:
@@ -108,6 +108,12 @@ It declares paths in whatever the project uses:
 - `tests/test_parser.py`
 - `tests/verbs/draft.sh`
 ```
+
+**Option A Single-Entry Guarantee (P-37 Alignment):**
+Under P-37 §2.4, `### 🧪 Required Test Files` is explicitly whitelisted as an authoritative target-bearing
+heading in `lib/aapp-lib.sh`. Files listed here automatically receive write permission during execution
+without requiring redundant double-entry in `### 📂 Target Files`. The section is frozen with §4 at freeze time,
+ensuring strict blast-radius immutability.
 
 No counts, no per-file test totals: a count is only meaningful if something can verify it, and
 verifying it means parsing test bodies in a language the kit does not know. See §5 Q2.
@@ -123,7 +129,7 @@ verifying it means parsing test bodies in a language the kit does not know. See 
 Syntax is `path::name -> asserts <condition>`, deliberately identical to the convention `P-34` uses
 for verb contracts, so one form serves both.
 
-### 2.4 Conditional Enforcement
+### 2.4 Conditional Enforcement & Shared Library Parsers
 
 The pre-commit check fires **only when the section is present**:
 
@@ -133,19 +139,35 @@ The pre-commit check fires **only when the section is present**:
   is referenced by at least one §3 identifier. String-level only — the check never opens a test file
   or parses its contents, which is what keeps it language-agnostic.
 
+**Parser Ownership in `lib/aapp-lib.sh`:**
+To comply with P-37's structural ban on duplicate inline parsers, the correspondence check uses two pure
+functions added to `lib/aapp-lib.sh`:
+- `parse_plan_required_test_files "$plan_file"`: extracts file paths declared under `### 🧪 Required Test Files`.
+- `parse_plan_required_tests "$plan_file"`: extracts §3 test items and isolates the path prefix preceding `::`.
+
+`templates/aapp-pre-commit` sources `aapp-lib.sh` and verifies mutual inclusion between the two sets.
+
 **Enforcement timing.** `P-33` §5 Decision 7 already settled this and it carries over: declarations
 are planning-phase during `📝 Refining`, so presence checks must tolerate unwritten tests while
 refining and enforce file existence once `⚡ In Development`.
 
 ### 2.5 Division of Labour: CLI Injects, Skill Enumerates
 
-- **CLI** — deterministic and mechanical: resolve the plan, refuse if the section already exists,
-  inject both headings, report what to do next. This is all a shell script can honestly do.
-- **Skill** — the part with judgement: read §1 and §2, enumerate the failure cases the design implies,
-  propose test identifiers in the project's own idiom, write them into §3 and their files into §4.
+- **CLI (`aapp tdd`)** — deterministic and mechanical: resolve the plan, refuse if either heading already
+  exists, inject both headings, report what to do next.
+- **Skill (`/aapp-tdd`)** — the part with judgement: read §1 and §2, enumerate the failure cases the design
+  implies, propose test identifiers in the project's own idiom, write them into §3 and their files into §4.
 
-The skill is where the value is. Mirrors the existing split in `.agents/skills/aapp-status/SKILL.md`,
-which runs the CLI and then interprets the result.
+### 2.6 Mechanical `done` Verification Gate & Ledger Recording
+
+When `aapp done` (`lib/cmd_plan.sh:cmd_done`) is invoked on a plan that carries `### 🧪 Required Test Files`:
+1. **Completion Check:** Every box in `### 🧪 Required Tests` must be ticked (`- [x]` or `- [X]`). If any
+   uncompleted `- [ ]` remains, `cmd_done` refuses with exit 1 and prints the pending test assertions.
+2. **Existence Check:** Every test file declared under `### 🧪 Required Test Files` must exist on disk and be
+   tracked in Git history since plan activation (`start`).
+3. **Ledger Recording:** `cmd_done` derives the count of completed test assertions ($N$) and records
+   `tdd (N/N)` inside the `Impact Summary` or verification notes of `.plans/done/000-archive-ledger.md` without
+   altering the table schema. Plans without the section record nothing (absence = opted out).
 
 ---
 
@@ -159,27 +181,31 @@ they cover — the practice this plan exists to make declarable.*
 - [ ] Task 1.1: Add negative tests for the injection verb: refuses a plan id that does not resolve; refuses when the section already exists (idempotence, not duplication); refuses outside a Git repository.
 - [ ] Task 1.2: Add negative tests for the conditional check: a plan **without** the section commits freely; a plan **with** it is refused when a §3 identifier names a file absent from §4, and when a §4 file has no §3 identifier.
 - [ ] Task 1.3: Add a negative test for lifecycle timing: a `📝 Refining` plan with unwritten declared tests commits; the same plan at `⚡ In Development` is refused (per `P-33` §5 Decision 7).
-- [ ] Task 1.4: Run the new suite and confirm every assertion FAILS (Red 🔴) — none of this exists yet.
+- [ ] Task 1.4: Add negative tests for `cmd_done` completion verification: refuses archival if any §3 test is unticked (`- [ ]`), and refuses if any §4 test file does not exist on disk/Git.
+- [ ] Task 1.5: Run the new suite and confirm every assertion FAILS (Red 🔴) — none of this exists yet.
 
-### Phase 2: CLI Injection (Green 🟢)
+### Phase 2: CLI Injection & Shared Parsers (Green 🟢)
 - [ ] Task 2.1: Implement the injection verb in `lib/cmd_plan.sh` — resolve the plan, refuse if either heading is already present, inject `### 🧪 Required Test Files` into §4 after Target Files and `### 🧪 Required Tests` into §3, commit the amendment.
 - [ ] Task 2.2: Register `tdd` in `lib/verbs.tsv` (`daily` tier) with the description `Declare a plan's failure-first tests (§3 identifiers, §4 test files) before freeze`, and add its dispatcher case in `aapp`.
 - [ ] Task 2.3: Re-run Phase 1's verb tests and confirm Green 🟢.
+- [ ] Task 2.4: Implement pure functions `parse_plan_required_test_files` and `parse_plan_required_tests` in `lib/aapp-lib.sh`; add unit tests in `tests/aapp_lib_test.sh` and confirm Green 🟢.
 
-### Phase 3: Conditional Enforcement (Green 🟢)
-- [ ] Task 3.1: Implement the correspondence check in `templates/aapp-pre-commit` — active only when the section is present, string-level only, never opening a test file.
+### Phase 3: Conditional Enforcement & Done Gate (Green 🟢)
+- [ ] Task 3.1: In `templates/aapp-pre-commit`, invoke `parse_plan_required_test_files` and `parse_plan_required_tests` from `lib/aapp-lib.sh` to enforce bidirectional correspondence string-level only.
 - [ ] Task 3.2: Apply the `P-33` Decision 7 timing rule: tolerate unwritten tests while `📝 Refining`, enforce file existence at `⚡ In Development`.
-- [ ] Task 3.3: Re-run Phase 1's enforcement and timing tests and confirm Green 🟢.
+- [ ] Task 3.3: In `lib/cmd_plan.sh` (`cmd_done`), implement mechanical completion gate: refuse archival if any §3 test is unticked (`- [ ]`), verify all declared §4 test files exist on disk and in Git, and append `tdd (N/N)` verification evidence to the archive ledger row in `.plans/done/000-archive-ledger.md`.
+- [ ] Task 3.4: Re-run Phase 1's enforcement, timing, and `cmd_done` gate tests and confirm Green 🟢.
 
-### Phase 4: Skill Authoring
-- [ ] Task 4.1: Author the `/aapp-tdd` skill: call the CLI first, then read §1/§2 and propose failure cases in the project's own idiom, writing identifiers into §3 and their files into §4. Include an explicit failure branch — if the CLI refuses, stop and report rather than hand-editing the plan.
+### Phase 4: Skill Authoring & Distribution
+- [ ] Task 4.1: Author skill in `templates/skills/aapp-tdd/SKILL.md` (with `disable-model-invocation: false`): call the CLI first, then read §1/§2 and propose failure cases in the project's own idiom, writing identifiers into §3 and their files into §4. Include an explicit failure branch — if the CLI refuses, stop and report rather than hand-editing the plan.
+- [ ] Task 4.2: Update `sync_skills` in `lib/cmd_init.sh` and Test 42 in `tests/install_test.sh` to recognize `aapp-tdd` as a retained skill.
 
 ### Phase 5: Template & Verification
 - [ ] Task 5.1: Add the **Fail-Closed Invariant** to `templates/plan-template.md`'s header invariants — standalone and unconditional, not tied to TDD: silent fallbacks (`|| true`, `|| pwd`, unchecked defaults, empty catch blocks) are prohibited; a benign one is justified in a comment and registered in §2's Fallback Inventory.
 - [ ] Task 5.2: Run `./aapp test strict quiet` across all discovered suites and verify zero regressions.
 
 ### Phase 6: Documentation & Protocol Sync
-- [ ] Task 6.1: Update `ARCHITECTURE.md` with the opt-in declaration model and the §3/§4 split.
+- [ ] Task 6.1: Update `ARCHITECTURE.md` with the opt-in declaration model, the §3/§4 split, Option A single-entry semantics, and the `cmd_done` mechanical gate.
 - [ ] Task 6.2: Update `.agents/CODEMAP.md`, `MANUAL.md` and `CHEATSHEET.md` for `aapp tdd`. The docs describe what the verb **does**, not the acronym: it injects `### 🧪 Required Tests` (§3) and `### 🧪 Required Test Files` (§4), declares tests only (no test code, no test run), and belongs between `draft` and `freeze`. MANUAL states that the red phase happens at implementation (Phase 1 writes the declared tests and confirms them failing).
 - [ ] Task 6.3a: Author the behaviour contract `lib/docs/verbs/tdd.md` (`P-34` shape: Ingress, Preconditions, Failure modes, Effects, Exit, Tests naming `tests/verbs/tdd.sh`) and reference it in the `verbs.tsv` contract column.
 - [ ] Task 6.3: Update `CHANGELOG.md` under `### Added`.
@@ -193,22 +219,27 @@ they cover — the practice this plan exists to make declarable.*
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `lib/cmd_plan.sh` -> Implement the injection verb and its refusals
-- [ ] `lib/verbs.tsv` -> Register the verb in the daily tier
+- [ ] `lib/cmd_plan.sh` -> Implement the injection verb (cmd_tdd) and cmd_done mechanical completion gate
+- [ ] `lib/aapp-lib.sh` -> Add pure helpers parse_plan_required_test_files and parse_plan_required_tests
+- [ ] `lib/verbs.tsv` -> Register the verb in the daily tier with contract pointer
+- [ ] `lib/cmd_init.sh` -> Register aapp-tdd in sync_skills for skill propagation
 - [ ] `aapp` -> Add the dispatcher case
 - [ ] `templates/plan-template.md` -> Add the Fail-Closed Invariant to the header invariants
 - [ ] `templates/aapp-pre-commit` -> Conditional correspondence check, active only when the section is present
-- [ ] `NEW FILE` -> `.agents/skills/aapp-tdd/SKILL.md` -> Skill that enumerates failure cases and writes both sections
+- [ ] `NEW FILE` -> `templates/skills/aapp-tdd/SKILL.md` -> Skill template that enumerates failure cases and writes both sections
 - [ ] `NEW FILE` -> `tests/verbs/tdd.sh` -> Verb tests (injection, refusals, idempotence)
 - [ ] `NEW FILE` -> `lib/docs/verbs/tdd.md` -> Behaviour contract for tdd (P-34 correspondence)
-- [ ] `tests/pre-commit_test.sh` -> Conditional enforcement and lifecycle-timing tests
-- [ ] `ARCHITECTURE.md` -> Record the opt-in declaration model and the §3/§4 split
-- [ ] `.agents/CODEMAP.md` -> Name the verb's owner module
+- [ ] `tests/aapp_lib_test.sh` -> Unit tests for parse_plan_required_test_files and parse_plan_required_tests
+- [ ] `tests/pre-commit_test.sh` -> Conditional enforcement, lifecycle-timing, and done-gate completion tests
+- [ ] `tests/install_test.sh` -> Update skill inventory assertions (Test 42) for aapp-tdd
+- [ ] `ARCHITECTURE.md` -> Record the opt-in declaration model, §3/§4 split, and done gate
+- [ ] `.agents/CODEMAP.md` -> Name the verb's owner module and shared library helpers
 - [ ] `MANUAL.md` -> Document the verb
 - [ ] `CHEATSHEET.md` -> Add the verb to the quick reference
 - [ ] `CHANGELOG.md` -> Record under Added
 
 ### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `.agents/skills/*` -> Governance skills self-protection; authored in `templates/skills/` and propagated via `aapp init`.
 - [ ] `.githooks/*` -> Guard engine self-protection; `templates/aapp-pre-commit` is the authoring source and `aapp init` propagates it (Architectural Rule 3).
 - [ ] `.plans/current/*.md` -> Existing plans are not retrofitted; absence of the section is the documented default, not a legacy state.
 - [ ] `lib/cmd_test.sh` -> Test-runner changes belong to `P-34`.
@@ -242,6 +273,10 @@ they cover — the practice this plan exists to make declarable.*
   in the plan (identifiers enumerated in §3 and counted there) or in the test file (a convention the
   kit greps for). Out of scope here — this plan ships correspondence only.
 
+### Dependencies & Sequencing
+- **After `P-37`:** `P-37` establishes `lib/aapp-lib.sh`, fixes parser defects (#82), and whitelists `### 🧪 Required Test Files` as target-bearing (Option A).
+- **After `P-34`:** `P-34` establishes verb contracts (`lib/docs/verbs/*.md`) and `lib/verbs.tsv` contract column; P-35 provides `lib/docs/verbs/tdd.md` satisfying P-34's correspondence check.
+
 ---
 
 ## 📦 6. Change Log & Refinement History
@@ -261,3 +296,9 @@ they cover — the practice this plan exists to make declarable.*
 * **2026-09-27:** Resolved Q1: the verb is `tdd`. Named `tests/verbs/tdd.sh` and `/aapp-tdd`, added
   the `lib/docs/verbs/tdd.md` contract (P-34 correspondence) and a docs task stating that the verb
   declares tests and never writes or runs them.
+* **2026-09-27 (Refinement - RFC Alignment & Pair 5 Fix):**
+  1. Fixed Pair 5 violation: changed skill target from `.agents/skills/aapp-tdd/SKILL.md` to `templates/skills/aapp-tdd/SKILL.md` and added `.agents/skills/*` to Out of Bounds.
+  2. Adopted Option A from consensus RFC (`tri-plan-alignment-34-35-37.md`): declared test files in `### 🧪 Required Test Files` receive write access directly without duplication in `Target Files`.
+  3. Delegated correspondence parsing to `lib/aapp-lib.sh` (`parse_plan_required_test_files` and `parse_plan_required_tests`) instead of duplicate inline awk in `templates/aapp-pre-commit`.
+  4. Added mechanical `cmd_done` completion verification gate and `tdd (N/N)` ledger recording to `lib/cmd_plan.sh`.
+  5. Added explicit dependency sequencing: `After P-37, after P-34`.
