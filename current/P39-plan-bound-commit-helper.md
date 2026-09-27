@@ -235,6 +235,11 @@ Two hazards follow from the shared index, and the helper must handle both:
   hook prints one line and lets the commit through: *"💡 P-NN is active: record this commit with
   `aapp commit adopt <sha>` (or commit through `aapp commit`)."* Commits inside the planning worktrees
   are never reminded.
+- **System rules anchor (`templates/AGENTS.md`, `.agents/AGENTS.md`):** To ensure agent root system
+  prompts reinforce the discipline before touching code, `AGENTS.md` adds a concise clause under
+  `## 🛡️ Git Commit & Workflow Rule` stating: *When executing an active plan (⚡ In Development),
+  agents should use the plan-bound commit helper (`aapp commit`) rather than raw `git commit` to ensure
+  trailer compliance and plan ledger integrity.*
 
 ---
 
@@ -278,7 +283,7 @@ Two hazards follow from the shared index, and the helper must handle both:
 
 ### Phase 2: Library & Template
 - [ ] Task 2.1: `parse_plan_commits` and the header-line writer in `lib/aapp-lib.sh`.
-- [ ] Task 2.2: `* **Base:** none` and `* **Commits:** none` header lines and the execution invariant in `templates/plan-template.md`.
+- [ ] Task 2.2: `* **Base:** none` and `* **Commits:** none` header lines and the execution invariant in `templates/plan-template.md`; system rules anchor in `templates/AGENTS.md` and `.agents/AGENTS.md`.
 
 ### Phase 3: Verb & `done`
 - [ ] Task 3.1: `lib/cmd_commit.sh`: resolution (§2.2), attribution (§2.3), recording and pathspec plan commit (§2.4), `amend` (§2.5), loud partial failure, lock handling (§2.6).
@@ -313,6 +318,8 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] `lib/docs/verbs/freeze-start.md` -> Base recording
 - [ ] `lib/docs/verbs/active.md` -> One plan, one worktree refusal
 - [ ] `templates/plan-template.md` -> Commits header line and execution invariant
+- [ ] `templates/AGENTS.md` -> Rule anchor for plan-bound commit helper
+- [ ] `.agents/AGENTS.md` -> Workspace rule anchor for plan-bound commit helper
 - [ ] `templates/aapp-pre-commit` -> Warning-only reminder for commits made outside the helper
 - [ ] `tests/pre-commit_test.sh` -> Reminder test
 - [ ] `ARCHITECTURE.md` -> Plan-bound commit rule
@@ -353,6 +360,7 @@ Two hazards follow from the shared index, and the helper must handle both:
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-27:** User decision: anchor the plan-bound commit discipline with a rule in `templates/AGENTS.md` and `.agents/AGENTS.md`, pairing root system prompt guidance with the plan-template execution invariant. Added both files to Target Files and Task 2.2.
 * **2026-09-27:** User decisions (Q2, Q3) take the RFC recommendations. Refinements from RFC review: pre-flight before the code commit (A9/C20), `plan(record):` subjects (A11/C22), full command form in the invariant (A8/C19), `amend` keeps the message without duplicating trailers (A10/C21) and is for unpushed commits (C5), refusal prints `aapp active <id>` (C6), three-step reachability with no reliance on object existence (C8), stricter commit-line parsing (C10). Seven tests added or sharpened.
 * **2026-09-27:** User decision (Q1): `aapp commit adopt <sha>…` as the repair, warning on every use, printed ready-made by `done`'s refusal; plus a warning-only pre-commit reminder for commits made outside the helper. Reminder targets kept (RFC C7).
 * **2026-09-27:** User decision (Q4): identity from parameters, environment, then per-worktree config; vendor `Co-Authored-By` converted with a warning; never plain repository config. Plan commits carry the trailers too (RFC C2).
