@@ -139,6 +139,12 @@
   * `cmd_hooks_status()` / `cmd_hook_hash()` -> Validates executable bits and live SHA-256 integrity against `.agents/skills/aapp-hooks/registry.tsv`.
 * **Anti-Wrapper Warning:** Never bypass `registry.tsv` hash verification or run unhashed handlers in `mode=gate`.
 
+### 📜 Verb Behaviour Contracts (`lib/docs/verbs/`)
+* **Purpose:** Canonical owner of each daily verb's behaviour: ingress, preconditions, failure modes, effects, exit and derived tests (P-34). Resolve a verb's contract through the fifth column of `lib/verbs.tsv`.
+* **Tests:** `tests/verbs/<verb>.sh` (run with `aapp test verb <verb>`); correspondence in `tests/verb_contracts_test.sh`.
+* **Develop hook:** `templates/aapp-pre-commit-develop`, seeded into `.githooks/` by `aapp develop` only; removed by `aapp uninstall` inside the repository.
+* **Anti-Wrapper Warning:** Never describe verb behaviour in skill prose that disagrees with the contract. Change the contract first, then the code and its verb suite. Mark current code that violates a contract line as `⚠️ Divergence`, not as intended behaviour.
+
 ### 🧪 Unified Test Runner Orchestrator (`lib/cmd_test.sh`)
 * **Purpose:** Single entrypoint for automated test discovery, selective filtering, subshell isolation, execution timing, and assertion metric aggregation across all kit components.
 * **Key Behaviors:**
