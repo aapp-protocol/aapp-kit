@@ -341,6 +341,7 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 - [ ] `templates/pre-commit` -> Invoke the develop hook engine when present
 - [ ] `lib/verbs.tsv` -> Add fifth `contract` column for all daily rows
 - [ ] `lib/cmd_help.sh` -> Absorb the fifth field in the read loop so it does not leak into the description; rendering itself is unchanged
+- [ ] `tests/install_test.sh` -> Help-column and develop-hook regression tests; declared explicitly, not via Required Test Files (P-37 ends that bleed)
 - [ ] `lib/cmd_plan.sh` -> Fix D1 (unescaped title in sed), D2 (ledger summary & target issue), D3 (bare draft commit)
 - [ ] `ARCHITECTURE.md` -> Record the contract-as-source-of-truth invariant and verbs.tsv linkage
 - [ ] `.agents/CODEMAP.md` -> Name lib/docs/verbs/ as canonical owner of verb behaviour
@@ -435,6 +436,7 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-27:** Declared `tests/install_test.sh` in Target Files explicitly. It was reachable only through the Target Files parser bleeding into `### 🧪 Required Test Files` (#82), which P-37 removes.
 * **2026-09-24 (Red Team Round 2):** Four suggestions reviewed; three adopted, one already done.
   - **D1 mechanism (§2.5, new).** The proposed pure-bash replacement was tested rather than accepted
     and **fails twice**: `[Feature or Refactor Name]` is parsed as a glob character class so the
