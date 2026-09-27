@@ -660,12 +660,31 @@ Executes `.plans/release/release_checklist.md`:
 
 Repetitive terminal operations and administrative switchboards are maintained as fast CLI commands:
 
+- **`aapp tdd <plan>`**: Injects failure test declaration sections (`### 🧪 Required Tests` in §3 and `### 🧪 Required Test Files` in §4) into an incubator blueprint before freeze.
 - **`aapp freeze-start <plan>`**: Atomically freezes an incubator plan and activates it into `⚡ In Development` in a single command.
 - **`aapp active [id]` / `aapp active swap` / `aapp active clear`**: Switchboard for inspecting or switching the local execution buffer (`.git/aapp_active_plan`).
 - **`aapp plan-status [id]`**: Read-only inspection of the plan lane matrix or a specific blueprint.
 - **`aapp matrix [--check]`**: Re-derives `.plans/state_matrix.md` from the plan files. `--check` audits without writing.
 - **`aapp test [filter]`**: Discovers and runs automated test suites with subshell isolation and assertion metrics.
 - **`aapp hooks`**: Lifecycle hook diagnostic inspector and dispatcher.
+
+#### `aapp tdd` — Opt-In Failure Test Declaration
+
+`aapp tdd` injects failure test declaration sections into an incubator plan before freeze:
+- `### 🧪 Required Tests (Failure & Boundary Assertions)` in §3 (tickable assertions)
+- `### 🧪 Required Test Files` in §4 (design-locked test targets)
+
+```bash
+aapp tdd <plan>     # declare failure-first test sections in an incubator blueprint
+```
+
+**What it does:**
+- **Belongs between `draft` and `freeze`:** Prepares an incubator plan for rigorous test-driven validation.
+- **Declares tests only:** It injects section headers and structure; it writes no test code and runs no test suite.
+- **Red phase at implementation:** Phase 1 of execution writes the declared tests and confirms them failing (Red 🔴) before feature implementation code is written.
+- **Option A Single-Entry Semantics:** Declared files under `### 🧪 Required Test Files` in §4 automatically receive write permissions during implementation without requiring redundant entry under `### 📂 Target Files`.
+- **Pre-commit Gate:** Tolerates empty sections and unwritten tests while `📝 Refining`. Once `🔷 Frozen` or `⚡ In Development`, enforces mutual bidirectional correspondence between §3 identifiers and §4 files, and verifies declared test files exist on disk at `⚡`.
+- **Mechanical `done` Gate:** Refuses `aapp done` if any test assertion remains unticked (`- [ ]`), verifies declared test files exist on disk and in Git, and records `tdd (N/N)` evidence into the archive ledger.
 
 #### `aapp matrix` — Derived State Matrix
 

@@ -763,7 +763,7 @@ report "clean codebase: .claude/ added to .gitignore on code branch" "PASS" "$go
 
 # Test 39: Fresh install synchronizes canonical .agents/skills/ and bridges .claude/skills/ via granular relative symlinks
 skills_ok=1
-for v in aapp-status aapp-digest aapp-freeze aapp-start aapp-done aapp-pause aapp-release aapp-plan plan; do
+for v in aapp-status aapp-digest aapp-freeze aapp-start aapp-done aapp-pause aapp-release aapp-plan aapp-tdd plan; do
   [ -f "$PROJ_37/.agents/skills/$v/SKILL.md" ] || skills_ok=0
   [ -L "$PROJ_37/.claude/skills/$v" ] || skills_ok=0
   [ "$(readlink "$PROJ_37/.claude/skills/$v")" = "../../.agents/skills/$v" ] || skills_ok=0
@@ -808,7 +808,7 @@ report "clean upgrade: drops stale files on skill re-sync" "PASS" "$got"
 
 # Test 42: Drift control: all governance skills declare valid frontmatter, flags, and inline/fork contracts
 drift_ok=1
-for v in aapp-status aapp-digest aapp-freeze aapp-start aapp-done aapp-pause aapp-release aapp-plan plan; do
+for v in aapp-status aapp-digest aapp-freeze aapp-start aapp-done aapp-pause aapp-release aapp-plan aapp-tdd plan; do
   skill_file="$KIT/templates/skills/$v/SKILL.md"
   [ -f "$skill_file" ] || { drift_ok=0; break; }
   grep -q "^name: $v$" "$skill_file" || drift_ok=0

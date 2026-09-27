@@ -160,6 +160,76 @@ EOF
 expect_paths "test_oob_paths_parsed" parse_plan_oob_paths "$F" "src/secret.py
 .githooks/*"
 
+echo "== required test files parsing =="
+F_REQ=$(plan4 req_tests.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py`
+### 🧪 Required Test Files
+> Test files that prove this plan's failure cases.
+- `tests/a_test.py`
+- `tests/b_test.py`
+### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `tests/secret_test.py`
+EOF
+)
+expect_paths "test_parse_required_test_files" parse_plan_required_test_files "$F_REQ" "tests/a_test.py
+tests/b_test.py"
+
+echo "== required tests parsing =="
+F_TESTS="$R/plan_tests.md"
+cat > "$F_TESTS" <<'EOF'
+## 🔨 3. Implementation Steps & Execution Checklist
+### 🧪 Required Tests (Failure & Boundary Assertions)
+- [ ] `tests/a_test.py::test_fail_early` -> asserts exit 1
+- [x] `tests/b_test.py::test_boundary` -> asserts clean boundary
+- [ ] tests/c_test.py::test_unbackticked -> asserts clean error
+### Phase 1: Implementation
+- [ ] Task 1.1: Do something
+## 💥 4. Blast Radius & System Boundaries
+EOF
+expect_paths "test_parse_required_tests" parse_plan_required_tests "$F_TESTS" "tests/a_test.py
+tests/b_test.py
+tests/c_test.py"
+
+echo "== tdd correspondence validation =="
+F_VALID="$R/tdd_valid.md"
+cat > "$F_VALID" <<'EOF'
+## 🔨 3. Implementation Steps & Execution Checklist
+### 🧪 Required Tests (Failure & Boundary Assertions)
+- [ ] `tests/a_test.py::test_fail_early` -> asserts exit 1
+- [x] `tests/b_test.py::test_boundary` -> asserts clean boundary
+## 💥 4. Blast Radius & System Boundaries
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py`
+### 🧪 Required Test Files
+- `tests/a_test.py`
+- `tests/b_test.py`
+EOF
+if validate_plan_tdd_correspondence "$F_VALID" "Test"; then
+  ok "test_validate_tdd_correspondence_matches"
+else
+  bad "test_validate_tdd_correspondence_matches" "unexpected failure"
+fi
+
+if plan_has_required_test_files "$F_VALID"; then
+  ok "test_plan_has_required_test_files_true"
+else
+  bad "test_plan_has_required_test_files_true" "expected true"
+fi
+
+F_OPT_OUT="$R/tdd_opt_out.md"
+cat > "$F_OPT_OUT" <<'EOF'
+## 🔨 3. Implementation Steps & Execution Checklist
+## 💥 4. Blast Radius & System Boundaries
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py`
+EOF
+if validate_plan_tdd_correspondence "$F_OPT_OUT" "Test" && ! plan_has_required_test_files "$F_OPT_OUT"; then
+  ok "test_validate_tdd_correspondence_opted_out"
+else
+  bad "test_validate_tdd_correspondence_opted_out" "failed on opted-out plan"
+fi
+
 echo "== section extraction =="
 got=$(printf '%s\n' "## 🔨 3. Steps" "- s3" "## 💥 4. Blast Radius" "### 📂 Target Files" "- [ ] \`src/a.py\`" "## ❓ 5. Questions" "- s5" | extract_plan_section 4)
 want=$(printf '%s\n' "## 💥 4. Blast Radius" "### 📂 Target Files" "- [ ] \`src/a.py\`")

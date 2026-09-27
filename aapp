@@ -154,7 +154,7 @@ case "$CMD" in
     ai)
         source "$AAPP_LIB/cmd_ai.sh" "$@"
         ;;
-    draft|freeze-start|start|freeze|done|plan|active|plan-status)
+    draft|freeze-start|start|freeze|done|plan|active|plan-status|tdd)
         source "$AAPP_LIB/cmd_plan.sh" "$CMD" "$@"
         ;;
     matrix)

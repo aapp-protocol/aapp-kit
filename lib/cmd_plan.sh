@@ -431,6 +431,9 @@ cmd_freeze_start() {
     # Disjointness check
     check_disjointness_activation_gate "$plan_file" || exit 1
 
+    # Verify TDD failure tests correspondence if declared (P-35)
+    validate_plan_tdd_correspondence "$plan_file" "Freeze-Start Refusal" || exit 1
+
     local plan_id
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
     [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
@@ -482,6 +485,70 @@ cmd_freeze_start() {
     echo "   Active Buffer: $ACTIVE_FILE"
 }
 
+cmd_tdd() {
+    local query="$1"
+    local plan_file
+    plan_file="$(resolve_plan_file "$query" "tdd")" || exit 1
+    refuse_unless_incubator "$plan_file" "TDD"
+
+    if grep -q -E '###[[:space:]]*🧪[[:space:]]*Required Tests' "$plan_file" || \
+       grep -q -E '###[[:space:]]*🧪[[:space:]]*Required Test Files' "$plan_file"; then
+        echo "❌ [TDD Refusal] Plan already has TDD failure test sections declared." >&2
+        return 1
+    fi
+
+    local tmp_file
+    tmp_file="$(mktemp 2>/dev/null || echo "${plan_file}.tmp")"
+    awk '
+    BEGIN { in3=0; in4=0; ins3=0; ins4=0 }
+    /^## ([^0-9]*[[:space:]])?3\./ { in3=1; in4=0 }
+    /^## ([^0-9]*[[:space:]])?4\./ {
+        if (in3 && !ins3) {
+            print "### \360\237\247\252 Required Tests (Failure & Boundary Assertions)"
+            print "> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`\n"
+            ins3=1
+        }
+        in3=0; in4=1
+    }
+    /^## ([^0-9]*[[:space:]])?5\./ { in3=0; in4=0 }
+
+    in3 && !ins3 && /^### / {
+        print "### \360\237\247\252 Required Tests (Failure & Boundary Assertions)"
+        print "> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`\n"
+        ins3=1
+    }
+
+    in4 && !ins4 && (/^###[[:space:]]*🛑/ || /^---/) {
+        print "### \360\237\247\252 Required Test Files"
+        print "> Test files that must prove this plan\047s failure cases. Frozen with the blast radius.\n"
+        ins4=1
+    }
+
+    { print }
+    END {
+        if (in4 && !ins4) {
+            print "\n### \360\237\247\252 Required Test Files"
+            print "> Test files that must prove this plan\047s failure cases. Frozen with the blast radius.\n"
+        }
+    }
+    ' "$plan_file" > "$tmp_file"
+
+    mv "$tmp_file" "$plan_file"
+
+    local plan_id
+    plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
+    [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
+
+    # Commit transition in plans worktree if available
+    if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+        git -C "$PLANS_DIR" add "current/$(basename "$plan_file")" 2>/dev/null || true
+        git -C "$PLANS_DIR" commit -m "plan(refine): declare failure tests for $plan_id" 2>/dev/null || true
+    fi
+
+    echo "🧪 [TDD] Declared failure test sections in $(basename "$plan_file")."
+    echo "   Next: Enumerate failure assertions in §3 and declared test files in §4 (via '/aapp-tdd' or manual edit)."
+}
+
 cmd_freeze() {
     local query="$1"
     local plan_file
@@ -510,6 +577,9 @@ cmd_freeze() {
         echo "❌ [Freeze Refusal] Plan declares no Target Files under '### 📂 Target Files'." >&2
         exit 1
     fi
+
+    # Verify TDD failure tests correspondence if declared (P-35)
+    validate_plan_tdd_correspondence "$plan_file" "Freeze Refusal" || exit 1
 
     local plan_id
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
@@ -632,6 +702,80 @@ cmd_done() {
         exit 1
     fi
 
+    # P-35: Mechanical TDD completion gate
+    local tdd_badge=""
+    if plan_has_required_test_files "$plan_file"; then
+        # 1. Completion Check: Every box in ### 🧪 Required Tests must be ticked
+        local unticked_tests
+        unticked_tests=$(awk '
+            /^[[:space:]]*```/ { fence = !fence; next }
+            fence { next }
+            /^#+[[:space:]]/ {
+                region = 0
+                if ($0 ~ /^#[[:space:]]/ || $0 ~ /^##[[:space:]]/) {
+                    in3 = ($0 ~ /^## ([^0-9]*[[:space:]])?3\./)
+                    next
+                }
+                if (!in3) next
+                if ($0 ~ /^###[[:space:]]*🧪[[:space:]]*Required Tests[[:space:]]*(\(.*)?$/) {
+                    region = 1
+                }
+                next
+            }
+            !region { next }
+            /^[[:space:]]*-[[:space:]]*\[[[:space:]]\]/ { print $0 }
+        ' "$plan_file")
+
+        if [ -n "$unticked_tests" ]; then
+            echo "❌ [Done Refusal] Plan has unticked test assertions under '### 🧪 Required Tests':" >&2
+            echo "$unticked_tests" | sed 's/^/     /' >&2
+            echo "   All required test assertions must be verified and checked off ([x]) before archiving." >&2
+            exit 1
+        fi
+
+        local ticked_count
+        ticked_count=$(awk '
+            /^[[:space:]]*```/ { fence = !fence; next }
+            fence { next }
+            /^#+[[:space:]]/ {
+                region = 0
+                if ($0 ~ /^#[[:space:]]/ || $0 ~ /^##[[:space:]]/) {
+                    in3 = ($0 ~ /^## ([^0-9]*[[:space:]])?3\./)
+                    next
+                }
+                if (!in3) next
+                if ($0 ~ /^###[[:space:]]*🧪[[:space:]]*Required Tests[[:space:]]*(\(.*)?$/) {
+                    region = 1
+                }
+                next
+            }
+            !region { next }
+            /^[[:space:]]*-[[:space:]]*\[[xX]\]/ { count++ }
+            END { print count+0 }
+        ' "$plan_file")
+
+        if [ "$ticked_count" -eq 0 ]; then
+            echo "❌ [Done Refusal] Plan declares '### 🧪 Required Test Files' but has 0 completed test assertions under '### 🧪 Required Tests'." >&2
+            exit 1
+        fi
+
+        # 2. Existence & Tracked Check
+        while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            if [ ! -f "$REPO_ROOT/$f" ] && [ ! -f "$PRIMARY_ROOT/$f" ] && [ ! -f "$f" ]; then
+                echo "❌ [Done Refusal] Required test file '$f' is missing from disk." >&2
+                exit 1
+            fi
+            if ! ( git -C "$REPO_ROOT" ls-files --error-unmatch "$f" >/dev/null 2>&1 || \
+                   git -C "$PRIMARY_ROOT" ls-files --error-unmatch "$f" >/dev/null 2>&1 ); then
+                echo "❌ [Done Refusal] Required test file '$f' is not tracked in Git." >&2
+                exit 1
+            fi
+        done < <(parse_plan_required_test_files "$plan_file")
+
+        tdd_badge="tdd ($ticked_count/$ticked_count)"
+    fi
+
     local plan_id
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
     [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
@@ -669,6 +813,9 @@ cmd_done() {
         esac
         summary="$(grep -m 1 -E '^# ' "$done_file" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*)?Plan[^:]*:[[:space:]]*//')"
         [ -z "$summary" ] && summary="None"
+        if [ -n "$tdd_badge" ]; then
+            summary="$summary ($tdd_badge)"
+        fi
         target_issue="${target_issue//|/\\|}"
         summary="${summary//|/\\|}"
         local ledger_line="| $today | \`$plan_id\` | [\`$bname\`]($bname) | $target_issue | \`$commit_sha\` | $summary |"
@@ -1002,12 +1149,16 @@ case "$ACTION" in
     plan)
         cmd_plan_switchboard "$@"
         ;;
+    tdd)
+        cmd_tdd "$@"
+        ;;
     help|-h|--help)
         cat <<EOF
 Usage: aapp <command> [args]
 
 Multi-Agent Planning & Execution Commands:
   draft [slug]       Scaffold blueprint from template, stamp ID & date, register in matrix
+  tdd <id>           Declare failure-first test sections in an incubator plan before freeze
   freeze-start <id>  Atomically freeze blueprint, transition to ⚡ In Development, and bind buffer
   freeze <id>        Lock blueprint into 🔷 Frozen backlog specification
   start <id>         Transition 🔷 Frozen blueprint to ⚡ In Development and bind buffer
@@ -1021,7 +1172,7 @@ EOF
         ;;
     *)
         echo "❌ Unknown plan command: '$ACTION'" >&2
-        echo "   Available: draft, freeze-start, freeze, start, done, active, plan-status, plan" >&2
+        echo "   Available: draft, tdd, freeze-start, freeze, start, done, active, plan-status, plan" >&2
         exit 1
         ;;
 esac

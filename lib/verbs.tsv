@@ -1,6 +1,7 @@
 # verb	tier	standalone	description	contract
 status	daily	yes	4-pillar recovery briefing (or 'status short' for 1-line pulse)	lib/docs/verbs/status.md
 draft	daily	yes	Scaffold blueprint from template, stamp ID & date, register in matrix	lib/docs/verbs/draft.md
+tdd	daily	yes	Declare a plan's failure-first tests (§3 identifiers, §4 test files) before freeze	lib/docs/verbs/tdd.md
 plan	daily	yes	Display educational planning switchboard or query blueprints	lib/docs/verbs/plan.md
 plan-status	daily	yes	Inspect plan lane matrix or specific blueprint details	lib/docs/verbs/plan-status.md
 matrix	daily	yes	Re-derive state matrix from plan Status lines ('--check' to audit)	lib/docs/verbs/matrix.md

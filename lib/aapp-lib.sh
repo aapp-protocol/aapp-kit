@@ -51,6 +51,10 @@ _aapp_plan_section_paths() {
                 if ($0 ~ /^###[[:space:]]*🛑[[:space:]]*Out of Bounds[[:space:]]*(\(.*)?$/) {
                     region = 1
                 }
+            } else if (mode == "req_files") {
+                if ($0 ~ /^###[[:space:]]*🧪[[:space:]]*Required Test Files[[:space:]]*(\(.*)?$/) {
+                    region = 1
+                }
             }
             next
         }
@@ -79,6 +83,119 @@ parse_plan_target_paths() {
 # Vetoed paths: `### 🛑 Out of Bounds` inside §4.
 parse_plan_oob_paths() {
     _aapp_plan_section_paths "$1" oob
+}
+
+# Declared test file paths: `### 🧪 Required Test Files` inside §4.
+parse_plan_required_test_files() {
+    _aapp_plan_section_paths "$1" req_files
+}
+
+# Declared test items: `### 🧪 Required Tests` inside §3 (isolates path prefix before `::`).
+parse_plan_required_tests() {
+    local file="$1"
+    awk '
+        /^[[:space:]]*```/ { fence = !fence; next }
+        fence { next }
+        /^#+[[:space:]]/ {
+            region = 0
+            if ($0 ~ /^#[[:space:]]/ || $0 ~ /^##[[:space:]]/) {
+                in3 = ($0 ~ /^## ([^0-9]*[[:space:]])?3\./)
+                next
+            }
+            if (!in3) next
+            if ($0 ~ /^###[[:space:]]*🧪[[:space:]]*Required Tests[[:space:]]*(\(.*)?$/) {
+                region = 1
+            }
+            next
+        }
+        !region { next }
+        /^[[:space:]]*>/ { next }
+        /^[[:space:]]*-[[:space:]]*\[[ xX]\]/ {
+            line = $0
+            sub(/^[[:space:]]*-[[:space:]]*\[[ xX]\][[:space:]]*/, "", line)
+            sub(/[[:space:]]*->.*$/, "", line)
+            if (match(line, /`[^`]+`/)) {
+                line = substr(line, RSTART + 1, RLENGTH - 2)
+            }
+            sub(/::.*$/, "", line)
+            gsub(/[[:space:]]/, "", line)
+            if (line != "" && !seen[line]++) {
+                print line
+            }
+        }
+    ' "$file"
+}
+
+# True when the plan carries `### 🧪 Required Test Files` inside §4.
+plan_has_required_test_files() {
+    grep -qE '^[[:space:]]*###[[:space:]]*🧪[[:space:]]*Required Test Files' "$1" 2>/dev/null
+}
+
+# Verify bidirectional correspondence between §3 and §4 for TDD-declared plans.
+# Returns 0 if:
+#   - Plan does not declare `### 🧪 Required Test Files` (opted out)
+#   - Both sections exist, are non-empty, and bidirectionally match
+# Returns 1 and prints diagnostic to stderr if:
+#   - Either section is empty or missing
+#   - Any §3 test references a file not in §4
+#   - Any §4 declared test file has no assertions in §3
+validate_plan_tdd_correspondence() {
+    local file="$1"
+    local diag_prefix="${2:-TDD Verification}"
+
+    if ! plan_has_required_test_files "$file"; then
+        return 0
+    fi
+
+    local req_files=()
+    while IFS= read -r f; do
+        [ -n "$f" ] && req_files+=("$f")
+    done < <(parse_plan_required_test_files "$file")
+
+    local req_tests=()
+    while IFS= read -r t; do
+        [ -n "$t" ] && req_tests+=("$t")
+    done < <(parse_plan_required_tests "$file")
+
+    if [ ${#req_files[@]} -eq 0 ]; then
+        echo "❌ [$diag_prefix Violation] Plan carries '### 🧪 Required Test Files' but declares no test files." >&2
+        return 1
+    fi
+
+    if [ ${#req_tests[@]} -eq 0 ]; then
+        echo "❌ [$diag_prefix Violation] Plan carries '### 🧪 Required Test Files' but has no test assertions under '### 🧪 Required Tests' in §3." >&2
+        return 1
+    fi
+
+    for t_path in "${req_tests[@]}"; do
+        local found=0
+        for f_path in "${req_files[@]}"; do
+            if [ "$t_path" = "$f_path" ]; then
+                found=1
+                break
+            fi
+        done
+        if [ "$found" -eq 0 ]; then
+            echo "❌ [$diag_prefix Correspondence Violation] §3 test specifies file '$t_path' not declared under §4 '### 🧪 Required Test Files'." >&2
+            return 1
+        fi
+    done
+
+    for f_path in "${req_files[@]}"; do
+        local found=0
+        for t_path in "${req_tests[@]}"; do
+            if [ "$f_path" = "$t_path" ]; then
+                found=1
+                break
+            fi
+        done
+        if [ "$found" -eq 0 ]; then
+            echo "❌ [$diag_prefix Correspondence Violation] §4 declared test file '$f_path' has no assertions under §3 '### 🧪 Required Tests'." >&2
+            return 1
+        fi
+    done
+
+    return 0
 }
 
 # Stdin filter: print numbered section `## ... N.` through the next numbered

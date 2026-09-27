@@ -15,6 +15,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | :--- | :---: | :--- |
 | `aapp status [short]` | **✅ Yes** | 4-pillar context recovery briefing (or 'short' for 1-line remote pulse) |
 | `aapp draft [slug]` | **✅ Yes** | Scaffold blueprint from template, stamp ID & date, register in matrix |
+| `aapp tdd [id]` | **✅ Yes** | Declare a plan's failure-first tests (§3 identifiers, §4 test files) before freeze |
 | `aapp plan [query]` | **✅ Yes** | Educational planning switchboard or query blueprints |
 | `aapp plan-status [id]` | **✅ Yes** | Inspect plan lane matrix or specific blueprint details |
 | `aapp matrix [--check]` | **✅ Yes** | Re-derive state matrix from plan Status lines (`--check` to audit) |
@@ -26,7 +27,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp test [filter]` | **✅ Yes** | Run test suites across repository or audit adopter environment |
 | `aapp test verb [name]` | **✅ Yes** | Run contract-derived verb suites (`tests/verbs/<name>.sh`) |
 
-AI agent counterparts: `/aapp-status`, `/aapp-digest [idea]`, `/aapp-freeze [plan]`, `/aapp-start [plan]`, `/aapp-done [plan]`, `/aapp-pause [reason]`, `/aapp-release`, `/aapp-plan` (and `/plan`).
+AI agent counterparts: `/aapp-status`, `/aapp-digest [idea]`, `/aapp-freeze [plan]`, `/aapp-start [plan]`, `/aapp-done [plan]`, `/aapp-pause [reason]`, `/aapp-release`, `/aapp-plan` (and `/plan`), `/aapp-tdd [plan]`.
 
 Plans are `P-[num]`, issues are `#[num]`. `aapp freeze P-9`, `aapp freeze 9`, and `aapp freeze guard-path` all resolve to the same blueprint.
 

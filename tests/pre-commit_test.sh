@@ -1035,6 +1035,86 @@ else
   echo "$out_lib" | head -3 | sed 's/^/       /'
 fi
 
+echo "== opt-in failure test declaration (P-35) =="
+setup
+plan no_tdd.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py`
+EOF
+check "plan without required tests commits freely" PASS src/a.py
+
+plan_full() {
+  mkdir -p .plans/current
+  cat > ".plans/current/$1"
+}
+
+# §3 names tests/b_test.py, but §4 only declares tests/a_test.py -> mismatch
+setup
+plan_full tdd_mismatch.md <<'EOF'
+* **Status:** ⚡ In Development
+## 🔨 3. Implementation Steps & Execution Checklist
+### 🧪 Required Tests (Failure & Boundary Assertions)
+- [ ] `tests/b_test.py::test_fail` -> asserts error
+## 💥 4. Blast Radius & System Boundaries
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py`
+### 🧪 Required Test Files
+- `tests/a_test.py`
+### 🛑 Out of Bounds (Do Not Touch)
+EOF
+mkdir -p tests; touch tests/a_test.py tests/b_test.py
+check "test_mismatch_s3_not_in_s4_refused" BLOCK src/a.py
+
+# §4 declares tests/b_test.py, but §3 has no identifier for it -> mismatch
+setup
+plan_full tdd_mismatch2.md <<'EOF'
+* **Status:** ⚡ In Development
+## 🔨 3. Implementation Steps & Execution Checklist
+### 🧪 Required Tests (Failure & Boundary Assertions)
+- [ ] `tests/a_test.py::test_fail` -> asserts error
+## 💥 4. Blast Radius & System Boundaries
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py`
+### 🧪 Required Test Files
+- `tests/a_test.py`
+- `tests/b_test.py`
+### 🛑 Out of Bounds (Do Not Touch)
+EOF
+mkdir -p tests; touch tests/a_test.py tests/b_test.py
+check "test_mismatch_s4_not_in_s3_refused" BLOCK src/a.py
+
+# Refining plan tolerates unwritten declared tests
+setup
+plan_full tdd_refining.md <<'EOF'
+* **Status:** 📝 Refining
+## 🔨 3. Implementation Steps & Execution Checklist
+### 🧪 Required Tests (Failure & Boundary Assertions)
+- [ ] `tests/a_test.py::test_fail` -> asserts error
+## 💥 4. Blast Radius & System Boundaries
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py`
+### 🧪 Required Test Files
+- `tests/a_test.py`
+### 🛑 Out of Bounds (Do Not Touch)
+EOF
+check "test_refining_tolerates_unwritten_tests" PASS src/a.py
+
+# In Development plan refuses commit if declared test file is missing from disk
+setup
+plan_full tdd_dev_missing.md <<'EOF'
+* **Status:** ⚡ In Development
+## 🔨 3. Implementation Steps & Execution Checklist
+### 🧪 Required Tests (Failure & Boundary Assertions)
+- [ ] `tests/a_test.py::test_fail` -> asserts error
+## 💥 4. Blast Radius & System Boundaries
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py`
+### 🧪 Required Test Files
+- `tests/a_test.py`
+### 🛑 Out of Bounds (Do Not Touch)
+EOF
+check "test_in_development_refuses_missing_test_file" BLOCK src/a.py
+
 print_test_summary "$PASS" "$FAIL"
 
 
