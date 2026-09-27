@@ -225,6 +225,29 @@ active blueprints. Populate at refinement.)*
   *should* have looked somewhere it did not; that judgement stays with the reviewer. This is a mild
   argument for the separate per-plan artifact over inline notes, since a structured findings block
   is easier to keep machine-readable in its own file. Format itself is refinement-session work.
+* **F9 — Review scope must allow several plans at once.** The packet and log are keyed to one plan
+  ID (§2.5). A hand-run RFC across `P-34`/`P-35`/`P-37` (2026-09-27) found its most valuable results
+  *between* plans: `P-35`'s declared test files losing write access under `P-37`'s parser, `P-35`'s
+  new verb failing `P-34`'s contract check, and both plans editing `cmd_done`. No per-plan review
+  could see these, and Pair 7 only compares Target Files once plans are ⚡ In Development. Packet and
+  log naming need to accept a set of IDs (e.g. `34-35-37`).
+* **F10 — Two reviewer modes: shared disk before packet.** In that RFC both agents worked on the same
+  machine and appended to one file in `pickup/`. No packet was emitted, and the reviewer could run
+  probes directly, which is §2.4's reviewer property. The L1 packet (§2.2) serves reviewers *without*
+  repository access. The shared-disk mode is simpler and arguably comes first; the packet is the
+  remote case.
+* **F11 — `pickup/` collides with the egress boundary.** §2.3 denies `pickup/` in code. An RFC kept
+  there cannot enter a packet. Either the review log lives outside `pickup/`, or the emitter
+  allowlists that single named file. Decide with Question 2. The same RFC is evidence for Question 2:
+  local raw log, decisions committed into each plan's §6 — F4's split, with no committed log needed
+  for solo, single-machine use.
+* **F12 — Observed: signed append-only blocks work; agents misattribute decisions.** Signed, dated,
+  append-only blocks (agent/vendor/model) kept corrections beside the claims they answered. Twice in
+  one session an agent recorded a user decision the user had not made. Separate `USER DECISION`
+  blocks, taken from the user's own words, fixed this — a concrete instance of §2.7's "agreement is
+  weak evidence". Replies already threaded by reference ("Re A3"); a per-item shape
+  `(id, file:line, claim, status: open|agreed|refuted|user-decided)` would make F7's empty-round
+  check mechanical (F8).
 
 ---
 
@@ -240,3 +263,6 @@ active blueprints. Populate at refinement.)*
   and records the predicate-correction mechanism that made round 2 productive. F8 notes that
   mechanical termination requires parseable findings, bearing on Question 2's artifact shape. Still
   findings only — no design, no task breakdown, no Target Files.
+* **2026-09-27:** Added F9–F12 from a hand-run cross-plan RFC on `P-34`/`P-35`/`P-37`: reviews across
+  several plans, shared-disk mode before the packet, the `pickup/` egress collision, and signed blocks
+  with separate user-decision records. Findings only.
