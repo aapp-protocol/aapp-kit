@@ -13,7 +13,7 @@
 * **Key Functions:**
   * `has_kit_signature(dir)` -> Validates presence of essential kit structures (`templates/`, `pre-commit`, `AGENTS.md`, `lib/`, `cmd_init.sh`).
   * `is_safe_to_consume_kit_dir(dir, keep)` -> Content-based signature, file manifest audit, and clean git working tree check protecting non-kit assets and development checkouts from self-consumption.
-* **Responsibilities:** Resolves global share directory vs drop-in checkout (`AAPP_IS_DROP_IN`, `AAPP_BASE`), exports core environment variables, and delegates to `lib/` modules.
+* **Responsibilities:** Resolves runtime environment (`AAPP_RUNTIME=installed|local`, `AAPP_BASE`), exports core environment variables, enforces front-door repository membership assertions, and delegates to `lib/` modules.
 * **Anti-Wrapper Warning:** Never write wrapper shell scripts around `aapp` commands; invoke `aapp` directly.
 
 ---
@@ -26,6 +26,7 @@
   * `mount_or_create_worktree(branch, dir)` -> Safely provisions or mounts orphan worktrees (`plans`, `agents`, `githooks`).
   * `sync_agent_rules()` -> Delimited block updater (`<!-- AAPP-PROTOCOL:START -->` ... `<!-- AAPP-PROTOCOL:END -->`) preserving custom user rules in `AGENTS.md`.
   * `copy_guarded(src, target, msg)` -> Non-destructive file copy that never overwrites existing user content.
+  * Canonical Physical Fast-Fail -> Asserts `[ "$AAPP_RUNTIME" = "installed" ] || [ "$AAPP_BASE_PHYSICAL" = "$REPO_ROOT_PHYSICAL" ]`, fast-failing any attempt to run `init` from an uninstalled clone against an external repository.
 * **Anti-Wrapper Warning:** Do not implement ad-hoc worktree creation or rule-sync logic outside this module.
 
 ### 🌐 Global Installer & Self-Consumption Manager (`lib/cmd_install.sh`)
