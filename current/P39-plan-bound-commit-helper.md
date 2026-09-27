@@ -1,6 +1,6 @@
 # 🗺️ Plan P-39: Plan Bound Commit Helper
 * **Created:** 2026-09-27 | **Last Refined:** 2026-09-27
-* **Target Issue / Milestone:** None — resolves the `done` verification-commit divergence recorded in `lib/docs/verbs/done.md`
+* **Target Issue / Milestone:** #81 (with P-40) — also resolves the `done` verification-commit divergence in `lib/docs/verbs/done.md`
 * **Plan ID:** P-39
 * **Status:** 🟣 Under Review
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -37,8 +37,10 @@
 4. **Nothing between the last commit and `done` has a reference.** A review hook before `done`, or a
    human double-checking the work, cannot ask "which commits are this plan?"
 
-Agents also compose commits by hand: attribution trailers are guessed and rejected
-(`Co-Authored-By` in `commit` mode), and lifecycle commits are wrapped in `|| true` (#81).
+Commits are also composed in five places by hand: `draft`, `freeze`, `start`, `freeze-start` and
+`done` each run `git add … || true; git commit … || true` against the whole shared `.plans` index —
+capturing other agents' staged files (RFC C4) and hiding every failure (#81). Attribution modes are
+redesigned in **P-40** (`none | lax | strict | notes`); this plan builds on them.
 
 ### Architectural Goal
 A plan-bound commit helper that agents use **by discipline, not enforcement**:
@@ -52,6 +54,9 @@ A plan-bound commit helper that agents use **by discipline, not enforcement**:
 4. Agents learn the tool from a plan-template execution invariant, not from a skill; it is an agent
    convenience, not a human workflow.
 5. Several agents on several plans in several worktrees at once stay correct.
+6. **One commit engine** for every `.plans` commit — `aapp commit` and all lifecycle verbs — with
+   standard subjects, path-limited commits, retry, attribution through P-40's layer, and loud failures.
+   With P-40, this closes #81.
 
 ---
 
@@ -61,7 +66,7 @@ A plan-bound commit helper that agents use **by discipline, not enforcement**:
 - **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`. `done` stops reading `HEAD`; a plan with no recorded
   commits is refused, not archived with a guessed SHA. Plans already in development when this ships
-  record their commits with the recovery path (§5 Q1) before `done`.
+  record their commits with `aapp commit adopt` (§2.7b) before `done`.
 
 ### 2.1 Verb Surface (bare tokens, no `--flags`)
 
@@ -82,30 +87,28 @@ The plan is the one bound in the **current worktree's** active buffer
 with none or several, the verb refuses, names the choices, and prints the fix: `aapp active <id>`. The plan must be `⚡ In Development`
 (status registry, as `done` since #89).
 
-### 2.3 Code Commit & Attribution
-The code commit runs in the current worktree. The message is completed per
-`git config aapp.aiAttribution`:
+### 2.3 Code Commit & Attribution (P-40's layer)
+The code commit runs in the current worktree. Attribution is **not** composed here: the helper calls
+P-40's `lib/attribution.sh` — `resolve_ai_identity` (parameters → `AAPP_AGENT_*` → per-worktree
+config → converted `Co-Authored-By` with a warning; never repository config), `attribution_decorate`
+(trailers per mode; `strict` without identity exits 1) and `attribution_note` (`notes` mode; text
+without identity exits 1 with stderr, identity alone passes).
 
-| Mode | Helper behaviour |
-| :--- | :--- |
-| `commit` | Appends `AI-Agent:` / `AI-Vendor:` / `AI-Model:` from the agent's identity (below); refuses with the exact fix when identity is missing |
-| `notes` | Stages the note as `aapp ai-note` does; no trailers in the message |
-| `none` | Message unchanged |
+The verb exposes P-40's inputs as bare tokens:
 
-**Agent identity** (only the agent knows its name, vendor and model), most explicit source first:
+```text
+aapp commit "<msg>" [agent <A> vendor <V> model <M>] [note "<text>"]
+```
 
-1. **Parameters** on the verb, as bare tokens: `aapp commit "<msg>" agent <name> vendor <vendor> model <model>`.
-2. **Environment**: `AAPP_AGENT_NAME`, `AAPP_AGENT_VENDOR`, `AAPP_AGENT_MODEL` (`ai-note` already reads the first).
-3. **Per-worktree git config** (`git config --worktree aapp.aiAgent` …, requires `extensions.worktreeConfig`) — last of the explicit sources, used with caution.
-4. **A vendor `Co-Authored-By: Name <email>` trailer** already in the message (agents add them by default): converted to the emailless trailers, email dropped, with a **warning** naming the conversion.
-5. Nothing found → exit 1, printing the parameter and environment forms.
+| Mode (P-40) | Code commit | Plan commit (`plan(record)`) |
+| :--- | :--- | :--- |
+| `none` | message as given | standard subject |
+| `lax` | trailers when an identity resolved; none otherwise (human) | same rule |
+| `strict` | trailers required; missing identity refused in pre-flight | trailers required |
+| `notes` | no trailers; note attached when an identity resolved | no note (bookkeeping) |
 
-**Plain repository config is never read**: it is shared by every worktree, so two agents in two
-worktrees would overwrite each other's identity. The plans-worktree commit carries the same trailers
-(RFC C2), since the `.plans` hooks enforce attribution too.
-
-**Pre-flight, before anything is committed:** the identity resolves (in `commit` mode), the plan is
-`⚡ In Development`, no other worktree binds it, and the plan file is writable. The common failures
+**Pre-flight, before anything is committed:** in `strict` the identity resolves; the plan is
+`⚡ In Development`; no other worktree binds it; the plan file is writable. The common failures
 therefore happen with nothing committed. Pre-flight cannot make the two commits atomic — the `.plans`
 hooks may still refuse the plan commit after the code commit lands, and a lock free during pre-flight
 can be taken a moment later — so the retry (§2.6) and `adopt` (§2.7b) remain the backstop.
@@ -133,7 +136,7 @@ design-locked (only §2 and §4 are), so this is allowed while `⚡ In Developme
 
 **Partial failure is loud.** If the code commit lands but the plan commit fails, the code commit
 cannot be undone safely. The helper exits non-zero, prints the recorded line it could not commit and
-the one command that repairs it (§5 Q1), and never swallows the failure (#81 pattern).
+the one command that repairs it (`adopt`, §2.7b), and never swallows the failure (#81 pattern).
 
 ### 2.4b Base Recorded at `start`
 `start` and `freeze-start` record where the plan began, in the same form, on its own header line so
@@ -241,6 +244,29 @@ Two hazards follow from the shared index, and the helper must handle both:
   agents should use the plan-bound commit helper (`aapp commit`) rather than raw `git commit` to ensure
   trailer compliance and plan ledger integrity.*
 
+### 2.9 One Commit Engine for Every `.plans` Commit (RFC C23, C35, C38)
+`lib/commit_engine.sh` (sourced; functions only) holds `plans_commit "<subject>" <path>…`: stage
+**exactly** the given paths (needed for new files and moves), commit only them
+(`git commit -- <paths>`), attribute through P-40's layer, retry on the index lock (§2.6), and fail
+loudly — no `|| true` anywhere on the commit path. `aapp commit`'s `plan(record)` commit and every
+lifecycle verb use it:
+
+| Verb | Standard subject | Paths |
+| :--- | :--- | :--- |
+| `aapp commit` / `adopt` | `plan(record): record <sha> for P-NN` / `plan(record): adopt <n> commit(s) for P-NN` | the plan |
+| `draft` | `plan(draft): scaffold P-NN <slug>` | new plan, `state_matrix.md` |
+| `freeze` | `plan(freeze): lock blast radius and greenlight P-NN` | plan, `state_matrix.md` |
+| `start` | `plan(start): activate P-NN into development` | plan, `state_matrix.md` |
+| `freeze-start` | `plan(start): freeze and activate P-NN into development` | plan, `state_matrix.md` |
+| `done` | `plan(done): archive P-NN to done/ and update state matrix` | old and new plan path, ledger, `state_matrix.md` |
+
+Lifecycle commits carry no authorship to trace (C35): in `none`/`lax`/`notes` they need no identity;
+in `strict` the agent's environment supplies it and the hook enforces it like any commit — no
+exemption (C26). A human running `aapp freeze` in a terminal commits normally in `lax`.
+
+A lifecycle verb whose commit fails now exits non-zero with the hook's or Git's output; the file
+changes it made stay in place for the user to inspect.
+
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
@@ -251,14 +277,14 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] `tests/verbs/commit.sh::test_records_sha_and_branch` -> the code commit's SHA and branch appear in the plan header, and the plan is committed
 - [ ] `tests/verbs/commit.sh::test_plan_commit_is_pathspec_limited` -> another plan staged in `.plans` is not swept into the commit
 - [ ] `tests/verbs/commit.sh::test_refuses_without_active_plan` -> no `⚡` plan: exit 1, no commit; with several `⚡` plans the refusal prints `aapp active <id>`
-- [ ] `tests/verbs/commit.sh::test_preflight_fails_before_code_commit` -> missing identity in `commit` mode: exit 1 and the code branch has no new commit
+- [ ] `tests/verbs/commit.sh::test_preflight_fails_before_code_commit` -> missing identity in `strict` mode: exit 1 and the code branch has no new commit
 - [ ] `tests/verbs/commit.sh::test_detached_head_recorded` -> a commit on a detached `HEAD` is recorded as `(detached)`
 - [ ] `tests/verbs/commit.sh::test_refuses_nothing_staged` -> empty index: exit 1, no commit, header unchanged
 - [ ] `tests/verbs/commit.sh::test_rejected_commit_records_nothing` -> a refusing hook: exit non-zero, header unchanged
 - [ ] `tests/verbs/commit.sh::test_amend_replaces_recorded_sha` -> `amend` swaps the old SHA for the new one in the header; with no message the message is kept and trailers are not duplicated
-- [ ] `tests/verbs/commit.sh::test_commit_mode_adds_trailers` -> `commit` attribution: the three trailers present on the code *and* the plan commit; missing identity refused with the fix
-- [ ] `tests/verbs/commit.sh::test_identity_precedence` -> parameters beat environment beat worktree config; plain repository config is ignored
-- [ ] `tests/verbs/commit.sh::test_coauthor_converted_with_warning` -> a `Co-Authored-By: … <email>` trailer becomes emailless trailers, and a warning is printed
+- [ ] `tests/verbs/commit.sh::test_strict_attributes_both_commits` -> `strict`: trailers on the code *and* the plan commit; missing identity refused in pre-flight with nothing committed
+- [ ] `tests/verbs/commit.sh::test_lax_human_commit_needs_no_identity` -> `lax`, no identity: both commits land without trailers
+- [ ] `tests/verbs/commit.sh::test_note_token_attached_in_notes_mode` -> `notes`: `note "<text>"` with an identity lands as a git note on the code commit
 - [ ] `tests/verbs/commit.sh::test_linked_worktree_records_its_own_plan` -> two worktrees bound to two plans each record into their own plan
 - [ ] `tests/verbs/commit.sh::test_adopt_records_existing_commit` -> a raw commit is adopted with its branch, the plan is committed, and a warning is printed
 - [ ] `tests/verbs/commit.sh::test_adopt_refuses_unknown_sha` -> an unknown or branchless SHA: exit 1, header unchanged
@@ -275,6 +301,10 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] `tests/verbs/freeze-start.sh::test_records_base_sha_and_branch` -> `freeze-start` fills `Base` the same way
 - [ ] `tests/verbs/active.sh::test_refuses_plan_bound_in_other_worktree` -> binding a plan already bound in a linked worktree: exit 1 naming it, buffer unchanged
 - [ ] `tests/verbs/start.sh::test_refuses_plan_bound_in_other_worktree` -> `start` on a plan bound elsewhere: exit 1, plan and buffer unchanged
+- [ ] `tests/verbs/draft.sh::test_commit_takes_only_its_paths` -> another file staged in `.plans` is not swept into the draft commit (C4)
+- [ ] `tests/verbs/freeze.sh::test_commit_failure_is_loud` -> a refusing `.plans` hook: `freeze` exits non-zero and says why (#81)
+- [ ] `tests/verbs/freeze.sh::test_human_freeze_commits_in_lax` -> `lax`, no identity: the freeze commit lands (#81)
+- [ ] `tests/verbs/done.sh::test_commit_takes_only_its_paths` -> the archive commit contains only the move, ledger and matrix
 - [ ] `tests/verbs/done.sh::test_pre_done_veto_blocks_archive` -> a `pre-done` handler exiting non-zero: `done` exits 1, nothing moves; the payload carries the recorded commits
 
 ### Phase 1: Contract & Red Tests
@@ -291,7 +321,9 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] Task 3.2b: `cmd_start` / `cmd_freeze_start` record the base (§2.4b), refuse planning worktrees, keep the first base on re-run.
 - [ ] Task 3.2c: One plan, one worktree (§2.6): `start`, `freeze-start` and `active <id>` refuse a plan bound in another worktree's buffer.
 - [ ] Task 3.3: `cmd_done` reads the record (§2.7), dispatches `pre-done` before any mutation (non-zero vetoes), and `on-done` gains `commits`.
+- [ ] Task 3.3b: `lib/commit_engine.sh` `plans_commit` (§2.9); `aapp commit` uses it.
 - [ ] Task 3.4: `adopt` (§2.7b) and the warning-only pre-commit reminder (§2.8); remaining §5 answers (squash, detached).
+- [ ] Task 3.4b: Migrate `draft`, `freeze`, `start`, `freeze-start`, `done` to `plans_commit` with standard subjects; remove every `|| true` on their commit path (§2.9).
 - [ ] Task 3.5: Required Tests Green 🟢: `aapp test verb commit`, `aapp test verb done`, `aapp test aapp_lib`.
 
 ### Phase 4: Regression & Docs
@@ -308,6 +340,7 @@ Two hazards follow from the shared index, and the helper must handle both:
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `NEW FILE` -> `lib/cmd_commit.sh` -> The commit helper verb
+- [ ] `NEW FILE` -> `lib/commit_engine.sh` -> plans_commit: path-limited, attributed, retried, loud
 - [ ] `NEW FILE` -> `lib/docs/verbs/commit.md` -> Behaviour contract for commit
 - [ ] `aapp` -> Dispatcher case for commit
 - [ ] `lib/verbs.tsv` -> Daily row with contract path
@@ -317,6 +350,8 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] `lib/docs/verbs/start.md` -> Base recording and planning-worktree refusal
 - [ ] `lib/docs/verbs/freeze-start.md` -> Base recording
 - [ ] `lib/docs/verbs/active.md` -> One plan, one worktree refusal
+- [ ] `lib/docs/verbs/draft.md` -> Standard commit via plans_commit; #81 divergence resolved
+- [ ] `lib/docs/verbs/freeze.md` -> Standard commit via plans_commit; #81 divergence resolved
 - [ ] `templates/plan-template.md` -> Commits header line and execution invariant
 - [ ] `templates/AGENTS.md` -> Rule anchor for plan-bound commit helper
 - [ ] `.agents/AGENTS.md` -> Workspace rule anchor for plan-bound commit helper
@@ -335,12 +370,17 @@ Two hazards follow from the shared index, and the helper must handle both:
 - `tests/verbs/start.sh`
 - `tests/verbs/freeze-start.sh`
 - `tests/verbs/active.sh`
+- `tests/verbs/draft.sh`
+- `tests/verbs/freeze.sh`
 - `tests/aapp_lib_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/*` -> Installed engines; `aapp init` propagates template changes.
 - [ ] `templates/skills/*` -> No skill wraps the verb (decision: discipline via the plan template).
 - [ ] `lib/plan_states.sh` -> Status registry is consumed, not changed.
+- [ ] `lib/attribution.sh` -> P-40's attribution layer is called, not changed.
+- [ ] `templates/aapp-commit-msg` -> Attribution enforcement belongs to P-40.
+- [ ] `lib/cmd_ai.sh` -> Setup verbs belong to P-40.
 
 ---
 
@@ -348,18 +388,22 @@ Two hazards follow from the shared index, and the helper must handle both:
 * [x] **Question 1 — Repair and reminder.** RESOLVED (user): both — `aapp commit adopt` (§2.7b, itself warning) and the warning-only pre-commit reminder (§2.8). Original question: Refusing `done` on an empty list pushes cleanup onto whoever forgot. Proposed: (a) `aapp commit adopt <sha>…` records existing commits without committing code, and `done`'s refusal prints it with the candidate SHAs; (b) pre-commit prints a one-line *warning* (never a refusal) when a code commit is made during an active plan outside the helper, detected by a marker the helper sets. Adopt both, one, or neither?
 * [x] **Question 2 — Squash merges.** RESOLVED (user, RFC recommendation): `done` before squash-merging; afterwards, `aapp commit adopt <squash-sha>` (§2.7). Original question: A squash merge replaces the recorded SHAs and the branch may be deleted. Require `done` before merging, accept "recorded branch was merged" as reachable, or record the squash SHA via the repair path?
 * [x] **Question 3 — Detached `HEAD`.** RESOLVED (user, RFC recommendation): record `(detached)`; `done` requires some ref to contain it (§2.4, §2.7). Original question: Refuse the commit, or record `(detached)` and let `done` check reachability from any branch?
-* [x] **Question 4 — Agent identity for `commit` mode.** RESOLVED (user, RFC): parameters, then environment, then per-worktree config (with caution); a vendor `Co-Authored-By` with email is converted with a warning; plain repository config never. See §2.3. Original question: Only the agent knows its name, vendor and model. Source: environment (`AAPP_AGENT_NAME` / `AAPP_AGENT_VENDOR` / `AAPP_AGENT_MODEL`; `ai-note` already reads the first), bare tokens on the verb, or per-worktree git config?
+* [x] **Question 4 — Agent identity for `commit` mode.** RESOLVED (user, RFC): parameters, then environment, then per-worktree config (with caution); a vendor `Co-Authored-By` with email is converted with a warning; plain repository config never. Implemented in P-40 (`resolve_ai_identity`); this plan passes the tokens (§2.3). Original question: Only the agent knows its name, vendor and model. Source: environment (`AAPP_AGENT_NAME` / `AAPP_AGENT_VENDOR` / `AAPP_AGENT_MODEL`; `ai-note` already reads the first), bare tokens on the verb, or per-worktree git config?
 
 ### Dependencies & Sequencing
+- **After `P-40`** (user decision, RFC C28): attribution modes and `lib/attribution.sh` exist first; this plan calls them.
+- **After `P-35`**: P-35 is ⚡ In Development on `lib/cmd_plan.sh`, a target here (Pair 7).
+- **Closes #81 with P-40**: P-40 lets human and lifecycle commits through in `lax`; this plan attributes lifecycle commits in `strict` and removes `|| true`. At `done`, #81's archive entry records it as superseded by P-40 + P-39; the issue row itself is not edited.
 - **After `P-34`** (done): uses the verb-contract shape, `tests/verbs/`, and the status registry gate (#89).
 - **After `P-37`** (done): Target Files for `done`'s candidate list come from `parse_plan_target_paths`.
-- **Touches #81's pattern:** the helper's own commits never use `|| true`; the existing lifecycle verbs are not changed here.
+- **Closes RFC C4**: every `.plans` commit is path-limited through `plans_commit`.
 - **Related, unplanned:** the double-dash sweep (bare tokens only; `amend` follows it).
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-28:** Realigned after the RFC split (C28: P-40 first). Attribution delegated to P-40's `lib/attribution.sh` (identity, decoration, notes); the verb passes `agent … vendor … model …` and `note "<text>"` tokens. New §2.9: one commit engine (`plans_commit`) for `aapp commit` and all five lifecycle verbs, standard subjects, path-limited, no `|| true` — closes C4 and, with P-40, #81. Identity tests moved to P-40; eight tests added or replaced. Depends on P-40 and P-35.
 * **2026-09-27:** User decision: anchor the plan-bound commit discipline with a rule in `templates/AGENTS.md` and `.agents/AGENTS.md`, pairing root system prompt guidance with the plan-template execution invariant. Added both files to Target Files and Task 2.2.
 * **2026-09-27:** User decisions (Q2, Q3) take the RFC recommendations. Refinements from RFC review: pre-flight before the code commit (A9/C20), `plan(record):` subjects (A11/C22), full command form in the invariant (A8/C19), `amend` keeps the message without duplicating trailers (A10/C21) and is for unpushed commits (C5), refusal prints `aapp active <id>` (C6), three-step reachability with no reliance on object existence (C8), stricter commit-line parsing (C10). Seven tests added or sharpened.
 * **2026-09-27:** User decision (Q1): `aapp commit adopt <sha>…` as the repair, warning on every use, printed ready-made by `done`'s refusal; plus a warning-only pre-commit reminder for commits made outside the helper. Reminder targets kept (RFC C7).
