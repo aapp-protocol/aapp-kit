@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Overview Pulse & Short Status (`lib/cmd_status.sh`): Adds high-density backlog metrics to `aapp status` banner and supports positional `aapp status short` for remote reporting.
 
 ### Changed
+- README/MANUAL §14: platform verification status; non-Linux environments flagged untested (help wanted).
 - Shared hook library `lib/aapp-lib.sh`: one plan parser, glob helpers and `aapp_os` for CLI and hooks; fail-closed load (`P-37`).
 - MANUAL FAQ: cross-plan alignment RFC example for solo multi-agent planning.
 - Deprecate Drop-In Mode & Single Global Distribution (`P-36`): Deprecates broken drop-in installation (`./aapp-kit/aapp init`), removes parent climbing and Phase 7 folder consumption from `lib/cmd_init.sh`, single-sources runtime detection in `aapp` via `AAPP_RUNTIME=installed|local`, and enforces physical canonical fast-fail check in `lib/cmd_init.sh` rejecting uninstalled clones against external repositories. Global `aapp install` retains self-consumption of temporary installer clones.

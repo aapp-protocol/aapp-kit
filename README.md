@@ -14,6 +14,7 @@
 * [3. Dual-Layer Blast Radius Enforcement](#3-dual-layer-blast-radius-enforcement)
 * [4. Quick Start & Distribution Modes](#4-quick-start--distribution-modes)
   * [Global Installation (Recommended)](#global-installation-recommended)
+  * [Platform Support (Help Wanted)](#platform-support-help-wanted)
   * [Inspection-Only Mode (Cloned Adopter Repositories)](#inspection-only-mode-cloned-adopter-repositories)
   * [Contributor / Development Setup (`aapp develop`)](#contributor--development-setup-aapp-develop)
   * [The First-Run Onboarding Loop (Day 1 Experience)](#the-first-run-onboarding-loop-day-1-experience)
@@ -156,6 +157,9 @@ git clone https://github.com/aapp-protocol/aapp-kit.git aapp-kit
   aapp uninstall
   ```
   Removes AAPP binary and share files while leaving shared directories and shell rc PATH configuration completely intact.
+
+### Platform Support (Help Wanted)
+AAPP is developed and tested on **Linux**. **macOS, Windows (Git Bash), WSL, the BSDs and Alpine are untested**. They may well work, but nobody has checked yet. If you use one of them, running the test suite and reporting the result, whether it passes or fails, helps a lot. See [MANUAL §14 — Platform Verification Status](MANUAL.md#14-platform-verification-status-help-wanted) for known risks, verification steps, and what to include in a report.
 
 ### Inspection-Only Mode (Cloned Adopter Repositories)
 When a team member or contributor clones an AAPP-governed project:

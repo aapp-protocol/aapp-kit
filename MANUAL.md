@@ -78,6 +78,10 @@
   * [Branch & Write Guard Protection](#branch--write-guard-protection)
   * [Remote Sync & Worktree Transport](#remote-sync--worktree-transport)
   * [Hook Engine & Local Overrides](#hook-engine--local-overrides)
+* [14. Platform Verification Status (Help Wanted)](#14-platform-verification-status-help-wanted)
+  * [Verification Matrix](#verification-matrix)
+  * [How to Verify on Your Machine](#how-to-verify-on-your-machine)
+  * [How to Report](#how-to-report)
 
 ---
 
@@ -1620,3 +1624,54 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 ### Hook Engine & Local Overrides
 - **`aapp.allowLocalHooks`**: In CI or locked production environments, set to `false` to prevent local git config hooks from executing.
 - **`aapp.hookTimeout`**: Watchdog timeout ceiling (in seconds) applied to local hook execution.
+
+---
+
+## 14. Platform Verification Status (Help Wanted)
+
+AAPP is plain Bash, Git and POSIX tools, but it is developed and tested on Linux only. This section says honestly what has been verified and what has not. **Untested does not mean broken, and it does not mean supported.** The risks below are *potential* problems read from the code, not confirmed defects. They are fixed when someone on that platform reports what actually happens, which usually also shows the cleanest fix.
+
+### Verification Matrix
+
+| Environment | Status | What to watch for |
+| :--- | :--- | :--- |
+| **Linux** (GNU coreutils, Bash 5) | ✅ Verified: full test suite; plan parser output identical under `gawk`, `mawk` and `busybox awk` | — |
+| **macOS** (BSD userland, `/bin/bash` 3.2) | ⚠️ Untested | BSD `sed -i` expects a backup-suffix argument (`sed -i ''`), and lifecycle verbs (`draft`, `freeze`, `start`, `done`) use GNU-style `sed -i`. `sort -z` may be missing on older releases, which affects the Plans pillar of `aapp status`. `aapp install` must keep `templates/aapp-lib.sh` as a symlink under BSD `cp -r`. No Bash 4-only features are used, so the system Bash 3.2 should run the scripts. |
+| **Windows** (Git Bash / MSYS2) | ⚠️ Untested | With `core.symlinks=false`, `templates/aapp-lib.sh` checks out as a one-line text file. `aapp init` copies the library from `lib/` for this reason, so hooks should still work. Path and line-ending handling are unverified. |
+| **WSL** | ⚠️ Untested | Expected to behave like Linux (GNU userland). Repositories on `/mnt/c` may lose symlink support. |
+| **FreeBSD / OpenBSD / NetBSD** | ⚠️ Untested | Same BSD `sed` and `cp` differences as macOS. |
+| **Alpine / BusyBox** | 🟡 Partial: plan parser verified under `busybox awk` | BusyBox `sed`, `find -print0` and `sort -z` support. |
+
+### How to Verify on Your Machine
+
+1. **Run the kit's own test suite** before installing:
+   ```bash
+   git clone https://github.com/aapp-protocol/aapp-kit.git aapp-kit
+   cd aapp-kit && ./aapp test
+   ```
+2. **Install, then smoke-test the lifecycle** in a scratch repository:
+   ```bash
+   ./aapp install
+   mkdir /tmp/aapp-demo && cd /tmp/aapp-demo
+   git init && git commit --allow-empty -m init
+   aapp init
+   aapp draft platform-check && aapp status
+   ```
+3. **Check the shared hook library** was installed correctly:
+   ```bash
+   ls -l "${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/templates/aapp-lib.sh"   # expect: symlink -> ../lib/aapp-lib.sh
+   test -f .githooks/aapp-lib.sh && ! test -L .githooks/aapp-lib.sh && echo "hook library OK"
+   ```
+
+### How to Report
+
+Open a GitHub issue on the kit repository, whether it worked or failed. A "works on my machine" report is just as useful: it moves a row from ⚠️ to ✅. Please include:
+
+```bash
+aapp version
+uname -a
+bash --version | head -1
+if sed --version >/dev/null 2>&1; then sed --version | head -1; else echo "BSD sed"; fi
+```
+
+Add the failing command and its full output. If you can see a cleaner way to fix it, suggest it; for platform differences that is often the most valuable part of a report.
