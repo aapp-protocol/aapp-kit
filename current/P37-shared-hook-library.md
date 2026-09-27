@@ -167,17 +167,19 @@ The library is sourced by enforcement engines, so it must be inert at source tim
    - `^###[[:space:]]*🧪[[:space:]]*Required Test Files[[:space:]]*(\(.*)?$`
    - `^###[[:space:]]*🛑[[:space:]]*Out of Bounds[[:space:]]*(\(.*)?$`
 
-   Any heading matching `^###[[:space:]]` that is not one of the three whitelisted target headings terminates
-   target collection. Any `^##[[:space:]]` or `^#[[:space:]]` heading terminates collection unconditionally.
+   Any heading matching `^#+[[:space:]]` that is not one of the three whitelisted target headings terminates
+   target collection unconditionally (covering `####` subheadings as well as `##` and `#`).
 
-   **Bullet Stripping & Ticked Checkboxes:**
-   Target lines strip leading whitespace, dashes, and optional checkboxes while preserving ticked targets:
-   `sub(/^[[:space:]]*-[[:space:]]*(\[[ xX]\][[:space:]]*)?/, "", line)`
-   The first backticked token on the stripped line is extracted as the target path.
+   **Bullet, Checkbox & Lifecycle Marker Stripping:**
+   Target lines strip leading bullets, checkboxes, and lifecycle prefix markers before extracting the target path:
+   1. Leading checkbox: `sub(/^[[:space:]]*-[[:space:]]*(\[[ xX]\][[:space:]]*)?/, "", line)`
+   2. Lifecycle marker: `sub(/^`?(NEW FILE|MODIFY|DELETE|ADD|REPLACE)`?[[:space:]]*->[[:space:]]*/, "", line)`
+   3. Marker token guard: `if (path ~ /^(NEW FILE|MODIFY|DELETE|ADD|REPLACE)$/) next`
+   4. The first backticked token on the remaining line is extracted as the target path.
 
 2. **Out of Bounds (`parse_plan_oob_paths`):**
    > Collects paths declared under `### 🛑 Out of Bounds` only. **Any** subsequent heading
-   > ends the region. Lines beginning with `>` are never parsed.
+   > (`^#+[[:space:]]`) ends the region. Lines beginning with `>` are never parsed.
 
 3. **Section Extractor (`extract_plan_section`):**
    > Takes section number `$1` (`s`) and filters stdin:
@@ -246,15 +248,18 @@ merge closes it.
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 - [ ] `tests/write-guard_test.sh::test_blockquote_path_denied` -> asserts write-guard blocks writes to backticked path declared inside blockquote (#82 defect 1 Red)
-- [ ] `tests/write-guard_test.sh::test_foreign_subsection_path_denied` -> asserts write-guard blocks writes to path declared inside trailing subsection (#82 defect 2 Red)
+- [ ] `tests/write-guard_test.sh::test_foreign_subsection_path_denied` -> asserts write-guard blocks writes to path declared inside non-whitelisted trailing subsection (e.g. `### 📝 Implementation Notes`) (#82 defect 2 Red)
+- [ ] `tests/write-guard_test.sh::test_required_test_files_path_allowed` -> asserts write-guard permits edits to path declared in `### 🧪 Required Test Files` (Option A E2E Green)
 - [ ] `tests/pre-commit_test.sh::test_blockquote_path_denied` -> asserts pre-commit blocks staged commit to backticked path declared inside blockquote (#82 defect 1 Red)
-- [ ] `tests/pre-commit_test.sh::test_foreign_subsection_path_denied` -> asserts pre-commit blocks staged commit to path declared inside trailing subsection (#82 defect 2 Red)
+- [ ] `tests/pre-commit_test.sh::test_foreign_subsection_path_denied` -> asserts pre-commit blocks staged commit to path declared inside non-whitelisted trailing subsection (e.g. `### 📝 Implementation Notes`) (#82 defect 2 Red)
+- [ ] `tests/pre-commit_test.sh::test_required_test_files_path_allowed` -> asserts pre-commit permits staged commits to path declared in `### 🧪 Required Test Files` (Option A E2E Green)
 - [ ] `tests/aapp_lib_test.sh::test_blockquote_not_parsed` -> pure function asserts backticked path in blockquote line is ignored
-- [ ] `tests/aapp_lib_test.sh::test_foreign_subsection_ends_region` -> pure function asserts trailing subsection ends target collection
+- [ ] `tests/aapp_lib_test.sh::test_foreign_subsection_ends_region` -> pure function asserts non-whitelisted subsection ends target collection
 - [ ] `tests/aapp_lib_test.sh::test_emergency_hotfix_is_parsed` -> pure function asserts paths under emergency hotfix section are returned
 - [ ] `tests/aapp_lib_test.sh::test_emergency_hotfix_after_oob` -> pure function asserts emergency hotfix is parsed even when declared after Out of Bounds
 - [ ] `tests/aapp_lib_test.sh::test_required_test_files_is_parsed` -> pure function asserts paths under `### 🧪 Required Test Files` are returned as write targets (Option A)
 - [ ] `tests/aapp_lib_test.sh::test_required_tests_checklist_not_parsed` -> pure function asserts `### 🧪 Required Tests` section does not trigger target collection (no prefix bleed)
+- [ ] `tests/aapp_lib_test.sh::test_new_file_marker_skipped` -> pure function asserts `NEW FILE` and lifecycle prefix markers are stripped and actual target path is extracted
 - [ ] `tests/aapp_lib_test.sh::test_extract_plan_section` -> pure function asserts `extract_plan_section` extracts numbered markdown section `## N.` from stdin
 - [ ] `tests/aapp_lib_test.sh::test_oob_paths_parsed` -> pure function asserts paths under Out of Bounds are returned while blockquotes and subsequent headings are ignored
 - [ ] `tests/aapp_lib_test.sh::test_aapp_os_branches` -> asserts parameterized `aapp_os` correctly detects all platform branches (`linux`, `darwin`, `windows`, `wsl`, `bsd`, `unknown`)
@@ -266,20 +271,20 @@ merge closes it.
 - [ ] `tests/install_test.sh::test_install_preserves_template_symlink` -> asserts `aapp install` leaves `templates/aapp-lib.sh` as a symlink resolving inside the installed kit
 
 ### Phase 1: True Failure-First Behavioral Tests (Red 🔴)
-- [ ] Task 1.1: Author behavioral regression tests `test_blockquote_path_denied` and `test_foreign_subsection_path_denied` in `tests/write-guard_test.sh` and `tests/pre-commit_test.sh`; run against unpatched code and confirm FAIL (Red 🔴).
+- [ ] Task 1.1: Author behavioral regression tests `test_blockquote_path_denied` and `test_foreign_subsection_path_denied` (using `### 📝 Implementation Notes`) in `tests/write-guard_test.sh` and `tests/pre-commit_test.sh`; run against unpatched code and confirm FAIL (Red 🔴).
 - [ ] Task 1.2: Add missing-library, loud-init-failure, and symlink tests to `tests/pre-commit_test.sh` and `tests/install_test.sh`; confirm they FAIL (Red 🔴).
 
 ### Phase 2: Library & Layout (Green 🟢)
-- [ ] Task 2.1: Create `lib/aapp-lib.sh` with `parse_plan_target_paths` (recognizing Target Files, Emergency Hotfix, and Required Test Files with exact regexes), `parse_plan_oob_paths`, `extract_plan_section`, `glob_to_regex`, `match_pattern_list`, `aapp_os`, and `aapp_lib_loaded`.
+- [ ] Task 2.1: Create `lib/aapp-lib.sh` with `parse_plan_target_paths` (recognizing Target Files, Emergency Hotfix, and Required Test Files with exact regexes and lifecycle marker stripping), `parse_plan_oob_paths`, `extract_plan_section`, `glob_to_regex`, `match_pattern_list`, `aapp_os`, and `aapp_lib_loaded`.
 - [ ] Task 2.2: Create the tracked symlink `templates/aapp-lib.sh -> ../lib/aapp-lib.sh`.
 - [ ] Task 2.3: In `lib/cmd_init.sh`, install `aapp-lib.sh` into `.githooks/` strictly from `$AAPP_LIB/aapp-lib.sh`; fail loudly with `aapp_os` diagnostic if missing.
-- [ ] Task 2.4: Author `tests/aapp_lib_test.sh` covering pure parser functions, exact regex boundary isolation, `extract_plan_section`, all `aapp_os` parameterized branches, inertness, and confirm Green 🟢.
+- [ ] Task 2.4: Author `tests/aapp_lib_test.sh` covering pure parser functions, exact regex boundary isolation, marker stripping (`NEW FILE`), `extract_plan_section`, all `aapp_os` parameterized branches, inertness, and confirm Green 🟢.
 
 ### Phase 3: Consumer Migration
 - [ ] Task 3.1: `lib/cmd_plan.sh` — delete `parse_plan_target_paths`; source `"$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh"` with fail-closed load check.
 - [ ] Task 3.2: `lib/planning_health.sh` — delete inline `get_plan_targets` in Pair 7; source `"$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh"` with fail-closed load check and invoke `parse_plan_target_paths`.
 - [ ] Task 3.3: `templates/aapp-pre-commit` and `templates/blast-radius-guard.sh` — replace `parse_plan_section` calls with `parse_plan_target_paths` and `parse_plan_oob_paths`; replace inline `extract_plan_section` in `templates/aapp-pre-commit` with library call; delete inline `parse_plan_section`, `extract_plan_section`, `glob_to_regex` and `match_pattern_list`; add the §2.5 fail-closed load.
-- [ ] Task 3.4: `tests/pre-commit_test.sh` and `tests/write-guard_test.sh` — copy `aapp-lib.sh` beside the hook under test (§2.7); confirm Phase 1 behavioral tests now turn Green 🟢.
+- [ ] Task 3.4: `tests/pre-commit_test.sh` and `tests/write-guard_test.sh` — copy `aapp-lib.sh` beside the hook under test (§2.7); add `test_required_test_files_path_allowed`; confirm Phase 1 behavioral tests now turn Green 🟢.
 - [ ] Task 3.5: Run structural assertion `test_no_foreign_target_parsers_in_repo` with scoped regexes and confirm Green 🟢 across the repo.
 
 ### Phase 4: Regression & Platform Verification
@@ -317,10 +322,19 @@ merge closes it.
 - [ ] `.agents/CODEMAP.md` -> Name the library's ownership
 - [ ] `CHANGELOG.md` -> Record under Fixed and Changed
 
+### 🧪 Required Test Files
+> Test files that prove this plan's failure cases and boundary invariants. Frozen with the blast radius;
+> per-test assertions are tracked in §3 (Option A Dogfooding).
+- `tests/aapp_lib_test.sh`
+- `tests/pre-commit_test.sh`
+- `tests/write-guard_test.sh`
+- `tests/install_test.sh`
+
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/*` -> Installed engine copies; refreshed only by `aapp init` (Sanctioned Propagation).
 - [ ] `lib/plan_states.sh` -> Status registry; Status-regex consolidation deferred to follow-up (#85).
 - [ ] `.agents/skills/*` -> Governance skills self-protection.
+- [ ] `.plans/current/*.md` -> Other plans in `.plans/current/` (except this plan's own execution tracking).
 
 ---
 
@@ -377,5 +391,10 @@ merge closes it.
   5. Preserved ticked checkbox parsing (`-[x]`/`-[X]`) alongside plain bullets in target collection.
   6. Scoped structural parser assertion `test_no_foreign_target_parsers_in_repo` to named heading patterns.
   7. Formally updated tri-plan sequencing (`P-37` -> `P-34` -> `P-35`) and removed obsolete double-entry assumption for P-35.
+* **2026-09-27 (Refinement 5 - Red Team Review Findings):**
+  1. Fixed blocking `NEW FILE` stripping bug in §2.4: retained both prefix `sub()` and guard check for lifecycle markers (`NEW FILE`, `MODIFY`, etc.) so targets preceded by markers are parsed correctly; added `test_new_file_marker_skipped`.
+  2. Added positive E2E tests `test_required_test_files_path_allowed` in `write-guard_test.sh` and `pre-commit_test.sh`; updated foreign subsection test fixture to non-whitelisted heading `### 📝 Implementation Notes`.
+  3. Formally dogfooded Option A in P-37 itself by adding `### 🧪 Required Test Files` under §4.
+  4. Generalized heading termination to `^#+[[:space:]]` not whitelisted (covering `####`).
 
 

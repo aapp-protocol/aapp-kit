@@ -131,13 +131,18 @@ for verb contracts, so one form serves both.
 
 ### 2.4 Conditional Enforcement & Shared Library Parsers
 
-The pre-commit check fires **only when the section is present**:
+The pre-commit check and lifecycle gates fire **only when §4 `### 🧪 Required Test Files` is present**.
+Because §4 is design-locked once a plan is frozen (`templates/aapp-pre-commit:614-620`), §4 is the sole
+authoritative, tamper-proof trigger for test enforcement:
 
-- **Plan without the section** (docs, config, minor tweaks): Target Files enforcement only. Zero
-  friction, zero boilerplate.
-- **Plan with the section**: every §3 identifier resolves to a file declared in §4, and every §4 file
-  is referenced by at least one §3 identifier. String-level only — the check never opens a test file
-  or parses its contents, which is what keeps it language-agnostic.
+- **Plan with §4 present:**
+  - Every §3 identifier in `### 🧪 Required Tests` must resolve to a file declared in §4.
+  - Every §4 declared test file must be referenced by at least one §3 identifier.
+  - If §4 is present and §3 `### 🧪 Required Tests` is missing or contains no assertions -> pre-commit refuses.
+- **Plan without §4:**
+  - If §3 carries a test checklist without §4, it is treated as an opted-out informal checklist (grants no write
+    permission and triggers no pre-commit correspondence or done gates).
+  - Target Files enforcement only. Zero friction, zero boilerplate.
 
 **Parser Ownership in `lib/aapp-lib.sh`:**
 To comply with P-37's structural ban on duplicate inline parsers, the correspondence check uses two pure
@@ -163,11 +168,11 @@ refining and enforce file existence once `⚡ In Development`.
 When `aapp done` (`lib/cmd_plan.sh:cmd_done`) is invoked on a plan that carries `### 🧪 Required Test Files`:
 1. **Completion Check:** Every box in `### 🧪 Required Tests` must be ticked (`- [x]` or `- [X]`). If any
    uncompleted `- [ ]` remains, `cmd_done` refuses with exit 1 and prints the pending test assertions.
-2. **Existence Check:** Every test file declared under `### 🧪 Required Test Files` must exist on disk and be
-   tracked in Git history since plan activation (`start`).
+2. **Existence & Tracked Check:** Every test file declared under `### 🧪 Required Test Files` must exist on
+   disk and be tracked in Git (`git ls-files --error-unmatch "$path"`).
 3. **Ledger Recording:** `cmd_done` derives the count of completed test assertions ($N$) and records
    `tdd (N/N)` inside the `Impact Summary` or verification notes of `.plans/done/000-archive-ledger.md` without
-   altering the table schema. Plans without the section record nothing (absence = opted out).
+   altering the table schema. Plans without §4 record nothing (absence = opted out).
 
 ---
 
@@ -241,7 +246,7 @@ they cover — the practice this plan exists to make declarable.*
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.agents/skills/*` -> Governance skills self-protection; authored in `templates/skills/` and propagated via `aapp init`.
 - [ ] `.githooks/*` -> Guard engine self-protection; `templates/aapp-pre-commit` is the authoring source and `aapp init` propagates it (Architectural Rule 3).
-- [ ] `.plans/current/*.md` -> Existing plans are not retrofitted; absence of the section is the documented default, not a legacy state.
+- [ ] `.plans/current/*.md` -> Other plans in `.plans/current/` (except this plan's own execution tracking); existing plans are not retrofitted.
 - [ ] `lib/cmd_test.sh` -> Test-runner changes belong to `P-34`.
 
 ---
@@ -300,5 +305,6 @@ they cover — the practice this plan exists to make declarable.*
   1. Fixed Pair 5 violation: changed skill target from `.agents/skills/aapp-tdd/SKILL.md` to `templates/skills/aapp-tdd/SKILL.md` and added `.agents/skills/*` to Out of Bounds.
   2. Adopted Option A from consensus RFC (`tri-plan-alignment-34-35-37.md`): declared test files in `### 🧪 Required Test Files` receive write access directly without duplication in `Target Files`.
   3. Delegated correspondence parsing to `lib/aapp-lib.sh` (`parse_plan_required_test_files` and `parse_plan_required_tests`) instead of duplicate inline awk in `templates/aapp-pre-commit`.
-  4. Added mechanical `cmd_done` completion verification gate and `tdd (N/N)` ledger recording to `lib/cmd_plan.sh`.
-  5. Added explicit dependency sequencing: `After P-37, after P-34`.
+  4. Clarified enforcement trigger: §4 `### 🧪 Required Test Files` is the sole authoritative switch (design-locked at freeze); §3 without §4 is an informal opted-out checklist.
+  5. Added mechanical `cmd_done` completion verification gate (all §3 ticked, §4 files exist and tracked in Git via `git ls-files`) and `tdd (N/N)` ledger recording to `lib/cmd_plan.sh`.
+  6. Added explicit dependency sequencing: `After P-37, after P-34`.
