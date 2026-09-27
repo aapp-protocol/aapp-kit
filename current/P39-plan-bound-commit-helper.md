@@ -68,7 +68,7 @@ A plan-bound commit helper that agents use **by discipline, not enforcement**:
 | Invocation | Effect |
 | :--- | :--- |
 | `aapp commit "<message>"` | Commit what is staged; record the new SHA and branch in the active plan |
-| `aapp commit amend ["<message>"]` | Amend the last commit; replace its recorded SHA in the header |
+| `aapp commit amend ["<message>"]` | Amend the last commit (message kept when omitted); replace its recorded SHA in the header |
 | `aapp commit adopt <sha>…` | Repair: record existing commits made outside the helper; no code commit |
 
 `aapp commit` commits only what is already staged, like `git commit`; it never stages for the agent,
@@ -79,7 +79,7 @@ normal commit — the helper adds no bypass.
 The plan is the one bound in the **current worktree's** active buffer
 (`$(git rev-parse --git-path aapp_active_plan)`), which is per worktree: a linked worktree's buffer is
 `.git/worktrees/<name>/aapp_active_plan`. With no buffer, the single `⚡ In Development` plan is used;
-with none or several, the verb refuses and names the choices. The plan must be `⚡ In Development`
+with none or several, the verb refuses, names the choices, and prints the fix: `aapp active <id>`. The plan must be `⚡ In Development`
 (status registry, as `done` since #89).
 
 ### 2.3 Code Commit & Attribution
@@ -104,6 +104,12 @@ The code commit runs in the current worktree. The message is completed per
 worktrees would overwrite each other's identity. The plans-worktree commit carries the same trailers
 (RFC C2), since the `.plans` hooks enforce attribution too.
 
+**Pre-flight, before anything is committed:** the identity resolves (in `commit` mode), the plan is
+`⚡ In Development`, no other worktree binds it, and the plan file is writable. The common failures
+therefore happen with nothing committed. Pre-flight cannot make the two commits atomic — the `.plans`
+hooks may still refuse the plan commit after the code commit lands, and a lock free during pre-flight
+can be taken a moment later — so the retry (§2.6) and `adopt` (§2.7b) remain the backstop.
+
 A rejected code commit (any hook) exits non-zero with the hook's output and records nothing.
 
 ### 2.4 Recording in the Plan
@@ -114,12 +120,15 @@ The template gains one header line, parsed by a new pure function in `lib/aapp-l
 ```
 
 An empty plan reads `* **Commits:** none`. The branch is recorded because a SHA means little without
-it: work may live on an experiment branch or in another worktree. Detached `HEAD`: §5 Q3.
+it: work may live on an experiment branch or in another worktree. A commit made on a detached
+`HEAD` is recorded as `` `sha` (detached) ``; `done` then requires some branch to contain it (§2.7).
 
 **The helper owns the plan file.** The agent never stages it: `aapp commit` writes the header line
 and commits the file by path. After the code commit the helper rewrites that line and commits the
 plan file **alone**:
-`git -C <plans> commit -- current/<plan>.md`, never the whole index (§2.6). The header is not
+`git -C <plans> commit -- current/<plan>.md`, never the whole index (§2.6), with the subject
+`plan(record): record <short-sha> for P-NN` (`adopt`: `plan(record): adopt <n> commit(s) for P-NN`),
+matching the existing `plan(draft|freeze|start|done):` subjects. The header is not
 design-locked (only §2 and §4 are), so this is allowed while `⚡ In Development`.
 
 **Partial failure is loud.** If the code commit lands but the plan commit fails, the code commit
@@ -147,9 +156,11 @@ the one command that repairs it (§5 Q1), and never swallows the failure (#81 pa
 - The template carries `* **Base:** none` until `start` fills it.
 
 ### 2.5 Amend
-`aapp commit amend` runs `git commit --amend` (message optional) and, when the amended SHA was
-recorded, replaces it in the header and commits the plan. Amending a commit that is not recorded
-amends only.
+`aapp commit amend` runs `git commit --amend`; with no message it keeps the existing one
+(`--no-edit`). Attribution trailers are completed, never duplicated: missing ones are added, present
+ones left alone. When the amended SHA was recorded, it is replaced in the header and the plan is
+committed. Amending a commit that is not recorded amends only. Amend before pushing: amending a pushed
+commit rewrites shared history and leaves the old SHA on the remote.
 
 ### 2.6 Concurrency: Several Agents, Plans and Worktrees
 Verified 2026-09-27 with a linked worktree:
@@ -182,8 +193,16 @@ Two hazards follow from the shared index, and the helper must handle both:
 - **Empty list** → exit 1, listing candidate commits — `git log --branches ^<base> -- <targets>`,
   every branch's commits after the recorded base that touched a Target File (`parse_plan_target_paths`)
   — and the command that records them.
-- **Each SHA** must still be reachable from its recorded branch (`git merge-base --is-ancestor`);
-  otherwise exit 1 naming it (amended or rebased away). Squash merges: §5 Q2.
+- **Each SHA** must still be part of history, checked in order:
+  1. its recorded branch still exists → `git merge-base --is-ancestor <sha> <branch>`;
+  2. the branch is gone, or the SHA was recorded `(detached)` → some ref must contain it
+     (`git for-each-ref --contains <sha> refs/heads refs/remotes`);
+  3. no ref contains it → exit 1 naming it (amended or rebased away).
+  Object existence alone (`git cat-file -e`) is never enough: an amended-away commit still exists
+  until `gc`. The check never depends on the branch `done` runs from.
+- **Squash merges:** run `done` on the working branch *before* squash-merging. If the squash already
+  happened and the recorded SHAs are gone, record the squash commit with `aapp commit adopt <sha>`
+  and run `done` again.
 - **Ledger**: the Verification Commit column takes the last recorded SHA; the plan header keeps the
   full list.
 - **`pre-done` is dispatched** before anything moves, with `{"plan_id", "plan_file", "commits": [...]}`.
@@ -205,9 +224,11 @@ Two hazards follow from the shared index, and the helper must handle both:
 `done`'s empty-list refusal prints the candidate SHAs as one ready `aapp commit adopt …` line.
 
 ### 2.8 Discipline, Not Enforcement
-- `templates/plan-template.md` gains an execution invariant: *commit implementation through
-  `aapp commit` so the plan records its commits; `aapp done` archives only recorded work.* Agents read
-  that block before writing code; no skill wraps the verb.
+- `templates/plan-template.md` gains an execution invariant that teaches the complete form, so the
+  first commit succeeds without pre-exported variables: *commit implementation with
+  `aapp commit "<msg>" agent <Agent> vendor <Vendor> model <Model>` (or set `AAPP_AGENT_*`) so the
+  plan records its commits; never stage or commit the plan file yourself; `aapp done` archives only
+  recorded work.* Agents read that block before writing code; no skill wraps the verb.
 - Forgetting is cheap to repair (`adopt`, §2.7b). No hook refuses a raw `git commit`.
 - **Reminder, never a refusal.** When a code commit is made in a worktree whose buffer binds a `⚡`
   plan, and the helper did not make it (it exports a marker for its own `git commit`), the pre-commit
@@ -221,13 +242,15 @@ Two hazards follow from the shared index, and the helper must handle both:
 *Failure-first: the declared tests are written and confirmed Red 🔴 before the code they cover.*
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
-- [ ] `tests/aapp_lib_test.sh::test_parse_plan_commits` -> `sha (branch)` pairs parse from the header; `none`, prose and a malformed entry yield nothing
+- [ ] `tests/aapp_lib_test.sh::test_parse_plan_commits` -> `sha (branch)` and `sha (detached)` entries parse from a comma-separated header line; `none`, prose, a missing branch and an unbackticked SHA yield nothing
 - [ ] `tests/verbs/commit.sh::test_records_sha_and_branch` -> the code commit's SHA and branch appear in the plan header, and the plan is committed
 - [ ] `tests/verbs/commit.sh::test_plan_commit_is_pathspec_limited` -> another plan staged in `.plans` is not swept into the commit
-- [ ] `tests/verbs/commit.sh::test_refuses_without_active_plan` -> no `⚡` plan: exit 1, no commit
+- [ ] `tests/verbs/commit.sh::test_refuses_without_active_plan` -> no `⚡` plan: exit 1, no commit; with several `⚡` plans the refusal prints `aapp active <id>`
+- [ ] `tests/verbs/commit.sh::test_preflight_fails_before_code_commit` -> missing identity in `commit` mode: exit 1 and the code branch has no new commit
+- [ ] `tests/verbs/commit.sh::test_detached_head_recorded` -> a commit on a detached `HEAD` is recorded as `(detached)`
 - [ ] `tests/verbs/commit.sh::test_refuses_nothing_staged` -> empty index: exit 1, no commit, header unchanged
 - [ ] `tests/verbs/commit.sh::test_rejected_commit_records_nothing` -> a refusing hook: exit non-zero, header unchanged
-- [ ] `tests/verbs/commit.sh::test_amend_replaces_recorded_sha` -> `amend` swaps the old SHA for the new one in the header
+- [ ] `tests/verbs/commit.sh::test_amend_replaces_recorded_sha` -> `amend` swaps the old SHA for the new one in the header; with no message the message is kept and trailers are not duplicated
 - [ ] `tests/verbs/commit.sh::test_commit_mode_adds_trailers` -> `commit` attribution: the three trailers present on the code *and* the plan commit; missing identity refused with the fix
 - [ ] `tests/verbs/commit.sh::test_identity_precedence` -> parameters beat environment beat worktree config; plain repository config is ignored
 - [ ] `tests/verbs/commit.sh::test_coauthor_converted_with_warning` -> a `Co-Authored-By: … <email>` trailer becomes emailless trailers, and a warning is printed
@@ -238,7 +261,9 @@ Two hazards follow from the shared index, and the helper must handle both:
 - [ ] `tests/pre-commit_test.sh::test_reminder_outside_helper_is_warning_only` -> a raw code commit with an active plan prints the reminder and succeeds; a helper commit prints nothing
 - [ ] `tests/verbs/done.sh::test_ledger_uses_recorded_commit` -> an unrelated later commit is not recorded; the ledger takes the last recorded SHA
 - [ ] `tests/verbs/done.sh::test_refuses_empty_commit_list` -> no recorded commits: exit 1, candidates and the repair command printed, nothing moves
-- [ ] `tests/verbs/done.sh::test_refuses_unreachable_commit` -> a recorded SHA amended away: exit 1 naming it
+- [ ] `tests/verbs/done.sh::test_refuses_unreachable_commit` -> a recorded SHA amended away: exit 1 naming it, although the object still exists
+- [ ] `tests/verbs/done.sh::test_accepts_commit_on_deleted_branch` -> recorded branch deleted, SHA contained by another branch: accepted
+- [ ] `tests/verbs/done.sh::test_detached_commit_needs_a_branch` -> a `(detached)` SHA no branch contains: exit 1; once a branch contains it: accepted
 - [ ] `tests/verbs/start.sh::test_records_base_sha_and_branch` -> `start` fills `* **Base:**` with the worktree's `HEAD` and branch
 - [ ] `tests/verbs/start.sh::test_refuses_from_planning_worktree` -> `start` run inside `.plans/`: exit 1, no buffer bound, plan unchanged
 - [ ] `tests/verbs/start.sh::test_restart_keeps_first_base` -> re-running `start` on a `⚡` plan leaves `Base` unchanged
@@ -314,8 +339,8 @@ Two hazards follow from the shared index, and the helper must handle both:
 
 ## ❓ 5. Open Questions (Optional / Gate)
 * [x] **Question 1 — Repair and reminder.** RESOLVED (user): both — `aapp commit adopt` (§2.7b, itself warning) and the warning-only pre-commit reminder (§2.8). Original question: Refusing `done` on an empty list pushes cleanup onto whoever forgot. Proposed: (a) `aapp commit adopt <sha>…` records existing commits without committing code, and `done`'s refusal prints it with the candidate SHAs; (b) pre-commit prints a one-line *warning* (never a refusal) when a code commit is made during an active plan outside the helper, detected by a marker the helper sets. Adopt both, one, or neither?
-* [ ] **Question 2 — Squash merges.** A squash merge replaces the recorded SHAs and the branch may be deleted. Require `done` before merging, accept "recorded branch was merged" as reachable, or record the squash SHA via the repair path?
-* [ ] **Question 3 — Detached `HEAD`.** Refuse the commit, or record `(detached)` and let `done` check reachability from any branch?
+* [x] **Question 2 — Squash merges.** RESOLVED (user, RFC recommendation): `done` before squash-merging; afterwards, `aapp commit adopt <squash-sha>` (§2.7). Original question: A squash merge replaces the recorded SHAs and the branch may be deleted. Require `done` before merging, accept "recorded branch was merged" as reachable, or record the squash SHA via the repair path?
+* [x] **Question 3 — Detached `HEAD`.** RESOLVED (user, RFC recommendation): record `(detached)`; `done` requires some ref to contain it (§2.4, §2.7). Original question: Refuse the commit, or record `(detached)` and let `done` check reachability from any branch?
 * [x] **Question 4 — Agent identity for `commit` mode.** RESOLVED (user, RFC): parameters, then environment, then per-worktree config (with caution); a vendor `Co-Authored-By` with email is converted with a warning; plain repository config never. See §2.3. Original question: Only the agent knows its name, vendor and model. Source: environment (`AAPP_AGENT_NAME` / `AAPP_AGENT_VENDOR` / `AAPP_AGENT_MODEL`; `ai-note` already reads the first), bare tokens on the verb, or per-worktree git config?
 
 ### Dependencies & Sequencing
@@ -328,6 +353,7 @@ Two hazards follow from the shared index, and the helper must handle both:
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-27:** User decisions (Q2, Q3) take the RFC recommendations. Refinements from RFC review: pre-flight before the code commit (A9/C20), `plan(record):` subjects (A11/C22), full command form in the invariant (A8/C19), `amend` keeps the message without duplicating trailers (A10/C21) and is for unpushed commits (C5), refusal prints `aapp active <id>` (C6), three-step reachability with no reliance on object existence (C8), stricter commit-line parsing (C10). Seven tests added or sharpened.
 * **2026-09-27:** User decision (Q1): `aapp commit adopt <sha>…` as the repair, warning on every use, printed ready-made by `done`'s refusal; plus a warning-only pre-commit reminder for commits made outside the helper. Reminder targets kept (RFC C7).
 * **2026-09-27:** User decision (Q4): identity from parameters, environment, then per-worktree config; vendor `Co-Authored-By` converted with a warning; never plain repository config. Plan commits carry the trailers too (RFC C2).
 * **2026-09-27:** User decision (RFC C16): one plan, one worktree — a second binding is a defect, refused by `start`/`freeze-start`/`active`; no AAPP lock. §2.4 states that `aapp commit` owns the plan file and the agent never stages it.
