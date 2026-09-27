@@ -262,45 +262,45 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Contract Authoring (Source of Truth First)
-- [ ] Task 1.1: Author `lib/docs/verbs/draft.md`, `freeze.md`, `start.md`, `freeze-start.md`, `done.md` — the five lifecycle verbs — to the §2.1 shape, read from the current implementation. Record behaviour as it *should* be, marking any line that current code violates.
-- [ ] Task 1.2: Author `lib/docs/verbs/status.md`, `plan.md`, `plan-status.md`, `matrix.md`, `active.md`, `test.md` — the six remaining daily verbs. `test.md` states kit-suites-only per §5 Q2 and marks the adopter-runner delegation in `cmd_test.sh` as a recorded divergence, not as documented behaviour.
-- [ ] Task 1.3: Add the fifth `contract` column to `lib/verbs.tsv` for all `daily` rows, and confirm `lib/cmd_help.sh` still renders every tier unchanged (it reads fields 1/2/4).
+- [x] Task 1.1: Author `lib/docs/verbs/draft.md`, `freeze.md`, `start.md`, `freeze-start.md`, `done.md` — the five lifecycle verbs — to the §2.1 shape, read from the current implementation. Record behaviour as it *should* be, marking any line that current code violates.
+- [x] Task 1.2: Author `lib/docs/verbs/status.md`, `plan.md`, `plan-status.md`, `matrix.md`, `active.md`, `test.md` — the six remaining daily verbs. `test.md` states kit-suites-only per §5 Q2 and marks the adopter-runner delegation in `cmd_test.sh` as a recorded divergence, not as documented behaviour.
+- [x] Task 1.3: Add the fifth `contract` column to `lib/verbs.tsv` for all `daily` rows, and confirm `lib/cmd_help.sh` still renders every tier unchanged (it reads fields 1/2/4).
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 *Per-test identifiers for the files declared in §4. Failure modes first.*
-- [ ] `tests/verbs/draft.sh::test_title_with_slash` -> asserts a title containing `/` yields a correct plan or a clean refusal, never a half-written one with placeholders intact (D1)
-- [ ] `tests/verbs/draft.sh::test_title_with_ampersand` -> asserts a title containing `&` appears literally in the plan, never re-expanded to the matched text (§2.5 trap 2)
-- [ ] `tests/verbs/draft.sh::test_no_placeholders_survive` -> asserts no `P-XX`, `[YYYY-MM-DD]` or `[Feature or Refactor Name]` remains in any scaffolded plan, whatever the title (§2.5 trap 1)
-- [ ] `tests/verbs/draft.sh::test_bare_draft_commits` -> asserts a plan scaffolded from a pickup note is staged and committed, leaving nothing untracked (D3)
-- [ ] `tests/verbs/done.sh::test_ledger_row_populated` -> asserts the archive ledger row carries a non-empty Impact Summary and the plan header's Target Issue rather than hardcoded `None` (D2)
-- [ ] `tests/verb_contracts_test.sh::test_registry_contract_correspondence` -> asserts every daily row resolves to a contract file and every contract is referenced by exactly one row
-- [ ] `tests/verb_contracts_test.sh::test_declared_test_files_exist` -> asserts every file named in a contract's `## Tests` section exists
-- [ ] `tests/install_test.sh::test_help_ignores_contract_column` -> asserts `aapp help` output contains no contract path after the fifth column is added (F1 regression guard)
-- [ ] `tests/install_test.sh::test_develop_hook_seeding` -> asserts the develop engine is absent after `aapp init`, present after `aapp develop`, and unchanged after a second `aapp develop`
+- [x] `tests/verbs/draft.sh::test_title_with_slash` -> asserts a title containing `/` yields a correct plan or a clean refusal, never a half-written one with placeholders intact (D1)
+- [x] `tests/verbs/draft.sh::test_title_with_ampersand` -> asserts a title containing `&` appears literally in the plan, never re-expanded to the matched text (§2.5 trap 2)
+- [x] `tests/verbs/draft.sh::test_no_placeholders_survive` -> asserts no `P-XX`, `[YYYY-MM-DD]` or `[Feature or Refactor Name]` remains in any scaffolded plan, whatever the title (§2.5 trap 1)
+- [x] `tests/verbs/draft.sh::test_bare_draft_commits` -> asserts a plan scaffolded from a pickup note is staged and committed, leaving nothing untracked (D3)
+- [x] `tests/verbs/done.sh::test_ledger_row_populated` -> asserts the archive ledger row carries a non-empty Impact Summary and the plan header's Target Issue rather than hardcoded `None` (D2)
+- [x] `tests/verb_contracts_test.sh::test_registry_contract_correspondence` -> asserts every daily row resolves to a contract file and every contract is referenced by exactly one row
+- [x] `tests/verb_contracts_test.sh::test_declared_test_files_exist` -> asserts every file named in a contract's `## Tests` section exists
+- [x] `tests/install_test.sh::test_help_ignores_contract_column` -> asserts `aapp help` output contains no contract path after the fifth column is added (F1 regression guard)
+- [x] `tests/install_test.sh::test_develop_hook_seeding` -> asserts the develop engine is absent after `aapp init`, present after `aapp develop`, and unchanged after a second `aapp develop`
 
 ### Phase 2: Failure-First Test Derivation (Red 🔴)
-- [ ] Task 2.1: Add the `verb` token to `lib/cmd_test.sh` (§2.4): `aapp test verb <name>` runs `tests/verbs/<name>.sh`, `aapp test verb` runs all of them, and a bare `aapp test` sweeps `tests/verbs/*.sh` in a second discovery pass alongside the flat `tests/*_test.sh` suites.
-- [ ] Task 2.2: Add `tests/verb_contracts_test.sh` with the bidirectional correspondence check (§2.3): every `daily` row's contract path exists, every file under `lib/docs/verbs/` is referenced by exactly one row, and every test **file** named in a contract's `## Tests` section exists.
-- [ ] Task 2.3: Add `templates/aapp-pre-commit-develop` running the same correspondence check, and the presence-guarded invocation block in `templates/pre-commit`.
-- [ ] Task 2.3b: Wire `lib/cmd_develop.sh` to copy the engine into `$REPO_ROOT/.githooks/` and ensure the wrapper block exists idempotently (the live wrapper is preserved by `cmd_init.sh`, so it will not gain the block by re-propagation). Verify: absent after a plain `aapp init`, present after `aapp develop`, and running `aapp develop` twice changes nothing.
-- [ ] Task 2.3c: Wire `lib/cmd_uninstall.sh` to remove the engine and its wrapper block when invoked inside a repository that has them, and to skip silently when no repository resolves.
-- [ ] Task 2.4: Derive failure-mode assertions into `tests/verbs/<verb>.sh`, one file per verb, including the three defect cases: D1 (title containing `/`), D2 (ledger Impact Summary and Target Issue populated), D3 (bare `draft` leaves no untracked file).
-- [ ] Task 2.5: Derive happy-path assertions from each contract's *Effects* section into the same files.
-- [ ] Task 2.6: Run `aapp test verb` and confirm the D1/D2/D3 assertions FAIL (Red 🔴) against current code.
+- [x] Task 2.1: Add the `verb` token to `lib/cmd_test.sh` (§2.4): `aapp test verb <name>` runs `tests/verbs/<name>.sh`, `aapp test verb` runs all of them, and a bare `aapp test` sweeps `tests/verbs/*.sh` in a second discovery pass alongside the flat `tests/*_test.sh` suites.
+- [x] Task 2.2: Add `tests/verb_contracts_test.sh` with the bidirectional correspondence check (§2.3): every `daily` row's contract path exists, every file under `lib/docs/verbs/` is referenced by exactly one row, and every test **file** named in a contract's `## Tests` section exists.
+- [x] Task 2.3: Add `templates/aapp-pre-commit-develop` running the same correspondence check, and the presence-guarded invocation block in `templates/pre-commit`.
+- [x] Task 2.3b: Wire `lib/cmd_develop.sh` to copy the engine into `$REPO_ROOT/.githooks/` and ensure the wrapper block exists idempotently (the live wrapper is preserved by `cmd_init.sh`, so it will not gain the block by re-propagation). Verify: absent after a plain `aapp init`, present after `aapp develop`, and running `aapp develop` twice changes nothing.
+- [x] Task 2.3c: Wire `lib/cmd_uninstall.sh` to remove the engine and its wrapper block when invoked inside a repository that has them, and to skip silently when no repository resolves.
+- [x] Task 2.4: Derive failure-mode assertions into `tests/verbs/<verb>.sh`, one file per verb, including the three defect cases: D1 (title containing `/`), D2 (ledger Impact Summary and Target Issue populated), D3 (bare `draft` leaves no untracked file).
+- [x] Task 2.5: Derive happy-path assertions from each contract's *Effects* section into the same files.
+- [x] Task 2.6: Run `aapp test verb` and confirm the D1/D2/D3 assertions FAIL (Red 🔴) against current code.
 
 ### Phase 3: Defect Remediation (Green 🟢)
-- [ ] Task 3.1: Fix D1 per §2.5 — replace the `sed` placeholder substitution in `cmd_draft`. A title containing `/`, `&`, `\` or `[` must produce a correct plan or a clean refusal, never a half-written one. Whichever mechanism is chosen, the escaping traps in §2.5 must be covered by tests, not assumed.
-- [ ] Task 3.2: Fix D3 — the bare `draft` path stages and commits its new plan exactly as the named path does.
-- [ ] Task 3.3: Fix D2 — derive the ledger Impact Summary from a field the template actually emits (or state `None` explicitly), and populate Target Issue from the plan header instead of hardcoding `None`.
-- [ ] Task 3.4: Re-run `aapp test verb` and `aapp test verb_contracts` and confirm Green 🟢.
+- [x] Task 3.1: Fix D1 per §2.5 — replace the `sed` placeholder substitution in `cmd_draft`. A title containing `/`, `&`, `\` or `[` must produce a correct plan or a clean refusal, never a half-written one. Whichever mechanism is chosen, the escaping traps in §2.5 must be covered by tests, not assumed.
+- [x] Task 3.2: Fix D3 — the bare `draft` path stages and commits its new plan exactly as the named path does.
+- [x] Task 3.3: Fix D2 — derive the ledger Impact Summary from a field the template actually emits (or state `None` explicitly), and populate Target Issue from the plan header instead of hardcoding `None`.
+- [x] Task 3.4: Re-run `aapp test verb` and `aapp test verb_contracts` and confirm Green 🟢.
 
 ### Phase 4: Full Suite Regression Verification
-- [ ] Task 4.1: Run `./aapp test strict quiet` across all discovered suites and verify zero regressions.
+- [x] Task 4.1: Run `./aapp test strict quiet` across all discovered suites and verify zero regressions.
 
 ### Phase 5: Documentation & Protocol Sync
-- [ ] Task 5.1: Update `ARCHITECTURE.md` with the contract-as-source-of-truth invariant and the `verbs.tsv` linkage.
-- [ ] Task 5.2: Update `.agents/CODEMAP.md` to name `lib/docs/verbs/` as the canonical owner of verb behaviour.
-- [ ] Task 5.3: Update `CHANGELOG.md` under `### Added` (contracts) and `### Fixed` (D1–D3).
+- [x] Task 5.1: Update `ARCHITECTURE.md` with the contract-as-source-of-truth invariant and the `verbs.tsv` linkage.
+- [x] Task 5.2: Update `.agents/CODEMAP.md` to name `lib/docs/verbs/` as the canonical owner of verb behaviour.
+- [x] Task 5.3: Update `CHANGELOG.md` under `### Added` (contracts) and `### Fixed` (D1–D3).
 
 ---
 
@@ -439,6 +439,14 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-27 (Implementation):** D1–D3 Red 🔴 then Green 🟢; full suite 23/23 suites, 496/496 (`strict`). Findings and deviations:
+  1. **D3 was a consequence of D1**, not a second code path: both draft paths share one commit block, and D1's `sed` abort under `set -e` exits before it. Fixing D1 fixed D3. Lifecycle commits still run under `|| true` (#81).
+  2. **D1 mechanism: `ENVIRON` + `index`/`substr`**, not §2.5's `awk -v`. `awk -v` has a third trap: it expands backslash escapes (`back\slash` → `backslash`). Verified identical under gawk, mawk and busybox awk; the title is spliced last, so a literal `P-XX` in it survives.
+  3. **D2:** Impact Summary is the plan title (every plan has one); Target Issue comes from the header, the untouched template placeholder reading `None`. The row is inserted with awk, not `sed a`.
+  4. **Divergences recorded in the contracts, not fixed here:** `freeze`/`freeze-start`/`done` check no source status; `done` records `HEAD` as the verification commit and deletes matrix rows by substring (`P-3` hits `P-30`–`P-39`); `on-freeze` vetoes land after the commit; `active` binds any status; `status` ignores unknown arguments; `plan` echoes unknown plans; `matrix` uses `--check` and prints errors to stdout; `test` delegates to adopter runners.
+  5. **Not Red-first:** the develop-seeding, uninstall and `verb/test` checks were written alongside their code.
+  6. **Hazard fixed in `tests/install_test.sh`:** Test 36 ran `aapp uninstall` from the host repository, which would now delete the live develop hook; it runs from the sandbox.
+  7. **Propagated:** `./aapp develop` seeded `.githooks/aapp-pre-commit-develop` here (idempotent on re-run). `aapp develop` must be invoked as `./aapp` from the kit root; through the PATH symlink it resolves `~/.local/bin` (pre-existing).
 * **2026-09-27:** Plan activated into ⚡ In Development via start.
 * **2026-09-27:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
