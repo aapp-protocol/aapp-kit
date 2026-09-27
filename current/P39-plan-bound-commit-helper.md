@@ -149,8 +149,12 @@ Two hazards follow from the shared index, and the helper must handle both:
 1. **Cross-plan capture.** A whole-index commit would sweep another agent's staged plan into this
    plan's commit. Pathspec-limited commits (§2.4) prevent it. The existing lifecycle verbs commit the
    whole index and share this hazard; aligning them is out of scope here.
-2. **`index.lock` contention.** Two simultaneous plan commits collide on Git's lock. The helper fails
-   loudly with a retry instruction; it does not wait, retry silently, or `|| true`.
+2. **`index.lock` contention.** Two simultaneous plan commits collide on Git's lock
+   (`.git/worktrees/.plans/index.lock`, held while the `.plans` hooks run). The helper retries on a
+   short fixed schedule — about five attempts over a few seconds — printing each wait. When the
+   schedule is exhausted it fails loudly, naming the lock file and whether it looks held or stale.
+   Retrying is preferred to failing at once: the code commit has already landed, so an immediate
+   failure leaves unrecorded work that needs repair.
 
 ### 2.7 `done` Reads the Record
 `done` replaces `rev-parse HEAD` with the header:
@@ -276,6 +280,7 @@ Two hazards follow from the shared index, and the helper must handle both:
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-27:** User decision (RFC A4): bounded, printed retry on the `.plans` index lock replaces "fail at once".
 * **2026-09-27:** User decision (RFC C15): `start`/`freeze-start` record `* **Base:**` from the worktree running them; planning worktrees refused; first base kept on re-run; detached recorded as such. `done`'s candidate search uses it. Added `start`/`freeze-start` contracts and suites to the blast radius.
 * **2026-09-27:** User decision (RFC C1/C14): `done` fires `pre-done` with the recorded commits before any mutation; a non-zero exit vetoes. Declared `test_pre_done_veto_blocks_archive`.
 * **2026-09-27:** Drafted from a design discussion on `done` recording the newest commit. Settled with the user: a CLI helper used by discipline, taught through a plan-template invariant rather than a skill; attribution completed by the helper; `amend` as a bare token; a header list tolerant of one or many commits (one per plan is the user's preference, not a rule); the plan committed right after each code commit so hooks can read it; `done` refuses an empty list. Branch recorded beside each SHA (work may live on other branches or worktrees). Concurrency verified against a linked worktree: per-worktree buffers, one shared `.plans` index — hence pathspec-limited plan commits and loud lock failures.
