@@ -2,7 +2,7 @@
 * **Created:** 2026-09-27 | **Last Refined:** 2026-09-27
 * **Target Issue / Milestone:** #82
 * **Plan ID:** P-37
-* **Status:** 🟣 Under Review
+* **Status:** 📝 Refining
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -57,7 +57,9 @@ One shared, pure-function library that the CLI and both hook engines source, fix
    `.githooks/aapp-lib.sh`, and hooks source it from their own directory.
 4. **The parser becomes fail-closed by construction**: only named target-bearing headings contribute
    targets; blockquotes never do.
-5. **A failed library load refuses the commit**, never degrades to unguarded.
+5. **Out-of-Bounds enforcement is preserved**: `parse_plan_oob_paths` replaces `parse_plan_section`
+   calls for `### 🛑 Out of Bounds` with equivalent fail-closed boundary isolation.
+6. **A failed library load refuses the commit**, never degrades to unguarded.
 
 ---
 
@@ -66,15 +68,15 @@ One shared, pure-function library that the CLI and both hook engines source, fix
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`. The three inline parser copies are deleted, not kept
-  beside the library. A hook that cannot load the library refuses the commit; there is no inline
-  fallback parser.
+   beside the library. A hook that cannot load the library refuses the commit; there is no inline
+   fallback parser.
 
 ### 2.1 Layout: `lib/` Source, `templates/` Symlink, `.githooks/` Copy
 
 ```text
-lib/aapp-lib.sh                                  ← the only authored copy
+lib/aapp-lib.sh                                  ← the only authored copy (regular file)
 templates/aapp-lib.sh -> ../lib/aapp-lib.sh      ← tracked symlink; keeps templates/ the install manifest
-.githooks/aapp-lib.sh                            ← real file, installed by aapp init (plain cp)
+.githooks/aapp-lib.sh                            ← real file, installed by aapp init (direct regular file copy)
 ```
 
 | Consumer | Sources |
@@ -82,11 +84,16 @@ templates/aapp-lib.sh -> ../lib/aapp-lib.sh      ← tracked symlink; keeps temp
 | `lib/cmd_plan.sh` (and any kit code) | `$AAPP_LIB/aapp-lib.sh` |
 | `.githooks/aapp-pre-commit`, `.githooks/blast-radius-guard` | `"$(dirname "$0")/aapp-lib.sh"` |
 
-**Verified end to end (GNU coreutils, 2026-09-27):** `aapp install`'s `cp -r lib templates` keeps
-the relative symlink and it resolves inside the installed kit; `aapp init`'s plain `cp` follows the
-link and installs a **real file** into `.githooks/`. Hooks reached through the worktree symlink
-(`.plans/.githooks -> ../.githooks`) resolve `dirname "$0"` to the same directory. This is the
-kit's **first tracked symlink** — none exist today.
+**Cross-Platform Install & Windows Resilience:**
+`aapp install`'s `cp -r lib templates` preserves the relative symlink inside the installed kit.
+In `lib/cmd_init.sh`, rather than blindly trusting `templates/aapp-lib.sh` (which on Windows clones with
+`core.symlinks=false` checks out as a 1-line text file containing `../lib/aapp-lib.sh`), `cmd_init.sh`
+copies from `$AAPP_LIB/aapp-lib.sh` directly (falling back to `cp -L "$AAPP_TEMPLATES/aapp-lib.sh"`).
+This guarantees `.githooks/aapp-lib.sh` is always written as a functional regular file on all operating
+systems, while `templates/` continues to represent the complete manifest for Unix packages.
+
+Hooks reached through the worktree symlink (`.plans/.githooks -> ../.githooks`) resolve `dirname "$0"`
+to the same directory. This is the kit's **first tracked symlink** — none exist today.
 
 ### 2.2 Why a Copy in `.githooks/`, Not the Installed Kit
 
@@ -100,23 +107,31 @@ rules, refreshed together by `aapp init`.
 
 The library is sourced by enforcement engines, so it must be inert at source time:
 
-- **Allowed:** functions that take arguments and write to stdout — the Target Files parser,
-  `glob_to_regex`, `match_pattern_list`, and a load sentinel `aapp_lib_loaded`.
+- **Allowed:** functions that take arguments and write to stdout — `parse_plan_target_paths`,
+  `parse_plan_oob_paths`, `glob_to_regex`, `match_pattern_list`, and a load sentinel `aapp_lib_loaded`.
 - **Forbidden:** top-level statements with side effects, `set` options that alter the caller, reads
   of the `aapp` environment, and repository-root resolution. `P-33` showed root resolution is
   context-dependent (some callers must derive, others inherit), so it is not a pure function.
-- The Status-line regex is a consolidation candidate but out of scope pending §5 Q1.
+- The Status-line regex is a consolidation candidate but deferred to a dedicated follow-up plan (§5 Q1).
 
-### 2.4 Parser Boundary Rule (fixes both `#82` defects)
+### 2.4 Parser Boundary Rules (fixes both `#82` defects for Target Files & OOB)
 
-> **Only target-bearing headings contribute targets.** The parser collects paths under
-> `### 📂 Target Files` and `### 🚨 Emergency Hotfix Extensions` only. **Any** other heading ends
-> the region. Lines beginning with `>` are never parsed.
+1. **Target Files (`parse_plan_target_paths`):**
+   > Only target-bearing headings contribute targets. The parser collects paths under
+   > `### 📂 Target Files` and `### 🚨 Emergency Hotfix Extensions` only. **Any** other heading
+   > (`^### ` or `^## `) ends the region. Lines beginning with `>` are never parsed.
+   
+   This inverts the current rule from *"every subsection grants write access unless excluded"* to
+   *"only named sections grant it"* — fail-closed by construction. Test files declared under
+   `### 🧪 Required Test Files` (`P-34`, `P-35`) no longer grant write access and must be listed
+   in Target Files explicitly.
 
-This inverts the current rule from *"every subsection grants write access unless excluded"* to
-*"only named sections grant it"* — fail-closed by construction. Its consequence for other plans:
-test files declared under `### 🧪 Required Test Files` (`P-34`, `P-35`) no longer grant write access
-and must be listed in Target Files explicitly.
+2. **Out of Bounds (`parse_plan_oob_paths`):**
+   > Collects paths declared under `### 🛑 Out of Bounds` only. **Any** subsequent heading
+   > (`^### ` or `^## `) ends the region. Lines beginning with `>` are never parsed.
+
+Both `templates/aapp-pre-commit` and `templates/blast-radius-guard.sh` call both functions to populate
+`PLAN_TARGETS` and `PLAN_OOB`, completely eliminating the legacy, bleed-prone `parse_plan_section` helper.
 
 ### 2.5 Fail-Closed Load
 
@@ -131,9 +146,7 @@ if ! . "$AAPP_LIB_FILE" 2>/dev/null || ! declare -f aapp_lib_loaded >/dev/null; 
 fi
 ```
 
-This also covers a checkout where the symlink degraded to a one-line text file (Windows with
-`core.symlinks=false`): sourcing it defines no sentinel, so the hook refuses rather than enforcing
-nothing.
+If the library is absent or unreadable, the hook refuses immediately rather than running unguarded.
 
 ### 2.6 Protection Model — No Guard Change
 
@@ -153,8 +166,7 @@ parser's regression tests (§3) are what actually protect it.
 `tests/pre-commit_test.sh:17` copies the hook alone into `.git/hooks/pre-commit`, and
 `tests/write-guard_test.sh:20` copies the guard alone into `.githooks/`. After this plan both hooks
 resolve the library from their own directory, so both harnesses must copy `aapp-lib.sh` beside the
-hook — otherwise the fail-closed load (§2.5) refuses every commit in both suites. (Line numbers are
-as of 2026-09-27; `P-36` is modifying `tests/pre-commit_test.sh` and they will need re-checking.)
+hook — otherwise the fail-closed load (§2.5) refuses every commit in both suites.
 
 ### 2.8 Known Skew Window
 
@@ -172,6 +184,7 @@ merge closes it.
 - [ ] `tests/aapp_lib_test.sh::test_blockquote_not_parsed` -> asserts a backticked path inside a `>` line under Target Files is not returned (#82 defect 1)
 - [ ] `tests/aapp_lib_test.sh::test_foreign_subsection_ends_region` -> asserts paths under `### 🧪 Required Test Files` placed after Target Files are not returned (#82 defect 2)
 - [ ] `tests/aapp_lib_test.sh::test_emergency_hotfix_is_parsed` -> asserts paths under `### 🚨 Emergency Hotfix Extensions` are returned
+- [ ] `tests/aapp_lib_test.sh::test_oob_paths_parsed` -> asserts paths under `### 🛑 Out of Bounds` are returned while blockquotes and subsequent headings are ignored
 - [ ] `tests/aapp_lib_test.sh::test_consumers_agree` -> asserts `cmd_plan.sh`, the pre-commit hook and the write-guard return identical targets for the same plan
 - [ ] `tests/aapp_lib_test.sh::test_source_is_inert` -> asserts sourcing the library produces no output and changes no caller shell options
 - [ ] `tests/pre-commit_test.sh::test_missing_library_refuses_commit` -> asserts a hook with no `aapp-lib.sh` beside it exits 1 with a diagnostic, never commits unguarded
@@ -183,14 +196,14 @@ merge closes it.
 - [ ] Task 1.2: Add the missing-library and install/init tests to `tests/pre-commit_test.sh` and `tests/install_test.sh`; confirm they FAIL.
 
 ### Phase 2: Library & Layout (Green 🟢)
-- [ ] Task 2.1: Create `lib/aapp-lib.sh` with the parser implementing the §2.4 boundary rule, `glob_to_regex`, `match_pattern_list`, and `aapp_lib_loaded`.
+- [ ] Task 2.1: Create `lib/aapp-lib.sh` with `parse_plan_target_paths`, `parse_plan_oob_paths`, `glob_to_regex`, `match_pattern_list`, and `aapp_lib_loaded`.
 - [ ] Task 2.2: Create the tracked symlink `templates/aapp-lib.sh -> ../lib/aapp-lib.sh`.
-- [ ] Task 2.3: In `lib/cmd_init.sh`, install `aapp-lib.sh` into `.githooks/` alongside the hook engines, including the existing-hook-manager path.
+- [ ] Task 2.3: In `lib/cmd_init.sh`, install `aapp-lib.sh` into `.githooks/` from `$AAPP_LIB/aapp-lib.sh` (with `cp -L` fallback) alongside hook engines, ensuring cross-platform symlink resilience.
 - [ ] Task 2.4: Re-run Phase 1 parser tests and confirm Green 🟢.
 
 ### Phase 3: Consumer Migration
 - [ ] Task 3.1: `lib/cmd_plan.sh` — delete `parse_plan_target_paths`; source `$AAPP_LIB/aapp-lib.sh`.
-- [ ] Task 3.2: `templates/aapp-pre-commit` and `templates/blast-radius-guard.sh` — delete the inline `parse_plan_section`, `glob_to_regex` and `match_pattern_list`; add the §2.5 fail-closed load.
+- [ ] Task 3.2: `templates/aapp-pre-commit` and `templates/blast-radius-guard.sh` — replace `parse_plan_section` calls with `parse_plan_target_paths` and `parse_plan_oob_paths`; delete inline `parse_plan_section`, `glob_to_regex` and `match_pattern_list`; add the §2.5 fail-closed load.
 - [ ] Task 3.3: `tests/pre-commit_test.sh` and `tests/write-guard_test.sh` — copy `aapp-lib.sh` beside the hook under test (§2.7).
 - [ ] Task 3.4: Re-run all Phase 1 tests and confirm Green 🟢, including `test_consumers_agree`.
 
@@ -200,7 +213,7 @@ merge closes it.
 - [ ] Task 4.3: Run `aapp init` on this repository so its own `.githooks/` receives the library, and confirm `aapp plan-status` no longer lists the phantom `backticked path` target.
 
 ### Phase 5: Documentation
-- [ ] Task 5.1: `ARCHITECTURE.md` — record the shared-library rule (pure functions, `lib/` source, `templates/` symlink, `.githooks/` copy) and the target-bearing-headings parser rule.
+- [ ] Task 5.1: `ARCHITECTURE.md` and `.agents/ARCHITECTURE.md` — record the shared-library rule (pure functions, `lib/` source, `templates/` symlink, `.githooks/` copy) and the target/OOB parser boundary rules.
 - [ ] Task 5.2: `.agents/CODEMAP.md` — name `lib/aapp-lib.sh` as the canonical owner of plan-section parsing.
 - [ ] Task 5.3: `CHANGELOG.md` under `### Fixed` (#82) and `### Changed` (shared library).
 
@@ -224,29 +237,23 @@ merge closes it.
 - [ ] `tests/write-guard_test.sh` -> Copy library beside guard
 - [ ] `tests/install_test.sh` -> Install and init library tests
 - [ ] `ARCHITECTURE.md` -> Shared-library and parser-boundary rules
+- [ ] `.agents/ARCHITECTURE.md` -> Shared-library and parser-boundary rules in agent architecture mapping
 - [ ] `.agents/CODEMAP.md` -> Name the library's ownership
 - [ ] `CHANGELOG.md` -> Record under Fixed and Changed
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/*` -> Installed engine copies; refreshed only by `aapp init` (Architectural Rule 3).
-- [ ] `lib/plan_states.sh` -> Status registry; Status-regex consolidation pending §5 Q1.
+- [ ] `lib/plan_states.sh` -> Status registry; Status-regex consolidation deferred to follow-up.
 - [ ] `.agents/skills/*` -> Governance skills self-protection.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 — Consolidate the Status-line regex here?** It appears 22 times across
-  `lib/cmd_plan.sh`, both hooks and `lib/plan_states.sh`, and a divergent copy would make the CLI and
-  the hooks disagree about a plan's state. But `lib/plan_states.sh` (`P-30`) already owns the status
-  registry, so consolidation raises an ownership question: does the matcher move into the shared
-  library, or does the library call into the registry? In scope, or a follow-up plan?
-* [ ] **Question 2 — Windows symlink support.** With `core.symlinks=false`, the tracked symlink
-  checks out as a text file. §2.5 makes that fail closed rather than unguarded, but installation
-  would still be broken on such a checkout. Document it as unsupported, or add an install-time check
-  that `templates/aapp-lib.sh` is a symlink?
+* [x] **Question 1 — Consolidate the Status-line regex here?** RESOLVED: Defer to a dedicated follow-up plan. Keeping P-37 laser-focused on Issue #82 (target and OOB parsing) and hook library infrastructure prevents blast radius expansion into `lib/plan_states.sh` and across 22 status call sites.
+* [x] **Question 2 — Windows symlink support.** RESOLVED: Handled cleanly in `lib/cmd_init.sh`. Instead of relying solely on the symlink in `templates/`, `init` copies directly from `$AAPP_LIB/aapp-lib.sh` (which is always a real file) with `cp -L` fallback, ensuring complete cross-platform resilience even when cloned with `core.symlinks=false`.
 
 ### Dependencies & Sequencing
-- **After `P-36`:** both target `templates/aapp-pre-commit`, so Pair 7 prevents concurrent development.
+- **After `P-36`:** `P-36` is completed and archived (`ae1ff90` on `develop`, `8dbe3ee` on `plans`); P-37 is fully unblocked.
 - **Before `P-34`:** both target `lib/cmd_plan.sh`.
 - **Prerequisite in `P-34`:** add `tests/install_test.sh` to its Target Files explicitly. Today it
   reaches that file only through the boundary bleed this plan removes; without the addition, `P-34`
@@ -265,3 +272,9 @@ merge closes it.
   `.githooks/` is kept even though `P-36` guarantees an installed kit, so every contributor enforces
   the same parser version. Hard links were rejected after testing: `sed -i` silently breaks the link
   leaving stale content, and git stores no link, so clones receive independent copies.
+* **2026-09-27 (Refinement):** Adversarial review updates: added `parse_plan_oob_paths` to library
+  specification and hook migrations to eliminate `parse_plan_section` without breaking Out-of-Bounds
+  rejections; added direct `$AAPP_LIB/aapp-lib.sh` copy in `lib/cmd_init.sh` to guarantee Windows
+  symlink resilience; added `.agents/ARCHITECTURE.md` to Target Files to ensure doc sync compliance;
+  resolved Q1 (deferred to follow-up) and Q2 (mitigated); updated status to `📝 Refining`.
+
