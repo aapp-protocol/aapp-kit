@@ -257,57 +257,57 @@ merge closes it.
 *Failure-first: behavioral regression tests are authored and confirmed Red 🔴 before the library exists.*
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
-- [ ] `tests/write-guard_test.sh::test_blockquote_path_denied` -> asserts write-guard blocks writes to backticked path declared inside blockquote (#82 defect 1 Red)
-- [ ] `tests/write-guard_test.sh::test_foreign_subsection_path_denied` -> asserts write-guard blocks writes to path declared inside non-whitelisted trailing subsection (e.g. `### 📝 Implementation Notes`) (#82 defect 2 Red)
-- [ ] `tests/write-guard_test.sh::test_required_test_files_path_allowed` -> asserts write-guard permits edits to path declared in `### 🧪 Required Test Files` (Option A E2E Green)
-- [ ] `tests/pre-commit_test.sh::test_blockquote_path_denied` -> asserts pre-commit blocks staged commit to backticked path declared inside blockquote (#82 defect 1 Red)
-- [ ] `tests/pre-commit_test.sh::test_foreign_subsection_path_denied` -> asserts pre-commit blocks staged commit to path declared inside non-whitelisted trailing subsection (e.g. `### 📝 Implementation Notes`) (#82 defect 2 Red)
-- [ ] `tests/pre-commit_test.sh::test_required_test_files_path_allowed` -> asserts pre-commit permits staged commits to path declared in `### 🧪 Required Test Files` (Option A E2E Green)
-- [ ] `tests/aapp_lib_test.sh::test_blockquote_not_parsed` -> pure function asserts backticked path in blockquote line is ignored
-- [ ] `tests/aapp_lib_test.sh::test_foreign_subsection_ends_region` -> pure function asserts non-whitelisted subsection ends target collection
-- [ ] `tests/aapp_lib_test.sh::test_emergency_hotfix_is_parsed` -> pure function asserts paths under emergency hotfix section are returned
-- [ ] `tests/aapp_lib_test.sh::test_emergency_hotfix_after_oob` -> pure function asserts emergency hotfix is parsed even when declared after Out of Bounds
-- [ ] `tests/aapp_lib_test.sh::test_required_test_files_is_parsed` -> pure function asserts paths under `### 🧪 Required Test Files` are returned as write targets (Option A)
-- [ ] `tests/aapp_lib_test.sh::test_required_tests_checklist_not_parsed` -> pure function asserts `### 🧪 Required Tests` section does not trigger target collection (no prefix bleed)
-- [ ] `tests/aapp_lib_test.sh::test_new_file_marker_skipped` -> pure function asserts `NEW FILE` and lifecycle prefix markers are stripped and actual target path is extracted
-- [ ] `tests/aapp_lib_test.sh::test_fenced_example_not_parsed` -> pure function asserts a target-bearing heading inside a fenced code block contributes no targets
-- [ ] `tests/aapp_lib_test.sh::test_heading_outside_section4_not_parsed` -> pure function asserts a target-bearing heading outside `## 💥 4.` contributes no targets
-- [ ] `tests/aapp_lib_test.sh::test_extract_plan_section` -> pure function asserts `extract_plan_section` extracts numbered markdown section `## N.` from stdin
-- [ ] `tests/aapp_lib_test.sh::test_oob_paths_parsed` -> pure function asserts paths under Out of Bounds are returned while blockquotes and subsequent headings are ignored
-- [ ] `tests/aapp_lib_test.sh::test_aapp_os_branches` -> asserts parameterized `aapp_os` correctly detects all platform branches (`linux`, `darwin`, `windows`, `wsl`, `bsd`, `unknown`)
-- [ ] `tests/aapp_lib_test.sh::test_no_foreign_target_parsers_in_repo` -> structural test asserting no inline `awk` parsers for named target/OOB/section headings exist in `lib/` or `templates/` outside `lib/aapp-lib.sh`
-- [ ] `tests/aapp_lib_test.sh::test_source_is_inert` -> asserts sourcing the library produces no output and changes no caller shell options
-- [ ] `tests/pre-commit_test.sh::test_missing_library_refuses_commit` -> asserts a hook with no `aapp-lib.sh` beside it exits 1 with a diagnostic, never commits unguarded
-- [ ] `tests/install_test.sh::test_init_installs_library_as_real_file` -> asserts `aapp init` installs `.githooks/aapp-lib.sh` as a regular file, not a symlink
-- [ ] `tests/install_test.sh::test_init_fails_loudly_when_lib_missing` -> asserts `aapp init` exits non-zero with an OS-aware diagnostic if `$AAPP_LIB/aapp-lib.sh` is missing
-- [ ] `tests/install_test.sh::test_install_preserves_template_symlink` -> asserts `aapp install` leaves `templates/aapp-lib.sh` as a symlink resolving inside the installed kit
+- [x] `tests/write-guard_test.sh::test_blockquote_path_denied` -> asserts write-guard blocks writes to backticked path declared inside blockquote (#82 defect 1 Red)
+- [x] `tests/write-guard_test.sh::test_foreign_subsection_path_denied` -> asserts write-guard blocks writes to path declared inside non-whitelisted trailing subsection (e.g. `### 📝 Implementation Notes`) (#82 defect 2 Red)
+- [x] `tests/write-guard_test.sh::test_required_test_files_path_allowed` -> asserts write-guard permits edits to path declared in `### 🧪 Required Test Files` (Option A E2E Green)
+- [x] `tests/pre-commit_test.sh::test_blockquote_path_denied` -> asserts pre-commit blocks staged commit to backticked path declared inside blockquote (#82 defect 1 Red)
+- [x] `tests/pre-commit_test.sh::test_foreign_subsection_path_denied` -> asserts pre-commit blocks staged commit to path declared inside non-whitelisted trailing subsection (e.g. `### 📝 Implementation Notes`) (#82 defect 2 Red)
+- [x] `tests/pre-commit_test.sh::test_required_test_files_path_allowed` -> asserts pre-commit permits staged commits to path declared in `### 🧪 Required Test Files` (Option A E2E Green)
+- [x] `tests/aapp_lib_test.sh::test_blockquote_not_parsed` -> pure function asserts backticked path in blockquote line is ignored
+- [x] `tests/aapp_lib_test.sh::test_foreign_subsection_ends_region` -> pure function asserts non-whitelisted subsection ends target collection
+- [x] `tests/aapp_lib_test.sh::test_emergency_hotfix_is_parsed` -> pure function asserts paths under emergency hotfix section are returned
+- [x] `tests/aapp_lib_test.sh::test_emergency_hotfix_after_oob` -> pure function asserts emergency hotfix is parsed even when declared after Out of Bounds
+- [x] `tests/aapp_lib_test.sh::test_required_test_files_is_parsed` -> pure function asserts paths under `### 🧪 Required Test Files` are returned as write targets (Option A)
+- [x] `tests/aapp_lib_test.sh::test_required_tests_checklist_not_parsed` -> pure function asserts `### 🧪 Required Tests` section does not trigger target collection (no prefix bleed)
+- [x] `tests/aapp_lib_test.sh::test_new_file_marker_skipped` -> pure function asserts `NEW FILE` and lifecycle prefix markers are stripped and actual target path is extracted
+- [x] `tests/aapp_lib_test.sh::test_fenced_example_not_parsed` -> pure function asserts a target-bearing heading inside a fenced code block contributes no targets
+- [x] `tests/aapp_lib_test.sh::test_heading_outside_section4_not_parsed` -> pure function asserts a target-bearing heading outside `## 💥 4.` contributes no targets
+- [x] `tests/aapp_lib_test.sh::test_extract_plan_section` -> pure function asserts `extract_plan_section` extracts numbered markdown section `## N.` from stdin
+- [x] `tests/aapp_lib_test.sh::test_oob_paths_parsed` -> pure function asserts paths under Out of Bounds are returned while blockquotes and subsequent headings are ignored
+- [x] `tests/aapp_lib_test.sh::test_aapp_os_branches` -> asserts parameterized `aapp_os` correctly detects all platform branches (`linux`, `darwin`, `windows`, `wsl`, `bsd`, `unknown`)
+- [x] `tests/aapp_lib_test.sh::test_no_foreign_target_parsers_in_repo` -> structural test asserting no inline `awk` parsers for named target/OOB/section headings exist in `lib/` or `templates/` outside `lib/aapp-lib.sh`
+- [x] `tests/aapp_lib_test.sh::test_source_is_inert` -> asserts sourcing the library produces no output and changes no caller shell options
+- [x] `tests/pre-commit_test.sh::test_missing_library_refuses_commit` -> asserts a hook with no `aapp-lib.sh` beside it exits 1 with a diagnostic, never commits unguarded
+- [x] `tests/install_test.sh::test_init_installs_library_as_real_file` -> asserts `aapp init` installs `.githooks/aapp-lib.sh` as a regular file, not a symlink
+- [x] `tests/install_test.sh::test_init_fails_loudly_when_lib_missing` -> asserts `aapp init` exits non-zero with an OS-aware diagnostic if `$AAPP_LIB/aapp-lib.sh` is missing
+- [x] `tests/install_test.sh::test_install_preserves_template_symlink` -> asserts `aapp install` leaves `templates/aapp-lib.sh` as a symlink resolving inside the installed kit
 
 ### Phase 1: True Failure-First Behavioral Tests (Red 🔴)
-- [ ] Task 1.1: Author behavioral regression tests `test_blockquote_path_denied` and `test_foreign_subsection_path_denied` (using `### 📝 Implementation Notes`) in `tests/write-guard_test.sh` and `tests/pre-commit_test.sh`; run against unpatched code and confirm FAIL (Red 🔴).
-- [ ] Task 1.2: Add missing-library, loud-init-failure, and symlink tests to `tests/pre-commit_test.sh` and `tests/install_test.sh`; confirm they FAIL (Red 🔴).
+- [x] Task 1.1: Author behavioral regression tests `test_blockquote_path_denied` and `test_foreign_subsection_path_denied` (using `### 📝 Implementation Notes`) in `tests/write-guard_test.sh` and `tests/pre-commit_test.sh`; run against unpatched code and confirm FAIL (Red 🔴).
+- [x] Task 1.2: Add missing-library, loud-init-failure, and symlink tests to `tests/pre-commit_test.sh` and `tests/install_test.sh`; confirm they FAIL (Red 🔴).
 
 ### Phase 2: Library & Layout (Green 🟢)
-- [ ] Task 2.1: Create `lib/aapp-lib.sh` with `parse_plan_target_paths` (recognizing Target Files, Emergency Hotfix, and Required Test Files with exact regexes and lifecycle marker stripping), `parse_plan_oob_paths`, `extract_plan_section`, `glob_to_regex`, `match_pattern_list`, `aapp_os`, and `aapp_lib_loaded`.
-- [ ] Task 2.2: Create the tracked symlink `templates/aapp-lib.sh -> ../lib/aapp-lib.sh`.
-- [ ] Task 2.3: In `lib/cmd_init.sh`, install `aapp-lib.sh` into `.githooks/` strictly from `$AAPP_LIB/aapp-lib.sh`; fail loudly with `aapp_os` diagnostic if missing.
-- [ ] Task 2.4: Author `tests/aapp_lib_test.sh` covering pure parser functions, exact regex boundary isolation, marker stripping (`NEW FILE`), `extract_plan_section`, all `aapp_os` parameterized branches, inertness, and confirm Green 🟢.
+- [x] Task 2.1: Create `lib/aapp-lib.sh` with `parse_plan_target_paths` (recognizing Target Files, Emergency Hotfix, and Required Test Files with exact regexes and lifecycle marker stripping), `parse_plan_oob_paths`, `extract_plan_section`, `glob_to_regex`, `match_pattern_list`, `aapp_os`, and `aapp_lib_loaded`.
+- [x] Task 2.2: Create the tracked symlink `templates/aapp-lib.sh -> ../lib/aapp-lib.sh`.
+- [x] Task 2.3: In `lib/cmd_init.sh`, install `aapp-lib.sh` into `.githooks/` strictly from `$AAPP_LIB/aapp-lib.sh`; fail loudly with `aapp_os` diagnostic if missing.
+- [x] Task 2.4: Author `tests/aapp_lib_test.sh` covering pure parser functions, exact regex boundary isolation, marker stripping (`NEW FILE`), `extract_plan_section`, all `aapp_os` parameterized branches, inertness, and confirm Green 🟢.
 
 ### Phase 3: Consumer Migration
-- [ ] Task 3.1: `lib/cmd_plan.sh` — delete `parse_plan_target_paths`; source `"$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh"` with fail-closed load check.
-- [ ] Task 3.2: `lib/planning_health.sh` — delete inline `get_plan_targets` in Pair 7; source `"$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh"` with fail-closed load check and invoke `parse_plan_target_paths`.
-- [ ] Task 3.3: `templates/aapp-pre-commit` and `templates/blast-radius-guard.sh` — replace `parse_plan_section` calls with `parse_plan_target_paths` and `parse_plan_oob_paths`; replace inline `extract_plan_section` in `templates/aapp-pre-commit` with library call; delete inline `parse_plan_section`, `extract_plan_section`, `glob_to_regex` and `match_pattern_list`; add the §2.5 fail-closed load.
-- [ ] Task 3.4: `tests/pre-commit_test.sh` and `tests/write-guard_test.sh` — copy `aapp-lib.sh` beside the hook under test (§2.7); add `test_required_test_files_path_allowed`; confirm Phase 1 behavioral tests now turn Green 🟢.
-- [ ] Task 3.5: Run structural assertion `test_no_foreign_target_parsers_in_repo` with scoped regexes and confirm Green 🟢 across the repo.
+- [x] Task 3.1: `lib/cmd_plan.sh` — delete `parse_plan_target_paths`; source `"$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh"` with fail-closed load check.
+- [x] Task 3.2: `lib/planning_health.sh` — delete inline `get_plan_targets` in Pair 7; source `"$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh"` with fail-closed load check and invoke `parse_plan_target_paths`.
+- [x] Task 3.3: `templates/aapp-pre-commit` and `templates/blast-radius-guard.sh` — replace `parse_plan_section` calls with `parse_plan_target_paths` and `parse_plan_oob_paths`; replace inline `extract_plan_section` in `templates/aapp-pre-commit` with library call; delete inline `parse_plan_section`, `extract_plan_section`, `glob_to_regex` and `match_pattern_list`; add the §2.5 fail-closed load.
+- [x] Task 3.4: `tests/pre-commit_test.sh` and `tests/write-guard_test.sh` — copy `aapp-lib.sh` beside the hook under test (§2.7); add `test_required_test_files_path_allowed`; confirm Phase 1 behavioral tests now turn Green 🟢.
+- [x] Task 3.5: Run structural assertion `test_no_foreign_target_parsers_in_repo` with scoped regexes and confirm Green 🟢 across the repo.
 
 ### Phase 4: Regression & Platform Verification
-- [ ] Task 4.1: Run `./aapp test strict quiet` across all discovered suites; zero regressions.
+- [x] Task 4.1: Run `./aapp test strict quiet` across all discovered suites; zero regressions.
 - [ ] Task 4.2: Verify the §2.1 install/init symlink behaviour on macOS (BSD `cp`) (Manual Platform Verification step); record the result in §6.
-- [ ] Task 4.3: Run `aapp init` on this repository (sanctioned propagation step) so its own `.githooks/` receives the library, and confirm `aapp plan-status` no longer lists the phantom `backticked path` target.
+- [x] Task 4.3: Run `aapp init` on this repository (sanctioned propagation step) so its own `.githooks/` receives the library, and confirm `aapp plan-status` no longer lists the phantom `backticked path` target.
 
 ### Phase 5: Documentation
-- [ ] Task 5.1: `ARCHITECTURE.md` and `.agents/ARCHITECTURE.md` — record the shared-library rule (pure functions, `lib/` source, `templates/` symlink, `.githooks/` copy), `aapp_os`, and the target/OOB parser boundary rules.
-- [ ] Task 5.2: `.agents/CODEMAP.md` — name `lib/aapp-lib.sh` as the canonical owner of plan-section parsing and OS detection.
-- [ ] Task 5.3: `CHANGELOG.md` under `### Fixed` (#82) and `### Changed` (shared library).
+- [x] Task 5.1: `ARCHITECTURE.md` and `.agents/ARCHITECTURE.md` — record the shared-library rule (pure functions, `lib/` source, `templates/` symlink, `.githooks/` copy), `aapp_os`, and the target/OOB parser boundary rules.
+- [x] Task 5.2: `.agents/CODEMAP.md` — name `lib/aapp-lib.sh` as the canonical owner of plan-section parsing and OS detection.
+- [x] Task 5.3: `CHANGELOG.md` under `### Fixed` (#82) and `### Changed` (shared library).
 
 ---
 
@@ -414,3 +414,10 @@ merge closes it.
 * **2026-09-27 (Refinement 6 - RFC review of `a5c229a`):**
   1. Scoped target-bearing and Out of Bounds headings to `## 💥 4.` and skipped fenced code blocks; `P-35` §2.2's quoted example heading would otherwise grant three paths. Added `test_fenced_example_not_parsed` and `test_heading_outside_section4_not_parsed`.
   2. Dropped the `.plans/current/*.md` Out of Bounds line: its glob matches this plan's own file, and the guard allows `.plans/*` before reading any plan.
+* **2026-09-27 (Implementation):** All declared tests Red 🔴 first, then Green 🟢; full suite 454/454 (`strict`). Deviations and findings:
+  1. **Guard load refuses through `deny_action` (exit 2)**, not the §2.5 snippet's `exit 1`: a PreToolUse hook exiting 1 is a non-blocking error, so the write would go through unguarded (Goal 7). The pre-commit hook keeps `exit 1`.
+  2. **Hook directory via `${0%/*}`**, not `dirname`: the guard's POSIX-fallback test runs without `dirname` on `PATH`. The guard captures it before its `cd "$REPO_ROOT"`.
+  3. **Init diagnostic prints `uname -s`**, not `aapp_os`: in that failure the library defining `aapp_os` is the missing file.
+  4. **Test fixtures now carry `## 💥 4.`** (`plan()` helper in both hook suites): the §4 scoping reads targets only there, as in every real plan.
+  5. **Pair 5 keeps its own bash parser** (user decision; #86). Found **#87**: Emergency Hotfix Extensions sit in design-locked §4.
+  6. **Task 4.2 (macOS BSD `cp`) pending** — manual verification.
