@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-27 | `P-36` | [`P36-deprecate-drop-in-and-enforce-runtime-reachability.md`](P36-deprecate-drop-in-and-enforce-runtime-reachability.md) | #83 | `ae1ff90` | Deprecated broken drop-in installation, single-sourced runtime detection, enforced physical canonical fast-fail check in `cmd_init.sh`, added Section 0 reachability and Inspection-Only gate to pre-commit, and added sandbox test runtime confinement. |
 | 2026-09-23 | `P-33` | [`P33-centralized-git-root-assertion-and-fail-fast-dispatch.md`](P33-centralized-git-root-assertion-and-fail-fast-dispatch.md) | #80 | `432da13` | Front-door repo assertion + `REPO_ROOT` export in `aapp`; purged `\|\| pwd` / `\|\| true` root fallbacks across `lib/`; fail-closed standalone roots; `ARCHITECTURE.md` rule 9 |
 | 2026-09-22 | `P-31` | [`P31-unified-test-runner-cli.md`](P31-unified-test-runner-cli.md) | None | `5d9f9d0` |  |
 | 2026-09-22 | `P-26` | [`P26-test-harness-isolation-and-worktree-hooks.md`](P26-test-harness-isolation-and-worktree-hooks.md) | None | `c4fc5b2` |  |

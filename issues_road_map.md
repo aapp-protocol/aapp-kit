@@ -19,7 +19,6 @@
 
 ## 🔴 High Priority (Technical Urgency)
 1. #49 -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
-2. #83 -> Drop-in mode self-consumes without installing `aapp` into PATH, stranding adopters with no CLI runtime; clones lacking binary must be inspection-only. 🔵 Planned under [P-36](current/P36-deprecate-drop-in-and-enforce-runtime-reachability.md).
 
 ## 🟡 Medium Priority (Upcoming Iterations)
 1. #76 -> Unbounded changelog bullet length and commit body verbosity cause context briefing blowup and git log bloat. 🔵 Planned under [P-28](current/P28-conciseness-enforcement-and-changelog-governance.md).
