@@ -32,6 +32,15 @@ echo "== refusals =="
 aapp done P-999 >/dev/null 2>&1; rc=$?
 if [ "$rc" -eq 1 ] && [ -z "$(ls .plans/done | grep -v '^000-')" ]; then ok "test_refuses_unknown_plan"; else bad "test_refuses_unknown_plan" "rc=$rc"; fi
 
+echo "== source status (#89) =="
+draft_id="$(draft_plan not-started)"; draft_f="$(plan_file "$draft_id")"
+aapp done "$draft_id" >/dev/null 2>&1; rc=$?
+if [ "$rc" -eq 1 ] && [ -f "$draft_f" ] && [ ! -e ".plans/done/$(basename "$draft_f")" ]; then
+  ok "test_refuses_plan_not_in_development"
+else
+  bad "test_refuses_plan_not_in_development" "rc=$rc"
+fi
+
 echo "== happy path =="
 id="$(started_plan archive-me)"; bname="$(basename "$(plan_file "$id")")"
 aapp done "$id" >/dev/null 2>&1; rc=$?

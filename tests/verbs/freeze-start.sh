@@ -42,4 +42,14 @@ else
   bad "test_freezes_and_activates" "rc=$rc"
 fi
 
+echo "== source status (#89) =="
+# The plan is now In Development: freeze-start must refuse and change nothing.
+before="$(cksum < "$f")"
+aapp freeze-start "$id" >/dev/null 2>&1; rc=$?
+if [ "$rc" -eq 1 ] && [ "$(cksum < "$f")" = "$before" ]; then
+  ok "test_refuses_non_incubator_plan"
+else
+  bad "test_refuses_non_incubator_plan" "rc=$rc"
+fi
+
 print_test_summary "$PASS" "$FAIL"

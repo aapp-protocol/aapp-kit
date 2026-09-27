@@ -16,6 +16,15 @@ if ! . "$AAPP_LIB_FILE" 2>/dev/null || ! declare -f aapp_lib_loaded >/dev/null; 
     exit 1
 fi
 
+# Status registry (P-30): lifecycle verbs gate on a plan's status slug (#89).
+AAPP_STATES_FILE="$(dirname "${BASH_SOURCE[0]}")/plan_states.sh"
+# shellcheck source=lib/plan_states.sh
+if ! . "$AAPP_STATES_FILE" 2>/dev/null || ! declare -f plan_state_for_status_line >/dev/null; then
+    echo "❌ [AAPP] Status registry missing or unreadable: $AAPP_STATES_FILE" >&2
+    echo "   Reinstall the kit: ./aapp-kit/aapp install" >&2
+    exit 1
+fi
+
 # REPO_ROOT is exported by the `aapp` dispatcher, which asserts repository
 # membership before dispatch (P-33). It carries the *active worktree* root, so
 # GIT_COMMON_DIR/PRIMARY_ROOT resolution below stays necessary to find .plans
@@ -149,6 +158,30 @@ check_disjointness_activation_gate() {
     done
 
     return 0
+}
+
+# plan_status_slug <file>: the registry slug of the plan's Status line, or
+# empty when it matches no registry entry (including `✅ Done`, which only
+# archived plans carry).
+plan_status_slug() {
+    local line
+    line="$(grep -m 1 -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$1" || true)"
+    plan_state_for_status_line "$line" || true
+}
+
+# refuse_unless_incubator <file> <verb-label>: freeze and freeze-start start
+# from the incubator. Frozen, in-development, blocked and unrecognised plans
+# (including archived ones) are refused; custom statuses count as incubator.
+refuse_unless_incubator() {
+    local slug
+    slug="$(plan_status_slug "$1")"
+    case "$slug" in
+        frozen|in-development|blocked|"")
+            echo "❌ [$2 Refusal] Plan is not in the incubator (current status: $(grep -m 1 -E '\*\*Status:\*\*' "$1" | sed -E 's/^.*\*\*Status:\*\*[[:space:]]*//'))." >&2
+            echo "   Only 🟣 Under Review or 📝 Refining plans can be frozen." >&2
+            exit 1
+            ;;
+    esac
 }
 
 write_active_buffer() {
@@ -370,6 +403,7 @@ cmd_freeze_start() {
     local query="$1"
     local plan_file
     plan_file="$(resolve_plan_file "$query" "freeze-start")" || exit 1
+    refuse_unless_incubator "$plan_file" "Freeze-Start"
 
     # Verify Open Questions
     local unresolved_q
@@ -452,6 +486,7 @@ cmd_freeze() {
     local query="$1"
     local plan_file
     plan_file="$(resolve_plan_file "$query" "freeze")" || exit 1
+    refuse_unless_incubator "$plan_file" "Freeze"
 
     # Verify Open Questions
     local unresolved_q
@@ -589,6 +624,13 @@ cmd_done() {
     local query="$1"
     local plan_file
     plan_file="$(resolve_plan_file "$query" "done")" || exit 1
+
+    # Only an implemented plan is archived (#89).
+    if [ "$(plan_status_slug "$plan_file")" != "in-development" ]; then
+        echo "❌ [Done Refusal] Plan is not ⚡ In Development (current status: $(grep -m 1 -E '\*\*Status:\*\*' "$plan_file" | sed -E 's/^.*\*\*Status:\*\*[[:space:]]*//'))." >&2
+        echo "   Start it with 'aapp start $query' and implement it before archiving." >&2
+        exit 1
+    fi
 
     local plan_id
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"

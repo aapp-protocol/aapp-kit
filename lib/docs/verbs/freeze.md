@@ -9,12 +9,12 @@
 
 ## Preconditions
 - Inside a Git repository whose `.plans/current/` exists
-- The plan is in the incubator (`🟣 Under Review` or `📝 Refining`)
-    ⚠️ Divergence: the current status is not checked; a plan that is already `⚡ In Development`, `🟥 BLOCKED` or `✅ Done` is re-marked `🔷 Frozen`.
+- The plan is in the incubator (`🟣 Under Review`, `📝 Refining`, or a custom status from `aapp.planState.*`)
 
 ## Failure modes
 - no `id` -> exit 1, stderr `You must specify a target plan for 'freeze'.`
 - `id` resolves to no plan -> exit 1, stderr `Plan '<id>' not found`
+- the plan is `🔷 Frozen`, `⚡ In Development`, `🟥 BLOCKED`, or carries a status no registry entry matches -> exit 1, stderr `[Freeze Refusal] Plan is not in the incubator`; the plan is unchanged (#89)
 - an unchecked `* [ ]` item under `## ❓ 5. Open Questions` -> exit 1, stderr `[Freeze Refusal]` lists each unresolved question; the plan is unchanged
 - no path under `### 📂 Target Files` in §4 -> exit 1, stderr `[Freeze Refusal] Plan declares no Target Files`; the plan is unchanged
 - an `on-freeze` hook vetoes (non-zero) -> exit 1 and the plan stays unfrozen
@@ -41,3 +41,4 @@ Run: `aapp test verb freeze`
 - `tests/verbs/freeze.sh::test_refuses_unresolved_questions` -> an unchecked §5 item: exit 1, plan unchanged
 - `tests/verbs/freeze.sh::test_refuses_without_target_files` -> an empty Target Files section: exit 1, plan unchanged
 - `tests/verbs/freeze.sh::test_refuses_unknown_plan` -> an unresolvable `id`: exit 1
+- `tests/verbs/freeze.sh::test_refuses_non_incubator_plan` -> freezing a `🔷 Frozen` plan again: exit 1, plan unchanged (#89)

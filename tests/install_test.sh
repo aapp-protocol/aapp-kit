@@ -1078,6 +1078,9 @@ PROJ_60="$R/t60_proj"; make_dummy_project "$PROJ_60"
 plan_60="$(compgen -G "$PROJ_60/.plans/current/P*-archive-test.md" | head -n 1)"
 bname_60="$(basename "$plan_60")"
 sed -i 's/^### 📂 Target Files/### 📂 Target Files\n* `dummy.txt` - test file/' "$plan_60"
+# Resolve the template's §5 question: freeze refuses it, and done archives only
+# an in-development plan (#89), so every step must genuinely succeed.
+sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$plan_60"
 (cd "$PROJ_60" && aapp freeze "$bname_60" >/dev/null 2>&1)
 (cd "$PROJ_60" && aapp start "$bname_60" >/dev/null 2>&1)
 (cd "$PROJ_60" && aapp done "$bname_60" >/dev/null 2>&1)

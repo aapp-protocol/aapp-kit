@@ -11,12 +11,12 @@
 ## Preconditions
 - Inside a Git repository whose `.plans/current/` and `.plans/done/` exist
 - The plan is `⚡ In Development`, and its implementation commit is the code repository's `HEAD`
-    ⚠️ Divergence: the status is not checked; a `🟣 Under Review` plan is archived as done.
     ⚠️ Divergence: the verification commit is whatever `HEAD` is at invocation; a later unrelated commit is recorded instead of the implementation.
 
 ## Failure modes
 - no `id` -> exit 1, stderr `You must specify a target plan for 'done'.`
 - `id` resolves to no plan -> exit 1, stderr `Plan '<id>' not found`; nothing moves
+- the plan is not `⚡ In Development` -> exit 1, stderr `[Done Refusal] Plan is not ⚡ In Development`; nothing moves (#89)
 - plans-worktree commit refused by a hook -> exit non-zero
     ⚠️ Divergence (#81): the commit runs under `|| true`; the verb exits 0 with the archive staged.
 
@@ -40,4 +40,5 @@ Run: `aapp test verb done`
 - `tests/verbs/done.sh::test_archives_and_commits` -> move, `✅ Done`, buffer cleared, one commit
 - `tests/verbs/done.sh::test_ledger_row_populated` -> the row carries the header's Target Issue and a non-empty Impact Summary (D2)
 - `tests/verbs/done.sh::test_refuses_unknown_plan` -> an unresolvable `id`: exit 1, nothing moves
+- `tests/verbs/done.sh::test_refuses_plan_not_in_development` -> a `🟣 Under Review` plan: exit 1, nothing moves (#89)
 - `tests/verbs/done.sh::test_matrix_row_removed_exactly` -> archiving `P-3` leaves `P-30`'s matrix row in place (#88)

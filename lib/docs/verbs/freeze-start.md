@@ -9,13 +9,13 @@
 
 ## Preconditions
 - Inside a Git repository whose `.plans/current/` exists
-- The plan is in the incubator (`🟣 Under Review` or `📝 Refining`)
-    ⚠️ Divergence: the current status is not checked, as with `freeze`.
+- The plan is in the incubator (`🟣 Under Review`, `📝 Refining`, or a custom status from `aapp.planState.*`)
 - No other `⚡ In Development` plan declares an identical Target File
 
 ## Failure modes
 - no `id` -> exit 1, stderr `You must specify a target plan for 'freeze-start'.`
 - `id` resolves to no plan -> exit 1, stderr `Plan '<id>' not found`
+- the plan is `🔷 Frozen`, `⚡ In Development`, `🟥 BLOCKED`, or carries an unrecognised status -> exit 1, stderr `[Freeze-Start Refusal] Plan is not in the incubator`; the plan and buffer are unchanged (#89)
 - an unchecked `* [ ]` item under `## ❓ 5. Open Questions` -> exit 1, stderr `[Freeze-Start Refusal]` lists each unresolved question; the plan is unchanged
 - no path under `### 📂 Target Files` in §4 -> exit 1, stderr `[Freeze-Start Refusal] Plan declares no Target Files`; the plan is unchanged
 - a Target File is shared with another `⚡ In Development` plan -> exit 1, stderr `[Activation Gate]`; the plan is unchanged
@@ -41,3 +41,4 @@ Run: `aapp test verb freeze-start`
 
 - `tests/verbs/freeze-start.sh::test_freezes_and_activates` -> status, buffer, matrix and one commit
 - `tests/verbs/freeze-start.sh::test_refuses_unresolved_questions` -> an unchecked §5 item: exit 1, plan unchanged, buffer untouched
+- `tests/verbs/freeze-start.sh::test_refuses_non_incubator_plan` -> a plan already `⚡ In Development`: exit 1, plan unchanged (#89)
