@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-27 | `P-34` | [`P34-verb-behaviour-contracts.md`](P34-verb-behaviour-contracts.md) | #78 | `8c0c103` | Verb Behaviour Contracts |
 | 2026-09-27 | `P-37` | [`P37-shared-hook-library.md`](P37-shared-hook-library.md) | #82 | `416e115` | Shared hook library `lib/aapp-lib.sh`: one fail-closed plan parser (§4-scoped, fences and blockquotes skipped, Required Test Files target-bearing), glob helpers and `aapp_os` for CLI and both hooks; four inline parser copies removed. |
 | 2026-09-27 | `P-36` | [`P36-deprecate-drop-in-and-enforce-runtime-reachability.md`](P36-deprecate-drop-in-and-enforce-runtime-reachability.md) | #83 | `ae1ff90` | Deprecated broken drop-in installation, single-sourced runtime detection, enforced physical canonical fast-fail check in `cmd_init.sh`, added Section 0 reachability and Inspection-Only gate to pre-commit, and added sandbox test runtime confinement. |
 | 2026-09-23 | `P-33` | [`P33-centralized-git-root-assertion-and-fail-fast-dispatch.md`](P33-centralized-git-root-assertion-and-fail-fast-dispatch.md) | #80 | `432da13` | Front-door repo assertion + `REPO_ROOT` export in `aapp`; purged `\|\| pwd` / `\|\| true` root fallbacks across `lib/`; fail-closed standalone roots; `ARCHITECTURE.md` rule 9 |

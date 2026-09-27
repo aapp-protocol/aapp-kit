@@ -29,8 +29,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-34**: [`P34-verb-behaviour-contracts.md`](current/P34-verb-behaviour-contracts.md) — Verb Behaviour Contracts
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

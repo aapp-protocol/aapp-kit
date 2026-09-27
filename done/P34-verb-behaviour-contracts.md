@@ -2,7 +2,7 @@
 * **Created:** 2026-09-23 | **Last Refined:** 2026-09-23
 * **Target Issue / Milestone:** #78 *(D2 only; D1 and D3 are unfiled defects this plan introduces and fixes)*
 * **Plan ID:** P-34
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -439,6 +439,7 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-27:** Plan implementation completed and archived to done/.
 * **2026-09-27 (Implementation):** D1–D3 Red 🔴 then Green 🟢; full suite 23/23 suites, 496/496 (`strict`). Findings and deviations:
   1. **D3 was a consequence of D1**, not a second code path: both draft paths share one commit block, and D1's `sed` abort under `set -e` exits before it. Fixing D1 fixed D3. Lifecycle commits still run under `|| true` (#81).
   2. **D1 mechanism: `ENVIRON` + `index`/`substr`**, not §2.5's `awk -v`. `awk -v` has a third trap: it expands backslash escapes (`back\slash` → `backslash`). Verified identical under gawk, mawk and busybox awk; the title is spliced last, so a literal `P-XX` in it survives.
