@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #89 | `Medium` | `CLI` | 2026-09-27 | 2026-09-27 | `52c2c01` | Direct fix (no plan): `freeze`/`freeze-start` gate on incubator status, `done` on in-development, via the status registry; contracts and verb suites updated. |
 | #88 | `Medium` | `CLI` | 2026-09-27 | 2026-09-27 | `8c0c103` | [P-34](P34-verb-behaviour-contracts.md) - `aapp done` re-derives the state matrix instead of deleting rows by substring; `test_matrix_row_removed_exactly`. |
 | #78 | `Medium` | `CLI` | 2026-09-22 | 2026-09-27 | `bca7d9a` | [P-34](P34-verb-behaviour-contracts.md) - Ledger rows take the Target Issue from the plan header and the plan title as Impact Summary (D2); `test_ledger_row_populated`. |
 | #82 | `Medium` | `CORE` | 2026-09-23 | 2026-09-27 | `416e115` | [P-37](P37-shared-hook-library.md) - Target Files parser single-sourced in `lib/aapp-lib.sh`; blockquotes, foreign subsections and fenced examples no longer grant writes. Pair 5 parser left for #86. |
