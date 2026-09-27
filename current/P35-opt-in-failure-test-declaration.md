@@ -138,7 +138,8 @@ authoritative, tamper-proof trigger for test enforcement:
 - **Plan with §4 present:**
   - Every §3 identifier in `### 🧪 Required Tests` must resolve to a file declared in §4.
   - Every §4 declared test file must be referenced by at least one §3 identifier.
-  - If §4 is present and §3 `### 🧪 Required Tests` is missing or contains no assertions -> pre-commit refuses.
+  - If §4 is present and §3 `### 🧪 Required Tests` is missing or contains no assertions, or §4 lists no
+    files -> refused, subject to the timing below.
 - **Plan without §4:**
   - If §3 carries a test checklist without §4, it is treated as an opted-out informal checklist (grants no write
     permission and triggers no pre-commit correspondence or done gates).
@@ -154,7 +155,14 @@ functions added to `lib/aapp-lib.sh`:
 
 **Enforcement timing.** `P-33` §5 Decision 7 already settled this and it carries over: declarations
 are planning-phase during `📝 Refining`, so presence checks must tolerate unwritten tests while
-refining and enforce file existence once `⚡ In Development`.
+refining and enforce file existence once `⚡ In Development`. The same timing governs empty sections,
+because `aapp tdd` commits both headings empty and the skill fills them afterwards:
+
+| Stage | Empty §3 or §4 | Correspondence mismatch | Declared file missing |
+| :--- | :--- | :--- | :--- |
+| `🟣`/`📝` (pre-commit) | tolerated | tolerated | tolerated |
+| `aapp freeze` / `freeze-start` | **refused** | **refused** | tolerated |
+| `🔷 Frozen` / `⚡ In Development` (pre-commit) | **refused** | **refused** | **refused** at `⚡` |
 
 ### 2.5 Division of Labour: CLI Injects, Skill Enumerates
 
@@ -185,7 +193,7 @@ they cover — the practice this plan exists to make declarable.*
 ### Phase 1: Failure-First Test Harness (Red 🔴)
 - [ ] Task 1.1: Add negative tests for the injection verb: refuses a plan id that does not resolve; refuses when the section already exists (idempotence, not duplication); refuses outside a Git repository.
 - [ ] Task 1.2: Add negative tests for the conditional check: a plan **without** the section commits freely; a plan **with** it is refused when a §3 identifier names a file absent from §4, and when a §4 file has no §3 identifier.
-- [ ] Task 1.3: Add a negative test for lifecycle timing: a `📝 Refining` plan with unwritten declared tests commits; the same plan at `⚡ In Development` is refused (per `P-33` §5 Decision 7).
+- [ ] Task 1.3: Add lifecycle-timing tests per the §2.4 table: a `📝 Refining` plan with unwritten declared tests commits, and the same plan at `⚡ In Development` is refused (per `P-33` §5 Decision 7); `tests/verbs/tdd.sh::test_injection_commit_accepted_while_refining` (the verb's own commit of empty headings succeeds); `aapp freeze` refuses a tdd plan with an empty §3 or §4.
 - [ ] Task 1.4: Add negative tests for `cmd_done` completion verification: refuses archival if any §3 test is unticked (`- [ ]`), and refuses if any §4 test file does not exist on disk/Git.
 - [ ] Task 1.5: Run the new suite and confirm every assertion FAILS (Red 🔴) — none of this exists yet.
 
@@ -197,7 +205,7 @@ they cover — the practice this plan exists to make declarable.*
 
 ### Phase 3: Conditional Enforcement & Done Gate (Green 🟢)
 - [ ] Task 3.1: In `templates/aapp-pre-commit`, invoke `parse_plan_required_test_files` and `parse_plan_required_tests` from `lib/aapp-lib.sh` to enforce bidirectional correspondence string-level only.
-- [ ] Task 3.2: Apply the `P-33` Decision 7 timing rule: tolerate unwritten tests while `📝 Refining`, enforce file existence at `⚡ In Development`.
+- [ ] Task 3.2: Apply the §2.4 timing table: tolerate empty sections, mismatches and unwritten tests while `📝 Refining`; refuse empty sections and mismatches in `cmd_freeze`/`cmd_freeze_start` (`lib/cmd_plan.sh`) and in pre-commit from `🔷 Frozen`; enforce file existence at `⚡ In Development`.
 - [ ] Task 3.3: In `lib/cmd_plan.sh` (`cmd_done`), implement mechanical completion gate: refuse archival if any §3 test is unticked (`- [ ]`), verify all declared §4 test files exist on disk and in Git, and append `tdd (N/N)` verification evidence to the archive ledger row in `.plans/done/000-archive-ledger.md`.
 - [ ] Task 3.4: Re-run Phase 1's enforcement, timing, and `cmd_done` gate tests and confirm Green 🟢.
 
@@ -246,7 +254,6 @@ they cover — the practice this plan exists to make declarable.*
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.agents/skills/*` -> Governance skills self-protection; authored in `templates/skills/` and propagated via `aapp init`.
 - [ ] `.githooks/*` -> Guard engine self-protection; `templates/aapp-pre-commit` is the authoring source and `aapp init` propagates it (Architectural Rule 3).
-- [ ] `.plans/current/*.md` -> Other plans in `.plans/current/` (except this plan's own execution tracking); existing plans are not retrofitted.
 - [ ] `lib/cmd_test.sh` -> Test-runner changes belong to `P-34`.
 
 ---
@@ -308,3 +315,6 @@ they cover — the practice this plan exists to make declarable.*
   4. Clarified enforcement trigger: §4 `### 🧪 Required Test Files` is the sole authoritative switch (design-locked at freeze); §3 without §4 is an informal opted-out checklist.
   5. Added mechanical `cmd_done` completion verification gate (all §3 ticked, §4 files exist and tracked in Git via `git ls-files`) and `tdd (N/N)` ledger recording to `lib/cmd_plan.sh`.
   6. Added explicit dependency sequencing: `After P-37, after P-34`.
+* **2026-09-27 (RFC review of `a5c229a`):**
+  1. Empty-section refusal now follows the P-33 Decision 7 timing (§2.4 table): tolerated while `📝 Refining`, so `aapp tdd`'s own commit of empty headings passes; refused at `freeze`/`freeze-start` and in pre-commit from `🔷 Frozen`. Added `tests/verbs/tdd.sh::test_injection_commit_accepted_while_refining`.
+  2. Dropped the `.plans/current/*.md` Out of Bounds line: its glob matched this plan's own file and was unenforced (`.plans/*` is always allowed). Existing plans stay un-retrofitted by design (§2 Migration).
