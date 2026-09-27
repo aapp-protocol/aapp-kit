@@ -34,10 +34,13 @@ share two defects (`#82`):
 1. **Blockquote prose is parsed as a target.** No copy skips `>` lines, so the template's own
    authoring-rule prose yields the phantom target `backticked path` on every plan. A backticked path
    in any §4 blockquote becomes writable.
-2. **The section boundary bleeds.** The region ends only at `### 🛑 Out of Bounds` or a `## `
-   heading, so any other `###` subsection placed after Target Files is absorbed and every backticked
-   path in it becomes a write target. `P-34`'s `### 🧪 Required Test Files` is live proof: it grants
-   `tests/install_test.sh` write access that is declared nowhere.
+2. **The section boundary bleeds.** In unpatched code, the region ends only at `### 🛑 Out of Bounds`
+   or a `## ` heading, so any subsection placed between Target Files and Out of Bounds is absorbed
+   and every backticked path in it becomes a write target. Under the refined fail-closed architecture,
+   only named target-bearing headings contribute targets. Per the consensus specifications in the tri-plan
+   RFC, `### 🧪 Required Test Files` is formally recognized as a dedicated target-bearing section (Option A),
+   allowing test files declared under it to legitimately receive write access without section bleed into
+   arbitrary unlisted headings.
 
 All four defects widen the blast radius silently, and because the parser is copied four times, every fix
 must be made across four modules — which is how copies drift. The duplication is wider than the parser:
@@ -57,10 +60,12 @@ fixing `#82` once and establishing clean platform infrastructure.
    `templates/aapp-lib.sh -> ../lib/aapp-lib.sh`.
 3. **Hooks stay self-contained and version-locked**: `aapp init` installs a real copy into
    `.githooks/aapp-lib.sh`, and hooks source it from their own directory.
-4. **The parser becomes fail-closed by construction**: only named target-bearing headings contribute
-   targets; blockquotes never do.
-5. **Out-of-Bounds enforcement is preserved**: `parse_plan_oob_paths` replaces `parse_plan_section`
-   calls for `### 🛑 Out of Bounds` with equivalent fail-closed boundary isolation.
+4. **The parser becomes fail-closed by construction**: only whitelisted target-bearing headings
+   (`Target Files`, `Emergency Hotfix Extensions`, and `Required Test Files`) contribute targets;
+   blockquotes never do.
+5. **Out-of-Bounds and section extraction are preserved**: `parse_plan_oob_paths` isolates
+   `### 🛑 Out of Bounds`, and `extract_plan_section` unifies design-lock section parsing in
+   `templates/aapp-pre-commit`.
 6. **Cross-platform OS detection**: `aapp_os` provides a pure, portable OS query
    (`linux`, `darwin`, `windows`, `wsl`, `bsd`, `unknown`) for diagnostic reporting and platform branches.
 7. **A failed library load refuses the commit**, never degrades to unguarded.
@@ -122,9 +127,11 @@ rules, refreshed together by `aapp init`.
 
 The library is sourced by enforcement engines, so it must be inert at source time:
 
-- **Allowed:** functions that take arguments and write to stdout — `parse_plan_target_paths`,
-  `parse_plan_oob_paths`, `glob_to_regex`, `match_pattern_list`, `aapp_os`, and a load sentinel
-  `aapp_lib_loaded`.
+- **Purity Rule:** pure functions: arguments or stdin in, stdout out; no state mutation or side effects.
+- **Allowed:** `parse_plan_target_paths`, `parse_plan_oob_paths`, `extract_plan_section`,
+  `glob_to_regex`, `match_pattern_list`, `aapp_os`, and a load sentinel `aapp_lib_loaded`.
+  `extract_plan_section` operates as a pure stdin stream filter extracting numbered markdown sections (`## N.`)
+  for design-lock enforcement.
 - **`aapp_os` specification:** pure query with no state mutation, writing standard platform token to
   stdout: `aapp_os [uname_s] [proc_version_path]`. When arguments are omitted, defaults to live
   `uname -s` and `/proc/version`. Returns `linux`, `darwin`, `windows` (Cygwin/MinGW/MSYS), `wsl`,
@@ -140,23 +147,54 @@ The library is sourced by enforcement engines, so it must be inert at source tim
 ### 2.4 Parser Boundary Rules (fixes `#82` defects for Target Files, OOB & Pair 7)
 
 1. **Target Files (`parse_plan_target_paths`):**
-   > Only target-bearing headings contribute targets. The parser collects paths under
-   > `### 📂 Target Files` and `### 🚨 Emergency Hotfix Extensions` only. **Any** other heading
-   > (`^### ` or `^## `) ends the region. Lines beginning with `>` are never parsed.
+   > Only whitelisted target-bearing headings contribute targets. The parser collects paths under
+   > `### 📂 Target Files`, `### 🚨 Emergency Hotfix Extensions`, and `### 🧪 Required Test Files` (Option A).
+   > **Any** other heading ends the region. Lines beginning with `>` are never parsed.
    
    This inverts the current rule from *"every subsection grants write access unless excluded"* to
-   *"only named sections grant it"* — fail-closed by construction. Test files declared under
-   `### 🧪 Required Test Files` (`P-34`, `P-35`) no longer grant write access and must be listed
-   in Target Files explicitly. Emergency hotfix extensions are parsed correctly regardless of whether
-   they appear before or after Out of Bounds.
+   *"only named sections grant it"* — fail-closed by construction.
+   Under Option A settled in the tri-plan RFC, declaring a test file under `### 🧪 Required Test Files`
+   confers write permission to author or edit that test file, eliminating redundant double-entry in
+   `### 📂 Target Files`. Conversely, `### 🧪 Required Tests` in §3 remains an execution checklist
+   (tickable `- [ ]` -> `- [x]`) and never confers write access.
+
+   **Exact Heading Matching Regex Contract:**
+   To prevent prefix collisions between `Required Test Files` (in §4, grants write) and `Required Tests`
+   (in §3, grants no write), and to allow optional parenthetical descriptions, all boundary headings
+   use exact regex matching anchored with `(\(.*)?$`:
+   - `^###[[:space:]]*📂[[:space:]]*Target Files[[:space:]]*(\(.*)?$`
+   - `^###[[:space:]]*🚨[[:space:]]*Emergency Hotfix Extensions[[:space:]]*(\(.*)?$`
+   - `^###[[:space:]]*🧪[[:space:]]*Required Test Files[[:space:]]*(\(.*)?$`
+   - `^###[[:space:]]*🛑[[:space:]]*Out of Bounds[[:space:]]*(\(.*)?$`
+
+   Any heading matching `^###[[:space:]]` that is not one of the three whitelisted target headings terminates
+   target collection. Any `^##[[:space:]]` or `^#[[:space:]]` heading terminates collection unconditionally.
+
+   **Bullet Stripping & Ticked Checkboxes:**
+   Target lines strip leading whitespace, dashes, and optional checkboxes while preserving ticked targets:
+   `sub(/^[[:space:]]*-[[:space:]]*(\[[ xX]\][[:space:]]*)?/, "", line)`
+   The first backticked token on the stripped line is extracted as the target path.
 
 2. **Out of Bounds (`parse_plan_oob_paths`):**
    > Collects paths declared under `### 🛑 Out of Bounds` only. **Any** subsequent heading
-   > (`^### ` or `^## `) ends the region. Lines beginning with `>` are never parsed.
+   > ends the region. Lines beginning with `>` are never parsed.
+
+3. **Section Extractor (`extract_plan_section`):**
+   > Takes section number `$1` (`s`) and filters stdin:
+   > ```awk
+   > awk -v s="$sec" '
+   >     $0 ~ "^## ([^0-9]*[[:space:]])?" s "\\." { flag=1; print; next }
+   >     $0 ~ "^## ([^0-9]*[[:space:]])?[0-9]+\\." && flag { flag=0 }
+   >     flag { print }
+   > '
+   > ```
+   > Replaces the duplicate inline awk script in `templates/aapp-pre-commit:581` for frozen plan
+   > immutability and design-lock enforcement.
 
 Both `templates/aapp-pre-commit` and `templates/blast-radius-guard.sh` call both functions to populate
 `PLAN_TARGETS` and `PLAN_OOB`, completely eliminating the legacy, bleed-prone `parse_plan_section` helper.
-`lib/planning_health.sh` (Pair 7) calls `parse_plan_target_paths`, eliminating the fourth copy.
+`templates/aapp-pre-commit` also uses `extract_plan_section`.
+`lib/planning_health.sh` (Pair 7) calls `parse_plan_target_paths`, eliminating the fourth target parser copy.
 
 ### 2.5 Fail-Closed Load
 
@@ -215,9 +253,12 @@ merge closes it.
 - [ ] `tests/aapp_lib_test.sh::test_foreign_subsection_ends_region` -> pure function asserts trailing subsection ends target collection
 - [ ] `tests/aapp_lib_test.sh::test_emergency_hotfix_is_parsed` -> pure function asserts paths under emergency hotfix section are returned
 - [ ] `tests/aapp_lib_test.sh::test_emergency_hotfix_after_oob` -> pure function asserts emergency hotfix is parsed even when declared after Out of Bounds
+- [ ] `tests/aapp_lib_test.sh::test_required_test_files_is_parsed` -> pure function asserts paths under `### 🧪 Required Test Files` are returned as write targets (Option A)
+- [ ] `tests/aapp_lib_test.sh::test_required_tests_checklist_not_parsed` -> pure function asserts `### 🧪 Required Tests` section does not trigger target collection (no prefix bleed)
+- [ ] `tests/aapp_lib_test.sh::test_extract_plan_section` -> pure function asserts `extract_plan_section` extracts numbered markdown section `## N.` from stdin
 - [ ] `tests/aapp_lib_test.sh::test_oob_paths_parsed` -> pure function asserts paths under Out of Bounds are returned while blockquotes and subsequent headings are ignored
 - [ ] `tests/aapp_lib_test.sh::test_aapp_os_branches` -> asserts parameterized `aapp_os` correctly detects all platform branches (`linux`, `darwin`, `windows`, `wsl`, `bsd`, `unknown`)
-- [ ] `tests/aapp_lib_test.sh::test_no_foreign_target_parsers_in_repo` -> structural test asserting no inline `awk` parser matching `/^[#]{3}[[:space:]]*📂 Target Files/` or `'\^### 📂 Target Files'` exists in `lib/` or `templates/` outside `lib/aapp-lib.sh`
+- [ ] `tests/aapp_lib_test.sh::test_no_foreign_target_parsers_in_repo` -> structural test asserting no inline `awk` parsers for named target/OOB/section headings exist in `lib/` or `templates/` outside `lib/aapp-lib.sh`
 - [ ] `tests/aapp_lib_test.sh::test_source_is_inert` -> asserts sourcing the library produces no output and changes no caller shell options
 - [ ] `tests/pre-commit_test.sh::test_missing_library_refuses_commit` -> asserts a hook with no `aapp-lib.sh` beside it exits 1 with a diagnostic, never commits unguarded
 - [ ] `tests/install_test.sh::test_init_installs_library_as_real_file` -> asserts `aapp init` installs `.githooks/aapp-lib.sh` as a regular file, not a symlink
@@ -229,17 +270,17 @@ merge closes it.
 - [ ] Task 1.2: Add missing-library, loud-init-failure, and symlink tests to `tests/pre-commit_test.sh` and `tests/install_test.sh`; confirm they FAIL (Red 🔴).
 
 ### Phase 2: Library & Layout (Green 🟢)
-- [ ] Task 2.1: Create `lib/aapp-lib.sh` with `parse_plan_target_paths`, `parse_plan_oob_paths`, `glob_to_regex`, `match_pattern_list`, `aapp_os`, and `aapp_lib_loaded`.
+- [ ] Task 2.1: Create `lib/aapp-lib.sh` with `parse_plan_target_paths` (recognizing Target Files, Emergency Hotfix, and Required Test Files with exact regexes), `parse_plan_oob_paths`, `extract_plan_section`, `glob_to_regex`, `match_pattern_list`, `aapp_os`, and `aapp_lib_loaded`.
 - [ ] Task 2.2: Create the tracked symlink `templates/aapp-lib.sh -> ../lib/aapp-lib.sh`.
 - [ ] Task 2.3: In `lib/cmd_init.sh`, install `aapp-lib.sh` into `.githooks/` strictly from `$AAPP_LIB/aapp-lib.sh`; fail loudly with `aapp_os` diagnostic if missing.
-- [ ] Task 2.4: Author `tests/aapp_lib_test.sh` covering pure parser functions, all `aapp_os` parameterized branches, inertness, and confirm Green 🟢.
+- [ ] Task 2.4: Author `tests/aapp_lib_test.sh` covering pure parser functions, exact regex boundary isolation, `extract_plan_section`, all `aapp_os` parameterized branches, inertness, and confirm Green 🟢.
 
 ### Phase 3: Consumer Migration
 - [ ] Task 3.1: `lib/cmd_plan.sh` — delete `parse_plan_target_paths`; source `"$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh"` with fail-closed load check.
 - [ ] Task 3.2: `lib/planning_health.sh` — delete inline `get_plan_targets` in Pair 7; source `"$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh"` with fail-closed load check and invoke `parse_plan_target_paths`.
-- [ ] Task 3.3: `templates/aapp-pre-commit` and `templates/blast-radius-guard.sh` — replace `parse_plan_section` calls with `parse_plan_target_paths` and `parse_plan_oob_paths`; delete inline `parse_plan_section`, `glob_to_regex` and `match_pattern_list`; add the §2.5 fail-closed load.
+- [ ] Task 3.3: `templates/aapp-pre-commit` and `templates/blast-radius-guard.sh` — replace `parse_plan_section` calls with `parse_plan_target_paths` and `parse_plan_oob_paths`; replace inline `extract_plan_section` in `templates/aapp-pre-commit` with library call; delete inline `parse_plan_section`, `extract_plan_section`, `glob_to_regex` and `match_pattern_list`; add the §2.5 fail-closed load.
 - [ ] Task 3.4: `tests/pre-commit_test.sh` and `tests/write-guard_test.sh` — copy `aapp-lib.sh` beside the hook under test (§2.7); confirm Phase 1 behavioral tests now turn Green 🟢.
-- [ ] Task 3.5: Run structural assertion `test_no_foreign_target_parsers_in_repo` with precise regex and confirm Green 🟢 across the repo.
+- [ ] Task 3.5: Run structural assertion `test_no_foreign_target_parsers_in_repo` with scoped regexes and confirm Green 🟢 across the repo.
 
 ### Phase 4: Regression & Platform Verification
 - [ ] Task 4.1: Run `./aapp test strict quiet` across all discovered suites; zero regressions.
@@ -260,13 +301,13 @@ merge closes it.
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `NEW FILE` -> `lib/aapp-lib.sh` -> Shared pure-function library: parser, glob helpers, aapp_os, load sentinel
+- [ ] `NEW FILE` -> `lib/aapp-lib.sh` -> Shared pure-function library: parser (whitelisted headings), section extractor, glob helpers, aapp_os, load sentinel
 - [ ] `NEW FILE` -> `templates/aapp-lib.sh` -> Tracked symlink to ../lib/aapp-lib.sh
 - [ ] `NEW FILE` -> `tests/aapp_lib_test.sh` -> Parser regression, structural test, aapp_os, and inertness tests
 - [ ] `lib/cmd_plan.sh` -> Replace parse_plan_target_paths with the shared library via self-relative source
 - [ ] `lib/planning_health.sh` -> Replace Pair 7 get_plan_targets with the shared library via self-relative source
 - [ ] `lib/cmd_init.sh` -> Install aapp-lib.sh into .githooks with loud failure on missing library
-- [ ] `templates/aapp-pre-commit` -> Remove inline parser and helpers; add fail-closed library load
+- [ ] `templates/aapp-pre-commit` -> Remove inline parser, section extractor, and helpers; add fail-closed library load
 - [ ] `templates/blast-radius-guard.sh` -> Remove inline parser and helpers; add fail-closed library load
 - [ ] `tests/pre-commit_test.sh` -> Copy library beside hook; behavioral regression and missing-library tests
 - [ ] `tests/write-guard_test.sh` -> Copy library beside guard; behavioral regression tests
@@ -292,8 +333,10 @@ merge closes it.
 - **Before `P-34`:** both target `lib/cmd_plan.sh`.
 - **Concurrency constraint on Issue #84:** Issue #84 targets `templates/blast-radius-guard.sh`, which is in P-37 Target Files. Per Pair 7 (In-Flight Boundary Collision), Issue #84 cannot be placed in development concurrently with P-37 and must be executed in sequence.
 - **Prerequisite in `P-34`:** satisfied in `P-34` (`f26ff3e`), where `tests/install_test.sh` was explicitly added to Target Files.
-- **Constraint on `P-35`:** under §2.4, `### 🧪 Required Test Files` grants no write access, so the
-  injection verb must also add declared test files to Target Files.
+- **Tri-Plan Sequence (`P-37` -> `P-34` -> `P-35`):**
+  1. `P-37` executes first: establishes `lib/aapp-lib.sh`, fixes `#82` parser defects, and whitelists `### 🧪 Required Test Files` as target-bearing (Option A).
+  2. `P-34` executes second: formalizes verb contracts using `path::name -> condition` in §3.
+  3. `P-35` executes third: implements opt-in failure-test declaration (`aapp tdd`, `/aapp-tdd`), adds `parse_plan_required_test_files` and `parse_plan_required_tests` to `lib/aapp-lib.sh`, and enforces §3↔§4 correspondence. Under Option A, test files declared under `### 🧪 Required Test Files` automatically receive write access without double-entry into `### 📂 Target Files`.
 
 ---
 
@@ -326,5 +369,13 @@ merge closes it.
   4. Specified exact regex `/^[#]{3}[[:space:]]*📂 Target Files/` for structural parser assertions.
   5. Logged Issue #85 in `ISSUES.md` and `issues_road_map.md` to canonically track deferred Status regex consolidation.
   6. Added sequencing constraint for Issue #84; marked macOS BSD `cp` verification as manual.
+* **2026-09-27 (Refinement 4 - Tri-Plan Alignment RFC Consensus):**
+  1. Adopted Option A from consensus RFC (`tri-plan-alignment-34-35-37.md`): whitelisted `### 🧪 Required Test Files` as the third target-bearing section, granting write access to declared test files without requiring redundant double-entry in `Target Files`.
+  2. Defined exact regex contract anchored with `(\(.*)?$` across all four boundary headings (`Target Files`, `Emergency Hotfix Extensions`, `Required Test Files`, `Out of Bounds`) to eliminate prefix collision with §3 `### 🧪 Required Tests`.
+  3. Relocated `extract_plan_section` from `templates/aapp-pre-commit:581` to `lib/aapp-lib.sh`, making the shared library the single owner of plan section parsing.
+  4. Widened library purity rule in §2.3 to "arguments or stdin in, stdout out" to accommodate stream-filtering helpers like `extract_plan_section`.
+  5. Preserved ticked checkbox parsing (`-[x]`/`-[X]`) alongside plain bullets in target collection.
+  6. Scoped structural parser assertion `test_no_foreign_target_parsers_in_repo` to named heading patterns.
+  7. Formally updated tri-plan sequencing (`P-37` -> `P-34` -> `P-35`) and removed obsolete double-entry assumption for P-35.
 
 
