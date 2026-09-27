@@ -76,12 +76,16 @@ The master archive ledger at `.plans/done/000-archive-ledger.md` is structured i
 Add `lib/cmd_release.sh` and register `release` in `lib/verbs.tsv` under the Setup & Maintenance tier:
 
 ```bash
-aapp release <version-or-bump> [--dry-run] [-y|--yes]
+aapp release <version-or-bump> [--no-archive] [--dry-run] [-y|--yes]
 ```
 
 **Argument Parsing & Resolution:**
 - **Explicit Version**: If `<version-or-bump>` matches `v?[0-9]+\.[0-9]+.*` or arbitrary tag strings (e.g. `2026.09.1`), normalizes tag to `vX.Y.Z` and raw version to `X.Y.Z`.
 - **SemVer Bump Token**: If `patch`, `minor`, or `major`, extracts previous tag from `git describe --tags --abbrev=0` (or `v1.0.0` default) and computes next version.
+- **`--no-archive` (or `no-archive`)**: Explicitly bypasses plan and issue bundling (useful when custom post-commit hooks manage plans out-of-repo, or for code-only releases).
+- **Zero-Item Resilience (Silent / 1-Line Response)**: If `--no-archive` is passed OR if no unreleased plans exist in `.plans/done/`, `aapp release` outputs a concise 1-line response:
+  `ℹ️  No unreleased plans or issues to bundle (skipping plan migration)`
+  and cleanly skips bundle creation while proceeding with version bumping, changelog rollup, and tagging.
 - **Missing Argument**: Fails fast with status briefing: displays latest tag, count of unreleased plans in `done/`, count of resolved issues, and syntax guidance.
 
 **10-Step Execution Pipeline:**
@@ -100,14 +104,14 @@ aapp release <version-or-bump> [--dry-run] [-y|--yes]
    - Extracts items under `## [Unreleased]` from `CHANGELOG.md`.
    - Rolls up into `## [<version>] - <date>`.
    - Pre-seeds empty `## [Unreleased]` block above it.
-5. **Milestone Bundle Provisioning**:
+5. **Milestone Bundle Provisioning (Skipped if `--no-archive` or zero plans)**:
    - Creates directory `.plans/release/<tag>/plans/`.
    - Moves all `P*.md` and `plan-*.md` from `.plans/done/` into `.plans/release/<tag>/plans/`.
-6. **Tag Ledger Generation**:
+6. **Tag Ledger Generation (Skipped if `--no-archive` or zero plans)**:
    - Formats `.plans/release/<tag>/000-archive-ledger.md` with table of all plans shipped in this tag.
    - Relocates resolved defect rows from `.plans/done/000-issues-archive.md` into `.plans/release/<tag>/000-issues-archive.md`.
    - Generates `.plans/release/<tag>/manifest.md` recording commit SHA, plan count, issue count, and verification timestamp.
-7. **Master Ledger Truncation**:
+7. **Master Ledger Truncation (Skipped if `--no-archive` or zero plans)**:
    - Appends 1-line summary row to `Shipped Releases` in `.plans/done/000-archive-ledger.md` linking to `../release/<tag>/000-archive-ledger.md`.
    - Truncates `Current Unreleased Cycle` table in `000-archive-ledger.md`.
    - Resets `.plans/done/000-issues-archive.md` to empty template with link to previous release archives.
@@ -209,9 +213,12 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
   *Decision:* **Hook delegation via `on-release-version`.** Core AAPP is language-agnostic. It dispatches the target version payload to a project hook, which modifies `package.json`, `pyproject.toml`, or other project-specific files.
 * [x] **Question 3: How should the CLI accept the version?**  
   *Decision:* **Parameter required (`aapp release <version-or-bump>`).** Accepts explicit version string (`v1.2.0`, `2026.09.1`) or SemVer bump token (`patch`, `minor`, `major`). Fails fast if omitted.
+* [x] **Question 4: What if no plans/issues exist to archive, or external hooks manage them?**  
+  *Decision:* **Provide `--no-archive` flag and automatic zero-item resilience.** If `--no-archive` is passed or no plans/issues are found in `.plans/done/`, output a concise 1-line notice (`ℹ️  No unreleased plans or issues to bundle (skipping plan migration)`) and cleanly proceed with version bump, changelog rollup, and tagging without erroring.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-27:** Added `--no-archive` flag and zero-item resilience for out-of-repo plan workflows and empty-archive releases.
 * **2026-09-27:** Refined blueprint to include mandatory CLI version/bump parameter, hook-delegated version updates (`on-release-version`), and `--dry-run` simulation preview.
 * **2026-09-27:** Initial blueprint drafted from developer directive on milestone release bundling, archive truncation, and tag ledgers.
