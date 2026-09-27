@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Overview Pulse & Short Status (`lib/cmd_status.sh`): Adds high-density backlog metrics to `aapp status` banner and supports positional `aapp status short` for remote reporting.
 
 ### Changed
+- MANUAL FAQ: cross-plan alignment RFC example for solo multi-agent planning.
 - Deprecate Drop-In Mode & Single Global Distribution (`P-36`): Deprecates broken drop-in installation (`./aapp-kit/aapp init`), removes parent climbing and Phase 7 folder consumption from `lib/cmd_init.sh`, single-sources runtime detection in `aapp` via `AAPP_RUNTIME=installed|local`, and enforces physical canonical fast-fail check in `lib/cmd_init.sh` rejecting uninstalled clones against external repositories. Global `aapp install` retains self-consumption of temporary installer clones.
 - Blueprint Status Taxonomy & Archival Authoritative Invariant (`templates/plan-template.md`, `templates/AGENTS.md`, `.agents/AGENTS.md`, `templates/skills/aapp-done/SKILL.md`): Adds `✅ Done` to the blueprint status enum and comment taxonomy, establishes the Archival Authoritative Invariant in `AGENTS.md` specifying that presence in `.plans/done/000-archive-ledger.md` or `.plans/done/` is terminal proof of completion, and updates `aapp-done` skill documentation.
 - Project Documentation Strategy & Plan Template Sync: Added Documentation Conventions section to `PROJECT.MD` and anchored plan template doc sync invariant to project conventions.

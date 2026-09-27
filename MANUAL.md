@@ -1514,6 +1514,19 @@ Your main application working tree remains completely unaffected.
 
 ---
 
+### Q: How do I align several plans that touch the same code?
+Reviewing each plan on its own cannot surface conflicts *between* plans. Pair 7 only compares Target Files once plans are ⚡ In Development. For plans still being drafted, a local RFC works well. This is an example practice for solo developers working with several agents, not a protocol rule:
+
+1. Create `.plans/pickup/<topic>-alignment.md`. `pickup/` is gitignored, so the RFC stays on your machine.
+2. Each agent **appends** a dated block signed with its agent, vendor and model, and never edits another block. Corrections stay beside the claims they answer.
+3. Decisions are recorded only as `USER DECISION` blocks, written from your own words. Agents tend to present their shared view as yours.
+4. Agreement between agents is not evidence. Settle claims against the code (`grep`, tests).
+5. Once settled, amend each plan as usual, one commit per plan, then delete the RFC. The plans stay the only source of truth.
+
+Teams that need shared or signed-off RFCs can build that as a plugin. The local form needs nothing beyond `pickup/`.
+
+---
+
 ### Q: Why did my commit fail with "INSPECTION-ONLY mode"?
 When an AAPP-governed project is cloned onto a machine that does not have the `aapp` toolchain installed, the pre-commit hook enters **Inspection-Only mode**. This prevents accidental commits that would bypass blast-radius rules, changelog updates, or protocol governance. To unlock commits, install AAPP globally:
 ```bash
