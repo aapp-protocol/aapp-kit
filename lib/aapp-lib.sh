@@ -128,7 +128,22 @@ parse_plan_required_tests() {
 
 # True when the plan carries `### 🧪 Required Test Files` inside §4.
 plan_has_required_test_files() {
-    grep -qE '^[[:space:]]*###[[:space:]]*🧪[[:space:]]*Required Test Files' "$1" 2>/dev/null
+    awk '
+        /^[[:space:]]*```/ { fence = !fence; next }
+        fence { next }
+        /^#+[[:space:]]/ {
+            if ($0 ~ /^#[[:space:]]/ || $0 ~ /^##[[:space:]]/) {
+                in4 = ($0 ~ /^## ([^0-9]*[[:space:]])?4\./)
+                next
+            }
+            if (!in4) next
+            if ($0 ~ /^###[[:space:]]*🧪[[:space:]]*Required Test Files[[:space:]]*(\(.*)?$/) {
+                found = 1
+                exit 0
+            }
+        }
+        END { exit !found }
+    ' "$1" 2>/dev/null
 }
 
 # Verify bidirectional correspondence between §3 and §4 for TDD-declared plans.
