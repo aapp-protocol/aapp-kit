@@ -170,6 +170,16 @@ The library is sourced by enforcement engines, so it must be inert at source tim
    Any heading matching `^#+[[:space:]]` that is not one of the three whitelisted target headings terminates
    target collection unconditionally (covering `####` subheadings as well as `##` and `#`).
 
+   **Scope — §4 only, fences skipped:**
+   Target-bearing and Out of Bounds headings count only inside `## 💥 4.` — the design-locked
+   section (`extract_plan_section 4`). Fenced code blocks (lines between ```` ``` ```` markers) are skipped
+   everywhere. Without this, an example heading quoted in prose becomes a live section:
+   `P-35` §2.2 quotes `### 🧪 Required Test Files` in a ```` ```markdown ```` fence, which would grant
+   `src/test/kotlin/AuthTest.kt`, `tests/test_parser.py` and `tests/verbs/draft.sh` and switch on
+   `P-35`'s tdd enforcement for a plan that never opted in. The only existing
+   `### 🚨 Emergency Hotfix Extensions` heading (`done/P30`, line 291) sits inside §4, so scoping
+   breaks nothing.
+
    **Bullet, Checkbox & Lifecycle Marker Stripping:**
    Target lines strip leading bullets, checkboxes, and lifecycle prefix markers before extracting the target path:
    1. Leading checkbox: `sub(/^[[:space:]]*-[[:space:]]*(\[[ xX]\][[:space:]]*)?/, "", line)`
@@ -260,6 +270,8 @@ merge closes it.
 - [ ] `tests/aapp_lib_test.sh::test_required_test_files_is_parsed` -> pure function asserts paths under `### 🧪 Required Test Files` are returned as write targets (Option A)
 - [ ] `tests/aapp_lib_test.sh::test_required_tests_checklist_not_parsed` -> pure function asserts `### 🧪 Required Tests` section does not trigger target collection (no prefix bleed)
 - [ ] `tests/aapp_lib_test.sh::test_new_file_marker_skipped` -> pure function asserts `NEW FILE` and lifecycle prefix markers are stripped and actual target path is extracted
+- [ ] `tests/aapp_lib_test.sh::test_fenced_example_not_parsed` -> pure function asserts a target-bearing heading inside a fenced code block contributes no targets
+- [ ] `tests/aapp_lib_test.sh::test_heading_outside_section4_not_parsed` -> pure function asserts a target-bearing heading outside `## 💥 4.` contributes no targets
 - [ ] `tests/aapp_lib_test.sh::test_extract_plan_section` -> pure function asserts `extract_plan_section` extracts numbered markdown section `## N.` from stdin
 - [ ] `tests/aapp_lib_test.sh::test_oob_paths_parsed` -> pure function asserts paths under Out of Bounds are returned while blockquotes and subsequent headings are ignored
 - [ ] `tests/aapp_lib_test.sh::test_aapp_os_branches` -> asserts parameterized `aapp_os` correctly detects all platform branches (`linux`, `darwin`, `windows`, `wsl`, `bsd`, `unknown`)
@@ -334,7 +346,6 @@ merge closes it.
 - [ ] `.githooks/*` -> Installed engine copies; refreshed only by `aapp init` (Sanctioned Propagation).
 - [ ] `lib/plan_states.sh` -> Status registry; Status-regex consolidation deferred to follow-up (#85).
 - [ ] `.agents/skills/*` -> Governance skills self-protection.
-- [ ] `.plans/current/*.md` -> Other plans in `.plans/current/` (except this plan's own execution tracking).
 
 ---
 
@@ -398,3 +409,6 @@ merge closes it.
   4. Generalized heading termination to `^#+[[:space:]]` not whitelisted (covering `####`).
 
 
+* **2026-09-27 (Refinement 6 - RFC review of `a5c229a`):**
+  1. Scoped target-bearing and Out of Bounds headings to `## 💥 4.` and skipped fenced code blocks; `P-35` §2.2's quoted example heading would otherwise grant three paths. Added `test_fenced_example_not_parsed` and `test_heading_outside_section4_not_parsed`.
+  2. Dropped the `.plans/current/*.md` Out of Bounds line: its glob matches this plan's own file, and the guard allows `.plans/*` before reading any plan.
