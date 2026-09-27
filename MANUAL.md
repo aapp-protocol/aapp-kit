@@ -290,13 +290,14 @@ Located at `.githooks/blast-radius-guard`, this executable intercepts AI tool ca
 Located at `.githooks/aapp-pre-commit` (invoked directly or via `.githooks/pre-commit`), this Git hook runs on every `git commit`.
 
 #### Key Responsibilities:
-1. **Adaptive Branch Protection**: Prevents accidental direct commits to stable production branches (`main`, `master`, `production`) whenever active development branches exist.
-2. **Changelog Enforcement**: Whenever any source code file is modified, `CHANGELOG.md` must be staged. Rules files (`.agents/*`) and planning files (`.plans/*`) are exempt.
-3. **Blast Radius Verification**: Compares all staged files against the union of `### 📂 Target Files` across all active blueprints in `.plans/current/*.md`.
-4. **Concurrent Plan Support**: If two developers or agents work on separate active plans (`plan-a.md` and `plan-b.md`), files declared in *either* plan are permitted.
-5. **Blocked Plan Refusal**: If a plan's status is `🚫 BLOCKED`, commits targeting its files are rejected until the human unblocks the plan.
-6. **Syntax Validation**: Automatically runs syntax verification on staged files (e.g., Python `python3 -m py_compile`, PHP `php -l`, JSON syntax).
-7. **Roadmap Hygiene**: Automatically prunes resolved issues (`✅` or `Resolved`) from `issues_road_map.md` (<5ms), keeping the priority queue strictly focused on active items while permanent records remain in `ISSUES.md`.
+1. **Runtime Reachability & Inspection-Only Gate**: Verifies that the `aapp` binary is reachable via `$PATH` or `$HOME/.local/bin/aapp`. Clones on machines without `aapp` installed enter a commit-blocking **Inspection-Only mode**, protecting against un-guarded code and plan desynchronization. Only native `git commit --no-verify` bypasses pre-commit.
+2. **Adaptive Branch Protection**: Prevents accidental direct commits to stable production branches (`main`, `master`, `production`) whenever active development branches exist.
+3. **Changelog Enforcement**: Whenever any source code file is modified, `CHANGELOG.md` must be staged. Rules files (`.agents/*`) and planning files (`.plans/*`) are exempt.
+4. **Blast Radius Verification**: Compares all staged files against the union of `### 📂 Target Files` across all active blueprints in `.plans/current/*.md`.
+5. **Concurrent Plan Support**: If two developers or agents work on separate active plans (`plan-a.md` and `plan-b.md`), files declared in *either* plan are permitted.
+6. **Blocked Plan Refusal**: If a plan's status is `🚫 BLOCKED`, commits targeting its files are rejected until the human unblocks the plan.
+7. **Syntax Validation**: Automatically runs syntax verification on staged files (e.g., Python `python3 -m py_compile`, PHP `php -l`, JSON syntax).
+8. **Roadmap Hygiene**: Automatically prunes resolved issues (`✅` or `Resolved`) from `issues_road_map.md` (<5ms), keeping the priority queue strictly focused on active items while permanent records remain in `ISSUES.md`.
 
 ---
 
@@ -1168,9 +1169,8 @@ Mirroring Git's canonical `.git/hooks/*.sample` pattern, all reference scripts a
 - **Resolver Filtering**: `resolve_plugin_entrypoint` and `aapp` switchboard explicitly ignore `*.sample` files, ensuring that reference samples cannot be executed by accident even if marked executable.
 - **Hook Registry Audit**: If a `.sample` script is registered in `registry.tsv`, `aapp hooks` audits it with an advisory `⚠️  INERT SAMPLE` badge.
 
-#### 2. Centralized Storage vs. Drop-in Zero-Footprint Isolation
-- **Global Installation (`aapp install`)**: Samples are preserved centrally in `~/.local/share/aapp-kit/examples/` (`$SHARE_DIR/examples/`) and refreshed on each upgrade.
-- **Drop-in Mode (`./aapp-kit/aapp init`)**: Drop-in mode maintains 100% self-containment. Samples are not extracted into `.agents/skills/` or written to `$SHARE_DIR`. The `.agents/` worktree remains free of inert sample mocks, protecting AI agent context windows from token bloat.
+#### 2. Centralized Storage & Zero-Footprint Project Isolation
+Samples are preserved centrally in `~/.local/share/aapp-kit/examples/` (`$SHARE_DIR/examples/`) and refreshed on each upgrade via `aapp upgrade`. Samples are never extracted into adopter projects by default during `aapp init`; the project's `.agents/` worktree remains free of inert sample mocks, protecting AI agent context windows from token bloat.
 
 #### 3. Dynamic CLI Discovery
 Run `aapp plugins` and `aapp hooks` to discover available samples:
@@ -1452,12 +1452,10 @@ Upgrading is completely zero-parameter. In your project root, run:
 ```bash
 aapp init
 ```
-(Or drop-in `./aapp-kit/aapp init`).
 `aapp init` automatically:
 1. Swaps the delimited protocol block in `.agents/AGENTS.md` (`<!-- AAPP-PROTOCOL:START ... -->` to `<!-- AAPP-PROTOCOL:END -->`) while leaving all your custom project rules above and below 100% untouched.
 2. Updates `.githooks/aapp-pre-commit` and `.githooks/blast-radius-guard` to the latest engine.
 3. Merges any missing Claude Code hooks into `.claude/settings.json` non-destructively.
-4. In drop-in mode, automatically consumes the temporary clone directory upon success.
 
 ---
 
@@ -1513,6 +1511,14 @@ Your main application working tree remains completely unaffected.
 
 ### Q: Can I use AAPP in repositories without AI agents?
 **Yes.** AAPP's Two-Lane protocol, Changelog enforcement, and isolated planning worktrees provide immense value for human teams seeking clean git histories and structured RFC processes.
+
+---
+
+### Q: Why did my commit fail with "INSPECTION-ONLY mode"?
+When an AAPP-governed project is cloned onto a machine that does not have the `aapp` toolchain installed, the pre-commit hook enters **Inspection-Only mode**. This prevents accidental commits that would bypass blast-radius rules, changelog updates, or protocol governance. To unlock commits, install AAPP globally:
+```bash
+git clone https://github.com/aapp-protocol/aapp-kit.git && ./aapp-kit/aapp install
+```
 
 ---
 

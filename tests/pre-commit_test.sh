@@ -5,6 +5,7 @@ source "$KIT/tests/test_helpers.sh"
 HOOK="${AAPP_HOOK:-$KIT/templates/aapp-pre-commit}"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
+confine_test_runtime "$R"
 
 setup() {
   rm -rf "$R"/repo; mkdir -p "$R"/repo; cd "$R"/repo
@@ -908,6 +909,90 @@ fi
 rm -f "$common_dir/aapp_paused"
 git stash clear >/dev/null 2>&1
 git reset --hard HEAD~1 >/dev/null 2>&1
+
+echo "== 18. runtime reachability & inspection-only mode =="
+setup
+plan p_reach.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/reach.py` -> reachability test
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+
+empty_home="$R/reach_empty_home"
+mkdir -p "$empty_home"
+cp "$HOME/.gitconfig" "$empty_home/.gitconfig" 2>/dev/null || true
+
+# 1. Negative test: missing aapp in PATH and ~/.local/bin blocks commit with exit 1 and INSPECTION-ONLY diagnostic
+echo "reach=1" > src/reach.py
+echo "- bump reachability" >> CHANGELOG.md
+git add src/reach.py CHANGELOG.md
+out_neg=""
+rc_neg=0
+out_neg=$(HOME="$empty_home" PATH="$SANDBOX_CLEAN_PATH" git commit -m "feat: reach neg" 2>&1) || rc_neg=$?
+if [ "$rc_neg" -ne 0 ] && echo "$out_neg" | grep -q "INSPECTION-ONLY mode"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "missing aapp blocks commit with inspection-only notice" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want rc!=0 with inspection-only, got rc=%d\n" "missing aapp blocks commit with inspection-only notice" "$rc_neg"; FAIL=$((FAIL+1))
+  echo "$out_neg" | head -3 | sed 's/^/       /'
+fi
+git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null
+
+# 2. Negative test with skip flag: SKIP_BLAST_RADIUS=1 does NOT bypass reachability gate
+echo "reach=2" > src/reach.py
+echo "- bump reachability skip" >> CHANGELOG.md
+git add src/reach.py CHANGELOG.md
+out_skip=""
+rc_skip=0
+out_skip=$(HOME="$empty_home" PATH="$SANDBOX_CLEAN_PATH" SKIP_BLAST_RADIUS=1 git commit -m "feat: reach skip" 2>&1) || rc_skip=$?
+if [ "$rc_skip" -ne 0 ] && echo "$out_skip" | grep -q "INSPECTION-ONLY mode"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "SKIP_BLAST_RADIUS does not bypass inspection-only" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want rc!=0 with inspection-only, got rc=%d\n" "SKIP_BLAST_RADIUS does not bypass inspection-only" "$rc_skip"; FAIL=$((FAIL+1))
+  echo "$out_skip" | head -3 | sed 's/^/       /'
+fi
+git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null
+
+# 3. Positive test: reachable aapp in PATH succeeds
+echo "reach=3" > src/reach.py
+echo "- bump reachability pos" >> CHANGELOG.md
+git add src/reach.py CHANGELOG.md
+out_pos=""
+rc_pos=0
+out_pos=$(git commit -m "feat: reach positive" 2>&1) || rc_pos=$?
+if [ "$rc_pos" -eq 0 ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "reachable aapp in PATH succeeds" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS, got rc=%d\n" "reachable aapp in PATH succeeds" "$rc_pos"; FAIL=$((FAIL+1))
+  echo "$out_pos" | head -3 | sed 's/^/       /'
+fi
+
+# 4. Fallback test: command -v aapp fails but ~/.local/bin/aapp is executable
+echo "reach=4" > src/reach.py
+echo "- bump fallback" >> CHANGELOG.md
+git add src/reach.py CHANGELOG.md
+out_fb=""
+rc_fb=0
+out_fb=$(PATH="$SANDBOX_CLEAN_PATH" git commit -m "feat: reach fallback" 2>&1) || rc_fb=$?
+if [ "$rc_fb" -eq 0 ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "fallback to ~/.local/bin/aapp succeeds" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS, got rc=%d\n" "fallback to ~/.local/bin/aapp succeeds" "$rc_fb"; FAIL=$((FAIL+1))
+  echo "$out_fb" | head -3 | sed 's/^/       /'
+fi
+
+# 5. Native bypass test: git commit --no-verify succeeds even without aapp
+echo "reach=5" > src/reach.py
+git add src/reach.py
+out_byp=""
+rc_byp=0
+out_byp=$(HOME="$empty_home" PATH="$SANDBOX_CLEAN_PATH" git commit --no-verify -m "feat: reach native bypass" 2>&1) || rc_byp=$?
+if [ "$rc_byp" -eq 0 ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "native --no-verify bypass succeeds without aapp" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want PASS, got rc=%d\n" "native --no-verify bypass succeeds without aapp" "$rc_byp"; FAIL=$((FAIL+1))
+  echo "$out_byp" | head -3 | sed 's/^/       /'
+fi
 
 print_test_summary "$PASS" "$FAIL"
 

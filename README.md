@@ -13,9 +13,9 @@
 * [2. The Core Architecture](#2-the-core-architecture)
 * [3. Dual-Layer Blast Radius Enforcement](#3-dual-layer-blast-radius-enforcement)
 * [4. Quick Start & Distribution Modes](#4-quick-start--distribution-modes)
-  * [Option 1: Drop-In Project Setup (Self-Consuming)](#option-1-drop-in-project-setup-self-consuming)
-  * [Option 2: Global Installation](#option-2-global-installation)
-  * [Option 3: Contributor / Development Setup (`aapp develop`)](#option-3-contributor--development-setup-aapp-develop)
+  * [Global Installation (Recommended)](#global-installation-recommended)
+  * [Inspection-Only Mode (Cloned Adopter Repositories)](#inspection-only-mode-cloned-adopter-repositories)
+  * [Contributor / Development Setup (`aapp develop`)](#contributor--development-setup-aapp-develop)
   * [The First-Run Onboarding Loop (Day 1 Experience)](#the-first-run-onboarding-loop-day-1-experience)
 * [5. Branching Topologies & Adaptive Branch Protection](#5-branching-topologies--adaptive-branch-protection)
   * [Option A: Trunk-Based Development (Single Branch)](#option-a-trunk-based-development-single-branch)
@@ -111,39 +111,23 @@ graph TD
    - **Fail-Open Safety**: Never bricks the developer when no active blueprints exist or on invalid inputs.
 
 2. **Layer 2: Commit-Time Hook (`.githooks/aapp-pre-commit` / `.githooks/pre-commit`)**
+   - **Runtime Reachability Gate**: Verifies `aapp` is reachable in `$PATH` or `~/.local/bin`. Cloned projects without `aapp` installed enter a commit-blocking **Inspection-Only mode** to prevent un-guarded code and plan desynchronization.
    - Enforces `CHANGELOG.md` updates whenever core code changes.
    - Validates staged files against the active plan in `.plans/current/*.md`.
    - Supports concurrent active plans without cross-blocking.
    - Performs syntax checking on modified files.
    - **Adaptive Branch Protection**: Prevents accidental direct commits to `main` when active development branches exist.
    - **Roadmap Hygiene**: Automatically prunes resolved issues (`✅` or `Resolved`) from `issues_road_map.md` (<5ms), keeping the priority queue active-only.
-   - Escape hatches available when needed: `SKIP_BLAST_RADIUS=1` or `ALLOW_MAIN_COMMIT=1`.
+   - Escape hatches available when needed: `SKIP_BLAST_RADIUS=1` (for blast radius/changelog; cannot bypass reachability) or `ALLOW_MAIN_COMMIT=1`.
 
 ---
 
 ## 4. Quick Start & Distribution Modes
 
-You can adopt AAPP in two ways: as a **self-consuming drop-in folder** for a single project, or as a **global installation** for reuse across all your repositories.
+AAPP is distributed as a single global CLI toolchain for managing plans, hooks, and agent governance across all your repositories.
 
-### Option 1: Drop-In Project Setup (Self-Consuming)
-Ideal for single projects. Clones a self-contained folder directly into your project root:
-
-```bash
-cd /path/to/my-project
-
-# 1. Clone into aapp-kit folder
-git clone https://github.com/aapp-protocol/aapp-kit.git aapp-kit
-
-# 2. Run initialization
-./aapp-kit/aapp init
-```
-
-* **What it does:** Sets up `.plans/`, `.agents/`, and `.githooks/` worktrees, creates documentation anchors, wires hooks, and **consumes the `aapp-kit/` directory upon success**.
-* **Clean & Reversible:** Right up until you run `aapp init`, you can cancel adoption with `rm -rf aapp-kit`.
-* **Source retention:** Self-consumption is automatically skipped if the folder contains files or uncommitted modifications beyond the kit signature. If you intend to contribute to AAPP or develop the kit itself, use `aapp develop`.
-
-### Option 2: Global Installation
-Ideal for developers managing multiple projects:
+### Global Installation (Recommended)
+Install AAPP globally on your development machine:
 
 ```bash
 # 1. Clone kit
@@ -153,7 +137,7 @@ git clone https://github.com/aapp-protocol/aapp-kit.git aapp-kit
 ./aapp-kit/aapp install
 ```
 
-* **What it does:** Installs `aapp` into `$HOME/.local/bin/` and copies libraries/templates/tests to `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/`. Consumes the temporary clone folder once installed (unless extra files or uncommitted modifications are detected).
+* **What it does:** Installs `aapp` into `$HOME/.local/bin/` and copies libraries, templates, and runtime assets to `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/`. Automatically cleans and consumes the temporary `aapp-kit/` clone folder once installed (unless extra files or uncommitted modifications are detected).
 * **Usage in any project:**
   ```bash
   cd /path/to/any-project
@@ -172,6 +156,15 @@ git clone https://github.com/aapp-protocol/aapp-kit.git aapp-kit
   aapp uninstall
   ```
   Removes AAPP binary and share files while leaving shared directories and shell rc PATH configuration completely intact.
+
+### Inspection-Only Mode (Cloned Adopter Repositories)
+When a team member or contributor clones an AAPP-governed project:
+- If `aapp` is installed globally (`command -v aapp` or `~/.local/bin/aapp`), all git hooks and agent workflows run automatically.
+- If `aapp` is not installed on the machine, the repository enters **Inspection-Only Mode**: the codebase and planning worktrees (`.plans/`, `.agents/`) are completely readable and inspectable, but commits are locked by `.githooks/aapp-pre-commit` to prevent accidental un-guarded code or plan desynchronization.
+- To unlock commits, simply install AAPP globally:
+  ```bash
+  git clone https://github.com/aapp-protocol/aapp-kit.git && ./aapp-kit/aapp install
+  ```
 
 ### Option 3: Contributor / Development Setup (`aapp develop`)
 Ideal for core developers and contributors actively working on AAPP itself:
@@ -250,7 +243,7 @@ When `aapp init` runs against a project:
   - **Legacy Flat Migration:** If a legacy `AGENTS.md` exists at the project root, it is automatically migrated into the `.agents/` worktree.
 * **Core Infrastructure Sync:** `.githooks/aapp-pre-commit` and `.githooks/blast-radius-guard` are deterministically updated to the latest version and made executable, while `.githooks/pre-commit` is guarded.
 * **Non-Destructive `.claude/settings.json` Merge:** Existing Claude Code settings and custom hooks are preserved, and the `PreToolUse` blast-radius guard is merged safely.
-* **Automatic Consumption:** In drop-in mode, `aapp init` automatically consumes the temporary `aapp-kit/` directory upon success.
+* **Installer Self-Consumption:** `aapp install` automatically cleans and consumes the temporary `aapp-kit/` clone upon successful global installation.
 
 ### Existing Hook Managers (Husky, Lefthook, Native Hooks)
 If your repository already uses a hook manager (`core.hooksPath` set to `.husky` or `.lefthook`) or has an executable `.git/hooks/pre-commit`:
@@ -429,8 +422,8 @@ AAPP includes 321 automated regression test cases verifying hook enforcement, re
 
 | Suite | File | Tests | Coverage |
 | :--- | :--- | :--- | :--- |
-| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 58 cases | Drop-in / global resolution, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, in-place block upgrades, migration, `.claude/settings.json` decoupling & merge, Universal Skills sync, drift control, archive provisioning, non-destructive custom `ISSUES.md` advisory, flat schema, Plan ID template headers. |
-| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 78 cases | Spaces in filenames, concurrent plan isolation, prose backtick isolation, always-allowed invariant anchors (`CHEATSHEET.md`, `README.md`, etc.), BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection, POSIX ID-anchored roadmap auto-pruning, detect-and-block Relocation Invariant, planning-health Pairs 1–6 integrity validation, git-verified worktree changelog checks. |
+| **CLI & Upgrades** | [tests/install_test.sh](tests/install_test.sh) | 69 cases | Global installation, verbs (`init`, `install`, `upgrade`, `uninstall`, `status`, `develop`), self-consumption protection, runtime reachability gate, in-place block upgrades, migration, `.claude/settings.json` decoupling & merge, Universal Skills sync, drift control, archive provisioning, non-destructive custom `ISSUES.md` advisory, flat schema, Plan ID template headers. |
+| **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 83 cases | Reachability gate & Inspection-Only mode, spaces in filenames, concurrent plan isolation, prose backtick isolation, always-allowed invariant anchors (`CHEATSHEET.md`, `README.md`, etc.), BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection, POSIX ID-anchored roadmap auto-pruning, detect-and-block Relocation Invariant, planning-health Pairs 1–6 integrity validation, git-verified worktree changelog checks. |
 | **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 96 cases | PreToolUse Claude Code JSON payload, self-protection invariants (`.agents/claude/*`, `.claude/settings.json`, `.git/config`, `.agents/skills/aapp-*`, `.claude/skills/aapp-*`), invariant anchors (`CHEATSHEET.md`, `CHANGELOG.md`), Section 2b external hard-deny (credentials, shell rc, local bin), Section 2c external path allowlist (Claude, Antigravity, temp, git config `aapp.allowPath`), lexical canonicalization traversal prevention, `MultiEdit` matcher coverage, fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
 | **Plan Resolver & Health** | [tests/plan_resolver_test.sh](tests/plan_resolver_test.sh) | 24 cases | Plan ID resolution (`P-9`, `9`, `P13`), slug matching, Issue `#` collision rejection, transition verb empty-query guards, `get_plan_id`/`get_next_plan_id`, Pair 4 Plan ID uniqueness, Pair 5 Section 2 target blocks, Pair 6 Recorded SHA Integrity. |
 | **AI Attribution Suite** | [tests/ai_attribution_test.sh](tests/ai_attribution_test.sh) | 34 cases | Default `none` config, switchboard transitions, refspec idempotency, commit-msg conciseness (<=72 chars) and trailer checks, revert bypass, Option C hash-keyed note staging and post-commit attachment, amend durability (`notes.rewriteRef`), TTL reaping, failure safety, `ai-credits` mode boundary, `LC_ALL=C` sorting, and alias mapping. |

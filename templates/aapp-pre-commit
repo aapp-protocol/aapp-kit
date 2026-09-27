@@ -9,7 +9,30 @@
 # ==============================================================================
 set -e
 
-# Escape hatch (runs first)
+# ------------------------------------------------------------------------------
+# 0. Pre-Flight: Runtime Reachability & Inspection-Only Gate
+# ------------------------------------------------------------------------------
+AAPP_BIN=""
+if command -v aapp >/dev/null 2>&1; then
+    AAPP_BIN="$(command -v aapp)"
+elif [ -x "$HOME/.local/bin/aapp" ]; then
+    AAPP_BIN="$HOME/.local/bin/aapp"
+fi
+
+if [ -z "$AAPP_BIN" ]; then
+    echo "❌ [AAPP Guard] 'aapp' command not found in PATH or ~/.local/bin." >&2
+    echo "" >&2
+    echo "   This repository is governed by the Asymmetric Agent Planning Protocol." >&2
+    echo "   Without the 'aapp' toolchain installed, this clone is in INSPECTION-ONLY mode." >&2
+    echo "   Commits are locked to prevent un-guarded code and plan desynchronization." >&2
+    echo "" >&2
+    echo "   To enable development and commits, install AAPP globally:" >&2
+    echo "     git clone https://github.com/aapp-protocol/aapp-kit.git && ./aapp-kit/aapp install" >&2
+    echo "" >&2
+    exit 1
+fi
+
+# Escape hatch for blast radius & changelog (runs after reachability assertion)
 if [ "${SKIP_BLAST_RADIUS:-0}" = "1" ]; then
     echo "⚡ [Pre-Commit Notice] Blast Radius and CHANGELOG verification skipped via SKIP_BLAST_RADIUS=1."
     exit 0

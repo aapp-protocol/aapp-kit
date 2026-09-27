@@ -64,13 +64,13 @@ is_safe_to_consume_kit_dir() {
 
 if has_kit_signature "$AAPP_SCRIPT_DIR"; then
     AAPP_BASE="$AAPP_SCRIPT_DIR"
-    AAPP_IS_DROP_IN=1
+    AAPP_RUNTIME="local"
 elif [ -n "${XDG_DATA_HOME:-}" ] && has_kit_signature "$XDG_DATA_HOME/aapp-kit"; then
     AAPP_BASE="$XDG_DATA_HOME/aapp-kit"
-    AAPP_IS_DROP_IN=0
+    AAPP_RUNTIME="installed"
 elif [ -d "$HOME/.local/share/aapp-kit" ] && has_kit_signature "$HOME/.local/share/aapp-kit"; then
     AAPP_BASE="$HOME/.local/share/aapp-kit"
-    AAPP_IS_DROP_IN=0
+    AAPP_RUNTIME="installed"
 else
     # Allow version and help without full libraries if needed
     case "${1:-}" in
@@ -100,7 +100,7 @@ fi
 AAPP_LIB="$AAPP_BASE/lib"
 AAPP_TEMPLATES="$AAPP_BASE/templates"
 
-export AAPP_VERSION AAPP_BASE AAPP_LIB AAPP_TEMPLATES AAPP_IS_DROP_IN AAPP_SCRIPT_DIR
+export AAPP_VERSION AAPP_BASE AAPP_LIB AAPP_TEMPLATES AAPP_RUNTIME AAPP_SCRIPT_DIR
 
 # ------------------------------------------------------------------------------
 # 2. Command Dispatcher
@@ -117,9 +117,8 @@ shift || true
 # of quietly treating $PWD as the repository root.
 # ------------------------------------------------------------------------------
 case "$CMD" in
-    version|-v|--version|help|-h|--help|install|upgrade|update|uninstall|develop|init)
-        # Exempt: pure terminal output, machine-level installers, or bootstrap
-        # setup (init resolves its own target repository).
+    version|-v|--version|help|-h|--help|install|upgrade|update|uninstall|develop)
+        # Exempt: pure terminal output or machine-level installers
         ;;
     *)
         if ! REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then

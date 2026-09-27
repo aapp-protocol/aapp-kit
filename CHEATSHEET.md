@@ -169,7 +169,7 @@ Do this instead:
 
 ---
 
-## 💡 Three things newcomers trip on
+## 💡 Things newcomers trip on
 
 - **Freezing is what grants write access.** A blueprint sitting in the Incubator is a
   document, not a permit.
@@ -177,3 +177,5 @@ Do this instead:
   Edit `templates/` and run `aapp init`.
 - **`/aapp-digest` takes one idea, not the whole pickup file.** It's a queue you draw from
   deliberately, not a batch to process.
+- **Cloned repos without `aapp` are in Inspection-Only mode.** If `git commit` warns of
+  INSPECTION-ONLY mode, install AAPP globally (`aapp install`) to unlock commits.

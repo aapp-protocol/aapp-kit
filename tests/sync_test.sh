@@ -18,6 +18,7 @@ KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$KIT/tests/test_helpers.sh"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
+confine_test_runtime "$R"
 
 report() {
   local name="$1" expect="$2" got="$3" details="${4:-}"
@@ -61,9 +62,7 @@ echo "============================================================"
 echo "🧪 Running Test Suite: Remote Sync Automation (Plan P-10)"
 echo "============================================================"
 
-# Scaffolding: Kit named agent-planning-kit to prevent drop-in consumption
-KIT_DIR="$R/agent-planning-kit"
-make_kit_clone "$KIT_DIR"
+KIT_DIR="$SANDBOX_BIN"
 
 PROJ_DIR="$R/proj1"
 make_project "$PROJ_DIR"
@@ -85,7 +84,7 @@ git init --bare -q "$REMOTE_UPSTREAM"
 # ------------------------------------------------------------------------------
 (
   cd "$PROJ_DIR" || exit 1
-  "$KIT_DIR/aapp" init >/dev/null 2>&1
+  aapp init >/dev/null 2>&1
 )
 
 r_remote="$(git -C "$PROJ_DIR" config aapp.remote || echo "")"

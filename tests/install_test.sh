@@ -5,6 +5,7 @@ KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$KIT/tests/test_helpers.sh"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
+confine_test_runtime "$R"
 
 report() {
   local name="$1" expect="$2" got="$3" details="${4:-}"
@@ -68,129 +69,50 @@ else
 fi
 report "aapp help displays full command catalog" "PASS" "$got" "$out_help"
 
-echo "== 2. Drop-in Mode: Base & Target Resolution =="
+echo "== 2. Canonical Self-Init & Uninstalled Clone Confinement =="
 
-TEST_HOME="$R/test_home"; mkdir -p "$TEST_HOME"
+TEST_HOME="$HOME"
 
-# Test 3: ./aapp-kit/aapp init from project root targets project
-PROJ="$R/t3_proj"; make_dummy_project "$PROJ"
-make_kit_clone "$PROJ/aapp-kit"
+# Test 3: Canonical self-init: kit repository initializes itself
+KIT_SELF="$R/kit_self"; make_kit_clone "$KIT_SELF"
 (
-  cd "$PROJ"
-  HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1
+  cd "$KIT_SELF"
+  ./aapp init >/dev/null 2>&1
 )
 rc=$?
-if [ $rc -eq 0 ] && [ -d "$PROJ/.plans" ] && [ -d "$PROJ/.agents" ] && [ -d "$PROJ/.githooks" ] && [ -f "$PROJ/.plans/done/000-archive-ledger.md" ]; then
+if [ $rc -eq 0 ] && [ -d "$KIT_SELF/.plans" ] && [ -d "$KIT_SELF/.agents" ] && [ -d "$KIT_SELF/.githooks" ]; then
   got="PASS"
 else
   got="FAIL"
 fi
-report "drop-in: ./aapp-kit/aapp init from project root targets project" "PASS" "$got"
+report "canonical self-init: uninstalled kit repo initializes itself" "PASS" "$got"
 
-# Test 4: cd aapp-kit && ./aapp init targets the project, not the clone
-PROJ="$R/t4_proj"; make_dummy_project "$PROJ"
-make_kit_clone "$PROJ/aapp-kit"
-(
-  cd "$PROJ/aapp-kit"
-  HOME="$TEST_HOME" ./aapp init >/dev/null 2>&1
+# Test 4: Uninstalled clone running init against external project fails fast
+PROJ_EXT="$R/t_ext_proj"; make_dummy_project "$PROJ_EXT"
+KIT_EXT="$R/t_ext_kit"; make_kit_clone "$KIT_EXT"
+out_fast_fail=$(
+  cd "$PROJ_EXT"
+  "$KIT_EXT/aapp" init 2>&1 || true
 )
-rc=$?
-if [ $rc -eq 0 ] && [ -d "$PROJ/.plans" ] && [ -d "$PROJ/.agents" ] && [ -d "$PROJ/.githooks" ]; then
+if echo "$out_fast_fail" | grep -q "AAPP must be installed globally before initializing projects"; then
   got="PASS"
 else
   got="FAIL"
 fi
-report "drop-in: cd aapp-kit && ./aapp init targets project (not clone)" "PASS" "$got"
+report "uninstalled clone running init against external project fails fast" "PASS" "$got" "$out_fast_fail"
 
-# Test 5: nested at tools/aapp-kit resolves to project root
-PROJ="$R/t5_proj"; make_dummy_project "$PROJ"
-mkdir -p "$PROJ/tools"
-make_kit_clone "$PROJ/tools/aapp-kit"
-(
-  cd "$PROJ"
-  HOME="$TEST_HOME" ./tools/aapp-kit/aapp init >/dev/null 2>&1
+# Test 5: aapp init outside git repository fails closed at front door
+NON_GIT="$R/non_git_dir"; mkdir -p "$NON_GIT"
+out_non_git=$(
+  cd "$NON_GIT"
+  aapp init 2>&1 || true
 )
-rc=$?
-if [ $rc -eq 0 ] && [ -d "$PROJ/.plans" ] && [ -d "$PROJ/.agents" ]; then
+if echo "$out_non_git" | grep -q "must be run inside a Git repository"; then
   got="PASS"
 else
   got="FAIL"
 fi
-report "drop-in: nested tools/aapp-kit resolves to project root" "PASS" "$got"
-
-# Test 6: drop-in consumes aapp-kit/ on success
-PROJ="$R/t6_proj"; make_dummy_project "$PROJ"
-make_kit_clone "$PROJ/aapp-kit"
-(
-  cd "$PROJ"
-  HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1
-)
-rc=$?
-if [ $rc -eq 0 ] && [ ! -d "$PROJ/aapp-kit" ] && [ -f "$PROJ/.agents/CODEMAP.md" ]; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "drop-in: aapp-kit/ consumed automatically on success" "PASS" "$got"
-
-# Test 6b: ./agent-planning-kit/aapp init from project root targets project (#50)
-PROJ="$R/t6b_proj"; make_dummy_project "$PROJ"
-make_kit_clone "$PROJ/agent-planning-kit"
-(
-  cd "$PROJ"
-  HOME="$TEST_HOME" ./agent-planning-kit/aapp init >/dev/null 2>&1
-)
-rc=$?
-if [ $rc -eq 0 ] && [ -d "$PROJ/.plans" ] && [ -d "$PROJ/.agents" ] && [ -d "$PROJ/.githooks" ] && [ -d "$PROJ/agent-planning-kit" ]; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "drop-in: ./agent-planning-kit/aapp init from project root targets project (#50)" "PASS" "$got"
-
-# Test 6c: cd agent-planning-kit && ./aapp init targets kit itself (#50)
-KIT_ONLY="$R/t6c_dir/agent-planning-kit"; make_kit_clone "$KIT_ONLY"
-(
-  cd "$KIT_ONLY"
-  HOME="$TEST_HOME" ./aapp init >/dev/null 2>&1
-)
-rc=$?
-if [ $rc -eq 0 ] && [ -d "$KIT_ONLY/.plans" ] && [ -d "$KIT_ONLY/.agents" ] && [ -d "$KIT_ONLY/.githooks" ]; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "drop-in: cd agent-planning-kit && ./aapp init targets kit itself (#50)" "PASS" "$got"
-
-# Test 6d: drop-in: ./aapp-kit/aapp init rejects unknown flag --keep (#51)
-PROJ="$R/t6d_proj"; make_dummy_project "$PROJ"
-make_kit_clone "$PROJ/aapp-kit"
-out_6d=$(
-  cd "$PROJ"
-  HOME="$TEST_HOME" ./aapp-kit/aapp init --keep 2>&1 || true
-)
-if echo "$out_6d" | grep -q "Unknown option '--keep'" && [ -d "$PROJ/aapp-kit" ]; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "drop-in: ./aapp-kit/aapp init rejects unknown flag --keep" "PASS" "$got"
-
-# Test 6e: drop-in: extra file in aapp-kit/ preserves drop-in folder without self-consuming (#51)
-PROJ="$R/t6e_proj"; make_dummy_project "$PROJ"
-make_kit_clone "$PROJ/aapp-kit"
-touch "$PROJ/aapp-kit/custom_notes.txt"
-(
-  cd "$PROJ"
-  HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1
-)
-rc=$?
-if [ $rc -eq 0 ] && [ -d "$PROJ/aapp-kit" ] && [ -f "$PROJ/aapp-kit/custom_notes.txt" ]; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "drop-in: extra file in aapp-kit/ preserves folder without self-consuming (#51)" "PASS" "$got"
+report "aapp init outside git repository fails closed at front door" "PASS" "$got" "$out_non_git"
 
 echo "== 3. Delimited Block Sync, Adoption, and Upgrades =="
 
@@ -206,8 +128,7 @@ PROJ="$R/t7_proj"; make_dummy_project "$PROJ"
   git commit -qm "custom agents branch"
   git checkout main -q
 )
-make_kit_clone "$PROJ/aapp-kit"
-(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ" && aapp init >/dev/null 2>&1)
 if grep -q "<!-- AAPP-PROTOCOL:START v1.0.0 -->" "$PROJ/.agents/AGENTS.md" && \
    grep -q "# Custom Project Rules (No Markers)" "$PROJ/.agents/AGENTS.md"; then
   got="PASS"
@@ -237,8 +158,7 @@ EOF
   git commit -qm "v0.9.0 agents branch"
   git checkout main -q
 )
-make_kit_clone "$PROJ/aapp-kit"
-(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ" && aapp init >/dev/null 2>&1)
 agents_content=$(cat "$PROJ/.agents/AGENTS.md")
 if echo "$agents_content" | grep -q "<!-- AAPP-PROTOCOL:START v1.0.0 -->" && \
    echo "$agents_content" | grep -q "Custom rule: always use snake_case for functions." && \
@@ -253,8 +173,7 @@ report "upgrade: protocol block upgraded in-place preserving surrounding rules" 
 # Test 9: Migration: project-root AGENTS.md migrated into .agents/ worktree
 PROJ="$R/t9_proj"; make_dummy_project "$PROJ"
 echo "# Legacy Root AGENTS File" > "$PROJ/AGENTS.md"
-make_kit_clone "$PROJ/aapp-kit"
-(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ" && aapp init >/dev/null 2>&1)
 if [ ! -f "$PROJ/AGENTS.md" ] && \
    [ -f "$PROJ/.agents/AGENTS.md" ] && \
    grep -q "# Legacy Root AGENTS File" "$PROJ/.agents/AGENTS.md" && \
@@ -269,8 +188,7 @@ report "migration: legacy flat AGENTS.md migrated into .agents/ worktree" "PASS"
 PROJ="$R/t10_proj"; make_dummy_project "$PROJ"
 echo "# User Custom CODEMAP" > "$PROJ/CODEMAP.md"
 echo "# User Custom ARCHITECTURE" > "$PROJ/ARCHITECTURE.md"
-make_kit_clone "$PROJ/aapp-kit"
-(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ" && aapp init >/dev/null 2>&1)
 if [ "$(cat "$PROJ/.agents/CODEMAP.md")" = "# User Custom CODEMAP" ] && \
    [ "$(cat "$PROJ/ARCHITECTURE.md")" = "# User Custom ARCHITECTURE" ]; then
   got="PASS"
@@ -297,8 +215,7 @@ EOF
   git commit -qm "custom hooks branch"
   git checkout main -q
 )
-make_kit_clone "$PROJ/aapp-kit"
-(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ" && aapp init >/dev/null 2>&1)
 if [ -x "$PROJ/.githooks/aapp-pre-commit" ] && \
    [ -x "$PROJ/.githooks/blast-radius-guard" ] && \
    [ -x "$PROJ/.githooks/pre-commit" ] && \
@@ -312,8 +229,7 @@ report "namespaced hook sync: aapp-pre-commit updated, custom pre-commit preserv
 
 # Test 12: Fresh install writes .claude/settings.json
 PROJ="$R/t12_proj"; make_dummy_project "$PROJ"
-make_kit_clone "$PROJ/aapp-kit"
-(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ" && aapp init >/dev/null 2>&1)
 if [ -f "$PROJ/.claude/settings.json" ] && grep -q "blast-radius-guard" "$PROJ/.claude/settings.json"; then
   got="PASS"
 else
@@ -337,8 +253,7 @@ cat > "$PROJ/.claude/settings.json" <<'JSON'
   }
 }
 JSON
-make_kit_clone "$PROJ/aapp-kit"
-(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ" && aapp init >/dev/null 2>&1)
 if grep -q '"userCustomSetting": true' "$PROJ/.claude/settings.json" && \
    grep -q "blast-radius-guard" "$PROJ/.claude/settings.json" && \
    grep -q "PostToolUse" "$PROJ/.claude/settings.json"; then
@@ -349,7 +264,7 @@ fi
 report "non-destructive merge: preserves existing .claude/settings.json keys" "PASS" "$got"
 
 # Test 14: Idempotent .claude/settings.json (no duplicated hooks)
-(cd "$PROJ" && HOME="$TEST_HOME" "$KIT/aapp" init >/dev/null 2>&1 || true)
+(cd "$PROJ" && aapp init >/dev/null 2>&1 || true)
 count_guard=$(grep -o "blast-radius-guard" "$PROJ/.claude/settings.json" | wc -l)
 if [ "$count_guard" -eq 1 ]; then
   got="PASS"
@@ -362,8 +277,7 @@ echo "== 5. Git Hooks & Hook Manager Interoperability =="
 
 # Test 15: core.hooksPath unset -> set to .githooks, no warning
 PROJ="$R/t15_proj"; make_dummy_project "$PROJ"
-make_kit_clone "$PROJ/aapp-kit"
-out_t15=$(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1)
+out_t15=$(cd "$PROJ" && aapp init 2>&1)
 hooks_path=$(cd "$PROJ" && git config --get core.hooksPath || true)
 if [ "$hooks_path" = ".githooks" ] && ! echo "$out_t15" | grep -q "existing hook configuration was detected"; then
   got="PASS"
@@ -375,8 +289,7 @@ report "core.hooksPath unset -> set to .githooks with no warning" "PASS" "$got"
 # Test 16: core.hooksPath already .githooks -> idempotent re-run, no warning
 PROJ="$R/t16_proj"; make_dummy_project "$PROJ"
 (cd "$PROJ" && git config core.hooksPath .githooks)
-make_kit_clone "$PROJ/aapp-kit"
-out_t16=$(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1)
+out_t16=$(cd "$PROJ" && aapp init 2>&1)
 hooks_path=$(cd "$PROJ" && git config --get core.hooksPath || true)
 if [ "$hooks_path" = ".githooks" ] && ! echo "$out_t16" | grep -q "existing hook configuration was detected"; then
   got="PASS"
@@ -388,8 +301,7 @@ report "core.hooksPath already .githooks -> unchanged, no warning" "PASS" "$got"
 # Test 17: core.hooksPath=.husky -> hooks installed, config untouched, wiring printed
 PROJ="$R/t17_proj"; make_dummy_project "$PROJ"
 (cd "$PROJ" && git config core.hooksPath .husky)
-make_kit_clone "$PROJ/aapp-kit"
-out_t17=$(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1)
+out_t17=$(cd "$PROJ" && aapp init 2>&1)
 hooks_path=$(cd "$PROJ" && git config --get core.hooksPath || true)
 if [ "$hooks_path" = ".husky" ] && [ -f "$PROJ/.githooks/pre-commit" ] && echo "$out_t17" | grep -q "core.hooksPath is currently set to: '.husky'"; then
   got="PASS"
@@ -403,8 +315,7 @@ PROJ="$R/t18_proj"; make_dummy_project "$PROJ"
 mkdir -p "$PROJ/.git/hooks"
 echo "#!/bin/sh" > "$PROJ/.git/hooks/pre-commit"
 chmod +x "$PROJ/.git/hooks/pre-commit"
-make_kit_clone "$PROJ/aapp-kit"
-out_t18=$(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1)
+out_t18=$(cd "$PROJ" && aapp init 2>&1)
 hooks_path=$(cd "$PROJ" && git config --get core.hooksPath || true)
 if [ -z "$hooks_path" ] && echo "$out_t18" | grep -q "Executable hook found at '.git/hooks/pre-commit'"; then
   got="PASS"
@@ -422,8 +333,7 @@ cat > "$PROJ/.husky/pre-commit" <<'EOF'
 EOF
 chmod +x "$PROJ/.husky/pre-commit"
 (cd "$PROJ" && git config core.hooksPath .husky)
-make_kit_clone "$PROJ/aapp-kit"
-(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ" && aapp init >/dev/null 2>&1)
 mkdir -p "$PROJ/.plans/current"
 cat > "$PROJ/.plans/current/plan.md" <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
@@ -446,23 +356,11 @@ report "wiring line in custom hook catches blast-radius violation" "PASS" "$got"
 
 echo "== 6. Error Cases & Collision Protections =="
 
-# Test 20: drop-in with no parent repo -> "Did you mean ./aapp-kit/aapp install ?"
-BARE_DIR="$R/t20_bare"; mkdir -p "$BARE_DIR"
-make_kit_clone "$BARE_DIR/aapp-kit"
-out_t20=$(cd "$BARE_DIR" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1 || true)
-if echo "$out_t20" | grep -q "Did you mean ./aapp-kit/aapp install ?"; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "drop-in with no parent repo prints 'aapp install' suggestion" "PASS" "$got" "$out_t20"
-
 # Test 21: project's own templates/ directory is preserved untouched
 PROJ="$R/t21_proj"; make_dummy_project "$PROJ"
 mkdir -p "$PROJ/templates"
 echo "<h1>Flask App</h1>" > "$PROJ/templates/index.html"
-make_kit_clone "$PROJ/aapp-kit"
-(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ" && aapp init >/dev/null 2>&1)
 if [ -f "$PROJ/templates/index.html" ]; then
   got="PASS"
 else
@@ -474,8 +372,7 @@ report "project's own templates/ directory is preserved untouched" "PASS" "$got"
 PROJ="$R/t22_proj"; make_dummy_project "$PROJ"
 mkdir -p "$PROJ/.plans"
 echo "custom non-worktree content" > "$PROJ/.plans/custom.txt"
-make_kit_clone "$PROJ/aapp-kit"
-out_t22=$(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1 || true)
+out_t22=$(cd "$PROJ" && aapp init 2>&1 || true)
 if echo "$out_t22" | grep -q "exists as a normal directory, not an AAPP worktree"; then
   got="PASS"
 else
@@ -497,8 +394,7 @@ PROJ_REMOTE="$R/t23_remote"; make_dummy_project "$PROJ_REMOTE"
 )
 PROJ_LOCAL="$R/t23_local"
 git clone -q "$PROJ_REMOTE" "$PROJ_LOCAL"
-make_kit_clone "$PROJ_LOCAL/aapp-kit"
-out_t23=$(cd "$PROJ_LOCAL" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1)
+out_t23=$(cd "$PROJ_LOCAL" && aapp init 2>&1)
 rc=$?
 if [ $rc -eq 0 ] && [ -f "$PROJ_LOCAL/.plans/current/p.md" ]; then
   got="PASS"
@@ -656,9 +552,8 @@ report "aapp uninstall leaves no trace of kit but preserves shared dirs and rc" 
 
 # Test 31: aapp status prints 4-pillar context recovery briefing
 PROJ_31="$R/t31_proj"; make_dummy_project "$PROJ_31"
-make_kit_clone "$PROJ_31/aapp-kit"
-(cd "$PROJ_31" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
-out_status=$(cd "$PROJ_31" && "$KIT/aapp" status 2>&1)
+(cd "$PROJ_31" && aapp init >/dev/null 2>&1)
+out_status=$(cd "$PROJ_31" && aapp status 2>&1)
 if echo "$out_status" | grep -q "SHIPPED" && \
    echo "$out_status" | grep -q "ISSUES" && \
    echo "$out_status" | grep -q "PLANS" && \
@@ -685,8 +580,7 @@ report "aapp install preserves aapp-develop-kit folder without self-consuming" "
 
 # Test 33: unclosed <!-- AAPP-PROTOCOL:START --> marker skips replacement to prevent data loss
 PROJ_33="$R/t33_proj"; make_dummy_project "$PROJ_33"
-make_kit_clone "$PROJ_33/aapp-kit"
-(cd "$PROJ_33" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_33" && aapp init >/dev/null 2>&1)
 # Intentionally corrupt .agents/AGENTS.md by removing END marker
 cat > "$PROJ_33/.agents/AGENTS.md" <<'EOF'
 # Custom Header
@@ -694,8 +588,7 @@ cat > "$PROJ_33/.agents/AGENTS.md" <<'EOF'
 Some content that was not closed properly
 # Important custom notes that must not be deleted
 EOF
-make_kit_clone "$PROJ_33/aapp-kit2"
-out_corrupt=$(cd "$PROJ_33" && HOME="$TEST_HOME" ./aapp-kit2/aapp init 2>&1)
+out_corrupt=$(cd "$PROJ_33" && aapp init 2>&1)
 agents_content=$(cat "$PROJ_33/.agents/AGENTS.md")
 if echo "$out_corrupt" | grep -q "Found unclosed <!-- AAPP-PROTOCOL:START --> marker" && \
    echo "$agents_content" | grep -q "Important custom notes that must not be deleted"; then
@@ -778,8 +671,7 @@ echo "== 8. Universal Skills, Claude Bridge, and Settings Decoupling =="
 
 # Test 37: Fresh install decouples .claude/settings.json into canonical .agents/claude/settings.json and creates granular symlink
 PROJ_37="$R/t37_proj"; make_dummy_project "$PROJ_37"
-make_kit_clone "$PROJ_37/aapp-kit"
-(cd "$PROJ_37" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_37" && aapp init >/dev/null 2>&1)
 if [ -L "$PROJ_37/.claude/settings.json" ] && \
    [ -f "$PROJ_37/.agents/claude/settings.json" ] && \
    [ "$(readlink "$PROJ_37/.claude/settings.json")" = "../.agents/claude/settings.json" ] && \
@@ -818,8 +710,7 @@ PROJ_40="$R/t40_proj"; make_dummy_project "$PROJ_40"
 mkdir -p "$PROJ_40/.claude/skills/custom-deploy"
 echo "# Custom Deploy" > "$PROJ_40/.claude/skills/custom-deploy/SKILL.md"
 echo '{"localSecret": "123"}' > "$PROJ_40/.claude/settings.local.json"
-make_kit_clone "$PROJ_40/aapp-kit"
-(cd "$PROJ_40" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_40" && aapp init >/dev/null 2>&1)
 if [ -f "$PROJ_40/.claude/skills/custom-deploy/SKILL.md" ] && \
    [ ! -L "$PROJ_40/.claude/skills/custom-deploy" ] && \
    grep -q "Custom Deploy" "$PROJ_40/.claude/skills/custom-deploy/SKILL.md" && \
@@ -833,11 +724,9 @@ report "non-destructive: preserves custom user skills and local settings" "PASS"
 
 # Test 41: Clean upgrade: drops stale files on skill re-sync
 PROJ_41="$R/t41_proj"; make_dummy_project "$PROJ_41"
-make_kit_clone "$PROJ_41/aapp-kit"
-(cd "$PROJ_41" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_41" && aapp init >/dev/null 2>&1)
 touch "$PROJ_41/.agents/skills/aapp-status/stale-old-file.txt"
-make_kit_clone "$PROJ_41/aapp-kit"
-(cd "$PROJ_41" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_41" && aapp init >/dev/null 2>&1)
 if [ ! -f "$PROJ_41/.agents/skills/aapp-status/stale-old-file.txt" ] && \
    [ -f "$PROJ_41/.agents/skills/aapp-status/SKILL.md" ]; then
   got="PASS"
@@ -873,8 +762,7 @@ report "drift control: all governance skills declare valid frontmatter, flags, a
 
 # Test 43: aapp init provisions .plans/done/000-issues-archive.md from template
 PROJ_43="$R/t43_proj"; make_dummy_project "$PROJ_43"
-make_kit_clone "$PROJ_43/aapp-kit"
-(cd "$PROJ_43" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_43" && aapp init >/dev/null 2>&1)
 if [ -f "$PROJ_43/.plans/done/000-issues-archive.md" ] && \
    grep -q "Master Issue Archive Ledger" "$PROJ_43/.plans/done/000-issues-archive.md" && \
    grep -q "| Date Opened | Date Resolved |" "$PROJ_43/.plans/done/000-issues-archive.md"; then
@@ -895,8 +783,7 @@ EOF
   git add ISSUES.md
   git commit -qm "add custom issues"
 )
-make_kit_clone "$PROJ_44/aapp-kit"
-init_out=$(cd "$PROJ_44" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1)
+init_out=$(cd "$PROJ_44" && aapp init 2>&1)
 if [ -f "$PROJ_44/.plans/ISSUES.md" ] && \
    grep -q "Custom Jira Export" "$PROJ_44/.plans/ISSUES.md" && \
    echo "$init_out" | grep -q "Found existing custom .plans/ISSUES.md"; then
@@ -949,8 +836,7 @@ report "pickup template: templates/pickup.md pre-seeds Onboarding task" "PASS" "
 
 # Test 49: aapp init outputs First AAPP Loop onboarding next steps
 PROJ="$R/t49_proj"; make_dummy_project "$PROJ"
-make_kit_clone "$PROJ/aapp-kit"
-init_out=$(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init 2>&1)
+init_out=$(cd "$PROJ" && aapp init 2>&1)
 if echo "$init_out" | grep -q "Experience Your First AAPP Loop" && \
    echo "$init_out" | grep -q "/aapp-digest Onboarding"; then
   got="PASS"
@@ -961,8 +847,7 @@ report "init banner: aapp init outputs First AAPP Loop onboarding guidance" "PAS
 
 # Test 50: aapp init syncs aapp-pause skill into .agents/skills and .claude/skills
 PROJ="$R/t50_proj"; make_dummy_project "$PROJ"
-make_kit_clone "$PROJ/aapp-kit"
-(cd "$PROJ" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ" && aapp init >/dev/null 2>&1)
 rc=$?
 if [ $rc -eq 0 ] && \
    [ -f "$PROJ/.agents/skills/aapp-pause/SKILL.md" ] && \
@@ -986,8 +871,7 @@ report "pause skill schema: templates/skills/aapp-pause/SKILL.md has valid front
 
 # Test 52: aapp init prunes retired skills from .agents/skills and .claude/skills while keeping registry.tsv
 PROJ_52="$R/t52_proj"; make_dummy_project "$PROJ_52"
-make_kit_clone "$PROJ_52/aapp-kit"
-(cd "$PROJ_52" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_52" && aapp init >/dev/null 2>&1)
 mkdir -p "$PROJ_52/.agents/skills/aapp-freeze-start" "$PROJ_52/.claude/skills/aapp-freeze-start"
 mkdir -p "$PROJ_52/.agents/skills/aapp-active" "$PROJ_52/.claude/skills/aapp-active"
 touch "$PROJ_52/.agents/skills/aapp-freeze-start/SKILL.md" "$PROJ_52/.claude/skills/aapp-freeze-start/SKILL.md"
@@ -996,8 +880,7 @@ touch "$PROJ_52/.agents/skills/aapp-hooks/SKILL.md"
 mkdir -p "$PROJ_52/.claude/skills/aapp-hooks"
 touch "$PROJ_52/.claude/skills/aapp-hooks/SKILL.md"
 printf "on-sync\tcustom_handler.sh\tsha256:dummy\t10\tgate\n" > "$PROJ_52/.agents/skills/aapp-hooks/registry.tsv"
-make_kit_clone "$PROJ_52/aapp-kit"
-(cd "$PROJ_52" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_52" && aapp init >/dev/null 2>&1)
 if [ ! -d "$PROJ_52/.agents/skills/aapp-freeze-start" ] && \
    [ ! -d "$PROJ_52/.claude/skills/aapp-freeze-start" ] && \
    [ ! -d "$PROJ_52/.agents/skills/aapp-active" ] && \
@@ -1026,9 +909,8 @@ report "canonical manifest: lib/verbs.tsv defines verbs across 5 visual tiers" "
 
 # Test 54: aapp draft scaffolds blueprint, stamps monotonic ID, registers in matrix
 PROJ_54="$R/t54_proj"; make_dummy_project "$PROJ_54"
-make_kit_clone "$PROJ_54/aapp-kit"
-(cd "$PROJ_54" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
-(cd "$PROJ_54" && HOME="$TEST_HOME" "$KIT/aapp" draft test-feature >/dev/null 2>&1)
+(cd "$PROJ_54" && aapp init >/dev/null 2>&1)
+(cd "$PROJ_54" && aapp draft test-feature >/dev/null 2>&1)
 if compgen -G "$PROJ_54/.plans/current/P*-test-feature.md" >/dev/null && \
    grep -q "Plan P-.*: Test Feature" "$PROJ_54"/.plans/current/P*-test-feature.md && \
    grep -q "test-feature.md" "$PROJ_54/.plans/state_matrix.md"; then
@@ -1040,10 +922,9 @@ report "aapp draft: scaffolds blueprint, stamps ID & date, registers in matrix" 
 
 # Test 55: aapp draft no-dead-end fallback auto-selects pickup note in non-interactive mode
 PROJ_55="$R/t55_proj"; make_dummy_project "$PROJ_55"
-make_kit_clone "$PROJ_55/aapp-kit"
-(cd "$PROJ_55" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_55" && aapp init >/dev/null 2>&1)
 echo "1. Automatic Backup System: Implement automated local backup" > "$PROJ_55/.plans/pickup.md"
-(cd "$PROJ_55" && HOME="$TEST_HOME" "$KIT/aapp" draft </dev/null >/dev/null 2>&1)
+(cd "$PROJ_55" && aapp draft </dev/null >/dev/null 2>&1)
 if compgen -G "$PROJ_55/.plans/current/P*-automatic-backup-system*.md" >/dev/null; then
   got="PASS"
 else
@@ -1112,15 +993,14 @@ report "cheatsheet parity: all verbs in lib/verbs.tsv appear in CHEATSHEET.md" "
 
 # Test 60: aapp done moves plan to done/ and updates status to Done
 PROJ_60="$R/t60_proj"; make_dummy_project "$PROJ_60"
-make_kit_clone "$PROJ_60/aapp-kit"
-(cd "$PROJ_60" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
-(cd "$PROJ_60" && HOME="$TEST_HOME" "$KIT/aapp" draft archive-test >/dev/null 2>&1)
+(cd "$PROJ_60" && aapp init >/dev/null 2>&1)
+(cd "$PROJ_60" && aapp draft archive-test >/dev/null 2>&1)
 plan_60="$(compgen -G "$PROJ_60/.plans/current/P*-archive-test.md" | head -n 1)"
 bname_60="$(basename "$plan_60")"
 sed -i 's/^### 📂 Target Files/### 📂 Target Files\n* `dummy.txt` - test file/' "$plan_60"
-(cd "$PROJ_60" && HOME="$TEST_HOME" "$KIT/aapp" freeze "$bname_60" >/dev/null 2>&1)
-(cd "$PROJ_60" && HOME="$TEST_HOME" "$KIT/aapp" start "$bname_60" >/dev/null 2>&1)
-(cd "$PROJ_60" && HOME="$TEST_HOME" "$KIT/aapp" done "$bname_60" >/dev/null 2>&1)
+(cd "$PROJ_60" && aapp freeze "$bname_60" >/dev/null 2>&1)
+(cd "$PROJ_60" && aapp start "$bname_60" >/dev/null 2>&1)
+(cd "$PROJ_60" && aapp done "$bname_60" >/dev/null 2>&1)
 done_60="$PROJ_60/.plans/done/$bname_60"
 if [ -f "$done_60" ] && \
    grep -qE '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*[[:space:]]*✅[[:space:]]*Done' "$done_60" && \
@@ -1137,7 +1017,7 @@ HOME_61="$R/t61_home"; mkdir -p "$HOME_61"
 INSTALLER_61="$R/t61_installer"; make_kit_clone "$INSTALLER_61"
 mkdir -p "$HOME_61/.local/share/aapp-kit/examples/stale"
 touch "$HOME_61/.local/share/aapp-kit/examples/stale/stale.txt"
-(cd "$INSTALLER_61" && HOME="$HOME_61" ./aapp install >/dev/null 2>&1)
+(cd "$INSTALLER_61" && HOME="$HOME_61" XDG_DATA_HOME="$HOME_61/.local/share" ./aapp install >/dev/null 2>&1)
 if [ -d "$HOME_61/.local/share/aapp-kit/examples" ] && \
    [ -f "$HOME_61/.local/share/aapp-kit/examples/plugins/hello-tool/run.sample" ] && \
    [ -f "$HOME_61/.local/share/aapp-kit/examples/hooks/registry.tsv.sample" ] && \
@@ -1150,8 +1030,7 @@ report "aapp install: preserves examples/ in SHARE_DIR and cleans stale samples"
 
 # Test 62: aapp init preserves zero-footprint isolation without .sample files
 PROJ_62="$R/t62_proj"; make_dummy_project "$PROJ_62"
-make_kit_clone "$PROJ_62/aapp-kit"
-(cd "$PROJ_62" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_62" && aapp init >/dev/null 2>&1)
 if [ ! -d "$PROJ_62/.agents/skills/hello-tool" ] && \
    [ ! -d "$PROJ_62/.agents/skills/aapp-planid" ] && \
    ! compgen -G "$PROJ_62/.agents/skills/*.sample" >/dev/null; then
@@ -1163,8 +1042,7 @@ report "drop-in zero-footprint: aapp init leaves .agents/skills/ free of sample 
 
 # Test 63: aapp init wires .githooks symlinks in .plans and .agents worktrees
 PROJ_63="$R/t63_proj"; make_dummy_project "$PROJ_63"
-make_kit_clone "$PROJ_63/aapp-kit"
-(cd "$PROJ_63" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
+(cd "$PROJ_63" && aapp init >/dev/null 2>&1)
 if [ -L "$PROJ_63/.plans/.githooks" ] && \
    [ "$(readlink "$PROJ_63/.plans/.githooks")" = "../.githooks" ] && \
    [ -L "$PROJ_63/.agents/.githooks" ] && \
@@ -1201,9 +1079,8 @@ report "aapp test: selective filtering runs targeted suite with aggregated metri
 
 # Test 66: aapp test in adopter repository falls back to protocol health audit
 PROJ_66="$R/t66_proj"; make_dummy_project "$PROJ_66"
-make_kit_clone "$PROJ_66/aapp-kit"
-(cd "$PROJ_66" && HOME="$TEST_HOME" ./aapp-kit/aapp init >/dev/null 2>&1)
-audit_out=$(cd "$PROJ_66" && HOME="$TEST_HOME" "$KIT/aapp" test 2>&1 || true)
+(cd "$PROJ_66" && aapp init >/dev/null 2>&1)
+audit_out=$(cd "$PROJ_66" && aapp test 2>&1 || true)
 if echo "$audit_out" | grep -q "Executing AAPP Protocol Environment Health Audit" && \
    echo "$audit_out" | grep -q "Worktree '.plans' mounted" && \
    echo "$audit_out" | grep -q "AAPP protocol environment is healthy"; then
@@ -1219,7 +1096,7 @@ echo "== 9. Front-Door Git Repository Assertion (P-33) =="
 # A non-git sandbox is built under $R, which is itself outside any repository (mktemp -d).
 NONGIT_67="$R/t67_nongit"; mkdir -p "$NONGIT_67"
 nonrepo_fail=0; nonrepo_details=""
-for verb in status plan test freeze ai-status; do
+for verb in status plan test freeze ai-status init; do
   # shellcheck disable=SC2086
   verb_out=$(cd "$NONGIT_67" && HOME="$TEST_HOME" "$KIT/aapp" $verb 2>&1); verb_rc=$?
   if [ "$verb_rc" -ne 1 ]; then

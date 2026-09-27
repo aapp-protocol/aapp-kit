@@ -10,19 +10,21 @@ FAIL=0
 
 source "$KIT/tests/test_helpers.sh"
 
-TEST_DIR=$(mktemp -d /tmp/aapp-worktree-hooks-test-XXXXXX)
-trap 'rm -rf "$TEST_DIR"' EXIT
+SANDBOX_ROOT=$(mktemp -d /tmp/aapp-worktree-hooks-test-XXXXXX)
+trap 'rm -rf "$SANDBOX_ROOT"' EXIT
+confine_test_runtime "$SANDBOX_ROOT"
 
+TEST_DIR="$SANDBOX_ROOT/repo"
+mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 git init -q
 git branch -M main
 setup_test_git_identity "$TEST_DIR"
 
-# Setup AAPP via drop-in init
-cp -r "$KIT" "$TEST_DIR/aapp-kit"
+# Setup AAPP via installed aapp init
 (
     cd "$TEST_DIR"
-    ./aapp-kit/aapp init >/dev/null 2>&1
+    aapp init >/dev/null 2>&1
 )
 
 # Helper reporting function
@@ -202,7 +204,7 @@ echo "== 5. Idempotent Re-Init and Stability =="
 # Run aapp init again
 (
     cd "$TEST_DIR"
-    "$KIT/aapp" init >/dev/null 2>&1
+    aapp init >/dev/null 2>&1
 )
 
 if [ -L "$TEST_DIR/.plans/.githooks" ] && [ -L "$TEST_DIR/.agents/.githooks" ]; then

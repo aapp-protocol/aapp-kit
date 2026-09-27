@@ -18,6 +18,7 @@ KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$KIT/tests/test_helpers.sh"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
+confine_test_runtime "$R"
 
 report() {
   local name="$1" expect="$2" got="$3" details="${4:-}"
@@ -62,15 +63,14 @@ echo "============================================================"
 echo "🧪 Running Test Suite: Lifecycle Plugin Hooks (Plan P-12)"
 echo "============================================================"
 
-KIT_DIR="$R/agent-planning-kit"
-make_kit_clone "$KIT_DIR"
+KIT_DIR="$SANDBOX_BIN"
 
 PROJ_DIR="$R/proj1"
 make_project "$PROJ_DIR"
 
 (
   cd "$PROJ_DIR" || exit 1
-  "$KIT_DIR/aapp" init >/dev/null 2>&1
+  aapp init >/dev/null 2>&1
 )
 
 TAB="$(printf '\t')"
@@ -85,7 +85,7 @@ echo 'echo "hello"' > "$TEST_FILE"
 chmod +x "$TEST_FILE"
 
 # shellcheck source=/dev/null
-source "$KIT_DIR/lib/hook_dispatcher.sh"
+source "$KIT/lib/hook_dispatcher.sh"
 sha_out="$(compute_file_sha256 "$TEST_FILE")"
 if [ -n "$sha_out" ] && [ ${#sha_out} -eq 64 ]; then
   got="PASS"
@@ -438,7 +438,7 @@ plugins_discovery="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" plugins 2>&1)"
 hooks_discovery="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hooks 2>&1)"
 if echo "$plugins_discovery" | grep -q "Standard Extension Points:" && \
    echo "$plugins_discovery" | grep -q "aapp-planid" && \
-   echo "$hooks_discovery" | grep -q "Reference Samples:"; then
+   echo "$hooks_discovery" | grep -qE "Hook Samples|Reference Samples"; then
   got="PASS"
 else
   got="FAIL"

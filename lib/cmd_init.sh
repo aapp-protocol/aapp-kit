@@ -26,92 +26,22 @@ for arg in "$@"; do
     esac
 done
 
-if ! declare -f is_safe_to_consume_kit_dir >/dev/null 2>&1; then
-    is_safe_to_consume_kit_dir() {
-        local dir="$1"
-        [ ! -d "$dir" ] && return 1
-        case "$(basename "$dir")" in
-            aapp-develop-kit|agent-planning-kit) return 1 ;;
-        esac
-        if ! declare -f has_kit_signature >/dev/null 2>&1; then
-            has_kit_signature() {
-                local d="$1"
-                [ -d "$d/templates" ] && [ -f "$d/templates/pre-commit" ] && \
-                [ -f "$d/templates/AGENTS.md" ] && [ -d "$d/lib" ] && [ -f "$d/lib/cmd_init.sh" ]
-            }
-        fi
-        ! has_kit_signature "$dir" && return 1
-        local item base
-        for item in "$dir"/* "$dir"/.*; do
-            [ ! -e "$item" ] && [ ! -L "$item" ] && continue
-            base="$(basename "$item")"
-            case "$base" in
-                .|..) continue ;;
-                aapp|lib|templates|tests|examples|scripts) continue ;;
-                README*|MANUAL*|CHEATSHEET*|CHANGELOG*|LICENSE*|COPYING*|CODEMAP*|ARCHITECTURE*) continue ;;
-                .git*|.agents|.plans|.githooks|.claude|.cursor|.gemini|.github) continue ;;
-                *) return 1 ;;
-            esac
-        done
-        if [ -d "$dir/.git" ] || git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-            local git_status
-            git_status="$(git -C "$dir" status --porcelain 2>/dev/null || true)"
-            [ -n "$git_status" ] && return 1
-        fi
-        return 0
-    }
-fi
+# ------------------------------------------------------------------------------
+# Target Repository Resolution & Canonical Fast-Fail Check (F14)
+# ------------------------------------------------------------------------------
+AAPP_BASE_PHYSICAL="$(cd "$AAPP_BASE" 2>/dev/null && pwd -P)" || {
+    echo "❌ Error: Could not resolve physical path for AAPP_BASE: $AAPP_BASE" >&2
+    exit 1
+}
+REPO_ROOT_PHYSICAL="$(cd "$REPO_ROOT" 2>/dev/null && pwd -P)" || {
+    echo "❌ Error: Could not resolve physical path for REPO_ROOT: $REPO_ROOT" >&2
+    exit 1
+}
 
-# Target Repository Resolution
-IS_INSIDE_PROJECT=0
-if [ "$AAPP_IS_DROP_IN" -eq 1 ]; then
-    KIT_DIR_GIT_ROOT="$(cd "$AAPP_SCRIPT_DIR" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
-    PARENT_DIR="$(cd "$AAPP_SCRIPT_DIR/.." 2>/dev/null && pwd || true)"
-    PARENT_GIT_ROOT="$(cd "$PARENT_DIR" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
-    CWD_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-
-    CWD_REAL="$(pwd -P 2>/dev/null || pwd)"
-    KIT_REAL="$(cd "$AAPP_SCRIPT_DIR" 2>/dev/null && pwd -P || echo "$AAPP_SCRIPT_DIR")"
-    IS_CWD_INSIDE_KIT=0
-    if [ "$CWD_REAL" = "$KIT_REAL" ] || [[ "$CWD_REAL" == "$KIT_REAL"/* ]]; then
-        IS_CWD_INSIDE_KIT=1
-    fi
-
-    case "$(basename "$AAPP_SCRIPT_DIR")" in
-        aapp-develop-kit|agent-planning-kit)
-            if [ "$IS_CWD_INSIDE_KIT" -eq 1 ] && [ -n "$KIT_DIR_GIT_ROOT" ] && [ "$KIT_DIR_GIT_ROOT" = "$AAPP_SCRIPT_DIR" ]; then
-                REPO_ROOT="$KIT_DIR_GIT_ROOT"
-                IS_INSIDE_PROJECT=0
-            elif [ -n "$CWD_GIT_ROOT" ]; then
-                REPO_ROOT="$CWD_GIT_ROOT"
-                IS_INSIDE_PROJECT=1
-            elif [ -n "$PARENT_GIT_ROOT" ]; then
-                REPO_ROOT="$PARENT_GIT_ROOT"
-                IS_INSIDE_PROJECT=1
-            else
-                echo "❌ No git repository here. Did you mean ./aapp-kit/aapp install ?"
-                exit 1
-            fi
-            ;;
-        *)
-            if [ -n "$CWD_GIT_ROOT" ] && [ "$IS_CWD_INSIDE_KIT" -eq 0 ]; then
-                REPO_ROOT="$CWD_GIT_ROOT"
-                IS_INSIDE_PROJECT=1
-            elif [ -n "$PARENT_GIT_ROOT" ]; then
-                REPO_ROOT="$PARENT_GIT_ROOT"
-                IS_INSIDE_PROJECT=1
-            else
-                echo "❌ No git repository here. Did you mean ./aapp-kit/aapp install ?"
-                exit 1
-            fi
-            ;;
-    esac
-else
-    REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-    if [ -z "$REPO_ROOT" ]; then
-        echo "❌ Error: Not a git repository. Run 'git init' first."
-        exit 1
-    fi
+if [ "$AAPP_RUNTIME" != "installed" ] && [ "$AAPP_BASE_PHYSICAL" != "$REPO_ROOT_PHYSICAL" ]; then
+    echo "❌ Error: AAPP must be installed globally before initializing projects." >&2
+    echo "   Run: ./aapp install" >&2
+    exit 1
 fi
 
 cd "$REPO_ROOT"
@@ -808,26 +738,7 @@ if [ "$HOOK_MANAGER_NOTICE" -eq 1 ]; then
     echo ""
 fi
 
-# ------------------------------------------------------------------------------
-# PHASE 7: Drop-in Folder Consumption
-# ------------------------------------------------------------------------------
-if [ "$AAPP_IS_DROP_IN" -eq 1 ] && [ "$IS_INSIDE_PROJECT" -eq 1 ]; then
-    if is_safe_to_consume_kit_dir "$AAPP_SCRIPT_DIR"; then
-        rm -rf "$AAPP_SCRIPT_DIR"
-        echo ""
-        echo "🧹 Consumed kit folder '$AAPP_SCRIPT_DIR'."
-    else
-        case "$(basename "$AAPP_SCRIPT_DIR")" in
-            aapp-develop-kit|agent-planning-kit)
-                # Development workspace: do not self-consume
-                ;;
-            *)
-                echo ""
-                echo "ℹ️  Preserved kit folder '$AAPP_SCRIPT_DIR' (contains files or modifications beyond kit signature)."
-                ;;
-        esac
-    fi
-fi
+
 
 echo ""
 echo "✨ Multi-Orphan Worktree Setup Complete!"
