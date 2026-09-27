@@ -39,8 +39,11 @@
 ### 🎯 Plan Lifecycle Switchboard (`lib/cmd_plan.sh`)
 * **Purpose:** Single source of truth for in-flight plan execution state and worktree context buffers.
 * **Key Commands:**
+  * `aapp tdd <plan>` -> Injects failure test declaration sections (`### 🧪 Required Tests` in §3, `### 🧪 Required Test Files` in §4) into an incubator blueprint before freeze.
   * `aapp freeze-start <plan>` -> Atomic validator, disjointness check, status update (`⚡`), and buffer binding.
+  * `aapp freeze <plan>` -> Locks blueprint into 🔷 Frozen backlog specification, verifying TDD correspondence if present.
   * `aapp start <plan>` -> Activates frozen specification (`🔷`) into development (`⚡`).
+  * `aapp done <plan>` -> Archives implemented plan to `done/`, enforcing mechanical TDD completion gate (`tdd (N/N)` recorded in archive ledger).
   * `aapp active [id]` -> Displays or sets active plan pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).
   * `aapp active swap` / `aapp active clear` -> Toggles between current and previous buffer or clears context.
   * `aapp plan-status [id]` -> Deterministic read-only inspector for plan matrix or specific blueprint.
@@ -92,6 +95,10 @@
 * **Public Interface:**
   * `parse_plan_target_paths(file)` -> Write targets from `Target Files`, `Emergency Hotfix Extensions`, `Required Test Files` inside §4.
   * `parse_plan_oob_paths(file)` -> Vetoed paths from `Out of Bounds` inside §4.
+  * `parse_plan_required_test_files(file)` -> Declared test file paths under `### 🧪 Required Test Files` inside §4 (Option A single-entry semantics).
+  * `parse_plan_required_tests(file)` -> Declared test items under `### 🧪 Required Tests` inside §3 (isolates path prefix).
+  * `plan_has_required_test_files(file)` -> True when §4 carries `### 🧪 Required Test Files`.
+  * `validate_plan_tdd_correspondence(file, [prefix])` -> Validates non-empty sections and bidirectional correspondence between §3 and §4.
   * `extract_plan_section(n)` -> Stdin filter printing numbered section `## … n.` (design lock).
   * `glob_to_regex(pattern)` / `match_pattern_list(target, patterns…)` -> Exact, directory-prefix and glob matching.
   * `aapp_os([uname_s] [proc_version])` -> `linux|darwin|windows|wsl|bsd|unknown`; `wsl` is a GNU userland.
