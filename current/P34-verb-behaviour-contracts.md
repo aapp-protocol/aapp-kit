@@ -2,7 +2,7 @@
 * **Created:** 2026-09-23 | **Last Refined:** 2026-09-23
 * **Target Issue / Milestone:** #78 *(D2 only; D1 and D3 are unfiled defects this plan introduces and fixes)*
 * **Plan ID:** P-34
-* **Status:** 🔷 Frozen
+* **Status:** ⚡ In Development
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -439,6 +439,7 @@ actionable diagnostics; `matrix --check` detects drift without writing.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-27:** Plan activated into ⚡ In Development via start.
 * **2026-09-27:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-09-27 (RFC Alignment):** Clarified target-bearing semantics for `tests/install_test.sh` under P-37 Option A (whitelisted in `Required Test Files`); added explicit dependencies and sequencing (`After P-37, before P-35`).

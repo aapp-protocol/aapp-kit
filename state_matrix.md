@@ -25,11 +25,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-34**: [`P34-verb-behaviour-contracts.md`](current/P34-verb-behaviour-contracts.md) — Verb Behaviour Contracts
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-34**: [`P34-verb-behaviour-contracts.md`](current/P34-verb-behaviour-contracts.md) — Verb Behaviour Contracts
 
 ---
 
