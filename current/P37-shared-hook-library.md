@@ -2,7 +2,7 @@
 * **Created:** 2026-09-27 | **Last Refined:** 2026-09-27
 * **Target Issue / Milestone:** #82
 * **Plan ID:** P-37
-* **Status:** 📝 Refining
+* **Status:** 🔷 Frozen
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -366,6 +366,7 @@ merge closes it.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-27:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-09-27:** Drafted from `#82`, widened to cover both parser defects (blockquote parsing and
   section-boundary bleed). Layout settled after comparing options: the source lives in `lib/`
