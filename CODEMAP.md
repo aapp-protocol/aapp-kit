@@ -87,6 +87,18 @@
 * **Anti-Wrapper Warning:** Do not parse plan filenames using raw ad-hoc `grep` or `cut`; use `resolve_plan_path`.
 * **Allocation Warning:** Plan IDs are **stored, not derived**. Never reconstruct an ID by scanning filenames or the archive ledger — that approach was removed (issue `#69`). Use `allocate_plan_id` to claim, `get_next_plan_id` to display.
 
+### 📚 Shared Hook Library (`lib/aapp-lib.sh`)
+* **Purpose:** Single owner of plan-section parsing, glob matching and platform detection, sourced by the CLI and both hook engines (P-37).
+* **Public Interface:**
+  * `parse_plan_target_paths(file)` -> Write targets from `Target Files`, `Emergency Hotfix Extensions`, `Required Test Files` inside §4.
+  * `parse_plan_oob_paths(file)` -> Vetoed paths from `Out of Bounds` inside §4.
+  * `extract_plan_section(n)` -> Stdin filter printing numbered section `## … n.` (design lock).
+  * `glob_to_regex(pattern)` / `match_pattern_list(target, patterns…)` -> Exact, directory-prefix and glob matching.
+  * `aapp_os([uname_s] [proc_version])` -> `linux|darwin|windows|wsl|bsd|unknown`; `wsl` is a GNU userland.
+  * `aapp_lib_loaded()` -> Load sentinel every consumer asserts.
+* **Consumers:** `lib/cmd_plan.sh`, `lib/planning_health.sh` (Pair 7), `.githooks/aapp-pre-commit`, `.githooks/blast-radius-guard`.
+* **Anti-Wrapper Warning:** Never add an inline section parser elsewhere; extend this library and `tests/aapp_lib_test.sh`. Edit `lib/aapp-lib.sh`, never `templates/aapp-lib.sh` (a symlink) or `.githooks/aapp-lib.sh` (installed by `aapp init`).
+
 ### 🛡️ Planning Health Integrity Engine (`lib/planning_health.sh`)
 * **Purpose:** Automated mechanical integrity validator running 7 orthogonal verification pairs:
   * **Pair 1:** Disjointness between active `ISSUES.md` and `000-issues-archive.md`.
