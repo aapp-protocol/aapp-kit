@@ -64,7 +64,7 @@ fi
 
 echo "== commit failure & lax mode (#81 / P-39) =="
 # 1. test_human_freeze_commits_in_lax
-aapp ai-lax >/dev/null 2>&1
+aapp ai lax >/dev/null 2>&1
 id_lax="$(draft_plan lax-plan)"
 f_lax="$(plan_file "$id_lax")"
 resolve_questions "$f_lax"

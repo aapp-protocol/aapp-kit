@@ -114,10 +114,10 @@ if [ "$BANNED_COAUTHORS" -eq 1 ]; then
     echo "      AI-Vendor: <Vendor Name>" >&2
     echo "      AI-Model: <Model ID>" >&2
     echo "   👉 Or switch attribution mode via:" >&2
-    echo "      aapp ai-lax      (validates trailers when present, human commits pass)" >&2
-    echo "      aapp ai-strict   (requires trailers on every commit)" >&2
-    echo "      aapp ai-notes    (enable local git notes)" >&2
-    echo "      aapp ai-off      (disable AI attribution)" >&2
+    echo "      aapp ai lax      (validates trailers when present, human commits pass)" >&2
+    echo "      aapp ai strict   (requires trailers on every commit)" >&2
+    echo "      aapp ai notes    (enable local git notes)" >&2
+    echo "      aapp ai none     (disable AI attribution)" >&2
     echo "" >&2
     exit 1
 fi
@@ -148,7 +148,7 @@ case "$ATTR_MODE" in
             echo "   👉 You can set environment variables for automated tooling:" >&2
             echo "      AAPP_AGENT_NAME, AAPP_AGENT_VENDOR, AAPP_AGENT_MODEL" >&2
             echo "   👉 If this is a purely human commit, switch mode:" >&2
-            echo "      aapp ai-lax" >&2
+            echo "      aapp ai lax" >&2
             echo "" >&2
             exit 1
         fi
@@ -159,8 +159,8 @@ case "$ATTR_MODE" in
         echo "   Repository attribution mode 'commit' has been replaced by 'lax' and 'strict'." >&2
         echo "" >&2
         echo "   👉 Run one of the following commands to update your configuration:" >&2
-        echo "      aapp ai-lax     (accepts human commits, validates AI trailers when present)" >&2
-        echo "      aapp ai-strict  (enforces valid AI trailers on every commit)" >&2
+        echo "      aapp ai lax     (accepts human commits, validates AI trailers when present)" >&2
+        echo "      aapp ai strict  (enforces valid AI trailers on every commit)" >&2
         echo "" >&2
         exit 1
         ;;
@@ -172,8 +172,8 @@ case "$ATTR_MODE" in
             echo "   Commit messages in 'notes' mode must remain human-only." >&2
             echo "" >&2
             echo "   👉 Remove AI trailers from the commit message and stage notes via:" >&2
-            echo "      aapp ai-note --stage" >&2
-            echo "   👉 Or switch to lax mode: aapp ai-lax" >&2
+            echo "      aapp note stage \"<content>\" msg \"<commit-msg>\"" >&2
+            echo "   👉 Or switch to lax mode: aapp ai lax" >&2
             echo "" >&2
             exit 1
         fi
@@ -185,7 +185,7 @@ case "$ATTR_MODE" in
             echo "   Repository attribution mode is set to 'none' (aapp.aiAttribution=none)." >&2
             echo "" >&2
             echo "   👉 Remove the AI trailer, or enable attribution mode:" >&2
-            echo "      aapp ai-lax" >&2
+            echo "      aapp ai lax" >&2
             echo "" >&2
             exit 1
         fi
@@ -196,10 +196,10 @@ case "$ATTR_MODE" in
         echo "   Valid modes: none, lax, strict, notes." >&2
         echo "" >&2
         echo "   👉 Run one of:" >&2
-        echo "      aapp ai-lax" >&2
-        echo "      aapp ai-strict" >&2
-        echo "      aapp ai-notes" >&2
-        echo "      aapp ai-off" >&2
+        echo "      aapp ai lax" >&2
+        echo "      aapp ai strict" >&2
+        echo "      aapp ai notes" >&2
+        echo "      aapp ai none" >&2
         echo "" >&2
         exit 1
         ;;

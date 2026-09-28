@@ -52,7 +52,7 @@ else
 fi
 
 # 3. test_preflight_fails_before_code_commit (strict mode without identity)
-aapp ai-strict >/dev/null 2>&1
+aapp ai strict >/dev/null 2>&1
 mkdir -p src
 echo "# hello" > "src/test-feat.py"
 echo "- hello" >> CHANGELOG.md
@@ -68,7 +68,7 @@ head_before="$(git rev-parse HEAD)"
     bad "test_preflight_fails_before_code_commit" "rc=$rc head moved or succeeded"
   fi
 )
-aapp ai-lax >/dev/null 2>&1
+aapp ai lax >/dev/null 2>&1
 
 # 4. test_rejected_commit_records_nothing
 # Add a pre-commit hook that rejects
@@ -136,7 +136,7 @@ else
 fi
 
 # 8. test_strict_attributes_both_commits
-aapp ai-strict >/dev/null 2>&1
+aapp ai strict >/dev/null 2>&1
 echo "# strict change" >> "src/test-feat.py"
 echo "- strict change" >> CHANGELOG.md
 git add "src/test-feat.py" CHANGELOG.md
@@ -148,7 +148,7 @@ if [ "$rc" -eq 0 ] && echo "$code_msg" | grep -q "AI-Agent: TestBot" && echo "$p
 else
   bad "test_strict_attributes_both_commits" "rc=$rc code=[$code_msg] plan=[$plan_msg]"
 fi
-aapp ai-lax >/dev/null 2>&1
+aapp ai lax >/dev/null 2>&1
 
 # 9. test_lax_human_commit_needs_no_identity
 echo "# human change" >> "src/test-feat.py"
@@ -166,7 +166,7 @@ git add "src/test-feat.py" CHANGELOG.md
 )
 
 # 10. test_note_token_attached_in_notes_mode
-aapp ai-notes >/dev/null 2>&1
+aapp ai notes >/dev/null 2>&1
 echo "# notes change" >> "src/test-feat.py"
 echo "- notes change" >> CHANGELOG.md
 git add "src/test-feat.py" CHANGELOG.md
@@ -177,7 +177,7 @@ if [ "$rc" -eq 0 ] && echo "$note_content" | grep -q "reviewed and signed"; then
 else
   bad "test_note_token_attached_in_notes_mode" "rc=$rc note=[$note_content]"
 fi
-aapp ai-lax >/dev/null 2>&1
+aapp ai lax >/dev/null 2>&1
 
 # 11. test_detached_head_recorded
 orig_branch="$(git rev-parse --abbrev-ref HEAD)"

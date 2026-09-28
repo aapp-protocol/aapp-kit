@@ -148,13 +148,6 @@ case "$CMD" in
     status)
         source "$AAPP_LIB/cmd_status.sh" "$@"
         ;;
-    ai-status|ai-lax|ai-strict|ai-notes|ai-off|ai-credits|ai-note)
-        source "$AAPP_LIB/cmd_ai.sh" "$CMD" "$@"
-        ;;
-    ai-commit)
-        echo "❌ [Error] 'aapp ai-commit' is retired; run 'aapp ai-lax' or 'aapp ai-strict'." >&2
-        exit 1
-        ;;
     ai)
         source "$AAPP_LIB/cmd_ai.sh" "$@"
         ;;

@@ -30,10 +30,4 @@ hook-test	hooks	yes	Dry-run test an event trigger with mock payload
 hook-run	hooks	yes	Execute a registered hook handler with specified payload
 hook-hash	hooks	yes	Compute SHA256 registration hash for hook script
 plugins	hooks	yes	Discover installed action plugins in .agents/skills/
-ai-lax	ai	yes	Switch to lax attribution (validates trailers if present, human commits pass)
-ai-strict	ai	yes	Switch to strict attribution (enforces valid trailers on every commit)
-ai-notes	ai	yes	Switch to local-first / private git notes attribution
-ai-off	ai	yes	Disable AI attribution (pure human authoring)
-ai-credits	ai	yes	Generate or update AI Contributors block in README.md
-ai-status	ai	yes	Display current AI attribution mode and pending notes
-ai-note	ai	yes	Pre-stage customizable note buffer for next commit (--stage)
+ai	daily	yes	Configure or inspect AI attribution mode and credits	lib/docs/verbs/ai.md

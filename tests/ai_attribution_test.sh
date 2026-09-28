@@ -63,49 +63,46 @@ fi
 echo "== 2. Switchboard State Transitions & Idempotency =="
 # ==============================================================================
 
-# test_setup_verbs_switch_modes: ai-off/ai-lax/ai-strict/ai-notes set the value; ai-commit is an unknown verb naming the replacements
-"$KIT/aapp" ai-lax >/dev/null 2>&1 || true
+# test_setup_verbs_switch_modes: ai none/ai lax/ai strict/ai notes set the value
+"$KIT/aapp" ai lax >/dev/null 2>&1 || true
 MODE_LAX="$(git config aapp.aiAttribution 2>/dev/null)"
 
-"$KIT/aapp" ai-strict >/dev/null 2>&1 || true
+"$KIT/aapp" ai strict >/dev/null 2>&1 || true
 MODE_STRICT="$(git config aapp.aiAttribution 2>/dev/null)"
 
-"$KIT/aapp" ai-notes >/dev/null 2>&1 || true
+"$KIT/aapp" ai notes >/dev/null 2>&1 || true
 MODE_NOTES="$(git config aapp.aiAttribution 2>/dev/null)"
 REWRITE_REF="$(git config --get-all notes.rewriteRef 2>/dev/null || echo "")"
 MERGE_STRAT="$(git config notes.mergeStrategy 2>/dev/null || echo "")"
 
-"$KIT/aapp" ai-off >/dev/null 2>&1 || true
-MODE_OFF="$(git config aapp.aiAttribution 2>/dev/null)"
+"$KIT/aapp" ai none >/dev/null 2>&1 || true
+MODE_NONE="$(git config aapp.aiAttribution 2>/dev/null)"
 CREDITS_TOGGLE="$(git config aapp.aiCredits 2>/dev/null)"
-
-RETIRED_OUT="$("$KIT/aapp" ai-commit 2>&1 || true)"
 
 if [ "$MODE_LAX" = "lax" ] && [ "$MODE_STRICT" = "strict" ] && \
    [ "$MODE_NOTES" = "notes" ] && [ "$REWRITE_REF" = "refs/notes/commits" ] && [ "$MERGE_STRAT" = "cat_sort_uniq" ] && \
-   [ "$MODE_OFF" = "none" ] && [ "$CREDITS_TOGGLE" = "false" ] && \
-   echo "$RETIRED_OUT" | grep -qiE 'ai-lax|ai-strict'; then
+   [ "$MODE_NONE" = "none" ] && [ "$CREDITS_TOGGLE" = "false" ]; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "test_setup_verbs_switch_modes: verbs switch modes" "PASS"; PASS=$((PASS+1))
 else
     printf "  \033[31m✘\033[0m %-52s switchboard modes failed\n" "test_setup_verbs_switch_modes: verbs switch modes"; FAIL=$((FAIL+1))
 fi
 
-# Test that ai-notes does not clobber or configure remote refspecs (#91)
-"$KIT/aapp" ai-notes >/dev/null 2>&1 || true
-"$KIT/aapp" ai-notes >/dev/null 2>&1 || true
+# Test that ai notes does not clobber or configure remote refspecs (#91)
+"$KIT/aapp" ai notes >/dev/null 2>&1 || true
+"$KIT/aapp" ai notes >/dev/null 2>&1 || true
 PUSH_REFS="$(git config --get-all remote.origin.push 2>/dev/null || true)"
 FETCH_REFS="$(git config --get-all remote.origin.fetch 2>/dev/null || true)"
 if [ -z "$PUSH_REFS" ] && [ -z "$FETCH_REFS" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "ai-notes leaves remote refspecs untouched" "PASS"; PASS=$((PASS+1))
+    printf "  \033[32m✔\033[0m %-52s %s\n" "ai notes leaves remote refspecs untouched" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s want empty push/fetch got push=%s fetch=%s\n" "ai-notes leaves remote refspecs untouched" "$PUSH_REFS" "$FETCH_REFS"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s want empty push/fetch got push=%s fetch=%s\n" "ai notes leaves remote refspecs untouched" "$PUSH_REFS" "$FETCH_REFS"; FAIL=$((FAIL+1))
 fi
 
-# aapp ai-status executes cleanly
-if "$KIT/aapp" ai-status >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "aapp ai-status executes cleanly" "PASS"; PASS=$((PASS+1))
+# aapp ai status executes cleanly
+if "$KIT/aapp" ai status >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "aapp ai status executes cleanly" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s want exit 0\n" "aapp ai-status executes cleanly"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s want exit 0\n" "aapp ai status executes cleanly"; FAIL=$((FAIL+1))
 fi
 
 # ==============================================================================
@@ -230,10 +227,10 @@ fi
 # test_strict_requires_trailers: strict mode refuses trailerless commit, prints hints
 git config aapp.aiAttribution strict
 strict_out=$(run_commit_msg "$TEST_DIR/msg_ok.txt" 2>&1 || true)
-if ! run_commit_msg "$TEST_DIR/msg_ok.txt" >/dev/null 2>&1 && echo "$strict_out" | grep -q "aapp ai-lax"; then
+if ! run_commit_msg "$TEST_DIR/msg_ok.txt" >/dev/null 2>&1 && echo "$strict_out" | grep -q "aapp ai lax"; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "test_strict_requires_trailers" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s want refusal with ai-lax hint\n" "test_strict_requires_trailers"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s want refusal with ai lax hint\n" "test_strict_requires_trailers"; FAIL=$((FAIL+1))
 fi
 
 # test_strict_accepts_valid_trailers: strict mode accepts valid 3 trailers
@@ -243,13 +240,13 @@ else
     printf "  \033[31m✘\033[0m %-52s want PASS in strict mode\n" "test_strict_accepts_valid_trailers"; FAIL=$((FAIL+1))
 fi
 
-# test_retired_commit_mode_refuses: retired commit mode refused, naming ai-lax / ai-strict
+# test_retired_commit_mode_refuses: retired commit mode refused, naming ai lax / ai strict
 git config aapp.aiAttribution commit
 retired_commit_out=$(run_commit_msg "$TEST_DIR/msg_agent_full.txt" 2>&1 || true)
-if ! run_commit_msg "$TEST_DIR/msg_agent_full.txt" >/dev/null 2>&1 && echo "$retired_commit_out" | grep -qiE 'ai-lax|ai-strict'; then
+if ! run_commit_msg "$TEST_DIR/msg_agent_full.txt" >/dev/null 2>&1 && echo "$retired_commit_out" | grep -qiE 'ai lax|ai strict'; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "test_retired_commit_mode_refuses" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s want refusal naming ai-lax/ai-strict\n" "test_retired_commit_mode_refuses"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s want refusal naming ai lax/ai strict\n" "test_retired_commit_mode_refuses"; FAIL=$((FAIL+1))
 fi
 
 # 3e. Git revert bypass
@@ -288,23 +285,23 @@ else
     printf "  \033[31m✘\033[0m %-52s note attached unexpectedly: %s\n" "unstaged commit produces no note (silent no-op)" "$NOTE_EXISTS"; FAIL=$((FAIL+1))
 fi
 
-# 4b. Pre-stage note via ai-note --stage and verify byte-faithful attachment
+# 4b. Pre-stage note via note stage and verify byte-faithful attachment
 COMMIT_MSG="feat: implement feature with staged note"
-"$KIT/aapp" ai-note --stage --msg "$COMMIT_MSG" --agent "Antigravity" --vendor "Google" --model "gemini-1.5-pro" >/dev/null
+"$KIT/aapp" note stage msg "$COMMIT_MSG" agent "Antigravity" vendor "Google" model "gemini-1.5-pro" >/dev/null
 
 MSG_HASH="$(echo "$COMMIT_MSG" | git stripspace --strip-comments | sha256sum | awk '{print $1}')"
 NOTE_BUFFER="$(git rev-parse --git-path aapp_pending_note).$MSG_HASH"
 if [ -f "$NOTE_BUFFER" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "ai-note --stage creates hash-keyed buffer file" "PASS"; PASS=$((PASS+1))
+    printf "  \033[32m✔\033[0m %-52s %s\n" "note stage creates hash-keyed buffer file" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s missing buffer: %s\n" "ai-note --stage creates hash-keyed buffer file" "$NOTE_BUFFER"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s missing buffer: %s\n" "note stage creates hash-keyed buffer file" "$NOTE_BUFFER"; FAIL=$((FAIL+1))
 fi
 
 echo "content2" > file2.txt
 git add file2.txt
 git commit -m "$COMMIT_MSG" >/dev/null
 
-NOTE_CONTENT="$(git notes --ref=refs/notes/commits show HEAD 2>/dev/null || echo "")"
+NOTE_CONTENT="$(git notes --ref=refs/notes/ai show HEAD 2>/dev/null || echo "")"
 if echo "$NOTE_CONTENT" | grep -q "AI-Agent: Antigravity" && echo "$NOTE_CONTENT" | grep -q "AI-Model: gemini-1.5-pro"; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "post-commit attaches staged note to HEAD" "PASS"; PASS=$((PASS+1))
 else
@@ -317,9 +314,9 @@ else
     printf "  \033[31m✘\033[0m %-52s buffer still present: %s\n" "buffer unlinked atomically on success (&&)" "$NOTE_BUFFER"; FAIL=$((FAIL+1))
 fi
 
-# 4c. Custom note content via --content
+# 4c. Custom note content via note stage
 CUSTOM_MSG="feat: commit with custom note body"
-"$KIT/aapp" ai-note --stage --msg "$CUSTOM_MSG" --content "Custom Benchmarking Payload: benchmark_id=42" >/dev/null
+"$KIT/aapp" note stage "Custom Benchmarking Payload: benchmark_id=42" msg "$CUSTOM_MSG" >/dev/null
 echo "content3" > file3.txt
 git add file3.txt
 git commit -m "$CUSTOM_MSG" >/dev/null
@@ -345,12 +342,12 @@ fi
 
 # 4e. Failure Safety: buffer preserved when attachment fails
 FAIL_MSG="feat: intentional attachment failure test"
-"$KIT/aapp" ai-note --stage --msg "$FAIL_MSG" --agent "Claude" >/dev/null
+"$KIT/aapp" note stage msg "$FAIL_MSG" agent "Claude" >/dev/null
 FAIL_HASH="$(echo "$FAIL_MSG" | git stripspace --strip-comments | sha256sum | awk '{print $1}')"
 FAIL_BUFFER="$(git rev-parse --git-path aapp_pending_note).$FAIL_HASH"
 
 # Block notes ref updates by creating lock directory
-LOCK_FILE="$(git rev-parse --git-path refs/notes/commits.lock)"
+LOCK_FILE="$(git rev-parse --git-path refs/notes/ai.lock)"
 mkdir -p "$LOCK_FILE"
 
 echo "test_fail" > fail.txt
@@ -368,7 +365,7 @@ fi
 
 # 4f. Mismatch diagnostics & TTL cleanup
 STALE_MSG="feat: uncommitted idea that aged out"
-"$KIT/aapp" ai-note --stage --msg "$STALE_MSG" --agent "StaleAgent" >/dev/null
+"$KIT/aapp" note stage msg "$STALE_MSG" agent "StaleAgent" >/dev/null
 STALE_HASH="$(echo "$STALE_MSG" | git stripspace --strip-comments | sha256sum | awk '{print $1}')"
 STALE_BUFFER="$(git rev-parse --git-path aapp_pending_note).$STALE_HASH"
 
@@ -397,7 +394,7 @@ cat > README.md << 'EOF'
 Initial readme content.
 EOF
 
-"$KIT/aapp" ai-credits >/dev/null 2>&1
+"$KIT/aapp" ai credits >/dev/null 2>&1
 if ! grep -q "<!-- AAPP-AI-CREDITS:START -->" README.md; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "credits block not generated in 'none' mode" "PASS"; PASS=$((PASS+1))
 else
@@ -405,7 +402,7 @@ else
 fi
 
 git config aapp.aiAttribution notes
-"$KIT/aapp" ai-credits >/dev/null 2>&1
+"$KIT/aapp" ai credits >/dev/null 2>&1
 if ! grep -q "<!-- AAPP-AI-CREDITS:START -->" README.md; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "credits block not generated in 'notes' mode (no-op)" "PASS"; PASS=$((PASS+1))
 else
@@ -428,7 +425,7 @@ Authorship of, and responsibility for, this code rest with its human contributor
 EOF
 
 README_CHECKSUM="$(sha256sum README.md | awk '{print $1}')"
-"$KIT/aapp" ai-credits >/dev/null 2>&1
+"$KIT/aapp" ai credits >/dev/null 2>&1
 NEW_CHECKSUM="$(sha256sum README.md | awk '{print $1}')"
 if [ "$README_CHECKSUM" = "$NEW_CHECKSUM" ]; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "notes mode preserves hand-maintained block" "PASS"; PASS=$((PASS+1))
@@ -446,13 +443,13 @@ AI-Agent: Antigravity
 AI-Vendor: Google
 AI-Model: gemini-1.5-pro" >/dev/null
 
-"$KIT/aapp" ai-credits >/dev/null 2>&1
+"$KIT/aapp" ai credits >/dev/null 2>&1
 
 # Verify union of existing (Claude) and commit trailer (Antigravity)
 if grep -q -- "- Antigravity (Google)" README.md && grep -q -- "- Claude (Anthropic)" README.md; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "ai-credits creates union of existing + git history" "PASS"; PASS=$((PASS+1))
+    printf "  \033[32m✔\033[0m %-52s %s\n" "ai credits creates union of existing + git history" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s missing expected contributors in README\n" "ai-credits creates union of existing + git history"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s missing expected contributors in README\n" "ai credits creates union of existing + git history"; FAIL=$((FAIL+1))
 fi
 
 # Verify LC_ALL=C alphabetical ordering (Antigravity before Claude)
@@ -465,12 +462,12 @@ fi
 
 # 5c. Byte-identical regeneration
 README_PRE_REGEN="$(sha256sum README.md | awk '{print $1}')"
-"$KIT/aapp" ai-credits >/dev/null 2>&1
+"$KIT/aapp" ai credits >/dev/null 2>&1
 README_POST_REGEN="$(sha256sum README.md | awk '{print $1}')"
 if [ "$README_PRE_REGEN" = "$README_POST_REGEN" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "ai-credits regeneration is byte-identical" "PASS"; PASS=$((PASS+1))
+    printf "  \033[32m✔\033[0m %-52s %s\n" "ai credits regeneration is byte-identical" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s regeneration dirtying README.md\n" "ai-credits regeneration is byte-identical"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s regeneration dirtying README.md\n" "ai credits regeneration is byte-identical"; FAIL=$((FAIL+1))
 fi
 
 # 5d. Unparseable block refusal
@@ -479,7 +476,7 @@ cat > README.md << 'EOF'
 Broken block missing end tag
 EOF
 
-if ! "$KIT/aapp" ai-credits >/dev/null 2>&1; then
+if ! "$KIT/aapp" ai credits >/dev/null 2>&1; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "unparseable block refused without corrupting" "BLOCK"; PASS=$((PASS+1))
 else
     printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "unparseable block refused without corrupting"; FAIL=$((FAIL+1))
@@ -490,7 +487,7 @@ cat > README.md << 'EOF'
 <!-- AAPP-AI-CREDITS:END -->
 <!-- AAPP-AI-CREDITS:START -->
 EOF
-if ! "$KIT/aapp" ai-credits >/dev/null 2>&1; then
+if ! "$KIT/aapp" ai credits >/dev/null 2>&1; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "inverted START/END tags refused" "BLOCK"; PASS=$((PASS+1))
 else
     printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "inverted START/END tags refused"; FAIL=$((FAIL+1))
@@ -512,7 +509,7 @@ Authorship of, and responsibility for, this code rest with its human contributor
 EOF
 
 git config --add aapp.aiAlias "Claude Code=Claude"
-"$KIT/aapp" ai-credits >/dev/null 2>&1
+"$KIT/aapp" ai credits >/dev/null 2>&1
 
 if grep -q -- "- Claude (Anthropic)" README.md && ! grep -q -- "- Claude Code (Anthropic)" README.md; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "aapp.aiAlias merges duplicate/renamed identities" "PASS"; PASS=$((PASS+1))
@@ -520,15 +517,15 @@ else
     printf "  \033[31m✘\033[0m %-52s alias map failed to normalize identities\n" "aapp.aiAlias merges duplicate/renamed identities"; FAIL=$((FAIL+1))
 fi
 
-# 5f. aapp ai-off stops updating but leaves block intact
-"$KIT/aapp" ai-off >/dev/null
+# 5f. aapp ai none stops updating but leaves block intact
+"$KIT/aapp" ai none >/dev/null
 BEFORE_OFF="$(sha256sum README.md | awk '{print $1}')"
-"$KIT/aapp" ai-credits >/dev/null 2>&1
+"$KIT/aapp" ai credits >/dev/null 2>&1
 AFTER_OFF="$(sha256sum README.md | awk '{print $1}')"
 if [ "$BEFORE_OFF" = "$AFTER_OFF" ] && grep -q "<!-- AAPP-AI-CREDITS:START -->" README.md; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "ai-off preserves existing credits block untouched" "PASS"; PASS=$((PASS+1))
+    printf "  \033[32m✔\033[0m %-52s %s\n" "ai none preserves existing credits block untouched" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s ai-off mutated or deleted block\n" "ai-off preserves existing credits block untouched"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s ai none mutated or deleted block\n" "ai none preserves existing credits block untouched"; FAIL=$((FAIL+1))
 fi
 
 # ==============================================================================

@@ -1,14 +1,9 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# AAPP Command: `ai-*` (AI Attribution Switchboard & Credits Manager)
+# AAPP Command: `ai` (AI Attribution Policy & Credits Manager)
 #
-# Subcommands:
-#   ai-status   Display current attribution mode and pending note buffers
-#   ai-commit   Switch to public semantic trailer mode (commit)
-#   ai-notes    Switch to local-first git notes mode (notes)
-#   ai-off      Disable AI attribution (none)
-#   ai-note     Pre-stage customizable note buffer for upcoming commit (--stage)
-#   ai-credits  Generate or update AI Contributors block in README.md
+# Usage:
+#   aapp ai [status | none | lax | strict | notes | credits]
 # ==============================================================================
 set -e
 
@@ -82,7 +77,7 @@ cmd_ai_status() {
     local note_dir
     note_dir="$(git rev-parse --git-path . 2>/dev/null || echo ".git")"
 
-    echo "🤖 AAPP AI Attribution Status"
+    echo "🤖 AAPP AI Attribution Policy Status"
     echo "============================================================"
     echo "  Mode              : $mode"
     case "$mode" in
@@ -92,11 +87,8 @@ cmd_ai_status() {
         strict)
             echo "  Description       : Strict public emailless trailers required on every commit"
             ;;
-        commit)
-            echo "  Description       : [RETIRED] Public semantic trailers (run 'aapp ai-lax' or 'aapp ai-strict')"
-            ;;
         notes)
-            echo "  Description       : Local-first / private git notes (refs/notes/commits)"
+            echo "  Description       : Local-first / private git notes"
             ;;
         none|*)
             echo "  Description       : Disabled (pure human authoring)"
@@ -162,130 +154,20 @@ cmd_ai_strict() {
 
 cmd_ai_notes() {
     git config aapp.aiAttribution notes
-
     git config notes.mergeStrategy cat_sort_uniq
     git config notes.rewriteMode concatenate
     git config --replace-all notes.rewriteRef "refs/notes/commits"
-
     echo "✅ Switched AI attribution to 'notes' mode."
     echo "   Commit messages will remain pristine and human-only."
     echo "   Attribution metadata will be attached to refs/notes/commits."
     echo "   Configured mergeStrategy (cat_sort_uniq) and rewriteRef (refs/notes/commits)."
 }
 
-cmd_ai_off() {
+cmd_ai_none() {
     git config aapp.aiAttribution none
+    git config aapp.aiCredits false
     echo "✅ AI attribution disabled (mode: none)."
     echo "   Pure human commit authoring; no AI trailers or git notes required."
-}
-
-cmd_ai_note() {
-    local is_stage=0
-    local msg=""
-    local msg_file=""
-    local agent=""
-    local vendor=""
-    local model=""
-    local content=""
-
-    while [ $# -gt 0 ]; do
-        case "$1" in
-            --stage)
-                is_stage=1
-                shift
-                ;;
-            --msg|--message)
-                msg="$2"
-                shift 2
-                ;;
-            --msg-file)
-                msg_file="$2"
-                shift 2
-                ;;
-            --agent)
-                agent="$2"
-                shift 2
-                ;;
-            --vendor)
-                vendor="$2"
-                shift 2
-                ;;
-            --model)
-                model="$2"
-                shift 2
-                ;;
-            --content)
-                content="$2"
-                shift 2
-                ;;
-            *)
-                if [ -z "$msg" ]; then
-                    msg="$1"
-                fi
-                shift
-                ;;
-        esac
-    done
-
-    if [ "$is_stage" -eq 0 ]; then
-        echo "Usage: aapp ai-note --stage --msg \"<commit message>\" [options]"
-        echo ""
-        echo "Options:"
-        echo "  --agent <name>       Agent name (e.g. Antigravity, Claude)"
-        echo "  --vendor <vendor>   Vendor name (e.g. Google, Anthropic)"
-        echo "  --model <model>     Model identifier (e.g. gemini-1.5-pro)"
-        echo "  --content <text>    Custom note body (or pipe via stdin)"
-        echo "  --msg-file <file>   Read planned commit message from file"
-        exit 1
-    fi
-
-    local raw_msg="$msg"
-    if [ -n "$msg_file" ] && [ -f "$msg_file" ]; then
-        raw_msg="$(cat "$msg_file")"
-    fi
-
-    if [ -z "$raw_msg" ]; then
-        echo "❌ Error: A commit message or --msg-file is required to key the staged note buffer." >&2
-        echo "   Usage: aapp ai-note --stage --msg \"<commit message>\" ..." >&2
-        exit 1
-    fi
-
-    local msg_hash
-    msg_hash="$(echo "$raw_msg" | git stripspace --strip-comments 2>/dev/null | sha256sum | awk '{print $1}')"
-    if [ -z "$msg_hash" ]; then
-        echo "❌ Error: Failed to compute message hash." >&2
-        exit 1
-    fi
-
-    local note_body="$content"
-    if [ -z "$note_body" ] && [ ! -t 0 ]; then
-        note_body="$(cat)"
-    fi
-
-    if [ -z "$note_body" ]; then
-        local note_lines=()
-        [ -n "$agent" ] && note_lines+=("AI-Agent: $agent")
-        [ -n "$vendor" ] && note_lines+=("AI-Vendor: $vendor")
-        [ -n "$model" ] && note_lines+=("AI-Model: $model")
-
-        if [ ${#note_lines[@]} -eq 0 ]; then
-            note_lines+=("AI-Agent: ${AAPP_AGENT_NAME:-Antigravity}")
-            note_lines+=("AI-Vendor: ${AAPP_AGENT_VENDOR:-Google}")
-        fi
-        note_body="$(printf "%s\n" "${note_lines[@]}")"
-    fi
-
-    local note_base
-    note_base="$(git rev-parse --git-path aapp_pending_note 2>/dev/null || echo ".git/aapp_pending_note")"
-    local note_dir
-    note_dir="$(dirname "$note_base")"
-    mkdir -p "$note_dir"
-    local target_buffer="${note_base}.${msg_hash}"
-
-    printf "%s\n" "$note_body" > "$target_buffer"
-    echo "✅ Staged AI note buffer for message SHA-256 ($msg_hash):"
-    echo "   Buffer file: $target_buffer"
-    echo "   Next commit with matching message will automatically attach this note."
 }
 
 cmd_ai_credits() {
@@ -438,49 +320,39 @@ ACTION="${1:-status}"
 shift || true
 
 case "$ACTION" in
-    ai-status|status)
+    status)
         cmd_ai_status "$@"
         ;;
-    ai-lax|lax)
+    lax)
         cmd_ai_lax "$@"
         ;;
-    ai-strict|strict)
+    strict)
         cmd_ai_strict "$@"
         ;;
-    ai-commit|commit)
-        echo "❌ [Error] 'aapp ai-commit' is retired; run 'aapp ai-lax' or 'aapp ai-strict'." >&2
-        exit 1
-        ;;
-    ai-notes|notes)
+    notes)
         cmd_ai_notes "$@"
         ;;
-    ai-off|off|none)
-        cmd_ai_off "$@"
+    none)
+        cmd_ai_none "$@"
         ;;
-    ai-note|note)
-        cmd_ai_note "$@"
-        ;;
-    ai-credits|credits)
+    credits)
         cmd_ai_credits "$@"
         ;;
     help|-h|--help)
         cat <<EOF
-Usage: aapp ai-<command> [options]
+Usage: aapp ai [status | none | lax | strict | notes | credits]
 
-AI Attribution Switchboard Commands:
-  ai-status   Display current attribution mode, config, and pending notes
-  ai-lax      Switch to lax attribution (validates trailers if present; human commits pass)
-  ai-strict   Switch to strict attribution (requires valid trailers on every commit)
-  ai-notes    Switch to local-first git notes mode (notes)
-  ai-off      Disable AI attribution (none)
-  ai-note     Pre-stage customizable attribution note for next commit (--stage)
-  ai-credits  Generate or update AI Contributors block in README.md
+AI Attribution Policy Commands:
+  status    Display current attribution mode, config, and pending notes
+  none      Disable AI attribution (pure human authoring)
+  lax       Switch to lax attribution (validates trailers when present; human commits pass)
+  strict    Switch to strict attribution (requires valid trailers on every commit)
+  notes     Switch to local-first git notes mode
+  credits   Generate or update AI Contributors block in README.md
 EOF
         ;;
     *)
-        echo "❌ Unknown AI command: '$ACTION'" >&2
-        echo "   Available commands: ai-status, ai-lax, ai-strict, ai-notes, ai-off, ai-credits, ai-note" >&2
+        echo "❌ Unknown AI mode or command: '$ACTION'. Valid: status, none, lax, strict, notes, credits." >&2
         exit 1
         ;;
 esac
-

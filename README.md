@@ -28,7 +28,7 @@
 * [7. Remote Sync & Multi-Machine Workflow](#7-remote-sync--multi-machine-workflow)
 * [8. Daily Agent Workflow & Universal Skills](#8-daily-agent-workflow--universal-skills)
 * [9. Extensibility: Lifecycle Hooks & Action Plugins](#9-extensibility-lifecycle-hooks--action-plugins)
-* [10. AI Attribution & Multi-Vendor Benchmarking (`aapp ai-*`)](#10-ai-attribution--multi-vendor-benchmarking-aapp-ai-)
+* [10. AI Attribution & Multi-Vendor Benchmarking (`aapp ai`)](#10-ai-attribution--multi-vendor-benchmarking-aapp-ai)
 * [11. Security, Threat Model & Trust Boundaries](#11-security-threat-model--trust-boundaries)
 * [12. Testing & Verification Suites](#12-testing--verification-suites)
 * [13. Architectural Manual & Adopter Examples](#13-architectural-manual--adopter-examples)
@@ -380,29 +380,29 @@ on-sync	.agents/skills/team-transport/sync.sh	sha256:4d8a1c3...	45	gate
 
 ---
 
-## 10. AI Attribution & Multi-Vendor Benchmarking (`aapp ai-*`)
+## 10. AI Attribution & Multi-Vendor Benchmarking (`aapp ai`)
 
 AAPP replaces insecure, synthetic co-author emails (`Co-authored-by: Agent <email>`) with an explicit, multi-mode AI attribution suite governed by repository configuration (`git config aapp.aiAttribution`):
 
 ```bash
-aapp ai-status   # Display active mode, subject max length, and pending notes
-aapp ai-lax      # Switch to lax attribution (validates trailers if present; human commits pass)
-aapp ai-strict   # Switch to strict attribution (requires valid trailers on every commit)
-aapp ai-notes    # Switch to local-first / private git notes (refs/notes/commits)
-aapp ai-off      # Disable AI attribution (pure human commit messages)
-aapp ai-credits  # Generate or update AI Contributors roster in README.md
+aapp ai status   # Display active mode, subject max length, and pending notes
+aapp ai lax      # Switch to lax attribution (validates trailers if present; human commits pass)
+aapp ai strict   # Switch to strict attribution (requires valid trailers on every commit)
+aapp ai notes    # Switch to local-first / private git notes (refs/notes/commits)
+aapp ai none     # Disable AI attribution (pure human commit messages)
+aapp ai credits  # Generate or update AI Contributors roster in README.md
 ```
 
 ### Attribution Modes & Security Model
 | Mode | Command | Scope & Behavior |
 | :--- | :--- | :--- |
-| `none` | `aapp ai-off` | **Pure human authoring.** Any accidental AI trailers are caught and blocked by `commit-msg`. |
-| `lax` | `aapp ai-lax` | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
-| `strict` | `aapp ai-strict` | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. |
-| `notes` | `aapp ai-notes` | **Local-first / private benchmarking.** Keeps commit messages pristine. Attribution metadata attaches to `refs/notes/commits` via `aapp ai-note --stage` and `post-commit`. |
+| `none` | `aapp ai none` | **Pure human authoring.** Any accidental AI trailers are caught and blocked by `commit-msg`. |
+| `lax` | `aapp ai lax` | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
+| `strict` | `aapp ai strict` | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. |
+| `notes` | `aapp ai notes` | **Local-first / private benchmarking.** Keeps commit messages pristine. Attribution metadata attaches to `refs/notes/commits` via `aapp note stage` and `post-commit`. |
 
 ### The Mode Boundary (§E.8 Rationale)
-Choosing `ai-notes` is a decision to keep the record of AI involvement internal — a legitimate one, and often the point of the mode. A tool that then published a roster distilled from that record would defeat it. The `AI Contributors` footer therefore follows the public record (trailers) and never the private one (notes). In `notes` mode, `aapp ai-credits` is an explanatory no-op that neither generates nor erases a hand-maintained block.
+Choosing `ai notes` is a decision to keep the record of AI involvement internal — a legitimate one, and often the point of the mode. A tool that then published a roster distilled from that record would defeat it. The `AI Contributors` footer therefore follows the public record (trailers) and never the private one (notes). In `notes` mode, `aapp ai credits` is an explanatory no-op that neither generates nor erases a hand-maintained block.
 
 ---
 
@@ -432,7 +432,7 @@ AAPP includes 321 automated regression test cases verifying hook enforcement, re
 | **Commit-Time Guard** | [tests/pre-commit_test.sh](tests/pre-commit_test.sh) | 83 cases | Reachability gate & Inspection-Only mode, spaces in filenames, concurrent plan isolation, prose backtick isolation, always-allowed invariant anchors (`CHEATSHEET.md`, `README.md`, etc.), BLOCKED plan refusal regex, pure POSIX JSON parser, non-executable hook execution, adaptive branch protection, POSIX ID-anchored roadmap auto-pruning, detect-and-block Relocation Invariant, planning-health Pairs 1–6 integrity validation, git-verified worktree changelog checks. |
 | **Write-Time Guard** | [tests/write-guard_test.sh](tests/write-guard_test.sh) | 96 cases | PreToolUse Claude Code JSON payload, self-protection invariants (`.agents/claude/*`, `.claude/settings.json`, `.git/config`, `.agents/skills/aapp-*`, `.claude/skills/aapp-*`), invariant anchors (`CHEATSHEET.md`, `CHANGELOG.md`), Section 2b external hard-deny (credentials, shell rc, local bin), Section 2c external path allowlist (Claude, Antigravity, temp, git config `aapp.allowPath`), lexical canonicalization traversal prevention, `MultiEdit` matcher coverage, fail-open behavior, OOB denial, pure POSIX json parser fallback, large ARG_MAX payload streaming. |
 | **Plan Resolver & Health** | [tests/plan_resolver_test.sh](tests/plan_resolver_test.sh) | 24 cases | Plan ID resolution (`P-9`, `9`, `P13`), slug matching, Issue `#` collision rejection, transition verb empty-query guards, `get_plan_id`/`get_next_plan_id`, Pair 4 Plan ID uniqueness, Pair 5 Section 2 target blocks, Pair 6 Recorded SHA Integrity. |
-| **AI Attribution Suite** | [tests/ai_attribution_test.sh](tests/ai_attribution_test.sh) | 34 cases | Default `none` config, switchboard transitions, refspec idempotency, commit-msg conciseness (<=72 chars) and trailer checks, revert bypass, Option C hash-keyed note staging and post-commit attachment, amend durability (`notes.rewriteRef`), TTL reaping, failure safety, `ai-credits` mode boundary, `LC_ALL=C` sorting, and alias mapping. |
+| **AI Attribution Suite** | [tests/ai_attribution_test.sh](tests/ai_attribution_test.sh) | 40 cases | Default `none` config, switchboard transitions, refspec idempotency, commit-msg conciseness (<=72 chars) and trailer checks, revert bypass, Option C hash-keyed note staging and post-commit attachment, amend durability (`notes.rewriteRef`), TTL reaping, failure safety, `ai credits` mode boundary, `LC_ALL=C` sorting, and alias mapping. |
 | **Remote Sync** | [tests/sync_test.sh](tests/sync_test.sh) | 15 cases | Worktree push/pull/sync, upstream tracking branch detection, fast-forward verification, dirty worktree pre-flight checks, selective worktree filtering (`aapp.syncWorktrees`), three-tier sync strategy hierarchy (`aapp.syncStrategy`), and `on-sync` hook delegation. |
 | **Lifecycle Plugin Hooks** | [tests/hooks_test.sh](tests/hooks_test.sh) | 16 cases | 5-column TSV parsing, portable fail-closed SHA256 resolution chain, integrity checking, Dual Delivery env vars & STDIN JSON, exit code semantics (0, 1, 2), watchdog timeout handling (gate vs. notify), local git config overrides, CI confinement, `aapp hooks`, `aapp plugins`, `aapp hook-test`, `aapp hook-hash`, and transparent extension-agnostic action plugin execution. |
 

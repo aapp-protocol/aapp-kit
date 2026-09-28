@@ -1395,22 +1395,21 @@ AAPP introduces two distinct, purpose-driven attribution channels:
 
 | Mode | Command | Target Ref / Layer | Visibility & Durability |
 | :--- | :--- | :--- | :--- |
-| `none` | `aapp ai-off` | Working tree only | **Pure human authoring.** Accidental AI trailers are blocked by `commit-msg`. |
-| `lax` | `aapp ai-lax` | Commit object trailers | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
-| `strict` | `aapp ai-strict` | Commit object trailers | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. |
-| `notes` | `aapp ai-notes` | `refs/notes/commits` | **Local-first / private benchmarking.** Commit messages remain pristine. Metadata attaches via staged note buffers and `post-commit`. |
+| `none` | `aapp ai none` | Working tree only | **Pure human authoring.** Accidental AI trailers are blocked by `commit-msg`. |
+| `lax` | `aapp ai lax` | Commit object trailers | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
+| `strict` | `aapp ai strict` | Commit object trailers | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. |
+| `notes` | `aapp ai notes` | `refs/notes/commits` | **Local-first / private benchmarking.** Commit messages remain pristine. Metadata attaches via staged note buffers and `post-commit`. |
 
 ### The Switchboard Command Family
 
-The `aapp ai-*` command family manages configuration and staged buffers without manual config editing:
+The `aapp ai` command family manages configuration and credits without manual config editing:
 
-- **`aapp ai-status`**: Displays active attribution mode, `aapp.subjectMaxLen`, `aapp.aiCredits` toggle status, and scans for pending note buffers reporting count, message hash, and age.
-- **`aapp ai-lax`**: Enables lax attribution (validates trailers if present; human commits pass freely).
-- **`aapp ai-strict`**: Enables strict attribution (requires valid trailers on every commit).
-- **`aapp ai-notes`**: Enables private git notes, idempotently configures push/fetch refspecs (`+refs/notes/*:refs/notes/*`), sets `notes.mergeStrategy=cat_sort_uniq`, `notes.rewriteMode=concatenate`, and sets **`notes.rewriteRef=refs/notes/commits`**.
-- **`aapp ai-off`**: Disables AI attribution (pure human authoring; does not erase existing `README.md` blocks).
-- **`aapp ai-note --stage`**: Stages customizable attribution metadata for the upcoming commit.
-- **`aapp ai-credits`**: Generates or updates the `AI Contributors` block in `README.md`.
+- **`aapp ai status`**: Displays active attribution mode, `aapp.subjectMaxLen`, `aapp.aiCredits` toggle status, and scans for pending note buffers reporting count, message hash, and age.
+- **`aapp ai lax`**: Enables lax attribution (validates trailers if present; human commits pass freely).
+- **`aapp ai strict`**: Enables strict attribution (requires valid trailers on every commit).
+- **`aapp ai notes`**: Enables private git notes, sets `notes.mergeStrategy=cat_sort_uniq`, `notes.rewriteMode=concatenate`, and sets **`notes.rewriteRef=refs/notes/commits`**.
+- **`aapp ai none`**: Disables AI attribution (pure human authoring; does not erase existing `README.md` blocks).
+- **`aapp ai credits`**: Generates or updates the `AI Contributors` block in `README.md`.
 
 ### Commit Conciseness Invariant & Commit-Msg Enforcement
 
@@ -1468,15 +1467,15 @@ AAPP provides a general-purpose Git Notes infrastructure decoupled from AI attri
 > [!IMPORTANT]
 > **The AI Contributors footer is generated solely when `aapp.aiAttribution = commit`.**
 
-Choosing `ai-notes` is a decision to keep the record of AI involvement internal — a legitimate one, and often the point of the mode. A tool that then published a roster distilled from that record would defeat it. The footer therefore follows the public record (trailers) and never the private one (notes). Notes mode remains fully useful for its own purpose: identical per-commit benchmarking data, held locally, queryable by the team that produced it. Notes mode is an intentional privacy choice, not a degraded form of commit mode.
+Choosing `ai notes` is a decision to keep the record of AI involvement internal — a legitimate one, and often the point of the mode. A tool that then published a roster distilled from that record would defeat it. The footer therefore follows the public record (trailers) and never the private one (notes). Notes mode remains fully useful for its own purpose: identical per-commit benchmarking data, held locally, queryable by the team that produced it. Notes mode is an intentional privacy choice, not a degraded form of commit mode.
 
 Two operational consequences:
-- In `notes` mode, `aapp ai-credits` exits with an explanatory notice without modifying `README.md` (no-op by design).
+- In `notes` mode, `aapp ai credits` exits with an explanatory notice without modifying `README.md` (no-op by design).
 - Because generation is append-only and union-based, a `notes`-mode project that *does* want a footer may maintain the block by hand — the tool will never generate it, and equally will never erase it.
 
 ### The AI Contributors Roster (`README.md`)
 
-When `aapp ai-credits` runs under `commit` mode:
+When `aapp ai credits` runs under `lax` or `strict` mode:
 - **Union, never subtraction**: `new roster = existing block ∪ git history trailers`. Names are never removed.
 - **Deterministic ordering**: Sorted with `LC_ALL=C sort -u`.
 - **Byte-identical when unchanged**: Contains no timestamps, durations, or commit counts that dirty git status.
@@ -1629,7 +1628,7 @@ To eliminate cognitive overload, the AAPP CLI organizes its commands into 5 visu
 2. **Setup & Maintenance**: `init`, `install`, `upgrade`, `develop`, `uninstall`, `version`, `help`. Commands for onboarding repositories, updating tools, and linking developer clones.
 3. **Team Sync & Emergency Controls**: `push`, `pull`, `sync`, `pause`, `resume`. Worktree transport across remotes and the multi-worktree circuit breaker.
 4. **Extensibility & Automation (Hooks & Plugins)**: `hooks`, `hook-test`, `hook-run`, `hook-hash`, `plugins`. Lifecycle hook auditing, testing, and action plugin execution.
-5. **Attribution & Metadata (AI Switchboard)**: `ai-lax`, `ai-strict`, `ai-notes`, `ai-off`, `ai-credits`, `ai-status`, `ai-note`. Semantic trailers, git notes attribution, and automated credits management.
+5. **Attribution & Metadata (AI Switchboard)**: `aapp ai [status | none | lax | strict | notes | credits]`. Semantic trailers, git notes attribution mode, and automated credits management.
 
 ### Zero-Dependency Canonical Manifest (`lib/verbs.tsv`)
 

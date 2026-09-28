@@ -93,13 +93,12 @@ Attribution mode is governed by repository configuration (`git config aapp.aiAtt
 
 | Command | Mode / Role | Purpose & Behavior |
 | :--- | :--- | :--- |
-| `aapp ai-lax` | Lax attribution | Switch to lax attribution (validates trailers if present; human commits pass freely) |
-| `aapp ai-strict` | Strict attribution | Switch to strict attribution (enforces valid trailers on every commit) |
-| `aapp ai-notes` | Local-first attribution | Switch to local-first git notes (`refs/notes/commits`) — pristine commit messages |
-| `aapp ai-off` | Pure human | Disable AI attribution (pure human authoring) |
-| `aapp ai-credits` | Contributors block | Generate or update alphabetical `AI Contributors` block in `README.md` |
-| `aapp ai-status` | Status inspection | Display current AI attribution mode and pending notes |
-| `aapp ai-note` | Buffer staging | Pre-stage customizable note buffer for next commit (`--stage`) |
+| `aapp ai lax` | Lax attribution | Switch to lax attribution (validates trailers if present; human commits pass freely) |
+| `aapp ai strict` | Strict attribution | Switch to strict attribution (enforces valid trailers on every commit) |
+| `aapp ai notes` | Local-first attribution | Switch to local-first git notes mode (`refs/notes/commits`) — pristine commit messages |
+| `aapp ai none` | Pure human | Disable AI attribution (pure human authoring) |
+| `aapp ai credits` | Contributors block | Generate or update alphabetical `AI Contributors` block in `README.md` |
+| `aapp ai status` | Status inspection | Display current AI attribution mode and pending notes |
 
 ---
 
