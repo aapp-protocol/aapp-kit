@@ -25,11 +25,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-42**: [`P42-dual-scaffolding-and-continuous-execution.md`](current/P42-dual-scaffolding-and-continuous-execution.md) — Dual Scaffolding And Continuous Execution
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-42**: [`P42-dual-scaffolding-and-continuous-execution.md`](current/P42-dual-scaffolding-and-continuous-execution.md) — Dual Scaffolding And Continuous Execution
 
 ---
 
