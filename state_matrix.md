@@ -24,11 +24,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
+- 🔷 **P-43**: [`P43-unified-ai-attribution-verb.md`](current/P43-unified-ai-attribution-verb.md) — Unified Ai Attribution Verb
+
 ---
 
 ## ⚡ In Development (Active Implementation Context)
-
-- ⚡ **P-43**: [`P43-unified-ai-attribution-verb.md`](current/P43-unified-ai-attribution-verb.md) — Unified Ai Attribution Verb
 
 ---
 
