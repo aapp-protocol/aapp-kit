@@ -47,22 +47,24 @@ The single entry point `aapp ai` will handle discovery, status, mode switching, 
 - **Status / Discovery (`aapp ai` or `aapp ai status`)**:
   - Displays current mode (`none`, `lax`, `strict`, `notes`).
   - Displays brief mode description and whether AI trailers/notes are currently enforced.
-  - Lists pending note buffers if any exist.
-  - Shows helpful usage syntax: `aapp ai [off|lax|strict|notes|note|credits]`.
+  - Shows helpful usage syntax: `aapp ai [status|off|none|lax|strict|notes|credits]`.
 
 - **Mode Switching**:
   - `aapp ai off` or `aapp ai none`: Disables attribution (`aapp.aiAttribution = none`). Pure human authoring.
   - `aapp ai lax`: Mixed human/AI mode (`aapp.aiAttribution = lax`). Validates emailless trailers when present; human commits pass.
   - `aapp ai strict`: Autonomous trace mode (`aapp.aiAttribution = strict`). Enforces valid emailless trailers on every commit.
-  - `aapp ai notes`: Local-first mode (`aapp.aiAttribution = notes`). Stores metadata in `refs/notes/commits`.
+  - `aapp ai notes`: Local-first attribution mode (`aapp.aiAttribution = notes`). Stores attribution metadata in `refs/notes/commits`.
 
 - **Subcommands**:
-  - `aapp ai note [args]`: Pre-stages customizable note buffer for next commit (delegates to `cmd_ai_note`).
   - `aapp ai credits`: Generates or updates AI Contributors block in `README.md` (delegates to `cmd_ai_credits`).
+
+- **Decoupled Notes Responsibility (Clean Break to P-44)**:
+  - Arbitrary note creation, staging, editing, and push sync are decoupled from AI attribution and delegated to Plan [P-44](P44-general-purpose-git-notes-infrastructure.md) (`aapp note`).
+  - Legacy `ai-note` is dropped; users and agents will use `aapp note stage "<text>"` under P-44.
 
 - **Help / Diagnostics (`aapp ai help` or unknown subcommands)**:
   - Fails closed on invalid mode with exit code 1:
-    `❌ Unknown AI mode or command: '<input>'. Valid: status, off, none, lax, strict, notes, note, credits.`
+    `❌ Unknown AI mode or command: '<input>'. Valid: status, off, none, lax, strict, notes, credits.`
 
 ### 2. Frictionless Repository Setup: `aapp init --ai=<mode>`
 Update `lib/cmd_init.sh` to accept optional `--ai=<mode>` (e.g. `--ai=lax`, `--ai=strict`, `--ai=notes`, `--ai=none`):
