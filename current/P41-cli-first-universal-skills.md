@@ -2,7 +2,7 @@
 * **Created:** 2026-09-28 | **Last Refined:** 2026-09-28
 * **Target Issue / Milestone:** Protocol Enhancement (Universal Skills Realignment)
 * **Plan ID:** P-41
-* **Status:** 🟣 Under Review
+* **Status:** 📝 Refining
 * **Base:** none
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -122,6 +122,14 @@ Each skill in `templates/skills/` adopts the canonical 3-tier structure:
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/install_test.sh::test_skills_cli_first_done` -> asserts `templates/skills/aapp-done/SKILL.md` invokes `aapp done` and contains no manual `sed -i`, `mv`, or raw `git -C .plans commit`
+- [ ] `tests/install_test.sh::test_skills_cli_first_freeze` -> asserts `templates/skills/aapp-freeze/SKILL.md` invokes `aapp freeze` and contains no manual `sed -i` or raw `git -C .plans commit`
+- [ ] `tests/install_test.sh::test_skills_cli_first_start` -> asserts `templates/skills/aapp-start/SKILL.md` invokes `aapp start` and contains no direct buffer write `echo "<plan-id>" > "$ACTIVE_BUFFER"` or raw `git -C .plans commit`
+- [ ] `tests/install_test.sh::test_skills_cli_first_status` -> asserts `templates/skills/aapp-status/SKILL.md` delegates directly to `aapp status [short]`
+- [ ] `tests/install_test.sh::test_skills_cli_first_digest` -> asserts `templates/skills/aapp-digest/SKILL.md` delegates scaffolding to `aapp draft` instead of manual file copying
+
+### Phase 0: Failure-First Test Declarations
+- [ ] Task 0.1: Add Test 52 in `tests/install_test.sh` asserting CLI-first execution and absence of manual git surgery / sed commands across all skill templates, confirming initial failure (Red 🔴).
 
 ### Phase 1: Skills Refactoring
 - [ ] Task 1.1: Refactor `templates/skills/aapp-done/SKILL.md` to CLI-first execution (`aapp done`), removing all `mv`, `sed`, and raw `git commit` instructions.
@@ -145,6 +153,7 @@ Each skill in `templates/skills/` adopts the canonical 3-tier structure:
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
+- [ ] `tests/install_test.sh` -> Regression test suite asserting CLI-first structure and forbidding manual git/sed bypasses
 - [ ] `templates/skills/aapp-done/SKILL.md` -> CLI-first execution and refusal diagnostics
 - [ ] `templates/skills/aapp-freeze/SKILL.md` -> CLI-first execution and refusal diagnostics
 - [ ] `templates/skills/aapp-start/SKILL.md` -> CLI-first execution and refusal diagnostics
@@ -155,6 +164,7 @@ Each skill in `templates/skills/` adopts the canonical 3-tier structure:
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/install_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.agents/skills/*` -> Governance skills self-protection; authored in `templates/skills/` and synced via `aapp init`.
@@ -165,11 +175,13 @@ Each skill in `templates/skills/` adopts the canonical 3-tier structure:
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 — Skill Fallback when `aapp` binary is unreachable**: If an agent is running in an environment where `aapp` is not in `$PATH` or alias (e.g. bare subshell), should the skill advise running `export PATH="$HOME/.local/bin:$PATH"` or `./aapp`, rather than performing manual git surgery?
-  - *Proposed*: Advise checking PATH and running `./aapp` directly; never provide a manual git bypass that sidesteps lifecycle gates.
-* [ ] **Question 2 — Skill Frontmatter Invariant**: Verify that all modified skills maintain `disable-model-invocation: false` and valid `argument-hint` strings so IDE autocomplete in Claude Code and Antigravity remains seamless.
+* [x] **Question 1 — Skill Fallback when `aapp` binary is unreachable**: If an agent is running in an environment where `aapp` is not in `$PATH` or alias (e.g. bare subshell), should the skill advise running `export PATH="$HOME/.local/bin:$PATH"` or `./aapp`, rather than performing manual git surgery?
+  - *Resolution*: Advise checking PATH and running `./aapp` directly; never provide a manual git bypass that sidesteps lifecycle gates.
+* [x] **Question 2 — Skill Frontmatter Invariant**: Verify that all modified skills maintain `disable-model-invocation: false` and valid `argument-hint` strings so IDE autocomplete in Claude Code and Antigravity remains seamless.
+  - *Resolution*: All skill templates preserve `disable-model-invocation: false` and accurate `argument-hint` strings, matching the drift control tests in `tests/install_test.sh`.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-09-28:** Drafted blueprint following P-39 completion to align legacy skill templates with deterministic CLI engines and lifecycle gates.
+* **2026-09-28:** Refined blueprint to 📝 Refining, declared failure-first tests in §3 and §4, resolved open questions Q1 & Q2, and bound Target Files.
