@@ -657,6 +657,17 @@ if [ -n "$ISSUES_FILE" ] && grep -qE "$ISSUES_RESOLVED_ROW_REGEX" "$ISSUES_FILE"
 fi
 
 # ------------------------------------------------------------------------------
+# 3c. PLAN-BOUND COMMIT HELPER REMINDER (P-39)
+# ------------------------------------------------------------------------------
+if [ -z "${AAPP_COMMIT_HELPER:-}" ] && [ -n "${ACTIVE_PLAN_PATH:-}" ] && [ -f "$ACTIVE_PLAN_PATH" ]; then
+    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$ACTIVE_PLAN_PATH"; then
+        ACTIVE_PLAN_ID="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$ACTIVE_PLAN_PATH" 2>/dev/null || true)"
+        [ -z "$ACTIVE_PLAN_ID" ] && ACTIVE_PLAN_ID="$(basename "$ACTIVE_PLAN_PATH" .md | cut -d'-' -f1)"
+        echo "💡 $ACTIVE_PLAN_ID is active: record this commit with 'aapp commit adopt <sha>' (or commit through 'aapp commit')."
+    fi
+fi
+
+# ------------------------------------------------------------------------------
 # 4. OPTIONAL SYNTAX & LINTER VALIDATIONS (BLOCKING)
 # ------------------------------------------------------------------------------
 for FILE in "${STAGED_FILES[@]}"; do
