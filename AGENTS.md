@@ -129,6 +129,7 @@ The workspace tracks two separate phases. Routing an item into the wrong lane co
 ### 🏛️ Flat Issue Ledger & Relocation Invariant
 - **Single Flat Table:** `ISSUES.md` consists of exactly one markdown table with zero subheadings: `| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |`.
 - **The Relocation Invariant:** Active `ISSUES.md` holds ONLY active items (`🟠 Incubated`, `🔵 Planned`, `🟠 In Progress`). Resolved issues are physically relocated to `.plans/done/000-issues-archive.md`. The status badge `✅ Resolved` does NOT exist in active `ISSUES.md`. Pre-commit hooks detect and block any commit leaving resolved rows in `ISSUES.md`.
+- **Historical Issue Immutability Invariant:** Issue entries in `ISSUES.md` and `000-issues-archive.md` are immutable historical records of observed symptoms at that date. Autonomous agents must **never** edit, rephrase, sanitize, or modernize an issue's original location or symptom text when triaging, promoting, or relocating. If an issue is resolved or obsoleted by an architectural pivot rather than a direct patch, the archive resolution summary must simply state: `Superseded by [P-XX](...) and [P-YY](...)` without altering historical prose.
 - **Universal Domain Taxonomy:** The `Type` column uses an uppercase token conforming to `^[A-Z0-9_-]+$` (recommended core: `CORE`, `CLI`, `UI`, `DB`, `NET`, `SEC`, `HOOK`, `DOCS`, `TEST`, `PERF`).
 
 ### 🏷️ Distinct Identifiers: Issue IDs (`#<num>`) vs. Plan IDs (`P-<num>`)
