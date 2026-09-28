@@ -1025,8 +1025,8 @@ else
 fi
 report "test_help_ignores_contract_column" "PASS" "$got"
 
-# Test 57: aapp hooks --events prints lifecycle event catalog
-events_out="$("$KIT/aapp" hooks --events 2>&1)"
+# Test 57: aapp hooks events prints lifecycle event catalog
+events_out="$("$KIT/aapp" hooks events 2>&1)"
 if echo "$events_out" | grep -q "Supported Lifecycle Events Catalog" && \
    echo "$events_out" | grep -q "pre-freeze" && \
    echo "$events_out" | grep -q "on-sync" && \
@@ -1035,7 +1035,7 @@ if echo "$events_out" | grep -q "Supported Lifecycle Events Catalog" && \
 else
   got="FAIL"
 fi
-report "hooks catalog: aapp hooks --events displays Pre/On/Post timing taxonomy" "PASS" "$got"
+report "hooks catalog: aapp hooks events displays Pre/On/Post timing taxonomy" "PASS" "$got"
 
 # Test 58: Dispatcher-to-Manifest Parity: all verbs in lib/verbs.tsv handled in aapp
 manifest="$KIT/lib/verbs.tsv"

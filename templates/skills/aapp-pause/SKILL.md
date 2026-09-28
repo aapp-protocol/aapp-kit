@@ -14,7 +14,7 @@ Engage or disengage the Master Emergency Brake & Multi-Worktree State Preserver 
 | Action | Command / Usage | Purpose |
 | :--- | :--- | :--- |
 | **Engage Brake (Repo-Wide)** | `/aapp-pause [reason]` (or `aapp pause [reason]`) | Quarantines uncommitted code per-worktree into SHA-addressed stashes (`aapp-pause-<timestamp>:<branch>`) and locks codebase modifications. |
-| **Engage Brake (Team-Wide)** | `/aapp-pause --shared [reason]` (or `aapp pause --shared [reason]`) | Freezes repo and commits pause marker to `.plans/PAUSED.md` for team-wide synchronization across clones. |
+| **Engage Brake (Team-Wide)** | `/aapp-pause shared [reason]` (or `aapp pause shared [reason]`) | Freezes repo and commits pause marker to `.plans/PAUSED.md` for team-wide synchronization across clones. |
 | **Inspect Pause State** | `/aapp-pause` (or `aapp pause` when paused) | Display active pause reason, duration, quarantined stashes, and snapshot details without modifying state. |
 | **Disengage Brake (Resume)** | `/aapp-pause resume` (or `aapp resume`) | Detects commit drift, restores stashes by commit SHA, runs planning health checks, and clears pause buffer. |
 

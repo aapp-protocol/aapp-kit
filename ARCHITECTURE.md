@@ -35,7 +35,7 @@
 │   ├── cmd_plan.sh        # Active buffer manager, deterministic drafting & lifecycle triggers
 │   ├── cmd_matrix.sh      # State matrix derivation engine (check & sync)
 │   ├── cmd_pause.sh       # Emergency brake, multi-worktree stash quarantine & wake engine
-│   ├── cmd_hook.sh        # Hook audit, event catalog discovery (--events) & testing
+│   ├── cmd_hook.sh        # Hook audit, event catalog discovery (events) & testing
 │   ├── cmd_ai.sh          # AI attribution switchboard & credits manager
 │   ├── cmd_note.sh        # Dedicated Git Notes engine & CLI handler (status, stage, push, pull) (P-44)
 │   ├── attribution.sh     # AI identity resolution, decorator & note writer (P-40, P-44)

@@ -668,7 +668,7 @@ Repetitive terminal operations and administrative switchboards are maintained as
 - **`aapp freeze-start <plan>`**: Atomically freezes an incubator plan and activates it into `⚡ In Development` in a single command.
 - **`aapp active [id]` / `aapp active swap` / `aapp active clear`**: Switchboard for inspecting or switching the local execution buffer (`.git/aapp_active_plan`).
 - **`aapp plan-status [id]`**: Read-only inspection of the plan lane matrix or a specific blueprint.
-- **`aapp matrix [--check]`**: Re-derives `.plans/state_matrix.md` from the plan files. `--check` audits without writing.
+- **`aapp matrix [check]`**: Re-derives `.plans/state_matrix.md` from the plan files. `check` audits without writing.
 - **`aapp test [filter]`**: Discovers and runs automated test suites with subshell isolation and assertion metrics.
 - **`aapp hooks`**: Lifecycle hook diagnostic inspector and dispatcher.
 
@@ -719,7 +719,7 @@ aapp tdd <plan_or_slug>  # declare failure-first test sections or scaffold new T
 
 ```bash
 aapp matrix           # check and sync in one pass
-aapp matrix --check   # read-only audit: exit 0 in sync, 1 on drift
+aapp matrix check     # read-only audit: exit 0 in sync, 1 on drift
 ```
 
 You rarely need to run it by hand. The sync is invoked automatically by `aapp status` (before it reads the matrix) and by `draft`, `freeze`, `freeze-start` and `start` (before they commit), so the board stays correct through normal use.
@@ -802,7 +802,7 @@ Freezes codebase modifications and quarantees in-flight uncommitted work across 
 - **Staged File Forensics**: Records the exact list of staged vs. unstaged files in the snapshot before stashing, preserving cherry-picked visibility without fragile index restoration.
 - **Air-Gap Safety Invariant**: Strictly uses `git stash push --include-untracked` and forbids `--all`, preserving `.gitignore` boundaries (e.g. private notes in `.plans/pickup/`).
 - **Atomic Rollback Invariant**: Asserts that every captured stash SHA is a valid 40-character hexadecimal string; if any worktree fails, all stashes created in that invocation are immediately rolled back, guaranteeing an all-or-nothing operation.
-- **State Buffer Scoping**: Defaults to repo-wide `$(git rev-parse --git-common-dir)/aapp_paused` (uncommitted, shared across all linked worktrees). With `--shared`, commits `.plans/PAUSED.md` for remote team freeze.
+- **State Buffer Scoping**: Defaults to repo-wide `$(git rev-parse --git-common-dir)/aapp_paused` (uncommitted, shared across all linked worktrees). With `shared`, commits `.plans/PAUSED.md` for remote team freeze.
 - **Idempotency**: If the project is already paused, running `aapp pause` acts as a non-destructive inspector.
 
 #### `/aapp-pause resume` (or `aapp resume`, `aapp unpause`) — State Restoration & Wake

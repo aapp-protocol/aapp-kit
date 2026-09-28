@@ -153,25 +153,25 @@ cmd_pause() {
 
     while [ $# -gt 0 ]; do
         case "$1" in
-            --shared|-s)
+            shared)
                 shared=1
                 shift
                 ;;
             help|-h|--help)
                 cat <<EOF
-Usage: aapp pause [options] [reason]
+Usage: aapp pause [shared] [reason]
 
 Engage the Project Emergency Brake & Multi-Worktree State Preserver.
 Quarantines uncommitted code per-worktree into SHA-addressed stashes
 and locks all codebase modifications.
 
-Options:
-  -s, --shared    Commit pause marker to .plans/PAUSED.md for remote team freeze
-  -h, --help      Show this help message
+Arguments:
+  shared      Commit pause marker to .plans/PAUSED.md for remote team freeze
+  [reason]    Explanation for pausing operations
 
 Examples:
   aapp pause "switching to project-2"
-  aapp pause --shared "DB schema migration in progress"
+  aapp pause shared "DB schema migration in progress"
 EOF
                 return 0
                 ;;
@@ -376,7 +376,7 @@ EOF
 
     echo "🛑 [Project Circuit Breaker] Project is now PAUSED."
     echo "   Reason  : $reason"
-    echo "   Scope   : $( [ "$shared" -eq 1 ] && echo "Team-Wide (--shared via .plans/PAUSED.md)" || echo "Repo-Wide ($PAUSED_FILE)" )"
+    echo "   Scope   : $( [ "$shared" -eq 1 ] && echo "Team-Wide (shared via .plans/PAUSED.md)" || echo "Repo-Wide ($PAUSED_FILE)" )"
     echo "   Stashes : ${#created_stashes[@]} worktree(s) quarantined into SHA-addressed stashes"
     for item in "${created_stashes[@]}"; do
         local swt sbranch ssha stag

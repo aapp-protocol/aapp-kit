@@ -4,7 +4,7 @@ draft	daily	yes	Scaffold blueprint from template, stamp ID & date, register in m
 tdd	daily	yes	Declare a plan's failure-first tests (§3 identifiers, §4 test files) before freeze	lib/docs/verbs/tdd.md
 plan	daily	yes	Display educational planning switchboard or query blueprints	lib/docs/verbs/plan.md
 plan-status	daily	yes	Inspect plan lane matrix or specific blueprint details	lib/docs/verbs/plan-status.md
-matrix	daily	yes	Re-derive state matrix from plan Status lines ('--check' to audit)	lib/docs/verbs/matrix.md
+matrix	daily	yes	Re-derive state matrix from plan Status lines ('check' to audit)	lib/docs/verbs/matrix.md
 freeze	daily	yes	Lock blueprint blast radius & design into frozen backlog spec	lib/docs/verbs/freeze.md
 start	daily	yes	Transition frozen blueprint to in-development and bind buffer	lib/docs/verbs/start.md
 freeze-start	daily	yes	Atomically freeze blueprint and activate execution buffer	lib/docs/verbs/freeze-start.md

@@ -19,7 +19,7 @@ f="$(ls .plans/current/P*-matrix-subject.md)"
 sed -i -E 's/^\* \*\*Status:\*\*.*/* **Status:** 🔷 Frozen/' "$f"
 
 before="$(cksum < "$SM")"
-aapp matrix --check >/dev/null 2>&1; rc=$?
+aapp matrix check >/dev/null 2>&1; rc=$?
 if [ "$rc" -eq 1 ] && [ "$(cksum < "$SM")" = "$before" ]; then
   ok "test_check_reports_drift_without_writing"
 else

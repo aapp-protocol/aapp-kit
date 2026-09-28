@@ -18,7 +18,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp tdd [id]` | **✅ Yes** | Declare a plan's failure-first tests (§3 identifiers, §4 test files) before freeze |
 | `aapp plan [query]` | **✅ Yes** | Educational planning switchboard or query blueprints |
 | `aapp plan-status [id]` | **✅ Yes** | Inspect plan lane matrix or specific blueprint details |
-| `aapp matrix [--check]` | **✅ Yes** | Re-derive state matrix from plan Status lines (`--check` to audit) |
+| `aapp matrix [check]` | **✅ Yes** | Re-derive state matrix from plan Status lines ('check' to audit) |
 | `aapp freeze [id]` | **✅ Yes** | Lock blueprint blast radius & design into frozen backlog spec |
 | `aapp start [id]` | **✅ Yes** | Bind execution buffer & transition to ⚡ In Development |
 | `aapp freeze-start [id]` | **✅ Yes** | Atomically freeze blueprint and activate execution buffer |
@@ -77,7 +77,7 @@ Centralizes hook triggers and plugin contracts structured around execution timin
 
 | Command | Role & Purpose |
 | :--- | :--- |
-| `aapp hooks` | Audit registered lifecycle hooks and verify SHA256 integrity (or `aapp hooks --events`) |
+| `aapp hooks` | Audit registered lifecycle hooks and verify SHA256 integrity (or `aapp hooks events`) |
 | `aapp hook-test` | Dry-run test a lifecycle event trigger with mock payload |
 | `aapp hook-run` | Execute a registered hook handler with specified payload |
 | `aapp hook-hash` | Compute SHA256 registration hash for hook script |

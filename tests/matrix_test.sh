@@ -107,17 +107,17 @@ report "second sync reports already in sync" "1" "$got"
 got="$(printf '%s' "$(tail -c 1 "$D/.plans/state_matrix.md")" | wc -c | tr -d ' ')"
 report "file ends with a trailing newline" "0" "$got"
 
-# --- 4. --check exit codes and read-only guarantee ---------------------------
-got="$(run_matrix_rc "$D" --check)"
-report "--check exits 0 when in sync" "0" "$got"
+# --- 4. check exit codes and read-only guarantee ---------------------------
+got="$(run_matrix_rc "$D" check)"
+report "check exits 0 when in sync" "0" "$got"
 
 sed -i 's/^- 🔷 \*\*P-2\*\*/- 🟣 **P-2**/' "$D/.plans/state_matrix.md"
 cp "$D/.plans/state_matrix.md" "$R/check_before"
-got="$(run_matrix_rc "$D" --check)"
-report "--check exits 1 when drifted" "1" "$got"
+got="$(run_matrix_rc "$D" check)"
+report "check exits 1 when drifted" "1" "$got"
 
 diff -q "$R/check_before" "$D/.plans/state_matrix.md" >/dev/null 2>&1 && got=unchanged || got=written
-report "--check never writes the matrix" "unchanged" "$got"
+report "check never writes the matrix" "unchanged" "$got"
 
 run_matrix "$D" >/dev/null   # restore
 
@@ -199,7 +199,7 @@ report "retired 🔴 glyph lands in Unrecognized (no legacy alias)" "yes" "$got"
 got="$(grep -cE '^\- .+\*\*P-40\*\*' "$D5/.plans/state_matrix.md" | tr -d ' ')"
 report "recognized plan is unaffected by unrecognized siblings" "1" "$got"
 
-got="$(run_matrix "$D5" --check >/dev/null 2>&1; echo $?)"
+got="$(run_matrix "$D5" check >/dev/null 2>&1; echo $?)"
 report "a matrix with unrecognized rows still reports in sync" "0" "$got"
 
 # Section is omitted entirely when every status resolves.
@@ -236,7 +236,7 @@ run_matrix "$D7" >/dev/null
 got="$(grep -c '^## ' "$D7/.plans/state_matrix.md" | tr -d ' ')"
 report "empty current/ still renders a well-formed matrix" "6" "$got"
 
-got="$(run_matrix_rc "$D7" --check)"
+got="$(run_matrix_rc "$D7" check)"
 report "empty current/ is idempotent and in sync" "0" "$got"
 
 print_test_summary "$PASS" "$FAIL"

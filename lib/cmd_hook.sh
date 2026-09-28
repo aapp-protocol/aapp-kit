@@ -47,7 +47,7 @@ print_lifecycle_events_catalog() {
 }
 
 cmd_hooks_status() {
-    if [ "$1" = "--events" ] || [ "$1" = "-e" ]; then
+    if [ "$1" = "events" ]; then
         print_lifecycle_events_catalog
         return 0
     fi
@@ -351,10 +351,10 @@ case "$SUBCMD" in
         cmd_hook_hash "$@"
         ;;
     --help|-h|help)
-        echo "Usage: aapp hooks [--events] | plugins | hook-test <event> [id] | hook-hash <path> [event] [timeout] [mode]"
+        echo "Usage: aapp hooks [events] | plugins | hook-test <event> [id] | hook-hash <path> [event] [timeout] [mode]"
         echo ""
         echo "Commands:"
-        echo "  hooks [--events]      Audit registered lifecycle hooks or list supported events catalog"
+        echo "  hooks [events]        Audit registered lifecycle hooks or list supported events catalog"
         echo "  plugins               Inspect discovered standalone action plugins (.agents/skills/*/)"
         echo "  hook-test <event>     Dry-run test a lifecycle event and inspect stdout/stderr"
         echo "  hook-hash <path>      Compute SHA256 hash and format 5-column registry.tsv line"

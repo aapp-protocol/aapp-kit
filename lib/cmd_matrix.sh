@@ -265,11 +265,11 @@ matrix_scan() {
 cmd_matrix() {
     local mode="sync"
     case "${1:-}" in
-        --check) mode="check" ;;
+        check) mode="check" ;;
         "") ;;
         *)
             echo "❌ [Matrix] Unknown option: $1"
-            echo "   Usage: aapp matrix [--check]"
+            echo "   Usage: aapp matrix [check]"
             return 1
             ;;
     esac

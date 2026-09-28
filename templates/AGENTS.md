@@ -278,7 +278,7 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
   4. Verify `CHANGELOG.md` (or `.plans/CHANGELOG.md`) has version entries staged and ready for tagging.
   5. Report a structured release posture assessment (Tests, Linters, Docs, Rollback readiness) to the user.
 
-- **`pause [reason]` (or `/aapp-pause [reason]`, `aapp pause [reason]`, `aapp pause --shared [reason]`)**: Engage the Master Emergency Brake & Multi-Worktree State Preserver ("Hibernate & Wake").
+- **`pause [reason]` (or `/aapp-pause [reason]`, `aapp pause [reason]`, `aapp pause shared [reason]`)**: Engage the Master Emergency Brake & Multi-Worktree State Preserver ("Hibernate & Wake").
   1. Idempotently inspects active pause state if already paused.
   2. Runs In-Flight Operation Guard across all worktrees (`git worktree list --porcelain`), verifying zero active merges, rebases, or cherry-picks via canonical gitdir plumbing (`git rev-parse --git-path MERGE_HEAD`, `rebase-merge`, `CHERRY_PICK_HEAD`).
   3. Quarantines uncommitted in-flight code per-worktree into SHA-addressed stashes (`aapp-pause-<timestamp>:<branch>`) using `--include-untracked` (strictly forbidding `--all` to respect `.gitignore` air-gaps).
@@ -297,7 +297,7 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
 When switching focus across projects, stepping away from the desk, or preventing accidental cross-window collisions:
 - **Zero Daily Friction**: Zero overhead during normal active development.
 - **Dynamic Multi-Worktree Stash Quarantine**: In-flight code across all mounted worktrees (`git worktree list --porcelain`) is quarantined into named, SHA-addressed stashes (`aapp-pause-<timestamp>:<branch>`), leaving all working trees clean.
-- **State Buffer Scope**: Defaults to `$(git rev-parse --git-common-dir)/aapp_paused` (uncommitted, shared across all linked worktrees). Optional `--shared` commits `.plans/PAUSED.md` for remote team freeze.
+- **State Buffer Scope**: Defaults to `$(git rev-parse --git-common-dir)/aapp_paused` (uncommitted, shared across all linked worktrees). Optional `shared` commits `.plans/PAUSED.md` for remote team freeze.
 - **Cross-Medium Hook Realism ("Uncommittable, Not Untouchable")**: For sessions rooted in this repository, Layer 1 (`blast-radius-guard`) intercepts write tools before disk touches. For external or companion chat sessions rooted elsewhere, Layer 2 (`pre-commit`) serves as the strict, inescapable gate that rejects any commit touching codebase files.
 - **Permitted Paths While Paused**: Only `.plans/` reflections (`pickup*`, `ISSUES.md`, `issues*`, `current/*`) are permitted. All writes to codebase files, `.agents/*` control plane, templates, or hooks are strictly blocked.
 - **Emergency Escape Hatches**: `SKIP_BLAST_RADIUS=1` bypasses Layer 1 and Layer 2; `git commit --no-verify` bypasses Layer 2. Stashes are recoverable manually via `git stash list` and `git stash apply <sha>`.
