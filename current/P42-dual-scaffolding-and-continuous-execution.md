@@ -99,25 +99,25 @@ Update ingress documentation to specify dual capability:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Engine Scaffolding Enhancement
-- [ ] Task 1.1: Enhance `cmd_tdd` in `lib/cmd_plan.sh` to detect non-existent slugs, auto-draft via `cmd_draft`, and immediately inject TDD failure sections.
-- [ ] Task 1.2: Ensure unallocated Plan IDs (e.g. `P-999`) continue to be strictly refused as non-existent plans.
+- [x] Task 1.1: Enhance `cmd_tdd` in `lib/cmd_plan.sh` to detect non-existent slugs, auto-draft via `cmd_draft`, and immediately inject TDD failure sections.
+- [x] Task 1.2: Ensure unallocated Plan IDs (e.g. `P-999`) continue to be strictly refused as non-existent plans.
 
 ### Phase 2: Skills & Contracts Alignment
-- [ ] Task 2.1: Update `templates/skills/aapp-tdd/SKILL.md` documenting direct TDD scaffolding for new slugs vs. upgrading existing plans.
-- [ ] Task 2.2: Update `templates/skills/aapp-start/SKILL.md` to enforce the continuous execution invariant (no redundant pause).
-- [ ] Task 2.3: Update `lib/docs/verbs/tdd.md` reflecting the dual ingress contract.
+- [x] Task 2.1: Update `templates/skills/aapp-tdd/SKILL.md` documenting direct TDD scaffolding for new slugs vs. upgrading existing plans.
+- [x] Task 2.2: Update `templates/skills/aapp-start/SKILL.md` to enforce the continuous execution invariant (no redundant pause).
+- [x] Task 2.3: Update `lib/docs/verbs/tdd.md` reflecting the dual ingress contract.
 
 ### Phase 3: Verification & Test Coverage
-- [ ] Task 3.1: Add test cases to `tests/verbs/tdd.sh` testing:
+- [x] Task 3.1: Add test cases to `tests/verbs/tdd.sh` testing:
   - Direct scaffolding of a new slug via `aapp tdd <new-slug>`.
   - Upgrading an existing plan via `aapp tdd <existing-plan>`.
   - Refusal of unallocated Plan ID `aapp tdd P-999`.
-- [ ] Task 3.2: Run `aapp test strict quiet` to verify 25/25 suites pass.
-- [ ] Task 3.3: Run `aapp init` to propagate updated skills to `.agents/skills/` and `.claude/skills/`.
+- [x] Task 3.2: Run `aapp test strict quiet` to verify 25/25 suites pass.
+- [x] Task 3.3: Run `aapp init` to propagate updated skills to `.agents/skills/` and `.claude/skills/`.
 
 ### Phase 4: Documentation Sync
-- [ ] Task 4.1: Update `MANUAL.md` documenting dual scaffolding entry points and continuous start execution.
-- [ ] Task 4.2: Update `CHANGELOG.md` under `## [Unreleased]`.
+- [x] Task 4.1: Update `MANUAL.md` documenting dual scaffolding entry points and continuous start execution.
+- [x] Task 4.2: Update `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
