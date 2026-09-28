@@ -24,11 +24,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
+- 🔷 **P-39**: [`P39-plan-bound-commit-helper.md`](current/P39-plan-bound-commit-helper.md) — Plan Bound Commit Helper
+
 ---
 
 ## ⚡ In Development (Active Implementation Context)
-
-- ⚡ **P-39**: [`P39-plan-bound-commit-helper.md`](current/P39-plan-bound-commit-helper.md) — Plan Bound Commit Helper
 
 ---
 
