@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-28 | `P-45` | [`P45-decouple-notes-from-commit-attribution.md`](P45-decouple-notes-from-commit-attribution.md) | Milestone 1.2 / Metadata Architecture | `88aae65` | Decouple Git Notes from Commit Attribution |
 | 2026-09-28 | `P-43` | [`P43-unified-ai-attribution-verb.md`](P43-unified-ai-attribution-verb.md) | Milestone 1.1 / UX Ergonomics | `f9b5e69` | Consolidated AI Attribution Verb (`aapp ai`) |
 | 2026-09-28 | `P-44` | [`P44-general-purpose-git-notes-infrastructure.md`](P44-general-purpose-git-notes-infrastructure.md) | Milestone 1.2 / Metadata Architecture | `9bdd43c` | General-Purpose Git Notes Infrastructure & Worktree Hooks |
 | 2026-09-28 | `P-42` | [`P42-dual-scaffolding-and-continuous-execution.md`](P42-dual-scaffolding-and-continuous-execution.md) | Protocol Enhancement (Dual Scaffolding & Continuous Execution) | `3bb9a2d` | Dual Scaffolding And Continuous Execution |
