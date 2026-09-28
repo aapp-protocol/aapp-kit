@@ -2,7 +2,7 @@
 * **Created:** 2026-09-28 | **Last Refined:** 2026-09-28
 * **Target Issue / Milestone:** Milestone 1.1 / UX Ergonomics
 * **Plan ID:** P-43
-* **Status:** 📝 Refining
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Commits:** none
 
@@ -152,4 +152,5 @@ The single entry point `aapp ai` handles discovery, status, mode switching, and 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-28:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-09-28:** Plan scaffolded and refined to consolidate 7 legacy `ai-*` verbs into polymorphic `aapp ai`. Settled on `none` without aliases, included `cmd_init.sh:770` banner, `templates/aapp-commit-msg`, and `templates/AGENTS.md` in Target Files, and decoupled Git Notes to Plan P-44.
