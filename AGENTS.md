@@ -68,6 +68,8 @@ When operating in `notes` mode, an agent or developer customizes attribution by 
 - Note buffer path: `$(git rev-parse --git-path aapp_pending_note).<message-sha256>`
 - `aapp-post-commit` automatically matches the commit body hash, attaches the note via `git notes add -f -F`, and unlinks the buffer on success (`&&`).
 
+### 🎯 Plan-Bound Commit Helper (`aapp commit`)
+When executing an active plan (`⚡ In Development`), autonomous agents should use the plan-bound commit helper (`aapp commit "<msg>" [agent <A> vendor <V> model <M>] [note "<text>"]`) rather than raw `git commit`. The helper commits staged code, completes required attribution trailers, records `sha (branch)` in the active plan's header, and commits the plan file alone. If a raw `git commit` is made, agents can repair the record with `aapp commit adopt <sha>...`.
 
 ### 📜 Worktree Commit & Plan Lifecycle Conventions
 When committing changes inside the `.plans/`, `.agents/`, or `.githooks/` worktrees, use structured lifecycle prefixes so `git log` provides a clean, searchable architectural audit trail:

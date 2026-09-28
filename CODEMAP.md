@@ -99,12 +99,31 @@
   * `parse_plan_required_tests(file)` -> Declared test items under `### 🧪 Required Tests` inside §3 (isolates path prefix).
   * `plan_has_required_test_files(file)` -> True when §4 carries `### 🧪 Required Test Files`.
   * `validate_plan_tdd_correspondence(file, [prefix])` -> Validates non-empty sections and bidirectional correspondence between §3 and §4.
+  * `parse_plan_commits(file)` -> Parses recorded `sha (branch)` and `sha (detached)` commits from blueprint header.
+  * `write_plan_commits(file, commits...)` -> Replaces or inserts `* **Commits:**` line in blueprint header.
+  * `write_plan_base(file, sha, branch)` -> Records `* **Base:** <sha> (<branch>)` if currently `none`.
+  * `find_worktree_holding_plan(plan_file)` -> Finds if a plan is bound in another worktree's execution buffer.
   * `extract_plan_section(n)` -> Stdin filter printing numbered section `## … n.` (design lock).
   * `glob_to_regex(pattern)` / `match_pattern_list(target, patterns…)` -> Exact, directory-prefix and glob matching.
   * `aapp_os([uname_s] [proc_version])` -> `linux|darwin|windows|wsl|bsd|unknown`; `wsl` is a GNU userland.
   * `aapp_lib_loaded()` -> Load sentinel every consumer asserts.
-* **Consumers:** `lib/cmd_plan.sh`, `lib/planning_health.sh` (Pair 7), `.githooks/aapp-pre-commit`, `.githooks/blast-radius-guard`.
+* **Consumers:** `lib/cmd_plan.sh`, `lib/cmd_commit.sh`, `lib/planning_health.sh` (Pair 7), `.githooks/aapp-pre-commit`, `.githooks/blast-radius-guard`.
 * **Anti-Wrapper Warning:** Never add an inline section parser elsewhere; extend this library and `tests/aapp_lib_test.sh`. Edit `lib/aapp-lib.sh`, never `templates/aapp-lib.sh` (a symlink) or `.githooks/aapp-lib.sh` (installed by `aapp init`).
+
+### 📝 Plan-Bound Commit Helper (`lib/cmd_commit.sh`)
+* **Purpose:** Single source of truth for committing staged implementation code, attaching attribution via P-40, and recording commit SHAs in the active plan.
+* **Key Commands:**
+  * `aapp commit "<msg>" [agent <A> vendor <V> model <M>] [note "<text>"]` -> Commits staged files in worktree, decorates attribution, and records SHA and branch in active plan.
+  * `aapp commit amend ["<msg>"]` -> Amends last commit, preserving message if omitted without duplicate trailers, and updates recorded SHA in active plan.
+  * `aapp commit adopt <sha>...` -> Adopts existing commits made outside the helper and records them into active plan with a warning.
+* **Anti-Wrapper Warning:** Never bypass `aapp commit` during an active plan; it ensures trailer compliance, lock resilience, and plan ledger integrity.
+
+### 🚂 Unified Plans Commit Engine (`lib/commit_engine.sh`)
+* **Purpose:** Single authoritative engine for all `.plans` worktree commits, eliminating ad-hoc `git commit || true` patterns.
+* **Key Functions:**
+  * `plans_commit(subject, path...)` -> Commits specified paths in `.plans` with explicit pathspec limiting (`git commit -- <paths>`), lock-retry resilience, attribution decoration, and loud failures.
+* **Consumers:** `lib/cmd_commit.sh`, `lib/cmd_plan.sh` (`draft`, `freeze`, `start`, `freeze-start`, `done`).
+* **Anti-Wrapper Warning:** Never use `git add ... || true; git commit ... || true` in `.plans`. Always use `plans_commit`.
 
 ### 🛡️ Planning Health Integrity Engine (`lib/planning_health.sh`)
 * **Purpose:** Automated mechanical integrity validator running 7 orthogonal verification pairs:
