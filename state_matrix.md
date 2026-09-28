@@ -29,8 +29,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-44**: [`P44-general-purpose-git-notes-infrastructure.md`](current/P44-general-purpose-git-notes-infrastructure.md) — General Purpose Git Notes Infrastructure
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
