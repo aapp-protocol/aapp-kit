@@ -2,7 +2,7 @@
 * **Created:** 2026-09-28 | **Last Refined:** 2026-09-28
 * **Target Issue / Milestone:** Protocol Enhancement (Universal Skills Realignment)
 * **Plan ID:** P-41
-* **Status:** 📝 Refining
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -183,5 +183,6 @@ Each skill in `templates/skills/` adopts the canonical 3-tier structure:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-28:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-09-28:** Drafted blueprint following P-39 completion to align legacy skill templates with deterministic CLI engines and lifecycle gates.
 * **2026-09-28:** Refined blueprint to 📝 Refining, declared failure-first tests in §3 and §4, resolved open questions Q1 & Q2, and bound Target Files.
