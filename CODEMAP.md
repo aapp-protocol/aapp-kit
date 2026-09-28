@@ -117,10 +117,12 @@
   * **Pair 7:** Concurrent boundary collision detection for multiple `⚡ In Development` plans.
 * **Anti-Wrapper Warning:** Keep health checks mechanical, fast, and free of external runtime dependencies.
 
-### 🏷️ AI Attribution Switchboard (`lib/cmd_ai.sh`)
-* **Purpose:** Governs AI attribution modes (`none`, `commit`, `notes`) and credits roster generation.
+### 🏷️ AI Attribution Switchboard & Identity Layer (`lib/cmd_ai.sh`, `lib/attribution.sh`)
+* **Purpose:** Governs AI attribution modes (`none`, `lax`, `strict`, `notes`), single identity resolution layer, commit decoration, and credits roster generation.
 * **Key Commands & Behaviors:**
-  * `aapp ai-commit` / `aapp ai-notes` / `aapp ai-off` -> Switchboard state machine.
+  * `aapp ai-lax` / `aapp ai-strict` / `aapp ai-notes` / `aapp ai-off` -> Switchboard state machine.
+  * `aapp.aiAttribution=commit` is retired and refused loudly at commit time.
+  * `lib/attribution.sh` -> Shared functions: `resolve_ai_identity`, `attribution_decorate`, `attribution_note`, `apply_agent_aliases`, `normalize_agent_identity`.
   * `aapp ai-note --stage` -> Pre-stages Option C note buffer keyed by commit message SHA-256.
   * `aapp ai-credits` -> Append-only union generator updating `AI Contributors` roster in `README.md`.
 * **Anti-Wrapper Warning:** Never emit fake email addresses (`Co-authored-by: Agent <email>`).
