@@ -38,4 +38,5 @@
 - [ ] #85 -> Status-line regex duplicated across 22 call sites with divergent legacy alias handling.
 - [ ] #86 -> Pair 5 keeps a fifth Target Files parser outside the P-37 library.
 - [ ] #87 -> Emergency Hotfix Extensions live in design-locked §4, so they are refused once a plan is Frozen.
+- [ ] #92 -> `aapp test` runs other projects' tests (auto-detect, `aapp.testCommand`) outside the kit clone; should run kit suites only.
 
