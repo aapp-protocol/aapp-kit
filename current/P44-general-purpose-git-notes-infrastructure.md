@@ -2,7 +2,7 @@
 * **Created:** 2026-09-28 | **Last Refined:** 2026-09-28
 * **Target Issue / Milestone:** Milestone 1.2 / Metadata Architecture
 * **Plan ID:** P-44
-* **Status:** 📝 Refining
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Commits:** none
 
@@ -163,4 +163,5 @@ aapp note [status | stage "<text>" [agent <A> vendor <V> model <M>] | push | pul
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-28:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-09-28:** Plan scaffolded and refined per RFC consensus: settled on two fixed refs (`refs/notes/commits` + `refs/notes/ai`), `union` default merge, `aapp.aiNotesGuard=warn|enforce`, `aapp.notesRemote` sync, and fail-closed non-destructive appending writers.

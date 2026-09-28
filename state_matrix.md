@@ -20,11 +20,12 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-32**: [`P32-issue-id-allocation-and-duplicate-detection.md`](current/P32-issue-id-allocation-and-duplicate-detection.md) — Issue ID Allocation & Duplicate Detection
 - 🟣 **P-38**: [`P38-milestone-release-bundling-and-tag-ledgers.md`](current/P38-milestone-release-bundling-and-tag-ledgers.md) — Milestone Release Bundling & Tag Ledgers
 - 📝 **P-43**: [`P43-unified-ai-attribution-verb.md`](current/P43-unified-ai-attribution-verb.md) — Unified Ai Attribution Verb
-- 📝 **P-44**: [`P44-general-purpose-git-notes-infrastructure.md`](current/P44-general-purpose-git-notes-infrastructure.md) — General Purpose Git Notes Infrastructure
 
 ---
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
+
+- 🔷 **P-44**: [`P44-general-purpose-git-notes-infrastructure.md`](current/P44-general-purpose-git-notes-infrastructure.md) — General Purpose Git Notes Infrastructure
 
 ---
 
