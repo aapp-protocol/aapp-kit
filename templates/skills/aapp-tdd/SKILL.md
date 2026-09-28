@@ -11,11 +11,14 @@ Declare and enumerate failure-first tests for an incubator blueprint before free
 
 ## Execution Procedure
 
-### Step 1: CLI Injection
-1. Run the deterministic CLI injection verb first:
+### Step 1: CLI Injection & Smart Scaffolding
+1. Run the deterministic CLI verb:
    ```bash
-   aapp tdd <plan>
+   aapp tdd <target>
    ```
+   - **New Feature/Slug:** If `<target>` is a new slug (e.g. `aapp tdd user-auth`), `aapp tdd` automatically scaffolds the new blueprint from the template and injects the failure test sections in a single atomic pass.
+   - **Existing Plan:** If `<target>` matches an existing incubator plan (e.g. `P-42`, `42`, or slug), `aapp tdd` upgrades the blueprint by injecting the TDD failure sections.
+   - **Unknown Plan ID:** If `<target>` is an unallocated Plan ID (e.g. `P-999`), `aapp tdd` fails closed.
 2. **Failure Branch:** If the CLI exits non-zero (refusal or error), stop and report the refusal diagnostic to the user. Do NOT attempt to hand-edit the plan or bypass the CLI.
 
 ### Step 2: Enumerate Failure Cases & Propose Assertions

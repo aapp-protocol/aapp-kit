@@ -19,6 +19,20 @@ draft_plan() {
 }
 plan_file() { ls .plans/current/P"${1#P-}"-*.md; }
 
+echo "== auto-scaffolding =="
+# 0. Auto-scaffolds new slug and injects TDD sections atomically
+auto_id="$(git config --get aapp.planId)"
+aapp tdd auto-scaffold-slug >/dev/null 2>&1; rc=$?
+auto_f="$(plan_file "P-$auto_id" 2>/dev/null || true)"
+if [ "$rc" -eq 0 ] && [ -n "$auto_f" ] && [ -f "$auto_f" ] && \
+   grep -q "### 🧪 Required Tests" "$auto_f" && \
+   grep -q "### 🧪 Required Test Files" "$auto_f" && \
+   git -C .plans log -1 --format=%s | grep -qF "plan(refine): declare failure tests for P-$auto_id"; then
+  ok "test_auto_scaffolds_new_slug"
+else
+  bad "test_auto_scaffolds_new_slug" "rc=$rc"
+fi
+
 echo "== refusals =="
 # 1. Refuses unknown plan
 aapp tdd P-999 >/dev/null 2>&1; rc=$?

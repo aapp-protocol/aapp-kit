@@ -530,8 +530,27 @@ cmd_freeze_start() {
 
 cmd_tdd() {
     local query="$1"
-    local plan_file
-    plan_file="$(resolve_plan_file "$query" "tdd")" || exit 1
+    local plan_file=""
+
+    if [ -z "$query" ]; then
+        echo "❌ [Plan Switchboard] You must specify a target plan for 'tdd'." >&2
+        return 1
+    fi
+
+    # 1. Attempt to resolve as an existing plan in current/
+    if plan_file="$(resolve_plan_file "$query" "tdd" 2>/dev/null)"; then
+        :
+    else
+        # 2. Not found in current/. Check if query looks like a specific plan ID or missing reference
+        if [[ "$query" =~ ^[0-9]+$ ]] || [[ "$query" =~ ^P-?[0-9]+$ ]] || [[ "$query" =~ ^P[0-9]+- ]] || [[ "$query" =~ \.md$ ]] || [[ "$query" =~ ^# ]]; then
+            echo "❌ [Plan Switchboard] Plan '$query' not found in $PLANS_DIR/current/." >&2
+            return 1
+        fi
+
+        # 3. Query is a new slug: auto-scaffold first via cmd_draft
+        cmd_draft "$query" || return 1
+        plan_file="$(resolve_plan_file "$query" "tdd")" || return 1
+    fi
     refuse_unless_incubator "$plan_file" "TDD"
 
     if grep -q -E '###[[:space:]]*🧪[[:space:]]*Required Tests' "$plan_file" || \
@@ -584,8 +603,12 @@ cmd_tdd() {
 
     # Commit transition in plans worktree if available
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
-        git -C "$PLANS_DIR" add "current/$(basename "$plan_file")" 2>/dev/null || true
-        git -C "$PLANS_DIR" commit -m "plan(refine): declare failure tests for $plan_id" 2>/dev/null || true
+        if declare -f plans_commit >/dev/null 2>&1; then
+            plans_commit "plan(refine): declare failure tests for $plan_id" "current/$(basename "$plan_file")" 2>/dev/null || true
+        else
+            git -C "$PLANS_DIR" add "current/$(basename "$plan_file")" 2>/dev/null || true
+            git -C "$PLANS_DIR" commit -m "plan(refine): declare failure tests for $plan_id" 2>/dev/null || true
+        fi
     fi
 
     echo "🧪 [TDD] Declared failure test sections in $(basename "$plan_file")."

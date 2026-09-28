@@ -29,12 +29,13 @@ Parse and explain the exact CLI diagnostic:
 - **Not Frozen**: A plan must be frozen in `🔷 Frozen` (or `🔷 Ready for Execution`) status before it can be started. Run `aapp freeze <plan>` first.
 - **Target Files Collision**: If another plan currently in development shares overlapping Target Files, resolve the overlap or finish the in-development plan first.
 
-### Step 3: Success Confirmation
+### Step 3: Begin Implementation Immediately (Continuous Execution)
 On exit 0, `aapp start` has updated the plan status to `⚡ In Development`, recorded the base commit, updated `state_matrix.md`, and bound the local worktree buffer.
 
-Confirm active binding to the user and notify them that:
-1. Tool writes and Git commits are now strictly constrained to the declared `### 📂 Target Files`.
-2. Implementation begins with failure-first tests (confirming Red 🔴) followed by production code and plan-bound commits (`aapp commit`).
+**Do NOT pause to ask for redundant confirmation.** Immediately proceed to execute Section 3 of the blueprint:
+1. Verify / author failure tests (confirming Red 🔴) if TDD sections are declared.
+2. Begin Phase 1 implementation tasks within the declared `### 📂 Target Files`.
+3. Use plan-bound commits (`aapp commit`) to record execution progress.
 
 ---
 *Canonical Specification: Refer to `.agents/AGENTS.md` for full protocol governance.*

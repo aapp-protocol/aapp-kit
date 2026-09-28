@@ -690,18 +690,22 @@ aapp commit adopt <sha>...
 - **Fail-closed done gate:** `aapp done` checks recorded commits and refuses archival if none are present.
 - **Warning-only reminder:** Pre-commit prints a warning reminder when a raw `git commit` is made during an active plan outside the helper.
 
-#### `aapp tdd` — Opt-In Failure Test Declaration
+#### `aapp tdd` — Opt-In Failure Test Declaration & Smart Scaffolding
 
-`aapp tdd` injects failure test declaration sections into an incubator plan before freeze:
+`aapp tdd` acts as both a failure-test declarator for existing plans and a smart scaffolder for new features:
 - `### 🧪 Required Tests (Failure & Boundary Assertions)` in §3 (tickable assertions)
 - `### 🧪 Required Test Files` in §4 (design-locked test targets)
 
 ```bash
-aapp tdd <plan>     # declare failure-first test sections in an incubator blueprint
+aapp tdd <plan_or_slug>  # declare failure-first test sections or scaffold new TDD plan
 ```
 
 **What it does:**
-- **Belongs between `draft` and `freeze`:** Prepares an incubator plan for rigorous test-driven validation.
+- **Dual Ingress (Auto-Drafting or Upgrading):**
+  - *New Feature / Slug:* If `<plan_or_slug>` does not exist in `.plans/current/`, `aapp tdd` automatically drafts the blueprint from `templates/plan-template.md` and injects the failure test sections in a single atomic pass.
+  - *Existing Plan:* If `<plan_or_slug>` matches an existing incubator plan (`P-42`, `42`, or slug), `aapp tdd` upgrades the blueprint by injecting the TDD failure sections.
+  - *Unknown Plan ID:* If `<plan_or_slug>` is an unallocated Plan ID (e.g. `P-999`), `aapp tdd` fails closed.
+- **Continuous Execution Ingress:** When activating a plan via `/aapp-start` or `aapp start`, agents immediately proceed to execute Section 3 (verifying/authoring failure tests first) without an unnecessary conversational confirmation pause.
 - **Declares tests only:** It injects section headers and structure; it writes no test code and runs no test suite.
 - **Red phase at implementation:** Phase 1 of execution writes the declared tests and confirms them failing (Red 🔴) before feature implementation code is written.
 - **Option A Single-Entry Semantics:** Declared files under `### 🧪 Required Test Files` in §4 automatically receive write permissions during implementation without requiring redundant entry under `### 📂 Target Files`.
