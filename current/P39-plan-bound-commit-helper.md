@@ -362,6 +362,8 @@ changes it made stay in place for the user to inspect.
 - [ ] `MANUAL.md` -> Document the verb
 - [ ] `CHEATSHEET.md` -> Quick reference row
 - [ ] `CHANGELOG.md` -> Record under Added and Fixed
+- [ ] `tests/install_test.sh` -> Test 60 records commit before aapp done
+- [ ] `tests/verbs/tdd.sh` -> Test 12 adopts commit before aapp done
 
 ### 🧪 Required Test Files
 > Test files that prove this plan's failure cases. Frozen with the blast radius; per-test identifiers are tracked in §3.
