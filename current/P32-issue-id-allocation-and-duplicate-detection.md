@@ -1,24 +1,24 @@
-# 🗺️ Plan P-32: Issue ID Allocation & Duplicate Detection
-* **Created:** 2026-09-22 | **Last Refined:** 2026-09-22
+# 🗺️ Plan P-32: Issue ID Allocation, Lifecycle Engine & Duplicate Detection
+
+* **Created:** 2026-09-22 | **Last Refined:** 2026-09-28
 * **Target Issue / Milestone:** #79 *(supersedes #79 upon completion)*
 * **Plan ID:** P-32
-* **Status:** 🟣 Under Review
-<!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
-     The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
-     specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
-     A plan whose Status says BLOCKED grants no commit rights at all. A ✅ Done plan is archived in
-     .plans/done/ and records terminal completion in the archive ledger. -->
+* **Status:** 📝 Refining
+* **Base:** `88aae65` (develop)
+* **Commits:** none
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
 > 2. **Changelog Requirement**: Every commit touching source code **must** update `CHANGELOG.md` (or `.plans/CHANGELOG.md`). Run syntax checks and automated tests *before* updating the changelog.
-> 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`). When operating in `commit` mode, append standard semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
-> 4. **Mid-Execution Bugs**:
+> 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
+> 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
+> 5. **Mid-Execution Bugs**:
 >    - *Non-blocking*: Log in `.plans/ISSUES.md` and continue your plan.
 >    - *Blocking & small*: Add file under `### 🚨 Emergency Hotfix Extensions` with a 1-sentence justification.
 >    - *Blocking & substantial*: Set status to `🟥 BLOCKED`, stop, and ask the user.
-> 5. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
-> 6. **Architecture & Codemap Sync**: If your implementation introduces new files, functions, CLI verbs, or alters architectural boundaries, you **must** update `ARCHITECTURE.md` and `.agents/CODEMAP.md` (or repo-root `CODEMAP.md`). Both files are always-allowed workspace invariants.
+> 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
+> 7. **Architecture & Codemap Sync**: If your implementation introduces new files, functions, CLI verbs, or alters architectural boundaries, you **must** update `ARCHITECTURE.md` and `.agents/CODEMAP.md` (or repo-root `CODEMAP.md`). Both files are always-allowed workspace invariants.
+> 8. **Fail-Closed Invariant**: Silent fallbacks (`|| true`, `|| pwd`, unchecked defaults, empty catch blocks) are strictly prohibited. Every operation must fail closed with a clear diagnostic unless a fallback is explicitly justified in code comments and registered under §2's Fallback Inventory.
 
 ---
 
@@ -26,28 +26,36 @@
 
 ### Problem Statement
 
-Plan IDs are **stored, not derived**: `aapp.planId` holds a monotonic counter, `allocate_plan_id` claims from it, an optional `aapp-planid` provider plugin sources them centrally for teams, and Pair 4 independently detects duplicates. Issue IDs have **none of this**. They are typed by hand, with no counter, no provider contract, and no duplicate detection.
+Plan IDs are **stored, not derived**: `aapp.planId` holds a monotonic counter, `allocate_plan_id` claims from it, an optional `aapp-planid` provider plugin sources them centrally for teams, and Pair 4 independently detects duplicates. Issue IDs have **none of this**. They are typed by hand, with no counter, no provider contract, no lifecycle CLI verb, and no duplicate detection.
 
-That gap produced a live collision. On 2026-09-22 issue `#77` was logged at 00:10, fixed and relocated to `.plans/done/000-issues-archive.md` at 00:12, then **reused at 02:48 for an unrelated defect**. The reuse happened because the next ID was chosen by scanning active `ISSUES.md` for the highest number — and the Relocation Invariant had already moved the resolved `#77` row out of that file. The archive was authoritative and was not consulted.
+That gap produced a live collision on 2026-09-22: issue `#77` was logged at 00:10, fixed and relocated to `.plans/done/000-issues-archive.md` at 00:12, then **reused at 02:48 for an unrelated defect**.
 
-Three structural causes:
+Four structural causes create a slippery slope for everyone attempting to find the exact issue number:
 
-1. **No allocator.** Nothing claims an issue ID or persists an increment, so every allocation is a fresh manual scan whose correctness depends on remembering to read two files.
-2. **Relocation hides used IDs.** `ISSUES.md` holds only active rows by design (the Relocation Invariant). Any allocator reading one file therefore sees a partial history, and the safest-looking scan is the wrong one.
-3. **No detection backstop.** `check_pair4_plan_id_integrity` (`lib/planning_health.sh:296`) validates Plan ID uniqueness across blueprints. No equivalent exists for issue IDs, so a collision — whether from a bad scan or a hand-typed row — is never reported.
+1. **No Allocator or CLI Ingress**: Nothing claims an issue ID, persists an increment, or provides a command (`aapp issue next`) to query the next ID. Every allocation is a fresh manual file scan.
+2. **The Priority-Ordering Trap in `ISSUES.md`**: `ISSUES.md` is ordered by **human triage priority, not numeric ID**. In active `ISSUES.md`, line 7 is `#92`, while line 21 (bottom of file) is `#76`. Anyone glancing at the bottom or running `tail -5 .plans/ISSUES.md` sees `#76` and erroneously concludes `#77` is available.
+3. **The Relocation Invariant Gap**: `ISSUES.md` holds only active unresolved rows by design. Resolved issues (`#77` through `#91`) are moved to `.plans/done/000-issues-archive.md`. A scan of `ISSUES.md` alone is blind to the archive.
+4. **Manual Table Surgery on Issue Close**: While `aapp done` archives plans, it currently does **not** relocate the target issue row in `ISSUES.md`. Furthermore, for direct quick fixes (no plan), developers must manually cut, format, and paste table rows between `ISSUES.md` and `000-issues-archive.md`. If forgotten, `aapp-pre-commit` rejects the commit.
 
-A counter alone would not have caught a hand-typed duplicate, and detection alone would not stop the bad scan. This plan delivers both.
+A counter alone would not catch a hand-typed duplicate; detection alone would not stop a bad scan; and without a CLI verb, humans and AI agents must still resort to manual table edits. This plan delivers all four components in a unified architecture.
 
 ### Architectural Goal
 
-1. **Shared allocation engine**: Extract the counter mechanics from `allocate_plan_id` into a parameterized core taking a config key, an ID prefix, and a provider plugin name. Plans and issues become two callers of one implementation.
-2. **Issue ID allocation**: `aapp.issueId` counter, `allocate_issue_id` / `get_next_issue_id`, and a separate `aapp-issueid` provider plugin for teams sourcing IDs centrally.
-3. **Two-file seeding**: Seed `aapp.issueId` by scanning **both** `ISSUES.md` and `000-issues-archive.md`, so relocation can never hide a used ID from the seeder.
-4. **Duplicate detection (Pair 8)**: Add `check_pair8_issue_id_integrity` reporting any issue ID appearing twice across the active ledger and the archive.
+1. **Shared allocation engine**: Extract counter mechanics from `allocate_plan_id` into a parameterized core (`_allocate_id`) in `lib/plan_resolver.sh` taking a config key, an ID prefix, and a provider plugin name, conforming to the P-33 fail-closed root resolution.
+2. **Stored Issue ID counter**: `aapp.issueId` in git config, with `allocate_issue_id` / `get_next_issue_id`.
+3. **Two-file seeding**: Seed `aapp.issueId` by scanning **both** `ISSUES.md` and `000-issues-archive.md` with numeric comparison, so relocation and priority ordering can never hide a used ID.
+4. **Focused CLI Ingress (`aapp issue`)**: Introduce an operational CLI verb:
+   - `aapp issue [next]`: Read-only peek showing the next unassigned ID.
+   - `aapp issue allocate`: Claims the ID and increments `aapp.issueId`.
+   - `aapp issue close <#id> [sha] [summary]`: Mechanically relocates the issue row to `000-issues-archive.md`, prunes `issues_road_map.md`, and notifies team plugin.
+   - `aapp issue list`: Lists active open issues in roadmap priority order.
+5. **Unified Close in `aapp done`**: Update `cmd_done` in `lib/cmd_plan.sh` to delegate issue closure to `cmd_issue_close`, automating the Relocation Invariant when a plan completes.
+6. **Team Provider Plugin (`aapp-issue`)**: Multi-action provider plugin supporting `AAPP_ACTION=allocate`, `peek`, and `close` (notifying external trackers like GitHub Issues, Jira, or Linear).
+7. **Duplicate detection (Pair 8)**: Add `check_pair8_issue_id_integrity` reporting any issue ID appearing more than once across active and archived ledgers.
 
 ### Explicit Boundary: Two Independent Namespaces
 
-`#<num>` and `P-<num>` are deliberately distinct namespaces — `.agents/AGENTS.md` states they must never be interchanged, and lifecycle verbs already reject `#9` where a Plan ID is expected. This plan preserves that: **two independent counters**, so `P-32` and `#32` may both exist. A single shared sequence was rejected because it would make issue numbers jump unpredictably (`#33`, `#37`, `#41`) and would collapse a separation the protocol relies on.
+`#<num>` and `P-<num>` are deliberately distinct namespaces — `.agents/AGENTS.md` states they must never be interchanged, and lifecycle verbs reject `#9` where a Plan ID is expected. This plan preserves **two independent counters**, so `P-32` and `#32` may both exist.
 
 ---
 
@@ -55,22 +63,19 @@ A counter alone would not have caught a hand-typed duplicate, and detection alon
 
 ### 2.1 Parameterized Allocation Core (`lib/plan_resolver.sh`)
 
-`allocate_plan_id` currently hardcodes three plan-specific values; everything else is generic counter mechanics including the **ratchet** (when a provider issues a high ID, push the local counter past it so a later offline allocation cannot regress into used numbers).
+`allocate_plan_id` currently hardcodes plan-specific values; everything else is generic counter mechanics including the **ratchet**.
 
-| Hardcoded today | Becomes a parameter |
-| :--- | :--- |
-| `aapp.planId` | config key |
-| `P-` prefix | ID prefix |
-| `.agents/skills/aapp-planid` | provider plugin name |
-
-Introduce one internal core, with the existing public functions preserved as thin wrappers:
+Extract one internal core conforming to P-33 fail-closed repository root resolution:
 
 ```bash
 # _allocate_id <config-key> <prefix> <plugin-name> <label>
 _allocate_id() {
     local KEY="$1" PREFIX="$2" PLUGIN="$3" LABEL="$4"
     local ROOT PDIR ENTRY RAW OUT CUR ISSUED
-    ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+        echo "❌ [$LABEL] Not inside a Git repository." >&2
+        return 1
+    }
     PDIR="$ROOT/.agents/skills/$PLUGIN"
 
     # 1. Delegate to the provider plugin when one is installed.
@@ -100,19 +105,38 @@ _allocate_id() {
     printf '%s%s\n' "$PREFIX" "$CUR"
 }
 
+# _normalize_id <raw> <prefix> <label>
+_normalize_id() {
+    local RAW="$1" PREFIX="$2" LABEL="$3"
+    local N="${RAW#$PREFIX}"
+    case "$N" in
+        ''|*[!0-9]*)
+            echo "❌ [$LABEL] Provider must return an integer id (got: '$RAW')" >&2
+            return 1
+            ;;
+    esac
+    printf '%s%s\n' "$PREFIX" "$N"
+}
+
 allocate_plan_id()  { _allocate_id aapp.planId  "P-" aapp-planid  "Plan ID"; }
-allocate_issue_id() { _allocate_id aapp.issueId "#"  aapp-issueid "Issue ID"; }
+allocate_issue_id() { _allocate_id aapp.issueId "#"  aapp-issue   "Issue ID"; }
+
+get_next_plan_id()  {
+    local CUR="$(git config --get aapp.planId 2>/dev/null || echo 1)"
+    case "$CUR" in ''|*[!0-9]*) CUR=1 ;; esac
+    printf 'P-%s\n' "$CUR"
+}
+
+get_next_issue_id() {
+    local CUR="$(git config --get aapp.issueId 2>/dev/null || echo 1)"
+    case "$CUR" in ''|*[!0-9]*) CUR=1 ;; esac
+    printf '#%s\n' "$CUR"
+}
 ```
 
-`normalize_plan_id` is likewise reduced to a wrapper over `_normalize_id <raw> <prefix> <label>`, and `get_next_issue_id` mirrors `get_next_plan_id` as a **read-only peek that claims nothing**.
+### 2.2 Two-File Seeding (`lib/cmd_init.sh`)
 
-The ratchet comment in the current implementation (`Capture into RAW first…`) documents a real trap — assigning the substitution straight back into `OUT` clobbers it before the `||` branch can report the value. That comment must survive the extraction.
-
-### 2.2 Why Seeding Cannot Be Shared
-
-`seed_plan_id` (`lib/cmd_init.sh:498`) scans `P<num>*.md` **filenames** across `current/`, `done/` and `aborted/`, then parses ledger rows for archived plans whose files were removed. Issues have no per-issue files — they are **table rows** in two Markdown tables. The extraction differs entirely even though the shape (find max, add one) is the same.
-
-A new `seed_issue_id` therefore scans both tables:
+`seed_issue_id` scans both `ISSUES.md` and `done/000-issues-archive.md`. Because `ISSUES.md` is priority-ordered rather than numerically sorted, the parser reads every row matching `^\|[[:space:]]*#[0-9]+` and keeps the numeric maximum:
 
 ```bash
 # seed_issue_id <plans-dir> -> next free issue id (1 when no issues exist)
@@ -125,10 +149,12 @@ seed_issue_id() {
     for F in "$ACTIVE" "$ARCHIVE"; do
         [ -f "$F" ] || continue
         while IFS= read -r LINE; do
-            case $LINE in
-                '| #'*) N=${LINE#*'| #'}; N=${N%%[!0-9]*} ;;
+            case "$LINE" in
+                '| #'*) N="${LINE#*'| #'}" ;;
+                '|  #'*) N="${LINE#*'|  #'}" ;;
                 *) continue ;;
             esac
+            N="${N%%[!0-9]*}"
             [ -n "$N" ] || continue
             if [ "$N" -gt "$MAX" ]; then MAX=$N; fi
         done < "$F"
@@ -138,123 +164,151 @@ seed_issue_id() {
 }
 ```
 
-**Scanning both files is the core correctness requirement of this plan**, not an optimization: reading only `ISSUES.md` is precisely the mistake that produced the `#77` collision.
+- Wired in `lib/cmd_init.sh` beside `seed_plan_id` (`:507-511`): seeds `aapp.issueId` strictly when missing or non-numeric.
+- Displayed in the `aapp init` completion banner alongside `aapp.planId` (`:776`).
 
-Seeding is wired in `lib/cmd_init.sh` beside the existing plan seed (`:563-566`), with identical semantics — seed only when the value is missing or non-numeric, so a live counter is never disturbed by a repeat `init` (including the `init` that follows `aapp upgrade`).
+### 2.3 The `aapp-issue` Provider Plugin Contract
 
-### 2.3 The `aapp-issueid` Provider Plugin Contract
+A dedicated plugin at `.agents/skills/aapp-issue/` (entrypoint resolved via `resolve_plugin_entrypoint`):
 
-A **separate** plugin rather than a kind parameter on `aapp-planid`. This keeps the existing plan-provider contract untouched — installed `aapp-planid` providers continue working with no migration — and gives each namespace one plugin with one job.
+| Action | Invocation & Environment | Output & Exit | Local Fallback |
+| :--- | :--- | :--- | :--- |
+| `allocate` | `AAPP_ACTION=allocate AAPP_REPO_ROOT=<root> <entrypoint>` | Prints `#<num>` or bare `<num>`, exits 0 | Claims from `aapp.issueId` counter |
+| `peek` | `AAPP_ACTION=peek AAPP_REPO_ROOT=<root> <entrypoint>` | Prints `#<num>` or bare `<num>`, exits 0 | Reads `aapp.issueId` without claiming |
+| `close` | `AAPP_ACTION=close AAPP_ISSUE_ID=<id> AAPP_COMMIT_SHA=<sha> AAPP_SUMMARY="<msg>" <entrypoint>` | Syncs closure to GitHub/Jira, exits 0 | Local markdown archive is always completed |
 
-| Aspect | Contract |
-| :--- | :--- |
-| Location | `.agents/skills/aapp-issueid/` (entrypoint resolved by `resolve_plugin_entrypoint`, extension-agnostic) |
-| Invocation | `AAPP_ACTION=allocate AAPP_REPO_ROOT=<root> <entrypoint>` |
-| Output | A bare integer or `#<int>` on stdout |
-| Failure | Non-zero exit **aborts allocation** — it never silently falls back to the local counter |
-| Absence | Only plugin *absence* falls back to `aapp.issueId` |
+- **Absence vs Failure Asymmetry**: Plugin absence falls back to local counter. Plugin failure aborts allocation (fail closed).
+- Ships inert mock sample: `examples/plugins/aapp-issue/run.sample`.
+- Registered in `cmd_plugins_status()` in `lib/cmd_hook.sh`.
 
-The absence-vs-failure asymmetry is inherited from P-22 and is deliberate: a present-but-broken provider must not hand out local IDs that the central authority will later reissue.
+### 2.4 The Issue Lifecycle CLI Verb (`aapp issue`) & `aapp done` Integration
 
-A `examples/plugins/aapp-issueid/run.sample` mock ships inert per the P-24 `.sample` convention.
+Add `lib/cmd_issue.sh` and register `issue` in `lib/verbs.tsv`:
 
-### 2.4 Central vs Local Divergence
+```text
+aapp issue [next | allocate | close <#id> [sha] [summary] | list]
+```
 
-When a provider is installed it is authoritative. The **ratchet** in §2.1 means a centrally issued ID always pushes the local counter past itself, so if the provider later becomes unreachable, local fallback allocation resumes above every ID the authority handed out — it can never regress into used numbers.
+1. **`aapp issue [next]`**:
+   - Queries `get_next_issue_id` (or plugin with `AAPP_ACTION=peek`).
+   - Prints the next free issue ID (e.g. `Next available issue ID: #93`).
+2. **`aapp issue allocate`**:
+   - Executes `allocate_issue_id`.
+   - Returns the claimed issue ID on stdout (e.g. `#93`) and updates `aapp.issueId`.
+3. **`aapp issue close <#id> [sha] [summary]`**:
+   - Normalizes `<#id>`.
+   - Extracts matching row from `.plans/ISSUES.md`:
+     `| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |`
+   - Formats into archive row:
+     `| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |`
+   - Inserts row at top of `.plans/done/000-issues-archive.md`.
+   - Deletes row from `.plans/ISSUES.md`.
+   - Prunes matching `- [ ] #<id>` entry from `.plans/issues_road_map.md`.
+   - If `aapp-issue` plugin is present, invokes with `AAPP_ACTION=close`.
+4. **`aapp issue list`**:
+   - Displays active issues in roadmap priority order.
 
-The reverse direction is **not** solved and is not solvable in this design: local allocations made while offline do not inform the central authority, so two contributors working offline can collide. P-22 accepted this trade for plans; this plan inherits it. Pair 8 (§2.5) is the backstop that reports such a collision rather than preventing it.
+#### `aapp done` Delegation:
+In `cmd_done` (`lib/cmd_plan.sh:991`):
+When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
+`cmd_done` invokes `cmd_issue_close "$target_issue" "$commit_sha" "[$bname]($bname) - $summary"`, automatically fulfilling the Relocation Invariant upon plan completion.
 
 ### 2.5 Pair 8: Issue ID Duplicate Detection (`lib/planning_health.sh`)
 
-`check_pair4_plan_id_integrity` (`:296`) detects duplicate Plan IDs across blueprints. Pair 8 is its issue-lane counterpart, and it must scan **both** ledgers — a duplicate spanning active and archived rows is exactly the `#77` case and the one a single-file check misses.
-
-```bash
-# check_pair8_issue_id_integrity <issues-file> <archive-file>
-# Reports any issue id appearing more than once across both ledgers.
-```
-
-- Extracts IDs from rows matching `^\|[[:space:]]*#[0-9]+`, consistent with how `check_taxonomy_and_schema` already parses the flat table.
-- Reports each duplicate naming **both** locations (`active` / `archive`) so the offender is actionable.
-- Returns the violation count, matching the Pair 1–7 convention, and is registered in `check_planning_health` (`:640`) so it runs everywhere the engine runs (`aapp test`, `aapp pause`, `aapp resume`).
-- **Detection only** — it never renumbers. Renumbering a published issue ID breaks inbound references and is a human decision.
-
-Had Pair 8 existed, the `#77` reuse would have been reported at the next health run instead of surviving in the ledger.
+`check_pair8_issue_id_integrity` scans both `ISSUES.md` and `done/000-issues-archive.md`:
+- Extracts all issue IDs matching `^\|[[:space:]]*#[0-9]+`.
+- Verifies zero duplicate occurrences across active and archived ledgers.
+- If duplicates are found, reports exact ID and both locations (`active` / `archive`).
+- Registered in `check_planning_health` immediately following Pair 7 (`:668`).
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-- `allocate_plan_id`, `normalize_plan_id` and `get_next_plan_id` keep their exact signatures and behavior; only their bodies delegate to the shared core. No caller changes.
-- The `aapp-planid` provider contract is untouched, so existing team providers need no migration.
-- Existing repositories seed `aapp.issueId` on the next `aapp init` from both ledgers, so the counter starts above every ID already in use.
-- The pre-existing duplicate `#77` (active `#78` after renumbering, archive `#77` retained) is already resolved and is **not** renumbered by this plan; Pair 8 must report a clean ledger once implemented.
+- Existing plans and functions calling `allocate_plan_id` or `get_next_plan_id` remain 100% binary- and signature-compatible.
+- `aapp init` automatically seeds `aapp.issueId` across active and archived tables on existing repositories.
+- Zero duplicate issue IDs currently exist on `develop`; Pair 8 passes cleanly immediately.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Shared Allocation Core
-- [ ] Task 1.1: Extract `_allocate_id` and `_normalize_id` in `lib/plan_resolver.sh` per §2.1, preserving the ratchet logic and the `RAW` capture comment verbatim.
-- [ ] Task 1.2: Reduce `allocate_plan_id`, `normalize_plan_id` and `get_next_plan_id` to wrappers with unchanged signatures and behavior.
-- [ ] Task 1.3: Add `allocate_issue_id` and `get_next_issue_id` (read-only peek, claims nothing).
-- [ ] Task 1.4: Verify `tests/plan_resolver_test.sh` passes unchanged — plan-side behavior must be provably identical after extraction.
+- [ ] Task 1.1: Extract `_allocate_id` and `_normalize_id` in `lib/plan_resolver.sh` using P-33 fail-closed root resolution.
+- [ ] Task 1.2: Refactor `allocate_plan_id`, `normalize_plan_id`, and `get_next_plan_id` to delegate to the shared core.
+- [ ] Task 1.3: Implement `allocate_issue_id` and `get_next_issue_id`.
+- [ ] Task 1.4: Verify `tests/plan_resolver_test.sh` passes with zero regressions to plan ID allocation.
 
-### Phase 2: Two-File Seeding
-- [ ] Task 2.1: Implement `seed_issue_id` in `lib/cmd_init.sh` per §2.2, scanning both `ISSUES.md` and `done/000-issues-archive.md`.
-- [ ] Task 2.2: Wire `aapp.issueId` seeding beside the existing plan seed (`:563-566`), seeding only when missing or non-numeric.
-- [ ] Task 2.3: Surface the next issue ID in the `aapp init` completion banner alongside the next plan ID (`:849-851`).
+### Phase 2: Two-File Seeding & Init Banner
+- [ ] Task 2.1: Implement `seed_issue_id` in `lib/cmd_init.sh` scanning `ISSUES.md` and `done/000-issues-archive.md`.
+- [ ] Task 2.2: Wire `aapp.issueId` bootstrap into `lib/cmd_init.sh` beside `seed_plan_id` (`:507-511`).
+- [ ] Task 2.3: Surface `Next issue ID: #<id>` in `lib/cmd_init.sh` completion banner (`:776`).
 
-### Phase 3: Provider Plugin Contract
-- [ ] Task 3.1: Author `examples/plugins/aapp-issueid/run.sample` as an inert mock per the P-24 `.sample` convention.
-- [ ] Task 3.2: Register `aapp-issueid` in the standard extension points catalog in `cmd_plugins_status()` (`lib/cmd_hook.sh`) so `aapp plugins` reports it as Active / Sample Available / Not Installed with the local-counter fallback state.
+### Phase 3: Issue Lifecycle CLI Verb (`aapp issue`) & `aapp done`
+- [ ] Task 3.1: Implement `lib/cmd_issue.sh` supporting `next`, `allocate`, `close <#id> [sha] [summary]`, and `list`.
+- [ ] Task 3.2: Register `issue` in `lib/verbs.tsv` and dispatch from `aapp`.
+- [ ] Task 3.3: Wire `cmd_done` in `lib/cmd_plan.sh` to automatically call `cmd_issue_close` when `target_issue` matches `#<id>`.
+- [ ] Task 3.4: Author contract specification in `lib/docs/verbs/issue.md`.
 
-### Phase 4: Pair 8 Duplicate Detection
-- [ ] Task 4.1: Implement `check_pair8_issue_id_integrity` in `lib/planning_health.sh` per §2.5, scanning both ledgers and naming both locations of each duplicate.
-- [ ] Task 4.2: Register Pair 8 in `check_planning_health` (`:640`) following the Pair 1–7 error-accumulation convention.
+### Phase 4: Provider Plugin Contract & Extension Catalog
+- [ ] Task 4.1: Author inert mock provider in `examples/plugins/aapp-issue/run.sample`.
+- [ ] Task 4.2: Register `aapp-issue` in `cmd_plugins_status()` in `lib/cmd_hook.sh`.
 
-### Phase 5: Verification & Documentation
-- [ ] Task 5.1: Add tests in `tests/plan_resolver_test.sh` covering: issue allocation increments `aapp.issueId`; `get_next_issue_id` claims nothing; two-file seeding picks the max across active and archive; a provider ratchets the local counter past a high issued ID; a failing provider aborts rather than falling back; and Pair 8 detects an active/archive duplicate while passing a clean ledger.
-- [ ] Task 5.2: Run all suites via `aapp test`; verify zero regressions, especially plan-side allocation.
-- [ ] Task 5.3: Document `aapp.issueId`, `allocate_issue_id`, the `aapp-issueid` provider contract, and Pair 8 in `MANUAL.md`; add `aapp.issueId` to the configuration matrices in `MANUAL.md` and `CHEATSHEET.md`.
-- [ ] Task 5.4: Update `ARCHITECTURE.md` (extend the *Plan Identity: Stored, Not Derived* section to cover issue identity) and `.agents/CODEMAP.md` (shared allocation core, `seed_issue_id`, Pair 8).
-- [ ] Task 5.5: Update `.agents/AGENTS.md` so the issue-lane protocol instructs agents to claim IDs via `allocate_issue_id` instead of scanning `ISSUES.md` by hand.
-- [ ] Task 5.6: Update `CHANGELOG.md` and run syntax checks.
+### Phase 5: Pair 8 Duplicate Detection
+- [ ] Task 5.1: Implement `check_pair8_issue_id_integrity` in `lib/planning_health.sh`.
+- [ ] Task 5.2: Register Pair 8 in `check_planning_health` following Pair 7.
+
+### Phase 6: Verification, Tests & Documentation
+- [ ] Task 6.1: Author contract test suite `tests/verbs/issue.sh` covering `next`, `allocate`, and `close`.
+- [ ] Task 6.2: Add unit tests in `tests/plan_resolver_test.sh` covering issue allocation, provider ratchet, and Pair 8.
+- [ ] Task 6.3: Run full test runner (`./aapp test strict quiet`) ensuring all test suites pass.
+- [ ] Task 6.4: Update `MANUAL.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, `.agents/CODEMAP.md`, and `.agents/AGENTS.md`.
+- [ ] Task 6.5: Update `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
-- [ ] `lib/plan_resolver.sh` -> Extract shared allocation core; add `allocate_issue_id` and `get_next_issue_id`.
-- [ ] `lib/cmd_init.sh` -> Add `seed_issue_id` (two-file scan), wire `aapp.issueId` seeding, surface next issue ID in the banner.
-- [ ] `lib/planning_health.sh` -> Add and register `check_pair8_issue_id_integrity`.
-- [ ] `lib/cmd_hook.sh` -> Register `aapp-issueid` in the standard extension points catalog.
-- [ ] `NEW FILE` -> `examples/plugins/aapp-issueid/run.sample` -> Inert mock issue ID provider.
-- [ ] `tests/plan_resolver_test.sh` -> Cover issue allocation, two-file seeding, provider ratchet and abort, and Pair 8.
-- [ ] `MANUAL.md` -> Document `aapp.issueId`, the provider contract, and Pair 8.
-- [ ] `CHEATSHEET.md` -> Add `aapp.issueId` to the configuration matrix.
-- [ ] `ARCHITECTURE.md` -> Extend stored-identity section to cover issue IDs.
-- [ ] `CHANGELOG.md` -> Record under Unreleased.
+- [ ] `lib/plan_resolver.sh` -> Extract parameterized allocation core; add allocate_issue_id and get_next_issue_id.
+- [ ] `lib/cmd_init.sh` -> Add seed_issue_id (two-file scan), bootstrap aapp.issueId, surface next issue in banner.
+- [ ] `lib/cmd_plan.sh` -> Delegate issue closure in cmd_done to cmd_issue_close.
+- [ ] `NEW FILE` -> `lib/cmd_issue.sh` -> Operational CLI switchboard for aapp issue.
+- [ ] `lib/verbs.tsv` -> Register issue verb in daily tier.
+- [ ] `NEW FILE` -> `lib/docs/verbs/issue.md` -> Verb behavior contract documentation.
+- [ ] `lib/cmd_hook.sh` -> Register aapp-issue in plugin extension status.
+- [ ] `lib/planning_health.sh` -> Implement and register check_pair8_issue_id_integrity.
+- [ ] `NEW FILE` -> `examples/plugins/aapp-issue/run.sample` -> Reference mock provider plugin.
+- [ ] `tests/plan_resolver_test.sh` -> Test issue allocation, two-file seeding, ratchet, and Pair 8.
+- [ ] `NEW FILE` -> `tests/verbs/issue.sh` -> Contract test suite for aapp issue.
+- [ ] `MANUAL.md` -> Document aapp issue, aapp.issueId, provider contract, and Pair 8.
+- [ ] `CHEATSHEET.md` -> Add aapp issue and aapp.issueId to reference cards.
+- [ ] `ARCHITECTURE.md` -> Document dual stored identity and issue lifecycle engine.
+- [ ] `.agents/CODEMAP.md` -> Register issue commands and Pair 8.
+- [ ] `.agents/AGENTS.md` -> Update issue triage protocol to use allocate_issue_id and aapp issue.
+- [ ] `CHANGELOG.md` -> Record under unreleased.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `.plans/ISSUES.md` -> Row content is issue-lifecycle data, not implementation scope; the existing `#77`/`#78` history is settled and must not be renumbered.
-- [ ] `.plans/done/000-issues-archive.md` -> Archive is append-only and terminal.
-- [ ] `lib/cmd_matrix.sh` -> Matrix derivation is owned by P-30 and unaffected.
-- [ ] `lib/cmd_plan.sh` -> Plan lifecycle verbs call the allocator but need no changes.
+- [ ] `.plans/ISSUES.md` -> Row content is issue-lifecycle data; do not edit historical rows.
+- [ ] `.plans/done/000-issues-archive.md` -> Archive is terminal and append-only.
+- [ ] `.githooks/*` -> Pair 5 self-protected; propagate via aapp init.
 - [ ] `.agents/skills/aapp-*` -> Guard Section 2 self-protected.
-- [ ] `.claude/skills/aapp-*` -> Guard Section 2 self-protected.
-- [ ] `.githooks/*` -> Pair 5 self-protected; propagate via `aapp init`.
 
 ---
 
 ## ❓ 5. Open Questions & Settled Decisions
 
-* [x] **Question 1 — One shared counter or two independent ones? → RESOLVED (developer, 2026-09-22): two independent counters.** `#<num>` and `P-<num>` are distinct namespaces that `.agents/AGENTS.md` forbids interchanging, and lifecycle verbs already reject a `#` where a Plan ID belongs. A single sequence would make issue numbers jump unpredictably and collapse that separation. `P-32` and `#32` may therefore both exist.
-* [x] **Question 2 — Provider plugin: extend `aapp-planid` with a kind parameter, or ship a separate plugin? → RESOLVED (developer, 2026-09-22): a separate `aapp-issueid` plugin.** Leaves the existing `aapp-planid` contract untouched so installed team providers need no migration, and keeps one plugin per namespace with no kind dispatch.
-* [x] **Question 3 — Does this plan include duplicate detection, or does `#79` keep that half? → RESOLVED (developer, 2026-09-22): this plan takes both halves and supersedes `#79`.** A counter prevents future bad scans but cannot catch a hand-typed duplicate; detection reports collisions but cannot stop them. Only both together close the hole that produced the `#77` reuse.
+* [x] **Question 1 — One shared counter or two independent ones? → RESOLVED (developer, 2026-09-22): two independent counters.** `#<num>` and `P-<num>` are distinct namespaces. `P-32` and `#32` may both exist.
+* [x] **Question 2 — Provider plugin naming & contract? → RESOLVED (developer, 2026-09-28): `aapp-issue` multi-action plugin.** Supports `allocate`, `peek`, and `close`, connecting local development with team trackers (GitHub/Jira).
+* [x] **Question 3 — Does this plan include duplicate detection? → RESOLVED (developer, 2026-09-22): Yes, Pair 8.** Pair 8 reports duplicates across active and archived ledgers.
+* [x] **Question 4 — CLI ingress & issue lifecycle scope? → RESOLVED (developer, 2026-09-28): Add `aapp issue` CLI verb with automated close delegation in `aapp done`.** Automates mechanical relocation and eliminates manual markdown surgery for both direct bugfixes and plan completions.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-09-22:** Blueprint scaffolded on developer direction after git history showed issue `#77` had been logged, resolved and relocated before being reused hours later for an unrelated defect. Establishes a parameterized allocation core shared by both namespaces, an `aapp.issueId` counter seeded from **both** the active ledger and the archive (the single-file scan being the actual cause of the collision), a separate `aapp-issueid` provider plugin leaving the plan contract untouched, and Pair 8 duplicate detection as the backstop for offline divergence. Records the two-independent-counters decision, the separate-plugin decision, and the supersession of `#79`.
+* **2026-09-28:** Comprehensive refinement based on active codebase state:
+  1. Conformed allocation core to P-33 fail-closed root resolution.
+  2. Updated stale line citations across `lib/cmd_init.sh` and `lib/planning_health.sh`.
+  3. Added `aapp issue` operational CLI verb (`next`, `allocate`, `close`, `list`) to permanently resolve manual table surgery and ID collisions.
+  4. Wired `aapp done` to delegate to `cmd_issue_close`, automating the Relocation Invariant upon plan completion.
+  5. Expanded provider plugin contract (`aapp-issue`) to support `close` action for team/remote tracker sync.
+* **2026-09-22:** Blueprint initialized after issue `#77` reuse incident.
