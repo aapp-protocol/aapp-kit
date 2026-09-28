@@ -28,8 +28,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-41**: [`P41-cli-first-universal-skills.md`](current/P41-cli-first-universal-skills.md) — Cli First Universal Skills
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

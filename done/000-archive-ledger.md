@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-28 | `P-41` | [`P41-cli-first-universal-skills.md`](P41-cli-first-universal-skills.md) | Protocol Enhancement (Universal Skills Realignment) | `6ab3b73` | CLI-First Universal Skills Alignment (tdd (5/5)) |
 | 2026-09-28 | `P-39` | [`P39-plan-bound-commit-helper.md`](P39-plan-bound-commit-helper.md) | #81 (with P-40) — also resolves the `done` verification-commit divergence in `lib/docs/verbs/done.md` | `6381f36` | Plan Bound Commit Helper (tdd (33/33)) |
 | 2026-09-28 | `P-40` | [`P40-attribution-policy-tiers.md`](P40-attribution-policy-tiers.md) | #81 | `32b7935` | Attribution Policy Tiers (tdd (14/14)) |
 | 2026-09-28 | `P-35` | [`P35-opt-in-failure-test-declaration.md`](P35-opt-in-failure-test-declaration.md) | Protocol Enhancement (Opt-In Failure Testing) | `f727fc5` | Opt In Failure Test Declaration |
