@@ -18,8 +18,7 @@
 
 
 ## 🔴 High Priority (Technical Urgency)
-1. #91 -> `cmd_ai_notes` overwrites `remote.origin.push/fetch` refspecs with `+refs/heads/*:refs/heads/*`, force-pushing branches and clobbering tracking refs.
-2. #49 -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
+1. #49 -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
 
 ## 🟡 Medium Priority (Upcoming Iterations)
 1. #76 -> Unbounded changelog bullet length and commit body verbosity cause context briefing blowup and git log bloat. 🔵 Planned under [P-28](current/P28-conciseness-enforcement-and-changelog-governance.md).

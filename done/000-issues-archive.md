@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #91 | `Critical` | `CORE` | 2026-09-28 | 2026-09-28 | `5685ef5` | Direct fix (no plan): removed destructive `remote.origin.push/fetch` refspecs from `cmd_ai_notes` in `lib/cmd_ai.sh` to prevent force-pushing branches and destroying tracking refs. |
 | #90 | `Medium` | `CORE` | 2026-09-28 | 2026-09-28 | `52f5fc9` | Direct fix (no plan): restored default `aapp.aiAttribution` to `none` across `cmd_init.sh`, `attribution.sh`, `cmd_commit.sh`, test fixtures, and documentation so AI attribution is opt-in developer choice. |
 | #81 | `High` | `HOOK` | 2026-09-23 | 2026-09-28 | `32b7935` | Superseded by [P-40](P40-attribution-policy-tiers.md) (attribution policy tiers) and [P-39](../current/P39-plan-bound-commit-helper.md) (lifecycle commit engine). |
 | #89 | `Medium` | `CLI` | 2026-09-27 | 2026-09-27 | `52c2c01` | Direct fix (no plan): `freeze`/`freeze-start` gate on incubator status, `done` on in-development, via the status registry; contracts and verb suites updated. |
