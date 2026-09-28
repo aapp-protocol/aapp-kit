@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #91 | `Critical` | `CORE` | 2026-09-28 | `lib/cmd_ai.sh:167-170` | `cmd_ai_notes` overwrites `remote.origin.push/fetch` refspecs with `+refs/heads/*:refs/heads/*`, force-pushing all branches and destroying remote tracking refs. | Remove destructive refspec overwrites from `cmd_ai_notes`. | 🟡 `Incubated` |
 | #84 | `Medium` | `HOOK` | 2026-09-27 | `templates/blast-radius-guard.sh:17,87` | Guard relativises paths against the *current* worktree root, so with cwd inside `.plans/` the always-allowed `.plans/*` rule misses and planning writes are refused while a plan is active. | Relativise against `PRIMARY_ROOT`; MANUAL FAQ to use `git -C .plans`. | 🟡 `Incubated` |
 | #87 | `Medium` | `CORE` | 2026-09-27 | `templates/plan-template.md`, `templates/aapp-pre-commit` (design lock) | Plan invariant 4 says to add blocking files under `### 🚨 Emergency Hotfix Extensions`, but that heading is in §4, which the design lock freezes; a hotfix extension is refused once a plan is Frozen. | Decide where hotfix extensions live and exempt them from the lock. | 🟡 `Incubated` |
 | #86 | `Low` | `CORE` | 2026-09-27 | `lib/planning_health.sh:396` (Pair 5) | Fifth Target Files parser (bash) left outside the P-37 library; skips only `NEW FILE\|MODIFY\|DELETE`. | Migrate to `parse_plan_target_paths` with `tests/plan_resolver_test.sh` fixtures (P-37 follow-up). | 🟡 `Incubated` |
