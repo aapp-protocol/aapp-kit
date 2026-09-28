@@ -90,15 +90,15 @@ else
     printf "  \033[31m✘\033[0m %-52s switchboard modes failed\n" "test_setup_verbs_switch_modes: verbs switch modes"; FAIL=$((FAIL+1))
 fi
 
-# Test refspec idempotency
+# Test that ai-notes does not clobber or configure remote refspecs (#91)
 "$KIT/aapp" ai-notes >/dev/null 2>&1 || true
 "$KIT/aapp" ai-notes >/dev/null 2>&1 || true
-PUSH_REFS="$(git config --get-all remote.origin.push 2>/dev/null | wc -l || echo 0)"
-FETCH_REFS="$(git config --get-all remote.origin.fetch 2>/dev/null | wc -l || echo 0)"
-if [ "$PUSH_REFS" -eq 2 ] && [ "$FETCH_REFS" -eq 2 ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "repeated ai-notes preserves idempotent refspecs" "PASS"; PASS=$((PASS+1))
+PUSH_REFS="$(git config --get-all remote.origin.push 2>/dev/null || true)"
+FETCH_REFS="$(git config --get-all remote.origin.fetch 2>/dev/null || true)"
+if [ -z "$PUSH_REFS" ] && [ -z "$FETCH_REFS" ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "ai-notes leaves remote refspecs untouched" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s want push=2 fetch=2 got push=%s fetch=%s\n" "repeated ai-notes preserves idempotent refspecs" "$PUSH_REFS" "$FETCH_REFS"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s want empty push/fetch got push=%s fetch=%s\n" "ai-notes leaves remote refspecs untouched" "$PUSH_REFS" "$FETCH_REFS"; FAIL=$((FAIL+1))
 fi
 
 # aapp ai-status executes cleanly
