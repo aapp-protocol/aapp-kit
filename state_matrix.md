@@ -24,11 +24,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-45**: [`P45-decouple-notes-from-commit-attribution.md`](current/P45-decouple-notes-from-commit-attribution.md) — Decouple Git Notes from Commit Attribution
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-45**: [`P45-decouple-notes-from-commit-attribution.md`](current/P45-decouple-notes-from-commit-attribution.md) — Decouple Git Notes from Commit Attribution
 
 ---
 
