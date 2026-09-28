@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-09-28 | `P-42` | [`P42-dual-scaffolding-and-continuous-execution.md`](P42-dual-scaffolding-and-continuous-execution.md) | Protocol Enhancement (Dual Scaffolding & Continuous Execution) | `3bb9a2d` | Dual Scaffolding And Continuous Execution |
 | 2026-09-28 | `P-41` | [`P41-cli-first-universal-skills.md`](P41-cli-first-universal-skills.md) | Protocol Enhancement (Universal Skills Realignment) | `6ab3b73` | CLI-First Universal Skills Alignment (tdd (5/5)) |
 | 2026-09-28 | `P-39` | [`P39-plan-bound-commit-helper.md`](P39-plan-bound-commit-helper.md) | #81 (with P-40) — also resolves the `done` verification-commit divergence in `lib/docs/verbs/done.md` | `6381f36` | Plan Bound Commit Helper (tdd (33/33)) |
 | 2026-09-28 | `P-40` | [`P40-attribution-policy-tiers.md`](P40-attribution-policy-tiers.md) | #81 | `32b7935` | Attribution Policy Tiers (tdd (14/14)) |
