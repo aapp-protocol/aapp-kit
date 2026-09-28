@@ -1,5 +1,5 @@
 # 🗺️ Plan P-25: Delimited Template Sync & Tiered Document Governance
-* **Created:** 2026-09-21 | **Last Refined:** 2026-09-22
+* **Created:** 2026-09-21 | **Last Refined:** 2026-09-29
 * **Target Issue / Milestone:** #73 *(supersedes #73 upon completion)*
 * **Plan ID:** P-25
 * **Status:** 📝 Refining
@@ -34,7 +34,7 @@ Conversely, naively overwriting files would destroy bespoke project particulars 
 Replace monolithic `copy_guarded` with a **Three-Tier Document Governance Model**:
 1. **Tier 1 (Pure Engine Templates)**: Scaffold assets (`plan-template.md`, `release_checklist.md`, `000-archive-ledger.md`) kept synchronized with canonical protocol invariants.
 2. **Tier 2 (Hybrid Documents)**: Protocol blocks synchronized within strict HTML delimiter boundaries (`<!-- AAPP-*:START -->` ... `<!-- AAPP-*:END -->`), preserving surrounding project-specific prose.
-3. **Tier 3 (Pure Project Data)**: Live ledgers (`ISSUES.md`, `state_matrix.md`, `CODEMAP.md`, `ARCHITECTURE.md`) initialized once, never overwritten by template sync.
+3. **Tier 3 (Pure Project Data)**: Live ledgers and project-owned documents (`ISSUES.md`, `state_matrix.md`, `CODEMAP.md`, `PROJECT.MD`, `ARCHITECTURE.md`) initialized once, never overwritten by template sync. `CODEMAP.md` and `PROJECT.MD` are never touched by the kit if present — on `init`, `upgrade` or any sync; their templates are guidance for new projects only.
 
 Provide a configurable Git switchboard (`aapp.templateSync = safe | strict | manual`), an explicit CLI sync verb (`aapp sync-templates`), and template drift detection integrated into `aapp status`.
 
@@ -53,7 +53,7 @@ Provide a configurable Git switchboard (`aapp.templateSync = safe | strict | man
 | :--- | :--- | :--- | :--- |
 | **Tier 1** | Pure Reusable Template | `.plans/plan-template.md`<br>`.plans/release/release_checklist.md`<br>`.plans/done/000-archive-ledger.md` | Standard protocol sync. If file matches known upstream release hash or is unmodified, update cleanly. If modified, update delimited invariants block or produce `.new` diff for review. |
 | **Tier 2** | Hybrid Governance Document | `.agents/AGENTS.md`<br>`.plans/pickup.md` | Delimited Block Sync (`<!-- AAPP-PROTOCOL:START -->`). Core protocol block upgraded in-place; all surrounding custom rules/tasks preserved. |
-| **Tier 3** | Pure Project Domain Data | `.plans/ISSUES.md`<br>`.plans/state_matrix.md`<br>`.plans/issues_road_map.md`<br>`.agents/CODEMAP.md`<br>`ARCHITECTURE.md` | Seeded on initial install only (`copy_guarded`). Never overwritten during template sync. |
+| **Tier 3** | Pure Project Domain Data | `.plans/ISSUES.md`<br>`.plans/state_matrix.md`<br>`.plans/issues_road_map.md`<br>`.agents/CODEMAP.md`<br>`.agents/PROJECT.MD`<br>`ARCHITECTURE.md` | Seeded on initial install only (`copy_guarded`). Never overwritten during template sync. `CODEMAP.md` and `PROJECT.MD` are never touched if present, in any sync mode. |
 
 ### 2.2 Delimiter Protocol & Marker Standard
 Hybrid and template files adopt standard HTML delimiter comments:
@@ -161,5 +161,6 @@ Configurable via `git config aapp.templateSync <mode>`:
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-09-29 (Refinement):** Added `.agents/PROJECT.MD` to Tier 3, which listed no tier for it. Made explicit that `CODEMAP.md` and `PROJECT.MD` are project-owned: never touched by the kit if present, in any mode; templates are guidance only (user direction).
 * **2026-09-22 (Refinement):** Settled all Open Questions with recommended answers: (1) adopted hybrid Option A (.new buffer) / Option B (in-place delimiter update) conflict resolution, (2) adopted automatic safe sync during `aapp init` and `aapp upgrade`, and (3) adopted uniform `vX.Y.Z` schema version stamping. Updated Target Files to include `lib/verbs.tsv`, `CHEATSHEET.md`, and `CHANGELOG.md`.
 * **2026-09-21:** Drafted initial canonical blueprint P-25 from issue #73 analysis. Established 3-tier document governance model, HTML delimiter standard, and git config switchboard.
