@@ -53,3 +53,4 @@ Run: `aapp test verb ai`
 - `tests/verbs/ai.sh::test_ai_refuses_invalid_subcommand` -> unknown subcommand exits 1 with diagnostic
 - `tests/verbs/ai.sh::test_ai_refuses_legacy_off_alias` -> `aapp ai off` exits 1 per clean break
 - `tests/verbs/ai.sh::test_ai_credits_runs_cleanly` -> `aapp ai credits` updates README.md or reports no-op
+- `tests/verbs/ai.sh::test_ai_notes_preserves_notes_config` -> `aapp ai notes` preserves pre-existing rewriteRef and mergeStrategy

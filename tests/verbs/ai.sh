@@ -58,4 +58,19 @@ else
   bad "test_ai_credits_runs_cleanly" "rc=$rc out=$out"
 fi
 
+# 6. test_ai_notes_preserves_notes_config
+git config --replace-all notes.rewriteRef "refs/notes/commits"
+git config --add notes.rewriteRef "refs/notes/ai"
+git config notes.ai.mergeStrategy "union"
+aapp ai notes >/dev/null 2>&1
+rewrites="$(git config --get-all notes.rewriteRef)"
+strat="$(git config notes.ai.mergeStrategy)"
+if echo "$rewrites" | grep -qx "refs/notes/commits" && \
+   echo "$rewrites" | grep -qx "refs/notes/ai" && \
+   [ "$strat" = "union" ]; then
+  ok "test_ai_notes_preserves_notes_config"
+else
+  bad "test_ai_notes_preserves_notes_config" "rewrites=[$rewrites] strat=[$strat]"
+fi
+
 print_test_summary "$PASS" "$FAIL"

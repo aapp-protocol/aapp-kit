@@ -72,15 +72,13 @@ MODE_STRICT="$(git config aapp.aiAttribution 2>/dev/null)"
 
 "$KIT/aapp" ai notes >/dev/null 2>&1 || true
 MODE_NOTES="$(git config aapp.aiAttribution 2>/dev/null)"
-REWRITE_REF="$(git config --get-all notes.rewriteRef 2>/dev/null || echo "")"
-MERGE_STRAT="$(git config notes.mergeStrategy 2>/dev/null || echo "")"
 
 "$KIT/aapp" ai none >/dev/null 2>&1 || true
 MODE_NONE="$(git config aapp.aiAttribution 2>/dev/null)"
 CREDITS_TOGGLE="$(git config aapp.aiCredits 2>/dev/null)"
 
 if [ "$MODE_LAX" = "lax" ] && [ "$MODE_STRICT" = "strict" ] && \
-   [ "$MODE_NOTES" = "notes" ] && [ "$REWRITE_REF" = "refs/notes/commits" ] && [ "$MERGE_STRAT" = "cat_sort_uniq" ] && \
+   [ "$MODE_NOTES" = "notes" ] && \
    [ "$MODE_NONE" = "none" ] && [ "$CREDITS_TOGGLE" = "false" ]; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "test_setup_verbs_switch_modes: verbs switch modes" "PASS"; PASS=$((PASS+1))
 else

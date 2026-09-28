@@ -154,13 +154,9 @@ cmd_ai_strict() {
 
 cmd_ai_notes() {
     git config aapp.aiAttribution notes
-    git config notes.mergeStrategy cat_sort_uniq
-    git config notes.rewriteMode concatenate
-    git config --replace-all notes.rewriteRef "refs/notes/commits"
     echo "✅ Switched AI attribution to 'notes' mode."
     echo "   Commit messages will remain pristine and human-only."
-    echo "   Attribution metadata will be attached to refs/notes/commits."
-    echo "   Configured mergeStrategy (cat_sort_uniq) and rewriteRef (refs/notes/commits)."
+    echo "   Attribution metadata will be attached via Git Notes."
 }
 
 cmd_ai_none() {

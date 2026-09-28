@@ -1407,7 +1407,7 @@ The `aapp ai` command family manages configuration and credits without manual co
 - **`aapp ai status`**: Displays active attribution mode, `aapp.subjectMaxLen`, `aapp.aiCredits` toggle status, and scans for pending note buffers reporting count, message hash, and age.
 - **`aapp ai lax`**: Enables lax attribution (validates trailers if present; human commits pass freely).
 - **`aapp ai strict`**: Enables strict attribution (requires valid trailers on every commit).
-- **`aapp ai notes`**: Enables private git notes, sets `notes.mergeStrategy=cat_sort_uniq`, `notes.rewriteMode=concatenate`, and sets **`notes.rewriteRef=refs/notes/commits`**.
+- **`aapp ai notes`**: Enables private git notes attribution mode (pristine commit messages; metadata attached via Git Notes).
 - **`aapp ai none`**: Disables AI attribution (pure human authoring; does not erase existing `README.md` blocks).
 - **`aapp ai credits`**: Generates or updates the `AI Contributors` block in `README.md`.
 
