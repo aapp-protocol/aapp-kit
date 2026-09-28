@@ -162,6 +162,10 @@ case "$CMD" in
         source "$AAPP_LIB/cmd_commit.sh"
         cmd_commit "$@"
         ;;
+    note)
+        source "$AAPP_LIB/cmd_note.sh"
+        cmd_note "$@"
+        ;;
     draft|freeze-start|start|freeze|done|plan|active|plan-status|tdd)
         source "$AAPP_LIB/cmd_plan.sh" "$CMD" "$@"
         ;;

@@ -18,7 +18,7 @@
 ## ⚙️ 2. Technology Stack & Runtime
 * **Core Language Runtime:** Pure POSIX Bash (3.2+), Git (2.20+), optional Python 3.8+ for JSON parsing in write-guard.
 * **Dependencies:** Zero external npm, pip, or binary packages. Standard POSIX utilities only (`grep`, `sed`, `awk`, `find`, `mktemp`).
-* **Attribution Engine:** Git semantic commit trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) and native git notes (`refs/notes/commits`).
+* **Attribution Engine:** Git semantic commit trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) and native git notes across two fixed namespaces: `refs/notes/commits` (developer notes) and `refs/notes/ai` (AI traces).
 
 ---
 
@@ -37,7 +37,8 @@
 │   ├── cmd_pause.sh       # Emergency brake, multi-worktree stash quarantine & wake engine
 │   ├── cmd_hook.sh        # Hook audit, event catalog discovery (--events) & testing
 │   ├── cmd_ai.sh          # AI attribution switchboard & credits manager
-│   ├── attribution.sh     # AI identity resolution, decorator & note writer (P-40)
+│   ├── cmd_note.sh        # Dedicated Git Notes engine & CLI handler (status, stage, push, pull) (P-44)
+│   ├── attribution.sh     # AI identity resolution, decorator & note writer (P-40, P-44)
 │   ├── cmd_status.sh      # 4-pillar context recovery agent briefing
 │   ├── cmd_develop.sh     # Live editable development symlinking
 │   ├── cmd_upgrade.sh     # Upstream release fetch and in-place upgrade
@@ -113,6 +114,7 @@
 13. **Opt-In Failure Test Declaration & TDD Gate (P-35):** Plans may opt into failure-first testing via `aapp tdd <id>`. Declarations split across two sections: `### 🧪 Required Tests (Failure & Boundary Assertions)` in §3 holds tickable assertions (`path::name -> asserts <condition>`), while `### 🧪 Required Test Files` in §4 is design-locked at freeze time and grants write access under Option A single-entry semantics without redundant entry in Target Files. Section 4 is the sole authoritative trigger: plans without it are completely unaffected. Pre-commit tolerates empty sections, mismatches, and unwritten files during `📝 Refining`, but strictly enforces mutual correspondence and non-emptiness at `🔷 Frozen` and `⚡ In Development` (with disk existence enforced at `⚡`). `cmd_done` provides a mechanical completion gate: all §3 assertions must be ticked (`- [x]`), declared test files must exist on disk and be tracked in Git, and verified evidence is recorded as `tdd (N/N)` in the archive ledger.
 14. **Attribution Policy Tiers & Single Identity Layer (P-40):** Attribution mode is governed by `aapp.aiAttribution` across four discrete tiers: `none` (default; pure human authoring; trailers refused), `lax` (opt-in mixed human/AI work, trailers validated when present, human commits pass freely without trailers), `strict` (mandatory valid emailless trailers on every commit), and `notes` (private git notes in `refs/notes/commits`, trailers in commit messages refused). The legacy `commit` mode is retired and refused loudly at commit time with actionable migration advice (`aapp ai-lax` or `aapp ai-strict`). `lib/attribution.sh` is the single authoritative identity layer (`resolve_ai_identity`, `attribution_decorate`, `attribution_note`) used across CLI verbs and lifecycle triggers; no verb constructs trailers or notes by hand. Identity resolution respects strict precedence: parameters > environment (`AAPP_AGENT_*`) > per-worktree git config (`aapp.aiAgent`, `aapp.aiVendor`, `aapp.aiModel`); plain repository config is never read to avoid cross-worktree bleed. Synthetic vendor emails in `Co-authored-by:` are strictly blocked across all modes.
 15. **Plan-Bound Commit Helper & Unified Lifecycle Commit Engine (P-39):** Implementation commits during active execution are bound to plans via the `aapp commit` helper (`lib/cmd_commit.sh`). The helper commits only staged code in the working tree, attributes via P-40's identity layer (`lib/attribution.sh`), records `sha (branch)` in the active plan's `* **Commits:**` header, and commits the plan file alone via `lib/commit_engine.sh`. `plans_commit` provides a single authoritative commit engine for all `.plans` commits (lifecycle verbs `draft`, `freeze`, `start`, `freeze-start`, `done`, and helper recordings), enforcing explicit pathspec staging (`git commit -- <paths>`), lock-retry resilience, attribution decoration, and loud failures without `|| true`. `aapp done` enforces that an active plan has at least one recorded reachable commit, eliminating guessed `HEAD` recording. Discipline is taught via plan template execution invariants and warning-only pre-commit reminders when raw `git commit` is detected outside the helper.
+16. **General-Purpose Git Notes Subsystem (P-44):** Git notes operate across two strictly isolated namespaces: `refs/notes/commits` (developer notes) and `refs/notes/ai` (AI traces). Notes are appended non-destructively on amend without error suppression. Remote sync is opt-in via `aapp.notesRemote` with `union` merge strategy by default to prevent notes loss. The audit guard (`aapp.aiNotesGuard`, `warn` or `enforce`) audits lossless configuration (`notes.rewriteRef`, `notes.rewriteMode concatenate`) and surfaces actionable warnings.
 
 ## Plan State: Derived, Not Maintained
 

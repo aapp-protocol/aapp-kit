@@ -27,6 +27,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp active [id]` | **✅ Yes** | Inspect, swap, or clear active plan execution buffer |
 | `aapp test [filter]` | **✅ Yes** | Run test suites across repository or audit adopter environment |
 | `aapp test verb [name]` | **✅ Yes** | Run contract-derived verb suites (`tests/verbs/<name>.sh`) |
+| `aapp note [cmd]` | **✅ Yes** | Inspect, stage, push, or pull general and AI Git notes |
 
 AI agent counterparts: `/aapp-status`, `/aapp-digest [idea]`, `/aapp-freeze [plan]`, `/aapp-start [plan]`, `/aapp-done [plan]`, `/aapp-pause [reason]`, `/aapp-release`, `/aapp-plan` (and `/plan`), `/aapp-tdd [plan]`.
 
@@ -122,6 +123,8 @@ AAPP controls repository behavior via standard Git configuration:
 | `aapp.pullStrategy` | `ff-only` | `ff-only` | Remote Sync | Non-negotiable fast-forward safety invariant for worktree updates. |
 | `aapp.allowLocalHooks` | `true` / `false` | `true` | Hook Engine | Enables/disables local clone hook overrides (`git config aapp.hook.[event]`). |
 | `aapp.hookTimeout` | integer (seconds) | `10` | Hook Engine | Execution timeout ceiling for local notify hook handlers. |
+| `aapp.notesRemote` | string | *(unset)* | Git Notes | Git remote for notes push/pull (unset = local-first). |
+| `aapp.aiNotesGuard` | `warn` / `enforce` | `warn` | Git Notes | Audit guard mode: surfaces warnings (default) or enforces lossless settings on refs/notes/ai. |
 
 ---
 

@@ -224,11 +224,7 @@ attribution_note() {
     local mode
     mode="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
 
-    if [ "$mode" != "notes" ]; then
-        return 0
-    fi
-
-    if [ -z "$identity" ] && [ -n "$text" ]; then
+    if [ "$mode" = "notes" ] && [ -z "$identity" ] && [ -n "$text" ]; then
         echo "❌ [Error] Note text provided without a resolved AI identity in 'notes' mode." >&2
         echo "   👉 Provide an identity via parameters, environment (AAPP_AGENT_*), or worktree config." >&2
         return 1
@@ -239,18 +235,37 @@ attribution_note() {
         return 0
     fi
 
-    local id_lines
-    id_lines="$(format_identity_lines "$identity")"
+    local id_lines=""
+    [ -n "$identity" ] && id_lines="$(format_identity_lines "$identity")"
 
     local note_content=""
     if [ -n "$id_lines" ] && [ -n "$text" ]; then
         note_content="${id_lines}"$'\n\n'"${text}"
     elif [ -n "$id_lines" ]; then
         note_content="${id_lines}"
+    else
+        note_content="${text}"
     fi
 
-    if [ -n "$note_content" ] && [ -n "$sha" ]; then
-        git notes --ref=refs/notes/commits add -f -m "$note_content" "$sha" >/dev/null 2>&1
+    if [ -z "$note_content" ] || [ -z "$sha" ]; then
+        return 0
+    fi
+
+    if [ "$mode" = "notes" ]; then
+        # In notes mode, primary note is attached to refs/notes/commits (Option C backward-compatible)
+        git notes --ref="refs/notes/commits" append -m "$note_content" "$sha" || return $?
+        # Also ensure AI trace is securely recorded in refs/notes/ai
+        if [ -n "$id_lines" ]; then
+            git notes --ref="refs/notes/ai" append -m "$id_lines" "$sha" || return $?
+        fi
+    else
+        # In other modes (none, lax, strict), AI identity traces route to refs/notes/ai;
+        # general notes without identity route to refs/notes/commits
+        if [ -n "$identity" ]; then
+            git notes --ref="refs/notes/ai" append -m "$note_content" "$sha" || return $?
+        else
+            git notes --ref="refs/notes/commits" append -m "$note_content" "$sha" || return $?
+        fi
     fi
     return 0
 }

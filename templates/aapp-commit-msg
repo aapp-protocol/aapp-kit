@@ -208,7 +208,7 @@ esac
 # ------------------------------------------------------------------------------
 # Message-Hash Sync (G1)
 # ------------------------------------------------------------------------------
-if [ "$ATTR_MODE" = "notes" ] && command -v git >/dev/null 2>&1; then
+if command -v git >/dev/null 2>&1; then
     NOTE_DIR="$(git rev-parse --git-path . 2>/dev/null || echo ".git")"
     FINAL_HASH="$(git stripspace --strip-comments < "$MSG_FILE" 2>/dev/null | sha256sum | awk '{print $1}')"
     if [ -d "$NOTE_DIR" ] && [ -n "$FINAL_HASH" ]; then

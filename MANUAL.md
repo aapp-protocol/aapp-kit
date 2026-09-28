@@ -1435,8 +1435,33 @@ In `notes` mode, notes are staged prior to committing to prevent concurrent stag
    ```
 3. **Atomic Attachment & Failure Safety (B3)**: `post-commit` attaches the note via `git notes add -f -F` and unlinks the buffer **only on success (`&&`)**. On failure, the buffer is preserved on disk.
 4. **TTL Sweep (B5)**: `post-commit` reaps orphaned notes older than `aapp.noteTTL` (default 1440m / 24h) via `find ... -mmin +TTL -exec rm -f {} +`.
-5. **Amend Durability**: `notes.rewriteRef=refs/notes/commits` ensures git copies the note to the new SHA during `git commit --amend` and `git rebase`.
+5. **Amend Durability**: `notes.rewriteRef` (containing both `refs/notes/commits` and `refs/notes/ai`) ensures git copies notes to the new SHA during `git commit --amend` and `git rebase`.
    - *Durability limits:* `git cherry-pick` is outside git's default rewrite set; `git filter-branch` requires explicit note remapping (see `scripts/scrub-attribution.sh`).
+
+### General-Purpose Git Notes Subsystem (`aapp note`)
+
+AAPP provides a general-purpose Git Notes infrastructure decoupled from AI attribution modes, supporting both developer/review notes and immutable AI audit traces:
+
+#### Two Fixed Notes Namespaces
+1. **`refs/notes/commits` (Developer Notes)**:
+   - General developer notes, code review annotations, benchmark logs, and descriptions.
+   - Visible by default in standard `git log`.
+2. **`refs/notes/ai` (AI Audit Traces)**:
+   - Private agent identity headers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) and autonomous traces.
+   - Configured once during setup via `notes.displayRef = refs/notes/ai` so standard `git log` displays both namespaces without special flags.
+   - Isolated: A human editing or removing a note in `refs/notes/commits` cannot delete or tamper with the AI audit trail in `refs/notes/ai`.
+
+#### Note CLI Ingress (`aapp note`)
+- **`aapp note status`**: Inspects configured notes remote, active merge strategies, rewrite settings, audit guard status, and pending note buffers.
+- **`aapp note stage "<text>" [msg "<commit-msg>"] [agent <A> vendor <V> model <M>]`**: Pre-stages a hash-keyed note buffer. Identity tokens route the note to `refs/notes/ai`; omitting identity routes to `refs/notes/commits`.
+- **`aapp note push [remote]`**: Pushes local notes refs (`refs/notes/commits`, `refs/notes/ai`) to target remote without force.
+- **`aapp note pull [remote]`**: Fetches remote notes into tracking namespace and merges into local refs (defaulting to `union` merge to prevent line-scrambling).
+
+#### Remote Governance & Lossless Audit Guard
+- **`git config aapp.notesRemote <remote>`**: Unset by default (local-first). When set, `aapp push` and `aapp sync` automatically synchronize notes with the specified remote.
+- **`git config aapp.aiNotesGuard warn|enforce`**:
+  - `warn` (default): Surfaces advisory warnings in status if lossy settings (`ours`, `theirs`, `cat_sort_uniq`, rewrite `ignore`) are configured on `refs/notes/ai`.
+  - `enforce`: For sensitive benchmarks, guarantees lossless operations on `refs/notes/ai`, verifies `notes.rewriteMode concatenate`, and audits environment variable overrides.
 
 ### The Mode-Boundary Rationale (§E.8)
 

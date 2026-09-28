@@ -28,7 +28,13 @@ HEAD_HASH="$(git cat-file commit HEAD 2>/dev/null | sed '1,/^$/d' | sha256sum | 
 # 3. Match and attach staged note
 NOTE_FILE="$NOTE_DIR/aapp_pending_note.$HEAD_HASH"
 if [ -f "$NOTE_FILE" ]; then
-    if git notes add -f -F "$NOTE_FILE" HEAD 2>&1; then
+    TARGET_REF="refs/notes/commits"
+    if grep -qE '^X-AAPP-Ref:' "$NOTE_FILE" 2>/dev/null; then
+        TARGET_REF="$(grep -E '^X-AAPP-Ref:' "$NOTE_FILE" | head -1 | sed 's/^X-AAPP-Ref:[[:space:]]*//')"
+        sed -i '/^X-AAPP-Ref:/d' "$NOTE_FILE" 2>/dev/null || true
+    fi
+
+    if git notes --ref="$TARGET_REF" append -F "$NOTE_FILE" HEAD 2>&1; then
         rm -f "$NOTE_FILE"
     else
         echo "⚠️  [Post-Commit Warning] Failed to attach git note to HEAD from $NOTE_FILE" >&2

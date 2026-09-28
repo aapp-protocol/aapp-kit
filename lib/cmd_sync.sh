@@ -339,12 +339,36 @@ dispatch_observer_hook "pre-sync"
 
 PULL_STRAT="$(git -C "$REPO_ROOT" config aapp.pullStrategy 2>/dev/null || echo "ff-only")"
 
+sync_notes_if_configured() {
+    local note_action="$1"
+    local notes_remote
+    notes_remote="$(git -C "$REPO_ROOT" config aapp.notesRemote 2>/dev/null || true)"
+    if [ -n "$notes_remote" ]; then
+        local cmd_note_path
+        if [ -n "$AAPP_LIB" ] && [ -f "$AAPP_LIB/cmd_note.sh" ]; then
+            cmd_note_path="$AAPP_LIB/cmd_note.sh"
+        elif [ -f "$(dirname "${BASH_SOURCE[0]}")/cmd_note.sh" ]; then
+            cmd_note_path="$(dirname "${BASH_SOURCE[0]}")/cmd_note.sh"
+        fi
+
+        if [ -n "$cmd_note_path" ]; then
+            if ! command -v "cmd_note_$note_action" >/dev/null 2>&1; then
+                source "$cmd_note_path"
+            fi
+            "cmd_note_$note_action" "$notes_remote" || {
+                echo "⚠️  [Warning] Failed to $note_action notes with '$notes_remote'." >&2
+            }
+        fi
+    fi
+}
+
 case "$ACTION" in
     pull)
         echo "🚀 Pulling AAPP worktrees from '$TARGET_REMOTE' (--$PULL_STRAT)..."
         for wt in "${ACTIVE_WTS[@]}"; do
             pull_worktree "$wt" || return 1 2>/dev/null || exit 1
         done
+        sync_notes_if_configured pull
         echo "✨ All AAPP worktrees pulled successfully."
         ;;
     push)
@@ -352,6 +376,7 @@ case "$ACTION" in
         for wt in "${ACTIVE_WTS[@]}"; do
             push_worktree "$wt" || return 1 2>/dev/null || exit 1
         done
+        sync_notes_if_configured push
         echo "✨ All AAPP worktrees pushed successfully."
         ;;
     sync)
@@ -360,10 +385,12 @@ case "$ACTION" in
         for wt in "${ACTIVE_WTS[@]}"; do
             pull_worktree "$wt" || return 1 2>/dev/null || exit 1
         done
+        sync_notes_if_configured pull
         echo "  📤 Pushing worktrees..."
         for wt in "${ACTIVE_WTS[@]}"; do
             push_worktree "$wt" || return 1 2>/dev/null || exit 1
         done
+        sync_notes_if_configured push
         echo "✨ All AAPP worktrees synchronized successfully."
         ;;
 esac
