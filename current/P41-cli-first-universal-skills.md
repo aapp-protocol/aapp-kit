@@ -120,6 +120,9 @@ Each skill in `templates/skills/` adopts the canonical 3-tier structure:
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
+### 🧪 Required Tests (Failure & Boundary Assertions)
+> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+
 ### Phase 1: Skills Refactoring
 - [ ] Task 1.1: Refactor `templates/skills/aapp-done/SKILL.md` to CLI-first execution (`aapp done`), removing all `mv`, `sed`, and raw `git commit` instructions.
 - [ ] Task 1.2: Refactor `templates/skills/aapp-freeze/SKILL.md` to CLI-first execution (`aapp freeze`), adding explicit refusal branch for open questions and TDD mismatches.
@@ -149,6 +152,9 @@ Each skill in `templates/skills/` adopts the canonical 3-tier structure:
 - [ ] `templates/skills/aapp-digest/SKILL.md` -> Delegation to aapp draft
 - [ ] `MANUAL.md` -> Universal skills alignment documentation
 - [ ] `CHANGELOG.md` -> Record under Added/Changed
+
+### 🧪 Required Test Files
+> Test files that must prove this plan's failure cases. Frozen with the blast radius.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.agents/skills/*` -> Governance skills self-protection; authored in `templates/skills/` and synced via `aapp init`.
