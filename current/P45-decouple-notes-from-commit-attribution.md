@@ -85,20 +85,20 @@ Decouple Git Notes from commit message trailers into two orthogonal dimensions:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Engine & Helper Decoupling
-- [ ] Task 1.1: Update `lib/cmd_commit.sh` to allow note attachment across all modes and auto-attach AI trace when `aapp.aiNotes=true`.
-- [ ] Task 1.2: Refactor `lib/attribution.sh` (`attribution_note`) to route non-identity notes cleanly to `refs/notes/commits`.
-- [ ] Task 1.3: Update `templates/aapp-commit-msg` to ensure trailers and notes do not conflict.
+- [x] Task 1.1: Update `lib/cmd_commit.sh` to allow note attachment across all modes and auto-attach AI trace when `aapp.aiNotes=true`.
+- [x] Task 1.2: Refactor `lib/attribution.sh` (`attribution_note`) to route non-identity notes cleanly to `refs/notes/commits`.
+- [x] Task 1.3: Update `templates/aapp-commit-msg` to ensure trailers and notes do not conflict.
 
 ### Phase 2: CLI Ingress & Status
-- [ ] Task 2.1: Update `lib/cmd_ai.sh` with `aapp ai notes [on|off]` toggle and unified status display.
-- [ ] Task 2.2: Update `lib/docs/verbs/ai.md` and `lib/docs/verbs/commit.md` contracts.
-- [ ] Task 2.3: Update `templates/AGENTS.md` and `MANUAL.md`.
+- [x] Task 2.1: Update `lib/cmd_ai.sh` with `aapp ai notes [on|off]` toggle and unified status display.
+- [x] Task 2.2: Update `lib/docs/verbs/ai.md` and `lib/docs/verbs/commit.md` contracts.
+- [x] Task 2.3: Update `templates/AGENTS.md` and `MANUAL.md`.
 
 ### Phase 3: Contract Verification & Tests
-- [ ] Task 3.1: Add parallel tests in `tests/verbs/commit.sh` verifying `strict` + note, `lax` + note, and `none` + note.
-- [ ] Task 3.2: Add tests in `tests/verbs/ai.sh` verifying `aapp ai notes [on|off]` and status reporting.
-- [ ] Task 3.3: Run full test suite (`./aapp test strict quiet`) ensuring all 28+ test suites pass.
-- [ ] Task 3.4: Update `CHANGELOG.md` under `## [Unreleased]`.
+- [x] Task 3.1: Add parallel tests in `tests/verbs/commit.sh` verifying `strict` + note, `lax` + note, and `none` + note.
+- [x] Task 3.2: Add tests in `tests/verbs/ai.sh` verifying `aapp ai notes [on|off]` and status reporting.
+- [x] Task 3.3: Run full test suite (`./aapp test strict quiet`) ensuring all 28+ test suites pass.
+- [x] Task 3.4: Update `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
