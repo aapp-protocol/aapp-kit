@@ -446,6 +446,30 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
             exit 1
         fi
 
+        # Opt-in failure test declaration check (P-35)
+        if plan_has_required_test_files "$ACTIVE_PLAN_PATH"; then
+            ACTIVE_STATUS="$(grep -m 1 -E '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*' "$ACTIVE_PLAN_PATH" | sed -E 's/^.*\*\*Status:\*\*[[:space:]]*//')"
+            # Enforce only when plan is frozen or in development (tolerated while refining / under review)
+            if echo "$ACTIVE_STATUS" | grep -qE '(🔷[[:space:]]*Frozen|⚡[[:space:]]*In Development)'; then
+                validate_plan_tdd_correspondence "$ACTIVE_PLAN_PATH" "Pre-Commit TDD" || exit 1
+
+                # At ⚡ In Development, enforce test file existence on disk
+                if echo "$ACTIVE_STATUS" | grep -qE '(⚡|[Ii]n [Dd]evelopment)'; then
+                    while IFS= read -r f_path; do
+                        [ -z "$f_path" ] && continue
+                        if [ ! -f "$REPO_ROOT/$f_path" ] && [ ! -f "$PRIMARY_ROOT/$f_path" ] && [ ! -f "$f_path" ]; then
+                            echo ""
+                            echo "❌ [Pre-Commit TDD Violation] Required test file '$f_path' is missing from disk!"
+                            echo "   Active plan : $(basename "$ACTIVE_PLAN_PATH")"
+                            echo "   Status      : ⚡ In Development"
+                            echo ""
+                            exit 1
+                        fi
+                    done < <(parse_plan_required_test_files "$ACTIVE_PLAN_PATH")
+                fi
+            fi
+        fi
+
         PLAN_TARGETS=()
         PLAN_OOB=()
 
