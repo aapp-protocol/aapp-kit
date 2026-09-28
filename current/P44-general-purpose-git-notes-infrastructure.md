@@ -4,7 +4,7 @@
 * **Plan ID:** P-44
 * **Status:** ⚡ In Development
 * **Base:** `5685ef5` (develop)
-* **Commits:** none
+* **Commits:** `9bdd43c` (develop)
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -104,32 +104,32 @@ aapp note [status | stage "<text>" [agent <A> vendor <V> model <M>] | push | pul
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Engine Implementation & Unified Writer
-- [ ] Task 1.1: Implement `lib/cmd_note.sh` with subcommands: `status`, `stage`, `push`, `pull`.
-- [ ] Task 1.2: Refactor `templates/aapp-post-commit` to attach notes using `git notes append` and route to `refs/notes/commits` vs `refs/notes/ai`.
-- [ ] Task 1.3: Update `templates/aapp-commit-msg` to re-key note buffers on `$EDITOR` edit regardless of attribution mode.
-- [ ] Task 1.4: Refactor `attribution_note` in `lib/attribution.sh` to remove silent error suppression (`>/dev/null`), lift the mode check to allow notes in any mode, and write to `refs/notes/ai` using `git notes append`.
+- [x] Task 1.1: Implement `lib/cmd_note.sh` with subcommands: `status`, `stage`, `push`, `pull`.
+- [x] Task 1.2: Refactor `templates/aapp-post-commit` to attach notes using `git notes append` and route to `refs/notes/commits` vs `refs/notes/ai`.
+- [x] Task 1.3: Update `templates/aapp-commit-msg` to re-key note buffers on `$EDITOR` edit regardless of attribution mode.
+- [x] Task 1.4: Refactor `attribution_note` in `lib/attribution.sh` to remove silent error suppression (`>/dev/null`), lift the mode check to allow notes in any mode, and write to `refs/notes/ai` using `git notes append`.
 
 ### Phase 2: Setup, Sync & Guard Logic
-- [ ] Task 2.1: Implement safe setup in `lib/cmd_note.sh`: write `notes.rewriteRef` (both refs) and `notes.displayRef = refs/notes/ai` strictly when unset.
-- [ ] Task 2.2: Implement `aapp.aiNotesGuard` checks (`warn` vs `enforce`) in `cmd_note_status`, `aapp pull`/`sync`, and the post-commit writer (explicitly setting and auditing `notes.rewriteMode concatenate` under `enforce`).
-- [ ] Task 2.3: Wire `aapp.notesRemote` into `lib/cmd_sync.sh` so `aapp push` and `aapp sync` include notes push/pull when remote is configured.
+- [x] Task 2.1: Implement safe setup in `lib/cmd_note.sh`: write `notes.rewriteRef` (both refs) and `notes.displayRef = refs/notes/ai` strictly when unset.
+- [x] Task 2.2: Implement `aapp.aiNotesGuard` checks (`warn` vs `enforce`) in `cmd_note_status`, `aapp pull`/`sync`, and the post-commit writer (explicitly setting and auditing `notes.rewriteMode concatenate` under `enforce`).
+- [x] Task 2.3: Wire `aapp.notesRemote` into `lib/cmd_sync.sh` so `aapp push` and `aapp sync` include notes push/pull when remote is configured.
 
 ### Phase 3: CLI Catalog, Contracts & Tests
-- [ ] Task 3.1: Register `note` in `lib/verbs.tsv` and dispatch in `aapp`.
-- [ ] Task 3.2: Create contract document `lib/docs/verbs/note.md`.
-- [ ] Task 3.3: Author contract test suite `tests/verbs/note.sh`.
-- [ ] Task 3.4: Author comprehensive integration suite `tests/notes_test.sh` testing:
+- [x] Task 3.1: Register `note` in `lib/verbs.tsv` and dispatch in `aapp`.
+- [x] Task 3.2: Create contract document `lib/docs/verbs/note.md`.
+- [x] Task 3.3: Author contract test suite `tests/verbs/note.sh`.
+- [x] Task 3.4: Author comprehensive integration suite `tests/notes_test.sh` testing:
   - Two-ref isolation (`commits` vs `ai`).
   - Appending without data loss on amend.
   - `aapp.notesRemote` push and pull with `union` merge.
   - Fail closed on `manual` merge conflicts.
   - `aapp.aiNotesGuard` enforcement of lossless settings.
-- [ ] Task 3.5: Run full test suite (`aapp test strict quiet`) ensuring all suites pass cleanly.
+- [x] Task 3.5: Run full test suite (`aapp test strict quiet`) ensuring all suites pass cleanly.
 
 ### Phase 4: Documentation Sync
-- [ ] Task 4.1: Update `MANUAL.md` detailing Git Notes subsystem, `aapp.notesRemote`, and `aapp.aiNotesGuard`.
-- [ ] Task 4.2: Update `CHEATSHEET.md`, `ARCHITECTURE.md`, and `.agents/CODEMAP.md`.
-- [ ] Task 4.3: Update `CHANGELOG.md` under `## [Unreleased] -> ### Added`.
+- [x] Task 4.1: Update `MANUAL.md` detailing Git Notes subsystem, `aapp.notesRemote`, and `aapp.aiNotesGuard`.
+- [x] Task 4.2: Update `CHEATSHEET.md`, `ARCHITECTURE.md`, and `.agents/CODEMAP.md`.
+- [x] Task 4.3: Update `CHANGELOG.md` under `## [Unreleased] -> ### Added`.
 
 ---
 
