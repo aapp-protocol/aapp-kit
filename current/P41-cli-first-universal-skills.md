@@ -122,29 +122,29 @@ Each skill in `templates/skills/` adopts the canonical 3-tier structure:
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/install_test.sh::test_skills_cli_first_done` -> asserts `templates/skills/aapp-done/SKILL.md` invokes `aapp done` and contains no manual `sed -i`, `mv`, or raw `git -C .plans commit`
-- [ ] `tests/install_test.sh::test_skills_cli_first_freeze` -> asserts `templates/skills/aapp-freeze/SKILL.md` invokes `aapp freeze` and contains no manual `sed -i` or raw `git -C .plans commit`
-- [ ] `tests/install_test.sh::test_skills_cli_first_start` -> asserts `templates/skills/aapp-start/SKILL.md` invokes `aapp start` and contains no direct buffer write `echo "<plan-id>" > "$ACTIVE_BUFFER"` or raw `git -C .plans commit`
-- [ ] `tests/install_test.sh::test_skills_cli_first_status` -> asserts `templates/skills/aapp-status/SKILL.md` delegates directly to `aapp status [short]`
-- [ ] `tests/install_test.sh::test_skills_cli_first_digest` -> asserts `templates/skills/aapp-digest/SKILL.md` delegates scaffolding to `aapp draft` instead of manual file copying
+- [x] `tests/install_test.sh::test_skills_cli_first_done` -> asserts `templates/skills/aapp-done/SKILL.md` invokes `aapp done` and contains no manual `sed -i`, `mv`, or raw `git -C .plans commit`
+- [x] `tests/install_test.sh::test_skills_cli_first_freeze` -> asserts `templates/skills/aapp-freeze/SKILL.md` invokes `aapp freeze` and contains no manual `sed -i` or raw `git -C .plans commit`
+- [x] `tests/install_test.sh::test_skills_cli_first_start` -> asserts `templates/skills/aapp-start/SKILL.md` invokes `aapp start` and contains no direct buffer write `echo "<plan-id>" > "$ACTIVE_BUFFER"` or raw `git -C .plans commit`
+- [x] `tests/install_test.sh::test_skills_cli_first_status` -> asserts `templates/skills/aapp-status/SKILL.md` delegates directly to `aapp status [short]`
+- [x] `tests/install_test.sh::test_skills_cli_first_digest` -> asserts `templates/skills/aapp-digest/SKILL.md` delegates scaffolding to `aapp draft` instead of manual file copying
 
 ### Phase 0: Failure-First Test Declarations
-- [ ] Task 0.1: Add Test 52 in `tests/install_test.sh` asserting CLI-first execution and absence of manual git surgery / sed commands across all skill templates, confirming initial failure (Red 🔴).
+- [x] Task 0.1: Add Test 52 in `tests/install_test.sh` asserting CLI-first execution and absence of manual git surgery / sed commands across all skill templates, confirming initial failure (Red 🔴).
 
 ### Phase 1: Skills Refactoring
-- [ ] Task 1.1: Refactor `templates/skills/aapp-done/SKILL.md` to CLI-first execution (`aapp done`), removing all `mv`, `sed`, and raw `git commit` instructions.
-- [ ] Task 1.2: Refactor `templates/skills/aapp-freeze/SKILL.md` to CLI-first execution (`aapp freeze`), adding explicit refusal branch for open questions and TDD mismatches.
-- [ ] Task 1.3: Refactor `templates/skills/aapp-start/SKILL.md` to CLI-first execution (`aapp start`), adding worktree collision diagnostic handling.
-- [ ] Task 1.4: Refactor `templates/skills/aapp-status/SKILL.md` to delegate directly to `aapp status [short]`.
-- [ ] Task 1.5: Review `templates/skills/aapp-digest/SKILL.md` and ensure scaffolding delegates to `aapp draft`.
+- [x] Task 1.1: Refactor `templates/skills/aapp-done/SKILL.md` to CLI-first execution (`aapp done`), removing all `mv`, `sed`, and raw `git commit` instructions.
+- [x] Task 1.2: Refactor `templates/skills/aapp-freeze/SKILL.md` to CLI-first execution (`aapp freeze`), adding explicit refusal branch for open questions and TDD mismatches.
+- [x] Task 1.3: Refactor `templates/skills/aapp-start/SKILL.md` to CLI-first execution (`aapp start`), adding worktree collision diagnostic handling.
+- [x] Task 1.4: Refactor `templates/skills/aapp-status/SKILL.md` to delegate directly to `aapp status [short]`.
+- [x] Task 1.5: Review `templates/skills/aapp-digest/SKILL.md` and ensure scaffolding delegates to `aapp draft`.
 
 ### Phase 2: Verification & Idempotent Sync
-- [ ] Task 2.1: Run `aapp init` to verify clean propagation to `.agents/skills/` and `.claude/skills/`.
-- [ ] Task 2.2: Run test suite (`./aapp test strict quiet`) ensuring all existing skill drift and integration tests pass (e.g. `tests/install_test.sh`).
+- [x] Task 2.1: Run `aapp init` to verify clean propagation to `.agents/skills/` and `.claude/skills/`.
+- [x] Task 2.2: Run test suite (`./aapp test strict quiet`) ensuring all existing skill drift and integration tests pass (e.g. `tests/install_test.sh`).
 
 ### Phase 3: Documentation Sync
-- [ ] Task 3.1: Update `MANUAL.md` documenting that Universal Skills are conversational shims over deterministic CLI verbs.
-- [ ] Task 3.2: Update `CHANGELOG.md` under `## [Unreleased]`.
+- [x] Task 3.1: Update `MANUAL.md` documenting that Universal Skills are conversational shims over deterministic CLI verbs.
+- [x] Task 3.2: Update `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
