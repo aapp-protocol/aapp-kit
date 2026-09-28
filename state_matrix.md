@@ -20,7 +20,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-32**: [`P32-issue-id-allocation-and-duplicate-detection.md`](current/P32-issue-id-allocation-and-duplicate-detection.md) — Issue ID Allocation & Duplicate Detection
 - 🟣 **P-38**: [`P38-milestone-release-bundling-and-tag-ledgers.md`](current/P38-milestone-release-bundling-and-tag-ledgers.md) — Milestone Release Bundling & Tag Ledgers
 - 🟣 **P-39**: [`P39-plan-bound-commit-helper.md`](current/P39-plan-bound-commit-helper.md) — Plan Bound Commit Helper
-- 🟣 **P-40**: [`P40-attribution-policy-tiers.md`](current/P40-attribution-policy-tiers.md) — Attribution Policy Tiers
 
 ---
 
@@ -29,6 +28,8 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-40**: [`P40-attribution-policy-tiers.md`](current/P40-attribution-policy-tiers.md) — Attribution Policy Tiers
 
 ---
 

@@ -2,7 +2,7 @@
 * **Created:** 2026-09-28 | **Last Refined:** 2026-09-28
 * **Target Issue / Milestone:** #81
 * **Plan ID:** P-40
-* **Status:** 🟣 Under Review
+* **Status:** ⚡ In Development
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -235,5 +235,7 @@ police it. Long commit bodies are **not** moved into notes (C33 rejected; length
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-28:** Plan activated into ⚡ In Development via start.
+* **2026-09-28:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-09-28:** Drafted from the P-39 RFC after the user split attribution out of P-39 and ordered it first (C28). Carries: four modes with `notes` always strict for identified commits (C25, C30–C32); `lax` default and its stated limit (C27); `strict` with a human in the loop (C35 addendum); no exemptions (C26); standard lifecycle commits meeting the mode's rule (C35); notes travelling with the commit, bare attribution passing, text without identity exit 1 with stderr (C34); identity sources (P-39 Q4); TTY detection rejected (C29); long bodies not in notes (C33).
