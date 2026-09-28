@@ -26,20 +26,25 @@
 During Milestone 1.0 (P-40), AI attribution modes were introduced alongside multiple dedicated top-level verbs:
 `ai-lax`, `ai-strict`, `ai-notes`, `ai-off`, `ai-status`, `ai-note`, and `ai-credits`.
 
-While functional, this introduced substantial **CLI verb sprawl** (consuming 7 rows in `lib/verbs.tsv` and `aapp help`) for policy choices that are toggled infrequently. Furthermore, subordinating Git Notes under AI attribution conflated two distinct concerns.
+While functional, this introduced substantial **CLI verb sprawl** (consuming 7 rows in `lib/verbs.tsv` and `aapp help`) for policy choices that are toggled infrequently. Furthermore, subordinating Git Notes under AI attribution conflated policy governance with general metadata storage.
 
-**Design Simplification & Invariants:**
+**Settled Architecture & Scope (RFC Consensus):**
 1. **Consolidated Verb**: Collapse the fragmented `ai-*` verbs into a single polymorphic verb:
    ```text
-   aapp ai [status | none | off | lax | strict | notes | credits]
+   aapp ai [status | none | lax | strict | notes | credits]
    ```
+   - Standardizes on `none` (no `off` alias) to maintain strict 1:1 parity with `aapp.aiAttribution=none`.
 2. **Init & Upgrade Immutability Invariant**:
    - `aapp init` sets `aapp.aiAttribution = none` (opt-in developer choice) **strictly when unset**.
    - Repeat `aapp init` and `aapp upgrade` **NEVER** modify, overwrite, or reset an existing `aapp.aiAttribution` configuration.
    - We explicitly do **not** add `--ai` flags to `aapp init`; setup remains clean and unburdened.
+   - Updates the init completion summary banner (`cmd_init.sh:770`) to advertise the new `aapp ai <mode>` syntax.
 3. **Decoupled Notes Subsystem**:
-   - General-purpose Git Notes infrastructure (staging, arbitrary annotations, push sync, hooks) is cleanly separated and delegated to Plan [P-44](P44-general-purpose-git-notes-infrastructure.md) (`aapp note`).
-   - Legacy `ai-note` is dropped from the attribution catalog.
+   - General-purpose Git Notes infrastructure is decoupled to Plan [P-44](P44-general-purpose-git-notes-infrastructure.md) (`aapp note`).
+   - Legacy `ai-note` is dropped from the attribution catalog; notes staging is handled by `aapp note stage`.
+4. **Sequencing**:
+   - P-44 (Git Notes Subsystem) lands first, providing the robust note engine and fixing C10 refspec destruction.
+   - P-43 lands second, executing the clean break and verb catalog consolidation.
 
 ---
 
@@ -51,33 +56,29 @@ The single entry point `aapp ai` handles discovery, status, mode switching, and 
 - **Status / Discovery (`aapp ai` or `aapp ai status`)**:
   - Displays current mode (`none`, `lax`, `strict`, `notes`).
   - Displays brief mode description and whether AI trailers/notes are currently enforced.
-  - Shows helpful usage syntax: `aapp ai [status|off|none|lax|strict|notes|credits]`.
+  - Shows helpful usage syntax: `aapp ai [status|none|lax|strict|notes|credits]`.
 
 - **Mode Switching**:
-  - `aapp ai off` or `aapp ai none`: Disables attribution (`aapp.aiAttribution = none`). Pure human authoring.
+  - `aapp ai none`: Disables attribution (`aapp.aiAttribution = none`). Pure human authoring (no `off` duplicate alias).
   - `aapp ai lax`: Mixed human/AI mode (`aapp.aiAttribution = lax`). Validates emailless trailers when present; human commits pass.
   - `aapp ai strict`: Autonomous trace mode (`aapp.aiAttribution = strict`). Enforces valid emailless trailers on every commit.
-  - `aapp ai notes`: Local-first attribution mode (`aapp.aiAttribution = notes`). Stores attribution metadata in `refs/notes/commits`.
+  - `aapp ai notes`: Local-first attribution mode (`aapp.aiAttribution = notes`). Stores attribution metadata in `refs/notes/ai` (via P-44).
 
 - **Subcommands**:
   - `aapp ai credits`: Generates or updates AI Contributors block in `README.md` (delegates to `cmd_ai_credits`).
 
-- **Decoupled Notes Handoff (Clean Break to P-44)**:
-  - Arbitrary note creation, staging, editing, and push sync are decoupled from AI attribution and delegated to Plan [P-44](P44-general-purpose-git-notes-infrastructure.md) (`aapp note`).
-  - Legacy `ai-note` is dropped; users and agents will use `aapp note stage "<text>"` under P-44.
-
 - **Help / Diagnostics (`aapp ai help` or unknown subcommands)**:
   - Fails closed on invalid mode with exit code 1:
-    `❌ Unknown AI mode or command: '<input>'. Valid: status, off, none, lax, strict, notes, credits.`
+    `❌ Unknown AI mode or command: '<input>'. Valid: status, none, lax, strict, notes, credits.`
 
-### 2. Init & Upgrade Immutability Invariant
-`cmd_init.sh` already enforces:
-```bash
-if [ -z "$(git config --get aapp.aiAttribution 2>/dev/null || true)" ]; then
-    git config aapp.aiAttribution none
-fi
-```
-This ensures that repeat `init` and future `upgrade` runs preserve the developer's chosen attribution policy without alteration.
+### 2. Template Diagnostics & Banner Updates
+- **`lib/cmd_init.sh:770`**:
+  Update completion banner text to reflect consolidated verbs:
+  `➡️  AI Attribution:     $current_attribution (switch via 'aapp ai lax', 'aapp ai strict', 'aapp ai notes', or 'aapp ai none')`
+- **`templates/aapp-commit-msg`**:
+  Update diagnostic messages pointing users to `aapp ai <mode>` rather than retired `aapp ai-*`.
+- **`templates/AGENTS.md`**:
+  Update attribution switchboard table to document `aapp ai <mode>` syntax and clarify `none` is the default.
 
 ### 3. Dispatcher & Verb Catalog Consolidation
 - **`lib/verbs.tsv`**:
@@ -85,10 +86,10 @@ This ensures that repeat `init` and future `upgrade` runs preserve the developer
   - Add single entry:
     `ai	ai	yes	Configure or inspect AI attribution mode and credits	lib/docs/verbs/ai.md`
 - **`aapp` Dispatcher**:
-  - Update `aapp` case statement: dispatch `ai` to `lib/cmd_ai.sh "$@"`.
-  - Clean break: intercepted legacy verbs `ai-status|ai-lax|ai-strict|ai-notes|ai-off|ai-credits|ai-note` fail closed with an explicit migration advisory:
+  - Dispatch `ai` to `lib/cmd_ai.sh "$@"`.
+  - Clean break: intercepted legacy verbs fail closed with an explicit migration advisory:
     `❌ [AAPP] 'aapp ai-<cmd>' has been consolidated into 'aapp ai <cmd>'.`
-    `   Run: aapp ai "$@"`
+    `   Run: aapp ai ${CMD#ai-}`
 - **Verb Contract Documentation**:
   - Create `lib/docs/verbs/ai.md` detailing the contract for `aapp ai`.
   - Add derived verb test suite `tests/verbs/ai.sh`.
@@ -108,14 +109,16 @@ This ensures that repeat `init` and future `upgrade` runs preserve the developer
 - [ ] Task 1.2: Create verb test suite `tests/verbs/ai.sh` and update `tests/ai_attribution_test.sh` to exercise `aapp ai [mode]`.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Update `lib/cmd_ai.sh` to refine `aapp ai` dispatching, status output, help text, and error handling.
-- [ ] Task 2.2: Update `aapp` top-level dispatcher to route `ai` cleanly and provide migration guidance for legacy hyphenated verbs.
-- [ ] Task 2.3: Update `lib/verbs.tsv` to replace 7 legacy rows with single `ai` verb entry.
+- [ ] Task 2.1: Update `lib/cmd_ai.sh` to refine `aapp ai` dispatching, status output, help text, and clean break error handling (dropping legacy `ai-*|` matching).
+- [ ] Task 2.2: Update `lib/cmd_init.sh:770` banner to display `aapp ai <mode>` verbs.
+- [ ] Task 2.3: Update `templates/aapp-commit-msg` and `templates/AGENTS.md` diagnostics and table.
+- [ ] Task 2.4: Update `aapp` top-level dispatcher to route `ai` cleanly and provide migration guidance for legacy hyphenated verbs.
+- [ ] Task 2.5: Update `lib/verbs.tsv` to replace 7 legacy rows with single `ai` verb entry.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run `aapp test verb ai` and `aapp test ai_attribution_test.sh`.
-- [ ] Task 3.2: Run full test suite (`aapp test strict quiet`) ensuring all 25 suites pass.
-- [ ] Task 3.3: Update `CHEATSHEET.md`, `ARCHITECTURE.md`, and `.agents/CODEMAP.md` to reflect unified `aapp ai` command.
+- [ ] Task 3.2: Run full test suite (`aapp test strict quiet`) ensuring all suites pass.
+- [ ] Task 3.3: Update `MANUAL.md`, `README.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, and `.agents/CODEMAP.md`.
 - [ ] Task 3.4: Update `CHANGELOG.md` under `## [Unreleased] -> ### Changed`.
 
 ---
@@ -124,19 +127,23 @@ This ensures that repeat `init` and future `upgrade` runs preserve the developer
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/cmd_ai.sh` -> Consolidate switchboard handler, usage text, and subcommand dispatching.
-- [ ] `aapp` -> Route `ai` verb and add clean-break advisory for legacy `ai-*` forms.
-- [ ] `lib/verbs.tsv` -> Replace 7 legacy entries with unified `ai` entry.
-- [ ] `lib/docs/verbs/ai.md` -> NEW FILE -> Verb behavior contract documentation for `aapp ai`.
-- [ ] `tests/verbs/ai.sh` -> NEW FILE -> Derived contract test suite for `aapp ai`.
-- [ ] `tests/ai_attribution_test.sh` -> Update test cases to exercise `aapp ai` syntax.
-- [ ] `CHEATSHEET.md` -> Update AI attribution section to document `aapp ai [mode]`.
+- [ ] `lib/cmd_init.sh` -> Update completion summary banner line 770.
+- [ ] `templates/aapp-commit-msg` -> Update diagnostics to point to aapp ai <mode>.
+- [ ] `templates/AGENTS.md` -> Update attribution table and default mode documentation.
+- [ ] `aapp` -> Route ai verb and add clean-break advisory for legacy ai-* forms.
+- [ ] `lib/verbs.tsv` -> Replace 7 legacy entries with unified ai entry.
+- [ ] `lib/docs/verbs/ai.md` -> NEW FILE -> Verb behavior contract documentation for aapp ai.
+- [ ] `tests/verbs/ai.sh` -> NEW FILE -> Derived contract test suite for aapp ai.
+- [ ] `tests/ai_attribution_test.sh` -> Update test cases to exercise aapp ai syntax.
+- [ ] `MANUAL.md` -> Update AI attribution documentation for aapp ai.
+- [ ] `README.md` -> Update attribution reference and examples.
+- [ ] `CHEATSHEET.md` -> Update AI attribution section to document aapp ai [mode].
 - [ ] `ARCHITECTURE.md` -> Update architectural rule and description of AI attribution subsystem.
 - [ ] `CHANGELOG.md` -> Document verb consolidation under Unreleased.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/*` -> Hook binaries are frozen; Layer 2 pre-commit and commit-msg logic remains unchanged.
 - [ ] `lib/cmd_commit.sh` -> Plan-bound commit helper is frozen.
-- [ ] `lib/cmd_init.sh` -> Init remains untouched; existing attribution configuration is immutable.
 - [ ] `.plans/current/P44-*` -> P-44 Git Notes blueprint remains in its active refinement phase.
 
 ---
@@ -147,4 +154,4 @@ This ensures that repeat `init` and future `upgrade` runs preserve the developer
 ---
 
 ## 📦 6. Change Log & Refinement History
-* **2026-09-28:** Plan scaffolded and refined to consolidate 7 legacy `ai-*` verbs into polymorphic `aapp ai`. Dropped `aapp init --ai` to keep init unburdened and strictly preserve existing attribution settings on repeat init and upgrade. Decoupled Git Notes engine to Plan P-44.
+* **2026-09-28:** Plan scaffolded and refined to consolidate 7 legacy `ai-*` verbs into polymorphic `aapp ai`. Settled on `none` without aliases, included `cmd_init.sh:770` banner, `templates/aapp-commit-msg`, and `templates/AGENTS.md` in Target Files, and decoupled Git Notes to Plan P-44.
