@@ -1,6 +1,6 @@
-# 🗺️ Plan P-41: Cli First Universal Skills
+# 🗺️ Plan P-41: CLI-First Universal Skills Alignment
 * **Created:** 2026-09-28 | **Last Refined:** 2026-09-28
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** Protocol Enhancement (Universal Skills Realignment)
 * **Plan ID:** P-41
 * **Status:** 🟣 Under Review
 * **Base:** none
@@ -10,7 +10,6 @@
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
      A plan whose Status says BLOCKED grants no commit rights at all. A ✅ Done plan is archived in
      .plans/done/ and records terminal completion in the archive ledger. -->
-<!-- * **Blocked On:** ISSUE-00X   <- add this line while BLOCKED, remove it when unblocked -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -28,36 +27,113 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+### Problem Statement
+Universal skills in `templates/skills/` (`aapp-done`, `aapp-freeze`, `aapp-start`, `aapp-status`, and `aapp-digest`) were authored during early protocol iterations before deterministic CLI engines and authoritative lifecycle gates existed.
+
+Currently, their instructions direct agents to perform manual filesystem and git operations:
+1. **`aapp-done/SKILL.md`**: Instructs agents to run `mv .plans/current/<plan>.md .plans/done/<plan>.md`, run `sed -i` on status lines, manually edit markdown tables in `000-archive-ledger.md`, and execute raw `git -C .plans commit`.
+2. **`aapp-freeze/SKILL.md`**: Instructs agents to perform raw `sed -i` on plan headers, hand-edit `state_matrix.md`, and execute raw `git -C .plans commit`.
+3. **`aapp-start/SKILL.md`**: Instructs agents to manually write to `.git/aapp_active_plan`, update status lines by hand, and run raw git commits.
+4. **`aapp-status/SKILL.md`**: Directs agents to manually parse files rather than invoking `aapp status`.
+
+This legacy approach introduces severe architectural hazards:
+- **Bypasses Lifecycle Gates**: Manual edits bypass the P-35 TDD completion gate (`tdd (N/N)` verification), the P-39 recorded commit reachability verification, the P-39 `pre-done` veto hook, P-30 state matrix derivation, and worktree concurrency guards.
+- **Bypasses Commit Engine**: Manual `git -C .plans commit` bypasses the `plans_commit` engine in `lib/commit_engine.sh`, losing lock-retry resilience and re-introducing potential silent commit failures or race conditions.
+- **Syntax and Prose Corruption**: Manual `sed -i` replacements risk matching example blocks inside blueprint prose (as observed during P-39 execution).
+
+### Architectural Goal
+Align all universal lifecycle skills in `templates/skills/` to the **CLI-First Standard** established by `aapp-tdd` in P-35:
+1. **CLI Execution First**: The skill directs the agent to invoke the authoritative CLI verb (`aapp done <plan>`, `aapp freeze <plan>`, `aapp start <plan>`, `aapp status [short]`).
+2. **Deterministic Failure Branch**: If the CLI exits non-zero (refusal or veto), the agent must **never** attempt manual filesystem hacks, `sed` edits, or raw git commits. It must parse the CLI diagnostic, explain the exact blocker to the user, and prompt for remediation.
+3. **Clean Structured Summary**: On CLI exit 0, the skill instructs the agent to present the resulting ledger entry, buffer binding, or status matrix update.
+4. **Synchronize Clones**: Propagate the updated skill templates to `.agents/skills/` and `.claude/skills/` via `aapp init`.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Clean Break` (Default)
+- **Fallback Inventory**: `None (Clean Break)`. Manual shell instructions (`mv`, `sed`, raw `git -C .plans commit`) are completely removed from skill instructions. Agents must delegate to `aapp <verb>`.
+
+### 2.1 Skill Ingress & Execution Taxonomy
+
+Each skill in `templates/skills/` adopts the canonical 3-tier structure:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Parameter & Target Resolution                            │
+│    - Parse inline arguments or resolve active buffer        │
+│    - Handle candidate selection ceiling (max 10 items)      │
+├─────────────────────────────────────────────────────────────┤
+│ 2. Authoritative CLI Execution                              │
+│    - Execute: aapp <verb> <target>                          │
+│    - Capture stdout, stderr, and exit code                  │
+├─────────────────────────────────────────────────────────────┤
+│ 3. Branching Logic                                          │
+│    ├─► Exit != 0: Refusal / Failure Branch                  │
+│    │   - STOP immediately (zero manual workarounds)         │
+│    │   - Present exact diagnostic and remediation path      │
+│    └─► Exit == 0: Success Branch                            │
+│        - Extract structured output (ledger SHA, matrix row) │
+│        - Present concise conversational confirmation        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 Skill Specifications
+
+#### 1. `templates/skills/aapp-done/SKILL.md`
+- **Command**: `aapp done [target]`
+- **Refusal Handling**:
+  - Missing recorded commits: Instruct agent to run `aapp commit adopt <sha>...`.
+  - Unticked TDD assertions: Direct user/agent to verify and tick §3 assertions.
+  - Linked worktree collision: Report conflicting worktree holding the plan.
+  - Pre-done hook veto: Report script refusal reason.
+- **Success**: Output the generated archive ledger line (`Plan ID`, verification commit SHA, impact summary).
+
+#### 2. `templates/skills/aapp-freeze/SKILL.md`
+- **Command**: `aapp freeze [target]`
+- **Refusal Handling**:
+  - Unresolved §5 questions: List unticked questions and prompt user.
+  - TDD correspondence failure: Report mismatch between §3 assertions and §4 test files.
+  - Non-incubator status: Explain that only `🟣 Under Review` or `📝 Refining` plans can be frozen.
+- **Success**: Confirm plan is locked in `🔷 Frozen` backlog and offer `aapp start [target]`.
+
+#### 3. `templates/skills/aapp-start/SKILL.md`
+- **Command**: `aapp start [target]`
+- **Refusal Handling**:
+  - Plan bound in another worktree: Report worktree path and refuse double-binding.
+  - Plan not frozen: Direct user to run `aapp freeze` first.
+  - Target files disjointness collision: Name conflicting in-development plan.
+- **Success**: Confirm active buffer bound (`.git/aapp_active_plan`) and base commit recorded.
+
+#### 4. `templates/skills/aapp-status/SKILL.md`
+- **Command**: `aapp status [short]`
+- **Refusal Handling**: Report any underlying repository corruption or missing toolchain.
+- **Success**: Output the 4-pillar recovery briefing (Shipped, Issues, Plans, Pickup) and suggest the Next Action.
+
+#### 5. `templates/skills/aapp-digest/SKILL.md`
+- **Behavior**: Keep cognitive analysis (routing to issues vs blueprints, scan for NEW vs AMEND), but use `aapp draft <slug>` for scaffolding rather than manual template copying.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Skills Refactoring
+- [ ] Task 1.1: Refactor `templates/skills/aapp-done/SKILL.md` to CLI-first execution (`aapp done`), removing all `mv`, `sed`, and raw `git commit` instructions.
+- [ ] Task 1.2: Refactor `templates/skills/aapp-freeze/SKILL.md` to CLI-first execution (`aapp freeze`), adding explicit refusal branch for open questions and TDD mismatches.
+- [ ] Task 1.3: Refactor `templates/skills/aapp-start/SKILL.md` to CLI-first execution (`aapp start`), adding worktree collision diagnostic handling.
+- [ ] Task 1.4: Refactor `templates/skills/aapp-status/SKILL.md` to delegate directly to `aapp status [short]`.
+- [ ] Task 1.5: Review `templates/skills/aapp-digest/SKILL.md` and ensure scaffolding delegates to `aapp draft`.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Verification & Idempotent Sync
+- [ ] Task 2.1: Run `aapp init` to verify clean propagation to `.agents/skills/` and `.claude/skills/`.
+- [ ] Task 2.2: Run test suite (`./aapp test strict quiet`) ensuring all existing skill drift and integration tests pass (e.g. `tests/install_test.sh`).
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+### Phase 3: Documentation Sync
+- [ ] Task 3.1: Update `MANUAL.md` documenting that Universal Skills are conversational shims over deterministic CLI verbs.
+- [ ] Task 3.2: Update `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
@@ -66,25 +142,28 @@
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `templates/skills/aapp-done/SKILL.md` -> CLI-first execution and refusal diagnostics
+- [ ] `templates/skills/aapp-freeze/SKILL.md` -> CLI-first execution and refusal diagnostics
+- [ ] `templates/skills/aapp-start/SKILL.md` -> CLI-first execution and refusal diagnostics
+- [ ] `templates/skills/aapp-status/SKILL.md` -> CLI-first execution delegation
+- [ ] `templates/skills/aapp-digest/SKILL.md` -> Delegation to aapp draft
+- [ ] `MANUAL.md` -> Universal skills alignment documentation
+- [ ] `CHANGELOG.md` -> Record under Added/Changed
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `.agents/skills/*` -> Governance skills self-protection; authored in `templates/skills/` and synced via `aapp init`.
+- [ ] `.claude/skills/*` -> Generated/symlinked from `.agents/skills/`.
+- [ ] `lib/cmd_plan.sh` -> CLI execution logic is already complete and verified.
+- [ ] `lib/commit_engine.sh` -> Commit engine is frozen and verified.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — Skill Fallback when `aapp` binary is unreachable**: If an agent is running in an environment where `aapp` is not in `$PATH` or alias (e.g. bare subshell), should the skill advise running `export PATH="$HOME/.local/bin:$PATH"` or `./aapp`, rather than performing manual git surgery?
+  - *Proposed*: Advise checking PATH and running `./aapp` directly; never provide a manual git bypass that sidesteps lifecycle gates.
+* [ ] **Question 2 — Skill Frontmatter Invariant**: Verify that all modified skills maintain `disable-model-invocation: false` and valid `argument-hint` strings so IDE autocomplete in Claude Code and Antigravity remains seamless.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-09-28:** Plan initialized from `pickup.md`.
-* **2026-09-28:** Refined blast radius and locked module boundaries.
+* **2026-09-28:** Drafted blueprint following P-39 completion to align legacy skill templates with deterministic CLI engines and lifecycle gates.
