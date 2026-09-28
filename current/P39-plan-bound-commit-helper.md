@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** #81 (with P-40) — also resolves the `done` verification-commit divergence in `lib/docs/verbs/done.md`
 * **Plan ID:** P-39
 * **Status:** ⚡ In Development
-* **Commits:** `bca7d9a` (develop), `8c0c103` (feat/parser), `6381f36` (develop)
+* **Commits:** `6381f36` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
