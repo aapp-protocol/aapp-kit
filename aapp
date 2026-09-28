@@ -158,6 +158,10 @@ case "$CMD" in
     ai)
         source "$AAPP_LIB/cmd_ai.sh" "$@"
         ;;
+    commit)
+        source "$AAPP_LIB/cmd_commit.sh"
+        cmd_commit "$@"
+        ;;
     draft|freeze-start|start|freeze|done|plan|active|plan-status|tdd)
         source "$AAPP_LIB/cmd_plan.sh" "$CMD" "$@"
         ;;

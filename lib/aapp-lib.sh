@@ -319,3 +319,198 @@ aapp_os() {
         *) echo "unknown" ;;
     esac
 }
+
+# ------------------------------------------------------------------------------
+# Plan Commits & Base header parsing and mutation (P-39)
+# ------------------------------------------------------------------------------
+
+# parse_plan_commits <plan_file>
+# Outputs `<sha> <branch>` pairs, one per line.
+# Backticked SHA and parenthesized branch are required; `none` or prose yield nothing.
+# Strictly confined to the plan header (before any ## heading).
+parse_plan_commits() {
+    local pf="$1"
+    [ ! -f "$pf" ] && return 0
+    local raw_line
+    raw_line="$(awk '/^[[:space:]]*```/ { f = !f; next } f { next } /^##[[:space:]]/ { exit } /^[[:space:]]*[*|-]*[[:space:]]*\*\*Commits:\*\*/ { print; exit }' "$pf" 2>/dev/null || true)"
+    [ -z "$raw_line" ] && return 0
+    local val
+    val="$(echo "$raw_line" | sed -E 's/^[[:space:]]*[\*|-]*[[:space:]]*\*\*Commits:\*\*[[:space:]]*//')"
+    [ "$val" = "none" ] && return 0
+    [ -z "$val" ] && return 0
+
+    # Split by comma and parse each `sha` (branch)
+    local item sha branch
+    local commit_re='^`([0-9a-fA-F]+)`[[:space:]]*\(([^)]+)\)$'
+    local old_ifs="$IFS"
+    IFS=','
+    for item in $val; do
+        item="$(echo "$item" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+        # Must match `sha` (branch)
+        if [[ "$item" =~ $commit_re ]]; then
+            sha="${BASH_REMATCH[1]}"
+            branch="${BASH_REMATCH[2]}"
+            echo "$sha $branch"
+        fi
+    done
+    IFS="$old_ifs"
+}
+
+# write_plan_commits <plan_file> <commits_prose>
+# Updates the * **Commits:** line in the plan header, or inserts it after Base / Status.
+# Strictly confined to the plan header (before any ## heading).
+write_plan_commits() {
+    local pf="$1"
+    local commits_val="$2"
+    [ ! -f "$pf" ] && return 1
+
+    local has_hdr_commits
+    has_hdr_commits="$(awk '/^[[:space:]]*```/ { f = !f; next } f { next } /^##[[:space:]]/ { exit } /^[[:space:]]*[*|-]*[[:space:]]*\*\*Commits:\*\*/ { print "1"; exit }' "$pf" 2>/dev/null || true)"
+
+    if [ "$has_hdr_commits" = "1" ]; then
+        awk -v val="$commits_val" '
+            /^[[:space:]]*```/ { f = !f; print; next }
+            f { print; next }
+            !passed && /^##[[:space:]]/ { passed = 1 }
+            !passed && !done && /^[[:space:]]*[*|-]*[[:space:]]*\*\*Commits:\*\*/ {
+                print "* **Commits:** " val
+                done = 1
+                next
+            }
+            { print }
+        ' "$pf" > "$pf.tmp" && mv "$pf.tmp" "$pf"
+    else
+        local has_hdr_base
+        has_hdr_base="$(awk '/^[[:space:]]*```/ { f = !f; next } f { next } /^##[[:space:]]/ { exit } /^[[:space:]]*[*|-]*[[:space:]]*\*\*Base:\*\*/ { print "1"; exit }' "$pf" 2>/dev/null || true)"
+        if [ "$has_hdr_base" = "1" ]; then
+            awk -v val="$commits_val" '
+                /^[[:space:]]*```/ { f = !f; print; next }
+                f { print; next }
+                !passed && /^##[[:space:]]/ {
+                    if (!done) { print "* **Commits:** " val; done = 1 }
+                    passed = 1
+                }
+                !passed && !done && /^[[:space:]]*[*|-]*[[:space:]]*\*\*Base:\*\*/ {
+                    print
+                    print "* **Commits:** " val
+                    done = 1
+                    next
+                }
+                { print }
+            ' "$pf" > "$pf.tmp" && mv "$pf.tmp" "$pf"
+        else
+            awk -v val="$commits_val" '
+                /^[[:space:]]*```/ { f = !f; print; next }
+                f { print; next }
+                !passed && /^##[[:space:]]/ {
+                    if (!done) { print "* **Commits:** " val; done = 1 }
+                    passed = 1
+                }
+                !passed && !done && /^[[:space:]]*[*|-]*[[:space:]]*\*\*Status:\*\*/ {
+                    print
+                    print "* **Commits:** " val
+                    done = 1
+                    next
+                }
+                { print }
+            ' "$pf" > "$pf.tmp" && mv "$pf.tmp" "$pf"
+        fi
+    fi
+}
+
+# write_plan_base <plan_file> <base_prose>
+# Updates the * **Base:** line in the plan header, or inserts it before Commits / after Status.
+# Strictly confined to the plan header (before any ## heading).
+write_plan_base() {
+    local pf="$1"
+    local base_val="$2"
+    [ ! -f "$pf" ] && return 1
+
+    local raw_base cur_base
+    raw_base="$(awk '/^[[:space:]]*```/ { f = !f; next } f { next } /^##[[:space:]]/ { exit } /^[[:space:]]*[*|-]*[[:space:]]*\*\*Base:\*\*/ { print; exit }' "$pf" 2>/dev/null || true)"
+    if [ -n "$raw_base" ]; then
+        cur_base="$(echo "$raw_base" | sed -E 's/^.*\*\*Base:\*\*[[:space:]]*//' | tr -d '[:space:]')"
+        if [ -n "$cur_base" ] && [ "$cur_base" != "none" ]; then
+            return 0
+        fi
+        awk -v val="$base_val" '
+            /^[[:space:]]*```/ { f = !f; print; next }
+            f { print; next }
+            !passed && /^##[[:space:]]/ { passed = 1 }
+            !passed && !done && /^[[:space:]]*[*|-]*[[:space:]]*\*\*Base:\*\*/ {
+                print "* **Base:** " val
+                done = 1
+                next
+            }
+            { print }
+        ' "$pf" > "$pf.tmp" && mv "$pf.tmp" "$pf"
+    else
+        local has_hdr_commits
+        has_hdr_commits="$(awk '/^[[:space:]]*```/ { f = !f; next } f { next } /^##[[:space:]]/ { exit } /^[[:space:]]*[*|-]*[[:space:]]*\*\*Commits:\*\*/ { print "1"; exit }' "$pf" 2>/dev/null || true)"
+        if [ "$has_hdr_commits" = "1" ]; then
+            awk -v val="$base_val" '
+                /^[[:space:]]*```/ { f = !f; print; next }
+                f { print; next }
+                !passed && /^##[[:space:]]/ {
+                    if (!done) { print "* **Base:** " val; done = 1 }
+                    passed = 1
+                }
+                !passed && !done && /^[[:space:]]*[*|-]*[[:space:]]*\*\*Commits:\*\*/ {
+                    print "* **Base:** " val
+                    done = 1
+                }
+                { print }
+            ' "$pf" > "$pf.tmp" && mv "$pf.tmp" "$pf"
+        else
+            awk -v val="$base_val" '
+                /^[[:space:]]*```/ { f = !f; print; next }
+                f { print; next }
+                !passed && /^##[[:space:]]/ {
+                    if (!done) { print "* **Base:** " val; done = 1 }
+                    passed = 1
+                }
+                !passed && !done && /^[[:space:]]*[*|-]*[[:space:]]*\*\*Status:\*\*/ {
+                    print
+                    print "* **Base:** " val
+                    done = 1
+                    next
+                }
+                { print }
+            ' "$pf" > "$pf.tmp" && mv "$pf.tmp" "$pf"
+        fi
+    fi
+}
+
+# find_worktree_holding_plan <plan_id>
+# Checks other worktrees' active buffers for <plan_id>.
+# Prints the worktree directory holding the plan if found, otherwise returns 1.
+find_worktree_holding_plan() {
+    local target_id="$1"
+    [ -z "$target_id" ] && return 1
+    local cur_top
+    cur_top="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+    local wt_path wt_line
+    while IFS= read -r wt_line; do
+        if [[ "$wt_line" == "worktree "* ]]; then
+            wt_path="${wt_line#worktree }"
+            # Skip current worktree and internal planning/agent/hook worktrees
+            case "$wt_path" in
+                "$cur_top") continue ;;
+                */.plans|*/.agents|*/.githooks) continue ;;
+            esac
+            local buf
+            buf="$(git -C "$wt_path" rev-parse --git-path aapp_active_plan 2>/dev/null || true)"
+            if [ -n "$buf" ] && [ -f "$buf" ]; then
+                local held_id
+                held_id="$(tr -d '[:space:]' < "$buf" 2>/dev/null || true)"
+                if [ "$held_id" = "$target_id" ] || [ "P-$held_id" = "$target_id" ] || [ "$held_id" = "P-${target_id#P-}" ]; then
+                    echo "$wt_path"
+                    return 0
+                fi
+            fi
+        fi
+    done < <(git worktree list --porcelain 2>/dev/null || true)
+
+    return 1
+}

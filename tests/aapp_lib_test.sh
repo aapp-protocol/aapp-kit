@@ -278,4 +278,38 @@ inert=$(bash -c '
 ' _ "$LIB")
 if [ "$inert" = "INERT" ]; then ok "test_source_is_inert"; else bad "test_source_is_inert" "output or option change on source"; fi
 
+echo "== plan commits parsing =="
+# parse_plan_commits: extracts sha and branch pairs from * **Commits:** header line
+F_COMMITS="$R/commits_test.md"
+cat << 'EOF' > "$F_COMMITS"
+# Plan P-99: Test
+* **Status:** ⚡ In Development
+* **Commits:** `bca7d9a` (develop), `8c0c103` (feat/parser), `1a2b3c4` (detached)
+EOF
+
+if declare -f parse_plan_commits >/dev/null; then
+  got="$(parse_plan_commits "$F_COMMITS")"
+  want="$(printf "bca7d9a develop\n8c0c103 feat/parser\n1a2b3c4 detached")"
+  if [ "$got" = "$want" ]; then
+    # Test invalid / empty formats
+    cat << 'EOF' > "$F_COMMITS"
+* **Commits:** none
+EOF
+    [ -z "$(parse_plan_commits "$F_COMMITS")" ] || got="fail_none"
+    cat << 'EOF' > "$F_COMMITS"
+* **Commits:** bca7d9a (develop), `8c0c103`, just prose
+EOF
+    [ -z "$(parse_plan_commits "$F_COMMITS")" ] || got="fail_unbackticked"
+    if [ "$got" != "fail_none" ] && [ "$got" != "fail_unbackticked" ]; then
+      ok "test_parse_plan_commits"
+    else
+      bad "test_parse_plan_commits" "failed edge cases"
+    fi
+  else
+    bad "test_parse_plan_commits" "want [$want] got [$got]"
+  fi
+else
+  bad "test_parse_plan_commits" "parse_plan_commits function not implemented"
+fi
+
 print_test_summary "$PASS" "$FAIL"

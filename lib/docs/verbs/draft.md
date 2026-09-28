@@ -20,8 +20,7 @@
 - Plan ID allocation fails (including a failing provider plugin) -> exit 1, stderr `[Draft Refusal] Failed to allocate Plan ID.`
 - plan template not found -> exit 1, stderr `[Draft Refusal] templates/plan-template.md not found.`
 - title containing `/`, `&`, `\` or `[` -> no failure: the title appears literally in the plan
-- plans-worktree commit refused by a hook -> exit non-zero, stderr names the refusal
-    ⚠️ Divergence (#81): the commit is run under `|| true`; the refusal is swallowed and the verb exits 0 with the plan staged but uncommitted.
+- plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 
 ## Effects (happy path)
 - `.plans/current/P<N>-<slug>.md` is created from the template
@@ -29,7 +28,7 @@
 - every `[YYYY-MM-DD]` reads today's date and every `P-XX` reads `P-<N>`; no template placeholder remains
 - `aapp.planId` is advanced past `<N>`
 - `.plans/state_matrix.md` is re-derived and lists the plan in the incubator
-- one commit in the plans worktree, `plan(draft): scaffold P-<N> <slug>`, holds the plan and the matrix; nothing is left untracked
+- one commit in the plans worktree, `plan(draft): scaffold P-<N> <slug>`, holds the plan and the matrix via `plans_commit`
 - stdout names the new file, the Plan ID and the `🟣 Under Review` status
 
 ## Exit
@@ -44,3 +43,4 @@ Run: `aapp test verb draft`
 - `tests/verbs/draft.sh::test_no_placeholders_survive` -> no `P-XX`, `[YYYY-MM-DD]` or `[Feature or Refactor Name]` remains, whatever the title (D1)
 - `tests/verbs/draft.sh::test_bare_draft_commits` -> a plan scaffolded from a pickup note is committed, nothing untracked (D3)
 - `tests/verbs/draft.sh::test_bare_draft_without_notes_refuses` -> no argument, no notes, non-interactive: exit 1 and no file written
+- `tests/verbs/draft.sh::test_commit_takes_only_its_paths` -> another file staged in `.plans` is not swept into the draft commit (C4)

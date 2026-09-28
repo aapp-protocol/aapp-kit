@@ -19,15 +19,14 @@
 - no path under `### 📂 Target Files` in §4 -> exit 1, stderr `[Freeze Refusal] Plan declares no Target Files`; the plan is unchanged
 - an `on-freeze` hook vetoes (non-zero) -> exit 1 and the plan stays unfrozen
     ⚠️ Divergence: the hook runs after the freeze is committed, so a veto exits 1 but leaves the plan frozen and committed.
-- plans-worktree commit refused by a hook -> exit non-zero, stderr names the refusal
-    ⚠️ Divergence (#81): the commit runs under `|| true`; the verb exits 0 with the transition staged but uncommitted.
+- plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 
 ## Effects (happy path)
 - the plan's Status line reads `🔷 Frozen`
 - a `*(Marked: **PROPOSED** …)*` marker, when present, reads `*(Marked: **LOCKED** — Greenlit for implementation)*`
 - `## 📦 6. Change Log` gains a dated line: `Plan locked and frozen into 🔷 Frozen via freeze.`
 - `.plans/state_matrix.md` is re-derived and lists the plan under Frozen
-- one commit in the plans worktree, `plan(freeze): lock blast radius and greenlight <id>`, holds the plan and the matrix
+- one commit in the plans worktree, `plan(freeze): lock blast radius and greenlight <id>`, holds the plan and the matrix via `plans_commit`
 - the `on-freeze` lifecycle event is dispatched with the plan ID, file and Target Files
 - §2 and §4 of the plan are design-locked from this commit on (enforced by the pre-commit hook, not by this verb)
 
@@ -42,3 +41,5 @@ Run: `aapp test verb freeze`
 - `tests/verbs/freeze.sh::test_refuses_without_target_files` -> an empty Target Files section: exit 1, plan unchanged
 - `tests/verbs/freeze.sh::test_refuses_unknown_plan` -> an unresolvable `id`: exit 1
 - `tests/verbs/freeze.sh::test_refuses_non_incubator_plan` -> freezing a `🔷 Frozen` plan again: exit 1, plan unchanged (#89)
+- `tests/verbs/freeze.sh::test_commit_failure_is_loud` -> a refusing `.plans` hook: freeze exits non-zero and says why (#81)
+- `tests/verbs/freeze.sh::test_human_freeze_commits_in_lax` -> lax, no identity: the freeze commit lands (#81)

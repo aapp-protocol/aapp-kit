@@ -1115,6 +1115,41 @@ plan_full tdd_dev_missing.md <<'EOF'
 EOF
 check "test_in_development_refuses_missing_test_file" BLOCK src/a.py
 
+echo "== plan-bound commit helper reminder (P-39) =="
+setup
+plan_full p_remind.md <<'EOF'
+# Plan P-12: Reminder Test
+* **Plan ID:** P-12
+* **Status:** ⚡ In Development
+## 💥 4. Blast Radius & System Boundaries
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py`
+### 🛑 Out of Bounds (Do Not Touch)
+EOF
+echo "P-12" > .git/aapp_active_plan
+# 1. Raw code commit (outside helper) prints reminder, succeeds (exit 0)
+echo "- change" >> CHANGELOG.md
+echo "# change" >> src/a.py
+git add src/a.py CHANGELOG.md
+out=$(git commit -m "raw commit" 2>&1); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -qiE '(record this commit with|aapp commit adopt)'; then
+  # 2. Helper commit with AAPP_COMMIT_HELPER=1 prints nothing
+  echo "- change 2" >> CHANGELOG.md
+  echo "# change 2" >> src/a.py
+  git add src/a.py CHANGELOG.md
+  out_helper=$(AAPP_COMMIT_HELPER=1 git commit -m "helper commit" 2>&1); rc_helper=$?
+  if [ $rc_helper -eq 0 ] && ! echo "$out_helper" | grep -qiE '(record this commit with|aapp commit adopt)'; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_reminder_outside_helper_is_warning_only" "PASS"
+    PASS=$((PASS+1))
+  else
+    printf "  \033[31m✘\033[0m %-52s %s\n" "test_reminder_outside_helper_is_warning_only" "helper commit printed reminder"
+    FAIL=$((FAIL+1))
+  fi
+else
+  printf "  \033[31m✘\033[0m %-52s %s\n" "test_reminder_outside_helper_is_warning_only" "rc=$rc reminder missing"
+  FAIL=$((FAIL+1))
+fi
+
 print_test_summary "$PASS" "$FAIL"
 
 

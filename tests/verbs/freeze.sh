@@ -62,4 +62,45 @@ else
   bad "test_refuses_non_incubator_plan" "rc=$rc"
 fi
 
+echo "== commit failure & lax mode (#81 / P-39) =="
+# 1. test_human_freeze_commits_in_lax
+aapp ai-lax >/dev/null 2>&1
+id_lax="$(draft_plan lax-plan)"
+f_lax="$(plan_file "$id_lax")"
+resolve_questions "$f_lax"
+(
+  unset AAPP_AGENT_NAME AAPP_AGENT_VENDOR AAPP_AGENT_MODEL
+  aapp freeze "$id_lax" >/dev/null 2>&1; rc=$?
+  if [ "$rc" -eq 0 ] && status_of "$f_lax" | grep -q '🔷 Frozen'; then
+    ok "test_human_freeze_commits_in_lax"
+  else
+    bad "test_human_freeze_commits_in_lax" "rc=$rc"
+  fi
+)
+
+# 2. test_commit_failure_is_loud
+id_fail="$(draft_plan loud-fail-plan)"
+f_fail="$(plan_file "$id_fail")"
+resolve_questions "$f_fail"
+mkdir -p .plans/.githooks
+cat << 'EOF' > .plans/.githooks/pre-commit
+#!/bin/sh
+if [ -f "$GIT_DIR/plans_fail_hook" ]; then
+  echo "pre-commit hook refusing plans commit" >&2
+  exit 1
+fi
+exit 0
+EOF
+chmod +x .plans/.githooks/pre-commit
+git -C .plans config core.hooksPath .githooks
+touch "$(git -C .plans rev-parse --git-dir)/plans_fail_hook"
+out="$(aapp freeze "$id_fail" 2>&1)"; rc=$?
+rm -f "$(git -C .plans rev-parse --git-dir)/plans_fail_hook"
+git -C .plans config --unset core.hooksPath
+if [ "$rc" -ne 0 ] && echo "$out" | grep -qiE '(refusing|failed|error)'; then
+  ok "test_commit_failure_is_loud"
+else
+  bad "test_commit_failure_is_loud" "swallowed failure with rc=$rc out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"

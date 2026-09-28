@@ -25,6 +25,17 @@ if ! . "$AAPP_STATES_FILE" 2>/dev/null || ! declare -f plan_state_for_status_lin
     exit 1
 fi
 
+# Commit engine (P-39): plans_commit is the single lifecycle commit engine.
+AAPP_COMMIT_ENGINE="$(dirname "${BASH_SOURCE[0]}")/commit_engine.sh"
+# shellcheck source=lib/commit_engine.sh
+if [ -f "$AAPP_COMMIT_ENGINE" ]; then
+    . "$AAPP_COMMIT_ENGINE"
+fi
+
+# Hook dispatcher (P-12): lifecycle plugin hooks & event architecture
+AAPP_HOOK_DISPATCHER="$(dirname "${BASH_SOURCE[0]}")/hook_dispatcher.sh"
+[ -f "$AAPP_HOOK_DISPATCHER" ] || AAPP_HOOK_DISPATCHER="$REPO_ROOT/lib/hook_dispatcher.sh"
+
 # REPO_ROOT is exported by the `aapp` dispatcher, which asserts repository
 # membership before dispatch (P-33). It carries the *active worktree* root, so
 # GIT_COMMON_DIR/PRIMARY_ROOT resolution below stays necessary to find .plans
@@ -379,9 +390,12 @@ cmd_draft() {
 
     # Git commit in .plans worktree
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
-        git -C "$PLANS_DIR" add "current/P${num}-${slug}.md" 2>/dev/null || true
-        [ -f "$sm_file" ] && git -C "$PLANS_DIR" add "state_matrix.md" 2>/dev/null || true
-        git -C "$PLANS_DIR" commit -m "plan(draft): scaffold P-${num} ${slug}" 2>/dev/null || true
+        local plan_rel="current/P${num}-${slug}.md"
+        if [ -f "$sm_file" ]; then
+            plans_commit "plan(draft): scaffold P-${num} ${slug}" "$plan_rel" "state_matrix.md" || exit 1
+        else
+            plans_commit "plan(draft): scaffold P-${num} ${slug}" "$plan_rel" || exit 1
+        fi
     fi
 
     echo "🚀 Blueprint scaffolded: .plans/current/P${num}-${slug}.md"
@@ -404,6 +418,17 @@ cmd_freeze_start() {
     local plan_file
     plan_file="$(resolve_plan_file "$query" "freeze-start")" || exit 1
     refuse_unless_incubator "$plan_file" "Freeze-Start"
+
+    # Refuse from planning worktrees (.plans, .agents, .githooks)
+    local cur_top
+    cur_top="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    case "$cur_top" in
+        */.plans|*/.agents|*/.githooks)
+            echo "❌ [Freeze-Start Refusal] Cannot freeze-start plan from planning worktree '$(basename "$cur_top")'." >&2
+            echo "   Run freeze-start from a code worktree." >&2
+            exit 1
+            ;;
+    esac
 
     # Verify Open Questions
     local unresolved_q
@@ -438,6 +463,21 @@ cmd_freeze_start() {
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
     [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
 
+    # Verify plan is not bound in another worktree
+    local holding_wt
+    holding_wt="$(find_worktree_holding_plan "$plan_id")" || true
+    if [ -n "$holding_wt" ]; then
+        echo "❌ [Freeze-Start Refusal] Plan '$plan_id' is already bound in worktree '$holding_wt'." >&2
+        exit 1
+    fi
+
+    # Record Base SHA and branch
+    local head_sha head_br
+    head_sha="$(git rev-parse --short HEAD 2>/dev/null || echo "none")"
+    head_br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")"
+    [ "$head_br" = "HEAD" ] && head_br="detached"
+    write_plan_base "$plan_file" "\`$head_sha\` ($head_br)"
+
     # Update plan header & lock status
     sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* ⚡ In Development/' "$plan_file"
     sed -i -E 's/\*\(Marked:[[:space:]]*\*\*PROPOSED\*\*.*\)/\*(Marked: **LOCKED** — Greenlit for implementation)*/' "$plan_file"
@@ -457,15 +497,18 @@ cmd_freeze_start() {
 
     # Commit transition in plans worktree if available
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
-        git -C "$PLANS_DIR" add "current/$(basename "$plan_file")" 2>/dev/null || true
-        [ -f "$sm_file" ] && git -C "$PLANS_DIR" add "state_matrix.md" 2>/dev/null || true
-        git -C "$PLANS_DIR" commit -m "plan(start): freeze and activate $plan_id into development" 2>/dev/null || true
+        local plan_rel="current/$(basename "$plan_file")"
+        if [ -f "$sm_file" ]; then
+            plans_commit "plan(start): freeze and activate $plan_id into development" "$plan_rel" "state_matrix.md" || exit 1
+        else
+            plans_commit "plan(start): freeze and activate $plan_id into development" "$plan_rel" || exit 1
+        fi
     fi
 
     # Dispatch on-freeze and on-start lifecycle events
-    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
-        source "$REPO_ROOT/lib/hook_dispatcher.sh"
+        source "$AAPP_HOOK_DISPATCHER"
         local targets_json=""
         while IFS= read -r t; do
             [ -z "$t" ] && continue
@@ -601,15 +644,18 @@ cmd_freeze() {
 
     # Commit transition in plans worktree if available
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
-        git -C "$PLANS_DIR" add "current/$(basename "$plan_file")" 2>/dev/null || true
-        [ -f "$sm_file" ] && git -C "$PLANS_DIR" add "state_matrix.md" 2>/dev/null || true
-        git -C "$PLANS_DIR" commit -m "plan(freeze): lock blast radius and greenlight $plan_id" 2>/dev/null || true
+        local plan_rel="current/$(basename "$plan_file")"
+        if [ -f "$sm_file" ]; then
+            plans_commit "plan(freeze): lock blast radius and greenlight $plan_id" "$plan_rel" "state_matrix.md" || exit 1
+        else
+            plans_commit "plan(freeze): lock blast radius and greenlight $plan_id" "$plan_rel" || exit 1
+        fi
     fi
 
     # Dispatch on-freeze lifecycle event
-    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
-        source "$REPO_ROOT/lib/hook_dispatcher.sh"
+        source "$AAPP_HOOK_DISPATCHER"
         local targets_json=""
         while IFS= read -r t; do
             [ -z "$t" ] && continue
@@ -632,6 +678,17 @@ cmd_start() {
     local plan_file
     plan_file="$(resolve_plan_file "$query" "start")" || exit 1
 
+    # Refuse from planning worktrees (.plans, .agents, .githooks)
+    local cur_top
+    cur_top="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    case "$cur_top" in
+        */.plans|*/.agents|*/.githooks)
+            echo "❌ [Start Refusal] Cannot start plan from planning worktree '$(basename "$cur_top")'." >&2
+            echo "   Run start from a code worktree." >&2
+            exit 1
+            ;;
+    esac
+
     # Verify status is 🔷 Frozen or already ⚡ In Development
     local cur_status
     cur_status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$plan_file" | head -n 1 || true)"
@@ -647,6 +704,21 @@ cmd_start() {
     local plan_id
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
     [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
+
+    # Verify plan is not bound in another worktree
+    local holding_wt
+    holding_wt="$(find_worktree_holding_plan "$plan_id")" || true
+    if [ -n "$holding_wt" ]; then
+        echo "❌ [Start Refusal] Plan '$plan_id' is already bound in worktree '$holding_wt'." >&2
+        exit 1
+    fi
+
+    # Record Base SHA and branch
+    local head_sha head_br
+    head_sha="$(git rev-parse --short HEAD 2>/dev/null || echo "none")"
+    head_br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")"
+    [ "$head_br" = "HEAD" ] && head_br="detached"
+    write_plan_base "$plan_file" "\`$head_sha\` ($head_br)"
 
     # Update status
     sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* ⚡ In Development/' "$plan_file"
@@ -664,15 +736,18 @@ cmd_start() {
     write_active_buffer "$plan_id"
 
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
-        git -C "$PLANS_DIR" add "current/$(basename "$plan_file")" 2>/dev/null || true
-        [ -f "$sm_file" ] && git -C "$PLANS_DIR" add "state_matrix.md" 2>/dev/null || true
-        git -C "$PLANS_DIR" commit -m "plan(start): activate $plan_id into development" 2>/dev/null || true
+        local plan_rel="current/$(basename "$plan_file")"
+        if [ -f "$sm_file" ]; then
+            plans_commit "plan(start): activate $plan_id into development" "$plan_rel" "state_matrix.md" || exit 1
+        else
+            plans_commit "plan(start): activate $plan_id into development" "$plan_rel" || exit 1
+        fi
     fi
 
     # Dispatch on-start lifecycle event
-    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
-        source "$REPO_ROOT/lib/hook_dispatcher.sh"
+        source "$AAPP_HOOK_DISPATCHER"
         local targets_json=""
         while IFS= read -r t; do
             [ -z "$t" ] && continue
@@ -780,6 +855,87 @@ cmd_done() {
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
     [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
 
+    # P-39: Recorded commits verification (clean break)
+    local recorded_commits=()
+    while IFS= read -r c_entry; do
+        [ -n "$c_entry" ] && recorded_commits+=("$c_entry")
+    done < <(parse_plan_commits "$plan_file")
+
+    if [ ${#recorded_commits[@]} -eq 0 ]; then
+        echo "❌ [Done Refusal] Plan '$plan_id' has no recorded commits under '* **Commits:**'." >&2
+        local base_val base_sha=""
+        base_val="$(grep -m 1 -E '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Base:\*\*' "$plan_file" 2>/dev/null | sed -E 's/^.*\*\*Base:\*\*[[:space:]]*//' | tr -d '[:space:]')"
+        if [[ "$base_val" =~ \`([0-9a-fA-F]+)\` ]]; then
+            base_sha="${BASH_REMATCH[1]}"
+        fi
+        local target_files=()
+        while IFS= read -r tf; do
+            [ -n "$tf" ] && target_files+=("$tf")
+        done < <(parse_plan_target_paths "$plan_file")
+        if [ ${#target_files[@]} -gt 0 ]; then
+            local log_range="HEAD"
+            [ -n "$base_sha" ] && [ "$base_sha" != "none" ] && log_range="$base_sha..HEAD"
+            local candidates
+            candidates="$(git -C "$REPO_ROOT" log --oneline "$log_range" -- "${target_files[@]}" 2>/dev/null | head -n 5 || true)"
+            if [ -n "$candidates" ]; then
+                echo "   Candidate implementation commits touching target files:" >&2
+                echo "$candidates" | sed 's/^/     • /' >&2
+            fi
+        fi
+        echo "   Record implementation commits with 'aapp commit adopt <sha>' before archiving." >&2
+        exit 1
+    fi
+
+    # Verify reachability of each recorded commit in repository branch/tag refs
+    for c_entry in "${recorded_commits[@]}"; do
+        local c_sha=""
+        if [[ "$c_entry" =~ \`([0-9a-fA-F]+)\` ]]; then
+            c_sha="${BASH_REMATCH[1]}"
+        else
+            c_sha="$(echo "$c_entry" | awk '{print $1}' | tr -d '\`')"
+        fi
+        [ -z "$c_sha" ] && continue
+
+        if ! git -C "$REPO_ROOT" rev-parse --verify "$c_sha^{commit}" >/dev/null 2>&1; then
+            echo "❌ [Done Refusal] Recorded commit '$c_sha' not found in repository." >&2
+            exit 1
+        fi
+
+        local containing_refs
+        containing_refs="$(git -C "$REPO_ROOT" for-each-ref --contains "$c_sha" refs/heads/ refs/tags/ 2>/dev/null || true)"
+        if [ -z "$containing_refs" ]; then
+            echo "❌ [Done Refusal] Recorded commit '$c_sha' is not reachable from any branch or tag." >&2
+            echo "   Ensure the commit belongs to a branch before archiving." >&2
+            exit 1
+        fi
+    done
+
+    # Dispatch pre-done lifecycle event (veto capability)
+    local commits_json=""
+    for c_entry in "${recorded_commits[@]}"; do
+        local c_sha=""
+        if [[ "$c_entry" =~ \`([0-9a-fA-F]+)\` ]]; then
+            c_sha="${BASH_REMATCH[1]}"
+        else
+            c_sha="$(echo "$c_entry" | awk '{print $1}' | tr -d '\`')"
+        fi
+        if [ -z "$commits_json" ]; then
+            commits_json="\"$c_sha\""
+        else
+            commits_json="$commits_json, \"$c_sha\""
+        fi
+    done
+
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+        # shellcheck source=/dev/null
+        source "$AAPP_HOOK_DISPATCHER"
+        local pre_done_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"commits\": [$commits_json]}"
+        if ! dispatch_hook "pre-done" "$pre_done_data"; then
+            echo "❌ [Done Refusal] pre-done hook vetoed archiving of plan '$plan_id'." >&2
+            exit 1
+        fi
+    fi
+
     local bname
     bname="$(basename "$plan_file")"
     local done_file="$PLANS_DIR/done/$bname"
@@ -792,7 +948,14 @@ cmd_done() {
 
     local today commit_sha
     today="$(date +%Y-%m-%d)"
-    commit_sha="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "0000000")"
+    # Extract last recorded commit SHA for ledger and reporting
+    local last_commit_entry="${recorded_commits[${#recorded_commits[@]}-1]}"
+    if [[ "$last_commit_entry" =~ \`([0-9a-fA-F]+)\` ]]; then
+        commit_sha="${BASH_REMATCH[1]}"
+    else
+        commit_sha="$(echo "$last_commit_entry" | awk '{print $1}' | tr -d '\`')"
+    fi
+    [ -z "$commit_sha" ] && commit_sha="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "0000000")"
 
     if grep -q '^## 📦 6\. Change Log' "$done_file"; then
         sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* Plan implementation completed and archived to done/." "$done_file"
@@ -801,10 +964,6 @@ cmd_done() {
     # Append to 000-archive-ledger.md
     local ledger_file="$PLANS_DIR/done/000-archive-ledger.md"
     if [ -f "$ledger_file" ]; then
-        # Ledger fields come from what every plan carries (P-34 D2, #78): the
-        # Target Issue header (its untouched template placeholder reads as
-        # None) and the plan title as the Impact Summary. Pipes are escaped so
-        # the table stays well-formed.
         local target_issue summary
         target_issue="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*//p' "$done_file" | head -n 1)"
         target_issue="${target_issue%% \*(*}"
@@ -826,9 +985,7 @@ cmd_done() {
         ' "$ledger_file" > "$ledger_tmp" && mv "$ledger_tmp" "$ledger_file"
     fi
 
-    # Re-derive state_matrix.md now that the plan has left current/ (#88). A
-    # `sed "/<id>/d"` here matched by substring: archiving P-3 also deleted the
-    # rows for P-30..P-39.
+    # Re-derive state_matrix.md now that the plan has left current/ (#88).
     local sm_file="$PLANS_DIR/state_matrix.md"
     sync_state_matrix
 
@@ -843,17 +1000,17 @@ cmd_done() {
 
     # Commit transition in plans worktree
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
-        git -C "$PLANS_DIR" add "current/$bname" "done/$bname" 2>/dev/null || true
-        [ -f "$ledger_file" ] && git -C "$PLANS_DIR" add "done/000-archive-ledger.md" 2>/dev/null || true
-        [ -f "$sm_file" ] && git -C "$PLANS_DIR" add "state_matrix.md" 2>/dev/null || true
-        git -C "$PLANS_DIR" commit -m "plan(done): archive $plan_id to done/ and update state matrix" 2>/dev/null || true
+        local done_targets=("current/$bname" "done/$bname")
+        [ -f "$ledger_file" ] && done_targets+=("done/000-archive-ledger.md")
+        [ -f "$sm_file" ] && done_targets+=("state_matrix.md")
+        plans_commit "plan(done): archive $plan_id to done/ and update state matrix" "${done_targets[@]}" || exit 1
     fi
 
     # Dispatch on-done lifecycle event
-    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
-        source "$REPO_ROOT/lib/hook_dispatcher.sh"
-        local done_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"done/$bname\", \"commit_hash\": \"$commit_sha\"}"
+        source "$AAPP_HOOK_DISPATCHER"
+        local done_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"done/$bname\", \"commit_hash\": \"$commit_sha\", \"commits\": [$commits_json]}"
         dispatch_hook "on-done" "$done_data" || true
     fi
 
@@ -971,6 +1128,14 @@ cmd_active() {
             local plan_id
             plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
             [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
+
+            # Verify plan is not bound in another worktree (P-39)
+            local holding_wt
+            holding_wt="$(find_worktree_holding_plan "$plan_id")" || true
+            if [ -n "$holding_wt" ]; then
+                echo "❌ [Active Refusal] Plan '$plan_id' is already bound in worktree '$holding_wt'." >&2
+                return 1
+            fi
 
             write_active_buffer "$plan_id"
             echo "🎯 [Active Buffer] Active execution plan set to '$plan_id'."

@@ -52,4 +52,19 @@ else
   bad "test_refuses_non_incubator_plan" "rc=$rc"
 fi
 
+echo "== base recording (P-39) =="
+id_fs="$(draft_plan fs-base)"
+f_fs="$(plan_file "$id_fs")"
+sed -i -E "s|src/path/to/file\.ext|src/fs_base_test.py|g; /src\/path\/to\/new_file\.ext/d" "$f_fs"
+sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$f_fs"
+git -C .plans commit -qam "prep $id_fs" >/dev/null
+fs_head_sha="$(git rev-parse --short HEAD)"
+fs_head_br="$(git rev-parse --abbrev-ref HEAD)"
+aapp freeze-start "$id_fs" >/dev/null 2>&1
+if grep -qF "* **Base:** \`$fs_head_sha\` ($fs_head_br)" "$f_fs"; then
+  ok "test_records_base_sha_and_branch"
+else
+  bad "test_records_base_sha_and_branch" "base not recorded: $(grep -F '**Base:**' "$f_fs" 2>/dev/null)"
+fi
+
 print_test_summary "$PASS" "$FAIL"

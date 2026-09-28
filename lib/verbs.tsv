@@ -9,6 +9,7 @@ freeze	daily	yes	Lock blueprint blast radius & design into frozen backlog spec	l
 start	daily	yes	Transition frozen blueprint to in-development and bind buffer	lib/docs/verbs/start.md
 freeze-start	daily	yes	Atomically freeze blueprint and activate execution buffer	lib/docs/verbs/freeze-start.md
 done	daily	yes	Archive implemented blueprint to done/ and update archival ledger	lib/docs/verbs/done.md
+commit	daily	yes	Plan-bound commit helper: commit code, add attribution, record SHA in active plan	lib/docs/verbs/commit.md
 active	daily	yes	Display or manage active execution plan buffer (swap, clear)	lib/docs/verbs/active.md
 test	daily	yes	Run automated test suites across all kit components with aggregation	lib/docs/verbs/test.md
 init	setup	yes	Initialize or update AAPP worktrees in current repository

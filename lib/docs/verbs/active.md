@@ -15,6 +15,7 @@
 
 ## Failure modes
 - a plan argument that resolves to no plan -> exit 1, stderr `Plan '<id>' not found`; the buffer is unchanged
+- the plan is bound in another worktree's active buffer -> exit 1, stderr naming the holding worktree; buffer unchanged
 - `swap` with no previous value -> exit 0, stdout `No previous active plan found to swap to.`; nothing changes
 - `clear` with an empty buffer -> exit 0, stdout `Active plan buffer is already empty.`
 
@@ -35,3 +36,4 @@ Run: `aapp test verb active`
 - `tests/verbs/active.sh::test_swap_exchanges_previous` -> two binds then `swap` restores the first
 - `tests/verbs/active.sh::test_clear_empties_buffer` -> `clear` removes the buffer file and keeps the value in `.prev`
 - `tests/verbs/active.sh::test_refuses_unknown_plan` -> an unresolvable plan: exit 1, buffer unchanged
+- `tests/verbs/active.sh::test_refuses_plan_bound_in_other_worktree` -> binding a plan already bound in a linked worktree: exit 1 naming it, buffer unchanged

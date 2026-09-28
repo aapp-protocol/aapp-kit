@@ -132,6 +132,7 @@ fi
 # Track test file in Git
 git add tests/test_x.sh
 git commit -qm "feat: add test_x.sh" --no-verify
+aapp commit adopt "$(git rev-parse HEAD)" >/dev/null 2>&1
 
 # 12. Done succeeds when all ticked and tracked, records tdd (N/N) in ledger
 aapp done "$id" >/dev/null 2>&1; rc=$?

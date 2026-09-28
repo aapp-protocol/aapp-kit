@@ -5,20 +5,23 @@
     accepted forms: `P-<N>`, bare `<N>`, the filename stem, or a slug prefix
     constraints: must resolve to exactly one plan in `.plans/current/`
 - reads: the plan file (Plan ID, `Target Issue / Milestone` header), `.plans/done/000-archive-ledger.md`, `.plans/state_matrix.md`, the active buffer
-- reads: the code repository's `HEAD`, recorded as the verification commit
-- reads config: the lifecycle hook registry for `on-done`
+- reads: the plan file (Plan ID, `Target Issue / Milestone` header, `* **Commits:**` header line), `.plans/done/000-archive-ledger.md`, `.plans/state_matrix.md`, the active buffer
+- reads config: the lifecycle hook registry for `pre-done` and `on-done`
 
 ## Preconditions
 - Inside a Git repository whose `.plans/current/` and `.plans/done/` exist
-- The plan is `⚡ In Development`, and its implementation commit is the code repository's `HEAD`
-    ⚠️ Divergence: the verification commit is whatever `HEAD` is at invocation; a later unrelated commit is recorded instead of the implementation.
+- The plan is `⚡ In Development`
+- The plan's `* **Commits:**` header contains at least one recorded commit (not `none` or empty)
+- Every recorded commit is contained in Git ref history (branch or tag)
 
 ## Failure modes
 - no `id` -> exit 1, stderr `You must specify a target plan for 'done'.`
 - `id` resolves to no plan -> exit 1, stderr `Plan '<id>' not found`; nothing moves
 - the plan is not `⚡ In Development` -> exit 1, stderr `[Done Refusal] Plan is not ⚡ In Development`; nothing moves (#89)
-- plans-worktree commit refused by a hook -> exit non-zero
-    ⚠️ Divergence (#81): the commit runs under `|| true`; the verb exits 0 with the archive staged.
+- no recorded commits (`* **Commits:** none` or empty) -> exit 1, prints candidate commits and `aapp commit adopt <sha>` repair command
+- recorded commit unreachable / amended away -> exit 1 naming the missing SHA
+- `pre-done` lifecycle hook exits non-zero -> exit 1, vetoes archive; plan and ledger unchanged
+- plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 
 ## Effects (happy path)
 - the plan moves from `.plans/current/` to `.plans/done/`
@@ -42,3 +45,10 @@ Run: `aapp test verb done`
 - `tests/verbs/done.sh::test_refuses_unknown_plan` -> an unresolvable `id`: exit 1, nothing moves
 - `tests/verbs/done.sh::test_refuses_plan_not_in_development` -> a `🟣 Under Review` plan: exit 1, nothing moves (#89)
 - `tests/verbs/done.sh::test_matrix_row_removed_exactly` -> archiving `P-3` leaves `P-30`'s matrix row in place (#88)
+- `tests/verbs/done.sh::test_ledger_uses_recorded_commit` -> an unrelated later commit is not recorded; the ledger takes the last recorded SHA
+- `tests/verbs/done.sh::test_refuses_empty_commit_list` -> no recorded commits: exit 1, candidates and the repair command printed, nothing moves
+- `tests/verbs/done.sh::test_refuses_unreachable_commit` -> a recorded SHA amended away: exit 1 naming it, although the object still exists
+- `tests/verbs/done.sh::test_accepts_commit_on_deleted_branch` -> recorded branch deleted, SHA contained by another branch: accepted
+- `tests/verbs/done.sh::test_detached_commit_needs_a_branch` -> a `(detached)` SHA no branch contains: exit 1; once a branch contains it: accepted
+- `tests/verbs/done.sh::test_commit_takes_only_its_paths` -> the archive commit contains only the move, ledger and matrix
+- `tests/verbs/done.sh::test_pre_done_veto_blocks_archive` -> a `pre-done` handler exiting non-zero: `done` exits 1, nothing moves; payload carries recorded commits

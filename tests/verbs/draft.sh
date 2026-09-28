@@ -94,4 +94,15 @@ else
   bad "test_bare_draft_without_notes_refuses" "rc=$rc"
 fi
 
+echo "== pathspec-limited plan commit (P-39) =="
+cd "$(fresh path_limit)" || exit 1
+echo "outside file" > .plans/staged_outside.txt
+git -C .plans add staged_outside.txt
+aapp draft "path-limit-feat" >/dev/null 2>&1; rc=$?
+if [ "$rc" -eq 0 ] && git -C .plans diff --cached --name-only | grep -q "staged_outside.txt"; then
+  ok "test_commit_takes_only_its_paths"
+else
+  bad "test_commit_takes_only_its_paths" "rc=$rc staged_outside was swept into draft commit"
+fi
+
 print_test_summary "$PASS" "$FAIL"

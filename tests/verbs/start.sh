@@ -57,4 +57,57 @@ else
   bad "test_refuses_shared_target" "rc=$rc"
 fi
 
+echo "== base recording & worktree confinement (P-39) =="
+# 1. test_records_base_sha_and_branch
+id_base="$(draft_plan base-plan)"
+f_base="$(plan_file "$id_base")"
+sed -i -E "s|src/path/to/file\.ext|src/base_test.py|g; /src\/path\/to\/new_file\.ext/d" "$f_base"
+freeze_plan "$id_base"
+head_sha="$(git rev-parse --short HEAD)"
+head_br="$(git rev-parse --abbrev-ref HEAD)"
+aapp start "$id_base" >/dev/null 2>&1
+if grep -qF "* **Base:** \`$head_sha\` ($head_br)" "$f_base"; then
+  ok "test_records_base_sha_and_branch"
+else
+  bad "test_records_base_sha_and_branch" "base not recorded: $(grep -F '**Base:**' "$f_base" 2>/dev/null)"
+fi
+
+# 2. test_restart_keeps_first_base
+mkdir -p src
+echo "# new code" > src/base_test.py; echo "- advance head" >> CHANGELOG.md; git add src/base_test.py CHANGELOG.md; git commit -qm "advance head"
+aapp start "$id_base" >/dev/null 2>&1
+if grep -qF "* **Base:** \`$head_sha\` ($head_br)" "$f_base"; then
+  ok "test_restart_keeps_first_base"
+else
+  bad "test_restart_keeps_first_base" "base changed on re-run: $(grep -F '**Base:**' "$f_base" 2>/dev/null)"
+fi
+
+# 3. test_refuses_from_planning_worktree
+id_pw="$(draft_plan pw-plan)"
+f_pw="$(plan_file "$id_pw")"
+freeze_plan "$id_pw"
+(
+  cd .plans || exit 1
+  aapp start "$id_pw" >/dev/null 2>&1; echo $? > "$R/pw_rc"
+)
+if [ "$(cat "$R/pw_rc")" -eq 1 ] && status_of "$f_pw" | grep -q '🔷 Frozen'; then
+  ok "test_refuses_from_planning_worktree"
+else
+  bad "test_refuses_from_planning_worktree" "rc=$(cat "$R/pw_rc")"
+fi
+
+# 4. test_refuses_plan_bound_in_other_worktree
+git worktree add -b feat/start-wt "$R/start_wt" >/dev/null 2>&1
+(
+  cd "$R/start_wt" || exit 1
+  # Bind id_base in start_wt
+  aapp active "$id_base" >/dev/null 2>&1
+)
+out="$(aapp start "$id_base" 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && echo "$out" | grep -qiE '(bound|worktree)'; then
+  ok "test_refuses_plan_bound_in_other_worktree"
+else
+  bad "test_refuses_plan_bound_in_other_worktree" "rc=$rc out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"

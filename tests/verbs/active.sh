@@ -53,4 +53,18 @@ else
   bad "test_refuses_unknown_plan" "rc=$rc"
 fi
 
+echo "== one plan one worktree (P-39) =="
+git worktree add -b feat/active-wt "$R/active_wt" >/dev/null 2>&1
+(
+  cd "$R/active_wt" || exit 1
+  aapp active "$a" >/dev/null 2>&1
+)
+aapp active clear >/dev/null 2>&1
+out="$(aapp active "$a" 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && echo "$out" | grep -qiE '(bound|worktree)' && [ ! -f "$BUF" ]; then
+  ok "test_refuses_plan_bound_in_other_worktree"
+else
+  bad "test_refuses_plan_bound_in_other_worktree" "rc=$rc out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"

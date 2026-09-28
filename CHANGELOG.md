@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Plan-Bound Commit Helper (`P-39`): Adds `aapp commit "<msg>"` (`lib/cmd_commit.sh`) supporting `amend` and `adopt <sha>...`, bare attribution tokens (`agent`, `vendor`, `model`, `note`), staged code commits, and automatic recording of commit SHAs and branches into the active plan's `* **Commits:**` header. Implements `plans_commit` in `lib/commit_engine.sh` for path-limited, attributed, retried, and loud lifecycle commits across all `.plans` operations. Adds base commit tracking in `cmd_start` and `cmd_freeze_start`, confines header mutation strictly to blueprint front matter, planning worktree commit refusal, and warning-only reminder in pre-commit when committing code outside the helper during an active plan.
 - Attribution Policy Tiers & Single Identity Layer (`P-40`): Adds four discrete attribution policy modes (`none`, `lax`, `strict`, `notes`) governed by `aapp.aiAttribution` with `lax` as default for mixed human/AI work. Introduces `aapp ai-lax` and `aapp ai-strict` setup verbs, updates `templates/aapp-commit-msg` to validate trailers when present in `lax` mode and require valid trailers in `strict` mode, and implements `lib/attribution.sh` as the single authoritative layer for AI identity resolution (`resolve_ai_identity`), message decoration (`attribution_decorate`), and git note writing (`attribution_note`).
 - Opt-In Failure Test Declaration & TDD Gate (`P-35`): Adds `aapp tdd <id>` CLI verb and `/aapp-tdd` skill to declare failure-first test assertions (`### 🧪 Required Tests` in §3) and target test files (`### 🧪 Required Test Files` in §4) before freeze. Implements Option A single-entry semantics in `lib/aapp-lib.sh`, bidirectional correspondence validation across pre-commit and freeze gates, and a mechanical `cmd_done` completion verification gate enforcing all assertions ticked and test files tracked in Git (`tdd (N/N)` recorded in archive ledger).
 - Verb behaviour contracts `lib/docs/verbs/` for the 11 daily verbs, linked from `lib/verbs.tsv`; derived suites `tests/verbs/`, `aapp test verb [name]`, develop-only correspondence hook (`P-34`).
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status auto-sync (`P-30`): `aapp status` re-derives `state_matrix.md` before reading it, so the Roadmap line and Next Action footer report the real board instead of a stale cache. Silent when already in sync; while paused it still writes and notes that the commit waits for `aapp resume`.
 
 ### Fixed
+- Lifecycle Commits & Done Verification (#81, `P-39`): Migrated all lifecycle verbs (`draft`, `freeze`, `start`, `freeze-start`, `done`) to `plans_commit`, removing all `|| true` silent failure suppression in the `.plans` worktree (closing RFC C4, C35, C38). `aapp done` now strictly verifies recorded commits in the plan header and ref containment rather than recording guessed `HEAD`, and dispatches the `pre-done` veto hook prior to archival mutation.
 - Human Lifecycle Verbs & Trailerless Commits (#81, `P-40`): Resolves issue where human terminal commits and lifecycle verbs (`freeze`, `start`, `done`) failed silently behind `|| true` in the `.plans` worktree due to mandatory trailer enforcement; `lax` mode allows trailerless commits to pass freely.
 - Retired Legacy Commit Attribution Mode (`P-40`): Replaced retired `aapp.aiAttribution=commit` and `aapp ai-commit` with actionable fail-closed migration guidance directing users to `aapp ai-lax` or `aapp ai-strict`.
 - Bounded `plan_has_required_test_files` parser to Section 4 and outside code fences per P-37 parser boundaries (`P-35`).
@@ -152,3 +154,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Moved `SKIP_BLAST_RADIUS=1` check to hook entrypoints to guarantee emergency bypass.
 - Reorganized starter files: canonical `CODEMAP.md` seeded in `.agents/`, canonical `ISSUES.md` seeded in `.plans/`, and public `ARCHITECTURE.md` & `CHANGELOG.md` seeded at repository root with automatic legacy migration.
+- dummy

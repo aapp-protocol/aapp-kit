@@ -631,10 +631,12 @@ Activates an approved `🔷 Frozen` blueprint from the backlog into active imple
 Completes the lifecycle and archives the plan:
 - Accepts shorthand references: Plan ID (`P-9`, `9`), slug, or filename.
 - **Bare Fallback & Active Inference**: If called without arguments, inspects the local active buffer (`.git/aapp_active_plan`). If an active plan is bound, infers it automatically; otherwise presents in-development plans (up to 10) for selection.
+- **Recorded Commits Verification**: Verifies that the plan carries at least one recorded commit in its `* **Commits:**` header (from `aapp commit` or `aapp commit adopt`) and checks reachability from ref containment. Plans with no recorded commits are strictly refused.
+- **Pre-Done Dispatch**: Dispatches the `pre-done` hook with plan metadata and recorded commits before any mutation; a non-zero exit vetoes archival.
 - Moves blueprint: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
-- Appends a 1-line completion record to `.plans/done/000-archive-ledger.md` (recording Plan ID, plan link, target issue, verification commit, and repo-relative impact summary).
+- Appends a 1-line completion record to `.plans/done/000-archive-ledger.md` (recording Plan ID, plan link, target issue, verification commit from the last recorded commit, and repo-relative impact summary).
 - Removes the plan entry from `.plans/state_matrix.md`.
-- Verifies tests, linters, and `CHANGELOG.md` entry.
+- Dispatches `on-done` lifecycle event with recorded commits and verifies `CHANGELOG.md` entry.
 
 #### `/aapp-pause [reason]` (or `pause [reason]`) — Plan Pause & Master Emergency Brake
 Pauses active implementation or quarantines in-flight uncommitted work across mounted worktrees:
@@ -660,6 +662,7 @@ Executes `.plans/release/release_checklist.md`:
 
 Repetitive terminal operations and administrative switchboards are maintained as fast CLI commands:
 
+- **`aapp commit "<msg>"`**: Commits staged implementation code, attaches attribution via P-40, and records commit SHA and branch in active plan.
 - **`aapp tdd <plan>`**: Injects failure test declaration sections (`### 🧪 Required Tests` in §3 and `### 🧪 Required Test Files` in §4) into an incubator blueprint before freeze.
 - **`aapp freeze-start <plan>`**: Atomically freezes an incubator plan and activates it into `⚡ In Development` in a single command.
 - **`aapp active [id]` / `aapp active swap` / `aapp active clear`**: Switchboard for inspecting or switching the local execution buffer (`.git/aapp_active_plan`).
@@ -667,6 +670,24 @@ Repetitive terminal operations and administrative switchboards are maintained as
 - **`aapp matrix [--check]`**: Re-derives `.plans/state_matrix.md` from the plan files. `--check` audits without writing.
 - **`aapp test [filter]`**: Discovers and runs automated test suites with subshell isolation and assertion metrics.
 - **`aapp hooks`**: Lifecycle hook diagnostic inspector and dispatcher.
+
+#### `aapp commit` — Plan-Bound Commit Helper
+
+`aapp commit` commits staged code in the working tree, decorates standard attribution trailers (or staged notes in `notes` mode), and records the new SHA and branch in the active plan's header:
+
+```bash
+aapp commit "<message>" [agent <A> vendor <V> model <M>] [note "<text>"]
+aapp commit amend ["<message>"]
+aapp commit adopt <sha>...
+```
+
+**Key Behaviors:**
+- **Staged files only:** Like `git commit`, it commits only what is already staged. It never stages files automatically.
+- **Immediate plan record:** Directly following the code commit, the plan file is committed alone using the path-limited `plans_commit` engine (`plan(record): record <sha> for P-NN`).
+- **Amend support:** `aapp commit amend` amends the last commit, swaps the recorded SHA in the plan header, and preserves the commit message without duplicating trailers when omitted.
+- **Adoption repair:** `aapp commit adopt <sha>...` adopts existing commits made outside the helper, verifying ref containment and skipping duplicate SHAs.
+- **Fail-closed done gate:** `aapp done` checks recorded commits and refuses archival if none are present.
+- **Warning-only reminder:** Pre-commit prints a warning reminder when a raw `git commit` is made during an active plan outside the helper.
 
 #### `aapp tdd` — Opt-In Failure Test Declaration
 

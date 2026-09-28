@@ -1083,6 +1083,7 @@ sed -i 's/^### 📂 Target Files/### 📂 Target Files\n* `dummy.txt` - test fil
 sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$plan_60"
 (cd "$PROJ_60" && aapp freeze "$bname_60" >/dev/null 2>&1)
 (cd "$PROJ_60" && aapp start "$bname_60" >/dev/null 2>&1)
+(cd "$PROJ_60" && echo "data" > dummy.txt && echo "- dummy" >> CHANGELOG.md && git add dummy.txt CHANGELOG.md && aapp commit "feat: dummy commit" >/dev/null 2>&1)
 (cd "$PROJ_60" && aapp done "$bname_60" >/dev/null 2>&1)
 done_60="$PROJ_60/.plans/done/$bname_60"
 if [ -f "$done_60" ] && \
