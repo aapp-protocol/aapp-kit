@@ -2,7 +2,7 @@
 * **Created:** 2026-09-28 | **Last Refined:** 2026-09-28
 * **Target Issue / Milestone:** #81
 * **Plan ID:** P-40
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -235,6 +235,7 @@ police it. Long commit bodies are **not** moved into notes (C33 rejected; length
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-28:** Plan implementation completed and archived to done/.
 * **2026-09-28:** Completed all 4 implementation phases. 24/24 suites passing (530 tests).
 * **2026-09-28:** Plan activated into ⚡ In Development via start.
 * **2026-09-28:** Plan locked and frozen into 🔷 Frozen via freeze.

@@ -29,8 +29,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-40**: [`P40-attribution-policy-tiers.md`](current/P40-attribution-policy-tiers.md) — Attribution Policy Tiers
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
