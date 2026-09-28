@@ -315,12 +315,14 @@ cmd_commit() {
     curr_br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "HEAD")"
     [ "$curr_br" = "HEAD" ] && curr_br="detached"
 
-    # Handle notes attribution mode if note_text provided
-    if [ "$attr_mode" = "notes" ] && [ -n "$note_text" ]; then
+    # Attach note if note_text is provided, or if AI notes are enabled with an identity
+    local ai_notes_enabled
+    ai_notes_enabled="$(git config aapp.aiNotes 2>/dev/null || echo "false")"
+    if [ -n "$note_text" ] || { [ -n "$identity" ] && { [ "$attr_mode" = "notes" ] || [ "$ai_notes_enabled" = "true" ]; }; }; then
         if declare -f attribution_note >/dev/null; then
             attribution_note "$new_sha" "$identity" "$note_text" || {
                 local note_rc=$?
-                echo "❌ [Commit Refusal] Note staging failed." >&2
+                echo "❌ [Commit Refusal] Note attachment failed." >&2
                 return "$note_rc"
             }
         fi

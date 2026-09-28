@@ -73,4 +73,23 @@ else
   bad "test_ai_notes_preserves_notes_config" "rewrites=[$rewrites] strat=[$strat]"
 fi
 
+# 7. test_ai_notes_toggle
+aapp ai notes on >/dev/null 2>&1
+on_val="$(git config aapp.aiNotes)"
+aapp ai notes off >/dev/null 2>&1
+off_val="$(git config aapp.aiNotes)"
+if [ "$on_val" = "true" ] && [ "$off_val" = "false" ]; then
+  ok "test_ai_notes_toggle"
+else
+  bad "test_ai_notes_toggle" "on=[$on_val] off=[$off_val]"
+fi
+
+# 8. test_ai_status_reports_dual_policy
+out="$(aapp ai status 2>&1)"
+if echo "$out" | grep -q "Commit Trailers" && echo "$out" | grep -q "AI Git Notes"; then
+  ok "test_ai_status_reports_dual_policy"
+else
+  bad "test_ai_status_reports_dual_policy" "out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"

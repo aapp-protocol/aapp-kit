@@ -177,7 +177,36 @@ if [ "$rc" -eq 0 ] && echo "$note_content" | grep -q "reviewed and signed"; then
 else
   bad "test_note_token_attached_in_notes_mode" "rc=$rc note=[$note_content]"
 fi
+
+# 10b. test_note_token_attached_in_strict_mode
+aapp ai strict >/dev/null 2>&1
+echo "# strict note change" >> "src/test-feat.py"
+echo "- strict note change" >> CHANGELOG.md
+git add "src/test-feat.py" CHANGELOG.md
+aapp commit "feat: strict with note" agent "StrictBot" vendor "Vendor" model "Model-S" note "parallel audit note" >/dev/null 2>&1; rc=$?
+msg_body="$(git log -1 --pretty=%B)"
+ai_note="$(git notes --ref=refs/notes/ai show HEAD 2>/dev/null)"
+if [ "$rc" -eq 0 ] && echo "$msg_body" | grep -q "AI-Agent: StrictBot" && echo "$ai_note" | grep -q "parallel audit note"; then
+  ok "test_note_token_attached_in_strict_mode"
+else
+  bad "test_note_token_attached_in_strict_mode" "rc=$rc msg=[$msg_body] note=[$ai_note]"
+fi
+
+# 10c. test_note_token_attached_in_none_mode
+aapp ai none >/dev/null 2>&1
+echo "# none note change" >> "src/test-feat.py"
+echo "- none note change" >> CHANGELOG.md
+git add "src/test-feat.py" CHANGELOG.md
+aapp commit "feat: none with note" note "general review note" >/dev/null 2>&1; rc=$?
+msg_body="$(git log -1 --pretty=%B)"
+comm_note="$(git notes --ref=refs/notes/commits show HEAD 2>/dev/null)"
+if [ "$rc" -eq 0 ] && ! echo "$msg_body" | grep -q "AI-Agent:" && echo "$comm_note" | grep -q "general review note"; then
+  ok "test_note_token_attached_in_none_mode"
+else
+  bad "test_note_token_attached_in_none_mode" "rc=$rc msg=[$msg_body] note=[$comm_note]"
+fi
 aapp ai lax >/dev/null 2>&1
+
 
 # 11. test_detached_head_recorded
 orig_branch="$(git rev-parse --abbrev-ref HEAD)"

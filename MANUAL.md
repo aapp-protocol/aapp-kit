@@ -1397,17 +1397,17 @@ AAPP introduces two distinct, purpose-driven attribution channels:
 | :--- | :--- | :--- | :--- |
 | `none` | `aapp ai none` | Working tree only | **Pure human authoring.** Accidental AI trailers are blocked by `commit-msg`. |
 | `lax` | `aapp ai lax` | Commit object trailers | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
-| `strict` | `aapp ai strict` | Commit object trailers | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. |
-| `notes` | `aapp ai notes` | `refs/notes/commits` | **Local-first / private benchmarking.** Commit messages remain pristine. Metadata attaches via staged note buffers and `post-commit`. |
+| `strict` | `aapp ai strict` | Commit object trailers | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. Parallel notes attach when provided or when `aapp.aiNotes=true`. |
+| `notes` | `aapp ai notes` | `refs/notes/ai` | **Private-first attribution.** Commit messages remain pristine and human-only. Metadata attaches via Git notes. |
 
 ### The Switchboard Command Family
 
 The `aapp ai` command family manages configuration and credits without manual config editing:
 
-- **`aapp ai status`**: Displays active attribution mode, `aapp.subjectMaxLen`, `aapp.aiCredits` toggle status, and scans for pending note buffers reporting count, message hash, and age.
-- **`aapp ai lax`**: Enables lax attribution (validates trailers if present; human commits pass freely).
-- **`aapp ai strict`**: Enables strict attribution (requires valid trailers on every commit).
-- **`aapp ai notes`**: Enables private git notes attribution mode (pristine commit messages; metadata attached via Git Notes).
+- **`aapp ai status`**: Displays active attribution mode, `aapp.aiNotes` policy, `aapp.subjectMaxLen`, `aapp.aiCredits` toggle status, and scans for pending note buffers reporting count, message hash, and age.
+- **`aapp ai lax`**: Enables lax attribution (validates trailers if present; human commits pass freely; parallel notes attach when provided).
+- **`aapp ai strict`**: Enables strict attribution (requires valid trailers on every commit; parallel notes attach when provided).
+- **`aapp ai notes [on|off]`**: Switches to private git notes mode, or toggles parallel AI Git Notes (`aapp.aiNotes = true|false`) so AI commits automatically record traces in `refs/notes/ai`.
 - **`aapp ai none`**: Disables AI attribution (pure human authoring; does not erase existing `README.md` blocks).
 - **`aapp ai credits`**: Generates or updates the `AI Contributors` block in `README.md`.
 
@@ -1628,7 +1628,7 @@ To eliminate cognitive overload, the AAPP CLI organizes its commands into 5 visu
 2. **Setup & Maintenance**: `init`, `install`, `upgrade`, `develop`, `uninstall`, `version`, `help`. Commands for onboarding repositories, updating tools, and linking developer clones.
 3. **Team Sync & Emergency Controls**: `push`, `pull`, `sync`, `pause`, `resume`. Worktree transport across remotes and the multi-worktree circuit breaker.
 4. **Extensibility & Automation (Hooks & Plugins)**: `hooks`, `hook-test`, `hook-run`, `hook-hash`, `plugins`. Lifecycle hook auditing, testing, and action plugin execution.
-5. **Attribution & Metadata (AI Switchboard)**: `aapp ai [status | none | lax | strict | notes | credits]`. Semantic trailers, git notes attribution mode, and automated credits management.
+5. **Attribution & Metadata (AI Switchboard)**: `aapp ai [status | none | lax | strict | notes [on|off] | credits]`. Semantic trailers, parallel git notes attribution mode, and automated credits management.
 
 ### Zero-Dependency Canonical Manifest (`lib/verbs.tsv`)
 

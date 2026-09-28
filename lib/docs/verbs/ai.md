@@ -1,20 +1,22 @@
-# ai [status | none | lax | strict | notes | credits]
+# ai [status | none | lax | strict | notes [on|off] | credits]
 
 ## Ingress
 - positional forms:
-    - `status` (default when no subcommands given): displays current attribution mode, enforcement policy, and pending note buffers
+    - `status` (default when no subcommands given): displays current attribution mode, enforcement policy, AI notes policy, and pending note buffers
     - `none`: switches attribution policy to pure human authoring (`aapp.aiAttribution = none`)
     - `lax`: switches attribution policy to mixed human/AI mode (`aapp.aiAttribution = lax`)
     - `strict`: switches attribution policy to mandatory trailers mode (`aapp.aiAttribution = strict`)
-    - `notes`: switches attribution policy to private git notes mode (`aapp.aiAttribution = notes`)
+    - `notes [on|off]`: switches attribution policy to private git notes mode (`aapp.aiAttribution = notes`), or toggles parallel AI Git Notes (`aapp.aiNotes = true|false`)
     - `credits`: generates or updates the alphabetical AI Contributors block in README.md
 - configuration keys read:
     - `aapp.aiAttribution`: current attribution policy mode (`none`, `lax`, `strict`, `notes`)
+    - `aapp.aiNotes`: toggle for parallel AI Git Notes recording (`true`, `false`)
     - `aapp.aiCredits`: toggle for contributors block generation
     - `aapp.subjectMaxLen`: commit subject line conciseness limit
     - `aapp.aiAlias`: alias mapping for contributors reconciliation
 - configuration keys written:
     - `aapp.aiAttribution`: set to the selected mode (`none`, `lax`, `strict`, `notes`)
+    - `aapp.aiNotes`: set to `true` or `false` via `aapp ai notes [on|off]`
 
 ## Preconditions
 - Inside a Git worktree of a Git repository
@@ -25,7 +27,7 @@
 
 ## Effects (happy path)
 - `status`:
-    - prints human-readable summary of active attribution mode, description, and pending note buffers
+    - prints human-readable summary of active attribution mode, AI notes policy, description, and pending note buffers
 - `none`:
     - sets `aapp.aiAttribution = none` in git config
     - prints confirmation of disabled AI attribution
@@ -36,8 +38,9 @@
     - sets `aapp.aiAttribution = strict` in git config
     - prints confirmation of strict AI attribution mode
 - `notes`:
-    - sets `aapp.aiAttribution = notes` in git config
-    - prints confirmation of local-first git notes attribution mode
+    - bare `notes`: sets `aapp.aiAttribution = notes` and `aapp.aiNotes = true`
+    - `notes on`: sets `aapp.aiNotes = true` (enables parallel AI Git Notes)
+    - `notes off`: sets `aapp.aiNotes = false` (disables parallel AI Git Notes)
 - `credits`:
     - parses git log for attribution trailers, matches alias mappings, and updates `README.md`
 

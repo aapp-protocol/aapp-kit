@@ -9,10 +9,11 @@
     - `agent <Agent>`: AI agent name override
     - `vendor <Vendor>`: AI vendor name override
     - `model <Model>`: AI model ID override
-    - `note "<text>"`: note text for `notes` attribution mode
+    - `note "<text>"`: note text attached to commit (routes with identity to `refs/notes/ai`, without identity to `refs/notes/commits`; operates across all modes)
 - reads: active execution buffer `$(git rev-parse --git-path aapp_active_plan)` (or single `⚡ In Development` plan)
 - reads: `.plans/current/<plan>.md` (`* **Commits:**` header line)
 - reads config: `aapp.aiAttribution` (attribution mode: `none`, `lax`, `strict`, `notes`)
+- reads config: `aapp.aiNotes` (parallel AI git notes: `true`, `false`)
 
 ## Preconditions
 - Inside a Git worktree of an AAPP-governed repository
@@ -35,7 +36,8 @@
 ## Effects (happy path)
 - code commit:
     - staged files are committed in current worktree
-    - commit message is decorated with emailless trailers per attribution mode (`lax`, `strict`) or note attached (`notes`)
+    - commit message is decorated with emailless trailers per attribution mode (`lax`, `strict`)
+    - note is attached in parallel when `note "<text>"` is provided or when `aapp.aiNotes` is `true`
 - plan recording:
     - active plan's `* **Commits:**` header line is updated with the new commit `<sha> (<branch>)`
     - plan file is committed alone in `.plans/` worktree with subject `plan(record): record <short-sha> for P-NN` (or `plan(record): adopt <n> commit(s) for P-NN`) via `plans_commit`

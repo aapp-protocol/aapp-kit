@@ -70,6 +70,8 @@ normalize_agent_identity() {
 cmd_ai_status() {
     local mode
     mode="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
+    local ai_notes
+    ai_notes="$(git config aapp.aiNotes 2>/dev/null || echo "false")"
     local subject_max
     subject_max="$(git config --int aapp.subjectMaxLen 2>/dev/null || echo "72")"
     local credits_enabled
@@ -79,21 +81,22 @@ cmd_ai_status() {
 
     echo "🤖 AAPP AI Attribution Policy Status"
     echo "============================================================"
-    echo "  Mode              : $mode"
+    echo "  Commit Trailers   : $mode (aapp.aiAttribution)"
     case "$mode" in
         lax)
-            echo "  Description       : Public semantic trailers when present (human-friendly default)"
+            echo "  Trailers Policy   : Public semantic trailers when present (human-friendly default)"
             ;;
         strict)
-            echo "  Description       : Strict public emailless trailers required on every commit"
+            echo "  Trailers Policy   : Strict public emailless trailers required on every commit"
             ;;
         notes)
-            echo "  Description       : Local-first / private git notes"
+            echo "  Trailers Policy   : Local-first / private (human-only commit messages)"
             ;;
         none|*)
-            echo "  Description       : Disabled (pure human authoring)"
+            echo "  Trailers Policy   : Disabled (pure human authoring)"
             ;;
     esac
+    echo "  AI Git Notes      : $ai_notes (aapp.aiNotes)"
     echo "  Max Subject Length: $subject_max chars (aapp.subjectMaxLen)"
     echo "  Credits Footer    : $credits_enabled (aapp.aiCredits)"
     echo ""
@@ -153,10 +156,27 @@ cmd_ai_strict() {
 }
 
 cmd_ai_notes() {
-    git config aapp.aiAttribution notes
-    echo "✅ Switched AI attribution to 'notes' mode."
-    echo "   Commit messages will remain pristine and human-only."
-    echo "   Attribution metadata will be attached via Git Notes."
+    local sub="$1"
+    case "$sub" in
+        on)
+            git config aapp.aiNotes true
+            echo "✅ AI Git Notes enabled (aapp.aiNotes=true)."
+            echo "   AI commits will record audit traces to refs/notes/ai in parallel with commit attribution."
+            ;;
+        off)
+            git config aapp.aiNotes false
+            echo "✅ AI Git Notes disabled (aapp.aiNotes=false)."
+            echo "   Notes will only be attached when explicitly requested via 'aapp commit ... note \"<text>\"'."
+            ;;
+        *)
+            git config aapp.aiAttribution notes
+            git config aapp.aiNotes true
+            echo "✅ Switched AI attribution to 'notes' mode."
+            echo "   Commit messages will remain pristine and human-only (private-first)."
+            echo "   Attribution metadata will be attached via Git Notes (refs/notes/ai)."
+            echo "   👉 To enable commit trailers alongside notes, run: aapp ai lax OR aapp ai strict"
+            ;;
+    esac
 }
 
 cmd_ai_none() {
@@ -336,15 +356,15 @@ case "$ACTION" in
         ;;
     help|-h|--help)
         cat <<EOF
-Usage: aapp ai [status | none | lax | strict | notes | credits]
+Usage: aapp ai [status | none | lax | strict | notes [on|off] | credits]
 
 AI Attribution Policy Commands:
-  status    Display current attribution mode, config, and pending notes
-  none      Disable AI attribution (pure human authoring)
-  lax       Switch to lax attribution (validates trailers when present; human commits pass)
-  strict    Switch to strict attribution (requires valid trailers on every commit)
-  notes     Switch to local-first git notes mode
-  credits   Generate or update AI Contributors block in README.md
+  status        Display current attribution mode, config, and pending notes
+  none          Disable AI attribution (pure human authoring)
+  lax           Switch to lax attribution (validates trailers when present; human commits pass)
+  strict        Switch to strict attribution (requires valid trailers on every commit)
+  notes [on|off] Switch to private notes mode, or toggle parallel AI Git Notes
+  credits       Generate or update AI Contributors block in README.md
 EOF
         ;;
     *)

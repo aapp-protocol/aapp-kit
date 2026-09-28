@@ -173,7 +173,9 @@ case "$ATTR_MODE" in
             echo "" >&2
             echo "   👉 Remove AI trailers from the commit message and stage notes via:" >&2
             echo "      aapp note stage \"<content>\" msg \"<commit-msg>\"" >&2
-            echo "   👉 Or switch to lax mode: aapp ai lax" >&2
+            echo "   👉 To include public AI trailers alongside notes, switch mode:" >&2
+            echo "      aapp ai lax     (optional trailers + notes)" >&2
+            echo "      aapp ai strict  (mandatory trailers + notes)" >&2
             echo "" >&2
             exit 1
         fi
