@@ -1,82 +1,63 @@
-# 🏛️ Project Roadmap & Context: Agent Planning Kit (AAPP)
+# Project Rules: Agent Planning Kit (AAPP)
 
-This file defines the high-level architecture, milestones, subagent personas, and long-term vision for the Asymmetric Agent Planning Protocol (AAPP) repository.
-
----
-
-## 🎯 Project Overview & Mission
-
-AAPP solves the AI agent coordination and runaway-modification problem by providing:
-1. **Isolated Planning Worktrees:** Keeps planning text, design discussions, and issue tracking off active code branches via orphan git worktrees (`plans`, `agents`, `githooks`).
-2. **Dual-Layer Blast Radius Enforcement:** Intercepts agent tool writes at write-time (Layer 1) and locks commits at git commit-time (Layer 2).
-3. **Single-Active-Plan Architecture:** Per-worktree execution pointer buffers (`$(git rev-parse --git-path aapp_active_plan)`) enabling deterministic, conflict-free multi-agent parallel execution.
-4. **Mechanical Planning Health:** 7-pair integrity validation engine preventing blueprint drift, issue corruption, and boundary collisions.
+How we build here. Agents read this before writing code; humans keep it true.
+`CODEMAP.md` says **what exists** and how it is called; this file says **how to build**.
+Try to keep each rule in one place only.
 
 ---
 
-## 🗺️ Milestones & Development Phases
+## 🧭 1. Project Summary
+- **What it does:** A kit that keeps plans, agent rules and git hooks out of a project's source tree
+  (orphan-branch worktrees `.plans/`, `.agents/`, `.githooks/`) and refuses agent edits and commits
+  outside the files a started plan declares.
+- **Who it is for:** many adopter projects, of any stack. Never key a rule to this repository's own
+  paths; split it into a universal part and a part the adopter declares.
+- **Stack:** Bash (`#!/usr/bin/env bash`), git, and standard Unix tools. No build step.
+- **Run from a clone:** `./aapp develop` links this clone as the global `aapp`; `aapp test` runs the
+  suites.
 
-### ✅ Phase 1: Core Protocol & Isolation Architecture (v1.0.0 — Shipped)
-- Multi-orphan worktree structure (`.plans/`, `.agents/`, `.githooks/`).
-- Dual-layer blast radius guard (Layer 1 tool interceptor + Layer 2 commit gate).
-- Unified CLI (`aapp init`, `install`, `develop`, `upgrade`, `status`, `uninstall`).
-- Keep-a-Changelog enforcement & changelog worktree synchronization.
-- Initial test harness across installation, write-guard, and pre-commit.
+## ✍️ 2. Code Style & Conventions
+- **Shell:** keep macOS's Bash 3.2 working — no associative arrays, no Bash 4+ features.
+- **Portability:** no GNU-only options (e.g. `sort -z`); iterate paths NUL-safely (`find -print0`).
+  Platforms not yet verified are listed in MANUAL §14, not logged as issues.
+- **Linting:** `shellcheck`; keep `# shellcheck` directives next to what they explain.
+- **CLI arguments:** bare tokens (`aapp commit amend`, `aapp test strict`), never new `--flags`.
+- **Clean breaks:** no compatibility aliases, shims or dual syntax unless the plan lists them under
+  *Migration & Compatibility Strategy*. Before announcement, breaking changes are cheap.
+- **One parser:** plan parsing lives in `lib/aapp-lib.sh`; reuse it, never add another copy.
+- **Commits:** code goes through `aapp commit` while a plan is started; every code commit adds a
+  `CHANGELOG.md` line; subject ≤ 72 characters; AI commits carry emailless `AI-Agent:` /
+  `AI-Vendor:` / `AI-Model:` trailers.
 
-### 🚀 Phase 2: Multi-Agent Governance & Hardening (Current — v1.1.0 / v1.2.0 Edge)
-- [x] **Universal Skills Framework**: Native `.agents/skills/` bridged to `.claude/skills/` exposing shorthand slash commands.
-- [x] **Canonical Plan ID Standard (`P-<num>`)**: POSIX shorthand resolver, slug resolution, and transition empty-query guards.
-- [x] **Flat Issue Ledger & Relocation Invariant**: Single flat table in `ISSUES.md`, physical relocation of resolved defects to `000-issues-archive.md`.
-- [x] **AI Attribution Switchboard (P-14)**: Public emailless semantic trailers (`AI-Agent:`), local git notes Option C staging, append-only credits roster in `README.md`.
-- [x] **Frozen Plan Design-Lock Immutability (P-16)**: Commit-time lock on technical blueprints and blast radius while keeping checkboxes and changelogs writable.
-- [x] **Single-Active-Plan Architecture & Worktree Isolation (P-17)**: Dissolved cross-plan blocking via worktree buffers and flagless switchboard (`freeze-start`, `start`, `plan`, `plan-swap`, `plan-clear`).
-- [x] **Pure-Bash Glob Compiler & Safe Grammar (P-18)**: 3-tier fast path matching and safe character class bracket parsing (`[...]`).
-- [x] **Drop-in Target Resolution (#50)**: Physical path comparison resolving enclosing project root.
-- [x] **Signature-Gated Self-Consumption & `--keep` Flag (#51)**: Replaced unconstrained `rm -rf` with manifest and git cleanliness audits.
-- [ ] **Release Tagging & Upstream Branch Parity (#49, #58)**: Tag official releases, align `main` with `develop`, and stamp version dynamically.
-- [ ] **Continuous Integration Workflow (#63)**: GitHub Actions workflow executing the 254-test suite and branch parity gate.
-- [ ] **POSIX Portability & Parser Hardening (#59, #60, #69)**: Fallbacks for non-GNU `sort -z`, NUL-safe plan iteration, and regex escaping in `get_next_plan_id`.
+## 📦 3. Libraries & Dependencies
+- **Use:** Bash, git, coreutils, `awk`, `sed`, `grep`, and `sha256sum` or `shasum`.
+- **Optional:** `python3`, only behind `command -v python3` with a working fallback.
+- **Avoid:** `jq`, network tools, package managers, and anything an adopter would have to install.
+- **Adding a dependency:** needs a plan and the user's approval.
 
-### 🔮 Phase 3: Adversarial Review & Autonomous Subagent Attestation
-- [ ] **Adversarial Plan Review Plugin**: Freeze-time hook handing blueprints to independent subagents or isolated secondary agents for red-teaming.
-- [ ] **Attestation & Provenance Ledger**: Structured review attestations ingested by `aapp ai-credits` to credit non-committing reviewers (§E.9).
-- [ ] **Dynamic Worktree Orchestration**: Automated multi-worktree dispatching and teardown for parallel plan execution.
+## 🚨 4. Error Handling
+- **Fail closed.** No silent fallbacks (`|| true`, `|| pwd`, unchecked defaults) unless the reason is
+  in a code comment and the plan lists it in its Fallback Inventory.
+- **Messages:** to stderr, as `❌ [Context] what went wrong`, followed by a `👉` line with the fix.
+  Exit `1` on failure.
+- **Repository check:** the `aapp` dispatcher asserts a git repository once; commands rely on
+  `REPO_ROOT` instead of re-deriving it.
 
----
+Each command's refusals and exit behaviour are in its contract (`lib/docs/verbs/<verb>.md`) and in
+`CODEMAP.md`.
 
-## 🤖 Subagent Roles & Personas
+## 🧪 5. Testing
+- **Location:** `tests/*_test.sh` suites, `tests/verbs/<verb>.sh` contract suites, shared helpers in
+  `tests/test_helpers.sh`.
+- **Run:** `aapp test` (all), `aapp test strict quiet`, `aapp test verb <name>`.
+- **Expectations:** declare failure-first tests for new behaviour (`aapp tdd`). Every daily verb has a
+  contract in `lib/docs/verbs/`, and every test a contract names must exist —
+  `tests/verb_contracts_test.sh` checks this.
 
-When delegating tasks or operating in specialized roles within this repository, agents adopt the following personas:
-
-### 1. 🔍 Context Recovery Agent (`aapp status`)
-* **Responsibility:** Desk-return orientation.
-* **Behaviors:** Scans all four pillars (Shipped, Issues, Plans, Pickup). Reports exact priority order from `issues_road_map.md` and `state_matrix.md` without re-ranking. Surfaces unworked pickup notes.
-
-### 2. 📐 Blueprint Architect (`aapp digest`)
-* **Responsibility:** Plan specification and boundary design.
-* **Behaviors:** Converts pickup notes or promoted issues into ADR-style blueprints (`P<N>-<slug>.md`). Enforces explicit Target Files, locks down Out-of-Bounds boundaries, documents unresolved questions in Section 5, and updates `state_matrix.md`.
-
-### 3. 🩺 Planning Health Auditor (`lib/planning_health.sh`)
-* **Responsibility:** Structural integrity and invariants verification.
-* **Behaviors:** Executes the 7-pair integrity engine. Validates disjointness, referential integrity, commit SHA existence, and boundary collisions between concurrent in-development plans.
-
-### 4. 🛡️ Security & Boundary Gatekeeper (`blast-radius-guard`, `aapp-pre-commit`)
-* **Responsibility:** Preventing runaway modifications and unauthorized edits.
-* **Behaviors:** Never routes around write refusals. Enforces frozen blueprint design-locks and refuses commits leaving resolved rows in active `ISSUES.md`.
-
----
-
-## 📚 Documentation Conventions & Locations
-
-For the AAPP Kit repository itself, documentation is organized across canonical locations:
-- **User & Operator Manuals**:
-  - `README.md` — Project overview, installation, quick-start onboarding, and architecture summary.
-  - `MANUAL.md` — Canonical comprehensive technical manual, CLI command catalog, configuration schema, and threat model.
-  - `CHEATSHEET.md` — Quick-reference guide for common commands and daily workflows.
-- **Architecture & Agent Governance References**:
-  - `ARCHITECTURE.md` — Core repository topology, isolation layers, and component diagrams.
-  - `.agents/CODEMAP.md` — Callable contracts, module boundaries, function registries, and CLI interfaces.
-  - `.agents/PROJECT.MD` — High-level roadmap, milestones, subagent personas, and project conventions.
-- **Documentation Style & Update Contract**:
-  - Standard GitHub Flavored Markdown with semantic alerts (`[!IMPORTANT]`, `[!NOTE]`, `[!WARNING]`).
-  - Strict synchronization invariant: Any implementation altering CLI commands, flags, configuration keys, or developer workflows must update `MANUAL.md` (and `README.md` if introductory).
+## 📚 6. Documentation — Where & When
+- **Users:** `README.md` (overview, install), `MANUAL.md` (full manual), `CHEATSHEET.md` (one page,
+  checked against the code).
+- **Developers:** `ARCHITECTURE.md`, `.agents/CODEMAP.md`, command contracts in `lib/docs/verbs/`.
+- **Changes:** `CHANGELOG.md` (Keep a Changelog), a short line per code commit that names the plan.
+- **Update when:** a change alters commands, options, configuration keys, hooks or workflows —
+  update `MANUAL.md` and the command's contract, and `README.md` if it is introductory.
