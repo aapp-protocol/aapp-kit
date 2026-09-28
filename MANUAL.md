@@ -580,8 +580,9 @@ Within minutes, both the developer and the agent have experienced the entire 4-p
 
 ### Command Reference (Universal Skills)
 
-AAPP lifecycle verbs are authored as **Universal AAPP Skills** in `.agents/skills/<name>/SKILL.md` and bridged to `.claude/skills/`. They adhere to standard YAML frontmatter, depth-1 filesystem invariants, progressive disclosure, and the **No-Dead-End Invariant**:
+AAPP lifecycle verbs are authored as **Universal AAPP Skills** in `.agents/skills/<name>/SKILL.md` and bridged to `.claude/skills/`. They adhere to standard YAML frontmatter, depth-1 filesystem invariants, progressive disclosure, the **No-Dead-End Invariant**, and the **CLI-First Pattern**:
 
+- **CLI-First Invariant**: Universal Skills are conversational shims over deterministic CLI engines (`aapp done`, `aapp freeze`, `aapp start`, `aapp status`, `aapp draft`). Skills invoke the authoritative CLI verb first. If the command exits non-zero, the skill fails closed—it parses and explains the refusal diagnostic and prompts for remediation without attempting manual filesystem moves, markdown regex hacks (`sed -i`), or raw Git commits.
 - **No-Dead-End Invariant**: Bare invocations without arguments must never output a dead-end error or fail silently. Skills infer context from active buffers or display candidate menus.
 - **Candidate Menu Ceiling**: To prevent chat window bloat and token waste, candidate lists displayed by skills are strictly capped at **10 items** (maximum 15), followed by a single concise overflow summary line (`... and N more [items] (inspect via ...)`).
 - **IDE Autocomplete Parity**: All retained skills declare `disable-model-invocation: false` in their frontmatter, ensuring complete visibility in AI IDE slash-command autocompletion (such as Antigravity IDE and Claude Code).
@@ -633,7 +634,7 @@ Completes the lifecycle and archives the plan:
 - **Bare Fallback & Active Inference**: If called without arguments, inspects the local active buffer (`.git/aapp_active_plan`). If an active plan is bound, infers it automatically; otherwise presents in-development plans (up to 10) for selection.
 - **Recorded Commits Verification**: Verifies that the plan carries at least one recorded commit in its `* **Commits:**` header (from `aapp commit` or `aapp commit adopt`) and checks reachability from ref containment. Plans with no recorded commits are strictly refused.
 - **Pre-Done Dispatch**: Dispatches the `pre-done` hook with plan metadata and recorded commits before any mutation; a non-zero exit vetoes archival.
-- Moves blueprint: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
+- **Deterministic Archival**: Archives blueprint to `.plans/done/` via deterministic CLI execution (`aapp done`).
 - Appends a 1-line completion record to `.plans/done/000-archive-ledger.md` (recording Plan ID, plan link, target issue, verification commit from the last recorded commit, and repo-relative impact summary).
 - Removes the plan entry from `.plans/state_matrix.md`.
 - Dispatches `on-done` lifecycle event with recorded commits and verifies `CHANGELOG.md` entry.

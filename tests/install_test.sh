@@ -1228,6 +1228,62 @@ else
 fi
 report "test_init_defaults_to_lax: fresh aapp init seeds lax and keeps existing value" "PASS" "$got" "seeded=$seeded_mode (want lax), preserved=$preserved_mode (want notes)"
 
+# Test 70: CLI-First Universal Skills Alignment (TDD Failure & Boundary Assertions)
+# Assert that templates/skills/{aapp-done, aapp-freeze, aapp-start, aapp-status, aapp-digest} follow CLI-first execution
+# and do NOT contain manual sed -i, mv, or raw git commits bypassing CLI lifecycle gates.
+
+# 70.1 test_skills_cli_first_done
+done_skill="$KIT/templates/skills/aapp-done/SKILL.md"
+if grep -q "aapp done" "$done_skill" && \
+   ! grep -q "sed -i" "$done_skill" && \
+   ! grep -q "mv \".plans/current" "$done_skill" && \
+   ! grep -q "git -C .plans commit" "$done_skill"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_skills_cli_first_done: aapp-done executes 'aapp done' without manual git surgery or sed" "PASS" "$got"
+
+# 70.2 test_skills_cli_first_freeze
+freeze_skill="$KIT/templates/skills/aapp-freeze/SKILL.md"
+if grep -q "aapp freeze" "$freeze_skill" && \
+   ! grep -q "sed -i" "$freeze_skill" && \
+   ! grep -q "git -C .plans commit" "$freeze_skill"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_skills_cli_first_freeze: aapp-freeze executes 'aapp freeze' without manual git surgery or sed" "PASS" "$got"
+
+# 70.3 test_skills_cli_first_start
+start_skill="$KIT/templates/skills/aapp-start/SKILL.md"
+if grep -q "aapp start" "$start_skill" && \
+   ! grep -q 'echo "<plan-id>" >' "$start_skill" && \
+   ! grep -q "git -C .plans commit" "$start_skill"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_skills_cli_first_start: aapp-start executes 'aapp start' without direct buffer writes or git surgery" "PASS" "$got"
+
+# 70.4 test_skills_cli_first_status
+status_skill="$KIT/templates/skills/aapp-status/SKILL.md"
+if grep -q "aapp status" "$status_skill"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_skills_cli_first_status: aapp-status delegates to 'aapp status'" "PASS" "$got"
+
+# 70.5 test_skills_cli_first_digest
+digest_skill="$KIT/templates/skills/aapp-digest/SKILL.md"
+if grep -q "aapp draft" "$digest_skill"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_skills_cli_first_digest: aapp-digest delegates scaffolding to 'aapp draft'" "PASS" "$got"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"
