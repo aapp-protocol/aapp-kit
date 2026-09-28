@@ -162,13 +162,13 @@ report ".agents clean commit succeeds" "PASS" "$got"
 
 echo "== 4. Attribution Mode Switchboard in Worktrees =="
 
-# Switch to commit attribution mode
+# Switch to strict attribution mode
 (
     cd "$TEST_DIR"
-    git config aapp.aiAttribution "commit"
+    git config aapp.aiAttribution "strict"
 )
 
-# 4.1 In commit mode, missing AI-Agent trailer rejected in .plans
+# 4.1 In strict mode, missing AI-Agent trailer rejected in .plans
 (
     cd "$TEST_DIR/.plans"
     echo "note2" >> pickup.md
@@ -176,15 +176,15 @@ echo "== 4. Attribution Mode Switchboard in Worktrees =="
 )
 if (
     cd "$TEST_DIR/.plans"
-    git commit -m "docs: missing AI trailer in commit mode" >/dev/null 2>&1
+    git commit -m "docs: missing AI trailer in strict mode" >/dev/null 2>&1
 ); then
     got="COMMITTED"
 else
     got="BLOCKED"
 fi
-report "commit mode: missing AI-Agent trailer rejected in .plans" "BLOCKED" "$got"
+report "strict mode: missing AI-Agent trailer rejected in .plans" "BLOCKED" "$got"
 
-# 4.2 In commit mode, valid AI trailers succeed in .plans
+# 4.2 In strict mode, valid AI trailers succeed in .plans
 if (
     cd "$TEST_DIR/.plans"
     git commit -m "docs: update test idea with valid trailers
@@ -197,7 +197,27 @@ AI-Model: claude-3-5-sonnet" >/dev/null 2>&1
 else
     got="FAIL"
 fi
-report "commit mode: valid AI trailers accepted in .plans" "PASS" "$got"
+report "strict mode: valid AI trailers accepted in .plans" "PASS" "$got"
+
+# 4.3 test_lax_accepts_human_plans_commit: in lax mode, trailer-less human commit succeeds in .plans (#81)
+(
+    cd "$TEST_DIR"
+    git config aapp.aiAttribution "lax"
+)
+(
+    cd "$TEST_DIR/.plans"
+    echo "note3" >> pickup.md
+    git add pickup.md
+)
+if (
+    cd "$TEST_DIR/.plans"
+    git commit -m "docs: human commit without trailers in lax mode" >/dev/null 2>&1
+); then
+    got="PASS"
+else
+    got="FAIL"
+fi
+report "test_lax_accepts_human_plans_commit: trailer-less commit inside .plans passes in lax (#81)" "PASS" "$got"
 
 echo "== 5. Idempotent Re-Init and Stability =="
 

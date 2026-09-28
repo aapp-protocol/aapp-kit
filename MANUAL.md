@@ -1368,8 +1368,9 @@ AAPP introduces two distinct, purpose-driven attribution channels:
 
 | Mode | Command | Target Ref / Layer | Visibility & Durability |
 | :--- | :--- | :--- | :--- |
-| `none` | `aapp ai-off` | Working tree only | **Default.** Pure human authoring. Accidental AI trailers are blocked by `commit-msg`. |
-| `commit` | `aapp ai-commit` | Commit object trailers | **Public attribution.** Emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Survives git rebase, cherry-pick, and clones. Synthetic `Co-authored-by:` emails are strictly rejected. |
+| `none` | `aapp ai-off` | Working tree only | **Pure human authoring.** Accidental AI trailers are blocked by `commit-msg`. |
+| `lax` | `aapp ai-lax` | Commit object trailers | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
+| `strict` | `aapp ai-strict` | Commit object trailers | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. |
 | `notes` | `aapp ai-notes` | `refs/notes/commits` | **Local-first / private benchmarking.** Commit messages remain pristine. Metadata attaches via staged note buffers and `post-commit`. |
 
 ### The Switchboard Command Family
@@ -1377,7 +1378,8 @@ AAPP introduces two distinct, purpose-driven attribution channels:
 The `aapp ai-*` command family manages configuration and staged buffers without manual config editing:
 
 - **`aapp ai-status`**: Displays active attribution mode, `aapp.subjectMaxLen`, `aapp.aiCredits` toggle status, and scans for pending note buffers reporting count, message hash, and age.
-- **`aapp ai-commit`**: Enables public emailless trailers.
+- **`aapp ai-lax`**: Enables lax attribution (validates trailers if present; human commits pass freely).
+- **`aapp ai-strict`**: Enables strict attribution (requires valid trailers on every commit).
 - **`aapp ai-notes`**: Enables private git notes, idempotently configures push/fetch refspecs (`+refs/notes/*:refs/notes/*`), sets `notes.mergeStrategy=cat_sort_uniq`, `notes.rewriteMode=concatenate`, and sets **`notes.rewriteRef=refs/notes/commits`**.
 - **`aapp ai-off`**: Disables AI attribution (pure human authoring; does not erase existing `README.md` blocks).
 - **`aapp ai-note --stage`**: Stages customizable attribution metadata for the upcoming commit.
@@ -1389,8 +1391,10 @@ Every commit message is evaluated by `.githooks/aapp-commit-msg` against two pri
 
 1. **Numeric Commit Conciseness Invariant (G4)**: The subject line must not exceed 72 characters (`git config aapp.subjectMaxLen`). Subject lines must be written in the imperative mood (`feat: ...`, `fix: ...`), leaving architectural analysis to commit bodies and blueprints.
 2. **Attribution Policy & Revert Safety (G2)**:
-   - In `commit` mode, `AI-Agent:` is mandatory; synthetic `Co-authored-by:` emails are blocked across all modes.
+   - In `lax` mode, trailers are optional; when present, all three emailless fields (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) are validated.
+   - In `strict` mode, all three emailless trailers are mandatory on every commit.
    - In `none` and `notes` modes, AI trailers in the commit message are prohibited.
+   - In all modes, synthetic vendor email addresses (`Co-authored-by:`) are strictly prohibited.
    - Revert commits (`Revert "..."` or containing `This reverts commit <sha>`) are automatically exempted.
 
 ### Option C Staged Note Protocol & Amend Durability
@@ -1573,7 +1577,7 @@ To eliminate cognitive overload, the AAPP CLI organizes its commands into 5 visu
 2. **Setup & Maintenance**: `init`, `install`, `upgrade`, `develop`, `uninstall`, `version`, `help`. Commands for onboarding repositories, updating tools, and linking developer clones.
 3. **Team Sync & Emergency Controls**: `push`, `pull`, `sync`, `pause`, `resume`. Worktree transport across remotes and the multi-worktree circuit breaker.
 4. **Extensibility & Automation (Hooks & Plugins)**: `hooks`, `hook-test`, `hook-run`, `hook-hash`, `plugins`. Lifecycle hook auditing, testing, and action plugin execution.
-5. **Attribution & Metadata (AI Switchboard)**: `ai-commit`, `ai-notes`, `ai-off`, `ai-credits`, `ai-status`, `ai-note`. Semantic trailers, git notes attribution, and automated credits management.
+5. **Attribution & Metadata (AI Switchboard)**: `ai-lax`, `ai-strict`, `ai-notes`, `ai-off`, `ai-credits`, `ai-status`, `ai-note`. Semantic trailers, git notes attribution, and automated credits management.
 
 ### Zero-Dependency Canonical Manifest (`lib/verbs.tsv`)
 

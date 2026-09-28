@@ -91,9 +91,10 @@ Attribution mode is governed by repository configuration (`git config aapp.aiAtt
 
 | Command | Mode / Role | Purpose & Behavior |
 | :--- | :--- | :--- |
-| `aapp ai-commit` | Public attribution | Switch to public, emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) |
+| `aapp ai-lax` | Lax attribution | Switch to lax attribution (validates trailers if present; human commits pass freely) |
+| `aapp ai-strict` | Strict attribution | Switch to strict attribution (enforces valid trailers on every commit) |
 | `aapp ai-notes` | Local-first attribution | Switch to local-first git notes (`refs/notes/commits`) — pristine commit messages |
-| `aapp ai-off` | Pure human | Disable AI attribution (default safe state) |
+| `aapp ai-off` | Pure human | Disable AI attribution (pure human authoring) |
 | `aapp ai-credits` | Contributors block | Generate or update alphabetical `AI Contributors` block in `README.md` |
 | `aapp ai-status` | Status inspection | Display current AI attribution mode and pending notes |
 | `aapp ai-note` | Buffer staging | Pre-stage customizable note buffer for next commit (`--stage`) |
@@ -108,7 +109,7 @@ AAPP controls repository behavior via standard Git configuration:
 | :--- | :--- | :--- | :--- | :--- |
 | `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
 | `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
-| `aapp.aiAttribution` | `none` / `commit` / `notes` | `none` | AI Attribution | Attribution mode (emailless semantic trailers vs. git notes vs. human). |
+| `aapp.aiAttribution` | `none` / `lax` / `strict` / `notes` | `lax` | AI Attribution | Attribution mode: none (human-only), lax (human-friendly default), strict (mandatory trailers), notes (private git notes). |
 | `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
 | `aapp.subjectMaxLen` | integer | `72` | Git Hooks | Numeric conciseness limit for commit subject lines (enforced in `aapp-commit-msg`). |
 | `aapp.protectStable` | `true` / `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |

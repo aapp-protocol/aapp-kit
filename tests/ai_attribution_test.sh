@@ -32,10 +32,10 @@ echo "== 1. Safe-by-Default Configuration & Hook Installation =="
 # ==============================================================================
 
 ATTR_MODE="$(git config aapp.aiAttribution 2>/dev/null || echo "")"
-if [ "$ATTR_MODE" = "none" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "default attribution mode is 'none'" "PASS"; PASS=$((PASS+1))
+if [ "$ATTR_MODE" = "lax" ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "default attribution mode is 'lax'" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s want 'none' got '%s'\n" "default attribution mode is 'none'" "$ATTR_MODE"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s want 'lax' got '%s'\n" "default attribution mode is 'lax'" "$ATTR_MODE"; FAIL=$((FAIL+1))
 fi
 
 CREDITS_CFG="$(git config aapp.aiCredits 2>/dev/null || echo "")"
@@ -63,29 +63,36 @@ fi
 echo "== 2. Switchboard State Transitions & Idempotency =="
 # ==============================================================================
 
-# Switch to commit mode
-"$KIT/aapp" ai-commit >/dev/null
-MODE="$(git config aapp.aiAttribution 2>/dev/null)"
-if [ "$MODE" = "commit" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "aapp ai-commit sets mode to 'commit'" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want 'commit' got '%s'\n" "aapp ai-commit sets mode to 'commit'" "$MODE"; FAIL=$((FAIL+1))
-fi
+# test_setup_verbs_switch_modes: ai-off/ai-lax/ai-strict/ai-notes set the value; ai-commit is an unknown verb naming the replacements
+"$KIT/aapp" ai-lax >/dev/null 2>&1 || true
+MODE_LAX="$(git config aapp.aiAttribution 2>/dev/null)"
 
-# Switch to notes mode
-"$KIT/aapp" ai-notes >/dev/null
-MODE="$(git config aapp.aiAttribution 2>/dev/null)"
+"$KIT/aapp" ai-strict >/dev/null 2>&1 || true
+MODE_STRICT="$(git config aapp.aiAttribution 2>/dev/null)"
+
+"$KIT/aapp" ai-notes >/dev/null 2>&1 || true
+MODE_NOTES="$(git config aapp.aiAttribution 2>/dev/null)"
 REWRITE_REF="$(git config --get-all notes.rewriteRef 2>/dev/null || echo "")"
 MERGE_STRAT="$(git config notes.mergeStrategy 2>/dev/null || echo "")"
-if [ "$MODE" = "notes" ] && [ "$REWRITE_REF" = "refs/notes/commits" ] && [ "$MERGE_STRAT" = "cat_sort_uniq" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "aapp ai-notes configures rewriteRef & mergeStrategy" "PASS"; PASS=$((PASS+1))
+
+"$KIT/aapp" ai-off >/dev/null 2>&1 || true
+MODE_OFF="$(git config aapp.aiAttribution 2>/dev/null)"
+CREDITS_TOGGLE="$(git config aapp.aiCredits 2>/dev/null)"
+
+RETIRED_OUT="$("$KIT/aapp" ai-commit 2>&1 || true)"
+
+if [ "$MODE_LAX" = "lax" ] && [ "$MODE_STRICT" = "strict" ] && \
+   [ "$MODE_NOTES" = "notes" ] && [ "$REWRITE_REF" = "refs/notes/commits" ] && [ "$MERGE_STRAT" = "cat_sort_uniq" ] && \
+   [ "$MODE_OFF" = "none" ] && [ "$CREDITS_TOGGLE" = "false" ] && \
+   echo "$RETIRED_OUT" | grep -qiE 'ai-lax|ai-strict'; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_setup_verbs_switch_modes: verbs switch modes" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s mode=%s rewriteRef=%s strat=%s\n" "aapp ai-notes configures rewriteRef & mergeStrategy" "$MODE" "$REWRITE_REF" "$MERGE_STRAT"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s switchboard modes failed\n" "test_setup_verbs_switch_modes: verbs switch modes"; FAIL=$((FAIL+1))
 fi
 
 # Test refspec idempotency
-"$KIT/aapp" ai-notes >/dev/null
-"$KIT/aapp" ai-notes >/dev/null
+"$KIT/aapp" ai-notes >/dev/null 2>&1 || true
+"$KIT/aapp" ai-notes >/dev/null 2>&1 || true
 PUSH_REFS="$(git config --get-all remote.origin.push 2>/dev/null | wc -l || echo 0)"
 FETCH_REFS="$(git config --get-all remote.origin.fetch 2>/dev/null | wc -l || echo 0)"
 if [ "$PUSH_REFS" -eq 2 ] && [ "$FETCH_REFS" -eq 2 ]; then
@@ -94,18 +101,8 @@ else
     printf "  \033[31m✘\033[0m %-52s want push=2 fetch=2 got push=%s fetch=%s\n" "repeated ai-notes preserves idempotent refspecs" "$PUSH_REFS" "$FETCH_REFS"; FAIL=$((FAIL+1))
 fi
 
-# Switch to off
-"$KIT/aapp" ai-off >/dev/null
-MODE="$(git config aapp.aiAttribution 2>/dev/null)"
-CREDITS_TOGGLE="$(git config aapp.aiCredits 2>/dev/null)"
-if [ "$MODE" = "none" ] && [ "$CREDITS_TOGGLE" = "false" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "aapp ai-off sets mode to 'none' and credits false" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want mode=none credits=false got mode=%s credits=%s\n" "aapp ai-off sets mode to 'none' and credits false" "$MODE" "$CREDITS_TOGGLE"; FAIL=$((FAIL+1))
-fi
-
 # aapp ai-status executes cleanly
-if "$KIT/aapp" ai-status >/dev/null; then
+if "$KIT/aapp" ai-status >/dev/null 2>&1; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "aapp ai-status executes cleanly" "PASS"; PASS=$((PASS+1))
 else
     printf "  \033[31m✘\033[0m %-52s want exit 0\n" "aapp ai-status executes cleanly"; FAIL=$((FAIL+1))
@@ -159,48 +156,100 @@ else
 fi
 git config --unset aapp.subjectMaxLen
 
-# 3c. Banned Co-authored-by trailers
+# 3c. test_banned_coauthor_rejected_in_every_mode: prohibited in none, lax, strict, notes
 cat > "$TEST_DIR/msg_banned.txt" << 'EOF'
 feat: valid subject
 
 Co-authored-by: Antigravity <antigravity@google.com>
 EOF
 
-if ! run_commit_msg "$TEST_DIR/msg_banned.txt" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "synthetic Co-authored-by email blocked across modes" "BLOCK"; PASS=$((PASS+1))
+banned_every_mode=1
+for m in none lax strict notes; do
+    git config aapp.aiAttribution "$m"
+    if run_commit_msg "$TEST_DIR/msg_banned.txt" >/dev/null 2>&1; then
+        banned_every_mode=0
+        break
+    fi
+done
+
+if [ "$banned_every_mode" -eq 1 ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_banned_coauthor_rejected_in_every_mode" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "synthetic Co-authored-by email blocked across modes"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s failed in mode $m\n" "test_banned_coauthor_rejected_in_every_mode"; FAIL=$((FAIL+1))
 fi
 
 # 3d. Attribution Mode Enforcements
-# In 'none' mode: AI-Agent: trailer is blocked
-git config aapp.aiAttribution none
-cat > "$TEST_DIR/msg_agent.txt" << 'EOF'
+cat > "$TEST_DIR/msg_agent_full.txt" << 'EOF'
 feat: valid subject
 
 AI-Agent: Claude
 AI-Vendor: Anthropic
+AI-Model: claude-3-5-sonnet
 EOF
 
-if ! run_commit_msg "$TEST_DIR/msg_agent.txt" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "AI-Agent trailer blocked when attribution is 'none'" "BLOCK"; PASS=$((PASS+1))
+cat > "$TEST_DIR/msg_agent_partial.txt" << 'EOF'
+feat: valid subject
+
+AI-Agent: Claude
+EOF
+
+# In 'none' mode: AI trailers are blocked
+git config aapp.aiAttribution none
+if ! run_commit_msg "$TEST_DIR/msg_agent_full.txt" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "AI trailers blocked when attribution is 'none'" "BLOCK"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "AI-Agent trailer blocked when attribution is 'none'"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "AI trailers blocked when attribution is 'none'"; FAIL=$((FAIL+1))
 fi
 
-# In 'commit' mode: commit without AI-Agent is blocked
+# test_lax_accepts_human_commit: lax mode accepts commit without trailers
+git config aapp.aiAttribution lax
+if run_commit_msg "$TEST_DIR/msg_ok.txt" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_lax_accepts_human_commit: no trailers passes in lax" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "test_lax_accepts_human_commit: no trailers passes in lax"; FAIL=$((FAIL+1))
+fi
+
+# test_lax_validates_present_trailers: lax mode validates present trailers (malformed refused, valid accepted)
+lax_val_ok=1
+if ! run_commit_msg "$TEST_DIR/msg_agent_partial.txt" >/dev/null 2>&1; then
+    : # partial trailer correctly refused
+else
+    lax_val_ok=0
+fi
+if run_commit_msg "$TEST_DIR/msg_agent_full.txt" >/dev/null 2>&1; then
+    : # full valid trailers accepted
+else
+    lax_val_ok=0
+fi
+if [ "$lax_val_ok" -eq 1 ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_lax_validates_present_trailers" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s lax validation of present trailers failed\n" "test_lax_validates_present_trailers"; FAIL=$((FAIL+1))
+fi
+
+# test_strict_requires_trailers: strict mode refuses trailerless commit, prints hints
+git config aapp.aiAttribution strict
+strict_out=$(run_commit_msg "$TEST_DIR/msg_ok.txt" 2>&1 || true)
+if ! run_commit_msg "$TEST_DIR/msg_ok.txt" >/dev/null 2>&1 && echo "$strict_out" | grep -q "aapp ai-lax"; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_strict_requires_trailers" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want refusal with ai-lax hint\n" "test_strict_requires_trailers"; FAIL=$((FAIL+1))
+fi
+
+# test_strict_accepts_valid_trailers: strict mode accepts valid 3 trailers
+if run_commit_msg "$TEST_DIR/msg_agent_full.txt" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_strict_accepts_valid_trailers" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want PASS in strict mode\n" "test_strict_accepts_valid_trailers"; FAIL=$((FAIL+1))
+fi
+
+# test_retired_commit_mode_refuses: retired commit mode refused, naming ai-lax / ai-strict
 git config aapp.aiAttribution commit
-if ! run_commit_msg "$TEST_DIR/msg_ok.txt" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "commit mode requires AI-Agent trailer" "BLOCK"; PASS=$((PASS+1))
+retired_commit_out=$(run_commit_msg "$TEST_DIR/msg_agent_full.txt" 2>&1 || true)
+if ! run_commit_msg "$TEST_DIR/msg_agent_full.txt" >/dev/null 2>&1 && echo "$retired_commit_out" | grep -qiE 'ai-lax|ai-strict'; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_retired_commit_mode_refuses" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "commit mode requires AI-Agent trailer"; FAIL=$((FAIL+1))
-fi
-
-# In 'commit' mode: valid AI-Agent trailer passes
-if run_commit_msg "$TEST_DIR/msg_agent.txt" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "valid semantic trailers pass in commit mode" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "valid semantic trailers pass in commit mode"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s want refusal naming ai-lax/ai-strict\n" "test_retired_commit_mode_refuses"; FAIL=$((FAIL+1))
 fi
 
 # 3e. Git revert bypass
@@ -210,6 +259,7 @@ Revert "feat: previous commit"
 This reverts commit 1234567890abcdef1234567890abcdef12345678.
 EOF
 
+git config aapp.aiAttribution strict
 if run_commit_msg "$TEST_DIR/msg_revert.txt" >/dev/null 2>&1; then
     printf "  \033[32m✔\033[0m %-52s %s\n" "revert commit bypasses attribution requirements" "PASS"; PASS=$((PASS+1))
 else
@@ -386,14 +436,15 @@ else
     printf "  \033[31m✘\033[0m %-52s notes mode mutated README.md\n" "notes mode preserves hand-maintained block"; FAIL=$((FAIL+1))
 fi
 
-# 5b. Commit mode generation & LC_ALL=C ordering
-git config aapp.aiAttribution commit
+# 5b. Public trailer mode generation & LC_ALL=C ordering
+git config aapp.aiAttribution strict
 echo "code" > code.txt
 git add code.txt
 git commit -m "feat: first agent commit
 
 AI-Agent: Antigravity
-AI-Vendor: Google" >/dev/null
+AI-Vendor: Google
+AI-Model: gemini-1.5-pro" >/dev/null
 
 "$KIT/aapp" ai-credits >/dev/null 2>&1
 
@@ -480,5 +531,133 @@ else
     printf "  \033[31m✘\033[0m %-52s ai-off mutated or deleted block\n" "ai-off preserves existing credits block untouched"; FAIL=$((FAIL+1))
 fi
 
+# ==============================================================================
+echo "== 6. Attribution Layer (lib/attribution.sh) =="
+# ==============================================================================
+
+if [ -f "$KIT/lib/attribution.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$KIT/lib/attribution.sh"
+fi
+
+# 6a. test_identity_precedence: parameters beat environment beat worktree config; repository config is ignored
+precedence_ok=1
+if command -v resolve_ai_identity >/dev/null 2>&1; then
+    # 1. Repo config set - should be ignored
+    git config aapp.aiAgent "RepoAgent"
+    git config aapp.aiVendor "RepoVendor"
+    git config aapp.aiModel "RepoModel"
+
+    # With nothing else, should resolve to empty (repo config ignored)
+    id_repo="$(resolve_ai_identity "" "" "" "" 2>/dev/null || true)"
+    [ -n "$id_repo" ] && precedence_ok=0
+
+    # 2. Worktree config
+    git config extensions.worktreeConfig true 2>/dev/null || true
+    git config --worktree aapp.aiAgent "WkAgent" 2>/dev/null || true
+    git config --worktree aapp.aiVendor "WkVendor" 2>/dev/null || true
+    git config --worktree aapp.aiModel "WkModel" 2>/dev/null || true
+    id_wk="$(resolve_ai_identity "" "" "" "" 2>/dev/null || true)"
+    [[ "$id_wk" != *"WkAgent"* ]] && precedence_ok=0
+
+    # 3. Environment beats worktree config
+    id_env="$(AAPP_AGENT_NAME="EnvAgent" AAPP_AGENT_VENDOR="EnvVendor" AAPP_AGENT_MODEL="EnvModel" resolve_ai_identity "" "" "" "" 2>/dev/null || true)"
+    [[ "$id_env" != *"EnvAgent"* ]] && precedence_ok=0
+
+    # 4. Parameters beat environment
+    id_param="$(AAPP_AGENT_NAME="EnvAgent" AAPP_AGENT_VENDOR="EnvVendor" AAPP_AGENT_MODEL="EnvModel" resolve_ai_identity "ParamAgent" "ParamVendor" "ParamModel" "" 2>/dev/null || true)"
+    [[ "$id_param" != *"ParamAgent"* ]] && precedence_ok=0
+
+    # Clean up configs
+    git config --unset aapp.aiAgent 2>/dev/null || true
+    git config --unset aapp.aiVendor 2>/dev/null || true
+    git config --unset aapp.aiModel 2>/dev/null || true
+    git config --worktree --unset aapp.aiAgent 2>/dev/null || true
+    git config --worktree --unset aapp.aiVendor 2>/dev/null || true
+    git config --worktree --unset aapp.aiModel 2>/dev/null || true
+else
+    precedence_ok=0
+fi
+
+if [ "$precedence_ok" -eq 1 ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_identity_precedence" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s identity precedence failed\n" "test_identity_precedence"; FAIL=$((FAIL+1))
+fi
+
+# 6b. test_coauthor_converted_with_warning: resolve_ai_identity turns a Co-Authored-By into emailless trailers and warns
+coauthor_ok=1
+if command -v resolve_ai_identity >/dev/null 2>&1; then
+    cat > "$TEST_DIR/msg_coauthor.txt" << 'EOF'
+feat: test subject
+
+Co-authored-by: Claude <noreply.anthropic.com>
+EOF
+    warn_out=$(resolve_ai_identity "" "" "" "$TEST_DIR/msg_coauthor.txt" 2>&1 > "$TEST_DIR/coauthor_id.txt" || true)
+    coauthor_id=$(cat "$TEST_DIR/coauthor_id.txt")
+    if ! echo "$warn_out" | grep -qi "warning"; then
+        coauthor_ok=0
+    fi
+    if [[ "$coauthor_id" != *"Claude"* ]]; then
+        coauthor_ok=0
+    fi
+else
+    coauthor_ok=0
+fi
+if [ "$coauthor_ok" -eq 1 ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_coauthor_converted_with_warning" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s coauthor conversion failed\n" "test_coauthor_converted_with_warning"; FAIL=$((FAIL+1))
+fi
+
+# 6c. test_strict_decorate_without_identity_exits_1: attribution_decorate in strict with no identity exits 1
+strict_dec_ok=0
+if command -v attribution_decorate >/dev/null 2>&1; then
+    git config aapp.aiAttribution strict
+    cp "$TEST_DIR/msg_ok.txt" "$TEST_DIR/msg_to_decorate.txt"
+    if ! attribution_decorate "$TEST_DIR/msg_to_decorate.txt" "" >/dev/null 2>&1; then
+        strict_dec_ok=1
+    fi
+fi
+if [ "$strict_dec_ok" -eq 1 ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_strict_decorate_without_identity_exits_1" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s strict decoration without identity should exit 1\n" "test_strict_decorate_without_identity_exits_1"; FAIL=$((FAIL+1))
+fi
+
+# 6d. test_note_text_without_identity_exits_1: notes mode, text but no identity exits 1 with stderr
+note_text_ok=0
+if command -v attribution_note >/dev/null 2>&1; then
+    git config aapp.aiAttribution notes
+    dummy_sha="$(git rev-parse HEAD)"
+    note_err=$(attribution_note "$dummy_sha" "" "some text" 2>&1 || true)
+    if [ -n "$note_err" ]; then
+        if ! attribution_note "$dummy_sha" "" "some text" >/dev/null 2>&1; then
+            note_text_ok=1
+        fi
+    fi
+fi
+if [ "$note_text_ok" -eq 1 ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_note_text_without_identity_exits_1" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s notes mode text without identity should exit 1\n" "test_note_text_without_identity_exits_1"; FAIL=$((FAIL+1))
+fi
+
+# 6e. test_note_identity_only_passes: notes mode, identity and no text writes note without warning
+note_id_ok=0
+if command -v attribution_note >/dev/null 2>&1; then
+    git config aapp.aiAttribution notes
+    dummy_sha="$(git rev-parse HEAD)"
+    if attribution_note "$dummy_sha" "Claude (Anthropic)" "" >/dev/null 2>&1; then
+        note_id_ok=1
+    fi
+fi
+if [ "$note_id_ok" -eq 1 ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "test_note_identity_only_passes" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s notes mode identity only failed\n" "test_note_identity_only_passes"; FAIL=$((FAIL+1))
+fi
+
 print_test_summary "$PASS" "$FAIL"
+
 

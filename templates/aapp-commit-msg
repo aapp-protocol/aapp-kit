@@ -68,12 +68,25 @@ if grep -qE '^(This reverts commit [0-9a-fA-F]+|> This reverts commit [0-9a-fA-F
     exit 0
 fi
 
-ATTR_MODE="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
+ATTR_MODE="$(git config aapp.aiAttribution 2>/dev/null || echo "lax")"
 
-# Check for AI-Agent: trailer
-HAS_AI_AGENT=0
-if grep -qE '^[[:space:]]*AI-Agent:[[:space:]]*[^[:space:]]+' "$MSG_FILE" 2>/dev/null; then
-    HAS_AI_AGENT=1
+# Check for presence of AI trailers
+HAS_AI_TRAILER=0
+if grep -qE '^[[:space:]]*AI-(Agent|Vendor|Model):' "$MSG_FILE" 2>/dev/null; then
+    HAS_AI_TRAILER=1
+fi
+
+# Validate trailers (format and emailless)
+VALID_TRAILERS=1
+if ! grep -qE '^[[:space:]]*AI-Agent:[[:space:]]*[^[:space:]]+' "$MSG_FILE" 2>/dev/null || \
+   ! grep -qE '^[[:space:]]*AI-Vendor:[[:space:]]*[^[:space:]]+' "$MSG_FILE" 2>/dev/null || \
+   ! grep -qE '^[[:space:]]*AI-Model:[[:space:]]*[^[:space:]]+' "$MSG_FILE" 2>/dev/null; then
+    VALID_TRAILERS=0
+fi
+
+# Check for banned emails or angle brackets in AI trailers
+if grep -E '^[[:space:]]*AI-(Agent|Vendor|Model):' "$MSG_FILE" 2>/dev/null | grep -qE '[@<>]'; then
+    VALID_TRAILERS=0
 fi
 
 # Check for banned Co-authored-by trailers with synthetic AI emails or hijacked addresses
@@ -96,12 +109,13 @@ if [ "$BANNED_COAUTHORS" -eq 1 ]; then
     echo "   Synthetic email addresses in Co-authored-by: trailers link commits to unvetted" >&2
     echo "   or third-party GitHub accounts (e.g. shimonenator)." >&2
     echo "" >&2
-    echo "   👉 In 'commit' mode, use email-free semantic trailers:" >&2
+    echo "   👉 Use email-free semantic trailers:" >&2
     echo "      AI-Agent: <Agent Name>" >&2
     echo "      AI-Vendor: <Vendor Name>" >&2
     echo "      AI-Model: <Model ID>" >&2
     echo "   👉 Or switch attribution mode via:" >&2
-    echo "      aapp ai-commit   (enable emailless trailers)" >&2
+    echo "      aapp ai-lax      (validates trailers when present, human commits pass)" >&2
+    echo "      aapp ai-strict   (requires trailers on every commit)" >&2
     echo "      aapp ai-notes    (enable local git notes)" >&2
     echo "      aapp ai-off      (disable AI attribution)" >&2
     echo "" >&2
@@ -109,48 +123,85 @@ if [ "$BANNED_COAUTHORS" -eq 1 ]; then
 fi
 
 case "$ATTR_MODE" in
-    commit)
-        if [ "$HAS_AI_AGENT" -eq 0 ]; then
+    lax)
+        if [ "$HAS_AI_TRAILER" -eq 1 ] && [ "$VALID_TRAILERS" -eq 0 ]; then
             echo "" >&2
-            echo "❌ [Commit-Msg Violation] Missing 'AI-Agent:' trailer in 'commit' attribution mode!" >&2
-            echo "   Repository attribution mode is set to 'commit' (aapp.aiAttribution=commit)." >&2
-            echo "" >&2
-            echo "   👉 Append the required emailless trailers to your commit message:" >&2
+            echo "❌ [Commit-Msg Violation] Malformed or incomplete AI attribution trailers in 'lax' mode!" >&2
+            echo "   Trailers present must include all three emailless fields:" >&2
             echo "      AI-Agent: <Agent Name>" >&2
             echo "      AI-Vendor: <Vendor Name>" >&2
             echo "      AI-Model: <Model ID>" >&2
             echo "" >&2
-            echo "   👉 If this is a purely human commit with no AI assistance, switch mode:" >&2
-            echo "      aapp ai-off" >&2
+            exit 1
+        fi
+        ;;
+    strict)
+        if [ "$VALID_TRAILERS" -eq 0 ]; then
+            echo "" >&2
+            echo "❌ [Commit-Msg Violation] Missing or malformed AI attribution trailers in 'strict' mode!" >&2
+            echo "   Repository attribution mode is set to 'strict' (aapp.aiAttribution=strict)." >&2
+            echo "   Every commit must carry valid emailless trailers:" >&2
+            echo "      AI-Agent: <Agent Name>" >&2
+            echo "      AI-Vendor: <Vendor Name>" >&2
+            echo "      AI-Model: <Model ID>" >&2
+            echo "" >&2
+            echo "   👉 You can set environment variables for automated tooling:" >&2
+            echo "      AAPP_AGENT_NAME, AAPP_AGENT_VENDOR, AAPP_AGENT_MODEL" >&2
+            echo "   👉 If this is a purely human commit, switch mode:" >&2
+            echo "      aapp ai-lax" >&2
             echo "" >&2
             exit 1
         fi
         ;;
+    commit)
+        echo "" >&2
+        echo "❌ [Commit-Msg Violation] 'aapp.aiAttribution=commit' is retired!" >&2
+        echo "   Repository attribution mode 'commit' has been replaced by 'lax' and 'strict'." >&2
+        echo "" >&2
+        echo "   👉 Run one of the following commands to update your configuration:" >&2
+        echo "      aapp ai-lax     (accepts human commits, validates AI trailers when present)" >&2
+        echo "      aapp ai-strict  (enforces valid AI trailers on every commit)" >&2
+        echo "" >&2
+        exit 1
+        ;;
     notes)
-        if [ "$HAS_AI_AGENT" -eq 1 ]; then
+        if [ "$HAS_AI_TRAILER" -eq 1 ]; then
             echo "" >&2
-            echo "❌ [Commit-Msg Violation] 'AI-Agent:' trailer detected in 'notes' mode!" >&2
+            echo "❌ [Commit-Msg Violation] AI attribution trailer detected in 'notes' mode!" >&2
             echo "   Repository attribution mode is set to 'notes' (aapp.aiAttribution=notes)." >&2
             echo "   Commit messages in 'notes' mode must remain human-only." >&2
             echo "" >&2
-            echo "   👉 Remove 'AI-Agent:' from the commit message and stage it via:" >&2
+            echo "   👉 Remove AI trailers from the commit message and stage notes via:" >&2
             echo "      aapp ai-note --stage" >&2
-            echo "   👉 Or switch to commit mode: aapp ai-commit" >&2
+            echo "   👉 Or switch to lax mode: aapp ai-lax" >&2
             echo "" >&2
             exit 1
         fi
         ;;
-    none|*)
-        if [ "$HAS_AI_AGENT" -eq 1 ]; then
+    none)
+        if [ "$HAS_AI_TRAILER" -eq 1 ]; then
             echo "" >&2
-            echo "❌ [Commit-Msg Violation] 'AI-Agent:' trailer detected in 'none' attribution mode!" >&2
+            echo "❌ [Commit-Msg Violation] AI attribution trailer detected in 'none' attribution mode!" >&2
             echo "   Repository attribution mode is set to 'none' (aapp.aiAttribution=none)." >&2
             echo "" >&2
-            echo "   👉 Remove the AI trailer, or enable commit attribution mode:" >&2
-            echo "      aapp ai-commit" >&2
+            echo "   👉 Remove the AI trailer, or enable attribution mode:" >&2
+            echo "      aapp ai-lax" >&2
             echo "" >&2
             exit 1
         fi
+        ;;
+    *)
+        echo "" >&2
+        echo "❌ [Commit-Msg Violation] Unknown attribution mode '$ATTR_MODE'!" >&2
+        echo "   Valid modes: none, lax, strict, notes." >&2
+        echo "" >&2
+        echo "   👉 Run one of:" >&2
+        echo "      aapp ai-lax" >&2
+        echo "      aapp ai-strict" >&2
+        echo "      aapp ai-notes" >&2
+        echo "      aapp ai-off" >&2
+        echo "" >&2
+        exit 1
         ;;
 esac
 

@@ -472,9 +472,9 @@ seed_plan_id() {
     printf '%s\n' "$((MAX + 1))"
 }
 
-# Safe-by-default AI Attribution configuration
+# Safe-by-default AI Attribution configuration (lax default for mixed human/AI work)
 if [ -z "$(git config --get aapp.aiAttribution 2>/dev/null || true)" ]; then
-    git config aapp.aiAttribution none
+    git config aapp.aiAttribution lax
 fi
 if [ -z "$(git config --get aapp.aiCredits 2>/dev/null || true)" ]; then
     git config aapp.aiCredits false
@@ -766,8 +766,8 @@ echo "➡️  Write-time guard:    .githooks/blast-radius-guard"
 echo "➡️  Universal Skills:     .agents/skills/ (bridged to .claude/skills/)"
 CUSTOM_ALLOW_COUNT=$(git config --get-all aapp.allowPath 2>/dev/null | grep -c . || true)
 echo "➡️  Guard allowlist:      7 built-in + ${CUSTOM_ALLOW_COUNT} from git config (aapp.allowPath)"
-ATTR_CURRENT="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
-echo "➡️  AI Attribution:     $ATTR_CURRENT (switch via 'aapp ai-commit' or 'aapp ai-notes')"
+ATTR_CURRENT="$(git config aapp.aiAttribution 2>/dev/null || echo "lax")"
+echo "➡️  AI Attribution:     $ATTR_CURRENT (switch via 'aapp ai-lax', 'aapp ai-strict', 'aapp ai-notes', or 'aapp ai-off')"
 SYNC_REMOTE="$(git config aapp.remote 2>/dev/null || echo "origin")"
 SYNC_STRAT="$(git config aapp.syncStrategy 2>/dev/null || echo "builtin")"
 SYNC_WTS="$(git config aapp.syncWorktrees 2>/dev/null || echo "plans agents githooks")"

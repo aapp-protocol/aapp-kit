@@ -1210,10 +1210,28 @@ fi
 [ "$exempt_fail" -eq 0 ] && got="PASS" || got="FAIL"
 report "test_exempt_verbs_succeed: exempt verbs exit 0 outside a repo" "PASS" "$got" "$(printf '%b' "$exempt_details")"
 
+# Test 69 (test_init_defaults_to_lax): fresh aapp init seeds lax; an existing value is kept
+PROJ_69="$R/t69_proj"; make_dummy_project "$PROJ_69"
+(cd "$PROJ_69" && aapp init >/dev/null 2>&1)
+seeded_mode=$(git -C "$PROJ_69" config aapp.aiAttribution 2>/dev/null || echo "")
+
+PROJ_69B="$R/t69b_proj"; make_dummy_project "$PROJ_69B"
+git -C "$PROJ_69B" config aapp.aiAttribution "notes"
+(cd "$PROJ_69B" && aapp init >/dev/null 2>&1)
+preserved_mode=$(git -C "$PROJ_69B" config aapp.aiAttribution 2>/dev/null || echo "")
+
+if [ "$seeded_mode" = "lax" ] && [ "$preserved_mode" = "notes" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_init_defaults_to_lax: fresh aapp init seeds lax and keeps existing value" "PASS" "$got" "seeded=$seeded_mode (want lax), preserved=$preserved_mode (want notes)"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"
 echo "============================================================"
 [ $FAIL -eq 0 ] || exit 1
+
 
 

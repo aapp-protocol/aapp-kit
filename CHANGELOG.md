@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Attribution Policy Tiers & Single Identity Layer (`P-40`): Adds four discrete attribution policy modes (`none`, `lax`, `strict`, `notes`) governed by `aapp.aiAttribution` with `lax` as default for mixed human/AI work. Introduces `aapp ai-lax` and `aapp ai-strict` setup verbs, updates `templates/aapp-commit-msg` to validate trailers when present in `lax` mode and require valid trailers in `strict` mode, and implements `lib/attribution.sh` as the single authoritative layer for AI identity resolution (`resolve_ai_identity`), message decoration (`attribution_decorate`), and git note writing (`attribution_note`).
 - Opt-In Failure Test Declaration & TDD Gate (`P-35`): Adds `aapp tdd <id>` CLI verb and `/aapp-tdd` skill to declare failure-first test assertions (`### 🧪 Required Tests` in §3) and target test files (`### 🧪 Required Test Files` in §4) before freeze. Implements Option A single-entry semantics in `lib/aapp-lib.sh`, bidirectional correspondence validation across pre-commit and freeze gates, and a mechanical `cmd_done` completion verification gate enforcing all assertions ticked and test files tracked in Git (`tdd (N/N)` recorded in archive ledger).
 - Verb behaviour contracts `lib/docs/verbs/` for the 11 daily verbs, linked from `lib/verbs.tsv`; derived suites `tests/verbs/`, `aapp test verb [name]`, develop-only correspondence hook (`P-34`).
 - Runtime Reachability Gate & Inspection-Only Mode (`P-36`): Adds Section 0 to pre-commit hook (`templates/aapp-pre-commit`) verifying that `aapp` is reachable via `$PATH` or `$HOME/.local/bin/aapp`. Clones of AAPP-governed projects on machines without `aapp` installed enter a commit-blocking **Inspection-Only mode** to prevent un-guarded code and plan desynchronization. Only native `git commit --no-verify` bypasses pre-commit.
@@ -22,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status auto-sync (`P-30`): `aapp status` re-derives `state_matrix.md` before reading it, so the Roadmap line and Next Action footer report the real board instead of a stale cache. Silent when already in sync; while paused it still writes and notes that the commit waits for `aapp resume`.
 
 ### Fixed
+- Human Lifecycle Verbs & Trailerless Commits (#81, `P-40`): Resolves issue where human terminal commits and lifecycle verbs (`freeze`, `start`, `done`) failed silently behind `|| true` in the `.plans` worktree due to mandatory trailer enforcement; `lax` mode allows trailerless commits to pass freely.
+- Retired Legacy Commit Attribution Mode (`P-40`): Replaced retired `aapp.aiAttribution=commit` and `aapp ai-commit` with actionable fail-closed migration guidance directing users to `aapp ai-lax` or `aapp ai-strict`.
 - Bounded `plan_has_required_test_files` parser to Section 4 and outside code fences per P-37 parser boundaries (`P-35`).
 - `freeze`/`freeze-start` refuse plans outside the incubator; `done` refuses plans not ⚡ In Development (#89).
 - `aapp draft`: titles with `/`, `&` or `\` no longer break scaffolding or leave an untracked half-written plan; `aapp done` ledger rows carry the Target Issue and a summary, and it no longer deletes other plans' matrix rows by substring (`P-34`, #78, #88).

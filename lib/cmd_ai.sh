@@ -12,6 +12,12 @@
 # ==============================================================================
 set -e
 
+AI_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$AI_LIB_DIR/attribution.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$AI_LIB_DIR/attribution.sh"
+fi
+
 apply_agent_aliases() {
     local identity="$1"
     local aliases
@@ -80,8 +86,14 @@ cmd_ai_status() {
     echo "============================================================"
     echo "  Mode              : $mode"
     case "$mode" in
+        lax)
+            echo "  Description       : Public semantic trailers when present (human-friendly default)"
+            ;;
+        strict)
+            echo "  Description       : Strict public emailless trailers required on every commit"
+            ;;
         commit)
-            echo "  Description       : Public emailless semantic trailers (AI-Agent:)"
+            echo "  Description       : [RETIRED] Public semantic trailers (run 'aapp ai-lax' or 'aapp ai-strict')"
             ;;
         notes)
             echo "  Description       : Local-first / private git notes (refs/notes/commits)"
@@ -127,10 +139,21 @@ cmd_ai_status() {
     fi
 }
 
-cmd_ai_commit() {
-    git config aapp.aiAttribution commit
-    echo "✅ Switched AI attribution to 'commit' mode."
-    echo "   All AI commits will require semantic emailless trailers:"
+cmd_ai_lax() {
+    git config aapp.aiAttribution lax
+    echo "✅ Switched AI attribution to 'lax' mode."
+    echo "   Commits with AI trailers will be validated; human commits pass freely."
+    echo "   Semantic emailless trailers:"
+    echo "     AI-Agent: <Agent Name>"
+    echo "     AI-Vendor: <Vendor Name>"
+    echo "     AI-Model: <Model ID>"
+    echo "   Synthetic email addresses in Co-authored-by: are prohibited."
+}
+
+cmd_ai_strict() {
+    git config aapp.aiAttribution strict
+    echo "✅ Switched AI attribution to 'strict' mode."
+    echo "   Every commit will require valid semantic emailless trailers:"
     echo "     AI-Agent: <Agent Name>"
     echo "     AI-Vendor: <Vendor Name>"
     echo "     AI-Model: <Model ID>"
@@ -424,8 +447,15 @@ case "$ACTION" in
     ai-status|status)
         cmd_ai_status "$@"
         ;;
+    ai-lax|lax)
+        cmd_ai_lax "$@"
+        ;;
+    ai-strict|strict)
+        cmd_ai_strict "$@"
+        ;;
     ai-commit|commit)
-        cmd_ai_commit "$@"
+        echo "❌ [Error] 'aapp ai-commit' is retired; run 'aapp ai-lax' or 'aapp ai-strict'." >&2
+        exit 1
         ;;
     ai-notes|notes)
         cmd_ai_notes "$@"
@@ -445,7 +475,8 @@ Usage: aapp ai-<command> [options]
 
 AI Attribution Switchboard Commands:
   ai-status   Display current attribution mode, config, and pending notes
-  ai-commit   Switch to public semantic trailers mode (commit)
+  ai-lax      Switch to lax attribution (validates trailers if present; human commits pass)
+  ai-strict   Switch to strict attribution (requires valid trailers on every commit)
   ai-notes    Switch to local-first git notes mode (notes)
   ai-off      Disable AI attribution (none)
   ai-note     Pre-stage customizable attribution note for next commit (--stage)
@@ -454,7 +485,8 @@ EOF
         ;;
     *)
         echo "❌ Unknown AI command: '$ACTION'" >&2
-        echo "   Available commands: ai-status, ai-commit, ai-notes, ai-off, ai-credits, ai-note" >&2
+        echo "   Available commands: ai-status, ai-lax, ai-strict, ai-notes, ai-off, ai-credits, ai-note" >&2
         exit 1
         ;;
 esac
+

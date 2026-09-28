@@ -386,7 +386,8 @@ AAPP replaces insecure, synthetic co-author emails (`Co-authored-by: Agent <emai
 
 ```bash
 aapp ai-status   # Display active mode, subject max length, and pending notes
-aapp ai-commit   # Switch to public, emailless semantic git trailers (AI-Agent:)
+aapp ai-lax      # Switch to lax attribution (validates trailers if present; human commits pass)
+aapp ai-strict   # Switch to strict attribution (requires valid trailers on every commit)
 aapp ai-notes    # Switch to local-first / private git notes (refs/notes/commits)
 aapp ai-off      # Disable AI attribution (pure human commit messages)
 aapp ai-credits  # Generate or update AI Contributors roster in README.md
@@ -395,8 +396,9 @@ aapp ai-credits  # Generate or update AI Contributors roster in README.md
 ### Attribution Modes & Security Model
 | Mode | Command | Scope & Behavior |
 | :--- | :--- | :--- |
-| `none` | `aapp ai-off` | **Default.** Pure human authoring. Any accidental AI trailers are caught and blocked by `commit-msg`. |
-| `commit` | `aapp ai-commit` | **Public attribution.** Requires emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails (`Co-authored-by:`) are strictly prohibited to prevent GitHub account hijacking. |
+| `none` | `aapp ai-off` | **Pure human authoring.** Any accidental AI trailers are caught and blocked by `commit-msg`. |
+| `lax` | `aapp ai-lax` | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
+| `strict` | `aapp ai-strict` | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. |
 | `notes` | `aapp ai-notes` | **Local-first / private benchmarking.** Keeps commit messages pristine. Attribution metadata attaches to `refs/notes/commits` via `aapp ai-note --stage` and `post-commit`. |
 
 ### The Mode Boundary (§E.8 Rationale)

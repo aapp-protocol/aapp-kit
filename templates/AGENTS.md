@@ -35,12 +35,13 @@ Attribution mode is governed by repository configuration (`git config aapp.aiAtt
 
 | Mode | Command | Scope & Behavior |
 | :--- | :--- | :--- |
-| `none` | `aapp ai-off` | **Default.** Pure human authoring; no AI trailers or git notes are generated or validated. |
-| `commit` | `aapp ai-commit` | **Public attribution.** Appends emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) to commit messages. |
+| `none` | `aapp ai-off` | **Pure human authoring.** No AI trailers or git notes are generated; trailers are refused. |
+| `lax` | `aapp ai-lax` | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
+| `strict` | `aapp ai-strict` | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. |
 | `notes` | `aapp ai-notes` | **Local-first / private attribution.** Leaves commit messages pristine; records attribution metadata in `refs/notes/commits`. |
 
-#### 🏷️ Semantic Trailer Standard (`commit` mode)
-When `aapp.aiAttribution = commit`, every AI commit MUST carry semantic, emailless trailers. **Synthetic or fake email addresses (`Co-authored-by: Agent <email>`) are strictly forbidden** to prevent GitHub account hijacking and spoofing:
+#### 🏷️ Semantic Trailer Standard (`lax` and `strict` modes)
+When operating with public semantic trailers (`lax` or `strict`), AI commits MUST carry semantic, emailless trailers. **Synthetic or fake email addresses (`Co-authored-by: Agent <email>`) are strictly forbidden** to prevent GitHub account hijacking and spoofing:
 
 ```text
 AI-Agent: <Agent Name>
