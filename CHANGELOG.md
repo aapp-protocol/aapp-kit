@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status auto-sync (`P-30`): `aapp status` re-derives `state_matrix.md` before reading it, so the Roadmap line and Next Action footer report the real board instead of a stale cache. Silent when already in sync; while paused it still writes and notes that the commit waits for `aapp resume`.
 
 ### Changed
+- Default AI Attribution Policy (#90): Changed default attribution policy from `lax` to `none` during fresh init and in library fallbacks, ensuring AI trailers remain an explicit opt-in developer choice.
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills (`aapp-done`, `aapp-freeze`, `aapp-start`, `aapp-status`, `aapp-digest`) to invoke authoritative CLI commands first and fail closed upon non-zero exits with diagnostic explanations rather than executing manual filesystem moves, markdown regex hacks (`sed -i`), or raw Git commits. Enforces absence of manual bypasses via Test 70 in `tests/install_test.sh`.
 
 ### Fixed

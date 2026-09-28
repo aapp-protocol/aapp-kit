@@ -32,10 +32,10 @@ echo "== 1. Safe-by-Default Configuration & Hook Installation =="
 # ==============================================================================
 
 ATTR_MODE="$(git config aapp.aiAttribution 2>/dev/null || echo "")"
-if [ "$ATTR_MODE" = "lax" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "default attribution mode is 'lax'" "PASS"; PASS=$((PASS+1))
+if [ "$ATTR_MODE" = "none" ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "default attribution mode is 'none'" "PASS"; PASS=$((PASS+1))
 else
-    printf "  \033[31m✘\033[0m %-52s want 'lax' got '%s'\n" "default attribution mode is 'lax'" "$ATTR_MODE"; FAIL=$((FAIL+1))
+    printf "  \033[31m✘\033[0m %-52s want 'none' got '%s'\n" "default attribution mode is 'none'" "$ATTR_MODE"; FAIL=$((FAIL+1))
 fi
 
 CREDITS_CFG="$(git config aapp.aiCredits 2>/dev/null || echo "")"

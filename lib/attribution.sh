@@ -178,7 +178,7 @@ attribution_decorate() {
     local msg_file="$1"
     local identity="$2"
     local mode
-    mode="$(git config aapp.aiAttribution 2>/dev/null || echo "lax")"
+    mode="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
 
     case "$mode" in
         strict)
@@ -222,7 +222,7 @@ attribution_note() {
     local identity="$2"
     local text="$3"
     local mode
-    mode="$(git config aapp.aiAttribution 2>/dev/null || echo "lax")"
+    mode="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
 
     if [ "$mode" != "notes" ]; then
         return 0

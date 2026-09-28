@@ -68,7 +68,7 @@ if grep -qE '^(This reverts commit [0-9a-fA-F]+|> This reverts commit [0-9a-fA-F
     exit 0
 fi
 
-ATTR_MODE="$(git config aapp.aiAttribution 2>/dev/null || echo "lax")"
+ATTR_MODE="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
 
 # Check for presence of AI trailers
 HAS_AI_TRAILER=0

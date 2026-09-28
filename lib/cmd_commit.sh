@@ -182,7 +182,7 @@ cmd_commit() {
     fi
 
     local attr_mode
-    attr_mode="$(git config aapp.aiAttribution 2>/dev/null || echo "lax")"
+    attr_mode="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
     if [ "$attr_mode" = "strict" ] && [ -z "$identity" ]; then
         echo "❌ [Commit Refusal] Strict attribution mode requires valid AI identity." >&2
         echo "   Pass 'agent <A> vendor <V> model <M>' or set AAPP_AGENT_* environment variables." >&2
