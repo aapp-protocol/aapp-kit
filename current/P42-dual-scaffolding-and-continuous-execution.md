@@ -1,8 +1,8 @@
 # 🗺️ Plan P-42: Dual Scaffolding And Continuous Execution
 * **Created:** 2026-09-28 | **Last Refined:** 2026-09-28
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** Protocol Enhancement (Dual Scaffolding & Continuous Execution)
 * **Plan ID:** P-42
-* **Status:** 🟣 Under Review
+* **Status:** 📝 Refining
 * **Base:** none
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -10,7 +10,6 @@
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
      A plan whose Status says BLOCKED grants no commit rights at all. A ✅ Done plan is archived in
      .plans/done/ and records terminal completion in the archive ledger. -->
-<!-- * **Blocked On:** ISSUE-00X   <- add this line while BLOCKED, remove it when unblocked -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -28,36 +27,97 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+### Problem Statement
+Two distinct operational friction points exist in the daily plan-and-execute loop:
+
+1. **Fragmented TDD Ingress (The 2-Step Scaffolding Dance)**:
+   The `aapp tdd <query>` verb was implemented in P-35 strictly as an *in-place modifier* on pre-existing incubator plans. If a user or agent attempts to start a failure-first implementation from scratch using `aapp tdd <new-slug>`, `resolve_plan_file` fails because the plan does not exist yet. Users are forced to execute a clunky two-step workflow: first scaffold a test-agnostic blueprint via `aapp draft <slug>`, wait for completion, and then run `aapp tdd <slug>` to inject the failure-assertion sections.
+
+2. **Conversational Stalling in `aapp-start` (The Redundant Gate)**:
+   When an autonomous agent invokes `/aapp-start <plan>`, the skill currently instructs the agent to "Confirm active binding to the user and notify them that... Implementation begins with...". This causes agents to stop at the conversational turn boundary and ask: *"Plan is bound in development. Shall I begin implementing Phase 1?"*.
+   In AAPP, `/aapp-freeze` is the design gate where human review occurs; `/aapp-start` is the green light to code. Pausing after `start` creates an unnecessary, redundant prompt cycle.
+
+### Architectural Goal
+Unify planning ingress into two distinct, purpose-driven entry points and eliminate execution turn-stalling:
+1. **Purpose-Driven Dual Ingress**:
+   - `aapp draft <slug>` (or `/aapp-plan`): Scaffolds standard, test-agnostic blueprints (for docs, refactors, configurations, or non-TDD features).
+   - `aapp tdd <slug>` (or `/aapp-tdd`): Acts as a **Smart Scaffolder & Upgrader**:
+     - *If `<slug>` does not exist:* Deterministically drafts the new blueprint (`cmd_draft`) and immediately injects the failure-assertion (§3) and test-file (§4) sections in a single atomic operation.
+     - *If `<slug>` matches an existing incubator plan:* Upgrades the existing blueprint by injecting the TDD failure sections as before.
+     - *If `<slug>` is an unallocated Plan ID (e.g. `P-999`):* Fails closed with an unknown plan refusal.
+2. **Continuous Execution Ingress**:
+   - Update `templates/skills/aapp-start/SKILL.md` to instruct agents to proceed immediately to Section 3 execution upon binding, eliminating redundant confirmation pauses.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Clean Break` (Default)
+- **Fallback Inventory**: `None (Clean Break)`. `cmd_tdd` preserves exact refusal semantics when given an unallocated Plan ID or an already-injected plan.
+
+### 2.1 Smart TDD Scaffolding Engine (`lib/cmd_plan.sh`)
+
+In `cmd_tdd()`, modify the resolution logic:
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ Query Ingress                                               │
+├─────────────────────────────────────────────────────────────┤
+│ 1. Is query an existing plan in .plans/current/?            │
+│    ├─► YES: Proceed to Upgrade Path (Inject sections)       │
+│    └─► NO: Check query format                               │
+│        ├─► Matches Plan ID syntax (e.g. ^P-[0-9]+$)?        │
+│        │   └─► Refuse (Plan ID not found in current/)       │
+│        └─► Slug syntax (alphanumeric / words):              │
+│            └─► Auto-Scaffold Path:                          │
+│                1. Invoke cmd_draft "$query"                 │
+│                2. Resolve newly drafted plan file           │
+│                3. Inject §3 and §4 TDD sections             │
+│                4. Commit to .plans                          │
+│                5. Output TDD scaffold confirmation          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 Continuous Execution Directive (`templates/skills/aapp-start/SKILL.md`)
+
+Update Step 3:
+```markdown
+### Step 3: Begin Implementation Immediately (Continuous Execution)
+On exit 0, aapp start has activated the plan and bound the local execution buffer.
+Do NOT pause to ask for redundant confirmation. Immediately proceed to execute Section 3 of the blueprint:
+1. Verify / author failure tests (confirming Red 🔴) if TDD sections are declared.
+2. Begin Phase 1 implementation tasks.
+```
+
+### 2.3 Verb Behaviour Contracts (`lib/docs/verbs/tdd.md`)
+Update ingress documentation to specify dual capability:
+- `id_or_slug` (positional, required): existing plan identifier (`P-1`, `1`, slug, filename) to upgrade, OR new slug to scaffold directly as a TDD blueprint.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Engine Scaffolding Enhancement
+- [ ] Task 1.1: Enhance `cmd_tdd` in `lib/cmd_plan.sh` to detect non-existent slugs, auto-draft via `cmd_draft`, and immediately inject TDD failure sections.
+- [ ] Task 1.2: Ensure unallocated Plan IDs (e.g. `P-999`) continue to be strictly refused as non-existent plans.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Skills & Contracts Alignment
+- [ ] Task 2.1: Update `templates/skills/aapp-tdd/SKILL.md` documenting direct TDD scaffolding for new slugs vs. upgrading existing plans.
+- [ ] Task 2.2: Update `templates/skills/aapp-start/SKILL.md` to enforce the continuous execution invariant (no redundant pause).
+- [ ] Task 2.3: Update `lib/docs/verbs/tdd.md` reflecting the dual ingress contract.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+### Phase 3: Verification & Test Coverage
+- [ ] Task 3.1: Add test cases to `tests/verbs/tdd.sh` testing:
+  - Direct scaffolding of a new slug via `aapp tdd <new-slug>`.
+  - Upgrading an existing plan via `aapp tdd <existing-plan>`.
+  - Refusal of unallocated Plan ID `aapp tdd P-999`.
+- [ ] Task 3.2: Run `aapp test strict quiet` to verify 25/25 suites pass.
+- [ ] Task 3.3: Run `aapp init` to propagate updated skills to `.agents/skills/` and `.claude/skills/`.
+
+### Phase 4: Documentation Sync
+- [ ] Task 4.1: Update `MANUAL.md` documenting dual scaffolding entry points and continuous start execution.
+- [ ] Task 4.2: Update `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
@@ -66,25 +126,28 @@
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_plan.sh` -> Enhance cmd_tdd for auto-drafting new slugs
+- [ ] `templates/skills/aapp-tdd/SKILL.md` -> Document dual scaffolding and upgrading ingress
+- [ ] `templates/skills/aapp-start/SKILL.md` -> Continuous execution directive in Step 3
+- [ ] `lib/docs/verbs/tdd.md` -> Update behaviour contract for auto-scaffolding
+- [ ] `tests/verbs/tdd.sh` -> Add automated test coverage for auto-drafting and ID refusal
+- [ ] `MANUAL.md` -> Document dual entry points and continuous start
+- [ ] `CHANGELOG.md` -> Record under Added / Changed
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `.agents/skills/*` -> Synced via aapp init
+- [ ] `.claude/skills/*` -> Symlinked from .agents
+- [ ] `lib/commit_engine.sh` -> Immutable commit engine
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [x] **Question 1 — Handling Bare `aapp tdd`**: When invoked without arguments, should `aapp tdd` scan for candidate incubator plans lacking TDD sections and present them, or prompt for a new slug?
+  - *Resolution*: Retain standard candidate menu: if incubator plans exist without TDD, list them (up to 10); if none exist, prompt for a new feature slug to scaffold.
+* [x] **Question 2 — Plan ID vs. Slug Disambiguation**: How does `cmd_tdd` distinguish an unallocated plan ID from a new slug?
+  - *Resolution*: Any query matching `^P-[0-9]+$` or `^[0-9]+$` is treated as a Plan ID lookup (refusing if not found). Non-numeric strings without `P-` prefix are treated as new slugs to scaffold.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-09-28:** Plan initialized from `pickup.md`.
-* **2026-09-28:** Refined blast radius and locked module boundaries.
+* **2026-09-28:** Scaffolded and authored blueprint P-42 to establish dual scaffolding entry points (`aapp-plan` vs `aapp-tdd`) and continuous execution in `aapp-start`.
