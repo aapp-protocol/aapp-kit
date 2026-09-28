@@ -7,43 +7,34 @@ argument-hint: "[plan-id or plan-name]"
 
 # AAPP Start (Activate Execution Context)
 
-Activate an approved, frozen blueprint from the backlog into active implementation (`⚡ In Development`). Sets the local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`), enforcing the declared Blast Radius for all subsequent tool writes and Git commits.
+Activate an approved, frozen blueprint from the backlog into active implementation (`⚡ In Development`) via the authoritative CLI engine.
 
-## Three-Step Execution Procedure
+Binding sets the local worktree pointer buffer (`.git/aapp_active_plan`), enforcing the declared Blast Radius for all subsequent tool writes and Git commits.
 
-### Step 1: Resolve Blueprint & Verify (No-Dead-End Invariant)
-1. **Resolve Blueprint:**
-   - **If `<plan>` is provided:** Resolve using `resolve_plan_path <plan> start current` (or match Plan ID `P-9`, `9`, slug, or filename).
-   - **If `<plan>` is omitted (Bare Invocation):**
-     - Scan `.plans/state_matrix.md` and `.plans/current/*.md` for plans in `🔷 Frozen` (or `🔷 Ready for Execution`) status.
-     - **Exactly 1 Frozen Plan:** Automatically target it and notify the user: *"Targeting frozen plan P-XX (<slug>)..."*
-     - **Multiple Frozen Plans:** List candidate plans (max 10, with concise overflow summary line if >10) and ask the user which plan to activate.
-     - **Zero Frozen Plans:** Report: *"No frozen plans available in the Greenlight Zone. Incubator blueprints currently in review: [list up to 10]. Did you mean to freeze one first via /aapp-freeze <plan>?"* Never dead-end with a blank error.
-2. **Verify Status:** Verify that the blueprint is in `🔷 Frozen` (or `🔷 Ready for Execution`) status.
-3. **Disjointness Activation Gate:** Ensure no other plan currently in `⚡ In Development` in the same workspace shares overlapping Target Files.
-4. **Transition Header:** Update plan header:
-   ```markdown
-   * **Status:** ⚡ In Development
-   ```
-5. **Change Log:** Append a dated entry to `## 📦 6. Change Log & Refinement History` noting that implementation has started.
+## Execution Procedure
 
-### Step 2: Bind Worktree Execution Context
-1. Point the authoritative filesystem pointer buffer to the active plan:
-   ```bash
-   ACTIVE_BUFFER="$(git rev-parse --git-path aapp_active_plan)"
-   echo "<plan-id>" > "$ACTIVE_BUFFER"
-   ```
-2. Update `.plans/state_matrix.md`:
-   - Move or mark the plan with status indicator `⚡`.
-3. Commit transition to the `plans` worktree:
-   ```bash
-   git -C .plans add "current/<plan>.md" state_matrix.md
-   git -C .plans commit -m "plan(start): activate <plan> into development"
-   ```
+### Step 1: Execute Authoritative CLI Verb
+Invoke the deterministic activation verb:
+```bash
+aapp start [target]
+```
+*(If `<target>` is omitted, `aapp start` automatically activates the single frozen plan or prompts among candidate frozen plans).*
 
-### Step 3: Begin Implementation
-- The write-guard and pre-commit hooks now actively enforce the plan's locked Blast Radius.
-- Proceed to implement tasks in Section 3 of the blueprint.
+### Step 2: Deterministic Failure Branch (Fail Closed)
+If `aapp start` exits non-zero, **STOP immediately**.
+**Do NOT attempt manual buffer file writes, header editing, or raw git commits on the plans worktree.**
+
+Parse and explain the exact CLI diagnostic:
+- **Worktree Collision**: If another worktree has already bound or activated the plan, report the collision.
+- **Not Frozen**: A plan must be frozen in `🔷 Frozen` (or `🔷 Ready for Execution`) status before it can be started. Run `aapp freeze <plan>` first.
+- **Target Files Collision**: If another plan currently in development shares overlapping Target Files, resolve the overlap or finish the in-development plan first.
+
+### Step 3: Success Confirmation
+On exit 0, `aapp start` has updated the plan status to `⚡ In Development`, recorded the base commit, updated `state_matrix.md`, and bound the local worktree buffer.
+
+Confirm active binding to the user and notify them that:
+1. Tool writes and Git commits are now strictly constrained to the declared `### 📂 Target Files`.
+2. Implementation begins with failure-first tests (confirming Red 🔴) followed by production code and plan-bound commits (`aapp commit`).
 
 ---
 *Canonical Specification: Refer to `.agents/AGENTS.md` for full protocol governance.*

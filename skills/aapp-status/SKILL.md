@@ -7,30 +7,28 @@ argument-hint: ""
 
 # AAPP Status (Context Recovery)
 
-Act as a Context Recovery agent upon desk return. Execute the five-step four-pillar context recovery procedure to orient the developer and determine immediate next actions.
+Act as a Context Recovery agent upon desk return. Execute the authoritative CLI recovery briefing across the four pillars (Shipped, Issues, Plans, Pickup) to orient the developer and determine immediate next actions.
 
-## Execution Method
+## Execution Procedure
 
-First, attempt to run `aapp status` via shell execution. If the command succeeds, present its output to the user.
+### Step 1: Execute Authoritative CLI Verb
+Invoke the deterministic status verb:
+```bash
+aapp status
+```
+*(For a single-line pulse check, use `aapp status short`).*
 
-If the command is unavailable, fails, or tool execution is restricted, execute the deterministic file-inspection procedure below directly:
+### Step 2: Diagnostic Handling
+If `aapp status` exits non-zero, report any repository corruption or missing toolchain configuration to the user.
 
-## Four-Pillar Inspection Procedure
+### Step 3: Present Context Recovery Briefing
+Present the structured briefing across the **four pillars**:
+1. **Shipped Pillar**: Recently landed features, bugfixes, or unreleased changes from `CHANGELOG.md`.
+2. **Issue Lane**: Active bugs and backlog items from `ISSUES.md` strictly in the priority order established by `issues_road_map.md`.
+3. **Plan Lane**: Active blueprints in development, frozen specifications, or incubator drafts from `state_matrix.md`.
+4. **Pickup Queue**: Unprocessed ideas and raw notes from `pickup.md`. List ideas with a count; never omit this pillar.
 
-### 1. Shipped Pillar (Recently Landed / Unreleased)
-Inspect `CHANGELOG.md` (or `.plans/CHANGELOG.md` if configured) to identify recently shipped features, fixes, or unreleased changes.
-
-### 2. Issue Lane (Bugs & Backlog)
-Inspect `.plans/ISSUES.md` (or root `ISSUES.md`) and `.plans/issues_road_map.md` (the human's fix ordering over open issues). Report the top open issues **strictly in the order the board gives them**. Do not re-sort or filter unless marked resolved.
-
-### 3. Plan Lane (Active Blueprints)
-Inspect `.plans/state_matrix.md` for active incubator plans, blocked plans, and greenlit tasks in the Greenlight Zone. Keep this strictly separate from the issue lane in your briefing — never blend the two into one list.
-
-### 4. Pickup Queue (Unprocessed Ideas)
-Inspect `.plans/pickup.md` and **list the unprocessed ideas by name, with a count**. These are live and unworked thoughts dumped by the user. Surface them so the user can choose one; do **not** digest them automatically, and do not compress them away into a single vague line.
-
-### 5. Structured Briefing & Next Actions
-Print a concise, structured briefing across all **four pillars — Shipped, Issues, Plans, Pickup** — with immediate next actions. **Never omit a pillar**, even when empty (write `Pickup: empty` rather than dropping the section). Where the Pickup queue is non-empty, offer `/aapp-digest <idea>` on a named entry as a recommended next action.
+Where the Pickup queue is non-empty, recommend `/aapp-digest <idea>` as the immediate Next Action.
 
 ---
 *Canonical Specification: Refer to `.agents/AGENTS.md` for full protocol governance.*

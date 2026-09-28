@@ -35,19 +35,33 @@ Scan `.plans/current/*.md` before drafting:
 * **NEW:** No active blueprint covers it.
 * *Ambiguity:* If the match is ambiguous, ask the user. Never silently merge an idea into an unrelated blueprint.
 
-### Step 4a: NEW Plan (From Scratch)
-1. Cross-reference `.agents/CODEMAP.md` (or `CODEMAP.md`) and `ARCHITECTURE.md` to ensure the design extends existing modules rather than adding duplicate helpers.
-2. Allocate the next unpadded Plan ID with `allocate_plan_id` (`lib/plan_resolver.sh`), which claims the id from the `aapp.planId` counter and persists the increment. Do **not** derive an id by scanning filenames. Use `get_next_plan_id` only to *display* the next id — it is a read-only peek and claims nothing. Scaffold `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`, populating `* **Plan ID:** P-<num>` in the header.
-3. Fill in *Context & Architectural Goal*, *Technical Blueprint*, and *Implementation Steps & Execution Checklist*.
-4. Propose a Blast Radius (`### 📂 Target Files` and `### 🛑 Out of Bounds`). Mark it **PROPOSED** — it is not locked and confers no code execution rights. Ensure no files matching Guard Section 2 self-protection are placed in Target Files (enforced by Pair 5).
-5. Record every unresolved technical decision in `## ❓ 5. Open Questions`.
-6. Register the plan in `.plans/state_matrix.md` under `## 🧠 1. Human Thought & Refinement (The Incubator)` with status 🔴 and format `- 🔴 **P-<num>**: [P<num>-<slug>.md](current/P<num>-<slug>.md) — ...`.
+### Step 4a: NEW Plan (Authoritative CLI Scaffolding)
+1. Scaffold the canonical incubator blueprint via the authoritative CLI engine:
+   ```bash
+   aapp draft <slug>
+   ```
+   `aapp draft` deterministically allocates the next Plan ID from the sequence counter, generates `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`, registers the plan in `.plans/state_matrix.md`, and commits the addition cleanly.
+2. Cross-reference `.agents/CODEMAP.md` and `ARCHITECTURE.md` to ensure the design extends existing modules rather than adding duplicate helpers.
+3. Open and author `.plans/current/P<num>-<slug>.md`:
+   - Detail *Context & Architectural Goal* and *Technical Blueprint*.
+   - Detail *Implementation Steps & Execution Checklist*.
+   - Propose a Blast Radius (`### 📂 Target Files` and `### 🛑 Out of Bounds`). Mark it **PROPOSED** — it is not locked and confers no code execution rights. Never place files matching Guard Section 2 self-protection in Target Files (enforced by Pair 5).
+   - Record every unresolved technical decision in `## ❓ 5. Open Questions`.
+4. Commit the refined draft content to the `plans` worktree:
+   ```bash
+   git -C .plans add "current/P<num>-<slug>.md"
+   git -C .plans commit -m "plan(draft): author context and blueprint for P-<num>"
+   ```
 
 ### Step 4b: AMEND Existing Plan
 1. Fold the new requirements into the appropriate sections (*Technical Blueprint*, *Implementation Steps*, *Open Questions*, or *Blast Radius*).
 2. Append a dated entry to `## 📦 6. Change Log & Refinement History` detailing what changed and why.
 3. *If the plan was already frozen:* Changing its Blast Radius invalidates execution safety. Stop, obtain explicit human approval, and move the plan back to the Incubator in `state_matrix.md` until re-frozen.
-4. Update status in `.plans/state_matrix.md` if necessary.
+4. Commit the refinement to `.plans`:
+   ```bash
+   git -C .plans add "current/<plan>.md"
+   git -C .plans commit -m "plan(refine): amend <plan> with <idea>"
+   ```
 
 ### Step 5: Clean Up Pickup Queue
 If `<idea>` originated from `.plans/pickup.md`, remove **only** the digested entry from `pickup.md`. Leave every other entry in place.
@@ -55,7 +69,7 @@ If `<idea>` originated from `.plans/pickup.md`, remove **only** the digested ent
 ### Step 6: Report & Next Actions
 State plainly which path was taken (NEW, AMEND, or routed to `ISSUES.md`). Name the file written or modified, and explicitly list the Open Questions the user must review next.
 
-> **Note:** `digest` produces an incubator draft, never an executable green light. Only `/aapp-freeze` makes a plan executable.
+> **Note:** `digest` produces an incubator draft, never an executable green light. Only `aapp freeze` locks the design and makes a plan executable.
 
 ---
 *Canonical Specification: Refer to `.agents/AGENTS.md` for full protocol governance.*
