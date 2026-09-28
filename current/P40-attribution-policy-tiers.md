@@ -151,39 +151,39 @@ police it. Long commit bodies are **not** moved into notes (C33 rejected; length
 *Failure-first: the declared tests are written and confirmed Red 🔴 before the code they cover.*
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
-- [ ] `tests/ai_attribution_test.sh::test_lax_accepts_human_commit` -> `lax`, no trailers: commit succeeds
-- [ ] `tests/ai_attribution_test.sh::test_lax_validates_present_trailers` -> `lax`, malformed or emailed trailers: refused
-- [ ] `tests/ai_attribution_test.sh::test_strict_requires_trailers` -> `strict`, no trailers: refused with the identity forms and `aapp ai-lax` hint
-- [ ] `tests/ai_attribution_test.sh::test_strict_accepts_valid_trailers` -> `strict`, the three emailless trailers: accepted
-- [ ] `tests/ai_attribution_test.sh::test_retired_commit_mode_refuses` -> `aapp.aiAttribution=commit`: refused, naming `ai-lax` / `ai-strict`
-- [ ] `tests/ai_attribution_test.sh::test_banned_coauthor_rejected_in_every_mode` -> a vendor `Co-Authored-By` with email is refused by the hook in `none`, `lax`, `strict`, `notes`
-- [ ] `tests/ai_attribution_test.sh::test_setup_verbs_switch_modes` -> `ai-off`/`ai-lax`/`ai-strict`/`ai-notes` set the value; `ai-commit` is an unknown verb naming the replacements
-- [ ] `tests/ai_attribution_test.sh::test_identity_precedence` -> parameters beat environment beat worktree config; repository config is ignored
-- [ ] `tests/ai_attribution_test.sh::test_coauthor_converted_with_warning` -> `resolve_ai_identity` turns a `Co-Authored-By: … <email>` into emailless trailers and warns
-- [ ] `tests/ai_attribution_test.sh::test_strict_decorate_without_identity_exits_1` -> `attribution_decorate` in `strict` with no identity: exit 1
-- [ ] `tests/ai_attribution_test.sh::test_note_text_without_identity_exits_1` -> `notes`, text but no identity: exit 1, stderr names the fix
-- [ ] `tests/ai_attribution_test.sh::test_note_identity_only_passes` -> `notes`, identity and no text: note written, no warning
-- [ ] `tests/install_test.sh::test_init_defaults_to_lax` -> fresh `aapp init` seeds `lax`; an existing value is kept
-- [ ] `tests/worktree_hooks_test.sh::test_lax_accepts_human_plans_commit` -> a trailer-less commit inside `.plans` passes in `lax` (#81)
+- [x] `tests/ai_attribution_test.sh::test_lax_accepts_human_commit` -> `lax`, no trailers: commit succeeds
+- [x] `tests/ai_attribution_test.sh::test_lax_validates_present_trailers` -> `lax`, malformed or emailed trailers: refused
+- [x] `tests/ai_attribution_test.sh::test_strict_requires_trailers` -> `strict`, no trailers: refused with the identity forms and `aapp ai-lax` hint
+- [x] `tests/ai_attribution_test.sh::test_strict_accepts_valid_trailers` -> `strict`, the three emailless trailers: accepted
+- [x] `tests/ai_attribution_test.sh::test_retired_commit_mode_refuses` -> `aapp.aiAttribution=commit`: refused, naming `ai-lax` / `ai-strict`
+- [x] `tests/ai_attribution_test.sh::test_banned_coauthor_rejected_in_every_mode` -> a vendor `Co-Authored-By` with email is refused by the hook in `none`, `lax`, `strict`, `notes`
+- [x] `tests/ai_attribution_test.sh::test_setup_verbs_switch_modes` -> `ai-off`/`ai-lax`/`ai-strict`/`ai-notes` set the value; `ai-commit` is an unknown verb naming the replacements
+- [x] `tests/ai_attribution_test.sh::test_identity_precedence` -> parameters beat environment beat worktree config; repository config is ignored
+- [x] `tests/ai_attribution_test.sh::test_coauthor_converted_with_warning` -> `resolve_ai_identity` turns a `Co-Authored-By: … <email>` into emailless trailers and warns
+- [x] `tests/ai_attribution_test.sh::test_strict_decorate_without_identity_exits_1` -> `attribution_decorate` in `strict` with no identity: exit 1
+- [x] `tests/ai_attribution_test.sh::test_note_text_without_identity_exits_1` -> `notes`, text but no identity: exit 1, stderr names the fix
+- [x] `tests/ai_attribution_test.sh::test_note_identity_only_passes` -> `notes`, identity and no text: note written, no warning
+- [x] `tests/install_test.sh::test_init_defaults_to_lax` -> fresh `aapp init` seeds `lax`; an existing value is kept
+- [x] `tests/worktree_hooks_test.sh::test_lax_accepts_human_plans_commit` -> a trailer-less commit inside `.plans` passes in `lax` (#81)
 
 ### Phase 1: Red Tests
-- [ ] Task 1.1: Write the Required Tests; confirm Red 🔴.
+- [x] Task 1.1: Write the Required Tests; confirm Red 🔴.
 
 ### Phase 2: Modes & Hook
-- [ ] Task 2.1: `templates/aapp-commit-msg`: `lax`, `strict`, retired-`commit` refusal, banned co-authors in every mode (§2.2).
-- [ ] Task 2.2: `lib/cmd_ai.sh`: `ai-lax`, `ai-strict`; remove `ai-commit`; `ai-status` wording (§2.3).
-- [ ] Task 2.3: `lib/cmd_init.sh`: seed `lax` when unset.
-- [ ] Task 2.4: `aapp`, `lib/verbs.tsv`, `lib/cmd_help.sh`: verb rows and dispatch.
+- [x] Task 2.1: `templates/aapp-commit-msg`: `lax`, `strict`, retired-`commit` refusal, banned co-authors in every mode (§2.2).
+- [x] Task 2.2: `lib/cmd_ai.sh`: `ai-lax`, `ai-strict`; remove `ai-commit`; `ai-status` wording (§2.3).
+- [x] Task 2.3: `lib/cmd_init.sh`: seed `lax` when unset.
+- [x] Task 2.4: `aapp`, `lib/verbs.tsv`, `lib/cmd_help.sh`: verb rows and dispatch.
 
 ### Phase 3: Attribution Layer
-- [ ] Task 3.1: `lib/attribution.sh`: `resolve_ai_identity`, `attribution_decorate`, `attribution_note` (§2.4); move the alias/normalise helpers from `cmd_ai.sh`.
-- [ ] Task 3.2: Required Tests Green 🟢 (`aapp test ai_attribution`, `install`, `worktree_hooks`).
+- [x] Task 3.1: `lib/attribution.sh`: `resolve_ai_identity`, `attribution_decorate`, `attribution_note` (§2.4); move the alias/normalise helpers from `cmd_ai.sh`.
+- [x] Task 3.2: Required Tests Green 🟢 (`aapp test ai_attribution`, `install`, `worktree_hooks`).
 
 ### Phase 4: Propagation, Docs, Regression
-- [ ] Task 4.1: `aapp init` on this repository; `aapp ai-lax` here.
-- [ ] Task 4.2: `templates/plan-template.md` invariant 3 and `templates/AGENTS.md` wording for the four modes.
-- [ ] Task 4.3: `README.md`, `MANUAL.md` (§9), `CHEATSHEET.md`, `ARCHITECTURE.md`, `.agents/CODEMAP.md`, `CHANGELOG.md`.
-- [ ] Task 4.4: `aapp test strict quiet` before the commit.
+- [x] Task 4.1: `aapp init` on this repository; `aapp ai-lax` here.
+- [x] Task 4.2: `templates/plan-template.md` invariant 3 and `templates/AGENTS.md` wording for the four modes.
+- [x] Task 4.3: `README.md`, `MANUAL.md` (§9), `CHEATSHEET.md`, `ARCHITECTURE.md`, `.agents/CODEMAP.md`, `CHANGELOG.md`.
+- [x] Task 4.4: `aapp test strict quiet` before the commit.
 
 ---
 
@@ -235,6 +235,7 @@ police it. Long commit bodies are **not** moved into notes (C33 rejected; length
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-28:** Completed all 4 implementation phases. 24/24 suites passing (530 tests).
 * **2026-09-28:** Plan activated into ⚡ In Development via start.
 * **2026-09-28:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
