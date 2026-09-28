@@ -266,6 +266,47 @@ active blueprints. Populate at refinement.)*
   an alternative, and leave the final call to the user. In practice this surfaced two objections to
   the user's own direction (the P-43/P-44 RFC, C36–C37) and one against the reviewer's own proposal
   (C35).
+* **F15 — Where to draw the line: a phased sequence with a stop at every hand-off (starting point,
+  not settled).** Observed in the P-43/P-44 RFC: after the user settled it, one reviewer re-checked the
+  finalized plans and the #91 fix and raised six new findings (C69–C74); the other side accepted all
+  six in one block (A27–A32) without stating what it checked. The late work was valuable (C69 would
+  have erased AI audit notes on amend) but it reopened a settled review, widened its scope to new
+  code, and was never independently verified — so an empty-round stop (F7) could not occur, and one
+  side's extra work went unseen by the other. The user's framing: "if not settled can't be frozen, if
+  settled the other one won't come back for a check unless instructed", and their proposed sequence:
+  agree on the RFC, write the plans, the reviewer reads the plans and analyses the affected code,
+  comes back with refinements, these are double-checked by the blue team and picked up in the plan,
+  the plan is frozen and implemented; the red team rests or is given an implementation review. The
+  user's own caveat: "Not one is perfect but we need a good starting point."
+
+  | # | Step | Who | Stops because |
+  |---|---|---|---|
+  | 1 | Agree the RFC | both + user | the user settles it |
+  | 2 | Write the plans | blue (author) | the plans are committed |
+  | 3 | Read the plans, analyse the affected code, return refinements | red | **one pass** over a pinned scope: Target Files and their direct callers |
+  | 4 | Check the refinements, fold them into the plan | blue | each accepted or refuted **with evidence**; disputes go to the user, not into another round |
+  | 5 | Freeze, then implement | user, then blue | the freeze gate is the hard stop for design |
+  | 6 | Rest, or review the implementation | red | see rows 6a–6c |
+
+  Additional rows, with the reasoning behind each:
+
+  | # | Rule | Why |
+  |---|---|---|
+  | 3a | Red states what it checked **and could not verify** | §2.7: a zero-findings, zero-unverifiables audit is a failed audit. It also tells blue exactly which ground was covered, so step 4 need not guess. |
+  | 3b | The scope is pinned to the plans' and code's commit SHAs at the start of step 3 | A moving target produces new findings by construction. In the RFC the plans changed three times mid-review (`0bd32e2`, `0c4e3d9`, `5685ef5`); each change started a new review in effect. |
+  | 3c | Findings outside the pinned scope go to the issues lane, not into the review | A codebase always holds one more true finding; admitting them keeps any round from being empty (F7). They are not lost — they are routed. |
+  | 4a | Blue answers each refinement separately, citing what it checked | Blanket agreement (A27–A32) accepts findings nobody verified; agreement is weak evidence (§2.7). Per-item evidence makes red's work *seen* by blue. |
+  | 4b | A dispute goes to the user once; it does not start another red/blue round | Ping-pong is the loop without a stop. The user is the tie-break, as in the RFC's §4. |
+  | 4c | Between 4 and 5, red may **propose** missing failure tests; blue owns them | F2: reviewer proposes, author owns (P-35's `aapp tdd`). "How could this break" belongs in declared tests, not in more review rounds. |
+  | 5a | After freeze, a design flaw means unfreezing — a deliberate user step | The existing design lock (plan back to `📝 Refining`). Nothing reopens design automatically. |
+  | 6a | Trigger for an implementation review is the tier (§2.7), not a fixed "always" or "never" | Tier A (init, hooks, guard — failure is self-sealing) gets one; Tier L (docs, ordinary verbs) does not; red rests. Mechanical from Target Files, never self-certified. |
+  | 6b | Implementation-review scope is the commits recorded in the plan header (P-39), checked against the frozen plan and its declared failure tests (P-35) | The scope pins itself: no search for "what changed", no drift into unrelated code. |
+  | 6c | Implementation findings: bug → issues lane or fix before `done`; design flaw → unfreeze (5a) | The implementation review ends with the plan. A new cycle starts only with the next plan. |
+  | 7 | Post-settlement conformance check (each §4 decision present in the plan or not) is allowed on either side | A bounded checklist, the same for both sides, so it is symmetric by construction. It adds no new findings; a serious late finding is routed by the user (one more round, or the issues lane). |
+
+  Known weakness: rows 3–4 rely on honest severity and scope judgements by each agent; an agent can
+  still inflate a finding to justify another round. Row 4a (per-item verification by the other side)
+  limits this but does not remove it.
 
 ---
 
@@ -287,3 +328,6 @@ active blueprints. Populate at refinement.)*
 * **2026-09-28:** Added F13–F14 from the P-43/P-44 RFC: each agent's chat is a separate context channel,
   so the review artifact must carry the user's own chat statements; and agents are invited to argue
   against the user's proposals. Findings only.
+* **2026-09-28:** Added F15 from the same RFC: a phased red/blue sequence with a stop at every
+  hand-off (RFC → plans → one-pass red review → evidenced blue check → freeze → tiered implementation
+  review), with the reasoning per rule. Recorded as the user's starting point, not settled design.
