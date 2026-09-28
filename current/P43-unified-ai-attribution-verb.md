@@ -4,7 +4,7 @@
 * **Plan ID:** P-43
 * **Status:** ⚡ In Development
 * **Base:** `0a2ba22` (develop)
-* **Commits:** none
+* **Commits:** `f9b5e69` (develop)
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -103,21 +103,21 @@ The single entry point `aapp ai` handles discovery, status, mode switching, and 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Foundation & TDD Assertions
-- [ ] Task 1.1: Declare verb contract in `lib/docs/verbs/ai.md`.
-- [ ] Task 1.2: Create verb test suite `tests/verbs/ai.sh` and update `tests/ai_attribution_test.sh` to exercise `aapp ai [mode]`.
+- [x] Task 1.1: Declare verb contract in `lib/docs/verbs/ai.md`.
+- [x] Task 1.2: Create verb test suite `tests/verbs/ai.sh` and update `tests/ai_attribution_test.sh` to exercise `aapp ai [mode]`.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Update `lib/cmd_ai.sh` to refine `aapp ai` dispatching, status output, help text, clean break error handling (dropping legacy `ai-*|` matching and `ai-commit` stubs), and ensure `cmd_ai_notes` only sets `aapp.aiAttribution notes`.
-- [ ] Task 2.2: Update `lib/cmd_init.sh:770` banner to display `aapp ai <mode>` verbs.
-- [ ] Task 2.3: Update `templates/aapp-commit-msg` and `templates/AGENTS.md` diagnostics and table.
-- [ ] Task 2.4: Update `aapp` top-level dispatcher to route `ai` cleanly and remove legacy `ai-*` and `ai-commit` stubs per clean break.
-- [ ] Task 2.5: Update `lib/verbs.tsv` to replace 7 legacy rows with single `ai` verb entry.
+- [x] Task 2.1: Update `lib/cmd_ai.sh` to refine `aapp ai` dispatching, status output, help text, clean break error handling (dropping legacy `ai-*|` matching and `ai-commit` stubs), and ensure `cmd_ai_notes` only sets `aapp.aiAttribution notes`.
+- [x] Task 2.2: Update `lib/cmd_init.sh:770` banner to display `aapp ai <mode>` verbs.
+- [x] Task 2.3: Update `templates/aapp-commit-msg` and `templates/AGENTS.md` diagnostics and table.
+- [x] Task 2.4: Update `aapp` top-level dispatcher to route `ai` cleanly and remove legacy `ai-*` and `ai-commit` stubs per clean break.
+- [x] Task 2.5: Update `lib/verbs.tsv` to replace 7 legacy rows with single `ai` verb entry.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run `aapp test verb ai` and `aapp test ai_attribution_test.sh`.
-- [ ] Task 3.2: Run full test suite (`aapp test strict quiet`) ensuring all suites pass.
-- [ ] Task 3.3: Update `MANUAL.md`, `README.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, and `.agents/CODEMAP.md`.
-- [ ] Task 3.4: Update `CHANGELOG.md` under `## [Unreleased] -> ### Changed`.
+- [x] Task 3.1: Run `aapp test verb ai` and `aapp test ai_attribution_test.sh`.
+- [x] Task 3.2: Run full test suite (`aapp test strict quiet`) ensuring all suites pass.
+- [x] Task 3.3: Update `MANUAL.md`, `README.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, and `.agents/CODEMAP.md`.
+- [x] Task 3.4: Update `CHANGELOG.md` under `## [Unreleased] -> ### Changed`.
 
 ---
 
