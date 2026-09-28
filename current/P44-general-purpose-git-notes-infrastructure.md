@@ -35,7 +35,7 @@ Previously in Milestone 1.0 (P-40), notes were coupled exclusively to AI attribu
    - Visibility: `notes.displayRef = refs/notes/ai` is configured once during setup so standard `git log` displays both refs natively.
 2. **Adopter Choice with Safe Defaults**:
    - Merge strategy: Defaults to `union` (preserving multi-line blocks; `cat_sort_uniq` is rejected as default because line-sorting scrambles markdown/text).
-   - Rewrite mode: Defaults to `concatenate`.
+   - Rewrite mode: Defaults to `concatenate` (explicitly verified and enforced under `enforce`).
    - Write mode: Defaults to `append` via `aapp.noteWrite = append` (in code).
    - Native Git settings (`notes.rewriteRef`, `notes.ai.mergeStrategy union`) are written strictly **when unset in effective scope** (`git config --get`). Adopter overrides across local, global, or system configs are always respected.
 3. **Audit Guard (`aapp.aiNotesGuard = warn | enforce`, code default: `warn`)**:
@@ -89,6 +89,7 @@ aapp note [status | stage "<text>" [agent <A> vendor <V> model <M>] | push | pul
 - Unify note writing across the kit:
   - Replace error-discarding `-f` in `attribution_note` with non-destructive appending.
   - Fail closed on write errors.
+  - Lift the `[ "$mode" != "notes" ] && return 0` early return in `attribution_note` so `aapp commit ... note "<text>"` writes notes across all attribution modes (`none`, `lax`, `strict`, `notes`).
   - In `lax`/`strict`, trailers remain the public authoritative identity; notes provide private supplementary benchmark/audit details.
 
 ### 🔄 Migration & Compatibility Strategy
@@ -106,11 +107,11 @@ aapp note [status | stage "<text>" [agent <A> vendor <V> model <M>] | push | pul
 - [ ] Task 1.1: Implement `lib/cmd_note.sh` with subcommands: `status`, `stage`, `push`, `pull`.
 - [ ] Task 1.2: Refactor `templates/aapp-post-commit` to attach notes using `git notes append` and route to `refs/notes/commits` vs `refs/notes/ai`.
 - [ ] Task 1.3: Update `templates/aapp-commit-msg` to re-key note buffers on `$EDITOR` edit regardless of attribution mode.
-- [ ] Task 1.4: Refactor `attribution_note` in `lib/attribution.sh` to remove silent error suppression (`>/dev/null`) and write to `refs/notes/ai` using `git notes append`.
+- [ ] Task 1.4: Refactor `attribution_note` in `lib/attribution.sh` to remove silent error suppression (`>/dev/null`), lift the mode check to allow notes in any mode, and write to `refs/notes/ai` using `git notes append`.
 
 ### Phase 2: Setup, Sync & Guard Logic
 - [ ] Task 2.1: Implement safe setup in `lib/cmd_note.sh`: write `notes.rewriteRef` (both refs) and `notes.displayRef = refs/notes/ai` strictly when unset.
-- [ ] Task 2.2: Implement `aapp.aiNotesGuard` checks (`warn` vs `enforce`) in `cmd_note_status` and pre-commit checks.
+- [ ] Task 2.2: Implement `aapp.aiNotesGuard` checks (`warn` vs `enforce`) in `cmd_note_status`, `aapp pull`/`sync`, and the post-commit writer (explicitly setting and auditing `notes.rewriteMode concatenate` under `enforce`).
 - [ ] Task 2.3: Wire `aapp.notesRemote` into `lib/cmd_sync.sh` so `aapp push` and `aapp sync` include notes push/pull when remote is configured.
 
 ### Phase 3: CLI Catalog, Contracts & Tests

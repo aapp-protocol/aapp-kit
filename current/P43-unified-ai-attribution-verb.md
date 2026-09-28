@@ -62,7 +62,7 @@ The single entry point `aapp ai` handles discovery, status, mode switching, and 
   - `aapp ai none`: Disables attribution (`aapp.aiAttribution = none`). Pure human authoring (no `off` duplicate alias).
   - `aapp ai lax`: Mixed human/AI mode (`aapp.aiAttribution = lax`). Validates emailless trailers when present; human commits pass.
   - `aapp ai strict`: Autonomous trace mode (`aapp.aiAttribution = strict`). Enforces valid emailless trailers on every commit.
-  - `aapp ai notes`: Local-first attribution mode (`aapp.aiAttribution = notes`). Stores attribution metadata in `refs/notes/ai` (via P-44).
+  - `aapp ai notes`: Local-first attribution mode (`aapp.aiAttribution = notes`). Sets attribution mode only; deletes residual `notes.mergeStrategy`, `rewriteMode`, and `rewriteRef` configuration lines from `cmd_ai_notes` (notes settings owned exclusively by P-44). Stores attribution metadata in `refs/notes/ai` (via P-44).
 
 - **Subcommands**:
   - `aapp ai credits`: Generates or updates AI Contributors block in `README.md` (delegates to `cmd_ai_credits`).
@@ -87,9 +87,7 @@ The single entry point `aapp ai` handles discovery, status, mode switching, and 
     `ai	ai	yes	Configure or inspect AI attribution mode and credits	lib/docs/verbs/ai.md`
 - **`aapp` Dispatcher**:
   - Dispatch `ai` to `lib/cmd_ai.sh "$@"`.
-  - Clean break: intercepted legacy verbs fail closed with an explicit migration advisory:
-    `❌ [AAPP] 'aapp ai-<cmd>' has been consolidated into 'aapp ai <cmd>'.`
-    `   Run: aapp ai ${CMD#ai-}`
+  - Clean break: remove legacy `ai-*` dispatch arms and retired `ai-commit` stubs from `aapp` and `cmd_ai.sh`. Unknown verbs fail closed through the standard dispatcher error without dedicated advisory wrappers.
 - **Verb Contract Documentation**:
   - Create `lib/docs/verbs/ai.md` detailing the contract for `aapp ai`.
   - Add derived verb test suite `tests/verbs/ai.sh`.
@@ -97,8 +95,8 @@ The single entry point `aapp ai` handles discovery, status, mode switching, and 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  - Legacy `ai-<cmd>` standalone verbs are retired from the primary catalog.
-  - The dispatcher provides a fast-fail helpful error pointing to `aapp ai <subcommand>`, ensuring no silent failures occur.
+  - Legacy `ai-<cmd>` standalone verbs and `ai-commit` stub are retired completely with zero duplicate aliases or legacy wrappers.
+  - Standard CLI dispatcher fast-fails on unknown verbs without maintaining permanent migration stubs.
 
 ---
 
@@ -109,10 +107,10 @@ The single entry point `aapp ai` handles discovery, status, mode switching, and 
 - [ ] Task 1.2: Create verb test suite `tests/verbs/ai.sh` and update `tests/ai_attribution_test.sh` to exercise `aapp ai [mode]`.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Update `lib/cmd_ai.sh` to refine `aapp ai` dispatching, status output, help text, and clean break error handling (dropping legacy `ai-*|` matching).
+- [ ] Task 2.1: Update `lib/cmd_ai.sh` to refine `aapp ai` dispatching, status output, help text, clean break error handling (dropping legacy `ai-*|` matching and `ai-commit` stubs), and ensure `cmd_ai_notes` only sets `aapp.aiAttribution notes`.
 - [ ] Task 2.2: Update `lib/cmd_init.sh:770` banner to display `aapp ai <mode>` verbs.
 - [ ] Task 2.3: Update `templates/aapp-commit-msg` and `templates/AGENTS.md` diagnostics and table.
-- [ ] Task 2.4: Update `aapp` top-level dispatcher to route `ai` cleanly and provide migration guidance for legacy hyphenated verbs.
+- [ ] Task 2.4: Update `aapp` top-level dispatcher to route `ai` cleanly and remove legacy `ai-*` and `ai-commit` stubs per clean break.
 - [ ] Task 2.5: Update `lib/verbs.tsv` to replace 7 legacy rows with single `ai` verb entry.
 
 ### Phase 3: Verification & Documentation
