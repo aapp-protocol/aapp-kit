@@ -706,6 +706,7 @@ aapp tdd <plan>     # declare failure-first test sections in an incubator bluepr
 - **Option A Single-Entry Semantics:** Declared files under `### 🧪 Required Test Files` in §4 automatically receive write permissions during implementation without requiring redundant entry under `### 📂 Target Files`.
 - **Pre-commit Gate:** Tolerates empty sections and unwritten tests while `📝 Refining`. Once `🔷 Frozen` or `⚡ In Development`, enforces mutual bidirectional correspondence between §3 identifiers and §4 files, and verifies declared test files exist on disk at `⚡`.
 - **Mechanical `done` Gate:** Refuses `aapp done` if any test assertion remains unticked (`- [ ]`), verifies declared test files exist on disk and in Git, and records `tdd (N/N)` evidence into the archive ledger.
+- **Why Failure-First Matters for AI Agents:** Autonomous LLMs naturally suffer from *hallucinated scope* and *premature optimization* when given high-level feature prompts (such as inventing speculative flags, un-named legacy fallbacks, or unnecessary wrapper layers). Declaring explicit failure assertions in §3 beforehand transforms the agent's task from open-ended authoring into closed-ended problem solving: write only enough code to turn the declared red assertions green, eliminate scope creep, and address difficult edge cases (index locks, worktree concurrency, detached states) from line one.
 
 #### `aapp matrix` — Derived State Matrix
 
