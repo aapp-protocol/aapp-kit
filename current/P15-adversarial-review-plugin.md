@@ -307,6 +307,30 @@ active blueprints. Populate at refinement.)*
   Known weakness: rows 3–4 rely on honest severity and scope judgements by each agent; an agent can
   still inflate a finding to justify another round. Row 4a (per-item verification by the other side)
   limits this but does not remove it.
+* **F16 — Tier boundaries belong to the adopter's project, declared in `.agents/PROJECT.MD` (user
+  direction; corrects F15 row 6a).** The kit serves many repositories, so the review tier cannot be
+  keyed to this repository's own paths. Both agents made that mistake: Antigravity's first
+  suggestions were relative to this kit's files, and F15 row 6a names "init, hooks, guard". The user
+  directed Antigravity (by prompt, in its chat) to place critical boundaries in `PROJECT.MD`, because
+  the kit is "for many" projects. Antigravity's elaboration: each adopter declares its irreversible or
+  non-self-healing areas (e.g. `src/auth/**`, `src/billing/**`, `db/migrations/**`) in a "Critical
+  Boundaries" section; a plan whose Target Files intersect that list is Tier A, otherwise Tier L —
+  mechanical, visible to humans and agents, and domain-agnostic. Counter-arguments and limits (Claude):
+  * **Self-certification reopens.** `.agents/*` is always writable (`templates/blast-radius-guard.sh`
+    §3, lines 306-309; only kit skills and settings are self-protected). An authoring agent could
+    delete a boundary in the same session and turn its own plan into Tier L, against §2.7's "never
+    self-certified". Options: classify against `PROJECT.MD` as of the plan's `Base` commit, not the
+    working copy; and/or treat any change to the boundary section itself as Tier A.
+  * **Two sources, not one.** The kit's own machinery in an adopter repo (`.githooks/*`,
+    `.agents/skills/aapp-*`, `.claude/settings*`) is universal; §2.7 already classifies it through the
+    guard's Section 2/3 path classes. Tier A = those classes ∪ the adopter's declared boundaries.
+    Replacing one with the other would drop the universal part. For this kit's own repository, its
+    `PROJECT.MD` would list `lib/cmd_init.sh`, `templates/aapp-*`, `templates/blast-radius-guard.sh` —
+    which is where F15 row 6a's examples belong.
+  * **No new parser.** Parser sprawl is already logged (#85, #86). The boundary list should use the
+    Target Files form (one backticked path per line) and P-37's shared parser.
+  * **Name.** The file is `PROJECT.MD` (upper case); `PROJECT.md` is a different file on
+    case-sensitive filesystems.
 
 ---
 
@@ -331,3 +355,6 @@ active blueprints. Populate at refinement.)*
 * **2026-09-28:** Added F15 from the same RFC: a phased red/blue sequence with a stop at every
   hand-off (RFC → plans → one-pass red review → evidenced blue check → freeze → tiered implementation
   review), with the reasoning per rule. Recorded as the user's starting point, not settled design.
+* **2026-09-28:** Added F16: review-tier boundaries declared by the adopter in `.agents/PROJECT.MD`
+  (user direction, elaborated by Antigravity), with limits — self-certification via the always-writable
+  `.agents/`, universal kit paths kept, shared parser, file name. Corrects F15 row 6a. Findings only.
