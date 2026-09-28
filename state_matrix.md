@@ -24,11 +24,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-41**: [`P41-cli-first-universal-skills.md`](current/P41-cli-first-universal-skills.md) — Cli First Universal Skills
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-41**: [`P41-cli-first-universal-skills.md`](current/P41-cli-first-universal-skills.md) — Cli First Universal Skills
 
 ---
 
