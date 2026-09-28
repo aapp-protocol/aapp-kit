@@ -248,6 +248,24 @@ active blueprints. Populate at refinement.)*
   weak evidence". Replies already threaded by reference ("Re A3"); a per-item shape
   `(id, file:line, claim, status: open|agreed|refuted|user-decided)` would make F7's empty-round
   check mechanical (F8).
+* **F13 — Each agent's chat is a context channel the others cannot see.** In the P-43/P-44 RFC
+  (2026-09-28) the user worked with two agents in separate chat windows. What the user said in one
+  chat — decisions, directions and the reasoning behind them — reached only that agent, which then
+  acted on context the other lacked. The user's stated reason for writing decisions into the RFC: "I
+  do not wish to repeat myself in both chat windows, also giving one agent more context than the
+  other you act on that." A review artifact is therefore also the **context-parity channel**: every
+  agent must copy what the user said in its chat into the shared artifact, in the user's words, so
+  no agent audits from a private premise. This bears on §2.2 and F10: a packet or shared file
+  carries on-disk ground truth, but user statements made in chat are ground truth too, and today
+  they exist only in one agent's session.
+* **F14 — Agents are invited to argue against the user's proposals.** Same RFC, user's words: "each
+  of you can come up with counter arguments against my proposals as it is the only way to get the
+  best of it." §2.7 warns that agreement between agents is weak evidence; the same holds for
+  agreement with the user. A review contract that records user decisions (F12) should also require
+  counter-arguments against user directions where there is reason for them, each with its reason and
+  an alternative, and leave the final call to the user. In practice this surfaced two objections to
+  the user's own direction (the P-43/P-44 RFC, C36–C37) and one against the reviewer's own proposal
+  (C35).
 
 ---
 
@@ -266,3 +284,6 @@ active blueprints. Populate at refinement.)*
 * **2026-09-27:** Added F9–F12 from a hand-run cross-plan RFC on `P-34`/`P-35`/`P-37`: reviews across
   several plans, shared-disk mode before the packet, the `pickup/` egress collision, and signed blocks
   with separate user-decision records. Findings only.
+* **2026-09-28:** Added F13–F14 from the P-43/P-44 RFC: each agent's chat is a separate context channel,
+  so the review artifact must carry the user's own chat statements; and agents are invited to argue
+  against the user's proposals. Findings only.
