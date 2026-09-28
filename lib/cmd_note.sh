@@ -164,27 +164,23 @@ cmd_note_stage() {
 
     while [ $# -gt 0 ]; do
         case "$1" in
-            --msg|--message|msg)
+            msg)
                 raw_msg="$2"
                 shift 2
                 ;;
-            --msg-file)
+            msg-file)
                 msg_file="$2"
                 shift 2
                 ;;
-            --content|content|note)
-                content="$2"
-                shift 2
-                ;;
-            --agent|agent)
+            agent)
                 agent="$2"
                 shift 2
                 ;;
-            --vendor|vendor)
+            vendor)
                 vendor="$2"
                 shift 2
                 ;;
-            --model|model)
+            model)
                 model="$2"
                 shift 2
                 ;;
@@ -206,7 +202,6 @@ cmd_note_stage() {
     if [ -z "$raw_msg" ]; then
         echo "❌ [Error] A planned commit message is required to key the staged note buffer." >&2
         echo "   Usage: aapp note stage \"<content>\" msg \"<commit-message>\" [agent <A> vendor <V> model <M>]" >&2
-        echo "   Or:    aapp note stage --msg \"<commit-message>\" --content \"<content>\"" >&2
         return 1
     fi
 

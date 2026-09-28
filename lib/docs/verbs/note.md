@@ -7,7 +7,8 @@
     - `push [remote]`: pushes local notes refs (`refs/notes/commits`, `refs/notes/ai`) to target remote without force
     - `pull [remote]`: fetches remote notes into isolated tracking refs and merges into local notes refs (union default)
 - stage options / tokens:
-    - `msg "<commit-msg>"` or `--msg "<commit-msg>"`: planned commit message to compute key hash (required)
+    - `msg "<commit-msg>"`: planned commit message to compute key hash (required)
+    - `msg-file <path>`: file containing planned commit message
     - `agent <Agent>`: AI agent name (routes note to `refs/notes/ai`)
     - `vendor <Vendor>`: AI vendor name
     - `model <Model>`: AI model identifier
@@ -19,7 +20,7 @@
 
 ## Preconditions
 - Inside a Git worktree of a Git repository
-- For `stage`: planned commit message must be supplied (via `msg "<msg>"` or `--msg`)
+- For `stage`: planned commit message must be supplied (via `msg "<msg>"` or `msg-file <path>`)
 - For `push` and `pull`: target remote must be provided as argument or configured via `aapp.notesRemote`
 
 ## Failure modes
