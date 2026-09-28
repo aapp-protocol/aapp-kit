@@ -25,11 +25,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-44**: [`P44-general-purpose-git-notes-infrastructure.md`](current/P44-general-purpose-git-notes-infrastructure.md) — General Purpose Git Notes Infrastructure
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-44**: [`P44-general-purpose-git-notes-infrastructure.md`](current/P44-general-purpose-git-notes-infrastructure.md) — General Purpose Git Notes Infrastructure
 
 ---
 
