@@ -2,7 +2,7 @@
 * **Created:** 2026-09-27 | **Last Refined:** 2026-09-27
 * **Target Issue / Milestone:** #81 (with P-40) — also resolves the `done` verification-commit divergence in `lib/docs/verbs/done.md`
 * **Plan ID:** P-39
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -373,6 +373,7 @@ changes it made stay in place for the user to inspect.
 - `tests/verbs/draft.sh`
 - `tests/verbs/freeze.sh`
 - `tests/aapp_lib_test.sh`
+- `tests/pre-commit_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/*` -> Installed engines; `aapp init` propagates template changes.
@@ -402,6 +403,7 @@ changes it made stay in place for the user to inspect.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-28:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-09-28:** Realigned after the RFC split (C28: P-40 first). Attribution delegated to P-40's `lib/attribution.sh` (identity, decoration, notes); the verb passes `agent … vendor … model …` and `note "<text>"` tokens. New §2.9: one commit engine (`plans_commit`) for `aapp commit` and all five lifecycle verbs, standard subjects, path-limited, no `|| true` — closes C4 and, with P-40, #81. Identity tests moved to P-40; eight tests added or replaced. Depends on P-40 and P-35.
 * **2026-09-27:** User decision: anchor the plan-bound commit discipline with a rule in `templates/AGENTS.md` and `.agents/AGENTS.md`, pairing root system prompt guidance with the plan-template execution invariant. Added both files to Target Files and Task 2.2.
