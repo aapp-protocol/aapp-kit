@@ -28,8 +28,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-43**: [`P43-unified-ai-attribution-verb.md`](current/P43-unified-ai-attribution-verb.md) — Unified Ai Attribution Verb
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

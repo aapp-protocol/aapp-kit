@@ -2,7 +2,7 @@
 * **Created:** 2026-09-28 | **Last Refined:** 2026-09-28
 * **Target Issue / Milestone:** Milestone 1.1 / UX Ergonomics
 * **Plan ID:** P-43
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `0a2ba22` (develop)
 * **Commits:** `f9b5e69` (develop)
 
@@ -154,6 +154,7 @@ The single entry point `aapp ai` handles discovery, status, mode switching, and 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-28:** Plan implementation completed and archived to done/.
 * **2026-09-28:** Plan activated into ⚡ In Development via start.
 * **2026-09-28:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-09-28:** Plan activated into ⚡ In Development via start.
