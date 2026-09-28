@@ -20,7 +20,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-32**: [`P32-issue-id-allocation-and-duplicate-detection.md`](current/P32-issue-id-allocation-and-duplicate-detection.md) — Issue ID Allocation & Duplicate Detection
 - 🟣 **P-38**: [`P38-milestone-release-bundling-and-tag-ledgers.md`](current/P38-milestone-release-bundling-and-tag-ledgers.md) — Milestone Release Bundling & Tag Ledgers
 - 📝 **P-42**: [`P42-dual-scaffolding-and-continuous-execution.md`](current/P42-dual-scaffolding-and-continuous-execution.md) — Dual Scaffolding And Continuous Execution
-- 🟣 **P-43**: [`P43-unified-ai-attribution-verb.md`](current/P43-unified-ai-attribution-verb.md) — Unified Ai Attribution Verb
+- 📝 **P-43**: [`P43-unified-ai-attribution-verb.md`](current/P43-unified-ai-attribution-verb.md) — Unified Ai Attribution Verb
 
 ---
 
