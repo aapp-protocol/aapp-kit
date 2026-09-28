@@ -273,62 +273,62 @@ changes it made stay in place for the user to inspect.
 *Failure-first: the declared tests are written and confirmed Red 🔴 before the code they cover.*
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
-- [ ] `tests/aapp_lib_test.sh::test_parse_plan_commits` -> `sha (branch)` and `sha (detached)` entries parse from a comma-separated header line; `none`, prose, a missing branch and an unbackticked SHA yield nothing
-- [ ] `tests/verbs/commit.sh::test_records_sha_and_branch` -> the code commit's SHA and branch appear in the plan header, and the plan is committed
-- [ ] `tests/verbs/commit.sh::test_plan_commit_is_pathspec_limited` -> another plan staged in `.plans` is not swept into the commit
-- [ ] `tests/verbs/commit.sh::test_refuses_without_active_plan` -> no `⚡` plan: exit 1, no commit; with several `⚡` plans the refusal prints `aapp active <id>`
-- [ ] `tests/verbs/commit.sh::test_preflight_fails_before_code_commit` -> missing identity in `strict` mode: exit 1 and the code branch has no new commit
-- [ ] `tests/verbs/commit.sh::test_detached_head_recorded` -> a commit on a detached `HEAD` is recorded as `(detached)`
-- [ ] `tests/verbs/commit.sh::test_refuses_nothing_staged` -> empty index: exit 1, no commit, header unchanged
-- [ ] `tests/verbs/commit.sh::test_rejected_commit_records_nothing` -> a refusing hook: exit non-zero, header unchanged
-- [ ] `tests/verbs/commit.sh::test_amend_replaces_recorded_sha` -> `amend` swaps the old SHA for the new one in the header; with no message the message is kept and trailers are not duplicated
-- [ ] `tests/verbs/commit.sh::test_strict_attributes_both_commits` -> `strict`: trailers on the code *and* the plan commit; missing identity refused in pre-flight with nothing committed
-- [ ] `tests/verbs/commit.sh::test_lax_human_commit_needs_no_identity` -> `lax`, no identity: both commits land without trailers
-- [ ] `tests/verbs/commit.sh::test_note_token_attached_in_notes_mode` -> `notes`: `note "<text>"` with an identity lands as a git note on the code commit
-- [ ] `tests/verbs/commit.sh::test_linked_worktree_records_its_own_plan` -> two worktrees bound to two plans each record into their own plan
-- [ ] `tests/verbs/commit.sh::test_adopt_records_existing_commit` -> a raw commit is adopted with its branch, the plan is committed, and a warning is printed
-- [ ] `tests/verbs/commit.sh::test_adopt_refuses_unknown_sha` -> an unknown or branchless SHA: exit 1, header unchanged
-- [ ] `tests/verbs/commit.sh::test_adopt_skips_recorded_sha` -> adopting an already-recorded SHA leaves one entry
-- [ ] `tests/pre-commit_test.sh::test_reminder_outside_helper_is_warning_only` -> a raw code commit with an active plan prints the reminder and succeeds; a helper commit prints nothing
-- [ ] `tests/verbs/done.sh::test_ledger_uses_recorded_commit` -> an unrelated later commit is not recorded; the ledger takes the last recorded SHA
-- [ ] `tests/verbs/done.sh::test_refuses_empty_commit_list` -> no recorded commits: exit 1, candidates and the repair command printed, nothing moves
-- [ ] `tests/verbs/done.sh::test_refuses_unreachable_commit` -> a recorded SHA amended away: exit 1 naming it, although the object still exists
-- [ ] `tests/verbs/done.sh::test_accepts_commit_on_deleted_branch` -> recorded branch deleted, SHA contained by another branch: accepted
-- [ ] `tests/verbs/done.sh::test_detached_commit_needs_a_branch` -> a `(detached)` SHA no branch contains: exit 1; once a branch contains it: accepted
-- [ ] `tests/verbs/start.sh::test_records_base_sha_and_branch` -> `start` fills `* **Base:**` with the worktree's `HEAD` and branch
-- [ ] `tests/verbs/start.sh::test_refuses_from_planning_worktree` -> `start` run inside `.plans/`: exit 1, no buffer bound, plan unchanged
-- [ ] `tests/verbs/start.sh::test_restart_keeps_first_base` -> re-running `start` on a `⚡` plan leaves `Base` unchanged
-- [ ] `tests/verbs/freeze-start.sh::test_records_base_sha_and_branch` -> `freeze-start` fills `Base` the same way
-- [ ] `tests/verbs/active.sh::test_refuses_plan_bound_in_other_worktree` -> binding a plan already bound in a linked worktree: exit 1 naming it, buffer unchanged
-- [ ] `tests/verbs/start.sh::test_refuses_plan_bound_in_other_worktree` -> `start` on a plan bound elsewhere: exit 1, plan and buffer unchanged
-- [ ] `tests/verbs/draft.sh::test_commit_takes_only_its_paths` -> another file staged in `.plans` is not swept into the draft commit (C4)
-- [ ] `tests/verbs/freeze.sh::test_commit_failure_is_loud` -> a refusing `.plans` hook: `freeze` exits non-zero and says why (#81)
-- [ ] `tests/verbs/freeze.sh::test_human_freeze_commits_in_lax` -> `lax`, no identity: the freeze commit lands (#81)
-- [ ] `tests/verbs/done.sh::test_commit_takes_only_its_paths` -> the archive commit contains only the move, ledger and matrix
-- [ ] `tests/verbs/done.sh::test_pre_done_veto_blocks_archive` -> a `pre-done` handler exiting non-zero: `done` exits 1, nothing moves; the payload carries the recorded commits
+- [x] `tests/aapp_lib_test.sh::test_parse_plan_commits` -> `sha (branch)` and `sha (detached)` entries parse from a comma-separated header line; `none`, prose, a missing branch and an unbackticked SHA yield nothing
+- [x] `tests/verbs/commit.sh::test_records_sha_and_branch` -> the code commit's SHA and branch appear in the plan header, and the plan is committed
+- [x] `tests/verbs/commit.sh::test_plan_commit_is_pathspec_limited` -> another plan staged in `.plans` is not swept into the commit
+- [x] `tests/verbs/commit.sh::test_refuses_without_active_plan` -> no `⚡` plan: exit 1, no commit; with several `⚡` plans the refusal prints `aapp active <id>`
+- [x] `tests/verbs/commit.sh::test_preflight_fails_before_code_commit` -> missing identity in `strict` mode: exit 1 and the code branch has no new commit
+- [x] `tests/verbs/commit.sh::test_detached_head_recorded` -> a commit on a detached `HEAD` is recorded as `(detached)`
+- [x] `tests/verbs/commit.sh::test_refuses_nothing_staged` -> empty index: exit 1, no commit, header unchanged
+- [x] `tests/verbs/commit.sh::test_rejected_commit_records_nothing` -> a refusing hook: exit non-zero, header unchanged
+- [x] `tests/verbs/commit.sh::test_amend_replaces_recorded_sha` -> `amend` swaps the old SHA for the new one in the header; with no message the message is kept and trailers are not duplicated
+- [x] `tests/verbs/commit.sh::test_strict_attributes_both_commits` -> `strict`: trailers on the code *and* the plan commit; missing identity refused in pre-flight with nothing committed
+- [x] `tests/verbs/commit.sh::test_lax_human_commit_needs_no_identity` -> `lax`, no identity: both commits land without trailers
+- [x] `tests/verbs/commit.sh::test_note_token_attached_in_notes_mode` -> `notes`: `note "<text>"` with an identity lands as a git note on the code commit
+- [x] `tests/verbs/commit.sh::test_linked_worktree_records_its_own_plan` -> two worktrees bound to two plans each record into their own plan
+- [x] `tests/verbs/commit.sh::test_adopt_records_existing_commit` -> a raw commit is adopted with its branch, the plan is committed, and a warning is printed
+- [x] `tests/verbs/commit.sh::test_adopt_refuses_unknown_sha` -> an unknown or branchless SHA: exit 1, header unchanged
+- [x] `tests/verbs/commit.sh::test_adopt_skips_recorded_sha` -> adopting an already-recorded SHA leaves one entry
+- [x] `tests/pre-commit_test.sh::test_reminder_outside_helper_is_warning_only` -> a raw code commit with an active plan prints the reminder and succeeds; a helper commit prints nothing
+- [x] `tests/verbs/done.sh::test_ledger_uses_recorded_commit` -> an unrelated later commit is not recorded; the ledger takes the last recorded SHA
+- [x] `tests/verbs/done.sh::test_refuses_empty_commit_list` -> no recorded commits: exit 1, candidates and the repair command printed, nothing moves
+- [x] `tests/verbs/done.sh::test_refuses_unreachable_commit` -> a recorded SHA amended away: exit 1 naming it, although the object still exists
+- [x] `tests/verbs/done.sh::test_accepts_commit_on_deleted_branch` -> recorded branch deleted, SHA contained by another branch: accepted
+- [x] `tests/verbs/done.sh::test_detached_commit_needs_a_branch` -> a `(detached)` SHA no branch contains: exit 1; once a branch contains it: accepted
+- [x] `tests/verbs/start.sh::test_records_base_sha_and_branch` -> `start` fills `* **Base:**` with the worktree's `HEAD` and branch
+- [x] `tests/verbs/start.sh::test_refuses_from_planning_worktree` -> `start` run inside `.plans/`: exit 1, no buffer bound, plan unchanged
+- [x] `tests/verbs/start.sh::test_restart_keeps_first_base` -> re-running `start` on a `⚡` plan leaves `Base` unchanged
+- [x] `tests/verbs/freeze-start.sh::test_records_base_sha_and_branch` -> `freeze-start` fills `Base` the same way
+- [x] `tests/verbs/active.sh::test_refuses_plan_bound_in_other_worktree` -> binding a plan already bound in a linked worktree: exit 1 naming it, buffer unchanged
+- [x] `tests/verbs/start.sh::test_refuses_plan_bound_in_other_worktree` -> `start` on a plan bound elsewhere: exit 1, plan and buffer unchanged
+- [x] `tests/verbs/draft.sh::test_commit_takes_only_its_paths` -> another file staged in `.plans` is not swept into the draft commit (C4)
+- [x] `tests/verbs/freeze.sh::test_commit_failure_is_loud` -> a refusing `.plans` hook: `freeze` exits non-zero and says why (#81)
+- [x] `tests/verbs/freeze.sh::test_human_freeze_commits_in_lax` -> `lax`, no identity: the freeze commit lands (#81)
+- [x] `tests/verbs/done.sh::test_commit_takes_only_its_paths` -> the archive commit contains only the move, ledger and matrix
+- [x] `tests/verbs/done.sh::test_pre_done_veto_blocks_archive` -> a `pre-done` handler exiting non-zero: `done` exits 1, nothing moves; the payload carries the recorded commits
 
 ### Phase 1: Contract & Red Tests
-- [ ] Task 1.1: Author `lib/docs/verbs/commit.md` (P-34 shape) and update `lib/docs/verbs/done.md` (recorded commits replace `HEAD`); add the `commit` row to `lib/verbs.tsv`.
-- [ ] Task 1.2: Write the Required Tests above; confirm Red 🔴.
+- [x] Task 1.1: Author `lib/docs/verbs/commit.md` (P-34 shape) and update `lib/docs/verbs/done.md` (recorded commits replace `HEAD`); add the `commit` row to `lib/verbs.tsv`.
+- [x] Task 1.2: Write the Required Tests above; confirm Red 🔴.
 
 ### Phase 2: Library & Template
-- [ ] Task 2.1: `parse_plan_commits` and the header-line writer in `lib/aapp-lib.sh`.
-- [ ] Task 2.2: `* **Base:** none` and `* **Commits:** none` header lines and the execution invariant in `templates/plan-template.md`; system rules anchor in `templates/AGENTS.md` and `.agents/AGENTS.md`.
+- [x] Task 2.1: `parse_plan_commits` and the header-line writer in `lib/aapp-lib.sh`.
+- [x] Task 2.2: `* **Base:** none` and `* **Commits:** none` header lines and the execution invariant in `templates/plan-template.md`; system rules anchor in `templates/AGENTS.md` and `.agents/AGENTS.md`.
 
 ### Phase 3: Verb & `done`
-- [ ] Task 3.1: `lib/cmd_commit.sh`: resolution (§2.2), attribution (§2.3), recording and pathspec plan commit (§2.4), `amend` (§2.5), loud partial failure, lock handling (§2.6).
-- [ ] Task 3.2: Dispatcher case in `aapp`.
-- [ ] Task 3.2b: `cmd_start` / `cmd_freeze_start` record the base (§2.4b), refuse planning worktrees, keep the first base on re-run.
-- [ ] Task 3.2c: One plan, one worktree (§2.6): `start`, `freeze-start` and `active <id>` refuse a plan bound in another worktree's buffer.
-- [ ] Task 3.3: `cmd_done` reads the record (§2.7), dispatches `pre-done` before any mutation (non-zero vetoes), and `on-done` gains `commits`.
-- [ ] Task 3.3b: `lib/commit_engine.sh` `plans_commit` (§2.9); `aapp commit` uses it.
-- [ ] Task 3.4: `adopt` (§2.7b) and the warning-only pre-commit reminder (§2.8); remaining §5 answers (squash, detached).
-- [ ] Task 3.4b: Migrate `draft`, `freeze`, `start`, `freeze-start`, `done` to `plans_commit` with standard subjects; remove every `|| true` on their commit path (§2.9).
-- [ ] Task 3.5: Required Tests Green 🟢: `aapp test verb commit`, `aapp test verb done`, `aapp test aapp_lib`.
+- [x] Task 3.1: `lib/cmd_commit.sh`: resolution (§2.2), attribution (§2.3), recording and pathspec plan commit (§2.4), `amend` (§2.5), loud partial failure, lock handling (§2.6).
+- [x] Task 3.2: Dispatcher case in `aapp`.
+- [x] Task 3.2b: `cmd_start` / `cmd_freeze_start` record the base (§2.4b), refuse planning worktrees, keep the first base on re-run.
+- [x] Task 3.2c: One plan, one worktree (§2.6): `start`, `freeze-start` and `active <id>` refuse a plan bound in another worktree's buffer.
+- [x] Task 3.3: `cmd_done` reads the record (§2.7), dispatches `pre-done` before any mutation (non-zero vetoes), and `on-done` gains `commits`.
+- [x] Task 3.3b: `lib/commit_engine.sh` `plans_commit` (§2.9); `aapp commit` uses it.
+- [x] Task 3.4: `adopt` (§2.7b) and the warning-only pre-commit reminder (§2.8); remaining §5 answers (squash, detached).
+- [x] Task 3.4b: Migrate `draft`, `freeze`, `start`, `freeze-start`, `done` to `plans_commit` with standard subjects; remove every `|| true` on their commit path (§2.9).
+- [x] Task 3.5: Required Tests Green 🟢: `aapp test verb commit`, `aapp test verb done`, `aapp test aapp_lib`.
 
 ### Phase 4: Regression & Docs
-- [ ] Task 4.1: `aapp test strict quiet` before the commit.
-- [ ] Task 4.2: `ARCHITECTURE.md`, `.agents/CODEMAP.md`, `MANUAL.md`, `CHEATSHEET.md`, `CHANGELOG.md`.
+- [x] Task 4.1: `aapp test strict quiet` before the commit.
+- [x] Task 4.2: `ARCHITECTURE.md`, `.agents/CODEMAP.md`, `MANUAL.md`, `CHEATSHEET.md`, `CHANGELOG.md`.
 
 ---
 
