@@ -331,6 +331,49 @@ active blueprints. Populate at refinement.)*
     Target Files form (one backticked path per line) and P-37's shared parser.
   * **Name.** The file is `PROJECT.MD` (upper case); `PROJECT.md` is a different file on
     case-sensitive filesystems.
+* **F17 — A standard plan-format parser, mirrored by the plugin (user direction).** The review plugin
+  is not part of the kit and may never ship with it. The user considers writing it in Perl ("I still
+  belive theres nothing better than perl for text parsing yet out there"), and proposes to "mirror the
+  main parsing functionalities for a plugin base, and then build logic on top of that, as that may
+  serve as a steping stone, and could posibly be the one what may do with any language, but the
+  parser could be standard." A mirrored parser is a second parser — the drift §2.7 and F16 warn
+  about — unless "standard" is made concrete:
+  1. **A written format spec.** The plan format's rules exist today only as bash code
+     (`lib/aapp-lib.sh`, P-37) and prose in AGENTS.md: the first backticked path on a line is the
+     target; `NEW FILE` markers are skipped; blockquotes, foreign subsections and fenced examples
+     grant nothing (#82); fixed header fields (Status, Plan ID, Base, Commits); P-35's §3/§4 test
+     declarations. Written down, these become the contract every parser implements.
+  2. **Shared conformance fixtures.** Sample plan files, each with its expected parsed output. The
+     kit's bash parser must pass them, and so must any mirror (Perl or other). Mirrors are safe when
+     they are tested against the same cases as the original.
+  3. **A format version.** Declared in the spec (and optionally in plans), so a plugin can tell
+     whether it understands the file and refuse clearly instead of misreading it.
+
+  Suggested order, as the user's stepping stone: spec and fixtures in the kit → bash parser passes
+  them → Perl mirror in the plugin passes them → review logic on top. The first two are useful even
+  if the plugin never ships: making the rules explicit addresses the root of #85 (status regex
+  duplicated across 22 call sites) and #86 (a fifth Target Files parser), and the fixtures become
+  regression tests. Why Perl fits: the work is line-oriented regex plus a small state machine
+  (fences, blockquotes, sections); core modules (`Digest::SHA`, `JSON::PP`, `File::Find`) keep P-15's
+  zero-dependency aim; it ships with macOS, most Linux distributions and Git for Windows.
+  Counter-arguments and limits (Claude):
+  * **A spec makes the format harder to change.** Before announcement, breaking changes are cheap;
+    with a spec and fixtures, each change needs a version bump and fixture updates. The right cost,
+    paid earlier.
+  * **Fixtures catch wrong parsing, not missing features.** A mirror written for format v1 will not
+    know v2's fields; the format version turns that into a clear refusal rather than a silent misread.
+  * **Keep the format regex-parseable.** If plans ever need full Markdown structure (nested lists,
+    lazy continuation lines, indented code blocks), a line parser starts guessing, and a CommonMark
+    parser in Perl is a CPAN module wrapping C, not core. The spec should state that the plan format
+    stays line-parseable.
+  * **Platform.** Alpine-based CI images carry no Perl, and git there does not pull it in; the plugin
+    checks at install and fails clearly, and pins a minimum (e.g. `use v5.16`). A risk to flag per
+    MANUAL §14, not an issue to log.
+  * **Cheap run-time check.** When the kit is present, the plugin can compare its parse of a file
+    with the kit's and warn on any difference — drift detection beyond the fixtures.
+
+  Steps 1–2 touch the kit's core, so they may deserve a plan of their own rather than living inside
+  this sketch.
 
 ---
 
@@ -358,3 +401,6 @@ active blueprints. Populate at refinement.)*
 * **2026-09-28:** Added F16: review-tier boundaries declared by the adopter in `.agents/PROJECT.MD`
   (user direction, elaborated by Antigravity), with limits — self-certification via the always-writable
   `.agents/`, universal kit paths kept, shared parser, file name. Corrects F15 row 6a. Findings only.
+* **2026-09-28:** Added F17: a standard plan-format parser (written spec, shared conformance
+  fixtures, format version) that the plugin mirrors — in Perl, per the user — as its base, with
+  counter-arguments. Findings only; steps 1–2 may warrant their own plan.
