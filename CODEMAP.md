@@ -86,9 +86,19 @@
   * `get_next_plan_id()` -> **Read-only peek** at the next Plan ID from the `aapp.planId` counter. Never mutates; claims nothing.
   * `allocate_plan_id()` -> **Claims** a Plan ID and persists the increment. Delegates to an optional `aapp-planid` provider plugin (`.agents/skills/aapp-planid/`); only plugin *absence* falls back to the local counter, a present-but-failing provider is fatal.
   * `normalize_plan_id(raw)` -> Accepts `P-42` or bare `42`; anything not a plain integer is an error.
+  * `get_next_issue_id()` / `allocate_issue_id()` -> Same contract for issue IDs (`#<n>`, `aapp.issueId`, optional `aapp-issue` provider). Both ID kinds share `_next_id` / `_allocate_id` / `_normalize_id` (P-32).
   * `verify_transition_target(cmd, target)` -> Rejects empty queries and `#`-prefixed issue collisions.
 * **Anti-Wrapper Warning:** Do not parse plan filenames using raw ad-hoc `grep` or `cut`; use `resolve_plan_path`.
 * **Allocation Warning:** Plan IDs are **stored, not derived**. Never reconstruct an ID by scanning filenames or the archive ledger — that approach was removed (issue `#69`). Use `allocate_plan_id` to claim, `get_next_plan_id` to display.
+
+### 🐛 Issue Lifecycle Verb (`lib/cmd_issue.sh`)
+* **Purpose:** `aapp issue [next | allocate | close <id> | list]` (P-32); contract in `lib/docs/verbs/issue.md`.
+* **Key Functions:**
+  * `issue_locate(n)` -> `active`, `archive`, or empty.
+  * `issue_close_local(n, sha, summary)` -> Moves the active row to the top of the archive and prunes the road map; does not commit.
+  * `issue_notify_close(n, sha, summary)` -> Fire-and-forget `aapp-issue` close hand-off; failure only warns.
+* **Consumers:** `aapp issue`, and `cmd_done` in `lib/cmd_plan.sh`, which closes a plan's Target Issue inside its archive commit.
+* **Anti-Wrapper Warning:** Never hand-edit rows between `ISSUES.md` and the archive; use `aapp issue close` or `aapp done`.
 
 ### 📚 Shared Hook Library (`lib/aapp-lib.sh`)
 * **Purpose:** Single owner of plan-section parsing, glob matching and platform detection, sourced by the CLI and both hook engines (P-37).
@@ -126,7 +136,7 @@
 * **Anti-Wrapper Warning:** Never use `git add ... || true; git commit ... || true` in `.plans`. Always use `plans_commit`.
 
 ### 🛡️ Planning Health Integrity Engine (`lib/planning_health.sh`)
-* **Purpose:** Automated mechanical integrity validator running 7 orthogonal verification pairs:
+* **Purpose:** Automated mechanical integrity validator running 8 orthogonal verification pairs:
   * **Pair 1:** Disjointness between active `ISSUES.md` and `000-issues-archive.md`.
   * **Pair 2:** Referential integrity between `issues_road_map.md` and active `ISSUES.md`.
   * **Pair 3:** Pickup queue routing hygiene (`.plans/pickup.md`).
@@ -134,6 +144,7 @@
   * **Pair 5:** Self-protection safety (blocks Section 2 targets in blueprint `Target Files`).
   * **Pair 6:** Recorded hexadecimal commit SHA existence in git object database.
   * **Pair 7:** Concurrent boundary collision detection for multiple `⚡ In Development` plans.
+  * **Pair 8:** Issue ID repeated within `ISSUES.md` or within the archive (cross-ledger collisions are Pair 1).
 * **Anti-Wrapper Warning:** Keep health checks mechanical, fast, and free of external runtime dependencies.
 
 ### 🏷️ AI Attribution Switchboard & Identity Layer (`lib/cmd_ai.sh`, `lib/attribution.sh`)
@@ -163,7 +174,7 @@
 * **Key Functions:**
   * `dispatch_hook(event, data_json, repo_root)` -> Dual Delivery dispatcher streaming JSON on `stdin` alongside exported `AAPP_*` environment variables with process watchdog timeout enforcement (exit 124).
   * `resolve_plugin_entrypoint(pdir, name)` -> Extension-agnostic plugin resolution (`run`, `$name`, `scripts/run`, `scripts/$name`, pattern match) with `.sample` exclusion filtering.
-  * `cmd_plugins_status()` -> Authoritative CLI inspection command (`aapp plugins`) reporting status of hardcoded standard extension points (`aapp-planid`, `hello-tool`) and custom user plugins.
+  * `cmd_plugins_status()` -> Authoritative CLI inspection command (`aapp plugins`) reporting status of hardcoded standard extension points (`aapp-planid`, `aapp-issue`, `hello-tool`) and custom user plugins.
   * `cmd_hooks_status()` / `cmd_hook_hash()` -> Validates executable bits and live SHA-256 integrity against `.agents/skills/aapp-hooks/registry.tsv`.
 * **Anti-Wrapper Warning:** Never bypass `registry.tsv` hash verification or run unhashed handlers in `mode=gate`.
 
@@ -236,6 +247,7 @@ To prevent naming drift across development, blueprint authoring, and runtime too
 | Plugin Name | Namespace / Role | Invocation Trigger | Input / Output Contract | Shipped Sample Source | Installed Target |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **`aapp-planid`** | Core Identity | `allocate_plan_id` (`lib/plan_resolver.sh`) | `AAPP_ACTION=allocate` → stdout `P-<int>` (or bare `<int>`) | `examples/plugins/aapp-planid/run.sample` | `.agents/skills/aapp-planid/run` |
+| **`aapp-issue`** | Core Identity | `allocate_issue_id` (`lib/plan_resolver.sh`), `issue_notify_close` (`lib/cmd_issue.sh`) | `AAPP_ACTION=allocate` → stdout `#<int>` (or bare `<int>`); `AAPP_ACTION=close` + `AAPP_ISSUE_ID`/`AAPP_COMMIT_SHA`/`AAPP_SUMMARY`, fire-and-forget | `examples/plugins/aapp-issue/run.sample` | `.agents/skills/aapp-issue/run` |
 | **`aapp-review`** *(P-15)* | Code Quality | `/aapp-review` / CLI dispatch | Review Packet JSON on `stdin` → Markdown findings on `stdout` | `examples/plugins/aapp-review/run.sample` | `.agents/skills/aapp-review/run` |
 | **`hello-tool`** | Showcase / Demo | `aapp hello-tool` | CLI arguments → stdout greeting | `examples/plugins/hello-tool/run.sample` | `.agents/skills/hello-tool/run` |
 

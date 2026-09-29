@@ -138,7 +138,7 @@ The workspace tracks two separate phases. Routing an item into the wrong lane co
 - **Universal Domain Taxonomy:** The `Type` column uses an uppercase token conforming to `^[A-Z0-9_-]+$` (recommended core: `CORE`, `CLI`, `UI`, `DB`, `NET`, `SEC`, `HOOK`, `DOCS`, `TEST`, `PERF`).
 
 ### 🏷️ Distinct Identifiers: Issue IDs (`#<num>`) vs. Plan IDs (`P-<num>`)
-- **Issues use `#<num>`**: Unpadded integer IDs prefixed with `#` (e.g. `#1`, `#49`, `#64`).
+- **Issues use `#<num>`**: Unpadded integer IDs prefixed with `#` (e.g. `#1`, `#49`, `#64`). Claim one with `aapp issue allocate` (the `aapp.issueId` counter; `aapp issue next` peeks). Never pick an ID by scanning `ISSUES.md`: it is priority-ordered and resolved rows live in the archive.
 - **Plans use `P-<num>`**: Unpadded integer IDs prefixed with `P-` (e.g. `P-1`, `P-8`, `P-9`, `P-13`). Active blueprint filenames adopt ADR-style naming: `P<num>-<slug>.md` (e.g. `P9-guard-path-authorization.md`).
 - **Namespace Separation**: Issue references (`#9`) and Plan references (`P-9`) must never be interchanged. Commands (`/aapp-freeze`, `/aapp-done`) accept Plan IDs (`P-9`, `9`), slugs (`guard-path`), or filenames, and reject `#9` with an advisory notice.
 - **Pair 5 Self-Protection Rule**: When declaring `### 📂 Target Files`, never list files matching Guard Section 2 self-protection (`.githooks/*`, `.agents/skills/aapp-*`, `.claude/settings*`, `.cursor/rules/*`). Pair 5 of the planning-health engine mechanically blocks any blueprint violating this rule.
@@ -159,7 +159,7 @@ The lanes are separate, **not sealed**. A fix too large to simply *do* deserves 
 3. Link the two records with the fields the templates already carry: put the issue ID in the plan's `**Target Issue / Milestone:**` field, and a link to the blueprint in the issue's `Proposed Fix / Target Plan` cell.
 4. Set the issue's status to 🔵 `Planned` and **leave it on `issues_road_map.md`** — it is still an open issue until the fix ships.
 5. Register the plan in `state_matrix.md` like any other, with the issue ID visible in its entry.
-6. Close the issue only when the fix is verified and the plan is archived via `done`. Relocate the issue row from `ISSUES.md` to `.plans/done/000-issues-archive.md` (per the Relocation Invariant) and prune it from `issues_road_map.md` (the pre-commit hook also auto-prunes resolved lines).
+6. Close the issue only when the fix is verified and the plan is archived via `done`. `aapp done` relocates the Target Issue row to `.plans/done/000-issues-archive.md` and prunes `issues_road_map.md` in the same commit. For a direct fix with no plan, run `aapp issue close <num> [sha <sha>] [summary "<text>"]` instead of editing the tables by hand.
 
 **Visibility, not permission.** Promote when it fits, then **say plainly what you did and why** — "ISSUE-004 touches four modules and the parser contract, so I promoted it to a draft blueprint." The human can refine, abort, or ignore it; a draft costs nothing. What you must never do is promote *silently*.
 
@@ -271,7 +271,7 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
   3. Rewrite the blueprint header status line to `* **Status:** ✅ Done` and append an archival completion line to `## 📦 6. Change Log`.
   4. Clear or update active plan buffer if it matched the completed plan.
   5. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` with `Plan ID`, plan file link, target issue, verification commit, and repo-relative impact summary.
-  6. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items). If the plan resolved a target issue, relocate it from `ISSUES.md` to `.plans/done/000-issues-archive.md` (enforcing the Relocation Invariant) and prune it from `issues_road_map.md` (the pre-commit hook also auto-prunes resolved lines).
+  6. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items). If the plan resolved a target issue, `aapp done` relocates it from `ISSUES.md` to `.plans/done/000-issues-archive.md` and prunes `issues_road_map.md` (Relocation Invariant); a Target Issue in neither ledger refuses `done`.
   7. Commit the transition to the `plans` worktree.
 
 - **`release <version>` (or `/aapp-release <version>`, `/aapp:release <version>`, `/aapp release <version>`, `/release <version>`, `/preflight`)**: Execute release pre-flight verification runbook.
