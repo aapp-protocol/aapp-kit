@@ -117,19 +117,19 @@ In `templates/AGENTS.md` and `.agents/AGENTS.md`:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Pre-Commit & Commit-Msg Hook Gates
-- [ ] Task 1.1: Update `templates/aapp-pre-commit` to inspect added changelog lines: verify leading `- ` shape and check length against `aapp.changelogMaxLen` (default 300 chars).
-- [ ] Task 1.2: Update `templates/aapp-commit-msg` to check blank line 2, line width against `aapp.commitLineMaxLen` (default 100 chars), and body volume against `aapp.bodyMaxLen` (default 1200 chars) / `aapp.maxBodyLines` (default 20 lines), excluding semantic trailers and exempting reverts.
-- [ ] Task 1.3: Synchronize `.githooks/aapp-pre-commit` and `.githooks/aapp-commit-msg` in the local development environment (via `aapp develop` / copy).
+- [x] Task 1.1: Update `templates/aapp-pre-commit` to inspect added changelog lines: verify leading `- ` shape and check length against `aapp.changelogMaxLen` (default 300 chars).
+- [x] Task 1.2: Update `templates/aapp-commit-msg` to check blank line 2, line width against `aapp.commitLineMaxLen` (default 100 chars), and body volume against `aapp.bodyMaxLen` (default 1200 chars) / `aapp.maxBodyLines` (default 20 lines), excluding semantic trailers and exempting reverts.
+- [x] Task 1.3: Synchronize `.githooks/aapp-pre-commit` and `.githooks/aapp-commit-msg` in the local development environment (via `aapp develop` / copy).
 
 ### Phase 2: Agent Rules & Documentation
-- [ ] Task 2.1: Update `templates/AGENTS.md` and `.agents/AGENTS.md` with the Changelog Single-Line Bullet Invariant and expanded Numeric Commit Conciseness Invariant.
-- [ ] Task 2.2: Document `aapp.changelogMaxLen`, `aapp.bodyMaxLen`, `aapp.maxBodyLines`, and `aapp.commitLineMaxLen` in `MANUAL.md`.
+- [x] Task 2.1: Update `templates/AGENTS.md` and `.agents/AGENTS.md` with the Changelog Single-Line Bullet Invariant and expanded Numeric Commit Conciseness Invariant.
+- [x] Task 2.2: Document `aapp.changelogMaxLen`, `aapp.bodyMaxLen`, `aapp.maxBodyLines`, and `aapp.commitLineMaxLen` in `MANUAL.md`.
 
 ### Phase 3: Historical Remediation & Verification
-- [ ] Task 3.1: Condense bloated unreleased entries in `CHANGELOG.md` to crisp Keep a Changelog bullets.
-- [ ] Task 3.2: Add automated tests in `tests/pre-commit_test.sh` for changelog length gate (rejection on overly long bullets and unbulleted continuation lines, acceptance on valid bullets).
-- [ ] Task 3.3: Add automated tests in `tests/ai_attribution_test.sh` for commit message blank line 2, line width, and body length gates.
-- [ ] Task 3.4: Verify `aapp status` renders a concise, 1-screen briefing across all 4 pillars.
+- [x] Task 3.1: Condense bloated unreleased entries in `CHANGELOG.md` to crisp Keep a Changelog bullets.
+- [x] Task 3.2: Add automated tests in `tests/pre-commit_test.sh` for changelog length gate (rejection on overly long bullets and unbulleted continuation lines, acceptance on valid bullets).
+- [x] Task 3.3: Add automated tests in `tests/ai_attribution_test.sh` for commit message blank line 2, line width, and body length gates.
+- [x] Task 3.4: Verify `aapp status` renders a concise, 1-screen briefing across all 4 pillars.
 
 ---
 
