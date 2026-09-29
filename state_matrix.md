@@ -24,11 +24,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-28**: [`P28-conciseness-enforcement-and-changelog-governance.md`](current/P28-conciseness-enforcement-and-changelog-governance.md) — Conciseness Enforcement, Commit Body Ceiling & Changelog Governance. Supersedes #76.
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-28**: [`P28-conciseness-enforcement-and-changelog-governance.md`](current/P28-conciseness-enforcement-and-changelog-governance.md) — Conciseness Enforcement, Commit Body Ceiling & Changelog Governance. Supersedes #76.
 
 ---
 
