@@ -151,6 +151,110 @@ else
 fi
 git config --unset aapp.subjectMaxLen
 
+# 3b.1: Blank separator line invariant (missing blank line 2 rejected)
+cat > "$TEST_DIR/msg_no_blank_line2.txt" << 'EOF'
+feat: valid subject
+This is line 2 without an empty line separator.
+EOF
+
+if ! run_commit_msg "$TEST_DIR/msg_no_blank_line2.txt" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "missing blank separator line 2 is blocked" "BLOCK"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "missing blank separator line 2 is blocked"; FAIL=$((FAIL+1))
+fi
+
+# 3b.2: Individual line width ceiling (line > 100 chars rejected, URL exempt)
+cat > "$TEST_DIR/msg_line_too_wide.txt" << 'EOF'
+feat: valid subject
+
+This line is intentionally constructed to exceed one hundred characters in length without wrapping onto the next line.
+EOF
+
+if ! run_commit_msg "$TEST_DIR/msg_line_too_wide.txt" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "body line > 100 chars blocked" "BLOCK"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "body line > 100 chars blocked"; FAIL=$((FAIL+1))
+fi
+
+cat > "$TEST_DIR/msg_line_url_exempt.txt" << 'EOF'
+feat: valid subject
+
+Here is a link: https://github.com/aapp-protocol/agent-planning-kit/issues/very-long-issue-identifier-that-exceeds-one-hundred-chars
+EOF
+
+if run_commit_msg "$TEST_DIR/msg_line_url_exempt.txt" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "body line > 100 chars with URL passes" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "body line > 100 chars with URL passes"; FAIL=$((FAIL+1))
+fi
+
+# 3b.3: Body volume and line count ceiling (> 20 lines rejected)
+cat > "$TEST_DIR/msg_too_many_lines.txt" << 'EOF'
+feat: valid subject
+
+Line 1
+Line 2
+Line 3
+Line 4
+Line 5
+Line 6
+Line 7
+Line 8
+Line 9
+Line 10
+Line 11
+Line 12
+Line 13
+Line 14
+Line 15
+Line 16
+Line 17
+Line 18
+Line 19
+Line 20
+Line 21
+EOF
+
+if ! run_commit_msg "$TEST_DIR/msg_too_many_lines.txt" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "body > 20 lines blocked by conciseness rule" "BLOCK"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "body > 20 lines blocked by conciseness rule"; FAIL=$((FAIL+1))
+fi
+
+# 3b.4: Revert commit exemption passes even with long body
+cat > "$TEST_DIR/msg_revert.txt" << 'EOF'
+Revert "feat: something"
+
+This reverts commit 1234567890abcdef.
+Line 1
+Line 2
+Line 3
+Line 4
+Line 5
+Line 6
+Line 7
+Line 8
+Line 9
+Line 10
+Line 11
+Line 12
+Line 13
+Line 14
+Line 15
+Line 16
+Line 17
+Line 18
+Line 19
+Line 20
+Line 21
+EOF
+
+if run_commit_msg "$TEST_DIR/msg_revert.txt" >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "revert commit exempt from body limits" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "revert commit exempt from body limits"; FAIL=$((FAIL+1))
+fi
+
 # 3c. test_banned_coauthor_rejected_in_every_mode: prohibited in none, lax, strict, notes
 cat > "$TEST_DIR/msg_banned.txt" << 'EOF'
 feat: valid subject

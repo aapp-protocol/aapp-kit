@@ -1411,17 +1411,22 @@ The `aapp ai` command family manages configuration and credits without manual co
 - **`aapp ai none`**: Disables AI attribution (pure human authoring; does not erase existing `README.md` blocks).
 - **`aapp ai credits`**: Generates or updates the `AI Contributors` block in `README.md`.
 
-### Commit Conciseness Invariant & Commit-Msg Enforcement
+### Commit & Changelog Conciseness Invariants
 
-Every commit message is evaluated by `.githooks/aapp-commit-msg` against two primary invariants:
+Every commit message and staged changelog is evaluated mechanically by `.githooks/aapp-pre-commit` and `.githooks/aapp-commit-msg`:
 
-1. **Numeric Commit Conciseness Invariant (G4)**: The subject line must not exceed 72 characters (`git config aapp.subjectMaxLen`). Subject lines must be written in the imperative mood (`feat: ...`, `fix: ...`), leaving architectural analysis to commit bodies and blueprints.
-2. **Attribution Policy & Revert Safety (G2)**:
+1. **Changelog Single-Line Bullet Invariant**: Every bullet added to `CHANGELOG.md` (or `.plans/CHANGELOG.md`) must be a single line starting with `- ` (or `* `) and not exceed 300 characters (`git config aapp.changelogMaxLen`). Unbulleted continuation lines and multi-line indented paragraphs are strictly refused to prevent bloated essay wrapping.
+2. **Numeric Commit Conciseness & Structure Invariants (G4)**:
+   - **Subject Length**: Must not exceed 72 characters (`git config aapp.subjectMaxLen`) and be written in the imperative mood (`feat: ...`, `fix: ...`).
+   - **Blank Separator Line**: Line 2 must be blank if a body is present. Text immediately following the subject line without an empty line breaks `git log --oneline` and is rejected.
+   - **Line Width**: No individual line in the commit body may exceed 100 characters (`git config aapp.commitLineMaxLen`), except for lines containing unbroken URLs.
+   - **Body Volume**: Total commit body volume must not exceed 1,200 characters (`git config aapp.bodyMaxLen`) and 20 lines (`git config aapp.maxBodyLines`), excluding trailing metadata/trailers.
+3. **Attribution Policy & Revert Safety (G2)**:
    - In `lax` mode, trailers are optional; when present, all three emailless fields (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) are validated.
    - In `strict` mode, all three emailless trailers are mandatory on every commit.
    - In `none` and `notes` modes, AI trailers in the commit message are prohibited.
    - In all modes, synthetic vendor email addresses (`Co-authored-by:`) are strictly prohibited.
-   - Revert commits (`Revert "..."` or containing `This reverts commit <sha>`) are automatically exempted.
+   - Revert commits (`Revert "..."` or containing `This reverts commit <sha>`) are automatically exempted from conciseness and attribution gates.
 
 ### Option C Staged Note Protocol & Amend Durability
 
@@ -1676,6 +1681,10 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | `aapp.aiAttribution` | `none` / `commit` / `notes` | `none` | AI Attribution | Attribution mode (emailless semantic trailers vs. git notes vs. human). |
 | `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
 | `aapp.subjectMaxLen` | integer | `72` | Git Hooks | Numeric conciseness limit for commit subject lines (enforced in `aapp-commit-msg`). |
+| `aapp.commitLineMaxLen` | integer | `100` | Git Hooks | Maximum characters per line in commit body (enforced in `aapp-commit-msg`, URLs exempt). |
+| `aapp.bodyMaxLen` | integer | `1200` | Git Hooks | Maximum characters allowed in commit message body (enforced in `aapp-commit-msg`). |
+| `aapp.maxBodyLines` | integer | `20` | Git Hooks | Maximum lines allowed in commit message body (enforced in `aapp-commit-msg`). |
+| `aapp.changelogMaxLen` | integer | `300` | Git Hooks | Numeric conciseness limit for single-line changelog bullet points (enforced in `aapp-pre-commit`). |
 | `aapp.protectStable` | `true` / `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |
 | `aapp.devBranch` | string | `develop` | Branch Guard | Target development branch for branch protection parity. |
 | `aapp.allowPath` | string (multi) | *(empty)* | Write Guard | External filesystem paths authorized for AI file writes (`blast-radius-guard`). |
@@ -1688,7 +1697,11 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 
 ### Lifecycle & Core Engine Settings
 - **`aapp.planId`**: The monotonic counter for allocating Plan IDs (`P-1`, `P-2`, etc.). Seeded on `aapp init` and incremented atomically during `aapp draft`.
-- **`aapp.subjectMaxLen`**: Commit message subject line conciseness ceiling enforced at commit time by `.githooks/aapp-commit-msg`.
+- **`aapp.subjectMaxLen`**: Commit message subject line conciseness ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 72 chars).
+- **`aapp.commitLineMaxLen`**: Commit message body line width ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 100 chars; URLs exempt).
+- **`aapp.bodyMaxLen`**: Commit message body character ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 1200 chars).
+- **`aapp.maxBodyLines`**: Commit message body line count ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 20 lines).
+- **`aapp.changelogMaxLen`**: Changelog bullet length ceiling enforced at commit time by `.githooks/aapp-pre-commit` (default: 300 chars). Single-line bullets starting with `- ` or `* ` are strictly enforced.
 
 ### Branch & Write Guard Protection
 - **`aapp.protectStable` & `aapp.devBranch`**: Guards stability on primary branches (`main`/`master`) when development branches (`develop`) exist. Direct commits on stable branches are blocked unless overridden with `ALLOW_MAIN_COMMIT=1`.

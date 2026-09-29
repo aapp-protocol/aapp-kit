@@ -1150,6 +1150,66 @@ else
   FAIL=$((FAIL+1))
 fi
 
+echo "== 38. Changelog Conciseness & Single-Line Bullet Invariant (P-28) =="
+setup
+# 38a. Single-line bullet <= 300 chars passes
+echo "- short valid bullet within limits" >> CHANGELOG.md
+git add CHANGELOG.md
+out_valid=$(git commit -m "valid changelog" 2>&1); rc_valid=$?
+if [ $rc_valid -eq 0 ]; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "test_changelog_valid_single_line_bullet_passes" "PASS"
+  PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s %s\n" "test_changelog_valid_single_line_bullet_passes" "rc=$rc_valid failed: $out_valid"
+  FAIL=$((FAIL+1))
+fi
+
+# 38b. Single-line bullet > 300 chars rejected
+setup
+long_bullet="- long bullet: "
+while [ "${#long_bullet}" -lt 350 ]; do
+  long_bullet="${long_bullet}word "
+done
+echo "$long_bullet" >> CHANGELOG.md
+git add CHANGELOG.md
+out_long=$(git commit -m "long changelog" 2>&1); rc_long=$?
+if [ $rc_long -ne 0 ] && echo "$out_long" | grep -qiE 'Changelog bullet exceeds maximum length'; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "test_changelog_long_bullet_rejected" "BLOCK"
+  PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got %s\n" "test_changelog_long_bullet_rejected" "rc=$rc_long out=$out_long"
+  FAIL=$((FAIL+1))
+fi
+
+# 38c. Unbulleted continuation line rejected
+setup
+echo "- valid bullet" >> CHANGELOG.md
+echo "  unbulleted continuation line that should be refused" >> CHANGELOG.md
+git add CHANGELOG.md
+out_cont=$(git commit -m "unbulleted continuation" 2>&1); rc_cont=$?
+if [ $rc_cont -ne 0 ] && echo "$out_cont" | grep -qiE 'unbulleted continuation line'; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "test_changelog_unbulleted_continuation_rejected" "BLOCK"
+  PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got %s\n" "test_changelog_unbulleted_continuation_rejected" "rc=$rc_cont out=$out_cont"
+  FAIL=$((FAIL+1))
+fi
+
+# 38d. Custom threshold respected (aapp.changelogMaxLen)
+setup
+git config aapp.changelogMaxLen 80
+mid_bullet="- mid length bullet that easily exceeds eighty characters in total length for this test"
+echo "$mid_bullet" >> CHANGELOG.md
+git add CHANGELOG.md
+out_custom=$(git commit -m "custom threshold changelog" 2>&1); rc_custom=$?
+if [ $rc_custom -ne 0 ] && echo "$out_custom" | grep -qiE 'Changelog bullet exceeds maximum length'; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "test_changelog_custom_threshold_respected" "BLOCK"
+  PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK got %s\n" "test_changelog_custom_threshold_respected" "rc=$rc_custom out=$out_custom"
+  FAIL=$((FAIL+1))
+fi
+
 print_test_summary "$PASS" "$FAIL"
 
 

@@ -18,7 +18,7 @@ See `.agents/CODEMAP.md` (or `CODEMAP.md` at the repo root) before assuming wher
 - **Every commit that touches code updates `CHANGELOG.md` (or `.plans/CHANGELOG.md` if configured). No exceptions — a one-character typo fix still gets a line.** The pre-commit hook enforces this, and it is not up for negotiation or optimization. Length is handled at release time, not by skipping entries.
 - **For Code Changes:** You MUST run syntax checks, build steps, and automated tests BEFORE updating `CHANGELOG.md`.
 - **For Rules & Internal Config (`.agents/*`):** Do NOT update `CHANGELOG.md`.
-- When updating `CHANGELOG.md`, follow Keep a Changelog format: place entries under `## [Unreleased]` or version headers, categorize by `### Added`, `### Changed`, `### Fixed`, etc., with concise bullet points.
+- **Changelog Single-Line Bullet Invariant**: When updating `CHANGELOG.md`, follow Keep a Changelog format: place entries under `## [Unreleased]` or version headers, categorize by `### Added`, `### Changed`, `### Fixed`, etc. Every entry MUST be a concise, single-line bullet starting with `- ` (strictly <= 300 characters, configurable via `git config aapp.changelogMaxLen`). Unbulleted continuation lines and multi-line indented paragraphs are strictly prohibited.
 
 ---
 
@@ -60,10 +60,13 @@ AI-Model: <Model ID>
 | Claude Code | `AI-Agent: Claude`<br>`AI-Vendor: Anthropic`<br>`AI-Model: claude-3-5-sonnet-20241022` |
 | Antigravity | `AI-Agent: Antigravity`<br>`AI-Vendor: Google`<br>`AI-Model: gemini-1.5-pro` |
 
-#### 📏 Numeric Commit Conciseness Invariant
+#### 📏 Numeric Commit Conciseness & Structure Invariant
 - **Subject Length**: Commit subject lines must not exceed `72` characters (configurable via `git config aapp.subjectMaxLen`).
 - **Imperative Mood**: Write subject lines in the imperative mood (e.g. `feat: add ...`, `fix: handle ...`).
-- **Concise Body**: Explain *why* and *what*, leaving detailed architectural design to `.plans/current/<plan>.md`.
+- **Blank Separator Line**: Line 2 must be blank if a commit body is present. Text immediately following the subject without an empty line breaks `git log --oneline` and is rejected.
+- **Line Width**: No individual line in the commit body may exceed `100` characters (configurable via `git config aapp.commitLineMaxLen`), with exceptions for lines containing unbroken URLs.
+- **Body Volume**: Total commit body volume must not exceed `1,200` characters (configurable via `git config aapp.bodyMaxLen`) and `20` lines (configurable via `git config aapp.maxBodyLines`), excluding trailing metadata/trailers.
+- **Concise Scope**: Explain *why* and *what*, leaving detailed architectural design to `.plans/current/<plan>.md`.
 
 #### ⚖️ Commit vs. Notes Asymmetry
 - **Trailers are primary**: They become immutable parts of the commit object, survive `git cherry-pick`, `git rebase`, and display natively on GitHub/GitLab without requiring special push refspecs.
