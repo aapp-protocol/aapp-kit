@@ -3,7 +3,7 @@
 * **Created:** 2026-09-22 | **Last Refined:** 2026-09-29
 * **Target Issue / Milestone:** #79 *(supersedes #79 upon completion)*
 * **Plan ID:** P-32
-* **Status:** 📝 Refining
+* **Status:** 🔷 Frozen
 * **Base:** `88aae65` (develop)
 * **Commits:** none
 
@@ -322,6 +322,7 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-29:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-09-29:** Plan activated into ⚡ In Development via start.
 * **2026-09-29:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-09-29:** Review amendments: Pair 8 narrowed to within-ledger (Pair 1 covers cross-ledger); `get_next_*` kept fail-closed; `close` takes bare id + keyword tokens, commits via `plans_commit`, joins `done_targets` in `aapp done`; plugin drops `peek`, `close` fire-and-forget, shim sample, CODEMAP §5; `list` reuses status ordering, default cap 20 (`list <n>` / `list all`); Out of Bounds exempts verb writes; Q5 non-blocking allocation deferred to follow-up plan (plugin-reserved ID blocks).
