@@ -19,6 +19,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-28**: [`P28-conciseness-enforcement-and-changelog-governance.md`](current/P28-conciseness-enforcement-and-changelog-governance.md) — Conciseness Enforcement, Commit Body Ceiling & Changelog Governance. Supersedes #76.
 - 📝 **P-32**: [`P32-issue-id-allocation-and-duplicate-detection.md`](current/P32-issue-id-allocation-and-duplicate-detection.md) — Issue ID Allocation, Lifecycle Engine & Duplicate Detection. Supersedes #79.
 - 🟣 **P-38**: [`P38-milestone-release-bundling-and-tag-ledgers.md`](current/P38-milestone-release-bundling-and-tag-ledgers.md) — Milestone Release Bundling & Tag Ledgers
+- 🟣 **P-46**: [`P46-plugin-registry.md`](current/P46-plugin-registry.md) — Plugin Registry
 
 ---
 
