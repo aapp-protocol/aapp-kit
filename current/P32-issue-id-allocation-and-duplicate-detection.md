@@ -3,7 +3,7 @@
 * **Created:** 2026-09-22 | **Last Refined:** 2026-09-29
 * **Target Issue / Milestone:** #79 *(supersedes #79 upon completion)*
 * **Plan ID:** P-32
-* **Status:** 📝 Refining
+* **Status:** 🔷 Frozen
 * **Base:** `88aae65` (develop)
 * **Commits:** `e295a83` (develop)
 
@@ -306,6 +306,7 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-29:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-09-29:** §2.2 seeding moved from `aapp init` to first use: config is not cloned and clones never run init. Template rows skipped; no ledgers and no provider refuses. Proven by `test_clone_first_allocate_continues_ledgers` and `test_no_ledgers_without_provider_refuses`.
 * **2026-09-29:** Plan activated into ⚡ In Development via start.
 * **2026-09-29:** Plan locked and frozen into 🔷 Frozen via freeze.
