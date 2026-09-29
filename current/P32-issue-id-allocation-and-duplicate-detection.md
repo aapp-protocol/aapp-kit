@@ -297,6 +297,12 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 - [ ] `.agents/AGENTS.md` -> Update issue triage protocol to use allocate_issue_id and aapp issue.
 - [ ] `CHANGELOG.md` -> Record under unreleased.
 
+### 🚨 Emergency Hotfix Extensions
+- [ ] `aapp` -> Dispatch the `issue` verb (Task 3.2 requires it; omitted from Target Files).
+- [ ] `tests/verbs/done.sh` -> Fixture targets `#42`, absent from every ledger; `done` now refuses a dangling Target Issue.
+- [ ] `lib/docs/verbs/done.md` -> Contract gains the Target Issue close effect and refusal.
+- [ ] `templates/AGENTS.md` -> Adopter copy of the `.agents/AGENTS.md` issue-ID and close wording.
+
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.plans/ISSUES.md` -> Row content is issue-lifecycle data; do not hand-edit historical rows (writes by `aapp issue close` / `aapp done` are exempt).
 - [ ] `.plans/done/000-issues-archive.md` -> Archive rows are never rewritten (inserts by `aapp issue close` / `aapp done` are exempt).
