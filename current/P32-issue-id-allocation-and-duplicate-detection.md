@@ -50,7 +50,7 @@ A counter alone would not catch a hand-typed duplicate; detection alone would no
    - `aapp issue close <id> [sha <sha>] [summary "<text>"]`: Mechanically relocates the issue row to `000-issues-archive.md`, prunes `issues_road_map.md`, commits, then notifies the team plugin (fire-and-forget).
    - `aapp issue list [<n> | all]`: Lists active issues in roadmap priority order; default cap 20 (the status briefing shows only the top 5).
 5. **Unified Close in `aapp done`**: Update `cmd_done` in `lib/cmd_plan.sh` to delegate issue closure to `cmd_issue_close`, automating the Relocation Invariant when a plan completes.
-6. **Team Provider Plugin (`aapp-issue`)**: Provider plugin mirroring `aapp-planid`, supporting `AAPP_ACTION=allocate` and `close` (notifying external trackers like GitHub Issues, Jira, or Linear).
+6. **Team Provider Plugin (`aapp-issue-tracker`)**: Provider plugin on the shared plugin payload standard (§2.3), supporting `allocate` and `close` (notifying external trackers like GitHub Issues, Jira, or Linear).
 7. **Duplicate detection (Pair 8)**: Add `check_pair8_issue_id_integrity` reporting any issue ID repeated *within* one ledger. Cross-ledger collisions are already caught by Pair 1 (`check_pair1_disjointness`).
 
 ### Explicit Boundary: Two Independent Namespaces
@@ -119,7 +119,7 @@ _normalize_id() {
 }
 
 allocate_plan_id()  { _allocate_id aapp.planId  "P-" aapp-planid  "Plan ID"; }
-allocate_issue_id() { _allocate_id aapp.issueId "#"  aapp-issue   "Issue ID"; }
+allocate_issue_id() { _allocate_id aapp.issueId "#"  aapp-issue-tracker "Issue ID"; }
 
 # Read-only peek; keeps the current fail-closed get_next_plan_id behaviour.
 # _next_id <config-key> <prefix> <label>
@@ -149,26 +149,52 @@ Git config is not cloned, and a clone never runs `aapp init`, so a counter writt
 | :--- | :--- |
 | counter set | use it |
 | counter unset, ledgers present | seed from them (`next` peeks without writing) |
-| counter unset, no ledger files, no provider | refuse: IDs belong to a remote authority whose `aapp-issue` provider is not installed |
+| counter unset, no ledger files, no provider | refuse: IDs belong to a remote authority whose `aapp-issue-tracker` provider is not installed |
 
 - `aapp init` does not seed `aapp.issueId`; its banner says the counter is seeded on first allocate.
 - A non-integer counter still refuses; the hint is `git config --unset aapp.issueId` (reseed from the ledgers), not `aapp init`.
 - Plan IDs keep init-time seeding here; the same clone gap for `aapp.planId` is out of scope.
 
-### 2.3 The `aapp-issue` Provider Plugin Contract
+### 2.3 The `aapp-issue-tracker` Plugin & the Plugin Payload Standard
 
-A dedicated plugin at `.agents/skills/aapp-issue/` (entrypoint resolved via `resolve_plugin_entrypoint`):
+All action plugins (`aapp-planid`, `aapp-issue-tracker`) share one contract, **Dual Delivery**, the same as lifecycle hooks. Clean break: `aapp-planid` moves from bare stdout to this format.
 
-| Action | Invocation & Environment | Output & Exit | Local Fallback |
-| :--- | :--- | :--- | :--- |
-| `allocate` | `AAPP_ACTION=allocate AAPP_REPO_ROOT=<root> <entrypoint>` | Prints `#<num>` or bare `<num>`, exits 0 | Claims from `aapp.issueId` counter |
-| `close` | `AAPP_ACTION=close AAPP_ISSUE_ID=<id> AAPP_COMMIT_SHA=<sha> AAPP_SUMMARY="<msg>" <entrypoint>` | Hands the closure to the tracker, exits 0 | Local archive is always completed first |
+**Input: JSON envelope on stdin** (`build_event_envelope` in `lib/hook_dispatcher.sh`, shared with hooks), plus the existing environment variables (`AAPP_ACTION`, `AAPP_REPO_ROOT`; on close `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA`, `AAPP_SUMMARY`):
 
-- **No `peek` action**: `aapp issue next` reads the local counter only, like `get_next_plan_id`; the counter is ratcheted on every provider allocation.
-- **`allocate`**: Plugin absence falls back to the local counter; plugin failure aborts allocation (fail closed), identical to `aapp-planid`.
-- **`close` is fire-and-forget**: Invoked once, after the local archive commit. Retry, queueing and later delivery are the plugin implementer's responsibility. A non-zero exit prints a warning and never blocks `close` or `aapp done` (registered in the Fallback Inventory).
-- Sample is a one-line delegation shim like `aapp-planid/run.sample`: `exec "${AAPP_ISSUE_CMD:-$HOME/.local/bin/aapp-issue-provider}" "$@"`.
-- Registered in `cmd_plugins_status()` in `lib/cmd_hook.sh` and in the `.agents/CODEMAP.md` §5 plugin registry table.
+```json
+{
+  "version": "1.0",
+  "event": "issue.close",
+  "timestamp": "2026-09-29T14:02:11Z",
+  "actor": "lorand",
+  "repository": {
+    "root": "/path/to/project",
+    "branch": "develop",
+    "remote": { "name": "origin", "url": "git@github.com:acme/app.git" }
+  },
+  "data": { "id": "#79", "commit": "e07811f", "summary": "…", "plan": "P-32" },
+  "extra": {}
+}
+```
+
+- `event`: `plan.allocate`, `issue.allocate`, `issue.close` (hooks keep their lifecycle event names).
+- `repository.remote`: from `aapp.remote` (default `origin`) via `git remote get-url`; credentials (`user:token@`) are stripped; `null` when no remote exists. Added to the shared envelope, so hooks receive it too.
+- `extra`: reserved object for arbitrary data, `{}` by default; the kit never interprets it.
+
+**Output: one JSON object on stdout; the exit code decides.**
+
+| Action | stdout | Exit |
+| :--- | :--- | :--- |
+| `plan.allocate` / `issue.allocate` | `{"id": "P-42"}` / `{"id": "#97"}` (a bare integer id is accepted) | 0 issued; non-zero refuses, no local fallback |
+| `issue.close` | `{"status": "accepted"}` or `{"status": "queued"}` | status is printed; non-zero only warns |
+| any failure | optional `{"error": "<text>"}` | non-zero; the error text is shown |
+
+- A response may carry `"extra": {…}`; the kit ignores it.
+- Only flat keys (`id`, `status`, `error`) are read, with a strict pattern and no `jq`. Missing or malformed `id` on allocate is rejected like a non-integer id today.
+- **`close` is fire-and-forget**: invoked once after the local archive commit; retry and delivery are the plugin's responsibility; must be idempotent.
+- **`allocate`**: plugin absence falls back to the local counter; plugin failure aborts (fail closed).
+- Samples stay one-line delegation shims: `examples/plugins/aapp-issue-tracker/run.sample` (`AAPP_ISSUE_TRACKER_CMD`) and `examples/plugins/aapp-planid/run.sample` (`AAPP_PLANID_CMD`); their headers document the payload.
+- Registered in `cmd_plugins_status()` and documented in `.agents/CODEMAP.md` §5 under a **Plugin Payload Standard** heading.
 
 ### 2.4 The Issue Lifecycle CLI Verb (`aapp issue`) & `aapp done` Integration
 
@@ -195,7 +221,7 @@ aapp issue [next | allocate | close <id> [sha <sha>] [summary "<text>"] | list [
    - Prunes matching `- [ ] #<id>` entry from `.plans/issues_road_map.md`.
    - Commits the three files via `plans_commit`.
    - Row already archived → skips the local move and only re-notifies the plugin. ID in neither ledger → error.
-   - If `aapp-issue` plugin is present, invokes with `AAPP_ACTION=close` (fire-and-forget, §2.3).
+   - If the `aapp-issue-tracker` plugin is present, sends `issue.close` (fire-and-forget, §2.3).
 4. **`aapp issue list [<n> | all]`**:
    - Displays active issues in roadmap priority order, reusing the status briefing's roadmap ordering so both views agree.
    - Capped at 20 by default; bare `<n>` sets the cap, `all` removes it (bare tokens, no `-n`). A truncated list ends with `… N more (aapp issue list all)`.
@@ -217,7 +243,7 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
-- **Fallback Inventory**: `aapp-issue` `close` failure → warning only; the local archive is authoritative and delivery is the plugin's responsibility.
+- **Fallback Inventory**: `aapp-issue-tracker` `close` failure → warning only; the local archive is authoritative and delivery is the plugin's responsibility.
 - Existing plans and functions calling `allocate_plan_id` or `get_next_plan_id` remain 100% binary- and signature-compatible.
 - Existing repositories and fresh clones seed `aapp.issueId` from their ledgers on the first `aapp issue allocate`; `aapp init` no longer writes it.
 - Zero duplicate issue IDs currently exist on `develop`; Pair 8 passes cleanly immediately.
@@ -244,8 +270,12 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 - [x] Task 3.4: Author contract specification in `lib/docs/verbs/issue.md`.
 
 ### Phase 4: Provider Plugin Contract & Extension Catalog
-- [x] Task 4.1: Author delegation shim `examples/plugins/aapp-issue/run.sample` (`AAPP_ISSUE_CMD`).
-- [x] Task 4.2: Register `aapp-issue` in `cmd_plugins_status()` in `lib/cmd_hook.sh` and the CODEMAP §5 registry.
+- [x] Task 4.1: Author delegation shim `examples/plugins/aapp-issue-tracker/run.sample` (`AAPP_ISSUE_TRACKER_CMD`).
+- [x] Task 4.2: Register `aapp-issue-tracker` in `cmd_plugins_status()` in `lib/cmd_hook.sh` and the CODEMAP §5 registry.
+- [ ] Task 4.3: Shared envelope gains `repository.remote` (credentials stripped) and `extra`; add `json_escape` in `lib/hook_dispatcher.sh`.
+- [ ] Task 4.4: Both allocators send the envelope and parse `{"id": …}`; `close` sends `issue.close` and reports `status` / `error`.
+- [ ] Task 4.5: Move `aapp-planid` to the payload standard (tests, sample header, MANUAL).
+- [ ] Task 4.6: CODEMAP §5 **Plugin Payload Standard** section.
 
 ### Phase 5: Pair 8 Duplicate Detection
 - [x] Task 5.1: Implement `check_pair8_issue_id_integrity` in `lib/planning_health.sh`.
@@ -269,9 +299,13 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 - [ ] `NEW FILE` -> `lib/cmd_issue.sh` -> Operational CLI switchboard for aapp issue.
 - [ ] `lib/verbs.tsv` -> Register issue verb in daily tier.
 - [ ] `NEW FILE` -> `lib/docs/verbs/issue.md` -> Verb behavior contract documentation.
-- [ ] `lib/cmd_hook.sh` -> Register aapp-issue in plugin extension status.
+- [ ] `lib/cmd_hook.sh` -> Register aapp-issue-tracker in plugin extension status.
+- [ ] `lib/hook_dispatcher.sh` -> Envelope `repository.remote` + `extra`; `json_escape`.
+- [ ] `tests/hooks_test.sh` -> Envelope carries remote (credentials stripped) and extra.
 - [ ] `lib/planning_health.sh` -> Implement and register check_pair8_issue_id_integrity.
-- [ ] `NEW FILE` -> `examples/plugins/aapp-issue/run.sample` -> Reference mock provider plugin.
+- [ ] `NEW FILE` -> `examples/plugins/aapp-issue-tracker/run.sample` -> Reference provider shim (replaces `examples/plugins/aapp-issue/`).
+- [ ] `examples/plugins/aapp-issue/run.sample` -> Removed (renamed).
+- [ ] `examples/plugins/aapp-planid/run.sample` -> Header documents the payload standard.
 - [ ] `tests/plan_resolver_test.sh` -> Test issue allocation, two-file seeding, ratchet, and Pair 8.
 - [ ] `NEW FILE` -> `tests/verbs/issue.sh` -> Contract test suite for aapp issue.
 - [ ] `MANUAL.md` -> Document aapp issue, aapp.issueId, provider contract, and Pair 8.
@@ -298,7 +332,7 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 ## ❓ 5. Open Questions & Settled Decisions
 
 * [x] **Question 1 — One shared counter or two independent ones? → RESOLVED (developer, 2026-09-22): two independent counters.** `#<num>` and `P-<num>` are distinct namespaces. `P-32` and `#32` may both exist.
-* [x] **Question 2 — Provider plugin naming & contract? → RESOLVED (developer, 2026-09-28; amended 2026-09-29): `aapp-issue` plugin mirroring `aapp-planid`.** Supports `allocate` (fail closed) and `close` (fire-and-forget; retry is the plugin's job). No `peek`.
+* [x] **Question 2 — Provider plugin naming & contract? → RESOLVED (developer, 2026-09-28; amended 2026-09-29): `aapp-issue` plugin mirroring `aapp-planid`.** Supports `allocate` (fail closed) and `close` (fire-and-forget; retry is the plugin's job). No `peek`. **Amended 2026-09-29:** renamed `aapp-issue-tracker`; all plugins share the Dual Delivery payload standard (§2.3), with `repository.remote` and a reserved `extra` object.
 * [x] **Question 3 — Does this plan include duplicate detection? → RESOLVED (developer, 2026-09-22; amended 2026-09-29): Yes, Pair 8, within-ledger only.** Pair 1 already reports cross-ledger collisions.
 * [x] **Question 5 — Non-blocking allocation when the provider is unreachable? → RESOLVED (developer, 2026-09-29): Out of scope; follow-up plan using plugin-reserved ID blocks (HiLo).** No temporary IDs, no renumbering, no push gate. `aapp.issueIdBlockSize` / `aapp.planIdBlockSize` (seeded `0` by `aapp init`, never overwritten; `0` = always blocking). The plugin owns the numbers: `AAPP_ACTION=reserve-id-block AAPP_BLOCK_SIZE=<n>` prints space-separated IDs, stored verbatim in `aapp.issueIdReserved` / `aapp.planIdReserved`; the kit never computes them. Provider reachable → normal allocate; when 3 or fewer reserved IDs remain, request a new block and append it. Provider down → take the first reserved ID. Down and list empty → refuse. P-32 builds the shared `_allocate_id` the follow-up extends.
 * [x] **Question 4 — CLI ingress & issue lifecycle scope? → RESOLVED (developer, 2026-09-28): Add `aapp issue` CLI verb with automated close delegation in `aapp done`.** Automates mechanical relocation and eliminates manual markdown surgery for both direct bugfixes and plan completions.
@@ -306,6 +340,7 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-29:** Plugin renamed `aapp-issue-tracker`; §2.3 rewritten as the shared plugin payload standard (JSON envelope on stdin with `repository.remote` and reserved `extra`, JSON object on stdout); `aapp-planid` moves to it (clean break).
 * **2026-09-29:** Plan activated into ⚡ In Development via start.
 * **2026-09-29:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-09-29:** §2.2 seeding moved from `aapp init` to first use: config is not cloned and clones never run init. Template rows skipped; no ledgers and no provider refuses. Proven by `test_clone_first_allocate_continues_ledgers` and `test_no_ledgers_without_provider_refuses`.
