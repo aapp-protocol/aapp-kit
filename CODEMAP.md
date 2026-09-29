@@ -86,7 +86,7 @@
   * `get_next_plan_id()` -> **Read-only peek** at the next Plan ID from the `aapp.planId` counter. Never mutates; claims nothing.
   * `allocate_plan_id()` -> **Claims** a Plan ID and persists the increment. Delegates to an optional `aapp-planid` provider plugin (`.agents/skills/aapp-planid/`); only plugin *absence* falls back to the local counter, a present-but-failing provider is fatal.
   * `normalize_plan_id(raw)` -> Accepts `P-42` or bare `42`; anything not a plain integer is an error.
-  * `get_next_issue_id()` / `allocate_issue_id()` -> Same contract for issue IDs (`#<n>`, `aapp.issueId`, optional `aapp-issue` provider). Both ID kinds share `_next_id` / `_allocate_id` / `_normalize_id` (P-32).
+  * `get_next_issue_id()` / `allocate_issue_id()` -> Same contract for issue IDs (`#<n>`, `aapp.issueId`, optional `aapp-issue` provider), except an unset counter is seeded on first use by `seed_issue_id` (both ledgers, template rows skipped; no ledgers and no provider refuses). Both ID kinds share `_next_id` / `_allocate_id` / `_normalize_id` (P-32).
   * `verify_transition_target(cmd, target)` -> Rejects empty queries and `#`-prefixed issue collisions.
 * **Anti-Wrapper Warning:** Do not parse plan filenames using raw ad-hoc `grep` or `cut`; use `resolve_plan_path`.
 * **Allocation Warning:** Plan IDs are **stored, not derived**. Never reconstruct an ID by scanning filenames or the archive ledger — that approach was removed (issue `#69`). Use `allocate_plan_id` to claim, `get_next_plan_id` to display.
