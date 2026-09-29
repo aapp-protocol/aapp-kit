@@ -31,12 +31,12 @@ When protocol invariants, status enums, or planning schemas evolve in the upstre
 Conversely, naively overwriting files would destroy bespoke project particulars (e.g. project-specific checklists, custom rules, architectural designs, and active issue rows).
 
 ### Architectural Goal
-Replace monolithic `copy_guarded` with a **Three-Tier Document Governance Model**:
+Replace monolithic `copy_guarded` with a **Three-Tier Document Governance Model** integrated directly into `aapp init`:
 1. **Tier 1 (Pure Engine Templates)**: Scaffold assets (`plan-template.md`, `release_checklist.md`, `000-archive-ledger.md`) kept synchronized with canonical protocol invariants.
-2. **Tier 2 (Hybrid Documents)**: Protocol blocks synchronized within strict HTML delimiter boundaries (`<!-- AAPP-*:START -->` ... `<!-- AAPP-*:END -->`), preserving surrounding project-specific prose.
+2. **Tier 2 (Hybrid Documents)**: Protocol blocks synchronized within strict HTML delimiter boundaries (`<!-- AAPP-PROTOCOL:START -->` ... `<!-- AAPP-PROTOCOL:END -->`), preserving surrounding project-specific prose and brainstormed ideas.
 3. **Tier 3 (Pure Project Data)**: Live ledgers and project-owned documents (`ISSUES.md`, `state_matrix.md`, `CODEMAP.md`, `PROJECT.MD`, `ARCHITECTURE.md`) initialized once, never overwritten by template sync. `CODEMAP.md` and `PROJECT.MD` are never touched by the kit if present — on `init`, `upgrade` or any sync; their templates are guidance for new projects only.
 
-Provide a configurable Git switchboard (`aapp.templateSync = safe | strict | manual`), an explicit CLI sync verb (`aapp sync-templates`), and template drift detection integrated into `aapp status`.
+Provide a configurable Git switchboard (`aapp.templateSync = safe | strict | manual`), consolidate template synchronization directly into `aapp init` (avoiding redundant standalone CLI verbs), and integrate template drift detection into `aapp status` that directs developers to run `aapp init`.
 
 ---
 
@@ -52,7 +52,7 @@ Provide a configurable Git switchboard (`aapp.templateSync = safe | strict | man
 | Tier | Classification | Files | Synchronization Strategy |
 | :--- | :--- | :--- | :--- |
 | **Tier 1** | Pure Reusable Template | `.plans/plan-template.md`<br>`.plans/release/release_checklist.md`<br>`.plans/done/000-archive-ledger.md` | Standard protocol sync. If file matches known upstream release hash or is unmodified, update cleanly. If modified, update delimited invariants block or produce `.new` diff for review. |
-| **Tier 2** | Hybrid Governance Document | `.agents/AGENTS.md`<br>`.plans/pickup.md` | Delimited Block Sync (`<!-- AAPP-PROTOCOL:START -->`). Core protocol block upgraded in-place; all surrounding custom rules/tasks preserved. |
+| **Tier 2** | Hybrid Governance Document | `.agents/AGENTS.md`<br>`.plans/pickup.md` | Delimited Block Sync (`<!-- AAPP-PROTOCOL:START -->`). Core protocol block upgraded in-place; all surrounding custom rules/tasks/ideas preserved. |
 | **Tier 3** | Pure Project Domain Data | `.plans/ISSUES.md`<br>`.plans/state_matrix.md`<br>`.plans/issues_road_map.md`<br>`.agents/CODEMAP.md`<br>`.agents/PROJECT.MD`<br>`ARCHITECTURE.md` | Seeded on initial install only (`copy_guarded`). Never overwritten during template sync. `CODEMAP.md` and `PROJECT.MD` are never touched if present, in any sync mode. |
 
 ### 2.2 Delimiter Protocol & Marker Standard
@@ -60,7 +60,7 @@ Hybrid and template files adopt standard HTML delimiter comments:
 
 ```markdown
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
-<!-- DO NOT EDIT THIS BLOCK DIRECTLY - MANAGED BY AAPP. CUSTOMIZATIONS GO OUTSIDE. -->
+<!-- DO NOT EDIT THIS BLOCK DIRECTLY - MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 ... standard protocol text ...
 <!-- AAPP-PROTOCOL:END -->
 ```
@@ -74,19 +74,19 @@ The synchronizer:
 
 Configurable via `git config aapp.templateSync <mode>`:
 
-- **`safe` (Default)**: Automatically synchronizes Tier 1 templates and Tier 2 delimited blocks when canonical templates change. Never modifies Tier 3 files.
-- **`strict`**: Enforces strict conformance. Replaces Tier 1 templates and Tier 2 blocks; warns if user modifications conflict with core invariants.
-- **`manual`**: Preserves existing files untouched; reports drift advisory in `aapp status`.
+- **`safe` (Default)**: Automatically synchronizes Tier 1 templates and Tier 2 delimited blocks when `aapp init` runs. Never modifies Tier 3 files.
+- **`strict`**: Enforces strict conformance during `aapp init`. Replaces Tier 1 templates and Tier 2 blocks; warns if user modifications conflict with core invariants.
+- **`manual`**: Preserves existing files untouched during `aapp init`; reports drift advisory in `aapp status`.
 
-### 2.4 CLI Interface & Status Integration
-- `aapp sync-templates`: Explicit CLI command to audit and synchronize all template-derived files across active worktrees.
+### 2.4 Idempotent Init & Status Integration
+- `aapp init`: Canonical idempotent command to initialize or update repository worktrees, githooks, and template-derived files across active worktrees.
 - `aapp status`: Reports a "Templates" health indicator in the context recovery briefing:
   ```text
   📑 Templates:  All worktree templates synced (v1.0.0)
   ```
   Or, if drift is detected:
   ```text
-  📑 Templates:  1 template drifted (.plans/plan-template.md carries retired enum) -> run 'aapp sync-templates'
+  📑 Templates:  1 template drifted (.plans/plan-template.md carries retired enum) -> run 'aapp init'
   ```
 
 ---
@@ -94,30 +94,30 @@ Configurable via `git config aapp.templateSync <mode>`:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 - [ ] **Phase 1: Marker Standardization in Templates**
-  - [ ] Standardize `templates/plan-template.md` with delimited invariants block (`<!-- AAPP-INVARIANTS:START -->`).
-  - [ ] Standardize `templates/release_checklist.md` with delimited protocol markers.
-  - [ ] Ensure `templates/AGENTS.md` and `templates/plan-template.md` use uniform version stamps.
+  - [ ] Standardize `templates/plan-template.md` with delimited protocol block (`<!-- AAPP-PROTOCOL:START v1.0.0 -->`).
+  - [ ] Standardize `templates/release_checklist.md` with delimited protocol markers (`<!-- AAPP-PROTOCOL:START v1.0.0 -->`).
+  - [ ] Standardize `templates/pickup.md` header instructions with delimited protocol markers (`<!-- AAPP-PROTOCOL:START v1.0.0 -->`).
+  - [ ] Ensure `templates/AGENTS.md`, `templates/plan-template.md`, and `templates/pickup.md` use uniform version stamps.
 
-- [ ] **Phase 2: Template Sync Engine (`lib/cmd_sync_templates.sh`)**
+- [ ] **Phase 2: Tiered Template Sync Engine (`lib/template_sync.sh` or `lib/cmd_init.sh`)**
   - [ ] Implement `sync_tier1_template(src, dest, mode)`.
-  - [ ] Implement `sync_tier2_hybrid(src, dest, marker_prefix)`.
+  - [ ] Implement `sync_tier2_hybrid(src, dest)`.
   - [ ] Add SHA256 checksum comparison to skip identical files.
   - [ ] Implement `aapp.templateSync` configuration resolution (`safe` default).
 
-- [ ] **Phase 3: CLI Wiring & Init Integration**
-  - [ ] Wire `sync-templates` into `aapp` router and `lib/cmd_help.sh`.
+- [ ] **Phase 3: Init & Upgrade Integration**
   - [ ] Refactor `lib/cmd_init.sh` to use the tiered sync engine instead of raw `copy_guarded`.
-  - [ ] Update `lib/cmd_upgrade.sh` to invoke `sync-templates` after pulling kit updates.
+  - [ ] Update `lib/cmd_upgrade.sh` post-upgrade notice to direct users to `aapp init`.
 
 - [ ] **Phase 4: Status Briefing Integration**
-  - [ ] Add template drift probe in `lib/cmd_status.sh`.
-  - [ ] Surface concise 1-line advisory when templates carry stale status enums or missing fields.
+  - [ ] Add fast template drift probe in `lib/cmd_status.sh` (inspecting version tags in `.agents/AGENTS.md` and `.plans/plan-template.md`).
+  - [ ] Surface concise 1-line advisory pointing to `aapp init` when templates carry stale status enums or missing fields.
 
 - [ ] **Phase 5: Automated Regression Test Suite**
   - [ ] Create `tests/template_sync_test.sh` covering:
     - Tier 1 clean upgrade and checksum drift.
-    - Tier 2 delimited block in-place update preserving external user prose.
-    - Tier 3 project data isolation (never overwritten).
+    - Tier 2 delimited block in-place update preserving external user prose and ideas.
+    - Tier 3 project data isolation (never overwritten; `CODEMAP.md` and `.agents/PROJECT.MD` untouched).
     - Unclosed delimiter safety abort (no file corruption).
     - Git config mode switches (`safe`, `strict`, `manual`).
 
@@ -126,17 +126,13 @@ Configurable via `git config aapp.templateSync <mode>`:
 ## 🛡️ 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `lib/cmd_sync_templates.sh` -> New template sync engine module
-- [ ] `lib/cmd_init.sh` -> Refactor template provisioning to tiered sync
-- [ ] `lib/cmd_upgrade.sh` -> Trigger template sync on upgrade
-- [ ] `lib/cmd_status.sh` -> Integrate template drift health check
-- [ ] `lib/verbs.tsv` -> Register sync-templates verb in tiered manifest
-- [ ] `aapp` -> Wire sync-templates CLI command
-- [ ] `templates/plan-template.md` -> Add delimited invariants block
-- [ ] `templates/release_checklist.md` -> Add delimited invariants block
-- [ ] `tests/template_sync_test.sh` -> Automated regression test suite
-- [ ] `MANUAL.md` -> Document template sync and configuration
-- [ ] `CHEATSHEET.md` -> Update command matrix with sync-templates verb
+- [ ] `lib/cmd_init.sh` -> Refactor template provisioning to tiered sync engine
+- [ ] `lib/cmd_status.sh` -> Integrate fast template drift health check
+- [ ] `templates/plan-template.md` -> Add delimited protocol block
+- [ ] `templates/release_checklist.md` -> Add delimited protocol block
+- [ ] `templates/pickup.md` -> Add delimited protocol block around instructions header
+- [ ] `tests/template_sync_test.sh` -> Automated regression test suite for tiered sync
+- [ ] `MANUAL.md` -> Document tiered template governance and `aapp.templateSync` config
 - [ ] `ARCHITECTURE.md` -> Update architecture map with tiered template governance
 - [ ] `CHANGELOG.md` -> Document template sync engine in changelog
 
@@ -152,15 +148,18 @@ Configurable via `git config aapp.templateSync <mode>`:
 
 1. **Conflict Resolution on Modified Tier 1 Templates**: When a user heavily customizes `.plans/plan-template.md` (without delimiters) and AAPP upgrades:
    - **Decision**: **Option A in `safe` mode, Option B with delimiters (Adopted Recommendation)**. If delimiter markers are present, update strictly between markers (Option B). If markers are absent and the template has diverged from upstream, write a `.plans/plan-template.md.new` buffer and emit an advisory so user customizations are never silently overwritten (Option A).
-2. **Sync Scope during `aapp init`**: Should `aapp init` always run `sync-templates` automatically in `safe` mode, or only when explicitly requested?
-   - **Decision**: **Automatic in `safe` mode (Adopted Recommendation)**. `aapp init` and `aapp upgrade` invoke template synchronization automatically in `safe` mode so developers maintain synchronized invariants without manual command invocations.
+2. **Sync Scope during `aapp init`**: Should `aapp init` always run template synchronization automatically in `safe` mode, or only when explicitly requested?
+   - **Decision**: **Automatic in `safe` mode (Adopted Recommendation)**. `aapp init` invokes template synchronization automatically in `safe` mode so developers maintain synchronized invariants without manual command invocations.
 3. **Template Version Stamping**: Should each template file carry an internal schema version (`v1.0.0`) in its marker tag?
    - **Decision**: **Yes, Uniform Schema Versioning (Adopted Recommendation)**. Delimiters standardize on `<!-- AAPP-PROTOCOL:START vX.Y.Z -->` matching `templates/AGENTS.md`.
+4. **Standalone CLI Verb vs `aapp init` Integration**: Should template sync be an extra CLI command (`aapp sync-templates`) or integrated directly into `aapp init`?
+   - **Decision**: **Integrated into `aapp init` (Adopted Recommendation)**. `aapp init` is already the documented, canonical verb for initializing and updating repositories (`init worktrees and update protocol`). Adding an extra CLI command creates unnecessary interface bloat and splits update responsibility across two commands. Template synchronization is executed as an idempotent phase of `aapp init`, and `aapp status` directs drifted repositories to run `aapp init`.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-09-29 (Refinement):** Removed proposed `aapp sync-templates` standalone CLI verb in favor of consolidating tiered synchronization directly into `aapp init`. Standardized delimiter marker taxonomy to uniform `<!-- AAPP-PROTOCOL:START vX.Y.Z -->`, added `templates/pickup.md` to Target Files for header delimiter protection, and updated `aapp status` drift advisory to recommend `aapp init`.
 * **2026-09-29 (Refinement):** Added `.agents/PROJECT.MD` to Tier 3, which listed no tier for it. Made explicit that `CODEMAP.md` and `PROJECT.MD` are project-owned: never touched by the kit if present, in any mode; templates are guidance only (user direction).
 * **2026-09-22 (Refinement):** Settled all Open Questions with recommended answers: (1) adopted hybrid Option A (.new buffer) / Option B (in-place delimiter update) conflict resolution, (2) adopted automatic safe sync during `aapp init` and `aapp upgrade`, and (3) adopted uniform `vX.Y.Z` schema version stamping. Updated Target Files to include `lib/verbs.tsv`, `CHEATSHEET.md`, and `CHANGELOG.md`.
 * **2026-09-21:** Drafted initial canonical blueprint P-25 from issue #73 analysis. Established 3-tier document governance model, HTML delimiter standard, and git config switchboard.
