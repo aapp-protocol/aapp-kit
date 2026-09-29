@@ -21,7 +21,7 @@
 1. #49 -> `aapp upgrade` clones default branch, but `main` is 13 commits behind `develop` and carries pre-fix guard; upgrades downgrade Layer 1.
 
 ## 🟡 Medium Priority (Upcoming Iterations)
-1. #76 -> Unbounded changelog bullet length and commit body verbosity cause context briefing blowup and git log bloat. 🔵 Planned under [P-28](current/P28-conciseness-enforcement-and-changelog-governance.md).
+*(No medium priority issues)*
 
 ## 🟢 Low Priority (Test Infrastructure & Verification)
 - [ ] #63 -> No CI runs test suites (102 test cases) and no release gate blocks publishing `main` trailing `develop`.
