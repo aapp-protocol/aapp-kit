@@ -5,7 +5,7 @@
 * **Plan ID:** P-32
 * **Status:** ⚡ In Development
 * **Base:** `88aae65` (develop)
-* **Commits:** none
+* **Commits:** `e295a83` (develop)
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -243,36 +243,36 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Shared Allocation Core
-- [ ] Task 1.1: Extract `_allocate_id` and `_normalize_id` in `lib/plan_resolver.sh` using P-33 fail-closed root resolution.
-- [ ] Task 1.2: Refactor `allocate_plan_id`, `normalize_plan_id`, and `get_next_plan_id` to delegate to the shared core.
-- [ ] Task 1.3: Implement `allocate_issue_id` and `get_next_issue_id`.
-- [ ] Task 1.4: Verify `tests/plan_resolver_test.sh` passes with zero regressions to plan ID allocation.
+- [x] Task 1.1: Extract `_allocate_id` and `_normalize_id` in `lib/plan_resolver.sh` using P-33 fail-closed root resolution.
+- [x] Task 1.2: Refactor `allocate_plan_id`, `normalize_plan_id`, and `get_next_plan_id` to delegate to the shared core.
+- [x] Task 1.3: Implement `allocate_issue_id` and `get_next_issue_id`.
+- [x] Task 1.4: Verify `tests/plan_resolver_test.sh` passes with zero regressions to plan ID allocation.
 
 ### Phase 2: Two-File Seeding & Init Banner
-- [ ] Task 2.1: Implement `seed_issue_id` in `lib/cmd_init.sh` scanning `ISSUES.md` and `done/000-issues-archive.md`.
-- [ ] Task 2.2: Wire `aapp.issueId` bootstrap into `lib/cmd_init.sh` beside `seed_plan_id` (`:507-511`).
-- [ ] Task 2.3: Surface `Next issue ID: #<id>` in `lib/cmd_init.sh` completion banner (`:776`).
+- [x] Task 2.1: Implement `seed_issue_id` in `lib/cmd_init.sh` scanning `ISSUES.md` and `done/000-issues-archive.md`.
+- [x] Task 2.2: Wire `aapp.issueId` bootstrap into `lib/cmd_init.sh` beside `seed_plan_id` (`:507-511`).
+- [x] Task 2.3: Surface `Next issue ID: #<id>` in `lib/cmd_init.sh` completion banner (`:776`).
 
 ### Phase 3: Issue Lifecycle CLI Verb (`aapp issue`) & `aapp done`
-- [ ] Task 3.1: Implement `lib/cmd_issue.sh` supporting `next`, `allocate`, `close <#id> [sha] [summary]`, and `list`.
-- [ ] Task 3.2: Register `issue` in `lib/verbs.tsv` and dispatch from `aapp`.
-- [ ] Task 3.3: Wire `cmd_done` in `lib/cmd_plan.sh` to automatically call `cmd_issue_close` when `target_issue` matches `#<id>`.
-- [ ] Task 3.4: Author contract specification in `lib/docs/verbs/issue.md`.
+- [x] Task 3.1: Implement `lib/cmd_issue.sh` supporting `next`, `allocate`, `close <#id> [sha] [summary]`, and `list`.
+- [x] Task 3.2: Register `issue` in `lib/verbs.tsv` and dispatch from `aapp`.
+- [x] Task 3.3: Wire `cmd_done` in `lib/cmd_plan.sh` to automatically call `cmd_issue_close` when `target_issue` matches `#<id>`.
+- [x] Task 3.4: Author contract specification in `lib/docs/verbs/issue.md`.
 
 ### Phase 4: Provider Plugin Contract & Extension Catalog
-- [ ] Task 4.1: Author delegation shim `examples/plugins/aapp-issue/run.sample` (`AAPP_ISSUE_CMD`).
-- [ ] Task 4.2: Register `aapp-issue` in `cmd_plugins_status()` in `lib/cmd_hook.sh` and the CODEMAP §5 registry.
+- [x] Task 4.1: Author delegation shim `examples/plugins/aapp-issue/run.sample` (`AAPP_ISSUE_CMD`).
+- [x] Task 4.2: Register `aapp-issue` in `cmd_plugins_status()` in `lib/cmd_hook.sh` and the CODEMAP §5 registry.
 
 ### Phase 5: Pair 8 Duplicate Detection
-- [ ] Task 5.1: Implement `check_pair8_issue_id_integrity` in `lib/planning_health.sh`.
-- [ ] Task 5.2: Register Pair 8 in `check_planning_health` following Pair 7.
+- [x] Task 5.1: Implement `check_pair8_issue_id_integrity` in `lib/planning_health.sh`.
+- [x] Task 5.2: Register Pair 8 in `check_planning_health` following Pair 7.
 
 ### Phase 6: Verification, Tests & Documentation
-- [ ] Task 6.1: Author contract test suite `tests/verbs/issue.sh` covering `next`, `allocate`, and `close`.
-- [ ] Task 6.2: Add unit tests in `tests/plan_resolver_test.sh` covering issue allocation, provider ratchet, and Pair 8.
-- [ ] Task 6.3: Run full test runner (`./aapp test strict quiet`) ensuring all test suites pass.
-- [ ] Task 6.4: Update `MANUAL.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, `.agents/CODEMAP.md`, and `.agents/AGENTS.md`.
-- [ ] Task 6.5: Update `CHANGELOG.md` under `## [Unreleased]`.
+- [x] Task 6.1: Author contract test suite `tests/verbs/issue.sh` covering `next`, `allocate`, and `close`.
+- [x] Task 6.2: Add unit tests in `tests/plan_resolver_test.sh` covering issue allocation, provider ratchet, and Pair 8.
+- [x] Task 6.3: Run full test runner (`./aapp test strict quiet`) ensuring all test suites pass.
+- [x] Task 6.4: Update `MANUAL.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, `.agents/CODEMAP.md`, and `.agents/AGENTS.md`.
+- [x] Task 6.5: Update `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
