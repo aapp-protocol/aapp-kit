@@ -56,7 +56,11 @@ hello-tool	Custom CLI Showcase	-	-	examples/plugins/hello-tool/run.sample
 - Missing or unreadable `plugins.tsv` → exit 1 with a clear diagnostic (fail closed).
 - Output stays identical for the current two plugins.
 
-### 2.3 Out of scope
+### 2.3 Not the hooks registry
+
+`.agents/skills/aapp-hooks/registry.tsv` is adopter-owned (seeded from `templates/skills/`, SHA-locked handlers per event, guard self-protected). `lib/plugins.tsv` is kit-owned and changes only with kit releases. Do not merge them: a kit catalog inside adopter copies would go stale every release (the #73 / P-25 problem). Reuse only its conventions: comment-header schema, tab-separated columns, and the row-parsing approach in `lib/cmd_hook.sh:55`.
+
+### 2.4 Out of scope
 
 - `lib/plan_resolver.sh` keeps its literal `aapp-planid`: the allocator passes a constant, and a file lookup would only add a failure path. A registry test (§3) guarantees the literal has a row.
 
@@ -112,4 +116,5 @@ hello-tool	Custom CLI Showcase	-	-	examples/plugins/hello-tool/run.sample
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-09-29:** §2.3 added: separation from the hooks registry.
 * **2026-09-29:** Plan initialized from issue #94 (~60-80 lines; above the <10-line small-fix threshold).
