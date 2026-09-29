@@ -2,7 +2,7 @@
 * **Created:** 2026-09-21 | **Last Refined:** 2026-09-21
 * **Target Issue / Milestone:** #76
 * **Plan ID:** P-28
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -165,6 +165,7 @@ In `templates/AGENTS.md` and `.agents/AGENTS.md`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-29:** Plan locked and frozen into 🔷 Frozen via freeze.
 
 - **2026-09-21**: Initial draft of Plan P-28 created to address Issue #76, establishing mechanical conciseness gates in `pre-commit` and `commit-msg`, agent invariants in `AGENTS.md`, and remediation of `CHANGELOG.md`.
 - **2026-09-29**: Refined §2.2 with Single-Line Bullet Invariant (blocking unbulleted continuation lines), refined §2.3 with commit line width ceilings (`aapp.commitLineMaxLen`), line 2 blank invariant, and revert exemption ordering.
