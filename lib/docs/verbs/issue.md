@@ -11,7 +11,7 @@
     - `sha <sha>`: commit recorded in the archive row (default: `HEAD` of the repository, short)
     - `summary "<text>"`: resolution summary (default: `Direct fix (no plan): <Target Plan / Fix cell>`); `|` is escaped
 - list cap: bare `<n>` sets it, `all` removes it; default 20
-- reads config: `aapp.issueId` (next ID to hand out; read by `next`, advanced by `allocate`)
+- reads config: `aapp.issueId` (next ID to hand out; read by `next`, advanced by `allocate`); when unset (always in a fresh clone), seeded from both ledgers on first use, template example rows ignored
 - reads: `.plans/ISSUES.md`, `.plans/done/000-issues-archive.md`, `.plans/issues_road_map.md`
 - plugin: an installed `aapp-issue` provider (`.agents/skills/aapp-issue/`) serves `AAPP_ACTION=allocate` and receives `AAPP_ACTION=close` with `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA`, `AAPP_SUMMARY`
 
@@ -19,7 +19,8 @@
 - Inside a Git repository whose `.plans/` worktree exists
 
 ## Failure modes
-- `aapp.issueId` set but not an integer -> `next` and `allocate` exit 1, stderr `aapp.issueId is not an integer`; the key is left untouched
+- `aapp.issueId` set but not an integer -> `next` and `allocate` exit 1, stderr `aapp.issueId is not an integer` naming `git config --unset aapp.issueId`; the key is left untouched
+- `aapp.issueId` unset, no ledger files, no provider -> `next` and `allocate` exit 1, stderr names the `aapp-issue` provider; nothing is written
 - installed provider exits non-zero on `allocate` -> exit 1, stderr `Provider plugin failed; refusing to allocate locally`; no local fallback
 - provider prints a non-integer id -> exit 1, stderr `Provider must return an integer id`
 - `close` without an id -> exit 1, usage on stderr
@@ -30,7 +31,8 @@
 - `list` with a cap that is neither a number nor `all` -> exit 1, usage on stderr
 
 ## Effects (happy path)
-- `next`: prints `Next available issue ID: #<n>`; `aapp.issueId` unchanged
+- `next`: prints `Next available issue ID: #<n>`; `aapp.issueId` unchanged (an unset counter stays unset)
+- first `allocate` with an unset counter: `#<highest ledger ID + 1>`, or `#1` in a new project
 - `allocate`: prints `#<n>`; `aapp.issueId` becomes `<n>+1`, or the provider's id plus one when a provider issued a higher id
 - `close`:
     - the row leaves `.plans/ISSUES.md` and is inserted at the top of `.plans/done/000-issues-archive.md` as `| #<n> | Sev | Type | Date Opened | <today> | \`<sha>\` | <summary> |`
@@ -61,3 +63,7 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.sh::test_list_cap_tokens` -> `<n>` and `all` set the cap; `-n` is refused
 - `tests/verbs/issue.sh::test_done_closes_target_issue` -> `aapp done` archives its Target Issue in the same commit
 - `tests/verbs/issue.sh::test_done_refuses_dangling_target_issue` -> a Target Issue in neither ledger refuses `done`
+- `tests/verbs/issue.sh::test_new_project_first_issue_is_1` -> template ledgers only: the first issue is `#1`
+- `tests/verbs/issue.sh::test_clone_first_allocate_continues_ledgers` -> unset counter continues from the ledgers; `next` writes nothing
+- `tests/verbs/issue.sh::test_no_ledgers_without_provider_refuses` -> no ledgers and no provider refuses, never `#1`
+- `tests/verbs/issue.sh::test_no_ledgers_with_provider_allocates` -> no ledgers but a provider: the provider issues the ID

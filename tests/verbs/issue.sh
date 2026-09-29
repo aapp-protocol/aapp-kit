@@ -59,9 +59,10 @@ else
 fi
 
 git config aapp.issueId abc
-aapp issue allocate >/dev/null 2>&1; rc1=$?
+out="$(aapp issue allocate 2>&1)"; rc1=$?
 aapp issue next >/dev/null 2>&1; rc2=$?
-if [ "$rc1" -ne 0 ] && [ "$rc2" -ne 0 ] && [ "$(git config aapp.issueId)" = "abc" ]; then
+if [ "$rc1" -ne 0 ] && [ "$rc2" -ne 0 ] && [ "$(git config aapp.issueId)" = "abc" ] && \
+   echo "$out" | grep -qF "git config --unset aapp.issueId"; then
   ok "test_non_integer_counter_fails_closed"
 else
   bad "test_non_integer_counter_fails_closed" "rc1=$rc1 rc2=$rc2"
@@ -183,6 +184,64 @@ if [ "$rc" -ne 0 ] && [ -f "$f" ] && echo "$out" | grep -q 'Target issue #77 is 
   ok "test_done_refuses_dangling_target_issue"
 else
   bad "test_done_refuses_dangling_target_issue" "rc=$rc"
+fi
+
+echo "== first use without a counter (config is not cloned) =="
+# New project: init installs the template ledgers; the first issue is #1.
+init_sandbox_project "$R/new"
+cd "$R/new" || exit 1
+git config --unset aapp.issueId 2>/dev/null
+out1="$(aapp issue next 2>&1)"; out2="$(aapp issue allocate 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && echo "$out1" | grep -q '#1$' && [ "$out2" = "#1" ] && [ "$(git config aapp.issueId)" = "2" ]; then
+  ok "test_new_project_first_issue_is_1"
+else
+  bad "test_new_project_first_issue_is_1" "rc=$rc next=$out1 alloc=$out2"
+fi
+
+# Clone: ledgers arrive with real rows, the counter does not.
+init_sandbox_project "$R/clone"
+cd "$R/clone" || exit 1
+cat > .plans/ISSUES.md <<'EOF'
+| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #3 | `Low` | `CLI` | 2026-09-01 | `a.sh` | Open. | Fix. | 🟡 `Incubated` |
+EOF
+cat > .plans/done/000-issues-archive.md <<'EOF'
+| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #7 | `Low` | `CLI` | 2026-08-01 | 2026-08-02 | `0000000` | Closed. |
+EOF
+git config --unset aapp.issueId 2>/dev/null
+out1="$(aapp issue next 2>&1)"; unset_after_peek="$(git config --get aapp.issueId || echo unset)"
+out2="$(aapp issue allocate 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && echo "$out1" | grep -q '#8$' && [ "$unset_after_peek" = "unset" ] && \
+   [ "$out2" = "#8" ] && [ "$(git config aapp.issueId)" = "9" ]; then
+  ok "test_clone_first_allocate_continues_ledgers"
+else
+  bad "test_clone_first_allocate_continues_ledgers" "rc=$rc next=$out1 peek_left=$unset_after_peek alloc=$out2"
+fi
+
+# Remote-authority clone: no ledger files and no provider -> refuse, never #1.
+rm -f .plans/ISSUES.md .plans/done/000-issues-archive.md
+git config --unset aapp.issueId 2>/dev/null
+out1="$(aapp issue next 2>&1)"; rc1=$?
+out2="$(aapp issue allocate 2>&1)"; rc2=$?
+if [ "$rc1" -ne 0 ] && [ "$rc2" -ne 0 ] && echo "$out2" | grep -q 'aapp-issue' && \
+   [ -z "$(git config --get aapp.issueId)" ]; then
+  ok "test_no_ledgers_without_provider_refuses"
+else
+  bad "test_no_ledgers_without_provider_refuses" "rc1=$rc1 rc2=$rc2 out=$out2"
+fi
+
+# Same clone once the team provider is installed: the provider issues the id.
+mkdir -p .agents/skills/aapp-issue
+printf '#!/bin/sh\n[ "$AAPP_ACTION" = allocate ] && echo "#120"\n' > .agents/skills/aapp-issue/run
+chmod +x .agents/skills/aapp-issue/run
+out="$(aapp issue allocate 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && [ "$out" = "#120" ]; then
+  ok "test_no_ledgers_with_provider_allocates"
+else
+  bad "test_no_ledgers_with_provider_allocates" "rc=$rc out=$out"
 fi
 
 print_test_summary "$PASS" "$FAIL"

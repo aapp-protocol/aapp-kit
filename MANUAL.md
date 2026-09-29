@@ -1310,7 +1310,7 @@ AAPP defines the contract above and nothing more. It does **not** inspect, valid
 
 ### Issue IDs & Lifecycle (`aapp issue`, `aapp.issueId`) & the `aapp-issue` Provider
 
-Issue IDs work like Plan IDs: `aapp.issueId` stores the next id, independent of `aapp.planId` (`#32` and `P-32` may both exist). `aapp init` seeds it from **both** `ISSUES.md` and `done/000-issues-archive.md`, because the active ledger is priority-ordered and resolved rows live in the archive.
+Issue IDs work like Plan IDs: `aapp.issueId` stores the next id, independent of `aapp.planId` (`#32` and `P-32` may both exist). Git config is not cloned, so the counter is seeded on **first use** in each clone: when `aapp.issueId` is unset, `aapp issue allocate` continues from the highest ID in **both** `ISSUES.md` and `done/000-issues-archive.md` (the active ledger is priority-ordered and resolved rows live in the archive). Template example rows are ignored, so a new project starts at `#1`. With no ledger files and no provider, allocation refuses: the IDs belong to a remote authority whose `aapp-issue` provider is not installed.
 
 ```bash
 aapp issue                    # peek the next issue ID (claims nothing)
@@ -1697,7 +1697,7 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | Setting Key | Type / Enum | Default | Subsystem | Purpose & Behavior |
 | :--- | :--- | :--- | :--- | :--- |
 | `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
-| `aapp.issueId` | integer | `1` | Core / Lifecycle | Monotonic issue ID counter (claimed via `aapp issue allocate`; seeded from both issue ledgers). |
+| `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | Monotonic issue ID counter (claimed via `aapp issue allocate`; seeded from both issue ledgers on first use). |
 | `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
 | `aapp.aiAttribution` | `none` / `commit` / `notes` | `none` | AI Attribution | Attribution mode (emailless semantic trailers vs. git notes vs. human). |
 | `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
@@ -1718,7 +1718,7 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 
 ### Lifecycle & Core Engine Settings
 - **`aapp.planId`**: The monotonic counter for allocating Plan IDs (`P-1`, `P-2`, etc.). Seeded on `aapp init` and incremented atomically during `aapp draft`.
-- **`aapp.issueId`**: The independent counter for issue IDs (`#1`, `#2`, etc.). Seeded on `aapp init` from `ISSUES.md` and the archive; advanced by `aapp issue allocate`.
+- **`aapp.issueId`**: The independent counter for issue IDs (`#1`, `#2`, etc.). Unset until the first `aapp issue allocate`, which seeds it from `ISSUES.md` and the archive (config is not cloned); advanced by each allocation.
 - **`aapp.subjectMaxLen`**: Commit message subject line conciseness ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 72 chars).
 - **`aapp.commitLineMaxLen`**: Commit message body line width ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 100 chars; URLs exempt).
 - **`aapp.bodyMaxLen`**: Commit message body character ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 1200 chars).

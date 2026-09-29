@@ -110,7 +110,7 @@ AAPP controls repository behavior via standard Git configuration:
 | Setting Key | Type / Enum | Default | Subsystem | Purpose & Behavior |
 | :--- | :--- | :--- | :--- | :--- |
 | `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
-| `aapp.issueId` | integer | `1` | Core / Lifecycle | Monotonic issue ID counter (claimed via `aapp issue allocate`; seeded from both issue ledgers). |
+| `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | Monotonic issue ID counter (claimed via `aapp issue allocate`; seeded from both issue ledgers on first use). |
 | `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
 | `aapp.aiAttribution` | `none` / `lax` / `strict` / `notes` | `none` | AI Attribution | Attribution mode: none (default; human-only), lax (mixed human/AI), strict (mandatory trailers), notes (private git notes). |
 | `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |

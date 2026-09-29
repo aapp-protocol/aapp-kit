@@ -472,34 +472,6 @@ seed_plan_id() {
     printf '%s\n' "$((MAX + 1))"
 }
 
-# ------------------------------------------------------------------------------
-# Issue ID Counter Bootstrap (P-32)
-# ------------------------------------------------------------------------------
-# Returns the NEXT free issue ID by scanning BOTH the active ledger and the
-# archive: ISSUES.md is ordered by triage priority, not by number, and resolved
-# rows are relocated to the archive, so neither file alone shows every used ID.
-# Same pure-POSIX style as seed_plan_id; returns 1 when no issues exist.
-seed_issue_id() {
-    local PLANS="$1"
-    local F LINE N MAX=0
-
-    for F in "$PLANS/ISSUES.md" "$PLANS/done/000-issues-archive.md"; do
-        [ -f "$F" ] || continue
-        while IFS= read -r LINE; do
-            case "$LINE" in
-                '| #'*) N="${LINE#*'| #'}" ;;
-                '|  #'*) N="${LINE#*'|  #'}" ;;
-                *) continue ;;
-            esac
-            N="${N%%[!0-9]*}"
-            [ -n "$N" ] || continue
-            if [ "$N" -gt "$MAX" ]; then MAX=$N; fi
-        done < "$F"
-    done
-
-    printf '%s\n' "$((MAX + 1))"
-}
-
 # Safe-by-default AI Attribution configuration (none default; pure human authoring until opted in)
 if [ -z "$(git config --get aapp.aiAttribution 2>/dev/null || true)" ]; then
     git config aapp.aiAttribution none
@@ -536,12 +508,6 @@ fi
 PLAN_ID_CURRENT="$(git config --get aapp.planId 2>/dev/null || true)"
 case "$PLAN_ID_CURRENT" in
     ''|*[!0-9]*) git config aapp.planId "$(seed_plan_id ".plans")" ;;
-esac
-
-# Issue ID counter, same contract as aapp.planId (P-32).
-ISSUE_ID_CURRENT="$(git config --get aapp.issueId 2>/dev/null || true)"
-case "$ISSUE_ID_CURRENT" in
-    ''|*[!0-9]*) git config aapp.issueId "$(seed_issue_id ".plans")" ;;
 esac
 
 # ------------------------------------------------------------------------------
@@ -808,8 +774,11 @@ SYNC_WTS="$(git config aapp.syncWorktrees 2>/dev/null || echo "plans agents gith
 PLAN_ID_NEXT="$(git config aapp.planId 2>/dev/null || echo "1")"
 echo "➡️  Remote sync:        remote=$SYNC_REMOTE, strategy=$SYNC_STRAT, worktrees=$SYNC_WTS"
 echo "➡️  Next plan ID:       P-$PLAN_ID_NEXT (aapp.planId)"
-ISSUE_ID_NEXT="$(git config aapp.issueId 2>/dev/null || echo "1")"
-echo "➡️  Next issue ID:      #$ISSUE_ID_NEXT (aapp.issueId)"
+if ISSUE_ID_NEXT="$(git config --get aapp.issueId 2>/dev/null)"; then
+    echo "➡️  Next issue ID:      #$ISSUE_ID_NEXT (aapp.issueId)"
+else
+    echo "➡️  Next issue ID:      seeded from the ledgers on first 'aapp issue allocate'"
+fi
 
 # Detect Branching Topology
 DEV_EXISTS=0

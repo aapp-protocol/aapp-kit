@@ -310,10 +310,12 @@ rm -rf "$ISSUE_PROVIDER_DIR"
 rmdir "$PWD/.agents/skills" 2>/dev/null || true
 git config --unset aapp.issueId
 
-# seed_issue_id lives in lib/cmd_init.sh, which runs init at top level; load
-# only the function body.
-eval "$(sed -n '/^seed_issue_id()/,/^}/p' "$KIT/lib/cmd_init.sh")"
-check "seed with no ledgers is 1" "1" "$(seed_issue_id .plans)"
+SEED_RC=0; seed_issue_id .plans >/dev/null 2>&1 || SEED_RC=$?
+check "seed with no ledger files returns 2" "2" "$SEED_RC"
+
+cp "$KIT/templates/issues.md" .plans/ISSUES.md
+cp "$KIT/templates/done-issues-archive.md" .plans/done/000-issues-archive.md
+check "seed ignores template example rows" "1" "$(seed_issue_id .plans)"
 
 cat > .plans/ISSUES.md << 'EOF'
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |

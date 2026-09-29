@@ -265,14 +265,66 @@ get_plan_id() {
 # collide with every existing id. `aapp init` repairs it (it has a filesystem
 # scan to repair from); allocation refuses and names the repair.
 
+# Returns the NEXT free issue ID from the ledgers: numeric max across BOTH the
+# active ledger (priority-ordered) and the archive (resolved rows), plus one.
+# Template example rows (dated YYYY-MM-DD) are skipped, so a new project gets 1.
+# Returns 2 when neither ledger exists.
+# seed_issue_id <plans-dir>
+seed_issue_id() {
+    local PLANS="$1"
+    local F LINE N MAX=0 FOUND=0
+
+    for F in "$PLANS/ISSUES.md" "$PLANS/done/000-issues-archive.md"; do
+        [ -f "$F" ] || continue
+        FOUND=1
+        while IFS= read -r LINE; do
+            case "$LINE" in
+                *YYYY-MM-DD*) continue ;;
+                '| #'*) N="${LINE#*'| #'}" ;;
+                '|  #'*) N="${LINE#*'|  #'}" ;;
+                *) continue ;;
+            esac
+            N="${N%%[!0-9]*}"
+            [ -n "$N" ] || continue
+            if [ "$N" -gt "$MAX" ]; then MAX=$N; fi
+        done < "$F"
+    done
+
+    [ "$FOUND" -eq 1 ] || return 2
+    printf '%s\n' "$((MAX + 1))"
+}
+
+# Seeder for an unset aapp.issueId. Git config is not cloned, so a clone starts
+# without a counter: continue from the ledgers it brought down. No ledgers at all
+# means the IDs live with a remote authority whose provider is not installed.
+_seed_issue_counter() {
+    local ROOT RC=0 N
+    ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
+    N="$(seed_issue_id "$ROOT/.plans")" || RC=$?
+    if [ "$RC" -eq 2 ]; then
+        echo "❌ [Issue ID] No issue ledgers in .plans/ and no aapp-issue provider installed." >&2
+        echo "   Issue IDs come from the team provider: install it at .agents/skills/aapp-issue/run." >&2
+        return 1
+    fi
+    [ "$RC" -eq 0 ] || return 1
+    printf '%s\n' "$N"
+}
+
+# Repair hint for a corrupt counter: a first-use seeder reseeds once the key is
+# unset; otherwise `aapp init` holds the filesystem scan.
+_reseed_hint() {
+    if [ -n "$2" ]; then echo "Run 'git config --unset $1' to reseed from the ledgers."
+    else echo "Run 'aapp init' to reseed."; fi
+}
+
 # Read-only peek at the next id. Never mutates. Safe for status output.
-# _next_id <config-key> <prefix> <label>
+# _next_id <config-key> <prefix> <label> [seeder]
 _next_id() {
-    local KEY="$1" PREFIX="$2" LABEL="$3" CUR
+    local KEY="$1" PREFIX="$2" LABEL="$3" SEEDER="${4:-}" CUR
     CUR="$(git config --get "$KEY" 2>/dev/null || true)"
     case "$CUR" in
-        '')       CUR=1 ;;
-        *[!0-9]*) echo "❌ [$LABEL] $KEY is not an integer: '$CUR'. Run 'aapp init' to reseed." >&2
+        '')       if [ -n "$SEEDER" ]; then CUR="$("$SEEDER")" || return 1; else CUR=1; fi ;;
+        *[!0-9]*) echo "❌ [$LABEL] $KEY is not an integer: '$CUR'. $(_reseed_hint "$KEY" "$SEEDER")" >&2
                   return 1 ;;
     esac
     printf '%s%s\n' "$PREFIX" "$CUR"
@@ -297,9 +349,11 @@ _normalize_id() {
 # Claims an id and persists the increment. Delegates to a provider plugin when
 # one is installed; otherwise uses the local counter. Only plugin ABSENCE falls
 # back -- a plugin that is present and fails is fatal, never a silent local allocation.
-# _allocate_id <config-key> <prefix> <plugin-name> <label>
+# _allocate_id <config-key> <prefix> <plugin-name> <label> [seeder]
+# [seeder] names a function printing the first id for an unset counter;
+# without one, unset means 1.
 _allocate_id() {
-    local KEY="$1" PREFIX="$2" PLUGIN="$3" LABEL="$4"
+    local KEY="$1" PREFIX="$2" PLUGIN="$3" LABEL="$4" SEEDER="${5:-}"
     # Resolve from the current directory, fail-closed (P-33). This deliberately
     # does NOT prefer an inherited REPO_ROOT: the counter is per-repository, and
     # a stale exported root would allocate against the wrong repo.
@@ -332,8 +386,8 @@ _allocate_id() {
     # 2. No plugin installed -> local git config counter.
     CUR="$(git config --get "$KEY" 2>/dev/null || true)"
     case "$CUR" in
-        '')       CUR=1 ;;
-        *[!0-9]*) echo "❌ [$LABEL] $KEY is not an integer: '$CUR'. Run 'aapp init' to reseed." >&2
+        '')       if [ -n "$SEEDER" ]; then CUR="$("$SEEDER")" || return 1; else CUR=1; fi ;;
+        *[!0-9]*) echo "❌ [$LABEL] $KEY is not an integer: '$CUR'. $(_reseed_hint "$KEY" "$SEEDER")" >&2
                   return 1 ;;
     esac
     git config "$KEY" "$((CUR + 1))" || return 1
@@ -344,5 +398,5 @@ get_next_plan_id()  { _next_id aapp.planId "P-" "Plan ID"; }
 normalize_plan_id() { _normalize_id "$1" "P-" "Plan ID"; }
 allocate_plan_id()  { _allocate_id aapp.planId "P-" aapp-planid "Plan ID"; }
 
-get_next_issue_id() { _next_id aapp.issueId "#" "Issue ID"; }
-allocate_issue_id() { _allocate_id aapp.issueId "#" aapp-issue "Issue ID"; }
+get_next_issue_id() { _next_id aapp.issueId "#" "Issue ID" _seed_issue_counter; }
+allocate_issue_id() { _allocate_id aapp.issueId "#" aapp-issue "Issue ID" _seed_issue_counter; }
