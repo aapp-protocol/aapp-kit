@@ -963,6 +963,23 @@ cmd_done() {
     bname="$(basename "$plan_file")"
     local done_file="$PLANS_DIR/done/$bname"
 
+    # P-32: a plan targeting an issue closes it. Checked before any mutation so a
+    # dangling target aborts cleanly; an already-archived issue is left alone.
+    local close_issue="" close_where=""
+    close_issue="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*#([0-9]+)([^0-9].*)?$/\1/p' "$plan_file" | head -n 1)"
+    if [ -n "$close_issue" ]; then
+        # shellcheck source=lib/cmd_issue.sh
+        . "$(dirname "${BASH_SOURCE[0]}")/cmd_issue.sh" || {
+            echo "❌ [Done Refusal] Issue module missing: $(dirname "${BASH_SOURCE[0]}")/cmd_issue.sh" >&2
+            exit 1
+        }
+        close_where="$(issue_locate "$close_issue")" || exit 1
+        if [ -z "$close_where" ]; then
+            echo "❌ [Done Refusal] Target issue #$close_issue is in neither ISSUES.md nor done/000-issues-archive.md." >&2
+            exit 1
+        fi
+    fi
+
     # Move to done/
     mv "$plan_file" "$done_file"
 
@@ -1008,6 +1025,13 @@ cmd_done() {
         ' "$ledger_file" > "$ledger_tmp" && mv "$ledger_tmp" "$ledger_file"
     fi
 
+    # P-32: relocate the target issue row; committed below with the archive.
+    local close_summary=""
+    if [ "$close_where" = "active" ]; then
+        close_summary="[$plan_id]($bname) - $(grep -m 1 -E '^# ' "$done_file" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*)?Plan[^:]*:[[:space:]]*//')"
+        issue_close_local "$close_issue" "$commit_sha" "$close_summary" || exit 1
+    fi
+
     # Re-derive state_matrix.md now that the plan has left current/ (#88).
     local sm_file="$PLANS_DIR/state_matrix.md"
     sync_state_matrix
@@ -1026,7 +1050,15 @@ cmd_done() {
         local done_targets=("current/$bname" "done/$bname")
         [ -f "$ledger_file" ] && done_targets+=("done/000-archive-ledger.md")
         [ -f "$sm_file" ] && done_targets+=("state_matrix.md")
+        if [ "$close_where" = "active" ]; then
+            done_targets+=("ISSUES.md" "done/000-issues-archive.md")
+            [ -f "$PLANS_DIR/issues_road_map.md" ] && done_targets+=("issues_road_map.md")
+        fi
         plans_commit "plan(done): archive $plan_id to done/ and update state matrix" "${done_targets[@]}" || exit 1
+    fi
+    if [ "$close_where" = "active" ]; then
+        issue_notify_close "$close_issue" "$commit_sha" "$close_summary"
+        echo "   Issue closed : #$close_issue -> done/000-issues-archive.md"
     fi
 
     # Dispatch on-done lifecycle event

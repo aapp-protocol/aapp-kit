@@ -253,85 +253,96 @@ get_plan_id() {
 }
 
 # ------------------------------------------------------------------------------
-# Plan ID Allocation (config-backed)
+# Plan & Issue ID Allocation (config-backed, P-32)
 # ------------------------------------------------------------------------------
-# `aapp.planId` stores the NEXT id to hand out, as a bare integer. The "P-"
-# prefix is a namespace marker applied on output to distinguish a plan id from
-# an issue id (#69) -- it is never part of the stored value.
+# Two independent counters: `aapp.planId` (P-<n>) and `aapp.issueId` (#<n>).
+# Each stores the NEXT id to hand out, as a bare integer. The prefix is a
+# namespace marker applied on output (#69) -- it is never part of the stored value.
 #
 # An unset key legitimately means 1 (a project that never ran `aapp init`).
 # A non-empty, non-numeric value means something external corrupted the key:
-# we refuse rather than silently restarting the sequence at P-1, which would
-# collide with every existing plan. `aapp init` repairs it (it has a filesystem
+# we refuse rather than silently restarting the sequence at 1, which would
+# collide with every existing id. `aapp init` repairs it (it has a filesystem
 # scan to repair from); allocation refuses and names the repair.
 
-# Read-only peek at the next Plan ID. Never mutates. Safe for status output.
-get_next_plan_id() {
-    local CUR
-    CUR="$(git config --get aapp.planId 2>/dev/null || true)"
+# Read-only peek at the next id. Never mutates. Safe for status output.
+# _next_id <config-key> <prefix> <label>
+_next_id() {
+    local KEY="$1" PREFIX="$2" LABEL="$3" CUR
+    CUR="$(git config --get "$KEY" 2>/dev/null || true)"
     case "$CUR" in
         '')       CUR=1 ;;
-        *[!0-9]*) echo "❌ [Plan ID] aapp.planId is not an integer: '$CUR'. Run 'aapp init' to reseed." >&2
+        *[!0-9]*) echo "❌ [$LABEL] $KEY is not an integer: '$CUR'. Run 'aapp init' to reseed." >&2
                   return 1 ;;
     esac
-    printf 'P-%s\n' "$CUR"
+    printf '%s%s\n' "$PREFIX" "$CUR"
 }
 
-# Normalises a provider-supplied id. Accepts "P-42" or bare "42"; anything that
-# is not a plain integer is an error. Emitting a well-formed id is the third
+# Normalises a provider-supplied id. Accepts "<prefix>42" or bare "42"; anything
+# that is not a plain integer is an error. Emitting a well-formed id is the third
 # party's responsibility -- we do not repair or interpret their output.
-normalize_plan_id() {
-    local N="${1#P-}"
+# _normalize_id <raw> <prefix> <label>
+_normalize_id() {
+    local RAW="$1" PREFIX="$2" LABEL="$3"
+    local N="${RAW#"$PREFIX"}"
     case "$N" in
         ''|*[!0-9]*)
-            echo "❌ [Plan ID] Provider must return an integer id (got: '$1')" >&2
+            echo "❌ [$LABEL] Provider must return an integer id (got: '$RAW')" >&2
             return 1
             ;;
     esac
-    printf 'P-%s\n' "$N"
+    printf '%s%s\n' "$PREFIX" "$N"
 }
 
-# Claims a Plan ID and persists the increment. Called exactly once per plan
-# creation. Delegates to an `aapp-planid` provider plugin when one is installed;
-# otherwise uses the local counter. Only plugin ABSENCE falls back -- a plugin
-# that is present and fails is fatal, never a silent local allocation.
-allocate_plan_id() {
+# Claims an id and persists the increment. Delegates to a provider plugin when
+# one is installed; otherwise uses the local counter. Only plugin ABSENCE falls
+# back -- a plugin that is present and fails is fatal, never a silent local allocation.
+# _allocate_id <config-key> <prefix> <plugin-name> <label>
+_allocate_id() {
+    local KEY="$1" PREFIX="$2" PLUGIN="$3" LABEL="$4"
     # Resolve from the current directory, fail-closed (P-33). This deliberately
     # does NOT prefer an inherited REPO_ROOT: the counter is per-repository, and
     # a stale exported root would allocate against the wrong repo.
     local ROOT PDIR ENTRY RAW OUT CUR ISSUED
     ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-        echo "❌ [Plan ID] Not inside a Git repository." >&2
+        echo "❌ [$LABEL] Not inside a Git repository." >&2
         return 1
     }
-    PDIR="$ROOT/.agents/skills/aapp-planid"
+    PDIR="$ROOT/.agents/skills/$PLUGIN"
 
     # 1. Delegate to the provider plugin when one is installed.
-    if [ -d "$PDIR" ] && ENTRY="$(resolve_plugin_entrypoint "$PDIR" "aapp-planid" 2>/dev/null)"; then
+    if [ -d "$PDIR" ] && ENTRY="$(resolve_plugin_entrypoint "$PDIR" "$PLUGIN" 2>/dev/null)"; then
         OUT="$(AAPP_ACTION=allocate AAPP_REPO_ROOT="$ROOT" "$ENTRY" 2>/dev/null)" || {
-            echo "❌ [Plan ID] Provider plugin failed; refusing to allocate locally." >&2
+            echo "❌ [$LABEL] Provider plugin failed; refusing to allocate locally." >&2
             return 1
         }
         # Capture into RAW first: assigning the substitution straight back into
         # OUT would clobber it before the || branch could report the value.
         RAW="$OUT"
-        OUT="$(normalize_plan_id "$RAW")" || return 1
+        OUT="$(_normalize_id "$RAW" "$PREFIX" "$LABEL")" || return 1
         # Ratchet the local counter past the issued id so the fallback never regresses.
-        CUR="$(git config --get aapp.planId 2>/dev/null || true)"
+        CUR="$(git config --get "$KEY" 2>/dev/null || true)"
         case "$CUR" in ''|*[!0-9]*) CUR=0 ;; esac   # unusable -> 0, so the write below repairs it
-        ISSUED="${OUT#P-}"
-        if [ "$ISSUED" -ge "$CUR" ]; then git config aapp.planId "$((ISSUED + 1))"; fi
+        ISSUED="${OUT#"$PREFIX"}"
+        if [ "$ISSUED" -ge "$CUR" ]; then git config "$KEY" "$((ISSUED + 1))"; fi
         printf '%s\n' "$OUT"
         return 0
     fi
 
     # 2. No plugin installed -> local git config counter.
-    CUR="$(git config --get aapp.planId 2>/dev/null || true)"
+    CUR="$(git config --get "$KEY" 2>/dev/null || true)"
     case "$CUR" in
         '')       CUR=1 ;;
-        *[!0-9]*) echo "❌ [Plan ID] aapp.planId is not an integer: '$CUR'. Run 'aapp init' to reseed." >&2
+        *[!0-9]*) echo "❌ [$LABEL] $KEY is not an integer: '$CUR'. Run 'aapp init' to reseed." >&2
                   return 1 ;;
     esac
-    git config aapp.planId "$((CUR + 1))" || return 1
-    printf 'P-%s\n' "$CUR"
+    git config "$KEY" "$((CUR + 1))" || return 1
+    printf '%s%s\n' "$PREFIX" "$CUR"
 }
+
+get_next_plan_id()  { _next_id aapp.planId "P-" "Plan ID"; }
+normalize_plan_id() { _normalize_id "$1" "P-" "Plan ID"; }
+allocate_plan_id()  { _allocate_id aapp.planId "P-" aapp-planid "Plan ID"; }
+
+get_next_issue_id() { _next_id aapp.issueId "#" "Issue ID"; }
+allocate_issue_id() { _allocate_id aapp.issueId "#" aapp-issue "Issue ID"; }

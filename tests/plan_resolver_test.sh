@@ -295,5 +295,63 @@ fi
 
 rm -f .plans/done/000-archive-ledger.md CHANGELOG.md
 
+echo "== 10. Issue ID Allocation, Seeding & Pair 8 (P-32) =="
+git config aapp.issueId 7
+check "issue peek uses # prefix" "#7" "$(get_next_issue_id)"
+check "issue allocate issues current value" "#7" "$(allocate_issue_id)"
+check "issue counter independent of plan counter" "8 " "$(git config --get aapp.issueId) $(git config --get aapp.planId)"
+
+ISSUE_PROVIDER_DIR="$PWD/.agents/skills/aapp-issue"
+mkdir -p "$ISSUE_PROVIDER_DIR"
+printf '#!/bin/sh\necho "#50"\n' > "$ISSUE_PROVIDER_DIR/run"; chmod +x "$ISSUE_PROVIDER_DIR/run"
+check "issue provider id is used" "#50" "$(allocate_issue_id)"
+check "issue counter ratchets past provider id" "51" "$(git config --get aapp.issueId)"
+rm -rf "$ISSUE_PROVIDER_DIR"
+rmdir "$PWD/.agents/skills" 2>/dev/null || true
+git config --unset aapp.issueId
+
+# seed_issue_id lives in lib/cmd_init.sh, which runs init at top level; load
+# only the function body.
+eval "$(sed -n '/^seed_issue_id()/,/^}/p' "$KIT/lib/cmd_init.sh")"
+check "seed with no ledgers is 1" "1" "$(seed_issue_id .plans)"
+
+cat > .plans/ISSUES.md << 'EOF'
+| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #93 | `Low` | `CLI` | 2026-09-28 | `a` | top by priority | fix | 🟡 `Incubated` |
+| #76 | `Low` | `CLI` | 2026-09-21 | `b` | bottom row, lower id | fix | 🟡 `Incubated` |
+EOF
+cat > .plans/done/000-issues-archive.md << 'EOF'
+| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #91 | `Low` | `CORE` | 2026-09-28 | 2026-09-28 | `0000000` | archived |
+| #97 | `Low` | `CORE` | 2026-09-28 | 2026-09-28 | `0000000` | highest id is archived |
+EOF
+check "seed takes numeric max across both ledgers" "98" "$(seed_issue_id .plans)"
+
+if check_pair8_issue_id_integrity .plans/ISSUES.md .plans/done/000-issues-archive.md >/dev/null 2>&1; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 8 passes on unique issue IDs" "PASS"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "pair 8 passes on unique issue IDs"; FAIL=$((FAIL+1))
+fi
+
+echo '| #93 | `Low` | `CLI` | 2026-09-29 | `c` | reused id | fix | 🟡 `Incubated` |' >> .plans/ISSUES.md
+P8_OUT="$(check_pair8_issue_id_integrity .plans/ISSUES.md .plans/done/000-issues-archive.md 2>&1)" && P8_RC=0 || P8_RC=$?
+if [ "$P8_RC" -ne 0 ] && echo "$P8_OUT" | grep -q 'Issue #93 appears more than once in active'; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 8 catches duplicate within active ledger" "BLOCK"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want BLOCK got rc=%s\n" "pair 8 catches duplicate within active ledger" "$P8_RC"; FAIL=$((FAIL+1))
+fi
+
+echo '| #91 | `Low` | `CORE` | 2026-09-29 | 2026-09-29 | `0000000` | reused archived id |' >> .plans/done/000-issues-archive.md
+P8_OUT="$(check_pair8_issue_id_integrity .plans/ISSUES.md .plans/done/000-issues-archive.md 2>&1)" && P8_RC=0 || P8_RC=$?
+if [ "$P8_RC" -ne 0 ] && echo "$P8_OUT" | grep -q 'Issue #91 appears more than once in archive'; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 8 catches duplicate within archive" "BLOCK"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want BLOCK got rc=%s\n" "pair 8 catches duplicate within archive" "$P8_RC"; FAIL=$((FAIL+1))
+fi
+
+rm -f .plans/ISSUES.md .plans/done/000-issues-archive.md
+
 print_test_summary "$PASS" "$FAIL"
 

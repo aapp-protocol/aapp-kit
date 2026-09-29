@@ -194,6 +194,24 @@ cmd_plugins_status() {
         printf "      %-16s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
     fi
 
+    # aapp-issue (P-32)
+    if [ -d "$skills_dir/aapp-issue" ] && resolve_plugin_entrypoint "$skills_dir/aapp-issue" "aapp-issue" >/dev/null 2>&1; then
+        local entry="$(resolve_plugin_entrypoint "$skills_dir/aapp-issue" "aapp-issue")"
+        printf "    • %-16s [Team Issue Authority]  -> %s (ACTIVE)\n" "aapp-issue" "${entry#$REPO_ROOT/}"
+    elif [ -d "$skills_dir/aapp-issue" ]; then
+        local counter="$(git config --get aapp.issueId 2>/dev/null || echo 1)"
+        printf "    • %-16s [Team Issue Authority]  -> .agents/skills/aapp-issue/ (CONFIGURED BUT NOT EXECUTABLE)\n" "aapp-issue"
+        printf "      %-16s (Fallback Active: local git config aapp.issueId = %s)\n" "" "$counter"
+    elif [ -d "$AAPP_BASE/examples/plugins/aapp-issue" ]; then
+        local counter="$(git config --get aapp.issueId 2>/dev/null || echo 1)"
+        printf "    • %-16s [Team Issue Authority]  -> NOT INSTALLED (SAMPLE AVAILABLE in %s)\n" "aapp-issue" "${AAPP_BASE/#$HOME/\~}/examples/plugins/aapp-issue/"
+        printf "      %-16s (Fallback Active: local git config aapp.issueId = %s)\n" "" "$counter"
+    else
+        local counter="$(git config --get aapp.issueId 2>/dev/null || echo 1)"
+        printf "    • %-16s [Team Issue Authority]  -> NOT INSTALLED\n" "aapp-issue"
+        printf "      %-16s (Fallback Active: local git config aapp.issueId = %s)\n" "" "$counter"
+    fi
+
     # hello-tool (showcase)
     if [ -d "$skills_dir/hello-tool" ] && resolve_plugin_entrypoint "$skills_dir/hello-tool" "hello-tool" >/dev/null 2>&1; then
         local entry="$(resolve_plugin_entrypoint "$skills_dir/hello-tool" "hello-tool")"

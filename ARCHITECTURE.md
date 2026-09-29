@@ -143,3 +143,5 @@ Identity is now **stored**: `aapp.planId` in git config holds the next id to han
 
 `check_pair4_plan_id_integrity` remains the independent detector for duplicate ids, unchanged and deliberately decoupled from the counter.
 
+**Issue IDs follow the same model (P-32).** `aapp.issueId` is a second, independent counter (`#32` and `P-32` may both exist), seeded by `aapp init` from both `ISSUES.md` and the archive, and optionally served by an `aapp-issue` provider. Both kinds share one allocation core in `lib/plan_resolver.sh`. Closing is mechanical: `aapp issue close` and `aapp done` relocate the row and prune the road map, then notify the provider fire-and-forget, since the local ledgers are authoritative. Duplicates are caught by Pair 1 (across ledgers) and Pair 8 (within one ledger).
+

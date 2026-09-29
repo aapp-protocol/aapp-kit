@@ -28,6 +28,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp test [filter]` | **✅ Yes** | Run test suites across repository or audit adopter environment |
 | `aapp test verb [name]` | **✅ Yes** | Run contract-derived verb suites (`tests/verbs/<name>.sh`) |
 | `aapp note [cmd]` | **✅ Yes** | Inspect, stage, push, or pull general and AI Git notes |
+| `aapp issue [cmd]` | **✅ Yes** | Peek, allocate, close, or list issue IDs |
 
 AI agent counterparts: `/aapp-status`, `/aapp-digest [idea]`, `/aapp-freeze [plan]`, `/aapp-start [plan]`, `/aapp-done [plan]`, `/aapp-pause [reason]`, `/aapp-release`, `/aapp-plan` (and `/plan`), `/aapp-tdd [plan]`.
 
@@ -83,7 +84,7 @@ Centralizes hook triggers and plugin contracts structured around execution timin
 | `aapp hook-hash` | Compute SHA256 registration hash for hook script |
 | `aapp plugins` | Discover installed action plugins in `.agents/skills/` |
 
-Action plugin entrypoints reside at `.agents/skills/{name}/run` (extension-agnostic executable: binary, `.sh`, `.py`). Standard provider: `aapp-planid`.
+Action plugin entrypoints reside at `.agents/skills/{name}/run` (extension-agnostic executable: binary, `.sh`, `.py`). Standard providers: `aapp-planid`, `aapp-issue`.
 
 ---
 
@@ -109,6 +110,7 @@ AAPP controls repository behavior via standard Git configuration:
 | Setting Key | Type / Enum | Default | Subsystem | Purpose & Behavior |
 | :--- | :--- | :--- | :--- | :--- |
 | `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
+| `aapp.issueId` | integer | `1` | Core / Lifecycle | Monotonic issue ID counter (claimed via `aapp issue allocate`; seeded from both issue ledgers). |
 | `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
 | `aapp.aiAttribution` | `none` / `lax` / `strict` / `notes` | `none` | AI Attribution | Attribution mode: none (default; human-only), lax (mixed human/AI), strict (mandatory trailers), notes (private git notes). |
 | `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |

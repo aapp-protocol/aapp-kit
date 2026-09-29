@@ -159,6 +159,10 @@ case "$CMD" in
         source "$AAPP_LIB/cmd_note.sh"
         cmd_note "$@"
         ;;
+    issue)
+        source "$AAPP_LIB/cmd_issue.sh"
+        cmd_issue "$@"
+        ;;
     draft|freeze-start|start|freeze|done|plan|active|plan-status|tdd)
         source "$AAPP_LIB/cmd_plan.sh" "$CMD" "$@"
         ;;

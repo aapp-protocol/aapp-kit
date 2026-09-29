@@ -21,6 +21,7 @@
 - no recorded commits (`* **Commits:** none` or empty) -> exit 1, prints candidate commits and `aapp commit adopt <sha>` repair command
 - recorded commit unreachable / amended away -> exit 1 naming the missing SHA
 - `pre-done` lifecycle hook exits non-zero -> exit 1, vetoes archive; plan and ledger unchanged
+- Target Issue `#<n>` in neither `ISSUES.md` nor `done/000-issues-archive.md` -> exit 1, stderr `Target issue #<n> is in neither`; nothing moves (P-32)
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 
 ## Effects (happy path)
@@ -30,7 +31,8 @@
     the Impact Summary is the plan title; an untouched template placeholder in the header reads `None` (D2, #78)
 - `.plans/state_matrix.md` is re-derived from the remaining plans: this plan's row leaves, and no other row is touched (#88)
 - the active buffer is cleared when it names this plan
-- one commit in the plans worktree, `plan(done): archive <id> to done/ and update state matrix`, holds the move, the ledger and the matrix
+- a Target Issue `#<n>` still active is closed as by `aapp issue close`: its row moves to the top of `done/000-issues-archive.md` with summary `[<id>](<file>) - <title>`, and it leaves `issues_road_map.md`; an already-archived one is left alone (P-32)
+- one commit in the plans worktree, `plan(done): archive <id> to done/ and update state matrix`, holds the move, the ledger, the matrix and any issue close
 - the `on-done` lifecycle event is dispatched (a failing handler does not undo the archive)
 - stdout names the archived file, the verification commit and the ledger
 

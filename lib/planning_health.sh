@@ -20,6 +20,8 @@
 #    - Validates all commit hashes in archival ledgers, issues, and changelogs resolve in git.
 # 7. Pair 7 (In-Flight Boundary Collision):
 #    - Ensures blueprints actively ⚡ In Development share zero overlapping Target Files.
+# 8. Pair 8 (Issue ID Integrity):
+#    - No issue ID repeated within ISSUES.md or within the archive (cross-ledger is Pair 1).
 # ==============================================================================
 
 # Shared plan parsing (P-37). Resolved relative to this file: callers such as
@@ -390,6 +392,30 @@ check_pair4_plan_id_integrity() {
     return $errors
 }
 
+# Pair 8: Issue ID Integrity (P-32)
+# An issue ID repeated inside one ledger. Collisions between the active ledger
+# and the archive are Pair 1's job and are not re-reported here.
+check_pair8_issue_id_integrity() {
+    local issues_file="$1"
+    local archive_file="$2"
+    local errors=0 dup
+
+    if [ -f "$issues_file" ]; then
+        for dup in $(get_active_issue_ids "$issues_file" | sort -n | uniq -d); do
+            echo "❌ [Pair 8 Violation] Issue #$dup appears more than once in active $issues_file!"
+            errors=$((errors + 1))
+        done
+    fi
+    if [ -f "$archive_file" ]; then
+        for dup in $(get_archived_issue_ids "$archive_file" | sort -n | uniq -d); do
+            echo "❌ [Pair 8 Violation] Issue #$dup appears more than once in archive $archive_file!"
+            errors=$((errors + 1))
+        done
+    fi
+
+    return $errors
+}
+
 # Pair 5: Target Files vs Guard Section 2 Self-Protection
 check_pair5_target_files_self_protection() {
     local repo_root
@@ -663,6 +689,9 @@ check_planning_health() {
 
     # Pair 7
     check_pair7_inflight_boundary_collision "$repo_root" || total_errors=$((total_errors + $?))
+
+    # Pair 8
+    check_pair8_issue_id_integrity "$issues_file" "$archive_file" || total_errors=$((total_errors + $?))
 
     # Schema & Taxonomy
     check_taxonomy_and_schema "$issues_file" || total_errors=$((total_errors + $?))

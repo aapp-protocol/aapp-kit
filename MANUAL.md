@@ -1228,7 +1228,7 @@ Samples are preserved centrally in `~/.local/share/aapp-kit/examples/` (`$SHARE_
 
 #### 3. Dynamic CLI Discovery
 Run `aapp plugins` and `aapp hooks` to discover available samples:
-- `aapp plugins`: Inspects active plugins, reports standard extension points (`aapp-planid`, `hello-tool`), and displays available samples with copy commands.
+- `aapp plugins`: Inspects active plugins, reports standard extension points (`aapp-planid`, `aapp-issue`, `hello-tool`), and displays available samples with copy commands.
 - `aapp hooks`: Displays registered lifecycle hooks, timing taxonomy, and available reference hook samples.
 
 #### 4. Adopting a Sample
@@ -1307,6 +1307,26 @@ AAPP defines the contract above and nothing more. It does **not** inspect, valid
 
   `$HOME/.local/bin/` is chosen deliberately: Guard Section 2b hard-denies it to agents. Do **not** default into `~/.config` or `~/.local/share` — both are on the Section 2c agent-write allowlist.
 * This is a **documented responsibility, not an enforced guarantee**. AAPP cannot protect an adopter who commits a secret into their provider, and does not claim to.
+
+### Issue IDs & Lifecycle (`aapp issue`, `aapp.issueId`) & the `aapp-issue` Provider
+
+Issue IDs work like Plan IDs: `aapp.issueId` stores the next id, independent of `aapp.planId` (`#32` and `P-32` may both exist). `aapp init` seeds it from **both** `ISSUES.md` and `done/000-issues-archive.md`, because the active ledger is priority-ordered and resolved rows live in the archive.
+
+```bash
+aapp issue                    # peek the next issue ID (claims nothing)
+aapp issue allocate           # claim it: prints #<n>, advances aapp.issueId
+aapp issue close 79           # archive #79 (bare number: an unquoted #79 is a shell comment)
+aapp issue close 79 sha abc1234 summary "Direct fix (no plan): ..."
+aapp issue list               # active issues in road-map order (top 20; 'list 50', 'list all')
+```
+
+`close` moves the row to the top of the archive, prunes the road map and commits all three files in one `plans` commit. `aapp done` does the same for a plan's `Target Issue`, inside its archive commit, and refuses when that issue is in neither ledger. Closing an already-archived issue changes nothing.
+
+**Provider (`.agents/skills/aapp-issue/run`, sample in `examples/plugins/aapp-issue/`):**
+- `AAPP_ACTION=allocate` → print `#<int>` or `<int>`. Same rules as `aapp-planid`: absent provider falls back to the local counter; a failing one aborts.
+- `AAPP_ACTION=close` with `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA`, `AAPP_SUMMARY` → called once after the local close. It is **fire-and-forget**: a failure only warns, and retry or queued delivery to GitHub/Jira/Linear is the provider's job. Make it idempotent.
+
+Pair 8 of the planning-health engine reports an issue ID repeated inside one ledger; Pair 1 already reports an ID present in both.
 
 ---
 
@@ -1677,6 +1697,7 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | Setting Key | Type / Enum | Default | Subsystem | Purpose & Behavior |
 | :--- | :--- | :--- | :--- | :--- |
 | `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
+| `aapp.issueId` | integer | `1` | Core / Lifecycle | Monotonic issue ID counter (claimed via `aapp issue allocate`; seeded from both issue ledgers). |
 | `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
 | `aapp.aiAttribution` | `none` / `commit` / `notes` | `none` | AI Attribution | Attribution mode (emailless semantic trailers vs. git notes vs. human). |
 | `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
@@ -1697,6 +1718,7 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 
 ### Lifecycle & Core Engine Settings
 - **`aapp.planId`**: The monotonic counter for allocating Plan IDs (`P-1`, `P-2`, etc.). Seeded on `aapp init` and incremented atomically during `aapp draft`.
+- **`aapp.issueId`**: The independent counter for issue IDs (`#1`, `#2`, etc.). Seeded on `aapp init` from `ISSUES.md` and the archive; advanced by `aapp issue allocate`.
 - **`aapp.subjectMaxLen`**: Commit message subject line conciseness ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 72 chars).
 - **`aapp.commitLineMaxLen`**: Commit message body line width ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 100 chars; URLs exempt).
 - **`aapp.bodyMaxLen`**: Commit message body character ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 1200 chars).
