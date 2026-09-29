@@ -43,7 +43,7 @@ A counter alone would not catch a hand-typed duplicate; detection alone would no
 
 1. **Shared allocation engine**: Extract counter mechanics from `allocate_plan_id` into a parameterized core (`_allocate_id`) in `lib/plan_resolver.sh` taking a config key, an ID prefix, and a provider plugin name, conforming to the P-33 fail-closed root resolution.
 2. **Stored Issue ID counter**: `aapp.issueId` in git config, with `allocate_issue_id` / `get_next_issue_id`.
-3. **Two-file seeding**: Seed `aapp.issueId` by scanning **both** `ISSUES.md` and `000-issues-archive.md` with numeric comparison, so relocation and priority ordering can never hide a used ID.
+3. **Seed on first use**: When `aapp.issueId` is unset (always true in a fresh clone), seed it from **both** `ISSUES.md` and `000-issues-archive.md`, so relocation and priority ordering can never hide a used ID; no ledgers and no provider refuses.
 4. **Focused CLI Ingress (`aapp issue`)**: Introduce an operational CLI verb:
    - `aapp issue [next]`: Read-only peek showing the next unassigned ID.
    - `aapp issue allocate`: Claims the ID and increments `aapp.issueId`.
@@ -138,38 +138,22 @@ get_next_plan_id()  { _next_id aapp.planId  "P-" "Plan ID"; }
 get_next_issue_id() { _next_id aapp.issueId "#"  "Issue ID"; }
 ```
 
-### 2.2 Two-File Seeding (`lib/cmd_init.sh`)
+### 2.2 Seed on First Use (`lib/plan_resolver.sh`)
 
-`seed_issue_id` scans both `ISSUES.md` and `done/000-issues-archive.md`. Because `ISSUES.md` is priority-ordered rather than numerically sorted, the parser reads every row matching `^\|[[:space:]]*#[0-9]+` and keeps the numeric maximum:
+Git config is not cloned, and a clone never runs `aapp init`, so a counter written at init exists only in the clone that ran it. The counter is therefore seeded **when an ID is first needed**, in whichever clone asks:
 
-```bash
-# seed_issue_id <plans-dir> -> next free issue id (1 when no issues exist)
-seed_issue_id() {
-    local PLANS="$1"
-    local ACTIVE="$PLANS/ISSUES.md"
-    local ARCHIVE="$PLANS/done/000-issues-archive.md"
-    local F LINE N MAX=0
+- `seed_issue_id <plans-dir>` scans both `ISSUES.md` and `done/000-issues-archive.md` (priority order and relocation can never hide a used ID) and returns the numeric max + 1. Template example rows (dated `YYYY-MM-DD`) are skipped, so a new project gets `#1`. Returns 2 when neither ledger file exists.
+- `allocate_issue_id` / `get_next_issue_id` pass a seeder to `_allocate_id` / `_next_id`; it runs only when `aapp.issueId` is **unset** (a provider, when installed, still decides first):
 
-    for F in "$ACTIVE" "$ARCHIVE"; do
-        [ -f "$F" ] || continue
-        while IFS= read -r LINE; do
-            case "$LINE" in
-                '| #'*) N="${LINE#*'| #'}" ;;
-                '|  #'*) N="${LINE#*'|  #'}" ;;
-                *) continue ;;
-            esac
-            N="${N%%[!0-9]*}"
-            [ -n "$N" ] || continue
-            if [ "$N" -gt "$MAX" ]; then MAX=$N; fi
-        done < "$F"
-    done
+| State | Result |
+| :--- | :--- |
+| counter set | use it |
+| counter unset, ledgers present | seed from them (`next` peeks without writing) |
+| counter unset, no ledger files, no provider | refuse: IDs belong to a remote authority whose `aapp-issue` provider is not installed |
 
-    printf '%s\n' "$((MAX + 1))"
-}
-```
-
-- Wired in `lib/cmd_init.sh` beside `seed_plan_id` (`:507-511`): seeds `aapp.issueId` strictly when missing or non-numeric.
-- Displayed in the `aapp init` completion banner alongside `aapp.planId` (`:776`).
+- `aapp init` does not seed `aapp.issueId`; its banner says the counter is seeded on first allocate.
+- A non-integer counter still refuses; the hint is `git config --unset aapp.issueId` (reseed from the ledgers), not `aapp init`.
+- Plan IDs keep init-time seeding here; the same clone gap for `aapp.planId` is out of scope.
 
 ### 2.3 The `aapp-issue` Provider Plugin Contract
 
@@ -235,7 +219,7 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 - **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `aapp-issue` `close` failure → warning only; the local archive is authoritative and delivery is the plugin's responsibility.
 - Existing plans and functions calling `allocate_plan_id` or `get_next_plan_id` remain 100% binary- and signature-compatible.
-- `aapp init` automatically seeds `aapp.issueId` across active and archived tables on existing repositories.
+- Existing repositories and fresh clones seed `aapp.issueId` from their ledgers on the first `aapp issue allocate`; `aapp init` no longer writes it.
 - Zero duplicate issue IDs currently exist on `develop`; Pair 8 passes cleanly immediately.
 
 ---
@@ -248,10 +232,10 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 - [x] Task 1.3: Implement `allocate_issue_id` and `get_next_issue_id`.
 - [x] Task 1.4: Verify `tests/plan_resolver_test.sh` passes with zero regressions to plan ID allocation.
 
-### Phase 2: Two-File Seeding & Init Banner
-- [x] Task 2.1: Implement `seed_issue_id` in `lib/cmd_init.sh` scanning `ISSUES.md` and `done/000-issues-archive.md`.
-- [x] Task 2.2: Wire `aapp.issueId` bootstrap into `lib/cmd_init.sh` beside `seed_plan_id` (`:507-511`).
-- [x] Task 2.3: Surface `Next issue ID: #<id>` in `lib/cmd_init.sh` completion banner (`:776`).
+### Phase 2: Seed on First Use & Init Banner
+- [x] Task 2.1: Implement `seed_issue_id` in `lib/plan_resolver.sh` scanning `ISSUES.md` and `done/000-issues-archive.md`, skipping template rows.
+- [x] Task 2.2: Seed an unset `aapp.issueId` on first `allocate` / `next`; refuse when there are no ledgers and no provider.
+- [x] Task 2.3: `aapp init` banner reports the counter, or that it is seeded on first allocate.
 
 ### Phase 3: Issue Lifecycle CLI Verb (`aapp issue`) & `aapp done`
 - [x] Task 3.1: Implement `lib/cmd_issue.sh` supporting `next`, `allocate`, `close <#id> [sha] [summary]`, and `list`.
@@ -279,8 +263,8 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `lib/plan_resolver.sh` -> Extract parameterized allocation core; add allocate_issue_id and get_next_issue_id.
-- [ ] `lib/cmd_init.sh` -> Add seed_issue_id (two-file scan), bootstrap aapp.issueId, surface next issue in banner.
+- [ ] `lib/plan_resolver.sh` -> Extract parameterized allocation core; add allocate_issue_id, get_next_issue_id and first-use seed_issue_id.
+- [ ] `lib/cmd_init.sh` -> Surface the issue counter in the banner (no seeding).
 - [ ] `lib/cmd_plan.sh` -> Delegate issue closure in cmd_done to cmd_issue_close.
 - [ ] `NEW FILE` -> `lib/cmd_issue.sh` -> Operational CLI switchboard for aapp issue.
 - [ ] `lib/verbs.tsv` -> Register issue verb in daily tier.
@@ -322,6 +306,7 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-09-29:** §2.2 seeding moved from `aapp init` to first use: config is not cloned and clones never run init. Template rows skipped; no ledgers and no provider refuses. Proven by `test_clone_first_allocate_continues_ledgers` and `test_no_ledgers_without_provider_refuses`.
 * **2026-09-29:** Plan activated into ⚡ In Development via start.
 * **2026-09-29:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-09-29:** Plan activated into ⚡ In Development via start.
