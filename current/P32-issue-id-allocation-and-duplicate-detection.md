@@ -48,7 +48,7 @@ A counter alone would not catch a hand-typed duplicate; detection alone would no
    - `aapp issue [next]`: Read-only peek showing the next unassigned ID.
    - `aapp issue allocate`: Claims the ID and increments `aapp.issueId`.
    - `aapp issue close <id> [sha <sha>] [summary "<text>"]`: Mechanically relocates the issue row to `000-issues-archive.md`, prunes `issues_road_map.md`, commits, then notifies the team plugin (fire-and-forget).
-   - `aapp issue list`: Lists all active issues in roadmap priority order (the status briefing shows only the top 5).
+   - `aapp issue list [<n> | all]`: Lists active issues in roadmap priority order; default cap 20 (the status briefing shows only the top 5).
 5. **Unified Close in `aapp done`**: Update `cmd_done` in `lib/cmd_plan.sh` to delegate issue closure to `cmd_issue_close`, automating the Relocation Invariant when a plan completes.
 6. **Team Provider Plugin (`aapp-issue`)**: Provider plugin mirroring `aapp-planid`, supporting `AAPP_ACTION=allocate` and `close` (notifying external trackers like GitHub Issues, Jira, or Linear).
 7. **Duplicate detection (Pair 8)**: Add `check_pair8_issue_id_integrity` reporting any issue ID repeated *within* one ledger. Cross-ledger collisions are already caught by Pair 1 (`check_pair1_disjointness`).
@@ -191,7 +191,7 @@ A dedicated plugin at `.agents/skills/aapp-issue/` (entrypoint resolved via `res
 Add `lib/cmd_issue.sh` and register `issue` in `lib/verbs.tsv`:
 
 ```text
-aapp issue [next | allocate | close <id> [sha <sha>] [summary "<text>"] | list]
+aapp issue [next | allocate | close <id> [sha <sha>] [summary "<text>"] | list [<n> | all]]
 ```
 
 1. **`aapp issue [next]`**:
@@ -212,8 +212,9 @@ aapp issue [next | allocate | close <id> [sha <sha>] [summary "<text>"] | list]
    - Commits the three files via `plans_commit`.
    - Row already archived → skips the local move and only re-notifies the plugin. ID in neither ledger → error.
    - If `aapp-issue` plugin is present, invokes with `AAPP_ACTION=close` (fire-and-forget, §2.3).
-4. **`aapp issue list`**:
-   - Displays all active issues in roadmap priority order, reusing the status briefing's roadmap ordering so both views agree.
+4. **`aapp issue list [<n> | all]`**:
+   - Displays active issues in roadmap priority order, reusing the status briefing's roadmap ordering so both views agree.
+   - Capped at 20 by default; bare `<n>` sets the cap, `all` removes it (bare tokens, no `-n`). A truncated list ends with `… N more (aapp issue list all)`.
 
 #### `aapp done` Delegation:
 In `cmd_done` (`lib/cmd_plan.sh:991`):
@@ -315,7 +316,7 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 ---
 
 ## 📦 6. Change Log & Refinement History
-* **2026-09-29:** Review amendments: Pair 8 narrowed to within-ledger (Pair 1 covers cross-ledger); `get_next_*` kept fail-closed; `close` takes bare id + keyword tokens, commits via `plans_commit`, joins `done_targets` in `aapp done`; plugin drops `peek`, `close` fire-and-forget, shim sample, CODEMAP §5; `list` reuses status ordering; Out of Bounds exempts verb writes; Q5 temporary IDs deferred to follow-up plan.
+* **2026-09-29:** Review amendments: Pair 8 narrowed to within-ledger (Pair 1 covers cross-ledger); `get_next_*` kept fail-closed; `close` takes bare id + keyword tokens, commits via `plans_commit`, joins `done_targets` in `aapp done`; plugin drops `peek`, `close` fire-and-forget, shim sample, CODEMAP §5; `list` reuses status ordering, default cap 20 (`list <n>` / `list all`); Out of Bounds exempts verb writes; Q5 temporary IDs deferred to follow-up plan.
 * **2026-09-28:** Comprehensive refinement based on active codebase state:
   1. Conformed allocation core to P-33 fail-closed root resolution.
   2. Updated stale line citations across `lib/cmd_init.sh` and `lib/planning_health.sh`.
