@@ -5,7 +5,7 @@
 * **Plan ID:** P-32
 * **Status:** ⚡ In Development
 * **Base:** `88aae65` (develop)
-* **Commits:** `e295a83` (develop), `e07811f` (develop)
+* **Commits:** `e295a83` (develop), `e07811f` (develop), `c0edb4b` (develop)
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -272,10 +272,10 @@ When `target_issue` is extracted (e.g. `#79`), if it matches `#*`:
 ### Phase 4: Provider Plugin Contract & Extension Catalog
 - [x] Task 4.1: Author delegation shim `examples/plugins/aapp-issue-tracker/run.sample` (`AAPP_ISSUE_TRACKER_CMD`).
 - [x] Task 4.2: Register `aapp-issue-tracker` in `cmd_plugins_status()` in `lib/cmd_hook.sh` and the CODEMAP §5 registry.
-- [ ] Task 4.3: Shared envelope gains `repository.remote` (credentials stripped) and `extra`; add `json_escape` in `lib/hook_dispatcher.sh`.
-- [ ] Task 4.4: Both allocators send the envelope and parse `{"id": …}`; `close` sends `issue.close` and reports `status` / `error`.
-- [ ] Task 4.5: Move `aapp-planid` to the payload standard (tests, sample header, MANUAL).
-- [ ] Task 4.6: CODEMAP §5 **Plugin Payload Standard** section.
+- [x] Task 4.3: Shared envelope gains `repository.remote` (credentials stripped) and `extra`; add `json_escape` in `lib/hook_dispatcher.sh`.
+- [x] Task 4.4: Both allocators send the envelope and parse `{"id": …}`; `close` sends `issue.close` and reports `status` / `error`.
+- [x] Task 4.5: Move `aapp-planid` to the payload standard (tests, sample header, MANUAL).
+- [x] Task 4.6: CODEMAP §5 **Plugin Payload Standard** section.
 
 ### Phase 5: Pair 8 Duplicate Detection
 - [x] Task 5.1: Implement `check_pair8_issue_id_integrity` in `lib/planning_health.sh`.
