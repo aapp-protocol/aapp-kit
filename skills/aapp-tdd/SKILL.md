@@ -33,10 +33,9 @@ Declare and enumerate failure-first tests for an incubator blueprint before free
    - Ensure bidirectional correspondence: every §3 test file prefix must appear in §4, and every §4 file must be referenced by at least one §3 test.
 
 ### Step 3: Record and Report
-1. Commit the enumerated failure tests to the `plans` worktree:
+1. Commit the enumerated failure tests (the CLI committed only its section injection; never raw git on the plans worktree):
    ```bash
-   git -C .plans add "current/<plan>.md"
-   git -C .plans commit -m "plan(refine): enumerate failure tests for <plan_id>"
+   aapp refine <plan_id> "enumerate failure tests"
    ```
 2. Report the declared test assertions and files to the user, reminding them that Phase 1 of execution will write these tests and confirm them failing (Red 🔴) before implementation begins.
 

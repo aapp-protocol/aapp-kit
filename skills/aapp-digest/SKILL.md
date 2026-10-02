@@ -23,8 +23,8 @@ The argument `<idea>` may be raw text typed inline, a reference to an entry in `
 
 ### Step 2: Route to a Lane
 Determine whether the item describes a defect or a new capability:
-* **Issue Lane:** If it describes wrong behavior or a bug in code that already ships, record it in `.plans/ISSUES.md` (or root `ISSUES.md`) and place it on `.plans/issues_road_map.md` first — always. Then judge the size of the fix:
-  - *Small / obvious fix* → stop there. The issue record is sufficient; do not scaffold a blueprint.
+* **Issue Lane:** If it describes wrong behavior or a bug in code that already ships, claim its ID with `aapp issue allocate` (never derive an ID from the files), record the row in `.plans/ISSUES.md` (or root `ISSUES.md`) and place it on `.plans/issues_road_map.md` first — always. Then judge the size of the fix:
+  - *Small / obvious fix* → stop there. The issue record is sufficient; do not scaffold a blueprint. Once the fix is committed, close it with `aapp issue close <num>` (bare number); never move table rows by hand.
   - *Large fix* (spans several modules, requires locked Blast Radius, has design trade-offs) → promote to a plan and proceed to Step 3.
 * **`<idea>` is an ISSUE ID (e.g. `ISSUE-004`):** The user has chosen promotion. Carry the issue ID into the plan header and proceed to Step 3.
 * **Plan Lane (New Capability / Refactor):** Proceed directly to Step 3.
@@ -47,20 +47,18 @@ Scan `.plans/current/*.md` before drafting:
    - Detail *Implementation Steps & Execution Checklist*.
    - Propose a Blast Radius (`### 📂 Target Files` and `### 🛑 Out of Bounds`). Mark it **PROPOSED** — it is not locked and confers no code execution rights. Never place files matching Guard Section 2 self-protection in Target Files (enforced by Pair 5).
    - Record every unresolved technical decision in `## ❓ 5. Open Questions`.
-4. Commit the refined draft content to the `plans` worktree:
+4. Commit the authored content (never raw git on the plans worktree):
    ```bash
-   git -C .plans add "current/P<num>-<slug>.md"
-   git -C .plans commit -m "plan(draft): author context and blueprint for P-<num>"
+   aapp refine P-<num> "author context and blueprint"
    ```
 
 ### Step 4b: AMEND Existing Plan
 1. Fold the new requirements into the appropriate sections (*Technical Blueprint*, *Implementation Steps*, *Open Questions*, or *Blast Radius*).
 2. Append a dated entry to `## 📦 6. Change Log & Refinement History` detailing what changed and why.
-3. *If the plan was already frozen:* Changing its Blast Radius invalidates execution safety. Stop, obtain explicit human approval, and move the plan back to the Incubator in `state_matrix.md` until re-frozen.
-4. Commit the refinement to `.plans`:
+3. *If the plan was already frozen:* Changing its design or Blast Radius invalidates execution safety. Stop and obtain explicit human approval. Then set its Status to `📝 Refining` with §2/§4 untouched and commit that alone (`aapp refine <plan-id> "back to Refining for <reason>"`), make the change, and re-freeze. The state matrix re-derives itself.
+4. Commit the refinement (never raw git on the plans worktree):
    ```bash
-   git -C .plans add "current/<plan>.md"
-   git -C .plans commit -m "plan(refine): amend <plan> with <idea>"
+   aapp refine <plan-id> "amend with <idea>"
    ```
 
 ### Step 5: Clean Up Pickup Queue

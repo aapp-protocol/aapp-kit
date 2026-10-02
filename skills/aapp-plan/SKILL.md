@@ -37,17 +37,16 @@ If the argument matches an existing Plan ID or blueprint slug:
 If the argument is an idea, feature description, or instruction:
 
 1. **Step 1: Check Lane Routing (Never Merge Lanes)**:
-   - *Defect / Bug in Existing Code*: Record in `.plans/ISSUES.md` (or root `ISSUES.md`) and place on `.plans/issues_road_map.md` first. Only promote to a blueprint if the fix requires architectural changes or multiple modules.
+   - *Defect / Bug in Existing Code*: Claim its ID with `aapp issue allocate`, record it in `.plans/ISSUES.md` (or root `ISSUES.md`) and place it on `.plans/issues_road_map.md` first. Only promote to a blueprint if the fix requires architectural changes or multiple modules; a direct fix is closed with `aapp issue close <num>`.
    - *New Capability / Refactor*: Proceed to the Plan lane.
 
 2. **Step 2: Check Existing Blueprints (Amend vs. New)**:
-   - Scan `.plans/current/*.md`. If an active blueprint already covers this capability, amend it and log the change in Section 6.
+   - Scan `.plans/current/*.md`. If an active blueprint already covers this capability, amend it, log the change in Section 6, and commit with `aapp refine <plan-id> "<what changed>"`.
 
 3. **Step 3: Scaffold Canonical Blueprint**:
-   - Allocate the next unpadded Plan ID with `allocate_plan_id` (claims it and persists the increment). `get_next_plan_id` is a read-only peek and must not be used to claim an id.
-   - Scaffold `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`.
+   - Run `aapp draft <slug>`: it claims the next Plan ID, scaffolds `.plans/current/P<num>-<slug>.md` from the template, registers it in the Incubator and commits it. Never allocate IDs or copy the template by hand.
    - Complete Technical Blueprint (§2), Implementation Tasks (§3), proposed Blast Radius (§4), and Open Questions (§5).
-   - Register in `.plans/state_matrix.md` under `## 🧠 1. Human Thought & Refinement (The Incubator)` with status 🟣 or 📝.
+   - Commit the authored content with `aapp refine P-<num> "author context and blueprint"`.
 
 4. **Step 4: Report to User**:
    - Confirm blueprint creation path in `.plans/current/`.
