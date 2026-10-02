@@ -40,21 +40,31 @@ Standard plugin names are hardcoded in about nine places. `cmd_plugins_status()`
 ### 2.1 `lib/plugins.tsv`
 
 ```text
-# name	role	actions	counter	sample
-aapp-planid	Team Plan ID Authority	allocate	aapp.planId	examples/plugins/aapp-planid/run.sample
-hello-tool	Custom CLI Showcase	-	-	examples/plugins/hello-tool/run.sample
+# name	role	state	events	counter	sample
+aapp-planid	Team Plan ID Authority	shipped	plan.allocate	aapp.planId	examples/plugins/aapp-planid/run.sample
+aapp-issue-tracker	Team Issue Tracker	shipped	issue.allocate,issue.close	aapp.issueId	examples/plugins/aapp-issue-tracker/run.sample
+aapp-review	Adversarial Review	planned:P-15	-	-	-
+hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sample
 ```
 
-- `actions`: comma-separated `AAPP_ACTION` values the kit calls (`-` = CLI-invoked).
+- `state`: `shipped`, or `planned:<plan-id>` for a name reserved before its plugin ships.
+- `events`: comma-separated Plugin Payload Standard events the kit sends (`-` = CLI-invoked or not yet defined).
 - `counter`: git config key shown as the local fallback when the plugin is absent (`-` = none).
 - Shipped by `aapp install` already (it copies all of `lib/`); resolved like `verbs.tsv` (`$AAPP_LIB`, then script dir, then installed share dir).
 
 ### 2.2 `cmd_plugins_status()` (`lib/cmd_hook.sh`)
 
-- Replace the per-plugin blocks with one loop over `plugins.tsv` rows, keeping today's four states (ACTIVE / CONFIGURED BUT NOT EXECUTABLE / SAMPLE AVAILABLE / NOT INSTALLED) and the fallback-counter line when `counter` is set.
-- Build the custom-plugin skip list from the registry names (plus the existing `aapp-*|aapp|plan|*.sample|node_modules|vendor` patterns).
+- Two sections, so plugin developers see every kit-owned name whether installed or not:
+  - **Standard Extension Points:** every registry row, always listed, one loop replacing the per-plugin blocks. States: ACTIVE / CONFIGURED BUT NOT EXECUTABLE / SAMPLE AVAILABLE / NOT INSTALLED (with the fallback-counter line when `counter` is set), and `RESERVED (planned, <plan-id>)` for `planned:` rows.
+  - **Custom Action Plugins:** every other installed plugin with an executable entrypoint, with the command that runs it.
+- Reserved prefix: an installed, executable `aapp-*` plugin that has no registry row is listed under Custom with a warning instead of being silently skipped:
+  ```
+  ⚠️ aapp-deploy uses the reserved aapp- prefix but is not a kit plugin.
+     A future kit release may claim this name and replace or shadow it; rename it.
+  ```
+  A warning, not a refusal: the plugin keeps working. Kit skills under `.agents/skills/aapp-*` have no executable entrypoint and are not plugins, so they never trigger it.
 - Missing or unreadable `plugins.tsv` → exit 1 with a clear diagnostic (fail closed).
-- Output stays identical for the current two plugins.
+- Output stays identical for the shipped plugins.
 
 ### 2.3 Not the hooks registry
 
@@ -110,11 +120,12 @@ hello-tool	Custom CLI Showcase	-	-	examples/plugins/hello-tool/run.sample
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — Register P-15's `aapp-review` now or when P-15 ships?** Registering now documents the reserved name early; waiting keeps the registry to plugins that exist.
+* [x] **Question 1 — Register P-15's `aapp-review` now or when P-15 ships? → RESOLVED (developer, 2026-10-03): now, as `planned:P-15`.** Shown as `RESERVED (planned, P-15)` so plugin developers see the name is taken before it ships.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-03:** Refreshed after P-32: `aapp-issue-tracker` row, `events` column (Plugin Payload Standard), `state` column with `planned:` reservations (Q1), two-section `aapp plugins` output, reserved-prefix warning for unregistered `aapp-*` plugins.
 * **2026-09-29:** §2.3 added: separation from the hooks registry.
 * **2026-09-29:** Plan initialized from issue #94 (~60-80 lines; above the <10-line small-fix threshold).
