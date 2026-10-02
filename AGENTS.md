@@ -35,10 +35,16 @@ Attribution mode is governed by repository configuration (`git config aapp.aiAtt
 
 | Mode | Command | Scope & Behavior |
 | :--- | :--- | :--- |
-| `none` | `aapp ai-off` | **Pure human authoring.** No AI trailers or git notes are generated; trailers are refused. |
-| `lax` | `aapp ai-lax` | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
-| `strict` | `aapp ai-strict` | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. |
-| `notes` | `aapp ai-notes` | **Local-first / private attribution.** Leaves commit messages pristine; records attribution metadata in `refs/notes/commits`. |
+| `none` | `aapp ai none` | **Pure human authoring.** No AI trailers in commit messages; trailers are refused. (Notes remain independently usable via `aapp note`). |
+| `lax` | `aapp ai lax` | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely. Notes attach in parallel when provided or when `aapp.aiNotes=true`. |
+| `strict` | `aapp ai strict` | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. Notes attach in parallel when provided or when `aapp.aiNotes=true`. |
+| `notes` | `aapp ai notes` | **Private-first attribution.** Leaves commit messages pristine and human-only; records attribution metadata in `refs/notes/ai`. |
+
+#### 📝 Parallel Git Notes (Hand-in-Hand or Independent)
+Git notes are out-of-band metadata (`refs/notes/ai` for AI audit traces and `refs/notes/commits` for review/developer context) that operate orthogonally to commit message trailers:
+- **Hand-in-Hand**: Run `aapp ai strict` (or `lax`) and enable parallel notes via `aapp ai notes on` (or pass `note "<text>"` to `aapp commit`). Commits receive public trailers AND an immutable audit trace in `refs/notes/ai`.
+- **Private Compliance**: Run `aapp ai none` with `aapp ai notes on`. Commit messages remain 100% human and clean, while internal audit traces are recorded in `refs/notes/ai`.
+- **Independent Context**: Any commit across all modes can attach developer review notes via `aapp commit ... note "<text>"` or `aapp note stage`.
 
 #### 🏷️ Semantic Trailer Standard (`lax` and `strict` modes)
 When operating with public semantic trailers (`lax` or `strict`), AI commits MUST carry semantic, emailless trailers. **Synthetic or fake email addresses (`Co-authored-by: Agent <email>`) are strictly forbidden** to prevent GitHub account hijacking and spoofing:
@@ -281,7 +287,7 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
   4. Verify `CHANGELOG.md` (or `.plans/CHANGELOG.md`) has version entries staged and ready for tagging.
   5. Report a structured release posture assessment (Tests, Linters, Docs, Rollback readiness) to the user.
 
-- **`pause [reason]` (or `/aapp-pause [reason]`, `aapp pause [reason]`, `aapp pause --shared [reason]`)**: Engage the Master Emergency Brake & Multi-Worktree State Preserver ("Hibernate & Wake").
+- **`pause [reason]` (or `/aapp-pause [reason]`, `aapp pause [reason]`, `aapp pause shared [reason]`)**: Engage the Master Emergency Brake & Multi-Worktree State Preserver ("Hibernate & Wake").
   1. Idempotently inspects active pause state if already paused.
   2. Runs In-Flight Operation Guard across all worktrees (`git worktree list --porcelain`), verifying zero active merges, rebases, or cherry-picks via canonical gitdir plumbing (`git rev-parse --git-path MERGE_HEAD`, `rebase-merge`, `CHERRY_PICK_HEAD`).
   3. Quarantines uncommitted in-flight code per-worktree into SHA-addressed stashes (`aapp-pause-<timestamp>:<branch>`) using `--include-untracked` (strictly forbidding `--all` to respect `.gitignore` air-gaps).
@@ -300,7 +306,7 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
 When switching focus across projects, stepping away from the desk, or preventing accidental cross-window collisions:
 - **Zero Daily Friction**: Zero overhead during normal active development.
 - **Dynamic Multi-Worktree Stash Quarantine**: In-flight code across all mounted worktrees (`git worktree list --porcelain`) is quarantined into named, SHA-addressed stashes (`aapp-pause-<timestamp>:<branch>`), leaving all working trees clean.
-- **State Buffer Scope**: Defaults to `$(git rev-parse --git-common-dir)/aapp_paused` (uncommitted, shared across all linked worktrees). Optional `--shared` commits `.plans/PAUSED.md` for remote team freeze.
+- **State Buffer Scope**: Defaults to `$(git rev-parse --git-common-dir)/aapp_paused` (uncommitted, shared across all linked worktrees). Optional `shared` commits `.plans/PAUSED.md` for remote team freeze.
 - **Cross-Medium Hook Realism ("Uncommittable, Not Untouchable")**: For sessions rooted in this repository, Layer 1 (`blast-radius-guard`) intercepts write tools before disk touches. For external or companion chat sessions rooted elsewhere, Layer 2 (`pre-commit`) serves as the strict, inescapable gate that rejects any commit touching codebase files.
 - **Permitted Paths While Paused**: Only `.plans/` reflections (`pickup*`, `ISSUES.md`, `issues*`, `current/*`) are permitted. All writes to codebase files, `.agents/*` control plane, templates, or hooks are strictly blocked.
 - **Emergency Escape Hatches**: `SKIP_BLAST_RADIUS=1` bypasses Layer 1 and Layer 2; `git commit --no-verify` bypasses Layer 2. Stashes are recoverable manually via `git stash list` and `git stash apply <sha>`.

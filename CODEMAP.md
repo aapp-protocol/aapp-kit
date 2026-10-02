@@ -86,7 +86,7 @@
   * `get_next_plan_id()` -> **Read-only peek** at the next Plan ID from the `aapp.planId` counter. Never mutates; claims nothing.
   * `allocate_plan_id()` -> **Claims** a Plan ID and persists the increment. Delegates to an optional `aapp-planid` provider plugin (`.agents/skills/aapp-planid/`); only plugin *absence* falls back to the local counter, a present-but-failing provider is fatal.
   * `normalize_plan_id(raw)` -> Accepts `P-42` or bare `42`; anything not a plain integer is an error.
-  * `get_next_issue_id()` / `allocate_issue_id()` -> Same contract for issue IDs (`#<n>`, `aapp.issueId`, optional `aapp-issue` provider), except an unset counter is seeded on first use by `seed_issue_id` (both ledgers, template rows skipped; no ledgers and no provider refuses). Both ID kinds share `_next_id` / `_allocate_id` / `_normalize_id` (P-32).
+  * `get_next_issue_id()` / `allocate_issue_id()` -> Same contract for issue IDs (`#<n>`, `aapp.issueId`, optional `aapp-issue-tracker` provider), except an unset counter is seeded on first use by `seed_issue_id` (both ledgers, template rows skipped; no ledgers and no provider refuses). Both ID kinds share `_next_id` / `_allocate_id` / `_normalize_id` (P-32).
   * `verify_transition_target(cmd, target)` -> Rejects empty queries and `#`-prefixed issue collisions.
 * **Anti-Wrapper Warning:** Do not parse plan filenames using raw ad-hoc `grep` or `cut`; use `resolve_plan_path`.
 * **Allocation Warning:** Plan IDs are **stored, not derived**. Never reconstruct an ID by scanning filenames or the archive ledger — that approach was removed (issue `#69`). Use `allocate_plan_id` to claim, `get_next_plan_id` to display.
@@ -96,7 +96,7 @@
 * **Key Functions:**
   * `issue_locate(n)` -> `active`, `archive`, or empty.
   * `issue_close_local(n, sha, summary)` -> Moves the active row to the top of the archive and prunes the road map; does not commit.
-  * `issue_notify_close(n, sha, summary)` -> Fire-and-forget `aapp-issue` close hand-off; failure only warns.
+  * `issue_notify_close(n, sha, summary, [plan])` -> Fire-and-forget `issue.close` to `aapp-issue-tracker` (§5 Plugin Payload Standard); prints the returned status; failure only warns.
 * **Consumers:** `aapp issue`, and `cmd_done` in `lib/cmd_plan.sh`, which closes a plan's Target Issue inside its archive commit.
 * **Anti-Wrapper Warning:** Never hand-edit rows between `ISSUES.md` and the archive; use `aapp issue close` or `aapp done`.
 
@@ -173,8 +173,9 @@
 * **Purpose:** Zero-dependency lifecycle hook dispatch, SHA256-hash-locked quality gating, and dynamic action plugin discovery.
 * **Key Functions:**
   * `dispatch_hook(event, data_json, repo_root)` -> Dual Delivery dispatcher streaming JSON on `stdin` alongside exported `AAPP_*` environment variables with process watchdog timeout enforcement (exit 124).
+  * `build_event_envelope(event, data_json)` / `run_action_plugin(entry, root, action, event, data_json)` / `json_field(json, key)` / `json_escape(text)` -> The shared envelope (with `repository.remote` and reserved `extra`), the plugin call, and flat-response parsing: see §5 **Plugin Payload Standard**.
   * `resolve_plugin_entrypoint(pdir, name)` -> Extension-agnostic plugin resolution (`run`, `$name`, `scripts/run`, `scripts/$name`, pattern match) with `.sample` exclusion filtering.
-  * `cmd_plugins_status()` -> Authoritative CLI inspection command (`aapp plugins`) reporting status of hardcoded standard extension points (`aapp-planid`, `aapp-issue`, `hello-tool`) and custom user plugins.
+  * `cmd_plugins_status()` -> Authoritative CLI inspection command (`aapp plugins`) reporting status of hardcoded standard extension points (`aapp-planid`, `aapp-issue-tracker`, `hello-tool`) and custom user plugins.
   * `cmd_hooks_status()` / `cmd_hook_hash()` -> Validates executable bits and live SHA-256 integrity against `.agents/skills/aapp-hooks/registry.tsv`.
 * **Anti-Wrapper Warning:** Never bypass `registry.tsv` hash verification or run unhashed handlers in `mode=gate`.
 
@@ -246,10 +247,45 @@ To prevent naming drift across development, blueprint authoring, and runtime too
 
 | Plugin Name | Namespace / Role | Invocation Trigger | Input / Output Contract | Shipped Sample Source | Installed Target |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`aapp-planid`** | Core Identity | `allocate_plan_id` (`lib/plan_resolver.sh`) | `AAPP_ACTION=allocate` → stdout `P-<int>` (or bare `<int>`) | `examples/plugins/aapp-planid/run.sample` | `.agents/skills/aapp-planid/run` |
-| **`aapp-issue`** | Core Identity | `allocate_issue_id` (`lib/plan_resolver.sh`), `issue_notify_close` (`lib/cmd_issue.sh`) | `AAPP_ACTION=allocate` → stdout `#<int>` (or bare `<int>`); `AAPP_ACTION=close` + `AAPP_ISSUE_ID`/`AAPP_COMMIT_SHA`/`AAPP_SUMMARY`, fire-and-forget | `examples/plugins/aapp-issue/run.sample` | `.agents/skills/aapp-issue/run` |
+| **`aapp-planid`** | Core Identity | `allocate_plan_id` (`lib/plan_resolver.sh`) | Payload Standard: `plan.allocate` → `{"id": "P-<int>"}` | `examples/plugins/aapp-planid/run.sample` | `.agents/skills/aapp-planid/run` |
+| **`aapp-issue-tracker`** | Core Identity | `allocate_issue_id` (`lib/plan_resolver.sh`), `issue_notify_close` (`lib/cmd_issue.sh`) | Payload Standard: `issue.allocate` → `{"id": "#<int>"}`; `issue.close` → `{"status": …}`, fire-and-forget | `examples/plugins/aapp-issue-tracker/run.sample` | `.agents/skills/aapp-issue-tracker/run` |
 | **`aapp-review`** *(P-15)* | Code Quality | `/aapp-review` / CLI dispatch | Review Packet JSON on `stdin` → Markdown findings on `stdout` | `examples/plugins/aapp-review/run.sample` | `.agents/skills/aapp-review/run` |
 | **`hello-tool`** | Showcase / Demo | `aapp hello-tool` | CLI arguments → stdout greeting | `examples/plugins/hello-tool/run.sample` | `.agents/skills/hello-tool/run` |
+
+### 📨 Plugin Payload Standard (Dual Delivery, P-32)
+Every action plugin the kit calls (`aapp-planid`, `aapp-issue-tracker`) speaks one contract, the same envelope lifecycle hooks receive. Built by `build_event_envelope`, sent by `run_action_plugin`, read by `json_field` (all in `lib/hook_dispatcher.sh`).
+
+**stdin: JSON envelope**
+```json
+{
+  "version": "1.0",
+  "event": "issue.close",
+  "timestamp": "2026-09-29T14:02:11Z",
+  "actor": "lorand",
+  "repository": {
+    "root": "/path/to/project",
+    "branch": "develop",
+    "remote": { "name": "origin", "url": "git@github.com:acme/app.git" }
+  },
+  "data": { "id": "#79", "commit": "e07811f", "summary": "…", "plan": "P-32" },
+  "extra": {}
+}
+```
+* **`event`:** `plan.allocate`, `issue.allocate`, `issue.close` (hooks keep their lifecycle names).
+* **`repository.remote`:** `aapp.remote` (default `origin`) via `git remote get-url`; credentials stripped (`user:secret@`, any userinfo on http/https); `null` without a remote. Identifies the team project to a remote authority.
+* **`extra`:** reserved for arbitrary data, `{}` by default; the kit never interprets it.
+* **env (shell plugins):** `AAPP_ACTION` (`allocate` / `close`), `AAPP_REPO_ROOT`; on close `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA`, `AAPP_SUMMARY`.
+
+**stdout: one flat JSON object; the exit code decides**
+
+| Event | stdout | Exit |
+| :--- | :--- | :--- |
+| `*.allocate` | `{"id": "P-42"}` / `{"id": "#97"}` (or a bare integer) | 0 issued; non-zero refuses, **no local fallback** |
+| `issue.close` | `{"status": "accepted"}` / `{"status": "queued"}` | status printed; non-zero **only warns** (fire-and-forget) |
+| any failure | optional `{"error": "<text>"}` | non-zero; the text is shown |
+
+* A response may add `"extra": {…}`; the kit ignores it. Plain-text output is rejected.
+* Plugin **absence** falls back to the local counter; a present plugin that fails is fatal for `allocate`.
 
 ### 📋 Extension Point Rules
 1. **Verbatim Naming Invariant:** Shipped sample directories in `examples/plugins/<name>/` match the canonical installed plugin directory in `.agents/skills/<name>/` **verbatim**. No rename translation mapping is permitted.
