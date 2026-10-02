@@ -2,8 +2,8 @@
 * **Created:** 2026-10-02 | **Last Refined:** 2026-10-03
 * **Target Issue / Milestone:** None (follow-up to P-32)
 * **Plan ID:** P-47
-* **Status:** 🔷 Frozen
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `c0edb4b` (develop)
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
@@ -152,6 +152,7 @@ Also: *Issue Escape Triage* logs with `aapp issue allocate`; commit-convention e
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-03:** Plan activated into ⚡ In Development via start.
 * **2026-10-03:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-03:** Reworked to lean skills: no new `aapp-issue` skill; existing skills call the CLI (incl. `aapp-plan` → `aapp draft`); rarely used verbs go into an `AGENTS.md` CLI Reference plus `aapp help <verb>`; the guard checks the reference, not the skills. Retitled.
