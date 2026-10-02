@@ -84,4 +84,30 @@ if [ -z "$errors" ]; then ok "test_declared_test_files_exist"; else bad "test_de
 if [ -z "$names_missing" ]; then ok "declared test names appear in their files"; else bad "declared test names appear in their files" "${names_missing#
 }"; fi
 
+echo "== agent CLI reference (P-47) =="
+# Every daily verb is reachable by agents without a skill: one line in the
+# AGENTS.md CLI Reference, and its contract printed by `aapp help <verb>`.
+AGENTS_TEMPLATE="$KIT/templates/AGENTS.md"
+reference="$(awk '/^## .*CLI Reference/{r=1; next} /^## /{r=0} r' "$AGENTS_TEMPLATE")"
+errors=""
+[ -n "$reference" ] || errors="
+templates/AGENTS.md has no '## … CLI Reference' section"
+while IFS="$TAB" read -r verb tier standalone desc contract rest || [ -n "$verb" ]; do
+  [ -z "$verb" ] && continue
+  [ "${verb#\#}" != "$verb" ] && continue
+  [ "$tier" = "daily" ] || continue
+  printf '%s\n' "$reference" | grep -qE "aapp $verb([^a-z-]|\$)" || errors="$errors
+'$verb' is missing from the AGENTS.md CLI Reference"
+  if [ -n "$contract" ] && [ -f "$KIT/$contract" ]; then
+    want="$(head -n 1 "$KIT/$contract")"
+    "$KIT/aapp" help "$verb" 2>/dev/null | grep -qxF "$want" || errors="$errors
+'aapp help $verb' does not print $contract"
+  fi
+done < "$MANIFEST"
+if [ -z "$errors" ]; then ok "test_daily_verbs_in_agent_reference"; else bad "test_daily_verbs_in_agent_reference" "${errors#
+}"; fi
+
+"$KIT/aapp" help no-such-verb >/dev/null 2>&1; rc=$?
+if [ "$rc" -ne 0 ]; then ok "test_help_unknown_verb_refuses"; else bad "test_help_unknown_verb_refuses" "rc=$rc"; fi
+
 print_test_summary "$PASS" "$FAIL"

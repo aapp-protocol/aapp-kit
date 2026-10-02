@@ -15,6 +15,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | :--- | :---: | :--- |
 | `aapp status [short]` | **✅ Yes** | 4-pillar context recovery briefing (or 'short' for 1-line remote pulse) |
 | `aapp draft [slug]` | **✅ Yes** | Scaffold blueprint from template, stamp ID & date, register in matrix |
+| `aapp refine <id> "<msg>"` | **✅ Yes** | Commit an edit to an active plan's content through the plans commit engine |
 | `aapp tdd [id]` | **✅ Yes** | Declare a plan's failure-first tests (§3 identifiers, §4 test files) before freeze |
 | `aapp plan [query]` | **✅ Yes** | Educational planning switchboard or query blueprints |
 | `aapp plan-status [id]` | **✅ Yes** | Inspect plan lane matrix or specific blueprint details |
@@ -59,6 +60,7 @@ Plans are `P-[num]`, issues are `#[num]`. `aapp freeze P-9`, `aapp freeze 9`, an
 | `aapp uninstall` | Remove global AAPP binaries and shared directories |
 | `aapp version` | Show installed AAPP version (`-v`, `--version`) |
 | `aapp help` | Show grouped command catalog (`-h`, `--help`) |
+| `aapp help <verb>` | Print that verb's installed contract (arguments, refusals, effects) |
 
 `aapp init` is idempotent — re-run it after any template change to propagate engines into `.githooks/` and `.agents/`. It never overwrites your own content.
 

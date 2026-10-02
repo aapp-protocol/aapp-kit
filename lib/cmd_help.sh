@@ -18,6 +18,33 @@ elif [ -f "${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/lib/verbs.tsv" ]; then
     VERBS_TSV="${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/lib/verbs.tsv"
 fi
 
+# `aapp help <verb>` (P-47): print that verb's contract from the installed kit,
+# so agents reach it in any repository without a repo-relative path.
+if [ -n "${1:-}" ]; then
+    HELP_VERB="$1"
+    if [ -z "$VERBS_TSV" ]; then
+        echo "❌ [Help] lib/verbs.tsv not found; reinstall the kit ('aapp install')." >&2
+        exit 1
+    fi
+    HELP_TAB="$(printf '\t')"
+    while IFS="$HELP_TAB" read -r verb tier standalone desc contract rest || [ -n "$verb" ]; do
+        [ "$verb" = "$HELP_VERB" ] || continue
+        if [ -n "$contract" ]; then
+            HELP_CONTRACT="$(dirname "$VERBS_TSV")/../$contract"
+            if [ ! -f "$HELP_CONTRACT" ]; then
+                echo "❌ [Help] Contract for '$HELP_VERB' missing: $contract" >&2
+                exit 1
+            fi
+            cat "$HELP_CONTRACT"
+        else
+            echo "aapp $HELP_VERB — $desc"
+        fi
+        exit 0
+    done < "$VERBS_TSV"
+    echo "❌ Unknown command: '$HELP_VERB'. Run 'aapp help' for the catalog." >&2
+    exit 1
+fi
+
 cat <<EOF
 Usage: aapp <command> [options]
 

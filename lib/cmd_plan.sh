@@ -601,14 +601,9 @@ cmd_tdd() {
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
     [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
 
-    # Commit transition in plans worktree if available
+    # Commit the injection in the plans worktree; a failed commit is fatal (P-47).
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
-        if declare -f plans_commit >/dev/null 2>&1; then
-            plans_commit "plan(refine): declare failure tests for $plan_id" "current/$(basename "$plan_file")" 2>/dev/null || true
-        else
-            git -C "$PLANS_DIR" add "current/$(basename "$plan_file")" 2>/dev/null || true
-            git -C "$PLANS_DIR" commit -m "plan(refine): declare failure tests for $plan_id" 2>/dev/null || true
-        fi
+        plans_commit "plan(refine): declare failure tests for $plan_id" "current/$(basename "$plan_file")" || exit 1
     fi
 
     echo "🧪 [TDD] Declared failure test sections in $(basename "$plan_file")."
@@ -1344,9 +1339,35 @@ cmd_plan_switchboard() {
 ACTION="${1:-plan}"
 shift || true
 
+# cmd_refine <plan-id> "<what changed>" (P-47)
+# Commits an edit to an active plan's content through the lifecycle commit
+# engine, so agents never run raw git on the plans worktree. Only the plan file
+# is committed; the pre-commit design lock still guards frozen sections.
+cmd_refine() {
+    local query="${1:-}" msg="${2:-}" plan_file rel plan_id sha
+    if [ -z "$query" ] || [ -z "$msg" ]; then
+        echo "❌ [Refine] Usage: aapp refine <plan-id> \"<what changed>\"" >&2
+        exit 1
+    fi
+    plan_file="$(resolve_plan_file "$query" "refine")" || exit 1
+    rel="current/$(basename "$plan_file")"
+    if [ -z "$(git -C "$PLANS_DIR" status --porcelain -- "$rel")" ]; then
+        echo "❌ [Refine] Nothing to commit: $rel has no changes." >&2
+        exit 1
+    fi
+    plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" | head -n 1)"
+    [ -n "$plan_id" ] || plan_id="$query"
+    plans_commit "plan(refine): $plan_id $msg" "$rel" || exit 1
+    sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
+    echo "📝 [Refine] $plan_id committed ($sha): $msg"
+}
+
 case "$ACTION" in
     draft)
         cmd_draft "$@"
+        ;;
+    refine)
+        cmd_refine "$@"
         ;;
     freeze-start)
         cmd_freeze_start "$@"
@@ -1378,7 +1399,8 @@ Usage: aapp <command> [args]
 
 Multi-Agent Planning & Execution Commands:
   draft [slug]       Scaffold blueprint from template, stamp ID & date, register in matrix
-  tdd <id>           Declare failure-first test sections in an incubator plan before freeze
+  refine <id> "<msg>" Commit an edit to an active plan's content (plans worktree)
+  tdd <id>          Declare failure-first test sections in an incubator plan before freeze
   freeze-start <id>  Atomically freeze blueprint, transition to ⚡ In Development, and bind buffer
   freeze <id>        Lock blueprint into 🔷 Frozen backlog specification
   start <id>         Transition 🔷 Frozen blueprint to ⚡ In Development and bind buffer
@@ -1392,7 +1414,7 @@ EOF
         ;;
     *)
         echo "❌ Unknown plan command: '$ACTION'" >&2
-        echo "   Available: draft, tdd, freeze-start, freeze, start, done, active, plan-status, plan" >&2
+        echo "   Available: draft, refine, tdd, freeze-start, freeze, start, done, active, plan-status, plan" >&2
         exit 1
         ;;
 esac

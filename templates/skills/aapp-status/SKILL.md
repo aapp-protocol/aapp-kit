@@ -24,7 +24,7 @@ If `aapp status` exits non-zero, report any repository corruption or missing too
 ### Step 3: Present Context Recovery Briefing
 Present the structured briefing across the **four pillars**:
 1. **Shipped Pillar**: Recently landed features, bugfixes, or unreleased changes from `CHANGELOG.md`.
-2. **Issue Lane**: Active bugs and backlog items from `ISSUES.md` strictly in the priority order established by `issues_road_map.md`.
+2. **Issue Lane**: Active bugs and backlog items from `ISSUES.md` strictly in the priority order established by `issues_road_map.md`. The briefing shows the top 5; `aapp issue list` (or `aapp issue list all`) prints the rest in the same order.
 3. **Plan Lane**: Active blueprints in development, frozen specifications, or incubator drafts from `state_matrix.md`.
 4. **Pickup Queue**: Unprocessed ideas and raw notes from `pickup.md`. List ideas with a count; never omit this pillar.
 

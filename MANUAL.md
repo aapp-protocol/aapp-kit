@@ -1664,7 +1664,8 @@ To eliminate cognitive overload, the AAPP CLI organizes its commands into 5 visu
 
 Command metadata is centralized in `lib/verbs.tsv`, a zero-dependency, tab-separated catalog defining command names, tiers, standalone CLI readiness, and descriptions. It acts as the single source of truth for:
 - Grouped help generation in `aapp help` and invalid command suggestions (`lib/cmd_help.sh`).
-- Mechanical test assertions verifying parity between the dispatcher, the manifest, and `CHEATSHEET.md` (Tests 58 & 59 in `tests/install_test.sh`).
+- `aapp help <verb>`: prints the contract named in that verb's row, read from the installed kit, so it works in any repository and with any install method. Agents use it for verbs no skill covers.
+- Mechanical test assertions verifying parity between the dispatcher, the manifest, and `CHEATSHEET.md` (Tests 58 & 59 in `tests/install_test.sh`), and that every daily verb appears in the `AGENTS.md` CLI Reference (`tests/verb_contracts_test.sh`).
 
 ### Deterministic Blueprint Scaffolding (`aapp draft [slug]`)
 
@@ -1675,6 +1676,10 @@ Command metadata is centralized in `lib/verbs.tsv`, a zero-dependency, tab-separ
 - Registers the new blueprint in `.plans/state_matrix.md` under the Incubator (`🟣 Under Review`).
 - Automatically commits the scaffolded plan to the `.plans` worktree.
 - Launches `$EDITOR` if running interactively in a human terminal.
+
+### Committing Plan Edits (`aapp refine <id> "<what changed>"`)
+
+Lifecycle verbs commit their own changes; `aapp refine` covers the rest — content written into an active plan (sections filled in, an amendment, a change-log line). It commits **only** that plan file through the same commit engine, with the configured attribution, as `plan(refine): <id> <what changed>`, and prints `📝 [Refine] <id> committed (<sha>): <what changed>`. It refuses a missing message, an unknown plan, and a plan with no changes; the pre-commit design lock still guards a frozen plan's §2 and §4. **Nobody, agent or human, needs raw `git` in the plans worktree.**
 - **No-Dead-End Invariant**: When invoked without arguments, it scans `.plans/pickup.md` and `.plans/ISSUES.md`, presenting candidate menus capped at 10 items.
 
 ### The Pure-Human Terminal Loop

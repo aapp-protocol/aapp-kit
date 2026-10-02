@@ -86,10 +86,10 @@ When committing changes inside the `.plans/`, `.agents/`, or `.githooks/` worktr
 | Scope | Prefix | Purpose / Example |
 | :--- | :--- | :--- |
 | **Plan Draft** | `plan(draft):` | `plan(draft): scaffold <plan-name> from pickup` |
-| **Plan Refinement** | `plan(refine):` | `plan(refine): resolve open questions & checklist for <plan-name>` |
+| **Plan Refinement** | `plan(refine):` | `plan(refine): <plan-id> resolve open questions` (written by `aapp refine`) |
 | **Plan Freeze** | `plan(freeze):` | `plan(freeze): lock blast radius and greenlight <plan-name>` |
 | **Plan Archival** | `plan(done):` | `plan(done): archive <plan-name> to done/ and update state matrix` |
-| **Issue Triage** | `issue(triage):` | `issue(triage): log ISSUE-00X in .plans/ISSUES.md` |
+| **Issue Triage** | `issue(triage):` | `issue(triage): log #<num> in .plans/ISSUES.md` |
 | **Agent Rules** | `rules(agents):` | `rules(agents): update behavioral guidelines in .agents/AGENTS.md` |
 | **Git Hooks** | `feat(hooks):` | `feat(hooks): update blast radius enforcement engine` |
 
@@ -164,7 +164,7 @@ The lanes are separate, **not sealed**. A fix too large to simply *do* deserves 
 2. Run `digest ISSUE-00X` to scaffold the blueprint from `.plans/plan-template.md`.
 3. Link the two records with the fields the templates already carry: put the issue ID in the plan's `**Target Issue / Milestone:**` field, and a link to the blueprint in the issue's `Proposed Fix / Target Plan` cell.
 4. Set the issue's status to 🔵 `Planned` and **leave it on `issues_road_map.md`** — it is still an open issue until the fix ships.
-5. Register the plan in `state_matrix.md` like any other, with the issue ID visible in its entry.
+5. `aapp draft` registers the plan in `state_matrix.md` like any other; the issue ID lives in its `Target Issue` header.
 6. Close the issue only when the fix is verified and the plan is archived via `done`. `aapp done` relocates the Target Issue row to `.plans/done/000-issues-archive.md` and prunes `issues_road_map.md` in the same commit. For a direct fix with no plan, run `aapp issue close <num> [sha <sha>] [summary "<text>"]` instead of editing the tables by hand.
 
 **Visibility, not permission.** Promote when it fits, then **say plainly what you did and why** — "ISSUE-004 touches four modules and the parser contract, so I promoted it to a draft blueprint." The human can refine, abort, or ignore it; a draft costs nothing. What you must never do is promote *silently*.
@@ -202,7 +202,7 @@ The agent must support and execute these shorthand workflow triggers immediately
 
   **Step 1 — Resolve the idea.** `<idea>` may be raw text typed inline, or a reference to an entry in `.plans/pickup.md` (or a reference file in `.plans/pickup/`). If `<idea>` is omitted, list the open entries in `pickup.md` and **ask the user which one to digest**. Never choose for them, and never process the whole file at once.
 
-  **Step 2 — Route it to a lane.** If the idea describes wrong behaviour in code that already ships, it is an issue: **record it in `.plans/ISSUES.md` (or root `ISSUES.md`) and place it on `.plans/issues_road_map.md` first — always.** Then judge the size of the fix:
+  **Step 2 — Route it to a lane.** If the idea describes wrong behaviour in code that already ships, it is an issue: **claim its ID with `aapp issue allocate`, record it in `.plans/ISSUES.md` (or root `ISSUES.md`) and place it on `.plans/issues_road_map.md` first — always.** Then judge the size of the fix:
   - **Small / obvious fix** → stop there. The issue record is enough; no blueprint.
   - **Large fix** (several modules, needs a Blast Radius, real design decisions, spans sessions, or is a refactor) → **promote it and continue to Step 3.** Draft the blueprint, then state plainly that you promoted it and why. Do not stop to ask first — the draft is unfrozen and costs nothing. **Unless it is blocking work already in flight** — then stop and ask (see *Issue Escape Triage*).
   - **`<idea>` is itself an issue ID** (e.g. `digest ISSUE-004`) → the user has already chosen promotion. Go straight to Step 3 and carry the issue ID into the plan.
@@ -216,17 +216,17 @@ The agent must support and execute these shorthand workflow triggers immediately
 
   **Step 4a — NEW plan (from scratch):**
   1. Cross-reference `.agents/CODEMAP.md` (or `CODEMAP.md`) and `ARCHITECTURE.md` so the design extends existing modules instead of adding duplicate helpers or wrappers.
-  2. Allocate the next unpadded Plan ID with `allocate_plan_id` — it claims the id from the `aapp.planId` counter and persists the increment. `get_next_plan_id` is a read-only peek that claims nothing. Scaffold `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`.
+  2. Run `aapp draft <slug>`: it claims the next Plan ID, scaffolds `.plans/current/P<num>-<slug>.md` from the template, registers it in the Incubator and commits it. Never allocate IDs or copy the template by hand.
   3. Fill in *Context & Architectural Goal*, *Technical Blueprint*, and *Implementation Steps & Execution Checklist*.
   4. Propose a Blast Radius. Mark it **PROPOSED** — it is not locked and confers no execution rights. Never declare files matching Guard Section 2 self-protection in Target Files (enforced by Pair 5).
   5. Write every unresolved decision into *Open Questions*. A first draft with no open questions is usually an under-examined draft.
-  6. Register it in `.plans/state_matrix.md` under the Incubator with status 🟣/📝 and `P-<num>` handle.
+  6. Commit the authored content with `aapp refine P-<num> "<what changed>"`.
 
   **Step 4b — AMEND an existing plan:**
   1. Fold the new detail into the section it belongs to — *Technical Blueprint*, *Implementation Steps*, *Open Questions*, or *Blast Radius*.
   2. Append a dated line to that plan's `## 📦 6. Change Log & Refinement History` recording what changed and why.
-  3. **If the plan is already frozen / greenlit:** changing its Blast Radius changes what the pre-commit hook will permit. Stop, get explicit approval, and move the plan back to the Incubator in `state_matrix.md` until it is re-frozen.
-  4. Update its `state_matrix.md` entry if the status changed.
+  3. **If the plan is already frozen / greenlit:** changing its Blast Radius changes what the pre-commit hook will permit. Stop and get explicit approval. Then set its Status to `📝 Refining` with §2/§4 untouched, commit that alone with `aapp refine`, make the change, and re-freeze.
+  4. Commit it with `aapp refine <plan-id> "<what changed>"`; the state matrix re-derives itself.
 
   **Step 5 — Clean up.** Remove **only** the digested entry from `pickup.md`. Leave every other note in place.
 
@@ -302,6 +302,33 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
 
 ---
 
+## 🧰 CLI Reference
+Every chore has a verb; use it instead of editing ledgers or running git on `.plans` by hand. **Never run raw `git` in the plans worktree**: lifecycle verbs commit their own changes, and plan edits are committed with `aapp refine`.
+
+| Verb | Purpose |
+| :--- | :--- |
+| `aapp status [short]` | Four-pillar briefing (Shipped, Issues, Plans, Pickup) |
+| `aapp draft <slug>` | Claim a Plan ID, scaffold the blueprint, register and commit it |
+| `aapp refine <id> "<what changed>"` | Commit an edit to an active plan |
+| `aapp tdd <id>` | Inject failure-test sections into a plan before freeze |
+| `aapp plan [query]` | Planning switchboard |
+| `aapp plan-status [id]` | Read-only plan matrix or one plan's details |
+| `aapp matrix [check]` | Re-derive (or audit) `state_matrix.md` from plan Status lines |
+| `aapp freeze <id>` | Lock design and Blast Radius |
+| `aapp start <id>` | Activate a frozen plan for implementation |
+| `aapp freeze-start <id>` | Freeze and start in one step |
+| `aapp done <id>` | Archive an implemented plan; closes its Target Issue |
+| `aapp commit "<msg>" …` | Plan-bound code commit with attribution; records the SHA in the plan |
+| `aapp active [id \| swap \| clear]` | Show or set the active plan buffer |
+| `aapp note …` | Stage, inspect, push or pull git notes |
+| `aapp issue [next \| allocate \| close <num> \| list]` | Claim, close and list issue IDs |
+| `aapp test …` | Run the kit's test suites |
+| `aapp ai …` | Inspect or switch the attribution mode |
+
+Full catalog: `aapp help`. A verb's complete contract (arguments, refusals, effects): `aapp help <verb>`.
+
+---
+
 ## 🛑 Master Emergency Brake & Hibernate/Wake Protocol ("Hibernate & Wake")
 When switching focus across projects, stepping away from the desk, or preventing accidental cross-window collisions:
 - **Zero Daily Friction**: Zero overhead during normal active development.
@@ -314,7 +341,7 @@ When switching focus across projects, stepping away from the desk, or preventing
 ---
 
 ## 🐛 Issue Escape Triage (Mid-Execution Bugs)
-If you discover an unexpected bug while executing a plan inside a locked Blast Radius, **record it in `.plans/ISSUES.md` (or root `ISSUES.md`) first — always** — then take one of three paths:
+If you discover an unexpected bug while executing a plan inside a locked Blast Radius, **claim its ID with `aapp issue allocate` and record it in `.plans/ISSUES.md` (or root `ISSUES.md`) first — always** — then take one of three paths:
 
 - **Non-blocking:** Do not fix it. Continue the assigned plan. Do not add it to `state_matrix.md`, and do not re-prioritize `issues_road_map.md` on your own — append it and let the human place it.
 
