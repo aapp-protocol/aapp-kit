@@ -28,8 +28,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-47**: [`P47-skills-cover-issue-lifecycle.md`](current/P47-skills-cover-issue-lifecycle.md) — Skills Cover Issue Lifecycle
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
