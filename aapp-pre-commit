@@ -239,6 +239,74 @@ if [ "$STAGED_CORE_COUNT" -gt 0 ]; then
 fi
 
 # ------------------------------------------------------------------------------
+# 1a. CHANGELOG.md CONCISENESS & SINGLE-LINE BULLET INVARIANT
+# ------------------------------------------------------------------------------
+# Enforces that every newly added entry in CHANGELOG.md is a single-line bullet
+# starting with '- ' (or '* ') and does not exceed aapp.changelogMaxLen (default 300 chars).
+# Multi-line indented paragraphs or unbulleted continuation lines are strictly blocked.
+MAX_CHANGELOG_LEN="$(git config --int aapp.changelogMaxLen 2>/dev/null || echo "300")"
+for CL_FILE in "CHANGELOG.md" ".plans/CHANGELOG.md"; do
+    CL_DIFF=""
+    if [ "$CL_FILE" = "CHANGELOG.md" ]; then
+        if git diff --cached --name-only 2>/dev/null | grep -qxF "CHANGELOG.md"; then
+            CL_DIFF="$(git diff --cached -U0 "CHANGELOG.md" 2>/dev/null | grep '^+[^+]' || true)"
+        fi
+    elif [ "$CL_FILE" = ".plans/CHANGELOG.md" ]; then
+        if git diff --cached --name-only 2>/dev/null | grep -qxF ".plans/CHANGELOG.md"; then
+            CL_DIFF="$(git diff --cached -U0 ".plans/CHANGELOG.md" 2>/dev/null | grep '^+[^+]' || true)"
+        elif [ -d ".plans" ] && git -C .plans rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            CL_DIFF="$(git -C .plans diff --cached -U0 "CHANGELOG.md" 2>/dev/null | grep '^+[^+]' || true)"
+            if [ -z "$CL_DIFF" ]; then
+                CL_DIFF="$(git -C .plans diff -U0 "CHANGELOG.md" 2>/dev/null | grep '^+[^+]' || true)"
+            fi
+        fi
+    fi
+
+    if [ -n "$CL_DIFF" ]; then
+        while IFS= read -r raw_line; do
+            line="${raw_line#+}"
+            # Skip empty or whitespace-only lines
+            [[ -z "${line// }" ]] && continue
+            # Skip Markdown headers, HTML comments, horizontal rules, footer links, and standard preamble
+            case "$line" in
+                '#'*) continue ;;
+                '<!--'*|[[:space:]]*'<!--'*) continue ;;
+                '---'*|'___'*|'***'*) continue ;;
+                '['*']:'*|[[:space:]]*'['*']:'*) continue ;;
+                'All notable changes'*|*'Keep a Changelog'*|*'Semantic Versioning'*) continue ;;
+            esac
+
+            # Rule 1: Shape Invariant - Must be a single-line bullet starting with - or *
+            if [[ ! "$line" =~ ^[[:space:]]*[-*][[:space:]]+ ]]; then
+                echo ""
+                echo "❌ [Pre-Commit Error] Changelog entry has unbulleted continuation line!"
+                echo "   File: $CL_FILE"
+                echo "   Line: $line"
+                echo ""
+                echo "   👉 Changelog entries must be concise, single-line bullets starting with '- '."
+                echo "   👉 Multi-line paragraphs or unbulleted continuation lines are prohibited."
+                echo ""
+                exit 1
+            fi
+
+            # Rule 2: Bullet Length Ceiling
+            LINE_LEN="${#line}"
+            if [ "$LINE_LEN" -gt "$MAX_CHANGELOG_LEN" ]; then
+                echo ""
+                echo "❌ [Pre-Commit Error] Changelog bullet exceeds maximum length ($LINE_LEN > $MAX_CHANGELOG_LEN chars)!"
+                echo "   File: $CL_FILE"
+                echo "   Line: $line"
+                echo ""
+                echo "   👉 Keep a Changelog requires concise, single-line bullet points (<= $MAX_CHANGELOG_LEN chars)."
+                echo "   👉 Move technical blueprints, file lists, and internal implementation mechanics to .plans/ blueprints."
+                echo ""
+                exit 1
+            fi
+        done <<< "$CL_DIFF"
+    fi
+done
+
+# ------------------------------------------------------------------------------
 # 1b. PORTABILITY & MACHINE-AGNOSTIC PATH ENFORCEMENT
 # ------------------------------------------------------------------------------
 # Blocks machine-specific file:/// URIs and absolute local paths in repository files.

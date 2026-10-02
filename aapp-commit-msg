@@ -24,18 +24,37 @@ if [ ! -s "$MSG_FILE" ]; then
     exit 0
 fi
 
-# Extract first non-comment line as subject
-SUBJECT=""
-while IFS= read -r line; do
-    # Skip comment lines
+# ------------------------------------------------------------------------------
+# Revert Exemption: git revert standard commits or quoted revert lines
+# ------------------------------------------------------------------------------
+# Standard git reverts paste prior commit details; exempt from conciseness and trailers
+if grep -qE '^(This reverts commit [0-9a-fA-F]+|> This reverts commit [0-9a-fA-F]+)' "$MSG_FILE" 2>/dev/null; then
+    exit 0
+fi
+
+# Extract non-comment lines
+NON_COMMENT_LINES=()
+while IFS= read -r line || [ -n "$line" ]; do
     [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    # Skip leading empty lines
-    [[ -z "$line" ]] && continue
-    SUBJECT="$line"
-    break
+    NON_COMMENT_LINES+=("$line")
 done < "$MSG_FILE"
 
+# Extract first non-empty line as subject
+SUBJECT=""
+SUBJECT_LINE_IDX=-1
+for i in "${!NON_COMMENT_LINES[@]}"; do
+    if [ -n "${NON_COMMENT_LINES[$i]}" ]; then
+        SUBJECT="${NON_COMMENT_LINES[$i]}"
+        SUBJECT_LINE_IDX="$i"
+        break
+    fi
+done
+
 if [ -z "$SUBJECT" ]; then
+    exit 0
+fi
+
+if [[ "$SUBJECT" =~ ^Revert[[:space:]]+\" || "$SUBJECT" =~ ^This[[:space:]]+reverts[[:space:]]+commit ]]; then
     exit 0
 fi
 
@@ -57,16 +76,90 @@ if [ "$SUBJECT_LEN" -gt "$SUBJECT_MAX_LEN" ]; then
 fi
 
 # ------------------------------------------------------------------------------
-# Check 2: Attribution Policy & Revert Safety (G2)
+# Check 1b: Blank Separator Line Invariant
 # ------------------------------------------------------------------------------
-# Revert exemption: git revert standard commits or quoted revert lines
-if [[ "$SUBJECT" =~ ^Revert[[:space:]]+\" || "$SUBJECT" =~ ^This[[:space:]]+reverts[[:space:]]+commit ]]; then
-    exit 0
+NEXT_LINE_IDX=$((SUBJECT_LINE_IDX + 1))
+if [ "$NEXT_LINE_IDX" -lt "${#NON_COMMENT_LINES[@]}" ]; then
+    LINE2="${NON_COMMENT_LINES[$NEXT_LINE_IDX]}"
+    if [ -n "$LINE2" ]; then
+        echo "" >&2
+        echo "❌ [Commit-Msg Violation] Missing blank separator line between subject and body!" >&2
+        echo "   Line 2: $LINE2" >&2
+        echo "" >&2
+        echo "   👉 Git conventions require an empty line separating the subject from the commit body." >&2
+        echo "" >&2
+        exit 1
+    fi
 fi
 
-if grep -qE '^(This reverts commit [0-9a-fA-F]+|> This reverts commit [0-9a-fA-F]+)' "$MSG_FILE" 2>/dev/null; then
-    exit 0
+# ------------------------------------------------------------------------------
+# Check 1c: Body Conciseness & Unwrapped Line Ceiling
+# ------------------------------------------------------------------------------
+BODY_RAW_LINES=()
+if [ "$((NEXT_LINE_IDX + 1))" -lt "${#NON_COMMENT_LINES[@]}" ]; then
+    BODY_RAW_LINES=("${NON_COMMENT_LINES[@]:$((NEXT_LINE_IDX + 1))}")
 fi
+
+# Strip trailing trailers and trailing blank lines from bottom up
+while [ "${#BODY_RAW_LINES[@]}" -gt 0 ]; do
+    last_idx=$((${#BODY_RAW_LINES[@]} - 1))
+    last_line="${BODY_RAW_LINES[$last_idx]}"
+    if [[ -z "${last_line// }" ]] || [[ "$last_line" =~ ^[[:space:]]*[A-Za-z0-9_-]+:[[:space:]] ]]; then
+        unset 'BODY_RAW_LINES[last_idx]'
+    else
+        break
+    fi
+done
+
+# Strip leading blank lines
+while [ "${#BODY_RAW_LINES[@]}" -gt 0 ]; do
+    first_line="${BODY_RAW_LINES[0]}"
+    if [[ -z "${first_line// }" ]]; then
+        BODY_RAW_LINES=("${BODY_RAW_LINES[@]:1}")
+    else
+        break
+    fi
+done
+
+# Check 1c.1: Individual line width
+MAX_LINE_LEN="$(git config --int aapp.commitLineMaxLen 2>/dev/null || echo "100")"
+for bline in "${BODY_RAW_LINES[@]}"; do
+    if [ "${#bline}" -gt "$MAX_LINE_LEN" ]; then
+        if ! echo "$bline" | grep -qE 'https?://'; then
+            echo "" >&2
+            echo "❌ [Commit-Msg Violation] Commit body line exceeds maximum width (${#bline} > $MAX_LINE_LEN chars)!" >&2
+            echo "   Line: $bline" >&2
+            echo "" >&2
+            echo "   👉 Wrap commit body lines at <= $MAX_LINE_LEN characters to preserve git log readability." >&2
+            echo "   👉 (Lines containing URLs are automatically exempt)." >&2
+            echo "" >&2
+            exit 1
+        fi
+    fi
+done
+
+# Check 1c.2: Total volume and line count
+MAX_BODY_LEN="$(git config --int aapp.bodyMaxLen 2>/dev/null || echo "1200")"
+MAX_BODY_LINES="$(git config --int aapp.maxBodyLines 2>/dev/null || echo "20")"
+BODY_LINE_COUNT="${#BODY_RAW_LINES[@]}"
+BODY_CHARS=0
+for bline in "${BODY_RAW_LINES[@]}"; do
+    BODY_CHARS=$((BODY_CHARS + ${#bline} + 1))
+done
+
+if [ "$BODY_CHARS" -gt "$MAX_BODY_LEN" ] || [ "$BODY_LINE_COUNT" -gt "$MAX_BODY_LINES" ]; then
+    echo "" >&2
+    echo "❌ [Commit-Msg Violation] Commit message body exceeds conciseness limit ($BODY_CHARS > $MAX_BODY_LEN chars / $BODY_LINE_COUNT > $MAX_BODY_LINES lines)!" >&2
+    echo "" >&2
+    echo "   👉 Keep commit bodies focused on *why* and *what* concisely." >&2
+    echo "   👉 Detailed technical architecture belongs in canonical blueprints (.plans/current/<plan>.md)." >&2
+    echo "" >&2
+    exit 1
+fi
+
+# ------------------------------------------------------------------------------
+# Check 2: Attribution Policy (G2)
+# ------------------------------------------------------------------------------
 
 ATTR_MODE="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
 
@@ -114,10 +207,10 @@ if [ "$BANNED_COAUTHORS" -eq 1 ]; then
     echo "      AI-Vendor: <Vendor Name>" >&2
     echo "      AI-Model: <Model ID>" >&2
     echo "   👉 Or switch attribution mode via:" >&2
-    echo "      aapp ai-lax      (validates trailers when present, human commits pass)" >&2
-    echo "      aapp ai-strict   (requires trailers on every commit)" >&2
-    echo "      aapp ai-notes    (enable local git notes)" >&2
-    echo "      aapp ai-off      (disable AI attribution)" >&2
+    echo "      aapp ai lax      (validates trailers when present, human commits pass)" >&2
+    echo "      aapp ai strict   (requires trailers on every commit)" >&2
+    echo "      aapp ai notes    (enable local git notes)" >&2
+    echo "      aapp ai none     (disable AI attribution)" >&2
     echo "" >&2
     exit 1
 fi
@@ -148,7 +241,7 @@ case "$ATTR_MODE" in
             echo "   👉 You can set environment variables for automated tooling:" >&2
             echo "      AAPP_AGENT_NAME, AAPP_AGENT_VENDOR, AAPP_AGENT_MODEL" >&2
             echo "   👉 If this is a purely human commit, switch mode:" >&2
-            echo "      aapp ai-lax" >&2
+            echo "      aapp ai lax" >&2
             echo "" >&2
             exit 1
         fi
@@ -159,8 +252,8 @@ case "$ATTR_MODE" in
         echo "   Repository attribution mode 'commit' has been replaced by 'lax' and 'strict'." >&2
         echo "" >&2
         echo "   👉 Run one of the following commands to update your configuration:" >&2
-        echo "      aapp ai-lax     (accepts human commits, validates AI trailers when present)" >&2
-        echo "      aapp ai-strict  (enforces valid AI trailers on every commit)" >&2
+        echo "      aapp ai lax     (accepts human commits, validates AI trailers when present)" >&2
+        echo "      aapp ai strict  (enforces valid AI trailers on every commit)" >&2
         echo "" >&2
         exit 1
         ;;
@@ -172,8 +265,10 @@ case "$ATTR_MODE" in
             echo "   Commit messages in 'notes' mode must remain human-only." >&2
             echo "" >&2
             echo "   👉 Remove AI trailers from the commit message and stage notes via:" >&2
-            echo "      aapp ai-note --stage" >&2
-            echo "   👉 Or switch to lax mode: aapp ai-lax" >&2
+            echo "      aapp note stage \"<content>\" msg \"<commit-msg>\"" >&2
+            echo "   👉 To include public AI trailers alongside notes, switch mode:" >&2
+            echo "      aapp ai lax     (optional trailers + notes)" >&2
+            echo "      aapp ai strict  (mandatory trailers + notes)" >&2
             echo "" >&2
             exit 1
         fi
@@ -185,7 +280,7 @@ case "$ATTR_MODE" in
             echo "   Repository attribution mode is set to 'none' (aapp.aiAttribution=none)." >&2
             echo "" >&2
             echo "   👉 Remove the AI trailer, or enable attribution mode:" >&2
-            echo "      aapp ai-lax" >&2
+            echo "      aapp ai lax" >&2
             echo "" >&2
             exit 1
         fi
@@ -196,10 +291,10 @@ case "$ATTR_MODE" in
         echo "   Valid modes: none, lax, strict, notes." >&2
         echo "" >&2
         echo "   👉 Run one of:" >&2
-        echo "      aapp ai-lax" >&2
-        echo "      aapp ai-strict" >&2
-        echo "      aapp ai-notes" >&2
-        echo "      aapp ai-off" >&2
+        echo "      aapp ai lax" >&2
+        echo "      aapp ai strict" >&2
+        echo "      aapp ai notes" >&2
+        echo "      aapp ai none" >&2
         echo "" >&2
         exit 1
         ;;
@@ -208,7 +303,7 @@ esac
 # ------------------------------------------------------------------------------
 # Message-Hash Sync (G1)
 # ------------------------------------------------------------------------------
-if [ "$ATTR_MODE" = "notes" ] && command -v git >/dev/null 2>&1; then
+if command -v git >/dev/null 2>&1; then
     NOTE_DIR="$(git rev-parse --git-path . 2>/dev/null || echo ".git")"
     FINAL_HASH="$(git stripspace --strip-comments < "$MSG_FILE" 2>/dev/null | sha256sum | awk '{print $1}')"
     if [ -d "$NOTE_DIR" ] && [ -n "$FINAL_HASH" ]; then
