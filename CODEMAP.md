@@ -39,6 +39,7 @@
 ### 🎯 Plan Lifecycle Switchboard (`lib/cmd_plan.sh`)
 * **Purpose:** Single source of truth for in-flight plan execution state and worktree context buffers.
 * **Key Commands:**
+  * `aapp refine <plan> "<msg>"` -> Commits an edit to an active plan's content (only the plan file, through `plans_commit`); the agents' path for plan edits, so nothing runs raw git on `.plans` (P-47).
   * `aapp tdd <plan>` -> Injects failure test declaration sections (`### 🧪 Required Tests` in §3, `### 🧪 Required Test Files` in §4) into an incubator blueprint before freeze.
   * `aapp freeze-start <plan>` -> Atomic validator, disjointness check, status update (`⚡`), and buffer binding.
   * `aapp freeze <plan>` -> Locks blueprint into 🔷 Frozen backlog specification, verifying TDD correspondence if present.
@@ -197,7 +198,7 @@
 * `lib/cmd_develop.sh`: Symlinks local development checkout to global bin/share for live editing.
 * `lib/cmd_upgrade.sh`: Upgrades global installation in-place from upstream repository.
 * `lib/cmd_uninstall.sh`: Uninstalls binary and share data, cleaning dangling symlinks safely.
-* `lib/cmd_help.sh`: Command catalog and usage instructions.
+* `lib/cmd_help.sh`: Command catalog and usage instructions; `aapp help <verb>` prints that verb's contract from the installed kit (the agents' reference for verbs no skill covers, P-47).
 
 ---
 
