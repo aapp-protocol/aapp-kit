@@ -50,12 +50,12 @@ hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sampl
 - `state`: `shipped`, or `planned:<plan-id>` for a name reserved before its plugin ships.
 - `events`: comma-separated Plugin Payload Standard events the kit sends (`-` = CLI-invoked or not yet defined).
 - `counter`: git config key shown as the local fallback when the plugin is absent (`-` = none).
-- Shipped by `aapp install` already (it copies all of `lib/`); resolved like `verbs.tsv` (`$AAPP_LIB`, then script dir, then installed share dir).
+- Shipped by `aapp install` already (it copies all of `lib/`); read from `$AAPP_BASE/lib/plugins.tsv`, the same base `cmd_hook.sh` uses for `examples/`.
 
 ### 2.2 `cmd_plugins_status()` (`lib/cmd_hook.sh`)
 
 - Two sections, so plugin developers see every kit-owned name whether installed or not:
-  - **Standard Extension Points:** every registry row, always listed, one loop replacing the per-plugin blocks. States: ACTIVE / CONFIGURED BUT NOT EXECUTABLE / SAMPLE AVAILABLE / NOT INSTALLED (with the fallback-counter line when `counter` is set), and `RESERVED (planned, <plan-id>)` for `planned:` rows.
+  - **Standard Extension Points:** every registry row, always listed (including `hello-tool`, which today appears only when installed), one loop replacing the per-plugin blocks. States: ACTIVE / CONFIGURED BUT NOT EXECUTABLE / SAMPLE AVAILABLE / NOT INSTALLED (with the fallback-counter line when `counter` is set), and `RESERVED (planned, <plan-id>)` for `planned:` rows. A `planned:` name that is installed early shows its installed state plus `reserved for <plan-id>; may be replaced`.
   - **Custom Action Plugins:** every other installed plugin with an executable entrypoint, with the command that runs it.
 - Reserved prefix: an installed, executable `aapp-*` plugin that has no registry row is listed under Custom with a warning instead of being silently skipped:
   ```
@@ -64,7 +64,7 @@ hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sampl
   ```
   A warning, not a refusal: the plugin keeps working. Kit skills under `.agents/skills/aapp-*` have no executable entrypoint and are not plugins, so they never trigger it.
 - Missing or unreadable `plugins.tsv` → exit 1 with a clear diagnostic (fail closed).
-- Output stays identical for the shipped plugins.
+- Per-row output keeps today's format and wording; the visible changes are `hello-tool` always listed, the `RESERVED` rows and the prefix warning.
 
 ### 2.3 Not the hooks registry
 
@@ -72,7 +72,7 @@ hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sampl
 
 ### 2.4 Out of scope
 
-- `lib/plan_resolver.sh` keeps its literal `aapp-planid`: the allocator passes a constant, and a file lookup would only add a failure path. A registry test (§3) guarantees the literal has a row.
+- `lib/plan_resolver.sh` (`aapp-planid`, `aapp-issue-tracker` passed to `_allocate_id`) and `lib/cmd_issue.sh` (`aapp-issue-tracker` passed to `resolve_plugin_entrypoint`) keep their plugin names as literals: a file lookup would only add a failure path. A registry test (§3) guarantees every such literal has a row.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
@@ -83,17 +83,22 @@ hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sampl
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Registry
-- [ ] Task 1.1: Add `lib/plugins.tsv` with rows for `aapp-planid` and `hello-tool`.
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: In `tests/hooks_test.sh`, add:
+  - every registry row appears under Standard Extension Points, installed or not (incl. `hello-tool`);
+  - `aapp-review` shows `RESERVED (planned, P-15)`; installed early, it shows its state plus `reserved for P-15`;
+  - an installed executable `aapp-deploy` (no row) is listed under Custom with the reserved-prefix warning; a kit skill dir without an entrypoint is not;
+  - a missing `plugins.tsv` makes `aapp plugins` exit 1;
+  - registry consistency: every `examples/plugins/*` directory has a row, and every plugin-name literal in `lib/*.sh` has a row — the third argument of `_allocate_id` and the quoted second argument of `resolve_plugin_entrypoint` calls.
 
-### Phase 2: Status Rendering
-- [ ] Task 2.1: Rewrite `cmd_plugins_status()` standard-points section as a loop over the registry; fail closed when it is missing.
-- [ ] Task 2.2: Derive the custom-plugin skip list from registry names.
+### Phase 2: Registry & Rendering
+- [ ] Task 2.1: Add `lib/plugins.tsv` with the four rows in §2.1.
+- [ ] Task 2.2: Rewrite `cmd_plugins_status()`: one loop over the registry for Standard Extension Points (states incl. `RESERVED`), Custom section from every other executable plugin, reserved-prefix warning; fail closed when the registry is missing.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: `tests/hooks_test.sh`: `aapp plugins` output unchanged; every `examples/plugins/*` directory has a registry row; every literal plugin name in `lib/*.sh` has a row.
-- [ ] Task 3.2: CODEMAP §5 and `ARCHITECTURE.md` point to `lib/plugins.tsv` as the source of truth.
-- [ ] Task 3.3: `CHANGELOG.md` under `## [Unreleased]`; run `./aapp test strict quiet`.
+- [ ] Task 3.1: Existing `aapp plugins` assertions in `tests/hooks_test.sh` still pass; run `./aapp test strict quiet`.
+- [ ] Task 3.2: `.agents/CODEMAP.md` §5 and `ARCHITECTURE.md` name `lib/plugins.tsv` as the source of truth; `MANUAL.md` plugin section and `CHEATSHEET.md` providers line describe the two sections, reserved names and the prefix warning.
+- [ ] Task 3.3: `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
@@ -106,13 +111,16 @@ hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sampl
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `NEW FILE` -> `lib/plugins.tsv` -> Shipped plugin registry.
 - [ ] `lib/cmd_hook.sh` -> Render standard extension points from the registry.
-- [ ] `tests/hooks_test.sh` -> Registry consistency and unchanged output.
+- [ ] `tests/hooks_test.sh` -> Registry rendering, reserved names, prefix warning, consistency.
 - [ ] `.agents/CODEMAP.md` -> §5 points to the registry.
 - [ ] `ARCHITECTURE.md` -> Name the registry as source of truth.
+- [ ] `MANUAL.md` -> Plugin section: two sections, reserved names, prefix warning.
+- [ ] `CHEATSHEET.md` -> Providers line points to the registry.
 - [ ] `CHANGELOG.md` -> Record under unreleased.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/plan_resolver.sh` -> Allocator keeps its literal plugin name.
+- [ ] `lib/plan_resolver.sh` -> Allocators keep their literal plugin names.
+- [ ] `lib/cmd_issue.sh` -> Close hand-off keeps its literal plugin name.
 - [ ] `examples/plugins/` -> Samples unchanged.
 
 ---
@@ -126,6 +134,7 @@ hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sampl
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-03:** Pre-freeze review: checklist rebuilt tests-first for all four rows and the new behaviours; `hello-tool` always listed (replaces "output identical"); concrete literal-name test; early-installed reserved names; `cmd_issue.sh` out of scope; MANUAL/CHEATSHEET in scope; registry read via `$AAPP_BASE`.
 * **2026-10-03:** Refreshed after P-32: `aapp-issue-tracker` row, `events` column (Plugin Payload Standard), `state` column with `planned:` reservations (Q1), two-section `aapp plugins` output, reserved-prefix warning for unregistered `aapp-*` plugins.
 * **2026-09-29:** §2.3 added: separation from the hooks registry.
 * **2026-09-29:** Plan initialized from issue #94 (~60-80 lines; above the <10-line small-fix threshold).
