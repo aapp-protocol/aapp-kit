@@ -17,13 +17,13 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-23**: [`P23-lifecycle-hook-sequencing-and-pre-gates.md`](current/P23-lifecycle-hook-sequencing-and-pre-gates.md) — Lifecycle Hook Sequencing, Pre-Mutation Quality Gates & Return Code Abort Protocol.
 - 🟣 **P-38**: [`P38-milestone-release-bundling-and-tag-ledgers.md`](current/P38-milestone-release-bundling-and-tag-ledgers.md) — Milestone Release Bundling & Tag Ledgers
 - 🟣 **P-46**: [`P46-plugin-registry.md`](current/P46-plugin-registry.md) — Plugin Registry
-- 🟣 **P-47**: [`P47-skills-cover-issue-lifecycle.md`](current/P47-skills-cover-issue-lifecycle.md) — Skills Cover Issue Lifecycle
 
 ---
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
 - 🔷 **P-25**: [`P25-template-sync-and-document-governance.md`](current/P25-template-sync-and-document-governance.md) — Delimited Template Sync & Tiered Document Governance. Supersedes #73.
+- 🔷 **P-47**: [`P47-skills-cover-issue-lifecycle.md`](current/P47-skills-cover-issue-lifecycle.md) — Skills Cover Issue Lifecycle
 
 ---
 

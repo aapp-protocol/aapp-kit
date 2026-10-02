@@ -2,7 +2,7 @@
 * **Created:** 2026-10-02 | **Last Refined:** 2026-10-03
 * **Target Issue / Milestone:** None (follow-up to P-32)
 * **Plan ID:** P-47
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -152,6 +152,7 @@ Also: *Issue Escape Triage* logs with `aapp issue allocate`; commit-convention e
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-03:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-03:** Reworked to lean skills: no new `aapp-issue` skill; existing skills call the CLI (incl. `aapp-plan` → `aapp draft`); rarely used verbs go into an `AGENTS.md` CLI Reference plus `aapp help <verb>`; the guard checks the reference, not the skills. Retitled.
 * **2026-10-03:** Q1 and Q2 resolved from the developer's intent (minimize agent chores, one expected output, nothing forgotten): added the `aapp refine` verb (§2.5), the loud `aapp tdd` commit, and strict daily-verb coverage.
