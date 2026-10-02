@@ -59,15 +59,24 @@ Same shape as the other verb skills (Step 1 run the verb, Step 2 fail-closed dia
 | `aapp-pause` | Logging defects while paused: claim with `aapp issue allocate` |
 | `aapp-done` | Step 2 adds the dangling-Target-Issue refusal; Step 3 states the Target Issue is archived and pruned in the same commit — do not relocate it again |
 | `aapp-status` | Full issue backlog: `aapp issue list` |
-| `aapp-digest`, `aapp-tdd` | Commit wording follows the rule settled in Q1 |
+| `aapp-digest`, `aapp-tdd` | Raw `git -C .plans commit` replaced by `aapp refine` (§2.5) |
 
 ### 2.3 AGENTS.md (`templates/AGENTS.md`, `.agents/AGENTS.md`)
 - *Issue Escape Triage*: log with `aapp issue allocate`.
 - Commit-convention examples: `#<num>` instead of `ISSUE-00X`.
-- The plans-worktree commit rule, as settled in Q1.
+- The plans-worktree commit rule: no raw git on `.plans`; plan edits are committed with `aapp refine`.
 
 ### 2.4 Coverage guard (test)
-`tests/verb_contracts_test.sh` gains `test_daily_verbs_have_skill_coverage`: every `daily` verb in `lib/verbs.tsv` is named (`aapp <verb>`) in at least one `templates/skills/*/SKILL.md`. Scope of the allow-list per Q2.
+`tests/verb_contracts_test.sh` gains `test_daily_verbs_have_skill_coverage`: every `daily` verb in `lib/verbs.tsv` is named (`aapp <verb>`) in at least one `templates/skills/*/SKILL.md`. No allow-list (Q2). The seven verbs uncovered today (`plan`, `plan-status`, `matrix`, `active`, `note`, `test`, `ai`) get a mention where an agent uses them, e.g. `aapp test` and `aapp note` in the commit routine of `aapp-start`, `aapp matrix` / `aapp plan-status` / `aapp active` in `aapp-status`.
+
+### 2.5 New verb: `aapp refine <plan-id> "<what changed>"` (Q1)
+Agents never run raw git on the plans worktree: every plans change goes through an `aapp` verb with one expected output.
+- Commits **only** `current/<plan file>` through `plans_commit` (configured attribution added automatically), subject `plan(refine): <plan-id> <what changed>`.
+- Refuses: unknown plan, plan outside `.plans/current/`, nothing to commit, a message that is empty. The design lock is enforced by the existing pre-commit hook (a frozen plan's §2/§4 stay locked).
+- Output on success: `📝 [Refine] <plan-id> committed (<sha>): <what changed>`.
+- Registered in `lib/verbs.tsv` (daily) with contract `lib/docs/verbs/refine.md`; dispatched from `aapp`.
+- `aapp-digest` and `aapp-tdd` replace their raw `git -C .plans commit` steps with `aapp refine`; `aapp tdd` already commits its own change, so its skill's extra step is removed.
+- Side fix: the `aapp tdd` commit in `lib/cmd_plan.sh` (`plans_commit ... || true`, then raw `git commit ... || true`) fails silently, against invariant 8; it fails loudly instead.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
@@ -79,22 +88,27 @@ Same shape as the other verb skills (Step 1 run the verb, Step 2 fail-closed dia
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Coverage Guard (red first)
-- [ ] Task 1.1: Add `test_daily_verbs_have_skill_coverage` to `tests/verb_contracts_test.sh`; confirm it fails on `issue` (and on the verbs Q2 keeps in scope).
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Add `test_daily_verbs_have_skill_coverage` to `tests/verb_contracts_test.sh`; confirm it fails on `issue` and the seven uncovered verbs.
+- [ ] Task 1.2: Author `tests/verbs/refine.sh` (commits only the plan file, subject and output, refusals, frozen §2/§4 refused).
 
-### Phase 2: Skills
-- [ ] Task 2.1: Author `templates/skills/aapp-issue/SKILL.md` (§2.1).
-- [ ] Task 2.2: Update `aapp-digest`, `aapp-plan`, `aapp-pause`, `aapp-done`, `aapp-status`, `aapp-tdd` (§2.2).
-- [ ] Task 2.3: Apply the Q1 commit rule consistently across all skills.
+### Phase 2: `aapp refine` Verb
+- [ ] Task 2.1: Implement `cmd_refine` in `lib/cmd_plan.sh`; dispatch from `aapp`; register in `lib/verbs.tsv`; contract `lib/docs/verbs/refine.md`.
+- [ ] Task 2.2: Make the `aapp tdd` commit fail loudly (remove `|| true`).
 
-### Phase 3: Protocol Text
-- [ ] Task 3.1: Update `templates/AGENTS.md` and `.agents/AGENTS.md` (§2.3).
+### Phase 3: Skills
+- [ ] Task 3.1: Author `templates/skills/aapp-issue/SKILL.md` (§2.1).
+- [ ] Task 3.2: Update `aapp-digest`, `aapp-plan`, `aapp-pause`, `aapp-done`, `aapp-status`, `aapp-tdd` (§2.2), using `aapp refine` for plan edits.
+- [ ] Task 3.3: Mention every daily verb where agents use it (§2.4).
 
-### Phase 4: Verification & Documentation
-- [ ] Task 4.1: Run `./aapp test strict quiet`; the coverage guard passes.
-- [ ] Task 4.2: In a sandbox, `aapp init` installs `aapp-issue` into `.agents/skills/` and bridges it into `.claude/skills/`.
-- [ ] Task 4.3: `.agents/CODEMAP.md` lists the new skill; MANUAL skill list if one exists.
-- [ ] Task 4.4: `CHANGELOG.md` under `## [Unreleased]`.
+### Phase 4: Protocol Text
+- [ ] Task 4.1: Update `templates/AGENTS.md` and `.agents/AGENTS.md` (§2.3).
+
+### Phase 5: Verification & Documentation
+- [ ] Task 5.1: Run `./aapp test strict quiet`; the coverage guard and `verb/refine` pass.
+- [ ] Task 5.2: In a sandbox, `aapp init` installs `aapp-issue` into `.agents/skills/` and bridges it into `.claude/skills/`.
+- [ ] Task 5.3: `.agents/CODEMAP.md` lists the new skill and `cmd_refine`; `MANUAL.md` and `CHEATSHEET.md` document `aapp refine`.
+- [ ] Task 5.4: `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
@@ -114,26 +128,34 @@ Same shape as the other verb skills (Step 1 run the verb, Step 2 fail-closed dia
 - [ ] `templates/skills/aapp-tdd/SKILL.md` -> Commit rule.
 - [ ] `templates/AGENTS.md` -> Issue Escape Triage, `#<num>` examples, commit rule.
 - [ ] `.agents/AGENTS.md` -> Same as the template.
+- [ ] `templates/skills/aapp-start/SKILL.md` -> Commit routine names `aapp test`, `aapp note`, `aapp ai`.
 - [ ] `tests/verb_contracts_test.sh` -> Daily-verb skill coverage guard.
-- [ ] `.agents/CODEMAP.md` -> List the new skill.
-- [ ] `MANUAL.md` -> Skill list, if present.
+- [ ] `lib/cmd_plan.sh` -> `cmd_refine`; `aapp tdd` commit fails loudly.
+- [ ] `aapp` -> Dispatch `refine`.
+- [ ] `lib/verbs.tsv` -> Register `refine` (daily).
+- [ ] `NEW FILE` -> `lib/docs/verbs/refine.md` -> Verb contract.
+- [ ] `NEW FILE` -> `tests/verbs/refine.sh` -> Contract test suite.
+- [ ] `.agents/CODEMAP.md` -> List the new skill and `cmd_refine`.
+- [ ] `MANUAL.md` -> Document `aapp refine` and the no-raw-git rule.
+- [ ] `CHEATSHEET.md` -> Add `aapp refine`.
 - [ ] `CHANGELOG.md` -> Record under unreleased.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.agents/skills/` -> Guard Section 2 self-protected; refreshed from `templates/skills/` by `aapp init`.
 - [ ] `.claude/skills/` -> Bridge maintained by `sync_skills`.
-- [ ] `lib/` -> No CLI behaviour changes; P-32 already ships the verbs.
+- [ ] `lib/cmd_issue.sh`, `lib/plan_resolver.sh` -> P-32 behaviour is unchanged; skills only describe it.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — Commit rule for plan refinements.** `aapp-digest` and `aapp-tdd` tell agents to run raw `git -C .plans commit` after editing a plan; `aapp-done`/`aapp-freeze`/`aapp-start` forbid raw commits on the plans worktree. Options: (a) narrow the prohibition to lifecycle transitions and state explicitly that plan-content refinements are committed with `git -C .plans commit -- <plan file>`; (b) route refinements through a CLI path (no such verb exists today; would need `lib/` changes, out of this plan's scope).
-* [ ] **Question 2 — Coverage guard scope.** Besides `issue`, seven daily verbs appear in no skill today: `plan`, `plan-status`, `matrix`, `active`, `note`, `test`, `ai`. Options: (a) require every daily verb to be named in a skill (adds mentions or skills for all seven); (b) keep an explicit allow-list in the test for verbs that are developer-facing rather than agent workflow (e.g. `ai`, `note`, `test`), with each exemption justified in a comment.
+* [x] **Question 1 — Commit rule for plan refinements? → RESOLVED (developer intent, 2026-10-03): a CLI verb, `aapp refine` (§2.5).** Minimize agent chores and make every plans change produce one expected output; agents never run raw git on `.plans`.
+* [x] **Question 2 — Coverage guard scope? → RESOLVED (developer intent, 2026-10-03): every daily verb, no allow-list (§2.4).** Nothing an agent uses may be missing from the skills.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-03:** Q1 and Q2 resolved from the developer's intent (minimize agent chores, one expected output, nothing forgotten): added the `aapp refine` verb (§2.5), the loud `aapp tdd` commit, and strict daily-verb coverage.
 * **2026-10-02:** Plan drafted after the P-32 skills audit: skills lack `aapp issue`, `aapp-done` predates issue close-on-done, contradictory plans-worktree commit rule, no daily-verb coverage guard.
