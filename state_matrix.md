@@ -28,8 +28,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-32**: [`P32-issue-id-allocation-and-duplicate-detection.md`](current/P32-issue-id-allocation-and-duplicate-detection.md) — Issue ID Allocation, Lifecycle Engine & Duplicate Detection. Supersedes #79.
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-02 | `P-32` | [`P32-issue-id-allocation-and-duplicate-detection.md`](P32-issue-id-allocation-and-duplicate-detection.md) | #79 | `c0edb4b` | Issue ID Allocation, Lifecycle Engine & Duplicate Detection |
 | 2026-09-29 | `P-28` | [`P28-conciseness-enforcement-and-changelog-governance.md`](P28-conciseness-enforcement-and-changelog-governance.md) | #76 | `4e11c93` | Conciseness Enforcement & Changelog Governance |
 | 2026-09-28 | `P-45` | [`P45-decouple-notes-from-commit-attribution.md`](P45-decouple-notes-from-commit-attribution.md) | Milestone 1.2 / Metadata Architecture | `88aae65` | Decouple Git Notes from Commit Attribution |
 | 2026-09-28 | `P-43` | [`P43-unified-ai-attribution-verb.md`](P43-unified-ai-attribution-verb.md) | Milestone 1.1 / UX Ergonomics | `f9b5e69` | Consolidated AI Attribution Verb (`aapp ai`) |
