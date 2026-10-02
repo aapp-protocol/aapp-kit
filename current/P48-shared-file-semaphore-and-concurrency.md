@@ -1,16 +1,15 @@
-# 🗺️ Plan P-48: Shared File Semaphore And Concurrency
+# 🗺️ Plan P-48: Shared Invariant Semaphore & Concurrency Control
 * **Created:** 2026-10-03 | **Last Refined:** 2026-10-03
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** #96 *(supersedes #96 upon completion)*
 * **Plan ID:** P-48
 * **Status:** 🟣 Under Review
-* **Base:** none
+* **Base:** `1755e68` (develop)
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
      A plan whose Status says BLOCKED grants no commit rights at all. A ✅ Done plan is archived in
      .plans/done/ and records terminal completion in the archive ledger. -->
-<!-- * **Blocked On:** ISSUE-00X   <- add this line while BLOCKED, remove it when unblocked -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -27,64 +26,142 @@
 
 ---
 
-## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+## 🎯 1. Context & Architectural Goal
+
+### Problem Statement
+When two or more plans are in active execution concurrently (`⚡ In Development`) — whether through multi-agent parallel execution, distributed worktrees, or concurrent feature branches — shared mutable invariant files (`CODEMAP.md`, `CHANGELOG.md`, `ARCHITECTURE.md`, `MANUAL.md`) create a severe concurrency hazard:
+
+1. **The False Collision Lock in Pair 7**: Planning Health Pair 7 (`check_pair7_inflight_boundary_collision`) flags any shared path listed under `### 📂 Target Files` as a hard collision. Because almost every plan must update `CHANGELOG.md` and `ARCHITECTURE.md`, listing them in Target Files blocks parallel development of completely disjoint source modules.
+2. **The Lost-Update Anomaly (Unsynchronized Concurrent Writes)**: If Pair 7 simply exempts these files, multiple agents write to `CODEMAP.md` or `CHANGELOG.md` concurrently without coordination. Agent B reads a stale version while Agent A is writing, then writes back and clobbers Agent A's changes (read-modify-write race condition).
+3. **The Git Integration Conflict Storm**: In multi-worktree execution, concurrent agents both append to the top of `## [Unreleased]` in `CHANGELOG.md` or the bottom of tables in `CODEMAP.md`, causing guaranteed Git merge conflicts at branch integration time.
+
+### Architectural Goal
+1. **POSIX Atomic Semaphore Engine (`aapp lock`)**: Provide a lightweight, cross-platform file locking mechanism in `.git/aapp_locks/` using POSIX atomic `mkdir` semantics (fully compatible with macOS Bash 3.2 and Linux) with lease timeout and stale lock recovery.
+2. **Pair 7 Invariant Refinement**: Refine Pair 7 in `lib/planning_health.sh` to distinguish between **domain source files** (which strictly forbid concurrent modification) and **shared invariants** (`ALWAYS_ALLOWED_REGEX`), which are allowed under concurrency via synchronization.
+3. **Transactional Shared File Access**: Provide clear protocol rules and CLI helpers (`aapp lock acquire <file>` / `aapp lock release <file>`) so autonomous agents acquire a write lease before reading, modifying, and committing shared invariant files.
 
 ---
 
-## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+## 🏗️ 2. Technical Blueprint
+
+### 2.1 Atomic File Semaphore Architecture (`lib/lock_engine.sh`)
+
+POSIX file locking across diverse platforms (macOS, Linux, BSD, container mounts) cannot reliably depend on `flock(1)` due to divergent CLI switches and absence in default macOS setups. Atomic `mkdir` is standard POSIX and guaranteed atomic by kernel filesystems:
+
+```text
+.git/aapp_locks/
+├── CHANGELOG.md.lock/
+│   ├── pid
+│   ├── plan_id
+│   └── acquired_at (epoch seconds)
+└── CODEMAP.md.lock/
+    ├── pid
+    ├── plan_id
+    └── acquired_at
+```
+
+#### Lease & Stale Eviction Protocol:
+1. **Acquisition (`aapp lock acquire <file> [timeout_sec]`)**:
+   - Path is sanitized and hashed/escaped: `.git/aapp_locks/<slug>.lock`.
+   - Attempts atomic `mkdir .git/aapp_locks/<slug>.lock`.
+   - On success: writes PID, Plan ID, and timestamp into lock directory; returns 0.
+   - On failure: inspects lock timestamp. If `now - acquired_at > aapp.lockLeaseTimeout` (default 300s) and PID is dead, evicts stale lock and re-acquires. Otherwise retries up to `timeout_sec` (default 10s) with exponential backoff before failing closed (exit 1).
+2. **Release (`aapp lock release <file>`)**:
+   - Verifies ownership (Plan ID / PID match); deletes lock directory recursively (`rm -rf`).
+3. **Quarantine / Brake**:
+   - `aapp pause` releases all held locks or marks them quarantined.
+
+### 2.2 Pair 7 Refinement (`lib/planning_health.sh`)
+
+Update `check_pair7_inflight_boundary_collision`:
+- Extract targets for each plan in `⚡ In Development`.
+- If two plans share a file:
+  - Check if target matches `$ALWAYS_ALLOWED_REGEX` (`CHANGELOG.md`, `ARCHITECTURE.md`, `CODEMAP.md`, `MANUAL.md`).
+  - If YES: emit an advisory notice rather than a blocking error:
+    ```text
+    ℹ️  [Pair 7 Concurrency Notice] Plans 'P-46' and 'P-48' share invariant 'CHANGELOG.md' (managed via concurrency lock).
+    ```
+  - If NO (domain code conflict, e.g. both touch `lib/cmd_hook.sh`): emit hard blocking error:
+    ```text
+    ❌ [Pair 7 Violation] In-Flight Blueprint Collision on domain file 'lib/cmd_hook.sh'!
+    ```
+
+### 2.3 Integration with Commit Helper (`aapp commit`)
+
+When `aapp commit` runs while multiple plans are in development:
+- If staged files include `$ALWAYS_ALLOWED_REGEX`, `aapp commit` wraps the commit in a transient lock:
+  1. `aapp lock acquire <file>`
+  2. Executes git commit
+  3. `aapp lock release <file>`
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- Single-agent execution incurs zero overhead: lock acquisition succeeds on the first attempt with no contention.
+- Existing single-plan workflows remain 100% backward-compatible.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Core Lock Engine & CLI Switchboard
+- [ ] Task 1.1: Implement `lib/lock_engine.sh` with atomic `mkdir` primitives, metadata tracking, and stale lease eviction.
+- [ ] Task 1.2: Implement `cmd_lock` supporting `acquire`, `release`, `status`, and `clean` subcommands.
+- [ ] Task 1.3: Register `lock` verb in `lib/verbs.tsv` under the sync tier and dispatch from `aapp`.
+- [ ] Task 1.4: Author contract documentation in `lib/docs/verbs/lock.md`.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Pair 7 Concurrency Filter
+- [ ] Task 2.1: Refactor `check_pair7_inflight_boundary_collision` in `lib/planning_health.sh` to filter out `$ALWAYS_ALLOWED_REGEX`.
+- [ ] Task 2.2: Add concurrency notice output for shared invariants while maintaining hard stops for domain code collisions.
+- [ ] Task 2.3: Add test cases in `tests/plan_resolver_test.sh` verifying shared invariant tolerance and domain collision blocking.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+### Phase 3: Blast-Radius & Commit Engine Integration
+- [ ] Task 3.1: Wire `aapp commit` to auto-acquire lock when mutating shared invariants during multi-plan execution.
+- [ ] Task 3.2: Update `aapp pause` and `aapp resume` to release/audit active lock states.
+
+### Phase 4: Automated Concurrency & Lock Test Suite
+- [ ] Task 4.1: Author `tests/verbs/lock.sh` covering acquire, release, timeout, stale eviction, and contention backoff.
+- [ ] Task 4.2: Verify full test suite passes cleanly via `./aapp test strict quiet`.
+
+### Phase 5: Verification & Documentation
+- [ ] Task 5.1: Update `MANUAL.md` with multi-agent concurrency guidelines and semaphore mechanics.
+- [ ] Task 5.2: Update `.agents/CODEMAP.md` and `ARCHITECTURE.md` documenting `lib/lock_engine.sh`.
+- [ ] Task 5.3: Update `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `lib/lock_engine.sh` -> POSIX atomic directory/file semaphore engine.
+- [ ] `NEW FILE` -> `lib/docs/verbs/lock.md` -> Lock verb contract documentation.
+- [ ] `NEW FILE` -> `tests/verbs/lock.sh` -> Contract test suite for lock acquire/release/evict.
+- [ ] `lib/planning_health.sh` -> Pair 7 collision filter distinguishing domain files from shared invariants.
+- [ ] `lib/cmd_commit.sh` -> Lock integration during shared invariant commits.
+- [ ] `lib/cmd_pause.sh` -> Lock state cleanup on emergency pause.
+- [ ] `lib/verbs.tsv` -> Register lock verb in sync tier.
+- [ ] `aapp` -> Dispatch lock verb.
+- [ ] `tests/plan_resolver_test.sh` -> Add Pair 7 invariant concurrency test cases.
+- [ ] `MANUAL.md` -> Multi-agent concurrency and lock documentation.
+- [ ] `ARCHITECTURE.md` -> Architecture diagram update for lock subsystem.
+- [ ] `.agents/CODEMAP.md` -> Register lock engine in codemap.
+- [ ] `CHANGELOG.md` -> Record under unreleased.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `.githooks/*` -> Guard engine self-protection.
+- [ ] `.agents/skills/*` -> Governance skills self-protection.
+- [ ] `.plans/ISSUES.md` -> Managed via issue lifecycle.
+- [ ] `.plans/state_matrix.md` -> Managed via state transitions.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+
+* [ ] **Question 1 — Default Lease Timeout Duration**: Is 300 seconds (5 minutes) the right default for stale lock eviction, or should it be configurable via `git config aapp.lockLeaseTimeout`? (Recommended: 300s default with git config override).
+* [ ] **Question 2 — Fragment Queue Alternative for CHANGELOG.md**: Should changelog updates adopt a plan-local fragment queue (`.plans/fragments/<plan>.md`) merged at `aapp done` to completely eliminate Git merge conflicts on release branches? (Recommended: Explore as complementary Phase 6 enhancement).
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-03:** Plan initialized from `pickup.md`.
-* **2026-10-03:** Refined blast radius and locked module boundaries.
+
+* **2026-10-03:** Blueprint drafted from Issue #96 analysis. Established POSIX atomic `mkdir` semaphore engine, Pair 7 invariant filtering, and commit engine lease acquisition.

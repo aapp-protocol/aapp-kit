@@ -41,4 +41,5 @@
 - [ ] #93 -> Bare `aapp draft` offers only already-planned issues and hides incubated ones (emoji filter mismatch).
 - [ ] #94 -> 🔵 Planned under P-46 (Plugin Registry). Plugin names hardcoded in ~9 places; no shipped registry (`lib/plugins.tsv`).
 - [ ] #95 -> "Small" fix is undefined in invariant 5; default <10 changed lines, adopter override in `PROJECT.MD`.
+- [ ] #96 -> 🔵 Planned under P-48 (Shared Invariant Semaphore & Concurrency Control). Shared invariant files suffer read-modify-write collisions during concurrent 2+ plan execution.
 
