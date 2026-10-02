@@ -4,7 +4,7 @@
 * **Plan ID:** P-47
 * **Status:** ⚡ In Development
 * **Base:** `c0edb4b` (develop)
-* **Commits:** none
+* **Commits:** `d2a4e6e` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -90,22 +90,22 @@ Also: *Issue Escape Triage* logs with `aapp issue allocate`; commit-convention e
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Add `test_daily_verbs_in_agent_reference` to `tests/verb_contracts_test.sh`; confirm it fails (no CLI Reference yet, `help <verb>` ignores the verb).
-- [ ] Task 1.2: Author `tests/verbs/refine.sh` (commits only the plan file, subject and output, refusals).
+- [x] Task 1.1: Add `test_daily_verbs_in_agent_reference` to `tests/verb_contracts_test.sh`; confirm it fails (no CLI Reference yet, `help <verb>` ignores the verb).
+- [x] Task 1.2: Author `tests/verbs/refine.sh` (commits only the plan file, subject and output, refusals).
 
 ### Phase 2: CLI
-- [ ] Task 2.1: Implement `cmd_refine` in `lib/cmd_plan.sh`; dispatch from `aapp`; register in `lib/verbs.tsv`; contract `lib/docs/verbs/refine.md`.
-- [ ] Task 2.2: `aapp help <verb>` in `lib/cmd_help.sh` (§2.3).
-- [ ] Task 2.3: Make the `aapp tdd` commit fail loudly.
+- [x] Task 2.1: Implement `cmd_refine` in `lib/cmd_plan.sh`; dispatch from `aapp`; register in `lib/verbs.tsv`; contract `lib/docs/verbs/refine.md`.
+- [x] Task 2.2: `aapp help <verb>` in `lib/cmd_help.sh` (§2.3).
+- [x] Task 2.3: Make the `aapp tdd` commit fail loudly.
 
 ### Phase 3: Skills & Protocol Text
-- [ ] Task 3.1: Update `aapp-digest`, `aapp-plan`, `aapp-pause`, `aapp-done`, `aapp-tdd`, `aapp-status` (§2.1).
-- [ ] Task 3.2: Add the CLI Reference and triage wording to `templates/AGENTS.md` and `.agents/AGENTS.md` (§2.2).
+- [x] Task 3.1: Update `aapp-digest`, `aapp-plan`, `aapp-pause`, `aapp-done`, `aapp-tdd`, `aapp-status` (§2.1).
+- [x] Task 3.2: Add the CLI Reference and triage wording to `templates/AGENTS.md` and `.agents/AGENTS.md` (§2.2).
 
 ### Phase 4: Verification & Documentation
-- [ ] Task 4.1: Run `./aapp test strict quiet`.
-- [ ] Task 4.2: `.agents/CODEMAP.md` lists `cmd_refine` and `help <verb>`; `MANUAL.md` and `CHEATSHEET.md` document both.
-- [ ] Task 4.3: `CHANGELOG.md` under `## [Unreleased]`.
+- [x] Task 4.1: Run `./aapp test strict quiet`.
+- [x] Task 4.2: `.agents/CODEMAP.md` lists `cmd_refine` and `help <verb>`; `MANUAL.md` and `CHEATSHEET.md` document both.
+- [x] Task 4.3: `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
