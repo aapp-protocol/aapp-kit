@@ -6,10 +6,16 @@
 # Copy this directory as-is -- it already carries the canonical name, so no
 # rename is needed on the way in.
 #
-# CONTRACT
-#   stdout : one plan id, either "P-42" or bare "42"
+# CONTRACT (Plugin Payload Standard, shared by every AAPP plugin)
+#   stdin  : JSON envelope, event "plan.allocate":
+#            {"version","event","timestamp","actor",
+#             "repository": {"root","branch","remote": {"name","url"} | null},
+#             "data": {}, "extra": {}}
+#   env    : AAPP_ACTION=allocate, AAPP_REPO_ROOT
+#   stdout : one JSON object, {"id": "P-42"} (or {"id": 42}); may add "extra"
 #   exit 0 : id issued
-#   exit !0: refuse. AAPP aborts allocation rather than falling back locally.
+#   exit !0: refuse, optionally printing {"error": "<text>"}. AAPP aborts
+#            allocation rather than falling back locally.
 #
 # WHY THIS IS A ONE-LINE SHIM
 #   Whatever a sample demonstrates, adopters copy. A sample that really fetched

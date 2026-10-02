@@ -13,21 +13,22 @@
 - list cap: bare `<n>` sets it, `all` removes it; default 20
 - reads config: `aapp.issueId` (next ID to hand out; read by `next`, advanced by `allocate`); when unset (always in a fresh clone), seeded from both ledgers on first use, template example rows ignored
 - reads: `.plans/ISSUES.md`, `.plans/done/000-issues-archive.md`, `.plans/issues_road_map.md`
-- plugin: an installed `aapp-issue` provider (`.agents/skills/aapp-issue/`) serves `AAPP_ACTION=allocate` and receives `AAPP_ACTION=close` with `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA`, `AAPP_SUMMARY`
+- plugin: an installed `aapp-issue-tracker` provider (`.agents/skills/aapp-issue-tracker/`) speaks the Plugin Payload Standard (`.agents/CODEMAP.md` §5): `issue.allocate` → `{"id": "#<n>"}`; `issue.close` (data `id`, `commit`, `summary`, `plan`; env `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA`, `AAPP_SUMMARY`) → `{"status": …}`
 
 ## Preconditions
 - Inside a Git repository whose `.plans/` worktree exists
 
 ## Failure modes
 - `aapp.issueId` set but not an integer -> `next` and `allocate` exit 1, stderr `aapp.issueId is not an integer` naming `git config --unset aapp.issueId`; the key is left untouched
-- `aapp.issueId` unset, no ledger files, no provider -> `next` and `allocate` exit 1, stderr names the `aapp-issue` provider; nothing is written
-- installed provider exits non-zero on `allocate` -> exit 1, stderr `Provider plugin failed; refusing to allocate locally`; no local fallback
+- `aapp.issueId` unset, no ledger files, no provider -> `next` and `allocate` exit 1, stderr names the `aapp-issue-tracker` provider; nothing is written
+- installed provider exits non-zero on `allocate` -> exit 1, stderr `Provider plugin failed (<error text>); refusing to allocate locally`; no local fallback
+- provider prints no `{"id": ...}` object -> exit 1, stderr `Provider must print {"id": ...}`
 - provider prints a non-integer id -> exit 1, stderr `Provider must return an integer id`
 - `close` without an id -> exit 1, usage on stderr
 - `close` with an unknown token -> exit 1, stderr `Unknown token`
 - `close` id in neither ledger -> exit 1, stderr `not found in ISSUES.md or done/000-issues-archive.md`
 - `close` id already archived -> no failure: exit 0, ledgers untouched, the provider is notified again
-- provider exits non-zero on `close` -> no failure: exit 0, stderr warning; delivery and retry are the provider's responsibility
+- provider exits non-zero on `close` -> no failure: exit 0, stderr warning naming its `error` text; delivery and retry are the provider's responsibility
 - `list` with a cap that is neither a number nor `all` -> exit 1, usage on stderr
 
 ## Effects (happy path)
@@ -38,7 +39,7 @@
     - the row leaves `.plans/ISSUES.md` and is inserted at the top of `.plans/done/000-issues-archive.md` as `| #<n> | Sev | Type | Date Opened | <today> | \`<sha>\` | <summary> |`
     - the `#<n>` entry leaves `.plans/issues_road_map.md`
     - the three files land in one `plans` commit `issue(close): archive #<n>`; nothing else is staged
-    - then the provider, if installed, is called once with `AAPP_ACTION=close`
+    - then the provider, if installed, receives `issue.close` once; stdout reports `handed to aapp-issue-tracker: <status>`
 - `list`: road-map entries in board order, the same selection as the `aapp status` Issues pillar; a truncated list ends with `… <k> more (aapp issue list all)`
 - `aapp done` on a plan whose Target Issue is `#<n>` performs the same `close` in its own archive commit; a Target Issue in neither ledger refuses `done` before anything moves
 
@@ -57,6 +58,7 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.sh::test_close_relocates_prunes_and_commits` -> row archived at the top, road map pruned, one clean commit
 - `tests/verbs/issue.sh::test_close_plugin_failure_only_warns` -> a failing provider on `close` warns, exit 0
 - `tests/verbs/issue.sh::test_close_summary_escapes_pipes` -> `|` in the summary is escaped in the archive row
+- `tests/verbs/issue.sh::test_close_sends_envelope_and_reports_status` -> `issue.close` envelope carries data, the credential-free remote and `extra`; the returned status is printed
 - `tests/verbs/issue.sh::test_close_archived_is_idempotent` -> closing an archived issue changes nothing, exit 0
 - `tests/verbs/issue.sh::test_close_refuses_unknown_id_and_tokens` -> unknown id, unknown token and missing id exit non-zero
 - `tests/verbs/issue.sh::test_list_default_cap_in_roadmap_order` -> 20 entries in board order plus the overflow line

@@ -302,8 +302,8 @@ _seed_issue_counter() {
     ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
     N="$(seed_issue_id "$ROOT/.plans")" || RC=$?
     if [ "$RC" -eq 2 ]; then
-        echo "❌ [Issue ID] No issue ledgers in .plans/ and no aapp-issue provider installed." >&2
-        echo "   Issue IDs come from the team provider: install it at .agents/skills/aapp-issue/run." >&2
+        echo "❌ [Issue ID] No issue ledgers in .plans/ and no aapp-issue-tracker provider installed." >&2
+        echo "   Issue IDs come from the team provider: install it at .agents/skills/aapp-issue-tracker/run." >&2
         return 1
     fi
     [ "$RC" -eq 0 ] || return 1
@@ -353,7 +353,7 @@ _normalize_id() {
 # [seeder] names a function printing the first id for an unset counter;
 # without one, unset means 1.
 _allocate_id() {
-    local KEY="$1" PREFIX="$2" PLUGIN="$3" LABEL="$4" SEEDER="${5:-}"
+    local KEY="$1" PREFIX="$2" PLUGIN="$3" LABEL="$4" EVENT="$5" SEEDER="${6:-}"
     # Resolve from the current directory, fail-closed (P-33). This deliberately
     # does NOT prefer an inherited REPO_ROOT: the counter is per-repository, and
     # a stale exported root would allocate against the wrong repo.
@@ -364,15 +364,18 @@ _allocate_id() {
     }
     PDIR="$ROOT/.agents/skills/$PLUGIN"
 
-    # 1. Delegate to the provider plugin when one is installed.
+    # 1. Delegate to the provider plugin when one is installed (Plugin Payload
+    #    Standard: envelope on stdin, one JSON object on stdout).
     if [ -d "$PDIR" ] && ENTRY="$(resolve_plugin_entrypoint "$PDIR" "$PLUGIN" 2>/dev/null)"; then
-        OUT="$(AAPP_ACTION=allocate AAPP_REPO_ROOT="$ROOT" "$ENTRY" 2>/dev/null)" || {
-            echo "❌ [$LABEL] Provider plugin failed; refusing to allocate locally." >&2
+        OUT="$(run_action_plugin "$ENTRY" "$ROOT" allocate "$EVENT" 2>/dev/null)" || {
+            RAW="$(json_field "$OUT" error)" || RAW="no error text"
+            echo "❌ [$LABEL] Provider plugin failed ($RAW); refusing to allocate locally." >&2
             return 1
         }
-        # Capture into RAW first: assigning the substitution straight back into
-        # OUT would clobber it before the || branch could report the value.
-        RAW="$OUT"
+        RAW="$(json_field "$OUT" id)" || {
+            echo "❌ [$LABEL] Provider must print {\"id\": ...} (got: '$OUT')" >&2
+            return 1
+        }
         OUT="$(_normalize_id "$RAW" "$PREFIX" "$LABEL")" || return 1
         # Ratchet the local counter past the issued id so the fallback never regresses.
         CUR="$(git config --get "$KEY" 2>/dev/null || true)"
@@ -396,7 +399,7 @@ _allocate_id() {
 
 get_next_plan_id()  { _next_id aapp.planId "P-" "Plan ID"; }
 normalize_plan_id() { _normalize_id "$1" "P-" "Plan ID"; }
-allocate_plan_id()  { _allocate_id aapp.planId "P-" aapp-planid "Plan ID"; }
+allocate_plan_id()  { _allocate_id aapp.planId "P-" aapp-planid "Plan ID" plan.allocate; }
 
 get_next_issue_id() { _next_id aapp.issueId "#" "Issue ID" _seed_issue_counter; }
-allocate_issue_id() { _allocate_id aapp.issueId "#" aapp-issue "Issue ID" _seed_issue_counter; }
+allocate_issue_id() { _allocate_id aapp.issueId "#" aapp-issue-tracker "Issue ID" issue.allocate _seed_issue_counter; }

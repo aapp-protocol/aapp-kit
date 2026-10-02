@@ -179,45 +179,44 @@ cmd_plugins_status() {
     # aapp-planid
     if [ -d "$skills_dir/aapp-planid" ] && resolve_plugin_entrypoint "$skills_dir/aapp-planid" "aapp-planid" >/dev/null 2>&1; then
         local entry="$(resolve_plugin_entrypoint "$skills_dir/aapp-planid" "aapp-planid")"
-        printf "    • %-16s [Team Plan ID Authority] -> %s (ACTIVE)\n" "aapp-planid" "${entry#$REPO_ROOT/}"
+        printf "    • %-18s [Team Plan ID Authority] -> %s (ACTIVE)\n" "aapp-planid" "${entry#$REPO_ROOT/}"
     elif [ -d "$skills_dir/aapp-planid" ]; then
         local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
-        printf "    • %-16s [Team Plan ID Authority] -> .agents/skills/aapp-planid/ (CONFIGURED BUT NOT EXECUTABLE)\n" "aapp-planid"
-        printf "      %-16s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
+        printf "    • %-18s [Team Plan ID Authority] -> .agents/skills/aapp-planid/ (CONFIGURED BUT NOT EXECUTABLE)\n" "aapp-planid"
+        printf "      %-18s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
     elif [ -d "$AAPP_BASE/examples/plugins/aapp-planid" ]; then
         local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
-        printf "    • %-16s [Team Plan ID Authority] -> NOT INSTALLED (SAMPLE AVAILABLE in %s)\n" "aapp-planid" "${AAPP_BASE/#$HOME/\~}/examples/plugins/aapp-planid/"
-        printf "      %-16s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
+        printf "    • %-18s [Team Plan ID Authority] -> NOT INSTALLED (SAMPLE AVAILABLE in %s)\n" "aapp-planid" "${AAPP_BASE/#$HOME/\~}/examples/plugins/aapp-planid/"
+        printf "      %-18s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
     else
         local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
-        printf "    • %-16s [Team Plan ID Authority] -> NOT INSTALLED\n" "aapp-planid"
-        printf "      %-16s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
+        printf "    • %-18s [Team Plan ID Authority] -> NOT INSTALLED\n" "aapp-planid"
+        printf "      %-18s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
     fi
 
-    # aapp-issue (P-32)
-    if [ -d "$skills_dir/aapp-issue" ] && resolve_plugin_entrypoint "$skills_dir/aapp-issue" "aapp-issue" >/dev/null 2>&1; then
-        local entry="$(resolve_plugin_entrypoint "$skills_dir/aapp-issue" "aapp-issue")"
-        printf "    • %-16s [Team Issue Authority]  -> %s (ACTIVE)\n" "aapp-issue" "${entry#$REPO_ROOT/}"
-    elif [ -d "$skills_dir/aapp-issue" ]; then
-        local counter="$(git config --get aapp.issueId 2>/dev/null || echo 1)"
-        printf "    • %-16s [Team Issue Authority]  -> .agents/skills/aapp-issue/ (CONFIGURED BUT NOT EXECUTABLE)\n" "aapp-issue"
-        printf "      %-16s (Fallback Active: local git config aapp.issueId = %s)\n" "" "$counter"
-    elif [ -d "$AAPP_BASE/examples/plugins/aapp-issue" ]; then
-        local counter="$(git config --get aapp.issueId 2>/dev/null || echo 1)"
-        printf "    • %-16s [Team Issue Authority]  -> NOT INSTALLED (SAMPLE AVAILABLE in %s)\n" "aapp-issue" "${AAPP_BASE/#$HOME/\~}/examples/plugins/aapp-issue/"
-        printf "      %-16s (Fallback Active: local git config aapp.issueId = %s)\n" "" "$counter"
+    # aapp-issue-tracker (P-32). An unset issue counter is seeded on first use.
+    local issue_counter
+    issue_counter="$(git config --get aapp.issueId 2>/dev/null)" || issue_counter="unset, seeded from the ledgers on first allocate"
+    if [ -d "$skills_dir/aapp-issue-tracker" ] && resolve_plugin_entrypoint "$skills_dir/aapp-issue-tracker" "aapp-issue-tracker" >/dev/null 2>&1; then
+        local entry="$(resolve_plugin_entrypoint "$skills_dir/aapp-issue-tracker" "aapp-issue-tracker")"
+        printf "    • %-18s [Team Issue Tracker]    -> %s (ACTIVE)\n" "aapp-issue-tracker" "${entry#$REPO_ROOT/}"
+    elif [ -d "$skills_dir/aapp-issue-tracker" ]; then
+        printf "    • %-18s [Team Issue Tracker]    -> .agents/skills/aapp-issue-tracker/ (CONFIGURED BUT NOT EXECUTABLE)\n" "aapp-issue-tracker"
+        printf "      %-18s (Fallback Active: local git config aapp.issueId = %s)\n" "" "$issue_counter"
+    elif [ -d "$AAPP_BASE/examples/plugins/aapp-issue-tracker" ]; then
+        printf "    • %-18s [Team Issue Tracker]    -> NOT INSTALLED (SAMPLE AVAILABLE in %s)\n" "aapp-issue-tracker" "${AAPP_BASE/#$HOME/\~}/examples/plugins/aapp-issue-tracker/"
+        printf "      %-18s (Fallback Active: local git config aapp.issueId = %s)\n" "" "$issue_counter"
     else
-        local counter="$(git config --get aapp.issueId 2>/dev/null || echo 1)"
-        printf "    • %-16s [Team Issue Authority]  -> NOT INSTALLED\n" "aapp-issue"
-        printf "      %-16s (Fallback Active: local git config aapp.issueId = %s)\n" "" "$counter"
+        printf "    • %-18s [Team Issue Tracker]    -> NOT INSTALLED\n" "aapp-issue-tracker"
+        printf "      %-18s (Fallback Active: local git config aapp.issueId = %s)\n" "" "$issue_counter"
     fi
 
     # hello-tool (showcase)
     if [ -d "$skills_dir/hello-tool" ] && resolve_plugin_entrypoint "$skills_dir/hello-tool" "hello-tool" >/dev/null 2>&1; then
         local entry="$(resolve_plugin_entrypoint "$skills_dir/hello-tool" "hello-tool")"
-        printf "    • %-16s [Custom CLI Showcase]   -> %s (ACTIVE)\n" "hello-tool" "${entry#$REPO_ROOT/}"
+        printf "    • %-18s [Custom CLI Showcase]   -> %s (ACTIVE)\n" "hello-tool" "${entry#$REPO_ROOT/}"
     elif [ -d "$skills_dir/hello-tool" ]; then
-        printf "    • %-16s [Custom CLI Showcase]   -> .agents/skills/hello-tool/ (CONFIGURED BUT NOT EXECUTABLE)\n" "hello-tool"
+        printf "    • %-18s [Custom CLI Showcase]   -> .agents/skills/hello-tool/ (CONFIGURED BUT NOT EXECUTABLE)\n" "hello-tool"
     fi
 
     echo ""
@@ -233,7 +232,7 @@ cmd_plugins_status() {
             local entrypoint="$(resolve_plugin_entrypoint "$sdir" "$sname" || true)"
             if [ -n "$entrypoint" ]; then
                 custom_count=$((custom_count + 1))
-                printf "    • %-16s -> %s (executable via 'aapp %s')\n" "$sname" "${entrypoint#$REPO_ROOT/}" "$sname"
+                printf "    • %-18s -> %s (executable via 'aapp %s')\n" "$sname" "${entrypoint#$REPO_ROOT/}" "$sname"
             fi
         done
     fi

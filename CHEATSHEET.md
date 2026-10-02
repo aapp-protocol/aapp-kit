@@ -84,7 +84,7 @@ Centralizes hook triggers and plugin contracts structured around execution timin
 | `aapp hook-hash` | Compute SHA256 registration hash for hook script |
 | `aapp plugins` | Discover installed action plugins in `.agents/skills/` |
 
-Action plugin entrypoints reside at `.agents/skills/{name}/run` (extension-agnostic executable: binary, `.sh`, `.py`). Standard providers: `aapp-planid`, `aapp-issue`.
+Action plugin entrypoints reside at `.agents/skills/{name}/run` (extension-agnostic executable: binary, `.sh`, `.py`). Standard providers: `aapp-planid`, `aapp-issue-tracker` (JSON envelope on stdin, one JSON object on stdout).
 
 ---
 

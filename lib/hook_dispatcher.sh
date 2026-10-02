@@ -94,11 +94,58 @@ execute_with_watchdog() {
 }
 
 # ------------------------------------------------------------------------------
-# 3. JSON Envelope Builder
+# 3. JSON Envelope Builder (shared by lifecycle hooks and action plugins, P-32)
 # ------------------------------------------------------------------------------
+# json_escape <text> -> the text as a JSON string body (no surrounding quotes).
+json_escape() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+# json_field <json> <key> -> value of a flat string or number key; fails when absent.
+# Plugin responses are one flat object ({"id": ...}, {"status": ...}, {"error": ...});
+# nested objects such as "extra" are never read.
+json_field() {
+    local json="$1" key="$2" val
+    val="$(printf '%s' "$json" | tr -d '\n' | sed -nE "s/.*\"$key\"[[:space:]]*:[[:space:]]*(\"([^\"\\\\]|\\\\.)*\"|-?[0-9]+).*/\\1/p")"
+    [ -n "$val" ] || return 1
+    val="${val#\"}"; val="${val%\"}"
+    printf '%s\n' "$val"
+}
+
+# Remote identity for the envelope: a team plugin needs the project, not a local
+# path. Credentials in the URL (user:secret@, or any userinfo on http/https,
+# where it is a token) are stripped. Prints `null` when no remote exists.
+_envelope_remote_json() {
+    local name url
+    name="$(git -C "$REPO_ROOT" config --get aapp.remote 2>/dev/null)" || name="origin"
+    url="$(git -C "$REPO_ROOT" remote get-url "$name" 2>/dev/null)" || { printf 'null'; return 0; }
+    case "$url" in
+        http://*@*|https://*@*) url="$(printf '%s' "$url" | sed -E 's#^(https?://)[^/@]*@#\1#')" ;;
+        *://*:*@*)              url="$(printf '%s' "$url" | sed -E 's#^([a-z+]+://[^/:@]*):[^/@]*@#\1@#')" ;;
+    esac
+    printf '{ "name": "%s", "url": "%s" }' "$(json_escape "$name")" "$(json_escape "$url")"
+}
+
+# run_action_plugin <entrypoint> <repo-root> <action> <event> [data-json]
+# Plugin Payload Standard (Dual Delivery, P-32): the envelope on stdin, AAPP_ACTION
+# and AAPP_REPO_ROOT in the environment (callers add action-specific variables).
+# Prints the plugin's stdout; returns the plugin's exit code.
+run_action_plugin() {
+    local entry="$1" root="$2" action="$3" event="$4" data="${5:-}"
+    REPO_ROOT="$root" build_event_envelope "$event" "$data" | \
+        AAPP_ACTION="$action" AAPP_REPO_ROOT="$root" "$entry"
+}
+
 build_event_envelope() {
     local event="$1"
-    local data_json="${2:-{}}"
+    local data_json="${2:-}"
+    [ -n "$data_json" ] || data_json='{}'
     local actor="${AAPP_ACTOR:-developer}"
     local timestamp
     timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date +"%Y-%m-%dT%H:%M:%SZ")"
@@ -112,10 +159,12 @@ build_event_envelope() {
   "timestamp": "$timestamp",
   "actor": "$actor",
   "repository": {
-    "root": "$REPO_ROOT",
-    "branch": "$branch"
+    "root": "$(json_escape "$REPO_ROOT")",
+    "branch": "$branch",
+    "remote": $(_envelope_remote_json)
   },
-  "data": $data_json
+  "data": $data_json,
+  "extra": {}
 }
 EOF
 }
@@ -233,7 +282,8 @@ dispatch_single_handler() {
 # ------------------------------------------------------------------------------
 dispatch_hook() {
     local event="$1"
-    local data_json="${2:-{}}"
+    local data_json="${2:-}"
+    [ -n "$data_json" ] || data_json='{}'
 
     local reg_file="$REPO_ROOT/.agents/skills/aapp-hooks/registry.tsv"
     local payload

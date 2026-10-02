@@ -1228,7 +1228,7 @@ Samples are preserved centrally in `~/.local/share/aapp-kit/examples/` (`$SHARE_
 
 #### 3. Dynamic CLI Discovery
 Run `aapp plugins` and `aapp hooks` to discover available samples:
-- `aapp plugins`: Inspects active plugins, reports standard extension points (`aapp-planid`, `aapp-issue`, `hello-tool`), and displays available samples with copy commands.
+- `aapp plugins`: Inspects active plugins, reports standard extension points (`aapp-planid`, `aapp-issue-tracker`, `hello-tool`), and displays available samples with copy commands.
 - `aapp hooks`: Displays registered lifecycle hooks, timing taxonomy, and available reference hook samples.
 
 #### 4. Adopting a Sample
@@ -1287,9 +1287,10 @@ Because the path begins with `aapp-`, it is protected by Guard Section 2 — age
 
 | | |
 | :--- | :--- |
-| **stdout** | One plan id, either `P-42` or bare `42` |
+| **stdin** | The shared JSON envelope, `"event": "plan.allocate"` (see *Plugin Payload Standard* below) |
+| **stdout** | One JSON object: `{"id": "P-42"}` (or `{"id": 42}`); plain text is rejected |
 | **exit 0** | Id issued |
-| **exit non-zero** | Refuse — AAPP aborts allocation |
+| **exit non-zero** | Refuse — AAPP aborts allocation; an optional `{"error": "<text>"}` is shown |
 
 Only plugin **absence** falls back to the local counter. A plugin that is present and fails is **fatal**, never a silent local allocation — falling back on failure would reintroduce exactly the collision the provider exists to prevent.
 
@@ -1308,9 +1309,9 @@ AAPP defines the contract above and nothing more. It does **not** inspect, valid
   `$HOME/.local/bin/` is chosen deliberately: Guard Section 2b hard-denies it to agents. Do **not** default into `~/.config` or `~/.local/share` — both are on the Section 2c agent-write allowlist.
 * This is a **documented responsibility, not an enforced guarantee**. AAPP cannot protect an adopter who commits a secret into their provider, and does not claim to.
 
-### Issue IDs & Lifecycle (`aapp issue`, `aapp.issueId`) & the `aapp-issue` Provider
+### Issue IDs & Lifecycle (`aapp issue`, `aapp.issueId`) & the `aapp-issue-tracker` Provider
 
-Issue IDs work like Plan IDs: `aapp.issueId` stores the next id, independent of `aapp.planId` (`#32` and `P-32` may both exist). Git config is not cloned, so the counter is seeded on **first use** in each clone: when `aapp.issueId` is unset, `aapp issue allocate` continues from the highest ID in **both** `ISSUES.md` and `done/000-issues-archive.md` (the active ledger is priority-ordered and resolved rows live in the archive). Template example rows are ignored, so a new project starts at `#1`. With no ledger files and no provider, allocation refuses: the IDs belong to a remote authority whose `aapp-issue` provider is not installed.
+Issue IDs work like Plan IDs: `aapp.issueId` stores the next id, independent of `aapp.planId` (`#32` and `P-32` may both exist). Git config is not cloned, so the counter is seeded on **first use** in each clone: when `aapp.issueId` is unset, `aapp issue allocate` continues from the highest ID in **both** `ISSUES.md` and `done/000-issues-archive.md` (the active ledger is priority-ordered and resolved rows live in the archive). Template example rows are ignored, so a new project starts at `#1`. With no ledger files and no provider, allocation refuses: the IDs belong to a remote authority whose `aapp-issue-tracker` provider is not installed.
 
 ```bash
 aapp issue                    # peek the next issue ID (claims nothing)
@@ -1322,9 +1323,13 @@ aapp issue list               # active issues in road-map order (top 20; 'list 5
 
 `close` moves the row to the top of the archive, prunes the road map and commits all three files in one `plans` commit. `aapp done` does the same for a plan's `Target Issue`, inside its archive commit, and refuses when that issue is in neither ledger. Closing an already-archived issue changes nothing.
 
-**Provider (`.agents/skills/aapp-issue/run`, sample in `examples/plugins/aapp-issue/`):**
-- `AAPP_ACTION=allocate` → print `#<int>` or `<int>`. Same rules as `aapp-planid`: absent provider falls back to the local counter; a failing one aborts.
-- `AAPP_ACTION=close` with `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA`, `AAPP_SUMMARY` → called once after the local close. It is **fire-and-forget**: a failure only warns, and retry or queued delivery to GitHub/Jira/Linear is the provider's job. Make it idempotent.
+**Provider (`.agents/skills/aapp-issue-tracker/run`, sample in `examples/plugins/aapp-issue-tracker/`):**
+- `issue.allocate` → print `{"id": "#97"}`. Same rules as `aapp-planid`: absent provider falls back to the local counter; a failing one aborts.
+- `issue.close`, with `data` `{"id", "commit", "summary", "plan"}` (also `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA`, `AAPP_SUMMARY`) → called once after the local close; print `{"status": "accepted"}` or `{"status": "queued"}`. It is **fire-and-forget**: a failure only warns, and retry or queued delivery to GitHub/Jira/Linear is the provider's job. Make it idempotent.
+
+#### Plugin Payload Standard
+
+Every plugin the kit calls (`aapp-planid`, `aapp-issue-tracker`) uses the same **Dual Delivery** contract as lifecycle hooks: the JSON envelope on stdin plus `AAPP_*` environment variables, and one flat JSON object on stdout (`{"id": …}`, `{"status": …}` or `{"error": …}`), with the exit code deciding success. The envelope's `repository.remote` (`{"name", "url"}`, credentials stripped, `null` without a remote) tells a team authority which project is calling, and the reserved `extra` object (`{}`) leaves room for arbitrary data; a response may carry its own `extra`, which the kit ignores. The full reference is in `.agents/CODEMAP.md` §5.
 
 Pair 8 of the planning-health engine reports an issue ID repeated inside one ledger; Pair 1 already reports an ID present in both.
 

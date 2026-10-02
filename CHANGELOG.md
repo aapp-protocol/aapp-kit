@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Issue ID allocation & lifecycle (`P-32`): `aapp issue` (`next`, `allocate`, `close`, `list`), `aapp.issueId` seeded from both ledgers on first use, `aapp-issue` provider, `aapp done` closes its Target Issue, Pair 8 duplicate check.
+- Issue ID allocation & lifecycle (`P-32`): `aapp issue` (`next`, `allocate`, `close`, `list`), `aapp.issueId` seeded from both ledgers on first use, `aapp-issue-tracker` provider, JSON plugin payload standard (`aapp-planid` too), `aapp done` closes its Target Issue, Pair 8.
 - Conciseness Enforcement & Changelog Governance (`P-28`): Adds single-line changelog bullet enforcement (<= 300 chars) in pre-commit and commit message body gates (<= 1200 chars / <= 20 lines) in commit-msg.
 - General-Purpose Git Notes Infrastructure & Worktree Hooks (`P-44`): Adds dedicated Git Notes subsystem with `aapp note` (`status`, `stage`, `push`, `pull`), separated developer and AI namespaces, and audit guards.
 - Plan-Bound Commit Helper (`P-39`): Adds `aapp commit "<msg>"` (`lib/cmd_commit.sh`) supporting `amend`, `adopt <sha>...`, bare attribution tokens, and automatic recording of commit SHAs into active plan front matter.

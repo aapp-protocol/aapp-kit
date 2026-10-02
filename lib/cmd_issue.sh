@@ -8,7 +8,7 @@
 #   aapp issue close <id> [sha <sha>] [summary "<text>"] relocate the row to the archive
 #   aapp issue list [<n> | all]                         active issues in road-map order
 #
-# The local ledgers are authoritative. An installed `aapp-issue` provider plugin
+# The local ledgers are authoritative. An installed `aapp-issue-tracker` plugin
 # allocates IDs (fail closed, like `aapp-planid`) and is notified on close
 # (fire-and-forget: retry and delivery are the plugin's responsibility).
 # ==============================================================================
@@ -147,19 +147,26 @@ issue_close_local() {
     return 0
 }
 
-# issue_notify_close <n> <sha> <summary>
-# Fire-and-forget hand-off to an installed `aapp-issue` plugin. Registered in the
-# P-32 Fallback Inventory: a failing plugin only warns, because the local archive
-# is authoritative and delivery/retry is the plugin implementer's responsibility.
+# issue_notify_close <n> <sha> <summary> [plan-id]
+# Fire-and-forget `issue.close` hand-off to an installed `aapp-issue-tracker`
+# plugin (Plugin Payload Standard). Registered in the P-32 Fallback Inventory: a
+# failing plugin only warns, because the local archive is authoritative and
+# delivery/retry is the plugin implementer's responsibility.
 issue_notify_close() {
-    local n="$1" sha="$2" summary="$3" root pdir entry
+    local n="$1" sha="$2" summary="$3" plan="${4:-}" root pdir entry data out status plan_json="null"
     root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}" || return 0
-    pdir="$root/.agents/skills/aapp-issue"
+    pdir="$root/.agents/skills/aapp-issue-tracker"
     [ -d "$pdir" ] || return 0
-    entry="$(resolve_plugin_entrypoint "$pdir" "aapp-issue" 2>/dev/null)" || return 0
-    if ! AAPP_ACTION=close AAPP_REPO_ROOT="$root" AAPP_ISSUE_ID="#$n" \
-         AAPP_COMMIT_SHA="$sha" AAPP_SUMMARY="$summary" "$entry" >/dev/null; then
-        echo "⚠️  [Issue] #$n closed locally; the aapp-issue plugin reported a failure (delivery is the plugin's responsibility)." >&2
+    entry="$(resolve_plugin_entrypoint "$pdir" "aapp-issue-tracker" 2>/dev/null)" || return 0
+    [ -n "$plan" ] && plan_json="\"$(json_escape "$plan")\""
+    data="{\"id\": \"#$n\", \"commit\": \"$(json_escape "$sha")\", \"summary\": \"$(json_escape "$summary")\", \"plan\": $plan_json}"
+    if out="$(AAPP_ISSUE_ID="#$n" AAPP_COMMIT_SHA="$sha" AAPP_SUMMARY="$summary" \
+              run_action_plugin "$entry" "$root" close issue.close "$data" 2>/dev/null)"; then
+        status="$(json_field "$out" status)" || status="accepted"
+        echo "📨 [Issue] #$n handed to aapp-issue-tracker: $status"
+    else
+        status="$(json_field "$out" error)" || status="no error text"
+        echo "⚠️  [Issue] #$n closed locally; aapp-issue-tracker failed ($status). Delivery is the plugin's responsibility." >&2
     fi
     return 0
 }
@@ -209,7 +216,7 @@ cmd_issue_close() {
             echo "✅ [Issue] #$n archived to done/000-issues-archive.md (commit \`$sha\`)."
             ;;
         archive)
-            echo "ℹ️  [Issue] #$n is already archived; re-notifying the aapp-issue plugin only."
+            echo "ℹ️  [Issue] #$n is already archived; re-notifying the aapp-issue-tracker plugin only."
             ;;
         *)
             echo "❌ [Issue] #$n not found in ISSUES.md or done/000-issues-archive.md." >&2

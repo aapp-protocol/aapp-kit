@@ -1,0 +1,39 @@
+#!/bin/sh
+# ==============================================================================
+# Reference `aapp-issue-tracker` Provider Plugin (MOCK)
+#
+# Install at: .agents/skills/aapp-issue-tracker/run
+# Copy this directory as-is -- it already carries the canonical name.
+#
+# CONTRACT (Plugin Payload Standard, shared by every AAPP plugin)
+#   stdin : JSON envelope
+#           {"version","event","timestamp","actor",
+#            "repository": {"root","branch","remote": {"name","url"} | null},
+#            "data": {...}, "extra": {}}
+#           repository.remote identifies the team project; credentials are
+#           stripped from the URL. "extra" is reserved for arbitrary data.
+#
+#   event "issue.allocate"  (env AAPP_ACTION=allocate)
+#     data   : {}
+#     stdout : {"id": "#42"} (or {"id": 42})
+#     exit !0: refuse, optionally {"error": "<text>"}; AAPP aborts rather than
+#              allocating locally.
+#
+#   event "issue.close"     (env AAPP_ACTION=close, AAPP_ISSUE_ID,
+#                            AAPP_COMMIT_SHA, AAPP_SUMMARY)
+#     data   : {"id": "#42", "commit": "<sha>", "summary": "<text>",
+#               "plan": "P-7" | null}
+#     stdout : {"status": "accepted"} or {"status": "queued"}
+#     Fire-and-forget: AAPP has already archived the issue locally and calls
+#     once. A non-zero exit only warns. Retry, queueing and later delivery to
+#     the tracker are this plugin's responsibility. Must be idempotent.
+#
+# WHY THIS IS A ONE-LINE SHIM
+#   Same reasoning as examples/plugins/aapp-planid/run.sample: anything
+#   committed here is public, so the tracker endpoint and credentials live in
+#   the provider outside the repository. The default target sits in
+#   ~/.local/bin/, which blast-radius-guard hard-denies to agents.
+#
+#   Override the target with AAPP_ISSUE_TRACKER_CMD.
+# ==============================================================================
+exec "${AAPP_ISSUE_TRACKER_CMD:-$HOME/.local/bin/aapp-issue-tracker-provider}" "$@"

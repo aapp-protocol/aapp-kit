@@ -1057,7 +1057,7 @@ cmd_done() {
         plans_commit "plan(done): archive $plan_id to done/ and update state matrix" "${done_targets[@]}" || exit 1
     fi
     if [ "$close_where" = "active" ]; then
-        issue_notify_close "$close_issue" "$commit_sha" "$close_summary"
+        issue_notify_close "$close_issue" "$commit_sha" "$close_summary" "$plan_id"
         echo "   Issue closed : #$close_issue -> done/000-issues-archive.md"
     fi
 

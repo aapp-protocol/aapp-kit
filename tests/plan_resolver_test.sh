@@ -155,14 +155,41 @@ check "no provider uses local counter" "P-30" "$(allocate_plan_id)"
 
 PROVIDER_DIR="$PWD/.agents/skills/aapp-planid"
 mkdir -p "$PROVIDER_DIR"
-printf '#!/bin/sh\necho 88\n' > "$PROVIDER_DIR/run"; chmod +x "$PROVIDER_DIR/run"
+cat > "$PROVIDER_DIR/run" <<EOF
+#!/bin/sh
+cat > "$TEST_DIR/planid.stdin"
+echo '{"id": "P-88", "extra": {"k": 1}}'
+EOF
+chmod +x "$PROVIDER_DIR/run"
 check "provider id is used" "P-88" "$(allocate_plan_id)"
 check "counter ratchets past provider id" "89" "$(git config --get aapp.planId)"
+check "provider receives plan.allocate envelope" "1" "$(grep -c '"event": "plan.allocate"' "$TEST_DIR/planid.stdin")"
+check "envelope carries reserved extra object" "1" "$(grep -c '"extra": {}' "$TEST_DIR/planid.stdin")"
+
+cat > "$PROVIDER_DIR/run" <<'EOF'
+#!/bin/sh
+echo '{"id": 90}'
+EOF
+check "provider bare integer id accepted" "P-90" "$(allocate_plan_id)"
+
+cat > "$PROVIDER_DIR/run" <<'EOF'
+#!/bin/sh
+echo P-91
+EOF
+MRC=0; allocate_plan_id >/dev/null 2>&1 || MRC=$?
+check "provider plain-text output rejected" "1" "$MRC"
+
+cat > "$PROVIDER_DIR/run" <<'EOF'
+#!/bin/sh
+echo '{"error": "authority offline"}'
+exit 1
+EOF
+check "provider error text is shown" "1" "$(allocate_plan_id 2>&1 | grep -c 'authority offline')"
 
 printf '#!/bin/sh\nexit 3\n' > "$PROVIDER_DIR/run"
 PROV_RC=0; allocate_plan_id >/dev/null 2>&1 || PROV_RC=$?
 check "failing provider is fatal" "1" "$PROV_RC"
-check "no local fallback on provider failure" "89" "$(git config --get aapp.planId)"
+check "no local fallback on provider failure" "91" "$(git config --get aapp.planId)"
 
 printf '#!/bin/sh\necho garbage\n' > "$PROVIDER_DIR/run"
 MRC=0; allocate_plan_id >/dev/null 2>&1 || MRC=$?
@@ -301,9 +328,13 @@ check "issue peek uses # prefix" "#7" "$(get_next_issue_id)"
 check "issue allocate issues current value" "#7" "$(allocate_issue_id)"
 check "issue counter independent of plan counter" "8 " "$(git config --get aapp.issueId) $(git config --get aapp.planId)"
 
-ISSUE_PROVIDER_DIR="$PWD/.agents/skills/aapp-issue"
+ISSUE_PROVIDER_DIR="$PWD/.agents/skills/aapp-issue-tracker"
 mkdir -p "$ISSUE_PROVIDER_DIR"
-printf '#!/bin/sh\necho "#50"\n' > "$ISSUE_PROVIDER_DIR/run"; chmod +x "$ISSUE_PROVIDER_DIR/run"
+cat > "$ISSUE_PROVIDER_DIR/run" <<'EOF'
+#!/bin/sh
+echo '{"id": "#50"}'
+EOF
+chmod +x "$ISSUE_PROVIDER_DIR/run"
 check "issue provider id is used" "#50" "$(allocate_issue_id)"
 check "issue counter ratchets past provider id" "51" "$(git config --get aapp.issueId)"
 rm -rf "$ISSUE_PROVIDER_DIR"

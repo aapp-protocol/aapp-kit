@@ -445,6 +445,31 @@ else
 fi
 report "aapp plugins & aapp hooks display standard extension points and sample discovery" "PASS" "$got"
 
+# Shared envelope (P-32): repository.remote with credentials stripped, reserved
+# extra object, and data without a stray closing brace.
+ENV_REPO="$R/envelope-repo"
+mkdir -p "$ENV_REPO" && git -C "$ENV_REPO" init -q
+git -C "$ENV_REPO" remote add origin "https://bot:s3cret@example.com/acme/app.git"
+envelope="$(cd "$ENV_REPO" && REPO_ROOT="$ENV_REPO" bash -c "source '$KIT/lib/hook_dispatcher.sh'; build_event_envelope issue.close '{\"id\": \"#7\"}'")"
+if echo "$envelope" | grep -q '"remote": { "name": "origin", "url": "https://example.com/acme/app.git" }' && \
+   ! echo "$envelope" | grep -q 's3cret' && \
+   echo "$envelope" | grep -qx '  "data": {"id": "#7"},' && \
+   echo "$envelope" | grep -qx '  "extra": {}'; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "envelope carries stripped remote, extra, and well-formed data" "PASS" "$got" "$envelope"
+
+git -C "$ENV_REPO" remote remove origin
+envelope="$(cd "$ENV_REPO" && REPO_ROOT="$ENV_REPO" bash -c "source '$KIT/lib/hook_dispatcher.sh'; build_event_envelope on-done")"
+if echo "$envelope" | grep -q '"remote": null' && echo "$envelope" | grep -qx '  "data": {},'; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "envelope remote is null without a remote; empty data is {}" "PASS" "$got" "$envelope"
+
 echo "============================================================"
 echo "📊 Results: $PASS passed, $FAIL failed"
 echo "============================================================"

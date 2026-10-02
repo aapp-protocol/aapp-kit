@@ -70,9 +70,10 @@ fi
 git config aapp.issueId 14
 
 echo "== provider plugin =="
-mkdir -p .agents/skills/aapp-issue
-printf '#!/bin/sh\n[ "$AAPP_ACTION" = allocate ] && echo "#40"\n' > .agents/skills/aapp-issue/run
-chmod +x .agents/skills/aapp-issue/run
+PDIR=.agents/skills/aapp-issue-tracker
+mkdir -p "$PDIR"
+printf '%s\n' '#!/bin/sh' '[ "$AAPP_ACTION" = allocate ] && echo "{\"id\": \"#40\"}"' > "$PDIR/run"
+chmod +x "$PDIR/run"
 out="$(aapp issue allocate 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && [ "$out" = "#40" ] && [ "$(git config aapp.issueId)" = "41" ]; then
   ok "test_provider_allocate_ratchets_counter"
@@ -80,7 +81,7 @@ else
   bad "test_provider_allocate_ratchets_counter" "rc=$rc out=$out counter=$(git config aapp.issueId)"
 fi
 
-printf '#!/bin/sh\nexit 1\n' > .agents/skills/aapp-issue/run
+printf '%s\n' '#!/bin/sh' 'echo "{\"error\": \"tracker offline\"}"' 'exit 1' > "$PDIR/run"
 aapp issue allocate >/dev/null 2>&1; rc=$?
 if [ "$rc" -ne 0 ] && [ "$(git config aapp.issueId)" = "41" ]; then
   ok "test_failing_provider_refuses_allocation"
@@ -101,20 +102,31 @@ if [ "$rc" -eq 0 ] && ! grep -qE '^\| #10 \|' .plans/ISSUES.md && \
 else
   bad "test_close_relocates_prunes_and_commits" "rc=$rc row=$arow log=$(git -C .plans log -1 --format=%s) status=$(git -C .plans status --porcelain)"
 fi
-if echo "$out" | grep -q 'plugin reported a failure'; then
+if echo "$out" | grep -q 'aapp-issue-tracker failed (tracker offline)'; then
   ok "test_close_plugin_failure_only_warns"
 else
   bad "test_close_plugin_failure_only_warns" "out=$out"
 fi
-rm -rf .agents/skills/aapp-issue
 
-aapp issue close 11 sha "$SHA" summary "Fixed a\|b and c|d" >/dev/null 2>&1; rc=$?
+# A recording provider: the close envelope carries data, the stripped remote and extra.
+git remote add origin "https://bot:s3cret@example.com/acme/app.git"
+printf '%s\n' '#!/bin/sh' "cat > \"$R/close.stdin\"" 'echo "{\"status\": \"queued\", \"extra\": {\"ticket\": 7}}"' > "$PDIR/run"
+out="$(aapp issue close 11 sha "$SHA" summary "Fixed a\|b and c|d" 2>&1)"; rc=$?
 arow="$(grep -E '^\| #11 \|' .plans/done/000-issues-archive.md)"
 if [ "$rc" -eq 0 ] && echo "$arow" | grep -qF 'Fixed a\|b and c\|d |' && ! grep -q '#11 ->' .plans/issues_road_map.md; then
   ok "test_close_summary_escapes_pipes"
 else
   bad "test_close_summary_escapes_pipes" "rc=$rc row=$arow"
 fi
+if echo "$out" | grep -q 'handed to aapp-issue-tracker: queued' && \
+   grep -q '"event": "issue.close"' "$R/close.stdin" && grep -q '"id": "#11"' "$R/close.stdin" && \
+   grep -q '"url": "https://example.com/acme/app.git"' "$R/close.stdin" && ! grep -q 's3cret' "$R/close.stdin" && \
+   grep -q '"plan": null' "$R/close.stdin" && grep -q '"extra": {}' "$R/close.stdin"; then
+  ok "test_close_sends_envelope_and_reports_status"
+else
+  bad "test_close_sends_envelope_and_reports_status" "out=$out stdin=$(cat "$R/close.stdin" 2>/dev/null)"
+fi
+rm -rf "$PDIR"
 
 out="$(aapp issue close '#10' 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && echo "$out" | grep -q 'already archived' && \
@@ -226,7 +238,7 @@ rm -f .plans/ISSUES.md .plans/done/000-issues-archive.md
 git config --unset aapp.issueId 2>/dev/null
 out1="$(aapp issue next 2>&1)"; rc1=$?
 out2="$(aapp issue allocate 2>&1)"; rc2=$?
-if [ "$rc1" -ne 0 ] && [ "$rc2" -ne 0 ] && echo "$out2" | grep -q 'aapp-issue' && \
+if [ "$rc1" -ne 0 ] && [ "$rc2" -ne 0 ] && echo "$out2" | grep -q 'aapp-issue-tracker' && \
    [ -z "$(git config --get aapp.issueId)" ]; then
   ok "test_no_ledgers_without_provider_refuses"
 else
@@ -234,9 +246,9 @@ else
 fi
 
 # Same clone once the team provider is installed: the provider issues the id.
-mkdir -p .agents/skills/aapp-issue
-printf '#!/bin/sh\n[ "$AAPP_ACTION" = allocate ] && echo "#120"\n' > .agents/skills/aapp-issue/run
-chmod +x .agents/skills/aapp-issue/run
+mkdir -p .agents/skills/aapp-issue-tracker
+printf '%s\n' '#!/bin/sh' '[ "$AAPP_ACTION" = allocate ] && echo "{\"id\": \"#120\"}"' > .agents/skills/aapp-issue-tracker/run
+chmod +x .agents/skills/aapp-issue-tracker/run
 out="$(aapp issue allocate 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && [ "$out" = "#120" ]; then
   ok "test_no_ledgers_with_provider_allocates"
