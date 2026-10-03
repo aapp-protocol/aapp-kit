@@ -1,11 +1,8 @@
-# 🗺️ Plan P-51: Shared Docs Concurrency Commit Mode
+# 🗺️ Plan P-51: Shared Docs Concurrency, Part 2 (P-48 Extension): Commit Mode & Plan-Recorded Modes
 * **Created:** 2026-10-04 | **Last Refined:** 2026-10-04
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** None (extension of P-48; should have shipped with it)
 * **Plan ID:** P-51
-* **Changelog:** Changed: Shared Docs Concurrency Commit Mode
-<!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
-     from the title; reword it and pick the section while refining. `aapp commit` writes it into
-     CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
+* **Changelog:** Added: `aapp.commitMode` (atomic by default) and plans recording the commit and changelog modes they were built with
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Commits:** none
@@ -32,63 +29,112 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+P-48 shipped `aapp.changelogMode` (one changelog entry per plan, or one per commit). Two pieces discussed with it did not ship and belong to the same design:
+
+1. **Commit mode.** The developer's preferred style is one commit per plan, but some weeks call for several commits per plan. Nothing expresses or enforces either; a plan can quietly end up with many commits.
+2. **A record of how each plan was built.** Both modes are repository config and change over time (one week atomic, the next microcommits). Once the config changes, nothing tells how an earlier plan was actually done.
+
+**Goal:**
+- A second config, `aapp.commitMode` (`atomic` | `microcommits`, default `atomic`), next to `aapp.changelogMode`. **All checks read the config.**
+- Every plan **carries the record** of the modes in effect while it was implemented, in its header. The record is data only: nothing enforces or reads it to decide anything.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Config (`lib/cmd_init.sh`)
+- `aapp.commitMode`: `atomic` (default) or `microcommits`, seeded by `aapp init` only when absent, like `aapp.changelogMode`.
+- The two configs are independent; they will often move together (`atomic` + `plan`), but nothing ties them.
+
+### 2.2 Plan header record (`templates/plan-template.md`, `lib/cmd_plan.sh`, `lib/cmd_commit.sh`)
+```markdown
+* **Commit Mode:** atomic
+* **Changelog Mode:** plan
+```
+- `aapp draft` writes both from the current config, so a new plan shows the modes it will be built under.
+- Every `aapp commit` for the plan re-stamps both from the config in effect at that commit, in the plan file it already commits (`plan(record): …`). When a value differs from the plan's previous record, it also appends a dated line to §6: `Commit Mode switched to microcommits (config) for <sha>.` The finished plan therefore shows the modes it ended with, and §6 shows any switch on the way.
+- Plans without the fields (drafted before this plan) get them on their next `aapp commit`.
+- `aapp freeze` and every other check ignore the fields: they are a record, not a setting.
+
+### 2.3 Commit mode enforcement — reads `aapp.commitMode`
+- **`atomic`:**
+  - `aapp commit` (without `amend`) refuses a code commit when the active plan's `**Commits:**` header already records a commit: `❌ [Commit Refusal] aapp.commitMode=atomic: P-51 already has commit <sha>. Fold changes in with 'aapp commit amend', or set aapp.commitMode=microcommits.`
+  - The pre-commit hook refuses a raw `git commit` of code for an active plan whose header already records a commit, with the same hint. Commits made by the helper (`AAPP_COMMIT_HELPER=1`) skip this hook check because the helper already decided.
+  - `aapp commit amend` is always allowed: it replaces the recorded commit, keeping the plan at one.
+- **`microcommits`:** any number of commits, as today.
+- Commits with no active plan (direct fixes) are not affected by commit mode.
+
+### 2.4 Interplay with P-48
+- `aapp.changelogMode` behaviour is unchanged; it now also gets recorded in the plan (2.2).
+- `atomic` + `plan` is the natural pair: one commit, one entry. `microcommits` + `plan` still yields one entry per plan (P-48).
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- Default `atomic` applies to existing repositories after `aapp init`: a plan in development that already has a recorded commit needs `aapp.commitMode=microcommits` (or `amend`) for further commits. Release note states this.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: `tests/verbs/commit.sh`: `atomic` refuses a second code commit with the amend hint; `amend` passes and keeps one recorded commit; `microcommits` allows a second commit; each commit re-stamps the plan's two fields, and a config switch adds the §6 line.
+- [ ] Task 1.2: `tests/pre-commit_test.sh`: `atomic` refuses a raw code commit for a plan with a recorded commit; `microcommits` and no-plan commits pass; helper commits skip the check.
+- [ ] Task 1.3: `tests/verbs/draft.sh`: a drafted plan carries both fields from the config; `tests/install_test.sh`: `aapp.commitMode=atomic` seeded only when absent.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Implementation
+- [ ] Task 2.1: Seed `aapp.commitMode` in `lib/cmd_init.sh`.
+- [ ] Task 2.2: Template fields; `aapp draft` writes them from config (`lib/cmd_plan.sh`).
+- [ ] Task 2.3: Atomic check and field re-stamping in `lib/cmd_commit.sh`; shared helpers in `lib/aapp-lib.sh`.
+- [ ] Task 2.4: Atomic check in `templates/aapp-pre-commit`.
+- [ ] Task 2.5: Contracts `lib/docs/verbs/commit.md`, `lib/docs/verbs/draft.md`.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+### Phase 3: Agent Text, Docs & Verification
+- [ ] Task 3.1: `templates/skills/aapp-start/SKILL.md`: in `atomic` mode the plan is one commit, fixes go through `aapp commit amend`; `templates/AGENTS.md` and `.agents/AGENTS.md`: the commit-mode rule next to the changelog rule.
+- [ ] Task 3.2: `MANUAL.md`, `CHEATSHEET.md` (config row), `.agents/CODEMAP.md`.
+- [ ] Task 3.3: Run `./aapp test strict quiet`.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_init.sh` -> Seed `aapp.commitMode`.
+- [ ] `templates/plan-template.md` -> `**Commit Mode:**` and `**Changelog Mode:**` header fields.
+- [ ] `lib/cmd_plan.sh` -> `aapp draft` writes both fields from config.
+- [ ] `lib/cmd_commit.sh` -> Atomic check; re-stamp fields; §6 switch line.
+- [ ] `lib/aapp-lib.sh` -> Helpers to read and write the two fields.
+- [ ] `templates/aapp-pre-commit` -> Atomic check for raw commits.
+- [ ] `lib/docs/verbs/commit.md` -> Contract: atomic refusal, record stamping.
+- [ ] `lib/docs/verbs/draft.md` -> Contract: fields from config.
+- [ ] `tests/verbs/commit.sh` -> Commit mode and stamping tests.
+- [ ] `tests/pre-commit_test.sh` -> Hook atomic tests.
+- [ ] `tests/verbs/draft.sh` -> Field pre-fill test.
+- [ ] `tests/install_test.sh` -> Seed test.
+- [ ] `templates/skills/aapp-start/SKILL.md` -> One commit per plan in atomic mode.
+- [ ] `templates/AGENTS.md` -> Commit-mode rule.
+- [ ] `.agents/AGENTS.md` -> Same as the template.
+- [ ] `MANUAL.md` -> Commit mode and the plan record.
+- [ ] `CHEATSHEET.md` -> `aapp.commitMode` row.
+- [ ] `.agents/CODEMAP.md` -> Helpers and checks.
+- [ ] `CHANGELOG.md` -> Entry written by `aapp commit` from the declaration.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `.githooks/*` -> Refreshed from `templates/` by `aapp init`.
+- [ ] `.agents/skills/*` -> Refreshed from `templates/skills/` by `aapp init`.
+- [ ] `lib/verbs.tsv` -> No new verbs.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified.)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-04:** Plan initialized from `pickup.md`.
-* **2026-10-04:** Refined blast radius and locked module boundaries.
+* **2026-10-04:** Drafted as the extension of P-48 (should have shipped with it): `aapp.commitMode` config (atomic default); all checks read the configs; each plan records the commit and changelog modes it was built with, re-stamped on every `aapp commit`, with switches logged in §6.
