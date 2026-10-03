@@ -1,11 +1,8 @@
-# 🗺️ Plan P-50: Plan Links Promotion And Ledger Commits
+# 🗺️ Plan P-50: Plan Links, Issue Promotion & Ledger Commits
 * **Created:** 2026-10-03 | **Last Refined:** 2026-10-03
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** None (follow-up to P-32, P-47 and P-49 Q1)
 * **Plan ID:** P-50
-* **Changelog:** Changed: Plan Links Promotion And Ledger Commits
-<!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
-     from the title; reword it and pick the section while refining. `aapp commit` writes it into
-     CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
+* **Changelog:** Added: Plan rename with issue-link repair, issue promotion in `aapp draft`, and pickup/issue commits without raw git
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Commits:** none
@@ -32,63 +29,113 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+Four `.plans` chores are still done by hand, each with a known failure:
+
+1. **Renaming a plan breaks links.** Issue rows link plans by file path (`[P-48](current/P48-….md)` in *Target Plan / Fix*). Renaming the file means editing the row, the matrix row and the file by hand — done once for P-48, three files and a stale matrix description.
+2. **`aapp done` breaks links.** Moving a plan from `current/` to `done/` leaves every other open issue that links it pointing at a dead path.
+3. **Promotion is manual.** Promoting issue `#N` to a plan means `aapp draft`, then hand-setting the plan's `Target Issue`, the row's Status (`🔵 Planned`) and the row's link, then a raw git commit for the row.
+4. **Ledger commits need raw git.** Adding a pickup idea or logging an issue ends in `git -C .plans commit`, which AGENTS.md forbids agents (P-47); there is no verb for it.
+
+The developer's rule for issue rows (2026-10-03) allows exactly these edits: observation cells never change; lifecycle cells change at promotion (Status → Planned, link added) and on plan rename/archive (link path only), **by a verb, never by hand**.
+
+**Goal:** every one of these happens inside an existing verb, in that verb's single commit, with no new verbs (developer, 2026-10-03: "verbs are getting way too many").
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Shared link helper (`lib/cmd_issue.sh`)
+`issue_relink <old-rel-path> <new-rel-path>` rewrites only the link target inside `ISSUES.md` *Target Plan / Fix* cells and `issues_road_map.md` lines that link `<old-rel-path>`. Observation cells and link labels never change. Prints how many links it rewrote; returns non-zero only on a write failure.
+
+### 2.2 Rename: `aapp refine <id> slug <new-slug>` (`lib/cmd_plan.sh`)
+- Normalises `<new-slug>` like `aapp draft` does; the file becomes `current/P<num>-<new-slug>.md` (the `P<num>-` prefix and Plan ID never change).
+- Refuses: plan not in `current/`, empty slug after normalisation, target file already exists, uncommitted edits in the plan file (commit them with plain `aapp refine` first, so the rename commit is only a rename).
+- In one `plans_commit`: `git mv` of the plan, `issue_relink`, re-derived `state_matrix.md`, and a dated change-log line in the plan (`File renamed from <old> to <new>`). The active buffer is updated when it named the old file.
+- The title line is content, not renamed: reword it with a normal `aapp refine`.
+- Output: `📝 [Refine] P-48 renamed to P48-shared-docs-concurrency.md (<sha>); 1 issue link repaired`.
+
+### 2.3 Link repair in `aapp done` (`lib/cmd_plan.sh`)
+After moving the plan to `done/`, `cmd_done` runs `issue_relink current/<file> done/<file>` and adds the touched ledgers to its existing single commit. The plan's own Target Issue is already archived by P-32's close; this covers other open issues that link the plan.
+
+### 2.4 Promotion: `aapp draft <slug> issue <num>` (`lib/cmd_plan.sh`, `lib/cmd_issue.sh`)
+- `<num>` is bare (`98`; `#98` is a shell comment). Refuses when `#<num>` is not an active row in `ISSUES.md` (archived or unknown).
+- Scaffolds as today, then: plan header `Target Issue / Milestone:` → `#<num>`; issue row Status cell → `` 🔵 `Planned` ``; *Target Plan / Fix* cell → `[P-<id>](current/<file>)`. The road map line is untouched.
+- All in `draft`'s single commit. Without the token, `aapp draft` is unchanged.
+
+### 2.5 Ledger commits without raw git
+Pickup and issue-triage edits get a commit path on an existing verb (see Q1). Whatever the form: it commits only the named ledger files (`pickup.md`; or `ISSUES.md` + `issues_road_map.md`), with attribution, under the existing conventions (`pickup: <msg>`, `issue(triage): <msg>`), checks the subject length like P-49, and prints one confirmation line.
+
+### 2.6 Agent-facing text
+- `AGENTS.md` (both copies): promotion steps use `aapp draft <slug> issue <num>`; the CLI Reference rows for `draft` and `refine` show the new tokens; logging an issue ends with the ledger commit form from 2.5.
+- Skills: `aapp-digest` (promotion and ledger commits), `aapp-plan` (defect logging commit), `aapp-pause` (logging while paused).
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- Existing links that already point at dead `current/` paths are not repaired retroactively; only moves made from now on are.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: `tests/verbs/refine.sh`: `slug` renames, repairs the issue link and road-map link, re-derives the matrix, logs the rename, one commit; refusals (archived plan, existing target, dirty plan file, empty slug).
+- [ ] Task 1.2: `tests/verbs/done.sh`: another open issue linking the plan points at `done/` after `aapp done`, in the same commit.
+- [ ] Task 1.3: `tests/verbs/draft.sh`: `issue <num>` sets the plan's Target Issue, the row's `🔵 Planned` and link, in the draft commit; refusals (archived or unknown issue).
+- [ ] Task 1.4: Ledger commit tests for the Q1 form (commits only the ledger files, conventions, subject check).
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Implementation
+- [ ] Task 2.1: `issue_relink` in `lib/cmd_issue.sh`.
+- [ ] Task 2.2: `slug` token in `cmd_refine`; link repair in `cmd_done`; `issue` token in `cmd_draft` (`lib/cmd_plan.sh`).
+- [ ] Task 2.3: Ledger commit path (Q1).
+- [ ] Task 2.4: Contracts: `lib/docs/verbs/refine.md`, `done.md`, `draft.md` (and the Q1 verb's contract).
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+### Phase 3: Agent Text, Docs & Verification
+- [ ] Task 3.1: `templates/AGENTS.md`, `.agents/AGENTS.md`, and the three skills (2.6).
+- [ ] Task 3.2: `MANUAL.md`, `CHEATSHEET.md`, `.agents/CODEMAP.md`.
+- [ ] Task 3.3: Run `./aapp test strict quiet`.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_issue.sh` -> `issue_relink`; promotion row edit.
+- [ ] `lib/cmd_plan.sh` -> `refine … slug`, `done` link repair, `draft … issue`, ledger commit path (if on `refine`).
+- [ ] `lib/docs/verbs/refine.md` -> Contract: `slug` (and ledger targets, per Q1).
+- [ ] `lib/docs/verbs/done.md` -> Contract: link repair.
+- [ ] `lib/docs/verbs/draft.md` -> Contract: `issue <num>`.
+- [ ] `tests/verbs/refine.sh` -> Rename (and ledger commit) tests.
+- [ ] `tests/verbs/done.sh` -> Link repair test.
+- [ ] `tests/verbs/draft.sh` -> Promotion tests.
+- [ ] `templates/skills/aapp-digest/SKILL.md` -> Promotion via `draft … issue`; ledger commits.
+- [ ] `templates/skills/aapp-plan/SKILL.md` -> Defect logging commit.
+- [ ] `templates/skills/aapp-pause/SKILL.md` -> Logging commit while paused.
+- [ ] `templates/AGENTS.md` -> Promotion steps, CLI Reference rows, logging commit.
+- [ ] `.agents/AGENTS.md` -> Same as the template.
+- [ ] `MANUAL.md` -> Rename, link repair, promotion, ledger commits.
+- [ ] `CHEATSHEET.md` -> New tokens.
+- [ ] `.agents/CODEMAP.md` -> `issue_relink` and the new tokens.
+- [ ] `CHANGELOG.md` -> Entry written by `aapp commit` from the declaration.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `.plans/done/000-issues-archive.md` -> Archive rows are terminal; no link repair there.
+- [ ] `.plans/done/000-archive-ledger.md` -> Terminal ledger.
+- [ ] `.githooks/*` -> Guard engine self-protection.
+- [ ] `.agents/skills/*` -> Refreshed from `templates/skills/` by `aapp init`.
+- [ ] `lib/verbs.tsv` -> No new verbs.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — Which existing verb commits pickup and issue-triage edits?** Options: (a) `aapp refine pickup "<msg>"` and `aapp refine issues "<msg>"`: `refine` already means "commit an edit I made in `.plans`", so a target word fits; (b) `aapp issue log "<msg>"` for issue rows plus a pickup form elsewhere: closer to the issue verb, but splits one chore across two verbs and still needs a home for pickup. Recommendation: (a), one verb for every hand-made `.plans` edit.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-03:** Plan initialized from `pickup.md`.
-* **2026-10-03:** Refined blast radius and locked module boundaries.
+* **2026-10-03:** Drafted from the pickup idea "Plan rename & link repair", P-49 Q1, and the promotion discussion: no new verbs (rename on `refine`, repair inside `done`, promotion on `draft`), only link paths and lifecycle cells of issue rows change.
