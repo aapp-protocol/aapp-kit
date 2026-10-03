@@ -27,8 +27,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-48**: [`P48-shared-docs-concurrency.md`](current/P48-shared-docs-concurrency.md) — Shared Docs Concurrency
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

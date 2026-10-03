@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-03 | `P-48` | [`P48-shared-docs-concurrency.md`](P48-shared-docs-concurrency.md) | #96 | `12cdb93` | Shared Docs Concurrency: Collision Exemption, Plan-Declared Changelog, Union Merge |
 | 2026-10-03 | `P-46` | [`P46-plugin-registry.md`](P46-plugin-registry.md) | #94 | `24c24e5` | Plugin Registry |
 | 2026-10-03 | `P-47` | [`P47-skills-cover-issue-lifecycle.md`](P47-skills-cover-issue-lifecycle.md) | None (follow-up to P-32) | `d2a4e6e` | Skills Drive the CLI & Agent CLI Reference |
 | 2026-10-02 | `P-32` | [`P32-issue-id-allocation-and-duplicate-detection.md`](P32-issue-id-allocation-and-duplicate-detection.md) | #79 | `c0edb4b` | Issue ID Allocation, Lifecycle Engine & Duplicate Detection |

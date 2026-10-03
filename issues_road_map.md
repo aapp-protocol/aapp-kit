@@ -40,5 +40,4 @@
 - [ ] #92 -> `aapp test` runs other projects' tests (auto-detect, `aapp.testCommand`) outside the kit clone; should run kit suites only.
 - [ ] #93 -> Bare `aapp draft` offers only already-planned issues and hides incubated ones (emoji filter mismatch).
 - [ ] #95 -> "Small" fix is undefined in invariant 5; default <10 changed lines, adopter override in `PROJECT.MD`.
-- [ ] #96 -> 🔵 Planned under P-48 (Shared Invariant Semaphore & Concurrency Control). Shared invariant files suffer read-modify-write collisions during concurrent 2+ plan execution.
 
