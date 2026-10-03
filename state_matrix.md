@@ -18,6 +18,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-38**: [`P38-milestone-release-bundling-and-tag-ledgers.md`](current/P38-milestone-release-bundling-and-tag-ledgers.md) — Milestone Release Bundling & Tag Ledgers
 - 🟣 **P-49**: [`P49-refine-subject-precheck.md`](current/P49-refine-subject-precheck.md) — Refine Subject Precheck
 - 🟣 **P-50**: [`P50-plan-links-promotion-and-ledger-commits.md`](current/P50-plan-links-promotion-and-ledger-commits.md) — Plan Links Promotion And Ledger Commits
+- 🟣 **P-51**: [`P51-shared-docs-concurrency-commit-mode.md`](current/P51-shared-docs-concurrency-commit-mode.md) — Shared Docs Concurrency Commit Mode
 
 ---
 
