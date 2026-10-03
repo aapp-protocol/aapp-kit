@@ -17,6 +17,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-23**: [`P23-lifecycle-hook-sequencing-and-pre-gates.md`](current/P23-lifecycle-hook-sequencing-and-pre-gates.md) — Lifecycle Hook Sequencing, Pre-Mutation Quality Gates & Return Code Abort Protocol.
 - 🟣 **P-38**: [`P38-milestone-release-bundling-and-tag-ledgers.md`](current/P38-milestone-release-bundling-and-tag-ledgers.md) — Milestone Release Bundling & Tag Ledgers
 - 🟣 **P-49**: [`P49-refine-subject-precheck.md`](current/P49-refine-subject-precheck.md) — Refine Subject Precheck
+- 🟣 **P-50**: [`P50-plan-links-promotion-and-ledger-commits.md`](current/P50-plan-links-promotion-and-ledger-commits.md) — Plan Links Promotion And Ledger Commits
 
 ---
 
