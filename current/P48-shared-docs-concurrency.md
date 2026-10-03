@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** #96 *(supersedes #96 upon completion)*
 * **Plan ID:** P-48
 * **Changelog:** Added: Shared docs never block concurrent plans; one plan-declared changelog entry per plan (`aapp.changelogMode`); union merge for CHANGELOG.md
-* **Status:** 🔷 Frozen
+* **Status:** ⚡ In Development
 * **Base:** `1755e68` (develop)
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -172,6 +172,7 @@ A CLI cannot know which commit completes a plan, but the plan knows what it deli
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-03:** Plan activated into ⚡ In Development via start.
 * **2026-10-03:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-03:** Plan activated into ⚡ In Development via start.
 * **2026-10-03:** Plan locked and frozen into 🔷 Frozen via freeze.
