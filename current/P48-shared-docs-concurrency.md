@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** #96 *(supersedes #96 upon completion)*
 * **Plan ID:** P-48
 * **Changelog:** Added: Shared docs never block concurrent plans; one plan-declared changelog entry per plan (`aapp.changelogMode`); union merge for CHANGELOG.md
-* **Status:** ⚡ In Development
+* **Status:** 📝 Refining
 * **Base:** `1755e68` (develop)
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
