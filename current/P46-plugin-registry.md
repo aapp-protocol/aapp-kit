@@ -4,7 +4,7 @@
 * **Plan ID:** P-46
 * **Status:** ⚡ In Development
 * **Base:** `1755e68` (develop)
-* **Commits:** none
+* **Commits:** `24c24e5` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -105,7 +105,7 @@ hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sampl
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: In `tests/hooks_test.sh`, add:
+- [x] Task 1.1: In `tests/hooks_test.sh`, add:
   - layout: `Kit Plugins` section, then a blank line, the `==========================` delimiter and a blank line, then `Your Plugins`; the delimiter is present even with no adopter plugins;
   - every registry row appears under Kit Plugins, installed or not (incl. `hello-tool`), and never under Your Plugins;
   - `aapp-review` shows `RESERVED (planned, P-15)`; installed early, it shows its state plus `reserved for P-15`;
@@ -114,13 +114,13 @@ hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sampl
   - registry consistency: every `examples/plugins/*` directory has a row, and every plugin-name literal in `lib/*.sh` has a row — the third argument of `_allocate_id` and the quoted second argument of `resolve_plugin_entrypoint` calls.
 
 ### Phase 2: Registry & Rendering
-- [ ] Task 2.1: Add `lib/plugins.tsv` with the four rows in §2.1.
-- [ ] Task 2.2: Rewrite `cmd_plugins_status()`: one loop over the registry for Kit Plugins (states incl. `RESERVED`), the delimiter, Your Plugins from every other executable plugin, reserved-prefix warning; fail closed when the registry is missing.
+- [x] Task 2.1: Add `lib/plugins.tsv` with the four rows in §2.1.
+- [x] Task 2.2: Rewrite `cmd_plugins_status()`: one loop over the registry for Kit Plugins (states incl. `RESERVED`), the delimiter, Your Plugins from every other executable plugin, reserved-prefix warning; fail closed when the registry is missing.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Update the existing `aapp plugins` header assertion in `tests/hooks_test.sh` (`Standard Extension Points:` → `Kit Plugins`); the other existing assertions pass unchanged; run `./aapp test strict quiet`.
-- [ ] Task 3.2: `.agents/CODEMAP.md` §5 and `ARCHITECTURE.md` name `lib/plugins.tsv` as the source of truth; `MANUAL.md` plugin section and `CHEATSHEET.md` providers line describe the two sections, reserved names and the prefix warning.
-- [ ] Task 3.3: `CHANGELOG.md` under `## [Unreleased]`.
+- [x] Task 3.1: Update the existing `aapp plugins` header assertion in `tests/hooks_test.sh` (`Standard Extension Points:` → `Kit Plugins`); the other existing assertions pass unchanged; run `./aapp test strict quiet`.
+- [x] Task 3.2: `.agents/CODEMAP.md` §5 and `ARCHITECTURE.md` name `lib/plugins.tsv` as the source of truth; `MANUAL.md` plugin section and `CHEATSHEET.md` providers line describe the two sections, reserved names and the prefix warning.
+- [x] Task 3.3: `CHANGELOG.md` under `## [Unreleased]`.
 
 ---
 
