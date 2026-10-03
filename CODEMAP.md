@@ -49,7 +49,7 @@
   * `aapp active swap` / `aapp active clear` -> Toggles between current and previous buffer or clears context.
   * `aapp plan-status [id]` -> Deterministic read-only inspector for plan matrix or specific blueprint.
   * `aapp plan [query]` -> Educational planning switchboard guiding users and agents.
-  * Disjointness Activation Gate -> Enforces non-overlapping target file sets between concurrent `⚡ In Development` plans.
+  * Disjointness Activation Gate -> Shared docs only print a `[Shared Doc]` notice (P-48); otherwise enforces non-overlapping target file sets between concurrent `⚡ In Development` plans.
 * **Anti-Wrapper Warning:** Never manually write to `.git/aapp_active_plan` without going through `cmd_plan.sh`.
 
 ### 🎨 Plan Status Registry (`lib/plan_states.sh`)
@@ -110,6 +110,8 @@
   * `parse_plan_required_tests(file)` -> Declared test items under `### 🧪 Required Tests` inside §3 (isolates path prefix).
   * `plan_has_required_test_files(file)` -> True when §4 carries `### 🧪 Required Test Files`.
   * `validate_plan_tdd_correspondence(file, [prefix])` -> Validates non-empty sections and bidirectional correspondence between §3 and §4.
+  * `aapp_shared_docs_regex()` / `aapp_is_shared_doc(path)` -> The one definition of shared docs (CHANGELOG, README, MANUAL, CHEATSHEET, CODEMAP, ARCHITECTURE, ISSUES): exempt from the `aapp start` gate and Pair 7, and the base of the pre-commit always-allowed list (P-48).
+  * `aapp_plan_changelog_decl(file)` / `aapp_render_changelog_bullet(text, id)` / `aapp_changelog_plan_line(id)` -> The plan's `**Changelog:**` declaration, its rendered bullet, and the plan's bullet under `## [Unreleased]` (P-48). Used by `aapp commit` (writes it), `aapp freeze` (validates it) and the pre-commit hook (`plan` mode check).
   * `parse_plan_commits(file)` -> Parses recorded `sha (branch)` and `sha (detached)` commits from blueprint header.
   * `write_plan_commits(file, commits...)` -> Replaces or inserts `* **Commits:**` line in blueprint header.
   * `write_plan_base(file, sha, branch)` -> Records `* **Base:** <sha> (<branch>)` if currently `none`.
