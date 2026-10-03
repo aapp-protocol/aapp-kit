@@ -84,9 +84,9 @@ Centralizes hook triggers and plugin contracts structured around execution timin
 | `aapp hook-test` | Dry-run test a lifecycle event trigger with mock payload |
 | `aapp hook-run` | Execute a registered hook handler with specified payload |
 | `aapp hook-hash` | Compute SHA256 registration hash for hook script |
-| `aapp plugins` | Discover installed action plugins in `.agents/skills/` |
+| `aapp plugins` | List kit-reserved plugins (`lib/plugins.tsv`, installed or not), then your own from `.agents/skills/` |
 
-Action plugin entrypoints reside at `.agents/skills/{name}/run` (extension-agnostic executable: binary, `.sh`, `.py`). Standard providers: `aapp-planid`, `aapp-issue-tracker` (JSON envelope on stdin, one JSON object on stdout).
+Action plugin entrypoints reside at `.agents/skills/{name}/run` (extension-agnostic executable: binary, `.sh`, `.py`). Kit-reserved names live in the shipped registry `lib/plugins.tsv` (never edit it; avoid the `aapp-` prefix for your own). Standard providers: `aapp-planid`, `aapp-issue-tracker` (JSON envelope on stdin, one JSON object on stdout).
 
 ---
 

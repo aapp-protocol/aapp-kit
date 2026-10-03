@@ -170,74 +170,82 @@ cmd_hooks_status() {
 
 cmd_plugins_status() {
     local skills_dir="$REPO_ROOT/.agents/skills"
+    # Kit-owned registry of reserved plugin names (P-46). Replaced on every
+    # install/upgrade; adopter plugins are discovered, never registered.
+    local registry="$AAPP_BASE/lib/plugins.tsv"
+    if [ ! -r "$registry" ]; then
+        echo "❌ [Plugins] Kit plugin registry missing: $registry" >&2
+        echo "   Reinstall the kit: 'aapp install' (or 'aapp upgrade')." >&2
+        return 1
+    fi
+
     echo "🔌 AAPP Action Plugins & Extension Points (.agents/skills/)"
     echo ""
 
-    # 1. Standard Extension Points (Hardcoded Runtime Authority)
-    echo "  Standard Extension Points:"
-    
-    # aapp-planid
-    if [ -d "$skills_dir/aapp-planid" ] && resolve_plugin_entrypoint "$skills_dir/aapp-planid" "aapp-planid" >/dev/null 2>&1; then
-        local entry="$(resolve_plugin_entrypoint "$skills_dir/aapp-planid" "aapp-planid")"
-        printf "    • %-18s [Team Plan ID Authority] -> %s (ACTIVE)\n" "aapp-planid" "${entry#$REPO_ROOT/}"
-    elif [ -d "$skills_dir/aapp-planid" ]; then
-        local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
-        printf "    • %-18s [Team Plan ID Authority] -> .agents/skills/aapp-planid/ (CONFIGURED BUT NOT EXECUTABLE)\n" "aapp-planid"
-        printf "      %-18s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
-    elif [ -d "$AAPP_BASE/examples/plugins/aapp-planid" ]; then
-        local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
-        printf "    • %-18s [Team Plan ID Authority] -> NOT INSTALLED (SAMPLE AVAILABLE in %s)\n" "aapp-planid" "${AAPP_BASE/#$HOME/\~}/examples/plugins/aapp-planid/"
-        printf "      %-18s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
-    else
-        local counter="$(git config --get aapp.planId 2>/dev/null || echo 1)"
-        printf "    • %-18s [Team Plan ID Authority] -> NOT INSTALLED\n" "aapp-planid"
-        printf "      %-18s (Fallback Active: local git config aapp.planId = %s)\n" "" "$counter"
-    fi
-
-    # aapp-issue-tracker (P-32). An unset issue counter is seeded on first use.
-    local issue_counter
-    issue_counter="$(git config --get aapp.issueId 2>/dev/null)" || issue_counter="unset, seeded from the ledgers on first allocate"
-    if [ -d "$skills_dir/aapp-issue-tracker" ] && resolve_plugin_entrypoint "$skills_dir/aapp-issue-tracker" "aapp-issue-tracker" >/dev/null 2>&1; then
-        local entry="$(resolve_plugin_entrypoint "$skills_dir/aapp-issue-tracker" "aapp-issue-tracker")"
-        printf "    • %-18s [Team Issue Tracker]    -> %s (ACTIVE)\n" "aapp-issue-tracker" "${entry#$REPO_ROOT/}"
-    elif [ -d "$skills_dir/aapp-issue-tracker" ]; then
-        printf "    • %-18s [Team Issue Tracker]    -> .agents/skills/aapp-issue-tracker/ (CONFIGURED BUT NOT EXECUTABLE)\n" "aapp-issue-tracker"
-        printf "      %-18s (Fallback Active: local git config aapp.issueId = %s)\n" "" "$issue_counter"
-    elif [ -d "$AAPP_BASE/examples/plugins/aapp-issue-tracker" ]; then
-        printf "    • %-18s [Team Issue Tracker]    -> NOT INSTALLED (SAMPLE AVAILABLE in %s)\n" "aapp-issue-tracker" "${AAPP_BASE/#$HOME/\~}/examples/plugins/aapp-issue-tracker/"
-        printf "      %-18s (Fallback Active: local git config aapp.issueId = %s)\n" "" "$issue_counter"
-    else
-        printf "    • %-18s [Team Issue Tracker]    -> NOT INSTALLED\n" "aapp-issue-tracker"
-        printf "      %-18s (Fallback Active: local git config aapp.issueId = %s)\n" "" "$issue_counter"
-    fi
-
-    # hello-tool (showcase)
-    if [ -d "$skills_dir/hello-tool" ] && resolve_plugin_entrypoint "$skills_dir/hello-tool" "hello-tool" >/dev/null 2>&1; then
-        local entry="$(resolve_plugin_entrypoint "$skills_dir/hello-tool" "hello-tool")"
-        printf "    • %-18s [Custom CLI Showcase]   -> %s (ACTIVE)\n" "hello-tool" "${entry#$REPO_ROOT/}"
-    elif [ -d "$skills_dir/hello-tool" ]; then
-        printf "    • %-18s [Custom CLI Showcase]   -> .agents/skills/hello-tool/ (CONFIGURED BUT NOT EXECUTABLE)\n" "hello-tool"
-    fi
+    # 1. Kit Plugins: every registry row, installed or not.
+    echo "  Kit Plugins (reserved names, from the kit registry):"
+    local TAB reserved="" name role state events counter sample rest entry status note value
+    TAB="$(printf '\t')"
+    while IFS="$TAB" read -r name role state events counter sample rest || [ -n "$name" ]; do
+        case "$name" in ''|'#'*) continue ;; esac
+        reserved="$reserved $name "
+        note=""
+        if [ -d "$skills_dir/$name" ] && entry="$(resolve_plugin_entrypoint "$skills_dir/$name" "$name" 2>/dev/null)"; then
+            status="${entry#$REPO_ROOT/} (ACTIVE)"
+        elif [ -d "$skills_dir/$name" ]; then
+            status=".agents/skills/$name/ (CONFIGURED BUT NOT EXECUTABLE)"
+        elif [ "${state#planned:}" != "$state" ]; then
+            status="RESERVED (planned, ${state#planned:})"
+        elif [ "$sample" != "-" ] && [ -e "$AAPP_BASE/$sample" ]; then
+            status="NOT INSTALLED (SAMPLE AVAILABLE in ${AAPP_BASE/#$HOME/\~}/$(dirname "$sample")/)"
+        else
+            status="NOT INSTALLED"
+        fi
+        # A planned name installed early may be replaced when its plugin ships.
+        if [ "${state#planned:}" != "$state" ] && [ -d "$skills_dir/$name" ]; then
+            note=" — reserved for ${state#planned:}; may be replaced"
+        fi
+        printf "    • %-18s %-24s -> %s%s\n" "$name" "[$role]" "$status" "$note"
+        case "$status" in
+            *"(ACTIVE)"|RESERVED*) ;;
+            *)
+                if [ "$counter" != "-" ]; then
+                    value="$(git config --get "$counter" 2>/dev/null)" || value="unset"
+                    printf "      %-18s (Fallback Active: local git config %s = %s)\n" "" "$counter" "$value"
+                fi
+                ;;
+        esac
+    done < "$registry"
 
     echo ""
-    echo "  Custom Action Plugins:"
-    local custom_count=0
+    echo "=========================="
+    echo ""
+
+    # 2. Your Plugins: every other installed plugin with an executable entrypoint.
+    echo "  Your Plugins (installed in .agents/skills/, not managed by the kit):"
+    local custom_count=0 sdir sname
     if [ -d "$skills_dir" ]; then
         for sdir in "$skills_dir"/*; do
-            [ ! -d "$sdir" ] && continue
-            local sname="$(basename "$sdir")"
+            [ -d "$sdir" ] || continue
+            sname="$(basename "$sdir")"
+            case "$reserved" in *" $sname "*) continue ;; esac
             case "$sname" in
-                aapp-*|aapp|plan|hello-tool|*.sample|node_modules|vendor) continue ;; # Skip core skills, standard points, and samples
+                aapp|plan|*.sample|node_modules|vendor) continue ;;
             esac
-            local entrypoint="$(resolve_plugin_entrypoint "$sdir" "$sname" || true)"
-            if [ -n "$entrypoint" ]; then
-                custom_count=$((custom_count + 1))
-                printf "    • %-18s -> %s (executable via 'aapp %s')\n" "$sname" "${entrypoint#$REPO_ROOT/}" "$sname"
-            fi
+            # Kit skills (aapp-digest, ...) have no executable entrypoint: not plugins.
+            entry="$(resolve_plugin_entrypoint "$sdir" "$sname" 2>/dev/null)" || continue
+            custom_count=$((custom_count + 1))
+            printf "    • %-18s -> %s (executable via 'aapp %s')\n" "$sname" "${entry#$REPO_ROOT/}" "$sname"
+            case "$sname" in
+                aapp-*)
+                    echo "      ⚠️ $sname uses the reserved aapp- prefix but is not a kit plugin."
+                    echo "         A future kit release may claim this name and replace or shadow it; rename it."
+                    ;;
+            esac
         done
     fi
     if [ "$custom_count" -eq 0 ]; then
-        echo "    ℹ️  No custom action plugins found."
+        echo "    ℹ️  No plugins of your own installed."
     fi
 
     # 3. Available Samples Discovery (Zero Repo Clutter)

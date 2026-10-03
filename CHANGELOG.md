@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Plugin registry (`P-46`): kit-owned `lib/plugins.tsv`; `aapp plugins` shows Kit Plugins (reserved, incl. planned) and Your Plugins split by a delimiter, warns on unregistered `aapp-*` names.
 - Skills drive the CLI (`P-47`): `aapp refine` commits plan edits, `aapp help <verb>` prints contracts, AGENTS.md CLI Reference; skills use `aapp issue`/`aapp draft`; loud `aapp tdd` commit.
 - Issue ID allocation & lifecycle (`P-32`): `aapp issue` (`next`, `allocate`, `close`, `list`), `aapp.issueId` seeded from both ledgers on first use, `aapp-issue-tracker` provider, JSON plugin payload standard (`aapp-planid` too), `aapp done` closes its Target Issue, Pair 8.
 - Conciseness Enforcement & Changelog Governance (`P-28`): Adds single-line changelog bullet enforcement (<= 300 chars) in pre-commit and commit message body gates (<= 1200 chars / <= 20 lines) in commit-msg.

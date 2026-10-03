@@ -1,0 +1,18 @@
+# ==============================================================================
+# AAPP Kit Plugin Registry (lib/plugins.tsv) — P-46
+#
+# Kit-owned: replaced on every `aapp install` / `aapp upgrade`. Never edit it in
+# an adopter project. Your own plugins need no row: put them in
+# .agents/skills/<name>/ and `aapp plugins` lists them under "Your Plugins".
+#
+# Schema: 6 tab-separated columns
+# name<TAB>role<TAB>state<TAB>events<TAB>counter<TAB>sample
+#   state   : shipped | planned:<plan-id> (name reserved before the plugin ships)
+#   events  : Plugin Payload Standard events the kit sends, comma-separated (- = none)
+#   counter : git config key shown as the local fallback when absent (- = none)
+#   sample  : shipped sample path under the kit (- = none)
+# ==============================================================================
+aapp-planid	Team Plan ID Authority	shipped	plan.allocate	aapp.planId	examples/plugins/aapp-planid/run.sample
+aapp-issue-tracker	Team Issue Tracker	shipped	issue.allocate,issue.close	aapp.issueId	examples/plugins/aapp-issue-tracker/run.sample
+aapp-review	Adversarial Review	planned:P-15	-	-	-
+hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sample

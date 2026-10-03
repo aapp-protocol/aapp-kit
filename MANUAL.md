@@ -1228,7 +1228,8 @@ Samples are preserved centrally in `~/.local/share/aapp-kit/examples/` (`$SHARE_
 
 #### 3. Dynamic CLI Discovery
 Run `aapp plugins` and `aapp hooks` to discover available samples:
-- `aapp plugins`: Inspects active plugins, reports standard extension points (`aapp-planid`, `aapp-issue-tracker`, `hello-tool`), and displays available samples with copy commands.
+- `aapp plugins`: two sections split by a `==========================` line. **Kit Plugins** lists every name the kit reserves (from the shipped registry `lib/plugins.tsv`), installed or not, with its state — including names reserved for future plugins (`RESERVED (planned, P-15)`). **Your Plugins** lists every other executable plugin in `.agents/skills/`. Then it shows the available samples with copy commands.
+- The registry is kit-owned and replaced on every `aapp install` / `aapp upgrade`: never edit it. Your own plugins need no registration — put them in `.agents/skills/<name>/`. Avoid the `aapp-` prefix: it is reserved for the kit, and `aapp plugins` warns that a future kit release may claim the name.
 - `aapp hooks`: Displays registered lifecycle hooks, timing taxonomy, and available reference hook samples.
 
 #### 4. Adopting a Sample
@@ -1387,7 +1388,7 @@ AAPP provides dedicated CLI commands for managing and testing hooks:
     • on-freeze -> .agents/skills/migration-guard/scripts/check.sh [gate, 30s] (hash: valid)
     • on-done   -> .agents/skills/archiver/scripts/push.sh [notify, 60s] (hash: valid)
   ```
-* **`aapp plugins`**: Scans `.agents/skills/` and lists all discovered Action Plugins with their resolved entrypoints.
+* **`aapp plugins`**: Lists the kit's reserved plugins (from `lib/plugins.tsv`, installed or not), a delimiter, then your own plugins discovered in `.agents/skills/` with their resolved entrypoints.
 * **`aapp hook-test <event> [plan-id]`**: Dry-runs registered handlers for a lifecycle event with mock payload data, testing timeout watchdog and exit code semantics without modifying repository state.
 * **`aapp hook-hash <file> [event] [timeout] [mode]`**: Helper utility that computes the portable SHA256 of `<file>` and outputs a formatted 5-column TSV line ready to paste into `registry.tsv`.
 

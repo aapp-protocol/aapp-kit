@@ -26,7 +26,9 @@ report() {
     printf "  \033[32m✔\033[0m %-65s %s\n" "$name" "PASS"; PASS=$((PASS+1))
   else
     printf "  \033[31m✘\033[0m %-65s want %s got %s\n" "$name" "$expect" "$got"; FAIL=$((FAIL+1))
-    [ -n "$details" ] && echo "$details" | sed 's/^/       /'
+    # if-block, not `&&`: the sourced dispatcher enables errexit, and a false
+    # test here would abort the suite and hide every later result.
+    if [ -n "$details" ]; then echo "$details" | sed 's/^/       /'; fi
   fi
 }
 
@@ -436,7 +438,7 @@ report "aapp hooks reports INERT SAMPLE badge for registered .sample hook" "PASS
 # ------------------------------------------------------------------------------
 plugins_discovery="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" plugins 2>&1)"
 hooks_discovery="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hooks 2>&1)"
-if echo "$plugins_discovery" | grep -q "Standard Extension Points:" && \
+if echo "$plugins_discovery" | grep -q "Kit Plugins" && \
    echo "$plugins_discovery" | grep -q "aapp-planid" && \
    echo "$hooks_discovery" | grep -qE "Hook Samples|Reference Samples"; then
   got="PASS"
@@ -444,6 +446,91 @@ else
   got="FAIL"
 fi
 report "aapp plugins & aapp hooks display standard extension points and sample discovery" "PASS" "$got"
+
+# ------------------------------------------------------------------------------
+# Test 19: Plugin registry (P-46) — Kit Plugins | delimiter | Your Plugins
+# ------------------------------------------------------------------------------
+DELIM="=========================="
+REGISTRY="$KIT/lib/plugins.tsv"
+registry_names() { awk -F'\t' '!/^#/ && NF { print $1 }' "$REGISTRY"; }
+
+# An adopter plugin squatting on the reserved prefix, next to the kit skills.
+mkdir -p "$PROJ_DIR/.agents/skills/aapp-deploy"
+printf '#!/bin/sh\necho deploy\n' > "$PROJ_DIR/.agents/skills/aapp-deploy/run"
+chmod +x "$PROJ_DIR/.agents/skills/aapp-deploy/run"
+
+reg_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" plugins 2>&1)"
+kit_part="${reg_out%%"$DELIM"*}"
+your_part="${reg_out#*"$DELIM"}"
+
+layout="$(printf '%s\n' "$reg_out" | awk -v d="$DELIM" '
+  /Kit Plugins/ && !k { k = NR }
+  $0 == d { m = NR; before = prev }
+  m && NR == m + 1 { after = $0 }
+  /Your Plugins/ && !y { y = NR }
+  { prev = $0 }
+  END { print (k && m && y && k < m && m < y && before == "" && after == "") ? "ok" : "bad" }')"
+report "aapp plugins: Kit Plugins, blank, delimiter, blank, Your Plugins" "ok" "$layout" "$reg_out"
+
+missing=""
+for name in $(registry_names); do
+  printf '%s\n' "$kit_part" | grep -qF "• $name " || missing="$missing $name(kit)"
+  printf '%s\n' "$your_part" | grep -qF "• $name " && missing="$missing $name(yours)"
+done
+report "every registry row listed under Kit Plugins only, installed or not" "" "$missing" "$reg_out"
+
+got="$(printf '%s\n' "$kit_part" | grep -F "• aapp-review " | grep -c "RESERVED (planned, P-15)")"
+report "planned registry row shows RESERVED (planned, P-15)" "1" "$got" "$kit_part"
+
+got="$(printf '%s\n' "$your_part" | grep -c "aapp-deploy uses the reserved aapp- prefix")"
+report "unregistered aapp-* plugin listed under Your Plugins with prefix warning" "1" "$got" "$your_part"
+
+got="$(printf '%s\n' "$reg_out" | grep -c "uses the reserved aapp- prefix")"
+report "kit skills without an entrypoint trigger no prefix warning" "1" "$got" "$reg_out"
+rm -rf "$PROJ_DIR/.agents/skills/aapp-deploy"
+
+mkdir -p "$PROJ_DIR/.agents/skills/aapp-review"
+printf '#!/bin/sh\nexit 0\n' > "$PROJ_DIR/.agents/skills/aapp-review/run"
+chmod +x "$PROJ_DIR/.agents/skills/aapp-review/run"
+early="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" plugins 2>&1 | grep -F "• aapp-review ")"
+case "$early" in *ACTIVE*"reserved for P-15"*) got="PASS" ;; *) got="FAIL" ;; esac
+report "reserved name installed early shows its state plus 'reserved for P-15'" "PASS" "$got" "$early"
+rm -rf "$PROJ_DIR/.agents/skills/aapp-review"
+
+PROJ_EMPTY="$R/proj-no-plugins"
+make_project "$PROJ_EMPTY"
+( cd "$PROJ_EMPTY" && aapp init >/dev/null 2>&1 )
+empty_out="$(cd "$PROJ_EMPTY" && "$KIT_DIR/aapp" plugins 2>&1)"
+if printf '%s\n' "$empty_out" | grep -qx "$DELIM" && printf '%s\n' "$empty_out" | grep -q "No plugins of your own installed"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "delimiter printed and empty note shown with no adopter plugins" "PASS" "$got" "$empty_out"
+
+KIT_NOREG="$R/kit-no-registry"
+make_kit_clone "$KIT_NOREG"
+rm -f "$KIT_NOREG/lib/plugins.tsv"
+( cd "$KIT_NOREG" && git add -A >/dev/null 2>&1 && git commit -qm "drop registry" >/dev/null 2>&1 )
+noreg_rc=0
+noreg_out="$(cd "$PROJ_EMPTY" && "$KIT_NOREG/aapp" plugins 2>&1)" || noreg_rc=$?
+if [ "$noreg_rc" -ne 0 ] && printf '%s\n' "$noreg_out" | grep -q "plugins.tsv"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "missing plugins.tsv makes aapp plugins fail closed" "PASS" "$got" "rc=$noreg_rc $noreg_out"
+
+unregistered=""
+for d in "$KIT"/examples/plugins/*/; do
+  name="$(basename "$d")"
+  registry_names | grep -qx "$name" || unregistered="$unregistered examples/$name"
+done
+for name in $(grep -hoE '_allocate_id [^ ]+ "[^"]*" [a-z][a-z0-9-]*' "$KIT"/lib/*.sh | awk '{print $NF}') \
+            $(grep -hoE 'resolve_plugin_entrypoint "[^"]*" "[a-z][a-z0-9-]*"' "$KIT"/lib/*.sh | awk -F'"' '{print $4}'); do
+  registry_names | grep -qx "$name" || unregistered="$unregistered lib:$name"
+done
+report "every sample dir and plugin-name literal in lib/ has a registry row" "" "$unregistered"
 
 # Shared envelope (P-32): repository.remote with credentials stripped, reserved
 # extra object, and data without a stray closing brace.
