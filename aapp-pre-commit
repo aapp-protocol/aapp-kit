@@ -191,7 +191,9 @@ if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUS
     fi
 fi
 
-ALWAYS_ALLOWED_REGEX='^(CHANGELOG\.md|README\.md|MANUAL\.md|CHEATSHEET\.md|CODEMAP\.md|ARCHITECTURE\.md|ISSUES\.md|\.gitignore|package\.json|package-lock\.json|composer\.json|composer\.lock|go\.mod|go\.sum|Cargo\.toml|Cargo\.lock|pyproject\.toml|requirements\.txt)$'
+# Shared docs come from aapp-lib.sh (one definition, P-48); dependency manifests
+# are always allowed to commit but are not shared docs.
+ALWAYS_ALLOWED_REGEX="^($(aapp_shared_docs_regex)|\.gitignore|package\.json|package-lock\.json|composer\.json|composer\.lock|go\.mod|go\.sum|Cargo\.toml|Cargo\.lock|pyproject\.toml|requirements\.txt)\$"
 
 CORE_CODE_REGEX='\.(php|js|jsx|ts|tsx|py|go|rs|c|cpp|h|hpp|java|rb|css|scss|sql|html|sh|bash|zsh)$|^schema/.*\.json$|^aapp$'
 
@@ -228,11 +230,57 @@ if [ "$STAGED_CORE_COUNT" -gt 0 ]; then
         fi
     fi
 
+    # P-48: in `plan` mode (default) a commit for an active plan also passes when
+    # the staged CHANGELOG.md already carries that plan's entry. `commit` mode and
+    # commits with no active plan keep the rule above: the file must change.
+    CL_PLAN_ID=""
+    if [ "$CHANGELOG_UPDATED" -eq 0 ]; then
+        CL_MODE="$(git config --get aapp.changelogMode 2>/dev/null)" || CL_MODE="plan"
+        if [ "$CL_MODE" = "plan" ]; then
+            CL_PLANS=""
+            if [ -d "$REPO_ROOT/.plans/current" ]; then
+                CL_PLANS="$REPO_ROOT/.plans"
+            else
+                CL_COMMON="$(git rev-parse --git-common-dir 2>/dev/null)" && \
+                    [ -d "$CL_COMMON/../.plans/current" ] && CL_PLANS="$(cd "$CL_COMMON/.." && pwd)/.plans"
+            fi
+            CL_PLAN_FILE=""
+            if [ -n "$CL_PLANS" ]; then
+                CL_BUF="$(git rev-parse --git-path aapp_active_plan 2>/dev/null)"
+                CL_WANT=""
+                [ -f "$CL_BUF" ] && CL_WANT="$(head -n 1 "$CL_BUF" | tr -d '[:space:]')"
+                CL_DEV=()
+                for pf in "$CL_PLANS"/current/*.md; do
+                    [ -f "$pf" ] || continue
+                    case "$(basename "$pf")" in 000-*) continue ;; esac
+                    pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
+                    if [ -n "$CL_WANT" ]; then
+                        [ "$pid" = "$CL_WANT" ] && CL_DEV=("$pf") && break
+                    elif grep -qE '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*⚡[[:space:]]*In Development' "$pf"; then
+                        CL_DEV+=("$pf")
+                    fi
+                done
+                [ ${#CL_DEV[@]} -eq 1 ] && CL_PLAN_FILE="${CL_DEV[0]}"
+            fi
+            if [ -n "$CL_PLAN_FILE" ]; then
+                CL_PLAN_ID="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$CL_PLAN_FILE" | head -n 1)"
+                if [ -n "$CL_PLAN_ID" ] && git show :CHANGELOG.md 2>/dev/null | aapp_changelog_plan_line "$CL_PLAN_ID" >/dev/null; then
+                    CHANGELOG_UPDATED=1
+                fi
+            fi
+        fi
+    fi
+
     if [ "$CHANGELOG_UPDATED" -eq 0 ]; then
         echo ""
         echo "❌ [Pre-Commit Error] Core code files were modified, but CHANGELOG.md was not updated!"
-        echo "   👉 Please document your changes in CHANGELOG.md (or .plans/CHANGELOG.md) and stage it:"
-        echo "      git add CHANGELOG.md"
+        if [ -n "$CL_PLAN_ID" ]; then
+            echo "   👉 Plan $CL_PLAN_ID has no entry under ## [Unreleased] yet. Commit with 'aapp commit',"
+            echo "      which writes the plan's declared **Changelog:** entry, or declare it with 'aapp refine'."
+        else
+            echo "   👉 Please document your changes in CHANGELOG.md (or .plans/CHANGELOG.md) and stage it:"
+            echo "      git add CHANGELOG.md"
+        fi
         echo ""
         exit 1
     fi
