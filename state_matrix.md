@@ -22,12 +22,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
 - 🔷 **P-25**: [`P25-template-sync-and-document-governance.md`](current/P25-template-sync-and-document-governance.md) — Delimited Template Sync & Tiered Document Governance. Supersedes #73.
+- 🔷 **P-48**: [`P48-shared-docs-concurrency.md`](current/P48-shared-docs-concurrency.md) — Shared Docs Concurrency
 
 ---
 
 ## ⚡ In Development (Active Implementation Context)
-
-- ⚡ **P-48**: [`P48-shared-docs-concurrency.md`](current/P48-shared-docs-concurrency.md) — Shared Docs Concurrency
 
 ---
 
