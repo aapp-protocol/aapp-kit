@@ -169,6 +169,7 @@ A CLI cannot know which commit completes a plan, but the plan knows what it deli
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-10-03 (Rename):** File renamed from `P48-shared-file-semaphore-and-concurrency.md` to `P48-shared-docs-concurrency.md` to match what it ships; the #96 link cell updated (lifecycle-cell exception; done by hand until `aapp rename` exists).
 * **2026-10-03 (Plan-declared changelog):** Replaced the `changelog "<text>"` token with a `**Changelog:**` plan header field: `aapp commit` writes/updates the plan's single entry, the hook passes later commits once the entry is present (`aapp.changelogMode = plan`, default; `commit` keeps today's rule), freeze refuses a missing field. Q1 resolved (a). File name kept: the #96 issue row links to it.
 * **2026-10-03 (Rework):** Lock engine dropped (cannot prevent cross-branch conflicts; adds an acquire/release chore). Replaced by: one shared docs definition exempted in both the `aapp start` gate and Pair 7 (the gate was missing from the draft); optional `aapp commit … changelog "<text>"` written by the helper; union merge for `CHANGELOG.md`. Integration queue moved to the Work Dispatch Queue pickup idea. Previous Q1 (lease timeout) and Q2 (fragment queue) are void with the lock gone.
 * **2026-10-03 (Refinement):** Settled decisions for Q1 (adopted 300s default lease with `aapp.lockLeaseTimeout` override) and Q2 (rejected `aapp done` changelog deferral; re-affirmed strict commit-time changelog requirement synchronized via atomic file semaphore).
