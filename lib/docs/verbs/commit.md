@@ -32,8 +32,12 @@
 - plan commit index lock timeout -> retry up to 5 times; if exhausted, exit non-zero and print `aapp commit adopt <sha>` repair command
 - `strict` mode without identity -> exit 1 during pre-flight before code commit
 - `adopt` with unknown or branchless SHA -> exit 1, active plan header untouched
+- `plan` mode, the plan's rendered changelog bullet exceeds `aapp.changelogMaxLen` -> exit 1 before committing
+- `plan` mode, `CHANGELOG.md` has no `## [Unreleased]` heading, or has unstaged edits -> exit 1 before committing
+- `plan` mode, the plan declares no `**Changelog:**` entry (or there is no `CHANGELOG.md`) -> no failure: a notice, `CHANGELOG.md` left to the author (P-48)
 
 ## Effects (happy path)
+- `plan` mode (`aapp.changelogMode`, default): `CHANGELOG.md` carries the plan's declared entry `- <text> (\`<plan-id>\`)` exactly once under `## [Unreleased]`, staged with the commit — inserted as the first bullet of its section when absent, that one line replaced when worded differently, untouched when current; `commit` mode leaves `CHANGELOG.md` alone (P-48)
 - code commit:
     - staged files are committed in current worktree
     - commit message is decorated with emailless trailers per attribution mode (`lax`, `strict`)
@@ -68,3 +72,6 @@ Run: `aapp test verb commit`
 - `tests/verbs/commit.sh::test_adopt_records_existing_commit` -> adopt records SHA with branch and warning
 - `tests/verbs/commit.sh::test_adopt_refuses_unknown_sha` -> unknown SHA exits 1
 - `tests/verbs/commit.sh::test_adopt_skips_recorded_sha` -> already-recorded SHA not duplicated
+- `tests/verbs/commit.sh::test_first_code_commit_writes_declared_entry` -> first commit writes the plan's entry under its section, in the same commit
+- `tests/verbs/commit.sh::test_later_commit_leaves_changelog_alone` -> a later commit adds no bullet and leaves `CHANGELOG.md` out of the commit
+- `tests/verbs/commit.sh::test_reworded_declaration_replaces_the_line` -> a reworded declaration replaces the one plan line

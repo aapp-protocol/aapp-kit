@@ -1683,6 +1683,23 @@ Command metadata is centralized in `lib/verbs.tsv`, a zero-dependency, tab-separ
 Lifecycle verbs commit their own changes; `aapp refine` covers the rest — content written into an active plan (sections filled in, an amendment, a change-log line). It commits **only** that plan file through the same commit engine, with the configured attribution, as `plan(refine): <id> <what changed>`, and prints `📝 [Refine] <id> committed (<sha>): <what changed>`. It refuses a missing message, an unknown plan, and a plan with no changes; the pre-commit design lock still guards a frozen plan's §2 and §4. **Nobody, agent or human, needs raw `git` in the plans worktree.**
 - **No-Dead-End Invariant**: When invoked without arguments, it scans `.plans/pickup.md` and `.plans/ISSUES.md`, presenting candidate menus capped at 10 items.
 
+### One Changelog Entry per Plan (`aapp.changelogMode`)
+
+A CLI cannot know which commit completes a plan, but the plan knows what it delivers, so the plan declares its release note once, in its header:
+
+```markdown
+* **Changelog:** Added: Shared docs never block concurrent plans
+```
+
+- `aapp draft` pre-fills it as `Changed: <Title>`; reword it and pick `Added:`, `Changed:` or `Fixed:` while refining. `aapp freeze` refuses a missing, malformed or over-long declaration.
+- In `plan` mode (default), `aapp commit` writes `- <text> (\`P-xx\`)` under `## [Unreleased]` on the plan's first commit, and replaces that one line if the declaration is later reworded. Every later commit for the plan passes the pre-commit hook without touching `CHANGELOG.md`, on any branch: a plan with five commits ships one bullet.
+- A code commit with no active plan (a direct fix) must still change `CHANGELOG.md`, and so must every code commit in `commit` mode (`git config aapp.changelogMode commit`).
+- `aapp init` adds `CHANGELOG.md merge=union` to `.gitattributes` once, so entries added on two branches are both kept when they merge.
+
+### Shared Docs Never Block Concurrent Plans
+
+`CHANGELOG.md`, `README.md`, `MANUAL.md`, `CHEATSHEET.md`, `CODEMAP.md`, `ARCHITECTURE.md` and `ISSUES.md` are shared docs: two plans in development may both list them, and `aapp start` and planning health only print a `ℹ️  [Shared Doc]` notice. Sharing any other file (code, or a dependency manifest such as `package.json`) still blocks the second plan.
+
 ### The Pure-Human Terminal Loop
 
 Developers working without AI agents can manage architectural workflows entirely from the terminal:
@@ -1717,6 +1734,7 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | `aapp.bodyMaxLen` | integer | `1200` | Git Hooks | Maximum characters allowed in commit message body (enforced in `aapp-commit-msg`). |
 | `aapp.maxBodyLines` | integer | `20` | Git Hooks | Maximum lines allowed in commit message body (enforced in `aapp-commit-msg`). |
 | `aapp.changelogMaxLen` | integer | `300` | Git Hooks | Numeric conciseness limit for single-line changelog bullet points (enforced in `aapp-pre-commit`). |
+| `aapp.changelogMode` | `plan` / `commit` | `plan` | Git Hooks | `plan`: one entry per plan, declared in its `**Changelog:**` line and written by `aapp commit`; later commits for the plan pass once it is present. `commit`: every code commit changes `CHANGELOG.md`. |
 | `aapp.protectStable` | `true` / `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |
 | `aapp.devBranch` | string | `develop` | Branch Guard | Target development branch for branch protection parity. |
 | `aapp.allowPath` | string (multi) | *(empty)* | Write Guard | External filesystem paths authorized for AI file writes (`blast-radius-guard`). |
@@ -1735,6 +1753,7 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 - **`aapp.bodyMaxLen`**: Commit message body character ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 1200 chars).
 - **`aapp.maxBodyLines`**: Commit message body line count ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 20 lines).
 - **`aapp.changelogMaxLen`**: Changelog bullet length ceiling enforced at commit time by `.githooks/aapp-pre-commit` (default: 300 chars). Single-line bullets starting with `- ` or `* ` are strictly enforced.
+- **`aapp.changelogMode`**: `plan` (default, seeded by `aapp init`) or `commit`. See *One Changelog Entry per Plan*.
 
 ### Branch & Write Guard Protection
 - **`aapp.protectStable` & `aapp.devBranch`**: Guards stability on primary branches (`main`/`master`) when development branches (`develop`) exist. Direct commits on stable branches are blocked unless overridden with `ALLOW_MAIN_COMMIT=1`.

@@ -1228,6 +1228,25 @@ else
 fi
 report "test_init_defaults_to_none: fresh aapp init seeds none and keeps existing value" "PASS" "$got" "seeded=$seeded_mode (want none), preserved=$preserved_mode (want notes)"
 
+# Test 69c (P-48): init adds the CHANGELOG union-merge line once, keeps existing
+# .gitattributes lines, and seeds aapp.changelogMode=plan only when absent.
+PROJ_69C="$R/t69c_proj"; make_dummy_project "$PROJ_69C"
+printf '*.png binary\n' > "$PROJ_69C/.gitattributes"
+git -C "$PROJ_69C" config aapp.changelogMode commit
+(cd "$PROJ_69C" && aapp init >/dev/null 2>&1 && aapp init >/dev/null 2>&1)
+union_lines=$(grep -cx 'CHANGELOG.md merge=union' "$PROJ_69C/.gitattributes")
+kept_line=$(grep -cx '\*.png binary' "$PROJ_69C/.gitattributes")
+kept_mode=$(git -C "$PROJ_69C" config aapp.changelogMode)
+PROJ_69D="$R/t69d_proj"; make_dummy_project "$PROJ_69D"
+(cd "$PROJ_69D" && aapp init >/dev/null 2>&1)
+seeded_cl_mode=$(git -C "$PROJ_69D" config aapp.changelogMode)
+if [ "$union_lines" = "1" ] && [ "$kept_line" = "1" ] && [ "$kept_mode" = "commit" ] && [ "$seeded_cl_mode" = "plan" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_init_changelog_union_and_mode: union line once, lines kept, mode seeded only when absent" "PASS" "$got" "union=$union_lines kept=$kept_line kept_mode=$kept_mode seeded=$seeded_cl_mode"
+
 # Test 70: CLI-First Universal Skills Alignment (TDD Failure & Boundary Assertions)
 # Assert that templates/skills/{aapp-done, aapp-freeze, aapp-start, aapp-status, aapp-digest} follow CLI-first execution
 # and do NOT contain manual sed -i, mv, or raw git commits bypassing CLI lifecycle gates.

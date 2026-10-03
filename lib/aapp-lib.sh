@@ -514,3 +514,60 @@ find_worktree_holding_plan() {
 
     return 1
 }
+
+# ------------------------------------------------------------------------------
+# Shared documentation files (P-48)
+# ------------------------------------------------------------------------------
+# Files every plan may update. They never make two in-flight plans collide, and
+# the pre-commit hook builds its always-allowed list from the same names.
+# Dependency manifests are always allowed to commit but are NOT shared docs:
+# two plans editing them is a real collision.
+
+# aapp_shared_docs_regex -> ERE alternation of shared doc basenames.
+aapp_shared_docs_regex() {
+    printf '%s\n' 'CHANGELOG\.md|README\.md|MANUAL\.md|CHEATSHEET\.md|CODEMAP\.md|ARCHITECTURE\.md|ISSUES\.md'
+}
+
+# aapp_is_shared_doc <path> -> 0 when the path's basename is a shared doc.
+aapp_is_shared_doc() {
+    local base="${1##*/}"
+    printf '%s\n' "$base" | grep -qE "^($(aapp_shared_docs_regex))$"
+}
+
+# ------------------------------------------------------------------------------
+# Plan-declared changelog entry (P-48)
+# ------------------------------------------------------------------------------
+# A plan header line `* **Changelog:** <Added|Changed|Fixed>: <text>` declares
+# the plan's single CHANGELOG.md entry, rendered as `- <text> (`<plan-id>`)`.
+
+# aapp_plan_changelog_decl <plan-file> -> "<Section>|<text>"; fails when the
+# field is missing or malformed.
+aapp_plan_changelog_decl() {
+    local line section text
+    line="$(grep -m 1 -E '^[[:space:]]*\*[[:space:]]*\*\*Changelog:\*\*' "$1" 2>/dev/null)" || return 1
+    line="$(printf '%s' "$line" | sed -E 's/^[[:space:]]*\*[[:space:]]*\*\*Changelog:\*\*[[:space:]]*//; s/[[:space:]]+$//')"
+    case "$line" in
+        Added:*|Changed:*|Fixed:*) ;;
+        *) return 1 ;;
+    esac
+    section="${line%%:*}"
+    text="${line#*:}"
+    text="${text#"${text%%[![:space:]]*}"}"
+    [ -n "$text" ] || return 1
+    printf '%s|%s\n' "$section" "$text"
+}
+
+# aapp_render_changelog_bullet <text> <plan-id> -> the bullet line.
+aapp_render_changelog_bullet() {
+    printf -- '- %s (`%s`)\n' "$1" "$2"
+}
+
+# aapp_changelog_plan_line <plan-id> < changelog -> the bullet under
+# `## [Unreleased]` that carries `(`<plan-id>`)`; fails when there is none.
+aapp_changelog_plan_line() {
+    awk -v tag="(\`$1\`)" '
+        /^## / { in_unrel = ($0 ~ /^## \[Unreleased\]/); next }
+        in_unrel && /^[-*] / && index($0, tag) { print; found = 1; exit }
+        END { exit found ? 0 : 1 }
+    '
+}

@@ -29,6 +29,11 @@ if [ "$rc" -eq 0 ] && [ -f "$f" ] && grep -q "^# 🗺️ Plan P-${id_before}: Fi
 else
   bad "test_named_draft_scaffolds_and_commits" "rc=$rc"; echo "$out" | tail -3 | sed 's/^/       /'
 fi
+if grep -qx '\* \*\*Changelog:\*\* Changed: Fix The Parser' "$f"; then
+  ok "test_draft_prefills_changelog_entry"
+else
+  bad "test_draft_prefills_changelog_entry" "line=[$(grep -m1 'Changelog:' "$f")]"
+fi
 
 echo "== titles with sed metacharacters (D1) =="
 cd "$(fresh slash)" || exit 1

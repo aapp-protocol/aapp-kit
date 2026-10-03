@@ -285,4 +285,51 @@ else
   bad "test_linked_worktree_records_its_own_plan" "linked worktree failed: $(cat "$R/wt2_out")"
 fi
 
+echo "== plan-declared changelog entry (P-48) =="
+init_sandbox_project "$R/cl"
+cd "$R/cl" || exit 1
+R_SAVE="$R"; R="$R/cl/.."   # draft_and_start_plan reads "$R/p"; point plan lookups here
+cl_plan_file() { ls "$R_SAVE/cl/.plans/current/P${1#P-}-"*.md 2>/dev/null; }
+aapp draft entry-feat >/dev/null 2>&1
+cpf="$(ls -t "$R_SAVE/cl/.plans/current/"*.md | head -1)"
+cpid="$(grep -m1 -E '^\* \*\*Plan ID:\*\*' "$cpf" | sed -E 's/^.*\*\*Plan ID:\*\*[[:space:]]*//' | tr -d '[:space:]')"
+sed -i -E "s|src/path/to/file.ext|src/entry.py|g; /src\/path\/to\/new_file\.ext/d" "$cpf"
+sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$cpf"
+sed -i -E 's/^(\* \*\*Changelog:\*\*).*/\1 Added: Entry feature works/' "$cpf"
+git -C .plans commit -qam "prep $cpid" >/dev/null
+aapp freeze-start "$cpid" >/dev/null 2>&1
+R="$R_SAVE"
+mkdir -p src
+bullet="- Entry feature works (\`$cpid\`)"
+
+echo "v1" > src/entry.py; git add src/entry.py
+out="$(aapp commit "feat(entry): first" 2>&1)"; rc=$?
+first_after_added="$(awk '/^### Added/{f=1; next} f && /^- /{print; exit}' CHANGELOG.md)"
+if [ "$rc" -eq 0 ] && git show --name-only --format= HEAD | grep -qx "CHANGELOG.md" && \
+   [ "$first_after_added" = "$bullet" ]; then
+  ok "test_first_code_commit_writes_declared_entry"
+else
+  bad "test_first_code_commit_writes_declared_entry" "rc=$rc first=[$first_after_added] out=$out"
+fi
+
+echo "v2" > src/entry.py; git add src/entry.py
+out="$(aapp commit "fix(entry): second" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && ! git show --name-only --format= HEAD | grep -qx "CHANGELOG.md" && \
+   [ "$(grep -cF "(\`$cpid\`)" CHANGELOG.md)" -eq 1 ]; then
+  ok "test_later_commit_leaves_changelog_alone"
+else
+  bad "test_later_commit_leaves_changelog_alone" "rc=$rc out=$out"
+fi
+
+sed -i -E 's/^(\* \*\*Changelog:\*\*).*/\1 Added: Entry feature reworded/' "$cpf"
+aapp refine "$cpid" "reword changelog entry" >/dev/null 2>&1
+echo "v3" > src/entry.py; git add src/entry.py
+out="$(aapp commit "fix(entry): third" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -qxF -- "- Entry feature reworded (\`$cpid\`)" CHANGELOG.md && \
+   ! grep -qF "Entry feature works" CHANGELOG.md && [ "$(grep -cF "(\`$cpid\`)" CHANGELOG.md)" -eq 1 ]; then
+  ok "test_reworded_declaration_replaces_the_line"
+else
+  bad "test_reworded_declaration_replaces_the_line" "rc=$rc out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"

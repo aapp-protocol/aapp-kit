@@ -635,7 +635,10 @@ check_pair7_inflight_boundary_collision() {
 
             for ta in "${targets_a[@]}"; do
                 for tb in "${targets_b[@]}"; do
-                    if [ "$ta" = "$tb" ]; then
+                    if [ "$ta" = "$tb" ] && aapp_is_shared_doc "$ta"; then
+                        # Shared docs never collide (P-48).
+                        echo "ℹ️  [Shared Doc] Plans '$id_a' and '$id_b' both update '$ta' (shared docs never block; see union merge)."
+                    elif [ "$ta" = "$tb" ]; then
                         echo "❌ [Pair 7 Violation] In-Flight Blueprint Collision!"
                         echo "   -> Plan '$id_a' ($(basename "$plan_a")) targets '$ta'"
                         echo "   -> Plan '$id_b' ($(basename "$plan_b")) also targets '$tb'"

@@ -1210,6 +1210,53 @@ else
   FAIL=$((FAIL+1))
 fi
 
+echo "== 9. plan-declared changelog entry (P-48) =="
+# commit_code <name> <expect>: commits a change to src/a.py WITHOUT touching CHANGELOG.md.
+commit_code() {
+  local name="$1" expect="$2"
+  printf '# touch %s\n' "$(date +%s%N)" >> src/a.py; git add src/a.py
+  local out; out=$(git commit -m "t" 2>&1); local rc=$?
+  local got=BLOCK; [ $rc -eq 0 ] && got=PASS
+  if [ "$got" = "$expect" ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "$name" "$got"; PASS=$((PASS+1))
+  else
+    printf "  \033[31m✘\033[0m %-52s want %s got %s\n" "$name" "$expect" "$got"; FAIL=$((FAIL+1))
+    echo "$out" | grep -E "❌|👉" | head -3 | sed 's/^/       /'
+  fi
+  LAST_OUT="$out"
+  git reset -q >/dev/null 2>&1; git checkout -q . 2>/dev/null
+}
+setup
+plan P7-entry.md <<'EOF'
+* **Plan ID:** P-7
+* **Status:** ⚡ In Development
+* **Changelog:** Added: Entry thing
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> change a
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+printf '# Changelog\n\n## [Unreleased]\n\n### Added\n- Other thing (`P-3`)\n' > CHANGELOG.md
+git add CHANGELOG.md; git commit -qm "changelog without P-7" --no-verify
+# The hook's legacy fallback accepts a commit right after one that touched CHANGELOG.md;
+# keep it out of these cases.
+git commit -q --allow-empty -m "spacer" --no-verify
+commit_code "plan mode: code without the plan's entry blocked" BLOCK
+if echo "$LAST_OUT" | grep -q "aapp commit"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "refusal names 'aapp commit' as the fix" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s %s\n" "refusal names 'aapp commit' as the fix" "FAIL"; FAIL=$((FAIL+1))
+fi
+printf -- '- Entry thing (`P-7`)\n' >> CHANGELOG.md
+git add CHANGELOG.md; git commit -qm "add P-7 entry" --no-verify
+git commit -q --allow-empty -m "spacer" --no-verify
+commit_code "plan mode: entry present, code-only commit passes" PASS
+git config aapp.changelogMode commit
+commit_code "commit mode: entry present still needs a change" BLOCK
+git config --unset aapp.changelogMode
+rm -f .plans/current/P7-entry.md
+commit_code "no active plan: code-only commit blocked" BLOCK
+
 print_test_summary "$PASS" "$FAIL"
 
 

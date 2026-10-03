@@ -103,4 +103,28 @@ else
   bad "test_commit_failure_is_loud" "swallowed failure with rc=$rc out=$out"
 fi
 
+echo "== changelog declaration (P-48) =="
+# freeze_with_changelog <slug> <field-line or ''>: rc of aapp freeze with that header field.
+freeze_with_changelog() {
+  local id f; id="$(draft_plan "$1")"; f="$(plan_file "$id")"
+  if [ -n "$2" ]; then
+    sed -i -E "s|^\* \*\*Changelog:\*\*.*|$2|" "$f"
+  else
+    sed -i -E '/^\* \*\*Changelog:\*\*/d' "$f"
+  fi
+  resolve_questions "$f"
+  aapp freeze "$id" >/dev/null 2>&1; echo "$? $(status_of "$f" | grep -c Frozen)"
+}
+long="$(printf 'x%.0s' $(seq 1 320))"
+r_missing="$(freeze_with_changelog cl-missing '')"
+r_bad="$(freeze_with_changelog cl-bad '* **Changelog:** Shipped a thing')"
+r_long="$(freeze_with_changelog cl-long "* **Changelog:** Added: $long")"
+if [ "$r_missing" = "1 0" ] && [ "$r_bad" = "1 0" ] && [ "$r_long" = "1 0" ]; then
+  ok "test_freeze_refuses_bad_changelog_declaration"
+else
+  bad "test_freeze_refuses_bad_changelog_declaration" "missing=$r_missing bad=$r_bad long=$r_long"
+fi
+r_ok="$(freeze_with_changelog cl-ok '* **Changelog:** Fixed: Parser handles empty input')"
+if [ "$r_ok" = "0 1" ]; then ok "test_freeze_accepts_valid_changelog_declaration"; else bad "test_freeze_accepts_valid_changelog_declaration" "$r_ok"; fi
+
 print_test_summary "$PASS" "$FAIL"

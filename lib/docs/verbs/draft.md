@@ -30,6 +30,7 @@
 - `.plans/state_matrix.md` is re-derived and lists the plan in the incubator
 - one commit in the plans worktree, `plan(draft): scaffold P-<N> <slug>`, holds the plan and the matrix via `plans_commit`
 - stdout names the new file, the Plan ID and the `🟣 Under Review` status
+- the header carries `* **Changelog:** Changed: <Title>`, the plan's changelog declaration pre-filled from the title (P-48)
 
 ## Exit
 - 0 only when every effect above landed
@@ -44,3 +45,4 @@ Run: `aapp test verb draft`
 - `tests/verbs/draft.sh::test_bare_draft_commits` -> a plan scaffolded from a pickup note is committed, nothing untracked (D3)
 - `tests/verbs/draft.sh::test_bare_draft_without_notes_refuses` -> no argument, no notes, non-interactive: exit 1 and no file written
 - `tests/verbs/draft.sh::test_commit_takes_only_its_paths` -> another file staged in `.plans` is not swept into the draft commit (C4)
+- `tests/verbs/draft.sh::test_draft_prefills_changelog_entry` -> the drafted plan declares `Changed: <Title>`

@@ -46,6 +46,7 @@ If the argument is an idea, feature description, or instruction:
 3. **Step 3: Scaffold Canonical Blueprint**:
    - Run `aapp draft <slug>`: it claims the next Plan ID, scaffolds `.plans/current/P<num>-<slug>.md` from the template, registers it in the Incubator and commits it. Never allocate IDs or copy the template by hand.
    - Complete Technical Blueprint (§2), Implementation Tasks (§3), proposed Blast Radius (§4), and Open Questions (§5).
+   - Reword the header's `* **Changelog:**` line into the plan's single release note (`Added:`, `Changed:` or `Fixed:` + one line); `aapp commit` writes it into `CHANGELOG.md`.
    - Commit the authored content with `aapp refine P-<num> "author context and blueprint"`.
 
 4. **Step 4: Report to User**:

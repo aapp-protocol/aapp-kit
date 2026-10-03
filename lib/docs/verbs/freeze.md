@@ -20,6 +20,7 @@
 - an `on-freeze` hook vetoes (non-zero) -> exit 1 and the plan stays unfrozen
     ⚠️ Divergence: the hook runs after the freeze is committed, so a veto exits 1 but leaves the plan frozen and committed.
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
+- the plan's `* **Changelog:**` header line is missing, not `<Added|Changed|Fixed>: <text>`, or renders longer than `aapp.changelogMaxLen` -> exit 1, stderr names the field; nothing changes (P-48)
 
 ## Effects (happy path)
 - the plan's Status line reads `🔷 Frozen`
@@ -43,3 +44,5 @@ Run: `aapp test verb freeze`
 - `tests/verbs/freeze.sh::test_refuses_non_incubator_plan` -> freezing a `🔷 Frozen` plan again: exit 1, plan unchanged (#89)
 - `tests/verbs/freeze.sh::test_commit_failure_is_loud` -> a refusing `.plans` hook: freeze exits non-zero and says why (#81)
 - `tests/verbs/freeze.sh::test_human_freeze_commits_in_lax` -> lax, no identity: the freeze commit lands (#81)
+- `tests/verbs/freeze.sh::test_freeze_refuses_bad_changelog_declaration` -> missing, malformed or over-long `**Changelog:**` field refuses freeze
+- `tests/verbs/freeze.sh::test_freeze_accepts_valid_changelog_declaration` -> a valid declaration freezes

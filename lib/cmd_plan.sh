@@ -132,6 +132,26 @@ resolve_plan_file() {
     return 1
 }
 
+# validate_plan_changelog_decl <plan-file> <label> (P-48): the plan must declare
+# its single CHANGELOG.md entry as `* **Changelog:** <Added|Changed|Fixed>: <text>`,
+# and the rendered bullet must fit aapp.changelogMaxLen.
+validate_plan_changelog_decl() {
+    local plan_file="$1" label="$2" decl plan_id bullet max
+    if ! decl="$(aapp_plan_changelog_decl "$plan_file")"; then
+        echo "❌ [$label] Plan has no valid '* **Changelog:** <Added|Changed|Fixed>: <text>' header line." >&2
+        echo "   Declare the plan's single CHANGELOG.md entry, then commit it with 'aapp refine'." >&2
+        return 1
+    fi
+    plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" | head -n 1)"
+    bullet="$(aapp_render_changelog_bullet "${decl#*|}" "${plan_id:-P-?}")"
+    max="$(git config --int aapp.changelogMaxLen 2>/dev/null)" || max=300
+    if [ "${#bullet}" -gt "$max" ]; then
+        echo "❌ [$label] Changelog entry is ${#bullet} characters; the limit is $max (aapp.changelogMaxLen)." >&2
+        return 1
+    fi
+    return 0
+}
+
 check_disjointness_activation_gate() {
     local target_plan="$1"
     local target_bname
@@ -157,7 +177,10 @@ check_disjointness_activation_gate() {
 
             for mt in "${my_targets[@]}"; do
                 for ot in "${other_targets[@]}"; do
-                    if [ "$mt" = "$ot" ]; then
+                    if [ "$mt" = "$ot" ] && aapp_is_shared_doc "$mt"; then
+                        # Shared docs never block concurrent plans (P-48).
+                        echo "ℹ️  [Shared Doc] $(basename "$target_plan" .md) and $(basename "$pf" .md) both update '$mt' (shared docs never block; see union merge)."
+                    elif [ "$mt" = "$ot" ]; then
                         echo "❌ [Activation Gate] Cannot activate $(basename "$target_plan" .md):" >&2
                         echo "   Shares Target File '$mt' with in-flight plan '$(basename "$pf" .md)'!" >&2
                         echo "   Finish '$(basename "$pf" .md)' first or isolate on a separate git worktree/branch." >&2
@@ -375,6 +398,9 @@ cmd_draft() {
             line = replace_all(line, "P-XX", "P-" ENVIRON["AAPP_DRAFT_NUM"])
             line = replace_all(line, "Plan P-" ENVIRON["AAPP_DRAFT_NUM"] ": [Feature or Refactor Name]", \
                                "Plan P-" ENVIRON["AAPP_DRAFT_NUM"] ": " ENVIRON["AAPP_DRAFT_TITLE"])
+            # P-48: the changelog declaration starts as the title.
+            line = replace_all(line, "**Changelog:** Changed: [Feature or Refactor Name]", \
+                               "**Changelog:** Changed: " ENVIRON["AAPP_DRAFT_TITLE"])
             print line
         }
     ' "$template_file" > "$tmp_file"; then
@@ -458,6 +484,7 @@ cmd_freeze_start() {
 
     # Verify TDD failure tests correspondence if declared (P-35)
     validate_plan_tdd_correspondence "$plan_file" "Freeze-Start Refusal" || exit 1
+    validate_plan_changelog_decl "$plan_file" "Freeze-Start Refusal" || exit 1
 
     local plan_id
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
@@ -641,6 +668,7 @@ cmd_freeze() {
 
     # Verify TDD failure tests correspondence if declared (P-35)
     validate_plan_tdd_correspondence "$plan_file" "Freeze Refusal" || exit 1
+    validate_plan_changelog_decl "$plan_file" "Freeze Refusal" || exit 1
 
     local plan_id
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"

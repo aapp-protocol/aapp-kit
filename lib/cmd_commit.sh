@@ -11,6 +11,66 @@ _LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 [ -f "$_LIB_DIR/commit_engine.sh" ] && . "$_LIB_DIR/commit_engine.sh"
 
+# changelog_sync_plan_entry <plan-file> <plan-id> (P-48)
+# In `plan` mode (aapp.changelogMode, default) makes CHANGELOG.md carry the plan's
+# declared entry exactly once under ## [Unreleased], and stages it with the commit:
+# absent -> inserted as the first bullet of its section; worded differently ->
+# that one line replaced; current -> untouched. `commit` mode does nothing.
+changelog_sync_plan_entry() {
+    local plan_file="$1" plan_id="$2" mode decl section text bullet current cl max tmp
+    mode="$(git config --get aapp.changelogMode 2>/dev/null)" || mode="plan"
+    [ "$mode" = "plan" ] || return 0
+
+    cl="$(git rev-parse --show-toplevel)/CHANGELOG.md"
+    if ! decl="$(aapp_plan_changelog_decl "$plan_file")"; then
+        echo "ℹ️  [Commit] $plan_id declares no '**Changelog:**' entry; CHANGELOG.md is left to you (declare it with 'aapp refine')."
+        return 0
+    fi
+    if [ ! -f "$cl" ]; then
+        echo "ℹ️  [Commit] No CHANGELOG.md at the repository root; $plan_id's entry was not written."
+        return 0
+    fi
+    section="${decl%%|*}"; text="${decl#*|}"
+    bullet="$(aapp_render_changelog_bullet "$text" "$plan_id")"
+    max="$(git config --int aapp.changelogMaxLen 2>/dev/null)" || max=300
+    if [ "${#bullet}" -gt "$max" ]; then
+        echo "❌ [Commit Refusal] $plan_id's changelog entry is ${#bullet} characters; the limit is $max." >&2
+        return 1
+    fi
+    if ! grep -q '^## \[Unreleased\]' "$cl"; then
+        echo "❌ [Commit Refusal] CHANGELOG.md has no '## [Unreleased]' heading for $plan_id's entry." >&2
+        return 1
+    fi
+    if ! git diff --quiet -- "$cl"; then
+        echo "❌ [Commit Refusal] CHANGELOG.md has unstaged edits; stage or discard them first." >&2
+        return 1
+    fi
+
+    current="$(aapp_changelog_plan_line "$plan_id" < "$cl")" || current=""
+    [ "$current" = "$bullet" ] && return 0
+
+    tmp="$cl.aapp-commit.$$"
+    AAPP_CL_BULLET="$bullet" AAPP_CL_CURRENT="$current" AAPP_CL_SECTION="### $section" awk '
+        BEGIN { bullet = ENVIRON["AAPP_CL_BULLET"]; current = ENVIRON["AAPP_CL_CURRENT"]; heading = ENVIRON["AAPP_CL_SECTION"] }
+        /^## / {
+            if (in_unrel && !done && current == "") { print heading; print bullet; print ""; done = 1 }
+            in_unrel = ($0 ~ /^## \[Unreleased\]/)
+            print; next
+        }
+        in_unrel && !done && current != "" && $0 == current { print bullet; done = 1; next }
+        in_unrel && !done && current == "" && $0 == heading { print; print bullet; done = 1; next }
+        { print }
+        END { if (in_unrel && !done && current == "") { print heading; print bullet } }
+    ' "$cl" > "$tmp" || { rm -f "$tmp"; echo "❌ [Commit Refusal] Could not update CHANGELOG.md." >&2; return 1; }
+    mv "$tmp" "$cl"
+    git add -- "$cl" || return 1
+    if [ -n "$current" ]; then
+        echo "📜 [Commit] Updated $plan_id's CHANGELOG.md entry to the plan's declaration."
+    else
+        echo "📜 [Commit] Wrote $plan_id's declared entry to CHANGELOG.md."
+    fi
+}
+
 cmd_commit() {
     local is_amend=0
     local is_adopt=0
@@ -279,6 +339,9 @@ cmd_commit() {
             return 1
         fi
     fi
+
+    # P-48: the plan's declared CHANGELOG.md entry rides along with the commit.
+    changelog_sync_plan_entry "$plan_file" "$plan_id" || return 1
 
     # Decorate commit message per attribution mode using temp file
     local tmp_msg

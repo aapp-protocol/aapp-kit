@@ -501,6 +501,22 @@ if [ -z "$(git config --get aapp.syncStrategy 2>/dev/null || true)" ]; then
     fi
 fi
 
+# Changelog policy (P-48): one plan-declared entry per plan unless the project
+# opted into a bullet per commit. An existing value is never overwritten.
+if ! git config --get aapp.changelogMode >/dev/null 2>&1; then
+    git config aapp.changelogMode plan
+fi
+
+# Union merge for CHANGELOG.md (P-48): bullets added on two branches are both
+# kept at merge time. Appended once; other .gitattributes lines are untouched.
+if [ ! -f .gitattributes ] || ! grep -qxF 'CHANGELOG.md merge=union' .gitattributes; then
+    if [ -s .gitattributes ] && [ -n "$(tail -c 1 .gitattributes)" ]; then
+        printf '\n' >> .gitattributes
+    fi
+    printf 'CHANGELOG.md merge=union\n' >> .gitattributes
+    echo "ℹ️  Added 'CHANGELOG.md merge=union' to .gitattributes (keeps both sides of changelog merges)."
+fi
+
 # Plan ID counter (next id to hand out). A numeric value is LEFT ALONE, so
 # repeat `aapp init` -- including the init that follows `aapp upgrade` -- never
 # disturbs a live counter. Seeding happens only when the key is absent or

@@ -408,6 +408,7 @@ echo "== atomic workflow accelerator (aapp freeze-start) =="
 setup
 plan draft.md <<'EOF'
 * **Plan ID:** P-30
+* **Changelog:** Added: Fast feature
 * **Status:** 🟡 Refining
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/fast_feature.py` -> feature target

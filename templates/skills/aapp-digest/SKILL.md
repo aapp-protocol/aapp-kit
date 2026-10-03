@@ -47,6 +47,7 @@ Scan `.plans/current/*.md` before drafting:
    - Detail *Implementation Steps & Execution Checklist*.
    - Propose a Blast Radius (`### 📂 Target Files` and `### 🛑 Out of Bounds`). Mark it **PROPOSED** — it is not locked and confers no code execution rights. Never place files matching Guard Section 2 self-protection in Target Files (enforced by Pair 5).
    - Record every unresolved technical decision in `## ❓ 5. Open Questions`.
+   - Reword the header's `* **Changelog:**` line (pre-filled from the title) into the plan's single release note and pick its section: `Added:`, `Changed:` or `Fixed:`. `aapp commit` writes it into `CHANGELOG.md`; never edit `CHANGELOG.md` by hand for a plan.
 4. Commit the authored content (never raw git on the plans worktree):
    ```bash
    aapp refine P-<num> "author context and blueprint"

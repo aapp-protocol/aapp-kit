@@ -2,6 +2,10 @@
 * **Created:** [YYYY-MM-DD] | **Last Refined:** [YYYY-MM-DD]
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-XX
+* **Changelog:** Changed: [Feature or Refactor Name]
+<!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
+     from the title; reword it and pick the section while refining. `aapp commit` writes it into
+     CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Commits:** none

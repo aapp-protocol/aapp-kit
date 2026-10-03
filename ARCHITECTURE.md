@@ -130,6 +130,14 @@ Plan state is now **derived**: the `**Status:**` line inside each `.plans/curren
 * **One engine, many callers.** `lib/cmd_matrix.sh` implements a single check-and-sync, invoked by `aapp matrix`, by `aapp status` before it reads the matrix, and by `draft` / `freeze` / `freeze-start` / `start` before they stage a lifecycle commit. Sourcing it with `AAPP_MATRIX_LIB_ONLY=1` loads the functions without executing the command.
 * **Pause-aware.** The pause allowlist admits only `.plans/` pickup, issues and `current/` paths, so a matrix written while paused cannot be committed. The sync writes anyway and says the commit waits for `aapp resume`: the uncommitted diff is the record of how the board moved during the pause.
 
+## Concurrent Plans & the Changelog (P-48)
+
+Plans run in parallel on separate worktrees and branches; three rules keep the shared documentation from becoming a bottleneck:
+
+* **Shared docs never collide.** One definition in `lib/aapp-lib.sh` names the shared docs; the `aapp start` gate and Pair 7 treat them as a notice, while any shared code file still blocks.
+* **One changelog entry per plan.** A CLI cannot know which commit completes a plan, so the plan declares its entry (`* **Changelog:**`). `aapp commit` writes it on the plan's first commit and the pre-commit hook passes later commits once it is present (`aapp.changelogMode = plan`). Direct fixes and `commit` mode keep the per-commit rule, so nothing ships undocumented.
+* **Union merge.** `CHANGELOG.md merge=union` keeps the entries both branches added. Integration ordering across many agents is left to a future dispatch queue.
+
 ## Plan Identity: Stored, Not Derived
 
 Plan IDs were historically **derived** on demand by scanning blueprint filenames, plan headers, and the archive ledger, taking the maximum and adding one. That made allocation depend on parse correctness, and a single malformed regex (`#69`) was enough to break it entirely.

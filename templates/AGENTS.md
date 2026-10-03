@@ -15,7 +15,9 @@ See `.agents/CODEMAP.md` (or `CODEMAP.md` at the repo root) before assuming wher
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOM RULES OUTSIDE. -->
 
 ## 🚦 Code Verification & Changelog Rule
-- **Every commit that touches code updates `CHANGELOG.md` (or `.plans/CHANGELOG.md` if configured). No exceptions — a one-character typo fix still gets a line.** The pre-commit hook enforces this, and it is not up for negotiation or optimization. Length is handled at release time, not by skipping entries.
+- **Every code change is covered by `CHANGELOG.md`. No exceptions — a one-character typo fix still counts.** The pre-commit hook enforces this, and it is not up for negotiation or optimization.
+  - **Work for a plan (`aapp.changelogMode = plan`, default):** the plan declares its single entry in its `* **Changelog:**` header line; `aapp commit` writes it under `## [Unreleased]` on the plan's first commit, and later commits for that plan pass once it is there. Never hand-edit the plan's bullet: reword the plan's line and commit it with `aapp refine`.
+  - **No active plan (a direct fix), or `aapp.changelogMode = commit`:** the commit itself must change `CHANGELOG.md`.
 - **For Code Changes:** You MUST run syntax checks, build steps, and automated tests BEFORE updating `CHANGELOG.md`.
 - **For Rules & Internal Config (`.agents/*`):** Do NOT update `CHANGELOG.md`.
 - **Changelog Single-Line Bullet Invariant**: When updating `CHANGELOG.md`, follow Keep a Changelog format: place entries under `## [Unreleased]` or version headers, categorize by `### Added`, `### Changed`, `### Fixed`, etc. Every entry MUST be a concise, single-line bullet starting with `- ` (strictly <= 300 characters, configurable via `git config aapp.changelogMaxLen`). Unbulleted continuation lines and multi-line indented paragraphs are strictly prohibited.
@@ -318,7 +320,7 @@ Every chore has a verb; use it instead of editing ledgers or running git on `.pl
 | `aapp start <id>` | Activate a frozen plan for implementation |
 | `aapp freeze-start <id>` | Freeze and start in one step |
 | `aapp done <id>` | Archive an implemented plan; closes its Target Issue |
-| `aapp commit "<msg>" …` | Plan-bound code commit with attribution; records the SHA in the plan |
+| `aapp commit "<msg>" …` | Plan-bound code commit with attribution; records the SHA in the plan and writes its declared changelog entry |
 | `aapp active [id \| swap \| clear]` | Show or set the active plan buffer |
 | `aapp note …` | Stage, inspect, push or pull git notes |
 | `aapp issue [next \| allocate \| close <num> \| list]` | Claim, close and list issue IDs |

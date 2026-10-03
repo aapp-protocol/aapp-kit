@@ -386,5 +386,35 @@ fi
 
 rm -f .plans/ISSUES.md .plans/done/000-issues-archive.md
 
+echo "== 11. Pair 7 shared docs exemption (P-48) =="
+p7_plan() {  # p7_plan <num> <code-file>
+  cat > ".plans/current/P$1-p7.md" << EOF
+# 🗺️ Plan P-$1: Pair 7 fixture
+* **Plan ID:** P-$1
+* **Status:** ⚡ In Development
+
+## 💥 4. Blast Radius & System Boundaries
+### 📂 Target Files (Modifications & Additions)
+- [ ] \`$2\` -> Code.
+- [ ] \`CHANGELOG.md\` -> Record.
+- [ ] \`.agents/CODEMAP.md\` -> Map.
+EOF
+}
+p7_plan 90 "lib/a.sh"; p7_plan 91 "lib/b.sh"
+P7_OUT="$(check_pair7_inflight_boundary_collision "$PWD" 2>&1)" && P7_RC=0 || P7_RC=$?
+check "pair 7 passes when plans share only shared docs" "0" "$P7_RC"
+check "pair 7 prints a shared-doc notice" "1" "$(printf '%s\n' "$P7_OUT" | grep -c 'Shared Doc.*CHANGELOG.md')"
+check "aapp_is_shared_doc matches a nested shared doc" "0" "$(aapp_is_shared_doc .agents/CODEMAP.md && echo 0 || echo 1)"
+check "aapp_is_shared_doc rejects code and manifests" "1 1" "$(aapp_is_shared_doc lib/a.sh && echo 0 || echo 1) $(aapp_is_shared_doc package.json && echo 0 || echo 1)"
+
+p7_plan 92 "lib/a.sh"
+P7_RC=0; check_pair7_inflight_boundary_collision "$PWD" >/dev/null 2>&1 || P7_RC=$?
+if [ "$P7_RC" -ne 0 ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 7 still blocks a shared code file" "BLOCK"; PASS=$((PASS+1))
+else
+    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "pair 7 still blocks a shared code file"; FAIL=$((FAIL+1))
+fi
+rm -f .plans/current/P90-p7.md .plans/current/P91-p7.md .plans/current/P92-p7.md
+
 print_test_summary "$PASS" "$FAIL"
 

@@ -110,4 +110,31 @@ else
   bad "test_refuses_plan_bound_in_other_worktree" "rc=$rc out=$out"
 fi
 
+echo "== shared docs never block (P-48) =="
+init_sandbox_project "$R/shared"
+cd "$R/shared" || exit 1
+# targets_only <id> <code-file>: the plan targets one code file plus the shared docs.
+targets_only() {
+  local f; f="$(plan_file "$1")"
+  sed -i -E "s|src/path/to/file\.ext|$2|; /src\/path\/to\/new_file\.ext/d" "$f"
+  sed -i -E "s|^(- \[ \] \`$2\`.*)$|\1\n- [ ] \`CHANGELOG.md\` -> Record.\n- [ ] \`.agents/CODEMAP.md\` -> Map.|" "$f"
+}
+sa="$(draft_plan shared-a)"; targets_only "$sa" "src/a.py"; freeze_plan "$sa"; aapp start "$sa" >/dev/null 2>&1
+sb="$(draft_plan shared-b)"; targets_only "$sb" "src/b.py"; freeze_plan "$sb"
+out="$(aapp start "$sb" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && status_of "$(plan_file "$sb")" | grep -q '⚡ In Development' && \
+   echo "$out" | grep -q "Shared Doc" && echo "$out" | grep -qF "CHANGELOG.md"; then
+  ok "test_shared_docs_do_not_block_start"
+else
+  bad "test_shared_docs_do_not_block_start" "rc=$rc out=$out"
+fi
+
+sc="$(draft_plan shared-c)"; targets_only "$sc" "src/a.py"; freeze_plan "$sc"
+out="$(aapp start "$sc" 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && echo "$out" | grep -q "Activation Gate" && echo "$out" | grep -qF "src/a.py"; then
+  ok "test_shared_code_file_still_blocks_start"
+else
+  bad "test_shared_code_file_still_blocks_start" "rc=$rc out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"
