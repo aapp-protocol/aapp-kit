@@ -51,20 +51,41 @@ hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sampl
 - `events`: comma-separated Plugin Payload Standard events the kit sends (`-` = CLI-invoked or not yet defined).
 - `counter`: git config key shown as the local fallback when the plugin is absent (`-` = none).
 - Shipped by `aapp install` already (it copies all of `lib/`); read from `$AAPP_BASE/lib/plugins.tsv`, the same base `cmd_hook.sh` uses for `examples/`.
+- **Kit-owned, never edited by adopters:** `aapp install` / `aapp upgrade` replace `lib/` wholesale, so an adopter's row would be lost silently. Adopter plugins need no registration: they live in `.agents/skills/<name>/` in the adopter's repo and are discovered by scanning for an executable entrypoint.
 
 ### 2.2 `cmd_plugins_status()` (`lib/cmd_hook.sh`)
 
 - Two sections, so plugin developers see every kit-owned name whether installed or not:
-  - **Standard Extension Points:** every registry row, always listed (including `hello-tool`, which today appears only when installed), one loop replacing the per-plugin blocks. States: ACTIVE / CONFIGURED BUT NOT EXECUTABLE / SAMPLE AVAILABLE / NOT INSTALLED (with the fallback-counter line when `counter` is set), and `RESERVED (planned, <plan-id>)` for `planned:` rows. A `planned:` name that is installed early shows its installed state plus `reserved for <plan-id>; may be replaced`.
-  - **Custom Action Plugins:** every other installed plugin with an executable entrypoint, with the command that runs it.
-- Reserved prefix: an installed, executable `aapp-*` plugin that has no registry row is listed under Custom with a warning instead of being silently skipped:
+  - **Kit Plugins** (replaces "Standard Extension Points"): every registry row, always listed (including `hello-tool`, which today appears only when installed), one loop replacing the per-plugin blocks. States: ACTIVE / CONFIGURED BUT NOT EXECUTABLE / SAMPLE AVAILABLE / NOT INSTALLED (with the fallback-counter line when `counter` is set), and `RESERVED (planned, <plan-id>)` for `planned:` rows. A `planned:` name that is installed early shows its installed state plus `reserved for <plan-id>; may be replaced`.
+  - **Your Plugins** (replaces "Custom Action Plugins"): every other installed plugin with an executable entrypoint, with the command that runs it.
+- Reserved prefix: an installed, executable `aapp-*` plugin that has no registry row is listed under Your Plugins with a warning instead of being silently skipped:
   ```
   ⚠️ aapp-deploy uses the reserved aapp- prefix but is not a kit plugin.
      A future kit release may claim this name and replace or shadow it; rename it.
   ```
   A warning, not a refusal: the plugin keeps working. Kit skills under `.agents/skills/aapp-*` have no executable entrypoint and are not plugins, so they never trigger it.
+- Layout: the two kinds are separated by a delimiter line with a blank line before and after, and each section header says where its names come from:
+  ```
+  🔌 AAPP Action Plugins & Extension Points (.agents/skills/)
+
+    Kit Plugins (reserved names, from the kit registry):
+      • aapp-planid         [Team Plan ID Authority] -> NOT INSTALLED (SAMPLE AVAILABLE in …)
+                            (Fallback Active: local git config aapp.planId = 47)
+      • aapp-issue-tracker  [Team Issue Tracker]     -> ACTIVE (.agents/skills/aapp-issue-tracker/run)
+      • aapp-review         [Adversarial Review]     -> RESERVED (planned, P-15)
+      • hello-tool          [Custom CLI Showcase]    -> NOT INSTALLED (SAMPLE AVAILABLE in …)
+
+  ==========================
+
+    Your Plugins (installed in .agents/skills/, not managed by the kit):
+      • deploy-check        -> .agents/skills/deploy-check/run (executable via 'aapp deploy-check')
+      • aapp-deploy         -> .agents/skills/aapp-deploy/run (executable via 'aapp aapp-deploy')
+        ⚠️ aapp-deploy uses the reserved aapp- prefix but is not a kit plugin.
+           A future kit release may claim this name and replace or shadow it; rename it.
+  ```
+  With no adopter plugins the second section reads `ℹ️  No plugins of your own installed.`; the delimiter is always printed.
 - Missing or unreadable `plugins.tsv` → exit 1 with a clear diagnostic (fail closed).
-- Per-row output keeps today's format and wording; the visible changes are `hello-tool` always listed, the `RESERVED` rows and the prefix warning.
+- Per-row output keeps today's format and wording; the visible changes are the section titles and delimiter, `hello-tool` always listed, the `RESERVED` rows and the prefix warning.
 
 ### 2.3 Not the hooks registry
 
@@ -85,18 +106,19 @@ hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sampl
 
 ### Phase 1: Tests First (red)
 - [ ] Task 1.1: In `tests/hooks_test.sh`, add:
-  - every registry row appears under Standard Extension Points, installed or not (incl. `hello-tool`);
+  - layout: `Kit Plugins` section, then a blank line, the `==========================` delimiter and a blank line, then `Your Plugins`; the delimiter is present even with no adopter plugins;
+  - every registry row appears under Kit Plugins, installed or not (incl. `hello-tool`), and never under Your Plugins;
   - `aapp-review` shows `RESERVED (planned, P-15)`; installed early, it shows its state plus `reserved for P-15`;
-  - an installed executable `aapp-deploy` (no row) is listed under Custom with the reserved-prefix warning; a kit skill dir without an entrypoint is not;
+  - an installed executable `aapp-deploy` (no row) is listed under Your Plugins with the reserved-prefix warning; a kit skill dir without an entrypoint is not;
   - a missing `plugins.tsv` makes `aapp plugins` exit 1;
   - registry consistency: every `examples/plugins/*` directory has a row, and every plugin-name literal in `lib/*.sh` has a row — the third argument of `_allocate_id` and the quoted second argument of `resolve_plugin_entrypoint` calls.
 
 ### Phase 2: Registry & Rendering
 - [ ] Task 2.1: Add `lib/plugins.tsv` with the four rows in §2.1.
-- [ ] Task 2.2: Rewrite `cmd_plugins_status()`: one loop over the registry for Standard Extension Points (states incl. `RESERVED`), Custom section from every other executable plugin, reserved-prefix warning; fail closed when the registry is missing.
+- [ ] Task 2.2: Rewrite `cmd_plugins_status()`: one loop over the registry for Kit Plugins (states incl. `RESERVED`), the delimiter, Your Plugins from every other executable plugin, reserved-prefix warning; fail closed when the registry is missing.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Existing `aapp plugins` assertions in `tests/hooks_test.sh` still pass; run `./aapp test strict quiet`.
+- [ ] Task 3.1: Update the existing `aapp plugins` header assertion in `tests/hooks_test.sh` (`Standard Extension Points:` → `Kit Plugins`); the other existing assertions pass unchanged; run `./aapp test strict quiet`.
 - [ ] Task 3.2: `.agents/CODEMAP.md` §5 and `ARCHITECTURE.md` name `lib/plugins.tsv` as the source of truth; `MANUAL.md` plugin section and `CHEATSHEET.md` providers line describe the two sections, reserved names and the prefix warning.
 - [ ] Task 3.3: `CHANGELOG.md` under `## [Unreleased]`.
 
@@ -134,6 +156,7 @@ hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sampl
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-03:** Output layout: `Kit Plugins` and `Your Plugins` sections separated by a `==========================` delimiter with blank lines; `plugins.tsv` declared kit-owned (replaced on install/upgrade, never edited by adopters); adopter plugins discovered, never registered.
 * **2026-10-03:** Pre-freeze review: checklist rebuilt tests-first for all four rows and the new behaviours; `hello-tool` always listed (replaces "output identical"); concrete literal-name test; early-installed reserved names; `cmd_issue.sh` out of scope; MANUAL/CHEATSHEET in scope; registry read via `$AAPP_BASE`.
 * **2026-10-03:** Refreshed after P-32: `aapp-issue-tracker` row, `events` column (Plugin Payload Standard), `state` column with `planned:` reservations (Q1), two-section `aapp plugins` output, reserved-prefix warning for unregistered `aapp-*` plugins.
 * **2026-09-29:** §2.3 added: separation from the hooks registry.
