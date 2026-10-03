@@ -155,6 +155,9 @@ A CLI cannot know which commit completes a plan, but the plan knows what it deli
 - [ ] `ARCHITECTURE.md` -> Shared docs concurrency model.
 - [ ] `CHANGELOG.md` -> Record under unreleased.
 
+### 🚨 Emergency Hotfix Extensions
+- [ ] `tests/write-guard_test.sh` -> Its hand-written freeze-start fixture plan needs a `**Changelog:**` line, now required at freeze.
+
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `.githooks/*` -> Guard engine self-protection; refreshed from `templates/` by `aapp init`.
 - [ ] `.agents/skills/*` -> Governance skills self-protection; refreshed from `templates/skills/` by `aapp init`.
