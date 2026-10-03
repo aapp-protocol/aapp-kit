@@ -2,6 +2,7 @@
 * **Created:** 2026-10-03 | **Last Refined:** 2026-10-03
 * **Target Issue / Milestone:** #96 *(supersedes #96 upon completion)*
 * **Plan ID:** P-48
+* **Changelog:** Added: Shared docs never block concurrent plans; one plan-declared changelog entry per plan (`aapp.changelogMode`); union merge for CHANGELOG.md
 * **Status:** 🟣 Under Review
 * **Base:** `1755e68` (develop)
 * **Commits:** none
@@ -72,7 +73,7 @@ A CLI cannot know which commit completes a plan, but the plan knows what it deli
 **Repository setting `aapp.changelogMode`** (seeded by `aapp init` when absent, never overwritten):
 | Mode | Code commit for an active plan passes the hook when … |
 | :--- | :--- |
-| `plan` (default) | the committed `CHANGELOG.md` contains a bullet ending in `(\`<plan-id>\`)` under `## [Unreleased]` |
+| `plan` (default) | the committed `CHANGELOG.md` contains a bullet with `(\`<plan-id>\`)` under `## [Unreleased]` |
 | `commit` (opt-in) | `CHANGELOG.md` changes in that commit (today's rule) |
 
 **`aapp commit` (`lib/cmd_commit.sh`)**, in `plan` mode:
@@ -169,6 +170,7 @@ A CLI cannot know which commit completes a plan, but the plan knows what it deli
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-10-03 (Pre-freeze):** Plan bullet matched by "contains `(\`<plan-id>\`)`" (existing bullets carry the reference mid-line); P-48 declares its own `**Changelog:**` entry; shared helpers (parse declaration, find bullet, render bullet) live in `lib/aapp-lib.sh`, loaded by both the hook and the CLI.
 * **2026-10-03 (Rename):** File renamed from `P48-shared-file-semaphore-and-concurrency.md` to `P48-shared-docs-concurrency.md` to match what it ships; the #96 link cell updated (lifecycle-cell exception; done by hand until `aapp rename` exists).
 * **2026-10-03 (Plan-declared changelog):** Replaced the `changelog "<text>"` token with a `**Changelog:**` plan header field: `aapp commit` writes/updates the plan's single entry, the hook passes later commits once the entry is present (`aapp.changelogMode = plan`, default; `commit` keeps today's rule), freeze refuses a missing field. Q1 resolved (a). File name kept: the #96 issue row links to it.
 * **2026-10-03 (Rework):** Lock engine dropped (cannot prevent cross-branch conflicts; adds an acquire/release chore). Replaced by: one shared docs definition exempted in both the `aapp start` gate and Pair 7 (the gate was missing from the draft); optional `aapp commit … changelog "<text>"` written by the helper; union merge for `CHANGELOG.md`. Integration queue moved to the Work Dispatch Queue pickup idea. Previous Q1 (lease timeout) and Q2 (fragment queue) are void with the lock gone.
