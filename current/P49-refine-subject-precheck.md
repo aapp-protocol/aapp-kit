@@ -1,11 +1,8 @@
 # 🗺️ Plan P-49: Refine Subject Precheck
 * **Created:** 2026-10-03 | **Last Refined:** 2026-10-03
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** None (follow-up to P-47 and P-28)
 * **Plan ID:** P-49
-* **Changelog:** Changed: Refine Subject Precheck
-<!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
-     from the title; reword it and pick the section while refining. `aapp commit` writes it into
-     CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
+* **Changelog:** Fixed: `aapp refine` checks the commit subject length and shape before committing
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Commits:** none
@@ -32,63 +29,76 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+`aapp refine <id> "<what changed>"` (P-47) commits a plan edit as `plan(refine): <id> <what changed>`. It hands that subject straight to git, so P-28's `commit-msg` gate is the first thing that measures it. A message that pushes the subject past `aapp.subjectMaxLen` (default 72) is refused only after the commit attempt, with the gate's generic advice and no hint of how much to cut. This happened in practice: `aapp refine P-48 "rework: drop lock, shared docs, changelog token, union merge"` was refused, and the retry needed a second guess at the length.
+
+A message containing a newline would also put text on line 2 of the commit message, which the same gate refuses (blank-line invariant).
+
+**Goal:** `aapp refine` validates the subject it is about to write, with the same limit the gate uses, and refuses before any git work with an exact instruction. Same pattern as P-48's changelog check: catch it at the CLI, keep the gate as the backstop.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Subject pre-check in `cmd_refine` (`lib/cmd_plan.sh`)
+After resolving the plan and before `plans_commit`:
+- **Shape:** the message must be one line. A message containing a newline → exit 1: `❌ [Refine] The message must be a single line (it becomes the commit subject).`
+- **Length:** build the subject exactly as committed (`plan(refine): <plan-id> <msg>`), read the limit the gate uses (`git config --int aapp.subjectMaxLen`, default 72), and when the subject is longer → exit 1:
+  ```text
+  ❌ [Refine] Commit subject is 81 characters; the limit is 72 (aapp.subjectMaxLen).
+     Shorten the message by 9 characters: "rework: drop lock, shared docs, changelog token, union merge"
+  ```
+- Both checks run before staging, so a refused call leaves the plan worktree unchanged; the plan file stays modified and the author retries with a shorter message.
+- The `commit-msg` gate is unchanged and still the final authority.
+
+### 2.2 Scope
+- Only `aapp refine`. Lifecycle verbs build fixed, short subjects and need no check.
+- Length is measured in characters as the gate measures them (`${#subject}`), so both always agree.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: `tests/verbs/refine.sh`: a message making the subject exceed `aapp.subjectMaxLen` exits 1 before any commit, naming the length, the limit and how many characters to cut; a lowered `aapp.subjectMaxLen` is honoured; a multi-line message exits 1; the plans worktree HEAD is unchanged after both refusals.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Implementation
+- [ ] Task 2.1: Single-line and length checks in `cmd_refine` (`lib/cmd_plan.sh`).
+- [ ] Task 2.2: `lib/docs/verbs/refine.md`: two new failure modes and their tests.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [ ] Task 3.1: `MANUAL.md` (Committing Plan Edits): the message is one line and must keep the subject within `aapp.subjectMaxLen`.
+- [ ] Task 3.2: Run `./aapp test strict quiet`.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_plan.sh` -> Subject shape and length checks in `cmd_refine`.
+- [ ] `lib/docs/verbs/refine.md` -> Contract: new failure modes and tests.
+- [ ] `tests/verbs/refine.sh` -> Refusal tests.
+- [ ] `MANUAL.md` -> Message rules for `aapp refine`.
+- [ ] `CHANGELOG.md` -> Entry written by `aapp commit` from the declaration.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/aapp-commit-msg` -> The gate stays the final authority, unchanged.
+- [ ] `lib/commit_engine.sh` -> `plans_commit` is shared by every lifecycle verb; the check belongs in `cmd_refine`.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — Also give pickup and issue-triage commits a verb?** `aapp refine` covers plan edits only; adding a pickup idea or logging an issue still ends in a raw `git -C .plans commit`, which AGENTS.md now forbids agents. Options: (a) keep P-49 to the subject check and handle that gap in its own plan; (b) widen `aapp refine` here to accept `pickup` / `issues` as a target (e.g. `aapp refine pickup "<msg>"`) with the same checks.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-03:** Plan initialized from `pickup.md`.
-* **2026-10-03:** Refined blast radius and locked module boundaries.
+* **2026-10-03:** Plan drafted after a P-48 refine commit was refused by the `commit-msg` gate for subject length, with no hint of how much to cut.
