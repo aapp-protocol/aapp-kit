@@ -1,4 +1,4 @@
-# 🗺️ Plan P-48: Shared Invariant Semaphore & Concurrency Control
+# 🗺️ Plan P-48: Shared Docs Concurrency: Collision Exemption, Plan-Declared Changelog, Union Merge
 * **Created:** 2026-10-03 | **Last Refined:** 2026-10-03
 * **Target Issue / Milestone:** #96 *(supersedes #96 upon completion)*
 * **Plan ID:** P-48
@@ -29,127 +29,131 @@
 ## 🎯 1. Context & Architectural Goal
 
 ### Problem Statement
-When two or more plans are in active execution concurrently (`⚡ In Development`) — whether through multi-agent parallel execution, distributed worktrees, or concurrent feature branches — shared mutable invariant files (`CODEMAP.md`, `CHANGELOG.md`, `ARCHITECTURE.md`, `MANUAL.md`) create a severe concurrency hazard:
+When two or more plans are `⚡ In Development`, the shared documentation files (`CHANGELOG.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `MANUAL.md`, …) cause three problems:
 
-1. **The False Collision Lock in Pair 7**: Planning Health Pair 7 (`check_pair7_inflight_boundary_collision`) flags any shared path listed under `### 📂 Target Files` as a hard collision. Because almost every plan must update `CHANGELOG.md` and `ARCHITECTURE.md`, listing them in Target Files blocks parallel development of completely disjoint source modules.
-2. **The Lost-Update Anomaly (Unsynchronized Concurrent Writes)**: If Pair 7 simply exempts these files, multiple agents write to `CODEMAP.md` or `CHANGELOG.md` concurrently without coordination. Agent B reads a stale version while Agent A is writing, then writes back and clobbers Agent A's changes (read-modify-write race condition).
-3. **The Git Integration Conflict Storm**: In multi-worktree execution, concurrent agents both append to the top of `## [Unreleased]` in `CHANGELOG.md` or the bottom of tables in `CODEMAP.md`, causing guaranteed Git merge conflicts at branch integration time.
+1. **False collisions.** Every plan lists the shared docs in `### 📂 Target Files`, so two plans "collide" on them although the pre-commit hook always allows them. Two checks block or flag this: the `aapp start` activation gate (`check_disjointness_activation_gate`, `lib/cmd_plan.sh`) refuses to start the second plan, and Pair 7 (`check_pair7_inflight_boundary_collision`, `lib/planning_health.sh`) reports a violation.
+2. **Changelog pollution and lost updates.** The pre-commit hook demands a `CHANGELOG.md` change in every commit that touches code, so a plan built in several commits ends up with several bullets for one capability, or forces an invented bullet per step. Agents also edit the file by hand, often minutes before committing: a chore (wrong section, over-long bullet, missing plan reference) and a race with parallel edits. A CLI cannot tell which commit completes a plan, so it cannot decide the entry from the commit alone.
+3. **Merge conflicts.** Branches from separate worktrees each add a bullet at the top of `## [Unreleased]`; merging them conflicts on adjacent lines.
 
 ### Architectural Goal
-1. **POSIX Atomic Semaphore Engine (`aapp lock`)**: Provide a lightweight, cross-platform file locking mechanism in `.git/aapp_locks/` using POSIX atomic `mkdir` semantics (fully compatible with macOS Bash 3.2 and Linux) with lease timeout and stale lock recovery.
-2. **Pair 7 Invariant Refinement**: Refine Pair 7 in `lib/planning_health.sh` to distinguish between **domain source files** (which strictly forbid concurrent modification) and **shared invariants** (`ALWAYS_ALLOWED_REGEX`), which are allowed under concurrency via synchronization.
-3. **Transactional Shared File Access**: Provide clear protocol rules and CLI helpers (`aapp lock acquire <file>` / `aapp lock release <file>`) so autonomous agents acquire a write lease before reading, modifying, and committing shared invariant files.
+1. **One shared docs definition, exempt from collision checks.** The gate and Pair 7 treat shared docs as notices, never blocks; real code files still collide.
+2. **The plan declares its changelog entry.** One entry per plan, written into `CHANGELOG.md` by `aapp commit` on the plan's first code commit. Every later code commit for that plan passes the hook once the entry is present, on any branch. Repositories that want a bullet per commit opt in with `aapp.changelogMode = commit`.
+3. **Union merge for `CHANGELOG.md`.** Bullets from both branches are kept automatically at merge time.
+
+Coordinating integration across many agents (a queue that merges finished plans one at a time) is out of scope; it belongs to the *Work Dispatch Queue* pickup idea.
 
 ---
 
 ## 🏗️ 2. Technical Blueprint
 
-### 2.1 Atomic File Semaphore Architecture (`lib/lock_engine.sh`)
+### 2.1 Shared docs definition (`lib/aapp-lib.sh`)
+- `AAPP_SHARED_DOCS_REGEX` lists the shared documentation files: `CHANGELOG.md`, `README.md`, `MANUAL.md`, `CHEATSHEET.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `ISSUES.md` (matched as a basename, so `.agents/CODEMAP.md` qualifies).
+- `aapp_is_shared_doc <path>` returns 0 for a match.
+- `templates/aapp-pre-commit` builds its `ALWAYS_ALLOWED_REGEX` from `AAPP_SHARED_DOCS_REGEX` plus its dependency manifests (`package.json`, lockfiles, …), so the list is defined once. Dependency manifests stay always-allowed for commits but are **not** shared docs: two plans editing them is a real collision.
+- `lib/aapp-lib.sh` already ships into `.githooks/` via `aapp init`, so the hook and the CLI read the same definition.
 
-POSIX file locking across diverse platforms (macOS, Linux, BSD, container mounts) cannot reliably depend on `flock(1)` due to divergent CLI switches and absence in default macOS setups. Atomic `mkdir` is standard POSIX and guaranteed atomic by kernel filesystems:
+### 2.2 Collision checks
+- `check_disjointness_activation_gate` (`lib/cmd_plan.sh`) and `check_pair7_inflight_boundary_collision` (`lib/planning_health.sh`) skip paths where `aapp_is_shared_doc` matches, and print a notice instead:
+  ```text
+  ℹ️  [Shared Doc] P-46 and P-48 both update 'CHANGELOG.md' (shared docs never block; see union merge).
+  ```
+- Any other shared path (e.g. `lib/cmd_hook.sh`) keeps today's hard refusal/violation.
 
-```text
-.git/aapp_locks/
-├── CHANGELOG.md.lock/
-│   ├── pid
-│   ├── plan_id
-│   └── acquired_at (epoch seconds)
-└── CODEMAP.md.lock/
-    ├── pid
-    ├── plan_id
-    └── acquired_at
+### 2.3 Plan-declared changelog entry
+A CLI cannot know which commit completes a plan, but the plan knows what it delivers. The entry is declared once, in the plan, and every commit can look it up.
+
+**Plan header field** (`templates/plan-template.md`, scaffolded by `aapp draft` as a placeholder):
+```markdown
+* **Changelog:** Added: Shared docs never block concurrent plans; changelog merges by union
 ```
+- Format `<Added|Changed|Fixed>: <text>`; single line; the rendered bullet `- <text> (\`<plan-id>\`)` must fit `aapp.changelogMaxLen`.
+- `aapp freeze` refuses a plan whose `**Changelog:**` field is missing, empty, malformed or still the template placeholder (fail closed at freeze, not at commit time). Rewording later goes through the plan and is committed with `aapp refine`.
 
-#### Lease & Stale Eviction Protocol:
-1. **Acquisition (`aapp lock acquire <file> [timeout_sec]`)**:
-   - Path is sanitized and hashed/escaped: `.git/aapp_locks/<slug>.lock`.
-   - Attempts atomic `mkdir .git/aapp_locks/<slug>.lock`.
-   - On success: writes PID, Plan ID, and timestamp into lock directory; returns 0.
-   - On failure: inspects lock timestamp. If `now - acquired_at > aapp.lockLeaseTimeout` (default 300s) and PID is dead, evicts stale lock and re-acquires. Otherwise retries up to `timeout_sec` (default 10s) with exponential backoff before failing closed (exit 1).
-2. **Release (`aapp lock release <file>`)**:
-   - Verifies ownership (Plan ID / PID match); deletes lock directory recursively (`rm -rf`).
-3. **Quarantine / Brake**:
-   - `aapp pause` releases all held locks or marks them quarantined.
+**Repository setting `aapp.changelogMode`** (seeded by `aapp init` when absent, never overwritten):
+| Mode | Code commit for an active plan passes the hook when … |
+| :--- | :--- |
+| `plan` (default) | the committed `CHANGELOG.md` contains a bullet ending in `(\`<plan-id>\`)` under `## [Unreleased]` |
+| `commit` (opt-in) | `CHANGELOG.md` changes in that commit (today's rule) |
 
-### 2.2 Pair 7 Refinement (`lib/planning_health.sh`)
+**`aapp commit` (`lib/cmd_commit.sh`)**, in `plan` mode:
+- No plan bullet yet → inserts the declared entry as the first bullet of its section under `## [Unreleased]` (creating the section heading if missing) and stages `CHANGELOG.md` with the code.
+- Plan bullet present but worded differently from the declaration → replaces that one line.
+- Plan bullet present and current → leaves `CHANGELOG.md` alone.
+- No `changelog` token exists: the plan is the single source of the entry.
 
-Update `check_pair7_inflight_boundary_collision`:
-- Extract targets for each plan in `⚡ In Development`.
-- If two plans share a file:
-  - Check if target matches `$ALWAYS_ALLOWED_REGEX` (`CHANGELOG.md`, `ARCHITECTURE.md`, `CODEMAP.md`, `MANUAL.md`).
-  - If YES: emit an advisory notice rather than a blocking error:
-    ```text
-    ℹ️  [Pair 7 Concurrency Notice] Plans 'P-46' and 'P-48' share invariant 'CHANGELOG.md' (managed via concurrency lock).
-    ```
-  - If NO (domain code conflict, e.g. both touch `lib/cmd_hook.sh`): emit hard blocking error:
-    ```text
-    ❌ [Pair 7 Violation] In-Flight Blueprint Collision on domain file 'lib/cmd_hook.sh'!
-    ```
+**Pre-commit hook (`templates/aapp-pre-commit`)** when code is staged:
+- Resolves the commit's plan the way the blast-radius check already does (active plan buffer, else the single in-development plan).
+- `plan` mode: checks the **staged** `CHANGELOG.md` (`git show :CHANGELOG.md`, not only the diff) for the plan's bullet, matched by plan ID, so rewording never breaks it.
+- No active plan (a direct fix), or `commit` mode: today's rule — `CHANGELOG.md` must change in the commit. Nothing becomes lax.
+- Refusal names the fix: `aapp commit` writes the declared entry, or `aapp refine` declares it.
 
-### 2.3 Integration with Commit Helper (`aapp commit`)
-
-When `aapp commit` runs while multiple plans are in development:
-- If staged files include `$ALWAYS_ALLOWED_REGEX`, `aapp commit` wraps the commit in a transient lock:
-  1. `aapp lock acquire <file>`
-  2. Executes git commit
-  3. `aapp lock release <file>`
+### 2.4 Union merge for `CHANGELOG.md`
+- `aapp init` ensures `.gitattributes` contains `CHANGELOG.md merge=union`: appends that one line when absent, never rewrites other lines, and reports `ℹ️ Added 'CHANGELOG.md merge=union' to .gitattributes`. Running it again changes nothing (Q1).
+- Two plans on two branches each add their one entry; union merge keeps both. `CODEMAP.md` and `ARCHITECTURE.md` are not union-merged (their conflicts are real overlaps a human should resolve).
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default)
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-- Single-agent execution incurs zero overhead: lock acquisition succeeds on the first attempt with no contention.
-- Existing single-plan workflows remain 100% backward-compatible.
+- Plans already in the backlog without a `**Changelog:**` field are refused at freeze until it is added. Archived plans are untouched.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Core Lock Engine & CLI Switchboard
-- [ ] Task 1.1: Implement `lib/lock_engine.sh` with atomic `mkdir` primitives, metadata tracking, and stale lease eviction.
-- [ ] Task 1.2: Implement `cmd_lock` supporting `acquire`, `release`, `status`, and `clean` subcommands.
-- [ ] Task 1.3: Register `lock` verb in `lib/verbs.tsv` under the sync tier and dispatch from `aapp`.
-- [ ] Task 1.4: Author contract documentation in `lib/docs/verbs/lock.md`.
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Gate and Pair 7: two in-development plans sharing only shared docs start and pass with a notice; sharing a code file is still refused (`tests/verbs/start.sh`, `tests/plan_resolver_test.sh`).
+- [ ] Task 1.2: `tests/verbs/commit.sh` (`plan` mode): the first code commit inserts the declared entry `- <text> (\`P-x\`)` in its section and commits it with the code; a second code commit leaves `CHANGELOG.md` untouched and passes; a reworded declaration replaces the one plan line; no duplicate bullets.
+- [ ] Task 1.3: `tests/pre-commit_test.sh`: `plan` mode passes a code commit when the staged `CHANGELOG.md` holds the plan's bullet and refuses when it does not; no active plan and `commit` mode keep today's rule.
+- [ ] Task 1.4: `tests/verbs/freeze.sh`: freeze refuses a missing, malformed or placeholder `**Changelog:**` field.
+- [ ] Task 1.5: `aapp init` adds `CHANGELOG.md merge=union` once, keeps existing `.gitattributes` lines, and seeds `aapp.changelogMode=plan` only when absent (`tests/install_test.sh`).
 
-### Phase 2: Pair 7 Concurrency Filter
-- [ ] Task 2.1: Refactor `check_pair7_inflight_boundary_collision` in `lib/planning_health.sh` to filter out `$ALWAYS_ALLOWED_REGEX`.
-- [ ] Task 2.2: Add concurrency notice output for shared invariants while maintaining hard stops for domain code collisions.
-- [ ] Task 2.3: Add test cases in `tests/plan_resolver_test.sh` verifying shared invariant tolerance and domain collision blocking.
+### Phase 2: Implementation
+- [ ] Task 2.1: `AAPP_SHARED_DOCS_REGEX` and `aapp_is_shared_doc` in `lib/aapp-lib.sh`; `templates/aapp-pre-commit` builds `ALWAYS_ALLOWED_REGEX` from it.
+- [ ] Task 2.2: Shared-doc exemption in the activation gate and Pair 7.
+- [ ] Task 2.3: `**Changelog:**` field in `templates/plan-template.md`; freeze check in `lib/cmd_plan.sh`.
+- [ ] Task 2.4: Declared-entry insert/replace in `lib/cmd_commit.sh`; update `lib/docs/verbs/commit.md` and `lib/docs/verbs/freeze.md`.
+- [ ] Task 2.5: `aapp.changelogMode` check in `templates/aapp-pre-commit`.
+- [ ] Task 2.6: `.gitattributes` union line and `aapp.changelogMode` seed in `lib/cmd_init.sh`.
 
-### Phase 3: Blast-Radius & Commit Engine Integration
-- [ ] Task 3.1: Wire `aapp commit` to auto-acquire lock when mutating shared invariants during multi-plan execution.
-- [ ] Task 3.2: Update `aapp pause` and `aapp resume` to release/audit active lock states.
-
-### Phase 4: Automated Concurrency & Lock Test Suite
-- [ ] Task 4.1: Author `tests/verbs/lock.sh` covering acquire, release, timeout, stale eviction, and contention backoff.
-- [ ] Task 4.2: Verify full test suite passes cleanly via `./aapp test strict quiet`.
-
-### Phase 5: Verification & Documentation
-- [ ] Task 5.1: Update `MANUAL.md` with multi-agent concurrency guidelines and semaphore mechanics.
-- [ ] Task 5.2: Update `.agents/CODEMAP.md` and `ARCHITECTURE.md` documenting `lib/lock_engine.sh`.
-- [ ] Task 5.3: Update `CHANGELOG.md` under `## [Unreleased]`.
+### Phase 3: Skills, Docs & Verification
+- [ ] Task 3.1: `templates/skills/aapp-digest/SKILL.md` and `aapp-plan`: author the `**Changelog:**` field with the plan; `templates/skills/aapp-start/SKILL.md`: `aapp commit` writes the entry, never edit `CHANGELOG.md` by hand; AGENTS.md (both copies): changelog rule and CLI Reference row for `aapp commit`.
+- [ ] Task 3.2: `MANUAL.md`, `CHEATSHEET.md`, `.agents/CODEMAP.md`, `ARCHITECTURE.md`; `CHANGELOG.md` under `## [Unreleased]`.
+- [ ] Task 3.3: Run `./aapp test strict quiet`.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `lib/lock_engine.sh` -> POSIX atomic directory/file semaphore engine.
-- [ ] `NEW FILE` -> `lib/docs/verbs/lock.md` -> Lock verb contract documentation.
-- [ ] `NEW FILE` -> `tests/verbs/lock.sh` -> Contract test suite for lock acquire/release/evict.
-- [ ] `lib/planning_health.sh` -> Pair 7 collision filter distinguishing domain files from shared invariants.
-- [ ] `lib/cmd_commit.sh` -> Lock integration during shared invariant commits.
-- [ ] `lib/cmd_pause.sh` -> Lock state cleanup on emergency pause.
-- [ ] `lib/verbs.tsv` -> Register lock verb in sync tier.
-- [ ] `aapp` -> Dispatch lock verb.
-- [ ] `tests/plan_resolver_test.sh` -> Add Pair 7 invariant concurrency test cases.
-- [ ] `MANUAL.md` -> Multi-agent concurrency and lock documentation.
-- [ ] `ARCHITECTURE.md` -> Architecture diagram update for lock subsystem.
-- [ ] `.agents/CODEMAP.md` -> Register lock engine in codemap.
+- [ ] `lib/aapp-lib.sh` -> Shared docs regex and `aapp_is_shared_doc`.
+- [ ] `templates/aapp-pre-commit` -> Shared definition; `aapp.changelogMode` plan-entry check.
+- [ ] `templates/plan-template.md` -> `**Changelog:**` header field.
+- [ ] `lib/cmd_plan.sh` -> Activation gate exempts shared docs; freeze requires the `**Changelog:**` field.
+- [ ] `lib/planning_health.sh` -> Pair 7 exempts shared docs.
+- [ ] `lib/cmd_commit.sh` -> Insert or replace the plan's declared entry.
+- [ ] `lib/docs/verbs/commit.md` -> Contract for the declared entry.
+- [ ] `lib/docs/verbs/freeze.md` -> Contract for the `**Changelog:**` refusal.
+- [ ] `lib/cmd_init.sh` -> `.gitattributes` union line; seed `aapp.changelogMode`.
+- [ ] `tests/verbs/start.sh` -> Gate exemption tests.
+- [ ] `tests/plan_resolver_test.sh` -> Pair 7 exemption tests.
+- [ ] `tests/verbs/commit.sh` -> Declared-entry tests.
+- [ ] `tests/verbs/freeze.sh` -> `**Changelog:**` field refusal tests.
+- [ ] `tests/pre-commit_test.sh` -> `plan` / `commit` mode hook tests.
+- [ ] `tests/install_test.sh` -> `.gitattributes` and mode seed tests.
+- [ ] `templates/skills/aapp-digest/SKILL.md` -> Author the `**Changelog:**` field.
+- [ ] `templates/skills/aapp-plan/SKILL.md` -> Author the `**Changelog:**` field.
+- [ ] `templates/skills/aapp-start/SKILL.md` -> `aapp commit` writes the entry.
+- [ ] `templates/AGENTS.md` -> Changelog rule; CLI Reference row for `aapp commit`.
+- [ ] `.agents/AGENTS.md` -> Same as the template.
+- [ ] `MANUAL.md` -> Shared docs, plan-declared changelog, `aapp.changelogMode`, union merge.
+- [ ] `CHEATSHEET.md` -> `aapp.changelogMode` setting row.
+- [ ] `.agents/CODEMAP.md` -> Shared docs definition, declared entry flow.
+- [ ] `ARCHITECTURE.md` -> Shared docs concurrency model.
 - [ ] `CHANGELOG.md` -> Record under unreleased.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `.githooks/*` -> Guard engine self-protection.
-- [ ] `.agents/skills/*` -> Governance skills self-protection.
+- [ ] `.githooks/*` -> Guard engine self-protection; refreshed from `templates/` by `aapp init`.
+- [ ] `.agents/skills/*` -> Governance skills self-protection; refreshed from `templates/skills/` by `aapp init`.
 - [ ] `.plans/ISSUES.md` -> Managed via issue lifecycle.
 - [ ] `.plans/state_matrix.md` -> Managed via state transitions.
 
@@ -157,12 +161,15 @@ When `aapp commit` runs while multiple plans are in development:
 
 ## ❓ 5. Open Questions & Settled Decisions
 
-* [x] **Question 1 — Default Lease Timeout Duration**: Is 300 seconds (5 minutes) the right default for stale lock eviction, or should it be configurable via `git config aapp.lockLeaseTimeout`? → **RESOLVED (developer, 2026-10-03): Adopted recommendation (300s default with git config override).** Lock engine defaults to a 300-second lease timeout, with custom values configurable via `git config aapp.lockLeaseTimeout`.
-* [x] **Question 2 — Fragment Queue Alternative for CHANGELOG.md**: Can changelog updates be deferred to `aapp done` via an unreleased fragment queue? → **RESOLVED (developer, 2026-10-03): Rejected. CHANGELOG.md must be updated at code commit time.** By non-negotiable protocol invariant, every commit that touches code MUST update `CHANGELOG.md` in that exact same commit (enforced mechanically by pre-commit). Deferring to `aapp done` is fundamentally invalid because the code is already committed prior to plan archival. Therefore, `CHANGELOG.md` concurrency is managed at commit time via the atomic semaphore (`aapp lock` acquired during the commit window).
+* [x] **Settled (developer, 2026-10-03): no lock engine.** A lock serializes edits but cannot prevent cross-branch merge conflicts and would add a manual acquire/release chore. Integration ordering across agents (an integration queue) moves to the *Work Dispatch Queue* pickup idea.
+* [x] **Settled (developer, 2026-10-03): one changelog entry per plan, declared in the plan.** A CLI cannot know which commit completes a plan, so the entry comes from the plan's `**Changelog:**` field. Per-commit bullets are opt-in via `aapp.changelogMode = commit`. No `changelog` token in `aapp commit` (single source). The hook never becomes lax: direct fixes and `commit` mode keep today's rule.
+* [x] **Question 1 — Does `aapp init` write the union line into `.gitattributes`? → RESOLVED (developer, 2026-10-03): yes, option (a).** Appended once when absent, reported, never rewriting other lines.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-10-03 (Plan-declared changelog):** Replaced the `changelog "<text>"` token with a `**Changelog:**` plan header field: `aapp commit` writes/updates the plan's single entry, the hook passes later commits once the entry is present (`aapp.changelogMode = plan`, default; `commit` keeps today's rule), freeze refuses a missing field. Q1 resolved (a). File name kept: the #96 issue row links to it.
+* **2026-10-03 (Rework):** Lock engine dropped (cannot prevent cross-branch conflicts; adds an acquire/release chore). Replaced by: one shared docs definition exempted in both the `aapp start` gate and Pair 7 (the gate was missing from the draft); optional `aapp commit … changelog "<text>"` written by the helper; union merge for `CHANGELOG.md`. Integration queue moved to the Work Dispatch Queue pickup idea. Previous Q1 (lease timeout) and Q2 (fragment queue) are void with the lock gone.
 * **2026-10-03 (Refinement):** Settled decisions for Q1 (adopted 300s default lease with `aapp.lockLeaseTimeout` override) and Q2 (rejected `aapp done` changelog deferral; re-affirmed strict commit-time changelog requirement synchronized via atomic file semaphore).
 * **2026-10-03:** Blueprint drafted from Issue #96 analysis. Established POSIX atomic `mkdir` semaphore engine, Pair 7 invariant filtering, and commit engine lease acquisition.
