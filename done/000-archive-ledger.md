@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-03 | `P-46` | [`P46-plugin-registry.md`](P46-plugin-registry.md) | #94 | `24c24e5` | Plugin Registry |
 | 2026-10-03 | `P-47` | [`P47-skills-cover-issue-lifecycle.md`](P47-skills-cover-issue-lifecycle.md) | None (follow-up to P-32) | `d2a4e6e` | Skills Drive the CLI & Agent CLI Reference |
 | 2026-10-02 | `P-32` | [`P32-issue-id-allocation-and-duplicate-detection.md`](P32-issue-id-allocation-and-duplicate-detection.md) | #79 | `c0edb4b` | Issue ID Allocation, Lifecycle Engine & Duplicate Detection |
 | 2026-09-29 | `P-28` | [`P28-conciseness-enforcement-and-changelog-governance.md`](P28-conciseness-enforcement-and-changelog-governance.md) | #76 | `4e11c93` | Conciseness Enforcement & Changelog Governance |

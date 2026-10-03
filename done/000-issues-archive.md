@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #94 | `Low` | `CORE` | 2026-09-29 | 2026-10-03 | `24c24e5` | [P-46](P46-plugin-registry.md) - Plugin Registry |
 | #79 | `Medium` | `CORE` | 2026-09-22 | 2026-10-02 | `c0edb4b` | [P-32](P32-issue-id-allocation-and-duplicate-detection.md) - Issue ID Allocation, Lifecycle Engine & Duplicate Detection |
 | #91 | `Critical` | `CORE` | 2026-09-28 | 2026-09-28 | `5685ef5` | Direct fix (no plan): removed destructive `remote.origin.push/fetch` refspecs from `cmd_ai_notes` in `lib/cmd_ai.sh` to prevent force-pushing branches and destroying tracking refs. |
 | #90 | `Medium` | `CORE` | 2026-09-28 | 2026-09-28 | `52f5fc9` | Direct fix (no plan): restored default `aapp.aiAttribution` to `none` across `cmd_init.sh`, `attribution.sh`, `cmd_commit.sh`, test fixtures, and documentation so AI attribution is opt-in developer choice. |
