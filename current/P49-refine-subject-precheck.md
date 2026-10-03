@@ -95,7 +95,7 @@ After resolving the plan and before `plans_commit`:
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 — Also give pickup and issue-triage commits a verb?** `aapp refine` covers plan edits only; adding a pickup idea or logging an issue still ends in a raw `git -C .plans commit`, which AGENTS.md now forbids agents. Options: (a) keep P-49 to the subject check and handle that gap in its own plan; (b) widen `aapp refine` here to accept `pickup` / `issues` as a target (e.g. `aapp refine pickup "<msg>"`) with the same checks.
+* [x] **Question 1 — Also give pickup and issue-triage commits a verb? → RESOLVED (developer, 2026-10-03): (a), in a separate plan.** P-49 stays the subject check. Pickup and issue-triage commits move onto existing verbs (no new verb) in the plan that also covers plan rename (`aapp refine <id> slug <new>`), link repair on `aapp done`, and promotion (`aapp draft <slug> issue <num>`).
 
 ---
 
