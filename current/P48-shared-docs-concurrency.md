@@ -5,7 +5,7 @@
 * **Changelog:** Added: Shared docs never block concurrent plans; one plan-declared changelog entry per plan (`aapp.changelogMode`); union merge for CHANGELOG.md
 * **Status:** ⚡ In Development
 * **Base:** `1755e68` (develop)
-* **Commits:** none
+* **Commits:** `d23314d` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -103,24 +103,24 @@ A CLI cannot know which commit completes a plan, but the plan knows what it deli
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Gate and Pair 7: two in-development plans sharing only shared docs start and pass with a notice; sharing a code file is still refused (`tests/verbs/start.sh`, `tests/plan_resolver_test.sh`).
-- [ ] Task 1.2: `tests/verbs/commit.sh` (`plan` mode): the first code commit inserts the declared entry `- <text> (\`P-x\`)` in its section and commits it with the code; a second code commit leaves `CHANGELOG.md` untouched and passes; a reworded declaration replaces the one plan line; no duplicate bullets.
-- [ ] Task 1.3: `tests/pre-commit_test.sh`: `plan` mode passes a code commit when the staged `CHANGELOG.md` holds the plan's bullet and refuses when it does not; no active plan and `commit` mode keep today's rule.
-- [ ] Task 1.4: `tests/verbs/freeze.sh`: freeze refuses a missing, malformed or over-long `**Changelog:**` field; `tests/verbs/draft.sh`: a drafted plan carries `**Changelog:** Changed: <Title>`.
-- [ ] Task 1.5: `aapp init` adds `CHANGELOG.md merge=union` once, keeps existing `.gitattributes` lines, and seeds `aapp.changelogMode=plan` only when absent (`tests/install_test.sh`).
+- [x] Task 1.1: Gate and Pair 7: two in-development plans sharing only shared docs start and pass with a notice; sharing a code file is still refused (`tests/verbs/start.sh`, `tests/plan_resolver_test.sh`).
+- [x] Task 1.2: `tests/verbs/commit.sh` (`plan` mode): the first code commit inserts the declared entry `- <text> (\`P-x\`)` in its section and commits it with the code; a second code commit leaves `CHANGELOG.md` untouched and passes; a reworded declaration replaces the one plan line; no duplicate bullets.
+- [x] Task 1.3: `tests/pre-commit_test.sh`: `plan` mode passes a code commit when the staged `CHANGELOG.md` holds the plan's bullet and refuses when it does not; no active plan and `commit` mode keep today's rule.
+- [x] Task 1.4: `tests/verbs/freeze.sh`: freeze refuses a missing, malformed or over-long `**Changelog:**` field; `tests/verbs/draft.sh`: a drafted plan carries `**Changelog:** Changed: <Title>`.
+- [x] Task 1.5: `aapp init` adds `CHANGELOG.md merge=union` once, keeps existing `.gitattributes` lines, and seeds `aapp.changelogMode=plan` only when absent (`tests/install_test.sh`).
 
 ### Phase 2: Implementation
-- [ ] Task 2.1: `AAPP_SHARED_DOCS_REGEX` and `aapp_is_shared_doc` in `lib/aapp-lib.sh`; `templates/aapp-pre-commit` builds `ALWAYS_ALLOWED_REGEX` from it.
-- [ ] Task 2.2: Shared-doc exemption in the activation gate and Pair 7.
-- [ ] Task 2.3: `**Changelog:**` field in `templates/plan-template.md`; `aapp draft` pre-fills it from the title and the freeze check, both in `lib/cmd_plan.sh`.
-- [ ] Task 2.4: Declared-entry insert/replace in `lib/cmd_commit.sh`; update `lib/docs/verbs/commit.md` and `lib/docs/verbs/freeze.md`.
-- [ ] Task 2.5: `aapp.changelogMode` check in `templates/aapp-pre-commit`.
-- [ ] Task 2.6: `.gitattributes` union line and `aapp.changelogMode` seed in `lib/cmd_init.sh`.
+- [x] Task 2.1: `AAPP_SHARED_DOCS_REGEX` and `aapp_is_shared_doc` in `lib/aapp-lib.sh`; `templates/aapp-pre-commit` builds `ALWAYS_ALLOWED_REGEX` from it.
+- [x] Task 2.2: Shared-doc exemption in the activation gate and Pair 7.
+- [x] Task 2.3: `**Changelog:**` field in `templates/plan-template.md`; `aapp draft` pre-fills it from the title and the freeze check, both in `lib/cmd_plan.sh`.
+- [x] Task 2.4: Declared-entry insert/replace in `lib/cmd_commit.sh`; update `lib/docs/verbs/commit.md` and `lib/docs/verbs/freeze.md`.
+- [x] Task 2.5: `aapp.changelogMode` check in `templates/aapp-pre-commit`.
+- [x] Task 2.6: `.gitattributes` union line and `aapp.changelogMode` seed in `lib/cmd_init.sh`.
 
 ### Phase 3: Skills, Docs & Verification
-- [ ] Task 3.1: `templates/skills/aapp-digest/SKILL.md` and `aapp-plan`: author the `**Changelog:**` field with the plan; `templates/skills/aapp-start/SKILL.md`: `aapp commit` writes the entry, never edit `CHANGELOG.md` by hand; AGENTS.md (both copies): changelog rule and CLI Reference row for `aapp commit`.
-- [ ] Task 3.2: `MANUAL.md`, `CHEATSHEET.md`, `.agents/CODEMAP.md`, `ARCHITECTURE.md`; `CHANGELOG.md` under `## [Unreleased]`.
-- [ ] Task 3.3: Run `./aapp test strict quiet`.
+- [x] Task 3.1: `templates/skills/aapp-digest/SKILL.md` and `aapp-plan`: author the `**Changelog:**` field with the plan; `templates/skills/aapp-start/SKILL.md`: `aapp commit` writes the entry, never edit `CHANGELOG.md` by hand; AGENTS.md (both copies): changelog rule and CLI Reference row for `aapp commit`.
+- [x] Task 3.2: `MANUAL.md`, `CHEATSHEET.md`, `.agents/CODEMAP.md`, `ARCHITECTURE.md`; `CHANGELOG.md` under `## [Unreleased]`.
+- [x] Task 3.3: Run `./aapp test strict quiet`.
 
 ---
 
@@ -182,6 +182,7 @@ A CLI cannot know which commit completes a plan, but the plan knows what it deli
 * **2026-10-03:** Plan activated into ⚡ In Development via start.
 * **2026-10-03:** Plan locked and frozen into 🔷 Frozen via freeze.
 
+* **2026-10-03 (Implementation notes):** (1) The shared docs list is a function, `aapp_shared_docs_regex`, because `aapp-lib.sh` forbids top-level state. (2) The hook keeps today's rule as always sufficient (a changed `CHANGELOG.md` passes); `plan` mode only adds the "entry already present" pass — no existing hook test changed. (3) `aapp commit` ensures the entry on the plan's first commit of any kind: the helper cannot tell code from docs, and the entry belongs to the plan. (4) Follow-ups outside this plan: `lib/docs/verbs/freeze-start.md` should list the new `**Changelog:**` refusal; the hook's legacy fallback accepts a code commit right after any commit that touched `CHANGELOG.md` when `.plans` is not a separate worktree.
 * **2026-10-03 (Pre-filled field):** `aapp draft` pre-fills `**Changelog:** Changed: <Title>`; freeze refuses only missing, malformed or over-long fields. Chosen as the natural fit: every plan has its entry from birth, and the 10 test suites that freeze drafted plans keep working unchanged (the strict placeholder rule would have touched them all for setup only). Revisit if it doesn't feel right in use.
 * **2026-10-03 (Pre-freeze):** Plan bullet matched by "contains `(\`<plan-id>\`)`" (existing bullets carry the reference mid-line); P-48 declares its own `**Changelog:**` entry; shared helpers (parse declaration, find bullet, render bullet) live in `lib/aapp-lib.sh`, loaded by both the hook and the CLI.
 * **2026-10-03 (Rename):** File renamed from `P48-shared-file-semaphore-and-concurrency.md` to `P48-shared-docs-concurrency.md` to match what it ships; the #96 link cell updated (lifecycle-cell exception; done by hand until `aapp rename` exists).
