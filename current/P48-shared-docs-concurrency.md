@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** #96 *(supersedes #96 upon completion)*
 * **Plan ID:** P-48
 * **Changelog:** Added: Shared docs never block concurrent plans; one plan-declared changelog entry per plan (`aapp.changelogMode`); union merge for CHANGELOG.md
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** `1755e68` (develop)
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -169,6 +169,7 @@ A CLI cannot know which commit completes a plan, but the plan knows what it deli
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-03:** Plan locked and frozen into 🔷 Frozen via freeze.
 
 * **2026-10-03 (Pre-freeze):** Plan bullet matched by "contains `(\`<plan-id>\`)`" (existing bullets carry the reference mid-line); P-48 declares its own `**Changelog:**` entry; shared helpers (parse declaration, find bullet, render bullet) live in `lib/aapp-lib.sh`, loaded by both the hook and the CLI.
 * **2026-10-03 (Rename):** File renamed from `P48-shared-file-semaphore-and-concurrency.md` to `P48-shared-docs-concurrency.md` to match what it ships; the #96 link cell updated (lifecycle-cell exception; done by hand until `aapp rename` exists).
