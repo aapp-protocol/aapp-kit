@@ -155,13 +155,14 @@ When `aapp commit` runs while multiple plans are in development:
 
 ---
 
-## ❓ 5. Open Questions (Optional / Gate)
+## ❓ 5. Open Questions & Settled Decisions
 
-* [ ] **Question 1 — Default Lease Timeout Duration**: Is 300 seconds (5 minutes) the right default for stale lock eviction, or should it be configurable via `git config aapp.lockLeaseTimeout`? (Recommended: 300s default with git config override).
-* [ ] **Question 2 — Fragment Queue Alternative for CHANGELOG.md**: Should changelog updates adopt a plan-local fragment queue (`.plans/fragments/<plan>.md`) merged at `aapp done` to completely eliminate Git merge conflicts on release branches? (Recommended: Explore as complementary Phase 6 enhancement).
+* [x] **Question 1 — Default Lease Timeout Duration**: Is 300 seconds (5 minutes) the right default for stale lock eviction, or should it be configurable via `git config aapp.lockLeaseTimeout`? → **RESOLVED (developer, 2026-10-03): Adopted recommendation (300s default with git config override).** Lock engine defaults to a 300-second lease timeout, with custom values configurable via `git config aapp.lockLeaseTimeout`.
+* [x] **Question 2 — Fragment Queue Alternative for CHANGELOG.md**: Can changelog updates be deferred to `aapp done` via an unreleased fragment queue? → **RESOLVED (developer, 2026-10-03): Rejected. CHANGELOG.md must be updated at code commit time.** By non-negotiable protocol invariant, every commit that touches code MUST update `CHANGELOG.md` in that exact same commit (enforced mechanically by pre-commit). Deferring to `aapp done` is fundamentally invalid because the code is already committed prior to plan archival. Therefore, `CHANGELOG.md` concurrency is managed at commit time via the atomic semaphore (`aapp lock` acquired during the commit window).
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-10-03 (Refinement):** Settled decisions for Q1 (adopted 300s default lease with `aapp.lockLeaseTimeout` override) and Q2 (rejected `aapp done` changelog deferral; re-affirmed strict commit-time changelog requirement synchronized via atomic file semaphore).
 * **2026-10-03:** Blueprint drafted from Issue #96 analysis. Established POSIX atomic `mkdir` semaphore engine, Pair 7 invariant filtering, and commit engine lease acquisition.
