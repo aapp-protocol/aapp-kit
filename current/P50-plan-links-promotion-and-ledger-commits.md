@@ -66,6 +66,11 @@ After moving the plan to `done/`, `cmd_done` runs `issue_relink current/<file> d
 ### 2.5 Ledger commits without raw git
 Pickup and issue-triage edits get a commit path on an existing verb (see Q1). Whatever the form: it commits only the named ledger files (`pickup.md`; or `ISSUES.md` + `issues_road_map.md`), with attribution, under the existing conventions (`pickup: <msg>`, `issue(triage): <msg>`), checks the subject length like P-49, and prints one confirmation line.
 
+**Validation before committing** (nothing is committed on failure; the message names the line to fix). This is the only moment ledgers are hand-edited, so it is where their mistakes are caught:
+- **Issues:** `ISSUES.md` is one unbroken table (no empty line between the header and the last row — the split that hid rows in the viewer) and every row has the 8 cells; no ID repeated within a ledger or across active and archive (Pairs 8 and 1); no row ID at or above `aapp.issueId` (a hand-picked number instead of `aapp issue allocate`); every active issue is on the road map and every board line points at an existing row (Pair 2).
+- **Pickup:** every entry is a `- [ ] ` line.
+- Reuses the planning-health pair functions; the table-shape check is new.
+
 ### 2.6 Agent-facing text
 - `AGENTS.md` (both copies): promotion steps use `aapp draft <slug> issue <num>`; the CLI Reference rows for `draft` and `refine` show the new tokens; logging an issue ends with the ledger commit form from 2.5.
 - Skills: `aapp-digest` (promotion and ledger commits), `aapp-plan` (defect logging commit), `aapp-pause` (logging while paused).
@@ -83,7 +88,7 @@ Pickup and issue-triage edits get a commit path on an existing verb (see Q1). Wh
 - [ ] Task 1.1: `tests/verbs/refine.sh`: `slug` renames, repairs the issue link and road-map link, re-derives the matrix, logs the rename, one commit; refusals (archived plan, existing target, dirty plan file, empty slug).
 - [ ] Task 1.2: `tests/verbs/done.sh`: another open issue linking the plan points at `done/` after `aapp done`, in the same commit.
 - [ ] Task 1.3: `tests/verbs/draft.sh`: `issue <num>` sets the plan's Target Issue, the row's `🔵 Planned` and link, in the draft commit; refusals (archived or unknown issue).
-- [ ] Task 1.4: Ledger commit tests for the Q1 form (commits only the ledger files, conventions, subject check).
+- [ ] Task 1.4: Ledger commit tests for the Q1 form (commits only the ledger files, conventions, subject check) and its validation: a blank line inside the issues table, a row with the wrong cell count, a duplicated ID, an ID at or above `aapp.issueId`, an issue missing from the road map, and a malformed pickup line are each refused with nothing committed.
 
 ### Phase 2: Implementation
 - [ ] Task 2.1: `issue_relink` in `lib/cmd_issue.sh`.
@@ -105,6 +110,7 @@ Pickup and issue-triage edits get a commit path on an existing verb (see Q1). Wh
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `lib/cmd_issue.sh` -> `issue_relink`; promotion row edit.
+- [ ] `lib/planning_health.sh` -> Issues table-shape check, callable before a ledger commit.
 - [ ] `lib/cmd_plan.sh` -> `refine … slug`, `done` link repair, `draft … issue`, ledger commit path (if on `refine`).
 - [ ] `lib/docs/verbs/refine.md` -> Contract: `slug` (and ledger targets, per Q1).
 - [ ] `lib/docs/verbs/done.md` -> Contract: link repair.
@@ -138,4 +144,5 @@ Pickup and issue-triage edits get a commit path on an existing verb (see Q1). Wh
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-04:** Ledger commits validate before committing: issues table shape, IDs (Pairs 1/8, counter), road map (Pair 2), pickup line shape.
 * **2026-10-03:** Drafted from the pickup idea "Plan rename & link repair", P-49 Q1, and the promotion discussion: no new verbs (rename on `refine`, repair inside `done`, promotion on `draft`), only link paths and lifecycle cells of issue rows change.
