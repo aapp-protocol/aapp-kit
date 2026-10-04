@@ -137,7 +137,7 @@ Empirical testing in Git test harnesses confirmed two supported models:
 
 1. **Standalone Verb (`aapp integrate`)**:
    ```bash
-   aapp integrate [<plan-id>] [--squash | --ff] [--target <branch>] [--no-cleanup] [--force-cleanup]
+   aapp integrate [<plan-id>] [squash | ff] [target <branch>] [no-cleanup] [force-cleanup]
    ```
    Can be run on any archived plan in `done/` (or active plan ready for integration).
 
@@ -152,15 +152,14 @@ Empirical testing in Git test harnesses confirmed two supported models:
 ### 2.6 Mechanical Gate for 2+ Emergency Fixes
 
 Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
-1. `count_plan_emergency_extensions "$plan_file"`: counts items in `### 🚨 Emergency Hotfix Extensions`.
-2. `count_plan_blocked_on "$plan_file"`: counts issue IDs in `* **Blocked On:**`.
-3. If total >= 2:
-   - `aapp unblock` refuses to return status to `⚡ In Development`.
+1. `count_plan_handoffs "$plan_file"`: counts issue IDs in the append-only `* **Hand-offs:**` header line populated by `aapp issue close` (P-52/C69/C74).
+2. If `count > aapp.maxEmergencyHotfixes` (e.g. `count >= 2` with default `maxEmergencyHotfixes = 1`):
+   - `aapp issue fix` refuses to start another emergency fix at the front door (C74).
    - `aapp integrate` refuses integration with:
      ```text
      ❌ [Integration Block] Plan 'P-XX' accumulated 2+ emergency fixes (#41, #42).
         Daisy-chaining hotfixes is prohibited without formal re-scoping.
-        Requires human sign-off: run 'aapp integrate P-XX --override-hotfix-cap'.
+        Requires human sign-off: run 'aapp integrate P-XX override-hotfix-cap'.
      ```
 
 ### 🔄 Migration & Compatibility Strategy
