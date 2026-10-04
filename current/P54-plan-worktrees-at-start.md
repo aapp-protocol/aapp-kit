@@ -59,7 +59,7 @@ With `aapp.planWorktrees = on`, in this order:
 4. dispatches `on-start` with the created `worktree` and `branch` in its `data`. The hook keeps the pass/fail contract; inside, it may rename the branch (`git branch -m`) or move the worktree (`git worktree move`) to fit the team's conventions. Exit non-zero → `aapp start` refuses and **rolls back**: removes the worktree and branch it created, leaving no trace;
 5. reads back where the plan's worktree actually is (`git worktree list`, the lookup P-39 uses to find the worktree holding a plan) and records `* **Worktree:** <path> (<branch>)` in the plan header (data only, like P-51's record) — so a hook's renaming is reflected;
 6. the start commit, as today; prints the real path;
-7. opens a session there per `aapp.planSession` (2.6), else prints the next step: `cd <path>`.
+7. opens a session there per `aapp.planSession` (2.5), else prints the next step: `cd <path>`.
 
 Optional override token: `aapp start <id> worktree <path> [branch <name>]` — explicit names win over templates. With `aapp.planWorktrees = off`, the token alone creates the worktree for that one plan.
 
@@ -71,7 +71,7 @@ Optional override token: `aapp start <id> worktree <path> [branch <name>]` — e
 - Refuses when run with uncommitted changes in the plan's worktree.
 - Does not merge and does not delete the branch: integration (squash or merge) stays the developer's or the team tooling's step. Worktree removal per Q1.
 
-### 2.6 Opening a session in the plan's worktree: `aapp.planSession`
+### 2.5 Opening a session in the plan's worktree: `aapp.planSession`
 A personal, per-clone command template (not seeded; empty by default) that `aapp start` / `aapp freeze-start` run after the start commit, so a new agent session, another vendor's CLI or an editor opens in the plan's worktree:
 ```
 git config aapp.planSession 'tmux new-window -c {path} -n {id} claude'
@@ -84,7 +84,7 @@ git config aapp.planSession 'code {path}'
 - A config, not `on-start`: hooks are registered and hash-locked per repository (team gates); the session tool is each developer's own choice.
 - Out of scope: giving the new session its task (e.g. "work on P-51"). Prompt passing differs per vendor; it belongs to the *Work Dispatch Queue* pickup idea, where agents claim plans.
 
-### 2.5 Agent-facing text
+### 2.6 Agent-facing text
 - `templates/skills/aapp-start/SKILL.md`: after `aapp start`, continue in the printed worktree path.
 - AGENTS.md (both copies): plan work happens in the plan's worktree when `aapp.planWorktrees = on`; issue fixes happen in the main checkout on the development branch (P-52).
 
