@@ -1,6 +1,6 @@
 # 🗺️ Plan P-54: Plan Worktrees at Start
 * **Created:** 2026-10-04 | **Last Refined:** 2026-10-04
-* **Target Issue / Milestone:** None (foundation for P-52)
+* **Target Issue / Milestone:** None (follows P-52 and the #84 fix)
 * **Plan ID:** P-54
 * **Changelog:** Added: `aapp start` can create a branch and worktree per plan (`aapp.planWorktrees`) and open a session there (`aapp.planSession`)
 * **Status:** 🟣 Under Review
@@ -49,27 +49,36 @@ Plans that run on their own branch are a convention today, not something the kit
 | `aapp.planBranch` | `plan/{id}-{slug}` | branch name template |
 | `aapp.planWorktreePath` | `../{repo}-{id}` | worktree path template, relative to the primary checkout |
 
-Placeholders: `{id}` (`P51`), `{num}` (`51`), `{slug}`, `{repo}` (primary checkout directory name). The base branch is `aapp.devBranch` (existing; `main` when unset in a single-branch repository).
+Placeholders: `{id}` (`P51`), `{num}` (`51`), `{slug}`, `{repo}` (primary checkout directory name). The base branch comes from `aapp.devBranch`, a space-separated candidate list (default `develop dev development`, as the hook reads it): a resolver in `lib/aapp-lib.sh` returns the first candidate that exists locally or on a remote, and **empty** when none does. Only `start` falls back, to the repository's default branch (`origin/HEAD`, else `main` or `master` when present), and refuses when there is none. The hook's branch protection keeps its own reading (none found → no protection).
 
 ### 2.2 `aapp start` / `aapp freeze-start` (`lib/cmd_plan.sh`)
 With `aapp.planWorktrees = on`, in this order:
 1. the existing gates;
-2. renders the branch and path; refuses with a clear message when the branch or path already exists (never reuses or overwrites), when the base branch is missing, or when the primary checkout has uncommitted changes to tracked files that `git worktree add` would not carry;
-3. `git worktree add -b <branch> <path> <devBranch>` and binds the plan to the new worktree (its active-plan buffer, P-39's per-worktree binding, so the "held elsewhere" check keeps working);
-4. dispatches `on-start` with the created `worktree` and `branch` in its `data`. The hook keeps the pass/fail contract; inside, it may rename the branch (`git branch -m`) or move the worktree (`git worktree move`) to fit the team's conventions. Exit non-zero → `aapp start` refuses and **rolls back**: removes the worktree and branch it created, leaving no trace;
-5. reads back where the plan's worktree actually is (`git worktree list`, the lookup P-39 uses to find the worktree holding a plan) and records `* **Worktree:** <path> (<branch>)` in the plan header (data only, like P-51's record) — so a hook's renaming is reflected;
-6. the start commit, as today; prints the real path;
-7. opens a session there per `aapp.planSession` (2.5), else prints the next step: `cd <path>`.
+2. renders the branch and path, and refuses when the branch or path already exists (never reuses or overwrites) or no base branch resolves (2.1). Uncommitted changes in the primary checkout do not block: the worktree is created from the branch ref, so they are unaffected; `start` prints a notice that they stay in the primary;
+3. snapshots the plan file and `state_matrix.md` (for rollback, without touching the developer's own uncommitted planning edits), then `git worktree add --no-track -b <branch> <path> <base>` (`--no-track`: a plan branch made from a remote-only base must not track it, or `git pull`/`git push` in the plan worktree would act on the development branch);
+4. links the kit into the worktree: `.githooks`, `.agents`, `.plans` and `.claude` (when present in the primary), as relative symlinks to the primary checkout, so the hooks (`core.hooksPath` is relative), the Claude guard (`${CLAUDE_PROJECT_DIR}/.githooks/blast-radius-guard`), rules, skills and plans are there. Without them a plan worktree runs no hook and no guard. It appends `/.githooks`, `/.agents`, `/.plans`, `/.claude` (no trailing slash: a `dir/` pattern does not match a symlink) to `$(git rev-parse --git-common-dir)/info/exclude` once, idempotently: shared by all worktrees, never tracked, no adopter file changed. A link that cannot be made **fails closed** (rollback); never a copy, which would be a second, diverging plan store that the guard reads first;
+5. binds the plan in the new worktree's buffer (`git -C <path> rev-parse --git-path aapp_active_plan`; `write_active_buffer` takes the target worktree), leaving the primary's buffer untouched, so P-39's "held elsewhere" check keeps working;
+6. dispatches `on-start` with the created `worktree` and `branch` in its `data`. The hook keeps the pass/fail contract; inside, it may rename the branch (`git branch -m`) or move the worktree (`git worktree move`) to fit the team's conventions;
+7. reads back where the plan's worktree actually is (`git worktree list`, the lookup P-39 uses) and records `* **Worktree:** <path> (<branch>)` in the plan header with the path **relative to the primary checkout** (the plans branch is shared; an absolute path means nothing on another machine), and `* **Base:**` from the new worktree (`git -C <path>`: its `HEAD` and branch), not from the current checkout. A hook's renaming is reflected in both;
+8. the start commit, as today; prints the real path;
+9. opens a session there per `aapp.planSession` (2.5), else prints the next step: `cd <path>`.
+
+**All or nothing.** Any failure from step 3 to step 8 (link, hook, read-back, or the start commit, e.g. a `.plans` index lock while another `start` runs) rolls back: removes the worktree and its links, deletes the branch, clears the buffer and restores the plan file and `state_matrix.md` from the step 3 snapshot, leaving no trace, so `start` can simply be retried.
 
 Optional override token: `aapp start <id> worktree <path> [branch <name>]` — explicit names win over templates. With `aapp.planWorktrees = off`, the token alone creates the worktree for that one plan.
 
 ### 2.3 Inside a plan worktree
-- `.plans`, `.agents`, `.githooks` are reached through the primary checkout (resolved via `git rev-parse --git-common-dir`, as today); the guard, hook, `aapp commit` and `aapp done` work from the plan worktree. Covered by tests (Phase 1), and depends on #84 (guard path relativisation) being fixed.
-- Team naming conventions live in `on-start` (2.2 step 4); the templates are the default when no hook renames.
+- `.plans`, `.agents`, `.githooks`, `.claude` are the links from 2.2 step 4; the guard, hook, `aapp commit` and `aapp done` work from the plan worktree. Covered by tests (Phase 1). #84 (guard path relativisation) is fixed beforehand through `aapp issue fix` (Q3), so writes to the primary's `.plans` by absolute path are allowed too.
+- Checkouts with no buffer do not adopt plans held here, and are refused their files (P-52 2.6).
+- Team naming conventions live in `on-start` (2.2 step 6); the templates are the default when no hook renames.
+- **Picking up a fix from the development branch: rebase only** (`git rebase <devBranch>`), never merge. Finishing a conflicted merge runs pre-commit with every file the development branch changed staged, all outside the plan's Target Files, so the plan's own hook refuses it; `git rebase` runs no pre-commit.
+- **Issue fixes are not made here.** `aapp issue fix` refuses inside a worktree recorded in a `⚡` plan's `* **Worktree:**` (resolved from the primary checkout), printing the primary path: a fix committed on the plan branch would be swallowed by the plan's squash and its recorded SHA would dangle. A blocking bug in a file **outside** the plan's Target Files: the agent sets `🟥 BLOCKED`, names the issue and stops; the fix is made in the main checkout, then the plan rebases and is unblocked. A bug in a file the plan already owns is plan work. With `aapp.planWorktrees = off` (no recorded worktree), P-52's interrupt through `.prev` stays the path.
 
 ### 2.4 `aapp done`
 - Refuses when run with uncommitted changes in the plan's worktree.
-- Does not merge and does not delete the branch: integration (squash or merge) stays the developer's or the team tooling's step. Worktree removal per Q1.
+- Clears the plan's buffer in the worktree that holds it (`find_worktree_holding_plan`) as well as the current one, wherever `done` runs; otherwise that worktree stays bound to an archived plan and its guard refuses every edit.
+- Does not merge, delete the branch or remove the worktree (Q1): integration (squash or merge) stays the developer's or the team tooling's step. It prints `git worktree remove <path>`, warning that removal **deletes ignored files** in that worktree (local env files, build output), and that the branch is deleted after integration (`git branch -D` after a squash merge, where `-d` refuses). An automatic removal token is left to the Work Dispatch Queue idea, where a runner owns its worktrees.
+- The `* **Worktree:**` line moves to `done/` with the plan; it is where a finished plan's branch can be found (the state matrix lists only `current/`).
 
 ### 2.5 Opening a session in the plan's worktree: `aapp.planSession`
 A personal, per-clone command template (not seeded; empty by default) that `aapp start` / `aapp freeze-start` run after the start commit, so a new agent session, another vendor's CLI or an editor opens in the plan's worktree:
@@ -78,42 +87,52 @@ git config aapp.planSession 'tmux new-window -c {path} -n {id} claude'
 git config aapp.planSession 'gnome-terminal --working-directory={path} -- gemini'
 git config aapp.planSession 'code {path}'
 ```
-- Placeholders: `{path}` (the actual worktree, read back after `on-start`), `{id}`, `{branch}`, `{slug}`; also exported as `AAPP_PLAN_ID`, `AAPP_WORKTREE`, `AAPP_BRANCH`.
+- Placeholders: `{path}` (the actual worktree, read back after `on-start`), `{id}`, `{branch}`, `{slug}`, `{plan_file}`; also exported as `AAPP_PLAN_ID`, `AAPP_WORKTREE`, `AAPP_BRANCH`, `AAPP_SLUG`, `AAPP_PLAN_FILE` (worktree-relative `.plans/current/<file>`, through the link). Placeholders are substituted **shell-quoted** (`printf %q`): refnames may contain `$`, `;`, `&`, `|` or backticks, and `on-start` may rename the branch.
 - Run **detached** in the worktree and never waited on: `aapp start` is often invoked by an agent, and an interactive session inside that command would hang it. Output goes to `$(git rev-parse --git-path aapp_session.log)` of the plan's worktree.
 - A launch failure only warns and prints the `cd <path>` fallback: the plan has started and its worktree exists (registered in the Fallback Inventory).
 - A config, not `on-start`: hooks are registered and hash-locked per repository (team gates); the session tool is each developer's own choice.
-- Out of scope: giving the new session its task (e.g. "work on P-51"). Prompt passing differs per vendor; it belongs to the *Work Dispatch Queue* pickup idea, where agents claim plans.
+- Out of scope: giving the new session its task (e.g. "work on P-51"). Prompt passing differs per vendor; it belongs to the *Work Dispatch Queue* pickup idea, where agents claim plans. The manual does not present a one-shot unattended run (e.g. `claude -p`) as dispatch: it stops at the first blocking bug (2.3) with no one watching.
 
 ### 2.6 Agent-facing text
-- `templates/skills/aapp-start/SKILL.md`: after `aapp start`, continue in the printed worktree path.
-- AGENTS.md (both copies): plan work happens in the plan's worktree when `aapp.planWorktrees = on`; issue fixes happen in the main checkout on the development branch (P-52).
+- `templates/skills/aapp-start/SKILL.md`: after `aapp start`, continue in the printed worktree path; blocking bug outside the plan → `🟥 BLOCKED`, stop (2.3); pick up fixes by rebase.
+- `templates/skills/aapp-done/SKILL.md`: the printed removal command, its ignored-files warning, branch deletion after integration.
+- `templates/plan-template.md`: invariant 5 "Blocking & small" — in a plan worktree, set BLOCKED and hand off; the fix is made in the main checkout.
+- AGENTS.md (both copies): plan work happens in the plan's worktree when `aapp.planWorktrees = on`; issue fixes happen in the main checkout on the development branch (P-52); plan branches take fixes by rebase only.
+
+### 2.7 `aapp status`
+`lib/cmd_status.sh` prints a plan's worktree next to it: `• P-51: P51-….md (⚡ In Development → ../repo-P51)`, from the header line.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
-- **Fallback Inventory**: `aapp.planSession` launch failure → warning plus the `cd <path>` fallback; the plan's start has already succeeded.
+- **Fallback Inventory**: `aapp.planSession` launch failure → warning plus the `cd <path>` fallback; the plan's start has already succeeded. No other fallback: kit links never fall back to copies.
 - Default `off`: nothing changes for existing repositories until they opt in.
+- Symlinks on Windows (Git Bash) are untested: listed as a risk in MANUAL §14.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: `tests/verbs/start.sh`: with `on`, `start` creates the templated branch from `aapp.devBranch` and the worktree, binds the plan there, records `**Worktree:**`; refusals (existing branch or path, missing base, dirty primary checkout); `worktree`/`branch` tokens override; an `on-start` hook that renames the branch and moves the worktree is reflected in the record and the printed path; a failing `on-start` refuses and leaves no worktree or branch; `aapp.planSession` runs detached in the worktree with the placeholders and environment filled in, `start` returns without waiting, and a failing session command only warns; `off` changes nothing.
-- [ ] Task 1.2: `tests/worktree_hooks_test.sh`: from a plan worktree, the guard confines to the plan's files and `aapp commit` records the commit in the plan.
-- [ ] Task 1.3: `tests/verbs/done.sh`: `done` from a plan worktree archives; refuses with uncommitted changes there; worktree removal per Q1.
-- [ ] Task 1.4: `tests/install_test.sh`: the three keys seeded only when absent.
+- [ ] Task 1.1: `tests/verbs/start.sh`: with `on`, `start` creates the templated branch from the resolved development branch (candidate list; empty → default branch; none → refuse) without upstream (`--no-track`), creates the worktree with the four links and the `info/exclude` entries (links untracked, `git status` clean), binds the plan there and leaves the primary's buffer untouched, records `**Worktree:**` relative to the primary and `**Base:**` from the new worktree; refusals (existing branch or path, no base); a dirty primary only prints a notice; `worktree`/`branch` tokens override; an `on-start` hook that renames the branch and moves the worktree is reflected in the record and the printed path; a failing `on-start`, a failing link or a failing start commit rolls back fully, keeping the developer's prior uncommitted plan edits; `aapp.planSession` runs detached in the worktree with quoted placeholders and the environment filled in, `start` returns without waiting, and a failing session command only warns; `off` changes nothing.
+- [ ] Task 1.2: `tests/worktree_hooks_test.sh`: from a plan worktree, the hook runs, the guard confines to the plan's files, an absolute-path write to the primary's `.plans` is allowed, `aapp commit` records the commit in the plan, and `git rebase <devBranch>` passes while finishing a conflicted merge is refused.
+- [ ] Task 1.3: `tests/verbs/done.sh`: `done` from a plan worktree archives; refuses with uncommitted changes there; run from the primary, it clears the holding worktree's buffer; prints the removal command with the ignored-files warning and leaves the worktree.
+- [ ] Task 1.4: `tests/verbs/issue.sh`: `aapp issue fix` refuses inside a recorded plan worktree and prints the primary path; allowed with `off`.
+- [ ] Task 1.5: `tests/verbs/status.sh`: the worktree is shown next to its plan.
+- [ ] Task 1.6: `tests/install_test.sh`: the three keys seeded only when absent.
 
 ### Phase 2: Implementation
 - [ ] Task 2.1: Config seeding in `lib/cmd_init.sh`.
-- [ ] Task 2.2: Template rendering, worktree creation, binding and `**Worktree:**` record in `lib/cmd_plan.sh`; `worktree`/`branch` tokens.
-- [ ] Task 2.3: `aapp done` checks (and Q1 removal) in `lib/cmd_plan.sh`.
-- [ ] Task 2.4: `on-start` dispatched after creation with `worktree` and `branch`; rollback on failure; read back the actual worktree before recording.
-- [ ] Task 2.6: `aapp.planSession`: render placeholders, export the environment, launch detached, warn on failure.
-- [ ] Task 2.5: Contracts `lib/docs/verbs/start.md`, `freeze-start.md`, `done.md`.
+- [ ] Task 2.2: Development-branch resolver and template rendering in `lib/aapp-lib.sh`.
+- [ ] Task 2.3: Worktree creation (`--no-track`), links and excludes, binding, read-back, relative `**Worktree:**` and `**Base:**` records, snapshot rollback; `worktree`/`branch` tokens; in `lib/cmd_plan.sh`.
+- [ ] Task 2.4: `on-start` dispatched after creation with `worktree` and `branch`, inside the rollback scope.
+- [ ] Task 2.5: `aapp done`: uncommitted check, holding-buffer cleanup, removal advice, in `lib/cmd_plan.sh`.
+- [ ] Task 2.6: `aapp.planSession`: quoted placeholders, environment, detached launch, warn on failure.
+- [ ] Task 2.7: Plan-worktree refusal in `lib/cmd_issue.sh`; worktree column in `lib/cmd_status.sh`.
+- [ ] Task 2.8: Contracts `lib/docs/verbs/start.md`, `freeze-start.md` (Base from the new worktree), `done.md`, `issue.md`, `status.md`.
 
 ### Phase 3: Agent Text, Docs & Verification
-- [ ] Task 3.1: `templates/skills/aapp-start/SKILL.md`; AGENTS.md (both).
-- [ ] Task 3.2: `MANUAL.md`, `CHEATSHEET.md` (config rows), `ARCHITECTURE.md`, `.agents/CODEMAP.md`.
+- [ ] Task 3.1: skills `aapp-start`, `aapp-done`; `templates/plan-template.md`; AGENTS.md (both) (2.6).
+- [ ] Task 3.2: `MANUAL.md` (plan worktrees; `aapp.devBranch` rows made consistent; §14 Windows symlinks), `CHEATSHEET.md` (config rows), `ARCHITECTURE.md`, `.agents/CODEMAP.md`.
 - [ ] Task 3.3: Run `./aapp test strict quiet`.
 
 ---
@@ -125,27 +144,36 @@ git config aapp.planSession 'code {path}'
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `lib/cmd_init.sh` -> Seed the three config keys.
-- [ ] `lib/cmd_plan.sh` -> Worktree creation in `start` / `freeze-start`; tokens; `done` checks.
-- [ ] `lib/aapp-lib.sh` -> Template rendering helper.
+- [ ] `lib/cmd_plan.sh` -> Worktree creation, links, records and rollback in `start` / `freeze-start`; tokens; `done` checks and buffer cleanup.
+- [ ] `lib/cmd_issue.sh` -> Refuse `fix` inside a plan worktree.
+- [ ] `lib/cmd_status.sh` -> Worktree next to its plan.
+- [ ] `lib/aapp-lib.sh` -> Template rendering and development-branch resolver.
 - [ ] `lib/docs/verbs/start.md` -> Contract.
 - [ ] `lib/docs/verbs/freeze-start.md` -> Contract.
 - [ ] `lib/docs/verbs/done.md` -> Contract.
+- [ ] `lib/docs/verbs/issue.md` -> Plan-worktree refusal.
+- [ ] `lib/docs/verbs/status.md` -> Worktree column.
 - [ ] `tests/verbs/start.sh` -> Worktree creation tests.
 - [ ] `tests/verbs/freeze-start.sh` -> Same through `freeze-start`.
 - [ ] `tests/verbs/done.sh` -> `done` from a plan worktree.
+- [ ] `tests/verbs/issue.sh` -> Plan-worktree refusal.
+- [ ] `tests/verbs/status.sh` -> Worktree column.
 - [ ] `tests/worktree_hooks_test.sh` -> Guard and commit from a plan worktree.
 - [ ] `tests/install_test.sh` -> Config seeding.
-- [ ] `templates/skills/aapp-start/SKILL.md` -> Continue in the plan worktree.
+- [ ] `templates/skills/aapp-start/SKILL.md` -> Continue in the plan worktree; BLOCKED hand-off; rebase.
+- [ ] `templates/skills/aapp-done/SKILL.md` -> Worktree removal advice.
+- [ ] `templates/plan-template.md` -> Invariant 5 in a plan worktree.
 - [ ] `templates/AGENTS.md` -> Where plan work and fixes happen.
 - [ ] `.agents/AGENTS.md` -> Same as the template.
-- [ ] `MANUAL.md` -> Plan worktrees.
+- [ ] `MANUAL.md` -> Plan worktrees; `aapp.devBranch` rows; §14 Windows symlinks.
 - [ ] `CHEATSHEET.md` -> Config rows, incl. `aapp.planSession`.
 - [ ] `ARCHITECTURE.md` -> Plan worktrees in the lifecycle.
 - [ ] `.agents/CODEMAP.md` -> Helper and behaviour.
 - [ ] `CHANGELOG.md` -> Entry written by `aapp commit` from the declaration.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `templates/blast-radius-guard.sh` -> Path handling is #84's fix, not this plan's.
+- [ ] `templates/blast-radius-guard.sh` -> #84 is fixed beforehand through `aapp issue fix` (Q3); held-plan handling is P-52's.
+- [ ] `templates/aapp-pre-commit` -> Branch protection keeps its own development-branch reading.
 - [ ] `.githooks/*` -> Refreshed from `templates/` by `aapp init`.
 - [ ] `.agents/skills/*` -> Refreshed from `templates/skills/` by `aapp init`.
 - [ ] `lib/verbs.tsv` -> No new verbs.
@@ -153,14 +181,15 @@ git config aapp.planSession 'code {path}'
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 — Does `aapp done` remove the plan's worktree?** (a) No: it prints the `git worktree remove` command; the developer removes it after integrating (squash/merge). (b) Yes, when the worktree is clean and its branch is already merged into `aapp.devBranch`; otherwise it prints the command. Recommendation: (a) — `done` usually runs before the squash, so (b) would rarely apply and adds a merge check.
+* [x] **Question 1 — Does `aapp done` remove the plan's worktree? → RESOLVED (developer, 2026-10-04): (a), with the ignored-files warning (2.4).** (a) No: it prints the `git worktree remove` command; the developer removes it after integrating (squash/merge). (b) Yes, when the worktree is clean and its branch is already merged into `aapp.devBranch`; otherwise it prints the command. Recommendation: (a) — `done` usually runs before the squash, so (b) would rarely apply and adds a merge check.
 * [x] **Question 2 — Should `on-start` be able to choose the names? → RESOLVED (developer, 2026-10-04): yes, by acting, not by returning data.** The hook keeps the pass/fail contract and may rename the branch or move the worktree itself; the kit reads back the actual names before recording, and rolls back what it created if the hook fails (2.2).
-* [ ] **Question 3 — Order with #84.** The guard's path relativisation bug (#84) bites in exactly the situation this plan makes normal (working inside a linked worktree). Fix #84 first (as a P-52 issue fix once that ships), or fold it into this plan's file list?
+* [x] **Question 3 — Order with #84. → RESOLVED (developer, 2026-10-04): fixed first through `aapp issue fix`, after P-52 ships.** The guard's path relativisation bug (#84) bites in exactly the situation this plan makes normal (working inside a linked worktree). Fix #84 first (as a P-52 issue fix once that ships), or fold it into this plan's file list?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-04:** Refined from the P-52/P-54 review RFC (C1–C5, C7, C12, C13, C17–C21, C27–C30, C51, C58; user decisions on C17, C51, Q1, Q3): kit links and `info/exclude` at start, failing closed; `--no-track`; development-branch resolver; relative `Worktree:` and Base from the new worktree; no dirty-primary refusal; all-or-nothing rollback from a snapshot; `done` clears the holding buffer and warns that removal deletes ignored files; quoted session placeholders and `AAPP_PLAN_FILE`; `issue fix` refused in plan worktrees with a BLOCKED hand-off; rebase only; worktree shown in `aapp status`; Q1 (a), Q3 (#84 first).
 * **2026-10-04:** Added `aapp.planSession`: a personal command template run detached after the start commit to open an agent session (any vendor), terminal or editor in the plan's worktree; first step towards multi-agent work, task hand-off left to the Work Dispatch Queue idea.
 * **2026-10-04:** Q2 resolved: `on-start` renames by acting (pass/fail contract unchanged); start order is create → hook → read back → record → commit, with rollback on hook failure.
 * **2026-10-04:** Drafted from the developer's proposal: `aapp start` creates the plan's branch and worktree (opt-in), names from config templates with the development branch as base, `on-start` notified; foundation for P-52's rule that issue fixes land on the development branch.
