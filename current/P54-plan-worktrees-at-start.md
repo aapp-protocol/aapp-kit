@@ -2,7 +2,7 @@
 * **Created:** 2026-10-04 | **Last Refined:** 2026-10-04
 * **Target Issue / Milestone:** None (foundation for P-52)
 * **Plan ID:** P-54
-* **Changelog:** Added: `aapp start` can create a dedicated branch and worktree for each plan (`aapp.planWorktrees`)
+* **Changelog:** Added: `aapp start` can create a branch and worktree per plan (`aapp.planWorktrees`) and open a session there (`aapp.planSession`)
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Commits:** none
@@ -58,7 +58,8 @@ With `aapp.planWorktrees = on`, in this order:
 3. `git worktree add -b <branch> <path> <devBranch>` and binds the plan to the new worktree (its active-plan buffer, P-39's per-worktree binding, so the "held elsewhere" check keeps working);
 4. dispatches `on-start` with the created `worktree` and `branch` in its `data`. The hook keeps the pass/fail contract; inside, it may rename the branch (`git branch -m`) or move the worktree (`git worktree move`) to fit the team's conventions. Exit non-zero → `aapp start` refuses and **rolls back**: removes the worktree and branch it created, leaving no trace;
 5. reads back where the plan's worktree actually is (`git worktree list`, the lookup P-39 uses to find the worktree holding a plan) and records `* **Worktree:** <path> (<branch>)` in the plan header (data only, like P-51's record) — so a hook's renaming is reflected;
-6. the start commit, as today; prints the real path and the next step: `cd <path>` (or open a new agent session there).
+6. the start commit, as today; prints the real path;
+7. opens a session there per `aapp.planSession` (2.6), else prints the next step: `cd <path>`.
 
 Optional override token: `aapp start <id> worktree <path> [branch <name>]` — explicit names win over templates. With `aapp.planWorktrees = off`, the token alone creates the worktree for that one plan.
 
@@ -70,13 +71,26 @@ Optional override token: `aapp start <id> worktree <path> [branch <name>]` — e
 - Refuses when run with uncommitted changes in the plan's worktree.
 - Does not merge and does not delete the branch: integration (squash or merge) stays the developer's or the team tooling's step. Worktree removal per Q1.
 
+### 2.6 Opening a session in the plan's worktree: `aapp.planSession`
+A personal, per-clone command template (not seeded; empty by default) that `aapp start` / `aapp freeze-start` run after the start commit, so a new agent session, another vendor's CLI or an editor opens in the plan's worktree:
+```
+git config aapp.planSession 'tmux new-window -c {path} -n {id} claude'
+git config aapp.planSession 'gnome-terminal --working-directory={path} -- gemini'
+git config aapp.planSession 'code {path}'
+```
+- Placeholders: `{path}` (the actual worktree, read back after `on-start`), `{id}`, `{branch}`, `{slug}`; also exported as `AAPP_PLAN_ID`, `AAPP_WORKTREE`, `AAPP_BRANCH`.
+- Run **detached** in the worktree and never waited on: `aapp start` is often invoked by an agent, and an interactive session inside that command would hang it. Output goes to `$(git rev-parse --git-path aapp_session.log)` of the plan's worktree.
+- A launch failure only warns and prints the `cd <path>` fallback: the plan has started and its worktree exists (registered in the Fallback Inventory).
+- A config, not `on-start`: hooks are registered and hash-locked per repository (team gates); the session tool is each developer's own choice.
+- Out of scope: giving the new session its task (e.g. "work on P-51"). Prompt passing differs per vendor; it belongs to the *Work Dispatch Queue* pickup idea, where agents claim plans.
+
 ### 2.5 Agent-facing text
 - `templates/skills/aapp-start/SKILL.md`: after `aapp start`, continue in the printed worktree path.
 - AGENTS.md (both copies): plan work happens in the plan's worktree when `aapp.planWorktrees = on`; issue fixes happen in the main checkout on the development branch (P-52).
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
-- **Fallback Inventory**: `None (Clean Break)`
+- **Fallback Inventory**: `aapp.planSession` launch failure → warning plus the `cd <path>` fallback; the plan's start has already succeeded.
 - Default `off`: nothing changes for existing repositories until they opt in.
 
 ---
@@ -84,7 +98,7 @@ Optional override token: `aapp start <id> worktree <path> [branch <name>]` — e
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: `tests/verbs/start.sh`: with `on`, `start` creates the templated branch from `aapp.devBranch` and the worktree, binds the plan there, records `**Worktree:**`; refusals (existing branch or path, missing base, dirty primary checkout); `worktree`/`branch` tokens override; an `on-start` hook that renames the branch and moves the worktree is reflected in the record and the printed path; a failing `on-start` refuses and leaves no worktree or branch; `off` changes nothing.
+- [ ] Task 1.1: `tests/verbs/start.sh`: with `on`, `start` creates the templated branch from `aapp.devBranch` and the worktree, binds the plan there, records `**Worktree:**`; refusals (existing branch or path, missing base, dirty primary checkout); `worktree`/`branch` tokens override; an `on-start` hook that renames the branch and moves the worktree is reflected in the record and the printed path; a failing `on-start` refuses and leaves no worktree or branch; `aapp.planSession` runs detached in the worktree with the placeholders and environment filled in, `start` returns without waiting, and a failing session command only warns; `off` changes nothing.
 - [ ] Task 1.2: `tests/worktree_hooks_test.sh`: from a plan worktree, the guard confines to the plan's files and `aapp commit` records the commit in the plan.
 - [ ] Task 1.3: `tests/verbs/done.sh`: `done` from a plan worktree archives; refuses with uncommitted changes there; worktree removal per Q1.
 - [ ] Task 1.4: `tests/install_test.sh`: the three keys seeded only when absent.
@@ -94,6 +108,7 @@ Optional override token: `aapp start <id> worktree <path> [branch <name>]` — e
 - [ ] Task 2.2: Template rendering, worktree creation, binding and `**Worktree:**` record in `lib/cmd_plan.sh`; `worktree`/`branch` tokens.
 - [ ] Task 2.3: `aapp done` checks (and Q1 removal) in `lib/cmd_plan.sh`.
 - [ ] Task 2.4: `on-start` dispatched after creation with `worktree` and `branch`; rollback on failure; read back the actual worktree before recording.
+- [ ] Task 2.6: `aapp.planSession`: render placeholders, export the environment, launch detached, warn on failure.
 - [ ] Task 2.5: Contracts `lib/docs/verbs/start.md`, `freeze-start.md`, `done.md`.
 
 ### Phase 3: Agent Text, Docs & Verification
@@ -124,7 +139,7 @@ Optional override token: `aapp start <id> worktree <path> [branch <name>]` — e
 - [ ] `templates/AGENTS.md` -> Where plan work and fixes happen.
 - [ ] `.agents/AGENTS.md` -> Same as the template.
 - [ ] `MANUAL.md` -> Plan worktrees.
-- [ ] `CHEATSHEET.md` -> Config rows.
+- [ ] `CHEATSHEET.md` -> Config rows, incl. `aapp.planSession`.
 - [ ] `ARCHITECTURE.md` -> Plan worktrees in the lifecycle.
 - [ ] `.agents/CODEMAP.md` -> Helper and behaviour.
 - [ ] `CHANGELOG.md` -> Entry written by `aapp commit` from the declaration.
@@ -146,5 +161,6 @@ Optional override token: `aapp start <id> worktree <path> [branch <name>]` — e
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-04:** Added `aapp.planSession`: a personal command template run detached after the start commit to open an agent session (any vendor), terminal or editor in the plan's worktree; first step towards multi-agent work, task hand-off left to the Work Dispatch Queue idea.
 * **2026-10-04:** Q2 resolved: `on-start` renames by acting (pass/fail contract unchanged); start order is create → hook → read back → record → commit, with rollback on hook failure.
 * **2026-10-04:** Drafted from the developer's proposal: `aapp start` creates the plan's branch and worktree (opt-in), names from config templates with the development branch as base, `on-start` notified; foundation for P-52's rule that issue fixes land on the development branch.
