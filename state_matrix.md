@@ -19,6 +19,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-49**: [`P49-refine-subject-precheck.md`](current/P49-refine-subject-precheck.md) — Refine Subject Precheck
 - 🟣 **P-50**: [`P50-plan-links-promotion-and-ledger-commits.md`](current/P50-plan-links-promotion-and-ledger-commits.md) — Plan Links Promotion And Ledger Commits
 - 🟣 **P-51**: [`P51-shared-docs-concurrency-commit-mode.md`](current/P51-shared-docs-concurrency-commit-mode.md) — Shared Docs Concurrency Commit Mode
+- 🟣 **P-52**: [`P52-issue-fix-mini-plans.md`](current/P52-issue-fix-mini-plans.md) — Issue Fix Mini Plans
 
 ---
 
