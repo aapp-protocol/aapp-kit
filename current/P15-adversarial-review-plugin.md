@@ -374,6 +374,61 @@ active blueprints. Populate at refinement.)*
 
   Steps 1–2 touch the kit's core, so they may deserve a plan of their own rather than living inside
   this sketch.
+* **F18 — Prompt framing, empirical scratch testing, and phased inquiry lenses govern review veracity (observed in the P-52/P-54 RFC).**
+  Observability data and prompt logs from the multi-round P-52/P-54 review (2026-10-04) yielded five
+  concrete findings for P-15's automated review orchestrator:
+
+  1. **Per-turn consequence-directed probes vs. static preambles (C32, C39, C42).**
+     A static header rule ("agreement is not evidence") was completely ineffective at preventing consensus
+     collapse (round 3 yielded 14/14 blanket agreement). Furthermore, a generic re-inspection brake
+     ("look again at kit internals, analyze possibilities, then judge") produced zero corrections because an
+     agent satisfies it by re-reading and confirming. Only an explicit *consequence-directed probe*
+     ("analyze the real consequences against real code in the kit and proposed implementations") broke the
+     agreement cascade and forced the discovery of 12 plumbing hazards (C15–C26).
+     *Rule for P-15:* The review orchestrator cannot rely on a static preamble or opening prompt. It must
+     inject per-turn consequence-directed probes into every evaluation step, mandating that agents trace
+     proposed changes against concrete `file:line` locations and tests before agreeing.
+
+  2. **Empirical scratch-repository testing vs. textual inference (C33, C46).**
+     Textual deduction repeatedly made confident but false inferences about Git plumbing:
+     - Relative `core.hooksPath` in sibling worktrees silently skipped hooks.
+     - `.gitignore` entry `.githooks/` failed to ignore symlinks (`?? .githooks`).
+     - Staged diff of a conflicted merge brought in out-of-scope upstream files (`fix.txt`), which the plan's pre-commit hook refused.
+     - `git branch -d` failed with exit code 1 after a squash merge because the commit was not an ancestor.
+     - `git worktree remove` silently and permanently deleted untracked ignored files (`.env`).
+     *Rule for P-15:* Claims labeled "tested" or "verified" without an artifact are indistinguishable from
+     unverified inference. Any mechanical verification must include a one-line reproduction command sequence
+     (in an isolated scratch repository) or explicitly declare itself "read-only inference".
+
+  3. **Inquiry stance and leading questions (C44, C45).**
+     Question formulation directly biases review output:
+     - Leading affirmative prompts ("Does this allow smooth X?") prompted immediate confirmation bias ("Yes, decisively").
+     - Neutral negative-space prompts ("What does X still need that this does not provide?", "What must NOT change?") immediately surfaced critical omissions (atomic start rollback C27, ignored file deletion C29, status observability C30).
+     - Provenance probes ("which round, which line?") caught confident but mistaken attributions (C37, C38).
+
+  4. **Multi-lens prompt sequencing without instruction overload (C41–C50).**
+     Packing all evaluation criteria into a single prompt overloads agents and dilutes scrutiny. A staged,
+     single-lens sequence proved effective:
+     - *Lens 1 (Grounded Review):* Anchor strictly to code paths, call sites, and neighboring plans.
+     - *Lens 2 (Consequence Challenge):* Trace breakage on existing code; scrutinize self-agreement.
+     - *Lens 3 (Completeness & Invariants):* Enumerate all instances across the codebase; declare what must *not* change.
+     - *Lens 4 (Proposals & Gaps):* Justify changes with "why and advantage"; probe what downstream goals still lack.
+     - *Lens 5 (Provenance & Settlement):* Require reproduction scripts for tests; isolate human decisions.
+
+  5. **Physical decoupling of review findings from process telemetry (§6).**
+     Mingling meta-review observations (prompt effects, agent interactions) with architectural findings
+     caused conversational drift and caused agents to skip technical review items (Claude round 7 drifted into
+     observability and missed plan items C15–C26 until corrected).
+     *Rule for P-15:* Review artifacts must strictly segregate technical blueprint findings (§3), human decisions (§4),
+     and meta-review/telemetry logs (§6).
+
+  Counter-arguments and limits:
+  * **Token & latency cost:** A 5-lens sequenced review takes multiple round-trips. For Tier L plans this is
+    unacceptable overhead; sequenced lenses should be reserved for Tier A or high-blast-radius plans.
+  * **Confounding variables:** In the RFC, agent model and prompt wording often changed together, so prompt
+    impact is correlated rather than isolated. P-15 can run automated A/B evaluations on identical models.
+  * **Sandbox execution:** Running live Git tests requires an isolated scratch directory to avoid race
+    conditions or contaminating the host repository.
 
 ---
 
@@ -404,3 +459,5 @@ active blueprints. Populate at refinement.)*
 * **2026-09-28:** Added F17: a standard plan-format parser (written spec, shared conformance
   fixtures, format version) that the plugin mirrors — in Perl, per the user — as its base, with
   counter-arguments. Findings only; steps 1–2 may warrant their own plan.
+* **2026-10-04:** Added F18 to §5 from the P-52/P-54 worktrees RFC: prompt framing governs review veracity (per-turn consequence probes over static preambles; empirical scratch testing over textual inference; neutral negative-space questions; 5-lens prompt sequencing; and structural decoupling of review findings from process telemetry). Findings only.
+
