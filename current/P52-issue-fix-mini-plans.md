@@ -36,6 +36,7 @@ Small fixes have no safe, recorded path:
 2. **Same-file hazard.** A fix made in the same files as a plan in development mixes into that plan's commits: whoever commits first stages both edits.
 3. **Emergency hotfixes fight the design lock (#87).** A blocking bug outside a plan's files must be added under *Emergency Hotfix Extensions* in the plan's §4, which the design lock refuses once frozen — forcing a Refining → freeze → start round trip (twice during P-48).
 4. **No record of small fixes beyond the issue row**, and no file confinement while making them.
+5. **Unbound checkouts adopt plans held elsewhere.** With no buffer, the guard, the hook (also its changelog check), `aapp commit` and `aapp active` take the single `⚡` plan as active even when another worktree holds it, so a checkout next to a plan's worktree is confined to that plan, or refused when two run. Mini plans are `⚡` too and would add to it (RFC C11, C15).
 
 **Goal:** a small or emergency fix gets a **temporary mini plan** scoped to one issue and its files: created when the fix starts, deleted when it completes. The issue row (with the fix commit's SHA) is the permanent record; no ledger row, no archive file, no plan number. No new verb: it is a subcommand of `aapp issue`.
 
@@ -48,6 +49,7 @@ Refuses, with nothing written, when:
 - `#<num>` is not an active row in `ISSUES.md`;
 - no `file` is given, or a fix for `#<num>` is already in progress (its mini plan exists);
 - any listed file (except shared docs, P-48) is in the file list of a plan in development, or of another mini plan: `❌ P-51 is changing lib/cmd_commit.sh; make the fix inside P-51 or wait.`
+- any listed file is in the file list of a `🟥 BLOCKED` plan, whose files the guard and hook refuse in every checkout: `❌ lib/x.sh belongs to blocked P-51; fix it inside P-51 (it is in its bounds) or unblock first.`
 
 Then, in one `plans_commit` (`fix(start): #<num>`):
 - creates `current/fix-<num>.md`: `Plan ID: #<num>`, `Target Issue: #<num>`, `Status: ⚡ In Development`, `Changelog: Fixed: <row's Target Plan / Fix text>` (editable), `Commits: none`, and a §4 file list of exactly the given files;
@@ -67,13 +69,18 @@ When `current/fix-<num>.md` exists:
 Deletes the mini plan and restores the buffer without closing the issue; refuses if the mini plan recorded commits (close it instead).
 
 ### 2.5 No-plan rule in guard and hook (#98)
-The frozen-plan special case is removed from `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit`: whether or not plans are frozen, behaviour depends only on plans (and mini plans) in development. See Q1 for what "no plan in development" allows.
+The frozen-plan special case is removed from `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit`: whether or not plans are frozen, behaviour depends only on plans (and mini plans) in development. With none in development, edits are allowed (Q1), subject to 2.6's rule for plans held elsewhere.
 
-### 2.6 Recognising mini plans
-`current/fix-<num>.md` files are not `P-xx` plans: the plan resolver, Pair 4 (Plan ID integrity), the state matrix and `aapp plan-status` skip them, and the plan-numbering seed ignores them. The guard, hook and `aapp commit` treat them as in-development plans (2.2).
+### 2.6 Plans held by another worktree
+- **Discovery skips them.** A library helper in `lib/aapp-lib.sh` lists the `⚡` plans (and mini plans) not held by another worktree's buffer. It reads `git worktree list` once and each worktree's buffer once, skips the current worktree and worktrees whose directory is gone (as `find_worktree_holding_plan` does). All five single-plan discovery sites use it: the guard, the hook's plan check, the hook's changelog check, `aapp commit` and `aapp active` without an id.
+- **Overlap checks do not.** The activation gate (`check_disjointness_activation_gate`) and Pair 7 keep counting every `⚡` plan: overlap across worktrees is what they detect.
+- **Their files stay protected.** In a checkout with no buffer, the guard and the hook refuse files in the Target Files of a plan held elsewhere (shared docs excepted, P-48), mirroring the existing refusal for `🟥 BLOCKED` plans' files: `❌ lib/x.sh belongs to P-51 (in ../repo-P51).` All other files follow Q1.
 
-### 2.7 Agent-facing text
-- `templates/AGENTS.md` / `.agents/AGENTS.md`: small fixes and blocking mid-plan bugs go through `aapp issue allocate` → `aapp issue fix` → `aapp commit` → `aapp issue close`; *Emergency Hotfix Extensions* is retired from invariant 5 and Issue Escape Triage. CLI Reference row for `aapp issue` shows `fix`.
+### 2.7 Recognising mini plans
+`current/fix-<num>.md` files are not `P-xx` plans: the plan resolver, Pair 4 (Plan ID integrity), the state matrix and `aapp plan-status` skip them, and the plan-numbering seed ignores them. The guard, hook and `aapp commit` treat them as in-development plans (2.2), including 2.6.
+
+### 2.8 Agent-facing text
+- `templates/AGENTS.md` / `.agents/AGENTS.md`: small fixes and blocking mid-plan bugs in files outside the plan go through `aapp issue allocate` → `aapp issue fix` → `aapp commit` → `aapp issue close`; *Emergency Hotfix Extensions* is retired from invariant 5 and Issue Escape Triage. A bug in a file the plan already owns is plan work, not an issue fix. CLI Reference row for `aapp issue` shows `fix`.
 - `templates/plan-template.md`: invariant 5 "Blocking & small" points to `aapp issue fix`.
 - Skills: `aapp-start` (blocking bug mid-plan), `aapp-digest` (small fix path).
 
@@ -81,6 +88,7 @@ The frozen-plan special case is removed from `templates/blast-radius-guard.sh` a
 - **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
 - Existing plans keep any *Emergency Hotfix Extensions* they already list; new hotfixes use `aapp issue fix`.
+- Checkouts with no buffer next to a worktree holding a plan (P-39 worktrees made by hand) no longer adopt that plan: its files are refused there, all other files are free (2.6).
 
 ---
 
@@ -89,16 +97,18 @@ The frozen-plan special case is removed from `templates/blast-radius-guard.sh` a
 ### Phase 1: Tests First (red)
 - [ ] Task 1.1: `tests/verbs/issue.sh`: `fix` creates the mini plan and binds the buffer in one commit; refusals (inactive issue, no file, fix already open, file owned by a plan in development); edits outside the files refused by the guard; `close` archives with the fix SHA and file list, deletes the mini plan and restores the previous buffer; `close` with no commit refused; `abort` removes an uncommitted fix and refuses a committed one.
 - [ ] Task 1.2: `tests/write-guard_test.sh` and `tests/pre-commit_test.sh`: a frozen plan no longer blocks edits (#98); a mini plan confines like a plan.
-- [ ] Task 1.3: `tests/plan_resolver_test.sh`: Pair 4 and the resolver ignore `fix-<num>.md`; `tests/verbs/matrix.sh`: the matrix does not list it.
+- [ ] Task 1.3: `tests/write-guard_test.sh`, `tests/pre-commit_test.sh`, `tests/verbs/commit.sh`, `tests/verbs/active.sh`: with a plan bound in another worktree, an unbound checkout does not adopt it (guard, hook, changelog check, `aapp commit`, `aapp active`) and is refused that plan's files but not others; the activation gate still sees the held plan. `tests/verbs/issue.sh`: `fix` refuses a file of a `🟥 BLOCKED` plan.
+- [ ] Task 1.4: `tests/plan_resolver_test.sh`: Pair 4 and the resolver ignore `fix-<num>.md`; `tests/verbs/matrix.sh`: the matrix does not list it.
 
 ### Phase 2: Implementation
 - [ ] Task 2.1: `fix`, `fix … abort` and the mini-plan path of `close` in `lib/cmd_issue.sh`.
 - [ ] Task 2.2: Remove the frozen special case in `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit` (Q1 rule).
-- [ ] Task 2.3: Mini-plan recognition in `lib/plan_resolver.sh`, `lib/planning_health.sh`, `lib/cmd_matrix.sh`, `lib/cmd_plan.sh`, `lib/cmd_init.sh` (seed).
-- [ ] Task 2.4: Contract `lib/docs/verbs/issue.md`.
+- [ ] Task 2.3: Unbound-plan helper in `lib/aapp-lib.sh`; use it at the five discovery sites (guard, hook ×2, `lib/cmd_commit.sh`, `aapp active` in `lib/cmd_plan.sh`); held plans' files refused in unbound checkouts (2.6).
+- [ ] Task 2.4: Mini-plan recognition in `lib/plan_resolver.sh`, `lib/planning_health.sh`, `lib/cmd_matrix.sh`, `lib/cmd_plan.sh`, `lib/cmd_init.sh` (seed).
+- [ ] Task 2.5: Contracts `lib/docs/verbs/issue.md`, `lib/docs/verbs/commit.md`, `lib/docs/verbs/active.md`.
 
 ### Phase 3: Agent Text, Docs & Verification
-- [ ] Task 3.1: AGENTS.md (both), `templates/plan-template.md`, skills `aapp-start`, `aapp-digest` (2.7).
+- [ ] Task 3.1: AGENTS.md (both), `templates/plan-template.md`, skills `aapp-start`, `aapp-digest` (2.8).
 - [ ] Task 3.2: `MANUAL.md`, `CHEATSHEET.md`, `.agents/CODEMAP.md`, `ARCHITECTURE.md`.
 - [ ] Task 3.3: Run `./aapp test strict quiet`; then fix #97 through `aapp issue fix 97` as the first real use.
 
@@ -111,17 +121,23 @@ The frozen-plan special case is removed from `templates/blast-radius-guard.sh` a
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `lib/cmd_issue.sh` -> `fix`, `fix … abort`, mini-plan path of `close`.
-- [ ] `templates/blast-radius-guard.sh` -> Drop the frozen special case.
-- [ ] `templates/aapp-pre-commit` -> Drop the frozen special case.
+- [ ] `templates/blast-radius-guard.sh` -> Drop the frozen special case; skip and protect held plans (2.6).
+- [ ] `templates/aapp-pre-commit` -> Drop the frozen special case; skip and protect held plans, plan and changelog checks (2.6).
 - [ ] `lib/plan_resolver.sh` -> Skip mini plans.
 - [ ] `lib/planning_health.sh` -> Pair 4 skips mini plans.
 - [ ] `lib/cmd_matrix.sh` -> Matrix skips mini plans.
-- [ ] `lib/cmd_plan.sh` -> `plan-status` and plan scans skip mini plans.
+- [ ] `lib/cmd_plan.sh` -> `plan-status` and plan scans skip mini plans; `aapp active` discovery skips held plans.
+- [ ] `lib/aapp-lib.sh` -> Unbound-plan helper (2.6).
+- [ ] `lib/cmd_commit.sh` -> Discovery skips held plans.
 - [ ] `lib/cmd_init.sh` -> Plan-number seed ignores mini plans.
 - [ ] `lib/docs/verbs/issue.md` -> Contract: `fix`, `abort`, close of a fix.
+- [ ] `lib/docs/verbs/commit.md` -> Discovery skips held plans.
+- [ ] `lib/docs/verbs/active.md` -> Discovery skips held plans.
 - [ ] `tests/verbs/issue.sh` -> Mini-plan lifecycle tests.
 - [ ] `tests/write-guard_test.sh` -> Frozen plans don't block; mini plan confines.
 - [ ] `tests/pre-commit_test.sh` -> Same at commit time.
+- [ ] `tests/verbs/commit.sh` -> Held plans not adopted.
+- [ ] `tests/verbs/active.sh` -> Held plans not adopted.
 - [ ] `tests/plan_resolver_test.sh` -> Resolver and Pair 4 ignore mini plans.
 - [ ] `tests/verbs/matrix.sh` -> Matrix ignores mini plans.
 - [ ] `templates/plan-template.md` -> Invariant 5 points to `aapp issue fix`.
@@ -144,10 +160,11 @@ The frozen-plan special case is removed from `templates/blast-radius-guard.sh` a
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 — With no plan or mini plan in development, are code edits allowed?** (a) **Allowed**, as when no plan exists today; `aapp issue fix` is the recommended path but not forced. Frees small fixes immediately; such fixes leave only the issue row and commit as record. (b) **Refused**: every code edit needs a plan or a mini plan in development, so every change has a scoped record; a fresh repository needs `aapp issue fix` (or a plan) before its first edit. Recommendation: (a) — it is the direct fix for #98 ("a frozen plan should not block a small fix"); while a plan *is* in development, non-plan files are refused anyway, so `aapp issue fix` becomes the natural path exactly when it matters.
+* [x] **Question 1 — With no plan or mini plan in development, are code edits allowed? → RESOLVED (developer, 2026-10-04): (a), with held plans' files refused (2.6).** (a) **Allowed**, as when no plan exists today; `aapp issue fix` is the recommended path but not forced. Frees small fixes immediately; such fixes leave only the issue row and commit as record. (b) **Refused**: every code edit needs a plan or a mini plan in development, so every change has a scoped record; a fresh repository needs `aapp issue fix` (or a plan) before its first edit. Recommendation: (a) — it is the direct fix for #98 ("a frozen plan should not block a small fix"); while a plan *is* in development, non-plan files are refused anyway, so `aapp issue fix` becomes the natural path exactly when it matters.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-04:** Refined from the P-52/P-54 review RFC (C11, C15, C16, C52, C53, C55; user decisions on Q1 and C17): plans held by another worktree are skipped by the five discovery sites and their files protected in unbound checkouts (2.6); `fix` refuses files of BLOCKED plans; bugs in a plan's own files stay plan work; Q1 resolved (a).
 * **2026-10-04:** Drafted from #98 and the developer's design: issue-scoped mini plans, created at the start of a fix and deleted at completion; the issue row is the record (no ledger, no archive, no plan number, no extra column); serves the emergency hotfix path (#87); a subcommand of `aapp issue`, no new verb.
