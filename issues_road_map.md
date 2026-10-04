@@ -39,6 +39,7 @@
 - [ ] #87 -> Emergency Hotfix Extensions live in design-locked §4, so they are refused once a plan is Frozen.
 - [ ] #92 -> `aapp test` runs other projects' tests (auto-detect, `aapp.testCommand`) outside the kit clone; should run kit suites only.
 - [ ] #93 -> Bare `aapp draft` offers only already-planned issues and hides incubated ones (emoji filter mismatch).
+- [ ] #98 -> A frozen plan blocks every direct fix while no plan is in development.
 - [ ] #97 -> `.gitattributes` written by `aapp init` is not always-allowed, so it cannot be committed without a plan.
 - [ ] #95 -> "Small" fix is undefined in invariant 5; default <10 changed lines, adopter override in `PROJECT.MD`.
 
