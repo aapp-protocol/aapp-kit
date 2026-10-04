@@ -1696,6 +1696,18 @@ A CLI cannot know which commit completes a plan, but the plan knows what it deli
 - A code commit with no active plan (a direct fix) must still change `CHANGELOG.md`, and so must every code commit in `commit` mode (`git config aapp.changelogMode commit`).
 - `aapp init` adds `CHANGELOG.md merge=union` to `.gitattributes` once, so entries added on two branches are both kept when they merge.
 
+**What to expect: the entry lands with the plan's *first* commit.** No tool can know which commit will be a plan's last, so the line is written when the plan starts committing, not when it finishes. Its **wording** always follows the plan's current declaration; its **position and history** reflect the start.
+
+| Day | Commit | `## [Unreleased]` → `### Fixed` |
+| :--- | :--- | :--- |
+| 1 | P-60's first commit (on `develop`) | `- Parser handles empty input (P-60)` |
+| 2 | emergency fix, no plan | `- Guard no longer crashes on symlinks` ← new line on top<br>`- Parser handles empty input (P-60)` |
+| 3 | P-60's last commit | unchanged: the plan's line stays below the fix |
+
+- Working on `develop` directly, the plan's line therefore sits *below* anything committed after the plan started, and `git log CHANGELOG.md` shows it in the plan's first commit.
+- On a feature branch merged with a squash, the whole plan arrives in `develop` as one commit carrying its one line, so the question doesn't arise.
+- To change the wording, edit the plan's `**Changelog:**` line and commit it with `aapp refine`; the next `aapp commit` updates the bullet in place (it does not move it).
+
 ### Shared Docs Never Block Concurrent Plans
 
 `CHANGELOG.md`, `README.md`, `MANUAL.md`, `CHEATSHEET.md`, `CODEMAP.md`, `ARCHITECTURE.md` and `ISSUES.md` are shared docs: two plans in development may both list them, and `aapp start` and planning health only print a `ℹ️  [Shared Doc]` notice. Sharing any other file (code, or a dependency manifest such as `package.json`) still blocks the second plan.
