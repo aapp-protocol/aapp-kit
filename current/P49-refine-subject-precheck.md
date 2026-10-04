@@ -1,8 +1,8 @@
-# 🗺️ Plan P-49: Refine Subject Precheck
-* **Created:** 2026-10-03 | **Last Refined:** 2026-10-03
+# 🗺️ Plan P-49: Refine Subject Precheck & Blocked Token
+* **Created:** 2026-10-03 | **Last Refined:** 2026-10-05
 * **Target Issue / Milestone:** None (follow-up to P-47 and P-28)
 * **Plan ID:** P-49
-* **Changelog:** Fixed: `aapp refine` checks the commit subject length and shape before committing
+* **Changelog:** Fixed: `aapp refine` checks the commit subject length and shape before committing; Added: `aapp refine <id> blocked <num>` sets a plan BLOCKED on an issue
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Commits:** none
@@ -36,6 +36,8 @@ A message containing a newline would also put text on line 2 of the commit messa
 
 **Goal:** `aapp refine` validates the subject it is about to write, with the same limit the gate uses, and refuses before any git work with an exact instruction. Same pattern as P-48's changelog check: catch it at the CLI, keep the gate as the backstop.
 
+
+**Also: blocking a plan has no command.** Setting a plan `🟥 BLOCKED` means hand-editing its Status line and adding `* **Blocked On:**`, then committing with `aapp refine`. The P-52/P-54 review (RFC C71) makes this the hand-off step for blocking bugs found in a plan worktree, so it should be one command. **Added goal:** a `blocked` token on `refine` (no new verb) sets both lines and commits them. The state matrix stays `aapp matrix`'s job: `aapp refine <id> blocked <num> && aapp matrix`.
 ---
 
 ## 2. Technical Blueprint
@@ -51,7 +53,12 @@ After resolving the plan and before `plans_commit`:
 - Both checks run before staging, so a refused call leaves the plan worktree unchanged; the plan file stays modified and the author retries with a shorter message.
 - The `commit-msg` gate is unchanged and still the final authority.
 
-### 2.2 Scope
+### 2.2 `aapp refine <id> blocked <num>` (`lib/cmd_plan.sh`)
+- Sets `* **Status:** 🟥 BLOCKED` and writes `* **Blocked On:** #<num> (was <previous status>)` under it, then commits the plan file alone as `plan(refine): <id> blocked on #<num>`. No message argument and no prior hand edit needed. The previous status is kept for whoever unblocks (the issue-close path in the P-52/P-54 review, C69).
+- Refuses, with nothing written, when `#<num>` is not an active row in `ISSUES.md`, or the plan is already BLOCKED.
+- Does not touch `state_matrix.md`: `aapp matrix` re-derives it (chain `&& aapp matrix`).
+
+### 2.3 Scope
 - Only `aapp refine`. Lifecycle verbs build fixed, short subjects and need no check.
 - Length is measured in characters as the gate measures them (`${#subject}`), so both always agree.
 
@@ -65,13 +72,16 @@ After resolving the plan and before `plans_commit`:
 
 ### Phase 1: Tests First (red)
 - [ ] Task 1.1: `tests/verbs/refine.sh`: a message making the subject exceed `aapp.subjectMaxLen` exits 1 before any commit, naming the length, the limit and how many characters to cut; a lowered `aapp.subjectMaxLen` is honoured; a multi-line message exits 1; the plans worktree HEAD is unchanged after both refusals.
+- [ ] Task 1.2: `tests/verbs/refine.sh`: `blocked <num>` sets Status and `Blocked On:` (with the previous status) and commits only the plan; refuses an unknown or closed issue and an already BLOCKED plan; the matrix is untouched until `aapp matrix`.
 
 ### Phase 2: Implementation
 - [ ] Task 2.1: Single-line and length checks in `cmd_refine` (`lib/cmd_plan.sh`).
-- [ ] Task 2.2: `lib/docs/verbs/refine.md`: two new failure modes and their tests.
+- [ ] Task 2.2: `lib/docs/verbs/refine.md`: two new failure modes, the `blocked` token, and their tests.
+- [ ] Task 2.3: `blocked <num>` token in `cmd_refine`.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: `MANUAL.md` (Committing Plan Edits): the message is one line and must keep the subject within `aapp.subjectMaxLen`.
+- [ ] Task 3.1: `MANUAL.md` (Committing Plan Edits): the message is one line and must keep the subject within `aapp.subjectMaxLen`; blocking a plan with `aapp refine <id> blocked <num> && aapp matrix`.
+- [ ] Task 3.3: AGENTS.md (both) Issue Escape Triage and `CHEATSHEET.md`: the `blocked` token replaces hand-editing the Status line.
 - [ ] Task 3.2: Run `./aapp test strict quiet`.
 
 ---
@@ -82,15 +92,20 @@ After resolving the plan and before `plans_commit`:
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `lib/cmd_plan.sh` -> Subject shape and length checks in `cmd_refine`.
+- [ ] `lib/cmd_plan.sh` -> Subject shape and length checks and the `blocked` token in `cmd_refine`.
 - [ ] `lib/docs/verbs/refine.md` -> Contract: new failure modes and tests.
-- [ ] `tests/verbs/refine.sh` -> Refusal tests.
-- [ ] `MANUAL.md` -> Message rules for `aapp refine`.
+- [ ] `tests/verbs/refine.sh` -> Refusal and `blocked` token tests.
+- [ ] `MANUAL.md` -> Message rules and `blocked` token for `aapp refine`.
+- [ ] `CHEATSHEET.md` -> `aapp refine <id> blocked <num>`.
+- [ ] `templates/AGENTS.md` -> Issue Escape Triage uses the `blocked` token.
+- [ ] `.agents/AGENTS.md` -> Same as the template.
 - [ ] `CHANGELOG.md` -> Entry written by `aapp commit` from the declaration.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `templates/aapp-commit-msg` -> The gate stays the final authority, unchanged.
 - [ ] `lib/commit_engine.sh` -> `plans_commit` is shared by every lifecycle verb; the check belongs in `cmd_refine`.
+- [ ] `lib/cmd_matrix.sh` -> The matrix stays `aapp matrix`'s job; `refine` does not call it.
+- [ ] `lib/verbs.tsv` -> No new verbs.
 
 ---
 
@@ -101,4 +116,5 @@ After resolving the plan and before `plans_commit`:
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-05:** Added the `blocked <num>` token to `aapp refine` (developer, from the P-52/P-54 review, RFC C71): sets BLOCKED and `Blocked On:` in one command; `refine` and `aapp matrix` stay separate verbs, chained by the caller.
 * **2026-10-03:** Plan drafted after a P-48 refine commit was refused by the `commit-msg` gate for subject length, with no hint of how much to cut.
