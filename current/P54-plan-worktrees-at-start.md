@@ -52,18 +52,19 @@ Plans that run on their own branch are a convention today, not something the kit
 Placeholders: `{id}` (`P51`), `{num}` (`51`), `{slug}`, `{repo}` (primary checkout directory name). The base branch is `aapp.devBranch` (existing; `main` when unset in a single-branch repository).
 
 ### 2.2 `aapp start` / `aapp freeze-start` (`lib/cmd_plan.sh`)
-With `aapp.planWorktrees = on`, after the existing gates and before binding:
-- renders the branch and path; refuses with a clear message when the branch or path already exists (never reuses or overwrites), when the base branch is missing, or when the primary checkout has uncommitted changes to tracked files that `git worktree add` would not carry;
-- `git worktree add -b <branch> <path> <devBranch>`;
-- binds the plan to the new worktree (its active-plan buffer), using P-39's per-worktree binding, so the "held elsewhere" check keeps working;
-- records `* **Worktree:** <path> (<branch>)` in the plan header (data only, like P-51's record);
-- prints the path and the next step: `cd <path>` (or open a new agent session there).
+With `aapp.planWorktrees = on`, in this order:
+1. the existing gates;
+2. renders the branch and path; refuses with a clear message when the branch or path already exists (never reuses or overwrites), when the base branch is missing, or when the primary checkout has uncommitted changes to tracked files that `git worktree add` would not carry;
+3. `git worktree add -b <branch> <path> <devBranch>` and binds the plan to the new worktree (its active-plan buffer, P-39's per-worktree binding, so the "held elsewhere" check keeps working);
+4. dispatches `on-start` with the created `worktree` and `branch` in its `data`. The hook keeps the pass/fail contract; inside, it may rename the branch (`git branch -m`) or move the worktree (`git worktree move`) to fit the team's conventions. Exit non-zero → `aapp start` refuses and **rolls back**: removes the worktree and branch it created, leaving no trace;
+5. reads back where the plan's worktree actually is (`git worktree list`, the lookup P-39 uses to find the worktree holding a plan) and records `* **Worktree:** <path> (<branch>)` in the plan header (data only, like P-51's record) — so a hook's renaming is reflected;
+6. the start commit, as today; prints the real path and the next step: `cd <path>` (or open a new agent session there).
 
 Optional override token: `aapp start <id> worktree <path> [branch <name>]` — explicit names win over templates. With `aapp.planWorktrees = off`, the token alone creates the worktree for that one plan.
 
 ### 2.3 Inside a plan worktree
 - `.plans`, `.agents`, `.githooks` are reached through the primary checkout (resolved via `git rev-parse --git-common-dir`, as today); the guard, hook, `aapp commit` and `aapp done` work from the plan worktree. Covered by tests (Phase 1), and depends on #84 (guard path relativisation) being fixed.
-- The `on-start` lifecycle hook fires with the plan's `worktree` and `branch` in its `data`, so team tooling can react (open an editor, notify). It does not choose the names (Q2).
+- Team naming conventions live in `on-start` (2.2 step 4); the templates are the default when no hook renames.
 
 ### 2.4 `aapp done`
 - Refuses when run with uncommitted changes in the plan's worktree.
@@ -83,7 +84,7 @@ Optional override token: `aapp start <id> worktree <path> [branch <name>]` — e
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: `tests/verbs/start.sh`: with `on`, `start` creates the templated branch from `aapp.devBranch` and the worktree, binds the plan there, records `**Worktree:**`; refusals (existing branch or path, missing base, dirty primary checkout); `worktree`/`branch` tokens override; `off` changes nothing.
+- [ ] Task 1.1: `tests/verbs/start.sh`: with `on`, `start` creates the templated branch from `aapp.devBranch` and the worktree, binds the plan there, records `**Worktree:**`; refusals (existing branch or path, missing base, dirty primary checkout); `worktree`/`branch` tokens override; an `on-start` hook that renames the branch and moves the worktree is reflected in the record and the printed path; a failing `on-start` refuses and leaves no worktree or branch; `off` changes nothing.
 - [ ] Task 1.2: `tests/worktree_hooks_test.sh`: from a plan worktree, the guard confines to the plan's files and `aapp commit` records the commit in the plan.
 - [ ] Task 1.3: `tests/verbs/done.sh`: `done` from a plan worktree archives; refuses with uncommitted changes there; worktree removal per Q1.
 - [ ] Task 1.4: `tests/install_test.sh`: the three keys seeded only when absent.
@@ -92,7 +93,7 @@ Optional override token: `aapp start <id> worktree <path> [branch <name>]` — e
 - [ ] Task 2.1: Config seeding in `lib/cmd_init.sh`.
 - [ ] Task 2.2: Template rendering, worktree creation, binding and `**Worktree:**` record in `lib/cmd_plan.sh`; `worktree`/`branch` tokens.
 - [ ] Task 2.3: `aapp done` checks (and Q1 removal) in `lib/cmd_plan.sh`.
-- [ ] Task 2.4: `on-start` payload carries `worktree` and `branch`.
+- [ ] Task 2.4: `on-start` dispatched after creation with `worktree` and `branch`; rollback on failure; read back the actual worktree before recording.
 - [ ] Task 2.5: Contracts `lib/docs/verbs/start.md`, `freeze-start.md`, `done.md`.
 
 ### Phase 3: Agent Text, Docs & Verification
@@ -138,11 +139,12 @@ Optional override token: `aapp start <id> worktree <path> [branch <name>]` — e
 
 ## ❓ 5. Open Questions (Optional / Gate)
 * [ ] **Question 1 — Does `aapp done` remove the plan's worktree?** (a) No: it prints the `git worktree remove` command; the developer removes it after integrating (squash/merge). (b) Yes, when the worktree is clean and its branch is already merged into `aapp.devBranch`; otherwise it prints the command. Recommendation: (a) — `done` usually runs before the squash, so (b) would rarely apply and adds a merge check.
-* [ ] **Question 2 — Should `on-start` be able to choose the names?** (a) No: templates choose; the hook is notified with the result. (b) Yes: the hook may return `{"branch": "…", "worktree": "…"}` on stdout (Plugin Payload Standard), which overrides the templates. Recommendation: (a) for now — templates cover most conventions without a script; (b) changes the hook contract from pass/fail to data and can follow if a real convention needs it.
+* [x] **Question 2 — Should `on-start` be able to choose the names? → RESOLVED (developer, 2026-10-04): yes, by acting, not by returning data.** The hook keeps the pass/fail contract and may rename the branch or move the worktree itself; the kit reads back the actual names before recording, and rolls back what it created if the hook fails (2.2).
 * [ ] **Question 3 — Order with #84.** The guard's path relativisation bug (#84) bites in exactly the situation this plan makes normal (working inside a linked worktree). Fix #84 first (as a P-52 issue fix once that ships), or fold it into this plan's file list?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-04:** Q2 resolved: `on-start` renames by acting (pass/fail contract unchanged); start order is create → hook → read back → record → commit, with rollback on hook failure.
 * **2026-10-04:** Drafted from the developer's proposal: `aapp start` creates the plan's branch and worktree (opt-in), names from config templates with the development branch as base, `on-start` notified; foundation for P-52's rule that issue fixes land on the development branch.
