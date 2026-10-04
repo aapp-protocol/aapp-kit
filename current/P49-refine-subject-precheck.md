@@ -81,8 +81,8 @@ After resolving the plan and before `plans_commit`:
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: `MANUAL.md` (Committing Plan Edits): the message is one line and must keep the subject within `aapp.subjectMaxLen`; blocking a plan with `aapp refine <id> blocked <num> && aapp matrix`.
-- [ ] Task 3.3: AGENTS.md (both) Issue Escape Triage and `CHEATSHEET.md`: the `blocked` token replaces hand-editing the Status line.
 - [ ] Task 3.2: Run `./aapp test strict quiet`.
+- [ ] Task 3.3: AGENTS.md (both) Issue Escape Triage and `CHEATSHEET.md`: the `blocked` token replaces hand-editing the Status line.
 
 ---
 
