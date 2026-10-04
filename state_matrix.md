@@ -20,6 +20,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-50**: [`P50-plan-links-promotion-and-ledger-commits.md`](current/P50-plan-links-promotion-and-ledger-commits.md) — Plan Links Promotion And Ledger Commits
 - 🟣 **P-51**: [`P51-shared-docs-concurrency-commit-mode.md`](current/P51-shared-docs-concurrency-commit-mode.md) — Shared Docs Concurrency Commit Mode
 - 🟣 **P-52**: [`P52-issue-fix-mini-plans.md`](current/P52-issue-fix-mini-plans.md) — Issue Fix Mini Plans
+- 🟣 **P-54**: [`P54-plan-worktrees-at-start.md`](current/P54-plan-worktrees-at-start.md) — Plan Worktrees At Start
 
 ---
 
