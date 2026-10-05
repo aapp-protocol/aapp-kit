@@ -173,7 +173,7 @@ Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
 ### Phase 1: Parent Branch Resolver & Inspection Engine
 - [ ] Task 1.1: Implement `resolve_plan_integrate_target` in `lib/aapp-lib.sh`, extracting parent branch from `* **Base:**` header.
 - [ ] Task 1.2: Implement `check_worktree_ignored_files` in `lib/aapp-lib.sh` to detect untracked `.env` and sensitive files before removal.
-- [ ] Task 1.3: Implement `count_plan_emergency_extensions` and `count_plan_blocked_on` in `lib/aapp-lib.sh`.
+- [ ] Task 1.3: Implement `count_plan_handoffs` and `count_plan_blocked_on` in `lib/aapp-lib.sh`.
 
 ### Phase 2: Core Integration Engine (`lib/cmd_integrate.sh`)
 - [ ] Task 2.1: Create `lib/cmd_integrate.sh` implementing `cmd_integrate`:
