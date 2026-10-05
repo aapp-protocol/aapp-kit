@@ -52,7 +52,7 @@ Seeded only when absent by `cmd_init.sh`:
 | `aapp.integrate` | `squash` \| `ff` \| `manual` | `squash` | Default integration strategy upon completion: `squash` (milestone commit), `ff` (fast-forward microcommits), or `manual` (print advice only, P-54 behavior). |
 | `aapp.integrateTarget` | `parent` \| `dev` \| `<branch>` | `parent` | Integration target branch: `parent` resolves the branch the worktree was spawned from; `dev` resolves `aapp.devBranch`. |
 | `aapp.integrateCleanup` | `true` \| `false` | `true` | Automatically remove worktree and delete plan branch after successful integration. |
-| `aapp.maxEmergencyHotfixes` | integer | `1` | Maximum allowable emergency fixes before a plan is mechanically blocked. |
+| `aapp.maxEmergencyHotfixes` | integer | `2` | Maximum allowable emergency fixes before a plan is mechanically blocked (default: 2 allowed, blocked on 3rd). |
 
 ### 2.2 Parent Branch Resolution & Modular Lineage
 
@@ -152,12 +152,12 @@ Empirical testing in Git test harnesses confirmed two supported models:
 ### 2.6 Mechanical Gate for 2+ Emergency Fixes
 
 Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
-1. `count_plan_handoffs "$plan_file"`: counts issue IDs in the append-only `* **Hand-offs:**` header line populated by `aapp issue close` (P-52/C69/C74).
-2. If `count > aapp.maxEmergencyHotfixes` (e.g. `count >= 2` with default `maxEmergencyHotfixes = 1`):
-   - `aapp issue fix` refuses to start another emergency fix at the front door (C74).
+1. `count_plan_emergency_hotfixes "$plan_file"`: counts issue IDs in the append-only `* **Emergency Hotfixes:**` header line populated by `aapp issue handoff` (P-52).
+2. If `count > aapp.maxEmergencyHotfixes` (e.g. `count >= 3` with default `maxEmergencyHotfixes = 2`):
+   - `aapp issue handoff` blocks the plan permanently at hand-off time (P-52).
    - `aapp integrate` refuses integration with:
      ```text
-     ❌ [Integration Block] Plan 'P-XX' accumulated 2+ emergency fixes (#41, #42).
+     ❌ [Integration Block] Plan 'P-XX' accumulated 3+ emergency fixes (#41, #42, #43).
         Daisy-chaining hotfixes is prohibited without formal re-scoping.
         Requires human sign-off: run 'aapp integrate P-XX override-hotfix-cap'.
      ```
@@ -173,7 +173,7 @@ Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
 ### Phase 1: Parent Branch Resolver & Inspection Engine
 - [ ] Task 1.1: Implement `resolve_plan_integrate_target` in `lib/aapp-lib.sh`, extracting parent branch from `* **Base:**` header.
 - [ ] Task 1.2: Implement `check_worktree_ignored_files` in `lib/aapp-lib.sh` to detect untracked `.env` and sensitive files before removal.
-- [ ] Task 1.3: Implement `count_plan_handoffs` and `count_plan_blocked_on` in `lib/aapp-lib.sh`.
+- [ ] Task 1.3: Implement `count_plan_emergency_hotfixes` in `lib/aapp-lib.sh`.
 
 ### Phase 2: Core Integration Engine (`lib/cmd_integrate.sh`)
 - [ ] Task 2.1: Create `lib/cmd_integrate.sh` implementing `cmd_integrate`:
