@@ -5,7 +5,7 @@
 * **Changelog:** Fixed: `aapp refine` checks the commit subject length and shape before committing; Added: `aapp refine <id> blocked <num>` sets a plan BLOCKED on an issue
 * **Status:** ⚡ In Development
 * **Base:** `1bb9d4e` (develop)
-* **Commits:** none
+* **Commits:** `9fc51ee` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
