@@ -28,14 +28,17 @@ Parse and explain the exact CLI diagnostic:
 - **Worktree Collision**: If another worktree has already bound or activated the plan, report the collision.
 - **Not Frozen**: A plan must be frozen in `🔷 Frozen` (or `🔷 Ready for Execution`) status before it can be started. Run `aapp freeze <plan>` first.
 - **Target Files Collision**: If another plan currently in development shares overlapping Target Files, resolve the overlap or finish the in-development plan first.
+- **Pending Fix** (`<file> has a pending fix (#<num>)`): a queued 🧱 Plan Blocker is about to change one of the plan's Target Files. Fix it first (`/aapp-fix #<num>`), or start another plan.
 
 ### Step 3: Begin Implementation Immediately (Continuous Execution)
 On exit 0, `aapp start` has updated the plan status to `⚡ In Development`, recorded the base commit, updated `state_matrix.md`, and bound the local worktree buffer.
 
 **Do NOT pause to ask for redundant confirmation.** Immediately proceed to execute Section 3 of the blueprint:
+0. **Resuming a plan in a worktree?** Rebase first: `git rebase --autostash <devBranch>`. Fixes to its files may have landed; conflicts in its own lines are its to resolve.
 1. Verify / author failure tests (confirming Red 🔴) if TDD sections are declared.
 2. Begin Phase 1 implementation tasks within the declared `### 📂 Target Files`.
-3. Use plan-bound commits (`aapp commit`) to record execution progress. The first one writes the plan's declared `**Changelog:**` entry into `CHANGELOG.md`; later commits need no changelog edit. Never edit `CHANGELOG.md` by hand for the plan: to change the wording, edit the plan's `**Changelog:**` line and commit it with `aapp refine`.
+3. **Blocking bug unrelated to your plan's change** (even in one of your own files)? Run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop: it logs and queues the issue and blocks this plan in one commit; the fix runs in the main checkout. A bug inside your Target Files is plan work.
+4. Use plan-bound commits (`aapp commit`) to record execution progress. In `aapp.commitMode = atomic` (default) the plan is one commit: after the first, fold changes in with `aapp commit amend`. The first one writes the plan's declared `**Changelog:**` entry into `CHANGELOG.md`; later commits need no changelog edit. Never edit `CHANGELOG.md` by hand for the plan: to change the wording, edit the plan's `**Changelog:**` line and commit it with `aapp refine`.
 
 ---
 *Canonical Specification: Refer to `.agents/AGENTS.md` for full protocol governance.*
