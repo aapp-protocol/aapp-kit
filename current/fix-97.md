@@ -1,9 +1,9 @@
 # 🩹 Issue Fix #97: Add `.gitattributes` to the always-allowed list.
 * **Plan ID:** #97
 * **Target Issue / Milestone:** #97
-* **Changelog:** Fixed: Add `.gitattributes` to the always-allowed list.
+* **Changelog:** Fixed: the pre-commit hook allows `.gitattributes` (written by `aapp init`), so it can be committed outside a plan
 * **Status:** ⚡ In Development
-* **Commits:** none
+* **Commits:** `ee1ba57` (develop)
 
 Temporary mini plan (P-52): deleted by `aapp issue close 97`; the issue row is the record.
 
