@@ -1,5 +1,5 @@
 # 🗺️ Plan P-50: Plan Links, Issue Promotion & Ledger Commits
-* **Created:** 2026-10-03 | **Last Refined:** 2026-10-03
+* **Created:** 2026-10-03 | **Last Refined:** 2026-10-07
 * **Target Issue / Milestone:** None (follow-up to P-32, P-47 and P-49 Q1)
 * **Plan ID:** P-50
 * **Changelog:** Added: Plan rename with issue-link repair, issue promotion in `aapp draft`, and pickup/issue commits without raw git
@@ -64,7 +64,7 @@ After moving the plan to `done/`, `cmd_done` runs `issue_relink current/<file> d
 - All in `draft`'s single commit. Without the token, `aapp draft` is unchanged.
 
 ### 2.5 Ledger commits without raw git
-Pickup and issue-triage edits get a commit path on an existing verb (see Q1). Whatever the form: it commits only the named ledger files (`pickup.md`; or `ISSUES.md` + `issues_road_map.md`), with attribution, under the existing conventions (`pickup: <msg>`, `issue(triage): <msg>`), checks the subject length like P-49, and prints one confirmation line.
+Pickup and issue-triage edits are committed with `aapp refine pickup "<msg>"` and `aapp refine issues "<msg>"` (Q1): `refine` already means "commit an edit I made in `.plans`", so a target word fits. `pickup` and `issues` are checked **before** plan resolution and are therefore reserved: the resolver matches any part of a plan's file name, so today `aapp refine pickup` resolves to `P11-airgapped-pickup.md`. A plan whose name contains them stays reachable by its ID (`P-11`, `11`). Each form commits only the named ledger files (`pickup.md`; or `ISSUES.md` + `issues_road_map.md`), with attribution, under the existing conventions (`pickup: <msg>`, `issue(triage): <msg>`), checks the subject length like P-49, and prints one confirmation line.
 
 **Validation before committing** (nothing is committed on failure; the message names the line to fix). This is the only moment ledgers are hand-edited, so it is where their mistakes are caught:
 - **Issues:** `ISSUES.md` is one unbroken table (no empty line between the header and the last row — the split that hid rows in the viewer) and every row has the 8 cells; no ID repeated within a ledger or across active and archive (Pairs 8 and 1); no row ID at or above `aapp.issueId` (a hand-picked number instead of `aapp issue allocate`); every active issue is on the road map and every board line points at an existing row (Pair 2).
@@ -88,13 +88,13 @@ Pickup and issue-triage edits get a commit path on an existing verb (see Q1). Wh
 - [ ] Task 1.1: `tests/verbs/refine.sh`: `slug` renames, repairs the issue link and road-map link, re-derives the matrix, logs the rename, one commit; refusals (archived plan, existing target, dirty plan file, empty slug).
 - [ ] Task 1.2: `tests/verbs/done.sh`: another open issue linking the plan points at `done/` after `aapp done`, in the same commit.
 - [ ] Task 1.3: `tests/verbs/draft.sh`: `issue <num>` sets the plan's Target Issue, the row's `🔵 Planned` and link, in the draft commit; refusals (archived or unknown issue).
-- [ ] Task 1.4: Ledger commit tests for the Q1 form (commits only the ledger files, conventions, subject check) and its validation: a blank line inside the issues table, a row with the wrong cell count, a duplicated ID, an ID at or above `aapp.issueId`, an issue missing from the road map, and a malformed pickup line are each refused with nothing committed.
+- [ ] Task 1.4: Ledger commit tests for `refine pickup` / `refine issues` (the reserved words win over a plan whose file name contains them; commits only the ledger files, conventions, subject check) and its validation: a blank line inside the issues table, a row with the wrong cell count, a duplicated ID, an ID at or above `aapp.issueId`, an issue missing from the road map, and a malformed pickup line are each refused with nothing committed.
 
 ### Phase 2: Implementation
 - [ ] Task 2.1: `issue_relink` in `lib/cmd_issue.sh`.
 - [ ] Task 2.2: `slug` token in `cmd_refine`; link repair in `cmd_done`; `issue` token in `cmd_draft` (`lib/cmd_plan.sh`).
-- [ ] Task 2.3: Ledger commit path (Q1).
-- [ ] Task 2.4: Contracts: `lib/docs/verbs/refine.md`, `done.md`, `draft.md` (and the Q1 verb's contract).
+- [ ] Task 2.3: `pickup` / `issues` targets in `cmd_refine`, checked before plan resolution.
+- [ ] Task 2.4: Contracts: `lib/docs/verbs/refine.md` (incl. the `pickup` / `issues` targets and reserved words), `done.md`, `draft.md`.
 
 ### Phase 3: Agent Text, Docs & Verification
 - [ ] Task 3.1: `templates/AGENTS.md`, `.agents/AGENTS.md`, and the three skills (2.6).
@@ -112,7 +112,7 @@ Pickup and issue-triage edits get a commit path on an existing verb (see Q1). Wh
 - [ ] `lib/cmd_issue.sh` -> `issue_relink`; promotion row edit.
 - [ ] `lib/planning_health.sh` -> Issues table-shape check, callable before a ledger commit.
 - [ ] `lib/cmd_plan.sh` -> `refine … slug`, `done` link repair, `draft … issue`, ledger commit path (if on `refine`).
-- [ ] `lib/docs/verbs/refine.md` -> Contract: `slug` (and ledger targets, per Q1).
+- [ ] `lib/docs/verbs/refine.md` -> Contract: `slug`, `pickup` and `issues` targets.
 - [ ] `lib/docs/verbs/done.md` -> Contract: link repair.
 - [ ] `lib/docs/verbs/draft.md` -> Contract: `issue <num>`.
 - [ ] `tests/verbs/refine.sh` -> Rename (and ledger commit) tests.
@@ -138,11 +138,12 @@ Pickup and issue-triage edits get a commit path on an existing verb (see Q1). Wh
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 — Which existing verb commits pickup and issue-triage edits?** Options: (a) `aapp refine pickup "<msg>"` and `aapp refine issues "<msg>"`: `refine` already means "commit an edit I made in `.plans`", so a target word fits; (b) `aapp issue log "<msg>"` for issue rows plus a pickup form elsewhere: closer to the issue verb, but splits one chore across two verbs and still needs a home for pickup. Recommendation: (a), one verb for every hand-made `.plans` edit.
+* [x] **Question 1 — Which existing verb commits pickup and issue-triage edits? → RESOLVED (developer, 2026-10-07): (a) `aapp refine pickup` / `aapp refine issues`.** Options: (a) `aapp refine pickup "<msg>"` and `aapp refine issues "<msg>"`: `refine` already means "commit an edit I made in `.plans`", so a target word fits; (b) `aapp issue log "<msg>"` for issue rows plus a pickup form elsewhere: closer to the issue verb, but splits one chore across two verbs and still needs a home for pickup. Recommendation: (a), one verb for every hand-made `.plans` edit.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-07:** Q1 resolved (a): `aapp refine pickup "<msg>"` and `aapp refine issues "<msg>"`; the two words are checked before plan resolution (reserved), since the resolver's file-name match would otherwise send `refine pickup` to P-11.
 * **2026-10-04:** Ledger commits validate before committing: issues table shape, IDs (Pairs 1/8, counter), road map (Pair 2), pickup line shape.
 * **2026-10-03:** Drafted from the pickup idea "Plan rename & link repair", P-49 Q1, and the promotion discussion: no new verbs (rename on `refine`, repair inside `done`, promotion on `draft`), only link paths and lifecycle cells of issue rows change.
