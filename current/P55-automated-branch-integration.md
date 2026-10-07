@@ -49,7 +49,7 @@ Seeded only when absent by `cmd_init.sh`:
 
 | Config Key | Allowed Values | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `aapp.integrate` | `squash` \| `ff` \| `manual` | `squash` | Default integration strategy upon completion: `squash` (milestone commit), `ff` (fast-forward microcommits), or `manual` (print advice only, P-54 behavior). |
+| `aapp.integrate` | `squash` \| `ff` \| `hook` \| `manual` | `squash` | Default integration strategy upon completion: `squash` (milestone commit), `ff` (fast-forward microcommits), or `manual` (print advice only, P-54 behavior). |
 | `aapp.integrateTarget` | `parent` \| `dev` \| `<branch>` | `parent` | Integration target branch: `parent` resolves the branch the worktree was spawned from; `dev` resolves `aapp.devBranch`. |
 | `aapp.integrateCleanup` | `true` \| `false` | `true` | Automatically remove worktree and delete plan branch after successful integration. |
 | `aapp.quarantineIgnored` | `true` \| `false` | `false` | When true, automatically backup sensitive ignored files (`.env`) to `.git/aapp_quarantine/<plan-id>/` before removing worktree. |
@@ -100,10 +100,12 @@ develop (Root Development Branch)
 
 ### 2.3 The Two Integration Models (Empirically Proven)
 
+**Pre-flight before any mutation (P-23 invariant: a gate cannot fail after the action is committed).** When `aapp done` integrates (automatically, or with the `integrate` token on a plan still in `current/`), every integration check runs **before** `pre-done` and the archive commit: an open mini plan in the main checkout (waited for under the issue lock with the P-52 roller, up to `aapp.issueFixWait`; `0` fails at once), the target branch resolving, ancestry (`git merge-base --is-ancestor`), a clean main checkout, and the `aapp.maxEmergencyHotfixes` fallback (§2.6). Any failure → `done` refuses and nothing is archived. After these checks the built-in squash and fast-forward cannot fail on content (the plan branch already contains the target); only the `hook` delegate (§2.7) can still refuse after archival, and `aapp done <id> integrate` retries it. Standalone integration of a plan in `done/` runs the same checks before switching the main checkout.
+
 Empirical testing in Git test harnesses confirmed two supported models:
 
 #### Model A: Milestone Squash (`aapp.integrate = squash`, Default)
-1. Checks for open mini-plans (`.plans/current/fix-*.md`) in the primary checkout. If a mini-plan is active, refuses integration (or waits under `aapp.issueFixWait` if explicit `wait` token is passed), so the primary checkout is never switched away mid-fix.
+1. Pre-flight passed (above), including no open mini plan, so the primary checkout is never switched away mid-fix.
 2. Verifies that `<plan-branch>` contains `<target-branch>` (`git merge-base --is-ancestor <target-branch> <plan-branch>`).
 3. Switches the primary checkout to `<target-branch>` (refusing if primary checkout has uncommitted changes).
 4. Executes `git merge --squash <plan-branch>`.
@@ -112,7 +114,7 @@ Empirical testing in Git test harnesses confirmed two supported models:
 7. Executes cleanup per §2.4.
 
 #### Model B: Microcommit Model (`aapp.integrate = ff`)
-1. Checks for open mini-plans (`.plans/current/fix-*.md`) in the primary checkout. If active, refuses or waits.
+1. Pre-flight passed (above).
 2. Verifies ancestry (`git merge-base --is-ancestor <target-branch> <plan-branch>`).
 3. Switches primary checkout to `<target-branch>`.
 4. Executes `git merge --ff-only <plan-branch>`.
@@ -141,7 +143,7 @@ Empirical testing in Git test harnesses confirmed two supported models:
 
 Integration is executed via tokens on the existing `done` lifecycle verb (strictly preserving the invariant `lib/verbs.tsv -> No new verbs`):
 ```bash
-aapp done <id> integrate [squash | ff] [target <branch>] [no-cleanup] [force-cleanup] [wait]
+aapp done <id> integrate [squash | ff | hook] [target <branch>] [no-cleanup] [force-cleanup]
 ```
 
 1. **Automatic Archival & Integration (`aapp done <id>`)**:
@@ -166,6 +168,13 @@ Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
         Requires human sign-off: run 'aapp done P-XX integrate override-hotfix-cap'.
      ```
 
+
+### 2.7 `on-integrate` action delegate
+Mirrors `on-sync` (`aapp.syncStrategy = hook`): with `aapp.integrate = hook` (or the `hook` token), after pre-flight the built-in squash / fast-forward is replaced by the `on-integrate` handler, dispatched in `gate` mode with `{"plan_id", "plan_file", "plan_branch", "target_branch", "worktree"}`. Teams that integrate through pull requests, or deploy through a plugin, plug in here.
+- Exit `0`: integration is the handler's (e.g. a PR opened or merged); non-zero: `done` reports the refusal, the plan stays archived, and `aapp done <id> integrate` retries.
+- `hook` with no `on-integrate` handler registered → refuse before archiving (fail closed, like `syncStrategy=hook` without `on-sync`).
+- Built-in cleanup (§2.4) is **skipped** under `hook`: a PR flow still needs the plan branch; the handler owns the branch's lifecycle.
+
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`. Adopters with manual integration scripts continue working because `aapp.integrate` defaults to `manual` if unconfigured, or can be set to `squash`.
@@ -181,7 +190,7 @@ Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
 
 ### Phase 2: Core Integration Engine (`lib/aapp-lib.sh` & `lib/cmd_plan.sh`)
 - [ ] Task 2.1: Implement integration pre-flight engine in `lib/aapp-lib.sh`:
-  - Mini-plan active check in primary checkout (refuse or wait).
+  - Runs before `pre-done` and the archive commit (§2.3); mini-plan check waits with the P-52 roller under the issue lock (`aapp.issueFixWait`, `0` = fail fast).
   - Target branch resolution (`parent` vs `dev`).
   - Pre-flight ancestry check (`git merge-base --is-ancestor`).
   - Emergency fix cap enforcement (veto if > `aapp.maxEmergencyHotfixes`, e.g. >= 3, without override).
@@ -190,7 +199,8 @@ Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
   - Commit to target branch.
 - [ ] Task 2.3: Implement `integrate_ff` in `lib/aapp-lib.sh`:
   - Fast-forward merge onto target branch.
-- [ ] Task 2.4: Implement safe cleanup (`git worktree remove` + branch deletion + `.git/aapp_quarantine/` backup).
+- [ ] Task 2.4: Implement safe cleanup (`git worktree remove` + branch deletion + `.git/aapp_quarantine/` backup); skipped under `hook`.
+- [ ] Task 2.5: `on-integrate` delegate (§2.7): dispatch in `gate` mode under `aapp.integrate = hook` / `hook` token; refuse when no handler is registered.
 
 ### Phase 3: Lifecycle Hookup & Dispatch Routing
 - [ ] Task 3.1: Wire `integrate` tokens into `lib/cmd_plan.sh` (`cmd_done`):
@@ -203,7 +213,8 @@ Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
   - Parent branch targeting (module branch vs develop).
   - Squash integration with trailers and `-D` branch cleanup.
   - Fast-forward microcommit integration.
-  - Primary checkout active mini-plan conflict refusal.
+  - Integration checks run before the archive: a failing check leaves the plan in `current/` and nothing committed; an open mini plan is waited for (and `aapp.issueFixWait 0` refuses at once).
+  - `on-integrate`: a registered handler replaces the built-in squash; no handler with `hook` refuses before archiving; cleanup skipped; a refusing handler leaves the plan archived and `done <id> integrate` retries.
   - Ignored file (`.env`) warning and safe `.git` quarantine.
   - Emergency fix cap veto (3+ blockers halt integration).
 - [ ] Task 4.2: Update `MANUAL.md`, `README.md`, and `CHEATSHEET.md` with `aapp.integrate*` configs and `aapp done <id> integrate` command syntax.
@@ -221,7 +232,7 @@ Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
 - [ ] `lib/docs/verbs/done.md` -> CLI verb contract updates for `integrate` tokens on `done`.
 - [ ] `templates/skills/aapp-done/SKILL.md` -> Universal skill updates for branch integration tokens.
 - [ ] `NEW FILE` -> `tests/integrate_test.sh` -> Automated test harness for squash, ff, parent targeting, and safe cleanup.
-- [ ] `MANUAL.md` -> Document automated integration, multi-branch module targeting, and worktree cleanup.
+- [ ] `MANUAL.md` -> Document automated integration, multi-branch module targeting, worktree cleanup, and the `on-integrate` event (lifecycle event table).
 - [ ] `README.md` -> Update feature table with worktree integration engine.
 - [ ] `CHEATSHEET.md` -> Add `aapp done <id> integrate` and config options.
 - [ ] `ARCHITECTURE.md` -> Document parent branch resolution and integration lifecycle.
@@ -246,6 +257,7 @@ Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Integration checks run before `pre-done` and the archive commit (P-23 invariant), so `done` integrates fully or archives nothing; the mini-plan wait follows P-52's roller (no `wait` token); added the `on-integrate` action delegate (`aapp.integrate = hook`, mirrors `on-sync`), with cleanup skipped under it (developer decision).
 
 * **2026-10-07:** Refined blueprint from cross-review findings: integration folded into `aapp done <id> integrate` (preserving `lib/verbs.tsv` invariant); dropped duplicate seeding of `aapp.maxEmergencyHotfixes` (owned by P-52); corrected veto to `> max` (>= 3); dropped ghost verb `unblock`; added pre-flight refusal when mini-plans are active in the primary checkout; standardized on bare token `force-cleanup`; moved quarantine destination inside `.git` (`$(git rev-parse --git-common-dir)/aapp_quarantine/<id>/`) to prevent secret leaks into `.plans`.
 * **2026-10-04:** Drafted blueprint based on findings from RFC P-52/P-54, empirical Git tests for squash vs microcommit models, parent-branch targeting for modular hierarchies (`develop` vs `module/*`), lineage trailer synthesis, and safe worktree cleanup mechanics.
