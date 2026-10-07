@@ -107,14 +107,15 @@ The root `MANUAL.md` becomes the master navigation portal:
 
 ### 2.3 Slim Storefront `README.md` Structure (~120 Lines)
 
-`README.md` is pruned of deep manual prose:
-- **Hero & Value Proposition**: 2-sentence hook and project badges.
-- **The Problem**: Agent drift, context pollution, out-of-bounds corruption.
-- **The Solution**: Deterministic git-level guardrails (4 worktrees ASCII diagram).
-- **60-Second Quickstart**: Global install, repo init, `/aapp-status`.
-- **Documentation Navigation Quadrant**: Direct links to `CHEATSHEET.md`, `COOKBOOK.md`, and `MANUAL.md`.
-- **Supported Ecosystem**: Supported agents (Antigravity, Claude Code, Cursor, Codex).
-- **License & Contributors**.
+`README.md` is rebuilt using the proven 101-line storefront blueprint drafted in `.plans/pickup/readme-draft.md`:
+- **Hero & Value Proposition**: 2-sentence hook ("Zero-drift autonomous pair programming") and badges.
+- **Highlights**: 5 crisp architectural pillars (Asymmetric Architecture, Deterministic Blast Radius, Zero Pollution, Universal Agent Compatibility, Fail-Closed Security).
+- **Quickstart**: 3-step setup (1. User installation, 2. Repo initialization, 3. First pair-programming session).
+- **The Core Lifecycle**: Clear 6-step ASCII sequence (`draft` ➔ `tdd` ➔ `freeze` ➔ `start` ➔ `commit` ➔ `done`).
+- **Dual-Layer Blast Radius Enforcement**: Concise table (Layer 1 Write-time vs Layer 2 Commit-time).
+- **Software Provenance**: Rationale for transparent emailless trailers and private Git notes.
+- **Documentation Navigation Quadrant**: Links to `CHEATSHEET.md`, `COOKBOOK.md`, and `MANUAL.md`.
+- **License**: Clean dual MIT/Apache 2.0 license declaration.
 
 ### 2.4 Packaging & Installer Synchronization
 
@@ -141,7 +142,7 @@ The root `MANUAL.md` becomes the master navigation portal:
 
 ### Phase 3: Portal Transformation & Storefront Cleanup
 - [ ] Task 3.1: Rewrite root `MANUAL.md` into the concise executive portal (~150 lines) with complete relative links into `docs/`.
-- [ ] Task 3.2: Slim down root `README.md` to ~120 lines, removing redundant TSV schemas, branching theory, and hook manager shims.
+- [ ] Task 3.2: Slim down root `README.md` to ~120 lines, adopting `.plans/pickup/readme-draft.md` enriched with `COOKBOOK.md` navigation links.
 - [ ] Task 3.3: Verify all internal markdown links are repository-relative and validate anchor hygiene.
 
 ### Phase 4: Installer Sync & Regression Verification
