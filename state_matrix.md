@@ -21,6 +21,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-52**: [`P52-issue-fix-mini-plans.md`](current/P52-issue-fix-mini-plans.md) — Issue Fix Mini Plans
 - 🟣 **P-54**: [`P54-plan-worktrees-at-start.md`](current/P54-plan-worktrees-at-start.md) — Plan Worktrees At Start
 - 🟣 **P-55**: [`P55-automated-branch-integration.md`](current/P55-automated-branch-integration.md) — Automated Worktree Branch Integration, Parent Branch Lifecycle & Safe Cleanup
+- 🟣 **P-56**: [`P56-modular-cookbook-and-docs-architecture.md`](current/P56-modular-cookbook-and-docs-architecture.md) — Modular Cookbook And Docs Architecture
 
 ---
 
