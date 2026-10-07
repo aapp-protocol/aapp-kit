@@ -1,5 +1,5 @@
 # 🗺️ Plan P-23: Lifecycle Hook Sequencing, Pre-Mutation Quality Gates & Return Code Abort Protocol
-* **Created:** 2026-09-19 | **Last Refined:** 2026-09-19
+* **Created:** 2026-09-19 | **Last Refined:** 2026-10-07
 * **Target Issue / Milestone:** Milestone v1.2.1 (Lifecycle Extension Governance)
 * **Plan ID:** P-23
 * **Status:** 🟣 Under Review
@@ -95,16 +95,18 @@ All `pre-*` gating hooks communicate their verdict to the calling AAPP command v
 1. **Pre-Flight Validation**: Check that blueprint status is `🔷 Frozen`, and run `check_disjointness_activation_gate` ensuring no target file collision with other active plans.
 2. **`pre-start` Gate**: Dispatches payload with plan ID and target files.
    - If hook exits non-zero: **Hard abort.** Active buffer is not written; plan remains `🔷 Frozen`.
-3. **State Mutation**: Rewrite blueprint status to `* **Status:** ⚡ In Development`, bind active plan pointer buffer (`.git/aapp_active_plan`), and update `.plans/state_matrix.md`.
-4. **Git Commit**: Commit to `.plans/` (`plan(start): activate $plan_id into development`).
-5. **`post-start` Observer**: Fires in `mode=notify`.
+3. **State Mutation**: Rewrite blueprint status to `* **Status:** ⚡ In Development`, bind active plan pointer buffer (`.git/aapp_active_plan`), and update `.plans/state_matrix.md` (with P-54: create the plan's branch and worktree).
+4. **`on-start` Action Delegate**: Fires inside the transaction; may act on what was created (P-54: rename the branch, move the worktree). Non-zero exit: roll back every mutation of step 3; nothing is committed.
+5. **Git Commit**: Commit to `.plans/` (`plan(start): activate $plan_id into development`).
+6. **`post-start` Observer**: Fires in `mode=notify`.
 
 #### 3. Atomic Freeze-Start (`aapp freeze-start <plan>`)
 1. **Pre-Flight Validation**: Open questions, target files, and disjointness validation.
 2. **`pre-freeze` Gate**: If exits non-zero: **Hard abort.**
 3. **`pre-start` Gate**: If exits non-zero: **Hard abort.**
-4. **State Mutation**: Rewrite status to `⚡ In Development`, mark `LOCKED`, bind active buffer, update `state_matrix.md`.
-5. **Git Commit**: Commit to `.plans/` (`plan(start): freeze and activate $plan_id into development`).
+4. **State Mutation**: Rewrite status to `⚡ In Development`, mark `LOCKED`, bind active buffer, update `state_matrix.md` (with P-54: branch and worktree).
+5. **`on-start` Action Delegate**: As in `start`; non-zero exit rolls back step 4.
+5b. **Git Commit**: Commit to `.plans/` (`plan(start): freeze and activate $plan_id into development`).
 6. **`post-freeze` & `post-start` Observers**: Fire in `mode=notify`.
 
 #### 4. Plan Archival & Completion (`aapp done <plan>`)
@@ -151,7 +153,7 @@ All `pre-*` gating hooks communicate their verdict to the calling AAPP command v
 - **Compatibility Mode**: `Clean Break with Named Aliases`
 - **Fallback Inventory**:
   - `on-freeze` $\rightarrow$ Aliased to `pre-freeze` (Gate). Emits deprecation notice recommending `pre-freeze`.
-  - `on-start` $\rightarrow$ Aliased to `pre-start` (Gate). Emits deprecation notice recommending `pre-start`.
+  - `on-start` is **not** aliased: it stays the in-transaction **action delegate** of `start` / `freeze-start` (P-54): it fires after the start's mutations (e.g. P-54's branch and worktree) and before the commit, may act (rename the branch, move the worktree), and a non-zero exit rolls the start back. `pre-start` is the new gate before any mutation; `post-start` the observer after the commit. No deprecation.
   - `on-done` $\rightarrow$ Aliased to `post-done` (Observer). Preserves existing starter templates and examples (`on-done-sync.sh`).
   - `on-pause` $\rightarrow$ Aliased to `post-pause` (Observer).
   - `on-resume` $\rightarrow$ Aliased to `post-resume` (Observer).
@@ -163,14 +165,14 @@ All `pre-*` gating hooks communicate their verdict to the calling AAPP command v
 
 ### Phase 1: Re-Order Hook Sequencing in Core Commands
 - [ ] Task 1.1: Update `cmd_freeze` in `lib/cmd_plan.sh` to dispatch `pre-freeze` (and legacy `on-freeze`) **before** modifying the plan file or committing to Git. Abort immediately on exit != 0.
-- [ ] Task 1.2: Update `cmd_start` in `lib/cmd_plan.sh` to dispatch `pre-start` (and legacy `on-start`) **before** updating status, binding active buffer, or committing to Git. Abort immediately on exit != 0.
+- [ ] Task 1.2: Update `cmd_start` in `lib/cmd_plan.sh` to dispatch `pre-start` **before** updating status, binding active buffer, or committing to Git (abort immediately on exit != 0); keep `on-start` as the in-transaction action delegate after the mutations and before the commit, rolling back on failure (P-54); `post-start` after the commit.
 - [ ] Task 1.3: Update `cmd_freeze_start` in `lib/cmd_plan.sh` to run `pre-freeze` then `pre-start` before mutating disk state or committing to Git.
 - [ ] Task 1.4: Update `cmd_done` in `lib/cmd_plan.sh` to dispatch `pre-done` gate **before** moving the blueprint, appending to ledger, or committing to Git. Keep `post-done` / `on-done` as post-commit observer.
 - [ ] Task 1.5: Update `lib/cmd_sync.sh` to treat `pre-sync` as a fail-closed gate that aborts sync if return code != 0.
 - [ ] Task 1.6: Update `lib/cmd_pause.sh` to dispatch `post-pause` and `post-resume` (aliasing `on-pause` and `on-resume`).
 
 ### Phase 2: Dispatcher Event Mapping & Aliasing
-- [ ] Task 2.1: Update `lib/hook_dispatcher.sh` to support symmetric `pre-*` and `post-*` event dispatching with transparent legacy aliases (`on-freeze` $\rightarrow$ `pre-freeze`, `on-done` $\rightarrow$ `post-done`).
+- [ ] Task 2.1: Update `lib/hook_dispatcher.sh` to support symmetric `pre-*` and `post-*` event dispatching with transparent legacy aliases (`on-freeze` $\rightarrow$ `pre-freeze`, `on-done` $\rightarrow$ `post-done`). `on-start` is not an alias (action delegate, see Migration).
 - [ ] Task 2.2: Update `lib/cmd_hook.sh` (`aapp hooks`, `hook-test`) to reflect `pre-*` and `post-*` event definitions.
 
 ### Phase 3: Templates, Test Suite & Documentation
@@ -212,10 +214,11 @@ All `pre-*` gating hooks communicate their verdict to the calling AAPP command v
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 (Clean Break vs Alias Transition):** Should legacy `on-freeze` and `on-start` event names be retained indefinitely as transparent aliases to `pre-freeze` and `pre-start`, or should they emit a deprecation warning and be scheduled for retirement in v2.0.0?
+* [ ] **Question 1 (Clean Break vs Alias Transition):** Should legacy `on-freeze` be retained indefinitely as a transparent alias to `pre-freeze`, or emit a deprecation warning and be scheduled for retirement in v2.0.0? *(`on-start` resolved by the developer, 2026-10-07: not an alias; it stays the in-transaction action delegate that P-54 relies on, per this plan's own `on-*` = action-delegate taxonomy.)*
 * [ ] **Question 2 (Pre-Done Default Mode):** Should `pre-done` default to `gate` (failing closed if a registered script fails) while `post-done` / `on-done` defaults to `notify`?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** `on-start` kept as the in-transaction action delegate (developer, from the P-52/P-54 review): P-54 runs it after creating the plan's branch and worktree and before the commit, with rollback; `pre-start` gates before any mutation, `post-start` observes. Q1 narrowed to `on-freeze`.
 * **2026-09-19:** Plan initialized to resolve lifecycle hook sequencing and establish pre-mutation quality gates with POSIX return code abort authority.
