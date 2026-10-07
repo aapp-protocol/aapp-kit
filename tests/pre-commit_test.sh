@@ -1274,6 +1274,18 @@ check "unbound checkout refuses a held plan's file (P-52)" BLOCK src/held.py
 check "unbound checkout commits other files freely (P-52)" PASS src/free.py
 rm -rf "$R/wt-held"; git worktree prune >/dev/null 2>&1
 
+echo "== .gitattributes is always allowed (#97) =="
+setup
+plan p97.md <<'EOF'
+* **Plan ID:** P-97
+* **Status:** ⚡ In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/other.py` -> unrelated target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+check ".gitattributes commits while a plan is in development (#97)" PASS .gitattributes
+
 print_test_summary "$PASS" "$FAIL"
 
 
