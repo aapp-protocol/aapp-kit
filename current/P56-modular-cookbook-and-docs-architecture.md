@@ -74,6 +74,9 @@ agent-planning-kit/
 │       │   ├── husky-git-hooks.md
 │       │   ├── lefthook-git-hooks.md
 │       │   └── github-actions-ci.md
+│       ├── plugins-and-hooks/
+│       │   ├── 01-deploy-on-done-hook.md
+│       │   └── 02-custom-pre-gate-hooks.md
 │       ├── workflows/
 │       │   ├── tdd-failure-assertions.md
 │       │   ├── emergency-hotfixes.md
@@ -131,12 +134,29 @@ The following procedural sections from `MANUAL.md` will be refactored into modul
 2. In `lib/cmd_develop.sh`: Verify develop mode symlinks or reflects `docs/` and `COOKBOOK.md`.
 3. In `tests/install_test.sh`: Add assertions confirming `COOKBOOK.md` and `docs/recipes/` are copied to `$SHARE_DIR`.
 
+### 2.5 Custom Lifecycle Hooks & Deployment Plugins (Real-World Implementation Recipes)
+
+AAPP's Hook Dispatcher (`lib/hook_dispatcher.sh`) fires 10 built-in lifecycle hooks (`pre/post-freeze`, `pre/post-start`, `pre/post-done`, `pre/post-release`, `pre/post-pause`) by sending a structured JSON payload on STDIN (`{"event": "<event>", "plan_id": "<id>", "timestamp": "<iso>", ...}`) and checking process exit codes. While third-party integrations (Husky, Lefthook) handle git-level triggers, real-world development workflows require hooking into AAPP plan lifecycle events for automated continuous deployment and custom security/policy gating.
+
+Two dedicated recipes will document these production patterns:
+
+1. **Continuous Deployment on Plan Done (`docs/recipes/plugins-and-hooks/01-deploy-on-done-hook.md`)**:
+   - **Scenario**: When a feature blueprint is archived via `aapp done`, automatically trigger deployment to a staging server or preview environment (e.g., Coolify, Dokku, Render, Docker Compose, or SSH rollout script).
+   - **Mechanism**: The `post-done` hook runs non-blocking (or blocking if synchronous rollout verification is desired). The hook script reads the JSON payload from STDIN (`jq -r '.plan_id'`, `.verification_commit`), checks if the plan is tagged or relevant for deployment, and invokes a deployment webhook or script.
+   - **Working Demonstration**: A complete, copy-pasteable bash/Python script handling STDIN JSON parsing, curl webhook triggering with retry/timeout, and clean stderr/stdout diagnostics.
+   - **Configuration**: How to wire the hook either via repository file (`.githooks/post-done`) or local git configuration override (`git config aapp.hook.post-done "scripts/deploy.sh"`).
+
+2. **Custom Pre-Gate Validation & Compliance (`docs/recipes/plugins-and-hooks/02-custom-pre-gate-hooks.md`)**:
+   - **Scenario**: Enforce project-specific pre-flight checks before a blueprint is frozen (`pre-freeze`) or before a completed plan is archived (`pre-done`) — such as running secrets scanning, verifying external issue tracker status, checking test coverage thresholds, or asserting branch parity.
+   - **Mechanism**: Pre-hooks are blocking gates. A zero exit code (`0`) permits the transition; exit code `2` gracefully vetos the transition with diagnostic feedback; exit code `1` triggers a hard hook error.
+   - **Working Demonstration**: A script showing JSON input handling, running compliance assertions, emitting clear advisory diagnostic messages on rejection, and returning exit code 2.
+
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Directory Scaffold & Initial Recipe Suite
-- [ ] Task 1.1: Create directory tree `docs/recipes/{getting-started,integrations,workflows,troubleshooting}/`.
+- [ ] Task 1.1: Create directory tree `docs/recipes/{getting-started,integrations,plugins-and-hooks,workflows,troubleshooting}/`.
 - [ ] Task 1.2: Author Getting Started recipes:
   - `docs/recipes/getting-started/adopt-existing-repo.md`
   - `docs/recipes/getting-started/solo-developer-workflow.md`
@@ -151,6 +171,9 @@ The following procedural sections from `MANUAL.md` will be refactored into modul
 - [ ] Task 1.5: Author Troubleshooting recipes (extracting from `MANUAL.md` §11):
   - `docs/recipes/troubleshooting/blast-radius-recovery.md`
   - `docs/recipes/troubleshooting/worktree-collision-recovery.md`
+- [ ] Task 1.6: Author Custom Lifecycle Hooks & Deployment recipes:
+  - `docs/recipes/plugins-and-hooks/01-deploy-on-done-hook.md`
+  - `docs/recipes/plugins-and-hooks/02-custom-pre-gate-hooks.md`
 
 ### Phase 2: Root Catalog & MANUAL.md Slimdown
 - [ ] Task 2.1: Author root [`COOKBOOK.md`](COOKBOOK.md) with categorized index, difficulty badges, and cross-references.
@@ -176,6 +199,8 @@ The following procedural sections from `MANUAL.md` will be refactored into modul
 - [ ] `NEW FILE` -> `docs/recipes/integrations/husky-git-hooks.md` -> Recipe for pairing AAPP with Husky.
 - [ ] `NEW FILE` -> `docs/recipes/integrations/lefthook-git-hooks.md` -> Recipe for pairing AAPP with Lefthook.
 - [ ] `NEW FILE` -> `docs/recipes/integrations/github-actions-ci.md` -> Recipe for CI blast-radius gates.
+- [ ] `NEW FILE` -> `docs/recipes/plugins-and-hooks/01-deploy-on-done-hook.md` -> Recipe for live deployment via post-done hook.
+- [ ] `NEW FILE` -> `docs/recipes/plugins-and-hooks/02-custom-pre-gate-hooks.md` -> Recipe for custom validation pre-gates.
 - [ ] `NEW FILE` -> `docs/recipes/workflows/tdd-failure-assertions.md` -> Recipe for failure-first TDD loop.
 - [ ] `NEW FILE` -> `docs/recipes/workflows/emergency-hotfixes.md` -> Recipe for hotfix extensions.
 - [ ] `NEW FILE` -> `docs/recipes/workflows/multi-agent-worktrees.md` -> Recipe for concurrent multi-agent worktrees.
@@ -197,4 +222,5 @@ The following procedural sections from `MANUAL.md` will be refactored into modul
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Refined blueprint to include custom lifecycle hooks and deployment recipes (`docs/recipes/plugins-and-hooks/`) covering real-world continuous deployment on `post-done` and custom pre-gate validation on `pre-freeze`/`pre-done`.
 * **2026-10-07:** Drafted blueprint P-56 from user discussion. Established modular `COOKBOOK.md` + `docs/recipes/` architecture, defined SSG-compatible frontmatter schema, mapped extraction targets from `MANUAL.md`, and locked blast radius.
