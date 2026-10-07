@@ -1,8 +1,8 @@
 # 🗺️ Plan P-52: Issue Fix Mini Plans (`aapp issue fix`)
-* **Created:** 2026-10-04 | **Last Refined:** 2026-10-05
+* **Created:** 2026-10-04 | **Last Refined:** 2026-10-07
 * **Target Issue / Milestone:** #98 *(also resolves #87)*
 * **Plan ID:** P-52
-* **Changelog:** Added: `aapp issue handoff` blocks a plan on a logged, queued issue, and `aapp issue fix` opens a temporary mini plan for it, one fix at a time; frozen plans no longer block edits
+* **Changelog:** Added: `aapp issue hotfix` blocks a plan on a logged, queued issue, and `aapp issue fix` opens a temporary mini plan for it, one fix at a time; frozen plans no longer block edits
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Commits:** none
@@ -37,19 +37,19 @@ Small fixes have no safe, recorded path:
 3. **Emergency hotfixes fight the design lock (#87).** A blocking bug outside a plan's files must be added under *Emergency Hotfix Extensions* in the plan's §4, which the design lock refuses once frozen — forcing a Refining → freeze → start round trip (twice during P-48).
 4. **No record of small fixes beyond the issue row**, and no file confinement while making them.
 5. **Unbound checkouts adopt plans held elsewhere.** With no buffer, the guard, the hook (also its changelog check), `aapp commit` and `aapp active` take the single `⚡` plan as active even when another worktree holds it, so a checkout next to a plan's worktree is confined to that plan, or refused when two run. Mini plans are `⚡` too and would add to it (RFC C11, C15).
-6. **A plan that hits a blocking bug has no hand-off.** Blocking it, logging the issue, and getting the fix done elsewhere are separate manual steps with no record on the plan of how often it was interrupted (RFC p52-p54, settled design).
+6. **A plan that hits a blocking bug has no hotfix path.** Blocking it, logging the issue, and getting the fix done elsewhere are separate manual steps with no record on the plan of how often it was interrupted (RFC p52-p54, settled design).
 
-**Goal:** a small or emergency fix gets a **temporary mini plan** scoped to one issue and its files: created when the fix starts, deleted when it completes. The issue row (with the fix commit's SHA) is the permanent record; no ledger row, no archive file, no plan number. A plan that hits a blocking bug outside its files **hands it off with one command**, which logs the issue, queues it, records the hotfix on the plan and blocks it; fixes run **one at a time**, taken from that queue. No new verb: `handoff` and `fix` are subcommands of `aapp issue`.
+**Goal:** a small or emergency fix gets a **temporary mini plan** scoped to one issue and its files: created when the fix starts, deleted when it completes. The issue row (with the fix commit's SHA) is the permanent record; no ledger row, no archive file, no plan number. A plan that hits a blocking bug outside its files **hands it off with one command**, which logs the issue, queues it, records the hotfix on the plan and blocks it; fixes run **one at a time**, taken from that queue. No new verb: `hotfix` and `fix` are subcommands of `aapp issue`.
 
 ---
 
 ## 2. Technical Blueprint
 
-### 2.1 Hand-off: `aapp issue handoff "<text>" [file <path>]… [plan]` (`lib/cmd_issue.sh`)
-Run by the agent in the plan's worktree; the plan is the one bound in that worktree's buffer. Refuses, with nothing written, when no plan is bound or a listed file is in that plan's own Target Files (a bug there is plan work, RFC C52). Then, under the issue lock (2.6) and in **one** `.plans` commit (`issue(handoff): #<num> blocks <plan>`):
+### 2.1 Hotfix: `aapp issue hotfix "<text>" [file <path>]… [plan]` (`lib/cmd_issue.sh`)
+Run by the agent in the plan's worktree; the plan is the one bound in that worktree's buffer. Refuses, with nothing written, when no plan is bound or a listed file is in that plan's own Target Files (a bug there is plan work, RFC C52). Then, under the issue lock (2.6) and in **one** `.plans` commit (`issue(hotfix): #<num> blocks <plan>`):
 - allocates the issue number (`allocate_issue_id`: the `aapp-issue-tracker` provider when installed, else the local counter);
 - writes the `ISSUES.md` row: Symptom = `<text>`, Sev `High`, Type `CORE`, Location = the `file` paths as backticked paths (written once; an observation cell, never changed), Target Plan / Fix = `blocks [<plan>](current/<file>)`, Status 🟡 Incubated;
-- queues `#<num>` under **🧱 Plan Blockers** at the top of `issues_road_map.md` (hand-off order; reorderable like any road-map section);
+- queues `#<num>` under **🧱 Plan Blockers** at the top of `issues_road_map.md` (hotfix order; reorderable like any road-map section);
 - appends `#<num>` to the plan's append-only `* **Emergency Hotfixes:**` line (no duplicates; never removed, whatever later happens to the fix);
 - blocks the plan through `refine`'s write function (P-49), called in-process: Status `🟥 BLOCKED`, `#<num>` appended to `* **Blocked On:**` (a list, recording the status it had before);
 - **limit:** when the plan's `Emergency Hotfixes:` count exceeds `aapp.maxEmergencyHotfixes` (default **2**), the block is **permanent**: `Blocked On:` carries `hotfix limit reached (#…)`, `issue close` never lifts it, only the developer does (by re-scoping the plan with `refine`). The issue is still logged and queued, and its fix still proceeds;
@@ -70,7 +70,7 @@ Refuses, with nothing written, when:
 - any file is in the file list of a `🟥 BLOCKED` plan, whose files the guard and hook refuse in every checkout: `❌ lib/x.sh belongs to blocked P-51; fix it inside P-51 (it is in its bounds) or unblock first.`
 
 Then, under the issue lock (2.6) and in one `plans_commit` (`fix(start): #<num>`):
-- creates `current/fix-<num>.md`: `Plan ID: #<num>`, `Target Issue: #<num>`, `Status: ⚡ In Development`, `Changelog: Fixed: <text>` (the row's Target Plan / Fix text, or its Symptom for hand-off rows, whose Target Plan / Fix is the plan link; editable), `Commits: none`, and a §4 file list of exactly those files;
+- creates `current/fix-<num>.md`: `Plan ID: #<num>`, `Target Issue: #<num>`, `Status: ⚡ In Development`, `Changelog: Fixed: <text>` (the row's Target Plan / Fix text, or its Symptom for hotfix rows, whose Target Plan / Fix is the plan link; editable), `Commits: none`, and a §4 file list of exactly those files;
 - binds the worktree's active-plan buffer to `#<num>`, saving the previous value in the existing `.prev` slot (an interrupted plan is set aside, not touched).
 
 ### 2.3 During the fix
@@ -79,7 +79,7 @@ The mini plan is an ordinary in-development file list, so existing machinery app
 ### 2.4 Complete: `aapp issue close <num>` (`lib/cmd_issue.sh`)
 When `current/fix-<num>.md` exists:
 - refuses if the mini plan recorded no commit (nothing was fixed);
-- archives the issue row as today, using the mini plan's **last recorded commit** as the SHA and the summary `Fixed via aapp issue fix: <files>` (plus `; unblocks <plan>` for a hand-off);
+- archives the issue row as today, using the mini plan's **last recorded commit** as the SHA and the summary `Fixed via aapp issue fix: <files>` (plus `; unblocks <plan>` for a hotfix);
 - deletes the mini plan and restores the saved active-plan buffer (back to the interrupted plan, if any).
 
 For every close of an issue that blocks a plan — through `issue close`, or `aapp done` of a promoted plan (P-32, the same `issue_close_local` path):
@@ -89,16 +89,16 @@ For every close of an issue that blocks a plan — through `issue close`, or `aa
 - all in the one close commit. The plugin notification (P-32) is unchanged.
 
 ### 2.5 Abandon: `aapp issue fix <num> abort`
-Deletes the mini plan and restores the buffer without closing the issue; refuses if the mini plan recorded commits (close it instead). A hand-off issue stays queued and in its plan's `Blocked On:`: the plan is still blocked by that bug.
+Deletes the mini plan and restores the buffer without closing the issue; refuses if the mini plan recorded commits (close it instead). A hotfix issue stays queued and in its plan's `Blocked On:`: the plan is still blocked by that bug.
 
 ### 2.6 Issue lock
-Agents can claim faster than a commit lands, and local allocation reads and bumps a git-config counter, so two hand-offs could get the same number and two `next-blocker` calls the same issue. One lock directory, `$(git rev-parse --git-common-dir)/aapp_issue.lock`, shared by every worktree and taken atomically with `mkdir`, covers `handoff` (allocate → row → queue → block → commit) and the start of a `fix` (claim → mini plan → commit); it is held for seconds, not for the whole fix. Waiters use the same roller within `aapp.issueFixWait`. The holder writes its PID right after `mkdir`. Stale: an **empty** PID after a few seconds; a **non-empty** PID only when that process is gone, whatever the lock's age (provider calls and `.plans` commits retrying on their own lock may take long). Taking over a stale lock prints a notice. With the `aapp-issue-tracker` provider installed, it is the authority for allocation and claims (it gains a `next-blocker` action, mirroring `allocate`); the lock still guards the local writes.
+Agents can claim faster than a commit lands, and local allocation reads and bumps a git-config counter, so two hotfixes could get the same number and two `next-blocker` calls the same issue. One lock directory, `$(git rev-parse --git-common-dir)/aapp_issue.lock`, shared by every worktree and taken atomically with `mkdir`, covers `hotfix` (allocate → row → queue → block → commit) and the start of a `fix` (claim → mini plan → commit); it is held for seconds, not for the whole fix. Waiters use the same roller within `aapp.issueFixWait`. The holder writes its PID right after `mkdir`. Stale: an **empty** PID after a few seconds; a **non-empty** PID only when that process is gone, whatever the lock's age (provider calls and `.plans` commits retrying on their own lock may take long). Taking over a stale lock prints a notice. With the `aapp-issue-tracker` provider installed, it is the authority for allocation and claims (it gains a `next-blocker` action, mirroring `allocate`); the lock still guards the local writes.
 
 ### 2.7 Configuration (`lib/cmd_init.sh`, seeded only when absent)
 | Key | Default | Meaning |
 | :--- | :--- | :--- |
 | `aapp.issueFixWait` | `5` | Minutes `fix` and the issue lock wait; `0` = fail fast |
-| `aapp.maxEmergencyHotfixes` | `2` | Hand-offs a plan may take; the next one blocks it permanently. P-55 reads it as its integration fallback |
+| `aapp.maxEmergencyHotfixes` | `2` | Hotfixes a plan may take; the next one blocks it permanently. P-55 reads it as its integration fallback |
 
 Both are more hardcoded defaults for #99 to gather.
 
@@ -114,14 +114,14 @@ The frozen-plan special case is removed from `templates/blast-radius-guard.sh` a
 `current/fix-<num>.md` files are not `P-xx` plans: the plan resolver, Pair 4 (Plan ID integrity), the state matrix and `aapp plan-status` skip them, and the plan-numbering seed ignores them. The guard, hook and `aapp commit` treat them as in-development plans (2.3), including 2.9.
 
 ### 2.11 Agent-facing text
-- `templates/AGENTS.md` / `.agents/AGENTS.md`: a blocking bug outside the plan's files → `aapp issue handoff "<text>" file <path>…` (add `plan` when it clearly needs its own plan), then stop; a bug in a file the plan already owns is plan work. Small fixes in the main checkout: `aapp issue fix next-blocker` (or `<num> file …`) → `aapp commit` → `aapp issue close`; run `fix` with a tool timeout longer than `aapp.issueFixWait`. *Emergency Hotfix Extensions* is retired from invariant 5 and Issue Escape Triage. CLI Reference row for `aapp issue` shows `handoff` and `fix`.
-- `templates/plan-template.md`: invariant 5 "Blocking & small" points to `aapp issue handoff`; the header comment documents `Emergency Hotfixes:` and `Blocked On:` as written by verbs.
-- Skills: `aapp-start` (blocking bug mid-plan → hand-off), `aapp-digest` (small fix path).
+- `templates/AGENTS.md` / `.agents/AGENTS.md`: a blocking bug outside the plan's files → `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan), then stop; a bug in a file the plan already owns is plan work. Small fixes in the main checkout: `aapp issue fix next-blocker` (or `<num> file …`) → `aapp commit` → `aapp issue close`; run `fix` with a tool timeout longer than `aapp.issueFixWait`. *Emergency Hotfix Extensions* is retired from invariant 5 and Issue Escape Triage. CLI Reference row for `aapp issue` shows `hotfix` and `fix`.
+- `templates/plan-template.md`: invariant 5 "Blocking & small" points to `aapp issue hotfix`; the header comment documents `Emergency Hotfixes:` and `Blocked On:` as written by verbs.
+- Skills: `aapp-start` (blocking bug mid-plan → hotfix), `aapp-digest` (small fix path).
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-- Existing plans keep any *Emergency Hotfix Extensions* they already list; new hotfixes use `aapp issue handoff` / `aapp issue fix`.
+- Existing plans keep any *Emergency Hotfix Extensions* they already list; new hotfixes use `aapp issue hotfix` / `aapp issue fix`.
 - Checkouts with no buffer next to a worktree holding a plan (P-39 worktrees made by hand) no longer adopt that plan: its files are refused there, all other files are free (2.9).
 - **Order:** needs P-49 (the `blocked` write function) and P-50's promotion (for `plan`), or brings the latter with it.
 
@@ -130,15 +130,15 @@ The frozen-plan special case is removed from `templates/blast-radius-guard.sh` a
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: `tests/verbs/issue.sh`, hand-off: `handoff` allocates the number, writes the row (Location = backticked `file` paths, Target Plan / Fix = plan link), queues it under 🧱 Plan Blockers, appends `Emergency Hotfixes:`, blocks the plan with the previous status kept, re-derives the matrix, all in one commit; refuses with no bound plan or a file in the plan's own Target Files; the hand-off over `aapp.maxEmergencyHotfixes` blocks permanently and the issue is still logged and queued; no duplicate in `Emergency Hotfixes:`; `plan` drafts a plan, marks the row Planned and does not queue.
-- [ ] Task 1.2: `tests/verbs/issue.sh`, fix: `fix next-blocker` claims the top blocker with its Location files; `fix <num> file …` starts a fix or adds files to the open one; a second `fix` waits with printed waits and fails after `aapp.issueFixWait` (`0` fails at once); refusals (inactive issue, empty queue, no files, file owned by a plan in development or a BLOCKED plan; the plan-worktree refusal is P-54's); edits outside the files refused by the guard; `close` archives with the fix SHA, deletes the mini plan, restores the previous buffer, removes the issue from the queue and `Blocked On:`, restores the plan's status when the list empties (not a permanent block) and re-derives the matrix; `close` with no commit refused; `abort` keeps a hand-off issue queued and refuses a committed fix; `done` of a promoted plan unblocks the blocked plan.
-- [ ] Task 1.3: `tests/verbs/issue.sh`, lock: two concurrent `handoff` calls get different numbers; two concurrent `next-blocker` calls claim different issues; a lock with a dead PID or an empty PID (after a few seconds) is taken over with a notice; a live PID is waited on.
+- [ ] Task 1.1: `tests/verbs/issue.sh`, hotfix: `hotfix` allocates the number, writes the row (Location = backticked `file` paths, Target Plan / Fix = plan link), queues it under 🧱 Plan Blockers, appends `Emergency Hotfixes:`, blocks the plan with the previous status kept, re-derives the matrix, all in one commit; refuses with no bound plan or a file in the plan's own Target Files; the hotfix over `aapp.maxEmergencyHotfixes` blocks permanently and the issue is still logged and queued; no duplicate in `Emergency Hotfixes:`; `plan` drafts a plan, marks the row Planned and does not queue.
+- [ ] Task 1.2: `tests/verbs/issue.sh`, fix: `fix next-blocker` claims the top blocker with its Location files; `fix <num> file …` starts a fix or adds files to the open one; a second `fix` waits with printed waits and fails after `aapp.issueFixWait` (`0` fails at once); refusals (inactive issue, empty queue, no files, file owned by a plan in development or a BLOCKED plan; the plan-worktree refusal is P-54's); edits outside the files refused by the guard; `close` archives with the fix SHA, deletes the mini plan, restores the previous buffer, removes the issue from the queue and `Blocked On:`, restores the plan's status when the list empties (not a permanent block) and re-derives the matrix; `close` with no commit refused; `abort` keeps a hotfix issue queued and refuses a committed fix; `done` of a promoted plan unblocks the blocked plan.
+- [ ] Task 1.3: `tests/verbs/issue.sh`, lock: two concurrent `hotfix` calls get different numbers; two concurrent `next-blocker` calls claim different issues; a lock with a dead PID or an empty PID (after a few seconds) is taken over with a notice; a live PID is waited on.
 - [ ] Task 1.4: `tests/write-guard_test.sh` and `tests/pre-commit_test.sh`: a frozen plan no longer blocks edits (#98); a mini plan confines like a plan.
 - [ ] Task 1.5: `tests/write-guard_test.sh`, `tests/pre-commit_test.sh`, `tests/verbs/commit.sh`, `tests/verbs/active.sh`: with a plan bound in another worktree, an unbound checkout does not adopt it (guard, hook, changelog check, `aapp commit`, `aapp active`) and is refused that plan's files but not others; the activation gate still sees the held plan.
 - [ ] Task 1.6: `tests/plan_resolver_test.sh`: Pair 4 and the resolver ignore `fix-<num>.md`; `tests/verbs/matrix.sh`: the matrix does not list it. `tests/install_test.sh`: the two keys seeded only when absent.
 
 ### Phase 2: Implementation
-- [ ] Task 2.1: `handoff`, `fix` (`next-blocker`, `<num> file`, wait roller, `abort`) and the close path (mini plan, unblock, queue) in `lib/cmd_issue.sh`; the issue lock; 🧱 Plan Blockers subheader handling.
+- [ ] Task 2.1: `hotfix`, `fix` (`next-blocker`, `<num> file`, wait roller, `abort`) and the close path (mini plan, unblock, queue) in `lib/cmd_issue.sh`; the issue lock; 🧱 Plan Blockers subheader handling.
 - [ ] Task 2.2: Remove the frozen special case in `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit` (Q1 rule).
 - [ ] Task 2.3: Unbound-plan helper in `lib/aapp-lib.sh`; use it at the five discovery sites (guard, hook ×2, `lib/cmd_commit.sh`, `aapp active` in `lib/cmd_plan.sh`); held plans' files refused in unbound checkouts (2.9).
 - [ ] Task 2.4: Mini-plan recognition in `lib/plan_resolver.sh`, `lib/planning_health.sh`, `lib/cmd_matrix.sh`, `lib/cmd_plan.sh`, `lib/cmd_init.sh` (seed); seed `aapp.issueFixWait` and `aapp.maxEmergencyHotfixes`.
@@ -158,7 +158,7 @@ The frozen-plan special case is removed from `templates/blast-radius-guard.sh` a
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `lib/cmd_issue.sh` -> `handoff`, `fix` (`next-blocker`, `<num> file`, wait, `abort`), close path with unblock, issue lock.
+- [ ] `lib/cmd_issue.sh` -> `hotfix`, `fix` (`next-blocker`, `<num> file`, wait, `abort`), close path with unblock, issue lock.
 - [ ] `templates/blast-radius-guard.sh` -> Drop the frozen special case; skip and protect held plans (2.9).
 - [ ] `templates/aapp-pre-commit` -> Drop the frozen special case; skip and protect held plans, plan and changelog checks (2.9).
 - [ ] `lib/plan_resolver.sh` -> Skip mini plans.
@@ -181,13 +181,13 @@ The frozen-plan special case is removed from `templates/blast-radius-guard.sh` a
 - [ ] `tests/install_test.sh` -> New keys seeded only when absent.
 - [ ] `templates/issues_road_map.md` -> 🧱 Plan Blockers subheader.
 - [ ] `examples/plugins/aapp-issue-tracker/run.sample` -> `next-blocker` action.
-- [ ] `templates/plan-template.md` -> Invariant 5 points to `aapp issue handoff`; `Emergency Hotfixes:` / `Blocked On:` header comment.
-- [ ] `templates/skills/aapp-start/SKILL.md` -> Blocking bug mid-plan → hand-off.
+- [ ] `templates/plan-template.md` -> Invariant 5 points to `aapp issue hotfix`; `Emergency Hotfixes:` / `Blocked On:` header comment.
+- [ ] `templates/skills/aapp-start/SKILL.md` -> Blocking bug mid-plan → hotfix.
 - [ ] `templates/skills/aapp-digest/SKILL.md` -> Small fix path.
-- [ ] `templates/AGENTS.md` -> Hand-off and fix path; retire hotfix extensions; CLI Reference.
+- [ ] `templates/AGENTS.md` -> Hotfix and fix path; retire hotfix extensions; CLI Reference.
 - [ ] `.agents/AGENTS.md` -> Same as the template.
-- [ ] `MANUAL.md` -> Hand-off, issue fixes and mini plans; provider `next-blocker` action; new keys.
-- [ ] `CHEATSHEET.md` -> `aapp issue handoff`, `aapp issue fix`, new keys.
+- [ ] `MANUAL.md` -> Hotfix, issue fixes and mini plans; provider `next-blocker` action; new keys.
+- [ ] `CHEATSHEET.md` -> `aapp issue hotfix`, `aapp issue fix`, new keys.
 - [ ] `.agents/CODEMAP.md` -> Mini plans.
 - [ ] `ARCHITECTURE.md` -> Mini plans in the lifecycle.
 - [ ] `CHANGELOG.md` -> Entry written by `aapp commit` from the declaration.
@@ -207,6 +207,7 @@ The frozen-plan special case is removed from `templates/blast-radius-guard.sh` a
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-07:** Renamed `aapp issue handoff` to `aapp issue hotfix` (developer): vendor-neutral, and one word with `Emergency Hotfixes:` and `aapp.maxEmergencyHotfixes`; misuse is caught both ways (`hotfix` needs a bound plan, `fix` is refused in a plan worktree).
 * **2026-10-05:** Refined from the P-52/P-54 review RFC (settled hand-off and fix design; C97–C101): `aapp issue handoff "<text>" [file …] [plan]` logs, queues (🧱 Plan Blockers), records `Emergency Hotfixes:` and blocks the plan in one commit, permanently above `aapp.maxEmergencyHotfixes` (2); `fix next-blocker` takes files from the row's Location; fixes one at a time with a verbose wait (`aapp.issueFixWait`, 5, `0` = fail fast); close unblocks and prints the rebase step; issue lock with PID-based stale recovery; provider `next-blocker` action.
 * **2026-10-04:** Refined from the P-52/P-54 review RFC (C11, C15, C16, C52, C53, C55; user decisions on Q1 and C17): plans held by another worktree are skipped by the five discovery sites and their files protected in unbound checkouts (2.6); `fix` refuses files of BLOCKED plans; bugs in a plan's own files stay plan work; Q1 resolved (a).
 * **2026-10-04:** Drafted from #98 and the developer's design: issue-scoped mini plans, created at the start of a fix and deleted at completion; the issue row is the record (no ledger, no archive, no plan number, no extra column); serves the emergency hotfix path (#87); a subcommand of `aapp issue`, no new verb.
