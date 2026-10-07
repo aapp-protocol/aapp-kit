@@ -106,8 +106,8 @@ All `pre-*` gating hooks communicate their verdict to the calling AAPP command v
 3. **`pre-start` Gate**: If exits non-zero: **Hard abort.**
 4. **State Mutation**: Rewrite status to `⚡ In Development`, mark `LOCKED`, bind active buffer, update `state_matrix.md` (with P-54: branch and worktree).
 5. **`on-start` Action Delegate**: As in `start`; non-zero exit rolls back step 4.
-5b. **Git Commit**: Commit to `.plans/` (`plan(start): freeze and activate $plan_id into development`).
-6. **`post-freeze` & `post-start` Observers**: Fire in `mode=notify`.
+6. **Git Commit**: Commit to `.plans/` (`plan(start): freeze and activate $plan_id into development`).
+7. **`post-freeze` & `post-start` Observers**: Fire in `mode=notify`.
 
 #### 4. Plan Archival & Completion (`aapp done <plan>`)
 1. **`pre-done` Gate**: Dispatches `{"plan_id": "$plan_id", "plan_file": "$plan_file"}`. Enables project gates to ensure automated test suites pass and DoD is fulfilled.
