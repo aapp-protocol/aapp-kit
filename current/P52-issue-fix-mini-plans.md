@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** #98 *(also resolves #87)*
 * **Plan ID:** P-52
 * **Changelog:** Added: `aapp issue hotfix` blocks a plan on a logged, queued issue, and `aapp issue fix` opens a temporary mini plan for it, one fix at a time; frozen plans no longer block edits
-* **Status:** ⚡ In Development
+* **Status:** 📝 Refining
 * **Base:** `2d7ba74` (develop)
 * **Commits:** `d0b734d` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
