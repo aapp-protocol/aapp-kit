@@ -39,4 +39,5 @@
 - [ ] #93 -> Bare `aapp draft` offers only already-planned issues and hides incubated ones (emoji filter mismatch).
 - [ ] #99 -> `aapp.*` config defaults have no single source of truth; each reader hardcodes its own.
 - [ ] #95 -> "Small" fix is undefined in invariant 5; default <10 changed lines, adopter override in `PROJECT.MD`.
+- [ ] #101 -> `aapp-digest` skill still routes small fixes through `issue fix <num> file …`, not `/aapp-fix`.
 
