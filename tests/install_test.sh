@@ -1258,6 +1258,15 @@ seeded_wait=$(git -C "$PROJ_69D" config aapp.issueFixWait)
 if [ "$kept_wait" = "0" ] && [ "$seeded_max" = "2" ] && [ "$seeded_wait" = "5" ]; then got="PASS"; else got="FAIL"; fi
 report "test_init_seeds_issue_fix_keys: issueFixWait and maxEmergencyHotfixes seeded only when absent" "PASS" "$got" "kept_wait=$kept_wait seeded_max=$seeded_max seeded_wait=$seeded_wait"
 
+# Test 69f (P-51): init seeds aapp.commitMode=atomic only when absent.
+PROJ_69F="$R/t69f_proj"; make_dummy_project "$PROJ_69F"
+git -C "$PROJ_69F" config aapp.commitMode microcommits
+(cd "$PROJ_69F" && aapp init >/dev/null 2>&1)
+kept_cm=$(git -C "$PROJ_69F" config aapp.commitMode)
+seeded_cm=$(git -C "$PROJ_69D" config aapp.commitMode)
+if [ "$kept_cm" = "microcommits" ] && [ "$seeded_cm" = "atomic" ]; then got="PASS"; else got="FAIL"; fi
+report "test_init_seeds_commit_mode: aapp.commitMode=atomic seeded only when absent" "PASS" "$got" "kept=$kept_cm seeded=$seeded_cm"
+
 # Test 70: CLI-First Universal Skills Alignment (TDD Failure & Boundary Assertions)
 # Assert that templates/skills/{aapp-done, aapp-freeze, aapp-start, aapp-status, aapp-digest} follow CLI-first execution
 # and do NOT contain manual sed -i, mv, or raw git commits bypassing CLI lifecycle gates.

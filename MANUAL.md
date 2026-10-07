@@ -1711,6 +1711,12 @@ The message becomes the commit subject, so it must be **one line**, and `plan(re
 **Committing ledger edits:** `aapp refine pickup "<msg>"` commits `pickup.md` (`pickup: <msg>`), and `aapp refine issues "<msg>"` commits `ISSUES.md` + `issues_road_map.md` (`issue(triage): <msg>`). The words `pickup` and `issues` are reserved: they are checked before plan resolution, so a plan whose file name contains them is reached by its ID. Hand edits to the ledgers are validated before committing, nothing is committed on failure, and each message names the line to fix. Issues: one unbroken table (no empty line inside it), 8 cells per row, no repeated ID (also across the archive), no active ID at or above `aapp.issueId` (claim IDs with `aapp issue allocate`), every road-map line points at a row and every active issue is on the road map. Pickup: every entry is a `- [ ] ` line.
 - **No-Dead-End Invariant**: When invoked without arguments, it scans `.plans/pickup.md` and `.plans/ISSUES.md`, presenting candidate menus capped at 10 items.
 
+### One Commit per Plan (`aapp.commitMode`) and the Plan's Mode Record
+
+`aapp.commitMode` is `atomic` (default, seeded by `aapp init` only when absent) or `microcommits`. In `atomic` mode a plan is **one commit**: once its `* **Commits:**` header records a commit, a further `aapp commit` is refused (`aapp.commitMode=atomic: P-51 already has commit <sha>. Fold changes in with 'aapp commit amend', or set aapp.commitMode=microcommits.`), and so is a raw `git commit` of code while the plan is active. `aapp commit amend` replaces the recorded commit; `adopt` and commits with no active plan are not affected. Amend with `aapp commit amend`, not `git commit --amend`: the hook cannot tell a raw amend from a new commit and refuses it, and a raw amend would orphan the plan's recorded SHA. `microcommits` allows any number. Existing repositories get `atomic` after `aapp init`: a plan already in development with a recorded commit needs `amend`, or `aapp.commitMode=microcommits`, for further commits.
+
+Every plan records the modes it was built under, as data that nothing enforces: `aapp draft` writes `* **Commit Mode:**` and `* **Changelog Mode:**` from the config, and each `aapp commit` re-stamps them. When a mode changed since the previous record, the plan's change log gains `Commit Mode switched to microcommits (config) for <sha>.` — so a finished plan shows how it was actually built.
+
 ### One Changelog Entry per Plan (`aapp.changelogMode`)
 
 A CLI cannot know which commit completes a plan, but the plan knows what it delivers, so the plan declares its release note once, in its header:
@@ -1775,6 +1781,7 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | `aapp.maxBodyLines` | integer | `20` | Git Hooks | Maximum lines allowed in commit message body (enforced in `aapp-commit-msg`). |
 | `aapp.changelogMaxLen` | integer | `300` | Git Hooks | Numeric conciseness limit for single-line changelog bullet points (enforced in `aapp-pre-commit`). |
 | `aapp.changelogMode` | `plan` / `commit` | `plan` | Git Hooks | `plan`: one entry per plan, declared in its `**Changelog:**` line and written by `aapp commit`; later commits for the plan pass once it is present. `commit`: every code commit changes `CHANGELOG.md`. |
+| `aapp.commitMode` | `atomic` / `microcommits` | `atomic` | `aapp commit`, Git Hooks | `atomic`: one commit per plan; further changes via `aapp commit amend`. `microcommits`: any number. Recorded in each plan's header (P-51). |
 | `aapp.issueFixWait` | minutes | `5` | `aapp issue fix` | How long `fix` and the issue lock wait (printing each wait) for an open fix; `0` fails at once, for dispatch runners (P-52). |
 | `aapp.maxEmergencyHotfixes` | integer | `2` | `aapp issue hotfix` | Hotfixes a plan may take; the next one blocks it permanently until re-scoped. P-55 reads it as its integration fallback (P-52). |
 | `aapp.protectStable` | `true` / `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |

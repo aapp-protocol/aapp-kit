@@ -28,6 +28,7 @@
 - no active plan in development -> exit 1, stderr `[Commit Refusal] No plan is currently ⚡ In Development` (or names choices with `aapp active <id>`)
 - plan bound in another worktree -> exit 1, stderr naming the holding worktree
 - standard commit with nothing staged -> exit 1, stderr `Nothing staged to commit`
+- `aapp.commitMode=atomic` (default) and the active plan already records a commit -> a standard commit exits 1, stderr `aapp.commitMode=atomic: <id> already has commit <sha>. Fold changes in with 'aapp commit amend', or set aapp.commitMode=microcommits.`; `amend` and `adopt` are not affected (P-51)
 - code commit hook refusal -> exit non-zero with hook output; active plan header remains untouched
 - plan commit index lock timeout -> retry up to 5 times; if exhausted, exit non-zero and print `aapp commit adopt <sha>` repair command
 - `strict` mode without identity -> exit 1 during pre-flight before code commit
@@ -37,6 +38,7 @@
 - `plan` mode, the plan declares no `**Changelog:**` entry (or there is no `CHANGELOG.md`) -> no failure: a notice, `CHANGELOG.md` left to the author (P-48)
 
 ## Effects (happy path)
+- the plan header records the modes in effect, `* **Commit Mode:** <atomic|microcommits>` and `* **Changelog Mode:** <plan|commit>` (inserted when absent); a value that changed since the plan's previous record adds a dated §6 line `<Field> switched to <value> (config) for <sha>.` The record is data only (P-51)
 - `plan` mode (`aapp.changelogMode`, default): `CHANGELOG.md` carries the plan's declared entry `- <text> (\`<plan-id>\`)` exactly once under `## [Unreleased]`, staged with the commit — inserted as the first bullet of its section when absent, that one line replaced when worded differently, untouched when current; `commit` mode leaves `CHANGELOG.md` alone (P-48)
 - code commit:
     - staged files are committed in current worktree
@@ -76,3 +78,7 @@ Run: `aapp test verb commit`
 - `tests/verbs/commit.sh::test_later_commit_leaves_changelog_alone` -> a later commit adds no bullet and leaves `CHANGELOG.md` out of the commit
 - `tests/verbs/commit.sh::test_reworded_declaration_replaces_the_line` -> a reworded declaration replaces the one plan line
 - `tests/verbs/commit.sh::test_commit_discovery_skips_plan_held_elsewhere` -> with no buffer, a plan bound in another worktree is not adopted; the other in-development plan records the commit (P-52)
+- `tests/verbs/commit.sh::test_atomic_refuses_second_commit` -> a second standard commit for a plan with a recorded commit is refused with the amend hint (P-51)
+- `tests/verbs/commit.sh::test_atomic_amend_keeps_one_commit` -> `amend` passes and the plan keeps one recorded commit (P-51)
+- `tests/verbs/commit.sh::test_commit_stamps_modes` -> the plan header records both modes (P-51)
+- `tests/verbs/commit.sh::test_microcommits_allows_and_switch_is_logged` -> `microcommits` allows another commit; the switch is logged in §6 (P-51)

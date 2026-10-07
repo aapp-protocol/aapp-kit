@@ -561,6 +561,60 @@ aapp_plan_held_by() {
 }
 
 # ------------------------------------------------------------------------------
+# Commit and changelog modes (P-51)
+# ------------------------------------------------------------------------------
+# aapp_commit_mode: `atomic` (default) or `microcommits`, from aapp.commitMode.
+aapp_commit_mode() {
+    local m
+    m="$(git config --get aapp.commitMode 2>/dev/null)" || m=atomic
+    case "$m" in microcommits) echo microcommits ;; *) echo atomic ;; esac
+}
+
+# aapp_changelog_mode: `plan` (default) or `commit`, from aapp.changelogMode.
+aapp_changelog_mode() {
+    local m
+    m="$(git config --get aapp.changelogMode 2>/dev/null)" || m=plan
+    case "$m" in commit) echo commit ;; *) echo plan ;; esac
+}
+
+# aapp_plan_stamp_modes <plan_file> [sha]
+# Records the modes in effect in the plan header (`* **Commit Mode:**`,
+# `* **Changelog Mode:**`), inserting them after the Changelog line (or the
+# Status line) when absent. With <sha>, a value that differs from the previous
+# record also adds a dated §6 line: "<Field> switched to <value> (config) for <sha>."
+# The record is data only: nothing reads it to decide anything.
+aapp_plan_stamp_modes() {
+    local pf="$1" sha="${2:-}" cm clm prev_cm prev_clm today log="" tmp
+    [ -f "$pf" ] || return 1
+    cm="$(aapp_commit_mode)"; clm="$(aapp_changelog_mode)"
+    prev_cm="$(sed -nE 's/^\* \*\*Commit Mode:\*\*[[:space:]]*//p' "$pf" | head -n 1)"
+    prev_clm="$(sed -nE 's/^\* \*\*Changelog Mode:\*\*[[:space:]]*//p' "$pf" | head -n 1)"
+    today="$(date +%Y-%m-%d)"
+    if [ -n "$sha" ]; then
+        [ -n "$prev_cm" ] && [ "$prev_cm" != "$cm" ] && log="* **$today:** Commit Mode switched to $cm (config) for $sha."
+        [ -n "$prev_clm" ] && [ "$prev_clm" != "$clm" ] && log="${log:+$log
+}* **$today:** Changelog Mode switched to $clm (config) for $sha."
+    fi
+    tmp="$pf.aapp-modes.$$"
+    AAPP_CM="* **Commit Mode:** $cm" AAPP_CLM="* **Changelog Mode:** $clm" AAPP_LOG="$log" awk '
+        BEGIN { has_cm = 0; has_clm = 0 }
+        FNR == NR { if ($0 ~ /^\* \*\*Commit Mode:\*\*/) has_cm = 1; if ($0 ~ /^\* \*\*Changelog Mode:\*\*/) has_clm = 1
+                    if ($0 ~ /^\* \*\*Changelog:\*\*/) anchor_cl = 1; next }
+        /^\* \*\*Commit Mode:\*\*/ { print ENVIRON["AAPP_CM"]; next }
+        /^\* \*\*Changelog Mode:\*\*/ { print ENVIRON["AAPP_CLM"]; next }
+        { print }
+        !ins && ((anchor_cl && /^\* \*\*Changelog:\*\*/) || (!anchor_cl && /^\* \*\*Status:\*\*/)) {
+            if (!has_cm) print ENVIRON["AAPP_CM"]; if (!has_clm) print ENVIRON["AAPP_CLM"]; ins = 1 }
+        /^## 📦 6\. Change Log/ && ENVIRON["AAPP_LOG"] != "" && !logged { pending = 1 }
+        pending && /^\*Tracks how/ { print ENVIRON["AAPP_LOG"]; pending = 0; logged = 1 }
+        END { }
+    ' "$pf" "$pf" > "$tmp" && mv "$tmp" "$pf" || { rm -f "$tmp"; return 1; }
+    if [ -n "$log" ] && ! grep -qF "switched to" "$pf"; then
+        printf '%s\n' "$log" >> "$pf"
+    fi
+}
+
+# ------------------------------------------------------------------------------
 # Shared documentation files (P-48)
 # ------------------------------------------------------------------------------
 # Files every plan may update. They never make two in-flight plans collide, and

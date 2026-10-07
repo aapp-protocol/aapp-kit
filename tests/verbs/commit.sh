@@ -11,6 +11,7 @@ bad() { printf "  \033[31m✘\033[0m %-52s %s\n" "$1" "$2"; FAIL=$((FAIL+1)); }
 
 init_sandbox_project "$R/p"
 cd "$R/p" || exit 1
+git config aapp.commitMode microcommits   # these tests make several commits per plan (P-51)
 
 draft_and_start_plan() {
   local slug="$1"
@@ -300,6 +301,7 @@ fi
 echo "== plan-declared changelog entry (P-48) =="
 init_sandbox_project "$R/cl"
 cd "$R/cl" || exit 1
+git config aapp.commitMode microcommits   # these tests make several commits per plan (P-51)
 R_SAVE="$R"; R="$R/cl/.."   # draft_and_start_plan reads "$R/p"; point plan lookups here
 cl_plan_file() { ls "$R_SAVE/cl/.plans/current/P${1#P-}-"*.md 2>/dev/null; }
 aapp draft entry-feat >/dev/null 2>&1
@@ -343,5 +345,51 @@ if [ "$rc" -eq 0 ] && grep -qxF -- "- Entry feature reworded (\`$cpid\`)" CHANGE
 else
   bad "test_reworded_declaration_replaces_the_line" "rc=$rc out=$out"
 fi
+
+echo "== commit mode and plan-recorded modes (P-51) =="
+init_sandbox_project "$R/cm"
+cd "$R/cm" || exit 1
+cm_plan() {  # <slug>: draft, target src/<slug>.py, freeze-start; prints the plan file
+  local id="P-$(git config aapp.planId)"
+  aapp draft "$1" >/dev/null 2>&1
+  local f; f="$(ls .plans/current/P"${id#P-}"-*.md)"
+  sed -i -E "s|src/path/to/file.ext|src/$1.py|g; /src\/path\/to\/new_file\.ext/d; s/^\* \[ \] \*\*Question/* [x] **Question/" "$f"
+  git -C .plans commit -qam "prep $id" >/dev/null 2>&1
+  aapp freeze-start "$id" >/dev/null 2>&1
+  echo "$f"
+}
+cmf="$(cm_plan atomic-one)"
+mkdir -p src; echo "a = 1" > src/atomic-one.py; git add src/atomic-one.py
+aapp commit "feat: first" >/dev/null 2>&1; rc1=$?
+first="$(git rev-parse --short HEAD)"
+echo "a = 2" > src/atomic-one.py; git add src/atomic-one.py
+out="$(aapp commit "feat: second" 2>&1)"; rc2=$?
+if [ "$rc1" -eq 0 ] && [ "$rc2" -ne 0 ] && echo "$out" | grep -qF "aapp.commitMode=atomic" && echo "$out" | grep -qF "aapp commit amend" && \
+   [ "$(git rev-parse --short HEAD)" = "$first" ]; then
+  ok "test_atomic_refuses_second_commit"
+else
+  bad "test_atomic_refuses_second_commit" "rc=$rc1/$rc2 out=$out"
+fi
+out="$(aapp commit amend "feat: first, amended" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && [ "$(parse_count="$(grep -m1 '^\* \*\*Commits:\*\*' "$cmf" | grep -o '`[0-9a-f]*`' | wc -l)"; echo "$parse_count")" -eq 1 ]; then
+  ok "test_atomic_amend_keeps_one_commit"
+else
+  bad "test_atomic_amend_keeps_one_commit" "rc=$rc commits=$(grep -m1 'Commits:' "$cmf")"
+fi
+if grep -qxF "* **Commit Mode:** atomic" "$cmf" && grep -qxF "* **Changelog Mode:** plan" "$cmf"; then
+  ok "test_commit_stamps_modes"
+else
+  bad "test_commit_stamps_modes" "$(grep -E 'Mode:' "$cmf" | tr '\n' ' ')"
+fi
+git config aapp.commitMode microcommits
+echo "a = 3" > src/atomic-one.py; git add src/atomic-one.py
+out="$(aapp commit "feat: third" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -qxF "* **Commit Mode:** microcommits" "$cmf" && \
+   grep -qE "^\* \*\*[0-9-]+:\*\* Commit Mode switched to microcommits \(config\) for [0-9a-f]+\." "$cmf"; then
+  ok "test_microcommits_allows_and_switch_is_logged"
+else
+  bad "test_microcommits_allows_and_switch_is_logged" "rc=$rc out=$out modes=$(grep -E 'Mode' "$cmf" | tr '\n' ' ')"
+fi
+git config aapp.commitMode atomic
 
 print_test_summary "$PASS" "$FAIL"

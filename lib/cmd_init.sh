@@ -624,6 +624,11 @@ fi
 
 # Issue fixes (P-52): minutes `aapp issue fix` and the issue lock wait (0 = fail
 # fast), and the hotfixes a plan may take before the next one blocks it for good.
+# Commit mode (P-51): one commit per plan (atomic) unless the project opted
+# into several. An existing value is never overwritten.
+if ! git config --get aapp.commitMode >/dev/null 2>&1; then
+    git config aapp.commitMode atomic
+fi
 if ! git config --get aapp.issueFixWait >/dev/null 2>&1; then
     git config aapp.issueFixWait 5
 fi

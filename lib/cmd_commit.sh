@@ -233,6 +233,17 @@ cmd_commit() {
         return 1
     fi
 
+    # P-51: in atomic mode a plan is one commit; further changes fold in with
+    # `aapp commit amend`.
+    if [ "$is_amend" -eq 0 ] && [ "$is_adopt" -eq 0 ] && [ "$(aapp_commit_mode)" = "atomic" ]; then
+        local first_recorded
+        first_recorded="$(parse_plan_commits "$plan_file" | head -n 1 | awk '{print $1}')"
+        if [ -n "$first_recorded" ]; then
+            echo "❌ [Commit Refusal] aapp.commitMode=atomic: $plan_id already has commit $first_recorded. Fold changes in with 'aapp commit amend', or set aapp.commitMode=microcommits." >&2
+            return 1
+        fi
+    fi
+
     # 3. Attribution Identity Resolution
     local identity="" agent_name="" agent_vendor="" agent_model=""
     if declare -f resolve_ai_identity >/dev/null; then
@@ -415,6 +426,9 @@ cmd_commit() {
             write_plan_commits "$plan_file" "$curr_line, $new_token"
         fi
     fi
+
+    # P-51: record the modes this commit was made under.
+    aapp_plan_stamp_modes "$plan_file" "$new_sha" || echo "⚠️  [Commit] Could not record the commit and changelog modes in $plan_id." >&2
 
     # 8. Commit Plan File Alone via plans_commit
     local plan_rel="current/$(basename "$plan_file")"

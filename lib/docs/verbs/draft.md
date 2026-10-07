@@ -34,6 +34,7 @@
 - `issue <num>`: the header reads `* **Target Issue / Milestone:** #<num>`; the issue row's *Target Plan / Fix* becomes `[P-<N>](current/P<N>-<slug>.md)` and its Status `🔵 \`Planned\``; observation cells and the road map are untouched; `ISSUES.md` is in the draft commit
 - stdout names the new file, the Plan ID and the `🟣 Under Review` status
 - the header carries `* **Changelog:** Changed: <Title>`, the plan's changelog declaration pre-filled from the title (P-48)
+- the header records `* **Commit Mode:**` and `* **Changelog Mode:**` from the current config (P-51)
 
 ## Exit
 - 0 only when every effect above landed
@@ -51,3 +52,4 @@ Run: `aapp test verb draft`
 - `tests/verbs/draft.sh::test_draft_prefills_changelog_entry` -> the drafted plan declares `Changed: <Title>`
 - `tests/verbs/draft.sh::test_draft_issue_promotes` -> Target Issue, Planned row and link, road map untouched, one commit (P-50)
 - `tests/verbs/draft.sh::test_draft_issue_refuses_archived_or_unknown` -> archived or unknown issue: exit non-zero, no file, no Plan ID spent (P-50)
+- `tests/verbs/draft.sh::test_draft_records_modes` -> the drafted plan records both modes from config (P-51)

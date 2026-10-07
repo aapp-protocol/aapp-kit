@@ -110,6 +110,18 @@ else
   bad "test_commit_takes_only_its_paths" "rc=$rc staged_outside was swept into draft commit"
 fi
 
+echo "== plan-recorded modes (P-51) =="
+cd "$(fresh modes)" || exit 1
+git config aapp.commitMode microcommits; git config aapp.changelogMode commit
+mid="$(git config --get aapp.planId)"
+aapp draft modes-plan >/dev/null 2>&1
+mf=".plans/current/P${mid}-modes-plan.md"
+if grep -qxF "* **Commit Mode:** microcommits" "$mf" && grep -qxF "* **Changelog Mode:** commit" "$mf"; then
+  ok "test_draft_records_modes"
+else
+  bad "test_draft_records_modes" "$(grep -E 'Mode:' "$mf" | tr '\n' ' ')"
+fi
+
 echo "== promotion: issue <num> (P-50) =="
 cd "$(fresh promote)" || exit 1
 cat > .plans/ISSUES.md <<'EOF'

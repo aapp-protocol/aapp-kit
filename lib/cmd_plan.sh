@@ -421,6 +421,11 @@ cmd_draft() {
         return 1
     fi
     mv "$tmp_file" "$target_file"
+    # P-51: the modes this plan will be built under, from the current config.
+    aapp_plan_stamp_modes "$target_file" || {
+        echo "❌ [Draft Refusal] Could not record the commit and changelog modes." >&2
+        return 1
+    }
 
     # P-50 promotion: the plan names the issue; the row gets Planned + link.
     if [ -n "$promote_issue" ]; then

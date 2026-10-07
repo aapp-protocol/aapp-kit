@@ -11,6 +11,7 @@ bad() { printf "  \033[31m✘\033[0m %-48s %s\n" "$1" "$2"; FAIL=$((FAIL+1)); }
 
 init_sandbox_project "$R/p"
 cd "$R/p" || exit 1
+git config aapp.commitMode microcommits   # fixtures record a commit, then make raw commits and amends (P-51)
 # The Target Issue the plans below name must exist: done refuses a dangling one (P-32).
 sed -i '/^| #2 |/a | #42 | `Low` | `CORE` | 2026-09-01 | `src/x.py` | Fixture issue. | Fix it. | 🔵 `Planned` |' .plans/ISSUES.md
 git -C .plans commit -qam "fixture issue #42" >/dev/null 2>&1

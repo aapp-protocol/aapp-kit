@@ -1286,6 +1286,30 @@ plan p97.md <<'EOF'
 EOF
 check ".gitattributes commits while a plan is in development (#97)" PASS .gitattributes
 
+echo "== commit mode atomic (P-51) =="
+setup
+git config aapp.commitMode atomic
+SHA51="$(git rev-parse --short HEAD)"
+BR51="$(git branch --show-current)"
+cat > .plans/current/p51.md <<EOF
+* **Plan ID:** P-51
+* **Status:** ⚡ In Development
+* **Commits:** \`$SHA51\` ($BR51)
+
+## 💥 4. Blast Radius & System Boundaries
+### 📂 Target Files (Modifications & Additions)
+- [ ] \`src/a.py\` -> target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+check "atomic: raw code commit refused once the plan has a commit (P-51)" BLOCK src/a.py
+AAPP_COMMIT_HELPER=1 check "atomic: helper commit skips the hook check (P-51)" PASS src/a.py
+git config aapp.commitMode microcommits
+check "microcommits: raw code commit passes (P-51)" PASS src/a.py
+git config aapp.commitMode atomic
+rm -f .plans/current/p51.md
+check "atomic: no plan in development is unaffected (P-51)" PASS src/a.py
+
 print_test_summary "$PASS" "$FAIL"
 
 

@@ -798,6 +798,27 @@ fi
 # ------------------------------------------------------------------------------
 # 3c. PLAN-BOUND COMMIT HELPER REMINDER (P-39)
 # ------------------------------------------------------------------------------
+# P-51: in atomic commit mode a plan is one commit. A raw code commit for a
+# plan that already records a commit is refused; `aapp commit amend` folds
+# changes in (helper commits skip this: the helper already decided).
+if [ -z "${AAPP_COMMIT_HELPER:-}" ] && [ -n "${ACTIVE_PLAN_PATH:-}" ] && [ -f "$ACTIVE_PLAN_PATH" ] && \
+   [ "$(aapp_commit_mode)" = "atomic" ] && \
+   grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$ACTIVE_PLAN_PATH"; then
+    ATOMIC_FIRST="$(parse_plan_commits "$ACTIVE_PLAN_PATH" | head -n 1 | awk '{print $1}')"
+    if [ -n "$ATOMIC_FIRST" ]; then
+        for STAGED in "${STAGED_FILES[@]}"; do
+            echo "$STAGED" | grep -qE "$ALWAYS_ALLOWED_REGEX" && continue
+            case "$STAGED" in .plans/*|.agents/*) continue ;; esac
+            ATOMIC_ID="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$ACTIVE_PLAN_PATH" 2>/dev/null || true)"
+            echo ""
+            echo "❌ [Pre-Commit Commit Mode] aapp.commitMode=atomic: ${ATOMIC_ID:-the active plan} already has commit $ATOMIC_FIRST."
+            echo "   Fold changes in with 'aapp commit amend', or set aapp.commitMode=microcommits."
+            echo ""
+            exit 1
+        done
+    fi
+fi
+
 if [ -z "${AAPP_COMMIT_HELPER:-}" ] && [ -n "${ACTIVE_PLAN_PATH:-}" ] && [ -f "$ACTIVE_PLAN_PATH" ]; then
     if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$ACTIVE_PLAN_PATH"; then
         ACTIVE_PLAN_ID="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$ACTIVE_PLAN_PATH" 2>/dev/null || true)"
