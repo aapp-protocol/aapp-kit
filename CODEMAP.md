@@ -94,9 +94,12 @@
 * **Allocation Warning:** Plan IDs are **stored, not derived**. Never reconstruct an ID by scanning filenames or the archive ledger — that approach was removed (issue `#69`). Use `allocate_plan_id` to claim, `get_next_plan_id` to display.
 
 ### 🐛 Issue Lifecycle Verb (`lib/cmd_issue.sh`)
-* **Purpose:** `aapp issue [next | allocate | close <id> | list]` (P-32); contract in `lib/docs/verbs/issue.md`.
+* **Purpose:** `aapp issue [next | allocate | hotfix | fix | close <id> | list]` (P-32, P-52); contract in `lib/docs/verbs/issue.md`.
 * **Key Functions:**
   * `issue_locate(n)` -> `active`, `archive`, or empty.
+  * `cmd_issue_hotfix` / `cmd_issue_fix` / `_issue_fix_abort` -> P-52 hotfix (row, 🧱 Plan Blockers queue, `Emergency Hotfixes:`, block via `plan_block_on`, one commit) and temporary mini plans `current/fix-<num>.md` (one at a time; verbose wait up to `aapp.issueFixWait`).
+  * `_issue_lock_acquire` / `_issue_lock_release` -> the shared issue lock `$(git rev-parse --git-common-dir)/aapp_issue.lock` (PID-based stale takeover).
+  * `issue_unblock_plans(n)` -> drops `#n` from every plan's `Blocked On:`; restores the recorded status when the list empties and the block is not permanent; used by `issue close` and `cmd_done` (P-52).
   * `issue_close_local(n, sha, summary)` -> Moves the active row to the top of the archive and prunes the road map; does not commit.
   * `issue_relink(old, new)` -> Rewrites links to a plan file in *Target Plan / Fix* cells and road-map lines (observation cells untouched); prints the count; does not commit (P-50).
   * `issue_mark_planned(n, link)` -> Promotion's row edit: Target Plan / Fix → link, Status → 🔵 `Planned` (P-50).
@@ -119,6 +122,7 @@
   * `write_plan_commits(file, commits...)` -> Replaces or inserts `* **Commits:**` line in blueprint header.
   * `write_plan_base(file, sha, branch)` -> Records `* **Base:** <sha> (<branch>)` if currently `none`.
   * `find_worktree_holding_plan(plan_file)` -> Finds if a plan is bound in another worktree's execution buffer.
+  * `aapp_held_plans` / `aapp_plan_held_by(plan_file, held)` -> one-pass list of plans held by other worktrees' buffers, and the match used by the five single-plan discovery sites (guard, hook plan and changelog checks, `aapp commit`, `aapp active`) so an unbound checkout neither adopts a held plan nor edits its files (P-52).
   * `extract_plan_section(n)` -> Stdin filter printing numbered section `## … n.` (design lock).
   * `glob_to_regex(pattern)` / `match_pattern_list(target, patterns…)` -> Exact, directory-prefix and glob matching.
   * `aapp_os([uname_s] [proc_version])` -> `linux|darwin|windows|wsl|bsd|unknown`; `wsl` is a GNU userland.

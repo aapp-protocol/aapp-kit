@@ -159,8 +159,8 @@ The lanes are separate, **not sealed**. A fix too large to simply *do* deserves 
 **Take this path when it fits. Do not ask permission to draft.** Drafting is free: the blueprint lands in the Incubator unfrozen, carrying Open Questions, conferring no execution rights. The human reviews it there, and nothing reaches the code until `freeze`. Asking before drafting just asks twice.
 
 - **Promote when the fix** touches several modules, needs a locked Blast Radius, carries real design decisions, spans more than one session, or is a refactor rather than a patch.
-- **Do not promote** a small, obvious fix. Just make it.
-- A *blocking* bug hit mid-execution is a different case — use `### 🚨 Emergency Hotfix Extensions` (see *Issue Escape Triage*), not a promotion.
+- **Do not promote** a small, obvious fix. Just make it — through `aapp issue fix <num> file <path>…`, a temporary mini plan that confines and records the fix (`aapp commit`, then `aapp issue close <num>`). Fixes go one at a time: `fix` waits (printing each wait) while another is open, up to `aapp.issueFixWait` minutes, so run it with a tool timeout longer than that.
+- A *blocking* bug hit mid-execution is a different case — use `aapp issue hotfix` (see *Issue Escape Triage*), not a promotion.
 
 **How promotion works:**
 1. The issue is **never deleted or moved out of `.plans/ISSUES.md`**. It stays the record of *what is wrong*; the plan becomes the record of *how it will be fixed*.
@@ -328,6 +328,8 @@ Every chore has a verb; use it instead of editing ledgers or running git on `.pl
 | `aapp active [id \| swap \| clear]` | Show or set the active plan buffer |
 | `aapp note …` | Stage, inspect, push or pull git notes |
 | `aapp issue [next \| allocate \| close <num> \| list]` | Claim, close and list issue IDs |
+| `aapp issue hotfix "<text>" [file <path>]… [plan]` | From a plan's worktree: log a blocking bug, queue it and block the plan, in one commit |
+| `aapp issue fix next-blocker \| <num> file <path>… \| <num> abort` | In the main checkout: open (or drop) a temporary mini plan for one fix, one at a time |
 | `aapp test …` | Run the kit's test suites |
 | `aapp ai …` | Inspect or switch the attribution mode |
 
@@ -347,19 +349,15 @@ When switching focus across projects, stepping away from the desk, or preventing
 ---
 
 ## 🐛 Issue Escape Triage (Mid-Execution Bugs)
-If you discover an unexpected bug while executing a plan inside a locked Blast Radius, **claim its ID with `aapp issue allocate` and record it in `.plans/ISSUES.md` (or root `ISSUES.md`) first — always** — then take one of three paths:
+If you discover an unexpected bug while executing a plan inside a locked Blast Radius, take one of these paths. **A bug in a file of your own Target Files is plan work: fix it in the plan.** Everything below is about bugs outside them.
 
-- **Non-blocking:** Do not fix it. Continue the assigned plan. Do not add it to `state_matrix.md`, and do not re-prioritize `issues_road_map.md` on your own — append it and let the human place it.
+- **Non-blocking:** Do not fix it. Claim its ID with `aapp issue allocate`, record it in `.plans/ISSUES.md` (or root `ISSUES.md`) and on the road map, commit with `aapp refine issues "log #<num> <title>"`, and continue the assigned plan. Do not add it to `state_matrix.md`, and do not re-prioritize `issues_road_map.md` on your own — append it and let the human place it.
 
-- **Blocking & small:** The bug halts the plan but the fix is contained. Pause, expand the plan's Blast Radius under an `### 🚨 Emergency Hotfix Extensions` subsection with a one-sentence justification, fix the blocker, log the hotfix, and resume.
+- **Blocking:** The bug halts the plan. Run **one command** and stop: `aapp issue hotfix "<text>" file <path>…`. It allocates the issue number, logs the row, queues it under 🧱 Plan Blockers, records it in the plan's `* **Emergency Hotfixes:**` and blocks the plan (`🟥 BLOCKED`, `* **Blocked On:** #<num>`), in one commit. **A blocked plan is not executable** — the guard and hook refuse its work until the fix is closed. The fix runs in the main checkout (`aapp issue fix next-blocker` → `aapp commit` → `aapp issue close <num>`); closing it unblocks the plan. A plan that takes more than `aapp.maxEmergencyHotfixes` hotfixes (default 2) stays blocked until the human re-scopes it.
 
-- **Blocking & substantial:** The bug halts the plan *and* the fix is real work — several modules, a Blast Radius of its own, or genuine design decisions.
-  **STOP. Do not fast-forward a design, and do not promote it on your own.** This is the one place promotion is never automatic.
-  1. Block the in-flight plan with one command: `aapp refine <plan-id> blocked <num> && aapp matrix`. It sets the Status to `🟥 BLOCKED`, records `* **Blocked On:** #<num>` (with the status it had before), commits the plan, and the matrix re-derives. Never hand-edit the Status line or `state_matrix.md`. **A blocked plan is not executable** — and the pre-commit hook enforces it: while the Status line says `BLOCKED`, that plan admits no commits at all.
-  2. Report the situation and **ask** whether to promote the issue into its own plan. Lay out what you know — scope, modules touched, the options you can see — as **open questions, not decisions already taken**.
-  3. Wait. Resume only when the human unblocks: the issue is fixed, the blocked plan is re-scoped around it, or they explicitly say to continue.
+- **Blocking & substantial:** The fix is real work — several modules, a Blast Radius of its own, or genuine design decisions. Run `aapp issue hotfix "<text>" file <path>… plan`: the same one command, but instead of queueing a small fix it drafts an empty plan linked to the issue. **STOP. Do not author that plan's design.** Report what you know — scope, modules touched, the options you can see — as **open questions, not decisions already taken**, and wait for the human. An overestimate costs little: the draft can be refined into a small fix, or aborted.
 
-> **Why this one asks, when promotion normally does not.** Everywhere else drafting is free, because a draft sits harmlessly *beside* your work. A blocking bug is different: the human's actual plan is stalled, so anything you fast-forward arrives while they are under pressure to accept it just to get moving again. That is the worst possible moment to hand someone a finished design and a set of decisions already made. Substantial blocking work is the human's call, made unhurried.
+> **Why the design waits for the human.** Everywhere else drafting is free, because a draft sits harmlessly *beside* your work. A blocking bug is different: the human's actual plan is stalled, so anything you fast-forward arrives while they are under pressure to accept it just to get moving again. That is the worst possible moment to hand someone a finished design and a set of decisions already made. The `plan` token gives them an empty draft linked to the issue; its design is the human's call, made unhurried.
 
 ---
 
