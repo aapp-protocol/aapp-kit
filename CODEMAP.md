@@ -39,7 +39,8 @@
 ### 🎯 Plan Lifecycle Switchboard (`lib/cmd_plan.sh`)
 * **Purpose:** Single source of truth for in-flight plan execution state and worktree context buffers.
 * **Key Commands:**
-  * `aapp refine <plan> "<msg>"` -> Commits an edit to an active plan's content (only the plan file, through `plans_commit`); the agents' path for plan edits, so nothing runs raw git on `.plans` (P-47).
+  * `aapp refine <plan> "<msg>"` -> Commits an edit to an active plan's content (only the plan file, through `plans_commit`); the agents' path for plan edits, so nothing runs raw git on `.plans` (P-47). Tokens: `blocked <num>` (`plan_block_on`, P-49); `slug <new-slug>` renames the file and repairs links (`_refine_slug`, P-50). Reserved targets `pickup` / `issues` commit validated ledger edits (`_refine_ledger` + `check_ledger_issues` / `check_pickup_entries` in `planning_health.sh`, P-50).
+  * `aapp draft <slug> issue <num>` -> promotion: Target Issue, `issue_mark_planned`, one commit (P-50).
   * `aapp tdd <plan>` -> Injects failure test declaration sections (`### 🧪 Required Tests` in §3, `### 🧪 Required Test Files` in §4) into an incubator blueprint before freeze.
   * `aapp freeze-start <plan>` -> Atomic validator, disjointness check, status update (`⚡`), and buffer binding.
   * `aapp freeze <plan>` -> Locks blueprint into 🔷 Frozen backlog specification, verifying TDD correspondence if present.
@@ -97,8 +98,10 @@
 * **Key Functions:**
   * `issue_locate(n)` -> `active`, `archive`, or empty.
   * `issue_close_local(n, sha, summary)` -> Moves the active row to the top of the archive and prunes the road map; does not commit.
+  * `issue_relink(old, new)` -> Rewrites links to a plan file in *Target Plan / Fix* cells and road-map lines (observation cells untouched); prints the count; does not commit (P-50).
+  * `issue_mark_planned(n, link)` -> Promotion's row edit: Target Plan / Fix → link, Status → 🔵 `Planned` (P-50).
   * `issue_notify_close(n, sha, summary, [plan])` -> Fire-and-forget `issue.close` to `aapp-issue-tracker` (§5 Plugin Payload Standard); prints the returned status; failure only warns.
-* **Consumers:** `aapp issue`, and `cmd_done` in `lib/cmd_plan.sh`, which closes a plan's Target Issue inside its archive commit.
+* **Consumers:** `aapp issue`, and `lib/cmd_plan.sh`: `cmd_done` closes a plan's Target Issue and repairs links inside its archive commit; `refine … slug` repairs links; `draft … issue` marks the row Planned.
 * **Anti-Wrapper Warning:** Never hand-edit rows between `ISSUES.md` and the archive; use `aapp issue close` or `aapp done`.
 
 ### 📚 Shared Hook Library (`lib/aapp-lib.sh`)
