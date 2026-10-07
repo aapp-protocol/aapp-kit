@@ -17,7 +17,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-23**: [`P23-lifecycle-hook-sequencing-and-pre-gates.md`](current/P23-lifecycle-hook-sequencing-and-pre-gates.md) — Lifecycle Hook Sequencing, Pre-Mutation Quality Gates & Return Code Abort Protocol.
 - 🟣 **P-38**: [`P38-milestone-release-bundling-and-tag-ledgers.md`](current/P38-milestone-release-bundling-and-tag-ledgers.md) — Milestone Release Bundling & Tag Ledgers
 - 🟣 **P-51**: [`P51-shared-docs-concurrency-commit-mode.md`](current/P51-shared-docs-concurrency-commit-mode.md) — Shared Docs Concurrency Commit Mode
-- 🟣 **P-52**: [`P52-issue-fix-mini-plans.md`](current/P52-issue-fix-mini-plans.md) — Issue Fix Mini Plans
 - 🟣 **P-54**: [`P54-plan-worktrees-at-start.md`](current/P54-plan-worktrees-at-start.md) — Plan Worktrees At Start
 - 🟣 **P-55**: [`P55-automated-branch-integration.md`](current/P55-automated-branch-integration.md) — Automated Worktree Branch Integration, Parent Branch Lifecycle & Safe Cleanup
 - 🟣 **P-56**: [`P56-modular-cookbook-and-docs-architecture.md`](current/P56-modular-cookbook-and-docs-architecture.md) — Modular Cookbook And Docs Architecture
@@ -25,6 +24,8 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ---
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
+
+- 🔷 **P-52**: [`P52-issue-fix-mini-plans.md`](current/P52-issue-fix-mini-plans.md) — Issue Fix Mini Plans
 
 ---
 

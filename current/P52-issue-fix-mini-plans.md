@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** #98 *(also resolves #87)*
 * **Plan ID:** P-52
 * **Changelog:** Added: `aapp issue hotfix` blocks a plan on a logged, queued issue, and `aapp issue fix` opens a temporary mini plan for it, one fix at a time; frozen plans no longer block edits
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -206,6 +206,7 @@ The frozen-plan special case is removed from `templates/blast-radius-guard.sh` a
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-07:** Renamed `aapp issue handoff` to `aapp issue hotfix` (developer): vendor-neutral, and one word with `Emergency Hotfixes:` and `aapp.maxEmergencyHotfixes`; misuse is caught both ways (`hotfix` needs a bound plan, `fix` is refused in a plan worktree).
 * **2026-10-05:** Refined from the P-52/P-54 review RFC (settled hand-off and fix design; C97–C101): `aapp issue handoff "<text>" [file …] [plan]` logs, queues (🧱 Plan Blockers), records `Emergency Hotfixes:` and blocks the plan in one commit, permanently above `aapp.maxEmergencyHotfixes` (2); `fix next-blocker` takes files from the row's Location; fixes one at a time with a verbose wait (`aapp.issueFixWait`, 5, `0` = fail fast); close unblocks and prints the rebase step; issue lock with PID-based stale recovery; provider `next-blocker` action.
