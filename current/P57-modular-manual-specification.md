@@ -62,6 +62,20 @@ Complete the Diátaxis documentation architecture:
 - All internal markdown cross-links will use repository-relative paths (`[Concepts](docs/concepts/...)`).
 - Existing external references to `MANUAL.md` will land on the executive portal with immediate links to the detailed subtopics.
 
+### 2.0 Shared Documentation Invariant (Enabling `docs/**` and `COOKBOOK.md` in Guard & Hook)
+
+Currently, `templates/blast-radius-guard.sh:310` and `templates/aapp-pre-commit` only exempt named root files (`CHANGELOG.md`, `README.md`, `MANUAL.md`, `CHEATSHEET.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `ISSUES.md`). Neither `COOKBOOK.md` nor `docs/**` are recognized. Without updating this, any plan editing documentation in `docs/` would be forced to list every markdown file in its `### 📂 Target Files`, and concurrent plans touching documentation would collide at the disjointness activation gate.
+
+To uphold the core invariant (*"documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants"*), Plan P-57 updates the shared-documentation engine:
+1. In `lib/aapp-lib.sh`:
+   - Update `aapp_shared_docs_regex()` to include `COOKBOOK\.md`.
+   - Update `aapp_is_shared_doc()` to return `0` (true) for any file under `docs/` (`docs/*` and `docs/**`).
+2. In `templates/blast-radius-guard.sh`:
+   - Add `docs/*|COOKBOOK.md` to Section 3 always-allowed cases.
+3. In `templates/aapp-pre-commit`:
+   - Update `ALWAYS_ALLOWED_REGEX` and documentation scanner so staged files matching `docs/*` and `COOKBOOK.md` pass without requiring target file declarations.
+4. Add regression tests in `tests/write-guard_test.sh` and `tests/pre-commit_test.sh`.
+
 ### 2.1 Information Architecture & Taxonomy
 
 ```text
@@ -75,6 +89,7 @@ agent-planning-kit/
     ├── recipes/                        # [P-56] Task-Oriented How-To Guides
     │   ├── getting-started/
     │   ├── integrations/
+    │   ├── plugins-and-hooks/
     │   ├── workflows/
     │   └── troubleshooting/
     │
@@ -86,8 +101,8 @@ agent-planning-kit/
     │
     └── reference/                      # Authoritative Lookups & Specifications
         ├── 01-lifecycle-state-machine.md    # Status taxonomy, transitions, failure branches
-        ├── 02-cli-commands-and-verbs.md     # 5-tier discovery hierarchy, canonical verb contracts
-        ├── 03-configuration-matrix.md       # Full git config aapp.* dictionary & defaults
+        ├── 02-cli-commands-and-verbs.md     # All 35 CLI verbs across 4 tiers, parameter variations
+        ├── 03-configuration-matrix.md       # Complete git config aapp.* dictionary (22+ keys)
         ├── 04-plugin-and-hook-engine.md     # registry.tsv contract, lifecycle triggers, execution
         └── 05-ai-attribution-and-notes.md   # Trailers vs Notes, switchboard, audit compliance
 ```
@@ -125,62 +140,64 @@ The root `MANUAL.md` becomes the master navigation portal:
 
 ### 2.5 Dedicated CLI Verbs & Parameter Variations Reference (`docs/reference/02-cli-commands-and-verbs.md`)
 
-An exhaustive, standalone command dictionary covering every verb, syntax variation, and parameter permutation across all 5 discovery tiers:
-1. **Primary Lifecycle**:
-   - `aapp init [mode]` (fresh repository bootstrap, worktree mounting, template sync).
-   - `aapp draft <slug> [issue <num>]` (blueprint scaffolding from scratch or promoted from issue).
-   - `aapp tdd <id>` (test failure registration and verification).
-   - `aapp freeze <id>` (design lock, blast-radius verification, unfreezing protocol).
-   - `aapp start <id>` (worktree binding, development phase ingress).
-   - `aapp commit "<msg>" [agent <A> vendor <V> model <M>] [note "<text>"]` (plan-bound commit helper).
-   - `aapp commit adopt <sha>...` (retroactive commit binding).
-   - `aapp done [id]` (verification commit recording, archive relocation, matrix pruning).
-   - `aapp release [version]` (release runbook, pre-flight gate, tag ledger).
-2. **Issue & Mini-Plan Operations**:
-   - `aapp issue allocate` (atomic ID reservation via provider or local sequence).
-   - `aapp issue next` (peek next unallocated issue ID).
-   - `aapp issue list` (table dump of active issues).
-   - `aapp issue fix next-blocker` (claim top unblocked issue and open mini-plan).
-   - `aapp issue fix <num> file <path>...` (scoped mini-plan on target issue and files).
-   - `aapp issue hotfix "<text>" [file <path>]... [plan]` (emergency plan blocking, queue injection, stash set-aside).
-   - `aapp issue close <num> [sha <sha>] [summary "<text>"]` (archive relocation, road-map removal, unblock cascade).
-   - `aapp issue abort [num]` (mini-plan deletion, revert to queue).
-3. **Refinement & Board Operations**:
-   - `aapp refine <id> "<msg>"` (blueprint progress, design refinement before freeze).
-   - `aapp refine <id> blocked <num>` (manual dependency blocking).
-   - `aapp refine <id> slug <new-slug>` (plan renaming with automatic issue cross-link repair).
-   - `aapp refine issues "<msg>"` (validated flat ledger and roadmap commit).
-   - `aapp refine pickup "<msg>"` (unprocessed idea queue commit).
-4. **Inspection & Context Recovery**:
-   - `aapp status [brief]` (context recovery agent 4-pillar briefing).
-   - `aapp active` (print currently bound plan ID and worktree path).
-   - `aapp diff [id]` (working tree blast-radius diff inspection).
-   - `aapp tree` (visual worktree and orphan branch layout).
-   - `aapp plan <id>` (switch worktree active-plan context pointer).
-   - `aapp ai [status|lax|strict|none|notes [on|off]]` (switchboard attribution status and switching).
-5. **Maintenance & Emergency Controls**:
-   - `aapp pause [reason]` (emergency brake, stash isolation, velocity freeze).
-   - `aapp resume` (lift pause, verify tree parity, resume velocity).
-   - `aapp sync` (sync template blocks across `.agents/` and `.plans/`).
-   - `aapp upgrade [--develop]` (upstream update, version protocol check).
-   - `aapp develop` (symlink-based local development mode).
-   - `aapp install` (system-wide share directory installation).
+An authoritative, single-source reference dictionary derived directly from `lib/verbs.tsv` and `lib/docs/verbs/*.md` contracts, covering all **35 canonical CLI verbs across the 4 tested tiers**:
+1. **Daily Tier (17 Verbs - Core Lifecycle & Operations)**:
+   - `aapp status [brief|short]` -> 4-pillar context recovery briefing (or 1-line pulse).
+   - `aapp draft <slug> [issue <num>]` -> Scaffold blueprint from template, stamp ID & date, register in matrix.
+   - `aapp refine <id> "<msg>" | <id> blocked <num> | <id> slug <new-slug> | pickup|issues "<msg>"` -> Plan refinement and board commits.
+   - `aapp tdd <id>` -> Declare plan failure-first tests (§3 identifiers, §4 test files) before freeze.
+   - `aapp freeze <id>` -> Lock blueprint blast radius & design into frozen backlog spec.
+   - `aapp start <id>` -> Transition frozen blueprint to in-development and bind local buffer.
+   - `aapp freeze-start <id>` -> Atomically freeze blueprint and activate execution buffer.
+   - `aapp done [id]` -> Archive implemented blueprint to `done/` and update archival ledger.
+   - `aapp commit "<msg>" [agent <A> vendor <V> model <M>] [note "<text>"]` -> Plan-bound commit helper.
+   - `aapp commit adopt <sha>...` -> Retroactively record code commits in active plan.
+   - `aapp active [id | clear]` -> Display, bind, or clear active execution plan buffer.
+   - `aapp issue allocate | next | list | fix next-blocker | fix <num> file <path>... | hotfix "<text>" [file <path>]... [plan] | close <num> [sha <sha>] [summary "<text>"] | fix <num> abort` -> Canonical issue and mini-plan operations.
+   - `aapp plan [id | <slug>]` -> Display educational planning switchboard or resolve blueprint.
+   - `aapp plan-status [id]` -> Inspect plan lane matrix or specific blueprint details.
+   - `aapp matrix [check]` -> Re-derive state matrix from plan Status lines (`check` to audit).
+   - `aapp note [stage|push|pull|show]` -> Inspect, stage, push, or pull general and AI Git notes.
+   - `aapp ai [status|lax|strict|none|notes [on|off]]` -> Configure or inspect AI attribution mode.
+   - `aapp test [suite]` -> Run automated test suites across all kit components.
+2. **Setup Tier (7 Verbs - Bootstrap & Distribution)**:
+   - `aapp init [mode]` -> Initialize or update AAPP worktrees in current repository.
+   - `aapp install` -> Install AAPP globally into `~/.local/bin` and configure PATH.
+   - `aapp upgrade [develop]` -> Upgrade global AAPP binaries & templates from upstream (or switch to develop clone).
+   - `aapp develop` -> Link local development clone globally via symlinks.
+   - `aapp uninstall` -> Remove global AAPP binaries and shared directories.
+   - `aapp version [-v|--version]` -> Show installed AAPP version.
+   - `aapp help [-h|--help] [verb]` -> Show grouped command catalog or verb help.
+3. **Sync Tier (5 Verbs - Multi-Worktree Coordination & Safety)**:
+   - `aapp push` -> Push active worktrees (`.plans`, `.agents`, `.githooks`) to remote.
+   - `aapp pull` -> Pull remote updates for active worktrees with non-negotiable `--ff-only`.
+   - `aapp sync` -> Bi-directional sync: pull updates followed by push.
+   - `aapp pause [reason]` -> Emergency brake: quarantine in-flight changes into stashes.
+   - `aapp resume` -> Disengage brake, verify commit drift, and restore stashes.
+4. **Hooks Tier (5 Verbs - Lifecycle Extension Audit & Execution)**:
+   - `aapp hooks` -> Audit lifecycle hook registry and verify SHA256 integrity.
+   - `aapp hook-test <event>` -> Dry-run test an event trigger with mock payload.
+   - `aapp hook-run <event>` -> Execute a registered hook handler with specified payload.
+   - `aapp hook-hash <file>` -> Compute SHA256 registration hash for hook script.
+   - `aapp plugins` -> Discover installed action plugins in `.agents/skills/`.
+
+*Note on Agent Skills*: Distinct from CLI verbs, interactive agent workflows (`/aapp-release`, `/aapp-digest`, `/aapp-plan`, `/plan`) are exposed as Universal AAPP Skills in `.agents/skills/` and documented with clear cross-references.
 
 **Standardized Entry Schema per Verb**:
 - Syntax signature with required, optional, and multi-value parameters.
 - Preconditions: Current worktree, required branch, plan lifecycle status.
-- Exit Codes: `0` (Success), `1` (Fatal / Refusal), `2` (Hook / Gate Veto).
+- Exit Codes: `0` (Success), `1` (Fatal / Refusal), `2` (Advisory Warning).
 - Terminal output examples and common failure diagnostics.
-- IDE / Agent Slash Command Mappings (`/aapp-freeze`, `/aapp-status`, `/aapp-digest`, etc.).
 
 ### 2.6 Dedicated Configuration Dictionary (`docs/reference/03-configuration-matrix.md`)
 
-An authoritative, single-source reference dictionary for every `git config aapp.*` setting:
+An authoritative, single-source dictionary covering all 22+ `git config aapp.*` settings discovered across the codebase, organized to match the manifest schema of Pickup **Configuration Manager CLI / #99** (`config.tsv`):
 - **Attribution & Provenance**:
-  - `aapp.aiAttribution`: Enum (`none | lax | strict | notes`). Governs public commit trailers.
-  - `aapp.aiNotes`: Boolean (`true | false`). Controls parallel private notes recording in `refs/notes/ai`.
+  - `aapp.aiAttribution`: Enum (`none | lax | strict | notes`, default `lax`). Governs public commit trailers.
+  - `aapp.aiNotes`: Boolean (`true | false`, default `false`). Controls parallel private notes recording in `refs/notes/ai`.
   - `aapp.aiAgent`, `aapp.aiVendor`, `aapp.aiModel`: Default agent identity strings for manual overrides.
-- **Commit Formatting Invariants**:
+  - `aapp.notesRemote`: String (default `origin`). Remote name for pushing/pulling Git notes.
+- **Commit & Formatting Invariants**:
   - `aapp.subjectMaxLen`: Integer (default `72`). Maximum commit subject character length.
   - `aapp.commitLineMaxLen`: Integer (default `100`). Maximum commit body line width.
   - `aapp.bodyMaxLen`: Integer (default `1200`). Maximum total commit body characters.
@@ -192,10 +209,20 @@ An authoritative, single-source reference dictionary for every `git config aapp.
   - `aapp.issueTracker`: String. Provider plugin identifier for external issue tracker integration.
   - `aapp.maxEmergencyHotfixes`: Integer (default `2`). Threshold of hotfixes before permanent plan blocking.
   - `aapp.issueFixWait`: Integer (default `5`). Wait timeout in minutes when another mini-plan is in development.
+  - `aapp.planState.<id>`: String. State matrix overrides.
+- **Branching, Remotes & Worktree Sync**:
+  - `aapp.devBranch`: String (default `develop`). Main development integration branch.
+  - `aapp.protectStable`: Boolean (default `true`). Blocks direct commits to stable branches (`main`, `master`).
+  - `aapp.remote`: String (default `origin`). Canonical git remote name.
+  - `aapp.syncStrategy`: String (default `ff-only`). Merge strategy for sync operations.
+  - `aapp.pullStrategy`: String (default `ff-only`). Merge strategy for pull operations.
+  - `aapp.syncWorktrees`: String. Space/comma-separated list of worktrees to synchronize.
 - **Blast Radius & Containment**:
   - `aapp.allowPath`: Colon-separated path patterns authorized to bypass Layer 1 write-guard.
-- **Lifecycle Hook Overrides**:
-  - `aapp.hook.<event>`: Script path overrides for any of the 10 lifecycle events (e.g., `aapp.hook.post-done`).
+- **Lifecycle Hook Overrides & Testing**:
+  - `aapp.hook.<event>`: Script path overrides for lifecycle events (e.g., `aapp.hook.pre-freeze`, `aapp.hook.post-done`).
+  - `aapp.hookTimeout`: Integer (default `15`). Watchdog timeout in seconds for hook execution.
+  - `aapp.testCommand`: String. Custom test execution runner command.
 
 **Standardized Entry Schema per Setting**:
 - Key name, data type, default value, and valid values/enums.
@@ -207,6 +234,10 @@ An authoritative, single-source reference dictionary for every `git config aapp.
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
+### Phase 0: Prerequisite Shared Documentation Invariant (Layer 1 & Layer 2)
+- [ ] Task 0.1: Update `lib/aapp-lib.sh` (`aapp_shared_docs_regex` and `aapp_is_shared_doc`), `templates/blast-radius-guard.sh`, and `templates/aapp-pre-commit` (`ALWAYS_ALLOWED_REGEX`) to include `COOKBOOK.md` and `docs/*`.
+- [ ] Task 0.2: Add regression tests in `tests/write-guard_test.sh` and `tests/pre-commit_test.sh` verifying that modifying and committing `docs/**/*.md` and `COOKBOOK.md` passes freely without active plan target declarations.
+
 ### Phase 1: Conceptual Architecture Modularization (`docs/concepts/`)
 - [ ] Task 1.1: Author `docs/concepts/01-worktree-architecture.md` (extracting and refining from `MANUAL.md` §1 & §2).
 - [ ] Task 1.2: Author `docs/concepts/02-blast-radius-engine.md` (extracting from `MANUAL.md` §3).
@@ -215,26 +246,30 @@ An authoritative, single-source reference dictionary for every `git config aapp.
 
 ### Phase 2: Technical Reference Modularization (`docs/reference/`)
 - [ ] Task 2.1: Author `docs/reference/01-lifecycle-state-machine.md` (extracting from `MANUAL.md` §5).
-- [ ] Task 2.2: Author `docs/reference/02-cli-commands-and-verbs.md` with complete parameter variations across all 5 verb tiers, execution preconditions, exit codes, error diagnostics, and slash command mappings.
-- [ ] Task 2.3: Author `docs/reference/03-configuration-matrix.md` with complete `git config aapp.*` dictionary, data types, defaults, scopes, enforcement layers, and configuration presets.
+- [ ] Task 2.2: Author `docs/reference/02-cli-commands-and-verbs.md` covering all 35 verbs strictly aligned with `lib/verbs.tsv` and `lib/docs/verbs/*.md` contracts, execution preconditions, exit codes, and diagnostics.
+- [ ] Task 2.3: Author `docs/reference/03-configuration-matrix.md` covering all 22+ `git config aapp.*` settings discovered in code, aligned with Pickup #99 manifest schema.
 - [ ] Task 2.4: Author `docs/reference/04-plugin-and-hook-engine.md` (extracting from `MANUAL.md` §8).
 - [ ] Task 2.5: Author `docs/reference/05-ai-attribution-and-notes.md` (extracting from `MANUAL.md` §9).
 
-### Phase 3: Portal Transformation & Storefront Cleanup
+### Phase 3: Portal Transformation, Storefront Cleanup & Link Audit
 - [ ] Task 3.1: Rewrite root `MANUAL.md` into the concise executive portal (~150 lines) with complete relative links into `docs/`.
 - [ ] Task 3.2: Slim down root `README.md` to ~120 lines, adopting `.plans/pickup/readme-draft.md` enriched with `COOKBOOK.md` navigation links.
-- [ ] Task 3.3: Verify all internal markdown links are repository-relative and validate anchor hygiene.
+- [ ] Task 3.3: Perform repository-wide anchor and link audit across `templates/`, `lib/`, `tests/`, and `.agents/` updating old `MANUAL.md` anchor references.
 
 ### Phase 4: Installer Sync & Regression Verification
 - [ ] Task 4.1: Update `lib/cmd_install.sh` to package `docs/concepts/` and `docs/reference/`.
 - [ ] Task 4.2: Update `tests/install_test.sh` to verify full `docs/` tree installation in `$SHARE_DIR`.
-- [ ] Task 4.3: Execute all automated test suites (`tests/install_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`) to ensure 100% compliance.
+- [ ] Task 4.3: Author automated dead-link test `tests/doc_links_test.sh` verifying that all cross-links between `README.md`, `MANUAL.md`, `COOKBOOK.md`, and `docs/**/*.md` resolve to valid files and headings.
+- [ ] Task 4.4: Execute all automated test suites (`tests/install_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, `tests/doc_links_test.sh`) to ensure 100% compliance.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
+- [ ] `lib/aapp-lib.sh` -> Update shared doc regex to include COOKBOOK.md and docs/*.
+- [ ] `templates/blast-radius-guard.sh` -> Add COOKBOOK.md and docs/* to always-allowed case.
+- [ ] `templates/aapp-pre-commit` -> Add COOKBOOK.md and docs/* to ALWAYS_ALLOWED_REGEX.
 - [ ] `MANUAL.md` -> Transformed into executive navigation portal.
 - [ ] `README.md` -> Slimmed down to ~120-line storefront.
 - [ ] `NEW FILE` -> `docs/concepts/01-worktree-architecture.md` -> Deep dive on orphan worktree mechanics.
@@ -242,18 +277,20 @@ An authoritative, single-source reference dictionary for every `git config aapp.
 - [ ] `NEW FILE` -> `docs/concepts/03-two-lane-governance.md` -> Issues vs Plans two-lane doctrine.
 - [ ] `NEW FILE` -> `docs/concepts/04-security-and-threat-model.md` -> Containment & security boundaries.
 - [ ] `NEW FILE` -> `docs/reference/01-lifecycle-state-machine.md` -> State machine transitions & taxonomy.
-- [ ] `NEW FILE` -> `docs/reference/02-cli-commands-and-verbs.md` -> Complete reference of all CLI verbs, parameter variations, exit codes, and preconditions.
-- [ ] `NEW FILE` -> `docs/reference/03-configuration-matrix.md` -> Complete git config aapp.* dictionary, data types, defaults, scopes, and presets.
+- [ ] `NEW FILE` -> `docs/reference/02-cli-commands-and-verbs.md` -> Complete reference of all 35 CLI verbs, parameter variations, exit codes, and preconditions.
+- [ ] `NEW FILE` -> `docs/reference/03-configuration-matrix.md` -> Complete git config aapp.* dictionary (22+ keys), data types, defaults, scopes, and presets.
 - [ ] `NEW FILE` -> `docs/reference/04-plugin-and-hook-engine.md` -> Hook triggers and registry contract.
 - [ ] `NEW FILE` -> `docs/reference/05-ai-attribution-and-notes.md` -> AI attribution modes and git notes.
+- [ ] `NEW FILE` -> `tests/doc_links_test.sh` -> Automated link and anchor hygiene test.
+- [ ] `tests/write-guard_test.sh` -> Regression test asserting docs/ are always-allowed.
+- [ ] `tests/pre-commit_test.sh` -> Regression test asserting docs/ commits pass without plan target listing.
 - [ ] `lib/cmd_install.sh` -> Package docs/ tree into SHARE_DIR.
 - [ ] `tests/install_test.sh` -> Regression test asserting docs/ distribution.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `COOKBOOK.md` -> Governed by Plan P-56.
 - [ ] `docs/recipes/` -> Governed by Plan P-56.
-- [ ] `templates/blast-radius-guard.sh` -> Enforcement engine logic unchanged.
-- [ ] `templates/aapp-pre-commit` -> Commit hook engine unchanged.
+- [ ] `lib/cmd_init.sh` -> Worktree sync engine remains untouched.
 
 ---
 
@@ -263,5 +300,6 @@ An authoritative, single-source reference dictionary for every `git config aapp.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Refined blueprint: added Phase 0 prerequisite for shared-doc engine (`docs/*` and `COOKBOOK.md` always-allowed in guard and hook), aligned CLI verbs reference with all 35 verbs in `lib/verbs.tsv`, aligned configuration dictionary with all 22+ keys from codebase, and added anchor audit and `tests/doc_links_test.sh` dead-link test.
 * **2026-10-07:** Refined blueprint to establish dedicated, exhaustive reference specifications for CLI Verbs with all parameter variations (`docs/reference/02-cli-commands-and-verbs.md`) and the complete Configuration Matrix dictionary (`docs/reference/03-configuration-matrix.md`).
 * **2026-10-07:** Drafted blueprint P-57 from user discussion. Defined modular technical specification hierarchy (`docs/concepts/` and `docs/reference/`), outlined executive portal `MANUAL.md`, and specified storefront `README.md` slimdown.
