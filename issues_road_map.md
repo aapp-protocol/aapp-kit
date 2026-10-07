@@ -32,7 +32,6 @@
 - [ ] #59 -> `sort -z` is GNU/newer-BSD only and fails on older macOS `sort`, breaking the Plans pillar of briefing.
 - [ ] #60 -> Plan filenames with newlines break unquoted `ls -1` iteration in enforcement engine.
 - [ ] #67 -> AI credits generator relies on commit trailers and cannot mechanically extract agents that contributed review without committing (awaiting adversarial-review plugin).
-- [ ] #84 -> Write-guard refuses `.plans/*` writes when cwd is inside the `.plans` worktree.
 - [ ] #85 -> Status-line regex duplicated across 22 call sites with divergent legacy alias handling.
 - [ ] #86 -> Pair 5 keeps a fifth Target Files parser outside the P-37 library.
 - [ ] #87 -> Emergency Hotfix Extensions live in design-locked §4, so they are refused once a plan is Frozen.
