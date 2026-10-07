@@ -31,8 +31,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-49**: [`P49-refine-subject-precheck.md`](current/P49-refine-subject-precheck.md) — Refine Subject Precheck
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

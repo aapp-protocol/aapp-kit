@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** None (follow-up to P-47 and P-28)
 * **Plan ID:** P-49
 * **Changelog:** Fixed: `aapp refine` checks the commit subject length and shape before committing, and blocks a plan on an issue with `aapp refine <id> blocked <num>`
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `1bb9d4e` (develop)
 * **Commits:** `3794b80` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -116,6 +116,7 @@ After resolving the plan and before `plans_commit`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Plan implementation completed and archived to done/.
 * **2026-10-07:** Plan activated into ⚡ In Development via start.
 * **2026-10-07:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*

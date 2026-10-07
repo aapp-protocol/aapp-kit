@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-07 | `P-49` | [`P49-refine-subject-precheck.md`](P49-refine-subject-precheck.md) | None (follow-up to P-47 and P-28) | `3794b80` | Refine Subject Precheck & Blocked Token |
 | 2026-10-07 | `P-25` | [`P25-template-sync-and-document-governance.md`](P25-template-sync-and-document-governance.md) | #73 | `b54887b` | Delimited Template Sync & Tiered Document Governance |
 | 2026-10-03 | `P-48` | [`P48-shared-docs-concurrency.md`](P48-shared-docs-concurrency.md) | #96 | `12cdb93` | Shared Docs Concurrency: Collision Exemption, Plan-Declared Changelog, Union Merge |
 | 2026-10-03 | `P-46` | [`P46-plugin-registry.md`](P46-plugin-registry.md) | #94 | `24c24e5` | Plugin Registry |
