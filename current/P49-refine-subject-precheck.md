@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** None (follow-up to P-47 and P-28)
 * **Plan ID:** P-49
 * **Changelog:** Fixed: `aapp refine` checks the commit subject length and shape before committing; Added: `aapp refine <id> blocked <num>` sets a plan BLOCKED on an issue
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -116,6 +116,7 @@ After resolving the plan and before `plans_commit`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-07:** Renamed `aapp issue handoff` to `aapp issue hotfix` (developer): vendor-neutral, and one word with `Emergency Hotfixes:` and `aapp.maxEmergencyHotfixes`; misuse is caught both ways (`hotfix` needs a bound plan, `fix` is refused in a plan worktree).
 * **2026-10-05:** Aligned with the P-52/P-54 review RFC (settled design; C96, C99): `blocked` appends to a `Blocked On:` list instead of refusing an already blocked plan; the writing is a write-only function (`plan_block_on`) that `refine` commits and P-52's `issue handoff` calls in-process through an `AAPP_PLAN_LIB_ONLY` guard.
