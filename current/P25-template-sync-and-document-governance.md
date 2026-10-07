@@ -5,6 +5,7 @@
 * **Changelog:** Added: Three-tier document governance and delimited template sync (`#73`)
 * **Status:** ⚡ In Development
 * **Base:** `2d11862` (develop)
+* **Commits:** `b54887b` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
