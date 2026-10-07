@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** None (extension of P-48; should have shipped with it)
 * **Plan ID:** P-51
 * **Changelog:** Added: `aapp.commitMode` (atomic by default) and plans recording the commit and changelog modes they were built with
-* **Status:** ⚡ In Development
+* **Status:** 📝 Refining
 * **Base:** `13adeb2` (develop)
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
