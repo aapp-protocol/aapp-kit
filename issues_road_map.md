@@ -41,5 +41,4 @@
 - [ ] #95 -> "Small" fix is undefined in invariant 5; default <10 changed lines, adopter override in `PROJECT.MD`.
 - [ ] #101 -> `aapp-digest` skill still routes small fixes through `issue fix <num> file …`, not `/aapp-fix`.
 - [ ] #103 -> Pending-fix start gate treats a re-frozen, previously started plan as a fresh start (keys on ⚡, not Base).
-- [ ] #104 -> No gate on sending a started/BLOCKED plan back to Refining; needs a supervisor authority in auto mode.
 

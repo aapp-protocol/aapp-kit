@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #104 | `High` | `CORE` | 2026-10-08 | 2026-10-08 | `dd0865a` | Out of kit scope: layer-0 deployment hardening; practice to document (pickup: Layer-0 Enforcement Practice) |
 | #102 | `Medium` | `DOCS` | 2026-10-07 | 2026-10-08 | `2c71bb9` | Fixed via aapp issue fix: templates/plan-template.md, templates/AGENTS.md, .agents/AGENTS.md |
 | #84 | `Medium` | `HOOK` | 2026-09-27 | 2026-10-07 | `13adeb2` | Fixed via aapp issue fix: templates/blast-radius-guard.sh, tests/write-guard_test.sh |
 | #98 | `High` | `HOOK` | 2026-10-04 | 2026-10-07 | `a248b10` | [P-52](P52-issue-fix-mini-plans.md) - Issue Fix Mini Plans (`aapp issue fix`) |
