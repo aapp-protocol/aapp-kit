@@ -98,6 +98,7 @@
 * **Key Functions:**
   * `issue_locate(n)` -> `active`, `archive`, or empty.
   * `cmd_issue_hotfix` / `cmd_issue_fix` / `_issue_fix_abort` -> P-52 hotfix (row, 🧱 Plan Blockers queue, `Emergency Hotfixes:`, block via `plan_block_on`, one commit) and temporary mini plans `current/fix-<num>.md` (one at a time; verbose wait up to `aapp.issueFixWait`).
+  * `_issue_reapply_stash(n)` -> single-checkout hotfix stash (recorded by SHA in `aapp_hotfix_stash`) re-applied at close; a conflict keeps it (P-52).
   * `_issue_lock_acquire` / `_issue_lock_release` -> the shared issue lock `$(git rev-parse --git-common-dir)/aapp_issue.lock` (PID-based stale takeover).
   * `issue_unblock_plans(n)` -> drops `#n` from every plan's `Blocked On:`; restores the recorded status when the list empties and the block is not permanent; used by `issue close` and `cmd_done` (P-52).
   * `issue_close_local(n, sha, summary)` -> Moves the active row to the top of the archive and prunes the road map; does not commit.
