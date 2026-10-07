@@ -1,100 +1,150 @@
-# 🗺️ Plan P-59: Kit Release Hook
+# 🗺️ Plan P-59: Kit Release Lifecycle Hook & Version Synchronizer
 * **Created:** 2026-10-07 | **Last Refined:** 2026-10-07
 * **Target Issue / Milestone:** #58
 * **Plan ID:** P-59
-* **Changelog:** Changed: Kit Release Hook
+* **Changelog:** Added: Kit release lifecycle hook and template version synchronizer
 * **Commit Mode:** atomic
 * **Changelog Mode:** plan
-<!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
-     from the title; reword it and pick the section while refining. `aapp commit` writes it into
-     CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
-<!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
-     The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
-     specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
-     A plan whose Status says BLOCKED grants no commit rights at all. A ✅ Done plan is archived in
-     .plans/done/ and records terminal completion in the archive ledger. -->
-<!-- * **Blocked On:** #<num>        <- written by verbs: 'aapp issue hotfix' or 'aapp refine <id> blocked <num>' adds it; 'aapp issue close' removes it -->
-<!-- * **Emergency Hotfixes:** #<num> <- append-only, written by 'aapp issue hotfix'; more than aapp.maxEmergencyHotfixes blocks the plan for good -->
+<!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
 > 2. **Changelog Requirement**: Every commit touching source code **must** update `CHANGELOG.md` (or `.plans/CHANGELOG.md`). Run syntax checks and automated tests *before* updating the changelog.
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
-> 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
-> 5. **Mid-Execution Bugs**:
->    - *Non-blocking*: Log in `.plans/ISSUES.md` and continue your plan.
->    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
->    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
-> 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
-> 7. **Architecture & Codemap Sync**: If your implementation introduces new files, functions, CLI verbs, or alters architectural boundaries, you **must** update `ARCHITECTURE.md` and `.agents/CODEMAP.md` (or repo-root `CODEMAP.md`). Both files are always-allowed workspace invariants.
-> 8. **Fail-Closed Invariant**: Silent fallbacks (`|| true`, `|| pwd`, unchecked defaults, empty catch blocks) are strictly prohibited. Every operation must fail closed with a clear diagnostic unless a fallback is explicitly justified in code comments and registered under §2's Fallback Inventory.
+> 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]`. Never stage or commit the plan file yourself.
+> 5. **Mid-Execution Bugs**: Log non-blocking bugs in `.plans/ISSUES.md`. For blocking issues, use `aapp issue hotfix`.
+> 6. **User Documentation Sync**: Update `MANUAL.md` and `README.md` with kit release hook conventions.
+> 7. **Architecture & Codemap Sync**: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
+> 8. **Fail-Closed Invariant**: Silent fallbacks are strictly prohibited. Every check must fail closed.
 <!-- AAPP-PROTOCOL:END -->
 
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+While Plan P-38 establishes the universal, language-agnostic release engine (`aapp release`) and delegates version bumping to an `on-release` action delegate via Dual Delivery (`stdin` JSON + POSIX env), the core engine contains zero project-specific file mutation logic. 
+
+In the `agent-planning-kit` repository:
+1. **Unstamped Version Drift (Issue #58)**: `AAPP_VERSION="1.0.0"` in `aapp` was hardcoded during install/upgrade implementation without release tag automation. Upgraded downstream repositories copy templates still carrying `<!-- AAPP-PROTOCOL:START v1.0.0 -->`.
+2. **Dogfooding Lifecycle Hooks**: The AAPP Kit should dogfood its own extension architecture by implementing a dedicated `on-release` hook (`scripts/kit-on-release.sh`) rather than hardcoding kit-specific `sed` commands into `lib/cmd_release.sh`.
+3. **Template Version Synchronization**: When a release occurs, the kit must synchronously update `AAPP_VERSION` in the executable CLI and advance protocol delimiter blocks across all starter templates (`templates/AGENTS.md`, `templates/plan-template.md`, `templates/pickup.md`, `templates/release_checklist.md`).
+
+### Architectural Goal
+Provide the official repository-level release personalisation hook for `agent-planning-kit`:
+- Implement `scripts/kit-on-release.sh` as an `on-release` action delegate responding to `aapp release`.
+- Extract raw version (`AAPP_RAW_VERSION`, e.g. `1.1.0`) and release tag (`AAPP_RELEASE_VERSION`, e.g. `v1.1.0`).
+- Update `AAPP_VERSION="<rawVersion>"` in `aapp`.
+- Update `<!-- AAPP-PROTOCOL:START v<rawVersion> -->` across all managed template files in `templates/`.
+- Validate that all target files were updated cleanly and exit 0 (or exit 1 on any failure to roll back the release transaction).
+- Provide automated regression testing via `tests/kit_release_hook_test.sh`.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Hook Interface & Execution Flow (`scripts/kit-on-release.sh`)
+
+When `aapp release <version>` executes, Step 3 invokes `on-release` via `dispatch_lifecycle_hook`:
+
+```text
+                  [ aapp release v1.2.0 ]
+                            │
+                            ▼ (Step 3: on-release)
+              [ scripts/kit-on-release.sh ]
+              (Env: AAPP_RAW_VERSION="1.2.0")
+              (STDIN: {"event":"on-release","version":"v1.2.0",...})
+                            │
+            ┌───────────────┴───────────────┐
+            ▼                               ▼
+    [ Update aapp CLI ]           [ Update templates/* ]
+    AAPP_VERSION="1.2.0"          <!-- AAPP-PROTOCOL:START v1.2.0 -->
+            │                               │
+            └───────────────┬───────────────┘
+                            ▼
+                  [ Verify Changes ]
+                            │
+              ┌─────────────┴─────────────┐
+              ▼                           ▼
+           Success                      Error
+         (exit code 0)              (exit code 1)
+              │                           │
+              ▼                           ▼
+      Proceed with Release       🛑 Rollback & Abort
+```
+
+### 2.2 Payload Consumption
+The hook consumes the payload from Dual Delivery:
+- **Primary**: Environment variable `$AAPP_RAW_VERSION` (fallback: parsed from STDIN JSON `.rawVersion` via awk/grep without requiring `jq`).
+- **Normalized Tag**: `$AAPP_RELEASE_VERSION` (fallback: `v$AAPP_RAW_VERSION`).
+
+### 2.3 File Mutation Operations
+1. **CLI Executable (`aapp`)**:
+   ```bash
+   sed -i -E "s/^AAPP_VERSION=\".*\"/AAPP_VERSION=\"$RAW_VERSION\"/" "$REPO_ROOT/aapp"
+   ```
+2. **Template Protocol Delimiters (`templates/`)**:
+   Scan `templates/` for files matching `<!-- AAPP-PROTOCOL:START v.* -->`:
+   - `templates/AGENTS.md`
+   - `templates/plan-template.md`
+   - `templates/pickup.md`
+   - `templates/release_checklist.md`
+   Replace version token:
+   ```bash
+   sed -i -E "s/<!-- AAPP-PROTOCOL:START v[0-9]+\.[0-9]+(\.[0-9]+)?.* -->/<!-- AAPP-PROTOCOL:START v$RAW_VERSION -->/" "$FILE"
+   ```
+3. **Verification**:
+   Assert that `grep -q "AAPP_VERSION=\"$RAW_VERSION\"" "$REPO_ROOT/aapp"` succeeds and that modified templates contain the new protocol version string.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Clean Break`
+- **Fallback Inventory**: `None (Clean Break)`: The hook operates strictly via the standardized `on-release` contract defined in P-38 and P-23.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Script Authoring & Test Suite
+- [ ] Task 1.1: Author `scripts/kit-on-release.sh` with robust input validation, dual-delivery payload parsing, atomic file updates, and fail-closed exit codes.
+- [ ] Task 1.2: Ensure `scripts/kit-on-release.sh` is executable (`chmod +x`).
+- [ ] Task 1.3: Author `tests/kit_release_hook_test.sh` simulating `on-release` dispatch in an isolated copy of the kit repo, verifying version updates in `aapp` and `templates/`.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Hook Registration & Verification
+- [ ] Task 2.1: Register `scripts/kit-on-release.sh` in `.agents/skills/aapp-hooks/registry.tsv` (or project config `git config aapp.hook.on-release scripts/kit-on-release.sh`) with `mode=gate` and `timeout=30`.
+- [ ] Task 2.2: Test hook execution via `./aapp hook-test on-release` (or mock payload) verifying zero errors and clean output.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+### Phase 3: Documentation & Issue Resolution
+- [ ] Task 3.1: Document the kit self-release hook architecture in `MANUAL.md` and `.agents/CODEMAP.md`.
+- [ ] Task 3.2: Verify resolution of Issue #58.
+- [ ] Task 3.3: Update `CHANGELOG.md` and run regression test suite (`./aapp test strict quiet`).
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `scripts/kit-on-release.sh` -> Concrete on-release lifecycle hook script for agent-planning-kit
+- [ ] `tests/kit_release_hook_test.sh` -> Regression tests for kit release hook and version synchronization
+- [ ] `MANUAL.md` -> Document kit release hook in extension recipes
+- [ ] `README.md` -> Note self-release hook dogfooding
+- [ ] `.agents/CODEMAP.md` -> Document scripts/kit-on-release.sh contracts
+- [ ] `CHANGELOG.md` -> Record kit release hook addition
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `.githooks/*` -> Guard Section 2 self-protection.
+- [ ] `lib/cmd_release.sh` -> Core universal release engine remains language-agnostic (governed by P-38).
+- [ ] `.agents/skills/aapp-*` -> Engine skills remain untouched.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-07:** Plan initialized from `pickup.md`.
-* **2026-10-07:** Refined blast radius and locked module boundaries.
+* **2026-10-07:** Drafted blueprint promoting Issue #58 into a dedicated personalisation plan for `agent-planning-kit`'s own `on-release` hook and template protocol synchronizer.
