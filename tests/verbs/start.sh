@@ -164,4 +164,18 @@ else
   bad "test_starts_once_blocker_promoted_shared_docs_never_gate" "rc=$rc out=$out"
 fi
 
+# A plan started before (Base recorded), sent back to Refining and re-frozen,
+# is not a fresh start: a blocker queued on its file does not gate it (#103).
+qf="$(plan_file "$qa")"
+aapp active clear >/dev/null 2>&1
+sed -i 's/^\* \*\*Status:\*\*.*/* **Status:** 📝 Refining/' "$qf"; git -C .plans commit -qam "re-scope $qa" >/dev/null 2>&1
+aapp freeze "$qa" >/dev/null 2>&1
+sed -i '/^| #20 /s/🔵 `Planned`/🟡 `Incubated`/' .plans/ISSUES.md; git -C .plans commit -qam "requeue #20" >/dev/null 2>&1
+out="$(aapp start "$qa" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && status_of "$qf" | grep -q '⚡ In Development' && ! echo "$out" | grep -qF "pending fix"; then
+  ok "test_restart_of_started_plan_not_gated_by_blocker"
+else
+  bad "test_restart_of_started_plan_not_gated_by_blocker" "rc=$rc out=$out status=$(status_of "$qf")"
+fi
+
 print_test_summary "$PASS" "$FAIL"

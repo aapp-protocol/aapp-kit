@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- Skip the check for any plan with a recorded `Base:` (it was started), not by Status. (`#103`)
 - Widen non-blocking to "bug, gap or stale text"; add a final §3 checkbox to log such findings as issues. (`#102`)
 - the write guard allows `.plans/` and `.agents/` writes from inside those worktrees, and by absolute path from a linked worktree (`#84`)
 - the pre-commit hook allows `.gitattributes` (written by `aapp init`), so it can be committed outside a plan (`#97`)

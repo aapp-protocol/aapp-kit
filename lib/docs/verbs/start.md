@@ -24,7 +24,7 @@
 - plan bound in another worktree's active buffer -> exit 1, stderr naming holding worktree
 - the plan is neither `🔷 Frozen` nor `⚡ In Development` -> exit 1, stderr `[Start Refusal] Plan is not frozen`, with the `freeze` / `freeze-start` hint; the plan is unchanged
 - a Target File is shared with another `⚡ In Development` plan -> exit 1, stderr `[Activation Gate]` names the file and the other plan; the plan is unchanged
-- a Target File is in a queued Plan Blocker's Location -> exit 1, stderr `[Activation Gate] <file> has a pending fix (#<n>); fix it first ('aapp issue fix next-blocker') or start another plan.`; nothing changed. A plan already `⚡ In Development` is not gated by this (P-58)
+- a Target File is in a queued Plan Blocker's Location -> exit 1, stderr `[Activation Gate] <file> has a pending fix (#<n>); fix it first ('aapp issue fix next-blocker') or start another plan.`; nothing changed. A plan with a recorded `Base:` was started before (a `⚡` re-run, or re-frozen after a re-scope) and is not gated by this (P-58, #103)
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 
 ## Effects (happy path)
@@ -52,3 +52,4 @@ Run: `aapp test verb start`
 - `tests/verbs/start.sh::test_refuses_plan_bound_in_other_worktree` -> start on a plan bound elsewhere: exit 1, plan and buffer unchanged
 - `tests/verbs/start.sh::test_refuses_target_with_pending_fix` -> a Target File in a queued Plan Blocker: exit 1, nothing changed (P-58)
 - `tests/verbs/start.sh::test_starts_once_blocker_promoted_shared_docs_never_gate` -> a promoted blocker no longer gates; a queued blocker on a shared doc never does (P-58)
+- `tests/verbs/start.sh::test_restart_of_started_plan_not_gated_by_blocker` -> a started plan sent back to Refining and re-frozen starts despite a blocker on its file (#103)

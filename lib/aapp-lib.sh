@@ -419,6 +419,15 @@ write_plan_commits() {
 }
 
 # write_plan_base <plan_file> <base_prose>
+# parse_plan_base <plan_file>
+# Outputs the recorded Base SHA, or nothing when the plan was never started
+# (no Base line, or `none`). `start` writes Base once and never overwrites it.
+parse_plan_base() {
+    awk '/^[[:space:]]*```/ { f = !f; next } f { next } /^##[[:space:]]/ { exit }
+         /^[[:space:]]*[*|-]*[[:space:]]*\*\*Base:\*\*/ { print; exit }' "$1" 2>/dev/null |
+        sed -nE 's/.*\*\*Base:\*\*[[:space:]]*`([0-9a-fA-F]+)`.*/\1/p'
+}
+
 # Updates the * **Base:** line in the plan header, or inserts it before Commits / after Status.
 # Strictly confined to the plan header (before any ## heading).
 write_plan_base() {
