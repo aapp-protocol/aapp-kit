@@ -1,8 +1,8 @@
 # 🗺️ Plan P-58: Issue Fixes Alongside Active Plans
 * **Created:** 2026-10-07 | **Last Refined:** 2026-10-07
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** None (follow-up to P-52, from its review)
 * **Plan ID:** P-58
-* **Changelog:** Changed: Issue Fixes Alongside Active Plans
+* **Changelog:** Changed: `aapp issue fix` waits for uncommitted work instead of refusing, and a plan cannot start on a file a queued plan blocker will change
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
@@ -36,36 +36,59 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+P-52 lets an issue fix touch a file that an active plan also lists: the plan picks the fix up by rebase (worktree) or continues on top of it (single checkout). Running that unattended exposed three gaps:
+
+1. **A dirty file refuses at once.** `aapp issue fix` refuses a file with uncommitted changes in its working copy ("commit or stash them first"). An unattended fixer must not commit or stash another plan's work, and nothing tells it what to do instead; a person or session that is about to commit is not given time to do so.
+2. **A plan can start on a file a queued fix will change.** The activation gate refuses a start when a target file is shared with a ⚡ plan (open mini plans included), but not when a queued 🧱 Plan Blocker is about to change that file, so the new plan starts on code that is known to change under it.
+3. **The other plan is never told.** When a fix lands in a file another active plan lists, that plan's agent does not know; in a worktree its branch lacks the fix until it rebases, which P-55's integration check would only reveal at the end.
+
+**Goal:** fixes and active plans coordinate through the existing mechanisms: the same wait roller, the existing activation gate, the agent text, and one notice at close. No new verb, key or event (events are P-23's Q3).
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Wait instead of refuse (`lib/cmd_issue.sh`)
+- `aapp issue fix <num> file …`: while any of its files has uncommitted changes in this working copy, `fix` waits with the existing roller (2 s, 3 s, …, printed) up to `aapp.issueFixWait`, re-checking each time; then refuses as today. `0` keeps refusing at once (dispatch runners).
+- `aapp issue fix next-blocker`: claims the top blocker it can take now (P-52's skip); when every queued blocker has dirty files, it waits the same way for the first to become takeable.
+- **Single-checkout hint.** When the wait times out on files listed by the plan bound in this checkout, that plan's own work is the cause and nobody else will clear it: the message names the remedy, `aapp issue hotfix "<text>" file <path>…` (which stashes that work), instead of "commit or stash".
+- The fixer never commits or stashes another plan's work itself.
+
+### 2.2 Activation gate counts queued Plan Blockers (`lib/cmd_plan.sh`)
+`check_disjointness_activation_gate` (used by `start` and `freeze-start`) also reads the backticked Location paths of every issue under 🧱 Plan Blockers that is active and not 🔵 Planned. A target file among them (shared docs excepted, P-48) refuses the start, with nothing changed: `❌ src/x.py has a pending fix (#102); fix it first ('aapp issue fix next-blocker') or start another plan.` A promoted blocker (Planned) is not in the queue and does not gate; open mini plans are already counted as ⚡ plans.
+
+### 2.3 Notice at close (`lib/cmd_issue.sh`)
+`aapp issue close <num>` of a mini plan prints, for every other active plan (⚡ or BLOCKED, mini plans excluded) whose Target Files include one of the fix's files: `ℹ️  P-51 also lists lib/x.sh: it picks this fix up at its next rebase.` Output only; nothing is written.
+
+### 2.4 Agent text
+- `templates/AGENTS.md` / `.agents/AGENTS.md` (Issue Escape Triage and the small-fix lines): a fixer never commits or stashes another plan's work; `fix` waits for it, and after a timeout the fixer leaves that issue (`next-blocker` takes another) and retries later. Every plan in a worktree rebases with `git rebase --autostash <devBranch>` when it resumes and before `aapp done`: fixes to its files may have landed; conflicts in its own lines are its to resolve. A start refused for a pending fix means: fix it first, or start another plan.
+- `templates/skills/aapp-start/SKILL.md`: the gate's new refusal; rebase at resume.
+- `templates/skills/aapp-done/SKILL.md`: rebase onto the development branch before `aapp done` when the plan lives in a worktree.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- `aapp.issueFixWait 0` keeps today's immediate refusal for anyone who relies on it.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: `tests/verbs/issue.sh`: `fix` on a dirty file waits (printed) and proceeds once the file is committed within the wait; times out with the plain message, or with the hotfix hint when the bound plan lists the file; `0` refuses at once; `next-blocker` waits when every blocker is dirty and claims the first to clear; `close` prints the notice for another active plan listing a fixed file, and none otherwise.
+- [ ] Task 1.2: `tests/verbs/start.sh`: `start` refuses a plan whose target file is in a queued Plan Blocker's Location (nothing changed), and starts once the blocker is closed or promoted; shared docs never gate. `tests/verbs/freeze-start.sh`: the same through `freeze-start`.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Implementation
+- [ ] Task 2.1: Wait-on-dirty and the single-checkout hint in `lib/cmd_issue.sh` (2.1).
+- [ ] Task 2.2: Plan Blocker files in `check_disjointness_activation_gate` (`lib/cmd_plan.sh`) (2.2).
+- [ ] Task 2.3: Close-time notice in `lib/cmd_issue.sh` (2.3).
+- [ ] Task 2.4: Contracts `lib/docs/verbs/issue.md`, `start.md`, `freeze-start.md`.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+### Phase 3: Agent Text, Docs & Verification
+- [ ] Task 3.1: AGENTS.md (both), skills `aapp-start`, `aapp-done` (2.4).
+- [ ] Task 3.2: `MANUAL.md` (Hotfixes and Issue Fixes: fixes in another plan's files; the start gate), `CHEATSHEET.md`, `.agents/CODEMAP.md`.
+- [ ] Task 3.3: Run `./aapp test strict quiet`.
 
 ---
 
@@ -76,23 +99,40 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_issue.sh` -> Wait on dirty files, single-checkout hint, close-time notice.
+- [ ] `lib/cmd_plan.sh` -> Activation gate counts queued Plan Blocker files.
+- [ ] `lib/docs/verbs/issue.md` -> Contract: wait, hint, notice.
+- [ ] `lib/docs/verbs/start.md` -> Contract: pending-fix refusal.
+- [ ] `lib/docs/verbs/freeze-start.md` -> Contract: pending-fix refusal.
+- [ ] `tests/verbs/issue.sh` -> Wait, hint and notice tests.
+- [ ] `tests/verbs/start.sh` -> Gate tests.
+- [ ] `tests/verbs/freeze-start.sh` -> Gate test through `freeze-start`.
+- [ ] `templates/AGENTS.md` -> Fixer and plan-side rules (2.4).
+- [ ] `.agents/AGENTS.md` -> Same as the template.
+- [ ] `templates/skills/aapp-start/SKILL.md` -> Gate refusal; rebase at resume.
+- [ ] `templates/skills/aapp-done/SKILL.md` -> Rebase before `done` in a worktree.
+- [ ] `MANUAL.md` -> Fixes in another plan's files; the start gate.
+- [ ] `CHEATSHEET.md` -> `fix` waits; start gate.
+- [ ] `.agents/CODEMAP.md` -> Gate and notice.
+- [ ] `CHANGELOG.md` -> Entry written by `aapp commit` from the declaration.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/blast-radius-guard.sh` -> Guard rules are P-52's; nothing changes there.
+- [ ] `templates/aapp-pre-commit` -> Same.
+- [ ] `lib/hook_dispatcher.sh` -> No new event (P-23 Q3).
+- [ ] `lib/verbs.tsv` -> No new verbs.
+- [ ] `.githooks/*` -> Refreshed from `templates/` by `aapp init`.
+- [ ] `.agents/skills/*` -> Refreshed from `templates/skills/` by `aapp init`.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified.)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-07:** Plan initialized from `pickup.md`.
-* **2026-10-07:** Refined blast radius and locked module boundaries.
+* **2026-10-07:** Drafted from the developer's questions after P-52's first real use (#97): wait instead of refusing on uncommitted work, no start on a file a queued plan blocker will change, the agent text for fixes in another plan's files, and a close-time notice. Kept out of P-52 so P-52 can close as implemented and verified.
