@@ -26,11 +26,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-49**: [`P49-refine-subject-precheck.md`](current/P49-refine-subject-precheck.md) — Refine Subject Precheck
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-49**: [`P49-refine-subject-precheck.md`](current/P49-refine-subject-precheck.md) — Refine Subject Precheck
 
 ---
 
