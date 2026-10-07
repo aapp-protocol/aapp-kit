@@ -1,8 +1,8 @@
 # 🗺️ Plan P-55: Automated Worktree Branch Integration, Parent Branch Lifecycle & Safe Cleanup
-* **Created:** 2026-10-04 | **Last Refined:** 2026-10-04
+* **Created:** 2026-10-04 | **Last Refined:** 2026-10-07
 * **Target Issue / Milestone:** Multi-Agent Worktree Integration Engine (Pickup #8)
 * **Plan ID:** P-55
-* **Changelog:** Added: Automated worktree branch integration, parent-branch targeting, and safe cleanup (`aapp integrate`)
+* **Changelog:** Added: Automated worktree branch integration, parent-branch targeting, and safe cleanup (`aapp done <id> integrate`)
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Commits:** none
@@ -17,8 +17,8 @@
 >    - *Non-blocking*: Log in `.plans/ISSUES.md` and continue your plan.
 >    - *Blocking & small*: Add file under `### 🚨 Emergency Hotfix Extensions` with a 1-sentence justification.
 >    - *Blocking & substantial*: Set status to `🟥 BLOCKED`, stop, and ask the user.
-> 6. **User Documentation Sync**: Update `MANUAL.md`, `README.md`, and `CHEATSHEET.md` with new `aapp integrate` commands and config options.
-> 7. **Architecture & Codemap Sync**: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` for new CLI verbs and integration modules.
+> 6. **User Documentation Sync**: Update `MANUAL.md`, `README.md`, and `CHEATSHEET.md` with new `aapp done integrate` commands and config options.
+> 7. **Architecture & Codemap Sync**: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` for integration verb ownership and helpers.
 > 8. **Fail-Closed Invariant**: Silent fallbacks are strictly prohibited. Refuse integration if working trees are dirty or branches are not rebased.
 
 ---
@@ -52,7 +52,9 @@ Seeded only when absent by `cmd_init.sh`:
 | `aapp.integrate` | `squash` \| `ff` \| `manual` | `squash` | Default integration strategy upon completion: `squash` (milestone commit), `ff` (fast-forward microcommits), or `manual` (print advice only, P-54 behavior). |
 | `aapp.integrateTarget` | `parent` \| `dev` \| `<branch>` | `parent` | Integration target branch: `parent` resolves the branch the worktree was spawned from; `dev` resolves `aapp.devBranch`. |
 | `aapp.integrateCleanup` | `true` \| `false` | `true` | Automatically remove worktree and delete plan branch after successful integration. |
-| `aapp.maxEmergencyHotfixes` | integer | `2` | Maximum allowable emergency fixes before a plan is mechanically blocked (default: 2 allowed, blocked on 3rd). |
+| `aapp.quarantineIgnored` | `true` \| `false` | `false` | When true, automatically backup sensitive ignored files (`.env`) to `.git/aapp_quarantine/<plan-id>/` before removing worktree. |
+
+*(Note: `aapp.maxEmergencyHotfixes` is owned and seeded by P-52 with default `2`; P-55 reads it for its integration pre-flight check).*
 
 ### 2.2 Parent Branch Resolution & Modular Lineage
 
@@ -101,53 +103,55 @@ develop (Root Development Branch)
 Empirical testing in Git test harnesses confirmed two supported models:
 
 #### Model A: Milestone Squash (`aapp.integrate = squash`, Default)
-1. Verifies that `<plan-branch>` contains `<target-branch>` (`git merge-base --is-ancestor <target-branch> <plan-branch>`).
-2. Switches the primary checkout to `<target-branch>` (refusing if primary checkout has uncommitted changes).
-3. Executes `git merge --squash <plan-branch>`.
-4. Gathers commit message: extracts the plan's title and `* **Changelog:**` line, appends lineage and AI attribution trailers.
-5. Commits to `<target-branch>`.
-6. Executes cleanup per §2.4.
+1. Checks for open mini-plans (`.plans/current/fix-*.md`) in the primary checkout. If a mini-plan is active, refuses integration (or waits under `aapp.issueFixWait` if explicit `wait` token is passed), so the primary checkout is never switched away mid-fix.
+2. Verifies that `<plan-branch>` contains `<target-branch>` (`git merge-base --is-ancestor <target-branch> <plan-branch>`).
+3. Switches the primary checkout to `<target-branch>` (refusing if primary checkout has uncommitted changes).
+4. Executes `git merge --squash <plan-branch>`.
+5. Gathers commit message: extracts the plan's title and `* **Changelog:**` line, appends lineage and AI attribution trailers.
+6. Commits to `<target-branch>`.
+7. Executes cleanup per §2.4.
 
 #### Model B: Microcommit Model (`aapp.integrate = ff`)
-1. Verifies ancestry (`git merge-base --is-ancestor <target-branch> <plan-branch>`).
-2. Switches primary checkout to `<target-branch>`.
-3. Executes `git merge --ff-only <plan-branch>`.
-4. All individual microcommits (and intermediate emergency hotfixes) survive directly on `<target-branch>` with 100% linear history and original commit SHAs.
-5. P-48 union merge for `CHANGELOG.md` guarantees zero merge conflicts.
-6. Executes cleanup per §2.4.
+1. Checks for open mini-plans (`.plans/current/fix-*.md`) in the primary checkout. If active, refuses or waits.
+2. Verifies ancestry (`git merge-base --is-ancestor <target-branch> <plan-branch>`).
+3. Switches primary checkout to `<target-branch>`.
+4. Executes `git merge --ff-only <plan-branch>`.
+5. All individual microcommits (and intermediate emergency hotfixes) survive directly on `<target-branch>` with 100% linear history and original commit SHAs.
+6. P-48 union merge for `CHANGELOG.md` guarantees zero merge conflicts.
+7. Executes cleanup per §2.4.
 
 ### 2.4 Safe Worktree Removal & Ignored-File Protection
 
 `git worktree remove` silently and permanently deletes untracked ignored files (e.g. `.env`, local configs, build artifacts).
 
-* **Pre-Removal Inspection (`lib/cmd_integrate.sh:safe_worktree_remove`)**:
+* **Pre-Removal Inspection (`lib/aapp-lib.sh:safe_worktree_remove`)**:
   1. Inspects the worktree for untracked ignored files:
      ```bash
      ignored_files="$(git -C "$worktree_path" status --porcelain --ignored | grep -E '^\!\! ' | awk '{print $2}')"
      ```
   2. If sensitive ignored files (matching `.env*`, `*.pem`, `*.key`, `*secret*`) are found:
-     - **Default:** Refuses removal, prints the detected files, and instructs the user to either back them up or run with `--force-cleanup`.
-     - **Safe Backup Option:** If `aapp.quarantineIgnored = true`, copies them to `.plans/quarantine/<plan-id>/` before deletion.
+     - **Default:** Refuses removal, prints the detected files, and instructs the user to either back them up or run with bare token `force-cleanup`.
+     - **Safe Backup Option:** If `aapp.quarantineIgnored = true`, copies them to `$(git rev-parse --git-common-dir)/aapp_quarantine/<plan-id>/` (inside `.git`, untracked and never pushed) before deletion. Never copies secrets into `.plans/quarantine/`.
   3. Executes `git worktree remove "$worktree_path"`.
   4. Deletes the plan branch:
      - If integrated via `ff`: runs safe `git branch -d <plan-branch>`.
      - If integrated via `squash`: runs `git branch -D <plan-branch>` (since `-d` fails after squash merges because the squashed commit SHA is not an ancestor).
 
-### 2.5 CLI Interface (`aapp integrate` & `aapp done` Hookup)
+### 2.5 CLI Interface (`aapp done <id> integrate`)
 
-1. **Standalone Verb (`aapp integrate`)**:
-   ```bash
-   aapp integrate [<plan-id>] [squash | ff] [target <branch>] [no-cleanup] [force-cleanup]
-   ```
-   Can be run on any archived plan in `done/` (or active plan ready for integration).
+Integration is executed via tokens on the existing `done` lifecycle verb (strictly preserving the invariant `lib/verbs.tsv -> No new verbs`):
+```bash
+aapp done <id> integrate [squash | ff] [target <branch>] [no-cleanup] [force-cleanup] [wait]
+```
 
-2. **Integration at `aapp done`**:
-   `aapp done` gains an optional token or automatic execution:
-   ```bash
-   aapp done <id> [integrate | no-integrate]
-   ```
-   - If `aapp.integrate = manual` (current P-54 default): prints `aapp integrate <id>` advice.
-   - If `aapp.integrate = squash` or `ff`: automatically triggers `aapp integrate <id>` upon successful archival.
+1. **Automatic Archival & Integration (`aapp done <id>`)**:
+   - If `aapp.integrate = squash` or `ff` (default: `squash`): running `aapp done <id>` archives the plan and automatically executes integration into its parent branch.
+   - If `aapp.integrate = manual`: archives the plan and prints `aapp done <id> integrate` advice without integrating.
+   - Override token: `aapp done <id> no-integrate` archives the plan and skips integration regardless of configuration.
+
+2. **Standalone / Post-Archival Integration (`aapp done <id> integrate ...`)**:
+   - Can be run on any already archived plan in `.plans/done/` (or active plan ready for integration).
+   - Reads the plan's `* **Base:**` and `* **Worktree:**` headers to locate the worktree and target branch.
 
 ### 2.6 Mechanical Gate for 2+ Emergency Fixes
 
@@ -155,11 +159,11 @@ Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
 1. `count_plan_emergency_hotfixes "$plan_file"`: counts issue IDs in the append-only `* **Emergency Hotfixes:**` header line populated by `aapp issue handoff` (P-52).
 2. If `count > aapp.maxEmergencyHotfixes` (e.g. `count >= 3` with default `maxEmergencyHotfixes = 2`):
    - `aapp issue handoff` blocks the plan permanently at hand-off time (P-52).
-   - `aapp integrate` refuses integration with:
+   - `aapp done <id> integrate` refuses integration with:
      ```text
      ❌ [Integration Block] Plan 'P-XX' accumulated 3+ emergency fixes (#41, #42, #43).
         Daisy-chaining hotfixes is prohibited without formal re-scoping.
-        Requires human sign-off: run 'aapp integrate P-XX override-hotfix-cap'.
+        Requires human sign-off: run 'aapp done P-XX integrate override-hotfix-cap'.
      ```
 
 ### 🔄 Migration & Compatibility Strategy
@@ -175,32 +179,34 @@ Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
 - [ ] Task 1.2: Implement `check_worktree_ignored_files` in `lib/aapp-lib.sh` to detect untracked `.env` and sensitive files before removal.
 - [ ] Task 1.3: Implement `count_plan_emergency_hotfixes` in `lib/aapp-lib.sh`.
 
-### Phase 2: Core Integration Engine (`lib/cmd_integrate.sh`)
-- [ ] Task 2.1: Create `lib/cmd_integrate.sh` implementing `cmd_integrate`:
+### Phase 2: Core Integration Engine (`lib/aapp-lib.sh` & `lib/cmd_plan.sh`)
+- [ ] Task 2.1: Implement integration pre-flight engine in `lib/aapp-lib.sh`:
+  - Mini-plan active check in primary checkout (refuse or wait).
   - Target branch resolution (`parent` vs `dev`).
   - Pre-flight ancestry check (`git merge-base --is-ancestor`).
-  - Emergency fix cap enforcement (veto if >= 2 hotfixes without override).
-- [ ] Task 2.2: Implement `integrate_squash`:
+  - Emergency fix cap enforcement (veto if > `aapp.maxEmergencyHotfixes`, e.g. >= 3, without override).
+- [ ] Task 2.2: Implement `integrate_squash` in `lib/aapp-lib.sh`:
   - Synthesize message with plan title, changelog line, `Plan-ID:`, `Plan-Parent:`, and AI semantic trailers.
   - Commit to target branch.
-- [ ] Task 2.3: Implement `integrate_ff`:
+- [ ] Task 2.3: Implement `integrate_ff` in `lib/aapp-lib.sh`:
   - Fast-forward merge onto target branch.
-- [ ] Task 2.4: Implement safe cleanup (`git worktree remove` + branch deletion).
+- [ ] Task 2.4: Implement safe cleanup (`git worktree remove` + branch deletion + `.git/aapp_quarantine/` backup).
 
 ### Phase 3: Lifecycle Hookup & Dispatch Routing
-- [ ] Task 3.1: Wire `aapp integrate` into CLI switchboard in `bin/aapp` (and `aapp`).
-- [ ] Task 3.2: Hook into `lib/cmd_plan.sh` (`cmd_done`):
+- [ ] Task 3.1: Wire `integrate` tokens into `lib/cmd_plan.sh` (`cmd_done`):
   - When `aapp.integrate` is `squash` or `ff`, trigger automated integration upon archival.
-- [ ] Task 3.3: Implement universal skill `templates/skills/aapp-integrate/SKILL.md`.
+  - Standalone `aapp done <id> integrate ...` acts on plans in `current/` or `done/`.
+- [ ] Task 3.2: Update universal skill `templates/skills/aapp-done/SKILL.md` with integration tokens.
 
 ### Phase 4: Test Suite & Documentation
 - [ ] Task 4.1: Write unit and integration test suite `tests/integrate_test.sh`:
   - Parent branch targeting (module branch vs develop).
   - Squash integration with trailers and `-D` branch cleanup.
   - Fast-forward microcommit integration.
-  - Ignored file (`.env`) warning and abort.
-  - Emergency fix cap veto (2+ blockers halt integration).
-- [ ] Task 4.2: Update `MANUAL.md`, `README.md`, and `CHEATSHEET.md` with `aapp.integrate*` configs and `aapp integrate` command syntax.
+  - Primary checkout active mini-plan conflict refusal.
+  - Ignored file (`.env`) warning and safe `.git` quarantine.
+  - Emergency fix cap veto (3+ blockers halt integration).
+- [ ] Task 4.2: Update `MANUAL.md`, `README.md`, and `CHEATSHEET.md` with `aapp.integrate*` configs and `aapp done <id> integrate` command syntax.
 - [ ] Task 4.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
 - [ ] Task 4.4: Run full test suite (`./aapp test`) and ensure clean pass.
 
@@ -209,20 +215,20 @@ Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `lib/cmd_integrate.sh` -> Core integration command implementation (squash, ff, cleanup).
-- [ ] `lib/aapp-lib.sh` -> Target branch resolver, ancestry checks, ignored-file detector, and hotfix counter.
-- [ ] `lib/cmd_plan.sh` -> `cmd_done` integration hookup and `aapp unblock` hotfix cap check.
-- [ ] `lib/cmd_init.sh` -> Seed `aapp.integrate`, `aapp.integrateTarget`, and `aapp.integrateCleanup` config defaults.
-- [ ] `NEW FILE` -> `lib/docs/verbs/integrate.md` -> CLI verb contract for integrate.
-- [ ] `NEW FILE` -> `templates/skills/aapp-integrate/SKILL.md` -> Universal skill for automated branch integration.
+- [ ] `lib/aapp-lib.sh` -> Target branch resolver, ancestry checks, ignored-file detector, quarantine helper, and squash/ff engines.
+- [ ] `lib/cmd_plan.sh` -> `cmd_done` integration hookup and `integrate` subcommand tokens.
+- [ ] `lib/cmd_init.sh` -> Seed `aapp.integrate`, `aapp.integrateTarget`, `aapp.integrateCleanup`, and `aapp.quarantineIgnored` config defaults.
+- [ ] `lib/docs/verbs/done.md` -> CLI verb contract updates for `integrate` tokens on `done`.
+- [ ] `templates/skills/aapp-done/SKILL.md` -> Universal skill updates for branch integration tokens.
 - [ ] `NEW FILE` -> `tests/integrate_test.sh` -> Automated test harness for squash, ff, parent targeting, and safe cleanup.
 - [ ] `MANUAL.md` -> Document automated integration, multi-branch module targeting, and worktree cleanup.
 - [ ] `README.md` -> Update feature table with worktree integration engine.
-- [ ] `CHEATSHEET.md` -> Add `aapp integrate` and config options.
+- [ ] `CHEATSHEET.md` -> Add `aapp done <id> integrate` and config options.
 - [ ] `ARCHITECTURE.md` -> Document parent branch resolution and integration lifecycle.
-- [ ] `.agents/CODEMAP.md` -> Register `cmd_integrate.sh` and integration verb ownership.
+- [ ] `.agents/CODEMAP.md` -> Register integration functions in `cmd_plan.sh` and `aapp-lib.sh`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `lib/verbs.tsv` -> No new verbs; integration belongs to `aapp done`.
 - [ ] `templates/blast-radius-guard.sh` -> Layer 1 write guard remains untouched.
 - [ ] `templates/aapp-pre-commit` -> Layer 2 pre-commit gate remains untouched.
 - [ ] `lib/commit_engine.sh` -> Plan recording engine remains untouched.
@@ -231,14 +237,15 @@ Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
 
 ## ❓ 5. Open Questions (Optional / Gate)
 
-* [ ] **Question 1 — Default activation in `cmd_done`:** Should `aapp done` automatically execute `aapp integrate` when `aapp.integrate` is configured (`squash`/`ff`), or should `aapp done` always require an explicit flag (`aapp done <id> integrate`)?
+* [ ] **Question 1 — Default activation in `cmd_done`:** Should `aapp done` automatically execute integration when `aapp.integrate` is configured (`squash`/`ff`), or should `aapp done` always require an explicit flag (`aapp done <id> integrate`)?
   - *Option (a) (Recommended):* Automatic when configured (`aapp.integrate = squash`). Eliminates manual chores for autonomous runners. Interactive users can set `aapp.integrate = manual`.
-  - *Option (b):* Always require explicit `aapp integrate <id>` or `aapp done <id> integrate`.
-* [ ] **Question 2 — Untracked ignored file quarantine:** When `git worktree remove` encounters untracked `.env` or ignored files, should it automatically quarantine them to `.plans/quarantine/<plan-id>/`, or refuse and prompt?
-  - *Option (a) (Recommended):* Refuse and require `--force-cleanup`, unless `aapp.quarantineIgnored = true` is set, which copies them to `.plans/quarantine/<id>/`.
+  - *Option (b):* Always require explicit `aapp done <id> integrate`.
+* [ ] **Question 2 — Untracked ignored file quarantine:** When `git worktree remove` encounters untracked `.env` or ignored files, should it automatically quarantine them or refuse?
+  - *Option (a) (Recommended):* Refuse and require bare token `force-cleanup`, unless `aapp.quarantineIgnored = true` is set, which safely copies them to `$(git rev-parse --git-common-dir)/aapp_quarantine/<id>/` (inside `.git`, never in `.plans`).
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 
+* **2026-10-07:** Refined blueprint from cross-review findings: integration folded into `aapp done <id> integrate` (preserving `lib/verbs.tsv` invariant); dropped duplicate seeding of `aapp.maxEmergencyHotfixes` (owned by P-52); corrected veto to `> max` (>= 3); dropped ghost verb `unblock`; added pre-flight refusal when mini-plans are active in the primary checkout; standardized on bare token `force-cleanup`; moved quarantine destination inside `.git` (`$(git rev-parse --git-common-dir)/aapp_quarantine/<id>/`) to prevent secret leaks into `.plans`.
 * **2026-10-04:** Drafted blueprint based on findings from RFC P-52/P-54, empirical Git tests for squash vs microcommit models, parent-branch targeting for modular hierarchies (`develop` vs `module/*`), lineage trailer synthesis, and safe worktree cleanup mechanics.
