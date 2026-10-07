@@ -20,6 +20,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-55**: [`P55-automated-branch-integration.md`](current/P55-automated-branch-integration.md) — Automated Worktree Branch Integration, Parent Branch Lifecycle & Safe Cleanup
 - 🟣 **P-56**: [`P56-modular-cookbook-and-docs-architecture.md`](current/P56-modular-cookbook-and-docs-architecture.md) — Modular Cookbook And Docs Architecture
 - 🟣 **P-57**: [`P57-modular-manual-specification.md`](current/P57-modular-manual-specification.md) — Modular Manual Specification
+- 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
 
 ---
 
