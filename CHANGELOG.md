@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Plan rename with issue-link repair, issue promotion in `aapp draft`, and pickup/issue commits without raw git (`P-50`)
 - Three-tier document governance and delimited template sync (`#73`) (`P-25`)
 - Shared docs never block concurrent plans; one plan-declared changelog entry per plan (`aapp.changelogMode`); union merge for CHANGELOG.md (`P-48`)
 - Plugin registry (`P-46`): kit-owned `lib/plugins.tsv`; `aapp plugins` shows Kit Plugins (reserved, incl. planned) and Your Plugins split by a delimiter, warns on unregistered `aapp-*` names.

@@ -235,6 +235,18 @@ cmd_draft() {
     local raw_slug="$1"
     local slug=""
     local title=""
+    local promote_issue=""
+
+    # P-50: `aapp draft <slug> issue <num>` promotes an active issue. Checked
+    # before any allocation, so a refused promotion burns no Plan ID.
+    if [ "${2:-}" = "issue" ]; then
+        _load_issue_module
+        promote_issue="$(issue_normalize_id "${3:-}")" || exit 1
+        if [ "$(issue_locate "$promote_issue")" != "active" ]; then
+            echo "❌ [Draft Refusal] #$promote_issue is not an active issue in ISSUES.md (archived or unknown)." >&2
+            return 1
+        fi
+    fi
 
     if [ -z "$PLANS_DIR" ] || [ ! -d "$PLANS_DIR" ]; then
         echo "❌ [Plan Switchboard] .plans directory not found." >&2
@@ -410,6 +422,15 @@ cmd_draft() {
     fi
     mv "$tmp_file" "$target_file"
 
+    # P-50 promotion: the plan names the issue; the row gets Planned + link.
+    if [ -n "$promote_issue" ]; then
+        sed -i -E "s|^\* \*\*Target Issue / Milestone:\*\*.*$|* **Target Issue / Milestone:** #$promote_issue|" "$target_file"
+        issue_mark_planned "$promote_issue" "[P-${num}](current/P${num}-${slug}.md)" || {
+            echo "❌ [Draft Refusal] Could not mark #$promote_issue Planned in ISSUES.md." >&2
+            exit 1
+        }
+    fi
+
     # State matrix registration: derived from the new plan's Status line.
     local sm_file="$PLANS_DIR/state_matrix.md"
     sync_state_matrix
@@ -417,11 +438,10 @@ cmd_draft() {
     # Git commit in .plans worktree
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
         local plan_rel="current/P${num}-${slug}.md"
-        if [ -f "$sm_file" ]; then
-            plans_commit "plan(draft): scaffold P-${num} ${slug}" "$plan_rel" "state_matrix.md" || exit 1
-        else
-            plans_commit "plan(draft): scaffold P-${num} ${slug}" "$plan_rel" || exit 1
-        fi
+        local draft_paths=("$plan_rel")
+        [ -f "$sm_file" ] && draft_paths+=("state_matrix.md")
+        [ -n "$promote_issue" ] && draft_paths+=("ISSUES.md")
+        plans_commit "plan(draft): scaffold P-${num} ${slug}" "${draft_paths[@]}" || exit 1
     fi
 
     echo "🚀 Blueprint scaffolded: .plans/current/P${num}-${slug}.md"
@@ -1055,6 +1075,11 @@ cmd_done() {
         issue_close_local "$close_issue" "$commit_sha" "$close_summary" || exit 1
     fi
 
+    # P-50: other open issues that link this plan now point at done/.
+    _load_issue_module
+    local relinked
+    relinked="$(issue_relink "current/$bname" "done/$bname")" || exit 1
+
     # Re-derive state_matrix.md now that the plan has left current/ (#88).
     local sm_file="$PLANS_DIR/state_matrix.md"
     sync_state_matrix
@@ -1075,6 +1100,9 @@ cmd_done() {
         [ -f "$sm_file" ] && done_targets+=("state_matrix.md")
         if [ "$close_where" = "active" ]; then
             done_targets+=("ISSUES.md" "done/000-issues-archive.md")
+            [ -f "$PLANS_DIR/issues_road_map.md" ] && done_targets+=("issues_road_map.md")
+        elif [ "$relinked" -gt 0 ]; then
+            done_targets+=("ISSUES.md")
             [ -f "$PLANS_DIR/issues_road_map.md" ] && done_targets+=("issues_road_map.md")
         fi
         plans_commit "plan(done): archive $plan_id to done/ and update state matrix" "${done_targets[@]}" || exit 1
@@ -1417,6 +1445,105 @@ _refine_check_subject() {
     fi
 }
 
+# _load_issue_module: cmd_issue.sh (issue_relink, issue_mark_planned, issue_locate).
+_load_issue_module() {
+    declare -f issue_relink >/dev/null && return 0
+    # shellcheck source=lib/cmd_issue.sh
+    . "$(dirname "${BASH_SOURCE[0]}")/cmd_issue.sh" || {
+        echo "❌ [AAPP] Issue module missing: $(dirname "${BASH_SOURCE[0]}")/cmd_issue.sh" >&2
+        exit 1
+    }
+}
+
+# _refine_ledger pickup|issues "<msg>" (P-50): commit a hand-made ledger edit,
+# validated first; nothing is committed on failure.
+_refine_ledger() {
+    local target="$1" msg="$2" subject files=() f changed="" sha health
+    health="$(dirname "${BASH_SOURCE[0]}")/planning_health.sh"
+    if [ "$target" = "pickup" ]; then
+        subject="pickup: $msg"; files=("pickup.md")
+    else
+        subject="issue(triage): $msg"; files=("ISSUES.md")
+        [ -f "$PLANS_DIR/issues_road_map.md" ] && files+=("issues_road_map.md")
+    fi
+    _refine_check_subject "$subject" "$msg"
+    for f in "${files[@]}"; do
+        [ -n "$(git -C "$PLANS_DIR" status --porcelain -- "$f")" ] && changed=1
+    done
+    if [ -z "$changed" ]; then
+        echo "❌ [Refine] Nothing to commit: ${files[*]} unchanged." >&2
+        exit 1
+    fi
+    # shellcheck source=lib/planning_health.sh
+    . "$health" || { echo "❌ [Refine] Cannot load $health" >&2; exit 1; }
+    if [ "$target" = "pickup" ]; then
+        check_pickup_entries "$PLANS_DIR/pickup.md" >&2 || {
+            echo "   Nothing committed: fix pickup.md and run 'aapp refine pickup' again." >&2; exit 1; }
+    else
+        check_ledger_issues "$PLANS_DIR/ISSUES.md" "$PLANS_DIR/done/000-issues-archive.md" "$PLANS_DIR/issues_road_map.md" >&2 || {
+            echo "   Nothing committed: fix the lines above and run 'aapp refine issues' again." >&2; exit 1; }
+    fi
+    plans_commit "$subject" "${files[@]}" || exit 1
+    sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
+    echo "📝 [Refine] $target committed ($sha): $msg"
+}
+
+# _refine_slug <plan-id> <new-slug> (P-50): rename a plan file, repair the
+# issue links that point at it, re-derive the matrix, one commit.
+_refine_slug() {
+    local query="$1" raw="$2" plan_file old new slug prefix plan_id subject count act sha today links
+    plan_file="$(resolve_plan_file "$query" "refine")" || exit 1
+    old="$(basename "$plan_file")"
+    slug="$(echo "$raw" | tr '[:upper:]' '[:lower:]' | sed 's/[ _]/-/g' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
+    if [ -z "$slug" ]; then
+        echo "❌ [Refine] The new slug is empty after normalisation: '$raw'." >&2
+        exit 1
+    fi
+    prefix="${old%%-*}"
+    new="${prefix}-${slug}.md"
+    if [ "$new" = "$old" ]; then
+        echo "❌ [Refine] $old already has that name." >&2
+        exit 1
+    fi
+    if [ -e "$PLANS_DIR/current/$new" ]; then
+        echo "❌ [Refine] current/$new already exists." >&2
+        exit 1
+    fi
+    if [ -n "$(git -C "$PLANS_DIR" status --porcelain -- "current/$old")" ]; then
+        echo "❌ [Refine] current/$old has uncommitted edits; commit them with 'aapp refine $query \"<what changed>\"' first." >&2
+        exit 1
+    fi
+    plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" | head -n 1)"
+    [ -n "$plan_id" ] || plan_id="$query"
+    subject="plan(refine): $plan_id renamed to $new"
+    _refine_check_subject "$subject" "renamed to $new"
+
+    mv "$PLANS_DIR/current/$old" "$PLANS_DIR/current/$new" || exit 1
+    today="$(date +%Y-%m-%d)"
+    if grep -q '^## 📦 6\. Change Log' "$PLANS_DIR/current/$new"; then
+        sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* File renamed from $old to $new." "$PLANS_DIR/current/$new"
+    fi
+    _load_issue_module
+    count="$(issue_relink "current/$old" "current/$new")" || exit 1
+    if [ -f "$ACTIVE_FILE" ]; then
+        act="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
+        if [ "$act" = "$old" ] || [ "$act" = "${old%.md}" ]; then
+            echo "${new%.md}" > "$ACTIVE_FILE"
+        fi
+    fi
+    sync_state_matrix
+    local paths=("current/$old" "current/$new")
+    [ -f "$PLANS_DIR/state_matrix.md" ] && paths+=("state_matrix.md")
+    if [ "$count" -gt 0 ]; then
+        paths+=("ISSUES.md")
+        [ -f "$PLANS_DIR/issues_road_map.md" ] && paths+=("issues_road_map.md")
+    fi
+    plans_commit "$subject" "${paths[@]}" || exit 1
+    sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
+    links="links"; [ "$count" -eq 1 ] && links="link"
+    echo "📝 [Refine] $plan_id renamed to $new ($sha); $count issue $links repaired"
+}
+
 # cmd_refine <plan-id> "<what changed>" | <plan-id> blocked <num> (P-47, P-49)
 # Commits an edit to an active plan's content through the lifecycle commit
 # engine, so agents never run raw git on the plans worktree. Only the plan file
@@ -1426,8 +1553,17 @@ _refine_check_subject() {
 cmd_refine() {
     local query="${1:-}" msg="${2:-}" plan_file rel plan_id sha num="" subject rc
     if [ -z "$query" ] || [ -z "$msg" ]; then
-        echo "❌ [Refine] Usage: aapp refine <plan-id> \"<what changed>\" | aapp refine <plan-id> blocked <num>" >&2
+        echo "❌ [Refine] Usage: aapp refine <plan-id> \"<what changed>\" | <plan-id> blocked <num> | <plan-id> slug <new-slug> | pickup|issues \"<msg>\"" >&2
         exit 1
+    fi
+    # P-50: ledger targets are reserved words, checked before plan resolution
+    # (the resolver's file-name match would send `pickup` to a plan named *pickup*).
+    case "$query" in
+        pickup|issues) _refine_ledger "$query" "$msg"; return ;;
+    esac
+    if [ "$msg" = "slug" ] && [ $# -ge 3 ]; then
+        _refine_slug "$query" "$3"
+        return
     fi
     if [ "$msg" = "blocked" ] && [ $# -ge 3 ]; then
         num="${3#\#}"

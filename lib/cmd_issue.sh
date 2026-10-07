@@ -71,6 +71,81 @@ _issue_row_regex() {
     printf '^[[:space:]]*\\|[[:space:]]*`?#%s`?[[:space:]]*\\|' "$1"
 }
 
+# issue_relink <old-rel-path> <new-rel-path> (P-50)
+# Rewrites the link target `](<old>)` -> `](<new>)` in ISSUES.md *Target Plan /
+# Fix* cells (the 7th cell; observation cells never change) and in
+# issues_road_map.md lines. Escaped pipes (`\|`) inside cells are respected.
+# Prints the number of links rewritten; non-zero only on a write failure.
+issue_relink() {
+    local old="$1" new="$2" plans f tmp count=0 n
+    plans="$(_issue_plans_dir)" || return 1
+    f="$plans/ISSUES.md"
+    if [ -f "$f" ]; then
+        tmp="$f.aapp-relink.$$"
+        AAPP_OLD="]($old)" AAPP_NEW="]($new)" awk '
+            function swap(s,    out, i, o) {
+                o = ENVIRON["AAPP_OLD"]; out = ""
+                while ((i = index(s, o)) > 0) { out = out substr(s, 1, i - 1) ENVIRON["AAPP_NEW"]; s = substr(s, i + length(o)); n++ }
+                return out s
+            }
+            /^[[:space:]]*\|[[:space:]]*`?#[0-9]+/ {
+                line = $0; gsub(/\\\|/, "\001", line)
+                k = split(line, c, "|")
+                if (k >= 9) {
+                    c[8] = swap(c[8]); out = c[1]
+                    for (j = 2; j <= k; j++) out = out "|" c[j]
+                    gsub(/\001/, "\\|", out); print out; next
+                }
+            }
+            { print }
+            END { print n + 0 > "/dev/stderr" }
+        ' "$f" > "$tmp" 2> "$tmp.n" || { rm -f "$tmp" "$tmp.n"; return 1; }
+        n="$(cat "$tmp.n")"; rm -f "$tmp.n"
+        mv "$tmp" "$f" || return 1
+        count=$((count + n))
+    fi
+    f="$plans/issues_road_map.md"
+    if [ -f "$f" ]; then
+        n="$(grep -oF "]($old)" "$f" | wc -l | tr -d ' ')"
+        if [ "$n" -gt 0 ]; then
+            tmp="$f.aapp-relink.$$"
+            AAPP_OLD="]($old)" AAPP_NEW="]($new)" awk '
+                { s = $0; out = ""; o = ENVIRON["AAPP_OLD"]
+                  while ((i = index(s, o)) > 0) { out = out substr(s, 1, i - 1) ENVIRON["AAPP_NEW"]; s = substr(s, i + length(o)) }
+                  print out s }
+            ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+            count=$((count + n))
+        fi
+    fi
+    echo "$count"
+}
+
+# issue_mark_planned <n> <link> (P-50): promotion's lifecycle edit of an active
+# row: Target Plan / Fix -> <link>, Status -> 🔵 `Planned`. Observation cells
+# never change.
+issue_mark_planned() {
+    local n="$1" link="$2" plans f tmp
+    plans="$(_issue_plans_dir)" || return 1
+    f="$plans/ISSUES.md"
+    [ -f "$f" ] || return 1
+    tmp="$f.aapp-promote.$$"
+    AAPP_N="$n" AAPP_LINK="$link" awk '
+        {
+            line = $0; gsub(/\\\|/, "\001", line)
+            if (line ~ ("^[[:space:]]*\\|[[:space:]]*`?#" ENVIRON["AAPP_N"] "`?[[:space:]]*\\|")) {
+                k = split(line, c, "|")
+                if (k >= 10) {
+                    c[8] = " " ENVIRON["AAPP_LINK"] " "; c[9] = " 🔵 `Planned` "
+                    out = c[1]; for (j = 2; j <= k; j++) out = out "|" c[j]
+                    gsub(/\001/, "\\|", out); print out; done = 1; next
+                }
+            }
+            print
+        }
+        END { if (!done) exit 3 }
+    ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+}
+
 # issue_locate <n> -> prints "active", "archive" or nothing.
 issue_locate() {
     local n="$1" plans re

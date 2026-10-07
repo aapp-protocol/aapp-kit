@@ -147,7 +147,7 @@ The workspace tracks two separate phases. Routing an item into the wrong lane co
 - **Universal Domain Taxonomy:** The `Type` column uses an uppercase token conforming to `^[A-Z0-9_-]+$` (recommended core: `CORE`, `CLI`, `UI`, `DB`, `NET`, `SEC`, `HOOK`, `DOCS`, `TEST`, `PERF`).
 
 ### 🏷️ Distinct Identifiers: Issue IDs (`#<num>`) vs. Plan IDs (`P-<num>`)
-- **Issues use `#<num>`**: Unpadded integer IDs prefixed with `#` (e.g. `#1`, `#49`, `#64`). Claim one with `aapp issue allocate` (the `aapp.issueId` counter; `aapp issue next` peeks). Never pick an ID by scanning `ISSUES.md`: it is priority-ordered and resolved rows live in the archive.
+- **Issues use `#<num>`**: Unpadded integer IDs prefixed with `#` (e.g. `#1`, `#49`, `#64`). Claim one with `aapp issue allocate` (the `aapp.issueId` counter; `aapp issue next` peeks). Never pick an ID by scanning `ISSUES.md`: it is priority-ordered and resolved rows live in the archive. After writing the row (and its road-map line), commit the ledgers with `aapp refine issues "log #<num> <title>"`; ideas added to `pickup.md` are committed with `aapp refine pickup "<msg>"`. Both check the ledgers first and name any line to fix.
 - **Plans use `P-<num>`**: Unpadded integer IDs prefixed with `P-` (e.g. `P-1`, `P-8`, `P-9`, `P-13`). Active blueprint filenames adopt ADR-style naming: `P<num>-<slug>.md` (e.g. `P9-guard-path-authorization.md`).
 - **Namespace Separation**: Issue references (`#9`) and Plan references (`P-9`) must never be interchanged. Commands (`/aapp-freeze`, `/aapp-done`) accept Plan IDs (`P-9`, `9`), slugs (`guard-path`), or filenames, and reject `#9` with an advisory notice.
 - **Pair 5 Self-Protection Rule**: When declaring `### 📂 Target Files`, never list files matching Guard Section 2 self-protection (`.githooks/*`, `.agents/skills/aapp-*`, `.claude/settings*`, `.cursor/rules/*`). Pair 5 of the planning-health engine mechanically blocks any blueprint violating this rule.
@@ -164,11 +164,10 @@ The lanes are separate, **not sealed**. A fix too large to simply *do* deserves 
 
 **How promotion works:**
 1. The issue is **never deleted or moved out of `.plans/ISSUES.md`**. It stays the record of *what is wrong*; the plan becomes the record of *how it will be fixed*.
-2. Run `digest ISSUE-00X` to scaffold the blueprint from `.plans/plan-template.md`.
-3. Link the two records with the fields the templates already carry: put the issue ID in the plan's `**Target Issue / Milestone:**` field, and a link to the blueprint in the issue's `Proposed Fix / Target Plan` cell.
-4. Set the issue's status to 🔵 `Planned` and **leave it on `issues_road_map.md`** — it is still an open issue until the fix ships.
-5. `aapp draft` registers the plan in `state_matrix.md` like any other; the issue ID lives in its `Target Issue` header.
-6. Close the issue only when the fix is verified and the plan is archived via `done`. `aapp done` relocates the Target Issue row to `.plans/done/000-issues-archive.md` and prunes `issues_road_map.md` in the same commit. For a direct fix with no plan, run `aapp issue close <num> [sha <sha>] [summary "<text>"]` instead of editing the tables by hand.
+2. Run `aapp draft <slug> issue <num>` (bare number). In its one commit it scaffolds the blueprint, puts `#<num>` in the plan's `**Target Issue / Milestone:**` field, links the blueprint in the issue's *Target Plan / Fix* cell and sets the issue's status to 🔵 `Planned`. Never make these edits by hand.
+3. **Leave the issue on `issues_road_map.md`** — it is still an open issue until the fix ships.
+4. `aapp draft` registers the plan in `state_matrix.md` like any other. Renaming a plan later (`aapp refine <id> slug <new-slug>`) and archiving it (`aapp done`) repair the issue links that point at it.
+5. Close the issue only when the fix is verified and the plan is archived via `done`. `aapp done` relocates the Target Issue row to `.plans/done/000-issues-archive.md` and prunes `issues_road_map.md` in the same commit. For a direct fix with no plan, run `aapp issue close <num> [sha <sha>] [summary "<text>"]` instead of editing the tables by hand.
 
 **Visibility, not permission.** Promote when it fits, then **say plainly what you did and why** — "ISSUE-004 touches four modules and the parser contract, so I promoted it to a draft blueprint." The human can refine, abort, or ignore it; a draft costs nothing. What you must never do is promote *silently*.
 
@@ -312,7 +311,9 @@ Every chore has a verb; use it instead of editing ledgers or running git on `.pl
 | Verb | Purpose |
 | :--- | :--- |
 | `aapp status [short]` | Four-pillar briefing (Shipped, Issues, Plans, Pickup) |
-| `aapp draft <slug>` | Claim a Plan ID, scaffold the blueprint, register and commit it |
+| `aapp draft <slug> [issue <num>]` | Claim a Plan ID, scaffold the blueprint, register and commit it; `issue <num>` promotes that issue |
+| `aapp refine <id> slug <new-slug>` | Rename a plan file; issue links and the matrix follow |
+| `aapp refine pickup\|issues "<msg>"` | Commit a hand-made edit of `pickup.md`, or `ISSUES.md` + road map, after validation |
 | `aapp refine <id> "<what changed>"` | Commit an edit to an active plan |
 | `aapp refine <id> blocked <num>` | Block a plan on active issue `#<num>` (then `aapp matrix`) |
 | `aapp tdd <id>` | Inject failure-test sections into a plan before freeze |

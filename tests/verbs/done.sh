@@ -217,4 +217,18 @@ else
   bad "test_pre_done_veto_blocks_archive" "rc=$rc out=$out"
 fi
 
+echo "== link repair (P-50) =="
+lid="$(started_plan relink-me)"; lb="$(basename "$(plan_file "$lid")")"
+sed -i "/^| #42 |/a | #43 | \`Low\` | \`CORE\` | 2026-09-01 | \`src/y.py\` | Linked elsewhere. | [$lid](current/$lb) | 🔵 \`Planned\` |" .plans/ISSUES.md
+grep -q '^| #43 |' .plans/ISSUES.md || printf '| #43 | `Low` | `CORE` | 2026-09-01 | `src/y.py` | Linked elsewhere. | [%s](current/%s) | 🔵 `Planned` |\n' "$lid" "$lb" >> .plans/ISSUES.md
+git -C .plans commit -qam "fixture issue #43" >/dev/null 2>&1
+out="$(aapp done "$lid" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -qF "| [$lid](done/$lb) |" .plans/ISSUES.md && ! grep -qF "](current/$lb)" .plans/ISSUES.md && \
+   git -C .plans log -1 --format=%s | grep -qF "plan(done): archive $lid" && \
+   git -C .plans show --name-only --format= HEAD | grep -qx "ISSUES.md"; then
+  ok "test_done_repairs_issue_links"
+else
+  bad "test_done_repairs_issue_links" "rc=$rc row=$(grep '^| #43 |' .plans/ISSUES.md)"
+fi
+
 print_test_summary "$PASS" "$FAIL"

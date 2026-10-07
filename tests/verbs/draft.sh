@@ -110,4 +110,44 @@ else
   bad "test_commit_takes_only_its_paths" "rc=$rc staged_outside was swept into draft commit"
 fi
 
+echo "== promotion: issue <num> (P-50) =="
+cd "$(fresh promote)" || exit 1
+cat > .plans/ISSUES.md <<'EOF'
+# Issues
+
+| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #7 | `High` | `CORE` | 2026-10-07 | `a.sh` | Needs a plan. | Promote it. | 🟡 `Incubated` |
+EOF
+cat > .plans/done/000-issues-archive.md <<'EOF'
+# Archive
+
+| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #5 | `Low` | `CLI` | 2026-08-01 | 2026-08-02 | `0000000` | Old. |
+EOF
+git -C .plans add ISSUES.md done/000-issues-archive.md >/dev/null 2>&1; git -C .plans commit -qm "fixture" >/dev/null 2>&1
+rm_before="$(cat .plans/issues_road_map.md)"
+pid="$(git config --get aapp.planId)"
+out="$(aapp draft promote-me issue 7 2>&1)"; rc=$?
+pf=".plans/current/P${pid}-promote-me.md"
+if [ "$rc" -eq 0 ] && grep -qxF "* **Target Issue / Milestone:** #7" "$pf" && \
+   grep -qF "| [P-${pid}](current/P${pid}-promote-me.md) | 🔵 \`Planned\` |" .plans/ISSUES.md && \
+   [ "$(cat .plans/issues_road_map.md)" = "$rm_before" ] && [ -z "$(git -C .plans status --porcelain)" ] && \
+   git -C .plans log -1 --format=%s | grep -q "^plan(draft): scaffold P-${pid} promote-me$" && \
+   git -C .plans show --name-only --format= HEAD | grep -qx "ISSUES.md"; then
+  ok "test_draft_issue_promotes"
+else
+  bad "test_draft_issue_promotes" "rc=$rc out=$out row=$(grep '^| #7 |' .plans/ISSUES.md)"
+fi
+pid="$(git config --get aapp.planId)"
+aapp draft from-archive issue 5 >/dev/null 2>&1; r1=$?
+aapp draft from-nowhere issue 99 >/dev/null 2>&1; r2=$?
+if [ "$r1" -ne 0 ] && [ "$r2" -ne 0 ] && [ "$(git config --get aapp.planId)" = "$pid" ] && \
+   [ -z "$(ls .plans/current | grep -E 'from-(archive|nowhere)')" ]; then
+  ok "test_draft_issue_refuses_archived_or_unknown"
+else
+  bad "test_draft_issue_refuses_archived_or_unknown" "rc=$r1/$r2 planId=$(git config --get aapp.planId) want=$pid"
+fi
+
 print_test_summary "$PASS" "$FAIL"

@@ -15,7 +15,10 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | :--- | :---: | :--- |
 | `aapp status [short]` | **✅ Yes** | 4-pillar context recovery briefing (or 'short' for 1-line remote pulse) |
 | `aapp draft [slug]` | **✅ Yes** | Scaffold blueprint from template, stamp ID & date, register in matrix |
+| `aapp draft <slug> issue <num>` | **✅ Yes** | Promote issue `#<num>`: Target Issue, Planned row and link in the draft commit |
 | `aapp refine <id> "<msg>"` | **✅ Yes** | Commit an edit to an active plan's content through the plans commit engine |
+| `aapp refine <id> slug <new-slug>` | **✅ Yes** | Rename a plan file; issue links and the matrix follow |
+| `aapp refine pickup\|issues "<msg>"` | **✅ Yes** | Commit a validated hand edit of `pickup.md`, or `ISSUES.md` + road map |
 | `aapp refine <id> blocked <num>` | **✅ Yes** | Block a plan on active issue `#<num>` (Status + `Blocked On:`); chain `&& aapp matrix` |
 | `aapp tdd [id]` | **✅ Yes** | Declare a plan's failure-first tests (§3 identifiers, §4 test files) before freeze |
 | `aapp plan [query]` | **✅ Yes** | Educational planning switchboard or query blueprints |
@@ -25,7 +28,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp start [id]` | **✅ Yes** | Bind execution buffer & transition to ⚡ In Development |
 | `aapp freeze-start [id]` | **✅ Yes** | Atomically freeze blueprint and activate execution buffer |
 | `aapp commit "<msg>"` | **✅ Yes** | Commit implementation code and record SHA into active plan |
-| `aapp done [id]` | **✅ Yes** | Archive implemented blueprint to done/ and update archival ledger |
+| `aapp done [id]` | **✅ Yes** | Archive implemented blueprint to done/ and update archival ledger; repairs issue links to the plan |
 | `aapp active [id]` | **✅ Yes** | Inspect, swap, or clear active plan execution buffer |
 | `aapp test [filter]` | **✅ Yes** | Run test suites across repository or audit adopter environment |
 | `aapp test verb [name]` | **✅ Yes** | Run contract-derived verb suites (`tests/verbs/<name>.sh`) |

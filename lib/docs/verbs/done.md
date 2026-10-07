@@ -32,7 +32,8 @@
 - `.plans/state_matrix.md` is re-derived from the remaining plans: this plan's row leaves, and no other row is touched (#88)
 - the active buffer is cleared when it names this plan
 - a Target Issue `#<n>` still active is closed as by `aapp issue close`: its row moves to the top of `done/000-issues-archive.md` with summary `[<id>](<file>) - <title>`, and it leaves `issues_road_map.md`; an already-archived one is left alone (P-32)
-- one commit in the plans worktree, `plan(done): archive <id> to done/ and update state matrix`, holds the move, the ledger, the matrix and any issue close
+- other open issues whose *Target Plan / Fix* cell (or road-map line) links `current/<file>` now link `done/<file>`; observation cells and the archive are untouched (P-50)
+- one commit in the plans worktree, `plan(done): archive <id> to done/ and update state matrix`, holds the move, the ledger, the matrix, any issue close and any repaired links
 - the `on-done` lifecycle event is dispatched (a failing handler does not undo the archive)
 - stdout names the archived file, the verification commit and the ledger
 
@@ -54,3 +55,4 @@ Run: `aapp test verb done`
 - `tests/verbs/done.sh::test_detached_commit_needs_a_branch` -> a `(detached)` SHA no branch contains: exit 1; once a branch contains it: accepted
 - `tests/verbs/done.sh::test_commit_takes_only_its_paths` -> the archive commit contains only the move, ledger and matrix
 - `tests/verbs/done.sh::test_pre_done_veto_blocks_archive` -> a `pre-done` handler exiting non-zero: `done` exits 1, nothing moves; payload carries recorded commits
+- `tests/verbs/done.sh::test_done_repairs_issue_links` -> another open issue linking the plan points at `done/` after `aapp done`, in the archive commit (P-50)

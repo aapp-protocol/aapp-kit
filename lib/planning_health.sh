@@ -654,6 +654,76 @@ check_pair7_inflight_boundary_collision() {
     return $errors
 }
 
+# ------------------------------------------------------------------------------
+# Ledger commit validation (P-50): run by `aapp refine issues|pickup` before it
+# commits a hand-made ledger edit. Each message names the line to fix.
+# ------------------------------------------------------------------------------
+
+# check_issues_table_shape <issues_file>: one unbroken table (no empty line
+# between the header and the last row) and 8 cells per row (escaped `\|` kept).
+check_issues_table_shape() {
+    local issues_file="$1"
+    [ -f "$issues_file" ] || return 0
+    awk '
+        /^[[:space:]]*\|/ {
+            if (started && gap) { printf "❌ [Issues Table] Line %d: an empty line splits the table (line %d); remove it.\n", NR, gap; bad++ }
+            started = 1; gap = 0; last = NR
+            line = $0; gsub(/\\\|/, "", line)
+            cells = gsub(/\|/, "|", line) - 1
+            if (cells != 8) { printf "❌ [Issues Table] Line %d has %d cells; every row needs 8.\n", NR, cells; bad++ }
+            next
+        }
+        started && /^[[:space:]]*$/ { if (!gap) gap = NR; next }
+        started { started = 0; gap = 0 }
+        END { exit (bad > 0) }
+    ' "$issues_file"
+}
+
+# check_pickup_entries <pickup_file>: every list entry is a `- [ ] ` (or `- [x] `) line.
+check_pickup_entries() {
+    local pickup_file="$1"
+    [ -f "$pickup_file" ] || return 0
+    awk '
+        /^([*+-]|[0-9]+\.)[[:space:]]/ && !/^- \[[ xX]\] / {
+            printf "❌ [Pickup] Line %d is not a \"- [ ] \" entry: %s\n", NR, $0; bad++
+        }
+        END { exit (bad > 0) }
+    ' "$pickup_file"
+}
+
+# check_issue_ids_below_counter <issues_file>: no active row at or above
+# aapp.issueId (a hand-picked number instead of `aapp issue allocate`). Skipped
+# while the counter is unset (it is seeded on first allocation).
+check_issue_ids_below_counter() {
+    local issues_file="$1" next id bad=0
+    [ -f "$issues_file" ] || return 0
+    next="$(git config --get aapp.issueId 2>/dev/null)" || return 0
+    case "$next" in ''|*[!0-9]*) return 0 ;; esac
+    for id in $(get_active_issue_ids "$issues_file" | sort -n -u); do
+        if [ "$id" -ge "$next" ]; then
+            echo "❌ [Issue ID] #$id is at or above the next allocatable ID (#$next); claim IDs with 'aapp issue allocate'."
+            bad=$((bad + 1))
+        fi
+    done
+    return $bad
+}
+
+# check_ledger_issues <issues> <archive> <roadmap>: everything `aapp refine issues` requires.
+check_ledger_issues() {
+    local issues_file="$1" archive_file="$2" roadmap_file="$3" errors=0 missing
+    check_issues_table_shape "$issues_file" || errors=$((errors + 1))
+    check_pair1_disjointness "$issues_file" "$archive_file" || errors=$((errors + 1))
+    check_pair8_issue_id_integrity "$issues_file" "$archive_file" || errors=$((errors + 1))
+    check_issue_ids_below_counter "$issues_file" || errors=$((errors + 1))
+    check_pair2_referential_integrity "$roadmap_file" "$issues_file" || errors=$((errors + 1))
+    missing="$(get_unsequenced_issues "$roadmap_file" "$issues_file")"
+    if [ -n "$missing" ]; then
+        echo "❌ [Road Map] Active issue(s) missing from $(basename "$roadmap_file"): $missing; add a line for each."
+        errors=$((errors + 1))
+    fi
+    return $errors
+}
+
 # Master check runner
 check_planning_health() {
     local repo_root

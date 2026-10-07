@@ -523,13 +523,10 @@ To prevent context bloat and keep triage boards scan-friendly:
 When a bug requires architectural decisions, spans multiple modules, or requires a locked Blast Radius, it is promoted to a plan:
 
 1. **Keep `ISSUES.md` intact**: The issue is never deleted; it remains the record of *what is wrong*.
-2. **Draft Blueprint**: Run `/digest ISSUE-00X` to scaffold a blueprint from `.plans/plan-template.md`.
-3. **Link Records**:
-   - Set `**Target Issue / Milestone:** ISSUE-00X` in the plan.
-   - Add the blueprint link to the issue's row in `ISSUES.md`.
-4. **Update Status**: Mark the issue as 🔵 `Planned` in `issues_road_map.md`.
-5. **Register Plan**: Add the plan to `.plans/state_matrix.md` in the Incubator.
-6. **Relocate upon Archive**: Relocate the issue row from `ISSUES.md` to `.plans/done/000-issues-archive.md` only when the plan is implemented, verified, and archived via `/done`. Prune the issue from `issues_road_map.md` (the pre-commit hook automatically purges any resolved items).
+2. **Draft and Link in One Command**: `aapp draft <slug> issue <num>` (bare number) scaffolds `.plans/current/P<N>-<slug>.md` and, in the same commit, sets the plan's `**Target Issue / Milestone:** #<num>`, links the blueprint in the issue row's *Target Plan / Fix* cell (`[P-<N>](current/P<N>-<slug>.md)`) and sets the row's Status to 🔵 `Planned`. An archived or unknown issue is refused before any Plan ID is spent; observation cells are never touched.
+3. **Keep It on the Board**: The issue stays on `issues_road_map.md` until the fix ships; the plan is registered in the matrix like any draft.
+4. **Links Follow the Plan**: Renaming the plan (`aapp refine <id> slug <new-slug>`) and archiving it (`aapp done`) rewrite every *Target Plan / Fix* and road-map link pointing at the plan file, inside that command's own commit.
+5. **Relocate upon Archive**: Relocate the issue row from `ISSUES.md` to `.plans/done/000-issues-archive.md` only when the plan is implemented, verified, and archived via `/done`. Prune the issue from `issues_road_map.md` (the pre-commit hook automatically purges any resolved items).
 
 ---
 
@@ -1687,6 +1684,10 @@ Lifecycle verbs commit their own changes; `aapp refine` covers the rest — cont
 The message becomes the commit subject, so it must be **one line**, and `plan(refine): <id> <msg>` must fit within `aapp.subjectMaxLen` (default 72), the limit the `commit-msg` gate applies. `aapp refine` checks both before any git work and names the exact overrun: `Commit subject is 81 characters; the limit is 72 (aapp.subjectMaxLen).` plus `Shorten the message by 9 characters`.
 
 **Blocking a plan:** `aapp refine <id> blocked <num>` blocks a plan on active issue `#<num>` without a hand edit. It sets the Status to `🟥 BLOCKED`, appends `#<num>` to `* **Blocked On:**` (a list; the first block records the previous status, e.g. `#41 (was ⚡ In Development)`), and commits the plan as `plan(refine): <id> blocked on #<num>`. Blocking on an issue already listed changes nothing; an unknown or archived issue is refused. The state matrix is `aapp matrix`'s job, so chain it: `aapp refine P-54 blocked 101 && aapp matrix`.
+
+**Renaming a plan:** `aapp refine <id> slug <new-slug>` renames `current/P<N>-<old>.md` to `current/P<N>-<new-slug>.md` (normalised like `aapp draft`; the `P<N>-` prefix and Plan ID never change). In one commit it repairs every issue and road-map link to the file (observation cells untouched), re-derives the matrix, follows the active buffer and logs `File renamed from <old> to <new>` in the plan's change log. It refuses an empty slug, an existing target, and a plan with uncommitted edits (commit those first, so the rename commit is only a rename). The title line is content: reword it with a normal `aapp refine`.
+
+**Committing ledger edits:** `aapp refine pickup "<msg>"` commits `pickup.md` (`pickup: <msg>`), and `aapp refine issues "<msg>"` commits `ISSUES.md` + `issues_road_map.md` (`issue(triage): <msg>`). The words `pickup` and `issues` are reserved: they are checked before plan resolution, so a plan whose file name contains them is reached by its ID. Hand edits to the ledgers are validated before committing, nothing is committed on failure, and each message names the line to fix. Issues: one unbroken table (no empty line inside it), 8 cells per row, no repeated ID (also across the archive), no active ID at or above `aapp.issueId` (claim IDs with `aapp issue allocate`), every road-map line points at a row and every active issue is on the road map. Pickup: every entry is a `- [ ] ` line.
 - **No-Dead-End Invariant**: When invoked without arguments, it scans `.plans/pickup.md` and `.plans/ISSUES.md`, presenting candidate menus capped at 10 items.
 
 ### One Changelog Entry per Plan (`aapp.changelogMode`)

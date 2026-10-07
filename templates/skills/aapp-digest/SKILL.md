@@ -23,10 +23,10 @@ The argument `<idea>` may be raw text typed inline, a reference to an entry in `
 
 ### Step 2: Route to a Lane
 Determine whether the item describes a defect or a new capability:
-* **Issue Lane:** If it describes wrong behavior or a bug in code that already ships, claim its ID with `aapp issue allocate` (never derive an ID from the files), record the row in `.plans/ISSUES.md` (or root `ISSUES.md`) and place it on `.plans/issues_road_map.md` first — always. Then judge the size of the fix:
+* **Issue Lane:** If it describes wrong behavior or a bug in code that already ships, claim its ID with `aapp issue allocate` (never derive an ID from the files), record the row in `.plans/ISSUES.md` (or root `ISSUES.md`) and place it on `.plans/issues_road_map.md` first — always — then commit both with `aapp refine issues "log #<num> <title>"` (it validates the ledgers and names any line to fix). Then judge the size of the fix:
   - *Small / obvious fix* → stop there. The issue record is sufficient; do not scaffold a blueprint. Once the fix is committed, close it with `aapp issue close <num>` (bare number); never move table rows by hand.
   - *Large fix* (spans several modules, requires locked Blast Radius, has design trade-offs) → promote to a plan and proceed to Step 3.
-* **`<idea>` is an ISSUE ID (e.g. `ISSUE-004`):** The user has chosen promotion. Carry the issue ID into the plan header and proceed to Step 3.
+* **`<idea>` is an ISSUE ID (e.g. `ISSUE-004`):** The user has chosen promotion. Proceed to Step 3 and scaffold with `aapp draft <slug> issue <num>` (Step 4a), which links the plan and the issue.
 * **Plan Lane (New Capability / Refactor):** Proceed directly to Step 3.
 
 ### Step 3: Decide NEW or AMEND
@@ -38,9 +38,10 @@ Scan `.plans/current/*.md` before drafting:
 ### Step 4a: NEW Plan (Authoritative CLI Scaffolding)
 1. Scaffold the canonical incubator blueprint via the authoritative CLI engine:
    ```bash
-   aapp draft <slug>
+   aapp draft <slug>                # an idea
+   aapp draft <slug> issue <num>    # promoting issue #<num> (bare number)
    ```
-   `aapp draft` deterministically allocates the next Plan ID from the sequence counter, generates `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`, registers the plan in `.plans/state_matrix.md`, and commits the addition cleanly.
+   With `issue <num>`, the same commit puts `#<num>` in the plan's Target Issue field, links the plan in the issue row and marks it 🔵 `Planned`; never edit those cells by hand. `aapp draft` deterministically allocates the next Plan ID from the sequence counter, generates `.plans/current/P<num>-<slug>.md` from `templates/plan-template.md`, registers the plan in `.plans/state_matrix.md`, and commits the addition cleanly.
 2. Cross-reference `.agents/CODEMAP.md` and `ARCHITECTURE.md` to ensure the design extends existing modules rather than adding duplicate helpers.
 3. Open and author `.plans/current/P<num>-<slug>.md`:
    - Detail *Context & Architectural Goal* and *Technical Blueprint*.
@@ -63,7 +64,7 @@ Scan `.plans/current/*.md` before drafting:
    ```
 
 ### Step 5: Clean Up Pickup Queue
-If `<idea>` originated from `.plans/pickup.md`, remove **only** the digested entry from `pickup.md`. Leave every other entry in place.
+If `<idea>` originated from `.plans/pickup.md`, remove **only** the digested entry from `pickup.md`. Leave every other entry in place. Commit the removal with `aapp refine pickup "digest <slug>"` (never raw git on the plans worktree).
 
 ### Step 6: Report & Next Actions
 State plainly which path was taken (NEW, AMEND, or routed to `ISSUES.md`). Name the file written or modified, and explicitly list the Open Questions the user must review next.

@@ -37,7 +37,7 @@ If the argument matches an existing Plan ID or blueprint slug:
 If the argument is an idea, feature description, or instruction:
 
 1. **Step 1: Check Lane Routing (Never Merge Lanes)**:
-   - *Defect / Bug in Existing Code*: Claim its ID with `aapp issue allocate`, record it in `.plans/ISSUES.md` (or root `ISSUES.md`) and place it on `.plans/issues_road_map.md` first. Only promote to a blueprint if the fix requires architectural changes or multiple modules; a direct fix is closed with `aapp issue close <num>`.
+   - *Defect / Bug in Existing Code*: Claim its ID with `aapp issue allocate`, record it in `.plans/ISSUES.md` (or root `ISSUES.md`) and place it on `.plans/issues_road_map.md` first, then commit both with `aapp refine issues "log #<num> <title>"`. Only promote to a blueprint (`aapp draft <slug> issue <num>`) if the fix requires architectural changes or multiple modules; a direct fix is closed with `aapp issue close <num>`.
    - *New Capability / Refactor*: Proceed to the Plan lane.
 
 2. **Step 2: Check Existing Blueprints (Amend vs. New)**:
