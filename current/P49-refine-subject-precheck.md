@@ -2,7 +2,7 @@
 * **Created:** 2026-10-03 | **Last Refined:** 2026-10-07
 * **Target Issue / Milestone:** None (follow-up to P-47 and P-28)
 * **Plan ID:** P-49
-* **Changelog:** Fixed: `aapp refine` checks the commit subject length and shape before committing; Added: `aapp refine <id> blocked <num>` sets a plan BLOCKED on an issue
+* **Changelog:** Fixed: `aapp refine` checks the commit subject length and shape before committing, and blocks a plan on an issue with `aapp refine <id> blocked <num>`
 * **Status:** ⚡ In Development
 * **Base:** `1bb9d4e` (develop)
 * **Commits:** `9fc51ee` (develop)
