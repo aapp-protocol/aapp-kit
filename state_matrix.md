@@ -30,8 +30,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-51**: [`P51-shared-docs-concurrency-commit-mode.md`](current/P51-shared-docs-concurrency-commit-mode.md) — Shared Docs Concurrency Commit Mode
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

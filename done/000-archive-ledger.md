@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-07 | `P-51` | [`P51-shared-docs-concurrency-commit-mode.md`](P51-shared-docs-concurrency-commit-mode.md) | None (extension of P-48; should have shipped with it) | `6cce830` | Shared Docs Concurrency, Part 2 (P-48 Extension): Commit Mode & Plan-Recorded Modes |
 | 2026-10-07 | `P-52` | [`P52-issue-fix-mini-plans.md`](P52-issue-fix-mini-plans.md) | #98 | `a248b10` | Issue Fix Mini Plans (`aapp issue fix`) |
 | 2026-10-07 | `P-50` | [`P50-plan-links-promotion-and-ledger-commits.md`](P50-plan-links-promotion-and-ledger-commits.md) | None (follow-up to P-32, P-47 and P-49 Q1) | `2d7ba74` | Plan Links, Issue Promotion & Ledger Commits |
 | 2026-10-07 | `P-49` | [`P49-refine-subject-precheck.md`](P49-refine-subject-precheck.md) | None (follow-up to P-47 and P-28) | `3794b80` | Refine Subject Precheck & Blocked Token |
