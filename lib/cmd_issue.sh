@@ -323,6 +323,7 @@ cmd_issue_close() {
                 _issue_restore_buffer
                 paths+=("current/fix-$n.md")
             fi
+            _issue_reapply_stash "$n"
             if [ -n "$touched" ]; then
                 _issue_load_plan_lib || return 1
                 sync_state_matrix
@@ -546,6 +547,29 @@ issue_unblock_plans() {
     done
 }
 
+# _issue_reapply_stash <n>: single-checkout mode; re-applies the plan's work
+# set aside by `hotfix` for #<n> (by SHA) on top of the fix. A conflict keeps
+# the stash and reports it; nothing is lost.
+_issue_reapply_stash() {
+    local n="$1" buf sha ref tmp
+    buf="$(git rev-parse --git-path aapp_hotfix_stash 2>/dev/null)" || return 0
+    [ -s "$buf" ] || return 0
+    sha="$(awk -v k="#$n" '$2 == k { print $1; exit }' "$buf")"
+    [ -n "$sha" ] || return 0
+    ref="$(git stash list --format='%gd %H' | awk -v s="$sha" '$2 == s { print $1; exit }')"
+    tmp="$buf.tmp.$$"
+    if [ -z "$ref" ]; then
+        echo "⚠️  [Issue] The work set aside for #$n ($sha) is no longer in the stash list." >&2
+    elif git stash apply -q "$ref" 2>/dev/null; then
+        git stash drop -q "$ref" >/dev/null 2>&1 || echo "⚠️  [Issue] Applied, but could not drop $ref; drop it by hand." >&2
+        echo "📦 [Issue] Re-applied the plan's work set aside for #$n on top of the fix."
+    else
+        echo "⚠️  [Issue] Re-applying the work set aside for #$n conflicts; it is kept as $ref ($sha). Resolve, then 'git stash drop $ref'." >&2
+        return 0
+    fi
+    awk -v k="#$n" '$2 != k' "$buf" > "$tmp" && mv "$tmp" "$buf"
+}
+
 # _issue_restore_buffer: back to the plan a fix interrupted (the .prev slot).
 _issue_restore_buffer() {
     local prev
@@ -585,19 +609,23 @@ cmd_issue_hotfix() {
     prel="current/$(basename "$pf")"
     pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
     [ -n "$pid" ] || pid="$bound"
-    local targets=()
-    while IFS= read -r t; do [ -n "$t" ] && targets+=("$t"); done < <(parse_plan_target_paths "$pf")
-    for f in "${files[@]}"; do
-        if [ ${#targets[@]} -gt 0 ] && match_pattern_list "$f" "${targets[@]}"; then
-            echo "❌ [Issue] $f is in $pid's own Target Files: that is plan work, not a hotfix." >&2
-            return 1
-        fi
-    done
+    # Plan work vs hotfix is decided by scope, not by file (P-52): a file of the
+    # plan's own targets is accepted.
 
     _issue_load_plan_lib || return 1
     _issue_lock_acquire || return 1
     n="$(allocate_issue_id)" || { _issue_lock_release; return 1; }
     n="${n#\#}"
+    # Single-checkout mode: the fix will share this working copy, so the plan's
+    # uncommitted work in the listed files is set aside (only those files).
+    if [ ${#files[@]} -gt 0 ] && ! grep -q '^\* \*\*Worktree:\*\*' "$pf" && \
+       [ -n "$(git status --porcelain -- "${files[@]}" 2>/dev/null)" ]; then
+        if ! git stash push --include-untracked -q -m "aapp-hotfix:$pid:#$n" -- "${files[@]}"; then
+            _issue_lock_release; echo "❌ [Issue] Could not stash the uncommitted work in ${files[*]}." >&2; return 1
+        fi
+        printf '%s #%s\n' "$(git rev-parse stash@{0})" "$n" >> "$(git rev-parse --git-path aapp_hotfix_stash)"
+        echo "📦 [Issue] Set aside $pid's uncommitted work in ${files[*]}; 'aapp issue close $n' re-applies it." >&2
+    fi
     today="$(date +%Y-%m-%d)"
     loc="—"
     if [ ${#files[@]} -gt 0 ]; then
@@ -636,10 +664,17 @@ cmd_issue_hotfix() {
 
 # _issue_next_blocker <plans>: the top 🧱 Plan Blocker whose row is active and not Planned.
 _issue_next_blocker() {
-    local plans="$1" id
+    local plans="$1" id row dirty f
     for id in $(awk '/^## 🧱 Plan Blockers/ { q = 1; next } /^## / { q = 0 } q' "$plans/issues_road_map.md" 2>/dev/null |
                 sed -nE 's/^[[:space:]]*-[[:space:]]*\[[ ]?\][[:space:]]*#([0-9]+).*/\1/p'); do
-        grep -E "$(_issue_row_regex "$id")" "$plans/ISSUES.md" 2>/dev/null | grep -q 'Planned' && continue
+        row="$(grep -m 1 -E "$(_issue_row_regex "$id")" "$plans/ISSUES.md" 2>/dev/null || true)"
+        printf '%s' "$row" | grep -q 'Planned' && continue
+        # Skip a blocker whose files have uncommitted changes here (P-52).
+        dirty=0
+        while IFS= read -r f; do
+            [ -n "$f" ] && [ -n "$(git status --porcelain -- "$f" 2>/dev/null)" ] && dirty=1
+        done < <(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{print $6}' | grep -oE '`[^`]+`' | tr -d '`' | sed -E 's/:[0-9][0-9,-]*$//')
+        [ "$dirty" -eq 1 ] && continue
         [ "$(issue_locate "$id")" = "active" ] && { echo "$id"; return 0; }
     done
     return 1
@@ -752,25 +787,14 @@ cmd_issue_fix() {
     if [ ${#files[@]} -eq 0 ]; then
         _issue_lock_release; echo "❌ [Issue] No files known for #$n: give them with 'file <path>'." >&2; return 1
     fi
-    for pf in "$plans"/current/*.md; do
-        [ -f "$pf" ] || continue
-        case "$(basename "$pf")" in 000-*|fix-*) continue ;; esac
-        st="$(grep -m 1 -E '^\* \*\*Status:\*\*' "$pf" || true)"
-        case "$st" in *"⚡"*|*BLOCKED*|*"🟥"*) ;; *) continue ;; esac
-        pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
-        local ptargets=()
-        while IFS= read -r t; do [ -n "$t" ] && ptargets+=("$t"); done < <(parse_plan_target_paths "$pf")
-        [ ${#ptargets[@]} -gt 0 ] || continue
-        for f in "${files[@]}"; do
-            aapp_is_shared_doc "$f" && continue
-            match_pattern_list "$f" "${ptargets[@]}" || continue
+    # The only real hazard: uncommitted changes in these files would mix into
+    # the fix commit. Which plan lists a file no longer matters (P-52).
+    for f in "${files[@]}"; do
+        if [ -n "$(git status --porcelain -- "$f" 2>/dev/null)" ]; then
             _issue_lock_release
-            case "$st" in
-                *BLOCKED*|*"🟥"*) echo "❌ [Issue] $f belongs to blocked $pid; fix it inside $pid (it is in its bounds) or unblock first." >&2 ;;
-                *) echo "❌ [Issue] $pid is changing $f; make the fix inside $pid or wait." >&2 ;;
-            esac
+            echo "❌ [Issue] $f has uncommitted changes here; commit or stash them first." >&2
             return 1
-        done
+        fi
     done
     text="$(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{print $8}' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
     case "$text" in

@@ -34,9 +34,9 @@
 - `close` id already archived -> no failure: exit 0, ledgers untouched, the provider is notified again
 - provider exits non-zero on `close` -> no failure: exit 0, stderr warning naming its `error` text; delivery and retry are the provider's responsibility
 - `list` with a cap that is neither a number nor `all` -> exit 1, usage on stderr
-- `hotfix` with no plan bound in this worktree, a mini plan bound, or a `file` in the plan's own Target Files (plan work) -> exit 1; nothing written, no ID spent
+- `hotfix` with no plan bound in this worktree, or a mini plan bound -> exit 1; nothing written, no ID spent (a file of the plan's own targets is accepted: plan work vs hotfix is decided by scope)
 - `fix` while another mini plan is open -> waits, printing each wait (2 s, 3 s, …), up to `aapp.issueFixWait`; then exit 1, stderr `#<n> is still being fixed; retry later.`
-- `fix` on an inactive issue, `next-blocker` with an empty queue, no files known, or a file owned by a plan in development (`<plan> is changing <file>`) or by a BLOCKED plan (`belongs to blocked <plan>`) -> exit 1; nothing written
+- `fix` on an inactive issue, `next-blocker` with an empty queue, no files known, or a file with uncommitted changes in this working copy (`<file> has uncommitted changes here; commit or stash them first.`) -> exit 1; nothing written. `next-blocker` skips a blocker whose files are dirty here and claims the next
 - `fix <num> abort` with recorded commits -> exit 1 (close it instead)
 - `close` of an open mini plan with no recorded commit -> exit 1
 - the issue lock (`$(git rev-parse --git-common-dir)/aapp_issue.lock`, held while `hotfix` and the start of a `fix` write) is waited for with the same roller; a lock whose holder PID is gone, or that has no PID after a few seconds, is taken over with a stale-lock notice
@@ -96,3 +96,8 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.sh::test_provider_next_blocker_claims` -> an installed provider's `next-blocker` id is claimed (P-52)
 - `tests/verbs/issue.sh::test_done_of_promoted_plan_unblocks` -> `aapp done` of a plan promoted from a hotfix closes the issue and resumes the blocked plan in its commit (P-52)
 - `tests/verbs/issue.sh::test_fix_adds_files_to_open_mini_plan` -> `fix <num> file` on an open mini plan adds the file, keeps its commits, one commit (P-52)
+- `tests/verbs/issue.sh::test_hotfix_own_file_stashes_only_its_files` -> a file of the plan's own targets is accepted; only its uncommitted work is stashed, other work stays (P-52)
+- `tests/verbs/issue.sh::test_mini_plan_edits_file_listed_by_blocked_plan` -> the guard lets the bound mini plan edit a file the BLOCKED plan lists (P-52)
+- `tests/verbs/issue.sh::test_close_reapplies_stash_on_top_of_fix` -> close re-applies the stashed work on top of the fix and drops the stash (P-52)
+- `tests/verbs/issue.sh::test_fix_refuses_dirty_file` -> a file with uncommitted changes is refused, nothing written (P-52)
+- `tests/verbs/issue.sh::test_next_blocker_skips_untakeable` -> a blocker with dirty files is skipped; the next one is claimed (P-52)

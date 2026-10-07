@@ -447,8 +447,18 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
         fi
     fi
 
-    # Check if any BLOCKED plan exists and staged files match its targets
+    # Check if any BLOCKED plan exists and staged files match its targets. A
+    # bound mini plan (P-52) may commit its own files even when a BLOCKED plan
+    # lists them: the rule stops the blocked plan, not its sanctioned fix.
     if [ -n "$PLANS_DIR" ] && [ -d "$PLANS_DIR/current" ]; then
+        MINI_TARGETS=()
+        MINI_BUF="$(git rev-parse --git-path aapp_active_plan 2>/dev/null || true)"
+        MINI_ID="$(head -n 1 "$MINI_BUF" 2>/dev/null | tr -d '[:space:]' || true)"
+        case "$MINI_ID" in
+            '#'*) [ -f "$PLANS_DIR/current/fix-${MINI_ID#\#}.md" ] && while IFS= read -r ITEM; do
+                      [ -n "$ITEM" ] && MINI_TARGETS+=("$ITEM")
+                  done < <(parse_plan_target_paths "$PLANS_DIR/current/fix-${MINI_ID#\#}.md") ;;
+        esac
         for pf in "$PLANS_DIR"/current/*.md; do
             [ ! -f "$pf" ] && continue
             case "$(basename "$pf")" in 000-*) continue ;; esac
@@ -468,6 +478,9 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
                                 ;;
                         esac
                         if [ "$CURRENT_WT_NAME" = ".plans" ] || [ "$CURRENT_WT_NAME" = ".agents" ]; then
+                            continue
+                        fi
+                        if [ ${#MINI_TARGETS[@]} -gt 0 ] && match_pattern_list "$STAGED" "${MINI_TARGETS[@]}"; then
                             continue
                         fi
                         if match_pattern_list "$STAGED" "${BLOCKED_TARGETS[@]}"; then

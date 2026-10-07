@@ -349,7 +349,7 @@ When switching focus across projects, stepping away from the desk, or preventing
 ---
 
 ## 🐛 Issue Escape Triage (Mid-Execution Bugs)
-If you discover an unexpected bug while executing a plan inside a locked Blast Radius, take one of these paths. **A bug in a file of your own Target Files is plan work: fix it in the plan.** Everything below is about bugs outside them.
+If you discover an unexpected bug while executing a plan inside a locked Blast Radius, take one of these paths. **Plan work vs hotfix is decided by scope, not by file:** a bug the plan's change causes, or code the plan must rewrite anyway, is plan work: fix it in the plan. A bug **unrelated to the plan's change** is a hotfix, even when it sits in one of your own Target Files. Everything below is about bugs that are not plan work. In single-checkout mode `hotfix` sets aside your uncommitted work in the files it names (a stash) and `aapp issue close` re-applies it; in a plan worktree your work stays put and you resume with `git rebase --autostash <devBranch>`.
 
 - **Non-blocking:** Do not fix it. Claim its ID with `aapp issue allocate`, record it in `.plans/ISSUES.md` (or root `ISSUES.md`) and on the road map, commit with `aapp refine issues "log #<num> <title>"`, and continue the assigned plan. Do not add it to `state_matrix.md`, and do not re-prioritize `issues_road_map.md` on your own — append it and let the human place it.
 

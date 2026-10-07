@@ -35,7 +35,7 @@ On exit 0, `aapp start` has updated the plan status to `⚡ In Development`, rec
 **Do NOT pause to ask for redundant confirmation.** Immediately proceed to execute Section 3 of the blueprint:
 1. Verify / author failure tests (confirming Red 🔴) if TDD sections are declared.
 2. Begin Phase 1 implementation tasks within the declared `### 📂 Target Files`.
-3. **Blocking bug outside your Target Files?** Run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop: it logs and queues the issue and blocks this plan in one commit; the fix runs in the main checkout. A bug inside your Target Files is plan work.
+3. **Blocking bug unrelated to your plan's change** (even in one of your own files)? Run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop: it logs and queues the issue and blocks this plan in one commit; the fix runs in the main checkout. A bug inside your Target Files is plan work.
 4. Use plan-bound commits (`aapp commit`) to record execution progress. The first one writes the plan's declared `**Changelog:**` entry into `CHANGELOG.md`; later commits need no changelog edit. Never edit `CHANGELOG.md` by hand for the plan: to change the wording, edit the plan's `**Changelog:**` line and commit it with `aapp refine`.
 
 ---

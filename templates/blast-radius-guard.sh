@@ -348,8 +348,21 @@ if [ -z "$PLANS_DIR" ] || [ ! -d "$PLANS_DIR/current" ]; then
     fi
 fi
 
-# Check if target file belongs to any BLOCKED plan in workspace
+# Check if target file belongs to any BLOCKED plan in workspace. A bound mini
+# plan (P-52) may edit its own files even when a BLOCKED plan lists them: the
+# rule stops the blocked plan, not its sanctioned fix.
+MINI_TARGETS=()
+MINI_BUF="$(git rev-parse --git-path aapp_active_plan 2>/dev/null || true)"
+MINI_ID="$(head -n 1 "$MINI_BUF" 2>/dev/null | tr -d '[:space:]' || true)"
+case "$MINI_ID" in
+    '#'*) [ -f "$PLANS_DIR/current/fix-${MINI_ID#\#}.md" ] && while IFS= read -r ITEM; do
+              [ -n "$ITEM" ] && MINI_TARGETS+=("$ITEM")
+          done < <(parse_plan_target_paths "$PLANS_DIR/current/fix-${MINI_ID#\#}.md") ;;
+esac
 for pf in "$PLANS_DIR"/current/*.md; do
+    if [ ${#MINI_TARGETS[@]} -gt 0 ] && match_pattern_list "$TARGET_FILE" "${MINI_TARGETS[@]}"; then
+        break
+    fi
     [ ! -f "$pf" ] && continue
     case "$(basename "$pf")" in 000-*) continue ;; esac
     if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|🟥|BLOCKED)' "$pf" 2>/dev/null; then
