@@ -1,6 +1,6 @@
 # 🗺️ Plan P-38: Milestone Release Bundling, Tag Ledgers & Hook-Based Versioning
 * **Created:** 2026-09-27 | **Last Refined:** 2026-10-07
-* **Target Issue / Milestone:** #58, #63
+* **Target Issue / Milestone:** #63
 * **Plan ID:** P-38
 * **Changelog:** Added: Milestone release bundling, tag ledgers, and hook-based versioning
 * **Status:** 🟣 Under Review
@@ -192,10 +192,11 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
 - [ ] Task 2.2: Register `release` in `lib/verbs.tsv`, author `lib/docs/verbs/release.md`, and wire into `aapp` dispatcher.
 - [ ] Task 2.3: Author `examples/hooks/on-release.sh.sample` in `examples/hooks/`.
 
-### Phase 3: Snapshot-Driven Baseline Release Execution
-- [ ] Task 3.1: Execute baseline bundle for currently completed blueprints in `.plans/done/` into `.plans/release/<tag>/plans/` based on resolved baseline version snapshot.
-- [ ] Task 3.2: Format `.plans/done/000-archive-ledger.md` with the 1-line summary linking to `release/<tag>/000-archive-ledger.md`.
-- [ ] Task 3.3: Reset `.plans/done/000-issues-archive.md` for the current cycle.
+### Phase 3: Snapshot-Driven Engine Verification (Isolated Test Harnesses)
+- [ ] Task 3.1: Verify baseline bundling of variable plan snapshots in isolated test repositories under `tests/release_test.sh`.
+- [ ] Task 3.2: Verify 1-line master archive rollup format and relative link integrity across simulated release tags.
+- [ ] Task 3.3: Verify graveyard reset of `000-issues-archive.md` and `--no-archive` bypass handling in test harnesses.
+*(Note: Live release execution for this repository is delegated to its dedicated personalisation hook plan targeting #58).*
 
 ### Phase 4: Test Suite & Documentation Sync
 - [ ] Task 4.1: Author `tests/release_test.sh` covering:
