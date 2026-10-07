@@ -26,11 +26,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-50**: [`P50-plan-links-promotion-and-ledger-commits.md`](current/P50-plan-links-promotion-and-ledger-commits.md) — Plan Links Promotion And Ledger Commits
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-50**: [`P50-plan-links-promotion-and-ledger-commits.md`](current/P50-plan-links-promotion-and-ledger-commits.md) — Plan Links Promotion And Ledger Commits
 
 ---
 

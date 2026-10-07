@@ -3,8 +3,8 @@
 * **Target Issue / Milestone:** None (follow-up to P-32, P-47 and P-49 Q1)
 * **Plan ID:** P-50
 * **Changelog:** Added: Plan rename with issue-link repair, issue promotion in `aapp draft`, and pickup/issue commits without raw git
-* **Status:** 🔷 Frozen
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `3794b80` (develop)
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
@@ -143,6 +143,7 @@ Pickup and issue-triage edits are committed with `aapp refine pickup "<msg>"` an
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Plan activated into ⚡ In Development via start.
 * **2026-10-07:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-07:** Q1 resolved (a): `aapp refine pickup "<msg>"` and `aapp refine issues "<msg>"`; the two words are checked before plan resolution (reserved), since the resolver's file-name match would otherwise send `refine pickup` to P-11.
