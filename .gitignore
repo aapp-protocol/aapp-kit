@@ -7,3 +7,6 @@ pickup/*
 # Local worktree hook dispatcher symlink
 .githooks
 
+
+# Template drift buffers (safe sync)
+*.new
