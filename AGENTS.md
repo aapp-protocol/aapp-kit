@@ -160,7 +160,7 @@ The lanes are separate, **not sealed**. A fix too large to simply *do* deserves 
 **Take this path when it fits. Do not ask permission to draft.** Drafting is free: the blueprint lands in the Incubator unfrozen, carrying Open Questions, conferring no execution rights. The human reviews it there, and nothing reaches the code until `freeze`. Asking before drafting just asks twice.
 
 - **Promote when the fix** touches several modules, needs a locked Blast Radius, carries real design decisions, spans more than one session, or is a refactor rather than a patch.
-- **Do not promote** a small, obvious fix. Just make it — through `aapp issue fix <num> file <path>…`, a temporary mini plan that confines and records the fix (`aapp commit`, then `aapp issue close <num>`). Fixes go one at a time: `fix` waits (printing each wait) while another is open, up to `aapp.issueFixWait` minutes, so run it with a tool timeout longer than that.
+- **Do not promote** a small, obvious fix. Just make it with `/aapp-fix #<num>` (`aapp issue fix <num>`): a temporary mini plan that confines and records the fix (`aapp commit`, then `aapp issue close <num>`). Its files come from the issue's Location; `file <path>` only adds one the log does not name. Fixes go one at a time: `fix` waits (printing each wait) while another is open or one of its files has uncommitted changes, up to `aapp.issueFixWait` minutes, so run it with a tool timeout longer than that.
 - A *blocking* bug hit mid-execution is a different case — use `aapp issue hotfix` (see *Issue Escape Triage*), not a promotion.
 
 **How promotion works:**
@@ -330,7 +330,7 @@ Every chore has a verb; use it instead of editing ledgers or running git on `.pl
 | `aapp note …` | Stage, inspect, push or pull git notes |
 | `aapp issue [next \| allocate \| close <num> \| list]` | Claim, close and list issue IDs |
 | `aapp issue hotfix "<text>" [file <path>]… [plan]` | From a plan's worktree: log a blocking bug, queue it and block the plan, in one commit |
-| `aapp issue fix next-blocker \| <num> file <path>… \| <num> abort` | In the main checkout: open (or drop) a temporary mini plan for one fix, one at a time |
+| `aapp issue fix next-blocker \| <num> [file <path>…] \| <num> abort` | In the main checkout: open (or drop) a temporary mini plan for one fix, one at a time (skill: `/aapp-fix [#<num>]`) |
 | `aapp test …` | Run the kit's test suites |
 | `aapp ai …` | Inspect or switch the attribution mode |
 
@@ -357,6 +357,11 @@ If you discover an unexpected bug while executing a plan inside a locked Blast R
 - **Blocking:** The bug halts the plan. Run **one command** and stop: `aapp issue hotfix "<text>" file <path>…`. It allocates the issue number, logs the row, queues it under 🧱 Plan Blockers, records it in the plan's `* **Emergency Hotfixes:**` and blocks the plan (`🟥 BLOCKED`, `* **Blocked On:** #<num>`), in one commit. **A blocked plan is not executable** — the guard and hook refuse its work until the fix is closed. The fix runs in the main checkout (`aapp issue fix next-blocker` → `aapp commit` → `aapp issue close <num>`); closing it unblocks the plan. A plan that takes more than `aapp.maxEmergencyHotfixes` hotfixes (default 2) stays blocked until the human re-scopes it.
 
 - **Blocking & substantial:** The fix is real work — several modules, a Blast Radius of its own, or genuine design decisions. Run `aapp issue hotfix "<text>" file <path>… plan`: the same one command, but instead of queueing a small fix it drafts an empty plan linked to the issue. **STOP. Do not author that plan's design.** Report what you know — scope, modules touched, the options you can see — as **open questions, not decisions already taken**, and wait for the human. An overestimate costs little: the draft can be refined into a small fix, or aborted.
+
+- **Fixes in another plan's files.** A fix may change a file that an active plan also lists.
+  - *The fixer* never commits or stashes another plan's work. `fix` waits for it to be committed. After a timeout, leave that issue (`aapp issue fix next-blocker` takes another) and retry later. When the busy file belongs to the plan bound in your own checkout, `fix` says so: set that work aside from the plan with `aapp issue hotfix`.
+  - *Every plan in a worktree* rebases with `git rebase --autostash <devBranch>` when it resumes and before `aapp done`: fixes to its files may have landed. Conflicts in its own lines are its to resolve. `aapp issue close` names the plans that list a fixed file.
+  - *A start refused for a pending fix* (a queued 🧱 Plan Blocker names one of the plan's Target Files) means: fix it first (`/aapp-fix`), or start another plan.
 
 > **Why the design waits for the human.** Everywhere else drafting is free, because a draft sits harmlessly *beside* your work. A blocking bug is different: the human's actual plan is stalled, so anything you fast-forward arrives while they are under pressure to accept it just to get moving again. That is the worst possible moment to hand someone a finished design and a set of decisions already made. The `plan` token gives them an empty draft linked to the issue; its design is the human's call, made unhurried.
 

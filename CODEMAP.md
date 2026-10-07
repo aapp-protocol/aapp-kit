@@ -50,7 +50,7 @@
   * `aapp active swap` / `aapp active clear` -> Toggles between current and previous buffer or clears context.
   * `aapp plan-status [id]` -> Deterministic read-only inspector for plan matrix or specific blueprint.
   * `aapp plan [query]` -> Educational planning switchboard guiding users and agents.
-  * Disjointness Activation Gate -> Shared docs only print a `[Shared Doc]` notice (P-48); otherwise enforces non-overlapping target file sets between concurrent `⚡ In Development` plans.
+  * Disjointness Activation Gate -> Shared docs only print a `[Shared Doc]` notice (P-48); otherwise enforces non-overlapping target file sets between concurrent `⚡ In Development` plans, and refuses a start on a file named by a queued 🧱 Plan Blocker (`issue_queued_blockers` + `issue_location_paths`, P-58).
 * **Anti-Wrapper Warning:** Never manually write to `.git/aapp_active_plan` without going through `cmd_plan.sh`.
 
 ### 🎨 Plan Status Registry (`lib/plan_states.sh`)
@@ -97,7 +97,9 @@
 * **Purpose:** `aapp issue [next | allocate | hotfix | fix | close <id> | list]` (P-32, P-52); contract in `lib/docs/verbs/issue.md`.
 * **Key Functions:**
   * `issue_locate(n)` -> `active`, `archive`, or empty.
-  * `cmd_issue_hotfix` / `cmd_issue_fix` / `_issue_fix_abort` -> P-52 hotfix (row, 🧱 Plan Blockers queue, `Emergency Hotfixes:`, block via `plan_block_on`, one commit) and temporary mini plans `current/fix-<num>.md` (one at a time; verbose wait up to `aapp.issueFixWait`).
+  * `cmd_issue_hotfix` / `cmd_issue_fix` / `_issue_fix_abort` -> P-52 hotfix (row, 🧱 Plan Blockers queue, `Emergency Hotfixes:`, block via `plan_block_on`, one commit) and temporary mini plans `current/fix-<num>.md` (one at a time; verbose wait up to `aapp.issueFixWait`, also for files with uncommitted changes, via `_issue_roll`; the timeout message `_issue_busy_refusal` names `hotfix` when the bound plan owns the file, P-58).
+  * `issue_location_paths(row)` -> the path tokens of a row's Location cell (exists, or has `/` or an extension; `:lines` stripped); `issue_queued_blockers(plans)` -> 🧱 Plan Blockers that are active and not Planned. Shared with the start gate (P-58).
+  * `_issue_notice_listing_plans(plans, files…)` -> at close, `<plan> also lists <file>` for other ⚡/BLOCKED plans; output only (P-58).
   * `_issue_reapply_stash(n)` -> single-checkout hotfix stash (recorded by SHA in `aapp_hotfix_stash`) re-applied at close; a conflict keeps it (P-52).
   * `_issue_lock_acquire` / `_issue_lock_release` -> the shared issue lock `$(git rev-parse --git-common-dir)/aapp_issue.lock` (PID-based stale takeover).
   * `issue_unblock_plans(n)` -> drops `#n` from every plan's `Blocked On:`; restores the recorded status when the list empties and the block is not permanent; used by `issue close` and `cmd_done` (P-52).
