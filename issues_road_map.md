@@ -40,6 +40,5 @@
 - [ ] #93 -> Bare `aapp draft` offers only already-planned issues and hides incubated ones (emoji filter mismatch).
 - [ ] #99 -> `aapp.*` config defaults have no single source of truth; each reader hardcodes its own.
 - [ ] #98 -> A frozen plan blocks every direct fix while no plan is in development.
-- [ ] #97 -> `.gitattributes` written by `aapp init` is not always-allowed, so it cannot be committed without a plan.
 - [ ] #95 -> "Small" fix is undefined in invariant 5; default <10 changed lines, adopter override in `PROJECT.MD`.
 
