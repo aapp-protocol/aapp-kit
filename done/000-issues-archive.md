@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #100 | `Medium` | `CLI` | 2026-10-07 | 2026-10-07 | `da419a2` | Anchor template delimiter regexes, prevent unclosed marker warning from aborting aapp init, and classify archive ledger as Tier 3 data. |
 | #73 | `Medium` | `CLI` | 2026-09-20 | 2026-10-07 | `b54887b` | [P-25](P25-template-sync-and-document-governance.md) - Delimited Template Sync & Tiered Document Governance |
 | #96 | `Medium` | `CORE` | 2026-10-03 | 2026-10-03 | `12cdb93` | [P-48](P48-shared-docs-concurrency.md) - Shared Docs Concurrency: Collision Exemption, Plan-Declared Changelog, Union Merge |
 | #94 | `Low` | `CORE` | 2026-09-29 | 2026-10-03 | `24c24e5` | [P-46](P46-plugin-registry.md) - Plugin Registry |
