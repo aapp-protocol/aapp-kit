@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** #98 *(also resolves #87)*
 * **Plan ID:** P-52
 * **Changelog:** Added: `aapp issue hotfix` blocks a plan on a logged, queued issue, and `aapp issue fix` opens a temporary mini plan for it, one fix at a time; frozen plans no longer block edits
-* **Status:** 🔷 Frozen
+* **Status:** ⚡ In Development
 * **Base:** `2d7ba74` (develop)
 * **Commits:** `d0b734d` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -211,6 +211,7 @@ The frozen-plan special case is removed from `templates/blast-radius-guard.sh` a
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Plan activated into ⚡ In Development via start.
 * **2026-10-07:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-07:** Plan activated into ⚡ In Development via start.
 * **2026-10-07:** Plan locked and frozen into 🔷 Frozen via freeze.
