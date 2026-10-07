@@ -228,7 +228,21 @@ An authoritative, single-source dictionary covering all 22+ `git config aapp.*` 
 - Key name, data type, default value, and valid values/enums.
 - Configuration scope: repository-local (`--local`) vs user-global (`--global`).
 - Enforcement layer: Layer 1 Write-Time Guard, Layer 2 Pre-Commit Hook, or CLI Runtime.
-- Shell configuration examples and preset recipes (e.g., "Autonomous CI Agent Mode", "Human-Only Private Notes Mode", "Strict Compliance Mode").
+### 2.7 Continuous Navigation Invariant (Global Breadcrumb & Back-Link Protocol)
+
+To ensure that developers and AI agents never hit dead ends when navigating into deep modular pages, every markdown file authored in `docs/concepts/*.md` and `docs/reference/*.md` MUST include a standardized continuous navigation footer block linking back to the root hubs:
+
+```markdown
+## 🧭 Continuous Navigation
+- 📖 [Technical Manual](../../MANUAL.md)
+- 🍳 [Cookbook Catalog](../../COOKBOOK.md)
+- 🏠 [Repository Overview](../../README.md)
+```
+
+In addition:
+- Cross-references to recipes must point to `[Recipe Name](../recipes/<category>/<recipe>.md)`.
+- Cross-references between concepts and references must use direct repository-relative markdown links.
+- The automated test `tests/doc_links_test.sh` enforces that 100% of documents in `docs/concepts/` and `docs/reference/` contain active, valid links back to both `MANUAL.md` and `COOKBOOK.md`.
 
 ---
 
@@ -239,27 +253,27 @@ An authoritative, single-source dictionary covering all 22+ `git config aapp.*` 
 - [ ] Task 0.2: Add regression tests in `tests/write-guard_test.sh` and `tests/pre-commit_test.sh` verifying that modifying and committing `docs/**/*.md` and `COOKBOOK.md` passes freely without active plan target declarations.
 
 ### Phase 1: Conceptual Architecture Modularization (`docs/concepts/`)
-- [ ] Task 1.1: Author `docs/concepts/01-worktree-architecture.md` (extracting and refining from `MANUAL.md` §1 & §2).
-- [ ] Task 1.2: Author `docs/concepts/02-blast-radius-engine.md` (extracting from `MANUAL.md` §3).
-- [ ] Task 1.3: Author `docs/concepts/03-two-lane-governance.md` (extracting from `MANUAL.md` §4).
-- [ ] Task 1.4: Author `docs/concepts/04-security-and-threat-model.md` (extracting from `MANUAL.md` §10).
+- [ ] Task 1.1: Author `docs/concepts/01-worktree-architecture.md` with continuous navigation back-links (extracting from `MANUAL.md` §1 & §2).
+- [ ] Task 1.2: Author `docs/concepts/02-blast-radius-engine.md` with continuous navigation back-links (extracting from `MANUAL.md` §3).
+- [ ] Task 1.3: Author `docs/concepts/03-two-lane-governance.md` with continuous navigation back-links (extracting from `MANUAL.md` §4).
+- [ ] Task 1.4: Author `docs/concepts/04-security-and-threat-model.md` with continuous navigation back-links (extracting from `MANUAL.md` §10).
 
 ### Phase 2: Technical Reference Modularization (`docs/reference/`)
-- [ ] Task 2.1: Author `docs/reference/01-lifecycle-state-machine.md` (extracting from `MANUAL.md` §5).
-- [ ] Task 2.2: Author `docs/reference/02-cli-commands-and-verbs.md` covering all 35 verbs strictly aligned with `lib/verbs.tsv` and `lib/docs/verbs/*.md` contracts, execution preconditions, exit codes, and diagnostics.
-- [ ] Task 2.3: Author `docs/reference/03-configuration-matrix.md` covering all 22+ `git config aapp.*` settings discovered in code, aligned with Pickup #99 manifest schema.
-- [ ] Task 2.4: Author `docs/reference/04-plugin-and-hook-engine.md` (extracting from `MANUAL.md` §8).
-- [ ] Task 2.5: Author `docs/reference/05-ai-attribution-and-notes.md` (extracting from `MANUAL.md` §9).
+- [ ] Task 2.1: Author `docs/reference/01-lifecycle-state-machine.md` with continuous navigation back-links (extracting from `MANUAL.md` §5).
+- [ ] Task 2.2: Author `docs/reference/02-cli-commands-and-verbs.md` covering all 35 verbs with continuous navigation back-links, strictly aligned with `lib/verbs.tsv` and `lib/docs/verbs/*.md` contracts.
+- [ ] Task 2.3: Author `docs/reference/03-configuration-matrix.md` covering all 22+ `git config aapp.*` settings with continuous navigation back-links, aligned with Pickup #99 manifest schema.
+- [ ] Task 2.4: Author `docs/reference/04-plugin-and-hook-engine.md` with continuous navigation back-links (extracting from `MANUAL.md` §8).
+- [ ] Task 2.5: Author `docs/reference/05-ai-attribution-and-notes.md` with continuous navigation back-links (extracting from `MANUAL.md` §9).
 
 ### Phase 3: Portal Transformation, Storefront Cleanup & Link Audit
-- [ ] Task 3.1: Rewrite root `MANUAL.md` into the concise executive portal (~150 lines) with complete relative links into `docs/`.
-- [ ] Task 3.2: Slim down root `README.md` to ~120 lines, adopting `.plans/pickup/readme-draft.md` enriched with `COOKBOOK.md` navigation links.
+- [ ] Task 3.1: Rewrite root `MANUAL.md` into the concise executive portal (~150 lines) with complete relative links into `docs/` and `COOKBOOK.md`.
+- [ ] Task 3.2: Slim down root `README.md` to ~120 lines, adopting `.plans/pickup/readme-draft.md` enriched with `COOKBOOK.md` and `MANUAL.md` navigation links.
 - [ ] Task 3.3: Perform repository-wide anchor and link audit across `templates/`, `lib/`, `tests/`, and `.agents/` updating old `MANUAL.md` anchor references.
 
 ### Phase 4: Installer Sync & Regression Verification
 - [ ] Task 4.1: Update `lib/cmd_install.sh` to package `docs/concepts/` and `docs/reference/`.
 - [ ] Task 4.2: Update `tests/install_test.sh` to verify full `docs/` tree installation in `$SHARE_DIR`.
-- [ ] Task 4.3: Author automated dead-link test `tests/doc_links_test.sh` verifying that all cross-links between `README.md`, `MANUAL.md`, `COOKBOOK.md`, and `docs/**/*.md` resolve to valid files and headings.
+- [ ] Task 4.3: Author automated dead-link test `tests/doc_links_test.sh` verifying that 100% of cross-links between `README.md`, `MANUAL.md`, `COOKBOOK.md`, and `docs/**/*.md` resolve to valid files, and asserting bidirectional back-links.
 - [ ] Task 4.4: Execute all automated test suites (`tests/install_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, `tests/doc_links_test.sh`) to ensure 100% compliance.
 
 ---
@@ -300,6 +314,7 @@ An authoritative, single-source dictionary covering all 22+ `git config aapp.*` 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Refined blueprint: added Continuous Navigation Invariant (§2.7) requiring standard back-links to `MANUAL.md` and `COOKBOOK.md` across all conceptual and reference documents, verified by `tests/doc_links_test.sh`.
 * **2026-10-07:** Refined blueprint: added Phase 0 prerequisite for shared-doc engine (`docs/*` and `COOKBOOK.md` always-allowed in guard and hook), aligned CLI verbs reference with all 35 verbs in `lib/verbs.tsv`, aligned configuration dictionary with all 22+ keys from codebase, and added anchor audit and `tests/doc_links_test.sh` dead-link test.
 * **2026-10-07:** Refined blueprint to establish dedicated, exhaustive reference specifications for CLI Verbs with all parameter variations (`docs/reference/02-cli-commands-and-verbs.md`) and the complete Configuration Matrix dictionary (`docs/reference/03-configuration-matrix.md`).
 * **2026-10-07:** Drafted blueprint P-57 from user discussion. Defined modular technical specification hierarchy (`docs/concepts/` and `docs/reference/`), outlined executive portal `MANUAL.md`, and specified storefront `README.md` slimdown.
