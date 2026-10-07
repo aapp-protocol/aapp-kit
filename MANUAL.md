@@ -1683,6 +1683,10 @@ Command metadata is centralized in `lib/verbs.tsv`, a zero-dependency, tab-separ
 ### Committing Plan Edits (`aapp refine <id> "<what changed>"`)
 
 Lifecycle verbs commit their own changes; `aapp refine` covers the rest — content written into an active plan (sections filled in, an amendment, a change-log line). It commits **only** that plan file through the same commit engine, with the configured attribution, as `plan(refine): <id> <what changed>`, and prints `📝 [Refine] <id> committed (<sha>): <what changed>`. It refuses a missing message, an unknown plan, and a plan with no changes; the pre-commit design lock still guards a frozen plan's §2 and §4. **Nobody, agent or human, needs raw `git` in the plans worktree.**
+
+The message becomes the commit subject, so it must be **one line**, and `plan(refine): <id> <msg>` must fit within `aapp.subjectMaxLen` (default 72), the limit the `commit-msg` gate applies. `aapp refine` checks both before any git work and names the exact overrun: `Commit subject is 81 characters; the limit is 72 (aapp.subjectMaxLen).` plus `Shorten the message by 9 characters`.
+
+**Blocking a plan:** `aapp refine <id> blocked <num>` blocks a plan on active issue `#<num>` without a hand edit. It sets the Status to `🟥 BLOCKED`, appends `#<num>` to `* **Blocked On:**` (a list; the first block records the previous status, e.g. `#41 (was ⚡ In Development)`), and commits the plan as `plan(refine): <id> blocked on #<num>`. Blocking on an issue already listed changes nothing; an unknown or archived issue is refused. The state matrix is `aapp matrix`'s job, so chain it: `aapp refine P-54 blocked 101 && aapp matrix`.
 - **No-Dead-End Invariant**: When invoked without arguments, it scans `.plans/pickup.md` and `.plans/ISSUES.md`, presenting candidate menus capped at 10 items.
 
 ### One Changelog Entry per Plan (`aapp.changelogMode`)

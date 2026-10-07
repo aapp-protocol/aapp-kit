@@ -1363,32 +1363,122 @@ cmd_plan_switchboard() {
     echo "  Use '/plan <idea>' or '/aapp-plan <idea>' in your AI agent chat."
 }
 
-# Dispatcher
-ACTION="${1:-plan}"
-shift || true
+# plan_block_on <plan_file> <num> (P-49)
+# Write-only: sets the Status line to 🟥 BLOCKED and appends #<num> to the
+# `* **Blocked On:**` list, recording the status the plan had before on the
+# first block. No commit and no matrix: callers commit (`refine … blocked`
+# alone, `issue hotfix` with its other files).
+# Returns 0 when written, 3 when #<num> is already listed (nothing written).
+plan_block_on() {
+    local pf="$1" num="${2#\#}" status_line prev line list tail tmp
+    [ -f "$pf" ] || return 1
+    case "$num" in ''|*[!0-9]*) return 1 ;; esac
+    status_line="$(grep -m 1 -E '^\* \*\*Status:\*\*' "$pf" || true)"
+    [ -n "$status_line" ] || return 1
+    prev="${status_line#\* \*\*Status:\*\* }"
+    line="$(grep -m 1 -E '^\* \*\*Blocked On:\*\*' "$pf" || true)"
+    if [ -n "$line" ]; then
+        list="${line#\* \*\*Blocked On:\*\* }"
+        tail=""
+        case "$list" in *" (was "*) tail=" (was ${list#* (was }"; list="${list%% (was *}" ;; esac
+        if printf '%s\n' "$list" | tr ',' '\n' | tr -d ' ' | grep -qxF "#$num"; then
+            return 3
+        fi
+        line="* **Blocked On:** $list, #$num$tail"
+    elif printf '%s' "$prev" | grep -qE '🟥|BLOCKED'; then
+        line="* **Blocked On:** #$num"
+    else
+        line="* **Blocked On:** #$num (was $prev)"
+    fi
+    tmp="$(mktemp)" || return 1
+    AAPP_BLOCKED_LINE="$line" awk '
+        /^\* \*\*Status:\*\*/ && !s { print "* **Status:** 🟥 BLOCKED"; s = 1; if (!b) { print ENVIRON["AAPP_BLOCKED_LINE"]; b = 1 } ; next }
+        /^\* \*\*Blocked On:\*\*/ { if (!b) { print ENVIRON["AAPP_BLOCKED_LINE"]; b = 1 } ; next }
+        { print }
+    ' "$pf" > "$tmp" && mv "$tmp" "$pf" || { rm -f "$tmp"; return 1; }
+}
 
-# cmd_refine <plan-id> "<what changed>" (P-47)
+# _refine_check_subject <subject> <msg>: refuse before any git work when the
+# message is not one line or the subject exceeds the commit-msg gate's limit.
+_refine_check_subject() {
+    local subject="$1" msg="$2" max len
+    case "$msg" in
+        *$'\n'*|*$'\r'*)
+            echo "❌ [Refine] The message must be a single line (it becomes the commit subject)." >&2
+            exit 1
+            ;;
+    esac
+    max="$(git config --int aapp.subjectMaxLen 2>/dev/null || echo 72)"
+    len="${#subject}"
+    if [ "$len" -gt "$max" ]; then
+        echo "❌ [Refine] Commit subject is $len characters; the limit is $max (aapp.subjectMaxLen)." >&2
+        echo "   Shorten the message by $((len - max)) characters: \"$msg\"" >&2
+        exit 1
+    fi
+}
+
+# cmd_refine <plan-id> "<what changed>" | <plan-id> blocked <num> (P-47, P-49)
 # Commits an edit to an active plan's content through the lifecycle commit
 # engine, so agents never run raw git on the plans worktree. Only the plan file
 # is committed; the pre-commit design lock still guards frozen sections.
+# `blocked <num>` writes the BLOCKED status itself (plan_block_on); the state
+# matrix stays `aapp matrix`'s job.
 cmd_refine() {
-    local query="${1:-}" msg="${2:-}" plan_file rel plan_id sha
+    local query="${1:-}" msg="${2:-}" plan_file rel plan_id sha num="" subject rc
     if [ -z "$query" ] || [ -z "$msg" ]; then
-        echo "❌ [Refine] Usage: aapp refine <plan-id> \"<what changed>\"" >&2
+        echo "❌ [Refine] Usage: aapp refine <plan-id> \"<what changed>\" | aapp refine <plan-id> blocked <num>" >&2
         exit 1
+    fi
+    if [ "$msg" = "blocked" ] && [ $# -ge 3 ]; then
+        num="${3#\#}"
+        case "$num" in
+            ''|*[!0-9]*)
+                echo "❌ [Refine] Usage: aapp refine <plan-id> blocked <num> (a bare issue number, e.g. 101)" >&2
+                exit 1
+                ;;
+        esac
+        msg="blocked on #$num"
     fi
     plan_file="$(resolve_plan_file "$query" "refine")" || exit 1
     rel="current/$(basename "$plan_file")"
-    if [ -z "$(git -C "$PLANS_DIR" status --porcelain -- "$rel")" ]; then
+    plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" | head -n 1)"
+    [ -n "$plan_id" ] || plan_id="$query"
+    subject="plan(refine): $plan_id $msg"
+    _refine_check_subject "$subject" "$msg"
+    if [ -n "$num" ]; then
+        if [ ! -f "$PLANS_DIR/ISSUES.md" ] || \
+           ! grep -qE "^[[:space:]]*\|[[:space:]]*\`?#${num}\`?[[:space:]]*\|" "$PLANS_DIR/ISSUES.md"; then
+            echo "❌ [Refine] #$num is not an active issue in ISSUES.md." >&2
+            exit 1
+        fi
+        rc=0
+        plan_block_on "$plan_file" "$num" || rc=$?
+        if [ "$rc" -eq 3 ]; then
+            echo "ℹ️  [Refine] $plan_id is already blocked on #$num; nothing changed."
+            return 0
+        elif [ "$rc" -ne 0 ]; then
+            echo "❌ [Refine] Could not write the BLOCKED status into $rel." >&2
+            exit 1
+        fi
+    elif [ -z "$(git -C "$PLANS_DIR" status --porcelain -- "$rel")" ]; then
         echo "❌ [Refine] Nothing to commit: $rel has no changes." >&2
         exit 1
     fi
-    plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" | head -n 1)"
-    [ -n "$plan_id" ] || plan_id="$query"
-    plans_commit "plan(refine): $plan_id $msg" "$rel" || exit 1
+    plans_commit "$subject" "$rel" || exit 1
     sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
     echo "📝 [Refine] $plan_id committed ($sha): $msg"
 }
+
+# Sourcing with AAPP_PLAN_LIB_ONLY=1 loads the functions (e.g. plan_block_on
+# for `aapp issue hotfix`, P-52) without running a command, as cmd_matrix.sh
+# does with AAPP_MATRIX_LIB_ONLY.
+if [ "${AAPP_PLAN_LIB_ONLY:-0}" = "1" ]; then
+    return 0 2>/dev/null || exit 0
+fi
+
+# Dispatcher
+ACTION="${1:-plan}"
+shift || true
 
 case "$ACTION" in
     draft)

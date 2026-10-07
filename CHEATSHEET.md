@@ -16,6 +16,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp status [short]` | **✅ Yes** | 4-pillar context recovery briefing (or 'short' for 1-line remote pulse) |
 | `aapp draft [slug]` | **✅ Yes** | Scaffold blueprint from template, stamp ID & date, register in matrix |
 | `aapp refine <id> "<msg>"` | **✅ Yes** | Commit an edit to an active plan's content through the plans commit engine |
+| `aapp refine <id> blocked <num>` | **✅ Yes** | Block a plan on active issue `#<num>` (Status + `Blocked On:`); chain `&& aapp matrix` |
 | `aapp tdd [id]` | **✅ Yes** | Declare a plan's failure-first tests (§3 identifiers, §4 test files) before freeze |
 | `aapp plan [query]` | **✅ Yes** | Educational planning switchboard or query blueprints |
 | `aapp plan-status [id]` | **✅ Yes** | Inspect plan lane matrix or specific blueprint details |

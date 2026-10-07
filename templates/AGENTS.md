@@ -314,6 +314,7 @@ Every chore has a verb; use it instead of editing ledgers or running git on `.pl
 | `aapp status [short]` | Four-pillar briefing (Shipped, Issues, Plans, Pickup) |
 | `aapp draft <slug>` | Claim a Plan ID, scaffold the blueprint, register and commit it |
 | `aapp refine <id> "<what changed>"` | Commit an edit to an active plan |
+| `aapp refine <id> blocked <num>` | Block a plan on active issue `#<num>` (then `aapp matrix`) |
 | `aapp tdd <id>` | Inject failure-test sections into a plan before freeze |
 | `aapp plan [query]` | Planning switchboard |
 | `aapp plan-status [id]` | Read-only plan matrix or one plan's details |
@@ -353,10 +354,9 @@ If you discover an unexpected bug while executing a plan inside a locked Blast R
 
 - **Blocking & substantial:** The bug halts the plan *and* the fix is real work — several modules, a Blast Radius of its own, or genuine design decisions.
   **STOP. Do not fast-forward a design, and do not promote it on your own.** This is the one place promotion is never automatic.
-  1. Set the in-flight plan's status to 🚫 `BLOCKED` and record `**Blocked On:** ISSUE-00X` in the plan file.
-  2. Move it out of the Greenlight Zone into `## 🚫 Blocked` in `state_matrix.md`. **A blocked plan is not executable** — and the pre-commit hook enforces it: while the Status line says `BLOCKED`, that plan admits no commits at all.
-  3. Report the situation and **ask** whether to promote the issue into its own plan. Lay out what you know — scope, modules touched, the options you can see — as **open questions, not decisions already taken**.
-  4. Wait. Resume only when the human unblocks: the issue is fixed, the blocked plan is re-scoped around it, or they explicitly say to continue.
+  1. Block the in-flight plan with one command: `aapp refine <plan-id> blocked <num> && aapp matrix`. It sets the Status to `🟥 BLOCKED`, records `* **Blocked On:** #<num>` (with the status it had before), commits the plan, and the matrix re-derives. Never hand-edit the Status line or `state_matrix.md`. **A blocked plan is not executable** — and the pre-commit hook enforces it: while the Status line says `BLOCKED`, that plan admits no commits at all.
+  2. Report the situation and **ask** whether to promote the issue into its own plan. Lay out what you know — scope, modules touched, the options you can see — as **open questions, not decisions already taken**.
+  3. Wait. Resume only when the human unblocks: the issue is fixed, the blocked plan is re-scoped around it, or they explicitly say to continue.
 
 > **Why this one asks, when promotion normally does not.** Everywhere else drafting is free, because a draft sits harmlessly *beside* your work. A blocking bug is different: the human's actual plan is stalled, so anything you fast-forward arrives while they are under pressure to accept it just to get moving again. That is the worst possible moment to hand someone a finished design and a set of decisions already made. Substantial blocking work is the human's call, made unhurried.
 
