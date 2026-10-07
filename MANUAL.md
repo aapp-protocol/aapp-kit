@@ -52,6 +52,7 @@
   * [Lifecycle Event Matrix (10 Lifecycle Triggers)](#lifecycle-event-matrix-10-lifecycle-triggers)
   * [Team Sync Governance & Transport Hooks (`aapp.syncStrategy`)](#team-sync-governance--transport-hooks-aappsyncstrategy)
   * [Local Developer Overrides & CI Confinement](#local-developer-overrides--ci-confinement)
+  * [Hook Security, Integrity & Trust Model](#hook-security-integrity--trust-model)
   * [CLI Management Suite (`aapp hooks`, `plugins`, `hook-test`, `hook-hash`)](#cli-management-suite-aapp-hooks-plugins-hook-test-hook-hash)
   * [Transparent Command Fallthrough & Polyglot Plugins](#transparent-command-fallthrough--polyglot-plugins)
 * [9. AI Attribution Suite & Multi-Vendor Benchmarking](#9-ai-attribution-suite--multi-vendor-benchmarking)
@@ -1398,6 +1399,79 @@ git config --add aapp.hook.on-done "/path/to/local/desktop-notify.sh"
   ```bash
   git config aapp.allowLocalHooks false
   ```
+
+---
+
+### Hook Security, Integrity & Trust Model
+
+AAPP executes lifecycle hooks at critical state boundaries (plan freezing, plan activation, plan completion, remote synchronization, and release orchestration). To protect repositories against rogue script injections, silent tampering, and infinite execution hangs, AAPP implements a **zero-trust, fail-closed hook security architecture**:
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                     LIFECYCLE HOOK SECURITY GATES                      │
+└────────────────────────────────────────────────────────────────────────┘
+
+ 1. Discovery & Boundary Confinement
+    • Handler path checked against repository root boundaries
+    • In CI/CD: git config aapp.allowLocalHooks false rejects uncommitted hooks
+
+ 2. Cryptographic Integrity Gate (registry.tsv)
+    • Live SHA-256 computed on disk BEFORE execution
+    • Compared against expected_sha256 pin
+    • Mismatch ➔ 🛑 HARD ABORT (Zero code executed)
+
+ 3. Execution Watchdog Confinement
+    • Hard timeout budget enforced (SIGTERM ➔ SIGKILL)
+    • Process hang / infinite loop ➔ exit 124 ➔ 🛑 HARD ABORT
+
+ 4. Fail-Closed Exit Code Verification
+    • Exit 0 ➔ Proceed with lifecycle mutation
+    • Exit 2 ➔ Advisory warning, proceed
+    • Exit 1 / non-zero ➔ 🛑 HARD ABORT with stderr diagnostic
+```
+
+#### 1. Tamper-Evident SHA-256 Pinning
+Every gating hook handler declared in `.agents/skills/aapp-hooks/registry.tsv` is cryptographically pinned with an expected SHA-256 digest:
+```tsv
+# event<TAB>handler_path<TAB>expected_sha256<TAB>timeout<TAB>mode
+on-release	scripts/kit-on-release.sh	sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	30	gate
+```
+* **Real-Time Verification**: The dispatcher computes the handler's SHA-256 digest on disk immediately before launching the subprocess.
+* **Fail-Closed Tamper Response**: If an attacker, rogue script, or un-audited agent edit alters even a single byte of the handler script, the dispatcher halts:
+  ```text
+  ❌ [Hook Integrity Violation] SHA256 mismatch for handler 'scripts/kit-on-release.sh' (event: on-release)!
+     Expected : sha256:e3b0...
+     Computed : sha256:7f9a...
+     Tamper-evident gate: Handler script cannot be altered without updating registry.tsv.
+  ```
+  The operation is aborted; the modified script is **never executed**.
+
+#### 2. Privilege Separation: Gating vs. Observation
+To prevent local developers or transient environments from hijacking critical lifecycle gates:
+* **Gating Authority (`mode=gate`)**: Gating authority is granted **exclusively to committed handlers** registered in `.agents/skills/aapp-hooks/registry.tsv`. Handlers must be checked into Git history, pinned by digest, and subject to team peer review.
+* **Local Developer Overrides (`git config aapp.hook.*`)**: Local clone hooks defined in `.git/config` are **strictly confined to `mode=notify`**. They can observe events or stream notifications, but can **never veto, abort, or gate** a lifecycle transition.
+* **CI Confinement**: In CI/CD pipelines or hardened automated environments, setting `git config aapp.allowLocalHooks false` guarantees that only committed, pinned registry hooks can run.
+
+#### 3. Blast Radius Isolation & Agent Confinement
+In projects governed by AAPP:
+* Autonomous coding agents are strictly forbidden from modifying `.agents/skills/aapp-hooks/` or `.githooks/` without explicit authorization. Layer 1 (`blast-radius-guard`) and Layer 2 (`pre-commit`) self-protection rules block writes to hook registries.
+* Creating or modifying a hook script requires a canonical blueprint (`P-XX`) that pre-declares the hook path in `### 📂 Target Files`.
+
+#### 4. Watchdog Process Confinement
+Every hook execution runs under an active watchdog (`timeout` command or POSIX background monitoring subshell):
+* If a script exceeds its configured timeout budget (e.g. `10s`, `30s`), the watchdog terminates the process group (`SIGTERM` followed by `SIGKILL`).
+* In gating mode, a timeout triggers a hard abort with exit code `124`, preventing zombie processes or stalled automation.
+
+#### 5. Safe Hook Rotation & Update Runbook
+When legitimate updates are made to a hook script across its lifetime, teams follow a deterministic rotation procedure:
+1. **Implement & Test Script Changes**: Modify the hook script under an active plan.
+2. **Compute New Digest**: Run `aapp hook-hash` to generate the new pinned entry:
+   ```bash
+   aapp hook-hash scripts/my-hook.sh on-release 30 gate
+   ```
+3. **Update Registry**: Update the `expected_sha256` column in `.agents/skills/aapp-hooks/registry.tsv`.
+4. **Audit & Dry-Run**: Run `aapp hooks` to confirm the `✅ VALID` badge, and test behavior using `aapp hook-test <event>`.
+5. **Commit Together**: Commit the updated script and the updated `registry.tsv` in the same plan commit.
 
 ---
 
