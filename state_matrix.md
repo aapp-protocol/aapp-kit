@@ -30,8 +30,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-58**: [`P58-issue-fixes-alongside-active-plans.md`](current/P58-issue-fixes-alongside-active-plans.md) — Issue Fixes Alongside Active Plans
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
