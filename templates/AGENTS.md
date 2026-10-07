@@ -248,7 +248,7 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
   1. Validates open questions (`[x]`) and explicit Target Files.
   2. Runs the Disjointness Activation Gate: verifies zero overlapping Target Files with other in-flight (`⚡ In Development`) blueprints in the same workspace.
   3. Transitions blueprint directly to `⚡ In Development`, sets the lock marker, updates the change log, and binds the local worktree buffer (`$(git rev-parse --git-path aapp_active_plan)`).
-  4. Immediately greenlights code execution in the working tree.
+  4. Continuous Execution Ingress: Immediately greenlights code execution in the working tree. Do NOT pause to ask for redundant confirmation; immediately proceed to execute Section 3 of the blueprint.
 
 - **`freeze <plan>` (or `/aapp-freeze <plan>`, `/aapp:freeze <plan>`, `/aapp freeze <plan>`, `/freeze <plan>`)**: Lock and greenlight a blueprint for the backlog.
   1. Resolve `<plan>` using shorthand resolution (Plan ID `P-9`, `9`, slug, or filename). Target must be explicitly named — empty queries are strictly refused.
@@ -261,6 +261,7 @@ When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` con
   2. Runs the Disjointness Activation Gate against other in-flight plans.
   3. Transitions status to `⚡ In Development` and binds local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).
   4. Activates enforcement of the plan's locked Blast Radius for tool writes and commits.
+  5. Continuous Execution Ingress: Do NOT pause to ask for redundant confirmation. Immediately proceed to execute Section 3 of the blueprint (verifying / authoring failure tests first if TDD sections are declared).
 
 - **`plan <idea>` (or `/plan <idea>`, `/aapp-plan <idea>`)**: Canonical blueprint planning and lane routing.
   1. Enforces the Canonical Planning Invariant: author blueprints in `.plans/current/P<num>-<slug>.md`, never in ephemeral IDE scratchpads (`implementation_plan.md`).
