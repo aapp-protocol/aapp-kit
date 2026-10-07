@@ -216,6 +216,7 @@ All `pre-*` gating hooks communicate their verdict to the calling AAPP command v
 ## ❓ 5. Open Questions (Optional / Gate)
 * [ ] **Question 1 (Clean Break vs Alias Transition):** Should legacy `on-freeze` be retained indefinitely as a transparent alias to `pre-freeze`, or emit a deprecation warning and be scheduled for retirement in v2.0.0? *(`on-start` resolved by the developer, 2026-10-07: not an alias; it stays the in-transaction action delegate that P-54 relies on, per this plan's own `on-*` = action-delegate taxonomy.)*
 * [ ] **Question 2 (Pre-Done Default Mode):** Should `pre-done` default to `gate` (failing closed if a registered script fails) while `post-done` / `on-done` defaults to `notify`?
+* [ ] **Question 3 (Hotfix and integration events):** P-52's `aapp issue hotfix` blocks a plan and `aapp issue close` unblocks it, and an issue fix lands on the development branch at close, but none of these fire a lifecycle event, so teams can neither gate nor observe them (the `aapp-issue-tracker` provider hears only about issues). Should this plan add symmetric events for them: e.g. `pre-hotfix` / `post-hotfix` around blocking a plan, an observer when the plan is unblocked, and a `post-integrate` observer fired both after P-55 integrates a plan and after `issue close` lands a fix (one event for a deploy plugin)? P-52 and P-55 make each of these changes a single commit, so the events can be added around them later. *(Deferred here from the P-52/P-54 review, 2026-10-07.)*
 
 ---
 
