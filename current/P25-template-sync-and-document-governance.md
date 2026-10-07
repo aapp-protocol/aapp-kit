@@ -2,6 +2,7 @@
 * **Created:** 2026-09-21 | **Last Refined:** 2026-09-29
 * **Target Issue / Milestone:** #73 *(supersedes #73 upon completion)*
 * **Plan ID:** P-25
+* **Changelog:** Added: Three-tier document governance and delimited template sync (`#73`)
 * **Status:** ⚡ In Development
 * **Base:** `2d11862` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
