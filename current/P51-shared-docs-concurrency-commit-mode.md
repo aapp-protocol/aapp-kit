@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** None (extension of P-48; should have shipped with it)
 * **Plan ID:** P-51
 * **Changelog:** Added: `aapp.commitMode` (atomic by default) and plans recording the commit and changelog modes they were built with
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -136,5 +136,6 @@ P-48 shipped `aapp.changelogMode` (one changelog entry per plan, or one per comm
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-04:** Drafted as the extension of P-48 (should have shipped with it): `aapp.commitMode` config (atomic default); all checks read the configs; each plan records the commit and changelog modes it was built with, re-stamped on every `aapp commit`, with switches logged in §6.
