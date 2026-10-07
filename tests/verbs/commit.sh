@@ -284,6 +284,18 @@ if grep -q "PASS_WT2" "$R/wt2_out"; then
 else
   bad "test_linked_worktree_records_its_own_plan" "linked worktree failed: $(cat "$R/wt2_out")"
 fi
+# P-52 2.9: unbound here, $pid2 held by wt2 -> discovery finds only $pid.
+aapp active clear >/dev/null 2>&1
+mtarget="$(grep -m1 -oE '`src/[^`]+`' "$pf" | tr -d '`')"
+mkdir -p src; echo "# main after clear" >> "$mtarget"; echo "- main after clear" >> CHANGELOG.md
+git add "$mtarget" CHANGELOG.md
+out="$(aapp commit "feat: main after clear" 2>&1)"; rc=$?
+msha="$(git rev-parse --short HEAD)"
+if [ "$rc" -eq 0 ] && grep -qF "\`$msha\`" "$pf" && ! grep -qF "\`$msha\`" "$pf2"; then
+  ok "test_commit_discovery_skips_plan_held_elsewhere"
+else
+  bad "test_commit_discovery_skips_plan_held_elsewhere" "rc=$rc out=$out"
+fi
 
 echo "== plan-declared changelog entry (P-48) =="
 init_sandbox_project "$R/cl"

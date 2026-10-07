@@ -515,6 +515,51 @@ find_worktree_holding_plan() {
     return 1
 }
 
+# aapp_held_plans (P-52)
+# One line per plan held by ANOTHER worktree's buffer: "<buffer-id><TAB><worktree>".
+# Reads `git worktree list` once and each buffer once; skips the current
+# worktree, the kit's own worktrees and worktrees whose directory is gone.
+aapp_held_plans() {
+    local cur_top wt_line wt_path buf held
+    cur_top="$(git rev-parse --show-toplevel 2>/dev/null)" || return 0
+    while IFS= read -r wt_line; do
+        case "$wt_line" in
+            "worktree "*) wt_path="${wt_line#worktree }" ;;
+            *) continue ;;
+        esac
+        case "$wt_path" in
+            "$cur_top"|*/.plans|*/.agents|*/.githooks) continue ;;
+        esac
+        [ -d "$wt_path" ] || continue
+        buf="$(git -C "$wt_path" rev-parse --git-path aapp_active_plan 2>/dev/null)" || continue
+        case "$buf" in /*) ;; *) buf="$wt_path/$buf" ;; esac
+        [ -f "$buf" ] || continue
+        held="$(tr -d '[:space:]' < "$buf" 2>/dev/null)"
+        [ -n "$held" ] && printf '%s\t%s\n' "$held" "$wt_path"
+    done < <(git worktree list --porcelain 2>/dev/null)
+    return 0
+}
+
+# aapp_plan_held_by <plan_file> <held_lines> (P-52)
+# Prints the worktree holding <plan_file> (by Plan ID or file name, the forms
+# find_worktree_holding_plan accepts) and returns 0; returns 1 when not held.
+aapp_plan_held_by() {
+    local pf="$1" held="$2" pid b h wt
+    [ -n "$held" ] && [ -f "$pf" ] || return 1
+    pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*`?([^[:space:]`]+)`?.*/\1/p' "$pf" | head -n 1)"
+    b="$(basename "$pf" .md)"
+    while IFS="$(printf '\t')" read -r h wt; do
+        [ -n "$h" ] || continue
+        if [ -n "$pid" ] && { [ "$h" = "$pid" ] || [ "P-$h" = "$pid" ]; }; then
+            echo "$wt"; return 0
+        fi
+        if [ "$h" = "$b" ] || [[ "$b" == "$h-"* ]] || [[ "$b" == "P${h#P-}-"* ]]; then
+            echo "$wt"; return 0
+        fi
+    done <<< "$held"
+    return 1
+}
+
 # ------------------------------------------------------------------------------
 # Shared documentation files (P-48)
 # ------------------------------------------------------------------------------

@@ -66,5 +66,14 @@ if [ "$rc" -eq 1 ] && echo "$out" | grep -qiE '(bound|worktree)' && [ ! -f "$BUF
 else
   bad "test_refuses_plan_bound_in_other_worktree" "rc=$rc out=$out"
 fi
+af="$(ls .plans/current/P"${a#P-}"-*.md)"
+sed -i -E 's/^\* \*\*Status:\*\*.*/* **Status:** ⚡ In Development/' "$af"
+out="$(aapp active 2>&1)"
+git -C .plans checkout -q -- "current/$(basename "$af")"
+if ! echo "$out" | grep -qF "'$a' (auto-discovered"; then
+  ok "test_discovery_skips_plan_held_elsewhere"
+else
+  bad "test_discovery_skips_plan_held_elsewhere" "out=$out"
+fi
 
 print_test_summary "$PASS" "$FAIL"

@@ -670,7 +670,7 @@ plan p17.md <<'EOF'
 ## end
 EOF
 echo "p17=1" > src/p17.py
-check "frozen backlog plan without active buffer is blocked" BLOCK src/p17.py
+check "frozen backlog plan restricts nothing (#98)" PASS src/p17.py
 
 # Start plan P-17
 "$KIT/aapp" start 17 >/dev/null 2>&1
@@ -1256,6 +1256,23 @@ commit_code "commit mode: entry present still needs a change" BLOCK
 git config --unset aapp.changelogMode
 rm -f .plans/current/P7-entry.md
 commit_code "no active plan: code-only commit blocked" BLOCK
+
+echo "== plans held by another worktree (P-52) =="
+setup
+plan p60.md <<'EOF'
+* **Plan ID:** P-60
+* **Status:** ⚡ In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/held.py` -> held elsewhere
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+git add -A >/dev/null; git commit -qm "add p60" >/dev/null 2>&1
+git worktree add -q "$R/wt-held" HEAD >/dev/null 2>&1
+( cd "$R/wt-held" && "$KIT/aapp" active P-60 >/dev/null 2>&1 )
+check "unbound checkout refuses a held plan's file (P-52)" BLOCK src/held.py
+check "unbound checkout commits other files freely (P-52)" PASS src/free.py
+rm -rf "$R/wt-held"; git worktree prune >/dev/null 2>&1
 
 print_test_summary "$PASS" "$FAIL"
 

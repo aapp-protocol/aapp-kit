@@ -236,7 +236,7 @@ matrix_scan() {
     for pf in "$PLANS_DIR"/current/*.md; do
         [ -f "$pf" ] || continue
         case "$(basename "$pf")" in
-            000-*) continue ;;
+            000-*|fix-*) continue ;;
             plan-template.md) continue ;;
         esac
 

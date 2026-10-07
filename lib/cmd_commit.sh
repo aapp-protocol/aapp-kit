@@ -189,11 +189,14 @@ cmd_commit() {
 
     # Auto-discover if no buffer
     if [ -z "$plan_file" ]; then
-        local dev_plans=()
+        local dev_plans=() held_plans
+        # P-52: a plan held by another worktree's buffer is not adopted here.
+        held_plans="$(aapp_held_plans)"
         for pf in "$plans_dir"/current/*.md; do
             [ ! -f "$pf" ] && continue
             case "$(basename "$pf")" in 000-*) continue ;; esac
             if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null; then
+                aapp_plan_held_by "$pf" "$held_plans" >/dev/null && continue
                 dev_plans+=("$pf")
             fi
         done

@@ -622,6 +622,15 @@ if ! git config --get aapp.changelogMode >/dev/null 2>&1; then
     git config aapp.changelogMode plan
 fi
 
+# Issue fixes (P-52): minutes `aapp issue fix` and the issue lock wait (0 = fail
+# fast), and the hotfixes a plan may take before the next one blocks it for good.
+if ! git config --get aapp.issueFixWait >/dev/null 2>&1; then
+    git config aapp.issueFixWait 5
+fi
+if ! git config --get aapp.maxEmergencyHotfixes >/dev/null 2>&1; then
+    git config aapp.maxEmergencyHotfixes 2
+fi
+
 # Union merge for CHANGELOG.md (P-48): bullets added on two branches are both
 # kept at merge time. Appended once; other .gitattributes lines are untouched.
 if [ ! -f .gitattributes ] || ! grep -qxF 'CHANGELOG.md merge=union' .gitattributes; then

@@ -10,14 +10,14 @@
     - `vendor <Vendor>`: AI vendor name override
     - `model <Model>`: AI model ID override
     - `note "<text>"`: note text attached to commit (routes with identity to `refs/notes/ai`, without identity to `refs/notes/commits`; operates across all modes)
-- reads: active execution buffer `$(git rev-parse --git-path aapp_active_plan)` (or single `⚡ In Development` plan)
+- reads: active execution buffer `$(git rev-parse --git-path aapp_active_plan)` (or the single `⚡ In Development` plan not held by another worktree's buffer, P-52)
 - reads: `.plans/current/<plan>.md` (`* **Commits:**` header line)
 - reads config: `aapp.aiAttribution` (attribution mode: `none`, `lax`, `strict`, `notes`)
 - reads config: `aapp.aiNotes` (parallel AI git notes: `true`, `false`)
 
 ## Preconditions
 - Inside a Git worktree of an AAPP-governed repository
-- An active plan is bound in the current worktree's buffer (or exactly one plan is `⚡ In Development`)
+- An active plan is bound in the current worktree's buffer (or exactly one `⚡ In Development` plan is not held by another worktree; plans held elsewhere are skipped, P-52)
 - The active plan is `⚡ In Development`
 - For standard commit: at least one file is staged (`git diff --cached --quiet` exits non-zero)
 - For `amend`: HEAD exists and has not been pushed to shared remote
@@ -75,3 +75,4 @@ Run: `aapp test verb commit`
 - `tests/verbs/commit.sh::test_first_code_commit_writes_declared_entry` -> first commit writes the plan's entry under its section, in the same commit
 - `tests/verbs/commit.sh::test_later_commit_leaves_changelog_alone` -> a later commit adds no bullet and leaves `CHANGELOG.md` out of the commit
 - `tests/verbs/commit.sh::test_reworded_declaration_replaces_the_line` -> a reworded declaration replaces the one plan line
+- `tests/verbs/commit.sh::test_commit_discovery_skips_plan_held_elsewhere` -> with no buffer, a plan bound in another worktree is not adopted; the other in-development plan records the commit (P-52)

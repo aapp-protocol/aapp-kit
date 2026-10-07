@@ -19,6 +19,13 @@
 #     exit !0: refuse, optionally {"error": "<text>"}; AAPP aborts rather than
 #              allocating locally.
 #
+#   event "issue.next-blocker" (env AAPP_ACTION=next-blocker, P-52)
+#     data   : {}
+#     stdout : {"id": "#42"} -- the plan blocker `aapp issue fix next-blocker`
+#              claims; the provider is the authority, so two runners never
+#              claim the same blocker.
+#     exit !0: refuse; AAPP does not fall back to the local queue.
+#
 #   event "issue.close"     (env AAPP_ACTION=close, AAPP_ISSUE_ID,
 #                            AAPP_COMMIT_SHA, AAPP_SUMMARY)
 #     data   : {"id": "#42", "commit": "<sha>", "summary": "<text>",

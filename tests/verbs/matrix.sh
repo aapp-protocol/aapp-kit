@@ -39,4 +39,10 @@ fi
 aapp matrix --bogus >/dev/null 2>&1; rc=$?
 if [ "$rc" -eq 1 ]; then ok "test_refuses_unknown_option"; else bad "test_refuses_unknown_option" "rc=$rc"; fi
 
+echo "== mini plans (P-52) =="
+printf '* **Plan ID:** #98\n* **Target Issue / Milestone:** #98\n* **Status:** ⚡ In Development\n' > .plans/current/fix-98.md
+aapp matrix >/dev/null 2>&1
+if ! grep -q "fix-98" "$SM"; then ok "test_matrix_ignores_mini_plans"; else bad "test_matrix_ignores_mini_plans" "$(grep fix-98 "$SM")"; fi
+rm -f .plans/current/fix-98.md; aapp matrix >/dev/null 2>&1
+
 print_test_summary "$PASS" "$FAIL"

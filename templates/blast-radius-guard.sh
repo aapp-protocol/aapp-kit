@@ -388,13 +388,27 @@ if [ -n "$DESIGNATED_PLAN_ID" ]; then
         deny_action "Designated active plan '$DESIGNATED_PLAN_ID' not found in $PLANS_DIR/current/. Run 'aapp plan-clear' or 'aapp plan <id>'."
     fi
 else
+    # P-52: plans held by another worktree's buffer are not adopted here, and
+    # their files are refused in this unbound checkout (shared docs excepted).
+    HELD_PLANS="$(aapp_held_plans)"
     DEV_PLANS=()
     for pf in "$PLANS_DIR"/current/*.md; do
         [ ! -f "$pf" ] && continue
         case "$(basename "$pf")" in 000-*) continue ;; esac
-        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null; then
-            DEV_PLANS+=("$pf")
-        elif ! grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*' "$pf" 2>/dev/null; then
+        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null || \
+           ! grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*' "$pf" 2>/dev/null; then
+            if HOLDER="$(aapp_plan_held_by "$pf" "$HELD_PLANS")"; then
+                if ! aapp_is_shared_doc "$TARGET_FILE"; then
+                    HELD_TARGETS=()
+                    while IFS= read -r ITEM; do
+                        [ -n "$ITEM" ] && HELD_TARGETS+=("$ITEM")
+                    done < <(parse_plan_target_paths "$pf")
+                    if [ ${#HELD_TARGETS[@]} -gt 0 ] && match_pattern_list "$TARGET_FILE" "${HELD_TARGETS[@]}"; then
+                        deny_action "File '$ORIGINAL_TARGET' belongs to $(basename "$pf" .md) (in $HOLDER)."
+                    fi
+                fi
+                continue
+            fi
             DEV_PLANS+=("$pf")
         fi
     done
@@ -405,21 +419,8 @@ else
         PLAN_LIST=$(for p in "${DEV_PLANS[@]}"; do basename "$p" .md; done | tr '\n' ',' | sed 's/,$//')
         deny_action "Multiple plans in development [$PLAN_LIST]. Run 'aapp plan <id>' to select context."
     else
-        # Check if any frozen blueprints exist in .plans/current
-        has_frozen_plans=0
-        for pf in "$PLANS_DIR"/current/*.md; do
-            [ ! -f "$pf" ] && continue
-            case "$(basename "$pf")" in 000-*) continue ;; esac
-            if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*🔷[[:space:]]*Frozen' "$pf" 2>/dev/null; then
-                has_frozen_plans=1
-                break
-            fi
-        done
-
-        if [ "$has_frozen_plans" -eq 1 ]; then
-            deny_action "No plan is currently in development. Run 'aapp start <id>' or 'aapp freeze-start <id>' to begin execution."
-        fi
-
+        # No plan in development: edits are allowed (#98, P-52 Q1); a frozen
+        # plan is backlog and restricts nothing.
         case "$CANONICAL_TARGET" in
             "$REPO_ROOT"/*)
                 exit 0

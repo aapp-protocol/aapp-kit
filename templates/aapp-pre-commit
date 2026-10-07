@@ -250,6 +250,8 @@ if [ "$STAGED_CORE_COUNT" -gt 0 ]; then
                 CL_WANT=""
                 [ -f "$CL_BUF" ] && CL_WANT="$(head -n 1 "$CL_BUF" | tr -d '[:space:]')"
                 CL_DEV=()
+                CL_HELD=""
+                [ -z "$CL_WANT" ] && CL_HELD="$(aapp_held_plans)"
                 for pf in "$CL_PLANS"/current/*.md; do
                     [ -f "$pf" ] || continue
                     case "$(basename "$pf")" in 000-*) continue ;; esac
@@ -257,6 +259,7 @@ if [ "$STAGED_CORE_COUNT" -gt 0 ]; then
                     if [ -n "$CL_WANT" ]; then
                         [ "$pid" = "$CL_WANT" ] && CL_DEV=("$pf") && break
                     elif grep -qE '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*⚡[[:space:]]*In Development' "$pf"; then
+                        aapp_plan_held_by "$pf" "$CL_HELD" >/dev/null && continue
                         CL_DEV+=("$pf")
                     fi
                 done
@@ -510,13 +513,34 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
                 exit 1
             fi
         else
+            # P-52: plans held by another worktree's buffer are not adopted
+            # here, and their files are refused in this unbound checkout.
+            HELD_PLANS="$(aapp_held_plans)"
             DEV_PLANS=()
             for pf in "$PLANS_DIR"/current/*.md; do
                 [ ! -f "$pf" ] && continue
                 case "$(basename "$pf")" in 000-*) continue ;; esac
-                if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null; then
-                    DEV_PLANS+=("$pf")
-                elif ! grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*' "$pf" 2>/dev/null; then
+                if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null || \
+                   ! grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*' "$pf" 2>/dev/null; then
+                    if HOLDER="$(aapp_plan_held_by "$pf" "$HELD_PLANS")"; then
+                        HELD_TARGETS=()
+                        while IFS= read -r ITEM; do
+                            [ -n "$ITEM" ] && HELD_TARGETS+=("$ITEM")
+                        done < <(parse_plan_target_paths "$pf")
+                        if [ ${#HELD_TARGETS[@]} -gt 0 ]; then
+                            for STAGED in "${STAGED_FILES[@]}"; do
+                                aapp_is_shared_doc "$STAGED" && continue
+                                if match_pattern_list "$STAGED" "${HELD_TARGETS[@]}"; then
+                                    echo ""
+                                    echo "❌ [Pre-Commit Blast Radius Violation] Staged file '$STAGED' belongs to $(basename "$pf" .md) (in $HOLDER)."
+                                    echo "   Commit it from that worktree, or make the fix inside that plan."
+                                    echo ""
+                                    exit 1
+                                fi
+                            done
+                        fi
+                        continue
+                    fi
                     DEV_PLANS+=("$pf")
                 fi
             done
@@ -530,25 +554,9 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
                 echo "   Run 'aapp plan <id>' to designate the active commit context."
                 echo ""
                 exit 1
-            else
-                has_frozen_plans=0
-                for pf in "$PLANS_DIR"/current/*.md; do
-                    [ ! -f "$pf" ] && continue
-                    case "$(basename "$pf")" in 000-*) continue ;; esac
-                    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*🔷[[:space:]]*Frozen' "$pf" 2>/dev/null; then
-                        has_frozen_plans=1
-                        break
-                    fi
-                done
-
-                if [ "$has_frozen_plans" -eq 1 ]; then
-                    echo ""
-                    echo "❌ [Pre-Commit Blast Radius Violation] No plan is currently in development."
-                    echo "   Run 'aapp start <id>' or 'aapp freeze-start <id>' to begin execution."
-                    echo ""
-                    exit 1
-                fi
             fi
+            # No plan in development: commits are allowed (#98, P-52 Q1); a
+            # frozen plan is backlog and restricts nothing.
         fi
     fi
 
@@ -651,7 +659,9 @@ for STAGED in "${STAGED_FILES[@]}"; do
     case "$STAGED" in
         .plans/current/*.md|current/*.md)
             case "$(basename "$STAGED")" in
-                000-*) continue ;;
+                # P-52: a mini plan's file list is the fixer's, for one
+                # temporary fix; `aapp issue fix <num> file` extends it.
+                000-*|fix-*) continue ;;
             esac
             ;;
         *)

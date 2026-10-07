@@ -416,5 +416,20 @@ else
 fi
 rm -f .plans/current/P90-p7.md .plans/current/P91-p7.md .plans/current/P92-p7.md
 
+echo "== mini plans are not P-xx plans (P-52) =="
+cat > .plans/current/fix-98.md << 'EOF'
+* **Plan ID:** #98
+* **Target Issue / Milestone:** #98
+* **Status:** ⚡ In Development
+EOF
+mp_out="$(resolve_plan_path "fix" "inspect" "current" "$TEST_DIR" 2>/dev/null || true)"
+p4_out="$(check_pair4_plan_id_integrity "$TEST_DIR" 2>&1)"; p4_rc=$?
+if [ "$mp_out" != ".plans/current/fix-98.md" ] && ! echo "$p4_out" | grep -q "fix-98"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "resolver and pair 4 ignore fix-<num>.md" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s resolve=[%s] pair4=[%s]\n" "resolver and pair 4 ignore fix-<num>.md" "$mp_out" "$p4_out"; FAIL=$((FAIL+1))
+fi
+rm -f .plans/current/fix-98.md
+
 print_test_summary "$PASS" "$FAIL"
 

@@ -534,15 +534,11 @@ When a bug requires architectural decisions, spans multiple modules, or requires
 
 If an agent discovers an unexpected bug while executing a frozen plan:
 
-1. **Always Record**: Add the bug to `ISSUES.md` immediately.
-2. **Evaluate Triage Path**:
-   - **Path A: Non-Blocking Bug**: Continue the assigned plan. Do not touch the bug. Append to `issues_road_map.md`.
-   - **Path B: Blocking & Small**: Expand the active plan's Blast Radius under an `### 🚨 Emergency Hotfix Extensions` subsection with justification, fix the blocker, and resume.
-   - **Path C: Blocking & Substantial**:
-     - **STOP execution immediately.**
-     - Mark the active plan's status as `🚫 BLOCKED` (`**Blocked On:** ISSUE-00X`).
-     - Move the plan to `## 🚫 Blocked` in `state_matrix.md`. (The pre-commit hook will reject any further commits).
-     - Present open questions to the human and wait for unblocking.
+1. **A bug in the plan's own Target Files is plan work**: fix it inside the plan.
+2. **Evaluate Triage Path** for a bug outside them:
+   - **Path A: Non-Blocking Bug**: Continue the assigned plan. Do not touch the bug. Log it (`aapp issue allocate`, the row and road-map line, `aapp refine issues "log #<num> …"`).
+   - **Path B: Blocking**: `aapp issue hotfix "<text>" file <path>…`, one command, then stop (see *Hotfixes and Issue Fixes* below).
+   - **Path C: Blocking & Substantial**: `aapp issue hotfix "<text>" file <path>… plan` drafts an empty plan linked to the issue instead of queueing a small fix. Stop, present open questions to the human and wait: the design is theirs.
 
 ---
 
@@ -1323,6 +1319,7 @@ aapp issue list               # active issues in road-map order (top 20; 'list 5
 
 **Provider (`.agents/skills/aapp-issue-tracker/run`, sample in `examples/plugins/aapp-issue-tracker/`):**
 - `issue.allocate` → print `{"id": "#97"}`. Same rules as `aapp-planid`: absent provider falls back to the local counter; a failing one aborts.
+- `issue.next-blocker` (P-52) → print `{"id": "#97"}`: the plan blocker `aapp issue fix next-blocker` claims. The provider is the authority; a failure refuses the claim.
 - `issue.close`, with `data` `{"id", "commit", "summary", "plan"}` (also `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA`, `AAPP_SUMMARY`) → called once after the local close; print `{"status": "accepted"}` or `{"status": "queued"}`. It is **fire-and-forget**: a failure only warns, and retry or queued delivery to GitHub/Jira/Linear is the provider's job. Make it idempotent.
 
 #### Plugin Payload Standard
@@ -1330,6 +1327,30 @@ aapp issue list               # active issues in road-map order (top 20; 'list 5
 Every plugin the kit calls (`aapp-planid`, `aapp-issue-tracker`) uses the same **Dual Delivery** contract as lifecycle hooks: the JSON envelope on stdin plus `AAPP_*` environment variables, and one flat JSON object on stdout (`{"id": …}`, `{"status": …}` or `{"error": …}`), with the exit code deciding success. The envelope's `repository.remote` (`{"name", "url"}`, credentials stripped, `null` without a remote) tells a team authority which project is calling, and the reserved `extra` object (`{}`) leaves room for arbitrary data; a response may carry its own `extra`, which the kit ignores. The full reference is in `.agents/CODEMAP.md` §5.
 
 Pair 8 of the planning-health engine reports an issue ID repeated inside one ledger; Pair 1 already reports an ID present in both.
+
+#### Hotfixes and Issue Fixes (`aapp issue hotfix`, `aapp issue fix`)
+
+Small fixes get a **temporary mini plan**, `.plans/current/fix-<num>.md`: created when the fix starts, deleted when it closes. While it is open the guard and hook confine edits to its files and `aapp commit` records its commits and writes its changelog entry; the issue row (with the fix's SHA) is the permanent record. Mini plans are not `P-xx` plans: the resolver, Pair 4, the state matrix, `plan-status` and the Plan ID seed ignore them.
+
+```bash
+# In the plan's worktree, when a bug outside the plan's files blocks it:
+aapp issue hotfix "Parser crashes on empty input" file lib/parser.sh
+aapp issue hotfix "Auth needs a redesign" file lib/auth.sh plan   # drafts a plan instead of a small fix
+
+# In the main checkout:
+aapp issue fix next-blocker            # claim the top 🧱 Plan Blocker; files from its Location
+aapp issue fix 79 file lib/a.sh        # fix any active issue (or add a file to #79's open fix)
+aapp commit "fix: ... (#79)"
+aapp issue close 79                    # archive with the fix's SHA; delete the mini plan; unblock
+aapp issue fix 79 abort                # drop an uncommitted fix; the issue stays open
+```
+
+- **`hotfix`** (one commit `issue(hotfix): #<n> blocks <plan>`): allocates the number, writes the row (`High`, `CORE`, the files as Location, *Target Plan / Fix* `blocks [<plan>](…)`), queues `- [ ] #<n> -> <text> (blocks <plan>)` under **🧱 Plan Blockers** at the top of `issues_road_map.md`, appends `#<n>` to the plan's append-only `* **Emergency Hotfixes:**` line and blocks the plan (`🟥 BLOCKED`, `* **Blocked On:** #<n> (was <status>)`). It runs from the plan's worktree (the bound plan) and refuses a file in that plan's own Target Files: that is plan work. **More than `aapp.maxEmergencyHotfixes` (default 2) hotfixes block the plan permanently** (`…; hotfix limit reached (#…)`): closing the fixes no longer resumes it; the developer re-scopes it with `aapp refine`. The issue is still logged and fixed.
+- **`fix`**: **one fix at a time**. While a mini plan is open, `fix` waits, printing each wait (2 s, 3 s, …), up to `aapp.issueFixWait` minutes (default 5; `0` fails at once, for dispatch runners), then refuses with `#<n> is still being fixed; retry later.` Run it with a tool timeout longer than the wait. It refuses files owned by a plan in development or by a BLOCKED plan. The previous active plan is kept in `.prev` and restored at close.
+- **`close`** of an issue with an open mini plan takes the mini plan's last recorded commit as the SHA, summarises `Fixed via aapp issue fix: <files>; unblocks <plan>`, deletes the mini plan, and removes the issue from every plan's `Blocked On:`; a plan with no blockers left gets its recorded status back (unless the block is permanent). `aapp done` of a promoted plan unblocks the same way.
+- **The issue lock** `$(git rev-parse --git-common-dir)/aapp_issue.lock`, shared by all worktrees, serialises `hotfix` and the start of a `fix` (held for seconds). A lock whose holder process is gone, or that never received a PID, is taken over with a notice.
+- **Provider**: with `aapp-issue-tracker` installed, `next-blocker` asks it (`issue.next-blocker` → `{"id": "#<n>"}`), so a remote tracker decides which blocker each runner claims; a failure refuses rather than falling back.
+- **No plan in development:** edits and commits are free; a 🔷 Frozen plan is backlog and restricts nothing (#98). A plan held in another worktree's buffer is not adopted by a checkout without one, and its files are refused there.
 
 ---
 
@@ -1754,6 +1775,8 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | `aapp.maxBodyLines` | integer | `20` | Git Hooks | Maximum lines allowed in commit message body (enforced in `aapp-commit-msg`). |
 | `aapp.changelogMaxLen` | integer | `300` | Git Hooks | Numeric conciseness limit for single-line changelog bullet points (enforced in `aapp-pre-commit`). |
 | `aapp.changelogMode` | `plan` / `commit` | `plan` | Git Hooks | `plan`: one entry per plan, declared in its `**Changelog:**` line and written by `aapp commit`; later commits for the plan pass once it is present. `commit`: every code commit changes `CHANGELOG.md`. |
+| `aapp.issueFixWait` | minutes | `5` | `aapp issue fix` | How long `fix` and the issue lock wait (printing each wait) for an open fix; `0` fails at once, for dispatch runners (P-52). |
+| `aapp.maxEmergencyHotfixes` | integer | `2` | `aapp issue hotfix` | Hotfixes a plan may take; the next one blocks it permanently until re-scoped. P-55 reads it as its integration fallback (P-52). |
 | `aapp.protectStable` | `true` / `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |
 | `aapp.devBranch` | string | `develop` | Branch Guard | Target development branch for branch protection parity. |
 | `aapp.allowPath` | string (multi) | *(empty)* | Write Guard | External filesystem paths authorized for AI file writes (`blast-radius-guard`). |

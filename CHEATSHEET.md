@@ -29,6 +29,8 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp freeze-start [id]` | **✅ Yes** | Atomically freeze blueprint and activate execution buffer |
 | `aapp commit "<msg>"` | **✅ Yes** | Commit implementation code and record SHA into active plan |
 | `aapp done [id]` | **✅ Yes** | Archive implemented blueprint to done/ and update archival ledger; repairs issue links to the plan |
+| `aapp issue hotfix "<text>" [file <path>]… [plan]` | **✅ Yes** | Log a blocking bug, queue it, block the plan (one commit; >`aapp.maxEmergencyHotfixes` blocks for good) |
+| `aapp issue fix next-blocker \| <num> file <path>… \| <num> abort` | **✅ Yes** | Temporary mini plan for one fix, one at a time (waits up to `aapp.issueFixWait`) |
 | `aapp active [id]` | **✅ Yes** | Inspect, swap, or clear active plan execution buffer |
 | `aapp test [filter]` | **✅ Yes** | Run test suites across repository or audit adopter environment |
 | `aapp test verb [name]` | **✅ Yes** | Run contract-derived verb suites (`tests/verbs/<name>.sh`) |
@@ -117,6 +119,8 @@ AAPP controls repository behavior via standard Git configuration:
 | :--- | :--- | :--- | :--- | :--- |
 | `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
 | `aapp.changelogMode` | `plan` / `commit` | `plan` | Git Hooks | `plan`: one entry per plan from its `**Changelog:**` line, written by `aapp commit`. `commit`: every code commit changes `CHANGELOG.md`. |
+| `aapp.issueFixWait` | minutes | `5` | `aapp issue fix` | How long `fix` and the issue lock wait for an open fix; `0` fails at once (P-52). |
+| `aapp.maxEmergencyHotfixes` | integer | `2` | `aapp issue hotfix` | Hotfixes a plan may take; the next one blocks it permanently. P-55 reads it at integration (P-52). |
 | `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | Monotonic issue ID counter (claimed via `aapp issue allocate`; seeded from both issue ledgers on first use). |
 | `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
 | `aapp.aiAttribution` | `none` / `lax` / `strict` / `notes` | `none` | AI Attribution | Attribution mode: none (default; human-only), lax (mixed human/AI), strict (mandatory trailers), notes (private git notes). |

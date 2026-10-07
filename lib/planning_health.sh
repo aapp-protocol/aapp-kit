@@ -387,7 +387,7 @@ check_pair4_plan_id_integrity() {
                 seen_files+=("$bname")
             fi
         fi
-    done < <(find "$current_dir" -maxdepth 1 -name "*.md" ! -name "000-*" -print0 2>/dev/null | sort -z)
+    done < <(find "$current_dir" -maxdepth 1 -name "*.md" ! -name "000-*" ! -name "fix-*" -print0 2>/dev/null | sort -z)
 
     return $errors
 }

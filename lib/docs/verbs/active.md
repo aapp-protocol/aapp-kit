@@ -2,7 +2,7 @@
 
 ## Ingress
 - first argument (positional, optional):
-    omitted: show the buffer, or auto-discover the single `⚡ In Development` plan
+    omitted: show the buffer, or auto-discover the single `⚡ In Development` plan not held by another worktree's buffer (P-52)
     `swap`: exchange the buffer with the previous value
     `clear`: empty the buffer
     any other value: a plan to bind — `P-<N>`, bare `<N>`, the filename stem, or a slug prefix; must resolve to one plan in `.plans/current/`
@@ -37,3 +37,4 @@ Run: `aapp test verb active`
 - `tests/verbs/active.sh::test_clear_empties_buffer` -> `clear` removes the buffer file and keeps the value in `.prev`
 - `tests/verbs/active.sh::test_refuses_unknown_plan` -> an unresolvable plan: exit 1, buffer unchanged
 - `tests/verbs/active.sh::test_refuses_plan_bound_in_other_worktree` -> binding a plan already bound in a linked worktree: exit 1 naming it, buffer unchanged
+- `tests/verbs/active.sh::test_discovery_skips_plan_held_elsewhere` -> a plan bound in another worktree is not auto-discovered here (P-52)

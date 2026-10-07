@@ -1069,10 +1069,12 @@ cmd_done() {
     fi
 
     # P-32: relocate the target issue row; committed below with the archive.
-    local close_summary=""
+    local close_summary="" unblocked_paths=""
     if [ "$close_where" = "active" ]; then
         close_summary="[$plan_id]($bname) - $(grep -m 1 -E '^# ' "$done_file" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*)?Plan[^:]*:[[:space:]]*//')"
         issue_close_local "$close_issue" "$commit_sha" "$close_summary" || exit 1
+        # P-52: a plan blocked on this issue (a hotfix promoted to this plan) resumes.
+        unblocked_paths="$(issue_unblock_plans "$close_issue")" || exit 1
     fi
 
     # P-50: other open issues that link this plan now point at done/.
@@ -1101,6 +1103,8 @@ cmd_done() {
         if [ "$close_where" = "active" ]; then
             done_targets+=("ISSUES.md" "done/000-issues-archive.md")
             [ -f "$PLANS_DIR/issues_road_map.md" ] && done_targets+=("issues_road_map.md")
+            local up
+            for up in $unblocked_paths; do done_targets+=("$up"); done
         elif [ "$relinked" -gt 0 ]; then
             done_targets+=("ISSUES.md")
             [ -f "$PLANS_DIR/issues_road_map.md" ] && done_targets+=("issues_road_map.md")
@@ -1194,13 +1198,15 @@ cmd_active() {
                 return 0
             fi
 
-            # Auto-discovery inspection
+            # Auto-discovery inspection (P-52: plans held elsewhere are skipped)
             if [ -n "$PLANS_DIR" ] && [ -d "$PLANS_DIR/current" ]; then
-                local dev_plans=()
+                local dev_plans=() held_plans
+                held_plans="$(aapp_held_plans)"
                 for pf in "$PLANS_DIR"/current/*.md; do
                     [ ! -f "$pf" ] && continue
                     case "$(basename "$pf")" in 000-*) continue ;; esac
                     if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null; then
+                        aapp_plan_held_by "$pf" "$held_plans" >/dev/null && continue
                         dev_plans+=("$pf")
                     fi
                 done
@@ -1323,7 +1329,8 @@ cmd_plan_status() {
 
     for pf in "$PLANS_DIR"/current/*.md; do
         [ ! -f "$pf" ] && continue
-        case "$(basename "$pf")" in 000-*|plan-template.md) continue ;; esac
+        # P-52: mini plans (fix-<num>.md) are not P-xx plans.
+        case "$(basename "$pf")" in 000-*|plan-template.md|fix-*) continue ;; esac
         local pid status slug entry
         pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" 2>/dev/null || true)"
         [ -z "$pid" ] && pid="$(basename "$pf" .md)"
@@ -1391,6 +1398,28 @@ cmd_plan_switchboard() {
     echo "  Use '/plan <idea>' or '/aapp-plan <idea>' in your AI agent chat."
 }
 
+# plan_blocked_on_parse <text after "* **Blocked On:** "> (P-49, P-52)
+# Prints three lines: the issue list ("#41, #42"), the recorded previous status
+# (or empty) and the permanent hotfix-limit marker (or empty). Line shapes:
+#   #41, #42 (was ⚡ In Development)
+#   #41, #42 (was ⚡ In Development); hotfix limit reached (#40, #41, #42)
+#   (was ⚡ In Development); hotfix limit reached (…)      (permanent, list empty)
+plan_blocked_on_parse() {
+    local rest="$1" perm="" was="" list
+    case "$rest" in *"hotfix limit reached"*) perm="hotfix limit reached${rest#*hotfix limit reached}"; rest="${rest%%hotfix limit reached*}" ;; esac
+    case "$rest" in *"(was "*) was="${rest#*(was }"; was="${was%%)*}"; rest="${rest%%(was *}" ;; esac
+    list="$(printf '%s\n' "$rest" | tr ',' '\n' | tr -d ' ;' | grep -E '^#[0-9]+$' | paste -sd, - | sed 's/,/, /g')"
+    printf '%s\n%s\n%s\n' "$list" "$was" "$perm"
+}
+
+# plan_blocked_on_line <list> <was> <perm>: the `* **Blocked On:**` line for those fields.
+plan_blocked_on_line() {
+    local out="$1"
+    [ -n "$2" ] && out="${out:+$out }(was $2)"
+    [ -n "$3" ] && out="${out:+$out; }$3"
+    printf '* **Blocked On:** %s\n' "$out"
+}
+
 # plan_block_on <plan_file> <num> (P-49)
 # Write-only: sets the Status line to 🟥 BLOCKED and appends #<num> to the
 # `* **Blocked On:**` list, recording the status the plan had before on the
@@ -1398,7 +1427,7 @@ cmd_plan_switchboard() {
 # alone, `issue hotfix` with its other files).
 # Returns 0 when written, 3 when #<num> is already listed (nothing written).
 plan_block_on() {
-    local pf="$1" num="${2#\#}" status_line prev line list tail tmp
+    local pf="$1" num="${2#\#}" status_line prev line list was perm fields tmp
     [ -f "$pf" ] || return 1
     case "$num" in ''|*[!0-9]*) return 1 ;; esac
     status_line="$(grep -m 1 -E '^\* \*\*Status:\*\*' "$pf" || true)"
@@ -1406,17 +1435,16 @@ plan_block_on() {
     prev="${status_line#\* \*\*Status:\*\* }"
     line="$(grep -m 1 -E '^\* \*\*Blocked On:\*\*' "$pf" || true)"
     if [ -n "$line" ]; then
-        list="${line#\* \*\*Blocked On:\*\* }"
-        tail=""
-        case "$list" in *" (was "*) tail=" (was ${list#* (was }"; list="${list%% (was *}" ;; esac
+        fields="$(plan_blocked_on_parse "${line#\* \*\*Blocked On:\*\* }")"
+        list="$(sed -n 1p <<< "$fields")"; was="$(sed -n 2p <<< "$fields")"; perm="$(sed -n 3p <<< "$fields")"
         if printf '%s\n' "$list" | tr ',' '\n' | tr -d ' ' | grep -qxF "#$num"; then
             return 3
         fi
-        line="* **Blocked On:** $list, #$num$tail"
+        line="$(plan_blocked_on_line "${list:+$list, }#$num" "$was" "$perm")"
     elif printf '%s' "$prev" | grep -qE '🟥|BLOCKED'; then
-        line="* **Blocked On:** #$num"
+        line="$(plan_blocked_on_line "#$num" "" "")"
     else
-        line="* **Blocked On:** #$num (was $prev)"
+        line="$(plan_blocked_on_line "#$num" "$prev" "")"
     fi
     tmp="$(mktemp)" || return 1
     AAPP_BLOCKED_LINE="$line" awk '

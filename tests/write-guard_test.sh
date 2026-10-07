@@ -343,7 +343,7 @@ plan frozen.md <<'EOF'
 ### 🛑 Out of Bounds (Do Not Touch)
 ## end
 EOF
-check_decision "frozen backlog plan grants zero write rights (no buffer)" DENY "src/frozen_target.py"
+check_decision "frozen backlog plan restricts nothing (no buffer, #98)" ALLOW "src/frozen_target.py"
 
 plan active.md <<'EOF'
 * **Plan ID:** P-11
@@ -366,7 +366,16 @@ plan legacy.md <<'EOF'
 ### 🛑 Out of Bounds (Do Not Touch)
 ## end
 EOF
-check_decision "legacy 🟠 is refused (clean break enforced)" DENY "src/legacy_target.py"
+plan dev.md <<'EOF'
+* **Plan ID:** P-12
+* **Status:** ⚡ In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/dev_target.py` -> the real in-flight plan
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+check_decision "legacy 🟠 grants no rights (not in development)" DENY "src/legacy_target.py"
+rm -f .plans/current/dev.md
 
 echo "== active plan buffer switchboard (aapp active, active swap, active clear) =="
 setup
@@ -441,6 +450,10 @@ check_decision "linked worktree resolves primary .plans and allows declared targ
 check_decision "linked worktree denies undeclared file" DENY "src/secret_wt.py"
 
 cd "$R/repo"
+# P-52 2.9: P-40 is held by wt-agent2 (bound there); this checkout has no buffer.
+( cd "$R/wt-agent2" && "$AAPP_CLI" active P-40 >/dev/null 2>&1 )
+check_decision "unbound checkout refuses a plan held elsewhere (P-52)" DENY "src/wt_target.py"
+check_decision "unbound checkout does not adopt a held plan (P-52)" ALLOW "src/free_main.py"
 rm -rf "$R/wt-agent2"
 git worktree prune >/dev/null 2>&1
 

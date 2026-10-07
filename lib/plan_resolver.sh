@@ -75,7 +75,7 @@ resolve_plan_path() {
     list_available_plans() {
         for DIR in "${SEARCH_DIRS[@]}"; do
             if [ -d "$DIR" ]; then
-                find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" -exec basename {} \; 2>/dev/null | sort
+                find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" ! -name "fix-*" -exec basename {} \; 2>/dev/null | sort
             fi
         done
     }
@@ -121,7 +121,7 @@ resolve_plan_path() {
                     if [ -d "$DIR" ]; then
                         while IFS= read -r -d '' F; do
                             [ -n "$F" ] && PLAN_FILES+=("$F")
-                        done < <(find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" -print0 2>/dev/null)
+                        done < <(find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" ! -name "fix-*" -print0 2>/dev/null)
                     fi
                 done
 
@@ -180,7 +180,7 @@ resolve_plan_path() {
                         MATCHES+=("$F")
                         continue
                     fi
-                done < <(find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" -print0 2>/dev/null)
+                done < <(find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" ! -name "fix-*" -print0 2>/dev/null)
             fi
         done
     fi
@@ -198,7 +198,7 @@ resolve_plan_path() {
                     if [[ "$BNAME" == *"$LOWER_QUERY"* ]]; then
                         MATCHES+=("$F")
                     fi
-                done < <(find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" -print0 2>/dev/null)
+                done < <(find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" ! -name "fix-*" -print0 2>/dev/null)
             fi
         done
     fi

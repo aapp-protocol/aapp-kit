@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `aapp issue hotfix` blocks a plan on a logged, queued issue, and `aapp issue fix` opens a temporary mini plan for it, one fix at a time; frozen plans no longer block edits (`P-52`)
 - Plan rename with issue-link repair, issue promotion in `aapp draft`, and pickup/issue commits without raw git (`P-50`)
 - Three-tier document governance and delimited template sync (`#73`) (`P-25`)
 - Shared docs never block concurrent plans; one plan-declared changelog entry per plan (`aapp.changelogMode`); union merge for CHANGELOG.md (`P-48`)

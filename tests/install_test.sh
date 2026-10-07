@@ -1247,6 +1247,17 @@ else
 fi
 report "test_init_changelog_union_and_mode: union line once, lines kept, mode seeded only when absent" "PASS" "$got" "union=$union_lines kept=$kept_line kept_mode=$kept_mode seeded=$seeded_cl_mode"
 
+# Test 69e (P-52): init seeds aapp.issueFixWait=5 and aapp.maxEmergencyHotfixes=2
+# only when absent.
+PROJ_69E="$R/t69e_proj"; make_dummy_project "$PROJ_69E"
+git -C "$PROJ_69E" config aapp.issueFixWait 0
+(cd "$PROJ_69E" && aapp init >/dev/null 2>&1)
+kept_wait=$(git -C "$PROJ_69E" config aapp.issueFixWait)
+seeded_max=$(git -C "$PROJ_69E" config aapp.maxEmergencyHotfixes)
+seeded_wait=$(git -C "$PROJ_69D" config aapp.issueFixWait)
+if [ "$kept_wait" = "0" ] && [ "$seeded_max" = "2" ] && [ "$seeded_wait" = "5" ]; then got="PASS"; else got="FAIL"; fi
+report "test_init_seeds_issue_fix_keys: issueFixWait and maxEmergencyHotfixes seeded only when absent" "PASS" "$got" "kept_wait=$kept_wait seeded_max=$seeded_max seeded_wait=$seeded_wait"
+
 # Test 70: CLI-First Universal Skills Alignment (TDD Failure & Boundary Assertions)
 # Assert that templates/skills/{aapp-done, aapp-freeze, aapp-start, aapp-status, aapp-digest} follow CLI-first execution
 # and do NOT contain manual sed -i, mv, or raw git commits bypassing CLI lifecycle gates.

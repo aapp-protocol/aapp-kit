@@ -12,6 +12,9 @@
 
 ---
 
+## 🧱 Plan Blockers
+*Written by `aapp issue hotfix` (one line per blocking bug, oldest first); `aapp issue fix next-blocker` takes the top line, `aapp issue close` removes it. Reorder by hand if you must.*
+
 ## ⭐ User Priority (Pinned / Immediate Human Focus)
 *Direct developer overrides based on current focus and appetite.*
 - [ ] #1 -> Add `MultiEdit` to hook matcher to prevent bypass.
