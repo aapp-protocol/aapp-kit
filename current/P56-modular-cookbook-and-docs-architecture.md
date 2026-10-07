@@ -120,13 +120,13 @@ Blast-radius constraints, hook traps, or common failure modes to avoid.
 
 ### 2.3 Refactoring `MANUAL.md` (Extraction & Pointer Strategy)
 
-The following procedural sections from `MANUAL.md` will be refactored into modular recipes:
+Plan P-56 strictly handles procedural recipe extraction, leaving the broader architectural portal restructuring of `MANUAL.md` to Plan P-57:
 1. **Section 7: Hook Manager Interoperability Recipes & Multi-Language Integration**
    - Extract Husky, Lefthook, pre-commit framework, Perl, Python, and Ruby hook runners into `docs/recipes/integrations/husky-git-hooks.md`, `lefthook-git-hooks.md`, and polyglot guides.
-   - Retain the architectural description of subprocess invocation and dispatcher mechanics in Section 7 of `MANUAL.md`, replacing inline wrapper scripts with links to the recipes.
+   - Retain the architectural description of subprocess invocation in Section 7 of `MANUAL.md`, replacing inline wrapper scripts with links to the corresponding recipes in `docs/recipes/`.
 2. **Section 11: Troubleshooting & Operations FAQ**
-   - Extract operational guides ("What if an agent gets trapped in a refusal loop?", "How do I handle merge conflicts in `.plans/`?", "How do I upgrade an existing project?") into `docs/recipes/troubleshooting/`.
-   - Keep high-level policy answers in `MANUAL.md` FAQ, linking to the step-by-step recipes.
+   - Extract operational how-tos ("What if an agent gets trapped in a refusal loop?", "How do I handle merge conflicts in `.plans/`?", "How do I upgrade an existing project?") into `docs/recipes/troubleshooting/`.
+   - Keep high-level policy answers in `MANUAL.md` FAQ, replacing procedural steps with links to the recipes.
 
 ### 2.4 Kit Packaging & Distribution Sync
 
@@ -136,20 +136,23 @@ The following procedural sections from `MANUAL.md` will be refactored into modul
 
 ### 2.5 Custom Lifecycle Hooks & Deployment Plugins (Real-World Implementation Recipes)
 
-AAPP's Hook Dispatcher (`lib/hook_dispatcher.sh`) fires 10 built-in lifecycle hooks (`pre/post-freeze`, `pre/post-start`, `pre/post-done`, `pre/post-release`, `pre/post-pause`) by sending a structured JSON payload on STDIN (`{"event": "<event>", "plan_id": "<id>", "timestamp": "<iso>", ...}`) and checking process exit codes. While third-party integrations (Husky, Lefthook) handle git-level triggers, real-world development workflows require hooking into AAPP plan lifecycle events for automated continuous deployment and custom security/policy gating.
+AAPP's Hook Dispatcher (`lib/hook_dispatcher.sh`) executes lifecycle event hooks by delivering a structured JSON payload on STDIN (`{"event": "<event>", "plan_id": "<id>", "timestamp": "<iso>", ...}`) and evaluating process exit codes. Plan P-23 formalizes the complete pre/post quality-gate sequencing engine (`pre-freeze`, `pre-start`, `pre-done`, `post-done`, etc.).
 
-Two dedicated recipes will document these production patterns:
+Two dedicated recipes document these production patterns:
 
 1. **Continuous Deployment on Plan Done (`docs/recipes/plugins-and-hooks/01-deploy-on-done-hook.md`)**:
-   - **Scenario**: When a feature blueprint is archived via `aapp done`, automatically trigger deployment to a staging server or preview environment (e.g., Coolify, Dokku, Render, Docker Compose, or SSH rollout script).
-   - **Mechanism**: The `post-done` hook runs non-blocking (or blocking if synchronous rollout verification is desired). The hook script reads the JSON payload from STDIN (`jq -r '.plan_id'`, `.verification_commit`), checks if the plan is tagged or relevant for deployment, and invokes a deployment webhook or script.
-   - **Working Demonstration**: A complete, copy-pasteable bash/Python script handling STDIN JSON parsing, curl webhook triggering with retry/timeout, and clean stderr/stdout diagnostics.
-   - **Configuration**: How to wire the hook either via repository file (`.githooks/post-done`) or local git configuration override (`git config aapp.hook.post-done "scripts/deploy.sh"`).
+   - **Scenario**: When a feature blueprint is archived via `aapp done`, automatically trigger deployment to a staging server or preview environment (e.g., Coolify, Dokku, Render, Docker Compose rollout, or SSH deploy script).
+   - **Mechanism**: The `post-done` hook runs observer logic. The hook script reads the JSON payload from STDIN (`jq -r '.plan_id'`, `.verification_commit`), checks if the plan is tagged for deployment, and invokes a deployment webhook or script.
+   - **Working Demonstration**: A complete, copy-pasteable bash/Python script handling STDIN JSON parsing, curl webhook triggering with retry/timeout, and clean diagnostics.
+   - **Configuration**: How to wire the hook via `.agents/registry.tsv` or local git configuration override (`git config aapp.hook.post-done "scripts/deploy.sh"`).
 
 2. **Custom Pre-Gate Validation & Compliance (`docs/recipes/plugins-and-hooks/02-custom-pre-gate-hooks.md`)**:
    - **Scenario**: Enforce project-specific pre-flight checks before a blueprint is frozen (`pre-freeze`) or before a completed plan is archived (`pre-done`) — such as running secrets scanning, verifying external issue tracker status, checking test coverage thresholds, or asserting branch parity.
-   - **Mechanism**: Pre-hooks are blocking gates. A zero exit code (`0`) permits the transition; exit code `2` gracefully vetos the transition with diagnostic feedback; exit code `1` triggers a hard hook error.
-   - **Working Demonstration**: A script showing JSON input handling, running compliance assertions, emitting clear advisory diagnostic messages on rejection, and returning exit code 2.
+   - **Mechanism & Return Code Contract (Aligned with P-23)**:
+     - `0`: **Pass (Success)** $\rightarrow$ Proceed with state transition and Git commit.
+     - `1` (or any non-zero $\neq 2$): **Hard Abort Veto** $\rightarrow$ Stop immediately, stream `stderr` diagnostics, make zero changes to working trees or Git history.
+     - `2`: **Advisory Warning** $\rightarrow$ Log diagnostic notice to terminal, but allow the command to proceed.
+   - **Working Demonstration**: A script demonstrating JSON input handling, running compliance assertions, emitting clear advisory vs fatal diagnostics, and returning exit code 1 to veto or exit code 2 to warn.
 
 ---
 
@@ -166,7 +169,7 @@ Two dedicated recipes will document these production patterns:
   - `docs/recipes/integrations/github-actions-ci.md`
 - [ ] Task 1.4: Author Advanced Workflow recipes:
   - `docs/recipes/workflows/tdd-failure-assertions.md`
-  - `docs/recipes/workflows/emergency-hotfixes.md`
+  - `docs/recipes/workflows/emergency-hotfixes.md` (mini-plan workflow, `aapp issue hotfix`, stash handling per P-52)
   - `docs/recipes/workflows/multi-agent-worktrees.md`
 - [ ] Task 1.5: Author Troubleshooting recipes (extracting from `MANUAL.md` §11):
   - `docs/recipes/troubleshooting/blast-radius-recovery.md`
@@ -175,10 +178,10 @@ Two dedicated recipes will document these production patterns:
   - `docs/recipes/plugins-and-hooks/01-deploy-on-done-hook.md`
   - `docs/recipes/plugins-and-hooks/02-custom-pre-gate-hooks.md`
 
-### Phase 2: Root Catalog & MANUAL.md Slimdown
+### Phase 2: Root Catalog & Recipe Extraction
 - [ ] Task 2.1: Author root [`COOKBOOK.md`](COOKBOOK.md) with categorized index, difficulty badges, and cross-references.
-- [ ] Task 2.2: Refactor [`MANUAL.md`](MANUAL.md) to replace procedural scripts in §7 and §11 with links to the corresponding recipes in `docs/recipes/`.
-- [ ] Task 2.3: Update [`README.md`](README.md) and [`CHEATSHEET.md`](CHEATSHEET.md) to feature [`COOKBOOK.md`](COOKBOOK.md).
+- [ ] Task 2.2: Refactor [`MANUAL.md`](MANUAL.md) to replace procedural scripts in §7 and §11 with links to corresponding recipes in `docs/recipes/` (leaving structural portal rewrite to P-57).
+- [ ] Task 2.3: Update [`CHEATSHEET.md`](CHEATSHEET.md) to link to [`COOKBOOK.md`](COOKBOOK.md).
 
 ### Phase 3: Packaging Sync & Test Coverage
 - [ ] Task 3.1: Update `lib/cmd_install.sh` to install `COOKBOOK.md` and `docs/` into `$SHARE_DIR`.
@@ -191,8 +194,7 @@ Two dedicated recipes will document these production patterns:
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `COOKBOOK.md` -> Root cookbook catalog and categorized recipe index.
-- [ ] `MANUAL.md` -> Technical manual slimmed down to pure reference, pointing to recipes.
-- [ ] `README.md` -> Surface cookbook link in primary documentation overview.
+- [ ] `MANUAL.md` -> Procedural recipes replaced with links to docs/recipes/.
 - [ ] `CHEATSHEET.md` -> Reference cookbook for operational recipes.
 - [ ] `NEW FILE` -> `docs/recipes/getting-started/adopt-existing-repo.md` -> Recipe for retrofitting existing repos.
 - [ ] `NEW FILE` -> `docs/recipes/getting-started/solo-developer-workflow.md` -> Recipe for pure-human CLI workflow.
@@ -202,7 +204,7 @@ Two dedicated recipes will document these production patterns:
 - [ ] `NEW FILE` -> `docs/recipes/plugins-and-hooks/01-deploy-on-done-hook.md` -> Recipe for live deployment via post-done hook.
 - [ ] `NEW FILE` -> `docs/recipes/plugins-and-hooks/02-custom-pre-gate-hooks.md` -> Recipe for custom validation pre-gates.
 - [ ] `NEW FILE` -> `docs/recipes/workflows/tdd-failure-assertions.md` -> Recipe for failure-first TDD loop.
-- [ ] `NEW FILE` -> `docs/recipes/workflows/emergency-hotfixes.md` -> Recipe for hotfix extensions.
+- [ ] `NEW FILE` -> `docs/recipes/workflows/emergency-hotfixes.md` -> Recipe for emergency hotfixes & mini-plans (P-52).
 - [ ] `NEW FILE` -> `docs/recipes/workflows/multi-agent-worktrees.md` -> Recipe for concurrent multi-agent worktrees.
 - [ ] `NEW FILE` -> `docs/recipes/troubleshooting/blast-radius-recovery.md` -> Recipe for resolving write refusals.
 - [ ] `NEW FILE` -> `docs/recipes/troubleshooting/worktree-collision-recovery.md` -> Recipe for repairing stale worktrees.
@@ -210,6 +212,7 @@ Two dedicated recipes will document these production patterns:
 - [ ] `tests/install_test.sh` -> Regression test asserting cookbook distribution.
 
 ### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `README.md` -> Storefront rewrite governed by Plan P-57.
 - [ ] `lib/cmd_init.sh` -> Worktree sync engine remains untouched.
 - [ ] `templates/blast-radius-guard.sh` -> Write guard logic unchanged.
 - [ ] `templates/aapp-pre-commit` -> Commit hook engine unchanged.
@@ -222,5 +225,6 @@ Two dedicated recipes will document these production patterns:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Refined blueprint: scoped P-56 strictly to cookbook & recipes (leaving portal architecture & README to P-57), corrected hook pre-gate return code semantics (exit 1 abort, exit 2 advisory) per P-23, and aligned hotfix recipe with P-52 mini-plans.
 * **2026-10-07:** Refined blueprint to include custom lifecycle hooks and deployment recipes (`docs/recipes/plugins-and-hooks/`) covering real-world continuous deployment on `post-done` and custom pre-gate validation on `pre-freeze`/`pre-done`.
 * **2026-10-07:** Drafted blueprint P-56 from user discussion. Established modular `COOKBOOK.md` + `docs/recipes/` architecture, defined SSG-compatible frontmatter schema, mapped extraction targets from `MANUAL.md`, and locked blast radius.
