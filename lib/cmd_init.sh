@@ -160,13 +160,19 @@ sync_delimited_block() {
     local block_tmp
     block_tmp="$(mktemp)"
     awk -v ver="$AAPP_VERSION" '
-        /<!-- AAPP-PROTOCOL:START/ {
+        /^[[:space:]]*<!-- AAPP-PROTOCOL:START/ {
             inside=1
             print "<!-- AAPP-PROTOCOL:START v" ver " -->"
             next
         }
+        /^[[:space:]]*<!-- AAPP-PROTOCOL:END -->/ {
+            if (inside) {
+                print "<!-- AAPP-PROTOCOL:END -->"
+                inside=0
+            }
+            next
+        }
         inside { print }
-        /<!-- AAPP-PROTOCOL:END -->/ { inside=0 }
     ' "$src" > "$block_tmp"
 
     if [ ! -s "$block_tmp" ]; then
@@ -174,7 +180,7 @@ sync_delimited_block() {
         return 0
     fi
 
-    if grep -q "<!-- AAPP-PROTOCOL:START" "$dest" && grep -q "<!-- AAPP-PROTOCOL:END -->" "$dest"; then
+    if grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:START" "$dest" && grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:END -->" "$dest"; then
         local dest_tmp
         dest_tmp="$(mktemp)"
         awk -v block_file="$block_tmp" '
@@ -184,12 +190,12 @@ sync_delimited_block() {
                 }
                 close(block_file)
             }
-            /<!-- AAPP-PROTOCOL:START/ {
+            /^[[:space:]]*<!-- AAPP-PROTOCOL:START/ {
                 in_block=1
                 print new_block
                 next
             }
-            /<!-- AAPP-PROTOCOL:END -->/ {
+            /^[[:space:]]*<!-- AAPP-PROTOCOL:END -->/ {
                 in_block=0
                 next
             }
@@ -202,11 +208,11 @@ sync_delimited_block() {
             echo "$desc"
         fi
         return 0
-    elif grep -q "<!-- AAPP-PROTOCOL:START" "$dest" && ! grep -q "<!-- AAPP-PROTOCOL:END -->" "$dest"; then
+    elif grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:START" "$dest" && ! grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:END -->" "$dest"; then
         rm -f "$block_tmp"
         echo "⚠️  Warning: Found unclosed <!-- AAPP-PROTOCOL:START --> marker without matching END marker in $dest."
         echo "   Skipping protocol block replacement to prevent data loss. Please repair markers manually."
-        return 1
+        return 0
     else
         # No markers in dest: append protocol block
         if [ -s "$dest" ] && [ -n "$(tail -c 1 "$dest")" ]; then
@@ -246,17 +252,17 @@ sync_tier1_template() {
     fi
 
     # If both src and dest carry delimiter markers, update the delimited block
-    if grep -q "<!-- AAPP-PROTOCOL:START" "$dest" && grep -q "<!-- AAPP-PROTOCOL:END -->" "$dest" && \
-       grep -q "<!-- AAPP-PROTOCOL:START" "$src" && grep -q "<!-- AAPP-PROTOCOL:END -->" "$src"; then
+    if grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:START" "$dest" && grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:END -->" "$dest" && \
+       grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:START" "$src" && grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:END -->" "$src"; then
         sync_delimited_block "$src" "$dest" "🔄 Updated protocol block in $dest to v$AAPP_VERSION (custom template sections preserved)."
         return 0
     fi
 
     # Unclosed delimiter safety
-    if grep -q "<!-- AAPP-PROTOCOL:START" "$dest" && ! grep -q "<!-- AAPP-PROTOCOL:END -->" "$dest"; then
+    if grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:START" "$dest" && ! grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:END -->" "$dest"; then
         echo "⚠️  Warning: Found unclosed <!-- AAPP-PROTOCOL:START --> marker without matching END marker in $dest."
         echo "   Skipping protocol update to prevent data loss. Please repair markers manually."
-        return 1
+        return 0
     fi
 
     if [ "$mode" = "strict" ]; then
@@ -319,7 +325,7 @@ sync_tier1_template "$AAPP_TEMPLATES/plan-template.md" ".plans/plan-template.md"
 sync_tier1_template "$AAPP_TEMPLATES/release_checklist.md" ".plans/release/release_checklist.md"
 sync_tier3_data "$AAPP_TEMPLATES/issues.md" ".plans/ISSUES.md" ""
 sync_tier3_data "$AAPP_TEMPLATES/done-issues-archive.md" ".plans/done/000-issues-archive.md" ""
-sync_tier1_template "$AAPP_TEMPLATES/000-archive-ledger.md" ".plans/done/000-archive-ledger.md"
+sync_tier3_data "$AAPP_TEMPLATES/000-archive-ledger.md" ".plans/done/000-archive-ledger.md" ""
 
 if [ ! -f ".plans/.gitignore" ]; then
     cat > .plans/.gitignore <<'EOF'

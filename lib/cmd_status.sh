@@ -117,7 +117,7 @@ probe_templates_drift() {
         if grep -q -E "Draft|Ready for Execution" ".plans/plan-template.md" 2>/dev/null && ! grep -q "🔷 Frozen" ".plans/plan-template.md" 2>/dev/null; then
             drifted+=(".plans/plan-template.md")
             reasons+=(".plans/plan-template.md carries retired enum")
-        elif ! grep -q "<!-- AAPP-PROTOCOL:START v$version -->" ".plans/plan-template.md" 2>/dev/null; then
+        elif ! grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:START v$version -->" ".plans/plan-template.md" 2>/dev/null; then
             drifted+=(".plans/plan-template.md")
             reasons+=(".plans/plan-template.md carries drifted protocol block")
         fi
@@ -125,7 +125,7 @@ probe_templates_drift() {
 
     # Check .agents/AGENTS.md
     if [ -f ".agents/AGENTS.md" ]; then
-        if ! grep -q "<!-- AAPP-PROTOCOL:START v$version -->" ".agents/AGENTS.md" 2>/dev/null; then
+        if ! grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:START v$version -->" ".agents/AGENTS.md" 2>/dev/null; then
             drifted+=(".agents/AGENTS.md")
             reasons+=(".agents/AGENTS.md carries drifted protocol block")
         fi

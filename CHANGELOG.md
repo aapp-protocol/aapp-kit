@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- Anchor template protocol delimiter regexes and prevent unclosed marker warning from aborting aapp init.
 - Preserve Git Notes Configuration in `aapp ai notes`: Retains `notes.rewriteRef` and `union` merge strategy during note mode toggling, ensuring notes persist across amends and rebases seamlessly.
 - Destructive Remote Push/Fetch Refspecs (#91): Removed dangerous refspec overwriting in `cmd_ai_notes`, preventing unintentional force-pushes or remote tracking mapping corruption.
 - Lifecycle Commits & Done Verification (#81, `P-39`): Migrates lifecycle verbs to `plans_commit`, verifies recorded commits in plan headers upon completion, and dispatches `pre-done` veto hook.

@@ -154,13 +154,30 @@ Broken unclosed instruction block
 - [ ] Precious unbacked idea that must survive
 EOF
 out_corrupt_7=$(cd "$PROJ_7" && aapp init 2>&1)
-if echo "$out_corrupt_7" | grep -q "Found unclosed <!-- AAPP-PROTOCOL:START --> marker" && \
+exit_corrupt_7=$?
+if [ "$exit_corrupt_7" -eq 0 ] && \
+   echo "$out_corrupt_7" | grep -q "Found unclosed <!-- AAPP-PROTOCOL:START --> marker" && \
    grep -q "Precious unbacked idea that must survive" "$PROJ_7/.plans/pickup.md"; then
   got="PASS"
 else
   got="FAIL"
 fi
 report "tier2_unclosed_marker: fails safe and preserves file content" "PASS" "$got" "$out_corrupt_7"
+
+# Test 7b: Inline delimiter mention in checklist does not false-trigger unclosed marker warning
+PROJ_7B="$R/proj7b"; make_dummy_project "$PROJ_7B"
+(cd "$PROJ_7B" && aapp init >/dev/null 2>&1)
+cat >> "$PROJ_7B/.plans/release/release_checklist.md" <<'EOF'
+- [ ] Checklist bullet mentioning `<!-- AAPP-PROTOCOL:START v1.0.0 -->` in prose
+EOF
+out_prose_7b=$(cd "$PROJ_7B" && aapp init 2>&1)
+if ! echo "$out_prose_7b" | grep -q "Found unclosed <!-- AAPP-PROTOCOL:START --> marker" && \
+   grep -q "Checklist bullet mentioning" "$PROJ_7B/.plans/release/release_checklist.md"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "tier1_prose_marker: inline delimiter mention does not false-trigger unclosed warning" "PASS" "$got" "$out_prose_7b"
 
 echo ""
 echo "== 3. Tier 3 Pure Project Data Isolation =="
