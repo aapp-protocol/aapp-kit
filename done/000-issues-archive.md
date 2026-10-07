@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #103 | `Medium` | `CORE` | 2026-10-08 | 2026-10-08 | `ade93c3` | Fixed via aapp issue fix: lib/aapp-lib.sh, tests/verbs/start.sh, lib/docs/verbs/start.md, lib/docs/verbs/freeze-start.md, lib/cmd_plan.sh |
 | #104 | `High` | `CORE` | 2026-10-08 | 2026-10-08 | `dd0865a` | Out of kit scope: layer-0 deployment hardening; practice to document (pickup: Layer-0 Enforcement Practice) |
 | #102 | `Medium` | `DOCS` | 2026-10-07 | 2026-10-08 | `2c71bb9` | Fixed via aapp issue fix: templates/plan-template.md, templates/AGENTS.md, .agents/AGENTS.md |
 | #84 | `Medium` | `HOOK` | 2026-09-27 | 2026-10-07 | `13adeb2` | Fixed via aapp issue fix: templates/blast-radius-guard.sh, tests/write-guard_test.sh |
