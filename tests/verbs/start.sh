@@ -137,4 +137,31 @@ else
   bad "test_shared_code_file_still_blocks_start" "rc=$rc out=$out"
 fi
 
+echo "== queued plan blockers gate the start (P-58) =="
+init_sandbox_project "$R/pb"
+cd "$R/pb" || exit 1
+printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
+  '| #20 | `High` | `CORE` | 2026-10-01 | `src/q.py` | Q breaks. | blocks [P-1](current/P1-x.md) | 🟡 `Incubated` |' \
+  '| #21 | `High` | `CORE` | 2026-10-01 | `CHANGELOG.md` | Log breaks. | blocks [P-1](current/P1-x.md) | 🟡 `Incubated` |' > .plans/ISSUES.md
+printf '%s\n' '# Issue Priority Board' '' '## 🧱 Plan Blockers' '- [ ] #20 -> Q breaks. (blocks P-1)' '- [ ] #21 -> Log breaks. (blocks P-1)' '' '## 🔴 High Priority (Technical Urgency)' > .plans/issues_road_map.md
+git -C .plans add ISSUES.md issues_road_map.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
+qa="$(draft_plan queued-a)"; targets_only "$qa" "src/q.py"; freeze_plan "$qa"
+before="$(cksum < "$(plan_file "$qa")")"; head0="$(git -C .plans rev-parse HEAD)"
+out="$(aapp start "$qa" 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && echo "$out" | grep -qF "src/q.py has a pending fix (#20)" && ! echo "$out" | grep -qF "#21" && \
+   [ "$(cksum < "$(plan_file "$qa")")" = "$before" ] && [ "$(git -C .plans rev-parse HEAD)" = "$head0" ] && [ -z "$(buffer)" ]; then
+  ok "test_refuses_target_with_pending_fix"
+else
+  bad "test_refuses_target_with_pending_fix" "rc=$rc out=$out"
+fi
+
+sed -i '/^| #20 /s/🟡 `Incubated`/🔵 `Planned`/' .plans/ISSUES.md
+git -C .plans commit -qam "promote #20" >/dev/null 2>&1
+out="$(aapp start "$qa" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && status_of "$(plan_file "$qa")" | grep -q '⚡ In Development'; then
+  ok "test_starts_once_blocker_promoted_shared_docs_never_gate"
+else
+  bad "test_starts_once_blocker_promoted_shared_docs_never_gate" "rc=$rc out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"

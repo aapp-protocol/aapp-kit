@@ -5,6 +5,7 @@
     accepted forms: `P-<N>`, bare `<N>`, the filename stem, or a slug prefix
     constraints: must resolve to exactly one plan in `.plans/current/`
 - reads: the plan file (Status line, §4 Target Files), every other plan in `.plans/current/` (Status and Target Files, for the disjointness gate)
+- reads: `🧱 Plan Blockers` in `.plans/issues_road_map.md` and those rows' Location paths in `.plans/ISSUES.md` (P-58)
 - reads: the active buffer `$(git rev-parse --git-path aapp_active_plan)`, to preserve its previous value
 - reads config: `aapp.planState.*` (matrix re-derivation); the lifecycle hook registry for `on-start`
 
@@ -14,6 +15,7 @@
 - The plan is `🔷 Frozen` (or already `⚡ In Development`, which re-activates it)
 - No other worktree holds this plan in its active buffer
 - No other `⚡ In Development` plan declares an identical Target File
+- No queued Plan Blocker (active, not `Planned`) names a Target File in its Location; shared docs excepted (P-48)
 
 ## Failure modes
 - no `id` -> exit 1, stderr `You must specify a target plan for 'start'.`
@@ -22,6 +24,7 @@
 - plan bound in another worktree's active buffer -> exit 1, stderr naming holding worktree
 - the plan is neither `🔷 Frozen` nor `⚡ In Development` -> exit 1, stderr `[Start Refusal] Plan is not frozen`, with the `freeze` / `freeze-start` hint; the plan is unchanged
 - a Target File is shared with another `⚡ In Development` plan -> exit 1, stderr `[Activation Gate]` names the file and the other plan; the plan is unchanged
+- a Target File is in a queued Plan Blocker's Location -> exit 1, stderr `[Activation Gate] <file> has a pending fix (#<n>); fix it first ('aapp issue fix next-blocker') or start another plan.`; nothing changed. A plan already `⚡ In Development` is not gated by this (P-58)
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 
 ## Effects (happy path)
@@ -47,3 +50,5 @@ Run: `aapp test verb start`
 - `tests/verbs/start.sh::test_refuses_from_planning_worktree` -> start run inside `.plans/`: exit 1, no buffer bound, plan unchanged
 - `tests/verbs/start.sh::test_restart_keeps_first_base` -> re-running start on a `⚡` plan leaves Base unchanged
 - `tests/verbs/start.sh::test_refuses_plan_bound_in_other_worktree` -> start on a plan bound elsewhere: exit 1, plan and buffer unchanged
+- `tests/verbs/start.sh::test_refuses_target_with_pending_fix` -> a Target File in a queued Plan Blocker: exit 1, nothing changed (P-58)
+- `tests/verbs/start.sh::test_starts_once_blocker_promoted_shared_docs_never_gate` -> a promoted blocker no longer gates; a queued blocker on a shared doc never does (P-58)

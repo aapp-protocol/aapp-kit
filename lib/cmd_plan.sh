@@ -191,6 +191,27 @@ check_disjointness_activation_gate() {
         fi
     done
 
+    # A queued 🧱 Plan Blocker is about to change its files: a plan does not
+    # start on them (P-58). Re-running start on a plan already in development
+    # is not a start; shared docs never gate (P-48).
+    if [ -f "$PLANS_DIR/ISSUES.md" ] && \
+       ! grep -qE '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡' "$target_plan"; then
+        _load_issue_module
+        local qid qrow qf
+        for qid in $(issue_queued_blockers "$PLANS_DIR"); do
+            qrow="$(grep -m 1 -E "$(_issue_row_regex "$qid")" "$PLANS_DIR/ISSUES.md")"
+            while IFS= read -r qf; do
+                aapp_is_shared_doc "$qf" && continue
+                for mt in "${my_targets[@]}"; do
+                    if [ "$mt" = "$qf" ]; then
+                        echo "❌ [Activation Gate] $qf has a pending fix (#$qid); fix it first ('aapp issue fix next-blocker') or start another plan." >&2
+                        return 1
+                    fi
+                done
+            done < <(issue_location_paths "$qrow")
+        done
+    fi
+
     return 0
 }
 

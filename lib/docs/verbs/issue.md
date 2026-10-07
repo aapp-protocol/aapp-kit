@@ -1,11 +1,11 @@
-# issue [next | allocate | hotfix "<text>" [file <path>]… [plan] | fix next-blocker | fix <num> file <path>… | fix <num> abort | close <id> [sha <sha>] [summary "<text>"] | list [<n> | all]]
+# issue [next | allocate | hotfix "<text>" [file <path>]… [plan] | fix next-blocker | fix <num> [file <path>…] | fix <num> abort | close <id> [sha <sha>] [summary "<text>"] | list [<n> | all]]
 
 ## Ingress
 - positional forms:
     - `next` (default when no subcommand is given): prints the next issue ID without claiming it
     - `allocate`: claims the next issue ID and prints it (`#<n>`)
     - `hotfix "<text>" [file <path>]… [plan]` (P-52): from a plan's worktree, logs the blocking bug as a new issue, queues it under 🧱 Plan Blockers, records it in the plan's `Emergency Hotfixes:` and blocks the plan, in one commit; `plan` drafts a plan from it instead of queueing
-    - `fix next-blocker` | `fix <num> file <path>…` (P-52): opens a temporary mini plan `current/fix-<num>.md` for one issue, one fix at a time; `next-blocker` claims the top Plan Blocker with its Location files; with a mini plan of `#<num>` open, `file` adds files to it
+    - `fix next-blocker` | `fix <num> [file <path>…]` (P-52): opens a temporary mini plan `current/fix-<num>.md` for one issue, one fix at a time; the files come from the row's Location (only its path tokens: present in the working tree, or containing `/` or a file extension, `:lines` stripped, P-58), `file` adds one the log does not name; `next-blocker` claims the top Plan Blocker; with a mini plan of `#<num>` open, `file` adds files to it
     - `fix <num> abort` (P-52): drops an uncommitted mini plan; the issue stays open
     - `close <id>`: relocates an active issue row to the archive
     - `list [<n> | all]`: prints active issues in road-map order
@@ -36,7 +36,9 @@
 - `list` with a cap that is neither a number nor `all` -> exit 1, usage on stderr
 - `hotfix` with no plan bound in this worktree, or a mini plan bound -> exit 1; nothing written, no ID spent (a file of the plan's own targets is accepted: plan work vs hotfix is decided by scope)
 - `fix` while another mini plan is open -> waits, printing each wait (2 s, 3 s, …), up to `aapp.issueFixWait`; then exit 1, stderr `#<n> is still being fixed; retry later.`
-- `fix` on an inactive issue, `next-blocker` with an empty queue, no files known, or a file with uncommitted changes in this working copy (`<file> has uncommitted changes here; commit or stash them first.`) -> exit 1; nothing written. `next-blocker` skips a blocker whose files are dirty here and claims the next
+- `fix` on an inactive issue, `next-blocker` with an empty queue, or no files known -> exit 1; nothing written
+- `fix` on a file with uncommitted changes in this working copy -> waits with the same roller (`<file> has uncommitted changes here; waiting Ns…`), re-checking each step, and proceeds once the file is clean; the issue lock is not held while waiting. When the wait runs out -> exit 1, nothing written: stderr `<file> has uncommitted changes here; still busy after the wait`, or, when the plan bound in this checkout lists the file, that its own work is the cause and the remedy is `aapp issue hotfix "<text>" file <path>…`. `fix` never commits or stashes that work (P-58)
+- `next-blocker` skips a blocker whose files are dirty here and claims the next; when every queued blocker is dirty, it waits the same way and claims the first to clear (P-58)
 - `fix <num> abort` with recorded commits -> exit 1 (close it instead)
 - `close` of an open mini plan with no recorded commit -> exit 1
 - the issue lock (`$(git rev-parse --git-common-dir)/aapp_issue.lock`, held while `hotfix` and the start of a `fix` write) is waited for with the same roller; a lock whose holder PID is gone, or that has no PID after a few seconds, is taken over with a stale-lock notice
@@ -52,7 +54,7 @@
     - then the provider, if installed, receives `issue.close` once; stdout reports `handed to aapp-issue-tracker: <status>`
 - `hotfix`: a new row `| #<n> | \`High\` | \`CORE\` | <today> | <files> | <text> | blocks [<plan>](current/<file>) | 🟡 \`Incubated\` |`; `- [ ] #<n> -> <text> (blocks <plan>)` under `## 🧱 Plan Blockers` at the top of the road map; the plan gains `#<n>` in `* **Emergency Hotfixes:**` (append-only) and is blocked through `plan_block_on` (P-49); over `aapp.maxEmergencyHotfixes` the `Blocked On:` line carries `hotfix limit reached (…)` and only the developer lifts it; one commit `issue(hotfix): #<n> blocks <plan>`; with `plan`, the row is promoted to a new draft (`aapp draft … issue <n>`) and not queued
 - `fix`: `current/fix-<num>.md` (Plan ID `#<num>`, `⚡ In Development`, `Changelog: Fixed: <text>`, §4 = the files) and the active buffer bound to `#<num>` with the previous value in `.prev`, one commit `fix(start): #<num>`; `abort` deletes it, restores the buffer, commit `fix(abort): #<num>`
-- `close` of an issue with an open mini plan: the SHA defaults to the mini plan's last recorded commit and the summary to `Fixed via aapp issue fix: <files>; unblocks <plan>`; the mini plan is deleted and the buffer restored; any plan whose `Blocked On:` lists `#<n>` drops it and, once empty and not permanent, gets its recorded status back; the matrix is re-derived; all in the one close commit (the same unblocking runs when `aapp done` closes a Target Issue)
+- `close` of an issue with an open mini plan: the SHA defaults to the mini plan's last recorded commit and the summary to `Fixed via aapp issue fix: <files>; unblocks <plan>`; the mini plan is deleted and the buffer restored; any plan whose `Blocked On:` lists `#<n>` drops it and, once empty and not permanent, gets its recorded status back; the matrix is re-derived; all in the one close commit (the same unblocking runs when `aapp done` closes a Target Issue); stdout then prints `ℹ️  <plan> also lists <file>: it picks this fix up at its next rebase.` for every other ⚡ or BLOCKED plan whose Target Files include a fixed file (output only, P-58)
 - `list`: road-map entries in board order, the same selection as the `aapp status` Issues pillar; a truncated list ends with `… <k> more (aapp issue list all)`
 - `aapp done` on a plan whose Target Issue is `#<n>` performs the same `close` in its own archive commit; a Target Issue in neither ledger refuses `done` before anything moves
 
@@ -99,5 +101,13 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.sh::test_hotfix_own_file_stashes_only_its_files` -> a file of the plan's own targets is accepted; only its uncommitted work is stashed, other work stays (P-52)
 - `tests/verbs/issue.sh::test_mini_plan_edits_file_listed_by_blocked_plan` -> the guard lets the bound mini plan edit a file the BLOCKED plan lists (P-52)
 - `tests/verbs/issue.sh::test_close_reapplies_stash_on_top_of_fix` -> close re-applies the stashed work on top of the fix and drops the stash (P-52)
-- `tests/verbs/issue.sh::test_fix_refuses_dirty_file` -> a file with uncommitted changes is refused, nothing written (P-52)
+- `tests/verbs/issue.sh::test_fix_refuses_dirty_file` -> a file with uncommitted changes is refused once the wait runs out, nothing written (P-52)
 - `tests/verbs/issue.sh::test_next_blocker_skips_untakeable` -> a blocker with dirty files is skipped; the next one is claimed (P-52)
+- `tests/verbs/issue.sh::test_fix_takes_only_paths_from_location` -> a hand-written Location yields only its path tokens (P-58)
+- `tests/verbs/issue.sh::test_fix_strips_line_suffix_from_location` -> `:lines` is stripped from a Location path (P-58)
+- `tests/verbs/issue.sh::test_close_notices_other_plan_listing_fixed_file` -> close names another active plan that lists a fixed file (P-58)
+- `tests/verbs/issue.sh::test_close_no_notice_when_unlisted` -> no notice when no other plan lists the files (P-58)
+- `tests/verbs/issue.sh::test_fix_timeout_on_bound_plan_file_hints_hotfix` -> the bound plan's own dirty file: the refusal names `aapp issue hotfix` (P-58)
+- `tests/verbs/issue.sh::test_fix_wait_zero_refuses_at_once` -> `aapp.issueFixWait 0` refuses a dirty file without waiting (P-58)
+- `tests/verbs/issue.sh::test_fix_waits_for_dirty_file_then_proceeds` -> `fix` waits, printed, and proceeds once the file is clean (P-58)
+- `tests/verbs/issue.sh::test_next_blocker_waits_when_every_blocker_is_dirty` -> `next-blocker` waits for the first blocker to clear (P-58)

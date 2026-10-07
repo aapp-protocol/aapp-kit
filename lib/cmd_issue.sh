@@ -288,7 +288,7 @@ cmd_issue_close() {
     }
     # P-52: an open mini plan supplies the SHA (its last recorded commit) and
     # the summary, and is deleted in the close commit.
-    local plans mp="" mini_files="" last touched paths=() p unblocked="" wt
+    local plans mp="" mini_files="" mini_list=() last touched paths=() p unblocked="" wt
     plans="$(_issue_plans_dir)" || return 1
     if [ -f "$plans/current/fix-$n.md" ]; then
         mp="$plans/current/fix-$n.md"
@@ -298,7 +298,8 @@ cmd_issue_close() {
             return 1
         fi
         [ -n "$sha" ] || sha="$last"
-        mini_files="$(parse_plan_target_paths "$mp" | paste -sd, - | sed 's/,/, /g')"
+        while IFS= read -r p; do [ -n "$p" ] && mini_list+=("$p"); done < <(parse_plan_target_paths "$mp")
+        mini_files="$(printf '%s\n' "${mini_list[@]}" | paste -sd, - | sed 's/,/, /g')"
     fi
     if [ -z "$sha" ]; then
         sha="$(git -C "$root" rev-parse --short=7 HEAD)" || return 1
@@ -339,6 +340,7 @@ cmd_issue_close() {
                     echo "   $(basename "$p" .md) is unblocked.${wt:+ Next: in $wt, rebase the plan branch onto the development branch.}"
                 fi
             done
+            [ ${#mini_list[@]} -eq 0 ] || _issue_notice_listing_plans "$plans" "${mini_list[@]}"
             ;;
         archive)
             echo "ℹ️  [Issue] #$n is already archived; re-notifying the aapp-issue-tracker plugin only."
@@ -662,22 +664,117 @@ cmd_issue_hotfix() {
     fi
 }
 
-# _issue_next_blocker <plans>: the top 🧱 Plan Blocker whose row is active and not Planned.
-_issue_next_blocker() {
-    local plans="$1" id row dirty f
+# issue_location_paths <row>: the paths in an issue row's Location cell (P-58):
+# backticked tokens that exist in the working tree or are path-shaped (a `/` or
+# a file extension), with any `:lines` suffix stripped. A hand-written
+# `` `a/b.sh` (`SOME_REGEX`) `` yields just `a/b.sh`.
+issue_location_paths() {
+    local root t
+    root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+    while IFS= read -r t; do
+        case "$t" in
+            '') ;;
+            */*|*.?*) echo "$t" ;;
+            *) if [ -n "$root" ] && [ -e "$root/$t" ]; then echo "$t"; fi ;;
+        esac
+    done < <(printf '%s\n' "$1" | sed 's/\\|/\x01/g' | awk -F'|' '{print $6}' | grep -oE '`[^`]+`' | tr -d '`' | sed -E 's/:[0-9][0-9,-]*$//')
+}
+
+# issue_queued_blockers <plans>: the 🧱 Plan Blockers in road-map order whose row
+# is active and not Planned (a promoted blocker has left the queue).
+issue_queued_blockers() {
+    local plans="$1" id row
     for id in $(awk '/^## 🧱 Plan Blockers/ { q = 1; next } /^## / { q = 0 } q' "$plans/issues_road_map.md" 2>/dev/null |
                 sed -nE 's/^[[:space:]]*-[[:space:]]*\[[ ]?\][[:space:]]*#([0-9]+).*/\1/p'); do
-        row="$(grep -m 1 -E "$(_issue_row_regex "$id")" "$plans/ISSUES.md" 2>/dev/null || true)"
+        row="$(grep -m 1 -E "$(_issue_row_regex "$id")" "$plans/ISSUES.md" 2>/dev/null)" || continue
         printf '%s' "$row" | grep -q 'Planned' && continue
-        # Skip a blocker whose files have uncommitted changes here (P-52).
-        dirty=0
-        while IFS= read -r f; do
-            [ -n "$f" ] && [ -n "$(git status --porcelain -- "$f" 2>/dev/null)" ] && dirty=1
-        done < <(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{print $6}' | grep -oE '`[^`]+`' | tr -d '`' | sed -E 's/:[0-9][0-9,-]*$//')
-        [ "$dirty" -eq 1 ] && continue
-        [ "$(issue_locate "$id")" = "active" ] && { echo "$id"; return 0; }
+        echo "$id"
     done
+}
+
+# _issue_dirty_files <file>…: those with uncommitted changes in this working copy.
+_issue_dirty_files() {
+    local f
+    for f; do
+        if [ -n "$(git status --porcelain -- "$f" 2>/dev/null)" ]; then echo "$f"; fi
+    done
+}
+
+# _issue_next_blocker <plans>: sets _ISSUE_PICK to the top queued blocker whose
+# files are clean here (P-52's skip). Returns 1 when none is queued, 2 when
+# every queued blocker has uncommitted files (P-58: the caller waits); the
+# busy files are left in _ISSUE_DIRTY.
+_issue_next_blocker() {
+    local plans="$1" id row any=0 busy f
+    _ISSUE_PICK=""; _ISSUE_DIRTY=()
+    for id in $(issue_queued_blockers "$plans"); do
+        any=1
+        row="$(grep -m 1 -E "$(_issue_row_regex "$id")" "$plans/ISSUES.md")"
+        busy=0
+        while IFS= read -r f; do
+            [ -n "$f" ] && { busy=1; _ISSUE_DIRTY+=("$f"); }
+        done < <(_issue_dirty_files $(issue_location_paths "$row"))
+        if [ "$busy" -eq 0 ]; then _ISSUE_PICK="$id"; return 0; fi
+    done
+    [ "$any" -eq 1 ] && return 2
     return 1
+}
+
+# _issue_roll <what>: one step of the wait roller (2 s, 3 s, …, printed), on the
+# caller's `waited`, `step` and `limit`; returns 1 once aapp.issueFixWait is used up.
+_issue_roll() {
+    [ "$waited" -lt "$limit" ] || return 1
+    echo "⏳ [Issue] $1; waiting ${step}s…" >&2
+    sleep "$step"; waited=$((waited + step)); step=$((step + 1))
+}
+
+# _issue_busy_refusal <plans> <file>…: the message when the wait for uncommitted
+# files runs out (P-58). Files the plan bound here lists are that plan's own
+# work: nobody else will clear them, and only a hotfix from it sets them aside.
+# The fixer never commits or stashes another plan's work itself.
+_issue_busy_refusal() {
+    local plans="$1" buf bound pf pid own=() t f
+    shift
+    buf="$(git rev-parse --git-path aapp_active_plan 2>/dev/null)"
+    bound="$(tr -d '[:space:]' < "$buf" 2>/dev/null)" || bound=""
+    case "$bound" in ''|'#'*) ;; *)
+        if pf="$(_issue_plan_file_for "$plans" "$bound")"; then
+            pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
+            while IFS= read -r t; do
+                for f; do
+                    if [ "$t" = "$f" ]; then own+=("$f"); fi
+                done
+            done < <(parse_plan_target_paths "$pf")
+        fi ;;
+    esac
+    if [ ${#own[@]} -gt 0 ]; then
+        echo "❌ [Issue] ${own[*]}: uncommitted work of ${pid:-$bound}, the plan bound in this checkout; nothing else will clear it." >&2
+        echo "   From that plan, set it aside with: aapp issue hotfix \"<text>\" file <path>…" >&2
+    else
+        echo "❌ [Issue] $* has uncommitted changes here; still busy after the wait (aapp.issueFixWait)." >&2
+        echo "   Retry later, or take another blocker ('aapp issue fix next-blocker')." >&2
+    fi
+}
+
+# _issue_notice_listing_plans <plans> <file>…: at close, one line per other
+# active plan (⚡ or BLOCKED) whose Target Files include a fixed file (P-58).
+# Output only; nothing is written.
+_issue_notice_listing_plans() {
+    local plans="$1" pf pid t f
+    shift
+    for pf in "$plans"/current/*.md; do
+        [ -f "$pf" ] || continue
+        case "$(basename "$pf")" in 000-*|fix-*) continue ;; esac
+        grep -qE '^\* \*\*Status:\*\*.*(⚡|🟥)' "$pf" || continue
+        pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
+        while IFS= read -r t; do
+            for f; do
+                if [ "$t" = "$f" ]; then
+                    echo "ℹ️  ${pid:-$(basename "$pf" .md)} also lists $f: it picks this fix up at its next rebase."
+                fi
+            done
+        done < <(parse_plan_target_paths "$pf")
+    done
 }
 
 # _issue_write_mini <plans> <n> <changelog-text> <file>…
@@ -706,10 +803,10 @@ _issue_write_mini() {
 
 # cmd_issue_fix next-blocker | <num> file <path>… | <num> abort (P-52 2.2, 2.5)
 cmd_issue_fix() {
-    local sub="${1:-}" n="" files=() plans open limit waited step row loc text f pf pid st t
+    local sub="${1:-}" n="" files=() plans open limit waited step row="" text f pf pid st t
     plans="$(_issue_plans_dir)" || return 1
     case "$sub" in
-        '') echo "❌ [Issue] Usage: aapp issue fix next-blocker | <num> file <path>… | <num> abort" >&2; return 1 ;;
+        '') echo "❌ [Issue] Usage: aapp issue fix next-blocker | <num> [file <path>…] | <num> abort" >&2; return 1 ;;
         next-blocker) shift ;;
         *) n="$(issue_normalize_id "$sub")" || return 1; shift
            if [ "${1:-}" = "abort" ]; then _issue_fix_abort "$plans" "$n"; return; fi ;;
@@ -742,59 +839,63 @@ cmd_issue_fix() {
         return 0
     fi
 
-    # One fix at a time: wait (verbose) while another mini plan is open.
+    # One fix at a time, and never over uncommitted work: wait (verbose) while
+    # another mini plan is open or a file is busy, up to aapp.issueFixWait.
+    local root pdir entry pout raw busy=() pick_rc
+    root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+    pdir="$root/.agents/skills/aapp-issue-tracker"
     limit="$(_issue_wait_limit)"; waited=0; step=2
     while :; do
         if open="$(_issue_open_mini "$plans")"; then
-            if [ "$waited" -ge "$limit" ]; then
-                echo "⏳ [Issue] #$open is still being fixed; retry later." >&2
-                return 1
-            fi
-            echo "⏳ [Issue] #$open is being fixed; waiting ${step}s…" >&2
-            sleep "$step"; waited=$((waited + step)); step=$((step + 1))
-            continue
-        fi
-        _issue_lock_acquire || return 1
-        if open="$(_issue_open_mini "$plans")"; then _issue_lock_release; continue; fi
-        break
-    done
-
-    if [ -z "$n" ]; then
-        # With the aapp-issue-tracker provider installed, it is the authority
-        # for the claim (fail closed, like `allocate`); otherwise the local queue.
-        local root pdir entry pout raw
-        root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
-        pdir="$root/.agents/skills/aapp-issue-tracker"
-        if [ -d "$pdir" ] && entry="$(resolve_plugin_entrypoint "$pdir" "aapp-issue-tracker" 2>/dev/null)"; then
-            pout="$(run_action_plugin "$entry" "$root" next-blocker issue.next-blocker 2>/dev/null)" || {
-                _issue_lock_release; echo "❌ [Issue] The aapp-issue-tracker provider refused next-blocker; not claiming locally." >&2; return 1; }
-            raw="$(json_field "$pout" id)" || {
-                _issue_lock_release; echo "❌ [Issue] Provider must print {\"id\": ...} for next-blocker (got: '$pout')." >&2; return 1; }
-            n="$(issue_normalize_id "$raw")" || { _issue_lock_release; return 1; }
-        else
-            n="$(_issue_next_blocker "$plans")" || {
-                _issue_lock_release; echo "❌ [Issue] No plan blockers are queued (🧱 Plan Blockers in issues_road_map.md)." >&2; return 1; }
-        fi
-    fi
-    row="$(grep -m 1 -E "$(_issue_row_regex "$n")" "$plans/ISSUES.md" 2>/dev/null || true)"
-    if [ -z "$row" ]; then
-        _issue_lock_release; echo "❌ [Issue] #$n is not an active issue in ISSUES.md." >&2; return 1
-    fi
-    if [ ${#files[@]} -eq 0 ]; then
-        loc="$(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{print $6}')"
-        while IFS= read -r f; do [ -n "$f" ] && files+=("$f"); done < <(printf '%s\n' "$loc" | grep -oE '`[^`]+`' | tr -d '`' | sed -E 's/:[0-9][0-9,-]*$//')
-    fi
-    if [ ${#files[@]} -eq 0 ]; then
-        _issue_lock_release; echo "❌ [Issue] No files known for #$n: give them with 'file <path>'." >&2; return 1
-    fi
-    # The only real hazard: uncommitted changes in these files would mix into
-    # the fix commit. Which plan lists a file no longer matters (P-52).
-    for f in "${files[@]}"; do
-        if [ -n "$(git status --porcelain -- "$f" 2>/dev/null)" ]; then
-            _issue_lock_release
-            echo "❌ [Issue] $f has uncommitted changes here; commit or stash them first." >&2
+            _issue_roll "#$open is being fixed" && continue
+            echo "⏳ [Issue] #$open is still being fixed; retry later." >&2
             return 1
         fi
+        _issue_lock_acquire || return 1
+        if _issue_open_mini "$plans" >/dev/null; then _issue_lock_release; continue; fi
+
+        if [ -z "$n" ]; then
+            # With the aapp-issue-tracker provider installed, it is the authority
+            # for the claim (fail closed, like `allocate`); otherwise the local queue.
+            if [ -d "$pdir" ] && entry="$(resolve_plugin_entrypoint "$pdir" "aapp-issue-tracker" 2>/dev/null)"; then
+                pout="$(run_action_plugin "$entry" "$root" next-blocker issue.next-blocker 2>/dev/null)" || {
+                    _issue_lock_release; echo "❌ [Issue] The aapp-issue-tracker provider refused next-blocker; not claiming locally." >&2; return 1; }
+                raw="$(json_field "$pout" id)" || {
+                    _issue_lock_release; echo "❌ [Issue] Provider must print {\"id\": ...} for next-blocker (got: '$pout')." >&2; return 1; }
+                n="$(issue_normalize_id "$raw")" || { _issue_lock_release; return 1; }
+            else
+                _issue_next_blocker "$plans" && pick_rc=0 || pick_rc=$?
+                case "$pick_rc" in
+                    0) n="$_ISSUE_PICK" ;;
+                    2) _issue_lock_release
+                       _issue_roll "every queued blocker has uncommitted changes here (${_ISSUE_DIRTY[*]})" && continue
+                       _issue_busy_refusal "$plans" "${_ISSUE_DIRTY[@]}"; return 1 ;;
+                    *) _issue_lock_release
+                       echo "❌ [Issue] No plan blockers are queued (🧱 Plan Blockers in issues_road_map.md)." >&2; return 1 ;;
+                esac
+            fi
+        fi
+        if [ -z "$row" ]; then
+            row="$(grep -m 1 -E "$(_issue_row_regex "$n")" "$plans/ISSUES.md" 2>/dev/null)" || {
+                _issue_lock_release; echo "❌ [Issue] #$n is not an active issue in ISSUES.md." >&2; return 1; }
+            # The files come from the issue log; `file` only adds one it does not name.
+            if [ ${#files[@]} -eq 0 ]; then
+                while IFS= read -r f; do [ -n "$f" ] && files+=("$f"); done < <(issue_location_paths "$row")
+            fi
+            if [ ${#files[@]} -eq 0 ]; then
+                _issue_lock_release; echo "❌ [Issue] No files known for #$n: give them with 'file <path>'." >&2; return 1
+            fi
+        fi
+        # Uncommitted changes in these files would mix into the fix commit:
+        # wait for their owner to commit them (P-58).
+        busy=()
+        while IFS= read -r f; do [ -n "$f" ] && busy+=("$f"); done < <(_issue_dirty_files "${files[@]}")
+        if [ ${#busy[@]} -gt 0 ]; then
+            _issue_lock_release
+            _issue_roll "${busy[*]} has uncommitted changes here" && continue
+            _issue_busy_refusal "$plans" "${busy[@]}"; return 1
+        fi
+        break
     done
     text="$(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{print $8}' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
     case "$text" in
@@ -836,7 +937,7 @@ cmd_issue() {
         list)     cmd_issue_list "$@" ;;
         *)
             echo "❌ [Issue] Unknown subcommand '$sub'." >&2
-            echo "Usage: aapp issue [next | allocate | hotfix \"<text>\" [file <path>]… [plan] | fix next-blocker | fix <num> file <path>… | fix <num> abort | close <id> [sha <sha>] [summary \"<text>\"] | list [<n> | all]]" >&2
+            echo "Usage: aapp issue [next | allocate | hotfix \"<text>\" [file <path>]… [plan] | fix next-blocker | fix <num> [file <path>…] | fix <num> abort | close <id> [sha <sha>] [summary \"<text>\"] | list [<n> | all]]" >&2
             return 1
             ;;
     esac

@@ -4,7 +4,7 @@
 - `id` (positional, required): the incubator plan to freeze and activate in one step
     accepted forms: `P-<N>`, bare `<N>`, the filename stem, or a slug prefix
     constraints: must resolve to exactly one plan in `.plans/current/`
-- reads: the plan file (§5 Open Questions, §4 Target Files), every other plan in `.plans/current/` (disjointness gate), the active buffer
+- reads: the plan file (§5 Open Questions, §4 Target Files), every other plan in `.plans/current/` (disjointness gate), the queued `🧱 Plan Blockers` and their Location paths (P-58), the active buffer
 - reads config: `aapp.planState.*` (matrix re-derivation); the lifecycle hook registry for `on-freeze` and `on-start`
 
 ## Preconditions
@@ -13,6 +13,7 @@
 - The plan is in the incubator (`🟣 Under Review`, `📝 Refining`, or a custom status from `aapp.planState.*`)
 - No other worktree holds this plan in its active buffer
 - No other `⚡ In Development` plan declares an identical Target File
+- No queued Plan Blocker (active, not `Planned`) names a Target File in its Location; shared docs excepted (P-48)
 
 ## Failure modes
 - no `id` -> exit 1, stderr `You must specify a target plan for 'freeze-start'.`
@@ -23,6 +24,7 @@
 - an unchecked `* [ ]` item under `## ❓ 5. Open Questions` -> exit 1, stderr `[Freeze-Start Refusal]` lists each unresolved question; the plan is unchanged
 - no path under `### 📂 Target Files` in §4 -> exit 1, stderr `[Freeze-Start Refusal] Plan declares no Target Files`; the plan is unchanged
 - a Target File is shared with another `⚡ In Development` plan -> exit 1, stderr `[Activation Gate]`; the plan is unchanged
+- a Target File is in a queued Plan Blocker's Location -> exit 1, stderr `[Activation Gate] <file> has a pending fix (#<n>)`; the plan is unchanged (P-58)
 - an `on-freeze` hook vetoes -> exit 1 and the plan stays unactivated
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 
@@ -46,3 +48,4 @@ Run: `aapp test verb freeze-start`
 - `tests/verbs/freeze-start.sh::test_refuses_unresolved_questions` -> an unchecked §5 item: exit 1, plan unchanged, buffer untouched
 - `tests/verbs/freeze-start.sh::test_refuses_non_incubator_plan` -> a plan already `⚡ In Development`: exit 1, plan unchanged (#89)
 - `tests/verbs/freeze-start.sh::test_records_base_sha_and_branch` -> freeze-start fills Base the same way
+- `tests/verbs/freeze-start.sh::test_refuses_target_with_pending_fix` -> a Target File in a queued Plan Blocker: exit 1, plan unchanged (P-58)

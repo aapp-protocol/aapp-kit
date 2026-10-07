@@ -67,4 +67,21 @@ else
   bad "test_records_base_sha_and_branch" "base not recorded: $(grep -F '**Base:**' "$f_fs" 2>/dev/null)"
 fi
 
+echo "== queued plan blockers gate the start (P-58) =="
+printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
+  '| #20 | `High` | `CORE` | 2026-10-01 | `src/fs_q.py` | Q breaks. | blocks [P-1](current/P1-x.md) | 🟡 `Incubated` |' > .plans/ISSUES.md
+printf '%s\n' '# Issue Priority Board' '' '## 🧱 Plan Blockers' '- [ ] #20 -> Q breaks. (blocks P-1)' '' '## 🔴 High Priority (Technical Urgency)' > .plans/issues_road_map.md
+git -C .plans add ISSUES.md issues_road_map.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
+id_q="$(draft_plan fs-queued)"; f_q="$(plan_file "$id_q")"
+sed -i -E "s|src/path/to/file\.ext|src/fs_q.py|g; /src\/path\/to\/new_file\.ext/d" "$f_q"
+sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$f_q"
+git -C .plans commit -qam "prep $id_q" >/dev/null
+before="$(cksum < "$f_q")"
+out="$(aapp freeze-start "$id_q" 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && echo "$out" | grep -qF "src/fs_q.py has a pending fix (#20)" && [ "$(cksum < "$f_q")" = "$before" ]; then
+  ok "test_refuses_target_with_pending_fix"
+else
+  bad "test_refuses_target_with_pending_fix" "rc=$rc out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"

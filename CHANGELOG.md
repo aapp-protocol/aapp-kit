@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `/aapp-fix #<num>` skill; `aapp issue fix` waits for uncommitted work instead of refusing, takes its files from the issue log, and a plan cannot start on a file a queued plan blocker will change (`P-58`)
 - `aapp.commitMode` (atomic by default) and plans recording the commit and changelog modes they were built with (`P-51`)
 - `aapp issue hotfix` blocks a plan on a logged, queued issue, and `aapp issue fix` opens a temporary mini plan for it, one fix at a time; frozen plans no longer block edits (`P-52`)
 - Plan rename with issue-link repair, issue promotion in `aapp draft`, and pickup/issue commits without raw git (`P-50`)
