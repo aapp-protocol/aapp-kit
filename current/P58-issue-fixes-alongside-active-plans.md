@@ -3,12 +3,14 @@
 * **Target Issue / Milestone:** None (follow-up to P-52, from its review)
 * **Plan ID:** P-58
 * **Changelog:** Added: `/aapp-fix #<num>` skill; `aapp issue fix` waits for uncommitted work instead of refusing, takes its files from the issue log, and a plan cannot start on a file a queued plan blocker will change
+* **Commit Mode:** atomic
+* **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
 * **Status:** ⚡ In Development
 * **Base:** `6cce830` (develop)
-* **Commits:** none
+* **Commits:** `a7c00d9` (develop)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
