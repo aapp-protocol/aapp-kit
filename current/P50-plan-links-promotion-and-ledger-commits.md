@@ -5,7 +5,7 @@
 * **Changelog:** Added: Plan rename with issue-link repair, issue promotion in `aapp draft`, and pickup/issue commits without raw git
 * **Status:** ⚡ In Development
 * **Base:** `3794b80` (develop)
-* **Commits:** none
+* **Commits:** `2d7ba74` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
