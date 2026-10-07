@@ -95,28 +95,28 @@ Configurable via `git config aapp.templateSync <mode>`:
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-- [ ] **Phase 1: Marker Standardization in Templates**
-  - [ ] Standardize `templates/plan-template.md` with delimited protocol block (`<!-- AAPP-PROTOCOL:START v1.0.0 -->`).
-  - [ ] Standardize `templates/release_checklist.md` with delimited protocol markers (`<!-- AAPP-PROTOCOL:START v1.0.0 -->`).
-  - [ ] Standardize `templates/pickup.md` header instructions with delimited protocol markers (`<!-- AAPP-PROTOCOL:START v1.0.0 -->`).
-  - [ ] Ensure `templates/AGENTS.md`, `templates/plan-template.md`, and `templates/pickup.md` use uniform version stamps.
+- [x] **Phase 1: Marker Standardization in Templates**
+  - [x] Standardize `templates/plan-template.md` with delimited protocol block (`<!-- AAPP-PROTOCOL:START v1.0.0 -->`).
+  - [x] Standardize `templates/release_checklist.md` with delimited protocol markers (`<!-- AAPP-PROTOCOL:START v1.0.0 -->`).
+  - [x] Standardize `templates/pickup.md` header instructions with delimited protocol markers (`<!-- AAPP-PROTOCOL:START v1.0.0 -->`).
+  - [x] Ensure `templates/AGENTS.md`, `templates/plan-template.md`, and `templates/pickup.md` use uniform version stamps.
 
-- [ ] **Phase 2: Tiered Template Sync Engine (`lib/template_sync.sh` or `lib/cmd_init.sh`)**
-  - [ ] Implement `sync_tier1_template(src, dest, mode)`.
-  - [ ] Implement `sync_tier2_hybrid(src, dest)`.
-  - [ ] Add SHA256 checksum comparison to skip identical files.
-  - [ ] Implement `aapp.templateSync` configuration resolution (`safe` default).
+- [x] **Phase 2: Tiered Template Sync Engine (`lib/template_sync.sh` or `lib/cmd_init.sh`)**
+  - [x] Implement `sync_tier1_template(src, dest, mode)`.
+  - [x] Implement `sync_tier2_hybrid(src, dest)`.
+  - [x] Add SHA256 checksum comparison to skip identical files.
+  - [x] Implement `aapp.templateSync` configuration resolution (`safe` default).
 
-- [ ] **Phase 3: Init & Upgrade Integration**
-  - [ ] Refactor `lib/cmd_init.sh` to use the tiered sync engine instead of raw `copy_guarded`.
-  - [ ] Update `lib/cmd_upgrade.sh` post-upgrade notice to direct users to `aapp init`.
+- [x] **Phase 3: Init & Upgrade Integration**
+  - [x] Refactor `lib/cmd_init.sh` to use the tiered sync engine instead of raw `copy_guarded`.
+  - [x] Update `lib/cmd_upgrade.sh` post-upgrade notice to direct users to `aapp init`.
 
-- [ ] **Phase 4: Status Briefing Integration**
-  - [ ] Add fast template drift probe in `lib/cmd_status.sh` (inspecting version tags in `.agents/AGENTS.md` and `.plans/plan-template.md`).
-  - [ ] Surface concise 1-line advisory pointing to `aapp init` when templates carry stale status enums or missing fields.
+- [x] **Phase 4: Status Briefing Integration**
+  - [x] Add fast template drift probe in `lib/cmd_status.sh` (inspecting version tags in `.agents/AGENTS.md` and `.plans/plan-template.md`).
+  - [x] Surface concise 1-line advisory pointing to `aapp init` when templates carry stale status enums or missing fields.
 
-- [ ] **Phase 5: Automated Regression Test Suite**
-  - [ ] Create `tests/template_sync_test.sh` covering:
+- [x] **Phase 5: Automated Regression Test Suite**
+  - [x] Create `tests/template_sync_test.sh` covering:
     - Tier 1 clean upgrade and checksum drift.
     - Tier 2 delimited block in-place update preserving external user prose and ideas.
     - Tier 3 project data isolation (never overwritten; `CODEMAP.md` and `.agents/PROJECT.MD` untouched).
