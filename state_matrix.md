@@ -31,8 +31,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-25**: [`P25-template-sync-and-document-governance.md`](current/P25-template-sync-and-document-governance.md) — Delimited Template Sync & Tiered Document Governance. Supersedes #73.
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
