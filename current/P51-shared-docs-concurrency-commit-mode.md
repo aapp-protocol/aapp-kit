@@ -61,7 +61,7 @@ P-48 shipped `aapp.changelogMode` (one changelog entry per plan, or one per comm
 - **`atomic`:**
   - `aapp commit` (without `amend`) refuses a code commit when the active plan's `**Commits:**` header already records a commit: `❌ [Commit Refusal] aapp.commitMode=atomic: P-51 already has commit <sha>. Fold changes in with 'aapp commit amend', or set aapp.commitMode=microcommits.`
   - The pre-commit hook refuses a raw `git commit` of code for an active plan whose header already records a commit, with the same hint. Commits made by the helper (`AAPP_COMMIT_HELPER=1`) skip this hook check because the helper already decided.
-  - `aapp commit amend` is always allowed: it replaces the recorded commit, keeping the plan at one.
+  - `aapp commit amend` is always allowed: it replaces the recorded commit, keeping the plan at one. A raw `git commit --amend` of code is refused like any raw commit (pre-commit cannot tell an amend from a new commit); `aapp commit amend` is the path, and it keeps the plan's record right where a raw amend would orphan it. `aapp commit adopt` is not affected (it records commits that already exist).
 - **`microcommits`:** any number of commits, as today.
 - Commits with no active plan (direct fixes) are not affected by commit mode.
 
@@ -72,7 +72,7 @@ P-48 shipped `aapp.changelogMode` (one changelog entry per plan, or one per comm
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-- Default `atomic` applies to existing repositories after `aapp init`: a plan in development that already has a recorded commit needs `aapp.commitMode=microcommits` (or `amend`) for further commits. Release note states this.
+- Default `atomic` applies to existing repositories after `aapp init`: a plan in development that already has a recorded commit needs `aapp.commitMode=microcommits` (or `amend`) for further commits. Release note states this. The kit's own test sandboxes that make several commits per plan (`tests/verbs/commit.sh`, `tests/verbs/done.sh`) opt into `microcommits` the same way.
 
 ---
 
@@ -82,6 +82,7 @@ P-48 shipped `aapp.changelogMode` (one changelog entry per plan, or one per comm
 - [ ] Task 1.1: `tests/verbs/commit.sh`: `atomic` refuses a second code commit with the amend hint; `amend` passes and keeps one recorded commit; `microcommits` allows a second commit; each commit re-stamps the plan's two fields, and a config switch adds the §6 line.
 - [ ] Task 1.2: `tests/pre-commit_test.sh`: `atomic` refuses a raw code commit for a plan with a recorded commit; `microcommits` and no-plan commits pass; helper commits skip the check.
 - [ ] Task 1.3: `tests/verbs/draft.sh`: a drafted plan carries both fields from the config; `tests/install_test.sh`: `aapp.commitMode=atomic` seeded only when absent.
+- [ ] Task 1.4: `tests/verbs/commit.sh` (existing sections) and `tests/verbs/done.sh`: sandboxes whose fixtures make several commits, or raw amends, per plan set `aapp.commitMode=microcommits`.
 
 ### Phase 2: Implementation
 - [ ] Task 2.1: Seed `aapp.commitMode` in `lib/cmd_init.sh`.
@@ -115,6 +116,7 @@ P-48 shipped `aapp.changelogMode` (one changelog entry per plan, or one per comm
 - [ ] `tests/pre-commit_test.sh` -> Hook atomic tests.
 - [ ] `tests/verbs/draft.sh` -> Field pre-fill test.
 - [ ] `tests/install_test.sh` -> Seed test.
+- [ ] `tests/verbs/done.sh` -> Sandbox opts into `microcommits`: its fixtures record a commit, then make raw commits and amends.
 - [ ] `templates/skills/aapp-start/SKILL.md` -> One commit per plan in atomic mode.
 - [ ] `templates/AGENTS.md` -> Commit-mode rule.
 - [ ] `.agents/AGENTS.md` -> Same as the template.
@@ -139,4 +141,5 @@ P-48 shipped `aapp.changelogMode` (one changelog entry per plan, or one per comm
 * **2026-10-07:** Plan activated into ⚡ In Development via start.
 * **2026-10-07:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
+* **2026-10-07:** Refined during implementation (developer: round trip, to keep the logs clean): `tests/verbs/done.sh` added to the targets (its fixtures record a commit, then make raw commits and amends); a raw `git commit --amend` is refused in atomic mode like any raw commit, `aapp commit amend` being the path; `adopt` is unaffected.
 * **2026-10-04:** Drafted as the extension of P-48 (should have shipped with it): `aapp.commitMode` config (atomic default); all checks read the configs; each plan records the commit and changelog modes it was built with, re-stamped on every `aapp commit`, with switches logged in §6.
