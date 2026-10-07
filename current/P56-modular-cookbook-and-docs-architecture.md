@@ -1,8 +1,8 @@
 # 🗺️ Plan P-56: Modular Cookbook And Docs Architecture
 * **Created:** 2026-10-07 | **Last Refined:** 2026-10-07
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** Milestone v1.1.0 (Documentation & Adopter UX Architecture)
 * **Plan ID:** P-56
-* **Changelog:** Changed: Modular Cookbook And Docs Architecture
+* **Changelog:** Added: Modular Cookbook (`COOKBOOK.md`) and topic-based recipe architecture (`docs/recipes/`)
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
@@ -35,63 +35,166 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+`MANUAL.md` has grown into a monolithic 1,835-line (130 KB) technical document. While highly thorough, it mixes three distinct documentation functions:
+1. **Architectural Specifications**: Worktree isolation, blast-radius engines, hash locks, threat models.
+2. **Command & Configuration Reference**: Verbs, exit codes, switchboard flags, `git config aapp.*` matrix.
+3. **Procedural How-To Recipes**: Setting up Git hook managers (Husky, Lefthook), onboarding legacy repos, configuring multi-agent worktrees, troubleshooting blast-radius refusals.
+
+This creates significant cognitive friction for human developers who need immediate copy-paste solutions, forces AI agents to consume excessive context tokens when looking up specific operational tasks, and lacks an architecture that easily ports to static site documentation generators (VitePress, Astro Starlight, Docusaurus).
+
+**Architectural Goal**:
+Split procedural guidance into a modular **Cookbook Architecture**:
+- Create a root [`COOKBOOK.md`](COOKBOOK.md) acting as a front-door catalog with curated learning tracks and categorized recipe links.
+- Create [`docs/recipes/`](docs/recipes/) housing modular, topic-based markdown recipes equipped with standard frontmatter suitable for both SSG web ingestion and progressive disclosure by AI coding agents.
+- Refactor [`MANUAL.md`](MANUAL.md) by extracting heavy procedural walkthroughs and hook wrapper scripts, replacing them with concise summaries and bidirectional links to the relevant recipes, restoring `MANUAL.md` as a lean, authoritative **Technical Reference Specification**.
+- Ensure packaging scripts (`lib/cmd_install.sh`, `lib/cmd_develop.sh`) preserve and distribute `docs/` and `COOKBOOK.md`.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- Existing links in `README.md`, `MANUAL.md`, and skills will be updated to point directly to `COOKBOOK.md` and specific recipes in `docs/recipes/`.
+
+### 2.1 File Hierarchy & Directory Structure
+
+```text
+agent-planning-kit/
+├── COOKBOOK.md                     # Root catalog & curated index with links to recipes
+├── MANUAL.md                       # Pure Technical Specification & Configuration Reference
+├── README.md                       # High-level overview & quickstart
+├── docs/
+│   └── recipes/
+│       ├── getting-started/
+│       │   ├── adopt-existing-repo.md
+│       │   └── solo-developer-workflow.md
+│       ├── integrations/
+│       │   ├── husky-git-hooks.md
+│       │   ├── lefthook-git-hooks.md
+│       │   └── github-actions-ci.md
+│       ├── workflows/
+│       │   ├── tdd-failure-assertions.md
+│       │   ├── emergency-hotfixes.md
+│       │   └── multi-agent-worktrees.md
+│       └── troubleshooting/
+│           ├── blast-radius-recovery.md
+│           └── worktree-collision-recovery.md
+```
+
+### 2.2 Standard Recipe Frontmatter & Schema (SSG & Agent Compatible)
+
+Every recipe in `docs/recipes/**/*.md` conforms to a standardized structure designed for both static site parsers and conversational progressive disclosure:
+
+```markdown
+---
+title: "Recipe Title"
+description: "A single concise sentence describing what this recipe accomplishes."
+category: "getting-started | integrations | workflows | troubleshooting"
+difficulty: "beginner | intermediate | advanced"
+tags: [tag1, tag2, tag3]
+---
+
+# 🍳 Recipe: <Recipe Title>
+
+## 🎯 Goal
+A 1–2 sentence summary of the exact objective and when to use this recipe.
+
+## 📋 Prerequisites
+- Specific tool requirements (e.g. `npm`, `husky`, `git`, or initialized AAPP repo).
+- Initial working tree or branch states.
+
+## 🛠️ Step-by-Step Instructions
+Step-by-step shell commands, configuration snippets, and expected terminal outputs.
+
+## ⚠️ Critical Invariants & Gotchas
+Blast-radius constraints, hook traps, or common failure modes to avoid.
+
+## 🔗 Related References
+- Links to relevant sections in `MANUAL.md`, `ARCHITECTURE.md`, or neighboring recipes.
+```
+
+### 2.3 Refactoring `MANUAL.md` (Extraction & Pointer Strategy)
+
+The following procedural sections from `MANUAL.md` will be refactored into modular recipes:
+1. **Section 7: Hook Manager Interoperability Recipes & Multi-Language Integration**
+   - Extract Husky, Lefthook, pre-commit framework, Perl, Python, and Ruby hook runners into `docs/recipes/integrations/husky-git-hooks.md`, `lefthook-git-hooks.md`, and polyglot guides.
+   - Retain the architectural description of subprocess invocation and dispatcher mechanics in Section 7 of `MANUAL.md`, replacing inline wrapper scripts with links to the recipes.
+2. **Section 11: Troubleshooting & Operations FAQ**
+   - Extract operational guides ("What if an agent gets trapped in a refusal loop?", "How do I handle merge conflicts in `.plans/`?", "How do I upgrade an existing project?") into `docs/recipes/troubleshooting/`.
+   - Keep high-level policy answers in `MANUAL.md` FAQ, linking to the step-by-step recipes.
+
+### 2.4 Kit Packaging & Distribution Sync
+
+1. In `lib/cmd_install.sh`: Ensure `$SHARE_DIR` installs `docs/` and `COOKBOOK.md` alongside `lib/`, `templates/`, and `MANUAL.md`.
+2. In `lib/cmd_develop.sh`: Verify develop mode symlinks or reflects `docs/` and `COOKBOOK.md`.
+3. In `tests/install_test.sh`: Add assertions confirming `COOKBOOK.md` and `docs/recipes/` are copied to `$SHARE_DIR`.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Directory Scaffold & Initial Recipe Suite
+- [ ] Task 1.1: Create directory tree `docs/recipes/{getting-started,integrations,workflows,troubleshooting}/`.
+- [ ] Task 1.2: Author Getting Started recipes:
+  - `docs/recipes/getting-started/adopt-existing-repo.md`
+  - `docs/recipes/getting-started/solo-developer-workflow.md`
+- [ ] Task 1.3: Author Tooling Integration recipes (extracting and expanding from `MANUAL.md` §7):
+  - `docs/recipes/integrations/husky-git-hooks.md`
+  - `docs/recipes/integrations/lefthook-git-hooks.md`
+  - `docs/recipes/integrations/github-actions-ci.md`
+- [ ] Task 1.4: Author Advanced Workflow recipes:
+  - `docs/recipes/workflows/tdd-failure-assertions.md`
+  - `docs/recipes/workflows/emergency-hotfixes.md`
+  - `docs/recipes/workflows/multi-agent-worktrees.md`
+- [ ] Task 1.5: Author Troubleshooting recipes (extracting from `MANUAL.md` §11):
+  - `docs/recipes/troubleshooting/blast-radius-recovery.md`
+  - `docs/recipes/troubleshooting/worktree-collision-recovery.md`
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Root Catalog & MANUAL.md Slimdown
+- [ ] Task 2.1: Author root [`COOKBOOK.md`](COOKBOOK.md) with categorized index, difficulty badges, and cross-references.
+- [ ] Task 2.2: Refactor [`MANUAL.md`](MANUAL.md) to replace procedural scripts in §7 and §11 with links to the corresponding recipes in `docs/recipes/`.
+- [ ] Task 2.3: Update [`README.md`](README.md) and [`CHEATSHEET.md`](CHEATSHEET.md) to feature [`COOKBOOK.md`](COOKBOOK.md).
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+### Phase 3: Packaging Sync & Test Coverage
+- [ ] Task 3.1: Update `lib/cmd_install.sh` to install `COOKBOOK.md` and `docs/` into `$SHARE_DIR`.
+- [ ] Task 3.2: Add regression tests in `tests/install_test.sh` verifying `COOKBOOK.md` and `docs/recipes/` distribution.
+- [ ] Task 3.3: Verify all markdown links are strictly repository-relative and pass `tests/pre-commit_test.sh`.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `COOKBOOK.md` -> Root cookbook catalog and categorized recipe index.
+- [ ] `MANUAL.md` -> Technical manual slimmed down to pure reference, pointing to recipes.
+- [ ] `README.md` -> Surface cookbook link in primary documentation overview.
+- [ ] `CHEATSHEET.md` -> Reference cookbook for operational recipes.
+- [ ] `NEW FILE` -> `docs/recipes/getting-started/adopt-existing-repo.md` -> Recipe for retrofitting existing repos.
+- [ ] `NEW FILE` -> `docs/recipes/getting-started/solo-developer-workflow.md` -> Recipe for pure-human CLI workflow.
+- [ ] `NEW FILE` -> `docs/recipes/integrations/husky-git-hooks.md` -> Recipe for pairing AAPP with Husky.
+- [ ] `NEW FILE` -> `docs/recipes/integrations/lefthook-git-hooks.md` -> Recipe for pairing AAPP with Lefthook.
+- [ ] `NEW FILE` -> `docs/recipes/integrations/github-actions-ci.md` -> Recipe for CI blast-radius gates.
+- [ ] `NEW FILE` -> `docs/recipes/workflows/tdd-failure-assertions.md` -> Recipe for failure-first TDD loop.
+- [ ] `NEW FILE` -> `docs/recipes/workflows/emergency-hotfixes.md` -> Recipe for hotfix extensions.
+- [ ] `NEW FILE` -> `docs/recipes/workflows/multi-agent-worktrees.md` -> Recipe for concurrent multi-agent worktrees.
+- [ ] `NEW FILE` -> `docs/recipes/troubleshooting/blast-radius-recovery.md` -> Recipe for resolving write refusals.
+- [ ] `NEW FILE` -> `docs/recipes/troubleshooting/worktree-collision-recovery.md` -> Recipe for repairing stale worktrees.
+- [ ] `lib/cmd_install.sh` -> Install COOKBOOK.md and docs/ into system share directory.
+- [ ] `tests/install_test.sh` -> Regression test asserting cookbook distribution.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/cmd_init.sh` -> Worktree sync engine remains untouched.
+- [ ] `templates/blast-radius-guard.sh` -> Write guard logic unchanged.
+- [ ] `templates/aapp-pre-commit` -> Commit hook engine unchanged.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-07:** Plan initialized from `pickup.md`.
-* **2026-10-07:** Refined blast radius and locked module boundaries.
+* **2026-10-07:** Drafted blueprint P-56 from user discussion. Established modular `COOKBOOK.md` + `docs/recipes/` architecture, defined SSG-compatible frontmatter schema, mapped extraction targets from `MANUAL.md`, and locked blast radius.
