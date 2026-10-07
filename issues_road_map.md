@@ -40,5 +40,4 @@
 - [ ] #99 -> `aapp.*` config defaults have no single source of truth; each reader hardcodes its own.
 - [ ] #95 -> "Small" fix is undefined in invariant 5; default <10 changed lines, adopter override in `PROJECT.MD`.
 - [ ] #101 -> `aapp-digest` skill still routes small fixes through `issue fix <num> file …`, not `/aapp-fix`.
-- [ ] #102 -> Findings outside a plan's targets go unlogged: invariant 5 says "bugs" only, no wrap-up reminder.
 
