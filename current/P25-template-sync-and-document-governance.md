@@ -2,7 +2,8 @@
 * **Created:** 2026-09-21 | **Last Refined:** 2026-09-29
 * **Target Issue / Milestone:** #73 *(supersedes #73 upon completion)*
 * **Plan ID:** P-25
-* **Status:** 🔷 Frozen
+* **Status:** ⚡ In Development
+* **Base:** `2d11862` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -158,6 +159,7 @@ Configurable via `git config aapp.templateSync <mode>`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Plan activated into ⚡ In Development via start.
 * **2026-09-29:** Plan locked and frozen into 🔷 Frozen via freeze.
 
 * **2026-09-29 (Refinement):** Removed proposed `aapp sync-templates` standalone CLI verb in favor of consolidating tiered synchronization directly into `aapp init`. Standardized delimiter marker taxonomy to uniform `<!-- AAPP-PROTOCOL:START vX.Y.Z -->`, added `templates/pickup.md` to Target Files for header delimiter protection, and updated `aapp status` drift advisory to recommend `aapp init`.
