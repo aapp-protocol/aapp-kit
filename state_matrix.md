@@ -31,8 +31,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-52**: [`P52-issue-fix-mini-plans.md`](current/P52-issue-fix-mini-plans.md) — Issue Fix Mini Plans
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
