@@ -20,11 +20,12 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-55**: [`P55-automated-branch-integration.md`](current/P55-automated-branch-integration.md) — Automated Worktree Branch Integration, Parent Branch Lifecycle & Safe Cleanup
 - 🟣 **P-56**: [`P56-modular-cookbook-and-docs-architecture.md`](current/P56-modular-cookbook-and-docs-architecture.md) — Modular Cookbook And Docs Architecture
 - 🟣 **P-57**: [`P57-modular-manual-specification.md`](current/P57-modular-manual-specification.md) — Modular Manual Specification
-- 🟣 **P-58**: [`P58-issue-fixes-alongside-active-plans.md`](current/P58-issue-fixes-alongside-active-plans.md) — Issue Fixes Alongside Active Plans
 
 ---
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
+
+- 🔷 **P-58**: [`P58-issue-fixes-alongside-active-plans.md`](current/P58-issue-fixes-alongside-active-plans.md) — Issue Fixes Alongside Active Plans
 
 ---
 

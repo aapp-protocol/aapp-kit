@@ -6,7 +6,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
@@ -151,6 +151,7 @@ The fixer in the main checkout (often an automated runner) is a role of its own 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-07:** Added the fixer's skill `/aapp-fix [#<num>]` (developer: files come from the issue log, `file` only adds) and path-only Location parsing (from fixing #97).
 * **2026-10-07:** Drafted from the developer's questions after P-52's first real use (#97): wait instead of refusing on uncommitted work, no start on a file a queued plan blocker will change, the agent text for fixes in another plan's files, and a close-time notice. Kept out of P-52 so P-52 can close as implemented and verified.
