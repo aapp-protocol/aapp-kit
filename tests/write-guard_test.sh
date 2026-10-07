@@ -457,6 +457,27 @@ check_decision "unbound checkout does not adopt a held plan (P-52)" ALLOW "src/f
 rm -rf "$R/wt-agent2"
 git worktree prune >/dev/null 2>&1
 
+echo "== .plans as a linked worktree (#84) =="
+setup
+git branch -q plans-wt
+rm -rf .plans
+git worktree add -q .plans plans-wt >/dev/null 2>&1
+mkdir -p .plans/current
+plan p84.md <<'EOF'
+* **Plan ID:** P-84
+* **Status:** ⚡ In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/feature.py` -> the only target
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+cd .plans
+check_decision "inside .plans worktree: relative planning write allowed (#84)" ALLOW "current/notes.md"
+check_decision "inside .plans worktree: ISSUES write allowed (#84)" ALLOW "ISSUES.md"
+cd "$R/repo"
+check_decision "primary checkout: non-target code still denied (#84)" DENY "src/other.py"
+cd "$R/repo"; git worktree remove --force .plans >/dev/null 2>&1; git worktree prune >/dev/null 2>&1
+
 echo "== project circuit breaker (aapp pause & resume) =="
 setup
 plan p_pause.md <<'EOF'

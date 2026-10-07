@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- the write guard allows `.plans/` and `.agents/` writes from inside those worktrees, and by absolute path from a linked worktree (`#84`)
 - the pre-commit hook allows `.gitattributes` (written by `aapp init`), so it can be committed outside a plan (`#97`)
 - `aapp refine` checks the commit subject length and shape before committing, and blocks a plan on an issue with `aapp refine <id> blocked <num>` (`P-49`)
 - Anchor template protocol delimiter regexes and prevent unclosed marker warning from aborting aapp init.

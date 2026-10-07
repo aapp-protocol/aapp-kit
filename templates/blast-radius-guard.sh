@@ -303,6 +303,15 @@ fi
 # ------------------------------------------------------------------------------
 # 3. Always-Allowed Invariants (Plans, Rules, Root Anchors)
 # ------------------------------------------------------------------------------
+# #84: from inside the .plans or .agents worktree (or by absolute path from a
+# linked worktree) a planning path is relative to that worktree, not to the
+# primary checkout; match it against the primary's .plans/.agents instead.
+# Code paths keep relativising against the current worktree.
+case "$CANONICAL_TARGET" in
+    "${PRIMARY_ROOT:-$REPO_ROOT}"/.plans/*|"${PRIMARY_ROOT:-$REPO_ROOT}"/.agents/*)
+        exit 0
+        ;;
+esac
 case "$TARGET_FILE" in
     .plans/*|.agents/*)
         exit 0
