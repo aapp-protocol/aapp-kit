@@ -10,6 +10,8 @@
 
 ---
 
+<!-- AAPP-PROTOCOL:START v1.0.0 -->
+<!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 ## 🏷️ 0. Versioning & Release Conventions (Stable vs. Edge)
 
 ### The 2-Rule Law: Branch & Suffix
@@ -24,6 +26,7 @@
 * **PATCH (`1.0.x`):** Bug fixes, security hardening, portability, test updates, documentation fixes (zero new features, zero breaking changes).
 * **MINOR (`1.x.0`):** New features & capabilities that remain backward-compatible.
 * **MAJOR (`x.0.0`):** Breaking protocol or architecture changes requiring user migration.
+<!-- AAPP-PROTOCOL:END -->
 
 ---
 

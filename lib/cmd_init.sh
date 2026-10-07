@@ -132,6 +132,175 @@ copy_guarded() {
 }
 
 # ------------------------------------------------------------------------------
+# Three-Tier Document Governance & Delimited Template Sync Engine (P-25)
+# ------------------------------------------------------------------------------
+
+resolve_template_sync_mode() {
+    local mode
+    mode="$(git config --get aapp.templateSync 2>/dev/null || echo "safe")"
+    case "$mode" in
+        safe|strict|manual) echo "$mode" ;;
+        *) echo "safe" ;;
+    esac
+}
+
+sync_delimited_block() {
+    local src="$1"
+    local dest="$2"
+    local desc="$3"
+
+    if [ ! -f "$src" ] || [ ! -f "$dest" ]; then
+        return 0
+    fi
+
+    if cmp -s "$src" "$dest"; then
+        return 0
+    fi
+
+    local block_tmp
+    block_tmp="$(mktemp)"
+    awk -v ver="$AAPP_VERSION" '
+        /<!-- AAPP-PROTOCOL:START/ {
+            inside=1
+            print "<!-- AAPP-PROTOCOL:START v" ver " -->"
+            next
+        }
+        inside { print }
+        /<!-- AAPP-PROTOCOL:END -->/ { inside=0 }
+    ' "$src" > "$block_tmp"
+
+    if [ ! -s "$block_tmp" ]; then
+        rm -f "$block_tmp"
+        return 0
+    fi
+
+    if grep -q "<!-- AAPP-PROTOCOL:START" "$dest" && grep -q "<!-- AAPP-PROTOCOL:END -->" "$dest"; then
+        local dest_tmp
+        dest_tmp="$(mktemp)"
+        awk -v block_file="$block_tmp" '
+            BEGIN {
+                while ((getline line < block_file) > 0) {
+                    new_block = (new_block == "" ? "" : new_block "\n") line
+                }
+                close(block_file)
+            }
+            /<!-- AAPP-PROTOCOL:START/ {
+                in_block=1
+                print new_block
+                next
+            }
+            /<!-- AAPP-PROTOCOL:END -->/ {
+                in_block=0
+                next
+            }
+            !in_block {
+                print
+            }
+        ' "$dest" > "$dest_tmp" && mv "$dest_tmp" "$dest"
+        rm -f "$block_tmp"
+        if [ -n "$desc" ]; then
+            echo "$desc"
+        fi
+        return 0
+    elif grep -q "<!-- AAPP-PROTOCOL:START" "$dest" && ! grep -q "<!-- AAPP-PROTOCOL:END -->" "$dest"; then
+        rm -f "$block_tmp"
+        echo "⚠️  Warning: Found unclosed <!-- AAPP-PROTOCOL:START --> marker without matching END marker in $dest."
+        echo "   Skipping protocol block replacement to prevent data loss. Please repair markers manually."
+        return 1
+    else
+        # No markers in dest: append protocol block
+        if [ -s "$dest" ] && [ -n "$(tail -c 1 "$dest")" ]; then
+            echo "" >> "$dest"
+        fi
+        echo "" >> "$dest"
+        cat "$block_tmp" >> "$dest"
+        echo "" >> "$dest"
+        rm -f "$block_tmp"
+        echo "➕ Appended AAPP protocol block to existing $dest (custom rules/content preserved)."
+        return 0
+    fi
+}
+
+sync_tier1_template() {
+    local src="$1"
+    local dest="$2"
+    local mode
+    mode="$(resolve_template_sync_mode)"
+
+    if [ ! -f "$dest" ]; then
+        if [ -f "$src" ]; then
+            cp "$src" "$dest"
+            echo "📄 Initialized $dest from template."
+        fi
+        return 0
+    fi
+
+    # In manual mode, preserve existing file untouched
+    if [ "$mode" = "manual" ]; then
+        return 0
+    fi
+
+    # Fast skip if identical
+    if cmp -s "$src" "$dest"; then
+        return 0
+    fi
+
+    # If both src and dest carry delimiter markers, update the delimited block
+    if grep -q "<!-- AAPP-PROTOCOL:START" "$dest" && grep -q "<!-- AAPP-PROTOCOL:END -->" "$dest" && \
+       grep -q "<!-- AAPP-PROTOCOL:START" "$src" && grep -q "<!-- AAPP-PROTOCOL:END -->" "$src"; then
+        sync_delimited_block "$src" "$dest" "🔄 Updated protocol block in $dest to v$AAPP_VERSION (custom template sections preserved)."
+        return 0
+    fi
+
+    # Unclosed delimiter safety
+    if grep -q "<!-- AAPP-PROTOCOL:START" "$dest" && ! grep -q "<!-- AAPP-PROTOCOL:END -->" "$dest"; then
+        echo "⚠️  Warning: Found unclosed <!-- AAPP-PROTOCOL:START --> marker without matching END marker in $dest."
+        echo "   Skipping protocol update to prevent data loss. Please repair markers manually."
+        return 1
+    fi
+
+    if [ "$mode" = "strict" ]; then
+        cp "$src" "$dest"
+        echo "🔄 [strict] Overwrote diverged template $dest with upstream template."
+    else
+        # safe mode: produce .new buffer
+        cp "$src" "$dest.new"
+        echo "⚠️  Template drift in $dest: preserved existing file; wrote updated template to $dest.new."
+    fi
+}
+
+sync_tier2_hybrid() {
+    local src="$1"
+    local dest="$2"
+    local mode
+    mode="$(resolve_template_sync_mode)"
+
+    if [ ! -f "$dest" ]; then
+        if [ -f "$src" ]; then
+            cp "$src" "$dest"
+            echo "📄 Initialized $dest from template."
+        fi
+        return 0
+    fi
+
+    # In manual mode, preserve existing file untouched
+    if [ "$mode" = "manual" ]; then
+        return 0
+    fi
+
+    if cmp -s "$src" "$dest"; then
+        return 0
+    fi
+
+    sync_delimited_block "$src" "$dest" "🔄 Updated AAPP protocol block in $dest to v$AAPP_VERSION (custom rules preserved)."
+}
+
+sync_tier3_data() {
+    # Tier 3 (Pure Project Domain Data) seeded on install only, never overwritten.
+    copy_guarded "$@"
+}
+
+# ------------------------------------------------------------------------------
 # PHASE 1: 'plans' Worktree
 # ------------------------------------------------------------------------------
 mount_or_create_worktree "plans" ".plans"
@@ -143,14 +312,14 @@ if [ -f "ISSUES.md" ] && [ ! -f ".plans/ISSUES.md" ]; then
     echo "📦 Migrated legacy project-root ISSUES.md to .plans/ISSUES.md."
 fi
 
-copy_guarded "$AAPP_TEMPLATES/pickup.md" ".plans/pickup.md" ""
-copy_guarded "$AAPP_TEMPLATES/state_matrix.md" ".plans/state_matrix.md" ""
-copy_guarded "$AAPP_TEMPLATES/issues_road_map.md" ".plans/issues_road_map.md" ""
-copy_guarded "$AAPP_TEMPLATES/plan-template.md" ".plans/plan-template.md" ""
-copy_guarded "$AAPP_TEMPLATES/release_checklist.md" ".plans/release/release_checklist.md" ""
-copy_guarded "$AAPP_TEMPLATES/issues.md" ".plans/ISSUES.md" ""
-copy_guarded "$AAPP_TEMPLATES/done-issues-archive.md" ".plans/done/000-issues-archive.md" ""
-copy_guarded "$AAPP_TEMPLATES/000-archive-ledger.md" ".plans/done/000-archive-ledger.md" ""
+sync_tier2_hybrid "$AAPP_TEMPLATES/pickup.md" ".plans/pickup.md"
+sync_tier3_data "$AAPP_TEMPLATES/state_matrix.md" ".plans/state_matrix.md" ""
+sync_tier3_data "$AAPP_TEMPLATES/issues_road_map.md" ".plans/issues_road_map.md" ""
+sync_tier1_template "$AAPP_TEMPLATES/plan-template.md" ".plans/plan-template.md"
+sync_tier1_template "$AAPP_TEMPLATES/release_checklist.md" ".plans/release/release_checklist.md"
+sync_tier3_data "$AAPP_TEMPLATES/issues.md" ".plans/ISSUES.md" ""
+sync_tier3_data "$AAPP_TEMPLATES/done-issues-archive.md" ".plans/done/000-issues-archive.md" ""
+sync_tier1_template "$AAPP_TEMPLATES/000-archive-ledger.md" ".plans/done/000-archive-ledger.md"
 
 if [ ! -f ".plans/.gitignore" ]; then
     cat > .plans/.gitignore <<'EOF'
@@ -162,11 +331,21 @@ pickup/*
 
 # Local worktree hook dispatcher symlink
 .githooks
+
+# Template drift buffers (safe sync)
+*.new
 EOF
-elif ! grep -qxF ".githooks" .plans/.gitignore 2>/dev/null; then
-    echo "" >> .plans/.gitignore
-    echo "# Local worktree hook dispatcher symlink" >> .plans/.gitignore
-    echo ".githooks" >> .plans/.gitignore
+else
+    if ! grep -qxF "*.new" .plans/.gitignore 2>/dev/null; then
+        echo "" >> .plans/.gitignore
+        echo "# Template drift buffers (safe sync)" >> .plans/.gitignore
+        echo "*.new" >> .plans/.gitignore
+    fi
+    if ! grep -qxF ".githooks" .plans/.gitignore 2>/dev/null; then
+        echo "" >> .plans/.gitignore
+        echo "# Local worktree hook dispatcher symlink" >> .plans/.gitignore
+        echo ".githooks" >> .plans/.gitignore
+    fi
 fi
 
 # Non-destructive advisory for existing custom ISSUES.md
@@ -194,85 +373,15 @@ if [ -f "AGENTS.md" ] && [ ! -f ".agents/AGENTS.md" ]; then
     echo "📦 Migrated legacy project-root AGENTS.md to .agents/AGENTS.md."
 fi
 
-sync_agent_rules() {
-    local target=".agents/AGENTS.md"
-    local template="$AAPP_TEMPLATES/AGENTS.md"
-
-    if [ ! -f "$template" ]; then
-        return 0
-    fi
-
-    if [ ! -f "$target" ]; then
-        cp "$template" "$target"
-        echo "🤖 Initialized .agents/AGENTS.md with AAPP protocol rules."
-        return 0
-    fi
-
-    local block_tmp
-    block_tmp="$(mktemp)"
-    awk -v ver="$AAPP_VERSION" '
-        /<!-- AAPP-PROTOCOL:START/ {
-            inside=1
-            print "<!-- AAPP-PROTOCOL:START v" ver " -->"
-            next
-        }
-        inside { print }
-        /<!-- AAPP-PROTOCOL:END -->/ { inside=0 }
-    ' "$template" > "$block_tmp"
-
-    if [ ! -s "$block_tmp" ]; then
-        rm -f "$block_tmp"
-        return 0
-    fi
-
-    if grep -q "<!-- AAPP-PROTOCOL:START" "$target" && grep -q "<!-- AAPP-PROTOCOL:END -->" "$target"; then
-        local target_tmp
-        target_tmp="$(mktemp)"
-        awk -v block_file="$block_tmp" '
-            BEGIN {
-                while ((getline line < block_file) > 0) {
-                    new_block = (new_block == "" ? "" : new_block "\n") line
-                }
-                close(block_file)
-            }
-            /<!-- AAPP-PROTOCOL:START/ {
-                in_block=1
-                print new_block
-                next
-            }
-            /<!-- AAPP-PROTOCOL:END -->/ {
-                in_block=0
-                next
-            }
-            !in_block {
-                print
-            }
-        ' "$target" > "$target_tmp" && mv "$target_tmp" "$target"
-        echo "🔄 Updated AAPP protocol block in .agents/AGENTS.md to v$AAPP_VERSION (custom rules preserved)."
-    elif grep -q "<!-- AAPP-PROTOCOL:START" "$target" && ! grep -q "<!-- AAPP-PROTOCOL:END -->" "$target"; then
-        echo "⚠️  Warning: Found unclosed <!-- AAPP-PROTOCOL:START --> marker without matching END marker in $target."
-        echo "   Skipping protocol block replacement to prevent data loss. Please repair markers manually."
-    else
-        if [ -s "$target" ] && [ -n "$(tail -c 1 "$target")" ]; then
-            echo "" >> "$target"
-        fi
-        echo "" >> "$target"
-        cat "$block_tmp" >> "$target"
-        echo "" >> "$target"
-        echo "➕ Appended AAPP protocol block to existing .agents/AGENTS.md (custom rules preserved)."
-    fi
-    rm -f "$block_tmp"
-}
-
 # Legacy project-root CODEMAP.md migration
 if [ -f "CODEMAP.md" ] && [ ! -f ".agents/CODEMAP.md" ]; then
     mv "CODEMAP.md" ".agents/CODEMAP.md"
     echo "📦 Migrated legacy project-root CODEMAP.md to .agents/CODEMAP.md."
 fi
 
-sync_agent_rules
-copy_guarded "$AAPP_TEMPLATES/PROJECT.MD" ".agents/PROJECT.MD" ""
-copy_guarded "$AAPP_TEMPLATES/codemap.md" ".agents/CODEMAP.md" ""
+sync_tier2_hybrid "$AAPP_TEMPLATES/AGENTS.md" ".agents/AGENTS.md"
+sync_tier3_data "$AAPP_TEMPLATES/PROJECT.MD" ".agents/PROJECT.MD" ""
+sync_tier3_data "$AAPP_TEMPLATES/codemap.md" ".agents/CODEMAP.md" ""
 
 if [ ! -f ".agents/.gitignore" ]; then
     cat > .agents/.gitignore <<'EOF'
@@ -529,8 +638,8 @@ esac
 # ------------------------------------------------------------------------------
 # PHASE 4: Public Project Root Anchors
 # ------------------------------------------------------------------------------
-copy_guarded "$AAPP_TEMPLATES/architecture.md" "ARCHITECTURE.md" "🏛️  Created starter ARCHITECTURE.md at project root."
-copy_guarded "$AAPP_TEMPLATES/changelog.md" "CHANGELOG.md" "📜 Created starter CHANGELOG.md at project root."
+sync_tier3_data "$AAPP_TEMPLATES/architecture.md" "ARCHITECTURE.md" "🏛️  Created starter ARCHITECTURE.md at project root."
+sync_tier3_data "$AAPP_TEMPLATES/changelog.md" "CHANGELOG.md" "📜 Created starter CHANGELOG.md at project root."
 
 # ------------------------------------------------------------------------------
 # PHASE 5: Write-Time Enforcement Hook & Universal Skills Synchronization

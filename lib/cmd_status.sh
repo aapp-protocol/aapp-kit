@@ -107,10 +107,47 @@ if [ "$1" = "short" ] || [ "$1" = "summary" ]; then
     return 0 2>/dev/null || exit 0
 fi
 
+probe_templates_drift() {
+    local version="${AAPP_VERSION:-1.0.0}"
+    local drifted=()
+    local reasons=()
+
+    # Check .plans/plan-template.md
+    if [ -f ".plans/plan-template.md" ]; then
+        if grep -q -E "Draft|Ready for Execution" ".plans/plan-template.md" 2>/dev/null && ! grep -q "🔷 Frozen" ".plans/plan-template.md" 2>/dev/null; then
+            drifted+=(".plans/plan-template.md")
+            reasons+=(".plans/plan-template.md carries retired enum")
+        elif ! grep -q "<!-- AAPP-PROTOCOL:START v$version -->" ".plans/plan-template.md" 2>/dev/null; then
+            drifted+=(".plans/plan-template.md")
+            reasons+=(".plans/plan-template.md carries drifted protocol block")
+        fi
+    fi
+
+    # Check .agents/AGENTS.md
+    if [ -f ".agents/AGENTS.md" ]; then
+        if ! grep -q "<!-- AAPP-PROTOCOL:START v$version -->" ".agents/AGENTS.md" 2>/dev/null; then
+            drifted+=(".agents/AGENTS.md")
+            reasons+=(".agents/AGENTS.md carries drifted protocol block")
+        fi
+    fi
+
+    local count="${#drifted[@]}"
+    if [ "$count" -eq 0 ]; then
+        echo "All worktree templates synced (v$version)"
+    elif [ "$count" -eq 1 ]; then
+        echo "1 template drifted (${reasons[0]}) -> run 'aapp init'"
+    else
+        echo "$count templates drifted (${reasons[0]}, ...) -> run 'aapp init'"
+    fi
+}
+
+TEMPLATES_STATUS="$(probe_templates_drift)"
+
 echo "============================================================"
 echo "  🧭 AAPP Context Recovery Briefing"
 echo "  📍 Repo: $REPO_ROOT"
 echo "  $OVERVIEW_LINE"
+echo "  📑 Templates:  $TEMPLATES_STATUS"
 echo "============================================================"
 
 # 0. Master Emergency Brake / Pause Banner

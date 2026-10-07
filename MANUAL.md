@@ -1565,10 +1565,12 @@ Upgrading is completely zero-parameter. In your project root, run:
 ```bash
 aapp init
 ```
-`aapp init` automatically:
-1. Swaps the delimited protocol block in `.agents/AGENTS.md` (`<!-- AAPP-PROTOCOL:START ... -->` to `<!-- AAPP-PROTOCOL:END -->`) while leaving all your custom project rules above and below 100% untouched.
-2. Updates `.githooks/aapp-pre-commit` and `.githooks/blast-radius-guard` to the latest engine.
-3. Merges any missing Claude Code hooks into `.claude/settings.json` non-destructively.
+`aapp init` automatically synchronizes templates using the **Three-Tier Document Governance Model**:
+1. **Tier 1 (Pure Engine Templates)**: Refreshes protocol templates (`.plans/plan-template.md`, `.plans/release/release_checklist.md`, `.plans/done/000-archive-ledger.md`). If customized with delimited blocks, updates strictly between markers; if diverged without delimiters in `safe` mode, writes a `.plans/plan-template.md.new` buffer rather than overwriting.
+2. **Tier 2 (Hybrid Governance Documents)**: Synchronizes protocol blocks within HTML delimiters (`<!-- AAPP-PROTOCOL:START -->` ... `<!-- AAPP-PROTOCOL:END -->`) in `.agents/AGENTS.md` and `.plans/pickup.md`, preserving all custom rules, ideas, and brainstormed notes outside the markers.
+3. **Tier 3 (Pure Project Domain Data)**: Live ledgers and project ownership docs (`.plans/ISSUES.md`, `.plans/state_matrix.md`, `.plans/issues_road_map.md`, `.agents/CODEMAP.md`, `.agents/PROJECT.MD`, `ARCHITECTURE.md`) are initialized once on install and never overwritten during sync.
+4. Updates `.githooks/aapp-pre-commit` and `.githooks/blast-radius-guard` to the latest engine.
+5. Merges any missing Claude Code hooks into `.claude/settings.json` non-destructively.
 
 ---
 
@@ -1766,6 +1768,7 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 - **`aapp.maxBodyLines`**: Commit message body line count ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 20 lines).
 - **`aapp.changelogMaxLen`**: Changelog bullet length ceiling enforced at commit time by `.githooks/aapp-pre-commit` (default: 300 chars). Single-line bullets starting with `- ` or `* ` are strictly enforced.
 - **`aapp.changelogMode`**: `plan` (default, seeded by `aapp init`) or `commit`. See *One Changelog Entry per Plan*.
+- **`aapp.templateSync`**: Template synchronization mode during `aapp init` (`safe` [default], `strict`, `manual`). `safe` automatically synchronizes Tier 1 and Tier 2 delimited blocks, writing `.new` buffers on undelimited Tier 1 divergence. `strict` overwrites diverged Tier 1 templates. `manual` preserves existing files untouched and reports template drift via `aapp status`.
 
 ### Branch & Write Guard Protection
 - **`aapp.protectStable` & `aapp.devBranch`**: Guards stability on primary branches (`main`/`master`) when development branches (`develop`) exist. Direct commits on stable branches are blocked unless overridden with `ALLOW_MAIN_COMMIT=1`.
