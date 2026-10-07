@@ -161,6 +161,7 @@ Configurable via `git config aapp.templateSync <mode>`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07 (Post-Ship Amendment):** Fixed issue #100 (commit `da419a2`): anchored delimiter regexes to start of line in `lib/cmd_init.sh` and `lib/cmd_status.sh` to prevent prose checklist bullets from triggering unclosed marker aborts, made unclosed warnings non-fatal during init sync, and classified `000-archive-ledger.md` as Tier 3 project data.
 * **2026-10-07:** Plan implementation completed and archived to done/.
 * **2026-10-07:** Plan activated into ⚡ In Development via start.
 * **2026-09-29:** Plan locked and frozen into 🔷 Frozen via freeze.
