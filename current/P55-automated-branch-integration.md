@@ -156,9 +156,9 @@ aapp done <id> integrate [squash | ff] [target <branch>] [no-cleanup] [force-cle
 ### 2.6 Mechanical Gate for 2+ Emergency Fixes
 
 Enforces the "Rule of 2" to prevent endless daisy-chaining of hotfixes:
-1. `count_plan_emergency_hotfixes "$plan_file"`: counts issue IDs in the append-only `* **Emergency Hotfixes:**` header line populated by `aapp issue handoff` (P-52).
+1. `count_plan_emergency_hotfixes "$plan_file"`: counts issue IDs in the append-only `* **Emergency Hotfixes:**` header line populated by `aapp issue hotfix` (P-52).
 2. If `count > aapp.maxEmergencyHotfixes` (e.g. `count >= 3` with default `maxEmergencyHotfixes = 2`):
-   - `aapp issue handoff` blocks the plan permanently at hand-off time (P-52).
+   - `aapp issue hotfix` blocks the plan permanently at the 3rd hotfix (P-52).
    - `aapp done <id> integrate` refuses integration with:
      ```text
      ❌ [Integration Block] Plan 'P-XX' accumulated 3+ emergency fixes (#41, #42, #43).
