@@ -25,11 +25,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-58**: [`P58-issue-fixes-alongside-active-plans.md`](current/P58-issue-fixes-alongside-active-plans.md) — Issue Fixes Alongside Active Plans
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-58**: [`P58-issue-fixes-alongside-active-plans.md`](current/P58-issue-fixes-alongside-active-plans.md) — Issue Fixes Alongside Active Plans
 
 ---
 
