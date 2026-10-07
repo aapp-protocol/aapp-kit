@@ -123,6 +123,86 @@ The root `MANUAL.md` becomes the master navigation portal:
 2. In `lib/cmd_develop.sh`: Verify symlink reflection covers `docs/` and root documentation portals.
 3. In `tests/install_test.sh`: Assert that installed share directories contain `docs/concepts/` and `docs/reference/`.
 
+### 2.5 Dedicated CLI Verbs & Parameter Variations Reference (`docs/reference/02-cli-commands-and-verbs.md`)
+
+An exhaustive, standalone command dictionary covering every verb, syntax variation, and parameter permutation across all 5 discovery tiers:
+1. **Primary Lifecycle**:
+   - `aapp init [mode]` (fresh repository bootstrap, worktree mounting, template sync).
+   - `aapp draft <slug> [issue <num>]` (blueprint scaffolding from scratch or promoted from issue).
+   - `aapp tdd <id>` (test failure registration and verification).
+   - `aapp freeze <id>` (design lock, blast-radius verification, unfreezing protocol).
+   - `aapp start <id>` (worktree binding, development phase ingress).
+   - `aapp commit "<msg>" [agent <A> vendor <V> model <M>] [note "<text>"]` (plan-bound commit helper).
+   - `aapp commit adopt <sha>...` (retroactive commit binding).
+   - `aapp done [id]` (verification commit recording, archive relocation, matrix pruning).
+   - `aapp release [version]` (release runbook, pre-flight gate, tag ledger).
+2. **Issue & Mini-Plan Operations**:
+   - `aapp issue allocate` (atomic ID reservation via provider or local sequence).
+   - `aapp issue next` (peek next unallocated issue ID).
+   - `aapp issue list` (table dump of active issues).
+   - `aapp issue fix next-blocker` (claim top unblocked issue and open mini-plan).
+   - `aapp issue fix <num> file <path>...` (scoped mini-plan on target issue and files).
+   - `aapp issue hotfix "<text>" [file <path>]... [plan]` (emergency plan blocking, queue injection, stash set-aside).
+   - `aapp issue close <num> [sha <sha>] [summary "<text>"]` (archive relocation, road-map removal, unblock cascade).
+   - `aapp issue abort [num]` (mini-plan deletion, revert to queue).
+3. **Refinement & Board Operations**:
+   - `aapp refine <id> "<msg>"` (blueprint progress, design refinement before freeze).
+   - `aapp refine <id> blocked <num>` (manual dependency blocking).
+   - `aapp refine <id> slug <new-slug>` (plan renaming with automatic issue cross-link repair).
+   - `aapp refine issues "<msg>"` (validated flat ledger and roadmap commit).
+   - `aapp refine pickup "<msg>"` (unprocessed idea queue commit).
+4. **Inspection & Context Recovery**:
+   - `aapp status [brief]` (context recovery agent 4-pillar briefing).
+   - `aapp active` (print currently bound plan ID and worktree path).
+   - `aapp diff [id]` (working tree blast-radius diff inspection).
+   - `aapp tree` (visual worktree and orphan branch layout).
+   - `aapp plan <id>` (switch worktree active-plan context pointer).
+   - `aapp ai [status|lax|strict|none|notes [on|off]]` (switchboard attribution status and switching).
+5. **Maintenance & Emergency Controls**:
+   - `aapp pause [reason]` (emergency brake, stash isolation, velocity freeze).
+   - `aapp resume` (lift pause, verify tree parity, resume velocity).
+   - `aapp sync` (sync template blocks across `.agents/` and `.plans/`).
+   - `aapp upgrade [--develop]` (upstream update, version protocol check).
+   - `aapp develop` (symlink-based local development mode).
+   - `aapp install` (system-wide share directory installation).
+
+**Standardized Entry Schema per Verb**:
+- Syntax signature with required, optional, and multi-value parameters.
+- Preconditions: Current worktree, required branch, plan lifecycle status.
+- Exit Codes: `0` (Success), `1` (Fatal / Refusal), `2` (Hook / Gate Veto).
+- Terminal output examples and common failure diagnostics.
+- IDE / Agent Slash Command Mappings (`/aapp-freeze`, `/aapp-status`, `/aapp-digest`, etc.).
+
+### 2.6 Dedicated Configuration Dictionary (`docs/reference/03-configuration-matrix.md`)
+
+An authoritative, single-source reference dictionary for every `git config aapp.*` setting:
+- **Attribution & Provenance**:
+  - `aapp.aiAttribution`: Enum (`none | lax | strict | notes`). Governs public commit trailers.
+  - `aapp.aiNotes`: Boolean (`true | false`). Controls parallel private notes recording in `refs/notes/ai`.
+  - `aapp.aiAgent`, `aapp.aiVendor`, `aapp.aiModel`: Default agent identity strings for manual overrides.
+- **Commit Formatting Invariants**:
+  - `aapp.subjectMaxLen`: Integer (default `72`). Maximum commit subject character length.
+  - `aapp.commitLineMaxLen`: Integer (default `100`). Maximum commit body line width.
+  - `aapp.bodyMaxLen`: Integer (default `1200`). Maximum total commit body characters.
+  - `aapp.maxBodyLines`: Integer (default `20`). Maximum total commit body lines.
+  - `aapp.changelogMaxLen`: Integer (default `300`). Maximum characters per single-line bullet in `CHANGELOG.md`.
+- **Governance & Planning Modes**:
+  - `aapp.changelogMode`: Enum (`plan | commit`, default `plan`). Plan-header single entry vs commit-by-commit entry.
+  - `aapp.issueId`: Integer counter. Current local sequence cursor for issue allocation.
+  - `aapp.issueTracker`: String. Provider plugin identifier for external issue tracker integration.
+  - `aapp.maxEmergencyHotfixes`: Integer (default `2`). Threshold of hotfixes before permanent plan blocking.
+  - `aapp.issueFixWait`: Integer (default `5`). Wait timeout in minutes when another mini-plan is in development.
+- **Blast Radius & Containment**:
+  - `aapp.allowPath`: Colon-separated path patterns authorized to bypass Layer 1 write-guard.
+- **Lifecycle Hook Overrides**:
+  - `aapp.hook.<event>`: Script path overrides for any of the 10 lifecycle events (e.g., `aapp.hook.post-done`).
+
+**Standardized Entry Schema per Setting**:
+- Key name, data type, default value, and valid values/enums.
+- Configuration scope: repository-local (`--local`) vs user-global (`--global`).
+- Enforcement layer: Layer 1 Write-Time Guard, Layer 2 Pre-Commit Hook, or CLI Runtime.
+- Shell configuration examples and preset recipes (e.g., "Autonomous CI Agent Mode", "Human-Only Private Notes Mode", "Strict Compliance Mode").
+
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
@@ -135,8 +215,8 @@ The root `MANUAL.md` becomes the master navigation portal:
 
 ### Phase 2: Technical Reference Modularization (`docs/reference/`)
 - [ ] Task 2.1: Author `docs/reference/01-lifecycle-state-machine.md` (extracting from `MANUAL.md` §5).
-- [ ] Task 2.2: Author `docs/reference/02-cli-commands-and-verbs.md` (extracting from `MANUAL.md` §5 & §12).
-- [ ] Task 2.3: Author `docs/reference/03-configuration-matrix.md` (extracting from `MANUAL.md` §13).
+- [ ] Task 2.2: Author `docs/reference/02-cli-commands-and-verbs.md` with complete parameter variations across all 5 verb tiers, execution preconditions, exit codes, error diagnostics, and slash command mappings.
+- [ ] Task 2.3: Author `docs/reference/03-configuration-matrix.md` with complete `git config aapp.*` dictionary, data types, defaults, scopes, enforcement layers, and configuration presets.
 - [ ] Task 2.4: Author `docs/reference/04-plugin-and-hook-engine.md` (extracting from `MANUAL.md` §8).
 - [ ] Task 2.5: Author `docs/reference/05-ai-attribution-and-notes.md` (extracting from `MANUAL.md` §9).
 
@@ -162,8 +242,8 @@ The root `MANUAL.md` becomes the master navigation portal:
 - [ ] `NEW FILE` -> `docs/concepts/03-two-lane-governance.md` -> Issues vs Plans two-lane doctrine.
 - [ ] `NEW FILE` -> `docs/concepts/04-security-and-threat-model.md` -> Containment & security boundaries.
 - [ ] `NEW FILE` -> `docs/reference/01-lifecycle-state-machine.md` -> State machine transitions & taxonomy.
-- [ ] `NEW FILE` -> `docs/reference/02-cli-commands-and-verbs.md` -> Canonical CLI verbs and tiers.
-- [ ] `NEW FILE` -> `docs/reference/03-configuration-matrix.md` -> Complete git config aapp.* dictionary.
+- [ ] `NEW FILE` -> `docs/reference/02-cli-commands-and-verbs.md` -> Complete reference of all CLI verbs, parameter variations, exit codes, and preconditions.
+- [ ] `NEW FILE` -> `docs/reference/03-configuration-matrix.md` -> Complete git config aapp.* dictionary, data types, defaults, scopes, and presets.
 - [ ] `NEW FILE` -> `docs/reference/04-plugin-and-hook-engine.md` -> Hook triggers and registry contract.
 - [ ] `NEW FILE` -> `docs/reference/05-ai-attribution-and-notes.md` -> AI attribution modes and git notes.
 - [ ] `lib/cmd_install.sh` -> Package docs/ tree into SHARE_DIR.
@@ -183,4 +263,5 @@ The root `MANUAL.md` becomes the master navigation portal:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Refined blueprint to establish dedicated, exhaustive reference specifications for CLI Verbs with all parameter variations (`docs/reference/02-cli-commands-and-verbs.md`) and the complete Configuration Matrix dictionary (`docs/reference/03-configuration-matrix.md`).
 * **2026-10-07:** Drafted blueprint P-57 from user discussion. Defined modular technical specification hierarchy (`docs/concepts/` and `docs/reference/`), outlined executive portal `MANUAL.md`, and specified storefront `README.md` slimdown.
