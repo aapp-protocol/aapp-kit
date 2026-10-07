@@ -18,6 +18,7 @@ See `.agents/CODEMAP.md` (or `CODEMAP.md` at the repo root) before assuming wher
 - **Every code change is covered by `CHANGELOG.md`. No exceptions — a one-character typo fix still counts.** The pre-commit hook enforces this, and it is not up for negotiation or optimization.
   - **Work for a plan (`aapp.changelogMode = plan`, default):** the plan declares its single entry in its `* **Changelog:**` header line; `aapp commit` writes it under `## [Unreleased]` on the plan's first commit, and later commits for that plan pass once it is there. Never hand-edit the plan's bullet: reword the plan's line and commit it with `aapp refine`.
   - **No active plan (a direct fix), or `aapp.changelogMode = commit`:** the commit itself must change `CHANGELOG.md`.
+- **Commit mode (`aapp.commitMode`):** `atomic` (default) means a plan is **one commit**: after the first `aapp commit`, fold further changes in with `aapp commit amend` (a second commit is refused). `microcommits` allows several. The plan header records both modes; never edit those fields by hand.
   - **Never leave a change out to keep the changelog short:** in `plan` mode one entry covers all of a plan's commits; in `commit` mode and for direct fixes each code commit adds its own line. Condensing is done at release time.
 - **For Code Changes:** You MUST run syntax checks, build steps, and automated tests BEFORE updating `CHANGELOG.md`.
 - **For Rules & Internal Config (`.agents/*`):** Do NOT update `CHANGELOG.md`.

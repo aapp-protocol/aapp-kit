@@ -132,6 +132,7 @@
 * **Anti-Wrapper Warning:** Never add an inline section parser elsewhere; extend this library and `tests/aapp_lib_test.sh`. Edit `lib/aapp-lib.sh`, never `templates/aapp-lib.sh` (a symlink) or `.githooks/aapp-lib.sh` (installed by `aapp init`).
 
 ### 📝 Plan-Bound Commit Helper (`lib/cmd_commit.sh`)
+* **Commit mode (P-51):** `aapp_commit_mode` / `aapp_changelog_mode` / `aapp_plan_stamp_modes` (`lib/aapp-lib.sh`): `atomic` refuses a second standard commit (helper) and a raw code commit (pre-commit hook); every commit and `draft` stamp `Commit Mode:` / `Changelog Mode:` in the plan header, logging a switch in §6.
 * **Purpose:** Single source of truth for committing staged implementation code, attaching attribution via P-40, and recording commit SHAs in the active plan.
 * **Key Commands:**
   * `aapp commit "<msg>" [agent <A> vendor <V> model <M>] [note "<text>"]` -> Commits staged files in worktree, decorates attribution, and records SHA and branch in active plan.
