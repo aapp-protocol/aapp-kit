@@ -116,7 +116,15 @@ Blast-radius constraints, hook traps, or common failure modes to avoid.
 
 ## 🔗 Related References
 - Links to relevant sections in `MANUAL.md`, `ARCHITECTURE.md`, or neighboring recipes.
+
+## 🧭 Continuous Navigation
+- 🍳 [Cookbook Catalog](../../COOKBOOK.md)
+- 📖 [Technical Manual](../../MANUAL.md)
+- 🏠 [Repository Overview](../../README.md)
 ```
+
+**Continuous Navigation Invariant**:
+Every recipe in `docs/recipes/**/*.md` MUST include standard bidirectional navigation breadcrumbs/links connecting back to `COOKBOOK.md`, `MANUAL.md`, and `README.md`. Users and AI agents navigating to any individual recipe file must always have immediate, continuous links to return to the catalog or technical reference without dead ends.
 
 ### 2.3 Refactoring `MANUAL.md` (Extraction & Pointer Strategy)
 
@@ -225,6 +233,7 @@ Two dedicated recipes document these production patterns:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-07:** Refined blueprint: added Continuous Navigation Invariant requiring standard back-links to `COOKBOOK.md`, `MANUAL.md`, and `README.md` across every recipe file.
 * **2026-10-07:** Refined blueprint: scoped P-56 strictly to cookbook & recipes (leaving portal architecture & README to P-57), corrected hook pre-gate return code semantics (exit 1 abort, exit 2 advisory) per P-23, and aligned hotfix recipe with P-52 mini-plans.
 * **2026-10-07:** Refined blueprint to include custom lifecycle hooks and deployment recipes (`docs/recipes/plugins-and-hooks/`) covering real-world continuous deployment on `post-done` and custom pre-gate validation on `pre-freeze`/`pre-done`.
 * **2026-10-07:** Drafted blueprint P-56 from user discussion. Established modular `COOKBOOK.md` + `docs/recipes/` architecture, defined SSG-compatible frontmatter schema, mapped extraction targets from `MANUAL.md`, and locked blast radius.
