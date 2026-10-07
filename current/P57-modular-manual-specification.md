@@ -1,8 +1,8 @@
 # 🗺️ Plan P-57: Modular Manual Specification
 * **Created:** 2026-10-07 | **Last Refined:** 2026-10-07
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** Milestone v1.1.0 (Documentation & Technical Reference Architecture)
 * **Plan ID:** P-57
-* **Changelog:** Changed: Modular Manual Specification
+* **Changelog:** Changed: Modular technical specification (`docs/`) and executive portal `MANUAL.md` architecture
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
@@ -35,63 +35,151 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+`MANUAL.md` currently spans 1,835 lines (130 KB), while `README.md` spans 463 lines (35 KB).
+Following Plan P-56 (which establishes the How-To Cookbook in `docs/recipes/`), `MANUAL.md` still houses over 1,200 lines of disparate technical content covering 12 separate domains: worktree plumbing, blast-radius mechanics, two-lane governance, lifecycle state machines, plugin registries, AI attribution, threat models, and configuration dictionaries.
+
+Simultaneously, `README.md` suffers from severe content bloat, duplicating low-level manual content (5-column TSV schemas, branching theory, hook manager shims, and §E.8 academic mode-boundary rationale) rather than acting as a crisp, inviting storefront.
+
+**Architectural Goal**:
+Complete the Diátaxis documentation architecture:
+1. **Modular Technical Specification (`docs/concepts/` & `docs/reference/`)**:
+   - Extract `MANUAL.md` into clean, topic-based modular specification files with YAML frontmatter.
+   - Separate conceptual deep-dives (`docs/concepts/`) from factual lookups (`docs/reference/`).
+2. **Executive Portal `MANUAL.md`**:
+   - Transform the root `MANUAL.md` into a lean ~150-line executive manual providing system axioms, high-level architecture, and direct navigation links to the modular specs.
+3. **Slim Storefront `README.md`**:
+   - Reduce `README.md` to ~120 lines focused purely on value proposition, 30-second architecture diagram, 60-second quickstart, and documentation links.
+4. **Static Site Generator (SSG) & Progressive Disclosure Readiness**:
+   - Ensure the entire `docs/` hierarchy is formatted for seamless ingestion by modern SSG engines (VitePress, Astro Starlight, Docusaurus) and token-efficient progressive disclosure by AI coding agents.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- All internal markdown cross-links will use repository-relative paths (`[Concepts](docs/concepts/...)`).
+- Existing external references to `MANUAL.md` will land on the executive portal with immediate links to the detailed subtopics.
+
+### 2.1 Information Architecture & Taxonomy
+
+```text
+agent-planning-kit/
+├── README.md                           # Storefront: Pitch, 30s diagram, 60s install (~120 lines)
+├── CHEATSHEET.md                       # Desk Card: 1-screen quick reference (<= 200 lines)
+├── COOKBOOK.md                         # [P-56] How-To Catalog: Topic index linking to docs/recipes/
+├── MANUAL.md                           # Executive Portal: Core axioms & navigation hub (~150 lines)
+│
+└── docs/
+    ├── recipes/                        # [P-56] Task-Oriented How-To Guides
+    │   ├── getting-started/
+    │   ├── integrations/
+    │   ├── workflows/
+    │   └── troubleshooting/
+    │
+    ├── concepts/                       # Deep Architectural Understanding & Mechanics
+    │   ├── 01-worktree-architecture.md      # Orphan branches, worktree mounts, remote sync
+    │   ├── 02-blast-radius-engine.md        # PreToolUse guard, pre-commit, bracket regex
+    │   ├── 03-two-lane-governance.md        # Issues vs Plans, flat ledger, relocation invariant
+    │   └── 04-security-and-threat-model.md  # Pair programming trust model, shell containment
+    │
+    └── reference/                      # Authoritative Lookups & Specifications
+        ├── 01-lifecycle-state-machine.md    # Status taxonomy, transitions, failure branches
+        ├── 02-cli-commands-and-verbs.md     # 5-tier discovery hierarchy, canonical verb contracts
+        ├── 03-configuration-matrix.md       # Full git config aapp.* dictionary & defaults
+        ├── 04-plugin-and-hook-engine.md     # registry.tsv contract, lifecycle triggers, execution
+        └── 05-ai-attribution-and-notes.md   # Trailers vs Notes, switchboard, audit compliance
+```
+
+### 2.2 Portal `MANUAL.md` Structure (~150 Lines)
+
+The root `MANUAL.md` becomes the master navigation portal:
+1. **Core Architectural Axioms**:
+   - The Clean Break Invariant.
+   - The Blast Radius Lock.
+   - The Two-Lane Separation Law (Issues vs. Plans).
+   - Zero Context Pollution (Orphan branches).
+2. **Master Specification Map**:
+   - Structured table linking each domain to its modular file in `docs/concepts/` or `docs/reference/`.
+3. **Quick CLI & Switchboard Cheat Matrix**:
+   - Concise lookup for key verbs and configuration flags.
+
+### 2.3 Slim Storefront `README.md` Structure (~120 Lines)
+
+`README.md` is pruned of deep manual prose:
+- **Hero & Value Proposition**: 2-sentence hook and project badges.
+- **The Problem**: Agent drift, context pollution, out-of-bounds corruption.
+- **The Solution**: Deterministic git-level guardrails (4 worktrees ASCII diagram).
+- **60-Second Quickstart**: Global install, repo init, `/aapp-status`.
+- **Documentation Navigation Quadrant**: Direct links to `CHEATSHEET.md`, `COOKBOOK.md`, and `MANUAL.md`.
+- **Supported Ecosystem**: Supported agents (Antigravity, Claude Code, Cursor, Codex).
+- **License & Contributors**.
+
+### 2.4 Packaging & Installer Synchronization
+
+1. In `lib/cmd_install.sh`: Ensure `$SHARE_DIR` copies the entire `docs/` tree (`recipes/`, `concepts/`, `reference/`) and `MANUAL.md`.
+2. In `lib/cmd_develop.sh`: Verify symlink reflection covers `docs/` and root documentation portals.
+3. In `tests/install_test.sh`: Assert that installed share directories contain `docs/concepts/` and `docs/reference/`.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Conceptual Architecture Modularization (`docs/concepts/`)
+- [ ] Task 1.1: Author `docs/concepts/01-worktree-architecture.md` (extracting and refining from `MANUAL.md` §1 & §2).
+- [ ] Task 1.2: Author `docs/concepts/02-blast-radius-engine.md` (extracting from `MANUAL.md` §3).
+- [ ] Task 1.3: Author `docs/concepts/03-two-lane-governance.md` (extracting from `MANUAL.md` §4).
+- [ ] Task 1.4: Author `docs/concepts/04-security-and-threat-model.md` (extracting from `MANUAL.md` §10).
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Technical Reference Modularization (`docs/reference/`)
+- [ ] Task 2.1: Author `docs/reference/01-lifecycle-state-machine.md` (extracting from `MANUAL.md` §5).
+- [ ] Task 2.2: Author `docs/reference/02-cli-commands-and-verbs.md` (extracting from `MANUAL.md` §5 & §12).
+- [ ] Task 2.3: Author `docs/reference/03-configuration-matrix.md` (extracting from `MANUAL.md` §13).
+- [ ] Task 2.4: Author `docs/reference/04-plugin-and-hook-engine.md` (extracting from `MANUAL.md` §8).
+- [ ] Task 2.5: Author `docs/reference/05-ai-attribution-and-notes.md` (extracting from `MANUAL.md` §9).
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+### Phase 3: Portal Transformation & Storefront Cleanup
+- [ ] Task 3.1: Rewrite root `MANUAL.md` into the concise executive portal (~150 lines) with complete relative links into `docs/`.
+- [ ] Task 3.2: Slim down root `README.md` to ~120 lines, removing redundant TSV schemas, branching theory, and hook manager shims.
+- [ ] Task 3.3: Verify all internal markdown links are repository-relative and validate anchor hygiene.
+
+### Phase 4: Installer Sync & Regression Verification
+- [ ] Task 4.1: Update `lib/cmd_install.sh` to package `docs/concepts/` and `docs/reference/`.
+- [ ] Task 4.2: Update `tests/install_test.sh` to verify full `docs/` tree installation in `$SHARE_DIR`.
+- [ ] Task 4.3: Execute all automated test suites (`tests/install_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`) to ensure 100% compliance.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `MANUAL.md` -> Transformed into executive navigation portal.
+- [ ] `README.md` -> Slimmed down to ~120-line storefront.
+- [ ] `NEW FILE` -> `docs/concepts/01-worktree-architecture.md` -> Deep dive on orphan worktree mechanics.
+- [ ] `NEW FILE` -> `docs/concepts/02-blast-radius-engine.md` -> Dual-layer enforcement specification.
+- [ ] `NEW FILE` -> `docs/concepts/03-two-lane-governance.md` -> Issues vs Plans two-lane doctrine.
+- [ ] `NEW FILE` -> `docs/concepts/04-security-and-threat-model.md` -> Containment & security boundaries.
+- [ ] `NEW FILE` -> `docs/reference/01-lifecycle-state-machine.md` -> State machine transitions & taxonomy.
+- [ ] `NEW FILE` -> `docs/reference/02-cli-commands-and-verbs.md` -> Canonical CLI verbs and tiers.
+- [ ] `NEW FILE` -> `docs/reference/03-configuration-matrix.md` -> Complete git config aapp.* dictionary.
+- [ ] `NEW FILE` -> `docs/reference/04-plugin-and-hook-engine.md` -> Hook triggers and registry contract.
+- [ ] `NEW FILE` -> `docs/reference/05-ai-attribution-and-notes.md` -> AI attribution modes and git notes.
+- [ ] `lib/cmd_install.sh` -> Package docs/ tree into SHARE_DIR.
+- [ ] `tests/install_test.sh` -> Regression test asserting docs/ distribution.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `COOKBOOK.md` -> Governed by Plan P-56.
+- [ ] `docs/recipes/` -> Governed by Plan P-56.
+- [ ] `templates/blast-radius-guard.sh` -> Enforcement engine logic unchanged.
+- [ ] `templates/aapp-pre-commit` -> Commit hook engine unchanged.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-07:** Plan initialized from `pickup.md`.
-* **2026-10-07:** Refined blast radius and locked module boundaries.
+* **2026-10-07:** Drafted blueprint P-57 from user discussion. Defined modular technical specification hierarchy (`docs/concepts/` and `docs/reference/`), outlined executive portal `MANUAL.md`, and specified storefront `README.md` slimdown.
