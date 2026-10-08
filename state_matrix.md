@@ -27,8 +27,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-23**: [`P23-lifecycle-hook-sequencing-and-pre-gates.md`](current/P23-lifecycle-hook-sequencing-and-pre-gates.md) — Lifecycle Hook Sequencing, Pre-Mutation Quality Gates & Return Code Abort Protocol.
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
