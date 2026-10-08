@@ -1,5 +1,5 @@
 # 🗺️ Plan P-38: Milestone Release Bundling, Tag Ledgers & Hook-Based Versioning
-* **Created:** 2026-09-27 | **Last Refined:** 2026-10-07
+* **Created:** 2026-09-27 | **Last Refined:** 2026-10-08
 * **Target Issue / Milestone:** #63
 * **Plan ID:** P-38
 * **Changelog:** Added: Milestone release bundling, tag ledgers, and hook-based versioning
@@ -34,7 +34,7 @@ Establish **Milestone Release Bundling** under `.plans/release/<tag>/`, **1-Row 
 5. **Tag Ledger & Master Rollup**: Generates `.plans/release/<tag>/000-archive-ledger.md` with full plan details, while truncating `.plans/done/000-archive-ledger.md` to a **1-line summary row per release** linking directly to the tag ledger.
 6. **Rolling Active Graveyard**: Resets `.plans/done/000-issues-archive.md` to a lean table for the next unreleased cycle.
 7. **Recursive Resolution**: Upgrades `lib/plan_resolver.sh` to search `.plans/done/` and `.plans/release/*/plans/` recursively without depth limits.
-8. **Simulation & Safety**: Provides `--dry-run` preview, pre-flight test gating (`aapp test strict quiet`), clean worktree enforcement, and branch parity verification (`develop` ➔ `main`).
+8. **Simulation & Safety**: Provides `--dry-run` preview, pre-flight test gating (`aapp test strict quiet`), clean worktree enforcement, and branch parity verification (from configured development branch `$DEV_BRANCH` ➔ release branch `$RELEASE_BRANCH`).
 
 ---
 
@@ -118,10 +118,13 @@ For the AAPP Kit itself, the version is established in `aapp` (`AAPP_VERSION="1.
 1. **Pre-Flight Test Gate & `pre-release` Hook**:
    - Dispatches `pre-release` gate hook via `dispatch_lifecycle_hook` with payload `{"event":"pre-release","version":"$TARGET_VERSION","previousVersion":"$PREV_VERSION","bump":"$BUMP_TYPE"}`.
    - Executes `./aapp test strict quiet` (or project test runner).
-   - Asserts working tree cleanliness across all active worktrees (`develop`, `plans`, `agents`, `githooks`).
+   - Asserts working tree cleanliness across all active worktrees (the active development checkout, `plans`, `agents`, `githooks`).
    - If any test, cleanliness check, or `pre-release` hook fails (exit non-zero), **hard aborts immediately** with zero disk modifications.
 2. **Branch Parity & Fast-Forward Validation**:
-   - On multi-branch topologies (`develop` / `main`), asserts `develop` fast-forwards cleanly into `main` (`git merge-base --is-ancestor develop main`).
+   - Resolves the active development branch `$DEV_BRANCH` dynamically via `aapp_dev_branch` (`git config aapp.devBranch`, defaulting to `develop dev development`).
+   - Resolves the target release branch `$RELEASE_BRANCH` via `git config aapp.releaseBranch` (fallback to matching candidate in `git config aapp.protectedBranches` or `main` / `master`).
+   - On multi-branch topologies (where `$DEV_BRANCH` exists distinct from `$RELEASE_BRANCH`), asserts `$DEV_BRANCH` fast-forwards cleanly into `$RELEASE_BRANCH` (`git merge-base --is-ancestor "$DEV_BRANCH" "$RELEASE_BRANCH"`). If ancestral check fails, aborts immediately.
+   - On single-branch / trunk-based topologies (no separate `$DEV_BRANCH` distinct from `$RELEASE_BRANCH`), asserts working tree cleanliness on the current branch.
 3. **Hook-Based Version Increment (`on-release` Action Delegate)**:
    - Dispatches `on-release` action delegate via `dispatch_lifecycle_hook`.
    - Passes Dual Delivery payload:
@@ -147,10 +150,26 @@ For the AAPP Kit itself, the version is established in `aapp` (`AAPP_VERSION="1.
 7. **Worktree Commit**:
    - Commits `.plans` worktree: `git -C .plans commit -m "release(plans): bundle <tag> milestone and roll ledgers"`.
 8. **Git Parity Merge & Tagging**:
-   - If multi-branch topology: checks out `main` and runs `ALLOW_MAIN_COMMIT=1 git merge --ff-only develop`.
+   - If multi-branch topology: checks out `$RELEASE_BRANCH` and runs `ALLOW_MAIN_COMMIT=1 git merge --ff-only "$DEV_BRANCH"`.
+   - If single-branch / trunk-based topology: commits the release rollup directly on the current release branch.
    - Creates annotated tag: `git tag -a <tag> -m "Release <tag>"`.
 9. **Post-Release Notification (`post-release` Observer)**:
    - Dispatches `post-release` observer hook in `mode=notify` with release metadata payload for downstream CI/CD deployment or notification.
+
+#### D. Branch Topology & Dynamic Development Branch Resolution
+The release engine avoids hardcoding `develop` or `main`:
+1. **Development Branch (`$DEV_BRANCH`)**:
+   - Evaluated dynamically via `aapp_dev_branch()` in `lib/aapp-lib.sh`.
+   - Queries `git config --get aapp.devBranch` (default candidates: `develop dev development`).
+   - Selects the first candidate that exists locally or on a remote.
+   - Allows projects to use custom development branches (e.g. `staging`, `dev`, `development`).
+2. **Release Target Branch (`$RELEASE_BRANCH`)**:
+   - Queries `git config aapp.releaseBranch`.
+   - If unset, queries candidate list from `git config aapp.protectedBranches` (default: `main master production`), selecting the first existing branch.
+   - Defaults to `main` if no config matches.
+3. **Topology Detection**:
+   - **Multi-Branch Topology**: If `$DEV_BRANCH` is non-empty, exists, and `$DEV_BRANCH != $RELEASE_BRANCH`: fast-forward parity verification (`git merge-base --is-ancestor "$DEV_BRANCH" "$RELEASE_BRANCH"`) and fast-forward parity merge (`git merge --ff-only "$DEV_BRANCH"`) are strictly enforced.
+   - **Single-Branch / Trunk-Based Topology**: If no separate `$DEV_BRANCH` exists, or if current working branch is already `$RELEASE_BRANCH`: trunk-based execution is detected. Parity merge is skipped, and version bump/tagging executes directly on the current branch.
 
 ### 2.4 Recursive Plan Resolution (`lib/plan_resolver.sh`)
 
@@ -187,7 +206,7 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
   - `on-release` action delegate hook dispatch with Dual Delivery payload.
   - Snapshot-driven milestone bundle generation under `.plans/release/<tag>/` (dynamically moving whatever plans reside in `.plans/done/`).
   - Master ledger rollup in `000-archive-ledger.md` and archive truncation in `000-issues-archive.md`.
-  - `CHANGELOG.md` rollup and git parity merge (`develop` ➔ `main`) with annotated tag.
+  - `CHANGELOG.md` rollup and git parity merge (`$DEV_BRANCH` ➔ `$RELEASE_BRANCH` via `aapp.devBranch`) with annotated tag.
   - `post-release` observer hook notification trigger.
 - [ ] Task 2.2: Register `release` in `lib/verbs.tsv`, author `lib/docs/verbs/release.md`, and wire into `aapp` dispatcher.
 - [ ] Task 2.3: Author `examples/hooks/on-release.sh.sample` in `examples/hooks/`.
@@ -254,10 +273,13 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
   *Decision:* Multi-project precedence ladder: explicit CLI argument $\rightarrow$ existing tag $\rightarrow$ `git config aapp.initialVersion` $\rightarrow$ manifest autodetection (`package.json`, `pyproject.toml`, `Cargo.toml`, `aapp`) $\rightarrow$ interactive terminal prompt fallback (`[ -t 0 ]`). For the AAPP Kit itself, the version is established in `aapp` as `1.0.0`.
 * [x] **Question 7: How are plan counts handled during release bundling?**  
   *Decision:* Snapshot-agnostic dynamic bundling. The release command bundles all blueprints currently present in `.plans/done/` without hardcoded plan counts or ID constraints.
+* [x] **Question 8: How should the development branch be determined for multi-branch parity merge?**  
+  *Decision:* **Dynamically configured via `aapp.devBranch`.** The release engine never hardcodes `develop`. It calls `aapp_dev_branch` (`git config aapp.devBranch`, candidate list: `develop dev development`), matching the branch conventions of each adopter project. Similarly, the release target branch is resolved via `aapp.releaseBranch` / `aapp.protectedBranches` (defaulting to `main` / `master`). Trunk-based repositories without a distinct development branch bypass the merge step cleanly.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-08:** Refined blueprint: resolved branch resolution strategy so the developing branch is dynamically determined from configuration (`aapp.devBranch` via `aapp_dev_branch`) rather than hardcoded `develop`, with target release branch resolved via `aapp.releaseBranch` / `aapp.protectedBranches`, supporting arbitrary adopter branch topologies and trunk-based workflows.
 * **2026-10-07:** Refined blueprint: added changelog header, established multi-project baseline resolution ladder (config, manifest autodetection, prompt fallback), specified version syntax supporting both 1.0.0 (preferred) and 1.n with suffixes up to 30 chars, aligned hooks with P-23 (pre-release gate, on-release action delegate, post-release observer), and codified snapshot-agnostic dynamic bundling.
 * **2026-09-27:** Added `--no-archive` flag and zero-item resilience for out-of-repo plan workflows and empty-archive releases.
 * **2026-09-27:** Refined blueprint to include mandatory CLI version/bump parameter, hook-delegated version updates (`on-release`), and `--dry-run` simulation preview.
