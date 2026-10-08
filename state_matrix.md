@@ -25,11 +25,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-54**: [`P54-plan-worktrees-at-start.md`](current/P54-plan-worktrees-at-start.md) — Plan Worktrees At Start
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-54**: [`P54-plan-worktrees-at-start.md`](current/P54-plan-worktrees-at-start.md) — Plan Worktrees At Start
 
 ---
 
