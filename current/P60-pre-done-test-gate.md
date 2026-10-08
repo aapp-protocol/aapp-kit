@@ -133,12 +133,13 @@ Copy to `.agents/hooks/test-gate.sh` with `TEST_CMD='./aapp test strict quiet'`,
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — Where the test command lives.** (a) In the handler script (`TEST_CMD=`), pinned by the registry's SHA-256: changing it is a reviewed commit. (b) A git config key: easier to change, but per clone and editable by any agent, and `aapp.testCommand` is slated for removal (#92). Recommendation: (a).
-* [ ] **Question 2 — Dirty working tree in a single checkout.** (a) Refuse: the tests must run on the committed code. (b) Run anyway with a warning (uncommitted work may make red green or the reverse). Recommendation: (a); plan worktrees are already clean-checked by `done` (P-54).
-* [ ] **Question 3 — Dogfooding order.** Registering the gate here makes every `done` run the full suite (about 5 minutes) and refuse while #109 is red. (a) Ship P-60 with the dogfood step, after #109 is fixed. (b) Ship the sample now, dogfood separately later. Recommendation: (a) — it is the point of the plan.
+* [x] **Question 1 — Where the test command lives. → RESOLVED (developer, 2026-10-08): (a), in the handler script, SHA-pinned (§2.1).** (a) In the handler script (`TEST_CMD=`), pinned by the registry's SHA-256: changing it is a reviewed commit. (b) A git config key: easier to change, but per clone and editable by any agent, and `aapp.testCommand` is slated for removal (#92). Recommendation: (a).
+* [x] **Question 2 — Dirty working tree in a single checkout. → RESOLVED (developer, 2026-10-08): (a), refuse (§2.1).** (a) Refuse: the tests must run on the committed code. (b) Run anyway with a warning (uncommitted work may make red green or the reverse). Recommendation: (a); plan worktrees are already clean-checked by `done` (P-54).
+* [x] **Question 3 — Dogfooding order. → RESOLVED (developer, 2026-10-08): (a), P-60 ships with the dogfood step, after #109 is fixed (§2.4, Task 2.4).** Registering the gate here makes every `done` run the full suite (about 5 minutes) and refuse while #109 is red. (a) Ship P-60 with the dogfood step, after #109 is fixed. (b) Ship the sample now, dogfood separately later. Recommendation: (a) — it is the point of the plan.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-08:** Q1–Q3 resolved with the recommended answers (developer): command in the SHA-pinned handler script; refuse a dirty single checkout; dogfood in this plan, after #109.
 * **2026-10-08:** Drafted from the developer's request after the reliability review: P-23 closed with a red suite (#109); `done` should require green tests before the first release. Cookbook recipe and configuration profiles left to P-56 (pickup note).
