@@ -28,7 +28,8 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp start [id] [worktree <path> [branch <name>]]` | **✅ Yes** | Bind execution buffer & transition to ⚡ In Development (refused while a queued Plan Blocker names a Target File); with `aapp.planWorktrees on` (or `worktree`), in the plan's own branch and worktree, all or nothing |
 | `aapp freeze-start [id] [worktree <path> [branch <name>]]` | **✅ Yes** | Atomically freeze blueprint and activate execution buffer (same pending-fix gate and plan worktree) |
 | `aapp commit "<msg>"` | **✅ Yes** | Commit implementation code and record SHA into active plan |
-| `aapp done [id]` | **✅ Yes** | Archive implemented blueprint to done/ and update archival ledger; repairs issue links to the plan |
+| `aapp done [id]` | **✅ Yes** | Archive implemented blueprint to done/ and update archival ledger; repairs issue links to the plan; with `aapp.integrate` squash/ff/hook, also integrates a worktree plan into its parent branch and cleans up |
+| `aapp done <id> integrate [squash\|ff\|hook] [target <b>] [no-cleanup] [force-cleanup] [override-hotfix-cap]` / `no-integrate` | **✅ Yes** | Integrate a worktree plan now (also an archived one, as a retry), or archive only (P-55) |
 | `aapp issue hotfix "<text>" [file <path>]… [plan]` | **✅ Yes** | Log a blocking bug, queue it, block the plan (one commit; >`aapp.maxEmergencyHotfixes` blocks for good) |
 | `aapp issue fix next-blocker \| <num> [file <path>…] \| <num> abort` | **✅ Yes** | Temporary mini plan for one fix, files from the issue's Location; waits up to `aapp.issueFixWait` for an open fix or uncommitted work (skill: `/aapp-fix [#<num>]`) |
 | `aapp active [id]` | **✅ Yes** | Inspect, swap, or clear active plan execution buffer |
@@ -126,6 +127,10 @@ AAPP controls repository behavior via standard Git configuration:
 | `aapp.planBranch` | template | `plan/{id}-{slug}` | `aapp start` | Plan branch name; `{id}` (`P51`), `{num}`, `{slug}`, `{repo}` (P-54). |
 | `aapp.planWorktreePath` | template | `../{repo}-{id}` | `aapp start` | Plan worktree path, relative to the primary checkout (P-54). |
 | `aapp.planSession` | command template | *(unset, personal)* | `aapp start` | Opens a session in the new plan worktree, detached; `{path}`, `{id}`, `{branch}`, `{slug}`, `{plan_file}` shell-quoted (P-54). |
+| `aapp.integrate` | `manual` / `squash` / `ff` / `hook` | `manual` | `aapp done` | How `done` integrates a worktree plan into its parent branch; `manual` prints advice only (P-55). |
+| `aapp.integrateTarget` | `parent` / `dev` / `<branch>` | `parent` | `aapp done` | Target: the plan's `Base:` branch, the development branch, or a named branch (P-55). |
+| `aapp.integrateCleanup` | `true` / `false` | `true` | `aapp done` | Remove the plan worktree and branch after integrating (P-55). |
+| `aapp.quarantineIgnored` | `true` / `false` | `false` | `aapp done` | Copy sensitive ignored files (`.env*`, keys) into `.git/aapp_quarantine/<id>/` before removal; otherwise they refuse the cleanup (P-55). |
 | `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | Monotonic issue ID counter (claimed via `aapp issue allocate`; seeded from both issue ledgers on first use). |
 | `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
 | `aapp.aiAttribution` | `none` / `lax` / `strict` / `notes` | `none` | AI Attribution | Attribution mode: none (default; human-only), lax (mixed human/AI), strict (mandatory trailers), notes (private git notes). |

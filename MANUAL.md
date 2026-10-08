@@ -1200,6 +1200,7 @@ AAPP wires 10 distinct lifecycle events across all planning and workflow operati
 | `on-freeze` | `/aapp-freeze` / `aapp freeze` | `gate` | Plan ID, declared Target Files, locked blueprint path. |
 | `on-start` | `/aapp-start` / `aapp start` | `gate` | Plan ID, status transition to `⚡ In Development`. |
 | `on-done` | `/aapp-done` / `aapp done` | `notify` | Plan ID, destination archive path in `.plans/done/`. |
+| `on-integrate` | `aapp done` with `aapp.integrate = hook` (or the `hook` token) | `gate` | Action delegate (P-55): replaces the built-in squash / fast-forward; `plan_id`, `plan_file`, `plan_branch`, `target_branch`, `worktree`. A refusal leaves the plan archived; `aapp done <id> integrate` retries. |
 | `on-pause` | `/aapp-pause` / `aapp pause` | `gate` | Pause reason, dirty worktree inventory, pause buffer path. |
 | `on-resume` | `/aapp-resume` / `aapp resume` | `gate` | Restored plan ID, restored worktree count. |
 | `pre-sync` | `aapp push`, `pull`, `sync` | `notify` | Action (`push`/`pull`/`sync`), remote, worktrees. |
@@ -1381,7 +1382,26 @@ git config aapp.planSession 'tmux new-window -c {path} -n {id} claude'   # perso
 - **Sessions** (`aapp.planSession`, personal, unset by default): run detached in the worktree after the start commit and never waited on (an agent invoking `start` must not hang). Placeholders `{path}`, `{id}`, `{branch}`, `{slug}`, `{plan_file}` are shell-quoted; `AAPP_PLAN_ID`, `AAPP_WORKTREE`, `AAPP_BRANCH`, `AAPP_SLUG`, `AAPP_PLAN_FILE` are exported; output goes to the worktree's `aapp_session.log`. A launch failure only warns. Giving the session its task is out of scope (see the Work Dispatch Queue idea).
 - **Taking fixes:** rebase only, `git rebase --autostash <devBranch>`, when resuming and before `aapp done`. Finishing a merge of the development branch is refused by the plan's own hook (the merged files are outside its Target Files); `git rebase` runs no pre-commit.
 - **`post-rewrite` hook** (installed by `aapp init`, also with the config `off`): after a rebase or `git commit --amend`, it maps the bound plan's recorded commits to their new SHAs, dedupes after a squash, drops a commit the rebase dropped as already upstream (with a notice), and commits the plan. It stays out of `aapp commit amend`, which keeps its own record. A hook cannot stop a rebase, so a failed record commit warns with the command to fix it.
-- **`aapp done`** refuses while the plan's worktree has uncommitted changes, clears the buffer of the worktree that holds the plan wherever it runs, and never merges, deletes the branch or removes the worktree. It prints `git worktree remove <path>` (which also deletes ignored files there: local env files, build output) and `git branch -D <branch>` for after integration (`-d` refuses after a squash merge). The `Worktree:` line moves to `done/` with the plan.
+- **`aapp done`** refuses while the plan's worktree has uncommitted changes and clears the buffer of the worktree that holds the plan wherever it runs. The `Worktree:` line moves to `done/` with the plan. Integration is the next section: with `aapp.integrate = manual` (the default) `done` archives only and prints `aapp done <id> integrate`, `git worktree remove <path>` (which also deletes ignored files there: local env files, build output) and `git branch -D <branch>` (`-d` refuses after a squash merge).
+
+#### Integrating a Plan Branch (`aapp done … integrate`, P-55)
+
+Set `aapp.integrate` to `squash`, `ff` or `hook` and `aapp done <id>` also integrates a worktree plan into its **parent branch**, the one recorded in `* **Base:**` (a plan started from `module/auth` lands in `module/auth`, not `develop`), then removes the worktree and branch. One command; plans without a worktree are archived as before, since their commits are on the development branch already.
+
+```bash
+git config aapp.integrate squash        # or ff, hook; manual (default) only advises
+aapp done P-51                          # checks, archive, squash into the parent, cleanup
+aapp done P-51 integrate                # integrate an archived plan (after manual, a refused hook or cleanup)
+aapp done P-51 integrate ff target develop no-cleanup
+aapp done P-51 no-integrate             # archive only
+```
+
+- **Checks first.** Before `pre-done` and the archive: the plan branch and target exist locally; the plan branch contains the target (otherwise `rebase it first`, with the command); the main checkout has no uncommitted tracked changes; no more than `aapp.maxEmergencyHotfixes` emergency hotfixes (else `override-hotfix-cap`, a human sign-off); a registered `on-integrate` handler for `hook`; and no open issue fix in the main checkout (waited for with the P-52 roller up to `aapp.issueFixWait`). Any refusal archives nothing.
+- **`squash`** (milestone): switches the main checkout to the target and back, squashes, and commits `feat: <title> (<id>)` with the plan's changelog line and trailers `Plan-ID:`, `Plan-Parent:`, `Base-Branch:` plus the attribution trailers. The plan's commits already passed the hooks on their branch; the squash commit does not re-run them. The branch is deleted with `-D` (a squashed branch is never an ancestor).
+- **`ff`** (microcommits): `git merge --ff-only`; every commit and SHA survives.
+- **`hook`**: the `on-integrate` gate handler does the integration (a pull request, a deploy); built-in cleanup is skipped because the handler owns the branch. A refusal leaves the plan archived; `aapp done <id> integrate` retries.
+- **Cleanup and ignored files.** `git worktree remove` deletes ignored files silently, so sensitive ones (`.env*`, `*.pem`, `*.key`, `*secret*`) **refuse the cleanup** with a list; the integration stands. Set `aapp.quarantineIgnored true` to copy them into `$(git rev-parse --git-common-dir)/aapp_quarantine/<id>/` (inside `.git`, never pushed) first, or pass `force-cleanup`. `no-cleanup` or `aapp.integrateCleanup false` keeps the worktree and branch.
+- **Retries** are safe: a plan already contained in its target is not merged again; `integrate` then only cleans up.
 
 ---
 
@@ -1894,6 +1914,10 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | `aapp.planBranch` | template | `plan/{id}-{slug}` | `aapp start` | Plan branch name; placeholders `{id}` (`P51`), `{num}`, `{slug}`, `{repo}`. |
 | `aapp.planWorktreePath` | template | `../{repo}-{id}` | `aapp start` | Plan worktree path, relative to the primary checkout; same placeholders. |
 | `aapp.planSession` | command template | *(unset, personal)* | `aapp start` | Opens a session (agent CLI, terminal, editor) in a new plan worktree, detached; `{path}`, `{id}`, `{branch}`, `{slug}`, `{plan_file}` (shell-quoted). Never seeded. |
+| `aapp.integrate` | `manual` / `squash` / `ff` / `hook` | `manual` | `aapp done` | How `done` integrates a worktree plan into its parent branch; `manual` archives and prints advice (P-55). |
+| `aapp.integrateTarget` | `parent` / `dev` / `<branch>` | `parent` | `aapp done` | Integration target: the branch in the plan's `Base:`, the development branch, or a named branch (P-55). |
+| `aapp.integrateCleanup` | `true` / `false` | `true` | `aapp done` | Remove the plan worktree and branch after integrating (P-55). |
+| `aapp.quarantineIgnored` | `true` / `false` | `false` | `aapp done` | Copy sensitive ignored files into `$(git rev-parse --git-common-dir)/aapp_quarantine/<id>/` before the cleanup removes them; otherwise they refuse the cleanup (P-55). |
 | `aapp.allowPath` | string (multi) | *(empty)* | Write Guard | External filesystem paths authorized for AI file writes (`blast-radius-guard`). |
 | `aapp.remote` | string | `origin` | Remote Sync | Git remote targeted by `aapp push`, `aapp pull`, and `aapp sync`. |
 | `aapp.syncStrategy` | `builtin` / `hook` | `builtin` | Remote Sync | Transport engine for worktree sync (`builtin` git plumbing vs custom hook). |

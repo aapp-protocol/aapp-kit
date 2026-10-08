@@ -468,6 +468,265 @@ _wt_start() {
     _wt_session "$pf" "$pid" "$wt_p"
 }
 
+# ------------------------------------------------------------------------------
+# Plan branch integration on `done` (P-55): squash / fast-forward / on-integrate,
+# with every check run before the archive.
+# ------------------------------------------------------------------------------
+# _ig_parse_tokens [integrate [squash|ff|hook] [target <b>] [no-cleanup]
+#   [force-cleanup] [override-hotfix-cap]] | [no-integrate]
+_ig_parse_tokens() {
+    IG_REQ=0; IG_NO=0; IG_STRATEGY=""; IG_TARGET=""; IG_NOCLEAN=0; IG_FORCECLEAN=0; IG_OVERRIDE_CAP=0
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            integrate)           IG_REQ=1 ;;
+            no-integrate)        IG_NO=1 ;;
+            squash|ff|hook)      IG_STRATEGY="$1"; IG_REQ=1 ;;
+            target)              [ $# -ge 2 ] || { echo "❌ [Done Refusal] 'target' needs a branch." >&2; return 1; }
+                                 IG_TARGET="$2"; IG_REQ=1; shift ;;
+            no-cleanup)          IG_NOCLEAN=1 ;;
+            force-cleanup)       IG_FORCECLEAN=1 ;;
+            override-hotfix-cap) IG_OVERRIDE_CAP=1 ;;
+            *) echo "❌ [Done Refusal] Unknown token '$1'. Usage: aapp done <id> [integrate [squash|ff|hook] [target <branch>] [no-cleanup] [force-cleanup] [override-hotfix-cap] | no-integrate]" >&2
+               return 1 ;;
+        esac
+        shift
+    done
+    if [ "$IG_NO" -eq 1 ] && [ "$IG_REQ" -eq 1 ]; then
+        echo "❌ [Done Refusal] 'no-integrate' cannot be combined with integration tokens." >&2; return 1
+    fi
+}
+
+# _ig_decide <plan_file>: whether this `done` integrates, and how (IG_DO, IG_MODE).
+# Only a plan with its own worktree integrates: otherwise its commits are on the
+# development branch already.
+_ig_decide() {
+    local pf="$1" cfg
+    IG_DO=0; IG_MODE=""
+    cfg="$(git config --get aapp.integrate 2>/dev/null)" || cfg=manual
+    case "$cfg" in squash|ff|hook|manual) ;; *)
+        echo "❌ [Done Refusal] aapp.integrate is '$cfg'; use squash, ff, hook or manual." >&2; return 1 ;;
+    esac
+    [ "$IG_NO" -eq 1 ] && return 0
+    if [ -z "$(parse_plan_worktree "$pf")" ]; then
+        if [ "$IG_REQ" -eq 1 ]; then
+            echo "❌ [Done Refusal] $(basename "$pf" .md) has no plan worktree: its commits are on the development branch already." >&2
+            return 1
+        fi
+        return 0
+    fi
+    if [ "$IG_REQ" -eq 1 ]; then
+        IG_MODE="${IG_STRATEGY:-$cfg}"; [ "$IG_MODE" = "manual" ] && IG_MODE=squash
+        IG_DO=1
+    elif [ "$cfg" != "manual" ]; then
+        IG_MODE="$cfg"; IG_DO=1
+    fi
+}
+
+# _ig_hook_registered: an `on-integrate` handler is registered (fail closed when not).
+_ig_hook_registered() {
+    local reg="$REPO_ROOT/.agents/skills/aapp-hooks/registry.tsv"
+    [ -f "$reg" ] && grep -qE "^on-integrate$(printf '\t')" "$reg" && return 0
+    [ -n "$(git config --get-all aapp.hook.on-integrate 2>/dev/null)" ]
+}
+
+# _ig_preflight <plan_file> <plan_id>: every integration check, before any
+# mutation (P-23 invariant). Sets IG_PLAN_BR, IG_TARGET_BR, IG_WT, IG_ALREADY.
+_ig_preflight() {
+    local pf="$1" pid="$2" rec max count open limit waited step
+    rec="$(parse_plan_worktree "$pf")"
+    IG_PLAN_BR="${rec#*$'\t'}"; IG_WT="$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")"; IG_ALREADY=0
+    if ! git show-ref --verify --quiet "refs/heads/$IG_PLAN_BR"; then
+        echo "❌ [Done Refusal] Plan branch '$IG_PLAN_BR' not found; integrate it by hand or archive with 'no-integrate'." >&2; return 1
+    fi
+    if [ -n "$IG_TARGET" ]; then IG_TARGET_BR="$IG_TARGET"
+    elif ! IG_TARGET_BR="$(resolve_plan_integrate_target "$pf")"; then
+        echo "❌ [Done Refusal] No integration target: the plan's Base names no branch (aapp.integrateTarget)." >&2; return 1
+    fi
+    if ! git show-ref --verify --quiet "refs/heads/$IG_TARGET_BR"; then
+        echo "❌ [Done Refusal] Integration target '$IG_TARGET_BR' is not a local branch; create or fetch it first." >&2; return 1
+    fi
+    max="$(git config --get aapp.maxEmergencyHotfixes 2>/dev/null)" || max=2
+    case "$max" in ''|*[!0-9]*) max=2 ;; esac
+    count="$(count_plan_emergency_hotfixes "$pf")"
+    if [ "$count" -gt "$max" ] && [ "$IG_OVERRIDE_CAP" -eq 0 ]; then
+        echo "❌ [Integration Block] Plan '$pid' accumulated $count emergency fixes (limit $max)." >&2
+        echo "   Daisy-chaining hotfixes is prohibited without formal re-scoping." >&2
+        echo "   Requires human sign-off: run 'aapp done $pid integrate override-hotfix-cap'." >&2
+        return 1
+    fi
+    if [ -d "$IG_WT" ] && [ -n "$(git -C "$IG_WT" status --porcelain 2>/dev/null)" ]; then
+        echo "❌ [Done Refusal] The plan's worktree has uncommitted changes; commit or discard them first." >&2; return 1
+    fi
+    if [ "$IG_MODE" = "hook" ]; then
+        _ig_hook_registered || {
+            echo "❌ [Done Refusal] aapp.integrate = hook, but no on-integrate handler is registered." >&2; return 1; }
+        return 0
+    fi
+    # Already integrated (a retry after a refused cleanup): nothing to merge.
+    if git merge-base --is-ancestor "$IG_PLAN_BR" "$IG_TARGET_BR" 2>/dev/null || \
+       git diff --quiet "$IG_TARGET_BR" "$IG_PLAN_BR" -- 2>/dev/null; then
+        IG_ALREADY=1
+    elif ! git merge-base --is-ancestor "$IG_TARGET_BR" "$IG_PLAN_BR"; then
+        echo "❌ [Done Refusal] '$IG_PLAN_BR' does not contain '$IG_TARGET_BR'; rebase it first:" >&2
+        echo "   git -C ${IG_WT} rebase --autostash $IG_TARGET_BR" >&2
+        return 1
+    fi
+    if [ -n "$(git -C "$PRIMARY_ROOT" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+        echo "❌ [Done Refusal] The main checkout has uncommitted changes; integration switches it to '$IG_TARGET_BR'." >&2; return 1
+    fi
+    # An open mini plan owns the main checkout: wait for it (P-52 roller), under the issue lock.
+    _load_issue_module
+    limit="$(_issue_wait_limit)"; waited=0; step=2
+    while :; do
+        if open="$(_issue_open_mini "$PLANS_DIR")"; then
+            _issue_roll "#$open is being fixed in the main checkout" && continue
+            echo "❌ [Done Refusal] #$open is being fixed in the main checkout; integrate after 'aapp issue close $open'." >&2
+            return 1
+        fi
+        _issue_lock_acquire || return 1
+        _issue_open_mini "$PLANS_DIR" >/dev/null && { _issue_lock_release; continue; }
+        break
+    done
+}
+
+# _ig_message <plan_file> <plan_id> <file>: the squash commit message, with
+# lineage and attribution trailers.
+_ig_message() {
+    local pf="$1" pid="$2" out="$3" title decl max subject identity
+    title="$(grep -m 1 -E '^# ' "$pf" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*)?Plan[^:]*:[[:space:]]*//')"
+    max="$(git config --int aapp.subjectMaxLen 2>/dev/null)" || max=72
+    subject="feat: $title ($pid)"
+    if [ "${#subject}" -gt "$max" ]; then subject="feat: ${title:0:$((max - ${#pid} - 13))}... ($pid)"; fi
+    decl="$(aapp_plan_changelog_decl "$pf" 2>/dev/null)" || decl=""
+    {
+        echo "$subject"
+        [ -n "$decl" ] && { echo ""; echo "${decl#*|}"; }
+        echo ""
+        echo "Plan-ID: $pid"
+        echo "Plan-Parent: $IG_TARGET_BR"
+        echo "Base-Branch: $(aapp_dev_branch)"
+    } > "$out"
+    if declare -f resolve_ai_identity >/dev/null && declare -f attribution_decorate >/dev/null; then
+        identity="$(resolve_ai_identity "${AAPP_AGENT_NAME:-}" "${AAPP_AGENT_VENDOR:-}" "${AAPP_AGENT_MODEL:-}")"
+        attribution_decorate "$out" "$identity" || return 1
+    fi
+}
+
+# _ig_cleanup <plan_id>: removes the plan worktree and branch; sensitive ignored
+# files refuse it (the integration stands) unless quarantined or forced (Q2).
+_ig_cleanup() {
+    local pid="$1" files q f qdir rel
+    rel="$(aapp_rel_path "$PRIMARY_ROOT" "$IG_WT")"
+    if [ -d "$IG_WT" ]; then
+        files="$(check_worktree_ignored_files "$IG_WT")"
+        if [ -n "$files" ]; then
+            q="$(git config --get aapp.quarantineIgnored 2>/dev/null)" || q=false
+            if [ "$q" = "true" ]; then
+                qdir="$(cd "$(git rev-parse --git-common-dir)" && pwd)/aapp_quarantine/$pid"
+                while IFS= read -r f; do
+                    mkdir -p "$qdir/$(dirname "$f")" && cp -p "$IG_WT/$f" "$qdir/$f" || {
+                        echo "⚠️  [Cleanup Refused] Could not quarantine $f; the worktree is kept." >&2; return 0; }
+                done <<< "$files"
+                echo "📦 [Cleanup] Quarantined ignored files into $qdir: $(echo "$files" | paste -sd' ' -)"
+            elif [ "$IG_FORCECLEAN" -eq 0 ]; then
+                echo "⚠️  [Cleanup Refused] Removing $rel would delete ignored files: $(echo "$files" | paste -sd' ' -)"
+                echo "   The integration stands. Back them up, set aapp.quarantineIgnored true, or run:"
+                echo "      aapp done $pid integrate force-cleanup"
+                return 0
+            fi
+        fi
+        git worktree remove "$IG_WT" || { echo "⚠️  [Cleanup] 'git worktree remove $rel' failed; the worktree is kept." >&2; return 0; }
+    fi
+    if [ "$IG_MODE" = "ff" ]; then
+        # `git branch -d` checks against the current HEAD, not the target: check here.
+        if ! git merge-base --is-ancestor "$IG_PLAN_BR" "$IG_TARGET_BR"; then
+            echo "⚠️  [Cleanup] '$IG_PLAN_BR' is not in '$IG_TARGET_BR'; the branch is kept." >&2; return 0
+        fi
+        git branch -D "$IG_PLAN_BR" >/dev/null || { echo "⚠️  [Cleanup] Could not delete '$IG_PLAN_BR'." >&2; return 0; }
+    else
+        # A squashed plan branch is not an ancestor of the target: -d would refuse.
+        git branch -D "$IG_PLAN_BR" >/dev/null || { echo "⚠️  [Cleanup] Could not delete '$IG_PLAN_BR'." >&2; return 0; }
+    fi
+    echo "🧹 [Cleanup] Removed worktree $rel and branch $IG_PLAN_BR."
+}
+
+# _ig_run <plan_file> <plan_id>: integrates after the archive, then cleans up.
+_ig_run() {
+    local pf="$1" pid="$2" orig msg data rc=0
+    if [ "$IG_MODE" = "hook" ]; then
+        # shellcheck source=/dev/null
+        source "$AAPP_HOOK_DISPATCHER"
+        data="{\"plan_id\": \"$pid\", \"plan_file\": \"$pf\", \"plan_branch\": \"$IG_PLAN_BR\", \"target_branch\": \"$IG_TARGET_BR\", \"worktree\": \"$IG_WT\"}"
+        if ! dispatch_hook "on-integrate" "$data"; then
+            echo "❌ [Integrate] The on-integrate handler refused; $pid stays archived. Retry: aapp done $pid integrate" >&2
+            return 1
+        fi
+        echo "🔀 [Integrate] $IG_PLAN_BR handed to the on-integrate handler (target $IG_TARGET_BR); the branch and worktree are its to manage."
+        return 0
+    fi
+    if [ "$IG_ALREADY" -eq 1 ]; then
+        echo "🔀 [Integrate] $IG_PLAN_BR is already in $IG_TARGET_BR."
+    else
+        orig="$(git -C "$PRIMARY_ROOT" rev-parse --abbrev-ref HEAD)"
+        if [ "$orig" != "$IG_TARGET_BR" ]; then
+            git -C "$PRIMARY_ROOT" checkout -q "$IG_TARGET_BR" || {
+                echo "❌ [Integrate] Could not switch the main checkout to '$IG_TARGET_BR'; $pid stays archived. Retry: aapp done $pid integrate" >&2; return 1; }
+        fi
+        if [ "$IG_MODE" = "ff" ]; then
+            git -C "$PRIMARY_ROOT" merge -q --ff-only "$IG_PLAN_BR" || rc=$?
+        else
+            msg="$(mktemp)"
+            # The plan's commits passed the hooks on the plan branch; the squash
+            # is their mechanical sum, so it is committed without re-running them.
+            if git -C "$PRIMARY_ROOT" merge -q --squash "$IG_PLAN_BR" >/dev/null && _ig_message "$pf" "$pid" "$msg"; then
+                git -C "$PRIMARY_ROOT" commit -q --no-verify -F "$msg" || rc=$?
+            else
+                rc=1; git -C "$PRIMARY_ROOT" reset -q --merge
+            fi
+            rm -f "$msg"
+        fi
+        if [ "$orig" != "$IG_TARGET_BR" ]; then
+            git -C "$PRIMARY_ROOT" checkout -q "$orig" || echo "⚠️  [Integrate] Could not switch the main checkout back to '$orig'." >&2
+        fi
+        if [ "$rc" -ne 0 ]; then
+            echo "❌ [Integrate] The $IG_MODE into '$IG_TARGET_BR' failed; $pid stays archived. Retry: aapp done $pid integrate" >&2
+            return 1
+        fi
+        echo "🔀 [Integrate] $IG_PLAN_BR integrated into $IG_TARGET_BR ($IG_MODE, $(git rev-parse --short "$IG_TARGET_BR"))."
+    fi
+    if [ "$IG_NOCLEAN" -eq 1 ] || [ "$(git config --get aapp.integrateCleanup 2>/dev/null)" = "false" ]; then
+        echo "   Worktree and branch kept (cleanup off)."
+        return 0
+    fi
+    _ig_cleanup "$pid"
+}
+
+# _ig_resolve_done <query>: an archived plan file in done/ (standalone integrate).
+_ig_resolve_done() {
+    local q="$1" pf pid b
+    for pf in "$PLANS_DIR"/done/*.md; do
+        [ -f "$pf" ] || continue
+        b="$(basename "$pf" .md)"
+        case "$b" in 000-*) continue ;; esac
+        pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
+        if [ "$q" = "$pid" ] || [ "P-$q" = "$pid" ] || [ "$q" = "$b" ] || [[ "$b" == "$q-"* ]] || [[ "$b" == "P${q#P-}-"* ]]; then
+            echo "$pf"; return 0
+        fi
+    done
+    echo "❌ [Done Refusal] Plan '$q' found in neither current/ nor done/." >&2
+    return 1
+}
+
+# _ig_standalone <done_file>: `aapp done <id> integrate` on an archived plan
+# (after `manual`, a refused hook, or a refused cleanup).
+_ig_standalone() {
+    local pf="$1" pid
+    pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
+    _ig_decide "$pf" || exit 1
+    _ig_preflight "$pf" "$pid" || exit 1
+    _ig_run "$pf" "$pid" || exit 1
+}
+
 cmd_draft() {
     local raw_slug="$1"
     local slug=""
@@ -1108,8 +1367,16 @@ cmd_start() {
 }
 
 cmd_done() {
-    local query="$1"
+    local query="${1:-}"
+    [ $# -gt 0 ] && shift
     local plan_file
+    _ig_parse_tokens "$@" || exit 1
+    # P-55: `integrate` on a plan already archived integrates it (no archive).
+    if [ "$IG_REQ" -eq 1 ] && [ -n "$query" ] && ! resolve_plan_file "$query" "done" >/dev/null 2>&1; then
+        plan_file="$(_ig_resolve_done "$query")" || exit 1
+        _ig_standalone "$plan_file"
+        return 0
+    fi
     plan_file="$(resolve_plan_file "$query" "done")" || exit 1
 
     # Only an implemented plan is archived (#89).
@@ -1280,6 +1547,13 @@ cmd_done() {
         fi
     done
 
+    # P-55: decide on integration and run every integration check now, before
+    # pre-done and the archive commit: a refusal leaves nothing archived.
+    _ig_decide "$plan_file" || exit 1
+    if [ "$IG_DO" -eq 1 ]; then
+        _ig_preflight "$plan_file" "$plan_id" || exit 1
+    fi
+
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
         source "$AAPP_HOOK_DISPATCHER"
@@ -1423,9 +1697,13 @@ cmd_done() {
     echo "🏛️  [Done] Plan '$plan_id' archived to done/$bname."
     echo "   Commit SHA   : $commit_sha"
     echo "   Ledger       : $ledger_file"
-    # P-54: done never integrates or removes; that is the developer's step.
-    if [ -n "$wt_rec" ]; then
-        echo "   Worktree     : $wt_rel ($wt_br) is kept. After integrating the branch:"
+    # P-55: integrate and clean up after the archive (the checks ran before it).
+    if [ "$IG_DO" -eq 1 ]; then
+        _ig_run "$done_file" "$plan_id" || exit 1
+    elif [ -n "$wt_rec" ]; then
+        # P-54 / aapp.integrate = manual: the developer integrates.
+        echo "   Worktree     : $wt_rel ($wt_br) is kept. Integrate with: aapp done $plan_id integrate"
+        echo "   Or by hand, after integrating the branch:"
         echo "      git worktree remove $wt_rel   # also deletes ignored files there (local env files, build output)"
         echo "      git branch -D $wt_br   # after a squash merge, where -d refuses"
     fi

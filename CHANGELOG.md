@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Automated worktree branch integration, parent-branch targeting, and safe cleanup (`aapp done <id> integrate`) (`P-55`)
 - `aapp start` can create a branch and worktree per plan (`aapp.planWorktrees`) and open a session there (`aapp.planSession`) (`P-54`)
 - Hook Security, Integrity & Trust Model documentation in MANUAL.md covering SHA-256 tamper-evident verification, privilege separation, and safe rotation runbook.
 - `/aapp-fix #<num>` skill; `aapp issue fix` waits for uncommitted work instead of refusing, takes its files from the issue log, and a plan cannot start on a file a queued plan blocker will change (`P-58`)

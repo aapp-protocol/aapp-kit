@@ -699,6 +699,44 @@ parse_plan_worktree() {
         sed -nE 's/^\* \*\*Worktree:\*\*[[:space:]]*(.+)[[:space:]]+\(([^)]+)\)[[:space:]]*$/\1\t\2/p'
 }
 
+# ------------------------------------------------------------------------------
+# Plan branch integration (P-55): read-only helpers; the engines that change the
+# repository live in cmd_plan.sh.
+# ------------------------------------------------------------------------------
+# count_plan_emergency_hotfixes <plan_file>: issue IDs in the header's
+# append-only `* **Emergency Hotfixes:**` line (P-52).
+count_plan_emergency_hotfixes() {
+    awk '/^##[[:space:]]/ { exit } /^\* \*\*Emergency Hotfixes:\*\*/ { print; exit }' "$1" 2>/dev/null |
+        grep -oE '#[0-9]+' | wc -l | tr -d ' '
+}
+
+# resolve_plan_integrate_target <plan_file>: the branch the plan integrates into,
+# per aapp.integrateTarget: `parent` (default; the branch in `* **Base:**`), `dev`
+# (the development branch) or an explicit branch name. Fails when none resolves.
+resolve_plan_integrate_target() {
+    local mode t
+    mode="$(git config --get aapp.integrateTarget 2>/dev/null)" || mode=parent
+    case "$mode" in
+        parent|'') t="$(awk '/^##[[:space:]]/ { exit } /^\* \*\*Base:\*\*/ { print; exit }' "$1" 2>/dev/null |
+                       sed -nE 's/^\* \*\*Base:\*\*[[:space:]]*`[0-9a-fA-F]+`[[:space:]]*\(([^)]+)\).*/\1/p')" ;;
+        dev)       t="$(aapp_dev_branch)" ;;
+        *)         t="$mode" ;;
+    esac
+    case "$t" in ''|detached) return 1 ;; esac
+    echo "$t"
+}
+
+# check_worktree_ignored_files <worktree>: sensitive ignored files a removal
+# would delete (`.env*`, `*.pem`, `*.key`, `*secret*`), one path per line.
+check_worktree_ignored_files() {
+    local line p b
+    while IFS= read -r line; do
+        case "$line" in '!! '*) p="${line#!! }" ;; *) continue ;; esac
+        p="${p%/}"; b="${p##*/}"
+        case "$b" in .env*|*.pem|*.key|*secret*) echo "$p" ;; esac
+    done < <(git -C "$1" status --porcelain --ignored --untracked-files=all 2>/dev/null)
+}
+
 # write_plan_worktree <plan_file> <value>: sets `* **Worktree:** <value>` in the
 # header, replacing it or inserting it after Base (else after Status).
 write_plan_worktree() {

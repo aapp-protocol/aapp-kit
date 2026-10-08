@@ -675,6 +675,22 @@ if ! git config --get aapp.planWorktreePath >/dev/null 2>&1; then
     git config aapp.planWorktreePath '../{repo}-{id}'
 fi
 
+# Plan branch integration on `done` (P-55): `manual` until the project opts in
+# (squash, ff or hook); the target is the plan's parent branch; cleanup removes
+# the worktree and branch, and ignored secrets refuse it unless quarantined.
+if ! git config --get aapp.integrate >/dev/null 2>&1; then
+    git config aapp.integrate manual
+fi
+if ! git config --get aapp.integrateTarget >/dev/null 2>&1; then
+    git config aapp.integrateTarget parent
+fi
+if ! git config --get aapp.integrateCleanup >/dev/null 2>&1; then
+    git config aapp.integrateCleanup true
+fi
+if ! git config --get aapp.quarantineIgnored >/dev/null 2>&1; then
+    git config aapp.quarantineIgnored false
+fi
+
 # Union merge for CHANGELOG.md (P-48): bullets added on two branches are both
 # kept at merge time. Appended once; other .gitattributes lines are untouched.
 if [ ! -f .gitattributes ] || ! grep -qxF 'CHANGELOG.md merge=union' .gitattributes; then
