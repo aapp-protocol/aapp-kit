@@ -3,9 +3,11 @@
 * **Target Issue / Milestone:** Milestone v1.2.1 (Lifecycle Extension Governance)
 * **Plan ID:** P-23
 * **Changelog:** Added: Lifecycle hook pre-mutation quality gates and return code abort protocol
+* **Commit Mode:** atomic
+* **Changelog Mode:** plan
 * **Status:** ⚡ In Development
 * **Base:** `4d3afe5` (develop)
-* **Commits:** none
+* **Commits:** `4fcfd77` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
@@ -165,28 +167,28 @@ All `pre-*` gating hooks communicate their verdict to the calling AAPP command v
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Re-Order Hook Sequencing in Core Commands
-- [ ] Task 1.1: Update `cmd_freeze` in `lib/cmd_plan.sh` to dispatch `pre-freeze` **before** modifying the plan file or committing to Git. Abort immediately on exit != 0. Dispatch `post-freeze` observer after commit.
-- [ ] Task 1.2: Update `cmd_start` in `lib/cmd_plan.sh` to dispatch `pre-start` **before** updating status, binding active buffer, or committing to Git (abort immediately on exit != 0); keep `on-start` as the in-transaction action delegate after mutations and before commit, rolling back on failure (P-54); dispatch `post-start` observer after commit.
-- [ ] Task 1.3: Update `cmd_freeze_start` in `lib/cmd_plan.sh` to run `pre-freeze` then `pre-start` before mutating disk state or committing to Git. Dispatch `post-freeze` and `post-start` observers after commit.
-- [ ] Task 1.4: Update `cmd_done` in `lib/cmd_plan.sh` to dispatch `pre-done` gate **before** moving the blueprint, appending to ledger, or committing to Git. Dispatch `post-done` observer after commit.
-- [ ] Task 1.5: Update `lib/cmd_sync.sh` to treat `pre-sync` as a fail-closed gate that aborts sync if return code != 0.
-- [ ] Task 1.6: Update `lib/cmd_pause.sh` to dispatch `post-pause` and `post-resume` observers.
+- [x] Task 1.1: Update `cmd_freeze` in `lib/cmd_plan.sh` to dispatch `pre-freeze` **before** modifying the plan file or committing to Git. Abort immediately on exit != 0. Dispatch `post-freeze` observer after commit.
+- [x] Task 1.2: Update `cmd_start` in `lib/cmd_plan.sh` to dispatch `pre-start` **before** updating status, binding active buffer, or committing to Git (abort immediately on exit != 0); keep `on-start` as the in-transaction action delegate after mutations and before commit, rolling back on failure (P-54); dispatch `post-start` observer after commit.
+- [x] Task 1.3: Update `cmd_freeze_start` in `lib/cmd_plan.sh` to run `pre-freeze` then `pre-start` before mutating disk state or committing to Git. Dispatch `post-freeze` and `post-start` observers after commit.
+- [x] Task 1.4: Update `cmd_done` in `lib/cmd_plan.sh` to dispatch `pre-done` gate **before** moving the blueprint, appending to ledger, or committing to Git. Dispatch `post-done` observer after commit.
+- [x] Task 1.5: Update `lib/cmd_sync.sh` to treat `pre-sync` as a fail-closed gate that aborts sync if return code != 0.
+- [x] Task 1.6: Update `lib/cmd_pause.sh` to dispatch `post-pause` and `post-resume` observers.
 
 ### Phase 2: Dispatcher Event Mapping
-- [ ] Task 2.1: Update `lib/hook_dispatcher.sh` to support symmetric `pre-*` and `post-*` event dispatching with strict fail-closed gate validation and POSIX exit code evaluation (0=pass, 1=abort, 2=advisory warning).
-- [ ] Task 2.2: Update `lib/cmd_hook.sh` (`aapp hooks`, `hook-test`) to reflect `pre-*` and `post-*` event definitions.
+- [x] Task 2.1: Update `lib/hook_dispatcher.sh` to support symmetric `pre-*` and `post-*` event dispatching with strict fail-closed gate validation and POSIX exit code evaluation (0=pass, 1=abort, 2=advisory warning).
+- [x] Task 2.2: Update `lib/cmd_hook.sh` (`aapp hooks`, `hook-test`) to reflect `pre-*` and `post-*` event definitions.
 
 ### Phase 3: Templates, Test Suite & Documentation
-- [ ] Task 3.1: Update starter registry template `templates/skills/aapp-hooks/registry.tsv` and reference samples in `examples/hooks/` to showcase `pre-freeze`, `pre-done`, `pre-sync`, and `post-done`.
-- [ ] Task 3.2: Expand `tests/hooks_test.sh` with regression tests verifying:
+- [x] Task 3.1: Update starter registry template `templates/skills/aapp-hooks/registry.tsv` and reference samples in `examples/hooks/` to showcase `pre-freeze`, `pre-done`, `pre-sync`, and `post-done`.
+- [x] Task 3.2: Expand `tests/hooks_test.sh` with regression tests verifying:
   - `pre-freeze` exit 1 aborts `aapp freeze` with ZERO disk edits and ZERO commits to `.plans/`.
   - `pre-start` exit 1 aborts `aapp start` without setting active buffer.
   - `pre-done` exit 1 aborts `aapp done` leaving blueprint in `current/`.
   - `pre-sync` exit 1 aborts `aapp push`/`pull`/`sync` before network actions.
   - Exit code 2 logs advisory warning and proceeds without aborting.
   - Watchdog timeout (exit 124) aborts in gate mode and warns in notify mode.
-- [ ] Task 3.3: Document the Pre/Post execution sequence, return code abort contract, and lifecycle pipeline in `MANUAL.md`, `README.md`, and verb references (`lib/docs/verbs/freeze.md`, `lib/docs/verbs/freeze-start.md`, `lib/docs/verbs/start.md`, `lib/docs/verbs/done.md`).
-- [ ] Task 3.4: Update `CHANGELOG.md`.
+- [x] Task 3.3: Document the Pre/Post execution sequence, return code abort contract, and lifecycle pipeline in `MANUAL.md`, `README.md`, and verb references (`lib/docs/verbs/freeze.md`, `lib/docs/verbs/freeze-start.md`, `lib/docs/verbs/start.md`, `lib/docs/verbs/done.md`).
+- [x] Task 3.4: Update `CHANGELOG.md`.
 
 ---
 
@@ -227,6 +229,7 @@ All `pre-*` gating hooks communicate their verdict to the calling AAPP command v
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-08:** Implementation complete and verified across all phases; expanded test suite in `tests/hooks_test.sh` passing 35/35 tests cleanly.
 * **2026-10-08:** Plan activated into ⚡ In Development via start.
 * **2026-10-08:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-07:** Refined blueprint: resolved all Open Questions with user approval (Clean Break with zero legacy aliases, `pre-done` as gate, deferred hotfix/integrate events until P-52/P-55 land), added plan-declared changelog header line, and updated implementation checklist.
