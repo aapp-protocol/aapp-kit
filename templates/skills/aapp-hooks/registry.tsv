@@ -5,16 +5,18 @@
 # event<TAB>handler_path<TAB>expected_sha256<TAB>timeout<TAB>mode
 #
 # Events:
-#   on-pickup   - New idea added to pickup queue
-#   on-digest   - Idea digested into issue or draft plan
-#   on-freeze   - Plan locked into 🔷 Frozen backlog
-#   on-start    - Plan activated into ⚡ In Development
-#   on-done     - Plan completed and archived to done/
-#   on-pause    - Emergency brake engaged (aapp pause)
-#   on-resume   - Emergency brake released (aapp resume)
-#   pre-sync    - Before worktree sync transport runs
+#   pre-freeze  - Quality gate before plan freeze (aborts on exit != 0)
+#   post-freeze - Observer after plan freeze commit lands
+#   pre-start   - Quality gate before plan activation (aborts on exit != 0)
+#   on-start    - In-transaction action delegate during plan start
+#   post-start  - Observer after plan start commit lands
+#   pre-done    - Quality gate before plan archival (aborts on exit != 0)
+#   post-done   - Observer after plan archival commit lands
+#   post-pause  - Observer after emergency pause stashes land
+#   post-resume - Observer after emergency resume restore completes
+#   pre-sync    - Quality gate before worktree sync transport runs
 #   on-sync     - Delegated worktree sync transport (aapp.syncStrategy = hook)
-#   post-sync   - After worktree sync transport completes
+#   post-sync   - Observer after worktree sync transport completes
 #
 # Modes:
 #   gate   - Aborts lifecycle transition on failure/timeout (exit code 1)

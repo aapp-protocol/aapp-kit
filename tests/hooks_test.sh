@@ -99,8 +99,8 @@ report "compute_file_sha256 resolves portable host SHA256 hex" "PASS" "$got" "$s
 # ------------------------------------------------------------------------------
 # Test 2: aapp hook-hash helper formats 5-column TSV line
 # ------------------------------------------------------------------------------
-hash_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-hash test_script.sh on-freeze 25 gate 2>&1)"
-if echo "$hash_out" | grep -q "^on-freeze${TAB}test_script.sh${TAB}sha256:$sha_out${TAB}25${TAB}gate"; then
+hash_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-hash test_script.sh pre-freeze 25 gate 2>&1)"
+if echo "$hash_out" | grep -q "^pre-freeze${TAB}test_script.sh${TAB}sha256:$sha_out${TAB}25${TAB}gate"; then
   got="PASS"
 else
   got="FAIL"
@@ -121,13 +121,13 @@ EOF
 chmod +x "$HOOK_PASS"
 pass_hash="$(compute_file_sha256 "$HOOK_PASS")"
 
-printf "on-freeze%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_PASS" "$TAB" "$pass_hash" "$TAB" "$TAB" > "$REG_FILE"
+printf "pre-freeze%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_PASS" "$TAB" "$pass_hash" "$TAB" "$TAB" > "$REG_FILE"
 
 run_out=""
 run_rc=0
-run_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test on-freeze P-99 2>&1)" || run_rc=$?
+run_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test pre-freeze P-99 2>&1)" || run_rc=$?
 
-if [ "$run_rc" -eq 0 ] && echo "$run_out" | grep -q "PASS_HOOK: event=on-freeze mode=gate plan=P-99"; then
+if [ "$run_rc" -eq 0 ] && echo "$run_out" | grep -q "PASS_HOOK: event=pre-freeze mode=gate plan=P-99"; then
   got="PASS"
 else
   got="FAIL"
@@ -142,7 +142,7 @@ echo 'echo "tampered"' >> "$HOOK_PASS"
 
 tamper_out=""
 tamper_rc=0
-tamper_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test on-freeze 2>&1)" || tamper_rc=$?
+tamper_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test pre-freeze 2>&1)" || tamper_rc=$?
 
 if [ "$tamper_rc" -ne 0 ] && echo "$tamper_out" | grep -q "SHA256 mismatch"; then
   got="PASS"
@@ -158,7 +158,7 @@ exit 0
 EOF
 chmod +x "$HOOK_PASS"
 pass_hash="$(compute_file_sha256 "$HOOK_PASS")"
-printf "on-freeze%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_PASS" "$TAB" "$pass_hash" "$TAB" "$TAB" > "$REG_FILE"
+printf "pre-freeze%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_PASS" "$TAB" "$pass_hash" "$TAB" "$TAB" > "$REG_FILE"
 
 # ------------------------------------------------------------------------------
 # Test 5: Exit code 1 halts lifecycle transition for gate mode
@@ -172,11 +172,11 @@ EOF
 chmod +x "$HOOK_FAIL"
 fail_hash="$(compute_file_sha256 "$HOOK_FAIL")"
 
-printf "on-freeze%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_FAIL" "$TAB" "$fail_hash" "$TAB" "$TAB" > "$REG_FILE"
+printf "pre-freeze%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_FAIL" "$TAB" "$fail_hash" "$TAB" "$TAB" > "$REG_FILE"
 
 fail_out=""
 fail_rc=0
-fail_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test on-freeze 2>&1)" || fail_rc=$?
+fail_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test pre-freeze 2>&1)" || fail_rc=$?
 
 if [ "$fail_rc" -ne 0 ] && echo "$fail_out" | grep -q "Quality gate rejected transition"; then
   got="PASS"
@@ -188,11 +188,11 @@ report "exit code 1 halts operation and streams stderr in gate mode" "PASS" "$go
 # ------------------------------------------------------------------------------
 # Test 6: Exit code 1 logs advisory warning and continues in notify mode
 # ------------------------------------------------------------------------------
-printf "on-freeze%s%s%ssha256:%s%s10%snotify\n" "$TAB" "$HOOK_FAIL" "$TAB" "$fail_hash" "$TAB" "$TAB" > "$REG_FILE"
+printf "pre-freeze%s%s%ssha256:%s%s10%snotify\n" "$TAB" "$HOOK_FAIL" "$TAB" "$fail_hash" "$TAB" "$TAB" > "$REG_FILE"
 
 notify_out=""
 notify_rc=0
-notify_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test on-freeze 2>&1)" || notify_rc=$?
+notify_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test pre-freeze 2>&1)" || notify_rc=$?
 
 if [ "$notify_rc" -eq 0 ] && echo "$notify_out" | grep -q "Quality gate rejected transition"; then
   got="PASS"
@@ -213,11 +213,11 @@ EOF
 chmod +x "$HOOK_WARN"
 warn_hash="$(compute_file_sha256 "$HOOK_WARN")"
 
-printf "on-freeze%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_WARN" "$TAB" "$warn_hash" "$TAB" "$TAB" > "$REG_FILE"
+printf "pre-freeze%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_WARN" "$TAB" "$warn_hash" "$TAB" "$TAB" > "$REG_FILE"
 
 warn_out=""
 warn_rc=0
-warn_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test on-freeze 2>&1)" || warn_rc=$?
+warn_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test pre-freeze 2>&1)" || warn_rc=$?
 
 if [ "$warn_rc" -eq 0 ] && echo "$warn_out" | grep -q "Advisory warning from hook"; then
   got="PASS"
@@ -239,11 +239,11 @@ chmod +x "$HOOK_SLOW"
 slow_hash="$(compute_file_sha256 "$HOOK_SLOW")"
 
 # Timeout 1s with mode=gate
-printf "on-freeze%s%s%ssha256:%s%s1%sgate\n" "$TAB" "$HOOK_SLOW" "$TAB" "$slow_hash" "$TAB" "$TAB" > "$REG_FILE"
+printf "pre-freeze%s%s%ssha256:%s%s1%sgate\n" "$TAB" "$HOOK_SLOW" "$TAB" "$slow_hash" "$TAB" "$TAB" > "$REG_FILE"
 
 slow_gate_out=""
 slow_gate_rc=0
-slow_gate_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test on-freeze 2>&1)" || slow_gate_rc=$?
+slow_gate_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test pre-freeze 2>&1)" || slow_gate_rc=$?
 
 if [ "$slow_gate_rc" -ne 0 ] && echo "$slow_gate_out" | grep -q "exceeded timeout"; then
   got="PASS"
@@ -253,11 +253,11 @@ fi
 report "watchdog timeout halts transition in gate mode (fail-closed)" "PASS" "$got" "$slow_gate_out"
 
 # Timeout 1s with mode=notify
-printf "on-freeze%s%s%ssha256:%s%s1%snotify\n" "$TAB" "$HOOK_SLOW" "$TAB" "$slow_hash" "$TAB" "$TAB" > "$REG_FILE"
+printf "pre-freeze%s%s%ssha256:%s%s1%snotify\n" "$TAB" "$HOOK_SLOW" "$TAB" "$slow_hash" "$TAB" "$TAB" > "$REG_FILE"
 
 slow_not_out=""
 slow_not_rc=0
-slow_not_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test on-freeze 2>&1)" || slow_not_rc=$?
+slow_not_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test pre-freeze 2>&1)" || slow_not_rc=$?
 
 if [ "$slow_not_rc" -eq 0 ] && echo "$slow_not_out" | grep -q "exceeded timeout"; then
   got="PASS"
@@ -269,11 +269,11 @@ report "watchdog timeout warns and proceeds in notify mode" "PASS" "$got" "$slow
 # ------------------------------------------------------------------------------
 # Test 9: Malformed 6-column line detected and refused
 # ------------------------------------------------------------------------------
-printf "on-freeze%s%s%ssha256:%s%s10%sgate%sunexpected_6th_field\n" "$TAB" "$HOOK_WARN" "$TAB" "$warn_hash" "$TAB" "$TAB" "$TAB" > "$REG_FILE"
+printf "pre-freeze%s%s%ssha256:%s%s10%sgate%sunexpected_6th_field\n" "$TAB" "$HOOK_WARN" "$TAB" "$warn_hash" "$TAB" "$TAB" "$TAB" > "$REG_FILE"
 
 malform_out=""
 malform_rc=0
-malform_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test on-freeze 2>&1)" || malform_rc=$?
+malform_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test pre-freeze 2>&1)" || malform_rc=$?
 
 if [ "$malform_rc" -ne 0 ] && echo "$malform_out" | grep -q "unexpected 6th field"; then
   got="PASS"
@@ -290,12 +290,12 @@ echo "" > "$REG_FILE"
 # ------------------------------------------------------------------------------
 (
   cd "$PROJ_DIR" || exit 1
-  git config --add aapp.hook.on-done "$HOOK_FAIL"
+  git config --add aapp.hook.post-done "$HOOK_FAIL"
 )
 
 local_out=""
 local_rc=0
-local_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test on-done 2>&1)" || local_rc=$?
+local_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test post-done 2>&1)" || local_rc=$?
 
 if [ "$local_rc" -eq 0 ] && echo "$local_out" | grep -q "Quality gate rejected transition"; then
   got="PASS"
@@ -312,7 +312,7 @@ report "local git config hooks execute in notify mode and cannot gate" "PASS" "$
   git config aapp.allowLocalHooks false
 )
 
-dis_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test on-done 2>&1)"
+dis_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hook-test post-done 2>&1)"
 if ! echo "$dis_out" | grep -q "Quality gate rejected transition"; then
   got="PASS"
 else
@@ -323,17 +323,17 @@ report "aapp.allowLocalHooks false disables local git config hooks" "PASS" "$got
 # Cleanup git config
 (
   cd "$PROJ_DIR" || exit 1
-  git config --unset-all aapp.hook.on-done || true
+  git config --unset-all aapp.hook.post-done || true
   git config --unset aapp.allowLocalHooks || true
 )
 
 # ------------------------------------------------------------------------------
 # Test 12: aapp hooks inspector reports registered hooks and statuses
 # ------------------------------------------------------------------------------
-printf "on-freeze%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_PASS" "$TAB" "$pass_hash" "$TAB" "$TAB" > "$REG_FILE"
+printf "pre-freeze%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_PASS" "$TAB" "$pass_hash" "$TAB" "$TAB" > "$REG_FILE"
 
 hooks_audit="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hooks 2>&1)"
-if echo "$hooks_audit" | grep -q "on-freeze" && echo "$hooks_audit" | grep -q "VALID"; then
+if echo "$hooks_audit" | grep -q "pre-freeze" && echo "$hooks_audit" | grep -q "VALID"; then
   got="PASS"
 else
   got="FAIL"
@@ -423,7 +423,7 @@ report "aapp switchboard rejects executing sample plugins directly" "PASS" "$got
 # ------------------------------------------------------------------------------
 # Test 17: aapp hooks marks .sample registered handler as INERT SAMPLE
 # ------------------------------------------------------------------------------
-SAMPLE_HOOK_LINE="on-freeze${TAB}examples/hooks/fallback-ratchet.sh.sample${TAB}sha256:0000000000000000000000000000000000000000000000000000000000000000${TAB}10${TAB}gate"
+SAMPLE_HOOK_LINE="pre-freeze${TAB}examples/hooks/fallback-ratchet.sh.sample${TAB}sha256:0000000000000000000000000000000000000000000000000000000000000000${TAB}10${TAB}gate"
 echo "$SAMPLE_HOOK_LINE" >> "$REG_FILE"
 hooks_sample_audit="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" hooks 2>&1)"
 if echo "$hooks_sample_audit" | grep -q "INERT SAMPLE"; then
@@ -549,13 +549,124 @@ fi
 report "envelope carries stripped remote, extra, and well-formed data" "PASS" "$got" "$envelope"
 
 git -C "$ENV_REPO" remote remove origin
-envelope="$(cd "$ENV_REPO" && REPO_ROOT="$ENV_REPO" bash -c "source '$KIT/lib/hook_dispatcher.sh'; build_event_envelope on-done")"
+envelope="$(cd "$ENV_REPO" && REPO_ROOT="$ENV_REPO" bash -c "source '$KIT/lib/hook_dispatcher.sh'; build_event_envelope post-done")"
 if echo "$envelope" | grep -q '"remote": null' && echo "$envelope" | grep -qx '  "data": {},'; then
   got="PASS"
 else
   got="FAIL"
 fi
 report "envelope remote is null without a remote; empty data is {}" "PASS" "$got" "$envelope"
+
+# ------------------------------------------------------------------------------
+# Test 20: Pre-mutation quality gates abort lifecycle with ZERO state changes (P-23)
+# ------------------------------------------------------------------------------
+HOOK_VETO="$PROJ_DIR/hook_veto.sh"
+cat << 'EOF' > "$HOOK_VETO"
+#!/bin/sh
+echo "Pre-mutation gate veto: quality policy violation" >&2
+exit 1
+EOF
+chmod +x "$HOOK_VETO"
+veto_hash="$(compute_file_sha256 "$HOOK_VETO")"
+
+# 1. pre-freeze exit 1 aborts aapp freeze with ZERO disk edits and ZERO commits to .plans/
+mkdir -p "$PROJ_DIR/.plans/current"
+cat << 'EOF' > "$PROJ_DIR/.plans/current/P90-pre-gate.md"
+# 🗺️ Plan P-90: Pre Gate Test
+* **Plan ID:** P-90
+* **Status:** 🟣 Under Review
+* **Commits:** none
+* **Changelog:** Added: pre gate test
+
+## 2. Technical Blueprint
+Design details.
+
+## 3. Implementation Steps
+- [ ] Step 1
+
+## 4. Blast Radius & System Boundaries
+### 📂 Target Files
+- [ ] `main.py`
+
+## ❓ 5. Open Questions
+* [x] Question 1 resolved
+
+## 📦 6. Change Log
+EOF
+
+( cd "$PROJ_DIR/.plans" && git add current/P90-pre-gate.md && git commit -qm "add P-90" )
+plans_head_before="$(git -C "$PROJ_DIR/.plans" rev-parse HEAD)"
+
+printf "pre-freeze%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_VETO" "$TAB" "$veto_hash" "$TAB" "$TAB" > "$REG_FILE"
+pf_rc=0
+pf_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" freeze P-90 2>&1)" || pf_rc=$?
+plans_head_after="$(git -C "$PROJ_DIR/.plans" rev-parse HEAD)"
+
+if [ "$pf_rc" -ne 0 ] && \
+   [ "$plans_head_before" = "$plans_head_after" ] && \
+   grep -q "Status.*🟣 Under Review" "$PROJ_DIR/.plans/current/P90-pre-gate.md" && \
+   ! grep -q "Status.*🔷 Frozen" "$PROJ_DIR/.plans/current/P90-pre-gate.md"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "pre-freeze exit 1 aborts aapp freeze with ZERO disk edits and ZERO commits to .plans/" "PASS" "$got" "$pf_out"
+
+# 2. pre-start exit 1 aborts aapp start without setting active buffer
+sed -i -E 's/🟣 Under Review/🔷 Frozen/' "$PROJ_DIR/.plans/current/P90-pre-gate.md"
+( cd "$PROJ_DIR/.plans" && git commit -am "freeze P-90" >/dev/null 2>&1 )
+rm -f "$PROJ_DIR/.git/aapp_active_plan"
+
+printf "pre-start%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_VETO" "$TAB" "$veto_hash" "$TAB" "$TAB" > "$REG_FILE"
+ps_rc=0
+ps_out="$(cd "$PROJ_DIR" && git config aapp.planWorktrees off && "$KIT_DIR/aapp" start P-90 2>&1)" || ps_rc=$?
+
+if [ "$ps_rc" -ne 0 ] && \
+   [ ! -f "$PROJ_DIR/.git/aapp_active_plan" ] && \
+   grep -q "Status.*🔷 Frozen" "$PROJ_DIR/.plans/current/P90-pre-gate.md"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "pre-start exit 1 aborts aapp start without setting active buffer" "PASS" "$got" "$ps_out"
+
+# 3. pre-done exit 1 aborts aapp done leaving blueprint in current/
+echo "" > "$REG_FILE"
+( cd "$PROJ_DIR" && "$KIT_DIR/aapp" start P-90 >/dev/null 2>&1 )
+echo "# test" >> "$PROJ_DIR/main.py"
+( cd "$PROJ_DIR" && git add main.py && \
+  printf -- "- Added: test line\n" >> CHANGELOG.md && git add CHANGELOG.md && \
+  git commit -qm "code update" )
+c_sha="$(git -C "$PROJ_DIR" rev-parse --short HEAD)"
+sed -i -E "s/Commits:.*/Commits: \`$c_sha\` (master)/" "$PROJ_DIR/.plans/current/P90-pre-gate.md"
+( cd "$PROJ_DIR/.plans" && git commit -am "record commit" >/dev/null 2>&1 )
+
+printf "pre-done%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_VETO" "$TAB" "$veto_hash" "$TAB" "$TAB" > "$REG_FILE"
+pd_rc=0
+pd_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" done P-90 2>&1)" || pd_rc=$?
+
+if [ "$pd_rc" -ne 0 ] && \
+   [ -f "$PROJ_DIR/.plans/current/P90-pre-gate.md" ] && \
+   [ ! -f "$PROJ_DIR/.plans/done/P90-pre-gate.md" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "pre-done exit 1 aborts aapp done leaving blueprint in current/" "PASS" "$got" "$pd_out"
+
+# 4. pre-sync exit 1 aborts aapp push/pull/sync before network actions
+git -C "$PROJ_DIR" remote add origin "https://example.com/repo.git" 2>/dev/null || true
+printf "pre-sync%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$HOOK_VETO" "$TAB" "$veto_hash" "$TAB" "$TAB" > "$REG_FILE"
+( cd "$PROJ_DIR/.agents" && git add -A && git commit -qm "register pre-sync" >/dev/null 2>&1 || true )
+sync_rc=0
+sync_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" sync origin 2>&1)" || sync_rc=$?
+
+if [ "$sync_rc" -ne 0 ] && echo "$sync_out" | grep -q "pre-sync"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "pre-sync exit 1 aborts aapp push/pull/sync before network actions" "PASS" "$got" "$sync_out"
 
 echo "============================================================"
 echo "📊 Results: $PASS passed, $FAIL failed"

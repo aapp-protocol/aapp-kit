@@ -365,12 +365,14 @@ AAPP features an extensible, zero-dependency lifecycle hook and action plugin en
 ```tsv
 # .agents/skills/aapp-hooks/registry.tsv (5 columns)
 # event<TAB>handler_path<TAB>expected_sha256<TAB>timeout<TAB>mode
-on-freeze	.agents/skills/migration-guard/scripts/check.sh	sha256:9f3c8e4...	30	gate
-on-done	.agents/skills/archiver/scripts/push.sh	sha256:1a7e2b8...	60	notify
+pre-freeze	.agents/skills/migration-guard/scripts/check.sh	sha256:9f3c8e4...	30	gate
+post-done	.agents/skills/archiver/scripts/push.sh	sha256:1a7e2b8...	60	notify
 on-sync	.agents/skills/team-transport/sync.sh	sha256:4d8a1c3...	45	gate
 ```
 
 ### 🪝 Key Capabilities
+* **Pre-Mutation Quality Gates & Return Code Contract**: All `pre-*` hooks (`pre-freeze`, `pre-start`, `pre-done`, `pre-sync`) execute strictly *before* any disk modifications or Git commits occur. Exit code `0` passes, `1` (or any non-zero except 2) immediately halts the command with zero changes made to disk or Git history, and `2` logs an advisory warning and continues.
+* **Symmetric Pre/Post Taxonomy**: `pre-*` hooks are gating pre-mutation quality checks; `post-*` hooks (`post-freeze`, `post-start`, `post-done`, `post-sync`, `post-pause`, `post-resume`) are post-commit observers; `on-*` hooks (`on-start`, `on-sync`) are in-transaction action delegates.
 * **Pure Planning Invariant**: Executables never live in `.plans/`. Handler scripts live cleanly in skills (e.g. `.agents/skills/<name>/scripts/`).
 * **Anti-Self-Modification Gate**: The hook registry is permanently protected under Section 2 of `blast-radius-guard`. Entrypoints are verified with portable SHA256 hashing before execution, preventing autonomous agents from bypassing quality gates.
 * **Dual Delivery Contract**: Handlers receive full event context via standard input JSON envelopes while standard POSIX environment variables (`AAPP_EVENT`, `AAPP_PLAN_ID`, `AAPP_ACTION`, `AAPP_REMOTE`, `AAPP_MODE`, `AAPP_TIMEOUT`) are exported for zero-dependency shell scripts.

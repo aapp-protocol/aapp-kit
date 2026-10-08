@@ -2,14 +2,14 @@
 # ==============================================================================
 # Adopter Showcase Hook: `fallback-ratchet.sh`
 #
-# Quality Gate (mode: gate) triggered on `on-freeze`.
+# Quality Gate (mode: gate) triggered on `pre-freeze`.
 # Enforces the Clean Break Invariant: scans planned code modifications for
 # legacy fallback patterns (e.g. deprecated aliases, dual-syntax regexes).
 # If fallbacks are found without being explicitly itemized in Section 2
 # (Migration & Compatibility Strategy), the gate halts freeze with exit 1.
 #
 # Registration:
-#   aapp hook-hash examples/hooks/fallback-ratchet.sh on-freeze 15 gate
+#   aapp hook-hash examples/hooks/fallback-ratchet.sh pre-freeze 15 gate
 # ==============================================================================
 set -e
 

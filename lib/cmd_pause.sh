@@ -25,6 +25,9 @@ fi
 PAUSED_FILE="$GIT_COMMON_DIR/aapp_paused"
 SHARED_PAUSED_FILE="$PLANS_DIR/PAUSED.md"
 
+AAPP_HOOK_DISPATCHER="$(dirname "${BASH_SOURCE[0]}")/hook_dispatcher.sh"
+[ -f "$AAPP_HOOK_DISPATCHER" ] || AAPP_HOOK_DISPATCHER="$REPO_ROOT/lib/hook_dispatcher.sh"
+
 # ------------------------------------------------------------------------------
 # Helpers: Worktree Discovery & In-Flight Operations Check
 # ------------------------------------------------------------------------------
@@ -388,11 +391,11 @@ EOF
     echo "   All codebase modifications and commits are strictly refused."
     echo "   To resume: aapp resume"
 
-    # Dispatch on-pause lifecycle event
-    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+    # Dispatch post-pause observer lifecycle event
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
-        source "$REPO_ROOT/lib/hook_dispatcher.sh"
-        dispatch_hook "on-pause" "{\"reason\": \"$reason\", \"shared\": $( [ "$shared" -eq 1 ] && echo "true" || echo "false" )}" || true
+        source "$AAPP_HOOK_DISPATCHER"
+        dispatch_hook "post-pause" "{\"reason\": \"$reason\", \"shared\": $( [ "$shared" -eq 1 ] && echo "true" || echo "false" )}" || true
     fi
 }
 
@@ -545,11 +548,11 @@ except Exception as e:
     [ "$drift_found" -eq 0 ] && echo "   Drift    : 0 foreign changes detected while paused"
     echo "   Status   : Active"
 
-    # Dispatch on-resume lifecycle event
-    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+    # Dispatch post-resume observer lifecycle event
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
-        source "$REPO_ROOT/lib/hook_dispatcher.sh"
-        dispatch_hook "on-resume" "{\"restored_count\": $restored_count, \"drift_found\": $drift_found}" || true
+        source "$AAPP_HOOK_DISPATCHER"
+        dispatch_hook "post-resume" "{\"restored_count\": $restored_count, \"drift_found\": $drift_found}" || true
     fi
 }
 

@@ -308,7 +308,12 @@ dispatch_hook() {
 
             if [ "$ev" = "$event" ]; then
                 to="${to:-10}"
-                md="${md:-gate}"
+                if [ -z "$md" ]; then
+                    case "$ev" in
+                        post-*) md="notify" ;;
+                        *)      md="gate" ;;
+                    esac
+                fi
                 handlers_dispatched=$((handlers_dispatched + 1))
                 dispatch_single_handler "$event" "$hp" "$expected_hash" "$to" "$md" "registry" "$payload" || return 1
             fi

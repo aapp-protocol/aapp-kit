@@ -9,7 +9,7 @@
 - reads: the plan file (Status line, §4 Target Files), every other plan in `.plans/current/` (Status and Target Files, for the disjointness gate)
 - reads: `🧱 Plan Blockers` in `.plans/issues_road_map.md` and those rows' Location paths in `.plans/ISSUES.md` (P-58)
 - reads: the active buffer `$(git rev-parse --git-path aapp_active_plan)`, to preserve its previous value
-- reads config: `aapp.planState.*` (matrix re-derivation); the lifecycle hook registry for `on-start`
+- reads config: `aapp.planState.*` (matrix re-derivation); the lifecycle hook registry for `pre-start`, `on-start`, `post-start` (P-23)
 - reads config (P-54): `aapp.planWorktrees` (`on`/`off`), `aapp.planBranch` (default `plan/{id}-{slug}`), `aapp.planWorktreePath` (default `../{repo}-{id}`), `aapp.devBranch` (candidate list, default `develop dev development`), `aapp.planSession` (personal, optional). Placeholders: `{id}` (`P51`), `{num}` (`51`), `{slug}`, `{repo}` (the primary checkout's directory name)
 
 ## Preconditions
@@ -30,18 +30,21 @@
 - the plan is neither `🔷 Frozen` nor `⚡ In Development` -> exit 1, stderr `[Start Refusal] Plan is not frozen`, with the `freeze` / `freeze-start` hint; the plan is unchanged
 - a Target File is shared with another `⚡ In Development` plan -> exit 1, stderr `[Activation Gate]` names the file and the other plan; the plan is unchanged
 - a Target File is in a queued Plan Blocker's Location -> exit 1, stderr `[Activation Gate] <file> has a pending fix (#<n>); fix it first ('aapp issue fix next-blocker') or start another plan.`; nothing changed. A plan with a recorded `Base:` was started before (a `⚡` re-run, or re-frozen after a re-scope) and is not gated by this (P-58, #103)
+- a `pre-start` hook vetoes (exit != 0, except 2) -> exit 1; pre-mutation quality gate halts with zero disk modifications, zero buffer writes, and zero commits (P-23)
 - plan worktree (P-54): the branch or path already exists (`never reuses`), or no base branch (`No base branch`) -> exit 1; nothing changed. `worktree <path>` on a plan started before -> exit 1 (its worktree is chosen at its first start)
-- plan worktree (P-54): the worktree, a kit link (never a copy), an `on-start` hook or the start commit fails -> exit 1, stderr `rolled back`: the worktree, its links and the branch are removed, and the plan file and `state_matrix.md` are restored from a snapshot taken before (the developer's uncommitted plan edits included)
+- in-transaction `on-start` action delegate or the start commit fails -> exit 1, stderr `rolled back`: mutations (worktree, links, branch, buffer, plan file) are rolled back and restored from snapshot (P-23, P-54)
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 
 ## Effects (happy path)
+- the `pre-start` gating hook executes before any mutation (payload carries plan ID, plan file, and Target Files)
 - the plan's Status line reads `⚡ In Development`
 - `* **Base:**` header line records current worktree's HEAD SHA and branch (or `(detached)`); re-running on a `⚡` plan keeps the first base
 - `## 📦 6. Change Log` gains a dated line: `Plan activated into ⚡ In Development via start.`
 - `.plans/state_matrix.md` is re-derived and lists the plan under In Development
 - the active buffer holds the plan ID; a different previous value moves to `aapp_active_plan.prev`
+- `on-start` action delegate runs inside the transaction (failing handler rolls back the start)
 - one commit in the plans worktree, `plan(start): activate <id> into development`, holds the plan and the matrix via `plans_commit`
-- the `on-start` lifecycle event is dispatched (a failing handler does not undo the start)
+- the `post-start` observer lifecycle event is dispatched after commit (P-23)
 - the write-guard and pre-commit hook now enforce this plan's Target Files and Out of Bounds
 
 ### With a plan worktree (P-54: `aapp.planWorktrees = on`, or `worktree <path>`; only on a plan's first start, i.e. no Base recorded)

@@ -1083,7 +1083,8 @@ AAPP provides an extensible, zero-dependency lifecycle hook and action plugin en
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        AAPP LIFECYCLE ENGINE                           │
-│  (on-freeze, on-start, on-done, on-pause, on-resume, on-sync, ...)     │
+│  (pre-freeze, post-freeze, pre-start, on-start, post-start,           │
+│   pre-done, post-done, pre-sync, on-sync, post-sync, ...)              │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
@@ -1117,13 +1118,13 @@ The hook registry is a tab-delimited, line-oriented flat file (`.agents/skills/a
 
 ```tsv
 # event<TAB>handler_path<TAB>expected_sha256<TAB>timeout<TAB>mode
-on-freeze	.agents/skills/migration-guard/scripts/check.sh	sha256:9f3c8e4...	30	gate
-on-done	.agents/skills/archiver/scripts/push.sh	sha256:1a7e2b8...	60	notify
+pre-freeze	.agents/skills/migration-guard/scripts/check.sh	sha256:9f3c8e4...	30	gate
+post-done	.agents/skills/archiver/scripts/push.sh	sha256:1a7e2b8...	60	notify
 on-sync	.agents/skills/team-transport/sync.sh	sha256:4d8a1c3...	45	gate
 ```
 
 * **5-Column Schema**:
-  1. `event`: The lifecycle trigger name (e.g. `on-freeze`, `on-done`, `on-sync`).
+  1. `event`: The lifecycle trigger name (e.g. `pre-freeze`, `pre-start`, `pre-done`, `post-done`, `on-sync`).
   2. `handler_path`: Relative repository path to the executable script or binary.
   3. `expected_sha256`: Expected SHA256 checksum prefixed with `sha256:`.
   4. `timeout`: Execution timeout in seconds (positive integer; defaults to `10` if empty or omitted).
@@ -1189,23 +1190,25 @@ Every handler executes under an automated watchdog timer running in an isolated 
 
 ---
 
-### Lifecycle Event Matrix (10 Lifecycle Triggers)
+### Lifecycle Event Matrix (Unified Lifecycle Taxonomy, P-23)
 
-AAPP wires 10 distinct lifecycle events across all planning and workflow operations:
+AAPP wires symmetric pre-mutation quality gates, in-transaction action delegates, and post-mutation observers across all planning and workflow operations:
 
-| Event | Triggering Command | Default Mode | Delivered Context (`data`) |
-| :--- | :--- | :---: | :--- |
-| `on-pickup` | `/aapp-digest` / `aapp digest` | `notify` | Idea text or pickup file being ingested. |
-| `on-digest` | `/aapp-digest` / `aapp digest` | `gate` | Scaffolded draft blueprint path & Plan ID. |
-| `on-freeze` | `/aapp-freeze` / `aapp freeze` | `gate` | Plan ID, declared Target Files, locked blueprint path. |
-| `on-start` | `/aapp-start` / `aapp start` | `gate` | Plan ID, status transition to `⚡ In Development`. |
-| `on-done` | `/aapp-done` / `aapp done` | `notify` | Plan ID, destination archive path in `.plans/done/`. |
-| `on-integrate` | `aapp done` with `aapp.integrate = hook` (or the `hook` token) | `gate` | Action delegate (P-55): replaces the built-in squash / fast-forward; `plan_id`, `plan_file`, `plan_branch`, `target_branch`, `worktree`. A refusal leaves the plan archived; `aapp done <id> integrate` retries. |
-| `on-pause` | `/aapp-pause` / `aapp pause` | `gate` | Pause reason, dirty worktree inventory, pause buffer path. |
-| `on-resume` | `/aapp-resume` / `aapp resume` | `gate` | Restored plan ID, restored worktree count. |
-| `pre-sync` | `aapp push`, `pull`, `sync` | `notify` | Action (`push`/`pull`/`sync`), remote, worktrees. |
-| `on-sync` | `aapp push`, `pull`, `sync` | `gate` | Action, remote, worktrees (transports remote state). |
-| `post-sync` | `aapp push`, `pull`, `sync` | `notify` | Action, remote, worktrees, transport result. |
+| Event | Type | Timing | Default Mode | Authority to Stop | Delivered Context (`data`) |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| `pre-freeze` | Gate | Pre-mutation | `gate` | **YES** | Plan ID, declared Target Files, proposed blueprint path. |
+| `post-freeze` | Observer | Post-commit | `notify` | No | Plan ID, declared Target Files, locked blueprint path. |
+| `pre-start` | Gate | Pre-mutation | `gate` | **YES** | Plan ID, declared Target Files, blueprint path. |
+| `on-start` | Action Delegate | In-transaction | `gate` | **YES** | Plan ID, declared Target Files, worktree path, branch. Rolls back on non-zero exit (P-54). |
+| `post-start` | Observer | Post-commit | `notify` | No | Plan ID, declared Target Files, active buffer / worktree path. |
+| `pre-done` | Gate | Pre-mutation | `gate` | **YES** | Plan ID, blueprint path, commit SHA, recorded commits array. |
+| `post-done` | Observer | Post-commit | `notify` | No | Plan ID, destination archive path in `.plans/done/`, commit SHA, recorded commits array. |
+| `on-integrate` | Action Delegate | In-transaction | `gate` | **YES** | Action delegate (P-55): replaces built-in squash / fast-forward; `plan_id`, `plan_file`, `plan_branch`, `target_branch`, `worktree`. A refusal leaves plan archived; `aapp done <id> integrate` retries. |
+| `post-pause` | Observer | Post-stash | `notify` | No | Pause reason, dirty worktree inventory, pause buffer path. |
+| `post-resume` | Observer | Post-restore | `notify` | No | Restored plan ID, restored worktree count, drift detected. |
+| `pre-sync` | Gate | Pre-network | `gate` | **YES** | Action (`push`/`pull`/`sync`), remote, worktrees. |
+| `on-sync` | Action Delegate | In-transport | `gate` | **YES** | Action, remote, worktrees (transports remote state). |
+| `post-sync` | Observer | Post-transport | `notify` | No | Action, remote, worktrees, transport result. |
 
 ---
 
@@ -1527,8 +1530,8 @@ AAPP provides dedicated CLI commands for managing and testing hooks:
 * **`aapp hooks`**: Audits all registered lifecycle hooks. Validates file existence, executable bit (`+x`), and live SHA256 integrity against `registry.tsv`:
   ```text
   🪝 AAPP Lifecycle Hook Registry (.agents/skills/aapp-hooks/registry.tsv)
-    • on-freeze -> .agents/skills/migration-guard/scripts/check.sh [gate, 30s] (hash: valid)
-    • on-done   -> .agents/skills/archiver/scripts/push.sh [notify, 60s] (hash: valid)
+    • pre-freeze -> .agents/skills/migration-guard/scripts/check.sh [gate, 30s] (hash: valid)
+    • post-done  -> .agents/skills/archiver/scripts/push.sh [notify, 60s] (hash: valid)
   ```
 * **`aapp plugins`**: Lists the kit's reserved plugins (from `lib/plugins.tsv`, installed or not), a delimiter, then your own plugins discovered in `.agents/skills/` with their resolved entrypoints.
 * **`aapp hook-test <event> [plan-id]`**: Dry-runs registered handlers for a lifecycle event with mock payload data, testing timeout watchdog and exit code semantics without modifying repository state.

@@ -438,9 +438,6 @@ _wt_start() {
             [ -n "$t" ] && targets_json="${targets_json:+$targets_json, }\"$t\""
         done < <(parse_plan_target_paths "$pf")
         data="{\"plan_id\": \"$pid\", \"plan_file\": \"$pf\", \"target_files\": [$targets_json], \"worktree\": \"$WT_PATH\", \"branch\": \"$WT_BRANCH\"}"
-        if [ "$freeze" = "1" ]; then
-            dispatch_hook "on-freeze" "$data" || _wt_fail "$label" "an on-freeze hook refused"
-        fi
         dispatch_hook "on-start" "$data" || _wt_fail "$label" "an on-start hook refused"
     fi
 
@@ -461,6 +458,14 @@ _wt_start() {
     [ -f "$sm_file" ] && paths+=("state_matrix.md")
     plans_commit "$subject" "${paths[@]}" || _wt_fail "$label" "the start commit failed"
     rm -rf "$WT_SNAP"
+
+    # Dispatch post-mutation observers after commit
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+        if [ "$freeze" = "1" ]; then
+            dispatch_hook "post-freeze" "$data" || true
+        fi
+        dispatch_hook "post-start" "$data" || true
+    fi
 
     echo "⚡ [$label] Plan '$pid' activated into ⚡ In Development in its own worktree."
     echo "   Worktree     : $wt_p"
@@ -1021,6 +1026,31 @@ cmd_freeze_start() {
         exit 1
     fi
 
+    # Dispatch pre-freeze and pre-start gating hooks (pre-mutation quality gates)
+    local fs_data=""
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+        # shellcheck source=/dev/null
+        source "$AAPP_HOOK_DISPATCHER"
+        local targets_json=""
+        while IFS= read -r t; do
+            [ -z "$t" ] && continue
+            if [ -z "$targets_json" ]; then
+                targets_json="\"$t\""
+            else
+                targets_json="$targets_json, \"$t\""
+            fi
+        done < <(parse_plan_target_paths "$plan_file")
+        fs_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"target_files\": [$targets_json]}"
+        if ! dispatch_hook "pre-freeze" "$fs_data"; then
+            echo "❌ [Freeze-Start Refusal] pre-freeze hook vetoed freezing of plan '$plan_id'." >&2
+            exit 1
+        fi
+        if ! dispatch_hook "pre-start" "$fs_data"; then
+            echo "❌ [Freeze-Start Refusal] pre-start hook vetoed activation of plan '$plan_id'." >&2
+            exit 1
+        fi
+    fi
+
     # P-54: a fresh start may get its own branch and worktree (a re-scoped plan,
     # started before, keeps where it lives).
     if [ "$WT_MODE" -eq 1 ] && [ -n "$(parse_plan_base "$plan_file")" ]; then
@@ -1035,6 +1065,10 @@ cmd_freeze_start() {
             "plan(start): freeze and activate $plan_id into development" 1
         return 0
     fi
+
+    local plan_snap=""
+    plan_snap="$(mktemp)" || exit 1
+    cp "$plan_file" "$plan_snap" || exit 1
 
     # Record Base SHA and branch
     local head_sha head_br
@@ -1060,6 +1094,19 @@ cmd_freeze_start() {
     # Write buffer
     write_active_buffer "$plan_id"
 
+    # Action delegate: on-start (in-transaction)
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+        if ! dispatch_hook "on-start" "$fs_data"; then
+            echo "❌ [Freeze-Start Refusal] on-start action delegate failed for '$plan_id'." >&2
+            cp "$plan_snap" "$plan_file"
+            rm -f "$plan_snap"
+            rm -f "$ACTIVE_FILE"
+            sync_state_matrix
+            exit 1
+        fi
+    fi
+    rm -f "$plan_snap"
+
     # Commit transition in plans worktree if available
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
         local plan_rel="current/$(basename "$plan_file")"
@@ -1070,22 +1117,10 @@ cmd_freeze_start() {
         fi
     fi
 
-    # Dispatch on-freeze and on-start lifecycle events
+    # Dispatch post-freeze and post-start observers
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
-        # shellcheck source=/dev/null
-        source "$AAPP_HOOK_DISPATCHER"
-        local targets_json=""
-        while IFS= read -r t; do
-            [ -z "$t" ] && continue
-            if [ -z "$targets_json" ]; then
-                targets_json="\"$t\""
-            else
-                targets_json="$targets_json, \"$t\""
-            fi
-        done < <(parse_plan_target_paths "$plan_file")
-        local freeze_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"target_files\": [$targets_json]}"
-        dispatch_hook "on-freeze" "$freeze_data" || exit 1
-        dispatch_hook "on-start" "$freeze_data" || true
+        dispatch_hook "post-freeze" "$fs_data" || true
+        dispatch_hook "post-start" "$fs_data" || true
     fi
 
     echo "⚡ [Freeze-Start] Plan '$plan_id' frozen and activated into ⚡ In Development."
@@ -1212,6 +1247,27 @@ cmd_freeze() {
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
     [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
 
+    # Dispatch pre-freeze gating hook (pre-mutation quality gate)
+    local freeze_data=""
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+        # shellcheck source=/dev/null
+        source "$AAPP_HOOK_DISPATCHER"
+        local targets_json=""
+        while IFS= read -r t; do
+            [ -z "$t" ] && continue
+            if [ -z "$targets_json" ]; then
+                targets_json="\"$t\""
+            else
+                targets_json="$targets_json, \"$t\""
+            fi
+        done < <(parse_plan_target_paths "$plan_file")
+        freeze_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"target_files\": [$targets_json]}"
+        if ! dispatch_hook "pre-freeze" "$freeze_data"; then
+            echo "❌ [Freeze Refusal] pre-freeze hook vetoed freezing of plan '$plan_id'." >&2
+            exit 1
+        fi
+    fi
+
     # Update plan header & lock status
     sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* 🔷 Frozen/' "$plan_file"
     sed -i -E 's/\*\(Marked:[[:space:]]*\*\*PROPOSED\*\*.*\)/\*(Marked: **LOCKED** — Greenlit for implementation)*/' "$plan_file"
@@ -1236,21 +1292,9 @@ cmd_freeze() {
         fi
     fi
 
-    # Dispatch on-freeze lifecycle event
+    # Dispatch post-freeze observer lifecycle event
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
-        # shellcheck source=/dev/null
-        source "$AAPP_HOOK_DISPATCHER"
-        local targets_json=""
-        while IFS= read -r t; do
-            [ -z "$t" ] && continue
-            if [ -z "$targets_json" ]; then
-                targets_json="\"$t\""
-            else
-                targets_json="$targets_json, \"$t\""
-            fi
-        done < <(parse_plan_target_paths "$plan_file")
-        local freeze_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"target_files\": [$targets_json]}"
-        dispatch_hook "on-freeze" "$freeze_data" || exit 1
+        dispatch_hook "post-freeze" "$freeze_data" || true
     fi
 
     echo "🔷 [Freeze] Plan '$plan_id' locked and transitioned to 🔷 Frozen."
@@ -1299,6 +1343,27 @@ cmd_start() {
         exit 1
     fi
 
+    # Dispatch pre-start gating hook (pre-mutation quality gate)
+    local start_data=""
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+        # shellcheck source=/dev/null
+        source "$AAPP_HOOK_DISPATCHER"
+        local targets_json=""
+        while IFS= read -r t; do
+            [ -z "$t" ] && continue
+            if [ -z "$targets_json" ]; then
+                targets_json="\"$t\""
+            else
+                targets_json="$targets_json, \"$t\""
+            fi
+        done < <(parse_plan_target_paths "$plan_file")
+        start_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"target_files\": [$targets_json]}"
+        if ! dispatch_hook "pre-start" "$start_data"; then
+            echo "❌ [Start Refusal] pre-start hook vetoed activation of plan '$plan_id'." >&2
+            exit 1
+        fi
+    fi
+
     # P-54: a fresh start may get its own branch and worktree. A plan started
     # before keeps where it lives (its Base is recorded).
     if [ "$WT_MODE" -eq 1 ] && [ -n "$(parse_plan_base "$plan_file")" ]; then
@@ -1313,6 +1378,10 @@ cmd_start() {
             "plan(start): activate $plan_id into development" 0
         return 0
     fi
+
+    local plan_snap=""
+    plan_snap="$(mktemp)" || exit 1
+    cp "$plan_file" "$plan_snap" || exit 1
 
     # Record Base SHA and branch
     local head_sha head_br
@@ -1336,6 +1405,19 @@ cmd_start() {
 
     write_active_buffer "$plan_id"
 
+    # Action delegate: on-start (in-transaction)
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+        if ! dispatch_hook "on-start" "$start_data"; then
+            echo "❌ [Start Refusal] on-start action delegate failed for '$plan_id'." >&2
+            cp "$plan_snap" "$plan_file"
+            rm -f "$plan_snap"
+            rm -f "$ACTIVE_FILE"
+            sync_state_matrix
+            exit 1
+        fi
+    fi
+    rm -f "$plan_snap"
+
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
         local plan_rel="current/$(basename "$plan_file")"
         if [ -f "$sm_file" ]; then
@@ -1345,21 +1427,9 @@ cmd_start() {
         fi
     fi
 
-    # Dispatch on-start lifecycle event
+    # Dispatch post-start observer lifecycle event
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
-        # shellcheck source=/dev/null
-        source "$AAPP_HOOK_DISPATCHER"
-        local targets_json=""
-        while IFS= read -r t; do
-            [ -z "$t" ] && continue
-            if [ -z "$targets_json" ]; then
-                targets_json="\"$t\""
-            else
-                targets_json="$targets_json, \"$t\""
-            fi
-        done < <(parse_plan_target_paths "$plan_file")
-        local start_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"target_files\": [$targets_json]}"
-        dispatch_hook "on-start" "$start_data" || true
+        dispatch_hook "post-start" "$start_data" || true
     fi
 
     echo "⚡ [Start] Plan '$plan_id' activated into ⚡ In Development."
@@ -1547,6 +1617,15 @@ cmd_done() {
         fi
     done
 
+    local last_commit_entry="${recorded_commits[${#recorded_commits[@]}-1]}"
+    local commit_sha=""
+    if [[ "$last_commit_entry" =~ \`([0-9a-fA-F]+)\` ]]; then
+        commit_sha="${BASH_REMATCH[1]}"
+    else
+        commit_sha="$(echo "$last_commit_entry" | awk '{print $1}' | tr -d '\`')"
+    fi
+    [ -z "$commit_sha" ] && commit_sha="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "0000000")"
+
     # P-55: decide on integration and run every integration check now, before
     # pre-done and the archive commit: a refusal leaves nothing archived.
     _ig_decide "$plan_file" || exit 1
@@ -1557,7 +1636,7 @@ cmd_done() {
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
         source "$AAPP_HOOK_DISPATCHER"
-        local pre_done_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"commits\": [$commits_json]}"
+        local pre_done_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"commit_hash\": \"$commit_sha\", \"commits\": [$commits_json]}"
         if ! dispatch_hook "pre-done" "$pre_done_data"; then
             echo "❌ [Done Refusal] pre-done hook vetoed archiving of plan '$plan_id'." >&2
             exit 1
@@ -1686,12 +1765,12 @@ cmd_done() {
         echo "   Issue closed : #$close_issue -> done/000-issues-archive.md"
     fi
 
-    # Dispatch on-done lifecycle event
+    # Dispatch post-done observer lifecycle event
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
         source "$AAPP_HOOK_DISPATCHER"
         local done_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"done/$bname\", \"commit_hash\": \"$commit_sha\", \"commits\": [$commits_json]}"
-        dispatch_hook "on-done" "$done_data" || true
+        dispatch_hook "post-done" "$done_data" || true
     fi
 
     echo "🏛️  [Done] Plan '$plan_id' archived to done/$bname."

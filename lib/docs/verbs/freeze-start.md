@@ -6,7 +6,7 @@
     constraints: must resolve to exactly one plan in `.plans/current/`
 - `worktree <path>`, `branch <name>` (bare tokens, optional, P-54): as for `start`; with `aapp.planWorktrees = on` (or `worktree`), freeze-start creates the plan's branch and worktree exactly as `start` does (see `aapp help start`)
 - reads: the plan file (§5 Open Questions, §4 Target Files), every other plan in `.plans/current/` (disjointness gate), the queued `🧱 Plan Blockers` and their Location paths (P-58), the active buffer
-- reads config: `aapp.planState.*` (matrix re-derivation); the lifecycle hook registry for `on-freeze` and `on-start`
+- reads config: `aapp.planState.*` (matrix re-derivation); the lifecycle hook registry for `pre-freeze`, `pre-start`, `on-start`, `post-freeze`, `post-start` (P-23)
 
 ## Preconditions
 - Inside a Git repository whose `.plans/current/` exists
@@ -26,19 +26,21 @@
 - no path under `### 📂 Target Files` in §4 -> exit 1, stderr `[Freeze-Start Refusal] Plan declares no Target Files`; the plan is unchanged
 - a Target File is shared with another `⚡ In Development` plan -> exit 1, stderr `[Activation Gate]`; the plan is unchanged
 - a Target File is in a queued Plan Blocker's Location -> exit 1, stderr `[Activation Gate] <file> has a pending fix (#<n>)`; the plan is unchanged. A plan with a recorded `Base:` (started before, re-scoped) is not gated by this (P-58, #103)
-- an `on-freeze` hook vetoes -> exit 1 and the plan stays unactivated
-- plan worktree (P-54): the refusals and the all-or-nothing rollback of `start`; there `on-freeze` and `on-start` both run before the record, and a refusal by either rolls back
+- a `pre-freeze` or `pre-start` hook vetoes (exit != 0, except 2) -> exit 1; pre-mutation quality gates halt with zero disk modifications, zero buffer writes, and zero commits (P-23)
+- in-transaction `on-start` action delegate fails -> exit 1, rolls back all mutations (worktree, branch, plan file, active buffer)
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 
 ## Effects (happy path)
+- `pre-freeze` and `pre-start` gating hooks run before state mutations
 - the plan's Status line reads `⚡ In Development`
 - a `PROPOSED` marker, when present, reads `LOCKED`
 - `* **Base:**` header line records current worktree's HEAD SHA and branch (or `(detached)`); with a plan worktree, the base commit and the **base branch** it came from (P-54), plus `* **Worktree:** <path> (<branch>)`
 - `## 📦 6. Change Log` gains a dated line: `Plan frozen and activated into ⚡ In Development via freeze-start.`
 - `.plans/state_matrix.md` is re-derived and lists the plan under In Development
 - the active buffer holds the plan ID; a different previous value moves to `aapp_active_plan.prev`
+- `on-start` action delegate runs inside the transaction
 - one commit in the plans worktree, `plan(start): freeze and activate <id> into development`, via `plans_commit`
-- `on-freeze` then `on-start` are dispatched
+- `post-freeze` then `post-start` observers are dispatched after commit (P-23)
 
 ## Exit
 - 0 only when every effect above landed

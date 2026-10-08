@@ -33,17 +33,17 @@ print_lifecycle_events_catalog() {
     echo "     • pre-done      Runs before archiving plan to .plans/done/"
     echo "     • pre-sync      Runs before synchronizing remote worktrees"
     echo ""
-    echo "  2. On-Mutation Observers (Synchronous, inherits environment/stdin):"
-    echo "     • on-freeze     Triggers immediately after plan freeze state mutation"
-    echo "     • on-start      Triggers immediately after plan activation into development"
-    echo "     • on-done       Triggers immediately after plan archive state mutation"
-    echo "     • on-sync       Triggers immediately after worktree git fetch/rebase"
+    echo "  2. Action Delegates (In-transaction execution, may abort or execute):"
+    echo "     • on-start      Action delegate for plan start (rolls back on failure)"
+    echo "     • on-sync       Custom transport delegate when aapp.syncStrategy = hook"
     echo ""
-    echo "  3. Post-Mutation Actions (Non-blocking background or reporting):"
+    echo "  3. Post-Mutation Observers (Non-blocking background or reporting):"
     echo "     • post-freeze   Runs after plan freeze commits land"
     echo "     • post-start    Runs after plan start commits land"
     echo "     • post-done     Runs after plan done commits land"
     echo "     • post-sync     Runs after worktree sync completes"
+    echo "     • post-pause    Runs after emergency pause stashes land"
+    echo "     • post-resume   Runs after emergency resume restore completes"
 }
 
 cmd_hooks_status() {
@@ -282,7 +282,7 @@ cmd_hook_test() {
     if [ -z "$event" ]; then
         echo "❌ Error: Missing event name for hook-test." >&2
         echo "Usage: aapp hook-test <event> [plan-id]" >&2
-        echo "Available events: on-pickup, on-digest, on-freeze, on-start, on-done, on-pause, on-resume, pre-sync, on-sync, post-sync" >&2
+        echo "Available events: pre-freeze, post-freeze, pre-start, on-start, post-start, pre-done, post-done, pre-sync, on-sync, post-sync, post-pause, post-resume" >&2
         return 1
     fi
 
@@ -309,14 +309,14 @@ cmd_hook_test() {
 # ------------------------------------------------------------------------------
 cmd_hook_hash() {
     local target_path="${1:-}"
-    local event="${2:-on-freeze}"
+    local event="${2:-pre-freeze}"
     local timeout="${3:-10}"
     local mode="${4:-gate}"
 
     if [ -z "$target_path" ]; then
         echo "❌ Error: Missing handler file path." >&2
         echo "Usage: aapp hook-hash <path> [event] [timeout] [mode]" >&2
-        echo "Example: aapp hook-hash .agents/skills/migration-guard/scripts/check.sh on-freeze 30 gate" >&2
+        echo "Example: aapp hook-hash .agents/skills/migration-guard/scripts/check.sh pre-freeze 30 gate" >&2
         return 1
     fi
 

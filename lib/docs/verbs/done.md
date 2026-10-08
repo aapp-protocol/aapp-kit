@@ -12,7 +12,7 @@
 - reads config (P-55): `aapp.integrate` (`manual` seeded; `squash`, `ff`, `hook`), `aapp.integrateTarget` (`parent` = the branch in `* **Base:**`, `dev`, or a branch), `aapp.integrateCleanup` (`true`), `aapp.quarantineIgnored` (`false`), `aapp.maxEmergencyHotfixes`, `aapp.issueFixWait`; the hook registry for `on-integrate`
 - reads: the plan file (Plan ID, `Target Issue / Milestone` header), `.plans/done/000-archive-ledger.md`, `.plans/state_matrix.md`, the active buffer
 - reads: the plan file (Plan ID, `Target Issue / Milestone` header, `* **Commits:**` header line), `.plans/done/000-archive-ledger.md`, `.plans/state_matrix.md`, the active buffer
-- reads config: the lifecycle hook registry for `pre-done` and `on-done`
+- reads config: the lifecycle hook registry for `pre-done` and `post-done` (P-23)
 
 ## Preconditions
 - Inside a Git repository whose `.plans/current/` and `.plans/done/` exist
@@ -31,11 +31,12 @@
 - integration checks (P-55), all before `pre-done` and the archive commit, so a refusal leaves nothing archived: the plan branch or the target branch missing locally; the plan branch not containing the target (`rebase it first`, with the command); uncommitted tracked changes in the main checkout; more than `aapp.maxEmergencyHotfixes` emergency hotfixes without `override-hotfix-cap`; `hook` with no `on-integrate` handler registered; an open mini plan in the main checkout, waited for with the P-52 roller up to `aapp.issueFixWait` (`0` refuses at once) -> exit 1
 - `integrate` on a plan without a worktree -> exit 1 (its commits are on the development branch already)
 - after the archive: the squash / fast-forward, or the `on-integrate` handler, fails -> exit 1; the plan stays archived and `aapp done <id> integrate` retries
-- `pre-done` lifecycle hook exits non-zero -> exit 1, vetoes archive; plan and ledger unchanged
+- `pre-done` lifecycle hook exits non-zero (except 2) -> exit 1, vetoes archive; plan, matrix, and ledger unchanged (P-23)
 - Target Issue `#<n>` in neither `ISSUES.md` nor `done/000-issues-archive.md` -> exit 1, stderr `Target issue #<n> is in neither`; nothing moves (P-32)
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 
 ## Effects (happy path)
+- the `pre-done` gating hook executes before any mutation (payload carries plan ID, plan file, and commits)
 - the plan moves from `.plans/current/` to `.plans/done/`
 - its Status line reads `✅ Done`, and `## 📦 6. Change Log` gains a dated archival line
 - `000-archive-ledger.md` gains one row under its header: date, Plan ID, a link to the archived file, the plan header's Target Issue, the verification commit, and a non-empty Impact Summary
@@ -52,7 +53,7 @@
 - a Target Issue `#<n>` still active is closed as by `aapp issue close`: its row moves to the top of `done/000-issues-archive.md` with summary `[<id>](<file>) - <title>`, and it leaves `issues_road_map.md`; an already-archived one is left alone (P-32)
 - other open issues whose *Target Plan / Fix* cell (or road-map line) links `current/<file>` now link `done/<file>`; observation cells and the archive are untouched (P-50)
 - one commit in the plans worktree, `plan(done): archive <id> to done/ and update state matrix`, holds the move, the ledger, the matrix, any issue close and any repaired links
-- the `on-done` lifecycle event is dispatched (a failing handler does not undo the archive)
+- the `post-done` observer lifecycle event is dispatched after commit (P-23)
 - stdout names the archived file, the verification commit and the ledger
 
 ## Exit

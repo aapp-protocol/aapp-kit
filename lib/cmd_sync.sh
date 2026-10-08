@@ -17,6 +17,9 @@ if [ -z "$REPO_ROOT" ]; then
     exit 1
 fi
 
+AAPP_HOOK_DISPATCHER="$(dirname "${BASH_SOURCE[0]}")/hook_dispatcher.sh"
+[ -f "$AAPP_HOOK_DISPATCHER" ] || AAPP_HOOK_DISPATCHER="$REPO_ROOT/lib/hook_dispatcher.sh"
+
 ACTION="${1:-sync}"
 shift || true
 
@@ -188,9 +191,9 @@ fi
 # Observer hook dispatcher helper
 dispatch_observer_hook() {
     local event_name="$1"
-    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
-        source "$REPO_ROOT/lib/hook_dispatcher.sh"
+        source "$AAPP_HOOK_DISPATCHER"
     fi
     if declare -f dispatch_hook >/dev/null 2>&1; then
         local obs_wts=""
@@ -200,6 +203,27 @@ dispatch_observer_hook() {
             if [ -z "$obs_wts" ]; then obs_wts="\"$bname\""; else obs_wts="$obs_wts, \"$bname\""; fi
         done
         dispatch_hook "$event_name" "{\"action\": \"$ACTION\", \"remote\": \"$TARGET_REMOTE\", \"worktrees\": [$obs_wts]}" || true
+    fi
+}
+
+# Helper: Dispatch gating lifecycle hook (fail-closed on non-zero exit)
+dispatch_gate_hook() {
+    local event_name="$1"
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+        # shellcheck source=/dev/null
+        source "$AAPP_HOOK_DISPATCHER"
+    fi
+    if declare -f dispatch_hook >/dev/null 2>&1; then
+        local obs_wts=""
+        for w in "${ACTIVE_WTS[@]}"; do
+            bname="$(basename "$w")"
+            bname="${bname#.}"
+            if [ -z "$obs_wts" ]; then obs_wts="\"$bname\""; else obs_wts="$obs_wts, \"$bname\""; fi
+        done
+        if ! dispatch_hook "$event_name" "{\"action\": \"$ACTION\", \"remote\": \"$TARGET_REMOTE\", \"worktrees\": [$obs_wts]}"; then
+            echo "❌ [$event_name Refusal] Hook '$event_name' vetoed '$ACTION'." >&2
+            return 1
+        fi
     fi
 }
 
@@ -216,10 +240,11 @@ if [ "$ACTION" = "pull" ] || [ "$ACTION" = "sync" ]; then
     done
 fi
 
+# Gating pre-sync hook: fail-closed before transport execution
+dispatch_gate_hook "pre-sync" || return 1 2>/dev/null || exit 1
+
 # Execute transport based on resolved strategy
 if [ "$RESOLVED_STRATEGY" = "hook" ]; then
-    # Fire pre-sync observer hook
-    dispatch_observer_hook "pre-sync"
 
     # Build worktrees JSON array
     WTS_JSON=""
@@ -242,9 +267,9 @@ if [ "$RESOLVED_STRATEGY" = "hook" ]; then
     export AAPP_MODE="gate"
 
     sync_data="{\"action\": \"$ACTION\", \"remote\": \"$TARGET_REMOTE\", \"worktrees\": [$WTS_JSON]}"
-    if [ -f "$REPO_ROOT/lib/hook_dispatcher.sh" ]; then
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
-        source "$REPO_ROOT/lib/hook_dispatcher.sh"
+        source "$AAPP_HOOK_DISPATCHER"
         if ! dispatch_hook "on-sync" "$sync_data"; then
             echo "❌ Hook transport failed during $ACTION." >&2
             return 1 2>/dev/null || exit 1
@@ -333,9 +358,6 @@ push_worktree() {
 
     echo "    • $wt/    --> $TARGET_REMOTE/$branch (synced)"
 }
-
-# Dispatch pre-sync observer
-dispatch_observer_hook "pre-sync"
 
 PULL_STRAT="$(git -C "$REPO_ROOT" config aapp.pullStrategy 2>/dev/null || echo "ff-only")"
 
