@@ -5,7 +5,7 @@
 * **Changelog:** Added: `aapp start` can create a branch and worktree per plan (`aapp.planWorktrees`) and open a session there (`aapp.planSession`)
 * **Commit Mode:** atomic
 * **Changelog Mode:** plan
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `ade93c3` (develop)
 * **Commits:** `61d1f9b` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -193,6 +193,7 @@ git config aapp.planSession 'code {path}'
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-08:** Plan implementation completed and archived to done/.
 * **2026-10-08:** Plan activated into ⚡ In Development via start.
 * **2026-10-08:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-08:** Added `tests/verbs/active.sh` to Target Files (developer-approved round trip): `find_worktree_holding_plan` now resolves the primary checkout's relative buffer path, so a linked worktree can no longer bind a plan the primary holds; that test's fixture relied on the old behaviour.

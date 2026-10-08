@@ -29,8 +29,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-54**: [`P54-plan-worktrees-at-start.md`](current/P54-plan-worktrees-at-start.md) — Plan Worktrees At Start
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
