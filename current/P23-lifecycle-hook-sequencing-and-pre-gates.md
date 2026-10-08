@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** Milestone v1.2.1 (Lifecycle Extension Governance)
 * **Plan ID:** P-23
 * **Changelog:** Added: Lifecycle hook pre-mutation quality gates and return code abort protocol
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
@@ -191,7 +191,7 @@ All `pre-*` gating hooks communicate their verdict to the calling AAPP command v
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*(Marked: **PROPOSED** — confers no execution rights until frozen)*
+*(Marked: **LOCKED** — Greenlit for implementation)**
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/cmd_plan.sh` -> Re-order hook dispatch points for `cmd_freeze`, `cmd_start`, `cmd_freeze_start`, and `cmd_done`.
@@ -227,6 +227,7 @@ All `pre-*` gating hooks communicate their verdict to the calling AAPP command v
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-08:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-07:** Refined blueprint: resolved all Open Questions with user approval (Clean Break with zero legacy aliases, `pre-done` as gate, deferred hotfix/integrate events until P-52/P-55 land), added plan-declared changelog header line, and updated implementation checklist.
 * **2026-10-07:** `on-start` kept as the in-transaction action delegate (developer, from the P-52/P-54 review): P-54 runs it after creating the plan's branch and worktree and before the commit, with rollback; `pre-start` gates before any mutation, `post-start` observes. Q1 narrowed to `on-freeze`.
 * **2026-09-19:** Plan initialized to resolve lifecycle hook sequencing and establish pre-mutation quality gates with POSIX return code abort authority.
