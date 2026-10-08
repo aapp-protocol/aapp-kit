@@ -3,8 +3,8 @@
 * **Target Issue / Milestone:** Milestone v1.2.1 (Lifecycle Extension Governance)
 * **Plan ID:** P-23
 * **Changelog:** Added: Lifecycle hook pre-mutation quality gates and return code abort protocol
-* **Status:** 🔷 Frozen
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `4d3afe5` (develop)
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
@@ -227,6 +227,7 @@ All `pre-*` gating hooks communicate their verdict to the calling AAPP command v
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-08:** Plan activated into ⚡ In Development via start.
 * **2026-10-08:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-07:** Refined blueprint: resolved all Open Questions with user approval (Clean Break with zero legacy aliases, `pre-done` as gate, deferred hotfix/integrate events until P-52/P-55 land), added plan-declared changelog header line, and updated implementation checklist.
 * **2026-10-07:** `on-start` kept as the in-transaction action delegate (developer, from the P-52/P-54 review): P-54 runs it after creating the plan's branch and worktree and before the commit, with rollback; `pre-start` gates before any mutation, `post-start` observes. Q1 narrowed to `on-freeze`.
