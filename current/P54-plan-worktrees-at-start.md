@@ -3,9 +3,11 @@
 * **Target Issue / Milestone:** None (follows P-52 and the #84 fix)
 * **Plan ID:** P-54
 * **Changelog:** Added: `aapp start` can create a branch and worktree per plan (`aapp.planWorktrees`) and open a session there (`aapp.planSession`)
+* **Commit Mode:** atomic
+* **Changelog Mode:** plan
 * **Status:** ⚡ In Development
 * **Base:** `ade93c3` (develop)
-* **Commits:** none
+* **Commits:** `61d1f9b` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
