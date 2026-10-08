@@ -5,7 +5,7 @@
 * **Changelog:** Added: Automated worktree branch integration, parent-branch targeting, and safe cleanup (`aapp done <id> integrate`)
 * **Commit Mode:** atomic
 * **Changelog Mode:** plan
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `61d1f9b` (develop)
 * **Commits:** `f4469d8` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done -->
@@ -260,6 +260,7 @@ Mirrors `on-sync` (`aapp.syncStrategy = hook`): with `aapp.integrate = hook` (or
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-08:** Plan implementation completed and archived to done/.
 * **2026-10-08:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-08:** Q1 and Q2 resolved (developer): automatic integration on `done` for worktree plans, with `aapp.integrate` seeded `manual` (no change until opt-in); ignored sensitive files refuse the cleanup by default (integration kept), quarantine opt-in via `aapp.quarantineIgnored`. Tests for both added to Task 4.1.
 * **2026-10-07:** Integration checks run before `pre-done` and the archive commit (P-23 invariant), so `done` integrates fully or archives nothing; the mini-plan wait follows P-52's roller (no `wait` token); added the `on-integrate` action delegate (`aapp.integrate = hook`, mirrors `on-sync`), with cleanup skipped under it (developer decision).

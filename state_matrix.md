@@ -28,8 +28,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-55**: [`P55-automated-branch-integration.md`](current/P55-automated-branch-integration.md) — Automated Worktree Branch Integration, Parent Branch Lifecycle & Safe Cleanup
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
