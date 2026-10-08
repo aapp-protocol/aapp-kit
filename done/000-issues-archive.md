@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #105 | `Medium` | `CORE` | 2026-10-08 | 2026-10-08 | `6df62c1` | Fixed via aapp issue fix: lib/cmd_issue.sh |
 | #106 | `Low` | `HOOK` | 2026-10-08 | 2026-10-08 | `ad64b00` | Fixed via aapp issue fix: templates/aapp-pre-commit |
 | #103 | `Medium` | `CORE` | 2026-10-08 | 2026-10-08 | `ade93c3` | Fixed via aapp issue fix: lib/aapp-lib.sh, tests/verbs/start.sh, lib/docs/verbs/start.md, lib/docs/verbs/freeze-start.md, lib/cmd_plan.sh |
 | #104 | `High` | `CORE` | 2026-10-08 | 2026-10-08 | `dd0865a` | Out of kit scope: layer-0 deployment hardening; practice to document (pickup: Layer-0 Enforcement Practice) |

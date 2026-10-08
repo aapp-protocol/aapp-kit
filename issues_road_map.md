@@ -40,6 +40,5 @@
 - [ ] #99 -> `aapp.*` config defaults have no single source of truth; each reader hardcodes its own.
 - [ ] #95 -> "Small" fix is undefined in invariant 5; default <10 changed lines, adopter override in `PROJECT.MD`.
 - [ ] #101 -> `aapp-digest` skill still routes small fixes through `issue fix <num> file …`, not `/aapp-fix`.
-- [ ] #105 -> `issue fix <num> file …` replaces the Location files instead of adding to them.
 - [ ] #107 -> `freeze`/`freeze-start` fold uncommitted plan edits into the lifecycle commit.
 
