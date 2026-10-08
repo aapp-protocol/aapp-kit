@@ -131,6 +131,7 @@ The hook consumes the payload from Dual Delivery:
 - [ ] `tests/kit_release_hook_test.sh` -> Regression tests for kit release hook and version synchronization
 - [ ] `MANUAL.md` -> Document kit release hook in extension recipes
 - [ ] `README.md` -> Note self-release hook dogfooding
+- [ ] `ARCHITECTURE.md` -> Synchronize kit release hook contracts and directory tree
 - [ ] `.agents/CODEMAP.md` -> Document scripts/kit-on-release.sh contracts
 - [ ] `CHANGELOG.md` -> Record kit release hook addition
 
