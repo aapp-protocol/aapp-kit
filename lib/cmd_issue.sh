@@ -903,9 +903,12 @@ cmd_issue_fix() {
             row="$(grep -m 1 -E "$(_issue_row_regex "$n")" "$plans/ISSUES.md" 2>/dev/null)" || {
                 _issue_lock_release; echo "❌ [Issue] #$n is not an active issue in ISSUES.md." >&2; return 1; }
             # The files come from the issue log; `file` only adds one it does not name.
-            if [ ${#files[@]} -eq 0 ]; then
-                while IFS= read -r f; do [ -n "$f" ] && files+=("$f"); done < <(issue_location_paths "$row")
-            fi
+            local all_files=()
+            while IFS= read -r f; do [ -n "$f" ] && all_files+=("$f"); done < <(issue_location_paths "$row")
+            for f in "${files[@]}"; do
+                printf '%s\n' "${all_files[@]}" | grep -qxF "$f" || all_files+=("$f")
+            done
+            files=("${all_files[@]}")
             if [ ${#files[@]} -eq 0 ]; then
                 _issue_lock_release; echo "❌ [Issue] No files known for #$n: give them with 'file <path>'." >&2; return 1
             fi
