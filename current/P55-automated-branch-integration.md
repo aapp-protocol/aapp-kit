@@ -3,9 +3,11 @@
 * **Target Issue / Milestone:** Multi-Agent Worktree Integration Engine (Pickup #8)
 * **Plan ID:** P-55
 * **Changelog:** Added: Automated worktree branch integration, parent-branch targeting, and safe cleanup (`aapp done <id> integrate`)
+* **Commit Mode:** atomic
+* **Changelog Mode:** plan
 * **Status:** ⚡ In Development
 * **Base:** `61d1f9b` (develop)
-* **Commits:** none
+* **Commits:** `f4469d8` (develop)
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
