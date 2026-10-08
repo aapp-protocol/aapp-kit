@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status auto-sync (`P-30`): `aapp status` re-derives `state_matrix.md` before reading it, so the Roadmap line and Next Action footer report the real board instead of a stale cache.
 
 ### Changed
+- Enshrined Hook Security & Trust Model (Rule 20), Milestone Release Bundling (Rule 21), and Continuous Navigation (Rule 22) in ARCHITECTURE.md; synchronized directory tree.
 - Decoupled Git Notes from Commit Attribution (`P-45`): Untangles Git Notes from commit message trailers into orthogonal dimensions, enabling independent note attachment across all attribution modes.
 - Consolidated AI Attribution Switchboard (`P-43`): Collapses legacy standalone `ai-*` verbs into unified `aapp ai [none|lax|strict|notes|status|credits]` command with clean-break retirements.
 - Zero Double-Dash Flags Invariant Enforcement: Purged isolated double-dash flags across operational commands in adherence to clean-break bare keyword tokens: `aapp matrix check`, `aapp pause shared`, and `aapp hooks events`.

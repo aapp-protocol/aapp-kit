@@ -50,7 +50,7 @@
 ├── templates/             # Version-controlled hook engines and starter blueprints
 │   ├── blast-radius-guard.sh # Layer 1 PreToolUse write-guard engine
 │   ├── aapp-pre-commit    # Layer 2 Authoritative pre-commit engine
-│   ├── aapp-lib.sh        # Symlink -> ../lib/aapp-lib.sh; init installs a real copy into .githooks/
+│   ├── aapp-lib.sh        # Shared pure-function library for hook engines
 │   ├── aapp-pre-commit-develop # Develop-only verb contract correspondence engine (seeded by aapp develop)
 │   ├── aapp-commit-msg    # Commit-msg conciseness & trailer validator
 │   ├── aapp-post-commit   # Post-commit Option C staged note attacher
@@ -58,10 +58,10 @@
 │   ├── state_matrix.md    # Active plan lane & incubator brain
 │   ├── issues.md          # Active flat defect table template
 │   ├── issues_road_map.md # Human defect priority board template
-│   ├── done-issues-archive.md # Relocated defect archive template
+│   ├── 000-issues-archive.md # Relocated defect archive template
 │   ├── 000-archive-ledger.md  # Master architectural archive ledger template
 │   └── skills/            # Universal AAPP lifecycle skills
-├── tests/                 # Automated test suites (369 passing test cases)
+├── tests/                 # Automated test suites (modular regression, hook & lifecycle suites)
 │   ├── test_helpers.sh    # Shared test harness: sandbox confinement & identity inheritance
 │   ├── install_test.sh    # CLI, init, drop-in, adoption, installer & worktree tests
 │   ├── write-guard_test.sh# Layer 1 write-guard, allowlists, single-plan isolation
@@ -71,11 +71,14 @@
 │   ├── sync_test.sh       # Remote worktree synchronization & transport tests
 │   ├── plan_resolver_test.sh # Plan ID resolution, pairs 4, 5, 6
 │   └── ai_attribution_test.sh # Switchboard, trailers, Option C notes, credits
-├── scripts/               # Migration and maintenance utilities
+├── scripts/               # Migration, maintenance, and release automation utilities
+│   ├── archive-plan.sh    # Plan lifecycle archival helper
+│   ├── kit-on-release.sh  # Kit self-release hook automating template delimiter sync (P-59)
 │   └── scrub-attribution.sh # Attribution migration & SHA repair utility
 ├── .plans/                # Isolated planning worktree (mounted on branch 'plans')
 │   ├── current/           # Active blueprints (P<N>-<slug>.md)
 │   ├── done/              # Archived blueprints & 000-archive-ledger.md
+│   ├── release/           # Milestone release bundle directories (P-38)
 │   ├── ISSUES.md          # Canonical active defect ledger (Relocation Invariant)
 │   ├── issues_road_map.md # Defect sequence & human priority board
 │   ├── pickup.md          # Raw unworked scratchpad queue
@@ -84,7 +87,6 @@
 │   ├── AGENTS.md          # Agent behavioral contracts & lifecycle rules
 │   ├── CODEMAP.md         # Canonical code map & module ownership
 │   ├── PROJECT.MD         # Project roadmap, milestones & agent personas
-│   ├── ARCHITECTURE.md    # Invariant architecture & structural mapping
 │   ├── claude/            # Versioned Claude Code settings (settings.json)
 │   └── skills/            # Universal skills bridged to .claude/skills/
 ├── .claude/               # Gitignored Claude Code bridge (relative symlinks)
@@ -122,6 +124,14 @@
     Template drift is probed by `aapp status` directing maintainers to `aapp init`.
 18. **Issue Fixes, Hotfixes & Plans Held Elsewhere (P-52):** A small fix runs in a temporary mini plan `.plans/current/fix-<num>.md` (created by `aapp issue fix`, deleted by `aapp issue close`; one at a time, serialised by a waiting roller and the shared issue lock in the git common dir); the issue row is its permanent record and plan lookups (resolver, Pair 4, matrix, plan-status, ID seed) ignore it. A plan blocked by a bug outside its files hands off with one command, `aapp issue hotfix`, which logs and queues the issue (🧱 Plan Blockers), appends it to the plan's append-only `Emergency Hotfixes:` and blocks the plan; above `aapp.maxEmergencyHotfixes` the block is permanent. A 🔷 Frozen plan restricts nothing (#98). Single-plan auto-discovery skips plans held by another worktree's buffer, and an unbound checkout is refused their files; overlap checks (activation gate, Pair 7) still see them.
 19. **Plan Worktrees (P-54):** Opt-in (`aapp.planWorktrees`): a plan's first `start`/`freeze-start` creates its own branch (`--no-track`, from the resolved development branch, `aapp_dev_branch`) and worktree, and binds the plan in that worktree's buffer only. The kit reaches the worktree through relative symlinks (`.githooks`, `.agents`, `.plans`, `.claude`) excluded via the common `info/exclude`, never copies, so there is still one plan store and one hook engine. Creation is a transaction (`_wt_start` in `lib/cmd_plan.sh`): worktree → links → bind → `on-start` (may rename/move) → read-back → record `Worktree:`/`Base:` → commit, with a snapshot rollback on any failure. Issue fixes stay on the development branch (`issue fix` refuses inside a plan worktree); plans take fixes by rebase only. A `post-rewrite` hook (`templates/aapp-post-rewrite`, carrying `commit_engine.sh` into `.githooks`) keeps `Commits:` true across rebase and amend. `done` integrates only when asked (P-55): with `aapp.integrate` = `squash`/`ff`/`hook` (seeded `manual`) or the `integrate` token, a worktree plan is merged into its parent branch, the branch in its `Base:` (`resolve_plan_integrate_target`), after all checks ran before the archive (ancestry, clean main checkout, open issue fix under the issue lock, hotfix cap, a registered `on-integrate` for `hook`); the mutating engine (`_ig_*` in `lib/cmd_plan.sh`) runs after the archive commit and is safe to retry; cleanup refuses when sensitive ignored files would be deleted unless they are quarantined into the git common dir.
+20. **Hook Security, Integrity & Trust Model:** Autonomous agent execution of lifecycle hooks is governed by a strict 5-layer defense-in-depth model:
+    - **Layer 0 (OS Permissions & Binary Separation):** Hook scripts may reside outside the workspace or be owned by a separate user (`root` or CI service account) with read-only permissions (`chmod 555`) to prevent in-process tampering.
+    - **Layer 1 (PreToolUse Write Interception):** `.githooks/blast-radius-guard` blocks agent edits to hook engine components and `.agents/skills/*` out-of-bounds.
+    - **Layer 2 (Authoritative Pre-Commit Boundary):** `.githooks/aapp-pre-commit` rejects unauthorized changes staged outside active plan blast radius.
+    - **Layer 3 (Cryptographic SHA-256 Pinning):** `.agents/skills/aapp-hooks/registry.tsv` pins handler SHAs. In `mode=gate`, any unpinned, missing, or altered handler causes immediate execution refusal with exit code 1.
+    - **Layer 4 (Watchdog Timeout & Sandboxed Execution):** All hooks run under a deterministic process watchdog timeout (default 30s, terminating with exit code 124) with isolated environments (`stdin` JSON envelope + exported `AAPP_*` metadata).
+21. **Milestone Release Bundling & Tag Ledgers (P-38):** Milestone orchestration (`aapp release <version>`) creates immutable, freeze-locked snapshots of completed plans in `.plans/release/<tag>/`, rolls up active archive entries into a single-line milestone entry in `000-archive-ledger.md`, and prunes active archive plan files. Release operations remain snapshot-agnostic and language-agnostic, delegating project-specific artifact generation, template synchronization, or packaging exclusively to registered lifecycle hooks (`pre-release`, `on-release`, `post-release`).
+22. **Continuous Documentation Navigation Invariant:** All high-level architectural documentation assets (`ARCHITECTURE.md`, `MANUAL.md`, `CHEATSHEET.md`, `CODEMAP.md`) and workflow cookbooks must maintain continuous bidirectional navigation links without dead-ends.
 
 ## Plan State: Derived, Not Maintained
 
