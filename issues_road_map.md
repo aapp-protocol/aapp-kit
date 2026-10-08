@@ -42,4 +42,5 @@
 - [ ] #101 -> `aapp-digest` skill still routes small fixes through `issue fix <num> file …`, not `/aapp-fix`.
 - [ ] #105 -> `issue fix <num> file …` replaces the Location files instead of adding to them.
 - [ ] #106 -> Pre-commit's Python syntax check leaves `__pycache__/` in the working tree.
+- [ ] #107 -> `freeze`/`freeze-start` fold uncommitted plan edits into the lifecycle commit.
 
