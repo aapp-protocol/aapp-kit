@@ -239,6 +239,16 @@ refuse_unless_incubator() {
     esac
 }
 
+# refuse_uncommitted_plan_edits <file> <verb-label>: freezing approves the design
+# as last committed; uncommitted edits would ride in the lifecycle commit (#107).
+# A never-committed (untracked) plan has no earlier design to protect.
+refuse_uncommitted_plan_edits() {
+    if [ -n "$(git -C "$PLANS_DIR" status --porcelain --untracked-files=no -- "current/$(basename "$1")" 2>/dev/null)" ]; then
+        echo "❌ [$2 Refusal] $(basename "$1") has uncommitted edits; commit them with 'aapp refine <id> \"<what changed>\"' first." >&2
+        exit 1
+    fi
+}
+
 # write_active_buffer <plan_id> [buffer_file]: binds the plan in this worktree's
 # buffer, or in [buffer_file] (another worktree's, P-54); the previous value
 # moves to the `.prev` slot beside it.
@@ -971,6 +981,7 @@ cmd_freeze_start() {
     local plan_file
     plan_file="$(resolve_plan_file "$query" "freeze-start")" || exit 1
     refuse_unless_incubator "$plan_file" "Freeze-Start"
+    refuse_uncommitted_plan_edits "$plan_file" "Freeze-Start"
     _wt_parse_tokens "Freeze-Start Refusal" "$@" || exit 1
 
     # Refuse from planning worktrees (.plans, .agents, .githooks)
@@ -1215,6 +1226,7 @@ cmd_freeze() {
     local plan_file
     plan_file="$(resolve_plan_file "$query" "freeze")" || exit 1
     refuse_unless_incubator "$plan_file" "Freeze"
+    refuse_uncommitted_plan_edits "$plan_file" "Freeze"
 
     # Verify Open Questions
     local unresolved_q

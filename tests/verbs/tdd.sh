@@ -102,6 +102,7 @@ awk '
 /### 🧪 Required Test Files/ { print; print "- `tests/test_x.sh`"; next }
 { print }
 ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+git -C .plans commit -qam "match required tests" >/dev/null 2>&1   # freeze refuses uncommitted plan edits (#107)
 aapp freeze "$id" >/dev/null 2>&1; rc=$?
 if [ "$rc" -eq 0 ] && grep -q '🔷 Frozen' "$f"; then
   ok "test_freeze_tolerates_unwritten_matching_tests"

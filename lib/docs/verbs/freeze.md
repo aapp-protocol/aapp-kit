@@ -15,6 +15,7 @@
 - no `id` -> exit 1, stderr `You must specify a target plan for 'freeze'.`
 - `id` resolves to no plan -> exit 1, stderr `Plan '<id>' not found`
 - the plan is `🔷 Frozen`, `⚡ In Development`, `🟥 BLOCKED`, or carries a status no registry entry matches -> exit 1, stderr `[Freeze Refusal] Plan is not in the incubator`; the plan is unchanged (#89)
+- the plan file has uncommitted edits in `.plans` -> exit 1, stderr names `aapp refine`; the plan is unchanged (#107: freezing approves the design as last committed)
 - an unchecked `* [ ]` item under `## ❓ 5. Open Questions` -> exit 1, stderr `[Freeze Refusal]` lists each unresolved question; the plan is unchanged
 - no path under `### 📂 Target Files` in §4 -> exit 1, stderr `[Freeze Refusal] Plan declares no Target Files`; the plan is unchanged
 - a `pre-freeze` hook vetoes (non-zero exit except 2) -> exit 1; pre-mutation quality gate halts with zero disk modifications and zero commits in `.plans/` (P-23)
@@ -46,3 +47,4 @@ Run: `aapp test verb freeze`
 - `tests/verbs/freeze.sh::test_human_freeze_commits_in_lax` -> lax, no identity: the freeze commit lands (#81)
 - `tests/verbs/freeze.sh::test_freeze_refuses_bad_changelog_declaration` -> missing, malformed or over-long `**Changelog:**` field refuses freeze
 - `tests/verbs/freeze.sh::test_freeze_accepts_valid_changelog_declaration` -> a valid declaration freezes
+- `tests/verbs/freeze.sh::test_refuses_uncommitted_plan_edits` -> uncommitted plan edits: exit 1, nothing committed (#107)

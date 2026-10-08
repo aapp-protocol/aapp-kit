@@ -127,4 +127,17 @@ fi
 r_ok="$(freeze_with_changelog cl-ok '* **Changelog:** Fixed: Parser handles empty input')"
 if [ "$r_ok" = "0 1" ]; then ok "test_freeze_accepts_valid_changelog_declaration"; else bad "test_freeze_accepts_valid_changelog_declaration" "$r_ok"; fi
 
+echo "== uncommitted plan edits (#107) =="
+id="$(draft_plan uncommitted-edit)"; f="$(plan_file "$id")"
+resolve_questions "$f"
+echo "<!-- design edit not yet committed -->" >> "$f"
+before="$(cksum < "$f")"; head0="$(git -C .plans rev-parse HEAD)"
+out="$(aapp freeze "$id" 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && echo "$out" | grep -qF "aapp refine" && [ "$(cksum < "$f")" = "$before" ] && \
+   [ "$(git -C .plans rev-parse HEAD)" = "$head0" ] && ! status_of "$f" | grep -q '🔷 Frozen'; then
+  ok "test_refuses_uncommitted_plan_edits"
+else
+  bad "test_refuses_uncommitted_plan_edits" "rc=$rc out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"

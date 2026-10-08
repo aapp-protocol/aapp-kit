@@ -102,4 +102,17 @@ else
 fi
 git config aapp.planWorktrees off
 
+echo "== uncommitted plan edits (#107) =="
+id_u="$(draft_plan fs-uncommitted)"; f_u="$(plan_file "$id_u")"
+sed -i -E "s|src/path/to/file\.ext|src/fs_u.py|g; /src\/path\/to\/new_file\.ext/d" "$f_u"
+sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$f_u"
+before="$(cksum < "$f_u")"; head0="$(git -C .plans rev-parse HEAD)"
+out="$(aapp freeze-start "$id_u" 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && echo "$out" | grep -qF "aapp refine" && [ "$(cksum < "$f_u")" = "$before" ] && \
+   [ "$(git -C .plans rev-parse HEAD)" = "$head0" ] && status_of "$f_u" | grep -q '🟣 Under Review'; then
+  ok "test_refuses_uncommitted_plan_edits"
+else
+  bad "test_refuses_uncommitted_plan_edits" "rc=$rc out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"

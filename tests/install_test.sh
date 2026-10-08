@@ -1085,6 +1085,7 @@ sed -i 's/^### 📂 Target Files/### 📂 Target Files\n* `dummy.txt` - test fil
 # Resolve the template's §5 question: freeze refuses it, and done archives only
 # an in-development plan (#89), so every step must genuinely succeed.
 sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$plan_60"
+git -C "$PROJ_60/.plans" commit -qam "prepare $bname_60" >/dev/null 2>&1   # freeze refuses uncommitted plan edits (#107)
 (cd "$PROJ_60" && aapp freeze "$bname_60" >/dev/null 2>&1)
 (cd "$PROJ_60" && aapp start "$bname_60" >/dev/null 2>&1)
 (cd "$PROJ_60" && echo "data" > dummy.txt && echo "- dummy" >> CHANGELOG.md && git add dummy.txt CHANGELOG.md && aapp commit "feat: dummy commit" >/dev/null 2>&1)

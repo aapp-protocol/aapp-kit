@@ -22,6 +22,7 @@
 - invoked from a planning worktree -> exit 1, stderr `Run freeze-start from a code worktree`
 - plan bound in another worktree's active buffer -> exit 1, stderr naming holding worktree
 - the plan is `🔷 Frozen`, `⚡ In Development`, `🟥 BLOCKED`, or carries an unrecognised status -> exit 1, stderr `[Freeze-Start Refusal] Plan is not in the incubator`; the plan and buffer are unchanged (#89)
+- the plan file has uncommitted edits in `.plans` -> exit 1, stderr names `aapp refine`; the plan is unchanged (#107)
 - an unchecked `* [ ]` item under `## ❓ 5. Open Questions` -> exit 1, stderr `[Freeze-Start Refusal]` lists each unresolved question; the plan is unchanged
 - no path under `### 📂 Target Files` in §4 -> exit 1, stderr `[Freeze-Start Refusal] Plan declares no Target Files`; the plan is unchanged
 - a Target File is shared with another `⚡ In Development` plan -> exit 1, stderr `[Activation Gate]`; the plan is unchanged
@@ -54,3 +55,4 @@ Run: `aapp test verb freeze-start`
 - `tests/verbs/freeze-start.sh::test_records_base_sha_and_branch` -> freeze-start fills Base the same way
 - `tests/verbs/freeze-start.sh::test_refuses_target_with_pending_fix` -> a Target File in a queued Plan Blocker: exit 1, plan unchanged (P-58)
 - `tests/verbs/freeze-start.sh::test_worktree_freeze_start_creates_and_records` -> with `on`, the worktree and links are created, Worktree and Base (develop) recorded, the plan bound there (P-54)
+- `tests/verbs/freeze-start.sh::test_refuses_uncommitted_plan_edits` -> uncommitted plan edits: exit 1, nothing committed (#107)
