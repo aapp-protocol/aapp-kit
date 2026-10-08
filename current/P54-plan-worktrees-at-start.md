@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** None (follows P-52 and the #84 fix)
 * **Plan ID:** P-54
 * **Changelog:** Added: `aapp start` can create a branch and worktree per plan (`aapp.planWorktrees`) and open a session there (`aapp.planSession`)
-* **Status:** ⚡ In Development
+* **Status:** 📝 Refining
 * **Base:** `ade93c3` (develop)
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
