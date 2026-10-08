@@ -24,6 +24,9 @@ In active, long-lived projects governed by AAPP, `.plans/done/000-archive-ledger
 2. **Merge Contention**: Concurrent branches touch monolithic archive tables.
 3. **Loss of Release Coherence**: Discerning which specific blueprints and bug fixes shipped in a particular release tag requires cross-referencing git logs rather than reading a self-contained release artifact.
 4. **Adopter Heterogeneity & Multi-Project Portability**: Different software ecosystems track versions differently (Python `pyproject.toml`, Node `package.json`, Rust `Cargo.toml`, CalVer, SemVer). The release engine must not hardcode application file mutations; it must delegate version incrementing to project-specific lifecycle hooks while accepting flexible CLI parameters. Furthermore, every project at any given moment has an arbitrary snapshot of completed plans in `.plans/done/`. The release engine must be strictly snapshot-agnostic—never assuming fixed plan counts or hardcoded plan ID ranges.
+5. **Tagging, Signing & Publishing Standards Across Teams**: Diverse projects require distinct tag conventions (e.g. `v1.0.0` vs bare `1.0.0`), cryptographic verification (GPG/SSH signed tags), and remote publishing workflows (`--push` vs explicit copy-paste instructions).
+6. **Machine-Readable Automation Requirements**: CI/CD pipelines (GitHub Actions, GitLab CI) require structured release data (`manifest.json` alongside `manifest.md` and `--json` CLI output) rather than parsing markdown.
+7. **Changelog Portability & Atomicity Guarantees**: Adopter projects locate changelogs in varied paths (`CHANGELOG.md`, `docs/CHANGELOG.md`, or none), and mid-release failures must never leave repositories in half-mutated, corrupted states.
 
 ### Architectural Goal
 Establish **Milestone Release Bundling** under `.plans/release/<tag>/`, **1-Row Master Ledger Rollups**, and **Hook-Delegated Versioning**:
@@ -35,6 +38,12 @@ Establish **Milestone Release Bundling** under `.plans/release/<tag>/`, **1-Row 
 6. **Rolling Active Graveyard**: Resets `.plans/done/000-issues-archive.md` to a lean table for the next unreleased cycle.
 7. **Recursive Resolution**: Upgrades `lib/plan_resolver.sh` to search `.plans/done/` and `.plans/release/*/plans/` recursively without depth limits.
 8. **Mandatory Pre-Flight Simulation & Safety Gate**: Every release invocation automatically runs a mandatory pre-flight simulation and verification runbook (cleanliness across active worktrees, automated test suites, pre-release gate hook, archive commit reachability, branch parity, unmerged branches advisory). Bypasses zero safety checks; requires explicit confirmation in interactive TTY or `--yes` flag for automation. Dedicated `aapp release check` / `--dry-run` runs Phase A only.
+9. **Tag Formatting & Prefix Customization**: Configurable via `git config aapp.tagPrefix` (default `"v"`, supports bare `""` or custom prefix). Automatically derives raw SemVer version and applies repo tag prefix convention.
+10. **Dual Manifest Artifacts & JSON Output**: Generates both human-readable `manifest.md` and machine-readable `manifest.json` under `.plans/release/<tag>/`. Supports `--json` CLI flag for headless CI/CD automation.
+11. **Cryptographic Tag Signing Policy**: Governed by `git config aapp.signTags` (`auto` [default: signs if key is present], `true` [strictly enforced, fails in Phase A if unsigned/no key], `false` [annotated tag only]).
+12. **Remote Publishing Guidance & Optional Push**: Displays a clear, copy-pasteable publication banner (`git push origin <branch> && git push origin <tag> && git push origin plans`) or automatically executes push when `--push` or `git config aapp.releasePush true` is specified.
+13. **Configurable Changelog Path & Bypass**: Resolves changelog via `git config aapp.changelogPath` (default `CHANGELOG.md`), supporting custom paths (e.g. `docs/CHANGELOG.md`) and `--no-changelog` bypass for projects that don't maintain a markdown changelog.
+14. **Transactional Rollback Atomicity**: Pre-captures working tree and worktree HEAD snapshots before Phase B mutations; registers trap-based `_release_rollback()` ensuring clean unwinding on any mid-mutation failure.
 
 ---
 
@@ -51,7 +60,8 @@ Establish **Milestone Release Bundling** under `.plans/release/<tag>/`, **1-Row 
 ├── 000-archive-ledger.md                # Full, detailed plan ledger for this tag
 ├── 000-issues-archive.md                # Slice of defects resolved during this milestone
 ├── CHANGELOG.md                         # Release notes specific to this version
-└── manifest.md                          # Milestone summary (tag, date, commit SHA, metrics)
+├── manifest.md                          # Milestone summary (tag, date, commit SHA, metrics)
+└── manifest.json                        # Machine-readable release manifest for CI/CD automation
 ```
 
 ### 2.2 Hierarchical Master Ledger Rollup (`.plans/done/000-archive-ledger.md`)
@@ -81,11 +91,11 @@ The master archive ledger at `.plans/done/000-archive-ledger.md` is structured i
 Add `lib/cmd_release.sh` and register `release` in `lib/verbs.tsv` under the Setup & Maintenance tier:
 
 ```bash
-aapp release <version-or-bump> [--no-archive] [--dry-run] [-y|--yes]
+aapp release <version-or-bump> [--no-archive] [--no-changelog] [--push] [--json] [--dry-run] [-y|--yes]
 ```
 
-#### A. Supported Version Formats & Validation Contract
-The release engine strictly validates version syntax, supporting two base formats and arbitrary prerelease/build suffixes:
+#### A. Supported Version Formats, Tag Prefixes & Validation Contract
+The release engine strictly validates version syntax, supporting two base formats, customizable tag prefixes, and arbitrary prerelease/build suffixes:
 1. **3-Segment SemVer (Preferred)**: `X.Y.Z` or `vX.Y.Z` (e.g. `1.0.0`, `v1.2.3`).
 2. **2-Segment Notation (Valid)**: `X.Y` or `vX.Y` / `1.n` (e.g. `1.0`, `v1.2`). Both variants are first-class valid inputs.
 3. **Prerelease & Build Suffixes**:
@@ -96,6 +106,11 @@ The release engine strictly validates version syntax, supporting two base format
    ^v?[0-9]+\.[0-9]+(\.[0-9]+)?([.-][a-zA-Z0-9_.-]{1,30})?$
    ```
    Any input that fails this regex or exceeds the suffix length constraint fails immediately with exit code 1 and concise syntax guidance.
+5. **Tag Prefix Customization (`aapp.tagPrefix`)**:
+   - Evaluated via `git config aapp.tagPrefix` (default: `"v"`).
+   - Supports bare SemVer tags (`git config aapp.tagPrefix ""` -> produces `1.0.0`), standard `v` prefix (`v1.0.0`), or custom prefix (e.g. `release-`).
+   - The raw version (`AAPP_RAW_VERSION`) is cleanly extracted without the prefix for lifecycle hooks and manifest version numbers.
+   - The final git tag (`TARGET_TAG`) is computed as `${TAG_PREFIX}${RAW_VERSION}` unless an explicit prefix was passed on the CLI.
 
 #### B. Initial / Baseline Version Precedence Ladder (Multi-Project Support)
 For the AAPP Kit itself, the version is established in `aapp` (`AAPP_VERSION="1.0.0"`). For third-party adopter projects that do not yet have an annotated git release tag (`git describe --tags` returns empty), `aapp release` resolves the baseline version via a strict priority ladder:
@@ -128,25 +143,34 @@ Every release operation (`aapp release <version-or-bump>`) strictly executes in 
 3. **Pre-Release Lifecycle Quality Gate**:
    - Dispatches `pre-release` gate hook via `dispatch_hook` with payload `{"event":"pre-release","version":"$TARGET_VERSION","previousVersion":"$PREV_VERSION","bump":"$BUMP_TYPE"}`.
    - If `pre-release` exits non-zero: **hard abort** (`❌ [pre-release Refusal] Pre-release hook rejected release`).
-4. **Archive Commit Reachability Gate (Strict Integrity)**:
+4. **Tag Signing Policy Gate (`aapp.signTags`)**:
+   - Queries `git config aapp.signTags` (`auto` [default], `true`, `false`).
+   - If `true`: checks that git signing key is configured (`git config user.signingkey` or GPG/SSH committer ident). If absent, **hard abort** (`❌ [Release Refusal] Tag signing required (aapp.signTags=true) but no signing key configured`).
+   - If `auto`: detects signing capability; if key present, will use `-s`, else `-a`.
+5. **Changelog Existence Gate (`aapp.changelogPath`)**:
+   - Resolves changelog path via `git config aapp.changelogPath` (default: `CHANGELOG.md`).
+   - If `--no-changelog` or path is `"none"`, changelog checks are skipped.
+   - If configured path is missing: warns or creates if needed, or fails if strict changelog mode is active.
+6. **Archive Commit Reachability Gate (Strict Integrity)**:
    - For every completed blueprint in `.plans/done/` being bundled, extracts its recorded commit SHA (`* **Commits:** \`<sha>\``).
    - Verifies each SHA is an ancestor of `$DEV_BRANCH`:
      `git merge-base --is-ancestor "$PLAN_SHA" "$DEV_BRANCH"`
    - If any archived plan's commit is missing from `$DEV_BRANCH`: **hard abort** (`❌ [Release Refusal] Plan $PID is archived in done/, but commit $PLAN_SHA is not present in development branch $DEV_BRANCH. Run 'aapp done $PID integrate' or merge branch before releasing`).
-5. **Branch Parity & Fast-Forward Gate**:
+7. **Branch Parity & Fast-Forward Gate**:
    - Resolves `$DEV_BRANCH` via `aapp_dev_branch` (`aapp.devBranch`, default `develop dev development`).
    - Resolves `$RELEASE_BRANCH` via `aapp.releaseBranch` / `aapp.protectedBranches` (default `main`).
    - On multi-branch topologies (where `$DEV_BRANCH` exists distinct from `$RELEASE_BRANCH`), asserts `$DEV_BRANCH` fast-forwards cleanly into `$RELEASE_BRANCH`:
      `git merge-base --is-ancestor "$DEV_BRANCH" "$RELEASE_BRANCH"`
    - If parity check fails: **hard abort** (`❌ [Release Refusal] Development branch $DEV_BRANCH cannot be fast-forward merged into release branch $RELEASE_BRANCH`).
    - On single-branch / trunk-based topologies (no separate `$DEV_BRANCH` distinct from `$RELEASE_BRANCH`), asserts working tree cleanliness on the current branch.
-6. **Unmerged Branches Advisory Inspection (Non-Blocking)**:
+8. **Unmerged Branches Advisory Inspection (Non-Blocking)**:
    - Probes for active branches not yet merged into `$DEV_BRANCH`:
      `git branch --no-merged "$DEV_BRANCH"`
    - Displays advisory summary listing unmerged `plan/*` or `feature/*` branches that will not be part of this release.
-7. **Simulation Preview & Confirmation Contract**:
-   - Formats complete release simulation banner:
+9. **Simulation Preview & Confirmation Contract**:
+   - Formats complete release simulation banner (or JSON object if `--json` is specified):
      - Target version transition: `$PREV_VERSION` ➔ `$TARGET_VERSION` (`$BUMP_TYPE`).
+     - Tag name: `$TARGET_TAG` (with signing status: signed/annotated).
      - Bundled blueprints: count and names of plans moving from `.plans/done/` to `.plans/release/<tag>/`.
      - In-flight blueprints: plans remaining active in `.plans/current/` (carrying over).
      - Bundled defects: count of issues moving from `000-issues-archive.md`.
@@ -158,36 +182,57 @@ Every release operation (`aapp release <version-or-bump>`) strictly executes in 
 
 ##### Phase B: Atomic Release Mutation (Mutating)
 Executed strictly after Phase A passes:
-1. **Hook-Based Version Increment (`on-release` Action Delegate)**:
+1. **Transaction Snapshot & Trap Installation**:
+   - Captures HEAD SHAs (`$DEV_SNAP`, `$RELEASE_SNAP`, `$PLANS_SNAP`) and sets trap `_release_rollback()` on `ERR` to guarantee transactional rollback on any unexpected failure (see §2.6).
+2. **Hook-Based Version Increment (`on-release` Action Delegate)**:
    - Dispatches `on-release` action delegate via `dispatch_hook`.
    - Passes Dual Delivery payload:
-     - POSIX Env: `AAPP_RELEASE_VERSION="v1.2.0"`, `AAPP_RAW_VERSION="1.2.0"`, `AAPP_PREVIOUS_VERSION="v1.0.0"`, `AAPP_VERSION_BUMP="minor"`.
-     - STDIN JSON: `{"event":"on-release","version":"v1.2.0","rawVersion":"1.2.0","previousVersion":"v1.0.0","bump":"minor"}`.
+     - POSIX Env: `AAPP_RELEASE_VERSION="$TARGET_TAG"`, `AAPP_RAW_VERSION="$RAW_VERSION"`, `AAPP_PREVIOUS_VERSION="$PREV_VERSION"`, `AAPP_VERSION_BUMP="$BUMP_TYPE"`.
+     - STDIN JSON: `{"event":"on-release","tag":"$TARGET_TAG","version":"$RAW_VERSION","previousVersion":"$PREV_VERSION","bump":"$BUMP_TYPE"}`.
    - The project hook mutates ecosystem-specific files (e.g. `package.json`, `pyproject.toml`, `aapp:AAPP_VERSION`).
-   - If the hook fails (exit non-zero), rolls back modified files and aborts before any Git commits or tags.
-2. **Changelog Rollup**:
-   - Extracts entries under `## [Unreleased]` from `CHANGELOG.md`.
+   - If the hook fails (exit non-zero), transactional rollback triggers immediately before any Git commits or tags.
+3. **Changelog Rollup (Skipped if `--no-changelog` or `aapp.changelogPath="none"`)**:
+   - Resolves target changelog via `aapp.changelogPath` (default: `CHANGELOG.md`).
+   - Extracts entries under `## [Unreleased]`.
    - Rolls up into `## [<version>] - <YYYY-MM-DD>`.
    - Pre-seeds an empty `## [Unreleased]` block above it.
-3. **Snapshot-Driven Milestone Bundling (Skipped if `--no-archive` or zero plans)**:
+4. **Snapshot-Driven Milestone Bundling (Skipped if `--no-archive` or zero plans)**:
    - Scans `.plans/done/` for all completed blueprints (`P*.md`, `plan-*.md`).
    - Creates directory `.plans/release/<tag>/plans/`.
    - Moves all completed blueprints from `.plans/done/` into `.plans/release/<tag>/plans/`.
    - Relocates resolved defects from `.plans/done/000-issues-archive.md` into `.plans/release/<tag>/000-issues-archive.md`.
    - Generates `.plans/release/<tag>/000-archive-ledger.md` listing all bundled blueprints.
-   - Generates `.plans/release/<tag>/manifest.md` recording commit SHA, exact plan count, issue count, and timestamp.
-4. **Master Ledger Rollup & Truncation**:
+   - Generates `.plans/release/<tag>/manifest.md` recording commit SHA, exact plan count, issue count, and metrics.
+   - Generates `.plans/release/<tag>/manifest.json` structured machine-readable metadata (see §2.7).
+5. **Master Ledger Rollup & Truncation**:
    - Appends 1-line summary row to `## 🏷️ Shipped Releases` in `.plans/done/000-archive-ledger.md` linking to `../release/<tag>/000-archive-ledger.md` with dynamic plan/issue counts.
    - Clears `## ⚡ Current Unreleased Cycle` in `.plans/done/000-archive-ledger.md`.
    - Resets `.plans/done/000-issues-archive.md` to a lean template for the next cycle.
-5. **Worktree Commit**:
+6. **Worktree Commit**:
    - Commits `.plans` worktree: `git -C .plans commit -m "release(plans): bundle <tag> milestone and roll ledgers"`.
-6. **Git Parity Merge & Tagging**:
+7. **Git Parity Merge & Tagging**:
    - If multi-branch topology: checks out `$RELEASE_BRANCH` and runs `ALLOW_MAIN_COMMIT=1 git merge --ff-only "$DEV_BRANCH"`.
    - If single-branch / trunk-based topology: commits the release rollup directly on the current release branch.
-   - Creates annotated tag: `git tag -a <tag> -m "Release <tag>"`.
-7. **Post-Release Notification (`post-release` Observer)**:
-   - Dispatches `post-release` observer hook in `mode=notify` with release metadata payload for downstream CI/CD deployment or notification.
+   - Creates tag according to signing policy:
+     - If signed: `git tag -s "$TARGET_TAG" -m "Release $TARGET_TAG"`
+     - If annotated: `git tag -a "$TARGET_TAG" -m "Release $TARGET_TAG"`
+8. **Disarm Rollback Trap**:
+   - Upon successful completion of commits and tags, disarms the `_release_rollback()` trap (`trap - ERR EXIT`).
+9. **Remote Publishing Guidance & Optional Push**:
+   - If `--push` flag is passed or `git config aapp.releasePush true`:
+     - Pushes release branch: `git push origin "$RELEASE_BRANCH"`
+     - Pushes release tag: `git push origin "$TARGET_TAG"`
+     - Pushes plans orphan branch: `git push origin plans`
+   - If not pushing automatically, prints prominent copy-pasteable publication banner:
+     ```text
+     ════════════════════════════════════════════════════════════════════════════
+     🚀 Release <tag> successfully created locally!
+     To publish release commits and tags to remote, run:
+       git push origin <RELEASE_BRANCH> && git push origin <tag> && git push origin plans
+     ════════════════════════════════════════════════════════════════════════════
+     ```
+10. **Post-Release Notification (`post-release` Observer)**:
+    - Dispatches `post-release` observer hook in `mode=notify` with release metadata payload for downstream CI/CD deployment or notification.
 
 #### D. Branch Topology & Dynamic Development Branch Resolution
 The release engine avoids hardcoding `develop` or `main`:
@@ -217,6 +262,72 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
 - Python: `sed -i -E "s/^version = .*/version = \"$AAPP_RAW_VERSION\"/" pyproject.toml`
 - AAPP Kit: `sed -i -E "s/AAPP_VERSION=\".*\"/AAPP_VERSION=\"$AAPP_RAW_VERSION\"/" aapp`
 
+### 2.6 Transactional Rollback Engine (`_release_rollback()`)
+
+To ensure absolute atomicity across multi-step mutations (file updates, changelog rollup, `.plans` bundle movement, git commits, and tags), `lib/cmd_release.sh` implements a strict rollback coordinator:
+1. **Transaction Snapshotting**:
+   Before executing Step 1 of Phase B, the engine captures:
+   - Git SHAs: `$DEV_SNAP` (active dev branch HEAD), `$RELEASE_SNAP` (release branch HEAD), `$PLANS_SNAP` (`.plans` orphan branch HEAD).
+   - Pre-mutation working directory file list.
+2. **Error Trap Execution**:
+   A POSIX trap intercepts non-zero exits:
+   ```bash
+   _release_rollback() {
+     local exit_code=$?
+     if [ "$exit_code" -ne 0 ]; then
+       echo "🚨 [Release Failure] Release aborted during Phase B. Rolling back transaction..." >&2
+       [ -n "$TARGET_TAG" ] && git tag -d "$TARGET_TAG" 2>/dev/null || true
+       git checkout "$CURRENT_BRANCH" 2>/dev/null || true
+       git reset --hard "$DEV_SNAP" 2>/dev/null || true
+       git -C .plans reset --hard "$PLANS_SNAP" 2>/dev/null || true
+       git checkout -- . 2>/dev/null || true
+       echo "✅ [Release Rollback] Repository restored cleanly to pre-release state." >&2
+     fi
+   }
+   ```
+3. **Commit Disarming**:
+   Upon reaching successful completion after Step 7, disarms the rollback trap (`trap - ERR EXIT`) before printing the success banner.
+
+### 2.7 Machine-Readable Release Manifest Schema (`manifest.json`)
+
+To enable seamless automation in modern CI/CD pipelines (GitHub Actions, GitLab CI, release dispatchers), every milestone bundle produces a standardized `manifest.json` alongside `manifest.md`:
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "tag": "v1.2.0",
+  "version": "1.2.0",
+  "rawVersion": "1.2.0",
+  "previousVersion": "1.1.0",
+  "bump": "minor",
+  "releaseDate": "2026-10-08T10:00:00Z",
+  "devBranch": "develop",
+  "releaseBranch": "main",
+  "commitSha": "4fcfd77",
+  "signedTag": true,
+  "metrics": {
+    "plansCount": 3,
+    "issuesCount": 2
+  },
+  "plans": [
+    {
+      "id": "P-10",
+      "slug": "remote-sync",
+      "file": "P10-remote-sync.md",
+      "commit": "a1b2c3d"
+    }
+  ],
+  "issues": [
+    {
+      "id": "#42",
+      "type": "CORE",
+      "description": "Fix memory leak in parser"
+    }
+  ]
+}
+```
+CLI invocations with `--json` output this exact schema directly to stdout, suppressing human decoration.
+
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`: Zero legacy shims or dual-path directories. For any repository adopting AAPP or executing its baseline release, `aapp release` dynamically moves whatever completed plans and archived issues currently reside in `.plans/done/` into `.plans/release/<tag>/` as that repository's baseline release snapshot, without assumptions about plan count or IDs.
@@ -232,14 +343,17 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
 
 ### Phase 2: Release CLI & Lifecycle Hook Implementation (`lib/cmd_release.sh`)
 - [ ] Task 2.1: Author `lib/cmd_release.sh` implementing:
-  - Version validation supporting `1.0.0` (preferred) and `1.n` (valid) with suffixes up to 30 characters (`^v?[0-9]+\.[0-9]+(\.[0-9]+)?([.-][a-zA-Z0-9_.-]{1,30})?$`).
+  - Version validation supporting `1.0.0` (preferred) and `1.n` (valid) with suffixes up to 30 characters (`^v?[0-9]+\.[0-9]+(\.[0-9]+)?([.-][a-zA-Z0-9_.-]{1,30})?$`), plus tag prefix customization via `git config aapp.tagPrefix`.
   - Baseline resolution ladder for third-party adopters (CLI arg $\rightarrow$ git tag $\rightarrow$ `git config aapp.initialVersion` $\rightarrow$ manifest autodetection $\rightarrow$ interactive prompt fallback).
-  - Mandatory two-phase execution: Phase A (Mandatory Read-Only Pre-Flight Gate & Simulation) covering working tree cleanliness, automated tests (`./aapp test strict quiet`), `pre-release` gate hook, archive commit reachability in `$DEV_BRANCH`, branch parity fast-forward check, and unmerged branch advisories; Phase B (Atomic Release Mutation) gated on Phase A passing with explicit interactive confirmation or `--yes` flag.
-  - Dedicated simulation mode via `--dry-run` and `aapp release check`.
+  - Mandatory two-phase execution: Phase A (Mandatory Read-Only Pre-Flight Gate & Simulation) covering working tree cleanliness, automated tests (`./aapp test strict quiet`), `pre-release` gate hook, tag signing capability check (`aapp.signTags`), changelog path verification (`aapp.changelogPath`), archive commit reachability in `$DEV_BRANCH`, branch parity fast-forward check, and unmerged branch advisories; Phase B (Atomic Release Mutation) gated on Phase A passing with explicit interactive confirmation or `--yes` flag.
+  - Dedicated simulation mode via `--dry-run`, `aapp release check`, and `--json` machine-readable output.
+  - Transactional rollback coordinator (`_release_rollback()`) intercepting Phase B errors with trap-based recovery.
   - `on-release` action delegate hook dispatch with Dual Delivery payload.
-  - Snapshot-driven milestone bundle generation under `.plans/release/<tag>/` (dynamically moving whatever plans reside in `.plans/done/`).
+  - Configurable changelog rollup (`aapp.changelogPath`, bypassable via `--no-changelog`).
+  - Snapshot-driven milestone bundle generation under `.plans/release/<tag>/` including `000-archive-ledger.md`, `manifest.md`, and machine-readable `manifest.json`.
   - Master ledger rollup in `000-archive-ledger.md` and archive truncation in `000-issues-archive.md`.
-  - `CHANGELOG.md` rollup and git parity merge (`$DEV_BRANCH` ➔ `$RELEASE_BRANCH` via `aapp.devBranch`) with annotated tag.
+  - Git parity merge (`$DEV_BRANCH` ➔ `$RELEASE_BRANCH` via `aapp.devBranch`) with signed or annotated tag (`aapp.signTags`).
+  - Remote publishing guidance banner and optional automated push (`--push` / `aapp.releasePush`).
   - `post-release` observer hook notification trigger.
 - [ ] Task 2.2: Register `release` in `lib/verbs.tsv`, author `lib/docs/verbs/release.md`, and wire into `aapp` dispatcher.
 - [ ] Task 2.3: Author `examples/hooks/on-release.sh.sample` in `examples/hooks/`.
@@ -253,10 +367,14 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
 ### Phase 4: Test Suite & Documentation Sync
 - [ ] Task 4.1: Author `tests/release_test.sh` covering:
   - Explicit version parameter parsing (`1.0.0`, `1.n`, suffixes up to 30 chars) vs SemVer bump calculation.
+  - Tag prefix customization (`aapp.tagPrefix`) and tag signing modes (`aapp.signTags` auto/true/false).
   - Baseline resolution precedence ladder (CLI arg, git tag, config `aapp.initialVersion`, manifest probe, prompt).
   - `pre-release`, `on-release`, `post-release` hook lifecycle execution and abort-on-failure.
-  - Snapshot-driven bundle creation and master ledger truncation.
-  - `--dry-run` execution with zero disk/git mutations.
+  - Snapshot-driven bundle creation, `manifest.json` schema validation, and master ledger truncation.
+  - `--dry-run` and `--json` execution with zero disk/git mutations.
+  - Configurable changelog path (`aapp.changelogPath`, `--no-changelog`).
+  - Transactional rollback behavior restoring repository state upon simulated hook failure.
+  - Remote push execution vs publication banner output.
 - [ ] Task 4.2: Update `templates/skills/aapp-release/SKILL.md` to delegate directly to `aapp release`.
 - [ ] Task 4.3: Update `MANUAL.md`, `README.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, `.agents/ARCHITECTURE.md`, and `.agents/CODEMAP.md`.
 - [ ] Task 4.4: Run full regression test suite (`./aapp test strict quiet`) and update `CHANGELOG.md`.
@@ -310,10 +428,23 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
   *Decision:* **Dynamically configured via `aapp.devBranch`.** The release engine never hardcodes `develop`. It calls `aapp_dev_branch` (`git config aapp.devBranch`, candidate list: `develop dev development`), matching the branch conventions of each adopter project. Similarly, the release target branch is resolved via `aapp.releaseBranch` / `aapp.protectedBranches` (defaulting to `main` / `master`). Trunk-based repositories without a distinct development branch bypass the merge step cleanly.
 * [x] **Question 9: Should dry-run / pre-flight verification be mandatory before executing a release?**  
   *Decision:* **Yes, mandatory on every release.** `aapp release` always runs Phase A (Mandatory Pre-Flight Gate & Simulation) before Phase B (Mutations). It verifies working tree cleanliness, runs automated test suites, checks `pre-release` hook, verifies commit reachability of all bundled plans in `$DEV_BRANCH`, checks branch parity, and displays unmerged branch advisories. In interactive terminals, it requires human confirmation (`[y/N]`) unless `--yes` is passed; in non-interactive CI/agent runs, `--yes` is required. The `--dry-run` flag or `aapp release check` runs Phase A only.
+* [x] **Question 10: How are tag prefixes formatted and configured?**  
+  *Decision:* **Configurable via `git config aapp.tagPrefix` (default `"v"`).** Supports empty string `""` for bare SemVer (e.g. `1.2.0`) or custom prefixes like `release-`. The engine separates raw SemVer version (`AAPP_RAW_VERSION`) from formatted git tag (`TARGET_TAG`).
+* [x] **Question 11: Should machine-readable release artifacts be generated for CI/CD pipelines?**  
+  *Decision:* **Yes.** Every release milestone produces both `manifest.md` (for human review) and `manifest.json` (for automated CI/CD pipelines such as GitHub Actions/GitLab CI) recording version, git SHA, date, branch metadata, and list of bundled plans and issues. The CLI flag `--json` outputs this schema directly to stdout.
+* [x] **Question 12: How should git tag cryptographic signing be governed?**  
+  *Decision:* **Governed by `git config aapp.signTags [auto|true|false]`.** In `auto` mode (default), signs with `git tag -s` if a signing key is configured in git, or falls back to annotated tag `git tag -a`. In `true` mode, requires signing and fails fast in Phase A if no key is configured. In `false` mode, always creates annotated tags.
+* [x] **Question 13: How should post-release remote publishing be handled?**  
+  *Decision:* **Safety-first default with copy-paste publication banner and optional `--push` flag.** By default, local release commits and tags are not pushed automatically; the runner prints a clear, copy-pasteable publication banner (`git push origin <branch> && git push origin <tag> && git push origin plans`). When `--push` is passed or `aapp.releasePush=true`, pushes automatically.
+* [x] **Question 14: How should changelog file path and format be handled for diverse adopter repositories?**  
+  *Decision:* **Configurable via `git config aapp.changelogPath` (default `CHANGELOG.md`) with `--no-changelog` bypass.** Supports arbitrary changelog paths (e.g. `docs/CHANGELOG.md`), gracefully generates release blocks even if `## [Unreleased]` is absent, and allows complete bypass via `--no-changelog` or `aapp.changelogPath="none"`.
+* [x] **Question 15: How is atomicity guaranteed if a mutation fails midway during Phase B?**  
+  *Decision:* **Pre-mutation transaction snapshot and POSIX trap rollback handler (`_release_rollback()`).** Captures initial Git SHAs of the active branch, release branch, and `.plans` worktree before mutations begin. If any hook or git command fails, the trap rolls back modified files, cleans untracked release files, deletes partially created tags, and restores HEADs back to their pre-release snapshot.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-08:** Refined blueprint for universal adopter projects: added tag prefix customization (`aapp.tagPrefix`), dual release manifests (`manifest.md` and `manifest.json`) with CLI `--json` support, cryptographic tag signing policy (`aapp.signTags`), remote push flag (`--push`) and publication guidance banner, configurable changelog path (`aapp.changelogPath`) with `--no-changelog` bypass, and Phase B transactional rollback handler (`_release_rollback()`).
 * **2026-10-08:** Refined blueprint: enshrined mandatory pre-flight simulation and verification phase across all release runs, archive commit reachability gating, unmerged branches advisory inspection, and interactive/--yes safety confirmation.
 * **2026-10-08:** Refined blueprint: resolved branch resolution strategy so the developing branch is dynamically determined from configuration (`aapp.devBranch` via `aapp_dev_branch`) rather than hardcoded `develop`, with target release branch resolved via `aapp.releaseBranch` / `aapp.protectedBranches`, supporting arbitrary adopter branch topologies and trunk-based workflows.
 * **2026-10-07:** Refined blueprint: added changelog header, established multi-project baseline resolution ladder (config, manifest autodetection, prompt fallback), specified version syntax supporting both 1.0.0 (preferred) and 1.n with suffixes up to 30 chars, aligned hooks with P-23 (pre-release gate, on-release action delegate, post-release observer), and codified snapshot-agnostic dynamic bundling.
