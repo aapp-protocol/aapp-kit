@@ -34,7 +34,7 @@ Establish **Milestone Release Bundling** under `.plans/release/<tag>/`, **1-Row 
 5. **Tag Ledger & Master Rollup**: Generates `.plans/release/<tag>/000-archive-ledger.md` with full plan details, while truncating `.plans/done/000-archive-ledger.md` to a **1-line summary row per release** linking directly to the tag ledger.
 6. **Rolling Active Graveyard**: Resets `.plans/done/000-issues-archive.md` to a lean table for the next unreleased cycle.
 7. **Recursive Resolution**: Upgrades `lib/plan_resolver.sh` to search `.plans/done/` and `.plans/release/*/plans/` recursively without depth limits.
-8. **Simulation & Safety**: Provides `--dry-run` preview, pre-flight test gating (`aapp test strict quiet`), clean worktree enforcement, and branch parity verification (from configured development branch `$DEV_BRANCH` ➔ release branch `$RELEASE_BRANCH`).
+8. **Mandatory Pre-Flight Simulation & Safety Gate**: Every release invocation automatically runs a mandatory pre-flight simulation and verification runbook (cleanliness across active worktrees, automated test suites, pre-release gate hook, archive commit reachability, branch parity, unmerged branches advisory). Bypasses zero safety checks; requires explicit confirmation in interactive TTY or `--yes` flag for automation. Dedicated `aapp release check` / `--dry-run` runs Phase A only.
 
 ---
 
@@ -114,46 +114,79 @@ For the AAPP Kit itself, the version is established in `aapp` (`AAPP_VERSION="1.
    - If non-interactive (automated agent or CI/CD), fails fast with actionable guidance:
      `❌ [Release] No previous release tag found. Specify an explicit version or set 'git config aapp.initialVersion <ver>'.`
 
-#### C. Execution Pipeline & Symmetric Lifecycle Hooks (P-23 Alignment)
-1. **Pre-Flight Test Gate & `pre-release` Hook**:
-   - Dispatches `pre-release` gate hook via `dispatch_lifecycle_hook` with payload `{"event":"pre-release","version":"$TARGET_VERSION","previousVersion":"$PREV_VERSION","bump":"$BUMP_TYPE"}`.
+#### C. Two-Phase Execution Pipeline: Mandatory Pre-Flight Gate & Atomic Release Mutation
+
+Every release operation (`aapp release <version-or-bump>`) strictly executes in two distinct phases: **Phase A (Mandatory Read-Only Pre-Flight Gate & Simulation)** and **Phase B (Atomic Release Mutation)**. Pre-flight verification is strictly mandatory on every run; zero files are mutated and zero git commands are committed if any pre-flight check fails.
+
+##### Phase A: Mandatory Read-Only Pre-Flight Gate & Simulation (Non-Mutating)
+1. **Clean Worktree Verification**:
+   - Asserts working tree cleanliness across all active worktrees (the active code checkout, `plans`, `agents`, `githooks`).
+   - If uncommitted or unstaged changes exist: **hard abort** (`❌ [Release Refusal] Uncommitted changes detected in <worktree>. Aborting release to preserve uncommitted work`).
+2. **Automated Test Suite Quality Gate**:
    - Executes `./aapp test strict quiet` (or project test runner).
-   - Asserts working tree cleanliness across all active worktrees (the active development checkout, `plans`, `agents`, `githooks`).
-   - If any test, cleanliness check, or `pre-release` hook fails (exit non-zero), **hard aborts immediately** with zero disk modifications.
-2. **Branch Parity & Fast-Forward Validation**:
-   - Resolves the active development branch `$DEV_BRANCH` dynamically via `aapp_dev_branch` (`git config aapp.devBranch`, defaulting to `develop dev development`).
-   - Resolves the target release branch `$RELEASE_BRANCH` via `git config aapp.releaseBranch` (fallback to matching candidate in `git config aapp.protectedBranches` or `main` / `master`).
-   - On multi-branch topologies (where `$DEV_BRANCH` exists distinct from `$RELEASE_BRANCH`), asserts `$DEV_BRANCH` fast-forwards cleanly into `$RELEASE_BRANCH` (`git merge-base --is-ancestor "$DEV_BRANCH" "$RELEASE_BRANCH"`). If ancestral check fails, aborts immediately.
+   - If tests fail (exit non-zero): **hard abort** (`❌ [Release Refusal] Test suite failed. Releases require all test suites to pass 100%`).
+3. **Pre-Release Lifecycle Quality Gate**:
+   - Dispatches `pre-release` gate hook via `dispatch_hook` with payload `{"event":"pre-release","version":"$TARGET_VERSION","previousVersion":"$PREV_VERSION","bump":"$BUMP_TYPE"}`.
+   - If `pre-release` exits non-zero: **hard abort** (`❌ [pre-release Refusal] Pre-release hook rejected release`).
+4. **Archive Commit Reachability Gate (Strict Integrity)**:
+   - For every completed blueprint in `.plans/done/` being bundled, extracts its recorded commit SHA (`* **Commits:** \`<sha>\``).
+   - Verifies each SHA is an ancestor of `$DEV_BRANCH`:
+     `git merge-base --is-ancestor "$PLAN_SHA" "$DEV_BRANCH"`
+   - If any archived plan's commit is missing from `$DEV_BRANCH`: **hard abort** (`❌ [Release Refusal] Plan $PID is archived in done/, but commit $PLAN_SHA is not present in development branch $DEV_BRANCH. Run 'aapp done $PID integrate' or merge branch before releasing`).
+5. **Branch Parity & Fast-Forward Gate**:
+   - Resolves `$DEV_BRANCH` via `aapp_dev_branch` (`aapp.devBranch`, default `develop dev development`).
+   - Resolves `$RELEASE_BRANCH` via `aapp.releaseBranch` / `aapp.protectedBranches` (default `main`).
+   - On multi-branch topologies (where `$DEV_BRANCH` exists distinct from `$RELEASE_BRANCH`), asserts `$DEV_BRANCH` fast-forwards cleanly into `$RELEASE_BRANCH`:
+     `git merge-base --is-ancestor "$DEV_BRANCH" "$RELEASE_BRANCH"`
+   - If parity check fails: **hard abort** (`❌ [Release Refusal] Development branch $DEV_BRANCH cannot be fast-forward merged into release branch $RELEASE_BRANCH`).
    - On single-branch / trunk-based topologies (no separate `$DEV_BRANCH` distinct from `$RELEASE_BRANCH`), asserts working tree cleanliness on the current branch.
-3. **Hook-Based Version Increment (`on-release` Action Delegate)**:
-   - Dispatches `on-release` action delegate via `dispatch_lifecycle_hook`.
+6. **Unmerged Branches Advisory Inspection (Non-Blocking)**:
+   - Probes for active branches not yet merged into `$DEV_BRANCH`:
+     `git branch --no-merged "$DEV_BRANCH"`
+   - Displays advisory summary listing unmerged `plan/*` or `feature/*` branches that will not be part of this release.
+7. **Simulation Preview & Confirmation Contract**:
+   - Formats complete release simulation banner:
+     - Target version transition: `$PREV_VERSION` ➔ `$TARGET_VERSION` (`$BUMP_TYPE`).
+     - Bundled blueprints: count and names of plans moving from `.plans/done/` to `.plans/release/<tag>/`.
+     - In-flight blueprints: plans remaining active in `.plans/current/` (carrying over).
+     - Bundled defects: count of issues moving from `000-issues-archive.md`.
+     - Changelog rollup preview: items under `## [Unreleased]`.
+   - **Pre-flight exit / confirmation contract**:
+     - If `--dry-run` flag or `check` subcommand: prints simulation and exits 0 cleanly (no mutations).
+     - If interactive terminal (`[ -t 0 ]`): prompts `Proceed with release <tag>? [y/N]` (unless `--yes` / `-y` is passed).
+     - If non-interactive (CI runner or autonomous agent): requires explicit `--yes` / `-y` to proceed to Phase B; without `--yes`, prints simulation and safely exits with advisory message.
+
+##### Phase B: Atomic Release Mutation (Mutating)
+Executed strictly after Phase A passes:
+1. **Hook-Based Version Increment (`on-release` Action Delegate)**:
+   - Dispatches `on-release` action delegate via `dispatch_hook`.
    - Passes Dual Delivery payload:
      - POSIX Env: `AAPP_RELEASE_VERSION="v1.2.0"`, `AAPP_RAW_VERSION="1.2.0"`, `AAPP_PREVIOUS_VERSION="v1.0.0"`, `AAPP_VERSION_BUMP="minor"`.
      - STDIN JSON: `{"event":"on-release","version":"v1.2.0","rawVersion":"1.2.0","previousVersion":"v1.0.0","bump":"minor"}`.
    - The project hook mutates ecosystem-specific files (e.g. `package.json`, `pyproject.toml`, `aapp:AAPP_VERSION`).
    - If the hook fails (exit non-zero), rolls back modified files and aborts before any Git commits or tags.
-4. **Changelog Rollup**:
+2. **Changelog Rollup**:
    - Extracts entries under `## [Unreleased]` from `CHANGELOG.md`.
    - Rolls up into `## [<version>] - <YYYY-MM-DD>`.
    - Pre-seeds an empty `## [Unreleased]` block above it.
-5. **Snapshot-Driven Milestone Bundling (Skipped if `--no-archive` or zero plans)**:
+3. **Snapshot-Driven Milestone Bundling (Skipped if `--no-archive` or zero plans)**:
    - Scans `.plans/done/` for all completed blueprints (`P*.md`, `plan-*.md`).
    - Creates directory `.plans/release/<tag>/plans/`.
    - Moves all completed blueprints from `.plans/done/` into `.plans/release/<tag>/plans/`.
    - Relocates resolved defects from `.plans/done/000-issues-archive.md` into `.plans/release/<tag>/000-issues-archive.md`.
    - Generates `.plans/release/<tag>/000-archive-ledger.md` listing all bundled blueprints.
    - Generates `.plans/release/<tag>/manifest.md` recording commit SHA, exact plan count, issue count, and timestamp.
-6. **Master Ledger Rollup & Truncation**:
+4. **Master Ledger Rollup & Truncation**:
    - Appends 1-line summary row to `## 🏷️ Shipped Releases` in `.plans/done/000-archive-ledger.md` linking to `../release/<tag>/000-archive-ledger.md` with dynamic plan/issue counts.
    - Clears `## ⚡ Current Unreleased Cycle` in `.plans/done/000-archive-ledger.md`.
    - Resets `.plans/done/000-issues-archive.md` to a lean template for the next cycle.
-7. **Worktree Commit**:
+5. **Worktree Commit**:
    - Commits `.plans` worktree: `git -C .plans commit -m "release(plans): bundle <tag> milestone and roll ledgers"`.
-8. **Git Parity Merge & Tagging**:
+6. **Git Parity Merge & Tagging**:
    - If multi-branch topology: checks out `$RELEASE_BRANCH` and runs `ALLOW_MAIN_COMMIT=1 git merge --ff-only "$DEV_BRANCH"`.
    - If single-branch / trunk-based topology: commits the release rollup directly on the current release branch.
    - Creates annotated tag: `git tag -a <tag> -m "Release <tag>"`.
-9. **Post-Release Notification (`post-release` Observer)**:
+7. **Post-Release Notification (`post-release` Observer)**:
    - Dispatches `post-release` observer hook in `mode=notify` with release metadata payload for downstream CI/CD deployment or notification.
 
 #### D. Branch Topology & Dynamic Development Branch Resolution
@@ -201,8 +234,8 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
 - [ ] Task 2.1: Author `lib/cmd_release.sh` implementing:
   - Version validation supporting `1.0.0` (preferred) and `1.n` (valid) with suffixes up to 30 characters (`^v?[0-9]+\.[0-9]+(\.[0-9]+)?([.-][a-zA-Z0-9_.-]{1,30})?$`).
   - Baseline resolution ladder for third-party adopters (CLI arg $\rightarrow$ git tag $\rightarrow$ `git config aapp.initialVersion` $\rightarrow$ manifest autodetection $\rightarrow$ interactive prompt fallback).
-  - `--dry-run` simulation mode.
-  - Pre-flight test runner gate (`./aapp test strict quiet`) and `pre-release` gate hook.
+  - Mandatory two-phase execution: Phase A (Mandatory Read-Only Pre-Flight Gate & Simulation) covering working tree cleanliness, automated tests (`./aapp test strict quiet`), `pre-release` gate hook, archive commit reachability in `$DEV_BRANCH`, branch parity fast-forward check, and unmerged branch advisories; Phase B (Atomic Release Mutation) gated on Phase A passing with explicit interactive confirmation or `--yes` flag.
+  - Dedicated simulation mode via `--dry-run` and `aapp release check`.
   - `on-release` action delegate hook dispatch with Dual Delivery payload.
   - Snapshot-driven milestone bundle generation under `.plans/release/<tag>/` (dynamically moving whatever plans reside in `.plans/done/`).
   - Master ledger rollup in `000-archive-ledger.md` and archive truncation in `000-issues-archive.md`.
@@ -275,10 +308,13 @@ Provide a plug-and-play sample demonstrating multi-ecosystem version bumping:
   *Decision:* Snapshot-agnostic dynamic bundling. The release command bundles all blueprints currently present in `.plans/done/` without hardcoded plan counts or ID constraints.
 * [x] **Question 8: How should the development branch be determined for multi-branch parity merge?**  
   *Decision:* **Dynamically configured via `aapp.devBranch`.** The release engine never hardcodes `develop`. It calls `aapp_dev_branch` (`git config aapp.devBranch`, candidate list: `develop dev development`), matching the branch conventions of each adopter project. Similarly, the release target branch is resolved via `aapp.releaseBranch` / `aapp.protectedBranches` (defaulting to `main` / `master`). Trunk-based repositories without a distinct development branch bypass the merge step cleanly.
+* [x] **Question 9: Should dry-run / pre-flight verification be mandatory before executing a release?**  
+  *Decision:* **Yes, mandatory on every release.** `aapp release` always runs Phase A (Mandatory Pre-Flight Gate & Simulation) before Phase B (Mutations). It verifies working tree cleanliness, runs automated test suites, checks `pre-release` hook, verifies commit reachability of all bundled plans in `$DEV_BRANCH`, checks branch parity, and displays unmerged branch advisories. In interactive terminals, it requires human confirmation (`[y/N]`) unless `--yes` is passed; in non-interactive CI/agent runs, `--yes` is required. The `--dry-run` flag or `aapp release check` runs Phase A only.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-08:** Refined blueprint: enshrined mandatory pre-flight simulation and verification phase across all release runs, archive commit reachability gating, unmerged branches advisory inspection, and interactive/--yes safety confirmation.
 * **2026-10-08:** Refined blueprint: resolved branch resolution strategy so the developing branch is dynamically determined from configuration (`aapp.devBranch` via `aapp_dev_branch`) rather than hardcoded `develop`, with target release branch resolved via `aapp.releaseBranch` / `aapp.protectedBranches`, supporting arbitrary adopter branch topologies and trunk-based workflows.
 * **2026-10-07:** Refined blueprint: added changelog header, established multi-project baseline resolution ladder (config, manifest autodetection, prompt fallback), specified version syntax supporting both 1.0.0 (preferred) and 1.n with suffixes up to 30 chars, aligned hooks with P-23 (pre-release gate, on-release action delegate, post-release observer), and codified snapshot-agnostic dynamic bundling.
 * **2026-09-27:** Added `--no-archive` flag and zero-item resilience for out-of-repo plan workflows and empty-archive releases.
