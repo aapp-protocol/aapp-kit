@@ -189,13 +189,14 @@
 * **Anti-Wrapper Warning:** Must remain strictly non-destructive and idempotent.
 
 ### 🪝 Lifecycle Hooks & Action Plugins Engine (`lib/hook_dispatcher.sh`, `lib/cmd_hook.sh`)
-* **Purpose:** Zero-dependency lifecycle hook dispatch, SHA256-hash-locked quality gating, and dynamic action plugin discovery.
+* **Purpose:** Zero-dependency lifecycle hook dispatch, SHA-256 cryptographic integrity verification, process watchdog timeout gating, and dynamic action plugin discovery.
 * **Key Functions:**
-  * `dispatch_hook(event, data_json, repo_root)` -> Dual Delivery dispatcher streaming JSON on `stdin` alongside exported `AAPP_*` environment variables with process watchdog timeout enforcement (exit 124).
+  * `dispatch_hook(event, data_json, repo_root)` -> Dual Delivery dispatcher streaming JSON on `stdin` alongside exported `AAPP_*` environment variables with process watchdog timeout enforcement (exit 124 on timeout).
+  * `execute_with_watchdog(cmd, timeout)` -> Process watchdog isolating execution with configurable timeout (`aapp.hookTimeout`, default 30s) and terminating runaway handlers.
   * `build_event_envelope(event, data_json)` / `run_action_plugin(entry, root, action, event, data_json)` / `json_field(json, key)` / `json_escape(text)` -> The shared envelope (with `repository.remote` and reserved `extra`), the plugin call, and flat-response parsing: see §5 **Plugin Payload Standard**.
   * `resolve_plugin_entrypoint(pdir, name)` -> Extension-agnostic plugin resolution (`run`, `$name`, `scripts/run`, `scripts/$name`, pattern match) with `.sample` exclusion filtering.
   * `cmd_plugins_status()` -> `aapp plugins`: **Kit Plugins** (every row of `lib/plugins.tsv`, installed or not, incl. `RESERVED (planned, …)`), a `==========================` delimiter, then **Your Plugins** (any other executable plugin in `.agents/skills/`, with a warning for unregistered `aapp-*` names). Fails closed when the registry is missing (P-46).
-  * `cmd_hooks_status()` / `cmd_hook_hash()` -> Validates executable bits and live SHA-256 integrity against `.agents/skills/aapp-hooks/registry.tsv`.
+  * `cmd_hooks_status()` / `cmd_hook_hash()` -> Validates executable bits and live SHA-256 integrity against `.agents/skills/aapp-hooks/registry.tsv`. Refuses execution on hash mismatches in `mode=gate`.
 * **Anti-Wrapper Warning:** Never bypass `registry.tsv` hash verification or run unhashed handlers in `mode=gate`.
 
 ### 📜 Verb Behaviour Contracts (`lib/docs/verbs/`)
@@ -211,6 +212,23 @@
   * Fail-closed sandbox propagation (`AAPP_TEST_SANDBOX_STRICT=1`).
   * Adopter mode fallback: delegates to `aapp.testCommand` / auto-detected project runner (`npm`, `cargo`, etc.) or performs non-destructive AAPP protocol environment health audit.
 * **Anti-Wrapper Warning:** Never bypass subshell sandboxing or alter suite exit codes.
+
+### 📝 Dedicated Git Notes Engine (`lib/cmd_note.sh`)
+* **Purpose:** First-class developer CLI handler and lifecycle manager for git notes (`aapp note [status | stage | push | pull]`, P-44).
+* **Key Behaviors:**
+  * Operates across two isolated namespaces: developer notes (`refs/notes/commits`) and AI traces (`refs/notes/ai`).
+  * `aapp note stage "<text>"` pre-stages a note buffer for the next commit.
+  * Supports non-destructive append on amend and remote push/pull with `union` merge strategy.
+* **Anti-Wrapper Warning:** Keep notes decoupled from commit messages; never use raw unnamespaced `git notes` commands.
+
+### 🚀 Milestone Release Orchestrator (`lib/cmd_release.sh`)
+* **Purpose:** Single source of truth for milestone release bundling, baseline tag resolution, archive rollups, and release lifecycle hook triggers (P-38).
+* **Key Behaviors:**
+  * Validates semver version tags (`1.0.0`, `1.n`) with optional alphanumeric suffixes (`-beta.1`).
+  * Evaluates baseline resolution ladder: explicit base -> active development branch (`aapp_dev_branch`) -> latest release tag -> initial commit.
+  * Dispatches lifecycle hook events: `pre-release` (validation/veto), `on-release` (artifact generation/template sync), `post-release` (publication/notification).
+  * Bundles completed plans into `.plans/release/<tag>/` and generates single-line milestone rollups in `000-archive-ledger.md`.
+* **Anti-Wrapper Warning:** Never hand-roll release tag bundling or bypass release hook verification.
 
 ### 🔧 Auxiliary Commands
 * `lib/cmd_develop.sh`: Symlinks local development checkout to global bin/share for live editing.
@@ -239,7 +257,7 @@
 * **Enforcement Gates:**
   1. Section 0b: Project Circuit Breaker (refuses code commits while project is paused; allows `.plans/*` and `.agents/*`).
   2. Blast Radius compliance across non-bypass staged files.
-  3. Frozen Plan Immutability: Rejects edits to `## 2. Technical Blueprint` and `## 4. Blast Radius` on `🟢 Frozen` plans.
+  3. Frozen Plan Immutability: Rejects edits to `## 2. Technical Blueprint` and `## 4. Blast Radius` on `🔷 Frozen` plans.
   4. Changelog verification: Enforces `CHANGELOG.md` entry for any code changes.
   5. Issue roadmap hygiene: Auto-prunes resolved issues (`✅`/`Resolved`) in <5ms.
   6. Relocation Invariant: Detects and blocks active `ISSUES.md` if resolved rows are committed.
@@ -257,7 +275,7 @@
 1. **Path Resolution:** Always resolve repository root via `git rev-parse --show-toplevel` or git common directory. Do NOT use fragile relative assumptions like `../../`.
 2. **Never Edit Generated Artifacts Directly:** Never edit `.githooks/*` directly; edit `templates/` and run `aapp init` to synchronize.
 3. **Two-Lane Boundary:** Never merge bugs into `state_matrix.md` or raw feature blueprints into `issues_road_map.md`. Large bug fixes are promoted to blueprints via `digest ISSUE-00X`.
-4. **Relocation Invariant:** Active `ISSUES.md` holds ONLY unresolved items (`🟡`, `🔵`, `🟠`). Resolved issues belong exclusively in `.plans/done/000-issues-archive.md`.
+4. **Relocation Invariant:** Active `ISSUES.md` holds ONLY unresolved items (`🟠 Incubated`, `🔵 Planned`, `🟠 In Progress`). Resolved issues belong exclusively in `.plans/done/000-issues-archive.md`.
 
 ---
 
@@ -270,6 +288,7 @@ To prevent naming drift across development, blueprint authoring, and runtime too
 | **`aapp-planid`** | Core Identity | `allocate_plan_id` (`lib/plan_resolver.sh`) | Payload Standard: `plan.allocate` → `{"id": "P-<int>"}` | `examples/plugins/aapp-planid/run.sample` | `.agents/skills/aapp-planid/run` |
 | **`aapp-issue-tracker`** | Core Identity | `allocate_issue_id` (`lib/plan_resolver.sh`), `issue_notify_close` (`lib/cmd_issue.sh`) | Payload Standard: `issue.allocate` → `{"id": "#<int>"}`; `issue.close` → `{"status": …}`, fire-and-forget | `examples/plugins/aapp-issue-tracker/run.sample` | `.agents/skills/aapp-issue-tracker/run` |
 | **`aapp-review`** *(P-15)* | Code Quality | `/aapp-review` / CLI dispatch | Review Packet JSON on `stdin` → Markdown findings on `stdout` | `examples/plugins/aapp-review/run.sample` | `.agents/skills/aapp-review/run` |
+| **`kit-on-release`** *(P-59)* | Kit Lifecycle | `on-release` hook (`scripts/kit-on-release.sh`) | Triggered during `aapp release` -> synchronizes `templates/` delimiters with `.agents/AGENTS.md` and verifies test suite | In-repo script | `scripts/kit-on-release.sh` |
 | **`hello-tool`** | Showcase / Demo | `aapp hello-tool` | CLI arguments → stdout greeting | `examples/plugins/hello-tool/run.sample` | `.agents/skills/hello-tool/run` |
 
 ### 📨 Plugin Payload Standard (Dual Delivery, P-32)
