@@ -33,8 +33,10 @@ Parse and explain the exact CLI diagnostic:
 ### Step 3: Begin Implementation Immediately (Continuous Execution)
 On exit 0, `aapp start` has updated the plan status to `⚡ In Development`, recorded the base commit, updated `state_matrix.md`, and bound the local worktree buffer.
 
+**Plan worktree?** With `aapp.planWorktrees = on` (or `worktree <path>`), `aapp start` created the plan's own branch and worktree and bound the plan **there**, printing its path. Continue in that path (`cd <path>`); the primary checkout stays on the development branch, where issue fixes are made. `aapp issue fix` is refused inside a plan worktree.
+
 **Do NOT pause to ask for redundant confirmation.** Immediately proceed to execute Section 3 of the blueprint:
-0. **Resuming a plan in a worktree?** Rebase first: `git rebase --autostash <devBranch>`. Fixes to its files may have landed; conflicts in its own lines are its to resolve.
+0. **Resuming a plan in a worktree?** Rebase first: `git rebase --autostash <devBranch>`. Fixes to its files may have landed; conflicts in its own lines are its to resolve. Take fixes by rebase only, never by merge (the hook refuses a merge's foreign files); the `post-rewrite` hook keeps the plan's recorded commits right.
 1. Verify / author failure tests (confirming Red 🔴) if TDD sections are declared.
 2. Begin Phase 1 implementation tasks within the declared `### 📂 Target Files`.
 3. **Blocking bug unrelated to your plan's change** (even in one of your own files)? Run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop: it logs and queues the issue and blocks this plan in one commit; the fix runs in the main checkout. A bug inside your Target Files is plan work.

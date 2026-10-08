@@ -20,6 +20,17 @@ aapp done [target]
 ```
 *(If `<target>` is omitted, `aapp done` automatically inspects the active execution buffer `$(git rev-parse --git-path aapp_active_plan)`).*
 
+**Plan with its own worktree:** `aapp done` refuses while that worktree has uncommitted changes.
+- With `aapp.integrate` = `squash`, `ff` or `hook`, the same command also integrates the plan branch into its parent branch (the one in `* **Base:**`) after archiving, and removes the worktree and branch. Every integration check runs first: a refusal (branch not rebased, dirty main checkout, an open issue fix, too many emergency hotfixes) archives nothing. Fix the cause and run `aapp done` again; never merge by hand to get around it.
+- With `aapp.integrate = manual` (the default), it archives only and prints `aapp done <id> integrate` plus the manual commands (`git worktree remove <path>` also **deletes ignored files**; `git branch -D <branch>` after a squash). Report them; do not run them unless asked.
+- **Cleanup refused for ignored files** (`.env`, keys): the integration stands. Report the files; never pass `force-cleanup` on your own. The developer backs them up, sets `aapp.quarantineIgnored true`, or decides on `force-cleanup`.
+- `override-hotfix-cap` is a human sign-off: never add it yourself.
+
+```bash
+aapp done <id> integrate [squash | ff | hook] [target <branch>] [no-cleanup]   # integrate (again) after manual, a refused hook or cleanup
+aapp done <id> no-integrate                                                   # archive only
+```
+
 ### Step 2: Deterministic Failure Branch (Fail Closed)
 If `aapp done` exits non-zero, **STOP immediately**.
 **Do NOT attempt manual file moves, manual header regex substitutions, archive ledger edits, or raw git commits on the plans worktree.** Manual bypasses corrupt the ledger, skip TDD assertions, and bypass pre-done verification gates.
