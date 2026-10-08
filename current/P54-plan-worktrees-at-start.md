@@ -161,6 +161,7 @@ git config aapp.planSession 'code {path}'
 - [ ] `tests/verbs/status.sh` -> Worktree column.
 - [ ] `tests/worktree_hooks_test.sh` -> Guard, commit, rebase and `post-rewrite` from a plan worktree.
 - [ ] `tests/install_test.sh` -> Config seeding; `post-rewrite` installed and wired (custom hook, hook manager).
+- [ ] `tests/verbs/active.sh` -> Fixture releases the primary's binding before binding in another worktree (the holding-worktree lookup now resolves the primary's buffer).
 - [ ] `templates/skills/aapp-start/SKILL.md` -> Continue in the plan worktree; hotfix; rebase.
 - [ ] `templates/skills/aapp-done/SKILL.md` -> Worktree removal advice.
 - [ ] `templates/post-rewrite` -> NEW FILE: master `post-rewrite` entrypoint.
@@ -190,6 +191,7 @@ git config aapp.planSession 'code {path}'
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-08:** Added `tests/verbs/active.sh` to Target Files (developer-approved round trip): `find_worktree_holding_plan` now resolves the primary checkout's relative buffer path, so a linked worktree can no longer bind a plan the primary holds; that test's fixture relied on the old behaviour.
 * **2026-10-08:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-07:** Resume after a hotfix with `git rebase --autostash <devBranch>`: the plan's uncommitted work rides through the rebase (P-52's stash settlement; single-checkout stashing is P-52's).
