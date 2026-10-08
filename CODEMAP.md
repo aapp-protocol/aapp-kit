@@ -47,6 +47,7 @@
   * `aapp start <plan>` -> Activates frozen specification (`🔷`) into development (`⚡`).
   * Plan worktrees (P-54) -> `_wt_parse_tokens` (`worktree`/`branch`), `_wt_prepare` (render, refuse, base), `_wt_create` (worktree, kit links, `info/exclude`, bind), `_wt_locate` (read back after `on-start`), `_wt_rollback` (snapshot restore), `_wt_session` (`aapp.planSession`, detached); `_wt_start` runs them as one transaction for `start` and `freeze-start` on a plan's first start. `done` refuses a dirty plan worktree, clears the holding worktree's buffer and prints the removal advice.
   * `aapp done <plan>` -> Archives implemented plan to `done/`, enforcing mechanical TDD completion gate (`tdd (N/N)` recorded in archive ledger).
+  * Plan branch integration (P-55) -> `_ig_parse_tokens`, `_ig_decide` (worktree plans only; `aapp.integrate`), `_ig_preflight` (every check before the archive; issue lock), `_ig_run` (squash / ff / `on-integrate` after the archive; retry-safe), `_ig_message` (lineage + attribution trailers), `_ig_cleanup` (ignored-file refusal, quarantine), `_ig_resolve_done` / `_ig_standalone` (`done <id> integrate` on an archived plan).
   * `aapp active [id]` -> Displays or sets active plan pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).
   * `aapp active swap` / `aapp active clear` -> Toggles between current and previous buffer or clears context.
   * `aapp plan-status [id]` -> Deterministic read-only inspector for plan matrix or specific blueprint.
@@ -127,6 +128,7 @@
   * `write_plan_base(file, sha, branch)` -> Records `* **Base:** <sha> (<branch>)` if currently `none`.
   * `find_worktree_holding_plan(plan_file)` -> Finds if a plan is bound in another worktree's execution buffer (the primary's relative buffer path is resolved against it, so it works from a plan worktree, P-54).
   * `parse_plan_base(plan_file)` -> the recorded Base SHA, empty when never started (#103). `parse_plan_worktree` / `write_plan_worktree` -> the header's `* **Worktree:** <path> (<branch>)` (P-54).
+  * `resolve_plan_integrate_target(plan_file)` / `count_plan_emergency_hotfixes(plan_file)` / `check_worktree_ignored_files(worktree)` -> P-55 read-only helpers: the integration target per `aapp.integrateTarget`, the hotfix count, and the sensitive ignored files a removal would delete.
   * `aapp_dev_branch` / `aapp_branch_ref(name)` -> first `aapp.devBranch` candidate present locally or on a remote, and the ref to branch from; `aapp_render_plan_template`, `aapp_abs_path`, `aapp_rel_path` -> name templates and lexical path math for plan worktrees (P-54).
   * `aapp_held_plans` / `aapp_plan_held_by(plan_file, held)` -> one-pass list of plans held by other worktrees' buffers, and the match used by the five single-plan discovery sites (guard, hook plan and changelog checks, `aapp commit`, `aapp active`) so an unbound checkout neither adopts a held plan nor edits its files (P-52).
   * `extract_plan_section(n)` -> Stdin filter printing numbered section `## … n.` (design lock).
