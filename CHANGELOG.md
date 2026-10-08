@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `aapp start` can create a branch and worktree per plan (`aapp.planWorktrees`) and open a session there (`aapp.planSession`) (`P-54`)
 - Hook Security, Integrity & Trust Model documentation in MANUAL.md covering SHA-256 tamper-evident verification, privilege separation, and safe rotation runbook.
 - `/aapp-fix #<num>` skill; `aapp issue fix` waits for uncommitted work instead of refusing, takes its files from the issue log, and a plan cannot start on a file a queued plan blocker will change (`P-58`)
 - `aapp.commitMode` (atomic by default) and plans recording the commit and changelog modes they were built with (`P-51`)

@@ -25,8 +25,8 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp plan-status [id]` | **✅ Yes** | Inspect plan lane matrix or specific blueprint details |
 | `aapp matrix [check]` | **✅ Yes** | Re-derive state matrix from plan Status lines ('check' to audit) |
 | `aapp freeze [id]` | **✅ Yes** | Lock blueprint blast radius & design into frozen backlog spec |
-| `aapp start [id]` | **✅ Yes** | Bind execution buffer & transition to ⚡ In Development (refused while a queued Plan Blocker names a Target File) |
-| `aapp freeze-start [id]` | **✅ Yes** | Atomically freeze blueprint and activate execution buffer (same pending-fix gate) |
+| `aapp start [id] [worktree <path> [branch <name>]]` | **✅ Yes** | Bind execution buffer & transition to ⚡ In Development (refused while a queued Plan Blocker names a Target File); with `aapp.planWorktrees on` (or `worktree`), in the plan's own branch and worktree, all or nothing |
+| `aapp freeze-start [id] [worktree <path> [branch <name>]]` | **✅ Yes** | Atomically freeze blueprint and activate execution buffer (same pending-fix gate and plan worktree) |
 | `aapp commit "<msg>"` | **✅ Yes** | Commit implementation code and record SHA into active plan |
 | `aapp done [id]` | **✅ Yes** | Archive implemented blueprint to done/ and update archival ledger; repairs issue links to the plan |
 | `aapp issue hotfix "<text>" [file <path>]… [plan]` | **✅ Yes** | Log a blocking bug, queue it, block the plan (one commit; >`aapp.maxEmergencyHotfixes` blocks for good) |
@@ -122,13 +122,17 @@ AAPP controls repository behavior via standard Git configuration:
 | `aapp.commitMode` | `atomic` / `microcommits` | `atomic` | `aapp commit`, Git Hooks | `atomic`: one commit per plan (`aapp commit amend` for more). `microcommits`: any number. |
 | `aapp.issueFixWait` | minutes | `5` | `aapp issue fix` | How long `fix` and the issue lock wait for an open fix or uncommitted work; `0` fails at once (P-52, P-58). |
 | `aapp.maxEmergencyHotfixes` | integer | `2` | `aapp issue hotfix` | Hotfixes a plan may take; the next one blocks it permanently. P-55 reads it at integration (P-52). |
+| `aapp.planWorktrees` | `on` / `off` | `off` | `aapp start`, `freeze-start` | A plan's first start creates its own branch and worktree (P-54). |
+| `aapp.planBranch` | template | `plan/{id}-{slug}` | `aapp start` | Plan branch name; `{id}` (`P51`), `{num}`, `{slug}`, `{repo}` (P-54). |
+| `aapp.planWorktreePath` | template | `../{repo}-{id}` | `aapp start` | Plan worktree path, relative to the primary checkout (P-54). |
+| `aapp.planSession` | command template | *(unset, personal)* | `aapp start` | Opens a session in the new plan worktree, detached; `{path}`, `{id}`, `{branch}`, `{slug}`, `{plan_file}` shell-quoted (P-54). |
 | `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | Monotonic issue ID counter (claimed via `aapp issue allocate`; seeded from both issue ledgers on first use). |
 | `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
 | `aapp.aiAttribution` | `none` / `lax` / `strict` / `notes` | `none` | AI Attribution | Attribution mode: none (default; human-only), lax (mixed human/AI), strict (mandatory trailers), notes (private git notes). |
 | `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
 | `aapp.subjectMaxLen` | integer | `72` | Git Hooks | Numeric conciseness limit for commit subject lines (enforced in `aapp-commit-msg`). |
 | `aapp.protectStable` | `true` / `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |
-| `aapp.devBranch` | string | `develop` | Branch Guard | Target development branch for branch protection parity. |
+| `aapp.devBranch` | string (list) | `develop dev development` | Branch Guard, `aapp start` | Candidate development branches, first present (local or remote) wins; plan worktrees branch from it, else the default branch (P-54). |
 | `aapp.allowPath` | string (multi) | *(empty)* | Write Guard | External filesystem paths authorized for AI file writes (`blast-radius-guard`). |
 | `aapp.remote` | string | `origin` | Remote Sync | Git remote targeted by `aapp push`, `aapp pull`, and `aapp sync`. |
 | `aapp.syncStrategy` | `builtin` / `hook` | `builtin` | Remote Sync | Transport engine for worktree sync (`builtin` git plumbing vs custom hook). |

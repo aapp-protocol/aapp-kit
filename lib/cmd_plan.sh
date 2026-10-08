@@ -239,17 +239,233 @@ refuse_unless_incubator() {
     esac
 }
 
+# write_active_buffer <plan_id> [buffer_file]: binds the plan in this worktree's
+# buffer, or in [buffer_file] (another worktree's, P-54); the previous value
+# moves to the `.prev` slot beside it.
 write_active_buffer() {
-    local plan_id="$1"
-    mkdir -p "$(dirname "$ACTIVE_FILE")"
-    if [ -f "$ACTIVE_FILE" ]; then
+    local plan_id="$1" buf="${2:-$ACTIVE_FILE}" prev
+    if [ -n "${2:-}" ]; then prev="$buf.prev"; else prev="$PREV_FILE"; fi
+    mkdir -p "$(dirname "$buf")"
+    if [ -f "$buf" ]; then
         local cur
-        cur="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
+        cur="$(head -n 1 "$buf" 2>/dev/null | tr -d '[:space:]')"
         if [ -n "$cur" ] && [ "$cur" != "$plan_id" ]; then
-            echo "$cur" > "$PREV_FILE"
+            echo "$cur" > "$prev"
         fi
     fi
-    echo "$plan_id" > "$ACTIVE_FILE"
+    echo "$plan_id" > "$buf"
+}
+
+# ------------------------------------------------------------------------------
+# Plan worktrees (P-54): `start` / `freeze-start` create the plan's branch and
+# worktree, all or nothing.
+# ------------------------------------------------------------------------------
+# _wt_parse_tokens <label> [worktree <path>] [branch <name>]: sets WT_REQ_PATH,
+# WT_REQ_BRANCH and WT_MODE (1 = create a plan worktree).
+_wt_parse_tokens() {
+    local label="$1"; shift
+    WT_REQ_PATH=""; WT_REQ_BRANCH=""; WT_MODE=0
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            worktree) [ $# -ge 2 ] || { echo "❌ [$label] 'worktree' needs a path." >&2; return 1; }
+                      WT_REQ_PATH="$2"; shift 2 ;;
+            branch)   [ $# -ge 2 ] || { echo "❌ [$label] 'branch' needs a name." >&2; return 1; }
+                      WT_REQ_BRANCH="$2"; shift 2 ;;
+            *)        echo "❌ [$label] Unknown token '$1'. Usage: <id> [worktree <path> [branch <name>]]" >&2; return 1 ;;
+        esac
+    done
+    if [ -n "$WT_REQ_PATH" ] || [ "$(git config --get aapp.planWorktrees 2>/dev/null)" = "on" ]; then
+        WT_MODE=1
+    elif [ -n "$WT_REQ_BRANCH" ]; then
+        echo "❌ [$label] 'branch' needs a plan worktree: set aapp.planWorktrees on, or add 'worktree <path>'." >&2
+        return 1
+    fi
+}
+
+# _wt_prepare <plan_file> <plan_id> <label>: renders the branch and path and
+# resolves the base; refuses (nothing changed) on an existing branch or path, or
+# no base branch. Sets WT_BRANCH, WT_PATH, WT_BASE_NAME, WT_BASE_REF, WT_BASE_SHA.
+_wt_prepare() {
+    local pf="$1" pid="$2" label="$3" b slug repo tpl_b tpl_p origin_head
+    b="$(basename "$pf" .md)"; slug="${b#P${pid#P-}-}"
+    repo="$(basename "$PRIMARY_ROOT")"
+    tpl_b="$(git config --get aapp.planBranch 2>/dev/null)" || tpl_b='plan/{id}-{slug}'
+    tpl_p="$(git config --get aapp.planWorktreePath 2>/dev/null)" || tpl_p='../{repo}-{id}'
+    WT_BRANCH="${WT_REQ_BRANCH:-$(aapp_render_plan_template "$tpl_b" "$pid" "$slug" "$repo")}"
+    WT_PATH="$(aapp_abs_path "${WT_REQ_PATH:-$(aapp_render_plan_template "$tpl_p" "$pid" "$slug" "$repo")}" "$PRIMARY_ROOT")"
+    if ! git check-ref-format --branch "$WT_BRANCH" >/dev/null 2>&1; then
+        echo "❌ [$label] '$WT_BRANCH' is not a valid branch name (aapp.planBranch or 'branch')." >&2; return 1
+    fi
+    if git show-ref --verify --quiet "refs/heads/$WT_BRANCH"; then
+        echo "❌ [$label] Branch '$WT_BRANCH' already exists; a plan worktree never reuses a branch." >&2; return 1
+    fi
+    if [ -e "$WT_PATH" ]; then
+        echo "❌ [$label] Path '$WT_PATH' already exists; a plan worktree never reuses a path." >&2; return 1
+    fi
+    # Base: the development branch; only `start` falls back to the default branch.
+    WT_BASE_NAME="$(aapp_dev_branch)"
+    if [ -z "$WT_BASE_NAME" ]; then
+        origin_head="$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)" || origin_head=""
+        if [ -n "$origin_head" ]; then WT_BASE_NAME="${origin_head#origin/}"
+        elif aapp_branch_ref main >/dev/null; then WT_BASE_NAME=main
+        elif aapp_branch_ref master >/dev/null; then WT_BASE_NAME=master
+        fi
+    fi
+    if [ -z "$WT_BASE_NAME" ] || ! WT_BASE_REF="$(aapp_branch_ref "$WT_BASE_NAME")"; then
+        echo "❌ [$label] No base branch: none of aapp.devBranch ($(git config --get aapp.devBranch 2>/dev/null || echo 'develop dev development')) exists, and no default branch (origin/HEAD, main, master)." >&2
+        return 1
+    fi
+    WT_BASE_SHA="$(git rev-parse --short "$WT_BASE_REF")" || return 1
+}
+
+# _wt_create <plan_id> <label>: the worktree (no upstream), the kit links and
+# their info/exclude entries, and the plan bound in the new worktree's buffer.
+# A link that cannot be made fails: never a copy (a second plan store).
+_wt_create() {
+    local pid="$1" label="$2" l rel exclude buf
+    git worktree add -q --no-track -b "$WT_BRANCH" "$WT_PATH" "$WT_BASE_REF" || {
+        echo "❌ [$label] git worktree add failed for '$WT_PATH'." >&2; return 1; }
+    WT_CREATED=1
+    exclude="$(git rev-parse --git-common-dir)/info/exclude"
+    mkdir -p "$(dirname "$exclude")" || return 1
+    for l in .githooks .agents .plans .claude; do
+        grep -qxF "/$l" "$exclude" 2>/dev/null || echo "/$l" >> "$exclude" || return 1
+        [ -e "$PRIMARY_ROOT/$l" ] || continue
+        if [ -e "$WT_PATH/$l" ] || [ -L "$WT_PATH/$l" ]; then
+            echo "❌ [$label] Cannot link $l into the plan worktree: '$WT_BASE_NAME' already has $l there." >&2; return 1
+        fi
+        rel="$(aapp_rel_path "$WT_PATH" "$PRIMARY_ROOT/$l")"
+        ln -s "$rel" "$WT_PATH/$l" || { echo "❌ [$label] Cannot link $l into the plan worktree." >&2; return 1; }
+    done
+    buf="$(git -C "$WT_PATH" rev-parse --git-path aapp_active_plan)" || return 1
+    case "$buf" in /*) ;; *) buf="$WT_PATH/$buf" ;; esac
+    write_active_buffer "$pid" "$buf"
+}
+
+# _wt_locate <plan_id>: reads back where the plan's worktree is after on-start
+# (it may rename the branch or move the worktree): sets WT_PATH and WT_BRANCH.
+_wt_locate() {
+    local wt line cur=""
+    wt="$(find_worktree_holding_plan "$1")" || return 1
+    while IFS= read -r line; do
+        case "$line" in
+            "worktree "*) cur="${line#worktree }" ;;
+            "branch refs/heads/"*) if [ "$cur" = "$wt" ]; then WT_PATH="$wt"; WT_BRANCH="${line#branch refs/heads/}"; return 0; fi ;;
+        esac
+    done < <(git worktree list --porcelain)
+    return 1
+}
+
+# _wt_rollback: removes what this start created (worktree, links, branch, the
+# new buffer) and restores the plan file and state_matrix.md from the snapshot.
+_wt_rollback() {
+    local wt="$WT_PATH" br="$WT_BRANCH"
+    if [ "${WT_CREATED:-0}" -eq 1 ]; then
+        _wt_locate "$WT_ID" || true   # the hook may have moved or renamed; else the planned names
+        [ -n "$WT_PATH" ] && wt="$WT_PATH"; [ -n "$WT_BRANCH" ] && br="$WT_BRANCH"
+        git worktree remove --force "$wt" >/dev/null 2>&1 || {
+            echo "⚠️  Could not remove the worktree '$wt'; remove it with 'git worktree remove --force $wt'." >&2; }
+        git branch -D "$br" >/dev/null 2>&1 || echo "⚠️  Could not delete branch '$br'; delete it with 'git branch -D $br'." >&2
+    fi
+    git -C "$PLANS_DIR" reset -q -- "current/$(basename "$WT_PLAN_FILE")" state_matrix.md >/dev/null 2>&1 || \
+        echo "⚠️  Could not unstage the plan in .plans; check 'git -C .plans status'." >&2
+    cp "$WT_SNAP/plan" "$WT_PLAN_FILE"
+    [ -f "$WT_SNAP/sm" ] && cp "$WT_SNAP/sm" "$PLANS_DIR/state_matrix.md"
+    rm -rf "$WT_SNAP"
+}
+
+_wt_fail() {
+    echo "❌ [$1] $2; rolled back: no worktree, branch or plan change is left." >&2
+    _wt_rollback
+    exit 1
+}
+
+# _wt_session <plan_file> <plan_id> <worktree>: aapp.planSession, run detached in
+# the worktree and never waited on; placeholders are shell-quoted. A launch
+# failure only warns: the plan has started (Fallback Inventory).
+_wt_session() {
+    local pf="$1" pid="$2" wt="$3" tpl b slug cmd first log
+    tpl="$(git config --get aapp.planSession 2>/dev/null)" || tpl=""
+    if [ -z "$tpl" ]; then echo "   Next         : cd $wt"; return 0; fi
+    b="$(basename "$pf")"; slug="${b%.md}"; slug="${slug#P${pid#P-}-}"
+    cmd="$tpl"
+    cmd="${cmd//\{path\}/$(printf '%q' "$wt")}"
+    cmd="${cmd//\{id\}/$(printf '%q' "P${pid#P-}")}"
+    cmd="${cmd//\{branch\}/$(printf '%q' "$WT_BRANCH")}"
+    cmd="${cmd//\{slug\}/$(printf '%q' "$slug")}"
+    cmd="${cmd//\{plan_file\}/$(printf '%q' ".plans/current/$b")}"
+    first="${tpl%%[[:space:];]*}"
+    if ! command -v "$first" >/dev/null 2>&1; then
+        echo "⚠️  [Session] aapp.planSession: '$first' not found; the plan has started. Next: cd $wt" >&2
+        return 0
+    fi
+    log="$(git -C "$wt" rev-parse --git-path aapp_session.log)"
+    case "$log" in /*) ;; *) log="$wt/$log" ;; esac
+    # Only the session is backgrounded, with its own descriptors, so nothing
+    # holds this command's output open (a caller capturing it must not wait).
+    ( cd "$wt" || exit 1
+      export AAPP_PLAN_ID="$pid" AAPP_WORKTREE="$wt" AAPP_BRANCH="$WT_BRANCH" AAPP_SLUG="$slug" \
+             AAPP_PLAN_FILE=".plans/current/$b"
+      nohup bash -c "$cmd" >>"$log" 2>&1 </dev/null &
+    ) || {
+        echo "⚠️  [Session] aapp.planSession could not be launched; the plan has started. Next: cd $wt" >&2
+        return 0
+    }
+    echo "🖥️  [Session] Opened via aapp.planSession in $wt (log: $log)."
+}
+
+# _wt_start <plan_file> <plan_id> <label> <log_line> <subject> <freeze>: the
+# worktree path of `start` / `freeze-start` (P-54 2.2). Any failure from the
+# worktree on rolls everything back.
+_wt_start() {
+    local pf="$1" pid="$2" label="$3" log_line="$4" subject="$5" freeze="$6"
+    local sm_file="$PLANS_DIR/state_matrix.md" data targets_json="" t prim_p wt_p rel today
+    _wt_prepare "$pf" "$pid" "$label" || exit 1
+    if [ -n "$(git -C "$PRIMARY_ROOT" status --porcelain 2>/dev/null)" ]; then
+        echo "ℹ️  [$label] Uncommitted changes stay in the primary checkout; the plan worktree starts from $WT_BASE_NAME."
+    fi
+    WT_SNAP="$(mktemp -d)" || exit 1
+    WT_PLAN_FILE="$pf"; WT_ID="$pid"; WT_CREATED=0
+    cp "$pf" "$WT_SNAP/plan" || exit 1
+    if [ -f "$sm_file" ]; then cp "$sm_file" "$WT_SNAP/sm" || exit 1; fi
+
+    _wt_create "$pid" "$label" || _wt_fail "$label" "the plan worktree could not be set up"
+
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+        # shellcheck source=/dev/null
+        source "$AAPP_HOOK_DISPATCHER"
+        while IFS= read -r t; do
+            [ -n "$t" ] && targets_json="${targets_json:+$targets_json, }\"$t\""
+        done < <(parse_plan_target_paths "$pf")
+        data="{\"plan_id\": \"$pid\", \"plan_file\": \"$pf\", \"target_files\": [$targets_json], \"worktree\": \"$WT_PATH\", \"branch\": \"$WT_BRANCH\"}"
+        if [ "$freeze" = "1" ]; then
+            dispatch_hook "on-freeze" "$data" || _wt_fail "$label" "an on-freeze hook refused"
+        fi
+        dispatch_hook "on-start" "$data" || _wt_fail "$label" "an on-start hook refused"
+    fi
+
+    _wt_locate "$pid" || _wt_fail "$label" "the plan worktree was not found after on-start"
+    prim_p="$(cd "$PRIMARY_ROOT" && pwd -P)" && wt_p="$(cd "$WT_PATH" && pwd -P)" || \
+        _wt_fail "$label" "the plan worktree path could not be resolved"
+    rel="$(aapp_rel_path "$prim_p" "$wt_p")"
+    write_plan_base "$pf" "\`$WT_BASE_SHA\` ($WT_BASE_NAME)" || _wt_fail "$label" "Base could not be recorded"
+    write_plan_worktree "$pf" "$rel ($WT_BRANCH)" || _wt_fail "$label" "Worktree could not be recorded"
+    sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* ⚡ In Development/' "$pf"
+    sed -i -E 's/\*\(Marked:[[:space:]]*\*\*PROPOSED\*\*.*\)/\*(Marked: **LOCKED** — Greenlit for implementation)*/' "$pf"
+    today="$(date +%Y-%m-%d)"
+    if grep -q '^## 📦 6\. Change Log' "$pf"; then
+        sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* $log_line" "$pf"
+    fi
+    sync_state_matrix
+    local paths=("current/$(basename "$pf")")
+    [ -f "$sm_file" ] && paths+=("state_matrix.md")
+    plans_commit "$subject" "${paths[@]}" || _wt_fail "$label" "the start commit failed"
+    rm -rf "$WT_SNAP"
+
+    echo "⚡ [$label] Plan '$pid' activated into ⚡ In Development in its own worktree."
+    echo "   Worktree     : $wt_p"
+    echo "   Branch       : $WT_BRANCH (from $WT_BASE_NAME \`$WT_BASE_SHA\`, no upstream)"
+    _wt_session "$pf" "$pid" "$wt_p"
 }
 
 cmd_draft() {
@@ -486,10 +702,12 @@ cmd_draft() {
 }
 
 cmd_freeze_start() {
-    local query="$1"
+    local query="${1:-}"
+    [ $# -gt 0 ] && shift
     local plan_file
     plan_file="$(resolve_plan_file "$query" "freeze-start")" || exit 1
     refuse_unless_incubator "$plan_file" "Freeze-Start"
+    _wt_parse_tokens "Freeze-Start Refusal" "$@" || exit 1
 
     # Refuse from planning worktrees (.plans, .agents, .githooks)
     local cur_top
@@ -542,6 +760,21 @@ cmd_freeze_start() {
     if [ -n "$holding_wt" ]; then
         echo "❌ [Freeze-Start Refusal] Plan '$plan_id' is already bound in worktree '$holding_wt'." >&2
         exit 1
+    fi
+
+    # P-54: a fresh start may get its own branch and worktree (a re-scoped plan,
+    # started before, keeps where it lives).
+    if [ "$WT_MODE" -eq 1 ] && [ -n "$(parse_plan_base "$plan_file")" ]; then
+        if [ -n "$WT_REQ_PATH" ]; then
+            echo "❌ [Freeze-Start Refusal] $plan_id was started before; its worktree is chosen at its first start." >&2
+            exit 1
+        fi
+        WT_MODE=0
+    fi
+    if [ "$WT_MODE" -eq 1 ]; then
+        _wt_start "$plan_file" "$plan_id" "Freeze-Start" "Plan frozen and activated into ⚡ In Development via freeze-start." \
+            "plan(start): freeze and activate $plan_id into development" 1
+        return 0
     fi
 
     # Record Base SHA and branch
@@ -766,9 +999,11 @@ cmd_freeze() {
 }
 
 cmd_start() {
-    local query="$1"
+    local query="${1:-}"
+    [ $# -gt 0 ] && shift
     local plan_file
     plan_file="$(resolve_plan_file "$query" "start")" || exit 1
+    _wt_parse_tokens "Start Refusal" "$@" || exit 1
 
     # Refuse from planning worktrees (.plans, .agents, .githooks)
     local cur_top
@@ -803,6 +1038,21 @@ cmd_start() {
     if [ -n "$holding_wt" ]; then
         echo "❌ [Start Refusal] Plan '$plan_id' is already bound in worktree '$holding_wt'." >&2
         exit 1
+    fi
+
+    # P-54: a fresh start may get its own branch and worktree. A plan started
+    # before keeps where it lives (its Base is recorded).
+    if [ "$WT_MODE" -eq 1 ] && [ -n "$(parse_plan_base "$plan_file")" ]; then
+        if [ -n "$WT_REQ_PATH" ]; then
+            echo "❌ [Start Refusal] $plan_id was started before; its worktree is chosen at its first start." >&2
+            exit 1
+        fi
+        WT_MODE=0
+    fi
+    if [ "$WT_MODE" -eq 1 ]; then
+        _wt_start "$plan_file" "$plan_id" "Start" "Plan activated into ⚡ In Development via start." \
+            "plan(start): activate $plan_id into development" 0
+        return 0
     fi
 
     # Record Base SHA and branch
@@ -867,6 +1117,18 @@ cmd_done() {
         echo "❌ [Done Refusal] Plan is not ⚡ In Development (current status: $(grep -m 1 -E '\*\*Status:\*\*' "$plan_file" | sed -E 's/^.*\*\*Status:\*\*[[:space:]]*//'))." >&2
         echo "   Start it with 'aapp start $query' and implement it before archiving." >&2
         exit 1
+    fi
+
+    # P-54: a plan with its own worktree is archived only from a clean worktree.
+    local wt_rec wt_rel="" wt_br="" wt_abs=""
+    wt_rec="$(parse_plan_worktree "$plan_file")"
+    if [ -n "$wt_rec" ]; then
+        wt_rel="${wt_rec%%$'\t'*}"; wt_br="${wt_rec#*$'\t'}"
+        wt_abs="$(aapp_abs_path "$wt_rel" "$PRIMARY_ROOT")"
+        if [ -d "$wt_abs" ] && [ -n "$(git -C "$wt_abs" status --porcelain 2>/dev/null)" ]; then
+            echo "❌ [Done Refusal] The plan's worktree $wt_rel has uncommitted changes; commit or discard them first." >&2
+            exit 1
+        fi
     fi
 
     # P-35: Mechanical TDD completion gate
@@ -1120,6 +1382,14 @@ cmd_done() {
             rm -f "$ACTIVE_FILE"
         fi
     fi
+    # P-54: and in the worktree that holds it, wherever done runs; otherwise that
+    # worktree stays bound to an archived plan and its guard refuses every edit.
+    local holder holder_buf
+    if holder="$(find_worktree_holding_plan "$plan_id")"; then
+        holder_buf="$(git -C "$holder" rev-parse --git-path aapp_active_plan)"
+        case "$holder_buf" in /*) ;; *) holder_buf="$holder/$holder_buf" ;; esac
+        rm -f "$holder_buf"
+    fi
 
     # Commit transition in plans worktree
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
@@ -1153,6 +1423,12 @@ cmd_done() {
     echo "🏛️  [Done] Plan '$plan_id' archived to done/$bname."
     echo "   Commit SHA   : $commit_sha"
     echo "   Ledger       : $ledger_file"
+    # P-54: done never integrates or removes; that is the developer's step.
+    if [ -n "$wt_rec" ]; then
+        echo "   Worktree     : $wt_rel ($wt_br) is kept. After integrating the branch:"
+        echo "      git worktree remove $wt_rel   # also deletes ignored files there (local env files, build output)"
+        echo "      git branch -D $wt_br   # after a squash merge, where -d refuses"
+    fi
 }
 
 cmd_active() {

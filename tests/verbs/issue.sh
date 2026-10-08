@@ -607,4 +607,25 @@ else
   bad "test_next_blocker_waits_when_every_blocker_is_dirty" "rc=$rc0/$rc1 out=$out | $out1"
 fi
 
+echo "== issue fixes are not made in a plan worktree (P-54) =="
+aapp issue fix 12 abort >/dev/null 2>&1
+git branch -f develop HEAD
+git config aapp.planWorktrees on
+pw="P-$(git config aapp.planId)"; aapp draft wt-host >/dev/null 2>&1
+pwf="$(ls .plans/current/P"${pw#P-}"-*.md)"
+sed -i -E "s|src/path/to/file\.ext|src/wt_host.py|g; /src\/path\/to\/new_file\.ext/d" "$pwf"
+sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$pwf"; git -C .plans commit -qam prep >/dev/null 2>&1
+aapp freeze-start "$pw" >/dev/null 2>&1
+git config aapp.planWorktrees off
+head0="$(git -C .plans rev-parse HEAD)"
+cd "$R/wd-P${pw#P-}" || exit 1
+out="$(aapp issue fix 12 2>&1)"; rc=$?
+cd "$R/wd" || exit 1
+if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "$R/wd" && echo "$out" | grep -qi "plan worktree" && \
+   [ ! -f .plans/current/fix-12.md ] && [ "$(git -C .plans rev-parse HEAD)" = "$head0" ]; then
+  ok "test_fix_refused_inside_plan_worktree"
+else
+  bad "test_fix_refused_inside_plan_worktree" "rc=$rc out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"

@@ -55,6 +55,9 @@ fi
 
 echo "== one plan one worktree (P-39) =="
 git worktree add -b feat/active-wt "$R/active_wt" >/dev/null 2>&1
+# The primary holds "$a" from the tests above; release it so active_wt can bind
+# it (seen from a linked worktree, the primary's buffer now resolves, P-54).
+aapp active clear >/dev/null 2>&1
 (
   cd "$R/active_wt" || exit 1
   aapp active "$a" >/dev/null 2>&1

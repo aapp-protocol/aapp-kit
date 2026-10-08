@@ -801,10 +801,34 @@ _issue_write_mini() {
     } > "$mp"
 }
 
+# _issue_refuse_in_plan_worktree <plans>: issue fixes are made in the main
+# checkout. A fix committed on a plan branch would be swallowed by the plan's
+# squash and its recorded SHA would dangle (P-54).
+_issue_refuse_in_plan_worktree() {
+    local plans="$1" here prim pf rec abs pid
+    here="$(git rev-parse --show-toplevel 2>/dev/null)" && here="$(cd "$here" && pwd -P)" || return 0
+    prim="$(cd "$(git rev-parse --git-common-dir)/.." && pwd -P)" || return 0
+    [ "$here" = "$prim" ] && return 0
+    for pf in "$plans"/current/*.md; do
+        [ -f "$pf" ] || continue
+        case "$(basename "$pf")" in 000-*|fix-*) continue ;; esac
+        rec="$(parse_plan_worktree "$pf")"
+        [ -n "$rec" ] || continue
+        abs="$(aapp_abs_path "${rec%%$'\t'*}" "$prim")"
+        [ -d "$abs" ] && [ "$(cd "$abs" && pwd -P)" = "$here" ] || continue
+        pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
+        echo "❌ [Issue] This is the plan worktree of ${pid:-$(basename "$pf" .md)}; issue fixes are made in the main checkout: cd $prim" >&2
+        echo "   A blocking bug here: 'aapp issue hotfix \"<text>\" file <path>…', then stop." >&2
+        return 1
+    done
+    return 0
+}
+
 # cmd_issue_fix next-blocker | <num> file <path>… | <num> abort (P-52 2.2, 2.5)
 cmd_issue_fix() {
     local sub="${1:-}" n="" files=() plans open limit waited step row="" text f pf pid st t
     plans="$(_issue_plans_dir)" || return 1
+    _issue_refuse_in_plan_worktree "$plans" || return 1
     case "$sub" in
         '') echo "❌ [Issue] Usage: aapp issue fix next-blocker | <num> [file <path>…] | <num> abort" >&2; return 1 ;;
         next-blocker) shift ;;

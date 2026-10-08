@@ -18,6 +18,7 @@
 - `.plans/state_matrix.md` is re-derived from the plans before it is read, so the briefing reports the real board; the write is not committed
 - `short`: stdout is exactly one line beginning `📊 Overview:` with issue, plan and pickup counts
 - no argument: stdout carries the four pillars (Shipped, Issues, Plans, Pickup) and one `➡️  Next Action:` line
+- a plan with its own worktree shows it next to its status, from the header's `* **Worktree:**`: `• P-51: P51-….md  (⚡ In Development → ../repo-P51)` (P-54)
 - no other file changes
 
 ## Exit
@@ -28,3 +29,4 @@ Run: `aapp test verb status`
 
 - `tests/verbs/status.sh::test_short_is_one_line` -> `status short` prints exactly one `📊 Overview:` line
 - `tests/verbs/status.sh::test_briefing_has_next_action` -> the full briefing ends with a `Next Action` line and exits 0
+- `tests/verbs/status.sh::test_plan_worktree_shown_next_to_plan` -> a plan's worktree path follows its status (P-54)

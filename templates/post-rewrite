@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Git Post-Rewrite Hook (Project Master Entrypoint)
+#
+# Dispatches to the AAPP post-rewrite engine, which keeps the bound plan's
+# `* **Commits:**` right after a rebase or amend (P-54). Git passes `amend` or
+# `rebase` as $1 and the old/new SHA pairs on stdin.
+# ==============================================================================
+COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
+PRIMARY_ROOT="$(cd "$COMMON_DIR/.." 2>/dev/null && pwd)"
+HOOK_DIR="$PRIMARY_ROOT/.githooks"
+
+# 1. AAPP Post-Rewrite Engine (reads stdin)
+if [ -f "$HOOK_DIR/aapp-post-rewrite" ]; then
+    bash "$HOOK_DIR/aapp-post-rewrite" "$@"
+fi
+
+# 2. Project-Specific Steps (add custom post-rewrite actions below; stdin is consumed above)

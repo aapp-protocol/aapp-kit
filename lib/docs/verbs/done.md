@@ -19,7 +19,8 @@
 - `id` resolves to no plan -> exit 1, stderr `Plan '<id>' not found`; nothing moves
 - the plan is not `⚡ In Development` -> exit 1, stderr `[Done Refusal] Plan is not ⚡ In Development`; nothing moves (#89)
 - no recorded commits (`* **Commits:** none` or empty) -> exit 1, prints candidate commits and `aapp commit adopt <sha>` repair command
-- recorded commit unreachable / amended away -> exit 1 naming the missing SHA
+- recorded commit unreachable / amended away -> exit 1 naming the missing SHA (a rebase or amend keeps the record right through the `post-rewrite` hook, P-54)
+- the plan records a `* **Worktree:**` with uncommitted changes in it -> exit 1, stderr `has uncommitted changes`; nothing moves (P-54)
 - `pre-done` lifecycle hook exits non-zero -> exit 1, vetoes archive; plan and ledger unchanged
 - Target Issue `#<n>` in neither `ISSUES.md` nor `done/000-issues-archive.md` -> exit 1, stderr `Target issue #<n> is in neither`; nothing moves (P-32)
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
@@ -30,7 +31,8 @@
 - `000-archive-ledger.md` gains one row under its header: date, Plan ID, a link to the archived file, the plan header's Target Issue, the verification commit, and a non-empty Impact Summary
     the Impact Summary is the plan title; an untouched template placeholder in the header reads `None` (D2, #78)
 - `.plans/state_matrix.md` is re-derived from the remaining plans: this plan's row leaves, and no other row is touched (#88)
-- the active buffer is cleared when it names this plan
+- the active buffer is cleared when it names this plan, and so is the buffer of the worktree that holds it, wherever `done` runs (P-54)
+- a plan with its own worktree (P-54): the `* **Worktree:**` line moves to `done/` with the plan; the worktree and its branch are kept (integration is the developer's step), and stdout prints `git worktree remove <path>` (warning that it also deletes ignored files there) and `git branch -D <branch>` for after a squash merge
 - a Target Issue `#<n>` still active is closed as by `aapp issue close`: its row moves to the top of `done/000-issues-archive.md` with summary `[<id>](<file>) - <title>`, and it leaves `issues_road_map.md`; an already-archived one is left alone (P-32)
 - other open issues whose *Target Plan / Fix* cell (or road-map line) links `current/<file>` now link `done/<file>`; observation cells and the archive are untouched (P-50)
 - one commit in the plans worktree, `plan(done): archive <id> to done/ and update state matrix`, holds the move, the ledger, the matrix, any issue close and any repaired links
@@ -56,3 +58,6 @@ Run: `aapp test verb done`
 - `tests/verbs/done.sh::test_commit_takes_only_its_paths` -> the archive commit contains only the move, ledger and matrix
 - `tests/verbs/done.sh::test_pre_done_veto_blocks_archive` -> a `pre-done` handler exiting non-zero: `done` exits 1, nothing moves; payload carries recorded commits
 - `tests/verbs/done.sh::test_done_repairs_issue_links` -> another open issue linking the plan points at `done/` after `aapp done`, in the archive commit (P-50)
+- `tests/verbs/done.sh::test_done_refuses_dirty_plan_worktree` -> uncommitted changes in the plan's worktree: exit 1, nothing moves (P-54)
+- `tests/verbs/done.sh::test_done_from_primary_clears_holding_buffer_and_advises` -> run from the primary: the worktree's buffer is cleared, the worktree kept, removal and branch-deletion advice printed (P-54)
+- `tests/verbs/done.sh::test_done_from_plan_worktree_archives` -> `done` run inside the plan worktree archives (P-54)

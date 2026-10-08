@@ -84,4 +84,22 @@ else
   bad "test_refuses_target_with_pending_fix" "rc=$rc out=$out"
 fi
 
+echo "== plan worktrees (P-54) =="
+git branch -f develop HEAD
+git config aapp.planWorktrees on
+id_w="$(draft_plan fs-worktree)"; f_w="$(plan_file "$id_w")"; n_w="${id_w#P-}"
+sed -i -E "s|src/path/to/file\.ext|src/fs_wt.py|g; /src\/path\/to\/new_file\.ext/d" "$f_w"
+sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$f_w"
+git -C .plans commit -qam "prep $id_w" >/dev/null
+s_w="$(basename "$f_w" .md)"; s_w="${s_w#P${n_w}-}"
+out="$(aapp freeze-start "$id_w" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && [ -L "$R/p-P$n_w/.plans" ] && grep -qxF "* **Worktree:** ../p-P$n_w (plan/P$n_w-$s_w)" "$f_w" && \
+   grep -qE '^\* \*\*Base:\*\* `[0-9a-f]+` \(develop\)$' "$f_w" && \
+   [ "$(cat "$(git -C "$R/p-P$n_w" rev-parse --git-path aapp_active_plan)")" = "$id_w" ]; then
+  ok "test_worktree_freeze_start_creates_and_records"
+else
+  bad "test_worktree_freeze_start_creates_and_records" "rc=$rc out=$out"
+fi
+git config aapp.planWorktrees off
+
 print_test_summary "$PASS" "$FAIL"

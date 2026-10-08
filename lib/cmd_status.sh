@@ -333,6 +333,9 @@ if [ -d ".plans/current" ]; then
         if command -v get_plan_id >/dev/null 2>&1; then
             PLAN_ID="$(get_plan_id "$P" 2>/dev/null || true)"
         fi
+        # P-54: a plan with its own worktree shows where it lives.
+        WT_REC="$(parse_plan_worktree "$P")"
+        [ -n "$WT_REC" ] && STATUS_CLEAN="$STATUS_CLEAN → ${WT_REC%%$'\t'*}"
         if [ -n "$PLAN_ID" ]; then
             echo "  • $PLAN_ID: $BASENAME  ($STATUS_CLEAN)"
         else

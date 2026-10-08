@@ -127,8 +127,9 @@ f_unreach="$(plan_file "$id_unreach")"
 echo "# unreach code" > src/unreach.py; echo "- unreach" >> CHANGELOG.md; git add src/unreach.py CHANGELOG.md; git commit -qm "unreach commit"
 unreach_sha="$(git rev-parse --short HEAD)"
 sed -i -E "s/^\* \*\*Commits:\*\*.*/\* \*\*Commits:\*\* \`$unreach_sha\` (develop)/" "$f_unreach"
-# Amend it away so unreach_sha is no longer in branch history
-echo "# amend away" >> src/unreach.py; echo "- amend" >> CHANGELOG.md; git add src/unreach.py CHANGELOG.md; git commit --amend -qm "amended commit"
+# Amend it away so unreach_sha is no longer in branch history. Hooks off: the
+# post-rewrite hook would otherwise repair the record (P-54).
+echo "# amend away" >> src/unreach.py; echo "- amend" >> CHANGELOG.md; git add src/unreach.py CHANGELOG.md; git -c core.hooksPath=/dev/null commit --amend -qm "amended commit"
 out="$(aapp done "$id_unreach" 2>&1)"; rc=$?
 if [ "$rc" -eq 1 ] && echo "$out" | grep -qF "$unreach_sha" && [ -f "$f_unreach" ]; then
   ok "test_refuses_unreachable_commit"
@@ -230,6 +231,53 @@ if [ "$rc" -eq 0 ] && grep -qF "| [$lid](done/$lb) |" .plans/ISSUES.md && ! grep
   ok "test_done_repairs_issue_links"
 else
   bad "test_done_repairs_issue_links" "rc=$rc row=$(grep '^| #43 |' .plans/ISSUES.md)"
+fi
+
+echo "== plan worktrees (P-54) =="
+init_sandbox_project "$R/dw"
+cd "$R/dw" || exit 1
+# Plan worktrees check out the branch: track what init wrote (CHANGELOG.md etc.).
+git add -A && git commit -qm "track init files" --no-verify
+git branch develop
+git config aapp.planWorktrees on
+# wt_started <name>: freeze-start a plan into its worktree and commit its file there; prints the id.
+wt_started() {
+  local id f n
+  id="$(draft_plan "$1")"; f="$(plan_file "$id")"; n="${id#P-}"
+  # .sh, not .py: the hook's py_compile leaves __pycache__ behind (#106).
+  sed -i -E "s|src/path/to/file\.ext|src/$1.sh|g; /src\/path\/to\/new_file\.ext/d" "$f"
+  sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$f"
+  git -C .plans commit -qam "prepare $id" >/dev/null
+  aapp freeze-start "$id" >/dev/null 2>&1
+  ( cd "$R/dw-P$n" && mkdir -p src && echo "v=1" > "src/$1.sh" && git add "src/$1.sh" && aapp commit "feat: $1" >/dev/null 2>&1 )
+  echo "$id"
+}
+da="$(wt_started dwa)"; dna="${da#P-}"; dfa="$(plan_file "$da")"
+echo "v=2" > "$R/dw-P$dna/src/dwa.sh"
+out="$(aapp done "$da" 2>&1)"; rc=$?
+if [ "$rc" -ne 0 ] && echo "$out" | grep -qi "uncommitted" && [ -f "$dfa" ]; then
+  ok "test_done_refuses_dirty_plan_worktree"
+else
+  bad "test_done_refuses_dirty_plan_worktree" "rc=$rc out=$out commits=$(grep Commits "$dfa")"
+fi
+git -C "$R/dw-P$dna" checkout -q -- src/dwa.sh
+out="$(aapp done "$da" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && [ -f ".plans/done/$(basename "$dfa")" ] && grep -qxF "* **Worktree:** ../dw-P$dna (plan/P$dna-dwa)" ".plans/done/$(basename "$dfa")" && \
+   [ ! -s "$(git -C "$R/dw-P$dna" rev-parse --git-path aapp_active_plan)" ] && [ -d "$R/dw-P$dna" ] && \
+   echo "$out" | grep -qF "git worktree remove ../dw-P$dna" && echo "$out" | grep -qi "ignored files" && \
+   echo "$out" | grep -qF "git branch -D plan/P$dna-dwa"; then
+  ok "test_done_from_primary_clears_holding_buffer_and_advises"
+else
+  bad "test_done_from_primary_clears_holding_buffer_and_advises" "rc=$rc out=$out"
+fi
+db="$(wt_started dwb)"; dnb="${db#P-}"; dfb="$(plan_file "$db")"
+cd "$R/dw-P$dnb" || exit 1
+out="$(aapp done "$db" 2>&1)"; rc=$?
+cd "$R/dw" || exit 1
+if [ "$rc" -eq 0 ] && [ -f ".plans/done/$(basename "$dfb")" ] && [ ! -f "$dfb" ]; then
+  ok "test_done_from_plan_worktree_archives"
+else
+  bad "test_done_from_plan_worktree_archives" "rc=$rc out=$out"
 fi
 
 print_test_summary "$PASS" "$FAIL"

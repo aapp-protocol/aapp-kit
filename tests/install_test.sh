@@ -1271,6 +1271,35 @@ seeded_cm=$(git -C "$PROJ_69D" config aapp.commitMode)
 if [ "$kept_cm" = "microcommits" ] && [ "$seeded_cm" = "atomic" ]; then got="PASS"; else got="FAIL"; fi
 report "test_init_seeds_commit_mode: aapp.commitMode=atomic seeded only when absent" "PASS" "$got" "kept=$kept_cm seeded=$seeded_cm"
 
+# Test 69g (P-54): init seeds the plan-worktree keys only when absent;
+# aapp.planSession is personal and never seeded.
+PROJ_69G="$R/t69g_proj"; make_dummy_project "$PROJ_69G"
+git -C "$PROJ_69G" config aapp.planBranch 'feature/{num}'
+(cd "$PROJ_69G" && aapp init >/dev/null 2>&1)
+g_pw=$(git -C "$PROJ_69G" config aapp.planWorktrees)
+g_pb=$(git -C "$PROJ_69G" config aapp.planBranch)
+g_pp=$(git -C "$PROJ_69G" config aapp.planWorktreePath)
+d_pb=$(git -C "$PROJ_69D" config aapp.planBranch)
+g_ps=$(git -C "$PROJ_69G" config aapp.planSession || true)
+if [ "$g_pw" = "off" ] && [ "$g_pb" = "feature/{num}" ] && [ "$d_pb" = "plan/{id}-{slug}" ] && \
+   [ "$g_pp" = "../{repo}-{id}" ] && [ -z "$g_ps" ]; then got="PASS"; else got="FAIL"; fi
+report "test_init_seeds_plan_worktree_keys: seeded only when absent, planSession never" "PASS" "$got" "pw=$g_pw pb=$g_pb pp=$g_pp d_pb=$d_pb ps=$g_ps"
+
+# Test 69h (P-54): post-rewrite installed (master + engine + commit engine);
+# an existing shell hook is wired, not overwritten.
+PROJ_69H="$R/t69h_proj"; make_dummy_project "$PROJ_69H"
+(cd "$PROJ_69H" && aapp init >/dev/null 2>&1)
+printf '%s\n' '#!/bin/sh' 'echo custom-rewrite' > "$PROJ_69H/.githooks/post-rewrite"; chmod +x "$PROJ_69H/.githooks/post-rewrite"
+(cd "$PROJ_69H" && aapp init >/dev/null 2>&1)
+if [ -x "$PROJ_69D/.githooks/post-rewrite" ] && grep -q "aapp-post-rewrite" "$PROJ_69D/.githooks/post-rewrite" && \
+   [ -x "$PROJ_69D/.githooks/aapp-post-rewrite" ] && [ -f "$PROJ_69D/.githooks/commit_engine.sh" ] && \
+   grep -q "custom-rewrite" "$PROJ_69H/.githooks/post-rewrite" && grep -q "aapp-post-rewrite" "$PROJ_69H/.githooks/post-rewrite"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_init_installs_and_wires_post_rewrite" "PASS" "$got"
+
 # Test 70: CLI-First Universal Skills Alignment (TDD Failure & Boundary Assertions)
 # Assert that templates/skills/{aapp-done, aapp-freeze, aapp-start, aapp-status, aapp-digest} follow CLI-first execution
 # and do NOT contain manual sed -i, mv, or raw git commits bypassing CLI lifecycle gates.

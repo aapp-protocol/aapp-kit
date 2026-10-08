@@ -322,8 +322,8 @@ Every chore has a verb; use it instead of editing ledgers or running git on `.pl
 | `aapp plan-status [id]` | Read-only plan matrix or one plan's details |
 | `aapp matrix [check]` | Re-derive (or audit) `state_matrix.md` from plan Status lines |
 | `aapp freeze <id>` | Lock design and Blast Radius |
-| `aapp start <id>` | Activate a frozen plan for implementation |
-| `aapp freeze-start <id>` | Freeze and start in one step |
+| `aapp start <id> [worktree <path> [branch <name>]]` | Activate a frozen plan for implementation; with `aapp.planWorktrees = on` (or `worktree`), in its own branch and worktree |
+| `aapp freeze-start <id> [worktree <path> [branch <name>]]` | Freeze and start in one step |
 | `aapp done <id>` | Archive an implemented plan; closes its Target Issue |
 | `aapp commit "<msg>" …` | Plan-bound code commit with attribution; records the SHA in the plan and writes its declared changelog entry |
 | `aapp active [id \| swap \| clear]` | Show or set the active plan buffer |
@@ -357,6 +357,8 @@ If you discover an unexpected bug while executing a plan inside a locked Blast R
 - **Blocking:** The bug halts the plan. Run **one command** and stop: `aapp issue hotfix "<text>" file <path>…`. It allocates the issue number, logs the row, queues it under 🧱 Plan Blockers, records it in the plan's `* **Emergency Hotfixes:**` and blocks the plan (`🟥 BLOCKED`, `* **Blocked On:** #<num>`), in one commit. **A blocked plan is not executable** — the guard and hook refuse its work until the fix is closed. The fix runs in the main checkout (`aapp issue fix next-blocker` → `aapp commit` → `aapp issue close <num>`); closing it unblocks the plan. A plan that takes more than `aapp.maxEmergencyHotfixes` hotfixes (default 2) stays blocked until the human re-scopes it.
 
 - **Blocking & substantial:** The fix is real work — several modules, a Blast Radius of its own, or genuine design decisions. Run `aapp issue hotfix "<text>" file <path>… plan`: the same one command, but instead of queueing a small fix it drafts an empty plan linked to the issue. **STOP. Do not author that plan's design.** Report what you know — scope, modules touched, the options you can see — as **open questions, not decisions already taken**, and wait for the human. An overestimate costs little: the draft can be refined into a small fix, or aborted.
+
+- **Where work happens (plan worktrees).** With `aapp.planWorktrees = on`, `aapp start` gives each plan its own branch and worktree (recorded as `* **Worktree:**`): plan work happens there. Issue fixes happen in the main checkout, on the development branch; `aapp issue fix` is refused inside a plan worktree, because a fix on a plan branch would vanish in the plan's squash. Plan branches take fixes by `git rebase --autostash <devBranch>` only, never by merge.
 
 - **Fixes in another plan's files.** A fix may change a file that an active plan also lists.
   - *The fixer* never commits or stashes another plan's work. `fix` waits for it to be committed. After a timeout, leave that issue (`aapp issue fix next-blocker` takes another) and retry later. When the busy file belongs to the plan bound in your own checkout, `fix` says so: set that work aside from the plan with `aapp issue hotfix`.

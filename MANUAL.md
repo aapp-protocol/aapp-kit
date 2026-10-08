@@ -350,7 +350,7 @@ You can fine-tune branch protection per-repository or globally:
 | :--- | :--- | :--- | :--- |
 | `aapp.protectStable` | bool | `true` | Set to `false` to disable branch protection entirely. |
 | `aapp.protectedBranches` | string | `"main master production"` | Space-separated list of protected production branches. |
-| `aapp.devBranch` | string | `"develop dev development"` | Space-separated list of candidate development branches. |
+| `aapp.devBranch` | string | `"develop dev development"` | Space-separated list of candidate development branches; the first one present locally or on a remote is the development branch. Plan worktrees branch from it too (P-54). |
 
 #### Bypassing Branch Protection
 - **Intentional Release or Hotfix Commit on `main`**:
@@ -1357,6 +1357,31 @@ aapp issue fix 79 abort                # drop an uncommitted fix; the issue stay
 - **The issue lock** `$(git rev-parse --git-common-dir)/aapp_issue.lock`, shared by all worktrees, serialises `hotfix` and the start of a `fix` (held for seconds). A lock whose holder process is gone, or that never received a PID, is taken over with a notice.
 - **Provider**: with `aapp-issue-tracker` installed, `next-blocker` asks it (`issue.next-blocker` → `{"id": "#<n>"}`), so a remote tracker decides which blocker each runner claims; a failure refuses rather than falling back.
 - **No plan in development:** edits and commits are free; a 🔷 Frozen plan is backlog and restricts nothing (#98). A plan held in another worktree's buffer is not adopted by a checkout without one, and its files are refused there.
+- **Not in a plan worktree:** `aapp issue fix` refuses inside a worktree a plan records as its `* **Worktree:**` and names the main checkout: a fix committed on a plan branch would vanish in the plan's squash and its recorded SHA would dangle (P-54).
+
+---
+
+### Plan Worktrees (`aapp.planWorktrees`, P-54)
+
+Opt-in: with `git config aapp.planWorktrees on`, a plan's **first** `aapp start` (or `freeze-start`) creates the plan's own branch and worktree. Plan work then lives on plan branches by construction, and the main checkout stays on the development branch, the place for issue fixes.
+
+```bash
+git config aapp.planWorktrees on
+aapp start P-51                                   # ../repo-P51 on plan/P51-<slug>, from develop
+aapp start P-52 worktree ../fix-auth branch feat/auth   # explicit names (works with the config off too)
+git config aapp.planSession 'tmux new-window -c {path} -n {id} claude'   # personal: open a session there
+```
+
+- **Names** come from `aapp.planBranch` (`plan/{id}-{slug}`) and `aapp.planWorktreePath` (`../{repo}-{id}`, relative to the primary checkout); the `worktree`/`branch` tokens win. An existing branch or path is refused: a plan worktree never reuses one.
+- **Base:** the first `aapp.devBranch` candidate present locally or on a remote, else the default branch (`origin/HEAD`, `main`, `master`); none refuses. The branch is created with `--no-track`: a plan branch made from `origin/develop` must not push or pull to the development branch. Uncommitted changes in the primary stay there (a notice says so).
+- **Kit links:** `.githooks`, `.agents`, `.plans` and `.claude` in the plan worktree are relative symlinks to the primary checkout, so hooks, the write guard, rules, skills and plans work there; `/.githooks`, `/.agents`, `/.plans`, `/.claude` are added once to `$(git rev-parse --git-common-dir)/info/exclude` (shared by all worktrees, never tracked). A link that cannot be made fails the start; the kit never copies them.
+- **Records:** the plan is bound in the new worktree's buffer (the primary's is untouched). The header gets `* **Worktree:** <path> (<branch>)` (path relative to the primary checkout) and `* **Base:** \`<sha>\` (<base branch>)`, the branch P-55 integrates into. `aapp status` shows the path next to the plan.
+- **`on-start`** runs before the record with `worktree` and `branch` in its `data`. A registered handler may rename the branch (`git branch -m`) or move the worktree (`git worktree move`) to fit team conventions; the kit reads back where the worktree really is.
+- **All or nothing:** a failing link, `on-start` refusal or start commit removes the worktree, its links and the branch, and restores the plan file and `state_matrix.md` from a snapshot (your uncommitted plan edits included). Retry with `aapp start`.
+- **Sessions** (`aapp.planSession`, personal, unset by default): run detached in the worktree after the start commit and never waited on (an agent invoking `start` must not hang). Placeholders `{path}`, `{id}`, `{branch}`, `{slug}`, `{plan_file}` are shell-quoted; `AAPP_PLAN_ID`, `AAPP_WORKTREE`, `AAPP_BRANCH`, `AAPP_SLUG`, `AAPP_PLAN_FILE` are exported; output goes to the worktree's `aapp_session.log`. A launch failure only warns. Giving the session its task is out of scope (see the Work Dispatch Queue idea).
+- **Taking fixes:** rebase only, `git rebase --autostash <devBranch>`, when resuming and before `aapp done`. Finishing a merge of the development branch is refused by the plan's own hook (the merged files are outside its Target Files); `git rebase` runs no pre-commit.
+- **`post-rewrite` hook** (installed by `aapp init`, also with the config `off`): after a rebase or `git commit --amend`, it maps the bound plan's recorded commits to their new SHAs, dedupes after a squash, drops a commit the rebase dropped as already upstream (with a notice), and commits the plan. It stays out of `aapp commit amend`, which keeps its own record. A hook cannot stop a rebase, so a failed record commit warns with the command to fix it.
+- **`aapp done`** refuses while the plan's worktree has uncommitted changes, clears the buffer of the worktree that holds the plan wherever it runs, and never merges, deletes the branch or removes the worktree. It prints `git worktree remove <path>` (which also deletes ignored files there: local env files, build output) and `git branch -D <branch>` for after integration (`-d` refuses after a squash merge). The `Worktree:` line moves to `done/` with the plan.
 
 ---
 
@@ -1864,7 +1889,11 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | `aapp.issueFixWait` | minutes | `5` | `aapp issue fix` | How long `fix` and the issue lock wait (printing each wait) for an open fix or a file with uncommitted changes; `0` fails at once, for dispatch runners (P-52, P-58). |
 | `aapp.maxEmergencyHotfixes` | integer | `2` | `aapp issue hotfix` | Hotfixes a plan may take; the next one blocks it permanently until re-scoped. P-55 reads it as its integration fallback (P-52). |
 | `aapp.protectStable` | `true` / `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |
-| `aapp.devBranch` | string | `develop` | Branch Guard | Target development branch for branch protection parity. |
+| `aapp.devBranch` | string (list) | `develop dev development` | Branch Guard, `aapp start` | Candidate development branches, first present (local or remote) wins. Branch protection uses it; plan worktrees branch from it, falling back to the default branch (`origin/HEAD`, `main`, `master`) (P-54). |
+| `aapp.planWorktrees` | `on` / `off` | `off` | `aapp start`, `freeze-start` | `on`: a plan's first start creates its own branch and worktree (P-54). |
+| `aapp.planBranch` | template | `plan/{id}-{slug}` | `aapp start` | Plan branch name; placeholders `{id}` (`P51`), `{num}`, `{slug}`, `{repo}`. |
+| `aapp.planWorktreePath` | template | `../{repo}-{id}` | `aapp start` | Plan worktree path, relative to the primary checkout; same placeholders. |
+| `aapp.planSession` | command template | *(unset, personal)* | `aapp start` | Opens a session (agent CLI, terminal, editor) in a new plan worktree, detached; `{path}`, `{id}`, `{branch}`, `{slug}`, `{plan_file}` (shell-quoted). Never seeded. |
 | `aapp.allowPath` | string (multi) | *(empty)* | Write Guard | External filesystem paths authorized for AI file writes (`blast-radius-guard`). |
 | `aapp.remote` | string | `origin` | Remote Sync | Git remote targeted by `aapp push`, `aapp pull`, and `aapp sync`. |
 | `aapp.syncStrategy` | `builtin` / `hook` | `builtin` | Remote Sync | Transport engine for worktree sync (`builtin` git plumbing vs custom hook). |
@@ -1909,7 +1938,7 @@ AAPP is plain Bash, Git and POSIX tools, but it is developed and tested on Linux
 | :--- | :--- | :--- |
 | **Linux** (GNU coreutils, Bash 5) | ✅ Verified: full test suite; plan parser output identical under `gawk`, `mawk` and `busybox awk` | — |
 | **macOS** (BSD userland, `/bin/bash` 3.2) | ⚠️ Untested | BSD `sed -i` expects a backup-suffix argument (`sed -i ''`), and lifecycle verbs (`draft`, `freeze`, `start`, `done`) use GNU-style `sed -i`. `sort -z` may be missing on older releases, which affects the Plans pillar of `aapp status`. `aapp install` must keep `templates/aapp-lib.sh` as a symlink under BSD `cp -r`. No Bash 4-only features are used, so the system Bash 3.2 should run the scripts. |
-| **Windows** (Git Bash / MSYS2) | ⚠️ Untested | With `core.symlinks=false`, `templates/aapp-lib.sh` checks out as a one-line text file. `aapp init` copies the library from `lib/` for this reason, so hooks should still work. Path and line-ending handling are unverified. |
+| **Windows** (Git Bash / MSYS2) | ⚠️ Untested | With `core.symlinks=false`, `templates/aapp-lib.sh` checks out as a one-line text file. `aapp init` copies the library from `lib/` for this reason, so hooks should still work. Path and line-ending handling are unverified. Plan worktrees (`aapp.planWorktrees`, P-54) link `.githooks`, `.agents`, `.plans` and `.claude` as symlinks and fail closed when a link cannot be made: without symlink support they will not start. |
 | **WSL** | ⚠️ Untested | Expected to behave like Linux (GNU userland). Repositories on `/mnt/c` may lose symlink support. |
 | **FreeBSD / OpenBSD / NetBSD** | ⚠️ Untested | Same BSD `sed` and `cp` differences as macOS. |
 | **Alpine / BusyBox** | 🟡 Partial: plan parser verified under `busybox awk` | BusyBox `sed`, `find -print0` and `sort -z` support. |

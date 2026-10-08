@@ -30,6 +30,7 @@
 - provider prints a non-integer id -> exit 1, stderr `Provider must return an integer id`
 - `close` without an id -> exit 1, usage on stderr
 - `close` with an unknown token -> exit 1, stderr `Unknown token`
+- `fix` run inside a plan's worktree (the one a plan in `current/` records in `* **Worktree:**`) -> exit 1, stderr names the plan and `cd <primary checkout>`, plus the `hotfix` route for a blocking bug; nothing written. A fix on a plan branch would vanish in the plan's squash and its recorded SHA would dangle (P-54)
 - `close` id in neither ledger -> exit 1, stderr `not found in ISSUES.md or done/000-issues-archive.md`
 - `close` id already archived -> no failure: exit 0, ledgers untouched, the provider is notified again
 - provider exits non-zero on `close` -> no failure: exit 0, stderr warning naming its `error` text; delivery and retry are the provider's responsibility
@@ -111,3 +112,4 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.sh::test_fix_wait_zero_refuses_at_once` -> `aapp.issueFixWait 0` refuses a dirty file without waiting (P-58)
 - `tests/verbs/issue.sh::test_fix_waits_for_dirty_file_then_proceeds` -> `fix` waits, printed, and proceeds once the file is clean (P-58)
 - `tests/verbs/issue.sh::test_next_blocker_waits_when_every_blocker_is_dirty` -> `next-blocker` waits for the first blocker to clear (P-58)
+- `tests/verbs/issue.sh::test_fix_refused_inside_plan_worktree` -> `fix` inside a plan worktree: exit 1 with the primary path, nothing written (P-54)

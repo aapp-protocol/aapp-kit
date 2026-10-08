@@ -448,6 +448,15 @@ if [ -f "$AAPP_TEMPLATES/aapp-post-commit" ]; then
     chmod +x .githooks/aapp-post-commit
 fi
 
+# P-54: post-rewrite keeps the bound plan's Commits: across rebase and amend; it
+# commits the plan through plans_commit, so the commit engine travels with it.
+if [ -f "$AAPP_TEMPLATES/aapp-post-rewrite" ]; then
+    cp "$AAPP_TEMPLATES/aapp-post-rewrite" .githooks/aapp-post-rewrite
+    chmod +x .githooks/aapp-post-rewrite
+    cp "$(dirname "$AAPP_LIB_SRC")/commit_engine.sh" .githooks/commit_engine.sh
+    cp "$(dirname "$AAPP_LIB_SRC")/attribution.sh" .githooks/attribution.sh
+fi
+
 NON_SHELL_HOOK_EXISTS=0
 # 2. Master pre-commit hook (project entrypoint) - never overwrite custom user hook
 if [ ! -f .githooks/pre-commit ]; then
@@ -504,6 +513,24 @@ else
             echo '"$(cd "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/.." && pwd)/.githooks/aapp-post-commit" "$@"' >> .githooks/post-commit
             chmod +x .githooks/post-commit
             echo "🛡️  Wired .githooks/aapp-post-commit into existing .githooks/post-commit."
+        fi
+    fi
+fi
+
+# 5. Master post-rewrite hook (P-54)
+if [ ! -f .githooks/post-rewrite ]; then
+    if [ -f "$AAPP_TEMPLATES/post-rewrite" ]; then
+        cp "$AAPP_TEMPLATES/post-rewrite" .githooks/post-rewrite
+        chmod +x .githooks/post-rewrite
+    fi
+else
+    if ! grep -qs "aapp-post-rewrite" .githooks/post-rewrite; then
+        if grep -qs '^#!/.*sh' .githooks/post-rewrite; then
+            echo "" >> .githooks/post-rewrite
+            echo '# Wire AAPP Post-Rewrite Engine (stdin: the old/new SHA pairs)' >> .githooks/post-rewrite
+            echo '"$(cd "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/.." && pwd)/.githooks/aapp-post-rewrite" "$@"' >> .githooks/post-rewrite
+            chmod +x .githooks/post-rewrite
+            echo "🛡️  Wired .githooks/aapp-post-rewrite into existing .githooks/post-rewrite."
         fi
     fi
 fi
@@ -634,6 +661,18 @@ if ! git config --get aapp.issueFixWait >/dev/null 2>&1; then
 fi
 if ! git config --get aapp.maxEmergencyHotfixes >/dev/null 2>&1; then
     git config aapp.maxEmergencyHotfixes 2
+fi
+
+# Plan worktrees (P-54): off until the project opts in; branch and path templates.
+# aapp.planSession is each developer's own and is never seeded.
+if ! git config --get aapp.planWorktrees >/dev/null 2>&1; then
+    git config aapp.planWorktrees off
+fi
+if ! git config --get aapp.planBranch >/dev/null 2>&1; then
+    git config aapp.planBranch 'plan/{id}-{slug}'
+fi
+if ! git config --get aapp.planWorktreePath >/dev/null 2>&1; then
+    git config aapp.planWorktreePath '../{repo}-{id}'
 fi
 
 # Union merge for CHANGELOG.md (P-48): bullets added on two branches are both
