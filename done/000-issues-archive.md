@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #101 | `Low` | `DOCS` | 2026-10-07 | 2026-10-08 | `15fda4f` | Fixed via aapp issue fix: templates/skills/aapp-digest/SKILL.md |
 | #107 | `Low` | `CORE` | 2026-10-08 | 2026-10-08 | `ca7c679` | Fixed via aapp issue fix: lib/cmd_plan.sh, tests/verbs/freeze.sh, tests/verbs/freeze-start.sh, lib/docs/verbs/freeze.md, lib/docs/verbs/freeze-start.md, tests/install_test.sh, tests/verbs/tdd.sh |
 | #105 | `Medium` | `CORE` | 2026-10-08 | 2026-10-08 | `6df62c1` | Fixed via aapp issue fix: lib/cmd_issue.sh |
 | #106 | `Low` | `HOOK` | 2026-10-08 | 2026-10-08 | `ad64b00` | Fixed via aapp issue fix: templates/aapp-pre-commit |
