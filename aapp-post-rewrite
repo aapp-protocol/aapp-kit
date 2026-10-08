@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# AAPP Post-Rewrite Engine (P-54)
+#
+# A rebase or amend rewrites the commits a plan recorded in `* **Commits:**`,
+# and `aapp done` refuses unreachable ones. For the plan bound in this worktree:
+#   - maps each recorded SHA (matched by prefix) to its new SHA;
+#   - dedupes after a squash (several old SHAs map to one);
+#   - drops a SHA on the current branch that the rebase dropped (already
+#     upstream: not in git's mapping, not reachable from HEAD), with a notice;
+#   - commits the plan through plans_commit.
+# Does nothing for `aapp commit amend` (AAPP_COMMIT_HELPER=1), which keeps its
+# own record. A hook cannot stop a rebase: a failed record commit warns loudly
+# with the command to fix it (Fallback Inventory, P-54).
+# ==============================================================================
+MODE="${1:-rebase}"
+MAP="$(cat)"
+[ "${AAPP_COMMIT_HELPER:-}" = "1" ] && exit 0
+[ -n "$MAP" ] || exit 0
+
+case "$0" in
+    */*) HOOK_DIR="${0%/*}" ;;
+    *)   HOOK_DIR="." ;;
+esac
+# shellcheck source=lib/aapp-lib.sh
+if ! . "$HOOK_DIR/aapp-lib.sh" 2>/dev/null || ! declare -f aapp_lib_loaded >/dev/null; then
+    echo "⚠️  [AAPP Post-Rewrite] Shared library missing: $HOOK_DIR/aapp-lib.sh; the plan's Commits: was not updated. Run 'aapp init'." >&2
+    exit 0
+fi
+# shellcheck source=lib/commit_engine.sh
+if ! . "$HOOK_DIR/commit_engine.sh" 2>/dev/null || ! declare -f plans_commit >/dev/null; then
+    echo "⚠️  [AAPP Post-Rewrite] Commit engine missing: $HOOK_DIR/commit_engine.sh; the plan's Commits: was not updated. Run 'aapp init'." >&2
+    exit 0
+fi
+
+BUF="$(git rev-parse --git-path aapp_active_plan 2>/dev/null)" || exit 0
+BOUND="$(tr -d '[:space:]' < "$BUF" 2>/dev/null)" || BOUND=""
+[ -n "$BOUND" ] || exit 0
+
+PRIMARY_ROOT="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)" || exit 0
+PLANS_DIR="$PRIMARY_ROOT/.plans"
+PLAN_FILE=""
+case "$BOUND" in
+    '#'*) [ -f "$PLANS_DIR/current/fix-${BOUND#\#}.md" ] && PLAN_FILE="$PLANS_DIR/current/fix-${BOUND#\#}.md" ;;
+    *)
+        for pf in "$PLANS_DIR"/current/*.md; do
+            [ -f "$pf" ] || continue
+            b="$(basename "$pf" .md)"
+            case "$b" in 000-*|fix-*) continue ;; esac
+            pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
+            if [ "$pid" = "$BOUND" ] || [ "P-$BOUND" = "$pid" ] || [ "$b" = "$BOUND" ] || \
+               [[ "$b" == "$BOUND-"* ]] || [[ "$b" == "P${BOUND#P-}-"* ]]; then
+                PLAN_FILE="$pf"; break
+            fi
+        done ;;
+esac
+[ -n "$PLAN_FILE" ] || exit 0
+
+CUR_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+TOKENS=(); SEEN=" "; CHANGED=0
+while read -r sha branch; do
+    [ -n "$sha" ] || continue
+    new=""
+    while read -r old nw _; do
+        case "$old" in "$sha"*) new="$nw"; break ;; esac
+    done <<< "$MAP"
+    if [ -n "$new" ]; then
+        s="$(git rev-parse --short "$new")" || s="$sha"
+        CHANGED=1
+    else
+        s="$sha"
+        if [ "$branch" = "$CUR_BRANCH" ] && ! git merge-base --is-ancestor "$sha" HEAD 2>/dev/null; then
+            echo "ℹ️  [AAPP Post-Rewrite] $sha left $BOUND's Commits: the $MODE dropped it (already upstream)." >&2
+            CHANGED=1
+            continue
+        fi
+    fi
+    case "$SEEN" in *" $s "*) CHANGED=1; continue ;; esac
+    SEEN="$SEEN$s "
+    TOKENS+=("\`$s\` ($branch)")
+done < <(parse_plan_commits "$PLAN_FILE")
+[ "$CHANGED" -eq 1 ] || exit 0
+
+VAL="none"
+if [ ${#TOKENS[@]} -gt 0 ]; then
+    VAL="$(printf '%s, ' "${TOKENS[@]}")"; VAL="${VAL%, }"
+fi
+REL="current/$(basename "$PLAN_FILE")"
+# Git exports GIT_DIR/GIT_INDEX_FILE to hooks; left set, `git -C .plans` would
+# commit into this worktree's repository instead of the plans branch.
+if ! write_plan_commits "$PLAN_FILE" "$VAL" || \
+   ! ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
+       PLANS_DIR="$PLANS_DIR" plans_commit "plan(record): $BOUND commits after $MODE" "$REL" >/dev/null ); then
+    echo "⚠️  [AAPP Post-Rewrite] Could not record $BOUND's rewritten commits ($VAL)." >&2
+    echo "   Fix the record: set '* **Commits:** $VAL' in .plans/$REL and run 'aapp refine $BOUND \"record commits after $MODE\"'." >&2
+    exit 0
+fi
+echo "📝 [AAPP Post-Rewrite] $BOUND's Commits: now $VAL." >&2
+exit 0

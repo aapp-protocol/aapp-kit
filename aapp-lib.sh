@@ -419,6 +419,15 @@ write_plan_commits() {
 }
 
 # write_plan_base <plan_file> <base_prose>
+# parse_plan_base <plan_file>
+# Outputs the recorded Base SHA, or nothing when the plan was never started
+# (no Base line, or `none`). `start` writes Base once and never overwrites it.
+parse_plan_base() {
+    awk '/^[[:space:]]*```/ { f = !f; next } f { next } /^##[[:space:]]/ { exit }
+         /^[[:space:]]*[*|-]*[[:space:]]*\*\*Base:\*\*/ { print; exit }' "$1" 2>/dev/null |
+        sed -nE 's/.*\*\*Base:\*\*[[:space:]]*`([0-9a-fA-F]+)`.*/\1/p'
+}
+
 # Updates the * **Base:** line in the plan header, or inserts it before Commits / after Status.
 # Strictly confined to the plan header (before any ## heading).
 write_plan_base() {
@@ -501,6 +510,8 @@ find_worktree_holding_plan() {
             esac
             local buf
             buf="$(git -C "$wt_path" rev-parse --git-path aapp_active_plan 2>/dev/null || true)"
+            # The primary checkout answers relative to itself (P-54: asked from a plan worktree).
+            case "$buf" in /*|'') ;; *) buf="$wt_path/$buf" ;; esac
             if [ -n "$buf" ] && [ -f "$buf" ]; then
                 local held_id
                 held_id="$(tr -d '[:space:]' < "$buf" 2>/dev/null || true)"
@@ -612,6 +623,134 @@ aapp_plan_stamp_modes() {
     if [ -n "$log" ] && ! grep -qF "switched to" "$pf"; then
         printf '%s\n' "$log" >> "$pf"
     fi
+}
+
+# ------------------------------------------------------------------------------
+# Plan worktrees (P-54)
+# ------------------------------------------------------------------------------
+# aapp_branch_ref <name>: the ref to branch from for <name>: the local branch,
+# else the first remote-tracking `<remote>/<name>`; nothing when neither exists.
+aapp_branch_ref() {
+    local name="$1" r
+    [ -n "$name" ] || return 1
+    if git show-ref --verify --quiet "refs/heads/$name"; then echo "$name"; return 0; fi
+    r="$(git for-each-ref --format='%(refname:short)' "refs/remotes/*/$name" | head -n 1)"
+    [ -n "$r" ] && { echo "$r"; return 0; }
+    return 1
+}
+
+# aapp_dev_branch: the first aapp.devBranch candidate (space-separated, default
+# `develop dev development`, as the pre-commit hook reads it) that exists locally
+# or on a remote; empty when none does. Callers decide on a fallback.
+aapp_dev_branch() {
+    local cands c
+    cands="$(git config --get aapp.devBranch 2>/dev/null)" || cands="develop dev development"
+    for c in $cands; do
+        if aapp_branch_ref "$c" >/dev/null; then echo "$c"; return 0; fi
+    done
+    return 0
+}
+
+# aapp_render_plan_template <template> <plan_id> <slug> <repo>: fills {id}
+# (`P51`), {num} (`51`), {slug} and {repo}.
+aapp_render_plan_template() {
+    local out="$1" num="${2#P-}" slug="$3" repo="$4"
+    out="${out//\{id\}/P$num}"; out="${out//\{num\}/$num}"
+    out="${out//\{slug\}/$slug}"; out="${out//\{repo\}/$repo}"
+    printf '%s\n' "$out"
+}
+
+# aapp_abs_path <path> [base]: <path> made absolute against [base] (default: the
+# current directory), `.` and `..` resolved lexically; the path need not exist.
+aapp_abs_path() {
+    local p="$1" base="${2:-$PWD}" part out=() IFS=/
+    case "$p" in /*) ;; *) p="$base/$p" ;; esac
+    for part in $p; do
+        case "$part" in
+            ''|.) ;;
+            ..) [ ${#out[@]} -gt 0 ] && unset 'out[${#out[@]}-1]' ;;
+            *) out+=("$part") ;;
+        esac
+    done
+    printf '/%s\n' "${out[*]}"
+}
+
+# aapp_rel_path <from_dir> <to_path>: <to_path> relative to <from_dir>; both absolute.
+aapp_rel_path() {
+    local from to common up="" rest
+    from="$(aapp_abs_path "$1")"; to="$(aapp_abs_path "$2")"
+    common="$from"
+    while [ "$common" != "/" ] && [ "${to#"$common"/}" = "$to" ] && [ "$to" != "$common" ]; do
+        common="${common%/*}"; [ -n "$common" ] || common="/"
+        up="../$up"
+    done
+    if [ "$to" = "$common" ]; then rest=""; elif [ "$common" = "/" ]; then rest="${to#/}"; else rest="${to#"$common"/}"; fi
+    up="${up%/}"
+    if [ -n "$up" ] && [ -n "$rest" ]; then echo "$up/$rest"
+    elif [ -n "$up" ]; then echo "$up"
+    elif [ -n "$rest" ]; then echo "$rest"
+    else echo "."; fi
+}
+
+# parse_plan_worktree <plan_file>: "<path><TAB><branch>" from the header's
+# `* **Worktree:** <path> (<branch>)`; the path is relative to the primary checkout.
+parse_plan_worktree() {
+    awk '/^##[[:space:]]/ { exit } /^\* \*\*Worktree:\*\*/ { print; exit }' "$1" 2>/dev/null |
+        sed -nE 's/^\* \*\*Worktree:\*\*[[:space:]]*(.+)[[:space:]]+\(([^)]+)\)[[:space:]]*$/\1\t\2/p'
+}
+
+# ------------------------------------------------------------------------------
+# Plan branch integration (P-55): read-only helpers; the engines that change the
+# repository live in cmd_plan.sh.
+# ------------------------------------------------------------------------------
+# count_plan_emergency_hotfixes <plan_file>: issue IDs in the header's
+# append-only `* **Emergency Hotfixes:**` line (P-52).
+count_plan_emergency_hotfixes() {
+    awk '/^##[[:space:]]/ { exit } /^\* \*\*Emergency Hotfixes:\*\*/ { print; exit }' "$1" 2>/dev/null |
+        grep -oE '#[0-9]+' | wc -l | tr -d ' '
+}
+
+# resolve_plan_integrate_target <plan_file>: the branch the plan integrates into,
+# per aapp.integrateTarget: `parent` (default; the branch in `* **Base:**`), `dev`
+# (the development branch) or an explicit branch name. Fails when none resolves.
+resolve_plan_integrate_target() {
+    local mode t
+    mode="$(git config --get aapp.integrateTarget 2>/dev/null)" || mode=parent
+    case "$mode" in
+        parent|'') t="$(awk '/^##[[:space:]]/ { exit } /^\* \*\*Base:\*\*/ { print; exit }' "$1" 2>/dev/null |
+                       sed -nE 's/^\* \*\*Base:\*\*[[:space:]]*`[0-9a-fA-F]+`[[:space:]]*\(([^)]+)\).*/\1/p')" ;;
+        dev)       t="$(aapp_dev_branch)" ;;
+        *)         t="$mode" ;;
+    esac
+    case "$t" in ''|detached) return 1 ;; esac
+    echo "$t"
+}
+
+# check_worktree_ignored_files <worktree>: sensitive ignored files a removal
+# would delete (`.env*`, `*.pem`, `*.key`, `*secret*`), one path per line.
+check_worktree_ignored_files() {
+    local line p b
+    while IFS= read -r line; do
+        case "$line" in '!! '*) p="${line#!! }" ;; *) continue ;; esac
+        p="${p%/}"; b="${p##*/}"
+        case "$b" in .env*|*.pem|*.key|*secret*) echo "$p" ;; esac
+    done < <(git -C "$1" status --porcelain --ignored --untracked-files=all 2>/dev/null)
+}
+
+# write_plan_worktree <plan_file> <value>: sets `* **Worktree:** <value>` in the
+# header, replacing it or inserting it after Base (else after Status).
+write_plan_worktree() {
+    local pf="$1" tmp="$1.aapp-wt.$$"
+    AAPP_LINE="* **Worktree:** $2" awk '
+        FNR == NR { if ($0 ~ /^##[[:space:]]/) hdr_done = 1
+                    if (!hdr_done && $0 ~ /^\* \*\*Worktree:\*\*/) has = 1
+                    if (!hdr_done && $0 ~ /^\* \*\*Base:\*\*/) has_base = 1; next }
+        /^##[[:space:]]/ { passed = 1 }
+        !passed && has && /^\* \*\*Worktree:\*\*/ { print ENVIRON["AAPP_LINE"]; next }
+        { print }
+        !passed && !has && !done && ((has_base && /^\* \*\*Base:\*\*/) || (!has_base && /^\* \*\*Status:\*\*/)) {
+            print ENVIRON["AAPP_LINE"]; done = 1 }
+    ' "$pf" "$pf" > "$tmp" && mv "$tmp" "$pf" || { rm -f "$tmp"; return 1; }
 }
 
 # ------------------------------------------------------------------------------

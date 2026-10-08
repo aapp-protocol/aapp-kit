@@ -844,9 +844,9 @@ for FILE in "${STAGED_FILES[@]}"; do
 
     # Python Syntax Check
     if [[ "$FILE" == *.py ]] && command -v python3 >/dev/null 2>&1; then
-        if ! python3 -m py_compile "$FILE" >/dev/null 2>&1; then
+        if ! python3 -c "import sys; compile(open(sys.argv[1], 'rb').read(), sys.argv[1], 'exec')" "$FILE" >/dev/null 2>&1; then
             echo "❌ [Pre-Commit Error] Python Syntax Error in staged file: $FILE"
-            python3 -m py_compile "$FILE" || true
+            python3 -c "import sys; compile(open(sys.argv[1], 'rb').read(), sys.argv[1], 'exec')" "$FILE" || true
             exit 1
         fi
     fi
