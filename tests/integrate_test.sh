@@ -30,7 +30,7 @@ wt_plan() {
   sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$f"
   git -C .plans commit -qam "prep $id" >/dev/null 2>&1
   aapp freeze-start "$id" >/dev/null 2>&1
-  wt="$R/ig-P$n"
+  wt="$R/ig/.workspace/P$n"
   ( cd "$wt" && mkdir -p src && echo "v=1" > "src/$name.sh" && git add "src/$name.sh" && aapp commit "feat: $name" >/dev/null 2>&1 )
   echo "$id"
 }
@@ -41,7 +41,7 @@ echo "== seeded manual: archive only (Q1) =="
 a="$(wt_plan alpha)"; dev0="$(git rev-parse develop)"
 out="$(aapp done "$a" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && [ "$(git config aapp.integrate)" = "manual" ] && [ "$(git rev-parse develop)" = "$dev0" ] && \
-   [ -d "$R/ig-P${a#P-}" ] && ls .plans/done/P"${a#P-}"-*.md >/dev/null 2>&1 && echo "$out" | grep -qF "aapp done $a integrate"; then
+   [ -d "$R/ig/.workspace/P${a#P-}" ] && ls .plans/done/P"${a#P-}"-*.md >/dev/null 2>&1 && echo "$out" | grep -qF "aapp done $a integrate"; then
   ok "test_manual_default_archives_without_integrating"
 else
   bad "test_manual_default_archives_without_integrating" "rc=$rc out=$out"
@@ -53,7 +53,7 @@ s="$(wt_plan sq)"; sbr="$(pbranch "$s" sq)"
 out="$(aapp done "$s" 2>&1)"; rc=$?
 msg="$(git log -1 --format=%B develop)"
 if [ "$rc" -eq 0 ] && git show develop:src/sq.sh >/dev/null 2>&1 && echo "$msg" | grep -qx "Plan-ID: $s" && \
-   echo "$msg" | grep -qx "Plan-Parent: develop" && [ ! -d "$R/ig-P${s#P-}" ] && \
+   echo "$msg" | grep -qx "Plan-Parent: develop" && [ ! -d "$R/ig/.workspace/P${s#P-}" ] && \
    ! git rev-parse --verify -q "$sbr" >/dev/null && [ "$(git rev-parse --abbrev-ref HEAD)" = "$PRIM" ] && \
    [ -z "$(git status --porcelain --untracked-files=no)" ]; then
   ok "test_squash_integrates_with_trailers_and_cleans_up"
@@ -78,11 +78,11 @@ fi
 echo "== fast-forward keeps microcommits =="
 git config aapp.integrate ff
 f_="$(wt_plan ffp)"; fbr="$(pbranch "$f_" ffp)"
-( cd "$R/ig-P${f_#P-}" && echo "w=1" > src/ffp_b.sh && git add src/ffp_b.sh && aapp commit "feat: ffp two" >/dev/null 2>&1 )
+( cd "$R/ig/.workspace/P${f_#P-}" && echo "w=1" > src/ffp_b.sh && git add src/ffp_b.sh && aapp commit "feat: ffp two" >/dev/null 2>&1 )
 tip="$(git rev-parse "$fbr")"
 out="$(aapp done "$f_" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && [ "$(git rev-parse develop)" = "$tip" ] && ! git rev-parse --verify -q "$fbr" >/dev/null && \
-   [ ! -d "$R/ig-P${f_#P-}" ]; then
+   [ ! -d "$R/ig/.workspace/P${f_#P-}" ]; then
   ok "test_ff_keeps_microcommits_and_deletes_branch"
 else
   bad "test_ff_keeps_microcommits_and_deletes_branch" "rc=$rc out=$out"
@@ -98,7 +98,7 @@ if [ "$rc" -ne 0 ] && echo "$out" | grep -qi "rebase" && [ -f "$bf" ] && [ "$(gi
 else
   bad "test_preflight_failure_archives_nothing" "rc=$rc out=$out"
 fi
-( cd "$R/ig-P${b#P-}" && git rebase -q develop >/dev/null 2>&1 )
+( cd "$R/ig/.workspace/P${b#P-}" && git rebase -q develop >/dev/null 2>&1 )
 
 printf '%s\n' '# 🩹 Issue Fix #99: x' '* **Plan ID:** #99' '* **Status:** ⚡ In Development' '* **Commits:** none' > .plans/current/fix-99.md
 git -C .plans add current/fix-99.md && git -C .plans commit -qm "open mini" >/dev/null 2>&1
@@ -121,7 +121,7 @@ else
 fi
 
 echo "== ignored files: refuse cleanup, opt-in quarantine (Q2) =="
-e="$(wt_plan envp)"; ewt="$R/ig-P${e#P-}"
+e="$(wt_plan envp)"; ewt="$R/ig/.workspace/P${e#P-}"
 echo "SECRET=1" > "$ewt/.env"
 out="$(aapp done "$e" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && git show develop:src/envp.sh >/dev/null 2>&1 && [ -f "$ewt/.env" ] && echo "$out" | grep -qF ".env" && \
@@ -144,7 +144,7 @@ git config aapp.quarantineIgnored false
 echo "== tokens and plans without a worktree =="
 n_="$(wt_plan noint)"; devn="$(git rev-parse develop)"
 out="$(aapp done "$n_" no-integrate 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && [ "$(git rev-parse develop)" = "$devn" ] && [ -d "$R/ig-P${n_#P-}" ]; then
+if [ "$rc" -eq 0 ] && [ "$(git rev-parse develop)" = "$devn" ] && [ -d "$R/ig/.workspace/P${n_#P-}" ]; then
   ok "test_no_integrate_token_archives_only"
 else
   bad "test_no_integrate_token_archives_only" "rc=$rc out=$out"
@@ -189,7 +189,7 @@ archived=0; ls .plans/done/P"${k#P-}"-*.md >/dev/null 2>&1 && archived=1
 rm -f "$AAPP_HOOK_FAIL"
 out2="$(aapp done "$k" integrate 2>&1)"; rc2=$?
 if [ "$rc1" -ne 0 ] && [ "$archived" -eq 1 ] && [ "$rc2" -eq 0 ] && grep -qF "\"plan_branch\": \"$(pbranch "$k" hk)\"" "$R/integ.json" && \
-   grep -qF '"target_branch": "develop"' "$R/integ.json" && [ "$(git rev-parse develop)" = "$devk" ] && [ -d "$R/ig-P${k#P-}" ]; then
+   grep -qF '"target_branch": "develop"' "$R/integ.json" && [ "$(git rev-parse develop)" = "$devk" ] && [ -d "$R/ig/.workspace/P${k#P-}" ]; then
   ok "test_hook_delegate_replaces_builtin_and_retries"
 else
   bad "test_hook_delegate_replaces_builtin_and_retries" "rc=$rc1/$rc2 archived=$archived out=$out | $out2 json=$(cat "$R/integ.json" 2>/dev/null)"

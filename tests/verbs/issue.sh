@@ -618,7 +618,7 @@ sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$pwf"; git -C .plans com
 aapp freeze-start "$pw" >/dev/null 2>&1
 git config aapp.planWorktrees off
 head0="$(git -C .plans rev-parse HEAD)"
-cd "$R/wd-P${pw#P-}" || exit 1
+cd "$R/wd/.workspace/P${pw#P-}" || exit 1
 out="$(aapp issue fix 12 2>&1)"; rc=$?
 cd "$R/wd" || exit 1
 if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "$R/wd" && echo "$out" | grep -qi "plan worktree" && \

@@ -93,9 +93,9 @@ sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$f_w"
 git -C .plans commit -qam "prep $id_w" >/dev/null
 s_w="$(basename "$f_w" .md)"; s_w="${s_w#P${n_w}-}"
 out="$(aapp freeze-start "$id_w" 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && [ -L "$R/p-P$n_w/.plans" ] && grep -qxF "* **Worktree:** ../p-P$n_w (plan/P$n_w-$s_w)" "$f_w" && \
+if [ "$rc" -eq 0 ] && [ -L "$R/p/.workspace/P$n_w/.plans" ] && grep -qxF "* **Worktree:** .workspace/P$n_w (plan/P$n_w-$s_w)" "$f_w" && \
    grep -qE '^\* \*\*Base:\*\* `[0-9a-f]+` \(develop\)$' "$f_w" && \
-   [ "$(cat "$(git -C "$R/p-P$n_w" rev-parse --git-path aapp_active_plan)")" = "$id_w" ]; then
+   [ "$(cat "$(git -C "$R/p/.workspace/P$n_w" rev-parse --git-path aapp_active_plan)")" = "$id_w" ]; then
   ok "test_worktree_freeze_start_creates_and_records"
 else
   bad "test_worktree_freeze_start_creates_and_records" "rc=$rc out=$out"

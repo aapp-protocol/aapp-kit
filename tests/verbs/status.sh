@@ -35,7 +35,7 @@ sed -i -E "s|src/path/to/file\.ext|src/shown.py|g; /src\/path\/to\/new_file\.ext
 sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$sf"; git -C .plans commit -qam prep >/dev/null 2>&1
 aapp freeze-start "$sid" >/dev/null 2>&1
 out="$(aapp status 2>&1)"
-if echo "$out" | grep -qF "$sid: $(basename "$sf")  (⚡ In Development → ../p-P${sid#P-})"; then
+if echo "$out" | grep -qF "$sid: $(basename "$sf")  (⚡ In Development → .workspace/P${sid#P-})"; then
   ok "test_plan_worktree_shown_next_to_plan"
 else
   bad "test_plan_worktree_shown_next_to_plan" "$(echo "$out" | grep -F "$sid")"
