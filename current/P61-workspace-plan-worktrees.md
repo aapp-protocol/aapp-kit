@@ -1,13 +1,10 @@
-# 🗺️ Plan P-61: Workspace Plan Worktrees
+# 🗺️ Plan P-61: Workspace Plan Worktrees & Cross-Worktree Guard Resolution
 * **Created:** 2026-10-09 | **Last Refined:** 2026-10-09
 * **Target Issue / Milestone:** #112
 * **Plan ID:** P-61
-* **Changelog:** Changed: Workspace Plan Worktrees
+* **Changelog:** Changed: default plan worktrees to .workspace/{id} and enable cross-worktree guard resolution (#112)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
-<!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
-     from the title; reword it and pick the section while refining. `aapp commit` writes it into
-     CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Commits:** none
@@ -38,64 +35,117 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+Plan worktrees introduced in P-54 allow isolated implementation branches on dedicated worktrees. However, two operational frictions have emerged:
+
+1. **Worktree Directory Location**:
+   The initial default path was `../{repo}-{id}`, placing plan worktrees outside the project directory. In repositories where developers work with other worktrees or value strict self-containment, placing directories in parent folders creates clutter, causes orphan directory risk, and confuses users unfamiliar with worktrees. Grouping plan worktrees under `.workspace/{id}` inside the repository keeps everything self-contained (alongside `.plans/`, `.agents/`, and `.githooks/`), while the dot-prefix prevents inadvertent scanning by external linters and language servers.
+2. **Cross-Worktree Blast Radius Guard (#112)**:
+   The write-time blast radius guard (`templates/blast-radius-guard.sh`) currently resolves repository boundaries and the active plan pointer buffer (`aapp_active_plan`) strictly from the agent session's current working directory (`REPO_ROOT="$(git rev-parse --show-toplevel)"`). When an agent or developer operates from the primary checkout and attempts to edit files inside an active plan worktree (whether at `.workspace/{id}` or a custom path), the guard treats the target as outside the repository or foreign to the primary buffer, rejecting valid edits.
+
+This plan delivers:
+- Changing the default `aapp.planWorktreePath` template to `.workspace/{id}`.
+- Ensuring `/.workspace/` is added to `.git/info/exclude` on `init` and `_wt_create`.
+- Enhancing `templates/blast-radius-guard.sh` to recognize linked worktrees sharing `GIT_COMMON_DIR`, resolve the target file's own worktree root and pointer buffer, and enforce target file blast radius transparently from a primary session.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Default Path & Ignore Handling
+- **Default Config**: In `lib/cmd_init.sh` and `lib/cmd_plan.sh`, change the fallback template for `aapp.planWorktreePath` from `../{repo}-{id}` to `.workspace/{id}`.
+- **Git Exclude**:
+  - In `lib/cmd_plan.sh` (`_wt_create`), add `/.workspace/` to the primary repo's `.git/info/exclude` (or Git common dir `info/exclude`), alongside `.githooks`, `.agents`, `.plans`, and `.claude`.
+  - In `lib/cmd_init.sh`, ensure `/.workspace/` is seeded into `info/exclude` when initializing or refreshing an AAPP repository.
+
+### 2.2 Cross-Worktree Blast Radius Guard Resolution (#112)
+In `templates/blast-radius-guard.sh`:
+1. **Target Worktree Detection**:
+   When receiving `CANONICAL_TARGET`:
+   ```bash
+   TARGET_DIR="$(dirname "$CANONICAL_TARGET")"
+   TARGET_COMMON_DIR="$(git -C "$TARGET_DIR" rev-parse --git-common-dir 2>/dev/null || true)"
+   ```
+   Normalize `TARGET_COMMON_DIR` to an absolute canonical path.
+   If `[ -n "$TARGET_COMMON_DIR" ] && [ "$TARGET_COMMON_DIR" = "$GIT_COMMON_DIR" ]`:
+   The target file belongs to the **same repository** (either the primary checkout or one of its linked worktrees).
+
+2. **Worktree-Relative Path & Active Buffer Resolution**:
+   - Determine the target file's worktree root:
+     ```bash
+     TARGET_WT_ROOT="$(git -C "$TARGET_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+     TARGET_WT_ROOT="$(canonicalize_path "$TARGET_WT_ROOT")"
+     ```
+   - Relativize the target file against its own worktree root:
+     ```bash
+     TARGET_FILE="${CANONICAL_TARGET#"$TARGET_WT_ROOT"/}"
+     ```
+   - Determine the active plan buffer for this specific worktree:
+     ```bash
+     WT_ACTIVE_BUF="$(git -C "$TARGET_DIR" rev-parse --git-path aapp_active_plan 2>/dev/null || true)"
+     case "$WT_ACTIVE_BUF" in /*) ;; *) WT_ACTIVE_BUF="$TARGET_WT_ROOT/$WT_ACTIVE_BUF" ;; esac
+     ```
+   - If `WT_ACTIVE_BUF` contains a designated plan (e.g. `P-60`), evaluate `TARGET_FILE` against that plan's declared `### 📂 Target Files` and `### 🛑 Out of Bounds`.
+   - If the target file is in a linked worktree bound to a plan, an edit matching that plan's targets succeeds (`exit 0`), while an edit outside targets is denied with the standard blast-radius diagnostic.
+   - If the worktree is unbound (no plan in `WT_ACTIVE_BUF`), apply standard unbound repository checks relative to that worktree.
+
+3. **Fallback to Foreign Paths**:
+   If `TARGET_COMMON_DIR` does not match `GIT_COMMON_DIR`, continue to evaluate against `aapp.allowPath` allowlists or deny as outside repository.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Backwards Compatible`
+- **Fallback Inventory**:
+  - Existing repositories with custom `aapp.planWorktreePath` (e.g. `../{repo}-{id}`) retain their configuration without regression.
+  - The guard resolution logic checks `GIT_COMMON_DIR` match across all linked worktrees, so both `.workspace/{id}` and existing sibling worktrees like `../{repo}-{id}` gain cross-worktree editing capabilities immediately.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Default Path & Ignore Wiring
+- [ ] Task 1.1: Update default `aapp.planWorktreePath` to `.workspace/{id}` in `lib/cmd_init.sh` and `lib/cmd_plan.sh`.
+- [ ] Task 1.2: Add `/.workspace/` to `info/exclude` in `lib/cmd_init.sh` and `lib/cmd_plan.sh` (`_wt_create`).
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Guard Cross-Worktree Resolution
+- [ ] Task 2.1: Update `templates/blast-radius-guard.sh` to inspect target file directory for `git-common-dir` match.
+- [ ] Task 2.2: Relativize target file against its specific worktree root when in a linked worktree.
+- [ ] Task 2.3: Read `aapp_active_plan` from the target worktree's git-path and enforce its blast radius.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Test Verification
+- [ ] Task 3.1: Update `tests/install_test.sh` for the new `.workspace/{id}` default path in `aapp init`.
+- [ ] Task 3.2: Update `tests/verbs/start.sh` to verify plan worktrees scaffold into `.workspace/{id}` and are ignored.
+- [ ] Task 3.3: Add cross-worktree guard tests in `tests/worktree_hooks_test.sh`: test editing plan worktree target files from the primary checkout session without changing cwd.
+- [ ] Task 3.4: Run full test suite `./aapp test` and verify zero regressions.
+
+### Phase 4: Documentation & Manual Sync
+- [ ] Task 4.1: Update `MANUAL.md`, `CHEATSHEET.md`, and `lib/docs/verbs/start.md` to document `.workspace/{id}` default and cross-worktree session support.
+- [ ] Task 4.2: Run `aapp init` to refresh local `.githooks` and `.agents`.
+- [ ] Task 4.3: Verify `CHANGELOG.md` entry.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_init.sh` -> Update default aapp.planWorktreePath seed and info/exclude entries.
+- [ ] `lib/cmd_plan.sh` -> Update fallback planWorktreePath template and _wt_create exclude handling.
+- [ ] `templates/blast-radius-guard.sh` -> Add cross-worktree GIT_COMMON_DIR detection, worktree-root relativization, and target buffer resolution.
+- [ ] `tests/install_test.sh` -> Update test_init_seeds_plan_worktree_keys expectation to .workspace/{id}.
+- [ ] `tests/verbs/start.sh` -> Verify worktree creation in .workspace/{id} and ignore behavior.
+- [ ] `tests/worktree_hooks_test.sh` -> Add test coverage for cross-worktree editing from primary checkout session.
+- [ ] `MANUAL.md` -> Update documentation of default plan worktree path and single-session workflow.
+- [ ] `CHEATSHEET.md` -> Update default configuration table for aapp.planWorktreePath.
+- [ ] `lib/docs/verbs/start.md` -> Update start command documentation for .workspace/{id}.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `.githooks/` -> Managed via templates and aapp init; do not edit directly.
+- [ ] `templates/aapp-pre-commit` -> Pre-commit runs inside the committing worktree; commit boundary is unchanged.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** For existing worktrees created at `../{repo}-{id}` (such as the in-flight P-60 worktree), the enhanced guard will immediately recognize and allow editing from the primary session without requiring folder relocation. Should we leave existing worktree paths intact, or provide an optional helper to relocate them to `.workspace/{id}`? (Recommended: Leave intact; adopters can move via `git worktree move` if desired).
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-09:** Plan initialized from `pickup.md`.
-* **2026-10-09:** Refined blast radius and locked module boundaries.
+* **2026-10-09:** Plan initialized from Issue #112; scoped default path to `.workspace/{id}` and cross-worktree guard resolution in `templates/blast-radius-guard.sh`.
