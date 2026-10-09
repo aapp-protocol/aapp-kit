@@ -2,7 +2,7 @@
 * **Created:** 2026-10-09 | **Last Refined:** 2026-10-09
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-63
-* **Changelog:** Changed: Adoption Advisories
+* **Changelog:** Added: adoption checklist: `aapp init` records detected setup advice as checkbox tasks
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,7 +38,13 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+**Idea (draft, no research yet).** Adoption advice is printed once by `aapp init` and scattered over MANUAL and the cookbook. Instead, one checklist file per project holds it as checkbox tasks, worked one at a time like plan tasks.
+
+- `aapp init` adds a task only when it detects the need (e.g. `nx.json` → exclude `.workspace/` in `.nxignore`; no `pre-done` gate → register the test gate), never twice.
+- The kit never edits adopter build configuration; the task says what to add and where.
+- The human ticks items; `aapp status` shows the open count.
+- Source: RFC `worktree-contexts-monorepo-rfc.md`, A3 and the reply to it.
 
 ---
 
@@ -91,11 +97,11 @@
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — Location.** `.plans/adoption.md` (tracked with the plans, shown by `aapp status`) or a root file?
+* [ ] **Question 2 — Re-runs.** Does `init` also tick a task it can verify is done, or is ticking always the human's?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-09:** Plan initialized from `pickup.md`.
-* **2026-10-09:** Refined blast radius and locked module boundaries.
+* **2026-10-09:** Drafted from the developer's idea (RFC A3): a central adoption checklist instead of one-off init output.
