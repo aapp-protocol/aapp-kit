@@ -457,6 +457,47 @@ check_decision "unbound checkout does not adopt a held plan (P-52)" ALLOW "src/f
 rm -rf "$R/wt-agent2"
 git worktree prune >/dev/null 2>&1
 
+echo "== .workspace worktree: buffer read for subdirectory targets (#114) =="
+setup
+plan p_ws1.md <<'EOF'
+* **Plan ID:** P-41
+* **Status:** ⚡ In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/deep/ws_one.py` -> plan P-41 target
+### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `src/deep/ws_two.py` -> plan P-41 excludes P-42's file
+## end
+EOF
+plan p_ws2.md <<'EOF'
+* **Plan ID:** P-42
+* **Status:** ⚡ In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/deep/ws_two.py` -> plan P-42 target
+### 🛑 Out of Bounds (Do Not Touch)
+- [ ] `src/deep/ws_one.py` -> plan P-42 excludes P-41's file
+## end
+EOF
+plan p_ws3.md <<'EOF'
+* **Plan ID:** P-43
+* **Status:** ⚡ In Development
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/deep/ws_three.py` -> plan P-43 target, held by no checkout
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+mkdir -p src/deep; echo "x=1" > src/deep/ws_one.py; echo "x=2" > src/deep/ws_two.py
+git add -A >/dev/null; git commit -qm "add ws plans"
+git worktree add -q .workspace/P41 HEAD >/dev/null 2>&1
+echo "P-41" > "$(git -C .workspace/P41 rev-parse --absolute-git-dir)/aapp_active_plan"
+echo "P-42" > .git/aapp_active_plan
+cd "$R/repo/.workspace/P41"
+check_decision "workspace worktree: own subdirectory target allowed" ALLOW "src/deep/ws_one.py"
+check_decision "workspace worktree: other plan's target denied" DENY "src/deep/ws_two.py"
+cd "$R/repo"
+check_decision "primary: own subdirectory target allowed" ALLOW "src/deep/ws_two.py"
+check_decision "primary: other plan's target denied" DENY "src/deep/ws_one.py"
+git worktree remove --force .workspace/P41 >/dev/null 2>&1; git worktree prune >/dev/null 2>&1
+
 echo "== .plans as a linked worktree (#84) =="
 setup
 git branch -q plans-wt
