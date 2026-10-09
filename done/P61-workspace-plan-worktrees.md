@@ -5,7 +5,7 @@
 * **Changelog:** Changed: default plan worktrees to .workspace/{id} and enable cross-worktree guard resolution (#112)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `948abe7` (develop)
 * **Worktree:** .workspace/P61 (plan/P61-workspace-plan-worktrees)
 * **Commits:** `0c0b004` (plan/P61-workspace-plan-worktrees)
@@ -149,6 +149,7 @@ In `templates/blast-radius-guard.sh`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-09:** Plan implementation completed and archived to done/.
 * **2026-10-09:** Plan activated into ⚡ In Development via start.
 * **2026-10-09:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-09:** Plan initialized from Issue #112; scoped default path to `.workspace/{id}` and cross-worktree guard resolution in `templates/blast-radius-guard.sh`.

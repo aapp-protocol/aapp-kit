@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-09 | `P-61` | [`P61-workspace-plan-worktrees.md`](P61-workspace-plan-worktrees.md) | #112 | `0c0b004` | Workspace Plan Worktrees & Cross-Worktree Guard Resolution |
 | 2026-10-08 | `P-23` | [`P23-lifecycle-hook-sequencing-and-pre-gates.md`](P23-lifecycle-hook-sequencing-and-pre-gates.md) | Milestone v1.2.1 (Lifecycle Extension Governance) | `4fcfd77` | Lifecycle Hook Sequencing, Pre-Mutation Quality Gates & Return Code Abort Protocol |
 | 2026-10-08 | `P-55` | [`P55-automated-branch-integration.md`](P55-automated-branch-integration.md) | Multi-Agent Worktree Integration Engine (Pickup #8) | `f4469d8` | Automated Worktree Branch Integration, Parent Branch Lifecycle & Safe Cleanup |
 | 2026-10-08 | `P-54` | [`P54-plan-worktrees-at-start.md`](P54-plan-worktrees-at-start.md) | None (follows P-52 and the #84 fix) | `61d1f9b` | Plan Worktrees at Start |

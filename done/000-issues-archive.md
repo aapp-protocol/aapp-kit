@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #112 | `Medium` | `HOOK` | 2026-10-09 | 2026-10-09 | `0c0b004` | [P-61](P61-workspace-plan-worktrees.md) - Workspace Plan Worktrees & Cross-Worktree Guard Resolution |
 | #109 | `Medium` | `HOOK` | 2026-10-08 | 2026-10-09 | `948abe7` | Fixed via aapp issue fix: lib/cmd_sync.sh, lib/hook_dispatcher.sh, tests/sync_test.sh |
 | #101 | `Low` | `DOCS` | 2026-10-07 | 2026-10-08 | `15fda4f` | Fixed via aapp issue fix: templates/skills/aapp-digest/SKILL.md |
 | #107 | `Low` | `CORE` | 2026-10-08 | 2026-10-08 | `ca7c679` | Fixed via aapp issue fix: lib/cmd_plan.sh, tests/verbs/freeze.sh, tests/verbs/freeze-start.sh, lib/docs/verbs/freeze.md, lib/docs/verbs/freeze-start.md, tests/install_test.sh, tests/verbs/tdd.sh |
