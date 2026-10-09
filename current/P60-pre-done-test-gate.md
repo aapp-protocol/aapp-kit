@@ -10,7 +10,7 @@
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
 * **Status:** ⚡ In Development
 * **Base:** `948abe7` (develop)
-* **Worktree:** ../agent-planning-kit-P60 (plan/P60-pre-done-test-gate)
+* **Worktree:** .workspace/P60 (plan/P60-pre-done-test-gate)
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
