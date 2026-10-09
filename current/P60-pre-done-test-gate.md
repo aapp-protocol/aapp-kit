@@ -8,8 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟥 BLOCKED
-* **Blocked On:** #112 (was ⚡ In Development)
+* **Status:** 🔷 Frozen
 * **Base:** `948abe7` (develop)
 * **Worktree:** ../agent-planning-kit-P60 (plan/P60-pre-done-test-gate)
 * **Commits:** none
