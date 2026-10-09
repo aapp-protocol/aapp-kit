@@ -134,13 +134,14 @@ When the issue's files differ between the development branch and a feature branc
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — How `close` lands a `base` fix.** (a) Fast-forward onto `<branch>` (rebasing `fix/<num>` first if the branch moved): the fix's SHA stays as recorded. (b) Squash. Recommendation: (a).
-* [ ] **Question 2 — Branch check strictness (2.2).** (a) Refuse. (b) Warn and continue. Recommendation: (a).
-* [ ] **Question 3 — Grouping in `aapp status`.** List plans under their shared base branch now, or later? Recommendation: later; the base already shows in each plan's header.
-* [ ] **Question 4 — Order with P-60 and P-62.** P-64 shares `lib/cmd_plan.sh` with P-60 and `tests/verbs/issue.sh`/`tests/integrate_test.sh` with P-62. Recommendation: P-62, then P-60, then P-64; or P-64 is the first plan built on the feature branch you plan to cut.
+* [x] **Question 1 — How `close` lands a `base` fix. → RESOLVED (developer, 2026-10-10): (a), fast-forward.** (a) Fast-forward onto `<branch>` (rebasing `fix/<num>` first if the branch moved): the fix's SHA stays as recorded. (b) Squash. Recommendation: (a).
+* [x] **Question 2 — Branch check strictness (2.2). → RESOLVED (developer, 2026-10-10): (a), refuse.** (a) Refuse. (b) Warn and continue. Recommendation: (a).
+* [x] **Question 3 — Grouping in `aapp status`. → RESOLVED (developer, 2026-10-10): later.** List plans under their shared base branch now, or later? Recommendation: later; the base already shows in each plan's header.
+* [x] **Question 4 — Order with P-60 and P-62. → RESOLVED (developer, 2026-10-10): P-62, then P-60, then P-64.** P-64 shares `lib/cmd_plan.sh` with P-60 and `tests/verbs/issue.sh`/`tests/integrate_test.sh` with P-62. Recommendation: P-62, then P-60, then P-64; or P-64 is the first plan built on the feature branch you plan to cut.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-10:** Q1–Q4 resolved with the recommended answers (developer).
 * **2026-10-09:** Drafted from RFC `worktree-contexts-monorepo-rfc.md` (option 1, fixes on the development branch, group-caused fixes on the feature branch).
