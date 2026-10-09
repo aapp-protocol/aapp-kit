@@ -86,18 +86,68 @@ ORIGINAL_TARGET="$TARGET_FILE"
 CANONICAL_TARGET=$(canonicalize_path "$TARGET_FILE")
 REPO_ROOT=$(canonicalize_path "$REPO_ROOT")
 
-# Normalize path relative to project root for repo-internal matching
-case "$CANONICAL_TARGET" in
-    "$REPO_ROOT")
-        TARGET_FILE="."
-        ;;
-    "$REPO_ROOT"/*)
-        TARGET_FILE="${CANONICAL_TARGET#"$REPO_ROOT"/}"
-        ;;
-    *)
-        TARGET_FILE="$CANONICAL_TARGET"
-        ;;
-esac
+# 1. Canonical Worktree & Repository Resolution (#112)
+GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
+case "$GIT_COMMON_DIR" in /*) ;; *) GIT_COMMON_DIR="$REPO_ROOT/$GIT_COMMON_DIR" ;; esac
+GIT_COMMON_DIR=$(canonicalize_path "$GIT_COMMON_DIR")
+
+if [ -d "$GIT_COMMON_DIR" ]; then
+    PRIMARY_ROOT="$(cd "$GIT_COMMON_DIR/.." 2>/dev/null && pwd)"
+    PRIMARY_ROOT=$(canonicalize_path "$PRIMARY_ROOT")
+else
+    PRIMARY_ROOT="$REPO_ROOT"
+fi
+
+# Detect whether CANONICAL_TARGET belongs to the same repository (primary checkout or linked worktree)
+TARGET_DIR="$CANONICAL_TARGET"
+[ -d "$TARGET_DIR" ] || TARGET_DIR="$(dirname "$CANONICAL_TARGET")"
+while [ -n "$TARGET_DIR" ] && [ "$TARGET_DIR" != "/" ] && [ ! -d "$TARGET_DIR" ]; do
+    TARGET_DIR="$(dirname "$TARGET_DIR")"
+done
+
+TARGET_WT_ROOT=""
+TARGET_COMMON_DIR=""
+if [ -n "$TARGET_DIR" ] && [ -d "$TARGET_DIR" ]; then
+    TARGET_COMMON_DIR="$(git -C "$TARGET_DIR" rev-parse --git-common-dir 2>/dev/null || true)"
+    if [ -n "$TARGET_COMMON_DIR" ]; then
+        case "$TARGET_COMMON_DIR" in /*) ;; *) TARGET_COMMON_DIR="$TARGET_DIR/$TARGET_COMMON_DIR" ;; esac
+        TARGET_COMMON_DIR=$(canonicalize_path "$TARGET_COMMON_DIR")
+    fi
+fi
+
+IS_SAME_REPO=0
+if [ -n "$TARGET_COMMON_DIR" ] && [ "$TARGET_COMMON_DIR" = "$GIT_COMMON_DIR" ]; then
+    IS_SAME_REPO=1
+    TARGET_WT_ROOT="$(git -C "$TARGET_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+    [ -n "$TARGET_WT_ROOT" ] && TARGET_WT_ROOT=$(canonicalize_path "$TARGET_WT_ROOT")
+fi
+
+# Normalize path relative to its own worktree root for repo-internal matching
+if [ "$IS_SAME_REPO" -eq 1 ] && [ -n "$TARGET_WT_ROOT" ]; then
+    case "$CANONICAL_TARGET" in
+        "$TARGET_WT_ROOT")
+            TARGET_FILE="."
+            ;;
+        "$TARGET_WT_ROOT"/*)
+            TARGET_FILE="${CANONICAL_TARGET#"$TARGET_WT_ROOT"/}"
+            ;;
+        *)
+            TARGET_FILE="$CANONICAL_TARGET"
+            ;;
+    esac
+else
+    case "$CANONICAL_TARGET" in
+        "$REPO_ROOT")
+            TARGET_FILE="."
+            ;;
+        "$REPO_ROOT"/*)
+            TARGET_FILE="${CANONICAL_TARGET#"$REPO_ROOT"/}"
+            ;;
+        *)
+            TARGET_FILE="$CANONICAL_TARGET"
+            ;;
+    esac
+fi
 
 deny_action() {
     local reason="$1"
@@ -227,32 +277,25 @@ resolve_allowlist() {
     printf '%s\n' "${list[@]}"
 }
 
-case "$CANONICAL_TARGET" in
-    "$REPO_ROOT"/*)
-        # Inside repository, proceed to Section 3 and Section 4 blast radius checks
-        ;;
-    *)
-        # External path: check against authorized allowlist
-        while IFS= read -r allowed_prefix; do
-            [ -z "$allowed_prefix" ] && continue
-            case "$CANONICAL_TARGET" in
-                "$allowed_prefix"*)
-                    exit 0
-                    ;;
-            esac
-        done < <(resolve_allowlist)
-        ;;
-esac
+if [ "$IS_SAME_REPO" -eq 1 ]; then
+    # Inside repository or linked worktree, proceed to Section 3 and Section 4 blast radius checks
+    :
+else
+    # External path: check against authorized allowlist
+    while IFS= read -r allowed_prefix; do
+        [ -z "$allowed_prefix" ] && continue
+        case "$CANONICAL_TARGET" in
+            "$allowed_prefix"*)
+                exit 0
+                ;;
+        esac
+    done < <(resolve_allowlist)
+    deny_action "File '$ORIGINAL_TARGET' is outside repository and not in the authorized path allowlist."
+fi
 
 # ------------------------------------------------------------------------------
 # 2d. Project Circuit Breaker (Emergency Pause Check)
 # ------------------------------------------------------------------------------
-GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
-if [ -d "$GIT_COMMON_DIR" ]; then
-    PRIMARY_ROOT="$(cd "$GIT_COMMON_DIR/.." 2>/dev/null && pwd)"
-else
-    PRIMARY_ROOT="$REPO_ROOT"
-fi
 
 PAUSED_FILE="$GIT_COMMON_DIR/aapp_paused"
 SHARED_PAUSED_FILE=""
@@ -329,13 +372,6 @@ esac
 # ------------------------------------------------------------------------------
 
 # 1. Canonical Worktree & .plans/ Resolution
-GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
-if [ -d "$GIT_COMMON_DIR" ]; then
-    PRIMARY_ROOT="$(cd "$GIT_COMMON_DIR/.." 2>/dev/null && pwd)"
-else
-    PRIMARY_ROOT="$REPO_ROOT"
-fi
-
 if [ -d "$REPO_ROOT/.plans" ]; then
     PLANS_DIR="$REPO_ROOT/.plans"
 elif [ -n "$PRIMARY_ROOT" ] && [ -d "$PRIMARY_ROOT/.plans" ]; then
@@ -350,18 +386,27 @@ if [ -z "$PLANS_DIR" ] || [ ! -d "$PLANS_DIR/current" ]; then
        [ -f "$REPO_ROOT/aapp" ] || [ -f "$PRIMARY_ROOT/aapp" ]; then
         deny_action "AAPP repository detected but .plans/current directory is missing or unmounted."
     else
-        case "$CANONICAL_TARGET" in
-            "$REPO_ROOT"/*) exit 0 ;;
-            *) deny_action "File '$ORIGINAL_TARGET' is outside repository and not in the authorized path allowlist." ;;
-        esac
+        if [ "$IS_SAME_REPO" -eq 1 ]; then
+            exit 0
+        else
+            deny_action "File '$ORIGINAL_TARGET' is outside repository and not in the authorized path allowlist."
+        fi
     fi
 fi
+
+# Determine active plan buffer for this target file
+if [ "$IS_SAME_REPO" -eq 1 ] && [ -n "$TARGET_WT_ROOT" ]; then
+    ACTIVE_PLAN_FILE="$(git -C "$TARGET_DIR" rev-parse --git-path aapp_active_plan 2>/dev/null || echo "$TARGET_WT_ROOT/.git/aapp_active_plan")"
+    case "$ACTIVE_PLAN_FILE" in /*) ;; *) ACTIVE_PLAN_FILE="$TARGET_WT_ROOT/$ACTIVE_PLAN_FILE" ;; esac
+else
+    ACTIVE_PLAN_FILE="$(git rev-parse --git-path aapp_active_plan 2>/dev/null || echo ".git/aapp_active_plan")"
+fi
+MINI_BUF="$ACTIVE_PLAN_FILE"
 
 # Check if target file belongs to any BLOCKED plan in workspace. A bound mini
 # plan (P-52) may edit its own files even when a BLOCKED plan lists them: the
 # rule stops the blocked plan, not its sanctioned fix.
 MINI_TARGETS=()
-MINI_BUF="$(git rev-parse --git-path aapp_active_plan 2>/dev/null || true)"
 MINI_ID="$(head -n 1 "$MINI_BUF" 2>/dev/null | tr -d '[:space:]' || true)"
 case "$MINI_ID" in
     '#'*) [ -f "$PLANS_DIR/current/fix-${MINI_ID#\#}.md" ] && while IFS= read -r ITEM; do
@@ -386,7 +431,6 @@ for pf in "$PLANS_DIR"/current/*.md; do
 done
 
 # 3. Active Plan Context Resolution (Pointer Buffer -> Single 🟠 Auto-Discovery)
-ACTIVE_PLAN_FILE="$(git rev-parse --git-path aapp_active_plan 2>/dev/null || echo ".git/aapp_active_plan")"
 DESIGNATED_PLAN_ID=""
 if [ -f "$ACTIVE_PLAN_FILE" ]; then
     DESIGNATED_PLAN_ID="$(head -n 1 "$ACTIVE_PLAN_FILE" 2>/dev/null | tr -d '[:space:]')"
@@ -443,14 +487,11 @@ else
     else
         # No plan in development: edits are allowed (#98, P-52 Q1); a frozen
         # plan is backlog and restricts nothing.
-        case "$CANONICAL_TARGET" in
-            "$REPO_ROOT"/*)
-                exit 0
-                ;;
-            *)
-                deny_action "File '$ORIGINAL_TARGET' is outside repository and not in the authorized path allowlist."
-                ;;
-        esac
+        if [ "$IS_SAME_REPO" -eq 1 ]; then
+            exit 0
+        else
+            deny_action "File '$ORIGINAL_TARGET' is outside repository and not in the authorized path allowlist."
+        fi
     fi
 fi
 
