@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `948abe7` (develop)
+* **Worktree:** ../agent-planning-kit-P60 (plan/P60-pre-done-test-gate)
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
@@ -140,6 +141,7 @@ Copy to `.agents/hooks/test-gate.sh` with `TEST_CMD='./aapp test strict quiet'`,
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-09:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-08:** Q1–Q3 resolved with the recommended answers (developer): command in the SHA-pinned handler script; refuse a dirty single checkout; dogfood in this plan, after #109.
 * **2026-10-08:** Drafted from the developer's request after the reliability review: P-23 closed with a red suite (#109); `done` should require green tests before the first release. Cookbook recipe and configuration profiles left to P-56 (pickup note).
