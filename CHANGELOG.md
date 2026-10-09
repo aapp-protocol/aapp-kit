@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- Refuse to consume if `[ -f "$dir/.git" ]` or if inside a linked worktree. (`#113`)
 - `on-sync` SHA pin now enforced: test registers its real hash; sync refuses without the dispatcher (no unpinned fallback) (`#109`)
 - Say `/aapp-fix #<num>` (`aapp issue fix <num>`); `file` only adds a file the log does not name. (`#101`)
 - Refuse when the plan file has uncommitted changes: "commit them with `aapp refine` first". (`#107`)

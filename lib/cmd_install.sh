@@ -27,41 +27,49 @@ done
 SHARE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit"
 BIN_DIR="$HOME/.local/bin"
 
-if ! declare -f is_safe_to_consume_kit_dir >/dev/null 2>&1; then
-    is_safe_to_consume_kit_dir() {
-        local dir="$1"
-        [ ! -d "$dir" ] && return 1
-        case "$(basename "$dir")" in
+is_safe_to_consume_kit_dir() {
+    local dir="$1"
+    [ ! -d "$dir" ] && return 1
+    # Linked git worktrees (.git file) are active working trees, never disposable clones (#113)
+    [ -f "$dir/.git" ] && return 1
+    case "$(basename "$dir")" in
+        aapp-develop-kit|agent-planning-kit) return 1 ;;
+    esac
+    local common_dir common_repo
+    common_dir="$(git -C "$dir" rev-parse --git-common-dir 2>/dev/null || true)"
+    if [ -n "$common_dir" ]; then
+        common_repo="$(cd "$dir" 2>/dev/null && cd "$common_dir/.." 2>/dev/null && pwd || true)"
+        case "$(basename "$common_repo")" in
             aapp-develop-kit|agent-planning-kit) return 1 ;;
         esac
-        if ! declare -f has_kit_signature >/dev/null 2>&1; then
-            has_kit_signature() {
-                local d="$1"
-                [ -d "$d/templates" ] && [ -f "$d/templates/pre-commit" ] && \
-                [ -f "$d/templates/AGENTS.md" ] && [ -d "$d/lib" ] && [ -f "$d/lib/cmd_init.sh" ]
-            }
-        fi
-        ! has_kit_signature "$dir" && return 1
-        local item base
-        for item in "$dir"/* "$dir"/.*; do
-            [ ! -e "$item" ] && [ ! -L "$item" ] && continue
-            base="$(basename "$item")"
-            case "$base" in
-                .|..) continue ;;
-                aapp|lib|templates|tests|examples|scripts) continue ;;
-                README*|MANUAL*|CHEATSHEET*|CHANGELOG*|LICENSE*|COPYING*|CODEMAP*|ARCHITECTURE*) continue ;;
-                .git*|.agents|.plans|.githooks|.claude|.cursor|.gemini|.github) continue ;;
-                *) return 1 ;;
-            esac
-        done
-        if [ -d "$dir/.git" ] || git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-            local git_status
-            git_status="$(git -C "$dir" status --porcelain 2>/dev/null || true)"
-            [ -n "$git_status" ] && return 1
-        fi
-        return 0
-    }
-fi
+    fi
+    if ! declare -f has_kit_signature >/dev/null 2>&1; then
+        has_kit_signature() {
+            local d="$1"
+            [ -d "$d/templates" ] && [ -f "$d/templates/pre-commit" ] && \
+            [ -f "$d/templates/AGENTS.md" ] && [ -d "$d/lib" ] && [ -f "$d/lib/cmd_init.sh" ]
+        }
+    fi
+    ! has_kit_signature "$dir" && return 1
+    local item base
+    for item in "$dir"/* "$dir"/.*; do
+        [ ! -e "$item" ] && [ ! -L "$item" ] && continue
+        base="$(basename "$item")"
+        case "$base" in
+            .|..) continue ;;
+            aapp|lib|templates|tests|examples|scripts) continue ;;
+            README*|MANUAL*|CHEATSHEET*|CHANGELOG*|LICENSE*|COPYING*|CODEMAP*|ARCHITECTURE*) continue ;;
+            .git*|.agents|.plans|.githooks|.claude|.cursor|.gemini|.github|.workspace) continue ;;
+            *) return 1 ;;
+        esac
+    done
+    if [ -d "$dir/.git" ] || git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        local git_status
+        git_status="$(git -C "$dir" status --porcelain 2>/dev/null || true)"
+        [ -n "$git_status" ] && return 1
+    fi
+    return 0
+}
 
 if [ ! -d "$AAPP_SCRIPT_DIR/templates" ] || [ ! -f "$AAPP_SCRIPT_DIR/templates/pre-commit" ]; then
     echo "❌ Error: templates/ not found next to this script ($AAPP_SCRIPT_DIR)."
@@ -158,8 +166,10 @@ if [ "${AAPP_IS_UPGRADE:-0}" -ne 1 ]; then
                 # Development workspace: do not self-consume
                 ;;
             *)
-                echo ""
-                echo "ℹ️  Preserved installer directory '$AAPP_SCRIPT_DIR' (contains files or modifications beyond kit signature)."
+                if [ ! -f "$AAPP_SCRIPT_DIR/.git" ]; then
+                    echo ""
+                    echo "ℹ️  Preserved installer directory '$AAPP_SCRIPT_DIR' (contains files or modifications beyond kit signature)."
+                fi
                 ;;
         esac
     fi

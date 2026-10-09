@@ -513,6 +513,26 @@ else
 fi
 report "aapp install preserves installer folder when uncommitted modifications are present (#51)" "PASS" "$got"
 
+# Test 25e: aapp install preserves linked worktree folder (#113)
+GLOBAL_HOME_25E="$R/t25e_home"; mkdir -p "$GLOBAL_HOME_25E"
+PARENT_KIT_25E="$R/t25e_parent"; make_kit_clone "$PARENT_KIT_25E"
+WT_DIR_25E="$R/t25e_wt"
+(
+  cd "$PARENT_KIT_25E"
+  git worktree add "$WT_DIR_25E" -b wt_branch -q
+)
+(
+  cd "$WT_DIR_25E"
+  HOME="$GLOBAL_HOME_25E" XDG_DATA_HOME="$GLOBAL_HOME_25E/.local/share" ./aapp install >/dev/null 2>&1
+)
+rc=$?
+if [ $rc -eq 0 ] && [ -d "$WT_DIR_25E" ] && [ -f "$WT_DIR_25E/.git" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp install preserves linked worktree folder (#113)" "PASS" "$got"
+
 # Test 26: tests/ and lib/ reachable from installed share dir
 if [ -d "$GLOBAL_HOME/.local/share/aapp-kit/tests" ] && [ -f "$GLOBAL_HOME/.local/share/aapp-kit/lib/cmd_status.sh" ]; then
   got="PASS"
