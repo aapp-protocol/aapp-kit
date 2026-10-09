@@ -18,11 +18,12 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-56**: [`P56-modular-cookbook-and-docs-architecture.md`](current/P56-modular-cookbook-and-docs-architecture.md) — Modular Cookbook And Docs Architecture
 - 🟣 **P-57**: [`P57-modular-manual-specification.md`](current/P57-modular-manual-specification.md) — Modular Manual Specification
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
-- 🟣 **P-61**: [`P61-workspace-plan-worktrees.md`](current/P61-workspace-plan-worktrees.md) — Workspace Plan Worktrees
 
 ---
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
+
+- 🔷 **P-61**: [`P61-workspace-plan-worktrees.md`](current/P61-workspace-plan-worktrees.md) — Workspace Plan Worktrees
 
 ---
 
