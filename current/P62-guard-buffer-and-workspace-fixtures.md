@@ -2,7 +2,7 @@
 * **Created:** 2026-10-09 | **Last Refined:** 2026-10-09
 * **Target Issue / Milestone:** #114
 * **Plan ID:** P-62
-* **Changelog:** Changed: Guard Buffer And Workspace Fixtures
+* **Changelog:** Fixed: write guard reads the active plan for files in subdirectories again; worktree tests follow `.workspace/{id}`
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,30 +38,38 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+`develop` fails 22 tests in 6 suites (#114). Two causes:
+1. **Guard buffer path.** `templates/blast-radius-guard.sh:399-400` asks git for the buffer from the file's directory (`git -C "$TARGET_DIR" rev-parse --git-path aapp_active_plan`). From a subdirectory git answers relative to it (`../.git/aapp_active_plan`), but the result is prefixed with the worktree root. The buffer is never found; with two plans in development the guard refuses every file below the top level (`write-guard_test.sh`, 6 cases). `MINI_BUF` (`:404`) reuses the same path.
+2. **Worktree fixtures.** The default worktree path is `.workspace/{id}`; five suites still expect `../{repo}-{id}`.
+
+**Goal:** the suite is green again; the guard reads the right buffer for any file in any worktree.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Guard
+Resolve the buffer from the worktree root, not the file's directory: `git -C "$TARGET_WT_ROOT" rev-parse --git-path aapp_active_plan`, prefixed with `$TARGET_WT_ROOT` when relative.
+
+### 2.2 Fixtures
+`tests/integrate_test.sh`, `tests/verbs/done.sh`, `freeze-start.sh`, `issue.sh`, `status.sh`: worktree paths and recorded `Worktree:` lines follow `.workspace/P<n>` inside the sandbox project.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: `tests/write-guard_test.sh`: two plans in development, buffer set, a target in a subdirectory of the primary and of a `.workspace/` worktree: allowed; the other plan's target: denied.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Implementation
+- [ ] Task 2.1: Guard buffer resolution (2.1).
+- [ ] Task 2.2: Fixtures (2.2).
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -79,23 +87,28 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `templates/blast-radius-guard.sh` -> Buffer path from the worktree root.
+- [ ] `tests/write-guard_test.sh` -> Subdirectory targets with two plans and a buffer.
+- [ ] `tests/integrate_test.sh` -> `.workspace/` paths.
+- [ ] `tests/verbs/done.sh` -> `.workspace/` paths.
+- [ ] `tests/verbs/freeze-start.sh` -> `.workspace/` paths.
+- [ ] `tests/verbs/issue.sh` -> `.workspace/` paths.
+- [ ] `tests/verbs/status.sh` -> `.workspace/` paths.
+- [ ] `CHANGELOG.md` -> Entry written by `aapp commit`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/cmd_plan.sh` -> Worktree creation is P-61's and correct.
+- [ ] `.githooks/*` -> Refreshed from `templates/` by `aapp init` after this plan.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — Overlap with P-60 on `tests/verbs/done.sh`.** P-60 (⚡) lists it for its payload test, so `start` refuses P-62, while P-60 cannot finish on a red suite. (a) Move P-60's payload test to `tests/hooks_test.sh` (already a P-60 target) and drop `done.sh` from P-60 through a Refining round trip. (b) Leave `done.sh`'s fixture to P-60. Recommendation: (a).
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-09:** Plan initialized from `pickup.md`.
-* **2026-10-09:** Refined blast radius and locked module boundaries.
+* **2026-10-09:** Drafted from #114 with the guard's root cause (relative `--git-path` from a subdirectory).
