@@ -20,6 +20,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
 - 🟣 **P-62**: [`P62-guard-buffer-and-workspace-fixtures.md`](current/P62-guard-buffer-and-workspace-fixtures.md) — Guard Buffer And Workspace Fixtures
 - 🟣 **P-63**: [`P63-adoption-advisories.md`](current/P63-adoption-advisories.md) — Adoption Advisories
+- 🟣 **P-64**: [`P64-feature-branch-plan-groups.md`](current/P64-feature-branch-plan-groups.md) — Feature Branch Plan Groups
 
 ---
 
