@@ -66,18 +66,18 @@ Resolve the buffer from the worktree root, not the file's directory: `git -C "$T
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: `tests/write-guard_test.sh`: two plans in development, buffer set, a target in a subdirectory of the primary and of a `.workspace/` worktree: allowed; the other plan's target: denied.
+- [x] Task 1.1: `tests/write-guard_test.sh`: two plans in development, buffer set, a target in a subdirectory of the primary and of a `.workspace/` worktree: allowed; the other plan's target: denied.
 
 ### Phase 2: Implementation
-- [ ] Task 2.1: Guard buffer resolution (2.1).
-- [ ] Task 2.2: Fixtures (2.2).
+- [x] Task 2.1: Guard buffer resolution (2.1).
+- [x] Task 2.2: Fixtures (2.2).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
