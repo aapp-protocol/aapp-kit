@@ -143,7 +143,7 @@ In `templates/blast-radius-guard.sh`:
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1:** For existing worktrees created at `../{repo}-{id}` (such as the in-flight P-60 worktree), the enhanced guard will immediately recognize and allow editing from the primary session without requiring folder relocation. Should we leave existing worktree paths intact, or provide an optional helper to relocate them to `.workspace/{id}`? (Recommended: Leave intact; adopters can move via `git worktree move` if desired).
+* [x] **Question 1:** Existing worktrees created at `../{repo}-{id}` (such as P-60) are recognized and allowed by the enhanced guard without relocation, because the guard checks repo membership via `GIT_COMMON_DIR`. Settled: Leave existing paths intact.
 
 ---
 
