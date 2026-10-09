@@ -103,24 +103,24 @@ In `templates/blast-radius-guard.sh`:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Default Path & Ignore Wiring
-- [ ] Task 1.1: Update default `aapp.planWorktreePath` to `.workspace/{id}` in `lib/cmd_init.sh` and `lib/cmd_plan.sh`.
-- [ ] Task 1.2: Add `/.workspace/` to `info/exclude` in `lib/cmd_init.sh` and `lib/cmd_plan.sh` (`_wt_create`).
+- [x] Task 1.1: Update default `aapp.planWorktreePath` to `.workspace/{id}` in `lib/cmd_init.sh` and `lib/cmd_plan.sh`.
+- [x] Task 1.2: Add `/.workspace/` to `info/exclude` in `lib/cmd_init.sh` and `lib/cmd_plan.sh` (`_wt_create`).
 
 ### Phase 2: Guard Cross-Worktree Resolution
-- [ ] Task 2.1: Update `templates/blast-radius-guard.sh` to inspect target file directory for `git-common-dir` match.
-- [ ] Task 2.2: Relativize target file against its specific worktree root when in a linked worktree.
-- [ ] Task 2.3: Read `aapp_active_plan` from the target worktree's git-path and enforce its blast radius.
+- [x] Task 2.1: Update `templates/blast-radius-guard.sh` to inspect target file directory for `git-common-dir` match.
+- [x] Task 2.2: Relativize target file against its specific worktree root when in a linked worktree.
+- [x] Task 2.3: Read `aapp_active_plan` from the target worktree's git-path and enforce its blast radius.
 
 ### Phase 3: Test Verification
-- [ ] Task 3.1: Update `tests/install_test.sh` for the new `.workspace/{id}` default path in `aapp init`.
-- [ ] Task 3.2: Update `tests/verbs/start.sh` to verify plan worktrees scaffold into `.workspace/{id}` and are ignored.
-- [ ] Task 3.3: Add cross-worktree guard tests in `tests/worktree_hooks_test.sh`: test editing plan worktree target files from the primary checkout session without changing cwd.
-- [ ] Task 3.4: Run full test suite `./aapp test` and verify zero regressions.
+- [x] Task 3.1: Update `tests/install_test.sh` for the new `.workspace/{id}` default path in `aapp init`.
+- [x] Task 3.2: Update `tests/verbs/start.sh` to verify plan worktrees scaffold into `.workspace/{id}` and are ignored.
+- [x] Task 3.3: Add cross-worktree guard tests in `tests/worktree_hooks_test.sh`: test editing plan worktree target files from the primary checkout session without changing cwd.
+- [x] Task 3.4: Run full test suite `./aapp test` and verify zero regressions.
 
 ### Phase 4: Documentation & Manual Sync
-- [ ] Task 4.1: Update `MANUAL.md`, `CHEATSHEET.md`, and `lib/docs/verbs/start.md` to document `.workspace/{id}` default and cross-worktree session support.
-- [ ] Task 4.2: Run `aapp init` to refresh local `.githooks` and `.agents`.
-- [ ] Task 4.3: Verify `CHANGELOG.md` entry.
+- [x] Task 4.1: Update `MANUAL.md`, `CHEATSHEET.md`, and `lib/docs/verbs/start.md` to document `.workspace/{id}` default and cross-worktree session support.
+- [x] Task 4.2: Run `aapp init` to refresh local `.githooks` and `.agents`.
+- [x] Task 4.3: Verify `CHANGELOG.md` entry.
 
 ---
 
