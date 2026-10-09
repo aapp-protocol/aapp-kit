@@ -41,7 +41,7 @@
 
 `develop` fails 22 tests in 6 suites (#114). Two causes:
 1. **Guard buffer path.** `templates/blast-radius-guard.sh:399-400` asks git for the buffer from the file's directory (`git -C "$TARGET_DIR" rev-parse --git-path aapp_active_plan`). From a subdirectory git answers relative to it (`../.git/aapp_active_plan`), but the result is prefixed with the worktree root. The buffer is never found; with two plans in development the guard refuses every file below the top level (`write-guard_test.sh`, 6 cases). `MINI_BUF` (`:404`) reuses the same path.
-2. **Worktree fixtures.** The default worktree path is `.workspace/{id}`; five suites still expect `../{repo}-{id}`.
+2. **Worktree fixtures.** The default worktree path is `.workspace/{id}`; five suites still expect `../{repo}-{id}`; four are P-62's (`tests/verbs/done.sh` is updated by P-60, Q1).
 
 **Goal:** the suite is green again; the guard reads the right buffer for any file in any worktree.
 
@@ -53,7 +53,7 @@
 Resolve the buffer from the worktree root, not the file's directory: `git -C "$TARGET_WT_ROOT" rev-parse --git-path aapp_active_plan`, prefixed with `$TARGET_WT_ROOT` when relative.
 
 ### 2.2 Fixtures
-`tests/integrate_test.sh`, `tests/verbs/done.sh`, `freeze-start.sh`, `issue.sh`, `status.sh`: worktree paths and recorded `Worktree:` lines follow `.workspace/P<n>` inside the sandbox project.
+`tests/integrate_test.sh`, `tests/verbs/freeze-start.sh`, `issue.sh`, `status.sh`: worktree paths and recorded `Worktree:` lines follow `.workspace/P<n>` inside the sandbox project.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
@@ -90,7 +90,6 @@ Resolve the buffer from the worktree root, not the file's directory: `git -C "$T
 - [ ] `templates/blast-radius-guard.sh` -> Buffer path from the worktree root.
 - [ ] `tests/write-guard_test.sh` -> Subdirectory targets with two plans and a buffer.
 - [ ] `tests/integrate_test.sh` -> `.workspace/` paths.
-- [ ] `tests/verbs/done.sh` -> `.workspace/` paths.
 - [ ] `tests/verbs/freeze-start.sh` -> `.workspace/` paths.
 - [ ] `tests/verbs/issue.sh` -> `.workspace/` paths.
 - [ ] `tests/verbs/status.sh` -> `.workspace/` paths.
@@ -105,10 +104,11 @@ Resolve the buffer from the worktree root, not the file's directory: `git -C "$T
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — Overlap with P-60 on `tests/verbs/done.sh`.** P-60 (⚡) lists it for its payload test, so `start` refuses P-62, while P-60 cannot finish on a red suite. (a) Move P-60's payload test to `tests/hooks_test.sh` (already a P-60 target) and drop `done.sh` from P-60 through a Refining round trip. (b) Leave `done.sh`'s fixture to P-60. Recommendation: (a).
+* [x] **Question 1 — Overlap with P-60 on `tests/verbs/done.sh`. → RESOLVED (developer, 2026-10-10): (b).** The payload test stays in `done.sh` (a `done` contract test belongs with the verb's tests); P-60 updates that file's worktree fixture, which it touches anyway. P-62 drops `done.sh`.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-10:** Q1 resolved (b) by the developer; `tests/verbs/done.sh` removed from the targets (P-60 updates it).
 * **2026-10-09:** Drafted from #114 with the guard's root cause (relative `--git-path` from a subdirectory).
