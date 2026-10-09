@@ -43,4 +43,5 @@
 - [ ] #110 -> MANUAL still registers hooks on `on-done` (renamed `post-done` by P-23).
 - [ ] #111 -> `issue fix` takes an over-long changelog entry from the fix cell; refused only at commit.
 - [ ] #114 -> 22 test failures in 6 suites on `develop` since P-61 (worktree fixtures, guard buffer cases).
+- [ ] #115 -> `aapp test` shows a failing verb suite as green.
 
