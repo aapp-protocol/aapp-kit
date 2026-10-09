@@ -262,7 +262,7 @@ sed -i -E "s|src/path/to/file\.ext|src/wt.py|g; s|src/path/to/new_file\.ext|src/
 sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$WF"
 git -C .plans commit -qam "prep $WID" >/dev/null
 aapp freeze-start "$WID" >/dev/null 2>&1
-W="$SANDBOX_ROOT/pw-P${WID#P-}"
+W="$PW/.workspace/P${WID#P-}"
 # commits_list: the SHAs recorded in the plan, one per line.
 commits_list() { sed -nE 's/^\* \*\*Commits:\*\*[[:space:]]*//p' "$WF" | grep -oE '`[0-9a-f]+`' | tr -d '`'; }
 all_reachable() { local c; for c in $(commits_list); do git -C "$W" merge-base --is-ancestor "$c" HEAD || return 1; done; }
@@ -274,6 +274,13 @@ g1=FAIL; .githooks/blast-radius-guard src/wt.py >/dev/null 2>&1 && g1=PASS
 g2=FAIL; .githooks/blast-radius-guard src/other.py >/dev/null 2>&1 || g2=PASS
 g3=FAIL; .githooks/blast-radius-guard "$PW/.plans/pickup.md" >/dev/null 2>&1 && g3=PASS
 report "plan worktree: guard allows targets, refuses others, allows primary .plans" "PASS PASS PASS" "$g1 $g2 $g3"
+
+# Cross-worktree guard checks from primary session (P-61, #112)
+cd "$PW"
+cg1=FAIL; .githooks/blast-radius-guard "$W/src/wt.py" >/dev/null 2>&1 && cg1=PASS
+cg2=FAIL; .githooks/blast-radius-guard "$W/src/other.py" >/dev/null 2>&1 || cg2=PASS
+report "primary session: guard allows plan worktree target, refuses plan worktree out-of-bounds" "PASS PASS" "$cg1 $cg2"
+cd "$W"
 
 mkdir -p src; echo "o = 1" > src/other.py; git add src/other.py
 h=FAIL; git commit -qm "outside the plan" >/dev/null 2>&1 || h=PASS

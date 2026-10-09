@@ -300,7 +300,7 @@ _wt_prepare() {
     b="$(basename "$pf" .md)"; slug="${b#P${pid#P-}-}"
     repo="$(basename "$PRIMARY_ROOT")"
     tpl_b="$(git config --get aapp.planBranch 2>/dev/null)" || tpl_b='plan/{id}-{slug}'
-    tpl_p="$(git config --get aapp.planWorktreePath 2>/dev/null)" || tpl_p='../{repo}-{id}'
+    tpl_p="$(git config --get aapp.planWorktreePath 2>/dev/null)" || tpl_p='.workspace/{id}'
     WT_BRANCH="${WT_REQ_BRANCH:-$(aapp_render_plan_template "$tpl_b" "$pid" "$slug" "$repo")}"
     WT_PATH="$(aapp_abs_path "${WT_REQ_PATH:-$(aapp_render_plan_template "$tpl_p" "$pid" "$slug" "$repo")}" "$PRIMARY_ROOT")"
     if ! git check-ref-format --branch "$WT_BRANCH" >/dev/null 2>&1; then
@@ -338,6 +338,15 @@ _wt_create() {
     WT_CREATED=1
     exclude="$(git rev-parse --git-common-dir)/info/exclude"
     mkdir -p "$(dirname "$exclude")" || return 1
+    case "$WT_PATH" in
+        "$PRIMARY_ROOT"/*)
+            local wt_rel="${WT_PATH#"$PRIMARY_ROOT"/}"
+            local wt_top="${wt_rel%%/*}"
+            if [ -n "$wt_top" ]; then
+                grep -qxF "/$wt_top" "$exclude" 2>/dev/null || echo "/$wt_top" >> "$exclude" || return 1
+            fi
+            ;;
+    esac
     for l in .githooks .agents .plans .claude; do
         grep -qxF "/$l" "$exclude" 2>/dev/null || echo "/$l" >> "$exclude" || return 1
         [ -e "$PRIMARY_ROOT/$l" ] || continue

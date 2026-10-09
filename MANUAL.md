@@ -1376,7 +1376,7 @@ aapp start P-52 worktree ../fix-auth branch feat/auth   # explicit names (works 
 git config aapp.planSession 'tmux new-window -c {path} -n {id} claude'   # personal: open a session there
 ```
 
-- **Names** come from `aapp.planBranch` (`plan/{id}-{slug}`) and `aapp.planWorktreePath` (`../{repo}-{id}`, relative to the primary checkout); the `worktree`/`branch` tokens win. An existing branch or path is refused: a plan worktree never reuses one.
+- **Names** come from `aapp.planBranch` (`plan/{id}-{slug}`) and `aapp.planWorktreePath` (`.workspace/{id}`, relative to the primary checkout); the `worktree`/`branch` tokens win. An existing branch or path is refused: a plan worktree never reuses one.
 - **Base:** the first `aapp.devBranch` candidate present locally or on a remote, else the default branch (`origin/HEAD`, `main`, `master`); none refuses. The branch is created with `--no-track`: a plan branch made from `origin/develop` must not push or pull to the development branch. Uncommitted changes in the primary stay there (a notice says so).
 - **Kit links:** `.githooks`, `.agents`, `.plans` and `.claude` in the plan worktree are relative symlinks to the primary checkout, so hooks, the write guard, rules, skills and plans work there; `/.githooks`, `/.agents`, `/.plans`, `/.claude` are added once to `$(git rev-parse --git-common-dir)/info/exclude` (shared by all worktrees, never tracked). A link that cannot be made fails the start; the kit never copies them.
 - **Records:** the plan is bound in the new worktree's buffer (the primary's is untouched). The header gets `* **Worktree:** <path> (<branch>)` (path relative to the primary checkout) and `* **Base:** \`<sha>\` (<base branch>)`, the branch P-55 integrates into. `aapp status` shows the path next to the plan.
@@ -1915,7 +1915,7 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | `aapp.devBranch` | string (list) | `develop dev development` | Branch Guard, `aapp start` | Candidate development branches, first present (local or remote) wins. Branch protection uses it; plan worktrees branch from it, falling back to the default branch (`origin/HEAD`, `main`, `master`) (P-54). |
 | `aapp.planWorktrees` | `on` / `off` | `off` | `aapp start`, `freeze-start` | `on`: a plan's first start creates its own branch and worktree (P-54). |
 | `aapp.planBranch` | template | `plan/{id}-{slug}` | `aapp start` | Plan branch name; placeholders `{id}` (`P51`), `{num}`, `{slug}`, `{repo}`. |
-| `aapp.planWorktreePath` | template | `../{repo}-{id}` | `aapp start` | Plan worktree path, relative to the primary checkout; same placeholders. |
+| `aapp.planWorktreePath` | template | `.workspace/{id}` | `aapp start` | Plan worktree path, relative to the primary checkout; same placeholders. |
 | `aapp.planSession` | command template | *(unset, personal)* | `aapp start` | Opens a session (agent CLI, terminal, editor) in a new plan worktree, detached; `{path}`, `{id}`, `{branch}`, `{slug}`, `{plan_file}` (shell-quoted). Never seeded. |
 | `aapp.integrate` | `manual` / `squash` / `ff` / `hook` | `manual` | `aapp done` | How `done` integrates a worktree plan into its parent branch; `manual` archives and prints advice (P-55). |
 | `aapp.integrateTarget` | `parent` / `dev` / `<branch>` | `parent` | `aapp done` | Integration target: the branch in the plan's `Base:`, the development branch, or a named branch (P-55). |

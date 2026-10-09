@@ -10,7 +10,7 @@
 - reads: `🧱 Plan Blockers` in `.plans/issues_road_map.md` and those rows' Location paths in `.plans/ISSUES.md` (P-58)
 - reads: the active buffer `$(git rev-parse --git-path aapp_active_plan)`, to preserve its previous value
 - reads config: `aapp.planState.*` (matrix re-derivation); the lifecycle hook registry for `pre-start`, `on-start`, `post-start` (P-23)
-- reads config (P-54): `aapp.planWorktrees` (`on`/`off`), `aapp.planBranch` (default `plan/{id}-{slug}`), `aapp.planWorktreePath` (default `../{repo}-{id}`), `aapp.devBranch` (candidate list, default `develop dev development`), `aapp.planSession` (personal, optional). Placeholders: `{id}` (`P51`), `{num}` (`51`), `{slug}`, `{repo}` (the primary checkout's directory name)
+- reads config (P-54): `aapp.planWorktrees` (`on`/`off`), `aapp.planBranch` (default `plan/{id}-{slug}`), `aapp.planWorktreePath` (default `.workspace/{id}`), `aapp.devBranch` (candidate list, default `develop dev development`), `aapp.planSession` (personal, optional). Placeholders: `{id}` (`P51`), `{num}` (`51`), `{slug}`, `{repo}` (the primary checkout's directory name)
 
 ## Preconditions
 - Inside a Git repository whose `.plans/current/` exists

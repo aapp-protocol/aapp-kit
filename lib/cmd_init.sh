@@ -672,7 +672,13 @@ if ! git config --get aapp.planBranch >/dev/null 2>&1; then
     git config aapp.planBranch 'plan/{id}-{slug}'
 fi
 if ! git config --get aapp.planWorktreePath >/dev/null 2>&1; then
-    git config aapp.planWorktreePath '../{repo}-{id}'
+    git config aapp.planWorktreePath '.workspace/{id}'
+fi
+
+# Seed /.workspace into info/exclude so nested plan worktrees never dirty git status (P-61)
+_init_exclude="$(git rev-parse --git-path info/exclude 2>/dev/null || echo ".git/info/exclude")"
+if [ -d "$(dirname "$_init_exclude")" ]; then
+    grep -qxF "/.workspace" "$_init_exclude" 2>/dev/null || echo "/.workspace" >> "$_init_exclude" || true
 fi
 
 # Plan branch integration on `done` (P-55): `manual` until the project opts in

@@ -1283,7 +1283,7 @@ g_pp=$(git -C "$PROJ_69G" config aapp.planWorktreePath)
 d_pb=$(git -C "$PROJ_69D" config aapp.planBranch)
 g_ps=$(git -C "$PROJ_69G" config aapp.planSession || true)
 if [ "$g_pw" = "off" ] && [ "$g_pb" = "feature/{num}" ] && [ "$d_pb" = "plan/{id}-{slug}" ] && \
-   [ "$g_pp" = "../{repo}-{id}" ] && [ -z "$g_ps" ]; then got="PASS"; else got="FAIL"; fi
+   [ "$g_pp" = ".workspace/{id}" ] && [ -z "$g_ps" ]; then got="PASS"; else got="FAIL"; fi
 report "test_init_seeds_plan_worktree_keys: seeded only when absent, planSession never" "PASS" "$got" "pw=$g_pw pb=$g_pb pp=$g_pp d_pb=$d_pb ps=$g_ps"
 
 # Test 69h (P-54): post-rewrite installed (master + engine + commit engine);

@@ -194,7 +194,7 @@ slug_of() { local b; b="$(basename "$(plan_file "$1")" .md)"; echo "${b#P${1#P-}
 pbuf() { cat "$(git rev-parse --git-path aapp_active_plan)" 2>/dev/null; }
 
 wa="$(wt_plan alpha)"; na="${wa#P-}"; sa="$(slug_of "$wa")"; fa="$(plan_file "$wa")"
-wpath="$R/w-P$na"; wbr="plan/P$na-$sa"
+wpath="$R/w/.workspace/P$na"; wbr="plan/P$na-$sa"
 out="$(aapp start "$wa" 2>&1)"; rc=$?
 links_ok=1
 for l in .githooks .agents .plans .claude; do
@@ -202,12 +202,13 @@ for l in .githooks .agents .plans .claude; do
   case "$(readlink "$wpath/$l")" in /*|'') links_ok=0 ;; esac
   grep -qxF "/$l" "$(git rev-parse --git-common-dir)/info/exclude" || links_ok=0
 done
+grep -qxF "/.workspace" "$(git rev-parse --git-common-dir)/info/exclude" || links_ok=0
 if [ "$rc" -eq 0 ] && [ -d "$wpath" ] && [ "$(git -C "$wpath" rev-parse --abbrev-ref HEAD)" = "$wbr" ] && \
    ! git -C "$wpath" rev-parse --abbrev-ref "$wbr@{upstream}" >/dev/null 2>&1 && \
    [ "$(git -C "$wpath" rev-parse --short HEAD)" = "$dev_sha" ] && [ "$links_ok" -eq 1 ] && \
    [ -z "$(git -C "$wpath" status --porcelain)" ] && \
    [ "$(cat "$(git -C "$wpath" rev-parse --git-path aapp_active_plan)")" = "$wa" ] && [ -z "$(pbuf)" ] && \
-   grep -qxF "* **Worktree:** ../w-P$na ($wbr)" "$fa" && grep -qxF "* **Base:** \`$dev_sha\` (develop)" "$fa" && \
+   grep -qxF "* **Worktree:** .workspace/P$na ($wbr)" "$fa" && grep -qxF "* **Base:** \`$dev_sha\` (develop)" "$fa" && \
    echo "$out" | grep -qF "$wpath" && status_of "$fa" | grep -q '⚡ In Development'; then
   ok "test_worktree_start_creates_branch_links_and_records"
 else
@@ -219,9 +220,9 @@ wb="$(wt_plan beta)"; nb="${wb#P-}"; fb="$(plan_file "$wb")"
 git branch "plan/P$nb-$(slug_of "$wb")"
 before="$(cksum < "$fb")"
 out="$(aapp start "$wb" 2>&1)"; rc1=$?
-git branch -D "plan/P$nb-$(slug_of "$wb")" >/dev/null; mkdir -p "$R/w-P$nb"
+git branch -D "plan/P$nb-$(slug_of "$wb")" >/dev/null; mkdir -p "$R/w/.workspace/P$nb"
 out2="$(aapp start "$wb" 2>&1)"; rc2=$?
-rmdir "$R/w-P$nb"
+rmdir "$R/w/.workspace/P$nb"
 if [ "$rc1" -ne 0 ] && [ "$rc2" -ne 0 ] && echo "$out" | grep -qi "exists" && echo "$out2" | grep -qi "exists" && \
    [ "$(cksum < "$fb")" = "$before" ] && [ -z "$(pbuf)" ]; then
   ok "test_worktree_start_refuses_existing_branch_or_path"
@@ -272,8 +273,8 @@ chmod +x "$hookdir/rename.sh"
 aapp hook-hash "$hookdir/rename.sh" on-start 10 gate 2>/dev/null | grep "^on-start" > "$hookdir/registry.tsv"
 wd="$(wt_plan delta)"; nd="${wd#P-}"; fd="$(plan_file "$wd")"; sd="$(slug_of "$wd")"
 out="$(aapp start "$wd" 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && [ -d "$R/w-P$nd-moved" ] && [ ! -d "$R/w-P$nd" ] && \
-   grep -qxF "* **Worktree:** ../w-P$nd-moved (team/plan/P$nd-$sd)" "$fd" && echo "$out" | grep -qF "$R/w-P$nd-moved"; then
+if [ "$rc" -eq 0 ] && [ -d "$R/w/.workspace/P$nd-moved" ] && [ ! -d "$R/w/.workspace/P$nd" ] && \
+   grep -qxF "* **Worktree:** .workspace/P$nd-moved (team/plan/P$nd-$sd)" "$fd" && echo "$out" | grep -qF "$R/w/.workspace/P$nd-moved"; then
   ok "test_worktree_on_start_rename_is_recorded"
 else
   bad "test_worktree_on_start_rename_is_recorded" "rc=$rc out=$out $(grep Worktree "$fd")"
@@ -286,7 +287,7 @@ we="$(wt_plan epsilon)"; ne="${we#P-}"; fe="$(plan_file "$we")"
 echo "<!-- my uncommitted note -->" >> "$fe"
 before="$(cksum < "$fe")"; sm_before="$(cksum < .plans/state_matrix.md)"; head0="$(git -C .plans rev-parse HEAD)"
 out="$(aapp start "$we" 2>&1)"; rc=$?
-if [ "$rc" -ne 0 ] && [ ! -d "$R/w-P$ne" ] && ! git rev-parse --verify -q "plan/P$ne-$(slug_of "$we")" >/dev/null && \
+if [ "$rc" -ne 0 ] && [ ! -d "$R/w/.workspace/P$ne" ] && ! git rev-parse --verify -q "plan/P$ne-$(slug_of "$we")" >/dev/null && \
    [ "$(cksum < "$fe")" = "$before" ] && [ "$(cksum < .plans/state_matrix.md)" = "$sm_before" ] && \
    [ "$(git -C .plans rev-parse HEAD)" = "$head0" ] && [ -z "$(pbuf)" ]; then
   ok "test_worktree_failing_on_start_rolls_back"
@@ -301,13 +302,13 @@ git -C .plans checkout -q -- "current/$(basename "$fe")"
 git worktree add -q "$R/tmpdev" develop && mkdir -p "$R/tmpdev/.claude" && echo x > "$R/tmpdev/.claude/x" && git -C "$R/tmpdev" add -f .claude/x && git -C "$R/tmpdev" commit -qm "track .claude" --no-verify
 before="$(cksum < "$fe")"
 out="$(aapp start "$we" 2>&1)"; rc1=$?
-gone1=0; [ ! -d "$R/w-P$ne" ] && ! git rev-parse --verify -q "plan/P$ne-$(slug_of "$we")" >/dev/null && [ "$(cksum < "$fe")" = "$before" ] && gone1=1
+gone1=0; [ ! -d "$R/w/.workspace/P$ne" ] && ! git rev-parse --verify -q "plan/P$ne-$(slug_of "$we")" >/dev/null && [ "$(cksum < "$fe")" = "$before" ] && gone1=1
 git -C "$R/tmpdev" rm -rq .claude && git -C "$R/tmpdev" commit -qm "untrack .claude" --no-verify && git worktree remove --force "$R/tmpdev"
 lock="$(git -C .plans rev-parse --git-path index.lock)"; case "$lock" in /*) ;; *) lock=".plans/$lock" ;; esac
 touch "$lock"
 out2="$(aapp start "$we" 2>&1)"; rc2=$?
 rm -f "$lock"
-if [ "$rc1" -ne 0 ] && [ "$gone1" -eq 1 ] && echo "$out" | grep -qF ".claude" && [ "$rc2" -ne 0 ] && [ ! -d "$R/w-P$ne" ] && \
+if [ "$rc1" -ne 0 ] && [ "$gone1" -eq 1 ] && echo "$out" | grep -qF ".claude" && [ "$rc2" -ne 0 ] && [ ! -d "$R/w/.workspace/P$ne" ] && \
    ! git rev-parse --verify -q "plan/P$ne-$(slug_of "$we")" >/dev/null && [ "$(cksum < "$fe")" = "$before" ] && [ -z "$(pbuf)" ]; then
   ok "test_worktree_failing_link_or_commit_rolls_back"
 else
@@ -316,7 +317,7 @@ fi
 
 # aapp.planSession: run detached in the worktree with quoted placeholders and
 # the environment; start does not wait; a failing launch only warns.
-git config aapp.planSession 'sleep 6; printf "%s|%s|%s\n" {id} "$AAPP_BRANCH" "$AAPP_PLAN_FILE" > {path}/../session-{id}.out'
+git config aapp.planSession 'sleep 6; printf "%s|%s|%s\n" {id} "$AAPP_BRANCH" "$AAPP_PLAN_FILE" > {path}/../../../session-{id}.out'
 wf_="$(wt_plan zeta)"; nf="${wf_#P-}"; sf="$(slug_of "$wf_")"
 t0="$(date +%s)"; out="$(aapp start "$wf_" 2>&1)"; rc=$?; t1="$(date +%s)"
 for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do [ -f "$R/session-P$nf.out" ] && break; sleep 1; done

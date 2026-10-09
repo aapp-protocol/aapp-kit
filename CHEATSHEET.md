@@ -125,7 +125,7 @@ AAPP controls repository behavior via standard Git configuration:
 | `aapp.maxEmergencyHotfixes` | integer | `2` | `aapp issue hotfix` | Hotfixes a plan may take; the next one blocks it permanently. P-55 reads it at integration (P-52). |
 | `aapp.planWorktrees` | `on` / `off` | `off` | `aapp start`, `freeze-start` | A plan's first start creates its own branch and worktree (P-54). |
 | `aapp.planBranch` | template | `plan/{id}-{slug}` | `aapp start` | Plan branch name; `{id}` (`P51`), `{num}`, `{slug}`, `{repo}` (P-54). |
-| `aapp.planWorktreePath` | template | `../{repo}-{id}` | `aapp start` | Plan worktree path, relative to the primary checkout (P-54). |
+| `aapp.planWorktreePath` | template | `.workspace/{id}` | `aapp start` | Plan worktree path, relative to the primary checkout (P-54, P-61). |
 | `aapp.planSession` | command template | *(unset, personal)* | `aapp start` | Opens a session in the new plan worktree, detached; `{path}`, `{id}`, `{branch}`, `{slug}`, `{plan_file}` shell-quoted (P-54). |
 | `aapp.integrate` | `manual` / `squash` / `ff` / `hook` | `manual` | `aapp done` | How `done` integrates a worktree plan into its parent branch; `manual` prints advice only (P-55). |
 | `aapp.integrateTarget` | `parent` / `dev` / `<branch>` | `parent` | `aapp done` | Target: the plan's `Base:` branch, the development branch, or a named branch (P-55). |
