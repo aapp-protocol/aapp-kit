@@ -23,11 +23,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-60**: [`P60-pre-done-test-gate.md`](current/P60-pre-done-test-gate.md) — Pre Done Test Gate
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-60**: [`P60-pre-done-test-gate.md`](current/P60-pre-done-test-gate.md) — Pre Done Test Gate
 
 ---
 
