@@ -18,7 +18,15 @@ if [ -z "$REPO_ROOT" ]; then
 fi
 
 AAPP_HOOK_DISPATCHER="$(dirname "${BASH_SOURCE[0]}")/hook_dispatcher.sh"
-[ -f "$AAPP_HOOK_DISPATCHER" ] || AAPP_HOOK_DISPATCHER="$REPO_ROOT/lib/hook_dispatcher.sh"
+
+# _sync_load_dispatcher: gates and the on-sync delegate never run without the
+# dispatcher, which enforces the registry's SHA pins (#109): refuse instead.
+_sync_load_dispatcher() {
+    # shellcheck source=/dev/null
+    [ -f "$AAPP_HOOK_DISPATCHER" ] && . "$AAPP_HOOK_DISPATCHER" && declare -f dispatch_hook >/dev/null && return 0
+    echo "❌ [Sync] Hook dispatcher missing: $AAPP_HOOK_DISPATCHER. Reinstall the kit ('aapp install')." >&2
+    return 1
+}
 
 ACTION="${1:-sync}"
 shift || true
@@ -209,10 +217,7 @@ dispatch_observer_hook() {
 # Helper: Dispatch gating lifecycle hook (fail-closed on non-zero exit)
 dispatch_gate_hook() {
     local event_name="$1"
-    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
-        # shellcheck source=/dev/null
-        source "$AAPP_HOOK_DISPATCHER"
-    fi
+    _sync_load_dispatcher || return 1
     if declare -f dispatch_hook >/dev/null 2>&1; then
         local obs_wts=""
         for w in "${ACTIVE_WTS[@]}"; do
@@ -267,19 +272,10 @@ if [ "$RESOLVED_STRATEGY" = "hook" ]; then
     export AAPP_MODE="gate"
 
     sync_data="{\"action\": \"$ACTION\", \"remote\": \"$TARGET_REMOTE\", \"worktrees\": [$WTS_JSON]}"
-    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
-        # shellcheck source=/dev/null
-        source "$AAPP_HOOK_DISPATCHER"
-        if ! dispatch_hook "on-sync" "$sync_data"; then
-            echo "❌ Hook transport failed during $ACTION." >&2
-            return 1 2>/dev/null || exit 1
-        fi
-    else
-        PAYLOAD="{\"event\": \"on-sync\", \"data\": $sync_data}"
-        if ! echo "$PAYLOAD" | "$ON_SYNC_HANDLER"; then
-            echo "❌ Hook transport failed during $ACTION." >&2
-            return 1 2>/dev/null || exit 1
-        fi
+    _sync_load_dispatcher || { return 1 2>/dev/null || exit 1; }
+    if ! dispatch_hook "on-sync" "$sync_data"; then
+        echo "❌ Hook transport failed during $ACTION." >&2
+        return 1 2>/dev/null || exit 1
     fi
 
     # Fire post-sync observer hook

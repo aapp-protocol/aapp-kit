@@ -293,7 +293,9 @@ chmod +x "$MOCK_HOOK"
 # Register in .agents/skills/aapp-hooks/registry.tsv
 mkdir -p "$PROJ_DIR/.agents/skills/aapp-hooks"
 TAB="$(printf '\t')"
-printf "on-sync%s%s%ssha256:dummy%s10%sgate\n" "$TAB" "$MOCK_HOOK" "$TAB" "$TAB" "$TAB" > "$PROJ_DIR/.agents/skills/aapp-hooks/registry.tsv"
+# The registry pins the handler's real SHA-256: the dispatcher enforces it (#109).
+MOCK_SHA="$(sha256sum "$MOCK_HOOK" | awk '{print $1}')"
+printf "on-sync%s%s%ssha256:%s%s10%sgate\n" "$TAB" "$MOCK_HOOK" "$TAB" "$MOCK_SHA" "$TAB" "$TAB" > "$PROJ_DIR/.agents/skills/aapp-hooks/registry.tsv"
 
 # With handler registered and no git config set, committed registry defaults to hook strategy
 git -C "$PROJ_DIR" config --unset aapp.syncStrategy 2>/dev/null || true
