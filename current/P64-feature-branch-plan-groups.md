@@ -2,7 +2,7 @@
 * **Created:** 2026-10-09 | **Last Refined:** 2026-10-09
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-64
-* **Changelog:** Changed: Feature Branch Plan Groups
+* **Changelog:** Added: plan groups on a feature branch (`start … base <branch>`); issue fixes on the development branch, group-caused fixes on the feature branch
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,17 +38,31 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+A complex feature spans several plans. They share one feature branch cut from the development branch; each plan runs `done` into it (test gate, then integration); the feature branch merges into the development branch only when everything is green. Issue fixes keep their rule: on the development branch, unless the bug was caused by the group's work, then on the feature branch.
+
+Design record: RFC `worktree-contexts-monorepo-rfc.md` (§4 decisions, C1/C2, A1/A2, option 1).
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 A group's base on its plans (`lib/cmd_plan.sh`)
+`aapp start <id> base <branch>` / `aapp freeze-start <id> base <branch>`: the plan worktree branches from `<branch>` and records `Base: <sha> (<branch>)`; P-55 then integrates the plan into it. Needs a plan worktree; `<branch>` must exist. `aapp.devBranch` is never changed for this.
+
+### 2.2 Fixes on the development branch (`lib/cmd_issue.sh`)
+`aapp issue fix` without `base` refuses unless the main checkout is on the development branch (`aapp_dev_branch`; the default branch when none resolves).
+
+### 2.3 Group-caused fixes on the feature branch (`lib/cmd_issue.sh`)
+`aapp issue fix <num> base <branch>`: the mini plan opens in its own worktree `.workspace/fix-<num>` on `fix/<num>` from `<branch>`; `aapp issue close <num>` integrates it into `<branch>` and removes the worktree and branch. The issue row and archive are unchanged.
+When the issue's files differ between the development branch and a feature branch with plans in `current/`, `fix` without `base` prints a hint naming `base <branch>`. The human decides.
+
+### 2.4 Agent text
+`templates/AGENTS.md`, `.agents/AGENTS.md`, skills `aapp-start` and `aapp-fix`: plan files and plan commands under `.workspace/<id>/`; fix files and fix commands in the project root, or in `.workspace/fix-<num>/` with `base`. The scope rule: caused by the group's work → `base <feature-branch>`; unrelated → the development branch.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
@@ -57,14 +71,20 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/start.sh::test_start_base_branch_records_and_branches` -> asserts the worktree branches from `<branch>` and `Base:` names it
+- [ ] `tests/verbs/start.sh::test_start_base_refuses_missing_branch` -> asserts an unknown `<branch>` refuses with nothing created
+- [ ] `tests/integrate_test.sh::test_group_plan_integrates_into_feature_branch` -> asserts `done` squashes into the feature branch, not the development branch
+- [ ] `tests/verbs/issue.sh::test_fix_refuses_off_development_branch` -> asserts `fix` refuses when the main checkout is on another branch
+- [ ] `tests/verbs/issue.sh::test_fix_base_opens_worktree_and_close_integrates` -> asserts `fix base <branch>` works in `.workspace/fix-<num>` and `close` lands the fix on `<branch>` only
+- [ ] `tests/verbs/issue.sh::test_fix_hints_base_for_group_files` -> asserts the hint names `base <branch>` when the issue's files differ on a feature branch
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: The assertions above.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Implementation
+- [ ] Task 2.1: `base` token (2.1); contracts `start.md`, `freeze-start.md`.
+- [ ] Task 2.2: Development-branch check (2.2); `fix base` worktree and close integration (2.3); hint; contract `issue.md`.
+- [ ] Task 2.3: Agent text (2.4).
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -82,26 +102,45 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_plan.sh` -> `base <branch>` on start and freeze-start.
+- [ ] `lib/cmd_issue.sh` -> Development-branch check; `fix base` worktree, close integration, hint.
+- [ ] `lib/docs/verbs/start.md` -> `base` token.
+- [ ] `lib/docs/verbs/freeze-start.md` -> `base` token.
+- [ ] `lib/docs/verbs/issue.md` -> Branch check, `base`, hint.
+- [ ] `tests/verbs/start.sh` -> `base` tests.
+- [ ] `tests/verbs/issue.sh` -> Fix branch tests.
+- [ ] `tests/integrate_test.sh` -> Group plan integration.
+- [ ] `templates/AGENTS.md` -> Where work and fixes happen.
+- [ ] `.agents/AGENTS.md` -> Same as the template.
+- [ ] `templates/skills/aapp-start/SKILL.md` -> `base`; work under `.workspace/<id>/`.
+- [ ] `templates/skills/aapp-fix/SKILL.md` -> Scope rule; `base`.
+- [ ] `MANUAL.md` -> Feature-branch plan groups.
+- [ ] `CHEATSHEET.md` -> `base` token rows.
+- [ ] `.agents/CODEMAP.md` -> New functions.
+- [ ] `CHANGELOG.md` -> Entry written by `aapp commit`.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- `tests/verbs/start.sh`
+- `tests/verbs/issue.sh`
+- `tests/integrate_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/blast-radius-guard.sh` -> Routing by file location is P-61/P-62's.
+- [ ] `lib/verbs.tsv` -> No new verbs.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — How `close` lands a `base` fix.** (a) Fast-forward onto `<branch>` (rebasing `fix/<num>` first if the branch moved): the fix's SHA stays as recorded. (b) Squash. Recommendation: (a).
+* [ ] **Question 2 — Branch check strictness (2.2).** (a) Refuse. (b) Warn and continue. Recommendation: (a).
+* [ ] **Question 3 — Grouping in `aapp status`.** List plans under their shared base branch now, or later? Recommendation: later; the base already shows in each plan's header.
+* [ ] **Question 4 — Order with P-60 and P-62.** P-64 shares `lib/cmd_plan.sh` with P-60 and `tests/verbs/issue.sh`/`tests/integrate_test.sh` with P-62. Recommendation: P-62, then P-60, then P-64; or P-64 is the first plan built on the feature branch you plan to cut.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-09:** Plan initialized from `pickup.md`.
-* **2026-10-09:** Refined blast radius and locked module boundaries.
+* **2026-10-09:** Drafted from RFC `worktree-contexts-monorepo-rfc.md` (option 1, fixes on the development branch, group-caused fixes on the feature branch).
