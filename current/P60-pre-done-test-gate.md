@@ -144,5 +144,6 @@ Copy to `.agents/hooks/test-gate.sh` with `TEST_CMD='./aapp test strict quiet'`,
 * **2026-10-09:** Plan activated into ⚡ In Development via start.
 * **2026-10-09:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
+* **2026-10-10:** `tests/verbs/done.sh`: besides the payload test, P-60 moves that file's plan-worktree fixture to `.workspace/` paths (P-62 Q1, developer).
 * **2026-10-08:** Q1–Q3 resolved with the recommended answers (developer): command in the SHA-pinned handler script; refuse a dirty single checkout; dogfood in this plan, after #109.
 * **2026-10-08:** Drafted from the developer's request after the reliability review: P-23 closed with a red suite (#109); `done` should require green tests before the first release. Cookbook recipe and configuration profiles left to P-56 (pickup note).
