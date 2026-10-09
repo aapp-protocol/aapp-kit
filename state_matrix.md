@@ -19,6 +19,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-57**: [`P57-modular-manual-specification.md`](current/P57-modular-manual-specification.md) — Modular Manual Specification
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
 - 🟣 **P-62**: [`P62-guard-buffer-and-workspace-fixtures.md`](current/P62-guard-buffer-and-workspace-fixtures.md) — Guard Buffer And Workspace Fixtures
+- 🟣 **P-63**: [`P63-adoption-advisories.md`](current/P63-adoption-advisories.md) — Adoption Advisories
 
 ---
 
