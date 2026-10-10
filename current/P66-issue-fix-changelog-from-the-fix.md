@@ -55,6 +55,9 @@
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
+### 🧪 Required Tests (Failure & Boundary Assertions)
+> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+
 ### Phase 1: Foundation & Setup
 - [ ] Task 1.1: ...
 - [ ] Task 1.2: ...
@@ -81,6 +84,9 @@
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `src/path/to/file.ext` -> Description of specific modification.
 - [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+
+### 🧪 Required Test Files
+> Test files that must prove this plan's failure cases. Frozen with the blast radius.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
