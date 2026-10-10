@@ -21,6 +21,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-63**: [`P63-adoption-advisories.md`](current/P63-adoption-advisories.md) — Adoption Advisories
 - 🟣 **P-64**: [`P64-feature-branch-plan-groups.md`](current/P64-feature-branch-plan-groups.md) — Feature Branch Plan Groups
 - 🟣 **P-65**: [`P65-plan-conflict-check.md`](current/P65-plan-conflict-check.md) — Plan Conflict Check
+- 🟣 **P-66**: [`P66-issue-fix-changelog-from-the-fix.md`](current/P66-issue-fix-changelog-from-the-fix.md) — Issue Fix Changelog From The Fix
 
 ---
 
