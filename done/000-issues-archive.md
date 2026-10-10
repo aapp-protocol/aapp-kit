@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #114 | `High` | `TEST` | 2026-10-09 | 2026-10-10 | `0cc7b47` | [P-62](P62-guard-buffer-and-workspace-fixtures.md) - Guard Buffer And Workspace Fixtures |
 | #113 | `Medium` | `CLI` | 2026-10-09 | 2026-10-09 | `16e57fe` | Fixed via aapp issue fix: lib/cmd_install.sh, tests/install_test.sh |
 | #112 | `Medium` | `HOOK` | 2026-10-09 | 2026-10-09 | `0c0b004` | [P-61](P61-workspace-plan-worktrees.md) - Workspace Plan Worktrees & Cross-Worktree Guard Resolution |
 | #109 | `Medium` | `HOOK` | 2026-10-08 | 2026-10-09 | `948abe7` | Fixed via aapp issue fix: lib/cmd_sync.sh, lib/hook_dispatcher.sh, tests/sync_test.sh |

@@ -31,7 +31,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ## ⚡ In Development (Active Implementation Context)
 
 - ⚡ **P-60**: [`P60-pre-done-test-gate.md`](current/P60-pre-done-test-gate.md) — Pre Done Test Gate
-- ⚡ **P-62**: [`P62-guard-buffer-and-workspace-fixtures.md`](current/P62-guard-buffer-and-workspace-fixtures.md) — Guard Buffer And Workspace Fixtures
 
 ---
 
