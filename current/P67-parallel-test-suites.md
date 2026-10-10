@@ -77,6 +77,7 @@
 - [ ] `tests/verbs/test.sh::test_parallel_failure_fails_the_run` -> asserts one failing stub among passing ones: exit 1 and its `FAILED (exit 1)` row
 - [ ] `tests/verbs/test.sh::test_suite_output_not_interleaved` -> asserts each stub's lines appear contiguous in default output
 - [ ] `tests/verbs/test.sh::test_summary_in_selection_order` -> asserts summary rows follow the selection order, not finish order
+- [ ] `tests/verbs/test.sh::test_interrupt_cleans_up` -> asserts a run sent TERM while stubs sleep exits non-zero, leaves no temporary files in its `TMPDIR` and no stub process running
 - [ ] `tests/verbs/test.sh::test_jobs_refuses_non_number` -> asserts `jobs 0` and `jobs x` exit 1 with usage
 
 ### Phase 1: Tests First (red)
