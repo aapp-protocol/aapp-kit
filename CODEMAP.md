@@ -197,6 +197,7 @@
   * `resolve_plugin_entrypoint(pdir, name)` -> Extension-agnostic plugin resolution (`run`, `$name`, `scripts/run`, `scripts/$name`, pattern match) with `.sample` exclusion filtering.
   * `cmd_plugins_status()` -> `aapp plugins`: **Kit Plugins** (every row of `lib/plugins.tsv`, installed or not, incl. `RESERVED (planned, …)`), a `==========================` delimiter, then **Your Plugins** (any other executable plugin in `.agents/skills/`, with a warning for unregistered `aapp-*` names). Fails closed when the registry is missing (P-46).
   * `cmd_hooks_status()` / `cmd_hook_hash()` -> Validates executable bits and live SHA-256 integrity against `.agents/skills/aapp-hooks/registry.tsv`. Refuses execution on hash mismatches in `mode=gate`.
+* **Test gate (P-60):** `examples/hooks/test-gate.sh.sample`, a `pre-done` gate running the handler's `TEST_CMD` in the payload's `worktree` (else the repository root); dogfooded as `.agents/hooks/test-gate.sh`.
 * **Anti-Wrapper Warning:** Never bypass `registry.tsv` hash verification or run unhashed handlers in `mode=gate`.
 
 ### 📜 Verb Behaviour Contracts (`lib/docs/verbs/`)
