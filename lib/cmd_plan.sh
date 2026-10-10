@@ -1657,7 +1657,7 @@ cmd_done() {
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
         source "$AAPP_HOOK_DISPATCHER"
-        local pre_done_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"commit_hash\": \"$commit_sha\", \"commits\": [$commits_json]}"
+        local pre_done_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"$plan_file\", \"commit_hash\": \"$commit_sha\", \"commits\": [$commits_json], \"worktree\": \"$(json_escape "$wt_abs")\"}"
         if ! dispatch_hook "pre-done" "$pre_done_data"; then
             echo "❌ [Done Refusal] pre-done hook vetoed archiving of plan '$plan_id'." >&2
             exit 1

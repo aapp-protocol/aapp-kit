@@ -36,7 +36,7 @@
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 
 ## Effects (happy path)
-- the `pre-done` gating hook executes before any mutation (payload carries plan ID, plan file, and commits)
+- the `pre-done` gating hook executes before any mutation (payload carries plan ID, plan file, commits, and `worktree`: the plan worktree's absolute path, empty without one); to require green tests, register the test gate sample (`examples/hooks/test-gate.sh.sample`, P-60)
 - the plan moves from `.plans/current/` to `.plans/done/`
 - its Status line reads `✅ Done`, and `## 📦 6. Change Log` gains a dated archival line
 - `000-archive-ledger.md` gains one row under its header: date, Plan ID, a link to the archived file, the plan header's Target Issue, the verification commit, and a non-empty Impact Summary
@@ -78,6 +78,8 @@ Run: `aapp test verb done`
 - `tests/verbs/done.sh::test_done_refuses_dirty_plan_worktree` -> uncommitted changes in the plan's worktree: exit 1, nothing moves (P-54)
 - `tests/verbs/done.sh::test_done_from_primary_clears_holding_buffer_and_advises` -> run from the primary: the worktree's buffer is cleared, the worktree kept, removal and branch-deletion advice printed (P-54)
 - `tests/verbs/done.sh::test_done_from_plan_worktree_archives` -> `done` run inside the plan worktree archives (P-54)
+- `tests/verbs/done.sh::test_pre_done_payload_names_plan_worktree` -> the `pre-done` payload's `worktree` is the plan worktree; the test gate runs its command there (P-60)
+- `tests/verbs/done.sh::test_pre_done_payload_worktree_empty_in_single_checkout` -> no worktree: `worktree` is empty; the test gate runs in the repository root (P-60)
 - `tests/integrate_test.sh::test_manual_default_archives_without_integrating` -> seeded `manual`: archive only, the `integrate` advice printed (P-55 Q1)
 - `tests/integrate_test.sh::test_squash_integrates_with_trailers_and_cleans_up` -> squash into the parent with lineage trailers; worktree and branch removed; main checkout back on its branch (P-55)
 - `tests/integrate_test.sh::test_integrates_into_module_parent_not_develop` -> a plan from `module/auth` lands there, not on develop (P-55)
