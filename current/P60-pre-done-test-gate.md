@@ -85,21 +85,21 @@ Copy to `.agents/hooks/test-gate.sh` with `TEST_CMD='./aapp test strict quiet'`,
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: `tests/hooks_test.sh`: the sample registered on `pre-done` in a sandbox: a passing `TEST_CMD` lets `done` archive; a failing one refuses with the command, status and output tail, nothing archived; an empty `TEST_CMD` refuses with the instruction; a dirty tracked file in a single checkout refuses; a watchdog timeout refuses.
-- [ ] Task 1.2: `tests/verbs/done.sh`: the `pre-done` payload carries `worktree` for a worktree plan (and the command runs there: the handler records its cwd), empty for a single checkout.
+- [x] Task 1.1: `tests/hooks_test.sh`: the sample registered on `pre-done` in a sandbox: a passing `TEST_CMD` lets `done` archive; a failing one refuses with the command, status and output tail, nothing archived; an empty `TEST_CMD` refuses with the instruction; a dirty tracked file in a single checkout refuses; a watchdog timeout refuses.
+- [x] Task 1.2: `tests/verbs/done.sh`: the `pre-done` payload carries `worktree` for a worktree plan (and the command runs there: the handler records its cwd), empty for a single checkout.
 
 ### Phase 2: Implementation
-- [ ] Task 2.1: `examples/hooks/test-gate.sh.sample` (2.1).
-- [ ] Task 2.2: `worktree` in `pre_done_data` (2.2); contract `lib/docs/verbs/done.md`.
-- [ ] Task 2.3: `examples/hooks/registry.tsv.sample` gains the commented `pre-done` line.
-- [ ] Task 2.4: Dogfood (2.4), after #109 (Q3).
+- [x] Task 2.1: `examples/hooks/test-gate.sh.sample` (2.1).
+- [x] Task 2.2: `worktree` in `pre_done_data` (2.2); contract `lib/docs/verbs/done.md`.
+- [x] Task 2.3: `examples/hooks/registry.tsv.sample` gains the commented `pre-done` line.
+- [x] Task 2.4: Dogfood (2.4), after #109 (Q3).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
