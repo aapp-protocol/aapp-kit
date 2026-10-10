@@ -2,7 +2,7 @@
 * **Created:** 2026-10-11 | **Last Refined:** 2026-10-11
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-67
-* **Changelog:** Changed: Parallel Test Suites
+* **Changelog:** Changed: `aapp test` runs suites in parallel (`jobs <n>`; `jobs 1` runs them one at a time)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,17 +38,32 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+**Problem.** `aapp test` runs its 32 suites one after another: about 6 minutes (2m user, 4m sys, 6m real; the suites mostly wait on `git` and process start-up). The `pre-done` test gate (P-60) runs it on every `done`, and agents run it during their work: three plans cost 18 minutes in gates alone.
+
+**Measured.** All 32 suites run concurrently with `xargs -P 8`: green in 65 s; `-P 12`: green in 59 s. The longest suite (`verb/start`, ~60 s) bounds the wall time. Suites already run in their own sandboxes (`confine_test_runtime` or their own `mktemp -d`); no suite needs to run alone today.
+
+**Goal.** `aapp test` runs suites in parallel by default, with the same selection, output, summary and exit contract. The gate is unchanged; it gets faster with it. Scoped or partial runs are not part of this plan (pickup: Test Time & Kit Modularity).
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Scheduling (`lib/cmd_test.sh`)
+- Up to N suites run at once, each as today (`bash <suite>` from the repository root, `AAPP_TEST_SANDBOX_STRICT` passed through). A suite's exit status comes from `wait <pid>`.
+- N: the `jobs <n>` token (bare token, positive integer); default per Q1. `jobs 1` is today's serial run.
+- `bail`: after the first failing suite no new suite starts; running ones finish; exit 1.
+
+### 2.2 Output
+- Each suite writes to its own temporary file. Default mode prints a suite's whole output when it finishes, never interleaved; `quiet` prints its row when it finishes.
+- The summary lists rows in the selection order, with the same counts, durations and exit rules as today. The banner names the job count.
+
+### 2.3 Contract
+`lib/docs/verbs/test.md`: `jobs <n>` in Ingress; Effects: suites run concurrently, output per suite, summary in selection order; tests listed.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Clean Break`
+- **Fallback Inventory**: `None (Clean Break)`. A suite that cannot share the machine is a bug in that suite.
 
 ---
 
@@ -57,14 +72,20 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/test.sh::test_suites_run_concurrently` -> asserts four stub suites sleeping 2 s each finish under 5 s with `jobs 4`
+- [ ] `tests/verbs/test.sh::test_jobs_one_runs_serially` -> asserts three stub suites sleeping 1 s each take at least 3 s with `jobs 1`
+- [ ] `tests/verbs/test.sh::test_parallel_failure_fails_the_run` -> asserts one failing stub among passing ones: exit 1 and its `FAILED (exit 1)` row
+- [ ] `tests/verbs/test.sh::test_suite_output_not_interleaved` -> asserts each stub's lines appear contiguous in default output
+- [ ] `tests/verbs/test.sh::test_summary_in_selection_order` -> asserts summary rows follow the selection order, not finish order
+- [ ] `tests/verbs/test.sh::test_jobs_refuses_non_number` -> asserts `jobs 0` and `jobs x` exit 1 with usage
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: The Required Tests above.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Implementation
+- [ ] Task 2.1: Scheduling and `jobs` (2.1).
+- [ ] Task 2.2: Output and summary (2.2).
+- [ ] Task 2.3: Contract (2.3); `aapp test help` text.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -82,26 +103,30 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_test.sh` -> Parallel scheduling, `jobs`, per-suite output.
+- [ ] `lib/docs/verbs/test.md` -> Contract.
+- [ ] `MANUAL.md` -> `aapp test` section: `jobs`.
+- [ ] `CHEATSHEET.md` -> `jobs <n>`.
+- [ ] `CHANGELOG.md` -> Entry written by `aapp commit`.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/verbs/test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `tests/*_test.sh` -> Suites are unchanged; none needs to run alone today.
+- [ ] `.agents/hooks/test-gate.sh` -> The gate stays as it is.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — Default job count.** (a) The number of CPUs, capped at 8 (measured: 8 → 65 s, 12 → 59 s). (b) A fixed 4, predictable on any machine. (c) The number of CPUs, uncapped. Recommendation: (a).
+* [ ] **Question 2 — A config key for the default.** (a) None: the `jobs` token only. (b) `aapp.testJobs`. Recommendation: (a); one more key is one more thing to keep in sync (#99).
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-11:** Plan initialized from `pickup.md`.
-* **2026-10-11:** Refined blast radius and locked module boundaries.
+* **2026-10-11:** Drafted: parallel suites; gate unchanged.
