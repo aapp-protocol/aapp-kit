@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** First release (reliability: a plan cannot close on red tests)
 * **Plan ID:** P-60
 * **Changelog:** Added: `pre-done` test gate sample: `aapp done` refuses while the project's test command fails
-* **Commit Mode:** atomic
+* **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
@@ -11,7 +11,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `948abe7` (develop)
 * **Worktree:** .workspace/P60 (plan/P60-pre-done-test-gate)
-* **Commits:** none
+* **Commits:** `3544167` (plan/P60-pre-done-test-gate)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -144,6 +144,7 @@ Copy to `.agents/hooks/test-gate.sh` with `TEST_CMD='./aapp test strict quiet'`,
 * **2026-10-09:** Plan activated into ⚡ In Development via start.
 * **2026-10-09:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
+* **2026-10-10:** Commit Mode switched to microcommits (config) for 3544167.
 * **2026-10-10:** `tests/verbs/done.sh`: besides the payload test, P-60 moves that file's plan-worktree fixture to `.workspace/` paths (P-62 Q1, developer).
 * **2026-10-08:** Q1–Q3 resolved with the recommended answers (developer): command in the SHA-pinned handler script; refuse a dirty single checkout; dogfood in this plan, after #109.
 * **2026-10-08:** Drafted from the developer's request after the reliability review: P-23 closed with a red suite (#109); `done` should require green tests before the first release. Cookbook recipe and configuration profiles left to P-56 (pickup note).
