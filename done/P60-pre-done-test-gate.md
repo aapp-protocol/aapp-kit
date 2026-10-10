@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `948abe7` (develop)
 * **Worktree:** .workspace/P60 (plan/P60-pre-done-test-gate)
 * **Commits:** `3544167` (plan/P60-pre-done-test-gate), `effe325` (plan/P60-pre-done-test-gate), `85c9851` (plan/P60-pre-done-test-gate)
@@ -141,6 +141,7 @@ Copy to `.agents/hooks/test-gate.sh` with `TEST_CMD='./aapp test strict quiet'`,
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-10:** Plan implementation completed and archived to done/.
 * **2026-10-09:** Plan activated into ⚡ In Development via start.
 * **2026-10-09:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*

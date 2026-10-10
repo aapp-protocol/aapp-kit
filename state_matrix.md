@@ -30,8 +30,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-60**: [`P60-pre-done-test-gate.md`](current/P60-pre-done-test-gate.md) — Pre Done Test Gate
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
