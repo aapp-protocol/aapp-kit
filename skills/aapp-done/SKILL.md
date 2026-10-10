@@ -40,6 +40,7 @@ Parse and explain the exact CLI diagnostic:
 - **Unticked TDD Assertions**: If TDD assertions remain unchecked, verify that all declared failure tests pass and check them off.
 - **Worktree Collision**: If another worktree holds the plan, resolve the conflict before archiving.
 - **Hook Veto**: If a `pre-done` hook vetoed completion, address the specific condition reported by the hook.
+- **Test Gate Refusal** (`[Test Gate]`): the project's tests are red. Fix the failing tests within the plan's files; a failure outside them is an issue to log, then stop. Never edit the handler, its `TEST_CMD` or the hook registry to pass.
 - **Dangling Target Issue**: `Target issue #N is in neither ISSUES.md nor done/000-issues-archive.md` means the plan header names an issue that does not exist. Report it to the user; do not invent a ledger row.
 
 ### Step 3: Success Confirmation
