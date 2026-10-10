@@ -668,6 +668,61 @@ else
 fi
 report "pre-sync exit 1 aborts aapp push/pull/sync before network actions" "PASS" "$got" "$sync_out"
 
+echo "== pre-done test gate sample =="
+TG="$R/tg"
+init_sandbox_project "$TG"
+cd "$TG" || exit 1
+git add -A && git commit -qm "track init files" --no-verify
+mkdir -p .agents/hooks .agents/skills/aapp-hooks
+# tg_install <command> [timeout]: the sample as this project's pre-done gate.
+tg_install() {
+  sed "s|^TEST_CMD=.*|TEST_CMD='$1'|" "$KIT/examples/hooks/test-gate.sh.sample" > .agents/hooks/test-gate.sh
+  chmod +x .agents/hooks/test-gate.sh
+  aapp hook-hash .agents/hooks/test-gate.sh pre-done "${2:-20}" gate 2>/dev/null | grep "^pre-done" > .agents/skills/aapp-hooks/registry.tsv
+}
+# tg_plan <name>: a started plan with one recorded commit; prints its id.
+tg_plan() {
+  local id f
+  id="P-$(git config aapp.planId)"; aapp draft "$1" >/dev/null 2>&1
+  f="$(ls .plans/current/P"${id#P-}"-*.md)"
+  sed -i -E "s|src/path/to/file\.ext|src/$1.sh|g; /src\/path\/to\/new_file\.ext/d; s/^\* \[ \] \*\*Question/* [x] **Question/" "$f"
+  git -C .plans commit -qam "prep $id" >/dev/null 2>&1
+  aapp freeze-start "$id" >/dev/null 2>&1
+  mkdir -p src && echo "v=1" > "src/$1.sh" && git add "src/$1.sh" && aapp commit "feat: $1" >/dev/null 2>&1
+  echo "$id"
+}
+archived() { ls .plans/done/P"${1#P-}"-*.md >/dev/null 2>&1; }
+
+tg_install 'true'
+id="$(tg_plan green)"
+rc=0; out="$(aapp done "$id" 2>&1)" || rc=$?
+got=FAIL; [ "$rc" -eq 0 ] && archived "$id" && echo "$out" | grep -q "tests green" && got=PASS
+report "test gate: passing command lets done archive" "PASS" "$got" "$out"
+
+tg_install 'echo boom-output; exit 3'
+id="$(tg_plan red)"
+rc=0; out="$(aapp done "$id" 2>&1)" || rc=$?
+got=FAIL; [ "$rc" -ne 0 ] && ! archived "$id" && echo "$out" | grep -q "boom-output" && echo "$out" | grep -q "exit 3" && got=PASS
+report "test gate: failing command refuses with status and output tail" "PASS" "$got" "$out"
+
+echo "v=2" > src/red.sh
+tg_install 'true'
+rc=0; out="$(aapp done "$id" 2>&1)" || rc=$?
+git checkout -q -- src/red.sh
+got=FAIL; [ "$rc" -ne 0 ] && ! archived "$id" && echo "$out" | grep -qi "uncommitted" && got=PASS
+report "test gate: dirty tracked file refuses (tests run on committed code)" "PASS" "$got" "$out"
+
+tg_install ''
+rc=0; out="$(aapp done "$id" 2>&1)" || rc=$?
+got=FAIL; [ "$rc" -ne 0 ] && ! archived "$id" && echo "$out" | grep -q "TEST_CMD" && got=PASS
+report "test gate: unset TEST_CMD refuses with the instruction" "PASS" "$got" "$out"
+
+tg_install 'sleep 6' 2
+rc=0; out="$(aapp done "$id" 2>&1)" || rc=$?
+got=FAIL; [ "$rc" -ne 0 ] && ! archived "$id" && got=PASS
+report "test gate: watchdog timeout refuses" "PASS" "$got" "$out"
+cd "$R" || exit 1
+
 echo "============================================================"
 echo "📊 Results: $PASS passed, $FAIL failed"
 echo "============================================================"

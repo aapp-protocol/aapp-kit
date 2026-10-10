@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `pre-done` test gate sample: `aapp done` refuses while the project's test command fails (`P-60`)
 - Lifecycle hook pre-mutation quality gates and return code abort protocol (`P-23`)
 - Automated worktree branch integration, parent-branch targeting, and safe cleanup (`aapp done <id> integrate`) (`P-55`)
 - `aapp start` can create a branch and worktree per plan (`aapp.planWorktrees`) and open a session there (`aapp.planSession`) (`P-54`)
