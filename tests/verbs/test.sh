@@ -45,4 +45,13 @@ else
   bad "test_refuses_unmatched_filter" "verb=$rc1 flat=$rc2"
 fi
 
+printf '#!/usr/bin/env bash\necho "aborted early"\nexit 1\n' > tests/verbs/abort.sh
+out="$(aapp test verb abort 2>&1)"; rc=$?
+rm -f tests/verbs/abort.sh
+if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'FAILED (exit 1)'; then
+  ok "test_aborted_suite_fails_in_default_mode"
+else
+  bad "test_aborted_suite_fails_in_default_mode" "rc=$rc"
+fi
+
 print_test_summary "$PASS" "$FAIL"
