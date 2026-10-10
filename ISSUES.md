@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #116 | `Low` | `DOCS` | 2026-10-10 | `templates/skills/aapp-hooks/registry.tsv` | The seeded registry header lists pre-P-23 event names (`on-done`, `on-freeze`, `on-start`, `on-pause`, `on-resume`). | Use the current event list. | 🟡 `Incubated` |
 | #115 | `High` | `TEST` | 2026-10-10 | `lib/cmd_test.sh` | `aapp test` shows `verb/done` green (1 passed, 0 failed) while `tests/verbs/done.sh` prints 2 ✘ and exits 1. | Find why the verb suite's exit code and failures are lost. | 🟡 `Incubated` |
 | #111 | `Low` | `CORE` | 2026-10-09 | `lib/cmd_issue.sh` (`_issue_write_mini`, `cmd_issue_fix`) | `aapp issue fix` copies the row's *Target Plan / Fix* cell into the mini plan's `Changelog:` without a length check; a long cell is refused only at `aapp commit` (337 > 300 chars, #109), and no verb rewords it, so the fix must be aborted and reopened. | Gate the text `fix` turns into the bullet against `aapp.changelogMaxLen`: in `refine issues`, `issue hotfix`, and again when `fix` opens. | 🟡 `Incubated` |
 | #110 | `Low` | `DOCS` | 2026-10-08 | `MANUAL.md:1244` | A hook registration example still uses `on-done`, which P-23 renamed to `post-done` with no alias: a handler registered as shown never fires. Seen while drafting P-60. | Use `post-done`; sweep MANUAL/README/samples for the other renamed events (`on-freeze`, `on-pause`, `on-resume`). | 🟡 `Incubated` |
