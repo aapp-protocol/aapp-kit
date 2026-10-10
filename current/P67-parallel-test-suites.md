@@ -55,7 +55,7 @@
 - `bail`: after the first failing suite no new suite starts; running ones finish; exit 1.
 
 ### 2.2 Output
-- Each suite writes to its own temporary file. Default mode prints a suite's whole output when it finishes, never interleaved; `quiet` prints its row when it finishes.
+- Each suite writes to its own temporary file (a background suite cannot write into the runner's variables). When it finishes, the runner reads the file into a variable and flushes it in one write: default mode the whole output, `quiet` its row. Output is never interleaved. The files are removed on exit and on interrupt (`trap`).
 - The summary lists rows in the selection order, with the same counts, durations and exit rules as today. The banner names the job count.
 
 ### 2.3 Contract
