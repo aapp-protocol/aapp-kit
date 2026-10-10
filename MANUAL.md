@@ -1201,7 +1201,7 @@ AAPP wires symmetric pre-mutation quality gates, in-transaction action delegates
 | `pre-start` | Gate | Pre-mutation | `gate` | **YES** | Plan ID, declared Target Files, blueprint path. |
 | `on-start` | Action Delegate | In-transaction | `gate` | **YES** | Plan ID, declared Target Files, worktree path, branch. Rolls back on non-zero exit (P-54). |
 | `post-start` | Observer | Post-commit | `notify` | No | Plan ID, declared Target Files, active buffer / worktree path. |
-| `pre-done` | Gate | Pre-mutation | `gate` | **YES** | Plan ID, blueprint path, commit SHA, recorded commits array. |
+| `pre-done` | Gate | Pre-mutation | `gate` | **YES** | Plan ID, blueprint path, commit SHA, recorded commits array, `worktree` (plan worktree path, empty without one). |
 | `post-done` | Observer | Post-commit | `notify` | No | Plan ID, destination archive path in `.plans/done/`, commit SHA, recorded commits array. |
 | `on-integrate` | Action Delegate | In-transaction | `gate` | **YES** | Action delegate (P-55): replaces built-in squash / fast-forward; `plan_id`, `plan_file`, `plan_branch`, `target_branch`, `worktree`. A refusal leaves plan archived; `aapp done <id> integrate` retries. |
 | `post-pause` | Observer | Post-stash | `notify` | No | Pause reason, dirty worktree inventory, pause buffer path. |
@@ -1243,6 +1243,18 @@ cp ~/.local/share/aapp-kit/examples/hooks/on-done-sync.sh.sample .githooks/on-do
 chmod +x .githooks/on-done-sync.sh
 aapp hook-hash .githooks/on-done-sync.sh on-done 10 notify >> .agents/skills/aapp-hooks/registry.tsv
 ```
+
+#### 5. Requiring Green Tests on `done` (Test Gate)
+`examples/hooks/test-gate.sh.sample` is a `pre-done` gate that runs your test command and refuses `aapp done` unless it passes:
+```bash
+cp ~/.local/share/aapp-kit/examples/hooks/test-gate.sh.sample .agents/hooks/test-gate.sh
+chmod +x .agents/hooks/test-gate.sh
+# set TEST_CMD in the script (npm test, pytest -q, cargo test, …), then:
+aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate >> .agents/skills/aapp-hooks/registry.tsv
+```
+- **Where it runs:** in the plan's worktree when it has one (the payload's `worktree`), else in the repository root. A single checkout with uncommitted tracked changes is refused: the tests must run on committed code.
+- **Refusals:** a failing command (its exit status and last 20 lines are shown), an empty `TEST_CMD`, or the registry timeout (set it above your suite's run time).
+- **Changing the command** changes the script's SHA-256: update the registry line in the same commit.
 
 ---
 
