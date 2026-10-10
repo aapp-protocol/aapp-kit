@@ -100,10 +100,11 @@ fi
 
 # Detect whether CANONICAL_TARGET belongs to the same repository (primary checkout or linked worktree)
 TARGET_DIR="$CANONICAL_TARGET"
-[ -d "$TARGET_DIR" ] || TARGET_DIR="$(dirname "$CANONICAL_TARGET")"
-while [ -n "$TARGET_DIR" ] && [ "$TARGET_DIR" != "/" ] && [ ! -d "$TARGET_DIR" ]; do
-    TARGET_DIR="$(dirname "$TARGET_DIR")"
+[ -d "$TARGET_DIR" ] || TARGET_DIR="${CANONICAL_TARGET%/*}"
+while [ -n "$TARGET_DIR" ] && [ ! -d "$TARGET_DIR" ]; do
+    TARGET_DIR="${TARGET_DIR%/*}"
 done
+[ -n "$TARGET_DIR" ] || TARGET_DIR="/"
 
 TARGET_WT_ROOT=""
 TARGET_COMMON_DIR=""
@@ -120,6 +121,9 @@ if [ -n "$TARGET_COMMON_DIR" ] && [ "$TARGET_COMMON_DIR" = "$GIT_COMMON_DIR" ]; 
     IS_SAME_REPO=1
     TARGET_WT_ROOT="$(git -C "$TARGET_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
     [ -n "$TARGET_WT_ROOT" ] && TARGET_WT_ROOT=$(canonicalize_path "$TARGET_WT_ROOT")
+elif [ -z "$TARGET_COMMON_DIR" ]; then
+    # No answer from git: a target under REPO_ROOT stays repo-internal (fail closed).
+    case "$CANONICAL_TARGET" in "$REPO_ROOT"|"$REPO_ROOT"/*) IS_SAME_REPO=1; TARGET_WT_ROOT="$REPO_ROOT" ;; esac
 fi
 
 # Normalize path relative to its own worktree root for repo-internal matching
@@ -396,7 +400,7 @@ fi
 
 # Determine active plan buffer for this target file
 if [ "$IS_SAME_REPO" -eq 1 ] && [ -n "$TARGET_WT_ROOT" ]; then
-    ACTIVE_PLAN_FILE="$(git -C "$TARGET_DIR" rev-parse --git-path aapp_active_plan 2>/dev/null || echo "$TARGET_WT_ROOT/.git/aapp_active_plan")"
+    ACTIVE_PLAN_FILE="$(git -C "$TARGET_WT_ROOT" rev-parse --git-path aapp_active_plan 2>/dev/null || echo "$TARGET_WT_ROOT/.git/aapp_active_plan")"
     case "$ACTIVE_PLAN_FILE" in /*) ;; *) ACTIVE_PLAN_FILE="$TARGET_WT_ROOT/$ACTIVE_PLAN_FILE" ;; esac
 else
     ACTIVE_PLAN_FILE="$(git rev-parse --git-path aapp_active_plan 2>/dev/null || echo ".git/aapp_active_plan")"
