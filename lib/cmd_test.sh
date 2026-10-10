@@ -330,7 +330,8 @@ cmd_test() {
             # Using temporary file for robust, non-blocking capture
             local tmp_out
             tmp_out="$(mktemp "/tmp/aapp-test-suite-XXXXXX")"
-            ( cd "$repo_root" && bash "$suite" ) 2>&1 | tee "$tmp_out" || suite_rc=${PIPESTATUS[0]}
+            ( cd "$repo_root" && bash "$suite" ) 2>&1 | tee "$tmp_out"
+            suite_rc=${PIPESTATUS[0]}
             suite_out="$(cat "$tmp_out")"
             rm -f "$tmp_out"
         fi
