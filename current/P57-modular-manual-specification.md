@@ -104,7 +104,9 @@ agent-planning-kit/
         ├── 02-cli-commands-and-verbs.md     # All 35 CLI verbs across 4 tiers, parameter variations
         ├── 03-configuration-matrix.md       # Complete git config aapp.* dictionary (22+ keys)
         ├── 04-plugin-and-hook-engine.md     # registry.tsv contract, lifecycle triggers, execution
-        └── 05-ai-attribution-and-notes.md   # Trailers vs Notes, switchboard, audit compliance
+        ├── 05-ai-attribution-and-notes.md   # Trailers vs Notes, switchboard, audit compliance
+        ├── 06-plugin-protocol.md            # [P-77] Kit–plugin exchange: envelope, answer, handled, do
+        └── 07-issue-protocol.md             # [P-77/P-74] Issue events, data fields, accepted do commands
 ```
 
 ### 2.2 Portal `MANUAL.md` Structure (~150 Lines)
@@ -264,6 +266,7 @@ In addition:
 - [ ] Task 2.3: Author `docs/reference/03-configuration-matrix.md` covering all 22+ `git config aapp.*` settings with continuous navigation back-links, aligned with Pickup #99 manifest schema.
 - [ ] Task 2.4: Author `docs/reference/04-plugin-and-hook-engine.md` with continuous navigation back-links (extracting from `MANUAL.md` §8).
 - [ ] Task 2.5: Author `docs/reference/05-ai-attribution-and-notes.md` with continuous navigation back-links (extracting from `MANUAL.md` §9).
+- [ ] Task 2.6: `docs/reference/06-plugin-protocol.md` and `07-issue-protocol.md` are authored by P-77 and P-74; link them from the portal and from `04-plugin-and-hook-engine.md`, which keeps the registry and triggers and does not repeat the protocol; include them in the link audit.
 
 ### Phase 3: Portal Transformation, Storefront Cleanup & Link Audit
 - [ ] Task 3.1: Rewrite root `MANUAL.md` into the concise executive portal (~150 lines) with complete relative links into `docs/` and `COOKBOOK.md`.
