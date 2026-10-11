@@ -29,11 +29,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-71**: [`P71-faster-test-runs.md`](current/P71-faster-test-runs.md) — 🧩 Group Plan P-71: Faster Test Runs
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-71**: [`P71-faster-test-runs.md`](current/P71-faster-test-runs.md) — 🧩 Group Plan P-71: Faster Test Runs
 
 ---
 

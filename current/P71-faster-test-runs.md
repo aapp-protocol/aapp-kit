@@ -6,9 +6,9 @@
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
      The group's `done` writes it with the ARCHITECTURE.md commit. -->
-* **Status:** 🔷 Frozen
-* **Base:** none
-* **Feature Branch:** none
+* **Status:** ⚡ In Development
+* **Base:** `150cc2b` (develop)
+* **Feature Branch:** feature/faster-test-runs
 * **Members:** P-67, P-68
 * **Commits:** none
 <!-- A group plan writes no code. `aapp start <group> [base <branch>]` cuts `feature/<slug>` from the parent
@@ -69,5 +69,6 @@ No changes.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Group started: `feature/faster-test-runs` from `develop`.
 * **2026-10-11:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-11:** Group drafted.
