@@ -2,7 +2,7 @@
 * **Created:** 2026-10-11 | **Last Refined:** 2026-10-11
 * **Target Issue / Milestone:** #123
 * **Plan ID:** P-76
-* **Changelog:** Changed: Issue Abort
+* **Changelog:** Added: `aapp issue abort <num>` withdraws an issue with its plan or mini plan
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,36 +38,97 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+An issue that turns out wrong, invalid or unwanted has no way out: `aapp issue close <num>` without a commit archives it as fixed at `HEAD`, and whatever was opened for it (its plan, its mini plan) stays in `current/`.
+
+**Goal:** one command, `aapp issue abort <num>`, withdraws the issue together with what was opened for it. The direction is one-way:
+
+- `aapp issue abort <num>` removes the issue and its plan or open mini plan.
+- `aapp plan abort <id>` (P-69) and `aapp issue fix <num> abort` remove only the plan or mini plan; the issue stays open, since it may still be valid.
+
+**Built on P-69:** the plan side is `plan abort`, called as it is. This plan starts after P-69 is archived.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 CLI Ingress
+
+- **Entrypoint**: `aapp issue abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]`, a new form of the `issue` verb routed by `cmd_issue`.
+- `<num>`: as every `issue` form takes it (`issue_normalize_id`).
+- `reason "<text>"`: why the issue is withdrawn (default `Withdrawn`); one line.
+- `keep-branch`, `force`, `force-cleanup`, `confirm`: passed to `plan abort` unchanged; they mean nothing when the issue has no plan.
+- An unknown token refuses with the usage line.
+
+### 2.2 What Is Attached
+
+Read from the row and from `current/`:
+
+| Attached | How it is found | What `issue abort` does with it |
+| :--- | :--- | :--- |
+| A promoted plan | Status `🔵 Planned`, cell `[P-<id>](current/…)` | `plan abort <id>` |
+| An open mini plan | `current/fix-<num>.md` | dropped, as `aapp issue fix <num> abort` drops it |
+| A blocked plan | cell `blocks [P-<id>](…)`, or any plan whose `Blocked On:` lists `#<num>` | not aborted: it resumes (§2.4) |
+| A plan already archived | cell link into `aborted/` or `done/` | nothing |
+
+### 2.3 Preflight (nothing changed on refusal, exit 1)
+
+1. `issue_locate`: `#<num>` must be an active row. An archived issue refuses with `already archived`; an unknown one with `not found`.
+2. **Mini plan with recorded commits**: refused, as `aapp issue fix <num> abort` refuses it; the fix is on the development branch and the issue is closed with `aapp issue close <num>`.
+3. **Promoted plan**: every `plan abort` preflight check (P-69 §2.2) runs for it with the tokens given, including a group plan's confirmation.
+
+### 2.4 Effects
+
+In this order; each step leaves a consistent state, and running the command again finishes an interrupted abort.
+
+1. **The attachment goes**, through its own code and its own commit:
+   - mini plan: `_issue_fix_abort` (`fix(abort): #<num>`);
+   - plan: `plan abort <id> reason "Issue #<num> aborted: <reason>"` (`plan(abort): archive <id> to aborted/`). The row is then `🟡 Incubated` and links the aborted plan.
+2. **The row is withdrawn**: `issue_close_local <num> aborted "<summary>"` moves it to the top of `done/000-issues-archive.md` and prunes its road-map line.
+   - *Target Commit / Release* cell: `` `aborted` `` in place of a SHA.
+   - *Plan / Resolution Summary* cell: `Aborted: <reason>`, followed by `([P-<id>](../aborted/<file>))` when a plan went with it.
+3. **Plans it blocked resume**: `issue_unblock_plans <num>`, then `_issue_reapply_stash <num>` and `sync_state_matrix`, as `close` does.
+4. **One commit** `issue(abort): withdraw #<num>` with the paths `close` commits: `ISSUES.md`, the archive, `issues_road_map.md`, the unblocked plans, `state_matrix.md`.
+5. **Output**: the archive row, what was removed, which plans resumed or are still blocked.
+
+Steps 2 to 4 are the active branch of `cmd_issue_close` with another commit cell, summary and subject: both call one function. `issue_notify_close` is not called: it reports a fix.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### 🧪 Required Tests (Failure & Boundary Assertions)
+> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/issue.abort.sh::test_abort_withdraws_row` -> asserts the row moves to the archive with `aborted` and the reason, its road-map line is gone, in one `issue(abort)` commit
+- [ ] `tests/verbs/issue.abort.sh::test_abort_refuses_archived_or_unknown` -> asserts an archived or unknown id is refused and nothing changes
+- [ ] `tests/verbs/issue.abort.sh::test_abort_takes_promoted_plan` -> asserts the plan lands in `aborted/` with its ledger row and the archive row links it
+- [ ] `tests/verbs/issue.abort.sh::test_abort_plan_refusal_changes_nothing` -> asserts a dirty plan worktree refuses and the issue is still `🔵 Planned`
+- [ ] `tests/verbs/issue.abort.sh::test_abort_group_plan_needs_confirm` -> asserts an issue whose plan is a group plan is refused without `confirm`
+- [ ] `tests/verbs/issue.abort.sh::test_abort_drops_mini_plan` -> asserts `current/fix-<num>.md` is gone and the buffer restored
+- [ ] `tests/verbs/issue.abort.sh::test_abort_refuses_mini_plan_with_commits` -> asserts a fix with recorded commits is refused and points to `issue close`
+- [ ] `tests/verbs/issue.abort.sh::test_abort_unblocks_plans` -> asserts a plan blocked on the issue returns to its recorded status and is not aborted
+- [ ] `tests/verbs/issue.abort.sh::test_abort_rerun_finishes` -> asserts after the plan is aborted and the row left open, a second run withdraws the row
+- [ ] `tests/verbs/issue.abort.sh::test_fix_abort_keeps_issue` -> asserts `issue fix <num> abort` still leaves the issue active
+
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Write `tests/verbs/issue.abort.sh` with the Required Tests; all fail.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: One archive function for `close` and `abort` (§2.4 steps 2 to 4); `cmd_issue_close` calls it.
+- [ ] Task 2.2: `cmd_issue_abort`: tokens, attachment lookup, preflight (§2.1 to §2.3).
+- [ ] Task 2.3: Attachment step: mini plan drop, `plan abort` call (§2.4 step 1).
+- [ ] Task 2.4: Route `abort` in `cmd_issue`; usage lines.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [ ] Task 3.1: Run the kit suites; the Required Tests pass.
+- [ ] Task 3.2: `abort` form in the `issue` verb contract `lib/docs/verbs/issue.md`.
+- [ ] Task 3.3: `MANUAL.md`, `CHEATSHEET.md` and `templates/AGENTS.md`.
+- [ ] Task 3.4: `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
 - [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
@@ -76,26 +137,31 @@
 *Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_issue.sh` -> `cmd_issue_abort`; the archive function shared with `close`; route and usage.
+- [ ] `lib/docs/verbs/issue.md` -> `abort` form in the `issue` verb contract.
+- [ ] `NEW FILE` -> `tests/verbs/issue.abort.sh` -> `issue` verb suite part.
+- [ ] `templates/AGENTS.md` -> Withdrawing an issue; which abort removes what.
+- [ ] `MANUAL.md` -> `aapp issue abort`; the archive's `aborted` rows.
+- [ ] `CHEATSHEET.md` -> `aapp issue abort` row.
+- [ ] `ARCHITECTURE.md` -> Issue withdrawal in the issue lifecycle.
+- [ ] `.agents/CODEMAP.md` -> `cmd_issue_abort` and the shared archive function.
+- [ ] `CHANGELOG.md` -> Entry written by `aapp commit`.
+
+### 🧪 Required Test Files
+> Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/verbs/issue.abort.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/cmd_plan.sh` -> `plan abort` is called as P-69 ships it.
+- [ ] `lib/planning_health.sh` -> No reader parses the archive's commit cell as a SHA.
+- [ ] `lib/verbs.tsv` -> No new verb.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-11:** Plan initialized from `pickup.md`.
-* **2026-10-11:** Refined blast radius and locked module boundaries.
+* **2026-10-11:** Scaffolded from #123; blueprint written on top of P-69's `plan abort`.
