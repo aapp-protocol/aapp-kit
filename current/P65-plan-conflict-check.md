@@ -104,6 +104,12 @@ The `aapp plan` verb dispatcher in `lib/cmd_plan.sh` is extended with three conc
     2. **Incompatible Blueprints**: Plans that share one or more targets with `<id>`, naming the colliding files.
 - **Exit Code**: `0` always.
 
+#### 4. Plan sets and groups (developer, 2026-10-11)
+The tool is standalone: it works on any plans, in any status, grouped or not. A group plan (P-64) is one more input:
+- `aapp plan conflict-check <id> <id>…`: two or more plans; a group plan ID expands to its planned members. Exit 0 when all are pairwise disjoint, 1 otherwise, naming each colliding pair and file.
+- `aapp plan conflict-free <group>`: the group's **implementation order**: members in waves, each wave pairwise disjoint (and disjoint from plans already in flight), so one agent per member of a wave can work at the same time. Members are placed in their listed order, each into the first wave it fits. The output names, for each member held back, the file and member that pushed it to a later wave, so the plans can be reshaped and checked again. Exit 0 (informational).
+- Shared docs stay exempt as in §2.1.
+
 ### 2.2 Core Comparison Helper (`lib/cmd_plan.sh`)
 
 Implement helper function:
@@ -130,12 +136,16 @@ Implement helper function:
 - [ ] Task 1.3: `tests/verbs/plan.sh`: Add test `test_conflict_check_exempts_shared_docs`.
 - [ ] Task 1.4: `tests/verbs/plan.sh`: Add test `test_conflict_free_against_active_in_flight_plans`.
 - [ ] Task 1.5: `tests/verbs/plan.sh`: Add test `test_conflict_free_with_reference_plan`.
+- [ ] Task 1.6: `tests/verbs/plan.sh`: Add test `test_conflict_check_many_plans_and_group_expands`.
+- [ ] Task 1.7: `tests/verbs/plan.sh`: Add test `test_conflict_free_group_orders_members_in_waves` (three members, two colliding: two waves, the held-back member names the file and member).
+- [ ] Task 1.8: `tests/verbs/plan.sh`: Add test `test_group_waves_respect_in_flight_plans`.
 
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: Implement `plan_compare_targets()` helper in `lib/cmd_plan.sh`.
 - [ ] Task 2.2: Implement `cmd_plan_conflict_check()` and wire into `cmd_plan` dispatcher.
 - [ ] Task 2.3: Implement `cmd_plan_conflict_free()` (handling both 0-arg and 1-arg cases).
 - [ ] Task 2.4: Update `aapp plan` switchboard / help output to list `conflict-check` and `conflict-free`.
+- [ ] Task 2.5: Plan sets and group waves (§2.1.4), reading the group's members through P-64's parsers.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases (non-existent plan IDs, plans with empty target files).
@@ -166,9 +176,12 @@ Implement helper function:
 
 ## ❓ 5. Open Questions (Optional / Gate)
 * [x] **Question 1 — Exit codes for scriptability. → RESOLVED (developer, 2026-10-10): `conflict-check` returns exit 0 on clean/disjoint, exit 1 on collision.** This allows scripts, CI checks, or multi-agent dispatchers (`aapp dispatch`) to automate concurrency checks via `if aapp plan conflict-check P1 P2; then ... fi`.
+* [ ] **Question 3 — Order beyond shared files.** Waves see only Target File overlap; a member may need another's result (an API, a schema) without sharing a file. (a) Files only; the human orders such members by their place in the group's member list. (b) A member header `* **After:** P-<n>` that the waves respect. Recommendation: (a) for now; (b) when a real case shows up.
+* [ ] **Question 4 — Sequence with P-64.** Group input needs P-64's group plan and member parsers. (a) P-65 after P-64. (b) P-65 first without group input, groups added later. Recommendation: (a); one plan, one design.
 * [x] **Question 2 — Scope of `conflict-free`. → RESOLVED (developer, 2026-10-10): Pure target files comparison.** Scans `### 📂 Target Files` of plans in `.plans/current/`. Pending issue blocker checks remain in `aapp start` activation gates.
 
 ---
 
 ## 6. Change Log & Refinement History
+* **2026-10-11:** Standalone for any plans; plan sets; a group plan's members ordered in waves (developer). Q3, Q4 open.
 * **2026-10-10:** Scaffolded and fully refined from developer specification: added `conflict-check <id1> <id2>`, `conflict-free` (0-arg for in-flight plans), and `conflict-free <id>` (1-arg for reference plan). Defined CLI ingress, output formatting, exit codes, and test checklist.
