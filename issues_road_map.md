@@ -42,6 +42,6 @@
 - [ ] #108 -> `ARCHITECTURE.md` prematurely lists unbuilt features (P-38, P-59, non-existent `archive-plan.sh`) and cites 30s watchdog default instead of 10s.
 - [ ] #110 -> MANUAL still registers hooks on `on-done` (renamed `post-done` by P-23).
 - [ ] #111 -> `issue fix` takes an over-long changelog entry from the fix cell; refused only at commit.
-- [ ] #118 -> No lifecycle path abandons a started plan (or group).
 - [ ] #117 -> `issue fix` turns the fix cell (or the symptom) into the changelog line; the cell holds notes.
+- [ ] #118 -> No lifecycle path abandons a started plan (or group).
 
