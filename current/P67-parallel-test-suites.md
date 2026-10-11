@@ -125,7 +125,7 @@
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
 * [x] **Question 1 — Default job count. → RESOLVED (developer, 2026-10-11): the CPU count rounded down to a multiple of 4 (10 → 8, 12 → 12); below 4 CPUs, the CPU count (§2.1).** (a) The number of CPUs, capped at 8 (measured: 8 → 65 s, 12 → 59 s). (b) A fixed 4, predictable on any machine. (c) The number of CPUs, uncapped. Recommendation: (a).
-* [ ] **Question 2 — A config key for the default.** (a) None: the `jobs` token only. (b) `aapp.testJobs`. Recommendation: (a); one more key is one more thing to keep in sync (#99).
+* [x] **Question 2 — A config key for the default. → RESOLVED (developer, 2026-10-11): (a), no key; the default is worked out from the CPU count.** (a) None: the `jobs` token only. (b) `aapp.testJobs`. Recommendation: (a); one more key is one more thing to keep in sync (#99).
 
 ---
 
