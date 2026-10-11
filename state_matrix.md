@@ -23,6 +23,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-70**: [`P70-help.md`](current/P70-help.md) — Help
 - 🟣 **P-72**: [`P72-issue-tracker.md`](current/P72-issue-tracker.md) — 🧩 Group Plan P-72: Issue Tracker
 - 🟣 **P-73**: [`P73-issue-ledger-module.md`](current/P73-issue-ledger-module.md) — Issue Ledger Module
+- 🟣 **P-74**: [`P74-issue-provider-wrapper.md`](current/P74-issue-provider-wrapper.md) — Issue Provider Wrapper
 
 ---
 
