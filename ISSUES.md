@@ -4,7 +4,6 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #121 | `High` | `CORE` | 2026-10-11 | `lib/cmd_plan.sh` (`cmd_done`) | When the archive commit fails (P-65: GPG signing timed out), `done` leaves the plan moved to `done/`, the ledger row and the matrix staged; a retry then takes the plan as archived and only integrates, so the archive is never committed. |  | 🟡 `Incubated` |
 | #120 | `Low` | `CLI` | 2026-10-11 | `lib/cmd_plan.sh` (`cmd_tdd`) | `aapp tdd help` drafts and commits a new plan named `help` (P-70): an unknown argument is taken as a new slug, with no help form. |  | 🟡 `Incubated` |
 | #118 | `Medium` | `CORE` | 2026-10-11 | `lib/cmd_plan.sh` | No lifecycle path abandons a plan: once started, a plan can only reach `done`; its worktree, branch and matrix row have no verb-driven way out (only `issue fix … abort` exists). | [P-69](current/P69-abort-plan.md) | 🔵 `Planned` |
 | #117 | `High` | `CORE` | 2026-10-10 | `lib/cmd_issue.sh` (`_issue_write_mini`, `cmd_issue_close`) | `issue fix` writes the row's *Target Plan / Fix* cell (or, when empty, the symptom) into the changelog; agents fill that cell with notes at logging time, so #115/#116 shipped notes as changelog lines. | [P-66](current/P66-issue-fix-changelog-from-the-fix.md) | 🔵 `Planned` |
