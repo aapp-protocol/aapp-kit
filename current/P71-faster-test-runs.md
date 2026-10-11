@@ -6,7 +6,7 @@
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
      The group's `done` writes it with the ARCHITECTURE.md commit. -->
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Feature Branch:** none
 * **Members:** P-67, P-68
@@ -69,4 +69,5 @@ No changes.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-11:** Group drafted.
