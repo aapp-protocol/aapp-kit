@@ -180,6 +180,9 @@ Implement helper function:
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
+### 🧪 Required Tests (Failure & Boundary Assertions)
+> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+
 ### Phase 1: Tests First (red)
 - [ ] Task 1.1: `tests/verbs/plan.sh`: Add test `test_conflict_check_disjoint_plans_exit_zero`.
 - [ ] Task 1.2: `tests/verbs/plan.sh`: Add test `test_conflict_check_overlapping_plans_exit_one_and_names_target`.
@@ -217,6 +220,9 @@ Implement helper function:
 - [ ] `MANUAL.md` -> User documentation for plan concurrency auditing.
 - [ ] `.agents/CODEMAP.md` -> Architecture reference for plan conflict validation.
 - [ ] `CHANGELOG.md` -> Entry written by `aapp commit`.
+
+### 🧪 Required Test Files
+> Test files that must prove this plan's failure cases. Frozen with the blast radius.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/cmd_issue.sh` -> Issue management untouched.
