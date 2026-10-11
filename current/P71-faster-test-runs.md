@@ -9,8 +9,9 @@
 * **Status:** ⚡ In Development
 * **Base:** `150cc2b` (develop)
 * **Feature Branch:** feature/faster-test-runs
+* **Worktree:** .workspace/P71 (feature/faster-test-runs)
 * **Members:** P-67, P-68
-* **Commits:** none
+* **Commits:** `a5e6851` (feature/faster-test-runs)
 <!-- A group plan writes no code. `aapp start <group> [base <branch>]` cuts `feature/<slug>` from the parent
      branch; members are planned with `aapp draft <slug> group P-71` (or `aapp refine <id> group P-71`) and
      start from the feature branch. `aapp done <group>` refuses while a member is open, applies the sections
