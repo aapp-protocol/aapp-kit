@@ -30,10 +30,11 @@ On exit 0, the mini plan `current/fix-<num>.md` is open and bound to this checko
 **Which branch.** A fix is made on the development branch: `fix` refuses while the main checkout is elsewhere. A bug caused by a group's work is fixed on that group's feature branch instead: `aapp issue fix <num> group <group>` opens the fix in `.workspace/fix-<num>`; work and commit there, and `close` lands it on the feature branch. When `fix` prints that a group changes the issue's files, report it: the human decides, and the fix can be aborted and reopened with `group`.
 
 ### Step 2: Fix
-Edit only the mini plan's files; the write guard enforces this. Then commit:
+Edit only the mini plan's files; the write guard enforces this. Then commit, saying what the fix changed:
 ```bash
-aapp commit "fix: <what> (#<num>)"
+aapp commit "fix: <what> (#<num>)" changelog "<what the fix changed>"
 ```
+The first commit of a fix needs `changelog`: it becomes the fix's `CHANGELOG.md` line and the issue's archive resolution. Describe the change, not the symptom, in one line. Later commits of the same fix need no `changelog`.
 
 ### Step 3: Close
 ```bash

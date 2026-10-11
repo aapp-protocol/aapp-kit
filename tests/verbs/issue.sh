@@ -19,9 +19,9 @@ cat > .plans/ISSUES.md <<'EOF'
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #10 | `Low` | `CLI` | 2026-09-01 | `a.sh` | Pipe `a\|b` breaks. | Escape the pipe. | 🟡 `Incubated` |
-| #11 | `Medium` | `CORE` | 2026-09-02 | `b.sh` | Second defect. | Fix b. | 🟡 `Incubated` |
-| #12 | `Low` | `CORE` | 2026-09-03 | `c.sh` | Third defect. | Fix c. | 🟡 `Incubated` |
+| #10 | `Low` | `CLI` | 2026-09-01 | `a.sh` | Pipe `a\|b` breaks. |  | 🟡 `Incubated` |
+| #11 | `Medium` | `CORE` | 2026-09-02 | `b.sh` | Second defect. |  | 🟡 `Incubated` |
+| #12 | `Low` | `CORE` | 2026-09-03 | `c.sh` | Third defect. |  | 🟡 `Incubated` |
 EOF
 cat > .plans/done/000-issues-archive.md <<'EOF'
 # Archive
@@ -94,7 +94,7 @@ echo "== close =="
 out="$(aapp issue close 10 sha "$SHA" 2>&1)"; rc=$?
 arow="$(grep -E '^\| #10 \|' .plans/done/000-issues-archive.md)"
 if [ "$rc" -eq 0 ] && ! grep -qE '^\| #10 \|' .plans/ISSUES.md && \
-   echo "$arow" | grep -qF "| \`$SHA\` | Direct fix (no plan): Escape the pipe. |" && \
+   echo "$arow" | grep -qF "| \`$SHA\` | Direct fix (no plan) |" && \
    [ "$(grep -E '^\| #[0-9]' .plans/done/000-issues-archive.md | head -n 1 | cut -d'|' -f2 | tr -d ' ')" = "#10" ] && \
    ! grep -q '#10 ->' .plans/issues_road_map.md && \
    git -C .plans log -1 --format=%s | grep -qF 'issue(close): archive #10' && \
@@ -217,7 +217,7 @@ cd "$R/clone" || exit 1
 cat > .plans/ISSUES.md <<'EOF'
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #3 | `Low` | `CLI` | 2026-09-01 | `a.sh` | Open. | Fix. | 🟡 `Incubated` |
+| #3 | `Low` | `CLI` | 2026-09-01 | `a.sh` | Open. |  | 🟡 `Incubated` |
 EOF
 cat > .plans/done/000-issues-archive.md <<'EOF'
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
@@ -265,7 +265,7 @@ cat > .plans/ISSUES.md <<'EOF'
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #10 | `Low` | `CORE` | 2026-10-01 | `a.sh` | Old defect. | Fix a. | 🟡 `Incubated` |
+| #10 | `Low` | `CORE` | 2026-10-01 | `a.sh` | Old defect. |  | 🟡 `Incubated` |
 EOF
 cat > .plans/issues_road_map.md <<'EOF'
 # Issue Priority Board
@@ -337,12 +337,12 @@ fi
 
 aapp issue close 20 >/dev/null 2>&1; rc_nocommit=$?
 mkdir -p lib; echo "fixed=1" > lib/x.sh; git add lib/x.sh
-aapp commit "fix: parser crash (#20)" >/dev/null 2>&1; rc_c=$?
+aapp commit "fix: parser crash (#20)" changelog "the parser no longer crashes" >/dev/null 2>&1; rc_c=$?
 fsha="$(git rev-parse --short HEAD)"
 out="$(aapp issue close 20 2>&1)"; rc=$?
 if [ "$rc_nocommit" -ne 0 ] && [ "$rc_c" -eq 0 ] && [ "$rc" -eq 0 ] && [ ! -f "$mp" ] && \
    grep -qF "| #20 |" .plans/done/000-issues-archive.md && grep -qF "\`$fsha\`" .plans/done/000-issues-archive.md && \
-   grep -qF "Fixed via aapp issue fix: lib/x.sh; unblocks $hid" .plans/done/000-issues-archive.md && \
+   grep -qF "the parser no longer crashes; unblocks $hid" .plans/done/000-issues-archive.md && \
    ! grep -q '#20' .plans/issues_road_map.md && grep -qxF "* **Status:** ⚡ In Development" "$hf" && \
    ! grep -q '^\* \*\*Blocked On:\*\*' "$hf" && grep -qxF "* **Emergency Hotfixes:** #20" "$hf" && \
    [ "$(cat "$BUF")" = "$hid" ] && [ -z "$(git -C .plans status --porcelain)" ]; then
@@ -370,7 +370,7 @@ else
 fi
 
 aapp issue fix next-blocker >/dev/null 2>&1
-echo "fixed=1" > lib/y.sh; git add lib/y.sh; aapp commit "fix: second (#21)" >/dev/null 2>&1
+echo "fixed=1" > lib/y.sh; git add lib/y.sh; aapp commit "fix: second (#21)" changelog "the second defect is fixed" >/dev/null 2>&1
 aapp issue close 21 >/dev/null 2>&1
 if grep -qxF "* **Status:** 🟥 BLOCKED" "$hf" && grep -q '^\* \*\*Blocked On:\*\* #22 (was ⚡ In Development); hotfix limit reached' "$hf"; then
   ok "test_permanent_block_survives_close"
@@ -488,7 +488,7 @@ else
   bad "test_mini_plan_edits_file_listed_by_blocked_plan" "guard refused src/host.py"
 fi
 sed -i 's/^a1 = 1$/a1 = 10/' src/host.py; git add src/host.py
-cout="$(aapp commit "fix: host bug (#20)" 2>&1)"; rc_c=$?
+cout="$(aapp commit "fix: host bug (#20)" changelog "the host bug is fixed" 2>&1)"; rc_c=$?
 out="$(aapp issue close 20 2>&1)"; rc=$?
 [ "$rc_c" -eq 0 ] || echo "       commit: $(echo "$cout" | grep -E '❌|Staged|plan' | head -3 | tr '\n' ' ')"
 if [ "$rc_c" -eq 0 ] && [ "$rc" -eq 0 ] && grep -qx 'a1 = 10' src/host.py && grep -qx 'a5 = 50' src/host.py && \

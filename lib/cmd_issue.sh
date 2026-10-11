@@ -199,7 +199,7 @@ issue_close_local() {
                 gsub("\001", "\\|", c[i])
             }
             s = ENVIRON["AAPP_SUMMARY"]
-            if (s == "") s = "Direct fix (no plan): " c[8]
+            if (s == "") s = "Direct fix (no plan)"
             gsub(/\\\|/, "\001", s); gsub(/\|/, "\001", s); gsub("\001", "\\|", s)
             printf "| %s | %s | %s | %s | %s | `%s` | %s |\n", c[2], c[3], c[4], c[5], ENVIRON["AAPP_TODAY"], ENVIRON["AAPP_SHA"], s
         }' <<< "$row")"
@@ -318,7 +318,7 @@ cmd_issue_close() {
     }
     # P-52: an open mini plan supplies the SHA (its last recorded commit) and
     # the summary, and is deleted in the close commit.
-    local plans mp="" mini_files="" mini_list=() last touched paths=() p unblocked="" wt
+    local plans mp="" mini_list=() last touched paths=() p unblocked="" wt entry=""
     plans="$(_issue_plans_dir)" || return 1
     if [ -f "$plans/current/fix-$n.md" ]; then
         mp="$plans/current/fix-$n.md"
@@ -327,6 +327,12 @@ cmd_issue_close() {
             echo "❌ [Issue] #$n's fix recorded no commit; commit it with 'aapp commit' (or drop it with 'aapp issue fix $n abort')." >&2
             return 1
         fi
+        # P-66: the fix wrote its changelog entry; it is also the archive's resolution.
+        if ! entry="$(aapp_plan_changelog_decl "$mp")"; then
+            echo "❌ [Issue] #$n's fix has no changelog entry; commit it with 'aapp commit \"<msg>\" changelog \"<what the fix changed>\"'." >&2
+            return 1
+        fi
+        entry="${entry#*|}"
         # P-64: a group fix lands on the group's feature branch first.
         if [ -n "$(parse_plan_worktree "$mp")" ]; then
             _issue_land_group_fix "$n" "$mp" || return 1
@@ -334,7 +340,6 @@ cmd_issue_close() {
         fi
         [ -n "$sha" ] || sha="$last"
         while IFS= read -r p; do [ -n "$p" ] && mini_list+=("$p"); done < <(parse_plan_target_paths "$mp")
-        mini_files="$(printf '%s\n' "${mini_list[@]}" | paste -sd, - | sed 's/,/, /g')"
     fi
     if [ -z "$sha" ]; then
         sha="$(git -C "$root" rev-parse --short=7 HEAD)" || return 1
@@ -348,7 +353,7 @@ cmd_issue_close() {
                 unblocked="${unblocked:+$unblocked, }$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plans/$p" | head -n 1)"
             done
             if [ -z "$summary" ] && [ -n "$mp" ]; then
-                summary="Fixed via aapp issue fix: $mini_files${unblocked:+; unblocks $unblocked}"
+                summary="$entry${unblocked:+; unblocks $unblocked}"
             fi
             issue_close_local "$n" "$sha" "$summary" || return 1
             paths=(ISSUES.md done/000-issues-archive.md issues_road_map.md)
@@ -819,10 +824,10 @@ _issue_write_mini() {
     shift 3
     mp="$plans/current/fix-$n.md"
     {
-        echo "# 🩹 Issue Fix #$n: $text"
+        echo "# 🩹 Issue Fix #$n"
         echo "* **Plan ID:** #$n"
         echo "* **Target Issue / Milestone:** #$n"
-        echo "* **Changelog:** Fixed: $text"
+        echo "* **Changelog:** Fixed:${text:+ $text}"
         echo "* **Status:** ⚡ In Development"
         echo "* **Commits:** none"
         echo ""
@@ -1030,15 +1035,11 @@ cmd_issue_fix() {
         fi
         break
     done
-    text="$(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{print $8}' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
-    case "$text" in
-        blocks\ \[*|'') text="$(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{print $7}' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')" ;;
-    esac
-    text="$(printf '%s' "$text" | tr '\001' '|')"
     if [ -n "$grp" ]; then
         gwt="$(_issue_group_worktree "$n" "$gfile")" || { _issue_lock_release; return 1; }
     fi
-    _issue_write_mini "$plans" "$n" "$text" "${files[@]}"
+    # P-66: the entry is written by the fix's first commit (`changelog "<text>"`), never copied from the row.
+    _issue_write_mini "$plans" "$n" "" "${files[@]}"
     if [ -n "$gwt" ]; then
         local gbuf
         write_plan_field "$plans/current/fix-$n.md" Worktree ".workspace/fix-$n (fix/$n)" Status

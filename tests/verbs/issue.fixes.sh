@@ -14,9 +14,9 @@ echo "== fixes alongside active plans (P-58) =="
 init_sandbox_project "$R/wd"
 cd "$R/wd" || exit 1
 printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
-  '| #10 | `Low` | `CORE` | 2026-10-01 | `src/host.py` (`HOST_REGEX`) | Host defect. | Fix host. | 🟡 `Incubated` |' \
-  '| #11 | `Low` | `CORE` | 2026-10-01 | `src/free.py:12-14` | Free defect. | Fix free. | 🟡 `Incubated` |' \
-  '| #12 | `Low` | `CORE` | 2026-10-01 | `src/busy.py` | Busy defect. | Fix busy. | 🟡 `Incubated` |' > .plans/ISSUES.md
+  '| #10 | `Low` | `CORE` | 2026-10-01 | `src/host.py` (`HOST_REGEX`) | Host defect. |  | 🟡 `Incubated` |' \
+  '| #11 | `Low` | `CORE` | 2026-10-01 | `src/free.py:12-14` | Free defect. |  | 🟡 `Incubated` |' \
+  '| #12 | `Low` | `CORE` | 2026-10-01 | `src/busy.py` | Busy defect. |  | 🟡 `Incubated` |' > .plans/ISSUES.md
 printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #10 -> Host.' '- [ ] #11 -> Free.' '- [ ] #12 -> Busy.' > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
@@ -35,7 +35,7 @@ if [ "$rc" -eq 0 ] && grep -qxF -- '- [ ] `src/host.py`' .plans/current/fix-10.m
 else
   bad "test_fix_takes_only_paths_from_location" "rc=$rc out=$out targets=$(grep -F -- '- [ ]' .plans/current/fix-10.md 2>/dev/null | tr '\n' ' ')"
 fi
-echo "h=2" > src/host.py; git add src/host.py; aapp commit "fix: host (#10)" >/dev/null 2>&1
+echo "h=2" > src/host.py; git add src/host.py; aapp commit "fix: host (#10)" changelog "host fixed" >/dev/null 2>&1
 out="$(aapp issue close 10 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && echo "$out" | grep -qF "$wid also lists src/host.py: it picks this fix up at its next rebase."; then
   ok "test_close_notices_other_plan_listing_fixed_file"
@@ -49,7 +49,7 @@ if [ "$rc" -eq 0 ] && grep -qxF -- '- [ ] `src/free.py`' .plans/current/fix-11.m
 else
   bad "test_fix_strips_line_suffix_from_location" "rc=$rc out=$out"
 fi
-echo "f=2" > src/free.py; git add src/free.py; aapp commit "fix: free (#11)" >/dev/null 2>&1
+echo "f=2" > src/free.py; git add src/free.py; aapp commit "fix: free (#11)" changelog "free fixed" >/dev/null 2>&1
 out="$(aapp issue close 11 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && ! echo "$out" | grep -qF "also lists"; then
   ok "test_close_no_notice_when_unlisted"
@@ -135,8 +135,8 @@ git config aapp.planWorktrees on
 git config aapp.commitMode microcommits
 git config aapp.issueFixWait 0
 printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
-  '| #3 | `Low` | `CORE` | 2026-10-11 | `src/g.sh` | Group code wrong | Fixed group code | 🟡 `Incubated` |' \
-  '| #4 | `Low` | `CORE` | 2026-10-11 | `src/h.sh` | Shared code wrong | Fixed shared code | 🟡 `Incubated` |' > .plans/ISSUES.md
+  '| #3 | `Low` | `CORE` | 2026-10-11 | `src/g.sh` | Group code wrong |  | 🟡 `Incubated` |' \
+  '| #4 | `Low` | `CORE` | 2026-10-11 | `src/h.sh` | Shared code wrong |  | 🟡 `Incubated` |' > .plans/ISSUES.md
 printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #3 -> Group code wrong.' '- [ ] #4 -> Shared code wrong.' > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
@@ -160,7 +160,7 @@ out="$(aapp issue fix 3 group "$gid" 2>&1)"; rc=$?
 fwt="$R/gx/.workspace/fix-3"
 opened=0; [ "$rc" -eq 0 ] && [ -d "$fwt" ] && [ "$(git -C "$fwt" rev-parse HEAD)" = "$fsha0" ] && \
   [ "$(git -C "$fwt" rev-parse --abbrev-ref HEAD)" = "fix/3" ] && opened=1
-( cd "$fwt" && echo "g=2" > src/g.sh && git add src/g.sh && aapp commit "fix: group code (#3)" >/dev/null 2>&1 )
+( cd "$fwt" && echo "g=2" > src/g.sh && git add src/g.sh && aapp commit "fix: group code (#3)" changelog "group code fixed" >/dev/null 2>&1 )
 out2="$(aapp issue close 3 2>&1)"; rc2=$?
 if [ "$opened" -eq 1 ] && [ "$rc2" -eq 0 ] && [ "$(git show feature/fixgrp:src/g.sh)" = "g=2" ] && \
    [ "$(git rev-parse develop)" = "$dev0" ] && [ ! -d "$fwt" ] && ! git rev-parse --verify -q fix/3 >/dev/null && \

@@ -80,6 +80,7 @@ cmd_commit() {
     local vendor_override=""
     local model_override=""
     local note_text=""
+    local changelog_text=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -92,7 +93,7 @@ cmd_commit() {
                 shift
                 while [ $# -gt 0 ]; do
                     case "$1" in
-                        agent|vendor|model|note) break ;;
+                        agent|vendor|model|note|changelog) break ;;
                         *) adopt_shas+=("$1"); shift ;;
                     esac
                 done
@@ -115,6 +116,11 @@ cmd_commit() {
             note)
                 shift
                 note_text="${1:-}"
+                [ $# -gt 0 ] && shift
+                ;;
+            changelog)
+                shift
+                changelog_text="${1:-}"
                 [ $# -gt 0 ] && shift
                 ;;
             *)
@@ -242,6 +248,26 @@ cmd_commit() {
             echo "❌ [Commit Refusal] aapp.commitMode=atomic: $plan_id already has commit $first_recorded. Fold changes in with 'aapp commit amend', or set aapp.commitMode=microcommits." >&2
             return 1
         fi
+    fi
+
+    # P-66: an issue fix (`#<n>`) writes its own changelog entry at its first
+    # commit, once the change is known; a plan declares its entry in its header.
+    if [ "${plan_id#\#}" = "$plan_id" ]; then
+        if [ -n "$changelog_text" ]; then
+            echo "❌ [Commit Refusal] 'changelog' is for issue fixes; $plan_id declares its entry in its '* **Changelog:**' line ('aapp refine')." >&2
+            return 1
+        fi
+    elif aapp_plan_changelog_decl "$plan_file" >/dev/null; then
+        if [ -n "$changelog_text" ]; then
+            echo "❌ [Commit Refusal] $plan_id already has its changelog entry; reword its '* **Changelog:**' line with 'aapp refine'." >&2
+            return 1
+        fi
+    elif [ -n "$changelog_text" ]; then
+        write_plan_field "$plan_file" Changelog "Fixed: $changelog_text" || return 1
+    elif [ "$is_adopt" -eq 0 ]; then
+        echo "❌ [Commit Refusal] $plan_id has no changelog entry yet; say what the fix changed:" >&2
+        echo "   aapp commit \"${commit_msg:-<msg>}\" changelog \"<what the fix changed>\"" >&2
+        return 1
     fi
 
     # 3. Attribution Identity Resolution

@@ -4,8 +4,8 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #1 | `Medium` | `CORE` | YYYY-MM-DD | `src/core.py:42` | Example issue description stating exact symptom. | Fix in place — no plan needed. | 🟡 `Incubated` |
-| #2 | `High` | `CLI` | YYYY-MM-DD | `src/cli.py:110` | Example issue whose fix spans multiple modules. | Promoted: [`current/cli-refactor.md`](current/cli-refactor.md) | 🔵 `Planned` |
+| #1 | `Medium` | `CORE` | YYYY-MM-DD | `src/core.py:42` | Example issue description stating exact symptom. |  | 🟡 `Incubated` |
+| #2 | `High` | `CLI` | YYYY-MM-DD | `src/cli.py:110` | Example issue whose fix spans multiple modules. | [P-2](current/P2-cli-refactor.md) | 🔵 `Planned` |
 
 ---
 
@@ -33,6 +33,6 @@
 * **`Date`**: Date discovered (`YYYY-MM-DD`).
 * **`Location`**: File path and line reference (`path/to/file.ext:123`).
 * **`Symptom / Problem`**: Exact defect description (2–3 concise sentences maximum).
-* **`Target Plan / Fix`**: Direction of fix, or link to promoted blueprint (`current/plan-<name>.md`).
+* **`Target Plan / Fix`**: Written by verbs only, never notes: empty until the issue is promoted (`aapp draft <slug> issue <num>` writes `[P-xx](current/…)`) or blocks a plan (`aapp issue hotfix` writes `blocks [P-xx](…)`). A direct fix writes its changelog entry at its first commit (`aapp commit "<msg>" changelog "<what the fix changed>"`), and `aapp refine issues` refuses any other text here.
 * **`Status`**: `🟡 Incubated` (recorded, unscheduled) · `🔵 Planned` (promoted to a blueprint) · `🟠 In Progress` (active execution).
   *(Note: `✅ Resolved` does NOT exist in this table; resolved items are relocated to `.plans/done/000-issues-archive.md`).*

@@ -351,8 +351,8 @@ check "seed ignores template example rows" "1" "$(seed_issue_id .plans)"
 cat > .plans/ISSUES.md << 'EOF'
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #93 | `Low` | `CLI` | 2026-09-28 | `a` | top by priority | fix | 🟡 `Incubated` |
-| #76 | `Low` | `CLI` | 2026-09-21 | `b` | bottom row, lower id | fix | 🟡 `Incubated` |
+| #93 | `Low` | `CLI` | 2026-09-28 | `a` | top by priority |  | 🟡 `Incubated` |
+| #76 | `Low` | `CLI` | 2026-09-21 | `b` | bottom row, lower id |  | 🟡 `Incubated` |
 EOF
 cat > .plans/done/000-issues-archive.md << 'EOF'
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |

@@ -438,7 +438,7 @@ cat > .plans/ISSUES.md <<'EOF'
 # 🐛 Issues: Active Technical Backlog
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #1 | `Critical` | `SEC` | 2026-09-09 | `src/a.py:1` | Issue symptom. | Fix. | ✅ `Resolved` |
+| #1 | `Critical` | `SEC` | 2026-09-09 | `src/a.py:1` | Issue symptom. |  | ✅ `Resolved` |
 EOF
 plan p.md <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
@@ -464,7 +464,7 @@ cat > .plans/ISSUES.md <<'EOF'
 # 🐛 Issues: Active Technical Backlog
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #1 | `Critical` | `CORE` | 2026-09-10 | `src/a.py:1` | Issue symptom. | Fix. | 🟡 `Incubated` |
+| #1 | `Critical` | `CORE` | 2026-09-10 | `src/a.py:1` | Issue symptom. |  | 🟡 `Incubated` |
 EOF
 cat > .plans/done/000-issues-archive.md <<'EOF'
 # 🏛️ Master Issue Archive Ledger

@@ -1,6 +1,6 @@
 # 🗺️ Plan P-XX: [Feature or Refactor Name]
 * **Created:** [YYYY-MM-DD] | **Last Refined:** [YYYY-MM-DD]
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-XX
 * **Changelog:** Changed: [Feature or Refactor Name]
 * **Commit Mode:** atomic

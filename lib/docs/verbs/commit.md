@@ -1,4 +1,4 @@
-# commit ["<msg>"] [amend] [adopt <sha>...] [agent <A> vendor <V> model <M>] [note "<text>"]
+# commit ["<msg>"] [amend] [adopt <sha>...] [agent <A> vendor <V> model <M>] [note "<text>"] [changelog "<text>"]
 
 ## Ingress
 - positional forms:
@@ -10,6 +10,7 @@
     - `vendor <Vendor>`: AI vendor name override
     - `model <Model>`: AI model ID override
     - `note "<text>"`: note text attached to commit (routes with identity to `refs/notes/ai`, without identity to `refs/notes/commits`; operates across all modes)
+- `changelog "<text>"` (bare token, issue fixes only, P-66): the fix's changelog entry, written into its mini plan's empty `Changelog: Fixed:` line at its first commit; what the fix changed, in one line
 - reads: active execution buffer `$(git rev-parse --git-path aapp_active_plan)` (or the single `⚡ In Development` plan not held by another worktree's buffer, P-52)
 - reads: `.plans/current/<plan>.md` (`* **Commits:**` header line)
 - reads config: `aapp.aiAttribution` (attribution mode: `none`, `lax`, `strict`, `notes`)
@@ -36,6 +37,8 @@
 - `plan` mode, the plan's rendered changelog bullet exceeds `aapp.changelogMaxLen` -> exit 1 before committing
 - `plan` mode, `CHANGELOG.md` has no `## [Unreleased]` heading, or has unstaged edits -> exit 1 before committing
 - `plan` mode, the plan declares no `**Changelog:**` entry (or there is no `CHANGELOG.md`) -> no failure: a notice, `CHANGELOG.md` left to the author (P-48)
+- an issue fix (`#<n>`) with no entry yet and no `changelog` -> exit 1 before committing, stderr names `aapp commit "<msg>" changelog "<what the fix changed>"` (P-66)
+- `changelog` on a plan (not a fix), or on a fix that already has its entry -> exit 1 before committing, pointing at `aapp refine` (P-66)
 
 ## Effects (happy path)
 - the plan header records the modes in effect, `* **Commit Mode:** <atomic|microcommits>` and `* **Changelog Mode:** <plan|commit>` (inserted when absent); a value that changed since the plan's previous record adds a dated §6 line `<Field> switched to <value> (config) for <sha>.` The record is data only (P-51)
@@ -82,3 +85,5 @@ Run: `aapp test verb commit`
 - `tests/verbs/commit.sh::test_atomic_amend_keeps_one_commit` -> `amend` passes and the plan keeps one recorded commit (P-51)
 - `tests/verbs/commit.sh::test_commit_stamps_modes` -> the plan header records both modes (P-51)
 - `tests/verbs/commit.sh::test_microcommits_allows_and_switch_is_logged` -> `microcommits` allows another commit; the switch is logged in §6 (P-51)
+- `tests/verbs/commit.sh::test_mini_plan_commit_refuses_empty_changelog` -> a fix's first commit without `changelog`: exit 1 naming the token, nothing committed (P-66)
+- `tests/verbs/commit.sh::test_mini_plan_commit_writes_supplied_entry` -> `changelog "<text>"` lands in the mini plan and as the fix's `CHANGELOG.md` bullet (P-66)

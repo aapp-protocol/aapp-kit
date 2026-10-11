@@ -20,7 +20,7 @@
 - `blocked` with a non-numeric issue -> exit 1, stderr `Usage: aapp refine <plan-id> blocked <num>`
 - `id` resolves to no active plan -> exit 1, stderr `Plan '<id>' not found`
 - `slug`: new slug empty after normalisation, target file exists, same name, or the plan file has uncommitted edits -> exit 1 naming the cause; nothing moves
-- `pickup` / `issues`: ledger unchanged -> exit 1, `Nothing to commit`; a validation failure -> exit 1, each failing line named, `Nothing committed`. Issues: an empty line inside the table, a row without 8 cells, a repeated ID (Pairs 8, 1), an active ID at or above `aapp.issueId`, a road-map line without a row (Pair 2), an active issue missing from the road map. Pickup: an entry that is not a `- [ ] ` line
+- `pickup` / `issues`: ledger unchanged -> exit 1, `Nothing to commit`; a validation failure -> exit 1, each failing line named, `Nothing committed`. Issues: an empty line inside the table, a row without 8 cells, a *Target Plan / Fix* cell holding anything but empty or a verb-written link (`[P-xx](…)`, `blocks [P-xx](…)`, P-66), a repeated ID (Pairs 8, 1), an active ID at or above `aapp.issueId`, a road-map line without a row (Pair 2), an active issue missing from the road map. Pickup: an entry that is not a `- [ ] ` line
 - the message contains a line break -> exit 1, stderr `The message must be a single line (it becomes the commit subject).`; nothing staged or committed
 - the subject `plan(refine): <id> <msg>` is longer than `aapp.subjectMaxLen` -> exit 1, stderr `Commit subject is <n> characters; the limit is <max> (aapp.subjectMaxLen).` and `Shorten the message by <n-max> characters: "<msg>"`; nothing staged or committed
 - `blocked <num>` with `#<num>` not active in `ISSUES.md` (unknown or archived) -> exit 1, stderr `#<num> is not an active issue in ISSUES.md.`; the plan file is unchanged
@@ -65,3 +65,5 @@ Run: `aapp test verb refine`
 - `tests/verbs/refine.sh::test_refine_issues_commits_ledgers` -> `issue(triage): <msg>`, ledger files only (P-50)
 - `tests/verbs/refine.sh::test_refine_issues_validation_refuses` -> blank line, cell count, duplicate, ID above the counter, missing road-map line: each refused, nothing committed (P-50)
 - `tests/verbs/refine.sh::test_refine_joins_and_leaves_group` -> join and leave each in one commit; refused once the plan is started (P-64)
+- `tests/verbs/refine.sh::test_issues_refuses_text_in_fix_cell` -> notes in a fix cell: refused, naming the row, nothing committed (P-66)
+- `tests/verbs/refine.sh::test_issues_accepts_plan_and_blocks_links` -> an empty cell and a `blocks [P-xx](…)` link pass (P-66)

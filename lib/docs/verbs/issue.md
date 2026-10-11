@@ -13,7 +13,7 @@
 - `<id>`: bare number (`79`), `#79` (quoted: an unquoted `#79` is a shell comment) or `ISSUE-79`
 - close tokens (bare, no `--`):
     - `sha <sha>`: commit recorded in the archive row (default: `HEAD` of the repository, short)
-    - `summary "<text>"`: resolution summary (default: `Direct fix (no plan): <Target Plan / Fix cell>`); `|` is escaped
+    - `summary "<text>"`: resolution summary (default: `Direct fix (no plan)`; the *Target Plan / Fix* cell is never read, P-66); `|` is escaped
 - list cap: bare `<n>` sets it, `all` removes it; default 20
 - reads config: `aapp.issueFixWait` (minutes `fix` and the issue lock wait, default 5; `0` = fail fast), `aapp.maxEmergencyHotfixes` (hotfixes a plan may take, default 2; the next one blocks it permanently) (P-52)
 - reads config: `aapp.issueId` (next ID to hand out; read by `next`, advanced by `allocate`); when unset (always in a fresh clone), seeded from both ledgers on first use, template example rows ignored
@@ -46,6 +46,7 @@
 - `close` of a group fix: uncommitted changes in its worktree, `fix/<num>` not rebasing onto the feature branch, or the feature branch not fast-forwarding -> exit 1; both branches and the issue unchanged (P-64)
 - `fix <num> abort` with recorded commits -> exit 1 (close it instead)
 - `close` of an open mini plan with no recorded commit -> exit 1
+- `close` of an open mini plan whose `Changelog:` has no entry -> exit 1, naming `aapp commit "<msg>" changelog "<what the fix changed>"` (P-66)
 - the issue lock (`$(git rev-parse --git-common-dir)/aapp_issue.lock`, held while `hotfix` and the start of a `fix` write) is waited for with the same roller; a lock whose holder PID is gone, or that has no PID after a few seconds, is taken over with a stale-lock notice
 
 ## Effects (happy path)
@@ -58,8 +59,8 @@
     - the three files land in one `plans` commit `issue(close): archive #<n>`; nothing else is staged
     - then the provider, if installed, receives `issue.close` once; stdout reports `handed to aapp-issue-tracker: <status>`
 - `hotfix`: a new row `| #<n> | \`High\` | \`CORE\` | <today> | <files> | <text> | blocks [<plan>](current/<file>) | 🟡 \`Incubated\` |`; `- [ ] #<n> -> <text> (blocks <plan>)` under `## 🧱 Plan Blockers` at the top of the road map; the plan gains `#<n>` in `* **Emergency Hotfixes:**` (append-only) and is blocked through `plan_block_on` (P-49); over `aapp.maxEmergencyHotfixes` the `Blocked On:` line carries `hotfix limit reached (…)` and only the developer lifts it; one commit `issue(hotfix): #<n> blocks <plan>`; with `plan`, the row is promoted to a new draft (`aapp draft … issue <n>`) and not queued
-- `fix`: `current/fix-<num>.md` (Plan ID `#<num>`, `⚡ In Development`, `Changelog: Fixed: <text>`, §4 = the files) and the active buffer bound to `#<num>` with the previous value in `.prev`, one commit `fix(start): #<num>`; `abort` deletes it, restores the buffer, commit `fix(abort): #<num>`
-- `close` of an issue with an open mini plan: the SHA defaults to the mini plan's last recorded commit and the summary to `Fixed via aapp issue fix: <files>; unblocks <plan>`; the mini plan is deleted and the buffer restored; any plan whose `Blocked On:` lists `#<n>` drops it and, once empty and not permanent, gets its recorded status back; the matrix is re-derived; all in the one close commit (the same unblocking runs when `aapp done` closes a Target Issue); stdout then prints `ℹ️  <plan> also lists <file>: it picks this fix up at its next rebase.` for every other ⚡ or BLOCKED plan whose Target Files include a fixed file (output only, P-58)
+- `fix`: `current/fix-<num>.md` (Plan ID `#<num>`, `⚡ In Development`, `Changelog: Fixed:` with no text — the fix's first `aapp commit … changelog "<text>"` writes it; nothing is copied from the row, P-66; §4 = the files) and the active buffer bound to `#<num>` with the previous value in `.prev`, one commit `fix(start): #<num>`; `abort` deletes it, restores the buffer, commit `fix(abort): #<num>`
+- `close` of an issue with an open mini plan: the SHA defaults to the mini plan's last recorded commit and the summary to the fix's changelog entry (`<entry>; unblocks <plan>`, P-66); the mini plan is deleted and the buffer restored; any plan whose `Blocked On:` lists `#<n>` drops it and, once empty and not permanent, gets its recorded status back; the matrix is re-derived; all in the one close commit (the same unblocking runs when `aapp done` closes a Target Issue); stdout then prints `ℹ️  <plan> also lists <file>: it picks this fix up at its next rebase.` for every other ⚡ or BLOCKED plan whose Target Files include a fixed file (output only, P-58)
 - `fix` without `group`: when an active group's feature branch differs from the development branch in the fix's files, stdout adds `Group <id> changes these files on '<branch>'` with `aapp issue fix <num> group <id>`; the fix still opens, the human decides (P-64)
 - `fix … group <group>`: the mini plan records `* **Worktree:** .workspace/fix-<num> (fix/<num>)` and `* **Group:** <group>` and is bound in that worktree (the main checkout's buffer is untouched); `close` rebases `fix/<num>` onto the feature branch if it moved, fast-forwards the feature branch, removes the worktree and branch, then archives the issue as usual (P-64)
 - `list`: road-map entries in board order, the same selection as the `aapp status` Issues pillar; a truncated list ends with `… <k> more (aapp issue list all)`
@@ -121,4 +122,7 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.fixes.sh::test_fix_refused_inside_plan_worktree` -> `fix` inside a plan worktree: exit 1 with the primary path, nothing written (P-54)
 - `tests/verbs/issue.fixes.sh::test_fix_refuses_off_development_branch` -> main checkout not on the development branch: exit 1, nothing written (P-64)
 - `tests/verbs/issue.fixes.sh::test_fix_group_opens_worktree_and_close_integrates` -> `group`: the fix worktree on the feature branch; `close` lands it there only, worktree and branch gone, issue archived (P-64)
+- `tests/verbs/issue.sh::test_fix_opens_with_empty_changelog` -> the mini plan's `Changelog:` carries no text from the row (P-66)
+- `tests/verbs/issue.sh::test_close_refuses_without_fix_entry` -> `close` before the fix wrote its entry: exit 1, nothing archived (P-66)
+- `tests/verbs/issue.sh::test_close_resolution_is_changelog_entry` -> without `summary`, the archive resolution is the fix's entry (P-66)
 - `tests/verbs/issue.fixes.sh::test_fix_hints_group_for_group_files` -> files a group changed: the hint names `group <id>`, the fix still opens (P-64)

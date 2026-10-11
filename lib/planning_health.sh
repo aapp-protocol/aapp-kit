@@ -708,10 +708,31 @@ check_issue_ids_below_counter() {
     return $bad
 }
 
+# check_fix_cells <issues_file> (P-66): a row's *Target Plan / Fix* cell is empty
+# or a link written by a verb (`[P-xx](…)`, `blocks [P-xx](…)`). The fix writes
+# its own changelog entry; notes in this cell would become one.
+check_fix_cells() {
+    local issues_file="$1"
+    [ -f "$issues_file" ] || return 0
+    awk '
+        /^[[:space:]]*\|[[:space:]]*`?#[0-9]+/ {
+            line = $0; gsub(/\\\|/, "", line); split(line, c, "|")
+            cell = c[8]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", cell)
+            id = c[2]; gsub(/[[:space:]`]/, "", id)
+            if (cell != "" && cell !~ /^(blocks )?\[P-[0-9]+\]\([^)]*\)$/) {
+                printf "❌ [Fix Cell] %s: the Target Plan / Fix cell holds \"%s\"; leave it empty (the fix writes its changelog entry) or a plan link written by a verb.\n", id, cell
+                bad++
+            }
+        }
+        END { exit (bad > 0) }
+    ' "$issues_file"
+}
+
 # check_ledger_issues <issues> <archive> <roadmap>: everything `aapp refine issues` requires.
 check_ledger_issues() {
     local issues_file="$1" archive_file="$2" roadmap_file="$3" errors=0 missing
     check_issues_table_shape "$issues_file" || errors=$((errors + 1))
+    check_fix_cells "$issues_file" || errors=$((errors + 1))
     check_pair1_disjointness "$issues_file" "$archive_file" || errors=$((errors + 1))
     check_pair8_issue_id_integrity "$issues_file" "$archive_file" || errors=$((errors + 1))
     check_issue_ids_below_counter "$issues_file" || errors=$((errors + 1))
@@ -765,6 +786,9 @@ check_planning_health() {
 
     # Pair 8
     check_pair8_issue_id_integrity "$issues_file" "$archive_file" || total_errors=$((total_errors + $?))
+
+    # Fix cells hold links only (P-66)
+    check_fix_cells "$issues_file" || total_errors=$((total_errors + 1))
 
     # Schema & Taxonomy
     check_taxonomy_and_schema "$issues_file" || total_errors=$((total_errors + $?))

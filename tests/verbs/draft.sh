@@ -129,7 +129,7 @@ cat > .plans/ISSUES.md <<'EOF'
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #7 | `High` | `CORE` | 2026-10-07 | `a.sh` | Needs a plan. | Promote it. | 🟡 `Incubated` |
+| #7 | `High` | `CORE` | 2026-10-07 | `a.sh` | Needs a plan. |  | 🟡 `Incubated` |
 EOF
 cat > .plans/done/000-issues-archive.md <<'EOF'
 # Archive
