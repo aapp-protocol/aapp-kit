@@ -65,15 +65,19 @@ Mounted alongside `.plans`, `.agents`, and `.githooks`:
 └── current/                   <- Exploratory/offline draft plans
 ```
 
-### B. High-Offset ID Allocation Strategy
+### B. Local Offline ID Allocation Strategy
 * **Syntax Invariant**: Offline issue IDs strictly retain the canonical `#<num>` syntax (`^#[0-9]+$`).
-* **Offset Calculation**:
-  $$\text{Next Offline ID} = \max(\text{canonical IDs in } .plans) + \text{offlineIdOffset}$$
+* **Allocation Algorithm (handled by the issue handler script)**:
+  When the agent hands an issue to the handler script and the provider fails (or times out, or `offlineOnly` is set), the handler allocates the ID using this rule:
+  1. **Existing local offline issues**: If `.offline/` already contains local issues (in `ISSUES.md` or `done/000-issues-archive.md`), allocate **one number higher than the highest registered offline ID**:
+     $$\text{Next ID} = \max(\text{IDs in } .offline) + 1$$
+  2. **First local offline issue**: If no local offline issues exist yet, match the highest ID registered locally in canonical `.plans/` (across `ISSUES.md` and `done/000-issues-archive.md`) plus the configurable offset:
+     $$\text{Next ID} = \max(\text{canonical IDs in } .plans) + \text{offlineIdOffset}$$
 * **Configuration**: `aapp.offlineIdOffset` (default: `1000`, overrideable via `git config aapp.offlineIdOffset <val>`).
-* **Seeding & Storage**:
-  - Tracked in `git config aapp.offlineIssueId`.
-  - When offline, `aapp issue allocate` (or logging via `refine issues` / `hotfix`) seeds `aapp.offlineIssueId` from `max(canonical) + offset` if unset, then increments.
-  - Because offline IDs start at e.g. `#1045` when canonical is `#45`, local work is visibly distinct and completely immune to upstream `git pull` collisions of normal sequential IDs.
+* **Filesystem-Derived Monotonicity**:
+  - Scanning the ledgers in `.offline/` and `.plans/` always computes the exact next ID without requiring external network access.
+  - The local git config key `aapp.offlineIssueId` persists the ratchet, but if unset or out of sync, scanning the active and archived ledgers yields the deterministic next ID.
+  - **Example**: If canonical max is `#42`, the first offline issue is allocated `#1043`. The second offline issue finds `#1043` in `.offline/` and allocates `#1044`, then `#1045`, guaranteeing clean sequential numbering without repeated offset jumps.
 
 ### C. Three-Tier Offline Governance & Global Timeout Engine
 All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed by a global timeout and a 3-tier execution mode:
@@ -133,7 +137,8 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
 - [ ] `tests/verbs/offline.sh::test_mount_creates_orphan_worktree` -> asserts `aapp offline mount` creates `.offline` on orphan branch `offline`
-- [ ] `tests/verbs/offline.sh::test_allocate_uses_offset` -> asserts offline allocation starts at `max(canonical) + aapp.offlineIdOffset`
+- [ ] `tests/verbs/offline.sh::test_allocate_uses_offset` -> asserts first offline allocation starts at `max(canonical) + aapp.offlineIdOffset`
+- [ ] `tests/verbs/offline.sh::test_allocate_subsequent_increments_by_one` -> asserts subsequent offline allocation increments from highest existing offline ID (+1)
 - [ ] `tests/verbs/offline.sh::test_custom_offset_configuration` -> asserts changing `git config aapp.offlineIdOffset 5000` starts offline IDs at 5000+
 - [ ] `tests/verbs/offline.sh::test_plugin_smart_fallback_on_timeout` -> asserts when plugin hangs beyond `aapp.pluginTimeout`, operation falls back to `.offline` with advisory
 - [ ] `tests/verbs/offline.sh::test_offline_only_skips_network` -> asserts `offlineOnly=true` bypasses plugin execution completely with zero latency
@@ -145,11 +150,11 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 - [ ] `tests/verbs/offline.sh::test_unmount_refuses_when_dirty` -> asserts `aapp offline unmount` refuses if unpromoted issues exist without `--force`
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Author test suite in `tests/verbs/offline.sh` proving mounting, offset allocation, status detection, local archiving, and sync.
+- [ ] Task 1.1: Author test suite in `tests/verbs/offline.sh` proving mounting, offset allocation, sequential local increments, status detection, local archiving, and sync.
 
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: Implement `lib/cmd_offline.sh` with `mount`, `unmount`, `on`, `off`, `status`, and `sync` handlers.
-- [ ] Task 2.2: Add high-offset offline ID allocation logic in `lib/cmd_issue.sh` / `lib/plan_resolver.sh`.
+- [ ] Task 2.2: Add offline ID allocation logic in issue handler (max offline + 1 if offline issues exist, else max canonical + offset).
 - [ ] Task 2.3: Wire 3-tier governance and `aapp.pluginTimeout` global delay handling into plugin dispatch.
 - [ ] Task 2.4: Wire local archive relocation in `lib/cmd_issue.sh` when closing issues located in `.offline/`.
 - [ ] Task 2.5: Update `lib/cmd_status.sh` to observe `.offline/` and print the offline briefing pillar.
@@ -195,3 +200,4 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 * **2026-10-11:** Scaffolded canonical blueprint P-75 for the offline worktree and local lifecycle.
 * **2026-10-11:** Completed technical blueprint, high-offset ID allocation (+1000 configurable), local archiving, and sync relinking specifications.
 * **2026-10-11:** Integrated 3-tier offline governance (smart fallback, offline-only zero latency, strict compliance) and global plugin timeout (`aapp.pluginTimeout` default 3s); resolved Q1.
+* **2026-10-11:** Refined offline ID allocation algorithm: highest offline ID + 1 if offline issues exist, else max canonical + offset for first offline issue.
