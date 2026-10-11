@@ -45,7 +45,7 @@ Design record: RFC `worktree-contexts-monorepo-rfc.md` (§4 decisions, C1/C2, A1
 
 **The group has its own plan** (developer, 2026-10-11): one blueprint centralises the group's goal, shared decisions, feature branch and members, and its lifecycle carries the group: its `start` cuts the feature branch, its `done` runs the gate on the feature branch and merges it into the parent. Without it, the final merge is manual (P-60/P-62 were merged by hand).
 
-**Always the parent branch** (developer): a group merges into the branch it was cut from, which is not necessarily the development branch: a module branch, a test branch, a release branch. Work always starts from a branch; tags are added after. Groups nest: a group's parent may be another group's feature branch.
+**Always the parent branch** (developer): a group merges into the branch it was cut from, which is not necessarily the development branch: a module branch, a test branch, a release branch. Work always starts from a branch; tags are added after. Groups do not nest (developer): a group has no child group.
 
 ---
 
@@ -53,11 +53,14 @@ Design record: RFC `worktree-contexts-monorepo-rfc.md` (§4 decisions, C1/C2, A1
 
 ### 2.0 The group plan
 - `aapp draft <slug> group`: a plan with the next Plan ID, marked by its title heading `# 🧩 Group Plan P-<n>: <title>` (the one marker verbs read), from its own template `templates/group-template.md` (its sections differ from a plan's; a variant inside `plan-template.md` would put conditional sections in every plan): goal, shared decisions, `* **Feature Branch:**`, `* **Members:**`, merge criterion, `## Architecture & Codemap` (2.6). Target Files: `ARCHITECTURE.md` and `.agents/CODEMAP.md` only; `freeze` also checks the group fields.
-- `aapp start <group>` (optionally `base <branch>`, an existing branch; default: the development branch): creates `feature/<slug>` from it, records `Base: <sha> (<parent>)`. No worktree, no buffer: the group writes no code.
-- `aapp done <group>`: refuses while a member is not archived; runs `pre-done` with the feature branch checked out in a temporary worktree (the payload's `worktree`), so the gate tests the merged result; merges the feature branch into the parent (fast-forward, or a merge commit when the parent moved: recorded SHAs stay valid); removes the feature branch.
+- `aapp start <group>` (optionally `base <branch>`, an existing branch; default: the development branch): creates `feature/<slug>` from it, records `Base: <sha> (<parent>)`. No worktree, no buffer: the group writes no code. Refuses when `<branch>` is an active group's feature branch: groups do not nest.
+- `aapp done <group>`, in order: refuses while a member is not archived; checks out the feature branch in a temporary worktree; when the parent has moved, merges the parent into it there (a conflict refuses with nothing changed; never a rebase: members' recorded SHAs stay valid); commits `ARCHITECTURE.md` (2.6); runs `pre-done` there (the payload's `worktree`), so the gate tests exactly what lands; fast-forwards the parent; commits `.agents/CODEMAP.md` (2.6); removes the worktree and the feature branch.
+- The group's `* **Changelog:**` line is the umbrella entry for the capability the group delivers, written next to its members' entries (`CHANGELOG.md merge=union`); its `ARCHITECTURE.md` commit writes it.
+- A group cannot be abandoned while the kit has no path to abandon any plan (#118).
 
 ### 2.1 Members start into the group (`lib/cmd_plan.sh`)
-`aapp start <id> group <group>` / `aapp freeze-start <id> group <group>`: the plan worktree branches from the group's feature branch, records `Base: <sha> (<feature-branch>)` and `* **Group:** <group>`, and the group plan lists the member. P-55 then integrates the plan into the feature branch. Needs a plan worktree; the group must be ⚡ In Development. `aapp.devBranch` is never changed for this.
+`aapp start <id> group <group>` / `aapp freeze-start <id> group <group>`: the plan worktree branches from the group's feature branch, records `Base: <sha> (<feature-branch>)` and `* **Group:** <group>`, and the group plan lists the member. P-55 then integrates the plan into the feature branch. Needs a plan worktree; the group must be ⚡ In Development; a group plan cannot be a member (no nesting). `aapp.devBranch` is never changed for this.
+Members in flight together stay disjoint: the existing activation gate (`check_disjointness_activation_gate`) refuses overlapping Target Files, members included. Pre-flight checks before members join are left open for P-65 (`plan conflict-check`/`conflict-free`), which plugs in here when it lands.
 
 ### 2.2 Fixes on the development branch (`lib/cmd_issue.sh`)
 `aapp issue fix` without `base` refuses unless the main checkout is on the development branch (`aapp_dev_branch`; the default branch when none resolves).
@@ -94,6 +97,10 @@ When the issue's files differ between the development branch and an active group
 - [ ] `tests/verbs/start.sh::test_group_start_refuses_missing_branch` -> asserts an unknown `base <branch>` refuses with nothing created
 - [ ] `tests/verbs/start.sh::test_member_start_branches_from_feature_branch` -> asserts the member's worktree branches from the feature branch, records `Group:`, and the group lists it
 - [ ] `tests/verbs/start.sh::test_member_start_refuses_unstarted_group` -> asserts `group <id>` refuses unless the group is ⚡ In Development
+- [ ] `tests/verbs/start.sh::test_groups_do_not_nest` -> asserts a group started with `base <feature-branch-of-a-group>` and a group plan started with `group <id>` both refuse, nothing created
+- [ ] `tests/integrate_test.sh::test_group_done_merges_moved_parent_before_gate` -> asserts a parent that moved is merged into the feature branch before `pre-done`, then the parent fast-forwards; member SHAs unchanged
+- [ ] `tests/integrate_test.sh::test_group_done_conflict_refuses_unchanged` -> asserts a conflicting parent refuses with parent, feature branch and plans unchanged
+- [ ] `tests/integrate_test.sh::test_group_done_writes_umbrella_changelog` -> asserts the group's changelog entry lands next to the members' entries
 - [ ] `tests/integrate_test.sh::test_member_integrates_into_feature_branch` -> asserts a member's `done` lands on the feature branch, not the parent
 - [ ] `tests/integrate_test.sh::test_group_done_refuses_open_member` -> asserts the group's `done` refuses while a member is not archived
 - [ ] `tests/integrate_test.sh::test_group_done_gates_and_merges_into_parent` -> asserts `pre-done` sees the feature branch's worktree, the merge lands on the parent (a module branch, not develop), recorded member SHAs stay reachable
@@ -197,6 +204,7 @@ When the issue's files differ between the development branch and an active group
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-11:** Review ideas (Antigravity), decided by the developer: group `done` merges a moved parent into the feature branch before the gate (no rebase); umbrella changelog entry; groups do not nest; P-65 pre-flight left open; abandoning is #118.
 * **2026-10-11:** Architecture & Codemap belong to the group (developer, §2.6): separate group template; members do not edit them; the group's `done` commits ARCHITECTURE before the gate and CODEMAP after the merge; a missing section refuses.
 * **2026-10-11:** Group plan added (developer): the group's own blueprint, `start`/`done` cut and merge the feature branch, always into the parent branch; `group <id>` replaces `base <branch>` for members and fixes; status grouping. Q5, Q6 open.
 * **2026-10-10:** Q1–Q4 resolved with the recommended answers (developer).
