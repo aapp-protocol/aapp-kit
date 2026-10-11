@@ -26,7 +26,7 @@ Merge criterion: both members archived and the pre-done gate green on the featur
 ## 2. Shared Decisions
 - **One accessor.** Nothing outside the ledger module reads or writes `ISSUES.md`, `done/000-issues-archive.md` or `issues_road_map.md`; a test fails on any new direct access. Path names in permission lists (guard, pre-commit allow-lists) are not access.
 - **The ledger rows are the kit's.** `ISSUES.md` rows are always written by the kit; a provider receives them and may mirror them anywhere.
-- **Wrapper points.** Five: `log` (new rows), `refine` (changed rows), `fix`, `close`, `list`. Each sends the whole issue (all cells, note, plan link, commit, summary, the step's own data) in the Plugin Payload Standard envelope.
+- **Wrapper points.** Six: `log` (new rows), `refine` (changed rows), `fix`, `abort`, `close`, `list`. Each sends the whole issue (all cells, note, plan link, commit, summary, the step's own data) in the Plugin Payload Standard envelope.
 - **The plugin decides.** Its answer's `kit` list names what the kit still handles; no `kit` field means the kit handles everything. No provider means the kit's internals.
 - **Notes** are never in the ledger. Without a provider, the kit keeps them outside the repository, under `~/.local/state/aapp/<project>/`.
 - **Remote issues** are kept in a cache next to the notes; the module's readers merge it with the ledger. Hooks read only local data and the cache, never the network.
