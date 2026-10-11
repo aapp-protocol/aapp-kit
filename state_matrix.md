@@ -32,7 +32,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-67**: [`P67-parallel-test-suites.md`](current/P67-parallel-test-suites.md) — Parallel Test Suites
 - ⚡ **P-71**: [`P71-faster-test-runs.md`](current/P71-faster-test-runs.md) — 🧩 Group Plan P-71: Faster Test Runs
 
 ---
