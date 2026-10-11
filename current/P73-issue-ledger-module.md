@@ -41,7 +41,7 @@
 ## 1. Context & Architectural Goal
 The three issue ledgers (`ISSUES.md`, `done/000-issues-archive.md`, `issues_road_map.md`) are named on about 130 lines in 9 files (`lib/cmd_issue.sh`, `lib/cmd_plan.sh`, `lib/cmd_status.sh`, `lib/planning_health.sh`, `lib/cmd_init.sh`, `lib/cmd_matrix.sh`, `lib/plan_resolver.sh`, `templates/aapp-pre-commit`, `templates/blast-radius-guard.sh`), and each reader carries its own awk/grep/sed over the table. A change to the row format means finding every copy; they already diverge (`lib/cmd_status.sh` looks for `.plans/ISSUES.md` before `ISSUES.md`, `templates/aapp-pre-commit` the other way round).
 
-This plan moves all of it into one module that every caller reuses. Behaviour does not change. P-74 then adds the provider behind the same functions, so callers never learn where an issue came from.
+This plan moves all of it into one module that every caller reuses. Behaviour does not change. P-74 (remote cache) and P-75 (`.offline` ledgers) then add sources behind the same functions, so callers never learn where an issue came from. The readers are built for that: rows carry a source field (`local` for now).
 
 ---
 
