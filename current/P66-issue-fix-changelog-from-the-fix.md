@@ -63,11 +63,12 @@ A row's *Target Plan / Fix* cell is empty or holds only links written by verbs: 
 `templates/issues.md` (column definitions), `templates/AGENTS.md` (issue logging and promotion), `templates/skills/aapp-fix/SKILL.md` (Step 2: the entry). Wording follows Q1/Q2.
 
 ### 2.6 Existing rows
-The new check flags this repository's rows with notes in the cell (#108, #110, #111); they are emptied with `aapp refine issues` in this plan (Q1).
+The new check flags this repository's rows with notes in the cell (#108, #110, #111). Rectifying these rows is executed strictly during plan implementation (Task 2.5) as an integrated one-in-one fix committed under the plan's blast radius, not done apart as an out-of-band edit.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`. Adopters' existing rows with notes in the cell are refused by the ledger check until emptied; the message names each row.
+
 
 ---
 
@@ -92,7 +93,7 @@ The new check flags this repository's rows with notes in the cell (#108, #110, #
 - [ ] Task 2.2: `issue fix` and `close` (2.2, 2.4) in `lib/cmd_issue.sh`.
 - [ ] Task 2.3: First-commit refusal and entry (2.3) in `lib/cmd_commit.sh`.
 - [ ] Task 2.4: Contracts `lib/docs/verbs/{issue,commit,refine}.md`; agent text (2.5).
-- [ ] Task 2.5: Empty the fix cells of #108, #110, #111 (2.6).
+- [ ] Task 2.5: Rectify rows in `ISSUES.md` (#108, #110, #111) during plan execution via `aapp refine issues` (2.6).
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -134,14 +135,14 @@ The new check flags this repository's rows with notes in the cell (#108, #110, #
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — The fix cell's role.** (a) Links only: the mini plan's entry is the one source of the changelog text. (b) The cell stays the entry, but may be written only at fix time and is copied when the fix commits. Recommendation: (a); one place to write it, nothing to drift.
-* [ ] **Question 2 — Where a fix direction goes, if anywhere.** (a) Nowhere: the symptom is enough; a fix needing direction becomes a plan. (b) A new column. Recommendation: (a); the eight-column table stays as `AGENTS.md` defines it.
-* [ ] **Question 3 — How the fixer supplies the entry.** (a) A `changelog "<text>"` token on the first `aapp commit` of a mini plan. (b) Edit the mini plan's `Changelog:` line, then commit it with a verb. Recommendation: (a); one command, written when the change is known.
+* [x] **Question 1 — The fix cell's role. → RESOLVED (developer, 2026-10-11): (a), links only.** The *Target Plan / Fix* cell holds only verb-written links (`[P-xx](...)`, `blocks [P-xx](...)`) or stays empty. The mini plan is the sole source of the changelog text (§2.1).
+* [x] **Question 2 — Where a fix direction goes, if anywhere. → RESOLVED (developer, 2026-10-11): (a), nowhere in ISSUES.md.** The symptom is enough. If a bug requires multi-step architectural direction, it is promoted to a full draft blueprint (§2.1, §2.5).
+* [x] **Question 3 — How the fixer supplies the entry. → RESOLVED (developer, 2026-10-11): (a), `changelog "<text>"` token on first `aapp commit`.** One atomic command supplied once the fix is implemented and verified (§2.3).
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-11:** Q1–Q3 resolved with the recommended answers (developer); clarified that rectifying issue rows #108, #110, #111 is executed during plan implementation.
 * **2026-10-10:** Drafted from #117.
+
