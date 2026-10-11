@@ -33,8 +33,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-64**: [`P64-feature-branch-plan-groups.md`](current/P64-feature-branch-plan-groups.md) — Feature Branch Plan Groups
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
