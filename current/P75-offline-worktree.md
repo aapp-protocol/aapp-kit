@@ -96,6 +96,7 @@
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** File renamed from P75-help.md to P75-offline-worktree.md.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-11:** Plan initialized from `pickup.md`.
 * **2026-10-11:** Refined blast radius and locked module boundaries.
