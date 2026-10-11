@@ -142,47 +142,47 @@ Aborting a group plan removes the group: its plan, its open members and its code
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/plan.abort.sh::test_abort_draft_moves_to_aborted_and_cleans_matrix` -> asserts an Under Review plan lands in `aborted/` as `❌ Aborted` with its reason, and its matrix row is gone
-- [ ] `tests/verbs/plan.abort.sh::test_abort_frozen_plan` -> asserts a Frozen plan aborts in one `plan(abort)` commit
-- [ ] `tests/verbs/plan.abort.sh::test_abort_writes_ledger_row` -> asserts the ledger is created when missing and gains the row with reason and commits
-- [ ] `tests/verbs/plan.abort.sh::test_abort_refuses_mini_plan` -> asserts `fix-<num>` is refused and points to `issue fix <num> abort`
-- [ ] `tests/verbs/plan.abort.sh::test_abort_refuses_archived_plan` -> asserts a plan in `done/` or `aborted/` is not found
-- [ ] `tests/verbs/plan.abort.sh::test_abort_refuses_dirty_worktree_without_force` -> asserts tracked or untracked changes refuse and nothing changes; `force` proceeds
-- [ ] `tests/verbs/plan.abort.sh::test_abort_refuses_sensitive_ignored_files` -> asserts a `.env` in the worktree refuses without `force-cleanup` and is quarantined with `aapp.quarantineIgnored`
-- [ ] `tests/verbs/plan.abort.sh::test_abort_refuses_inside_plan_worktree` -> asserts abort run from the plan's worktree refuses
-- [ ] `tests/verbs/plan.abort.sh::test_abort_removes_worktree_and_branch` -> asserts the recorded worktree and branch are gone and the warning names the SHA
-- [ ] `tests/verbs/plan.abort.sh::test_abort_keep_branch_preserves_ref` -> asserts `keep-branch` leaves the branch
-- [ ] `tests/verbs/plan.abort.sh::test_abort_clears_buffers` -> asserts no buffer still names the plan
-- [ ] `tests/verbs/plan.abort.sh::test_abort_commit_failure_restores` -> asserts a refused plans commit restores plan, ledgers and matrix and removes no worktree or branch
-- [ ] `tests/verbs/plan.abort.sh::test_abort_single_checkout_keeps_commits` -> asserts recorded commits stay on the branch, are listed, and reach the ledger
-- [ ] `tests/verbs/plan.abort.sh::test_abort_target_issue_incubated_with_aborted_link` -> asserts the row is `🟡 Incubated`, still active, its cell `[P-<id>](aborted/…)`
-- [ ] `tests/verbs/plan.abort.sh::test_abort_relinks_other_issue_rows` -> asserts other rows and road-map lines point at `aborted/`
-- [ ] `tests/verbs/plan.abort.sh::test_abort_blocked_plan_drops_stash_record` -> asserts the hotfix issue stays open and its `aapp_hotfix_stash` line is gone while the stash remains
-- [ ] `tests/verbs/plan.abort.sh::test_abort_group_member_unlinked` -> asserts the group's `Members` no longer lists the plan
-- [ ] `tests/verbs/plan.abort.sh::test_abort_group_member_with_commits` -> asserts a member with recorded commits aborts: its worktree and branch are gone and the feature branch is unchanged
-- [ ] `tests/verbs/plan.abort.sh::test_abort_group_needs_confirm` -> asserts a group abort without a terminal and without `confirm` is refused, lists what it would remove, and changes nothing
-- [ ] `tests/verbs/plan.abort.sh::test_abort_group_aborts_open_members` -> asserts with `confirm` the group and every member in `current/`, with or without commits, land in `aborted/` in one commit, each with a ledger row
-- [ ] `tests/verbs/plan.abort.sh::test_abort_group_removes_feature_branch` -> asserts the feature branch and member branches go, or stay with `keep-branch`
-- [ ] `tests/verbs/plan.abort.sh::test_abort_group_lists_archived_members` -> asserts archived members stay in `done/` and are named in the output
-- [ ] `tests/verbs/plan.abort.sh::test_abort_dispatches_post_abort` -> asserts a registered `post-abort` handler receives the payload
+- [x] `tests/verbs/plan.abort.sh::test_abort_draft_moves_to_aborted_and_cleans_matrix` -> asserts an Under Review plan lands in `aborted/` as `❌ Aborted` with its reason, and its matrix row is gone
+- [x] `tests/verbs/plan.abort.sh::test_abort_frozen_plan` -> asserts a Frozen plan aborts in one `plan(abort)` commit
+- [x] `tests/verbs/plan.abort.sh::test_abort_writes_ledger_row` -> asserts the ledger is created when missing and gains the row with reason and commits
+- [x] `tests/verbs/plan.abort.sh::test_abort_refuses_mini_plan` -> asserts `fix-<num>` is refused and points to `issue fix <num> abort`
+- [x] `tests/verbs/plan.abort.sh::test_abort_refuses_archived_plan` -> asserts a plan in `done/` or `aborted/` is not found
+- [x] `tests/verbs/plan.abort.sh::test_abort_refuses_dirty_worktree_without_force` -> asserts tracked or untracked changes refuse and nothing changes; `force` proceeds
+- [x] `tests/verbs/plan.abort.sh::test_abort_refuses_sensitive_ignored_files` -> asserts a `.env` in the worktree refuses without `force-cleanup` and is quarantined with `aapp.quarantineIgnored`
+- [x] `tests/verbs/plan.abort.sh::test_abort_refuses_inside_plan_worktree` -> asserts abort run from the plan's worktree refuses
+- [x] `tests/verbs/plan.abort.sh::test_abort_removes_worktree_and_branch` -> asserts the recorded worktree and branch are gone and the warning names the SHA
+- [x] `tests/verbs/plan.abort.sh::test_abort_keep_branch_preserves_ref` -> asserts `keep-branch` leaves the branch
+- [x] `tests/verbs/plan.abort.sh::test_abort_clears_buffers` -> asserts no buffer still names the plan
+- [x] `tests/verbs/plan.abort.sh::test_abort_commit_failure_restores` -> asserts a refused plans commit restores plan, ledgers and matrix and removes no worktree or branch
+- [x] `tests/verbs/plan.abort.sh::test_abort_single_checkout_keeps_commits` -> asserts recorded commits stay on the branch, are listed, and reach the ledger
+- [x] `tests/verbs/plan.abort.sh::test_abort_target_issue_incubated_with_aborted_link` -> asserts the row is `🟡 Incubated`, still active, its cell `[P-<id>](aborted/…)`
+- [x] `tests/verbs/plan.abort.sh::test_abort_relinks_other_issue_rows` -> asserts other rows and road-map lines point at `aborted/`
+- [x] `tests/verbs/plan.abort.sh::test_abort_blocked_plan_drops_stash_record` -> asserts the hotfix issue stays open and its `aapp_hotfix_stash` line is gone while the stash remains
+- [x] `tests/verbs/plan.abort.sh::test_abort_group_member_unlinked` -> asserts the group's `Members` no longer lists the plan
+- [x] `tests/verbs/plan.abort.sh::test_abort_group_member_with_commits` -> asserts a member with recorded commits aborts: its worktree and branch are gone and the feature branch is unchanged
+- [x] `tests/verbs/plan.abort.sh::test_abort_group_needs_confirm` -> asserts a group abort without a terminal and without `confirm` is refused, lists what it would remove, and changes nothing
+- [x] `tests/verbs/plan.abort.sh::test_abort_group_aborts_open_members` -> asserts with `confirm` the group and every member in `current/`, with or without commits, land in `aborted/` in one commit, each with a ledger row
+- [x] `tests/verbs/plan.abort.sh::test_abort_group_removes_feature_branch` -> asserts the feature branch and member branches go, or stay with `keep-branch`
+- [x] `tests/verbs/plan.abort.sh::test_abort_group_lists_archived_members` -> asserts archived members stay in `done/` and are named in the output
+- [x] `tests/verbs/plan.abort.sh::test_abort_dispatches_post_abort` -> asserts a registered `post-abort` handler receives the payload
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/verbs/plan.abort.sh` with the Required Tests; all fail.
+- [x] Task 1.1: Write `tests/verbs/plan.abort.sh` with the Required Tests; all fail.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `cmd_plan_abort()` in `lib/cmd_plan.sh`: tokens, preflight (§2.2).
-- [ ] Task 2.2: Route `abort` in `cmd_plan_switchboard` and list it in the switchboard text.
-- [ ] Task 2.3: Archive (§2.3): move, header, change log, ledger, matrix, buffers, snapshot-guarded commit.
-- [ ] Task 2.4: Row function in `lib/cmd_issue.sh` (`🔵 Planned` -> `🟡 Incubated`, link repointed to `aborted/`), called by `plan abort`; relink; hotfix stash records (§2.4).
-- [ ] Task 2.5: Group member unlinking; group plan abort with confirmation (§2.6).
-- [ ] Task 2.6: Teardown (§2.5).
-- [ ] Task 2.7: `post-abort` dispatch and event catalogue (§2.7).
+- [x] Task 2.1: `cmd_plan_abort()` in `lib/cmd_plan.sh`: tokens, preflight (§2.2).
+- [x] Task 2.2: Route `abort` in `cmd_plan_switchboard` and list it in the switchboard text.
+- [x] Task 2.3: Archive (§2.3): move, header, change log, ledger, matrix, buffers, snapshot-guarded commit.
+- [x] Task 2.4: Row function in `lib/cmd_issue.sh` (`🔵 Planned` -> `🟡 Incubated`, link repointed to `aborted/`), called by `plan abort`; relink; hotfix stash records (§2.4).
+- [x] Task 2.5: Group member unlinking; group plan abort with confirmation (§2.6).
+- [x] Task 2.6: Teardown (§2.5).
+- [x] Task 2.7: `post-abort` dispatch and event catalogue (§2.7).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run the kit suites; the Required Tests pass.
-- [ ] Task 3.2: `plan abort` form in the `plan` verb contract `lib/docs/verbs/plan.md`.
-- [ ] Task 3.3: `MANUAL.md`, `CHEATSHEET.md` and the `templates/AGENTS.md` CLI Reference.
-- [ ] Task 3.4: `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
+- [x] Task 3.1: Run the kit suites; the Required Tests pass.
+- [x] Task 3.2: `plan abort` form in the `plan` verb contract `lib/docs/verbs/plan.md`.
+- [x] Task 3.3: `MANUAL.md`, `CHEATSHEET.md` and the `templates/AGENTS.md` CLI Reference.
+- [x] Task 3.4: `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
 
 ---
 
