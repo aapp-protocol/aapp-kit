@@ -183,33 +183,33 @@ Implement helper function:
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/plan.sh::test_conflict_check_disjoint_plans_exit_zero` -> asserts two disjoint plans: exit 0
-- [ ] `tests/verbs/plan.sh::test_conflict_check_overlapping_plans_exit_one_and_names_target` -> asserts an overlap: exit 1 naming the file
-- [ ] `tests/verbs/plan.sh::test_conflict_check_exempts_shared_docs` -> asserts shared docs alone are no collision
-- [ ] `tests/verbs/plan.sh::test_conflict_free_against_active_in_flight_plans` -> asserts pending plans split into conflict-free and conflicting against ⚡ plans
-- [ ] `tests/verbs/plan.sh::test_conflict_free_with_reference_plan` -> asserts compatible and incompatible plans against `<id>`
-- [ ] `tests/verbs/plan.sh::test_conflict_check_many_plans_and_group_expands` -> asserts several plans pairwise; a group ID expands to its members
-- [ ] `tests/verbs/plan.sh::test_conflict_free_group_orders_members_in_waves` -> asserts three members, two colliding: two waves, the held-back member names the file and member
-- [ ] `tests/verbs/plan.sh::test_group_waves_respect_in_flight_plans` -> asserts a member colliding with a ⚡ plan outside the group waits
-- [ ] `tests/verbs/plan.sh::test_group_waves_filters_done_and_inflight_members` -> asserts done members skipped, in-flight members anchor collisions
-- [ ] `tests/verbs/plan.sh::test_conflict_subcommands_json_token_output` -> asserts `json` gives structured output with the same exit codes
+- [x] `tests/verbs/plan.sh::test_conflict_check_disjoint_plans_exit_zero` -> asserts two disjoint plans: exit 0
+- [x] `tests/verbs/plan.sh::test_conflict_check_overlapping_plans_exit_one_and_names_target` -> asserts an overlap: exit 1 naming the file
+- [x] `tests/verbs/plan.sh::test_conflict_check_exempts_shared_docs` -> asserts shared docs alone are no collision
+- [x] `tests/verbs/plan.sh::test_conflict_free_against_active_in_flight_plans` -> asserts pending plans split into conflict-free and conflicting against ⚡ plans
+- [x] `tests/verbs/plan.sh::test_conflict_free_with_reference_plan` -> asserts compatible and incompatible plans against `<id>`
+- [x] `tests/verbs/plan.sh::test_conflict_check_many_plans_and_group_expands` -> asserts several plans pairwise; a group ID expands to its members
+- [x] `tests/verbs/plan.sh::test_conflict_free_group_orders_members_in_waves` -> asserts three members, two colliding: two waves, the held-back member names the file and member
+- [x] `tests/verbs/plan.sh::test_group_waves_respect_in_flight_plans` -> asserts a member colliding with a ⚡ plan outside the group waits
+- [x] `tests/verbs/plan.sh::test_group_waves_filters_done_and_inflight_members` -> asserts done members skipped, in-flight members anchor collisions
+- [x] `tests/verbs/plan.sh::test_conflict_subcommands_json_token_output` -> asserts `json` gives structured output with the same exit codes
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: The Required Tests above.
+- [x] Task 1.1: The Required Tests above.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Implement `plan_compare_targets()` helper in `lib/cmd_plan.sh`.
-- [ ] Task 2.2: Implement `cmd_plan_conflict_check()` and wire into `cmd_plan` dispatcher.
-- [ ] Task 2.3: Implement `cmd_plan_conflict_free()` (handling both 0-arg and 1-arg cases).
-- [ ] Task 2.4: Update `aapp plan` switchboard / help output to list `conflict-check` and `conflict-free`.
-- [ ] Task 2.5: Plan sets, group waves, member status filtering, and `json` token support (§2.1.4, §2.1.5), reading group members through P-64's parsers.
+- [x] Task 2.1: Implement `plan_compare_targets()` helper in `lib/cmd_plan.sh`.
+- [x] Task 2.2: Implement `cmd_plan_conflict_check()` and wire into `cmd_plan` dispatcher.
+- [x] Task 2.3: Implement `cmd_plan_conflict_free()` (handling both 0-arg and 1-arg cases).
+- [x] Task 2.4: Update `aapp plan` switchboard / help output to list `conflict-check` and `conflict-free`.
+- [x] Task 2.5: Plan sets, group waves, member status filtering, and `json` token support (§2.1.4, §2.1.5), reading group members through P-64's parsers.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases (non-existent plan IDs, plans with empty target files).
-- [ ] Task 3.2: Update `lib/docs/verbs/plan.md` verb contract.
-- [ ] Task 3.3: Update `MANUAL.md` with Concurrency & Conflict Audit CLI documentation.
-- [ ] Task 3.4: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
-- [ ] Task 3.5: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.1: Run automated test suites and verify edge cases (non-existent plan IDs, plans with empty target files).
+- [x] Task 3.2: Update `lib/docs/verbs/plan.md` verb contract.
+- [x] Task 3.3: Update `MANUAL.md` with Concurrency & Conflict Audit CLI documentation.
+- [x] Task 3.4: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
+- [x] Task 3.5: Verify `CHANGELOG.md` updates and run syntax/build checks.
 
 ---
 
