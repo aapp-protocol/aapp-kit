@@ -61,6 +61,7 @@ In AAPP, blueprint lifecycles are currently strictly unidirectional towards `don
   - `keep-branch`: the plan branch (or a group's feature branch) is kept.
   - `force`: uncommitted work in the plan's worktree is discarded.
   - `force-cleanup`: sensitive ignored files in the plan's worktree are deleted with it (the token `done` uses).
+  - `confirm`: a group plan's abort proceeds without the terminal prompt (§2.2).
 - An unknown token refuses with the usage line, as `_ig_parse_tokens` does.
 
 ### 2.2 Preflight (nothing changed on refusal, exit 1)
@@ -73,8 +74,12 @@ In AAPP, blueprint lifecycles are currently strictly unidirectional towards `don
 3. **Plan worktree** (`parse_plan_worktree`: the recorded path and branch, never names derived from the slug):
    - any `git status --porcelain` output, tracked or untracked (the test `done` applies), refuses without `force`, listing the files;
    - sensitive ignored files (`check_worktree_ignored_files`) follow `_ig_cleanup`'s rule: copied to the quarantine directory when `aapp.quarantineIgnored` is true, otherwise a refusal without `force-cleanup`.
-4. **Group plan** (`aapp_is_group_plan`): refused while any member still has a file in `current/` (the test `_group_done_prepare` applies); each is aborted, archived or released with `aapp refine <id> group none` first.
-5. **Group member** (`* **Group:** <group>`): refused once it has recorded commits (`parse_plan_commits`), as `aapp issue fix <num> abort` refuses a fix with commits; implemented member work is finished with `aapp done <id>`. A member without commits aborts like any plan.
+4. **Group plan** (`aapp_is_group_plan`): the whole group goes (§2.6). Checks 2 and 3 run for every member still in `current/`. Then abort prints what it removes and asks:
+   - the members it aborts, each with its recorded commits;
+   - the archived members whose work is on the feature branch;
+   - the feature branch and its SHA.
+   On a terminal (`[ -t 0 ]`) it prompts `[y/N]`; anything but `y` exits 1 with nothing changed. Without a terminal it refuses unless `confirm` is given. A member released beforehand with `aapp refine <id> group none` is not part of the group.
+5. **Group member** (`* **Group:** <group>`), aborted on its own: refused once it has recorded commits (`parse_plan_commits`), as `aapp issue fix <num> abort` refuses a fix with commits; implemented member work is finished with `aapp done <id>`. A member without commits aborts like any plan.
 6. **Target issue**: `issue_locate` must find `#<n>` in `ISSUES.md` or the issues archive; an archived issue is left alone.
 
 ### 2.3 Archive (one commit in the plans worktree)
@@ -110,9 +115,18 @@ A failure here warns with the command to run by hand; the abort stands (as `_ig_
 1. **Plan worktree**: the kit links (`.githooks`, `.agents`, `.plans`, `.claude`) are removed, then `git worktree remove --force <path>`; preflight has already cleared or quarantined what it holds.
 2. **Plan branch**: `git branch -D <branch>` with a warning naming the branch and its SHA (Question 2); `keep-branch` keeps it and prints `ℹ️  Branch '<branch>' preserved.`
 3. **Single-checkout plan** (no `Worktree:`): its commits are on the development branch already and stay there, with its `CHANGELOG.md` entry. Abort reverts nothing: it lists the recorded commits and says so. Uncommitted work in the checkout is not touched.
-4. **Group plan**: a temporary `.workspace/P<n>` goes through `_group_done_drop_wt`. A started group's `Feature Branch` is deleted like a plan branch, the warning also naming the archived members whose work it holds; `keep-branch` keeps it.
+4. **Group plan**: §2.6.
 
-### 2.6 Hook & Output
+### 2.6 Group Plan Abort
+
+Aborting a group plan removes the group: its plan, its open members and its code.
+
+1. **Members in `current/`**, whatever their status and commits: each is archived as in §2.3 (own ledger row, reason `Group <id> aborted: <reason>`) and its issues handled as in §2.4. The group plan and all members land in one commit, `plan(abort): archive group <id> to aborted/`, under one snapshot.
+2. **Teardown**: each member's worktree and branch as in §2.5; a temporary `.workspace/P<n>` through `_group_done_drop_wt`; a started group's `Feature Branch` is deleted with the work of its archived members. `keep-branch` keeps the feature branch and the member branches.
+3. **Archived members** stay in `done/` with their ledger rows and closed issues; the output lists them as plans whose code was removed.
+4. `post-abort` fires once per aborted plan, the group last.
+
+### 2.7 Hook & Output
 
 - `post-abort` observer, dispatched after teardown with `plan_id`, `plan_file` (`aborted/<file>`), `reason`, `worktree`, `branch`, `commits`. The dispatcher already runs any `post-*` event as `notify`; the event joins the catalogue (`aapp hooks events`, the `hook-test` list, the registry header).
 - Output: the archive path, the ledger, the issue's new state, what was removed or kept.
@@ -145,8 +159,10 @@ A failure here warns with the command to run by hand; the abort stands (as `_ig_
 - [ ] `tests/verbs/plan.abort.sh::test_abort_blocked_plan_drops_stash_record` -> asserts the hotfix issue stays open and its `aapp_hotfix_stash` line is gone while the stash remains
 - [ ] `tests/verbs/plan.abort.sh::test_abort_group_member_unlinked` -> asserts the group's `Members` no longer lists the plan
 - [ ] `tests/verbs/plan.abort.sh::test_abort_group_member_with_commits_refused` -> asserts a member with recorded commits is refused and nothing changes
-- [ ] `tests/verbs/plan.abort.sh::test_abort_group_refuses_with_open_members` -> asserts a group with a member in `current/` is refused
-- [ ] `tests/verbs/plan.abort.sh::test_abort_group_removes_feature_branch` -> asserts the feature branch goes, or stays with `keep-branch`
+- [ ] `tests/verbs/plan.abort.sh::test_abort_group_needs_confirm` -> asserts a group abort without a terminal and without `confirm` is refused, lists what it would remove, and changes nothing
+- [ ] `tests/verbs/plan.abort.sh::test_abort_group_aborts_open_members` -> asserts with `confirm` the group and every member in `current/`, with or without commits, land in `aborted/` in one commit, each with a ledger row
+- [ ] `tests/verbs/plan.abort.sh::test_abort_group_removes_feature_branch` -> asserts the feature branch and member branches go, or stay with `keep-branch`
+- [ ] `tests/verbs/plan.abort.sh::test_abort_group_lists_archived_members` -> asserts archived members stay in `done/` and are named in the output
 - [ ] `tests/verbs/plan.abort.sh::test_abort_dispatches_post_abort` -> asserts a registered `post-abort` handler receives the payload
 
 ### Phase 1: Tests First (red)
@@ -157,9 +173,9 @@ A failure here warns with the command to run by hand; the abort stands (as `_ig_
 - [ ] Task 2.2: Route `abort` in `cmd_plan_switchboard` and list it in the switchboard text.
 - [ ] Task 2.3: Archive (§2.3): move, header, change log, ledger, matrix, buffers, snapshot-guarded commit.
 - [ ] Task 2.4: Issue abort step in `lib/cmd_issue.sh` (`🔵 Planned` -> `🟡 Incubated`, link repointed to `aborted/`), shared by `issue fix <num> abort` and `plan abort`; relink; hotfix stash records (§2.4).
-- [ ] Task 2.5: Group member refusal on recorded commits, member unlinking, group plan abort.
+- [ ] Task 2.5: Group member refusal on recorded commits and member unlinking; group plan abort with confirmation (§2.6).
 - [ ] Task 2.6: Teardown (§2.5).
-- [ ] Task 2.7: `post-abort` dispatch and event catalogue (§2.6).
+- [ ] Task 2.7: `post-abort` dispatch and event catalogue (§2.7).
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run the kit suites; the Required Tests pass.
@@ -205,6 +221,7 @@ A failure here warns with the command to run by hand; the abort stands (as `_ig_
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** A group plan's abort removes the whole group (open members, feature branch) after a confirmation.
 * **2026-10-11:** A group member with recorded commits is refused.
 * **2026-10-11:** Aligned with the code: preflight before any change, `done`'s snapshot commit and helpers, recorded worktree and branch, ignored-file rule, single-checkout, blocked and group cases, hook catalogue, Required Tests.
 * **2026-10-11:** Issue side runs through the issue module's abort step; the row keeps the plan link, repointed to `aborted/`.
