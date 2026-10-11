@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-12 | `P-69` | [`P69-abort-plan.md`](P69-abort-plan.md) | #118 | `a1412c0` | Lifecycle Plan Abort & Worktree Decommissioning (tdd (23/23)) |
 | 2026-10-11 | `P-66` | [`P66-issue-fix-changelog-from-the-fix.md`](P66-issue-fix-changelog-from-the-fix.md) | #117 | `d55aa29` | Issue Fix Changelog From The Fix (tdd (7/7)) |
 | 2026-10-11 | `P-71` | [`P71-faster-test-runs.md`](P71-faster-test-runs.md) | None | `a5e6851` | Faster Test Runs |
 | 2026-10-11 | `P-68` | [`P68-split-slow-verb-suites.md`](P68-split-slow-verb-suites.md) | None | `0c010df` | Split Slow Verb Suites (tdd (3/3)) |
