@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `2fea533` (feature/faster-test-runs)
+* **Worktree:** .workspace/P68 (plan/P68-split-slow-verb-suites)
 * **Group:** P-71
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
@@ -143,5 +144,6 @@ The `## Tests` lists in `lib/docs/verbs/{start,issue,done}.md` name the part fil
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-11:** Resolved Q1 (flat part naming '<verb>.<part>.sh') and Q2 (split 'start', 'issue', 'done' to reach ~20-25 s ceiling). Blueprint fully specified.
 * **2026-10-11:** Drafted: suite parts, splits, session test; research at refine time.
