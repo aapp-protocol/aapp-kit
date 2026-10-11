@@ -30,11 +30,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-69**: [`P69-abort-plan.md`](current/P69-abort-plan.md) — Abort Plan
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-69**: [`P69-abort-plan.md`](current/P69-abort-plan.md) — Abort Plan
 
 ---
 
