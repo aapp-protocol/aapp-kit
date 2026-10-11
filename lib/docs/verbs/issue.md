@@ -1,4 +1,4 @@
-# issue [next | allocate | hotfix "<text>" [file <path>]… [plan] | fix next-blocker | fix <num> [file <path>…] [group <group>] | fix <num> abort | close <id> [sha <sha>] [summary "<text>"] | list [<n> | all]]
+# issue [next | allocate | hotfix "<text>" [file <path>]… [plan] | fix next-blocker | fix <num> [file <path>…] [group <group>] | fix <num> abort | close <id> [sha <sha>] [summary "<text>"] | abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm] | list [<n> | all]]
 
 ## Ingress
 - positional forms:
@@ -9,6 +9,7 @@
     - `fix <num> group <group>` (P-64): a bug caused by a group's work; the fix is made in `.workspace/fix-<num>` on `fix/<num>` from the group's feature branch, and `close` lands it there
     - `fix <num> abort` (P-52): drops an uncommitted mini plan; the issue stays open
     - `close <id>`: relocates an active issue row to the archive
+    - `abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` (P-76): withdraws an active issue with what was opened for it, its promoted plan (`[P-<id>](current/…)` in its *Target Plan / Fix* cell) or its open mini plan; `reason` is one line (default `Withdrawn`); the other tokens go to `aapp plan abort` unchanged
     - `list [<n> | all]`: prints active issues in road-map order
 - `<id>`: bare number (`79`), `#79` (quoted: an unquoted `#79` is a shell comment) or `ISSUE-79`
 - close tokens (bare, no `--`):
@@ -45,6 +46,10 @@
 - `fix … group <group>`: `<group>` not a group plan, not `⚡ In Development`, or `.workspace/fix-<num>` / `fix/<num>` existing -> exit 1; nothing written (P-64)
 - `close` of a group fix: uncommitted changes in its worktree, `fix/<num>` not rebasing onto the feature branch, or the feature branch not fast-forwarding -> exit 1; both branches and the issue unchanged (P-64)
 - `fix <num> abort` with recorded commits -> exit 1 (close it instead)
+- `abort` without a number, with an unknown token, or `reason` without a text -> exit 1, usage on stderr
+- `abort` of an archived issue -> exit 1, `already archived`; of an unknown one -> exit 1, `not found`
+- `abort` while the issue's mini plan has recorded commits -> exit 1, naming `aapp issue close <num>`; nothing changes
+- `abort` of an issue whose plan `aapp plan abort` refuses (uncommitted work in its worktree, a group plan without `confirm`, …) -> exit 1 with that refusal; the issue stays as it was
 - `close` of an open mini plan with no recorded commit -> exit 1
 - `close` of an open mini plan whose `Changelog:` has no entry -> exit 1, naming `aapp commit "<msg>" changelog "<what the fix changed>"` (P-66)
 - the issue lock (`$(git rev-parse --git-common-dir)/aapp_issue.lock`, held while `hotfix` and the start of a `fix` write) is waited for with the same roller; a lock whose holder PID is gone, or that has no PID after a few seconds, is taken over with a stale-lock notice
@@ -63,6 +68,12 @@
 - `close` of an issue with an open mini plan: the SHA defaults to the mini plan's last recorded commit and the summary to the fix's changelog entry (`<entry>; unblocks <plan>`, P-66); the mini plan is deleted and the buffer restored; any plan whose `Blocked On:` lists `#<n>` drops it and, once empty and not permanent, gets its recorded status back; the matrix is re-derived; all in the one close commit (the same unblocking runs when `aapp done` closes a Target Issue); stdout then prints `ℹ️  <plan> also lists <file>: it picks this fix up at its next rebase.` for every other ⚡ or BLOCKED plan whose Target Files include a fixed file (output only, P-58)
 - `fix` without `group`: when an active group's feature branch differs from the development branch in the fix's files, stdout adds `Group <id> changes these files on '<branch>'` with `aapp issue fix <num> group <id>`; the fix still opens, the human decides (P-64)
 - `fix … group <group>`: the mini plan records `* **Worktree:** .workspace/fix-<num> (fix/<num>)` and `* **Group:** <group>` and is bound in that worktree (the main checkout's buffer is untouched); `close` rebases `fix/<num>` onto the feature branch if it moved, fast-forwards the feature branch, removes the worktree and branch, then archives the issue as usual (P-64)
+- `abort`:
+    - what was opened for the issue goes first, through its own code and commit: its plan by `aapp plan abort <id> reason "Issue #<num> aborted: <reason>"`, its open mini plan as `fix <num> abort` drops it
+    - then one `plans` commit `issue(abort): withdraw #<num>`: the row moves to the top of the archive with `` `aborted` `` as its *Target Commit / Release* and `Aborted: <reason>` as its summary, followed by `([P-<id>](../aborted/<file>))` when its cell links an aborted plan; its road-map line goes; plans blocked on it resume as on `close`
+    - a run interrupted after the plan went leaves the issue open and 🟡 `Incubated`; running `abort` again withdraws the row
+    - the provider is not notified: `issue.close` reports a fix
+    - the other direction never withdraws an issue: `aapp plan abort` and `fix <num> abort` leave it open
 - `list`: road-map entries in board order, the same selection as the `aapp status` Issues pillar; a truncated list ends with `… <k> more (aapp issue list all)`
 - `aapp done` on a plan whose Target Issue is `#<n>` performs the same `close` in its own archive commit; a Target Issue in neither ledger refuses `done` before anything moves
 
@@ -125,4 +136,14 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.sh::test_fix_opens_with_empty_changelog` -> the mini plan's `Changelog:` carries no text from the row (P-66)
 - `tests/verbs/issue.sh::test_close_refuses_without_fix_entry` -> `close` before the fix wrote its entry: exit 1, nothing archived (P-66)
 - `tests/verbs/issue.sh::test_close_resolution_is_changelog_entry` -> without `summary`, the archive resolution is the fix's entry (P-66)
+- `tests/verbs/issue.abort.sh::test_abort_withdraws_row` -> the row is archived as `aborted` with the reason, its road-map line gone, one `issue(abort)` commit (P-76)
+- `tests/verbs/issue.abort.sh::test_abort_refuses_archived_or_unknown` -> an archived or unknown id: exit 1, nothing changes (P-76)
+- `tests/verbs/issue.abort.sh::test_abort_takes_promoted_plan` -> the plan lands in `aborted/`; the archive row links it (P-76)
+- `tests/verbs/issue.abort.sh::test_abort_rerun_finishes` -> after its plan was aborted, a run withdraws the open row (P-76)
+- `tests/verbs/issue.abort.sh::test_fix_abort_keeps_issue` -> `fix <num> abort` leaves the issue active (P-76)
+- `tests/verbs/issue.abort.sh::test_abort_drops_mini_plan` -> the open mini plan goes, the buffer is restored (P-76)
+- `tests/verbs/issue.abort.sh::test_abort_refuses_mini_plan_with_commits` -> a fix with commits: exit 1, points to `issue close` (P-76)
+- `tests/verbs/issue.abort.sh::test_abort_unblocks_plans` -> a plan blocked on the issue resumes and is not aborted (P-76)
+- `tests/verbs/issue.abort.sh::test_abort_plan_refusal_changes_nothing` -> a dirty plan worktree refuses, the issue stays `Planned`; `force` proceeds (P-76)
+- `tests/verbs/issue.abort.sh::test_abort_group_plan_needs_confirm` -> an issue whose plan is a group plan needs `confirm` (P-76)
 - `tests/verbs/issue.fixes.sh::test_fix_hints_group_for_group_files` -> files a group changed: the hint names `group <id>`, the fix still opens (P-64)

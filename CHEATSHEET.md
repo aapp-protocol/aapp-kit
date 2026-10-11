@@ -43,6 +43,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp test verb [name]` | **✅ Yes** | Run contract-derived verb suites (`tests/verbs/<name>.sh`) |
 | `aapp test jobs <n>` | **✅ Yes** | Run up to `<n>` suites at once; default: CPU count rounded down to a multiple of 4; `jobs 1` is serial |
 | `aapp note [cmd]` | **✅ Yes** | Inspect, stage, push, or pull general and AI Git notes |
+| `aapp issue abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` | **✅ Yes** | Withdraw an issue (wrong, invalid, unwanted): archived as `aborted`; its plan (through `plan abort`) or open mini plan goes with it; plans it blocked resume |
 | `aapp issue [cmd]` | **✅ Yes** | Peek, allocate, close, or list issue IDs |
 
 AI agent counterparts: `/aapp-status`, `/aapp-digest [idea]`, `/aapp-freeze [plan]`, `/aapp-start [plan]`, `/aapp-done [plan]`, `/aapp-pause [reason]`, `/aapp-release`, `/aapp-plan` (and `/plan`), `/aapp-tdd [plan]`.

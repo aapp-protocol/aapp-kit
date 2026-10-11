@@ -300,6 +300,115 @@ _issue_land_group_fix() {
     echo "🔀 [Issue] #$n landed on $fb ($(git rev-parse --short "$fb"))."
 }
 
+# _issue_archive_active <n> <commit-cell> <summary> <subject> [<mini-plan> [<entry>]]
+# One commit that takes an active issue out of the backlog: the row moves to the
+# archive, plans blocked on it resume, an open mini plan goes. Shared by `close`
+# and `abort` (P-76). An empty summary with a mini plan becomes its changelog
+# entry. Sets IA_TOUCHED (the unblocked plans' paths) and IA_SUMMARY.
+_issue_archive_active() {
+    local n="$1" cell="$2" summary="$3" subject="$4" mp="${5:-}" entry="${6:-}"
+    local plans touched p unblocked="" paths=()
+    plans="$(_issue_plans_dir)" || return 1
+    touched="$(issue_unblock_plans "$n")" || return 1
+    for p in $touched; do
+        unblocked="${unblocked:+$unblocked, }$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plans/$p" | head -n 1)"
+    done
+    if [ -z "$summary" ] && [ -n "$mp" ]; then
+        summary="$entry${unblocked:+; unblocks $unblocked}"
+    fi
+    issue_close_local "$n" "$cell" "$summary" || return 1
+    paths=(ISSUES.md done/000-issues-archive.md issues_road_map.md)
+    for p in $touched; do paths+=("$p"); done
+    if [ -n "$mp" ]; then
+        _issue_load_plan_lib || return 1
+        # A group fix was bound in its own worktree, removed on landing.
+        [ -n "$(parse_plan_worktree "$mp")" ] || _issue_restore_buffer
+        rm -f "$mp"
+        paths+=("current/fix-$n.md")
+    fi
+    _issue_reapply_stash "$n"
+    if [ -n "$touched" ]; then
+        _issue_load_plan_lib || return 1
+        sync_state_matrix
+        [ -f "$plans/state_matrix.md" ] && paths+=("state_matrix.md")
+    fi
+    plans_commit "$subject" "${paths[@]}" || return 1
+    IA_TOUCHED="$touched"; IA_SUMMARY="$summary"
+}
+
+# _issue_report_unblocked <plans> <plan-path>…: which plans resumed, which still wait.
+_issue_report_unblocked() {
+    local plans="$1" p wt
+    shift
+    for p in "$@"; do
+        if grep -q '^\* \*\*Status:\*\* 🟥' "$plans/$p"; then
+            echo "   $(basename "$p" .md) is still blocked: $(sed -nE 's/^\* \*\*Blocked On:\*\*[[:space:]]*//p' "$plans/$p" | head -n 1)"
+        else
+            wt="$(sed -nE 's/^\* \*\*Worktree:\*\*[[:space:]]*//p' "$plans/$p" | head -n 1)"
+            echo "   $(basename "$p" .md) is unblocked.${wt:+ Next: in $wt, rebase the plan branch onto the development branch.}"
+        fi
+    done
+}
+
+# cmd_issue_abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm] (P-76)
+# Withdraws an issue with what was opened for it: its promoted plan (through
+# `plan abort`) or its open mini plan. Plans it blocked resume. One-way: a
+# plan's abort and `fix <num> abort` never withdraw the issue.
+cmd_issue_abort() {
+    local usage='aapp issue abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]'
+    local raw="${1:-}" reason="Withdrawn" pass=() n plans where mp row cell link pid="" summary went=""
+    if [ -z "$raw" ]; then echo "❌ [Issue] Usage: $usage" >&2; return 1; fi
+    shift
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            reason) if [ $# -lt 2 ] || [ -z "$2" ]; then echo "❌ [Issue] 'reason' needs a text." >&2; return 1; fi
+                    reason="$2"; shift 2 ;;
+            keep-branch|force|force-cleanup|confirm) pass+=("$1"); shift ;;
+            *) echo "❌ [Issue] Unknown token '$1'. Usage: $usage" >&2; return 1 ;;
+        esac
+    done
+    case "$reason" in *$'\n'*) echo "❌ [Issue] The reason must be a single line." >&2; return 1 ;; esac
+    n="$(issue_normalize_id "$raw")" || return 1
+    plans="$(_issue_plans_dir)" || return 1
+    where="$(issue_locate "$n")" || return 1
+    case "$where" in
+        active)  ;;
+        archive) echo "❌ [Issue] #$n is already archived." >&2; return 1 ;;
+        *)       echo "❌ [Issue] #$n not found in ISSUES.md or done/000-issues-archive.md." >&2; return 1 ;;
+    esac
+    _issue_load_plan_lib || return 1
+    mp="$plans/current/fix-$n.md"
+    if [ -f "$mp" ] && [ -n "$(parse_plan_commits "$mp" 2>/dev/null)" ]; then
+        echo "❌ [Issue] #$n's fix has recorded commits: the fix is made. Close the issue with 'aapp issue close $n'." >&2
+        return 1
+    fi
+
+    # What was opened for it goes first, through its own code and commit; a
+    # refusal there leaves everything as it was.
+    row="$(grep -m 1 -E "$(_issue_row_regex "$n")" "$plans/ISSUES.md")"
+    cell="$(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{ gsub(/^[ \t]+|[ \t]+$/, "", $8); print $8 }')"
+    link="$(printf '%s\n' "$cell" | sed -nE 's/^\[(P-[0-9]+)\]\(current\/([^)]+)\)$/\1 \2/p')"
+    if [ -n "$link" ] && [ -f "$plans/current/${link#* }" ]; then
+        pid="${link%% *}"
+        ( cmd_plan_abort "$pid" reason "Issue #$n aborted: $reason" "${pass[@]}" ) || return 1
+        went="plan $pid"
+    fi
+    if [ -f "$mp" ]; then
+        _issue_fix_abort "$plans" "$n" >/dev/null || return 1
+        went="${went:+$went, }its open fix"
+    fi
+
+    # The row now links the aborted plan, when one went (also on a second run).
+    row="$(grep -m 1 -E "$(_issue_row_regex "$n")" "$plans/ISSUES.md")"
+    cell="$(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{ gsub(/^[ \t]+|[ \t]+$/, "", $8); print $8 }')"
+    link="$(printf '%s\n' "$cell" | sed -nE 's/^\[(P-[0-9]+)\]\(aborted\/([^)]+)\)$/[\1](..\/aborted\/\2)/p')"
+    summary="Aborted: $reason${link:+ ($link)}"
+    _issue_archive_active "$n" "aborted" "$summary" "issue(abort): withdraw #$n" || return 1
+    echo "🗑️  [Issue] #$n withdrawn to done/000-issues-archive.md: $reason"
+    [ -z "$went" ] || echo "   Removed with it: $went."
+    _issue_report_unblocked "$plans" $IA_TOUCHED
+}
+
 cmd_issue_close() {
     local raw="${1:-}" sha="" summary="" n where root
     if [ -z "$raw" ]; then
@@ -325,7 +434,7 @@ cmd_issue_close() {
     }
     # P-52: an open mini plan supplies the SHA (its last recorded commit) and
     # the summary, and is deleted in the close commit.
-    local plans mp="" mini_list=() last touched paths=() p unblocked="" wt entry=""
+    local plans mp="" mini_list=() last p entry=""
     plans="$(_issue_plans_dir)" || return 1
     if [ -f "$plans/current/fix-$n.md" ]; then
         mp="$plans/current/fix-$n.md"
@@ -355,39 +464,10 @@ cmd_issue_close() {
     where="$(issue_locate "$n")" || return 1
     case "$where" in
         active)
-            touched="$(issue_unblock_plans "$n")" || return 1
-            for p in $touched; do
-                unblocked="${unblocked:+$unblocked, }$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plans/$p" | head -n 1)"
-            done
-            if [ -z "$summary" ] && [ -n "$mp" ]; then
-                summary="$entry${unblocked:+; unblocks $unblocked}"
-            fi
-            issue_close_local "$n" "$sha" "$summary" || return 1
-            paths=(ISSUES.md done/000-issues-archive.md issues_road_map.md)
-            for p in $touched; do paths+=("$p"); done
-            if [ -n "$mp" ]; then
-                _issue_load_plan_lib || return 1
-                # A group fix was bound in its own worktree, removed on landing.
-                [ -n "$(parse_plan_worktree "$mp")" ] || _issue_restore_buffer
-                rm -f "$mp"
-                paths+=("current/fix-$n.md")
-            fi
-            _issue_reapply_stash "$n"
-            if [ -n "$touched" ]; then
-                _issue_load_plan_lib || return 1
-                sync_state_matrix
-                [ -f "$plans/state_matrix.md" ] && paths+=("state_matrix.md")
-            fi
-            plans_commit "issue(close): archive #$n" "${paths[@]}" || return 1
+            _issue_archive_active "$n" "$sha" "$summary" "issue(close): archive #$n" "$mp" "$entry" || return 1
+            summary="$IA_SUMMARY"
             echo "✅ [Issue] #$n archived to done/000-issues-archive.md (commit \`$sha\`)."
-            for p in $touched; do
-                if grep -q '^\* \*\*Status:\*\* 🟥' "$plans/$p"; then
-                    echo "   $(basename "$p" .md) is still blocked: $(sed -nE 's/^\* \*\*Blocked On:\*\*[[:space:]]*//p' "$plans/$p" | head -n 1)"
-                else
-                    wt="$(sed -nE 's/^\* \*\*Worktree:\*\*[[:space:]]*//p' "$plans/$p" | head -n 1)"
-                    echo "   $(basename "$p" .md) is unblocked.${wt:+ Next: in $wt, rebase the plan branch onto the development branch.}"
-                fi
-            done
+            _issue_report_unblocked "$plans" $IA_TOUCHED
             [ ${#mini_list[@]} -eq 0 ] || _issue_notice_listing_plans "$plans" "${mini_list[@]}"
             ;;
         archive)
@@ -1111,10 +1191,11 @@ cmd_issue() {
         hotfix)   cmd_issue_hotfix "$@" ;;
         fix)      cmd_issue_fix "$@" ;;
         close)    cmd_issue_close "$@" ;;
+        abort)    cmd_issue_abort "$@" ;;
         list)     cmd_issue_list "$@" ;;
         *)
             echo "❌ [Issue] Unknown subcommand '$sub'." >&2
-            echo "Usage: aapp issue [next | allocate | hotfix \"<text>\" [file <path>]… [plan] | fix next-blocker | fix <num> [file <path>…] | fix <num> abort | close <id> [sha <sha>] [summary \"<text>\"] | list [<n> | all]]" >&2
+            echo "Usage: aapp issue [next | allocate | hotfix \"<text>\" [file <path>]… [plan] | fix next-blocker | fix <num> [file <path>…] | fix <num> abort | close <id> [sha <sha>] [summary \"<text>\"] | abort <num> [reason \"<text>\"] | list [<n> | all]]" >&2
             return 1
             ;;
     esac
