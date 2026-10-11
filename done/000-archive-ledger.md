@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-11 | `P-71` | [`P71-faster-test-runs.md`](P71-faster-test-runs.md) | None | `a5e6851` | Faster Test Runs |
 | 2026-10-11 | `P-68` | [`P68-split-slow-verb-suites.md`](P68-split-slow-verb-suites.md) | None | `0c010df` | Split Slow Verb Suites (tdd (3/3)) |
 | 2026-10-11 | `P-67` | [`P67-parallel-test-suites.md`](P67-parallel-test-suites.md) | None | `2fea533` | Parallel Test Suites (tdd (8/8)) |
 | 2026-10-11 | `P-65` | [`P65-plan-conflict-check.md`](P65-plan-conflict-check.md) | Milestone: Monorepo & Two-Context Architecture | `150cc2b` | Pre-Flight Concurrency & Conflict Audit CLI (tdd (10/10)) |

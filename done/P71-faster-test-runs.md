@@ -6,7 +6,7 @@
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
      The group's `done` writes it with the ARCHITECTURE.md commit. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `150cc2b` (develop)
 * **Feature Branch:** feature/faster-test-runs
 * **Worktree:** .workspace/P71 (feature/faster-test-runs)
@@ -70,6 +70,7 @@ No changes.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Plan implementation completed and archived to done/.
 * **2026-10-11:** Group started: `feature/faster-test-runs` from `develop`.
 * **2026-10-11:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-11:** Group drafted.
