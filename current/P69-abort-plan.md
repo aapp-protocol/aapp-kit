@@ -74,7 +74,8 @@ In AAPP, blueprint lifecycles are currently strictly unidirectional towards `don
    - any `git status --porcelain` output, tracked or untracked (the test `done` applies), refuses without `force`, listing the files;
    - sensitive ignored files (`check_worktree_ignored_files`) follow `_ig_cleanup`'s rule: copied to the quarantine directory when `aapp.quarantineIgnored` is true, otherwise a refusal without `force-cleanup`.
 4. **Group plan** (`aapp_is_group_plan`): refused while any member still has a file in `current/` (the test `_group_done_prepare` applies); each is aborted, archived or released with `aapp refine <id> group none` first.
-5. **Target issue**: `issue_locate` must find `#<n>` in `ISSUES.md` or the issues archive; an archived issue is left alone.
+5. **Group member** (`* **Group:** <group>`): refused once it has recorded commits (`parse_plan_commits`), as `aapp issue fix <num> abort` refuses a fix with commits; implemented member work is finished with `aapp done <id>`. A member without commits aborts like any plan.
+6. **Target issue**: `issue_locate` must find `#<n>` in `ISSUES.md` or the issues archive; an archived issue is left alone.
 
 ### 2.3 Archive (one commit in the plans worktree)
 
@@ -143,6 +144,7 @@ A failure here warns with the command to run by hand; the abort stands (as `_ig_
 - [ ] `tests/verbs/plan.abort.sh::test_abort_relinks_other_issue_rows` -> asserts other rows and road-map lines point at `aborted/`
 - [ ] `tests/verbs/plan.abort.sh::test_abort_blocked_plan_drops_stash_record` -> asserts the hotfix issue stays open and its `aapp_hotfix_stash` line is gone while the stash remains
 - [ ] `tests/verbs/plan.abort.sh::test_abort_group_member_unlinked` -> asserts the group's `Members` no longer lists the plan
+- [ ] `tests/verbs/plan.abort.sh::test_abort_group_member_with_commits_refused` -> asserts a member with recorded commits is refused and nothing changes
 - [ ] `tests/verbs/plan.abort.sh::test_abort_group_refuses_with_open_members` -> asserts a group with a member in `current/` is refused
 - [ ] `tests/verbs/plan.abort.sh::test_abort_group_removes_feature_branch` -> asserts the feature branch goes, or stays with `keep-branch`
 - [ ] `tests/verbs/plan.abort.sh::test_abort_dispatches_post_abort` -> asserts a registered `post-abort` handler receives the payload
@@ -155,7 +157,7 @@ A failure here warns with the command to run by hand; the abort stands (as `_ig_
 - [ ] Task 2.2: Route `abort` in `cmd_plan_switchboard` and list it in the switchboard text.
 - [ ] Task 2.3: Archive (§2.3): move, header, change log, ledger, matrix, buffers, snapshot-guarded commit.
 - [ ] Task 2.4: Issue abort step in `lib/cmd_issue.sh` (`🔵 Planned` -> `🟡 Incubated`, link repointed to `aborted/`), shared by `issue fix <num> abort` and `plan abort`; relink; hotfix stash records (§2.4).
-- [ ] Task 2.5: Group member unlinking and group plan abort.
+- [ ] Task 2.5: Group member refusal on recorded commits, member unlinking, group plan abort.
 - [ ] Task 2.6: Teardown (§2.5).
 - [ ] Task 2.7: `post-abort` dispatch and event catalogue (§2.6).
 
@@ -203,6 +205,7 @@ A failure here warns with the command to run by hand; the abort stands (as `_ig_
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** A group member with recorded commits is refused.
 * **2026-10-11:** Aligned with the code: preflight before any change, `done`'s snapshot commit and helpers, recorded worktree and branch, ignored-file rule, single-checkout, blocked and group cases, hook catalogue, Required Tests.
 * **2026-10-11:** Issue side runs through the issue module's abort step; the row keeps the plan link, repointed to `aborted/`.
 * **2026-10-11:** Single command form `aapp plan abort <id>`: no top-level `abort` verb, contract in `lib/docs/verbs/plan.md`, tests in the suite part `tests/verbs/plan.abort.sh`.
