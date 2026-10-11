@@ -52,7 +52,7 @@ Design record: RFC `worktree-contexts-monorepo-rfc.md` (§4 decisions, C1/C2, A1
 ## 2. Technical Blueprint
 
 ### 2.0 The group plan
-- `aapp draft <slug> group`: a plan with `* **Kind:** group`, from its own template: goal, shared decisions, `* **Feature Branch:**`, `* **Members:**`, merge criterion. No Target Files; `freeze` checks the group fields instead.
+- `aapp draft <slug> group`: a plan with the next Plan ID, marked by its title heading `# 🧩 Group Plan P-<n>: <title>` (the one marker verbs read), from its own template: goal, shared decisions, `* **Feature Branch:**`, `* **Members:**`, merge criterion. No Target Files; `freeze` checks the group fields instead.
 - `aapp start <group>` (optionally `base <branch>`, an existing branch; default: the development branch): creates `feature/<slug>` from it, records `Base: <sha> (<parent>)`. No worktree, no buffer: the group writes no code.
 - `aapp done <group>`: refuses while a member is not archived; runs `pre-done` with the feature branch checked out in a temporary worktree (the payload's `worktree`), so the gate tests the merged result; merges the feature branch into the parent (fast-forward, or a merge commit when the parent moved: recorded SHAs stay valid); removes the feature branch.
 
@@ -83,7 +83,7 @@ When the issue's files differ between the development branch and an active group
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/draft.sh::test_draft_group_scaffolds_group_plan` -> asserts `draft <slug> group` writes `Kind: group` with the group fields and no Target Files
+- [ ] `tests/verbs/draft.sh::test_draft_group_scaffolds_group_plan` -> asserts `draft <slug> group` takes the next Plan ID and writes the `🧩 Group Plan` heading with the group fields and no Target Files
 - [ ] `tests/verbs/start.sh::test_group_start_cuts_feature_branch_from_parent` -> asserts the feature branch starts at the parent (default or `base <branch>`) and `Base:` names the parent
 - [ ] `tests/verbs/start.sh::test_group_start_refuses_missing_branch` -> asserts an unknown `base <branch>` refuses with nothing created
 - [ ] `tests/verbs/start.sh::test_member_start_branches_from_feature_branch` -> asserts the member's worktree branches from the feature branch, records `Group:`, and the group lists it
@@ -122,7 +122,7 @@ When the issue's files differ between the development branch and an active group
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `lib/cmd_plan.sh` -> Group `draft`/`freeze`/`start`/`done`; `group <id>` on member start and freeze-start.
-- [ ] `lib/aapp-lib.sh` -> Group header parsers and writers (`Kind`, `Group`, `Feature Branch`, `Members`).
+- [ ] `lib/aapp-lib.sh` -> Group heading check; header parsers and writers (`Group`, `Feature Branch`, `Members`).
 - [ ] `NEW FILE` -> `templates/group-template.md` -> The group plan template.
 - [ ] `lib/cmd_issue.sh` -> Development-branch check; `fix … group` worktree, close integration, hint.
 - [ ] `lib/cmd_status.sh` -> Members under their group.
@@ -167,8 +167,8 @@ When the issue's files differ between the development branch and an active group
 * [x] **Question 2 — Branch check strictness (2.2). → RESOLVED (developer, 2026-10-10): (a), refuse.** (a) Refuse. (b) Warn and continue. Recommendation: (a).
 * [x] **Question 3 — Grouping in `aapp status`. → RESOLVED (developer, 2026-10-10): later. Superseded 2026-10-11 by the group plan (§2.5).** List plans under their shared base branch now, or later? Recommendation: later; the base already shows in each plan's header.
 * [x] **Question 4 — Order with P-60 and P-62. → RESOLVED (developer, 2026-10-10): P-62, then P-60, then P-64.** P-64 shares `lib/cmd_plan.sh` with P-60 and `tests/verbs/issue.sh`/`tests/integrate_test.sh` with P-62. Recommendation: P-62, then P-60, then P-64; or P-64 is the first plan built on the feature branch you plan to cut.
-* [ ] **Question 5 — A group's ID.** (a) The normal `P-` numbering (`aapp.planId`). (b) Its own prefix, e.g. `G-`. Recommendation: (a); nothing new to allocate, and every verb already resolves it.
-* [ ] **Question 6 — Membership.** (a) A member joins when it is started with `group <id>`. (b) The group lists planned members up front, while they are still drafts. Recommendation: (a); the list then only names plans that exist on the feature branch.
+* [x] **Question 5 — A group's ID. → RESOLVED (developer, 2026-10-11): (a), the Plan ID; a marker heading distinguishes a group plan (§2.0).** (a) The normal `P-` numbering (`aapp.planId`). (b) Its own prefix, e.g. `G-`. Recommendation: (a); nothing new to allocate, and every verb already resolves it.
+* [x] **Question 6 — Membership. → RESOLVED (developer, 2026-10-11): (a), members join when started.** (a) A member joins when it is started with `group <id>`. (b) The group lists planned members up front, while they are still drafts. Recommendation: (a); the list then only names plans that exist on the feature branch.
 
 ---
 
