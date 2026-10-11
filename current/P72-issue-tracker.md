@@ -1,7 +1,7 @@
 # 🧩 Group Plan P-72: Issue Tracker
 * **Created:** 2026-10-11 | **Last Refined:** 2026-10-11
 * **Plan ID:** P-72
-* **Changelog:** Added: Issue Tracker
+* **Changelog:** Added: issue ledger behind one module, and the `aapp-issue-tracker` provider at every issue step (P-72)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
@@ -19,13 +19,22 @@
 ---
 
 ## 1. Goal
-*What the group delivers as a whole, and the merge criterion (by default: every member archived and the pre-done gate green on the feature branch).*
+Issues read and written through one module, and an `aapp-issue-tracker` provider that sees the whole issue at every step. A provider can keep issues and their notes anywhere (a local file, a team database); issues it brings in have the same rights as local ones: they block plans and show in `status`, `issue list`, `draft` and `next-blocker`.
+
+Merge criterion: both members archived and the pre-done gate green on the feature branch.
 
 ## 2. Shared Decisions
-*Decisions every member follows: interfaces, naming, data formats, order constraints.*
+- **One accessor.** Nothing outside the ledger module reads or writes `ISSUES.md`, `done/000-issues-archive.md` or `issues_road_map.md`; a test fails on any new direct access. Path names in permission lists (guard, pre-commit allow-lists) are not access.
+- **The ledger rows are the kit's.** `ISSUES.md` rows are always written by the kit; a provider receives them and may mirror them anywhere.
+- **Wrapper points.** Five: `log` (new rows), `refine` (changed rows), `fix`, `close`, `list`. Each sends the whole issue (all cells, note, plan link, commit, summary, the step's own data) in the Plugin Payload Standard envelope.
+- **The plugin decides.** Its answer's `kit` list names what the kit still handles; no `kit` field means the kit handles everything. No provider means the kit's internals.
+- **Notes** are never in the ledger. Without a provider, the kit keeps them outside the repository, under `~/.local/state/aapp/<project>/`.
+- **Remote issues** are kept in a cache next to the notes; the module's readers merge it with the ledger. Hooks read only local data and the cache, never the network.
+- **Failures.** A provider failure falls back to the kit for that step and warns; numbering stays provider-authoritative and refuses, as today.
 
 ## 3. Members & Order
-*Which members can run in parallel and which wait for others. Membership itself is the `* **Members:**` line, written by the verbs.*
+1. P-73 (ledger module): first; no behaviour change.
+2. P-74 (provider wrapper): starts from the feature branch after P-73 is archived into it; it adds the wrapper inside the module.
 
 ## Architecture & Codemap
 *Every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written out whole in a ```` fence, under the exact heading it has (or will have) in the file. Members do not edit these files; read the sections here as the target architecture. At the group's `done` a section replaces the file's section with the same heading, or is added at the end. `aapp refine` records a base line above each fence: `done` refuses a section the file changed meanwhile. Write `No changes.` under a file that keeps its content.*
@@ -49,7 +58,7 @@ No changes.
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** The Architecture & Codemap sections are written once P-73's research has fixed the module's functions; until then both stay `No changes.`.
 
 ---
 
