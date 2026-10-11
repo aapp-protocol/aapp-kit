@@ -324,6 +324,30 @@ _group_start() {
     echo "   Members start from $fb; 'aapp done $gid' merges it into $parent."
 }
 
+# _group_stamp_sections <group-plan>: base lines for sections without one, from
+# ARCHITECTURE.md on the group's parent branch (the development branch before
+# start) and from .agents/CODEMAP.md as it is now.
+_group_stamp_sections() {
+    local gf="$1" parent ref arch rc=0
+    # shellcheck source=/dev/null
+    . "$(dirname "${BASH_SOURCE[0]}")/group_docs.sh"
+    parent="$(sed -nE 's/^\* \*\*Base:\*\*[[:space:]]*`[0-9a-fA-F]+`[[:space:]]*\(([^)]+)\).*/\1/p' "$gf" | head -n 1)"
+    [ -n "$parent" ] || parent="$(aapp_dev_branch)"
+    arch="$(mktemp)" || return 1
+    if [ -n "$parent" ] && ref="$(aapp_branch_ref "$parent")"; then
+        # No ARCHITECTURE.md on the parent: every section is new.
+        git show "$ref:ARCHITECTURE.md" > "$arch" 2>/dev/null || : > "$arch"
+    fi
+    group_docs_stamp "$gf" ARCHITECTURE.md "$arch" || rc=1
+    rm -f "$arch"
+    [ "$rc" -eq 0 ] || return 1
+    if [ -f "$PRIMARY_ROOT/.agents/CODEMAP.md" ]; then
+        group_docs_stamp "$gf" .agents/CODEMAP.md "$PRIMARY_ROOT/.agents/CODEMAP.md" || return 1
+    else
+        group_docs_stamp "$gf" .agents/CODEMAP.md /dev/null || return 1
+    fi
+}
+
 # _member_group_check <plan> <label>: a group member starts only in a plan
 # worktree (WT_MODE) and only once its group is ⚡ In Development.
 _member_group_check() {
@@ -2498,6 +2522,9 @@ cmd_refine() {
     elif [ -z "$(git -C "$PLANS_DIR" status --porcelain -- "$rel")" ]; then
         echo "❌ [Refine] Nothing to commit: $rel has no changes." >&2
         exit 1
+    fi
+    if aapp_is_group_plan "$plan_file"; then
+        _group_stamp_sections "$plan_file" || exit 1
     fi
     plans_commit "$subject" "$rel" || exit 1
     sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
