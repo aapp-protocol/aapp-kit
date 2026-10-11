@@ -72,9 +72,21 @@ Mounted alongside `.plans`, `.agents`, and `.githooks`:
   - When offline, `aapp issue allocate` (or logging via `refine issues` / `hotfix`) seeds `aapp.offlineIssueId` from `max(canonical) + offset` if unset, then increments.
   - Because offline IDs start at e.g. `#1045` when canonical is `#45`, local work is visibly distinct and completely immune to upstream `git pull` collisions of normal sequential IDs.
 
-### C. CLI Verbs & Lifecycle (`aapp offline`)
+### C. Three-Tier Offline Governance & Global Timeout Engine
+All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed by a global timeout and a 3-tier execution mode:
+
+| Mode | Configuration | Operational Behavior |
+| :--- | :--- | :--- |
+| **Smart Fallback** *(Default)* | `aapp.offlineEnabled=true`<br>`aapp.offlineOnly=false` | **Natural Flow**: Attempts plugin first. If it succeeds, canonical sync proceeds. If plugin times out (exceeding `aapp.pluginTimeout`) or fails with network error, gracefully falls back to `.offline` workflow. |
+| **Zero-Latency Offline** | `aapp.offlineOnly=true`<br>(or `aapp offline on`) | **Immediate Offline**: Completely skips plugin execution and network sockets. Directly routes operations to `.offline` on the fly with zero latency and zero timeout waits. |
+| **Strict Compliance** | `aapp.offlineEnabled=false` | **Fail-Closed**: Attempts plugin. If unreachable, failing, or timed out, fails closed with a diagnostic refusal; local `.offline` staging is denied to prevent untracked drift. |
+
+* **Global Plugin Timeout (`aapp.pluginTimeout`)**: Integer seconds (default: `3`). Applies globally across all action plugin executions via `run_action_plugin`. Prevents CLI and agent operations from hanging indefinitely on stalled network connections.
+
+### D. CLI Verbs & Lifecycle (`aapp offline`)
 * `aapp offline mount`: Creates or mounts the `.offline` worktree on orphan branch `offline` (reusing `mount_or_create_worktree`).
 * `aapp offline unmount`: Unmounts and prunes `.offline` after verifying no un-synced items remain (or `--force`).
+* `aapp offline on` / `off`: Toggles `aapp.offlineOnly` for zero-latency airplane/air-gap sessions.
 * `aapp offline status`: Detailed status of staged issues and draft plans in `.offline/`.
 * `aapp offline sync`:
   1. For each active row in `.offline/ISSUES.md`:
@@ -86,7 +98,7 @@ Mounted alongside `.plans`, `.agents`, and `.githooks`:
   3. Commits canonical changes to `.plans` branch.
   4. Clears `.offline` ledgers and prompts for unmount.
 
-### D. Context Recovery Integration (`aapp status`)
+### E. Context Recovery Integration (`aapp status`)
 * `cmd_status.sh` checks if `.offline` is mounted and non-empty.
 * If staged items exist, appends a dedicated pillar to the briefing:
   ```text
@@ -96,7 +108,7 @@ Mounted alongside `.plans`, `.agents`, and `.githooks`:
      Action: Run 'aapp offline sync' when online to publish.
   ```
 
-### E. Blast Radius & Hook Enforcement
+### F. Blast Radius & Hook Enforcement
 * `templates/blast-radius-guard.sh`: Recognizes `.offline/**` as a permitted path for offline workflows.
 * `templates/aapp-pre-commit`: Rejects commits on `develop` or `plans` that stage files inside `.offline/`.
 * Pre-push gate: Blocks any push containing `refs/heads/offline`.
@@ -114,6 +126,9 @@ Mounted alongside `.plans`, `.agents`, and `.githooks`:
 - [ ] `tests/verbs/offline.sh::test_mount_creates_orphan_worktree` -> asserts `aapp offline mount` creates `.offline` on orphan branch `offline`
 - [ ] `tests/verbs/offline.sh::test_allocate_uses_offset` -> asserts offline allocation starts at `max(canonical) + aapp.offlineIdOffset`
 - [ ] `tests/verbs/offline.sh::test_custom_offset_configuration` -> asserts changing `git config aapp.offlineIdOffset 5000` starts offline IDs at 5000+
+- [ ] `tests/verbs/offline.sh::test_plugin_smart_fallback_on_timeout` -> asserts when plugin hangs beyond `aapp.pluginTimeout`, operation falls back to `.offline` with advisory
+- [ ] `tests/verbs/offline.sh::test_offline_only_skips_network` -> asserts `offlineOnly=true` bypasses plugin execution completely with zero latency
+- [ ] `tests/verbs/offline.sh::test_offline_disabled_fails_closed` -> asserts `offlineEnabled=false` refuses when plugin fails instead of staging locally
 - [ ] `tests/verbs/offline.sh::test_offline_issue_local_archive` -> asserts closing an offline issue moves it to `.offline/done/000-issues-archive.md`
 - [ ] `tests/verbs/offline.sh::test_status_reports_staged_offline_work` -> asserts `aapp status` displays staged offline issues and plans
 - [ ] `tests/verbs/offline.sh::test_offline_sync_promotes_and_relinks` -> asserts `aapp offline sync` moves rows to `.plans/`, rewrites `#<temp>` references to `#<canonical>`, and clears `.offline`
@@ -123,11 +138,12 @@ Mounted alongside `.plans`, `.agents`, and `.githooks`:
 - [ ] Task 1.1: Author test suite in `tests/verbs/offline.sh` proving mounting, offset allocation, status detection, local archiving, and sync.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Implement `lib/cmd_offline.sh` with `mount`, `unmount`, `status`, and `sync` handlers.
+- [ ] Task 2.1: Implement `lib/cmd_offline.sh` with `mount`, `unmount`, `on`, `off`, `status`, and `sync` handlers.
 - [ ] Task 2.2: Add high-offset offline ID allocation logic in `lib/cmd_issue.sh` / `lib/plan_resolver.sh`.
-- [ ] Task 2.3: Wire local archive relocation in `lib/cmd_issue.sh` when closing issues located in `.offline/`.
-- [ ] Task 2.4: Update `lib/cmd_status.sh` to observe `.offline/` and print the offline briefing pillar.
-- [ ] Task 2.5: Update `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit` to authorize `.offline/**` and prevent push leakage.
+- [ ] Task 2.3: Wire 3-tier governance and `aapp.pluginTimeout` global delay handling into plugin dispatch.
+- [ ] Task 2.4: Wire local archive relocation in `lib/cmd_issue.sh` when closing issues located in `.offline/`.
+- [ ] Task 2.5: Update `lib/cmd_status.sh` to observe `.offline/` and print the offline briefing pillar.
+- [ ] Task 2.6: Update `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit` to authorize `.offline/**` and prevent push leakage.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -161,7 +177,7 @@ Mounted alongside `.plans`, `.agents`, and `.githooks`:
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1:** Should `aapp offline mount` be automatically triggered on the fly whenever `aapp refine issues` or `aapp issue allocate` is run while offline, or should it require an explicit `aapp offline mount` first?
+* [x] **Question 1 — Offline triggering and plugin governance? → RESOLVED (developer, 2026-10-11): 3-tier governance with global timeout.** (1) Smart fallback default (try plugin first, guarded by global `aapp.pluginTimeout` default 3s, fall back to `.offline` on failure/timeout if `offlineEnabled=true`). (2) Zero-latency `aapp.offlineOnly` (`aapp offline on`) skips network calls entirely when explicitly desired. (3) Strict `aapp.offlineEnabled=false` fails closed.
 * [ ] **Question 2:** When promoting offline draft plans during `aapp offline sync`, should they automatically land in `.plans/current/` as `🟣 Under Review`, or should plans require explicit individual promotion (e.g. `aapp offline publish plan <id>`)?
 
 ---
@@ -169,3 +185,4 @@ Mounted alongside `.plans`, `.agents`, and `.githooks`:
 ## 📦 6. Change Log & Refinement History
 * **2026-10-11:** Scaffolded canonical blueprint P-75 for the offline worktree and local lifecycle.
 * **2026-10-11:** Completed technical blueprint, high-offset ID allocation (+1000 configurable), local archiving, and sync relinking specifications.
+* **2026-10-11:** Integrated 3-tier offline governance (smart fallback, offline-only zero latency, strict compliance) and global plugin timeout (`aapp.pluginTimeout` default 3s); resolved Q1.
