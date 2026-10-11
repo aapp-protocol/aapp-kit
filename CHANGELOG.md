@@ -56,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- an issue fix's changelog entry describes the change; the issue log's fix cell holds links only (`P-66`)
 - when its archive commit fails, `aapp done` restores the plan, ledgers and matrix, so a retry archives the plan (`#121`)
 - `aapp done` finds a TDD plan's required test files in the plan's worktree, so it no longer refuses from the main checkout (`#119`)
 - write guard reads the active plan for files in subdirectories again; worktree tests follow `.workspace/{id}` (`P-62`)

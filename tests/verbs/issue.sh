@@ -514,4 +514,35 @@ else
   bad "test_next_blocker_skips_untakeable" "rc=$rc out=$out"
 fi
 
+echo "== the fix writes its own changelog entry (P-66) =="
+init_sandbox_project "$R/ce"
+cd "$R/ce" || exit 1
+mkdir -p src && echo "c=1" > src/ce.sh && git add src && git commit -qm "base" --no-verify >/dev/null 2>&1
+printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
+  '| #3 | `Low` | `CORE` | 2026-10-11 | `src/ce.sh` | The symptom, not a changelog line. |  | 🟡 `Incubated` |' > .plans/ISSUES.md
+printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #3 -> Symptom.' > .plans/issues_road_map.md
+printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
+git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
+git config aapp.issueId 4; git config aapp.issueFixWait 0
+aapp issue fix 3 >/dev/null 2>&1
+if grep -qxF '* **Changelog:** Fixed:' .plans/current/fix-3.md && ! grep -qF 'The symptom' .plans/current/fix-3.md; then
+  ok "test_fix_opens_with_empty_changelog"
+else
+  bad "test_fix_opens_with_empty_changelog" "line=$(grep 'Changelog:' .plans/current/fix-3.md)"
+fi
+out="$(aapp issue close 3 2>&1)"; rc=$?
+if [ "$rc" -ne 0 ] && grep -qE '^\| #3 \|' .plans/ISSUES.md && [ -f .plans/current/fix-3.md ]; then
+  ok "test_close_refuses_without_fix_entry"
+else
+  bad "test_close_refuses_without_fix_entry" "rc=$rc out=$out"
+fi
+echo "c=2" > src/ce.sh; git add src/ce.sh
+aapp commit "fix: ce (#3)" changelog "the ce helper keeps its value" >/dev/null 2>&1
+out="$(aapp issue close 3 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -E '^\| #3 \|' .plans/done/000-issues-archive.md | grep -qF "| the ce helper keeps its value |"; then
+  ok "test_close_resolution_is_changelog_entry"
+else
+  bad "test_close_resolution_is_changelog_entry" "rc=$rc out=$out row=$(grep -E '^\| #3 \|' .plans/done/000-issues-archive.md)"
+fi
+
 print_test_summary "$PASS" "$FAIL"

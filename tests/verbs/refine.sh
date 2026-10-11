@@ -85,9 +85,9 @@ cat > .plans/ISSUES.md <<'EOF'
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #10 | `High` | `CORE` | 2026-10-07 | `a.sh` | First blocker. | Fix a. | 🟡 `Incubated` |
-| #11 | `High` | `CORE` | 2026-10-07 | `b.sh` | Second blocker. | Fix b. | 🟡 `Incubated` |
-| #12 | `High` | `CORE` | 2026-10-07 | `c.sh` | Third blocker. | Fix c. | 🟡 `Incubated` |
+| #10 | `High` | `CORE` | 2026-10-07 | `a.sh` | First blocker. |  | 🟡 `Incubated` |
+| #11 | `High` | `CORE` | 2026-10-07 | `b.sh` | Second blocker. |  | 🟡 `Incubated` |
+| #12 | `High` | `CORE` | 2026-10-07 | `c.sh` | Third blocker. |  | 🟡 `Incubated` |
 EOF
 cat > .plans/done/000-issues-archive.md <<'EOF'
 # Archive
@@ -149,7 +149,7 @@ cat > .plans/ISSUES.md <<EOF
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | #20 | \`High\` | \`CORE\` | 2026-10-07 | \`a.sh\` | Mentions [old](current/$b2). | [$id2](current/$b2) | 🔵 \`Planned\` |
-| #21 | \`Low\` | \`CORE\` | 2026-10-07 | \`b.sh\` | Second. | Fix b. | 🟡 \`Incubated\` |
+| #21 | \`Low\` | \`CORE\` | 2026-10-07 | \`b.sh\` | Second. |  | 🟡 \`Incubated\` |
 EOF
 cat > .plans/issues_road_map.md <<EOF
 # Issue Priority Board
@@ -232,6 +232,26 @@ if refused_issues blank sed -i '/^| #20 |/G' .plans/ISSUES.md && \
   ok "test_refine_issues_validation_refuses"
 else
   bad "test_refine_issues_validation_refuses" "a malformed ledger was committed or not refused"
+fi
+
+echo "== the fix cell holds links only (P-66) =="
+head_before="$(git -C .plans rev-parse HEAD)"
+sed -i 's/^\(| #21 |.*| Second, reworded. |\)[^|]*|/\1 Fix it later, see notes. |/' .plans/ISSUES.md
+out="$(aapp refine issues "notes in the cell" 2>&1)"; rc=$?
+git -C .plans checkout -q -- ISSUES.md
+if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "#21" && [ "$(git -C .plans rev-parse HEAD)" = "$head_before" ]; then
+  ok "test_issues_refuses_text_in_fix_cell"
+else
+  bad "test_issues_refuses_text_in_fix_cell" "rc=$rc out=$out"
+fi
+sed -i 's/^\(| #21 |.*| Second, reworded. |\)[^|]*|/\1 blocks [P-1](current\/P1-x.md) |/' .plans/ISSUES.md
+out1="$(aapp refine issues "blocks link" 2>&1)"; r1=$?
+sed -i 's/^\(| #21 |.*| Second, reworded. |\)[^|]*|/\1  |/' .plans/ISSUES.md
+out2="$(aapp refine issues "empty cell" 2>&1)"; r2=$?
+if [ "$r1" -eq 0 ] && [ "$r2" -eq 0 ] && git -C .plans log -1 --format=%s | grep -qxF "issue(triage): empty cell"; then
+  ok "test_issues_accepts_plan_and_blocks_links"
+else
+  bad "test_issues_accepts_plan_and_blocks_links" "rc=$r1/$r2 out=$out1 | $out2"
 fi
 
 echo "== group membership (P-64) =="
