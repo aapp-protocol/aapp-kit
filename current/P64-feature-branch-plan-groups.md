@@ -111,9 +111,9 @@ When the issue's files differ between the development branch and an active group
 - [x] `tests/integrate_test.sh::test_member_integrates_into_feature_branch` -> asserts a member's `done` lands on the feature branch, not the parent
 - [x] `tests/integrate_test.sh::test_group_done_refuses_open_member` -> asserts the group's `done` refuses while a member is not archived
 - [x] `tests/integrate_test.sh::test_group_done_gates_and_merges_into_parent` -> asserts `pre-done` sees the feature branch's worktree, the merge lands on the parent (a module branch, not develop), recorded member SHAs stay reachable
-- [ ] `tests/verbs/issue.sh::test_fix_refuses_off_development_branch` -> asserts `fix` refuses when the main checkout is on another branch
-- [ ] `tests/verbs/issue.sh::test_fix_group_opens_worktree_and_close_integrates` -> asserts `fix <num> group <id>` works in `.workspace/fix-<num>` and `close` lands the fix on the feature branch only
-- [ ] `tests/verbs/issue.sh::test_fix_hints_group_for_group_files` -> asserts the hint names `group <id>` when the issue's files differ on an active group's feature branch
+- [x] `tests/verbs/issue.sh::test_fix_refuses_off_development_branch` -> asserts `fix` refuses when the main checkout is on another branch
+- [x] `tests/verbs/issue.sh::test_fix_group_opens_worktree_and_close_integrates` -> asserts `fix <num> group <id>` works in `.workspace/fix-<num>` and `close` lands the fix on the feature branch only
+- [x] `tests/verbs/issue.sh::test_fix_hints_group_for_group_files` -> asserts the hint names `group <id>` when the issue's files differ on an active group's feature branch
 - [x] `tests/verbs/status.sh::test_members_listed_under_group` -> asserts members appear under their group
 - [x] `tests/verbs/freeze.sh::test_group_freeze_refuses_missing_architecture_section` -> asserts a group without `## Architecture & Codemap` refuses; "No changes" passes
 - [x] `tests/pre-commit_test.sh::test_member_commit_refuses_architecture` -> asserts a group member's commit staging `ARCHITECTURE.md` is refused, naming the group; a plan without `Group:` may commit it
@@ -137,17 +137,17 @@ When the issue's files differ between the development branch and an active group
 - [x] Task A.7: Green: Phase A tests and the full suite.
 
 ### Phase B: Issue fixes and groups (2.2, 2.3)
-- [ ] Task B.1: Red: the `issue.sh` assertions above.
-- [ ] Task B.2: Development-branch check (2.2); `fix … group` worktree, close integration, hint (2.3); contract `issue.md`.
-- [ ] Task B.3: Agent text (2.4).
-- [ ] Task B.4: Green: Phase B tests and the full suite.
+- [x] Task B.1: Red: the `issue.sh` assertions above.
+- [x] Task B.2: Development-branch check (2.2); `fix … group` worktree, close integration, hint (2.3); contract `issue.md`.
+- [x] Task B.3: Agent text (2.4).
+- [x] Task B.4: Green: Phase B tests and the full suite.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
