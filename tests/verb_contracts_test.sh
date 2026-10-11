@@ -70,6 +70,12 @@ for f in "$DOCS"/*.md; do
   while IFS= read -r ident; do
     path="${ident%%::*}"
     name="${ident#*::}"
+    verb="${f##*/}"; verb="${verb%.md}"
+    # A verb suite file belongs to its own verb: tests/verbs/<verb>.sh or a part <verb>.<part>.sh (P-68).
+    case "$path" in
+      tests/verbs/*) case "${path#tests/verbs/}" in "$verb".sh|"$verb".*.sh) ;; *) names_missing="$names_missing
+${f##*/}: '$path' is not $verb's verb suite or one of its parts" ;; esac ;;
+    esac
     if [ ! -f "$KIT/$path" ]; then
       errors="$errors
 ${f##*/}: names missing test file '$path'"
@@ -81,7 +87,7 @@ ${f##*/}: '$name' not found in $path"
 done
 if [ -z "$errors" ]; then ok "test_declared_test_files_exist"; else bad "test_declared_test_files_exist" "${errors#
 }"; fi
-if [ -z "$names_missing" ]; then ok "declared test names appear in their files"; else bad "declared test names appear in their files" "${names_missing#
+if [ -z "$names_missing" ]; then ok "test_contract_tests_exist_in_suite_or_part"; else bad "test_contract_tests_exist_in_suite_or_part" "${names_missing#
 }"; fi
 
 echo "== agent CLI reference (P-47) =="

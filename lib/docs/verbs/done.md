@@ -77,11 +77,12 @@ Run: `aapp test verb done`
 - `tests/verbs/done.sh::test_commit_takes_only_its_paths` -> the archive commit contains only the move, ledger and matrix
 - `tests/verbs/done.sh::test_pre_done_veto_blocks_archive` -> a `pre-done` handler exiting non-zero: `done` exits 1, nothing moves; payload carries recorded commits
 - `tests/verbs/done.sh::test_done_repairs_issue_links` -> another open issue linking the plan points at `done/` after `aapp done`, in the archive commit (P-50)
-- `tests/verbs/done.sh::test_done_refuses_dirty_plan_worktree` -> uncommitted changes in the plan's worktree: exit 1, nothing moves (P-54)
-- `tests/verbs/done.sh::test_done_from_primary_clears_holding_buffer_and_advises` -> run from the primary: the worktree's buffer is cleared, the worktree kept, removal and branch-deletion advice printed (P-54)
-- `tests/verbs/done.sh::test_done_from_plan_worktree_archives` -> `done` run inside the plan worktree archives (P-54)
-- `tests/verbs/done.sh::test_pre_done_payload_names_plan_worktree` -> the `pre-done` payload's `worktree` is the plan worktree; the test gate runs its command there (P-60)
-- `tests/verbs/done.sh::test_pre_done_payload_worktree_empty_in_single_checkout` -> no worktree: `worktree` is empty; the test gate runs in the repository root (P-60)
+- `tests/verbs/done.worktree.sh::test_done_refuses_dirty_plan_worktree` -> uncommitted changes in the plan's worktree: exit 1, nothing moves (P-54)
+- `tests/verbs/done.worktree.sh::test_done_from_primary_clears_holding_buffer_and_advises` -> run from the primary: the worktree's buffer is cleared, the worktree kept, removal and branch-deletion advice printed (P-54)
+- `tests/verbs/done.worktree.sh::test_done_from_plan_worktree_archives` -> `done` run inside the plan worktree archives (P-54)
+- `tests/verbs/done.worktree.sh::test_done_finds_test_files_in_plan_worktree` -> a TDD plan with a worktree, `done` from the primary: its required test files are found in the worktree (#119)
+- `tests/verbs/done.worktree.sh::test_pre_done_payload_names_plan_worktree` -> the `pre-done` payload's `worktree` is the plan worktree; the test gate runs its command there (P-60)
+- `tests/verbs/done.worktree.sh::test_pre_done_payload_worktree_empty_in_single_checkout` -> no worktree: `worktree` is empty; the test gate runs in the repository root (P-60)
 - `tests/integrate_test.sh::test_manual_default_archives_without_integrating` -> seeded `manual`: archive only, the `integrate` advice printed (P-55 Q1)
 - `tests/integrate_test.sh::test_squash_integrates_with_trailers_and_cleans_up` -> squash into the parent with lineage trailers; worktree and branch removed; main checkout back on its branch (P-55)
 - `tests/integrate_test.sh::test_integrates_into_module_parent_not_develop` -> a plan from `module/auth` lands there, not on develop (P-55)

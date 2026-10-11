@@ -45,6 +45,27 @@ else
   bad "test_refuses_unmatched_filter" "verb=$rc1 flat=$rc2"
 fi
 
+echo "== suite parts (P-68) =="
+stub tests/verbs/draft.extra.sh verb-draft-extra
+out="$(aapp test verb draft 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'ran verb-draft$' && printf '%s' "$out" | grep -q 'ran verb-draft-extra' && \
+   printf '%s' "$out" | grep -q 'verb/draft ' && printf '%s' "$out" | grep -q 'verb/draft.extra' && \
+   ! printf '%s' "$out" | grep -q 'ran verb-matrix'; then
+  ok "test_verb_runs_all_its_parts"
+else
+  bad "test_verb_runs_all_its_parts" "rc=$rc out=$out"
+fi
+out="$(aapp test list 2>&1)"
+vline="$(printf '%s\n' "$out" | grep -n 'verb/draft$\|verb/draft ' | head -1 | cut -d: -f1)"
+pline="$(printf '%s\n' "$out" | grep -n 'verb/draft.extra' | head -1 | cut -d: -f1)"
+if [ -n "$vline" ] && [ -n "$pline" ] && [ "$pline" -eq $((vline + 1)) ] && \
+   printf '%s\n' "$out" | sed -n "${pline}p" | grep -qE '^ {4,}'; then
+  ok "test_parts_listed_under_their_verb"
+else
+  bad "test_parts_listed_under_their_verb" "$(printf '%s\n' "$out" | grep 'verb/')"
+fi
+rm -f tests/verbs/draft.extra.sh
+
 printf '#!/usr/bin/env bash\necho "aborted early"\nexit 1\n' > tests/verbs/abort.sh
 out="$(aapp test verb abort 2>&1)"; rc=$?
 rm -f tests/verbs/abort.sh
