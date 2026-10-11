@@ -103,7 +103,7 @@ Taken under `done`'s snapshot (#121): `current/`, both ledgers, `ISSUES.md`, `is
 1. **Target issue** (`* **Target Issue / Milestone:** #<n>`, active row):
    - It is **not closed**. Status goes from `🔵 Planned` back to `🟡 Incubated`.
    - The `Target Plan / Fix` cell keeps the plan link, repointed to the archive: `[P-<id>](aborted/P<n>-<slug>.md)`, a verb-written link the fix-cell check (`check_fix_cells`) already accepts; no note is written.
-   - The row edit is the issue module's abort step in `lib/cmd_issue.sh`, the counterpart of `issue_mark_planned`, shared with `aapp issue fix <num> abort`; `plan abort` writes no issue row itself.
+   - The row edit is one function in `lib/cmd_issue.sh`, the counterpart of `issue_mark_planned`; `plan abort` calls it and writes no issue row itself. Aborting a plan never withdraws its issue.
    - A hotfix issue promoted to this plan is `Incubated` again, so `issue_queued_blockers` lists it again and the plan it blocks stays blocked.
 2. **Other links**: `issue_relink "current/<file>" "aborted/<file>"` repoints every other row and road-map line, including the `blocks [P-<id>](…)` rows of the plan's own hotfix issues.
 3. **A `🟥 BLOCKED` plan's hotfix issues** stay open and queued: they are bugs in their own right. In single-checkout mode the work `hotfix` set aside for them is this plan's: its lines leave `aapp_hotfix_stash`, so `issue close` re-applies nothing, and each stash stays in `git stash list`, named in the output.
@@ -172,7 +172,7 @@ Aborting a group plan removes the group: its plan, its open members and its code
 - [ ] Task 2.1: `cmd_plan_abort()` in `lib/cmd_plan.sh`: tokens, preflight (§2.2).
 - [ ] Task 2.2: Route `abort` in `cmd_plan_switchboard` and list it in the switchboard text.
 - [ ] Task 2.3: Archive (§2.3): move, header, change log, ledger, matrix, buffers, snapshot-guarded commit.
-- [ ] Task 2.4: Issue abort step in `lib/cmd_issue.sh` (`🔵 Planned` -> `🟡 Incubated`, link repointed to `aborted/`), shared by `issue fix <num> abort` and `plan abort`; relink; hotfix stash records (§2.4).
+- [ ] Task 2.4: Row function in `lib/cmd_issue.sh` (`🔵 Planned` -> `🟡 Incubated`, link repointed to `aborted/`), called by `plan abort`; relink; hotfix stash records (§2.4).
 - [ ] Task 2.5: Group member unlinking; group plan abort with confirmation (§2.6).
 - [ ] Task 2.6: Teardown (§2.5).
 - [ ] Task 2.7: `post-abort` dispatch and event catalogue (§2.7).
@@ -189,7 +189,7 @@ Aborting a group plan removes the group: its plan, its open members and its code
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/cmd_plan.sh` -> `cmd_plan_abort`: preflight, archive, teardown; switchboard route.
-- [ ] `lib/cmd_issue.sh` -> Issue abort step: status back to Incubated, plan link repointed to `aborted/`; hotfix stash records.
+- [ ] `lib/cmd_issue.sh` -> Row function: status back to Incubated, plan link repointed to `aborted/`; hotfix stash records.
 - [ ] `lib/cmd_hook.sh` -> `post-abort` in the events catalogue and the `hook-test` list.
 - [ ] `templates/skills/aapp-hooks/registry.tsv` -> `post-abort` in the header's event list.
 - [ ] `lib/docs/verbs/plan.md` -> `plan abort` form in the `plan` verb contract.
@@ -221,6 +221,7 @@ Aborting a group plan removes the group: its plan, its open members and its code
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** The issue row edit is an internal function; a plan's abort never withdraws its issue.
 * **2026-10-11:** A group member aborts with its commits: they are on its own plan branch.
 * **2026-10-11:** A group plan's abort removes the whole group (open members, feature branch) after a confirmation.
 * **2026-10-11:** A group member with recorded commits is refused.
