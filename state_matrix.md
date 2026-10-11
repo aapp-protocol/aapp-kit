@@ -24,7 +24,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-73**: [`P73-issue-ledger-module.md`](current/P73-issue-ledger-module.md) — Issue Ledger Module
 - 🟣 **P-74**: [`P74-issue-provider-wrapper.md`](current/P74-issue-provider-wrapper.md) — Issue Provider Wrapper
 - 🟣 **P-75**: [`P75-offline-worktree.md`](current/P75-offline-worktree.md) — Help
-- 🟣 **P-76**: [`P76-issue-abort.md`](current/P76-issue-abort.md) — Issue Abort
 - 🟣 **P-77**: [`P77-plugin-answer-standard.md`](current/P77-plugin-answer-standard.md) — Plugin Answer Standard
 
 ---
@@ -34,6 +33,8 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-76**: [`P76-issue-abort.md`](current/P76-issue-abort.md) — Issue Abort
 
 ---
 
