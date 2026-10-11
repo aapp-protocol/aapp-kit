@@ -1,8 +1,8 @@
 # 🗺️ Plan P-77: Plugin Answer Standard
 * **Created:** 2026-10-12 | **Last Refined:** 2026-10-12
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-77
-* **Changelog:** Changed: Plugin Answer Standard
+* **Changelog:** Changed: one answer contract for the plugins the kit calls (P-77)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,12 +39,33 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+The Plugin Payload Standard says what the kit sends a supported plugin (the envelope) and that the plugin answers with one flat JSON object. It does not say how a plugin gets the kit to do something locally, so a plugin author's natural move is to call the `aapp` CLI from inside the plugin, while the calling verb holds its lock and is mid-commit.
+
+This plan gives supported plugins (the reserved names the kit calls: `aapp-issue-tracker`, `aapp-planid`) one answer contract that reads the way a person would say it, and keeps the kit the only writer. An ad hoc plugin or script is outside it: to the kit it is a CLI user like any other, and the CLI's own locks and checks are the safeguard.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+**Under discussion; nothing here is settled.**
+
+A step is a short exchange:
+1. **The kit:** "here is the whole issue; I am about to log it" (the envelope).
+2. **The plugin** does its own work (network included), then answers.
+3. **The kit** finishes the local part from that answer.
+
+**The answer has three parts:**
+- **What happened:** `status`, and what the plugin produced (`id`, `ref`).
+- **What it leaves to the kit:** `kit`, the parts of this step the kit still handles (`note`, `list`). Absent means the kit handles everything.
+- **What else it wants done:** aapp commands, written exactly as a person types them, one per line, in the file the kit names in `AAPP_PLUGIN_TODO`:
+  ```
+  issue close 12 summary "closed on the tracker"
+  issue log High CORE "login fails on Safari" note "seen by QA"
+  ```
+  The kit runs them after the plugin exits: in order, under its own lock, through the same code the CLI runs, each with its result reported. A command run this way does not call the plugin that asked for it. The plugin author learns no second vocabulary: the CLI is the vocabulary.
+
+**During a step,** a supported plugin that runs a writing `aapp` verb directly is refused (the kit marks the plugin's environment) and told to write the command to the to-do file. Reading verbs work.
+
+**One timeout** for every plugin call, reusing the hook dispatcher's watchdog.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -98,11 +119,13 @@
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** Is "the plugin writes the aapp commands it wants, the kit runs them when the step is done" the natural interaction, or should the wanted operations be data in the JSON answer (the answer is flat today; a list needs a nested form)?
+* [ ] **Question 2:** The words: `kit` for "left to the kit", and the to-do file. Better names?
+* [ ] **Question 3:** A to-do command that is refused: report it and run the rest, or stop at the first refusal?
+* [ ] **Question 4:** Tests, tasks and Target Files are written once Questions 1–3 are settled.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-12:** Plan initialized from `pickup.md`.
-* **2026-10-12:** Refined blast radius and locked module boundaries.
+* **2026-10-12:** Drafted as a member of P-72.
