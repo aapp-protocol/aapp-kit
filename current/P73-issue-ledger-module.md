@@ -131,7 +131,7 @@ The health checks (fix cells, Pair 1/Pair 8 duplicates, resolved rows in the act
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
 * [ ] **Question 1:** How do the hooks reach the module: a separate `lib/issue_ledger.sh` that `aapp init` copies into `.githooks/` next to `aapp-lib.sh` (recommended: one file per concern), or its functions inside `aapp-lib.sh`, which the hooks already load?
-* [ ] **Question 2:** One lookup order for the ledger: `.plans/ISSUES.md` first, then a repo-root `ISSUES.md` (as `status` does), or the reverse (as the pre-commit hook does)?
+* [x] **Question 2 — One lookup order for the ledger? → RESOLVED (developer, 2026-10-11):** the kit supports both places (`.plans/` or the repo root, the adopter's preference); the two do not normally coexist, so the order is not significant. `ledger_path` looks in `.plans/` first, and the pre-commit hook follows by calling it.
 
 ---
 
