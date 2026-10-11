@@ -170,7 +170,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 *Do NOT populate with already-decided choices or answer questions yourself.*
 * [x] **Question 1 — The state directory's `<key>`? → RESOLVED (developer, 2026-10-11):** derived from the remote URL (two clones of one project share notes; two projects with the same folder name do not collide); a repository with no remote uses its folder name.
 * [x] **Question 2 — A second `note` for the same issue? → RESOLVED (developer, 2026-10-11):** appended, each note dated.
-* [ ] **Question 3:** Who writes notes: people only, or also the agent that logs the issue?
+* [x] **Question 3 — Who writes notes? → RESOLVED (developer, 2026-10-11):** people and agents alike; a note belongs to the issue, whoever wrote it.
 * [ ] **Question 4:** The sync refresh window: a fixed length, or a config key?
 * [ ] **Question 5:** An issue the provider lists as closed while the local row is open: `issue list` closes it locally with the provider's summary, or only marks it until someone runs `issue close`?
 
