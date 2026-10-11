@@ -74,29 +74,29 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/test.sh::test_suites_run_concurrently` -> asserts four stub suites sleeping 2 s each finish under 5 s with `jobs 4`
-- [ ] `tests/verbs/test.sh::test_jobs_one_runs_serially` -> asserts three stub suites sleeping 1 s each take at least 3 s with `jobs 1`
-- [ ] `tests/verbs/test.sh::test_parallel_failure_fails_the_run` -> asserts one failing stub among passing ones: exit 1 and its `FAILED (exit 1)` row
-- [ ] `tests/verbs/test.sh::test_suite_output_not_interleaved` -> asserts each stub's lines appear contiguous in default output
-- [ ] `tests/verbs/test.sh::test_summary_in_selection_order` -> asserts summary rows follow the selection order, not finish order
-- [ ] `tests/verbs/test.sh::test_interrupt_cleans_up` -> asserts a run sent TERM while stubs sleep exits non-zero, leaves no temporary files in its `TMPDIR` and no stub process running
-- [ ] `tests/verbs/test.sh::test_default_jobs_multiple_of_four` -> asserts with a stubbed `getconf` the banner reports 8 jobs for 10 CPUs, 12 for 12, 2 for 2, and 1 with a notice when the count is unreadable
-- [ ] `tests/verbs/test.sh::test_jobs_refuses_non_number` -> asserts `jobs 0` and `jobs x` exit 1 with usage
+- [x] `tests/verbs/test.sh::test_suites_run_concurrently` -> asserts four stub suites sleeping 2 s each finish under 5 s with `jobs 4`
+- [x] `tests/verbs/test.sh::test_jobs_one_runs_serially` -> asserts three stub suites sleeping 1 s each take at least 3 s with `jobs 1`
+- [x] `tests/verbs/test.sh::test_parallel_failure_fails_the_run` -> asserts one failing stub among passing ones: exit 1 and its `FAILED (exit 1)` row
+- [x] `tests/verbs/test.sh::test_suite_output_not_interleaved` -> asserts each stub's lines appear contiguous in default output
+- [x] `tests/verbs/test.sh::test_summary_in_selection_order` -> asserts summary rows follow the selection order, not finish order
+- [x] `tests/verbs/test.sh::test_interrupt_cleans_up` -> asserts a run sent TERM while stubs sleep exits non-zero, leaves no temporary files in its `TMPDIR` and no stub process running
+- [x] `tests/verbs/test.sh::test_default_jobs_multiple_of_four` -> asserts with a stubbed `getconf` the banner reports 8 jobs for 10 CPUs, 12 for 12, 2 for 2, and 1 with a notice when the count is unreadable
+- [x] `tests/verbs/test.sh::test_jobs_refuses_non_number` -> asserts `jobs 0` and `jobs x` exit 1 with usage
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: The Required Tests above.
+- [x] Task 1.1: The Required Tests above.
 
 ### Phase 2: Implementation
-- [ ] Task 2.1: Scheduling and `jobs` (2.1).
-- [ ] Task 2.2: Output and summary (2.2).
-- [ ] Task 2.3: Contract (2.3); `aapp test help` text.
+- [x] Task 2.1: Scheduling and `jobs` (2.1).
+- [x] Task 2.2: Output and summary (2.2).
+- [x] Task 2.3: Contract (2.3); `aapp test help` text.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
