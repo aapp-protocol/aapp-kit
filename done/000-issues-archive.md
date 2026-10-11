@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #117 | `High` | `CORE` | 2026-10-10 | 2026-10-11 | `d55aa29` | [P-66](P66-issue-fix-changelog-from-the-fix.md) - Issue Fix Changelog From The Fix |
 | #121 | `High` | `CORE` | 2026-10-11 | 2026-10-11 | `c74d986` | `aapp done` restores the plan, ledgers and matrix when its archive commit fails |
 | #119 | `High` | `CORE` | 2026-10-11 | 2026-10-11 | `8df5011` | `aapp done` finds a TDD plan's required test files in the plan's worktree |
 | #116 | `Low` | `DOCS` | 2026-10-10 | 2026-10-10 | `6c55004` | Template lacked on-integrate; this repo's seeded copy kept pre-P-23 names (fixed in .agents d661711). |

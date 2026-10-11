@@ -33,8 +33,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-66**: [`P66-issue-fix-changelog-from-the-fix.md`](current/P66-issue-fix-changelog-from-the-fix.md) — Issue Fix Changelog From The Fix
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
