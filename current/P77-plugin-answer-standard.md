@@ -46,26 +46,43 @@ This plan gives supported plugins (the reserved names the kit calls: `aapp-issue
 ---
 
 ## 2. Technical Blueprint
-**Under discussion; nothing here is settled.**
+A step is a short exchange between the kit and a supported plugin.
 
-A step is a short exchange:
-1. **The kit:** "here is the whole issue; I am about to log it" (the envelope).
-2. **The plugin** does its own work (network included), then answers.
-3. **The kit** finishes the local part from that answer.
+**1. The kit asks.** The envelope of the Plugin Payload Standard, unchanged in form:
+- `event` names the step (`issue.log`, `issue.fix`, `issue.close`, `issue.list`, `plan.allocate`, …).
+- `data` carries the whole subject (every cell of the issue, its note, its plan link), not only an id.
 
-**The answer has three parts:**
-- **What happened:** `status`, and what the plugin produced (`id`, `ref`).
-- **What it leaves to the kit:** `kit`, the parts of this step the kit still handles (`note`, `list`). Absent means the kit handles everything.
-- **What else it wants done:** aapp commands, written exactly as a person types them, one per line, in the file the kit names in `AAPP_PLUGIN_TODO`:
+**2. The plugin answers.** One flat JSON object on stdout; the exit code still decides success.
+```json
+{ "status": "ok",
+  "message": "Created PROJ-101 on the tracker",
+  "handled": "id, note",
+  "id": "#45",
+  "ref": "PROJ-101" }
+```
+- `status`: `ok`, `declined` (not mine; the kit does it) or `failed`.
+- `message`: one sentence the kit shows the user.
+- `handled`: what the plugin took care of. Whatever it does not name, the kit does; a part added by a later kit version is therefore still done by the kit under an older plugin.
+- The rest: what it produced, under the field names the kit sent (`id`, `ref`, …).
+
+**3. Longer answers** go in two optional files the kit names in the plugin's environment; every line is flat, readable with `cat`:
+- `AAPP_PLUGIN_LIST`: one flat JSON object per line, in the shape of `data` (the issues of `issue.list`).
+- `AAPP_PLUGIN_DO`: the `do` list: aapp commands exactly as a person types them, one per line.
   ```
   issue close 12 summary "closed on the tracker"
   issue log High CORE "login fails on Safari" note "seen by QA"
   ```
-  The kit runs them after the plugin exits: in order, under its own lock, through the same code the CLI runs, each with its result reported. A command run this way does not call the plugin that asked for it. The plugin author learns no second vocabulary: the CLI is the vocabulary.
+  The kit runs them after the plugin exits: in order, under its own lock, through the code the CLI runs, each result reported. A command run from `do` does not call the plugin that asked for it.
 
-**During a step,** a supported plugin that runs a writing `aapp` verb directly is refused (the kit marks the plugin's environment) and told to write the command to the to-do file. Reading verbs work.
+**4. The kit finishes** the local part: everything not in `handled`, then the `do` list.
 
-**One timeout** for every plugin call, reusing the hook dispatcher's watchdog.
+**Rules**
+- **During a step** a supported plugin that runs a writing `aapp` verb directly is refused (the kit marks the plugin's environment) and pointed to `do`. Reading verbs work.
+- **Version:** the answer may echo `version`; the kit refuses an answer from a version newer than its own.
+- **Timeout:** one for every plugin call, the hook dispatcher's watchdog.
+- **No plugin:** the kit does everything. **A failing plugin:** each step defines the outcome (fall back or refuse).
+- **Hooks** receive the same envelope and stay notifications; a `pre-` hook blocks with its exit code.
+- **Ad hoc plugins and scripts** are outside the protocol: CLI users, guarded by the CLI's own locks and checks. The MANUAL says so.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -119,9 +136,9 @@ A step is a short exchange:
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** Is "the plugin writes the aapp commands it wants, the kit runs them when the step is done" the natural interaction, or should the wanted operations be data in the JSON answer (the answer is flat today; a list needs a nested form)?
-* [ ] **Question 2:** The words: `kit` for "left to the kit", and the to-do file. Better names?
-* [ ] **Question 3:** A to-do command that is refused: report it and run the rest, or stop at the first refusal?
+* [x] **Question 1 — The form of the exchange? → RESOLVED (developer, 2026-10-12):** the kit asks with the whole subject; the plugin answers with what happened, what it handled and what it produced; wanted operations are aapp command lines the kit runs after the step.
+* [x] **Question 2 — The words? → RESOLVED (developer, 2026-10-12):** `handled` for what the plugin took care of; `do` for the list of commands (used in the flow of many languages, self-describing).
+* [ ] **Question 3:** A `do` command that is refused: report it and run the rest, or stop at the first refusal?
 * [ ] **Question 4:** Tests, tasks and Target Files are written once Questions 1–3 are settled.
 
 ---
