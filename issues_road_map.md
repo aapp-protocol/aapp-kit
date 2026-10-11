@@ -44,5 +44,4 @@
 - [ ] #111 -> `issue fix` takes an over-long changelog entry from the fix cell; refused only at commit.
 - [ ] #117 -> `issue fix` turns the fix cell (or the symptom) into the changelog line; the cell holds notes.
 - [ ] #118 -> No lifecycle path abandons a started plan (or group).
-- [ ] #119 -> `done` looks for a worktree plan's required test files in the main checkout.
 

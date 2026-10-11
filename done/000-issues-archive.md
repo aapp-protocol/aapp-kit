@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #119 | `High` | `CORE` | 2026-10-11 | 2026-10-11 | `8df5011` | `aapp done` finds a TDD plan's required test files in the plan's worktree |
 | #116 | `Low` | `DOCS` | 2026-10-10 | 2026-10-10 | `6c55004` | Template lacked on-integrate; this repo's seeded copy kept pre-P-23 names (fixed in .agents d661711). |
 | #115 | `High` | `TEST` | 2026-10-10 | 2026-10-10 | `be30b40` | Fixed via aapp issue fix: lib/cmd_test.sh, tests/verbs/test.sh |
 | #114 | `High` | `TEST` | 2026-10-09 | 2026-10-10 | `0cc7b47` | [P-62](P62-guard-buffer-and-workspace-fixtures.md) - Guard Buffer And Workspace Fixtures |
