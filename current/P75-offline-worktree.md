@@ -1,8 +1,8 @@
-# 🗺️ Plan P-75: Help
+# 🗺️ Plan P-75: Offline Worktree & Local Lifecycle
 * **Created:** 2026-10-11 | **Last Refined:** 2026-10-11
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-75
-* **Changelog:** Changed: Help
+* **Changelog:** Added: on-demand .offline worktree for air-gapped issues, local archive, and draft plans (P-75)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,65 +38,134 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+* **What**: Standardize an on-demand, isolated orphan worktree (`.offline` on orphan branch `offline`) acting as a local outbox and air-gapped staging environment for offline issue logging, local issue archiving, and draft plan authoring.
+* **Why**: Currently, developers and agents cannot log issues or draft plans while offline without either failing closed or polluting the remote-tracked `.plans` branch. Furthermore, issues lack an air-gapped local lifecycle: an issue resolved while offline has no legitimate local audit trail.
+* **The Core Solution**:
+  1. **Isolated Orphan Worktree (`.offline`)**: Mounted on-demand (`git worktree add --orphan -b offline .offline`) and unmounted when clean (`git worktree remove .offline`), completely unpushed to `origin`.
+  2. **Configurable High-Offset ID Allocation**: Offline issues use standard `#<num>` syntax starting from `max(canonical) + aapp.offlineIdOffset` (configurable via `git config aapp.offlineIdOffset`, default `1000`), preventing collisions with upstream pulls while retaining universal `#<num>` parser compatibility.
+  3. **Local Outbox & Local Archive**: Contains `.offline/ISSUES.md` (active staged issues), `.offline/done/000-issues-archive.md` (locally resolved/archived issues), and `.offline/current/` (offline draft plans).
+  4. **Context Recovery Awareness**: `aapp status` detects `.offline/` and reports staged offline items alongside canonical work.
+  5. **Atomic Promotion & Synchronization (`aapp offline sync`)**: Reconciles staged issues with canonical `.plans/` (and external trackers), atomically re-identifying `#<temp_id>` references in plans to canonical IDs.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### A. The `.offline` Worktree Topology
+Mounted alongside `.plans`, `.agents`, and `.githooks`:
+```text
+.offline/
+├── ISSUES.md                  <- Staged offline issues (standard table schema)
+├── done/
+│   ├── 000-issues-archive.md  <- Locally resolved/closed issues
+│   └── P*-*.md                <- Completed local scratchpad plans
+└── current/                   <- Exploratory/offline draft plans
+```
+
+### B. High-Offset ID Allocation Strategy
+* **Syntax Invariant**: Offline issue IDs strictly retain the canonical `#<num>` syntax (`^#[0-9]+$`).
+* **Offset Calculation**:
+  $$\text{Next Offline ID} = \max(\text{canonical IDs in } .plans) + \text{offlineIdOffset}$$
+* **Configuration**: `aapp.offlineIdOffset` (default: `1000`, overrideable via `git config aapp.offlineIdOffset <val>`).
+* **Seeding & Storage**:
+  - Tracked in `git config aapp.offlineIssueId`.
+  - When offline, `aapp issue allocate` (or logging via `refine issues` / `hotfix`) seeds `aapp.offlineIssueId` from `max(canonical) + offset` if unset, then increments.
+  - Because offline IDs start at e.g. `#1045` when canonical is `#45`, local work is visibly distinct and completely immune to upstream `git pull` collisions of normal sequential IDs.
+
+### C. CLI Verbs & Lifecycle (`aapp offline`)
+* `aapp offline mount`: Creates or mounts the `.offline` worktree on orphan branch `offline` (reusing `mount_or_create_worktree`).
+* `aapp offline unmount`: Unmounts and prunes `.offline` after verifying no un-synced items remain (or `--force`).
+* `aapp offline status`: Detailed status of staged issues and draft plans in `.offline/`.
+* `aapp offline sync`:
+  1. For each active row in `.offline/ISSUES.md`:
+     - Allocates canonical ID (from canonical counter or provider).
+     - Relocates row from `.offline/ISSUES.md` into `.plans/ISSUES.md`.
+     - Atomically rewrites plan references (`Target Issue`, `Blocked On`) from `#<temp>` to `#<canonical>`.
+  2. For each archived row in `.offline/done/000-issues-archive.md`:
+     - Relocates to `.plans/done/000-issues-archive.md`.
+  3. Commits canonical changes to `.plans` branch.
+  4. Clears `.offline` ledgers and prompts for unmount.
+
+### D. Context Recovery Integration (`aapp status`)
+* `cmd_status.sh` checks if `.offline` is mounted and non-empty.
+* If staged items exist, appends a dedicated pillar to the briefing:
+  ```text
+  📡 Staged Offline Work (.offline):
+     - Issues: 2 staged (#1043, #1044) | 1 in local archive (#1042)
+     - Draft Plans: 1 offline blueprint (current/P99-experimental.md)
+     Action: Run 'aapp offline sync' when online to publish.
+  ```
+
+### E. Blast Radius & Hook Enforcement
+* `templates/blast-radius-guard.sh`: Recognizes `.offline/**` as a permitted path for offline workflows.
+* `templates/aapp-pre-commit`: Rejects commits on `develop` or `plans` that stage files inside `.offline/`.
+* Pre-push gate: Blocks any push containing `refs/heads/offline`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### 🧪 Required Tests (Failure & Boundary Assertions)
+> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/offline.sh::test_mount_creates_orphan_worktree` -> asserts `aapp offline mount` creates `.offline` on orphan branch `offline`
+- [ ] `tests/verbs/offline.sh::test_allocate_uses_offset` -> asserts offline allocation starts at `max(canonical) + aapp.offlineIdOffset`
+- [ ] `tests/verbs/offline.sh::test_custom_offset_configuration` -> asserts changing `git config aapp.offlineIdOffset 5000` starts offline IDs at 5000+
+- [ ] `tests/verbs/offline.sh::test_offline_issue_local_archive` -> asserts closing an offline issue moves it to `.offline/done/000-issues-archive.md`
+- [ ] `tests/verbs/offline.sh::test_status_reports_staged_offline_work` -> asserts `aapp status` displays staged offline issues and plans
+- [ ] `tests/verbs/offline.sh::test_offline_sync_promotes_and_relinks` -> asserts `aapp offline sync` moves rows to `.plans/`, rewrites `#<temp>` references to `#<canonical>`, and clears `.offline`
+- [ ] `tests/verbs/offline.sh::test_unmount_refuses_when_dirty` -> asserts `aapp offline unmount` refuses if unpromoted issues exist without `--force`
+
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Author test suite in `tests/verbs/offline.sh` proving mounting, offset allocation, status detection, local archiving, and sync.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: Implement `lib/cmd_offline.sh` with `mount`, `unmount`, `status`, and `sync` handlers.
+- [ ] Task 2.2: Add high-offset offline ID allocation logic in `lib/cmd_issue.sh` / `lib/plan_resolver.sh`.
+- [ ] Task 2.3: Wire local archive relocation in `lib/cmd_issue.sh` when closing issues located in `.offline/`.
+- [ ] Task 2.4: Update `lib/cmd_status.sh` to observe `.offline/` and print the offline briefing pillar.
+- [ ] Task 2.5: Update `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit` to authorize `.offline/**` and prevent push leakage.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [ ] Task 3.2: Update user-facing documentation in `MANUAL.md` (`aapp offline` commands, offset config, local lifecycle).
+- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.5: Log every finding outside Target Files as an issue (`aapp refine issues`).
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `lib/cmd_offline.sh` -> CLI ingress and subcommands for `aapp offline` (`mount`, `unmount`, `status`, `sync`).
+- [ ] `lib/cmd_issue.sh` -> Offline ID allocation fallback and local archiving handling.
+- [ ] `lib/cmd_status.sh` -> Context recovery briefing inspection of `.offline/`.
+- [ ] `lib/plan_resolver.sh` -> Offset calculation and `aapp.offlineIdOffset` config resolution.
+- [ ] `templates/blast-radius-guard.sh` -> Worktree path authorization.
+- [ ] `templates/aapp-pre-commit` -> Hook leak protection against `.offline`.
+- [ ] `MANUAL.md` -> User documentation for offline workflows and configuration.
+- [ ] `ARCHITECTURE.md` -> Architecture sync for the `.offline` worktree.
+- [ ] `.agents/CODEMAP.md` -> Codemap sync for `cmd_offline.sh`.
+
+### 🧪 Required Test Files
+- [ ] `NEW FILE` -> `tests/verbs/offline.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/cmd_plan.sh` -> Plan drafting core unchanged (offline plans use standard templates).
+- [ ] `.githooks/blast-radius-guard` -> Generated hook runtime; edit template instead.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** Should `aapp offline mount` be automatically triggered on the fly whenever `aapp refine issues` or `aapp issue allocate` is run while offline, or should it require an explicit `aapp offline mount` first?
+* [ ] **Question 2:** When promoting offline draft plans during `aapp offline sync`, should they automatically land in `.plans/current/` as `🟣 Under Review`, or should plans require explicit individual promotion (e.g. `aapp offline publish plan <id>`)?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-* **2026-10-11:** File renamed from P75-help.md to P75-offline-worktree.md.
-*Tracks how the plan evolved across sessions.*
-* **2026-10-11:** Plan initialized from `pickup.md`.
-* **2026-10-11:** Refined blast radius and locked module boundaries.
+* **2026-10-11:** Scaffolded canonical blueprint P-75 for the offline worktree and local lifecycle.
+* **2026-10-11:** Completed technical blueprint, high-offset ID allocation (+1000 configurable), local archiving, and sync relinking specifications.
