@@ -4,7 +4,7 @@
 - modifiers (bare tokens, any order, combinable): `list` (show suites, run nothing), `strict` (export `AAPP_TEST_SANDBOX_STRICT=1`), `quiet` (suite-level output only), `bail` (no suite starts after the first failure; running ones finish), `jobs <n>` (up to `<n>` suites at once, P-67), `help`
 - reads: the CPU count (`getconf _NPROCESSORS_ONLN`) for the default job count: rounded down to a multiple of 4 (10 -> 8, 12 -> 12), the CPU count below 4, `1` with a notice when unreadable
 - `verb` (token, optional): select contract-derived verb suites in `tests/verbs/`
-    `verb <name>`: run `tests/verbs/<name>.sh` alone
+    `verb <name>`: run `tests/verbs/<name>.sh` and its parts `tests/verbs/<name>.<part>.sh` (P-68)
     `verb` alone: run every `tests/verbs/*.sh`
 - `suite…` (positional, optional): flat suites to run, matched against `tests/<name>_test.sh` by exact name, stem or substring
     source when omitted: every flat suite and every verb suite
@@ -25,7 +25,8 @@
 - each selected suite runs as `bash <suite>` in its own subshell from the repository root, up to the job count at once, each in its own process group (P-67); the banner names the job count
 - a suite's output goes to its own temporary file and is printed whole when it finishes, never interleaved with another's (`quiet`: its row then)
 - a summary row per suite reports passed and failed assertions and duration, in selection order whatever the finish order; verb suites are labelled `verb/<name>`
-- `list` prints both sets — flat suites and verb suites — and runs nothing
+- a verb suite may be split into parts, `tests/verbs/<verb>.<part>.sh`, each scheduled as its own suite and labelled `verb/<verb>.<part>`; parts sort right after their verb (P-68)
+- `list` prints both sets — flat suites and verb suites, each part indented under its verb — and runs nothing
 - writes nothing outside the suites' own sandboxes
 
 ## Exit
@@ -46,3 +47,5 @@ Run: `aapp test verb test`
 - `tests/verbs/test.sh::test_interrupt_cleans_up` -> TERM: exit non-zero, no temporary files, no suite process left (P-67)
 - `tests/verbs/test.sh::test_default_jobs_multiple_of_four` -> 10 CPUs -> 8, 12 -> 12, 2 -> 2, unreadable -> 1 with a notice (P-67)
 - `tests/verbs/test.sh::test_jobs_refuses_non_number` -> `jobs 0`, `jobs x`, bare `jobs`: exit 1 (P-67)
+- `tests/verbs/test.sh::test_verb_runs_all_its_parts` -> `verb draft` runs `draft.sh` and `draft.extra.sh`, labelled `verb/draft` and `verb/draft.extra` (P-68)
+- `tests/verbs/test.sh::test_parts_listed_under_their_verb` -> `list` shows a part indented right under its verb (P-68)
