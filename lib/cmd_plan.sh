@@ -274,6 +274,73 @@ _group_owning_branch() {
     return 1
 }
 
+# _group_start <group-plan> [base <branch>]: cuts `feature/<slug>` from the parent
+# (default: the development branch) and records Base and Feature Branch. A group
+# writes no code: no worktree, no buffer. Groups do not nest.
+_group_start() {
+    local gf="$1" gid b slug parent="" ref sha fb today
+    shift
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            base) [ $# -ge 2 ] || { echo "❌ [Start Refusal] 'base' needs a branch." >&2; exit 1; }
+                  parent="$2"; shift 2 ;;
+            *)    echo "❌ [Start Refusal] Unknown token '$1'. Usage: <group> [base <branch>]" >&2; exit 1 ;;
+        esac
+    done
+    gid="$(sed -nE 's/^\* \*\*Plan ID:\*\*[[:space:]]*(P-[0-9]+).*/\1/p' "$gf" | head -n 1)"
+    if [ "$(plan_status_slug "$gf")" != "frozen" ]; then
+        echo "❌ [Start Refusal] Group $gid is not 🔷 Frozen; freeze it first." >&2
+        exit 1
+    fi
+    [ -n "$parent" ] || parent="$(aapp_dev_branch)"
+    if [ -z "$parent" ] || ! ref="$(aapp_branch_ref "$parent")"; then
+        echo "❌ [Start Refusal] No branch '${parent:-<development branch>}' to start group $gid from." >&2
+        exit 1
+    fi
+    local owner
+    if owner="$(_group_owning_branch "$parent")"; then
+        echo "❌ [Start Refusal] '$parent' is the feature branch of group $owner; groups do not nest." >&2
+        exit 1
+    fi
+    b="$(basename "$gf" .md)"; slug="${b#P${gid#P-}-}"; fb="feature/$slug"
+    if git show-ref --verify --quiet "refs/heads/$fb"; then
+        echo "❌ [Start Refusal] Branch '$fb' already exists; a group never reuses a branch." >&2
+        exit 1
+    fi
+    sha="$(git rev-parse --short "$ref")" || exit 1
+    git branch --no-track "$fb" "$ref" >/dev/null || exit 1
+    write_plan_base "$gf" "\`$sha\` ($parent)"
+    write_plan_field "$gf" "Feature Branch" "$fb" Base
+    sed -i -E 's/^\* \*\*Status:\*\*.*/* **Status:** ⚡ In Development/' "$gf"
+    today="$(date +%Y-%m-%d)"
+    grep -q '^## 📦 6\. Change Log' "$gf" && \
+        sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* Group started: \`$fb\` from \`$parent\`." "$gf"
+    sync_state_matrix
+    if ! plans_commit "plan(start): start group $gid on $fb" "current/$(basename "$gf")" "state_matrix.md"; then
+        git branch -D "$fb" >/dev/null
+        exit 1
+    fi
+    echo "🧩 [Start] Group $gid started: $fb from $parent ($sha)."
+    echo "   Members start from $fb; 'aapp done $gid' merges it into $parent."
+}
+
+# _member_group_check <plan> <label>: a group member starts only in a plan
+# worktree (WT_MODE) and only once its group is ⚡ In Development.
+_member_group_check() {
+    local grp gf
+    grp="$(parse_plan_field "$1" Group)"
+    [ -n "$grp" ] || return 0
+    gf="$(resolve_plan_file "$grp" "start")" || return 1
+    if [ "$(plan_status_slug "$gf")" != "in-development" ]; then
+        echo "❌ [$2] Its group $grp is not ⚡ In Development; start the group first ('aapp start $grp')." >&2
+        return 1
+    fi
+    if [ "$WT_MODE" -ne 1 ]; then
+        echo "❌ [$2] A member of group $grp needs a plan worktree: set aapp.planWorktrees on, or add 'worktree <path>'." >&2
+        return 1
+    fi
+}
+
 # validate_group_plan <plan> <label>: a group plan keeps `## Architecture & Codemap`.
 validate_group_plan() {
     aapp_is_group_plan "$1" || return 0
@@ -345,9 +412,17 @@ _wt_prepare() {
     if [ -e "$WT_PATH" ]; then
         echo "❌ [$label] Path '$WT_PATH' already exists; a plan worktree never reuses a path." >&2; return 1
     fi
-    # Base: the development branch; only `start` falls back to the default branch.
-    WT_BASE_NAME="$(aapp_dev_branch)"
-    if [ -z "$WT_BASE_NAME" ]; then
+    # Base: the group's feature branch for a member (P-64); else the development
+    # branch; only `start` falls back to the default branch.
+    local grp gf
+    grp="$(parse_plan_field "$pf" Group)"
+    if [ -n "$grp" ]; then
+        gf="$(resolve_plan_file "$grp" "start")" || return 1
+        WT_BASE_NAME="$(parse_plan_field "$gf" "Feature Branch")"
+    else
+        WT_BASE_NAME="$(aapp_dev_branch)"
+    fi
+    if [ -z "$WT_BASE_NAME" ] && [ -z "$grp" ]; then
         origin_head="$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)" || origin_head=""
         if [ -n "$origin_head" ]; then WT_BASE_NAME="${origin_head#origin/}"
         elif aapp_branch_ref main >/dev/null; then WT_BASE_NAME=main
@@ -1046,6 +1121,11 @@ cmd_freeze_start() {
     plan_file="$(resolve_plan_file "$query" "freeze-start")" || exit 1
     refuse_unless_incubator "$plan_file" "Freeze-Start"
     refuse_uncommitted_plan_edits "$plan_file" "Freeze-Start"
+    if aapp_is_group_plan "$plan_file"; then
+        cmd_freeze "$query"
+        _group_start "$plan_file" "$@"
+        return
+    fi
     _wt_parse_tokens "Freeze-Start Refusal" "$@" || exit 1
 
     # Refuse from planning worktrees (.plans, .agents, .githooks)
@@ -1088,6 +1168,7 @@ cmd_freeze_start() {
     # Verify TDD failure tests correspondence if declared (P-35)
     validate_plan_tdd_correspondence "$plan_file" "Freeze-Start Refusal" || exit 1
     validate_plan_changelog_decl "$plan_file" "Freeze-Start Refusal" || exit 1
+    _member_group_check "$plan_file" "Freeze-Start Refusal" || exit 1
 
     local plan_id
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
@@ -1383,6 +1464,10 @@ cmd_start() {
     [ $# -gt 0 ] && shift
     local plan_file
     plan_file="$(resolve_plan_file "$query" "start")" || exit 1
+    if aapp_is_group_plan "$plan_file"; then
+        _group_start "$plan_file" "$@"
+        return
+    fi
     _wt_parse_tokens "Start Refusal" "$@" || exit 1
 
     # Refuse from planning worktrees (.plans, .agents, .githooks)
@@ -1403,6 +1488,9 @@ cmd_start() {
         echo "❌ [Start Refusal] Plan is not frozen (current status: $cur_status)." >&2
         echo "   Freeze the plan first with 'aapp freeze $query' or run 'aapp freeze-start $query'." >&2
         exit 1
+    fi
+    if [ -z "$(parse_plan_base "$plan_file")" ]; then
+        _member_group_check "$plan_file" "Start Refusal" || exit 1
     fi
 
     # Disjointness check
@@ -2314,6 +2402,49 @@ _refine_slug() {
 # is committed; the pre-commit design lock still guards frozen sections.
 # `blocked <num>` writes the BLOCKED status itself (plan_block_on); the state
 # matrix stays `aapp matrix`'s job.
+# _refine_group <plan> <group-id|none> (P-64): a plan joins or leaves a group
+# until it is started; plan and group(s) change in one commit.
+_refine_group() {
+    local pf pid cur gf="" gid="" paths=() subject
+    pf="$(resolve_plan_file "$1" "refine")" || exit 1
+    pid="$(sed -nE 's/^\* \*\*Plan ID:\*\*[[:space:]]*(P-[0-9]+).*/\1/p' "$pf" | head -n 1)"
+    if aapp_is_group_plan "$pf"; then
+        echo "❌ [Refine] $pid is a group plan; groups do not nest." >&2
+        exit 1
+    fi
+    case "$(plan_status_slug "$pf")" in
+        in-development|blocked)
+            echo "❌ [Refine] $pid is already started; its group can no longer change." >&2
+            exit 1 ;;
+    esac
+    cur="$(parse_plan_field "$pf" Group)"
+    if [ "$2" != "none" ]; then
+        gf="$(_group_resolve "$2" "Refine")" || exit 1
+        gid="$(sed -nE 's/^\* \*\*Plan ID:\*\*[[:space:]]*(P-[0-9]+).*/\1/p' "$gf" | head -n 1)"
+    fi
+    if [ "$cur" = "$gid" ] || { [ -z "$cur" ] && [ "$2" = "none" ]; }; then
+        echo "ℹ️  [Refine] $pid is already ${gid:+in }${gid:-in no group}; nothing changed."
+        return 0
+    fi
+    paths=("current/$(basename "$pf")")
+    if [ -n "$cur" ]; then
+        local old
+        old="$(resolve_plan_file "$cur" "refine")" || exit 1
+        group_set_member "$old" "$pid" remove || exit 1
+        paths+=("current/$(basename "$old")")
+    fi
+    write_plan_field "$pf" Group "$gid" Base || exit 1
+    if [ -n "$gf" ]; then
+        group_set_member "$gf" "$pid" add || exit 1
+        paths+=("current/$(basename "$gf")")
+        subject="plan(refine): $pid joins group $gid"
+    else
+        subject="plan(refine): $pid leaves group $cur"
+    fi
+    plans_commit "$subject" "${paths[@]}" || exit 1
+    echo "📝 [Refine] ${subject#plan(refine): }."
+}
+
 cmd_refine() {
     local query="${1:-}" msg="${2:-}" plan_file rel plan_id sha num="" subject rc
     if [ -z "$query" ] || [ -z "$msg" ]; then
@@ -2327,6 +2458,10 @@ cmd_refine() {
     esac
     if [ "$msg" = "slug" ] && [ $# -ge 3 ]; then
         _refine_slug "$query" "$3"
+        return
+    fi
+    if [ "$msg" = "group" ] && [ $# -ge 3 ]; then
+        _refine_group "$query" "$3"
         return
     fi
     if [ "$msg" = "blocked" ] && [ $# -ge 3 ]; then

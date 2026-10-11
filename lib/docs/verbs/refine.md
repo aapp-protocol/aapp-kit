@@ -1,10 +1,11 @@
-# refine <id> "<what changed>" | refine <id> blocked <num> | refine <id> slug <new-slug> | refine pickup|issues "<msg>"
+# refine <id> "<what changed>" | refine <id> blocked <num> | refine <id> slug <new-slug> | refine <id> group <group>|none | refine pickup|issues "<msg>"
 
 ## Ingress
 - `id` (positional, required): an active plan in `.plans/current/` (`P-47`, `47`, slug or filename)
 - `"<what changed>"` (positional, required): one line; becomes the commit subject `plan(refine): <id> <what changed>`
 - `blocked <num>` (tokens, in place of the message): block the plan on active issue `#<num>` (bare number, e.g. `101`)
 - `slug <new-slug>` (tokens, in place of the message): rename the plan file to `current/P<N>-<new-slug>.md`; normalised like `aapp draft` (P-50)
+- `group <group>` / `group none` (tokens, in place of the message): the plan joins group plan `<group>`, or leaves its group (P-64)
 - `pickup` / `issues` (in place of `id`, reserved words checked before plan resolution): commit a hand-made edit of `pickup.md`, or of `ISSUES.md` + `issues_road_map.md` (P-50). A plan whose file name contains them stays reachable by its ID
 - reads: the plan file and the `plans` worktree status; with `blocked`, `.plans/ISSUES.md`
 - reads config: `aapp.subjectMaxLen` (default 72, the `commit-msg` gate's limit); `aapp.aiAttribution` and the `AAPP_AGENT_*` identity, applied by the plans commit engine (`plans_commit`)
@@ -24,6 +25,7 @@
 - the subject `plan(refine): <id> <msg>` is longer than `aapp.subjectMaxLen` -> exit 1, stderr `Commit subject is <n> characters; the limit is <max> (aapp.subjectMaxLen).` and `Shorten the message by <n-max> characters: "<msg>"`; nothing staged or committed
 - `blocked <num>` with `#<num>` not active in `ISSUES.md` (unknown or archived) -> exit 1, stderr `#<num> is not an active issue in ISSUES.md.`; the plan file is unchanged
 - message form, the plan file has no changes -> exit 1, stderr `Nothing to commit`
+- `group`: the plan is a group plan (`groups do not nest`), already started (`⚡`/`🟥`), or `<group>` is not a group plan in `current/` -> exit 1; nothing changes
 - a frozen plan's §2 or §4 changed -> exit non-zero: the pre-commit design lock refuses the commit
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure)
 
@@ -32,6 +34,7 @@
 - `blocked <num>`: the Status line becomes `🟥 BLOCKED` and `#<num>` is appended to `* **Blocked On:**` (a list); the first block records the previous status, `* **Blocked On:** #<num> (was <status>)`; the commit subject is `plan(refine): <id> blocked on #<num>`
 - `blocked <num>` with `#<num>` already listed -> exit 0, stdout `already blocked on #<num>; nothing changed`; no commit
 - `slug`: the file is renamed, its change log gains `File renamed from <old> to <new>`, issue and road-map links to it are repaired (observation cells untouched), the matrix is re-derived and the active buffer follows; one commit `plan(refine): <id> renamed to <new>`; stdout `📝 [Refine] <id> renamed to <new> (<sha>); <n> issue links repaired`
+- `group <group>`: the plan's header gains `* **Group:** <group>`, the group's `* **Members:**` lists it (and a previous group drops it); one commit `plan(refine): <id> joins group <group>` with the plan and the group(s). `group none`: the field goes, the group drops it, `plan(refine): <id> leaves group <group>`. Already so -> exit 0, nothing changed
 - `pickup` / `issues`: one commit of only the ledger files, `pickup: <msg>` or `issue(triage): <msg>`, subject checked like any refine
 - `state_matrix.md` is not touched by the message and `blocked` forms: `aapp matrix` re-derives it (`aapp refine <id> blocked <num> && aapp matrix`)
 - the configured attribution is applied to the commit
@@ -61,3 +64,4 @@ Run: `aapp test verb refine`
 - `tests/verbs/refine.sh::test_refine_pickup_refuses_malformed_entry` -> a non-checkbox entry is refused with its line (P-50)
 - `tests/verbs/refine.sh::test_refine_issues_commits_ledgers` -> `issue(triage): <msg>`, ledger files only (P-50)
 - `tests/verbs/refine.sh::test_refine_issues_validation_refuses` -> blank line, cell count, duplicate, ID above the counter, missing road-map line: each refused, nothing committed (P-50)
+- `tests/verbs/refine.sh::test_refine_joins_and_leaves_group` -> join and leave each in one commit; refused once the plan is started (P-64)

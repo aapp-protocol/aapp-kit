@@ -1,4 +1,4 @@
-# start <id> [worktree <path> [branch <name>]]
+# start <id> [worktree <path> [branch <name>]] | start <group> [base <branch>]
 
 ## Ingress
 - `id` (positional, required): the frozen plan to activate
@@ -6,6 +6,8 @@
     constraints: must resolve to exactly one plan in `.plans/current/`
 - `worktree <path>` (bare token, optional, P-54): create the plan's worktree at `<path>` (relative to the primary checkout) for this start, even with `aapp.planWorktrees = off`; wins over `aapp.planWorktreePath`
 - `branch <name>` (bare token, optional, P-54): the plan branch's name; wins over `aapp.planBranch`; needs a plan worktree (config `on` or `worktree`)
+- group plan (P-64): `start <group> [base <branch>]` cuts the group's feature branch from `<branch>` (an existing branch; default: the development branch); `worktree`/`branch` do not apply
+- group member (P-64): a plan with `* **Group:** <group>` starts from that group's feature branch; no token
 - reads: the plan file (Status line, §4 Target Files), every other plan in `.plans/current/` (Status and Target Files, for the disjointness gate)
 - reads: `🧱 Plan Blockers` in `.plans/issues_road_map.md` and those rows' Location paths in `.plans/ISSUES.md` (P-58)
 - reads: the active buffer `$(git rev-parse --git-path aapp_active_plan)`, to preserve its previous value
@@ -34,8 +36,12 @@
 - plan worktree (P-54): the branch or path already exists (`never reuses`), or no base branch (`No base branch`) -> exit 1; nothing changed. `worktree <path>` on a plan started before -> exit 1 (its worktree is chosen at its first start)
 - in-transaction `on-start` action delegate or the start commit fails -> exit 1, stderr `rolled back`: mutations (worktree, links, branch, buffer, plan file) are rolled back and restored from snapshot (P-23, P-54)
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
+- group plan (P-64): not `🔷 Frozen`, `base` naming no branch, `base` naming an active group's feature branch (`groups do not nest`), or `feature/<slug>` already existing -> exit 1; nothing changed
+- group member (P-64): its group not `⚡ In Development`, or no plan worktree -> exit 1, stderr names the group; nothing changed
 
 ## Effects (happy path)
+- group plan (P-64): `feature/<slug>` is created (no upstream) at the parent; the header records `Base: \`<sha>\` (<parent>)` and `* **Feature Branch:** feature/<slug>`; Status `⚡ In Development`; no worktree, no buffer, no hooks; one commit `plan(start): start group <id> on feature/<slug>`
+- group member (P-64): the plan worktree branches from the group's feature branch and `Base:` names it; otherwise as a plan worktree below
 - the `pre-start` gating hook executes before any mutation (payload carries plan ID, plan file, and Target Files)
 - the plan's Status line reads `⚡ In Development`
 - `* **Base:**` header line records current worktree's HEAD SHA and branch (or `(detached)`); re-running on a `⚡` plan keeps the first base
@@ -84,3 +90,8 @@ Run: `aapp test verb start`
 - `tests/verbs/start.sh::test_worktree_base_remote_only_no_track` -> a remote-only development branch is the base; the plan branch tracks nothing (P-54)
 - `tests/verbs/start.sh::test_worktree_base_falls_back_to_default_branch` -> no `aapp.devBranch` candidate: the default branch is the base (P-54)
 - `tests/verbs/start.sh::test_worktree_refuses_without_base_branch` -> no candidate and no default branch: exit 1, plan unchanged (P-54)
+- `tests/verbs/start.sh::test_group_start_cuts_feature_branch_from_parent` -> the feature branch at the development branch, or at `base <branch>`; Base names the parent; no worktree, no buffer (P-64)
+- `tests/verbs/start.sh::test_group_start_refuses_missing_branch` -> `base` naming no branch: exit 1, nothing created (P-64)
+- `tests/verbs/start.sh::test_member_start_branches_from_feature_branch` -> a member's plain `start` branches from the group's feature branch (P-64)
+- `tests/verbs/start.sh::test_member_start_refuses_unstarted_group` -> a member of an unstarted group: exit 1, nothing changed (P-64)
+- `tests/verbs/start.sh::test_groups_do_not_nest` -> a group started from another group's feature branch, or a group plan joining a group: refused (P-64)

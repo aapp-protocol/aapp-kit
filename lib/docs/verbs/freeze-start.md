@@ -5,6 +5,7 @@
     accepted forms: `P-<N>`, bare `<N>`, the filename stem, or a slug prefix
     constraints: must resolve to exactly one plan in `.plans/current/`
 - `worktree <path>`, `branch <name>` (bare tokens, optional, P-54): as for `start`; with `aapp.planWorktrees = on` (or `worktree`), freeze-start creates the plan's branch and worktree exactly as `start` does (see `aapp help start`)
+- group plans and members (P-64): a group plan is frozen, then started as `start <group> [base <branch>]`; a member is refused unless its group is `⚡ In Development` and it gets a plan worktree, then starts from the feature branch
 - reads: the plan file (§5 Open Questions, §4 Target Files), every other plan in `.plans/current/` (disjointness gate), the queued `🧱 Plan Blockers` and their Location paths (P-58), the active buffer
 - reads config: `aapp.planState.*` (matrix re-derivation); the lifecycle hook registry for `pre-freeze`, `pre-start`, `on-start`, `post-freeze`, `post-start` (P-23)
 
