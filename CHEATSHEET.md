@@ -23,6 +23,8 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp refine <id> blocked <num>` | **✅ Yes** | Block a plan on active issue `#<num>` (Status + `Blocked On:`); chain `&& aapp matrix` |
 | `aapp tdd [id]` | **✅ Yes** | Declare a plan's failure-first tests (§3 identifiers, §4 test files) before freeze |
 | `aapp plan [query]` | **✅ Yes** | Educational planning switchboard or query blueprints |
+| `aapp plan conflict-check <id> <id>… [json]` | **✅ Yes** | Can these plans run at the same time? A group checks its members; exit 1 on a collision |
+| `aapp plan conflict-free [<id>\|<group>] [json]` | **✅ Yes** | Plans free to start now, compatible with `<id>`, or a group's members in waves for parallel agents |
 | `aapp plan-status [id]` | **✅ Yes** | Inspect plan lane matrix or specific blueprint details |
 | `aapp matrix [check]` | **✅ Yes** | Re-derive state matrix from plan Status lines ('check' to audit) |
 | `aapp freeze [id]` | **✅ Yes** | Lock blueprint blast radius & design into frozen backlog spec |
