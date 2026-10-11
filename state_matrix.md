@@ -19,7 +19,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-57**: [`P57-modular-manual-specification.md`](current/P57-modular-manual-specification.md) — Modular Manual Specification
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
 - 🟣 **P-63**: [`P63-adoption-advisories.md`](current/P63-adoption-advisories.md) — Adoption Advisories
-- 🟣 **P-65**: [`P65-plan-conflict-check.md`](current/P65-plan-conflict-check.md) — Plan Conflict Check
 - 🟣 **P-66**: [`P66-issue-fix-changelog-from-the-fix.md`](current/P66-issue-fix-changelog-from-the-fix.md) — Issue Fix Changelog From The Fix
 - 🟣 **P-67**: [`P67-parallel-test-suites.md`](current/P67-parallel-test-suites.md) — Parallel Test Suites
 - 🟣 **P-68**: [`P68-split-slow-verb-suites.md`](current/P68-split-slow-verb-suites.md) — Split Slow Verb Suites
@@ -33,6 +32,8 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-65**: [`P65-plan-conflict-check.md`](current/P65-plan-conflict-check.md) — Plan Conflict Check
 
 ---
 
