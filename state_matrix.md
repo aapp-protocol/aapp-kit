@@ -20,7 +20,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
 - 🟣 **P-63**: [`P63-adoption-advisories.md`](current/P63-adoption-advisories.md) — Adoption Advisories
 - 🟣 **P-66**: [`P66-issue-fix-changelog-from-the-fix.md`](current/P66-issue-fix-changelog-from-the-fix.md) — Issue Fix Changelog From The Fix
-- 🟣 **P-67**: [`P67-parallel-test-suites.md`](current/P67-parallel-test-suites.md) — Parallel Test Suites
 - 🟣 **P-68**: [`P68-split-slow-verb-suites.md`](current/P68-split-slow-verb-suites.md) — Split Slow Verb Suites
 - 🟣 **P-69**: [`P69-abort-plan.md`](current/P69-abort-plan.md) — Abort Plan
 - 🟣 **P-70**: [`P70-help.md`](current/P70-help.md) — Help
@@ -33,6 +32,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
+- ⚡ **P-67**: [`P67-parallel-test-suites.md`](current/P67-parallel-test-suites.md) — Parallel Test Suites
 - ⚡ **P-71**: [`P71-faster-test-runs.md`](current/P71-faster-test-runs.md) — 🧩 Group Plan P-71: Faster Test Runs
 
 ---

@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `150cc2b` (feature/faster-test-runs)
+* **Worktree:** .workspace/P67 (plan/P67-parallel-test-suites)
 * **Group:** P-71
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
@@ -131,5 +132,6 @@
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-11:** Drafted: parallel suites; gate unchanged.
