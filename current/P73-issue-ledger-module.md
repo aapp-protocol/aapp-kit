@@ -1,8 +1,8 @@
 # 🗺️ Plan P-73: Issue Ledger Module
 * **Created:** 2026-10-11 | **Last Refined:** 2026-10-11
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-73
-* **Changelog:** Changed: Issue Ledger Module
+* **Changelog:** Changed: every issue ledger read and write goes through `lib/issue_ledger.sh` (P-73)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,12 +39,31 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+The three issue ledgers (`ISSUES.md`, `done/000-issues-archive.md`, `issues_road_map.md`) are named on about 130 lines in 9 files (`lib/cmd_issue.sh`, `lib/cmd_plan.sh`, `lib/cmd_status.sh`, `lib/planning_health.sh`, `lib/cmd_init.sh`, `lib/cmd_matrix.sh`, `lib/plan_resolver.sh`, `templates/aapp-pre-commit`, `templates/blast-radius-guard.sh`), and each reader carries its own awk/grep/sed over the table. A change to the row format means finding every copy; they already diverge (`lib/cmd_status.sh` looks for `.plans/ISSUES.md` before `ISSUES.md`, `templates/aapp-pre-commit` the other way round).
+
+This plan moves all of it into one module that every caller reuses. Behaviour does not change. P-74 then adds the provider behind the same functions, so callers never learn where an issue came from.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+**Module:** `lib/issue_ledger.sh`. The function set below is provisional; the refine-time research fixes it.
+
+| Function | Does |
+|---|---|
+| `ledger_path issues\|archive\|roadmap` | Resolves the file once (one lookup order for every caller) |
+| `ledger_rows [<status>]` | Active rows as tab-separated cells (id, sev, type, date, location, symptom, link, status); escaped pipes handled once |
+| `ledger_row <n>` / `ledger_locate <n>` | One row; `active`, `archive` or nothing |
+| `ledger_add_row <cells…>` | Appends an active row |
+| `ledger_set_cell <n> link\|status <value>` | Lifecycle cells only; observation cells never change |
+| `ledger_archive_row <n> <sha> <summary>` | Moves a row to the archive and prunes the road map |
+| `ledger_relink <old> <new>` | Rewrites plan links in the ledger and the road map |
+| `roadmap_*` | Road-map entries: add, prune, list |
+
+The health checks (fix cells, Pair 1/Pair 8 duplicates, resolved rows in the active ledger) read rows through `ledger_rows`. The hooks reach the module the way they reach `aapp-lib.sh` (see Question 1).
+
+**A guard against new copies:** `tests/issue_ledger_test.sh::test_no_direct_ledger_access` fails when a file outside the module reads or writes a ledger. Path names in permission lists (write guard, pre-commit allow-lists) are path patterns, not access, and are listed in the test.
+
+**Research at refine time:** classify every reference (read, write, path only), map each to a function, and record each divergence with the behaviour kept.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -58,14 +77,20 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/issue_ledger_test.sh::test_rows_keep_escaped_pipes` -> asserts a row with `\|` in a cell yields its eight cells unchanged
+- [ ] `tests/issue_ledger_test.sh::test_locate_active_archive_unknown` -> asserts `ledger_locate` prints `active`, `archive`, or nothing
+- [ ] `tests/issue_ledger_test.sh::test_set_cell_changes_lifecycle_only` -> asserts `ledger_set_cell` changes only the link or status cell and refuses any other
+- [ ] `tests/issue_ledger_test.sh::test_archive_row_moves_and_prunes` -> asserts the row leaves `ISSUES.md`, lands in the archive, and its road-map entry is gone
+- [ ] `tests/issue_ledger_test.sh::test_relink_ledger_and_roadmap` -> asserts a plan link is rewritten in both files
+- [ ] `tests/issue_ledger_test.sh::test_no_direct_ledger_access` -> asserts no file outside `lib/issue_ledger.sh` reads or writes a ledger
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Write `tests/issue_ledger_test.sh`; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: Write `lib/issue_ledger.sh`; the module tests pass.
+- [ ] Task 2.2: Move callers onto it one file per commit (`cmd_issue`, `cmd_plan`, `cmd_status`, `planning_health`, `cmd_matrix`, `plan_resolver`, `cmd_init`, the hooks); the full suite stays green after each.
+- [ ] Task 2.3: `test_no_direct_ledger_access` passes.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -83,26 +108,33 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `lib/issue_ledger.sh` -> The ledger module.
+- [ ] `lib/cmd_issue.sh` -> Calls the module.
+- [ ] `lib/cmd_plan.sh` -> Calls the module.
+- [ ] `lib/cmd_status.sh` -> Calls the module.
+- [ ] `lib/planning_health.sh` -> Health checks read rows through the module.
+- [ ] `lib/cmd_matrix.sh` -> Calls the module.
+- [ ] `lib/plan_resolver.sh` -> Issue-id seeding reads through the module.
+- [ ] `lib/cmd_init.sh` -> Seeds the ledgers through the module; ships it to the hooks.
+- [ ] `templates/aapp-pre-commit` -> Ledger checks call the module.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/issue_ledger_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/blast-radius-guard.sh` -> Names ledger paths in its allow-list only; no access to move.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** How do the hooks reach the module: a separate `lib/issue_ledger.sh` that `aapp init` copies into `.githooks/` next to `aapp-lib.sh` (recommended: one file per concern), or its functions inside `aapp-lib.sh`, which the hooks already load?
+* [ ] **Question 2:** One lookup order for the ledger: `.plans/ISSUES.md` first, then a repo-root `ISSUES.md` (as `status` does), or the reverse (as the pre-commit hook does)?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-11:** Plan initialized from `pickup.md`.
-* **2026-10-11:** Refined blast radius and locked module boundaries.
+* **2026-10-11:** Drafted as a member of P-72.
