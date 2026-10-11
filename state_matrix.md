@@ -21,6 +21,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-63**: [`P63-adoption-advisories.md`](current/P63-adoption-advisories.md) — Adoption Advisories
 - 🟣 **P-69**: [`P69-abort-plan.md`](current/P69-abort-plan.md) — Abort Plan
 - 🟣 **P-70**: [`P70-help.md`](current/P70-help.md) — Help
+- 🟣 **P-72**: [`P72-issue-tracker.md`](current/P72-issue-tracker.md) — 🧩 Group Plan P-72: Issue Tracker
 
 ---
 
