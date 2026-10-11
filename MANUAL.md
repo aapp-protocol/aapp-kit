@@ -633,6 +633,17 @@ Completes the lifecycle and archives the plan:
 - Removes the plan entry from `.plans/state_matrix.md`.
 - Dispatches `on-done` lifecycle event with recorded commits and verifies `CHANGELOG.md` entry.
 
+#### `aapp plan abort <id>` — Abandoning a Plan
+A plan whose approach failed or is no longer wanted leaves through `aapp plan abort <id> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]`. It works for any plan in `.plans/current/`, whatever its status, and is run from the main checkout.
+- **Checks first, nothing changed on a refusal**: uncommitted or untracked files in the plan's worktree (discard them with `force`), sensitive ignored files there (quarantined when `aapp.quarantineIgnored` is true, deleted with `force-cleanup`), a mini plan (`aapp issue fix <num> abort` drops those), or a run from inside the worktree it would remove.
+- **Archive, one commit** `plan(abort): archive <id> to aborted/`: the plan moves to `.plans/aborted/` as `❌ Aborted` with the date and reason, a row is added to `.plans/aborted/000-aborted-ledger.md` (reason and recorded commits), and its matrix row is gone. If that commit fails, everything is restored and nothing is removed.
+- **The issue stays**: a plan's Target Issue is not closed. Its row goes back to 🟡 `Incubated` and links the aborted plan, so it can be planned again or fixed directly.
+- **Then the code**: the plan's worktree is removed and its branch deleted, with a warning naming the branch SHA; `keep-branch` keeps the branch. A plan without its own worktree has its commits on the development branch already: they stay with its `CHANGELOG.md` entry, nothing is reverted, and the commits are listed.
+- **A blocked plan**: its hotfix issues stay open and queued. Work that `hotfix` set aside for it is no longer re-applied by `aapp issue close`; the stash itself is kept.
+- **A group member** is aborted like any plan and leaves its group's `Members`; its commits are on its own branch and go with it.
+- **A group plan** takes the whole group: every member still in `current/`, their worktrees and branches, and the feature branch with the code of members already archived. It first lists what it removes and asks `[y/N]`; without a terminal it needs the `confirm` token. A member released beforehand with `aapp refine <id> group none` is kept.
+- Dispatches the `post-abort` observer once per aborted plan.
+
 #### `/aapp-pause [reason]` (or `pause [reason]`) — Plan Pause & Master Emergency Brake
 Pauses active implementation or quarantines in-flight uncommitted work across mounted worktrees:
 - When executed in agent chat, captures completed vs. remaining tasks, records an archival refinement entry, and transitions the blueprint to `⏸️ Paused`.
@@ -724,7 +735,7 @@ You rarely need to run it by hand. The sync is invoked automatically by `aapp st
 - The **Roadmap** block — implementation priority is human judgement.
 - Each row's **annotation**, meaning everything after the first ` — `. Annotations are keyed by Plan ID, so a note follows its plan when the plan changes section. They may contain em-dashes of their own.
 
-**Rows are deleted when their plan leaves `.plans/current/`.** A plan archived to `done/`, moved to `aborted/`, renamed or deleted has no matrix row — the archive ledger is the record from then on.
+**Rows are deleted when their plan leaves `.plans/current/`.** A plan archived to `done/`, moved to `aborted/`, renamed or deleted has no matrix row — the archive ledger (`done/000-archive-ledger.md`, or `aborted/000-aborted-ledger.md` for an aborted plan) is the record from then on.
 
 **Unrecognized statuses are surfaced, not hidden.** A blueprint whose `Status:` line matches no registry entry appears in a visible *Unrecognized Status* section instead of being quietly filed under the Incubator, so a typo is obvious rather than invisible.
 
@@ -1208,6 +1219,7 @@ AAPP wires symmetric pre-mutation quality gates, in-transaction action delegates
 | `post-start` | Observer | Post-commit | `notify` | No | Plan ID, declared Target Files, active buffer / worktree path. |
 | `pre-done` | Gate | Pre-mutation | `gate` | **YES** | Plan ID, blueprint path, commit SHA, recorded commits array, `worktree` (plan worktree path, empty without one). |
 | `post-done` | Observer | Post-commit | `notify` | No | Plan ID, destination archive path in `.plans/done/`, commit SHA, recorded commits array. |
+| `post-abort` | Observer | Post-commit | `notify` | No | Plan ID, archive path in `.plans/aborted/`, reason, worktree, branch, recorded commits array (P-69). |
 | `on-integrate` | Action Delegate | In-transaction | `gate` | **YES** | Action delegate (P-55): replaces built-in squash / fast-forward; `plan_id`, `plan_file`, `plan_branch`, `target_branch`, `worktree`. A refusal leaves plan archived; `aapp done <id> integrate` retries. |
 | `post-pause` | Observer | Post-stash | `notify` | No | Pause reason, dirty worktree inventory, pause buffer path. |
 | `post-resume` | Observer | Post-restore | `notify` | No | Restored plan ID, restored worktree count, drift detected. |

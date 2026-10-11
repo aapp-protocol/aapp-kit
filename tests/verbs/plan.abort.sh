@@ -64,8 +64,8 @@ aapp freeze "$b" >/dev/null 2>&1
 out="$(aapp plan abort "$b" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && [ -f ".plans/aborted/$bb" ] && grep -qF "**Reason:** Abandoned" ".plans/aborted/$bb" && \
    [ "$(git -C .plans log -1 --format=%s)" = "plan(abort): archive $b to aborted/" ] && \
-   git -C .plans show --name-only --format= HEAD | grep -qxF "aborted/$bb" && \
-   git -C .plans show --name-only --format= HEAD | grep -qxF "current/$bb" && [ -z "$(git -C .plans status --porcelain)" ]; then
+   git -C .plans show --no-renames --name-only --format= HEAD | grep -qxF "aborted/$bb" && \
+   git -C .plans show --no-renames --name-only --format= HEAD | grep -qxF "current/$bb" && [ -z "$(git -C .plans status --porcelain)" ]; then
   ok "test_abort_frozen_plan"
 else
   bad "test_abort_frozen_plan" "rc=$rc out=$out subj=$(git -C .plans log -1 --format=%s)"
@@ -90,10 +90,10 @@ fi
 git -C .plans rm -q current/fix-21.md >/dev/null 2>&1; git -C .plans commit -qm "drop mini fixture" >/dev/null 2>&1
 
 echo "== single checkout: commits, buffer =="
-c="$(draft_plan ab-single)"; prepare "$c" ab-single; cb="$(basename "$(plan_file "$c")")"
+c="$(draft_plan ab-single)"; prepare "$c" ab-single
 aapp freeze-start "$c" >/dev/null 2>&1
 mkdir -p src && echo "v=1" > src/ab-single.sh && git add src/ab-single.sh && aapp commit "feat: ab-single" >/dev/null 2>&1
-csha="$(parse_sha() { sed -nE 's/^\* \*\*Commits:\*\*[[:space:]]*`([0-9a-f]+)`.*/\1/p' "$1"; }; parse_sha "$(plan_file "$c")")"
+csha="$(sed -nE "s/^\* \*\*Commits:\*\*[[:space:]]*\`([0-9a-f]+)\`.*/\1/p" "$(plan_file "$c")")"
 buf0="$(buffer)"
 out="$(aapp plan abort "$c" reason "Pivot" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && [ -n "$csha" ] && git merge-base --is-ancestor "$csha" HEAD && [ -f src/ab-single.sh ] && \

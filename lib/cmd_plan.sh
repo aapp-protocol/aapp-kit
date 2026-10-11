@@ -874,22 +874,30 @@ _ig_message() {
     fi
 }
 
+# _wt_quarantine <worktree> <plan_id> <files>: copies a worktree's sensitive
+# ignored files out before it is removed; a failed copy names the file in
+# WT_Q_FAILED.
+_wt_quarantine() {
+    local f qdir
+    qdir="$(cd "$(git rev-parse --git-common-dir)" && pwd)/aapp_quarantine/$2"
+    while IFS= read -r f; do
+        mkdir -p "$qdir/$(dirname "$f")" && cp -p "$1/$f" "$qdir/$f" || { WT_Q_FAILED="$f"; return 1; }
+    done <<< "$3"
+    echo "📦 [Cleanup] Quarantined ignored files into $qdir: $(echo "$3" | paste -sd' ' -)"
+}
+
 # _ig_cleanup <plan_id>: removes the plan worktree and branch; sensitive ignored
 # files refuse it (the integration stands) unless quarantined or forced (Q2).
 _ig_cleanup() {
-    local pid="$1" files q f qdir rel
+    local pid="$1" files q rel
     rel="$(aapp_rel_path "$PRIMARY_ROOT" "$IG_WT")"
     if [ -d "$IG_WT" ]; then
         files="$(check_worktree_ignored_files "$IG_WT")"
         if [ -n "$files" ]; then
             q="$(git config --get aapp.quarantineIgnored 2>/dev/null)" || q=false
             if [ "$q" = "true" ]; then
-                qdir="$(cd "$(git rev-parse --git-common-dir)" && pwd)/aapp_quarantine/$pid"
-                while IFS= read -r f; do
-                    mkdir -p "$qdir/$(dirname "$f")" && cp -p "$IG_WT/$f" "$qdir/$f" || {
-                        echo "⚠️  [Cleanup Refused] Could not quarantine $f; the worktree is kept." >&2; return 0; }
-                done <<< "$files"
-                echo "📦 [Cleanup] Quarantined ignored files into $qdir: $(echo "$files" | paste -sd' ' -)"
+                _wt_quarantine "$IG_WT" "$pid" "$files" || {
+                    echo "⚠️  [Cleanup Refused] Could not quarantine $WT_Q_FAILED; the worktree is kept." >&2; return 0; }
             elif [ "$IG_FORCECLEAN" -eq 0 ]; then
                 echo "⚠️  [Cleanup Refused] Removing $rel would delete ignored files: $(echo "$files" | paste -sd' ' -)"
                 echo "   The integration stands. Back them up, set aapp.quarantineIgnored true, or run:"
@@ -2609,9 +2617,339 @@ _pc_waves() {
     done
 }
 
+# ------------------------------------------------------------------------------
+# plan abort (P-69): `done` without the code. Every refusal comes before any
+# change; the worktree and branch go only after the archive commit has landed.
+# ------------------------------------------------------------------------------
+AB_USAGE='aapp plan abort <id> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]'
+
+_ab_parse_tokens() {
+    AB_REASON="Abandoned"; AB_KEEP=0; AB_FORCE=0; AB_FORCECLEAN=0; AB_CONFIRM=0
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            reason)        if [ $# -lt 2 ] || [ -z "$2" ]; then echo "❌ [Abort Refusal] 'reason' needs a text." >&2; return 1; fi
+                           AB_REASON="$2"; shift ;;
+            keep-branch)   AB_KEEP=1 ;;
+            force)         AB_FORCE=1 ;;
+            force-cleanup) AB_FORCECLEAN=1 ;;
+            confirm)       AB_CONFIRM=1 ;;
+            *) echo "❌ [Abort Refusal] Unknown token '$1'. Usage: $AB_USAGE" >&2; return 1 ;;
+        esac
+        shift
+    done
+    case "$AB_REASON" in *$'\n'*) echo "❌ [Abort Refusal] The reason must be a single line." >&2; return 1 ;; esac
+}
+
+_ab_plan_id() {
+    local id
+    id="$(parse_plan_field "$1" "Plan ID")"; id="${id%%[[:space:]]*}"
+    echo "${id:-$(basename "$1" .md)}"
+}
+
+# _ab_commit_shas <plan>: the recorded SHAs as "`a`, `b`", or nothing.
+_ab_commit_shas() { parse_plan_commits "$1" | awk '{ printf "%s`%s`", (NR > 1 ? ", " : ""), $1 }'; }
+
+_ab_target_issue() {
+    sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*#([0-9]+)([^0-9].*)?$/\1/p' "$1" | head -n 1
+}
+
+# _ab_check_worktree <plan_file> <plan_id>: the plan's worktree may be removed.
+_ab_check_worktree() {
+    local rec wt_rel wt here="" dirty files q
+    rec="$(parse_plan_worktree "$1")"
+    [ -n "$rec" ] || return 0
+    wt_rel="${rec%%$'\t'*}"; wt="$(aapp_abs_path "$wt_rel" "$PRIMARY_ROOT")"
+    [ -d "$wt" ] || return 0
+    if here="$(git rev-parse --show-toplevel 2>/dev/null)"; then here="$(cd "$here" && pwd -P)"; fi
+    if [ -n "$here" ] && [ "$here" = "$(cd "$wt" && pwd -P)" ]; then
+        echo "❌ [Abort Refusal] This is $2's own worktree, which the abort removes; run it from the main checkout: cd $PRIMARY_ROOT" >&2
+        return 1
+    fi
+    dirty="$(git -C "$wt" status --porcelain 2>/dev/null)"
+    if [ -n "$dirty" ] && [ "$AB_FORCE" -eq 0 ]; then
+        echo "❌ [Abort Refusal] $2's worktree $wt_rel has uncommitted changes:" >&2
+        printf '%s\n' "$dirty" | sed 's/^/     /' >&2
+        echo "   Commit or stash them, or discard them with: aapp plan abort $2 force" >&2
+        return 1
+    fi
+    files="$(check_worktree_ignored_files "$wt")"
+    if [ -n "$files" ]; then
+        q="$(git config --get aapp.quarantineIgnored 2>/dev/null)" || q=false
+        if [ "$q" != "true" ] && [ "$AB_FORCECLEAN" -eq 0 ]; then
+            echo "❌ [Abort Refusal] Removing $wt_rel would delete ignored files: $(echo "$files" | paste -sd' ' -)" >&2
+            echo "   Back them up, set aapp.quarantineIgnored true, or add: force-cleanup" >&2
+            return 1
+        fi
+    fi
+}
+
+# _ab_check_issue <plan_file>: a named Target Issue must exist (as `done` requires).
+_ab_check_issue() {
+    local n where
+    n="$(_ab_target_issue "$1")"
+    [ -n "$n" ] || return 0
+    where="$(issue_locate "$n")" || return 1
+    if [ -z "$where" ]; then
+        echo "❌ [Abort Refusal] Target issue #$n is in neither ISSUES.md nor done/000-issues-archive.md." >&2
+        return 1
+    fi
+}
+
+# _ab_archive_one <plan_file> <reason> <in-group-abort 0|1>: moves one plan to
+# aborted/ with its header, ledger row, issue and group edits. No commit: the
+# paths go to AB_PATHS, files it created to AB_NEW, reverted issues to AB_ISSUES.
+_ab_archive_one() {
+    local pf="$1" reason="$2" bname pid dest today led shas target issue grp gf tmp
+    bname="$(basename "$pf")"; pid="$(_ab_plan_id "$pf")"; dest="$PLANS_DIR/aborted/$bname"
+    today="$(date +%Y-%m-%d)"
+    mkdir -p "$PLANS_DIR/aborted" || return 1
+    mv "$pf" "$dest" || return 1
+    AB_NEW+=("$dest"); AB_PATHS+=("current/$bname" "aborted/$bname"); AB_DONE+=("$dest")
+
+    sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/* **Status:** ❌ Aborted/' "$dest" || return 1
+    write_plan_field "$dest" Aborted "$today | **Reason:** $reason" || return 1
+    tmp="$dest.aapp-abort.$$"
+    AAPP_LINE="* **$today:** Plan aborted: $reason" awk '
+        { print } !d && /^## 📦 6\. Change Log/ { print ENVIRON["AAPP_LINE"]; d = 1 }' "$dest" > "$tmp" && mv "$tmp" "$dest" || { rm -f "$tmp"; return 1; }
+
+    led="$PLANS_DIR/aborted/000-aborted-ledger.md"
+    if [ ! -f "$led" ]; then
+        printf '%s\n\n%s\n\n%s\n%s\n' "# 🗑️ Aborted Plans Ledger" \
+            "Append-only ledger of plans abandoned with \`aapp plan abort\`." \
+            "| Date Aborted | Plan ID | Plan File | Target Issue / Milestone | Reason | Commits |" \
+            "| :--- | :--- | :--- | :--- | :--- | :--- |" > "$led" || return 1
+        AB_NEW+=("$led")
+    fi
+    shas="$(_ab_commit_shas "$dest")"
+    target="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*//p' "$dest" | head -n 1)"
+    target="${target%% \*(*}"
+    case "$target" in ""|*"[Issue ID or Milestone]"*) target="None" ;; esac
+    target="${target//|/\\|}"
+    tmp="$led.aapp-abort.$$"
+    AAPP_LEDGER_LINE="| $today | \`$pid\` | [\`$bname\`]($bname) | $target | ${reason//|/\\|} | ${shas:-none} |" awk '
+        { print }
+        !done && /^\| :--- \| :--- \| :--- \|/ { print ENVIRON["AAPP_LEDGER_LINE"]; done = 1 }
+        END { if (!done) exit 3 }' "$led" > "$tmp" && mv "$tmp" "$led" || { rm -f "$tmp"; return 1; }
+
+    # The issue stays open: back to Incubated, linked to the archived plan.
+    issue="$(_ab_target_issue "$dest")"
+    if [ -n "$issue" ] && grep -E "$(_issue_row_regex "$issue")" "$PLANS_DIR/ISSUES.md" 2>/dev/null | grep -qF "](current/$bname)"; then
+        issue_mark_incubated "$issue" "[$pid](aborted/$bname)" || return 1
+        AB_ISSUES="$AB_ISSUES #$issue"
+    fi
+    issue_relink "current/$bname" "aborted/$bname" >/dev/null || return 1
+
+    grp="$(parse_plan_field "$dest" Group)"
+    if [ "$3" -eq 0 ] && [ -n "$grp" ]; then
+        gf="$(ls "$PLANS_DIR"/current/P"${grp#P-}"-*.md 2>/dev/null | head -n 1)"
+        if [ -n "$gf" ] && aapp_is_group_plan "$gf"; then
+            group_set_member "$gf" "$pid" remove || return 1
+            AB_PATHS+=("current/$(basename "$gf")")
+        fi
+    fi
+}
+
+# _ab_restore <snapshot>: a failed archive leaves the plans worktree as it was.
+_ab_restore() {
+    local f
+    git -C "$PLANS_DIR" reset -q -- "${AB_PATHS[@]}" 2>/dev/null || echo "⚠️  [Abort] Could not unstage the archive; check 'git -C .plans status'." >&2
+    for f in "${AB_NEW[@]}"; do rm -f "$f"; done
+    (cd "$1" && find . -type f) | while IFS= read -r f; do cp -a "$1/$f" "$PLANS_DIR/$f"; done
+    rm -rf "$1"
+}
+
+# _ab_drop_branch <branch> [<note>]: deletes it with a warning naming its SHA;
+# `keep-branch` keeps it.
+_ab_drop_branch() {
+    local sha
+    git show-ref --verify --quiet "refs/heads/$1" || return 0
+    if [ "$AB_KEEP" -eq 1 ]; then echo "ℹ️  Branch '$1' preserved."; return 0; fi
+    sha="$(git rev-parse --short "$1")"
+    if git branch -D "$1" >/dev/null 2>&1; then
+        echo "⚠️  [Abort] Deleted branch '$1' (was $sha) with its commits.${2:+ $2}"
+    else
+        echo "⚠️  [Abort] Could not delete branch '$1'; delete it with 'git branch -D $1'." >&2
+    fi
+}
+
+# _ab_teardown <archived_plan_file> <plan_id>: the plan's worktree and branch,
+# or a note on what stays. A failure warns; the abort stands.
+_ab_teardown() {
+    local rec wt_rel wt br files shas
+    rec="$(parse_plan_worktree "$1")"
+    if [ -z "$rec" ]; then
+        shas="$(_ab_commit_shas "$1")"
+        if [ -n "$shas" ] && ! aapp_is_group_plan "$1"; then
+            echo "ℹ️  [Abort] $2 has no plan worktree: its commits stay on the branch they were made on, nothing is reverted: $shas"
+            echo "   Its CHANGELOG.md entry stays too."
+        fi
+        return 0
+    fi
+    wt_rel="${rec%%$'\t'*}"; br="${rec#*$'\t'}"; wt="$(aapp_abs_path "$wt_rel" "$PRIMARY_ROOT")"
+    if [ -d "$wt" ]; then
+        files="$(check_worktree_ignored_files "$wt")"
+        if [ -n "$files" ] && [ "$(git config --get aapp.quarantineIgnored 2>/dev/null)" = "true" ]; then
+            _wt_quarantine "$wt" "$2" "$files" || {
+                echo "⚠️  [Abort] Could not quarantine $WT_Q_FAILED; the worktree $wt_rel is kept. Remove it with 'git worktree remove --force $wt_rel'." >&2
+                return 0; }
+        fi
+        _group_done_drop_wt "$wt"
+        if [ ! -d "$wt" ]; then echo "🧹 [Abort] Removed worktree $wt_rel."; fi
+    fi
+    aapp_is_group_plan "$1" || _ab_drop_branch "$br"
+}
+
+# _ab_hook <archived_plan_file> <plan_id> <reason>: the post-abort observer.
+_ab_hook() {
+    local rec wt="" br="" commits data
+    [ -f "$AAPP_HOOK_DISPATCHER" ] || return 0
+    # shellcheck source=/dev/null
+    source "$AAPP_HOOK_DISPATCHER"
+    rec="$(parse_plan_worktree "$1")"
+    if [ -n "$rec" ]; then wt="$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")"; br="${rec#*$'\t'}"; fi
+    commits="$(parse_plan_commits "$1" | awk '{ printf "%s\"%s\"", (NR > 1 ? ", " : ""), $1 }')"
+    data="{\"plan_id\": \"$2\", \"plan_file\": \"aborted/$(basename "$1")\", \"reason\": \"$(json_escape "$3")\", \"worktree\": \"$(json_escape "$wt")\", \"branch\": \"$(json_escape "$br")\", \"commits\": [$commits]}"
+    dispatch_hook "post-abort" "$data" || echo "⚠️  [Abort] A post-abort hook failed; the abort stands." >&2
+}
+
+# cmd_plan_abort <id> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]
+cmd_plan_abort() {
+    local query="${1:-}" plan_file bname pid mf m n
+    [ $# -gt 0 ] && shift
+    _ab_parse_tokens "$@" || exit 1
+    if [ -z "$query" ]; then echo "❌ [Abort Refusal] Usage: $AB_USAGE" >&2; exit 1; fi
+    # A mini plan is not a P-xx plan (P-52): its own verb drops it.
+    n="${query%.md}"
+    case "$n" in fix-*[!0-9]*|fix-) ;; fix-[0-9]*)
+        echo "❌ [Abort Refusal] $n is an issue's mini plan; drop it with 'aapp issue fix ${n#fix-} abort'." >&2
+        exit 1 ;;
+    esac
+    plan_file="$(resolve_plan_file "$query" "abort")" || exit 1
+    bname="$(basename "$plan_file")"; pid="$(_ab_plan_id "$plan_file")"
+    _load_issue_module
+
+    # A group plan takes its open members with it.
+    local is_group=0 members_open=() members_done="" fb="" all=()
+    if aapp_is_group_plan "$plan_file"; then
+        is_group=1
+        for m in $(group_members "$plan_file"); do
+            mf="$(ls "$PLANS_DIR"/current/P"${m#P-}"-*.md 2>/dev/null | head -n 1)"
+            if [ -n "$mf" ]; then
+                members_open+=("$mf")
+            elif ls "$PLANS_DIR"/done/P"${m#P-}"-*.md >/dev/null 2>&1; then
+                members_done="${members_done:+$members_done, }$m"
+            fi
+        done
+        fb="$(parse_plan_field "$plan_file" "Feature Branch")"
+        if [ -n "$fb" ] && ! git show-ref --verify --quiet "refs/heads/$fb"; then fb=""; fi
+    fi
+    all=("${members_open[@]}" "$plan_file")
+    for mf in "${all[@]}"; do
+        _ab_check_worktree "$mf" "$(_ab_plan_id "$mf")" || exit 1
+        _ab_check_issue "$mf" || exit 1
+    done
+
+    if [ "$is_group" -eq 1 ]; then
+        local shas ans
+        echo "⚠️  [Abort] Aborting group $pid removes the whole group:"
+        for mf in "${members_open[@]}"; do
+            shas="$(_ab_commit_shas "$mf")"
+            echo "   • member $(_ab_plan_id "$mf") is aborted (commits: ${shas:-none})"
+        done
+        if [ -n "$fb" ]; then
+            if [ "$AB_KEEP" -eq 1 ]; then
+                echo "   • feature branch '$fb' ($(git rev-parse --short "$fb")) is kept (keep-branch)"
+            else
+                echo "   • feature branch '$fb' ($(git rev-parse --short "$fb")) is deleted with every commit on it"
+            fi
+            if [ -n "$members_done" ]; then echo "   • archived members whose code is on it: $members_done"; fi
+        elif [ -n "$members_done" ]; then
+            echo "   • archived members: $members_done"
+        fi
+        if [ "$AB_CONFIRM" -eq 0 ]; then
+            if [ -t 0 ]; then
+                printf "Abort group %s? [y/N] " "$pid"
+                read -r ans || ans=""
+                case "$ans" in y|Y) ;; *) echo "Nothing changed."; exit 1 ;; esac
+            else
+                echo "❌ [Abort Refusal] A group abort needs a confirmation: answer the prompt on a terminal, or add 'confirm'. Nothing changed." >&2
+                exit 1
+            fi
+        fi
+    fi
+
+    # What the archive changes, kept until its commit lands (as `done`, #121).
+    local snap f led="aborted/000-aborted-ledger.md"
+    snap="$(mktemp -d)" || exit 1
+    cp -a "$PLANS_DIR/current" "$snap/current" || exit 1
+    for f in "$led" ISSUES.md issues_road_map.md state_matrix.md; do
+        if [ -f "$PLANS_DIR/$f" ]; then mkdir -p "$(dirname "$snap/$f")" && cp -a "$PLANS_DIR/$f" "$snap/$f" || exit 1; fi
+    done
+    AB_PATHS=(); AB_NEW=(); AB_DONE=(); AB_ISSUES=""
+    for mf in "${members_open[@]}"; do
+        _ab_archive_one "$mf" "Group $pid aborted: $AB_REASON" 1 || { _ab_restore "$snap"; echo "❌ [Abort] Archiving failed; nothing changed." >&2; exit 1; }
+    done
+    _ab_archive_one "$plan_file" "$AB_REASON" 0 || { _ab_restore "$snap"; echo "❌ [Abort] Archiving failed; nothing changed." >&2; exit 1; }
+    sync_state_matrix
+    for f in "$led" ISSUES.md issues_road_map.md state_matrix.md; do
+        if [ -n "$(git -C "$PLANS_DIR" status --porcelain -- "$f" 2>/dev/null)" ]; then AB_PATHS+=("$f"); fi
+    done
+    local subject="plan(abort): archive $pid to aborted/"
+    [ "$is_group" -eq 0 ] || subject="plan(abort): archive group $pid to aborted/"
+    if ! plans_commit "$subject" "${AB_PATHS[@]}"; then
+        _ab_restore "$snap"
+        echo "❌ [Abort] The archive commit failed; the plan, ledgers and matrix are restored and no worktree or branch was removed. Run 'aapp plan abort $pid' again." >&2
+        exit 1
+    fi
+    rm -rf "$snap"
+
+    echo "🗑️  [Abort] Plan '$pid' archived to aborted/$bname."
+    echo "   Reason       : $AB_REASON"
+    echo "   Ledger       : $PLANS_DIR/$led"
+    if [ -n "$AB_ISSUES" ]; then echo "   Issue        :$AB_ISSUES back to 🟡 Incubated (not closed)"; fi
+
+    # Buffers, hotfix records, worktrees and branches: after the commit.
+    local dest did cur holder holder_buf line blocked
+    for dest in "${AB_DONE[@]}"; do
+        did="$(_ab_plan_id "$dest")"
+        if [ -f "$ACTIVE_FILE" ]; then
+            cur="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
+            if [ "$cur" = "$did" ] || [ "$cur" = "$(basename "$dest")" ]; then rm -f "$ACTIVE_FILE"; fi
+        fi
+        if holder="$(find_worktree_holding_plan "$did")"; then
+            holder_buf="$(git -C "$holder" rev-parse --git-path aapp_active_plan)"
+            case "$holder_buf" in /*) ;; *) holder_buf="$holder/$holder_buf" ;; esac
+            rm -f "$holder_buf"
+        fi
+        if [ -z "$(parse_plan_worktree "$dest")" ]; then
+            line="$(grep -m 1 -E '^\* \*\*Blocked On:\*\*' "$dest" || true)"
+            if [ -n "$line" ]; then
+                blocked="$(plan_blocked_on_parse "${line#\* \*\*Blocked On:\*\* }" | sed -n 1p | tr -d '# ' | tr ',' ' ')"
+                # shellcheck disable=SC2086
+                issue_drop_stash_records "$PRIMARY_ROOT" $blocked || echo "⚠️  [Abort] Could not update the hotfix stash record." >&2
+            fi
+        fi
+        _ab_teardown "$dest" "$did"
+    done
+    if [ -n "$fb" ]; then
+        _ab_drop_branch "$fb" "${members_done:+Code of archived members went with it: $members_done.}"
+    fi
+    if [ -n "$members_done" ]; then
+        echo "ℹ️  [Abort] Archived members stay in done/ with their ledger rows and closed issues: $members_done."
+    fi
+    for dest in "${AB_DONE[@]}"; do
+        if [ "$dest" = "$PLANS_DIR/aborted/$bname" ]; then
+            _ab_hook "$dest" "$(_ab_plan_id "$dest")" "$AB_REASON"
+        else
+            _ab_hook "$dest" "$(_ab_plan_id "$dest")" "Group $pid aborted: $AB_REASON"
+        fi
+    done
+}
+
 cmd_plan_switchboard() {
     local query="$1"
     case "$query" in
+        abort)          shift; cmd_plan_abort "$@"; return ;;
         conflict-check) shift; cmd_plan_conflict_check "$@"; return ;;
         conflict-free)  shift; cmd_plan_conflict_free "$@"; return ;;
     esac
@@ -2636,6 +2974,9 @@ cmd_plan_switchboard() {
     echo "To plan concurrent work:"
     echo "  aapp plan conflict-check <id> <id>…   Can these plans run at the same time?"
     echo "  aapp plan conflict-free [<id>|<group>] Free to start now, against <id>, or a group's waves"
+    echo ""
+    echo "To abandon a plan:"
+    echo "  aapp plan abort <id> [reason \"<text>\"]  Archive it to aborted/; its worktree and branch go, its issue stays"
     echo ""
     echo "To draft or execute blueprints:"
     echo "  Use '/plan <idea>' or '/aapp-plan <idea>' in your AI agent chat."

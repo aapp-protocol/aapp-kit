@@ -41,6 +41,7 @@ print_lifecycle_events_catalog() {
     echo "     • post-freeze   Runs after plan freeze commits land"
     echo "     • post-start    Runs after plan start commits land"
     echo "     • post-done     Runs after plan done commits land"
+    echo "     • post-abort    Runs after a plan is archived to .plans/aborted/"
     echo "     • post-sync     Runs after worktree sync completes"
     echo "     • post-pause    Runs after emergency pause stashes land"
     echo "     • post-resume   Runs after emergency resume restore completes"
@@ -282,7 +283,7 @@ cmd_hook_test() {
     if [ -z "$event" ]; then
         echo "❌ Error: Missing event name for hook-test." >&2
         echo "Usage: aapp hook-test <event> [plan-id]" >&2
-        echo "Available events: pre-freeze, post-freeze, pre-start, on-start, post-start, pre-done, post-done, pre-sync, on-sync, post-sync, post-pause, post-resume" >&2
+        echo "Available events: pre-freeze, post-freeze, pre-start, on-start, post-start, pre-done, post-done, post-abort, pre-sync, on-sync, post-sync, post-pause, post-resume" >&2
         return 1
     fi
 

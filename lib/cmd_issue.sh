@@ -130,19 +130,26 @@ issue_relink() {
 # issue_mark_planned <n> <link> (P-50): promotion's lifecycle edit of an active
 # row: Target Plan / Fix -> <link>, Status -> 🔵 `Planned`. Observation cells
 # never change.
-issue_mark_planned() {
+issue_mark_planned() { _issue_mark_row "$1" "$2" '🔵 `Planned`'; }
+
+# issue_mark_incubated <n> <link> (P-69): a plan's abort hands its issue back:
+# Target Plan / Fix -> <link> (the archived plan), Status -> 🟡 `Incubated`.
+issue_mark_incubated() { _issue_mark_row "$1" "$2" '🟡 `Incubated`'; }
+
+# _issue_mark_row <n> <link> <status>: the two lifecycle cells of an active row.
+_issue_mark_row() {
     local n="$1" link="$2" plans f tmp
     plans="$(_issue_plans_dir)" || return 1
     f="$plans/ISSUES.md"
     [ -f "$f" ] || return 1
     tmp="$f.aapp-promote.$$"
-    AAPP_N="$n" AAPP_LINK="$link" awk '
+    AAPP_N="$n" AAPP_LINK="$link" AAPP_STATUS="$3" awk '
         {
             line = $0; gsub(/\\\|/, "\001", line)
             if (line ~ ("^[[:space:]]*\\|[[:space:]]*`?#" ENVIRON["AAPP_N"] "`?[[:space:]]*\\|")) {
                 k = split(line, c, "|")
                 if (k >= 10) {
-                    c[8] = " " ENVIRON["AAPP_LINK"] " "; c[9] = " 🔵 `Planned` "
+                    c[8] = " " ENVIRON["AAPP_LINK"] " "; c[9] = " " ENVIRON["AAPP_STATUS"] " "
                     out = c[1]; for (j = 2; j <= k; j++) out = out "|" c[j]
                     gsub(/\001/, "\\|", out); print out; done = 1; next
                 }
@@ -611,6 +618,24 @@ _issue_reapply_stash() {
         return 0
     fi
     awk -v k="#$n" '$2 != k' "$buf" > "$tmp" && mv "$tmp" "$buf"
+}
+
+# issue_drop_stash_records <root> <n>… (P-69): an aborted plan's work set aside
+# by `hotfix` is never re-applied: its lines leave the record, the stashes stay.
+issue_drop_stash_records() {
+    local root="$1" buf n sha ref tmp
+    shift
+    buf="$(git -C "$root" rev-parse --git-path aapp_hotfix_stash 2>/dev/null)" || return 0
+    case "$buf" in /*) ;; *) buf="$root/$buf" ;; esac
+    [ -s "$buf" ] || return 0
+    for n in "$@"; do
+        sha="$(awk -v k="#$n" '$2 == k { print $1; exit }' "$buf")"
+        [ -n "$sha" ] || continue
+        ref="$(git -C "$root" stash list --format='%gd %H' | awk -v s="$sha" '$2 == s { print $1; exit }')"
+        tmp="$buf.tmp.$$"
+        awk -v k="#$n" '$2 != k' "$buf" > "$tmp" && mv "$tmp" "$buf" || { rm -f "$tmp"; return 1; }
+        echo "📦 [Abort] The work set aside for #$n stays in the stash list as ${ref:-$sha}; 'aapp issue close $n' no longer re-applies it."
+    done
 }
 
 # _issue_restore_buffer: back to the plan a fix interrupted (the .prev slot).

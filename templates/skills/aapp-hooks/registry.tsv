@@ -12,6 +12,7 @@
 #   post-start  - Observer after plan start commit lands
 #   pre-done    - Quality gate before plan archival (aborts on exit != 0)
 #   post-done   - Observer after plan archival commit lands
+#   post-abort  - Observer after a plan is archived to .plans/aborted/
 #   on-integrate - Delegated plan branch integration on done (aapp.integrate = hook)
 #   post-pause  - Observer after emergency pause stashes land
 #   post-resume - Observer after emergency resume restore completes

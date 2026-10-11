@@ -25,6 +25,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp plan [query]` | **✅ Yes** | Educational planning switchboard or query blueprints |
 | `aapp plan conflict-check <id> <id>… [json]` | **✅ Yes** | Can these plans run at the same time? A group checks its members; exit 1 on a collision |
 | `aapp plan conflict-free [<id>\|<group>] [json]` | **✅ Yes** | Plans free to start now, compatible with `<id>`, or a group's members in waves for parallel agents |
+| `aapp plan abort <id> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` | **✅ Yes** | Abandon a plan: archived to `aborted/`, worktree and branch removed, its issue back to 🟡 `Incubated`; a group plan takes its open members and feature branch after a confirmation |
 | `aapp plan-status [id]` | **✅ Yes** | Inspect plan lane matrix or specific blueprint details |
 | `aapp matrix [check]` | **✅ Yes** | Re-derive state matrix from plan Status lines ('check' to audit) |
 | `aapp freeze [id]` | **✅ Yes** | Lock blueprint blast radius & design into frozen backlog spec |
@@ -87,7 +88,7 @@ Centralizes hook triggers and plugin contracts structured around execution timin
 | :--- | :---: | :--- | :--- |
 | **Pre-Mutation Gates** | `pre-*` | **Gating**: Runs *before* disk mutation or Git commit. Exit code `0` = pass; non-zero = **hard abort** with zero state change. | `pre-freeze`, `pre-start`, `pre-done`, `pre-sync` |
 | **Action Delegates** | `on-*` | **Delegating**: Executes or replaces the core operation (e.g. custom transport). | `on-sync`, `on-pickup`, `on-digest` |
-| **Post-Mutation Observers** | `post-*` | **Observing**: Runs *after* state is securely recorded. Broadcasts telemetry or triggers downstream sync. | `post-freeze`, `post-start`, `post-done`, `post-sync`, `post-pause`, `post-resume` |
+| **Post-Mutation Observers** | `post-*` | **Observing**: Runs *after* state is securely recorded. Broadcasts telemetry or triggers downstream sync. | `post-freeze`, `post-start`, `post-done`, `post-abort`, `post-sync`, `post-pause`, `post-resume` |
 
 ### Extension Management Commands
 

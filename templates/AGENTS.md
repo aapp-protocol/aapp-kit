@@ -325,6 +325,7 @@ Every chore has a verb; use it instead of editing ledgers or running git on `.pl
 | `aapp start <id> [worktree <path> [branch <name>]]` | Activate a frozen plan for implementation; with `aapp.planWorktrees = on` (or `worktree`), in its own branch and worktree |
 | `aapp freeze-start <id> [worktree <path> [branch <name>]]` | Freeze and start in one step |
 | `aapp done <id>` | Archive an implemented plan; closes its Target Issue |
+| `aapp plan abort <id> [reason "<text>"]` | Abandon a plan: archived to `aborted/`, its worktree and branch removed, its issue stays open (🟡 `Incubated`). Run it from the main checkout; only when the human asks |
 | `aapp commit "<msg>" …` | Plan-bound code commit with attribution; records the SHA in the plan and writes its declared changelog entry |
 | `aapp active [id \| swap \| clear]` | Show or set the active plan buffer |
 | `aapp note …` | Stage, inspect, push or pull git notes |
