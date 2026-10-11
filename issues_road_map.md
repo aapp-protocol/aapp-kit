@@ -44,4 +44,5 @@
 - [ ] #111 -> `issue fix` takes an over-long changelog entry from the fix cell; refused only at commit.
 - [ ] #117 -> `issue fix` turns the fix cell (or the symptom) into the changelog line; the cell holds notes.
 - [ ] #118 -> No lifecycle path abandons a started plan (or group).
+- [ ] #120 -> `aapp tdd help` drafts a plan named `help`.
 
