@@ -27,7 +27,7 @@ Merge criterion: both members archived and the pre-done gate green on the featur
 - **One accessor.** Nothing outside the ledger module reads or writes `ISSUES.md`, `done/000-issues-archive.md` or `issues_road_map.md`; a test fails on any new direct access. Path names in permission lists (guard, pre-commit allow-lists) are not access.
 - **The ledger rows are the kit's.** `ISSUES.md` rows are always written by the kit; a provider receives them and may mirror them anywhere.
 - **Wrapper points.** Six: `log` (new rows), `refine` (changed rows), `fix`, `abort`, `close`, `list`. Each sends the whole issue (all cells, note, plan link, commit, summary, the step's own data) in the Plugin Payload Standard envelope.
-- **The plugin decides.** Its answer's `kit` list names what the kit still handles; no `kit` field means the kit handles everything. No provider means the kit's internals.
+- **The plugin decides.** Its answer's `handled` names what it took care of; the kit does everything it does not name (the answer protocol is P-77). No provider means the kit's internals.
 - **Notes** are never in the ledger. Without a provider, the kit keeps them outside the repository, under `~/.local/state/aapp/<project>/`.
 - **Remote issues** are kept in a cache next to the notes; the module's readers merge it with the ledger. Hooks read only local data and the cache, never the network.
 - **One ledger view.** The module's readers merge every source (`.plans/` ledgers, the remote cache, the `.offline` ledgers), each row marked with its source; no caller reads a source directly.
@@ -36,8 +36,9 @@ Merge criterion: both members archived and the pre-done gate green on the featur
 
 ## 3. Members & Order
 1. P-73 (ledger module): first; no behaviour change.
-2. P-74 (provider wrapper): starts from the feature branch after P-73 is archived into it; it adds the wrapper inside the module.
-3. P-75 (offline worktree): after P-74; its ledgers are a source of the module and its fallback is the wrapper's failure path.
+2. P-77 (plugin answer protocol): independent of P-73; may run alongside it.
+3. P-74 (provider wrapper): after P-73 and P-77; it adds the wrapper over the ledger functions and answers in the P-77 protocol.
+4. P-75 (offline worktree): after P-74; its ledgers are a source of the module and its fallback is the wrapper's failure path.
 
 ## Architecture & Codemap
 *Every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written out whole in a ```` fence, under the exact heading it has (or will have) in the file. Members do not edit these files; read the sections here as the target architecture. At the group's `done` a section replaces the file's section with the same heading, or is added at the end. `aapp refine` records a base line above each fence: `done` refuses a section the file changed meanwhile. Write `No changes.` under a file that keeps its content.*
