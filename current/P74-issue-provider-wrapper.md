@@ -41,7 +41,7 @@
 ## 1. Context & Architectural Goal
 The `aapp-issue-tracker` provider is called at three points, none with the issue itself: `issue.allocate` (returns an id), `issue.next-blocker` (returns an id), `issue.close` (id, commit, summary, plan; fire-and-forget). A provider cannot keep a full record of an issue, hold notes for it, or bring in issues a colleague logged elsewhere.
 
-This plan routes every issue step through one wrapper inside `lib/issue_ledger.sh` (P-73). The provider receives the whole issue and decides, per part, whether it handles it or leaves it to the kit. Issues it lists have the same rights as local ones. Short notes (a few phrases of clue) get a home outside the repository.
+This plan routes every issue step through one wrapper over the ledger functions (P-73). The provider receives the whole issue and decides, per part, whether it handles it or leaves it to the kit. Issues it lists have the same rights as local ones. Short notes (a few phrases of clue) get a home outside the repository.
 
 ---
 
@@ -54,7 +54,7 @@ This plan routes every issue step through one wrapper inside `lib/issue_ledger.s
 2. `check_issue_ids_below_counter` leaves `check_ledger_issues`, and its line leaves the `refine` contract.
 3. `aapp issue allocate` / `issue next` become internal to the handler; agent docs and skills stop telling agents to claim a number.
 
-**Wrapper:** `issue_provider <step> <n> [<step data>…]` in `lib/issue_ledger.sh`. With a provider installed it builds the payload and calls `run_action_plugin`; without one it runs the kit's internals.
+**Wrapper:** `issue_provider <step> <n> [<step data>…]` in `lib/cmd_issue.sh`, not in `lib/aapp-lib.sh`: the hooks never receive the code that calls a provider. The note store and remote-cache readers are ledger functions in `lib/aapp-lib.sh`. With a provider installed it builds the payload and calls `run_action_plugin`; without one it runs the kit's internals.
 
 | Step | Called by | Action |
 |---|---|---|
@@ -115,7 +115,7 @@ This plan routes every issue step through one wrapper inside `lib/issue_ledger.s
 - [ ] Task 1.1: Write `tests/verbs/issue.provider.sh` with a recording provider fixture; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Payload builder and `issue_provider` wrapper in `lib/issue_ledger.sh`; move `allocate`, `next-blocker` and `close` onto it.
+- [ ] Task 2.1: Payload builder and `issue_provider` wrapper in `lib/cmd_issue.sh`; move `allocate`, `next-blocker` and `close` onto it.
 - [ ] Task 2.2: `issue log` handler (id, row, commit) and the log step; `issue hotfix` onto it; the refine step from `refine issues`; the `note` token; the kit's note store.
 - [ ] Task 2.2b: Retire in order: `refine issues` refuses added rows; drop `check_issue_ids_below_counter`; `allocate`/`next` internal, agent docs and skills updated (`.agents/AGENTS.md` alongside on its branch).
 - [ ] Task 2.3: fix and abort steps: note printed; remote rows imported.
@@ -138,8 +138,8 @@ This plan routes every issue step through one wrapper inside `lib/issue_ledger.s
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `lib/issue_ledger.sh` -> Wrapper, payload, note store, remote cache and merge.
-- [ ] `lib/cmd_issue.sh` -> fix, close, hotfix, list call the wrapper; `note` token on hotfix.
+- [ ] `lib/aapp-lib.sh` -> Ledger functions: note store and remote cache as read sources, merge.
+- [ ] `lib/cmd_issue.sh` -> The wrapper and payload; `issue log`; fix, close, hotfix, list call the wrapper; `note` token on hotfix.
 - [ ] `lib/cmd_plan.sh` -> `refine issues` refine step, `note` token, refuses added rows; `draft … issue` imports remote rows.
 - [ ] `lib/planning_health.sh` -> `check_issue_ids_below_counter` retired; added-row refusal.
 - [ ] `lib/plan_resolver.sh` -> Id allocation behind the handler; offset fallback on provider failure.
