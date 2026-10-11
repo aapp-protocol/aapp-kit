@@ -31,7 +31,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-68**: [`P68-split-slow-verb-suites.md`](current/P68-split-slow-verb-suites.md) — Split Slow Verb Suites
 - ⚡ **P-71**: [`P71-faster-test-runs.md`](current/P71-faster-test-runs.md) — 🧩 Group Plan P-71: Faster Test Runs
 
 ---
