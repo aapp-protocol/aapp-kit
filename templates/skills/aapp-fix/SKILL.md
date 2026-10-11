@@ -27,6 +27,8 @@ Run the command with a tool timeout longer than `aapp.issueFixWait` (default 5 m
 
 On exit 0, the mini plan `current/fix-<num>.md` is open and bound to this checkout.
 
+**Which branch.** A fix is made on the development branch: `fix` refuses while the main checkout is elsewhere. A bug caused by a group's work is fixed on that group's feature branch instead: `aapp issue fix <num> group <group>` opens the fix in `.workspace/fix-<num>`; work and commit there, and `close` lands it on the feature branch. When `fix` prints that a group changes the issue's files, report it: the human decides, and the fix can be aborted and reopened with `group`.
+
 ### Step 2: Fix
 Edit only the mini plan's files; the write guard enforces this. Then commit:
 ```bash

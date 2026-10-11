@@ -20,6 +20,8 @@ aapp done [target]
 ```
 *(If `<target>` is omitted, `aapp done` automatically inspects the active execution buffer `$(git rev-parse --git-path aapp_active_plan)`).*
 
+**Group plan:** `aapp done <group>` is the merge of the feature branch into its parent; never merge it by hand. It refuses while a member is open, when a section of its `## Architecture & Codemap` changed in the file since its base line (update the plan's section, delete its base line, `aapp refine`), or when the parent does not merge cleanly (a group-caused fix on the feature branch). Then it applies the sections, runs the gate on the feature branch, and merges.
+
 **Plan with its own worktree:** `aapp done` refuses while that worktree has uncommitted changes.
 - With `aapp.integrate` = `squash`, `ff` or `hook`, the same command also integrates the plan branch into its parent branch (the one in `* **Base:**`) after archiving, and removes the worktree and branch. Every integration check runs first: a refusal (branch not rebased, dirty main checkout, an open issue fix, too many emergency hotfixes) archives nothing. Fix the cause and run `aapp done` again; never merge by hand to get around it.
 - With `aapp.integrate = manual` (the default), it archives only and prints `aapp done <id> integrate` plus the manual commands (`git worktree remove <path>` also **deletes ignored files**; `git branch -D <branch>` after a squash). Report them; do not run them unless asked.
