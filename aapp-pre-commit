@@ -734,6 +734,35 @@ done
 # ------------------------------------------------------------------------------
 # 3. DOCUMENTATION REMINDER (NON-BLOCKING WARNING)
 # ------------------------------------------------------------------------------
+# P-64: a group member leaves ARCHITECTURE.md to its group, even when only
+# anchors are staged. The member is the active plan: the buffer's, else the only ⚡ one.
+MEMBER_GROUP=""; MEMBER_PF="${ACTIVE_PLAN_PATH:-}"
+if [ -z "$MEMBER_PF" ] && [ -n "$PLANS_DIR" ] && [ -d "$PLANS_DIR/current" ]; then
+    BUF_ID="$(head -n 1 "$(git rev-parse --git-path aapp_active_plan 2>/dev/null)" 2>/dev/null | tr -d '[:space:]')"
+    DEV_COUNT=0
+    for pf in "$PLANS_DIR"/current/*.md; do
+        [ -f "$pf" ] || continue
+        if [ -n "$BUF_ID" ]; then
+            [ "$(parse_plan_field "$pf" "Plan ID")" = "$BUF_ID" ] && { MEMBER_PF="$pf"; break; }
+        elif grep -qE '^\* \*\*Status:\*\*[[:space:]]*⚡' "$pf"; then
+            DEV_COUNT=$((DEV_COUNT + 1)); MEMBER_PF="$pf"
+        fi
+    done
+    [ -z "$BUF_ID" ] && [ "$DEV_COUNT" -ne 1 ] && MEMBER_PF=""
+fi
+[ -n "$MEMBER_PF" ] && MEMBER_GROUP="$(parse_plan_field "$MEMBER_PF" Group)"
+if [ -n "$MEMBER_GROUP" ]; then
+    for F in "${STAGED_FILES[@]}"; do
+        if [ "$F" = "ARCHITECTURE.md" ]; then
+            echo ""
+            echo "❌ [Pre-Commit Group Rule] $(basename "$MEMBER_PF" .md) is a member of group $MEMBER_GROUP."
+            echo "   ARCHITECTURE.md changes go into $MEMBER_GROUP's '## Architecture & Codemap' section; its 'done' applies them."
+            echo ""
+            exit 1
+        fi
+    done
+fi
+
 DOCS_UPDATED=0
 for F in "${STAGED_FILES[@]}"; do
     if echo "$F" | grep -qE '^(README\.md|MANUAL\.md|CODEMAP\.md|ARCHITECTURE\.md|\.agents/CODEMAP\.md|\.agents/ARCHITECTURE\.md)$'; then
@@ -746,7 +775,9 @@ if [ "$DOCS_UPDATED" -eq 0 ] && [ -d ".agents" ] && git -C .agents rev-parse --i
         DOCS_UPDATED=1
     fi
 fi
-if [ "$STAGED_CORE_COUNT" -gt 0 ] && [ "$DOCS_UPDATED" -eq 0 ]; then
+if [ "$STAGED_CORE_COUNT" -gt 0 ] && [ -n "$MEMBER_GROUP" ]; then
+    echo "ℹ️  [Pre-Commit Reminder] ARCHITECTURE.md and CODEMAP.md changes for this work go into $MEMBER_GROUP's '## Architecture & Codemap' section."
+elif [ "$STAGED_CORE_COUNT" -gt 0 ] && [ "$DOCS_UPDATED" -eq 0 ]; then
     echo "⚠️  [Pre-Commit Reminder] Documentation (README.md, ARCHITECTURE.md, or .agents/CODEMAP.md) was not updated."
     echo "   If this commit introduces new interfaces, routes, or behaviors, ensure documentation stays in sync."
 fi
