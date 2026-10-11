@@ -1,7 +1,7 @@
 # 🧩 Group Plan P-71: Faster Test Runs
 * **Created:** 2026-10-11 | **Last Refined:** 2026-10-11
 * **Plan ID:** P-71
-* **Changelog:** Added: Faster Test Runs
+* **Changelog:** Changed: `aapp test` runs suites in parallel and splits the slowest verb suites; a full run takes about a minute instead of six
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
@@ -19,13 +19,17 @@
 ---
 
 ## 1. Goal
-*What the group delivers as a whole, and the merge criterion (by default: every member archived and the pre-done gate green on the feature branch).*
+The full suite, which the `pre-done` test gate (P-60) runs on every `done`, takes about 6 minutes. This group makes it about a minute, without skipping a test: suites run in parallel (P-67), then the slowest verb suites are split into parts so the longest one no longer sets the floor (P-68). Scoped or partial runs are not part of it (pickup: Test Time & Kit Modularity).
+
+Merge criterion: both members archived, the gate green on the feature branch, and a full `aapp test` on it measured (wall time reported in the group's `done`).
 
 ## 2. Shared Decisions
-*Decisions every member follows: interfaces, naming, data formats, order constraints.*
+- The gate is unchanged: it always runs the whole suite.
+- Exit codes, selection tokens and the summary rows of `aapp test` keep their contract; only how suites are scheduled and split changes.
+- No new config key; the job count is worked out from the CPU count (P-67 Q1, Q2).
 
 ## 3. Members & Order
-*Which members can run in parallel and which wait for others. Membership itself is the `* **Members:**` line, written by the verbs.*
+- P-67 (parallel runner), then P-68 (suite parts and splits): they share `lib/cmd_test.sh`, `lib/docs/verbs/test.md` and `tests/verbs/test.sh` (`aapp plan conflict-free P-71` shows two waves), and P-68 builds on P-67's scheduler.
 
 ## Architecture & Codemap
 *Every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written out whole in a ```` fence, under the exact heading it has (or will have) in the file. Members do not edit these files; read the sections here as the target architecture. At the group's `done` a section replaces the file's section with the same heading, or is added at the end. `aapp refine` records a base line above each fence: `done` refuses a section the file changed meanwhile. Write `No changes.` under a file that keeps its content.*
@@ -34,7 +38,18 @@
 No changes.
 
 ### .agents/CODEMAP.md
-No changes.
+<!-- aapp-base: 2520063a704ba2506f9b8777a5c3960e1bd1f99a824a32db96ce86eb6545eacb -->
+````markdown
+### 🧪 Unified Test Runner Orchestrator (`lib/cmd_test.sh`)
+* **Purpose:** Single entrypoint for automated test discovery, selective filtering, subshell isolation, execution timing, and assertion metric aggregation across all kit components.
+* **Key Behaviors:**
+  * Zero double-dash invariant: bare positional tokens (`list`, `strict`, `quiet`, `bail`, `jobs <n>`).
+  * Parallel scheduling (P-67): up to N suites at once, N from `jobs <n>` or the CPU count rounded down to a multiple of 4; each suite's output captured in its own file and flushed in one write when it finishes; summary rows in selection order; one `trap` stops running suites and removes the files on exit or interrupt.
+  * Suite parts (P-68): `tests/verbs/<verb>.<part>.sh` belongs to `<verb>`; `verb <verb>` runs it with all its parts, each scheduled as its own suite.
+  * Fail-closed sandbox propagation (`AAPP_TEST_SANDBOX_STRICT=1`).
+  * Adopter mode fallback: delegates to `aapp.testCommand` / auto-detected project runner (`npm`, `cargo`, etc.) or performs non-destructive AAPP protocol environment health audit.
+* **Anti-Wrapper Warning:** Never bypass subshell sandboxing or alter suite exit codes.
+````
 
 ---
 
@@ -49,7 +64,7 @@ No changes.
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified; the members carry their own questions.)*
 
 ---
 
