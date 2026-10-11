@@ -1,8 +1,8 @@
-# 🗺️ Plan P-69: Abort Plan
+# 🗺️ Plan P-69: Lifecycle Plan Abort & Worktree Decommissioning
 * **Created:** 2026-10-11 | **Last Refined:** 2026-10-11
 * **Target Issue / Milestone:** #118
 * **Plan ID:** P-69
-* **Changelog:** Changed: Abort Plan
+* **Changelog:** Added: `aapp abort` command to safely decommission in-flight plans, clean worktrees/branches, and archive to .plans/aborted/
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,64 +38,152 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+In AAPP, blueprint lifecycles are currently strictly unidirectional towards `done`:
+- Once started (`aapp start`), a plan can only reach `done` (`aapp done <id>`), which gates on tests, integrates commits, and archives the plan to `.plans/done/`.
+- While mini-plans have `aapp issue fix <num> abort` to cleanly drop uncommitted issue fixes, full plans have **no verb-driven exit path** when an approach fails, an RFC is rejected, or an architectural pivot renders the blueprint obsolete.
+- Developers and agents are left with manual surgery: deleting worktrees, removing branches, hand-editing `.plans/state_matrix.md`, clearing buffers, and manually moving files.
+
+**Goal:** Implement a first-class `aapp abort <id>` lifecycle command (aliased under `aapp plan abort <id>`) that safely decommissions any non-done plan, tears down its worktree/branch resources, reverts promoted issues back to `🟡 Incubated`, unlinks group memberships, and moves the blueprint into `.plans/aborted/`.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 CLI Ingress & Command Syntax
+
+- **Entrypoint**: `aapp abort <id> [reason "<text>"] [keep-branch] [force]`
+- **Plan Subcommand Alias**: `aapp plan abort <id> [reason "<text>"] [keep-branch] [force]`
+- **Positional `<id>`**: Resolves plan identifier via `resolve_plan_file` (accepts `P-<N>`, bare `<N>`, filename stem, or slug).
+- **Keyword Tokens**:
+  - `reason "<text>"`: Human or agent justification for abandonment (default: `Abandoned`).
+  - `keep-branch`: Decommissions the worktree and archives the plan, but preserves the git branch `plan/<id>-<slug>` in ref history for reference.
+  - `force`: Bypasses dirty worktree checks (force removes untracked/uncommitted changes in the plan's worktree).
+
+### 2.2 Preconditions & Scope
+
+- **Eligible Statuses**: Any active or inactive blueprint in `.plans/current/`:
+  - `🟣 Under Review` / `📝 Refining` (cancels early incubator drafts).
+  - `🔷 Frozen` (drops approved specifications before code is written).
+  - `⚡ In Development` (safely halts in-flight execution).
+  - `🟥 BLOCKED` (retires permanently blocked plans).
+- **Ineligible**: Plans in `.plans/done/` or `.plans/aborted/` refuse with exit code 1 (`Cannot abort an already completed/aborted plan`).
+
+### 2.3 Teardown & Worktree Decommissioning
+
+If the plan was started in its own worktree (`* **Worktree:** .workspace/<id>`):
+1. **Dirty Worktree Guard**:
+   - Inspects `git -C <worktree> status --porcelain`.
+   - If uncommitted tracked changes exist and `force` is **not** specified: refuses with exit code 1, reporting dirty files and advising `commit`, `stash`, or `abort ... force`.
+2. **Worktree Removal**:
+   - Executes `git worktree remove --force "$wt_path"`.
+   - Prunes kit symlinks (`.githooks`, `.agents`, `.plans`, `.claude`).
+3. **Branch Cleanup**:
+   - Unless `keep-branch` is specified:
+     - Deletes branch `plan/<id>-<slug>` via `git branch -D "$plan_branch"`.
+     - If `keep-branch` is passed: preserves the branch and emits `ℹ️  Branch 'plan/<id>-<slug>' preserved.`
+4. **Buffer Reset**:
+   - Checks active plan buffer (`aapp_active_plan`). If currently set to `<id>`, clears or restores `.prev`.
+
+### 2.4 Archival in `.plans/aborted/` & Ledger Recording
+
+- **Target Directory**: Moves file from `.plans/current/P<n>-<slug>.md` to `.plans/aborted/P<n>-<slug>.md`.
+- **Status Mutation**: Updates header to:
+  ```markdown
+  * **Status:** ❌ Aborted
+  * **Aborted:** 2026-10-11 | **Reason:** <reason>
+  ```
+- **Change Log Entry**: Appends dated entry to `## 📦 6. Change Log`:
+  `* **2026-10-11:** Plan aborted: <reason>`
+- **Aborted Ledger (`.plans/aborted/000-aborted-ledger.md`)**:
+  Appends structured row to the ledger table:
+  `| Date | ID | Blueprint | Target Issue | Reason | Commits |`
+- **State Matrix Sync**:
+  Re-derives or prunes `<id>` from `.plans/state_matrix.md`.
+
+### 2.5 Issue Lane & Group Plan Integration
+
+1. **Target Issue Reversion (#118 contract)**:
+   - If the plan was promoted from an active issue (`* **Target Issue / Milestone:** #<n>`):
+     - The issue in `ISSUES.md` is **NOT closed**.
+     - Issue status in `ISSUES.md` reverts from `🔵 Planned` to `🟡 Incubated`.
+     - In `ISSUES.md`, the `Target Plan / Fix` cell is updated to note `(P-<id> aborted)`.
+2. **Group Plan Unlinking (P-64 interaction)**:
+   - If the plan has `* **Group:** <group>`:
+     - Removes `<id>` from the group plan's `* **Members:**` header list.
+   - If the plan *is* a group plan (`# 🧩 Group Plan P-<n>`):
+     - Refuses if active members are still `⚡ In Development` in the group.
+     - If all members are completed or aborted: removes feature branch `feature/<slug>` and archives the group.
+
+### 2.6 Lifecycle Commit & Hooks
+
+- **Plans Worktree Commit**:
+  Commits all ledger, matrix, issue, and plan file moves in one atomic commit:
+  `plan(abort): <id> <reason>`
+- **Hook Dispatch**:
+  Dispatches `post-abort` lifecycle observer hook (passing `plan_id`, `plan_file`, `reason`, `worktree`, `branch`).
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: `tests/verbs/abort.sh`: Add test `test_abort_incubator_draft_moves_to_aborted_and_cleans_matrix`.
+- [ ] Task 1.2: `tests/verbs/abort.sh`: Add test `test_abort_frozen_plan_cleans_resources`.
+- [ ] Task 1.3: `tests/verbs/abort.sh`: Add test `test_abort_inflight_plan_refuses_dirty_worktree_without_force`.
+- [ ] Task 1.4: `tests/verbs/abort.sh`: Add test `test_abort_inflight_plan_removes_worktree_and_deletes_branch`.
+- [ ] Task 1.5: `tests/verbs/abort.sh`: Add test `test_abort_with_keep_branch_preserves_ref`.
+- [ ] Task 1.6: `tests/verbs/abort.sh`: Add test `test_abort_reverts_target_issue_to_incubated`.
+- [ ] Task 1.7: `tests/verbs/abort.sh`: Add test `test_abort_group_member_unlinks_from_group_plan`.
+- [ ] Task 1.8: `tests/verbs/abort.sh`: Add test `test_abort_writes_aborted_ledger_entry`.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: Register `abort` in `lib/verbs.tsv`.
+- [ ] Task 2.2: Implement `cmd_abort()` in `lib/cmd_plan.sh` and wire `aapp plan abort` dispatcher.
+- [ ] Task 2.3: Implement worktree cleanup, buffer unbinding, and branch removal logic.
+- [ ] Task 2.4: Implement `.plans/aborted/` movement, header mutation, and `000-aborted-ledger.md` appender.
+- [ ] Task 2.5: Implement issue status reversion (`🔵 Planned` -> `🟡 Incubated`) in `lib/cmd_issue.sh` / `lib/cmd_plan.sh`.
+- [ ] Task 2.6: Implement group plan member unlinking for P-64 integration.
+- [ ] Task 2.7: Dispatch `post-abort` lifecycle hook.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.1: Run automated test suites and verify all failure assertions pass.
+- [ ] Task 3.2: Create verb specification contract `lib/docs/verbs/abort.md`.
+- [ ] Task 3.3: Update `MANUAL.md` with Plan Abort & Decommissioning lifecycle guide.
+- [ ] Task 3.4: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
+- [ ] Task 3.5: Verify `CHANGELOG.md` updates and run syntax/build checks.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_plan.sh` -> Implement `abort` verb, worktree teardown, and plan archival logic.
+- [ ] `lib/verbs.tsv` -> Register `abort` daily verb.
+- [ ] `NEW FILE` -> `lib/docs/verbs/abort.md` -> Lifecycle contract documentation for `abort`.
+- [ ] `NEW FILE` -> `tests/verbs/abort.sh` -> Test suite covering incubator, frozen, in-flight, and group aborts.
+- [ ] `MANUAL.md` -> User guide documentation for abandoning and archiving blueprints.
+- [ ] `.agents/CODEMAP.md` -> Architectural boundary mapping for abort lifecycle.
+- [ ] `CHANGELOG.md` -> Entry written by `aapp commit`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `.githooks/*` -> Core git hooks untouched.
+- [ ] `templates/blast-radius-guard.sh` -> Write guard untouched.
+- [ ] `lib/planning_health.sh` -> Planning health engine untouched.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — Aborted Ledger Location & Format.** Should aborted plans record in `.plans/aborted/000-aborted-ledger.md` (separate from done), or append to `done/000-archive-ledger.md` with an `[Aborted]` status tag? (a) Dedicated `.plans/aborted/000-aborted-ledger.md` keeping clean separation. (b) Shared `done/000-archive-ledger.md`. Recommendation: (a); mirrors the directory structure.
+* [ ] **Question 2 — Branch deletion on unmerged commits.** When an in-flight plan has commits recorded on its branch that were never merged to parent, should plain `abort` delete the branch (`git branch -D`) or refuse unless `keep-branch` or `force` is passed? (a) Warn and delete branch unless `keep-branch` is passed (standard abort intent). (b) Refuse if branch has commits unless `force` or `keep-branch` is passed. Recommendation: (a) with clear diagnostic naming the deleted branch SHA.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-11:** Plan initialized from `pickup.md`.
+* **2026-10-11:** Scaffolded from Issue #118 and refined technical blueprint: defined CLI ingress (`aapp abort`), worktree teardown, `.plans/aborted/` archival, issue reversion to Incubated, and group member unlinking.
+
 * **2026-10-11:** Refined blast radius and locked module boundaries.
