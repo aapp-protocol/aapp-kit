@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `aapp issue abort <num>` withdraws an issue with its plan or mini plan (`P-76`)
 - `aapp plan abort` command to safely decommission in-flight plans, clean worktrees/branches, and archive to .plans/aborted/ (`P-69`)
 - `aapp plan conflict-check` and `conflict-free` commands to audit plan concurrency and blast-radius overlap (`P-65`)
 - group plans: a group cuts a feature branch from its parent branch, its members (`draft … group <id>`) start into it, the group's `done` merges it into the parent; group-caused fixes land on the feature branch (`P-64`)
