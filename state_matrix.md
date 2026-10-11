@@ -33,8 +33,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-65**: [`P65-plan-conflict-check.md`](current/P65-plan-conflict-check.md) — Plan Conflict Check
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

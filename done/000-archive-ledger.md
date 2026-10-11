@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-11 | `P-65` | [`P65-plan-conflict-check.md`](P65-plan-conflict-check.md) | Milestone: Monorepo & Two-Context Architecture | `150cc2b` | Pre-Flight Concurrency & Conflict Audit CLI (tdd (10/10)) |
 | 2026-10-11 | `P-64` | [`P64-feature-branch-plan-groups.md`](P64-feature-branch-plan-groups.md) | None | `cc889d3` | Feature Branch Plan Groups (tdd (27/27)) |
 | 2026-10-10 | `P-60` | [`P60-pre-done-test-gate.md`](P60-pre-done-test-gate.md) | First release (reliability: a plan cannot close on red tests) | `85c9851` | Pre Done Test Gate |
 | 2026-10-10 | `P-62` | [`P62-guard-buffer-and-workspace-fixtures.md`](P62-guard-buffer-and-workspace-fixtures.md) | #114 | `0cc7b47` | Guard Buffer And Workspace Fixtures |
