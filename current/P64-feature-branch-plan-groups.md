@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🔷 Frozen
+* **Status:** ⚡ In Development
 * **Base:** `27ad4dd` (develop)
 * **Worktree:** .workspace/P64 (plan/P64-feature-branch-plan-groups)
 * **Commits:** none
@@ -224,6 +224,7 @@ When the issue's files differ between the development branch and an active group
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Plan activated into ⚡ In Development via start.
 * **2026-10-11:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-11:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
