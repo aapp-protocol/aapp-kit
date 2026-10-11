@@ -2,7 +2,7 @@
 * **Created:** 2026-10-09 | **Last Refined:** 2026-10-09
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-64
-* **Changelog:** Added: group plans: a group cuts a feature branch from its parent branch, members start into it (`group <id>`), the group's `done` merges it into the parent; group-caused fixes land on the feature branch
+* **Changelog:** Added: group plans: a group cuts a feature branch from its parent branch, its members (`draft … group <id>`) start into it, the group's `done` merges it into the parent; group-caused fixes land on the feature branch
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -55,7 +55,7 @@ Design record: RFC `worktree-contexts-monorepo-rfc.md` (§4 decisions, C1/C2, A1
 ### 2.0 The group plan
 - `aapp draft <slug> group`: a plan with the next Plan ID, marked by its title heading `# 🧩 Group Plan P-<n>: <title>` (the one marker verbs read), from its own template `templates/group-template.md` (its sections differ from a plan's; a variant inside `plan-template.md` would put conditional sections in every plan): goal, shared decisions, `* **Feature Branch:**`, `* **Members:**`, merge criterion, `## Architecture & Codemap` (2.6). Target Files: `ARCHITECTURE.md` and `.agents/CODEMAP.md` only; `freeze` also checks the group fields.
 - `aapp start <group>` (optionally `base <branch>`, an existing branch; default: the development branch): creates `feature/<slug>` from it, records `Base: <sha> (<parent>)`. No worktree, no buffer: the group writes no code. Refuses when `<branch>` is an active group's feature branch: groups do not nest.
-- `aapp done <group>`, in order: refuses while a member is not archived; checks out the feature branch in a temporary worktree; when the parent has moved, merges the parent into it there (a conflict refuses with nothing changed; never a rebase: members' recorded SHAs stay valid); commits `ARCHITECTURE.md` (2.6); runs `pre-done` there (the payload's `worktree`), so the gate tests exactly what lands; fast-forwards the parent; commits `.agents/CODEMAP.md` (2.6); removes the worktree and the feature branch.
+- `aapp done <group>`, in order: refuses while a member is not archived; checks out the feature branch in a temporary worktree; when the parent has moved, merges the parent into it there (a conflict refuses with nothing changed; never a rebase: members' recorded SHAs stay valid); applies the group's `ARCHITECTURE.md` sections and commits them (2.6); runs `pre-done` there (the payload's `worktree`), so the gate tests exactly what lands; fast-forwards the parent; applies and commits the `.agents/CODEMAP.md` sections (2.6); removes the worktree and the feature branch.
 - The group's `* **Changelog:**` line is the umbrella entry for the capability the group delivers, written next to its members' entries (`CHANGELOG.md merge=union`); its `ARCHITECTURE.md` commit writes it.
 - A group cannot be abandoned while the kit has no path to abandon any plan (#118).
 
@@ -73,9 +73,10 @@ Design record: RFC `worktree-contexts-monorepo-rfc.md` (§4 decisions, C1/C2, A1
 When the issue's files differ between the development branch and an active group's feature branch, `fix` without `group` prints a hint naming `group <group>`. The human decides.
 
 ### 2.6 Architecture & Codemap belong to the group
-- The group template has `## Architecture & Codemap`: the intended changes to `ARCHITECTURE.md` and `.agents/CODEMAP.md`, refined as shared decisions. "No changes" is a valid entry; a missing section refuses `freeze` and `done` of the group.
+- **The sections live in the group plan** (developer, 2026-10-11). `## Architecture & Codemap` has one sub-heading per file (`### ARCHITECTURE.md`, `### .agents/CODEMAP.md`); under each, every changed section is written out whole, under the exact heading it has (or will have) in that file. Until `done` they are documentation: the members' agents read them as the target architecture. "No changes" is a valid entry; a missing `## Architecture & Codemap` refuses `freeze` and `done` of the group.
+- **Applied at the group's `done`, as its own phase** (helper `lib/group_docs.sh`): a section whose heading exists in the file replaces that whole section (up to the next heading of the same or a higher level); a heading not in the file is added at the end. `done` reports each section as replaced or added. Whole sections swapped by heading survive the time between planning and merge: other edits to the file do not collide line by line.
 - Members do not edit either file: `aapp-pre-commit` refuses `ARCHITECTURE.md` in a commit of a plan with `* **Group:**`, naming the group. `.agents/CODEMAP.md` is always writable (`.agents/*`), so for it the rule is agent text only (invariant 7, `AGENTS.md`).
-- The group's Target Files are exactly `ARCHITECTURE.md` and `.agents/CODEMAP.md`. The group's `done` commits `ARCHITECTURE.md` on the feature branch before `pre-done` (the gate tests it with the rest), and `.agents/CODEMAP.md` right after the merge into the parent (the map changes when the code reaches the parent).
+- The group's Target Files are exactly `ARCHITECTURE.md` and `.agents/CODEMAP.md`. The group's `done` applies and commits the `ARCHITECTURE.md` sections on the feature branch before `pre-done` (the gate tests them with the rest), and the `.agents/CODEMAP.md` sections right after the merge into the parent (the map changes when the code reaches the parent). One `done`; the group never needs a worktree of its own before it.
 - Why: parallel members editing the same two files conflict every time, and `.agents` is shared by all branches, so a member's CODEMAP edit describes code its parent does not have yet.
 
 ### 2.5 Status
@@ -115,7 +116,11 @@ When the issue's files differ between the development branch and an active group
 - [ ] `tests/verbs/status.sh::test_members_listed_under_group` -> asserts members appear under their group
 - [ ] `tests/verbs/freeze.sh::test_group_freeze_refuses_missing_architecture_section` -> asserts a group without `## Architecture & Codemap` refuses; "No changes" passes
 - [ ] `tests/pre-commit_test.sh::test_member_commit_refuses_architecture` -> asserts a group member's commit staging `ARCHITECTURE.md` is refused, naming the group; a plan without `Group:` may commit it
-- [ ] `tests/integrate_test.sh::test_group_done_commits_architecture_before_gate_codemap_after_merge` -> asserts `ARCHITECTURE.md` is on the feature branch when `pre-done` runs and `.agents/CODEMAP.md` changes only after the merge
+- [ ] `tests/integrate_test.sh::test_group_done_commits_architecture_before_gate_codemap_after_merge` -> asserts the group's `ARCHITECTURE.md` sections are on the feature branch when `pre-done` runs and `.agents/CODEMAP.md` gets its sections only after the merge
+- [ ] `tests/group_docs_test.sh::test_existing_heading_replaces_whole_section` -> asserts a section whose heading exists replaces that section up to the next heading of the same or a higher level, deeper sub-headings included, the rest of the file unchanged
+- [ ] `tests/group_docs_test.sh::test_new_heading_is_added_at_the_end` -> asserts a heading not in the file is appended
+- [ ] `tests/group_docs_test.sh::test_report_names_replaced_and_added` -> asserts the report lists each section as replaced or added
+- [ ] `tests/group_docs_test.sh::test_no_changes_leaves_files_untouched` -> asserts "No changes" applies nothing
 
 *Two phases, each tests first (red), then green, in microcommits. Phase A works on its own before Phase B starts.*
 
@@ -123,9 +128,10 @@ When the issue's files differ between the development branch and an active group
 - [ ] Task A.1: Red: the `draft`, `freeze`, `start`, `status`, `pre-commit` and group/member `integrate_test` assertions above.
 - [ ] Task A.2: `draft … group`, `templates/group-template.md`, group heading check, freeze checks (2.0, 2.6); contracts `draft.md`, `freeze.md`.
 - [ ] Task A.3: Membership on `draft … group <id>` and `refine <id> group`; group `start`; member `start` (2.0, 2.1); contracts `draft.md`, `refine.md`, `start.md`, `freeze-start.md`.
-- [ ] Task A.4: Group `done`: open-member refusal, ARCHITECTURE before the gate, gate on the feature branch, merge into the parent, CODEMAP after (2.0, 2.6); contract `done.md`.
-- [ ] Task A.5: Member refusal in `aapp-pre-commit`; invariant 7 in `plan-template.md` (2.6); status grouping (2.5).
-- [ ] Task A.6: Green: Phase A tests and the full suite.
+- [ ] Task A.4: `lib/group_docs.sh`: apply sections by heading (2.6), with `tests/group_docs_test.sh`.
+- [ ] Task A.5: Group `done`: open-member refusal, ARCHITECTURE sections before the gate, gate on the feature branch, merge into the parent, CODEMAP sections after (2.0, 2.6); contract `done.md`.
+- [ ] Task A.6: Member refusal in `aapp-pre-commit`; invariant 7 in `plan-template.md` (2.6); status grouping (2.5).
+- [ ] Task A.7: Green: Phase A tests and the full suite.
 
 ### Phase B: Issue fixes and groups (2.2, 2.3)
 - [ ] Task B.1: Red: the `issue.sh` assertions above.
@@ -152,6 +158,7 @@ When the issue's files differ between the development branch and an active group
 - [ ] `lib/cmd_plan.sh` -> Group `draft`/`freeze`/`start`/`done`; membership on `draft`/`refine`; member start from the feature branch.
 - [ ] `lib/docs/verbs/refine.md` -> `group <id>` / `group none`.
 - [ ] `tests/verbs/refine.sh` -> Join and leave.
+- [ ] `NEW FILE` -> `lib/group_docs.sh` -> Applies a group's ARCHITECTURE/CODEMAP sections (replace by heading, else add).
 - [ ] `lib/aapp-lib.sh` -> Group heading check; header parsers and writers (`Group`, `Feature Branch`, `Members`).
 - [ ] `NEW FILE` -> `templates/group-template.md` -> The group plan template.
 - [ ] `lib/cmd_issue.sh` -> Development-branch check; `fix … group` worktree, close integration, hint.
@@ -179,6 +186,7 @@ When the issue's files differ between the development branch and an active group
 - [ ] `MANUAL.md` -> Feature-branch plan groups.
 - [ ] `CHEATSHEET.md` -> `base` token rows.
 - [ ] `.agents/CODEMAP.md` -> New functions.
+- [ ] `NEW FILE` -> `tests/group_docs_test.sh` -> Section replace and add.
 - [ ] `CHANGELOG.md` -> Entry written by `aapp commit`.
 
 ### 🧪 Required Test Files
@@ -190,6 +198,7 @@ When the issue's files differ between the development branch and an active group
 - `tests/verbs/issue.sh`
 - `tests/verbs/status.sh`
 - `tests/verbs/refine.sh`
+- `tests/group_docs_test.sh`
 - `tests/integrate_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -207,12 +216,14 @@ When the issue's files differ between the development branch and an active group
 * [x] **Question 4 — Order with P-60 and P-62. → RESOLVED (developer, 2026-10-10): P-62, then P-60, then P-64.** P-64 shares `lib/cmd_plan.sh` with P-60 and `tests/verbs/issue.sh`/`tests/integrate_test.sh` with P-62. Recommendation: P-62, then P-60, then P-64; or P-64 is the first plan built on the feature branch you plan to cut.
 * [x] **Question 5 — A group's ID. → RESOLVED (developer, 2026-10-11): (a), the Plan ID; a marker heading distinguishes a group plan (§2.0).** (a) The normal `P-` numbering (`aapp.planId`). (b) Its own prefix, e.g. `G-`. Recommendation: (a); nothing new to allocate, and every verb already resolves it.
 * [x] **Question 6 — Membership. → RESOLVED (developer, 2026-10-11): a plan joins when it is planned for the group (drafted or refined into it); `start` activates it; members stay refinable; a group is not an immediate start of implementation (§2.1).** (a) A member joins when it is started with `group <id>`. (b) The group lists planned members up front, while they are still drafts. Recommendation: (a); the list then only names plans that exist on the feature branch.
+* [ ] **Question 7 — Guard against overwriting a section changed meanwhile.** A replaced section overwrites whatever the parent holds then; if someone edited that same section while the group ran, their edit is lost silently. (a) When a section is first written into the group plan, record a checksum of the file's original section next to it; `done` refuses, naming the section, when the file's section no longer matches, so the plan's copy is updated first. (b) No guard; the report of replaced sections is enough. Recommendation: (a); one checksum line per section, and a silent overwrite is the one failure this design can have.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-11:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
+* **2026-10-11:** Unfrozen during implementation (developer): §2.6 changed: ARCHITECTURE/CODEMAP sections live whole in the group plan, as reference for members, applied by heading at the group's single `done` (replace, else add; `lib/group_docs.sh`). Q7 open.
 * **2026-10-11:** Q6 clarified (developer): membership from planning (`draft … group <id>`, `refine <id> group`), members refinable, `start` reads it; the group is a planning container first; P-65 plans groups for parallel agents.
 * **2026-10-11:** Review ideas (Antigravity), decided by the developer: group `done` merges a moved parent into the feature branch before the gate (no rebase); umbrella changelog entry; groups do not nest; P-65 pre-flight left open; abandoning is #118.
 * **2026-10-11:** Architecture & Codemap belong to the group (developer, §2.6): separate group template; members do not edit them; the group's `done` commits ARCHITECTURE before the gate and CODEMAP after the merge; a missing section refuses.
