@@ -628,4 +628,62 @@ else
   bad "test_fix_refused_inside_plan_worktree" "rc=$rc out=$out"
 fi
 
+echo "== fixes and groups (P-64) =="
+init_sandbox_project "$R/gx"
+cd "$R/gx" || exit 1
+mkdir -p src && echo "g=1" > src/g.sh && echo "h=1" > src/h.sh
+git add -A && git commit -qm "track init files" --no-verify
+git branch develop
+git config aapp.planWorktrees on
+git config aapp.commitMode microcommits
+git config aapp.issueFixWait 0
+printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
+  '| #3 | `Low` | `CORE` | 2026-10-11 | `src/g.sh` | Group code wrong | Fixed group code | 🟡 `Incubated` |' \
+  '| #4 | `Low` | `CORE` | 2026-10-11 | `src/h.sh` | Shared code wrong | Fixed shared code | 🟡 `Incubated` |' > .plans/ISSUES.md
+printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #3 -> Group code wrong.' '- [ ] #4 -> Shared code wrong.' > .plans/issues_road_map.md
+printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
+git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
+git config aapp.issueId 5
+GXPRIM="$(git rev-parse --abbrev-ref HEAD)"
+
+head0="$(git -C .plans rev-parse HEAD)"
+out="$(aapp issue fix 3 2>&1)"; rc=$?
+if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "develop" && [ ! -f .plans/current/fix-3.md ] && [ "$(git -C .plans rev-parse HEAD)" = "$head0" ]; then
+  ok "test_fix_refuses_off_development_branch"
+else
+  bad "test_fix_refuses_off_development_branch" "rc=$rc out=$out"
+fi
+
+gid="P-$(git config aapp.planId)"; aapp draft fixgrp group >/dev/null 2>&1
+gfile="$(ls .plans/current/P"${gid#P-}"-*.md)"
+sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$gfile"; git -C .plans commit -qam prep >/dev/null 2>&1
+aapp freeze-start "$gid" >/dev/null 2>&1
+fsha0="$(git rev-parse feature/fixgrp)"; dev0="$(git rev-parse develop)"
+out="$(aapp issue fix 3 group "$gid" 2>&1)"; rc=$?
+fwt="$R/gx/.workspace/fix-3"
+opened=0; [ "$rc" -eq 0 ] && [ -d "$fwt" ] && [ "$(git -C "$fwt" rev-parse HEAD)" = "$fsha0" ] && \
+  [ "$(git -C "$fwt" rev-parse --abbrev-ref HEAD)" = "fix/3" ] && opened=1
+( cd "$fwt" && echo "g=2" > src/g.sh && git add src/g.sh && aapp commit "fix: group code (#3)" >/dev/null 2>&1 )
+out2="$(aapp issue close 3 2>&1)"; rc2=$?
+if [ "$opened" -eq 1 ] && [ "$rc2" -eq 0 ] && [ "$(git show feature/fixgrp:src/g.sh)" = "g=2" ] && \
+   [ "$(git rev-parse develop)" = "$dev0" ] && [ ! -d "$fwt" ] && ! git rev-parse --verify -q fix/3 >/dev/null && \
+   ! grep -qE '^\| #3 \|' .plans/ISSUES.md && [ ! -f .plans/current/fix-3.md ]; then
+  ok "test_fix_group_opens_worktree_and_close_integrates"
+else
+  bad "test_fix_group_opens_worktree_and_close_integrates" "rc=$rc/$rc2 opened=$opened out=$out | $out2"
+fi
+
+# The group changed src/h.sh on its feature branch; a fix of #4 on develop hints at the group.
+git worktree add -q "$R/gx-feat" feature/fixgrp && echo "h=group" > "$R/gx-feat/src/h.sh" && \
+  git -C "$R/gx-feat" commit -qam "group work on h" --no-verify && git worktree remove "$R/gx-feat"
+git checkout -q develop
+out="$(aapp issue fix 4 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && echo "$out" | grep -qF "group $gid" && [ -f .plans/current/fix-4.md ]; then
+  ok "test_fix_hints_group_for_group_files"
+else
+  bad "test_fix_hints_group_for_group_files" "rc=$rc out=$out"
+fi
+aapp issue fix 4 abort >/dev/null 2>&1
+git checkout -q "$GXPRIM"
+
 print_test_summary "$PASS" "$FAIL"
