@@ -105,15 +105,21 @@ When the issue's files differ between the development branch and an active group
 - [ ] `tests/pre-commit_test.sh::test_member_commit_refuses_architecture` -> asserts a group member's commit staging `ARCHITECTURE.md` is refused, naming the group; a plan without `Group:` may commit it
 - [ ] `tests/integrate_test.sh::test_group_done_commits_architecture_before_gate_codemap_after_merge` -> asserts `ARCHITECTURE.md` is on the feature branch when `pre-done` runs and `.agents/CODEMAP.md` changes only after the merge
 
-### Phase 1: Tests First (red)
-- [ ] Task 1.1: The assertions above.
+*Two phases, each tests first (red), then green, in microcommits. Phase A works on its own before Phase B starts.*
 
-### Phase 2: Implementation
-- [ ] Task 2.0: Group plan: `draft … group`, template, freeze checks, group `start` and `done` (2.0); contracts `draft.md`, `start.md`, `done.md`.
-- [ ] Task 2.1: `group` token on member start (2.1); contracts `start.md`, `freeze-start.md`.
-- [ ] Task 2.2: Development-branch check (2.2); `fix … group` worktree and close integration (2.3); hint; contract `issue.md`.
-- [ ] Task 2.3: Agent text (2.4); status (2.5).
-- [ ] Task 2.4: Architecture & Codemap in the group (2.6): template section, freeze/done checks, member refusal in `aapp-pre-commit`, invariant 7 text.
+### Phase A: The group plan (2.0, 2.1, 2.5, 2.6)
+- [ ] Task A.1: Red: the `draft`, `freeze`, `start`, `status`, `pre-commit` and group/member `integrate_test` assertions above.
+- [ ] Task A.2: `draft … group`, `templates/group-template.md`, group heading check, freeze checks (2.0, 2.6); contracts `draft.md`, `freeze.md`.
+- [ ] Task A.3: Group `start` and member `start … group` (2.0, 2.1); contracts `start.md`, `freeze-start.md`.
+- [ ] Task A.4: Group `done`: open-member refusal, ARCHITECTURE before the gate, gate on the feature branch, merge into the parent, CODEMAP after (2.0, 2.6); contract `done.md`.
+- [ ] Task A.5: Member refusal in `aapp-pre-commit`; invariant 7 in `plan-template.md` (2.6); status grouping (2.5).
+- [ ] Task A.6: Green: Phase A tests and the full suite.
+
+### Phase B: Issue fixes and groups (2.2, 2.3)
+- [ ] Task B.1: Red: the `issue.sh` assertions above.
+- [ ] Task B.2: Development-branch check (2.2); `fix … group` worktree, close integration, hint (2.3); contract `issue.md`.
+- [ ] Task B.3: Agent text (2.4).
+- [ ] Task B.4: Green: Phase B tests and the full suite.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
