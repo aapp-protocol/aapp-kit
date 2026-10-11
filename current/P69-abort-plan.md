@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
@@ -221,6 +221,7 @@ Aborting a group plan removes the group: its plan, its open members and its code
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-11:** The issue row edit is an internal function; a plan's abort never withdraws its issue.
 * **2026-10-11:** A group member aborts with its commits: they are on its own plan branch.
 * **2026-10-11:** A group plan's abort removes the whole group (open members, feature branch) after a confirmation.
