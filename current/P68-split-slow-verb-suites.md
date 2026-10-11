@@ -46,21 +46,20 @@
 
 **Depends on P-67** (parallel runner; both change `lib/cmd_test.sh`, so this plan starts after it).
 
-**Research at refine time** (not done yet): per-test durations for `issue.sh` and `done.sh`; where each split falls (by section, so each part builds its own sandbox); how much sandbox setup each part repeats; whether other fixed waits exist (`sleep` in `tests/`); the measured floor after splitting.
+**Research (2026-10-11, measured on the P-67 runner).** Section times: `start` 50 s (P-54 worktrees 22 s incl. the 7 s session wait, P-64 groups 11 s, the rest 13 s); `issue` 41 s (P-58 fixes alongside plans 15.5 s, P-52 hotfix 8 s); `done` 28 s (P-39 recorded commits 11.5 s, worktree sections 13 s). Every split falls where a section starts its own sandbox (`init_sandbox_project`); `issue`'s P-54 section reuses P-58's sandbox, so they move together. Each part repeats the suite header (sources, `ok`/`bad`, helpers it uses): no shared state. Other fixed waits: `issue.sh`'s two `sleep 3` test the fix-wait roller (kept); `hooks_test.sh` (15 s) is off the critical path. Expected floor after the split: about 22 s, set by `pre-commit` and `commit`, which stay whole.
 
 ---
 
 ## 2. Technical Blueprint
-*Provisional; finalised at refine time from the research above.*
-
 ### 2.1 Suite parts (`lib/cmd_test.sh`)
 - `tests/verbs/<verb>.<part>.sh` belongs to `<verb>`. `aapp test verb <verb>` runs `<verb>.sh` and all its parts; `aapp test` schedules each part as its own suite.
 - Labels: `verb/<verb>` and `verb/<verb>.<part>`; `aapp test list` shows parts under their verb.
 
 ### 2.2 Splits
-- `tests/verbs/start.sh` → general tests stay; plan-worktree tests (P-54 sections) move to `start.worktree.sh`.
-- `tests/verbs/issue.sh` and `tests/verbs/done.sh`: split points from the research.
-- Each part builds its own sandbox; no part depends on another's state.
+- `tests/verbs/start.sh` keeps refusals … P-58 (~13 s); `start.worktree.sh` takes the P-54 worktree and base-branch sections (~15 s after 2.3); `start.group.sh` takes the P-64 group section (~11 s).
+- `tests/verbs/issue.sh` keeps next … P-52 hotfix by scope (~21 s); `issue.fixes.sh` takes P-58, P-54 (same sandbox) and P-64 (~20 s).
+- `tests/verbs/done.sh` keeps refusals … P-50 link repair (~17 s); `done.worktree.sh` takes P-54, #119 and P-60 (~11 s).
+- Each part builds its own sandbox and carries the header and helpers it uses; no part depends on another's state. The total number of tests is unchanged.
 
 ### 2.3 The session test
 The session command waits for a marker file the test creates after `aapp start` returns, then writes its output. `start` returning before the marker exists proves it does not wait; no fixed `sleep`.
@@ -84,7 +83,7 @@ The `## Tests` lists in `lib/docs/verbs/{start,issue,done}.md` name the part fil
 - [ ] `tests/verb_contracts_test.sh::test_contract_tests_exist_in_suite_or_part` -> asserts every `## Tests` entry names a test present in the named file (verb suite or part)
 
 ### Phase 0: Research (refine time)
-- [ ] Task 0.1: Research in §1; finalise §2.2 split points, §4 part files, and the measured floor.
+- [x] Task 0.1: Research in §1; finalise §2.2 split points, §4 part files, and the measured floor.
 
 ### Phase 1: Tests First (red)
 - [ ] Task 1.1: The Required Tests above.
@@ -111,12 +110,14 @@ The `## Tests` lists in `lib/docs/verbs/{start,issue,done}.md` name the part fil
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-*Provisional: the part files for `issue` and `done` are named at refine time.*
 - [ ] `lib/cmd_test.sh` -> Suite parts.
-- [ ] `tests/verbs/start.sh` -> General tests; session test without a fixed wait.
-- [ ] `NEW FILE` -> `tests/verbs/start.worktree.sh` -> Plan-worktree tests from `start.sh`.
-- [ ] `tests/verbs/issue.sh` -> Split (points at refine time).
-- [ ] `tests/verbs/done.sh` -> Split (points at refine time).
+- [ ] `tests/verbs/start.sh` -> Keeps refusals … P-58.
+- [ ] `NEW FILE` -> `tests/verbs/start.worktree.sh` -> P-54 worktree and base-branch sections; session test without a fixed wait.
+- [ ] `NEW FILE` -> `tests/verbs/start.group.sh` -> P-64 group section.
+- [ ] `tests/verbs/issue.sh` -> Keeps next … P-52.
+- [ ] `NEW FILE` -> `tests/verbs/issue.fixes.sh` -> P-58, P-54 and P-64 sections.
+- [ ] `tests/verbs/done.sh` -> Keeps refusals … P-50.
+- [ ] `NEW FILE` -> `tests/verbs/done.worktree.sh` -> P-54, #119 and P-60 sections.
 - [ ] `lib/docs/verbs/start.md` -> Test list names the part files.
 - [ ] `lib/docs/verbs/issue.md` -> Test list names the part files.
 - [ ] `lib/docs/verbs/done.md` -> Test list names the part files.
