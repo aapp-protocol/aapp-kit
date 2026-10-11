@@ -1,4 +1,4 @@
-# issue [next | allocate | hotfix "<text>" [file <path>]… [plan] | fix next-blocker | fix <num> [file <path>…] | fix <num> abort | close <id> [sha <sha>] [summary "<text>"] | list [<n> | all]]
+# issue [next | allocate | hotfix "<text>" [file <path>]… [plan] | fix next-blocker | fix <num> [file <path>…] [group <group>] | fix <num> abort | close <id> [sha <sha>] [summary "<text>"] | list [<n> | all]]
 
 ## Ingress
 - positional forms:
@@ -6,6 +6,7 @@
     - `allocate`: claims the next issue ID and prints it (`#<n>`)
     - `hotfix "<text>" [file <path>]… [plan]` (P-52): from a plan's worktree, logs the blocking bug as a new issue, queues it under 🧱 Plan Blockers, records it in the plan's `Emergency Hotfixes:` and blocks the plan, in one commit; `plan` drafts a plan from it instead of queueing
     - `fix next-blocker` | `fix <num> [file <path>…]` (P-52): opens a temporary mini plan `current/fix-<num>.md` for one issue, one fix at a time; the files come from the row's Location (only its path tokens: present in the working tree, or containing `/` or a file extension, `:lines` stripped, P-58), `file` adds one the log does not name; `next-blocker` claims the top Plan Blocker; with a mini plan of `#<num>` open, `file` adds files to it
+    - `fix <num> group <group>` (P-64): a bug caused by a group's work; the fix is made in `.workspace/fix-<num>` on `fix/<num>` from the group's feature branch, and `close` lands it there
     - `fix <num> abort` (P-52): drops an uncommitted mini plan; the issue stays open
     - `close <id>`: relocates an active issue row to the archive
     - `list [<n> | all]`: prints active issues in road-map order
@@ -40,6 +41,9 @@
 - `fix` on an inactive issue, `next-blocker` with an empty queue, or no files known -> exit 1; nothing written
 - `fix` on a file with uncommitted changes in this working copy -> waits with the same roller (`<file> has uncommitted changes here; waiting Ns…`), re-checking each step, and proceeds once the file is clean; the issue lock is not held while waiting. When the wait runs out -> exit 1, nothing written: stderr `<file> has uncommitted changes here; still busy after the wait`, or, when the plan bound in this checkout lists the file, that its own work is the cause and the remedy is `aapp issue hotfix "<text>" file <path>…`. `fix` never commits or stashes that work (P-58)
 - `next-blocker` skips a blocker whose files are dirty here and claims the next; when every queued blocker is dirty, it waits the same way and claims the first to clear (P-58)
+- `fix` without `group` while the main checkout is not on the development branch (`aapp.devBranch`; the default branch when none exists) -> exit 1, naming both branches and `group <group>`; nothing written (P-64)
+- `fix … group <group>`: `<group>` not a group plan, not `⚡ In Development`, or `.workspace/fix-<num>` / `fix/<num>` existing -> exit 1; nothing written (P-64)
+- `close` of a group fix: uncommitted changes in its worktree, `fix/<num>` not rebasing onto the feature branch, or the feature branch not fast-forwarding -> exit 1; both branches and the issue unchanged (P-64)
 - `fix <num> abort` with recorded commits -> exit 1 (close it instead)
 - `close` of an open mini plan with no recorded commit -> exit 1
 - the issue lock (`$(git rev-parse --git-common-dir)/aapp_issue.lock`, held while `hotfix` and the start of a `fix` write) is waited for with the same roller; a lock whose holder PID is gone, or that has no PID after a few seconds, is taken over with a stale-lock notice
@@ -56,6 +60,8 @@
 - `hotfix`: a new row `| #<n> | \`High\` | \`CORE\` | <today> | <files> | <text> | blocks [<plan>](current/<file>) | 🟡 \`Incubated\` |`; `- [ ] #<n> -> <text> (blocks <plan>)` under `## 🧱 Plan Blockers` at the top of the road map; the plan gains `#<n>` in `* **Emergency Hotfixes:**` (append-only) and is blocked through `plan_block_on` (P-49); over `aapp.maxEmergencyHotfixes` the `Blocked On:` line carries `hotfix limit reached (…)` and only the developer lifts it; one commit `issue(hotfix): #<n> blocks <plan>`; with `plan`, the row is promoted to a new draft (`aapp draft … issue <n>`) and not queued
 - `fix`: `current/fix-<num>.md` (Plan ID `#<num>`, `⚡ In Development`, `Changelog: Fixed: <text>`, §4 = the files) and the active buffer bound to `#<num>` with the previous value in `.prev`, one commit `fix(start): #<num>`; `abort` deletes it, restores the buffer, commit `fix(abort): #<num>`
 - `close` of an issue with an open mini plan: the SHA defaults to the mini plan's last recorded commit and the summary to `Fixed via aapp issue fix: <files>; unblocks <plan>`; the mini plan is deleted and the buffer restored; any plan whose `Blocked On:` lists `#<n>` drops it and, once empty and not permanent, gets its recorded status back; the matrix is re-derived; all in the one close commit (the same unblocking runs when `aapp done` closes a Target Issue); stdout then prints `ℹ️  <plan> also lists <file>: it picks this fix up at its next rebase.` for every other ⚡ or BLOCKED plan whose Target Files include a fixed file (output only, P-58)
+- `fix` without `group`: when an active group's feature branch differs from the development branch in the fix's files, stdout adds `Group <id> changes these files on '<branch>'` with `aapp issue fix <num> group <id>`; the fix still opens, the human decides (P-64)
+- `fix … group <group>`: the mini plan records `* **Worktree:** .workspace/fix-<num> (fix/<num>)` and `* **Group:** <group>` and is bound in that worktree (the main checkout's buffer is untouched); `close` rebases `fix/<num>` onto the feature branch if it moved, fast-forwards the feature branch, removes the worktree and branch, then archives the issue as usual (P-64)
 - `list`: road-map entries in board order, the same selection as the `aapp status` Issues pillar; a truncated list ends with `… <k> more (aapp issue list all)`
 - `aapp done` on a plan whose Target Issue is `#<n>` performs the same `close` in its own archive commit; a Target Issue in neither ledger refuses `done` before anything moves
 
@@ -113,3 +119,6 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.sh::test_fix_waits_for_dirty_file_then_proceeds` -> `fix` waits, printed, and proceeds once the file is clean (P-58)
 - `tests/verbs/issue.sh::test_next_blocker_waits_when_every_blocker_is_dirty` -> `next-blocker` waits for the first blocker to clear (P-58)
 - `tests/verbs/issue.sh::test_fix_refused_inside_plan_worktree` -> `fix` inside a plan worktree: exit 1 with the primary path, nothing written (P-54)
+- `tests/verbs/issue.sh::test_fix_refuses_off_development_branch` -> main checkout not on the development branch: exit 1, nothing written (P-64)
+- `tests/verbs/issue.sh::test_fix_group_opens_worktree_and_close_integrates` -> `group`: the fix worktree on the feature branch; `close` lands it there only, worktree and branch gone, issue archived (P-64)
+- `tests/verbs/issue.sh::test_fix_hints_group_for_group_files` -> files a group changed: the hint names `group <id>`, the fix still opens (P-64)

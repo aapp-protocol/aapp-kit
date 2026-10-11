@@ -263,6 +263,36 @@ cmd_issue_allocate() {
     allocate_issue_id
 }
 
+# _issue_land_group_fix <num> <mini-plan> (P-64): fast-forwards the group's
+# feature branch to `fix/<num>` (rebased first when the feature branch moved),
+# then removes the fix worktree and branch. Refuses with both branches unchanged.
+_issue_land_group_fix() {
+    local n="$1" mp="$2" rec wt br gid gf fb l
+    _issue_load_plan_lib || return 1
+    rec="$(parse_plan_worktree "$mp")"
+    wt="$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")"; br="${rec#*$'\t'}"
+    gid="$(parse_plan_field "$mp" Group)"
+    gf="$(resolve_plan_file "$gid" "close")" || return 1
+    fb="$(parse_plan_field "$gf" "Feature Branch")"
+    if [ -n "$(git -C "$wt" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+        echo "❌ [Issue] .workspace/fix-$n has uncommitted changes; commit them with 'aapp commit' there first." >&2
+        return 1
+    fi
+    if ! git merge-base --is-ancestor "$fb" "$br"; then
+        if ! git -C "$wt" rebase -q "$fb" >/dev/null 2>&1; then
+            git -C "$wt" rebase --abort >/dev/null 2>&1
+            echo "❌ [Issue] fix/$n does not rebase cleanly onto $fb; resolve it in .workspace/fix-$n, then close again." >&2
+            return 1
+        fi
+    fi
+    git fetch -q . "$br:$fb" || {
+        echo "❌ [Issue] Could not fast-forward $fb to fix/$n (is $fb checked out somewhere?)." >&2; return 1; }
+    for l in .githooks .agents .plans .claude; do [ -L "$wt/$l" ] && rm -f "$wt/$l"; done
+    git worktree remove --force "$wt" >/dev/null 2>&1 || echo "⚠️  Could not remove $wt; remove it with 'git worktree remove --force $wt'." >&2
+    git branch -D "$br" >/dev/null 2>&1 || echo "⚠️  Could not delete $br; delete it with 'git branch -D $br'." >&2
+    echo "🔀 [Issue] #$n landed on $fb ($(git rev-parse --short "$fb"))."
+}
+
 cmd_issue_close() {
     local raw="${1:-}" sha="" summary="" n where root
     if [ -z "$raw" ]; then
@@ -297,6 +327,11 @@ cmd_issue_close() {
             echo "❌ [Issue] #$n's fix recorded no commit; commit it with 'aapp commit' (or drop it with 'aapp issue fix $n abort')." >&2
             return 1
         fi
+        # P-64: a group fix lands on the group's feature branch first.
+        if [ -n "$(parse_plan_worktree "$mp")" ]; then
+            _issue_land_group_fix "$n" "$mp" || return 1
+            last="$(parse_plan_commits "$mp" | tail -n 1 | awk '{print $1}')"
+        fi
         [ -n "$sha" ] || sha="$last"
         while IFS= read -r p; do [ -n "$p" ] && mini_list+=("$p"); done < <(parse_plan_target_paths "$mp")
         mini_files="$(printf '%s\n' "${mini_list[@]}" | paste -sd, - | sed 's/,/, /g')"
@@ -320,8 +355,9 @@ cmd_issue_close() {
             for p in $touched; do paths+=("$p"); done
             if [ -n "$mp" ]; then
                 _issue_load_plan_lib || return 1
+                # A group fix was bound in its own worktree, removed on landing.
+                [ -n "$(parse_plan_worktree "$mp")" ] || _issue_restore_buffer
                 rm -f "$mp"
-                _issue_restore_buffer
                 paths+=("current/fix-$n.md")
             fi
             _issue_reapply_stash "$n"
@@ -825,8 +861,69 @@ _issue_refuse_in_plan_worktree() {
 }
 
 # cmd_issue_fix next-blocker | <num> file <path>… | <num> abort (P-52 2.2, 2.5)
+# _issue_dev_branch: the development branch (aapp.devBranch), else the default
+# branch (origin/HEAD, main, master); empty when none exists.
+_issue_dev_branch() {
+    local b
+    b="$(aapp_dev_branch)"
+    [ -n "$b" ] && { echo "$b"; return 0; }
+    b="$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)" && { echo "${b#origin/}"; return 0; }
+    for b in main master; do
+        git show-ref --verify --quiet "refs/heads/$b" && { echo "$b"; return 0; }
+    done
+    return 0
+}
+
+# _issue_refuse_off_dev <num> (P-64): a fix without `group` is made on the
+# development branch; group-caused fixes go to the group's feature branch.
+_issue_refuse_off_dev() {
+    local dev cur
+    dev="$(_issue_dev_branch)"
+    cur="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    [ -z "$dev" ] || [ "$cur" = "$dev" ] && return 0
+    echo "❌ [Issue] Issue fixes are made on the development branch '$dev'; the main checkout is on '$cur'." >&2
+    echo "   Switch with 'git checkout $dev'. A bug caused by a group's work: 'aapp issue fix ${1:-<num>} group <group>'." >&2
+    return 1
+}
+
+# _issue_group_hint <plans> <file>… (P-64): names active groups whose feature
+# branch differs from the development branch in these files; the human decides.
+_issue_group_hint() {
+    local plans="$1" dev pf fb gid
+    shift
+    dev="$(_issue_dev_branch)"; [ -n "$dev" ] || return 0
+    for pf in "$plans"/current/*.md; do
+        [ -f "$pf" ] && aapp_is_group_plan "$pf" || continue
+        [ "$(plan_status_slug "$pf")" = "in-development" ] || continue
+        fb="$(parse_plan_field "$pf" "Feature Branch")"
+        git show-ref --verify --quiet "refs/heads/$fb" || continue
+        git diff --quiet "$dev" "$fb" -- "$@" 2>/dev/null && continue
+        gid="$(parse_plan_field "$pf" "Plan ID")"
+        echo "ℹ️  [Issue] Group $gid changes these files on '$fb'. If its work caused the bug, fix it there: 'aapp issue fix <num> group $gid' (abort this one first)."
+    done
+}
+
+# _issue_group_worktree <num> <group-file> (P-64): `.workspace/fix-<num>` on
+# `fix/<num>` from the group's feature branch, with the kit links; prints its path.
+_issue_group_worktree() {
+    local n="$1" gf="$2" fb wt
+    fb="$(parse_plan_field "$gf" "Feature Branch")"
+    if [ "$(plan_status_slug "$gf")" != "in-development" ] || ! git show-ref --verify --quiet "refs/heads/$fb"; then
+        echo "❌ [Issue] Group $(parse_plan_field "$gf" "Plan ID") is not ⚡ In Development with a feature branch." >&2
+        return 1
+    fi
+    wt="$PRIMARY_ROOT/.workspace/fix-$n"
+    if [ -e "$wt" ] || git show-ref --verify --quiet "refs/heads/fix/$n"; then
+        echo "❌ [Issue] .workspace/fix-$n or branch fix/$n already exists." >&2
+        return 1
+    fi
+    git worktree add -q --no-track -b "fix/$n" "$wt" "$fb" || return 1
+    _wt_link_kit "$wt" "Issue" "$fb" || { git worktree remove --force "$wt" >/dev/null 2>&1; git branch -D "fix/$n" >/dev/null 2>&1; return 1; }
+    echo "$wt"
+}
+
 cmd_issue_fix() {
-    local sub="${1:-}" n="" files=() plans open limit waited step row="" text f pf pid st t
+    local sub="${1:-}" n="" files=() plans open limit waited step row="" text f pf pid st t grp="" gfile="" gwt=""
     plans="$(_issue_plans_dir)" || return 1
     _issue_refuse_in_plan_worktree "$plans" || return 1
     case "$sub" in
@@ -839,10 +936,18 @@ cmd_issue_fix() {
         case "$1" in
             file) [ $# -ge 2 ] || { echo "❌ [Issue] 'file' needs a path." >&2; return 1; }
                   files+=("$2"); shift 2 ;;
+            group) [ $# -ge 2 ] || { echo "❌ [Issue] 'group' needs a group plan." >&2; return 1; }
+                   grp="$2"; shift 2 ;;
             *)    echo "❌ [Issue] Unknown token '$1'." >&2; return 1 ;;
         esac
     done
     _issue_load_plan_lib || return 1
+    if [ -n "$grp" ]; then
+        [ -n "$n" ] || { echo "❌ [Issue] 'group' needs an issue number: aapp issue fix <num> group <group>." >&2; return 1; }
+        gfile="$(_group_resolve "$grp" "Issue")" || return 1
+    elif [ ! -f "$plans/current/fix-${n:-none}.md" ]; then
+        _issue_refuse_off_dev "$n" || return 1
+    fi
 
     # Adding files to the open mini plan of #<num>.
     if [ -n "$n" ] && [ -f "$plans/current/fix-$n.md" ]; then
@@ -914,9 +1019,10 @@ cmd_issue_fix() {
             fi
         fi
         # Uncommitted changes in these files would mix into the fix commit:
-        # wait for their owner to commit them (P-58).
+        # wait for their owner to commit them (P-58). A group fix works in its
+        # own worktree, on the feature branch (P-64).
         busy=()
-        while IFS= read -r f; do [ -n "$f" ] && busy+=("$f"); done < <(_issue_dirty_files "${files[@]}")
+        [ -z "$grp" ] && while IFS= read -r f; do [ -n "$f" ] && busy+=("$f"); done < <(_issue_dirty_files "${files[@]}")
         if [ ${#busy[@]} -gt 0 ]; then
             _issue_lock_release
             _issue_roll "${busy[*]} has uncommitted changes here" && continue
@@ -929,11 +1035,29 @@ cmd_issue_fix() {
         blocks\ \[*|'') text="$(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{print $7}' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')" ;;
     esac
     text="$(printf '%s' "$text" | tr '\001' '|')"
+    if [ -n "$grp" ]; then
+        gwt="$(_issue_group_worktree "$n" "$gfile")" || { _issue_lock_release; return 1; }
+    fi
     _issue_write_mini "$plans" "$n" "$text" "${files[@]}"
-    write_active_buffer "#$n"
+    if [ -n "$gwt" ]; then
+        local gbuf
+        write_plan_field "$plans/current/fix-$n.md" Worktree ".workspace/fix-$n (fix/$n)" Status
+        write_plan_field "$plans/current/fix-$n.md" Group "$(parse_plan_field "$gfile" "Plan ID")" Worktree
+        gbuf="$(git -C "$gwt" rev-parse --git-path aapp_active_plan)"
+        case "$gbuf" in /*) ;; *) gbuf="$gwt/$gbuf" ;; esac
+        write_active_buffer "#$n" "$gbuf"
+    else
+        write_active_buffer "#$n"
+    fi
     plans_commit "fix(start): #$n" "current/fix-$n.md" || { _issue_lock_release; return 1; }
     _issue_lock_release
+    if [ -n "$gwt" ]; then
+        echo "🩹 [Issue] Fixing #$n for group $(parse_plan_field "$gfile" "Plan ID") in .workspace/fix-$n (fix/$n, files: ${files[*]})."
+        echo "   Work and 'aapp commit' there; 'aapp issue close $n' lands it on $(parse_plan_field "$gfile" "Feature Branch")."
+        return 0
+    fi
     echo "🩹 [Issue] Fixing #$n in current/fix-$n.md (files: ${files[*]}). Commit with 'aapp commit', then 'aapp issue close $n'."
+    _issue_group_hint "$plans" "${files[@]}"
 }
 
 # _issue_fix_abort <plans> <n>: drop an uncommitted mini plan; the issue stays.
