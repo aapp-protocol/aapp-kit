@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `27ad4dd` (develop)
+* **Worktree:** .workspace/P64 (plan/P64-feature-branch-plan-groups)
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
@@ -210,6 +211,7 @@ When the issue's files differ between the development branch and an active group
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-11:** Q6 clarified (developer): membership from planning (`draft … group <id>`, `refine <id> group`), members refinable, `start` reads it; the group is a planning container first; P-65 plans groups for parallel agents.
 * **2026-10-11:** Review ideas (Antigravity), decided by the developer: group `done` merges a moved parent into the feature branch before the gate (no rebase); umbrella changelog entry; groups do not nest; P-65 pre-flight left open; abandoning is #118.
