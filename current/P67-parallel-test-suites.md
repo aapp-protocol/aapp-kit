@@ -51,7 +51,7 @@
 
 ### 2.1 Scheduling (`lib/cmd_test.sh`)
 - Up to N suites run at once, each as today (`bash <suite>` from the repository root, `AAPP_TEST_SANDBOX_STRICT` passed through). A suite's exit status comes from `wait <pid>`.
-- N: the `jobs <n>` token (bare token, positive integer); default per Q1. `jobs 1` is today's serial run.
+- N: the `jobs <n>` token (bare token, positive integer). Default: the CPU count (`getconf _NPROCESSORS_ONLN`) rounded down to a multiple of 4 (10 → 8, 12 → 12); below 4 CPUs, the CPU count. An unreadable count runs serially with a notice. `jobs 1` is today's serial run.
 - `bail`: after the first failing suite no new suite starts; running ones finish; exit 1.
 
 ### 2.2 Output
@@ -63,7 +63,7 @@
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
-- **Fallback Inventory**: `None (Clean Break)`. A suite that cannot share the machine is a bug in that suite.
+- **Fallback Inventory**: one: an unreadable CPU count runs serially (`jobs 1`) with a notice; serial is today's behaviour and always correct. A suite that cannot share the machine is a bug in that suite.
 
 ---
 
@@ -78,6 +78,7 @@
 - [ ] `tests/verbs/test.sh::test_suite_output_not_interleaved` -> asserts each stub's lines appear contiguous in default output
 - [ ] `tests/verbs/test.sh::test_summary_in_selection_order` -> asserts summary rows follow the selection order, not finish order
 - [ ] `tests/verbs/test.sh::test_interrupt_cleans_up` -> asserts a run sent TERM while stubs sleep exits non-zero, leaves no temporary files in its `TMPDIR` and no stub process running
+- [ ] `tests/verbs/test.sh::test_default_jobs_multiple_of_four` -> asserts with a stubbed `getconf` the banner reports 8 jobs for 10 CPUs, 12 for 12, 2 for 2, and 1 with a notice when the count is unreadable
 - [ ] `tests/verbs/test.sh::test_jobs_refuses_non_number` -> asserts `jobs 0` and `jobs x` exit 1 with usage
 
 ### Phase 1: Tests First (red)
@@ -123,7 +124,7 @@
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — Default job count.** (a) The number of CPUs, capped at 8 (measured: 8 → 65 s, 12 → 59 s). (b) A fixed 4, predictable on any machine. (c) The number of CPUs, uncapped. Recommendation: (a).
+* [x] **Question 1 — Default job count. → RESOLVED (developer, 2026-10-11): the CPU count rounded down to a multiple of 4 (10 → 8, 12 → 12); below 4 CPUs, the CPU count (§2.1).** (a) The number of CPUs, capped at 8 (measured: 8 → 65 s, 12 → 59 s). (b) A fixed 4, predictable on any machine. (c) The number of CPUs, uncapped. Recommendation: (a).
 * [ ] **Question 2 — A config key for the default.** (a) None: the `jobs` token only. (b) `aapp.testJobs`. Recommendation: (a); one more key is one more thing to keep in sync (#99).
 
 ---
