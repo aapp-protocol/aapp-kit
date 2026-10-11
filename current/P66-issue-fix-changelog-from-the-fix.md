@@ -39,7 +39,7 @@
 
 ## 1. Context & Architectural Goal
 
-**Problem (#117).** `aapp issue fix` writes the mini plan's `Changelog:` from the issue row's *Target Plan / Fix* cell, or from the symptom when the cell is empty or holds `blocks [P-xx](…)` (`lib/cmd_issue.sh:927-932`). The first `aapp commit` writes it to `CHANGELOG.md`. The cell is written at logging time, before the fix is known, and `templates/issues.md:36` defines it as "Direction of fix": agents put notes there. #115 and #116 shipped notes as changelog lines; #108, #110 and #111 carry notes in that cell today. `aapp issue close` defaults its resolution to "Fixed via aapp issue fix: <files>", so the archive does not say what changed either.
+**Problem (#117).** `aapp issue fix` writes the mini plan's `Changelog:` from the issue row's *Target Plan / Fix* cell, or from the symptom when the cell is empty or holds `blocks [P-xx](…)` (`lib/cmd_issue.sh:927-932`). The first `aapp commit` writes it to `CHANGELOG.md`. The cell is written at logging time, before the fix is known, and `templates/issues.md:36` defines it as "Direction of fix": agents put notes there. The plan template's `Target Issue` placeholder names it the "`Proposed Fix / Target Plan` cell" (wrong column name). #115 and #116 shipped notes as changelog lines; #108, #110 and #111 carry notes in that cell today. `aapp issue close` defaults its resolution to "Fixed via aapp issue fix: <files>", so the archive does not say what changed either.
 
 **Goal.** The entry is written by the fixer after the change, in every session and project, enforced by the verbs: nothing at logging time can become a changelog line, a fix cannot commit without its own entry, and the archive row records the same text.
 
@@ -118,6 +118,7 @@ The new check flags this repository's rows with notes in the cell (#108, #110, #
 - [ ] `lib/docs/verbs/commit.md` -> Contract.
 - [ ] `lib/docs/verbs/refine.md` -> Contract (ledger check).
 - [ ] `templates/issues.md` -> Column definition of the fix cell.
+- [ ] `templates/plan-template.md` -> `Target Issue` placeholder: the column's real name.
 - [ ] `templates/AGENTS.md` -> Issue logging and fix rules.
 - [ ] `templates/skills/aapp-fix/SKILL.md` -> Step 2: write the entry after the change.
 - [ ] `MANUAL.md` -> Issue fix flow.
