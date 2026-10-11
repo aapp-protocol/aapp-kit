@@ -2341,8 +2341,264 @@ cmd_plan_status() {
     fi
 }
 
+# ------------------------------------------------------------------------------
+# Plan conflict audit (P-65): which plans can run at the same time. Read-only.
+# Targets compare exactly, as the activation gate does; shared docs never collide.
+# ------------------------------------------------------------------------------
+_pc_id() { parse_plan_field "$1" "Plan ID"; }
+
+# _pc_state <plan>: done (archived or ✅), else the registry slug.
+_pc_state() {
+    case "$1" in */done/*) echo done; return ;; esac
+    if grep -qE '^\* \*\*Status:\*\*.*✅' "$1"; then echo done; else plan_status_slug "$1"; fi
+}
+
+# _pc_targets <plan> code|shared: its non-shared (or shared-doc) Target Files.
+_pc_targets() {
+    local t
+    while IFS= read -r t; do
+        [ -n "$t" ] || continue
+        if aapp_is_shared_doc "$t"; then [ "$2" = shared ] && echo "$t"
+        else [ "$2" = code ] && echo "$t"; fi
+    done < <(parse_plan_target_paths "$1")
+    return 0
+}
+
+# plan_compare_targets <plan-a> <plan-b>: prints the colliding non-shared paths;
+# returns 1 when there is any.
+plan_compare_targets() {
+    local out
+    out="$(comm -12 <(_pc_targets "$1" code | sort -u) <(_pc_targets "$2" code | sort -u))"
+    [ -z "$out" ] && return 0
+    printf '%s\n' "$out"
+    return 1
+}
+
+# _pc_member_files <group-plan>: its members' files in current/ (archived ones skipped).
+_pc_member_files() {
+    local m f
+    for m in $(group_members "$1"); do
+        for f in "$PLANS_DIR"/current/P"${m#P-}"-*.md; do [ -f "$f" ] && echo "$f"; done
+    done
+    return 0
+}
+
+# _pc_inflight [except-file]: every ⚡ plan in current/ (mini plans included).
+_pc_inflight() {
+    local f
+    for f in "$PLANS_DIR"/current/*.md; do
+        [ -f "$f" ] && [ "$f" != "${1:-}" ] || continue
+        case "$(basename "$f")" in 000-*) continue ;; esac
+        [ "$(plan_status_slug "$f")" = "in-development" ] && echo "$f"
+    done
+    return 0
+}
+
+# _pc_json_list <item>…: a JSON array of strings.
+_pc_json_list() { local s="" i; for i in "$@"; do s="$s${s:+, }\"$(json_escape "$i")\""; done; printf '[%s]' "$s"; }
+
+# cmd_plan_conflict_check <id> [<id>…] [json]: pairwise disjointness of plans
+# (a group plan counts its members); exit 1 on any collision.
+cmd_plan_conflict_check() {
+    local json=0 q f files=() ids=() i j col shared=() cols=() t
+    # shellcheck source=/dev/null
+    . "$AAPP_HOOK_DISPATCHER"   # json_escape
+    for q in "$@"; do
+        [ "$q" = json ] && { json=1; continue; }
+        f="$(resolve_plan_file "$q" "conflict-check")" || exit 1
+        if aapp_is_group_plan "$f"; then
+            while IFS= read -r t; do [ -n "$t" ] && files+=("$t"); done < <(_pc_member_files "$f")
+        else
+            files+=("$f")
+        fi
+    done
+    if [ ${#files[@]} -lt 2 ]; then
+        echo "❌ [Plan] conflict-check needs two or more plans (a group counts its members)." >&2
+        exit 1
+    fi
+    for f in "${files[@]}"; do ids+=("$(_pc_id "$f")"); done
+    for ((i = 0; i < ${#files[@]}; i++)); do
+        for ((j = i + 1; j < ${#files[@]}; j++)); do
+            col="$(plan_compare_targets "${files[$i]}" "${files[$j]}")" && continue
+            while IFS= read -r t; do cols+=("${ids[$i]}"$'\t'"${ids[$j]}"$'\t'"$t"); done <<< "$col"
+        done
+    done
+    while IFS= read -r t; do [ -n "$t" ] && shared+=("$t"); done < <(
+        for f in "${files[@]}"; do _pc_targets "$f" shared | sort -u; done | sort | uniq -d)
+    if [ "$json" -eq 1 ]; then
+        local cj="" c
+        for c in "${cols[@]}"; do
+            IFS=$'\t' read -r a b t <<< "$c"
+            cj="$cj${cj:+, }{\"plan_a\": \"$a\", \"plan_b\": \"$b\", \"target\": \"$(json_escape "$t")\"}"
+        done
+        printf '{"clean": %s, "plans": %s, "collisions": [%s], "shared_docs": %s}\n' \
+            "$([ ${#cols[@]} -eq 0 ] && echo true || echo false)" "$(_pc_json_list "${ids[@]}")" "$cj" "$(_pc_json_list "${shared[@]}")"
+    elif [ ${#cols[@]} -eq 0 ]; then
+        echo "✔ Plans ${ids[*]} are disjoint and can run concurrently."
+        for t in "${shared[@]}"; do echo "  ℹ️  [Shared Doc] $t (exempt; union merge)"; done
+    else
+        local c
+        for c in "${cols[@]}"; do
+            IFS=$'\t' read -r a b t <<< "$c"
+            echo "✘ Collision between $a and $b: $t"
+        done
+        echo "  These plans cannot be in development at the same time."
+    fi
+    [ ${#cols[@]} -eq 0 ]
+}
+
+# cmd_plan_conflict_free [<id> | <group>] [json]: without an id, pending plans
+# split by the ⚡ plans; with a plan, the plans compatible with it; with a group,
+# its members in waves (see _pc_waves). Informational: exit 0.
+cmd_plan_conflict_free() {
+    local json=0 q="" a f
+    for a in "$@"; do [ "$a" = json ] && json=1 || q="$a"; done
+    # shellcheck source=/dev/null
+    . "$AAPP_HOOK_DISPATCHER"   # json_escape
+    if [ -n "$q" ]; then
+        f="$(resolve_plan_file "$q" "conflict-free")" || exit 1
+        if aapp_is_group_plan "$f"; then _pc_waves "$f" "$json"; else _pc_against "$f" "$json"; fi
+        return 0
+    fi
+    local inflight=() free=() hit=() p i col
+    while IFS= read -r p; do [ -n "$p" ] && inflight+=("$p"); done < <(_pc_inflight)
+    for p in "$PLANS_DIR"/current/*.md; do
+        [ -f "$p" ] || continue
+        case "$(basename "$p")" in 000-*|fix-*) continue ;; esac
+        aapp_is_group_plan "$p" && continue
+        case "$(_pc_state "$p")" in in-development|done|blocked) continue ;; esac
+        col=""
+        for i in "${inflight[@]}"; do
+            if ! col="$(plan_compare_targets "$p" "$i")"; then
+                hit+=("$(_pc_id "$p")"$'\t'"$(_pc_id "$i")"$'\t'"$(head -n 1 <<< "$col")"); break
+            fi
+            col=""
+        done
+        [ -z "$col" ] && free+=("$(_pc_id "$p")")
+    done
+    _pc_report "Conflict-Free (can start now)" "Conflicting (blocked by in-flight work)" "conflict_free" "conflicting" "$json"
+}
+
+# _pc_against <plan> <json>: the other plans compatible with <plan>.
+_pc_against() {
+    local ref="$1" json="$2" free=() hit=() p col
+    for p in "$PLANS_DIR"/current/*.md; do
+        [ -f "$p" ] && [ "$p" != "$ref" ] || continue
+        case "$(basename "$p")" in 000-*|fix-*) continue ;; esac
+        aapp_is_group_plan "$p" && continue
+        if col="$(plan_compare_targets "$ref" "$p")"; then
+            free+=("$(_pc_id "$p")")
+        else
+            hit+=("$(_pc_id "$p")"$'\t'"$(_pc_id "$ref")"$'\t'"$(head -n 1 <<< "$col")")
+        fi
+    done
+    _pc_report "Compatible with $(_pc_id "$ref")" "Incompatible with $(_pc_id "$ref")" "conflict_free" "conflicting" "$json"
+}
+
+# _pc_report <free-title> <hit-title> <free-key> <hit-key> <json>: prints the
+# caller's `free` (IDs) and `hit` (plan TAB other TAB target) arrays.
+_pc_report() {
+    local h p o t
+    if [ "$5" -eq 1 ]; then
+        local hj=""
+        for h in "${hit[@]}"; do
+            IFS=$'\t' read -r p o t <<< "$h"
+            hj="$hj${hj:+, }{\"plan\": \"$p\", \"collides_with\": \"$o\", \"target\": \"$(json_escape "$t")\"}"
+        done
+        printf '{"%s": %s, "%s": [%s]}\n' "$3" "$(_pc_json_list "${free[@]}")" "$4" "$hj"
+        return 0
+    fi
+    echo "✔ $1:"
+    [ ${#free[@]} -gt 0 ] && printf '    %s\n' "${free[@]}" || echo "    (none)"
+    echo "✘ $2:"
+    if [ ${#hit[@]} -eq 0 ]; then echo "    (none)"; fi
+    for h in "${hit[@]}"; do
+        IFS=$'\t' read -r p o t <<< "$h"
+        echo "    $p: $t with $o"
+    done
+}
+
+# _pc_waves <group-plan> <json>: the group's pending members in waves. A wave is
+# pairwise disjoint; wave 1 is also disjoint from every ⚡ plan (members or not).
+# Members are placed in their listed order, each into the first wave it fits;
+# archived (✅) members are left out, ⚡ members are listed as in flight.
+_pc_waves() {
+    local gf="$1" json="$2" gid m state inflight=() pending=() waves=() held=() w col i placed k
+    gid="$(_pc_id "$gf")"
+    while IFS= read -r i; do [ -n "$i" ] && inflight+=("$i"); done < <(_pc_inflight "$gf")
+    while IFS= read -r m; do
+        [ -n "$m" ] || continue
+        state="$(_pc_state "$m")"
+        case "$state" in done|in-development) continue ;; esac
+        pending+=("$m")
+    done < <(_pc_member_files "$gf")
+    # waves[w] holds space-separated plan files.
+    for m in "${pending[@]}"; do
+        w=1; placed=0; local why=""
+        while [ "$placed" -eq 0 ]; do
+            col=""
+            if [ "$w" -eq 1 ]; then
+                for i in "${inflight[@]}"; do
+                    if ! col="$(plan_compare_targets "$m" "$i")"; then
+                        [ -n "$why" ] || why="$(head -n 1 <<< "$col") with $(_pc_id "$i")"; break
+                    fi
+                    col=""
+                done
+            fi
+            if [ -z "$col" ]; then
+                for k in ${waves[$w]:-}; do
+                    if ! col="$(plan_compare_targets "$m" "$k")"; then
+                        [ -n "$why" ] || why="$(head -n 1 <<< "$col") with $(_pc_id "$k")"; break
+                    fi
+                    col=""
+                done
+            fi
+            if [ -z "$col" ]; then
+                waves[$w]="${waves[$w]:-}${waves[$w]:+ }$m"; placed=1
+                [ -n "$why" ] && held+=("$(_pc_id "$m")"$'\t'"$w"$'\t'"$why")
+            else
+                w=$((w + 1))
+            fi
+        done
+    done
+    local n=${#waves[@]} ids h p wv r
+    if [ "$json" -eq 1 ]; then
+        local wj="" hj
+        for ((w = 1; w <= n; w++)); do
+            ids=(); for k in ${waves[$w]}; do ids+=("$(_pc_id "$k")"); done
+            hj=""
+            for h in "${held[@]}"; do
+                IFS=$'\t' read -r p wv r <<< "$h"
+                [ "$wv" = "$w" ] || continue
+                hj="$hj${hj:+, }{\"plan\": \"$p\", \"collides_with\": \"${r##* with }\", \"target\": \"$(json_escape "${r% with *}")\"}"
+            done
+            wj="$wj${wj:+, }{\"wave\": $w, \"plans\": $(_pc_json_list "${ids[@]}")${hj:+, \"held_back\": [$hj]}}"
+        done
+        ids=(); for k in "${inflight[@]}"; do ids+=("$(_pc_id "$k")"); done
+        printf '{"group": "%s", "in_flight": %s, "waves": [%s]}\n' "$gid" "$(_pc_json_list "${ids[@]}")" "$wj"
+        return 0
+    fi
+    echo "🧭 Group $gid: implementation order"
+    ids=(); for k in "${inflight[@]}"; do ids+=("$(_pc_id "$k")"); done
+    [ ${#ids[@]} -gt 0 ] && echo "  In flight: ${ids[*]}"
+    [ "$n" -gt 0 ] || { echo "  (no pending members)"; return 0; }
+    for ((w = 1; w <= n; w++)); do
+        ids=(); for k in ${waves[$w]}; do ids+=("$(_pc_id "$k")"); done
+        local line="  Wave $w: $(printf '%s, ' "${ids[@]}")"; line="${line%, }"
+        for h in "${held[@]}"; do
+            IFS=$'\t' read -r p wv r <<< "$h"
+            [ "$wv" = "$w" ] && line="$line  ($p held back: $r)"
+        done
+        echo "$line"
+    done
+}
+
 cmd_plan_switchboard() {
     local query="$1"
+    case "$query" in
+        conflict-check) shift; cmd_plan_conflict_check "$@"; return ;;
+        conflict-free)  shift; cmd_plan_conflict_free "$@"; return ;;
+    esac
 
     echo "🗺️  AAPP Planning Switchboard"
     echo "--------------------------------------------------"
@@ -2360,6 +2616,10 @@ cmd_plan_switchboard() {
     echo "  aapp active <plan-id>         Set active plan buffer for guard enforcement"
     echo "  aapp active swap              Swap active buffer with previous plan"
     echo "  aapp active clear             Clear buffer (revert to auto-discovery)"
+    echo ""
+    echo "To plan concurrent work:"
+    echo "  aapp plan conflict-check <id> <id>…   Can these plans run at the same time?"
+    echo "  aapp plan conflict-free [<id>|<group>] Free to start now, against <id>, or a group's waves"
     echo ""
     echo "To draft or execute blueprints:"
     echo "  Use '/plan <idea>' or '/aapp-plan <idea>' in your AI agent chat."
@@ -2709,6 +2969,8 @@ Multi-Agent Planning & Execution Commands:
   active clear       Clear active plan buffer (revert to auto-discovery)
   plan-status [id]   Inspect plan matrix or specific blueprint (read-only)
   plan [query]       Display educational planning switchboard
+  plan conflict-check <id> <id>… [json]   Can these plans run at the same time? (exit 1 on collision)
+  plan conflict-free [<id>|<group>] [json] Plans free to start now, against <id>, or a group's waves
 EOF
         ;;
     *)

@@ -37,7 +37,7 @@ pfile() { ls .plans/current/P"${1#P-}"-*.md; }
 targets() {
   local id="$1" f t list=""; shift; f="$(pfile "$id")"
   for t in "$@"; do list="$list- [ ] \`$t\` -> target.\n"; done
-  awk -v l="$(printf "$list")" '/src\/path\/to\/new_file\.ext/ { next } /src\/path\/to\/file\.ext/ { print l; next } { print }' "$f" > "$f.t" && mv "$f.t" "$f"
+  awk -v l="$(printf '%b' "$list")" '/src\/path\/to\/new_file\.ext/ { next } /src\/path\/to\/file\.ext/ { print l; next } { print }' "$f" > "$f.t" && mv "$f.t" "$f"
 }
 # mk <slug> <path>… [group <id>]: a drafted plan with these Target Files; prints its ID.
 mk() {
@@ -125,7 +125,7 @@ g3="$(grp g-three)"; p="$(mk gp src/p.sh group "$g3")"; q="$(mk gq src/q.sh grou
 r="$(mk gr src/q.sh group "$g3")"; s="$(mk gs src/s.sh group "$g3")"
 status_to "$p" "✅ Done"; status_to "$q" "⚡ In Development"
 out="$(aapp plan conflict-free "$g3" 2>&1)"; rc=$?
-waves="$(echo "$out" | grep '^ *Wave ')"; w1="$(echo "$out" | grep '^ *Wave 1')"; w2="$(echo "$out" | grep '^ *Wave 2')"
+waves="$(echo "$out" | grep '^ *Wave ' | sed 's/  (.*//')"; w1="$(echo "$out" | grep '^ *Wave 1')"; w2="$(echo "$out" | grep '^ *Wave 2')"
 if [ "$rc" -eq 0 ] && ! echo "$waves" | grep -qF "$p" && ! echo "$waves" | grep -qF "$q" && \
    echo "$w1" | grep -qF "$s" && ! echo "$w1" | grep -qF "$r" && echo "$w2" | grep -qF "$r" && \
    echo "$out" | grep -F "$r" | grep -qF "$q"; then
