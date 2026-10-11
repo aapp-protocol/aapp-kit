@@ -2,7 +2,7 @@
 * **Created:** 2026-10-11 | **Last Refined:** 2026-10-11
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-74
-* **Changelog:** Added: the `aapp-issue-tracker` provider gets the whole issue at log, refine, fix, close and list; issue notes; remote issues (P-74)
+* **Changelog:** Added: the `aapp-issue-tracker` provider gets the whole issue at every issue step; issue notes; remote issues (P-74)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -53,17 +53,20 @@ This plan routes every issue step through one wrapper inside `lib/issue_ledger.s
 | log | `refine issues` (new rows), `issue hotfix` | `issue.log` |
 | refine | `refine issues` (rows changed against HEAD) | `issue.refine` |
 | fix | `issue fix <n>`, `issue fix next-blocker` | `issue.fix` |
+| abort | `issue fix <n> abort`, a plan abort (P-69) for its issues | `issue.abort` |
 | close | `issue close`, `done` | `issue.close` |
 | list | `issue list`, `status` | `issue.list` |
 
 - **Payload:** the Plugin Payload Standard envelope; `data` carries the whole issue: id, severity, type, date, location, symptom, link, status, note, and the step's own fields (commit, summary, plan). Sent after the step's commit lands, so a refused row never reaches the provider.
+- **Tracker keys:** the kit's `#<num>` stays the kit's id. The payload and the provider's issues carry an optional `ref` (the tracker's own key or URL, e.g. `PROJ-101`); the provider keeps its own mapping, and `issue list` shows `ref` next to the id.
 - **Answer:** `{"status": …, "kit": [<part>…]}`. `kit` names what the kit still handles (`note`, `cache`); no `kit` field means the kit handles everything, so current providers keep working.
 - **Notes:** a bare `note` token. `aapp refine issues "<msg>" note <n> "<text>"` (repeatable; with only `note` tokens and no ledger change it still runs the wrapper) and `aapp issue hotfix "<text>" … note "<text>"`. Never written to the ledger. Kit store: `~/.local/state/aapp/<key>/issues-data.md`. `issue fix` prints the note as the fix opens.
-- **Remote issues:** `issue.list` answers `{"issues": [{…}, …]}` in the payload's issue shape. The kit writes them to `~/.local/state/aapp/<key>/remote-issues.tsv`; `ledger_rows` and `ledger_locate` merge it (`remote`), so they block plans and show in `status`, `issue list`, `draft` and `next-blocker`. On an id present on both sides, the local lifecycle cells win.
+- **Remote issues:** `issue.list` answers `{"issues": [{…}, …]}` in the payload's issue shape. The kit writes them to `~/.local/state/aapp/<key>/remote-issues.tsv`; `ledger_rows` and `ledger_locate` merge it (`remote`), so they block plans and show in `status`, `issue list`, `draft` and `next-blocker`. On an id present on both sides, the local lifecycle cells win, except a closure: an issue the provider lists as closed is reconciled (Question 5); `status` marks it.
+- **Notes are per machine without a provider:** the kit's store is outside Git, so another clone sees a note only through a provider; the MANUAL says so.
 - **Acting on a remote issue:** `issue fix`, `draft … issue` and `next-blocker` first write its row into `ISSUES.md` through the log step, then proceed as for a local row.
 - **Id clash** (same id, different issue): both shown and marked; `fix` and `draft … issue` refuse that id. A provider that answers `issue.list` must also answer `issue.allocate`.
 - **Sync:** only at `issue list` and `status`, within a refresh window; hooks read the ledger and the cache, never the network.
-- **Failures:** the step falls back to the kit and warns; `issue.allocate` and `issue.next-blocker` stay authoritative and refuse, as today.
+- **Failures:** the step falls back to the kit and warns; `issue.allocate` and `issue.next-blocker` stay authoritative and refuse, as today. P-75 builds its offline fallback on this failure path.
 - **Sample:** `examples/plugins/aapp-issue-tracker/run.sample` handles every step and stores into a local file; `lib/plugins.tsv` lists the new actions.
 
 ### 🔄 Migration & Compatibility Strategy
@@ -88,6 +91,9 @@ This plan routes every issue step through one wrapper inside `lib/issue_ledger.s
 - [ ] `tests/verbs/issue.provider.sh::test_remote_issue_blocks_plan` -> asserts a listed remote issue named in a plan's `Blocked On` counts as open in `next-blocker` and `status`
 - [ ] `tests/verbs/issue.provider.sh::test_fix_remote_issue_imports_row` -> asserts fixing a remote-only id writes its row into `ISSUES.md` first
 - [ ] `tests/verbs/issue.provider.sh::test_id_clash_refuses_fix` -> asserts a clashing id is marked in `issue list` and `fix` refuses it
+- [ ] `tests/verbs/issue.provider.sh::test_abort_sends_abort_step` -> asserts `issue fix <n> abort` sends `issue.abort` with the whole issue
+- [ ] `tests/verbs/issue.provider.sh::test_ref_shown_in_list` -> asserts a provider's `ref` shows next to the id in `issue list`
+- [ ] `tests/verbs/issue.provider.sh::test_remote_closure_reconciled` -> asserts an issue the provider lists as closed is marked in `status` and reconciled per Question 5
 - [ ] `tests/verbs/issue.provider.sh::test_failure_falls_back_and_warns` -> asserts a failing provider on log/refine/fix/close/list warns and the kit completes the step
 - [ ] `tests/verbs/issue.provider.sh::test_hooks_never_call_provider` -> asserts a commit through the hooks runs no provider
 
@@ -97,7 +103,7 @@ This plan routes every issue step through one wrapper inside `lib/issue_ledger.s
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: Payload builder and `issue_provider` wrapper in `lib/issue_ledger.sh`; move `allocate`, `next-blocker` and `close` onto it.
 - [ ] Task 2.2: log and refine steps from `refine issues` and `issue hotfix`; the `note` token; the kit's note store.
-- [ ] Task 2.3: fix step: note printed; remote rows imported.
+- [ ] Task 2.3: fix and abort steps: note printed; remote rows imported.
 - [ ] Task 2.4: list step: cache, merge in `ledger_rows`/`ledger_locate`, id clashes, sync at `issue list` and `status`.
 - [ ] Task 2.5: Sample provider and `lib/plugins.tsv`.
 
@@ -145,6 +151,7 @@ This plan routes every issue step through one wrapper inside `lib/issue_ledger.s
 * [ ] **Question 2:** A second `note` for the same issue: appended, or replaces the first?
 * [ ] **Question 3:** Who writes notes: people only, or also the agent that logs the issue?
 * [ ] **Question 4:** The sync refresh window: a fixed length, or a config key?
+* [ ] **Question 5:** An issue the provider lists as closed while the local row is open: `issue list` closes it locally with the provider's summary, or only marks it until someone runs `issue close`?
 
 ---
 
