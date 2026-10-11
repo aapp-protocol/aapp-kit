@@ -58,9 +58,11 @@ Design record: RFC `worktree-contexts-monorepo-rfc.md` (§4 decisions, C1/C2, A1
 - The group's `* **Changelog:**` line is the umbrella entry for the capability the group delivers, written next to its members' entries (`CHANGELOG.md merge=union`); its `ARCHITECTURE.md` commit writes it.
 - A group cannot be abandoned while the kit has no path to abandon any plan (#118).
 
-### 2.1 Members start into the group (`lib/cmd_plan.sh`)
-`aapp start <id> group <group>` / `aapp freeze-start <id> group <group>`: the plan worktree branches from the group's feature branch, records `Base: <sha> (<feature-branch>)` and `* **Group:** <group>`, and the group plan lists the member. P-55 then integrates the plan into the feature branch. Needs a plan worktree; the group must be ⚡ In Development; a group plan cannot be a member (no nesting). `aapp.devBranch` is never changed for this.
-Members in flight together stay disjoint: the existing activation gate (`check_disjointness_activation_gate`) refuses overlapping Target Files, members included. Pre-flight checks before members join are left open for P-65 (`plan conflict-check`/`conflict-free`), which plugs in here when it lands.
+### 2.1 Members: planned in the group, started into it (`lib/cmd_plan.sh`)
+- **Membership is a planning fact.** A group is a planning container first; it need not be started for members to be planned. `aapp draft <slug> group <group>` writes `* **Group:** <group>` in the new plan and lists it in the group's `* **Members:**`. An existing plan joins with `aapp refine <id> group <group>` and leaves with `aapp refine <id> group none`, until it is started. Members are refined like any plan.
+- **Start reads the membership.** `aapp start <id>` / `aapp freeze-start <id>` on a member: the plan worktree branches from the group's feature branch, records `Base: <sha> (<feature-branch>)`; P-55 then integrates the plan into the feature branch. Needs a plan worktree; refuses unless the group is ⚡ In Development.
+- A group plan cannot be a member (no nesting). `aapp.devBranch` is never changed for this.
+- Members in flight together stay disjoint: the existing activation gate (`check_disjointness_activation_gate`) refuses overlapping Target Files, members included. Planning a group for parallel agents (which members can run together, in what order, reshaping their Target Files) is P-65's (`plan conflict-check`/`conflict-free`), reading the group's planned members.
 
 ### 2.2 Fixes on the development branch (`lib/cmd_issue.sh`)
 `aapp issue fix` without `base` refuses unless the main checkout is on the development branch (`aapp_dev_branch`; the default branch when none resolves).
@@ -95,9 +97,11 @@ When the issue's files differ between the development branch and an active group
 - [ ] `tests/verbs/draft.sh::test_draft_group_scaffolds_group_plan` -> asserts `draft <slug> group` takes the next Plan ID and writes the `🧩 Group Plan` heading with the group fields and no Target Files
 - [ ] `tests/verbs/start.sh::test_group_start_cuts_feature_branch_from_parent` -> asserts the feature branch starts at the parent (default or `base <branch>`) and `Base:` names the parent
 - [ ] `tests/verbs/start.sh::test_group_start_refuses_missing_branch` -> asserts an unknown `base <branch>` refuses with nothing created
-- [ ] `tests/verbs/start.sh::test_member_start_branches_from_feature_branch` -> asserts the member's worktree branches from the feature branch, records `Group:`, and the group lists it
-- [ ] `tests/verbs/start.sh::test_member_start_refuses_unstarted_group` -> asserts `group <id>` refuses unless the group is ⚡ In Development
-- [ ] `tests/verbs/start.sh::test_groups_do_not_nest` -> asserts a group started with `base <feature-branch-of-a-group>` and a group plan started with `group <id>` both refuse, nothing created
+- [ ] `tests/verbs/draft.sh::test_draft_member_joins_group` -> asserts `draft <slug> group <id>` writes `Group:` and the group lists the member while the group is not started
+- [ ] `tests/verbs/refine.sh::test_refine_joins_and_leaves_group` -> asserts `refine <id> group <gid>` joins, `group none` leaves; both refused once the plan is started
+- [ ] `tests/verbs/start.sh::test_member_start_branches_from_feature_branch` -> asserts a member's plain `start` branches from the feature branch and records `Base:` with it
+- [ ] `tests/verbs/start.sh::test_member_start_refuses_unstarted_group` -> asserts a member's `start` refuses unless its group is ⚡ In Development
+- [ ] `tests/verbs/start.sh::test_groups_do_not_nest` -> asserts a group started with `base <feature-branch-of-a-group>` and a group plan joined to a group both refuse, nothing changed
 - [ ] `tests/integrate_test.sh::test_group_done_merges_moved_parent_before_gate` -> asserts a parent that moved is merged into the feature branch before `pre-done`, then the parent fast-forwards; member SHAs unchanged
 - [ ] `tests/integrate_test.sh::test_group_done_conflict_refuses_unchanged` -> asserts a conflicting parent refuses with parent, feature branch and plans unchanged
 - [ ] `tests/integrate_test.sh::test_group_done_writes_umbrella_changelog` -> asserts the group's changelog entry lands next to the members' entries
@@ -117,7 +121,7 @@ When the issue's files differ between the development branch and an active group
 ### Phase A: The group plan (2.0, 2.1, 2.5, 2.6)
 - [ ] Task A.1: Red: the `draft`, `freeze`, `start`, `status`, `pre-commit` and group/member `integrate_test` assertions above.
 - [ ] Task A.2: `draft … group`, `templates/group-template.md`, group heading check, freeze checks (2.0, 2.6); contracts `draft.md`, `freeze.md`.
-- [ ] Task A.3: Group `start` and member `start … group` (2.0, 2.1); contracts `start.md`, `freeze-start.md`.
+- [ ] Task A.3: Membership on `draft … group <id>` and `refine <id> group`; group `start`; member `start` (2.0, 2.1); contracts `draft.md`, `refine.md`, `start.md`, `freeze-start.md`.
 - [ ] Task A.4: Group `done`: open-member refusal, ARCHITECTURE before the gate, gate on the feature branch, merge into the parent, CODEMAP after (2.0, 2.6); contract `done.md`.
 - [ ] Task A.5: Member refusal in `aapp-pre-commit`; invariant 7 in `plan-template.md` (2.6); status grouping (2.5).
 - [ ] Task A.6: Green: Phase A tests and the full suite.
@@ -144,7 +148,9 @@ When the issue's files differ between the development branch and an active group
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `lib/cmd_plan.sh` -> Group `draft`/`freeze`/`start`/`done`; `group <id>` on member start and freeze-start.
+- [ ] `lib/cmd_plan.sh` -> Group `draft`/`freeze`/`start`/`done`; membership on `draft`/`refine`; member start from the feature branch.
+- [ ] `lib/docs/verbs/refine.md` -> `group <id>` / `group none`.
+- [ ] `tests/verbs/refine.sh` -> Join and leave.
 - [ ] `lib/aapp-lib.sh` -> Group heading check; header parsers and writers (`Group`, `Feature Branch`, `Members`).
 - [ ] `NEW FILE` -> `templates/group-template.md` -> The group plan template.
 - [ ] `lib/cmd_issue.sh` -> Development-branch check; `fix … group` worktree, close integration, hint.
@@ -182,6 +188,7 @@ When the issue's files differ between the development branch and an active group
 - `tests/verbs/start.sh`
 - `tests/verbs/issue.sh`
 - `tests/verbs/status.sh`
+- `tests/verbs/refine.sh`
 - `tests/integrate_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -198,12 +205,13 @@ When the issue's files differ between the development branch and an active group
 * [x] **Question 3 — Grouping in `aapp status`. → RESOLVED (developer, 2026-10-10): later. Superseded 2026-10-11 by the group plan (§2.5).** List plans under their shared base branch now, or later? Recommendation: later; the base already shows in each plan's header.
 * [x] **Question 4 — Order with P-60 and P-62. → RESOLVED (developer, 2026-10-10): P-62, then P-60, then P-64.** P-64 shares `lib/cmd_plan.sh` with P-60 and `tests/verbs/issue.sh`/`tests/integrate_test.sh` with P-62. Recommendation: P-62, then P-60, then P-64; or P-64 is the first plan built on the feature branch you plan to cut.
 * [x] **Question 5 — A group's ID. → RESOLVED (developer, 2026-10-11): (a), the Plan ID; a marker heading distinguishes a group plan (§2.0).** (a) The normal `P-` numbering (`aapp.planId`). (b) Its own prefix, e.g. `G-`. Recommendation: (a); nothing new to allocate, and every verb already resolves it.
-* [x] **Question 6 — Membership. → RESOLVED (developer, 2026-10-11): (a), members join when started.** (a) A member joins when it is started with `group <id>`. (b) The group lists planned members up front, while they are still drafts. Recommendation: (a); the list then only names plans that exist on the feature branch.
+* [x] **Question 6 — Membership. → RESOLVED (developer, 2026-10-11): a plan joins when it is planned for the group (drafted or refined into it); `start` activates it; members stay refinable; a group is not an immediate start of implementation (§2.1).** (a) A member joins when it is started with `group <id>`. (b) The group lists planned members up front, while they are still drafts. Recommendation: (a); the list then only names plans that exist on the feature branch.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-11:** Q6 clarified (developer): membership from planning (`draft … group <id>`, `refine <id> group`), members refinable, `start` reads it; the group is a planning container first; P-65 plans groups for parallel agents.
 * **2026-10-11:** Review ideas (Antigravity), decided by the developer: group `done` merges a moved parent into the feature branch before the gate (no rebase); umbrella changelog entry; groups do not nest; P-65 pre-flight left open; abandoning is #118.
 * **2026-10-11:** Architecture & Codemap belong to the group (developer, §2.6): separate group template; members do not edit them; the group's `done` commits ARCHITECTURE before the gate and CODEMAP after the merge; a missing section refuses.
 * **2026-10-11:** Group plan added (developer): the group's own blueprint, `start`/`done` cut and merge the feature branch, always into the parent branch; `group <id>` replaces `base <branch>` for members and fixes; status grouping. Q5, Q6 open.
