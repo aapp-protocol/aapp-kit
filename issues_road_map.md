@@ -28,6 +28,8 @@
 
 ## 📥 Triage (Incoming / Unsequenced)
 *Newly logged issues awaiting prioritization.*
+- [ ] #125 -> Write guard refuses `.agents/CODEMAP.md` through a plan worktree's `.agents` link.
+- [ ] #124 -> `done` leaves the buffers cleared when its archive commit fails.
 - [ ] #123 -> No verb withdraws an issue; `issue close` without a commit archives it as fixed.
 - [ ] #58 -> `AAPP_VERSION` stayed 1.0.0 without release tags, so protocol block still stamps `v1.0.0` after upgrade.
 - [ ] #59 -> `sort -z` is GNU/newer-BSD only and fails on older macOS `sort`, breaking the Plans pillar of briefing.
