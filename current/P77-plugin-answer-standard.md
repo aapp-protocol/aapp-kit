@@ -76,7 +76,7 @@ A step is a short exchange between the kit and a supported plugin.
 
 **4. The kit finishes** the local part: everything not in `handled`, then the `do` list.
 
-**Reference.** One file per subject, `lib/docs/protocol/<subject>.md` (`issue.md` first; plans follow), with three tables: the events (who sends each, when, the outcome on plugin failure), the data fields (type and allowed values, for the envelope and for the answer, with what `handled` may name per event), and the `do` commands accepted for that subject with their arguments. A test fails when the code sends an event or field, or accepts a `do` command, that the reference does not list.
+**Reference.** In the manual's reference tree (P-57): `docs/reference/06-plugin-protocol.md` (the exchange: envelope, answer, `handled`, the two files, the rules, credentials) and one file per subject, `docs/reference/07-issue-protocol.md` first (plans follow). A subject file has three tables: the events (who sends each, when, the outcome on plugin failure), the data fields (type and allowed values, for the envelope and for the answer, with what `handled` may name per event), and the `do` commands accepted for that subject with their arguments. Each file carries P-57's frontmatter and navigation footer. A test fails when the code sends an event or field, or accepts a `do` command, that the reference does not list. Until P-57 makes `docs/` an always-allowed path, these files are listed as Target Files.
 
 **Rules**
 - **`do` is whitelisted.** Only the commands listed in the subject's reference are accepted; any other line is refused and reported.
