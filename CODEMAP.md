@@ -48,6 +48,7 @@
   * Plan worktrees (P-54) -> `_wt_parse_tokens` (`worktree`/`branch`), `_wt_prepare` (render, refuse, base), `_wt_create` (worktree, kit links, `info/exclude`, bind), `_wt_locate` (read back after `on-start`), `_wt_rollback` (snapshot restore), `_wt_session` (`aapp.planSession`, detached); `_wt_start` runs them as one transaction for `start` and `freeze-start` on a plan's first start. `done` refuses a dirty plan worktree, clears the holding worktree's buffer and prints the removal advice.
   * `aapp done <plan>` -> Archives implemented plan to `done/`, enforcing mechanical TDD completion gate (`tdd (N/N)` recorded in archive ledger).
   * Plan branch integration (P-55) -> `_ig_parse_tokens`, `_ig_decide` (worktree plans only; `aapp.integrate`), `_ig_preflight` (every check before the archive; issue lock), `_ig_run` (squash / ff / `on-integrate` after the archive; retry-safe), `_ig_message` (lineage + attribution trailers), `_ig_cleanup` (ignored-file refusal, quarantine), `_ig_resolve_done` / `_ig_standalone` (`done <id> integrate` on an archived plan).
+  * Group plans (P-64) -> a plan whose title is `# 🧩 Group Plan P-<n>:` (`aapp_is_group_plan`, `templates/group-template.md`): `draft … group [<id>]`, `_refine_group` (join/leave until started), `_group_start` (feature branch from the parent, no worktree), `_member_group_check` / `_wt_prepare` (members start from the feature branch), `_group_done_prepare` (open members, section dry runs, `.workspace/P<n>`, parent merge, ARCHITECTURE sections and umbrella changelog via `aapp commit`; then the normal `done` path with `IG_MODE=ff`), `_group_done_codemap` (CODEMAP sections after the merge), `_group_stamp_sections` (base lines at `refine`). `_wt_link_kit` is shared with plan worktrees.
   * `aapp active [id]` -> Displays or sets active plan pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).
   * `aapp active swap` / `aapp active clear` -> Toggles between current and previous buffer or clears context.
   * `aapp plan-status [id]` -> Deterministic read-only inspector for plan matrix or specific blueprint.
@@ -107,6 +108,7 @@
   * `issue_unblock_plans(n)` -> drops `#n` from every plan's `Blocked On:`; restores the recorded status when the list empties and the block is not permanent; used by `issue close` and `cmd_done` (P-52).
   * `issue_close_local(n, sha, summary)` -> Moves the active row to the top of the archive and prunes the road map; does not commit.
   * `issue_relink(old, new)` -> Rewrites links to a plan file in *Target Plan / Fix* cells and road-map lines (observation cells untouched); prints the count; does not commit (P-50).
+  * `_issue_refuse_off_dev(n)` / `_issue_dev_branch` / `_issue_group_hint(plans, files…)` -> fixes on the development branch only, with a hint when an active group changes the files; `_issue_group_worktree(n, group)` / `_issue_land_group_fix(n, mini)` -> `fix … group`: `.workspace/fix-<n>` on `fix/<n>` from the feature branch, landed by fast-forward at `close` (P-64).
   * `issue_mark_planned(n, link)` -> Promotion's row edit: Target Plan / Fix → link, Status → 🔵 `Planned` (P-50).
   * `issue_notify_close(n, sha, summary, [plan])` -> Fire-and-forget `issue.close` to `aapp-issue-tracker` (§5 Plugin Payload Standard); prints the returned status; failure only warns.
 * **Consumers:** `aapp issue`, and `lib/cmd_plan.sh`: `cmd_done` closes a plan's Target Issue and repairs links inside its archive commit; `refine … slug` repairs links; `draft … issue` marks the row Planned.
@@ -199,6 +201,11 @@
   * `cmd_hooks_status()` / `cmd_hook_hash()` -> Validates executable bits and live SHA-256 integrity against `.agents/skills/aapp-hooks/registry.tsv`. Refuses execution on hash mismatches in `mode=gate`.
 * **Test gate (P-60):** `examples/hooks/test-gate.sh.sample`, a `pre-done` gate running the handler's `TEST_CMD` in the payload's `worktree` (else the repository root); dogfooded as `.agents/hooks/test-gate.sh`.
 * **Anti-Wrapper Warning:** Never bypass `registry.tsv` hash verification or run unhashed handlers in `mode=gate`.
+
+### 🧩 Group Documentation Sections (`lib/group_docs.sh`)
+* **Purpose:** A group plan's `## Architecture & Codemap` holds whole sections of `ARCHITECTURE.md` and `.agents/CODEMAP.md` (one ```` fence each, under `### <file>`), applied at the group's `done` (P-64 §2.6).
+* **Key Functions:** `group_docs_stamp(plan, file, doc)` -> base line `<!-- aapp-base: <sha256> | new -->` above each fence without one; `group_docs_apply(plan, file, doc)` -> checks every section against its base line (all or nothing), then replaces the section with the same heading (up to the next heading of the same or a higher level) or adds it at the end; prints `replaced:` / `added:` / `unchanged:`.
+* **Consumers:** `lib/cmd_plan.sh` (`refine` stamps, `done` applies). Tests: `tests/group_docs_test.sh`.
 
 ### 📜 Verb Behaviour Contracts (`lib/docs/verbs/`)
 * **Purpose:** Canonical owner of each daily verb's behaviour: ingress, preconditions, failure modes, effects, exit and derived tests (P-34). Resolve a verb's contract through the fifth column of `lib/verbs.tsv`.
