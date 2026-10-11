@@ -97,44 +97,44 @@ When the issue's files differ between the development branch and an active group
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/draft.sh::test_draft_group_scaffolds_group_plan` -> asserts `draft <slug> group` takes the next Plan ID and writes the `🧩 Group Plan` heading with the group fields and no Target Files
-- [ ] `tests/verbs/start.sh::test_group_start_cuts_feature_branch_from_parent` -> asserts the feature branch starts at the parent (default or `base <branch>`) and `Base:` names the parent
-- [ ] `tests/verbs/start.sh::test_group_start_refuses_missing_branch` -> asserts an unknown `base <branch>` refuses with nothing created
-- [ ] `tests/verbs/draft.sh::test_draft_member_joins_group` -> asserts `draft <slug> group <id>` writes `Group:` and the group lists the member while the group is not started
-- [ ] `tests/verbs/refine.sh::test_refine_joins_and_leaves_group` -> asserts `refine <id> group <gid>` joins, `group none` leaves; both refused once the plan is started
-- [ ] `tests/verbs/start.sh::test_member_start_branches_from_feature_branch` -> asserts a member's plain `start` branches from the feature branch and records `Base:` with it
-- [ ] `tests/verbs/start.sh::test_member_start_refuses_unstarted_group` -> asserts a member's `start` refuses unless its group is ⚡ In Development
-- [ ] `tests/verbs/start.sh::test_groups_do_not_nest` -> asserts a group started with `base <feature-branch-of-a-group>` and a group plan joined to a group both refuse, nothing changed
-- [ ] `tests/integrate_test.sh::test_group_done_merges_moved_parent_before_gate` -> asserts a parent that moved is merged into the feature branch before `pre-done`, then the parent fast-forwards; member SHAs unchanged
-- [ ] `tests/integrate_test.sh::test_group_done_conflict_refuses_unchanged` -> asserts a conflicting parent refuses with parent, feature branch and plans unchanged
-- [ ] `tests/integrate_test.sh::test_group_done_writes_umbrella_changelog` -> asserts the group's changelog entry lands next to the members' entries
-- [ ] `tests/integrate_test.sh::test_member_integrates_into_feature_branch` -> asserts a member's `done` lands on the feature branch, not the parent
-- [ ] `tests/integrate_test.sh::test_group_done_refuses_open_member` -> asserts the group's `done` refuses while a member is not archived
-- [ ] `tests/integrate_test.sh::test_group_done_gates_and_merges_into_parent` -> asserts `pre-done` sees the feature branch's worktree, the merge lands on the parent (a module branch, not develop), recorded member SHAs stay reachable
+- [x] `tests/verbs/draft.sh::test_draft_group_scaffolds_group_plan` -> asserts `draft <slug> group` takes the next Plan ID and writes the `🧩 Group Plan` heading with the group fields and no Target Files
+- [x] `tests/verbs/start.sh::test_group_start_cuts_feature_branch_from_parent` -> asserts the feature branch starts at the parent (default or `base <branch>`) and `Base:` names the parent
+- [x] `tests/verbs/start.sh::test_group_start_refuses_missing_branch` -> asserts an unknown `base <branch>` refuses with nothing created
+- [x] `tests/verbs/draft.sh::test_draft_member_joins_group` -> asserts `draft <slug> group <id>` writes `Group:` and the group lists the member while the group is not started
+- [x] `tests/verbs/refine.sh::test_refine_joins_and_leaves_group` -> asserts `refine <id> group <gid>` joins, `group none` leaves; both refused once the plan is started
+- [x] `tests/verbs/start.sh::test_member_start_branches_from_feature_branch` -> asserts a member's plain `start` branches from the feature branch and records `Base:` with it
+- [x] `tests/verbs/start.sh::test_member_start_refuses_unstarted_group` -> asserts a member's `start` refuses unless its group is ⚡ In Development
+- [x] `tests/verbs/start.sh::test_groups_do_not_nest` -> asserts a group started with `base <feature-branch-of-a-group>` and a group plan joined to a group both refuse, nothing changed
+- [x] `tests/integrate_test.sh::test_group_done_merges_moved_parent_before_gate` -> asserts a parent that moved is merged into the feature branch before `pre-done`, then the parent fast-forwards; member SHAs unchanged
+- [x] `tests/integrate_test.sh::test_group_done_conflict_refuses_unchanged` -> asserts a conflicting parent refuses with parent, feature branch and plans unchanged
+- [x] `tests/integrate_test.sh::test_group_done_writes_umbrella_changelog` -> asserts the group's changelog entry lands next to the members' entries
+- [x] `tests/integrate_test.sh::test_member_integrates_into_feature_branch` -> asserts a member's `done` lands on the feature branch, not the parent
+- [x] `tests/integrate_test.sh::test_group_done_refuses_open_member` -> asserts the group's `done` refuses while a member is not archived
+- [x] `tests/integrate_test.sh::test_group_done_gates_and_merges_into_parent` -> asserts `pre-done` sees the feature branch's worktree, the merge lands on the parent (a module branch, not develop), recorded member SHAs stay reachable
 - [ ] `tests/verbs/issue.sh::test_fix_refuses_off_development_branch` -> asserts `fix` refuses when the main checkout is on another branch
 - [ ] `tests/verbs/issue.sh::test_fix_group_opens_worktree_and_close_integrates` -> asserts `fix <num> group <id>` works in `.workspace/fix-<num>` and `close` lands the fix on the feature branch only
 - [ ] `tests/verbs/issue.sh::test_fix_hints_group_for_group_files` -> asserts the hint names `group <id>` when the issue's files differ on an active group's feature branch
-- [ ] `tests/verbs/status.sh::test_members_listed_under_group` -> asserts members appear under their group
-- [ ] `tests/verbs/freeze.sh::test_group_freeze_refuses_missing_architecture_section` -> asserts a group without `## Architecture & Codemap` refuses; "No changes" passes
-- [ ] `tests/pre-commit_test.sh::test_member_commit_refuses_architecture` -> asserts a group member's commit staging `ARCHITECTURE.md` is refused, naming the group; a plan without `Group:` may commit it
-- [ ] `tests/integrate_test.sh::test_group_done_commits_architecture_before_gate_codemap_after_merge` -> asserts the group's `ARCHITECTURE.md` sections are on the feature branch when `pre-done` runs and `.agents/CODEMAP.md` gets its sections only after the merge
-- [ ] `tests/group_docs_test.sh::test_existing_heading_replaces_whole_section` -> asserts a section whose heading exists replaces that section up to the next heading of the same or a higher level, deeper sub-headings included, the rest of the file unchanged
-- [ ] `tests/group_docs_test.sh::test_new_heading_is_added_at_the_end` -> asserts a heading not in the file is appended
-- [ ] `tests/group_docs_test.sh::test_report_names_replaced_and_added` -> asserts the report lists each section as replaced or added
-- [ ] `tests/group_docs_test.sh::test_no_changes_leaves_files_untouched` -> asserts "No changes" applies nothing
-- [ ] `tests/group_docs_test.sh::test_base_lines_recorded_for_new_sections` -> asserts a section without a base line gets the checksum of the file's section, or `new`; existing base lines are kept
-- [ ] `tests/group_docs_test.sh::test_changed_section_refuses` -> asserts a file section edited since its base line, or a `new` heading that now exists, refuses with nothing applied, naming the section
+- [x] `tests/verbs/status.sh::test_members_listed_under_group` -> asserts members appear under their group
+- [x] `tests/verbs/freeze.sh::test_group_freeze_refuses_missing_architecture_section` -> asserts a group without `## Architecture & Codemap` refuses; "No changes" passes
+- [x] `tests/pre-commit_test.sh::test_member_commit_refuses_architecture` -> asserts a group member's commit staging `ARCHITECTURE.md` is refused, naming the group; a plan without `Group:` may commit it
+- [x] `tests/integrate_test.sh::test_group_done_commits_architecture_before_gate_codemap_after_merge` -> asserts the group's `ARCHITECTURE.md` sections are on the feature branch when `pre-done` runs and `.agents/CODEMAP.md` gets its sections only after the merge
+- [x] `tests/group_docs_test.sh::test_existing_heading_replaces_whole_section` -> asserts a section whose heading exists replaces that section up to the next heading of the same or a higher level, deeper sub-headings included, the rest of the file unchanged
+- [x] `tests/group_docs_test.sh::test_new_heading_is_added_at_the_end` -> asserts a heading not in the file is appended
+- [x] `tests/group_docs_test.sh::test_report_names_replaced_and_added` -> asserts the report lists each section as replaced or added
+- [x] `tests/group_docs_test.sh::test_no_changes_leaves_files_untouched` -> asserts "No changes" applies nothing
+- [x] `tests/group_docs_test.sh::test_base_lines_recorded_for_new_sections` -> asserts a section without a base line gets the checksum of the file's section, or `new`; existing base lines are kept
+- [x] `tests/group_docs_test.sh::test_changed_section_refuses` -> asserts a file section edited since its base line, or a `new` heading that now exists, refuses with nothing applied, naming the section
 
 *Two phases, each tests first (red), then green, in microcommits. Phase A works on its own before Phase B starts.*
 
 ### Phase A: The group plan (2.0, 2.1, 2.5, 2.6)
-- [ ] Task A.1: Red: the `draft`, `freeze`, `start`, `status`, `pre-commit` and group/member `integrate_test` assertions above.
-- [ ] Task A.2: `draft … group`, `templates/group-template.md`, group heading check, freeze checks (2.0, 2.6); contracts `draft.md`, `freeze.md`.
-- [ ] Task A.3: Membership on `draft … group <id>` and `refine <id> group`; group `start`; member `start` (2.0, 2.1); contracts `draft.md`, `refine.md`, `start.md`, `freeze-start.md`.
-- [ ] Task A.4: `lib/group_docs.sh`: apply sections by heading (2.6), with `tests/group_docs_test.sh`.
-- [ ] Task A.5: Group `done`: open-member refusal, ARCHITECTURE sections before the gate, gate on the feature branch, merge into the parent, CODEMAP sections after (2.0, 2.6); contract `done.md`.
-- [ ] Task A.6: Member refusal in `aapp-pre-commit`; invariant 7 in `plan-template.md` (2.6); status grouping (2.5).
-- [ ] Task A.7: Green: Phase A tests and the full suite.
+- [x] Task A.1: Red: the `draft`, `freeze`, `start`, `status`, `pre-commit` and group/member `integrate_test` assertions above.
+- [x] Task A.2: `draft … group`, `templates/group-template.md`, group heading check, freeze checks (2.0, 2.6); contracts `draft.md`, `freeze.md`.
+- [x] Task A.3: Membership on `draft … group <id>` and `refine <id> group`; group `start`; member `start` (2.0, 2.1); contracts `draft.md`, `refine.md`, `start.md`, `freeze-start.md`.
+- [x] Task A.4: `lib/group_docs.sh`: apply sections by heading (2.6), with `tests/group_docs_test.sh`.
+- [x] Task A.5: Group `done`: open-member refusal, ARCHITECTURE sections before the gate, gate on the feature branch, merge into the parent, CODEMAP sections after (2.0, 2.6); contract `done.md`.
+- [x] Task A.6: Member refusal in `aapp-pre-commit`; invariant 7 in `plan-template.md` (2.6); status grouping (2.5).
+- [x] Task A.7: Green: Phase A tests and the full suite.
 
 ### Phase B: Issue fixes and groups (2.2, 2.3)
 - [ ] Task B.1: Red: the `issue.sh` assertions above.
