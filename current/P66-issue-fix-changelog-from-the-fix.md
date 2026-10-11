@@ -11,7 +11,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `c74d986` (develop)
 * **Worktree:** .workspace/P66 (plan/P66-issue-fix-changelog-from-the-fix)
-* **Commits:** none
+* **Commits:** `99f21ef` (plan/P66-issue-fix-changelog-from-the-fix)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
