@@ -47,6 +47,8 @@
   3. **Local Outbox & Local Archive**: Contains `.offline/ISSUES.md` (active staged issues), `.offline/done/000-issues-archive.md` (locally resolved/archived issues), and `.offline/current/` (offline draft plans).
   4. **Context Recovery Awareness**: `aapp status` detects `.offline/` and reports staged offline items alongside canonical work.
   5. **Atomic Promotion & Synchronization (`aapp offline sync`)**: Reconciles staged issues with canonical `.plans/` (and external trackers), atomically re-identifying `#<temp_id>` references in plans to canonical IDs.
+  6. **One Ledger View**: the `.offline` ledgers are a source of `lib/issue_ledger.sh` (P-73), next to `.plans/` and the remote cache (P-74). Every reader (status, `issue list`, blockers, `draft`, `next-blocker`) sees offline issues, marked as offline, with no reader of its own.
+  7. **Opt-out**: offline staging is configurable; with `aapp.offlineEnabled=false` it never kicks in and a provider failure refuses (§2 C).
 
 ---
 
@@ -109,7 +111,13 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
      Action: Run 'aapp offline sync' when online to publish.
   ```
 
-### F. Blast Radius & Hook Enforcement
+### F. Wiring Into the Ledger Module (P-73, P-74)
+* **Reads:** `ledger_rows` and `ledger_locate` merge `.offline/ISSUES.md` and `.offline/done/000-issues-archive.md` (`offline`), so offline issues block plans and show in `status`, `issue list`, `draft` and `next-blocker` like local ones.
+* **Writes:** logging and closing while offline go through the module's writers, pointed at `.offline/`.
+* **Fallback:** the smart fallback is P-74's wrapper failure path; the outbox of missed provider steps is replayed by `aapp offline sync`.
+* **Relink:** sync rewrites `#<temp>` to `#<canonical>` with `ledger_relink`, extended to plans' `Target Issue` and `Blocked On` lines.
+
+### G. Blast Radius & Hook Enforcement
 * `templates/blast-radius-guard.sh`: Recognizes `.offline/**` as a permitted path for offline workflows.
 * `templates/aapp-pre-commit`: Rejects commits on `develop` or `plans` that stage files inside `.offline/`.
 * Pre-push gate: Blocks any push containing `refs/heads/offline`.
@@ -133,6 +141,7 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 - [ ] `tests/verbs/offline.sh::test_offline_issue_local_archive` -> asserts closing an offline issue moves it to `.offline/done/000-issues-archive.md`
 - [ ] `tests/verbs/offline.sh::test_status_reports_staged_offline_work` -> asserts `aapp status` displays staged offline issues and plans
 - [ ] `tests/verbs/offline.sh::test_offline_sync_promotes_and_relinks` -> asserts `aapp offline sync` moves rows to `.plans/`, rewrites `#<temp>` references to `#<canonical>`, and clears `.offline`
+- [ ] `tests/verbs/offline.sh::test_offline_issue_in_every_view` -> asserts an offline issue shows, marked, in `status` and `issue list`, and blocks a plan whose `Blocked On` names it
 - [ ] `tests/verbs/offline.sh::test_unmount_refuses_when_dirty` -> asserts `aapp offline unmount` refuses if unpromoted issues exist without `--force`
 
 ### Phase 1: Tests First (red)
@@ -149,7 +158,7 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
 - [ ] Task 3.2: Update user-facing documentation in `MANUAL.md` (`aapp offline` commands, offset config, local lifecycle).
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
+- [ ] Task 3.3: Architecture and Codemap sections live in group P-72.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
 - [ ] Task 3.5: Log every finding outside Target Files as an issue (`aapp refine issues`).
 
@@ -159,14 +168,13 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `NEW FILE` -> `lib/cmd_offline.sh` -> CLI ingress and subcommands for `aapp offline` (`mount`, `unmount`, `status`, `sync`).
+- [ ] `lib/issue_ledger.sh` -> `.offline` ledgers as a read source; writers pointed at `.offline/`; relink of plan references.
 - [ ] `lib/cmd_issue.sh` -> Offline ID allocation fallback and local archiving handling.
 - [ ] `lib/cmd_status.sh` -> Context recovery briefing inspection of `.offline/`.
 - [ ] `lib/plan_resolver.sh` -> Offset calculation and `aapp.offlineIdOffset` config resolution.
 - [ ] `templates/blast-radius-guard.sh` -> Worktree path authorization.
 - [ ] `templates/aapp-pre-commit` -> Hook leak protection against `.offline`.
 - [ ] `MANUAL.md` -> User documentation for offline workflows and configuration.
-- [ ] `ARCHITECTURE.md` -> Architecture sync for the `.offline` worktree.
-- [ ] `.agents/CODEMAP.md` -> Codemap sync for `cmd_offline.sh`.
 
 ### 🧪 Required Test Files
 - [ ] `NEW FILE` -> `tests/verbs/offline.sh`
