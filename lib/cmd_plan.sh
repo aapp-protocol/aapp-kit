@@ -1971,6 +1971,14 @@ cmd_done() {
         fi
     fi
 
+    # #121: what the archive changes, kept until its commit lands; a failed commit puts it back.
+    local snap f
+    snap="$(mktemp -d)" || exit 1
+    cp -a "$PLANS_DIR/current" "$snap/current" || exit 1
+    for f in done/000-archive-ledger.md done/000-issues-archive.md ISSUES.md issues_road_map.md state_matrix.md; do
+        if [ -f "$PLANS_DIR/$f" ]; then mkdir -p "$(dirname "$snap/$f")" && cp -a "$PLANS_DIR/$f" "$snap/$f" || exit 1; fi
+    done
+
     # Move to done/
     mv "$plan_file" "$done_file"
 
@@ -2065,8 +2073,16 @@ cmd_done() {
             done_targets+=("ISSUES.md")
             [ -f "$PLANS_DIR/issues_road_map.md" ] && done_targets+=("issues_road_map.md")
         fi
-        plans_commit "plan(done): archive $plan_id to done/ and update state matrix" "${done_targets[@]}" || exit 1
+        if ! plans_commit "plan(done): archive $plan_id to done/ and update state matrix" "${done_targets[@]}"; then
+            git -C "$PLANS_DIR" reset -q -- "${done_targets[@]}" || echo "⚠️  [Done] Could not unstage the archive; check 'git -C .plans status'." >&2
+            rm -f "$done_file"
+            (cd "$snap" && find . -type f) | while IFS= read -r f; do cp -a "$snap/$f" "$PLANS_DIR/$f"; done
+            rm -rf "$snap"
+            echo "❌ [Done] The archive commit failed; the plan, ledgers and matrix are restored. Run 'aapp done $plan_id' again." >&2
+            exit 1
+        fi
     fi
+    rm -rf "$snap"
     if [ "$close_where" = "active" ]; then
         issue_notify_close "$close_issue" "$commit_sha" "$close_summary" "$plan_id"
         echo "   Issue closed : #$close_issue -> done/000-issues-archive.md"

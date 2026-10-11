@@ -234,4 +234,25 @@ else
   bad "test_done_repairs_issue_links" "rc=$rc row=$(grep '^| #43 |' .plans/ISSUES.md)"
 fi
 
+echo "== a failed archive commit restores everything (#121) =="
+cd "$R/p" || exit 1
+rf="$(started_plan restore-me)"; rff="$(plan_file "$rf")"
+st0="$(git -C .plans status --porcelain)"; led0="$(cksum < .plans/done/000-archive-ledger.md)"
+sm0="$(cksum < .plans/state_matrix.md)"; iss0="$(cksum < .plans/ISSUES.md)"; pl0="$(cksum < "$rff")"
+lock="$(git -C .plans rev-parse --git-path index.lock)"; case "$lock" in /*) ;; *) lock=".plans/$lock" ;; esac
+touch "$lock"
+out="$(aapp done "$rf" 2>&1)"; rc=$?
+rm -f "$lock"
+restored=0
+[ "$rc" -ne 0 ] && [ -f "$rff" ] && [ "$(cksum < "$rff")" = "$pl0" ] && [ ! -f ".plans/done/$(basename "$rff")" ] && \
+  [ "$(cksum < .plans/done/000-archive-ledger.md)" = "$led0" ] && [ "$(cksum < .plans/state_matrix.md)" = "$sm0" ] && \
+  [ "$(cksum < .plans/ISSUES.md)" = "$iss0" ] && [ "$(git -C .plans status --porcelain)" = "$st0" ] && restored=1
+out2="$(aapp done "$rf" 2>&1)"; rc2=$?
+if [ "$restored" -eq 1 ] && [ "$rc2" -eq 0 ] && [ -f ".plans/done/$(basename "$rff")" ] && \
+   git -C .plans log -1 --format=%s | grep -qF "plan(done): archive $rf"; then
+  ok "test_failed_archive_commit_restores_and_retry_archives"
+else
+  bad "test_failed_archive_commit_restores_and_retry_archives" "rc=$rc/$rc2 restored=$restored out=$out | $out2 status=$(git -C .plans status --porcelain | tr '\n' ' ')"
+fi
+
 print_test_summary "$PASS" "$FAIL"

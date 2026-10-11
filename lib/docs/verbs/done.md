@@ -34,6 +34,7 @@
 - `pre-done` lifecycle hook exits non-zero (except 2) -> exit 1, vetoes archive; plan, matrix, and ledger unchanged (P-23)
 - Target Issue `#<n>` in neither `ISSUES.md` nor `done/000-issues-archive.md` -> exit 1, stderr `Target issue #<n> is in neither`; nothing moves (P-32)
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
+- the archive commit fails (a hook, a lock, a signing timeout) -> exit 1; the plan, the ledgers and the matrix are restored and unstaged, so `aapp done <id>` archives again (#121)
 - group plan (P-64): a member still in `current/`, a section of `## Architecture & Codemap` whose file section changed since its base line (or has none), or a parent that does not merge cleanly into the feature branch -> exit 1, stderr names the member, section or branch; the parent, the feature branch and the plans are unchanged
 
 ## Effects (happy path)
@@ -77,6 +78,7 @@ Run: `aapp test verb done`
 - `tests/verbs/done.sh::test_commit_takes_only_its_paths` -> the archive commit contains only the move, ledger and matrix
 - `tests/verbs/done.sh::test_pre_done_veto_blocks_archive` -> a `pre-done` handler exiting non-zero: `done` exits 1, nothing moves; payload carries recorded commits
 - `tests/verbs/done.sh::test_done_repairs_issue_links` -> another open issue linking the plan points at `done/` after `aapp done`, in the archive commit (P-50)
+- `tests/verbs/done.sh::test_failed_archive_commit_restores_and_retry_archives` -> a failing archive commit leaves plan, ledgers, matrix and the plans index as before; a retry archives (#121)
 - `tests/verbs/done.worktree.sh::test_done_refuses_dirty_plan_worktree` -> uncommitted changes in the plan's worktree: exit 1, nothing moves (P-54)
 - `tests/verbs/done.worktree.sh::test_done_from_primary_clears_holding_buffer_and_advises` -> run from the primary: the worktree's buffer is cleared, the worktree kept, removal and branch-deletion advice printed (P-54)
 - `tests/verbs/done.worktree.sh::test_done_from_plan_worktree_archives` -> `done` run inside the plan worktree archives (P-54)
