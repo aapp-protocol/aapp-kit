@@ -135,13 +135,11 @@ The `## Tests` lists in `lib/docs/verbs/{start,issue,done}.md` name the part fil
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — Part naming.** (a) `tests/verbs/<verb>.<part>.sh` (flat, sorts next to its verb). (b) `tests/verbs/<verb>/<part>.sh` (a directory per split verb). Recommendation: (a); one directory, one glob.
-* [ ] **Question 2 — Which suites to split.** (a) `start`, `issue`, `done` (over 40 s). (b) Also `pre-commit` and `commit` (22 s). Decided after the research's measured floor.
+* [x] **Question 1 — Part naming. → RESOLVED (developer, 2026-10-11): (a) tests/verbs/<verb>.<part>.sh.** Flat structure in tests/verbs/, sorting naturally alongside its parent verb suite. Preserves simple single-glob suite discovery in the test runner and requires no directory nesting.
+* [x] **Question 2 — Which suites to split. → RESOLVED (developer, 2026-10-11): (a) start, issue, done (over 40 s).** Splits the three slowest suites that bound the parallel critical path. Brings the execution ceiling down to ~20-25 s, matching the natural floor of monolithic suites (such as pre-commit at ~22 s) without diminishing returns.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
+* **2026-10-11:** Resolved Q1 (flat part naming '<verb>.<part>.sh') and Q2 (split 'start', 'issue', 'done' to reach ~20-25 s ceiling). Blueprint fully specified.
 * **2026-10-11:** Drafted: suite parts, splits, session test; research at refine time.
