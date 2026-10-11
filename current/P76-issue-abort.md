@@ -105,32 +105,32 @@ Steps 2 to 4 are the active branch of `cmd_issue_close` with another commit cell
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/issue.abort.sh::test_abort_withdraws_row` -> asserts the row moves to the archive with `aborted` and the reason, its road-map line is gone, in one `issue(abort)` commit
-- [ ] `tests/verbs/issue.abort.sh::test_abort_refuses_archived_or_unknown` -> asserts an archived or unknown id is refused and nothing changes
-- [ ] `tests/verbs/issue.abort.sh::test_abort_takes_promoted_plan` -> asserts the plan lands in `aborted/` with its ledger row and the archive row links it
-- [ ] `tests/verbs/issue.abort.sh::test_abort_plan_refusal_changes_nothing` -> asserts a dirty plan worktree refuses and the issue is still `🔵 Planned`
-- [ ] `tests/verbs/issue.abort.sh::test_abort_group_plan_needs_confirm` -> asserts an issue whose plan is a group plan is refused without `confirm`
-- [ ] `tests/verbs/issue.abort.sh::test_abort_drops_mini_plan` -> asserts `current/fix-<num>.md` is gone and the buffer restored
-- [ ] `tests/verbs/issue.abort.sh::test_abort_refuses_mini_plan_with_commits` -> asserts a fix with recorded commits is refused and points to `issue close`
-- [ ] `tests/verbs/issue.abort.sh::test_abort_unblocks_plans` -> asserts a plan blocked on the issue returns to its recorded status and is not aborted
-- [ ] `tests/verbs/issue.abort.sh::test_abort_rerun_finishes` -> asserts after the plan is aborted and the row left open, a second run withdraws the row
-- [ ] `tests/verbs/issue.abort.sh::test_fix_abort_keeps_issue` -> asserts `issue fix <num> abort` still leaves the issue active
+- [x] `tests/verbs/issue.abort.sh::test_abort_withdraws_row` -> asserts the row moves to the archive with `aborted` and the reason, its road-map line is gone, in one `issue(abort)` commit
+- [x] `tests/verbs/issue.abort.sh::test_abort_refuses_archived_or_unknown` -> asserts an archived or unknown id is refused and nothing changes
+- [x] `tests/verbs/issue.abort.sh::test_abort_takes_promoted_plan` -> asserts the plan lands in `aborted/` with its ledger row and the archive row links it
+- [x] `tests/verbs/issue.abort.sh::test_abort_plan_refusal_changes_nothing` -> asserts a dirty plan worktree refuses and the issue is still `🔵 Planned`
+- [x] `tests/verbs/issue.abort.sh::test_abort_group_plan_needs_confirm` -> asserts an issue whose plan is a group plan is refused without `confirm`
+- [x] `tests/verbs/issue.abort.sh::test_abort_drops_mini_plan` -> asserts `current/fix-<num>.md` is gone and the buffer restored
+- [x] `tests/verbs/issue.abort.sh::test_abort_refuses_mini_plan_with_commits` -> asserts a fix with recorded commits is refused and points to `issue close`
+- [x] `tests/verbs/issue.abort.sh::test_abort_unblocks_plans` -> asserts a plan blocked on the issue returns to its recorded status and is not aborted
+- [x] `tests/verbs/issue.abort.sh::test_abort_rerun_finishes` -> asserts after the plan is aborted and the row left open, a second run withdraws the row
+- [x] `tests/verbs/issue.abort.sh::test_fix_abort_keeps_issue` -> asserts `issue fix <num> abort` still leaves the issue active
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/verbs/issue.abort.sh` with the Required Tests; all fail.
+- [x] Task 1.1: Write `tests/verbs/issue.abort.sh` with the Required Tests; all fail.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: One archive function for `close` and `abort` (§2.4 steps 2 to 4); `cmd_issue_close` calls it.
-- [ ] Task 2.2: `cmd_issue_abort`: tokens, attachment lookup, preflight (§2.1 to §2.3).
-- [ ] Task 2.3: Attachment step: mini plan drop, `plan abort` call (§2.4 step 1).
-- [ ] Task 2.4: Route `abort` in `cmd_issue`; usage lines.
+- [x] Task 2.1: One archive function for `close` and `abort` (§2.4 steps 2 to 4); `cmd_issue_close` calls it.
+- [x] Task 2.2: `cmd_issue_abort`: tokens, attachment lookup, preflight (§2.1 to §2.3).
+- [x] Task 2.3: Attachment step: mini plan drop, `plan abort` call (§2.4 step 1).
+- [x] Task 2.4: Route `abort` in `cmd_issue`; usage lines.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run the kit suites; the Required Tests pass.
-- [ ] Task 3.2: `abort` form in the `issue` verb contract `lib/docs/verbs/issue.md`.
-- [ ] Task 3.3: `MANUAL.md`, `CHEATSHEET.md` and `templates/AGENTS.md`.
-- [ ] Task 3.4: `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run the kit suites; the Required Tests pass.
+- [x] Task 3.2: `abort` form in the `issue` verb contract `lib/docs/verbs/issue.md`.
+- [x] Task 3.3: `MANUAL.md`, `CHEATSHEET.md` and `templates/AGENTS.md`.
+- [x] Task 3.4: `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
