@@ -18,6 +18,7 @@
 - the plan file has uncommitted edits in `.plans` -> exit 1, stderr names `aapp refine`; the plan is unchanged (#107: freezing approves the design as last committed)
 - an unchecked `* [ ]` item under `## ❓ 5. Open Questions` -> exit 1, stderr `[Freeze Refusal]` lists each unresolved question; the plan is unchanged
 - no path under `### 📂 Target Files` in §4 -> exit 1, stderr `[Freeze Refusal] Plan declares no Target Files`; the plan is unchanged
+- a group plan without `## Architecture & Codemap` -> exit 1, stderr names the section; the plan is unchanged (P-64; `No changes.` under a file is valid)
 - a `pre-freeze` hook vetoes (non-zero exit except 2) -> exit 1; pre-mutation quality gate halts with zero disk modifications and zero commits in `.plans/` (P-23)
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 - the plan's `* **Changelog:**` header line is missing, not `<Added|Changed|Fixed>: <text>`, or renders longer than `aapp.changelogMaxLen` -> exit 1, stderr names the field; nothing changes (P-48)
@@ -48,3 +49,4 @@ Run: `aapp test verb freeze`
 - `tests/verbs/freeze.sh::test_freeze_refuses_bad_changelog_declaration` -> missing, malformed or over-long `**Changelog:**` field refuses freeze
 - `tests/verbs/freeze.sh::test_freeze_accepts_valid_changelog_declaration` -> a valid declaration freezes
 - `tests/verbs/freeze.sh::test_refuses_uncommitted_plan_edits` -> uncommitted plan edits: exit 1, nothing committed (#107)
+- `tests/verbs/freeze.sh::test_group_freeze_refuses_missing_architecture_section` -> a group plan without the section: exit 1; with `No changes.`: frozen (P-64)

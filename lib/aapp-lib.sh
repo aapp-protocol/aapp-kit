@@ -754,6 +754,49 @@ write_plan_worktree() {
 }
 
 # ------------------------------------------------------------------------------
+# Group plans (P-64)
+# ------------------------------------------------------------------------------
+# aapp_is_group_plan <plan>: the title heading marks a group plan.
+aapp_is_group_plan() { head -n 1 "$1" 2>/dev/null | grep -qE '^# 🧩 Group Plan P-[0-9]+:'; }
+
+# parse_plan_field <plan> <Field>: the value of `* **<Field>:**` in the plan header.
+parse_plan_field() {
+    AAPP_FIELD="$2" awk '/^##[[:space:]]/ { exit }
+        index($0, "* **" ENVIRON["AAPP_FIELD"] ":**") == 1 {
+            sub(/^\* \*\*[^*]+:\*\*[[:space:]]*/, ""); print; exit }' "$1" 2>/dev/null
+}
+
+# write_plan_field <plan> <Field> <value> [<after-Field>]: sets `* **<Field>:** <value>`
+# in the header, replacing it or inserting it after <after-Field> (default Status);
+# an empty value removes the line.
+write_plan_field() {
+    local pf="$1" tmp="$1.aapp-field.$$"
+    AAPP_FIELD="$2" AAPP_VAL="$3" AAPP_AFTER="${4:-Status}" awk '
+        BEGIN { key = "* **" ENVIRON["AAPP_FIELD"] ":**"; after = "* **" ENVIRON["AAPP_AFTER"] ":**"
+                line = (ENVIRON["AAPP_VAL"] == "") ? "" : key " " ENVIRON["AAPP_VAL"] }
+        FNR == NR { if ($0 ~ /^##[[:space:]]/) hdr = 1; if (!hdr && index($0, key) == 1) has = 1; next }
+        /^##[[:space:]]/ { passed = 1 }
+        !passed && has && index($0, key) == 1 { if (line != "") print line; next }
+        { print }
+        !passed && !has && !done && line != "" && index($0, after) == 1 { print line; done = 1 }
+    ' "$pf" "$pf" > "$tmp" && mv "$tmp" "$pf" || { rm -f "$tmp"; return 1; }
+}
+
+# group_members <group-plan>: the member IDs, one per line.
+group_members() {
+    parse_plan_field "$1" Members | tr ',' '\n' | awk '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "") } /^P-[0-9]+$/'
+}
+
+# group_set_member <group-plan> <id> add|remove: updates the `* **Members:**` list.
+group_set_member() {
+    local list
+    list="$(group_members "$1" | awk -v id="$2" '$0 != id')"
+    [ "$3" = add ] && list="$(printf '%s\n%s\n' "$list" "$2")"
+    list="$(printf '%s\n' "$list" | awk 'NF' | paste -sd, - | sed 's/,/, /g')"
+    write_plan_field "$1" Members "${list:-none}"
+}
+
+# ------------------------------------------------------------------------------
 # Shared documentation files (P-48)
 # ------------------------------------------------------------------------------
 # Files every plan may update. They never make two in-flight plans collide, and

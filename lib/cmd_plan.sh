@@ -249,6 +249,39 @@ refuse_uncommitted_plan_edits() {
     fi
 }
 
+# ------------------------------------------------------------------------------
+# Group plans (P-64)
+# ------------------------------------------------------------------------------
+# _group_resolve <query> <label>: the group plan's file in current/; anything else refuses.
+_group_resolve() {
+    local gf
+    gf="$(resolve_plan_file "$1" "group")" || return 1
+    if ! aapp_is_group_plan "$gf"; then
+        echo "❌ [$2] $(basename "$gf" .md) is not a group plan." >&2
+        return 1
+    fi
+    echo "$gf"
+}
+
+# _group_owning_branch <branch>: the group plan whose feature branch is <branch>.
+_group_owning_branch() {
+    local pf
+    for pf in "$PLANS_DIR"/current/*.md; do
+        [ -f "$pf" ] || continue
+        aapp_is_group_plan "$pf" || continue
+        [ "$(parse_plan_field "$pf" "Feature Branch")" = "$1" ] && { basename "$pf" .md; return 0; }
+    done
+    return 1
+}
+
+# validate_group_plan <plan> <label>: a group plan keeps `## Architecture & Codemap`.
+validate_group_plan() {
+    aapp_is_group_plan "$1" || return 0
+    grep -q '^## Architecture & Codemap' "$1" && return 0
+    echo "❌ [$2] Group plan $(basename "$1" .md) has no '## Architecture & Codemap' section; write the changed sections, or 'No changes.' under each file." >&2
+    return 1
+}
+
 # write_active_buffer <plan_id> [buffer_file]: binds the plan in this worktree's
 # buffer, or in [buffer_file] (another worktree's, P-54); the previous value
 # moves to the `.prev` slot beside it.
@@ -756,6 +789,18 @@ cmd_draft() {
     local slug=""
     local title=""
     local promote_issue=""
+    local tpl_name="plan-template.md" join_group="" join_gfile=""
+
+    # P-64: `draft <slug> group` drafts a group plan; `draft <slug> group <id>`
+    # a member of that group. Checked before any allocation.
+    if [ "${2:-}" = "group" ]; then
+        if [ -z "${3:-}" ]; then
+            tpl_name="group-template.md"
+        else
+            join_gfile="$(_group_resolve "$3" "Draft Refusal")" || return 1
+            join_group="$(sed -nE 's/^\* \*\*Plan ID:\*\*[[:space:]]*(P-[0-9]+).*/\1/p' "$join_gfile" | head -n 1)"
+        fi
+    fi
 
     # P-50: `aapp draft <slug> issue <num>` promotes an active issue. Checked
     # before any allocation, so a refused promotion burns no Plan ID.
@@ -892,16 +937,16 @@ cmd_draft() {
     local num="${plan_id#P-}"
 
     local template_file=""
-    if [ -n "$AAPP_TEMPLATES" ] && [ -f "$AAPP_TEMPLATES/plan-template.md" ]; then
-        template_file="$AAPP_TEMPLATES/plan-template.md"
-    elif [ -f "$REPO_ROOT/templates/plan-template.md" ]; then
-        template_file="$REPO_ROOT/templates/plan-template.md"
-    elif [ -n "$PRIMARY_ROOT" ] && [ -f "$PRIMARY_ROOT/templates/plan-template.md" ]; then
-        template_file="$PRIMARY_ROOT/templates/plan-template.md"
+    if [ -n "$AAPP_TEMPLATES" ] && [ -f "$AAPP_TEMPLATES/$tpl_name" ]; then
+        template_file="$AAPP_TEMPLATES/$tpl_name"
+    elif [ -f "$REPO_ROOT/templates/$tpl_name" ]; then
+        template_file="$REPO_ROOT/templates/$tpl_name"
+    elif [ -n "$PRIMARY_ROOT" ] && [ -f "$PRIMARY_ROOT/templates/$tpl_name" ]; then
+        template_file="$PRIMARY_ROOT/templates/$tpl_name"
     fi
 
     if [ -z "$template_file" ] || [ ! -f "$template_file" ]; then
-        echo "❌ [Draft Refusal] templates/plan-template.md not found." >&2
+        echo "❌ [Draft Refusal] templates/$tpl_name not found." >&2
         return 1
     fi
 
@@ -933,6 +978,7 @@ cmd_draft() {
             # P-48: the changelog declaration starts as the title.
             line = replace_all(line, "**Changelog:** Changed: [Feature or Refactor Name]", \
                                "**Changelog:** Changed: " ENVIRON["AAPP_DRAFT_TITLE"])
+            line = replace_all(line, "[Group Name]", ENVIRON["AAPP_DRAFT_TITLE"])
             print line
         }
     ' "$template_file" > "$tmp_file"; then
@@ -956,6 +1002,14 @@ cmd_draft() {
         }
     fi
 
+    # P-64: a member names its group, and the group lists it.
+    if [ -n "$join_group" ]; then
+        write_plan_field "$target_file" Group "$join_group" Base && group_set_member "$join_gfile" "P-$num" add || {
+            echo "❌ [Draft Refusal] Could not record P-$num in group $join_group." >&2
+            exit 1
+        }
+    fi
+
     # State matrix registration: derived from the new plan's Status line.
     local sm_file="$PLANS_DIR/state_matrix.md"
     sync_state_matrix
@@ -966,6 +1020,7 @@ cmd_draft() {
         local draft_paths=("$plan_rel")
         [ -f "$sm_file" ] && draft_paths+=("state_matrix.md")
         [ -n "$promote_issue" ] && draft_paths+=("ISSUES.md")
+        [ -n "$join_group" ] && draft_paths+=("current/$(basename "$join_gfile")")
         plans_commit "plan(draft): scaffold P-${num} ${slug}" "${draft_paths[@]}" || exit 1
     fi
 
@@ -1263,6 +1318,7 @@ cmd_freeze() {
     # Verify TDD failure tests correspondence if declared (P-35)
     validate_plan_tdd_correspondence "$plan_file" "Freeze Refusal" || exit 1
     validate_plan_changelog_decl "$plan_file" "Freeze Refusal" || exit 1
+    validate_group_plan "$plan_file" "Freeze Refusal" || exit 1
 
     local plan_id
     plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
