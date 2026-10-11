@@ -78,30 +78,30 @@ The new check flags this repository's rows with notes in the cell (#108, #110, #
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/refine.sh::test_issues_refuses_text_in_fix_cell` -> asserts `aapp refine issues` refuses a row whose fix cell holds text other than verb-written links, naming the row
-- [ ] `tests/verbs/refine.sh::test_issues_accepts_plan_and_blocks_links` -> asserts an empty cell, `[P-xx](…)` and `blocks [P-xx](…)` pass
-- [ ] `tests/verbs/issue.sh::test_fix_opens_with_empty_changelog` -> asserts the mini plan's `Changelog:` carries no text from the row
-- [ ] `tests/verbs/commit.sh::test_mini_plan_commit_refuses_empty_changelog` -> asserts the first fix commit refuses without an entry and names how to supply it
-- [ ] `tests/verbs/commit.sh::test_mini_plan_commit_writes_supplied_entry` -> asserts the supplied entry lands in `CHANGELOG.md`
-- [ ] `tests/verbs/issue.sh::test_close_refuses_without_fix_entry` -> asserts `close` refuses while the entry is empty
-- [ ] `tests/verbs/issue.sh::test_close_resolution_is_changelog_entry` -> asserts without `summary` the archive resolution equals the entry
+- [x] `tests/verbs/refine.sh::test_issues_refuses_text_in_fix_cell` -> asserts `aapp refine issues` refuses a row whose fix cell holds text other than verb-written links, naming the row
+- [x] `tests/verbs/refine.sh::test_issues_accepts_plan_and_blocks_links` -> asserts an empty cell, `[P-xx](…)` and `blocks [P-xx](…)` pass
+- [x] `tests/verbs/issue.sh::test_fix_opens_with_empty_changelog` -> asserts the mini plan's `Changelog:` carries no text from the row
+- [x] `tests/verbs/commit.sh::test_mini_plan_commit_refuses_empty_changelog` -> asserts the first fix commit refuses without an entry and names how to supply it
+- [x] `tests/verbs/commit.sh::test_mini_plan_commit_writes_supplied_entry` -> asserts the supplied entry lands in `CHANGELOG.md`
+- [x] `tests/verbs/issue.sh::test_close_refuses_without_fix_entry` -> asserts `close` refuses while the entry is empty
+- [x] `tests/verbs/issue.sh::test_close_resolution_is_changelog_entry` -> asserts without `summary` the archive resolution equals the entry
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: The Required Tests above.
+- [x] Task 1.1: The Required Tests above.
 
 ### Phase 2: Implementation
-- [ ] Task 2.1: Ledger check (2.1) in `lib/planning_health.sh`.
-- [ ] Task 2.2: `issue fix` and `close` (2.2, 2.4) in `lib/cmd_issue.sh`.
-- [ ] Task 2.3: First-commit refusal and entry (2.3) in `lib/cmd_commit.sh`.
-- [ ] Task 2.4: Contracts `lib/docs/verbs/{issue,commit,refine}.md`; agent text (2.5).
-- [ ] Task 2.5: Rectify rows in `ISSUES.md` (#108, #110, #111) during plan execution via `aapp refine issues` (2.6).
+- [x] Task 2.1: Ledger check (2.1) in `lib/planning_health.sh`.
+- [x] Task 2.2: `issue fix` and `close` (2.2, 2.4) in `lib/cmd_issue.sh`.
+- [x] Task 2.3: First-commit refusal and entry (2.3) in `lib/cmd_commit.sh`.
+- [x] Task 2.4: Contracts `lib/docs/verbs/{issue,commit,refine}.md`; agent text (2.5).
+- [x] Task 2.5: Empty every fix cell in `ISSUES.md` that holds text, via `aapp refine issues` (2.6).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
