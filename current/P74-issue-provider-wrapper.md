@@ -168,7 +168,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** The state directory's `<key>`: the remote URL (two clones of one project share notes; two projects with the same folder name don't collide), or the project name?
+* [x] **Question 1 — The state directory's `<key>`? → RESOLVED (developer, 2026-10-11):** derived from the remote URL (two clones of one project share notes; two projects with the same folder name do not collide); a repository with no remote uses its folder name.
 * [ ] **Question 2:** A second `note` for the same issue: appended, or replaces the first?
 * [ ] **Question 3:** Who writes notes: people only, or also the agent that logs the issue?
 * [ ] **Question 4:** The sync refresh window: a fixed length, or a config key?
