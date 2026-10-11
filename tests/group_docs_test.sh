@@ -77,6 +77,14 @@ else
   bad "test_report_names_replaced_and_added" "out=$out"
 fi
 
+out="$(group_docs_apply "$R/group.md" ARCHITECTURE.md "$R/ARCH.md" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && [ "$(cat "$R/ARCH.md")" = "$want" ] && echo "$out" | grep -qx 'unchanged: ## Modules' && \
+   echo "$out" | grep -qx 'unchanged: ## Brand New'; then
+  ok "test_reapply_reports_unchanged"
+else
+  bad "test_reapply_reports_unchanged" "rc=$rc out=$out"
+fi
+
 echo "== no changes =="
 printf '# Map\n## A\na\n' > "$R/MAP.md"; cp "$R/MAP.md" "$R/MAP.orig"
 out="$(group_docs_apply "$R/group.md" .agents/CODEMAP.md "$R/MAP.md" 2>&1)"; rc=$?

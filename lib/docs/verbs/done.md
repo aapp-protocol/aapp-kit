@@ -34,8 +34,10 @@
 - `pre-done` lifecycle hook exits non-zero (except 2) -> exit 1, vetoes archive; plan, matrix, and ledger unchanged (P-23)
 - Target Issue `#<n>` in neither `ISSUES.md` nor `done/000-issues-archive.md` -> exit 1, stderr `Target issue #<n> is in neither`; nothing moves (P-32)
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
+- group plan (P-64): a member still in `current/`, a section of `## Architecture & Codemap` whose file section changed since its base line (or has none), or a parent that does not merge cleanly into the feature branch -> exit 1, stderr names the member, section or branch; the parent, the feature branch and the plans are unchanged
 
 ## Effects (happy path)
+- group plan (P-64), before the normal path: the feature branch is checked out in `.workspace/P<n>` (with the kit links, recorded as the group's `Worktree:`); a parent that moved is merged in (`--no-verify`: its commits passed the hooks where they were made); the `ARCHITECTURE.md` sections are applied by heading (replaced, added, or unchanged on a retry) and committed with the group's umbrella changelog entry via `aapp commit`. Then `pre-done` runs with that worktree, the group is archived, P-55 fast-forwards the parent and removes the worktree and the feature branch, and the `.agents/CODEMAP.md` sections land in one `.agents` commit. A group always integrates (`ff`), whatever `aapp.integrate` says
 - the `pre-done` gating hook executes before any mutation (payload carries plan ID, plan file, commits, and `worktree`: the plan worktree's absolute path, empty without one); to require green tests, register the test gate sample (`examples/hooks/test-gate.sh.sample`, P-60)
 - the plan moves from `.plans/current/` to `.plans/done/`
 - its Status line reads `✅ Done`, and `## 📦 6. Change Log` gains a dated archival line
@@ -93,3 +95,10 @@ Run: `aapp test verb done`
 - `tests/integrate_test.sh::test_plan_without_worktree_never_integrated` -> a plan without a worktree is archived as before (P-55)
 - `tests/integrate_test.sh::test_hook_without_handler_refuses_before_archive` -> `hook` with no handler: refused, nothing archived (P-55)
 - `tests/integrate_test.sh::test_hook_delegate_replaces_builtin_and_retries` -> the handler gets the branches, built-in merge and cleanup skipped; a refusal leaves the plan archived and `integrate` retries (P-55)
+- `tests/integrate_test.sh::test_member_integrates_into_feature_branch` -> a member's `done` lands on the group's feature branch, not the parent (P-64)
+- `tests/integrate_test.sh::test_group_done_refuses_open_member` -> an open member: exit 1, parent and feature branch unchanged (P-64)
+- `tests/integrate_test.sh::test_group_done_gates_and_merges_into_parent` -> the gate sees the feature branch's worktree; the parent (a module branch) gets every member; member SHAs stay reachable (P-64)
+- `tests/integrate_test.sh::test_group_done_merges_moved_parent_before_gate` -> a parent that moved is merged in before the gate (P-64)
+- `tests/integrate_test.sh::test_group_done_commits_architecture_before_gate_codemap_after_merge` -> ARCHITECTURE sections at the gate, CODEMAP sections only after the merge, committed (P-64)
+- `tests/integrate_test.sh::test_group_done_writes_umbrella_changelog` -> the group's entry next to its members' (P-64)
+- `tests/integrate_test.sh::test_group_done_conflict_refuses_unchanged` -> a conflicting parent: exit 1, nothing changed (P-64)

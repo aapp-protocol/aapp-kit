@@ -99,10 +99,15 @@ group_docs_apply() {
     local plan="$1" key="$2" doc="$3" dir n i h base cur bad=0 tmp
     dir="$(mktemp -d)" || return 1
     n="$(_gd_split "$plan" "$key" "$dir")" || { rm -rf "$dir"; return 1; }
+    if [ "$n" -eq 0 ]; then rm -rf "$dir"; return 0; fi
+    [ -f "$doc" ] || : > "$doc" || { rm -rf "$dir"; return 1; }
     for ((i = 1; i <= n; i++)); do
         h="$(head -n 1 "$dir/$i.body")"; base="$(cat "$dir/$i.base")"
         if cur="$(_gd_section "$doc" "$h")"; then
-            if [ "$base" = "new" ]; then
+            # Already applied (a `done` retried after a refused gate): nothing to check.
+            if [ "$cur" = "$(cat "$dir/$i.body")" ]; then
+                :
+            elif [ "$base" = "new" ]; then
                 echo "❌ [Group Docs] $key: '$h' is new in the plan but now exists in the file; merge it into the plan's section and clear its base line." >&2; bad=1
             elif [ "$(printf '%s\n' "$cur" | group_docs_sum)" != "$base" ]; then
                 echo "❌ [Group Docs] $key: '$h' changed in the file since the plan took it over; update the plan's section and clear its base line." >&2; bad=1
@@ -119,7 +124,9 @@ group_docs_apply() {
     cp "$doc" "$tmp" || { rm -rf "$dir"; return 1; }
     for ((i = 1; i <= n; i++)); do
         h="$(head -n 1 "$dir/$i.body")"
-        if _gd_section "$tmp" "$h" >/dev/null; then
+        if [ "$(_gd_section "$tmp" "$h")" = "$(cat "$dir/$i.body")" ]; then
+            echo "unchanged: $h"
+        elif _gd_section "$tmp" "$h" >/dev/null; then
             _gd_replace "$tmp" "$h" "$dir/$i.body" > "$tmp.n" && mv "$tmp.n" "$tmp" || { rm -rf "$dir" "$tmp" "$tmp.n"; return 1; }
             echo "replaced: $h"
         else

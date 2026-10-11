@@ -348,6 +348,105 @@ _group_stamp_sections() {
     fi
 }
 
+# _group_done_prepare <group-plan> <group-id>: everything before the normal `done`
+# path. Refuses (feature branch and parent unchanged) while a member is open, a
+# section changed under its base line, or the parent cannot merge. Then: the
+# feature branch in `.workspace/P<n>` (recorded as the group's Worktree, so the
+# gate runs there and P-55 fast-forwards the parent), the moved parent merged in,
+# the ARCHITECTURE.md sections and the umbrella changelog entry committed.
+_group_done_prepare() {
+    local gf="$1" gid="$2" m open="" fb parent pref wt wt_rel tmp out
+    # shellcheck source=/dev/null
+    . "$(dirname "${BASH_SOURCE[0]}")/group_docs.sh"
+    for m in $(group_members "$gf"); do
+        [ -n "$(ls "$PLANS_DIR"/current/P"${m#P-}"-*.md 2>/dev/null)" ] && open="$open $m"
+    done
+    if [ -n "$open" ]; then
+        echo "❌ [Done Refusal] Group $gid has members not archived:$open. Archive them first ('aapp done <id>')." >&2
+        exit 1
+    fi
+    fb="$(parse_plan_field "$gf" "Feature Branch")"
+    parent="$(resolve_plan_integrate_target "$gf")" || parent=""
+    if ! git show-ref --verify --quiet "refs/heads/$fb" || [ -z "$parent" ] || \
+       ! pref="$(aapp_branch_ref "$parent")"; then
+        echo "❌ [Done Refusal] Group $gid: feature branch '$fb' or parent '${parent:-?}' not found." >&2
+        exit 1
+    fi
+    # Dry runs: the sections must apply to the parent's ARCHITECTURE.md and to CODEMAP.md.
+    tmp="$(mktemp -d)" || exit 1
+    git show "$pref:ARCHITECTURE.md" > "$tmp/arch" 2>/dev/null || : > "$tmp/arch"   # none on the parent: all sections new
+    cp "$PRIMARY_ROOT/.agents/CODEMAP.md" "$tmp/map" 2>/dev/null || : > "$tmp/map"    # none yet: all sections new
+    if ! group_docs_apply "$gf" ARCHITECTURE.md "$tmp/arch" >/dev/null || \
+       ! group_docs_apply "$gf" .agents/CODEMAP.md "$tmp/map" >/dev/null; then
+        rm -rf "$tmp"; exit 1
+    fi
+    rm -rf "$tmp"
+
+    wt_rel=".workspace/P${gid#P-}"; wt="$PRIMARY_ROOT/$wt_rel"
+    if [ -d "$wt" ]; then
+        if [ "$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)" != "$fb" ]; then
+            echo "❌ [Done Refusal] $wt_rel exists and is not on '$fb'." >&2
+            exit 1
+        fi
+    else
+        git worktree add -q "$wt" "$fb" || { echo "❌ [Done Refusal] git worktree add failed for '$wt_rel'." >&2; exit 1; }
+        _wt_link_kit "$wt" "Done Refusal" "$fb" || { _group_done_drop_wt "$wt"; exit 1; }
+    fi
+    if ! git merge-base --is-ancestor "$pref" "$fb"; then
+        # The parent's commits passed the hooks where they were made; this merge is
+        # their mechanical sum, so it skips them (as P-55's squash does).
+        if ! git -C "$wt" merge -q --no-edit --no-verify "$pref" >/dev/null 2>&1; then
+            git -C "$wt" merge --abort >/dev/null 2>&1
+            _group_done_drop_wt "$wt"
+            echo "❌ [Done Refusal] '$parent' does not merge cleanly into '$fb'; resolve it on the feature branch (a group-caused fix), then run 'aapp done $gid' again." >&2
+            exit 1
+        fi
+        echo "🔀 [Done] Merged '$parent' into '$fb'."
+    fi
+
+    write_plan_field "$gf" Worktree "$wt_rel ($fb)" "Feature Branch" || exit 1
+    local buf
+    buf="$(git -C "$wt" rev-parse --git-path aapp_active_plan)" || exit 1
+    case "$buf" in /*) ;; *) buf="$wt/$buf" ;; esac
+    write_active_buffer "$gid" "$buf"
+    out="$(group_docs_apply "$gf" ARCHITECTURE.md "$wt/ARCHITECTURE.md")" || exit 1
+    if [ -n "$out" ]; then printf '%s\n' "$out" | sed 's/^/   ARCHITECTURE.md /'; fi
+    (
+        cd "$wt" || exit 1
+        # shellcheck source=/dev/null
+        . "$(dirname "${BASH_SOURCE[0]}")/cmd_commit.sh"
+        changelog_sync_plan_entry "$gf" "$gid" >/dev/null || exit 1
+        if [ -f ARCHITECTURE.md ]; then git add ARCHITECTURE.md; fi
+        if [ -f CHANGELOG.md ]; then git add CHANGELOG.md; fi
+        if ! git diff --cached --quiet; then
+            "$AAPP_SCRIPT_DIR/aapp" commit "docs: group $gid architecture and changelog" || exit 1
+        fi
+    ) || { echo "❌ [Done Refusal] Could not commit the group's ARCHITECTURE.md and changelog in $wt_rel." >&2; exit 1; }
+}
+
+# _group_done_drop_wt <worktree>: removes a temporary group worktree and its links.
+_group_done_drop_wt() {
+    local l
+    for l in .githooks .agents .plans .claude; do [ -L "$1/$l" ] && rm -f "$1/$l"; done
+    git worktree remove --force "$1" >/dev/null 2>&1 || \
+        echo "⚠️  Could not remove '$1'; remove it with 'git worktree remove --force $1'." >&2
+}
+
+# _group_done_codemap <group-plan> <group-id>: after the merge, the CODEMAP.md
+# sections land in .agents in one commit.
+_group_done_codemap() {
+    local gf="$1" gid="$2" map="$PRIMARY_ROOT/.agents/CODEMAP.md" out
+    # shellcheck source=/dev/null
+    . "$(dirname "${BASH_SOURCE[0]}")/group_docs.sh"
+    out="$(group_docs_apply "$gf" .agents/CODEMAP.md "$map")" || {
+        echo "❌ [Done] $gid is merged, but its CODEMAP.md sections did not apply; update .agents/CODEMAP.md by hand." >&2; return 1; }
+    [ -n "$out" ] || return 0
+    printf '%s\n' "$out" | sed 's/^/   .agents\/CODEMAP.md /'
+    git -C "$PRIMARY_ROOT/.agents" add CODEMAP.md && \
+        git -C "$PRIMARY_ROOT/.agents" commit -q -m "rules(agents): codemap sections of group $gid" || {
+        echo "❌ [Done] Could not commit .agents/CODEMAP.md for $gid; commit it by hand." >&2; return 1; }
+}
+
 # _member_group_check <plan> <label>: a group member starts only in a plan
 # worktree (WT_MODE) and only once its group is ⚡ In Development.
 _member_group_check() {
@@ -464,30 +563,11 @@ _wt_prepare() {
 # their info/exclude entries, and the plan bound in the new worktree's buffer.
 # A link that cannot be made fails: never a copy (a second plan store).
 _wt_create() {
-    local pid="$1" label="$2" l rel exclude buf
+    local pid="$1" label="$2" buf
     git worktree add -q --no-track -b "$WT_BRANCH" "$WT_PATH" "$WT_BASE_REF" || {
         echo "❌ [$label] git worktree add failed for '$WT_PATH'." >&2; return 1; }
     WT_CREATED=1
-    exclude="$(git rev-parse --git-common-dir)/info/exclude"
-    mkdir -p "$(dirname "$exclude")" || return 1
-    case "$WT_PATH" in
-        "$PRIMARY_ROOT"/*)
-            local wt_rel="${WT_PATH#"$PRIMARY_ROOT"/}"
-            local wt_top="${wt_rel%%/*}"
-            if [ -n "$wt_top" ]; then
-                grep -qxF "/$wt_top" "$exclude" 2>/dev/null || echo "/$wt_top" >> "$exclude" || return 1
-            fi
-            ;;
-    esac
-    for l in .githooks .agents .plans .claude; do
-        grep -qxF "/$l" "$exclude" 2>/dev/null || echo "/$l" >> "$exclude" || return 1
-        [ -e "$PRIMARY_ROOT/$l" ] || continue
-        if [ -e "$WT_PATH/$l" ] || [ -L "$WT_PATH/$l" ]; then
-            echo "❌ [$label] Cannot link $l into the plan worktree: '$WT_BASE_NAME' already has $l there." >&2; return 1
-        fi
-        rel="$(aapp_rel_path "$WT_PATH" "$PRIMARY_ROOT/$l")"
-        ln -s "$rel" "$WT_PATH/$l" || { echo "❌ [$label] Cannot link $l into the plan worktree." >&2; return 1; }
-    done
+    _wt_link_kit "$WT_PATH" "$label" "$WT_BASE_NAME" || return 1
     buf="$(git -C "$WT_PATH" rev-parse --git-path aapp_active_plan)" || return 1
     case "$buf" in /*) ;; *) buf="$WT_PATH/$buf" ;; esac
     write_active_buffer "$pid" "$buf"
@@ -509,6 +589,32 @@ _wt_locate() {
 
 # _wt_rollback: removes what this start created (worktree, links, branch, the
 # new buffer) and restores the plan file and state_matrix.md from the snapshot.
+# _wt_link_kit <worktree> <label> <branch>: links .githooks, .agents, .plans and
+# .claude from the primary checkout into <worktree>, listed in info/exclude.
+_wt_link_kit() {
+    local wt="$1" label="$2" l rel exclude
+    exclude="$(git rev-parse --git-common-dir)/info/exclude"
+    mkdir -p "$(dirname "$exclude")" || return 1
+    case "$wt" in
+        "$PRIMARY_ROOT"/*)
+            local wt_rel="${wt#"$PRIMARY_ROOT"/}"
+            local wt_top="${wt_rel%%/*}"
+            if [ -n "$wt_top" ]; then
+                grep -qxF "/$wt_top" "$exclude" 2>/dev/null || echo "/$wt_top" >> "$exclude" || return 1
+            fi
+            ;;
+    esac
+    for l in .githooks .agents .plans .claude; do
+        grep -qxF "/$l" "$exclude" 2>/dev/null || echo "/$l" >> "$exclude" || return 1
+        [ -e "$PRIMARY_ROOT/$l" ] || continue
+        if [ -e "$wt/$l" ] || [ -L "$wt/$l" ]; then
+            echo "❌ [$label] Cannot link $l into the plan worktree: '$3' already has $l there." >&2; return 1
+        fi
+        rel="$(aapp_rel_path "$wt" "$PRIMARY_ROOT/$l")"
+        ln -s "$rel" "$wt/$l" || { echo "❌ [$label] Cannot link $l into the plan worktree." >&2; return 1; }
+    done
+}
+
 _wt_rollback() {
     local wt="$WT_PATH" br="$WT_BRANCH"
     if [ "${WT_CREATED:-0}" -eq 1 ]; then
@@ -749,7 +855,7 @@ _ig_preflight() {
 # lineage and attribution trailers.
 _ig_message() {
     local pf="$1" pid="$2" out="$3" title decl max subject identity
-    title="$(grep -m 1 -E '^# ' "$pf" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*)?Plan[^:]*:[[:space:]]*//')"
+    title="$(grep -m 1 -E '^# ' "$pf" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*|🧩[[:space:]]*Group[[:space:]]+)?Plan[^:]*:[[:space:]]*//')"
     max="$(git config --int aapp.subjectMaxLen 2>/dev/null)" || max=72
     subject="feat: $title ($pid)"
     if [ "${#subject}" -gt "$max" ]; then subject="feat: ${title:0:$((max - ${#pid} - 13))}... ($pid)"; fi
@@ -1645,6 +1751,14 @@ cmd_done() {
         exit 1
     fi
 
+    # P-64: a group plan's `done` prepares its feature branch, then follows the
+    # normal path: the gate runs on the feature branch, P-55 fast-forwards the parent.
+    local is_group=0
+    if aapp_is_group_plan "$plan_file"; then
+        is_group=1
+        _group_done_prepare "$plan_file" "$(sed -nE 's/^\* \*\*Plan ID:\*\*[[:space:]]*(P-[0-9]+).*/\1/p' "$plan_file" | head -n 1)"
+    fi
+
     # P-54: a plan with its own worktree is archived only from a clean worktree.
     local wt_rec wt_rel="" wt_br="" wt_abs=""
     wt_rec="$(parse_plan_worktree "$plan_file")"
@@ -1818,6 +1932,8 @@ cmd_done() {
     # P-55: decide on integration and run every integration check now, before
     # pre-done and the archive commit: a refusal leaves nothing archived.
     _ig_decide "$plan_file" || exit 1
+    # A group always fast-forwards its parent: its merge already happened (P-64).
+    if [ "$is_group" -eq 1 ]; then IG_DO=1; IG_MODE=ff; fi
     if [ "$IG_DO" -eq 1 ]; then
         _ig_preflight "$plan_file" "$plan_id" || exit 1
     fi
@@ -1883,7 +1999,7 @@ cmd_done() {
         case "$target_issue" in
             ""|*"[Issue ID or Milestone]"*) target_issue="None" ;;
         esac
-        summary="$(grep -m 1 -E '^# ' "$done_file" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*)?Plan[^:]*:[[:space:]]*//')"
+        summary="$(grep -m 1 -E '^# ' "$done_file" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*|🧩[[:space:]]*Group[[:space:]]+)?Plan[^:]*:[[:space:]]*//')"
         [ -z "$summary" ] && summary="None"
         if [ -n "$tdd_badge" ]; then
             summary="$summary ($tdd_badge)"
@@ -1901,7 +2017,7 @@ cmd_done() {
     # P-32: relocate the target issue row; committed below with the archive.
     local close_summary="" unblocked_paths=""
     if [ "$close_where" = "active" ]; then
-        close_summary="[$plan_id]($bname) - $(grep -m 1 -E '^# ' "$done_file" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*)?Plan[^:]*:[[:space:]]*//')"
+        close_summary="[$plan_id]($bname) - $(grep -m 1 -E '^# ' "$done_file" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*|🧩[[:space:]]*Group[[:space:]]+)?Plan[^:]*:[[:space:]]*//')"
         issue_close_local "$close_issue" "$commit_sha" "$close_summary" || exit 1
         # P-52: a plan blocked on this issue (a hotfix promoted to this plan) resumes.
         unblocked_paths="$(issue_unblock_plans "$close_issue")" || exit 1
@@ -1968,6 +2084,7 @@ cmd_done() {
     # P-55: integrate and clean up after the archive (the checks ran before it).
     if [ "$IG_DO" -eq 1 ]; then
         _ig_run "$done_file" "$plan_id" || exit 1
+        if [ "$is_group" -eq 1 ]; then _group_done_codemap "$done_file" "$plan_id" || exit 1; fi
     elif [ -n "$wt_rec" ]; then
         # P-54 / aapp.integrate = manual: the developer integrates.
         echo "   Worktree     : $wt_rel ($wt_br) is kept. Integrate with: aapp done $plan_id integrate"
