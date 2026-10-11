@@ -108,7 +108,57 @@ The `aapp plan` verb dispatcher in `lib/cmd_plan.sh` is extended with three conc
 The tool is standalone: it works on any plans, in any status, grouped or not. A group plan (P-64) is one more input:
 - `aapp plan conflict-check <id> <id>…`: two or more plans; a group plan ID expands to its planned members. Exit 0 when all are pairwise disjoint, 1 otherwise, naming each colliding pair and file.
 - `aapp plan conflict-free <group>`: the group's **implementation order**: members in waves, each wave pairwise disjoint (and disjoint from plans already in flight), so one agent per member of a wave can work at the same time. Members are placed in their listed order, each into the first wave it fits. The output names, for each member held back, the file and member that pushed it to a later wave, so the plans can be reshaped and checked again. Exit 0 (informational).
+- **Group Member Status Filtering**:
+  - `✅ Done` members: omitted from wave scheduling (their work is already integrated into the feature branch).
+  - `⚡ In Development` members: treated as active in-flight locks (candidate Wave 1 plans cannot collide with them).
+  - Pending members (`🟣 Under Review`, `🔷 Frozen`, `📝 Refining`): scheduled into subsequent execution waves (`Wave 1`, `Wave 2`, etc.).
 - Shared docs stay exempt as in §2.1.
+
+#### 5. Machine-Readable Automation Token (`json`)
+Following AAPP keyword token conventions (no double dashes `--`), appending the bare keyword `json` to any subcommand switches output from human ANSI text to structured JSON on stdout (exit codes remain strictly unchanged: 0 clean, 1 collision for `conflict-check`):
+- `aapp plan conflict-check <id> <id>… json`:
+  ```json
+  {
+    "clean": true,
+    "plans": ["P-64", "P-65"],
+    "collisions": [],
+    "shared_docs": ["CHANGELOG.md"]
+  }
+  ```
+  On collision (exit 1):
+  ```json
+  {
+    "clean": false,
+    "plans": ["P-62", "P-63"],
+    "collisions": [
+      {
+        "plan_a": "P-62",
+        "plan_b": "P-63",
+        "target": "tests/verbs/status.sh"
+      }
+    ],
+    "shared_docs": []
+  }
+  ```
+- `aapp plan conflict-free <group> json`:
+  ```json
+  {
+    "group": "P-64",
+    "waves": [
+      { "wave": 1, "plans": ["P-65", "P-66"] },
+      { "wave": 2, "plans": ["P-67"], "held_back": [ { "plan": "P-67", "collides_with": "P-65", "target": "tests/verbs/plan.sh" } ] }
+    ]
+  }
+  ```
+- `aapp plan conflict-free [json]` / `aapp plan conflict-free <id> json`:
+  ```json
+  {
+    "conflict_free": ["P-65", "P-66"],
+    "conflicting": [
+      { "plan": "P-67", "collides_with": "P-60", "target": "lib/cmd_test.sh" }
+    ]
+  }
+  ```
 
 ### 2.2 Core Comparison Helper (`lib/cmd_plan.sh`)
 
@@ -139,13 +189,15 @@ Implement helper function:
 - [ ] Task 1.6: `tests/verbs/plan.sh`: Add test `test_conflict_check_many_plans_and_group_expands`.
 - [ ] Task 1.7: `tests/verbs/plan.sh`: Add test `test_conflict_free_group_orders_members_in_waves` (three members, two colliding: two waves, the held-back member names the file and member).
 - [ ] Task 1.8: `tests/verbs/plan.sh`: Add test `test_group_waves_respect_in_flight_plans`.
+- [ ] Task 1.9: `tests/verbs/plan.sh`: Add test `test_group_waves_filters_done_and_inflight_members` (done members skipped, inflight members anchor collisions).
+- [ ] Task 1.10: `tests/verbs/plan.sh`: Add test `test_conflict_subcommands_json_token_output` (validates structured JSON and exit code parity across check, free, and waves).
 
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: Implement `plan_compare_targets()` helper in `lib/cmd_plan.sh`.
 - [ ] Task 2.2: Implement `cmd_plan_conflict_check()` and wire into `cmd_plan` dispatcher.
 - [ ] Task 2.3: Implement `cmd_plan_conflict_free()` (handling both 0-arg and 1-arg cases).
 - [ ] Task 2.4: Update `aapp plan` switchboard / help output to list `conflict-check` and `conflict-free`.
-- [ ] Task 2.5: Plan sets and group waves (§2.1.4), reading the group's members through P-64's parsers.
+- [ ] Task 2.5: Plan sets, group waves, member status filtering, and `json` token support (§2.1.4, §2.1.5), reading group members through P-64's parsers.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases (non-existent plan IDs, plans with empty target files).
@@ -176,12 +228,13 @@ Implement helper function:
 
 ## ❓ 5. Open Questions (Optional / Gate)
 * [x] **Question 1 — Exit codes for scriptability. → RESOLVED (developer, 2026-10-10): `conflict-check` returns exit 0 on clean/disjoint, exit 1 on collision.** This allows scripts, CI checks, or multi-agent dispatchers (`aapp dispatch`) to automate concurrency checks via `if aapp plan conflict-check P1 P2; then ... fi`.
-* [ ] **Question 3 — Order beyond shared files.** Waves see only Target File overlap; a member may need another's result (an API, a schema) without sharing a file. (a) Files only; the human orders such members by their place in the group's member list. (b) A member header `* **After:** P-<n>` that the waves respect. Recommendation: (a) for now; (b) when a real case shows up.
-* [ ] **Question 4 — Sequence with P-64.** Group input needs P-64's group plan and member parsers. (a) P-65 after P-64. (b) P-65 first without group input, groups added later. Recommendation: (a); one plan, one design.
 * [x] **Question 2 — Scope of `conflict-free`. → RESOLVED (developer, 2026-10-10): Pure target files comparison.** Scans `### 📂 Target Files` of plans in `.plans/current/`. Pending issue blocker checks remain in `aapp start` activation gates.
+* [x] **Question 3 — Order beyond shared files. → RESOLVED (developer/agent, 2026-10-11): (a) Files only; waves govern file-disjoint concurrency.** Waves model concurrent execution safety (blast radius disjointness). If a plan has an API or semantic dependency without file collision, the human sequences their execution order. A prospective `After:` header can be revisited if automated multi-agent dependency graphs require it.
+* [x] **Question 4 — Sequence with P-64. → RESOLVED (developer/agent, 2026-10-11): (a) P-65 executes after P-64.** P-65 consumes P-64's group template, `# 🧩 Group Plan` heading marker, and group member parsers in `lib/aapp-lib.sh`. One cohesive design.
 
 ---
 
 ## 6. Change Log & Refinement History
+* **2026-10-11:** Resolved Q3 (waves govern file-disjoint concurrency) and Q4 (P-65 after P-64). Added keyword token 'json' (no double dashes) for structured automation output across check and free subcommands. Added group member status filtering for done and in-flight members.
 * **2026-10-11:** Standalone for any plans; plan sets; a group plan's members ordered in waves (developer). Q3, Q4 open.
 * **2026-10-10:** Scaffolded and fully refined from developer specification: added `conflict-check <id1> <id2>`, `conflict-free` (0-arg for in-flight plans), and `conflict-free <id>` (1-arg for reference plan). Defined CLI ingress, output formatting, exit codes, and test checklist.
