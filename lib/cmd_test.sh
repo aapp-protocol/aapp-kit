@@ -230,11 +230,13 @@ cmd_test() {
         [ -n "$f" ] && all_suites+=("$f")
     done < <(find "$test_dir" -maxdepth 1 -name '*_test.sh' | sort)
 
+    # Verb suites with their parts right after them: `<verb>.sh`, then
+    # `<verb>.<part>.sh` (P-68); sorting without `.sh` puts `draft` before `draft.x`.
     local verb_suites=()
     if [ -d "$test_dir/verbs" ]; then
         while IFS= read -r f; do
-            [ -n "$f" ] && verb_suites+=("$f")
-        done < <(find "$test_dir/verbs" -maxdepth 1 -name '*.sh' | sort)
+            [ -n "$f" ] && verb_suites+=("$f.sh")
+        done < <(find "$test_dir/verbs" -maxdepth 1 -name '*.sh' | sed 's/\.sh$//' | LC_ALL=C sort)
     fi
 
     if [ ${#all_suites[@]} -eq 0 ] && [ ${#verb_suites[@]} -eq 0 ]; then
@@ -260,6 +262,10 @@ cmd_test() {
                     return 1
                 fi
                 selected_suites+=("$test_dir/verbs/$vn.sh")
+                local part
+                for part in "$test_dir/verbs/$vn".*.sh; do
+                    [ -f "$part" ] && selected_suites+=("$part")
+                done
             done
         fi
         if [ ${#selected_suites[@]} -eq 0 ]; then
@@ -313,7 +319,10 @@ cmd_test() {
             local desc=""
             # Extract first comment line after shebang if present
             desc="$(grep -m 1 -E '^#[[:space:]]*Tests:|^#[[:space:]]*Automated' "$suite" 2>/dev/null | sed -E 's/^#[[:space:]]*//' || true)"
-            if [ -n "$desc" ]; then
+            # A part (verb/<verb>.<part>) is listed under its verb (P-68).
+            if [[ "$bname" == verb/*.* ]]; then
+                printf "      ↳ %s\n" "$bname"
+            elif [ -n "$desc" ]; then
                 printf "  • \033[1m%-24s\033[0m %s\n" "$bname" "$desc"
             else
                 printf "  • \033[1m%-24s\033[0m\n" "$bname"
