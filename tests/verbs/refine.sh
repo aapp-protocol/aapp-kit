@@ -234,4 +234,27 @@ else
   bad "test_refine_issues_validation_refuses" "a malformed ledger was committed or not refused"
 fi
 
+echo "== group membership (P-64) =="
+init_sandbox_project "$R/g"
+cd "$R/g" || exit 1
+gid="P-$(git config aapp.planId)"; aapp draft grp group >/dev/null 2>&1
+gf="$(ls .plans/current/P"${gid#P-}"-*.md)"
+pid="P-$(git config aapp.planId)"; aapp draft member-a >/dev/null 2>&1
+pf="$(ls .plans/current/P"${pid#P-}"-*.md)"
+aapp refine "$pid" group "$gid" >/dev/null 2>&1; r1=$?
+joined=0; grep -qx "\* \*\*Group:\*\* $gid" "$pf" && grep -qx "\* \*\*Members:\*\* $pid" "$gf" && joined=1
+aapp refine "$pid" group none >/dev/null 2>&1; r2=$?
+left=0; ! grep -q '^\* \*\*Group:\*\*' "$pf" && grep -qx '\* \*\*Members:\*\* none' "$gf" && left=1
+aapp refine "$pid" group "$gid" >/dev/null 2>&1
+# Fixture: the member as started (the status the verbs would have written).
+sed -i -E 's/^\* \*\*Status:\*\*.*/* **Status:** ⚡ In Development/' "$pf"
+git -C .plans commit -qam "fixture: $pid started" >/dev/null 2>&1
+aapp refine "$pid" group none >/dev/null 2>&1; r3=$?
+if [ "$r1" -eq 0 ] && [ "$joined" -eq 1 ] && [ "$r2" -eq 0 ] && [ "$left" -eq 1 ] && [ "$r3" -ne 0 ] && \
+   grep -qx "\* \*\*Group:\*\* $gid" "$pf"; then
+  ok "test_refine_joins_and_leaves_group"
+else
+  bad "test_refine_joins_and_leaves_group" "join=$r1/$joined leave=$r2/$left started=$r3"
+fi
+
 print_test_summary "$PASS" "$FAIL"

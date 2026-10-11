@@ -162,4 +162,28 @@ else
   bad "test_draft_issue_refuses_archived_or_unknown" "rc=$r1/$r2 planId=$(git config --get aapp.planId) want=$pid"
 fi
 
+echo "== group plans (P-64) =="
+cd "$(fresh groups)" || exit 1
+gid="$(git config --get aapp.planId)"
+out="$(aapp draft auth-rework group 2>&1)"; rc=$?
+gf=".plans/current/P${gid}-auth-rework.md"
+if [ "$rc" -eq 0 ] && [ -f "$gf" ] && grep -q "^# 🧩 Group Plan P-${gid}: Auth Rework$" "$gf" && \
+   grep -qx '\* \*\*Feature Branch:\*\* none' "$gf" && grep -qx '\* \*\*Members:\*\* none' "$gf" && \
+   grep -q '^## Architecture & Codemap' "$gf" && [ -z "$(placeholders_left "$gf")" ] && \
+   [ "$(git config --get aapp.planId)" -gt "$gid" ] && [ -z "$(git -C .plans status --porcelain)" ]; then
+  ok "test_draft_group_scaffolds_group_plan"
+else
+  bad "test_draft_group_scaffolds_group_plan" "rc=$rc out=$out"
+fi
+mid="$(git config --get aapp.planId)"
+out="$(aapp draft login-form group "P-$gid" 2>&1)"; rc=$?
+mf=".plans/current/P${mid}-login-form.md"
+if [ "$rc" -eq 0 ] && grep -qx "\* \*\*Group:\*\* P-$gid" "$mf" && \
+   grep -qx "\* \*\*Members:\*\* P-$mid" "$gf" && grep -q '🟣 Under Review' "$gf" && \
+   [ -z "$(git -C .plans status --porcelain)" ]; then
+  ok "test_draft_member_joins_group"
+else
+  bad "test_draft_member_joins_group" "rc=$rc out=$out members=$(grep 'Members:' "$gf")"
+fi
+
 print_test_summary "$PASS" "$FAIL"

@@ -140,4 +140,22 @@ else
   bad "test_refuses_uncommitted_plan_edits" "rc=$rc out=$out"
 fi
 
+echo "== group plans (P-64) =="
+gid="P-$(git config --get aapp.planId)"; aapp draft grp-arch group >/dev/null 2>&1; gf="$(plan_file "$gid")"
+resolve_questions "$gf"
+# Without the section: refused.
+awk '/^## Architecture & Codemap/{skip=1; next} /^## /{skip=0} !skip' "$gf" > "$gf.tmp" && mv "$gf.tmp" "$gf"
+git -C .plans commit -qam "drop arch section" >/dev/null
+out1="$(aapp freeze "$gid" 2>&1)"; r1=$?
+# "No changes" is a valid entry.
+printf '\n## Architecture & Codemap\nNo changes.\n' >> "$gf"
+git -C .plans commit -qam "arch: no changes" >/dev/null
+out2="$(aapp freeze "$gid" 2>&1)"; r2=$?
+if [ "$r1" -ne 0 ] && echo "$out1" | grep -q "Architecture & Codemap" && [ "$r2" -eq 0 ] && \
+   status_of "$gf" | grep -q '🔷 Frozen'; then
+  ok "test_group_freeze_refuses_missing_architecture_section"
+else
+  bad "test_group_freeze_refuses_missing_architecture_section" "r1=$r1 r2=$r2 out1=$out1 out2=$out2"
+fi
+
 print_test_summary "$PASS" "$FAIL"

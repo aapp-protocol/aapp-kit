@@ -1310,6 +1310,26 @@ git config aapp.commitMode atomic
 rm -f .plans/current/p51.md
 check "atomic: no plan in development is unaffected (P-51)" PASS src/a.py
 
+echo "== group members leave ARCHITECTURE.md to their group (P-64) =="
+setup
+git config aapp.commitMode microcommits
+plan_with_group() {
+  mkdir -p .plans/current
+  { echo "* **Plan ID:** P-71"; echo "* **Status:** ⚡ In Development"; [ -n "$1" ] && echo "* **Group:** $1"
+    echo "## 💥 4. Blast Radius & System Boundaries"; echo "### 📂 Target Files (Modifications & Additions)"
+    echo "- [ ] \`src/a.py\` -> target"; echo "### 🛑 Out of Bounds (Do Not Touch)"; echo "## end"; } > .plans/current/p71.md
+}
+plan_with_group "P-70"
+out="$( { echo "- bump" >> CHANGELOG.md; echo "# arch" >> ARCHITECTURE.md; git add CHANGELOG.md ARCHITECTURE.md; git commit -m t 2>&1; } )"; rc=$?
+git reset -q; git checkout -q . 2>/dev/null; rm -f ARCHITECTURE.md
+if [ "$rc" -ne 0 ] && echo "$out" | grep -q "P-70"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "test_member_commit_refuses_architecture" "BLOCK"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want BLOCK naming P-70 got rc=%s\n" "test_member_commit_refuses_architecture" "$rc"; FAIL=$((FAIL+1))
+fi
+plan_with_group ""
+check "plan without a group may commit ARCHITECTURE.md (P-64)" PASS ARCHITECTURE.md
+
 print_test_summary "$PASS" "$FAIL"
 
 

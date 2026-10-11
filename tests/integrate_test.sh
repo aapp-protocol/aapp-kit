@@ -195,5 +195,119 @@ else
   bad "test_hook_delegate_replaces_builtin_and_retries" "rc=$rc1/$rc2 archived=$archived out=$out | $out2 json=$(cat "$R/integ.json" 2>/dev/null)"
 fi
 rm -f "$hd/registry.tsv" "$hd/integ.sh"
+unset AAPP_HOOK_OUT AAPP_HOOK_FAIL
+
+echo "== group plans (P-64) =="
+init_sandbox_project "$R/gi"
+cd "$R/gi" || exit 1
+printf '%s\n' '.env' >> .gitignore
+git add -A && git commit -qm "track init files" --no-verify
+GPRIM="$(git rev-parse --abbrev-ref HEAD)"
+git branch develop; git branch module/m
+git config aapp.planWorktrees on
+git config aapp.commitMode microcommits
+git config aapp.integrate ff
+git config aapp.issueFixWait 0
+# A pre-done recorder: for the group only, what the gate saw.
+hd=".agents/skills/aapp-hooks"; mkdir -p "$hd"
+cat > "$hd/rec.sh" <<EOF
+#!/usr/bin/env bash
+p="\$(cat)"
+id="\$(printf '%s' "\$p" | sed -nE 's/.*"plan_id": *"([^"]*)".*/\1/p' | head -1)"
+wt="\$(printf '%s' "\$p" | sed -nE 's/.*"worktree": *"([^"]*)".*/\1/p' | head -1)"
+[ "\$id" = "\$(cat "$R/gi-group" 2>/dev/null)" ] || exit 0
+{ echo "wt=\$wt"
+  grep -q GROUP-ARCH "\$wt/ARCHITECTURE.md" 2>/dev/null && echo arch=yes || echo arch=no
+  grep -q GROUP-MAP "$R/gi/.agents/CODEMAP.md" && echo map=yes || echo map=no
+  [ -f "\$wt/src/moved.sh" ] && echo moved=yes || echo moved=no; } > "$R/gi-gate"
+EOF
+chmod +x "$hd/rec.sh"
+aapp hook-hash "$hd/rec.sh" pre-done 30 gate 2>/dev/null | grep "^pre-done" > "$hd/registry.tsv"
+gpf() { ls .plans/current/P"${1#P-}"-*.md 2>/dev/null || ls .plans/done/P"${1#P-}"-*.md; }
+resolve_q() { sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$1"; }
+# g_plan <slug> <parent>: a started group with one ARCHITECTURE and one CODEMAP section.
+g_plan() {
+  local id f; id="P-$(git config aapp.planId)"; aapp draft "$1" group >/dev/null 2>&1; f="$(gpf "$id")"
+  awk -v a="$(printf '### ARCHITECTURE.md\n````markdown\n## Group Arch %s\nGROUP-ARCH\n````\n### .agents/CODEMAP.md\n````markdown\n## Group Map %s\nGROUP-MAP\n````' "$1" "$1")" '
+    /^## Architecture & Codemap/ { print; print a; skip = 1; next } /^## / { skip = 0 } !skip' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  sed -i -E "s|^\* \*\*Changelog:\*\*.*|* **Changelog:** Added: umbrella $1|" "$f"; resolve_q "$f"
+  aapp refine "$id" "sections" >/dev/null 2>&1
+  aapp freeze "$id" >/dev/null 2>&1 && aapp start "$id" base "$2" >/dev/null 2>&1
+  echo "$id"
+}
+# g_member <slug> <group>: a member started into the group with one commit; prints its id.
+g_member() {
+  local id f; id="P-$(git config aapp.planId)"; aapp draft "$1" group "$2" >/dev/null 2>&1; f="$(gpf "$id")"
+  sed -i -E "s|src/path/to/file\.ext|src/$1.sh|g; /src\/path\/to\/new_file\.ext/d" "$f"; resolve_q "$f"
+  git -C .plans commit -qam "prep $id" >/dev/null 2>&1
+  aapp freeze-start "$id" >/dev/null 2>&1
+  ( cd "$R/gi/.workspace/P${id#P-}" && mkdir -p src && echo "v=1" > "src/$1.sh" && git add "src/$1.sh" && aapp commit "feat: $1" >/dev/null 2>&1 )
+  echo "$id"
+}
+
+g="$(g_plan grp module/m)"; echo "$g" > "$R/gi-group"
+a="$(g_member mem-a "$g")"
+out="$(aapp done "$a" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && git show feature/grp:src/mem-a.sh >/dev/null 2>&1 && ! git show module/m:src/mem-a.sh >/dev/null 2>&1; then
+  ok "test_member_integrates_into_feature_branch"
+else
+  bad "test_member_integrates_into_feature_branch" "rc=$rc out=$out"
+fi
+
+b="$(g_member mem-b "$g")"; mod0="$(git rev-parse module/m)"; fb0="$(git rev-parse feature/grp)"
+out="$(aapp done "$g" 2>&1)"; rc=$?
+if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "$b" && [ "$(git rev-parse module/m)" = "$mod0" ] && \
+   [ "$(git rev-parse feature/grp)" = "$fb0" ] && [ -f ".plans/current/$(basename "$(gpf "$g")")" ]; then
+  ok "test_group_done_refuses_open_member"
+else
+  bad "test_group_done_refuses_open_member" "rc=$rc out=$out"
+fi
+aapp done "$b" >/dev/null 2>&1
+# The parent moves while the group runs.
+git worktree add -q "$R/gi-mod" module/m && echo "m=1" > "$R/gi-mod/src-moved.tmp" && mkdir -p "$R/gi-mod/src" && \
+  mv "$R/gi-mod/src-moved.tmp" "$R/gi-mod/src/moved.sh" && git -C "$R/gi-mod" add src/moved.sh && \
+  git -C "$R/gi-mod" commit -qm "parent moved" --no-verify && git worktree remove "$R/gi-mod"
+asha="$(sed -nE 's/^- `([0-9a-f]+)`.*/\1/p' "$(gpf "$a")" | head -1)"
+[ -n "$asha" ] || asha="$(sed -nE 's/.*Commits:\*\* `([0-9a-f]+)`.*/\1/p' "$(gpf "$a")" | head -1)"
+out="$(aapp done "$g" 2>&1)"; rc=$?
+gate="$(cat "$R/gi-gate" 2>/dev/null)"
+if [ "$rc" -eq 0 ] && git show module/m:src/mem-a.sh >/dev/null 2>&1 && git show module/m:src/mem-b.sh >/dev/null 2>&1 && \
+   ! git rev-parse --verify -q feature/grp >/dev/null && [ -n "$asha" ] && git merge-base --is-ancestor "$asha" module/m && \
+   [ -f ".plans/done/$(basename "$(gpf "$g")")" ] && echo "$gate" | grep -q "^wt=$R/gi/"; then
+  ok "test_group_done_gates_and_merges_into_parent"
+else
+  bad "test_group_done_gates_and_merges_into_parent" "rc=$rc asha=$asha gate=$gate out=$out"
+fi
+if echo "$gate" | grep -qx moved=yes && git show module/m:src/moved.sh >/dev/null 2>&1; then
+  ok "test_group_done_merges_moved_parent_before_gate"
+else
+  bad "test_group_done_merges_moved_parent_before_gate" "gate=$gate"
+fi
+if echo "$gate" | grep -qx arch=yes && echo "$gate" | grep -qx map=no && \
+   git show module/m:ARCHITECTURE.md | grep -q GROUP-ARCH && grep -q GROUP-MAP .agents/CODEMAP.md && \
+   [ -z "$(git -C .agents status --porcelain CODEMAP.md)" ]; then
+  ok "test_group_done_commits_architecture_before_gate_codemap_after_merge"
+else
+  bad "test_group_done_commits_architecture_before_gate_codemap_after_merge" "gate=$gate"
+fi
+if git show module/m:CHANGELOG.md | grep -qF "umbrella grp (\`$g\`)" && git show module/m:CHANGELOG.md | grep -qF "(\`$a\`)"; then
+  ok "test_group_done_writes_umbrella_changelog"
+else
+  bad "test_group_done_writes_umbrella_changelog" "$(git show module/m:CHANGELOG.md | grep -E 'P-' | head -5)"
+fi
+
+g2="$(g_plan grp-two develop)"; echo "$g2" > "$R/gi-group"
+c="$(g_member mem-c "$g2")"; aapp done "$c" >/dev/null 2>&1
+git worktree add -q "$R/gi-dev" develop && mkdir -p "$R/gi-dev/src" && echo "conflict=1" > "$R/gi-dev/src/mem-c.sh" && \
+  git -C "$R/gi-dev" add src/mem-c.sh && git -C "$R/gi-dev" commit -qm "conflicting" --no-verify && git worktree remove "$R/gi-dev"
+dev0="$(git rev-parse develop)"; fb0="$(git rev-parse feature/grp-two)"
+out="$(aapp done "$g2" 2>&1)"; rc=$?
+if [ "$rc" -ne 0 ] && [ "$(git rev-parse develop)" = "$dev0" ] && [ "$(git rev-parse feature/grp-two)" = "$fb0" ] && \
+   [ -f ".plans/current/$(basename "$(gpf "$g2")")" ] && [ "$(git rev-parse --abbrev-ref HEAD)" = "$GPRIM" ] && \
+   ! grep -q GROUP-MAP.*grp-two .agents/CODEMAP.md && ! grep -q "Group Map grp-two" .agents/CODEMAP.md; then
+  ok "test_group_done_conflict_refuses_unchanged"
+else
+  bad "test_group_done_conflict_refuses_unchanged" "rc=$rc out=$out"
+fi
 
 print_test_summary "$PASS" "$FAIL"

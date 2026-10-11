@@ -41,4 +41,17 @@ else
   bad "test_plan_worktree_shown_next_to_plan" "$(echo "$out" | grep -F "$sid")"
 fi
 
+# P-64: members are listed under their group.
+gid="P-$(git config aapp.planId)"; aapp draft grouped group >/dev/null 2>&1
+mid="P-$(git config aapp.planId)"; aapp draft in-group group "$gid" >/dev/null 2>&1
+out="$(aapp status 2>&1)"
+gline="$(printf '%s\n' "$out" | grep -n "$gid: " | head -1 | cut -d: -f1)"
+mline="$(printf '%s\n' "$out" | grep -n "$mid: " | head -1 | cut -d: -f1)"
+if [ -n "$gline" ] && [ -n "$mline" ] && [ "$mline" -eq $((gline + 1)) ] && \
+   printf '%s\n' "$out" | sed -n "${mline}p" | grep -qE "^ {4,}.*$mid: "; then
+  ok "test_members_listed_under_group"
+else
+  bad "test_members_listed_under_group" "$(printf '%s\n' "$out" | grep -E "$gid|$mid")"
+fi
+
 print_test_summary "$PASS" "$FAIL"
