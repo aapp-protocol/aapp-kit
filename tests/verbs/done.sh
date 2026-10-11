@@ -280,6 +280,26 @@ else
   bad "test_done_from_plan_worktree_archives" "rc=$rc out=$out"
 fi
 
+echo "== a TDD plan with a worktree, done from the primary (#119) =="
+cd "$R/dw" || exit 1
+dt="$(draft_plan dwt)"; dft="$(plan_file "$dt")"; dnt="${dt#P-}"
+aapp tdd "$dt" >/dev/null 2>&1
+sed -i -E "s|src/path/to/file\.ext|src/dwt.sh|g; s|src/path/to/new_file\.ext|tests/dwt_test.sh|g; s/^\* \[ \] \*\*Question/* [x] **Question/" "$dft"
+sed -i -E '/^> Test assertions that must fail/a - [ ] `tests/dwt_test.sh::test_dwt` -> asserts dwt' "$dft"
+sed -i -E '/^> Test files that must prove/a - `tests/dwt_test.sh`' "$dft"
+git -C .plans commit -qam "prepare $dt" >/dev/null
+aapp freeze-start "$dt" >/dev/null 2>&1
+( cd "$R/dw/.workspace/P$dnt" && mkdir -p src tests && echo "v=1" > src/dwt.sh && echo "# t" > tests/dwt_test.sh && \
+  git add src/dwt.sh tests/dwt_test.sh && aapp commit "feat: dwt" >/dev/null 2>&1 )
+sed -i -E 's/^- \[ \] (`tests\/dwt_test\.sh::)/- [x] \1/' "$dft"
+git -C .plans commit -qam "tick $dt" >/dev/null
+out="$(aapp done "$dt" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && [ -f ".plans/done/$(basename "$dft")" ] && [ ! -f tests/dwt_test.sh ]; then
+  ok "test_done_finds_test_files_in_plan_worktree"
+else
+  bad "test_done_finds_test_files_in_plan_worktree" "rc=$rc out=$out"
+fi
+
 echo "== pre-done payload carries the worktree (P-60) =="
 mkdir -p .agents/hooks .agents/skills/aapp-hooks
 printf '#!/usr/bin/env bash\ngrep -oE %s > "%s/payload"\n' "'\"worktree\": \"[^\"]*\"'" "$R" > .agents/hooks/rec.sh

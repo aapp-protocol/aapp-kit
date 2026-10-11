@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- `aapp done` finds a TDD plan's required test files in the plan's worktree, so it no longer refuses from the main checkout (`#119`)
 - write guard reads the active plan for files in subdirectories again; worktree tests follow `.workspace/{id}` (`P-62`)
 - seeded hook registry header lists `on-integrate` (`#116`)
 - `aapp test` keeps a suite's exit status in its default output, so an aborted suite shows as failed (`#115`)

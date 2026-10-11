@@ -1828,14 +1828,16 @@ cmd_done() {
             exit 1
         fi
 
-        # 2. Existence & Tracked Check
+        # 2. Existence & Tracked Check, where the plan's code lives (its worktree, #119)
+        local tdd_root="$REPO_ROOT"
+        [ -n "$wt_abs" ] && [ -d "$wt_abs" ] && tdd_root="$wt_abs"
         while IFS= read -r f; do
             [ -z "$f" ] && continue
-            if [ ! -f "$REPO_ROOT/$f" ] && [ ! -f "$PRIMARY_ROOT/$f" ] && [ ! -f "$f" ]; then
+            if [ ! -f "$tdd_root/$f" ] && [ ! -f "$PRIMARY_ROOT/$f" ] && [ ! -f "$f" ]; then
                 echo "❌ [Done Refusal] Required test file '$f' is missing from disk." >&2
                 exit 1
             fi
-            if ! ( git -C "$REPO_ROOT" ls-files --error-unmatch "$f" >/dev/null 2>&1 || \
+            if ! ( git -C "$tdd_root" ls-files --error-unmatch "$f" >/dev/null 2>&1 || \
                    git -C "$PRIMARY_ROOT" ls-files --error-unmatch "$f" >/dev/null 2>&1 ); then
                 echo "❌ [Done Refusal] Required test file '$f' is not tracked in Git." >&2
                 exit 1
