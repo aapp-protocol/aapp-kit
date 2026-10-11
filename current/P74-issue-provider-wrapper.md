@@ -67,13 +67,13 @@ This plan routes every issue step through one wrapper over the ledger functions 
 
 - **Payload:** the Plugin Payload Standard envelope; `data` carries the whole issue: id, severity, type, date, location, symptom, link, status, note, and the step's own fields (commit, summary, plan). Sent after the step's commit lands, so a refused row never reaches the provider.
 - **Tracker keys:** the kit's `#<num>` stays the kit's id. The payload and the provider's issues carry an optional `ref` (the tracker's own key or URL, e.g. `PROJ-101`); the provider keeps its own mapping, and `issue list` shows `ref` next to the id.
-- **Answer:** `{"status": …, "kit": [<part>…]}`. `kit` names what the kit still handles (`note`, `cache`); no `kit` field means the kit handles everything, so current providers keep working.
+- **Answer:** the P-77 answer: `status`, `message`, `handled`, and what the plugin produced (`id`, `ref`). `handled` names what it took care of (`id`, `note`, `list`); the kit does the rest, so current providers keep working. Further operations go in the `do` list.
 - **Notes:** a bare `note` token on `issue log` and `issue hotfix`; on an existing issue, `aapp refine issues "<msg>" note <n> "<text>"` (repeatable; with only `note` tokens and no ledger change it still runs the wrapper). Never written to the ledger. Kit store: `~/.local/state/aapp/<key>/issues-data.md`. `issue fix` prints the note as the fix opens.
-- **Remote issues:** `issue.list` answers `{"issues": [{…}, …]}` in the payload's issue shape. The kit writes them to `~/.local/state/aapp/<key>/remote-issues.tsv`; `ledger_rows` and `ledger_locate` merge it (`remote`), so they block plans and show in `status`, `issue list`, `draft` and `next-blocker`. On an id present on both sides, the local lifecycle cells win, except a closure: an issue the provider lists as closed is reconciled (Question 5); `status` marks it.
+- **Remote issues:** `issue.list` writes the issues to the list file, one per line, in the payload's issue shape. The kit writes them to `~/.local/state/aapp/<key>/remote-issues.tsv`; `ledger_rows` and `ledger_locate` merge it (`remote`), so they block plans and show in `status`, `issue list`, `draft` and `next-blocker`. On an id present on both sides, the local lifecycle cells win, except a closure: an issue the provider lists as closed is reconciled (Question 5); `status` marks it.
 - **Notes are per machine without a provider:** the kit's store is outside Git, so another clone sees a note only through a provider; the MANUAL says so.
 - **Acting on a remote issue:** `issue fix`, `draft … issue` and `next-blocker` first write its row into `ISSUES.md` through the log step, then proceed as for a local row.
 - **Id clash** (same id, different issue): both shown and marked; `fix` and `draft … issue` refuse that id. A provider that answers `issue.list` must return the id from `issue.log`.
-- **Sync:** only at `issue list` and `status`, and only when a provider is installed and handles listing: an answer with `issues` means it does; `list` in its `kit` answer means the kit lists locally (no cache, no sync). Between syncs the cache is reused for `aapp.issueSyncWindow` minutes (default 15; a large team lowers it). Hooks read the ledger and the cache, never the network.
+- **Sync:** only at `issue list` and `status`, and only when a provider is installed and handles listing: `list` in its `handled` (issues in the list file) means it does; otherwise the kit lists locally (no cache, no sync). Between syncs the cache is reused for `aapp.issueSyncWindow` minutes (default 15; a large team lowers it). Hooks read the ledger and the cache, never the network.
 - **Failures:** the step falls back to the kit and warns; numbering falls back as in **Id** above; `issue.next-blocker` stays authoritative and refuses, as today. P-75 builds its offline fallback on this failure path.
 - **Sample:** `examples/plugins/aapp-issue-tracker/run.sample` handles every step and stores into a local file; `lib/plugins.tsv` lists the new actions.
 
@@ -100,7 +100,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 - [ ] `tests/verbs/issue.provider.sh::test_refused_row_never_sent` -> asserts a ledger commit refused by its checks calls no provider
 - [ ] `tests/verbs/issue.provider.sh::test_fix_prints_note` -> asserts `issue fix` prints the issue's note
 - [ ] `tests/verbs/issue.provider.sh::test_close_sends_whole_issue` -> asserts `issue.close` data carries the row cells as well as commit and summary
-- [ ] `tests/verbs/issue.provider.sh::test_kit_answer_keeps_note_local` -> asserts `"kit": ["note"]` stores the note in the kit store
+- [ ] `tests/verbs/issue.provider.sh::test_unhandled_note_stays_local` -> asserts an answer whose `handled` omits `note` stores the note in the kit store
 - [ ] `tests/verbs/issue.provider.sh::test_note_without_provider` -> asserts with no provider the note lands in the state directory, not the repository
 - [ ] `tests/verbs/issue.provider.sh::test_remote_issue_blocks_plan` -> asserts a listed remote issue named in a plan's `Blocked On` counts as open in `next-blocker` and `status`
 - [ ] `tests/verbs/issue.provider.sh::test_fix_remote_issue_imports_row` -> asserts fixing a remote-only id writes its row into `ISSUES.md` first
@@ -110,7 +110,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 - [ ] `tests/verbs/issue.provider.sh::test_remote_closure_reconciled` -> asserts an issue the provider lists as closed is marked in `status` and reconciled per Question 5
 - [ ] `tests/verbs/issue.provider.sh::test_failure_falls_back_and_warns` -> asserts a failing provider on log/refine/fix/close/list warns and the kit completes the step
 - [ ] `tests/verbs/issue.provider.sh::test_sync_window_reuses_cache` -> asserts a second `issue list` inside `aapp.issueSyncWindow` calls no provider, and one after it does
-- [ ] `tests/verbs/issue.provider.sh::test_kit_lists_when_provider_declines` -> asserts `list` in the provider's `kit` answer leaves no cache and the listing is the local ledger
+- [ ] `tests/verbs/issue.provider.sh::test_kit_lists_when_provider_declines` -> asserts an answer whose `handled` omits `list` leaves no cache and the listing is the local ledger
 - [ ] `tests/verbs/issue.provider.sh::test_hooks_never_call_provider` -> asserts a commit through the hooks runs no provider
 
 ### Phase 1: Tests First (red)
@@ -173,7 +173,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 * [x] **Question 1 — The state directory's `<key>`? → RESOLVED (developer, 2026-10-11):** derived from the remote URL (two clones of one project share notes; two projects with the same folder name do not collide); a repository with no remote uses its folder name.
 * [x] **Question 2 — A second `note` for the same issue? → RESOLVED (developer, 2026-10-11):** appended, each note dated.
 * [x] **Question 3 — Who writes notes? → RESOLVED (developer, 2026-10-11):** people and agents alike; a note belongs to the issue, whoever wrote it.
-* [x] **Question 4 — The sync refresh window? → RESOLVED (developer, 2026-10-11):** a config key, `aapp.issueSyncWindow`, in minutes, default 15. It applies only while a provider is installed and its `issue.list` answer shows it handles listing; what the provider handles and what it leaves to the kit is always its own answer.
+* [x] **Question 4 — The sync refresh window? → RESOLVED (developer, 2026-10-11):** a config key, `aapp.issueSyncWindow`, in minutes, default 15. It applies only while a provider is installed and its `issue.list` answer names `list` in `handled`; what the provider handles is always its own answer.
 * [ ] **Question 5:** An issue the provider lists as closed while the local row is open: `issue list` closes it locally with the provider's summary, or only marks it until someone runs `issue close`?
 
 ---
