@@ -59,7 +59,7 @@ This plan moves all of it into one module that every caller reuses. Behaviour do
 | `ledger_relink <old> <new>` | Rewrites plan links in the ledger and the road map |
 | `roadmap_*` | Road-map entries: add, prune, list |
 
-The health checks (fix cells, Pair 1/Pair 8 duplicates, resolved rows in the active ledger) read rows through `ledger_rows`. The hooks reach the module the way they reach `aapp-lib.sh` (see Question 1).
+The health checks (fix cells, Pair 1/Pair 8 duplicates, resolved rows in the active ledger) read rows through `ledger_rows`. The hooks reach the module the way they reach `aapp-lib.sh`: `aapp init` copies it into `.githooks/`.
 
 **A guard against new copies:** `tests/issue_ledger_test.sh::test_no_direct_ledger_access` fails when a file outside the module reads or writes a ledger. Path names in permission lists (write guard, pre-commit allow-lists) are path patterns, not access, and are listed in the test.
 
@@ -130,7 +130,7 @@ The health checks (fix cells, Pair 1/Pair 8 duplicates, resolved rows in the act
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** How do the hooks reach the module: a separate `lib/issue_ledger.sh` that `aapp init` copies into `.githooks/` next to `aapp-lib.sh` (recommended: one file per concern), or its functions inside `aapp-lib.sh`, which the hooks already load?
+* [x] **Question 1 — How do the hooks reach the module? → RESOLVED (developer, 2026-10-11):** a separate `lib/issue_ledger.sh`, which `aapp init` copies into `.githooks/` next to `aapp-lib.sh`.
 * [x] **Question 2 — One lookup order for the ledger? → RESOLVED (developer, 2026-10-11):** the kit supports both places (`.plans/` or the repo root, the adopter's preference); the two do not normally coexist, so the order is not significant. `ledger_path` looks in `.plans/` first, and the pre-commit hook follows by calling it.
 
 ---
