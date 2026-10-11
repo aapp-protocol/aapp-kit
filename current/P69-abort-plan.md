@@ -178,12 +178,11 @@ If the plan was started in its own worktree (`* **Worktree:** .workspace/<id>`):
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 — Aborted Ledger Location & Format.** Should aborted plans record in `.plans/aborted/000-aborted-ledger.md` (separate from done), or append to `done/000-archive-ledger.md` with an `[Aborted]` status tag? (a) Dedicated `.plans/aborted/000-aborted-ledger.md` keeping clean separation. (b) Shared `done/000-archive-ledger.md`. Recommendation: (a); mirrors the directory structure.
-* [ ] **Question 2 — Branch deletion on unmerged commits.** When an in-flight plan has commits recorded on its branch that were never merged to parent, should plain `abort` delete the branch (`git branch -D`) or refuse unless `keep-branch` or `force` is passed? (a) Warn and delete branch unless `keep-branch` is passed (standard abort intent). (b) Refuse if branch has commits unless `force` or `keep-branch` is passed. Recommendation: (a) with clear diagnostic naming the deleted branch SHA.
+* [x] **Question 1 — Aborted Ledger Location & Format. → RESOLVED (developer, 2026-10-11): (a) Dedicated .plans/aborted/000-aborted-ledger.md.** Keeps clean architectural separation between completed implementations and abandoned plans, mirroring the directory structure.
+* [x] **Question 2 — Branch deletion on unmerged commits. → RESOLVED (developer, 2026-10-11): (a) Warn and delete branch.** In a normal case if the plan is aborted that implies there is no need of the code. A clear diagnostic warning is printed naming the deleted branch SHA. If the developer explicitly wishes to preserve the commits for future reference, `keep-branch` is used.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Resolved Q1 (dedicated aborted ledger) and Q2 (warn and delete unmerged branch unless keep-branch). Blueprint fully specified.
 * **2026-10-11:** Scaffolded from Issue #118 and refined technical blueprint: defined CLI ingress (`aapp abort`), worktree teardown, `.plans/aborted/` archival, issue reversion to Incubated, and group member unlinking.
-
-* **2026-10-11:** Refined blast radius and locked module boundaries.
