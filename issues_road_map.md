@@ -45,4 +45,5 @@
 - [ ] #117 -> `issue fix` turns the fix cell (or the symptom) into the changelog line; the cell holds notes.
 - [ ] #118 -> No lifecycle path abandons a started plan (or group).
 - [ ] #120 -> `aapp tdd help` drafts a plan named `help`.
+- [ ] #121 -> A failed archive commit leaves `done`'s changes staged; a retry skips the archive.
 
