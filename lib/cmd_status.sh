@@ -323,23 +323,39 @@ fi
 # 3. Plans
 echo ""
 echo "🗺️  [3/4] PLANS (State Matrix / Active Blueprints)"
+# plan_line <file> <prefix>: one plan's line in the briefing.
+plan_line() {
+    local P="$1" BASENAME STATUS STATUS_CLEAN PLAN_ID="" WT_REC
+    BASENAME="$(basename "$P")"
+    STATUS="$(grep -m 1 -E '^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*' "$P" 2>/dev/null || echo "* **Status:** 🟣 Active")"
+    STATUS_CLEAN="$(echo "$STATUS" | sed -E 's/^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*[[:space:]]*//')"
+    if command -v get_plan_id >/dev/null 2>&1; then
+        PLAN_ID="$(get_plan_id "$P" 2>/dev/null || true)"
+    fi
+    # P-54: a plan with its own worktree shows where it lives.
+    WT_REC="$(parse_plan_worktree "$P")"
+    [ -n "$WT_REC" ] && STATUS_CLEAN="$STATUS_CLEAN → ${WT_REC%%$'\t'*}"
+    if [ -n "$PLAN_ID" ]; then
+        echo "$2$PLAN_ID: $BASENAME  ($STATUS_CLEAN)"
+    else
+        echo "$2$BASENAME  ($STATUS_CLEAN)"
+    fi
+}
 if [ -d ".plans/current" ]; then
     HAS_PLANS=0
     while IFS= read -r -d '' P; do
-        BASENAME="$(basename "$P")"
-        STATUS="$(grep -m 1 -E '^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*' "$P" 2>/dev/null || echo "* **Status:** 🟣 Active")"
-        STATUS_CLEAN="$(echo "$STATUS" | sed -E 's/^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*[[:space:]]*//')"
-        PLAN_ID=""
-        if command -v get_plan_id >/dev/null 2>&1; then
-            PLAN_ID="$(get_plan_id "$P" 2>/dev/null || true)"
+        # P-64: a member is listed under its group when the group is active.
+        GRP="$(parse_plan_field "$P" Group)"
+        if [ -n "$GRP" ] && ls .plans/current/P"${GRP#P-}"-*.md >/dev/null 2>&1; then
+            continue
         fi
-        # P-54: a plan with its own worktree shows where it lives.
-        WT_REC="$(parse_plan_worktree "$P")"
-        [ -n "$WT_REC" ] && STATUS_CLEAN="$STATUS_CLEAN → ${WT_REC%%$'\t'*}"
-        if [ -n "$PLAN_ID" ]; then
-            echo "  • $PLAN_ID: $BASENAME  ($STATUS_CLEAN)"
-        else
-            echo "  • $BASENAME  ($STATUS_CLEAN)"
+        plan_line "$P" "  • "
+        if aapp_is_group_plan "$P"; then
+            for M in $(group_members "$P"); do
+                for MF in .plans/current/P"${M#P-}"-*.md; do
+                    [ -f "$MF" ] && plan_line "$MF" "      ↳ "
+                done
+            done
         fi
         HAS_PLANS=1
     done < <(find .plans/current -maxdepth 1 -name "*.md" -print0 2>/dev/null | sort -z)
