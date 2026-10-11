@@ -106,7 +106,9 @@ If the plan was started in its own worktree (`* **Worktree:** .workspace/<id>`):
    - If the plan was promoted from an active issue (`* **Target Issue / Milestone:** #<n>`):
      - The issue in `ISSUES.md` is **NOT closed**.
      - Issue status in `ISSUES.md` reverts from `🔵 Planned` to `🟡 Incubated`.
-     - In `ISSUES.md`, the `Target Plan / Fix` cell is updated to note `(P-<id> aborted)`.
+     - The `Target Plan / Fix` cell keeps the plan link, repointed to the archive: `[P-<id>](aborted/P<n>-<slug>.md)`. It is a verb-written link, as P-66 requires; no note is written.
+     - The row edit is the issue module's abort step in `lib/cmd_issue.sh`, the one `aapp issue fix <num> abort` runs; `plan abort` calls it and writes no issue row itself.
+     - Other rows and road-map lines linking the plan file are repointed to `aborted/` by `issue_relink`, as `done` does for `done/`.
 2. **Group Plan Unlinking (P-64 interaction)**:
    - If the plan has `* **Group:** <group>`:
      - Removes `<id>` from the group plan's `* **Members:**` header list.
@@ -145,7 +147,7 @@ If the plan was started in its own worktree (`* **Worktree:** .workspace/<id>`):
 - [ ] Task 2.2: Route `abort` in `cmd_plan_switchboard` and list it in the switchboard text.
 - [ ] Task 2.3: Implement worktree cleanup, buffer unbinding, and branch removal logic.
 - [ ] Task 2.4: Implement `.plans/aborted/` movement, header mutation, and `000-aborted-ledger.md` appender.
-- [ ] Task 2.5: Implement issue status reversion (`🔵 Planned` -> `🟡 Incubated`) in `lib/cmd_issue.sh` / `lib/cmd_plan.sh`.
+- [ ] Task 2.5: Issue abort step in `lib/cmd_issue.sh` (`🔵 Planned` -> `🟡 Incubated`, link repointed to `aborted/`), shared by `issue fix <num> abort` and `plan abort`.
 - [ ] Task 2.6: Implement group plan member unlinking for P-64 integration.
 - [ ] Task 2.7: Dispatch `post-abort` lifecycle hook.
 
@@ -162,6 +164,7 @@ If the plan was started in its own worktree (`* **Worktree:** .workspace/<id>`):
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/cmd_plan.sh` -> Implement `plan abort`, worktree teardown, and plan archival logic.
+- [ ] `lib/cmd_issue.sh` -> Issue abort step: status back to Incubated, plan link repointed to `aborted/`.
 - [ ] `lib/docs/verbs/plan.md` -> `plan abort` form in the `plan` verb contract.
 - [ ] `NEW FILE` -> `tests/verbs/plan.abort.sh` -> `plan` verb suite part covering incubator, frozen, in-flight, and group aborts.
 - [ ] `MANUAL.md` -> User guide documentation for abandoning and archiving blueprints.
@@ -182,6 +185,7 @@ If the plan was started in its own worktree (`* **Worktree:** .workspace/<id>`):
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Issue side runs through the issue module's abort step; the row keeps the plan link, repointed to `aborted/`.
 * **2026-10-11:** Single command form `aapp plan abort <id>`: no top-level `abort` verb, contract in `lib/docs/verbs/plan.md`, tests in the suite part `tests/verbs/plan.abort.sh`.
 * **2026-10-11:** Resolved Q1 (dedicated aborted ledger) and Q2 (warn and delete unmerged branch unless keep-branch). Blueprint fully specified.
 * **2026-10-11:** Scaffolded from Issue #118 and refined technical blueprint: defined CLI ingress (`aapp abort`), worktree teardown, `.plans/aborted/` archival, issue reversion to Incubated, and group member unlinking.
