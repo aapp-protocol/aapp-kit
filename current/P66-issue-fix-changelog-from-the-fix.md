@@ -123,6 +123,10 @@ The new check flags this repository's rows with notes in the cell (#108, #110, #
 - [ ] `templates/AGENTS.md` -> Issue logging and fix rules.
 - [ ] `templates/skills/aapp-fix/SKILL.md` -> Step 2: write the entry after the change.
 - [ ] `MANUAL.md` -> Issue fix flow.
+- [ ] `tests/verbs/issue.fixes.sh` -> Fix commits supply `changelog`; fixture fix cells empty (P-68 split it out of `issue.sh`).
+- [ ] `tests/verbs/draft.sh` -> Fixture fix cell empty.
+- [ ] `tests/plan_resolver_test.sh` -> Fixture fix cells empty.
+- [ ] `tests/pre-commit_test.sh` -> Fixture fix cells empty.
 - [ ] `CHANGELOG.md` -> Entry written by `aapp commit`.
 
 ### 🧪 Required Test Files
@@ -144,6 +148,7 @@ The new check flags this repository's rows with notes in the cell (#108, #110, #
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Unfrozen (developer): four test files outside the targets added: `issue.fixes.sh` (split out by P-68) commits fixes and has fixture rows; `draft.sh`, `plan_resolver_test.sh`, `pre-commit_test.sh` have fixture rows with text in the fix cell.
 * **2026-10-11:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-11:** Q1–Q3 resolved with the recommended answers (developer); clarified that rectifying issue rows #108, #110, #111 is executed during plan implementation.
