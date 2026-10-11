@@ -76,7 +76,10 @@ A step is a short exchange between the kit and a supported plugin.
 
 **4. The kit finishes** the local part: everything not in `handled`, then the `do` list.
 
+**Reference.** One file per subject, `lib/docs/protocol/<subject>.md` (`issue.md` first; plans follow), with three tables: the events (who sends each, when, the outcome on plugin failure), the data fields (type and allowed values, for the envelope and for the answer, with what `handled` may name per event), and the `do` commands accepted for that subject with their arguments. A test fails when the code sends an event or field, or accepts a `do` command, that the reference does not list.
+
 **Rules**
+- **`do` is whitelisted.** Only the commands listed in the subject's reference are accepted; any other line is refused and reported.
 - **During a step** a supported plugin that runs a writing `aapp` verb directly is refused (the kit marks the plugin's environment) and pointed to `do`. Reading verbs work.
 - **Version:** the answer may echo `version`; the kit refuses an answer from a version newer than its own.
 - **Timeout:** one for every plugin call, the hook dispatcher's watchdog.
@@ -139,7 +142,8 @@ A step is a short exchange between the kit and a supported plugin.
 * [x] **Question 1 — The form of the exchange? → RESOLVED (developer, 2026-10-12):** the kit asks with the whole subject; the plugin answers with what happened, what it handled and what it produced; wanted operations are aapp command lines the kit runs after the step.
 * [x] **Question 2 — The words? → RESOLVED (developer, 2026-10-12):** `handled` for what the plugin took care of; `do` for the list of commands (used in the flow of many languages, self-describing).
 * [ ] **Question 3:** A `do` command that is refused: report it and run the rest, or stop at the first refusal?
-* [ ] **Question 4:** Tests, tasks and Target Files are written once Questions 1–3 are settled.
+* [ ] **Question 4:** Tests, tasks and Target Files are written once the open questions are settled.
+* [ ] **Question 5:** Credentials: is "the kit never carries secrets; the plugin obtains its own (environment, git's credential helper, its own config)" the whole rule, or does the kit help (e.g. a config key naming a command that prints the token)?
 
 ---
 
