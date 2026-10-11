@@ -79,28 +79,28 @@ The `## Tests` lists in `lib/docs/verbs/{start,issue,done}.md` name the part fil
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/test.sh::test_verb_runs_all_its_parts` -> asserts `aapp test verb x` runs stub `x.sh` and `x.part.sh`, labelled `verb/x` and `verb/x.part`
-- [ ] `tests/verbs/test.sh::test_parts_listed_under_their_verb` -> asserts `aapp test list` shows `verb/x.part`
-- [ ] `tests/verb_contracts_test.sh::test_contract_tests_exist_in_suite_or_part` -> asserts every `## Tests` entry names a test present in the named file (verb suite or part)
+- [x] `tests/verbs/test.sh::test_verb_runs_all_its_parts` -> asserts `aapp test verb x` runs stub `x.sh` and `x.part.sh`, labelled `verb/x` and `verb/x.part`
+- [x] `tests/verbs/test.sh::test_parts_listed_under_their_verb` -> asserts `aapp test list` shows `verb/x.part`
+- [x] `tests/verb_contracts_test.sh::test_contract_tests_exist_in_suite_or_part` -> asserts every `## Tests` entry names a test present in the named file (verb suite or part)
 
 ### Phase 0: Research (refine time)
 - [x] Task 0.1: Research in §1; finalise §2.2 split points, §4 part files, and the measured floor.
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: The Required Tests above.
+- [x] Task 1.1: The Required Tests above.
 
 ### Phase 2: Implementation
-- [ ] Task 2.1: Suite parts in the runner (2.1).
-- [ ] Task 2.2: Session test without a fixed wait (2.3).
-- [ ] Task 2.3: Splits (2.2); every moved test passes in its part; the total test count is unchanged.
-- [ ] Task 2.4: Contracts (2.4).
+- [x] Task 2.1: Suite parts in the runner (2.1).
+- [x] Task 2.2: Session test without a fixed wait (2.3).
+- [x] Task 2.3: Splits (2.2); every moved test passes in its part; the total test count is unchanged.
+- [x] Task 2.4: Contracts (2.4).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
