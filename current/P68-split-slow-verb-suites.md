@@ -2,7 +2,7 @@
 * **Created:** 2026-10-11 | **Last Refined:** 2026-10-11
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(if this plan was promoted from `ISSUES.md`, put the issue ID here and link this file back in that issue's `Proposed Fix / Target Plan` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-68
-* **Changelog:** Changed: Split Slow Verb Suites
+* **Changelog:** Changed: a verb suite may have parts (`tests/verbs/<verb>.<part>.sh`) that run in parallel; the slowest verb suites are split
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,17 +38,38 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+**Problem.** With parallel suites (P-67) the run lasts as long as the slowest suite. Measured: `verb/issue` 51 s, `verb/start` 51 s, `verb/done` 43 s, then `pre-commit` and `verb/commit` 22 s. Each test in these suites runs the real verb (about 2 s per call, mostly git commits). `start.sh` also spends ~7 s in one test by design: `test_worktree_session_runs_detached_with_placeholders` sets a session command starting with `sleep 6` and polls up to 14 s for its output.
+
+**Goal.** Shorten the critical path without dropping a test: a verb suite can be split into parts that run in parallel, the slowest suites are split, and the fixed wait is replaced. Expected floor ~25–30 s (estimate, to be measured).
+
+**Depends on P-67** (parallel runner; both change `lib/cmd_test.sh`, so this plan starts after it).
+
+**Research at refine time** (not done yet): per-test durations for `issue.sh` and `done.sh`; where each split falls (by section, so each part builds its own sandbox); how much sandbox setup each part repeats; whether other fixed waits exist (`sleep` in `tests/`); the measured floor after splitting.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+*Provisional; finalised at refine time from the research above.*
+
+### 2.1 Suite parts (`lib/cmd_test.sh`)
+- `tests/verbs/<verb>.<part>.sh` belongs to `<verb>`. `aapp test verb <verb>` runs `<verb>.sh` and all its parts; `aapp test` schedules each part as its own suite.
+- Labels: `verb/<verb>` and `verb/<verb>.<part>`; `aapp test list` shows parts under their verb.
+
+### 2.2 Splits
+- `tests/verbs/start.sh` → general tests stay; plan-worktree tests (P-54 sections) move to `start.worktree.sh`.
+- `tests/verbs/issue.sh` and `tests/verbs/done.sh`: split points from the research.
+- Each part builds its own sandbox; no part depends on another's state.
+
+### 2.3 The session test
+The session command waits for a marker file the test creates after `aapp start` returns, then writes its output. `start` returning before the marker exists proves it does not wait; no fixed `sleep`.
+
+### 2.4 Contracts
+The `## Tests` lists in `lib/docs/verbs/{start,issue,done}.md` name the part file of each moved test; `lib/docs/verbs/test.md` describes parts.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
@@ -57,14 +78,21 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/test.sh::test_verb_runs_all_its_parts` -> asserts `aapp test verb x` runs stub `x.sh` and `x.part.sh`, labelled `verb/x` and `verb/x.part`
+- [ ] `tests/verbs/test.sh::test_parts_listed_under_their_verb` -> asserts `aapp test list` shows `verb/x.part`
+- [ ] `tests/verb_contracts_test.sh::test_contract_tests_exist_in_suite_or_part` -> asserts every `## Tests` entry names a test present in the named file (verb suite or part)
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 0: Research (refine time)
+- [ ] Task 0.1: Research in §1; finalise §2.2 split points, §4 part files, and the measured floor.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: The Required Tests above.
+
+### Phase 2: Implementation
+- [ ] Task 2.1: Suite parts in the runner (2.1).
+- [ ] Task 2.2: Session test without a fixed wait (2.3).
+- [ ] Task 2.3: Splits (2.2); every moved test passes in its part; the total test count is unchanged.
+- [ ] Task 2.4: Contracts (2.4).
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -82,26 +110,38 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+*Provisional: the part files for `issue` and `done` are named at refine time.*
+- [ ] `lib/cmd_test.sh` -> Suite parts.
+- [ ] `tests/verbs/start.sh` -> General tests; session test without a fixed wait.
+- [ ] `NEW FILE` -> `tests/verbs/start.worktree.sh` -> Plan-worktree tests from `start.sh`.
+- [ ] `tests/verbs/issue.sh` -> Split (points at refine time).
+- [ ] `tests/verbs/done.sh` -> Split (points at refine time).
+- [ ] `lib/docs/verbs/start.md` -> Test list names the part files.
+- [ ] `lib/docs/verbs/issue.md` -> Test list names the part files.
+- [ ] `lib/docs/verbs/done.md` -> Test list names the part files.
+- [ ] `lib/docs/verbs/test.md` -> Suite parts.
+- [ ] `MANUAL.md` -> `aapp test`: parts.
+- [ ] `CHANGELOG.md` -> Entry written by `aapp commit`.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/verbs/test.sh`
+- [ ] `tests/verb_contracts_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/cmd_plan.sh` -> Verbs are unchanged; only their tests move.
+- [ ] `lib/cmd_issue.sh` -> Verbs are unchanged; only their tests move.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — Part naming.** (a) `tests/verbs/<verb>.<part>.sh` (flat, sorts next to its verb). (b) `tests/verbs/<verb>/<part>.sh` (a directory per split verb). Recommendation: (a); one directory, one glob.
+* [ ] **Question 2 — Which suites to split.** (a) `start`, `issue`, `done` (over 40 s). (b) Also `pre-commit` and `commit` (22 s). Decided after the research's measured floor.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-11:** Plan initialized from `pickup.md`.
-* **2026-10-11:** Refined blast radius and locked module boundaries.
+* **2026-10-11:** Drafted: suite parts, splits, session test; research at refine time.
