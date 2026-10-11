@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🔷 Frozen
+* **Status:** ⚡ In Development
 * **Base:** `c74d986` (develop)
 * **Worktree:** .workspace/P66 (plan/P66-issue-fix-changelog-from-the-fix)
 * **Commits:** none
@@ -148,6 +148,7 @@ The new check flags this repository's rows with notes in the cell (#108, #110, #
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Plan activated into ⚡ In Development via start.
 * **2026-10-11:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-11:** Unfrozen (developer): four test files outside the targets added: `issue.fixes.sh` (split out by P-68) commits fixes and has fixture rows; `draft.sh`, `plan_resolver_test.sh`, `pre-commit_test.sh` have fixture rows with text in the fix cell.
 * **2026-10-11:** Plan frozen and activated into ⚡ In Development via freeze-start.
