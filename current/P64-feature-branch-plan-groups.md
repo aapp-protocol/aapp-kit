@@ -52,7 +52,7 @@ Design record: RFC `worktree-contexts-monorepo-rfc.md` (§4 decisions, C1/C2, A1
 ## 2. Technical Blueprint
 
 ### 2.0 The group plan
-- `aapp draft <slug> group`: a plan with the next Plan ID, marked by its title heading `# 🧩 Group Plan P-<n>: <title>` (the one marker verbs read), from its own template: goal, shared decisions, `* **Feature Branch:**`, `* **Members:**`, merge criterion. No Target Files; `freeze` checks the group fields instead.
+- `aapp draft <slug> group`: a plan with the next Plan ID, marked by its title heading `# 🧩 Group Plan P-<n>: <title>` (the one marker verbs read), from its own template `templates/group-template.md` (its sections differ from a plan's; a variant inside `plan-template.md` would put conditional sections in every plan): goal, shared decisions, `* **Feature Branch:**`, `* **Members:**`, merge criterion, `## Architecture & Codemap` (2.6). Target Files: `ARCHITECTURE.md` and `.agents/CODEMAP.md` only; `freeze` also checks the group fields.
 - `aapp start <group>` (optionally `base <branch>`, an existing branch; default: the development branch): creates `feature/<slug>` from it, records `Base: <sha> (<parent>)`. No worktree, no buffer: the group writes no code.
 - `aapp done <group>`: refuses while a member is not archived; runs `pre-done` with the feature branch checked out in a temporary worktree (the payload's `worktree`), so the gate tests the merged result; merges the feature branch into the parent (fast-forward, or a merge commit when the parent moved: recorded SHAs stay valid); removes the feature branch.
 
@@ -65,6 +65,12 @@ Design record: RFC `worktree-contexts-monorepo-rfc.md` (§4 decisions, C1/C2, A1
 ### 2.3 Group-caused fixes on the feature branch (`lib/cmd_issue.sh`)
 `aapp issue fix <num> group <group>`: the mini plan opens in its own worktree `.workspace/fix-<num>` on `fix/<num>` from the group's feature branch; `aapp issue close <num>` integrates it there and removes the worktree and branch. The issue row and archive are unchanged.
 When the issue's files differ between the development branch and an active group's feature branch, `fix` without `group` prints a hint naming `group <group>`. The human decides.
+
+### 2.6 Architecture & Codemap belong to the group
+- The group template has `## Architecture & Codemap`: the intended changes to `ARCHITECTURE.md` and `.agents/CODEMAP.md`, refined as shared decisions. "No changes" is a valid entry; a missing section refuses `freeze` and `done` of the group.
+- Members do not edit either file: `aapp-pre-commit` refuses `ARCHITECTURE.md` in a commit of a plan with `* **Group:**`, naming the group. `.agents/CODEMAP.md` is always writable (`.agents/*`), so for it the rule is agent text only (invariant 7, `AGENTS.md`).
+- The group's Target Files are exactly `ARCHITECTURE.md` and `.agents/CODEMAP.md`. The group's `done` commits `ARCHITECTURE.md` on the feature branch before `pre-done` (the gate tests it with the rest), and `.agents/CODEMAP.md` right after the merge into the parent (the map changes when the code reaches the parent).
+- Why: parallel members editing the same two files conflict every time, and `.agents` is shared by all branches, so a member's CODEMAP edit describes code its parent does not have yet.
 
 ### 2.5 Status
 `aapp status` lists members under their group (supersedes Q3's "later": the group plan makes it a lookup).
@@ -95,6 +101,9 @@ When the issue's files differ between the development branch and an active group
 - [ ] `tests/verbs/issue.sh::test_fix_group_opens_worktree_and_close_integrates` -> asserts `fix <num> group <id>` works in `.workspace/fix-<num>` and `close` lands the fix on the feature branch only
 - [ ] `tests/verbs/issue.sh::test_fix_hints_group_for_group_files` -> asserts the hint names `group <id>` when the issue's files differ on an active group's feature branch
 - [ ] `tests/verbs/status.sh::test_members_listed_under_group` -> asserts members appear under their group
+- [ ] `tests/verbs/freeze.sh::test_group_freeze_refuses_missing_architecture_section` -> asserts a group without `## Architecture & Codemap` refuses; "No changes" passes
+- [ ] `tests/pre-commit_test.sh::test_member_commit_refuses_architecture` -> asserts a group member's commit staging `ARCHITECTURE.md` is refused, naming the group; a plan without `Group:` may commit it
+- [ ] `tests/integrate_test.sh::test_group_done_commits_architecture_before_gate_codemap_after_merge` -> asserts `ARCHITECTURE.md` is on the feature branch when `pre-done` runs and `.agents/CODEMAP.md` changes only after the merge
 
 ### Phase 1: Tests First (red)
 - [ ] Task 1.1: The assertions above.
@@ -104,6 +113,7 @@ When the issue's files differ between the development branch and an active group
 - [ ] Task 2.1: `group` token on member start (2.1); contracts `start.md`, `freeze-start.md`.
 - [ ] Task 2.2: Development-branch check (2.2); `fix … group` worktree and close integration (2.3); hint; contract `issue.md`.
 - [ ] Task 2.3: Agent text (2.4); status (2.5).
+- [ ] Task 2.4: Architecture & Codemap in the group (2.6): template section, freeze/done checks, member refusal in `aapp-pre-commit`, invariant 7 text.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -137,6 +147,11 @@ When the issue's files differ between the development branch and an active group
 - [ ] `tests/verbs/status.sh` -> Group listing.
 - [ ] `tests/integrate_test.sh` -> Member and group integration.
 - [ ] `templates/skills/aapp-done/SKILL.md` -> Group `done` is the merge into the parent.
+- [ ] `templates/aapp-pre-commit` -> Refuse `ARCHITECTURE.md` in a group member's commit.
+- [ ] `templates/plan-template.md` -> Invariant 7: a group member leaves ARCHITECTURE/CODEMAP to its group.
+- [ ] `tests/verbs/freeze.sh` -> Group section check.
+- [ ] `tests/pre-commit_test.sh` -> Member refusal.
+- [ ] `lib/docs/verbs/freeze.md` -> Group checks.
 - [ ] `templates/AGENTS.md` -> Where work and fixes happen.
 - [ ] `.agents/AGENTS.md` -> Same as the template.
 - [ ] `templates/skills/aapp-start/SKILL.md` -> `base`; work under `.workspace/<id>/`.
@@ -149,6 +164,8 @@ When the issue's files differ between the development branch and an active group
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
 - `tests/verbs/draft.sh`
+- `tests/verbs/freeze.sh`
+- `tests/pre-commit_test.sh`
 - `tests/verbs/start.sh`
 - `tests/verbs/issue.sh`
 - `tests/verbs/status.sh`
@@ -174,6 +191,7 @@ When the issue's files differ between the development branch and an active group
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-11:** Architecture & Codemap belong to the group (developer, §2.6): separate group template; members do not edit them; the group's `done` commits ARCHITECTURE before the gate and CODEMAP after the merge; a missing section refuses.
 * **2026-10-11:** Group plan added (developer): the group's own blueprint, `start`/`done` cut and merge the feature branch, always into the parent branch; `group <id>` replaces `base <branch>` for members and fixes; status grouping. Q5, Q6 open.
 * **2026-10-10:** Q1–Q4 resolved with the recommended answers (developer).
 * **2026-10-09:** Drafted from RFC `worktree-contexts-monorepo-rfc.md` (option 1, fixes on the development branch, group-caused fixes on the feature branch).
