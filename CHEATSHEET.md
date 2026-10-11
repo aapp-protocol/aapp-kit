@@ -40,6 +40,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp active [id]` | **✅ Yes** | Inspect, swap, or clear active plan execution buffer |
 | `aapp test [filter]` | **✅ Yes** | Run test suites across repository or audit adopter environment |
 | `aapp test verb [name]` | **✅ Yes** | Run contract-derived verb suites (`tests/verbs/<name>.sh`) |
+| `aapp test jobs <n>` | **✅ Yes** | Run up to `<n>` suites at once; default: CPU count rounded down to a multiple of 4; `jobs 1` is serial |
 | `aapp note [cmd]` | **✅ Yes** | Inspect, stage, push, or pull general and AI Git notes |
 | `aapp issue [cmd]` | **✅ Yes** | Peek, allocate, close, or list issue IDs |
 

@@ -775,12 +775,15 @@ aapp test strict           # Enforce fail-closed sandbox containment (AAPP_TEST_
 aapp test strict hooks     # Run hooks suite under strict sandbox verification
 aapp test list             # List available test suites without running them
 aapp test quiet            # Quiet output: suppress assertion stream, report suite status only
-aapp test bail             # Abort execution immediately upon the first failing suite
+aapp test bail             # Start no further suite after the first failing one
+aapp test jobs 1           # Run suites one at a time
 aapp test verb draft       # Run one contract-derived verb suite (tests/verbs/draft.sh)
 aapp test verb             # Run every verb suite
 ```
 
-**Zero Double-Dash Flags Invariant**: `aapp test` strictly eliminates GNU-style double-dash flags. Modifiers (`list`, `strict`, `quiet`, `bail`) are bare positional tokens.
+**Zero Double-Dash Flags Invariant**: `aapp test` strictly eliminates GNU-style double-dash flags. Modifiers (`list`, `strict`, `quiet`, `bail`, `jobs <n>`) are bare positional tokens.
+
+**Parallel Suites (P-67)**: suites run side by side, up to the job count at once: `jobs <n>`, or by default the CPU count rounded down to a multiple of 4 (10 CPUs run 8; below 4 CPUs, the CPU count; an unreadable count runs serially with a notice). Each suite's output is printed whole when it finishes and the summary keeps the selection order, so the report reads as before. An interrupted run stops its suites and removes its temporary files. The kit's full suite takes about a minute instead of six; the `pre-done` test gate gets the same speed.
 
 **Verb Suites (`verb`)**: Each daily verb has a behaviour contract at `lib/docs/verbs/<verb>.md` (linked from the fifth column of `lib/verbs.tsv`) and a test suite derived from it at `tests/verbs/<verb>.sh`. `aapp test verb <name>` runs one of them in seconds; `aapp test verb` runs all; a bare `aapp test` runs flat and verb suites together, and `aapp test list` shows both, verb suites as `verb/<name>`. The `verb` token is required: `matrix` names both a flat suite and a verb suite.
 

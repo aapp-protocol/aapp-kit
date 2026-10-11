@@ -14,7 +14,8 @@
 #   list    List available test suites without running them
 #   strict  Enforce strict fail-closed sandbox containment (AAPP_TEST_SANDBOX_STRICT=1)
 #   quiet   Quiet output: suppress assertion stream, report suite-level status
-#   bail    Abort execution immediately upon the first failing suite
+#   bail    Start no further suite after the first failing one
+#   jobs N  Run up to N suites at once (default: CPU count rounded down to a multiple of 4)
 #   help    Display usage reference
 #   verb    Select contract-derived verb suites in tests/verbs/ (P-34)
 # ==============================================================================
@@ -32,7 +33,9 @@ Modifiers (bare-word tokens; zero double-dash flags):
   list               List all discovered test suites without running them
   strict             Enforce fail-closed sandbox containment (AAPP_TEST_SANDBOX_STRICT=1)
   quiet              Quiet output: suppress assertion stream, report suite status only
-  bail               Abort execution immediately upon first failing suite
+  bail               Start no further suite after the first failing one
+  jobs <n>           Run up to <n> suites at once; default: the CPU count rounded
+                     down to a multiple of 4 (below 4 CPUs, the CPU count); 'jobs 1' is serial
   help               Display this help text
   verb [name...]     Run contract-derived verb suites (tests/verbs/<name>.sh);
                      all of them when no name is given
@@ -52,6 +55,7 @@ Examples:
   aapp test verb             Run every verb suite
   aapp test quiet            Run all suites with compact progress
   aapp test bail             Run suites and stop on the first failure
+  aapp test jobs 1           Run suites one at a time
 EOF
 }
 
