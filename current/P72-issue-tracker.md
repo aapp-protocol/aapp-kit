@@ -30,11 +30,14 @@ Merge criterion: both members archived and the pre-done gate green on the featur
 - **The plugin decides.** Its answer's `kit` list names what the kit still handles; no `kit` field means the kit handles everything. No provider means the kit's internals.
 - **Notes** are never in the ledger. Without a provider, the kit keeps them outside the repository, under `~/.local/state/aapp/<project>/`.
 - **Remote issues** are kept in a cache next to the notes; the module's readers merge it with the ledger. Hooks read only local data and the cache, never the network.
+- **One ledger view.** The module's readers merge every source (`.plans/` ledgers, the remote cache, the `.offline` ledgers), each row marked with its source; no caller reads a source directly.
+- **Offline is opt-in by configuration.** With `aapp.offlineEnabled=false`, nothing is staged offline and a provider failure refuses.
 - **Failures.** A provider failure falls back to the kit for that step and warns; numbering stays provider-authoritative and refuses, as today.
 
 ## 3. Members & Order
 1. P-73 (ledger module): first; no behaviour change.
 2. P-74 (provider wrapper): starts from the feature branch after P-73 is archived into it; it adds the wrapper inside the module.
+3. P-75 (offline worktree): after P-74; its ledgers are a source of the module and its fallback is the wrapper's failure path.
 
 ## Architecture & Codemap
 *Every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written out whole in a ```` fence, under the exact heading it has (or will have) in the file. Members do not edit these files; read the sections here as the target architecture. At the group's `done` a section replaces the file's section with the same heading, or is added at the end. `aapp refine` records a base line above each fence: `done` refuses a section the file changed meanwhile. Write `No changes.` under a file that keeps its content.*
