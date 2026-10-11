@@ -23,6 +23,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-66**: [`P66-issue-fix-changelog-from-the-fix.md`](current/P66-issue-fix-changelog-from-the-fix.md) — Issue Fix Changelog From The Fix
 - 🟣 **P-67**: [`P67-parallel-test-suites.md`](current/P67-parallel-test-suites.md) — Parallel Test Suites
 - 🟣 **P-68**: [`P68-split-slow-verb-suites.md`](current/P68-split-slow-verb-suites.md) — Split Slow Verb Suites
+- 🟣 **P-69**: [`P69-abort-plan.md`](current/P69-abort-plan.md) — Abort Plan
 
 ---
 
