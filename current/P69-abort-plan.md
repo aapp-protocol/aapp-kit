@@ -2,7 +2,7 @@
 * **Created:** 2026-10-11 | **Last Refined:** 2026-10-11
 * **Target Issue / Milestone:** #118
 * **Plan ID:** P-69
-* **Changelog:** Added: `aapp abort` command to safely decommission in-flight plans, clean worktrees/branches, and archive to .plans/aborted/
+* **Changelog:** Added: `aapp plan abort` command to safely decommission in-flight plans, clean worktrees/branches, and archive to .plans/aborted/
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -44,7 +44,7 @@ In AAPP, blueprint lifecycles are currently strictly unidirectional towards `don
 - While mini-plans have `aapp issue fix <num> abort` to cleanly drop uncommitted issue fixes, full plans have **no verb-driven exit path** when an approach fails, an RFC is rejected, or an architectural pivot renders the blueprint obsolete.
 - Developers and agents are left with manual surgery: deleting worktrees, removing branches, hand-editing `.plans/state_matrix.md`, clearing buffers, and manually moving files.
 
-**Goal:** Implement a first-class `aapp abort <id>` lifecycle command (aliased under `aapp plan abort <id>`) that safely decommissions any non-done plan, tears down its worktree/branch resources, reverts promoted issues back to `🟡 Incubated`, unlinks group memberships, and moves the blueprint into `.plans/aborted/`.
+**Goal:** Implement a first-class `aapp plan abort <id>` lifecycle command that safely decommissions any non-done plan, tears down its worktree/branch resources, reverts promoted issues back to `🟡 Incubated`, unlinks group memberships, and moves the blueprint into `.plans/aborted/`.
 
 ---
 
@@ -52,8 +52,7 @@ In AAPP, blueprint lifecycles are currently strictly unidirectional towards `don
 
 ### 2.1 CLI Ingress & Command Syntax
 
-- **Entrypoint**: `aapp abort <id> [reason "<text>"] [keep-branch] [force]`
-- **Plan Subcommand Alias**: `aapp plan abort <id> [reason "<text>"] [keep-branch] [force]`
+- **Entrypoint**: `aapp plan abort <id> [reason "<text>"] [keep-branch] [force]`, a subcommand of the existing `plan` verb (beside `conflict-check`); no top-level `abort` verb is registered.
 - **Positional `<id>`**: Resolves plan identifier via `resolve_plan_file` (accepts `P-<N>`, bare `<N>`, filename stem, or slug).
 - **Keyword Tokens**:
   - `reason "<text>"`: Human or agent justification for abandonment (default: `Abandoned`).
@@ -74,7 +73,7 @@ In AAPP, blueprint lifecycles are currently strictly unidirectional towards `don
 If the plan was started in its own worktree (`* **Worktree:** .workspace/<id>`):
 1. **Dirty Worktree Guard**:
    - Inspects `git -C <worktree> status --porcelain`.
-   - If uncommitted tracked changes exist and `force` is **not** specified: refuses with exit code 1, reporting dirty files and advising `commit`, `stash`, or `abort ... force`.
+   - If uncommitted tracked changes exist and `force` is **not** specified: refuses with exit code 1, reporting dirty files and advising `commit`, `stash`, or `plan abort ... force`.
 2. **Worktree Removal**:
    - Executes `git worktree remove --force "$wt_path"`.
    - Prunes kit symlinks (`.githooks`, `.agents`, `.plans`, `.claude`).
@@ -132,18 +131,18 @@ If the plan was started in its own worktree (`* **Worktree:** .workspace/<id>`):
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: `tests/verbs/abort.sh`: Add test `test_abort_incubator_draft_moves_to_aborted_and_cleans_matrix`.
-- [ ] Task 1.2: `tests/verbs/abort.sh`: Add test `test_abort_frozen_plan_cleans_resources`.
-- [ ] Task 1.3: `tests/verbs/abort.sh`: Add test `test_abort_inflight_plan_refuses_dirty_worktree_without_force`.
-- [ ] Task 1.4: `tests/verbs/abort.sh`: Add test `test_abort_inflight_plan_removes_worktree_and_deletes_branch`.
-- [ ] Task 1.5: `tests/verbs/abort.sh`: Add test `test_abort_with_keep_branch_preserves_ref`.
-- [ ] Task 1.6: `tests/verbs/abort.sh`: Add test `test_abort_reverts_target_issue_to_incubated`.
-- [ ] Task 1.7: `tests/verbs/abort.sh`: Add test `test_abort_group_member_unlinks_from_group_plan`.
-- [ ] Task 1.8: `tests/verbs/abort.sh`: Add test `test_abort_writes_aborted_ledger_entry`.
+- [ ] Task 1.1: `tests/verbs/plan.abort.sh`: Add test `test_abort_incubator_draft_moves_to_aborted_and_cleans_matrix`.
+- [ ] Task 1.2: `tests/verbs/plan.abort.sh`: Add test `test_abort_frozen_plan_cleans_resources`.
+- [ ] Task 1.3: `tests/verbs/plan.abort.sh`: Add test `test_abort_inflight_plan_refuses_dirty_worktree_without_force`.
+- [ ] Task 1.4: `tests/verbs/plan.abort.sh`: Add test `test_abort_inflight_plan_removes_worktree_and_deletes_branch`.
+- [ ] Task 1.5: `tests/verbs/plan.abort.sh`: Add test `test_abort_with_keep_branch_preserves_ref`.
+- [ ] Task 1.6: `tests/verbs/plan.abort.sh`: Add test `test_abort_reverts_target_issue_to_incubated`.
+- [ ] Task 1.7: `tests/verbs/plan.abort.sh`: Add test `test_abort_group_member_unlinks_from_group_plan`.
+- [ ] Task 1.8: `tests/verbs/plan.abort.sh`: Add test `test_abort_writes_aborted_ledger_entry`.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Register `abort` in `lib/verbs.tsv`.
-- [ ] Task 2.2: Implement `cmd_abort()` in `lib/cmd_plan.sh` and wire `aapp plan abort` dispatcher.
+- [ ] Task 2.1: Implement `cmd_plan_abort()` in `lib/cmd_plan.sh`.
+- [ ] Task 2.2: Route `abort` in `cmd_plan_switchboard` and list it in the switchboard text.
 - [ ] Task 2.3: Implement worktree cleanup, buffer unbinding, and branch removal logic.
 - [ ] Task 2.4: Implement `.plans/aborted/` movement, header mutation, and `000-aborted-ledger.md` appender.
 - [ ] Task 2.5: Implement issue status reversion (`🔵 Planned` -> `🟡 Incubated`) in `lib/cmd_issue.sh` / `lib/cmd_plan.sh`.
@@ -152,7 +151,7 @@ If the plan was started in its own worktree (`* **Worktree:** .workspace/<id>`):
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify all failure assertions pass.
-- [ ] Task 3.2: Create verb specification contract `lib/docs/verbs/abort.md`.
+- [ ] Task 3.2: Add the `plan abort` form to the `plan` verb contract `lib/docs/verbs/plan.md`.
 - [ ] Task 3.3: Update `MANUAL.md` with Plan Abort & Decommissioning lifecycle guide.
 - [ ] Task 3.4: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
 - [ ] Task 3.5: Verify `CHANGELOG.md` updates and run syntax/build checks.
@@ -162,10 +161,9 @@ If the plan was started in its own worktree (`* **Worktree:** .workspace/<id>`):
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `lib/cmd_plan.sh` -> Implement `abort` verb, worktree teardown, and plan archival logic.
-- [ ] `lib/verbs.tsv` -> Register `abort` daily verb.
-- [ ] `NEW FILE` -> `lib/docs/verbs/abort.md` -> Lifecycle contract documentation for `abort`.
-- [ ] `NEW FILE` -> `tests/verbs/abort.sh` -> Test suite covering incubator, frozen, in-flight, and group aborts.
+- [ ] `lib/cmd_plan.sh` -> Implement `plan abort`, worktree teardown, and plan archival logic.
+- [ ] `lib/docs/verbs/plan.md` -> `plan abort` form in the `plan` verb contract.
+- [ ] `NEW FILE` -> `tests/verbs/plan.abort.sh` -> `plan` verb suite part covering incubator, frozen, in-flight, and group aborts.
 - [ ] `MANUAL.md` -> User guide documentation for abandoning and archiving blueprints.
 - [ ] `.agents/CODEMAP.md` -> Architectural boundary mapping for abort lifecycle.
 - [ ] `CHANGELOG.md` -> Entry written by `aapp commit`.
@@ -184,5 +182,6 @@ If the plan was started in its own worktree (`* **Worktree:** .workspace/<id>`):
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** Single command form `aapp plan abort <id>`: no top-level `abort` verb, contract in `lib/docs/verbs/plan.md`, tests in the suite part `tests/verbs/plan.abort.sh`.
 * **2026-10-11:** Resolved Q1 (dedicated aborted ledger) and Q2 (warn and delete unmerged branch unless keep-branch). Blueprint fully specified.
 * **2026-10-11:** Scaffolded from Issue #118 and refined technical blueprint: defined CLI ingress (`aapp abort`), worktree teardown, `.plans/aborted/` archival, issue reversion to Incubated, and group member unlinking.
