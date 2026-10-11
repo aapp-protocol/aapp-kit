@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #123 | `Medium` | `CORE` | 2026-10-11 | `lib/cmd_issue.sh` | No verb withdraws an issue: `issue close` without a commit archives it as fixed at HEAD, and its plan or open mini plan stays behind. |  | 🟡 `Incubated` |
 | #122 | `Low` | `CLI` | 2026-10-11 | `lib/cmd_plan.sh` (`cmd_refine`, `done` Target Issue) | A plan links one issue, only at `draft … issue`: no verb adds a second issue to an existing plan, and `done` closes only the first id in `Target Issue`, so an issue another plan also fixes is closed by hand. |  | 🟡 `Incubated` |
 | #120 | `Low` | `CLI` | 2026-10-11 | `lib/cmd_plan.sh` (`cmd_tdd`) | `aapp tdd help` drafts and commits a new plan named `help` (P-70): an unknown argument is taken as a new slug, with no help form. |  | 🟡 `Incubated` |
 | #118 | `Medium` | `CORE` | 2026-10-11 | `lib/cmd_plan.sh` | No lifecycle path abandons a plan: once started, a plan can only reach `done`; its worktree, branch and matrix row have no verb-driven way out (only `issue fix … abort` exists). | [P-69](current/P69-abort-plan.md) | 🔵 `Planned` |
