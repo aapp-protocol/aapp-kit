@@ -113,8 +113,8 @@ fi
 
 cd "$(proj trap)" || exit 1
 mkdir -p "$R/traptmp"
-st tests/a_test.sh "touch '$R/trap-a'; sleep 30 # aapp-trap-marker"
-st tests/b_test.sh "touch '$R/trap-b'; sleep 30 # aapp-trap-marker"
+st tests/a_test.sh "touch '$R/trap-a'; bash -c 'sleep 30' aapp-trap-marker"
+st tests/b_test.sh "touch '$R/trap-b'; bash -c 'sleep 30' aapp-trap-marker"
 TMPDIR="$R/traptmp" aapp test jobs 2 >/dev/null 2>&1 &
 tp=$!
 for _ in $(seq 1 50); do [ -f "$R/trap-a" ] && [ -f "$R/trap-b" ] && break; sleep 0.2; done

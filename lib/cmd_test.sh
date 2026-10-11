@@ -143,6 +143,28 @@ aapp_adopter_test_or_audit() {
     fi
 }
 
+# _test_default_jobs: the CPU count rounded down to a multiple of 4 (10 -> 8),
+# or the CPU count below 4. An unreadable count runs serially, with a notice.
+_test_default_jobs() {
+    local n
+    n="$(getconf _NPROCESSORS_ONLN 2>/dev/null)" || n=""
+    case "$n" in
+        ''|*[!0-9]*|0)
+            echo "ℹ️  [Test Runner] CPU count unreadable; running suites one at a time (set 'jobs <n>' to override)." >&2
+            echo 1; return 0 ;;
+    esac
+    if [ "$n" -ge 4 ]; then echo $(( n / 4 * 4 )); else echo "$n"; fi
+}
+
+# _test_stop <pid>…: stops running suites with everything they started (each
+# runs in its own process group).
+_test_stop() {
+    local p
+    for p in "$@"; do kill -TERM -- "-$p" 2>/dev/null || kill -TERM "$p" 2>/dev/null; done
+    # A stopped suite exits non-zero by design; under `set -e` that must not end the trap.
+    for p in "$@"; do wait "$p" 2>/dev/null || :; done
+}
+
 cmd_test() {
     # Exported by the `aapp` dispatcher, which asserts repository membership (P-33).
     local repo_root="$REPO_ROOT"
@@ -162,6 +184,7 @@ cmd_test() {
     local suite_filters=()
     local verb_mode=0
     local verb_names=()
+    local jobs=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -170,6 +193,12 @@ cmd_test() {
             bail)   bail=1 ;;
             quiet)  quiet=1 ;;
             verb)   verb_mode=1 ;;
+            jobs)
+                case "${2:-}" in
+                    ''|*[!0-9]*|0) echo "❌ [Test Runner] 'jobs' needs a positive number: aapp test jobs <n>." >&2; return 1 ;;
+                esac
+                jobs="$2"; shift
+                ;;
             help)
                 cmd_test_help
                 return 0
@@ -296,11 +325,12 @@ cmd_test() {
     # 5. Header Banner
     local strict_label="OFF"
     [ "${AAPP_TEST_SANDBOX_STRICT:-0}" = "1" ] && strict_label="ON"
+    [ -n "$jobs" ] || jobs="$(_test_default_jobs)"
 
     echo "============================================================"
     echo "  🧪 AAPP Unified Test Runner"
     echo "  📍 Repository: $repo_root"
-    echo "  🎯 Execution:  ${#selected_suites[@]} suites selected | Sandbox Strict: $strict_label"
+    echo "  🎯 Execution:  ${#selected_suites[@]} suites selected | Jobs: $jobs | Sandbox Strict: $strict_label"
     echo "============================================================"
     echo ""
 
@@ -311,30 +341,44 @@ cmd_test() {
     local runner_start
     runner_start="$(date +%s)"
 
-    # Array to collect summary rows
+    # Summary rows, indexed in selection order.
     local summary_rows=()
 
-    for suite in "${selected_suites[@]}"; do
-        local bname
-        bname="$(suite_label "$suite")"
-        local suite_start
-        suite_start="$(date +%s)"
-        local suite_out
-        local suite_rc=0
+    # P-67: up to $jobs suites at once, each in its own process group (set -m)
+    # with its output in its own file; a finished suite's output is read and
+    # flushed in one write. One trap stops running suites and removes the files.
+    local work total=${#selected_suites[@]} next=0 stop=0 i k done_k
+    local run_pids=() run_idx=() run_start=()
+    work="$(mktemp -d "${TMPDIR:-/tmp}/aapp-test-XXXXXX")" || return 1
+    trap '_test_stop "${run_pids[@]}"; rm -rf "$work"' EXIT
+    trap '_test_stop "${run_pids[@]}"; rm -rf "$work"; trap - EXIT; exit 130' INT
+    trap '_test_stop "${run_pids[@]}"; rm -rf "$work"; trap - EXIT; exit 143' TERM
+    set -m
+    while [ "$next" -lt "$total" ] || [ ${#run_pids[@]} -gt 0 ]; do
+        while [ "$stop" -eq 0 ] && [ "$next" -lt "$total" ] && [ ${#run_pids[@]} -lt "$jobs" ]; do
+            ( cd "$repo_root" && exec bash "${selected_suites[$next]}" ) > "$work/$next.out" 2>&1 &
+            run_pids+=("$!"); run_idx+=("$next"); run_start+=("$(date +%s)")
+            next=$((next + 1))
+        done
+        if [ "$stop" -eq 1 ] && [ ${#run_pids[@]} -eq 0 ]; then break; fi
+        done_k=-1
+        for k in "${!run_pids[@]}"; do
+            if ! kill -0 "${run_pids[$k]}" 2>/dev/null; then done_k="$k"; break; fi
+        done
+        if [ "$done_k" -lt 0 ]; then sleep 0.1; continue; fi
 
-        # Execute in subshell, capturing output and exit code
-        if [ "$quiet" -eq 1 ]; then
-            suite_out="$(( cd "$repo_root" && bash "$suite" ) 2>&1)" || suite_rc=$?
-        else
-            # Stream output live while also capturing into buffer for metrics extraction
-            # Using temporary file for robust, non-blocking capture
-            local tmp_out
-            tmp_out="$(mktemp "/tmp/aapp-test-suite-XXXXXX")"
-            ( cd "$repo_root" && bash "$suite" ) 2>&1 | tee "$tmp_out"
-            suite_rc=${PIPESTATUS[0]}
-            suite_out="$(cat "$tmp_out")"
-            rm -f "$tmp_out"
-        fi
+        local suite_rc=0
+        wait "${run_pids[$done_k]}" || suite_rc=$?
+        i="${run_idx[$done_k]}"
+        local suite_start="${run_start[$done_k]}"
+        run_pids=("${run_pids[@]:0:$done_k}" "${run_pids[@]:$((done_k + 1))}")
+        run_idx=("${run_idx[@]:0:$done_k}" "${run_idx[@]:$((done_k + 1))}")
+        run_start=("${run_start[@]:0:$done_k}" "${run_start[@]:$((done_k + 1))}")
+
+        local suite="${selected_suites[$i]}" bname suite_out
+        bname="$(suite_label "$suite")"
+        suite_out="$(cat "$work/$i.out")"
+        if [ "$quiet" -eq 0 ]; then printf '%s\n' "$suite_out"; fi
 
         local suite_end
         suite_end="$(date +%s)"
@@ -373,7 +417,7 @@ cmd_test() {
             suites_passed=$((suites_passed + 1))
             local row
             row="$(printf "  \033[32m✔\033[0m %-26s (%d passed, %d failed) [%ds]" "$bname" "$suite_pass" "$suite_fail" "$suite_duration")"
-            summary_rows+=("$row")
+            summary_rows[$i]="$row"
             if [ "$quiet" -eq 1 ]; then
                 echo "$row"
             fi
@@ -381,7 +425,7 @@ cmd_test() {
             suites_failed=$((suites_failed + 1))
             local row
             row="$(printf "  \033[31m✘\033[0m %-26s (%d passed, %d failed) [%ds] - FAILED (exit %d)" "$bname" "$suite_pass" "$suite_fail" "$suite_duration" "$suite_rc")"
-            summary_rows+=("$row")
+            summary_rows[$i]="$row"
             if [ "$quiet" -eq 1 ]; then
                 echo "$row"
                 echo "────────────────────────────────────────────────────────────"
@@ -389,13 +433,16 @@ cmd_test() {
                 echo "────────────────────────────────────────────────────────────"
             fi
 
-            if [ "$bail" -eq 1 ]; then
+            if [ "$bail" -eq 1 ] && [ "$stop" -eq 0 ]; then
                 echo ""
-                echo "🛑 [Bail] Aborting test execution immediately upon suite failure."
-                break
+                echo "🛑 [Bail] No further suites start after this failure; running ones finish."
+                stop=1
             fi
         fi
     done
+    set +m
+    rm -rf "$work"
+    trap - EXIT INT TERM
 
     local runner_end
     runner_end="$(date +%s)"
