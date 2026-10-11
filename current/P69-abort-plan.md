@@ -79,7 +79,7 @@ In AAPP, blueprint lifecycles are currently strictly unidirectional towards `don
    - the archived members whose work is on the feature branch;
    - the feature branch and its SHA.
    On a terminal (`[ -t 0 ]`) it prompts `[y/N]`; anything but `y` exits 1 with nothing changed. Without a terminal it refuses unless `confirm` is given. A member released beforehand with `aapp refine <id> group none` is not part of the group.
-5. **Group member** (`* **Group:** <group>`), aborted on its own: refused once it has recorded commits (`parse_plan_commits`), as `aapp issue fix <num> abort` refuses a fix with commits; implemented member work is finished with `aapp done <id>`. A member without commits aborts like any plan.
+5. **Group member** (`* **Group:** <group>`), aborted on its own: no extra check. A member always has its own worktree (`_member_group_check`), so its commits are on its plan branch and go with it (§2.5).
 6. **Target issue**: `issue_locate` must find `#<n>` in `ISSUES.md` or the issues archive; an archived issue is left alone.
 
 ### 2.3 Archive (one commit in the plans worktree)
@@ -158,7 +158,7 @@ Aborting a group plan removes the group: its plan, its open members and its code
 - [ ] `tests/verbs/plan.abort.sh::test_abort_relinks_other_issue_rows` -> asserts other rows and road-map lines point at `aborted/`
 - [ ] `tests/verbs/plan.abort.sh::test_abort_blocked_plan_drops_stash_record` -> asserts the hotfix issue stays open and its `aapp_hotfix_stash` line is gone while the stash remains
 - [ ] `tests/verbs/plan.abort.sh::test_abort_group_member_unlinked` -> asserts the group's `Members` no longer lists the plan
-- [ ] `tests/verbs/plan.abort.sh::test_abort_group_member_with_commits_refused` -> asserts a member with recorded commits is refused and nothing changes
+- [ ] `tests/verbs/plan.abort.sh::test_abort_group_member_with_commits` -> asserts a member with recorded commits aborts: its worktree and branch are gone and the feature branch is unchanged
 - [ ] `tests/verbs/plan.abort.sh::test_abort_group_needs_confirm` -> asserts a group abort without a terminal and without `confirm` is refused, lists what it would remove, and changes nothing
 - [ ] `tests/verbs/plan.abort.sh::test_abort_group_aborts_open_members` -> asserts with `confirm` the group and every member in `current/`, with or without commits, land in `aborted/` in one commit, each with a ledger row
 - [ ] `tests/verbs/plan.abort.sh::test_abort_group_removes_feature_branch` -> asserts the feature branch and member branches go, or stay with `keep-branch`
@@ -173,7 +173,7 @@ Aborting a group plan removes the group: its plan, its open members and its code
 - [ ] Task 2.2: Route `abort` in `cmd_plan_switchboard` and list it in the switchboard text.
 - [ ] Task 2.3: Archive (§2.3): move, header, change log, ledger, matrix, buffers, snapshot-guarded commit.
 - [ ] Task 2.4: Issue abort step in `lib/cmd_issue.sh` (`🔵 Planned` -> `🟡 Incubated`, link repointed to `aborted/`), shared by `issue fix <num> abort` and `plan abort`; relink; hotfix stash records (§2.4).
-- [ ] Task 2.5: Group member refusal on recorded commits and member unlinking; group plan abort with confirmation (§2.6).
+- [ ] Task 2.5: Group member unlinking; group plan abort with confirmation (§2.6).
 - [ ] Task 2.6: Teardown (§2.5).
 - [ ] Task 2.7: `post-abort` dispatch and event catalogue (§2.7).
 
@@ -221,6 +221,7 @@ Aborting a group plan removes the group: its plan, its open members and its code
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-11:** A group member aborts with its commits: they are on its own plan branch.
 * **2026-10-11:** A group plan's abort removes the whole group (open members, feature branch) after a confirmation.
 * **2026-10-11:** A group member with recorded commits is refused.
 * **2026-10-11:** Aligned with the code: preflight before any change, `done`'s snapshot commit and helpers, recorded worktree and branch, ignored-file rule, single-checkout, blocked and group cases, hook catalogue, Required Tests.
