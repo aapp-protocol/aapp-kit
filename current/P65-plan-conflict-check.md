@@ -182,18 +182,19 @@ Implement helper function:
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/plan.sh::test_conflict_check_disjoint_plans_exit_zero` -> asserts two disjoint plans: exit 0
+- [ ] `tests/verbs/plan.sh::test_conflict_check_overlapping_plans_exit_one_and_names_target` -> asserts an overlap: exit 1 naming the file
+- [ ] `tests/verbs/plan.sh::test_conflict_check_exempts_shared_docs` -> asserts shared docs alone are no collision
+- [ ] `tests/verbs/plan.sh::test_conflict_free_against_active_in_flight_plans` -> asserts pending plans split into conflict-free and conflicting against ⚡ plans
+- [ ] `tests/verbs/plan.sh::test_conflict_free_with_reference_plan` -> asserts compatible and incompatible plans against `<id>`
+- [ ] `tests/verbs/plan.sh::test_conflict_check_many_plans_and_group_expands` -> asserts several plans pairwise; a group ID expands to its members
+- [ ] `tests/verbs/plan.sh::test_conflict_free_group_orders_members_in_waves` -> asserts three members, two colliding: two waves, the held-back member names the file and member
+- [ ] `tests/verbs/plan.sh::test_group_waves_respect_in_flight_plans` -> asserts a member colliding with a ⚡ plan outside the group waits
+- [ ] `tests/verbs/plan.sh::test_group_waves_filters_done_and_inflight_members` -> asserts done members skipped, in-flight members anchor collisions
+- [ ] `tests/verbs/plan.sh::test_conflict_subcommands_json_token_output` -> asserts `json` gives structured output with the same exit codes
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: `tests/verbs/plan.sh`: Add test `test_conflict_check_disjoint_plans_exit_zero`.
-- [ ] Task 1.2: `tests/verbs/plan.sh`: Add test `test_conflict_check_overlapping_plans_exit_one_and_names_target`.
-- [ ] Task 1.3: `tests/verbs/plan.sh`: Add test `test_conflict_check_exempts_shared_docs`.
-- [ ] Task 1.4: `tests/verbs/plan.sh`: Add test `test_conflict_free_against_active_in_flight_plans`.
-- [ ] Task 1.5: `tests/verbs/plan.sh`: Add test `test_conflict_free_with_reference_plan`.
-- [ ] Task 1.6: `tests/verbs/plan.sh`: Add test `test_conflict_check_many_plans_and_group_expands`.
-- [ ] Task 1.7: `tests/verbs/plan.sh`: Add test `test_conflict_free_group_orders_members_in_waves` (three members, two colliding: two waves, the held-back member names the file and member).
-- [ ] Task 1.8: `tests/verbs/plan.sh`: Add test `test_group_waves_respect_in_flight_plans`.
-- [ ] Task 1.9: `tests/verbs/plan.sh`: Add test `test_group_waves_filters_done_and_inflight_members` (done members skipped, inflight members anchor collisions).
-- [ ] Task 1.10: `tests/verbs/plan.sh`: Add test `test_conflict_subcommands_json_token_output` (validates structured JSON and exit code parity across check, free, and waves).
+- [ ] Task 1.1: The Required Tests above.
 
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: Implement `plan_compare_targets()` helper in `lib/cmd_plan.sh`.
@@ -223,6 +224,7 @@ Implement helper function:
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- `tests/verbs/plan.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/cmd_issue.sh` -> Issue management untouched.
