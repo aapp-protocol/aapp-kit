@@ -1418,6 +1418,21 @@ aapp done P-51 no-integrate             # archive only
 - **Cleanup and ignored files.** `git worktree remove` deletes ignored files silently, so sensitive ones (`.env*`, `*.pem`, `*.key`, `*secret*`) **refuse the cleanup** with a list; the integration stands. Set `aapp.quarantineIgnored true` to copy them into `$(git rev-parse --git-common-dir)/aapp_quarantine/<id>/` (inside `.git`, never pushed) first, or pass `force-cleanup`. `no-cleanup` or `aapp.integrateCleanup false` keeps the worktree and branch.
 - **Retries** are safe: a plan already contained in its target is not merged again; `integrate` then only cleans up.
 
+#### Plan Groups on a Feature Branch (P-64)
+A feature that needs several plans is one **group plan** with **members**. The group is a planning container first: members are planned in it, refined like any plan, and started into it when ready.
+```bash
+aapp draft auth-rework group                 # the group plan: # 🧩 Group Plan P-70: Auth Rework
+aapp draft login-form group P-70             # a member (or: aapp refine P-71 group P-70)
+aapp start P-70 base module/auth             # cuts feature/auth-rework from its parent (default: the development branch)
+aapp start P-71                              # a member starts from feature/auth-rework (plan worktrees on)
+aapp done P-71                               # a member integrates into the feature branch
+aapp done P-70                               # the group: gate on the feature branch, then merge into the parent
+```
+- **The group plan** holds the goal, the shared decisions, the member order and `## Architecture & Codemap`: every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written whole in a ```` fence under its exact heading. Members read them as the target architecture and never edit either file (the commit hook refuses `ARCHITECTURE.md` from a member). `aapp refine` on the group records a base line (`<!-- aapp-base: … -->`) above each section.
+- **Always the parent.** A group merges into the branch it was cut from: a module, test or release branch, not necessarily the development branch. Groups do not nest.
+- **The group's `done`**, in one command: refuses while a member is open; checks the feature branch out in `.workspace/P<n>`; merges a parent that moved (a conflict refuses with nothing changed; never a rebase, so the members' recorded SHAs stay valid); replaces each `ARCHITECTURE.md` section with the same heading or adds a new one, and commits it with the group's umbrella changelog entry; runs `pre-done` there; archives; fast-forwards the parent; applies the `CODEMAP.md` sections in `.agents`. A section the file changed since its base line refuses: update the plan's section, delete its base line, refine again.
+- **Issue fixes.** `aapp issue fix` works on the development branch and refuses elsewhere. A bug caused by the group's work is fixed on the feature branch: `aapp issue fix <num> group P-70` opens `.workspace/fix-<num>` on `fix/<num>`; `aapp issue close <num>` lands it on the feature branch. When a group changes the issue's files, a plain `fix` says so; the human decides.
+
 ---
 
 ### Team Sync Governance & Transport Hooks (`aapp.syncStrategy`)

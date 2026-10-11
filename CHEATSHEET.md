@@ -16,6 +16,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp status [short]` | **✅ Yes** | 4-pillar context recovery briefing (or 'short' for 1-line remote pulse) |
 | `aapp draft [slug]` | **✅ Yes** | Scaffold blueprint from template, stamp ID & date, register in matrix |
 | `aapp draft <slug> issue <num>` | **✅ Yes** | Promote issue `#<num>`: Target Issue, Planned row and link in the draft commit |
+| `aapp draft <slug> group [<id>]` | **✅ Yes** | A group plan (`🧩 Group Plan`), or a member of group `<id>`; `aapp refine <id> group <gid>\|none` joins or leaves before start |
 | `aapp refine <id> "<msg>"` | **✅ Yes** | Commit an edit to an active plan's content through the plans commit engine |
 | `aapp refine <id> slug <new-slug>` | **✅ Yes** | Rename a plan file; issue links and the matrix follow |
 | `aapp refine pickup\|issues "<msg>"` | **✅ Yes** | Commit a validated hand edit of `pickup.md`, or `ISSUES.md` + road map |
@@ -26,12 +27,14 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp matrix [check]` | **✅ Yes** | Re-derive state matrix from plan Status lines ('check' to audit) |
 | `aapp freeze [id]` | **✅ Yes** | Lock blueprint blast radius & design into frozen backlog spec |
 | `aapp start [id] [worktree <path> [branch <name>]]` | **✅ Yes** | Bind execution buffer & transition to ⚡ In Development (refused while a queued Plan Blocker names a Target File); with `aapp.planWorktrees on` (or `worktree`), in the plan's own branch and worktree, all or nothing |
+| `aapp start <group> [base <branch>]` | **✅ Yes** | Cut the group's feature branch from its parent; members then start from it; the group's `aapp done` gates and merges it into the parent |
 | `aapp freeze-start [id] [worktree <path> [branch <name>]]` | **✅ Yes** | Atomically freeze blueprint and activate execution buffer (same pending-fix gate and plan worktree) |
 | `aapp commit "<msg>"` | **✅ Yes** | Commit implementation code and record SHA into active plan |
 | `aapp done [id]` | **✅ Yes** | Archive implemented blueprint to done/ and update archival ledger; repairs issue links to the plan; with `aapp.integrate` squash/ff/hook, also integrates a worktree plan into its parent branch and cleans up |
 | `aapp done <id> integrate [squash\|ff\|hook] [target <b>] [no-cleanup] [force-cleanup] [override-hotfix-cap]` / `no-integrate` | **✅ Yes** | Integrate a worktree plan now (also an archived one, as a retry), or archive only (P-55) |
 | `aapp issue hotfix "<text>" [file <path>]… [plan]` | **✅ Yes** | Log a blocking bug, queue it, block the plan (one commit; >`aapp.maxEmergencyHotfixes` blocks for good) |
-| `aapp issue fix next-blocker \| <num> [file <path>…] \| <num> abort` | **✅ Yes** | Temporary mini plan for one fix, files from the issue's Location; waits up to `aapp.issueFixWait` for an open fix or uncommitted work (skill: `/aapp-fix [#<num>]`) |
+| `aapp issue fix next-blocker \| <num> [file <path>…] \| <num> abort` | **✅ Yes** | Temporary mini plan for one fix, files from the issue's Location, on the development branch only; waits up to `aapp.issueFixWait` for an open fix or uncommitted work (skill: `/aapp-fix [#<num>]`) |
+| `aapp issue fix <num> group <id>` | **✅ Yes** | A group-caused bug: the fix in `.workspace/fix-<num>` on the group's feature branch; `close` lands it there |
 | `aapp active [id]` | **✅ Yes** | Inspect, swap, or clear active plan execution buffer |
 | `aapp test [filter]` | **✅ Yes** | Run test suites across repository or audit adopter environment |
 | `aapp test verb [name]` | **✅ Yes** | Run contract-derived verb suites (`tests/verbs/<name>.sh`) |
