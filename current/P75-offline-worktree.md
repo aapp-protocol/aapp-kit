@@ -155,48 +155,48 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/offline.sh::test_mount_creates_orphan_worktree` -> asserts `aapp offline mount` creates `.offline` on orphan branch `offline`
-- [ ] `tests/verbs/offline.sh::test_allocate_uses_offset` -> asserts first offline allocation starts at `max(canonical) + aapp.offlineIdOffset`
-- [ ] `tests/verbs/offline.sh::test_allocate_subsequent_increments_by_one` -> asserts subsequent offline allocation increments from highest existing offline ID (+1)
-- [ ] `tests/verbs/offline.sh::test_custom_offset_configuration` -> asserts changing `git config aapp.offlineIdOffset 5000` starts offline IDs at 5000+
-- [ ] `tests/verbs/offline.sh::test_plugin_smart_fallback_on_timeout` -> asserts when plugin hangs beyond `aapp.pluginTimeout`, operation falls back to `.offline` with advisory
-- [ ] `tests/verbs/offline.sh::test_offline_only_skips_network` -> asserts `offlineOnly=true` bypasses plugin execution completely with zero latency
-- [ ] `tests/verbs/offline.sh::test_offline_disabled_fails_closed` -> asserts `offlineEnabled=false` refuses when plugin fails instead of staging locally
-- [ ] `tests/verbs/offline.sh::test_offline_issue_local_archive` -> asserts closing an offline issue moves it to `.offline/done/000-issues-archive.md`
-- [ ] `tests/verbs/offline.sh::test_offline_issue_abort_archives_row` -> asserts `aapp issue abort` on an offline issue moves it to `.offline/done/000-issues-archive.md` with commit `aborted` and unblocks plans
-- [ ] `tests/verbs/offline.sh::test_status_reports_staged_offline_work` -> asserts `aapp status` displays staged offline issues and plans
-- [ ] `tests/verbs/offline.sh::test_offline_sync_promotes_and_relinks` -> asserts `aapp offline sync` moves rows to `.plans/`, rewrites `#<temp>` references to `#<canonical>`, and clears `.offline`
-- [ ] `tests/verbs/offline.sh::test_offline_issue_in_every_view` -> asserts an offline issue shows, marked, in `status` and `issue list`, and blocks a plan whose `Blocked On` names it
-- [ ] `tests/verbs/offline.sh::test_sync_preserves_offline_commit_messages` -> asserts sync promotes closed offline issue without rewriting historical commit subject (#<temp>), recording formerly offline #<temp> in archive summary
-- [ ] `tests/verbs/offline.sh::test_former_id_lookup_resolves_to_canonical` -> asserts ledger_locate and ledger_row resolve former offline ID (#1043) to canonical ID after sync
-- [ ] `tests/verbs/offline.sh::test_unmount_refuses_when_dirty` -> asserts `aapp offline unmount` refuses if unpromoted issues exist without the `force` token
-- [ ] `tests/verbs/offline.sh::test_outbox_sent_before_tracker_read` -> asserts an issue closed offline stays closed after the next sync: its `close` step is sent first, and while it cannot be sent the tracker's list is not applied
-- [ ] `tests/verbs/offline.sh::test_sync_sends_description_and_notes` -> asserts a staged issue's description and notes are in the `log` payload and the store entry moves to the real id
-- [ ] `tests/verbs/offline.sh::test_sync_commits_by_record` -> asserts with committed ledgers the sync commits rows and plans, and with the tracker as the record it commits only the changed plans
-- [ ] `tests/verbs/offline.sh::test_sync_keeps_failed_row_staged` -> asserts a row the provider fails on stays in `.offline`, the others are synced, and the sync reports it
-- [ ] `tests/verbs/offline.sh::test_offline_dir_excluded_locally` -> asserts mounting adds `.offline/` to `.git/info/exclude` and makes no commit
-- [ ] `tests/verbs/offline.sh::test_offline_draft_takes_temporary_plan_id` -> asserts with an unreachable `aapp-planid` provider `draft` writes `.offline/current/P<temp>-<slug>.md`, the id being the highest local plan id plus the offset, then the highest offline plan id plus 1
-- [ ] `tests/verbs/offline.sh::test_sync_gives_draft_real_plan_id` -> asserts the sync asks the provider for the id, renames the file, rewrites the header and every reference to `P-<temp>`, and records the former id in the plan's change log
-- [ ] `tests/verbs/offline.sh::test_push_verbs_refuse_offline` -> asserts `aapp push` and `aapp sync` leave `.offline` alone by default and refuse when `aapp.syncWorktrees` names `offline`
+- [x] `tests/verbs/offline.sh::test_mount_creates_orphan_worktree` -> asserts `aapp offline mount` creates `.offline` on orphan branch `offline`
+- [x] `tests/verbs/offline.sh::test_allocate_uses_offset` -> asserts first offline allocation starts at `max(canonical) + aapp.offlineIdOffset`
+- [x] `tests/verbs/offline.sh::test_allocate_subsequent_increments_by_one` -> asserts subsequent offline allocation increments from highest existing offline ID (+1)
+- [x] `tests/verbs/offline.sh::test_custom_offset_configuration` -> asserts changing `git config aapp.offlineIdOffset 5000` starts offline IDs at 5000+
+- [x] `tests/verbs/offline.sh::test_plugin_smart_fallback_on_timeout` -> asserts when plugin hangs beyond `aapp.pluginTimeout`, operation falls back to `.offline` with advisory
+- [x] `tests/verbs/offline.sh::test_offline_only_skips_network` -> asserts `offlineOnly=true` bypasses plugin execution completely with zero latency
+- [x] `tests/verbs/offline.sh::test_offline_disabled_fails_closed` -> asserts `offlineEnabled=false` refuses when plugin fails instead of staging locally
+- [x] `tests/verbs/offline.sh::test_offline_issue_local_archive` -> asserts closing an offline issue moves it to `.offline/done/000-issues-archive.md`
+- [x] `tests/verbs/offline.sh::test_offline_issue_abort_archives_row` -> asserts `aapp issue abort` on an offline issue moves it to `.offline/done/000-issues-archive.md` with commit `aborted` and unblocks plans
+- [x] `tests/verbs/offline.sh::test_status_reports_staged_offline_work` -> asserts `aapp status` displays staged offline issues and plans
+- [x] `tests/verbs/offline.sh::test_offline_sync_promotes_and_relinks` -> asserts `aapp offline sync` moves rows to `.plans/`, rewrites `#<temp>` references to `#<canonical>`, and clears `.offline`
+- [x] `tests/verbs/offline.sh::test_offline_issue_in_every_view` -> asserts an offline issue shows, marked, in `status` and `issue list`, and blocks a plan whose `Blocked On` names it
+- [x] `tests/verbs/offline.sh::test_sync_preserves_offline_commit_messages` -> asserts sync promotes closed offline issue without rewriting historical commit subject (#<temp>), recording formerly offline #<temp> in archive summary
+- [x] `tests/verbs/offline.sh::test_former_id_lookup_resolves_to_canonical` -> asserts ledger_locate and ledger_row resolve former offline ID (#1043) to canonical ID after sync
+- [x] `tests/verbs/offline.sh::test_unmount_refuses_when_dirty` -> asserts `aapp offline unmount` refuses if unpromoted issues exist without the `force` token
+- [x] `tests/verbs/offline.sh::test_outbox_sent_before_tracker_read` -> asserts an issue closed offline stays closed after the next sync: its `close` step is sent first, and while it cannot be sent the tracker's list is not applied
+- [x] `tests/verbs/offline.sh::test_sync_sends_description_and_notes` -> asserts a staged issue's description and notes are in the `log` payload and the store entry moves to the real id
+- [x] `tests/verbs/offline.sh::test_sync_commits_by_record` -> asserts with committed ledgers the sync commits rows and plans, and with the tracker as the record it commits only the changed plans
+- [x] `tests/verbs/offline.sh::test_sync_keeps_failed_row_staged` -> asserts a row the provider fails on stays in `.offline`, the others are synced, and the sync reports it
+- [x] `tests/verbs/offline.sh::test_offline_dir_excluded_locally` -> asserts mounting adds `.offline/` to `.git/info/exclude` and makes no commit
+- [x] `tests/verbs/offline.sh::test_offline_draft_takes_temporary_plan_id` -> asserts with an unreachable `aapp-planid` provider `draft` writes `.offline/current/P<temp>-<slug>.md`, the id being the highest local plan id plus the offset, then the highest offline plan id plus 1
+- [x] `tests/verbs/offline.sh::test_sync_gives_draft_real_plan_id` -> asserts the sync asks the provider for the id, renames the file, rewrites the header and every reference to `P-<temp>`, and records the former id in the plan's change log
+- [x] `tests/verbs/offline.sh::test_push_verbs_refuse_offline` -> asserts `aapp push` and `aapp sync` leave `.offline` alone by default and refuse when `aapp.syncWorktrees` names `offline`
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Author test suite in `tests/verbs/offline.sh` proving mounting, offset allocation, sequential local increments, status detection, local archiving, and sync.
+- [x] Task 1.1: Author test suite in `tests/verbs/offline.sh` proving mounting, offset allocation, sequential local increments, status detection, local archiving, and sync.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Implement `lib/cmd_offline.sh` with `mount`, `unmount`, `on`, `off`, `status`, and `sync` handlers.
-- [ ] Task 2.2: Add offline ID allocation logic in issue handler (max offline + 1 if offline issues exist, else max canonical + offset). The same rule for plan ids (Task 2.2b).
-- [ ] Task 2.2b: Offline plan ids: `draft` with an unreachable `aapp-planid` provider; real id, rename and reference rewrite at sync.
-- [ ] Task 2.3: Wire the 3-tier governance into the `issue_provider` wrapper (`lib/cmd_issue.sh`): skip the provider when `offlineOnly`, stage on failure or timeout, refuse when offline is disabled; the outbox for steps that could not be sent.
-- [ ] Task 2.4: Wire local archive relocation in `lib/cmd_issue.sh` when closing or aborting (`aapp issue abort`) issues located in `.offline/`.
-- [ ] Task 2.5: Update `lib/cmd_status.sh` to observe `.offline/` and print the offline briefing pillar.
-- [ ] Task 2.6: Update `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit` to authorize `.offline/**` and prevent push leakage.
+- [x] Task 2.1: Implement `lib/cmd_offline.sh` with `mount`, `unmount`, `on`, `off`, `status`, and `sync` handlers.
+- [x] Task 2.2: Add offline ID allocation logic in issue handler (max offline + 1 if offline issues exist, else max canonical + offset). The same rule for plan ids (Task 2.2b).
+- [x] Task 2.2b: Offline plan ids: `draft` with an unreachable `aapp-planid` provider; real id, rename and reference rewrite at sync.
+- [x] Task 2.3: Wire the 3-tier governance into the `issue_provider` wrapper (`lib/cmd_issue.sh`): skip the provider when `offlineOnly`, stage on failure or timeout, refuse when offline is disabled; the outbox for steps that could not be sent.
+- [x] Task 2.4: Wire local archive relocation in `lib/cmd_issue.sh` when closing or aborting (`aapp issue abort`) issues located in `.offline/`.
+- [x] Task 2.5: Update `lib/cmd_status.sh` to observe `.offline/` and print the offline briefing pillar.
+- [x] Task 2.6: Update `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit` to authorize `.offline/**` and prevent push leakage.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation in `MANUAL.md` (`aapp offline` commands, offset config, local lifecycle).
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation in `MANUAL.md` (`aapp offline` commands, offset config, local lifecycle).
 - [ ] Task 3.3: Incorporate P-75 architecture and codemap entries into group P-72's Architecture and Codemap sections once P-75 is settled.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside Target Files as an issue (`aapp refine issues`).
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside Target Files as an issue (`aapp refine issues`).
 
 ---
 
