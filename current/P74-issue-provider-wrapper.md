@@ -46,7 +46,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 ---
 
 ## 2. Technical Blueprint
-**Handler:** `aapp issue log <sev> <type> "<symptom>" [file <path>]… [note "<text>"]`. The agent hands the issue over and never writes a row; the handler picks the id, writes the row through the module and commits it. `issue hotfix` logs through the same handler.
+**Handler:** `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]`. The agent hands the issue over and never writes a row; the handler picks the id, writes the row through the module and commits it. `issue hotfix` logs through the same handler.
 - **Id:** with a provider, `issue.log` creates the issue and returns its id; without one, the kit's counter. When the provider fails, the id is the highest offline id plus 1, or, with no offline issues, the highest id registered locally (active and archive) plus 1000; the issue is then staged offline (P-75).
 
 **Retired once the handler is the only writer of new rows** (in this order):
@@ -65,11 +65,11 @@ This plan routes every issue step through one wrapper over the ledger functions 
 | close | `issue close`, `done` | `issue.close` |
 | list | `issue list`, `status` | `issue.list` |
 
-- **Payload:** the Plugin Payload Standard envelope; `data` carries the whole issue: id, severity, type, date, location, symptom, link, status, note, and the step's own fields (commit, summary, plan). Sent after the step's commit lands, so a refused row never reaches the provider.
+- **Payload:** the Plugin Payload Standard envelope; `data` carries the whole issue: id, severity, type, date, location, symptom, branch (P-78; absent means the development branch), link, status, note, and the step's own fields (commit, summary, plan). Sent after the step's commit lands, so a refused row never reaches the provider.
 - **Tracker keys:** the kit's `#<num>` stays the kit's id. The payload and the provider's issues carry an optional `ref` (the tracker's own key or URL, e.g. `PROJ-101`); the provider keeps its own mapping, and `issue list` shows `ref` next to the id.
 - **Answer:** the P-77 answer: `status`, `message`, `handled`, and what the plugin produced (`id`, `ref`). `handled` names what it took care of (`id`, `note`, `list`); the kit does the rest, so current providers keep working. Further operations go in the `do` list.
 - **Notes:** a bare `note` token on `issue log` and `issue hotfix`; on an existing issue, `aapp refine issues "<msg>" note <n> "<text>"` (repeatable; with only `note` tokens and no ledger change it still runs the wrapper). Never written to the ledger. Kit store: `~/.local/state/aapp/<key>/issues-data.md`. `issue fix` prints the note as the fix opens.
-- **Remote issues:** `issue.list` writes the issues to the list file, one per line, in the payload's issue shape. The kit writes them to `~/.local/state/aapp/<key>/remote-issues.tsv`; `ledger_rows` and `ledger_locate` merge it (`remote`), so they block plans and show in `status`, `issue list`, `draft` and `next-blocker`. On an id present on both sides, the local lifecycle cells win, except a closure: an issue the provider lists as closed is reconciled (Question 5); `status` marks it.
+- **Remote issues:** `issue.list` writes the issues to the list file, one per line, in the payload's issue shape. The kit writes them to `~/.local/state/aapp/<key>/remote-issues.tsv`; `ledger_rows` and `ledger_locate` merge it (`remote`), so they block plans and show in `status`, `issue list`, `draft` and `next-blocker`. On an id present on both sides, the local lifecycle cells win. A closure made on the tracker arrives as an `issue close` line in `do` (Question 5); until its commit is in the issue's branch, `status` and `issue list` mark the issue as closed on the tracker, waiting for the code.
 - **Notes are per machine without a provider:** the kit's store is outside Git, so another clone sees a note only through a provider; the MANUAL says so.
 - **Acting on a remote issue:** `issue fix`, `draft … issue` and `next-blocker` first write its row into `ISSUES.md` through the log step, then proceed as for a local row.
 - **Id clash** (same id, different issue): both shown and marked; `fix` and `draft … issue` refuse that id. A provider that answers `issue.list` must return the id from `issue.log`.
@@ -107,7 +107,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 - [ ] `tests/verbs/issue.provider.sh::test_id_clash_refuses_fix` -> asserts a clashing id is marked in `issue list` and `fix` refuses it
 - [ ] `tests/verbs/issue.provider.sh::test_abort_sends_abort_step` -> asserts `issue fix <n> abort` sends `issue.abort` with the whole issue
 - [ ] `tests/verbs/issue.provider.sh::test_ref_shown_in_list` -> asserts a provider's `ref` shows next to the id in `issue list`
-- [ ] `tests/verbs/issue.provider.sh::test_remote_closure_reconciled` -> asserts an issue the provider lists as closed is marked in `status` and reconciled per Question 5
+- [ ] `tests/verbs/issue.provider.sh::test_do_close_follows_the_code` -> asserts a `do` line `issue close <n> sha <sha>` closes the issue when the commit is in its branch, and is refused and marked in `status` when it is not
 - [ ] `tests/verbs/issue.provider.sh::test_failure_falls_back_and_warns` -> asserts a failing provider on log/refine/fix/close/list warns and the kit completes the step
 - [ ] `tests/verbs/issue.provider.sh::test_sync_window_reuses_cache` -> asserts a second `issue list` inside `aapp.issueSyncWindow` calls no provider, and one after it does
 - [ ] `tests/verbs/issue.provider.sh::test_kit_lists_when_provider_declines` -> asserts an answer whose `handled` omits `list` leaves no cache and the listing is the local ledger
@@ -174,7 +174,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 * [x] **Question 2 — A second `note` for the same issue? → RESOLVED (developer, 2026-10-11):** appended, each note dated.
 * [x] **Question 3 — Who writes notes? → RESOLVED (developer, 2026-10-11):** people and agents alike; a note belongs to the issue, whoever wrote it.
 * [x] **Question 4 — The sync refresh window? → RESOLVED (developer, 2026-10-11):** a config key, `aapp.issueSyncWindow`, in minutes, default 15. It applies only while a provider is installed and its `issue.list` answer names `list` in `handled`; what the provider handles is always its own answer.
-* [ ] **Question 5:** An issue the provider lists as closed while the local row is open: `issue list` closes it locally with the provider's summary, or only marks it until someone runs `issue close`?
+* [x] **Question 5 — An issue closed on the tracker while the local row is open? → RESOLVED (developer, 2026-10-12):** no rule of its own: the plugin writes `issue close <n> sha <sha> summary "…"` in its `do` list and the kit runs it. The close follows the code (P-78): it is refused, and reported, while the commit is not in the issue's branch; the kit never pulls a code branch. A closure with no commit (won't fix, duplicate) carries no `sha` and closes at once.
 
 ---
 
