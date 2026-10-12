@@ -63,7 +63,7 @@ A step is a short exchange between the kit and a supported plugin.
 - `status`: `ok`, `declined` (not mine; the kit does it) or `failed`.
 - `message`: one sentence the kit shows the user.
 - `handled`: what the plugin took care of. Whatever it does not name, the kit does; a part added by a later kit version is therefore still done by the kit under an older plugin.
-- The rest: what it produced, under the field names the kit sent (`id`, …), plus the informational `tracker` and `url`.
+- The rest: what it produced, under the field names the kit sent (`id`, …), plus the informational `tracker`, `url` and `version` (the tracker's current release or milestone).
 
 **3. Longer answers** go in two optional files the kit names in the plugin's environment; every line is flat, readable with `cat`:
 - `AAPP_PLUGIN_LIST`: one flat JSON object per line, in the shape of `data` (the issues of `issue.list`).
