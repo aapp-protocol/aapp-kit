@@ -30,7 +30,6 @@
 
 ## 📥 Triage (Incoming / Unsequenced)
 *Newly logged issues awaiting prioritization.*
-- [ ] #135 -> Agent rules and skills say fixes are made on the development branch only.
 - [ ] #133 -> A refused first fix commit leaves its changelog entry written; the retry refuses the token.
 - [ ] #130 -> Setup advisories read `ISSUES.md` outside the ledger functions.
 - [ ] #129 -> `aapp init` sets itself up in `$HOME` when the home directory is a git repository.
