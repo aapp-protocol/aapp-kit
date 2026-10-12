@@ -80,7 +80,8 @@ agent-planning-kit/
 │       ├── workflows/
 │       │   ├── tdd-failure-assertions.md
 │       │   ├── emergency-hotfixes.md
-│       │   └── multi-agent-worktrees.md
+│       │   ├── multi-agent-worktrees.md
+│       │   └── planning-a-plan-group.md
 │       └── troubleshooting/
 │           ├── blast-radius-recovery.md
 │           └── worktree-collision-recovery.md
@@ -179,6 +180,7 @@ Two dedicated recipes document these production patterns:
   - `docs/recipes/workflows/tdd-failure-assertions.md`
   - `docs/recipes/workflows/emergency-hotfixes.md` (mini-plan workflow, `aapp issue hotfix`, stash handling per P-52)
   - `docs/recipes/workflows/multi-agent-worktrees.md`
+  - `docs/recipes/workflows/planning-a-plan-group.md` (growing and aligning related plans; worked example: group P-72; outline in `pickup.md`, "Planning a Plan Group"; written after P-72 ships)
 - [ ] Task 1.5: Author Troubleshooting recipes (extracting from `MANUAL.md` §11):
   - `docs/recipes/troubleshooting/blast-radius-recovery.md`
   - `docs/recipes/troubleshooting/worktree-collision-recovery.md`
@@ -214,6 +216,7 @@ Two dedicated recipes document these production patterns:
 - [ ] `NEW FILE` -> `docs/recipes/workflows/tdd-failure-assertions.md` -> Recipe for failure-first TDD loop.
 - [ ] `NEW FILE` -> `docs/recipes/workflows/emergency-hotfixes.md` -> Recipe for emergency hotfixes & mini-plans (P-52).
 - [ ] `NEW FILE` -> `docs/recipes/workflows/multi-agent-worktrees.md` -> Recipe for concurrent multi-agent worktrees.
+- [ ] `NEW FILE` -> `docs/recipes/workflows/planning-a-plan-group.md` -> Recipe for planning a group of related plans.
 - [ ] `NEW FILE` -> `docs/recipes/troubleshooting/blast-radius-recovery.md` -> Recipe for resolving write refusals.
 - [ ] `NEW FILE` -> `docs/recipes/troubleshooting/worktree-collision-recovery.md` -> Recipe for repairing stale worktrees.
 - [ ] `lib/cmd_install.sh` -> Install COOKBOOK.md and docs/ into system share directory.
