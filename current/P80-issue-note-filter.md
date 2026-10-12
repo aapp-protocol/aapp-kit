@@ -1,8 +1,8 @@
 # 🗺️ Plan P-80: Issue Note Filter
 * **Created:** 2026-10-12 | **Last Refined:** 2026-10-12
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-80
-* **Changelog:** Changed: Issue Note Filter
+* **Changelog:** Added: `aapp-issue-note-filter`, a team-written text filter the kit runs on a note before showing it (P-80)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,17 +39,31 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+Issues and their notes may be written by agents observing live systems, so a note can hold real data: log lines, record contents, identifiers. Notes are kept outside the repository and never committed for that reason, and they are stored as written, which keeps them usable for audits. What an agent is shown is a separate matter: a team may not want every agent to see the stored text.
+
+This plan reserves one plugin, `aapp-issue-note-filter`: a text filter the team writes, which the kit runs on a note before showing it to anyone. It is a text substitution mechanism and nothing else: text in, text out.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+- **Where it runs:** at the one point where the kit hands a note over (P-74): `issue fix <n>` and `issue list <n>`. Every note passes through it, whether the kit or a provider stored it.
+- **What it never touches:** the stored note. The filter changes what is shown, not what is kept.
+- **The exchange** (P-77 protocol), event `issue.note-show`: `data` carries the whole issue with its `note`; the answer carries the text to show.
+
+  | Answer | The kit shows |
+  |---|---|
+  | `ok` with `note` | the returned text (it may be empty: nothing is shown) |
+  | `declined` | the note unchanged |
+  | `failed`, a timeout, `ok` without `note`, a malformed answer | nothing: the note is withheld, with one line saying the filter failed |
+
+  A filter that breaks never lets unfiltered text through. The command it runs in (`issue fix`, `issue list`) continues.
+- **No filter installed:** the note is shown as stored.
+- **Shipped:** the reserved name in `lib/plugins.tsv`, the event in the issue reference, and a sample (`examples/plugins/aapp-issue-note-filter/run.sample`) that applies a list of substitutions. What counts as sensitive is the team's code.
+- **Documented as** a text filter and substitution mechanism: the reference states its input, its output, that the stored note is untouched, and the withhold-on-failure rule.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
@@ -58,19 +72,25 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/issue.notefilter.sh::test_filtered_text_is_shown` -> asserts `issue fix` shows the filter's returned text in the labelled block, not the stored note
+- [ ] `tests/verbs/issue.notefilter.sh::test_stored_note_untouched` -> asserts the note in the store is byte-identical after a filtered show
+- [ ] `tests/verbs/issue.notefilter.sh::test_declined_shows_note_unchanged` -> asserts `declined` shows the stored note
+- [ ] `tests/verbs/issue.notefilter.sh::test_failure_withholds_note` -> asserts a failing filter, a timeout, and `ok` without `note` each show no note text, print one line saying the filter failed, and `issue fix` still opens the fix
+- [ ] `tests/verbs/issue.notefilter.sh::test_filter_runs_for_issue_list` -> asserts `issue list <n>` shows the filtered text
+- [ ] `tests/verbs/issue.notefilter.sh::test_filter_runs_for_provider_note` -> asserts a note a provider keeps is filtered the same way
+- [ ] `tests/verbs/issue.notefilter.sh::test_no_filter_shows_stored_note` -> asserts with no filter installed the note is shown as stored
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Write `tests/verbs/issue.notefilter.sh` with a scripted filter fixture; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: Run the filter at the note hand-over in `lib/cmd_issue.sh`; withhold on failure.
+- [ ] Task 2.2: Registry row, sample, reference.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [ ] Task 3.2: Update `MANUAL.md` and the issue contract.
+- [ ] Task 3.3: Architecture and Codemap sections live in group P-72.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
 - [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
@@ -80,29 +100,29 @@
 *Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_issue.sh` -> The filter call at the note hand-over.
+- [ ] `lib/plugins.tsv` -> Reserved name `aapp-issue-note-filter`.
+- [ ] `NEW FILE` -> `examples/plugins/aapp-issue-note-filter/run.sample` -> Sample: a list of substitutions.
+- [ ] `docs/reference/07-issue-protocol.md` -> Event `issue.note-show`; the filter as a text substitution mechanism.
+- [ ] `lib/docs/verbs/issue.md` -> Contract.
+- [ ] `MANUAL.md` -> Note filter.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/verbs/issue.notefilter.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/hook_dispatcher.sh` -> The protocol is P-77's; this plan only uses it.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-12:** Plan initialized from `pickup.md`.
-* **2026-10-12:** Refined blast radius and locked module boundaries.
+* **2026-10-12:** Drafted as a member of P-72.
