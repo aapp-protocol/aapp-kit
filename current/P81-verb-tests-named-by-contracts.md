@@ -70,7 +70,7 @@ This plan makes the correspondence two-way for the verb suites: every named test
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update `templates/AGENTS.md` if the contract rule for new tests needs stating.
+- [ ] Task 3.2: No user-facing change; nothing to document outside the Codemap.
 - [ ] Task 3.3: Update `.agents/CODEMAP.md` (`lib/docs/verbs/` section): the correspondence is two-way.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
 - [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
