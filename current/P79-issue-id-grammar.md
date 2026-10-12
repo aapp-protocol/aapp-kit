@@ -54,7 +54,7 @@ An id section in `lib/aapp-lib.sh`, which verbs and hooks already load:
 |---|---|
 | `issue_id_valid <text>` | True for one well-formed id, with or without `#` |
 | `issue_id_normalize <text>` | `46`, `#46` -> `#46`; refuses anything else with the accepted forms |
-| `issue_id_refs <text>` | The ids named in a line (`Target Issue`, `Blocked On`, a commit subject, a road-map line) |
+| `issue_id_refs <text>` | The ids named in a line (`Target Issue`, `Blocked On`, a commit subject, a road-map line). An id starts at a `#` that follows the start of the line or a character that is neither `#` nor a letter or digit, so a Markdown heading (`### PROJ-101`) and a hex token (`#A1B2C3`) are not ids |
 | `issue_id_is_numeric <id>` | True for a kit-counted id (the counter looks at these only) |
 | `issue_fix_name <id>` / `issue_fix_id <name>` | The mini plan's file name for an id (`fix-46.md`) and back |
 
@@ -66,7 +66,7 @@ The definition accepts two forms after `#`:
 - a key, a dash, digits: `#PROJ-101` (capital letter, then capitals or digits, `-`, digits).
 
 Consequences, each through the functions above:
-- **Everywhere an id goes:** the ledger row, `Target Issue`, `Blocked On`, the road map, `aapp issue fix PROJ-101`, the mini plan `fix-PROJ-101.md` and its worktree `.workspace/fix-PROJ-101`, the commit subject `(#PROJ-101)`, the bound-plan buffer.
+- **Everywhere an id goes:** the ledger row, `Target Issue`, `Blocked On`, the road map, `aapp issue fix PROJ-101`, the mini plan `fix-PROJ-101.md`, its worktree `.workspace/fix-PROJ-101` and branch `fix/PROJ-101` (the key form is safe as a file name and a Git ref), the commit subject `(#PROJ-101)`, the bound-plan buffer.
 - **The counter** (`aapp.issueId`) is seeded from, and moved past, numeric ids only.
 - **Order:** numeric ids by number, then key ids by key and number.
 - **A project without a tracker** never produces the second form and sees no change.
@@ -84,6 +84,7 @@ Consequences, each through the functions above:
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
 - [ ] `tests/issue_id_test.sh::test_normalize_numeric_forms` -> asserts `46` and `#46` normalize to `#46`
 - [ ] `tests/issue_id_test.sh::test_refs_from_plan_lines` -> asserts `issue_id_refs` returns every id of a `Blocked On` line with several
+- [ ] `tests/issue_id_test.sh::test_refs_ignore_headings_and_hex` -> asserts `### PROJ-101`, `#A1B2C3` and `x#12` yield no id, and `(#PROJ-101)` yields one
 - [ ] `tests/issue_id_test.sh::test_no_id_pattern_outside` -> asserts no code outside the id section spells out an id pattern
 - [ ] `tests/issue_id_test.sh::test_key_id_valid` -> asserts `PROJ-101` and `#PROJ-101` are valid and normalize to `#PROJ-101`
 - [ ] `tests/issue_id_test.sh::test_malformed_id_refused` -> asserts `proj-101`, `PROJ-`, `#-7` and `PROJ 101` are refused, naming the accepted forms
