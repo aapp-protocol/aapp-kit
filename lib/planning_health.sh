@@ -599,7 +599,8 @@ check_pair7_inflight_boundary_collision() {
 # ------------------------------------------------------------------------------
 
 # check_issues_table_shape <issues_file>: one unbroken table (no empty line
-# between the header and the last row) and 8 cells per row (escaped `\|` kept).
+# between the header and the last row) and as many cells per row as the header
+# has, 8 at least (escaped `\|` kept).
 check_issues_table_shape() {
     local issues_file="$1"
     [ -f "$issues_file" ] || return 0
@@ -609,7 +610,8 @@ check_issues_table_shape() {
             started = 1; gap = 0; last = NR
             line = $0; gsub(/\\\|/, "", line)
             cells = gsub(/\|/, "|", line) - 1
-            if (cells != 8) { printf "❌ [Issues Table] Line %d has %d cells; every row needs 8.\n", NR, cells; bad++ }
+            if (!want) { want = (cells > 8) ? cells : 8 }
+            if (cells != want) { printf "❌ [Issues Table] Line %d has %d cells; every row needs %d.\n", NR, cells, want; bad++ }
             next
         }
         started && /^[[:space:]]*$/ { if (!gap) gap = NR; next }
