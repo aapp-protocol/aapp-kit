@@ -86,6 +86,7 @@ A step is a short exchange between the kit and a supported plugin.
 - **Credentials** are the plugin's responsibility: the envelope carries none (the remote URL is stripped), the kit stores none, and the plugin runs with the caller's environment. A missing or rejected credential is an ordinary failure with a clear `message`.
 - **Timeout:** one for every plugin call, `aapp.pluginTimeout` seconds (default 10; anything slower is treated as an unreachable network), enforced by the hook dispatcher's watchdog. A plugin that runs past it is ended and the step takes its failure outcome.
 - **No plugin:** the kit does everything. **A failing plugin:** each step defines the outcome (fall back or refuse).
+- **Plans are not covered yet.** `aapp-planid` and `plan.allocate` stay as they are, bare-number answer included; the exchange above binds the issue steps, and plans follow in their own chapter.
 - **Hooks** receive the same envelope and stay notifications; a `pre-` hook blocks with its exit code.
 - **Ad hoc plugins and scripts** are outside the protocol: CLI users, guarded by the CLI's own locks and checks. The MANUAL says so.
 
@@ -123,7 +124,7 @@ A step is a short exchange between the kit and a supported plugin.
 - [ ] Task 2.2: The `do` list: file, whitelist (`lib/plugin_do.tsv`), runner (after the step releases its lock, in order, each command under its own lock, no re-call, results reported).
 - [ ] Task 2.3: The step marker in the plugin's environment; writing verbs refuse under it.
 - [ ] Task 2.4: One timeout for every plugin call: `aapp.pluginTimeout` (default 10 s) through `execute_with_watchdog`.
-- [ ] Task 2.5: Current callers (`plan.allocate`, `issue.allocate`, `issue.close`) and the samples answer in the protocol.
+- [ ] Task 2.5: The issue callers (`issue.allocate`, `issue.close`) and the issue-tracker sample answer in the protocol. `plan.allocate` keeps its present answer forms (`{"id": …}` or a bare number) and its tests: plans get their own chapter of the protocol later.
 - [ ] Task 2.6: `docs/reference/06-plugin-protocol.md` and `07-issue-protocol.md` (today's events); the reference test.
 
 ### Phase 3: Verification & Documentation
@@ -145,9 +146,8 @@ A step is a short exchange between the kit and a supported plugin.
 - [ ] `lib/hook_dispatcher.sh` -> Answer reading, list file, `do` runner, step marker, timeout.
 - [ ] `NEW FILE` -> `lib/plugin_do.tsv` -> The `do` whitelist: subject, command.
 - [ ] `aapp` -> Writing verbs refuse under the step marker.
-- [ ] `lib/plan_resolver.sh` -> Allocation callers read the answer through the protocol.
+- [ ] `lib/plan_resolver.sh` -> The issue allocation caller reads the answer through the protocol; `plan.allocate` unchanged.
 - [ ] `lib/cmd_issue.sh` -> The close caller reads the answer through the protocol.
-- [ ] `examples/plugins/aapp-planid/run.sample` -> Answers in the protocol.
 - [ ] `examples/plugins/aapp-issue-tracker/run.sample` -> Answers in the protocol.
 - [ ] `NEW FILE` -> `docs/reference/06-plugin-protocol.md` -> The exchange.
 - [ ] `NEW FILE` -> `docs/reference/07-issue-protocol.md` -> Issue events, fields, `do` commands.
