@@ -81,23 +81,23 @@ A branch is never taken from where an issue was logged or raised. A person or an
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/issue.branchplugin.sh::test_answered_branch_opens_fix_there` -> asserts `ok` with `branch` opens the fix in `.workspace/fix-<n>` cut from that branch and writes the branch to the row's cell
-- [ ] `tests/verbs/issue.branchplugin.sh::test_declined_is_dev_branch` -> asserts `declined`, and `ok` naming the development branch, open the fix on the development branch and leave the cell empty
-- [ ] `tests/verbs/issue.branchplugin.sh::test_no_plugin_is_dev_branch` -> asserts with no plugin installed the fix opens on the development branch
-- [ ] `tests/verbs/issue.branchplugin.sh::test_failure_refuses_fix` -> asserts `failed`, a timeout, `ok` without `branch` and a branch that does not exist each refuse the fix: no mini plan, no worktree, no commit, the cell unchanged, and the refusal names `aapp refine issues "<msg>" branch <n> <name>`
-- [ ] `tests/verbs/issue.branchplugin.sh::test_plugin_message_is_shown` -> asserts the `message` of a `failed` answer (the owners of the files) is printed with the refusal
-- [ ] `tests/verbs/issue.branchplugin.sh::test_named_branch_is_not_asked` -> asserts a row whose cell names a branch, and a fix opened with `group <group>`, do not call the plugin
-- [ ] `tests/verbs/issue.branchplugin.sh::test_payload_carries_issue_and_files` -> asserts `data` holds the issue's fields and `files` (Location paths and `file <path>` additions), and neither credentials nor the remote URL
-- [ ] `tests/verbs/issue.branchplugin.sh::test_answer_recorded_once` -> asserts after an answered branch a second `issue fix` of the same issue does not call the plugin
-- [ ] `tests/verbs/issue.branchplugin.sh::test_next_blocker_asks` -> asserts `fix next-blocker` puts the claimed blocker to the plugin and opens on the answered branch
-- [ ] `tests/verbs/issue.branchplugin.sh::test_direct_close_asks` -> asserts `issue close <n> sha <sha>` of an issue with no open fix asks the plugin, refuses a commit that is not in the answered branch, and refuses when the plugin fails
-- [ ] `tests/verbs/issue.branchplugin.sh::test_views_do_not_ask` -> asserts `aapp status` and `aapp issue list` do not call the plugin
-- [ ] `tests/verbs/issue.branchplugin.sh::test_sample_maps_paths` -> asserts the shipped sample answers the branch of a matching path, `declined` for a path no line matches, and `failed` naming both owners for files of two branches
-- [ ] `tests/verbs/issue.branchplugin.sh::test_close_merges_group_parent_into_feature` -> asserts closing an issue fixed on a group's parent branch merges that parent into the feature branch (a merge commit, the fix commit reachable), unblocks the member blocked on it and tells it to rebase
-- [ ] `tests/verbs/issue.branchplugin.sh::test_merge_conflict_changes_nothing` -> asserts when the group's parent does not merge cleanly the feature branch is unchanged, the member stays blocked and the output says why
-- [ ] `tests/verbs/issue.branchplugin.sh::test_team_branch_is_not_merged` -> asserts a plan whose parent is not a group's feature branch gets no merge: it stays blocked and is reported
-- [ ] `tests/verbs/issue.branchplugin.sh::test_fix_on_third_branch_is_not_merged` -> asserts a fix that is not in the group's parent branch is not merged into the feature branch
-- [ ] `tests/verbs/issue.branchplugin.sh::test_done_merges_group_parent_into_feature` -> asserts a plan's `done` that closes its issue and integrates into a group's parent makes the same merge for a member blocked on that issue
+- [x] `tests/verbs/issue.branchplugin.sh::test_answered_branch_opens_fix_there` -> asserts `ok` with `branch` opens the fix in `.workspace/fix-<n>` cut from that branch and writes the branch to the row's cell
+- [x] `tests/verbs/issue.branchplugin.sh::test_declined_is_dev_branch` -> asserts `declined`, and `ok` naming the development branch, open the fix on the development branch and leave the cell empty
+- [x] `tests/verbs/issue.branchplugin.sh::test_no_plugin_is_dev_branch` -> asserts with no plugin installed the fix opens on the development branch
+- [x] `tests/verbs/issue.branchplugin.sh::test_failure_refuses_fix` -> asserts `failed`, a timeout, `ok` without `branch` and a branch that does not exist each refuse the fix: no mini plan, no worktree, no commit, the cell unchanged, and the refusal names `aapp refine issues "<msg>" branch <n> <name>`
+- [x] `tests/verbs/issue.branchplugin.sh::test_plugin_message_is_shown` -> asserts the `message` of a `failed` answer (the owners of the files) is printed with the refusal
+- [x] `tests/verbs/issue.branchplugin.sh::test_named_branch_is_not_asked` -> asserts a row whose cell names a branch, and a fix opened with `group <group>`, do not call the plugin
+- [x] `tests/verbs/issue.branchplugin.sh::test_payload_carries_issue_and_files` -> asserts `data` holds the issue's fields and `files` (Location paths and `file <path>` additions), and neither credentials nor the remote URL
+- [x] `tests/verbs/issue.branchplugin.sh::test_answer_recorded_once` -> asserts after an answered branch a second `issue fix` of the same issue does not call the plugin
+- [x] `tests/verbs/issue.branchplugin.sh::test_next_blocker_asks` -> asserts `fix next-blocker` puts the claimed blocker to the plugin and opens on the answered branch
+- [x] `tests/verbs/issue.branchplugin.sh::test_direct_close_asks` -> asserts `issue close <n> sha <sha>` of an issue with no open fix asks the plugin, refuses a commit that is not in the answered branch, and refuses when the plugin fails
+- [x] `tests/verbs/issue.branchplugin.sh::test_views_do_not_ask` -> asserts `aapp status` and `aapp issue list` do not call the plugin
+- [x] `tests/verbs/issue.branchplugin.sh::test_sample_maps_paths` -> asserts the shipped sample answers the branch of a matching path, `declined` for a path no line matches, and `failed` naming both owners for files of two branches
+- [x] `tests/verbs/issue.branchplugin.sh::test_close_merges_group_parent_into_feature` -> asserts closing an issue fixed on a group's parent branch merges that parent into the feature branch (a merge commit, the fix commit reachable), unblocks the member blocked on it and tells it to rebase
+- [x] `tests/verbs/issue.branchplugin.sh::test_merge_conflict_changes_nothing` -> asserts when the group's parent does not merge cleanly the feature branch is unchanged, the member stays blocked and the output says why
+- [x] `tests/verbs/issue.branchplugin.sh::test_team_branch_is_not_merged` -> asserts a plan whose parent is not a group's feature branch gets no merge: it stays blocked and is reported
+- [x] `tests/verbs/issue.branchplugin.sh::test_fix_on_third_branch_is_not_merged` -> asserts a fix that is not in the group's parent branch is not merged into the feature branch
+- [x] `tests/verbs/issue.branchplugin.sh::test_done_merges_group_parent_into_feature` -> asserts a plan's `done` that closes its issue and integrates into a group's parent makes the same merge for a member blocked on that issue
 
 ### ♻️ Existing Tests Changed or Retired
 > Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
@@ -108,20 +108,20 @@ A branch is never taken from where an issue was logged or raised. A person or an
 - `tests/plugin_protocol_test.sh::test_reference_matches_code`: unchanged; it reads the events and fields from the code, so the reference must list `issue.branch`, `files` and `branch` for it to pass.
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/verbs/issue.branchplugin.sh` with a scripted plugin fixture (guarded against calling `aapp` inside its step); change the hotfix test; confirm red.
+- [x] Task 1.1: Write `tests/verbs/issue.branchplugin.sh` with a scripted plugin fixture (guarded against calling `aapp` inside its step); change the hotfix test; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: One function in `lib/cmd_issue.sh` that settles an issue's branch (named in the row, else asked of the plugin, else the development branch), used by `fix` and `close`; the refusal on failure.
-- [ ] Task 2.2: `issue hotfix` names the plan's parent branch only when every file it names is in the plan's Target Files.
-- [ ] Task 2.3: Registry row, sample with its list, reference.
-- [ ] Task 2.4: The merge of a group's parent into its feature branch as one function in `lib/cmd_plan.sh`, used by the group's `done` and after a close; unblock the member.
+- [x] Task 2.1: One function in `lib/cmd_issue.sh` that settles an issue's branch (named in the row, else asked of the plugin, else the development branch), used by `fix` and `close`; the refusal on failure.
+- [x] Task 2.2: `issue hotfix` names the plan's parent branch only when every file it names is in the plan's Target Files.
+- [x] Task 2.3: Registry row, sample with its list, reference.
+- [x] Task 2.4: The merge of a group's parent into its feature branch as one function in `lib/cmd_plan.sh`, used by the group's `done` and after a close; unblock the member.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update `MANUAL.md`, the issue contract, the agent rules and the fix skill.
-- [ ] Task 3.3: Architecture and Codemap sections live in group P-72.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update `MANUAL.md`, the issue contract, the agent rules and the fix skill.
+- [x] Task 3.3: Architecture and Codemap sections live in group P-72.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
