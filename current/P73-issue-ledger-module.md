@@ -55,7 +55,7 @@ This plan moves all of it into one module that every caller reuses. Behaviour do
 | `ledger_row <n>` / `ledger_locate <n>` | One row; `active`, `archive` or nothing |
 | `ledger_add_row <cells…>` | Appends an active row |
 | `ledger_set_cell <n> link\|status <value>` | Lifecycle cells only; observation cells never change |
-| `ledger_archive_row <n> <sha> <summary>` | Moves a row to the archive and prunes the road map |
+| `ledger_archive_row <n> <sha>\|aborted <summary>` | Moves a row to the archive and prunes the road map; `aborted` in place of a commit for a withdrawn issue (P-76) |
 | `ledger_relink <old> <new>` | Rewrites plan links in the ledger and the road map |
 | `roadmap_*` | Road-map entries: add, prune, list |
 
@@ -63,7 +63,7 @@ The health checks (fix cells, Pair 1/Pair 8 duplicates, resolved rows in the act
 
 **A guard against new copies:** `tests/issue_ledger_test.sh::test_no_direct_ledger_access` fails when a file outside the module reads or writes a ledger. Path names in permission lists (write guard, pre-commit allow-lists) are path patterns, not access, and are listed in the test.
 
-**Research at refine time:** classify every reference (read, write, path only), map each to a function, and record each divergence with the behaviour kept.
+**Research at refine time:** classify every reference (read, write, path only), map each to a function, and record each divergence with the behaviour kept. The existing shared pieces move in as they are: `issue_close_local` (close and abort, P-76), `issue_mark_planned` / `issue_mark_incubated` (P-69), `issue_relink` (links into `current/`, `done/` and `aborted/`), `issue_locate`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -81,6 +81,7 @@ The health checks (fix cells, Pair 1/Pair 8 duplicates, resolved rows in the act
 - [ ] `tests/issue_ledger_test.sh::test_locate_active_archive_unknown` -> asserts `ledger_locate` prints `active`, `archive`, or nothing
 - [ ] `tests/issue_ledger_test.sh::test_set_cell_changes_lifecycle_only` -> asserts `ledger_set_cell` changes only the link or status cell and refuses any other
 - [ ] `tests/issue_ledger_test.sh::test_archive_row_moves_and_prunes` -> asserts the row leaves `ISSUES.md`, lands in the archive, and its road-map entry is gone
+- [ ] `tests/issue_ledger_test.sh::test_archive_row_aborted` -> asserts a withdrawn issue is archived with `aborted` in the commit cell
 - [ ] `tests/issue_ledger_test.sh::test_relink_ledger_and_roadmap` -> asserts a plan link is rewritten in both files
 - [ ] `tests/issue_ledger_test.sh::test_no_direct_ledger_access` -> asserts no code outside the ledger section of `lib/aapp-lib.sh` reads or writes a ledger
 
