@@ -13,7 +13,6 @@
 ---
 
 ## 🧱 Plan Blockers
-- [ ] #140 -> The issue and provider suites take a failing provider for a refusal or a warning; the offline staging of P-75 is the default for them too. (blocks P-75)
 
 ## ⭐ User Priority (Pinned / Immediate Human Focus)
 *Direct developer overrides based on current focus and appetite.*
