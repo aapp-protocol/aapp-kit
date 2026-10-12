@@ -2,7 +2,7 @@
 * **Created:** 2026-10-11 | **Last Refined:** 2026-10-11
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-74
-* **Changelog:** Added: the `aapp-issue-tracker` provider gets the whole issue at every issue step; issue notes; remote issues (P-74)
+* **Changelog:** Added: `aapp issue log`; the `aapp-issue-tracker` provider gets the whole issue at every step and can keep the record; issue descriptions and notes outside the repository (P-74)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,57 +39,70 @@
 ---
 
 ## 1. Context & Architectural Goal
-The `aapp-issue-tracker` provider is called at three points, none with the issue itself: `issue.allocate` (returns an id), `issue.next-blocker` (returns an id), `issue.close` (id, commit, summary, plan; fire-and-forget). A provider cannot keep a full record of an issue, hold notes for it, or bring in issues a colleague logged elsewhere.
+The `aapp-issue-tracker` provider is called at three points, none with the issue itself: `issue.allocate` (returns an id), `issue.next-blocker` (returns an id), `issue.close` (id, commit, summary, plan; fire-and-forget). A provider cannot keep a full record of an issue, hold its description and notes, or bring in issues a colleague logged elsewhere.
 
-This plan routes every issue step through one wrapper over the ledger functions (P-73). The provider receives the whole issue and decides, per part, whether it handles it or leaves it to the kit. Issues it lists have the same rights as local ones. Short notes (a few phrases of clue) get a home outside the repository.
+This plan routes every issue step through one wrapper over the ledger functions (P-73). The provider receives the whole issue and decides, per part, whether it handles it or leaves it to the kit. A team's issues have one record: the repository's committed ledger when there is no tracker, the tracker when there is one. An issue's text has three parts, as every tracker has them: a one-line symptom, a description, and notes added later.
 
 ---
 
 ## 2. Technical Blueprint
-**Handler:** `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]`. The agent hands the issue over and never writes a row; the handler picks the id, writes the row through the module and commits it. `issue hotfix` logs through the same handler.
-- **Id:** with a provider, `issue.log` creates the issue and returns its id (see "The id is the tracker's"); without one, the kit's counter. When the provider fails, numbering refuses, as today; P-75 replaces that refusal with its offline path.
+
+### 2.1 Logging: the handler
+`aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]`. The agent hands the issue over and never writes a row; the handler gets the id, writes the row through the ledger functions and, when the ledger is committed, commits it. `issue hotfix` logs through the same handler.
 
 **Retired once the handler is the only writer of new rows** (in this order):
-1. `refine issues` refuses a commit that adds a row and names `aapp issue log`.
+1. `refine issues` refuses a change that adds a row and names `aapp issue log`.
 2. `check_issue_ids_below_counter` leaves `check_ledger_issues`, and its line leaves the `refine` contract.
 3. `aapp issue allocate` / `issue next` become internal to the handler; agent docs and skills stop telling agents to claim a number.
 
-**Wrapper:** `issue_provider <step> <n> [<step data>…]` in `lib/cmd_issue.sh`, not in `lib/aapp-lib.sh`: the hooks never receive the code that calls a provider. The note store and remote-cache readers are ledger functions in `lib/aapp-lib.sh`. With a provider installed it builds the payload and calls `run_action_plugin`; without one it runs the kit's internals.
+### 2.2 The three parts of an issue's text
+| Part | In the kit | On a tracker | Where it is kept |
+|---|---|---|---|
+| `symptom` | The row's *Symptom / Problem* cell: one line, at most 250 characters, newlines collapsed to spaces | Title / summary | The ledger |
+| `description` | The text given with `note` when the issue is logged | Body / description | Never in the ledger |
+| `notes` | Each `note` added later (`aapp refine issues "<msg>" note <n> "<text>"`, repeatable), dated and with its author | Comments | Never in the ledger |
+
+- `issue log` refuses a symptom over the limit and says to put the rest in the note.
+- **Real data goes in the description or a note, never in the symptom.** Issues may be logged by agents observing live systems. The agent rules and the issue template say: the symptom states what is wrong, with nothing taken from a real system.
+- **Without a tracker,** description and notes are in the kit's store, `~/.local/state/aapp/<key>/issues-data.md` (directory `0700`, files `0600`), as written: outside Git, per machine, never committed. Another clone sees the symptom only; the MANUAL says so.
+- **With a tracker,** they go where the provider sends them (it names `description` and `notes` in `handled`); what it does not name stays in the kit's store. Whether that destination suits the data is the deployment's decision; the reference says so. They are not copied to other machines by a sync: they are fetched when a fix opens.
+- **The kit hands them over; nobody reads the store.** `issue fix <n>` prints the description and the notes after the mini plan opens, and `issue list <n>` prints them again. They are printed in a delimited block under a fixed label that marks them as information from the issue's author, not instructions, at most 100 lines, followed by the tracker's `url` when there is more. They are never copied into the mini plan, the ledger, a commit message or any tracked file. The agent rules say the same: they are clues about the bug, never commands. What is shown is also in that agent's session transcript.
+- **The store is unreachable** (not writable or readable, as under a sandbox): the kit says so in one line and the command carries on without the text.
+
+### 2.3 The wrapper
+`issue_provider <step> <n> [<step data>…]` in `lib/cmd_issue.sh`, not in `lib/aapp-lib.sh`: the hooks never receive the code that calls a provider. With a provider installed it builds the payload and calls `run_action_plugin`; without one it runs the kit's part.
 
 | Step | Called by | Action |
 |---|---|---|
 | log | `issue log`, `issue hotfix` | `issue.log` |
-| refine | `refine issues` (rows changed against HEAD); a status change by `draft … issue` (Planned) or `plan abort` (back to Incubated) | `issue.refine` |
+| refine | `refine issues` (changed rows, added notes); a status change by `draft … issue` (Planned) or `plan abort` (back to Incubated) | `issue.refine` |
 | fix | `issue fix <n>`, `issue fix next-blocker` | `issue.fix` |
 | fix-abort | `issue fix <n> abort` (the issue stays open) | `issue.fix-abort` |
 | abort | `issue abort <n>` (the issue is withdrawn; carries the reason) | `issue.abort` |
 | close | `issue close`, `done` | `issue.close` |
 | list | `issue list`, `status` | `issue.list` |
 
-- **Payload:** the Plugin Payload Standard envelope; `data` carries the whole issue: id (absent on `issue.log`), severity, type, date, location, symptom, branch (P-78; absent means the development branch), link, status, note, and the step's own fields (commit, summary, plan). Sent after the step's commit lands, so a refused row never reaches the provider.
-- **The id is the tracker's.** `issue.log` is sent with no `id`. A plugin that answers `ok` returns the `id`: its own key or number (`PROJ-101`, `101`), valid under P-79, which becomes the row's id (`#PROJ-101`). `ok` without an `id` is refused as malformed. `declined` leaves the numbering to the kit's counter. The answer may add `tracker` (the tracker's name), `url` (the issue's address) and `version` (the tracker's current release or milestone); all are informational, shown in `issue list`, and never interpreted.
-- **Answer:** the P-77 answer: `status`, `message`, `handled`, and what the plugin produced (`id`, `tracker`, `url`, `version`). `handled` names what it took care of (`note`, `list`); the kit does the rest, so current providers keep working. Further operations go in the `do` list.
-- **Notes:** a bare `note` token on `issue log` and `issue hotfix`; on an existing issue, `aapp refine issues "<msg>" note <n> "<text>"` (repeatable; with only `note` tokens and no ledger change it still runs the wrapper). Never written to the ledger. Kit store: `~/.local/state/aapp/<key>/issues-data.md`. `issue fix` prints the note as the fix opens.
-- **Remote issues:** `issue.list` writes the issues to the list file, one per line, in the payload's issue shape. The kit writes them to `~/.local/state/aapp/<key>/remote-issues.tsv`; `ledger_rows` and `ledger_locate` merge it (`remote`), so they block plans and show in `status`, `issue list`, `draft` and `next-blocker`. On an id present on both sides, the local lifecycle cells win. A closure made on the tracker arrives as an `issue close` line in `do` (Question 5); until its commit is in the issue's branch, `status` and `issue list` mark the issue as closed on the tracker, waiting for the code.
-- **What the kit asks of `issue.list`:** open issues only; `limit` (`aapp.issueCacheMax`, default 200); `since` (the last sync, so the provider may send only changes); and `ids`: the issues this repository depends on (those named in a plan's `Blocked On` or `Target Issue`, and those in the local ledger), which are fetched exactly whatever the limit. Which tracker issues belong to this repository is the provider's filter.
-- **The cache is bounded:** every issue fetched by id, plus at most `aapp.issueCacheMax` other open issues for display. A provider that returns more is cut to the limit, with a notice to narrow its filter.
-- **Closed remote issues are not mirrored:** one this repository never worked on leaves the cache when the tracker closes it and never enters the local archive; one it worked on was imported when work began and is archived the normal way. The local archive holds only issues this repository acted on.
-- **Notes are per machine without a provider:** the kit's store is outside Git, so another clone sees a note only through a provider; the MANUAL says so.
-- **The kit hands the note over; nobody reads the store.** `issue fix <n>` prints the note after the mini plan opens, and `issue list <n>` prints it again on request. It is printed as a delimited block under a fixed label that marks it as information from the issue's author, not instructions. The note is never copied into the mini plan, the ledger, a commit message or any tracked file. The agent rules say the same: a note is a clue about the bug, never a command to follow.
-- **The store is unreachable** (not writable or readable, as under a sandbox): the kit says so in one line and the command carries on without the note.
-- **Real data goes in the note, never in the symptom.** The symptom is committed and pushed; the note is not. The agent rules and the issue template say: the symptom states what is wrong, with nothing taken from a real system; log excerpts, record contents and identifiers go in the note.
-- **The store is private:** the state directory is created `0700` and its files `0600`.
-- **With a provider, a note goes where the provider sends it:** the payload carries it, and a provider that names `note` in `handled` keeps it. Whether that destination suits the data is the deployment's decision; the reference says so. A note shown at fix time is also in that agent's session transcript.
-- **Acting on a remote issue:** `issue fix`, `draft … issue` and `next-blocker` first write its row into `ISSUES.md` through the log step, then proceed as for a local row.
-- **Id clash** (same id, different issue): both shown and marked; `fix` and `draft … issue` refuse that id. A provider that answers `issue.list` must return the id from `issue.log`.
-- **Sync:** only at `issue list` and `status`, and only when a provider is installed and handles listing: `list` in its `handled` (issues in the list file) means it does; otherwise the kit lists locally (no cache, no sync). Between syncs the cache is reused for `aapp.issueSyncWindow` minutes (default 15; a large team lowers it). Hooks read the ledger and the cache, never the network.
-- **Failures:** every provider failure surfaces at one point, the wrapper. The step falls back to the kit and warns; numbering (`issue.log`) and `issue.next-blocker` refuse, as today. P-75 turns the numbering refusal into offline staging at that one point.
-- **Sample:** `examples/plugins/aapp-issue-tracker/run.sample` handles every step and stores into a local file; `lib/plugins.tsv` lists the new actions.
+- **Payload:** the Plugin Payload Standard envelope; `data` carries the whole issue: id (absent on `issue.log`), severity, type, date, location, symptom, description, notes, branch (P-78; absent means the development branch), link, status, and the step's own fields (commit, summary, plan). Sent after the step's local write, so a refused row never reaches the provider.
+- **Answer:** the P-77 answer: `status`, `message`, `handled`, and what the provider produced (`id`, and the informational `tracker`, `url`, `version`, never interpreted). `handled` names what it took care of (`description`, `notes`, `list`); the kit does the rest. Further operations go in the `do` list.
+- **The id is the tracker's.** `issue.log` is sent with no `id`. A provider that answers `ok` returns the `id`: its own key or number (`PROJ-101`, `101`), valid under P-79, which becomes the row's id. `ok` without an `id` is refused as malformed. Without a provider the kit's counter numbers the issue.
+- **Failures:** every provider failure surfaces at one point, the wrapper. The step falls back to the kit and warns; `issue.log` and `issue.next-blocker` refuse. P-75 turns the `issue.log` refusal into offline staging at that one point.
+
+### 2.4 One record
+- **No provider, or one that does not list issues:** the ledgers (`ISSUES.md`, `done/000-issues-archive.md`, `issues_road_map.md`) are committed in the plans worktree and shared through Git, as today. A provider that answers `declined` to `issue.log` leaves the numbering to the kit's counter.
+- **A provider that lists issues (`list` in `handled`) keeps the record.** The tracker is the one shared record; the ledgers stay where they are, in the same format, written by the same ledger functions, but they are **not tracked**: the three files are in the plans worktree's `.gitignore`, so no verb commits them (`ledger_commit_paths` returns none) and `aapp sync` never pushes them. No issue exists only locally: `declined` on `issue.log` refuses.
+- **What stays committed** is in the plans: `Target Issue` and `Blocked On`. A row's plan link and its `Planned` status are written as today and derived again from the plans at each sync, so a fresh clone has them.
+- **The switch.** The first `aapp issue list` against a listing provider while the ledgers are tracked says what it will do and asks (`[y/N]` on a terminal; the bare token `confirm` without one): one commit stops tracking the three files and adds the ignore rule. Colleagues' files leave their working tree at the next pull and are rebuilt by their next sync; the earlier content stays in Git history. It refuses while an open row exists that the provider does not know (it asks by id) and lists those rows: log them on the tracker or close them first.
+
+### 2.5 Sync
+- **When:** only at `issue list` and `status`, only with a listing provider, and at most once per `aapp.issueSyncWindow` minutes (default 15; a large team lowers it), counted from the last attempt, so an unreachable tracker does not slow every `status`. `issue list` always syncs. Hooks read the local ledger, never the network.
+- **What the kit asks of `issue.list`:** open issues only; `limit` (`aapp.issueCacheMax`, default 200); `since` (the last sync, so the provider may send only changes); and `ids`: the issues this repository depends on (named in a plan's `Blocked On` or `Target Issue`, or with an open fix), fetched exactly whatever the limit. Which tracker issues belong to this repository is the provider's filter. The answer's issues come in the list file, one per line, in the payload's issue shape, without descriptions or notes.
+- **The ledger is updated row by row, never rewritten whole,** through the ledger functions: a returned issue is added or updated by id; one the tracker reports closed moves to the local archive (`ledger_archive_row`); the issues fetched by id are exact; the other open rows are replaced by what the sync returned, at most `aapp.issueCacheMax`, with a notice to narrow the provider's filter when it returned more. A failed sync changes nothing.
+- **A closure made on the tracker** for an issue with local work arrives as `issue close <n> sha <sha> summary "…"` in the `do` list. It follows the code (P-78): refused, and reported, while the commit is not in the issue's branch; until then `status` and `issue list` mark the issue as closed on the tracker, waiting for the code. A closure with no commit closes at once.
+- **Sample:** `examples/plugins/aapp-issue-tracker/run.sample` handles every step and keeps its record in a local file; `lib/plugins.tsv` lists the actions.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Clean Break`
+- **Fallback Inventory**: `None (Clean Break)`. A provider written for `issue.allocate` is rewritten for `issue.log`.
 
 ---
 
@@ -99,56 +112,60 @@ This plan routes every issue step through one wrapper over the ledger functions 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
 - [ ] `tests/verbs/issue.provider.sh::test_log_writes_row_with_kit_id` -> asserts with no provider `issue log` writes and commits the row under the counter's next id
-- [ ] `tests/verbs/issue.provider.sh::test_log_takes_provider_id` -> asserts the row carries the id `issue.log` returned
-- [ ] `tests/verbs/issue.provider.sh::test_log_refuses_when_provider_fails` -> asserts a failing provider on `issue log` refuses and writes no row
-- [ ] `tests/verbs/issue.provider.sh::test_refine_refuses_added_row` -> asserts `refine issues` refuses a commit that adds a row and names `aapp issue log`
+- [ ] `tests/verbs/issue.provider.sh::test_log_refuses_long_symptom` -> asserts a symptom over 250 characters is refused, naming the note, and one with a newline is stored on one line
+- [ ] `tests/verbs/issue.provider.sh::test_refine_refuses_added_row` -> asserts `refine issues` refuses a change that adds a row and names `aapp issue log`
 - [ ] `tests/verbs/issue.provider.sh::test_no_counter_check` -> asserts `refine issues` no longer refuses an id at or above `aapp.issueId`
-- [ ] `tests/verbs/issue.provider.sh::test_agent_docs_name_no_allocate` -> asserts `templates/AGENTS.md` and the shipped skills name no `issue allocate` / `issue next` step
-- [ ] `tests/verbs/issue.provider.sh::test_log_sends_whole_row` -> asserts a new row reaches the provider with every cell and its note
-- [ ] `tests/verbs/issue.provider.sh::test_fix_prints_note` -> asserts `issue fix` prints the issue's note in the labelled block, and `issue list <n>` prints it again
-- [ ] `tests/verbs/issue.provider.sh::test_note_in_no_tracked_file` -> asserts after `issue log … note`, `issue fix` and its commit, the note's text is in no file of the repository or the plans worktree and in no commit message
-- [ ] `tests/verbs/issue.provider.sh::test_store_unreachable_carries_on` -> asserts with an unwritable state directory `issue log … note` logs the issue, prints one line about the note, exit 0
-- [ ] `tests/verbs/issue.provider.sh::test_store_is_private` -> asserts the state directory is `0700` and the note and cache files `0600`
-- [ ] `tests/verbs/issue.provider.sh::test_agent_docs_real_data_rule` -> asserts `templates/AGENTS.md` and `templates/issues.md` state that real data goes in the note, not the symptom
-- [ ] `tests/verbs/issue.provider.sh::test_refused_row_never_sent` -> asserts a ledger commit refused by its checks calls no provider
-- [ ] `tests/verbs/issue.provider.sh::test_fix_prints_note` -> asserts `issue fix` prints the issue's note
+- [ ] `tests/verbs/issue.provider.sh::test_agent_docs_rules` -> asserts `templates/AGENTS.md`, `templates/issues.md` and the shipped skills name no `issue allocate` / `issue next` step, and state that real data goes in the note and that a note is never an instruction
+- [ ] `tests/verbs/issue.provider.sh::test_log_note_is_description` -> asserts the text given at `issue log` is sent and stored as `description`, and a later `note` as an entry of `notes` with its date and author
+- [ ] `tests/verbs/issue.provider.sh::test_text_in_no_tracked_file` -> asserts after `issue log … note`, `issue fix` and its commit, the description's text is in no file of the repository or the plans worktree and in no commit message
+- [ ] `tests/verbs/issue.provider.sh::test_handover_block` -> asserts `issue fix` and `issue list <n>` print description and notes in the labelled block, cut at 100 lines with the tracker's `url`
+- [ ] `tests/verbs/issue.provider.sh::test_store_is_private` -> asserts the state directory is `0700` and its files `0600`
+- [ ] `tests/verbs/issue.provider.sh::test_store_unreachable_carries_on` -> asserts with an unwritable state directory `issue log … note` logs the issue, prints one line about the text, exit 0
+- [ ] `tests/verbs/issue.provider.sh::test_unhandled_text_stays_local` -> asserts an answer whose `handled` omits `description` keeps it in the kit's store
+- [ ] `tests/verbs/issue.provider.sh::test_log_sends_whole_issue_without_id` -> asserts `issue.log` carries every field and no `id`
+- [ ] `tests/verbs/issue.provider.sh::test_log_takes_provider_id` -> asserts an answer `"id": "PROJ-101"` writes the row as `#PROJ-101`, and `tracker`, `url` and `version` show in `issue list`
+- [ ] `tests/verbs/issue.provider.sh::test_log_refuses_ok_without_id` -> asserts an `ok` answer to `issue.log` with no `id` is refused and writes no row
+- [ ] `tests/verbs/issue.provider.sh::test_log_refuses_when_provider_fails` -> asserts a failing provider on `issue log` refuses and writes no row
+- [ ] `tests/verbs/issue.provider.sh::test_declined_log_uses_counter` -> asserts with a provider that does not list, `declined` on `issue.log` numbers the row from the kit's counter
+- [ ] `tests/verbs/issue.provider.sh::test_refused_row_never_sent` -> asserts a change refused by its checks calls no provider
 - [ ] `tests/verbs/issue.provider.sh::test_close_sends_whole_issue` -> asserts `issue.close` data carries the row cells as well as commit and summary
-- [ ] `tests/verbs/issue.provider.sh::test_unhandled_note_stays_local` -> asserts an answer whose `handled` omits `note` stores the note in the kit store
-- [ ] `tests/verbs/issue.provider.sh::test_note_without_provider` -> asserts with no provider the note lands in the state directory, not the repository
-- [ ] `tests/verbs/issue.provider.sh::test_remote_issue_blocks_plan` -> asserts a listed remote issue named in a plan's `Blocked On` counts as open in `next-blocker` and `status`
-- [ ] `tests/verbs/issue.provider.sh::test_fix_remote_issue_imports_row` -> asserts fixing a remote-only id writes its row into `ISSUES.md` first
-- [ ] `tests/verbs/issue.provider.sh::test_id_clash_refuses_fix` -> asserts a clashing id is marked in `issue list` and `fix` refuses it
 - [ ] `tests/verbs/issue.provider.sh::test_fix_abort_sends_fix_abort` -> asserts `issue fix <n> abort` sends `issue.fix-abort` with the whole issue, still open
 - [ ] `tests/verbs/issue.provider.sh::test_issue_abort_sends_abort` -> asserts `issue abort <n>` sends `issue.abort` with the reason
 - [ ] `tests/verbs/issue.provider.sh::test_plan_abort_sends_refine` -> asserts `plan abort` of a promoted plan sends `issue.refine` with the status back to Incubated
-- [ ] `tests/verbs/issue.provider.sh::test_do_abort_withdraws` -> asserts a `do` line `issue abort <n> reason "…"` withdraws the issue locally
-- [ ] `tests/verbs/issue.provider.sh::test_log_refuses_ok_without_id` -> asserts an `ok` answer to `issue.log` with no `id` is refused and writes no row
-- [ ] `tests/verbs/issue.provider.sh::test_log_key_id_from_tracker` -> asserts an answer `"id": "PROJ-101"` writes the row as `#PROJ-101`, and `tracker` and `url` show in `issue list`
-- [ ] `tests/verbs/issue.provider.sh::test_declined_log_uses_counter` -> asserts `declined` on `issue.log` numbers the row from the kit's counter
-- [ ] `tests/verbs/issue.provider.sh::test_do_close_follows_the_code` -> asserts a `do` line `issue close <n> sha <sha>` closes the issue when the commit is in its branch, and is refused and marked in `status` when it is not
 - [ ] `tests/verbs/issue.provider.sh::test_failure_falls_back_and_warns` -> asserts a failing provider on refine/fix/fix-abort/abort/close/list warns and the kit completes the step
-- [ ] `tests/verbs/issue.provider.sh::test_sync_window_reuses_cache` -> asserts a second `issue list` inside `aapp.issueSyncWindow` calls no provider, and one after it does
-- [ ] `tests/verbs/issue.provider.sh::test_list_request_carries_limit_since_ids` -> asserts the `issue.list` request carries open-only, `limit`, `since` and the ids named by local plans and rows
-- [ ] `tests/verbs/issue.provider.sh::test_cache_cut_to_limit` -> asserts a provider returning more than `aapp.issueCacheMax` leaves that many in the cache, plus every issue fetched by id, and prints the notice
-- [ ] `tests/verbs/issue.provider.sh::test_closed_remote_issue_not_archived` -> asserts a remote issue never worked on here leaves the cache when closed and adds no archive row
-- [ ] `tests/verbs/issue.provider.sh::test_kit_lists_when_provider_declines` -> asserts an answer whose `handled` omits `list` leaves no cache and the listing is the local ledger
 - [ ] `tests/verbs/issue.provider.sh::test_hooks_never_call_provider` -> asserts a commit through the hooks runs no provider
+- [ ] `tests/verbs/issue.tracker.sh::test_switch_untracks_ledgers` -> asserts the first `issue list confirm` against a listing provider makes one commit that stops tracking the three ledgers and ignores them, and the files remain on disk
+- [ ] `tests/verbs/issue.tracker.sh::test_switch_refuses_unknown_open_rows` -> asserts the switch refuses while an open row is unknown to the provider, and lists it
+- [ ] `tests/verbs/issue.tracker.sh::test_no_ledger_in_commits_or_push` -> asserts after the switch `issue log`, `issue close` and `done` commit no ledger file, and `aapp sync` pushes none
+- [ ] `tests/verbs/issue.tracker.sh::test_declined_log_refuses_with_record` -> asserts with a listing provider `declined` on `issue.log` refuses
+- [ ] `tests/verbs/issue.tracker.sh::test_list_request_carries_limit_since_ids` -> asserts the `issue.list` request carries open-only, `limit`, `since` and the ids named by local plans and open fixes
+- [ ] `tests/verbs/issue.tracker.sh::test_sync_updates_row_by_row` -> asserts a sync adds a new issue, updates a changed one, archives one reported closed, and leaves the other rows' bytes unchanged
+- [ ] `tests/verbs/issue.tracker.sh::test_failed_sync_changes_nothing` -> asserts a provider failing mid-sync leaves the ledger byte-identical
+- [ ] `tests/verbs/issue.tracker.sh::test_rows_cut_to_limit` -> asserts a provider returning more than `aapp.issueCacheMax` leaves that many display rows, plus every issue fetched by id, and prints the notice
+- [ ] `tests/verbs/issue.tracker.sh::test_sync_window_counts_attempts` -> asserts a second `status` inside `aapp.issueSyncWindow` calls no provider, also after a failed attempt, and `issue list` always does
+- [ ] `tests/verbs/issue.tracker.sh::test_link_and_planned_derived_from_plans` -> asserts after a sync in a fresh clone, an issue named in a plan's `Target Issue` shows `Planned` with the plan's link
+- [ ] `tests/verbs/issue.tracker.sh::test_tracker_issue_blocks_plan` -> asserts an issue named in a plan's `Blocked On` is fetched by id and counts as open in `next-blocker` and `status`
+- [ ] `tests/verbs/issue.tracker.sh::test_do_close_follows_the_code` -> asserts a `do` line `issue close <n> sha <sha>` closes the issue when the commit is in its branch, and is refused and marked in `status` when it is not
+- [ ] `tests/verbs/issue.tracker.sh::test_do_abort_withdraws` -> asserts a `do` line `issue abort <n> reason "…"` withdraws the issue locally
+- [ ] `tests/verbs/issue.tracker.sh::test_text_fetched_at_fix_not_sync` -> asserts a sync stores no description or notes, and `issue fix` shows the ones the provider returns for that issue
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/verbs/issue.provider.sh` with a recording provider fixture; confirm red.
+- [ ] Task 1.1: Write `tests/verbs/issue.provider.sh` and `tests/verbs/issue.tracker.sh` with a recording provider fixture; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Payload builder and `issue_provider` wrapper in `lib/cmd_issue.sh`; move `allocate`, `next-blocker` and `close` onto it.
-- [ ] Task 2.2: `issue log` handler (id, row, commit) and the log step; `issue hotfix` onto it; the refine step from `refine issues`; the `note` token; the kit's note store.
-- [ ] Task 2.2b: Retire in order: `refine issues` refuses added rows; drop `check_issue_ids_below_counter`; `allocate`/`next` internal, agent docs and skills updated (`.agents/AGENTS.md` alongside on its branch).
-- [ ] Task 2.3: fix, fix-abort and abort steps: note handed over in its labelled block (`issue fix`, `issue list <n>`), agent rules updated; remote rows imported; status changes by `draft … issue` and `plan abort` sent as refine.
-- [ ] Task 2.4: list step: the request (open, limit, since, ids), the bounded cache, merge in `ledger_rows`/`ledger_locate`, id clashes, sync at `issue list` and `status`.
-- [ ] Task 2.5: Sample provider and `lib/plugins.tsv`.
+- [ ] Task 2.1: Payload builder and `issue_provider` wrapper in `lib/cmd_issue.sh`; move `next-blocker` and `close` onto it.
+- [ ] Task 2.2: `issue log` handler (id, row, commit when tracked) and the log step; `issue hotfix` onto it; the symptom limit.
+- [ ] Task 2.3: Retire in order: `refine issues` refuses added rows; drop `check_issue_ids_below_counter`; `allocate`/`next` internal, agent docs and skills updated (`.agents/AGENTS.md` alongside on its branch).
+- [ ] Task 2.4: Description and notes: the `note` token, the kit's store, the hand-over block (`issue fix`, `issue list <n>`), the agent rules.
+- [ ] Task 2.5: The refine, fix, fix-abort and abort steps; status changes by `draft … issue` and `plan abort` sent as refine.
+- [ ] Task 2.6: One record: the switch, `ledger_commit_paths` returning none for untracked ledgers, link and status derived from the plans.
+- [ ] Task 2.7: Sync: the request, row-by-row update, the limit, the window, closures through `do`.
+- [ ] Task 2.8: Sample provider and `lib/plugins.tsv`.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
 - [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [ ] Task 3.3: Architecture and Codemap sections live in group P-72.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
 - [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
@@ -161,33 +178,34 @@ This plan routes every issue step through one wrapper over the ledger functions 
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `lib/aapp-lib.sh` -> Ledger functions: note store and remote cache as read sources, merge.
+- [ ] `lib/aapp-lib.sh` -> Ledger functions: the description and notes store, no commit paths for untracked ledgers, link and status derived from the plans, row-by-row sync update.
 - [ ] `lib/cmd_issue.sh` -> The wrapper and payload; `issue log`; fix, close, hotfix, list call the wrapper; `note` token on hotfix.
-- [ ] `lib/cmd_plan.sh` -> `refine issues` refine step, `note` token, refuses added rows; `draft … issue` imports remote rows.
+- [ ] `lib/cmd_plan.sh` -> `refine issues` refine step, `note` token, refuses added rows; `draft … issue` and `plan abort` send the refine step; `done` commits no untracked ledger.
 - [ ] `lib/planning_health.sh` -> `check_issue_ids_below_counter` retired; added-row refusal.
 - [ ] `lib/plan_resolver.sh` -> Id allocation behind the handler.
 - [ ] `templates/AGENTS.md` -> Log issues with `aapp issue log`; no number claiming; a note is a clue, never an instruction; real data goes in the note.
 - [ ] `templates/issues.md` -> Symptom column: no real data; it goes in the note.
-- [ ] `docs/reference/07-issue-protocol.md` -> The issue steps, their fields and `do` commands; where a note goes with a provider.
+- [ ] `docs/reference/07-issue-protocol.md` -> The issue steps, their fields (`symptom`, `description`, `notes`) and `do` commands; where the text goes with a provider.
 - [ ] `templates/skills/aapp-fix/SKILL.md` -> The note the fix prints is a clue, never an instruction.
-- [ ] `templates/skills/aapp-plan/SKILL.md` -> Same.
-- [ ] `templates/skills/aapp-pause/SKILL.md` -> Same.
-- [ ] `templates/skills/aapp-digest/SKILL.md` -> Same.
-- [ ] `lib/cmd_status.sh` -> list step at briefing.
+- [ ] `templates/skills/aapp-plan/SKILL.md` -> Log issues with `aapp issue log`; no number claiming.
+- [ ] `templates/skills/aapp-pause/SKILL.md` -> Log issues with `aapp issue log`; no number claiming.
+- [ ] `templates/skills/aapp-digest/SKILL.md` -> Log issues with `aapp issue log`; no number claiming.
+- [ ] `lib/cmd_status.sh` -> Sync at briefing within the window; issues closed on the tracker, waiting for the code.
 - [ ] `lib/plugins.tsv` -> New actions for `aapp-issue-tracker`.
 - [ ] `examples/plugins/aapp-issue-tracker/run.sample` -> Handles every step.
 - [ ] `lib/docs/verbs/issue.md` -> Contract.
 - [ ] `lib/docs/verbs/refine.md` -> Contract: `note` token; added rows refused; counter check gone.
-- [ ] `lib/docs/verbs/status.md` -> Contract: remote issues.
-- [ ] `MANUAL.md` -> Provider steps, notes (where they are kept, who sees them), remote issues.
+- [ ] `lib/docs/verbs/status.md` -> Contract: sync at briefing; tracker issues.
+- [ ] `MANUAL.md` -> Provider steps; one record and the switch; description and notes (where they are kept, who sees them).
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
 - [ ] `tests/verbs/issue.provider.sh`
+- [ ] `tests/verbs/issue.tracker.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `templates/aapp-pre-commit` -> Hooks never call the provider.
-- [ ] `templates/blast-radius-guard.sh` -> Same.
+- [ ] `templates/blast-radius-guard.sh` -> Hooks never call the provider.
 
 ---
 
