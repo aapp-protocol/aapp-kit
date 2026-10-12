@@ -53,6 +53,7 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 - **A branch that is gone.** A branch that exists only on the remote counts as existing. When the kit removes a branch itself (a group's `done`, a plan abort), it moves that branch's open issues to the branch's parent in the same step. When an issue's branch was removed otherwise, nothing blocks: `issue fix` and `issue close` treat the issue as having no branch named, so the fix lands on the development branch; the cell is cleared and one line says so (`#12 targeted test-oct, which no longer exists; it now targets develop`). `aapp status` reports such issues before anyone meets them. A person who wants another target sets it with the `branch` token.
 - **Closing follows the code:** `issue close <n> sha <sha>` refuses while `<sha>` is not reachable from the issue's branch, naming the branch to update. The kit never pulls or merges a code branch itself. A withdrawn issue (`issue abort`) has no commit and is not subject to this.
 - **Unblocking follows the code:** closing an issue unblocks a plan waiting on it only when the fix commit is reachable from the plan's parent branch. Otherwise the plan stays blocked and shows as "#<n> fixed on `<branch>`, not yet in `<parent>`"; once the branches are merged, the next `aapp status` unblocks it and says so. A plan blocked by a withdrawn issue resumes at once: there is no fix to wait for.
+- **The fix is recognised by its commit, and by nothing else.** Work that moves the way the kit moves it (fast-forwards and merges) keeps its commits, so the kit can tell where a fix is; scripts and agents that follow the kit's flow are unblocked without anyone acting. A fix carried another way (a squash merge, a cherry-pick, a rebase) has a different commit and is not recognised: the plan stays blocked, `aapp status` says which commit it waits for and on which branch, and a person removes the block with `aapp refine <plan-id> unblocked <num>`. The kit does not read commit messages or compare changes to guess. The MANUAL states this.
 - **Views:** `status` and `issue list` show each issue's branch, the current branch's issues first.
 
 ### 🔄 Migration & Compatibility Strategy
@@ -77,6 +78,8 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 - [ ] `tests/verbs/issue.branch.sh::test_close_refuses_sha_not_in_branch` -> asserts `close … sha` refuses a commit not reachable from the issue's branch and names the branch
 - [ ] `tests/verbs/issue.branch.sh::test_unblock_waits_for_parent_branch` -> asserts a plan whose parent branch lacks the fix stays blocked, and one whose parent has it is unblocked
 - [ ] `tests/verbs/issue.branch.sh::test_abort_ignores_branch_rules` -> asserts `issue abort` archives the issue and resumes the plans it blocked whatever their branches
+- [ ] `tests/verbs/issue.branch.sh::test_cherry_picked_fix_stays_blocked` -> asserts a fix cherry-picked into the plan's parent branch leaves the plan blocked, and `aapp status` names the commit and the branch it waits for
+- [ ] `tests/verbs/issue.branch.sh::test_refine_unblocked` -> asserts `aapp refine <plan-id> unblocked <num>` removes the block, restores the recorded status when it was the last, and refuses an issue that is still open
 - [ ] `tests/verbs/issue.branch.sh::test_status_unblocks_after_merge` -> asserts after the fix is merged into the plan's parent branch, `aapp status` unblocks the plan and reports it
 - [ ] `tests/verbs/issue.branch.sh::test_views_show_branch` -> asserts `status` and `issue list` show the branch, the current branch's issues first
 
@@ -87,7 +90,7 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 - [ ] Task 2.1: `Branch` cell in the ledger functions (read by header name; add the column on first need); template.
 - [ ] Task 2.2: Default (parent branch from a plan or fix worktree) and `branch` token at logging (`issue hotfix`) and on `refine issues`; issues moved when the kit removes a branch; the gone-branch fallback.
 - [ ] Task 2.3: `issue fix` on the issue's branch.
-- [ ] Task 2.4: `issue close`: the commit must be in the issue's branch; unblock per plan parent branch.
+- [ ] Task 2.4: `issue close`: the commit must be in the issue's branch; unblock per plan parent branch; `refine <plan-id> unblocked <num>`.
 - [ ] Task 2.5: `status` and `issue list`; `status` unblocks plans whose fix has reached their parent branch.
 
 ### Phase 3: Verification & Documentation
@@ -111,7 +114,7 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 - [ ] `templates/issues.md` -> `Branch` column and its definition.
 - [ ] `lib/docs/verbs/issue.md` -> Contract.
 - [ ] `lib/docs/verbs/status.md` -> Contract.
-- [ ] `MANUAL.md` -> Issues on several branches.
+- [ ] `MANUAL.md` -> Issues on several branches; how a fix must travel to be recognised, and the manual unblock.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
