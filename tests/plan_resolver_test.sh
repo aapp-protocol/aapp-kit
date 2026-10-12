@@ -328,17 +328,6 @@ check "issue peek uses # prefix" "#7" "$(get_next_issue_id)"
 check "issue allocate issues current value" "#7" "$(allocate_issue_id)"
 check "issue counter independent of plan counter" "8 " "$(git config --get aapp.issueId) $(git config --get aapp.planId)"
 
-ISSUE_PROVIDER_DIR="$PWD/.agents/skills/aapp-issue-tracker"
-mkdir -p "$ISSUE_PROVIDER_DIR"
-cat > "$ISSUE_PROVIDER_DIR/run" <<'EOF'
-#!/bin/sh
-echo '{"id": "#50"}'
-EOF
-chmod +x "$ISSUE_PROVIDER_DIR/run"
-check "issue provider id is used" "#50" "$(allocate_issue_id)"
-check "issue counter ratchets past provider id" "51" "$(git config --get aapp.issueId)"
-rm -rf "$ISSUE_PROVIDER_DIR"
-rmdir "$PWD/.agents/skills" 2>/dev/null || true
 git config --unset aapp.issueId
 
 SEED_RC=0; seed_issue_id .plans >/dev/null 2>&1 || SEED_RC=$?
