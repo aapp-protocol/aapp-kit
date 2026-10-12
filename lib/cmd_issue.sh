@@ -55,20 +55,9 @@ _issue_plans_dir() {
     printf '%s\n' "$root/.plans"
 }
 
-# issue_normalize_id <raw> -> bare integer. Accepts 79, #79, ISSUE-79, `#079`.
-issue_normalize_id() {
-    local raw="$1" n
-    n="${raw//\`/}"
-    n="${n#\#}"
-    case "$n" in ISSUE-*|issue-*) n="${n#*-}" ;; esac
-    case "$n" in
-        ''|*[!0-9]*)
-            echo "❌ [Issue] Not an issue ID: '$raw' (use a bare number, e.g. 'aapp issue close 79')." >&2
-            return 1
-            ;;
-    esac
-    printf '%s\n' "$((10#$n))"
-}
+# What an issue id is, and how one is read from an argument, is defined once, in
+# the id section of lib/aapp-lib.sh (P-79). Below, $n is an id's body: the id
+# is "#$n" and its mini plan "$(issue_fix_name "$n")".
 
 # The ledgers themselves are read and written by the ledger functions of
 # lib/aapp-lib.sh (P-73); this file holds the issue lifecycle built on them.
@@ -217,7 +206,7 @@ cmd_issue_abort() {
         esac
     done
     case "$reason" in *$'\n'*) echo "❌ [Issue] The reason must be a single line." >&2; return 1 ;; esac
-    n="$(issue_normalize_id "$raw")" || return 1
+    n="$(issue_id_body "$raw")" || return 1
     plans="$(_issue_plans_dir)" || return 1
     where="$(ledger_locate "$n")" || return 1
     case "$where" in
@@ -276,7 +265,7 @@ cmd_issue_close() {
         esac
     done
 
-    n="$(issue_normalize_id "$raw")" || return 1
+    n="$(issue_id_body "$raw")" || return 1
     root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}" || {
         echo "❌ [Issue] Not inside a Git repository." >&2
         return 1
@@ -450,7 +439,7 @@ _issue_plan_file_for() {
 
 # _issue_hotfix_list <plan_file>: the issues in `* **Emergency Hotfixes:**`, one per line.
 _issue_hotfix_list() {
-    sed -nE 's/^\* \*\*Emergency Hotfixes:\*\*[[:space:]]*//p' "$1" | head -n 1 | tr ',' '\n' | tr -d ' ' | grep -E '^#[0-9]+$' || true
+    sed -nE 's/^\* \*\*Emergency Hotfixes:\*\*[[:space:]]*//p' "$1" | head -n 1 | tr ',' '\n' | tr -d ' ' | grep -E "^${AAPP_ISSUE_REF_RE}\$" || true
 }
 
 # _issue_record_hotfix <plan_file> <n>: append-only, no duplicates; inserted
@@ -483,7 +472,7 @@ issue_unblock_plans() {
         fields="$(plan_blocked_on_parse "${line#\* \*\*Blocked On:\*\* }")"
         list="$(sed -n 1p <<< "$fields")"; was="$(sed -n 2p <<< "$fields")"; perm="$(sed -n 3p <<< "$fields")"
         printf '%s\n' "$list" | tr ',' '\n' | tr -d ' ' | grep -qxF "#$n" || continue
-        newlist="$(printf '%s\n' "$list" | tr ',' '\n' | tr -d ' ' | grep -E '^#[0-9]+$' | grep -vxF "#$n" | paste -sd, - | sed 's/,/, /g')"
+        newlist="$(printf '%s\n' "$list" | tr ',' '\n' | tr -d ' ' | grep -E "^${AAPP_ISSUE_REF_RE}\$" | grep -vxF "#$n" | paste -sd, - | sed 's/,/, /g')"
         tmp="$pf.aapp-unblock.$$"
         if [ -n "$newlist" ] || [ -n "$perm" ]; then
             AAPP_LINE="$(plan_blocked_on_line "$newlist" "$was" "$perm")" awk '/^\* \*\*Blocked On:\*\*/ && !d { print ENVIRON["AAPP_LINE"]; d = 1; next } { print }' "$pf" > "$tmp"
@@ -860,7 +849,7 @@ cmd_issue_fix() {
     case "$sub" in
         '') echo "❌ [Issue] Usage: aapp issue fix next-blocker | <num> [file <path>…] | <num> abort" >&2; return 1 ;;
         next-blocker) shift ;;
-        *) n="$(issue_normalize_id "$sub")" || return 1; shift
+        *) n="$(issue_id_body "$sub")" || return 1; shift
            if [ "${1:-}" = "abort" ]; then _issue_fix_abort "$plans" "$n"; return; fi ;;
     esac
     while [ $# -gt 0 ]; do
@@ -922,7 +911,7 @@ cmd_issue_fix() {
                     _issue_lock_release; echo "❌ [Issue] The aapp-issue-tracker provider refused next-blocker; not claiming locally." >&2; return 1; }
                 raw="$(json_field "$pout" id)" || {
                     _issue_lock_release; echo "❌ [Issue] Provider must print {\"id\": ...} for next-blocker (got: '$pout')." >&2; return 1; }
-                n="$(issue_normalize_id "$raw")" || { _issue_lock_release; return 1; }
+                n="$(issue_id_body "$raw")" || { _issue_lock_release; return 1; }
             else
                 _issue_next_blocker "$plans" && pick_rc=0 || pick_rc=$?
                 case "$pick_rc" in

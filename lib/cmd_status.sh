@@ -46,7 +46,7 @@ ROADMAP_FILE="$(ledger_path roadmap)" || ROADMAP_FILE=""
 [ -f "$ROADMAP_FILE" ] || ROADMAP_FILE=""
 TOP_ROADMAP_ISSUES=""
 if [ -n "$ROADMAP_FILE" ]; then
-    TOP_ROADMAP_ISSUES=$(roadmap_entries | grep -o -E '#[0-9]+' | head -n 3 | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+    TOP_ROADMAP_ISSUES=$(roadmap_entries | issue_id_refs | head -n 3 | tr '\n' ',' | sed 's/,$//; s/,/, /g')
 fi
 
 TOTAL_PLANS=0

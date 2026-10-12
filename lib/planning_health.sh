@@ -36,15 +36,9 @@ if ! . "$AAPP_LIB_FILE" 2>/dev/null || ! declare -f aapp_lib_loaded >/dev/null; 
 fi
 
 normalize_issue_id() {
-    local raw="$1"
-    # Strip backticks, spaces, #, ISSUE-, and leading zeros
-    local clean
-    clean=$(echo "$raw" | tr -d '`' | tr -d ' ' | sed -E 's/^(ISSUE-?|#)//I' | sed -E 's/^0+([0-9])/\1/')
-    if [[ "$clean" =~ ^[0-9]+$ ]]; then
-        echo "$clean"
-    else
-        echo ""
-    fi
+    # The id's body, or nothing: what an id is comes from the id section of
+    # lib/aapp-lib.sh (P-79).
+    issue_id_body "$(printf '%s' "$1" | tr -d ' ')" 2>/dev/null || echo ""
 }
 
 # Resolve the repository root fail-closed (P-33). Prefers REPO_ROOT exported by
@@ -152,9 +146,9 @@ check_pair2_referential_integrity() {
     fi
 
     local roadmap_ids
-    roadmap_ids=$(get_roadmap_issue_ids "$roadmap_file" | sort -n -u)
+    roadmap_ids=$(get_roadmap_issue_ids "$roadmap_file" | issue_id_sort)
     local active_ids
-    active_ids=$(get_active_issue_ids "$issues_file" | sort -n -u)
+    active_ids=$(get_active_issue_ids "$issues_file" | issue_id_sort)
 
     # 1. Check for roadmap drift (ID on roadmap but not in active ISSUES.md)
     for rid in $roadmap_ids; do
@@ -175,9 +169,9 @@ get_unsequenced_issues() {
     [ ! -f "$roadmap_file" ] || [ ! -f "$issues_file" ] && return 0
 
     local roadmap_ids
-    roadmap_ids=$(get_roadmap_issue_ids "$roadmap_file" | sort -n -u)
+    roadmap_ids=$(get_roadmap_issue_ids "$roadmap_file" | issue_id_sort)
     local active_ids
-    active_ids=$(get_active_issue_ids "$issues_file" | sort -n -u)
+    active_ids=$(get_active_issue_ids "$issues_file" | issue_id_sort)
 
     local unsequenced=()
     for aid in $active_ids; do
@@ -206,12 +200,12 @@ check_pair3_pickup_routing() {
     [ -f "$archive_file" ] && archive_ids=$(get_archived_issue_ids "$archive_file")
 
     # Look for list items in pickup whose title explicitly drafts an issue
-    local issue_bullet_regex='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*(\*\*)?[[:alnum:][:space:]]*(🔴|🟠|🟡|🟢|🟣|🔷|🟥)?[[:space:]]*(#|ISSUE-)[0-9]+'
+    local issue_bullet_regex='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*(\*\*)?[[:alnum:][:space:]]*(🔴|🟠|🟡|🟢|🟣|🔷|🟥)?[[:space:]]*'"$AAPP_ISSUE_REF_PREFIXED_RE"
     while IFS= read -r line; do
         local raw_title
         raw_title=$(echo "$line" | cut -d: -f1)
         local found_ids
-        found_ids=$(echo "$raw_title" | grep -o -E '(#|ISSUE-)[0-9]+' || true)
+        found_ids=$(echo "$raw_title" | grep -o -E "$AAPP_ISSUE_REF_PREFIXED_RE" || true)
         for raw in $found_ids; do
             local nid
             nid=$(normalize_issue_id "$raw")
@@ -264,7 +258,7 @@ check_taxonomy_and_schema() {
                 : # valid extension
             fi
         fi
-    done < <(grep -E '^[[:space:]]*\|[[:space:]]*`?#?[0-9]+' "$issues_file" 2>/dev/null || true)
+    done < <(AAPP_LEDGER_ISSUES="$issues_file" ledger_row_lines)
 
     return $errors
 }
@@ -346,13 +340,13 @@ check_pair8_issue_id_integrity() {
     local errors=0 dup
 
     if [ -f "$issues_file" ]; then
-        for dup in $(get_active_issue_ids "$issues_file" | sort -n | uniq -d); do
+        for dup in $(get_active_issue_ids "$issues_file" | sort | uniq -d | issue_id_sort); do
             echo "❌ [Pair 8 Violation] Issue #$dup appears more than once in active $issues_file!"
             errors=$((errors + 1))
         done
     fi
     if [ -f "$archive_file" ]; then
-        for dup in $(get_archived_issue_ids "$archive_file" | sort -n | uniq -d); do
+        for dup in $(get_archived_issue_ids "$archive_file" | sort | uniq -d | issue_id_sort); do
             echo "❌ [Pair 8 Violation] Issue #$dup appears more than once in archive $archive_file!"
             errors=$((errors + 1))
         done
@@ -644,7 +638,8 @@ check_issue_ids_below_counter() {
     [ -f "$issues_file" ] || return 0
     next="$(git config --get aapp.issueId 2>/dev/null)" || return 0
     case "$next" in ''|*[!0-9]*) return 0 ;; esac
-    for id in $(get_active_issue_ids "$issues_file" | sort -n -u); do
+    for id in $(get_active_issue_ids "$issues_file" | issue_id_sort); do
+        issue_id_is_numeric "$id" || continue
         if [ "$id" -ge "$next" ]; then
             echo "❌ [Issue ID] #$id is at or above the next allocatable ID (#$next); claim IDs with 'aapp issue allocate'."
             bad=$((bad + 1))

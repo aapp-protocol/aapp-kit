@@ -142,11 +142,17 @@ resolve_plan_path() {
     fi
 
     # 3. Issue Namespace Collision Guard (#-prefixed reference)
-    if [[ "$QUERY" =~ ^#[0-9]+$ ]]; then
-        local SUGGEST_ID="P-${QUERY#\#}"
-        echo "❌ [Plan Resolver] '$QUERY' is an Issue reference, not a plan." >&2
-        echo "   Did you mean '$SUGGEST_ID'?" >&2
-        return 1
+    if [[ "$QUERY" == \#* ]]; then
+        # What an issue id is comes from the id section of aapp-lib.sh (P-79).
+        if ! declare -f issue_id_valid >/dev/null; then
+            # shellcheck source=lib/aapp-lib.sh
+            . "$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh" || return 1
+        fi
+        if [ "$(issue_id_normalize "$QUERY" 2>/dev/null)" = "$QUERY" ]; then
+            echo "❌ [Plan Resolver] '$QUERY' is an Issue reference, not a plan." >&2
+            if issue_id_is_numeric "$QUERY"; then echo "   Did you mean 'P-${QUERY#\#}'?" >&2; fi
+            return 1
+        fi
     fi
 
     # 4. Numeric Plan ID Matching (e.g. P-9, p-9, P9, p9, 9)

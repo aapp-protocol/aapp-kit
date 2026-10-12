@@ -1019,7 +1019,7 @@ cmd_draft() {
     # before any allocation, so a refused promotion burns no Plan ID.
     if [ "${2:-}" = "issue" ]; then
         _load_issue_module
-        promote_issue="$(issue_normalize_id "${3:-}")" || exit 1
+        promote_issue="$(issue_id_body "${3:-}")" || exit 1
         if [ "$(ledger_locate "$promote_issue")" != "active" ]; then
             echo "❌ [Draft Refusal] #$promote_issue is not an active issue in ISSUES.md (archived or unknown)." >&2
             return 1
@@ -1964,7 +1964,7 @@ cmd_done() {
     # P-32: a plan targeting an issue closes it. Checked before any mutation so a
     # dangling target aborts cleanly; an already-archived issue is left alone.
     local close_issue="" close_where=""
-    close_issue="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*#([0-9]+)([^0-9].*)?$/\1/p' "$plan_file" | head -n 1)"
+    close_issue="$(issue_id_at_start "$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*//p' "$plan_file" | head -n 1)" || true)"
     if [ -n "$close_issue" ]; then
         # shellcheck source=lib/cmd_issue.sh
         . "$(dirname "${BASH_SOURCE[0]}")/cmd_issue.sh" || {
@@ -2647,7 +2647,7 @@ _ab_plan_id() {
 _ab_commit_shas() { parse_plan_commits "$1" | awk '{ printf "%s`%s`", (NR > 1 ? ", " : ""), $1 }'; }
 
 _ab_target_issue() {
-    sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*#([0-9]+)([^0-9].*)?$/\1/p' "$1" | head -n 1
+    issue_id_at_start "$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*//p' "$1" | head -n 1)" || true
 }
 
 # _ab_check_worktree <plan_file> <plan_id>: the plan's worktree may be removed.
@@ -2817,9 +2817,11 @@ cmd_plan_abort() {
     if [ -z "$query" ]; then echo "❌ [Abort Refusal] Usage: $AB_USAGE" >&2; exit 1; fi
     # A mini plan is not a P-xx plan (P-52): its own verb drops it.
     n="${query%.md}"
-    case "$n" in fix-*[!0-9]*|fix-) ;; fix-[0-9]*)
-        echo "❌ [Abort Refusal] $n is an issue's mini plan; drop it with 'aapp issue fix ${n#fix-} abort'." >&2
-        exit 1 ;;
+    case "$n" in fix-*)
+        if issue_fix_id "$n" >/dev/null 2>&1; then
+            echo "❌ [Abort Refusal] $n is an issue's mini plan; drop it with 'aapp issue fix ${n#fix-} abort'." >&2
+            exit 1
+        fi ;;
     esac
     plan_file="$(resolve_plan_file "$query" "abort")" || exit 1
     bname="$(basename "$plan_file")"; pid="$(_ab_plan_id "$plan_file")"
@@ -2989,7 +2991,7 @@ plan_blocked_on_parse() {
     local rest="$1" perm="" was="" list
     case "$rest" in *"hotfix limit reached"*) perm="hotfix limit reached${rest#*hotfix limit reached}"; rest="${rest%%hotfix limit reached*}" ;; esac
     case "$rest" in *"(was "*) was="${rest#*(was }"; was="${was%%)*}"; rest="${rest%%(was *}" ;; esac
-    list="$(printf '%s\n' "$rest" | tr ',' '\n' | tr -d ' ;' | grep -E '^#[0-9]+$' | paste -sd, - | sed 's/,/, /g')"
+    list="$(printf '%s\n' "$rest" | tr ',' '\n' | tr -d ' ;' | grep -E "^${AAPP_ISSUE_REF_RE}\$" | paste -sd, - | sed 's/,/, /g')"
     printf '%s\n%s\n%s\n' "$list" "$was" "$perm"
 }
 
@@ -3010,7 +3012,7 @@ plan_blocked_on_line() {
 plan_block_on() {
     local pf="$1" num="${2#\#}" status_line prev line list was perm fields tmp
     [ -f "$pf" ] || return 1
-    case "$num" in ''|*[!0-9]*) return 1 ;; esac
+    issue_id_valid "$num" || return 1
     status_line="$(grep -m 1 -E '^\* \*\*Status:\*\*' "$pf" || true)"
     [ -n "$status_line" ] || return 1
     prev="${status_line#\* \*\*Status:\*\* }"
@@ -3221,13 +3223,10 @@ cmd_refine() {
         return
     fi
     if [ "$msg" = "blocked" ] && [ $# -ge 3 ]; then
-        num="${3#\#}"
-        case "$num" in
-            ''|*[!0-9]*)
-                echo "❌ [Refine] Usage: aapp refine <plan-id> blocked <num> (a bare issue number, e.g. 101)" >&2
-                exit 1
-                ;;
-        esac
+        num="$(issue_id_body "$3" 2>/dev/null)" || {
+            echo "❌ [Refine] Usage: aapp refine <plan-id> blocked <num> (a bare issue number, e.g. 101)" >&2
+            exit 1
+        }
         msg="blocked on #$num"
     fi
     plan_file="$(resolve_plan_file "$query" "refine")" || exit 1

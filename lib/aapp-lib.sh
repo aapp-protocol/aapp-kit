@@ -707,7 +707,7 @@ parse_plan_worktree() {
 # append-only `* **Emergency Hotfixes:**` line (P-52).
 count_plan_emergency_hotfixes() {
     awk '/^##[[:space:]]/ { exit } /^\* \*\*Emergency Hotfixes:\*\*/ { print; exit }' "$1" 2>/dev/null |
-        grep -oE '#[0-9]+' | wc -l | tr -d ' '
+        issue_id_refs | wc -l | tr -d ' '
 }
 
 # resolve_plan_integrate_target <plan_file>: the branch the plan integrates into,
@@ -853,6 +853,100 @@ aapp_changelog_plan_line() {
     '
 }
 
+# ---- Issue ids (P-79) ----
+# The one definition of what an issue id is: nothing outside this section
+# spells out its pattern (tests/issue_id_test.sh::test_no_id_pattern_outside).
+#
+# An id is `#` followed by its body:
+#   digits                 #46        the kit's counter, or a tracker that numbers
+# Written without the `#` on the command line (`aapp issue fix 46`). `ISSUE-46`
+# is read as #46.
+AAPP_ISSUE_ID_BODY_RE='[0-9]+'
+# A written id; the same, or a bare or ISSUE- number as older ledgers have them;
+# and an id that carries its prefix.
+AAPP_ISSUE_REF_RE="#(${AAPP_ISSUE_ID_BODY_RE})"
+AAPP_ISSUE_REF_LOOSE_RE="((#|ISSUE-)?[0-9]+|#(${AAPP_ISSUE_ID_BODY_RE}))"
+AAPP_ISSUE_REF_PREFIXED_RE="((#|ISSUE-)[0-9]+|#(${AAPP_ISSUE_ID_BODY_RE}))"
+
+# issue_id_body <text> -> the id's body, normalised (46, #46, `#046`, ISSUE-46
+# all give 46). Fails, naming the accepted forms, for anything else.
+issue_id_body() {
+    local raw="$1" n
+    n="${raw//\`/}"
+    n="${n#\#}"
+    case "$n" in ISSUE-*|issue-*) n="${n#*-}" ;; esac
+    case "$n" in
+        ''|*[!0-9]*) ;;
+        *) printf '%s\n' "$((10#$n))"; return 0 ;;
+    esac
+    echo "❌ [Issue] Not an issue ID: '$raw' (use a bare number, e.g. 'aapp issue close 79')." >&2
+    return 1
+}
+
+# issue_id_normalize <text> -> the id as it is written: #<body>.
+issue_id_normalize() {
+    local b
+    b="$(issue_id_body "$1")" || return 1
+    printf '#%s\n' "$b"
+}
+
+# issue_id_valid <text>: true for one well-formed id, with or without `#`.
+issue_id_valid() { issue_id_body "$1" >/dev/null 2>&1; }
+
+# issue_id_is_numeric <id>: true for an id the kit's counter could have issued.
+issue_id_is_numeric() {
+    local b="${1#\#}"
+    case "$b" in ''|*[!0-9]*) return 1 ;; esac
+    return 0
+}
+
+# issue_id_refs [<text>] -> the ids written in a line (or in stdin), one per
+# line, in order. An id starts at a `#` that begins the text or follows a
+# character that is neither `#` nor a letter or digit, and ends before one that
+# is not a letter or digit: a Markdown heading and a hex token are not ids.
+issue_id_refs() {
+    if [ $# -gt 0 ]; then printf '%s\n' "$1"; else cat; fi | AAPP_RE="$AAPP_ISSUE_REF_RE" awk '
+        {
+            s = $0; pos = 1
+            while (match(substr(s, pos), ENVIRON["AAPP_RE"])) {
+                st = pos + RSTART - 1; len = RLENGTH
+                prev = (st > 1) ? substr(s, st - 1, 1) : ""
+                nxt = substr(s, st + len, 1)
+                if (prev !~ /[#A-Za-z0-9]/ && nxt !~ /[A-Za-z0-9]/) print substr(s, st, len)
+                pos = st + len
+            }
+        }'
+}
+
+# issue_id_at_start <text> -> the body of the id the text begins with (after
+# blanks), as a plan's `Target Issue` value does; fails when it begins otherwise.
+issue_id_at_start() {
+    local t="$1" first
+    t="${t#"${t%%[![:space:]]*}"}"
+    case "$t" in '#'*) ;; *) return 1 ;; esac
+    first="$(issue_id_refs "$t" | head -n 1)"
+    [ -n "$first" ] || return 1
+    case "$t" in "$first"*) printf '%s\n' "${first#\#}"; return 0 ;; esac
+    return 1
+}
+
+# issue_id_sort: stdin id bodies -> sorted and unique: numbers by value, then
+# keys by name and number.
+issue_id_sort() {
+    awk '{ if ($0 ~ /^[0-9]+$/) print "0\t-\t" $0 "\t" $0; else { k = $0; n = $0; sub(/-[0-9]+$/, "", k); sub(/^.*-/, "", n); print "1\t" k "\t" n "\t" $0 } }' |
+        sort -t "$(printf '\t')" -k1,1n -k2,2 -k3,3n | cut -f4 | awk '!seen[$0]++'
+}
+
+# issue_fix_name <id> -> the file name of the id's mini plan; issue_fix_id
+# <name> -> the id a mini plan's file name stands for.
+issue_fix_name() { printf 'fix-%s.md\n' "${1#\#}"; }
+issue_fix_id() {
+    local b="${1##*/}"
+    b="${b#fix-}"; b="${b%.md}"
+    issue_id_normalize "$b"
+}
+# ---- end issue ids ----
+
 # ---- Issue ledgers (P-73) ----
 # The one accessor of ISSUES.md, done/000-issues-archive.md and
 # issues_road_map.md: nothing outside this section reads or writes them
@@ -863,10 +957,13 @@ aapp_changelog_plan_line() {
 # Escaped pipes (\|) inside cells are preserved everywhere.
 
 # Road-map lines: an open entry, and a resolved one (the hook's auto-prune).
-LEDGER_ROADMAP_OPEN_RE='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ ]?\]|\*)[[:space:]]*`?#?[0-9]+'
-LEDGER_ROADMAP_RESOLVED_RE='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)'
+# What an id looks like comes from the id section above (P-79).
+LEDGER_ROADMAP_OPEN_RE='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ ]?\]|\*)[[:space:]]*`?'"$AAPP_ISSUE_REF_LOOSE_RE"
+LEDGER_ROADMAP_RESOLVED_RE='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?'"$AAPP_ISSUE_REF_LOOSE_RE"'`?.*(✅|[Rr]esolved)'
+# An active row: its first cell is a written id.
+LEDGER_ROW_RE='^[[:space:]]*\|[[:space:]]*`?'"$AAPP_ISSUE_REF_RE"
 # A resolved row left in the active ledger (the hook's relocation check).
-LEDGER_RESOLVED_ROW_RE='^[[:space:]]*\|[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)'
+LEDGER_RESOLVED_ROW_RE='^[[:space:]]*\|[[:space:]]*`?'"$AAPP_ISSUE_REF_LOOSE_RE"'`?.*(✅|[Rr]esolved)'
 
 _ledger_rel() {
     case "$1" in
@@ -948,7 +1045,7 @@ ledger_row_lines() {
     local f
     f="$(ledger_path issues)" || return 0
     [ -f "$f" ] || return 0
-    grep -E '^[[:space:]]*\|[[:space:]]*`?#[0-9]+' "$f" 2>/dev/null
+    grep -E "$LEDGER_ROW_RE" "$f" 2>/dev/null
     return 0
 }
 
@@ -959,8 +1056,8 @@ ledger_rows() {
     local f
     f="$(ledger_path issues)" || return 0
     [ -f "$f" ] || return 0
-    AAPP_STATUS="${1:-}" awk '
-        /^[[:space:]]*\|[[:space:]]*`?#[0-9]+/ {
+    AAPP_STATUS="${1:-}" AAPP_ROW_RE="$LEDGER_ROW_RE" awk '
+        $0 ~ ENVIRON["AAPP_ROW_RE"] {
             line = $0; gsub(/\\\|/, "\001", line)
             k = split(line, c, "|")
             if (k < 10) next
@@ -992,16 +1089,20 @@ ledger_ids() {
         *)       return 2 ;;
     esac
     [ -f "$f" ] || return 0
+    # The first cell of a table row, or what follows a road-map line's marker.
     if [ "$1" = "roadmap" ]; then
-        sed -nE 's/^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?0*([0-9]+).*/\2/p' "$f"
+        awk '{ if (sub(/^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*/, "")) print }' "$f"
     else
-        awk -F'|' '/^[[:space:]]*\|[[:space:]]*`?#?[0-9]+/ {
-            id = $2; gsub(/[ \t`]/, "", id); sub(/^(ISSUE-?|issue-?|#)/, "", id)
-            if (id !~ /^[0-9]+$/) next
-            sub(/^0+/, "", id); if (id == "") id = "0"
-            print id
-        }' "$f"
-    fi
+        awk -F'|' '/^[[:space:]]*\|/ { print $2 }' "$f"
+    fi | AAPP_RE="^\`?${AAPP_ISSUE_REF_LOOSE_RE}" awk '
+        {
+            t = $0; gsub(/^[ \t]+/, "", t)
+            if (!match(t, ENVIRON["AAPP_RE"])) next
+            id = substr(t, RSTART, RLENGTH); gsub(/`/, "", id)
+            had_hash = (id ~ /^#/); sub(/^#/, "", id); num = id; sub(/^ISSUE-/, "", num)
+            if (num ~ /^[0-9]+$/) { sub(/^0+/, "", num); print (num == "") ? "0" : num }
+            else if (had_hash) print id
+        }'
 }
 
 # ledger_locate <n> -> prints "active", "archive" or nothing.
@@ -1121,13 +1222,13 @@ ledger_relink() {
     f="$(ledger_path issues)" || f=""
     if [ -n "$f" ] && [ -f "$f" ]; then
         tmp="$f.aapp-relink.$$"
-        AAPP_OLD="]($old)" AAPP_NEW="]($new)" awk '
+        AAPP_OLD="]($old)" AAPP_NEW="]($new)" AAPP_ROW_RE="$LEDGER_ROW_RE" awk '
             function swap(s,    out, i, o) {
                 o = ENVIRON["AAPP_OLD"]; out = ""
                 while ((i = index(s, o)) > 0) { out = out substr(s, 1, i - 1) ENVIRON["AAPP_NEW"]; s = substr(s, i + length(o)); n++ }
                 return out s
             }
-            /^[[:space:]]*\|[[:space:]]*`?#[0-9]+/ {
+            $0 ~ ENVIRON["AAPP_ROW_RE"] {
                 line = $0; gsub(/\\\|/, "\001", line)
                 k = split(line, c, "|")
                 if (k >= 9) {
@@ -1176,7 +1277,7 @@ roadmap_blockers() {
     f="$(ledger_path roadmap)" || return 0
     [ -f "$f" ] || return 0
     awk '/^## 🧱 Plan Blockers/ { q = 1; next } /^## / { q = 0 } q' "$f" |
-        sed -nE 's/^[[:space:]]*-[[:space:]]*\[[ ]?\][[:space:]]*#([0-9]+).*/\1/p'
+        sed -nE "s/^[[:space:]]*-[[:space:]]*\[[ ]?\][[:space:]]*#(${AAPP_ISSUE_ID_BODY_RE}).*/\1/p"
 }
 
 # roadmap_add_blocker <n> <text> <plan-id>: appends to 🧱 Plan Blockers, creating
