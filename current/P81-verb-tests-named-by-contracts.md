@@ -61,20 +61,20 @@ This plan makes the correspondence two-way for the verb suites: every named test
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verb_contracts_test.sh::test_every_verb_test_named_by_contract` -> asserts every test name reported by a verb suite or part is named in that verb's contract, and lists each one that is not
+- [x] `tests/verb_contracts_test.sh::test_every_verb_test_named_by_contract` -> asserts every test name reported by a verb suite or part is named in that verb's contract, and lists each one that is not
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Add the check to `tests/verb_contracts_test.sh`; confirm it fails on the eight tests.
+- [x] Task 1.1: Add the check to `tests/verb_contracts_test.sh`; confirm it fails on the eight tests.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Name the eight tests in their contracts; the check passes.
+- [x] Task 2.1: Name the eight tests in their contracts; the check passes.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: No user-facing change; nothing to document outside the Codemap.
-- [ ] Task 3.3: Update `.agents/CODEMAP.md` (`lib/docs/verbs/` section): the correspondence is two-way.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: No user-facing change; nothing to document outside the Codemap.
+- [x] Task 3.3: Update `.agents/CODEMAP.md` (`lib/docs/verbs/` section): the correspondence is two-way.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
