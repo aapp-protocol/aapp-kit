@@ -180,7 +180,7 @@ To prevent naming drift across development, blueprint authoring, and runtime too
 | **`kit-on-release`** *(P-59)* | Kit Lifecycle | `on-release` hook (`scripts/kit-on-release.sh`) | Triggered during `aapp release` -> synchronizes `templates/` delimiters with `.agents/AGENTS.md` and verifies test suite | In-repo script | `scripts/kit-on-release.sh` |
 | **`hello-tool`** | Showcase / Demo | `aapp hello-tool` | CLI arguments → stdout greeting | `examples/plugins/hello-tool/run.sample` | `.agents/skills/hello-tool/run` |
 ### 📨 Plugin Payload Standard (P-32, P-77)
-Every supported plugin the kit calls (`aapp-planid`, `aapp-issue-tracker`) speaks one exchange. Built by `build_event_envelope`, sent by `run_action_plugin`, answers read by `json_field` (all in `lib/hook_dispatcher.sh`). The full reference, kept equal to the code by a test, is `docs/reference/06-plugin-protocol.md` and `docs/reference/07-issue-protocol.md`.
+The issue plugins the kit calls (`aapp-issue-tracker`, `aapp-issue-note-filter`) speak one exchange; `aapp-planid` keeps its present contract (`plan.allocate` → `{"id": "P-<int>"}` or a bare number) until plans get their own chapter. Built by `build_event_envelope`, sent by `run_action_plugin`, answers read by `json_field` (all in `lib/hook_dispatcher.sh`). The full reference, kept equal to the code by a test, is `docs/reference/06-plugin-protocol.md` and `docs/reference/07-issue-protocol.md`.
 
 **The kit asks: JSON envelope on stdin**
 ```json
@@ -210,11 +210,11 @@ Every supported plugin the kit calls (`aapp-planid`, `aapp-issue-tracker`) speak
 ```
 * **`status`:** `ok`, `declined` (the kit does everything) or `failed`. **`message`:** one sentence shown to the user.
 * **`handled`:** what the plugin took care of; whatever it does not name, the kit does.
-* **`id`:** required on `ok` for `issue.log` and `plan.allocate`: the plugin's own key or number becomes the id. `tracker` and `url` are informational and never interpreted.
+* **`id`:** required on `ok` for `issue.log`: the plugin's own key or number becomes the id. `tracker` and `url` are informational and never interpreted.
 * **`AAPP_PLUGIN_LIST`:** one flat object per line in the shape of `data` (the issues of `issue.list`).
 * **`AAPP_PLUGIN_DO`:** aapp commands as a person types them, one per line, run after the step from the whitelist `lib/plugin_do.tsv`; a refused line is reported and the rest still run.
 * A plugin running a writing `aapp` verb during a step is refused and pointed to `do`; reading verbs work. An answer echoing a newer `version` is refused. Plain-text output is rejected.
-* Plugin **absence** means the kit does everything. A failing plugin: each step defines the outcome (`issue.log`, `issue.next-blocker` and `plan.allocate` refuse; the others fall back to the kit with a warning).
+* Plugin **absence** means the kit does everything. A failing plugin: each step defines the outcome (`issue.log` and `issue.next-blocker` refuse; the others fall back to the kit with a warning).
 
 ### 📋 Extension Point Rules
 1. **Verbatim Naming Invariant:** Shipped sample directories in `examples/plugins/<name>/` match the canonical installed plugin directory in `.agents/skills/<name>/` **verbatim**. No rename translation mapping is permitted.
