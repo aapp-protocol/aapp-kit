@@ -191,8 +191,16 @@
 * **Anti-Wrapper Warning:** Never address stashes by index (`stash@{0}`); use 40-character commit SHAs exclusively. Never use `--all` (preserves `.gitignore` air-gaps).
 
 ### 📊 Context Recovery Briefing (`lib/cmd_status.sh`)
-* **Purpose:** Read-only four-pillar context recovery agent inspecting Shipped (`CHANGELOG.md`), Issues (`ISSUES.md`), Plans (`state_matrix.md`), and Pickup (`pickup.md`). Surfaces prominent pause banner and quarantined worktrees when paused.
+* **Purpose:** Read-only four-pillar context recovery agent inspecting Shipped (`CHANGELOG.md`), Issues (`ISSUES.md`), Plans (`state_matrix.md`), and Pickup (`pickup.md`). Surfaces prominent pause banner and quarantined worktrees when paused, and reports open adoption tasks (`.plans/adoption.md`, P-63) in overview and briefing.
 * **Anti-Wrapper Warning:** Must remain strictly non-destructive and idempotent.
+
+### 📋 Adoption Advisories & Setup Checklist (`lib/adoption.sh`)
+* **Purpose:** Single source of truth for repository adoption rules catalogue, sync engine, and open task inspection for `.plans/adoption.md` (P-63).
+* **Key Functions:**
+  * `get_all_adoption_manual_headings()` -> Emits all unique manual section headings linked from adoption rules.
+  * `adoption_open_count(target)` -> Counts open unticked tasks (`^- \[ \] \`\[`) in `.plans/adoption.md`. Returns 0 if missing.
+  * `sync_adoption_checklist(root, plans_dir)` -> Evaluates rule triggers and checks; adds missing tasks and auto-ticks satisfied tasks (`- [ ]` → `- [x]`) while strictly preserving existing ticks, hand-edits, and user text.
+* **Consumers:** `lib/cmd_init.sh` (seeds `.plans/adoption.md`, maintains `.plans/.gitignore`, executes sync, reports open count), `lib/cmd_status.sh` (includes open task count in overview and briefing).
 
 ### 🪝 Lifecycle Hooks & Action Plugins Engine (`lib/hook_dispatcher.sh`, `lib/cmd_hook.sh`)
 * **Purpose:** Zero-dependency lifecycle hook dispatch, SHA-256 cryptographic integrity verification, process watchdog timeout gating, and dynamic action plugin discovery.
