@@ -4,6 +4,9 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #128 | `Low` | `DOCS` | 2026-10-12 | `MANUAL.md` (§13 settings matrix) | The settings matrix omits keys the code reads: `aapp.protectedBranches`, `aapp.templateSync`, `aapp.testCommand`, `aapp.notesRemote`, `aapp.aiNotes`, `aapp.aiNotesGuard`, `aapp.aiAlias`, `aapp.noteTTL`. |  | 🟡 `Incubated` |
+| #127 | `Medium` | `CLI` | 2026-10-12 | `lib/cmd_install.sh` | `aapp install` copies `lib`, `templates`, `tests` and `examples` only: `MANUAL.md` and `CHEATSHEET.md` are not installed, so an installed kit has no manual to open or link to. |  | 🟡 `Incubated` |
+| #126 | `High` | `CORE` | 2026-10-12 | `lib/cmd_init.sh` (config seeding), `lib/*.sh` (each `git config aapp.*` read) | Every `aapp.*` setting is local git config, never cloned: `init` seeds kit defaults on each clone and a project has no shared place to declare its choices (dev branch, commit mode, attribution, plan worktrees, integration), so each teammate sets them by hand. |  | 🟡 `Incubated` |
 | #125 | `Low` | `CORE` | 2026-10-11 | `templates/blast-radius-guard.sh` | The write guard refuses `.agents/CODEMAP.md` when it is addressed through a plan worktree's `.agents` link (`.workspace/P<n>/.agents/CODEMAP.md`); the same file by its main-checkout path is accepted. |  | 🟡 `Incubated` |
 | #124 | `Low` | `CORE` | 2026-10-11 | `lib/cmd_plan.sh` (`cmd_done`) | `done` clears the active plan buffers before its archive commit; when that commit fails the plan is restored but the buffers stay cleared. |  | 🟡 `Incubated` |
 | #123 | `Medium` | `CORE` | 2026-10-11 | `lib/cmd_issue.sh` | No verb withdraws an issue: `issue close` without a commit archives it as fixed at HEAD, and its plan or open mini plan stays behind. | [P-76](current/P76-issue-abort.md) | 🔵 `Planned` |

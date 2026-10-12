@@ -28,6 +28,9 @@
 
 ## 📥 Triage (Incoming / Unsequenced)
 *Newly logged issues awaiting prioritization.*
+- [ ] #126 -> A project cannot declare its `aapp.*` settings: all are per-clone git config.
+- [ ] #127 -> `aapp install` does not install `MANUAL.md` or `CHEATSHEET.md`.
+- [ ] #128 -> Settings matrix in `MANUAL.md` §13 omits eight keys the code reads.
 - [ ] #125 -> Write guard refuses `.agents/CODEMAP.md` through a plan worktree's `.agents` link.
 - [ ] #124 -> `done` leaves the buffers cleared when its archive commit fails.
 - [ ] #123 -> No verb withdraws an issue; `issue close` without a commit archives it as fixed.
