@@ -13,7 +13,6 @@
 ---
 
 ## 🧱 Plan Blockers
-- [ ] #138 -> Two resolver checks assert that allocate_issue_id asks the issue provider for a number; the provider numbers issues in its answer to issue.log. (blocks P-74)
 
 ## ⭐ User Priority (Pinned / Immediate Human Focus)
 *Direct developer overrides based on current focus and appetite.*
