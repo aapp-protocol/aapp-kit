@@ -305,7 +305,7 @@ if [ -n "$ISSUES_FILE" ] && [ -n "$(ledger_branch_map)" ] && [ -n "${AAPP_LIB:-}
     STATUS_BRANCHES="$(
         # shellcheck source=/dev/null
         . "$AAPP_LIB/cmd_issue.sh" 2>/dev/null || exit 0
-        echo "$(issue_logging_branch)"; echo "$(_issue_dev_branch)"
+        echo "$(issue_view_branch)"; echo "$(_issue_dev_branch)"
     )"
     STATUS_BRANCH="$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 1p)"
     STATUS_DEV_BRANCH="$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 2p)"

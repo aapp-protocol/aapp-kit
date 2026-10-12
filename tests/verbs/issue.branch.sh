@@ -90,16 +90,19 @@ else
   bad "test_hotfix_takes_plan_parent_branch" "rc=$rc/$rc2 dev=[$(cell 21)] member=[$(cell 22)] out=$out | $out2"
 fi
 
-# A row written by hand, logged from the member's worktree, then one from the main checkout.
+# A row written by hand names no branch wherever it is logged from: where a bug
+# is seen is not where its fix belongs (#136). One from the member's worktree,
+# then one from the main checkout.
 log_row() { sed -i "/^| :---/a $(row "$1" "$2" '  |')" .plans/ISSUES.md; echo "- [ ] #$1 -> Defect $1." >> .plans/issues_road_map.md; git config aapp.issueId "$(( $1 + 1 ))"; }
 log_row 23 e
 out="$(cd "$WM" && aapp refine issues "log 23" 2>&1)"; rc=$?
 log_row 24 f
 out2="$(aapp refine issues "log 24" 2>&1)"; rc2=$?
-if [ "$rc" -eq 0 ] && [ "$rc2" -eq 0 ] && [ "$(cell 23)" = "feature/grp" ] && [ -z "$(cell 24)" ] && [ -z "$(git -C .plans status --porcelain -- ISSUES.md)" ]; then
-  ok "test_log_from_plan_worktree_takes_parent"
+if [ "$rc" -eq 0 ] && [ "$rc2" -eq 0 ] && [ -z "$(cell 23)" ] && [ -z "$(cell 24)" ] && [ "$(issue_branch_of 23)" = "develop" ] && \
+   [ -z "$(git -C .plans status --porcelain -- ISSUES.md)" ]; then
+  ok "test_logged_row_names_no_branch"
 else
-  bad "test_log_from_plan_worktree_takes_parent" "rc=$rc/$rc2 23=[$(cell 23)] 24=[$(cell 24)] out=$out | $out2"
+  bad "test_logged_row_names_no_branch" "rc=$rc/$rc2 23=[$(cell 23)] 24=[$(cell 24)] out=$out | $out2"
 fi
 
 echo "== refine issues … branch =="

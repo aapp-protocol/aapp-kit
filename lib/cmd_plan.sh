@@ -3156,8 +3156,6 @@ _refine_ledger() {
             fi
             ledger_set_cell "$bn" branch "$bwant" || exit 1
         fi
-        # A row logged here belongs to the branch it is logged from.
-        issue_stamp_new_rows || exit 1
     fi
     for f in "${files[@]}"; do
         [ -n "$(git -C "$PLANS_DIR" status --porcelain -- "$f")" ] && changed=1

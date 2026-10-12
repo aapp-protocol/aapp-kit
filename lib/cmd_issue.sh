@@ -100,10 +100,11 @@ issue_plan_parent() {
     _issue_dev_branch
 }
 
-# issue_logging_branch: the branch an issue logged here belongs to: the current
-# one; in a plan's or a fix's worktree that plan's parent branch, never the
-# plan or fix branch, which `done` and `close` remove. Empty when detached.
-issue_logging_branch() {
+# issue_view_branch: the branch issues are seen from, for the views that list
+# its issues first: the current one; in a plan's or a fix's worktree that
+# plan's parent branch. Empty when detached. It never decides an issue's
+# branch: a row names one only when a person or an agent gives it (#136).
+issue_view_branch() {
     local plans here prim pf rec abs b
     plans="$(_issue_plans_dir)" || return 0
     here="$(git rev-parse --show-toplevel 2>/dev/null)" && here="$(cd "$here" && pwd -P)" || return 0
@@ -122,27 +123,6 @@ issue_logging_branch() {
     fi
     b="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 0
     [ "$b" = "HEAD" ] || echo "$b"
-}
-
-# issue_stamp_new_rows: rows added to ISSUES.md since its last commit, with no
-# branch named, take the branch they are logged from (`aapp refine issues`).
-issue_stamp_new_rows() {
-    local plans rel old id b cell
-    plans="$(_issue_plans_dir)" || return 0
-    rel="$(ledger_commit_paths issues)"
-    [ -n "$rel" ] || return 0
-    b="$(issue_logging_branch)"
-    cell="$(issue_branch_cell "$b")"
-    [ -n "$cell" ] || return 0
-    old="$(mktemp)" || return 1
-    # A ledger with no committed version to compare with: no row is known to be new.
-    git -C "$plans" show "HEAD:$rel" > "$old" 2>/dev/null || { rm -f "$old"; return 0; }
-    for id in $(ledger_ids active); do
-        AAPP_LEDGER_ISSUES="$old" ledger_ids active | grep -qxF "$id" && continue
-        [ -z "$(ledger_cell "$id" branch)" ] || continue
-        ledger_set_cell "$id" branch "$cell" || { rm -f "$old"; return 1; }
-    done
-    rm -f "$old"
 }
 
 # issue_move_branch <old> <new>: the open issues targeting <old> target <new>.
@@ -541,7 +521,7 @@ cmd_issue_list() {
     fi
     # The same lines, in the same order, as the status briefing's Issues pillar:
     # with their branch, this branch's issues first, once any issue names one (P-78).
-    lines="$(PLANS_DIR="$plans" roadmap_entries_by_branch "$(issue_logging_branch)" "$(_issue_dev_branch)")"
+    lines="$(PLANS_DIR="$plans" roadmap_entries_by_branch "$(issue_view_branch)" "$(_issue_dev_branch)")"
     if [ -z "$lines" ]; then
         echo "  (No open issues in issues_road_map.md)"
         return 0

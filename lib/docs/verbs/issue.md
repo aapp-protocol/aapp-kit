@@ -159,7 +159,7 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.branch.sh::test_no_branch_means_dev_branch` -> an empty cell, and a ledger without the column, read as the development branch (P-78)
 - `tests/verbs/issue.branch.sh::test_branch_token_adds_column` -> `hotfix … branch <name>` writes the cell and adds the column; every row keeps the header's cell count (P-78)
 - `tests/verbs/issue.branch.sh::test_hotfix_takes_plan_parent_branch` -> a hotfix carries the plan's parent branch; none is written for the development branch (P-78)
-- `tests/verbs/issue.branch.sh::test_log_from_plan_worktree_takes_parent` -> a row logged from a plan worktree carries the plan's parent branch, never the plan branch (P-78)
+- `tests/verbs/issue.branch.sh::test_logged_row_names_no_branch` -> a row logged by hand names no branch, from a plan worktree as from the main checkout; it reads as the development branch (#136)
 - `tests/verbs/issue.branch.sh::test_refine_sets_branch` -> `refine issues "<msg>" branch <num> <name>` changes the cell; a branch that does not exist is refused, nothing committed (P-78)
 - `tests/verbs/issue.branch.sh::test_fix_opens_on_issue_branch` -> a fix opens in this checkout on the issue's branch, in `.workspace/fix-<num>` cut from it otherwise; `close` lands it there and the archive keeps the branch (P-78)
 - `tests/verbs/issue.branch.sh::test_gone_branch_falls_back_to_dev` -> a deleted branch: the fix opens on the development branch, the cell is cleared, the notice printed; a branch only on a remote is not gone (P-78)
