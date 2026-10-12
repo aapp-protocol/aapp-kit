@@ -19,7 +19,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-57**: [`P57-modular-manual-specification.md`](current/P57-modular-manual-specification.md) — Modular Manual Specification
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
 - 🟣 **P-70**: [`P70-help.md`](current/P70-help.md) — Help
-- 🟣 **P-74**: [`P74-issue-provider-wrapper.md`](current/P74-issue-provider-wrapper.md) — Issue Provider Wrapper
 - 🟣 **P-75**: [`P75-offline-worktree.md`](current/P75-offline-worktree.md) — Help
 - 🟣 **P-80**: [`P80-issue-note-filter.md`](current/P80-issue-note-filter.md) — Issue Note Filter
 - 🟣 **P-82**: [`P82-issue-fix-safeguards.md`](current/P82-issue-fix-safeguards.md) — Issue Fix Safeguards
@@ -33,6 +32,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ## ⚡ In Development (Active Implementation Context)
 
 - ⚡ **P-72**: [`P72-issue-tracker.md`](current/P72-issue-tracker.md) — 🧩 Group Plan P-72: Issue Tracker
+- ⚡ **P-74**: [`P74-issue-provider-wrapper.md`](current/P74-issue-provider-wrapper.md) — Issue Provider Wrapper
 
 ---
 
