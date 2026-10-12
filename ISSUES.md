@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #137 | `High` | `CORE` | 2026-10-12 | `tests/verbs/issue.branch.sh`, `lib/docs/verbs/issue.md` | test_logged_row_names_no_branch logs its rows by hand through 'aapp refine issues', so it cannot outlive hand-logged rows. | blocks [P-74](current/P74-issue-provider-wrapper.md) | 🟡 `Incubated` |
 | #133 | `Low` | `CLI` | 2026-10-13 | `lib/cmd_commit.sh` (`changelog` token) | A fix's first `aapp commit … changelog "<text>"` writes the entry before the commit runs: when the commit-msg hook then refuses the commit (subject too long), the retry with the same `changelog` token is refused as "already has its changelog entry". |  | 🟡 `Incubated` |
 | #130 | `Low` | `CORE` | 2026-10-12 | `lib/adoption.sh:333-341`, `lib/cmd_init.sh:358` | Two setup advisories read `.plans/ISSUES.md` directly to tell whether it still holds a table, outside the ledger functions of `lib/aapp-lib.sh`. |  | 🟡 `Incubated` |
 | #129 | `Medium` | `CLI` | 2026-10-12 | `lib/cmd_init.sh` | `aapp init` has no guard for a repository rooted at the home directory: where `$HOME` is itself a git repository, `init` run from any folder under it that is not in another repository mounts `.plans`, `.agents` and `.githooks` in `$HOME`, writes `ARCHITECTURE.md` and `CHANGELOG.md` there and sets `core.hooksPath`. |  | 🟡 `Incubated` |

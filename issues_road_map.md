@@ -13,6 +13,7 @@
 ---
 
 ## 🧱 Plan Blockers
+- [ ] #137 -> test_logged_row_names_no_branch logs its rows by hand through 'aapp refine issues', so it cannot outlive hand-logged rows. (blocks P-74)
 
 ## ⭐ User Priority (Pinned / Immediate Human Focus)
 *Direct developer overrides based on current focus and appetite.*
