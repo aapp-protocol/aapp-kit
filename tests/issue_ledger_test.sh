@@ -200,7 +200,9 @@ names='ISSUES\.md|000-issues-archive\.md|issues_road_map\.md'
 section="$(awk '/^# ---- Issue ledgers \(P-73\)/ { s = 1 } /^# ---- end issue ledgers/ { s = 0 } s' "$LIB" | wc -l | tr -d ' ')"
 outside=""
 for f in "$KIT"/lib/*.sh "$KIT/templates/aapp-pre-commit" "$KIT/aapp"; do
-  case "${f##*/}" in cmd_init.sh|cmd_matrix.sh) continue ;; esac
+  # cmd_init.sh seeds the ledgers; adoption.sh asks only whether a seeded
+  # ledger is still the template; cmd_matrix.sh's road map is the matrix's.
+  case "${f##*/}" in cmd_init.sh|adoption.sh|cmd_matrix.sh) continue ;; esac
   hits="$(awk -v names="$names" -v lib="$LIB" -v f="$f" '
       f == lib && /^# ---- Issue ledgers \(P-73\)/ { s = 1 }
       f == lib && /^# ---- end issue ledgers/ { s = 0; next }
