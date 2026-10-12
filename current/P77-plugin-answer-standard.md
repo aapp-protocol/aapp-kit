@@ -72,7 +72,7 @@ A step is a short exchange between the kit and a supported plugin.
   issue close 12 summary "closed on the tracker"
   issue log High CORE "login fails on Safari" note "seen by QA"
   ```
-  The kit runs them after the plugin exits: in order, under its own lock, through the code the CLI runs, each result reported. A command run from `do` does not call the plugin that asked for it.
+  The kit runs them after the plugin exits: in order, under its own lock, through the code the CLI runs, each result reported; a refused command is reported and the rest still run. A command run from `do` does not call the plugin that asked for it.
 
 **4. The kit finishes** the local part: everything not in `handled`, then the `do` list.
 
@@ -82,6 +82,7 @@ A step is a short exchange between the kit and a supported plugin.
 - **`do` is whitelisted.** Only the commands listed in the subject's reference are accepted; any other line is refused and reported.
 - **During a step** a supported plugin that runs a writing `aapp` verb directly is refused (the kit marks the plugin's environment) and pointed to `do`. Reading verbs work.
 - **Version:** the answer may echo `version`; the kit refuses an answer from a version newer than its own.
+- **Credentials** are the plugin's responsibility: the envelope carries none (the remote URL is stripped), the kit stores none, and the plugin runs with the caller's environment. A missing or rejected credential is an ordinary failure with a clear `message`.
 - **Timeout:** one for every plugin call, the hook dispatcher's watchdog.
 - **No plugin:** the kit does everything. **A failing plugin:** each step defines the outcome (fall back or refuse).
 - **Hooks** receive the same envelope and stay notifications; a `pre-` hook blocks with its exit code.
@@ -141,9 +142,9 @@ A step is a short exchange between the kit and a supported plugin.
 *Do NOT populate with already-decided choices or answer questions yourself.*
 * [x] **Question 1 — The form of the exchange? → RESOLVED (developer, 2026-10-12):** the kit asks with the whole subject; the plugin answers with what happened, what it handled and what it produced; wanted operations are aapp command lines the kit runs after the step.
 * [x] **Question 2 — The words? → RESOLVED (developer, 2026-10-12):** `handled` for what the plugin took care of; `do` for the list of commands (used in the flow of many languages, self-describing).
-* [ ] **Question 3:** A `do` command that is refused: report it and run the rest, or stop at the first refusal?
+* [x] **Question 3 — A `do` command that is refused? → RESOLVED (developer, 2026-10-12):** reported, and the rest still run.
 * [ ] **Question 4:** Tests, tasks and Target Files are written once the open questions are settled.
-* [ ] **Question 5:** Credentials: is "the kit never carries secrets; the plugin obtains its own (environment, git's credential helper, its own config)" the whole rule, or does the kit help (e.g. a config key naming a command that prints the token)?
+* [x] **Question 5 — Credentials? → RESOLVED (developer, 2026-10-12):** the plugin's responsibility; there are many ways to implement it. The kit carries no secret: none in the envelope, none stored.
 
 ---
 
