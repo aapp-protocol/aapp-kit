@@ -72,7 +72,7 @@ A step is a short exchange between the kit and a supported plugin.
   issue close 12 summary "closed on the tracker"
   issue abort 14 reason "won't fix: superseded"
   ```
-  The kit runs them after the plugin exits: in order, under its own lock, through the code the CLI runs, each result reported; a refused command is reported and the rest still run. A command run from `do` does not call the plugin that asked for it.
+  The kit runs them after the plugin exits and after the step has finished and released its lock: in order, each command taking the lock it needs as it would from the CLI, through the code the CLI runs, each result reported; a refused command is reported and the rest still run. A command run from `do` does not call the plugin that asked for it.
 
 **4. The kit finishes** the local part: everything not in `handled`, then the `do` list.
 
@@ -106,7 +106,7 @@ A step is a short exchange between the kit and a supported plugin.
 - [ ] `tests/plugin_protocol_test.sh::test_declined_leaves_all_to_kit` -> asserts `status: declined` leaves every part to the kit, exit 0
 - [ ] `tests/plugin_protocol_test.sh::test_newer_version_refused` -> asserts an answer echoing a `version` newer than the kit's is refused
 - [ ] `tests/plugin_protocol_test.sh::test_list_file_read_per_line` -> asserts each flat object in `AAPP_PLUGIN_LIST` is delivered to the caller
-- [ ] `tests/plugin_protocol_test.sh::test_do_runs_after_step_in_order` -> asserts `do` lines run after the plugin exits, in order, each result reported
+- [ ] `tests/plugin_protocol_test.sh::test_do_runs_after_step_in_order` -> asserts `do` lines run after the plugin exits and the step has released its lock, in order, each result reported; a `do` line needing the issue lock the step held does not wait on it
 - [ ] `tests/plugin_protocol_test.sh::test_do_refuses_unlisted_command` -> asserts a line not in the subject's whitelist is refused and reported
 - [ ] `tests/plugin_protocol_test.sh::test_do_continues_after_refusal` -> asserts the lines after a refused one still run
 - [ ] `tests/plugin_protocol_test.sh::test_do_does_not_recall_plugin` -> asserts a command run from `do` does not call the plugin that asked for it
@@ -120,7 +120,7 @@ A step is a short exchange between the kit and a supported plugin.
 
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: Answer reading in `lib/hook_dispatcher.sh`: `status`, `message`, `handled`, `version`, the list file.
-- [ ] Task 2.2: The `do` list: file, whitelist (`lib/plugin_do.tsv`), runner (in order, under the kit's lock, no re-call, results reported).
+- [ ] Task 2.2: The `do` list: file, whitelist (`lib/plugin_do.tsv`), runner (after the step releases its lock, in order, each command under its own lock, no re-call, results reported).
 - [ ] Task 2.3: The step marker in the plugin's environment; writing verbs refuse under it.
 - [ ] Task 2.4: One timeout for every plugin call (`execute_with_watchdog`).
 - [ ] Task 2.5: Current callers (`plan.allocate`, `issue.allocate`, `issue.close`) and the samples answer in the protocol.
