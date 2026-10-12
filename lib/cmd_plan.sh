@@ -1047,7 +1047,8 @@ cmd_draft() {
         local issue_items=()
         while IFS= read -r line; do
             [ -n "$line" ] && issue_items+=("$line")
-        done < <(ledger_row_lines | grep -E '🟠|🔵' | grep -v -E '✅|Resolved' || true)
+        # Issues awaiting a plan: the status cell (the last one) says Incubated.
+        done < <(ledger_row_lines | grep -E '\|[^|]*Incubated[^|]*\|[[:space:]]*$' || true)
 
         if [ ${#pickup_items[@]} -gt 0 ]; then
             echo "💡 Unprocessed notes in .plans/pickup.md:"
