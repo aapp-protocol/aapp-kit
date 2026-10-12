@@ -47,7 +47,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 
 ## 2. Technical Blueprint
 **Handler:** `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]`. The agent hands the issue over and never writes a row; the handler picks the id, writes the row through the module and commits it. `issue hotfix` logs through the same handler.
-- **Id:** with a provider, `issue.log` creates the issue and returns its id; without one, the kit's counter. When the provider fails, numbering refuses, as today; P-75 replaces that refusal with its offline path.
+- **Id:** with a provider, `issue.log` creates the issue and returns its id (see "The id is the tracker's"); without one, the kit's counter. When the provider fails, numbering refuses, as today; P-75 replaces that refusal with its offline path.
 
 **Retired once the handler is the only writer of new rows** (in this order):
 1. `refine issues` refuses a commit that adds a row and names `aapp issue log`.
@@ -66,9 +66,9 @@ This plan routes every issue step through one wrapper over the ledger functions 
 | close | `issue close`, `done` | `issue.close` |
 | list | `issue list`, `status` | `issue.list` |
 
-- **Payload:** the Plugin Payload Standard envelope; `data` carries the whole issue: id, severity, type, date, location, symptom, branch (P-78; absent means the development branch), link, status, note, and the step's own fields (commit, summary, plan). Sent after the step's commit lands, so a refused row never reaches the provider.
-- **Tracker keys:** the kit's `#<num>` stays the kit's id. The payload and the provider's issues carry an optional `ref` (the tracker's own key or URL, e.g. `PROJ-101`); the provider keeps its own mapping, and `issue list` shows `ref` next to the id.
-- **Answer:** the P-77 answer: `status`, `message`, `handled`, and what the plugin produced (`id`, `ref`). `handled` names what it took care of (`id`, `note`, `list`); the kit does the rest, so current providers keep working. Further operations go in the `do` list.
+- **Payload:** the Plugin Payload Standard envelope; `data` carries the whole issue: id (absent on `issue.log`), severity, type, date, location, symptom, branch (P-78; absent means the development branch), link, status, note, and the step's own fields (commit, summary, plan). Sent after the step's commit lands, so a refused row never reaches the provider.
+- **The id is the tracker's.** `issue.log` is sent with no `id`. A plugin that answers `ok` returns the `id`: its own key or number (`PROJ-101`, `101`), valid under P-79, which becomes the row's id (`#PROJ-101`). `ok` without an `id` is refused as malformed. `declined` leaves the numbering to the kit's counter. The answer may add `tracker` (the tracker's name) and `url` (the issue's address); both are informational, shown in `issue list`, and never interpreted.
+- **Answer:** the P-77 answer: `status`, `message`, `handled`, and what the plugin produced (`id`, `tracker`, `url`). `handled` names what it took care of (`note`, `list`); the kit does the rest, so current providers keep working. Further operations go in the `do` list.
 - **Notes:** a bare `note` token on `issue log` and `issue hotfix`; on an existing issue, `aapp refine issues "<msg>" note <n> "<text>"` (repeatable; with only `note` tokens and no ledger change it still runs the wrapper). Never written to the ledger. Kit store: `~/.local/state/aapp/<key>/issues-data.md`. `issue fix` prints the note as the fix opens.
 - **Remote issues:** `issue.list` writes the issues to the list file, one per line, in the payload's issue shape. The kit writes them to `~/.local/state/aapp/<key>/remote-issues.tsv`; `ledger_rows` and `ledger_locate` merge it (`remote`), so they block plans and show in `status`, `issue list`, `draft` and `next-blocker`. On an id present on both sides, the local lifecycle cells win. A closure made on the tracker arrives as an `issue close` line in `do` (Question 5); until its commit is in the issue's branch, `status` and `issue list` mark the issue as closed on the tracker, waiting for the code.
 - **Notes are per machine without a provider:** the kit's store is outside Git, so another clone sees a note only through a provider; the MANUAL says so.
@@ -110,7 +110,9 @@ This plan routes every issue step through one wrapper over the ledger functions 
 - [ ] `tests/verbs/issue.provider.sh::test_issue_abort_sends_abort` -> asserts `issue abort <n>` sends `issue.abort` with the reason
 - [ ] `tests/verbs/issue.provider.sh::test_plan_abort_sends_refine` -> asserts `plan abort` of a promoted plan sends `issue.refine` with the status back to Incubated
 - [ ] `tests/verbs/issue.provider.sh::test_do_abort_withdraws` -> asserts a `do` line `issue abort <n> reason "…"` withdraws the issue locally
-- [ ] `tests/verbs/issue.provider.sh::test_ref_shown_in_list` -> asserts a provider's `ref` shows next to the id in `issue list`
+- [ ] `tests/verbs/issue.provider.sh::test_log_refuses_ok_without_id` -> asserts an `ok` answer to `issue.log` with no `id` is refused and writes no row
+- [ ] `tests/verbs/issue.provider.sh::test_log_key_id_from_tracker` -> asserts an answer `"id": "PROJ-101"` writes the row as `#PROJ-101`, and `tracker` and `url` show in `issue list`
+- [ ] `tests/verbs/issue.provider.sh::test_declined_log_uses_counter` -> asserts `declined` on `issue.log` numbers the row from the kit's counter
 - [ ] `tests/verbs/issue.provider.sh::test_do_close_follows_the_code` -> asserts a `do` line `issue close <n> sha <sha>` closes the issue when the commit is in its branch, and is refused and marked in `status` when it is not
 - [ ] `tests/verbs/issue.provider.sh::test_failure_falls_back_and_warns` -> asserts a failing provider on refine/fix/fix-abort/abort/close/list warns and the kit completes the step
 - [ ] `tests/verbs/issue.provider.sh::test_sync_window_reuses_cache` -> asserts a second `issue list` inside `aapp.issueSyncWindow` calls no provider, and one after it does
