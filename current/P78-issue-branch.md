@@ -51,7 +51,7 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 - **Ledger:** a `Branch` column in `ISSUES.md` and the archive. The ledger functions (P-73) read cells by the header's column names, so a ledger without the column keeps working; the column is added by the first write that names a branch other than the development branch. `templates/issues.md` ships with it.
 - **Fixing:** `issue fix <n>` opens the fix on the issue's branch: in the main checkout when it is on that branch, otherwise in `.workspace/fix-<n>` cut from it (the group mechanism, generalised).
 - **Closing follows the code:** `issue close <n> sha <sha>` refuses while `<sha>` is not reachable from the issue's branch, naming the branch to update. The kit never pulls or merges a code branch itself.
-- **Unblocking follows the code:** closing an issue unblocks a plan waiting on it only when the fix commit is reachable from the plan's parent branch. Otherwise the plan stays blocked and shows as "#<n> fixed on `<branch>`, not yet in `<parent>`" (Question 1).
+- **Unblocking follows the code:** closing an issue unblocks a plan waiting on it only when the fix commit is reachable from the plan's parent branch. Otherwise the plan stays blocked and shows as "#<n> fixed on `<branch>`, not yet in `<parent>`"; once the branches are merged, the next `aapp status` unblocks it and says so.
 - **Views:** `status` and `issue list` show each issue's branch, the current branch's issues first.
 
 ### 🔄 Migration & Compatibility Strategy
@@ -71,6 +71,7 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 - [ ] `tests/verbs/issue.branch.sh::test_fix_opens_on_issue_branch` -> asserts `issue fix` works in the main checkout on the issue's branch and in `.workspace/fix-<n>` cut from it otherwise
 - [ ] `tests/verbs/issue.branch.sh::test_close_refuses_sha_not_in_branch` -> asserts `close … sha` refuses a commit not reachable from the issue's branch and names the branch
 - [ ] `tests/verbs/issue.branch.sh::test_unblock_waits_for_parent_branch` -> asserts a plan whose parent branch lacks the fix stays blocked, and one whose parent has it is unblocked
+- [ ] `tests/verbs/issue.branch.sh::test_status_unblocks_after_merge` -> asserts after the fix is merged into the plan's parent branch, `aapp status` unblocks the plan and reports it
 - [ ] `tests/verbs/issue.branch.sh::test_views_show_branch` -> asserts `status` and `issue list` show the branch, the current branch's issues first
 
 ### Phase 1: Tests First (red)
@@ -81,7 +82,7 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 - [ ] Task 2.2: Default and `branch` token at logging (`issue hotfix`).
 - [ ] Task 2.3: `issue fix` on the issue's branch.
 - [ ] Task 2.4: `issue close`: the commit must be in the issue's branch; unblock per plan parent branch.
-- [ ] Task 2.5: `status` and `issue list`.
+- [ ] Task 2.5: `status` and `issue list`; `status` unblocks plans whose fix has reached their parent branch.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -117,7 +118,7 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** A plan left blocked because the fix is not yet in its parent branch: which moment unblocks it once the branches are merged (`status` noticing it, the plan's next `start`/`resume`, or an explicit command)?
+* [x] **Question 1 — Which moment unblocks a plan left waiting for the fix to reach its parent branch? → RESOLVED (developer, 2026-10-12):** `aapp status`: it notices the fix is now in the parent branch, unblocks the plan (the same edit and commit `issue close` makes) and says so.
 
 ---
 
