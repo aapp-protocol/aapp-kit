@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #93 | `Medium` | `CLI` | 2026-09-28 | 2026-10-12 | `d1b9e68` | a bare `aapp draft` offers the issues awaiting a plan (Incubated), not the planned ones |
 | #123 | `Medium` | `CORE` | 2026-10-11 | 2026-10-12 | `20e4182` | [P-76](P76-issue-abort.md) - Issue Abort |
 | #118 | `Medium` | `CORE` | 2026-10-11 | 2026-10-12 | `a1412c0` | [P-69](P69-abort-plan.md) - Lifecycle Plan Abort & Worktree Decommissioning |
 | #111 | `Low` | `CORE` | 2026-10-09 | 2026-10-11 | `d55aa29` | Fixed by P-66: the entry is given at commit, under the length gate |

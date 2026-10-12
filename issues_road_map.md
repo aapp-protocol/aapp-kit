@@ -43,7 +43,6 @@
 - [ ] #86 -> Pair 5 keeps a fifth Target Files parser outside the P-37 library.
 - [ ] #87 -> Emergency Hotfix Extensions live in design-locked §4, so they are refused once a plan is Frozen.
 - [ ] #92 -> `aapp test` runs other projects' tests (auto-detect, `aapp.testCommand`) outside the kit clone; should run kit suites only.
-- [ ] #93 -> Bare `aapp draft` offers only already-planned issues and hides incubated ones (emoji filter mismatch).
 - [ ] #99 -> `aapp.*` config defaults have no single source of truth; each reader hardcodes its own.
 - [ ] #95 -> "Small" fix is undefined in invariant 5; default <10 changed lines, adopter override in `PROJECT.MD`.
 - [ ] #108 -> `ARCHITECTURE.md` prematurely lists unbuilt features (P-38, P-59, non-existent `archive-plan.sh`) and cites 30s watchdog default instead of 10s.
