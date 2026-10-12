@@ -73,27 +73,27 @@ This plan reserves one plugin, `aapp-issue-note-filter`: a text filter the team 
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/issue.notefilter.sh::test_filtered_text_is_shown` -> asserts `issue fix` shows the filter's returned text in the labelled block, not the stored note
-- [ ] `tests/verbs/issue.notefilter.sh::test_stored_note_untouched` -> asserts the note in the store is byte-identical after a filtered show
-- [ ] `tests/verbs/issue.notefilter.sh::test_declined_shows_note_unchanged` -> asserts `declined` shows the stored note
-- [ ] `tests/verbs/issue.notefilter.sh::test_failure_withholds_note` -> asserts a failing filter, a timeout, and `ok` without `note` each show no note text, print one line saying the filter failed, and `issue fix` still opens the fix
-- [ ] `tests/verbs/issue.notefilter.sh::test_filter_runs_for_issue_list` -> asserts `issue list <n>` shows the filtered text
-- [ ] `tests/verbs/issue.notefilter.sh::test_filter_runs_for_provider_note` -> asserts a note a provider keeps is filtered the same way
-- [ ] `tests/verbs/issue.notefilter.sh::test_no_filter_shows_stored_note` -> asserts with no filter installed the note is shown as stored
+- [x] `tests/verbs/issue.notefilter.sh::test_filtered_text_is_shown` -> asserts `issue fix` shows the filter's returned text in the labelled block, not the stored note
+- [x] `tests/verbs/issue.notefilter.sh::test_stored_note_untouched` -> asserts the note in the store is byte-identical after a filtered show
+- [x] `tests/verbs/issue.notefilter.sh::test_declined_shows_note_unchanged` -> asserts `declined` shows the stored note
+- [x] `tests/verbs/issue.notefilter.sh::test_failure_withholds_note` -> asserts a failing filter, a timeout, and `ok` without `note` each show no note text, print one line saying the filter failed, and `issue fix` still opens the fix
+- [x] `tests/verbs/issue.notefilter.sh::test_filter_runs_for_issue_list` -> asserts `issue list <n>` shows the filtered text
+- [x] `tests/verbs/issue.notefilter.sh::test_filter_runs_for_provider_note` -> asserts a note a provider keeps is filtered the same way
+- [x] `tests/verbs/issue.notefilter.sh::test_no_filter_shows_stored_note` -> asserts with no filter installed the note is shown as stored
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/verbs/issue.notefilter.sh` with a scripted filter fixture; confirm red.
+- [x] Task 1.1: Write `tests/verbs/issue.notefilter.sh` with a scripted filter fixture; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Run the filter at the note hand-over in `lib/cmd_issue.sh`; withhold on failure.
-- [ ] Task 2.2: Registry row, sample, reference.
+- [x] Task 2.1: Run the filter at the note hand-over in `lib/cmd_issue.sh`; withhold on failure.
+- [x] Task 2.2: Registry row, sample, reference.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update `MANUAL.md` and the issue contract.
-- [ ] Task 3.3: Architecture and Codemap sections live in group P-72.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update `MANUAL.md` and the issue contract.
+- [x] Task 3.3: Architecture and Codemap sections live in group P-72.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
