@@ -1,8 +1,8 @@
 # 🗺️ Plan P-78: Issue Branch
 * **Created:** 2026-10-12 | **Last Refined:** 2026-10-12
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-78
-* **Changelog:** Changed: Issue Branch
+* **Changelog:** Added: an issue carries the branch its fix lands on; fixing, closing and unblocking follow that branch (P-78)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,17 +39,24 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+The kit assumes one development branch: an issue fix is refused anywhere else (a group's feature branch is the one exception), and closing an issue unblocks every plan waiting on it. A project with several long-lived branches (say `develop`, a `core` branch and module branches, merged at release or in a temporary test branch) does not fit: a fix lands on one branch and is of no use to a plan on another until the branches are merged.
+
+This plan lets an issue carry the branch its fix must land on, and makes fixing, closing and unblocking follow the code.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+- **The branch of an issue** is where its fix must land. No branch named (an empty cell, a ledger without the column, a payload without the field) means the development branch (`aapp.devBranch`).
+- **Default when logging:** the branch the issue is logged from; for `issue hotfix`, the parent branch of the plan that raises it. `branch <name>` names another (on `issue hotfix` here; on `issue log` with P-74).
+- **Ledger:** a `Branch` column in `ISSUES.md` and the archive. The ledger functions (P-73) read cells by the header's column names, so a ledger without the column keeps working; the column is added by the first write that names a branch other than the development branch. `templates/issues.md` ships with it.
+- **Fixing:** `issue fix <n>` opens the fix on the issue's branch: in the main checkout when it is on that branch, otherwise in `.workspace/fix-<n>` cut from it (the group mechanism, generalised).
+- **Closing follows the code:** `issue close <n> sha <sha>` refuses while `<sha>` is not reachable from the issue's branch, naming the branch to update. The kit never pulls or merges a code branch itself.
+- **Unblocking follows the code:** closing an issue unblocks a plan waiting on it only when the fix commit is reachable from the plan's parent branch. Otherwise the plan stays blocked and shows as "#<n> fixed on `<branch>`, not yet in `<parent>`" (Question 1).
+- **Views:** `status` and `issue list` show each issue's branch, the current branch's issues first.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Backwards Compatible`
+- **Fallback Inventory**: a ledger with no `Branch` column, or an empty cell, reads as the development branch. Not a legacy shim: it is the meaning of "no branch named".
 
 ---
 
@@ -58,19 +65,28 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/issue.branch.sh::test_no_branch_means_dev_branch` -> asserts a row with an empty cell, and a ledger without the column, read as `aapp.devBranch`
+- [ ] `tests/verbs/issue.branch.sh::test_hotfix_takes_plan_parent_branch` -> asserts a hotfix raised from a plan carries that plan's parent branch
+- [ ] `tests/verbs/issue.branch.sh::test_branch_token_adds_column` -> asserts `branch <name>` writes the cell and adds the column to a ledger that lacks it
+- [ ] `tests/verbs/issue.branch.sh::test_fix_opens_on_issue_branch` -> asserts `issue fix` works in the main checkout on the issue's branch and in `.workspace/fix-<n>` cut from it otherwise
+- [ ] `tests/verbs/issue.branch.sh::test_close_refuses_sha_not_in_branch` -> asserts `close … sha` refuses a commit not reachable from the issue's branch and names the branch
+- [ ] `tests/verbs/issue.branch.sh::test_unblock_waits_for_parent_branch` -> asserts a plan whose parent branch lacks the fix stays blocked, and one whose parent has it is unblocked
+- [ ] `tests/verbs/issue.branch.sh::test_views_show_branch` -> asserts `status` and `issue list` show the branch, the current branch's issues first
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Write `tests/verbs/issue.branch.sh`; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: `Branch` cell in the ledger functions (read by header name; add the column on first need); template.
+- [ ] Task 2.2: Default and `branch` token at logging (`issue hotfix`).
+- [ ] Task 2.3: `issue fix` on the issue's branch.
+- [ ] Task 2.4: `issue close`: the commit must be in the issue's branch; unblock per plan parent branch.
+- [ ] Task 2.5: `status` and `issue list`.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [ ] Task 3.2: Update `MANUAL.md` and the verb contracts.
+- [ ] Task 3.3: Architecture and Codemap sections live in group P-72.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
 - [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
@@ -80,29 +96,31 @@
 *Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/aapp-lib.sh` -> Ledger functions: `Branch` cell, cells by header name.
+- [ ] `lib/cmd_issue.sh` -> `branch` token, fix on the issue's branch, close and unblock rules, list.
+- [ ] `lib/cmd_plan.sh` -> `done` closes its issue under the same rule.
+- [ ] `lib/cmd_status.sh` -> Branch in the issues pillar.
+- [ ] `templates/issues.md` -> `Branch` column and its definition.
+- [ ] `lib/docs/verbs/issue.md` -> Contract.
+- [ ] `lib/docs/verbs/status.md` -> Contract.
+- [ ] `MANUAL.md` -> Issues on several branches.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/verbs/issue.branch.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/aapp-pre-commit` -> No ledger rule changes here.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** A plan left blocked because the fix is not yet in its parent branch: which moment unblocks it once the branches are merged (`status` noticing it, the plan's next `start`/`resume`, or an explicit command)?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-12:** Plan initialized from `pickup.md`.
-* **2026-10-12:** Refined blast radius and locked module boundaries.
+* **2026-10-12:** Drafted as a member of P-72.
