@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- an issue carries the branch its fix lands on; fixing, closing and unblocking follow that branch (P-78) (`P-78`)
 - an issue id is defined once, and a tracker's key (`#PROJ-101`) is a valid id (P-79) (`P-79`)
 - adoption checklist: `aapp init` writes a local setup guide of checkbox tasks to `.plans/adoption.md`; open tasks show in `aapp status` (`P-63`)
 - `aapp issue abort <num>` withdraws an issue with its plan or mini plan (`P-76`)
