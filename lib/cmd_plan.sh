@@ -918,6 +918,7 @@ _ig_cleanup() {
         git branch -D "$IG_PLAN_BR" >/dev/null || { echo "⚠️  [Cleanup] Could not delete '$IG_PLAN_BR'." >&2; return 0; }
     fi
     echo "🧹 [Cleanup] Removed worktree $rel and branch $IG_PLAN_BR."
+    _issues_follow_branch "$IG_PLAN_BR" "$IG_TARGET_BR"
 }
 
 # _ig_run <plan_file> <plan_id>: integrates after the archive, then cleans up.
@@ -1047,8 +1048,8 @@ cmd_draft() {
         local issue_items=()
         while IFS= read -r line; do
             [ -n "$line" ] && issue_items+=("$line")
-        # Issues awaiting a plan: the status cell (the last one) says Incubated.
-        done < <(ledger_row_lines | grep -E '\|[^|]*Incubated[^|]*\|[[:space:]]*$' || true)
+        # Issues awaiting a plan: the status cell says Incubated.
+        done < <(ledger_row_lines Incubated)
 
         if [ ${#pickup_items[@]} -gt 0 ]; then
             echo "💡 Unprocessed notes in .plans/pickup.md:"
@@ -2037,7 +2038,8 @@ cmd_done() {
         close_summary="[$plan_id]($bname) - $(grep -m 1 -E '^# ' "$done_file" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*|🧩[[:space:]]*Group[[:space:]]+)?Plan[^:]*:[[:space:]]*//')"
         ledger_archive_row "$close_issue" "$commit_sha" "$close_summary" || exit 1
         # P-52: a plan blocked on this issue (a hotfix promoted to this plan) resumes.
-        unblocked_paths="$(issue_unblock_plans "$close_issue")" || exit 1
+        # P-78: once this plan's commit is in that plan's parent branch.
+        unblocked_paths="$(issue_unblock_plans "$close_issue" "$commit_sha")" || exit 1
     fi
 
     # P-50: other open issues that link this plan now point at done/.
@@ -2107,6 +2109,9 @@ cmd_done() {
     # P-55: integrate and clean up after the archive (the checks ran before it).
     if [ "$IG_DO" -eq 1 ]; then
         _ig_run "$done_file" "$plan_id" || exit 1
+        # P-78: the integration moved commits; plans that waited for them resume.
+        _load_issue_module
+        issue_unblock_landed quiet || echo "⚠️  [Done] Could not check the plans waiting for a fix; 'aapp status' does it." >&2
         if [ "$is_group" -eq 1 ]; then _group_done_codemap "$done_file" "$plan_id" || exit 1; fi
     elif [ -n "$wt_rec" ]; then
         # P-54 / aapp.integrate = manual: the developer integrates.
@@ -2755,8 +2760,9 @@ _ab_restore() {
     rm -rf "$1"
 }
 
-# _ab_drop_branch <branch> [<note>]: deletes it with a warning naming its SHA;
-# `keep-branch` keeps it.
+# _ab_drop_branch <branch> [<note> [<parent>]]: deletes it with a warning naming
+# its SHA; `keep-branch` keeps it. Open issues that targeted it move to <parent>
+# (P-78).
 _ab_drop_branch() {
     local sha
     git show-ref --verify --quiet "refs/heads/$1" || return 0
@@ -2764,6 +2770,7 @@ _ab_drop_branch() {
     sha="$(git rev-parse --short "$1")"
     if git branch -D "$1" >/dev/null 2>&1; then
         echo "⚠️  [Abort] Deleted branch '$1' (was $sha) with its commits.${2:+ $2}"
+        _issues_follow_branch "$1" "${3:-}"
     else
         echo "⚠️  [Abort] Could not delete branch '$1'; delete it with 'git branch -D $1'." >&2
     fi
@@ -2793,7 +2800,7 @@ _ab_teardown() {
         _group_done_drop_wt "$wt"
         if [ ! -d "$wt" ]; then echo "🧹 [Abort] Removed worktree $wt_rel."; fi
     fi
-    aapp_is_group_plan "$1" || _ab_drop_branch "$br"
+    aapp_is_group_plan "$1" || _ab_drop_branch "$br" "" "$(plan_base_branch "$1")"
 }
 
 # _ab_hook <archived_plan_file> <plan_id> <reason>: the post-abort observer.
@@ -2828,7 +2835,7 @@ cmd_plan_abort() {
     _load_issue_module
 
     # A group plan takes its open members with it.
-    local is_group=0 members_open=() members_done="" fb="" all=()
+    local is_group=0 members_open=() members_done="" fb="" fb_parent="" all=()
     if aapp_is_group_plan "$plan_file"; then
         is_group=1
         for m in $(group_members "$plan_file"); do
@@ -2841,6 +2848,7 @@ cmd_plan_abort() {
         done
         fb="$(parse_plan_field "$plan_file" "Feature Branch")"
         if [ -n "$fb" ] && ! git show-ref --verify --quiet "refs/heads/$fb"; then fb=""; fi
+        fb_parent="$(plan_base_branch "$plan_file")"
     fi
     all=("${members_open[@]}" "$plan_file")
     for mf in "${all[@]}"; do
@@ -2931,7 +2939,7 @@ cmd_plan_abort() {
         _ab_teardown "$dest" "$did"
     done
     if [ -n "$fb" ]; then
-        _ab_drop_branch "$fb" "${members_done:+Code of archived members went with it: $members_done.}"
+        _ab_drop_branch "$fb" "${members_done:+Code of archived members went with it: $members_done.}" "$fb_parent"
     fi
     if [ -n "$members_done" ]; then
         echo "ℹ️  [Abort] Archived members stay in done/ with their ledger rows and closed issues: $members_done."
@@ -3037,6 +3045,48 @@ plan_block_on() {
     ' "$pf" > "$tmp" && mv "$tmp" "$pf" || { rm -f "$tmp"; return 1; }
 }
 
+# plan_unblock <plan_file> <num> (P-52, P-78)
+# Write-only: removes #<num> from the `* **Blocked On:**` list; when the list
+# empties and the block is not permanent, restores the recorded previous
+# status. No commit and no matrix: callers commit.
+# Returns 0 when written, 3 when #<num> is not listed (nothing written).
+plan_unblock() {
+    local pf="$1" n="${2#\#}" line fields list was perm newlist tmp
+    [ -f "$pf" ] || return 1
+    line="$(grep -m 1 -E '^\* \*\*Blocked On:\*\*' "$pf" || true)"
+    [ -n "$line" ] || return 3
+    fields="$(plan_blocked_on_parse "${line#\* \*\*Blocked On:\*\* }")"
+    list="$(sed -n 1p <<< "$fields")"; was="$(sed -n 2p <<< "$fields")"; perm="$(sed -n 3p <<< "$fields")"
+    printf '%s\n' "$list" | tr ',' '\n' | tr -d ' ' | grep -qxF "#$n" || return 3
+    newlist="$(printf '%s\n' "$list" | tr ',' '\n' | tr -d ' ' | grep -E "^${AAPP_ISSUE_REF_RE}\$" | grep -vxF "#$n" | paste -sd, - | sed 's/,/, /g')"
+    tmp="$pf.aapp-unblock.$$"
+    if [ -n "$newlist" ] || [ -n "$perm" ]; then
+        AAPP_LINE="$(plan_blocked_on_line "$newlist" "$was" "$perm")" awk '/^\* \*\*Blocked On:\*\*/ && !d { print ENVIRON["AAPP_LINE"]; d = 1; next } { print }' "$pf" > "$tmp"
+    elif [ -n "$was" ]; then
+        AAPP_STATUS="* **Status:** $was" awk '
+            /^\* \*\*Blocked On:\*\*/ { next }
+            /^\* \*\*Status:\*\*/ && !d { print ENVIRON["AAPP_STATUS"]; d = 1; next }
+            { print }' "$pf" > "$tmp"
+    else
+        awk '/^\* \*\*Blocked On:\*\*/ { next } { print }' "$pf" > "$tmp"
+        echo "ℹ️  [Issue] $(basename "$pf" .md) has no blockers left but no recorded previous status; set it with 'aapp refine'." >&2
+    fi
+    mv "$tmp" "$pf"
+}
+
+# _issues_follow_branch <removed-branch> <parent> (P-78): the open issues that
+# targeted a branch the kit has just removed target its parent, in one commit.
+_issues_follow_branch() {
+    local moved
+    [ -n "$1" ] && [ -n "$2" ] || return 0
+    _load_issue_module
+    moved="$(issue_move_branch "$1" "$2")" || { echo "⚠️  [Issues] Could not retarget the issues of '$1'; set them with 'aapp refine issues \"<msg>\" branch <num> $2'." >&2; return 0; }
+    [ -n "$moved" ] || return 0
+    plans_commit "issue(branch): retarget issues of a removed branch" $(ledger_commit_paths issues) || {
+        echo "⚠️  [Issues] $moved now target '$2' in ISSUES.md, uncommitted; commit with 'aapp refine issues \"<msg>\"'." >&2; return 0; }
+    echo "🐛 [Issues] $moved targeted '$1', which is removed; now '$2'."
+}
+
 # _refine_check_subject <subject> <msg>: refuse before any git work when the
 # message is not one line or the subject exceeds the commit-msg gate's limit.
 _refine_check_subject() {
@@ -3070,6 +3120,7 @@ _load_issue_module() {
 # validated first; nothing is committed on failure.
 _refine_ledger() {
     local target="$1" msg="$2" subject files=() f changed="" sha health
+    local bn="" bname="" bcur bwant
     health="$(dirname "${BASH_SOURCE[0]}")/planning_health.sh"
     if [ "$target" = "pickup" ]; then
         subject="pickup: $msg"; files=("pickup.md")
@@ -3077,7 +3128,37 @@ _refine_ledger() {
         subject="issue(triage): $msg"; files=($(ledger_commit_paths issues roadmap))
         [ ${#files[@]} -gt 0 ] || files=("$(basename "$(ledger_path issues)")")
     fi
+    if [ $# -gt 2 ]; then
+        if [ "$target" != "issues" ] || [ "$3" != "branch" ] || [ $# -ne 5 ]; then
+            echo "❌ [Refine] Usage: aapp refine issues \"<msg>\" [branch <num> <name>]" >&2
+            exit 1
+        fi
+        bn="$(issue_id_body "$4")" || exit 1
+        bname="$5"
+    fi
     _refine_check_subject "$subject" "$msg"
+    if [ "$target" = "issues" ]; then
+        _load_issue_module
+        # P-78: `branch <num> <name>` names the branch an issue's fix lands on.
+        if [ -n "$bn" ]; then
+            if ! ledger_row "$bn" >/dev/null 2>&1; then
+                echo "❌ [Refine] #$bn is not an active issue in ISSUES.md." >&2
+                exit 1
+            fi
+            if ! aapp_branch_ref "$bname" >/dev/null; then
+                echo "❌ [Refine] Branch '$bname' does not exist, here or on a remote; #$bn is unchanged." >&2
+                exit 1
+            fi
+            bcur="$(ledger_cell "$bn" branch)"; bwant="$(issue_branch_cell "$bname")"
+            if [ "$bcur" = "$bwant" ] && [ -z "$(git -C "$PLANS_DIR" status --porcelain -- "${files[@]}")" ]; then
+                echo "ℹ️  [Refine] #$bn already targets '$bname'; nothing changed."
+                return 0
+            fi
+            ledger_set_cell "$bn" branch "$bwant" || exit 1
+        fi
+        # A row logged here belongs to the branch it is logged from.
+        issue_stamp_new_rows || exit 1
+    fi
     for f in "${files[@]}"; do
         [ -n "$(git -C "$PLANS_DIR" status --porcelain -- "$f")" ] && changed=1
     done
@@ -3203,17 +3284,54 @@ _refine_group() {
     echo "📝 [Refine] ${subject#plan(refine): }."
 }
 
+# _refine_unblocked <plan-id> <num> (P-78): the manual unblock, for a fix that
+# reached the plan's parent branch as another commit (a squash, a cherry-pick,
+# a rebase), which the kit does not recognise. Refuses an issue still open.
+_refine_unblocked() {
+    local pf rel pid num rc=0 sha
+    num="$(issue_id_body "$2" 2>/dev/null)" || {
+        echo "❌ [Refine] Usage: aapp refine <plan-id> unblocked <num> (an issue's id without the '#': a number or a tracker's key, e.g. 101 or PROJ-101)" >&2
+        exit 1
+    }
+    pf="$(resolve_plan_file "$1" "refine")" || exit 1
+    rel="current/$(basename "$pf")"
+    pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
+    [ -n "$pid" ] || pid="$1"
+    if ledger_row "$num" >/dev/null 2>&1; then
+        echo "❌ [Refine] #$num is still open; a plan is unblocked once its issue is closed ('aapp issue close $num')." >&2
+        exit 1
+    fi
+    plan_unblock "$pf" "$num" || rc=$?
+    if [ "$rc" -eq 3 ]; then
+        echo "❌ [Refine] $pid is not blocked on #$num." >&2
+        exit 1
+    elif [ "$rc" -ne 0 ]; then
+        echo "❌ [Refine] Could not update $rel." >&2
+        exit 1
+    fi
+    plans_commit "plan(refine): $pid unblocked from #$num" "$rel" || exit 1
+    sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
+    echo "📝 [Refine] $pid committed ($sha): unblocked from #$num"
+    if grep -q '^\* \*\*Blocked On:\*\*' "$pf"; then
+        echo "   Still blocked: $(sed -nE 's/^\* \*\*Blocked On:\*\*[[:space:]]*//p' "$pf" | head -n 1)"
+    fi
+}
+
 cmd_refine() {
     local query="${1:-}" msg="${2:-}" plan_file rel plan_id sha num="" subject rc
     if [ -z "$query" ] || [ -z "$msg" ]; then
-        echo "❌ [Refine] Usage: aapp refine <plan-id> \"<what changed>\" | <plan-id> blocked <num> | <plan-id> slug <new-slug> | pickup|issues \"<msg>\"" >&2
+        echo "❌ [Refine] Usage: aapp refine <plan-id> \"<what changed>\" | <plan-id> blocked <num> | <plan-id> unblocked <num> | <plan-id> slug <new-slug> | pickup \"<msg>\" | issues \"<msg>\" [branch <num> <name>]" >&2
         exit 1
     fi
     # P-50: ledger targets are reserved words, checked before plan resolution
     # (the resolver's file-name match would send `pickup` to a plan named *pickup*).
     case "$query" in
-        pickup|issues) _refine_ledger "$query" "$msg"; return ;;
+        pickup|issues) _refine_ledger "$query" "$msg" "${@:3}"; return ;;
     esac
+    if [ "$msg" = "unblocked" ] && [ $# -ge 3 ]; then
+        _refine_unblocked "$query" "$3"
+        return
+    fi
     if [ "$msg" = "slug" ] && [ $# -ge 3 ]; then
         _refine_slug "$query" "$3"
         return

@@ -1,19 +1,20 @@
-# issue [next | allocate | hotfix "<text>" [file <path>]… [plan] | fix next-blocker | fix <num> [file <path>…] [group <group>] | fix <num> abort | close <id> [sha <sha>] [summary "<text>"] | abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm] | list [<n> | all]]
+# issue [next | allocate | hotfix "<text>" [file <path>]… [branch <name>] [plan] | fix next-blocker | fix <num> [file <path>…] [group <group>] | fix <num> abort | close <id> [sha <sha>] [summary "<text>"] | abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm] | list [<n> | all]]
 
 ## Ingress
 - positional forms:
     - `next` (default when no subcommand is given): prints the next issue ID without claiming it
     - `allocate`: claims the next issue ID and prints it (`#<n>`)
-    - `hotfix "<text>" [file <path>]… [plan]` (P-52): from a plan's worktree, logs the blocking bug as a new issue, queues it under 🧱 Plan Blockers, records it in the plan's `Emergency Hotfixes:` and blocks the plan, in one commit; `plan` drafts a plan from it instead of queueing
+    - `hotfix "<text>" [file <path>]… [branch <name>] [plan]` (P-52): from a plan's worktree, logs the blocking bug as a new issue, queues it under 🧱 Plan Blockers, records it in the plan's `Emergency Hotfixes:` and blocks the plan, in one commit; `plan` drafts a plan from it instead of queueing; `branch <name>` names the branch the fix must land on (default: the plan's parent branch, P-78)
     - `fix next-blocker` | `fix <num> [file <path>…]` (P-52): opens a temporary mini plan `current/fix-<num>.md` for one issue, one fix at a time; the files come from the row's Location (only its path tokens: present in the working tree, or containing `/` or a file extension, `:lines` stripped, P-58), `file` adds one the log does not name; `next-blocker` claims the top Plan Blocker; with a mini plan of `#<num>` open, `file` adds files to it
-    - `fix <num> group <group>` (P-64): a bug caused by a group's work; the fix is made in `.workspace/fix-<num>` on `fix/<num>` from the group's feature branch, and `close` lands it there
+    - `fix <num> group <group>` (P-64): a bug caused by a group's work; the issue's branch becomes the group's feature branch, so the fix is made in `.workspace/fix-<num>` on `fix/<num>` cut from it, and `close` lands it there
     - `fix <num> abort` (P-52): drops an uncommitted mini plan; the issue stays open
     - `close <id>`: relocates an active issue row to the archive
     - `abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` (P-76): withdraws an active issue with what was opened for it, its promoted plan (`[P-<id>](current/…)` in its *Target Plan / Fix* cell) or its open mini plan; `reason` is one line (default `Withdrawn`); the other tokens go to `aapp plan abort` unchanged
     - `list [<n> | all]`: prints active issues in road-map order
 - `<id>`: a number (`79`, `#79`, `ISSUE-79`) or a tracker's key (`PROJ-101`, `#PROJ-101`; lowercase is uppercased). Quote the `#` forms: an unquoted `#79` is a shell comment. One definition, in `lib/aapp-lib.sh` (P-79)
+- the branch of an issue (P-78): where its fix must land, the `Branch` cell of its row. No branch named (an empty cell, a ledger without the column) means the development branch (`aapp.devBranch`; the default branch when none exists). The cell is found by the header's column name; the column is added, last, by the first write that names another branch. A branch that exists only on a remote counts as existing
 - close tokens (bare, no `--`):
-    - `sha <sha>`: commit recorded in the archive row (default: `HEAD` of the repository, short)
+    - `sha <sha>`: commit recorded in the archive row (default: the tip of the issue's branch, short)
     - `summary "<text>"`: resolution summary (default: `Direct fix (no plan)`; the *Target Plan / Fix* cell is never read, P-66); `|` is escaped
 - list cap: bare `<n>` sets it, `all` removes it; default 20
 - reads config: `aapp.issueFixWait` (minutes `fix` and the issue lock wait, default 5; `0` = fail fast), `aapp.maxEmergencyHotfixes` (hotfixes a plan may take, default 2; the next one blocks it permanently) (P-52)
@@ -42,9 +43,10 @@
 - `fix` on an inactive issue, `next-blocker` with an empty queue, or no files known -> exit 1; nothing written
 - `fix` on a file with uncommitted changes in this working copy -> waits with the same roller (`<file> has uncommitted changes here; waiting Ns…`), re-checking each step, and proceeds once the file is clean; the issue lock is not held while waiting. When the wait runs out -> exit 1, nothing written: stderr `<file> has uncommitted changes here; still busy after the wait`, or, when the plan bound in this checkout lists the file, that its own work is the cause and the remedy is `aapp issue hotfix "<text>" file <path>…`. `fix` never commits or stashes that work (P-58)
 - `next-blocker` skips a blocker whose files are dirty here and claims the next; when every queued blocker is dirty, it waits the same way and claims the first to clear (P-58)
-- `fix` without `group` while the main checkout is not on the development branch (`aapp.devBranch`; the default branch when none exists) -> exit 1, naming both branches and `group <group>`; nothing written (P-64)
-- `fix … group <group>`: `<group>` not a group plan, not `⚡ In Development`, or `.workspace/fix-<num>` / `fix/<num>` existing -> exit 1; nothing written (P-64)
-- `close` of a group fix: uncommitted changes in its worktree, `fix/<num>` not rebasing onto the feature branch, or the feature branch not fast-forwarding -> exit 1; both branches and the issue unchanged (P-64)
+- `hotfix … branch <name>` with a branch that exists neither here nor on a remote -> exit 1; nothing written, no ID spent (P-78)
+- `close … sha <sha>`, or the `close` of a fix made in this checkout, whose commit is not reachable from the issue's branch (or is no commit here) -> exit 1, stderr names the commit and the branch to bring it into; the issue stays open, nothing written. The kit never pulls or merges a code branch itself (P-78)
+- `fix … group <group>`: `<group>` not a group plan, not `⚡ In Development`, or `.workspace/fix-<num>` / `fix/<num>` existing -> exit 1; nothing written (P-64); the last also refuses any fix that needs its own worktree (P-78)
+- `close` of a fix made in its own worktree: uncommitted changes there, `fix/<num>` not rebasing onto the branch it was cut from, that branch not fast-forwarding or gone -> exit 1; both branches and the issue unchanged (P-64, P-78)
 - `fix <num> abort` with recorded commits -> exit 1 (close it instead)
 - `abort` without a number, with an unknown token, or `reason` without a text -> exit 1, usage on stderr
 - `abort` of an archived issue -> exit 1, `already archived`; of an unknown one -> exit 1, `not found`
@@ -59,12 +61,15 @@
 - first `allocate` with an unset counter: `#<highest ledger ID + 1>`, or `#1` in a new project
 - `allocate`: prints `#<n>`; `aapp.issueId` becomes `<n>+1`, or the provider's id plus one when a provider issued a higher id
 - `close`:
-    - the row leaves `.plans/ISSUES.md` and is inserted at the top of `.plans/done/000-issues-archive.md` as `| #<n> | Sev | Type | Date Opened | <today> | \`<sha>\` | <summary> |`
+    - the row leaves `.plans/ISSUES.md` and is inserted at the top of `.plans/done/000-issues-archive.md` as `| #<n> | Sev | Type | Date Opened | <today> | \`<sha>\` | <summary> |`; a row that names a branch keeps it in the archive's `Branch` column (added when missing, P-78)
     - the `#<n>` entry leaves `.plans/issues_road_map.md`
     - the three files land in one `plans` commit `issue(close): archive #<n>`; nothing else is staged
     - then the provider, if installed, receives `issue.close` once; stdout reports `handed to aapp-issue-tracker: <status>`
-- `hotfix`: a new row `| #<n> | \`High\` | \`CORE\` | <today> | <files> | <text> | blocks [<plan>](current/<file>) | 🟡 \`Incubated\` |`; `- [ ] #<n> -> <text> (blocks <plan>)` under `## 🧱 Plan Blockers` at the top of the road map; the plan gains `#<n>` in `* **Emergency Hotfixes:**` (append-only) and is blocked through `plan_block_on` (P-49); over `aapp.maxEmergencyHotfixes` the `Blocked On:` line carries `hotfix limit reached (…)` and only the developer lifts it; one commit `issue(hotfix): #<n> blocks <plan>`; with `plan`, the row is promoted to a new draft (`aapp draft … issue <n>`) and not queued
+- `hotfix`: a new row `| #<n> | \`High\` | \`CORE\` | <today> | <files> | <text> | blocks [<plan>](current/<file>) | 🟡 \`Incubated\` |`; `- [ ] #<n> -> <text> (blocks <plan>)` under `## 🧱 Plan Blockers` at the top of the road map; the plan gains `#<n>` in `* **Emergency Hotfixes:**` (append-only) and is blocked through `plan_block_on` (P-49); over `aapp.maxEmergencyHotfixes` the `Blocked On:` line carries `hotfix limit reached (…)` and only the developer lifts it; one commit `issue(hotfix): #<n> blocks <plan>`; with `plan`, the row is promoted to a new draft (`aapp draft … issue <n>`) and not queued. The row's `Branch` cell names the plan's parent branch (the one in its `* **Base:**`), or `<name>` with `branch`; it stays empty for the development branch (P-78)
 - `fix`: `current/fix-<num>.md` (Plan ID `#<num>`, `⚡ In Development`, `Changelog: Fixed:` with no text — the fix's first `aapp commit … changelog "<text>"` writes it; nothing is copied from the row, P-66; §4 = the files) and the active buffer bound to `#<num>` with the previous value in `.prev`, one commit `fix(start): #<num>`; `abort` deletes it, restores the buffer, commit `fix(abort): #<num>`
+- `fix` is made on the issue's branch (P-78): in this checkout when it is on that branch; otherwise in `.workspace/fix-<num>` on `fix/<num>` cut from it, the mini plan recording `* **Base:** \`<sha>\` (<branch>)` and `* **Worktree:** .workspace/fix-<num> (fix/<num>)` and bound in that worktree (this checkout's buffer is untouched, uncommitted work here is not waited for); `close` rebases `fix/<num>` onto the branch if it moved, fast-forwards the branch (in the worktree that has it checked out, when one does), removes the fix worktree and branch, then archives the issue; `fix <num> abort` removes the worktree and branch too
+- a branch that is gone (P-78): when an issue's row names a branch that exists neither here nor on a remote, `fix` and `close` take the development branch instead, clear the cell in their own commit and print `#<n> targeted <branch>, which no longer exists; it now targets <dev>`; nothing is refused
+- unblocking follows the code (P-78): `close` unblocks a plan waiting on `#<n>` only when the fix commit is reachable from the plan's parent branch (the development branch for a plan never started). Another plan keeps `#<n>` in `Blocked On:` and stderr names it: `<plan> stays blocked: #<n>'s fix (\`<sha>\`) is not yet in its parent branch '<parent>'`; `aapp status` unblocks it once the commit is there. The fix is recognised by its commit only: after a squash merge, a cherry-pick or a rebase the plan stays blocked until `aapp refine <plan> unblocked <num>`
 - `close` of an issue with an open mini plan: the SHA defaults to the mini plan's last recorded commit and the summary to the fix's changelog entry (`<entry>; unblocks <plan>`, P-66); the mini plan is deleted and the buffer restored; any plan whose `Blocked On:` lists `#<n>` drops it and, once empty and not permanent, gets its recorded status back; the matrix is re-derived; all in the one close commit (the same unblocking runs when `aapp done` closes a Target Issue); stdout then prints `ℹ️  <plan> also lists <file>: it picks this fix up at its next rebase.` for every other ⚡ or BLOCKED plan whose Target Files include a fixed file (output only, P-58)
 - `fix` without `group`: when an active group's feature branch differs from the development branch in the fix's files, stdout adds `Group <id> changes these files on '<branch>'` with `aapp issue fix <num> group <id>`; the fix still opens, the human decides (P-64)
 - `fix … group <group>`: the mini plan records `* **Worktree:** .workspace/fix-<num> (fix/<num>)` and `* **Group:** <group>` and is bound in that worktree (the main checkout's buffer is untouched); `close` rebases `fix/<num>` onto the feature branch if it moved, fast-forwards the feature branch, removes the worktree and branch, then archives the issue as usual (P-64)
@@ -73,9 +78,10 @@
     - then one `plans` commit `issue(abort): withdraw #<num>`: the row moves to the top of the archive with `` `aborted` `` as its *Target Commit / Release* and `Aborted: <reason>` as its summary, followed by `([P-<id>](../aborted/<file>))` when its cell links an aborted plan; its road-map line goes; plans blocked on it resume as on `close`
     - a run interrupted after the plan went leaves the issue open and 🟡 `Incubated`; running `abort` again withdraws the row
     - the provider is not notified: `issue.close` reports a fix
+    - a withdrawn issue has no commit: the branch rules do not apply, and every plan blocked on it resumes whatever its parent branch (P-78)
     - the other direction never withdraws an issue: `aapp plan abort` and `fix <num> abort` leave it open
-- `list`: road-map entries in board order, the same selection as the `aapp status` Issues pillar; a truncated list ends with `… <k> more (aapp issue list all)`
-- `aapp done` on a plan whose Target Issue is `#<n>` performs the same `close` in its own archive commit; a Target Issue in neither ledger refuses `done` before anything moves
+- `list`: road-map entries in board order, the same selection as the `aapp status` Issues pillar; once an open issue names a branch, each line ends with `(branch: <name>)` and the issues of the current branch (in a plan's worktree: of the plan's parent branch) come first (P-78); a truncated list ends with `… <k> more (aapp issue list all)`
+- `aapp done` on a plan whose Target Issue is `#<n>` performs the same `close` in its own archive commit; a Target Issue in neither ledger refuses `done` before anything moves. Other plans blocked on `#<n>` resume under the same rule (P-78): at once when the plan's commit is already in their parent branch, otherwise after `done` integrates the plan branch, or at the next `aapp status` once the commit is there
 
 ## Exit
 - 0 on success, including an already-archived `close` and a provider that fails on `close`
@@ -131,7 +137,6 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.fixes.sh::test_fix_waits_for_dirty_file_then_proceeds` -> `fix` waits, printed, and proceeds once the file is clean (P-58)
 - `tests/verbs/issue.fixes.sh::test_next_blocker_waits_when_every_blocker_is_dirty` -> `next-blocker` waits for the first blocker to clear (P-58)
 - `tests/verbs/issue.fixes.sh::test_fix_refused_inside_plan_worktree` -> `fix` inside a plan worktree: exit 1 with the primary path, nothing written (P-54)
-- `tests/verbs/issue.fixes.sh::test_fix_refuses_off_development_branch` -> main checkout not on the development branch: exit 1, nothing written (P-64)
 - `tests/verbs/issue.fixes.sh::test_fix_group_opens_worktree_and_close_integrates` -> `group`: the fix worktree on the feature branch; `close` lands it there only, worktree and branch gone, issue archived (P-64)
 - `tests/verbs/issue.sh::test_fix_opens_with_empty_changelog` -> the mini plan's `Changelog:` carries no text from the row (P-66)
 - `tests/verbs/issue.sh::test_close_refuses_without_fix_entry` -> `close` before the fix wrote its entry: exit 1, nothing archived (P-66)
@@ -151,3 +156,18 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.keyid.sh::test_write_guard_binds_key_id_fix` -> the write guard allows the files of `fix-PROJ-101.md` and refuses others (P-79)
 - `tests/verbs/issue.keyid.sh::test_key_id_blocks_and_unblocks_plan` -> `refine <id> blocked PROJ-102` blocks the plan; closing the issue unblocks it (P-79)
 - `tests/verbs/issue.keyid.sh::test_draft_promotes_key_id` -> `draft <slug> issue PROJ-103` writes `Target Issue: #PROJ-103`; the plan's `done` closes it (P-79)
+- `tests/verbs/issue.branch.sh::test_no_branch_means_dev_branch` -> an empty cell, and a ledger without the column, read as the development branch (P-78)
+- `tests/verbs/issue.branch.sh::test_branch_token_adds_column` -> `hotfix … branch <name>` writes the cell and adds the column; every row keeps the header's cell count (P-78)
+- `tests/verbs/issue.branch.sh::test_hotfix_takes_plan_parent_branch` -> a hotfix carries the plan's parent branch; none is written for the development branch (P-78)
+- `tests/verbs/issue.branch.sh::test_log_from_plan_worktree_takes_parent` -> a row logged from a plan worktree carries the plan's parent branch, never the plan branch (P-78)
+- `tests/verbs/issue.branch.sh::test_refine_sets_branch` -> `refine issues "<msg>" branch <num> <name>` changes the cell; a branch that does not exist is refused, nothing committed (P-78)
+- `tests/verbs/issue.branch.sh::test_fix_opens_on_issue_branch` -> a fix opens in this checkout on the issue's branch, in `.workspace/fix-<num>` cut from it otherwise; `close` lands it there and the archive keeps the branch (P-78)
+- `tests/verbs/issue.branch.sh::test_gone_branch_falls_back_to_dev` -> a deleted branch: the fix opens on the development branch, the cell is cleared, the notice printed; a branch only on a remote is not gone (P-78)
+- `tests/verbs/issue.branch.sh::test_close_refuses_sha_not_in_branch` -> `close … sha` of a commit outside the issue's branch: exit 1 naming commit and branch, nothing written (P-78)
+- `tests/verbs/issue.branch.sh::test_unblock_waits_for_parent_branch` -> a plan whose parent branch has the fix is unblocked; one whose parent lacks it stays blocked and is named (P-78)
+- `tests/verbs/issue.branch.sh::test_status_unblocks_after_merge` -> once the fix is merged into the parent branch, `aapp status` unblocks the plan in one commit and says so (P-78)
+- `tests/verbs/issue.branch.sh::test_cherry_picked_fix_stays_blocked` -> a cherry-picked fix leaves the plan blocked; `aapp status` names the commit and the branch it waits for (P-78)
+- `tests/verbs/issue.branch.sh::test_refine_unblocked` -> `refine <id> unblocked <num>` removes the block and restores the status when it was the last; an open issue is refused (P-78)
+- `tests/verbs/issue.branch.sh::test_abort_ignores_branch_rules` -> `abort` archives the issue and resumes the plans it blocked whatever their branches (P-78)
+- `tests/verbs/issue.branch.sh::test_views_show_branch` -> `issue list` and `aapp status` show each issue's branch, the current branch's issues first (P-78)
+- `tests/verbs/issue.branch.sh::test_group_done_moves_issues_to_parent` -> a group's `done` retargets the open issues of its removed feature branch to the group's parent (P-78)

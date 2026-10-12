@@ -475,6 +475,7 @@ AAPP enforces a strict conceptual separation between **fixing what exists** and 
 - **`Target Plan / Fix`**: Direction of fix, or link to promoted blueprint (`current/plan-<name>.md`).
 - **`Status`**: `🟡 Incubated` (recorded, unscheduled) · `🔵 Planned` (promoted to a blueprint) · `🟠 In Progress` (active execution).
   *(Note: `✅ Resolved` does NOT exist in this table; resolved items are relocated to `.plans/done/000-issues-archive.md`).*
+- **`Branch`** (optional, last column; also in the archive): the branch the issue's fix must land on. Empty, or the column absent, means the development branch. Written by verbs; see *Issues on Several Branches*.
 
 ---
 
@@ -1415,6 +1416,28 @@ aapp issue abort 79 reason "<why>"     # withdraw the issue itself, with its pla
 - **No plan in development:** edits and commits are free; a 🔷 Frozen plan is backlog and restricts nothing (#98). A plan held in another worktree's buffer is not adopted by a checkout without one, and its files are refused there.
 - **Not in a plan worktree:** `aapp issue fix` refuses inside a worktree a plan records as its `* **Worktree:**` and names the main checkout: a fix committed on a plan branch would vanish in the plan's squash and its recorded SHA would dangle (P-54).
 
+#### Issues on Several Branches (P-78)
+
+A project may keep several long-lived branches: `develop`, a `core` branch, module branches, a release branch, merged with each other at release or in a test branch. A fix that lands on one of them is of no use to work on another until the branches are merged. So an issue carries **the branch its fix must land on**, and fixing, closing and unblocking follow the code.
+
+```bash
+aapp issue hotfix "Parser crashes" file lib/parser.sh branch core   # the fix must land on core
+aapp refine issues "42 belongs to core" branch 42 core               # name it later, or change it
+aapp issue fix 42                       # opens on core: here, or in .workspace/fix-42 cut from it
+aapp issue close 42                     # lands it on core; unblocks the plans whose parent branch has it
+aapp status                             # unblocks a waiting plan once the fix reached its parent branch
+aapp refine P-51 unblocked 42           # the manual unblock, when the fix travelled as another commit
+```
+
+- **The `Branch` cell.** A last column of `ISSUES.md` and of the archive. **No branch named means the development branch** (`aapp.devBranch`): an empty cell, or a ledger without the column. A project with one development branch leaves the column empty. A ledger made without it keeps working; the kit adds the column the first time an issue names another branch.
+- **Which branch an issue gets.** The branch it is logged from: `aapp refine issues` gives each new row the current branch. In a plan's or a fix's worktree that is the plan's **parent branch** (the one in its `* **Base:**`), never the plan or fix branch, which `done` and `close` remove. `aapp issue hotfix` does the same for the plan it blocks; `branch <name>` names another. `aapp refine issues "<msg>" branch <num> <name>` sets it later. A branch that exists only on a remote counts.
+- **Fixing.** `aapp issue fix <num>` opens the fix on the issue's branch: in the main checkout when it is on that branch, otherwise in `.workspace/fix-<num>` on `fix/<num>` cut from it. Work and `aapp commit` there; `aapp issue close <num>` fast-forwards the issue's branch to the fix (rebasing the fix first when the branch moved) and removes the fix worktree and branch.
+- **Closing follows the code.** `aapp issue close <num> sha <sha>` refuses a commit that is not in the issue's branch, and names the branch to bring it into. The kit never pulls or merges a code branch on its own: update the branch, then close.
+- **Unblocking follows the code.** Closing an issue unblocks a plan waiting on it only when the fix commit is in the plan's parent branch. A plan on another branch stays blocked and is named: `P-51 stays blocked: #42's fix (\`3f9c2ab\`) is not yet in its parent branch 'develop'`. After the branches are merged, the next `aapp status` unblocks it and says so. An issue withdrawn with `aapp issue abort` has no fix to wait for: the plans it blocked resume at once.
+- **A fix is recognised by its commit, and by nothing else.** Work that moves the way the kit moves it, by fast-forward or by merge, keeps its commits, so the kit can tell where a fix is and unblocks without anyone acting. A fix carried another way, a **squash merge, a cherry-pick or a rebase**, arrives as a different commit and is not recognised: the plan stays blocked and `aapp status` names the commit it waits for and the branch. The kit does not read commit messages or compare changes to guess. A person who knows the fix is there removes the block: `aapp refine <plan-id> unblocked <num>` (refused while the issue is still open).
+- **A branch that is gone.** When the kit removes a branch itself (a group's `done`, a plan's abort), the open issues that targeted it move to its parent branch in the same step. When a branch was deleted any other way, nothing blocks: `issue fix` and `issue close` take the development branch instead, clear the cell and say so (`#12 targeted test-oct, which no longer exists; it now targets develop`). `aapp status` reports such issues beforehand. Set another target with the `branch` token.
+- **Views.** Once an open issue names a branch, `aapp status` and `aapp issue list` show each issue's branch, the current branch's issues first.
+
 ---
 
 ### Plan Worktrees (`aapp.planWorktrees`, P-54)
@@ -1472,7 +1495,7 @@ aapp done P-70                               # the group: gate on the feature br
 - **Always the parent.** A group merges into the branch it was cut from: a module, test or release branch, not necessarily the development branch. Groups do not nest.
 - **The group's `done`**, in one command: refuses while a member is open; checks the feature branch out in `.workspace/P<n>`; merges a parent that moved (a conflict refuses with nothing changed; never a rebase, so the members' recorded SHAs stay valid); replaces each `ARCHITECTURE.md` section with the same heading or adds a new one, and commits it with the group's umbrella changelog entry; runs `pre-done` there; archives; fast-forwards the parent; applies the `CODEMAP.md` sections in `.agents`. A section the file changed since its base line refuses: update the plan's section, delete its base line, refine again.
 - **Planning the order (P-65).** `aapp plan conflict-free P-70` lists the group's members in waves: a wave's members share no Target File with each other, and wave 1 none with a plan already in development, so each member of a wave can go to its own agent at the same time. A member held back names the file and the plan in its way; reshape the plans and ask again. `aapp plan conflict-check <id> <id>…` checks any plans directly (exit 1 on a collision), and `aapp plan conflict-free [<id>]` lists the plans free to start now. Shared docs never collide; add `json` for structured output. Waves see files only: order members that need each other's results through the member list.
-- **Issue fixes.** `aapp issue fix` works on the development branch and refuses elsewhere. A bug caused by the group's work is fixed on the feature branch: `aapp issue fix <num> group P-70` opens `.workspace/fix-<num>` on `fix/<num>`; `aapp issue close <num>` lands it on the feature branch. When a group changes the issue's files, a plain `fix` says so; the human decides.
+- **Issue fixes.** A fix is made on its issue's branch (see *Issues on Several Branches*). A hotfix raised from a member names the group's feature branch, so its fix opens in `.workspace/fix-<num>` cut from it and `aapp issue close <num>` lands it there. For an issue logged elsewhere that the group's work caused, `aapp issue fix <num> group P-70` retargets it to the feature branch and opens the fix the same way. When a group changes the issue's files, a plain `fix` says so; the human decides. The group's `done` removes the feature branch and moves its open issues to the group's parent branch.
 
 ---
 

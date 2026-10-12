@@ -71,6 +71,163 @@ issue_mark_planned() { _issue_plans_dir >/dev/null || return 1; ledger_set_cell 
 # Target Plan / Fix -> <link> (the archived plan), Status -> 🟡 `Incubated`.
 issue_mark_incubated() { _issue_plans_dir >/dev/null || return 1; ledger_set_cell "$1" link "$2" && ledger_set_cell "$1" status '🟡 `Incubated`' || return 1; }
 
+# ------------------------------------------------------------------------------
+# P-78: the branch of an issue is where its fix must land. No branch named (an
+# empty cell, a ledger without the column) means the development branch.
+# ------------------------------------------------------------------------------
+
+# issue_branch <n>: the branch #<n>'s fix must land on.
+issue_branch() {
+    local b
+    b="$(ledger_branch "$1")"
+    if [ -n "$b" ]; then echo "$b"; return 0; fi
+    _issue_dev_branch
+}
+
+# issue_branch_cell <branch>: what the Branch cell holds for it: nothing for
+# the development branch.
+issue_branch_cell() {
+    [ -n "$1" ] && [ "$1" != "$(_issue_dev_branch)" ] || return 0
+    printf '`%s`\n' "$1"
+}
+
+# issue_plan_parent <plan_file>: the plan's parent branch; the development
+# branch for a plan never started.
+issue_plan_parent() {
+    local b
+    b="$(plan_base_branch "$1")"
+    if [ -n "$b" ]; then echo "$b"; return 0; fi
+    _issue_dev_branch
+}
+
+# issue_logging_branch: the branch an issue logged here belongs to: the current
+# one; in a plan's or a fix's worktree that plan's parent branch, never the
+# plan or fix branch, which `done` and `close` remove. Empty when detached.
+issue_logging_branch() {
+    local plans here prim pf rec abs b
+    plans="$(_issue_plans_dir)" || return 0
+    here="$(git rev-parse --show-toplevel 2>/dev/null)" && here="$(cd "$here" && pwd -P)" || return 0
+    prim="$(cd "$(git rev-parse --git-common-dir)/.." && pwd -P)" || return 0
+    if [ "$here" != "$prim" ]; then
+        for pf in "$plans"/current/*.md; do
+            [ -f "$pf" ] || continue
+            case "$(basename "$pf")" in 000-*) continue ;; esac
+            rec="$(parse_plan_worktree "$pf")"
+            [ -n "$rec" ] || continue
+            abs="$(aapp_abs_path "${rec%%$'\t'*}" "$prim")"
+            [ -d "$abs" ] && [ "$(cd "$abs" && pwd -P)" = "$here" ] || continue
+            issue_plan_parent "$pf"
+            return 0
+        done
+    fi
+    b="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 0
+    [ "$b" = "HEAD" ] || echo "$b"
+}
+
+# issue_stamp_new_rows: rows added to ISSUES.md since its last commit, with no
+# branch named, take the branch they are logged from (`aapp refine issues`).
+issue_stamp_new_rows() {
+    local plans rel old id b cell
+    plans="$(_issue_plans_dir)" || return 0
+    rel="$(ledger_commit_paths issues)"
+    [ -n "$rel" ] || return 0
+    b="$(issue_logging_branch)"
+    cell="$(issue_branch_cell "$b")"
+    [ -n "$cell" ] || return 0
+    old="$(mktemp)" || return 1
+    # A ledger with no committed version to compare with: no row is known to be new.
+    git -C "$plans" show "HEAD:$rel" > "$old" 2>/dev/null || { rm -f "$old"; return 0; }
+    for id in $(ledger_ids active); do
+        AAPP_LEDGER_ISSUES="$old" ledger_ids active | grep -qxF "$id" && continue
+        [ -z "$(ledger_cell "$id" branch)" ] || continue
+        ledger_set_cell "$id" branch "$cell" || { rm -f "$old"; return 1; }
+    done
+    rm -f "$old"
+}
+
+# issue_move_branch <old> <new>: the open issues targeting <old> target <new>.
+# Prints the ids it changed, on one line; does not commit.
+issue_move_branch() {
+    local moved
+    moved="$(ledger_move_branch "$1" "$(issue_branch_cell "$2")")" || return 1
+    [ -z "$moved" ] || printf '%s\n' "$moved" | paste -sd, - | sed 's/,/, /g'
+}
+
+# _issue_branch_state <n>: sets ISSUE_BRANCH (where #<n>'s fix lands) and
+# ISSUE_BRANCH_GONE (the branch its row names, when it no longer exists here or
+# on a remote: the fix then lands on the development branch). Writes nothing.
+_issue_branch_state() {
+    local b
+    ISSUE_BRANCH_GONE=""
+    b="$(ledger_cell "$1" branch | tr -d '`')"
+    if [ -n "$b" ] && ! aapp_branch_ref "$b" >/dev/null; then
+        ISSUE_BRANCH_GONE="$b"; b=""
+    fi
+    [ -n "$b" ] || b="$(_issue_dev_branch)"
+    ISSUE_BRANCH="$b"
+}
+
+# _issue_clear_gone_branch <n>: after _issue_branch_state found the branch
+# gone, clears the cell and says so. The caller commits the ledger.
+_issue_clear_gone_branch() {
+    [ -n "${ISSUE_BRANCH_GONE:-}" ] || return 0
+    ledger_set_cell "$1" branch "" || return 1
+    echo "ℹ️  [Issue] #$1 targeted $ISSUE_BRANCH_GONE, which no longer exists; it now targets ${ISSUE_BRANCH:-the development branch}."
+}
+
+# _issue_fix_in_parent <plan_file> <sha>: true when the commit is reachable
+# from the plan's parent branch. The fix is recognised by its commit and by
+# nothing else: a squash, a cherry-pick or a rebase gives it another one.
+_issue_fix_in_parent() {
+    local parent ref
+    parent="$(issue_plan_parent "$1")"
+    # No parent branch to look at: nothing to wait for.
+    [ -n "$parent" ] && ref="$(aapp_branch_ref "$parent")" || return 0
+    git merge-base --is-ancestor "$2^{commit}" "$ref" 2>/dev/null
+}
+
+# issue_unblock_landed [quiet] (P-78): a plan left blocked on a closed issue
+# resumes once the fix commit is in its parent branch (`aapp status`, and
+# `done` after it integrates). One commit for the plans it changes. Without
+# `quiet`, a plan still waiting gets a line naming the commit and the branch.
+issue_unblock_landed() {
+    local quiet="${1:-}" plans pf line list id commit parent from pid paths=() names=""
+    plans="$(_issue_plans_dir)" || return 1
+    _issue_load_plan_lib || return 1
+    for pf in "$plans"/current/*.md; do
+        [ -f "$pf" ] || continue
+        case "$(basename "$pf")" in 000-*|fix-*) continue ;; esac
+        line="$(grep -m 1 -E '^\* \*\*Blocked On:\*\*' "$pf" || true)"
+        [ -n "$line" ] || continue
+        list="$(plan_blocked_on_parse "${line#\* \*\*Blocked On:\*\* }" | sed -n 1p)"
+        pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
+        [ -n "$pid" ] || pid="$(basename "$pf" .md)"
+        for id in $(printf '%s\n' "$list" | tr ',' '\n' | tr -d ' #'); do
+            [ "$(PLANS_DIR="$plans" ledger_locate "$id")" = "archive" ] || continue
+            commit="$(PLANS_DIR="$plans" ledger_cell "$id" commit archive | tr -d '`')"
+            parent="$(issue_plan_parent "$pf")"
+            if [ "$commit" = "aborted" ] || _issue_fix_in_parent "$pf" "$commit"; then
+                plan_unblock "$pf" "$id" || continue
+                printf '%s\n' "${paths[@]}" | grep -qxF "current/$(basename "$pf")" || paths+=("current/$(basename "$pf")")
+                names="${names:+$names, }$pid"
+                if [ "$commit" = "aborted" ]; then
+                    echo "🔓 [Issue] $pid no longer waits for #$id: the issue was withdrawn."
+                else
+                    echo "🔓 [Issue] $pid no longer waits for #$id: its fix (\`$commit\`) is in '$parent'."
+                fi
+            elif [ -z "$quiet" ]; then
+                from="$(PLANS_DIR="$plans" ledger_branch "$id")"; [ -n "$from" ] || from="$(_issue_dev_branch)"
+                echo "⏳ [Issue] $pid waits for #$id: fixed on '$from' (\`$commit\`), not yet in '$parent'."
+                echo "   It resumes once '$parent' holds that commit (a merge keeps it; a squash, cherry-pick or rebase does not: 'aapp refine $pid unblocked $id')."
+            fi
+        done
+    done
+    [ ${#paths[@]} -gt 0 ] || return 0
+    sync_state_matrix
+    [ -f "$plans/state_matrix.md" ] && paths+=("state_matrix.md")
+    plans_commit "issue(unblock): fix reached the parent branch" "${paths[@]}" || return 1
+}
+
 # issue_notify_close <n> <sha> <summary> [plan-id]
 # Fire-and-forget `issue.close` hand-off to an installed `aapp-issue-tracker`
 # plugin (Plugin Payload Standard). Registered in the P-32 Fallback Inventory: a
@@ -108,33 +265,56 @@ cmd_issue_allocate() {
     allocate_issue_id
 }
 
-# _issue_land_group_fix <num> <mini-plan> (P-64): fast-forwards the group's
-# feature branch to `fix/<num>` (rebased first when the feature branch moved),
-# then removes the fix worktree and branch. Refuses with both branches unchanged.
-_issue_land_group_fix() {
-    local n="$1" mp="$2" rec wt br gid gf fb l
+# _issue_drop_fix_worktree <worktree> <branch>: removes a fix's worktree, its
+# kit links and its branch.
+_issue_drop_fix_worktree() {
+    local l
+    for l in .githooks .agents .plans .claude; do [ -L "$1/$l" ] && rm -f "$1/$l"; done
+    git worktree remove --force "$1" >/dev/null 2>&1 || echo "⚠️  Could not remove $1; remove it with 'git worktree remove --force $1'." >&2
+    git branch -D "$2" >/dev/null 2>&1 || echo "⚠️  Could not delete $2; delete it with 'git branch -D $2'." >&2
+}
+
+# _issue_land_fix <num> <mini-plan> (P-64, P-78): a fix made in its own
+# worktree lands on the branch it was cut from (the mini plan's Base): that
+# branch is fast-forwarded to `fix/<num>` (rebased first when the branch moved),
+# then the fix worktree and branch go. Refuses with both branches unchanged.
+_issue_land_fix() {
+    local n="$1" mp="$2" rec wt br gid gf fb ref holder
     _issue_load_plan_lib || return 1
     rec="$(parse_plan_worktree "$mp")"
     wt="$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")"; br="${rec#*$'\t'}"
-    gid="$(parse_plan_field "$mp" Group)"
-    gf="$(resolve_plan_file "$gid" "close")" || return 1
-    fb="$(parse_plan_field "$gf" "Feature Branch")"
+    fb="$(plan_base_branch "$mp")"
+    if [ -z "$fb" ]; then
+        # A fix opened before P-78 records its group only.
+        gid="$(parse_plan_field "$mp" Group)"
+        gf="$(resolve_plan_file "$gid" "close")" || return 1
+        fb="$(parse_plan_field "$gf" "Feature Branch")"
+    fi
+    ref="$(aapp_branch_ref "$fb")" || {
+        echo "❌ [Issue] '$fb', the branch #$n's fix was cut from, no longer exists; the fix stays on $br in .workspace/fix-$n." >&2
+        return 1
+    }
     if [ -n "$(git -C "$wt" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
         echo "❌ [Issue] .workspace/fix-$n has uncommitted changes; commit them with 'aapp commit' there first." >&2
         return 1
     fi
-    if ! git merge-base --is-ancestor "$fb" "$br"; then
-        if ! git -C "$wt" rebase -q "$fb" >/dev/null 2>&1; then
+    if ! git merge-base --is-ancestor "$ref" "$br"; then
+        if ! git -C "$wt" rebase -q "$ref" >/dev/null 2>&1; then
             git -C "$wt" rebase --abort >/dev/null 2>&1
             echo "❌ [Issue] fix/$n does not rebase cleanly onto $fb; resolve it in .workspace/fix-$n, then close again." >&2
             return 1
         fi
     fi
-    git fetch -q . "$br:$fb" || {
-        echo "❌ [Issue] Could not fast-forward $fb to fix/$n (is $fb checked out somewhere?)." >&2; return 1; }
-    for l in .githooks .agents .plans .claude; do [ -L "$wt/$l" ] && rm -f "$wt/$l"; done
-    git worktree remove --force "$wt" >/dev/null 2>&1 || echo "⚠️  Could not remove $wt; remove it with 'git worktree remove --force $wt'." >&2
-    git branch -D "$br" >/dev/null 2>&1 || echo "⚠️  Could not delete $br; delete it with 'git branch -D $br'." >&2
+    # A branch checked out in a worktree is moved there; any other by its ref.
+    holder="$(git worktree list --porcelain | awk -v b="refs/heads/$fb" '/^worktree / { w = substr($0, 10) } $1 == "branch" && $2 == b { print w; exit }')"
+    if [ -n "$holder" ]; then
+        git -C "$holder" merge -q --ff-only "$br" >/dev/null 2>&1 || {
+            echo "❌ [Issue] Could not fast-forward $fb to fix/$n in $holder (uncommitted changes in the fix's files there?)." >&2; return 1; }
+    else
+        git fetch -q . "$br:$fb" || {
+            echo "❌ [Issue] Could not fast-forward $fb to fix/$n." >&2; return 1; }
+    fi
+    _issue_drop_fix_worktree "$wt" "$br"
     echo "🔀 [Issue] #$n landed on $fb ($(git rev-parse --short "$fb"))."
 }
 
@@ -147,7 +327,13 @@ _issue_archive_active() {
     local n="$1" cell="$2" summary="$3" subject="$4" mp="${5:-}" entry="${6:-}"
     local plans touched p unblocked="" paths=()
     plans="$(_issue_plans_dir)" || return 1
-    touched="$(issue_unblock_plans "$n")" || return 1
+    # P-78: a fix unblocks the plans whose parent branch holds its commit; a
+    # withdrawn issue has no commit and unblocks them all.
+    if [ "$cell" = "aborted" ]; then
+        touched="$(issue_unblock_plans "$n")" || return 1
+    else
+        touched="$(issue_unblock_plans "$n" "$cell")" || return 1
+    fi
     for p in $touched; do
         unblocked="${unblocked:+$unblocked, }$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plans/$p" | head -n 1)"
     done
@@ -183,7 +369,7 @@ _issue_report_unblocked() {
             echo "   $(basename "$p" .md) is still blocked: $(sed -nE 's/^\* \*\*Blocked On:\*\*[[:space:]]*//p' "$plans/$p" | head -n 1)"
         else
             wt="$(sed -nE 's/^\* \*\*Worktree:\*\*[[:space:]]*//p' "$plans/$p" | head -n 1)"
-            echo "   $(basename "$p" .md) is unblocked.${wt:+ Next: in $wt, rebase the plan branch onto the development branch.}"
+            echo "   $(basename "$p" .md) is unblocked.${wt:+ Next: in $wt, rebase the plan branch onto its parent branch '$(issue_plan_parent "$plans/$p")'.}"
         fi
     done
 }
@@ -223,8 +409,7 @@ cmd_issue_abort() {
 
     # What was opened for it goes first, through its own code and commit; a
     # refusal there leaves everything as it was.
-    row="$(ledger_row "$n")"
-    cell="$(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{ gsub(/^[ \t]+|[ \t]+$/, "", $8); print $8 }')"
+    cell="$(ledger_cell "$n" link)"
     link="$(printf '%s\n' "$cell" | sed -nE 's/^\[(P-[0-9]+)\]\(current\/([^)]+)\)$/\1 \2/p')"
     if [ -n "$link" ] && [ -f "$plans/current/${link#* }" ]; then
         pid="${link%% *}"
@@ -237,8 +422,7 @@ cmd_issue_abort() {
     fi
 
     # The row now links the aborted plan, when one went (also on a second run).
-    row="$(ledger_row "$n")"
-    cell="$(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{ gsub(/^[ \t]+|[ \t]+$/, "", $8); print $8 }')"
+    cell="$(ledger_cell "$n" link)"
     link="$(printf '%s\n' "$cell" | sed -nE 's/^\[(P-[0-9]+)\]\(aborted\/([^)]+)\)$/[\1](..\/aborted\/\2)/p')"
     summary="Aborted: $reason${link:+ ($link)}"
     _issue_archive_active "$n" "aborted" "$summary" "issue(abort): withdraw #$n" || return 1
@@ -272,8 +456,21 @@ cmd_issue_close() {
     }
     # P-52: an open mini plan supplies the SHA (its last recorded commit) and
     # the summary, and is deleted in the close commit.
-    local plans mp="" mini_list=() last p entry=""
+    local plans mp="" mini_list=() last p entry="" landed=0 bref=""
     plans="$(_issue_plans_dir)" || return 1
+    where="$(PLANS_DIR="$plans" ledger_locate "$n")" || return 1
+    # P-78: closing follows the code. The commit must be in the issue's branch;
+    # a fix made in its own worktree lands there below.
+    ISSUE_BRANCH=""; ISSUE_BRANCH_GONE=""
+    if [ "$where" = "active" ]; then
+        PLANS_DIR="$plans" _issue_branch_state "$n"
+        [ -z "$ISSUE_BRANCH" ] || bref="$(aapp_branch_ref "$ISSUE_BRANCH")" || bref=""
+        if [ -n "$sha" ] && [ -n "$bref" ] && ! git merge-base --is-ancestor "$sha^{commit}" "$bref" 2>/dev/null; then
+            echo "❌ [Issue] Commit \`$sha\` is not in '$ISSUE_BRANCH', the branch #$n's fix lands on; #$n stays open." >&2
+            echo "   Bring the fix into '$ISSUE_BRANCH' (merge or pull it), then close again. Another target: aapp refine issues \"<msg>\" branch $n <name>" >&2
+            return 1
+        fi
+    fi
     if [ -f "$plans/current/fix-$n.md" ]; then
         mp="$plans/current/fix-$n.md"
         last="$(parse_plan_commits "$mp" | tail -n 1 | awk '{print $1}')"
@@ -287,22 +484,30 @@ cmd_issue_close() {
             return 1
         fi
         entry="${entry#*|}"
-        # P-64: a group fix lands on the group's feature branch first.
+        # P-64, P-78: a fix made in its own worktree lands on its branch first.
         if [ -n "$(parse_plan_worktree "$mp")" ]; then
-            _issue_land_group_fix "$n" "$mp" || return 1
+            _issue_land_fix "$n" "$mp" || return 1
             last="$(parse_plan_commits "$mp" | tail -n 1 | awk '{print $1}')"
+            landed=1
         fi
-        [ -n "$sha" ] || sha="$last"
+        if [ -z "$sha" ]; then
+            sha="$last"
+            if [ "$landed" -eq 0 ] && [ -n "$bref" ] && ! git merge-base --is-ancestor "$sha^{commit}" "$bref" 2>/dev/null; then
+                echo "❌ [Issue] #$n's fix (\`$sha\`) is not in '$ISSUE_BRANCH', the branch its fix lands on; #$n stays open." >&2
+                echo "   Bring the fix into '$ISSUE_BRANCH' (merge or pull it), then close again. Another target: aapp refine issues \"<msg>\" branch $n <name>" >&2
+                return 1
+            fi
+        fi
         while IFS= read -r p; do [ -n "$p" ] && mini_list+=("$p"); done < <(parse_plan_target_paths "$mp")
     fi
     if [ -z "$sha" ]; then
-        sha="$(git -C "$root" rev-parse --short=7 HEAD)" || return 1
+        # No commit named: the issue's branch as it stands.
+        sha="$(git -C "$root" rev-parse --short=7 "${bref:-HEAD}")" || return 1
     fi
 
-    _issue_plans_dir >/dev/null || return 1
-    where="$(ledger_locate "$n")" || return 1
     case "$where" in
         active)
+            PLANS_DIR="$plans" _issue_clear_gone_branch "$n" || return 1
             _issue_archive_active "$n" "$sha" "$summary" "issue(close): archive #$n" "$mp" "$entry" || return 1
             summary="$IA_SUMMARY"
             echo "✅ [Issue] #$n archived to done/000-issues-archive.md (commit \`$sha\`)."
@@ -334,8 +539,9 @@ cmd_issue_list() {
         echo "❌ [Issue] Road map not found: $roadmap" >&2
         return 1
     fi
-    # The same lines, in the same order, as the status briefing's Issues pillar.
-    lines="$(PLANS_DIR="$plans" roadmap_entries)"
+    # The same lines, in the same order, as the status briefing's Issues pillar:
+    # with their branch, this branch's issues first, once any issue names one (P-78).
+    lines="$(PLANS_DIR="$plans" roadmap_entries_by_branch "$(issue_logging_branch)" "$(_issue_dev_branch)")"
     if [ -z "$lines" ]; then
         echo "  (No open issues in issues_road_map.md)"
         return 0
@@ -457,35 +663,26 @@ _issue_record_hotfix() {
     mv "$tmp" "$pf"
 }
 
-# issue_unblock_plans <n>: removes #<n> from every plan's `Blocked On:`; when the
-# list empties and the block is not permanent, restores the recorded previous
-# status. Prints the plan paths (relative to .plans) it changed.
+# issue_unblock_plans <n> [<sha>]: removes #<n> from the `Blocked On:` of the
+# plans waiting on it (plan_unblock). With the fix commit <sha>, only from the
+# plans whose parent branch holds it (P-78); the others are named and wait
+# (issue_unblock_landed). Without it (a withdrawn issue) from every plan.
+# Prints the plan paths (relative to .plans) it changed.
 issue_unblock_plans() {
-    local n="$1" plans pf line fields list was perm newlist tmp
+    local n="$1" sha="${2:-}" plans pf rc list
     plans="$(_issue_plans_dir)" || return 1
     _issue_load_plan_lib || return 1
     for pf in "$plans"/current/*.md; do
         [ -f "$pf" ] || continue
         case "$(basename "$pf")" in 000-*|fix-*) continue ;; esac
-        line="$(grep -m 1 -E '^\* \*\*Blocked On:\*\*' "$pf" || true)"
-        [ -n "$line" ] || continue
-        fields="$(plan_blocked_on_parse "${line#\* \*\*Blocked On:\*\* }")"
-        list="$(sed -n 1p <<< "$fields")"; was="$(sed -n 2p <<< "$fields")"; perm="$(sed -n 3p <<< "$fields")"
+        list="$(plan_blocked_on_parse "$(sed -nE 's/^\* \*\*Blocked On:\*\* //p' "$pf" | head -n 1)" | sed -n 1p)"
         printf '%s\n' "$list" | tr ',' '\n' | tr -d ' ' | grep -qxF "#$n" || continue
-        newlist="$(printf '%s\n' "$list" | tr ',' '\n' | tr -d ' ' | grep -E "^${AAPP_ISSUE_REF_RE}\$" | grep -vxF "#$n" | paste -sd, - | sed 's/,/, /g')"
-        tmp="$pf.aapp-unblock.$$"
-        if [ -n "$newlist" ] || [ -n "$perm" ]; then
-            AAPP_LINE="$(plan_blocked_on_line "$newlist" "$was" "$perm")" awk '/^\* \*\*Blocked On:\*\*/ && !d { print ENVIRON["AAPP_LINE"]; d = 1; next } { print }' "$pf" > "$tmp"
-        elif [ -n "$was" ]; then
-            AAPP_STATUS="* **Status:** $was" awk '
-                /^\* \*\*Blocked On:\*\*/ { next }
-                /^\* \*\*Status:\*\*/ && !d { print ENVIRON["AAPP_STATUS"]; d = 1; next }
-                { print }' "$pf" > "$tmp"
-        else
-            awk '/^\* \*\*Blocked On:\*\*/ { next } { print }' "$pf" > "$tmp"
-            echo "ℹ️  [Issue] $(basename "$pf" .md) has no blockers left but no recorded previous status; set it with 'aapp refine'." >&2
+        if [ -n "$sha" ] && ! _issue_fix_in_parent "$pf" "$sha"; then
+            echo "   $(parse_plan_field "$pf" "Plan ID") stays blocked: #$n's fix (\`$sha\`) is not yet in its parent branch '$(issue_plan_parent "$pf")'; 'aapp status' unblocks it once it is." >&2
+            continue
         fi
-        mv "$tmp" "$pf"
+        rc=0; plan_unblock "$pf" "$n" || rc=$?
+        [ "$rc" -eq 0 ] || continue
         echo "current/$(basename "$pf")"
     done
 }
@@ -544,9 +741,9 @@ _issue_restore_buffer() {
 
 # cmd_issue_hotfix "<text>" [file <path>]… [plan] (P-52 2.1)
 cmd_issue_hotfix() {
-    local text="${1:-}" files=() want_plan=0 plans buf bound pf prel pid f n row loc today max count list slug t
+    local text="${1:-}" files=() want_plan=0 plans buf bound pf prel pid f n row loc today max count list slug t target=""
     if [ -z "$text" ]; then
-        echo "❌ [Issue] Usage: aapp issue hotfix \"<text>\" [file <path>]… [plan]" >&2
+        echo "❌ [Issue] Usage: aapp issue hotfix \"<text>\" [file <path>]… [branch <name>] [plan]" >&2
         return 1
     fi
     shift
@@ -554,10 +751,16 @@ cmd_issue_hotfix() {
         case "$1" in
             file) [ $# -ge 2 ] || { echo "❌ [Issue] 'file' needs a path." >&2; return 1; }
                   files+=("$2"); shift 2 ;;
+            branch) [ $# -ge 2 ] && [ -n "$2" ] || { echo "❌ [Issue] 'branch' needs a branch name." >&2; return 1; }
+                  target="$2"; shift 2 ;;
             plan) want_plan=1; shift ;;
-            *)    echo "❌ [Issue] Unknown token '$1'. Usage: aapp issue hotfix \"<text>\" [file <path>]… [plan]" >&2; return 1 ;;
+            *)    echo "❌ [Issue] Unknown token '$1'. Usage: aapp issue hotfix \"<text>\" [file <path>]… [branch <name>] [plan]" >&2; return 1 ;;
         esac
     done
+    if [ -n "$target" ] && ! aapp_branch_ref "$target" >/dev/null; then
+        echo "❌ [Issue] Branch '$target' does not exist, here or on a remote." >&2
+        return 1
+    fi
     plans="$(_issue_plans_dir)" || return 1
     buf="$(git rev-parse --git-path aapp_active_plan 2>/dev/null)" || return 1
     bound="$(tr -d '[:space:]' < "$buf" 2>/dev/null || true)"
@@ -597,6 +800,12 @@ cmd_issue_hotfix() {
     PLANS_DIR="$plans" ledger_add_row "$row" || {
         _issue_lock_release
         echo "❌ [Issue] No table header separator in ISSUES.md." >&2; return 1; }
+    # P-78: the fix lands where the blocked plan will take it from: the plan's
+    # parent branch, unless `branch` names another.
+    [ -n "$target" ] || target="$(issue_plan_parent "$pf")"
+    PLANS_DIR="$plans" ledger_set_cell "$n" branch "$(issue_branch_cell "$target")" || {
+        _issue_lock_release
+        echo "❌ [Issue] Could not record the branch of #$n in ISSUES.md." >&2; return 1; }
     [ "$want_plan" -eq 1 ] || PLANS_DIR="$plans" roadmap_add_blocker "$n" "$text" "$pid"
     _issue_record_hotfix "$pf" "$n"
     plan_block_on "$pf" "$n" || [ $? -eq 3 ]
@@ -794,18 +1003,6 @@ _issue_dev_branch() {
     return 0
 }
 
-# _issue_refuse_off_dev <num> (P-64): a fix without `group` is made on the
-# development branch; group-caused fixes go to the group's feature branch.
-_issue_refuse_off_dev() {
-    local dev cur
-    dev="$(_issue_dev_branch)"
-    cur="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
-    [ -z "$dev" ] || [ "$cur" = "$dev" ] && return 0
-    echo "❌ [Issue] Issue fixes are made on the development branch '$dev'; the main checkout is on '$cur'." >&2
-    echo "   Switch with 'git checkout $dev'. A bug caused by a group's work: 'aapp issue fix ${1:-<num>} group <group>'." >&2
-    return 1
-}
-
 # _issue_group_hint <plans> <file>… (P-64): names active groups whose feature
 # branch differs from the development branch in these files; the human decides.
 _issue_group_hint() {
@@ -823,27 +1020,36 @@ _issue_group_hint() {
     done
 }
 
-# _issue_group_worktree <num> <group-file> (P-64): `.workspace/fix-<num>` on
-# `fix/<num>` from the group's feature branch, with the kit links; prints its path.
-_issue_group_worktree() {
-    local n="$1" gf="$2" fb wt
-    fb="$(parse_plan_field "$gf" "Feature Branch")"
-    if [ "$(plan_status_slug "$gf")" != "in-development" ] || ! git show-ref --verify --quiet "refs/heads/$fb"; then
-        echo "❌ [Issue] Group $(parse_plan_field "$gf" "Plan ID") is not ⚡ In Development with a feature branch." >&2
+# _issue_group_branch <group-file> (P-64): the feature branch of a group that
+# is ⚡ In Development; refuses any other group.
+_issue_group_branch() {
+    local fb
+    fb="$(parse_plan_field "$1" "Feature Branch")"
+    if [ "$(plan_status_slug "$1")" != "in-development" ] || ! git show-ref --verify --quiet "refs/heads/$fb"; then
+        echo "❌ [Issue] Group $(parse_plan_field "$1" "Plan ID") is not ⚡ In Development with a feature branch." >&2
         return 1
     fi
+    echo "$fb"
+}
+
+# _issue_fix_worktree <num> <branch> (P-64, P-78): `.workspace/fix-<num>` on
+# `fix/<num>`, cut from the branch the fix lands on, with the kit links; prints
+# its path.
+_issue_fix_worktree() {
+    local n="$1" fb="$2" ref wt
+    ref="$(aapp_branch_ref "$fb")" || { echo "❌ [Issue] Branch '$fb' does not exist." >&2; return 1; }
     wt="$PRIMARY_ROOT/.workspace/fix-$n"
     if [ -e "$wt" ] || git show-ref --verify --quiet "refs/heads/fix/$n"; then
         echo "❌ [Issue] .workspace/fix-$n or branch fix/$n already exists." >&2
         return 1
     fi
-    git worktree add -q --no-track -b "fix/$n" "$wt" "$fb" || return 1
-    _wt_link_kit "$wt" "Issue" "$fb" || { git worktree remove --force "$wt" >/dev/null 2>&1; git branch -D "fix/$n" >/dev/null 2>&1; return 1; }
+    git worktree add -q --no-track -b "fix/$n" "$wt" "$ref" || return 1
+    _wt_link_kit "$wt" "Issue" "$fb" >&2 || { git worktree remove --force "$wt" >/dev/null 2>&1; git branch -D "fix/$n" >/dev/null 2>&1; return 1; }
     echo "$wt"
 }
 
 cmd_issue_fix() {
-    local sub="${1:-}" n="" files=() plans open limit waited step row="" text f pf pid st t grp="" gfile="" gwt=""
+    local sub="${1:-}" n="" files=() plans open limit waited step row="" text f pf pid st t grp="" gfile="" gwt="" fixbr="" gbr="" use_wt=0
     plans="$(_issue_plans_dir)" || return 1
     _issue_refuse_in_plan_worktree "$plans" || return 1
     case "$sub" in
@@ -865,8 +1071,7 @@ cmd_issue_fix() {
     if [ -n "$grp" ]; then
         [ -n "$n" ] || { echo "❌ [Issue] 'group' needs an issue number: aapp issue fix <num> group <group>." >&2; return 1; }
         gfile="$(_group_resolve "$grp" "Issue")" || return 1
-    elif [ ! -f "$plans/current/fix-${n:-none}.md" ]; then
-        _issue_refuse_off_dev "$n" || return 1
+        gbr="$(_issue_group_branch "$gfile")" || return 1
     fi
 
     # Adding files to the open mini plan of #<num>.
@@ -875,18 +1080,20 @@ cmd_issue_fix() {
         # Re-render with the combined list (the §4 parser stays in aapp-lib.sh),
         # keeping the changelog text, the recorded commits and, for a group's
         # fix, its worktree and group (#132: `close` lands the fix by them).
-        local mp="$plans/current/fix-$n.md" all=() cl commits wtline grp
+        local mp="$plans/current/fix-$n.md" all=() cl commits wtline grp base
         while IFS= read -r f; do [ -n "$f" ] && all+=("$f"); done < <(parse_plan_target_paths "$mp")
         for f in "${files[@]}"; do
             printf '%s\n' "${all[@]}" | grep -qxF "$f" || all+=("$f")
         done
         cl="$(sed -nE 's/^\* \*\*Changelog:\*\* Fixed: //p' "$mp" | head -n 1)"
         commits="$(grep -m 1 -E '^\* \*\*Commits:\*\*' "$mp")"
+        base="$(sed -nE 's/^\* \*\*Base:\*\* //p' "$mp" | head -n 1)"
         wtline="$(sed -nE 's/^\* \*\*Worktree:\*\* //p' "$mp" | head -n 1)"
         grp="$(sed -nE 's/^\* \*\*Group:\*\* //p' "$mp" | head -n 1)"
         _issue_write_mini "$plans" "$n" "$cl" "${all[@]}"
         AAPP_LINE="$commits" awk '/^\* \*\*Commits:\*\*/ && !d { print ENVIRON["AAPP_LINE"]; d = 1; next } { print }' "$mp" > "$mp.tmp" && mv "$mp.tmp" "$mp"
-        if [ -n "$wtline" ]; then write_plan_field "$mp" Worktree "$wtline" Status || return 1; fi
+        if [ -n "$base" ]; then write_plan_field "$mp" Base "$base" Status || return 1; fi
+        if [ -n "$wtline" ]; then write_plan_field "$mp" Worktree "$wtline" "${base:+Base}" || return 1; fi
         if [ -n "$grp" ]; then write_plan_field "$mp" Group "$grp" Worktree || return 1; fi
         plans_commit "fix(files): #$n" "current/fix-$n.md" || return 1
         echo "🩹 [Issue] #$n: files added (${files[*]})."
@@ -943,11 +1150,22 @@ cmd_issue_fix() {
                 _issue_lock_release; echo "❌ [Issue] No files known for #$n: give them with 'file <path>'." >&2; return 1
             fi
         fi
+        # P-78: the fix is made on the issue's branch: here when this checkout
+        # is on it, otherwise in its own worktree cut from it (as a group's
+        # fix on its feature branch, P-64, which `group` names).
+        if [ -n "$gbr" ]; then
+            fixbr="$gbr"; ISSUE_BRANCH_GONE=""
+        else
+            PLANS_DIR="$plans" _issue_branch_state "$n"
+            fixbr="$ISSUE_BRANCH"
+        fi
+        use_wt=0
+        if [ -n "$fixbr" ] && [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" != "$fixbr" ]; then use_wt=1; fi
         # Uncommitted changes in these files would mix into the fix commit:
-        # wait for their owner to commit them (P-58). A group fix works in its
-        # own worktree, on the feature branch (P-64).
+        # wait for their owner to commit them (P-58). A fix in its own worktree
+        # meets none.
         busy=()
-        [ -z "$grp" ] && while IFS= read -r f; do [ -n "$f" ] && busy+=("$f"); done < <(_issue_dirty_files "${files[@]}")
+        [ "$use_wt" -eq 0 ] && while IFS= read -r f; do [ -n "$f" ] && busy+=("$f"); done < <(_issue_dirty_files "${files[@]}")
         if [ ${#busy[@]} -gt 0 ]; then
             _issue_lock_release
             _issue_roll "${busy[*]} has uncommitted changes here" && continue
@@ -955,26 +1173,43 @@ cmd_issue_fix() {
         fi
         break
     done
-    if [ -n "$grp" ]; then
-        gwt="$(_issue_group_worktree "$n" "$gfile")" || { _issue_lock_release; return 1; }
+    if [ "$use_wt" -eq 1 ]; then
+        gwt="$(_issue_fix_worktree "$n" "$fixbr")" || { _issue_lock_release; return 1; }
     fi
+    # The ledger changes with the fix's start: a branch that is gone leaves the
+    # row, a group's fix targets the group's feature branch.
+    local start_paths=("current/fix-$n.md") lp owner=""
+    PLANS_DIR="$plans" _issue_clear_gone_branch "$n" || { _issue_lock_release; return 1; }
+    if [ -n "$gbr" ]; then
+        PLANS_DIR="$plans" ledger_set_cell "$n" branch "$(issue_branch_cell "$gbr")" || { _issue_lock_release; return 1; }
+    fi
+    while IFS= read -r lp; do
+        if [ -n "$lp" ] && [ -n "$(git -C "$plans" status --porcelain -- "$lp")" ]; then start_paths+=("$lp"); fi
+    done < <(PLANS_DIR="$plans" ledger_commit_paths issues)
     # P-66: the entry is written by the fix's first commit (`changelog "<text>"`), never copied from the row.
     _issue_write_mini "$plans" "$n" "" "${files[@]}"
     if [ -n "$gwt" ]; then
-        local gbuf
-        write_plan_field "$plans/current/fix-$n.md" Worktree ".workspace/fix-$n (fix/$n)" Status
-        write_plan_field "$plans/current/fix-$n.md" Group "$(parse_plan_field "$gfile" "Plan ID")" Worktree
+        local gbuf mp="$plans/current/fix-$n.md"
+        # Base names the branch the fix lands on; `close` reads it.
+        write_plan_field "$mp" Base "\`$(git rev-parse --short "fix/$n")\` ($fixbr)" Status
+        write_plan_field "$mp" Worktree ".workspace/fix-$n (fix/$n)" Base
+        if [ -n "$gfile" ]; then
+            owner="$(parse_plan_field "$gfile" "Plan ID")"
+        elif owner="$(PLANS_DIR="$plans" _group_owning_branch "$fixbr")"; then
+            owner="$(parse_plan_field "$plans/current/$owner.md" "Plan ID")"
+        fi
+        [ -z "$owner" ] || write_plan_field "$mp" Group "$owner" Worktree
         gbuf="$(git -C "$gwt" rev-parse --git-path aapp_active_plan)"
         case "$gbuf" in /*) ;; *) gbuf="$gwt/$gbuf" ;; esac
         write_active_buffer "#$n" "$gbuf"
     else
         write_active_buffer "#$n"
     fi
-    plans_commit "fix(start): #$n" "current/fix-$n.md" || { _issue_lock_release; return 1; }
+    plans_commit "fix(start): #$n" "${start_paths[@]}" || { _issue_lock_release; return 1; }
     _issue_lock_release
     if [ -n "$gwt" ]; then
-        echo "🩹 [Issue] Fixing #$n for group $(parse_plan_field "$gfile" "Plan ID") in .workspace/fix-$n (fix/$n, files: ${files[*]})."
-        echo "   Work and 'aapp commit' there; 'aapp issue close $n' lands it on $(parse_plan_field "$gfile" "Feature Branch")."
+        echo "🩹 [Issue] Fixing #$n${owner:+ for group $owner} in .workspace/fix-$n (fix/$n from $fixbr, files: ${files[*]})."
+        echo "   Work and 'aapp commit' there; 'aapp issue close $n' lands it on $fixbr."
         return 0
     fi
     echo "🩹 [Issue] Fixing #$n in current/fix-$n.md (files: ${files[*]}). Commit with 'aapp commit', then 'aapp issue close $n'."
@@ -991,8 +1226,16 @@ _issue_fix_abort() {
         return 1
     fi
     _issue_load_plan_lib || return 1
+    # A fix in its own worktree goes with it (nothing was committed there);
+    # one made in this checkout hands the buffer back.
+    local rec
+    rec="$(parse_plan_worktree "$mp")"
+    if [ -n "$rec" ]; then
+        _issue_drop_fix_worktree "$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")" "${rec#*$'\t'}"
+    else
+        _issue_restore_buffer
+    fi
     rm -f "$mp"
-    _issue_restore_buffer
     plans_commit "fix(abort): #$n" "current/fix-$n.md" || return 1
     echo "↩️  [Issue] #$n's fix abandoned; the issue stays open."
 }
@@ -1010,7 +1253,7 @@ cmd_issue() {
         list)     cmd_issue_list "$@" ;;
         *)
             echo "❌ [Issue] Unknown subcommand '$sub'." >&2
-            echo "Usage: aapp issue [next | allocate | hotfix \"<text>\" [file <path>]… [plan] | fix next-blocker | fix <num> [file <path>…] | fix <num> abort | close <id> [sha <sha>] [summary \"<text>\"] | abort <num> [reason \"<text>\"] | list [<n> | all]]" >&2
+            echo "Usage: aapp issue [next | allocate | hotfix \"<text>\" [file <path>]… [branch <name>] [plan] | fix next-blocker | fix <num> [file <path>…] | fix <num> abort | close <id> [sha <sha>] [summary \"<text>\"] | abort <num> [reason \"<text>\"] | list [<n> | all]]" >&2
             return 1
             ;;
     esac

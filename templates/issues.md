@@ -2,10 +2,10 @@
 
 > **Active Backlog Only:** Every row below is an unresolved defect or gap. When resolved, issues are relocated to `.plans/done/000-issues-archive.md` and pruned from `issues_road_map.md`.
 
-| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #1 | `Medium` | `CORE` | YYYY-MM-DD | `src/core.py:42` | Example issue description stating exact symptom. |  | 🟡 `Incubated` |
-| #2 | `High` | `CLI` | YYYY-MM-DD | `src/cli.py:110` | Example issue whose fix spans multiple modules. | [P-2](current/P2-cli-refactor.md) | 🔵 `Planned` |
+| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #1 | `Medium` | `CORE` | YYYY-MM-DD | `src/core.py:42` | Example issue description stating exact symptom. |  | 🟡 `Incubated` |  |
+| #2 | `High` | `CLI` | YYYY-MM-DD | `src/cli.py:110` | Example issue whose fix spans multiple modules. | [P-2](current/P2-cli-refactor.md) | 🔵 `Planned` |  |
 
 ---
 
@@ -36,3 +36,4 @@
 * **`Target Plan / Fix`**: Written by verbs only, never notes: empty until the issue is promoted (`aapp draft <slug> issue <num>` writes `[P-xx](current/…)`) or blocks a plan (`aapp issue hotfix` writes `blocks [P-xx](…)`). A direct fix writes its changelog entry at its first commit (`aapp commit "<msg>" changelog "<what the fix changed>"`), and `aapp refine issues` refuses any other text here.
 * **`Status`**: `🟡 Incubated` (recorded, unscheduled) · `🔵 Planned` (promoted to a blueprint) · `🟠 In Progress` (active execution).
   *(Note: `✅ Resolved` does NOT exist in this table; resolved items are relocated to `.plans/done/000-issues-archive.md`).*
+* **`Branch`**: The branch the issue's fix must land on. Empty means the development branch (`aapp.devBranch`). Written by verbs: a new row takes the branch it is logged from (in a plan's worktree, the plan's parent branch); `aapp issue hotfix … branch <name>` and `aapp refine issues "<msg>" branch <num> <name>` name another. `aapp issue fix` opens on it, `aapp issue close` requires the fix commit in it, and a plan blocked on the issue resumes once that commit is in the plan's parent branch.

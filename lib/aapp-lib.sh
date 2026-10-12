@@ -726,6 +726,16 @@ resolve_plan_integrate_target() {
     echo "$t"
 }
 
+# plan_base_branch <plan_file>: the plan's parent branch, the one it was cut
+# from (named in `* **Base:**`); nothing for a plan never started.
+plan_base_branch() {
+    local t
+    t="$(awk '/^##[[:space:]]/ { exit } /^\* \*\*Base:\*\*/ { print; exit }' "$1" 2>/dev/null |
+        sed -nE 's/^\* \*\*Base:\*\*[[:space:]]*`[0-9a-fA-F]+`[[:space:]]*\(([^)]+)\).*/\1/p')"
+    case "$t" in ''|detached) return 0 ;; esac
+    echo "$t"
+}
+
 # check_worktree_ignored_files <worktree>: sensitive ignored files a removal
 # would delete (`.env*`, `*.pem`, `*.key`, `*secret*`), one path per line.
 check_worktree_ignored_files() {
@@ -960,8 +970,10 @@ issue_fix_id() {
 # issues_road_map.md: nothing outside this section reads or writes them
 # (tests/issue_ledger_test.sh::test_no_direct_ledger_access).
 #
-# Active:  | # | Sev | Type | Date | Location | Symptom | Target Plan / Fix | Status |
-# Archive: | # | Sev | Type | Date Opened | Date Resolved | Target Commit | Summary |
+# Active:  | # | Sev | Type | Date | Location | Symptom | Target Plan / Fix | Status | [Branch |]
+# Archive: | # | Sev | Type | Date Opened | Date Resolved | Target Commit | Summary | [Branch |]
+# `Branch` (P-78) is where the issue's fix must land; a ledger without the
+# column, or an empty cell, means the development branch.
 # Escaped pipes (\|) inside cells are preserved everywhere.
 
 # Road-map lines: an open entry, and a resolved one (the hook's auto-prune).
@@ -1048,13 +1060,22 @@ ledger_table() {
     cat "$f"
 }
 
-# ledger_row_lines -> every active row, as written, in file order.
+# ledger_row_lines [<status>] -> every active row, as written, in file order;
+# <status> keeps the rows whose status cell contains it.
 ledger_row_lines() {
-    local f
+    local f col
     f="$(ledger_path issues)" || return 0
     [ -f "$f" ] || return 0
-    grep -E "$LEDGER_ROW_RE" "$f" 2>/dev/null
-    return 0
+    if [ -z "${1:-}" ]; then
+        grep -E "$LEDGER_ROW_RE" "$f" 2>/dev/null
+        return 0
+    fi
+    col="$(_ledger_col "$f" "Status")"
+    AAPP_COL="${col:-9}" AAPP_STATUS="$1" AAPP_ROW_RE="$LEDGER_ROW_RE" awk '
+        $0 ~ ENVIRON["AAPP_ROW_RE"] {
+            line = $0; gsub(/\\\|/, "\001", line); split(line, c, "|")
+            if (index(c[ENVIRON["AAPP_COL"] + 0], ENVIRON["AAPP_STATUS"]) > 0) print
+        }' "$f"
 }
 
 # ledger_rows [<status>] -> active rows, one per line, tab-separated: id (#<n>),
@@ -1124,37 +1145,75 @@ ledger_locate() {
     return 0
 }
 
-# ledger_add_row <row>: inserts an active row under the table's separator line.
-# Returns 3 when the ledger has no table.
-ledger_add_row() {
-    local f tmp
-    f="$(ledger_path issues)" || return 1
-    [ -f "$f" ] || return 1
-    tmp="$f.aapp-add.$$"
-    AAPP_ROW="$1" awk '{ print } !d && /^\|[[:space:]]*:---/ { print ENVIRON["AAPP_ROW"]; d = 1 } END { if (!d) exit 3 }' \
-        "$f" > "$tmp" || { rm -f "$tmp"; return 3; }
-    mv "$tmp" "$f"
+# Cells are found by the header's column names (P-78), so a ledger with or
+# without the `Branch` column reads the same. A cell's position is the one
+# awk's split on `|` gives it: the first cell is 2.
+
+# _ledger_col_name <cell> -> the header text a cell's column starts with.
+_ledger_col_name() {
+    case "$1" in
+        link)   echo "Target Plan" ;;
+        status) echo "Status" ;;
+        branch) echo "Branch" ;;
+        commit) echo "Target Commit" ;;
+        *)      return 2 ;;
+    esac
 }
 
-# ledger_set_cell <n> link|status <value>: the two lifecycle cells of an active
-# row; observation cells never change. Returns 2 for another cell, 3 when #<n>
-# is not an active row.
-ledger_set_cell() {
-    local n="$1" cell f tmp
-    case "$2" in
-        link)   cell=8 ;;
-        status) cell=9 ;;
-        *)      echo "❌ [Issue] Only the link and status cells of a row change (not '$2')." >&2; return 2 ;;
-    esac
-    f="$(ledger_path issues)" || return 1
-    [ -f "$f" ] || return 1
-    tmp="$f.aapp-cell.$$"
-    AAPP_N="$n" AAPP_CELL="$cell" AAPP_VALUE="$3" awk '
+# _ledger_col <file> <header-text> -> the column's position; nothing when the
+# table has no such column.
+_ledger_col() {
+    AAPP_NAME="$2" awk '
+        /^[[:space:]]*\|[[:space:]]*#[[:space:]]*\|/ {
+            line = $0; gsub(/\\\|/, "\001", line); k = split(line, c, "|")
+            for (i = 2; i < k; i++) {
+                h = c[i]; gsub(/^[ \t]+|[ \t]+$/, "", h)
+                if (index(h, ENVIRON["AAPP_NAME"]) == 1) { print i; exit }
+            }
+            exit
+        }' "$1"
+}
+
+# _ledger_add_column <file> <header-text>: a further, last column on the table
+# whose header begins with `#`; its cells start empty.
+_ledger_add_column() {
+    local f="$1" tmp="$1.aapp-col.$$"
+    AAPP_NAME="$2" awk '
+        !t && /^[[:space:]]*\|[[:space:]]*#[[:space:]]*\|/ { t = 1; sub(/[[:space:]]*$/, ""); print $0 " " ENVIRON["AAPP_NAME"] " |"; next }
+        t == 1 && /^[[:space:]]*\|/ {
+            sub(/[[:space:]]*$/, "")
+            if ($0 ~ /^[[:space:]]*\|[[:space:]]*:---/) print $0 " :--- |"; else print $0 "  |"
+            next
+        }
+        t == 1 { t = 2 }
+        { print }
+        END { if (!t) exit 3 }
+    ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 3; }
+}
+
+# _ledger_pad_row <file> <row> -> the row with empty cells added up to the
+# header's count.
+_ledger_pad_row() {
+    AAPP_ROW="$2" awk '
+        /^[[:space:]]*\|[[:space:]]*#[[:space:]]*\|/ && !want { line = $0; gsub(/\\\|/, "", line); want = gsub(/\|/, "|", line) }
+        END {
+            row = ENVIRON["AAPP_ROW"]; line = row; gsub(/\\\|/, "", line); have = gsub(/\|/, "|", line)
+            sub(/[[:space:]]*$/, "", row)
+            for (; have < want; have++) row = row "  |"
+            print row
+        }' "$1"
+}
+
+# _ledger_write_cell <file> <n> <position> <value>: returns 3 when #<n> has no
+# row there.
+_ledger_write_cell() {
+    local f="$1" tmp="$1.aapp-cell.$$"
+    AAPP_N="$2" AAPP_CELL="$3" AAPP_VALUE="$4" awk '
         {
             line = $0; gsub(/\\\|/, "\001", line)
-            if (line ~ ("^[[:space:]]*\\|[[:space:]]*`?#" ENVIRON["AAPP_N"] "`?[[:space:]]*\\|")) {
+            if (!done && line ~ ("^[[:space:]]*\\|[[:space:]]*`?#" ENVIRON["AAPP_N"] "`?[[:space:]]*\\|")) {
                 k = split(line, c, "|")
-                if (k >= 10) {
+                if (k > ENVIRON["AAPP_CELL"] + 0) {
                     c[ENVIRON["AAPP_CELL"] + 0] = " " ENVIRON["AAPP_VALUE"] " "
                     out = c[1]; for (j = 2; j <= k; j++) out = out "|" c[j]
                     gsub(/\001/, "\\|", out); print out; done = 1; next
@@ -1166,15 +1225,114 @@ ledger_set_cell() {
     ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 3; }
 }
 
+# ledger_add_row <row>: inserts an active row under the table's separator line,
+# with as many cells as the header has. Returns 3 when the ledger has no table.
+ledger_add_row() {
+    local f tmp row
+    f="$(ledger_path issues)" || return 1
+    [ -f "$f" ] || return 1
+    row="$(_ledger_pad_row "$f" "$1")"
+    tmp="$f.aapp-add.$$"
+    AAPP_ROW="$row" awk '{ print } !d && /^\|[[:space:]]*:---/ { print ENVIRON["AAPP_ROW"]; d = 1 } END { if (!d) exit 3 }' \
+        "$f" > "$tmp" || { rm -f "$tmp"; return 3; }
+    mv "$tmp" "$f"
+}
+
+# ledger_cell <n> link|status|branch|commit [issues|archive] -> the cell of
+# #<n>'s row, as written; nothing when the ledger has no such row or column.
+ledger_cell() {
+    local f name col
+    name="$(_ledger_col_name "$2")" || return 2
+    f="$(ledger_path "${3:-issues}")" || return 0
+    [ -f "$f" ] || return 0
+    col="$(_ledger_col "$f" "$name")"
+    [ -n "$col" ] || return 0
+    AAPP_N="$1" AAPP_COL="$col" awk '
+        {
+            line = $0; gsub(/\\\|/, "\001", line)
+            if (line ~ ("^[[:space:]]*\\|[[:space:]]*`?#" ENVIRON["AAPP_N"] "`?[[:space:]]*\\|")) {
+                split(line, c, "|"); v = c[ENVIRON["AAPP_COL"] + 0]
+                gsub(/^[ \t]+|[ \t]+$/, "", v); gsub(/\001/, "\\|", v); print v; exit
+            }
+        }' "$f"
+}
+
+# ledger_branch <n> -> the branch named in #<n>'s row, active or archived;
+# nothing when none is named (the development branch is meant).
+ledger_branch() {
+    local b
+    b="$(ledger_cell "$1" branch issues)"
+    [ -n "$b" ] || b="$(ledger_cell "$1" branch archive)"
+    printf '%s' "$b" | tr -d '`'
+    [ -z "$b" ] || echo
+}
+
+# ledger_branch_map -> the active rows that name a branch, one per line:
+# id (#<n>), a tab, the branch.
+ledger_branch_map() {
+    local f col
+    f="$(ledger_path issues)" || return 0
+    [ -f "$f" ] || return 0
+    col="$(_ledger_col "$f" "Branch")"
+    [ -n "$col" ] || return 0
+    AAPP_COL="$col" AAPP_ROW_RE="$LEDGER_ROW_RE" awk '
+        $0 ~ ENVIRON["AAPP_ROW_RE"] {
+            line = $0; gsub(/\\\|/, "\001", line); split(line, c, "|")
+            id = c[2]; gsub(/[ \t`]/, "", id); b = c[ENVIRON["AAPP_COL"] + 0]; gsub(/[ \t`]/, "", b)
+            if (b != "") print id "\t" b
+        }' "$f"
+}
+
+# ledger_move_branch <old> <new-cell>: every active row whose Branch cell names
+# <old> gets <new-cell> (empty: no branch named). Prints the ids it changed.
+ledger_move_branch() {
+    local id b
+    while IFS="$(printf '\t')" read -r id b; do
+        [ "$b" = "$1" ] || continue
+        ledger_set_cell "${id#\#}" branch "$2" || return 1
+        echo "$id"
+    done < <(ledger_branch_map)
+}
+
+# ledger_set_cell <n> link|status|branch <value>: the cells of an active row
+# that change over its life; observation cells never change. The `Branch`
+# column is added by the first write that names a branch. Returns 2 for another
+# cell, 3 when #<n> is not an active row.
+ledger_set_cell() {
+    local n="$1" name cell f
+    case "$2" in
+        link|status|branch) name="$(_ledger_col_name "$2")" ;;
+        *)      echo "❌ [Issue] Only the link, status and branch cells of a row change (not '$2')." >&2; return 2 ;;
+    esac
+    f="$(ledger_path issues)" || return 1
+    [ -f "$f" ] || return 1
+    cell="$(_ledger_col "$f" "$name")"
+    if [ -z "$cell" ] && [ "$2" = "branch" ]; then
+        # No branch named and no column: nothing to write.
+        if [ -z "$3" ]; then
+            if ledger_row "$n" >/dev/null; then return 0; fi
+            return 3
+        fi
+        _ledger_add_column "$f" "Branch" || return 3
+        cell="$(_ledger_col "$f" "$name")"
+    fi
+    # A table without its header row: the positions the template gives them.
+    if [ -z "$cell" ]; then
+        case "$2" in link) cell=8 ;; status) cell=9 ;; esac
+    fi
+    _ledger_write_cell "$f" "$n" "$cell" "$3"
+}
+
 # ledger_archive_row <n> <sha>|aborted [summary]: moves the active row to the
 # top of the archive and prunes its road-map line. Does not commit. Returns 0
 # when moved; fails when the row is not active.
 ledger_archive_row() {
     local n="$1" sha="$2" summary="${3:-}"
-    local active archive re row today archive_row tmp
+    local active archive re row today archive_row tmp branch col
     active="$(ledger_path issues)" || return 1
     archive="$(ledger_path archive)" || return 1
     re="$(_ledger_row_regex "$n")"
+    branch="$(ledger_cell "$n" branch issues)"
 
     if [ ! -f "$archive" ]; then
         echo "❌ [Issue] Archive not found: $archive" >&2
@@ -1199,6 +1357,12 @@ ledger_archive_row() {
             gsub(/\\\|/, "\001", s); gsub(/\|/, "\001", s); gsub("\001", "\\|", s)
             printf "| %s | %s | %s | %s | %s | `%s` | %s |\n", c[2], c[3], c[4], c[5], ENVIRON["AAPP_TODAY"], ENVIRON["AAPP_SHA"], s
         }' <<< "$row")"
+    # The branch the fix landed on travels with the row (P-78).
+    if [ -n "$branch" ] && [ -z "$(_ledger_col "$archive" "Branch")" ]; then
+        _ledger_add_column "$archive" "Branch" || {
+            echo "❌ [Issue] No table header found in $archive." >&2; return 1; }
+    fi
+    archive_row="$(_ledger_pad_row "$archive" "$archive_row")"
 
     tmp="$archive.aapp-issue.$$"
     AAPP_ROW="$archive_row" awk '
@@ -1211,6 +1375,10 @@ ledger_archive_row() {
         return 1
     }
     mv "$tmp" "$archive"
+    if [ -n "$branch" ]; then
+        col="$(_ledger_col "$archive" "Branch")"
+        _ledger_write_cell "$archive" "$n" "$col" "$branch" || return 1
+    fi
 
     tmp="$active.aapp-issue.$$"
     # grep -v exits 1 when every line matched; an emptied table is still valid.
@@ -1226,11 +1394,12 @@ ledger_archive_row() {
 # cell; observation cells never change) and in the road map's lines. Prints the
 # number of links rewritten; non-zero only on a write failure.
 ledger_relink() {
-    local old="$1" new="$2" f tmp count=0 n
+    local old="$1" new="$2" f tmp count=0 n col
     f="$(ledger_path issues)" || f=""
     if [ -n "$f" ] && [ -f "$f" ]; then
         tmp="$f.aapp-relink.$$"
-        AAPP_OLD="]($old)" AAPP_NEW="]($new)" AAPP_ROW_RE="$LEDGER_ROW_RE" awk '
+        col="$(_ledger_col "$f" "Target Plan")"
+        AAPP_COL="${col:-8}" AAPP_OLD="]($old)" AAPP_NEW="]($new)" AAPP_ROW_RE="$LEDGER_ROW_RE" awk '
             function swap(s,    out, i, o) {
                 o = ENVIRON["AAPP_OLD"]; out = ""
                 while ((i = index(s, o)) > 0) { out = out substr(s, 1, i - 1) ENVIRON["AAPP_NEW"]; s = substr(s, i + length(o)); n++ }
@@ -1239,8 +1408,9 @@ ledger_relink() {
             $0 ~ ENVIRON["AAPP_ROW_RE"] {
                 line = $0; gsub(/\\\|/, "\001", line)
                 k = split(line, c, "|")
-                if (k >= 9) {
-                    c[8] = swap(c[8]); out = c[1]
+                p = ENVIRON["AAPP_COL"] + 0
+                if (k > p) {
+                    c[p] = swap(c[p]); out = c[1]
                     for (j = 2; j <= k; j++) out = out "|" c[j]
                     gsub(/\001/, "\\|", out); print out; next
                 }
@@ -1276,6 +1446,26 @@ roadmap_entries() {
     [ -f "$f" ] || return 0
     grep -E "$LEDGER_ROADMAP_OPEN_RE" "$f" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '✅|[Rr]esolved|DONE' |
         if [ -n "${1:-}" ]; then head -n "$1"; else cat; fi
+    return 0
+}
+
+# roadmap_entries_by_branch <current> <dev> [<cap>] (P-78) -> the same lines,
+# each with its issue's branch, those of <current> first. While no issue names
+# a branch every issue is on the development branch: the lines are as they are.
+roadmap_entries_by_branch() {
+    local map
+    map="$(ledger_branch_map)"
+    if [ -z "$map" ]; then roadmap_entries "${3:-}"; return 0; fi
+    roadmap_entries | AAPP_MAP="$map" AAPP_CUR="$1" AAPP_DEV="$2" AAPP_RE="$AAPP_ISSUE_REF_RE" awk '
+        BEGIN { n = split(ENVIRON["AAPP_MAP"], m, "\n"); for (i = 1; i <= n; i++) { split(m[i], kv, "\t"); br[kv[1]] = kv[2] } }
+        {
+            id = ""; if (match($0, ENVIRON["AAPP_RE"])) id = substr($0, RSTART, RLENGTH)
+            b = (id in br) ? br[id] : ENVIRON["AAPP_DEV"]
+            line = $0 ((b != "") ? "  (branch: " b ")" : "")
+            if (b == ENVIRON["AAPP_CUR"]) print line; else rest[++r] = line
+        }
+        END { for (i = 1; i <= r; i++) print rest[i] }' |
+        if [ -n "${3:-}" ]; then head -n "$3"; else cat; fi
     return 0
 }
 

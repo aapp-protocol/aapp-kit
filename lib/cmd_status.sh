@@ -8,7 +8,9 @@
 # 3. Plans     (.plans/state_matrix.md active plans)
 # 4. Pickup    (.plans/pickup.md unprocessed ideas)
 #
-# Strictly read-only observer: never writes to disk or dirties working trees.
+# An observer of the code: it never touches a working tree. On the plans branch
+# it re-derives the state matrix and unblocks the plans whose fix has reached
+# their parent branch (P-78).
 # ==============================================================================
 set -e
 
@@ -52,6 +54,21 @@ fi
 TOTAL_PLANS=0
 if [ -d ".plans/current" ]; then
     TOTAL_PLANS=$(find .plans/current -maxdepth 1 -name "*.md" ! -name "000-*" 2>/dev/null | wc -l | tr -d ' ')
+fi
+
+# P-78: a plan left blocked on a closed issue resumes once the fix commit is in
+# its parent branch. The briefing is where that is noticed: the plan is
+# unblocked (one commit on the plans branch) and the lines are shown under
+# Plans. Not while a plugin step runs, nor for the one-line overview.
+UNBLOCK_OUT=""
+if [ -z "${AAPP_PLUGIN_STEP:-}" ] && [ "${1:-}" != "short" ] && [ "${1:-}" != "summary" ] && \
+   [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_issue.sh" ] && \
+   grep -qs '^\* \*\*Blocked On:\*\*' .plans/current/*.md; then
+    UNBLOCK_OUT="$(
+        # shellcheck source=/dev/null
+        . "$AAPP_LIB/cmd_issue.sh" 2>/dev/null || exit 0
+        issue_unblock_landed 2>&1 || true
+    )"
 fi
 
 # Re-derive the matrix before anything reads it, so the briefing reports the
@@ -281,8 +298,22 @@ echo ""
 echo "🐛 [2/4] ISSUES (Canonical Bugs & Road Map)"
 HAS_ISSUES=0
 
+# P-78: the branch issues are seen from (a plan worktree: its parent branch) and
+# the development branch, as `aapp issue list` takes them.
+STATUS_BRANCH=""; STATUS_DEV_BRANCH=""
+if [ -n "$ISSUES_FILE" ] && [ -n "$(ledger_branch_map)" ] && [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_issue.sh" ]; then
+    STATUS_BRANCHES="$(
+        # shellcheck source=/dev/null
+        . "$AAPP_LIB/cmd_issue.sh" 2>/dev/null || exit 0
+        echo "$(issue_logging_branch)"; echo "$(_issue_dev_branch)"
+    )"
+    STATUS_BRANCH="$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 1p)"
+    STATUS_DEV_BRANCH="$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 2p)"
+fi
+
 if [ -n "$ROADMAP_FILE" ]; then
-    TOP_ISSUES=$(roadmap_entries 5 || true)
+    # With their branch, this branch's issues first, once any issue names one.
+    TOP_ISSUES=$(roadmap_entries_by_branch "$STATUS_BRANCH" "$STATUS_DEV_BRANCH" 5 || true)
     if [ -n "$TOP_ISSUES" ]; then
         echo "$TOP_ISSUES" | sed 's/^/  /'
         HAS_ISSUES=1
@@ -300,6 +331,16 @@ fi
 
 if [ "$HAS_ISSUES" -eq 0 ]; then
     echo "  (No open issues in issues_road_map.md or ISSUES.md)"
+fi
+
+# P-78: an issue whose branch is gone is fixed on the development branch;
+# said here before `issue fix` or `issue close` meets it.
+if [ -n "$ISSUES_FILE" ]; then
+    while IFS="$(printf '\t')" read -r GONE_ID GONE_BRANCH; do
+        [ -n "$GONE_BRANCH" ] || continue
+        aapp_branch_ref "$GONE_BRANCH" >/dev/null && continue
+        echo "  ⚠️  $GONE_ID targets '$GONE_BRANCH', which no longer exists: its fix will land on '${STATUS_DEV_BRANCH:-the development branch}' (another target: aapp refine issues \"<msg>\" branch ${GONE_ID#\#} <name>)."
+    done < <(ledger_branch_map)
 fi
 
 # Non-destructive drift and unsequenced reporting
@@ -321,6 +362,9 @@ fi
 # 3. Plans
 echo ""
 echo "🗺️  [3/4] PLANS (State Matrix / Active Blueprints)"
+if [ -n "$UNBLOCK_OUT" ]; then
+    echo "$UNBLOCK_OUT" | sed 's/^/  /'
+fi
 # plan_line <file> <prefix>: one plan's line in the briefing.
 plan_line() {
     local P="$1" BASENAME STATUS STATUS_CLEAN PLAN_ID="" WT_REC

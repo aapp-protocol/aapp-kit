@@ -143,14 +143,6 @@ git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/
 git config aapp.issueId 5
 GXPRIM="$(git rev-parse --abbrev-ref HEAD)"
 
-head0="$(git -C .plans rev-parse HEAD)"
-out="$(aapp issue fix 3 2>&1)"; rc=$?
-if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "develop" && [ ! -f .plans/current/fix-3.md ] && [ "$(git -C .plans rev-parse HEAD)" = "$head0" ]; then
-  ok "test_fix_refuses_off_development_branch"
-else
-  bad "test_fix_refuses_off_development_branch" "rc=$rc out=$out"
-fi
-
 gid="P-$(git config aapp.planId)"; aapp draft fixgrp group >/dev/null 2>&1
 gfile="$(ls .plans/current/P"${gid#P-}"-*.md)"
 sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$gfile"; git -C .plans commit -qam prep >/dev/null 2>&1
