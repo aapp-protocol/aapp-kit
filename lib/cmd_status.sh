@@ -34,26 +34,19 @@ elif [ -f "$REPO_ROOT/lib/plan_resolver.sh" ]; then
 fi
 
 # Compute Overview Metrics
-ISSUES_FILE=""
-if [ -f ".plans/ISSUES.md" ]; then
-    ISSUES_FILE=".plans/ISSUES.md"
-elif [ -f "ISSUES.md" ]; then
-    ISSUES_FILE="ISSUES.md"
-fi
+# The issue ledgers are read through the ledger functions of lib/aapp-lib.sh (P-73).
+ISSUES_FILE="$(ledger_path issues)" || ISSUES_FILE=""
+[ -f "$ISSUES_FILE" ] || ISSUES_FILE=""
 TOTAL_ISSUES=0
 if [ -n "$ISSUES_FILE" ]; then
-    TOTAL_ISSUES=$(grep -E '^[[:space:]]*\|[[:space:]]*`?#[0-9]+' "$ISSUES_FILE" 2>/dev/null | wc -l | tr -d ' ')
+    TOTAL_ISSUES=$(ledger_row_lines | wc -l | tr -d ' ')
 fi
 
-ROADMAP_FILE=""
-if [ -f ".plans/issues_road_map.md" ]; then
-    ROADMAP_FILE=".plans/issues_road_map.md"
-elif [ -f "issues_road_map.md" ]; then
-    ROADMAP_FILE="issues_road_map.md"
-fi
+ROADMAP_FILE="$(ledger_path roadmap)" || ROADMAP_FILE=""
+[ -f "$ROADMAP_FILE" ] || ROADMAP_FILE=""
 TOP_ROADMAP_ISSUES=""
 if [ -n "$ROADMAP_FILE" ]; then
-    TOP_ROADMAP_ISSUES=$(grep -E '^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ ]?\]|\*)[[:space:]]*`?#?[0-9]+' "$ROADMAP_FILE" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '✅|[Rr]esolved|DONE' | grep -o -E '#[0-9]+' | head -n 3 | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+    TOP_ROADMAP_ISSUES=$(roadmap_entries | grep -o -E '#[0-9]+' | head -n 3 | tr '\n' ',' | sed 's/,$//; s/,/, /g')
 fi
 
 TOTAL_PLANS=0
@@ -287,32 +280,18 @@ fi
 echo ""
 echo "🐛 [2/4] ISSUES (Canonical Bugs & Road Map)"
 HAS_ISSUES=0
-ROADMAP_FILE=""
-if [ -f ".plans/issues_road_map.md" ]; then
-    ROADMAP_FILE=".plans/issues_road_map.md"
-elif [ -f "issues_road_map.md" ]; then
-    ROADMAP_FILE="issues_road_map.md"
-fi
 
 if [ -n "$ROADMAP_FILE" ]; then
-    ROADMAP_ACTIVE_REGEX='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ ]?\]|\*)[[:space:]]*`?#?[0-9]+'
-    TOP_ISSUES=$(grep -E "$ROADMAP_ACTIVE_REGEX" "$ROADMAP_FILE" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '✅|[Rr]esolved|DONE' | head -n 5 || true)
+    TOP_ISSUES=$(roadmap_entries 5 || true)
     if [ -n "$TOP_ISSUES" ]; then
         echo "$TOP_ISSUES" | sed 's/^/  /'
         HAS_ISSUES=1
     fi
 fi
 
-ISSUES_FILE=""
-if [ -f ".plans/ISSUES.md" ]; then
-    ISSUES_FILE=".plans/ISSUES.md"
-elif [ -f "ISSUES.md" ]; then
-    ISSUES_FILE="ISSUES.md"
-fi
-
 if [ -n "$ISSUES_FILE" ] && [ "$HAS_ISSUES" -eq 0 ]; then
-    # Active ISSUES.md holds only active rows
-    OPEN_ISSUES=$(grep -E '^[[:space:]]*\|[[:space:]]*`?#?[0-9]+' "$ISSUES_FILE" 2>/dev/null | head -n 5 || true)
+    # The active ledger holds only active rows
+    OPEN_ISSUES=$(ledger_row_lines | head -n 5 || true)
     if [ -n "$OPEN_ISSUES" ]; then
         echo "$OPEN_ISSUES" | sed 's/^/  /'
         HAS_ISSUES=1
