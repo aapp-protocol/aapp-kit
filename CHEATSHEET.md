@@ -148,6 +148,9 @@ AAPP controls repository behavior via standard Git configuration:
 | `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | The kit's issue counter (`aapp issue log` takes the next id when no tracker numbers the issue; seeded from both issue ledgers on first use). |
 | `aapp.issueSyncWindow` | minutes | `15` | `aapp status` | Least time between two syncs with a provider that lists issues (P-74). |
 | `aapp.issueCacheMax` | integer | `200` | `aapp issue list`, `aapp status` | Open issues kept from a tracker's listing (P-74). |
+| `aapp.offlineEnabled` | boolean | `true` | Offline (P-75) | `false`: a failing provider refuses and nothing is staged in `.offline`. |
+| `aapp.offlineOnly` | boolean | `false` | Offline (P-75) | `true` (`aapp offline on`): the provider is not asked; issues and draft plans are staged at once. |
+| `aapp.offlineIdOffset` | integer | `1000` | Offline (P-75) | Distance between the highest known id and the first temporary offline id. |
 | `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
 | `aapp.aiAttribution` | `none` / `lax` / `strict` / `notes` | `none` | AI Attribution | Attribution mode: none (default; human-only), lax (mixed human/AI), strict (mandatory trailers), notes (private git notes). |
 | `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |

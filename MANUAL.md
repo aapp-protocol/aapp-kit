@@ -1478,6 +1478,35 @@ aapp refine P-51 unblocked 42           # the manual unblock, when the fix trave
 - **A branch that is gone.** When the kit removes a branch itself (a group's `done`, a plan's abort), the open issues that targeted it move to its parent branch in the same step. When a branch was deleted any other way, nothing blocks: `issue fix` and `issue close` take the development branch instead, clear the cell and say so (`#12 targeted test-oct, which no longer exists; it now targets develop`). `aapp status` reports such issues beforehand. Set another target with the `branch` token.
 - **Views.** Once an open issue names a branch, `aapp status` and `aapp issue list` show each issue's branch, the current branch's issues first.
 
+#### Working Offline: the `.offline` Worktree (`aapp offline`, P-75)
+
+With a provider installed, the tracker numbers the issues, so an issue cannot be logged while the tracker is unreachable: on a plane, on a closed network, during an outage. The kit then **stages** the work in a worktree of its own, `.offline`, and publishes it later.
+
+```bash
+aapp issue log High CORE "Sync loses a record" file lib/sync.sh   # the tracker does not answer: staged as #1043
+aapp offline status            # what is staged
+aapp offline on                # skip the provider entirely for this session (no waiting); 'off' ends it
+aapp offline sync              # back online: publish; #1043 gets its real id
+aapp offline unmount           # remove the worktree once nothing is staged
+```
+
+- **The worktree.** `.offline` is mounted on demand on an orphan branch, `offline`, with ledgers in the same format as the main ones, an `outbox`, and `current/` for draft plans. It is listed in `.git/info/exclude`, so mounting it commits nothing to any shared branch. What the kit does there is committed on `offline`: a local history of what was logged, fixed and closed offline. **It is never pushed**: `aapp push` and `aapp sync` do not handle it, and refuse when `aapp.syncWorktrees` names it.
+- **Why a worktree of its own.** An offline id is temporary. It must never be committed to the plans branch or mixed with the record's rows; keeping offline rows apart by location, not by a marker, means no reader needs a special case.
+- **Temporary ids.** A staged issue is numbered one above the highest offline id; the first one takes the highest id in the main ledgers plus `aapp.offlineIdOffset` (default `1000`), far from anything colleagues may log meanwhile. A draft plan gets a temporary plan id by the same rule when the `aapp-planid` provider is unreachable, and is written to `.offline/current/`.
+- **Three modes.**
+
+  | Mode | Setting | What happens |
+  |---|---|---|
+  | Smart fallback (default) | — | The provider is asked first. When it fails or does not answer within `aapp.pluginTimeout` seconds, the issue is staged offline, with a line saying so |
+  | Offline only | `aapp offline on` (`aapp.offlineOnly true`) | The provider is not asked at all: no network, no waiting |
+  | Strict | `aapp.offlineEnabled false` | A failing provider refuses, and nothing is staged. For projects that must not hold unrecorded issues |
+
+  Without any provider nothing is ever staged: the kit numbers and logs locally, online or not.
+- **A staged issue is an issue.** `aapp status` and `aapp issue list` show it, marked as offline; a plan can be blocked on it; it can be fixed, closed and withdrawn. Closed or withdrawn offline, it moves to the offline archive. Its steps are not sent to the tracker, which does not know it yet: they travel with it at the sync.
+- **The outbox.** A step for an issue the tracker *does* know (a close, a note, a withdrawal) that cannot be sent is kept in `.offline/outbox`, in order. It is sent before anything is read from the tracker; while a line remains, the tracker's listing is not applied, so a close made offline is never undone by a sync.
+- **`aapp offline sync`** publishes, in this order: the outbox; each staged issue, oldest first (the tracker gets the whole issue with its description and notes, and returns the real id); issues closed or withdrawn offline, with how they ended; draft plans, which land in `.plans/current/` as `🟣 Under Review` under their real plan id. Every reference to a temporary id is rewritten: the plans' `Target Issue` and `Blocked On`, the road map, staged drafts, the store of descriptions and notes. What the tracker fails on stays staged and is reported; the rest is published. One commit on the plans branch holds the ledgers and the changed plans, or only the plans where the tracker keeps the record.
+- **Commits are never rewritten.** A fix committed offline as `(#1043)` keeps that subject for good. The issue's archive row records `logged offline as #1043`, and the kit resolves the former id to the real one wherever an id is looked up.
+
 ---
 
 ### Plan Worktrees (`aapp.planWorktrees`, P-54)
@@ -2032,6 +2061,9 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | The kit's issue counter (`aapp issue log` takes the next id when no tracker numbers the issue; seeded from both issue ledgers on first use). |
 | `aapp.issueSyncWindow` | minutes | `15` | `aapp status` | Least time between two syncs with a provider that lists issues, counted from the last attempt (P-74). |
 | `aapp.issueCacheMax` | integer | `200` | `aapp issue list`, `aapp status` | Open issues kept from a tracker's listing; issues the plans depend on are kept beyond it (P-74). |
+| `aapp.offlineEnabled` | boolean | `true` | Offline (P-75) | `false`: a failing provider refuses and nothing is staged in `.offline`. |
+| `aapp.offlineOnly` | boolean | `false` | Offline (P-75) | `true` (`aapp offline on`): the provider is not asked; issues and draft plans are staged at once. |
+| `aapp.offlineIdOffset` | integer | `1000` | Offline (P-75) | Distance between the highest known id and the first temporary offline id. |
 | `aapp.pluginTimeout` | seconds | `10` | Plugins | How long a plugin step may take (P-77). |
 | `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
 | `aapp.aiAttribution` | `none` / `commit` / `notes` | `none` | AI Attribution | Attribution mode (emailless semantic trailers vs. git notes vs. human). |
