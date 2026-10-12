@@ -1,8 +1,8 @@
 # 🗺️ Plan P-82: Issue Fix Safeguards
 * **Created:** 2026-10-12 | **Last Refined:** 2026-10-12
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-82
-* **Changelog:** Changed: Issue Fix Safeguards
+* **Changelog:** Changed: an issue fix opens only when no plan in development lists its files, and a file outside the issue's row needs a person's confirmation (P-82)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,17 +38,24 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+A plan's files are fixed by a person at freeze. An issue fix has no such gate, and it does not look at the plans in development:
+
+- **No collision check when a fix opens.** `aapp issue fix <n>` waits for uncommitted changes in its files in this checkout; the `group` form skips even that. Neither form looks at whether a plan in development lists one of the fix's files. A fix landed on a group's feature branch while a member edits the same file leaves that member unable to fast-forward. The only signal today is a line at `close`: "P-xx also lists <file>".
+- **The file list widens without approval.** A fix's files come from the issue row's Location; `aapp issue fix <n> file <path>` adds any file to an open fix. An agent can name files nobody intended to change.
+
+This plan makes a fix start only when it cannot collide, and puts a person in front of a widened file list.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+**To be settled when the plan is taken up; the two rules below are the starting point.**
+
+1. **Collision check at open, both forms.** When a plan in development lists one of the fix's files in its Target Files, `issue fix` waits and then refuses, as it does for uncommitted changes, naming the plan and the file. For the `group` form the plans looked at are that group's members; for a fix on the development branch, the plans branched from it.
+2. **A person approves a widened file list.** The files named in the issue's row are the fix's scope. `file <path>` naming a file outside it asks `[y/N]` on a terminal and needs the bare token `confirm` without one.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
@@ -57,19 +64,21 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/issue.fixes.sh::test_fix_refuses_file_of_plan_in_development` -> asserts a fix whose file a plan in development lists waits, then refuses, naming the plan and the file
+- [ ] `tests/verbs/issue.fixes.sh::test_group_fix_refuses_file_of_member_in_development` -> asserts the same for `fix … group` against the group's member in development
+- [ ] `tests/verbs/issue.fixes.sh::test_added_file_needs_confirm` -> asserts `fix <n> file <path>` outside the row's Location refuses without `confirm` when there is no terminal, and adds the file with it
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Write the three tests; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: The collision check when a fix opens.
+- [ ] Task 2.2: The confirmation for a file outside the issue's row.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [ ] Task 3.2: Update `MANUAL.md`, the issue contract, `templates/AGENTS.md` and the fix skill.
+- [ ] Task 3.3: Update `.agents/CODEMAP.md`.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
 - [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
@@ -79,29 +88,29 @@
 *Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_issue.sh` -> The collision check and the confirmation in `cmd_issue_fix`.
+- [ ] `lib/docs/verbs/issue.md` -> Contract.
+- [ ] `templates/AGENTS.md` -> A fix's files are the issue's; widening needs a person.
+- [ ] `templates/skills/aapp-fix/SKILL.md` -> The same.
+- [ ] `MANUAL.md` -> Issue fix flow.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/verbs/issue.fixes.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/blast-radius-guard.sh` -> The guard already confines a fix to its mini plan's files.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** Are the two rules of §2 the ones wanted, and does the confirmation apply to every added file or only to the `group` form?
+* [ ] **Question 2:** This plan changes `lib/cmd_issue.sh`, which group P-72 rewrites: start it after the group lands?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-12:** Plan initialized from `pickup.md`.
-* **2026-10-12:** Refined blast radius and locked module boundaries.
+* **2026-10-13:** Drafted.
