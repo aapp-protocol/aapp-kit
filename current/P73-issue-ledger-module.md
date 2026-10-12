@@ -92,31 +92,31 @@ The health checks stay in `planning_health.sh` and read through these functions.
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/issue_ledger_test.sh::test_rows_keep_escaped_pipes` -> asserts a row with `\|` in a cell yields its eight cells unchanged
-- [ ] `tests/issue_ledger_test.sh::test_locate_active_archive_unknown` -> asserts `ledger_locate` prints `active`, `archive`, or nothing
-- [ ] `tests/issue_ledger_test.sh::test_set_cell_changes_lifecycle_only` -> asserts `ledger_set_cell` changes only the link or status cell and refuses any other
-- [ ] `tests/issue_ledger_test.sh::test_archive_row_moves_and_prunes` -> asserts the row leaves `ISSUES.md`, lands in the archive, and its road-map entry is gone
-- [ ] `tests/issue_ledger_test.sh::test_archive_row_aborted` -> asserts a withdrawn issue is archived with `aborted` in the commit cell
-- [ ] `tests/issue_ledger_test.sh::test_relink_ledger_and_roadmap` -> asserts a plan link is rewritten in both files
-- [ ] `tests/issue_ledger_test.sh::test_path_resolves_in_each_place` -> asserts `ledger_path` finds the ledger from the main checkout, from inside the plans worktree, and at the repository root
-- [ ] `tests/issue_ledger_test.sh::test_roadmap_entries_and_blockers` -> asserts open lines and the `🧱 Plan Blockers` ids are returned, resolved lines are not
-- [ ] `tests/issue_ledger_test.sh::test_roadmap_prune` -> asserts one issue's line, and every resolved line, are removed
-- [ ] `tests/issue_ledger_test.sh::test_no_direct_ledger_access` -> asserts no code outside the ledger section of `lib/aapp-lib.sh` reads or writes a ledger
+- [x] `tests/issue_ledger_test.sh::test_rows_keep_escaped_pipes` -> asserts a row with `\|` in a cell yields its eight cells unchanged
+- [x] `tests/issue_ledger_test.sh::test_locate_active_archive_unknown` -> asserts `ledger_locate` prints `active`, `archive`, or nothing
+- [x] `tests/issue_ledger_test.sh::test_set_cell_changes_lifecycle_only` -> asserts `ledger_set_cell` changes only the link or status cell and refuses any other
+- [x] `tests/issue_ledger_test.sh::test_archive_row_moves_and_prunes` -> asserts the row leaves `ISSUES.md`, lands in the archive, and its road-map entry is gone
+- [x] `tests/issue_ledger_test.sh::test_archive_row_aborted` -> asserts a withdrawn issue is archived with `aborted` in the commit cell
+- [x] `tests/issue_ledger_test.sh::test_relink_ledger_and_roadmap` -> asserts a plan link is rewritten in both files
+- [x] `tests/issue_ledger_test.sh::test_path_resolves_in_each_place` -> asserts `ledger_path` finds the ledger from the main checkout, from inside the plans worktree, and at the repository root
+- [x] `tests/issue_ledger_test.sh::test_roadmap_entries_and_blockers` -> asserts open lines and the `🧱 Plan Blockers` ids are returned, resolved lines are not
+- [x] `tests/issue_ledger_test.sh::test_roadmap_prune` -> asserts one issue's line, and every resolved line, are removed
+- [x] `tests/issue_ledger_test.sh::test_no_direct_ledger_access` -> asserts no code outside the ledger section of `lib/aapp-lib.sh` reads or writes a ledger
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/issue_ledger_test.sh`; confirm red.
+- [x] Task 1.1: Write `tests/issue_ledger_test.sh`; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Write the ledger section in `lib/aapp-lib.sh`; the module tests pass.
-- [ ] Task 2.2: Move callers onto it one file per commit (`cmd_issue`, `cmd_plan`, `cmd_status`, `planning_health`, `plan_resolver`, `aapp-pre-commit`); the full suite stays green after each.
-- [ ] Task 2.3: `test_no_direct_ledger_access` passes.
+- [x] Task 2.1: Write the ledger section in `lib/aapp-lib.sh`; the module tests pass.
+- [x] Task 2.2: Move callers onto it one file per commit (`cmd_issue`, `cmd_plan`, `cmd_status`, `planning_health`, `plan_resolver`, `aapp-pre-commit`); the full suite stays green after each.
+- [x] Task 2.3: `test_no_direct_ledger_access` passes.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
