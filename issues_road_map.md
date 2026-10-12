@@ -28,6 +28,7 @@
 
 ## 📥 Triage (Incoming / Unsequenced)
 *Newly logged issues awaiting prioritization.*
+- [ ] #133 -> A refused first fix commit leaves its changelog entry written; the retry refuses the token.
 - [ ] #130 -> Setup advisories read `ISSUES.md` outside the ledger functions.
 - [ ] #129 -> `aapp init` sets itself up in `$HOME` when the home directory is a git repository.
 - [ ] #126 -> A project cannot declare its `aapp.*` settings: all are per-clone git config.
