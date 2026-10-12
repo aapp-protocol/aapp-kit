@@ -48,7 +48,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 ## 2. Technical Blueprint
 
 ### 2.1 Logging: the handler
-`aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]`. The agent hands the issue over and never writes a row; the handler gets the id, writes the row through the ledger functions and, when the ledger is committed, commits it. `issue hotfix` logs through the same handler.
+`aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]`. The agent hands the issue over and never writes a row; the handler gets the id, writes the row through the ledger functions and, when the ledger is committed, commits it. `issue hotfix` logs through the same handler. `branch <name>` is optional: without it the row names no branch (the development branch); the handler never takes one from the checkout it is run in.
 
 **Retired once the handler is the only writer of new rows** (in this order):
 1. `refine issues` refuses a change that adds a row and names `aapp issue log`.
