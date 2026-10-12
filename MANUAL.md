@@ -1358,7 +1358,19 @@ aapp issue list               # active issues in road-map order (top 20; 'list 5
 
 #### Plugin Payload Standard
 
-Every plugin the kit calls (`aapp-planid`, `aapp-issue-tracker`) uses the same **Dual Delivery** contract as lifecycle hooks: the JSON envelope on stdin plus `AAPP_*` environment variables, and one flat JSON object on stdout (`{"id": …}`, `{"status": …}` or `{"error": …}`), with the exit code deciding success. The envelope's `repository.remote` (`{"name", "url"}`, credentials stripped, `null` without a remote) tells a team authority which project is calling, and the reserved `extra` object (`{}`) leaves room for arbitrary data; a response may carry its own `extra`, which the kit ignores. The full reference is in `.agents/CODEMAP.md` §5.
+Every plugin the kit calls (`aapp-planid`, `aapp-issue-tracker`) uses the same **Dual Delivery** contract as lifecycle hooks: the JSON envelope on stdin plus `AAPP_*` environment variables, and one flat JSON object on stdout (`{"id": …}`, `{"status": …}` or `{"error": …}`), with the exit code deciding success. The envelope's `repository.remote` (`{"name", "url"}`, credentials stripped, `null` without a remote) tells a team authority which project is calling, and the reserved `extra` object (`{}`) leaves room for arbitrary data; a response may carry its own `extra`, which the kit ignores.
+
+#### The Plugin Protocol (issue steps)
+
+For the issue steps the answer says more, and the plugin can ask the kit to act. The full reference is [docs/reference/06-plugin-protocol.md](docs/reference/06-plugin-protocol.md), with the issue events, fields and commands in [docs/reference/07-issue-protocol.md](docs/reference/07-issue-protocol.md). In short:
+
+- **The answer** may carry `status` (`ok`, `declined`, `failed`), a `message` the kit shows, and `handled`: what the plugin took care of. Whatever it does not name, the kit does.
+- **The `do` list.** The plugin writes aapp commands, as a person types them, one per line, into the file named by `AAPP_PLUGIN_DO`. The kit runs them after the step is over, in order, from a short list of accepted commands (`issue close`, `issue abort`); a refused line is reported and the rest still run.
+- **During a step** a plugin cannot change the project through `aapp`: a writing verb run from inside it is refused and names the `do` list. Reading verbs work.
+- **Time.** A plugin has `aapp.pluginTimeout` seconds to answer (default 10); a slower one is ended and counts as failed.
+- **Credentials** are the plugin's own business: the envelope carries none and the kit stores none.
+
+Plans are not covered yet: `aapp-planid` keeps the contract above. A plugin or script of your own, not called by the kit under a reserved name, is outside this protocol: to the kit it is a command-line user like any other, and the command line's own locks and checks are its only safeguard. The full reference is in `.agents/CODEMAP.md` §5.
 
 Pair 8 of the planning-health engine reports an issue ID repeated inside one ledger; Pair 1 already reports an ID present in both.
 

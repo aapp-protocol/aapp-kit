@@ -35,6 +35,19 @@
 #     once. A non-zero exit only warns. Retry, queueing and later delivery to
 #     the tracker are this plugin's responsibility. Must be idempotent.
 #
+# THE ANSWER (plugin protocol; docs/reference/06-plugin-protocol.md)
+#   One flat JSON object. Beside what the event asks for it may carry:
+#     "status"  : "ok" | "declined" | "failed" (absent on exit 0 means ok)
+#     "message" : one sentence AAPP shows the user
+#     "handled" : what this plugin took care of; AAPP does the rest
+#   Two files named in the environment take longer answers:
+#     $AAPP_PLUGIN_LIST : one flat JSON object per line
+#     $AAPP_PLUGIN_DO   : aapp commands to run after the step, one per line,
+#                         e.g.  issue close 12 summary "closed on the tracker"
+#                         (accepted: issue close, issue abort)
+#   During a step this plugin cannot run a writing `aapp` verb itself; it has
+#   $AAPP_PLUGIN_STEP set and at most aapp.pluginTimeout seconds (default 10).
+#
 # WHY THIS IS A ONE-LINE SHIM
 #   Same reasoning as examples/plugins/aapp-planid/run.sample: anything
 #   committed here is public, so the tracker endpoint and credentials live in
