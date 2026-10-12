@@ -103,41 +103,41 @@ A step is a short exchange between the kit and a supported plugin.
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/plugin_protocol_test.sh::test_message_is_shown` -> asserts the answer's `message` is printed to the user
-- [ ] `tests/plugin_protocol_test.sh::test_unnamed_part_left_to_kit` -> asserts a part missing from `handled`, and an answer with no `handled`, are reported to the caller as the kit's to do
-- [ ] `tests/plugin_protocol_test.sh::test_declined_leaves_all_to_kit` -> asserts `status: declined` leaves every part to the kit, exit 0
-- [ ] `tests/plugin_protocol_test.sh::test_newer_version_refused` -> asserts an answer echoing a `version` newer than the kit's is refused
-- [ ] `tests/plugin_protocol_test.sh::test_list_file_read_per_line` -> asserts each flat object in `AAPP_PLUGIN_LIST` is delivered to the caller
-- [ ] `tests/plugin_protocol_test.sh::test_do_runs_after_step_in_order` -> asserts `do` lines run after the plugin exits and the step has released its lock, in order, each result reported; a `do` line needing the issue lock the step held does not wait on it
-- [ ] `tests/plugin_protocol_test.sh::test_do_refuses_unlisted_command` -> asserts a line not in the subject's whitelist is refused and reported
-- [ ] `tests/plugin_protocol_test.sh::test_do_continues_after_refusal` -> asserts the lines after a refused one still run
-- [ ] `tests/plugin_protocol_test.sh::test_do_does_not_recall_plugin` -> asserts a command run from `do` does not call the plugin that asked for it
-- [ ] `tests/plugin_protocol_test.sh::test_write_verb_refused_inside_plugin` -> asserts a writing `aapp` verb run by a plugin during a step is refused and points to `do`; a reading verb works
-- [ ] `tests/plugin_protocol_test.sh::test_timeout_ends_plugin` -> asserts a plugin running past the timeout is ended and the step takes its failure outcome
-- [ ] `tests/plugin_protocol_test.sh::test_envelope_carries_no_secret` -> asserts a remote URL with credentials reaches the plugin stripped
-- [ ] `tests/plugin_protocol_test.sh::test_reference_matches_code` -> asserts every event and field the code sends, and every `do` command it accepts, is listed in `docs/reference/`
+- [x] `tests/plugin_protocol_test.sh::test_message_is_shown` -> asserts the answer's `message` is printed to the user
+- [x] `tests/plugin_protocol_test.sh::test_unnamed_part_left_to_kit` -> asserts a part missing from `handled`, and an answer with no `handled`, are reported to the caller as the kit's to do
+- [x] `tests/plugin_protocol_test.sh::test_declined_leaves_all_to_kit` -> asserts `status: declined` leaves every part to the kit, exit 0
+- [x] `tests/plugin_protocol_test.sh::test_newer_version_refused` -> asserts an answer echoing a `version` newer than the kit's is refused
+- [x] `tests/plugin_protocol_test.sh::test_list_file_read_per_line` -> asserts each flat object in `AAPP_PLUGIN_LIST` is delivered to the caller
+- [x] `tests/plugin_protocol_test.sh::test_do_runs_after_step_in_order` -> asserts `do` lines run after the plugin exits and the step has released its lock, in order, each result reported; a `do` line needing the issue lock the step held does not wait on it
+- [x] `tests/plugin_protocol_test.sh::test_do_refuses_unlisted_command` -> asserts a line not in the subject's whitelist is refused and reported
+- [x] `tests/plugin_protocol_test.sh::test_do_continues_after_refusal` -> asserts the lines after a refused one still run
+- [x] `tests/plugin_protocol_test.sh::test_do_does_not_recall_plugin` -> asserts a command run from `do` does not call the plugin that asked for it
+- [x] `tests/plugin_protocol_test.sh::test_write_verb_refused_inside_plugin` -> asserts a writing `aapp` verb run by a plugin during a step is refused and points to `do`; a reading verb works
+- [x] `tests/plugin_protocol_test.sh::test_timeout_ends_plugin` -> asserts a plugin running past the timeout is ended and the step takes its failure outcome
+- [x] `tests/plugin_protocol_test.sh::test_envelope_carries_no_secret` -> asserts a remote URL with credentials reaches the plugin stripped
+- [x] `tests/plugin_protocol_test.sh::test_reference_matches_code` -> asserts every event and field the code sends, and every `do` command it accepts, is listed in `docs/reference/`
 
 ### ♻️ Existing Tests Changed or Retired
 > Tests that exist today and assert behaviour this plan changes.
 - None expected. The provider fixtures of `tests/verbs/issue.sh` and `tests/plan_resolver_test.sh` answer with only `id` or `status`, which stays valid; `plan.allocate` and its checks are unchanged. A fixture that fails shows an answer form the protocol must still accept.
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/plugin_protocol_test.sh` with a scripted plugin fixture; confirm red.
+- [x] Task 1.1: Write `tests/plugin_protocol_test.sh` with a scripted plugin fixture; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Answer reading in `lib/hook_dispatcher.sh`: `status`, `message`, `handled`, `version`, the list file.
-- [ ] Task 2.2: The `do` list: file, whitelist (`lib/plugin_do.tsv`), runner (after the step releases its lock, in order, each command under its own lock, no re-call, results reported).
-- [ ] Task 2.3: The step marker in the plugin's environment; writing verbs refuse under it.
-- [ ] Task 2.4: One timeout for every plugin call: `aapp.pluginTimeout` (default 10 s) through `execute_with_watchdog`.
-- [ ] Task 2.5: The issue callers (`issue.allocate`, `issue.close`) and the issue-tracker sample answer in the protocol. `plan.allocate` keeps its present answer forms (`{"id": …}` or a bare number) and its tests: plans get their own chapter of the protocol later.
-- [ ] Task 2.6: `docs/reference/06-plugin-protocol.md` and `07-issue-protocol.md` (today's events); the reference test.
+- [x] Task 2.1: Answer reading in `lib/hook_dispatcher.sh`: `status`, `message`, `handled`, `version`, the list file.
+- [x] Task 2.2: The `do` list: file, whitelist (`lib/plugin_do.tsv`), runner (after the step releases its lock, in order, each command under its own lock, no re-call, results reported).
+- [x] Task 2.3: The step marker in the plugin's environment; writing verbs refuse under it.
+- [x] Task 2.4: One timeout for every plugin call: `aapp.pluginTimeout` (default 10 s) through `execute_with_watchdog`.
+- [x] Task 2.5: The issue callers (`issue.allocate`, `issue.close`) and the issue-tracker sample answer in the protocol. `plan.allocate` keeps its present answer forms (`{"id": …}` or a bare number) and its tests: plans get their own chapter of the protocol later.
+- [x] Task 2.6: `docs/reference/06-plugin-protocol.md` and `07-issue-protocol.md` (today's events); the reference test.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Architecture and Codemap sections (CODEMAP §5) live in group P-72.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Architecture and Codemap sections (CODEMAP §5) live in group P-72.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
