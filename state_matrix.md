@@ -23,6 +23,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-75**: [`P75-offline-worktree.md`](current/P75-offline-worktree.md) — Help
 - 🟣 **P-78**: [`P78-issue-branch.md`](current/P78-issue-branch.md) — Issue Branch
 - 🟣 **P-80**: [`P80-issue-note-filter.md`](current/P80-issue-note-filter.md) — Issue Note Filter
+- 🟣 **P-82**: [`P82-issue-fix-safeguards.md`](current/P82-issue-fix-safeguards.md) — Issue Fix Safeguards
 
 ---
 
