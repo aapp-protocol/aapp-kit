@@ -221,7 +221,7 @@
 
 ### 📜 Verb Behaviour Contracts (`lib/docs/verbs/`)
 * **Purpose:** Canonical owner of each daily verb's behaviour: ingress, preconditions, failure modes, effects, exit and derived tests (P-34). Resolve a verb's contract through the fifth column of `lib/verbs.tsv`.
-* **Tests:** `tests/verbs/<verb>.sh` (run with `aapp test verb <verb>`); correspondence in `tests/verb_contracts_test.sh`.
+* **Tests:** `tests/verbs/<verb>.sh` (run with `aapp test verb <verb>`); correspondence in `tests/verb_contracts_test.sh`, both ways: every test a contract names exists, and every test a verb suite reports is named by its verb's contract, so a test whose behaviour left the contract fails (P-81).
 * **Develop hook:** `templates/aapp-pre-commit-develop`, seeded into `.githooks/` by `aapp develop` only; removed by `aapp uninstall` inside the repository.
 * **Anti-Wrapper Warning:** Never describe verb behaviour in skill prose that disagrees with the contract. Change the contract first, then the code and its verb suite. Mark current code that violates a contract line as `⚠️ Divergence`, not as intended behaviour.
 
