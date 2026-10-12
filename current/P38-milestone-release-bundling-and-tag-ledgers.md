@@ -37,7 +37,7 @@ Establish **Milestone Release Bundling** under `.plans/release/<tag>/`, **1-Row 
 3. **Hook-Based Version Increment**: Delegates project file mutation to an in-transaction `on-release` action delegate (with `pre-release` gate and `post-release` observer per P-23 taxonomy), passing version payload via Dual Delivery (`stdin` JSON + POSIX env).
 4. **Snapshot-Agnostic Milestone Bundling**: Dynamically moves whatever completed blueprints reside in `.plans/done/` and resolved issues in `.plans/done/000-issues-archive.md` into an immutable `.plans/release/<tag>/` bundle.
 5. **Tag Ledger & Master Rollup**: Generates `.plans/release/<tag>/000-archive-ledger.md` with full plan details, while truncating `.plans/done/000-archive-ledger.md` to a **1-line summary row per release** linking directly to the tag ledger.
-6. **Rolling Active Graveyard**: Resets `.plans/done/000-issues-archive.md` to a lean table for the next unreleased cycle.
+6. **Rolling Active Graveyard**: Resets `.plans/done/000-issues-archive.md` to a lean table for the next unreleased cycle. Between releases the live archive is bounded too: past `aapp.issueArchiveMax` rows, the oldest roll into an overflow file beside it in `done/`, which the next release bundles with the rest.
 7. **Universal Reader & Seeder Upgrades**: Upgrades `lib/plan_resolver.sh`, `seed_plan_id` (`lib/cmd_init.sh`), `seed_issue_id` (`lib/plan_resolver.sh`), `issue_locate` (`lib/cmd_issue.sh`), `_ig_resolve_done` (`lib/cmd_plan.sh`), and `lib/planning_health.sh` (Pairs 1, 6, 8) to search `.plans/done/` and `.plans/release/*/` recursively, ensuring fresh clones and diagnostic audits never lose track of historical plans or re-allocate past IDs.
 8. **Mandatory Pre-Flight Simulation & Safety Gate**: Every release invocation automatically runs a mandatory pre-flight simulation and verification runbook:
    - Cleanliness check across primary checkout and kit worktrees (`.plans`, `.agents`, `.githooks`), specifically exempting in-flight plan worktrees.
@@ -360,6 +360,7 @@ CLI invocations with the `json` token output this exact schema directly to stdou
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Reader, Seeder & Health Engine Upgrades
+> **Builds on group P-72.** After P-73, the issue ledgers are reached only through the ledger functions of `lib/aapp-lib.sh` (`ledger_path`, `ledger_ids`, `ledger_locate`, `ledger_relink`, `ledger_archive_row`), which replace `seed_issue_id`'s scan, `issue_locate` and `issue_relink`. The issue-side upgrades of Tasks 1.2 to 1.4 are made there, once, and this plan starts after P-72 ships.
 - [ ] Task 1.1: Update `lib/plan_resolver.sh` to search `.plans/done/` and `.plans/release/*/plans/` recursively without depth restrictions across all scopes (`done`, `all`).
 - [ ] Task 1.2: Upgrade Plan ID and Issue ID seeders:
   - Update `seed_plan_id` in `lib/cmd_init.sh` to scan `.plans/release/*/plans/` alongside tag ledgers and `done/`.
@@ -367,6 +368,7 @@ CLI invocations with the `json` token output this exact schema directly to stdou
 - [ ] Task 1.3: Update `issue_locate` in `lib/cmd_issue.sh` and `_ig_resolve_done` in `lib/cmd_plan.sh` to resolve historical defects and plans inside `.plans/release/*/`.
 - [ ] Task 1.4: Update `lib/planning_health.sh` to validate Plan IDs and Recorded SHAs across tag ledgers in `.plans/release/*/000-archive-ledger.md` and check archived issues across `.plans/release/*/000-issues-archive.md` (Pairs 1, 6, 8).
 - [ ] Task 1.5: Add regression tests in `tests/plan_resolver_test.sh` asserting resolution of plans and seeding of IDs from release bundles.
+- [ ] Task 1.6: Live archive bound: past `aapp.issueArchiveMax` rows, `ledger_archive_row` rolls the oldest into an overflow file in `done/`; readers include it; the release bundles it. Test in `tests/issue_ledger_test.sh`.
 
 ### Phase 2: Core Release CLI & Pre-Flight Gate (`lib/cmd_release.sh`)
 - [ ] Task 2.1: Author `lib/cmd_release.sh` implementing:
@@ -419,7 +421,8 @@ CLI invocations with the `json` token output this exact schema directly to stdou
 - [ ] `lib/plan_resolver.sh` -> Enable recursive resolution across release tag subdirectories; scan release archives in `seed_issue_id`
 - [ ] `lib/planning_health.sh` -> Audit release tag ledgers and archives alongside master archive (Pairs 1, 6, 8)
 - [ ] `lib/cmd_init.sh` -> Update `seed_plan_id` to scan release tag plans and ledgers
-- [ ] `lib/cmd_issue.sh` -> Update `issue_locate` to resolve archived defects in release folders
+- [ ] `lib/aapp-lib.sh` -> Ledger functions search release bundles and the archive overflow; live archive bound.
+- [ ] `tests/issue_ledger_test.sh` -> Release-bundle lookup and archive overflow tests.
 - [ ] `lib/cmd_plan.sh` -> Update `_ig_resolve_done` to resolve release plans and relink issue rows upon bundling
 - [ ] `lib/cmd_release.sh` -> Core release orchestration, reachability ladder, hooks, rollback, and bundle engine
 - [ ] `lib/verbs.tsv` -> Register release verb
