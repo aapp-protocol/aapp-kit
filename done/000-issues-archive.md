@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #139 | `Medium` | `CLI` | 2026-10-12 | 2026-10-12 | `f0308a5` | aapp issue list asks no provider inside a plugin step; the retired issue next and allocate are no longer named |
 | #138 | `High` | `CORE` | 2026-10-12 | 2026-10-12 | `528ff7d` | the resolver tests no longer expect the issue provider to number issues through the counter; unblocks P-74 |
 | #137 | `High` | `CORE` | 2026-10-12 | 2026-10-12 | `126d2e7` | the issue branch tests no longer log rows by hand; unblocks P-74 |
 | #126 | `High` | `CORE` | 2026-10-12 | 2026-10-12 | `aborted` | Aborted: Shared project settings are a team plugin's job; the kit keeps per-clone config |
