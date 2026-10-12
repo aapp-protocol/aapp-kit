@@ -1,8 +1,8 @@
 # 🗺️ Plan P-81: Verb Tests Named By Contracts
 * **Created:** 2026-10-12 | **Last Refined:** 2026-10-12
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-81
-* **Changelog:** Changed: Verb Tests Named By Contracts
+* **Changelog:** Changed: every verb test is named by its verb's contract; a test no contract names fails the suite (P-81)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,17 +38,20 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+`tests/verb_contracts_test.sh` checks that every test a verb contract names exists. It does not check the other direction. When a behaviour leaves a contract, its test can stay in the suite, keep passing and assert something nobody promises any more; nothing reports it. Eight verb tests are named by no contract today.
+
+This plan makes the correspondence two-way for the verb suites: every named test in `tests/verbs/` is named by its verb's contract.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+- **The check.** For each `tests/verbs/<verb>.sh` and `tests/verbs/<verb>.<part>.sh`, every test name the suite reports (`ok "test_…"`) must appear in `lib/docs/verbs/<verb>.md` as `tests/verbs/<file>::<test_name>`. A test no contract names fails the check, with the file and the name.
+- **The eight tests named by no contract** each get their line in the contract of their verb, under the behaviour they prove: two in `ai`, two in `commit`, two in `start`, one in `matrix`, one in `status`.
+- **Scope.** The verb suites only. The suites in `tests/*_test.sh` report their assertions by description, not by test name, and are not covered.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
@@ -57,19 +60,18 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verb_contracts_test.sh::test_every_verb_test_named_by_contract` -> asserts every test name reported by a verb suite or part is named in that verb's contract, and lists each one that is not
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Add the check to `tests/verb_contracts_test.sh`; confirm it fails on the eight tests.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: Name the eight tests in their contracts; the check passes.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [ ] Task 3.2: Update `templates/AGENTS.md` if the contract rule for new tests needs stating.
+- [ ] Task 3.3: Update `.agents/CODEMAP.md` (`lib/docs/verbs/` section): the correspondence is two-way.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
 - [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
@@ -79,29 +81,28 @@
 *Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/docs/verbs/ai.md` -> Names `test_ai_notes_toggle`, `test_ai_status_reports_dual_policy`.
+- [ ] `lib/docs/verbs/commit.md` -> Names `test_note_token_attached_in_none_mode`, `test_note_token_attached_in_strict_mode`.
+- [ ] `lib/docs/verbs/start.md` -> Names `test_shared_code_file_still_blocks_start`, `test_shared_docs_do_not_block_start`.
+- [ ] `lib/docs/verbs/matrix.md` -> Names `test_matrix_ignores_mini_plans`.
+- [ ] `lib/docs/verbs/status.md` -> Names `test_members_listed_under_group`.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/verb_contracts_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `tests/verbs/` -> No test is changed or removed here; only contracts gain lines.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-12:** Plan initialized from `pickup.md`.
-* **2026-10-12:** Refined blast radius and locked module boundaries.
+* **2026-10-12:** Drafted.
