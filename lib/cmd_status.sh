@@ -100,7 +100,26 @@ if [ -f ".plans/pickup.md" ]; then
     PICKUP_COUNT=$(grep -E '^[0-9]+\.|^[\*-] ' ".plans/pickup.md" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '\[x\]|\[X\]' | wc -l | tr -d ' ')
 fi
 
+ADOPTION_LIB="${AAPP_BASE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/adoption.sh"
+if [ -f "$ADOPTION_LIB" ]; then
+    # shellcheck source=/dev/null
+    source "$ADOPTION_LIB"
+elif [ -f "$(dirname "${BASH_SOURCE[0]}")/adoption.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$(dirname "${BASH_SOURCE[0]}")/adoption.sh"
+fi
+
+ADOPTION_COUNT=0
+if command -v adoption_open_count >/dev/null 2>&1; then
+    ADOPTION_COUNT="$(adoption_open_count ".plans/adoption.md")"
+elif [ -f ".plans/adoption.md" ]; then
+    ADOPTION_COUNT="$(grep -cE '^- \[ \] `\[' ".plans/adoption.md" 2>/dev/null || echo 0)"
+fi
+
 OVERVIEW_LINE="📊 Overview: $TOTAL_ISSUES issues (Next: ${TOP_ROADMAP_ISSUES:-none}) | $TOTAL_PLANS plans (Roadmap: $ROADMAP_PLANS) | $PICKUP_COUNT pickup"
+if [ "$ADOPTION_COUNT" -gt 0 ]; then
+    OVERVIEW_LINE="$OVERVIEW_LINE | $ADOPTION_COUNT adoption"
+fi
 
 if [ "$1" = "short" ] || [ "$1" = "summary" ]; then
     echo "$OVERVIEW_LINE"
@@ -392,6 +411,11 @@ if [ -f ".plans/pickup.md" ]; then
     fi
 else
     echo "  Pickup: empty (.plans/pickup.md not found)"
+fi
+
+if [ "$ADOPTION_COUNT" -gt 0 ]; then
+    echo ""
+    echo "📋 Adoption: $ADOPTION_COUNT open task(s) in .plans/adoption.md"
 fi
 
 echo ""

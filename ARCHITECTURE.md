@@ -31,6 +31,7 @@
 │   ├── docs/verbs/        # Per-verb behaviour contracts: ingress, failure modes, effects, tests (P-34)
 │   ├── cmd_help.sh        # Tiered help generator parsing verbs.tsv
 │   ├── cmd_init.sh        # Target resolution, orphan worktrees, rules & skills sync
+│   ├── adoption.sh        # Adoption rules catalogue, sync engine & open-task counter (P-63)
 │   ├── cmd_install.sh     # Global installer & signature-gated self-consumption
 │   ├── cmd_plan.sh        # Active buffer manager, deterministic drafting & lifecycle triggers
 │   ├── cmd_matrix.sh      # State matrix derivation engine (check & sync)
@@ -55,6 +56,7 @@
 │   ├── aapp-commit-msg    # Commit-msg conciseness & trailer validator
 │   ├── aapp-post-commit   # Post-commit Option C staged note attacher
 │   ├── plan-template.md   # ADR-style blueprint template
+│   ├── adoption.md        # Starter adoption checklist template (P-63)
 │   ├── state_matrix.md    # Active plan lane & incubator brain
 │   ├── issues.md          # Active flat defect table template
 │   ├── issues_road_map.md # Human defect priority board template
@@ -82,6 +84,7 @@
 │   ├── ISSUES.md          # Canonical active defect ledger (Relocation Invariant)
 │   ├── issues_road_map.md # Defect sequence & human priority board
 │   ├── pickup.md          # Raw unworked scratchpad queue
+│   ├── adoption.md        # Local, untracked per-clone setup checklist (P-63)
 │   └── state_matrix.md    # Active plan roadmap & incubator state matrix
 ├── .agents/               # Behavioral rules & codemap worktree (branch 'agents')
 │   ├── AGENTS.md          # Agent behavioral contracts & lifecycle rules
@@ -173,4 +176,12 @@ Identity is now **stored**: `aapp.planId` in git config holds the next id to han
 `check_pair4_plan_id_integrity` remains the independent detector for duplicate ids, unchanged and deliberately decoupled from the counter.
 
 **Issue IDs follow the same model (P-32).** `aapp.issueId` is a second, independent counter (`#32` and `P-32` may both exist), optionally served by an `aapp-issue-tracker` provider. Every plugin the kit calls shares one **Plugin Payload Standard**: the hooks' JSON envelope on stdin (now with `repository.remote` and a reserved `extra` object) and one flat JSON object on stdout (reference: `.agents/CODEMAP.md` §5). The names the kit reserves are listed once, in the shipped registry `lib/plugins.tsv` (P-46): `aapp plugins` renders them, installed or not, apart from the adopter's own plugins, which are discovered in `.agents/skills/` and never registered. Unlike `aapp.planId` it is seeded on **first use**, not by `aapp init`: git config is not cloned and a clone never runs init, so the first allocation in any clone continues from both `ISSUES.md` and the archive, and refuses when there are no ledgers and no provider. Both kinds share one allocation core in `lib/plan_resolver.sh`. Closing is mechanical: `aapp issue close` and `aapp done` relocate the row and prune the road map, then notify the provider fire-and-forget, since the local ledgers are authoritative. Duplicates are caught by Pair 1 (across ledgers) and Pair 8 (within one ledger).
+
+## Adoption Advisories & Setup Checklist (P-63)
+
+`aapp init` sets up worktrees, hooks, and skills, while leaving project-specific decisions (branch naming, remote pushes, project rules, build tool worktree exclusions, and configuration reviews) to the adopter. Rather than printing one-time console output that scrolls away, the kit manages `.plans/adoption.md`:
+
+* **Untracked & Local-First**: `.plans/adoption.md` is added to `.plans/.gitignore`. It is never committed to `.plans` git history, avoiding merge conflicts across clones.
+* **Hybrid Auto-Verification**: `aapp init` scans repository state against the rules catalogue in `lib/adoption.sh`. Tasks with verifiable checks are automatically ticked (`- [ ]` → `- [x]`) upon satisfaction. Existing ticks (`- [x]`) — whether machine or hand-checked — are never unticked.
+* **Status Awareness**: `adoption_open_count` queries unticked tasks (`^- \[ \] \`\[`). Open tasks are reported in the overview line (`| <N> adoption`) and recovery briefing, remaining completely silent once zero open tasks remain.
 

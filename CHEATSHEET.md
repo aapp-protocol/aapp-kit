@@ -13,7 +13,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 
 | Command | CLI? | Role & Purpose |
 | :--- | :---: | :--- |
-| `aapp status [short]` | **✅ Yes** | 4-pillar context recovery briefing (or 'short' for 1-line remote pulse) |
+| `aapp status [short]` | **✅ Yes** | 4-pillar context recovery briefing (or 'short' for 1-line remote pulse; counts open adoption tasks) |
 | `aapp draft [slug]` | **✅ Yes** | Scaffold blueprint from template, stamp ID & date, register in matrix |
 | `aapp draft <slug> issue <num>` | **✅ Yes** | Promote issue `#<num>`: Target Issue, Planned row and link in the draft commit |
 | `aapp draft <slug> group [<id>]` | **✅ Yes** | A group plan (`🧩 Group Plan`), or a member of group `<id>`; `aapp refine <id> group <gid>\|none` joins or leaves before start |
@@ -68,7 +68,7 @@ Plans are `P-[num]`, issues are `#[num]`. `aapp freeze P-9`, `aapp freeze 9`, an
 
 | Command | Role & Purpose |
 | :--- | :--- |
-| `aapp init` | Initialize or update AAPP worktrees in current repository |
+| `aapp init` | Initialize or update AAPP worktrees; seeds and syncs `.plans/adoption.md` checklist |
 | `aapp install` | Install AAPP globally into `~/.local/bin` and configure PATH |
 | `aapp upgrade` | Upgrade global AAPP binaries & templates from upstream |
 | `aapp develop` | Link local development clone globally via symlinks |
@@ -77,7 +77,7 @@ Plans are `P-[num]`, issues are `#[num]`. `aapp freeze P-9`, `aapp freeze 9`, an
 | `aapp help` | Show grouped command catalog (`-h`, `--help`) |
 | `aapp help <verb>` | Print that verb's installed contract (arguments, refusals, effects) |
 
-`aapp init` is idempotent — re-run it after any template change to propagate engines into `.githooks/` and `.agents/`. It never overwrites your own content.
+`aapp init` is idempotent — re-run it after any template change to propagate engines into `.githooks/` and `.agents/`. It never overwrites your own content and updates `.plans/adoption.md` verification ticks.
 
 ---
 

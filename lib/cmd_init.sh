@@ -46,6 +46,16 @@ fi
 
 cd "$REPO_ROOT"
 
+# Source Adoption Advisories Engine (Plan P-63)
+ADOPTION_LIB="${AAPP_BASE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/adoption.sh"
+if [ -f "$ADOPTION_LIB" ]; then
+    # shellcheck source=/dev/null
+    source "$ADOPTION_LIB"
+elif [ -f "$(dirname "${BASH_SOURCE[0]}")/adoption.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$(dirname "${BASH_SOURCE[0]}")/adoption.sh"
+fi
+
 # Target Repository Validation
 GIT_DIR_ABS="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
 GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo .)"
@@ -326,6 +336,7 @@ sync_tier1_template "$AAPP_TEMPLATES/release_checklist.md" ".plans/release/relea
 sync_tier3_data "$AAPP_TEMPLATES/issues.md" ".plans/ISSUES.md" ""
 sync_tier3_data "$AAPP_TEMPLATES/done-issues-archive.md" ".plans/done/000-issues-archive.md" ""
 sync_tier3_data "$AAPP_TEMPLATES/000-archive-ledger.md" ".plans/done/000-archive-ledger.md" ""
+sync_tier3_data "$AAPP_TEMPLATES/adoption.md" ".plans/adoption.md" ""
 
 if [ ! -f ".plans/.gitignore" ]; then
     cat > .plans/.gitignore <<'EOF'
@@ -340,6 +351,9 @@ pickup/*
 
 # Template drift buffers (safe sync)
 *.new
+
+# Adoption checklist (local setup guide)
+adoption.md
 EOF
 else
     if ! grep -qxF "*.new" .plans/.gitignore 2>/dev/null; then
@@ -351,6 +365,11 @@ else
         echo "" >> .plans/.gitignore
         echo "# Local worktree hook dispatcher symlink" >> .plans/.gitignore
         echo ".githooks" >> .plans/.gitignore
+    fi
+    if ! grep -qxF "adoption.md" .plans/.gitignore 2>/dev/null; then
+        echo "" >> .plans/.gitignore
+        echo "# Adoption checklist (local setup guide)" >> .plans/.gitignore
+        echo "adoption.md" >> .plans/.gitignore
     fi
 fi
 
@@ -938,6 +957,11 @@ if [ -d .agents ] && [ -e .agents/.git ]; then
     )
 fi
 
+# Synchronize adoption checklist after settings, tools, and hooks detection
+if command -v sync_adoption_checklist >/dev/null 2>&1; then
+    sync_adoption_checklist "$REPO_ROOT" "$REPO_ROOT/.plans"
+fi
+
 # ------------------------------------------------------------------------------
 # PHASE 6: Reporting & Warnings
 # ------------------------------------------------------------------------------
@@ -1008,4 +1032,12 @@ echo "   1. Open your AI agent (Claude Code, Antigravity, Cursor)."
 echo "   2. Run '/aapp-status' (or 'aapp status') to inspect the 4 pillars."
 echo "   3. Run '/aapp-digest Onboarding' to map your codebase into"
 echo "      .agents/CODEMAP.md, ARCHITECTURE.md, and .agents/PROJECT.MD!"
+
+OPEN_ADOPTION=0
+if command -v adoption_open_count >/dev/null 2>&1; then
+    OPEN_ADOPTION="$(adoption_open_count "$REPO_ROOT/.plans/adoption.md")"
+fi
+if [ "$OPEN_ADOPTION" -gt 0 ]; then
+    echo "📋 $OPEN_ADOPTION setup task(s) open: .plans/adoption.md"
+fi
 

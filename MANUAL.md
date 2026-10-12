@@ -2056,3 +2056,55 @@ if sed --version >/dev/null 2>&1; then sed --version | head -1; else echo "BSD s
 ```
 
 Add the failing command and its full output. If you can see a cleaner way to fix it, suggest it; for platform differences that is often the most valuable part of a report.
+
+### Unverified Build Tool Worktrees
+The following build and package managers are not tracked in the automated rules catalogue:
+- **Turborepo**: Discovers workspace packages through the package manager manifest rather than directory recursion.
+- **pnpm**: Package workspace definitions use root-relative globs that omit top-level dot-directories by default.
+- **TypeScript**: Standard `tsconfig.json` `include` patterns skip top-level dot-directories (e.g. `.workspace/`).
+
+---
+
+## 15. Adoption Checklist & Repository Setup Guide
+
+When initializing AAPP with `aapp init`, the kit writes a local setup guide of checkbox tasks to `.plans/adoption.md`. This file is ignored by Git (`.plans/.gitignore`) and remains private to each clone. `aapp init` automatically ticks verified tasks (`- [ ]` → `- [x]`) and never unticks completed or user-checked tasks. Open tasks are reported in `aapp status` until all setup tasks are completed.
+
+### Plan IDs & Sequence Counters
+The `aapp.planId` sequence counter manages monotonic Plan IDs locally. When working in teams with multiple concurrent contributors, install an `aapp-planid` provider plugin in `.agents/skills/aapp-planid/run` to coordinate allocations without collision. When working alone, tick this task yourself.
+
+### Repository Settings Matrix
+AAPP configuration values (`aapp.*`) are local to this clone's Git configuration. Review the settings seeded during initialization and agree on team-wide conventions:
+- `aapp.planWorktrees`: whether plans use dedicated Git worktrees (`on` or `off`).
+- `aapp.integrate`: how `aapp done` integrates plan branches (`manual`, `squash`, `ff`, or `hook`).
+- `aapp.commitMode` and `aapp.changelogMode`: `atomic` or `microcommits`, and `plan` or `commit`.
+- `aapp.aiAttribution`: AI commit attribution mode (`none`, `lax`, `strict`, or `notes`).
+
+### Project Files & Protocol Upgrade
+`aapp init` writes or updates starter files on the code branch (`.gitignore`, `.gitattributes`, `CHANGELOG.md`, `ARCHITECTURE.md`). Plan worktrees branch from the code branch; commit these files on your main or development branch so worktrees inherit a clean base.
+
+### Project Rules & Customizations
+`.agents/PROJECT.MD` contains the behavioral rules and instructions read by AI coding agents. Replace all starter placeholders (`[Project Name]`, `[one or two sentences]`, `[languages]`) with your project's specific conventions, or run `/aapp-digest Onboarding` to scaffold them with your agent.
+
+### Codebase Mapping & Architecture
+`.agents/CODEMAP.md` and `ARCHITECTURE.md` provide architectural orientation for human developers and AI assistants. Replace the starter templates with an actual module map of your codebase, or run `/aapp-digest Onboarding`.
+
+### Template Synchronization & Drift
+During `aapp init`, template files with unmerged modifications generate `*.new` drift buffers in safe mode. Review and merge changes from each `*.new` file into its target file and remove the `.new` file.
+
+### Delimited Template Synchronization
+Managed AAPP files contain delimited protocol blocks marked by `<!-- AAPP-PROTOCOL:START -->` and `<!-- AAPP-PROTOCOL:END -->`. If an end marker is accidentally deleted or damaged, repair the markers so automated updates can safely sync.
+
+### Claude Code Write-Time Interception (Layer 1)
+Claude Code supports write-time tool interception via `.githooks/blast-radius-guard`. If `python3` was missing when `aapp init` ran, install `python3` and re-run `aapp init` to wire the PreToolUse hook into `.claude/settings.json`.
+
+### Foreign Hook Managers & Framework Integration
+If your project uses Husky, Lefthook, or pre-commit (`core.hooksPath`), add a subprocess call to `.githooks/aapp-pre-commit` within your active pre-commit hook file to enforce blast radius and changelog verification.
+
+### Test Gates & Pre-Done Verification
+To ensure automated test suites pass before blueprints are archived, copy `examples/hooks/test-gate.sh.sample` to `.agents/skills/aapp-hooks/pre-done`, configure `TEST_CMD`, and register the hook with `aapp hook-hash pre-done`. Tick this task if you do not want an automated test gate.
+
+### Monorepo & Build Tool Isolation
+When using monorepo and build isolation tools (such as Nx or Bazel), configure ignore files so the build engine does not traverse ephemeral plan worktrees:
+- For Nx (`nx.json`): add `/.workspace` (or your configured `aapp.planWorktreePath`) to `.nxignore`.
+- For Bazel (`WORKSPACE` or `MODULE.bazel`): add `.workspace` to `.bazelignore`.
+

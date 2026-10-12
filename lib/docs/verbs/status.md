@@ -4,7 +4,7 @@
 - `short` (positional, optional; alias `summary`): print the one-line pulse instead of the briefing
     constraints: any other value is refused
     ⚠️ Divergence: any other argument is ignored silently and the full briefing prints.
-- reads: `.plans/ISSUES.md`, `.plans/issues_road_map.md`, `.plans/current/`, `.plans/state_matrix.md`, `.plans/pickup.md`, `CHANGELOG.md` (or `.plans/CHANGELOG.md`), `.plans/PAUSED.md`, the active buffer
+- reads: `.plans/ISSUES.md`, `.plans/issues_road_map.md`, `.plans/current/`, `.plans/state_matrix.md`, `.plans/pickup.md`, `.plans/adoption.md`, `CHANGELOG.md` (or `.plans/CHANGELOG.md`), `.plans/PAUSED.md`, the active buffer
 - reads config: `aapp.planState.*` (plan lane bucketing)
 
 ## Preconditions
@@ -16,8 +16,8 @@
 
 ## Effects (happy path)
 - `.plans/state_matrix.md` is re-derived from the plans before it is read, so the briefing reports the real board; the write is not committed
-- `short`: stdout is exactly one line beginning `📊 Overview:` with issue, plan and pickup counts
-- no argument: stdout carries the four pillars (Shipped, Issues, Plans, Pickup) and one `➡️  Next Action:` line
+- `short`: stdout is exactly one line beginning `📊 Overview:` with issue, plan and pickup counts; appends ` | <N> adoption` when `.plans/adoption.md` has open tasks (P-63)
+- no argument: stdout carries the four pillars (Shipped, Issues, Plans, Pickup), open adoption tasks after pickup when present (`📋 Adoption: <N> open task(s) in .plans/adoption.md`), and one `➡️  Next Action:` line
 - a plan with its own worktree shows it next to its status, from the header's `* **Worktree:**`: `• P-51: P51-….md  (⚡ In Development → ../repo-P51)` (P-54)
 - no other file changes
 
@@ -30,3 +30,5 @@ Run: `aapp test verb status`
 - `tests/verbs/status.sh::test_short_is_one_line` -> `status short` prints exactly one `📊 Overview:` line
 - `tests/verbs/status.sh::test_briefing_has_next_action` -> the full briefing ends with a `Next Action` line and exits 0
 - `tests/verbs/status.sh::test_plan_worktree_shown_next_to_plan` -> a plan's worktree path follows its status (P-54)
+- `tests/verbs/status.sh::test_overview_counts_open_adoption_tasks` -> open adoption tasks show in overview and briefing (P-63)
+- `tests/verbs/status.sh::test_no_adoption_output_when_none_open` -> nothing printed when no open adoption tasks (P-63)

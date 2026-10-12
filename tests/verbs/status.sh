@@ -54,4 +54,28 @@ else
   bad "test_members_listed_under_group" "$(printf '%s\n' "$out" | grep -E "$gid|$mid")"
 fi
 
+# P-63: open adoption tasks show in overview and briefing; none when none open.
+cat <<'EOF' > .plans/adoption.md
+# 📋 Adoption Checklist
+- [ ] `[TEST-TASK]` Test open task → MANUAL: Overview
+- [x] `[DONE-TASK]` Done task → MANUAL: Overview
+EOF
+out="$(aapp status 2>&1)"
+if echo "$out" | grep -qE '^[[:space:]]*📊 Overview:.*\| 1 adoption' && \
+   echo "$out" | grep -qF '📋 Adoption: 1 open task(s) in .plans/adoption.md'; then
+  ok "test_overview_counts_open_adoption_tasks"
+else
+  bad "test_overview_counts_open_adoption_tasks" "$(echo "$out" | grep -E 'Overview|Adoption')"
+fi
+
+# With no open tasks, neither is printed
+sed -i -E 's/^- \[ \]/- [x]/' .plans/adoption.md
+out="$(aapp status 2>&1)"
+if ! echo "$out" | grep -q 'adoption' && ! echo "$out" | grep -q '📋 Adoption:'; then
+  ok "test_no_adoption_output_when_none_open"
+else
+  bad "test_no_adoption_output_when_none_open" "$(echo "$out" | grep -E 'Overview|Adoption')"
+fi
+rm -f .plans/adoption.md
+
 print_test_summary "$PASS" "$FAIL"

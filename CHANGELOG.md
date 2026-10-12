@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- adoption checklist: `aapp init` writes a local setup guide of checkbox tasks to `.plans/adoption.md`; open tasks show in `aapp status` (`P-63`)
 - `aapp issue abort <num>` withdraws an issue with its plan or mini plan (`P-76`)
 - `aapp plan abort` command to safely decommission in-flight plans, clean worktrees/branches, and archive to .plans/aborted/ (`P-69`)
 - `aapp plan conflict-check` and `conflict-free` commands to audit plan concurrency and blast-radius overlap (`P-65`)
