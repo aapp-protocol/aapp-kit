@@ -15,7 +15,7 @@ cd "$R/p" || exit 1
 git config aapp.issueFixWait 0
 git config aapp.planWorktrees off
 mkdir -p src; echo "k=1" > src/k.sh; echo "o=1" > src/other.sh; echo "p=1" > src/promo.py
-git add src; git commit -qm "sources" >/dev/null 2>&1
+git add src; git commit -qm "sources" --no-verify >/dev/null 2>&1
 git checkout -q -b develop 2>/dev/null || git checkout -q develop
 
 cat > .plans/ISSUES.md <<'EOF'

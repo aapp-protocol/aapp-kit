@@ -857,11 +857,13 @@ aapp_changelog_plan_line() {
 # The one definition of what an issue id is: nothing outside this section
 # spells out its pattern (tests/issue_id_test.sh::test_no_id_pattern_outside).
 #
-# An id is `#` followed by its body:
+# An id is `#` followed by its body, in one of two forms:
 #   digits                 #46        the kit's counter, or a tracker that numbers
-# Written without the `#` on the command line (`aapp issue fix 46`). `ISSUE-46`
-# is read as #46.
-AAPP_ISSUE_ID_BODY_RE='[0-9]+'
+#   KEY-digits             #PROJ-101  a tracker's own key: a capital letter, then
+#                                     capitals or digits, a dash, digits
+# Written without the `#` on the command line (`aapp issue fix 46`); a key typed
+# in lowercase is uppercased. `ISSUE-46` is read as #46.
+AAPP_ISSUE_ID_BODY_RE='([0-9]+|[A-Z][A-Z0-9]*-[0-9]+)'
 # A written id; the same, or a bare or ISSUE- number as older ledgers have them;
 # and an id that carries its prefix.
 AAPP_ISSUE_REF_RE="#(${AAPP_ISSUE_ID_BODY_RE})"
@@ -869,17 +871,23 @@ AAPP_ISSUE_REF_LOOSE_RE="((#|ISSUE-)?[0-9]+|#(${AAPP_ISSUE_ID_BODY_RE}))"
 AAPP_ISSUE_REF_PREFIXED_RE="((#|ISSUE-)[0-9]+|#(${AAPP_ISSUE_ID_BODY_RE}))"
 
 # issue_id_body <text> -> the id's body, normalised (46, #46, `#046`, ISSUE-46
-# all give 46). Fails, naming the accepted forms, for anything else.
+# all give 46; PROJ-101, #PROJ-101 and proj-101 give PROJ-101). Fails, naming
+# the accepted forms, for anything else.
 issue_id_body() {
-    local raw="$1" n
+    local raw="$1" n num
     n="${raw//\`/}"
     n="${n#\#}"
-    case "$n" in ISSUE-*|issue-*) n="${n#*-}" ;; esac
-    case "$n" in
+    num="$n"
+    case "$num" in ISSUE-*|issue-*) num="${num#*-}" ;; esac
+    case "$num" in
         ''|*[!0-9]*) ;;
-        *) printf '%s\n' "$((10#$n))"; return 0 ;;
+        *) printf '%s\n' "$((10#$num))"; return 0 ;;
     esac
-    echo "❌ [Issue] Not an issue ID: '$raw' (use a bare number, e.g. 'aapp issue close 79')." >&2
+    n="$(printf '%s' "$n" | tr '[:lower:]' '[:upper:]')"
+    if printf '%s\n' "$n" | grep -qxE '[A-Z][A-Z0-9]*-[0-9]+'; then
+        printf '%s\n' "$n"; return 0
+    fi
+    echo "❌ [Issue] Not an issue ID: '$raw' (use a number or a tracker's key, e.g. 46 or PROJ-101)." >&2
     return 1
 }
 
