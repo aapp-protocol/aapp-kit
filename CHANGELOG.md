@@ -64,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- the agent rules and the fix, start and done skills describe fixes on the issue's branch (`#135`)
 - the issues table check accepts a ledger with further columns (`#134`)
 - adding files to an open group fix keeps its worktree and group, so `issue close` still lands it on the feature branch (`#132`)
 - the contracts, the agent rules, the manual and the usage line of `refine … blocked` and `draft … issue` say they take any issue id, a tracker's key included (`#131`)

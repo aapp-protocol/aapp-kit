@@ -27,7 +27,7 @@ Run the command with a tool timeout longer than `aapp.issueFixWait` (default 5 m
 
 On exit 0, the mini plan `current/fix-<num>.md` is open and bound to this checkout.
 
-**Which branch.** A fix is made on the development branch: `fix` refuses while the main checkout is elsewhere. A bug caused by a group's work is fixed on that group's feature branch instead: `aapp issue fix <num> group <group>` opens the fix in `.workspace/fix-<num>`; work and commit there, and `close` lands it on the feature branch. When `fix` prints that a group changes the issue's files, report it: the human decides, and the fix can be aborted and reopened with `group`.
+**Which branch.** A fix is made on the issue's branch (the row's `Branch` cell; none named means the development branch). `fix` decides where: in the main checkout when it is on that branch, otherwise in `.workspace/fix-<num>`, cut from the branch. Read its output: when it names `.workspace/fix-<num>`, work and commit there, and `close` (run from the main checkout) lands the fix on the issue's branch. If it prints that the issue's branch no longer exists, the fix goes to the development branch; report that line. A bug an open group's work caused, logged elsewhere: `aapp issue fix <num> group <group>` retargets it to the group's feature branch. When `fix` prints that a group changes the issue's files, report it: the human decides, and the fix can be aborted and reopened with `group`.
 
 ### Step 2: Fix
 Edit only the mini plan's files; the write guard enforces this. Then commit, saying what the fix changed:
@@ -41,7 +41,7 @@ The first commit of a fix needs `changelog`: it becomes the fix's `CHANGELOG.md`
 aapp issue close <num>
 ```
 Read its output and report it:
-- which plans are unblocked;
+- which plans are unblocked, and which stay blocked because the fix commit is not in their parent branch yet (`aapp status` unblocks them once it is; do not merge branches yourself);
 - whether stashed plan work was re-applied, or is in conflict;
 - `P-xx also lists <file>`: another active plan lists a fixed file. That plan picks the fix up at its next rebase.
 

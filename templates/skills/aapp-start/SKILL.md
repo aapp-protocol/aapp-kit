@@ -33,7 +33,7 @@ Parse and explain the exact CLI diagnostic:
 ### Step 3: Begin Implementation Immediately (Continuous Execution)
 On exit 0, `aapp start` has updated the plan status to `⚡ In Development`, recorded the base commit, updated `state_matrix.md`, and bound the local worktree buffer.
 
-**Plan worktree?** With `aapp.planWorktrees = on` (or `worktree <path>`), `aapp start` created the plan's own branch and worktree and bound the plan **there**, printing its path. Continue in that path (`cd <path>`); the primary checkout stays on the development branch, where issue fixes are made. `aapp issue fix` is refused inside a plan worktree.
+**Plan worktree?** With `aapp.planWorktrees = on` (or `worktree <path>`), `aapp start` created the plan's own branch and worktree and bound the plan **there**, printing its path. Continue in that path (`cd <path>`); the primary checkout stays on the development branch, where issue fixes are started. `aapp issue fix` is refused inside a plan worktree.
 
 **Group member?** A plan with `* **Group:** <id>` starts from that group's feature branch (the group must be started first: `aapp start <group>`). It never edits `ARCHITECTURE.md` or `.agents/CODEMAP.md`: read the group plan's `## Architecture & Codemap` as the target architecture, and ask for changes there.
 
