@@ -100,19 +100,35 @@ A step is a short exchange between the kit and a supported plugin.
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/plugin_protocol_test.sh::test_message_is_shown` -> asserts the answer's `message` is printed to the user
+- [ ] `tests/plugin_protocol_test.sh::test_unnamed_part_left_to_kit` -> asserts a part missing from `handled`, and an answer with no `handled`, are reported to the caller as the kit's to do
+- [ ] `tests/plugin_protocol_test.sh::test_declined_leaves_all_to_kit` -> asserts `status: declined` leaves every part to the kit, exit 0
+- [ ] `tests/plugin_protocol_test.sh::test_newer_version_refused` -> asserts an answer echoing a `version` newer than the kit's is refused
+- [ ] `tests/plugin_protocol_test.sh::test_list_file_read_per_line` -> asserts each flat object in `AAPP_PLUGIN_LIST` is delivered to the caller
+- [ ] `tests/plugin_protocol_test.sh::test_do_runs_after_step_in_order` -> asserts `do` lines run after the plugin exits, in order, each result reported
+- [ ] `tests/plugin_protocol_test.sh::test_do_refuses_unlisted_command` -> asserts a line not in the subject's whitelist is refused and reported
+- [ ] `tests/plugin_protocol_test.sh::test_do_continues_after_refusal` -> asserts the lines after a refused one still run
+- [ ] `tests/plugin_protocol_test.sh::test_do_does_not_recall_plugin` -> asserts a command run from `do` does not call the plugin that asked for it
+- [ ] `tests/plugin_protocol_test.sh::test_write_verb_refused_inside_plugin` -> asserts a writing `aapp` verb run by a plugin during a step is refused and points to `do`; a reading verb works
+- [ ] `tests/plugin_protocol_test.sh::test_timeout_ends_plugin` -> asserts a plugin running past the timeout is ended and the step takes its failure outcome
+- [ ] `tests/plugin_protocol_test.sh::test_envelope_carries_no_secret` -> asserts a remote URL with credentials reaches the plugin stripped
+- [ ] `tests/plugin_protocol_test.sh::test_reference_matches_code` -> asserts every event and field the code sends, and every `do` command it accepts, is listed in `docs/reference/`
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Write `tests/plugin_protocol_test.sh` with a scripted plugin fixture; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: Answer reading in `lib/hook_dispatcher.sh`: `status`, `message`, `handled`, `version`, the list file.
+- [ ] Task 2.2: The `do` list: file, whitelist (`lib/plugin_do.tsv`), runner (in order, under the kit's lock, no re-call, results reported).
+- [ ] Task 2.3: The step marker in the plugin's environment; writing verbs refuse under it.
+- [ ] Task 2.4: One timeout for every plugin call (`execute_with_watchdog`).
+- [ ] Task 2.5: Current callers (`plan.allocate`, `issue.allocate`, `issue.close`) and the samples answer in the protocol.
+- [ ] Task 2.6: `docs/reference/06-plugin-protocol.md` and `07-issue-protocol.md` (today's events); the reference test.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
 - [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [ ] Task 3.3: Architecture and Codemap sections (CODEMAP §5) live in group P-72.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
 - [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
@@ -125,15 +141,23 @@ A step is a short exchange between the kit and a supported plugin.
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/hook_dispatcher.sh` -> Answer reading, list file, `do` runner, step marker, timeout.
+- [ ] `NEW FILE` -> `lib/plugin_do.tsv` -> The `do` whitelist: subject, command.
+- [ ] `aapp` -> Writing verbs refuse under the step marker.
+- [ ] `lib/plan_resolver.sh` -> Allocation callers read the answer through the protocol.
+- [ ] `lib/cmd_issue.sh` -> The close caller reads the answer through the protocol.
+- [ ] `examples/plugins/aapp-planid/run.sample` -> Answers in the protocol.
+- [ ] `examples/plugins/aapp-issue-tracker/run.sample` -> Answers in the protocol.
+- [ ] `NEW FILE` -> `docs/reference/06-plugin-protocol.md` -> The exchange.
+- [ ] `NEW FILE` -> `docs/reference/07-issue-protocol.md` -> Issue events, fields, `do` commands.
+- [ ] `MANUAL.md` -> Plugin protocol; ad hoc plugins are CLI users.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/plugin_protocol_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/aapp-pre-commit` -> Hooks keep their contract.
 
 ---
 
@@ -143,7 +167,6 @@ A step is a short exchange between the kit and a supported plugin.
 * [x] **Question 1 — The form of the exchange? → RESOLVED (developer, 2026-10-12):** the kit asks with the whole subject; the plugin answers with what happened, what it handled and what it produced; wanted operations are aapp command lines the kit runs after the step.
 * [x] **Question 2 — The words? → RESOLVED (developer, 2026-10-12):** `handled` for what the plugin took care of; `do` for the list of commands (used in the flow of many languages, self-describing).
 * [x] **Question 3 — A `do` command that is refused? → RESOLVED (developer, 2026-10-12):** reported, and the rest still run.
-* [ ] **Question 4:** Tests, tasks and Target Files are written once the open questions are settled.
 * [x] **Question 5 — Credentials? → RESOLVED (developer, 2026-10-12):** the plugin's responsibility; there are many ways to implement it. The kit carries no secret: none in the envelope, none stored.
 
 ---
