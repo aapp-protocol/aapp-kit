@@ -108,7 +108,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 - [ ] `tests/verbs/issue.provider.sh::test_abort_sends_abort_step` -> asserts `issue fix <n> abort` sends `issue.abort` with the whole issue
 - [ ] `tests/verbs/issue.provider.sh::test_ref_shown_in_list` -> asserts a provider's `ref` shows next to the id in `issue list`
 - [ ] `tests/verbs/issue.provider.sh::test_do_close_follows_the_code` -> asserts a `do` line `issue close <n> sha <sha>` closes the issue when the commit is in its branch, and is refused and marked in `status` when it is not
-- [ ] `tests/verbs/issue.provider.sh::test_failure_falls_back_and_warns` -> asserts a failing provider on log/refine/fix/close/list warns and the kit completes the step
+- [ ] `tests/verbs/issue.provider.sh::test_failure_falls_back_and_warns` -> asserts a failing provider on refine/fix/abort/close/list warns and the kit completes the step
 - [ ] `tests/verbs/issue.provider.sh::test_sync_window_reuses_cache` -> asserts a second `issue list` inside `aapp.issueSyncWindow` calls no provider, and one after it does
 - [ ] `tests/verbs/issue.provider.sh::test_kit_lists_when_provider_declines` -> asserts an answer whose `handled` omits `list` leaves no cache and the listing is the local ledger
 - [ ] `tests/verbs/issue.provider.sh::test_hooks_never_call_provider` -> asserts a commit through the hooks runs no provider
