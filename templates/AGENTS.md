@@ -337,6 +337,7 @@ Every chore has a verb; use it instead of editing ledgers or running git on `.pl
 | `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]` | Log an issue: the id, the row and its road-map line, in one commit |
 | `aapp issue close <num>` \| `aapp issue list [<n> \| all]` \| `aapp issue list note <num>` | Close an issue; list the open ones; show one with its description and notes |
 | `aapp refine issues "<msg>" note <num> "<text>"` | Add a note to an issue (kept outside Git) |
+| `aapp offline [status \| sync \| mount \| unmount \| on \| off]` | What is staged in `.offline` while the team's provider is unreachable (issues and draft plans under temporary ids); `sync` publishes it. When `aapp issue log` or `aapp draft` says an item was staged offline, carry on with the temporary id and report it; never edit files under `.offline/` by hand |
 | `aapp issue hotfix "<text>" [file <path>]… [branch <name>] [plan]` | From a plan's worktree: log a blocking bug, queue it and block the plan, in one commit; the fix lands on the plan's parent branch, or on `<name>` |
 | `aapp issue fix next-blocker \| <num> [file <path>…] \| <num> abort` | In the main checkout: open (or drop) a temporary mini plan for one fix, one at a time (skill: `/aapp-fix [#<num>]`) |
 | `aapp test …` | Run the kit's test suites |
