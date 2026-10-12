@@ -70,7 +70,7 @@ A step is a short exchange between the kit and a supported plugin.
 - `AAPP_PLUGIN_DO`: the `do` list: aapp commands exactly as a person types them, one per line.
   ```
   issue close 12 summary "closed on the tracker"
-  issue log High CORE "login fails on Safari" note "seen by QA"
+  issue abort 14 reason "won't fix: superseded"
   ```
   The kit runs them after the plugin exits: in order, under its own lock, through the code the CLI runs, each result reported; a refused command is reported and the rest still run. A command run from `do` does not call the plugin that asked for it.
 
@@ -79,7 +79,7 @@ A step is a short exchange between the kit and a supported plugin.
 **Reference.** In the manual's reference tree (P-57): `docs/reference/06-plugin-protocol.md` (the exchange: envelope, answer, `handled`, the two files, the rules, credentials) and one file per subject, `docs/reference/07-issue-protocol.md` first (plans follow). A subject file has three tables: the events (who sends each, when, the outcome on plugin failure), the data fields (type and allowed values, for the envelope and for the answer, with what `handled` may name per event), and the `do` commands accepted for that subject with their arguments. Each file carries P-57's frontmatter and navigation footer. A test fails when the code sends an event or field, or accepts a `do` command, that the reference does not list. Until P-57 makes `docs/` an always-allowed path, these files are listed as Target Files.
 
 **Rules**
-- **`do` is whitelisted.** Only the commands listed in the subject's reference are accepted; any other line is refused and reported.
+- **`do` is whitelisted.** Only the commands listed in the subject's reference are accepted; any other line is refused and reported. For issues the list is `issue close` and `issue abort`: a tracker's new issues arrive through `issue.list`, so `issue log` is not on it.
 - **During a step** a supported plugin that runs a writing `aapp` verb directly is refused (the kit marks the plugin's environment) and pointed to `do`. Reading verbs work.
 - **Version:** the answer may echo `version`; the kit refuses an answer from a version newer than its own.
 - **Credentials** are the plugin's responsibility: the envelope carries none (the remote URL is stripped), the kit stores none, and the plugin runs with the caller's environment. A missing or rejected credential is an ordinary failure with a clear `message`.
