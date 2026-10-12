@@ -27,7 +27,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-78**: [`P78-issue-branch.md`](current/P78-issue-branch.md) — Issue Branch
 - 🟣 **P-79**: [`P79-issue-id-grammar.md`](current/P79-issue-id-grammar.md) — Issue Id Grammar
 - 🟣 **P-80**: [`P80-issue-note-filter.md`](current/P80-issue-note-filter.md) — Issue Note Filter
-- 🟣 **P-81**: [`P81-verb-tests-named-by-contracts.md`](current/P81-verb-tests-named-by-contracts.md) — Verb Tests Named By Contracts
 
 ---
 
@@ -36,6 +35,8 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-81**: [`P81-verb-tests-named-by-contracts.md`](current/P81-verb-tests-named-by-contracts.md) — Verb Tests Named By Contracts
 
 ---
 
