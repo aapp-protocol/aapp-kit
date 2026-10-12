@@ -151,6 +151,14 @@ This plan routes every issue step through one wrapper over the ledger functions 
 - [ ] `tests/verbs/issue.tracker.sh::test_do_issue_log_refused` -> asserts a `do` line `issue log …` is refused and reported, writes no row, and the lines after it still run
 - [ ] `tests/verbs/issue.tracker.sh::test_text_fetched_at_fix_not_sync` -> asserts a sync stores no description or notes, and `issue fix` shows the ones the provider returns for that issue
 
+### ♻️ Existing Tests Changed or Retired
+> Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
+- `tests/verbs/issue.sh`: the nine tests of `issue allocate` / `issue next` as commands (`test_allocate_claims_and_advances`, `test_next_peeks_without_claiming`, `test_new_project_first_issue_is_1`, `test_clone_first_allocate_continues_ledgers`, `test_non_integer_counter_fails_closed`, `test_no_ledgers_without_provider_refuses`, `test_no_ledgers_with_provider_allocates`, `test_failing_provider_refuses_allocation`, `test_provider_allocate_ratchets_counter`): rewritten to reach the same numbering through `issue log`; `test_next_peeks_without_claiming` is removed with the command.
+- `tests/verbs/issue.sh`: `test_close_sends_envelope_and_reports_status`, `test_close_plugin_failure_only_warns`, `test_provider_next_blocker_claims`: rewritten for the whole-issue payload and the P-77 answer.
+- `tests/verbs/refine.sh`: `test_refine_issues_commits_ledgers`, `test_refine_issues_validation_refuses`: rewritten where they add a row by hand (now refused); changes to existing rows stay.
+- Setup lines `git config aapp.issueId <n>` that exist only to pass the retired counter check (`tests/verbs/issue.sh`, `issue.fixes.sh`, `issue.abort.sh`, `plan.abort.sh`, `commit.sh`, `refine.sh`): removed. The ones that test the counter itself stay.
+- Fixtures that write rows straight into `ISSUES.md` as setup stay as they are.
+
 ### Phase 1: Tests First (red)
 - [ ] Task 1.1: Write `tests/verbs/issue.provider.sh` and `tests/verbs/issue.tracker.sh` with a recording provider fixture; confirm red.
 
@@ -199,6 +207,12 @@ This plan routes every issue step through one wrapper over the ledger functions 
 - [ ] `lib/docs/verbs/refine.md` -> Contract: `note` token; added rows refused; counter check gone.
 - [ ] `lib/docs/verbs/status.md` -> Contract: sync at briefing; tracker issues.
 - [ ] `MANUAL.md` -> Provider steps; one record and the switch; description and notes (where they are kept, who sees them).
+- [ ] `tests/verbs/issue.sh` -> Existing tests changed or retired (§3).
+- [ ] `tests/verbs/refine.sh` -> Existing tests changed (§3).
+- [ ] `tests/verbs/issue.fixes.sh` -> Counter setup lines removed.
+- [ ] `tests/verbs/issue.abort.sh` -> Counter setup lines removed.
+- [ ] `tests/verbs/plan.abort.sh` -> Counter setup lines removed.
+- [ ] `tests/verbs/commit.sh` -> Counter setup lines removed.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
