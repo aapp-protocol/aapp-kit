@@ -30,7 +30,6 @@
 
 ## 📥 Triage (Incoming / Unsequenced)
 *Newly logged issues awaiting prioritization.*
-- [ ] #142 -> A tracker's closure does not reach the ledger while a plan depends on the issue.
 - [ ] #133 -> A refused first fix commit leaves its changelog entry written; the retry refuses the token.
 - [ ] #130 -> Setup advisories read `ISSUES.md` outside the ledger functions.
 - [ ] #129 -> `aapp init` sets itself up in `$HOME` when the home directory is a git repository.
