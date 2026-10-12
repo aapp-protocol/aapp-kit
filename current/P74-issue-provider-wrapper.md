@@ -59,9 +59,10 @@ This plan routes every issue step through one wrapper over the ledger functions 
 | Step | Called by | Action |
 |---|---|---|
 | log | `issue log`, `issue hotfix` | `issue.log` |
-| refine | `refine issues` (rows changed against HEAD) | `issue.refine` |
+| refine | `refine issues` (rows changed against HEAD); a status change by `draft … issue` (Planned) or `plan abort` (back to Incubated) | `issue.refine` |
 | fix | `issue fix <n>`, `issue fix next-blocker` | `issue.fix` |
-| abort | `issue fix <n> abort`, a plan abort (P-69) for its issues | `issue.abort` |
+| fix-abort | `issue fix <n> abort` (the issue stays open) | `issue.fix-abort` |
+| abort | `issue abort <n>` (the issue is withdrawn; carries the reason) | `issue.abort` |
 | close | `issue close`, `done` | `issue.close` |
 | list | `issue list`, `status` | `issue.list` |
 
@@ -105,10 +106,13 @@ This plan routes every issue step through one wrapper over the ledger functions 
 - [ ] `tests/verbs/issue.provider.sh::test_remote_issue_blocks_plan` -> asserts a listed remote issue named in a plan's `Blocked On` counts as open in `next-blocker` and `status`
 - [ ] `tests/verbs/issue.provider.sh::test_fix_remote_issue_imports_row` -> asserts fixing a remote-only id writes its row into `ISSUES.md` first
 - [ ] `tests/verbs/issue.provider.sh::test_id_clash_refuses_fix` -> asserts a clashing id is marked in `issue list` and `fix` refuses it
-- [ ] `tests/verbs/issue.provider.sh::test_abort_sends_abort_step` -> asserts `issue fix <n> abort` sends `issue.abort` with the whole issue
+- [ ] `tests/verbs/issue.provider.sh::test_fix_abort_sends_fix_abort` -> asserts `issue fix <n> abort` sends `issue.fix-abort` with the whole issue, still open
+- [ ] `tests/verbs/issue.provider.sh::test_issue_abort_sends_abort` -> asserts `issue abort <n>` sends `issue.abort` with the reason
+- [ ] `tests/verbs/issue.provider.sh::test_plan_abort_sends_refine` -> asserts `plan abort` of a promoted plan sends `issue.refine` with the status back to Incubated
+- [ ] `tests/verbs/issue.provider.sh::test_do_abort_withdraws` -> asserts a `do` line `issue abort <n> reason "…"` withdraws the issue locally
 - [ ] `tests/verbs/issue.provider.sh::test_ref_shown_in_list` -> asserts a provider's `ref` shows next to the id in `issue list`
 - [ ] `tests/verbs/issue.provider.sh::test_do_close_follows_the_code` -> asserts a `do` line `issue close <n> sha <sha>` closes the issue when the commit is in its branch, and is refused and marked in `status` when it is not
-- [ ] `tests/verbs/issue.provider.sh::test_failure_falls_back_and_warns` -> asserts a failing provider on refine/fix/abort/close/list warns and the kit completes the step
+- [ ] `tests/verbs/issue.provider.sh::test_failure_falls_back_and_warns` -> asserts a failing provider on refine/fix/fix-abort/abort/close/list warns and the kit completes the step
 - [ ] `tests/verbs/issue.provider.sh::test_sync_window_reuses_cache` -> asserts a second `issue list` inside `aapp.issueSyncWindow` calls no provider, and one after it does
 - [ ] `tests/verbs/issue.provider.sh::test_kit_lists_when_provider_declines` -> asserts an answer whose `handled` omits `list` leaves no cache and the listing is the local ledger
 - [ ] `tests/verbs/issue.provider.sh::test_hooks_never_call_provider` -> asserts a commit through the hooks runs no provider
@@ -120,7 +124,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 - [ ] Task 2.1: Payload builder and `issue_provider` wrapper in `lib/cmd_issue.sh`; move `allocate`, `next-blocker` and `close` onto it.
 - [ ] Task 2.2: `issue log` handler (id, row, commit) and the log step; `issue hotfix` onto it; the refine step from `refine issues`; the `note` token; the kit's note store.
 - [ ] Task 2.2b: Retire in order: `refine issues` refuses added rows; drop `check_issue_ids_below_counter`; `allocate`/`next` internal, agent docs and skills updated (`.agents/AGENTS.md` alongside on its branch).
-- [ ] Task 2.3: fix and abort steps: note printed; remote rows imported.
+- [ ] Task 2.3: fix, fix-abort and abort steps: note printed; remote rows imported; status changes by `draft … issue` and `plan abort` sent as refine.
 - [ ] Task 2.4: list step: cache, merge in `ledger_rows`/`ledger_locate`, id clashes, sync at `issue list` and `status`.
 - [ ] Task 2.5: Sample provider and `lib/plugins.tsv`.
 
