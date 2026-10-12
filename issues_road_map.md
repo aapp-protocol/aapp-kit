@@ -28,6 +28,7 @@
 
 ## 📥 Triage (Incoming / Unsequenced)
 *Newly logged issues awaiting prioritization.*
+- [ ] #129 -> `aapp init` sets itself up in `$HOME` when the home directory is a git repository.
 - [ ] #126 -> A project cannot declare its `aapp.*` settings: all are per-clone git config.
 - [ ] #127 -> `aapp install` does not install `MANUAL.md` or `CHEATSHEET.md`.
 - [ ] #128 -> Settings matrix in `MANUAL.md` §13 omits eight keys the code reads.

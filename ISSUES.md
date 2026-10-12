@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #129 | `Medium` | `CLI` | 2026-10-12 | `lib/cmd_init.sh` | `aapp init` has no guard for a repository rooted at the home directory: where `$HOME` is itself a git repository, `init` run from any folder under it that is not in another repository mounts `.plans`, `.agents` and `.githooks` in `$HOME`, writes `ARCHITECTURE.md` and `CHANGELOG.md` there and sets `core.hooksPath`. |  | 🟡 `Incubated` |
 | #128 | `Low` | `DOCS` | 2026-10-12 | `MANUAL.md` (§13 settings matrix) | The settings matrix omits keys the code reads: `aapp.protectedBranches`, `aapp.templateSync`, `aapp.testCommand`, `aapp.notesRemote`, `aapp.aiNotes`, `aapp.aiNotesGuard`, `aapp.aiAlias`, `aapp.noteTTL`. |  | 🟡 `Incubated` |
 | #127 | `Medium` | `CLI` | 2026-10-12 | `lib/cmd_install.sh` | `aapp install` copies `lib`, `templates`, `tests` and `examples` only: `MANUAL.md` and `CHEATSHEET.md` are not installed, so an installed kit has no manual to open or link to. |  | 🟡 `Incubated` |
 | #126 | `High` | `CORE` | 2026-10-12 | `lib/cmd_init.sh` (config seeding), `lib/*.sh` (each `git config aapp.*` read) | Every `aapp.*` setting is local git config, never cloned: `init` seeds kit defaults on each clone and a project has no shared place to declare its choices (dev branch, commit mode, attribution, plan worktrees, integration), so each teammate sets them by hand. |  | 🟡 `Incubated` |
