@@ -95,14 +95,17 @@ issue_notify_close() {
     entry="$(resolve_plugin_entrypoint "$pdir" "aapp-issue-tracker" 2>/dev/null)" || return 0
     [ -n "$plan" ] && plan_json="\"$(json_escape "$plan")\""
     data="{\"id\": \"#$n\", \"commit\": \"$(json_escape "$sha")\", \"summary\": \"$(json_escape "$summary")\", \"plan\": $plan_json}"
-    if out="$(AAPP_ISSUE_ID="#$n" AAPP_COMMIT_SHA="$sha" AAPP_SUMMARY="$summary" \
-              run_action_plugin "$entry" "$root" close issue.close "$data" 2>/dev/null)"; then
-        status="$(json_field "$out" status)" || status="accepted"
+    # The answer is read by the plugin protocol (P-77): its message is shown and
+    # its `do` list runs once this step is over.
+    if AAPP_ISSUE_ID="#$n" AAPP_COMMIT_SHA="$sha" AAPP_SUMMARY="$summary" \
+       plugin_step "$entry" "$root" close issue.close "$data" 2>/dev/null; then
+        status="$(json_field "$PLUGIN_OUT" status)" || status="accepted"
         echo "📨 [Issue] #$n handed to aapp-issue-tracker: $status"
     else
-        status="$(json_field "$out" error)" || status="no error text"
+        status="$(json_field "$PLUGIN_OUT" error)" || status="${PLUGIN_MESSAGE:-no error text}"
         echo "⚠️  [Issue] #$n closed locally; aapp-issue-tracker failed ($status). Delivery is the plugin's responsibility." >&2
     fi
+    plugin_run_do issue aapp-issue-tracker
     return 0
 }
 

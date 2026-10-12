@@ -129,6 +129,28 @@ case "$CMD" in
         ;;
 esac
 
+# ------------------------------------------------------------------------------
+# 2b. Plugin step (P-77)
+#
+# A supported plugin is called during a step of a verb that holds its lock and
+# may be mid-commit. A verb that changes the project, run from inside that step,
+# is refused: the plugin writes the command to its `do` list and the kit runs it
+# once the step is over. Verbs that only read are let through.
+# ------------------------------------------------------------------------------
+if [ -n "${AAPP_PLUGIN_STEP:-}" ]; then
+    case "$CMD ${1:-}" in
+        "status "*|"plan-status "*|"plugins "*|"plugin-status "*|"hooks "*|"hook-status "*) ;;
+        "version "*|"-v "*|"--version "*|"help "*|"-h "*|"--help "*) ;;
+        "issue list"|"issue next"|"note show"|"matrix check") ;;
+        *)
+            echo "❌ [Plugin] 'aapp $CMD${1:+ $1}' changes the project and cannot run during a plugin step ($AAPP_PLUGIN_STEP)." >&2
+            echo "   Write the command to the do list instead; the kit runs it after the step:" >&2
+            echo "     echo '$CMD${1:+ $1} …' >> \"\$AAPP_PLUGIN_DO\"" >&2
+            exit 1
+            ;;
+    esac
+fi
+
 case "$CMD" in
     init)
         source "$AAPP_LIB/cmd_init.sh" "$@"

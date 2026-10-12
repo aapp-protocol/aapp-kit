@@ -1,0 +1,13 @@
+# ==============================================================================
+# AAPP Plugin `do` Whitelist (lib/plugin_do.tsv) — P-77
+#
+# The aapp commands a supported plugin may ask for in its `do` list, per subject.
+# A line of the list is accepted when it is one of these commands, alone or
+# followed by arguments; any other line is refused and reported.
+# Reference: docs/reference/07-issue-protocol.md (kept equal by a test).
+#
+#   subject : the subject of the step (issue)
+#   command : the command, as typed after `aapp`
+# ==============================================================================
+issue	issue close
+issue	issue abort

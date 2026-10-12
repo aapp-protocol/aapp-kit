@@ -136,10 +136,134 @@ _envelope_remote_json() {
 # Plugin Payload Standard (Dual Delivery, P-32): the envelope on stdin, AAPP_ACTION
 # and AAPP_REPO_ROOT in the environment (callers add action-specific variables).
 # Prints the plugin's stdout; returns the plugin's exit code.
+#
+# Every plugin call runs under the watchdog, for at most aapp.pluginTimeout
+# seconds (P-77), and with AAPP_PLUGIN_STEP set: the `aapp` dispatcher refuses a
+# writing verb run from inside a step.
 run_action_plugin() {
     local entry="$1" root="$2" action="$3" event="$4" data="${5:-}"
     REPO_ROOT="$root" build_event_envelope "$event" "$data" | \
-        AAPP_ACTION="$action" AAPP_REPO_ROOT="$root" "$entry"
+        AAPP_ACTION="$action" AAPP_REPO_ROOT="$root" AAPP_PLUGIN_STEP="$event" \
+        execute_with_watchdog "$(_plugin_timeout "$root")" "$entry"
+}
+
+# _plugin_timeout <repo-root> -> seconds a plugin call may take.
+_plugin_timeout() {
+    local t
+    t="$(git -C "$1" config --get aapp.pluginTimeout 2>/dev/null)" || t=10
+    case "$t" in ''|*[!0-9]*) t=10 ;; esac
+    printf '%s\n' "$t"
+}
+
+# ------------------------------------------------------------------------------
+# 3b. The plugin answer protocol (P-77; reference: docs/reference/06-plugin-protocol.md)
+# ------------------------------------------------------------------------------
+# A step is a short exchange: the kit sends the envelope; the plugin answers one
+# flat JSON object (status, message, handled, what it produced) and may fill two
+# files the kit names: AAPP_PLUGIN_LIST (one flat object per line) and
+# AAPP_PLUGIN_DO (aapp commands, one per line, run after the step).
+PLUGIN_PROTOCOL_VERSION="1.0"
+PLUGIN_STATUS=""; PLUGIN_MESSAGE=""; PLUGIN_HANDLED=""; PLUGIN_OUT=""
+PLUGIN_LIST_FILE=""; PLUGIN_DO_FILE=""
+
+_plugin_files_drop() {
+    [ -n "$PLUGIN_LIST_FILE" ] && rm -f "$PLUGIN_LIST_FILE"
+    [ -n "$PLUGIN_DO_FILE" ] && rm -f "$PLUGIN_DO_FILE"
+    PLUGIN_LIST_FILE=""; PLUGIN_DO_FILE=""
+    return 0
+}
+
+# plugin_step <entrypoint> <repo-root> <action> <event> [data-json]
+# Runs one step and reads the answer into PLUGIN_STATUS (ok | declined | failed),
+# PLUGIN_MESSAGE (also printed), PLUGIN_HANDLED and PLUGIN_OUT (the raw answer).
+# Returns 0 for ok and declined; non-zero when the plugin failed, timed out, said
+# `failed`, or answered from a protocol version newer than this kit's.
+plugin_step() {
+    local rc=0 ver
+    PLUGIN_STATUS=""; PLUGIN_MESSAGE=""; PLUGIN_HANDLED=""; PLUGIN_OUT=""
+    _plugin_files_drop
+    PLUGIN_LIST_FILE="$(mktemp)" || return 1
+    PLUGIN_DO_FILE="$(mktemp)" || return 1
+    PLUGIN_OUT="$(AAPP_PLUGIN_LIST="$PLUGIN_LIST_FILE" AAPP_PLUGIN_DO="$PLUGIN_DO_FILE" run_action_plugin "$@")" || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        PLUGIN_STATUS="failed"
+        PLUGIN_MESSAGE="$(json_field "$PLUGIN_OUT" error 2>/dev/null)" || PLUGIN_MESSAGE=""
+        [ "$rc" -eq 124 ] && PLUGIN_MESSAGE="no answer within $(_plugin_timeout "$2")s"
+        _plugin_files_drop
+        return "$rc"
+    fi
+    ver="$(json_field "$PLUGIN_OUT" version 2>/dev/null)" || ver=""
+    if [ -n "$ver" ] && ! awk -v a="$ver" -v b="$PLUGIN_PROTOCOL_VERSION" 'BEGIN { split(a, x, "."); split(b, y, "."); exit !((x[1] + 0 < y[1] + 0) || (x[1] + 0 == y[1] + 0 && x[2] + 0 <= y[2] + 0)) }'; then
+        PLUGIN_STATUS="failed"
+        PLUGIN_MESSAGE="answer is protocol version $ver; this kit speaks $PLUGIN_PROTOCOL_VERSION"
+        echo "❌ [Plugin] The plugin's $PLUGIN_MESSAGE." >&2
+        _plugin_files_drop
+        return 1
+    fi
+    PLUGIN_STATUS="$(json_field "$PLUGIN_OUT" status 2>/dev/null)" || PLUGIN_STATUS="ok"
+    PLUGIN_MESSAGE="$(json_field "$PLUGIN_OUT" message 2>/dev/null)" || PLUGIN_MESSAGE=""
+    [ -n "$PLUGIN_MESSAGE" ] && echo "💬 [Plugin] $PLUGIN_MESSAGE"
+    case "$PLUGIN_STATUS" in
+        declined) _plugin_files_drop; return 0 ;;
+        failed)   _plugin_files_drop; return 1 ;;
+        *)        PLUGIN_STATUS="ok" ;;
+    esac
+    PLUGIN_HANDLED="$(json_field "$PLUGIN_OUT" handled 2>/dev/null)" || PLUGIN_HANDLED=""
+    return 0
+}
+
+# plugin_handled <part>: true when the last step's plugin took care of <part>.
+# Whatever it did not name is the kit's to do.
+plugin_handled() {
+    [ "$PLUGIN_STATUS" = "ok" ] || return 1
+    case ",$(printf '%s' "$PLUGIN_HANDLED" | tr -d '[:space:]')," in
+        *",$1,"*) return 0 ;;
+    esac
+    return 1
+}
+
+# plugin_list_lines -> the flat objects of the last step's list file, one per line.
+plugin_list_lines() {
+    [ -n "$PLUGIN_LIST_FILE" ] && [ -f "$PLUGIN_LIST_FILE" ] || return 0
+    grep -v '^[[:space:]]*$' "$PLUGIN_LIST_FILE" || true
+}
+
+# plugin_run_do <subject> <plugin-name>: runs the last step's `do` list, after
+# the step has finished and released its lock. Each line is an aapp command as a
+# person types it; only the commands listed for <subject> in lib/plugin_do.tsv
+# are accepted. They run in order, through the CLI, each taking the lock it
+# needs; a refused line is reported and the rest still run. <plugin-name> is not
+# called again by them.
+plugin_run_do() {
+    local subject="$1" name="$2" lines line cmd allowed rc
+    local -a args
+    [ -n "$PLUGIN_DO_FILE" ] && [ -s "$PLUGIN_DO_FILE" ] || { _plugin_files_drop; return 0; }
+    lines="$(cat "$PLUGIN_DO_FILE")"
+    _plugin_files_drop
+    while IFS= read -r line; do
+        [ -n "${line//[[:space:]]/}" ] || continue
+        allowed=0
+        while IFS="$(printf '\t')" read -r s cmd; do
+            [ "$s" = "$subject" ] || continue
+            case "$line" in "$cmd"|"$cmd "*) allowed=1 ;; esac
+        done < "${AAPP_LIB:-$(dirname "${BASH_SOURCE[0]}")}/plugin_do.tsv"
+        if [ "$allowed" -ne 1 ]; then
+            echo "⛔ [Plugin] do: '$line' is not an accepted $subject command; skipped." >&2
+            continue
+        fi
+        # Words are split as a shell would quote them, without any expansion.
+        args=()
+        while IFS= read -r cmd; do args+=("$cmd"); done < <(printf '%s\n' "$line" | xargs printf '%s\n' 2>/dev/null)
+        if [ ${#args[@]} -eq 0 ]; then
+            echo "⛔ [Plugin] do: '$line' cannot be read as a command; skipped." >&2
+            continue
+        fi
+        echo "▶️  [Plugin] do: $line"
+        rc=0
+        AAPP_PLUGIN_MUTED="$name" "${AAPP_SCRIPT_DIR:?}/aapp" "${args[@]}" || rc=$?
+        [ "$rc" -eq 0 ] || echo "⚠️  [Plugin] do: '$line' was refused (exit $rc)." >&2
+    done <<< "$lines"
+    return 0
 }
 
 build_event_envelope() {
@@ -350,6 +474,12 @@ dispatch_hook() {
 resolve_plugin_entrypoint() {
     local pdir="$1"
     local name="$2"
+
+    # A command run from a plugin's `do` list does not call that plugin again
+    # (P-77): to it the plugin is absent, so the kit does everything.
+    if [ -n "${AAPP_PLUGIN_MUTED:-}" ] && [ "$AAPP_PLUGIN_MUTED" = "$name" ]; then
+        return 1
+    fi
 
     # 1. Canonical Extensionless
     if [ -x "$pdir/run" ]; then
