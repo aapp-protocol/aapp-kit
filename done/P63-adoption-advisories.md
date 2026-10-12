@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `20e4182` (develop)
 * **Worktree:** .workspace/P63 (plan/P63-adoption-advisories)
 * **Commits:** `3f4178b` (plan/P63-adoption-advisories)
@@ -237,6 +237,7 @@ Nothing is committed: the file is ignored, so the plans worktree stays clean and
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-12:** Plan implementation completed and archived to done/.
 * **2026-10-12:** Plan activated into ⚡ In Development via start.
 * **2026-10-12:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-12:** A welcome setup guide: the catalogue covers everything a user may need to adjust (branches, remote, team, project files, hooks, build tools, settings to review), each task with its manual section; catalogue in `lib/adoption.sh`, its own test suite.

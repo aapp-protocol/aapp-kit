@@ -37,8 +37,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-63**: [`P63-adoption-advisories.md`](current/P63-adoption-advisories.md) — Adoption Advisories
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
