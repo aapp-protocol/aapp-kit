@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #136 | `Medium` | `CORE` | 2026-10-12 | 2026-10-12 | `fa7c775` | a logged issue names a branch only when one is given; otherwise the development branch |
 | #135 | `Low` | `DOCS` | 2026-10-12 | 2026-10-12 | `c24eb8e` | the agent rules and the fix, start and done skills describe fixes on the issue's branch |
 | #134 | `High` | `CORE` | 2026-10-12 | 2026-10-12 | `a79f70f` | the issues table check accepts a ledger with further columns; unblocks P-78 |
 | #132 | `High` | `CORE` | 2026-10-13 | 2026-10-12 | `5df988d` | adding files to an open group fix keeps its worktree and group, so `issue close` still lands it on the feature branch |
