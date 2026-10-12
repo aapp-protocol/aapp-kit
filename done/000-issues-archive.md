@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #134 | `High` | `CORE` | 2026-10-12 | 2026-10-12 | `a79f70f` | the issues table check accepts a ledger with further columns; unblocks P-78 |
 | #132 | `High` | `CORE` | 2026-10-13 | 2026-10-12 | `5df988d` | adding files to an open group fix keeps its worktree and group, so `issue close` still lands it on the feature branch |
 | #131 | `Low` | `DOCS` | 2026-10-13 | 2026-10-12 | `cb002d2` | the contracts, the agent rules, the manual and the usage line of `refine … blocked` and `draft … issue` say they take any issue id, a tracker's key included |
 | #93 | `Medium` | `CLI` | 2026-09-28 | 2026-10-12 | `d1b9e68` | a bare `aapp draft` offers the issues awaiting a plan (Incubated), not the planned ones |
