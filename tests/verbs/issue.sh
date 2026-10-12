@@ -12,6 +12,9 @@ bad() { printf "  \033[31m✘\033[0m %-52s %s\n" "$1" "$2"; FAIL=$((FAIL+1)); }
 
 init_sandbox_project "$R/p"
 cd "$R/p" || exit 1
+# A failing provider is a failure in this suite: the offline staging of P-75
+# has its own (tests/verbs/offline.sh).
+git config aapp.offlineEnabled false
 
 # Known ledgers: three active issues (one with an escaped pipe), one archived.
 cat > .plans/ISSUES.md <<'EOF'

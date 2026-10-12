@@ -19,6 +19,9 @@ git add -A && git commit -qm "sources" --no-verify
 git branch develop; git checkout -q develop
 git config aapp.planWorktrees on; git config aapp.commitMode microcommits
 git config aapp.issueFixWait 0; git config aapp.pluginTimeout 2
+# A failing provider is a failure in this suite: the offline staging of P-75
+# has its own (tests/verbs/offline.sh).
+git config aapp.offlineEnabled false
 
 row() { printf '| #%s | `Low` | `CORE` | 2026-10-01 | `src/%s.sh` | Defect %s shows. |  | 🟡 `Incubated` |\n' "$1" "$2" "$1"; }
 { printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |'
