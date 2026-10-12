@@ -6,7 +6,7 @@
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
      The group's `done` writes it with the ARCHITECTURE.md commit. -->
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Feature Branch:** none
 * **Members:** P-73, P-74, P-75, P-77, P-78, P-79, P-80
@@ -241,4 +241,5 @@ The issue plugins the kit calls (`aapp-issue-tracker`, `aapp-issue-note-filter`)
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-12:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-11:** Group drafted.
