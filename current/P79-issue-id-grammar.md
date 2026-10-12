@@ -83,36 +83,36 @@ Consequences, each through the functions above:
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/issue_id_test.sh::test_normalize_numeric_forms` -> asserts `46` and `#46` normalize to `#46`
-- [ ] `tests/issue_id_test.sh::test_refs_from_plan_lines` -> asserts `issue_id_refs` returns every id of a `Blocked On` line with several
-- [ ] `tests/issue_id_test.sh::test_refs_ignore_headings_and_hex` -> asserts `### PROJ-101`, `#A1B2C3` and `x#12` yield no id, and `(#PROJ-101)` yields one
-- [ ] `tests/issue_id_test.sh::test_no_id_pattern_outside` -> asserts no code outside the id section spells out an id pattern
-- [ ] `tests/issue_id_test.sh::test_key_id_valid` -> asserts `PROJ-101`, `#PROJ-101` and `proj-101` all normalize to `#PROJ-101`
-- [ ] `tests/issue_id_test.sh::test_malformed_id_refused` -> asserts `PROJ-`, `#-7`, `PROJ 101` and `101-PROJ` are refused, naming the accepted forms
-- [ ] `tests/issue_id_test.sh::test_counter_ignores_key_ids` -> asserts seeding and advancing `aapp.issueId` look at numeric ids only
-- [ ] `tests/verbs/issue.keyid.sh::test_fix_and_close_with_key_id` -> asserts `issue fix PROJ-101` opens `fix-PROJ-101.md`, a commit `(#PROJ-101)` passes the hooks, and `issue close PROJ-101` archives the row
-- [ ] `tests/verbs/issue.keyid.sh::test_key_id_blocks_and_unblocks_plan` -> asserts a plan with `Blocked On: #PROJ-101` is blocked, and unblocked when it closes
-- [ ] `tests/verbs/issue.keyid.sh::test_draft_promotes_key_id` -> asserts `draft <slug> issue PROJ-101` writes `Target Issue: #PROJ-101` and the plan's `done` closes it
-- [ ] `tests/verbs/issue.keyid.sh::test_write_guard_binds_key_id_fix` -> asserts the write guard allows the files of `fix-PROJ-101.md` and refuses others
+- [x] `tests/issue_id_test.sh::test_normalize_numeric_forms` -> asserts `46` and `#46` normalize to `#46`
+- [x] `tests/issue_id_test.sh::test_refs_from_plan_lines` -> asserts `issue_id_refs` returns every id of a `Blocked On` line with several
+- [x] `tests/issue_id_test.sh::test_refs_ignore_headings_and_hex` -> asserts `### PROJ-101`, `#A1B2C3` and `x#12` yield no id, and `(#PROJ-101)` yields one
+- [x] `tests/issue_id_test.sh::test_no_id_pattern_outside` -> asserts no code outside the id section spells out an id pattern
+- [x] `tests/issue_id_test.sh::test_key_id_valid` -> asserts `PROJ-101`, `#PROJ-101` and `proj-101` all normalize to `#PROJ-101`
+- [x] `tests/issue_id_test.sh::test_malformed_id_refused` -> asserts `PROJ-`, `#-7`, `PROJ 101` and `101-PROJ` are refused, naming the accepted forms
+- [x] `tests/issue_id_test.sh::test_counter_ignores_key_ids` -> asserts seeding and advancing `aapp.issueId` look at numeric ids only
+- [x] `tests/verbs/issue.keyid.sh::test_fix_and_close_with_key_id` -> asserts `issue fix PROJ-101` opens `fix-PROJ-101.md`, a commit `(#PROJ-101)` passes the hooks, and `issue close PROJ-101` archives the row
+- [x] `tests/verbs/issue.keyid.sh::test_key_id_blocks_and_unblocks_plan` -> asserts a plan with `Blocked On: #PROJ-101` is blocked, and unblocked when it closes
+- [x] `tests/verbs/issue.keyid.sh::test_draft_promotes_key_id` -> asserts `draft <slug> issue PROJ-101` writes `Target Issue: #PROJ-101` and the plan's `done` closes it
+- [x] `tests/verbs/issue.keyid.sh::test_write_guard_binds_key_id_fix` -> asserts the write guard allows the files of `fix-PROJ-101.md` and refuses others
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/issue_id_test.sh` and `tests/verbs/issue.keyid.sh`; confirm red.
+- [x] Task 1.1: Write `tests/issue_id_test.sh` and `tests/verbs/issue.keyid.sh`; confirm red.
 
 ### Phase 2: One Definition (Phase A)
-- [ ] Task 2.1: The id section in `lib/aapp-lib.sh`, accepting digits only.
-- [ ] Task 2.2: Move callers onto it one file per commit; the full suite stays green after each.
-- [ ] Task 2.3: `test_no_id_pattern_outside` passes.
+- [x] Task 2.1: The id section in `lib/aapp-lib.sh`, accepting digits only.
+- [x] Task 2.2: Move callers onto it one file per commit; the full suite stays green after each.
+- [x] Task 2.3: `test_no_id_pattern_outside` passes.
 
 ### Phase 3: Key Ids (Phase B)
-- [ ] Task 3.1: Widen the definition; the counter and the ordering rules.
-- [ ] Task 3.2: The key-id tests pass.
+- [x] Task 3.1: Widen the definition; the counter and the ordering rules.
+- [x] Task 3.2: The key-id tests pass.
 
 ### Phase 4: Verification & Documentation
-- [ ] Task 4.1: Run automated test suites and verify edge cases.
-- [ ] Task 4.2: Update `MANUAL.md`, `templates/issues.md` and the verb contracts.
-- [ ] Task 4.3: Architecture and Codemap sections live in group P-72.
-- [ ] Task 4.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 4.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 4.1: Run automated test suites and verify edge cases.
+- [x] Task 4.2: Update `MANUAL.md`, `templates/issues.md` and the verb contracts.
+- [x] Task 4.3: Architecture and Codemap sections live in group P-72.
+- [x] Task 4.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 4.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
