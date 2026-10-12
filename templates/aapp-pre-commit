@@ -69,6 +69,24 @@ if [ ${#STAGED_FILES[@]} -eq 0 ]; then
     exit 0
 fi
 
+# P-75: what is staged offline holds temporary ids and stays in the `.offline`
+# worktree until `aapp offline sync` publishes it: no file under `.offline/`
+# is committed to the code or to the plans branch.
+if [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" != "offline" ]; then
+    for FILE in "${STAGED_FILES[@]}"; do
+        case "$FILE" in
+            .offline/*)
+                echo ""
+                echo "❌ [Pre-Commit] '$FILE' is staged from the offline worktree."
+                echo "   Files under .offline/ are never committed here: publish them with 'aapp offline sync'."
+                echo "   Unstage it with: git restore --staged -- '$FILE'"
+                echo ""
+                exit 1
+                ;;
+        esac
+    done
+fi
+
 # ------------------------------------------------------------------------------
 # 0. ADAPTIVE BRANCH PROTECTION (STABLE VS. EDGE GUARD)
 # ------------------------------------------------------------------------------

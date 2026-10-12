@@ -63,6 +63,7 @@ Plans are `P-[num]`, issues are `#[num]`. `aapp freeze P-9`, `aapp freeze 9`, an
 | `aapp push` | Push active worktrees (`.plans`, `.agents`, `.githooks`) to remote |
 | `aapp pull` | Pull remote updates for active worktrees with non-negotiable `--ff-only` |
 | `aapp sync` | Bi-directional sync: pull updates followed by push |
+| `aapp offline [mount \| unmount [force] \| on \| off \| status \| sync]` | The `.offline` worktree: issues and draft plans staged while a provider is unreachable (or skipped with `on`), under temporary ids; `sync` publishes them and gives them their real ids. Never pushed |
 | `aapp pause` | Emergency brake: quarantine in-flight changes into stashes across worktrees |
 | `aapp resume` | Disengage brake, verify commit drift, and restore stashes by SHA |
 

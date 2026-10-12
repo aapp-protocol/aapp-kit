@@ -354,13 +354,15 @@ fi
 # linked worktree) a planning path is relative to that worktree, not to the
 # primary checkout; match it against the primary's .plans/.agents instead.
 # Code paths keep relativising against the current worktree.
+# P-75: `.offline` is the offline worktree (issues and draft plans staged while
+# a provider is unreachable): planning paths, like `.plans`.
 case "$CANONICAL_TARGET" in
-    "${PRIMARY_ROOT:-$REPO_ROOT}"/.plans/*|"${PRIMARY_ROOT:-$REPO_ROOT}"/.agents/*)
+    "${PRIMARY_ROOT:-$REPO_ROOT}"/.plans/*|"${PRIMARY_ROOT:-$REPO_ROOT}"/.agents/*|"${PRIMARY_ROOT:-$REPO_ROOT}"/.offline/*)
         exit 0
         ;;
 esac
 case "$TARGET_FILE" in
-    .plans/*|.agents/*)
+    .plans/*|.agents/*|.offline/*)
         exit 0
         ;;
     CHANGELOG.md|README.md|MANUAL.md|CHEATSHEET.md|CODEMAP.md|ARCHITECTURE.md|ISSUES.md|.gitignore)
