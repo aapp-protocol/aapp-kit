@@ -1717,9 +1717,11 @@ cmd_issue_fix() {
         if [ -z "$n" ]; then
             # With the aapp-issue-tracker provider installed, it is the authority
             # for the claim (fail closed, like `allocate`); otherwise the local queue.
-            if _issue_provider_entry >/dev/null; then
-                issue_provider next-blocker "" || {
-                    _issue_lock_release; echo "❌ [Issue] The aapp-issue-tracker provider refused next-blocker; not claiming locally." >&2; return 1; }
+            # A provider that answers `declined` leaves the pick to the local queue.
+            if _issue_provider_entry >/dev/null && {
+                   issue_provider next-blocker "" || {
+                       _issue_lock_release; echo "❌ [Issue] The aapp-issue-tracker provider refused next-blocker; not claiming locally." >&2; return 1; }
+               } && [ "$PLUGIN_STATUS" != "declined" ]; then
                 pout="$PLUGIN_OUT"; _plugin_files_drop
                 raw="$(json_field "$pout" id)" || {
                     _issue_lock_release; echo "❌ [Issue] Provider must print {\"id\": ...} for next-blocker (got: '$pout')." >&2; return 1; }

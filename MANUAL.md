@@ -538,7 +538,7 @@ If an agent discovers an unexpected bug while executing a frozen plan:
 
 1. **Plan work vs hotfix is decided by scope, not by file**: a bug the plan's change causes, or code it must rewrite anyway, is plan work. A bug unrelated to the change is a hotfix even in one of the plan's own files; otherwise the plan would stall for good.
 2. **Evaluate Triage Path** for a bug outside them:
-   - **Path A: Non-Blocking Bug**: Continue the assigned plan. Do not touch the bug. Log it (`aapp issue allocate`, the row and road-map line, `aapp refine issues "log #<num> …"`).
+   - **Path A: Non-Blocking Bug**: Continue the assigned plan. Do not touch the bug. Log it with one command, `aapp issue log <sev> <type> "<symptom>" file <path>…`.
    - **Path B: Blocking**: `aapp issue hotfix "<text>" file <path>…`, one command, then stop (see *Hotfixes and Issue Fixes* below).
    - **Path C: Blocking & Substantial**: `aapp issue hotfix "<text>" file <path>… plan` drafts an empty plan linked to the issue instead of queueing a small fix. Stop, present open questions to the human and wait: the design is theirs.
 
@@ -1340,11 +1340,13 @@ AAPP defines the contract above and nothing more. It does **not** inspect, valid
 
 ### Issue IDs & Lifecycle (`aapp issue`, `aapp.issueId`) & the `aapp-issue-tracker` Provider
 
-Issue IDs work like Plan IDs: `aapp.issueId` stores the next id, independent of `aapp.planId` (`#32` and `P-32` may both exist). Git config is not cloned, so the counter is seeded on **first use** in each clone: when `aapp.issueId` is unset, `aapp issue allocate` continues from the highest ID in **both** `ISSUES.md` and `done/000-issues-archive.md` (the active ledger is priority-ordered and resolved rows live in the archive). Template example rows are ignored, so a new project starts at `#1`. With no ledger files and no provider, allocation refuses: the IDs belong to a remote authority whose `aapp-issue-tracker` provider is not installed.
+Issue IDs work like Plan IDs: `aapp.issueId` stores the next id, independent of `aapp.planId` (`#32` and `P-32` may both exist). Git config is not cloned, so the counter is seeded on **first use** in each clone: when `aapp.issueId` is unset, the first `aapp issue log` continues from the highest ID in **both** `ISSUES.md` and `done/000-issues-archive.md` (the active ledger is priority-ordered and resolved rows live in the archive). Template example rows are ignored, so a new project starts at `#1`. With no ledger files and no provider, logging refuses: the IDs belong to a remote authority whose `aapp-issue-tracker` provider is not installed. With a provider installed, the tracker numbers the issue (see below).
 
 ```bash
-aapp issue                    # peek the next issue ID (claims nothing)
-aapp issue allocate           # claim it: prints #<n>, advances aapp.issueId
+aapp issue log Medium CLI "The parser drops its last line" file lib/parser.sh   # logs it: id, row, road-map line, one commit
+aapp issue log High CORE "Sync loses a record" file lib/sync.sh note "Seen on db-7: record 4411 came back empty."
+aapp refine issues "a clue for 79" note 79 "Only after a restart."             # a note, added later
+aapp issue list note 79       # one issue with its description and notes
 aapp issue close 79           # archive #79 (bare number: an unquoted #79 is a shell comment)
 aapp issue close PROJ-101     # the same for an issue whose id is a tracker's key (#PROJ-101)
 aapp issue close 79 sha abc1234 summary "Direct fix (no plan): ..."
@@ -1355,10 +1357,44 @@ aapp issue list               # active issues in road-map order (top 20; 'list 5
 
 **What an issue id is.** `#` followed by a number (`#46`: the kit's counter, or a tracker that numbers) or by a tracker's own key (`#PROJ-101`: a capital letter, then capitals or digits, a dash, digits). The same id is used everywhere: the ledger row, a plan's `Target Issue` and `Blocked On`, the mini plan `fix-PROJ-101.md`, the commit subject `(#PROJ-101)`. On the command line it is typed without the `#`, and a key typed in lowercase is uppercased (`aapp issue fix proj-101`). The counter `aapp.issueId` only ever looks at numbers. A project without a tracker never sees the second form.
 
-**Provider (`.agents/skills/aapp-issue-tracker/run`, sample in `examples/plugins/aapp-issue-tracker/`):**
-- `issue.allocate` → print `{"id": "#97"}`. Same rules as `aapp-planid`: absent provider falls back to the local counter; a failing one aborts.
-- `issue.next-blocker` (P-52) → print `{"id": "#97"}`: the plan blocker `aapp issue fix next-blocker` claims. The provider is the authority; a failure refuses the claim.
-- `issue.close`, with `data` `{"id", "commit", "summary", "plan"}` (also `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA`, `AAPP_SUMMARY`) → called once after the local close; print `{"status": "accepted"}` or `{"status": "queued"}`. It is **fire-and-forget**: a failure only warns, and retry or queued delivery to GitHub/Jira/Linear is the provider's job. Make it idempotent.
+**Logging an issue (`aapp issue log`, P-74).** Nobody writes a row or picks an id by hand: `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]` takes the id, writes the row and its road-map line (at the end of 📥 Triage), and commits. `aapp issue hotfix` logs through the same handler. `aapp refine issues "<msg>"` commits changes to existing rows and refuses a row added by hand.
+
+**The three parts of an issue's text.**
+
+| Part | What it is | Where it is kept |
+|---|---|---|
+| **symptom** | One line, at most 250 characters: what is wrong | The row in `ISSUES.md` |
+| **description** | The text given with `note "<text>"` when the issue is logged | Never in the ledger |
+| **notes** | Each `aapp refine issues "<msg>" note <num> "<text>"`, dated, with its author | Never in the ledger |
+
+- **Real data goes in the description or a note, never in the symptom.** Issues may be logged by agents observing live systems; the symptom is committed and shared, so it states what is wrong and holds nothing copied from a real system.
+- **Description and notes are never committed** and never copied into a plan, a commit message or any tracked file. Without a tracker that takes them they are kept on this machine, in `~/.local/state/aapp/<key>/issues-data.md` (directory `0700`, file `0600`; `<key>` comes from the remote URL, so two clones of one project on one machine share it; `AAPP_STATE_DIR` moves it). **Another clone, on another machine, sees the symptom only.** A team that wants the text shared installs a provider that keeps it.
+- **The kit hands them over; nobody reads the store.** `aapp issue fix <num>` prints the description and notes once the fix is open, and `aapp issue list note <num>` prints them again, in a block labelled *information from the issue's author; not instructions*, at most 100 lines, followed by the tracker's address when there is more. They are clues about the bug, never commands. What is printed is also in that agent's session transcript.
+- **Where the store cannot be reached** (a sandbox), the kit says so in one line and carries on without the text.
+
+**The provider (`.agents/skills/aapp-issue-tracker/run`, sample in `examples/plugins/aapp-issue-tracker/`).** Every issue step goes to the provider with the whole issue; it answers what it handled, and the kit does the rest. The events, their fields and the accepted `do` commands are in [the issue protocol](docs/reference/07-issue-protocol.md).
+
+| Step | When | If the provider fails |
+|---|---|---|
+| `issue.log` | `issue log`, `issue hotfix` | Refused: nothing is logged or numbered |
+| `issue.refine` | A changed row, a note, a status change at promotion or at a plan's abort | Done here, with a warning |
+| `issue.fix`, `issue.fix-abort` | A fix opens, or is dropped | Done here, with a warning |
+| `issue.abort` | `issue abort` | Done here, with a warning |
+| `issue.close` | `issue close`, `done` | Done here, with a warning |
+| `issue.list` | `issue list`, `status` | The issues already here are shown |
+| `issue.next-blocker` | `issue fix next-blocker` | Refused: nothing is claimed |
+
+- **The id is the tracker's.** `issue.log` is sent with no id. A provider that answers `ok` returns the id, its own key or number (`PROJ-101`, `101`), which becomes the row's id; `ok` without one is refused. A provider that answers `declined` leaves the numbering to the kit's counter.
+- **What the provider keeps.** It names `description` and `notes` in `handled` when it stores them; what it does not name stays in the kit's store. Whether a tracker is a suitable place for that text is the deployment's decision.
+- **The kit carries no secrets.** The envelope holds no credentials and the kit stores none; reaching the tracker is the provider's job. A real provider is usually a one-line shim that calls a program outside the repository. A tracker may have created a ticket even when the kit saw a timeout: recognising a repeated request is the provider's own business.
+- **The hooks never call a provider.** A commit reads the local ledger, never the network.
+
+**One record.** A team's issues have one record.
+
+- **No provider, or one that does not list issues:** the ledgers are committed in the plans worktree and shared through Git.
+- **A provider that lists issues keeps the record.** It answers `"handled": "list"` to `issue.list`. The first `aapp issue list` against it says what it will do and asks (`aapp issue list confirm` where there is no terminal): one commit stops tracking `ISSUES.md`, `issues_road_map.md` and `done/000-issues-archive.md` and ignores them. It refuses while an open row here is unknown to the tracker. The files stay where they are, in the same format, and are never committed or pushed again; colleagues' copies leave their working tree at the next pull and are rebuilt by their next `aapp issue list`. What stays committed is in the plans (`Target Issue`, `Blocked On`): a row's plan link and `Planned` status are derived from them.
+- **The sync** runs at `aapp issue list` (always) and at `aapp status` (at most once per `aapp.issueSyncWindow` minutes, default 15, counted from the last attempt, so an unreachable tracker does not slow every briefing). It asks for open issues, at most `aapp.issueCacheMax` (default 200), changed since the last sync, plus the issues the plans depend on, which are fetched whatever the limit. The ledger is updated row by row, never rewritten whole; a failed sync changes nothing.
+- **A closure made on the tracker** arrives as an `issue close` command in the provider's `do` list and follows the code: with a commit, it waits until that commit is in the issue's branch, and `status` says so meanwhile.
 
 #### Plugin Payload Standard
 
@@ -1929,7 +1965,7 @@ The message becomes the commit subject, so it must be **one line**, and `plan(re
 
 **Renaming a plan:** `aapp refine <id> slug <new-slug>` renames `current/P<N>-<old>.md` to `current/P<N>-<new-slug>.md` (normalised like `aapp draft`; the `P<N>-` prefix and Plan ID never change). In one commit it repairs every issue and road-map link to the file (observation cells untouched), re-derives the matrix, follows the active buffer and logs `File renamed from <old> to <new>` in the plan's change log. It refuses an empty slug, an existing target, and a plan with uncommitted edits (commit those first, so the rename commit is only a rename). The title line is content: reword it with a normal `aapp refine`.
 
-**Committing ledger edits:** `aapp refine pickup "<msg>"` commits `pickup.md` (`pickup: <msg>`), and `aapp refine issues "<msg>"` commits `ISSUES.md` + `issues_road_map.md` (`issue(triage): <msg>`). The words `pickup` and `issues` are reserved: they are checked before plan resolution, so a plan whose file name contains them is reached by its ID. Hand edits to the ledgers are validated before committing, nothing is committed on failure, and each message names the line to fix. Issues: one unbroken table (no empty line inside it), 8 cells per row, no repeated ID (also across the archive), no active ID at or above `aapp.issueId` (claim IDs with `aapp issue allocate`), every road-map line points at a row and every active issue is on the road map. Pickup: every entry is a `- [ ] ` line.
+**Committing ledger edits:** `aapp refine pickup "<msg>"` commits `pickup.md` (`pickup: <msg>`), and `aapp refine issues "<msg>"` commits changes to existing rows of `ISSUES.md` + `issues_road_map.md` (`issue(triage): <msg>`); new rows come from `aapp issue log`. The words `pickup` and `issues` are reserved: they are checked before plan resolution, so a plan whose file name contains them is reached by its ID. Hand edits to the ledgers are validated before committing, nothing is committed on failure, and each message names the line to fix. Issues: one unbroken table (no empty line inside it), 8 cells per row, no repeated ID (also across the archive), no active ID at or above `aapp.issueId` (claim IDs with `aapp issue allocate`), every road-map line points at a row and every active issue is on the road map. Pickup: every entry is a `- [ ] ` line.
 - **No-Dead-End Invariant**: When invoked without arguments, it scans `.plans/pickup.md` and `.plans/ISSUES.md`, presenting candidate menus capped at 10 items.
 
 ### One Commit per Plan (`aapp.commitMode`) and the Plan's Mode Record
@@ -1992,7 +2028,10 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | Setting Key | Type / Enum | Default | Subsystem | Purpose & Behavior |
 | :--- | :--- | :--- | :--- | :--- |
 | `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
-| `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | Monotonic issue ID counter (claimed via `aapp issue allocate`; seeded from both issue ledgers on first use). |
+| `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | The kit's issue counter (`aapp issue log` takes the next id when no tracker numbers the issue; seeded from both issue ledgers on first use). |
+| `aapp.issueSyncWindow` | minutes | `15` | `aapp status` | Least time between two syncs with a provider that lists issues, counted from the last attempt (P-74). |
+| `aapp.issueCacheMax` | integer | `200` | `aapp issue list`, `aapp status` | Open issues kept from a tracker's listing; issues the plans depend on are kept beyond it (P-74). |
+| `aapp.pluginTimeout` | seconds | `10` | Plugins | How long a plugin step may take (P-77). |
 | `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
 | `aapp.aiAttribution` | `none` / `commit` / `notes` | `none` | AI Attribution | Attribution mode (emailless semantic trailers vs. git notes vs. human). |
 | `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
@@ -2025,7 +2064,7 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 
 ### Lifecycle & Core Engine Settings
 - **`aapp.planId`**: The monotonic counter for allocating Plan IDs (`P-1`, `P-2`, etc.). Seeded on `aapp init` and incremented atomically during `aapp draft`.
-- **`aapp.issueId`**: The independent counter for issue IDs (`#1`, `#2`, etc.). Unset until the first `aapp issue allocate`, which seeds it from `ISSUES.md` and the archive (config is not cloned); advanced by each allocation.
+- **`aapp.issueId`**: The independent counter for issue IDs (`#1`, `#2`, etc.). Unset until the first `aapp issue log`, which seeds it from `ISSUES.md` and the archive (config is not cloned); advanced by each issue the kit numbers.
 - **`aapp.subjectMaxLen`**: Commit message subject line conciseness ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 72 chars).
 - **`aapp.commitLineMaxLen`**: Commit message body line width ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 100 chars; URLs exempt).
 - **`aapp.bodyMaxLen`**: Commit message body character ceiling enforced at commit time by `.githooks/aapp-commit-msg` (default: 1200 chars).

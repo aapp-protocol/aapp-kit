@@ -162,7 +162,6 @@ cat > .plans/issues_road_map.md <<EOF
 EOF
 git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1
 git -C .plans commit -qm "test: ledger fixture" >/dev/null 2>&1
-git config aapp.issueId 22
 nb="P${n2}-new-name.md"
 out="$(aapp refine "$id2" slug "New Name" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && [ ! -e "$f2" ] && [ -f ".plans/current/$nb" ] && \

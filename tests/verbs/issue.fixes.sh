@@ -20,7 +20,7 @@ printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Prob
 printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #10 -> Host.' '- [ ] #11 -> Free.' '- [ ] #12 -> Busy.' > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
-git config aapp.issueId 20; git config aapp.issueFixWait 0
+git config aapp.issueFixWait 0
 wid="P-$(git config aapp.planId)"; aapp draft side-plan >/dev/null 2>&1
 wf="$(ls .plans/current/P"${wid#P-}"-*.md)"
 sed -i -E "s|src/path/to/file\.ext|src/host.py|g; s|src/path/to/new_file\.ext|src/other.py|g" "$wf"
@@ -140,7 +140,6 @@ printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Prob
 printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #3 -> Group code wrong.' '- [ ] #4 -> Shared code wrong.' > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
-git config aapp.issueId 5
 GXPRIM="$(git rev-parse --abbrev-ref HEAD)"
 
 gid="P-$(git config aapp.planId)"; aapp draft fixgrp group >/dev/null 2>&1

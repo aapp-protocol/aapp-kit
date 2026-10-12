@@ -19,7 +19,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp draft <slug> group [<id>]` | **✅ Yes** | A group plan (`🧩 Group Plan`), or a member of group `<id>`; `aapp refine <id> group <gid>\|none` joins or leaves before start |
 | `aapp refine <id> "<msg>"` | **✅ Yes** | Commit an edit to an active plan's content through the plans commit engine |
 | `aapp refine <id> slug <new-slug>` | **✅ Yes** | Rename a plan file; issue links and the matrix follow |
-| `aapp refine pickup\|issues "<msg>"` | **✅ Yes** | Commit a validated hand edit of `pickup.md`, or `ISSUES.md` + road map |
+| `aapp refine pickup\|issues "<msg>"` | **✅ Yes** | Commit a validated hand edit of `pickup.md`, or a change to existing rows of `ISSUES.md` + road map (new rows: `aapp issue log`) |
 | `aapp refine <id> blocked <num>` | **✅ Yes** | Block a plan on active issue `#<num>` (Status + `Blocked On:`); chain `&& aapp matrix` |
 | `aapp refine <id> unblocked <num>` | **✅ Yes** | Remove closed issue `#<num>` from a plan's `Blocked On:` by hand: for a fix that reached the plan's parent branch as another commit (squash, cherry-pick, rebase) |
 | `aapp refine issues "<msg>" branch <num> <name>` | **✅ Yes** | Name the branch issue `#<num>`'s fix must land on (the development branch clears it) |
@@ -46,7 +46,9 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp test jobs <n>` | **✅ Yes** | Run up to `<n>` suites at once; default: CPU count rounded down to a multiple of 4; `jobs 1` is serial |
 | `aapp note [cmd]` | **✅ Yes** | Inspect, stage, push, or pull general and AI Git notes |
 | `aapp issue abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` | **✅ Yes** | Withdraw an issue (wrong, invalid, unwanted): archived as `aborted`; its plan (through `plan abort`) or open mini plan goes with it; plans it blocked resume |
-| `aapp issue [cmd]` | **✅ Yes** | Peek, allocate, close, or list issue IDs |
+| `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]` | **✅ Yes** | Log an issue: the id (the tracker's, or the kit's counter), the row and its road-map line, one commit; `note` is its description, kept outside Git |
+| `aapp issue close <id>` \| `list [<n> \| all] [confirm]` \| `list note <num>` | **✅ Yes** | Close an issue; list the open ones (syncing with a provider that lists); show one with its description and notes |
+| `aapp refine issues "<msg>" note <num> "<text>"` | **✅ Yes** | Add a note to an issue (never committed) |
 
 AI agent counterparts: `/aapp-status`, `/aapp-digest [idea]`, `/aapp-freeze [plan]`, `/aapp-start [plan]`, `/aapp-done [plan]`, `/aapp-pause [reason]`, `/aapp-release`, `/aapp-plan` (and `/plan`), `/aapp-tdd [plan]`.
 
@@ -142,7 +144,9 @@ AAPP controls repository behavior via standard Git configuration:
 | `aapp.integrateTarget` | `parent` / `dev` / `<branch>` | `parent` | `aapp done` | Target: the plan's `Base:` branch, the development branch, or a named branch (P-55). |
 | `aapp.integrateCleanup` | `true` / `false` | `true` | `aapp done` | Remove the plan worktree and branch after integrating (P-55). |
 | `aapp.quarantineIgnored` | `true` / `false` | `false` | `aapp done` | Copy sensitive ignored files (`.env*`, keys) into `.git/aapp_quarantine/<id>/` before removal; otherwise they refuse the cleanup (P-55). |
-| `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | Monotonic issue ID counter (claimed via `aapp issue allocate`; seeded from both issue ledgers on first use). |
+| `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | The kit's issue counter (`aapp issue log` takes the next id when no tracker numbers the issue; seeded from both issue ledgers on first use). |
+| `aapp.issueSyncWindow` | minutes | `15` | `aapp status` | Least time between two syncs with a provider that lists issues (P-74). |
+| `aapp.issueCacheMax` | integer | `200` | `aapp issue list`, `aapp status` | Open issues kept from a tracker's listing (P-74). |
 | `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
 | `aapp.aiAttribution` | `none` / `lax` / `strict` / `notes` | `none` | AI Attribution | Attribution mode: none (default; human-only), lax (mixed human/AI), strict (mandatory trailers), notes (private git notes). |
 | `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |

@@ -400,7 +400,7 @@ printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Prob
   '| #2 | `Low` | `CORE` | 2026-10-11 | `src/mc.sh` | Broken. |  | 🟡 `Incubated` |' > .plans/ISSUES.md
 printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #2 -> Broken.' > .plans/issues_road_map.md
 git -C .plans add ISSUES.md issues_road_map.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
-git config aapp.issueId 3; git config aapp.issueFixWait 0
+git config aapp.issueFixWait 0
 aapp issue fix 2 >/dev/null 2>&1
 echo "m=2" > src/mc.sh; git add src/mc.sh
 head0="$(git rev-parse HEAD)"

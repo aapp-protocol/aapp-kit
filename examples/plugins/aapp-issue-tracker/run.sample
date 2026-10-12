@@ -1,59 +1,93 @@
 #!/bin/sh
 # ==============================================================================
-# Reference `aapp-issue-tracker` Provider Plugin (MOCK)
+# Reference `aapp-issue-tracker` Provider Plugin (SAMPLE)
 #
 # Install at: .agents/skills/aapp-issue-tracker/run
-# Copy this directory as-is -- it already carries the canonical name.
 #
-# CONTRACT (Plugin Payload Standard, shared by every AAPP plugin)
+# WHAT IT IS FOR
+#   AAPP sends every issue step to this plugin, with the whole issue. The
+#   plugin decides, part by part, what it handles; AAPP does the rest. A real
+#   provider talks to your tracker (Jira, GitHub, a service of your own). This
+#   sample keeps its record in a local file so every step can be tried.
+#
+# CONTRACT (Plugin Payload Standard; docs/reference/06-plugin-protocol.md,
+#           docs/reference/07-issue-protocol.md)
 #   stdin : JSON envelope
 #           {"version","event","timestamp","actor",
 #            "repository": {"root","branch","remote": {"name","url"} | null},
 #            "data": {...}, "extra": {}}
-#           repository.remote identifies the team project; credentials are
-#           stripped from the URL. "extra" is reserved for arbitrary data.
+#           Credentials are stripped from the remote URL; AAPP sends none.
+#   env   : AAPP_ACTION (the step), AAPP_PLUGIN_STEP (the event), AAPP_ISSUE_ID
+#   stdout: one flat JSON object:
+#           "status"  : "ok" | "declined" | "failed" (absent on exit 0 means ok)
+#           "message" : one sentence AAPP shows the user
+#           "handled" : what this plugin took care of (description, notes, list)
+#           "id"      : on issue.log, the issue's id: the tracker's own key or
+#                       number ("PROJ-101", "101"). AAPP sends no id and takes
+#                       this one; "ok" without it is refused.
+#           "tracker", "url", "release": shown beside the issue, never interpreted
+#   files : $AAPP_PLUGIN_LIST  one flat JSON object per line (issue.list: the
+#                              open issues; issue.fix: the issue's notes)
+#           $AAPP_PLUGIN_DO    aapp commands AAPP runs after the step, one per
+#                              line; accepted: `issue close`, `issue abort`
 #
-#   event "issue.allocate"  (env AAPP_ACTION=allocate)
-#     data   : {}
-#     stdout : {"id": "#42"} (or {"id": 42})
-#     exit !0: refuse, optionally {"error": "<text>"}; AAPP aborts rather than
-#              allocating locally.
+#   event            data                                  what AAPP does on failure
+#   issue.log        the issue, no id; description         refuses: nothing is logged
+#   issue.refine     the issue; notes just added           carries on, warns
+#   issue.fix        the issue                             carries on, warns
+#   issue.fix-abort  the issue (still open)                carries on, warns
+#   issue.abort      the issue; reason                     carries on, warns
+#   issue.close      the issue; commit, summary, plan      carries on, warns
+#   issue.list       open, limit, since, ids               shows what it has
+#   issue.next-blocker  {}                                 refuses: nothing is claimed
 #
-#   event "issue.next-blocker" (env AAPP_ACTION=next-blocker, P-52)
-#     data   : {}
-#     stdout : {"id": "#42"} -- the plan blocker `aapp issue fix next-blocker`
-#              claims; the provider is the authority, so two runners never
-#              claim the same blocker.
-#     exit !0: refuse; AAPP does not fall back to the local queue.
+#   During a step this plugin cannot run a writing `aapp` verb itself; it has at
+#   most aapp.pluginTimeout seconds (default 10). A tracker may have created a
+#   ticket even when AAPP saw a timeout: recognising a repeated request (by a
+#   hash of the payload it keeps) is the provider's own business.
 #
-#   event "issue.close"     (env AAPP_ACTION=close, AAPP_ISSUE_ID,
-#                            AAPP_COMMIT_SHA, AAPP_SUMMARY)
-#     data   : {"id": "#42", "commit": "<sha>", "summary": "<text>",
-#               "plan": "P-7" | null}
-#     stdout : {"status": "accepted"} or {"status": "queued"}
-#     Fire-and-forget: AAPP has already archived the issue locally and calls
-#     once. A non-zero exit only warns. Retry, queueing and later delivery to
-#     the tracker are this plugin's responsibility. Must be idempotent.
+# THE RECORD
+#   A provider that answers `"handled": "list"` to issue.list keeps the record:
+#   AAPP then stops committing its ledgers and brings them up to date from the
+#   listing. This sample does so only when AAPP_SAMPLE_TRACKER_LISTS=1; without
+#   it the committed ledgers stay the record and this sample only numbers and
+#   mirrors the issues.
 #
-# THE ANSWER (plugin protocol; docs/reference/06-plugin-protocol.md)
-#   One flat JSON object. Beside what the event asks for it may carry:
-#     "status"  : "ok" | "declined" | "failed" (absent on exit 0 means ok)
-#     "message" : one sentence AAPP shows the user
-#     "handled" : what this plugin took care of; AAPP does the rest
-#   Two files named in the environment take longer answers:
-#     $AAPP_PLUGIN_LIST : one flat JSON object per line
-#     $AAPP_PLUGIN_DO   : aapp commands to run after the step, one per line,
-#                         e.g.  issue close 12 summary "closed on the tracker"
-#                         (accepted: issue close, issue abort)
-#   During a step this plugin cannot run a writing `aapp` verb itself; it has
-#   $AAPP_PLUGIN_STEP set and at most aapp.pluginTimeout seconds (default 10).
-#
-# WHY THIS IS A ONE-LINE SHIM
-#   Same reasoning as examples/plugins/aapp-planid/run.sample: anything
-#   committed here is public, so the tracker endpoint and credentials live in
-#   the provider outside the repository. The default target sits in
-#   ~/.local/bin/, which blast-radius-guard hard-denies to agents.
-#
-#   Override the target with AAPP_ISSUE_TRACKER_CMD.
+# WHY A REAL PROVIDER IS A ONE-LINE SHIM
+#   Anything committed here is public, so the tracker endpoint and its
+#   credentials live outside the repository. A real `run` is usually:
+#       exec "$HOME/.local/bin/aapp-issue-tracker-provider" "$@"
 # ==============================================================================
-exec "${AAPP_ISSUE_TRACKER_CMD:-$HOME/.local/bin/aapp-issue-tracker-provider}" "$@"
+store="${AAPP_SAMPLE_TRACKER_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/aapp-sample-tracker/issues.tsv}"
+mkdir -p "$(dirname "$store")" || { echo '{"status": "failed", "message": "the sample tracker cannot write its file"}'; exit 0; }
+touch "$store"
+envelope="$(cat | tr -d '\n')"
+data="$(printf '%s' "$envelope" | sed -E 's/.*"data": *//; s/, *"extra": *\{\} *\} *$//')"
+# field <name>: a text member of data.
+field() { printf '%s' "$data" | sed -nE "s/.*\"$1\": *\"(([^\"\\\\]|\\\\.)*)\".*/\1/p"; }
+id="$(field id)"
+
+case "${AAPP_PLUGIN_STEP:-}" in
+    issue.log)
+        last="$(cut -f1 "$store" | tr -d '#' | sort -n | tail -n 1)"
+        id="#$(( ${last:-0} + 1 ))"
+        printf '%s\topen\t%s\t%s\t%s\t%s\t%s\n' "$id" "$(field sev)" "$(field type)" "$(field date)" "$(field location)" "$(field symptom)" >> "$store"
+        printf '{"status": "ok", "id": "%s", "tracker": "sample"}\n' "$id"
+        ;;
+    issue.close|issue.abort)
+        tmp="$store.tmp.$$"
+        awk -F'\t' -v OFS='\t' -v id="$id" '$1 == id { $2 = "closed" } { print }' "$store" > "$tmp" && mv "$tmp" "$store"
+        echo '{"status": "ok"}'
+        ;;
+    issue.list)
+        if [ "${AAPP_SAMPLE_TRACKER_LISTS:-0}" != "1" ]; then echo '{"status": "declined"}'; exit 0; fi
+        awk -F'\t' '{ printf "{\"id\": \"%s\", \"status\": \"%s\", \"sev\": \"%s\", \"type\": \"%s\", \"date\": \"%s\", \"location\": \"%s\", \"symptom\": \"%s\"}\n", $1, $2, $3, $4, $5, $6, $7 }' "$store" > "${AAPP_PLUGIN_LIST:-/dev/null}"
+        echo '{"status": "ok", "handled": "list"}'
+        ;;
+    issue.next-blocker)
+        echo '{"status": "declined"}'
+        ;;
+    *)
+        echo '{"status": "ok"}'
+        ;;
+esac

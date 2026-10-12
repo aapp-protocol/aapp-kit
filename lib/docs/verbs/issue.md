@@ -1,16 +1,16 @@
-# issue [next | allocate | hotfix "<text>" [file <path>]… [branch <name>] [plan] | fix next-blocker | fix <num> [file <path>…] [group <group>] | fix <num> abort | close <id> [sha <sha>] [summary "<text>"] | abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm] | list [<n> | all]]
+# issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"] | hotfix "<text>" [file <path>]… [branch <name>] [note "<text>"] [plan] | fix next-blocker | fix <num> [file <path>…] [group <group>] | fix <num> abort | close <id> [sha <sha>] [summary "<text>"] | abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm] | list [<n> | all] [confirm] | list note <num>
 
 ## Ingress
 - positional forms:
-    - `next` (default when no subcommand is given): prints the next issue ID without claiming it
-    - `allocate`: claims the next issue ID and prints it (`#<n>`)
-    - `hotfix "<text>" [file <path>]… [branch <name>] [plan]` (P-52): from a plan's worktree, logs the blocking bug as a new issue, queues it under 🧱 Plan Blockers, records it in the plan's `Emergency Hotfixes:` and blocks the plan, in one commit; `plan` drafts a plan from it instead of queueing; `branch <name>` names the branch the fix must land on (P-78); without it, the plan's parent branch when every file named is one of the plan's Target Files, otherwise none (P-83)
+    - `log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]` (P-74): the handler, and the one writer of new rows. It takes the id, writes the row and its road-map line and commits; nobody writes a row or picks an id by hand. `<sev>`: `Critical`, `High`, `Medium` or `Low`; `<type>`: an uppercase token; `<symptom>`: one line, at most 250 characters, newlines collapsed to spaces; `file` fills the Location; `branch` names the branch the fix must land on (optional: none named is the development branch, and none is ever taken from the checkout the command runs in); `note` is the issue's description
+    - `hotfix "<text>" [file <path>]… [branch <name>] [note "<text>"] [plan]` (P-52): from a plan's worktree, logs the blocking bug as a new issue, queues it under 🧱 Plan Blockers, records it in the plan's `Emergency Hotfixes:` and blocks the plan, in one commit; `plan` drafts a plan from it instead of queueing; `branch <name>` names the branch the fix must land on (P-78); without it, the plan's parent branch when every file named is one of the plan's Target Files, otherwise none (P-83); logged through the same handler as `log`, with `note` as its description (P-74)
     - `fix next-blocker` | `fix <num> [file <path>…]` (P-52): opens a temporary mini plan `current/fix-<num>.md` for one issue, one fix at a time; the files come from the row's Location (only its path tokens: present in the working tree, or containing `/` or a file extension, `:lines` stripped, P-58), `file` adds one the log does not name; `next-blocker` claims the top Plan Blocker; with a mini plan of `#<num>` open, `file` adds files to it
     - `fix <num> group <group>` (P-64): a bug caused by a group's work; the issue's branch becomes the group's feature branch, so the fix is made in `.workspace/fix-<num>` on `fix/<num>` cut from it, and `close` lands it there
     - `fix <num> abort` (P-52): drops an uncommitted mini plan; the issue stays open
     - `close <id>`: relocates an active issue row to the archive
     - `abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` (P-76): withdraws an active issue with what was opened for it, its promoted plan (`[P-<id>](current/…)` in its *Target Plan / Fix* cell) or its open mini plan; `reason` is one line (default `Withdrawn`); the other tokens go to `aapp plan abort` unchanged
-    - `list [<n> | all]`: prints active issues in road-map order
+    - `list [<n> | all] [confirm]`: prints active issues in road-map order; with a provider that lists issues it first brings them up to date (P-74); `confirm` answers the question the first such listing asks
+    - `list note <num>` (P-74): prints one issue's row with its description and notes, as `fix` hands them over
 - `<id>`: a number (`79`, `#79`, `ISSUE-79`) or a tracker's key (`PROJ-101`, `#PROJ-101`; lowercase is uppercased). Quote the `#` forms: an unquoted `#79` is a shell comment. One definition, in `lib/aapp-lib.sh` (P-79)
 - the branch of an issue (P-78): where its fix must land, the `Branch` cell of its row. No branch named (an empty cell, a ledger without the column) means the development branch (`aapp.devBranch`; the default branch when none exists). The cell is found by the header's column name; the column is added, last, by the first write that names another branch. A branch that exists only on a remote counts as existing
 - close tokens (bare, no `--`):
@@ -18,20 +18,26 @@
     - `summary "<text>"`: resolution summary (default: `Direct fix (no plan)`; the *Target Plan / Fix* cell is never read, P-66); `|` is escaped
 - list cap: bare `<n>` sets it, `all` removes it; default 20
 - reads config: `aapp.issueFixWait` (minutes `fix` and the issue lock wait, default 5; `0` = fail fast), `aapp.maxEmergencyHotfixes` (hotfixes a plan may take, default 2; the next one blocks it permanently) (P-52)
-- reads config: `aapp.issueId` (next ID to hand out; read by `next`, advanced by `allocate`); when unset (always in a fresh clone), seeded from both ledgers on first use, template example rows ignored
+- reads config: `aapp.issueId` (the kit's counter: the next id `log` and `hotfix` give when no provider numbers the issue); when unset (always in a fresh clone), seeded from both ledgers on first use, template example rows ignored. `aapp.issueSyncWindow` (minutes between two syncs at `aapp status`, default 15), `aapp.issueCacheMax` (open issues kept from a listing, default 200), `aapp.pluginTimeout`
+- reads: the kit's store of descriptions and notes, `${AAPP_STATE_DIR:-~/.local/state}/aapp/<key>/issues-data.md` (`<key>` from the remote URL, or the folder name without a remote), outside Git
 - reads: `.plans/ISSUES.md`, `.plans/done/000-issues-archive.md`, `.plans/issues_road_map.md`
-- plugin: an installed `aapp-issue-tracker` provider (`.agents/skills/aapp-issue-tracker/`) speaks the Plugin Payload Standard (`.agents/CODEMAP.md` §5): `issue.allocate` → `{"id": "#<n>"}`; `issue.close` (data `id`, `commit`, `summary`, `plan`; env `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA`, `AAPP_SUMMARY`) → `{"status": …}`; `issue.next-blocker` (`AAPP_ACTION=next-blocker`, P-52) → `{"id": "#<n>"}`: the provider is the authority for the claim, and a failure refuses it (no local fallback)
+- plugin: an installed `aapp-issue-tracker` provider (`.agents/skills/aapp-issue-tracker/`) receives every issue step with the whole issue (P-74): `issue.log`, `issue.refine`, `issue.fix`, `issue.fix-abort`, `issue.abort`, `issue.close`, `issue.list`, `issue.next-blocker`. It answers in the plugin protocol (`status`, `message`, `handled`, `id`, the shown `tracker`, `url`, `release`) and may fill the list and `do` files. Events, fields and accepted `do` commands: `docs/reference/07-issue-protocol.md`. The hooks never call it
 - plugin: an installed `aapp-issue-branch` plugin (`.agents/skills/aapp-issue-branch/`, P-83) says on which branch a fix lands: `issue.branch` (data `id`, `sev`, `type`, `date`, `symptom`, `status`, `files`; env `AAPP_ISSUE_ID`) → `{"status": "ok", "branch": "<name>"}`, `{"status": "declined"}` or `{"status": "failed", "message": …}`. Asked by `fix` (and `fix next-blocker`) and by `close` of an issue with no open fix, only when the row names no branch; never by `list`. Reference: `docs/reference/07-issue-protocol.md`
 
 ## Preconditions
 - Inside a Git repository whose `.plans/` worktree exists
 
 ## Failure modes
-- `aapp.issueId` set but not an integer -> `next` and `allocate` exit 1, stderr `aapp.issueId is not an integer` naming `git config --unset aapp.issueId`; the key is left untouched
-- `aapp.issueId` unset, no ledger files, no provider -> `next` and `allocate` exit 1, stderr names the `aapp-issue-tracker` provider; nothing is written
-- installed provider exits non-zero on `allocate` -> exit 1, stderr `Provider plugin failed (<error text>); refusing to allocate locally`; no local fallback
-- provider prints no `{"id": ...}` object -> exit 1, stderr `Provider must print {"id": ...}`
-- provider prints a non-integer id -> exit 1, stderr `Provider must return an integer id`
+- `log` with fewer than three arguments, an unknown token, a severity outside the four, a type that is not an uppercase token, an empty symptom, or a `branch` that exists neither here nor on a remote -> exit 1, stderr names it; nothing written, no provider called (P-74)
+- `log` or `hotfix` with a symptom over 250 characters -> exit 1, stderr gives the length and the limit and says to put the rest in the note; nothing written, no provider called (P-74)
+- `aapp.issueId` set but not an integer, no provider numbering the issue -> `log` exits 1, stderr `aapp.issueId is not an integer` naming `git config --unset aapp.issueId`; the key is left untouched, nothing written
+- `aapp.issueId` unset, no ledger files, no provider -> `log` exits 1, stderr names the `aapp-issue-tracker` provider; nothing is written
+- `log` or `hotfix` when the installed provider fails, times out or says `failed` -> exit 1, stderr `aapp-issue-tracker failed (<error text>); the issue is not logged`; no row, no commit, nothing numbered here (P-74)
+- `log` or `hotfix` when the provider answers `ok` without an `id`, with an id that is no valid id, or with one that is already an issue here -> exit 1; nothing written (P-74)
+- `log` or `hotfix` when the provider answers `declined` and the tracker keeps the record (the ledgers are not tracked) -> exit 1: no issue exists only locally (P-74)
+- `list` with a provider that lists issues while the ledgers are still tracked: an open row the provider does not know -> exit 1, the rows listed; no confirmation (no terminal and no `confirm`) -> exit 1 naming `aapp issue list confirm`; nothing changed in either case (P-74)
+- the provider failing on any other step (`refine`, `fix`, `fix-abort`, `abort`, `close`, `list`) -> no failure: the kit completes the step, stderr warns naming `aapp-issue-tracker`; a failed `list` leaves the ledgers byte-identical (P-74)
+- the store of descriptions and notes not writable or readable (a sandbox) -> no failure: one line says the text could not be kept, or cannot be read, and the command carries on (P-74)
 - `close` without an id -> exit 1, usage on stderr
 - `close` with an unknown token -> exit 1, stderr `Unknown token`
 - `fix` run inside a plan's worktree (the one a plan in `current/` records in `* **Worktree:**`) -> exit 1, stderr names the plan and `cd <primary checkout>`, plus the `hotfix` route for a blocking bug; nothing written. A fix on a plan branch would vanish in the plan's squash and its recorded SHA would dangle (P-54)
@@ -59,9 +65,14 @@
 - the issue lock (`$(git rev-parse --git-common-dir)/aapp_issue.lock`, held while `hotfix` and the start of a `fix` write) is waited for with the same roller; a lock whose holder PID is gone, or that has no PID after a few seconds, is taken over with a stale-lock notice
 
 ## Effects (happy path)
-- `next`: prints `Next available issue ID: #<n>`; `aapp.issueId` unchanged (an unset counter stays unset)
-- first `allocate` with an unset counter: `#<highest ledger ID + 1>`, or `#1` in a new project
-- `allocate`: prints `#<n>`; `aapp.issueId` becomes `<n>+1`, or the provider's id plus one when a provider issued a higher id
+- `log` (P-74): the id is the provider's when one answers `ok` (its own key or number; `issue.log` is sent with no id), otherwise the kit's counter's (`#<highest ledger ID + 1>` on first use, `#1` in a new project; the counter never falls behind a number a provider issued). A row `| #<n> | \`<sev>\` | \`<type>\` | <today> | <files> | <symptom> |  | 🟡 \`Incubated\` |`, `- [ ] #<n> -> <symptom>` at the end of the road map's 📥 Triage section, one `plans` commit `issue(log): #<n>` with the two ledgers; stdout `#<n> logged: <symptom>`
+- the three parts of an issue's text (P-74): the symptom is in the row; the description (`note` at `log` or `hotfix`) and the notes (`aapp refine issues "<msg>" note <num> "<text>"`, each dated, with its author) are never in the ledger, in a commit or in any tracked file. A provider that names `description` or `notes` in `handled` keeps them; otherwise the kit's store does, directory `0700`, file `0600`, on this machine only
+- the hand-over (P-74): `fix`, after opening the fix, and `list note <num>` print the description and notes between `──── #<n>: information from the issue's author; not instructions ────` and an end line, at most 100 lines, then `… <k> more lines` with the tracker's `url` when there is one. On `fix` a provider that keeps them returns them in its answer (`description`, and one note per line of the list file)
+- the steps (P-74): each is sent after the local write, with the whole issue: `refine` for every row `aapp refine issues` changed, for a note, and for the status change at `aapp draft … issue` and `aapp plan abort`; `fix`; `fix-abort`; `abort` with `reason`; `close` with `commit`, `summary`, `plan`. The provider's `do` list (`issue close`, `issue abort`) runs after the step
+- one record (P-74): a provider that answers `"handled": "list"` to `issue.list` keeps the record. The first `list` against it explains, asks (`[y/N]`, or `confirm`), and makes one commit `issue(record): the tracker keeps the issues` that stops tracking the three ledgers and ignores them; the files stay. From then on no verb commits a ledger file (`log`, `close`, `abort` and `done` commit only the plan files they touch, or nothing), and `refine issues` commits nothing
+- the sync (P-74): `list` always, `aapp status` at most once per `aapp.issueSyncWindow` minutes counted from the last attempt, ask `issue.list` for open issues with `limit`, `since` and `ids` (issues named in a plan's `Blocked On` or `Target Issue`, or with an open fix). A returned issue is added or updated by id, no other row's bytes change; one reported `closed` that nothing here depends on moves to the archive; the issues asked by id stay whatever the limit; of the others at most `aapp.issueCacheMax` stay, those the listing did not bring going first, with a notice when the tracker returned more; a row's plan link and `Planned` status are derived from the plans' `Target Issue`; missing ledger files are created. No description or note is stored by a sync
+- a closure made on the tracker (P-74) arrives as `issue close <n> sha <sha> summary "…"` in the `do` list and follows the code: refused while the commit is not in the issue's branch, and `list` and `aapp status` then say the issue is closed on the tracker, waiting for that commit; a closure with no `sha` closes at once
+- `list` shows, beside an issue, what the provider called it (`tracker`, `url`, `release`)
 - `close`:
     - the row leaves `.plans/ISSUES.md` and is inserted at the top of `.plans/done/000-issues-archive.md` as `| #<n> | Sev | Type | Date Opened | <today> | \`<sha>\` | <summary> |`; a row that names a branch keeps it in the archive's `Branch` column (added when missing, P-78)
     - the `#<n>` entry leaves `.plans/issues_road_map.md`
@@ -89,15 +100,14 @@
 
 ## Exit
 - 0 on success, including an already-archived `close` and a provider that fails on `close`
-- non-zero on invalid arguments, a corrupt counter, a failing provider on `allocate`, or an unknown id
+- non-zero on invalid arguments, a corrupt counter, a failing provider on `log` or `next-blocker`, a refused switch to a tracker-kept record, or an unknown id
 
 ## Tests
 Run: `aapp test verb issue`
 
-- `tests/verbs/issue.sh::test_next_peeks_without_claiming` -> `next` prints the counter and leaves it unchanged
-- `tests/verbs/issue.sh::test_allocate_claims_and_advances` -> `allocate` prints `#<n>` and advances the counter
-- `tests/verbs/issue.sh::test_non_integer_counter_fails_closed` -> a corrupt counter refuses `next` and `allocate`
-- `tests/verbs/issue.sh::test_provider_allocate_ratchets_counter` -> a provider's id is issued and the counter moves past it
+- `tests/verbs/issue.sh::test_allocate_claims_and_advances` -> `log` numbers the issue from the counter and advances it
+- `tests/verbs/issue.sh::test_non_integer_counter_fails_closed` -> a corrupt counter refuses `log`; nothing written
+- `tests/verbs/issue.sh::test_provider_allocate_ratchets_counter` -> a provider's id on `issue.log` is the row's id and the counter moves past it
 - `tests/verbs/issue.sh::test_failing_provider_refuses_allocation` -> a failing provider is fatal, no local fallback
 - `tests/verbs/issue.sh::test_close_relocates_prunes_and_commits` -> row archived at the top, road map pruned, one clean commit
 - `tests/verbs/issue.sh::test_close_plugin_failure_only_warns` -> a failing provider on `close` warns, exit 0
@@ -110,9 +120,9 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.sh::test_done_closes_target_issue` -> `aapp done` archives its Target Issue in the same commit
 - `tests/verbs/issue.sh::test_done_refuses_dangling_target_issue` -> a Target Issue in neither ledger refuses `done`
 - `tests/verbs/issue.sh::test_new_project_first_issue_is_1` -> template ledgers only: the first issue is `#1`
-- `tests/verbs/issue.sh::test_clone_first_allocate_continues_ledgers` -> unset counter continues from the ledgers; `next` writes nothing
+- `tests/verbs/issue.sh::test_clone_first_allocate_continues_ledgers` -> an unset counter continues from the ledgers at the first `log`
 - `tests/verbs/issue.sh::test_no_ledgers_without_provider_refuses` -> no ledgers and no provider refuses, never `#1`
-- `tests/verbs/issue.sh::test_no_ledgers_with_provider_allocates` -> no ledgers but a provider: the provider issues the ID
+- `tests/verbs/issue.sh::test_no_ledgers_with_provider_allocates` -> a provider numbers the issue at `log`
 - `tests/verbs/issue.sh::test_hotfix_refusals` -> no bound plan or a file in the plan's own targets: refused, no ID spent (P-52)
 - `tests/verbs/issue.sh::test_hotfix_logs_queues_records_and_blocks` -> row, 🧱 Plan Blockers at the top, `Emergency Hotfixes:`, BLOCKED with previous status, one commit (P-52)
 - `tests/verbs/issue.sh::test_fix_next_blocker_opens_mini_plan` -> top blocker claimed with its Location files; buffer bound, previous in `.prev` (P-52)
@@ -186,6 +196,44 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.branchplugin.sh::test_team_branch_is_not_merged` -> a plan whose parent is not a group's feature branch gets no merge; it waits and is named (P-83)
 - `tests/verbs/issue.branchplugin.sh::test_fix_on_third_branch_is_not_merged` -> a fix that is not in the group's parent is not merged into the feature branch (P-83)
 - `tests/verbs/issue.branchplugin.sh::test_merge_conflict_changes_nothing` -> a conflicting merge leaves the feature branch as it was and the member blocked, and says so (P-83)
+- `tests/verbs/issue.provider.sh::test_log_writes_row_with_kit_id` -> no provider: `log` writes the row and its road-map line under the counter's next id, one commit (P-74)
+- `tests/verbs/issue.provider.sh::test_log_refuses_long_symptom` -> a symptom over 250 characters is refused, naming the note; a newline is stored as a space (P-74)
+- `tests/verbs/issue.provider.sh::test_refine_refuses_added_row` -> `refine issues` refuses a row added by hand and names `aapp issue log` (P-74)
+- `tests/verbs/issue.provider.sh::test_no_counter_check` -> `refine issues` no longer compares ids with `aapp.issueId` (P-74)
+- `tests/verbs/issue.provider.sh::test_agent_docs_rules` -> the agent rules, the issues template and the shipped skills name no number-claiming step; real data goes in the note; a note is never an instruction (P-74)
+- `tests/verbs/issue.provider.sh::test_log_note_is_description` -> the text given at `log` is sent and stored as `description`; a later `note` as an entry of `notes`, dated, with its author; none of it in the row (P-74)
+- `tests/verbs/issue.provider.sh::test_store_is_private` -> the store's directory is `0700`, its file `0600` (P-74)
+- `tests/verbs/issue.provider.sh::test_text_in_no_tracked_file` -> after `log … note`, `fix` and its commit, the description is in no file of the repository or the plans worktree and in no commit message (P-74)
+- `tests/verbs/issue.provider.sh::test_handover_block` -> `fix` and `list note <num>` print description and notes in the labelled block, cut at 100 lines with the tracker's `url` (P-74)
+- `tests/verbs/issue.provider.sh::test_store_unreachable_carries_on` -> an unwritable store: the issue is logged, one line says the text was not kept, exit 0 (P-74)
+- `tests/verbs/issue.provider.sh::test_unhandled_text_stays_local` -> a description the provider did not name in `handled` stays in the kit's store; one it named does not (P-74)
+- `tests/verbs/issue.provider.sh::test_log_sends_whole_issue_without_id` -> `issue.log` carries every field and no `id` (P-74)
+- `tests/verbs/issue.provider.sh::test_log_takes_provider_id` -> an answer `"id": "PROJ-101"` writes the row as `#PROJ-101`; `tracker`, `url` and `release` show in `list` (P-74)
+- `tests/verbs/issue.provider.sh::test_log_refuses_ok_without_id` -> `ok` without an `id` is refused; no row (P-74)
+- `tests/verbs/issue.provider.sh::test_log_refuses_when_provider_fails` -> a failing provider refuses `log`; no row, its error shown (P-74)
+- `tests/verbs/issue.provider.sh::test_declined_log_uses_counter` -> `declined` on `issue.log`, the ledgers being the record: the kit's counter numbers the row (P-74)
+- `tests/verbs/issue.provider.sh::test_refused_row_never_sent` -> a `log` or a `refine issues` refused by its checks calls no provider (P-74)
+- `tests/verbs/issue.provider.sh::test_close_sends_whole_issue` -> `issue.close` carries the row's cells with commit and summary (P-74)
+- `tests/verbs/issue.provider.sh::test_fix_abort_sends_fix_abort` -> `fix` sends `issue.fix`; `fix <num> abort` sends `issue.fix-abort` with the issue, still open (P-74)
+- `tests/verbs/issue.provider.sh::test_issue_abort_sends_abort` -> `abort` sends `issue.abort` with the reason (P-74)
+- `tests/verbs/issue.provider.sh::test_plan_abort_sends_refine` -> `draft … issue` sends `issue.refine` with Planned; `plan abort` sends it with Incubated (P-74)
+- `tests/verbs/issue.provider.sh::test_failure_falls_back_and_warns` -> a failing provider on refine, fix, fix-abort, abort, close and list: the kit completes each and warns (P-74)
+- `tests/verbs/issue.provider.sh::test_hooks_never_call_provider` -> a commit through the hooks calls no provider (P-74)
+- `tests/verbs/issue.tracker.sh::test_switch_refuses_unknown_open_rows` -> the switch refuses while an open row is unknown to the provider, and names it (P-74)
+- `tests/verbs/issue.tracker.sh::test_switch_untracks_ledgers` -> without `confirm` and no terminal: refused; with it: one commit stops tracking the three ledgers and ignores them, the files stay (P-74)
+- `tests/verbs/issue.tracker.sh::test_declined_log_refuses_with_record` -> `declined` on `issue.log` where the tracker keeps the record: refused (P-74)
+- `tests/verbs/issue.tracker.sh::test_no_ledger_in_commits_or_push` -> after the switch `log`, `close` and `done` commit no ledger file; none is tracked (P-74)
+- `tests/verbs/issue.tracker.sh::test_list_request_carries_limit_since_ids` -> `issue.list` carries `open`, `limit`, `since` and the ids the plans depend on, and no other id (P-74)
+- `tests/verbs/issue.tracker.sh::test_sync_updates_row_by_row` -> a sync updates a changed issue, adds a new one, archives one reported closed, and leaves another row's bytes unchanged (P-74)
+- `tests/verbs/issue.tracker.sh::test_failed_sync_changes_nothing` -> a provider failing on `issue.list` leaves the ledgers byte-identical and warns (P-74)
+- `tests/verbs/issue.tracker.sh::test_rows_cut_to_limit` -> more open issues than `aapp.issueCacheMax`: that many stay, plus those asked by id; a notice (P-74)
+- `tests/verbs/issue.tracker.sh::test_sync_window_counts_attempts` -> `aapp status` inside the window calls no provider, also after a failed attempt; `list` always does (P-74)
+- `tests/verbs/issue.tracker.sh::test_link_and_planned_derived_from_plans` -> with the ledger files gone, a sync rebuilds them; an issue a plan targets is `Planned` with the plan's link (P-74)
+- `tests/verbs/issue.tracker.sh::test_tracker_issue_blocks_plan` -> an issue a plan is blocked on is fetched by id beyond the limit and shows in `status` (P-74)
+- `tests/verbs/issue.tracker.sh::test_do_close_follows_the_code` -> a `do` line `issue close <n> sha <sha>` closes when the commit is in the issue's branch; otherwise it is refused and `status` says the issue is closed on the tracker (P-74)
+- `tests/verbs/issue.tracker.sh::test_do_abort_withdraws` -> a `do` line `issue abort <n> reason "…"` withdraws the issue (P-74)
+- `tests/verbs/issue.tracker.sh::test_do_issue_log_refused` -> a `do` line `issue log …` is refused and reported, writes no row; the line after it runs (P-74)
+- `tests/verbs/issue.tracker.sh::test_text_fetched_at_fix_not_sync` -> a sync stores no description; `fix` shows the one the provider returns (P-74)
 - `tests/verbs/issue.branch.sh::test_status_unblocks_after_merge` -> once the fix is merged into the parent branch, `aapp status` unblocks the plan in one commit and says so (P-78)
 - `tests/verbs/issue.branch.sh::test_cherry_picked_fix_stays_blocked` -> a cherry-picked fix leaves the plan blocked; `aapp status` names the commit and the branch it waits for (P-78)
 - `tests/verbs/issue.branch.sh::test_refine_unblocked` -> `refine <id> unblocked <num>` removes the block and restores the status when it was the last; an open issue is refused (P-78)

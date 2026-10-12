@@ -44,51 +44,49 @@ git -C .plans add -A && git -C .plans commit -qm "fixture ledgers" >/dev/null 2>
 git config aapp.issueId 13
 SHA="$(git rev-parse --short=7 HEAD)"
 
-echo "== next / allocate =="
-out="$(aapp issue next 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && echo "$out" | grep -q '#13' && [ "$(git config aapp.issueId)" = "13" ]; then
-  ok "test_next_peeks_without_claiming"
-else
-  bad "test_next_peeks_without_claiming" "rc=$rc out=$out"
-fi
-
-out="$(aapp issue allocate 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && [ "$out" = "#13" ] && [ "$(git config aapp.issueId)" = "14" ]; then
+echo "== the counter, through issue log (P-74) =="
+# The rows these tests log are dropped again below: the tests that follow
+# count on the fixture's rows.
+LEDGER0="$(git -C .plans rev-parse HEAD)"
+has_row() { grep -qE "^\| #$1 \|" .plans/ISSUES.md; }
+out="$(aapp issue log Low CLI "The counter numbers this one" file a.sh 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && has_row 13 && [ "$(git config aapp.issueId)" = "14" ]; then
   ok "test_allocate_claims_and_advances"
 else
   bad "test_allocate_claims_and_advances" "rc=$rc out=$out"
 fi
 
 git config aapp.issueId abc
-out="$(aapp issue allocate 2>&1)"; rc1=$?
-aapp issue next >/dev/null 2>&1; rc2=$?
-if [ "$rc1" -ne 0 ] && [ "$rc2" -ne 0 ] && [ "$(git config aapp.issueId)" = "abc" ] && \
+out="$(aapp issue log Low CLI "The counter is not a number" file a.sh 2>&1)"; rc1=$?
+if [ "$rc1" -ne 0 ] && [ "$(git config aapp.issueId)" = "abc" ] && [ -z "$(git -C .plans status --porcelain)" ] && \
    echo "$out" | grep -qF "git config --unset aapp.issueId"; then
   ok "test_non_integer_counter_fails_closed"
 else
-  bad "test_non_integer_counter_fails_closed" "rc1=$rc1 rc2=$rc2"
+  bad "test_non_integer_counter_fails_closed" "rc1=$rc1 out=$out"
 fi
 git config aapp.issueId 14
 
 echo "== provider plugin =="
 PDIR=.agents/skills/aapp-issue-tracker
 mkdir -p "$PDIR"
-printf '%s\n' '#!/bin/sh' '[ "$AAPP_ACTION" = allocate ] && echo "{\"id\": \"#40\"}"' > "$PDIR/run"
+printf '%s\n' '#!/bin/sh' '[ "$AAPP_ACTION" = log ] && echo "{\"id\": \"#40\"}"' > "$PDIR/run"
 chmod +x "$PDIR/run"
-out="$(aapp issue allocate 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && [ "$out" = "#40" ] && [ "$(git config aapp.issueId)" = "41" ]; then
+out="$(aapp issue log Low CLI "The tracker numbers this one" file a.sh 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && has_row 40 && [ "$(git config aapp.issueId)" = "41" ]; then
   ok "test_provider_allocate_ratchets_counter"
 else
   bad "test_provider_allocate_ratchets_counter" "rc=$rc out=$out counter=$(git config aapp.issueId)"
 fi
 
 printf '%s\n' '#!/bin/sh' 'echo "{\"error\": \"tracker offline\"}"' 'exit 1' > "$PDIR/run"
-aapp issue allocate >/dev/null 2>&1; rc=$?
-if [ "$rc" -ne 0 ] && [ "$(git config aapp.issueId)" = "41" ]; then
+n0="$(grep -cE '^\| #[0-9]' .plans/ISSUES.md)"
+aapp issue log Low CLI "The tracker is offline" file a.sh >/dev/null 2>&1; rc=$?
+if [ "$rc" -ne 0 ] && [ "$(git config aapp.issueId)" = "41" ] && [ "$(grep -cE '^\| #[0-9]' .plans/ISSUES.md)" = "$n0" ]; then
   ok "test_failing_provider_refuses_allocation"
 else
   bad "test_failing_provider_refuses_allocation" "rc=$rc"
 fi
+git -C .plans reset -q --hard "$LEDGER0"
 
 echo "== close =="
 out="$(aapp issue close 10 sha "$SHA" 2>&1)"; rc=$?
@@ -122,7 +120,8 @@ fi
 if echo "$out" | grep -q 'handed to aapp-issue-tracker: queued' && \
    grep -q '"event": "issue.close"' "$R/close.stdin" && grep -q '"id": "#11"' "$R/close.stdin" && \
    grep -q '"url": "https://example.com/acme/app.git"' "$R/close.stdin" && ! grep -q 's3cret' "$R/close.stdin" && \
-   grep -q '"plan": null' "$R/close.stdin" && grep -q '"extra": {}' "$R/close.stdin"; then
+   grep -q '"plan": null' "$R/close.stdin" && grep -q '"extra": {}' "$R/close.stdin" && \
+   grep -q '"symptom": "' "$R/close.stdin" && grep -q '"sev": "' "$R/close.stdin"; then
   ok "test_close_sends_envelope_and_reports_status"
 else
   bad "test_close_sends_envelope_and_reports_status" "out=$out stdin=$(cat "$R/close.stdin" 2>/dev/null)"
@@ -204,11 +203,12 @@ echo "== first use without a counter (config is not cloned) =="
 init_sandbox_project "$R/new"
 cd "$R/new" || exit 1
 git config --unset aapp.issueId 2>/dev/null
-out1="$(aapp issue next 2>&1)"; out2="$(aapp issue allocate 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && echo "$out1" | grep -q '#1$' && [ "$out2" = "#1" ] && [ "$(git config aapp.issueId)" = "2" ]; then
+out2="$(aapp issue log Low CLI "The first issue of a new project" file main.py 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -qF '| The first issue of a new project |' .plans/ISSUES.md && \
+   grep -F '| The first issue of a new project |' .plans/ISSUES.md | grep -qE '^\| #1 \|' && [ "$(git config aapp.issueId)" = "2" ]; then
   ok "test_new_project_first_issue_is_1"
 else
-  bad "test_new_project_first_issue_is_1" "rc=$rc next=$out1 alloc=$out2"
+  bad "test_new_project_first_issue_is_1" "rc=$rc log=$out2"
 fi
 
 # Clone: ledgers arrive with real rows, the counter does not.
@@ -225,33 +225,32 @@ cat > .plans/done/000-issues-archive.md <<'EOF'
 | #7 | `Low` | `CLI` | 2026-08-01 | 2026-08-02 | `0000000` | Closed. |
 EOF
 git config --unset aapp.issueId 2>/dev/null
-out1="$(aapp issue next 2>&1)"; unset_after_peek="$(git config --get aapp.issueId || echo unset)"
-out2="$(aapp issue allocate 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && echo "$out1" | grep -q '#8$' && [ "$unset_after_peek" = "unset" ] && \
-   [ "$out2" = "#8" ] && [ "$(git config aapp.issueId)" = "9" ]; then
+cp .plans/ISSUES.md "$R/clone.issues"
+out2="$(aapp issue log Low CLI "Continues after the ledgers" file a.sh 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -F '| Continues after the ledgers |' .plans/ISSUES.md | grep -qE '^\| #8 \|' && [ "$(git config aapp.issueId)" = "9" ]; then
   ok "test_clone_first_allocate_continues_ledgers"
 else
-  bad "test_clone_first_allocate_continues_ledgers" "rc=$rc next=$out1 peek_left=$unset_after_peek alloc=$out2"
+  bad "test_clone_first_allocate_continues_ledgers" "rc=$rc log=$out2"
 fi
 
 # Remote-authority clone: no ledger files and no provider -> refuse, never #1.
 rm -f .plans/ISSUES.md .plans/done/000-issues-archive.md
 git config --unset aapp.issueId 2>/dev/null
-out1="$(aapp issue next 2>&1)"; rc1=$?
-out2="$(aapp issue allocate 2>&1)"; rc2=$?
-if [ "$rc1" -ne 0 ] && [ "$rc2" -ne 0 ] && echo "$out2" | grep -q 'aapp-issue-tracker' && \
-   [ -z "$(git config --get aapp.issueId)" ]; then
+out2="$(aapp issue log Low CLI "Nowhere to number it" file a.sh 2>&1)"; rc2=$?
+if [ "$rc2" -ne 0 ] && echo "$out2" | grep -q 'aapp-issue-tracker' && \
+   [ -z "$(git config --get aapp.issueId)" ] && [ ! -f .plans/ISSUES.md ]; then
   ok "test_no_ledgers_without_provider_refuses"
 else
-  bad "test_no_ledgers_without_provider_refuses" "rc1=$rc1 rc2=$rc2 out=$out2"
+  bad "test_no_ledgers_without_provider_refuses" "rc2=$rc2 out=$out2"
 fi
 
 # Same clone once the team provider is installed: the provider issues the id.
+cp "$R/clone.issues" .plans/ISSUES.md
 mkdir -p .agents/skills/aapp-issue-tracker
-printf '%s\n' '#!/bin/sh' '[ "$AAPP_ACTION" = allocate ] && echo "{\"id\": \"#120\"}"' > .agents/skills/aapp-issue-tracker/run
+printf '%s\n' '#!/bin/sh' '[ "$AAPP_ACTION" = log ] && echo "{\"id\": \"#120\"}"' > .agents/skills/aapp-issue-tracker/run
 chmod +x .agents/skills/aapp-issue-tracker/run
-out="$(aapp issue allocate 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && [ "$out" = "#120" ]; then
+out="$(aapp issue log Low CLI "The tracker numbers it" file a.sh 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -F '| The tracker numbers it |' .plans/ISSUES.md | grep -qE '^\| #120 \|'; then
   ok "test_no_ledgers_with_provider_allocates"
 else
   bad "test_no_ledgers_with_provider_allocates" "rc=$rc out=$out"

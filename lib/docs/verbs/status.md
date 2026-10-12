@@ -5,7 +5,7 @@
     constraints: any other value is refused
     ⚠️ Divergence: any other argument is ignored silently and the full briefing prints.
 - reads: `.plans/ISSUES.md`, `.plans/issues_road_map.md`, `.plans/current/`, `.plans/state_matrix.md`, `.plans/pickup.md`, `.plans/adoption.md`, `CHANGELOG.md` (or `.plans/CHANGELOG.md`), `.plans/PAUSED.md`, the active buffer
-- reads config: `aapp.planState.*` (plan lane bucketing), `aapp.devBranch` (the branch of an issue that names none)
+- reads config: `aapp.planState.*` (plan lane bucketing), `aapp.devBranch` (the branch of an issue that names none), `aapp.issueSyncWindow`, `aapp.issueCacheMax`
 - reads: the branches, here and on the remotes, and whether a fix commit is reachable from a plan's parent branch (P-78)
 
 ## Preconditions
@@ -20,6 +20,8 @@
 - `short`: stdout is exactly one line beginning `📊 Overview:` with issue, plan and pickup counts; appends ` | <N> adoption` when `.plans/adoption.md` has open tasks (P-63)
 - no argument: stdout carries the four pillars (Shipped, Issues, Plans, Pickup), open adoption tasks after pickup when present (`📋 Adoption: <N> open task(s) in .plans/adoption.md`), and one `➡️  Next Action:` line
 - Issues pillar (P-78): once an open issue names a branch, each line ends with `(branch: <name>)` and the issues of the current branch (in a plan's worktree: of the plan's parent branch) come first, as in `aapp issue list`; an issue whose branch exists neither here nor on a remote is reported, with the development branch its fix will land on
+- where a tracker keeps the issues (P-74): the briefing first brings them up to date through the `aapp-issue-tracker` provider's `issue.list`, at most once per `aapp.issueSyncWindow` minutes (default 15) counted from the last attempt, successful or not; a failing provider warns and changes nothing. Not done by `short`, nor while a plugin step runs
+- an issue the tracker reports closed while its commit is not in the issue's branch is listed: `<id> is closed on the tracker; it closes here once \`<sha>\` is in '<branch>'` (P-74)
 - a plan left blocked on a closed issue is unblocked once the fix commit is reachable from its parent branch (P-78): the plan and the re-derived matrix land in one `plans` commit `issue(unblock): fix reached the parent branch`, and the Plans pillar says `<plan> no longer waits for #<n>`; a plan still waiting gets a line naming the commit, the branch it was fixed on, the parent branch it is not in yet and `aapp refine <plan> unblocked <num>`. Not done by `short`, nor while a plugin step runs
 - a plan with its own worktree shows it next to its status, from the header's `* **Worktree:**`: `• P-51: P51-….md  (⚡ In Development → ../repo-P51)` (P-54)
 - no other file changes
