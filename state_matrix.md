@@ -25,6 +25,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-74**: [`P74-issue-provider-wrapper.md`](current/P74-issue-provider-wrapper.md) — Issue Provider Wrapper
 - 🟣 **P-75**: [`P75-offline-worktree.md`](current/P75-offline-worktree.md) — Help
 - 🟣 **P-77**: [`P77-plugin-answer-standard.md`](current/P77-plugin-answer-standard.md) — Plugin Answer Standard
+- 🟣 **P-78**: [`P78-issue-branch.md`](current/P78-issue-branch.md) — Issue Branch
 
 ---
 
