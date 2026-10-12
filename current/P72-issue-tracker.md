@@ -37,8 +37,9 @@ Merge criterion: both members archived and the pre-done gate green on the featur
 ## 3. Members & Order
 1. P-73 (ledger module): first; no behaviour change.
 2. P-77 (plugin answer protocol): independent of P-73; may run alongside it.
-3. P-74 (provider wrapper): after P-73 and P-77; it adds the wrapper over the ledger functions and answers in the P-77 protocol.
-4. P-75 (offline worktree): after P-74; its ledgers are a source of the module and its fallback is the wrapper's failure path.
+3. P-78 (issue branch): after P-73; issues carry the branch their fix lands on.
+4. P-74 (provider wrapper): after P-73, P-77 and P-78; it adds the wrapper over the ledger functions and answers in the P-77 protocol.
+5. P-75 (offline worktree): after P-74; its ledgers are a source of the module and its fallback is the wrapper's failure path.
 
 ## Architecture & Codemap
 *Every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written out whole in a ```` fence, under the exact heading it has (or will have) in the file. Members do not edit these files; read the sections here as the target architecture. At the group's `done` a section replaces the file's section with the same heading, or is added at the end. `aapp refine` records a base line above each fence: `done` refuses a section the file changed meanwhile. Write `No changes.` under a file that keeps its content.*
