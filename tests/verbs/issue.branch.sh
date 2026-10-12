@@ -242,18 +242,6 @@ else
   bad "test_abort_ignores_branch_rules" "rc=$rc C=[$(grep -E 'Status:|Blocked On' "$(pf "$C")" | tr '\n' ' ')] out=$out"
 fi
 
-echo "== a hotfix outside the plan's files =="
-n1="$(git config aapp.issueId)"
-out="$(cd "$WM" && aapp issue hotfix "Elsewhere broke" file src/m.sh file src/d.sh 2>&1)"; rc=$?
-n2="$(git config aapp.issueId)"
-out2="$(cd "$WM" && aapp issue hotfix "Somewhere broke" 2>&1)"; rc2=$?
-if [ "$rc" -eq 0 ] && [ "$rc2" -eq 0 ] && grep -qE "^\| #$n1 \|" .plans/ISSUES.md && [ -z "$(cell "$n1")" ] && \
-   grep -qE "^\| #$n2 \|" .plans/ISSUES.md && [ -z "$(cell "$n2")" ]; then
-  ok "test_hotfix_outside_plan_files_names_no_branch"
-else
-  bad "test_hotfix_outside_plan_files_names_no_branch" "rc=$rc/$rc2 #$n1=[$(cell "$n1")] #$n2=[$(cell "$n2")] out=$out | $out2"
-fi
-
 echo "== views =="
 # #20 (core) is queued first on the board; #9 (no branch named) follows it.
 lout="$(aapp issue list all 2>&1)"; lrc=$?
@@ -264,6 +252,18 @@ if [ "$lrc" -eq 0 ] && [ "$src" -eq 0 ] && echo "$lout" | grep -F '#20 ' | grep 
   ok "test_views_show_branch"
 else
   bad "test_views_show_branch" "rc=$lrc/$src dev line=$first_dev core line=$first_core list=$lout"
+fi
+
+echo "== a hotfix outside the plan's files =="
+n1="$(git config aapp.issueId)"
+out="$(cd "$WM" && aapp issue hotfix "Elsewhere broke" file src/m.sh file src/d.sh 2>&1)"; rc=$?
+n2="$(git config aapp.issueId)"
+out2="$(cd "$WM" && aapp issue hotfix "Somewhere broke" 2>&1)"; rc2=$?
+if [ "$rc" -eq 0 ] && [ "$rc2" -eq 0 ] && grep -qE "^\| #$n1 \|" .plans/ISSUES.md && [ -z "$(cell "$n1")" ] && \
+   grep -qE "^\| #$n2 \|" .plans/ISSUES.md && [ -z "$(cell "$n2")" ]; then
+  ok "test_hotfix_outside_plan_files_names_no_branch"
+else
+  bad "test_hotfix_outside_plan_files_names_no_branch" "rc=$rc/$rc2 #$n1=[$(cell "$n1")] #$n2=[$(cell "$n2")] out=$out | $out2"
 fi
 
 echo "== the kit removes a branch =="

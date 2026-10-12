@@ -1,0 +1,60 @@
+#!/bin/sh
+# ==============================================================================
+# Reference `aapp-issue-branch` Plugin (SAMPLE)
+#
+# Install at: .agents/skills/aapp-issue-branch/run
+# with its list beside it:  .agents/skills/aapp-issue-branch/branches
+#
+# WHAT IT IS FOR
+#   Which branch owns which paths is your team's knowledge: who has clearance
+#   for a branch, which paths are live and hot, who has the expertise to
+#   certify a fix there. AAPP asks this plugin where an issue's fix lands; it
+#   gives direction and enforces nothing. What a branch accepts is enforced
+#   where the branch is hosted.
+#
+# CONTRACT (Plugin Payload Standard; docs/reference/06-plugin-protocol.md)
+#   stdin : JSON envelope; event "issue.branch" (env AAPP_ACTION=branch,
+#           AAPP_ISSUE_ID)
+#     data   : {"id": "#42", "sev", "type", "date", "symptom", "status",
+#               "files": ["lib/core/x.sh", ...]}
+#              `files` are the paths the fix covers.
+#     stdout : one flat JSON object
+#       {"status": "ok", "branch": "core"}   the fix lands on `core`
+#       {"status": "declined"}               no opinion: the development branch
+#       {"status": "failed", "message": "…"} the fix does not open; the message
+#                                            says where it should go or who
+#                                            should make it
+#   Asked when a fix opens (`aapp issue fix`) and at a direct `aapp issue
+#   close`, only for an issue whose row names no branch. A failure, a timeout
+#   or an answer without a branch refuses the fix: AAPP never falls back to the
+#   development branch because this plugin broke. A person gets past it with
+#   `aapp refine issues "<msg>" branch <num> <name>`.
+#
+# THIS SAMPLE
+#   Reads `branches` beside it: one `<path prefix><TAB><branch>` per line, `#`
+#   starts a comment. Every file of the issue is matched against the prefixes.
+#     no file matches            -> declined
+#     the matches name one branch -> ok, that branch (unmatched files follow)
+#     the matches name several    -> failed, naming the owners
+#   The list's format is this sample's own. Replace the whole script with
+#   whatever holds your team's rules: a service, a naming convention, a file.
+# ==============================================================================
+dir="$(cd "$(dirname "$0")" && pwd)"
+map="$dir/branches"
+envelope="$(cat)"
+if [ ! -f "$map" ]; then
+    echo '{"status": "failed", "message": "aapp-issue-branch has no branches list beside it"}'
+    exit 0
+fi
+# The paths between the brackets of "files": [...], one per line.
+files="$(printf '%s' "$envelope" | tr -d '\n' | sed -nE 's/.*"files"[[:space:]]*:[[:space:]]*\[([^]]*)\].*/\1/p' | tr ',' '\n' | sed -E 's/^[[:space:]]*"//; s/"[[:space:]]*$//')"
+owners="$(printf '%s\n' "$files" | awk -F'\t' '
+    NR == FNR { if ($0 !~ /^[[:space:]]*(#|$)/ && NF >= 2) { prefix[++n] = $1; branch[n] = $2 } next }
+    $0 != "" { for (i = 1; i <= n; i++) if (index($0, prefix[i]) == 1) { if (!seen[branch[i]]++) print branch[i]; break } }
+' "$map" -)"
+count="$(printf '%s\n' "$owners" | grep -c .)"
+case "$count" in
+    0) echo '{"status": "declined"}' ;;
+    1) printf '{"status": "ok", "branch": "%s"}\n' "$owners" ;;
+    *) printf '{"status": "failed", "message": "these files belong to several branches (%s): name the branch or split the issue"}\n' "$(printf '%s\n' "$owners" | paste -sd, - | sed 's/,/, /g')" ;;
+esac

@@ -155,6 +155,81 @@ _issue_clear_gone_branch() {
     echo "ℹ️  [Issue] #$1 targeted $ISSUE_BRANCH_GONE, which no longer exists; it now targets ${ISSUE_BRANCH:-the development branch}."
 }
 
+# _issue_ask_branch <plans> <n> <file>… (P-83): which branch owns an issue's
+# files is the team's knowledge. Puts the issue and the fix's files to the
+# team's `aapp-issue-branch` plugin and sets ISSUE_ASKED_BRANCH: the branch it
+# answers, or nothing (no plugin installed, or `declined`: the development
+# branch). Returns 1, having said why and how to get past it, when the plugin
+# fails, times out, answers no branch or one that does not exist: a fix is
+# never sent to the development branch because the plugin broke. Only called
+# for a row that names no branch.
+_issue_ask_branch() {
+    local plans="$1" n="$2" root pdir entry cells data files_json="" f b why=""
+    shift 2
+    ISSUE_ASKED_BRANCH=""
+    root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}" || return 0
+    pdir="$root/.agents/skills/aapp-issue-branch"
+    [ -d "$pdir" ] || return 0
+    entry="$(resolve_plugin_entrypoint "$pdir" "aapp-issue-branch" 2>/dev/null)" || return 0
+    for f in "$@"; do files_json="${files_json:+$files_json, }\"$(json_escape "$f")\""; done
+    cells="$(PLANS_DIR="$plans" ledger_rows | awk -F'\t' -v id="#$n" '$1 == id { print; exit }' | tr -d '`')"
+    data="{\"id\": \"#$n\", \"sev\": \"$(json_escape "$(printf '%s' "$cells" | cut -f2)")\", \"type\": \"$(json_escape "$(printf '%s' "$cells" | cut -f3)")\", \"date\": \"$(json_escape "$(printf '%s' "$cells" | cut -f4)")\", \"symptom\": \"$(json_escape "$(printf '%s' "$cells" | cut -f6)")\", \"status\": \"$(json_escape "$(printf '%s' "$cells" | cut -f8)")\", \"files\": [$files_json]}"
+    if AAPP_ISSUE_ID="#$n" plugin_step "$entry" "$root" branch issue.branch "$data" 2>/dev/null; then
+        _plugin_files_drop
+        [ "$PLUGIN_STATUS" = "declined" ] && return 0
+        if ! b="$(json_field "$PLUGIN_OUT" branch)"; then
+            why="it answered without a branch"
+        elif ! aapp_branch_ref "$b" >/dev/null; then
+            why="it answered '$b', a branch that exists neither here nor on a remote"
+        else
+            ISSUE_ASKED_BRANCH="$b"
+            return 0
+        fi
+    else
+        # A `failed` answer's message is already shown by the step.
+        if [ "$(json_field "$PLUGIN_OUT" status 2>/dev/null)" != "failed" ]; then why="${PLUGIN_MESSAGE:-it gave no answer}"; fi
+    fi
+    echo "❌ [Issue] The aapp-issue-branch plugin did not say where #$n's fix lands${why:+ ($why)}; nothing is opened or closed." >&2
+    echo "   Name the branch yourself: aapp refine issues \"<msg>\" branch $n <name>" >&2
+    return 1
+}
+
+# issue_bring_fix_to_groups <n> <sha> (P-83): a plan takes fixes by rebasing
+# onto its parent branch, so the fix must first be there. For each plan blocked
+# on #<n> whose parent is a group's feature branch, when the fix commit is in
+# that group's own parent, the group's parent is merged into the feature branch
+# (the merge the group's `done` makes, made early). No other branch is merged
+# into: a branch the team owns takes its fixes when the team merges them. A
+# conflict changes nothing and is said; the plan then waits as before.
+issue_bring_fix_to_groups() {
+    local n="$1" sha="$2" plans pf list parent owner gf gparent gref seen=""
+    plans="$(_issue_plans_dir)" || return 0
+    _issue_load_plan_lib || return 0
+    for pf in "$plans"/current/*.md; do
+        [ -f "$pf" ] || continue
+        case "$(basename "$pf")" in 000-*|fix-*) continue ;; esac
+        list="$(plan_blocked_on_parse "$(sed -nE 's/^\* \*\*Blocked On:\*\* //p' "$pf" | head -n 1)" | sed -n 1p)"
+        printf '%s\n' "$list" | tr ',' '\n' | tr -d ' ' | grep -qxF "#$n" || continue
+        parent="$(plan_base_branch "$pf")"
+        [ -n "$parent" ] || continue
+        owner="$(PLANS_DIR="$plans" _group_owning_branch "$parent")" || continue
+        case " $seen " in *" $owner "*) continue ;; esac
+        seen="$seen $owner"
+        gf="$plans/current/$owner.md"
+        [ "$(plan_status_slug "$gf")" = "in-development" ] || continue
+        gparent="$(plan_base_branch "$gf")"
+        [ -n "$gparent" ] && gref="$(aapp_branch_ref "$gparent")" || continue
+        git merge-base --is-ancestor "$sha^{commit}" "$gref" 2>/dev/null || continue
+        git merge-base --is-ancestor "$sha^{commit}" "$parent" 2>/dev/null && continue
+        if group_merge_parent "$gf"; then
+            echo "🔀 [Issue] Merged '$gparent' into '$parent': #$n's fix is there for the members of $(parse_plan_field "$gf" "Plan ID")."
+        else
+            echo "⚠️  [Issue] '$gparent' does not merge cleanly into '$parent': #$n's fix is not there yet. Resolve the merge on '$parent'; 'aapp status' then unblocks the plans that wait for it." >&2
+        fi
+    done
+    return 0
+}
+
 # _issue_fix_in_parent <plan_file> <sha>: true when the commit is reachable
 # from the plan's parent branch. The fix is recognised by its commit and by
 # nothing else: a squash, a cherry-pick or a rebase gives it another one.
@@ -442,8 +517,16 @@ cmd_issue_close() {
     # P-78: closing follows the code. The commit must be in the issue's branch;
     # a fix made in its own worktree lands there below.
     ISSUE_BRANCH=""; ISSUE_BRANCH_GONE=""
+    ISSUE_ASKED_BRANCH=""
     if [ "$where" = "active" ]; then
         PLANS_DIR="$plans" _issue_branch_state "$n"
+        # P-83: a row that names no branch, closed with no fix open: the
+        # team's plugin says where its files belong.
+        if [ ! -f "$plans/current/fix-$n.md" ] && { [ -z "$(PLANS_DIR="$plans" ledger_cell "$n" branch)" ] || [ -n "$ISSUE_BRANCH_GONE" ]; }; then
+            # shellcheck disable=SC2046
+            _issue_ask_branch "$plans" "$n" $(issue_location_paths "$(PLANS_DIR="$plans" ledger_row "$n")") || return 1
+            [ -z "$ISSUE_ASKED_BRANCH" ] || ISSUE_BRANCH="$ISSUE_ASKED_BRANCH"
+        fi
         [ -z "$ISSUE_BRANCH" ] || bref="$(aapp_branch_ref "$ISSUE_BRANCH")" || bref=""
         if [ -n "$sha" ] && [ -n "$bref" ] && ! git merge-base --is-ancestor "$sha^{commit}" "$bref" 2>/dev/null; then
             echo "❌ [Issue] Commit \`$sha\` is not in '$ISSUE_BRANCH', the branch #$n's fix lands on; #$n stays open." >&2
@@ -488,6 +571,11 @@ cmd_issue_close() {
     case "$where" in
         active)
             PLANS_DIR="$plans" _issue_clear_gone_branch "$n" || return 1
+            if [ -n "$ISSUE_ASKED_BRANCH" ]; then
+                PLANS_DIR="$plans" ledger_set_cell "$n" branch "$(issue_branch_cell "$ISSUE_ASKED_BRANCH")" || return 1
+            fi
+            # P-83: a member of a group that waits for this fix gets it first.
+            issue_bring_fix_to_groups "$n" "$sha"
             _issue_archive_active "$n" "$sha" "$summary" "issue(close): archive #$n" "$mp" "$entry" || return 1
             summary="$IA_SUMMARY"
             echo "✅ [Issue] #$n archived to done/000-issues-archive.md (commit \`$sha\`)."
@@ -780,9 +868,18 @@ cmd_issue_hotfix() {
     PLANS_DIR="$plans" ledger_add_row "$row" || {
         _issue_lock_release
         echo "❌ [Issue] No table header separator in ISSUES.md." >&2; return 1; }
-    # P-78: the fix lands where the blocked plan will take it from: the plan's
-    # parent branch, unless `branch` names another.
-    [ -n "$target" ] || target="$(issue_plan_parent "$pf")"
+    # P-83: two ways in. Every file named is one of the plan's own Target
+    # Files: the fix belongs to the plan's line of work, its parent branch.
+    # Otherwise the row names no branch, and the team's plugin (or the
+    # development branch) decides when the fix opens. `branch` names one anyway.
+    if [ -z "$target" ] && [ ${#files[@]} -gt 0 ]; then
+        local own=1 tf
+        tf="$(parse_plan_target_paths "$pf")"
+        for f in "${files[@]}"; do
+            printf '%s\n' "$tf" | grep -qxF "$f" || { own=0; break; }
+        done
+        [ "$own" -eq 0 ] || target="$(issue_plan_parent "$pf")"
+    fi
     PLANS_DIR="$plans" ledger_set_cell "$n" branch "$(issue_branch_cell "$target")" || {
         _issue_lock_release
         echo "❌ [Issue] Could not record the branch of #$n in ISSUES.md." >&2; return 1; }
@@ -1029,7 +1126,7 @@ _issue_fix_worktree() {
 }
 
 cmd_issue_fix() {
-    local sub="${1:-}" n="" files=() plans open limit waited step row="" text f pf pid st t grp="" gfile="" gwt="" fixbr="" gbr="" use_wt=0
+    local sub="${1:-}" n="" files=() plans open limit waited step row="" text f pf pid st t grp="" gfile="" gwt="" fixbr="" gbr="" use_wt=0 asked=0 asked_branch=""
     plans="$(_issue_plans_dir)" || return 1
     _issue_refuse_in_plan_worktree "$plans" || return 1
     case "$sub" in
@@ -1137,7 +1234,13 @@ cmd_issue_fix() {
             fixbr="$gbr"; ISSUE_BRANCH_GONE=""
         else
             PLANS_DIR="$plans" _issue_branch_state "$n"
-            fixbr="$ISSUE_BRANCH"
+            # P-83: a row that names no branch: the team's plugin says where
+            # these files belong (asked once, however long the wait below).
+            if [ "$asked" -eq 0 ] && { [ -z "$(PLANS_DIR="$plans" ledger_cell "$n" branch)" ] || [ -n "$ISSUE_BRANCH_GONE" ]; }; then
+                _issue_ask_branch "$plans" "$n" "${files[@]}" || { _issue_lock_release; return 1; }
+                asked=1; asked_branch="$ISSUE_ASKED_BRANCH"
+            fi
+            fixbr="${asked_branch:-$ISSUE_BRANCH}"
         fi
         use_wt=0
         if [ -n "$fixbr" ] && [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" != "$fixbr" ]; then use_wt=1; fi
@@ -1159,9 +1262,13 @@ cmd_issue_fix() {
     # The ledger changes with the fix's start: a branch that is gone leaves the
     # row, a group's fix targets the group's feature branch.
     local start_paths=("current/fix-$n.md") lp owner=""
+    [ -z "$asked_branch" ] || ISSUE_BRANCH="$asked_branch"
     PLANS_DIR="$plans" _issue_clear_gone_branch "$n" || { _issue_lock_release; return 1; }
     if [ -n "$gbr" ]; then
         PLANS_DIR="$plans" ledger_set_cell "$n" branch "$(issue_branch_cell "$gbr")" || { _issue_lock_release; return 1; }
+    elif [ -n "$asked_branch" ]; then
+        # The plugin's answer is recorded: it is not asked again for this issue.
+        PLANS_DIR="$plans" ledger_set_cell "$n" branch "$(issue_branch_cell "$asked_branch")" || { _issue_lock_release; return 1; }
     fi
     while IFS= read -r lp; do
         if [ -n "$lp" ] && [ -n "$(git -C "$plans" status --porcelain -- "$lp")" ]; then start_paths+=("$lp"); fi

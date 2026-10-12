@@ -393,10 +393,7 @@ _group_done_prepare() {
         _wt_link_kit "$wt" "Done Refusal" "$fb" || { _group_done_drop_wt "$wt"; exit 1; }
     fi
     if ! git merge-base --is-ancestor "$pref" "$fb"; then
-        # The parent's commits passed the hooks where they were made; this merge is
-        # their mechanical sum, so it skips them (as P-55's squash does).
-        if ! git -C "$wt" merge -q --no-edit --no-verify "$pref" >/dev/null 2>&1; then
-            git -C "$wt" merge --abort >/dev/null 2>&1
+        if ! _group_merge_parent_in "$wt" "$pref"; then
             _group_done_drop_wt "$wt"
             echo "❌ [Done Refusal] '$parent' does not merge cleanly into '$fb'; resolve it on the feature branch (a group-caused fix), then run 'aapp done $gid' again." >&2
             exit 1
@@ -422,6 +419,46 @@ _group_done_prepare() {
             "$AAPP_SCRIPT_DIR/aapp" commit "docs: group $gid architecture and changelog" || exit 1
         fi
     ) || { echo "❌ [Done Refusal] Could not commit the group's ARCHITECTURE.md and changelog in $wt_rel." >&2; exit 1; }
+}
+
+# _group_merge_parent_in <worktree> <parent-ref>: merges the group's parent
+# into the feature branch checked out in <worktree>. Always a merge, never a
+# rebase: the feature branch holds its members' recorded commits. The parent's
+# commits passed the hooks where they were made; this merge is their mechanical
+# sum, so it skips them (as P-55's squash does). A conflict is aborted: the
+# branch is as it was.
+_group_merge_parent_in() {
+    if ! git -C "$1" merge -q --no-edit --no-verify "$2" >/dev/null 2>&1; then
+        git -C "$1" merge --abort >/dev/null 2>&1
+        return 1
+    fi
+}
+
+# group_merge_parent <group-plan> (P-83): the same merge, made before the
+# group's `done`, when a fix its members wait for has landed on the group's
+# parent. Works in the worktree that has the feature branch checked out, or in
+# a temporary one. Returns 0 when the feature branch holds its parent, 1 with
+# nothing changed.
+group_merge_parent() {
+    local gf="$1" fb parent pref holder tmp rc=0
+    fb="$(parse_plan_field "$gf" "Feature Branch")"
+    parent="$(plan_base_branch "$gf")"
+    git show-ref --verify --quiet "refs/heads/$fb" || return 1
+    [ -n "$parent" ] && pref="$(aapp_branch_ref "$parent")" || return 1
+    git merge-base --is-ancestor "$pref" "$fb" && return 0
+    holder="$(git worktree list --porcelain | awk -v b="refs/heads/$fb" '/^worktree / { w = substr($0, 10) } $1 == "branch" && $2 == b { print w; exit }')"
+    if [ -n "$holder" ]; then
+        # Someone's work in progress there is not merged over.
+        [ -z "$(git -C "$holder" status --porcelain --untracked-files=no 2>/dev/null)" ] || return 1
+        _group_merge_parent_in "$holder" "$pref"
+        return
+    fi
+    tmp="$(mktemp -d)" || return 1
+    rmdir "$tmp"
+    git worktree add -q "$tmp" "$fb" >/dev/null 2>&1 || return 1
+    _group_merge_parent_in "$tmp" "$pref" || rc=1
+    git worktree remove --force "$tmp" >/dev/null 2>&1 || echo "⚠️  Could not remove '$tmp'; remove it with 'git worktree remove --force $tmp'." >&2
+    return "$rc"
 }
 
 # _group_done_drop_wt <worktree>: removes a temporary group worktree and its links.
@@ -2110,7 +2147,9 @@ cmd_done() {
     if [ "$IG_DO" -eq 1 ]; then
         _ig_run "$done_file" "$plan_id" || exit 1
         # P-78: the integration moved commits; plans that waited for them resume.
+        # P-83: first into a group's feature branch whose member waits for this one.
         _load_issue_module
+        if [ "$close_where" = "active" ]; then issue_bring_fix_to_groups "$close_issue" "$commit_sha"; fi
         issue_unblock_landed quiet || echo "⚠️  [Done] Could not check the plans waiting for a fix; 'aapp status' does it." >&2
         if [ "$is_group" -eq 1 ]; then _group_done_codemap "$done_file" "$plan_id" || exit 1; fi
     elif [ -n "$wt_rec" ]; then

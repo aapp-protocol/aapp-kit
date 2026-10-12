@@ -241,6 +241,9 @@ fix_on_develop() {
   echo "$2=fixed" > "src/$2.sh"; git add "src/$2.sh"; aapp commit "fix: $2 (#$1)" changelog "$2 fixed" >/dev/null 2>&1
 }
 
+# The feature branch has work of its own, so taking develop in is a real merge.
+git worktree add -q "$R/g-feat" feature/grp && echo "f=group" > "$R/g-feat/src/f.sh" && git -C "$R/g-feat" commit -qam "group work on f" --no-verify
+git worktree remove "$R/g-feat"
 aapp refine "$M" blocked 1 >/dev/null 2>&1
 fix_on_develop 1 a; FIX1="$(git rev-parse HEAD)"
 out="$(aapp issue close 1 2>&1)"; rc=$?

@@ -1,0 +1,7 @@
+# The list of the aapp-issue-branch sample: which branch owns which paths.
+# Install as `branches` beside the plugin's `run`.
+# One `<path prefix><TAB><branch>` per line; the first prefix that matches a
+# file wins. Paths no line matches belong to the development branch.
+lib/core/	core
+src/auth/	module/auth
+src/billing/	module/billing
