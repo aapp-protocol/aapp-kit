@@ -1,0 +1,49 @@
+#!/bin/sh
+# ==============================================================================
+# Reference `aapp-issue-note-filter` Plugin (SAMPLE)
+#
+# Install at: .agents/skills/aapp-issue-note-filter/run
+#
+# WHAT IT IS
+#   A text filter and substitution mechanism, and nothing else: text in, text
+#   out. Issues and their notes may be written by agents observing live
+#   systems, so a note can hold real data. AAPP keeps notes outside Git and
+#   stores them as written, which keeps them usable for audits. This filter
+#   decides what an agent is SHOWN: AAPP runs it on an issue's description and
+#   notes just before printing them (`aapp issue fix`, `aapp issue list note`),
+#   whether AAPP or a tracker stored them. The stored text is never changed.
+#
+# CONTRACT (Plugin Payload Standard; docs/reference/07-issue-protocol.md)
+#   stdin : JSON envelope; event "issue.note-show" (env AAPP_ACTION=note-show,
+#           AAPP_ISSUE_ID)
+#     data   : the issue ("id", "sev", "type", "date", "location", "symptom",
+#              "link", "status") and "note": the text as AAPP would show it
+#     stdout : one flat JSON object
+#       {"status": "ok", "note": "<text>"}   AAPP shows this text ("" shows nothing)
+#       {"status": "declined"}               AAPP shows the text unchanged
+#       {"status": "failed", "message": "…"} AAPP shows no text and says the
+#                                            filter failed
+#   A failure, a timeout, or "ok" without "note" withholds the text: a filter
+#   that breaks never lets unfiltered text through. The command goes on.
+#
+# THIS SAMPLE
+#   Applies the substitutions listed below (one `s/pattern/replacement/g` per
+#   line, extended regular expressions) to the note. What counts as sensitive
+#   is your team's decision: replace the rules, or this whole script.
+# ==============================================================================
+rules="$(mktemp)" || { echo '{"status": "failed", "message": "aapp-issue-note-filter could not prepare its rules"}'; exit 0; }
+trap 'rm -f "$rules"' EXIT
+cat > "$rules" <<'RULES'
+s/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/[email]/g
+s/([0-9]{1,3}\.){3}[0-9]{1,3}/[ip]/g
+s/([Cc]ustomer|[Aa]ccount|[Rr]ecord) ?#?[0-9]+/\1 [id]/g
+RULES
+envelope="$(cat | tr -d '\n')"
+# The note, as the JSON string holds it (escapes kept), filtered line by line:
+# `\n` separates the lines of the text.
+note="$(printf '%s' "$envelope" | sed -nE 's/.*"note": *"(([^"\\]|\\.)*)".*/\1/p')"
+out="$(printf '%s' "$note" | sed 's/\\n/\n/g' | sed -E -f "$rules" | sed ':a;N;$!ba;s/\n/\\n/g')" || {
+    echo '{"status": "failed", "message": "aapp-issue-note-filter could not apply its rules"}'
+    exit 0
+}
+printf '{"status": "ok", "note": "%s"}\n' "$out"

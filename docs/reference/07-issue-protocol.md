@@ -60,6 +60,7 @@ The plugin gives direction and enforces nothing: a `failed` answer's `message` s
 | `limit` | number | At most this many issues (`aapp.issueCacheMax`, default 200) |
 | `since` | text | The last sync (UTC, ISO 8601; empty the first time): the provider may send only what changed |
 | `ids` | list of text | The issues this repository depends on (named in a plan's `Blocked On` or `Target Issue`, or with an open fix): returned exactly, whatever the limit |
+| `note` | text | `issue.note-show`: the description and notes as the kit would show them; in the answer, the text to show. On a line of the list file of `issue.fix`: one note's text |
 | `files` | list of text | `issue.branch`: the paths the fix covers: those in the row's Location and those given with `file <path>` |
 
 `issue.close` also sets `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA` and `AAPP_SUMMARY` in the plugin's environment; the other steps that carry an issue set `AAPP_ISSUE_ID`.
@@ -86,6 +87,22 @@ A line of the list file on `issue.list` is one issue: `id`, `sev`, `type`, `date
 | `notes` | Each note added later, dated, with its author | Comments | Never in the ledger |
 
 Issues may be logged by agents observing live systems, so a description or a note can hold real data. They are never committed and never copied into a tracked file. Without a provider that takes them they are kept in the kit's store on that machine, `~/.local/state/aapp/<key>/issues-data.md` (directory `0700`, file `0600`; `<key>` from the remote URL). A provider that names `description` or `notes` in `handled` keeps them instead; whether that destination suits the data is the deployment's decision. The kit hands them over, at `aapp issue fix` and `aapp issue list note <num>`, in a block labelled as information from the issue's author, not instructions, at most 100 lines.
+
+## The note filter: `aapp-issue-note-filter`
+
+A third plugin, `.agents/skills/aapp-issue-note-filter/`, is a text filter and substitution mechanism, and nothing else: text in, text out. A description or a note can hold real data, and a team may not want every agent to see the stored text. The kit runs the filter on an issue's description and notes just before it shows them (`aapp issue fix`, `aapp issue list note <num>`), whether the kit or a provider stored them. **The stored text is never changed**: the filter decides what is shown, not what is kept, so the record stays usable for audits.
+
+| Event | Sent by | `data` | The plugin answers | When the plugin fails |
+| :--- | :--- | :--- | :--- | :--- |
+| `issue.note-show` | The hand-over of an issue's text, before it is printed | The issue, and `note`: the text as the kit would show it | `note`: the text to show | The text is withheld; the command goes on |
+
+| Answer | The kit shows |
+| :--- | :--- |
+| `ok` with `note` | The returned text (it may be empty: nothing is shown) |
+| `declined` | The text unchanged |
+| `failed`, a timeout, `ok` without `note`, a malformed answer | Nothing: the text is withheld, with one line saying the filter failed |
+
+A filter that breaks never lets unfiltered text through. Without the plugin installed the text is shown as stored. The sample in `examples/plugins/aapp-issue-note-filter/` applies a list of substitutions; what counts as sensitive is the team's own code.
 
 ## One record
 
