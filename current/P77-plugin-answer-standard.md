@@ -82,6 +82,7 @@ A step is a short exchange between the kit and a supported plugin.
 - **`do` is whitelisted.** Only the commands listed in the subject's reference are accepted; any other line is refused and reported. For issues the list is `issue close` and `issue abort`: a tracker's new issues arrive through `issue.list`, so `issue log` is not on it.
 - **During a step** a supported plugin that runs a writing `aapp` verb directly is refused (the kit marks the plugin's environment) and pointed to `do`. Reading verbs work.
 - **Version:** the answer may echo `version`; the kit refuses an answer from a version newer than its own.
+- **Behind its entry point a plugin is its own business.** The file in `.agents/skills/<name>/` is typically a thin caller of a service that lives elsewhere, where the credentials are. Keeping its own state, recognising a step it has already seen, and avoiding a second ticket when a step is sent again are the plugin's to do; a tracker may create a ticket even when the kit saw a timeout, and the kit does not try to prevent or detect that.
 - **Credentials** are the plugin's responsibility: the envelope carries none (the remote URL is stripped), the kit stores none, and the plugin runs with the caller's environment. A missing or rejected credential is an ordinary failure with a clear `message`.
 - **Timeout:** one for every plugin call, the hook dispatcher's watchdog.
 - **No plugin:** the kit does everything. **A failing plugin:** each step defines the outcome (fall back or refuse).
