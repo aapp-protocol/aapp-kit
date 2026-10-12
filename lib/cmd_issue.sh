@@ -36,9 +36,6 @@ if ! declare -f plans_commit >/dev/null; then
     }
 fi
 
-# Same selector as the status briefing's Issues pillar (lib/cmd_status.sh), so
-# `aapp issue list` and `aapp status` agree on order.
-ISSUE_ROADMAP_ACTIVE_REGEX='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ ]?\]|\*)[[:space:]]*`?#?[0-9]+'
 ISSUE_LIST_DEFAULT_CAP=20
 
 _issue_plans_dir() {
@@ -73,168 +70,17 @@ issue_normalize_id() {
     printf '%s\n' "$((10#$n))"
 }
 
-# _issue_row_regex <n> -> ERE matching the ledger row whose first cell is #<n>.
-_issue_row_regex() {
-    printf '^[[:space:]]*\\|[[:space:]]*`?#%s`?[[:space:]]*\\|' "$1"
-}
-
-# issue_relink <old-rel-path> <new-rel-path> (P-50)
-# Rewrites the link target `](<old>)` -> `](<new>)` in ISSUES.md *Target Plan /
-# Fix* cells (the 7th cell; observation cells never change) and in
-# issues_road_map.md lines. Escaped pipes (`\|`) inside cells are respected.
-# Prints the number of links rewritten; non-zero only on a write failure.
-issue_relink() {
-    local old="$1" new="$2" plans f tmp count=0 n
-    plans="$(_issue_plans_dir)" || return 1
-    f="$plans/ISSUES.md"
-    if [ -f "$f" ]; then
-        tmp="$f.aapp-relink.$$"
-        AAPP_OLD="]($old)" AAPP_NEW="]($new)" awk '
-            function swap(s,    out, i, o) {
-                o = ENVIRON["AAPP_OLD"]; out = ""
-                while ((i = index(s, o)) > 0) { out = out substr(s, 1, i - 1) ENVIRON["AAPP_NEW"]; s = substr(s, i + length(o)); n++ }
-                return out s
-            }
-            /^[[:space:]]*\|[[:space:]]*`?#[0-9]+/ {
-                line = $0; gsub(/\\\|/, "\001", line)
-                k = split(line, c, "|")
-                if (k >= 9) {
-                    c[8] = swap(c[8]); out = c[1]
-                    for (j = 2; j <= k; j++) out = out "|" c[j]
-                    gsub(/\001/, "\\|", out); print out; next
-                }
-            }
-            { print }
-            END { print n + 0 > "/dev/stderr" }
-        ' "$f" > "$tmp" 2> "$tmp.n" || { rm -f "$tmp" "$tmp.n"; return 1; }
-        n="$(cat "$tmp.n")"; rm -f "$tmp.n"
-        mv "$tmp" "$f" || return 1
-        count=$((count + n))
-    fi
-    f="$plans/issues_road_map.md"
-    if [ -f "$f" ]; then
-        n="$(grep -oF "]($old)" "$f" | wc -l | tr -d ' ')"
-        if [ "$n" -gt 0 ]; then
-            tmp="$f.aapp-relink.$$"
-            AAPP_OLD="]($old)" AAPP_NEW="]($new)" awk '
-                { s = $0; out = ""; o = ENVIRON["AAPP_OLD"]
-                  while ((i = index(s, o)) > 0) { out = out substr(s, 1, i - 1) ENVIRON["AAPP_NEW"]; s = substr(s, i + length(o)) }
-                  print out s }
-            ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
-            count=$((count + n))
-        fi
-    fi
-    echo "$count"
-}
+# The ledgers themselves are read and written by the ledger functions of
+# lib/aapp-lib.sh (P-73); this file holds the issue lifecycle built on them.
 
 # issue_mark_planned <n> <link> (P-50): promotion's lifecycle edit of an active
 # row: Target Plan / Fix -> <link>, Status -> 🔵 `Planned`. Observation cells
 # never change.
-issue_mark_planned() { _issue_mark_row "$1" "$2" '🔵 `Planned`'; }
+issue_mark_planned() { _issue_plans_dir >/dev/null || return 1; ledger_set_cell "$1" link "$2" && ledger_set_cell "$1" status '🔵 `Planned`' || return 1; }
 
 # issue_mark_incubated <n> <link> (P-69): a plan's abort hands its issue back:
 # Target Plan / Fix -> <link> (the archived plan), Status -> 🟡 `Incubated`.
-issue_mark_incubated() { _issue_mark_row "$1" "$2" '🟡 `Incubated`'; }
-
-# _issue_mark_row <n> <link> <status>: the two lifecycle cells of an active row.
-_issue_mark_row() {
-    local n="$1" link="$2" plans f tmp
-    plans="$(_issue_plans_dir)" || return 1
-    f="$plans/ISSUES.md"
-    [ -f "$f" ] || return 1
-    tmp="$f.aapp-promote.$$"
-    AAPP_N="$n" AAPP_LINK="$link" AAPP_STATUS="$3" awk '
-        {
-            line = $0; gsub(/\\\|/, "\001", line)
-            if (line ~ ("^[[:space:]]*\\|[[:space:]]*`?#" ENVIRON["AAPP_N"] "`?[[:space:]]*\\|")) {
-                k = split(line, c, "|")
-                if (k >= 10) {
-                    c[8] = " " ENVIRON["AAPP_LINK"] " "; c[9] = " " ENVIRON["AAPP_STATUS"] " "
-                    out = c[1]; for (j = 2; j <= k; j++) out = out "|" c[j]
-                    gsub(/\001/, "\\|", out); print out; done = 1; next
-                }
-            }
-            print
-        }
-        END { if (!done) exit 3 }
-    ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
-}
-
-# issue_locate <n> -> prints "active", "archive" or nothing.
-issue_locate() {
-    local n="$1" plans re
-    plans="$(_issue_plans_dir)" || return 1
-    re="$(_issue_row_regex "$n")"
-    if [ -f "$plans/ISSUES.md" ] && grep -qE "$re" "$plans/ISSUES.md"; then
-        echo "active"
-    elif [ -f "$plans/done/000-issues-archive.md" ] && grep -qE "$re" "$plans/done/000-issues-archive.md"; then
-        echo "archive"
-    fi
-}
-
-# issue_close_local <n> <sha> [summary]
-# Moves the active row to the top of the archive and prunes the road map.
-# Does not commit. Returns 0 when moved; fails when the row is not active.
-issue_close_local() {
-    local n="$1" sha="$2" summary="${3:-}"
-    local plans active archive roadmap re row today archive_row tmp
-    plans="$(_issue_plans_dir)" || return 1
-    active="$plans/ISSUES.md"
-    archive="$plans/done/000-issues-archive.md"
-    roadmap="$plans/issues_road_map.md"
-    re="$(_issue_row_regex "$n")"
-
-    if [ ! -f "$archive" ]; then
-        echo "❌ [Issue] Archive not found: $archive" >&2
-        return 1
-    fi
-    row="$(grep -m 1 -E "$re" "$active" 2>/dev/null)" || {
-        echo "❌ [Issue] #$n is not an active row in $active." >&2
-        return 1
-    }
-
-    today="$(date +%Y-%m-%d)"
-    # Active:  | # | Sev | Type | Date | Location | Symptom | Target Plan / Fix | Status |
-    # Archive: | # | Sev | Type | Date Opened | Date Resolved | Target Commit | Summary |
-    # Escaped pipes (\|) inside cells are preserved.
-    archive_row="$(AAPP_SHA="$sha" AAPP_SUMMARY="$summary" AAPP_TODAY="$today" awk '
-        {
-            gsub(/\\\|/, "\001")
-            n = split($0, c, "|")
-            for (i = 1; i <= n; i++) {
-                gsub(/^[ \t]+|[ \t]+$/, "", c[i])
-                gsub("\001", "\\|", c[i])
-            }
-            s = ENVIRON["AAPP_SUMMARY"]
-            if (s == "") s = "Direct fix (no plan)"
-            gsub(/\\\|/, "\001", s); gsub(/\|/, "\001", s); gsub("\001", "\\|", s)
-            printf "| %s | %s | %s | %s | %s | `%s` | %s |\n", c[2], c[3], c[4], c[5], ENVIRON["AAPP_TODAY"], ENVIRON["AAPP_SHA"], s
-        }' <<< "$row")"
-
-    tmp="$archive.aapp-issue.$$"
-    AAPP_ROW="$archive_row" awk '
-        { print }
-        !done && /^\|[[:space:]]*:---/ { print ENVIRON["AAPP_ROW"]; done = 1 }
-        END { if (!done) exit 3 }
-    ' "$archive" > "$tmp" || {
-        rm -f "$tmp"
-        echo "❌ [Issue] No table header separator found in $archive." >&2
-        return 1
-    }
-    mv "$tmp" "$archive"
-
-    tmp="$active.aapp-issue.$$"
-    grep -v -E "$re" "$active" > "$tmp"
-    mv "$tmp" "$active"
-
-    if [ -f "$roadmap" ]; then
-        tmp="$roadmap.aapp-issue.$$"
-        # grep -v exits 1 when every line matched; an empty board is still valid.
-        grep -v -E "^[[:space:]]*([0-9]+\.|[-*][[:space:]]*\[[ xX]?\]|\*)[[:space:]]*\`?#$n([^0-9]|\$)" "$roadmap" > "$tmp" || [ $? -eq 1 ]
-        mv "$tmp" "$roadmap"
-    fi
-    return 0
-}
+issue_mark_incubated() { _issue_plans_dir >/dev/null || return 1; ledger_set_cell "$1" link "$2" && ledger_set_cell "$1" status '🟡 `Incubated`' || return 1; }
 
 # issue_notify_close <n> <sha> <summary> [plan-id]
 # Fire-and-forget `issue.close` hand-off to an installed `aapp-issue-tracker`
@@ -316,8 +162,8 @@ _issue_archive_active() {
     if [ -z "$summary" ] && [ -n "$mp" ]; then
         summary="$entry${unblocked:+; unblocks $unblocked}"
     fi
-    issue_close_local "$n" "$cell" "$summary" || return 1
-    paths=(ISSUES.md done/000-issues-archive.md issues_road_map.md)
+    ledger_archive_row "$n" "$cell" "$summary" || return 1
+    paths=(); while IFS= read -r p; do [ -n "$p" ] && paths+=("$p"); done < <(ledger_commit_paths)
     for p in $touched; do paths+=("$p"); done
     if [ -n "$mp" ]; then
         _issue_load_plan_lib || return 1
@@ -370,7 +216,7 @@ cmd_issue_abort() {
     case "$reason" in *$'\n'*) echo "❌ [Issue] The reason must be a single line." >&2; return 1 ;; esac
     n="$(issue_normalize_id "$raw")" || return 1
     plans="$(_issue_plans_dir)" || return 1
-    where="$(issue_locate "$n")" || return 1
+    where="$(ledger_locate "$n")" || return 1
     case "$where" in
         active)  ;;
         archive) echo "❌ [Issue] #$n is already archived." >&2; return 1 ;;
@@ -385,7 +231,7 @@ cmd_issue_abort() {
 
     # What was opened for it goes first, through its own code and commit; a
     # refusal there leaves everything as it was.
-    row="$(grep -m 1 -E "$(_issue_row_regex "$n")" "$plans/ISSUES.md")"
+    row="$(ledger_row "$n")"
     cell="$(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{ gsub(/^[ \t]+|[ \t]+$/, "", $8); print $8 }')"
     link="$(printf '%s\n' "$cell" | sed -nE 's/^\[(P-[0-9]+)\]\(current\/([^)]+)\)$/\1 \2/p')"
     if [ -n "$link" ] && [ -f "$plans/current/${link#* }" ]; then
@@ -399,7 +245,7 @@ cmd_issue_abort() {
     fi
 
     # The row now links the aborted plan, when one went (also on a second run).
-    row="$(grep -m 1 -E "$(_issue_row_regex "$n")" "$plans/ISSUES.md")"
+    row="$(ledger_row "$n")"
     cell="$(printf '%s\n' "$row" | sed 's/\\|/\x01/g' | awk -F'|' '{ gsub(/^[ \t]+|[ \t]+$/, "", $8); print $8 }')"
     link="$(printf '%s\n' "$cell" | sed -nE 's/^\[(P-[0-9]+)\]\(aborted\/([^)]+)\)$/[\1](..\/aborted\/\2)/p')"
     summary="Aborted: $reason${link:+ ($link)}"
@@ -461,7 +307,8 @@ cmd_issue_close() {
         sha="$(git -C "$root" rev-parse --short=7 HEAD)" || return 1
     fi
 
-    where="$(issue_locate "$n")" || return 1
+    _issue_plans_dir >/dev/null || return 1
+    where="$(ledger_locate "$n")" || return 1
     case "$where" in
         active)
             _issue_archive_active "$n" "$sha" "$summary" "issue(close): archive #$n" "$mp" "$entry" || return 1
@@ -490,13 +337,13 @@ cmd_issue_list() {
         *)           cap="$arg" ;;
     esac
     plans="$(_issue_plans_dir)" || return 1
-    roadmap="$plans/issues_road_map.md"
+    roadmap="$(PLANS_DIR="$plans" ledger_path roadmap)"
     if [ ! -f "$roadmap" ]; then
         echo "❌ [Issue] Road map not found: $roadmap" >&2
         return 1
     fi
-    # grep exits 1 on no match; an empty board is a valid state, reported below.
-    lines="$(grep -E "$ISSUE_ROADMAP_ACTIVE_REGEX" "$roadmap" | grep -v '\[Feature or Problem Title\]' | grep -v -E '✅|[Rr]esolved|DONE')" || [ $? -eq 1 ]
+    # The same lines, in the same order, as the status briefing's Issues pillar.
+    lines="$(PLANS_DIR="$plans" roadmap_entries)"
     if [ -z "$lines" ]; then
         echo "  (No open issues in issues_road_map.md)"
         return 0
@@ -616,32 +463,6 @@ _issue_record_hotfix() {
         AAPP_LINE="* **Emergency Hotfixes:** #$n" awk '{ print } /^\* \*\*Status:\*\*/ && !d { print ENVIRON["AAPP_LINE"]; d = 1 }' "$pf" > "$tmp"
     fi
     mv "$tmp" "$pf"
-}
-
-# _issue_queue_blocker <roadmap> <n> <text> <plan-id>: append to 🧱 Plan Blockers,
-# creating the subheader at the top of the board (before the first `## `).
-_issue_queue_blocker() {
-    local rm="$1" line tmp
-    line="- [ ] #$2 -> $3 (blocks $4)"
-    tmp="$rm.aapp-queue.$$"
-    if grep -q '^## 🧱 Plan Blockers' "$rm"; then
-        AAPP_LINE="$line" awk '
-            function flush() { for (i = 1; i <= nb; i++) print blank[i]; nb = 0 }
-            in_q && /^## / { print ENVIRON["AAPP_LINE"]; flush(); in_q = 0; done = 1 }
-            in_q && /^[[:space:]]*$/ { blank[++nb] = $0; next }
-            in_q { flush() }
-            /^## 🧱 Plan Blockers/ { in_q = 1 }
-            { print }
-            END { if (in_q && !done) print ENVIRON["AAPP_LINE"]; flush() }
-        ' "$rm" > "$tmp"
-    else
-        AAPP_LINE="$line" awk '
-            !done && /^## / { print "## 🧱 Plan Blockers"; print ENVIRON["AAPP_LINE"]; print ""; done = 1 }
-            { print }
-            END { if (!done) { print ""; print "## 🧱 Plan Blockers"; print ENVIRON["AAPP_LINE"] } }
-        ' "$rm" > "$tmp"
-    fi
-    mv "$tmp" "$rm"
 }
 
 # issue_unblock_plans <n>: removes #<n> from every plan's `Blocked On:`; when the
@@ -781,12 +602,10 @@ cmd_issue_hotfix() {
     fi
     t="${text//|/\\|}"
     row="| #$n | \`High\` | \`CORE\` | $today | $loc | $t | blocks [$pid]($prel) | 🟡 \`Incubated\` |"
-    AAPP_ROW="$row" awk '{ print } !d && /^\|[[:space:]]*:---/ { print ENVIRON["AAPP_ROW"]; d = 1 } END { if (!d) exit 3 }' \
-        "$plans/ISSUES.md" > "$plans/ISSUES.md.aapp-hotfix.$$" || {
-        rm -f "$plans/ISSUES.md.aapp-hotfix.$$"; _issue_lock_release
+    PLANS_DIR="$plans" ledger_add_row "$row" || {
+        _issue_lock_release
         echo "❌ [Issue] No table header separator in ISSUES.md." >&2; return 1; }
-    mv "$plans/ISSUES.md.aapp-hotfix.$$" "$plans/ISSUES.md"
-    [ "$want_plan" -eq 1 ] || _issue_queue_blocker "$plans/issues_road_map.md" "$n" "$text" "$pid"
+    [ "$want_plan" -eq 1 ] || PLANS_DIR="$plans" roadmap_add_blocker "$n" "$text" "$pid"
     _issue_record_hotfix "$pf" "$n"
     plan_block_on "$pf" "$n" || [ $? -eq 3 ]
     max="$(git config --get aapp.maxEmergencyHotfixes 2>/dev/null)" || max=2
@@ -798,8 +617,8 @@ cmd_issue_hotfix() {
         echo "🛑 [Issue] $pid has had $count emergency hotfixes (limit $max): it stays BLOCKED until you re-scope it." >&2
     fi
     sync_state_matrix
-    local paths=("ISSUES.md" "$prel")
-    [ -f "$plans/issues_road_map.md" ] && paths+=("issues_road_map.md")
+    local paths=("$prel") lp
+    while IFS= read -r lp; do [ -n "$lp" ] && paths+=("$lp"); done < <(PLANS_DIR="$plans" ledger_commit_paths issues roadmap)
     [ -f "$plans/state_matrix.md" ] && paths+=("state_matrix.md")
     plans_commit "issue(hotfix): #$n blocks $pid" "${paths[@]}" || { _issue_lock_release; return 1; }
     _issue_lock_release
@@ -830,9 +649,8 @@ issue_location_paths() {
 # is active and not Planned (a promoted blocker has left the queue).
 issue_queued_blockers() {
     local plans="$1" id row
-    for id in $(awk '/^## 🧱 Plan Blockers/ { q = 1; next } /^## / { q = 0 } q' "$plans/issues_road_map.md" 2>/dev/null |
-                sed -nE 's/^[[:space:]]*-[[:space:]]*\[[ ]?\][[:space:]]*#([0-9]+).*/\1/p'); do
-        row="$(grep -m 1 -E "$(_issue_row_regex "$id")" "$plans/ISSUES.md" 2>/dev/null)" || continue
+    for id in $(PLANS_DIR="$plans" roadmap_blockers); do
+        row="$(PLANS_DIR="$plans" ledger_row "$id")" || continue
         printf '%s' "$row" | grep -q 'Planned' && continue
         echo "$id"
     done
@@ -855,7 +673,7 @@ _issue_next_blocker() {
     _ISSUE_PICK=""; _ISSUE_DIRTY=()
     for id in $(issue_queued_blockers "$plans"); do
         any=1
-        row="$(grep -m 1 -E "$(_issue_row_regex "$id")" "$plans/ISSUES.md")"
+        row="$(PLANS_DIR="$plans" ledger_row "$id")"
         busy=0
         while IFS= read -r f; do
             [ -n "$f" ] && { busy=1; _ISSUE_DIRTY+=("$f"); }
@@ -1115,7 +933,7 @@ cmd_issue_fix() {
             fi
         fi
         if [ -z "$row" ]; then
-            row="$(grep -m 1 -E "$(_issue_row_regex "$n")" "$plans/ISSUES.md" 2>/dev/null)" || {
+            row="$(PLANS_DIR="$plans" ledger_row "$n")" || {
                 _issue_lock_release; echo "❌ [Issue] #$n is not an active issue in ISSUES.md." >&2; return 1; }
             # The files come from the issue log; `file` only adds one it does not name.
             local all_files=()

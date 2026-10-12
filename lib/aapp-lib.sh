@@ -922,6 +922,15 @@ ledger_row() {
     grep -m 1 -E "$(_ledger_row_regex "$1")" "$f"
 }
 
+# ledger_row_lines -> every active row, as written, in file order.
+ledger_row_lines() {
+    local f
+    f="$(ledger_path issues)" || return 0
+    [ -f "$f" ] || return 0
+    grep -E '^[[:space:]]*\|[[:space:]]*`?#[0-9]+' "$f" 2>/dev/null
+    return 0
+}
+
 # ledger_rows [<status>] -> active rows, one per line, tab-separated: id (#<n>),
 # sev, type, date, location, symptom, link, status, source (`local`). <status>
 # keeps the rows whose status cell contains it (`Incubated`, `Planned`).

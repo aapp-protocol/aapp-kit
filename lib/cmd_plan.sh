@@ -195,11 +195,11 @@ check_disjointness_activation_gate() {
     # start on them (P-58). A plan with a recorded Base was started before,
     # whatever its Status now (a ⚡ re-run, or re-frozen after a re-scope): not
     # a fresh start (#103). Shared docs never gate (P-48).
-    if [ -f "$PLANS_DIR/ISSUES.md" ] && [ -z "$(parse_plan_base "$target_plan")" ]; then
+    if [ -f "$(ledger_path issues)" ] && [ -z "$(parse_plan_base "$target_plan")" ]; then
         _load_issue_module
         local qid qrow qf
         for qid in $(issue_queued_blockers "$PLANS_DIR"); do
-            qrow="$(grep -m 1 -E "$(_issue_row_regex "$qid")" "$PLANS_DIR/ISSUES.md")"
+            qrow="$(ledger_row "$qid")"
             while IFS= read -r qf; do
                 aapp_is_shared_doc "$qf" && continue
                 for mt in "${my_targets[@]}"; do
@@ -1020,7 +1020,7 @@ cmd_draft() {
     if [ "${2:-}" = "issue" ]; then
         _load_issue_module
         promote_issue="$(issue_normalize_id "${3:-}")" || exit 1
-        if [ "$(issue_locate "$promote_issue")" != "active" ]; then
+        if [ "$(ledger_locate "$promote_issue")" != "active" ]; then
             echo "❌ [Draft Refusal] #$promote_issue is not an active issue in ISSUES.md (archived or unknown)." >&2
             return 1
         fi
@@ -1045,11 +1045,9 @@ cmd_draft() {
         fi
 
         local issue_items=()
-        if [ -f "$PLANS_DIR/ISSUES.md" ]; then
-            while IFS= read -r line; do
-                [ -n "$line" ] && issue_items+=("$line")
-            done < <(grep -E '^\|[[:space:]]*#[0-9]+' "$PLANS_DIR/ISSUES.md" 2>/dev/null | grep -E '🟠|🔵' | grep -v -E '✅|Resolved' || true)
-        fi
+        while IFS= read -r line; do
+            [ -n "$line" ] && issue_items+=("$line")
+        done < <(ledger_row_lines | grep -E '🟠|🔵' | grep -v -E '✅|Resolved' || true)
 
         if [ ${#pickup_items[@]} -gt 0 ]; then
             echo "💡 Unprocessed notes in .plans/pickup.md:"
@@ -1232,7 +1230,7 @@ cmd_draft() {
         local plan_rel="current/P${num}-${slug}.md"
         local draft_paths=("$plan_rel")
         [ -f "$sm_file" ] && draft_paths+=("state_matrix.md")
-        [ -n "$promote_issue" ] && draft_paths+=("ISSUES.md")
+        [ -n "$promote_issue" ] && draft_paths+=($(ledger_commit_paths issues))
         [ -n "$join_group" ] && draft_paths+=("current/$(basename "$join_gfile")")
         plans_commit "plan(draft): scaffold P-${num} ${slug}" "${draft_paths[@]}" || exit 1
     fi
@@ -1972,7 +1970,7 @@ cmd_done() {
             echo "❌ [Done Refusal] Issue module missing: $(dirname "${BASH_SOURCE[0]}")/cmd_issue.sh" >&2
             exit 1
         }
-        close_where="$(issue_locate "$close_issue")" || exit 1
+        close_where="$(ledger_locate "$close_issue")" || exit 1
         if [ -z "$close_where" ]; then
             echo "❌ [Done Refusal] Target issue #$close_issue is in neither ISSUES.md nor done/000-issues-archive.md." >&2
             exit 1
@@ -1983,7 +1981,7 @@ cmd_done() {
     local snap f
     snap="$(mktemp -d)" || exit 1
     cp -a "$PLANS_DIR/current" "$snap/current" || exit 1
-    for f in done/000-archive-ledger.md done/000-issues-archive.md ISSUES.md issues_road_map.md state_matrix.md; do
+    for f in done/000-archive-ledger.md state_matrix.md $(ledger_commit_paths); do
         if [ -f "$PLANS_DIR/$f" ]; then mkdir -p "$(dirname "$snap/$f")" && cp -a "$PLANS_DIR/$f" "$snap/$f" || exit 1; fi
     done
 
@@ -2036,7 +2034,7 @@ cmd_done() {
     local close_summary="" unblocked_paths=""
     if [ "$close_where" = "active" ]; then
         close_summary="[$plan_id]($bname) - $(grep -m 1 -E '^# ' "$done_file" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*|🧩[[:space:]]*Group[[:space:]]+)?Plan[^:]*:[[:space:]]*//')"
-        issue_close_local "$close_issue" "$commit_sha" "$close_summary" || exit 1
+        ledger_archive_row "$close_issue" "$commit_sha" "$close_summary" || exit 1
         # P-52: a plan blocked on this issue (a hotfix promoted to this plan) resumes.
         unblocked_paths="$(issue_unblock_plans "$close_issue")" || exit 1
     fi
@@ -2044,7 +2042,7 @@ cmd_done() {
     # P-50: other open issues that link this plan now point at done/.
     _load_issue_module
     local relinked
-    relinked="$(issue_relink "current/$bname" "done/$bname")" || exit 1
+    relinked="$(ledger_relink "current/$bname" "done/$bname")" || exit 1
 
     # Re-derive state_matrix.md now that the plan has left current/ (#88).
     local sm_file="$PLANS_DIR/state_matrix.md"
@@ -2073,13 +2071,11 @@ cmd_done() {
         [ -f "$ledger_file" ] && done_targets+=("done/000-archive-ledger.md")
         [ -f "$sm_file" ] && done_targets+=("state_matrix.md")
         if [ "$close_where" = "active" ]; then
-            done_targets+=("ISSUES.md" "done/000-issues-archive.md")
-            [ -f "$PLANS_DIR/issues_road_map.md" ] && done_targets+=("issues_road_map.md")
+            done_targets+=($(ledger_commit_paths))
             local up
             for up in $unblocked_paths; do done_targets+=("$up"); done
         elif [ "$relinked" -gt 0 ]; then
-            done_targets+=("ISSUES.md")
-            [ -f "$PLANS_DIR/issues_road_map.md" ] && done_targets+=("issues_road_map.md")
+            done_targets+=($(ledger_commit_paths issues roadmap))
         fi
         if ! plans_commit "plan(done): archive $plan_id to done/ and update state matrix" "${done_targets[@]}"; then
             git -C "$PLANS_DIR" reset -q -- "${done_targets[@]}" || echo "⚠️  [Done] Could not unstage the archive; check 'git -C .plans status'." >&2
@@ -2688,7 +2684,7 @@ _ab_check_issue() {
     local n where
     n="$(_ab_target_issue "$1")"
     [ -n "$n" ] || return 0
-    where="$(issue_locate "$n")" || return 1
+    where="$(ledger_locate "$n")" || return 1
     if [ -z "$where" ]; then
         echo "❌ [Abort Refusal] Target issue #$n is in neither ISSUES.md nor done/000-issues-archive.md." >&2
         return 1
@@ -2733,11 +2729,11 @@ _ab_archive_one() {
 
     # The issue stays open: back to Incubated, linked to the archived plan.
     issue="$(_ab_target_issue "$dest")"
-    if [ -n "$issue" ] && grep -E "$(_issue_row_regex "$issue")" "$PLANS_DIR/ISSUES.md" 2>/dev/null | grep -qF "](current/$bname)"; then
+    if [ -n "$issue" ] && ledger_row "$issue" 2>/dev/null | grep -qF "](current/$bname)"; then
         issue_mark_incubated "$issue" "[$pid](aborted/$bname)" || return 1
         AB_ISSUES="$AB_ISSUES #$issue"
     fi
-    issue_relink "current/$bname" "aborted/$bname" >/dev/null || return 1
+    ledger_relink "current/$bname" "aborted/$bname" >/dev/null || return 1
 
     grp="$(parse_plan_field "$dest" Group)"
     if [ "$3" -eq 0 ] && [ -n "$grp" ]; then
@@ -2882,7 +2878,7 @@ cmd_plan_abort() {
     local snap f led="aborted/000-aborted-ledger.md"
     snap="$(mktemp -d)" || exit 1
     cp -a "$PLANS_DIR/current" "$snap/current" || exit 1
-    for f in "$led" ISSUES.md issues_road_map.md state_matrix.md; do
+    for f in "$led" state_matrix.md $(ledger_commit_paths issues roadmap); do
         if [ -f "$PLANS_DIR/$f" ]; then mkdir -p "$(dirname "$snap/$f")" && cp -a "$PLANS_DIR/$f" "$snap/$f" || exit 1; fi
     done
     AB_PATHS=(); AB_NEW=(); AB_DONE=(); AB_ISSUES=""
@@ -2891,7 +2887,7 @@ cmd_plan_abort() {
     done
     _ab_archive_one "$plan_file" "$AB_REASON" 0 || { _ab_restore "$snap"; echo "❌ [Abort] Archiving failed; nothing changed." >&2; exit 1; }
     sync_state_matrix
-    for f in "$led" ISSUES.md issues_road_map.md state_matrix.md; do
+    for f in "$led" $(ledger_commit_paths issues roadmap) state_matrix.md; do
         if [ -n "$(git -C "$PLANS_DIR" status --porcelain -- "$f" 2>/dev/null)" ]; then AB_PATHS+=("$f"); fi
     done
     local subject="plan(abort): archive $pid to aborted/"
@@ -3057,9 +3053,9 @@ _refine_check_subject() {
     fi
 }
 
-# _load_issue_module: cmd_issue.sh (issue_relink, issue_mark_planned, issue_locate).
+# _load_issue_module: cmd_issue.sh (issue_mark_planned, issue_queued_blockers, issue_unblock_plans).
 _load_issue_module() {
-    declare -f issue_relink >/dev/null && return 0
+    declare -f issue_mark_planned >/dev/null && return 0
     # shellcheck source=lib/cmd_issue.sh
     . "$(dirname "${BASH_SOURCE[0]}")/cmd_issue.sh" || {
         echo "❌ [AAPP] Issue module missing: $(dirname "${BASH_SOURCE[0]}")/cmd_issue.sh" >&2
@@ -3075,8 +3071,8 @@ _refine_ledger() {
     if [ "$target" = "pickup" ]; then
         subject="pickup: $msg"; files=("pickup.md")
     else
-        subject="issue(triage): $msg"; files=("ISSUES.md")
-        [ -f "$PLANS_DIR/issues_road_map.md" ] && files+=("issues_road_map.md")
+        subject="issue(triage): $msg"; files=($(ledger_commit_paths issues roadmap))
+        [ ${#files[@]} -gt 0 ] || files=("$(basename "$(ledger_path issues)")")
     fi
     _refine_check_subject "$subject" "$msg"
     for f in "${files[@]}"; do
@@ -3092,7 +3088,7 @@ _refine_ledger() {
         check_pickup_entries "$PLANS_DIR/pickup.md" >&2 || {
             echo "   Nothing committed: fix pickup.md and run 'aapp refine pickup' again." >&2; exit 1; }
     else
-        check_ledger_issues "$PLANS_DIR/ISSUES.md" "$PLANS_DIR/done/000-issues-archive.md" "$PLANS_DIR/issues_road_map.md" >&2 || {
+        check_ledger_issues "$(ledger_path issues)" "$(ledger_path archive)" "$(ledger_path roadmap)" >&2 || {
             echo "   Nothing committed: fix the lines above and run 'aapp refine issues' again." >&2; exit 1; }
     fi
     plans_commit "$subject" "${files[@]}" || exit 1
@@ -3136,7 +3132,7 @@ _refine_slug() {
         sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* File renamed from $old to $new." "$PLANS_DIR/current/$new"
     fi
     _load_issue_module
-    count="$(issue_relink "current/$old" "current/$new")" || exit 1
+    count="$(ledger_relink "current/$old" "current/$new")" || exit 1
     if [ -f "$ACTIVE_FILE" ]; then
         act="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
         if [ "$act" = "$old" ] || [ "$act" = "${old%.md}" ]; then
@@ -3147,8 +3143,7 @@ _refine_slug() {
     local paths=("current/$old" "current/$new")
     [ -f "$PLANS_DIR/state_matrix.md" ] && paths+=("state_matrix.md")
     if [ "$count" -gt 0 ]; then
-        paths+=("ISSUES.md")
-        [ -f "$PLANS_DIR/issues_road_map.md" ] && paths+=("issues_road_map.md")
+        paths+=($(ledger_commit_paths issues roadmap))
     fi
     plans_commit "$subject" "${paths[@]}" || exit 1
     sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
@@ -3241,8 +3236,7 @@ cmd_refine() {
     subject="plan(refine): $plan_id $msg"
     _refine_check_subject "$subject" "$msg"
     if [ -n "$num" ]; then
-        if [ ! -f "$PLANS_DIR/ISSUES.md" ] || \
-           ! grep -qE "^[[:space:]]*\|[[:space:]]*\`?#${num}\`?[[:space:]]*\|" "$PLANS_DIR/ISSUES.md"; then
+        if ! ledger_row "$num" >/dev/null 2>&1; then
             echo "❌ [Refine] #$num is not an active issue in ISSUES.md." >&2
             exit 1
         fi
