@@ -1034,14 +1034,156 @@ ledger_path() {
 # by default) that exist, relative to the plans worktree: for plans_commit and
 # the done/abort snapshots.
 ledger_commit_paths() {
-    local which f
+    local which f rel
     [ $# -gt 0 ] || set -- issues archive roadmap
     for which in "$@"; do
         f="$(ledger_path "$which")" || continue
-        [ -f "$f" ] && _ledger_rel "$which"
+        [ -f "$f" ] || continue
+        # P-74: where a tracker keeps the record the ledgers are ignored files:
+        # no verb commits them.
+        rel="$(_ledger_rel "$which")"
+        git -C "${f%/"$rel"}" check-ignore -q "$rel" 2>/dev/null && continue
+        echo "$rel"
     done
     return 0
 }
+
+# ledger_rel <issues|archive|roadmap> -> the ledger's path inside the plans worktree.
+ledger_rel() { _ledger_rel "$1"; }
+
+# ledger_record_external (P-74): true where a tracker keeps the record: the
+# ledgers are in place, in the same format, but ignored by Git (`aapp issue
+# list` against a provider that lists issues made them so).
+ledger_record_external() {
+    local f
+    f="$(ledger_path issues)" || return 1
+    git -C "${f%/ISSUES.md}" check-ignore -q ISSUES.md 2>/dev/null
+}
+
+# ledger_ensure_files (P-74): the three ledgers, empty, where one is missing (a
+# clone whose ledgers are ignored has none until its first sync).
+ledger_ensure_files() {
+    local f
+    f="$(ledger_path issues)" || return 1
+    if [ ! -f "$f" ]; then
+        mkdir -p "$(dirname "$f")" || return 1
+        printf '%s\n' '# 🐛 Issues: Active Technical Backlog' '' \
+            '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |' \
+            '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > "$f" || return 1
+    fi
+    f="$(ledger_path archive)" || return 1
+    if [ ! -f "$f" ]; then
+        mkdir -p "$(dirname "$f")" || return 1
+        printf '%s\n' '# 🏛️ Master Issue Archive Ledger' '' \
+            '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' \
+            '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > "$f" || return 1
+    fi
+    f="$(ledger_path roadmap)" || return 1
+    if [ ! -f "$f" ]; then
+        printf '%s\n' '# 🗺️ Issue Priority Board' '' '## 📥 Triage (Incoming / Unsequenced)' > "$f" || return 1
+    fi
+}
+
+# ledger_replace_row <n> <row>: #<n>'s active row becomes <row> (padded to the
+# header's cell count); no other line changes. Returns 3 when there is no row.
+ledger_replace_row() {
+    local f tmp row
+    f="$(ledger_path issues)" || return 1
+    [ -f "$f" ] || return 1
+    row="$(_ledger_pad_row "$f" "$2")"
+    tmp="$f.aapp-row.$$"
+    AAPP_RE="$(_ledger_row_regex "$1")" AAPP_ROW="$row" awk '
+        !d && $0 ~ ENVIRON["AAPP_RE"] { print ENVIRON["AAPP_ROW"]; d = 1; next } { print }
+        END { if (!d) exit 3 }' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 3; }
+}
+
+# ledger_drop_row <n>: #<n>'s active row and road-map line go, without a trace
+# in the archive (a row the tracker's listing no longer brings).
+ledger_drop_row() {
+    local f tmp
+    f="$(ledger_path issues)" || return 1
+    [ -f "$f" ] || return 0
+    tmp="$f.aapp-drop.$$"
+    grep -v -E "$(_ledger_row_regex "$1")" "$f" > "$tmp" || [ $? -eq 1 ]
+    mv "$tmp" "$f"
+    roadmap_prune "$1"
+}
+
+# roadmap_add_entry <n> <text>: a new issue's line, `- [ ] #<n> -> <text>`, at
+# the end of the 📥 Triage section (at the end of the board when it has none).
+roadmap_add_entry() {
+    local f tmp
+    f="$(ledger_path roadmap)" || return 1
+    [ -f "$f" ] || return 1
+    tmp="$f.aapp-entry.$$"
+    AAPP_LINE="- [ ] #$1 -> $2" awk '
+        function flush() { for (i = 1; i <= nb; i++) print blank[i]; nb = 0 }
+        in_t && /^## / { print ENVIRON["AAPP_LINE"]; flush(); in_t = 0; done = 1 }
+        in_t && /^[[:space:]]*$/ { blank[++nb] = $0; next }
+        in_t { flush() }
+        /^## 📥 Triage/ && !done { in_t = 1 }
+        { print }
+        END { if (!done) print ENVIRON["AAPP_LINE"]; flush() }
+    ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+}
+
+# ---- Issue text: description and notes (P-74) ----
+# An issue's text has three parts. The symptom is the row's cell. The
+# description (the text given when the issue is logged) and the notes (added
+# later, dated, with their author) may hold real data from a live system: they
+# are never in the ledger, never in Git and never in a tracked file. Without a
+# tracker that keeps them they are in a file per project on this machine:
+#   ${AAPP_STATE_DIR:-~/.local/state}/aapp/<key>/issues-data.md   (0700 / 0600)
+# <key> comes from the remote URL (two clones of one project share the file),
+# or from the folder name of a repository with no remote.
+
+# issue_text_file -> the store's path (it may not exist yet).
+issue_text_file() {
+    local base name url key
+    base="${AAPP_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}}"
+    name="$(git config --get aapp.remote 2>/dev/null)" || name="origin"
+    if url="$(git remote get-url "$name" 2>/dev/null)" && [ -n "$url" ]; then
+        key="$(printf '%s' "$url" | sed -E 's#^[a-z+]+://##; s#^[^/@]*@##; s#\.git$##')"
+    else
+        key="$(basename "$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)")"
+    fi
+    key="$(printf '%s' "$key" | tr -c 'A-Za-z0-9._-' '-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
+    [ -n "$key" ] || key="project"
+    printf '%s/aapp/%s/issues-data.md\n' "$base" "$key"
+}
+
+# issue_text_add <n> description|note <text> [<author>]: appends one entry.
+# Fails, writing nothing, when the store cannot be written (a sandbox).
+issue_text_add() {
+    local f dir head
+    f="$(issue_text_file)"; dir="$(dirname "$f")"
+    mkdir -p "$dir" 2>/dev/null && chmod 700 "$dir" 2>/dev/null || return 1
+    if [ "$2" = "description" ]; then head="### description"; else head="### note $(date +%Y-%m-%d) ${4:-unknown}"; fi
+    ( umask 077
+      { printf '## #%s\n%s\n' "$1" "$head"
+        # A text line that looks like one of the store's headings is indented.
+        printf '%s\n' "$3" | sed -E 's/^(#{2,3} )/ \1/'
+        echo; } >> "$f" ) 2>/dev/null || return 1
+    chmod 600 "$f" 2>/dev/null || return 1
+}
+
+# issue_text_get <n> -> the description and notes of #<n>, in the order they
+# were written, each under a line naming it; nothing when there is none.
+# Returns 1 when the store exists and cannot be read.
+issue_text_get() {
+    local f
+    f="$(issue_text_file)"
+    [ -e "$f" ] || return 0
+    [ -r "$f" ] || return 1
+    AAPP_HEAD="## #$1" awk '
+        /^## #/ { on = ($0 == ENVIRON["AAPP_HEAD"]); next }
+        !on { next }
+        /^### / { sub(/^### /, ""); if (seen) print ""; print "[" $0 "]"; seen = 1; held = 0; next }
+        /^[[:space:]]*$/ { held++; next }
+        { for (; held > 0; held--) print ""; if ($0 ~ /^ ###? /) $0 = substr($0, 2); print }
+    ' "$f"
+}
+# ---- end issue text ----
 
 # ledger_row <n> -> the active row of #<n>, as written; fails when there is none.
 ledger_row() {

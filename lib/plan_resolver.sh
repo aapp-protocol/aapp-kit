@@ -378,7 +378,7 @@ _allocate_id() {
 
     # 1. Delegate to the provider plugin when one is installed (Plugin Payload
     #    Standard: envelope on stdin, one JSON object on stdout).
-    if [ -d "$PDIR" ] && ENTRY="$(resolve_plugin_entrypoint "$PDIR" "$PLUGIN" 2>/dev/null)"; then
+    if [ -n "$PLUGIN" ] && [ -d "$PDIR" ] && ENTRY="$(resolve_plugin_entrypoint "$PDIR" "$PLUGIN" 2>/dev/null)"; then
         OUT="$(run_action_plugin "$ENTRY" "$ROOT" allocate "$EVENT" 2>/dev/null)" || {
             RAW="$(json_field "$OUT" error)" || RAW="no error text"
             echo "❌ [$LABEL] Provider plugin failed ($RAW); refusing to allocate locally." >&2
@@ -414,4 +414,8 @@ normalize_plan_id() { _normalize_id "$1" "P-" "Plan ID"; }
 allocate_plan_id()  { _allocate_id aapp.planId "P-" aapp-planid "Plan ID" plan.allocate; }
 
 get_next_issue_id() { _next_id aapp.issueId "#" "Issue ID" _seed_issue_counter; }
-allocate_issue_id() { _allocate_id aapp.issueId "#" aapp-issue-tracker "Issue ID" issue.allocate _seed_issue_counter; }
+# The kit's own issue counter (P-74): no provider is asked here. A tracker
+# numbers its issues in its answer to `issue.log`; the handler (`aapp issue
+# log`, lib/cmd_issue.sh) takes that id, or this counter's when there is no
+# tracker or it has no opinion.
+allocate_issue_id() { _allocate_id aapp.issueId "#" "" "Issue ID" "" _seed_issue_counter; }

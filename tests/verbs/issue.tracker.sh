@@ -155,12 +155,12 @@ fi
 git config aapp.issueCacheMax 2
 { issue 11 a; issue 12 b; issue 13 c; issue 14 d; issue 2 b; } > "$R/list"
 out="$(aapp issue list all 2>&1)"; rc=$?
-others="$(grep -E '^\| #' .plans/ISSUES.md | grep -cvE '^\| #2 \|')"
+others="$(grep -E '^\| #[0-9]' .plans/ISSUES.md | grep -cvE '^\| #2 \|')"
 git config --unset aapp.issueCacheMax
 if [ "$rc" -eq 0 ] && has_row 2 && [ "$others" = "2" ] && echo "$out" | grep -qiF "aapp.issueCacheMax"; then
   ok "test_rows_cut_to_limit"
 else
-  bad "test_rows_cut_to_limit" "rc=$rc others=$others out=$out"
+  bad "test_rows_cut_to_limit" "rc=$rc others=$others rows=$(grep -oE '^\| #[0-9]+' .plans/ISSUES.md | tr -d '| ' | tr '\n' ' ') out=$out"
 fi
 
 { issue 1 a; issue 2 b; issue 5 e; } > "$R/list"

@@ -632,20 +632,17 @@ check_pickup_entries() {
     ' "$pickup_file"
 }
 
-# check_issue_ids_below_counter <issues_file>: no active row at or above
-# aapp.issueId (a hand-picked number instead of `aapp issue allocate`). Skipped
-# while the counter is unset (it is seeded on first allocation).
-check_issue_ids_below_counter() {
-    local issues_file="$1" next id bad=0
-    [ -f "$issues_file" ] || return 0
-    next="$(git config --get aapp.issueId 2>/dev/null)" || return 0
-    case "$next" in ''|*[!0-9]*) return 0 ;; esac
+# check_issues_added_rows <issues_file> <committed_issues_file> (P-74): no row
+# is added by hand. `aapp issue log` is the one writer of new rows: it takes
+# the id (the tracker's, or the kit's counter's) and writes the row itself.
+check_issues_added_rows() {
+    local issues_file="$1" old_file="$2" id bad=0 known
+    [ -f "$issues_file" ] && [ -f "$old_file" ] || return 0
+    known="$(get_active_issue_ids "$old_file")"
     for id in $(get_active_issue_ids "$issues_file" | issue_id_sort); do
-        issue_id_is_numeric "$id" || continue
-        if [ "$id" -ge "$next" ]; then
-            echo "❌ [Issue ID] #$id is at or above the next allocatable ID (#$next); claim IDs with 'aapp issue allocate'."
-            bad=$((bad + 1))
-        fi
+        printf '%s\n' "$known" | grep -qxF "$id" && continue
+        echo "❌ [Issue Row] #$id was added by hand; log an issue with 'aapp issue log <sev> <type> \"<symptom>\" [file <path>]…', which numbers it and writes the row."
+        bad=$((bad + 1))
     done
     return $bad
 }
@@ -677,7 +674,6 @@ check_ledger_issues() {
     check_fix_cells "$issues_file" || errors=$((errors + 1))
     check_pair1_disjointness "$issues_file" "$archive_file" || errors=$((errors + 1))
     check_pair8_issue_id_integrity "$issues_file" "$archive_file" || errors=$((errors + 1))
-    check_issue_ids_below_counter "$issues_file" || errors=$((errors + 1))
     check_pair2_referential_integrity "$roadmap_file" "$issues_file" || errors=$((errors + 1))
     missing="$(get_unsequenced_issues "$roadmap_file" "$issues_file")"
     if [ -n "$missing" ]; then

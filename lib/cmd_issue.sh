@@ -288,18 +288,16 @@ issue_unblock_landed() {
 # plugin (Plugin Payload Standard). Registered in the P-32 Fallback Inventory: a
 # failing plugin only warns, because the local archive is authoritative and
 # delivery/retry is the plugin implementer's responsibility.
+#
+# The step is sent after the local close; <issue> is the issue as it was just
+# before (issue_payload), since its row has left the active ledger by then.
 issue_notify_close() {
-    local n="$1" sha="$2" summary="$3" plan="${4:-}" root pdir entry data out status plan_json="null"
-    root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}" || return 0
-    pdir="$root/.agents/skills/aapp-issue-tracker"
-    [ -d "$pdir" ] || return 0
-    entry="$(resolve_plugin_entrypoint "$pdir" "aapp-issue-tracker" 2>/dev/null)" || return 0
+    local n="$1" sha="$2" summary="$3" plan="${4:-}" issue="${5:-}" status plan_json="null"
     [ -n "$plan" ] && plan_json="\"$(json_escape "$plan")\""
-    data="{\"id\": \"#$n\", \"commit\": \"$(json_escape "$sha")\", \"summary\": \"$(json_escape "$summary")\", \"plan\": $plan_json}"
-    # The answer is read by the plugin protocol (P-77): its message is shown and
-    # its `do` list runs once this step is over.
+    [ -n "$issue" ] || issue="\"id\": \"#$n\""
     if AAPP_ISSUE_ID="#$n" AAPP_COMMIT_SHA="$sha" AAPP_SUMMARY="$summary" \
-       plugin_step "$entry" "$root" close issue.close "$data" 2>/dev/null; then
+       issue_provider close "$issue, \"commit\": \"$(json_escape "$sha")\", \"summary\": \"$(json_escape "$summary")\", \"plan\": $plan_json"; then
+        [ "$ISSUE_PROVIDER_SEEN" -eq 1 ] || return 0
         status="$(json_field "$PLUGIN_OUT" status)" || status="accepted"
         echo "📨 [Issue] #$n handed to aapp-issue-tracker: $status"
     else
@@ -310,14 +308,304 @@ issue_notify_close() {
     return 0
 }
 
-cmd_issue_next() {
-    local id
-    id="$(get_next_issue_id)" || return 1
-    echo "Next available issue ID: $id"
+# ------------------------------------------------------------------------------
+# P-74: the provider wrapper. Every issue step goes to the team's
+# `aapp-issue-tracker` plugin through issue_provider, here and nowhere else: the
+# hooks carry lib/aapp-lib.sh, never this file, so a commit calls no provider.
+# The provider receives the whole issue and answers what it handled (P-77); the
+# kit does the rest. Steps: log, refine, fix, fix-abort, abort, close, list,
+# next-blocker. A failing provider refuses `log` and `next-blocker`; on every
+# other step the kit carries on and warns (_issue_step).
+# ------------------------------------------------------------------------------
+ISSUE_PROVIDER_SEEN=0
+
+_issue_provider_entry() {
+    local root pdir
+    root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}" || return 1
+    pdir="$root/.agents/skills/aapp-issue-tracker"
+    [ -d "$pdir" ] || return 1
+    resolve_plugin_entrypoint "$pdir" "aapp-issue-tracker" 2>/dev/null
 }
 
-cmd_issue_allocate() {
-    allocate_issue_id
+# issue_provider <step> <members>: sends event `issue.<step>` with `data`
+# {<members>} and reads the answer (PLUGIN_STATUS, PLUGIN_MESSAGE,
+# PLUGIN_HANDLED, PLUGIN_OUT, the list and `do` files). ISSUE_PROVIDER_SEEN says
+# whether a provider is installed. Returns 0 without one, and for `ok` and
+# `declined`; non-zero when the provider failed.
+issue_provider() {
+    local step="$1" entry root
+    ISSUE_PROVIDER_SEEN=0
+    PLUGIN_STATUS=""; PLUGIN_MESSAGE=""; PLUGIN_HANDLED=""; PLUGIN_OUT=""
+    entry="$(_issue_provider_entry)" || return 0
+    ISSUE_PROVIDER_SEEN=1
+    root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+    plugin_step "$entry" "$root" "$step" "issue.$step" "{$2}" 2>/dev/null
+}
+
+# _issue_step <step> <n> <members>: a step the kit has already done locally.
+# A failing provider only warns; its `do` list runs afterwards.
+_issue_step() {
+    if ! AAPP_ISSUE_ID="#$2" issue_provider "$1" "$3"; then
+        echo "⚠️  [Issue] aapp-issue-tracker failed on $1 for #$2 (${PLUGIN_MESSAGE:-no answer}); done here. Delivery is the plugin's responsibility." >&2
+        return 0
+    fi
+    [ "$ISSUE_PROVIDER_SEEN" -eq 1 ] || return 0
+    plugin_run_do issue aapp-issue-tracker
+    return 0
+}
+
+# issue_payload <n> -> the members of #<n>'s payload, from its active row:
+# id, sev, type, date, location, symptom, link, status, and branch when the row
+# names one. Fails when the row is not active.
+issue_payload() {
+    local cells b
+    cells="$(ledger_rows | awk -F'\t' -v id="#$1" '$1 == id { print; exit }')"
+    [ -n "$cells" ] || return 1
+    _issue_members "#$1" "$(printf '%s' "$cells" | cut -f2)" "$(printf '%s' "$cells" | cut -f3)" "$(printf '%s' "$cells" | cut -f4)" \
+        "$(printf '%s' "$cells" | cut -f5)" "$(printf '%s' "$cells" | cut -f6)" "$(printf '%s' "$cells" | cut -f7)" \
+        "$(printf '%s' "$cells" | cut -f8)" "$(ledger_branch "$1")"
+}
+
+# _issue_members <id|''> <sev> <type> <date> <location> <symptom> <link> <status> [<branch>]
+_issue_members() {
+    local out=""
+    [ -z "$1" ] || out="\"id\": \"$(json_escape "$1")\", "
+    out="$out\"sev\": \"$(json_escape "${2//\`/}")\", \"type\": \"$(json_escape "${3//\`/}")\", \"date\": \"$(json_escape "$4")\""
+    out="$out, \"location\": \"$(json_escape "$5")\", \"symptom\": \"$(json_escape "$6")\", \"link\": \"$(json_escape "$7")\", \"status\": \"$(json_escape "${8//\`/}")\""
+    [ -z "${9:-}" ] || out="$out, \"branch\": \"$(json_escape "$9")\""
+    printf '%s' "$out"
+}
+
+# issue_refine_step <n> [<note text>…]: the `refine` step of `aapp refine
+# issues`: the row as it now is, with the notes just added to it (dated, with
+# their author). A note the provider did not take (`notes` in `handled`) is
+# kept in the kit's store; so are all of them without a provider, or when it
+# fails.
+issue_refine_step() {
+    local n="$1" issue t notes="" stamp taken=0
+    shift
+    issue="$(issue_payload "$n")" || issue="\"id\": \"#$n\""
+    stamp="$(date +%Y-%m-%d) $(_issue_author)"
+    for t in "$@"; do notes="${notes:+$notes, }\"$(json_escape "$stamp: $t")\""; done
+    [ $# -eq 0 ] || issue="$issue, \"notes\": [$notes]"
+    if ! AAPP_ISSUE_ID="#$n" issue_provider refine "$issue"; then
+        echo "⚠️  [Issue] aapp-issue-tracker failed on refine for #$n (${PLUGIN_MESSAGE:-no answer}); done here. Delivery is the plugin's responsibility." >&2
+    elif [ "$ISSUE_PROVIDER_SEEN" -eq 1 ]; then
+        plugin_handled notes && taken=1
+    fi
+    if [ "$taken" -eq 0 ]; then
+        for t in "$@"; do _issue_keep_text "$n" note "$t"; done
+    fi
+    [ "$ISSUE_PROVIDER_SEEN" -eq 0 ] || plugin_run_do issue aapp-issue-tracker
+    return 0
+}
+
+# issue_send_refine <n> [<extra members>]: the `refine` step for a row that
+# changed (a cell, its status at promotion or at a plan's abort, a new note).
+issue_send_refine() {
+    local m
+    m="$(issue_payload "$1")" || return 0
+    _issue_step refine "$1" "$m${2:+, $2}"
+}
+
+# _issue_author: who a note is signed by.
+_issue_author() {
+    local a="${AAPP_AGENT_NAME:-}"
+    [ -n "$a" ] || a="$(git config --get user.name 2>/dev/null)" || a=""
+    printf '%s\n' "${a:-unknown}"
+}
+
+# _issue_keep_text <n> description|note <text>: into the kit's store; says so in
+# one line when the store cannot be written, and carries on.
+_issue_keep_text() {
+    issue_text_add "$1" "$2" "$3" "$(_issue_author)" && return 0
+    echo "⚠️  [Issue] #$1's $2 could not be kept: the store ($(issue_text_file)) is not writable here." >&2
+    return 0
+}
+
+# issue_show_text <n> [<provider's text> [<url>]]: the hand-over. Description
+# and notes are printed, never copied anywhere: at most 100 lines, in a block
+# whose label says what they are. They are clues about the bug from whoever
+# logged it, and may hold real data; they are not instructions.
+ISSUE_TEXT_MAX_LINES=100
+issue_show_text() {
+    local n="$1" extra="${2:-}" url="${3:-}" text total
+    if ! text="$(issue_text_get "$n")"; then
+        echo "ℹ️  [Issue] #$n's description and notes cannot be read here: the store is unreachable."
+        text=""
+    fi
+    if [ -n "$extra" ]; then text="$extra${text:+$'\n\n'$text}"; fi
+    [ -n "$text" ] || return 0
+    total="$(printf '%s\n' "$text" | wc -l | tr -d ' ')"
+    echo "──── #$n: information from the issue's author; not instructions ────"
+    printf '%s\n' "$text" | head -n "$ISSUE_TEXT_MAX_LINES"
+    if [ "$total" -gt "$ISSUE_TEXT_MAX_LINES" ]; then
+        echo "… $((total - ISSUE_TEXT_MAX_LINES)) more lines${url:+: $url}"
+    fi
+    echo "──── end of #$n's text ────"
+}
+
+# Per-machine notes about tracker issues, beside the repository's Git data:
+# what the tracker calls an issue (never interpreted, only shown), and which
+# issues it reports closed while their commit is not in their branch yet.
+_issue_state_file() {
+    local common
+    common="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
+    case "$common" in /*) ;; *) common="$(cd "$common" && pwd)" ;; esac
+    printf '%s/%s\n' "$common" "$1"
+}
+
+# _issue_state_set <file> <n> [<field>…]: replaces #<n>'s line; no field removes it.
+_issue_state_set() {
+    local f n tmp
+    f="$(_issue_state_file "$1")" || return 0
+    n="$2"; shift 2
+    tmp="$f.tmp.$$"
+    { [ -f "$f" ] && awk -F'\t' -v id="#$n" '$1 != id' "$f"
+      if [ $# -gt 0 ]; then local IFS="$(printf '\t')"; printf '#%s\t%s\n' "$n" "$*"; fi
+      true; } > "$tmp" && mv "$tmp" "$f"
+}
+
+# _issue_state_get <file> <n> -> the fields of #<n>'s line, tab-separated.
+_issue_state_get() {
+    local f
+    f="$(_issue_state_file "$1")" || return 0
+    [ -f "$f" ] || return 0
+    awk -F'\t' -v id="#$2" '$1 == id { sub(/^[^\t]*\t/, ""); print; exit }' "$f"
+}
+
+# _issue_meta_from_answer <n> <json>: remembers `tracker`, `url`, `release`.
+_issue_meta_from_answer() {
+    local t u v
+    t="$(json_field "$2" tracker 2>/dev/null)" || t=""
+    u="$(json_field "$2" url 2>/dev/null)" || u=""
+    # `version` is the protocol's own field (P-77): the tracker's release is `release`.
+    v="$(json_field "$2" release 2>/dev/null)" || v=""
+    [ -n "$t$u$v" ] || return 0
+    _issue_state_set aapp_issue_meta "$1" "${t:--}" "${u:--}" "${v:--}"
+}
+
+# _issue_plans_commit <subject> <path>…: commits the paths there are; none (the
+# ledgers of a tracker's record are not tracked) is nothing to commit.
+_issue_plans_commit() {
+    [ $# -gt 1 ] || return 0
+    plans_commit "$@"
+}
+
+# _issue_log_row <sev> <type> <symptom> <location-cell> <link-cell> <branch> <description> <board: triage|none>
+# The one writer of new rows. The id is the tracker's when a provider answers
+# `ok` (its own key or number, sent with no id and returned in the answer); the
+# kit's counter's without a provider, or when it answers `declined` and the
+# ledgers are the record. A failing provider, an `ok` without an id, or
+# `declined` where the tracker keeps the record: nothing is written. Sets
+# ISSUE_LOGGED (the id's body). The caller holds the issue lock, commits, and
+# runs the `do` list.
+_issue_log_row() {
+    local sev="$1" type="$2" symptom="$3" loc="$4" link="$5" branch="$6" desc="$7" board="${8:-triage}"
+    local today members n="" raw row kept=0
+    ISSUE_LOGGED=""
+    today="$(date +%Y-%m-%d)"
+    members="$(_issue_members "" "$sev" "$type" "$today" "$loc" "$symptom" "$link" "🟡 Incubated" "$branch")"
+    [ -z "$desc" ] || members="$members, \"description\": \"$(json_escape "$desc")\""
+    if ! issue_provider log "$members"; then
+        raw="$(json_field "$PLUGIN_OUT" error 2>/dev/null)" || raw="${PLUGIN_MESSAGE:-no answer}"
+        echo "❌ [Issue] aapp-issue-tracker failed ($raw); the issue is not logged. The tracker numbers the issues: nothing is numbered here without it." >&2
+        return 1
+    fi
+    if [ "$ISSUE_PROVIDER_SEEN" -eq 1 ] && [ "$PLUGIN_STATUS" = "ok" ]; then
+        raw="$(json_field "$PLUGIN_OUT" id 2>/dev/null)" || {
+            echo "❌ [Issue] aapp-issue-tracker answered ok without an id; the issue is not logged (it must return its key or number: {\"id\": \"PROJ-101\"})." >&2
+            return 1
+        }
+        n="$(issue_id_body "$raw")" || return 1
+        if [ -n "$(ledger_locate "$n")" ]; then
+            echo "❌ [Issue] aapp-issue-tracker returned #$n, which is already an issue here; the issue is not logged." >&2
+            return 1
+        fi
+        # The kit's counter never falls behind a number the tracker issued.
+        if issue_id_is_numeric "$n"; then
+            raw="$(git config --get aapp.issueId 2>/dev/null)" || raw=0
+            case "$raw" in ''|*[!0-9]*) raw=0 ;; esac
+            if [ "$n" -ge "$raw" ]; then git config aapp.issueId "$((n + 1))"; fi
+        fi
+        _issue_meta_from_answer "$n" "$PLUGIN_OUT"
+        plugin_handled description && kept=1
+    else
+        if [ "$ISSUE_PROVIDER_SEEN" -eq 1 ] && ledger_record_external; then
+            echo "❌ [Issue] aapp-issue-tracker did not take this issue, and the tracker keeps the record here: the issue is not logged." >&2
+            return 1
+        fi
+        n="$(allocate_issue_id)" || return 1
+        n="${n#\#}"
+    fi
+    row="| #$n | \`$sev\` | \`$type\` | $today | $loc | ${symptom//|/\\|} | $link | 🟡 \`Incubated\` |"
+    ledger_add_row "$row" || { echo "❌ [Issue] No table header separator in ISSUES.md." >&2; return 1; }
+    if [ -n "$branch" ]; then
+        ledger_set_cell "$n" branch "$(issue_branch_cell "$branch")" || { echo "❌ [Issue] Could not record the branch of #$n in ISSUES.md." >&2; return 1; }
+    fi
+    if [ "$board" = "triage" ]; then
+        roadmap_add_entry "$n" "$symptom" || echo "⚠️  [Issue] #$n is logged; its line could not be added to issues_road_map.md." >&2
+    fi
+    if [ -n "$desc" ] && [ "$kept" -eq 0 ]; then _issue_keep_text "$n" description "$desc"; fi
+    ISSUE_LOGGED="$n"
+}
+
+ISSUE_SYMPTOM_MAX=250
+
+# _issue_symptom <text>: the symptom as the row holds it: one line (newlines
+# become spaces), trimmed. Refuses one over the limit: the rest is the note's.
+_issue_symptom() {
+    local s
+    s="$(printf '%s' "$1" | tr '\n\r\t' '   ' | sed -E 's/ +/ /g; s/^ //; s/ $//')"
+    if [ -z "$s" ]; then echo "❌ [Issue] The symptom is empty." >&2; return 1; fi
+    if [ "${#s}" -gt "$ISSUE_SYMPTOM_MAX" ]; then
+        echo "❌ [Issue] The symptom is ${#s} characters; the limit is $ISSUE_SYMPTOM_MAX. Say what is wrong in one line and put the rest in the note: note \"<text>\"." >&2
+        return 1
+    fi
+    printf '%s\n' "$s"
+}
+
+# cmd_issue_log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"] (P-74)
+# The handler: an agent or a person hands the issue over and never writes a row.
+cmd_issue_log() {
+    local usage='aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]'
+    local sev="${1:-}" type="${2:-}" symptom="${3:-}" files=() target="" note="" plans loc f n paths=() lp
+    if [ $# -lt 3 ]; then echo "❌ [Issue] Usage: $usage" >&2; return 1; fi
+    shift 3
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            file)   [ $# -ge 2 ] || { echo "❌ [Issue] 'file' needs a path." >&2; return 1; }
+                    files+=("$2"); shift 2 ;;
+            branch) [ $# -ge 2 ] && [ -n "$2" ] || { echo "❌ [Issue] 'branch' needs a branch name." >&2; return 1; }
+                    target="$2"; shift 2 ;;
+            note)   [ $# -ge 2 ] && [ -n "$2" ] || { echo "❌ [Issue] 'note' needs a text." >&2; return 1; }
+                    note="$2"; shift 2 ;;
+            *)      echo "❌ [Issue] Unknown token '$1'. Usage: $usage" >&2; return 1 ;;
+        esac
+    done
+    case "$sev" in Critical|High|Medium|Low) ;; *)
+        echo "❌ [Issue] Severity '$sev' is not one of Critical, High, Medium, Low. Usage: $usage" >&2; return 1 ;; esac
+    if ! printf '%s\n' "$type" | grep -qE '^[A-Z0-9_-]+$'; then
+        echo "❌ [Issue] Type '$type' is not an uppercase token (CORE, CLI, DOCS, …). Usage: $usage" >&2; return 1
+    fi
+    symptom="$(_issue_symptom "$symptom")" || return 1
+    if [ -n "$target" ] && ! aapp_branch_ref "$target" >/dev/null; then
+        echo "❌ [Issue] Branch '$target' does not exist, here or on a remote." >&2
+        return 1
+    fi
+    plans="$(_issue_plans_dir)" || return 1
+    loc="—"
+    if [ ${#files[@]} -gt 0 ]; then
+        loc=""; for f in "${files[@]}"; do loc="${loc:+$loc, }\`$f\`"; done
+    fi
+    _issue_lock_acquire || return 1
+    PLANS_DIR="$plans" _issue_log_row "$sev" "$type" "$symptom" "$loc" "" "$target" "$note" triage || { _issue_lock_release; return 1; }
+    n="$ISSUE_LOGGED"
+    while IFS= read -r lp; do [ -n "$lp" ] && paths+=("$lp"); done < <(PLANS_DIR="$plans" ledger_commit_paths issues roadmap)
+    PLANS_DIR="$plans" _issue_plans_commit "issue(log): #$n" "${paths[@]}" || { _issue_lock_release; return 1; }
+    _issue_lock_release
+    echo "🐛 [Issue] #$n logged: $symptom"
+    [ "$ISSUE_PROVIDER_SEEN" -eq 0 ] || plugin_run_do issue aapp-issue-tracker
 }
 
 # _issue_drop_fix_worktree <worktree> <branch>: removes a fix's worktree, its
@@ -411,7 +699,7 @@ _issue_archive_active() {
         sync_state_matrix
         [ -f "$plans/state_matrix.md" ] && paths+=("state_matrix.md")
     fi
-    plans_commit "$subject" "${paths[@]}" || return 1
+    _issue_plans_commit "$subject" "${paths[@]}" || return 1
     IA_TOUCHED="$touched"; IA_SUMMARY="$summary"
 }
 
@@ -480,10 +768,15 @@ cmd_issue_abort() {
     cell="$(ledger_cell "$n" link)"
     link="$(printf '%s\n' "$cell" | sed -nE 's/^\[(P-[0-9]+)\]\(aborted\/([^)]+)\)$/[\1](..\/aborted\/\2)/p')"
     summary="Aborted: $reason${link:+ ($link)}"
+    local issue
+    issue="$(issue_payload "$n")" || issue="\"id\": \"#$n\""
     _issue_archive_active "$n" "aborted" "$summary" "issue(abort): withdraw #$n" || return 1
+    _issue_state_set aapp_issue_tracker_closed "$n"
     echo "🗑️  [Issue] #$n withdrawn to done/000-issues-archive.md: $reason"
     [ -z "$went" ] || echo "   Removed with it: $went."
     _issue_report_unblocked "$plans" $IA_TOUCHED
+    # P-74: the provider is told the issue was withdrawn, with the reason.
+    _issue_step abort "$n" "$issue, \"reason\": \"$(json_escape "$reason")\""
 }
 
 cmd_issue_close() {
@@ -511,7 +804,7 @@ cmd_issue_close() {
     }
     # P-52: an open mini plan supplies the SHA (its last recorded commit) and
     # the summary, and is deleted in the close commit.
-    local plans mp="" mini_list=() last p entry="" landed=0 bref=""
+    local plans mp="" mini_list=() last p entry="" landed=0 bref="" issue=""
     plans="$(_issue_plans_dir)" || return 1
     where="$(PLANS_DIR="$plans" ledger_locate "$n")" || return 1
     # P-78: closing follows the code. The commit must be in the issue's branch;
@@ -529,6 +822,9 @@ cmd_issue_close() {
         fi
         [ -z "$ISSUE_BRANCH" ] || bref="$(aapp_branch_ref "$ISSUE_BRANCH")" || bref=""
         if [ -n "$sha" ] && [ -n "$bref" ] && ! git merge-base --is-ancestor "$sha^{commit}" "$bref" 2>/dev/null; then
+            # P-74: a closure made on the tracker (a `do` command) waits for the
+            # code; the views say so until the commit is in the branch.
+            [ -z "${AAPP_PLUGIN_MUTED:-}" ] || _issue_state_set aapp_issue_tracker_closed "$n" "$sha" "$ISSUE_BRANCH"
             echo "❌ [Issue] Commit \`$sha\` is not in '$ISSUE_BRANCH', the branch #$n's fix lands on; #$n stays open." >&2
             echo "   Bring the fix into '$ISSUE_BRANCH' (merge or pull it), then close again. Another target: aapp refine issues \"<msg>\" branch $n <name>" >&2
             return 1
@@ -576,7 +872,9 @@ cmd_issue_close() {
             fi
             # P-83: a member of a group that waits for this fix gets it first.
             issue_bring_fix_to_groups "$n" "$sha"
+            issue="$(PLANS_DIR="$plans" issue_payload "$n")" || issue=""
             _issue_archive_active "$n" "$sha" "$summary" "issue(close): archive #$n" "$mp" "$entry" || return 1
+            _issue_state_set aapp_issue_tracker_closed "$n"
             summary="$IA_SUMMARY"
             echo "✅ [Issue] #$n archived to done/000-issues-archive.md (commit \`$sha\`)."
             _issue_report_unblocked "$plans" $IA_TOUCHED
@@ -590,18 +888,245 @@ cmd_issue_close() {
             return 1
             ;;
     esac
-    issue_notify_close "$n" "$sha" "$summary"
+    issue_notify_close "$n" "$sha" "$summary" "" "$issue"
+}
+
+# ------------------------------------------------------------------------------
+# P-74: one record. Without a provider that lists issues the ledgers are
+# committed and shared through Git. A provider that lists (`list` in `handled`)
+# keeps the record: the ledgers stay in place, in the same format, written by
+# the same functions, but Git ignores them, and they are brought up to date
+# from the tracker, row by row.
+# ------------------------------------------------------------------------------
+
+# _issue_dependent_ids <plans>: the issues this repository depends on (named in
+# a plan's `Blocked On` or `Target Issue`, or with an open fix), one id per line.
+_issue_dependent_ids() {
+    local plans="$1" pf t
+    for pf in "$plans"/current/*.md; do
+        [ -f "$pf" ] || continue
+        case "$(basename "$pf")" in
+            000-*) continue ;;
+            fix-*) issue_fix_id "$pf"; continue ;;
+        esac
+        sed -nE 's/^\* \*\*Blocked On:\*\*[[:space:]]*//p' "$pf" | head -n 1 | sed -E 's/\(was [^)]*\)//; s/hotfix limit reached.*//' | issue_id_refs
+        t="$(issue_id_at_start "$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*//p' "$pf" | head -n 1)" 2>/dev/null)" && echo "#$t"
+    done | awk 'NF && !seen[$0]++'
+}
+
+# _issue_record_switch <plans> <returned ids> <confirm>: the first listing
+# against a provider that keeps the record. One commit stops tracking the three
+# ledgers and ignores them; the files stay. Refuses while an open row is unknown
+# to the tracker, and without a confirmation.
+_issue_record_switch() {
+    local plans="$1" returned="$2" confirm="$3" id unknown="" ans rel tmp identity=""
+    for id in $(PLANS_DIR="$plans" ledger_ids active); do
+        printf '%s\n' "$returned" | grep -qxF "#$id" || unknown="$unknown #$id"
+    done
+    if [ -n "$unknown" ]; then
+        echo "❌ [Issue] aapp-issue-tracker lists the issues, but does not know these open ones:$unknown." >&2
+        echo "   Log them on the tracker or close them here first; then 'aapp issue list' lets the tracker keep the record." >&2
+        return 1
+    fi
+    echo "ℹ️  [Issue] aapp-issue-tracker lists the issues: the tracker becomes their one record."
+    echo "   One commit stops tracking ISSUES.md, issues_road_map.md and done/000-issues-archive.md in .plans and ignores them."
+    echo "   The files stay, are brought up to date from the tracker, and are never committed or pushed again; their history stays in Git."
+    if [ "$confirm" -ne 1 ]; then
+        if [ -t 0 ]; then
+            printf "Let the tracker keep the record? [y/N] "
+            read -r ans || ans=""
+            case "$ans" in y|Y) ;; *) echo "Nothing changed."; return 1 ;; esac
+        else
+            echo "❌ [Issue] This needs a confirmation: answer the prompt on a terminal, or run 'aapp issue list confirm'. Nothing changed." >&2
+            return 1
+        fi
+    fi
+    if ! git -C "$plans" diff --cached --quiet; then
+        echo "❌ [Issue] .plans has other staged changes; commit them first. Nothing changed." >&2
+        return 1
+    fi
+    for rel in $(ledger_rel issues) $(ledger_rel roadmap) $(ledger_rel archive); do
+        if git -C "$plans" ls-files --error-unmatch "$rel" >/dev/null 2>&1; then
+            git -C "$plans" rm -q --cached -- "$rel" || return 1
+        fi
+        grep -qxF "/$rel" "$plans/.gitignore" 2>/dev/null || echo "/$rel" >> "$plans/.gitignore"
+    done
+    git -C "$plans" add -- .gitignore || return 1
+    tmp="$(mktemp)" || return 1
+    echo "issue(record): the tracker keeps the issues" > "$tmp"
+    if declare -f resolve_ai_identity >/dev/null; then
+        identity="$(resolve_ai_identity "${AAPP_AGENT_NAME:-}" "${AAPP_AGENT_VENDOR:-}" "${AAPP_AGENT_MODEL:-}")"
+    fi
+    if declare -f attribution_decorate >/dev/null; then attribution_decorate "$tmp" "$identity" || { rm -f "$tmp"; return 1; }; fi
+    if ! git -C "$plans" commit -q -F "$tmp" >/dev/null 2>&1; then
+        rm -f "$tmp"
+        git -C "$plans" reset -q -- .gitignore "$(ledger_rel issues)" "$(ledger_rel roadmap)" "$(ledger_rel archive)" >/dev/null 2>&1
+        echo "❌ [Issue] The commit that hands the record to the tracker failed; check 'git -C .plans status'." >&2
+        return 1
+    fi
+    rm -f "$tmp"
+    echo "✅ [Issue] The tracker keeps the record; the ledgers in .plans are no longer tracked."
+}
+
+# _issue_sync_apply <plans> <lines> <ids> <limit>: the tracker's listing into
+# the ledgers, row by row, never rewritten whole. A returned issue is added or
+# updated by id; one reported closed moves to the archive; the issues asked by
+# id are kept whatever the limit; of the others at most <limit> stay.
+_issue_sync_apply() {
+    local plans="$1" lines="$2" ids="$3" limit="$4" line id n st kept=0 over=0 returned="" cur new f v pf t link hasb=1
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        id="$(json_field "$line" id 2>/dev/null)" || continue
+        n="$(issue_id_body "$id" 2>/dev/null)" || continue
+        st="$(json_field "$line" status 2>/dev/null)" || st="open"
+        case "$st" in
+            closed|resolved|done|Closed|Resolved|Done)
+                # A closure with local work arrives through the `do` list and follows the code.
+                if [ "$(ledger_locate "$n")" = "active" ] && ! printf '%s\n' "$ids" | grep -qxF "#$n"; then
+                    v="$(json_field "$line" commit 2>/dev/null)" || v="tracker"
+                    f="$(json_field "$line" summary 2>/dev/null)" || f="Closed on the tracker"
+                    ledger_archive_row "$n" "$v" "$f" >/dev/null 2>&1
+                fi
+                continue ;;
+        esac
+        if ! printf '%s\n' "$ids" | grep -qxF "#$n"; then
+            if [ "$kept" -ge "$limit" ]; then over=1; continue; fi
+            kept=$((kept + 1))
+        fi
+        returned="$returned
+#$n"
+        _issue_meta_from_answer "$n" "$line"
+        new=""
+        for f in sev type date location symptom; do
+            v="$(json_field "$line" "$f" 2>/dev/null)" || v=""
+            case "$f" in sev|type) [ -z "$v" ] || v="\`${v//\`/}\`" ;; symptom) v="${v//|/\\|}" ;; esac
+            new="$new$v	"
+        done
+        # A listing that names no branch leaves the one the row has.
+        v="$(json_field "$line" branch 2>/dev/null)" || v="$(ledger_branch "$n")"
+        new="$new$v"
+        if [ "$(ledger_locate "$n")" = "active" ]; then
+            cur="$(ledger_rows | awk -F'\t' -v id="#$n" '$1 == id { printf "%s\t%s\t%s\t%s\t%s\t", $2, $3, $4, $5, $6; exit }')$(ledger_branch "$n")"
+            [ "$cur" = "$new" ] && continue
+            ledger_replace_row "$n" "| #$n | $(printf '%s' "$new" | cut -f1) | $(printf '%s' "$new" | cut -f2) | $(printf '%s' "$new" | cut -f3) | $(printf '%s' "$new" | cut -f4) | $(printf '%s' "$new" | cut -f5) | $(ledger_cell "$n" link) | $(ledger_cell "$n" status) |" || continue
+        else
+            ledger_add_row "| #$n | $(printf '%s' "$new" | cut -f1) | $(printf '%s' "$new" | cut -f2) | $(printf '%s' "$new" | cut -f3) | $(printf '%s' "$new" | cut -f4) | $(printf '%s' "$new" | cut -f5) |  | 🟡 \`Incubated\` |" || continue
+            roadmap_add_entry "$n" "$(json_field "$line" symptom 2>/dev/null || echo "#$n")"
+        fi
+        v="$(printf '%s' "$new" | cut -f6)"
+        ledger_set_cell "$n" branch "$(issue_branch_cell "$v")"
+    done <<< "$lines"
+    # The cache is bounded: the rows this listing did not bring go first.
+    kept="$(ledger_ids active | while IFS= read -r n; do printf '%s\n' "$ids" | grep -qxF "#$n" || echo "$n"; done | grep -c . || true)"
+    if [ "$kept" -gt "$limit" ]; then
+        for n in $(ledger_ids active | awk '{ a[NR] = $0 } END { for (i = NR; i >= 1; i--) print a[i] }'); do
+            [ "$kept" -gt "$limit" ] || break
+            printf '%s\n' "$ids" | grep -qxF "#$n" && continue
+            printf '%s\n' "$returned" | grep -qxF "#$n" && continue
+            ledger_drop_row "$n"; kept=$((kept - 1))
+        done
+    fi
+    # What stays committed is in the plans: a row's plan link and its Planned
+    # status are derived from them, so a fresh clone has them.
+    for pf in "$plans"/current/*.md; do
+        [ -f "$pf" ] || continue
+        case "$(basename "$pf")" in 000-*|fix-*) continue ;; esac
+        t="$(issue_id_at_start "$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*//p' "$pf" | head -n 1)" 2>/dev/null)" || continue
+        [ "$(ledger_locate "$t")" = "active" ] || continue
+        link="[$(parse_plan_field "$pf" "Plan ID")](current/$(basename "$pf"))"
+        [ "$(ledger_cell "$t" link)" = "$link" ] || ledger_set_cell "$t" link "$link"
+        ledger_cell "$t" status | grep -qF 'Planned' || ledger_set_cell "$t" status '🔵 `Planned`'
+    done
+    if [ "$over" -eq 1 ]; then
+        echo "ℹ️  [Issue] The tracker listed more open issues than aapp.issueCacheMax ($limit); the rest are not kept here. Narrow the provider's filter, or raise the limit."
+    fi
+}
+
+# issue_sync [force] [confirm]: brings the ledgers up to date from a provider
+# that lists issues. Only `aapp issue list` (always: `force`) and `aapp status`
+# call it, the latter at most once per aapp.issueSyncWindow minutes, counted
+# from the last attempt, so an unreachable tracker does not slow every
+# briefing. A failed sync changes nothing. Returns 1 only when the switch to a
+# tracker-kept record was refused.
+issue_sync() {
+    local force=0 confirm=0 plans stamp last=0 since="" now window limit ids idjson="" id lines returned external=0
+    while [ $# -gt 0 ]; do case "$1" in force) force=1 ;; confirm) confirm=1 ;; esac; shift; done
+    _issue_provider_entry >/dev/null || return 0
+    plans="$(_issue_plans_dir)" || return 0
+    PLANS_DIR="$plans" ledger_record_external && external=1
+    # Before the switch only a listing asks; afterwards the window paces it.
+    [ "$force" -eq 1 ] || [ "$external" -eq 1 ] || return 0
+    stamp="$(_issue_state_file aapp_issue_sync)" || return 0
+    if [ -f "$stamp" ]; then last="$(sed -n 1p "$stamp")"; since="$(sed -n 2p "$stamp")"; fi
+    case "$last" in ''|*[!0-9]*) last=0 ;; esac
+    now="$(date +%s)"
+    window="$(git config --get aapp.issueSyncWindow 2>/dev/null)" || window=15
+    case "$window" in ''|*[!0-9]*) window=15 ;; esac
+    if [ "$force" -eq 0 ] && [ $((now - last)) -lt $((window * 60)) ]; then return 0; fi
+    printf '%s\n%s\n' "$now" "$since" > "$stamp"
+    limit="$(git config --get aapp.issueCacheMax 2>/dev/null)" || limit=200
+    case "$limit" in ''|*[!0-9]*) limit=200 ;; esac
+    # At the switch the tracker is asked for every open row here, by id.
+    if [ "$external" -eq 1 ]; then ids="$(_issue_dependent_ids "$plans")"; else ids="$(PLANS_DIR="$plans" ledger_ids active | sed 's/^/#/')"; fi
+    for id in $ids; do idjson="${idjson:+$idjson, }\"$id\""; done
+    if ! issue_provider list "\"open\": true, \"limit\": $limit, \"since\": \"$since\", \"ids\": [$idjson]"; then
+        echo "⚠️  [Issue] aapp-issue-tracker failed on list (${PLUGIN_MESSAGE:-no answer}); the issues below are the last ones brought here." >&2
+        return 0
+    fi
+    if ! plugin_handled list; then
+        # A provider that does not list: the committed ledgers are the record.
+        plugin_run_do issue aapp-issue-tracker
+        return 0
+    fi
+    lines="$(plugin_list_lines)"
+    returned="$(printf '%s\n' "$lines" | while IFS= read -r id; do [ -n "$id" ] || continue; id="$(json_field "$id" id 2>/dev/null)" || continue; issue_id_normalize "$id" 2>/dev/null; done)"
+    if [ "$external" -eq 0 ]; then
+        _issue_record_switch "$plans" "$returned" "$confirm" || { _plugin_files_drop; return 1; }
+        ids="$(_issue_dependent_ids "$plans")"
+    fi
+    PLANS_DIR="$plans" ledger_ensure_files || { _plugin_files_drop; return 0; }
+    PLANS_DIR="$plans" _issue_sync_apply "$plans" "$lines" "$ids" "$limit"
+    printf '%s\n%s\n' "$now" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$stamp"
+    plugin_run_do issue aapp-issue-tracker
+    return 0
+}
+
+# _issue_line_notes <n>: what follows an issue's line in a listing: what the
+# tracker calls it, and a closure that waits for its commit.
+_issue_line_notes() {
+    local m w out=""
+    m="$(_issue_state_get aapp_issue_meta "$1")"
+    if [ -n "$m" ]; then
+        out="$(printf '%s' "$m" | awk -F'\t' '{ s = ""; if ($1 != "-") s = $1; if ($2 != "-") s = s (s == "" ? "" : " ") $2; if ($3 != "-") s = s (s == "" ? "" : " ") "(" $3 ")"; print s }')"
+        [ -z "$out" ] || out="  · $out"
+    fi
+    w="$(_issue_state_get aapp_issue_tracker_closed "$1")"
+    [ -z "$w" ] || out="$out  · closed on the tracker; waiting for \`$(printf '%s' "$w" | cut -f1)\` in '$(printf '%s' "$w" | cut -f2)'"
+    printf '%s' "$out"
 }
 
 cmd_issue_list() {
-    local arg="${1:-}" cap plans roadmap lines total
-    case "$arg" in
-        '')          cap="$ISSUE_LIST_DEFAULT_CAP" ;;
-        all)         cap=0 ;;
-        *[!0-9]*)    echo "❌ [Issue] Usage: aapp issue list [<n> | all]" >&2; return 1 ;;
-        *)           cap="$arg" ;;
-    esac
+    local usage='aapp issue list [<n> | all] [confirm] | list note <num>'
+    local cap="$ISSUE_LIST_DEFAULT_CAP" confirm=0 note="" plans roadmap lines total line id n
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            all)      cap=0; shift ;;
+            confirm)  confirm=1; shift ;;
+            note)     [ $# -ge 2 ] || { echo "❌ [Issue] 'note' needs an issue. Usage: $usage" >&2; return 1; }
+                      note="$(issue_id_body "$2")" || return 1; shift 2 ;;
+            *[!0-9]*|'') echo "❌ [Issue] Usage: $usage" >&2; return 1 ;;
+            *)        cap="$1"; shift ;;
+        esac
+    done
     plans="$(_issue_plans_dir)" || return 1
+    if [ -n "$note" ]; then
+        # One issue with its description and notes, as `issue fix` hands them over.
+        line="$(PLANS_DIR="$plans" ledger_row "$note")" || { echo "❌ [Issue] #$note is not an active issue in ISSUES.md." >&2; return 1; }
+        printf '%s%s\n' "$line" "$(_issue_line_notes "$note")"
+        issue_show_text "$note" "" "$(_issue_state_get aapp_issue_meta "$note" | cut -f2 | grep -vx -- '-' || true)"
+        return 0
+    fi
+    if [ "$confirm" -eq 1 ]; then issue_sync force confirm || return 1; else issue_sync force || return 1; fi
     roadmap="$(PLANS_DIR="$plans" ledger_path roadmap)"
     if [ ! -f "$roadmap" ]; then
         echo "❌ [Issue] Road map not found: $roadmap" >&2
@@ -615,12 +1140,13 @@ cmd_issue_list() {
         return 0
     fi
     total="$(printf '%s\n' "$lines" | wc -l | tr -d ' ')"
-    if [ "$cap" -eq 0 ] || [ "$total" -le "$cap" ]; then
-        printf '%s\n' "$lines" | sed 's/^/  /'
-    else
-        printf '%s\n' "$lines" | head -n "$cap" | sed 's/^/  /'
-        echo "  … $((total - cap)) more (aapp issue list all)"
-    fi
+    if [ "$cap" -ne 0 ] && [ "$total" -gt "$cap" ]; then lines="$(printf '%s\n' "$lines" | head -n "$cap")"; fi
+    while IFS= read -r line; do
+        id="$(issue_id_refs "$line" | head -n 1)"
+        n="${id#\#}"
+        printf '  %s%s\n' "$line" "$([ -z "$n" ] || _issue_line_notes "$n")"
+    done <<< "$lines"
+    if [ "$cap" -ne 0 ] && [ "$total" -gt "$cap" ]; then echo "  … $((total - cap)) more (aapp issue list all)"; fi
 }
 
 # ------------------------------------------------------------------------------
@@ -809,7 +1335,7 @@ _issue_restore_buffer() {
 
 # cmd_issue_hotfix "<text>" [file <path>]… [plan] (P-52 2.1)
 cmd_issue_hotfix() {
-    local text="${1:-}" files=() want_plan=0 plans buf bound pf prel pid f n row loc today max count list slug t target=""
+    local text="${1:-}" files=() want_plan=0 plans buf bound pf prel pid f n loc max count list slug target="" note=""
     if [ -z "$text" ]; then
         echo "❌ [Issue] Usage: aapp issue hotfix \"<text>\" [file <path>]… [branch <name>] [plan]" >&2
         return 1
@@ -821,14 +1347,17 @@ cmd_issue_hotfix() {
                   files+=("$2"); shift 2 ;;
             branch) [ $# -ge 2 ] && [ -n "$2" ] || { echo "❌ [Issue] 'branch' needs a branch name." >&2; return 1; }
                   target="$2"; shift 2 ;;
+            note) [ $# -ge 2 ] && [ -n "$2" ] || { echo "❌ [Issue] 'note' needs a text." >&2; return 1; }
+                  note="$2"; shift 2 ;;
             plan) want_plan=1; shift ;;
-            *)    echo "❌ [Issue] Unknown token '$1'. Usage: aapp issue hotfix \"<text>\" [file <path>]… [branch <name>] [plan]" >&2; return 1 ;;
+            *)    echo "❌ [Issue] Unknown token '$1'. Usage: aapp issue hotfix \"<text>\" [file <path>]… [branch <name>] [note \"<text>\"] [plan]" >&2; return 1 ;;
         esac
     done
     if [ -n "$target" ] && ! aapp_branch_ref "$target" >/dev/null; then
         echo "❌ [Issue] Branch '$target' does not exist, here or on a remote." >&2
         return 1
     fi
+    text="$(_issue_symptom "$text")" || return 1
     plans="$(_issue_plans_dir)" || return 1
     buf="$(git rev-parse --git-path aapp_active_plan 2>/dev/null)" || return 1
     bound="$(tr -d '[:space:]' < "$buf" 2>/dev/null || true)"
@@ -845,29 +1374,10 @@ cmd_issue_hotfix() {
     # plan's own targets is accepted.
 
     _issue_load_plan_lib || return 1
-    _issue_lock_acquire || return 1
-    n="$(allocate_issue_id)" || { _issue_lock_release; return 1; }
-    n="${n#\#}"
-    # Single-checkout mode: the fix will share this working copy, so the plan's
-    # uncommitted work in the listed files is set aside (only those files).
-    if [ ${#files[@]} -gt 0 ] && ! grep -q '^\* \*\*Worktree:\*\*' "$pf" && \
-       [ -n "$(git status --porcelain -- "${files[@]}" 2>/dev/null)" ]; then
-        if ! git stash push --include-untracked -q -m "aapp-hotfix:$pid:#$n" -- "${files[@]}"; then
-            _issue_lock_release; echo "❌ [Issue] Could not stash the uncommitted work in ${files[*]}." >&2; return 1
-        fi
-        printf '%s #%s\n' "$(git rev-parse stash@{0})" "$n" >> "$(git rev-parse --git-path aapp_hotfix_stash)"
-        echo "📦 [Issue] Set aside $pid's uncommitted work in ${files[*]}; 'aapp issue close $n' re-applies it." >&2
-    fi
-    today="$(date +%Y-%m-%d)"
     loc="—"
     if [ ${#files[@]} -gt 0 ]; then
         loc=""; for f in "${files[@]}"; do loc="${loc:+$loc, }\`$f\`"; done
     fi
-    t="${text//|/\\|}"
-    row="| #$n | \`High\` | \`CORE\` | $today | $loc | $t | blocks [$pid]($prel) | 🟡 \`Incubated\` |"
-    PLANS_DIR="$plans" ledger_add_row "$row" || {
-        _issue_lock_release
-        echo "❌ [Issue] No table header separator in ISSUES.md." >&2; return 1; }
     # P-83: two ways in. Every file named is one of the plan's own Target
     # Files: the fix belongs to the plan's line of work, its parent branch.
     # Otherwise the row names no branch, and the team's plugin (or the
@@ -880,9 +1390,20 @@ cmd_issue_hotfix() {
         done
         [ "$own" -eq 0 ] || target="$(issue_plan_parent "$pf")"
     fi
-    PLANS_DIR="$plans" ledger_set_cell "$n" branch "$(issue_branch_cell "$target")" || {
-        _issue_lock_release
-        echo "❌ [Issue] Could not record the branch of #$n in ISSUES.md." >&2; return 1; }
+    # P-74: logged through the one handler (the id, the row, the description).
+    _issue_lock_acquire || return 1
+    PLANS_DIR="$plans" _issue_log_row High CORE "$text" "$loc" "blocks [$pid]($prel)" "$target" "$note" none || { _issue_lock_release; return 1; }
+    n="$ISSUE_LOGGED"
+    # Single-checkout mode: the fix will share this working copy, so the plan's
+    # uncommitted work in the listed files is set aside (only those files).
+    if [ ${#files[@]} -gt 0 ] && ! grep -q '^\* \*\*Worktree:\*\*' "$pf" && \
+       [ -n "$(git status --porcelain -- "${files[@]}" 2>/dev/null)" ]; then
+        if ! git stash push --include-untracked -q -m "aapp-hotfix:$pid:#$n" -- "${files[@]}"; then
+            _issue_lock_release; echo "❌ [Issue] Could not stash the uncommitted work in ${files[*]}." >&2; return 1
+        fi
+        printf '%s #%s\n' "$(git rev-parse stash@{0})" "$n" >> "$(git rev-parse --git-path aapp_hotfix_stash)"
+        echo "📦 [Issue] Set aside $pid's uncommitted work in ${files[*]}; 'aapp issue close $n' re-applies it." >&2
+    fi
     [ "$want_plan" -eq 1 ] || PLANS_DIR="$plans" roadmap_add_blocker "$n" "$text" "$pid"
     _issue_record_hotfix "$pf" "$n"
     plan_block_on "$pf" "$n" || [ $? -eq 3 ]
@@ -900,6 +1421,7 @@ cmd_issue_hotfix() {
     [ -f "$plans/state_matrix.md" ] && paths+=("state_matrix.md")
     plans_commit "issue(hotfix): #$n blocks $pid" "${paths[@]}" || { _issue_lock_release; return 1; }
     _issue_lock_release
+    [ "$ISSUE_PROVIDER_SEEN" -eq 0 ] || plugin_run_do issue aapp-issue-tracker
     echo "🧯 [Issue] #$n logged; $pid is blocked on it. Stop here: the fix runs in the main checkout ('aapp issue fix next-blocker')."
     if [ "$want_plan" -eq 1 ]; then
         slug="$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]' | sed 's/[ _]/-/g' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//' | cut -c1-40)"
@@ -1195,9 +1717,10 @@ cmd_issue_fix() {
         if [ -z "$n" ]; then
             # With the aapp-issue-tracker provider installed, it is the authority
             # for the claim (fail closed, like `allocate`); otherwise the local queue.
-            if [ -d "$pdir" ] && entry="$(resolve_plugin_entrypoint "$pdir" "aapp-issue-tracker" 2>/dev/null)"; then
-                pout="$(run_action_plugin "$entry" "$root" next-blocker issue.next-blocker 2>/dev/null)" || {
+            if _issue_provider_entry >/dev/null; then
+                issue_provider next-blocker "" || {
                     _issue_lock_release; echo "❌ [Issue] The aapp-issue-tracker provider refused next-blocker; not claiming locally." >&2; return 1; }
+                pout="$PLUGIN_OUT"; _plugin_files_drop
                 raw="$(json_field "$pout" id)" || {
                     _issue_lock_release; echo "❌ [Issue] Provider must print {\"id\": ...} for next-blocker (got: '$pout')." >&2; return 1; }
                 n="$(issue_id_body "$raw")" || { _issue_lock_release; return 1; }
@@ -1297,10 +1820,37 @@ cmd_issue_fix() {
     if [ -n "$gwt" ]; then
         echo "🩹 [Issue] Fixing #$n${owner:+ for group $owner} in .workspace/fix-$n (fix/$n from $fixbr, files: ${files[*]})."
         echo "   Work and 'aapp commit' there; 'aapp issue close $n' lands it on $fixbr."
-        return 0
+    else
+        echo "🩹 [Issue] Fixing #$n in current/fix-$n.md (files: ${files[*]}). Commit with 'aapp commit', then 'aapp issue close $n'."
+        _issue_group_hint "$plans" "${files[@]}"
     fi
-    echo "🩹 [Issue] Fixing #$n in current/fix-$n.md (files: ${files[*]}). Commit with 'aapp commit', then 'aapp issue close $n'."
-    _issue_group_hint "$plans" "${files[@]}"
+    _issue_fix_handover "$plans" "$n"
+}
+
+# _issue_fix_handover <plans> <n> (P-74): the `fix` step, and the issue's
+# description and notes handed to whoever fixes it: the kit's own, and those a
+# provider keeps, which it returns in its answer (`description`, and one object
+# per note in the list file) only now, when a fix opens.
+_issue_fix_handover() {
+    local plans="$1" n="$2" issue extra="" url="" line note
+    issue="$(PLANS_DIR="$plans" issue_payload "$n")" || issue="\"id\": \"#$n\""
+    if ! AAPP_ISSUE_ID="#$n" issue_provider fix "$issue"; then
+        echo "⚠️  [Issue] aapp-issue-tracker failed on fix for #$n (${PLUGIN_MESSAGE:-no answer}); done here. Delivery is the plugin's responsibility." >&2
+    elif [ "$ISSUE_PROVIDER_SEEN" -eq 1 ] && [ "$PLUGIN_STATUS" = "ok" ]; then
+        extra="$(json_field "$PLUGIN_OUT" description 2>/dev/null)" || extra=""
+        [ -z "$extra" ] || extra="[description]"$'\n'"$(printf '%b' "$extra")"
+        url="$(json_field "$PLUGIN_OUT" url 2>/dev/null)" || url=""
+        _issue_meta_from_answer "$n" "$PLUGIN_OUT"
+        while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            note="$(json_field "$line" note 2>/dev/null)" || continue
+            extra="${extra:+$extra"$'\n\n'"}[note $(json_field "$line" date 2>/dev/null || true) $(json_field "$line" author 2>/dev/null || true)]"$'\n'"$(printf '%b' "$note")"
+        done <<< "$(plugin_list_lines)"
+    fi
+    [ -n "$url" ] || url="$(_issue_state_get aapp_issue_meta "$n" | cut -f2 | grep -vx -- '-' || true)"
+    PLANS_DIR="$plans" issue_show_text "$n" "$extra" "$url"
+    [ "$ISSUE_PROVIDER_SEEN" -eq 0 ] || plugin_run_do issue aapp-issue-tracker
+    return 0
 }
 
 # _issue_fix_abort <plans> <n>: drop an uncommitted mini plan; the issue stays.
@@ -1325,14 +1875,17 @@ _issue_fix_abort() {
     rm -f "$mp"
     plans_commit "fix(abort): #$n" "current/fix-$n.md" || return 1
     echo "↩️  [Issue] #$n's fix abandoned; the issue stays open."
+    # P-74: the provider is told the fix was dropped; the issue is still open.
+    local issue
+    issue="$(PLANS_DIR="$plans" issue_payload "$n")" || return 0
+    _issue_step fix-abort "$n" "$issue"
 }
 
 cmd_issue() {
-    local sub="${1:-next}"
+    local sub="${1:-}"
     [ $# -gt 0 ] && shift
     case "$sub" in
-        next)     cmd_issue_next "$@" ;;
-        allocate) cmd_issue_allocate "$@" ;;
+        log)      cmd_issue_log "$@" ;;
         hotfix)   cmd_issue_hotfix "$@" ;;
         fix)      cmd_issue_fix "$@" ;;
         close)    cmd_issue_close "$@" ;;
@@ -1340,7 +1893,7 @@ cmd_issue() {
         list)     cmd_issue_list "$@" ;;
         *)
             echo "❌ [Issue] Unknown subcommand '$sub'." >&2
-            echo "Usage: aapp issue [next | allocate | hotfix \"<text>\" [file <path>]… [branch <name>] [plan] | fix next-blocker | fix <num> [file <path>…] | fix <num> abort | close <id> [sha <sha>] [summary \"<text>\"] | abort <num> [reason \"<text>\"] | list [<n> | all]]" >&2
+            echo "Usage: aapp issue log <sev> <type> \"<symptom>\" [file <path>]… [branch <name>] [note \"<text>\"] | hotfix \"<text>\" [file <path>]… [branch <name>] [note \"<text>\"] [plan] | fix next-blocker | fix <num> [file <path>…] | fix <num> abort | close <id> [sha <sha>] [summary \"<text>\"] | abort <num> [reason \"<text>\"] | list [<n> | all] [confirm] | list note <num>" >&2
             return 1
             ;;
     esac

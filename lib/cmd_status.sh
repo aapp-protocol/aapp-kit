@@ -60,6 +60,20 @@ fi
 # its parent branch. The briefing is where that is noticed: the plan is
 # unblocked (one commit on the plans branch) and the lines are shown under
 # Plans. Not while a plugin step runs, nor for the one-line overview.
+# P-74: where a tracker keeps the issues, the briefing brings them up to date
+# first, at most once per aapp.issueSyncWindow minutes (counted from the last
+# attempt, so an unreachable tracker does not slow every briefing). Not for the
+# one-line overview, nor while a plugin step runs.
+SYNC_OUT=""
+if [ -z "${AAPP_PLUGIN_STEP:-}" ] && [ "${1:-}" != "short" ] && [ "${1:-}" != "summary" ] && \
+   [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_issue.sh" ] && [ -d ".agents/skills/aapp-issue-tracker" ]; then
+    SYNC_OUT="$(
+        # shellcheck source=/dev/null
+        . "$AAPP_LIB/cmd_issue.sh" 2>/dev/null || exit 0
+        issue_sync 2>&1 || true
+    )"
+fi
+
 UNBLOCK_OUT=""
 if [ -z "${AAPP_PLUGIN_STEP:-}" ] && [ "${1:-}" != "short" ] && [ "${1:-}" != "summary" ] && \
    [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_issue.sh" ] && \
@@ -331,6 +345,19 @@ fi
 
 if [ "$HAS_ISSUES" -eq 0 ]; then
     echo "  (No open issues in issues_road_map.md or ISSUES.md)"
+fi
+
+# P-74: what the sync said, and the issues the tracker reports closed whose
+# commit is not in their branch yet (the closure follows the code, P-78).
+if [ -n "$SYNC_OUT" ]; then
+    echo "$SYNC_OUT" | sed 's/^/  /'
+fi
+TRACKER_CLOSED="$(git rev-parse --git-common-dir 2>/dev/null)/aapp_issue_tracker_closed"
+if [ -s "$TRACKER_CLOSED" ]; then
+    while IFS="$(printf '\t')" read -r TC_ID TC_SHA TC_BRANCH; do
+        [ -n "$TC_ID" ] || continue
+        echo "  ⏳ $TC_ID is closed on the tracker; it closes here once \`$TC_SHA\` is in '$TC_BRANCH'."
+    done < "$TRACKER_CLOSED"
 fi
 
 # P-78: an issue whose branch is gone is fixed on the development branch;

@@ -184,7 +184,7 @@ else
   bad "test_log_sends_whole_issue_without_id" "calls=$(calls) data=$d"
 fi
 
-answer '{"status": "ok", "id": "PROJ-101", "tracker": "jira", "url": "https://jira.example/PROJ-101", "version": "2.4"}'
+answer '{"status": "ok", "id": "PROJ-101", "tracker": "jira", "url": "https://jira.example/PROJ-101", "release": "2.4"}'
 out="$(aapp issue log Low CLI "A key from the tracker" file src/a.sh 2>&1)"; rc=$?
 lout="$(aapp issue list all 2>&1)"
 if [ "$rc" -eq 0 ] && has_row PROJ-101 && echo "$lout" | grep -F '#PROJ-101' | grep -F 'jira' | grep -F 'https://jira.example/PROJ-101' | grep -qF '2.4'; then

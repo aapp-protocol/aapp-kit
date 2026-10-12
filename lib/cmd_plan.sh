@@ -1273,6 +1273,8 @@ cmd_draft() {
         [ -n "$join_group" ] && draft_paths+=("current/$(basename "$join_gfile")")
         plans_commit "plan(draft): scaffold P-${num} ${slug}" "${draft_paths[@]}" || exit 1
     fi
+    # P-74: the provider is told the issue is now planned.
+    if [ -n "$promote_issue" ]; then issue_send_refine "$promote_issue"; fi
 
     echo "🚀 Blueprint scaffolded: .plans/current/P${num}-${slug}.md"
     echo "   Plan ID: P-${num}"
@@ -2070,9 +2072,10 @@ cmd_done() {
     fi
 
     # P-32: relocate the target issue row; committed below with the archive.
-    local close_summary="" unblocked_paths=""
+    local close_summary="" unblocked_paths="" close_payload=""
     if [ "$close_where" = "active" ]; then
         close_summary="[$plan_id]($bname) - $(grep -m 1 -E '^# ' "$done_file" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*|🧩[[:space:]]*Group[[:space:]]+)?Plan[^:]*:[[:space:]]*//')"
+        close_payload="$(issue_payload "$close_issue")" || close_payload=""
         ledger_archive_row "$close_issue" "$commit_sha" "$close_summary" || exit 1
         # P-52: a plan blocked on this issue (a hotfix promoted to this plan) resumes.
         # P-78: once this plan's commit is in that plan's parent branch.
@@ -2128,7 +2131,7 @@ cmd_done() {
     fi
     rm -rf "$snap"
     if [ "$close_where" = "active" ]; then
-        issue_notify_close "$close_issue" "$commit_sha" "$close_summary" "$plan_id"
+        issue_notify_close "$close_issue" "$commit_sha" "$close_summary" "$plan_id" "$close_payload"
         echo "   Issue closed : #$close_issue -> done/000-issues-archive.md"
     fi
 
@@ -2952,7 +2955,12 @@ cmd_plan_abort() {
     echo "🗑️  [Abort] Plan '$pid' archived to aborted/$bname."
     echo "   Reason       : $AB_REASON"
     echo "   Ledger       : $PLANS_DIR/$led"
-    if [ -n "$AB_ISSUES" ]; then echo "   Issue        :$AB_ISSUES back to 🟡 Incubated (not closed)"; fi
+    if [ -n "$AB_ISSUES" ]; then
+        echo "   Issue        :$AB_ISSUES back to 🟡 Incubated (not closed)"
+        # P-74: the provider is told each issue is open and unplanned again.
+        local ab_issue
+        for ab_issue in $AB_ISSUES; do issue_send_refine "${ab_issue#\#}"; done
+    fi
 
     # Buffers, hotfix records, worktrees and branches: after the commit.
     local dest did cur holder holder_buf line blocked
@@ -3121,6 +3129,8 @@ _issues_follow_branch() {
     _load_issue_module
     moved="$(issue_move_branch "$1" "$2")" || { echo "⚠️  [Issues] Could not retarget the issues of '$1'; set them with 'aapp refine issues \"<msg>\" branch <num> $2'." >&2; return 0; }
     [ -n "$moved" ] || return 0
+    # Where a tracker keeps the record the ledger is not tracked: nothing to commit.
+    [ -n "$(ledger_commit_paths issues)" ] || { echo "🐛 [Issues] $moved targeted '$1', which is removed; now '$2'."; return 0; }
     plans_commit "issue(branch): retarget issues of a removed branch" $(ledger_commit_paths issues) || {
         echo "⚠️  [Issues] $moved now target '$2' in ISSUES.md, uncommitted; commit with 'aapp refine issues \"<msg>\"'." >&2; return 0; }
     echo "🐛 [Issues] $moved targeted '$1', which is removed; now '$2'."
@@ -3159,43 +3169,18 @@ _load_issue_module() {
 # validated first; nothing is committed on failure.
 _refine_ledger() {
     local target="$1" msg="$2" subject files=() f changed="" sha health
-    local bn="" bname="" bcur bwant
     health="$(dirname "${BASH_SOURCE[0]}")/planning_health.sh"
-    if [ "$target" = "pickup" ]; then
-        subject="pickup: $msg"; files=("pickup.md")
-    else
-        subject="issue(triage): $msg"; files=($(ledger_commit_paths issues roadmap))
-        [ ${#files[@]} -gt 0 ] || files=("$(basename "$(ledger_path issues)")")
+    if [ "$target" = "issues" ]; then
+        shift
+        _refine_issues "$@"
+        return
     fi
+    subject="pickup: $msg"; files=("pickup.md")
     if [ $# -gt 2 ]; then
-        if [ "$target" != "issues" ] || [ "$3" != "branch" ] || [ $# -ne 5 ]; then
-            echo "❌ [Refine] Usage: aapp refine issues \"<msg>\" [branch <num> <name>]" >&2
-            exit 1
-        fi
-        bn="$(issue_id_body "$4")" || exit 1
-        bname="$5"
+        echo "❌ [Refine] Usage: aapp refine pickup \"<msg>\"" >&2
+        exit 1
     fi
     _refine_check_subject "$subject" "$msg"
-    if [ "$target" = "issues" ]; then
-        _load_issue_module
-        # P-78: `branch <num> <name>` names the branch an issue's fix lands on.
-        if [ -n "$bn" ]; then
-            if ! ledger_row "$bn" >/dev/null 2>&1; then
-                echo "❌ [Refine] #$bn is not an active issue in ISSUES.md." >&2
-                exit 1
-            fi
-            if ! aapp_branch_ref "$bname" >/dev/null; then
-                echo "❌ [Refine] Branch '$bname' does not exist, here or on a remote; #$bn is unchanged." >&2
-                exit 1
-            fi
-            bcur="$(ledger_cell "$bn" branch)"; bwant="$(issue_branch_cell "$bname")"
-            if [ "$bcur" = "$bwant" ] && [ -z "$(git -C "$PLANS_DIR" status --porcelain -- "${files[@]}")" ]; then
-                echo "ℹ️  [Refine] #$bn already targets '$bname'; nothing changed."
-                return 0
-            fi
-            ledger_set_cell "$bn" branch "$bwant" || exit 1
-        fi
-    fi
     for f in "${files[@]}"; do
         [ -n "$(git -C "$PLANS_DIR" status --porcelain -- "$f")" ] && changed=1
     done
@@ -3205,16 +3190,115 @@ _refine_ledger() {
     fi
     # shellcheck source=lib/planning_health.sh
     . "$health" || { echo "❌ [Refine] Cannot load $health" >&2; exit 1; }
-    if [ "$target" = "pickup" ]; then
-        check_pickup_entries "$PLANS_DIR/pickup.md" >&2 || {
-            echo "   Nothing committed: fix pickup.md and run 'aapp refine pickup' again." >&2; exit 1; }
-    else
-        check_ledger_issues "$(ledger_path issues)" "$(ledger_path archive)" "$(ledger_path roadmap)" >&2 || {
-            echo "   Nothing committed: fix the lines above and run 'aapp refine issues' again." >&2; exit 1; }
-    fi
+    check_pickup_entries "$PLANS_DIR/pickup.md" >&2 || {
+        echo "   Nothing committed: fix pickup.md and run 'aapp refine pickup' again." >&2; exit 1; }
     plans_commit "$subject" "${files[@]}" || exit 1
     sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
     echo "📝 [Refine] $target committed ($sha): $msg"
+}
+
+# _refine_issues "<msg>" [branch <num> <name>] [note <num> "<text>"]… (P-50, P-78, P-74)
+# A change to existing rows, validated and committed; `branch` names the branch
+# an issue's fix lands on; `note` adds a note to an issue (kept outside Git,
+# never in the ledger). A row is never added here: `aapp issue log` is the one
+# writer of new rows. Where a tracker keeps the record the ledgers are not
+# tracked: nothing is committed, the change is sent to the provider.
+_refine_issues() {
+    local usage='aapp refine issues "<msg>" [branch <num> <name>] [note <num> "<text>"]…'
+    local msg="$1" subject files=() f changed="" sha="" health external=0 n old="" ids="" i
+    local bn="" bname="" bcur bwant notes_n=() notes_t=() said=0
+    health="$(dirname "${BASH_SOURCE[0]}")/planning_health.sh"
+    shift
+    subject="issue(triage): $msg"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            branch) if [ $# -lt 3 ] || [ -n "$bn" ]; then echo "❌ [Refine] Usage: $usage" >&2; exit 1; fi
+                    bn="$(issue_id_body "$2")" || exit 1; bname="$3"; shift 3 ;;
+            note)   if [ $# -lt 3 ] || [ -z "$3" ]; then echo "❌ [Refine] Usage: $usage" >&2; exit 1; fi
+                    n="$(issue_id_body "$2")" || exit 1
+                    notes_n+=("$n"); notes_t+=("$3"); shift 3 ;;
+            *)      echo "❌ [Refine] Usage: $usage" >&2; exit 1 ;;
+        esac
+    done
+    _refine_check_subject "$subject" "$msg"
+    _load_issue_module
+    ledger_record_external && external=1
+    files=($(ledger_commit_paths issues roadmap))
+    # Everything is checked before anything is written or sent.
+    for n in ${bn:+"$bn"} "${notes_n[@]}"; do
+        if ! ledger_row "$n" >/dev/null 2>&1; then
+            echo "❌ [Refine] #$n is not an active issue in ISSUES.md." >&2
+            exit 1
+        fi
+    done
+    if [ -n "$bn" ] && ! aapp_branch_ref "$bname" >/dev/null; then
+        echo "❌ [Refine] Branch '$bname' does not exist, here or on a remote; #$bn is unchanged." >&2
+        exit 1
+    fi
+    # shellcheck source=lib/planning_health.sh
+    . "$health" || { echo "❌ [Refine] Cannot load $health" >&2; exit 1; }
+    if [ "$external" -eq 0 ]; then
+        old="$(mktemp)" || exit 1
+        if git -C "$PLANS_DIR" show "HEAD:$(ledger_rel issues)" > "$old" 2>/dev/null; then
+            check_issues_added_rows "$(ledger_path issues)" "$old" >&2 || {
+                rm -f "$old"; echo "   Nothing committed." >&2; exit 1; }
+        else
+            rm -f "$old"; old=""
+        fi
+    fi
+    if [ -n "$bn" ]; then
+        bcur="$(ledger_cell "$bn" branch)"; bwant="$(issue_branch_cell "$bname")"
+        if [ "$bcur" = "$bwant" ]; then
+            if [ ${#notes_n[@]} -eq 0 ] && { [ ${#files[@]} -eq 0 ] || [ -z "$(git -C "$PLANS_DIR" status --porcelain -- "${files[@]}")" ]; }; then
+                [ -z "$old" ] || rm -f "$old"
+                echo "ℹ️  [Refine] #$bn already targets '$bname'; nothing changed."
+                return 0
+            fi
+        else
+            ledger_set_cell "$bn" branch "$bwant" || exit 1
+            ids="$bn"
+        fi
+    fi
+    for f in "${files[@]}"; do
+        [ -n "$(git -C "$PLANS_DIR" status --porcelain -- "$f")" ] && changed=1
+    done
+    if [ -z "$changed" ] && [ -z "$ids" ] && [ ${#notes_n[@]} -eq 0 ]; then
+        [ -z "$old" ] || rm -f "$old"
+        if [ "$external" -eq 1 ]; then
+            echo "❌ [Refine] The tracker keeps the issues: change them there, or here with 'branch <num> <name>' or 'note <num> \"<text>\"'." >&2
+        else
+            echo "❌ [Refine] Nothing to commit: ${files[*]} unchanged." >&2
+        fi
+        exit 1
+    fi
+    if [ -n "$changed" ] || [ -n "$ids" ]; then
+        check_ledger_issues "$(ledger_path issues)" "$(ledger_path archive)" "$(ledger_path roadmap)" >&2 || {
+            [ -z "$old" ] || rm -f "$old"
+            echo "   Nothing committed: fix the lines above and run 'aapp refine issues' again." >&2; exit 1; }
+    fi
+    # The rows that changed: each is a `refine` step for the provider.
+    if [ -n "$old" ]; then
+        for n in $(ledger_ids active); do
+            [ "$(ledger_row "$n")" = "$(AAPP_LEDGER_ISSUES="$old" ledger_row "$n")" ] || ids="$ids $n"
+        done
+        rm -f "$old"
+    fi
+    if [ -n "$changed" ]; then
+        plans_commit "$subject" "${files[@]}" || exit 1
+        sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
+        echo "📝 [Refine] issues committed ($sha): $msg"
+        said=1
+    fi
+    # Sent after the local write: a refused change never reaches the provider.
+    for n in $(printf '%s\n' $ids "${notes_n[@]}" | awk 'NF && !seen[$0]++'); do
+        local own=()
+        for i in "${!notes_n[@]}"; do
+            [ "${notes_n[$i]}" = "$n" ] && own+=("${notes_t[$i]}")
+        done
+        issue_refine_step "$n" "${own[@]}"
+        if [ ${#own[@]} -gt 0 ]; then echo "📝 [Refine] #$n: ${#own[@]} note(s) added: $msg"; said=1; fi
+    done
+    [ "$said" -eq 1 ] || echo "📝 [Refine] issues: $msg"
 }
 
 # _refine_slug <plan-id> <new-slug> (P-50): rename a plan file, repair the
