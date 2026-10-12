@@ -165,7 +165,7 @@ The lanes are separate, **not sealed**. A fix too large to simply *do* deserves 
 
 **How promotion works:**
 1. The issue is **never deleted or moved out of `.plans/ISSUES.md`**. It stays the record of *what is wrong*; the plan becomes the record of *how it will be fixed*.
-2. Run `aapp draft <slug> issue <num>` (bare number). In its one commit it scaffolds the blueprint, puts `#<num>` in the plan's `**Target Issue / Milestone:**` field, links the blueprint in the issue's *Target Plan / Fix* cell and sets the issue's status to 🔵 `Planned`. Never make these edits by hand.
+2. Run `aapp draft <slug> issue <num>` (the id without the `#`: a number or a tracker's key). In its one commit it scaffolds the blueprint, puts `#<num>` in the plan's `**Target Issue / Milestone:**` field, links the blueprint in the issue's *Target Plan / Fix* cell and sets the issue's status to 🔵 `Planned`. Never make these edits by hand.
 3. **Leave the issue on `issues_road_map.md`** — it is still an open issue until the fix ships.
 4. `aapp draft` registers the plan in `state_matrix.md` like any other. Renaming a plan later (`aapp refine <id> slug <new-slug>`) and archiving it (`aapp done`) repair the issue links that point at it.
 5. Close the issue only when the fix is verified and the plan is archived via `done`. `aapp done` relocates the Target Issue row to `.plans/done/000-issues-archive.md` and prunes `issues_road_map.md` in the same commit. For a direct fix with no plan, run `aapp issue close <num> [sha <sha>] [summary "<text>"]` instead of editing the tables by hand.
