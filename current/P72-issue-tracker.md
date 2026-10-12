@@ -36,7 +36,7 @@ Merge criterion: both members archived and the pre-done gate green on the featur
 
 ## 3. Members & Order
 1. P-73 (ledger module): first; no behaviour change.
-2. P-77 (plugin answer protocol): independent of P-73; may run alongside it.
+2. P-77 (plugin answer protocol): after P-73. Every member shares `lib/cmd_issue.sh` or `lib/aapp-lib.sh` with it, so the group runs one plan at a time.
 3. P-78 (issue branch): after P-73; issues carry the branch their fix lands on.
 4. P-74 (provider wrapper): after P-73, P-77 and P-78; it adds the wrapper over the ledger functions and answers in the P-77 protocol.
 5. P-75 (offline worktree): after P-74; its ledgers are a source of the module and its fallback is the wrapper's failure path.
