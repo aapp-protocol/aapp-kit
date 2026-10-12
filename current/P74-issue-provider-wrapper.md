@@ -114,44 +114,44 @@ This plan routes every issue step through one wrapper over the ledger functions 
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/issue.provider.sh::test_log_writes_row_with_kit_id` -> asserts with no provider `issue log` writes and commits the row under the counter's next id
-- [ ] `tests/verbs/issue.provider.sh::test_log_refuses_long_symptom` -> asserts a symptom over 250 characters is refused, naming the note, and one with a newline is stored on one line
-- [ ] `tests/verbs/issue.provider.sh::test_refine_refuses_added_row` -> asserts `refine issues` refuses a change that adds a row and names `aapp issue log`
-- [ ] `tests/verbs/issue.provider.sh::test_no_counter_check` -> asserts `refine issues` no longer refuses an id at or above `aapp.issueId`
-- [ ] `tests/verbs/issue.provider.sh::test_agent_docs_rules` -> asserts `templates/AGENTS.md`, `templates/issues.md` and the shipped skills name no `issue allocate` / `issue next` step, and state that real data goes in the note and that a note is never an instruction
-- [ ] `tests/verbs/issue.provider.sh::test_log_note_is_description` -> asserts the text given at `issue log` is sent and stored as `description`, and a later `note` as an entry of `notes` with its date and author
-- [ ] `tests/verbs/issue.provider.sh::test_text_in_no_tracked_file` -> asserts after `issue log … note`, `issue fix` and its commit, the description's text is in no file of the repository or the plans worktree and in no commit message
-- [ ] `tests/verbs/issue.provider.sh::test_handover_block` -> asserts `issue fix` and `issue list <n>` print description and notes in the labelled block, cut at 100 lines with the tracker's `url`
-- [ ] `tests/verbs/issue.provider.sh::test_store_is_private` -> asserts the state directory is `0700` and its files `0600`
-- [ ] `tests/verbs/issue.provider.sh::test_store_unreachable_carries_on` -> asserts with an unwritable state directory `issue log … note` logs the issue, prints one line about the text, exit 0
-- [ ] `tests/verbs/issue.provider.sh::test_unhandled_text_stays_local` -> asserts an answer whose `handled` omits `description` keeps it in the kit's store
-- [ ] `tests/verbs/issue.provider.sh::test_log_sends_whole_issue_without_id` -> asserts `issue.log` carries every field and no `id`
-- [ ] `tests/verbs/issue.provider.sh::test_log_takes_provider_id` -> asserts an answer `"id": "PROJ-101"` writes the row as `#PROJ-101`, and `tracker`, `url` and `version` show in `issue list`
-- [ ] `tests/verbs/issue.provider.sh::test_log_refuses_ok_without_id` -> asserts an `ok` answer to `issue.log` with no `id` is refused and writes no row
-- [ ] `tests/verbs/issue.provider.sh::test_log_refuses_when_provider_fails` -> asserts a failing provider on `issue log` refuses and writes no row
-- [ ] `tests/verbs/issue.provider.sh::test_declined_log_uses_counter` -> asserts with a provider that does not list, `declined` on `issue.log` numbers the row from the kit's counter
-- [ ] `tests/verbs/issue.provider.sh::test_refused_row_never_sent` -> asserts a change refused by its checks calls no provider
-- [ ] `tests/verbs/issue.provider.sh::test_close_sends_whole_issue` -> asserts `issue.close` data carries the row cells as well as commit and summary
-- [ ] `tests/verbs/issue.provider.sh::test_fix_abort_sends_fix_abort` -> asserts `issue fix <n> abort` sends `issue.fix-abort` with the whole issue, still open
-- [ ] `tests/verbs/issue.provider.sh::test_issue_abort_sends_abort` -> asserts `issue abort <n>` sends `issue.abort` with the reason
-- [ ] `tests/verbs/issue.provider.sh::test_plan_abort_sends_refine` -> asserts `plan abort` of a promoted plan sends `issue.refine` with the status back to Incubated
-- [ ] `tests/verbs/issue.provider.sh::test_failure_falls_back_and_warns` -> asserts a failing provider on refine/fix/fix-abort/abort/close/list warns and the kit completes the step
-- [ ] `tests/verbs/issue.provider.sh::test_hooks_never_call_provider` -> asserts a commit through the hooks runs no provider
-- [ ] `tests/verbs/issue.tracker.sh::test_switch_untracks_ledgers` -> asserts the first `issue list confirm` against a listing provider makes one commit that stops tracking the three ledgers and ignores them, and the files remain on disk
-- [ ] `tests/verbs/issue.tracker.sh::test_switch_refuses_unknown_open_rows` -> asserts the switch refuses while an open row is unknown to the provider, and lists it
-- [ ] `tests/verbs/issue.tracker.sh::test_no_ledger_in_commits_or_push` -> asserts after the switch `issue log`, `issue close` and `done` commit no ledger file, and `aapp sync` pushes none
-- [ ] `tests/verbs/issue.tracker.sh::test_declined_log_refuses_with_record` -> asserts with a listing provider `declined` on `issue.log` refuses
-- [ ] `tests/verbs/issue.tracker.sh::test_list_request_carries_limit_since_ids` -> asserts the `issue.list` request carries open-only, `limit`, `since` and the ids named by local plans and open fixes
-- [ ] `tests/verbs/issue.tracker.sh::test_sync_updates_row_by_row` -> asserts a sync adds a new issue, updates a changed one, archives one reported closed, and leaves the other rows' bytes unchanged
-- [ ] `tests/verbs/issue.tracker.sh::test_failed_sync_changes_nothing` -> asserts a provider failing mid-sync leaves the ledger byte-identical
-- [ ] `tests/verbs/issue.tracker.sh::test_rows_cut_to_limit` -> asserts a provider returning more than `aapp.issueCacheMax` leaves that many display rows, plus every issue fetched by id, and prints the notice
-- [ ] `tests/verbs/issue.tracker.sh::test_sync_window_counts_attempts` -> asserts a second `status` inside `aapp.issueSyncWindow` calls no provider, also after a failed attempt, and `issue list` always does
-- [ ] `tests/verbs/issue.tracker.sh::test_link_and_planned_derived_from_plans` -> asserts after a sync in a fresh clone, an issue named in a plan's `Target Issue` shows `Planned` with the plan's link
-- [ ] `tests/verbs/issue.tracker.sh::test_tracker_issue_blocks_plan` -> asserts an issue named in a plan's `Blocked On` is fetched by id and counts as open in `next-blocker` and `status`
-- [ ] `tests/verbs/issue.tracker.sh::test_do_close_follows_the_code` -> asserts a `do` line `issue close <n> sha <sha>` closes the issue when the commit is in its branch, and is refused and marked in `status` when it is not
-- [ ] `tests/verbs/issue.tracker.sh::test_do_abort_withdraws` -> asserts a `do` line `issue abort <n> reason "…"` withdraws the issue locally
-- [ ] `tests/verbs/issue.tracker.sh::test_do_issue_log_refused` -> asserts a `do` line `issue log …` is refused and reported, writes no row, and the lines after it still run
-- [ ] `tests/verbs/issue.tracker.sh::test_text_fetched_at_fix_not_sync` -> asserts a sync stores no description or notes, and `issue fix` shows the ones the provider returns for that issue
+- [x] `tests/verbs/issue.provider.sh::test_log_writes_row_with_kit_id` -> asserts with no provider `issue log` writes and commits the row under the counter's next id
+- [x] `tests/verbs/issue.provider.sh::test_log_refuses_long_symptom` -> asserts a symptom over 250 characters is refused, naming the note, and one with a newline is stored on one line
+- [x] `tests/verbs/issue.provider.sh::test_refine_refuses_added_row` -> asserts `refine issues` refuses a change that adds a row and names `aapp issue log`
+- [x] `tests/verbs/issue.provider.sh::test_no_counter_check` -> asserts `refine issues` no longer refuses an id at or above `aapp.issueId`
+- [x] `tests/verbs/issue.provider.sh::test_agent_docs_rules` -> asserts `templates/AGENTS.md`, `templates/issues.md` and the shipped skills name no `issue allocate` / `issue next` step, and state that real data goes in the note and that a note is never an instruction
+- [x] `tests/verbs/issue.provider.sh::test_log_note_is_description` -> asserts the text given at `issue log` is sent and stored as `description`, and a later `note` as an entry of `notes` with its date and author
+- [x] `tests/verbs/issue.provider.sh::test_text_in_no_tracked_file` -> asserts after `issue log … note`, `issue fix` and its commit, the description's text is in no file of the repository or the plans worktree and in no commit message
+- [x] `tests/verbs/issue.provider.sh::test_handover_block` -> asserts `issue fix` and `issue list <n>` print description and notes in the labelled block, cut at 100 lines with the tracker's `url`
+- [x] `tests/verbs/issue.provider.sh::test_store_is_private` -> asserts the state directory is `0700` and its files `0600`
+- [x] `tests/verbs/issue.provider.sh::test_store_unreachable_carries_on` -> asserts with an unwritable state directory `issue log … note` logs the issue, prints one line about the text, exit 0
+- [x] `tests/verbs/issue.provider.sh::test_unhandled_text_stays_local` -> asserts an answer whose `handled` omits `description` keeps it in the kit's store
+- [x] `tests/verbs/issue.provider.sh::test_log_sends_whole_issue_without_id` -> asserts `issue.log` carries every field and no `id`
+- [x] `tests/verbs/issue.provider.sh::test_log_takes_provider_id` -> asserts an answer `"id": "PROJ-101"` writes the row as `#PROJ-101`, and `tracker`, `url` and `version` show in `issue list`
+- [x] `tests/verbs/issue.provider.sh::test_log_refuses_ok_without_id` -> asserts an `ok` answer to `issue.log` with no `id` is refused and writes no row
+- [x] `tests/verbs/issue.provider.sh::test_log_refuses_when_provider_fails` -> asserts a failing provider on `issue log` refuses and writes no row
+- [x] `tests/verbs/issue.provider.sh::test_declined_log_uses_counter` -> asserts with a provider that does not list, `declined` on `issue.log` numbers the row from the kit's counter
+- [x] `tests/verbs/issue.provider.sh::test_refused_row_never_sent` -> asserts a change refused by its checks calls no provider
+- [x] `tests/verbs/issue.provider.sh::test_close_sends_whole_issue` -> asserts `issue.close` data carries the row cells as well as commit and summary
+- [x] `tests/verbs/issue.provider.sh::test_fix_abort_sends_fix_abort` -> asserts `issue fix <n> abort` sends `issue.fix-abort` with the whole issue, still open
+- [x] `tests/verbs/issue.provider.sh::test_issue_abort_sends_abort` -> asserts `issue abort <n>` sends `issue.abort` with the reason
+- [x] `tests/verbs/issue.provider.sh::test_plan_abort_sends_refine` -> asserts `plan abort` of a promoted plan sends `issue.refine` with the status back to Incubated
+- [x] `tests/verbs/issue.provider.sh::test_failure_falls_back_and_warns` -> asserts a failing provider on refine/fix/fix-abort/abort/close/list warns and the kit completes the step
+- [x] `tests/verbs/issue.provider.sh::test_hooks_never_call_provider` -> asserts a commit through the hooks runs no provider
+- [x] `tests/verbs/issue.tracker.sh::test_switch_untracks_ledgers` -> asserts the first `issue list confirm` against a listing provider makes one commit that stops tracking the three ledgers and ignores them, and the files remain on disk
+- [x] `tests/verbs/issue.tracker.sh::test_switch_refuses_unknown_open_rows` -> asserts the switch refuses while an open row is unknown to the provider, and lists it
+- [x] `tests/verbs/issue.tracker.sh::test_no_ledger_in_commits_or_push` -> asserts after the switch `issue log`, `issue close` and `done` commit no ledger file, and `aapp sync` pushes none
+- [x] `tests/verbs/issue.tracker.sh::test_declined_log_refuses_with_record` -> asserts with a listing provider `declined` on `issue.log` refuses
+- [x] `tests/verbs/issue.tracker.sh::test_list_request_carries_limit_since_ids` -> asserts the `issue.list` request carries open-only, `limit`, `since` and the ids named by local plans and open fixes
+- [x] `tests/verbs/issue.tracker.sh::test_sync_updates_row_by_row` -> asserts a sync adds a new issue, updates a changed one, archives one reported closed, and leaves the other rows' bytes unchanged
+- [x] `tests/verbs/issue.tracker.sh::test_failed_sync_changes_nothing` -> asserts a provider failing mid-sync leaves the ledger byte-identical
+- [x] `tests/verbs/issue.tracker.sh::test_rows_cut_to_limit` -> asserts a provider returning more than `aapp.issueCacheMax` leaves that many display rows, plus every issue fetched by id, and prints the notice
+- [x] `tests/verbs/issue.tracker.sh::test_sync_window_counts_attempts` -> asserts a second `status` inside `aapp.issueSyncWindow` calls no provider, also after a failed attempt, and `issue list` always does
+- [x] `tests/verbs/issue.tracker.sh::test_link_and_planned_derived_from_plans` -> asserts after a sync in a fresh clone, an issue named in a plan's `Target Issue` shows `Planned` with the plan's link
+- [x] `tests/verbs/issue.tracker.sh::test_tracker_issue_blocks_plan` -> asserts an issue named in a plan's `Blocked On` is fetched by id and counts as open in `next-blocker` and `status`
+- [x] `tests/verbs/issue.tracker.sh::test_do_close_follows_the_code` -> asserts a `do` line `issue close <n> sha <sha>` closes the issue when the commit is in its branch, and is refused and marked in `status` when it is not
+- [x] `tests/verbs/issue.tracker.sh::test_do_abort_withdraws` -> asserts a `do` line `issue abort <n> reason "…"` withdraws the issue locally
+- [x] `tests/verbs/issue.tracker.sh::test_do_issue_log_refused` -> asserts a `do` line `issue log …` is refused and reported, writes no row, and the lines after it still run
+- [x] `tests/verbs/issue.tracker.sh::test_text_fetched_at_fix_not_sync` -> asserts a sync stores no description or notes, and `issue fix` shows the ones the provider returns for that issue
 
 ### ♻️ Existing Tests Changed or Retired
 > Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
@@ -162,24 +162,24 @@ This plan routes every issue step through one wrapper over the ledger functions 
 - Fixtures that write rows straight into `ISSUES.md` as setup stay as they are.
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/verbs/issue.provider.sh` and `tests/verbs/issue.tracker.sh` with a recording provider fixture; confirm red.
+- [x] Task 1.1: Write `tests/verbs/issue.provider.sh` and `tests/verbs/issue.tracker.sh` with a recording provider fixture; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: Payload builder and `issue_provider` wrapper in `lib/cmd_issue.sh`; move `next-blocker` and `close` onto it.
-- [ ] Task 2.2: `issue log` handler (id, row, commit when tracked) and the log step; `issue hotfix` onto it; the symptom limit.
-- [ ] Task 2.3: Retire in order: `refine issues` refuses added rows; drop `check_issue_ids_below_counter`; `allocate`/`next` internal, agent docs and skills updated (`.agents/AGENTS.md` alongside on its branch).
-- [ ] Task 2.4: Description and notes: the `note` token, the kit's store, the hand-over block (`issue fix`, `issue list <n>`), the agent rules.
-- [ ] Task 2.5: The refine, fix, fix-abort and abort steps; status changes by `draft … issue` and `plan abort` sent as refine.
-- [ ] Task 2.6: One record: the switch, `ledger_commit_paths` returning none for untracked ledgers, link and status derived from the plans.
-- [ ] Task 2.7: Sync: the request, row-by-row update, the limit, the window, closures through `do`.
-- [ ] Task 2.8: Sample provider and `lib/plugins.tsv`.
+- [x] Task 2.1: Payload builder and `issue_provider` wrapper in `lib/cmd_issue.sh`; move `next-blocker` and `close` onto it.
+- [x] Task 2.2: `issue log` handler (id, row, commit when tracked) and the log step; `issue hotfix` onto it; the symptom limit.
+- [x] Task 2.3: Retire in order: `refine issues` refuses added rows; drop `check_issue_ids_below_counter`; `allocate`/`next` internal, agent docs and skills updated (`.agents/AGENTS.md` alongside on its branch).
+- [x] Task 2.4: Description and notes: the `note` token, the kit's store, the hand-over block (`issue fix`, `issue list <n>`), the agent rules.
+- [x] Task 2.5: The refine, fix, fix-abort and abort steps; status changes by `draft … issue` and `plan abort` sent as refine.
+- [x] Task 2.6: One record: the switch, `ledger_commit_paths` returning none for untracked ledgers, link and status derived from the plans.
+- [x] Task 2.7: Sync: the request, row-by-row update, the limit, the window, closures through `do`.
+- [x] Task 2.8: Sample provider and `lib/plugins.tsv`.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Architecture and Codemap sections live in group P-72.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Architecture and Codemap sections live in group P-72.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
