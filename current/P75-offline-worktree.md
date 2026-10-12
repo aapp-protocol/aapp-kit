@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `b4f94e8` (feature/issue-tracker)
+* **Worktree:** .workspace/P75 (plan/P75-offline-worktree)
 * **Group:** P-72
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
@@ -233,6 +234,7 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-12:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-11:** Scaffolded canonical blueprint P-75 for the offline worktree and local lifecycle.
 * **2026-10-11:** Completed technical blueprint, high-offset ID allocation (+1000 configurable), local archiving, and sync relinking specifications.
 * **2026-10-11:** Integrated 3-tier offline governance (smart fallback, offline-only zero latency, strict compliance) and global plugin timeout (`aapp.pluginTimeout` default 3s); resolved Q1.
