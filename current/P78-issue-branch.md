@@ -83,6 +83,13 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 - [ ] `tests/verbs/issue.branch.sh::test_status_unblocks_after_merge` -> asserts after the fix is merged into the plan's parent branch, `aapp status` unblocks the plan and reports it
 - [ ] `tests/verbs/issue.branch.sh::test_views_show_branch` -> asserts `status` and `issue list` show the branch, the current branch's issues first
 
+### ♻️ Existing Tests Changed or Retired
+> Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
+- `tests/verbs/issue.fixes.sh::test_fix_refuses_off_development_branch`: removed; a fix now opens on the issue's branch (`test_fix_opens_on_issue_branch` replaces it).
+- `tests/verbs/issue.fixes.sh::test_fix_group_opens_worktree_and_close_integrates`: kept, as one case of the general rule; its refusal message for the development branch changes.
+- `tests/integrate_test.sh` (`test_plan_without_worktree_never_integrated`): checked for its development-branch wording; changed only if the message it reads changes.
+- Tests of unblocking at close (`tests/verbs/issue.sh`, `issue.abort.sh`): unchanged where the fix is on the plan's parent branch, which is the case in all of them today; any that fails shows a fixture whose plan has another parent.
+
 ### Phase 1: Tests First (red)
 - [ ] Task 1.1: Write `tests/verbs/issue.branch.sh`; confirm red.
 
@@ -115,6 +122,8 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 - [ ] `lib/docs/verbs/issue.md` -> Contract.
 - [ ] `lib/docs/verbs/status.md` -> Contract.
 - [ ] `MANUAL.md` -> Issues on several branches; how a fix must travel to be recognised, and the manual unblock.
+- [ ] `tests/verbs/issue.fixes.sh` -> Existing tests changed or retired (§3).
+- [ ] `tests/integrate_test.sh` -> Development-branch wording, if it changes.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
