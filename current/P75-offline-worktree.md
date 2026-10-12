@@ -40,14 +40,14 @@
 
 ## 1. Context & Architectural Goal
 * **What**: Standardize an on-demand, isolated orphan worktree (`.offline` on orphan branch `offline`) acting as a local outbox and air-gapped staging environment for offline issue logging, local issue archiving, and draft plan authoring.
-* **Why**: Currently, developers and agents cannot log issues or draft plans while offline without either failing closed or polluting the remote-tracked `.plans` branch. Furthermore, issues lack an air-gapped local lifecycle: an issue resolved while offline has no legitimate local audit trail.
+* **Why**: With a provider installed, an issue cannot be logged while the provider is unreachable: numbering refuses. An issue logged offline has a temporary id, which must never be committed to the plans branch or mixed with the rows of the record (the committed ledger, or the tracker's rows in the untracked one); telling them apart by a marker would put special cases in every reader and in the sync. Making a file untracked needs an ignore rule, which is itself a commit to the shared plans branch. A separate worktree keeps offline rows apart by location, with the same format and the same ledger functions, gives offline work its own local history (an audit trail for what was logged, fixed and closed offline), and is never pushed.
 * **The Core Solution**:
   1. **Isolated Orphan Worktree (`.offline`)**: Mounted on-demand (`git worktree add --orphan -b offline .offline`) and unmounted when clean (`git worktree remove .offline`), completely unpushed to `origin`.
   2. **Configurable High-Offset ID Allocation**: Offline issues use standard `#<num>` syntax starting from `max(canonical) + aapp.offlineIdOffset` (configurable via `git config aapp.offlineIdOffset`, default `1000`), preventing collisions with upstream pulls while retaining universal `#<num>` parser compatibility.
   3. **Local Outbox & Local Archive**: Contains `.offline/ISSUES.md` (active staged issues), `.offline/done/000-issues-archive.md` (locally resolved and aborted issues), and `.offline/current/` (offline draft plans).
   4. **Context Recovery Awareness**: `aapp status` detects `.offline/` and reports staged offline items alongside canonical work.
   5. **Atomic Promotion & Synchronization (`aapp offline sync`)**: Reconciles staged issues with canonical `.plans/` (and external trackers), atomically re-identifying `#<temp_id>` references in plans to canonical IDs.
-  6. **One Ledger View**: the `.offline` ledgers are a source of `lib/aapp-lib.sh` (P-73), next to `.plans/` and the remote cache (P-74). Every reader (status, `issue list`, blockers, `draft`, `next-blocker`) sees offline issues, marked as offline, with no reader of its own.
+  6. **One Ledger View**: the `.offline` ledgers are a source of the ledger functions in `lib/aapp-lib.sh` (P-73), next to the main ledger. Every reader (status, `issue list`, blockers, `draft`, `next-blocker`) sees offline issues, marked as offline, with no reader of its own.
   7. **Opt-out**: offline staging is configurable; with `aapp.offlineEnabled=false` it never kicks in and a provider failure refuses (§2 C).
 
 ---
@@ -59,6 +59,7 @@ Mounted alongside `.plans`, `.agents`, and `.githooks`:
 ```text
 .offline/
 ├── ISSUES.md                  <- Staged offline issues (table schema with Branch cell, P-78)
+├── outbox                     <- Steps for existing issues not yet sent to the provider
 ├── done/
 │   ├── 000-issues-archive.md  <- Locally resolved (<sha>) and aborted (`aborted`, P-76) issues
 │   └── P*-*.md                <- Completed local scratchpad plans
@@ -90,29 +91,30 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 | **Strict Compliance** | `aapp.offlineEnabled=false` | **Fail-Closed**: Attempts plugin. If unreachable, failing, or timed out, fails closed with a diagnostic refusal; local `.offline` staging is denied to prevent untracked drift. |
 
 * **Where the fallback hooks in**: In P-74, every provider failure surfaces at one point — the `issue_provider` wrapper in `lib/cmd_issue.sh` — where logging an issue (`issue.log`) refuses. P-75 replaces that one refusal with the offline staging path (unless `aapp.offlineEnabled=false`, which keeps P-74's refusal).
-* **Global Plugin Timeout (`aapp.pluginTimeout`)**: Integer seconds (default: `3`). Applies globally across all action plugin executions via `run_action_plugin`. Prevents CLI and agent operations from hanging indefinitely on stalled network connections.
+* **Plugin timeout (`aapp.pluginTimeout`)**: Integer seconds (default: `3`). The key and its enforcement belong to the plugin protocol (P-77), which runs every plugin call under the hook dispatcher's watchdog; this plan uses a timeout as one of the failures that trigger the offline path.
 
 ### D. CLI Verbs & Lifecycle (`aapp offline`)
-* `aapp offline mount`: Creates or mounts the `.offline` worktree on orphan branch `offline` (reusing `mount_or_create_worktree`).
-* `aapp offline unmount`: Unmounts and prunes `.offline` after verifying no un-synced items remain (or `--force`).
+* `aapp offline mount`: Creates or mounts the `.offline` worktree on orphan branch `offline` (reusing `mount_or_create_worktree`), and adds `.offline/` to `.git/info/exclude`, so the main repository ignores it without a commit.
+* `aapp offline unmount`: Unmounts and prunes `.offline` after verifying no un-synced items remain (or the bare token `force`).
 * `aapp offline on` / `off`: Toggles `aapp.offlineOnly` for zero-latency airplane/air-gap sessions.
 * `aapp offline status`: Detailed status of staged issues and draft plans in `.offline/`.
-* `aapp offline sync`:
-  1. **Active issues**: For each active row in `.offline/ISSUES.md`:
-     - Allocates canonical ID (from canonical counter or external provider via `issue.log` payload). The provider may return a tracker key (`#PROJ-88`, P-79) or counter digits.
-     - Preserves the `Branch` cell from P-78 (defaults to the branch where the issue was logged).
-     - Relocates row from `.offline/ISSUES.md` into canonical `.plans/ISSUES.md`.
-     - Atomically rewrites plan references (`Target Issue`, `Blocked On`, road map) from `#<temp>` to `#<canonical>` via `ledger_relink`.
-  2. **Archived issues & Commit Immutability Invariant**: For each row in `.offline/done/000-issues-archive.md` (closed or aborted via P-76 while offline):
-     - **Former ID recording**: An issue logged offline as `#1043` and committed as `(#1043)` gets its real ID at sync. Because Git commit objects are cryptographically immutable, historical commit messages **cannot** be changed or rewritten. The archive row records the former ID: `"logged offline as #<temp>"`.
-     - **Former ID lookup resolution**: `ledger_locate` and `ledger_row` in `lib/aapp-lib.sh` are updated so that looking up an old ID (`#1043` or `1043`) inspects the archive ledger's resolution summaries and transparently resolves the former ID to the canonical ID (`#<canonical>`).
-     - **Integrity checks**: Integrity checks (Pair 1, Pair 2, Pair 8) and `issue_id_refs` treat historical commit references to `#<temp>` as valid aliases for `#<canonical>`.
-     - Preserves the recorded commit SHA or `` `aborted` `` marker and resolution summary (e.g. `Fixed by ... (logged offline as #1043)` or `Aborted: ... (logged offline as #1043)`).
-  3. **Draft plans**: For each blueprint in `.offline/current/`:
-     - Automatically moves into `.plans/current/` as `🟣 Under Review` (registered in `state_matrix.md`), keeping them unexecutable blueprints until reviewed and frozen.
-     - Rewrites any `#<temp>` issue links within the blueprint to `#<canonical>`.
-  4. Commits canonical changes to `.plans` branch.
-  5. Clears `.offline` ledgers and prompts for unmount.
+* `aapp offline sync` (run when the provider is reachable; it also runs before any tracker sync of P-74 reads issues, see §C):
+  1. **The outbox first.** Steps for existing issues that could not reach the provider while offline (`refine`, `fix`, `fix-abort`, `abort`, `close`) are kept in `.offline/outbox`, one per line, in the order they happened. They are sent before anything is read from the tracker; a line the provider accepts is removed. While a line remains, the tracker's list is not applied to the local ledger, so a close made offline is never undone by a sync.
+  2. **Staged active issues**: for each row in `.offline/ISSUES.md`, the `log` step is sent with the whole issue (its `description` and `notes` from the kit's store, its `Branch` cell).
+     - The id comes back from the provider (a tracker key such as `#PROJ-88`, or a number, P-79), or from the kit's counter when the provider answers `declined` and does not keep the record.
+     - Plan references (`Target Issue`, `Blocked On`, the road map, draft blueprints) are rewritten from `#<temp>` to the real id with `ledger_relink`; the store entry moves to the real id.
+     - The row leaves `.offline/ISSUES.md` and is written to the main ledger through `ledger_add_row`.
+     - A row the provider fails on, or declines while it keeps the record, stays staged; the sync continues with the others and reports it.
+  3. **Staged archived issues & the Commit Immutability Invariant**: for each row in `.offline/done/000-issues-archive.md` (closed, or aborted via P-76, while offline), the `log` step is sent and then `close` or `abort` with its commit and summary.
+     - **Former id recording**: an issue logged offline as `#1043` and committed as `(#1043)` gets its real id at sync. Git commits are immutable, so historical commit messages are never rewritten. The archive row's summary, and the summary sent to the provider, carry `logged offline as #<temp>`.
+     - **Former id lookup**: `ledger_locate` and `ledger_row` in `lib/aapp-lib.sh` resolve a former id (`#1043` or `1043`) to the real one.
+     - **Integrity checks** (Pairs 1, 2, 8) and `issue_id_refs` treat a commit's reference to `#<temp>` as an alias of the real id.
+  4. **Draft plans**: each blueprint in `.offline/current/` moves into `.plans/current/` as `🟣 Under Review` (registered in `state_matrix.md`), with its `#<temp>` issue references rewritten.
+  5. **What is committed** depends on where the record is (P-74 §2.4):
+     - *Ledgers committed* (no provider that lists issues): the moved rows, the archive, the road map and the changed plans are committed to the plans branch.
+     - *The tracker keeps the record* (ledgers untracked): only the plans whose references changed, and the promoted drafts, are committed; the ledgers are local files.
+  6. Clears what was synced from `.offline` and offers to unmount.
+* **Without any provider** nothing is staged: the kit numbers and logs locally, online or not.
 
 ### E. Context Recovery Integration (`aapp status`)
 * `cmd_status.sh` checks if `.offline` is mounted and non-empty.
@@ -127,8 +129,8 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 ### F. Wiring Into the Ledger Module (P-73, P-74, P-78, P-79)
 * **Reads:** `ledger_rows` and `ledger_locate` in `lib/aapp-lib.sh` merge `.offline/ISSUES.md` and `.offline/done/000-issues-archive.md` (`offline`), so offline issues block plans and show in `status`, `issue list`, `draft` and `next-blocker` like local ones.
 * **Writes:** logging, closing, and aborting (`aapp issue abort <num>`, P-76) while offline go through `lib/aapp-lib.sh` writers, pointed at `.offline/`. Aborting an offline issue moves its row to `.offline/done/000-issues-archive.md` with commit `` `aborted` `` and `Aborted: <reason>`, unblocks plans it blocked, and withdraws any attached mini plan or draft plan in `.offline/current/`.
-* **Branch:** An issue logged offline carries its `Branch` cell like any other (P-78), defaulting to the active branch.
-* **Fallback hook:** The smart fallback replaces the P-74 provider failure refusal in `issue_provider` (`lib/cmd_issue.sh`) with the `.offline` allocation and staging path; missed provider steps are replayed by `aapp offline sync`.
+* **Branch:** An issue logged offline carries its `Branch` cell like any other (P-78), with the same default: the branch it is logged from, or the plan's parent branch from a plan's or fix's worktree.
+* **Fallback hook:** The smart fallback replaces the P-74 provider failure refusal in `issue_provider` (`lib/cmd_issue.sh`) with the `.offline` allocation and staging path. A step for an existing issue that cannot be sent is written to `.offline/outbox` instead of only warning, and sent first at the next sync (§D).
 * **Relink:** sync rewrites `#<temp>` to `#<canonical>` (including tracker keys like `#PROJ-88`, P-79) with `ledger_relink`, extended to plans' `Target Issue` and `Blocked On` lines.
 * **ID Resolution:** `ledger_locate` and `ledger_row` resolve former offline IDs (`"logged offline as #<temp>"`) to the canonical ID.
 * **CLI Normalization:** `aapp offline` and offline issue commands accept bare IDs or `#<num>` via `issue_id_normalize` (P-79).
@@ -136,7 +138,7 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 ### G. Blast Radius & Hook Enforcement
 * `templates/blast-radius-guard.sh`: Recognizes `.offline/**` as a permitted path for offline workflows.
 * `templates/aapp-pre-commit`: Rejects commits on `develop` or `plans` that stage files inside `.offline/`.
-* Pre-push gate: Blocks any push containing `refs/heads/offline`.
+* The `offline` branch is never pushed by the kit: `aapp push` and `aapp sync` do not include it (Question 4).
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -162,7 +164,12 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 - [ ] `tests/verbs/offline.sh::test_offline_issue_in_every_view` -> asserts an offline issue shows, marked, in `status` and `issue list`, and blocks a plan whose `Blocked On` names it
 - [ ] `tests/verbs/offline.sh::test_sync_preserves_offline_commit_messages` -> asserts sync promotes closed offline issue without rewriting historical commit subject (#<temp>), recording formerly offline #<temp> in archive summary
 - [ ] `tests/verbs/offline.sh::test_former_id_lookup_resolves_to_canonical` -> asserts ledger_locate and ledger_row resolve former offline ID (#1043) to canonical ID after sync
-- [ ] `tests/verbs/offline.sh::test_unmount_refuses_when_dirty` -> asserts `aapp offline unmount` refuses if unpromoted issues exist without `--force`
+- [ ] `tests/verbs/offline.sh::test_unmount_refuses_when_dirty` -> asserts `aapp offline unmount` refuses if unpromoted issues exist without the `force` token
+- [ ] `tests/verbs/offline.sh::test_outbox_sent_before_tracker_read` -> asserts an issue closed offline stays closed after the next sync: its `close` step is sent first, and while it cannot be sent the tracker's list is not applied
+- [ ] `tests/verbs/offline.sh::test_sync_sends_description_and_notes` -> asserts a staged issue's description and notes are in the `log` payload and the store entry moves to the real id
+- [ ] `tests/verbs/offline.sh::test_sync_commits_by_record` -> asserts with committed ledgers the sync commits rows and plans, and with the tracker as the record it commits only the changed plans
+- [ ] `tests/verbs/offline.sh::test_sync_keeps_failed_row_staged` -> asserts a row the provider fails on stays in `.offline`, the others are synced, and the sync reports it
+- [ ] `tests/verbs/offline.sh::test_offline_dir_excluded_locally` -> asserts mounting adds `.offline/` to `.git/info/exclude` and makes no commit
 
 ### Phase 1: Tests First (red)
 - [ ] Task 1.1: Author test suite in `tests/verbs/offline.sh` proving mounting, offset allocation, sequential local increments, status detection, local archiving, and sync.
@@ -170,7 +177,7 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: Implement `lib/cmd_offline.sh` with `mount`, `unmount`, `on`, `off`, `status`, and `sync` handlers.
 - [ ] Task 2.2: Add offline ID allocation logic in issue handler (max offline + 1 if offline issues exist, else max canonical + offset).
-- [ ] Task 2.3: Wire 3-tier governance and `aapp.pluginTimeout` global delay handling into plugin dispatch.
+- [ ] Task 2.3: Wire the 3-tier governance into the `issue_provider` wrapper (`lib/cmd_issue.sh`): skip the provider when `offlineOnly`, stage on failure or timeout, refuse when offline is disabled; the outbox for steps that could not be sent.
 - [ ] Task 2.4: Wire local archive relocation in `lib/cmd_issue.sh` when closing or aborting (`aapp issue abort`) issues located in `.offline/`.
 - [ ] Task 2.5: Update `lib/cmd_status.sh` to observe `.offline/` and print the offline briefing pillar.
 - [ ] Task 2.6: Update `templates/blast-radius-guard.sh` and `templates/aapp-pre-commit` to authorize `.offline/**` and prevent push leakage.
@@ -189,7 +196,10 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `NEW FILE` -> `lib/cmd_offline.sh` -> CLI ingress and subcommands for `aapp offline` (`mount`, `unmount`, `status`, `sync`).
 - [ ] `lib/aapp-lib.sh` -> `.offline` ledgers as a read source; writers pointed at `.offline/`; relink of plan references.
-- [ ] `lib/cmd_issue.sh` -> Offline ID allocation fallback and local archiving handling.
+- [ ] `lib/cmd_issue.sh` -> The offline path at the `issue_provider` failure point: modes, staging, the outbox; local archiving.
+- [ ] `aapp` -> Route the `offline` verb.
+- [ ] `lib/verbs.tsv` -> Register the `offline` verb.
+- [ ] `NEW FILE` -> `lib/docs/verbs/offline.md` -> Verb contract.
 - [ ] `lib/cmd_status.sh` -> Context recovery briefing inspection of `.offline/`.
 - [ ] `lib/plan_resolver.sh` -> Offset calculation and `aapp.offlineIdOffset` config resolution.
 - [ ] `templates/blast-radius-guard.sh` -> Worktree path authorization.
@@ -201,7 +211,7 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 - [ ] `NEW FILE` -> `tests/verbs/offline.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/cmd_plan.sh` -> Plan drafting core unchanged (offline plans use standard templates).
+- [ ] `lib/cmd_plan.sh` -> Plan drafting core unchanged (offline plans use standard templates); the sync promotes drafts through existing functions.
 - [ ] `.githooks/blast-radius-guard` -> Generated hook runtime; edit template instead.
 
 ---
@@ -209,6 +219,8 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 ## ❓ 5. Open Questions (Optional / Gate)
 * [x] **Question 1 — Offline triggering and plugin governance? → RESOLVED (developer, 2026-10-11): 3-tier governance with global timeout.** (1) Smart fallback default (try plugin first, guarded by global `aapp.pluginTimeout` default 3s, fall back to `.offline` on failure/timeout if `offlineEnabled=true`). (2) Zero-latency `aapp.offlineOnly` (`aapp offline on`) skips network calls entirely when explicitly desired. (3) Strict `aapp.offlineEnabled=false` fails closed.
 * [x] **Question 2 — Offline draft plan promotion during sync? → RESOLVED (developer, 2026-10-12):** Offline draft plans in `.offline/current/` automatically land in `.plans/current/` as `🟣 Under Review` during `aapp offline sync`. They remain unexecutable blueprints with locked gates until explicit review and freeze, matching standard draft scaffolding.
+* [ ] **Question 3:** Plan ids for offline draft plans: when an `aapp-planid` provider is unreachable, where does a draft's id come from, and do its id and file name change at sync? (Without such a provider, drafting offline already works in `.plans/` directly.)
+* [ ] **Question 4:** Blocking a direct `git push origin offline`: the kit ships no pre-push hook today. Add one for this, or rely on the kit's own push verbs never including the branch?
 
 ---
 
