@@ -81,6 +81,8 @@ Mounted alongside `.plans`, `.agents`, and `.githooks`:
   - The local git config key `aapp.offlineIssueId` persists the ratchet, but if unset or out of sync, scanning the active and archived ledgers yields the deterministic next ID.
   - **Example**: If canonical max is `#42`, the first offline issue is allocated `#1043`. The second offline issue finds `#1043` in `.offline/` and allocates `#1044`, then `#1045`, guaranteeing clean sequential numbering without repeated offset jumps.
 
+* **Plan ids follow the same rule.** With an `aapp-planid` provider installed and unreachable, `aapp draft` takes a temporary plan id: the highest plan id in `.offline/current/` plus 1, or, for the first one, the highest plan id known locally plus `aapp.offlineIdOffset`; the draft is written to `.offline/current/`. Without such a provider nothing changes: the kit's counter numbers the plan and it is drafted in `.plans/current/`, online or not.
+
 ### C. Three-Tier Offline Governance & Where Fallback Hooks In
 All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed by a global timeout and a 3-tier execution mode:
 
@@ -110,6 +112,7 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
      - **Former id lookup**: `ledger_locate` and `ledger_row` in `lib/aapp-lib.sh` resolve a former id (`#1043` or `1043`) to the real one.
      - **Integrity checks** (Pairs 1, 2, 8) and `issue_id_refs` treat a commit's reference to `#<temp>` as an alias of the real id.
   4. **Draft plans**: each blueprint in `.offline/current/` moves into `.plans/current/` as `🟣 Under Review` (registered in `state_matrix.md`), with its `#<temp>` issue references rewritten.
+     - **Plan ids mimic issue ids (§B).** A draft made while the `aapp-planid` provider was unreachable carries a temporary id. The sync asks the provider for the real one, renames the file (`P<temp>-<slug>.md` to `P<real>-<slug>.md`), rewrites its header and every reference to `P-<temp>` (issue rows, other plans, the group's members), and adds `drafted offline as P-<temp>` to the plan's change log. A draft has no commits, so nothing in Git history names the temporary id.
   5. **What is committed** depends on where the record is (P-74 §2.4):
      - *Ledgers committed* (no provider that lists issues): the moved rows, the archive, the road map and the changed plans are committed to the plans branch.
      - *The tracker keeps the record* (ledgers untracked): only the plans whose references changed, and the promoted drafts, are committed; the ledgers are local files.
@@ -170,13 +173,16 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 - [ ] `tests/verbs/offline.sh::test_sync_commits_by_record` -> asserts with committed ledgers the sync commits rows and plans, and with the tracker as the record it commits only the changed plans
 - [ ] `tests/verbs/offline.sh::test_sync_keeps_failed_row_staged` -> asserts a row the provider fails on stays in `.offline`, the others are synced, and the sync reports it
 - [ ] `tests/verbs/offline.sh::test_offline_dir_excluded_locally` -> asserts mounting adds `.offline/` to `.git/info/exclude` and makes no commit
+- [ ] `tests/verbs/offline.sh::test_offline_draft_takes_temporary_plan_id` -> asserts with an unreachable `aapp-planid` provider `draft` writes `.offline/current/P<temp>-<slug>.md`, the id being the highest local plan id plus the offset, then the highest offline plan id plus 1
+- [ ] `tests/verbs/offline.sh::test_sync_gives_draft_real_plan_id` -> asserts the sync asks the provider for the id, renames the file, rewrites the header and every reference to `P-<temp>`, and records the former id in the plan's change log
 
 ### Phase 1: Tests First (red)
 - [ ] Task 1.1: Author test suite in `tests/verbs/offline.sh` proving mounting, offset allocation, sequential local increments, status detection, local archiving, and sync.
 
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: Implement `lib/cmd_offline.sh` with `mount`, `unmount`, `on`, `off`, `status`, and `sync` handlers.
-- [ ] Task 2.2: Add offline ID allocation logic in issue handler (max offline + 1 if offline issues exist, else max canonical + offset).
+- [ ] Task 2.2: Add offline ID allocation logic in issue handler (max offline + 1 if offline issues exist, else max canonical + offset). The same rule for plan ids (Task 2.2b).
+- [ ] Task 2.2b: Offline plan ids: `draft` with an unreachable `aapp-planid` provider; real id, rename and reference rewrite at sync.
 - [ ] Task 2.3: Wire the 3-tier governance into the `issue_provider` wrapper (`lib/cmd_issue.sh`): skip the provider when `offlineOnly`, stage on failure or timeout, refuse when offline is disabled; the outbox for steps that could not be sent.
 - [ ] Task 2.4: Wire local archive relocation in `lib/cmd_issue.sh` when closing or aborting (`aapp issue abort`) issues located in `.offline/`.
 - [ ] Task 2.5: Update `lib/cmd_status.sh` to observe `.offline/` and print the offline briefing pillar.
@@ -201,7 +207,8 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 - [ ] `lib/verbs.tsv` -> Register the `offline` verb.
 - [ ] `NEW FILE` -> `lib/docs/verbs/offline.md` -> Verb contract.
 - [ ] `lib/cmd_status.sh` -> Context recovery briefing inspection of `.offline/`.
-- [ ] `lib/plan_resolver.sh` -> Offset calculation and `aapp.offlineIdOffset` config resolution.
+- [ ] `lib/plan_resolver.sh` -> Offset calculation and `aapp.offlineIdOffset` config resolution, for issue ids and plan ids.
+- [ ] `lib/cmd_plan.sh` -> `draft` takes a temporary plan id and writes to `.offline/current/` when the `aapp-planid` provider is unreachable; the sync gives a draft its real id, renames its file and rewrites references.
 - [ ] `templates/blast-radius-guard.sh` -> Worktree path authorization.
 - [ ] `templates/aapp-pre-commit` -> Hook leak protection against `.offline`.
 - [ ] `MANUAL.md` -> User documentation for offline workflows and configuration.
@@ -211,7 +218,6 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 - [ ] `NEW FILE` -> `tests/verbs/offline.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/cmd_plan.sh` -> Plan drafting core unchanged (offline plans use standard templates); the sync promotes drafts through existing functions.
 - [ ] `.githooks/blast-radius-guard` -> Generated hook runtime; edit template instead.
 
 ---
@@ -219,7 +225,7 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 ## ❓ 5. Open Questions (Optional / Gate)
 * [x] **Question 1 — Offline triggering and plugin governance? → RESOLVED (developer, 2026-10-11): 3-tier governance with global timeout.** (1) Smart fallback default (try plugin first, guarded by global `aapp.pluginTimeout` default 10s, fall back to `.offline` on failure/timeout if `offlineEnabled=true`). (2) Zero-latency `aapp.offlineOnly` (`aapp offline on`) skips network calls entirely when explicitly desired. (3) Strict `aapp.offlineEnabled=false` fails closed.
 * [x] **Question 2 — Offline draft plan promotion during sync? → RESOLVED (developer, 2026-10-12):** Offline draft plans in `.offline/current/` automatically land in `.plans/current/` as `🟣 Under Review` during `aapp offline sync`. They remain unexecutable blueprints with locked gates until explicit review and freeze, matching standard draft scaffolding.
-* [ ] **Question 3:** Plan ids for offline draft plans: when an `aapp-planid` provider is unreachable, where does a draft's id come from, and do its id and file name change at sync? (Without such a provider, drafting offline already works in `.plans/` directly.)
+* [x] **Question 3 — Plan ids for offline draft plans? → RESOLVED (developer, 2026-10-12):** they mimic issue ids: a temporary id from the same rule while the `aapp-planid` provider is unreachable, replaced by the real id at sync, with the file renamed and references rewritten.
 * [ ] **Question 4:** Blocking a direct `git push origin offline`: the kit ships no pre-push hook today. Add one for this, or rely on the kit's own push verbs never including the branch?
 
 ---
