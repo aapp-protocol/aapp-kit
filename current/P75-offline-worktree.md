@@ -12,7 +12,7 @@
 * **Base:** `b4f94e8` (feature/issue-tracker)
 * **Worktree:** .workspace/P75 (plan/P75-offline-worktree)
 * **Group:** P-72
-* **Commits:** none
+* **Commits:** `8296ca6` (plan/P75-offline-worktree)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
