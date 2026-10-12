@@ -165,36 +165,36 @@ Nothing is committed: the file is ignored, so the plans worktree stays clean and
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/adoption_test.sh::test_seeded_and_untracked` -> asserts `init` creates `.plans/adoption.md` with its sections, lists it in `.plans/.gitignore`, commits no version of it and leaves the plans worktree clean
-- [ ] `tests/adoption_test.sh::test_gitignore_line_added_on_rerun` -> asserts an existing `.plans/.gitignore` without the line gains it
-- [ ] `tests/adoption_test.sh::test_fresh_install_tasks` -> asserts a fresh project gets `[DEV-BRANCH]`, `[PLAN-ID-PROVIDER]`, `[TEAM-SETTINGS]`, `[INIT-FILES]`, `[PROJECT-RULES]`, `[PROJECT-MAP]`, `[GATE-TEST]` and the four `SET-*` tasks, each under its section
-- [ ] `tests/adoption_test.sh::test_satisfied_rules_add_nothing` -> asserts a rule whose check already passes adds no line
-- [ ] `tests/adoption_test.sh::test_branch_and_remote_rules` -> asserts `[DEV-BRANCH]` ticks once `aapp.devBranch` is set, `[STABLE-BRANCH]` appears for a default branch outside the list, `[REMOTE]` for a missing remote and `[FIRST-PUSH]` until the kit's branches are on it
-- [ ] `tests/adoption_test.sh::test_project_file_rules` -> asserts `[INIT-FILES]`, `[PROJECT-RULES]`, `[PROJECT-MAP]`, `[TEMPLATE-DRIFT]`, `[ISSUES-SCHEMA]` and `[PROTOCOL-BLOCK]` appear on their trigger and tick once resolved
-- [ ] `tests/adoption_test.sh::test_hook_rules` -> asserts a foreign `core.hooksPath` adds `[HOOK-WIRING]` and naming `aapp-pre-commit` ticks it; a `pre-done` registry row ticks `[GATE-TEST]`; settings without the guard add `[WRITE-GUARD]`
-- [ ] `tests/adoption_test.sh::test_build_tool_rules_follow_worktree_path` -> asserts `nx.json` and a Bazel marker add their tasks naming the configured directory, the ignore line ticks them, and a worktree path outside the repository adds none
-- [ ] `tests/adoption_test.sh::test_review_tasks_only_user_ticks` -> asserts a review task stays open over re-runs and a hand tick survives
-- [ ] `tests/adoption_test.sh::test_rerun_is_quiet` -> asserts a re-run with nothing new changes no byte, and the plans branch gains no commit
-- [ ] `tests/adoption_test.sh::test_user_edits_survive` -> asserts a hand-ticked task, a reworded line and a deleted line's absence are kept as the user left them, except that a still-triggered deleted task returns
-- [ ] `tests/adoption_test.sh::test_manual_headings_exist` -> asserts every catalogue entry's manual heading is a heading in `MANUAL.md`
-- [ ] `tests/verbs/status.sh::test_overview_counts_open_adoption_tasks` -> asserts open tasks add `| <N> adoption` to the overview and the `📋 Adoption:` line to the briefing
-- [ ] `tests/verbs/status.sh::test_no_adoption_output_when_none_open` -> asserts with no file or no open task the output has neither
+- [x] `tests/adoption_test.sh::test_seeded_and_untracked` -> asserts `init` creates `.plans/adoption.md` with its sections, lists it in `.plans/.gitignore`, commits no version of it and leaves the plans worktree clean
+- [x] `tests/adoption_test.sh::test_gitignore_line_added_on_rerun` -> asserts an existing `.plans/.gitignore` without the line gains it
+- [x] `tests/adoption_test.sh::test_fresh_install_tasks` -> asserts a fresh project gets `[DEV-BRANCH]`, `[PLAN-ID-PROVIDER]`, `[TEAM-SETTINGS]`, `[INIT-FILES]`, `[PROJECT-RULES]`, `[PROJECT-MAP]`, `[GATE-TEST]` and the four `SET-*` tasks, each under its section
+- [x] `tests/adoption_test.sh::test_satisfied_rules_add_nothing` -> asserts a rule whose check already passes adds no line
+- [x] `tests/adoption_test.sh::test_branch_and_remote_rules` -> asserts `[DEV-BRANCH]` ticks once `aapp.devBranch` is set, `[STABLE-BRANCH]` appears for a default branch outside the list, `[REMOTE]` for a missing remote and `[FIRST-PUSH]` until the kit's branches are on it
+- [x] `tests/adoption_test.sh::test_project_file_rules` -> asserts `[INIT-FILES]`, `[PROJECT-RULES]`, `[PROJECT-MAP]`, `[TEMPLATE-DRIFT]`, `[ISSUES-SCHEMA]` and `[PROTOCOL-BLOCK]` appear on their trigger and tick once resolved
+- [x] `tests/adoption_test.sh::test_hook_rules` -> asserts a foreign `core.hooksPath` adds `[HOOK-WIRING]` and naming `aapp-pre-commit` ticks it; a `pre-done` registry row ticks `[GATE-TEST]`; settings without the guard add `[WRITE-GUARD]`
+- [x] `tests/adoption_test.sh::test_build_tool_rules_follow_worktree_path` -> asserts `nx.json` and a Bazel marker add their tasks naming the configured directory, the ignore line ticks them, and a worktree path outside the repository adds none
+- [x] `tests/adoption_test.sh::test_review_tasks_only_user_ticks` -> asserts a review task stays open over re-runs and a hand tick survives
+- [x] `tests/adoption_test.sh::test_rerun_is_quiet` -> asserts a re-run with nothing new changes no byte, and the plans branch gains no commit
+- [x] `tests/adoption_test.sh::test_user_edits_survive` -> asserts a hand-ticked task, a reworded line and a deleted line's absence are kept as the user left them, except that a still-triggered deleted task returns
+- [x] `tests/adoption_test.sh::test_manual_headings_exist` -> asserts every catalogue entry's manual heading is a heading in `MANUAL.md`
+- [x] `tests/verbs/status.sh::test_overview_counts_open_adoption_tasks` -> asserts open tasks add `| <N> adoption` to the overview and the `📋 Adoption:` line to the briefing
+- [x] `tests/verbs/status.sh::test_no_adoption_output_when_none_open` -> asserts with no file or no open task the output has neither
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: The Required Tests above; all fail.
+- [x] Task 1.1: The Required Tests above; all fail.
 
 ### Phase 2: Implementation
-- [ ] Task 2.1: `templates/adoption.md`.
-- [ ] Task 2.2: `lib/adoption.sh`: the catalogue, `sync_adoption_checklist`, `adoption_open_count`.
-- [ ] Task 2.3: `lib/cmd_init.sh`: seeding, the `.plans/.gitignore` line, the call after settings and hook detection, the report line.
-- [ ] Task 2.4: `lib/cmd_status.sh`: the overview segment and the briefing line.
+- [x] Task 2.1: `templates/adoption.md`.
+- [x] Task 2.2: `lib/adoption.sh`: the catalogue, `sync_adoption_checklist`, `adoption_open_count`.
+- [x] Task 2.3: `lib/cmd_init.sh`: seeding, the `.plans/.gitignore` line, the call after settings and hook detection, the report line.
+- [x] Task 2.4: `lib/cmd_status.sh`: the overview segment and the briefing line.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run the kit suites; the Required Tests pass.
-- [ ] Task 3.2: `lib/docs/verbs/status.md`: the overview segment and the briefing line.
-- [ ] Task 3.3: `MANUAL.md`: an "Adoption Checklist" section explaining every task (the link target of tasks with no section of their own), §14 for the tools left out; `CHEATSHEET.md`.
-- [ ] Task 3.4: `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run the kit suites; the Required Tests pass.
+- [x] Task 3.2: `lib/docs/verbs/status.md`: the overview segment and the briefing line.
+- [x] Task 3.3: `MANUAL.md`: an "Adoption Checklist" section explaining every task (the link target of tasks with no section of their own), §14 for the tools left out; `CHEATSHEET.md`.
+- [x] Task 3.4: `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
