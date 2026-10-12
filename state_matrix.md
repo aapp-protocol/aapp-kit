@@ -36,8 +36,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-81**: [`P81-verb-tests-named-by-contracts.md`](current/P81-verb-tests-named-by-contracts.md) — Verb Tests Named By Contracts
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

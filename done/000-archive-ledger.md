@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-12 | `P-81` | [`P81-verb-tests-named-by-contracts.md`](P81-verb-tests-named-by-contracts.md) | none | `65e620a` | Verb Tests Named By Contracts (tdd (1/1)) |
 | 2026-10-12 | `P-63` | [`P63-adoption-advisories.md`](P63-adoption-advisories.md) | Milestone: Monorepo & Two-Context Architecture | `3f4178b` | Adoption Advisories (tdd (14/14)) |
 | 2026-10-12 | `P-76` | [`P76-issue-abort.md`](P76-issue-abort.md) | #123 | `20e4182` | Issue Abort (tdd (10/10)) |
 | 2026-10-12 | `P-69` | [`P69-abort-plan.md`](P69-abort-plan.md) | #118 | `a1412c0` | Lifecycle Plan Abort & Worktree Decommissioning (tdd (23/23)) |
