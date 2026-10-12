@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status auto-sync (`P-30`): `aapp status` re-derives `state_matrix.md` before reading it, so the Roadmap line and Next Action footer report the real board instead of a stale cache.
 
 ### Changed
+- every issue ledger read and write goes through one ledger section in `lib/aapp-lib.sh` (P-73) (`P-73`)
 - every verb test is named by its verb's contract; a test no contract names fails the suite (P-81) (`P-81`)
 - `aapp test` runs suites in parallel and splits the slowest verb suites; a full run takes about a minute instead of six (`P-71`)
 - a verb suite may have parts (`tests/verbs/<verb>.<part>.sh`) that run in parallel; the slowest verb suites are split (`P-68`)
