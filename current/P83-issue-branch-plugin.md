@@ -64,7 +64,7 @@ A branch is never taken from where an issue was logged or raised. A person or an
 - **Files owned by two branches** are the plugin's call. It answers one branch, or `failed` with a `message` naming the owners; the fix then waits until someone names the branch or splits the issue.
 - **The plugin gives direction; it enforces nothing.** It may refuse for the team's own reasons: who has the expertise to certify a fix in those paths, which paths are live and hot, who has clearance for the owning branch. It answers `failed` with a `message` that says where the fix should go or who should make it, and the fix does not open. Who is asking is the plugin's to find out (the envelope carries no identity and no credentials). A branch named by hand is not put to the plugin: the kit sorts directions, and what a branch accepts is enforced where it is hosted.
 - **The answer is recorded once.** After `ok` with a branch the cell holds it, so closing and unblocking (P-78) read the row and the plugin is not asked again for that issue.
-- **Hotfixes follow the same rule.** `issue hotfix` stops writing the blocked plan's parent branch into the row (P-78 did): a hotfix names a branch only with `branch <name>`; otherwise the plugin decides from its files when the fix opens. See Question 1 for a hotfix raised from a group's member.
+- **A hotfix has two ways in.** (1) Every file it names is in the Target Files of the plan it blocks: the fix belongs to that plan's line of work, so the row names the plan's parent branch (the one in its `* **Base:**`; for a group's member, the feature branch), as P-78 wrote it. (2) Otherwise, with no file named or any file outside the plan's Target Files: the row names no branch, and when the fix opens it is the branch the plugin answers, or the development branch. `branch <name>` names a branch in either case.
 - **Shipped:** the reserved name in `lib/plugins.tsv`; the event and the `files` and `branch` fields in the issue reference; a sample (`examples/plugins/aapp-issue-branch/run.sample`) that reads a list of `path prefix` → `branch` lines kept beside it, answers `declined` when no line matches and `failed`, naming the owners, when the files match two branches. The list's format belongs to the sample, not to the kit.
 
 ### 🔄 Migration & Compatibility Strategy
@@ -93,7 +93,7 @@ A branch is never taken from where an issue was logged or raised. A person or an
 
 ### ♻️ Existing Tests Changed or Retired
 > Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
-- `tests/verbs/issue.branch.sh::test_hotfix_takes_plan_parent_branch`: rewritten as `test_hotfix_names_no_branch` (a hotfix leaves the cell empty; `branch <name>` writes it), or kept for the group case if Question 1 is answered that way.
+- `tests/verbs/issue.branch.sh::test_hotfix_takes_plan_parent_branch`: rewritten for the two ways in. It keeps its name and asserts a hotfix whose files are all in the plan's Target Files carries the plan's parent branch (none written for the development branch); a second test, `test_hotfix_outside_plan_files_names_no_branch`, asserts a hotfix naming a file outside them, or no file, leaves the cell empty.
 - `tests/verbs/issue.branch.sh::test_branch_token_adds_column`: unchanged; the explicit token stays.
 - `tests/plugin_protocol_test.sh::test_reference_matches_code`: unchanged; it reads the events and fields from the code, so the reference must list `issue.branch`, `files` and `branch` for it to pass.
 
@@ -102,7 +102,7 @@ A branch is never taken from where an issue was logged or raised. A person or an
 
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: One function in `lib/cmd_issue.sh` that settles an issue's branch (named in the row, else asked of the plugin, else the development branch), used by `fix` and `close`; the refusal on failure.
-- [ ] Task 2.2: `issue hotfix` names a branch only with `branch <name>`.
+- [ ] Task 2.2: `issue hotfix` names the plan's parent branch only when every file it names is in the plan's Target Files.
 - [ ] Task 2.3: Registry row, sample with its list, reference.
 
 ### Phase 3: Verification & Documentation
@@ -125,9 +125,9 @@ A branch is never taken from where an issue was logged or raised. A person or an
 - [ ] `docs/reference/07-issue-protocol.md` -> Event `issue.branch`, fields `files` and `branch`, the answers and what the kit does with each.
 - [ ] `lib/docs/verbs/issue.md` -> Contract.
 - [ ] `MANUAL.md` -> Issues on several branches: the plugin, and that nothing is taken from where an issue is logged.
-- [ ] `templates/AGENTS.md` -> Agent rules: a hotfix names no branch by itself; a refused fix names the next command.
+- [ ] `templates/AGENTS.md` -> Agent rules: where a hotfix's fix lands (the plan's branch for the plan's own files, otherwise the plugin's answer or the development branch); a refused fix names the next command.
 - [ ] `templates/skills/aapp-fix/SKILL.md` -> The refusal when the branch cannot be settled.
-- [ ] `tests/verbs/issue.branch.sh` -> The hotfix test (§3).
+- [ ] `tests/verbs/issue.branch.sh` -> The two hotfix tests (§3).
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
@@ -142,7 +142,7 @@ A branch is never taken from where an issue was logged or raised. A person or an
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — A hotfix raised from a group's member.** The member can only resume when the fix is in the group's feature branch, and that branch takes the development branch's commits only at the group's `done`. With no default, such a hotfix lands on the development branch (or on a module branch the plugin names) and the member stays blocked until someone merges that branch into the feature branch or the fix is opened with `group <group>`. Options: (a) no default at all, the same rule everywhere; (b) a hotfix raised from a group's member keeps the feature branch as its default, because a feature branch is temporary and owned by the group, and `branch <name>` names another.
+* [x] **Question 1 — Which branch does a hotfix get by default? → RESOLVED (developer, 2026-10-12):** two ways in. Its path is in the allowed paths of the plan it blocks: the same branch as the plan. Otherwise the development branch, or the branch the plugin supplies.
 
 ---
 
