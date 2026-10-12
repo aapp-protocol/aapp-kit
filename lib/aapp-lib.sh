@@ -852,3 +852,343 @@ aapp_changelog_plan_line() {
         END { exit found ? 0 : 1 }
     '
 }
+
+# ---- Issue ledgers (P-73) ----
+# The one accessor of ISSUES.md, done/000-issues-archive.md and
+# issues_road_map.md: nothing outside this section reads or writes them
+# (tests/issue_ledger_test.sh::test_no_direct_ledger_access).
+#
+# Active:  | # | Sev | Type | Date | Location | Symptom | Target Plan / Fix | Status |
+# Archive: | # | Sev | Type | Date Opened | Date Resolved | Target Commit | Summary |
+# Escaped pipes (\|) inside cells are preserved everywhere.
+
+# Road-map lines: an open entry, and a resolved one (the hook's auto-prune).
+LEDGER_ROADMAP_OPEN_RE='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ ]?\]|\*)[[:space:]]*`?#?[0-9]+'
+LEDGER_ROADMAP_RESOLVED_RE='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)'
+# A resolved row left in the active ledger (the hook's relocation check).
+LEDGER_RESOLVED_ROW_RE='^[[:space:]]*\|[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)'
+
+_ledger_rel() {
+    case "$1" in
+        issues)  echo "ISSUES.md" ;;
+        archive) echo "done/000-issues-archive.md" ;;
+        roadmap) echo "issues_road_map.md" ;;
+        *)       return 2 ;;
+    esac
+}
+
+# _ledger_row_regex <n> -> ERE matching the ledger row whose first cell is #<n>.
+_ledger_row_regex() {
+    printf '^[[:space:]]*\\|[[:space:]]*`?#%s`?[[:space:]]*\\|' "$1"
+}
+
+# ledger_path <issues|archive|roadmap> [repo-root] -> the ledger's path. Looks
+# in $PLANS_DIR, then <root>/.plans/, then <root>/ (the plans worktree itself,
+# or a project keeping its ledgers at the root). When the file is nowhere it
+# prints where it would be; callers test `-f`. Fails only with no place to look.
+ledger_path() {
+    local rel root
+    rel="$(_ledger_rel "$1")" || return 2
+    if [ -n "${PLANS_DIR:-}" ] && [ -f "$PLANS_DIR/$rel" ]; then
+        printf '%s\n' "$PLANS_DIR/$rel"; return 0
+    fi
+    root="${2:-${REPO_ROOT:-}}"
+    [ -n "$root" ] || root="$(git rev-parse --show-toplevel 2>/dev/null)" || root=""
+    if [ -n "$root" ] && [ -f "$root/.plans/$rel" ]; then printf '%s\n' "$root/.plans/$rel"; return 0; fi
+    if [ -n "$root" ] && [ -f "$root/$rel" ]; then printf '%s\n' "$root/$rel"; return 0; fi
+    if [ -n "${PLANS_DIR:-}" ]; then printf '%s\n' "$PLANS_DIR/$rel"; return 0; fi
+    if [ -n "$root" ]; then printf '%s\n' "$root/.plans/$rel"; return 0; fi
+    return 1
+}
+
+# ledger_commit_paths [issues|archive|roadmap]… -> the named ledgers (all three
+# by default) that exist, relative to the plans worktree: for plans_commit and
+# the done/abort snapshots.
+ledger_commit_paths() {
+    local which f
+    [ $# -gt 0 ] || set -- issues archive roadmap
+    for which in "$@"; do
+        f="$(ledger_path "$which")" || continue
+        [ -f "$f" ] && _ledger_rel "$which"
+    done
+    return 0
+}
+
+# ledger_row <n> -> the active row of #<n>, as written; fails when there is none.
+ledger_row() {
+    local f
+    f="$(ledger_path issues)" || return 1
+    [ -f "$f" ] || return 1
+    grep -m 1 -E "$(_ledger_row_regex "$1")" "$f"
+}
+
+# ledger_rows [<status>] -> active rows, one per line, tab-separated: id (#<n>),
+# sev, type, date, location, symptom, link, status, source (`local`). <status>
+# keeps the rows whose status cell contains it (`Incubated`, `Planned`).
+ledger_rows() {
+    local f
+    f="$(ledger_path issues)" || return 0
+    [ -f "$f" ] || return 0
+    AAPP_STATUS="${1:-}" awk '
+        /^[[:space:]]*\|[[:space:]]*`?#[0-9]+/ {
+            line = $0; gsub(/\\\|/, "\001", line)
+            k = split(line, c, "|")
+            if (k < 10) next
+            for (i = 2; i <= 9; i++) { gsub(/^[ \t]+|[ \t]+$/, "", c[i]); gsub(/\001/, "\\|", c[i]) }
+            if (ENVIRON["AAPP_STATUS"] != "" && index(c[9], ENVIRON["AAPP_STATUS"]) == 0) next
+            gsub(/`/, "", c[2])
+            printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tlocal\n", c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9]
+        }' "$f"
+}
+
+# ledger_resolved_rows -> rows left in the active ledger although marked
+# resolved (the Relocation Invariant: a resolved row moves to the archive).
+ledger_resolved_rows() {
+    local f
+    f="$(ledger_path issues)" || return 0
+    [ -f "$f" ] || return 0
+    grep -E "$LEDGER_RESOLVED_ROW_RE" "$f" 2>/dev/null
+    return 0
+}
+
+# ledger_ids <active|archive|roadmap> -> the issue numbers of one ledger, bare
+# integers in file order (`#12`, `` `#012` `` and `ISSUE-12` all give 12).
+ledger_ids() {
+    local f
+    case "$1" in
+        active)  f="$(ledger_path issues)" || return 0 ;;
+        archive) f="$(ledger_path archive)" || return 0 ;;
+        roadmap) f="$(ledger_path roadmap)" || return 0 ;;
+        *)       return 2 ;;
+    esac
+    [ -f "$f" ] || return 0
+    if [ "$1" = "roadmap" ]; then
+        sed -nE 's/^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?0*([0-9]+).*/\2/p' "$f"
+    else
+        awk -F'|' '/^[[:space:]]*\|[[:space:]]*`?#?[0-9]+/ {
+            id = $2; gsub(/[ \t`]/, "", id); sub(/^(ISSUE-?|issue-?|#)/, "", id); sub(/^0+/, "", id)
+            if (id ~ /^[0-9]+$/) print id
+        }' "$f"
+    fi
+}
+
+# ledger_locate <n> -> prints "active", "archive" or nothing.
+ledger_locate() {
+    local re f
+    re="$(_ledger_row_regex "$1")"
+    f="$(ledger_path issues)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ] && grep -qE "$re" "$f"; then echo "active"; return 0; fi
+    f="$(ledger_path archive)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ] && grep -qE "$re" "$f"; then echo "archive"; fi
+    return 0
+}
+
+# ledger_add_row <row>: inserts an active row under the table's separator line.
+# Returns 3 when the ledger has no table.
+ledger_add_row() {
+    local f tmp
+    f="$(ledger_path issues)" || return 1
+    [ -f "$f" ] || return 1
+    tmp="$f.aapp-add.$$"
+    AAPP_ROW="$1" awk '{ print } !d && /^\|[[:space:]]*:---/ { print ENVIRON["AAPP_ROW"]; d = 1 } END { if (!d) exit 3 }' \
+        "$f" > "$tmp" || { rm -f "$tmp"; return 3; }
+    mv "$tmp" "$f"
+}
+
+# ledger_set_cell <n> link|status <value>: the two lifecycle cells of an active
+# row; observation cells never change. Returns 2 for another cell, 3 when #<n>
+# is not an active row.
+ledger_set_cell() {
+    local n="$1" cell f tmp
+    case "$2" in
+        link)   cell=8 ;;
+        status) cell=9 ;;
+        *)      echo "❌ [Issue] Only the link and status cells of a row change (not '$2')." >&2; return 2 ;;
+    esac
+    f="$(ledger_path issues)" || return 1
+    [ -f "$f" ] || return 1
+    tmp="$f.aapp-cell.$$"
+    AAPP_N="$n" AAPP_CELL="$cell" AAPP_VALUE="$3" awk '
+        {
+            line = $0; gsub(/\\\|/, "\001", line)
+            if (line ~ ("^[[:space:]]*\\|[[:space:]]*`?#" ENVIRON["AAPP_N"] "`?[[:space:]]*\\|")) {
+                k = split(line, c, "|")
+                if (k >= 10) {
+                    c[ENVIRON["AAPP_CELL"] + 0] = " " ENVIRON["AAPP_VALUE"] " "
+                    out = c[1]; for (j = 2; j <= k; j++) out = out "|" c[j]
+                    gsub(/\001/, "\\|", out); print out; done = 1; next
+                }
+            }
+            print
+        }
+        END { if (!done) exit 3 }
+    ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 3; }
+}
+
+# ledger_archive_row <n> <sha>|aborted [summary]: moves the active row to the
+# top of the archive and prunes its road-map line. Does not commit. Returns 0
+# when moved; fails when the row is not active.
+ledger_archive_row() {
+    local n="$1" sha="$2" summary="${3:-}"
+    local active archive re row today archive_row tmp
+    active="$(ledger_path issues)" || return 1
+    archive="$(ledger_path archive)" || return 1
+    re="$(_ledger_row_regex "$n")"
+
+    if [ ! -f "$archive" ]; then
+        echo "❌ [Issue] Archive not found: $archive" >&2
+        return 1
+    fi
+    row="$(grep -m 1 -E "$re" "$active" 2>/dev/null)" || {
+        echo "❌ [Issue] #$n is not an active row in $active." >&2
+        return 1
+    }
+
+    today="$(date +%Y-%m-%d)"
+    archive_row="$(AAPP_SHA="$sha" AAPP_SUMMARY="$summary" AAPP_TODAY="$today" awk '
+        {
+            gsub(/\\\|/, "\001")
+            n = split($0, c, "|")
+            for (i = 1; i <= n; i++) {
+                gsub(/^[ \t]+|[ \t]+$/, "", c[i])
+                gsub("\001", "\\|", c[i])
+            }
+            s = ENVIRON["AAPP_SUMMARY"]
+            if (s == "") s = "Direct fix (no plan)"
+            gsub(/\\\|/, "\001", s); gsub(/\|/, "\001", s); gsub("\001", "\\|", s)
+            printf "| %s | %s | %s | %s | %s | `%s` | %s |\n", c[2], c[3], c[4], c[5], ENVIRON["AAPP_TODAY"], ENVIRON["AAPP_SHA"], s
+        }' <<< "$row")"
+
+    tmp="$archive.aapp-issue.$$"
+    AAPP_ROW="$archive_row" awk '
+        { print }
+        !done && /^\|[[:space:]]*:---/ { print ENVIRON["AAPP_ROW"]; done = 1 }
+        END { if (!done) exit 3 }
+    ' "$archive" > "$tmp" || {
+        rm -f "$tmp"
+        echo "❌ [Issue] No table header separator found in $archive." >&2
+        return 1
+    }
+    mv "$tmp" "$archive"
+
+    tmp="$active.aapp-issue.$$"
+    # grep -v exits 1 when every line matched; an emptied table is still valid.
+    grep -v -E "$re" "$active" > "$tmp" || [ $? -eq 1 ]
+    mv "$tmp" "$active"
+
+    roadmap_prune "$n"
+    return 0
+}
+
+# ledger_relink <old-rel-path> <new-rel-path> (P-50): rewrites the link target
+# `](<old>)` -> `](<new>)` in the active rows' Target Plan / Fix cell (the 7th
+# cell; observation cells never change) and in the road map's lines. Prints the
+# number of links rewritten; non-zero only on a write failure.
+ledger_relink() {
+    local old="$1" new="$2" f tmp count=0 n
+    f="$(ledger_path issues)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ]; then
+        tmp="$f.aapp-relink.$$"
+        AAPP_OLD="]($old)" AAPP_NEW="]($new)" awk '
+            function swap(s,    out, i, o) {
+                o = ENVIRON["AAPP_OLD"]; out = ""
+                while ((i = index(s, o)) > 0) { out = out substr(s, 1, i - 1) ENVIRON["AAPP_NEW"]; s = substr(s, i + length(o)); n++ }
+                return out s
+            }
+            /^[[:space:]]*\|[[:space:]]*`?#[0-9]+/ {
+                line = $0; gsub(/\\\|/, "\001", line)
+                k = split(line, c, "|")
+                if (k >= 9) {
+                    c[8] = swap(c[8]); out = c[1]
+                    for (j = 2; j <= k; j++) out = out "|" c[j]
+                    gsub(/\001/, "\\|", out); print out; next
+                }
+            }
+            { print }
+            END { print n + 0 > "/dev/stderr" }
+        ' "$f" > "$tmp" 2> "$tmp.n" || { rm -f "$tmp" "$tmp.n"; return 1; }
+        n="$(cat "$tmp.n")"; rm -f "$tmp.n"
+        mv "$tmp" "$f" || return 1
+        count=$((count + n))
+    fi
+    f="$(ledger_path roadmap)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ]; then
+        n="$(grep -oF "]($old)" "$f" | wc -l | tr -d ' ')"
+        if [ "$n" -gt 0 ]; then
+            tmp="$f.aapp-relink.$$"
+            AAPP_OLD="]($old)" AAPP_NEW="]($new)" awk '
+                { s = $0; out = ""; o = ENVIRON["AAPP_OLD"]
+                  while ((i = index(s, o)) > 0) { out = out substr(s, 1, i - 1) ENVIRON["AAPP_NEW"]; s = substr(s, i + length(o)) }
+                  print out s }
+            ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+            count=$((count + n))
+        fi
+    fi
+    echo "$count"
+}
+
+# roadmap_entries [<cap>] -> the road map's open lines, in file order (the
+# template's placeholder and resolved lines left out); at most <cap> of them.
+roadmap_entries() {
+    local f
+    f="$(ledger_path roadmap)" || return 0
+    [ -f "$f" ] || return 0
+    grep -E "$LEDGER_ROADMAP_OPEN_RE" "$f" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '✅|[Rr]esolved|DONE' |
+        if [ -n "${1:-}" ]; then head -n "$1"; else cat; fi
+    return 0
+}
+
+# roadmap_blockers -> the issue numbers queued under 🧱 Plan Blockers, in order.
+roadmap_blockers() {
+    local f
+    f="$(ledger_path roadmap)" || return 0
+    [ -f "$f" ] || return 0
+    awk '/^## 🧱 Plan Blockers/ { q = 1; next } /^## / { q = 0 } q' "$f" |
+        sed -nE 's/^[[:space:]]*-[[:space:]]*\[[ ]?\][[:space:]]*#([0-9]+).*/\1/p'
+}
+
+# roadmap_add_blocker <n> <text> <plan-id>: appends to 🧱 Plan Blockers, creating
+# the subheader at the top of the board (before the first `## `).
+roadmap_add_blocker() {
+    local rm line tmp
+    rm="$(ledger_path roadmap)" || return 1
+    [ -f "$rm" ] || return 1
+    line="- [ ] #$1 -> $2 (blocks $3)"
+    tmp="$rm.aapp-queue.$$"
+    if grep -q '^## 🧱 Plan Blockers' "$rm"; then
+        AAPP_LINE="$line" awk '
+            function flush() { for (i = 1; i <= nb; i++) print blank[i]; nb = 0 }
+            in_q && /^## / { print ENVIRON["AAPP_LINE"]; flush(); in_q = 0; done = 1 }
+            in_q && /^[[:space:]]*$/ { blank[++nb] = $0; next }
+            in_q { flush() }
+            /^## 🧱 Plan Blockers/ { in_q = 1 }
+            { print }
+            END { if (in_q && !done) print ENVIRON["AAPP_LINE"]; flush() }
+        ' "$rm" > "$tmp"
+    else
+        AAPP_LINE="$line" awk '
+            !done && /^## / { print "## 🧱 Plan Blockers"; print ENVIRON["AAPP_LINE"]; print ""; done = 1 }
+            { print }
+            END { if (!done) { print ""; print "## 🧱 Plan Blockers"; print ENVIRON["AAPP_LINE"] } }
+        ' "$rm" > "$tmp"
+    fi
+    mv "$tmp" "$rm"
+}
+
+# roadmap_prune <n>|resolved: removes #<n>'s line, or every line marked
+# resolved. An emptied board is still valid.
+roadmap_prune() {
+    local f tmp re
+    f="$(ledger_path roadmap)" || return 0
+    [ -f "$f" ] || return 0
+    if [ "$1" = "resolved" ]; then
+        re="$LEDGER_ROADMAP_RESOLVED_RE"
+    else
+        re="^[[:space:]]*([0-9]+\.|[-*][[:space:]]*\[[ xX]?\]|\*)[[:space:]]*\`?#$1([^0-9]|\$)"
+    fi
+    tmp="$f.aapp-prune.$$"
+    # grep -v exits 1 when every line matched.
+    grep -v -E "$re" "$f" > "$tmp" || [ $? -eq 1 ]
+    mv "$tmp" "$f"
+}
+# ---- end issue ledgers ----

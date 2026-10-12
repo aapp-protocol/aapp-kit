@@ -142,7 +142,7 @@ fi
 
 echo "== path =="
 if have ledger_path; then
-  unset PLANS_DIR
+  unset PLANS_DIR REPO_ROOT
   main="$R/main"; mkdir -p "$main/.plans/done" "$main/sub"; git init -q "$main"
   : > "$main/.plans/ISSUES.md"; : > "$main/.plans/done/000-issues-archive.md"; : > "$main/.plans/issues_road_map.md"
   wt="$R/planswt"; mkdir -p "$wt/done"; git init -q "$wt"; : > "$wt/ISSUES.md"; : > "$wt/done/000-issues-archive.md"
@@ -150,11 +150,11 @@ if have ledger_path; then
   p1="$(cd "$main/sub" && ledger_path issues)"; p2="$(cd "$main" && ledger_path archive)"; p3="$(cd "$main" && ledger_path roadmap)"
   p4="$(cd "$wt" && ledger_path issues)"; p5="$(cd "$wt" && ledger_path archive)"
   p6="$(cd "$rootonly" && ledger_path issues)"
-  (cd "$rootonly" && ledger_path roadmap >/dev/null); r7=$?
+  p7="$(cd "$rootonly" && ledger_path roadmap)"; r7=1; [ -n "$p7" ] && [ ! -f "$p7" ] && r7=0
   p8="$(PLANS_DIR="$main/.plans" ledger_path issues)"
   if [ "$p1" = "$main/.plans/ISSUES.md" ] && [ "$p2" = "$main/.plans/done/000-issues-archive.md" ] && \
      [ "$p3" = "$main/.plans/issues_road_map.md" ] && [ "$p4" = "$wt/ISSUES.md" ] && \
-     [ "$p5" = "$wt/done/000-issues-archive.md" ] && [ "$p6" = "$rootonly/ISSUES.md" ] && [ "$r7" -ne 0 ] && \
+     [ "$p5" = "$wt/done/000-issues-archive.md" ] && [ "$p6" = "$rootonly/ISSUES.md" ] && [ "$r7" -eq 0 ] && \
      [ "$p8" = "$main/.plans/ISSUES.md" ]; then
     ok "test_path_resolves_in_each_place"
   else
