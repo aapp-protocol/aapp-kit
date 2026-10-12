@@ -60,7 +60,7 @@ A step is a short exchange between the kit and a supported plugin.
   "id": "PROJ-101",
   "tracker": "jira" }
 ```
-- `status`: `ok`, `declined` (not mine; the kit does it) or `failed`.
+- `status`: `ok`, `declined` (not mine; the kit does it) or `failed`. Absent on a successful exit means `ok`, so an answer that carries only what it produced stays valid.
 - `message`: one sentence the kit shows the user.
 - `handled`: what the plugin took care of. Whatever it does not name, the kit does; a part added by a later kit version is therefore still done by the kit under an older plugin.
 - The rest: what it produced, under the field names the kit sent (`id`, …), plus the informational `tracker`, `url` and `version` (the tracker's current release or milestone).
@@ -115,6 +115,10 @@ A step is a short exchange between the kit and a supported plugin.
 - [ ] `tests/plugin_protocol_test.sh::test_timeout_ends_plugin` -> asserts a plugin running past the timeout is ended and the step takes its failure outcome
 - [ ] `tests/plugin_protocol_test.sh::test_envelope_carries_no_secret` -> asserts a remote URL with credentials reaches the plugin stripped
 - [ ] `tests/plugin_protocol_test.sh::test_reference_matches_code` -> asserts every event and field the code sends, and every `do` command it accepts, is listed in `docs/reference/`
+
+### ♻️ Existing Tests Changed or Retired
+> Tests that exist today and assert behaviour this plan changes.
+- None expected. The provider fixtures of `tests/verbs/issue.sh` and `tests/plan_resolver_test.sh` answer with only `id` or `status`, which stays valid; `plan.allocate` and its checks are unchanged. A fixture that fails shows an answer form the protocol must still accept.
 
 ### Phase 1: Tests First (red)
 - [ ] Task 1.1: Write `tests/plugin_protocol_test.sh` with a scripted plugin fixture; confirm red.
