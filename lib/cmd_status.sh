@@ -334,6 +334,16 @@ if [ -n "$ROADMAP_FILE" ]; then
     fi
 fi
 
+# P-75: issues staged in `.offline` are issues like any other, marked as offline.
+OFFLINE_ROWS=""
+if command -v ledger_offline_rows >/dev/null 2>&1; then
+    OFFLINE_ROWS="$(ledger_offline_rows 2>/dev/null || true)"
+fi
+if [ -n "$OFFLINE_ROWS" ]; then
+    echo "$OFFLINE_ROWS" | awk -F'\t' '{ print "  - [ ] " $1 " -> " $6 "  (offline: staged in .offline)" }'
+    HAS_ISSUES=1
+fi
+
 if [ -n "$ISSUES_FILE" ] && [ "$HAS_ISSUES" -eq 0 ]; then
     # The active ledger holds only active rows
     OPEN_ISSUES=$(ledger_row_lines | head -n 5 || true)
@@ -470,6 +480,25 @@ fi
 
 echo ""
 echo "============================================================"
+# P-75: what is staged in `.offline`, waiting for the provider.
+if command -v offline_mounted >/dev/null 2>&1 && offline_mounted; then
+    OFF_DIR="$(offline_dir)"
+    OFF_ACTIVE="$(ledger_offline_ids active | sed 's/^/#/' | paste -sd, - | sed 's/,/, /g')"
+    OFF_CLOSED="$(ledger_offline_ids archive | sed 's/^/#/' | paste -sd, - | sed 's/,/, /g')"
+    OFF_PLANS="$(ls "$OFF_DIR"/current/P*.md 2>/dev/null | sed 's|.*/|current/|' | paste -sd, - | sed 's/,/, /g')"
+    OFF_STEPS="$(grep -c . "$OFF_DIR/outbox" 2>/dev/null || true)"
+    if [ -n "$OFF_ACTIVE$OFF_CLOSED$OFF_PLANS" ] || [ "${OFF_STEPS:-0}" -gt 0 ]; then
+        echo ""
+        echo "📡 Staged Offline Work (.offline):"
+        if [ -n "$OFF_ACTIVE$OFF_CLOSED" ]; then
+            echo "   - Issues: $(printf '%s' "$OFF_ACTIVE" | awk -F', ' '{ print (NF ? NF : 0) }') staged${OFF_ACTIVE:+ ($OFF_ACTIVE)}${OFF_CLOSED:+ | $(printf '%s' "$OFF_CLOSED" | awk -F', ' '{ print NF }') staged in the local archive ($OFF_CLOSED)}"
+        fi
+        [ -z "$OFF_PLANS" ] || echo "   - Draft Plans: $(printf '%s' "$OFF_PLANS" | awk -F', ' '{ print NF }') offline blueprint(s) ($OFF_PLANS)"
+        [ "${OFF_STEPS:-0}" -eq 0 ] || echo "   - Outbox: $OFF_STEPS step(s) not yet sent to the provider"
+        echo "   Action: Run 'aapp offline sync' when online to publish."
+    fi
+fi
+
 # Evaluate Next Action Dynamically
 WORKTREES_SYNCED=0
 if [ -d ".plans" ] && [ -d ".agents" ] && [ -d ".githooks" ]; then

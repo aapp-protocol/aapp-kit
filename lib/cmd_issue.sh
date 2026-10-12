@@ -335,14 +335,99 @@ _issue_provider_entry() {
 # PLUGIN_HANDLED, PLUGIN_OUT, the list and `do` files). ISSUE_PROVIDER_SEEN says
 # whether a provider is installed. Returns 0 without one, and for `ok` and
 # `declined`; non-zero when the provider failed.
+#
+# P-75, where the offline path hooks in. Three modes (offline_mode):
+#   on   (default) the provider is asked; when it fails or times out, `log`
+#        returns ISSUE_GO_OFFLINE (the caller stages the issue in `.offline`),
+#        and a step for an existing issue is kept in `.offline/outbox`, sent
+#        first at the next sync;
+#   only (aapp.offlineOnly) the provider is not asked at all: the same, at once;
+#   off  (aapp.offlineEnabled false) a failure is a failure, as before.
+# An issue staged offline is unknown to the tracker: its steps are not sent;
+# they go with its `log` at `aapp offline sync`.
+ISSUE_GO_OFFLINE=75
 issue_provider() {
-    local step="$1" entry root
+    local step="$1" entry root mode rc=0
     ISSUE_PROVIDER_SEEN=0
     PLUGIN_STATUS=""; PLUGIN_MESSAGE=""; PLUGIN_HANDLED=""; PLUGIN_OUT=""
     entry="$(_issue_provider_entry)" || return 0
+    [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || return 0
+    _issue_load_offline || return 1
+    mode="$(offline_mode)"
+    if [ "$mode" = "only" ] && [ -z "${ISSUE_OUTBOX_FLUSH:-}" ]; then
+        case "$step" in
+            log)  return "$ISSUE_GO_OFFLINE" ;;
+            list|next-blocker) return 0 ;;
+            *)    _issue_outbox_add "$step" "${AAPP_ISSUE_ID:-}" "$2"; return 0 ;;
+        esac
+    fi
     ISSUE_PROVIDER_SEEN=1
     root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
-    plugin_step "$entry" "$root" "$step" "issue.$step" "{$2}" 2>/dev/null
+    plugin_step "$entry" "$root" "$step" "issue.$step" "{$2}" 2>/dev/null || rc=$?
+    [ "$rc" -ne 0 ] || return 0
+    if [ "$mode" = "on" ] && [ -z "${ISSUE_OUTBOX_FLUSH:-}" ]; then
+        case "$step" in
+            log)  return "$ISSUE_GO_OFFLINE" ;;
+            list|next-blocker) ;;
+            *)    echo "⚠️  [Issue] aapp-issue-tracker failed on $step for ${AAPP_ISSUE_ID:-the issue} (${PLUGIN_MESSAGE:-no answer}); the step is kept in .offline/outbox and sent first at the next sync." >&2
+                  _issue_outbox_add "$step" "${AAPP_ISSUE_ID:-}" "$2"
+                  ISSUE_PROVIDER_SEEN=0
+                  return 0 ;;
+        esac
+    fi
+    return "$rc"
+}
+
+# _issue_load_offline: the offline functions (lib/cmd_offline.sh).
+_issue_load_offline() {
+    declare -f offline_mode >/dev/null && return 0
+    # shellcheck source=lib/cmd_offline.sh
+    . "$AAPP_ISSUE_LIB_DIR/cmd_offline.sh" || { echo "❌ [Issue] Cannot load $AAPP_ISSUE_LIB_DIR/cmd_offline.sh" >&2; return 1; }
+}
+
+# _issue_outbox_add <step> <id> <members>: a step for an issue the tracker
+# knows, which could not be sent: one line of `.offline/outbox`, in order.
+_issue_outbox_add() {
+    local d
+    [ -n "$2" ] || return 0
+    offline_mount quiet || return 0
+    d="$(offline_dir)"
+    printf '%s\t%s\t%s\n' "$1" "${2#\#}" "$(printf '%s' "$3" | tr '\n\t' '  ')" >> "$d/outbox"
+    offline_commit "outbox: $1 #${2#\#}" >/dev/null
+}
+
+# issue_outbox_flush: sends the outbox, oldest first; a line the provider
+# accepts is removed. Stops at the first it cannot send: the order is kept.
+# Returns 1 while a line remains.
+issue_outbox_flush() {
+    local d step n members left=""
+    _issue_load_offline || return 1
+    offline_mounted || return 0
+    d="$(offline_dir)"
+    [ -s "$d/outbox" ] || return 0
+    while IFS="$(printf '\t')" read -r step n members; do
+        [ -n "$step" ] || continue
+        if [ -z "$left" ] && ISSUE_OUTBOX_FLUSH=1 AAPP_ISSUE_ID="#$n" issue_provider "$step" "$members" && [ "$ISSUE_PROVIDER_SEEN" -eq 1 ]; then
+            _plugin_files_drop
+            continue
+        fi
+        left="$left$(printf '%s\t%s\t%s' "$step" "$n" "$members")
+"
+    done < "$d/outbox"
+    printf '%s' "$left" > "$d/outbox"
+    offline_commit "outbox: sent what could be sent" >/dev/null
+    [ -z "$left" ]
+}
+
+# _issue_enter_offline <n>: an issue staged offline is read and written in the
+# offline ledgers for the rest of this command (ledger_use_offline).
+_issue_enter_offline() {
+    [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || return 0
+    [ -n "$(ledger_in_offline "$1")" ] || return 0
+    # Not one the main ledgers also hold.
+    if [ -n "$(AAPP_LEDGER_OFFLINE=1 ledger_locate "$1")" ]; then return 0; fi
+    _issue_load_offline || return 1
+    ledger_use_offline
 }
 
 # _issue_step <step> <n> <members>: a step the kit has already done locally.
@@ -387,6 +472,12 @@ _issue_members() {
 issue_refine_step() {
     local n="$1" issue t notes="" stamp taken=0
     shift
+    # P-75: an issue staged offline is unknown to the tracker: its notes stay
+    # in the kit's store and travel with its `log` at the sync.
+    if [ -n "$(ledger_in_offline "$n")" ] && [ -z "$(AAPP_LEDGER_OFFLINE=1 ledger_locate "$n")" ]; then
+        for t in "$@"; do _issue_keep_text "$n" note "$t"; done
+        return 0
+    fi
     issue="$(issue_payload "$n")" || issue="\"id\": \"#$n\""
     stamp="$(date +%Y-%m-%d) $(_issue_author)"
     for t in "$@"; do notes="${notes:+$notes, }\"$(json_escape "$stamp: $t")\""; done
@@ -546,7 +637,31 @@ _issue_log_row() {
     today="$(date +%Y-%m-%d)"
     members="$(_issue_members "" "$sev" "$type" "$today" "$loc" "$symptom" "$link" "🟡 Incubated" "$branch")"
     [ -z "$desc" ] || members="$members, \"description\": \"$(json_escape "$desc")\""
-    if ! issue_provider log "$members"; then
+    local prc=0
+    ISSUE_LOGGED_OFFLINE=0
+    issue_provider log "$members" || prc=$?
+    if [ "$prc" -eq "$ISSUE_GO_OFFLINE" ]; then
+        # P-75: the provider is unreachable, or not to be asked: the issue is
+        # staged in `.offline` under a temporary id, and published at the sync.
+        offline_mount quiet || return 1
+        n="$(offline_next_issue_id)" || return 1
+        row="| #$n | \`$sev\` | \`$type\` | $today | $loc | ${symptom//|/\\|} | $link | 🟡 \`Incubated\` |"
+        ( ledger_use_offline || exit 1
+          ledger_add_row "$row" || exit 1
+          [ -z "$branch" ] || ledger_set_cell "$n" branch "$(issue_branch_cell "$branch")" || exit 1
+          roadmap_add_entry "$n" "$symptom" ) || { echo "❌ [Issue] Could not stage the issue in .offline." >&2; return 1; }
+        [ -z "$desc" ] || _issue_keep_text "$n" description "$desc"
+        offline_commit "issue(log): #$n staged offline" >/dev/null
+        if [ "$(offline_mode)" = "only" ]; then
+            echo "📡 [Issue] Offline-only: #$n is staged in .offline under a temporary id; 'aapp offline sync' publishes it."
+        else
+            echo "📡 [Issue] aapp-issue-tracker is unreachable (${PLUGIN_MESSAGE:-no answer}): #$n is staged offline in .offline under a temporary id; 'aapp offline sync' publishes it."
+        fi
+        ISSUE_PROVIDER_SEEN=0; ISSUE_LOGGED_OFFLINE=1
+        ISSUE_LOGGED="$n"
+        return 0
+    fi
+    if [ "$prc" -ne 0 ]; then
         raw="$(json_field "$PLUGIN_OUT" error 2>/dev/null)" || raw="${PLUGIN_MESSAGE:-no answer}"
         echo "❌ [Issue] aapp-issue-tracker failed ($raw); the issue is not logged. The tracker numbers the issues: nothing is numbered here without it." >&2
         return 1
@@ -640,6 +755,8 @@ cmd_issue_log() {
     _issue_lock_acquire || return 1
     PLANS_DIR="$plans" _issue_log_row "$sev" "$type" "$symptom" "$loc" "" "$target" "$note" triage || { _issue_lock_release; return 1; }
     n="$ISSUE_LOGGED"
+    # An issue staged offline is in `.offline`: nothing changed on the plans branch.
+    if [ "$ISSUE_LOGGED_OFFLINE" -eq 1 ]; then _issue_lock_release; echo "🐛 [Issue] #$n logged (offline): $symptom"; return 0; fi
     while IFS= read -r lp; do [ -n "$lp" ] && paths+=("$lp"); done < <(PLANS_DIR="$plans" ledger_commit_paths issues roadmap)
     PLANS_DIR="$plans" _issue_plans_commit "issue(log): #$n" "${paths[@]}" || { _issue_lock_release; return 1; }
     _issue_lock_release
@@ -722,6 +839,8 @@ _issue_archive_active() {
     if [ -z "$summary" ] && [ -n "$mp" ]; then
         summary="$entry${unblocked:+; unblocks $unblocked}"
     fi
+    # P-75: an issue closed or withdrawn offline keeps its row for the sync.
+    [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || offline_keep_closed_row "$n"
     ledger_archive_row "$n" "$cell" "$summary" || return 1
     paths=(); while IFS= read -r p; do [ -n "$p" ] && paths+=("$p"); done < <(ledger_commit_paths)
     for p in $touched; do paths+=("$p"); done
@@ -739,6 +858,7 @@ _issue_archive_active() {
         [ -f "$plans/state_matrix.md" ] && paths+=("state_matrix.md")
     fi
     _issue_plans_commit "$subject" "${paths[@]}" || return 1
+    [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || offline_commit "$subject, offline" >/dev/null
     IA_TOUCHED="$touched"; IA_SUMMARY="$summary"
 }
 
@@ -775,6 +895,7 @@ cmd_issue_abort() {
     done
     case "$reason" in *$'\n'*) echo "❌ [Issue] The reason must be a single line." >&2; return 1 ;; esac
     n="$(issue_id_body "$raw")" || return 1
+    _issue_enter_offline "$n" || return 1
     plans="$(_issue_plans_dir)" || return 1
     where="$(ledger_locate "$n")" || return 1
     case "$where" in
@@ -837,6 +958,7 @@ cmd_issue_close() {
     done
 
     n="$(issue_id_body "$raw")" || return 1
+    _issue_enter_offline "$n" || return 1
     root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}" || {
         echo "❌ [Issue] Not inside a Git repository." >&2
         return 1
@@ -1044,6 +1166,8 @@ _issue_sync_apply() {
         # A listing that names no branch leaves the one the row has.
         v="$(json_field "$line" branch 2>/dev/null)" || v="$(ledger_branch "$n")"
         new="$new$v"
+        # One closed here that the tracker still lists open: the close is on its way.
+        [ "$(ledger_locate "$n")" != "archive" ] || continue
         if [ "$(ledger_locate "$n")" = "active" ]; then
             cur="$(ledger_rows | awk -F'\t' -v id="#$n" '$1 == id { printf "%s\t%s\t%s\t%s\t%s\t", $2, $3, $4, $5, $6; exit }')$(ledger_branch "$n")"
             [ "$cur" = "$new" ] && continue
@@ -1095,6 +1219,13 @@ issue_sync() {
     [ -z "${AAPP_PLUGIN_STEP:-}" ] || return 0
     _issue_provider_entry >/dev/null || return 0
     plans="$(_issue_plans_dir)" || return 0
+    # P-75: what could not be sent while the tracker was away goes first; while
+    # any of it remains nothing is read from the tracker, so a close made
+    # meanwhile is never undone by its listing.
+    if ! issue_outbox_flush; then
+        echo "⚠️  [Issue] Steps wait in .offline/outbox for aapp-issue-tracker; the issues below are the last ones brought here." >&2
+        return 0
+    fi
     PLANS_DIR="$plans" ledger_record_external && external=1
     # Before the switch only a listing asks; afterwards the window paces it.
     [ "$force" -eq 1 ] || [ "$external" -eq 1 ] || return 0
@@ -1147,6 +1278,16 @@ _issue_line_notes() {
     printf '%s' "$out"
 }
 
+# _issue_offline_lines (P-75): the issues staged in `.offline`, as the views
+# show them: like any other issue, marked as offline.
+_issue_offline_lines() {
+    local id symptom
+    while IFS="$(printf '\t')" read -r id _ _ _ _ symptom _; do
+        [ -n "$id" ] && echo "  - [ ] $id -> $symptom  (offline: staged in .offline)"
+    done < <(ledger_offline_rows)
+    return 0
+}
+
 cmd_issue_list() {
     local usage='aapp issue list [<n> | all] [confirm] | list note <num>'
     local cap="$ISSUE_LIST_DEFAULT_CAP" confirm=0 note="" plans roadmap lines total line id n
@@ -1179,6 +1320,7 @@ cmd_issue_list() {
     lines="$(PLANS_DIR="$plans" roadmap_entries_by_branch "$(issue_view_branch)" "$(_issue_dev_branch)")"
     if [ -z "$lines" ]; then
         echo "  (No open issues in issues_road_map.md)"
+        _issue_offline_lines
         return 0
     fi
     total="$(printf '%s\n' "$lines" | wc -l | tr -d ' ')"
@@ -1189,6 +1331,7 @@ cmd_issue_list() {
         printf '  %s%s\n' "$line" "$([ -z "$n" ] || _issue_line_notes "$n")"
     done <<< "$lines"
     if [ "$cap" -ne 0 ] && [ "$total" -gt "$cap" ]; then echo "  … $((total - cap)) more (aapp issue list all)"; fi
+    _issue_offline_lines
 }
 
 # ------------------------------------------------------------------------------
@@ -1446,7 +1589,13 @@ cmd_issue_hotfix() {
         printf '%s #%s\n' "$(git rev-parse stash@{0})" "$n" >> "$(git rev-parse --git-path aapp_hotfix_stash)"
         echo "📦 [Issue] Set aside $pid's uncommitted work in ${files[*]}; 'aapp issue close $n' re-applies it." >&2
     fi
-    [ "$want_plan" -eq 1 ] || PLANS_DIR="$plans" roadmap_add_blocker "$n" "$text" "$pid"
+    if [ "$ISSUE_LOGGED_OFFLINE" -eq 1 ]; then
+        # P-75: staged offline, its queue line is too; the plan below still blocks on it.
+        [ "$want_plan" -eq 1 ] || ( ledger_use_offline && roadmap_add_blocker "$n" "$text" "$pid" )
+        offline_commit "issue(hotfix): #$n blocks $pid, staged offline" >/dev/null
+    else
+        [ "$want_plan" -eq 1 ] || PLANS_DIR="$plans" roadmap_add_blocker "$n" "$text" "$pid"
+    fi
     _issue_record_hotfix "$pf" "$n"
     plan_block_on "$pf" "$n" || [ $? -eq 3 ]
     max="$(git config --get aapp.maxEmergencyHotfixes 2>/dev/null)" || max=2
@@ -1697,6 +1846,7 @@ cmd_issue_fix() {
         '') echo "❌ [Issue] Usage: aapp issue fix next-blocker | <num> [file <path>…] | <num> abort" >&2; return 1 ;;
         next-blocker) shift ;;
         *) n="$(issue_id_body "$sub")" || return 1; shift
+           _issue_enter_offline "$n" || return 1
            if [ "${1:-}" = "abort" ]; then _issue_fix_abort "$plans" "$n"; return; fi ;;
     esac
     while [ $# -gt 0 ]; do

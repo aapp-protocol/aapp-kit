@@ -42,8 +42,8 @@ sandbox() {
     '| #7 | `Low` | `CLI` | 2026-08-01 | 2026-08-02 | `0000000` | Closed long ago. |' > .plans/done/000-issues-archive.md
   git -C .plans add -A >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
   git config aapp.issueId 8
-  local s="$R/$name"
-  mkdir -p .agents/skills/aapp-issue-tracker .agents/skills/aapp-planid
+  local s="$R/ctl-$name"
+  mkdir -p "$s" .agents/skills/aapp-issue-tracker
   cat > .agents/skills/aapp-issue-tracker/run <<EOF
 #!/bin/sh
 env="\$(cat | tr -d '\n')"
@@ -60,20 +60,24 @@ case "\$step" in
   *)    echo '{"status": "ok"}' ;;
 esac
 EOF
+  chmod +x .agents/skills/aapp-issue-tracker/run
+  : > "$s/log"
+}
+# planid_provider <ctl-dir>: a plan-id provider for the sandbox we are in.
+planid_provider() {
+  mkdir -p .agents/skills/aapp-planid
   cat > .agents/skills/aapp-planid/run <<EOF
 #!/bin/sh
 cat >/dev/null
-[ -f "$s/fail.plan" ] && exit 3
-id="\$(sed -n 1p "$s/planids" 2>/dev/null)"; [ -n "\$id" ] || exit 3
-sed -i 1d "$s/planids"; printf '{"id": "%s"}\n' "\$id"
+[ -f "$1/fail.plan" ] && exit 3
+id="\$(sed -n 1p "$1/planids" 2>/dev/null)"; [ -n "\$id" ] || exit 3
+sed -i 1d "$1/planids"; printf '{"id": "%s"}\n' "\$id"
 EOF
-  chmod +x .agents/skills/aapp-issue-tracker/run .agents/skills/aapp-planid/run
-  : > "$s/log"
+  chmod +x .agents/skills/aapp-planid/run
 }
-sent() { grep -F "\"event\": \"$2\"" "$R/$1/log" 2>/dev/null | tail -n 1; }
-calls() { grep -c . "$R/$1/log" 2>/dev/null; }
+calls() { grep -c . "$R/ctl-$1/log" 2>/dev/null; }
 
-sandbox "$R/p"; S="$R/p"
+sandbox "$R/p"; S="$R/ctl-p"
 
 echo "== the worktree =="
 dev0="$(git rev-parse develop)"; plans0="$(git -C .plans rev-parse HEAD)"
@@ -196,7 +200,7 @@ else
 fi
 
 echo "== the modes =="
-sandbox "$R/q"; S="$R/q"
+sandbox "$R/q"; S="$R/ctl-q"
 git config aapp.offlineIdOffset 5000
 touch "$S/hang.log"
 out="$(aapp issue log Low CLI "The tracker hangs" file src/a.sh 2>&1)"; rc=$?
@@ -230,8 +234,10 @@ else
 fi
 
 echo "== draft plans =="
-touch "$S/fail.plan"
+planid_provider "$S"; touch "$S/fail.plan"
+# The highest plan id known here: the files', or the one before the counter's next.
 hi="$(ls .plans/current/ .plans/done/ 2>/dev/null | sed -nE 's/^P([0-9]+)-.*/\1/p' | sort -n | tail -n 1)"; hi="${hi:-0}"
+next="$(git config --get aapp.planId || echo 1)"; [ "$hi" -ge $((next - 1)) ] || hi=$((next - 1))
 out="$(aapp draft over-the-ocean 2>&1)"; rc=$?
 out2="$(aapp draft second-thought 2>&1)"; rc2=$?
 t1="$((hi + 5000))"; t2="$((t1 + 1))"
@@ -245,14 +251,15 @@ rm -f "$S/fail.plan"; printf '%s\n' 'P-77' 'P-78' > "$S/planids"; printf '%s\n' 
 out="$(aapp offline sync 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && [ -f .plans/current/P77-over-the-ocean.md ] && grep -qF '* **Plan ID:** P-77' .plans/current/P77-over-the-ocean.md && \
    grep -qF "drafted offline as P-$t1" .plans/current/P77-over-the-ocean.md && [ -f .plans/current/P78-second-thought.md ] && \
-   ! grep -rqF "P-$t1" .plans/current .plans/state_matrix.md && [ -z "$(ls .offline/current 2>/dev/null)" ] && [ -z "$(git -C .plans status --porcelain)" ]; then
+   ! grep -rF "P-$t1" .plans/current .plans/state_matrix.md | grep -vqF "drafted offline as P-$t1" && ! grep -rqF "P$t1-" .plans/current .plans/state_matrix.md && \
+   [ -z "$(ls .offline/current 2>/dev/null)" ] && [ -z "$(git -C .plans status --porcelain)" ]; then
   ok "test_sync_gives_draft_real_plan_id"
 else
   bad "test_sync_gives_draft_real_plan_id" "rc=$rc plans=$(ls .plans/current | tr '\n' ' ') left=$(ls .offline/current 2>/dev/null | tr '\n' ' ') out=$out"
 fi
 
 echo "== the record, the outbox, the push verbs =="
-sandbox "$R/t"; S="$R/t"
+sandbox "$R/t"; S="$R/ctl-t"
 issue() { printf '{"id": "#%s", "sev": "Low", "type": "CORE", "date": "2026-10-01", "location": "`src/%s.sh`", "symptom": "Defect %s shows.", "status": "%s"}\n' "$1" "$2" "$1" "${3:-open}"; }
 touch "$S/lists"; { issue 1 a; issue 2 b; issue 3 c; } > "$S/list"
 aapp issue list confirm >/dev/null 2>&1

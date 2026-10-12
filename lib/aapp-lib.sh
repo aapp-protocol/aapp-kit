@@ -1035,6 +1035,8 @@ ledger_path() {
 # the done/abort snapshots.
 ledger_commit_paths() {
     local which f rel
+    # P-75: the offline ledgers are never committed to the plans branch.
+    [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || return 0
     [ $# -gt 0 ] || set -- issues archive roadmap
     for which in "$@"; do
         f="$(ledger_path "$which")" || continue
@@ -1187,10 +1189,17 @@ issue_text_get() {
 
 # ledger_row <n> -> the active row of #<n>, as written; fails when there is none.
 ledger_row() {
-    local f
-    f="$(ledger_path issues)" || return 1
-    [ -f "$f" ] || return 1
-    grep -m 1 -E "$(_ledger_row_regex "$1")" "$f"
+    local f re real
+    re="$(_ledger_row_regex "$1")"
+    f="$(ledger_path issues)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ] && grep -m 1 -E "$re" "$f"; then return 0; fi
+    # P-75: an issue staged offline, then one known here by a former offline id.
+    [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || return 1
+    f="$(_ledger_offline_path issues)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ] && grep -m 1 -E "$re" "$f"; then return 0; fi
+    real="$(ledger_alias "$1")" || return 1
+    [ -n "$real" ] && [ "$real" != "$1" ] || return 1
+    ledger_row "$real"
 }
 
 # ledger_table <issues|archive|roadmap> [repo-root] -> the ledger file as it
@@ -1283,9 +1292,122 @@ ledger_locate() {
     f="$(ledger_path issues)" || f=""
     if [ -n "$f" ] && [ -f "$f" ] && grep -qE "$re" "$f"; then echo "active"; return 0; fi
     f="$(ledger_path archive)" || f=""
-    if [ -n "$f" ] && [ -f "$f" ] && grep -qE "$re" "$f"; then echo "archive"; fi
+    if [ -n "$f" ] && [ -f "$f" ] && grep -qE "$re" "$f"; then echo "archive"; return 0; fi
+    # P-75: an issue staged offline, then one known here by a former offline id.
+    [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || return 0
+    case "$(ledger_in_offline "$1")" in
+        active)  echo "active"; return 0 ;;
+        archive) echo "archive"; return 0 ;;
+    esac
+    f="$(ledger_alias "$1")" || f=""
+    if [ -n "$f" ] && [ "$f" != "$1" ]; then ledger_locate "$f"; fi
     return 0
 }
+
+# ---- Offline ledgers (P-75) ----
+# Issues logged while the team's provider is unreachable are staged in the
+# `.offline` worktree (orphan branch `offline`, never pushed), in ledgers of the
+# same format: ISSUES.md, done/000-issues-archive.md, issues_road_map.md. They
+# are a second source of the ledger functions: readers see them beside the
+# main ledgers, and a writer is pointed at them with ledger_use_offline.
+
+# offline_dir -> the `.offline` worktree's path (it may not be mounted).
+offline_dir() {
+    local common
+    common="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
+    case "$common" in /*) ;; *) common="$(cd "$common" && pwd)" ;; esac
+    printf '%s/.offline\n' "${common%/.git}"
+}
+
+# offline_mounted: true when the worktree is there.
+offline_mounted() {
+    local d
+    d="$(offline_dir)" || return 1
+    [ -e "$d/.git" ]
+}
+
+_ledger_offline_path() {
+    local d rel
+    offline_mounted || return 1
+    d="$(offline_dir)"; rel="$(_ledger_rel "$1")" || return 1
+    printf '%s/%s\n' "$d" "$rel"
+}
+
+# ledger_in_offline <n> -> "active" or "archive" for an issue staged offline.
+ledger_in_offline() {
+    local f re
+    re="$(_ledger_row_regex "$1")"
+    f="$(_ledger_offline_path issues)" || return 0
+    if [ -f "$f" ] && grep -qE "$re" "$f"; then echo "active"; return 0; fi
+    f="$(_ledger_offline_path archive)" || return 0
+    if [ -f "$f" ] && grep -qE "$re" "$f"; then echo "archive"; fi
+    return 0
+}
+
+# ledger_use_offline: from here on, in this process, the ledger functions read
+# and write the offline ledgers; no verb commits them to the plans branch
+# (ledger_commit_paths names none).
+ledger_use_offline() {
+    local d
+    d="$(offline_dir)" || return 1
+    export AAPP_LEDGER_ISSUES="$d/ISSUES.md" AAPP_LEDGER_ARCHIVE="$d/done/000-issues-archive.md" \
+           AAPP_LEDGER_ROADMAP="$d/issues_road_map.md" AAPP_LEDGER_OFFLINE=1
+}
+
+# ledger_offline_rows -> the active rows staged offline, as ledger_rows gives
+# rows, their source being `offline`.
+ledger_offline_rows() {
+    local f
+    [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || return 0
+    f="$(_ledger_offline_path issues)" || return 0
+    [ -f "$f" ] || return 0
+    AAPP_LEDGER_ISSUES="$f" ledger_rows "${1:-}" | sed 's/	local$/	offline/'
+}
+
+# ledger_offline_ids <active|archive> -> the ids staged offline, bodies, in file order.
+ledger_offline_ids() {
+    local f which="issues"
+    [ "$1" = "archive" ] && which="archive"
+    f="$(_ledger_offline_path "$which")" || return 0
+    [ -f "$f" ] || return 0
+    if [ "$which" = "issues" ]; then AAPP_LEDGER_ISSUES="$f" ledger_ids active; else AAPP_LEDGER_ARCHIVE="$f" ledger_ids archive; fi
+}
+
+# ledger_alias <n> -> the id an issue has now, when <n> is the temporary id it
+# was logged under offline: its archive row says `logged offline as #<n>`, and
+# this machine's alias list (beside the repository's Git data) has the others.
+# Commits made offline name the temporary id for good; they are never rewritten.
+ledger_alias() {
+    local f common hit
+    f="$(ledger_path archive)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ]; then
+        hit="$(grep -m 1 -E "logged offline as #$1([^A-Za-z0-9-]|\$)" "$f" | awk -F'|' '{ gsub(/[ \t`#]/, "", $2); print $2 }')"
+        if [ -n "$hit" ]; then echo "$hit"; return 0; fi
+    fi
+    common="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
+    [ -f "$common/aapp_issue_aliases" ] || return 1
+    hit="$(awk -F'\t' -v id="#$1" '$1 == id { v = $2 } END { sub(/^#/, "", v); print v }' "$common/aapp_issue_aliases")"
+    [ -n "$hit" ] || return 1
+    echo "$hit"
+}
+
+# ledger_alias_add <temp> <real>: remembers a former offline id on this machine.
+ledger_alias_add() {
+    local common
+    common="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
+    printf '#%s\t#%s\n' "$1" "$2" >> "$common/aapp_issue_aliases"
+}
+
+# issue_text_rename <old> <new>: the store's entries of #<old> become #<new>'s.
+issue_text_rename() {
+    local f tmp
+    f="$(issue_text_file)"
+    [ -f "$f" ] || return 0
+    tmp="$f.tmp.$$"
+    ( umask 077; AAPP_OLD="## #$1" AAPP_NEW="## #$2" awk '$0 == ENVIRON["AAPP_OLD"] { print ENVIRON["AAPP_NEW"]; next } { print }' "$f" > "$tmp" ) && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+    chmod 600 "$f" 2>/dev/null || true
+}
+# ---- end offline ledgers ----
 
 # Cells are found by the header's column names (P-78), so a ledger with or
 # without the `Branch` column reads the same. A cell's position is the one

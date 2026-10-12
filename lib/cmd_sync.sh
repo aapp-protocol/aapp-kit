@@ -102,6 +102,18 @@ fi
 RAW_WTS="$(git -C "$REPO_ROOT" config aapp.syncWorktrees 2>/dev/null || echo "plans agents githooks")"
 ACTIVE_WTS=()
 
+# P-75: the `offline` worktree holds temporary ids and is never pushed. It is
+# not in the default list; naming it in aapp.syncWorktrees is refused.
+for token in $RAW_WTS; do
+    case "$token" in
+        offline|.offline)
+            echo "❌ Error: aapp.syncWorktrees names 'offline'. The .offline worktree is never pushed or pulled:" >&2
+            echo "   it holds what was staged while a provider was unreachable. Publish it with 'aapp offline sync'," >&2
+            echo "   and remove 'offline' from the list: git config aapp.syncWorktrees \"plans agents githooks\"" >&2
+            return 1 2>/dev/null || exit 1 ;;
+    esac
+done
+
 for token in $RAW_WTS; do
     # Try prefixed .<token>, then bare <token>
     if [ -d "$REPO_ROOT/.$token" ]; then

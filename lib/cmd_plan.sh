@@ -1180,10 +1180,35 @@ cmd_draft() {
 
     # Monotonic Plan ID allocation
     local plan_id
-    plan_id="$(allocate_plan_id)" || {
-        echo "❌ [Draft Refusal] Failed to allocate Plan ID." >&2
-        return 1
-    }
+    # P-75: with a plan-id provider installed and unreachable (or not to be
+    # asked: offline-only), the draft takes a temporary id and is written to
+    # `.offline/current/`; `aapp offline sync` gives it its real id.
+    local draft_dir="$PLANS_DIR" draft_offline=0 pmode="off"
+    if [ -d "$REPO_ROOT/.agents/skills/aapp-planid" ] && resolve_plugin_entrypoint "$REPO_ROOT/.agents/skills/aapp-planid" "aapp-planid" >/dev/null 2>&1; then
+        _load_issue_module
+        _issue_load_offline || return 1
+        pmode="$(offline_mode)"
+    fi
+    if [ "$pmode" = "only" ]; then
+        draft_offline=1
+    elif ! plan_id="$(allocate_plan_id 2>/dev/null)"; then
+        if [ "$pmode" != "on" ]; then
+            allocate_plan_id >/dev/null || true
+            echo "❌ [Draft Refusal] Failed to allocate Plan ID." >&2
+            return 1
+        fi
+        draft_offline=1
+    fi
+    if [ "$draft_offline" -eq 1 ]; then
+        if [ -n "$promote_issue" ] || [ -n "$join_group" ]; then
+            echo "❌ [Draft Refusal] The plan-id provider is unreachable: a plan drafted offline cannot be linked to an issue or a group until 'aapp offline sync' has published it." >&2
+            return 1
+        fi
+        offline_mount quiet || return 1
+        plan_id="P-$(offline_next_plan_id)"
+        draft_dir="$(offline_dir)"
+        echo "📡 [Draft] The plan-id provider is unreachable: $plan_id is a temporary id, drafted in .offline/current/; 'aapp offline sync' publishes it."
+    fi
     local num="${plan_id#P-}"
 
     local template_file=""
@@ -1200,7 +1225,7 @@ cmd_draft() {
         return 1
     fi
 
-    local target_file="$PLANS_DIR/current/P${num}-${slug}.md"
+    local target_file="$draft_dir/current/P${num}-${slug}.md"
     local today
     today="$(date +%Y-%m-%d)"
     [ -z "$title" ] && title="$(echo "$slug" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')"
@@ -1258,6 +1283,16 @@ cmd_draft() {
             echo "❌ [Draft Refusal] Could not record P-$num in group $join_group." >&2
             exit 1
         }
+    fi
+
+    # P-75: a draft staged offline is committed there, on the `offline` branch;
+    # the plans branch and its matrix learn of it at the sync.
+    if [ "$draft_offline" -eq 1 ]; then
+        offline_commit "plan(draft): P-${num} ${slug} staged offline" >/dev/null
+        echo "🚀 Blueprint scaffolded: .offline/current/P${num}-${slug}.md"
+        echo "   Plan ID: P-${num} (temporary)"
+        echo "   Status : 🟣 Under Review (staged offline)"
+        return 0
     fi
 
     # State matrix registration: derived from the new plan's Status line.
