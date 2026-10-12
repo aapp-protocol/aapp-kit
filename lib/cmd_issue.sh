@@ -873,16 +873,21 @@ cmd_issue_fix() {
     if [ -n "$n" ] && [ -f "$plans/current/fix-$n.md" ]; then
         [ ${#files[@]} -gt 0 ] || { echo "❌ [Issue] #$n is already being fixed; add files with 'file <path>'." >&2; return 1; }
         # Re-render with the combined list (the §4 parser stays in aapp-lib.sh),
-        # keeping the changelog text and the recorded commits.
-        local mp="$plans/current/fix-$n.md" all=() cl commits
+        # keeping the changelog text, the recorded commits and, for a group's
+        # fix, its worktree and group (#132: `close` lands the fix by them).
+        local mp="$plans/current/fix-$n.md" all=() cl commits wtline grp
         while IFS= read -r f; do [ -n "$f" ] && all+=("$f"); done < <(parse_plan_target_paths "$mp")
         for f in "${files[@]}"; do
             printf '%s\n' "${all[@]}" | grep -qxF "$f" || all+=("$f")
         done
         cl="$(sed -nE 's/^\* \*\*Changelog:\*\* Fixed: //p' "$mp" | head -n 1)"
         commits="$(grep -m 1 -E '^\* \*\*Commits:\*\*' "$mp")"
+        wtline="$(sed -nE 's/^\* \*\*Worktree:\*\* //p' "$mp" | head -n 1)"
+        grp="$(sed -nE 's/^\* \*\*Group:\*\* //p' "$mp" | head -n 1)"
         _issue_write_mini "$plans" "$n" "$cl" "${all[@]}"
         AAPP_LINE="$commits" awk '/^\* \*\*Commits:\*\*/ && !d { print ENVIRON["AAPP_LINE"]; d = 1; next } { print }' "$mp" > "$mp.tmp" && mv "$mp.tmp" "$mp"
+        if [ -n "$wtline" ]; then write_plan_field "$mp" Worktree "$wtline" Status || return 1; fi
+        if [ -n "$grp" ]; then write_plan_field "$mp" Group "$grp" Worktree || return 1; fi
         plans_commit "fix(files): #$n" "current/fix-$n.md" || return 1
         echo "🩹 [Issue] #$n: files added (${files[*]})."
         return 0

@@ -160,6 +160,9 @@ out="$(aapp issue fix 3 group "$gid" 2>&1)"; rc=$?
 fwt="$R/gx/.workspace/fix-3"
 opened=0; [ "$rc" -eq 0 ] && [ -d "$fwt" ] && [ "$(git -C "$fwt" rev-parse HEAD)" = "$fsha0" ] && \
   [ "$(git -C "$fwt" rev-parse --abbrev-ref HEAD)" = "fix/3" ] && opened=1
+# Adding a file keeps the fix a group's fix: `close` still lands it (#132).
+aapp issue fix 3 file src/also.sh >/dev/null 2>&1
+grep -q '^\* \*\*Worktree:\*\* ' .plans/current/fix-3.md && grep -qF "* **Group:** $gid" .plans/current/fix-3.md || opened=0
 ( cd "$fwt" && echo "g=2" > src/g.sh && git add src/g.sh && aapp commit "fix: group code (#3)" changelog "group code fixed" >/dev/null 2>&1 )
 out2="$(aapp issue close 3 2>&1)"; rc2=$?
 if [ "$opened" -eq 1 ] && [ "$rc2" -eq 0 ] && [ "$(git show feature/fixgrp:src/g.sh)" = "g=2" ] && \
