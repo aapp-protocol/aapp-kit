@@ -264,12 +264,14 @@ issue_unblock_landed() {
             [ "$(PLANS_DIR="$plans" ledger_locate "$id")" = "archive" ] || continue
             commit="$(PLANS_DIR="$plans" ledger_cell "$id" commit archive | tr -d '`')"
             parent="$(issue_plan_parent "$pf")"
-            if [ "$commit" = "aborted" ] || _issue_fix_in_parent "$pf" "$commit"; then
+            if [ "$commit" = "aborted" ] || [ "$commit" = "tracker" ] || _issue_fix_in_parent "$pf" "$commit"; then
                 plan_unblock "$pf" "$id" || continue
                 printf '%s\n' "${paths[@]}" | grep -qxF "current/$(basename "$pf")" || paths+=("current/$(basename "$pf")")
                 names="${names:+$names, }$pid"
                 if [ "$commit" = "aborted" ]; then
                     echo "🔓 [Issue] $pid no longer waits for #$id: the issue was withdrawn."
+                elif [ "$commit" = "tracker" ]; then
+                    echo "🔓 [Issue] $pid no longer waits for #$id: it was closed on the tracker with no fix to wait for."
                 else
                     echo "🔓 [Issue] $pid no longer waits for #$id: its fix (\`$commit\`) is in '$parent'."
                 fi
@@ -931,7 +933,6 @@ cmd_issue_abort() {
     local issue
     issue="$(issue_payload "$n")" || issue="\"id\": \"#$n\""
     _issue_archive_active "$n" "aborted" "$summary" "issue(abort): withdraw #$n" || return 1
-    _issue_state_set aapp_issue_tracker_closed "$n"
     echo "🗑️  [Issue] #$n withdrawn to done/000-issues-archive.md: $reason"
     [ -z "$went" ] || echo "   Removed with it: $went."
     _issue_report_unblocked "$plans" $IA_TOUCHED
@@ -982,10 +983,10 @@ cmd_issue_close() {
             [ -z "$ISSUE_ASKED_BRANCH" ] || ISSUE_BRANCH="$ISSUE_ASKED_BRANCH"
         fi
         [ -z "$ISSUE_BRANCH" ] || bref="$(aapp_branch_ref "$ISSUE_BRANCH")" || bref=""
-        if [ -n "$sha" ] && [ -n "$bref" ] && ! git merge-base --is-ancestor "$sha^{commit}" "$bref" 2>/dev/null; then
-            # P-74: a closure made on the tracker (a `do` command) waits for the
-            # code; the views say so until the commit is in the branch.
-            [ -z "${AAPP_PLUGIN_MUTED:-}" ] || _issue_state_set aapp_issue_tracker_closed "$n" "$sha" "$ISSUE_BRANCH"
+        # #142: a closure made on the tracker (a provider's `do` command) is not
+        # held to this: the tracker is the record, and the issue is closed here
+        # at once. The plans waiting on it still follow the code, below.
+        if [ -n "$sha" ] && [ -n "$bref" ] && [ -z "${AAPP_PLUGIN_MUTED:-}" ] && ! git merge-base --is-ancestor "$sha^{commit}" "$bref" 2>/dev/null; then
             echo "❌ [Issue] Commit \`$sha\` is not in '$ISSUE_BRANCH', the branch #$n's fix lands on; #$n stays open." >&2
             echo "   Bring the fix into '$ISSUE_BRANCH' (merge or pull it), then close again. Another target: aapp refine issues \"<msg>\" branch $n <name>" >&2
             return 1
@@ -1035,7 +1036,6 @@ cmd_issue_close() {
             issue_bring_fix_to_groups "$n" "$sha"
             issue="$(PLANS_DIR="$plans" issue_payload "$n")" || issue=""
             _issue_archive_active "$n" "$sha" "$summary" "issue(close): archive #$n" "$mp" "$entry" || return 1
-            _issue_state_set aapp_issue_tracker_closed "$n"
             summary="$IA_SUMMARY"
             echo "✅ [Issue] #$n archived to done/000-issues-archive.md (commit \`$sha\`)."
             _issue_report_unblocked "$plans" $IA_TOUCHED
@@ -1142,11 +1142,18 @@ _issue_sync_apply() {
         st="$(json_field "$line" status 2>/dev/null)" || st="open"
         case "$st" in
             closed|resolved|done|Closed|Resolved|Done)
-                # A closure with local work arrives through the `do` list and follows the code.
-                if [ "$(ledger_locate "$n")" = "active" ] && ! printf '%s\n' "$ids" | grep -qxF "#$n"; then
+                # #142: the tracker is the record: what it reports closed is
+                # closed here at once. A plan waiting on the issue is another
+                # matter, and follows the code (issue_unblock_landed): with a
+                # commit, it resumes once that commit is in its parent branch;
+                # with none (`tracker`: won't fix, a duplicate), at once.
+                if [ "$(ledger_locate "$n")" = "active" ]; then
                     v="$(json_field "$line" commit 2>/dev/null)" || v="tracker"
                     f="$(json_field "$line" summary 2>/dev/null)" || f="Closed on the tracker"
                     ledger_archive_row "$n" "$v" "$f" >/dev/null 2>&1
+                    if [ -f "$plans/current/$(issue_fix_name "$n")" ]; then
+                        echo "ℹ️  [Issue] #$n was closed on the tracker while its fix is open here; drop the fix with 'aapp issue fix $n abort'."
+                    fi
                 fi
                 continue ;;
         esac
@@ -1261,20 +1268,20 @@ issue_sync() {
     PLANS_DIR="$plans" _issue_sync_apply "$plans" "$lines" "$ids" "$limit"
     printf '%s\n%s\n' "$now" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$stamp"
     plugin_run_do issue aapp-issue-tracker
+    # #142: the plans that waited on what the tracker has just closed.
+    issue_unblock_landed quiet || true
     return 0
 }
 
 # _issue_line_notes <n>: what follows an issue's line in a listing: what the
-# tracker calls it, and a closure that waits for its commit.
+# tracker calls it.
 _issue_line_notes() {
-    local m w out=""
+    local m out=""
     m="$(_issue_state_get aapp_issue_meta "$1")"
     if [ -n "$m" ]; then
         out="$(printf '%s' "$m" | awk -F'\t' '{ s = ""; if ($1 != "-") s = $1; if ($2 != "-") s = s (s == "" ? "" : " ") $2; if ($3 != "-") s = s (s == "" ? "" : " ") "(" $3 ")"; print s }')"
         [ -z "$out" ] || out="  · $out"
     fi
-    w="$(_issue_state_get aapp_issue_tracker_closed "$1")"
-    [ -z "$w" ] || out="$out  · closed on the tracker; waiting for \`$(printf '%s' "$w" | cut -f1)\` in '$(printf '%s' "$w" | cut -f2)'"
     printf '%s' "$out"
 }
 

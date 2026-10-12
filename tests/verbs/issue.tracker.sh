@@ -219,16 +219,36 @@ fi
 echo "== closures arrive through the do list =="
 { issue 1 a; issue 2 b; issue 5 e; issue 8 h; issue 9 a; } > "$R/list"
 aapp issue list >/dev/null 2>&1
-aapp refine issues "8 belongs to core" branch 8 core >/dev/null 2>&1
-SHA="$(git rev-parse --short=7 develop)"   # the plan's commit: in develop, not in core
-printf '%s\n' "issue close 1 sha $SHA summary \"Closed on the tracker.\"" "issue close 8 sha $SHA summary \"Closed on the tracker.\"" > "$R/do"
+# A closure made on the tracker reaches the ledger at once: the tracker is the
+# record. A plan waiting on the issue follows the code: it resumes when the fix
+# commit is in its parent branch (#142).
+aapp refine "$P" blocked 8 >/dev/null 2>&1
+SHA="$(git rev-parse --short=7 develop)"
+printf '%s\n' "issue close 1 sha $SHA summary \"Closed on the tracker.\"" "issue close 8 sha 0dead0b summary \"Closed by a colleague.\"" > "$R/do"
 out="$(aapp issue list 2>&1)"; rc=$?
 rm -f "$R/do"
 sout="$(aapp status 2>&1)"
-if [ "$rc" -eq 0 ] && ! has_row 1 && archived 1 && has_row 8 && echo "$sout" | grep -F '#8' | grep -qiF 'closed on the tracker'; then
+if [ "$rc" -eq 0 ] && ! has_row 1 && archived 1 && ! has_row 8 && archived 8 && grep -E '^\| #8 \|' .plans/done/000-issues-archive.md | grep -qF '0dead0b' && \
+   grep -qF '#8' <(sed -nE 's/^\* \*\*Blocked On:\*\*//p' "$(pf "$P")") && echo "$sout" | grep -F '#8' | grep -F '0dead0b' | grep -qiF 'waits'; then
   ok "test_do_close_follows_the_code"
 else
-  bad "test_do_close_follows_the_code" "rc=$rc 1=$(has_row 1 && echo open) 8=$(has_row 8 && echo open) status=$(echo "$sout" | grep -F '#8') out=$out"
+  bad "test_do_close_follows_the_code" "rc=$rc 1=$(has_row 1 && echo open) 8=$(has_row 8 && echo open) plan=$(sed -nE 's/^\* \*\*Blocked On:\*\*//p' "$(pf "$P")") status=$(echo "$sout" | grep -F '#8') out=$out"
+fi
+
+# The same when the closure comes in the listing: with a commit that is not
+# here yet the plan waits; with none (won't fix, duplicate) it resumes.
+{ issue 2 b; issue 5 e; issue 9 a; issue 16 a; issue 17 b; } > "$R/list"
+aapp issue list >/dev/null 2>&1
+aapp refine "$P" blocked 16 >/dev/null 2>&1; aapp refine "$P" blocked 17 >/dev/null 2>&1
+{ issue 2 b; issue 5 e; issue 9 a; issue 16 a closed "Defect 16 shows." '"commit": "0feed0c", "summary": "Fixed upstream."'; issue 17 b closed "Defect 17 shows." '"summary": "Duplicate of 2."'; } > "$R/list"
+out="$(aapp issue list 2>&1)"; rc=$?
+blocked="$(sed -nE 's/^\* \*\*Blocked On:\*\*//p' "$(pf "$P")")"
+{ issue 2 b; issue 5 e; issue 9 a; } > "$R/list"
+if [ "$rc" -eq 0 ] && archived 16 && archived 17 && ! has_row 16 && ! has_row 17 && echo "$blocked" | grep -qF '#16' && ! echo "$blocked" | grep -qF '#17' && \
+   [ -z "$(git -C .plans status --porcelain -- current)" ]; then
+  ok "test_listed_closure_reaches_the_ledger"
+else
+  bad "test_listed_closure_reaches_the_ledger" "rc=$rc 16=$(archived 16 && echo archived) 17=$(archived 17 && echo archived) plan=[$blocked] out=$out"
 fi
 
 { issue 2 b; issue 5 e; issue 8 h; issue 9 a; } > "$R/list"

@@ -357,17 +357,10 @@ if [ "$HAS_ISSUES" -eq 0 ]; then
     echo "  (No open issues in issues_road_map.md or ISSUES.md)"
 fi
 
-# P-74: what the sync said, and the issues the tracker reports closed whose
-# commit is not in their branch yet (the closure follows the code, P-78).
+# P-74: what the sync said. An issue the tracker closed is closed here at once;
+# a plan that waited on it is named under Plans until the fix is in its branch.
 if [ -n "$SYNC_OUT" ]; then
     echo "$SYNC_OUT" | sed 's/^/  /'
-fi
-TRACKER_CLOSED="$(git rev-parse --git-common-dir 2>/dev/null)/aapp_issue_tracker_closed"
-if [ -s "$TRACKER_CLOSED" ]; then
-    while IFS="$(printf '\t')" read -r TC_ID TC_SHA TC_BRANCH; do
-        [ -n "$TC_ID" ] || continue
-        echo "  ⏳ $TC_ID is closed on the tracker; it closes here once \`$TC_SHA\` is in '$TC_BRANCH'."
-    done < "$TRACKER_CLOSED"
 fi
 
 # P-78: an issue whose branch is gone is fixed on the development branch;

@@ -108,13 +108,13 @@ A filter that breaks never lets unfiltered text through. Without the plugin inst
 
 - **No provider, or one that does not list:** the ledgers are committed in the plans worktree and shared through Git.
 - **A provider that answers `"handled": "list"` keeps the record.** The first `aapp issue list` against it says what it will do and asks (the bare token `confirm` where there is no terminal): one commit stops tracking `ISSUES.md`, `issues_road_map.md` and `done/000-issues-archive.md` and ignores them. It refuses while an open row here is unknown to the provider. From then on the files stay, in the same format, are brought up to date from the listing row by row, and are never committed or pushed; a `declined` answer to `issue.log` refuses, since no issue exists only locally. A row's plan link and its `Planned` status are derived from the plans at each sync.
-- **A sync** adds or updates the returned issues by id, moves one reported `closed` to the local archive, keeps the issues asked by id whatever the limit, and keeps at most `limit` of the others. A failed sync changes nothing.
+- **A sync** adds or updates the returned issues by id, moves one reported `closed` to the local archive at once (with its `commit`, when the line names one), whether or not a plan here depends on it, keeps the issues asked by id whatever the limit, and keeps at most `limit` of the others. A failed sync changes nothing.
 
 ## Accepted `do` commands
 
 | Command | Arguments | Does |
 | :--- | :--- | :--- |
-| `issue close` | `<id> [sha <sha>] [summary "<text>"]` | Closes an active issue, as `aapp issue close` does. A closure made on the tracker arrives this way and follows the code: with `sha`, it is refused while that commit is not in the issue's branch, and the views mark the issue as closed on the tracker until it is |
+| `issue close` | `<id> [sha <sha>] [summary "<text>"]` | Closes an active issue. A closure made on the tracker may arrive this way or as a `closed` line of the listing; either way the issue is closed here at once, also when the commit is not here yet: the tracker is the record. A plan waiting on the issue follows the code: it resumes once that commit is in its parent branch, and at once when no commit is named |
 | `issue abort` | `<id> [reason "<text>"]` | Withdraws an active issue, as `aapp issue abort` does |
 
 Any other line of a `do` list is refused and reported; the lines after it still run. A tracker's new issues arrive through the list, never as an `issue log` line.

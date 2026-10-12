@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- an issue closed on the tracker is closed here at once; a plan waiting on it resumes when the fix commit is in its branch (`#142`)
 - the agent CLI reference has a line for aapp offline (`#141`)
 - the issue and provider suites set aapp.offlineEnabled false: a failing provider is a failure there (`#140`)
 - aapp issue list asks no provider inside a plugin step; the retired issue next and allocate are no longer named (`#139`)
