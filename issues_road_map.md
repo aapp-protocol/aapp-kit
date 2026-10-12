@@ -12,6 +12,9 @@
 
 ---
 
+## 🧱 Plan Blockers
+- [ ] #134 -> The issues table shape check requires exactly 8 cells per row, so a ledger with a further column is refused by 'aapp refine issues'. (blocks P-78)
+
 ## ⭐ User Priority (Pinned / Immediate Human Focus)
 *Direct developer overrides based on current focus and appetite.*
 *(No pinned user overrides)*
