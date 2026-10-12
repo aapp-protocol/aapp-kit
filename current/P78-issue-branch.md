@@ -47,9 +47,10 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 
 ## 2. Technical Blueprint
 - **The branch of an issue** is where its fix must land. No branch named (an empty cell, a ledger without the column, a payload without the field) means the development branch (`aapp.devBranch`).
-- **Default when logging:** the branch the issue is logged from; for `issue hotfix`, the parent branch of the plan that raises it. `branch <name>` names another (on `issue hotfix` here; on `issue log` with P-74).
+- **Default when logging:** the branch the issue is logged from. From a plan's or a fix's worktree it is that plan's parent branch, never the plan or fix branch, which `done` removes; `issue hotfix` follows the same rule. `branch <name>` names another (on `issue hotfix` here; on `issue log` with P-74). `aapp refine issues "<msg>" branch <n> <name>` sets it later.
 - **Ledger:** a `Branch` column in `ISSUES.md` and the archive. The ledger functions (P-73) read cells by the header's column names, so a ledger without the column keeps working; the column is added by the first write that names a branch other than the development branch. `templates/issues.md` ships with it.
 - **Fixing:** `issue fix <n>` opens the fix on the issue's branch: in the main checkout when it is on that branch, otherwise in `.workspace/fix-<n>` cut from it (the group mechanism, generalised).
+- **A branch that is gone.** A branch that exists only on the remote counts as existing. When the kit removes a branch itself (a group's `done`, a plan abort), it moves that branch's open issues to the branch's parent in the same step. When an issue's branch was removed otherwise, nothing blocks: `issue fix` and `issue close` treat the issue as having no branch named, so the fix lands on the development branch; the cell is cleared and one line says so (`#12 targeted test-oct, which no longer exists; it now targets develop`). `aapp status` reports such issues before anyone meets them. A person who wants another target sets it with the `branch` token.
 - **Closing follows the code:** `issue close <n> sha <sha>` refuses while `<sha>` is not reachable from the issue's branch, naming the branch to update. The kit never pulls or merges a code branch itself. A withdrawn issue (`issue abort`) has no commit and is not subject to this.
 - **Unblocking follows the code:** closing an issue unblocks a plan waiting on it only when the fix commit is reachable from the plan's parent branch. Otherwise the plan stays blocked and shows as "#<n> fixed on `<branch>`, not yet in `<parent>`"; once the branches are merged, the next `aapp status` unblocks it and says so. A plan blocked by a withdrawn issue resumes at once: there is no fix to wait for.
 - **Views:** `status` and `issue list` show each issue's branch, the current branch's issues first.
@@ -68,6 +69,10 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 - [ ] `tests/verbs/issue.branch.sh::test_no_branch_means_dev_branch` -> asserts a row with an empty cell, and a ledger without the column, read as `aapp.devBranch`
 - [ ] `tests/verbs/issue.branch.sh::test_hotfix_takes_plan_parent_branch` -> asserts a hotfix raised from a plan carries that plan's parent branch
 - [ ] `tests/verbs/issue.branch.sh::test_branch_token_adds_column` -> asserts `branch <name>` writes the cell and adds the column to a ledger that lacks it
+- [ ] `tests/verbs/issue.branch.sh::test_log_from_plan_worktree_takes_parent` -> asserts an issue logged from a plan worktree carries the plan's parent branch, not the plan branch
+- [ ] `tests/verbs/issue.branch.sh::test_group_done_moves_issues_to_parent` -> asserts open issues targeting a group's feature branch target its parent after the group's `done`
+- [ ] `tests/verbs/issue.branch.sh::test_gone_branch_falls_back_to_dev` -> asserts `issue fix` on an issue whose branch was deleted opens on the development branch, clears the cell and prints the notice; a branch present only on the remote is not gone
+- [ ] `tests/verbs/issue.branch.sh::test_refine_sets_branch` -> asserts `refine issues "<msg>" branch <n> <name>` changes the cell and refuses a branch that does not exist
 - [ ] `tests/verbs/issue.branch.sh::test_fix_opens_on_issue_branch` -> asserts `issue fix` works in the main checkout on the issue's branch and in `.workspace/fix-<n>` cut from it otherwise
 - [ ] `tests/verbs/issue.branch.sh::test_close_refuses_sha_not_in_branch` -> asserts `close … sha` refuses a commit not reachable from the issue's branch and names the branch
 - [ ] `tests/verbs/issue.branch.sh::test_unblock_waits_for_parent_branch` -> asserts a plan whose parent branch lacks the fix stays blocked, and one whose parent has it is unblocked
@@ -80,7 +85,7 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: `Branch` cell in the ledger functions (read by header name; add the column on first need); template.
-- [ ] Task 2.2: Default and `branch` token at logging (`issue hotfix`).
+- [ ] Task 2.2: Default (parent branch from a plan or fix worktree) and `branch` token at logging (`issue hotfix`) and on `refine issues`; issues moved when the kit removes a branch; the gone-branch fallback.
 - [ ] Task 2.3: `issue fix` on the issue's branch.
 - [ ] Task 2.4: `issue close`: the commit must be in the issue's branch; unblock per plan parent branch.
 - [ ] Task 2.5: `status` and `issue list`; `status` unblocks plans whose fix has reached their parent branch.
@@ -100,7 +105,8 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/aapp-lib.sh` -> Ledger functions: `Branch` cell, cells by header name.
 - [ ] `lib/cmd_issue.sh` -> `branch` token, fix on the issue's branch, close and unblock rules, list.
-- [ ] `lib/cmd_plan.sh` -> `done` closes its issue under the same rule.
+- [ ] `lib/cmd_plan.sh` -> `done` closes its issue under the same rule; `refine issues … branch`; a group's `done` and a plan abort move the removed branch's issues.
+- [ ] `lib/docs/verbs/refine.md` -> Contract: `branch` token.
 - [ ] `lib/cmd_status.sh` -> Branch in the issues pillar.
 - [ ] `templates/issues.md` -> `Branch` column and its definition.
 - [ ] `lib/docs/verbs/issue.md` -> Contract.
