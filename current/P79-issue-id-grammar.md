@@ -63,7 +63,7 @@ Every caller uses these; no caller keeps an id pattern. `tests/issue_id_test.sh:
 ### Phase B: the tracker's key is an id
 The definition accepts two forms after `#`:
 - digits: `#46` (the kit's counter, or a tracker that numbers);
-- a key, a dash, digits: `#PROJ-101` (capital letter, then capitals or digits, `-`, digits).
+- a key, a dash, digits: `#PROJ-101` (capital letter, then capitals or digits, `-`, digits). A key typed or returned in lowercase is uppercased (`proj-101` -> `#PROJ-101`), by the CLI and for a plugin's answer alike; the stored form is always uppercase.
 
 Consequences, each through the functions above:
 - **Everywhere an id goes:** the ledger row, `Target Issue`, `Blocked On`, the road map, `aapp issue fix PROJ-101`, the mini plan `fix-PROJ-101.md`, its worktree `.workspace/fix-PROJ-101` and branch `fix/PROJ-101` (the key form is safe as a file name and a Git ref), the commit subject `(#PROJ-101)`, the bound-plan buffer.
@@ -86,8 +86,8 @@ Consequences, each through the functions above:
 - [ ] `tests/issue_id_test.sh::test_refs_from_plan_lines` -> asserts `issue_id_refs` returns every id of a `Blocked On` line with several
 - [ ] `tests/issue_id_test.sh::test_refs_ignore_headings_and_hex` -> asserts `### PROJ-101`, `#A1B2C3` and `x#12` yield no id, and `(#PROJ-101)` yields one
 - [ ] `tests/issue_id_test.sh::test_no_id_pattern_outside` -> asserts no code outside the id section spells out an id pattern
-- [ ] `tests/issue_id_test.sh::test_key_id_valid` -> asserts `PROJ-101` and `#PROJ-101` are valid and normalize to `#PROJ-101`
-- [ ] `tests/issue_id_test.sh::test_malformed_id_refused` -> asserts `proj-101`, `PROJ-`, `#-7` and `PROJ 101` are refused, naming the accepted forms
+- [ ] `tests/issue_id_test.sh::test_key_id_valid` -> asserts `PROJ-101`, `#PROJ-101` and `proj-101` all normalize to `#PROJ-101`
+- [ ] `tests/issue_id_test.sh::test_malformed_id_refused` -> asserts `PROJ-`, `#-7`, `PROJ 101` and `101-PROJ` are refused, naming the accepted forms
 - [ ] `tests/issue_id_test.sh::test_counter_ignores_key_ids` -> asserts seeding and advancing `aapp.issueId` look at numeric ids only
 - [ ] `tests/verbs/issue.keyid.sh::test_fix_and_close_with_key_id` -> asserts `issue fix PROJ-101` opens `fix-PROJ-101.md`, a commit `(#PROJ-101)` passes the hooks, and `issue close PROJ-101` archives the row
 - [ ] `tests/verbs/issue.keyid.sh::test_key_id_blocks_and_unblocks_plan` -> asserts a plan with `Blocked On: #PROJ-101` is blocked, and unblocked when it closes
