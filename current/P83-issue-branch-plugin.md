@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Group:** P-72
 * **Commits:** none
@@ -158,5 +158,6 @@ A branch is never taken from where an issue was logged or raised. A person or an
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-12:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-12:** Drafted as a member of P-72, before P-74.
