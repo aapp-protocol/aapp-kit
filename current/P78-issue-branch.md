@@ -109,7 +109,7 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 - [ ] `lib/aapp-lib.sh` -> Ledger functions: `Branch` cell, cells by header name.
 - [ ] `lib/cmd_issue.sh` -> `branch` token, fix on the issue's branch, close and unblock rules, list.
 - [ ] `lib/cmd_plan.sh` -> `done` closes its issue under the same rule; `refine issues … branch`; a group's `done` and a plan abort move the removed branch's issues.
-- [ ] `lib/docs/verbs/refine.md` -> Contract: `branch` token.
+- [ ] `lib/docs/verbs/refine.md` -> Contract: `branch` token on `refine issues`; `unblocked <num>` on a plan.
 - [ ] `lib/cmd_status.sh` -> Branch in the issues pillar.
 - [ ] `templates/issues.md` -> `Branch` column and its definition.
 - [ ] `lib/docs/verbs/issue.md` -> Contract.
