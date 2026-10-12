@@ -2,7 +2,7 @@
 * **Created:** 2026-10-09 | **Last Refined:** 2026-10-10
 * **Target Issue / Milestone:** Milestone: Monorepo & Two-Context Architecture
 * **Plan ID:** P-63
-* **Changelog:** Added: adoption checklist: `aapp init` records detected setup advice as checkbox tasks; tracked in `aapp status`
+* **Changelog:** Added: adoption checklist: `aapp init` writes a local setup guide of checkbox tasks to `.plans/adoption.md`; open tasks show in `aapp status`
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,22 +39,16 @@
 
 ## 1. Context & Architectural Goal
 
-`aapp init` sets up what the kit owns (worktrees, hooks, skills). Some of what a project needs for a clean adoption is the adopter's to do, because the kit never edits adopter build configuration:
+`aapp init` sets up what the kit owns (worktrees, hooks, skills). The rest of a clean adoption is the adopter's: naming the project's branches, pushing the kit's branches, filling the project rules, wiring a foreign hook manager, telling a build tool to ignore plan worktrees, reviewing the settings `init` seeded with defaults. Today some of this is printed once by `init` and scrolls away, and most is not mentioned at all.
 
-1. **Build tool exclusions**: a monorepo tool that crawls the repository can pick up plan worktrees (`aapp.planWorktreePath`, default `.workspace/{id}`) as duplicate projects unless it is told to ignore that directory.
-2. **Quality gates**: the P-60 `pre-done` test gate is opt-in and has to be registered by the adopter.
-3. **Hook wiring**: where a hook manager or an existing hook owns the pre-commit hook, the adopter has to call `.githooks/aapp-pre-commit` from it.
+**Core Principle:** The kit serves many projects and teams. It never assumes a project's branch names, tools or policies, and never rewrites adopter build configuration; it asks.
 
-Today such advice is printed once by `init` and scrolls away.
-
-**Core Principle:** The kit never rewrites adopter build configuration files.
-
-**Goal:** a durable adoption checklist at `.plans/adoption.md`.
-- `aapp init` detects what applies and adds it as a checkbox task with a stable tag (`[MONO-NX]`, `[GATE-TEST]`) and a copy-paste instruction.
-- Re-running `aapp init` ticks tasks it can verify (`- [ ]` → `- [x]`) and never unticks one.
+**Goal:** a welcome setup guide, the adoption checklist at `.plans/adoption.md`.
+- `aapp init` adds everything a user may need to adjust as a checkbox task: a stable tag (`[DEV-BRANCH]`), a copy-paste instruction, and the manual section that explains it.
+- Re-running `aapp init` ticks tasks it can verify (`- [ ]` → `- [x]`) and never unticks one. A task the kit cannot verify is ticked by the user.
 - `aapp status` shows the count of open tasks until none is left.
 
-**Local to each clone.** The kit writes this file by itself, so it is never committed: a file `init` changes on every developer's machine would diverge on the shared `plans` branch and block `pull`. Each clone keeps its own checklist. A task a teammate resolved in the code is ticked on the next `init`, or never appears; only a hand-ticked dismissal is not shared.
+**Local to each clone.** The kit writes this file by itself, so it is never committed: a file `init` changes on every developer's machine would diverge on the shared `plans` branch and block `pull`. Each clone keeps its own checklist, which also fits its content: `aapp.*` settings are per-clone git config (#126). A task a teammate resolved in the code is ticked on the next `init`, or never appears; a hand tick is not shared.
 
 ---
 
@@ -65,49 +59,98 @@ Today such advice is printed once by `init` and scrolls away.
 - Seeded from `templates/adoption.md` by `sync_tier3_data`, as `ISSUES.md` is: once, never overwritten.
 - **Untracked**: `init` writes the line `adoption.md` into `.plans/.gitignore` (the file it already maintains for the local `pickup/` store), on a new install and, when missing, on a re-run. The file is never staged, committed or pushed.
 - Plan worktrees read it through their `.plans` link.
-- The template is a title, a short note and an empty list. No date and no count line: nothing in the file changes unless a task is added or ticked.
-- One flat list; a task is one line:
+- No date and no count line: nothing in the file changes unless a task is added or ticked.
+- The template is the title, a note and the section headings; tasks are appended under their section:
   ```markdown
   # 📋 Adoption Checklist
 
-  > Setup the kit detected but leaves to you. `aapp init` adds tasks and ticks the ones it can verify; tick a task yourself to dismiss it.
+  > Your setup guide. `aapp init` adds tasks and ticks the ones it can verify; tick a task yourself when it is done or does not apply.
 
-  - [ ] `[MONO-NX]` Add `/.workspace` to `.nxignore`, so Nx does not discover plan worktrees as duplicate projects.
-  - [x] `[GATE-TEST]` Register a `pre-done` test gate: …
+  ## 🌿 Branches & Remote
+  - [ ] `[DEV-BRANCH]` Name your development branch: `git config aapp.devBranch <name>`. → MANUAL: Adaptive Branch Protection & Repository Topologies
+
+  ## 👥 Team
+  ## 📁 Project Files
+  ## 🛡️ Hooks & Gates
+  ## 🛠️ Build Tools
+  ## ⚙️ Settings to Review
   ```
+- **Manual link**: every task ends with `→ MANUAL: <section heading>`, the heading of the `MANUAL.md` section that explains it. It is a heading, not a path: an installed kit ships no manual yet (#127); when it does, the same catalogue field renders a path.
 
-### 2.2 Rules Catalogue (`lib/cmd_init.sh`)
+### 2.2 Rules Catalogue (`lib/adoption.sh`)
 
-`sync_adoption_checklist` holds the catalogue as one list; a rule is one entry: tag, trigger, check, text. `<dir>` is the first path segment of `aapp.planWorktreePath` (`.workspace` by default); when that path leaves the repository (absolute, or starting with `..`), the `MONO-*` rules do not apply.
+One list; a rule is one entry: tag, section, trigger, check, text, manual heading. `init` sources the file and calls `sync_adoption_checklist`. A rule without a check is a **review task**: only the user ticks it.
 
-| Tag | Trigger | Check (ticks the task) | Text |
+`<dir>` is the first path segment of `aapp.planWorktreePath` (`.workspace` by default); when that path leaves the repository, the `MONO-*` rules do not apply.
+
+**🌿 Branches & Remote**
+
+| Tag | Added when | Ticked when | Asks |
 | :--- | :--- | :--- | :--- |
-| `[MONO-NX]` | `nx.json` at the root | `.nxignore` has a line `<dir>` or `/<dir>`, with or without a trailing `/` | Add `/<dir>` to `.nxignore`, so Nx does not discover plan worktrees as duplicate projects. |
-| `[MONO-BAZEL]` | `WORKSPACE`, `WORKSPACE.bazel` or `MODULE.bazel` at the root | `.bazelignore` has a line `<dir>` | Add `<dir>` to `.bazelignore`, so Bazel does not load plan worktrees as packages. |
-| `[GATE-TEST]` | always | `.agents/skills/aapp-hooks/registry.tsv` has a `pre-done` row | Register a `pre-done` test gate: copy `examples/hooks/test-gate.sh.sample` from the kit to `.agents/hooks/test-gate.sh`, set its test command, then `aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate >> .agents/skills/aapp-hooks/registry.tsv`. |
+| `[DEV-BRANCH]` | `aapp.devBranch` is unset | the key is set | Name the development branch; tick it when the kit's defaults (`develop dev development`) are yours or you work on one branch. |
+| `[STABLE-BRANCH]` | `aapp.protectedBranches` is unset and the default branch is not in `main master production` | the key is set | Name the protected branches. |
+| `[REMOTE]` | `aapp.remote` names no existing remote | it names one | Add a remote or set `aapp.remote`. |
+| `[FIRST-PUSH]` | the remote exists and a branch of `aapp.syncWorktrees` is not on it | all are | Run `aapp push`, so teammates can get the plans, rules and hooks. |
 
-| `[HOOK-WIRING]` | `HOOK_MANAGER_NOTICE=1`: `core.hooksPath` points elsewhere, `.git/hooks/pre-commit` is executable, or `.githooks/pre-commit` is not a shell script | `aapp-pre-commit` is named in the active pre-commit hook file or in a hook manager's file: `.husky/pre-commit`, `lefthook.yml`, `.lefthook.yml`, `.pre-commit-config.yaml` | Call `.githooks/aapp-pre-commit` from your pre-commit hook (the line `init` prints; recipes in `MANUAL.md` §7). |
+**👥 Team**
 
-The scan runs after `init` has detected the hook manager; the notice `init` prints today stays.
+| Tag | Added when | Ticked when | Asks |
+| :--- | :--- | :--- | :--- |
+| `[PLAN-ID-PROVIDER]` | always | `.agents/skills/aapp-planid/` exists | More than one contributor needs an `aapp-planid` provider, or two people allocate the same Plan ID; tick it when you work alone. |
+| `[TEAM-SETTINGS]` | always | review task | Settings are local to this clone: agree the project's values and set them on every clone (#126). |
 
-**Not in the catalogue** (listed in `MANUAL.md` §14 as unverified, with the reason):
-- Turborepo: it follows the package manager's workspace list and has no ignore file of its own.
-- pnpm: its `packages` globs are relative to the root, so only a glob such as `**` reaches the worktree directory.
-- TypeScript: `include` wildcards never match a directory whose name starts with a dot.
+**📁 Project Files**
+
+| Tag | Added when | Ticked when | Asks |
+| :--- | :--- | :--- | :--- |
+| `[INIT-FILES]` | `.gitignore`, `.gitattributes`, `CHANGELOG.md` or `ARCHITECTURE.md` is untracked or modified | all are tracked and clean | Commit the files `init` wrote on the code branch; plan worktrees are cut from it. |
+| `[PROJECT-RULES]` | `.agents/PROJECT.MD` still has template placeholders | none remains | Fill the project rules, or run `/aapp-digest Onboarding`. |
+| `[PROJECT-MAP]` | `.agents/CODEMAP.md` or `ARCHITECTURE.md` is identical to its template | both differ | Map the codebase, or run `/aapp-digest Onboarding`. |
+| `[TEMPLATE-DRIFT]` | a `*.new` file from a template sync exists | none exists | Merge each `*.new` file into its original and delete it. |
+| `[ISSUES-SCHEMA]` | `.plans/ISSUES.md` lacks the ledger header (the test `init` already makes) | the header is there | Adapt the file to the flat issue ledger. |
+| `[PROTOCOL-BLOCK]` | a synced file has an unclosed `AAPP-PROTOCOL:START` marker | none has | Close the marker so the block syncs again. |
+
+**🛡️ Hooks & Gates**
+
+| Tag | Added when | Ticked when | Asks |
+| :--- | :--- | :--- | :--- |
+| `[WRITE-GUARD]` | the Claude settings do not name `blast-radius-guard` (e.g. `python3` was missing at `init`) | they do | Install `python3` and re-run `aapp init`, or add the guard hook by hand. |
+| `[HOOK-WIRING]` | `HOOK_MANAGER_NOTICE=1`: `core.hooksPath` points elsewhere, `.git/hooks/pre-commit` is executable, or `.githooks/pre-commit` is not a shell script | `aapp-pre-commit` is named in the active pre-commit hook file, `.husky/pre-commit`, `lefthook.yml`, `.lefthook.yml` or `.pre-commit-config.yaml` | Call `.githooks/aapp-pre-commit` from your pre-commit hook. |
+| `[GATE-TEST]` | always | the hooks registry has a `pre-done` row | Register a `pre-done` test gate from `examples/hooks/test-gate.sh.sample` with `aapp hook-hash`; tick it when you do not want one. |
+
+**🛠️ Build Tools**
+
+| Tag | Added when | Ticked when | Asks |
+| :--- | :--- | :--- | :--- |
+| `[MONO-NX]` | `nx.json` at the root | `.nxignore` has a line `<dir>` or `/<dir>` | Add `/<dir>` to `.nxignore`. |
+| `[MONO-BAZEL]` | `WORKSPACE`, `WORKSPACE.bazel` or `MODULE.bazel` at the root | `.bazelignore` has a line `<dir>` | Add `<dir>` to `.bazelignore`. |
+
+Not in the catalogue, listed in `MANUAL.md` §14 as unverified with the reason: Turborepo (follows the package manager's workspace list), pnpm (root-relative globs), TypeScript (`include` wildcards skip dot-directories).
+
+**⚙️ Settings to Review** (review tasks, added always; `init` seeded the default shown)
+
+| Tag | Setting and default | Asks |
+| :--- | :--- | :--- |
+| `[SET-WORKTREES]` | `aapp.planWorktrees` = `off` | One worktree and branch per plan? Group plans need `on`. |
+| `[SET-INTEGRATE]` | `aapp.integrate` = `manual` | How `done` integrates a plan branch: `manual`, `squash`, `ff`, `hook`. |
+| `[SET-COMMIT-MODE]` | `aapp.commitMode` = `atomic`, `aapp.changelogMode` = `plan` | One commit per plan or many; one changelog entry per plan or per commit. |
+| `[SET-ATTRIBUTION]` | `aapp.aiAttribution` = `none` | Record which agent wrote a commit: `lax`, `strict`, `notes`. |
+
+The scan runs after `init` has detected the hook manager and seeded its settings; the notices `init` prints today stay.
 
 ### 2.3 Sync Protocol
 
 For each rule, by its tag:
-1. **A line with the tag exists and is `- [x]`**: left alone. A tick, the kit's or the human's, is never undone.
-2. **A line exists and is `- [ ]`**: ticked when the check passes; otherwise left alone.
-3. **No line**: appended as `- [ ]` when the trigger holds and the check fails. Nothing is added for a setup that is already right.
-4. A line's text is never rewritten and no line is deleted: the human owns the file.
+1. **A line with the tag exists and is `- [x]`**: left alone. A tick, the kit's or the user's, is never undone.
+2. **A line exists and is `- [ ]`**: ticked when the rule has a check and it passes; otherwise left alone.
+3. **No line**: appended under the rule's section as `- [ ]` when the trigger holds and the check does not pass. Nothing is added for a setup that is already right.
+4. A line's text is never rewritten and no line is deleted: the user owns the file. A missing section heading is appended at the end.
 
-Nothing is committed: the file is ignored, so the plans worktree stays clean and `pull` / `sync` are never blocked by it. With open tasks, `init`'s report ends with one line: `📋 <N> adoption task(s) open: .plans/adoption.md`.
+Nothing is committed: the file is ignored, so the plans worktree stays clean and `pull` / `sync` are never blocked by it. With open tasks, `init`'s report ends with one line: `📋 <N> setup task(s) open: .plans/adoption.md`.
 
 ### 2.4 `aapp status` (`lib/cmd_status.sh`)
 
-- Open tasks are the tagged unticked lines: `` ^- \[ \] `\[ `` in `.plans/adoption.md`; a missing file counts as 0. The count is read with `grep -c … || true` into a variable defaulted to 0, never `|| echo 0` (which prints a second `0` when the file has no match).
+- `adoption_open_count` in `lib/adoption.sh` is the one reader of open tasks (tagged unticked lines, `` ^- \[ \] `\[ ``; a missing file is 0); `init`'s report line and `status` both call it.
 - With open tasks, the overview line gains ` | <N> adoption` after the pickup count (so `status short` stays one line), and the briefing prints, after the pickup pillar: `📋 Adoption: <N> open task(s) in .plans/adoption.md`.
 - With none, nothing is printed: the output is as it is today.
 
@@ -121,15 +164,18 @@ Nothing is committed: the file is ignored, so the plans worktree stays clean and
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/install_test.sh::test_adoption_seeded_and_untracked` -> asserts `init` creates `.plans/adoption.md`, lists it in `.plans/.gitignore`, commits no version of it and leaves the plans worktree clean
-- [ ] `tests/install_test.sh::test_adoption_adds_detected_rules` -> asserts `nx.json` adds `[MONO-NX]`, a Bazel marker adds `[MONO-BAZEL]`, and `[GATE-TEST]` is added without a `pre-done` row
-- [ ] `tests/install_test.sh::test_adoption_skips_satisfied_rules` -> asserts a rule whose check already passes adds no line
-- [ ] `tests/install_test.sh::test_adoption_rerun_ticks_verified` -> asserts after `.nxignore` gains the directory, a re-run ticks `[MONO-NX]` and the plans branch gains no commit
-- [ ] `tests/install_test.sh::test_adoption_rerun_is_quiet` -> asserts a re-run with nothing new changes no byte
-- [ ] `tests/install_test.sh::test_adoption_keeps_human_edits` -> asserts a hand-ticked task and a hand-edited line survive a re-run
-- [ ] `tests/install_test.sh::test_adoption_hook_wiring` -> asserts a foreign `core.hooksPath` adds `[HOOK-WIRING]`, and naming `aapp-pre-commit` in the hook ticks it on a re-run
-- [ ] `tests/install_test.sh::test_adoption_gitignore_added_on_rerun` -> asserts an existing `.plans/.gitignore` without the line gains it
-- [ ] `tests/install_test.sh::test_adoption_follows_worktree_path` -> asserts a custom `aapp.planWorktreePath` names its directory, and a path outside the repository adds no `MONO-*` task
+- [ ] `tests/adoption_test.sh::test_seeded_and_untracked` -> asserts `init` creates `.plans/adoption.md` with its sections, lists it in `.plans/.gitignore`, commits no version of it and leaves the plans worktree clean
+- [ ] `tests/adoption_test.sh::test_gitignore_line_added_on_rerun` -> asserts an existing `.plans/.gitignore` without the line gains it
+- [ ] `tests/adoption_test.sh::test_fresh_install_tasks` -> asserts a fresh project gets `[DEV-BRANCH]`, `[PLAN-ID-PROVIDER]`, `[TEAM-SETTINGS]`, `[INIT-FILES]`, `[PROJECT-RULES]`, `[PROJECT-MAP]`, `[GATE-TEST]` and the four `SET-*` tasks, each under its section
+- [ ] `tests/adoption_test.sh::test_satisfied_rules_add_nothing` -> asserts a rule whose check already passes adds no line
+- [ ] `tests/adoption_test.sh::test_branch_and_remote_rules` -> asserts `[DEV-BRANCH]` ticks once `aapp.devBranch` is set, `[STABLE-BRANCH]` appears for a default branch outside the list, `[REMOTE]` for a missing remote and `[FIRST-PUSH]` until the kit's branches are on it
+- [ ] `tests/adoption_test.sh::test_project_file_rules` -> asserts `[INIT-FILES]`, `[PROJECT-RULES]`, `[PROJECT-MAP]`, `[TEMPLATE-DRIFT]`, `[ISSUES-SCHEMA]` and `[PROTOCOL-BLOCK]` appear on their trigger and tick once resolved
+- [ ] `tests/adoption_test.sh::test_hook_rules` -> asserts a foreign `core.hooksPath` adds `[HOOK-WIRING]` and naming `aapp-pre-commit` ticks it; a `pre-done` registry row ticks `[GATE-TEST]`; settings without the guard add `[WRITE-GUARD]`
+- [ ] `tests/adoption_test.sh::test_build_tool_rules_follow_worktree_path` -> asserts `nx.json` and a Bazel marker add their tasks naming the configured directory, the ignore line ticks them, and a worktree path outside the repository adds none
+- [ ] `tests/adoption_test.sh::test_review_tasks_only_user_ticks` -> asserts a review task stays open over re-runs and a hand tick survives
+- [ ] `tests/adoption_test.sh::test_rerun_is_quiet` -> asserts a re-run with nothing new changes no byte, and the plans branch gains no commit
+- [ ] `tests/adoption_test.sh::test_user_edits_survive` -> asserts a hand-ticked task, a reworded line and a deleted line's absence are kept as the user left them, except that a still-triggered deleted task returns
+- [ ] `tests/adoption_test.sh::test_manual_headings_exist` -> asserts every catalogue entry's manual heading is a heading in `MANUAL.md`
 - [ ] `tests/verbs/status.sh::test_overview_counts_open_adoption_tasks` -> asserts open tasks add `| <N> adoption` to the overview and the `📋 Adoption:` line to the briefing
 - [ ] `tests/verbs/status.sh::test_no_adoption_output_when_none_open` -> asserts with no file or no open task the output has neither
 
@@ -138,13 +184,14 @@ Nothing is committed: the file is ignored, so the plans worktree stays clean and
 
 ### Phase 2: Implementation
 - [ ] Task 2.1: `templates/adoption.md`.
-- [ ] Task 2.2: `sync_adoption_checklist` in `lib/cmd_init.sh`: seeding, the `.plans/.gitignore` line, catalogue, sync protocol, report line.
-- [ ] Task 2.3: `lib/cmd_status.sh`: the count, the overview segment, the briefing line.
+- [ ] Task 2.2: `lib/adoption.sh`: the catalogue, `sync_adoption_checklist`, `adoption_open_count`.
+- [ ] Task 2.3: `lib/cmd_init.sh`: seeding, the `.plans/.gitignore` line, the call after settings and hook detection, the report line.
+- [ ] Task 2.4: `lib/cmd_status.sh`: the overview segment and the briefing line.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run the kit suites; the Required Tests pass.
 - [ ] Task 3.2: `lib/docs/verbs/status.md`: the overview segment and the briefing line.
-- [ ] Task 3.3: `MANUAL.md` (the checklist, the catalogue, §14 for the tools left out) and `CHEATSHEET.md`.
+- [ ] Task 3.3: `MANUAL.md`: an "Adoption Checklist" section explaining every task (the link target of tasks with no section of their own), §14 for the tools left out; `CHEATSHEET.md`.
 - [ ] Task 3.4: `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
 - [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
@@ -153,21 +200,22 @@ Nothing is committed: the file is ignored, so the plans worktree stays clean and
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `templates/adoption.md` -> The checklist's starter: title, note, empty list.
-- [ ] `lib/cmd_init.sh` -> `sync_adoption_checklist`: catalogue, sync protocol, report line; the `.plans/.gitignore` line.
+- [ ] `NEW FILE` -> `templates/adoption.md` -> The checklist's starter: title, note, section headings.
+- [ ] `NEW FILE` -> `lib/adoption.sh` -> The rules catalogue, `sync_adoption_checklist`, `adoption_open_count`.
+- [ ] `lib/cmd_init.sh` -> Seeding, the `.plans/.gitignore` line, the sync call, the report line.
 - [ ] `lib/cmd_status.sh` -> Open-task count in the overview and the briefing.
 - [ ] `lib/docs/verbs/status.md` -> Contract: the adoption segment and line.
-- [ ] `tests/install_test.sh` -> Checklist seeding, detection, re-runs.
+- [ ] `NEW FILE` -> `tests/adoption_test.sh` -> The checklist suite.
 - [ ] `tests/verbs/status.sh` -> The count in the overview and the briefing.
-- [ ] `MANUAL.md` -> The adoption checklist, its catalogue, the tools left out (§14).
+- [ ] `MANUAL.md` -> The "Adoption Checklist" section, the catalogue, the tools left out (§14).
 - [ ] `CHEATSHEET.md` -> The checklist in the `init` and `status` rows.
 - [ ] `ARCHITECTURE.md` -> The adoption checklist.
-- [ ] `.agents/CODEMAP.md` -> `sync_adoption_checklist`.
+- [ ] `.agents/CODEMAP.md` -> `lib/adoption.sh`.
 - [ ] `CHANGELOG.md` -> Entry written by `aapp commit`.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
-- [ ] `tests/install_test.sh`
+- [ ] `tests/adoption_test.sh`
 - [ ] `tests/verbs/status.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -176,6 +224,8 @@ Nothing is committed: the file is ignored, so the plans worktree stays clean and
 - [ ] `.githooks/*` -> Core hook runners untouched.
 - [ ] `templates/blast-radius-guard.sh` -> Guard logic untouched.
 - [ ] `lib/cmd_upgrade.sh` -> `upgrade` does not run `init`; it keeps telling the user to.
+- [ ] `lib/cmd_install.sh` -> Installing the manual is #127.
+- [ ] `tests/install_test.sh` -> The checklist has its own suite.
 
 ---
 
@@ -186,6 +236,7 @@ Nothing is committed: the file is ignored, so the plans worktree stays clean and
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-12:** A welcome setup guide: the catalogue covers everything a user may need to adjust (branches, remote, team, project files, hooks, build tools, settings to review), each task with its manual section; catalogue in `lib/adoption.sh`, its own test suite.
 * **2026-10-12:** The checklist is local to each clone: ignored in `.plans/.gitignore`, never committed. `[HOOK-WIRING]` is back in the catalogue.
 * **2026-10-12:** Aligned with the code: repository facts only (clone-level advice stays out), catalogue cut to rules checked against the tools (Nx, Bazel, test gate), no date or count line, directory from `aapp.planWorktreePath`, the checklist's own commit, status wording, Required Tests.
 * **2026-10-10:** Deep research completed: defined rules catalog (`[MONO-NX]`, `[MONO-PNPM]`, `[MONO-TURBO]`, `[MONO-BAZEL]`, `[MONO-TS]`, `[GATE-TEST]`, `[HOOK-WIRING]`), idempotency protocol, status overview metrics, resolved Q1/Q2, and locked blast radius.
