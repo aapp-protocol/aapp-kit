@@ -887,12 +887,24 @@ _ledger_row_regex() {
 # or a project keeping its ledgers at the root). When the file is nowhere it
 # prints where it would be; callers test `-f`. Fails only with no place to look.
 ledger_path() {
-    local rel root
+    local rel root given
     rel="$(_ledger_rel "$1")" || return 2
+    # A caller holding the file itself (the health checks take paths) names it.
+    case "$1" in
+        issues)  given="${AAPP_LEDGER_ISSUES:-}" ;;
+        archive) given="${AAPP_LEDGER_ARCHIVE:-}" ;;
+        roadmap) given="${AAPP_LEDGER_ROADMAP:-}" ;;
+    esac
+    if [ -n "$given" ]; then printf '%s\n' "$given"; return 0; fi
+    # A named root is looked at alone; $PLANS_DIR serves the callers without one.
+    if [ -n "${2:-}" ]; then
+        if [ -f "$2/.plans/$rel" ]; then printf '%s\n' "$2/.plans/$rel"; elif [ -f "$2/$rel" ]; then printf '%s\n' "$2/$rel"; else printf '%s\n' "$2/.plans/$rel"; fi
+        return 0
+    fi
     if [ -n "${PLANS_DIR:-}" ] && [ -f "$PLANS_DIR/$rel" ]; then
         printf '%s\n' "$PLANS_DIR/$rel"; return 0
     fi
-    root="${2:-${REPO_ROOT:-}}"
+    root="${REPO_ROOT:-}"
     [ -n "$root" ] || root="$(git rev-parse --show-toplevel 2>/dev/null)" || root=""
     if [ -n "$root" ] && [ -f "$root/.plans/$rel" ]; then printf '%s\n' "$root/.plans/$rel"; return 0; fi
     if [ -n "$root" ] && [ -f "$root/$rel" ]; then printf '%s\n' "$root/$rel"; return 0; fi
@@ -920,6 +932,15 @@ ledger_row() {
     f="$(ledger_path issues)" || return 1
     [ -f "$f" ] || return 1
     grep -m 1 -E "$(_ledger_row_regex "$1")" "$f"
+}
+
+# ledger_table <issues|archive|roadmap> [repo-root] -> the ledger file as it
+# is, for the checks that need its line numbers and layout.
+ledger_table() {
+    local f
+    f="$(ledger_path "$1" "${2:-}")" || return 0
+    [ -f "$f" ] || return 0
+    cat "$f"
 }
 
 # ledger_row_lines -> every active row, as written, in file order.
@@ -975,8 +996,10 @@ ledger_ids() {
         sed -nE 's/^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?0*([0-9]+).*/\2/p' "$f"
     else
         awk -F'|' '/^[[:space:]]*\|[[:space:]]*`?#?[0-9]+/ {
-            id = $2; gsub(/[ \t`]/, "", id); sub(/^(ISSUE-?|issue-?|#)/, "", id); sub(/^0+/, "", id)
-            if (id ~ /^[0-9]+$/) print id
+            id = $2; gsub(/[ \t`]/, "", id); sub(/^(ISSUE-?|issue-?|#)/, "", id)
+            if (id !~ /^[0-9]+$/) next
+            sub(/^0+/, "", id); if (id == "") id = "0"
+            print id
         }' "$f"
     fi
 }

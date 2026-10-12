@@ -70,27 +70,12 @@ find_aapp_file() {
     local repo_root
     repo_root="$(resolve_health_repo_root "${2:-}")" || return 1
 
+    local found
     case "$name" in
-        issues)
-            if [ -f "$repo_root/.plans/ISSUES.md" ]; then
-                echo "$repo_root/.plans/ISSUES.md"
-            elif [ -f "$repo_root/ISSUES.md" ]; then
-                echo "$repo_root/ISSUES.md"
-            fi
-            ;;
-        archive)
-            if [ -f "$repo_root/.plans/done/000-issues-archive.md" ]; then
-                echo "$repo_root/.plans/done/000-issues-archive.md"
-            elif [ -f "$repo_root/done/000-issues-archive.md" ]; then
-                echo "$repo_root/done/000-issues-archive.md"
-            fi
-            ;;
-        roadmap)
-            if [ -f "$repo_root/.plans/issues_road_map.md" ]; then
-                echo "$repo_root/.plans/issues_road_map.md"
-            elif [ -f "$repo_root/issues_road_map.md" ]; then
-                echo "$repo_root/issues_road_map.md"
-            fi
+        issues|archive|roadmap)
+            # The issue ledgers are located by the ledger functions (P-73).
+            found="$(ledger_path "$name" "$repo_root")" || found=""
+            if [ -n "$found" ] && [ -f "$found" ]; then echo "$found"; fi
             ;;
         pickup)
             if [ -f "$repo_root/.plans/pickup.md" ]; then
@@ -116,50 +101,11 @@ find_aapp_file() {
     esac
 }
 
-# Extract normalized numeric IDs from ISSUES.md table
-get_active_issue_ids() {
-    local issues_file="$1"
-    [ ! -f "$issues_file" ] && return 0
-
-    # Match rows starting with | followed by an issue ID token
-    while IFS= read -r line; do
-        # Extract first column after leading |
-        local raw_id
-        raw_id=$(echo "$line" | awk -F'|' '{print $2}' | tr -d ' ')
-        local norm_id
-        norm_id=$(normalize_issue_id "$raw_id")
-        [ -n "$norm_id" ] && echo "$norm_id"
-    done < <(grep -E '^[[:space:]]*\|[[:space:]]*`?#?[0-9]+' "$issues_file" 2>/dev/null || true)
-}
-
-# Extract normalized numeric IDs from 000-issues-archive.md
-get_archived_issue_ids() {
-    local archive_file="$1"
-    [ ! -f "$archive_file" ] && return 0
-
-    while IFS= read -r line; do
-        local raw_id
-        raw_id=$(echo "$line" | awk -F'|' '{print $2}' | tr -d ' ')
-        local norm_id
-        norm_id=$(normalize_issue_id "$raw_id")
-        [ -n "$norm_id" ] && echo "$norm_id"
-    done < <(grep -E '^[[:space:]]*\|[[:space:]]*`?#?[0-9]+' "$archive_file" 2>/dev/null || true)
-}
-
-# Extract normalized numeric IDs from issues_road_map.md
-get_roadmap_issue_ids() {
-    local roadmap_file="$1"
-    [ ! -f "$roadmap_file" ] && return 0
-
-    local list_regex='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?([0-9]+)'
-    while IFS= read -r line; do
-        local num
-        num=$(echo "$line" | sed -E 's/^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?#?([0-9]+).*/\2/')
-        local norm_id
-        norm_id=$(normalize_issue_id "$num")
-        [ -n "$norm_id" ] && echo "$norm_id"
-    done < <(grep -E "$list_regex" "$roadmap_file" 2>/dev/null || true)
-}
+# The checks below take the ledger files as arguments; the ids themselves are
+# read by the ledger functions of lib/aapp-lib.sh (P-73).
+get_active_issue_ids()   { AAPP_LEDGER_ISSUES="$1" ledger_ids active; }
+get_archived_issue_ids() { AAPP_LEDGER_ARCHIVE="$1" ledger_ids archive; }
+get_roadmap_issue_ids()  { AAPP_LEDGER_ROADMAP="$1" ledger_ids roadmap; }
 
 # Check Pair 1: ISSUES.md <-> 000-issues-archive.md
 check_pair1_disjointness() {
@@ -168,8 +114,7 @@ check_pair1_disjointness() {
     local errors=0
 
     # 1. Dedicated Table Row Matcher for resolved rows in active table
-    local resolved_row_regex='^[[:space:]]*\|[[:space:]]*`?#?[0-9]+`?.*(✅|[Rr]esolved)'
-    if [ -f "$issues_file" ] && grep -qE "$resolved_row_regex" "$issues_file" 2>/dev/null; then
+    if [ -f "$issues_file" ] && [ -n "$(AAPP_LEDGER_ISSUES="$issues_file" ledger_resolved_rows)" ]; then
         echo "❌ [Pair 1 Invariant Violation] Found resolved issue in active $issues_file."
         echo "   The Relocation Invariant requires resolved rows to be moved to .plans/done/000-issues-archive.md."
         echo "   Resolution is a physical row relocation, never an in-place status badge."
@@ -664,7 +609,7 @@ check_pair7_inflight_boundary_collision() {
 check_issues_table_shape() {
     local issues_file="$1"
     [ -f "$issues_file" ] || return 0
-    awk '
+    AAPP_LEDGER_ISSUES="$issues_file" ledger_table issues | awk '
         /^[[:space:]]*\|/ {
             if (started && gap) { printf "❌ [Issues Table] Line %d: an empty line splits the table (line %d); remove it.\n", NR, gap; bad++ }
             started = 1; gap = 0; last = NR
@@ -676,7 +621,7 @@ check_issues_table_shape() {
         started && /^[[:space:]]*$/ { if (!gap) gap = NR; next }
         started { started = 0; gap = 0 }
         END { exit (bad > 0) }
-    ' "$issues_file"
+    '
 }
 
 # check_pickup_entries <pickup_file>: every list entry is a `- [ ] ` (or `- [x] `) line.
@@ -714,8 +659,8 @@ check_issue_ids_below_counter() {
 check_fix_cells() {
     local issues_file="$1"
     [ -f "$issues_file" ] || return 0
-    awk '
-        /^[[:space:]]*\|[[:space:]]*`?#[0-9]+/ {
+    AAPP_LEDGER_ISSUES="$issues_file" ledger_row_lines | awk '
+        {
             line = $0; gsub(/\\\|/, "", line); split(line, c, "|")
             cell = c[8]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", cell)
             id = c[2]; gsub(/[[:space:]`]/, "", id)
@@ -725,7 +670,7 @@ check_fix_cells() {
             }
         }
         END { exit (bad > 0) }
-    ' "$issues_file"
+    '
 }
 
 # check_ledger_issues <issues> <archive> <roadmap>: everything `aapp refine issues` requires.
