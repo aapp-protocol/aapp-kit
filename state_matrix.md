@@ -18,7 +18,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-56**: [`P56-modular-cookbook-and-docs-architecture.md`](current/P56-modular-cookbook-and-docs-architecture.md) — Modular Cookbook And Docs Architecture
 - 🟣 **P-57**: [`P57-modular-manual-specification.md`](current/P57-modular-manual-specification.md) — Modular Manual Specification
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
-- 🟣 **P-63**: [`P63-adoption-advisories.md`](current/P63-adoption-advisories.md) — Adoption Advisories
 - 🟣 **P-70**: [`P70-help.md`](current/P70-help.md) — Help
 - 🟣 **P-72**: [`P72-issue-tracker.md`](current/P72-issue-tracker.md) — 🧩 Group Plan P-72: Issue Tracker
 - 🟣 **P-73**: [`P73-issue-ledger-module.md`](current/P73-issue-ledger-module.md) — Issue Ledger Module
@@ -30,6 +29,8 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ---
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
+
+- 🔷 **P-63**: [`P63-adoption-advisories.md`](current/P63-adoption-advisories.md) — Adoption Advisories
 
 ---
 

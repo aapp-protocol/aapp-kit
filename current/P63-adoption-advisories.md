@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
@@ -236,6 +236,7 @@ Nothing is committed: the file is ignored, so the plans worktree stays clean and
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-12:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-12:** A welcome setup guide: the catalogue covers everything a user may need to adjust (branches, remote, team, project files, hooks, build tools, settings to review), each task with its manual section; catalogue in `lib/adoption.sh`, its own test suite.
 * **2026-10-12:** The checklist is local to each clone: ignored in `.plans/.gitignore`, never committed. `[HOOK-WIRING]` is back in the catalogue.
 * **2026-10-12:** Aligned with the code: repository facts only (clone-level advice stays out), catalogue cut to rules checked against the tools (Nx, Bazel, test gate), no date or count line, directory from `aapp.planWorktreePath`, the checklist's own commit, status wording, Required Tests.
