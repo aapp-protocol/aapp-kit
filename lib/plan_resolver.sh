@@ -272,9 +272,15 @@ get_plan_id() {
 # seed_issue_id <plans-dir>
 seed_issue_id() {
     local PLANS="$1"
-    local F LINE N MAX=0 FOUND=0
+    local F LINE N MAX=0 FOUND=0 WHICH
 
-    for F in "$PLANS/ISSUES.md" "$PLANS/done/000-issues-archive.md"; do
+    # The ledgers are read through the ledger functions of aapp-lib.sh (P-73).
+    if ! declare -f ledger_table >/dev/null; then
+        # shellcheck source=lib/aapp-lib.sh
+        . "$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh" || return 1
+    fi
+    for WHICH in issues archive; do
+        F="$(ledger_path "$WHICH" "${PLANS%/.plans}")" || continue
         [ -f "$F" ] || continue
         FOUND=1
         while IFS= read -r LINE; do
@@ -287,7 +293,7 @@ seed_issue_id() {
             N="${N%%[!0-9]*}"
             [ -n "$N" ] || continue
             if [ "$N" -gt "$MAX" ]; then MAX=$N; fi
-        done < "$F"
+        done < <(ledger_table "$WHICH" "${PLANS%/.plans}")
     done
 
     [ "$FOUND" -eq 1 ] || return 2
