@@ -28,7 +28,6 @@
 
 ## 📥 Triage (Incoming / Unsequenced)
 *Newly logged issues awaiting prioritization.*
-- [ ] #132 -> Files added to an open group fix drop its worktree and group; `close` does not land it.
 - [ ] #130 -> Setup advisories read `ISSUES.md` outside the ledger functions.
 - [ ] #129 -> `aapp init` sets itself up in `$HOME` when the home directory is a git repository.
 - [ ] #126 -> A project cannot declare its `aapp.*` settings: all are per-clone git config.
