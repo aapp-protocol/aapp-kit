@@ -1,5 +1,7 @@
 # 🐛 Issues: Active Technical Backlog
 
+> **Rows are written by `aapp issue log`, never by hand:** `aapp issue log <sev> <type> "<symptom>" [file <path>]… [note "<text>"]` takes the id and writes the row and its road-map line.
+>
 > **Active Backlog Only:** Every row below is an unresolved defect or gap. When resolved, issues are relocated to `.plans/done/000-issues-archive.md` and pruned from `issues_road_map.md`.
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
@@ -32,7 +34,7 @@
   - **Extensibility Rule**: Projects may declare custom domain tags (e.g., `ML`, `AUDIO`, `3D`). Linters warn on unknown tokens, never block.
 * **`Date`**: Date discovered (`YYYY-MM-DD`).
 * **`Location`**: File path and line reference (`path/to/file.ext:123`).
-* **`Symptom / Problem`**: Exact defect description (2–3 concise sentences maximum).
+* **`Symptom / Problem`**: What is wrong, in one line of at most 250 characters. **No real data**: nothing copied from a live system (record contents, log lines, identifiers, host names). Real data goes in the note (`aapp issue log … note "<text>"`, or later `aapp refine issues "<msg>" note <num> "<text>"`), which is kept outside Git and never in this file.
 * **`Target Plan / Fix`**: Written by verbs only, never notes: empty until the issue is promoted (`aapp draft <slug> issue <num>` writes `[P-xx](current/…)`) or blocks a plan (`aapp issue hotfix` writes `blocks [P-xx](…)`). A direct fix writes its changelog entry at its first commit (`aapp commit "<msg>" changelog "<what the fix changed>"`), and `aapp refine issues` refuses any other text here.
 * **`Status`**: `🟡 Incubated` (recorded, unscheduled) · `🔵 Planned` (promoted to a blueprint) · `🟠 In Progress` (active execution).
   *(Note: `✅ Resolved` does NOT exist in this table; resolved items are relocated to `.plans/done/000-issues-archive.md`).*
