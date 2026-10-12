@@ -33,5 +33,6 @@ Run: `aapp test verb matrix`
 - `tests/verbs/matrix.sh::test_check_reports_drift_without_writing` -> `check` on a drifted matrix: exit 1, file unchanged
 - `tests/verbs/matrix.sh::test_sync_is_idempotent` -> a rewrite, then a second run reports in sync
 - `tests/verbs/matrix.sh::test_refuses_unknown_option` -> an unknown argument: exit 1
+- `tests/verbs/matrix.sh::test_matrix_ignores_mini_plans` -> a mini plan `current/fix-<num>.md` gets no matrix row (P-52)
 
 Broader coverage (Roadmap preservation, orphans, custom statuses): `tests/matrix_test.sh`.

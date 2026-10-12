@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Tests: verb contract correspondence (P-34) — lib/verbs.tsv <-> lib/docs/verbs/
 # Read-only over the kit tree: every daily verb has a contract, every contract
-# has exactly one registry row, and every test a contract names exists.
+# has exactly one registry row, every test a contract names exists, and every
+# test a verb suite reports is named by its verb's contract (P-81).
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$KIT/tests/test_helpers.sh"
 PASS=0; FAIL=0
@@ -88,6 +89,21 @@ done
 if [ -z "$errors" ]; then ok "test_declared_test_files_exist"; else bad "test_declared_test_files_exist" "${errors#
 }"; fi
 if [ -z "$names_missing" ]; then ok "test_contract_tests_exist_in_suite_or_part"; else bad "test_contract_tests_exist_in_suite_or_part" "${names_missing#
+}"; fi
+
+# The other direction (P-81): every test a verb suite or part reports is named
+# by that verb's contract, so a test whose behaviour left the contract fails here.
+unnamed=""
+for s in "$KIT"/tests/verbs/*.sh; do
+  [ -f "$s" ] || continue
+  base="${s##*/}"; verb="${base%%.*}"
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    grep -qF "tests/verbs/$base::$name" "$DOCS/$verb.md" 2>/dev/null || unnamed="$unnamed
+tests/verbs/$base::$name is named by no contract (lib/docs/verbs/$verb.md)"
+  done < <(grep -oE 'ok "test_[A-Za-z0-9_]+' "$s" | sed 's/^ok "//' | sort -u)
+done
+if [ -z "$unnamed" ]; then ok "test_every_verb_test_named_by_contract"; else bad "test_every_verb_test_named_by_contract" "${unnamed#
 }"; fi
 
 echo "== agent CLI reference (P-47) =="

@@ -32,3 +32,4 @@ Run: `aapp test verb status`
 - `tests/verbs/status.sh::test_plan_worktree_shown_next_to_plan` -> a plan's worktree path follows its status (P-54)
 - `tests/verbs/status.sh::test_overview_counts_open_adoption_tasks` -> open adoption tasks show in overview and briefing (P-63)
 - `tests/verbs/status.sh::test_no_adoption_output_when_none_open` -> nothing printed when no open adoption tasks (P-63)
+- `tests/verbs/status.sh::test_members_listed_under_group` -> a group's members are listed, indented, on the lines after it (P-64)

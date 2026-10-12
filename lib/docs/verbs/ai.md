@@ -57,3 +57,5 @@ Run: `aapp test verb ai`
 - `tests/verbs/ai.sh::test_ai_refuses_legacy_off_alias` -> `aapp ai off` exits 1 per clean break
 - `tests/verbs/ai.sh::test_ai_credits_runs_cleanly` -> `aapp ai credits` updates README.md or reports no-op
 - `tests/verbs/ai.sh::test_ai_notes_preserves_notes_config` -> `aapp ai notes` preserves pre-existing rewriteRef and mergeStrategy
+- `tests/verbs/ai.sh::test_ai_notes_toggle` -> `aapp ai notes on` / `off` set `aapp.aiNotes` to `true` / `false`
+- `tests/verbs/ai.sh::test_ai_status_reports_dual_policy` -> `aapp ai status` reports both Commit Trailers and AI Git Notes

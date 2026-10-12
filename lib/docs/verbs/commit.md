@@ -87,3 +87,5 @@ Run: `aapp test verb commit`
 - `tests/verbs/commit.sh::test_microcommits_allows_and_switch_is_logged` -> `microcommits` allows another commit; the switch is logged in §6 (P-51)
 - `tests/verbs/commit.sh::test_mini_plan_commit_refuses_empty_changelog` -> a fix's first commit without `changelog`: exit 1 naming the token, nothing committed (P-66)
 - `tests/verbs/commit.sh::test_mini_plan_commit_writes_supplied_entry` -> `changelog "<text>"` lands in the mini plan and as the fix's `CHANGELOG.md` bullet (P-66)
+- `tests/verbs/commit.sh::test_note_token_attached_in_none_mode` -> `note "<text>"` in `none` mode: no trailer, the text in `refs/notes/commits`
+- `tests/verbs/commit.sh::test_note_token_attached_in_strict_mode` -> `note "<text>"` in `strict` mode: trailers kept, the text in `refs/notes/ai`

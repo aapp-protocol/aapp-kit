@@ -77,6 +77,8 @@ Run: `aapp test verb start`
 - `tests/verbs/start.sh::test_refuses_target_with_pending_fix` -> a Target File in a queued Plan Blocker: exit 1, nothing changed (P-58)
 - `tests/verbs/start.sh::test_starts_once_blocker_promoted_shared_docs_never_gate` -> a promoted blocker no longer gates; a queued blocker on a shared doc never does (P-58)
 - `tests/verbs/start.sh::test_restart_of_started_plan_not_gated_by_blocker` -> a started plan sent back to Refining and re-frozen starts despite a blocker on its file (#103)
+- `tests/verbs/start.sh::test_shared_docs_do_not_block_start` -> a second plan sharing only shared docs with an active plan starts, with a `Shared Doc` notice (P-48)
+- `tests/verbs/start.sh::test_shared_code_file_still_blocks_start` -> a plan sharing a code file with an active plan: exit 1 at the Activation Gate, naming the file (P-48)
 - `tests/verbs/start.worktree.sh::test_worktree_start_creates_branch_links_and_records` -> templated branch from develop without upstream, four relative links and excludes, clean status, bound there only, Worktree and Base recorded (P-54)
 - `tests/verbs/start.worktree.sh::test_worktree_start_refuses_existing_branch_or_path` -> existing branch or path: exit 1, nothing changed (P-54)
 - `tests/verbs/start.worktree.sh::test_worktree_start_dirty_primary_only_notice` -> a dirty primary only prints a notice (P-54)
