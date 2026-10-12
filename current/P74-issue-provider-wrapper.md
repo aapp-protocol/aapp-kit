@@ -47,7 +47,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 
 ## 2. Technical Blueprint
 **Handler:** `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]`. The agent hands the issue over and never writes a row; the handler picks the id, writes the row through the module and commits it. `issue hotfix` logs through the same handler.
-- **Id:** with a provider, `issue.log` creates the issue and returns its id; without one, the kit's counter. When the provider fails, the id is the highest offline id plus 1, or, with no offline issues, the highest id registered locally (active and archive) plus 1000; the issue is then staged offline (P-75).
+- **Id:** with a provider, `issue.log` creates the issue and returns its id; without one, the kit's counter. When the provider fails, numbering refuses, as today; P-75 replaces that refusal with its offline path.
 
 **Retired once the handler is the only writer of new rows** (in this order):
 1. `refine issues` refuses a commit that adds a row and names `aapp issue log`.
@@ -74,7 +74,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 - **Acting on a remote issue:** `issue fix`, `draft … issue` and `next-blocker` first write its row into `ISSUES.md` through the log step, then proceed as for a local row.
 - **Id clash** (same id, different issue): both shown and marked; `fix` and `draft … issue` refuse that id. A provider that answers `issue.list` must return the id from `issue.log`.
 - **Sync:** only at `issue list` and `status`, and only when a provider is installed and handles listing: `list` in its `handled` (issues in the list file) means it does; otherwise the kit lists locally (no cache, no sync). Between syncs the cache is reused for `aapp.issueSyncWindow` minutes (default 15; a large team lowers it). Hooks read the ledger and the cache, never the network.
-- **Failures:** the step falls back to the kit and warns; numbering falls back as in **Id** above; `issue.next-blocker` stays authoritative and refuses, as today. P-75 builds its offline fallback on this failure path.
+- **Failures:** every provider failure surfaces at one point, the wrapper. The step falls back to the kit and warns; numbering (`issue.log`) and `issue.next-blocker` refuse, as today. P-75 turns the numbering refusal into offline staging at that one point.
 - **Sample:** `examples/plugins/aapp-issue-tracker/run.sample` handles every step and stores into a local file; `lib/plugins.tsv` lists the new actions.
 
 ### 🔄 Migration & Compatibility Strategy
@@ -91,7 +91,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
 - [ ] `tests/verbs/issue.provider.sh::test_log_writes_row_with_kit_id` -> asserts with no provider `issue log` writes and commits the row under the counter's next id
 - [ ] `tests/verbs/issue.provider.sh::test_log_takes_provider_id` -> asserts the row carries the id `issue.log` returned
-- [ ] `tests/verbs/issue.provider.sh::test_log_failure_offset_id` -> asserts on provider failure the id is the highest local id plus 1000, or the highest offline id plus 1 when offline issues exist
+- [ ] `tests/verbs/issue.provider.sh::test_log_refuses_when_provider_fails` -> asserts a failing provider on `issue log` refuses and writes no row
 - [ ] `tests/verbs/issue.provider.sh::test_refine_refuses_added_row` -> asserts `refine issues` refuses a commit that adds a row and names `aapp issue log`
 - [ ] `tests/verbs/issue.provider.sh::test_no_counter_check` -> asserts `refine issues` no longer refuses an id at or above `aapp.issueId`
 - [ ] `tests/verbs/issue.provider.sh::test_agent_docs_name_no_allocate` -> asserts `templates/AGENTS.md` and the shipped skills name no `issue allocate` / `issue next` step
@@ -144,7 +144,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 - [ ] `lib/cmd_issue.sh` -> The wrapper and payload; `issue log`; fix, close, hotfix, list call the wrapper; `note` token on hotfix.
 - [ ] `lib/cmd_plan.sh` -> `refine issues` refine step, `note` token, refuses added rows; `draft … issue` imports remote rows.
 - [ ] `lib/planning_health.sh` -> `check_issue_ids_below_counter` retired; added-row refusal.
-- [ ] `lib/plan_resolver.sh` -> Id allocation behind the handler; offset fallback on provider failure.
+- [ ] `lib/plan_resolver.sh` -> Id allocation behind the handler.
 - [ ] `templates/AGENTS.md` -> Log issues with `aapp issue log`; no number claiming.
 - [ ] `templates/skills/aapp-plan/SKILL.md` -> Same.
 - [ ] `templates/skills/aapp-pause/SKILL.md` -> Same.
