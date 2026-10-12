@@ -12,7 +12,7 @@
 * **Base:** `f0308a5` (feature/issue-tracker)
 * **Worktree:** .workspace/P80 (plan/P80-issue-note-filter)
 * **Group:** P-72
-* **Commits:** none
+* **Commits:** `94d8987` (plan/P80-issue-note-filter)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
