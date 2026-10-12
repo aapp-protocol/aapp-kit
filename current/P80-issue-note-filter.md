@@ -41,12 +41,12 @@
 ## 1. Context & Architectural Goal
 Issues and their notes may be written by agents observing live systems, so a note can hold real data: log lines, record contents, identifiers. Notes are kept outside the repository and never committed for that reason, and they are stored as written, which keeps them usable for audits. What an agent is shown is a separate matter: a team may not want every agent to see the stored text.
 
-This plan reserves one plugin, `aapp-issue-note-filter`: a text filter the team writes, which the kit runs on a note before showing it to anyone. It is a text substitution mechanism and nothing else: text in, text out.
+This plan reserves one plugin, `aapp-issue-note-filter`: a text filter the team writes, which the kit runs on an issue's description and notes before showing them to anyone. It is a text substitution mechanism and nothing else: text in, text out.
 
 ---
 
 ## 2. Technical Blueprint
-- **Where it runs:** at the one point where the kit hands a note over (P-74): `issue fix <n>` and `issue list <n>`. Every note passes through it, whether the kit or a provider stored it.
+- **Where it runs:** at the one point where the kit hands an issue's text over (P-74): `issue fix <n>` and `issue list <n>`. The description and every note pass through it, whether the kit or a provider stored them. In the exchange below, `note` is that text as the kit would show it.
 - **What it never touches:** the stored note. The filter changes what is shown, not what is kept.
 - **The exchange** (P-77 protocol), event `issue.note-show`: `data` carries the whole issue with its `note`; the answer carries the text to show.
 
