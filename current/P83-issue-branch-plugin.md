@@ -2,7 +2,7 @@
 * **Created:** 2026-10-12 | **Last Refined:** 2026-10-12
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-83
-* **Changelog:** Added: a team plugin, `aapp-issue-branch`, names the branch an issue's fix lands on from its files (P-83)
+* **Changelog:** Added: a team plugin, `aapp-issue-branch`, names the branch a fix lands on; a fix on a group's parent is merged into its feature branch (P-83)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -65,6 +65,8 @@ A branch is never taken from where an issue was logged or raised. A person or an
 - **The plugin gives direction; it enforces nothing.** It may refuse for the team's own reasons: who has the expertise to certify a fix in those paths, which paths are live and hot, who has clearance for the owning branch. It answers `failed` with a `message` that says where the fix should go or who should make it, and the fix does not open. Who is asking is the plugin's to find out (the envelope carries no identity and no credentials). A branch named by hand is not put to the plugin: the kit sorts directions, and what a branch accepts is enforced where it is hosted.
 - **The answer is recorded once.** After `ok` with a branch the cell holds it, so closing and unblocking (P-78) read the row and the plugin is not asked again for that issue.
 - **A hotfix has two ways in.** (1) Every file it names is in the Target Files of the plan it blocks: the fix belongs to that plan's line of work, so the row names the plan's parent branch (the one in its `* **Base:**`; for a group's member, the feature branch), as P-78 wrote it. (2) Otherwise, with no file named or any file outside the plan's Target Files: the row names no branch, and when the fix opens it is the branch the plugin answers, or the development branch. `branch <name>` names a branch in either case.
+- **A fix outside the plan's branch comes back to it.** A plan takes fixes by rebasing onto its parent branch, so the fix must first be in that parent. When an issue is closed (`issue close`, or a plan's `done` after it integrates) and a plan blocked on it has a group's feature branch as its parent, and the fix commit is in that group's own parent branch, the kit merges the group's parent into the feature branch: the same merge the group's `done` makes when its parent moved, made early. It is a merge, never a rebase: a feature branch holds its members' recorded commits. The member is then unblocked and told to rebase onto the feature branch. A merge that conflicts changes nothing: the feature branch stays as it was, the member stays blocked, and the kit says so; someone resolves it on the feature branch and `aapp status` unblocks the member.
+- **The kit merges into no other branch.** A plan whose parent is a branch the team owns (`core`, a module branch), or a fix the plugin sent to a branch that is not the group's parent: the kit reports the commit and the branch the plan waits for, as P-78 does, and unblocks once the team has merged it.
 - **Shipped:** the reserved name in `lib/plugins.tsv`; the event and the `files` and `branch` fields in the issue reference; a sample (`examples/plugins/aapp-issue-branch/run.sample`) that reads a list of `path prefix` → `branch` lines kept beside it, answers `declined` when no line matches and `failed`, naming the owners, when the files match two branches. The list's format belongs to the sample, not to the kit.
 
 ### 🔄 Migration & Compatibility Strategy
@@ -90,11 +92,18 @@ A branch is never taken from where an issue was logged or raised. A person or an
 - [ ] `tests/verbs/issue.branchplugin.sh::test_direct_close_asks` -> asserts `issue close <n> sha <sha>` of an issue with no open fix asks the plugin, refuses a commit that is not in the answered branch, and refuses when the plugin fails
 - [ ] `tests/verbs/issue.branchplugin.sh::test_views_do_not_ask` -> asserts `aapp status` and `aapp issue list` do not call the plugin
 - [ ] `tests/verbs/issue.branchplugin.sh::test_sample_maps_paths` -> asserts the shipped sample answers the branch of a matching path, `declined` for a path no line matches, and `failed` naming both owners for files of two branches
+- [ ] `tests/verbs/issue.branchplugin.sh::test_close_merges_group_parent_into_feature` -> asserts closing an issue fixed on a group's parent branch merges that parent into the feature branch (a merge commit, the fix commit reachable), unblocks the member blocked on it and tells it to rebase
+- [ ] `tests/verbs/issue.branchplugin.sh::test_merge_conflict_changes_nothing` -> asserts when the group's parent does not merge cleanly the feature branch is unchanged, the member stays blocked and the output says why
+- [ ] `tests/verbs/issue.branchplugin.sh::test_team_branch_is_not_merged` -> asserts a plan whose parent is not a group's feature branch gets no merge: it stays blocked and is reported
+- [ ] `tests/verbs/issue.branchplugin.sh::test_fix_on_third_branch_is_not_merged` -> asserts a fix that is not in the group's parent branch is not merged into the feature branch
+- [ ] `tests/verbs/issue.branchplugin.sh::test_done_merges_group_parent_into_feature` -> asserts a plan's `done` that closes its issue and integrates into a group's parent makes the same merge for a member blocked on that issue
 
 ### ♻️ Existing Tests Changed or Retired
 > Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
 - `tests/verbs/issue.branch.sh::test_hotfix_takes_plan_parent_branch`: rewritten for the two ways in. It keeps its name and asserts a hotfix whose files are all in the plan's Target Files carries the plan's parent branch (none written for the development branch); a second test, `test_hotfix_outside_plan_files_names_no_branch`, asserts a hotfix naming a file outside them, or no file, leaves the cell empty.
 - `tests/verbs/issue.branch.sh::test_branch_token_adds_column`: unchanged; the explicit token stays.
+- `tests/verbs/issue.branch.sh::test_unblock_waits_for_parent_branch` and `test_status_unblocks_after_merge`: their waiting plan is a group's member whose fix lands on the group's parent, which the kit now merges at once. Both are rewritten with a plan whose parent is a branch the team owns, where the plan still waits and `aapp status` still unblocks it after the merge.
+- `tests/integrate_test.sh` (the group `done` tests): unchanged; they keep proving the merge of a moved parent, now made by a function shared with `close`.
 - `tests/plugin_protocol_test.sh::test_reference_matches_code`: unchanged; it reads the events and fields from the code, so the reference must list `issue.branch`, `files` and `branch` for it to pass.
 
 ### Phase 1: Tests First (red)
@@ -104,6 +113,7 @@ A branch is never taken from where an issue was logged or raised. A person or an
 - [ ] Task 2.1: One function in `lib/cmd_issue.sh` that settles an issue's branch (named in the row, else asked of the plugin, else the development branch), used by `fix` and `close`; the refusal on failure.
 - [ ] Task 2.2: `issue hotfix` names the plan's parent branch only when every file it names is in the plan's Target Files.
 - [ ] Task 2.3: Registry row, sample with its list, reference.
+- [ ] Task 2.4: The merge of a group's parent into its feature branch as one function in `lib/cmd_plan.sh`, used by the group's `done` and after a close; unblock the member.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -119,6 +129,7 @@ A branch is never taken from where an issue was logged or raised. A person or an
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/cmd_issue.sh` -> Settling an issue's branch through the plugin at `fix` and `close`; `hotfix` without a default branch.
+- [ ] `lib/cmd_plan.sh` -> The group-parent merge as one function shared by the group's `done` and by a close; the same step after a plan's `done` integrates.
 - [ ] `lib/plugins.tsv` -> Reserved name `aapp-issue-branch`.
 - [ ] `NEW FILE` -> `examples/plugins/aapp-issue-branch/run.sample` -> Sample: path prefixes mapped to branches.
 - [ ] `NEW FILE` -> `examples/plugins/aapp-issue-branch/branches.sample` -> The sample's list.
