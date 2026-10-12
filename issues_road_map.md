@@ -33,7 +33,6 @@
 - [ ] #133 -> A refused first fix commit leaves its changelog entry written; the retry refuses the token.
 - [ ] #130 -> Setup advisories read `ISSUES.md` outside the ledger functions.
 - [ ] #129 -> `aapp init` sets itself up in `$HOME` when the home directory is a git repository.
-- [ ] #126 -> A project cannot declare its `aapp.*` settings: all are per-clone git config.
 - [ ] #127 -> `aapp install` does not install `MANUAL.md` or `CHEATSHEET.md`.
 - [ ] #128 -> Settings matrix in `MANUAL.md` §13 omits eight keys the code reads.
 - [ ] #125 -> Write guard refuses `.agents/CODEMAP.md` through a plan worktree's `.agents` link.
