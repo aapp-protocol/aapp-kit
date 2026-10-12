@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #137 | `High` | `CORE` | 2026-10-12 | 2026-10-12 | `126d2e7` | the issue branch tests no longer log rows by hand; unblocks P-74 |
 | #126 | `High` | `CORE` | 2026-10-12 | 2026-10-12 | `aborted` | Aborted: Shared project settings are a team plugin's job; the kit keeps per-clone config |
 | #136 | `Medium` | `CORE` | 2026-10-12 | 2026-10-12 | `fa7c775` | a logged issue names a branch only when one is given; otherwise the development branch |
 | #135 | `Low` | `DOCS` | 2026-10-12 | 2026-10-12 | `c24eb8e` | the agent rules and the fix, start and done skills describe fixes on the issue's branch |
