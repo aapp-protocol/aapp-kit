@@ -11,7 +11,7 @@
     - `close <id>`: relocates an active issue row to the archive
     - `abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` (P-76): withdraws an active issue with what was opened for it, its promoted plan (`[P-<id>](current/…)` in its *Target Plan / Fix* cell) or its open mini plan; `reason` is one line (default `Withdrawn`); the other tokens go to `aapp plan abort` unchanged
     - `list [<n> | all]`: prints active issues in road-map order
-- `<id>`: bare number (`79`), `#79` (quoted: an unquoted `#79` is a shell comment) or `ISSUE-79`
+- `<id>`: a number (`79`, `#79`, `ISSUE-79`) or a tracker's key (`PROJ-101`, `#PROJ-101`; lowercase is uppercased). Quote the `#` forms: an unquoted `#79` is a shell comment. One definition, in `lib/aapp-lib.sh` (P-79)
 - close tokens (bare, no `--`):
     - `sha <sha>`: commit recorded in the archive row (default: `HEAD` of the repository, short)
     - `summary "<text>"`: resolution summary (default: `Direct fix (no plan)`; the *Target Plan / Fix* cell is never read, P-66); `|` is escaped
@@ -147,3 +147,7 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.abort.sh::test_abort_plan_refusal_changes_nothing` -> a dirty plan worktree refuses, the issue stays `Planned`; `force` proceeds (P-76)
 - `tests/verbs/issue.abort.sh::test_abort_group_plan_needs_confirm` -> an issue whose plan is a group plan needs `confirm` (P-76)
 - `tests/verbs/issue.fixes.sh::test_fix_hints_group_for_group_files` -> files a group changed: the hint names `group <id>`, the fix still opens (P-64)
+- `tests/verbs/issue.keyid.sh::test_fix_and_close_with_key_id` -> `issue fix proj-101` opens `fix-PROJ-101.md`; a commit `(#PROJ-101)` passes the hooks; `issue close PROJ-101` archives the row (P-79)
+- `tests/verbs/issue.keyid.sh::test_write_guard_binds_key_id_fix` -> the write guard allows the files of `fix-PROJ-101.md` and refuses others (P-79)
+- `tests/verbs/issue.keyid.sh::test_key_id_blocks_and_unblocks_plan` -> `refine <id> blocked PROJ-102` blocks the plan; closing the issue unblocks it (P-79)
+- `tests/verbs/issue.keyid.sh::test_draft_promotes_key_id` -> `draft <slug> issue PROJ-103` writes `Target Issue: #PROJ-103`; the plan's `done` closes it (P-79)

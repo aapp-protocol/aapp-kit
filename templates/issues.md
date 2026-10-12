@@ -11,7 +11,7 @@
 
 ### 📋 Schema & Metadata Specification
 
-* **`#`**: Numeric identifier prefixed with `#` (e.g. `#1`, `#49`). Use unpadded positive integers.
+* **`#`**: The issue's id, prefixed with `#`: a number (`#1`, `#49`; unpadded positive integers), or a tracker's own key where one keeps the issues (`#PROJ-101`: a capital letter, then capitals or digits, a dash, digits).
 * **`Sev` (Severity)**: Technical impact:
   - `Critical`: Breaks core runtime, causes data corruption, or bypasses security/write-guards.
   - `High`: Major functionality failure or unexpected crash.

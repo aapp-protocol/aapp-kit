@@ -1345,11 +1345,14 @@ Issue IDs work like Plan IDs: `aapp.issueId` stores the next id, independent of 
 aapp issue                    # peek the next issue ID (claims nothing)
 aapp issue allocate           # claim it: prints #<n>, advances aapp.issueId
 aapp issue close 79           # archive #79 (bare number: an unquoted #79 is a shell comment)
+aapp issue close PROJ-101     # the same for an issue whose id is a tracker's key (#PROJ-101)
 aapp issue close 79 sha abc1234 summary "Direct fix (no plan): ..."
 aapp issue list               # active issues in road-map order (top 20; 'list 50', 'list all')
 ```
 
 `close` moves the row to the top of the archive, prunes the road map and commits all three files in one `plans` commit. `aapp done` does the same for a plan's `Target Issue`, inside its archive commit, and refuses when that issue is in neither ledger. Closing an already-archived issue changes nothing.
+
+**What an issue id is.** `#` followed by a number (`#46`: the kit's counter, or a tracker that numbers) or by a tracker's own key (`#PROJ-101`: a capital letter, then capitals or digits, a dash, digits). The same id is used everywhere: the ledger row, a plan's `Target Issue` and `Blocked On`, the mini plan `fix-PROJ-101.md`, the commit subject `(#PROJ-101)`. On the command line it is typed without the `#`, and a key typed in lowercase is uppercased (`aapp issue fix proj-101`). The counter `aapp.issueId` only ever looks at numbers. A project without a tracker never sees the second form.
 
 **Provider (`.agents/skills/aapp-issue-tracker/run`, sample in `examples/plugins/aapp-issue-tracker/`):**
 - `issue.allocate` → print `{"id": "#97"}`. Same rules as `aapp-planid`: absent provider falls back to the local counter; a failing one aborts.
