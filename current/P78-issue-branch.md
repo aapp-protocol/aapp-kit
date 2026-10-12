@@ -69,21 +69,21 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/issue.branch.sh::test_no_branch_means_dev_branch` -> asserts a row with an empty cell, and a ledger without the column, read as `aapp.devBranch`
-- [ ] `tests/verbs/issue.branch.sh::test_hotfix_takes_plan_parent_branch` -> asserts a hotfix raised from a plan carries that plan's parent branch
-- [ ] `tests/verbs/issue.branch.sh::test_branch_token_adds_column` -> asserts `branch <name>` writes the cell and adds the column to a ledger that lacks it
-- [ ] `tests/verbs/issue.branch.sh::test_log_from_plan_worktree_takes_parent` -> asserts an issue logged from a plan worktree carries the plan's parent branch, not the plan branch
-- [ ] `tests/verbs/issue.branch.sh::test_group_done_moves_issues_to_parent` -> asserts open issues targeting a group's feature branch target its parent after the group's `done`
-- [ ] `tests/verbs/issue.branch.sh::test_gone_branch_falls_back_to_dev` -> asserts `issue fix` on an issue whose branch was deleted opens on the development branch, clears the cell and prints the notice; a branch present only on the remote is not gone
-- [ ] `tests/verbs/issue.branch.sh::test_refine_sets_branch` -> asserts `refine issues "<msg>" branch <n> <name>` changes the cell and refuses a branch that does not exist
-- [ ] `tests/verbs/issue.branch.sh::test_fix_opens_on_issue_branch` -> asserts `issue fix` works in the main checkout on the issue's branch and in `.workspace/fix-<n>` cut from it otherwise
-- [ ] `tests/verbs/issue.branch.sh::test_close_refuses_sha_not_in_branch` -> asserts `close … sha` refuses a commit not reachable from the issue's branch and names the branch
-- [ ] `tests/verbs/issue.branch.sh::test_unblock_waits_for_parent_branch` -> asserts a plan whose parent branch lacks the fix stays blocked, and one whose parent has it is unblocked
-- [ ] `tests/verbs/issue.branch.sh::test_abort_ignores_branch_rules` -> asserts `issue abort` archives the issue and resumes the plans it blocked whatever their branches
-- [ ] `tests/verbs/issue.branch.sh::test_cherry_picked_fix_stays_blocked` -> asserts a fix cherry-picked into the plan's parent branch leaves the plan blocked, and `aapp status` names the commit and the branch it waits for
-- [ ] `tests/verbs/issue.branch.sh::test_refine_unblocked` -> asserts `aapp refine <plan-id> unblocked <num>` removes the block, restores the recorded status when it was the last, and refuses an issue that is still open
-- [ ] `tests/verbs/issue.branch.sh::test_status_unblocks_after_merge` -> asserts after the fix is merged into the plan's parent branch, `aapp status` unblocks the plan and reports it
-- [ ] `tests/verbs/issue.branch.sh::test_views_show_branch` -> asserts `status` and `issue list` show the branch, the current branch's issues first
+- [x] `tests/verbs/issue.branch.sh::test_no_branch_means_dev_branch` -> asserts a row with an empty cell, and a ledger without the column, read as `aapp.devBranch`
+- [x] `tests/verbs/issue.branch.sh::test_hotfix_takes_plan_parent_branch` -> asserts a hotfix raised from a plan carries that plan's parent branch
+- [x] `tests/verbs/issue.branch.sh::test_branch_token_adds_column` -> asserts `branch <name>` writes the cell and adds the column to a ledger that lacks it
+- [x] `tests/verbs/issue.branch.sh::test_log_from_plan_worktree_takes_parent` -> asserts an issue logged from a plan worktree carries the plan's parent branch, not the plan branch
+- [x] `tests/verbs/issue.branch.sh::test_group_done_moves_issues_to_parent` -> asserts open issues targeting a group's feature branch target its parent after the group's `done`
+- [x] `tests/verbs/issue.branch.sh::test_gone_branch_falls_back_to_dev` -> asserts `issue fix` on an issue whose branch was deleted opens on the development branch, clears the cell and prints the notice; a branch present only on the remote is not gone
+- [x] `tests/verbs/issue.branch.sh::test_refine_sets_branch` -> asserts `refine issues "<msg>" branch <n> <name>` changes the cell and refuses a branch that does not exist
+- [x] `tests/verbs/issue.branch.sh::test_fix_opens_on_issue_branch` -> asserts `issue fix` works in the main checkout on the issue's branch and in `.workspace/fix-<n>` cut from it otherwise
+- [x] `tests/verbs/issue.branch.sh::test_close_refuses_sha_not_in_branch` -> asserts `close … sha` refuses a commit not reachable from the issue's branch and names the branch
+- [x] `tests/verbs/issue.branch.sh::test_unblock_waits_for_parent_branch` -> asserts a plan whose parent branch lacks the fix stays blocked, and one whose parent has it is unblocked
+- [x] `tests/verbs/issue.branch.sh::test_abort_ignores_branch_rules` -> asserts `issue abort` archives the issue and resumes the plans it blocked whatever their branches
+- [x] `tests/verbs/issue.branch.sh::test_cherry_picked_fix_stays_blocked` -> asserts a fix cherry-picked into the plan's parent branch leaves the plan blocked, and `aapp status` names the commit and the branch it waits for
+- [x] `tests/verbs/issue.branch.sh::test_refine_unblocked` -> asserts `aapp refine <plan-id> unblocked <num>` removes the block, restores the recorded status when it was the last, and refuses an issue that is still open
+- [x] `tests/verbs/issue.branch.sh::test_status_unblocks_after_merge` -> asserts after the fix is merged into the plan's parent branch, `aapp status` unblocks the plan and reports it
+- [x] `tests/verbs/issue.branch.sh::test_views_show_branch` -> asserts `status` and `issue list` show the branch, the current branch's issues first
 
 ### ♻️ Existing Tests Changed or Retired
 > Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
@@ -93,21 +93,21 @@ This plan lets an issue carry the branch its fix must land on, and makes fixing,
 - Tests of unblocking at close (`tests/verbs/issue.sh`, `issue.abort.sh`): unchanged where the fix is on the plan's parent branch, which is the case in all of them today; any that fails shows a fixture whose plan has another parent.
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/verbs/issue.branch.sh`; confirm red.
+- [x] Task 1.1: Write `tests/verbs/issue.branch.sh`; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `Branch` cell in the ledger functions (read by header name; add the column on first need); template.
-- [ ] Task 2.2: Default (parent branch from a plan or fix worktree) and `branch` token at logging (`issue hotfix`) and on `refine issues`; issues moved when the kit removes a branch; the gone-branch fallback.
-- [ ] Task 2.3: `issue fix` on the issue's branch.
-- [ ] Task 2.4: `issue close`: the commit must be in the issue's branch; unblock per plan parent branch; `refine <plan-id> unblocked <num>`.
-- [ ] Task 2.5: `status` and `issue list`; `status` unblocks plans whose fix has reached their parent branch.
+- [x] Task 2.1: `Branch` cell in the ledger functions (read by header name; add the column on first need); template.
+- [x] Task 2.2: Default (parent branch from a plan or fix worktree) and `branch` token at logging (`issue hotfix`) and on `refine issues`; issues moved when the kit removes a branch; the gone-branch fallback.
+- [x] Task 2.3: `issue fix` on the issue's branch.
+- [x] Task 2.4: `issue close`: the commit must be in the issue's branch; unblock per plan parent branch; `refine <plan-id> unblocked <num>`.
+- [x] Task 2.5: `status` and `issue list`; `status` unblocks plans whose fix has reached their parent branch.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update `MANUAL.md` and the verb contracts.
-- [ ] Task 3.3: Architecture and Codemap sections live in group P-72.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update `MANUAL.md` and the verb contracts.
+- [x] Task 3.3: Architecture and Codemap sections live in group P-72.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
