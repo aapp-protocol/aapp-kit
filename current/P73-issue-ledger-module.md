@@ -46,24 +46,38 @@ This plan moves all of it into one module that every caller reuses. Behaviour do
 ---
 
 ## 2. Technical Blueprint
-**Module:** a ledger section in `lib/aapp-lib.sh`, which verbs and hooks already load (one file to keep in sync). The function set below is provisional; the refine-time research fixes it.
+**Module:** a ledger section in `lib/aapp-lib.sh`, which verbs and hooks already load (one file to keep in sync). Most of it exists already, spread over three files; this plan moves it into the section and routes every inline `grep`/`awk` through it.
 
-| Function | Does |
-|---|---|
-| `ledger_path issues\|archive\|roadmap` | Resolves the file once (one lookup order for every caller) |
-| `ledger_rows [<status>]` | Active rows as tab-separated cells (id, sev, type, date, location, symptom, link, status); escaped pipes handled once |
-| `ledger_row <n>` / `ledger_locate <n>` | One row; `active`, `archive` or nothing |
-| `ledger_add_row <cells…>` | Appends an active row |
-| `ledger_set_cell <n> link\|status <value>` | Lifecycle cells only; observation cells never change |
-| `ledger_archive_row <n> <sha>\|aborted <summary>` | Moves a row to the archive and prunes the road map; `aborted` in place of a commit for a withdrawn issue (P-76) |
-| `ledger_relink <old> <new>` | Rewrites plan links in the ledger and the road map |
-| `roadmap_*` | Road-map entries: add, prune, list |
+**Functions** (each row lists what it replaces):
 
-The health checks (fix cells, Pair 1/Pair 8 duplicates, resolved rows in the active ledger) read rows through `ledger_rows`. The hooks get it with `aapp-lib.sh`, which `aapp init` already copies into `.githooks/`.
+| Function | Does | Replaces |
+|---|---|---|
+| `ledger_path issues\|archive\|roadmap` | Resolves a ledger file once | `find_aapp_file` (`planning_health.sh`); the path blocks of `cmd_status.sh` (4) and `aapp-pre-commit` (2); `"$plans/ISSUES.md"`-style joins in `cmd_issue.sh`, `cmd_plan.sh`, `plan_resolver.sh` |
+| `ledger_commit_paths` | The ledgers' names relative to the plans worktree, existing files only (for `plans_commit` and the `done`/abort snapshots) | The hand-written lists in `cmd_issue.sh` (close, hotfix) and `cmd_plan.sh` (draft, done, abort, refine) |
+| `ledger_row <n>` | One active row | `grep -m 1 -E "$(_issue_row_regex …)"` in `cmd_issue.sh` (5) and `cmd_plan.sh` (3) |
+| `ledger_rows [<status>]` | Active rows as tab-separated cells plus a source field (`local`); escaped pipes handled once | The row scans of `cmd_status.sh` (count, first five), `cmd_plan.sh` (issues offered by a bare `draft`), `check_fix_cells`, `check_issues_table_shape`, the resolved-row check of `aapp-pre-commit` |
+| `ledger_ids active\|archive\|roadmap` | Issue numbers of one ledger | `get_active_issue_ids`, `get_archived_issue_ids`, `get_roadmap_issue_ids`; the id seeding scan in `plan_resolver.sh` |
+| `ledger_locate <n>` | `active`, `archive` or nothing | `issue_locate` |
+| `ledger_add_row <row>` | Inserts an active row under the table separator | The insert in `cmd_issue_hotfix` |
+| `ledger_set_cell <n> link\|status <value>` | Lifecycle cells only; observation cells never change | `_issue_mark_row` (`issue_mark_planned`, `issue_mark_incubated`) |
+| `ledger_archive_row <n> <sha>\|aborted <summary>` | Moves a row to the archive and prunes its road-map line | `issue_close_local` (close and abort) |
+| `ledger_relink <old> <new>` | Rewrites plan links in the ledger and the road map (`current/`, `done/`, `aborted/`) | `issue_relink` |
+| `roadmap_entries [<cap>]` | Open road-map lines | The three copies of the road-map line regex (`cmd_issue.sh`, `cmd_status.sh` ×2) |
+| `roadmap_blockers` | Ids under `🧱 Plan Blockers` | The section scan in `issue_queued_blockers` |
+| `roadmap_add_blocker <n> <text> <plan>` | Queues a blocker | `_issue_queue_blocker` |
+| `roadmap_prune <n>\|resolved` | Removes an issue's line, or every resolved line | The prune in `issue_close_local`; the auto-prune of `aapp-pre-commit` |
 
-**A guard against new copies:** `tests/issue_ledger_test.sh::test_no_direct_ledger_access` fails when a file outside the module reads or writes a ledger. Path names in permission lists (write guard, pre-commit allow-lists) are path patterns, not access, and are listed in the test.
+The health checks stay in `planning_health.sh` and read through these functions. `_issue_row_regex` becomes private to the section.
 
-**Research at refine time:** classify every reference (read, write, path only), map each to a function, and record each divergence with the behaviour kept. The existing shared pieces move in as they are: `issue_close_local` (close and abort, P-76), `issue_mark_planned` / `issue_mark_incubated` (P-69), `issue_relink` (links into `current/`, `done/` and `aborted/`), `issue_locate`.
+**Not access (left as they are):** ledger names in permission lists (`blast-radius-guard.sh`, the allow-lists of `aapp-pre-commit`), in messages, and in `cmd_init.sh`'s seeding and its move of a legacy root `ISSUES.md` into `.plans/`. `cmd_matrix.sh` has no ledger access: its "roadmap" is the state matrix's.
+
+**Divergences found, and what is kept:**
+- **Lookup order.** `cmd_status.sh` and `find_aapp_file` look in `.plans/` first; `aapp-pre-commit` looks in the current directory first, because a commit inside the plans worktree runs the hook there, where the ledgers are at the root; `cmd_issue.sh` and `cmd_plan.sh` know only the plans worktree. Kept: `ledger_path` takes the plans worktree when the current directory is one, then `.plans/`, then the repository root. Every caller's file resolves as before.
+- **Row match.** Five spellings of the row pattern (`#` required or optional, backticks allowed or not, leading space or not). Kept: `_issue_row_regex`'s (optional backtick, `#` required), which matches every row the kit writes.
+- **Road-map line match.** Three identical copies of the open-line pattern, a different one for resolved lines (it also accepts an `ISSUE-` prefix) and a third in the close prune. Kept: one open pattern, one resolved pattern, as they behave today.
+- **Issues offered by a bare `draft`** are filtered by emoji (`🟠|🔵`), which hides `🟡 Incubated` rows (#93). Kept as it is here; with `ledger_rows <status>` the fix is one line in #93's own change.
+
+**A guard against new copies:** `tests/issue_ledger_test.sh::test_no_direct_ledger_access` fails when code outside the section reads or writes a ledger. The names left under "Not access" are listed in the test.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -83,6 +97,9 @@ The health checks (fix cells, Pair 1/Pair 8 duplicates, resolved rows in the act
 - [ ] `tests/issue_ledger_test.sh::test_archive_row_moves_and_prunes` -> asserts the row leaves `ISSUES.md`, lands in the archive, and its road-map entry is gone
 - [ ] `tests/issue_ledger_test.sh::test_archive_row_aborted` -> asserts a withdrawn issue is archived with `aborted` in the commit cell
 - [ ] `tests/issue_ledger_test.sh::test_relink_ledger_and_roadmap` -> asserts a plan link is rewritten in both files
+- [ ] `tests/issue_ledger_test.sh::test_path_resolves_in_each_place` -> asserts `ledger_path` finds the ledger from the main checkout, from inside the plans worktree, and at the repository root
+- [ ] `tests/issue_ledger_test.sh::test_roadmap_entries_and_blockers` -> asserts open lines and the `🧱 Plan Blockers` ids are returned, resolved lines are not
+- [ ] `tests/issue_ledger_test.sh::test_roadmap_prune` -> asserts one issue's line, and every resolved line, are removed
 - [ ] `tests/issue_ledger_test.sh::test_no_direct_ledger_access` -> asserts no code outside the ledger section of `lib/aapp-lib.sh` reads or writes a ledger
 
 ### Phase 1: Tests First (red)
@@ -90,7 +107,7 @@ The health checks (fix cells, Pair 1/Pair 8 duplicates, resolved rows in the act
 
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: Write the ledger section in `lib/aapp-lib.sh`; the module tests pass.
-- [ ] Task 2.2: Move callers onto it one file per commit (`cmd_issue`, `cmd_plan`, `cmd_status`, `planning_health`, `cmd_matrix`, `plan_resolver`, `cmd_init`, the hooks); the full suite stays green after each.
+- [ ] Task 2.2: Move callers onto it one file per commit (`cmd_issue`, `cmd_plan`, `cmd_status`, `planning_health`, `plan_resolver`, `aapp-pre-commit`); the full suite stays green after each.
 - [ ] Task 2.3: `test_no_direct_ledger_access` passes.
 
 ### Phase 3: Verification & Documentation
@@ -114,9 +131,7 @@ The health checks (fix cells, Pair 1/Pair 8 duplicates, resolved rows in the act
 - [ ] `lib/cmd_plan.sh` -> Calls the module.
 - [ ] `lib/cmd_status.sh` -> Calls the module.
 - [ ] `lib/planning_health.sh` -> Health checks read rows through the module.
-- [ ] `lib/cmd_matrix.sh` -> Calls the module.
 - [ ] `lib/plan_resolver.sh` -> Issue-id seeding reads through the module.
-- [ ] `lib/cmd_init.sh` -> Seeds the ledgers through the module.
 - [ ] `templates/aapp-pre-commit` -> Ledger checks call the module.
 
 ### 🧪 Required Test Files
@@ -125,6 +140,8 @@ The health checks (fix cells, Pair 1/Pair 8 duplicates, resolved rows in the act
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `templates/blast-radius-guard.sh` -> Names ledger paths in its allow-list only; no access to move.
+- [ ] `lib/cmd_matrix.sh` -> No ledger access; its roadmap is the state matrix's.
+- [ ] `lib/cmd_init.sh` -> Seeding and the legacy move name the ledgers; no access to route.
 
 ---
 
