@@ -73,6 +73,11 @@ G="P-$(git config aapp.planId)"; aapp draft grp group >/dev/null 2>&1; resolve_q
 git -C .plans commit -qam "prep $G" >/dev/null 2>&1; aapp freeze-start "$G" >/dev/null 2>&1
 M="$(plan mem-m m "$G")"; aapp freeze-start "$M" >/dev/null 2>&1
 WA="$R/p/.workspace/P${A#P-}"; WM="$R/p/.workspace/P${M#P-}"
+# A second group, cut from a branch the team owns (core): its member's parent
+# branch is a feature branch the kit does not bring develop's fixes into.
+G2="P-$(git config aapp.planId)"; aapp draft grp-two group >/dev/null 2>&1; resolve_q "$(pf "$G2")"
+git -C .plans commit -qam "prep $G2" >/dev/null 2>&1; aapp freeze "$G2" >/dev/null 2>&1 && aapp start "$G2" base core >/dev/null 2>&1
+M2="$(plan mem-n n "$G2")"; aapp freeze-start "$M2" >/dev/null 2>&1
 
 out="$(cd "$WA" && aapp issue hotfix "Core broke" file src/c.sh branch core 2>&1)"; rc=$?
 shape="$(grep -E '^\|' .plans/ISSUES.md | sed 's/\\|//g' | awk -F'|' '{ print NF }' | sort -u | wc -l | tr -d ' ')"
@@ -82,8 +87,9 @@ else
   bad "test_branch_token_adds_column" "rc=$rc col=$(has_col && echo yes || echo no) cell=[$(cell 20)] shape=$shape out=$out"
 fi
 
-out="$(cd "$WA" && aapp issue hotfix "Dev broke" file src/c.sh 2>&1)"; rc=$?
-out2="$(cd "$WM" && aapp issue hotfix "Group broke" file src/d.sh 2>&1)"; rc2=$?
+# A hotfix in the plan's own Target Files belongs to the plan's line of work (P-83).
+out="$(cd "$WA" && aapp issue hotfix "Dev broke" file src/j.sh 2>&1)"; rc=$?
+out2="$(cd "$WM" && aapp issue hotfix "Group broke" file src/m.sh 2>&1)"; rc2=$?
 if [ "$rc" -eq 0 ] && [ "$rc2" -eq 0 ] && [ -z "$(cell 21)" ] && [ "$(cell 22)" = "feature/grp" ]; then
   ok "test_hotfix_takes_plan_parent_branch"
 else
@@ -169,26 +175,28 @@ else
 fi
 
 echo "== unblocking follows the code =="
-aapp refine "$A" blocked 3 >/dev/null 2>&1; aapp refine "$M" blocked 3 >/dev/null 2>&1
+# The waiting plan is the member of the group cut from core: the fix lands on
+# develop, which is not that group's parent, so the kit merges nothing (P-83).
+aapp refine "$A" blocked 3 >/dev/null 2>&1; aapp refine "$M2" blocked 3 >/dev/null 2>&1
 aapp issue fix 3 >/dev/null 2>&1
 echo "c=2" > src/c.sh; git add src/c.sh; aapp commit "fix: c (#3)" changelog "c fixed" >/dev/null 2>&1
-FIX3="$(git rev-parse --short=7 HEAD)"
+g2tip="$(git rev-parse feature/grp-two)"
 out="$(aapp issue close 3 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && ! blocked_on "$(pf "$A")" | grep -qE '#3([^0-9]|$)' && blocked_on "$(pf "$M")" | grep -qE '#3([^0-9]|$)' && \
-   echo "$out" | grep -F "$M" | grep -qF "feature/grp"; then
+if [ "$rc" -eq 0 ] && ! blocked_on "$(pf "$A")" | grep -qE '#3([^0-9]|$)' && blocked_on "$(pf "$M2")" | grep -qE '#3([^0-9]|$)' && \
+   echo "$out" | grep -F "$M2" | grep -qF "feature/grp-two" && [ "$(git rev-parse feature/grp-two)" = "$g2tip" ]; then
   ok "test_unblock_waits_for_parent_branch"
 else
-  bad "test_unblock_waits_for_parent_branch" "rc=$rc A=[$(blocked_on "$(pf "$A")")] M=[$(blocked_on "$(pf "$M")")] out=$out"
+  bad "test_unblock_waits_for_parent_branch" "rc=$rc A=[$(blocked_on "$(pf "$A")")] M2=[$(blocked_on "$(pf "$M2")")] out=$out"
 fi
 
-git fetch -q . develop:feature/grp
+git fetch -q . develop:feature/grp-two
 head0="$(git -C .plans rev-parse HEAD)"
 out="$(aapp status 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && ! blocked_on "$(pf "$M")" | grep -qE '#3([^0-9]|$)' && echo "$out" | grep -F "$M" | grep -qF "#3" && \
+if [ "$rc" -eq 0 ] && ! blocked_on "$(pf "$M2")" | grep -qE '#3([^0-9]|$)' && echo "$out" | grep -F "$M2" | grep -qF "#3" && \
    [ "$(git -C .plans rev-parse HEAD)" != "$head0" ] && [ -z "$(git -C .plans status --porcelain -- current)" ]; then
   ok "test_status_unblocks_after_merge"
 else
-  bad "test_status_unblocks_after_merge" "rc=$rc M=[$(blocked_on "$(pf "$M")")] out=$(echo "$out" | grep -F "$M")"
+  bad "test_status_unblocks_after_merge" "rc=$rc M2=[$(blocked_on "$(pf "$M2")")] out=$(echo "$out" | grep -F "$M2")"
 fi
 
 aapp refine issues "4 on core" branch 4 core >/dev/null 2>&1
@@ -232,6 +240,18 @@ if [ "$rc" -eq 0 ] && grep -qE '^\| #6 \|.*aborted' .plans/done/000-issues-archi
   ok "test_abort_ignores_branch_rules"
 else
   bad "test_abort_ignores_branch_rules" "rc=$rc C=[$(grep -E 'Status:|Blocked On' "$(pf "$C")" | tr '\n' ' ')] out=$out"
+fi
+
+echo "== a hotfix outside the plan's files =="
+n1="$(git config aapp.issueId)"
+out="$(cd "$WM" && aapp issue hotfix "Elsewhere broke" file src/m.sh file src/d.sh 2>&1)"; rc=$?
+n2="$(git config aapp.issueId)"
+out2="$(cd "$WM" && aapp issue hotfix "Somewhere broke" 2>&1)"; rc2=$?
+if [ "$rc" -eq 0 ] && [ "$rc2" -eq 0 ] && grep -qE "^\| #$n1 \|" .plans/ISSUES.md && [ -z "$(cell "$n1")" ] && \
+   grep -qE "^\| #$n2 \|" .plans/ISSUES.md && [ -z "$(cell "$n2")" ]; then
+  ok "test_hotfix_outside_plan_files_names_no_branch"
+else
+  bad "test_hotfix_outside_plan_files_names_no_branch" "rc=$rc/$rc2 #$n1=[$(cell "$n1")] #$n2=[$(cell "$n2")] out=$out | $out2"
 fi
 
 echo "== views =="

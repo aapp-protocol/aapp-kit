@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- a team plugin, `aapp-issue-branch`, names the branch a fix lands on; a fix on a group's parent is merged into its feature branch (P-83) (`P-83`)
 - an issue carries the branch its fix lands on; fixing, closing and unblocking follow that branch (P-78) (`P-78`)
 - an issue id is defined once, and a tracker's key (`#PROJ-101`) is a valid id (P-79) (`P-79`)
 - adoption checklist: `aapp init` writes a local setup guide of checkbox tasks to `.plans/adoption.md`; open tasks show in `aapp status` (`P-63`)
