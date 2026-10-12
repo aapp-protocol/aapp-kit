@@ -9,7 +9,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `30a267a` (develop)
 * **Feature Branch:** feature/issue-tracker
-* **Members:** P-73, P-74, P-75, P-77, P-78, P-79, P-80
+* **Members:** P-73, P-74, P-75, P-77, P-78, P-79, P-80, P-83
 * **Commits:** none
 <!-- A group plan writes no code. `aapp start <group> [base <branch>]` cuts `feature/<slug>` from the parent
      branch; members are planned with `aapp draft <slug> group P-72` (or `aapp refine <id> group P-72`) and
