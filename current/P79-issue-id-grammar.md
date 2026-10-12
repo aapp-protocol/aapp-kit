@@ -1,8 +1,8 @@
 # 🗺️ Plan P-79: Issue Id Grammar
 * **Created:** 2026-10-12 | **Last Refined:** 2026-10-12
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-79
-* **Changelog:** Changed: Issue Id Grammar
+* **Changelog:** Added: an issue id is defined once, and a tracker's key (`#PROJ-101`) is a valid id (P-79)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,17 +39,41 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+An issue id is assumed to be digits on about 90 lines in 12 files, each with its own pattern. A team on a shared tracker cannot use numbers the kit counts locally: every clone counts alone, so colleagues' numbers collide. With a tracker, the tracker's key has to be the issue's identity, and for Jira- or Linear-style trackers that key is not a number (`PROJ-101`).
+
+This plan defines what an issue id is once, and then widens that one definition so a tracker's key is a valid id everywhere the kit uses one.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### Phase A: one definition (no behaviour change)
+An id section in `lib/aapp-lib.sh`, which verbs and hooks already load:
+
+| Function | Does |
+|---|---|
+| `issue_id_valid <text>` | True for one well-formed id, with or without `#` |
+| `issue_id_normalize <text>` | `46`, `#46` -> `#46`; refuses anything else with the accepted forms |
+| `issue_id_refs <text>` | The ids named in a line (`Target Issue`, `Blocked On`, a commit subject, a road-map line) |
+| `issue_id_is_numeric <id>` | True for a kit-counted id (the counter looks at these only) |
+| `issue_fix_name <id>` / `issue_fix_id <name>` | The mini plan's file name for an id (`fix-46.md`) and back |
+
+Every caller uses these; no caller keeps an id pattern. `tests/issue_id_test.sh::test_no_id_pattern_outside` fails when code outside the section spells one out.
+
+### Phase B: the tracker's key is an id
+The definition accepts two forms after `#`:
+- digits: `#46` (the kit's counter, or a tracker that numbers);
+- a key, a dash, digits: `#PROJ-101` (capital letter, then capitals or digits, `-`, digits).
+
+Consequences, each through the functions above:
+- **Everywhere an id goes:** the ledger row, `Target Issue`, `Blocked On`, the road map, `aapp issue fix PROJ-101`, the mini plan `fix-PROJ-101.md` and its worktree `.workspace/fix-PROJ-101`, the commit subject `(#PROJ-101)`, the bound-plan buffer.
+- **The counter** (`aapp.issueId`) is seeded from, and moved past, numeric ids only.
+- **Order:** numeric ids by number, then key ids by key and number.
+- **A project without a tracker** never produces the second form and sees no change.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Backwards Compatible`
+- **Fallback Inventory**: none. Every existing id stays valid; the definition only accepts one more form.
 
 ---
 
@@ -58,21 +82,35 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/issue_id_test.sh::test_normalize_numeric_forms` -> asserts `46` and `#46` normalize to `#46`
+- [ ] `tests/issue_id_test.sh::test_refs_from_plan_lines` -> asserts `issue_id_refs` returns every id of a `Blocked On` line with several
+- [ ] `tests/issue_id_test.sh::test_no_id_pattern_outside` -> asserts no code outside the id section spells out an id pattern
+- [ ] `tests/issue_id_test.sh::test_key_id_valid` -> asserts `PROJ-101` and `#PROJ-101` are valid and normalize to `#PROJ-101`
+- [ ] `tests/issue_id_test.sh::test_malformed_id_refused` -> asserts `proj-101`, `PROJ-`, `#-7` and `PROJ 101` are refused, naming the accepted forms
+- [ ] `tests/issue_id_test.sh::test_counter_ignores_key_ids` -> asserts seeding and advancing `aapp.issueId` look at numeric ids only
+- [ ] `tests/verbs/issue.keyid.sh::test_fix_and_close_with_key_id` -> asserts `issue fix PROJ-101` opens `fix-PROJ-101.md`, a commit `(#PROJ-101)` passes the hooks, and `issue close PROJ-101` archives the row
+- [ ] `tests/verbs/issue.keyid.sh::test_key_id_blocks_and_unblocks_plan` -> asserts a plan with `Blocked On: #PROJ-101` is blocked, and unblocked when it closes
+- [ ] `tests/verbs/issue.keyid.sh::test_draft_promotes_key_id` -> asserts `draft <slug> issue PROJ-101` writes `Target Issue: #PROJ-101` and the plan's `done` closes it
+- [ ] `tests/verbs/issue.keyid.sh::test_write_guard_binds_key_id_fix` -> asserts the write guard allows the files of `fix-PROJ-101.md` and refuses others
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Write `tests/issue_id_test.sh` and `tests/verbs/issue.keyid.sh`; confirm red.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: One Definition (Phase A)
+- [ ] Task 2.1: The id section in `lib/aapp-lib.sh`, accepting digits only.
+- [ ] Task 2.2: Move callers onto it one file per commit; the full suite stays green after each.
+- [ ] Task 2.3: `test_no_id_pattern_outside` passes.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Key Ids (Phase B)
+- [ ] Task 3.1: Widen the definition; the counter and the ordering rules.
+- [ ] Task 3.2: The key-id tests pass.
+
+### Phase 4: Verification & Documentation
+- [ ] Task 4.1: Run automated test suites and verify edge cases.
+- [ ] Task 4.2: Update `MANUAL.md`, `templates/issues.md` and the verb contracts.
+- [ ] Task 4.3: Architecture and Codemap sections live in group P-72.
+- [ ] Task 4.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [ ] Task 4.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
@@ -80,29 +118,39 @@
 *Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/aapp-lib.sh` -> The id section.
+- [ ] `lib/cmd_issue.sh` -> Uses the id functions.
+- [ ] `lib/cmd_plan.sh` -> Uses the id functions.
+- [ ] `lib/plan_resolver.sh` -> Uses the id functions; counter looks at numeric ids.
+- [ ] `lib/planning_health.sh` -> Uses the id functions.
+- [ ] `lib/cmd_status.sh` -> Uses the id functions.
+- [ ] `lib/cmd_init.sh` -> Uses the id functions.
+- [ ] `lib/cmd_test.sh` -> Uses the id functions.
+- [ ] `lib/cmd_matrix.sh` -> Uses the id functions.
+- [ ] `lib/plan_states.sh` -> Uses the id functions.
+- [ ] `templates/aapp-pre-commit` -> Uses the id functions.
+- [ ] `templates/blast-radius-guard.sh` -> Uses the id functions.
+- [ ] `templates/issues.md` -> The id column's definition.
+- [ ] `lib/docs/verbs/issue.md` -> Contract.
+- [ ] `MANUAL.md` -> Issue ids.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/issue_id_test.sh`
+- [ ] `tests/verbs/issue.keyid.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/hook_dispatcher.sh` -> The plugin protocol is P-77's.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-12:** Plan initialized from `pickup.md`.
-* **2026-10-12:** Refined blast radius and locked module boundaries.
+* **2026-10-12:** Drafted as a member of P-72.
