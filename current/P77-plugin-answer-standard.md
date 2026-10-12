@@ -84,7 +84,7 @@ A step is a short exchange between the kit and a supported plugin.
 - **Version:** the answer may echo `version`; the kit refuses an answer from a version newer than its own.
 - **Behind its entry point a plugin is its own business.** The file in `.agents/skills/<name>/` is typically a thin caller of a service that lives elsewhere, where the credentials are. Keeping its own state, recognising a step it has already seen, and avoiding a second ticket when a step is sent again are the plugin's to do, for example by keeping its own hashes (SHAs) of the payloads it has handled; a tracker may create a ticket even when the kit saw a timeout, and the kit does not try to prevent or detect that.
 - **Credentials** are the plugin's responsibility: the envelope carries none (the remote URL is stripped), the kit stores none, and the plugin runs with the caller's environment. A missing or rejected credential is an ordinary failure with a clear `message`.
-- **Timeout:** one for every plugin call, the hook dispatcher's watchdog.
+- **Timeout:** one for every plugin call, `aapp.pluginTimeout` seconds (default 3), enforced by the hook dispatcher's watchdog. A plugin that runs past it is ended and the step takes its failure outcome.
 - **No plugin:** the kit does everything. **A failing plugin:** each step defines the outcome (fall back or refuse).
 - **Hooks** receive the same envelope and stay notifications; a `pre-` hook blocks with its exit code.
 - **Ad hoc plugins and scripts** are outside the protocol: CLI users, guarded by the CLI's own locks and checks. The MANUAL says so.
@@ -122,7 +122,7 @@ A step is a short exchange between the kit and a supported plugin.
 - [ ] Task 2.1: Answer reading in `lib/hook_dispatcher.sh`: `status`, `message`, `handled`, `version`, the list file.
 - [ ] Task 2.2: The `do` list: file, whitelist (`lib/plugin_do.tsv`), runner (after the step releases its lock, in order, each command under its own lock, no re-call, results reported).
 - [ ] Task 2.3: The step marker in the plugin's environment; writing verbs refuse under it.
-- [ ] Task 2.4: One timeout for every plugin call (`execute_with_watchdog`).
+- [ ] Task 2.4: One timeout for every plugin call: `aapp.pluginTimeout` (default 3 s) through `execute_with_watchdog`.
 - [ ] Task 2.5: Current callers (`plan.allocate`, `issue.allocate`, `issue.close`) and the samples answer in the protocol.
 - [ ] Task 2.6: `docs/reference/06-plugin-protocol.md` and `07-issue-protocol.md` (today's events); the reference test.
 
