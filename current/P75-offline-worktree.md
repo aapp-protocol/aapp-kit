@@ -91,7 +91,7 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 | **Strict Compliance** | `aapp.offlineEnabled=false` | **Fail-Closed**: Attempts plugin. If unreachable, failing, or timed out, fails closed with a diagnostic refusal; local `.offline` staging is denied to prevent untracked drift. |
 
 * **Where the fallback hooks in**: In P-74, every provider failure surfaces at one point — the `issue_provider` wrapper in `lib/cmd_issue.sh` — where logging an issue (`issue.log`) refuses. P-75 replaces that one refusal with the offline staging path (unless `aapp.offlineEnabled=false`, which keeps P-74's refusal).
-* **Plugin timeout (`aapp.pluginTimeout`)**: Integer seconds (default: `3`). The key and its enforcement belong to the plugin protocol (P-77), which runs every plugin call under the hook dispatcher's watchdog; this plan uses a timeout as one of the failures that trigger the offline path.
+* **Plugin timeout (`aapp.pluginTimeout`)**: Integer seconds (default: `10`). The key and its enforcement belong to the plugin protocol (P-77), which runs every plugin call under the hook dispatcher's watchdog; this plan uses a timeout as one of the failures that trigger the offline path.
 
 ### D. CLI Verbs & Lifecycle (`aapp offline`)
 * `aapp offline mount`: Creates or mounts the `.offline` worktree on orphan branch `offline` (reusing `mount_or_create_worktree`), and adds `.offline/` to `.git/info/exclude`, so the main repository ignores it without a commit.
@@ -217,7 +217,7 @@ All network-dependent plugin operations (e.g. `aapp-issue-tracker`) are governed
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [x] **Question 1 — Offline triggering and plugin governance? → RESOLVED (developer, 2026-10-11): 3-tier governance with global timeout.** (1) Smart fallback default (try plugin first, guarded by global `aapp.pluginTimeout` default 3s, fall back to `.offline` on failure/timeout if `offlineEnabled=true`). (2) Zero-latency `aapp.offlineOnly` (`aapp offline on`) skips network calls entirely when explicitly desired. (3) Strict `aapp.offlineEnabled=false` fails closed.
+* [x] **Question 1 — Offline triggering and plugin governance? → RESOLVED (developer, 2026-10-11): 3-tier governance with global timeout.** (1) Smart fallback default (try plugin first, guarded by global `aapp.pluginTimeout` default 10s, fall back to `.offline` on failure/timeout if `offlineEnabled=true`). (2) Zero-latency `aapp.offlineOnly` (`aapp offline on`) skips network calls entirely when explicitly desired. (3) Strict `aapp.offlineEnabled=false` fails closed.
 * [x] **Question 2 — Offline draft plan promotion during sync? → RESOLVED (developer, 2026-10-12):** Offline draft plans in `.offline/current/` automatically land in `.plans/current/` as `🟣 Under Review` during `aapp offline sync`. They remain unexecutable blueprints with locked gates until explicit review and freeze, matching standard draft scaffolding.
 * [ ] **Question 3:** Plan ids for offline draft plans: when an `aapp-planid` provider is unreachable, where does a draft's id come from, and do its id and file name change at sync? (Without such a provider, drafting offline already works in `.plans/` directly.)
 * [ ] **Question 4:** Blocking a direct `git push origin offline`: the kit ships no pre-push hook today. Add one for this, or rely on the kit's own push verbs never including the branch?
