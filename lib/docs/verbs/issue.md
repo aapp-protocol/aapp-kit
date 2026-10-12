@@ -230,6 +230,7 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.tracker.sh::test_sync_window_counts_attempts` -> `aapp status` inside the window calls no provider, also after a failed attempt; `list` always does (P-74)
 - `tests/verbs/issue.tracker.sh::test_link_and_planned_derived_from_plans` -> with the ledger files gone, a sync rebuilds them; an issue a plan targets is `Planned` with the plan's link (P-74)
 - `tests/verbs/issue.tracker.sh::test_tracker_issue_blocks_plan` -> an issue a plan is blocked on is fetched by id beyond the limit and shows in `status` (P-74)
+- `tests/verbs/issue.tracker.sh::test_list_inside_step_does_not_sync` -> `list` run inside a plugin step asks no provider and writes no ledger; it shows the issues already here (#139)
 - `tests/verbs/issue.tracker.sh::test_do_close_follows_the_code` -> a `do` line `issue close <n> sha <sha>` closes when the commit is in the issue's branch; otherwise it is refused and `status` says the issue is closed on the tracker (P-74)
 - `tests/verbs/issue.tracker.sh::test_do_abort_withdraws` -> a `do` line `issue abort <n> reason "…"` withdraws the issue (P-74)
 - `tests/verbs/issue.tracker.sh::test_do_issue_log_refused` -> a `do` line `issue log …` is refused and reported, writes no row; the line after it runs (P-74)

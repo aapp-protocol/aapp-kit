@@ -181,6 +181,18 @@ else
   bad "test_sync_window_counts_attempts" "inside=$w1/$w2 expired=$w3 after-attempt=$w4 list=$w5"
 fi
 
+# Inside a plugin step `issue list` only reads: no sync, no provider call (#139).
+cp .plans/ISSUES.md "$R/step.before"
+{ issue 1 a open "Changed during a step."; issue 2 b; issue 5 e; } > "$R/list"
+reset_log
+out="$(AAPP_PLUGIN_STEP=issue.fix aapp issue list 2>&1)"; rc=$?
+{ issue 1 a; issue 2 b; issue 5 e; } > "$R/list"
+if [ "$rc" -eq 0 ] && [ "$(calls issue.list)" = "0" ] && cmp -s .plans/ISSUES.md "$R/step.before" && echo "$out" | grep -qF '#1'; then
+  ok "test_list_inside_step_does_not_sync"
+else
+  bad "test_list_inside_step_does_not_sync" "rc=$rc calls=$(calls issue.list) out=$out"
+fi
+
 echo "== what the plans say =="
 T="P-$(git config aapp.planId)"; aapp draft targets-five issue 5 >/dev/null 2>&1
 rm -f .plans/ISSUES.md .plans/issues_road_map.md .plans/done/000-issues-archive.md

@@ -1007,7 +1007,7 @@ echo "➡️  Next plan ID:       P-$PLAN_ID_NEXT (aapp.planId)"
 if ISSUE_ID_NEXT="$(git config --get aapp.issueId 2>/dev/null)"; then
     echo "➡️  Next issue ID:      #$ISSUE_ID_NEXT (aapp.issueId)"
 else
-    echo "➡️  Next issue ID:      seeded from the ledgers on first 'aapp issue allocate'"
+    echo "➡️  Next issue ID:      seeded from the ledgers on first 'aapp issue log'"
 fi
 
 # Detect Branching Topology

@@ -98,7 +98,7 @@ The kit runs them after the plugin has exited and the step is over and has relea
 
 ## Rules
 
-- **During a step, a plugin does not change the project through `aapp`.** A verb that writes, run from inside a step, is refused and names the `do` list. Verbs that only read work: `status`, `plan-status`, `plugins`, `hooks`, `help`, `version`, `issue list`, `issue next`, `note show`, `matrix check`.
+- **During a step, a plugin does not change the project through `aapp`.** A verb that writes, run from inside a step, is refused and names the `do` list. Verbs that only read work: `status`, `plan-status`, `plugins`, `hooks`, `help`, `version`, `issue list` (which then shows the issues already here, without asking the provider), `note show`, `matrix check`.
 - **Time.** A plugin has `aapp.pluginTimeout` seconds to answer (default 10). One that takes longer is ended and counts as failed.
 - **No plugin installed.** The kit does everything.
 - **A plugin that fails.** Each event says what follows: the kit carries on with a warning, or the command refuses.

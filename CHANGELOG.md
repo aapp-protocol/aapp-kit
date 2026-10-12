@@ -66,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- aapp issue list asks no provider inside a plugin step; the retired issue next and allocate are no longer named (`#139`)
 - the resolver tests no longer expect the issue provider to number issues through the counter (`#138`)
 - the issue branch tests no longer log rows by hand (`#137`)
 - a logged issue names a branch only when one is given; otherwise the development branch (`#136`)

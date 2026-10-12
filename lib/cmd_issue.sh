@@ -1054,6 +1054,9 @@ _issue_sync_apply() {
 issue_sync() {
     local force=0 confirm=0 plans stamp last=0 since="" now window limit ids idjson="" id lines returned external=0
     while [ $# -gt 0 ]; do case "$1" in force) force=1 ;; confirm) confirm=1 ;; esac; shift; done
+    # Inside a plugin step the listing only reads: no provider is asked and no
+    # ledger is written (#139).
+    [ -z "${AAPP_PLUGIN_STEP:-}" ] || return 0
     _issue_provider_entry >/dev/null || return 0
     plans="$(_issue_plans_dir)" || return 0
     PLANS_DIR="$plans" ledger_record_external && external=1
