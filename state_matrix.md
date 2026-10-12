@@ -33,7 +33,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ## ⚡ In Development (Active Implementation Context)
 
 - ⚡ **P-72**: [`P72-issue-tracker.md`](current/P72-issue-tracker.md) — 🧩 Group Plan P-72: Issue Tracker
-- ⚡ **P-79**: [`P79-issue-id-grammar.md`](current/P79-issue-id-grammar.md) — Issue Id Grammar
 
 ---
 
