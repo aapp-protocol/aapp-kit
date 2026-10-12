@@ -4,7 +4,6 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #131 | `Low` | `DOCS` | 2026-10-13 | `lib/docs/verbs/refine.md:6`, `lib/docs/verbs/draft.md:9` | The contracts of `refine <id> blocked <num>` and `draft <slug> issue <num>` say the issue is a bare number; both take any issue id, a tracker's key included. |  | 🟡 `Incubated` |
 | #130 | `Low` | `CORE` | 2026-10-12 | `lib/adoption.sh:333-341`, `lib/cmd_init.sh:358` | Two setup advisories read `.plans/ISSUES.md` directly to tell whether it still holds a table, outside the ledger functions of `lib/aapp-lib.sh`. |  | 🟡 `Incubated` |
 | #129 | `Medium` | `CLI` | 2026-10-12 | `lib/cmd_init.sh` | `aapp init` has no guard for a repository rooted at the home directory: where `$HOME` is itself a git repository, `init` run from any folder under it that is not in another repository mounts `.plans`, `.agents` and `.githooks` in `$HOME`, writes `ARCHITECTURE.md` and `CHANGELOG.md` there and sets `core.hooksPath`. |  | 🟡 `Incubated` |
 | #128 | `Low` | `DOCS` | 2026-10-12 | `MANUAL.md` (§13 settings matrix) | The settings matrix omits keys the code reads: `aapp.protectedBranches`, `aapp.templateSync`, `aapp.testCommand`, `aapp.notesRemote`, `aapp.aiNotes`, `aapp.aiNotesGuard`, `aapp.aiAlias`, `aapp.noteTTL`. |  | 🟡 `Incubated` |
