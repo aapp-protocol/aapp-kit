@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Emergency Hotfixes:** #137, #138
 * **Base:** `1d5e7aa` (feature/issue-tracker)
 * **Worktree:** .workspace/P74 (plan/P74-issue-provider-wrapper)
@@ -239,6 +239,7 @@ This plan routes every issue step through one wrapper over the ledger functions 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-12:** Plan implementation completed and archived to done/.
 * **2026-10-12:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-11:** Drafted as a member of P-72.
