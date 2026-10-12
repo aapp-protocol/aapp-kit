@@ -2,15 +2,18 @@
 # ==============================================================================
 # AAPP Command: `issue` (P-32)
 #
-# Issue ID allocation and lifecycle close.
-#   aapp issue [next]                                   peek the next issue ID (read-only)
-#   aapp issue allocate                                 claim an issue ID
-#   aapp issue close <id> [sha <sha>] [summary "<text>"] relocate the row to the archive
-#   aapp issue list [<n> | all]                         active issues in road-map order
+# The life of an issue: logged, fixed, closed or withdrawn, listed.
+#   aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]
+#   aapp issue hotfix "<text>" [file <path>]… [branch <name>] [note "<text>"] [plan]
+#   aapp issue fix next-blocker | <num> [file <path>…] [group <group>] | <num> abort
+#   aapp issue close <id> [sha <sha>] [summary "<text>"]
+#   aapp issue abort <num> [reason "<text>"]
+#   aapp issue list [<n> | all] [confirm] | list note <num>
 #
-# The local ledgers are authoritative. An installed `aapp-issue-tracker` plugin
-# allocates IDs (fail closed, like `aapp-planid`) and is notified on close
-# (fire-and-forget: retry and delivery are the plugin's responsibility).
+# Every step goes to an installed `aapp-issue-tracker` plugin with the whole
+# issue (P-74, issue_provider below). Without one, or with one that does not
+# list issues, the committed ledgers are the record; a provider that lists
+# keeps it, and the ledgers are then untracked copies brought up to date from it.
 # ==============================================================================
 
 AAPP_ISSUE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
