@@ -13,6 +13,7 @@
 ---
 
 ## 🧱 Plan Blockers
+- [ ] #141 -> The agent CLI reference has no line for the offline verb, which every daily verb needs. (blocks P-75)
 
 ## ⭐ User Priority (Pinned / Immediate Human Focus)
 *Direct developer overrides based on current focus and appetite.*
