@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #123 | `Medium` | `CORE` | 2026-10-11 | 2026-10-12 | `20e4182` | [P-76](P76-issue-abort.md) - Issue Abort |
 | #118 | `Medium` | `CORE` | 2026-10-11 | 2026-10-12 | `a1412c0` | [P-69](P69-abort-plan.md) - Lifecycle Plan Abort & Worktree Decommissioning |
 | #111 | `Low` | `CORE` | 2026-10-09 | 2026-10-11 | `d55aa29` | Fixed by P-66: the entry is given at commit, under the length gate |
 | #117 | `High` | `CORE` | 2026-10-10 | 2026-10-11 | `d55aa29` | [P-66](P66-issue-fix-changelog-from-the-fix.md) - Issue Fix Changelog From The Fix |

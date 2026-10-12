@@ -35,8 +35,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-76**: [`P76-issue-abort.md`](current/P76-issue-abort.md) — Issue Abort
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

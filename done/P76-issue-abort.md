@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `a1412c0` (develop)
 * **Worktree:** .workspace/P76 (plan/P76-issue-abort)
 * **Commits:** `1442c57` (plan/P76-issue-abort), `20e4182` (plan/P76-issue-abort)
@@ -165,5 +165,6 @@ Steps 2 to 4 are the active branch of `cmd_issue_close` with another commit cell
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-12:** Plan implementation completed and archived to done/.
 * **2026-10-12:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-11:** Scaffolded from #123; blueprint written on top of P-69's `plan abort`.
