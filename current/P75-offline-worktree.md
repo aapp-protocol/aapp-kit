@@ -8,8 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟥 BLOCKED
-* **Blocked On:** #141 (was ⚡ In Development)
+* **Status:** ⚡ In Development
 * **Emergency Hotfixes:** #140, #141
 * **Base:** `b4f94e8` (feature/issue-tracker)
 * **Worktree:** .workspace/P75 (plan/P75-offline-worktree)
