@@ -3224,7 +3224,7 @@ cmd_refine() {
     fi
     if [ "$msg" = "blocked" ] && [ $# -ge 3 ]; then
         num="$(issue_id_body "$3" 2>/dev/null)" || {
-            echo "❌ [Refine] Usage: aapp refine <plan-id> blocked <num> (a bare issue number, e.g. 101)" >&2
+            echo "❌ [Refine] Usage: aapp refine <plan-id> blocked <num> (an issue's id without the '#': a number or a tracker's key, e.g. 101 or PROJ-101)" >&2
             exit 1
         }
         msg="blocked on #$num"

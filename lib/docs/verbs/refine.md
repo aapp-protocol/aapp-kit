@@ -3,7 +3,7 @@
 ## Ingress
 - `id` (positional, required): an active plan in `.plans/current/` (`P-47`, `47`, slug or filename)
 - `"<what changed>"` (positional, required): one line; becomes the commit subject `plan(refine): <id> <what changed>`
-- `blocked <num>` (tokens, in place of the message): block the plan on active issue `#<num>` (bare number, e.g. `101`)
+- `blocked <num>` (tokens, in place of the message): block the plan on active issue `#<num>` (the issue's id without the `#`: a number or a tracker's key, e.g. `101`, `PROJ-101`)
 - `slug <new-slug>` (tokens, in place of the message): rename the plan file to `current/P<N>-<new-slug>.md`; normalised like `aapp draft` (P-50)
 - `group <group>` / `group none` (tokens, in place of the message): the plan joins group plan `<group>`, or leaves its group (P-64)
 - `pickup` / `issues` (in place of `id`, reserved words checked before plan resolution): commit a hand-made edit of `pickup.md`, or of `ISSUES.md` + `issues_road_map.md` (P-50). A plan whose file name contains them stays reachable by its ID

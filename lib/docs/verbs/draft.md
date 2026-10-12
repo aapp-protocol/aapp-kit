@@ -6,7 +6,7 @@
     title: the argument's words capitalised (`fix-the-parser` -> `Fix The Parser`)
     source when omitted: the first unchecked note in `.plans/pickup.md`; interactive terminals choose from a list (max 10) or type a title; with no notes, open `🟠`/`🔵` issues in `.plans/ISSUES.md` (interactive only); otherwise a typed title (interactive only)
     constraints: the normalised slug must be non-empty; the title is free text and may contain `/`, `&`, `\`, `[`
-- `issue <num>` (tokens, optional, after the slug): promote active issue `#<num>` (bare number) to this plan (P-50)
+- `issue <num>` (tokens, optional, after the slug): promote active issue `#<num>` (its id without the `#`: a number or a tracker's key) to this plan (P-50)
 - `group` (token, optional, after the slug): draft a group plan from `group-template.md` (P-64)
 - `group <id>` (tokens, optional, after the slug): draft a member of group plan `<id>` (P-64)
 - reads: `.plans/pickup.md`, `.plans/ISSUES.md`, `.plans/current/`, the plan template (`$AAPP_TEMPLATES/plan-template.md`, then `templates/plan-template.md` in the repository)
