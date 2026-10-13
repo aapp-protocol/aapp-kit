@@ -8,7 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** 🟥 BLOCKED
+* **Blocked On:** #148 (was ⚡ In Development)
+* **Emergency Hotfixes:** #148
 * **Base:** `13f174f` (develop)
 * **Worktree:** .workspace/P84 (plan/P84-squash-on-the-plan-branch)
 * **Commits:** `51cf739` (plan/P84-squash-on-the-plan-branch), `78b3616` (plan/P84-squash-on-the-plan-branch)

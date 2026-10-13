@@ -32,11 +32,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-84**: [`P84-squash-on-the-plan-branch.md`](current/P84-squash-on-the-plan-branch.md) — Squash On The Plan Branch
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
+
+- 🟥 **P-84**: [`P84-squash-on-the-plan-branch.md`](current/P84-squash-on-the-plan-branch.md) — Squash On The Plan Branch
 
 ---
 
