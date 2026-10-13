@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #144 | `Low` | `DOCS` | 2026-10-13 | 2026-10-13 | `5e1266a` | `/aapp` and `/aapp-status` report what `aapp status` printed, item by item, without dropping fields |  |
 | #120 | `Low` | `CLI` | 2026-10-11 | 2026-10-13 | `f9e1388` | [P-87](P87-rules-on-demand.md) - Rules On Demand |  |
 | #133 | `Low` | `CLI` | 2026-10-13 | 2026-10-13 | `6424d2f` | a fix's first commit, refused by a hook, can be retried with its `changelog` token |  |
 | #142 | `Medium` | `CORE` | 2026-10-13 | 2026-10-13 | `8024e43` | an issue closed on the tracker is closed here at once; a plan waiting on it resumes when the fix commit is in its branch |

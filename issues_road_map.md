@@ -50,5 +50,4 @@
 - [ ] #110 -> MANUAL still registers hooks on `on-done` (renamed `post-done` by P-23).
 - [ ] #122 -> A plan can't take a second issue after drafting; `done` closes only the first.
 - [ ] #143 -> Guard self-protection covers `.agents/skills/aapp-*` only: the `aapp` start skill (P-87) in `.agents/skills/aapp/` and `.claude/skills/aapp/` is not protected.
-- [ ] #144 -> The `/aapp` and `/aapp-status` skills ask for a short briefing without saying it must carry what `aapp status` printed: an agent condensed plan names and statuses to bare ids.
 
