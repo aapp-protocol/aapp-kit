@@ -74,19 +74,19 @@ It builds on group P-72 (the unblocking rule of P-78, the provider step of P-74)
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/done.squash.sh::test_recorded_commit_is_on_parent` -> asserts after `done` in squash mode the plan's ledger line and its `Commits:` name the commit at the tip of the parent branch
-- [ ] `tests/verbs/done.squash.sh::test_one_commit_fast_forwarded` -> asserts the parent gains exactly one commit, with the squash message, and the plan branch is deleted
-- [ ] `tests/verbs/done.squash.sh::test_issue_row_names_parent_commit` -> asserts the archive row of the issue the plan closes names a commit reachable from the parent branch
-- [ ] `tests/verbs/done.squash.sh::test_provider_gets_parent_commit` -> asserts `issue.close` carries that same commit
-- [ ] `tests/verbs/done.squash.sh::test_waiting_plan_is_unblocked` -> asserts a plan blocked on the closed issue, whose parent is that branch, is unblocked by the `done`, with no manual step
-- [ ] `tests/verbs/done.squash.sh::test_attribution_is_the_last_commit` -> asserts the squashed commit carries the trailers of the plan's last commit and not those of the identity running `done`; none when that commit has none
-- [ ] `tests/verbs/done.squash.sh::test_failed_squash_restores_branch` -> asserts when the squashed commit cannot be made the plan branch is at its former tip, `done` refuses and nothing is archived
-- [ ] `tests/verbs/done.squash.sh::test_ff_mode_keeps_every_commit` -> asserts in `ff` mode a plan that closes no issue reaches the parent with every commit and its SHA, as before
-- [ ] `tests/verbs/done.squash.sh::test_issue_plan_squashed_in_ff_mode` -> asserts in `ff` mode a plan made for an issue lands as one commit, which the issue's archive row names
-- [ ] `tests/verbs/done.squash.sh::test_issue_plan_needs_both_sides` -> asserts a plan whose `Target Issue` names an issue the ledger does not link to it (not `Planned`, or linked to another plan) is not squashed in `ff` mode: it is a plan like any other
-- [ ] `tests/verbs/done.squash.sh::test_issue_plan_squashed_under_manual` -> asserts under `manual` a plan made for an issue is archived with one commit on its kept branch, which the records name
-- [ ] `tests/verbs/done.squash.sh::test_issue_plan_gets_its_own_branch` -> asserts with `aapp.planWorktrees off` `start` of a plan made for an issue creates its branch and worktree and names the path, and `start` of another plan does not
-- [ ] `tests/verbs/done.squash.sh::test_later_integration_corrects_records` -> asserts `done <id> integrate squash` on an archived plan squashes, fast-forwards, and corrects the plan's ledger line and the issue's archive row in one commit on the plans branch
+- [x] `tests/verbs/done.squash.sh::test_recorded_commit_is_on_parent` -> asserts after `done` in squash mode the plan's ledger line and its `Commits:` name the commit at the tip of the parent branch
+- [x] `tests/verbs/done.squash.sh::test_one_commit_fast_forwarded` -> asserts the parent gains exactly one commit, with the squash message, and the plan branch is deleted
+- [x] `tests/verbs/done.squash.sh::test_issue_row_names_parent_commit` -> asserts the archive row of the issue the plan closes names a commit reachable from the parent branch
+- [x] `tests/verbs/done.squash.sh::test_provider_gets_parent_commit` -> asserts `issue.close` carries that same commit
+- [x] `tests/verbs/done.squash.sh::test_waiting_plan_is_unblocked` -> asserts a plan blocked on the closed issue, whose parent is that branch, is unblocked by the `done`, with no manual step
+- [x] `tests/verbs/done.squash.sh::test_attribution_is_the_last_commit` -> asserts the squashed commit carries the trailers of the plan's last commit and not those of the identity running `done`; none when that commit has none
+- [x] `tests/verbs/done.squash.sh::test_failed_squash_restores_branch` -> asserts when the squashed commit cannot be made the plan branch is at its former tip, `done` refuses and nothing is archived
+- [x] `tests/verbs/done.squash.sh::test_ff_mode_keeps_every_commit` -> asserts in `ff` mode a plan that closes no issue reaches the parent with every commit and its SHA, as before
+- [x] `tests/verbs/done.squash.sh::test_issue_plan_squashed_in_ff_mode` -> asserts in `ff` mode a plan made for an issue lands as one commit, which the issue's archive row names
+- [x] `tests/verbs/done.squash.sh::test_issue_plan_needs_both_sides` -> asserts a plan whose `Target Issue` names an issue the ledger does not link to it (not `Planned`, or linked to another plan) is not squashed in `ff` mode: it is a plan like any other
+- [x] `tests/verbs/done.squash.sh::test_issue_plan_squashed_under_manual` -> asserts under `manual` a plan made for an issue is archived with one commit on its kept branch, which the records name
+- [x] `tests/verbs/done.squash.sh::test_issue_plan_gets_its_own_branch` -> asserts with `aapp.planWorktrees off` `start` of a plan made for an issue creates its branch and worktree and names the path, and `start` of another plan does not
+- [x] `tests/verbs/done.squash.sh::test_later_integration_corrects_records` -> asserts `done <id> integrate squash` on an archived plan squashes, fast-forwards, and corrects the plan's ledger line and the issue's archive row in one commit on the plans branch
 
 ### ♻️ Existing Tests Changed or Retired
 > Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
@@ -94,21 +94,21 @@ It builds on group P-72 (the unblocking rule of P-78, the provider step of P-74)
 - `tests/verbs/issue.branch.sh::test_cherry_picked_fix_stays_blocked`: unchanged; a commit carried by hand is still not recognised.
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/verbs/done.squash.sh`; confirm red.
+- [x] Task 1.1: Write `tests/verbs/done.squash.sh`; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: The squash on the plan branch before the archive, with the last commit's trailers; the former tip kept until the commit exists.
-- [ ] Task 2.2: The one commit recorded (plan file, archive ledger, issue row, provider); integration by fast-forward.
-- [ ] Task 2.3: A plan made for an issue is recognised (plan and ledger agree) and squashed whatever the setup.
-- [ ] Task 2.4: Later integration of an archived plan corrects the records.
-- [ ] Task 2.5: `start` gives a plan made for an issue its own branch and worktree whatever the setting.
+- [x] Task 2.1: The squash on the plan branch before the archive, with the last commit's trailers; the former tip kept until the commit exists.
+- [x] Task 2.2: The one commit recorded (plan file, archive ledger, issue row, provider); integration by fast-forward.
+- [x] Task 2.3: A plan made for an issue is recognised (plan and ledger agree) and squashed whatever the setup.
+- [x] Task 2.4: Later integration of an archived plan corrects the records.
+- [x] Task 2.5: `start` gives a plan made for an issue its own branch and worktree whatever the setting.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update `MANUAL.md`, the `done` and `issue` contracts.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue; none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update `MANUAL.md`, the `done` and `issue` contracts.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue; none stays in chat only.
 
 ---
 
