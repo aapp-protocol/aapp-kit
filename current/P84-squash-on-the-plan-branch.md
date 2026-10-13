@@ -1,8 +1,8 @@
 # 🗺️ Plan P-84: Squash On The Plan Branch
 * **Created:** 2026-10-13 | **Last Refined:** 2026-10-13
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-84
-* **Changelog:** Changed: Squash On The Plan Branch
+* **Changelog:** Changed: in squash mode `done` squashes on the plan branch before the archive, so every recorded commit is on the parent branch (P-84)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,17 +38,26 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+With `aapp.integrate squash`, `aapp done` writes the archive first and squashes afterwards. The plan's ledger line and the row of the issue it closes get the plan's last commit, which is on the plan branch; the squash then makes a new commit on the parent branch, and the plan branch is deleted. Nothing goes back to the records: they name a commit that is on no branch any more, and the commit that holds the work on the parent is recorded nowhere. A plan blocked on the closed issue never sees that commit arrive, and stays blocked until someone unblocks it by hand.
+
+This plan makes the squash happen on the plan branch, before the archive. The one commit it produces is what gets recorded and what the parent is fast-forwarded to: every recorded SHA exists on the parent branch.
+
+It builds on group P-72 (the unblocking rule of P-78, the provider step of P-74) and is done after that group lands.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+- **Squash mode, every plan with its own branch:** at `done`, once the checks have passed and before anything is archived, the plan's commits are turned into one commit on the plan branch. The plan branch already contains its parent (`done` refuses otherwise), so this is the same tree as today's squash merge, with the same message (`feat: <title> (<plan>)`, the changelog line, `Plan-ID`, `Plan-Parent`, `Base-Branch`).
+- **That commit is what is recorded:** the plan's `* **Commits:**` (the one commit replaces the list; the commits it replaces no longer exist on any branch), the plan's line in the archive ledger, the row of the issue the plan closes, and the `commit` the provider is told (`issue.close`).
+- **Integration is then a fast-forward,** in squash mode too: the parent moves to the recorded commit. The plan branch is merged, so it is deleted without force.
+- **Attribution: the plan's last commit before the squash.** The squashed commit carries the `AI-Agent`, `AI-Vendor` and `AI-Model` trailers of the plan's last commit, not the identity of whoever runs `done`: the work was done by the agents that committed it, also when a person archives it. One set of trailers, never a list. A last commit without trailers gives a squashed commit without them.
+- **A plan waiting on the closed issue** is unblocked by the rule that already exists: the recorded commit is in its parent branch once the fast-forward is done. `aapp refine <plan> unblocked <num>` stays for a squash made by hand.
+- **Failure:** when the squashed commit cannot be made, the plan branch is put back exactly as it was and `done` refuses; nothing is archived.
+- **Unchanged:** `ff` (every commit and its SHA are kept), `hook`, `manual`, and a plan without its own branch.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Backwards Compatible`
+- **Fallback Inventory**: `None`. Plans archived before this keep the records they have.
 
 ---
 
@@ -57,21 +66,33 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/done.squash.sh::test_recorded_commit_is_on_parent` -> asserts after `done` in squash mode the plan's ledger line and its `Commits:` name the commit at the tip of the parent branch
+- [ ] `tests/verbs/done.squash.sh::test_one_commit_fast_forwarded` -> asserts the parent gains exactly one commit, with the squash message, and the plan branch is deleted
+- [ ] `tests/verbs/done.squash.sh::test_issue_row_names_parent_commit` -> asserts the archive row of the issue the plan closes names a commit reachable from the parent branch
+- [ ] `tests/verbs/done.squash.sh::test_provider_gets_parent_commit` -> asserts `issue.close` carries that same commit
+- [ ] `tests/verbs/done.squash.sh::test_waiting_plan_is_unblocked` -> asserts a plan blocked on the closed issue, whose parent is that branch, is unblocked by the `done`, with no manual step
+- [ ] `tests/verbs/done.squash.sh::test_attribution_is_the_last_commit` -> asserts the squashed commit carries the trailers of the plan's last commit and not those of the identity running `done`; none when that commit has none
+- [ ] `tests/verbs/done.squash.sh::test_failed_squash_restores_branch` -> asserts when the squashed commit cannot be made the plan branch is at its former tip, `done` refuses and nothing is archived
+- [ ] `tests/verbs/done.squash.sh::test_ff_mode_keeps_every_commit` -> asserts in `ff` mode every commit of the plan and its SHA reach the parent, as before
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### ♻️ Existing Tests Changed or Retired
+> Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
+- `tests/integrate_test.sh::test_squash_integrates_with_trailers_and_cleans_up`: rewritten where it reads the trailers (now the last commit's) and where it expects a forced branch deletion.
+- `tests/verbs/issue.branch.sh::test_cherry_picked_fix_stays_blocked`: unchanged; a commit carried by hand is still not recognised.
+
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Write `tests/verbs/done.squash.sh`; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: The squash on the plan branch before the archive, with the last commit's trailers; the former tip kept until the commit exists.
+- [ ] Task 2.2: The one commit recorded (plan file, archive ledger, issue row, provider); integration by fast-forward in squash mode.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [ ] Task 3.2: Update `MANUAL.md`, the `done` and `issue` contracts.
 - [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.5: Log every finding outside the Target Files as an issue; none stays in chat only.
 
 ---
 
@@ -79,29 +100,29 @@
 *Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_plan.sh` -> The squash on the plan branch before the archive; the recorded commit; fast-forward in squash mode.
+- [ ] `lib/docs/verbs/done.md` -> Contract.
+- [ ] `lib/docs/verbs/issue.md` -> Contract: the kit's own squash is recognised.
+- [ ] `MANUAL.md` -> Squash integration; what the records name; attribution of the squashed commit.
+- [ ] `tests/integrate_test.sh` -> Existing test changed (§3).
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `NEW FILE` -> `tests/verbs/done.squash.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/aapp-pre-commit` -> No hook rule changes.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [x] **Question 1 — Whose attribution does the squashed commit carry? → RESOLVED (developer, 2026-10-13):** the plan's last commit before the squash. The work was done by agents, also when a person runs `done`; nobody stops an agent mid-work to let another make the last commit; and one set of trailers keeps the commit short.
+* [ ] **Question 2 — `aapp done <id> integrate squash` on a plan archived earlier (after `manual`, or a refused integration).** Its records were written with the plan branch's commit. Options: (a) the squash is made then, and the plan's ledger line and the issue's archive row are corrected to the new commit in one commit on the plans branch; (b) the records are left as they are, and that path keeps the manual unblock.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-13:** Plan initialized from `pickup.md`.
-* **2026-10-13:** Refined blast radius and locked module boundaries.
+* **2026-10-13:** Drafted. Follows group P-72.
