@@ -120,6 +120,19 @@ if have ledger_archive_row; then
   else
     bad "test_archive_row_aborted" "rc=$rc top=[$top]"
   fi
+  if have ledger_set_archive_commit; then
+    ledger_set_archive_commit 12 abc1234; rc=$?
+    ledger_set_archive_commit 99 abc1234 2>/dev/null; rmiss=$?
+    row="$(grep -m 1 '^| #12 ' "$PLANS_DIR/done/000-issues-archive.md")"
+    want="| #12 | \`Low\` | \`CLI\` | 2026-10-01 | $today | \`abc1234\` | Offers by \`a\\|b\` name |"
+    if [ "$rc" -eq 0 ] && [ "$row" = "$want" ] && [ "$rmiss" -eq 3 ] && [ "$(ledger_cell 10 commit archive)" = '`aborted`' ]; then
+      ok "test_archive_commit_corrected"
+    else
+      bad "test_archive_commit_corrected" "rc=$rc rmiss=$rmiss row=[$row]"
+    fi
+  else
+    bad "test_archive_commit_corrected" "ledger_set_archive_commit not implemented"
+  fi
 else
   bad "test_archive_row_moves_and_prunes" "ledger_archive_row not implemented"
   bad "test_archive_row_aborted" "ledger_archive_row not implemented"

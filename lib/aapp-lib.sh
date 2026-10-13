@@ -1587,6 +1587,18 @@ ledger_set_cell() {
     _ledger_write_cell "$f" "$n" "$cell" "$3"
 }
 
+# ledger_set_archive_commit <n> <sha>: the commit #<n>'s archived row names,
+# when another commit took its place (a later squash). Returns 3 when #<n> has
+# no archived row.
+ledger_set_archive_commit() {
+    local f col
+    f="$(ledger_path archive)" || return 1
+    [ -f "$f" ] || return 3
+    col="$(_ledger_col "$f" "$(_ledger_col_name commit)")"
+    [ -n "$col" ] || return 3
+    _ledger_write_cell "$f" "$1" "$col" "\`$2\`"
+}
+
 # ledger_archive_row <n> <sha>|aborted [summary]: moves the active row to the
 # top of the archive and prunes its road-map line. Does not commit. Returns 0
 # when moved; fails when the row is not active.

@@ -70,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- `ledger_set_archive_commit` corrects the commit an archived issue row names (`#148`)
 - `/aapp` and `/aapp-status` show the output of `aapp status` unchanged, with remarks after it (`#145`)
 - `/aapp` and `/aapp-status` report what `aapp status` printed, item by item, without dropping fields (`#144`)
 - a fix's first commit, refused by a hook, can be retried with its `changelog` token (`#133`)
