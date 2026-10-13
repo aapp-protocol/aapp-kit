@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #148 | `High` | `CORE` | 2026-10-13 | 2026-10-13 | `3251ca5` | `ledger_set_archive_commit` corrects the commit an archived issue row names; unblocks P-84 |  |
 | #145 | `Low` | `DOCS` | 2026-10-13 | 2026-10-13 | `13f174f` | `/aapp` and `/aapp-status` show the output of `aapp status` unchanged, with remarks after it |  |
 | #144 | `Low` | `DOCS` | 2026-10-13 | 2026-10-13 | `5e1266a` | `/aapp` and `/aapp-status` report what `aapp status` printed, item by item, without dropping fields |  |
 | #120 | `Low` | `CLI` | 2026-10-11 | 2026-10-13 | `f9e1388` | [P-87](P87-rules-on-demand.md) - Rules On Demand |  |

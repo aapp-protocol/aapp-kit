@@ -4,7 +4,6 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #148 | `High` | `CORE` | 2026-10-13 | `lib/aapp-lib.sh`, `tests/issue_ledger_test.sh` | The ledger has no accessor to correct the commit an archived issue row names; a later squash (P-84) needs one. | blocks [P-84](current/P84-squash-on-the-plan-branch.md) | 🟡 `Incubated` |
 | #147 | `Low` | `CLI` | 2026-10-13 | `lib/cmd_status.sh` | `aapp status` Shipped prints the first five lines under `[Unreleased]`: the `### Added` header and four entries. `Changed` and `Fixed` never appear, and the order is the section's, not the order of landing. | [P-88](current/P88-status-recent-and-bounded.md) | 🔵 `Planned` |
 | #146 | `Low` | `CLI` | 2026-10-13 | `lib/cmd_init.sh` | `aapp init` deletes and recreates every skill directory and its `.claude/skills` link, even when unchanged: an open IDE drops the skills from its prompt until it is reloaded. |  | 🟡 `Incubated` |
 | #143 | `Low` | `CORE` | 2026-10-13 | `templates/blast-radius-guard.sh`, `lib/planning_health.sh` | Guard self-protection covers `.agents/skills/aapp-*` only: the `aapp` start skill (P-87) in `.agents/skills/aapp/` and `.claude/skills/aapp/` is not protected. |  | 🟡 `Incubated` |

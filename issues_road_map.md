@@ -13,7 +13,6 @@
 ---
 
 ## 🧱 Plan Blockers
-- [ ] #148 -> The ledger has no accessor to correct the commit an archived issue row names; a later squash (P-84) needs one. (blocks P-84)
 
 ## ⭐ User Priority (Pinned / Immediate Human Focus)
 *Direct developer overrides based on current focus and appetite.*
