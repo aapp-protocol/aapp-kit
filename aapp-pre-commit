@@ -69,6 +69,24 @@ if [ ${#STAGED_FILES[@]} -eq 0 ]; then
     exit 0
 fi
 
+# P-75: what is staged offline holds temporary ids and stays in the `.offline`
+# worktree until `aapp offline sync` publishes it: no file under `.offline/`
+# is committed to the code or to the plans branch.
+if [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" != "offline" ]; then
+    for FILE in "${STAGED_FILES[@]}"; do
+        case "$FILE" in
+            .offline/*)
+                echo ""
+                echo "❌ [Pre-Commit] '$FILE' is staged from the offline worktree."
+                echo "   Files under .offline/ are never committed here: publish them with 'aapp offline sync'."
+                echo "   Unstage it with: git restore --staged -- '$FILE'"
+                echo ""
+                exit 1
+                ;;
+        esac
+    done
+fi
+
 # ------------------------------------------------------------------------------
 # 0. ADAPTIVE BRANCH PROTECTION (STABLE VS. EDGE GUARD)
 # ------------------------------------------------------------------------------
@@ -785,41 +803,29 @@ fi
 # ------------------------------------------------------------------------------
 # 3b. ISSUE ROADMAP & LEDGER HYGIENE (AUTO-PRUNE & DETECT-AND-BLOCK)
 # ------------------------------------------------------------------------------
-ROADMAP_FILE=""
-if [ -f "issues_road_map.md" ]; then
-    ROADMAP_FILE="issues_road_map.md"
-elif [ -f ".plans/issues_road_map.md" ]; then
-    ROADMAP_FILE=".plans/issues_road_map.md"
-fi
+# The ledgers are read and written by the ledger functions of aapp-lib.sh
+# (P-73): in the plans worktree they are at its root, elsewhere under .plans/.
+# Only the ledgers of the worktree being committed are looked at.
+ROADMAP_FILE="$(ledger_path roadmap "$PWD")" || ROADMAP_FILE=""
+[ -f "$ROADMAP_FILE" ] || ROADMAP_FILE=""
 
-ROADMAP_RESOLVED_REGEX='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)'
-
-if [ -n "$ROADMAP_FILE" ] && grep -qE "$ROADMAP_RESOLVED_REGEX" "$ROADMAP_FILE" 2>/dev/null; then
-    TMP_ROADMAP="$(mktemp 2>/dev/null || echo "$ROADMAP_FILE.tmp")"
-    if grep -v -E "$ROADMAP_RESOLVED_REGEX" "$ROADMAP_FILE" > "$TMP_ROADMAP" 2>/dev/null; then
-        mv "$TMP_ROADMAP" "$ROADMAP_FILE"
-        if [ "$ROADMAP_FILE" = "issues_road_map.md" ]; then
+if [ -n "$ROADMAP_FILE" ] && [ -n "$(AAPP_LEDGER_ROADMAP="$ROADMAP_FILE" ledger_table roadmap | grep -E "$LEDGER_ROADMAP_RESOLVED_RE" || true)" ]; then
+    if AAPP_LEDGER_ROADMAP="$ROADMAP_FILE" roadmap_prune resolved 2>/dev/null; then
+        # Staged only when the road map belongs to the worktree being committed.
+        if [ "$(dirname "$ROADMAP_FILE")" = "$PWD" ]; then
             git add "$ROADMAP_FILE" 2>/dev/null || true
         fi
-        echo "🧹 [Pre-Commit Notice] Auto-pruned resolved issues from $ROADMAP_FILE"
-    else
-        rm -f "$TMP_ROADMAP"
+        echo "🧹 [Pre-Commit Notice] Auto-pruned resolved issues from ${ROADMAP_FILE#"$PWD"/}"
     fi
 fi
 
-# Detect-and-block resolved rows in active ISSUES.md
-ISSUES_FILE=""
-if [ -f "ISSUES.md" ]; then
-    ISSUES_FILE="ISSUES.md"
-elif [ -f ".plans/ISSUES.md" ]; then
-    ISSUES_FILE=".plans/ISSUES.md"
-fi
+# Detect-and-block resolved rows in the active ledger
+ISSUES_FILE="$(ledger_path issues "$PWD")" || ISSUES_FILE=""
+[ -f "$ISSUES_FILE" ] || ISSUES_FILE=""
 
-ISSUES_RESOLVED_ROW_REGEX='^[[:space:]]*\|[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)'
-
-if [ -n "$ISSUES_FILE" ] && grep -qE "$ISSUES_RESOLVED_ROW_REGEX" "$ISSUES_FILE" 2>/dev/null; then
+if [ -n "$ISSUES_FILE" ] && [ -n "$(AAPP_LEDGER_ISSUES="$ISSUES_FILE" ledger_resolved_rows)" ]; then
     echo ""
-    echo "❌ [Pre-Commit Violation] Found resolved issue in active $ISSUES_FILE."
+    echo "❌ [Pre-Commit Violation] Found resolved issue in active ${ISSUES_FILE#"$PWD"/}."
     echo "   The Relocation Invariant requires resolved rows to be moved to .plans/done/000-issues-archive.md."
     echo "   Resolution is a physical row relocation, never an in-place status badge."
     echo ""

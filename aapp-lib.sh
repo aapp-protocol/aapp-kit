@@ -707,7 +707,7 @@ parse_plan_worktree() {
 # append-only `* **Emergency Hotfixes:**` line (P-52).
 count_plan_emergency_hotfixes() {
     awk '/^##[[:space:]]/ { exit } /^\* \*\*Emergency Hotfixes:\*\*/ { print; exit }' "$1" 2>/dev/null |
-        grep -oE '#[0-9]+' | wc -l | tr -d ' '
+        issue_id_refs | wc -l | tr -d ' '
 }
 
 # resolve_plan_integrate_target <plan_file>: the branch the plan integrates into,
@@ -723,6 +723,16 @@ resolve_plan_integrate_target() {
         *)         t="$mode" ;;
     esac
     case "$t" in ''|detached) return 1 ;; esac
+    echo "$t"
+}
+
+# plan_base_branch <plan_file>: the plan's parent branch, the one it was cut
+# from (named in `* **Base:**`); nothing for a plan never started.
+plan_base_branch() {
+    local t
+    t="$(awk '/^##[[:space:]]/ { exit } /^\* \*\*Base:\*\*/ { print; exit }' "$1" 2>/dev/null |
+        sed -nE 's/^\* \*\*Base:\*\*[[:space:]]*`[0-9a-fA-F]+`[[:space:]]*\(([^)]+)\).*/\1/p')"
+    case "$t" in ''|detached) return 0 ;; esac
     echo "$t"
 }
 
@@ -852,3 +862,928 @@ aapp_changelog_plan_line() {
         END { exit found ? 0 : 1 }
     '
 }
+
+# ---- Issue ids (P-79) ----
+# The one definition of what an issue id is: nothing outside this section
+# spells out its pattern (tests/issue_id_test.sh::test_no_id_pattern_outside).
+#
+# An id is `#` followed by its body, in one of two forms:
+#   digits                 #46        the kit's counter, or a tracker that numbers
+#   KEY-digits             #PROJ-101  a tracker's own key: a capital letter, then
+#                                     capitals or digits, a dash, digits
+# Written without the `#` on the command line (`aapp issue fix 46`); a key typed
+# in lowercase is uppercased. `ISSUE-46` is read as #46.
+AAPP_ISSUE_ID_BODY_RE='([0-9]+|[A-Z][A-Z0-9]*-[0-9]+)'
+# A written id; the same, or a bare or ISSUE- number as older ledgers have them;
+# and an id that carries its prefix.
+AAPP_ISSUE_REF_RE="#(${AAPP_ISSUE_ID_BODY_RE})"
+AAPP_ISSUE_REF_LOOSE_RE="((#|ISSUE-)?[0-9]+|#(${AAPP_ISSUE_ID_BODY_RE}))"
+AAPP_ISSUE_REF_PREFIXED_RE="((#|ISSUE-)[0-9]+|#(${AAPP_ISSUE_ID_BODY_RE}))"
+
+# issue_id_body <text> -> the id's body, normalised (46, #46, `#046`, ISSUE-46
+# all give 46; PROJ-101, #PROJ-101 and proj-101 give PROJ-101). Fails, naming
+# the accepted forms, for anything else.
+issue_id_body() {
+    local raw="$1" n num
+    n="${raw//\`/}"
+    n="${n#\#}"
+    num="$n"
+    case "$num" in ISSUE-*|issue-*) num="${num#*-}" ;; esac
+    case "$num" in
+        ''|*[!0-9]*) ;;
+        *) printf '%s\n' "$((10#$num))"; return 0 ;;
+    esac
+    n="$(printf '%s' "$n" | tr '[:lower:]' '[:upper:]')"
+    if printf '%s\n' "$n" | grep -qxE '[A-Z][A-Z0-9]*-[0-9]+'; then
+        printf '%s\n' "$n"; return 0
+    fi
+    echo "❌ [Issue] Not an issue ID: '$raw' (use a number or a tracker's key, e.g. 46 or PROJ-101)." >&2
+    return 1
+}
+
+# issue_id_normalize <text> -> the id as it is written: #<body>.
+issue_id_normalize() {
+    local b
+    b="$(issue_id_body "$1")" || return 1
+    printf '#%s\n' "$b"
+}
+
+# issue_id_valid <text>: true for one well-formed id, with or without `#`.
+issue_id_valid() { issue_id_body "$1" >/dev/null 2>&1; }
+
+# issue_id_is_numeric <id>: true for an id the kit's counter could have issued.
+issue_id_is_numeric() {
+    local b="${1#\#}"
+    case "$b" in ''|*[!0-9]*) return 1 ;; esac
+    return 0
+}
+
+# issue_id_refs [<text>] -> the ids written in a line (or in stdin), one per
+# line, in order. An id starts at a `#` that begins the text or follows a
+# character that is neither `#` nor a letter or digit, and ends before one that
+# is not a letter or digit: a Markdown heading and a hex token are not ids.
+issue_id_refs() {
+    if [ $# -gt 0 ]; then printf '%s\n' "$1"; else cat; fi | AAPP_RE="$AAPP_ISSUE_REF_RE" awk '
+        {
+            s = $0; pos = 1
+            while (match(substr(s, pos), ENVIRON["AAPP_RE"])) {
+                st = pos + RSTART - 1; len = RLENGTH
+                prev = (st > 1) ? substr(s, st - 1, 1) : ""
+                nxt = substr(s, st + len, 1)
+                if (prev !~ /[#A-Za-z0-9]/ && nxt !~ /[A-Za-z0-9]/) print substr(s, st, len)
+                pos = st + len
+            }
+        }'
+}
+
+# issue_id_at_start <text> -> the body of the id the text begins with (after
+# blanks), as a plan's `Target Issue` value does; fails when it begins otherwise.
+issue_id_at_start() {
+    local t="$1" first
+    t="${t#"${t%%[![:space:]]*}"}"
+    case "$t" in '#'*) ;; *) return 1 ;; esac
+    first="$(issue_id_refs "$t" | head -n 1)"
+    [ -n "$first" ] || return 1
+    case "$t" in "$first"*) printf '%s\n' "${first#\#}"; return 0 ;; esac
+    return 1
+}
+
+# issue_id_sort: stdin id bodies -> sorted and unique: numbers by value, then
+# keys by name and number.
+issue_id_sort() {
+    awk '{ if ($0 ~ /^[0-9]+$/) print "0\t-\t" $0 "\t" $0; else { k = $0; n = $0; sub(/-[0-9]+$/, "", k); sub(/^.*-/, "", n); print "1\t" k "\t" n "\t" $0 } }' |
+        sort -t "$(printf '\t')" -k1,1n -k2,2 -k3,3n | cut -f4 | awk '!seen[$0]++'
+}
+
+# issue_fix_name <id> -> the file name of the id's mini plan; issue_fix_id
+# <name> -> the id a mini plan's file name stands for.
+issue_fix_name() { printf 'fix-%s.md\n' "${1#\#}"; }
+issue_fix_id() {
+    local b="${1##*/}"
+    b="${b#fix-}"; b="${b%.md}"
+    issue_id_normalize "$b"
+}
+# ---- end issue ids ----
+
+# ---- Issue ledgers (P-73) ----
+# The one accessor of ISSUES.md, done/000-issues-archive.md and
+# issues_road_map.md: nothing outside this section reads or writes them
+# (tests/issue_ledger_test.sh::test_no_direct_ledger_access).
+#
+# Active:  | # | Sev | Type | Date | Location | Symptom | Target Plan / Fix | Status | [Branch |]
+# Archive: | # | Sev | Type | Date Opened | Date Resolved | Target Commit | Summary | [Branch |]
+# `Branch` (P-78) is where the issue's fix must land; a ledger without the
+# column, or an empty cell, means the development branch.
+# Escaped pipes (\|) inside cells are preserved everywhere.
+
+# Road-map lines: an open entry, and a resolved one (the hook's auto-prune).
+# What an id looks like comes from the id section above (P-79).
+LEDGER_ROADMAP_OPEN_RE='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ ]?\]|\*)[[:space:]]*`?'"$AAPP_ISSUE_REF_LOOSE_RE"
+LEDGER_ROADMAP_RESOLVED_RE='^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?'"$AAPP_ISSUE_REF_LOOSE_RE"'`?.*(✅|[Rr]esolved)'
+# An active row: its first cell is a written id.
+LEDGER_ROW_RE='^[[:space:]]*\|[[:space:]]*`?'"$AAPP_ISSUE_REF_RE"
+# A resolved row left in the active ledger (the hook's relocation check).
+LEDGER_RESOLVED_ROW_RE='^[[:space:]]*\|[[:space:]]*`?'"$AAPP_ISSUE_REF_LOOSE_RE"'`?.*(✅|[Rr]esolved)'
+
+_ledger_rel() {
+    case "$1" in
+        issues)  echo "ISSUES.md" ;;
+        archive) echo "done/000-issues-archive.md" ;;
+        roadmap) echo "issues_road_map.md" ;;
+        *)       return 2 ;;
+    esac
+}
+
+# _ledger_row_regex <n> -> ERE matching the ledger row whose first cell is #<n>.
+_ledger_row_regex() {
+    printf '^[[:space:]]*\\|[[:space:]]*`?#%s`?[[:space:]]*\\|' "$1"
+}
+
+# ledger_path <issues|archive|roadmap> [repo-root] -> the ledger's path. Looks
+# in $PLANS_DIR, then <root>/.plans/, then <root>/ (the plans worktree itself,
+# or a project keeping its ledgers at the root). When the file is nowhere it
+# prints where it would be; callers test `-f`. Fails only with no place to look.
+ledger_path() {
+    local rel root given
+    rel="$(_ledger_rel "$1")" || return 2
+    # A caller holding the file itself (the health checks take paths) names it.
+    case "$1" in
+        issues)  given="${AAPP_LEDGER_ISSUES:-}" ;;
+        archive) given="${AAPP_LEDGER_ARCHIVE:-}" ;;
+        roadmap) given="${AAPP_LEDGER_ROADMAP:-}" ;;
+    esac
+    if [ -n "$given" ]; then printf '%s\n' "$given"; return 0; fi
+    # A named root is looked at alone; $PLANS_DIR serves the callers without one.
+    if [ -n "${2:-}" ]; then
+        if [ -f "$2/.plans/$rel" ]; then printf '%s\n' "$2/.plans/$rel"; elif [ -f "$2/$rel" ]; then printf '%s\n' "$2/$rel"; else printf '%s\n' "$2/.plans/$rel"; fi
+        return 0
+    fi
+    if [ -n "${PLANS_DIR:-}" ] && [ -f "$PLANS_DIR/$rel" ]; then
+        printf '%s\n' "$PLANS_DIR/$rel"; return 0
+    fi
+    root="${REPO_ROOT:-}"
+    [ -n "$root" ] || root="$(git rev-parse --show-toplevel 2>/dev/null)" || root=""
+    if [ -n "$root" ] && [ -f "$root/.plans/$rel" ]; then printf '%s\n' "$root/.plans/$rel"; return 0; fi
+    if [ -n "$root" ] && [ -f "$root/$rel" ]; then printf '%s\n' "$root/$rel"; return 0; fi
+    if [ -n "${PLANS_DIR:-}" ]; then printf '%s\n' "$PLANS_DIR/$rel"; return 0; fi
+    if [ -n "$root" ]; then printf '%s\n' "$root/.plans/$rel"; return 0; fi
+    return 1
+}
+
+# ledger_commit_paths [issues|archive|roadmap]… -> the named ledgers (all three
+# by default) that exist, relative to the plans worktree: for plans_commit and
+# the done/abort snapshots.
+ledger_commit_paths() {
+    local which f rel
+    # P-75: the offline ledgers are never committed to the plans branch.
+    [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || return 0
+    [ $# -gt 0 ] || set -- issues archive roadmap
+    for which in "$@"; do
+        f="$(ledger_path "$which")" || continue
+        [ -f "$f" ] || continue
+        # P-74: where a tracker keeps the record the ledgers are ignored files:
+        # no verb commits them.
+        rel="$(_ledger_rel "$which")"
+        git -C "${f%/"$rel"}" check-ignore -q "$rel" 2>/dev/null && continue
+        echo "$rel"
+    done
+    return 0
+}
+
+# ledger_rel <issues|archive|roadmap> -> the ledger's path inside the plans worktree.
+ledger_rel() { _ledger_rel "$1"; }
+
+# ledger_record_external (P-74): true where a tracker keeps the record: the
+# ledgers are in place, in the same format, but ignored by Git (`aapp issue
+# list` against a provider that lists issues made them so).
+ledger_record_external() {
+    local f
+    f="$(ledger_path issues)" || return 1
+    git -C "${f%/ISSUES.md}" check-ignore -q ISSUES.md 2>/dev/null
+}
+
+# ledger_ensure_files (P-74): the three ledgers, empty, where one is missing (a
+# clone whose ledgers are ignored has none until its first sync).
+ledger_ensure_files() {
+    local f
+    f="$(ledger_path issues)" || return 1
+    if [ ! -f "$f" ]; then
+        mkdir -p "$(dirname "$f")" || return 1
+        printf '%s\n' '# 🐛 Issues: Active Technical Backlog' '' \
+            '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |' \
+            '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > "$f" || return 1
+    fi
+    f="$(ledger_path archive)" || return 1
+    if [ ! -f "$f" ]; then
+        mkdir -p "$(dirname "$f")" || return 1
+        printf '%s\n' '# 🏛️ Master Issue Archive Ledger' '' \
+            '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' \
+            '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > "$f" || return 1
+    fi
+    f="$(ledger_path roadmap)" || return 1
+    if [ ! -f "$f" ]; then
+        printf '%s\n' '# 🗺️ Issue Priority Board' '' '## 📥 Triage (Incoming / Unsequenced)' > "$f" || return 1
+    fi
+}
+
+# ledger_replace_row <n> <row>: #<n>'s active row becomes <row> (padded to the
+# header's cell count); no other line changes. Returns 3 when there is no row.
+ledger_replace_row() {
+    local f tmp row
+    f="$(ledger_path issues)" || return 1
+    [ -f "$f" ] || return 1
+    row="$(_ledger_pad_row "$f" "$2")"
+    tmp="$f.aapp-row.$$"
+    AAPP_RE="$(_ledger_row_regex "$1")" AAPP_ROW="$row" awk '
+        !d && $0 ~ ENVIRON["AAPP_RE"] { print ENVIRON["AAPP_ROW"]; d = 1; next } { print }
+        END { if (!d) exit 3 }' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 3; }
+}
+
+# ledger_drop_row <n>: #<n>'s active row and road-map line go, without a trace
+# in the archive (a row the tracker's listing no longer brings).
+ledger_drop_row() {
+    local f tmp
+    f="$(ledger_path issues)" || return 1
+    [ -f "$f" ] || return 0
+    tmp="$f.aapp-drop.$$"
+    grep -v -E "$(_ledger_row_regex "$1")" "$f" > "$tmp" || [ $? -eq 1 ]
+    mv "$tmp" "$f"
+    roadmap_prune "$1"
+}
+
+# roadmap_add_entry <n> <text>: a new issue's line, `- [ ] #<n> -> <text>`, at
+# the end of the 📥 Triage section (at the end of the board when it has none).
+roadmap_add_entry() {
+    local f tmp
+    f="$(ledger_path roadmap)" || return 1
+    [ -f "$f" ] || return 1
+    tmp="$f.aapp-entry.$$"
+    AAPP_LINE="- [ ] #$1 -> $2" awk '
+        function flush() { for (i = 1; i <= nb; i++) print blank[i]; nb = 0 }
+        in_t && /^## / { print ENVIRON["AAPP_LINE"]; flush(); in_t = 0; done = 1 }
+        in_t && /^[[:space:]]*$/ { blank[++nb] = $0; next }
+        in_t { flush() }
+        /^## 📥 Triage/ && !done { in_t = 1 }
+        { print }
+        END { if (!done) print ENVIRON["AAPP_LINE"]; flush() }
+    ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+}
+
+# ---- Issue text: description and notes (P-74) ----
+# An issue's text has three parts. The symptom is the row's cell. The
+# description (the text given when the issue is logged) and the notes (added
+# later, dated, with their author) may hold real data from a live system: they
+# are never in the ledger, never in Git and never in a tracked file. Without a
+# tracker that keeps them they are in a file per project on this machine:
+#   ${AAPP_STATE_DIR:-~/.local/state}/aapp/<key>/issues-data.md   (0700 / 0600)
+# <key> comes from the remote URL (two clones of one project share the file),
+# or from the folder name of a repository with no remote.
+
+# issue_text_file -> the store's path (it may not exist yet).
+issue_text_file() {
+    local base name url key
+    base="${AAPP_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}}"
+    name="$(git config --get aapp.remote 2>/dev/null)" || name="origin"
+    if url="$(git remote get-url "$name" 2>/dev/null)" && [ -n "$url" ]; then
+        key="$(printf '%s' "$url" | sed -E 's#^[a-z+]+://##; s#^[^/@]*@##; s#\.git$##')"
+    else
+        key="$(basename "$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)")"
+    fi
+    key="$(printf '%s' "$key" | tr -c 'A-Za-z0-9._-' '-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
+    [ -n "$key" ] || key="project"
+    printf '%s/aapp/%s/issues-data.md\n' "$base" "$key"
+}
+
+# issue_text_add <n> description|note <text> [<author>]: appends one entry.
+# Fails, writing nothing, when the store cannot be written (a sandbox).
+issue_text_add() {
+    local f dir head
+    f="$(issue_text_file)"; dir="$(dirname "$f")"
+    mkdir -p "$dir" 2>/dev/null && chmod 700 "$dir" 2>/dev/null || return 1
+    if [ "$2" = "description" ]; then head="### description"; else head="### note $(date +%Y-%m-%d) ${4:-unknown}"; fi
+    ( umask 077
+      { printf '## #%s\n%s\n' "$1" "$head"
+        # A text line that looks like one of the store's headings is indented.
+        printf '%s\n' "$3" | sed -E 's/^(#{2,3} )/ \1/'
+        echo; } >> "$f" ) 2>/dev/null || return 1
+    chmod 600 "$f" 2>/dev/null || return 1
+}
+
+# issue_text_get <n> -> the description and notes of #<n>, in the order they
+# were written, each under a line naming it; nothing when there is none.
+# Returns 1 when the store exists and cannot be read.
+issue_text_get() {
+    local f
+    f="$(issue_text_file)"
+    [ -e "$f" ] || return 0
+    [ -r "$f" ] || return 1
+    AAPP_HEAD="## #$1" awk '
+        /^## #/ { on = ($0 == ENVIRON["AAPP_HEAD"]); next }
+        !on { next }
+        /^### / { sub(/^### /, ""); if (seen) print ""; print "[" $0 "]"; seen = 1; held = 0; next }
+        /^[[:space:]]*$/ { held++; next }
+        { for (; held > 0; held--) print ""; if ($0 ~ /^ ###? /) $0 = substr($0, 2); print }
+    ' "$f"
+}
+# ---- end issue text ----
+
+# ledger_row <n> -> the active row of #<n>, as written; fails when there is none.
+ledger_row() {
+    local f re real
+    re="$(_ledger_row_regex "$1")"
+    f="$(ledger_path issues)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ] && grep -m 1 -E "$re" "$f"; then return 0; fi
+    # P-75: an issue staged offline, then one known here by a former offline id.
+    [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || return 1
+    f="$(_ledger_offline_path issues)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ] && grep -m 1 -E "$re" "$f"; then return 0; fi
+    real="$(ledger_alias "$1")" || return 1
+    [ -n "$real" ] && [ "$real" != "$1" ] || return 1
+    ledger_row "$real"
+}
+
+# ledger_table <issues|archive|roadmap> [repo-root] -> the ledger file as it
+# is, for the checks that need its line numbers and layout.
+ledger_table() {
+    local f
+    f="$(ledger_path "$1" "${2:-}")" || return 0
+    [ -f "$f" ] || return 0
+    cat "$f"
+}
+
+# ledger_row_lines [<status>] -> every active row, as written, in file order;
+# <status> keeps the rows whose status cell contains it.
+ledger_row_lines() {
+    local f col
+    f="$(ledger_path issues)" || return 0
+    [ -f "$f" ] || return 0
+    if [ -z "${1:-}" ]; then
+        grep -E "$LEDGER_ROW_RE" "$f" 2>/dev/null
+        return 0
+    fi
+    col="$(_ledger_col "$f" "Status")"
+    AAPP_COL="${col:-9}" AAPP_STATUS="$1" AAPP_ROW_RE="$LEDGER_ROW_RE" awk '
+        $0 ~ ENVIRON["AAPP_ROW_RE"] {
+            line = $0; gsub(/\\\|/, "\001", line); split(line, c, "|")
+            if (index(c[ENVIRON["AAPP_COL"] + 0], ENVIRON["AAPP_STATUS"]) > 0) print
+        }' "$f"
+}
+
+# ledger_rows [<status>] -> active rows, one per line, tab-separated: id (#<n>),
+# sev, type, date, location, symptom, link, status, source (`local`). <status>
+# keeps the rows whose status cell contains it (`Incubated`, `Planned`).
+ledger_rows() {
+    local f
+    f="$(ledger_path issues)" || return 0
+    [ -f "$f" ] || return 0
+    AAPP_STATUS="${1:-}" AAPP_ROW_RE="$LEDGER_ROW_RE" awk '
+        $0 ~ ENVIRON["AAPP_ROW_RE"] {
+            line = $0; gsub(/\\\|/, "\001", line)
+            k = split(line, c, "|")
+            if (k < 10) next
+            for (i = 2; i <= 9; i++) { gsub(/^[ \t]+|[ \t]+$/, "", c[i]); gsub(/\001/, "\\|", c[i]) }
+            if (ENVIRON["AAPP_STATUS"] != "" && index(c[9], ENVIRON["AAPP_STATUS"]) == 0) next
+            gsub(/`/, "", c[2])
+            printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tlocal\n", c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9]
+        }' "$f"
+}
+
+# ledger_resolved_rows -> rows left in the active ledger although marked
+# resolved (the Relocation Invariant: a resolved row moves to the archive).
+ledger_resolved_rows() {
+    local f
+    f="$(ledger_path issues)" || return 0
+    [ -f "$f" ] || return 0
+    grep -E "$LEDGER_RESOLVED_ROW_RE" "$f" 2>/dev/null
+    return 0
+}
+
+# ledger_ids <active|archive|roadmap> -> the issue numbers of one ledger, bare
+# integers in file order (`#12`, `` `#012` `` and `ISSUE-12` all give 12).
+ledger_ids() {
+    local f
+    case "$1" in
+        active)  f="$(ledger_path issues)" || return 0 ;;
+        archive) f="$(ledger_path archive)" || return 0 ;;
+        roadmap) f="$(ledger_path roadmap)" || return 0 ;;
+        *)       return 2 ;;
+    esac
+    [ -f "$f" ] || return 0
+    # The first cell of a table row, or what follows a road-map line's marker.
+    if [ "$1" = "roadmap" ]; then
+        awk '{ if (sub(/^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*/, "")) print }' "$f"
+    else
+        awk -F'|' '/^[[:space:]]*\|/ { print $2 }' "$f"
+    fi | AAPP_RE="^\`?${AAPP_ISSUE_REF_LOOSE_RE}" awk '
+        {
+            t = $0; gsub(/^[ \t]+/, "", t)
+            if (!match(t, ENVIRON["AAPP_RE"])) next
+            id = substr(t, RSTART, RLENGTH); gsub(/`/, "", id)
+            had_hash = (id ~ /^#/); sub(/^#/, "", id); num = id; sub(/^ISSUE-/, "", num)
+            if (num ~ /^[0-9]+$/) { sub(/^0+/, "", num); print (num == "") ? "0" : num }
+            else if (had_hash) print id
+        }'
+}
+
+# ledger_locate <n> -> prints "active", "archive" or nothing.
+ledger_locate() {
+    local re f
+    re="$(_ledger_row_regex "$1")"
+    f="$(ledger_path issues)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ] && grep -qE "$re" "$f"; then echo "active"; return 0; fi
+    f="$(ledger_path archive)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ] && grep -qE "$re" "$f"; then echo "archive"; return 0; fi
+    # P-75: an issue staged offline, then one known here by a former offline id.
+    [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || return 0
+    case "$(ledger_in_offline "$1")" in
+        active)  echo "active"; return 0 ;;
+        archive) echo "archive"; return 0 ;;
+    esac
+    f="$(ledger_alias "$1")" || f=""
+    if [ -n "$f" ] && [ "$f" != "$1" ]; then ledger_locate "$f"; fi
+    return 0
+}
+
+# ---- Offline ledgers (P-75) ----
+# Issues logged while the team's provider is unreachable are staged in the
+# `.offline` worktree (orphan branch `offline`, never pushed), in ledgers of the
+# same format: ISSUES.md, done/000-issues-archive.md, issues_road_map.md. They
+# are a second source of the ledger functions: readers see them beside the
+# main ledgers, and a writer is pointed at them with ledger_use_offline.
+
+# offline_dir -> the `.offline` worktree's path (it may not be mounted).
+offline_dir() {
+    local common
+    common="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
+    case "$common" in /*) ;; *) common="$(cd "$common" && pwd)" ;; esac
+    printf '%s/.offline\n' "${common%/.git}"
+}
+
+# offline_mounted: true when the worktree is there.
+offline_mounted() {
+    local d
+    d="$(offline_dir)" || return 1
+    [ -e "$d/.git" ]
+}
+
+_ledger_offline_path() {
+    local d rel
+    offline_mounted || return 1
+    d="$(offline_dir)"; rel="$(_ledger_rel "$1")" || return 1
+    printf '%s/%s\n' "$d" "$rel"
+}
+
+# ledger_in_offline <n> -> "active" or "archive" for an issue staged offline.
+ledger_in_offline() {
+    local f re
+    re="$(_ledger_row_regex "$1")"
+    f="$(_ledger_offline_path issues)" || return 0
+    if [ -f "$f" ] && grep -qE "$re" "$f"; then echo "active"; return 0; fi
+    f="$(_ledger_offline_path archive)" || return 0
+    if [ -f "$f" ] && grep -qE "$re" "$f"; then echo "archive"; fi
+    return 0
+}
+
+# ledger_use_offline: from here on, in this process, the ledger functions read
+# and write the offline ledgers; no verb commits them to the plans branch
+# (ledger_commit_paths names none).
+ledger_use_offline() {
+    local d
+    d="$(offline_dir)" || return 1
+    export AAPP_LEDGER_ISSUES="$d/ISSUES.md" AAPP_LEDGER_ARCHIVE="$d/done/000-issues-archive.md" \
+           AAPP_LEDGER_ROADMAP="$d/issues_road_map.md" AAPP_LEDGER_OFFLINE=1
+}
+
+# ledger_offline_rows -> the active rows staged offline, as ledger_rows gives
+# rows, their source being `offline`.
+ledger_offline_rows() {
+    local f
+    [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || return 0
+    f="$(_ledger_offline_path issues)" || return 0
+    [ -f "$f" ] || return 0
+    AAPP_LEDGER_ISSUES="$f" ledger_rows "${1:-}" | sed 's/	local$/	offline/'
+}
+
+# ledger_offline_ids <active|archive> -> the ids staged offline, bodies, in file order.
+ledger_offline_ids() {
+    local f which="issues"
+    [ "$1" = "archive" ] && which="archive"
+    f="$(_ledger_offline_path "$which")" || return 0
+    [ -f "$f" ] || return 0
+    if [ "$which" = "issues" ]; then AAPP_LEDGER_ISSUES="$f" ledger_ids active; else AAPP_LEDGER_ARCHIVE="$f" ledger_ids archive; fi
+}
+
+# ledger_alias <n> -> the id an issue has now, when <n> is the temporary id it
+# was logged under offline: its archive row says `logged offline as #<n>`, and
+# this machine's alias list (beside the repository's Git data) has the others.
+# Commits made offline name the temporary id for good; they are never rewritten.
+ledger_alias() {
+    local f common hit
+    f="$(ledger_path archive)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ]; then
+        hit="$(grep -m 1 -E "logged offline as #$1([^A-Za-z0-9-]|\$)" "$f" | awk -F'|' '{ gsub(/[ \t`#]/, "", $2); print $2 }')"
+        if [ -n "$hit" ]; then echo "$hit"; return 0; fi
+    fi
+    common="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
+    [ -f "$common/aapp_issue_aliases" ] || return 1
+    hit="$(awk -F'\t' -v id="#$1" '$1 == id { v = $2 } END { sub(/^#/, "", v); print v }' "$common/aapp_issue_aliases")"
+    [ -n "$hit" ] || return 1
+    echo "$hit"
+}
+
+# ledger_alias_add <temp> <real>: remembers a former offline id on this machine.
+ledger_alias_add() {
+    local common
+    common="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
+    printf '#%s\t#%s\n' "$1" "$2" >> "$common/aapp_issue_aliases"
+}
+
+# issue_text_rename <old> <new>: the store's entries of #<old> become #<new>'s.
+issue_text_rename() {
+    local f tmp
+    f="$(issue_text_file)"
+    [ -f "$f" ] || return 0
+    tmp="$f.tmp.$$"
+    ( umask 077; AAPP_OLD="## #$1" AAPP_NEW="## #$2" awk '$0 == ENVIRON["AAPP_OLD"] { print ENVIRON["AAPP_NEW"]; next } { print }' "$f" > "$tmp" ) && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+    chmod 600 "$f" 2>/dev/null || true
+}
+# ---- end offline ledgers ----
+
+# Cells are found by the header's column names (P-78), so a ledger with or
+# without the `Branch` column reads the same. A cell's position is the one
+# awk's split on `|` gives it: the first cell is 2.
+
+# _ledger_col_name <cell> -> the header text a cell's column starts with.
+_ledger_col_name() {
+    case "$1" in
+        link)   echo "Target Plan" ;;
+        status) echo "Status" ;;
+        branch) echo "Branch" ;;
+        commit) echo "Target Commit" ;;
+        *)      return 2 ;;
+    esac
+}
+
+# _ledger_col <file> <header-text> -> the column's position; nothing when the
+# table has no such column.
+_ledger_col() {
+    AAPP_NAME="$2" awk '
+        /^[[:space:]]*\|[[:space:]]*#[[:space:]]*\|/ {
+            line = $0; gsub(/\\\|/, "\001", line); k = split(line, c, "|")
+            for (i = 2; i < k; i++) {
+                h = c[i]; gsub(/^[ \t]+|[ \t]+$/, "", h)
+                if (index(h, ENVIRON["AAPP_NAME"]) == 1) { print i; exit }
+            }
+            exit
+        }' "$1"
+}
+
+# _ledger_add_column <file> <header-text>: a further, last column on the table
+# whose header begins with `#`; its cells start empty.
+_ledger_add_column() {
+    local f="$1" tmp="$1.aapp-col.$$"
+    AAPP_NAME="$2" awk '
+        !t && /^[[:space:]]*\|[[:space:]]*#[[:space:]]*\|/ { t = 1; sub(/[[:space:]]*$/, ""); print $0 " " ENVIRON["AAPP_NAME"] " |"; next }
+        t == 1 && /^[[:space:]]*\|/ {
+            sub(/[[:space:]]*$/, "")
+            if ($0 ~ /^[[:space:]]*\|[[:space:]]*:---/) print $0 " :--- |"; else print $0 "  |"
+            next
+        }
+        t == 1 { t = 2 }
+        { print }
+        END { if (!t) exit 3 }
+    ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 3; }
+}
+
+# _ledger_pad_row <file> <row> -> the row with empty cells added up to the
+# header's count.
+_ledger_pad_row() {
+    AAPP_ROW="$2" awk '
+        /^[[:space:]]*\|[[:space:]]*#[[:space:]]*\|/ && !want { line = $0; gsub(/\\\|/, "", line); want = gsub(/\|/, "|", line) }
+        END {
+            row = ENVIRON["AAPP_ROW"]; line = row; gsub(/\\\|/, "", line); have = gsub(/\|/, "|", line)
+            sub(/[[:space:]]*$/, "", row)
+            for (; have < want; have++) row = row "  |"
+            print row
+        }' "$1"
+}
+
+# _ledger_write_cell <file> <n> <position> <value>: returns 3 when #<n> has no
+# row there.
+_ledger_write_cell() {
+    local f="$1" tmp="$1.aapp-cell.$$"
+    AAPP_N="$2" AAPP_CELL="$3" AAPP_VALUE="$4" awk '
+        {
+            line = $0; gsub(/\\\|/, "\001", line)
+            if (!done && line ~ ("^[[:space:]]*\\|[[:space:]]*`?#" ENVIRON["AAPP_N"] "`?[[:space:]]*\\|")) {
+                k = split(line, c, "|")
+                if (k > ENVIRON["AAPP_CELL"] + 0) {
+                    c[ENVIRON["AAPP_CELL"] + 0] = " " ENVIRON["AAPP_VALUE"] " "
+                    out = c[1]; for (j = 2; j <= k; j++) out = out "|" c[j]
+                    gsub(/\001/, "\\|", out); print out; done = 1; next
+                }
+            }
+            print
+        }
+        END { if (!done) exit 3 }
+    ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 3; }
+}
+
+# ledger_add_row <row>: inserts an active row under the table's separator line,
+# with as many cells as the header has. Returns 3 when the ledger has no table.
+ledger_add_row() {
+    local f tmp row
+    f="$(ledger_path issues)" || return 1
+    [ -f "$f" ] || return 1
+    row="$(_ledger_pad_row "$f" "$1")"
+    tmp="$f.aapp-add.$$"
+    AAPP_ROW="$row" awk '{ print } !d && /^\|[[:space:]]*:---/ { print ENVIRON["AAPP_ROW"]; d = 1 } END { if (!d) exit 3 }' \
+        "$f" > "$tmp" || { rm -f "$tmp"; return 3; }
+    mv "$tmp" "$f"
+}
+
+# ledger_cell <n> link|status|branch|commit [issues|archive] -> the cell of
+# #<n>'s row, as written; nothing when the ledger has no such row or column.
+ledger_cell() {
+    local f name col
+    name="$(_ledger_col_name "$2")" || return 2
+    f="$(ledger_path "${3:-issues}")" || return 0
+    [ -f "$f" ] || return 0
+    col="$(_ledger_col "$f" "$name")"
+    [ -n "$col" ] || return 0
+    AAPP_N="$1" AAPP_COL="$col" awk '
+        {
+            line = $0; gsub(/\\\|/, "\001", line)
+            if (line ~ ("^[[:space:]]*\\|[[:space:]]*`?#" ENVIRON["AAPP_N"] "`?[[:space:]]*\\|")) {
+                split(line, c, "|"); v = c[ENVIRON["AAPP_COL"] + 0]
+                gsub(/^[ \t]+|[ \t]+$/, "", v); gsub(/\001/, "\\|", v); print v; exit
+            }
+        }' "$f"
+}
+
+# ledger_branch <n> -> the branch named in #<n>'s row, active or archived;
+# nothing when none is named (the development branch is meant).
+ledger_branch() {
+    local b
+    b="$(ledger_cell "$1" branch issues)"
+    [ -n "$b" ] || b="$(ledger_cell "$1" branch archive)"
+    printf '%s' "$b" | tr -d '`'
+    [ -z "$b" ] || echo
+}
+
+# ledger_branch_map -> the active rows that name a branch, one per line:
+# id (#<n>), a tab, the branch.
+ledger_branch_map() {
+    local f col
+    f="$(ledger_path issues)" || return 0
+    [ -f "$f" ] || return 0
+    col="$(_ledger_col "$f" "Branch")"
+    [ -n "$col" ] || return 0
+    AAPP_COL="$col" AAPP_ROW_RE="$LEDGER_ROW_RE" awk '
+        $0 ~ ENVIRON["AAPP_ROW_RE"] {
+            line = $0; gsub(/\\\|/, "\001", line); split(line, c, "|")
+            id = c[2]; gsub(/[ \t`]/, "", id); b = c[ENVIRON["AAPP_COL"] + 0]; gsub(/[ \t`]/, "", b)
+            if (b != "") print id "\t" b
+        }' "$f"
+}
+
+# ledger_move_branch <old> <new-cell>: every active row whose Branch cell names
+# <old> gets <new-cell> (empty: no branch named). Prints the ids it changed.
+ledger_move_branch() {
+    local id b
+    while IFS="$(printf '\t')" read -r id b; do
+        [ "$b" = "$1" ] || continue
+        ledger_set_cell "${id#\#}" branch "$2" || return 1
+        echo "$id"
+    done < <(ledger_branch_map)
+}
+
+# ledger_set_cell <n> link|status|branch <value>: the cells of an active row
+# that change over its life; observation cells never change. The `Branch`
+# column is added by the first write that names a branch. Returns 2 for another
+# cell, 3 when #<n> is not an active row.
+ledger_set_cell() {
+    local n="$1" name cell f
+    case "$2" in
+        link|status|branch) name="$(_ledger_col_name "$2")" ;;
+        *)      echo "❌ [Issue] Only the link, status and branch cells of a row change (not '$2')." >&2; return 2 ;;
+    esac
+    f="$(ledger_path issues)" || return 1
+    [ -f "$f" ] || return 1
+    cell="$(_ledger_col "$f" "$name")"
+    if [ -z "$cell" ] && [ "$2" = "branch" ]; then
+        # No branch named and no column: nothing to write.
+        if [ -z "$3" ]; then
+            if ledger_row "$n" >/dev/null; then return 0; fi
+            return 3
+        fi
+        _ledger_add_column "$f" "Branch" || return 3
+        cell="$(_ledger_col "$f" "$name")"
+    fi
+    # A table without its header row: the positions the template gives them.
+    if [ -z "$cell" ]; then
+        case "$2" in link) cell=8 ;; status) cell=9 ;; esac
+    fi
+    _ledger_write_cell "$f" "$n" "$cell" "$3"
+}
+
+# ledger_archive_row <n> <sha>|aborted [summary]: moves the active row to the
+# top of the archive and prunes its road-map line. Does not commit. Returns 0
+# when moved; fails when the row is not active.
+ledger_archive_row() {
+    local n="$1" sha="$2" summary="${3:-}"
+    local active archive re row today archive_row tmp branch col
+    active="$(ledger_path issues)" || return 1
+    archive="$(ledger_path archive)" || return 1
+    re="$(_ledger_row_regex "$n")"
+    branch="$(ledger_cell "$n" branch issues)"
+
+    if [ ! -f "$archive" ]; then
+        echo "❌ [Issue] Archive not found: $archive" >&2
+        return 1
+    fi
+    row="$(grep -m 1 -E "$re" "$active" 2>/dev/null)" || {
+        echo "❌ [Issue] #$n is not an active row in $active." >&2
+        return 1
+    }
+
+    today="$(date +%Y-%m-%d)"
+    archive_row="$(AAPP_SHA="$sha" AAPP_SUMMARY="$summary" AAPP_TODAY="$today" awk '
+        {
+            gsub(/\\\|/, "\001")
+            n = split($0, c, "|")
+            for (i = 1; i <= n; i++) {
+                gsub(/^[ \t]+|[ \t]+$/, "", c[i])
+                gsub("\001", "\\|", c[i])
+            }
+            s = ENVIRON["AAPP_SUMMARY"]
+            if (s == "") s = "Direct fix (no plan)"
+            gsub(/\\\|/, "\001", s); gsub(/\|/, "\001", s); gsub("\001", "\\|", s)
+            printf "| %s | %s | %s | %s | %s | `%s` | %s |\n", c[2], c[3], c[4], c[5], ENVIRON["AAPP_TODAY"], ENVIRON["AAPP_SHA"], s
+        }' <<< "$row")"
+    # The branch the fix landed on travels with the row (P-78).
+    if [ -n "$branch" ] && [ -z "$(_ledger_col "$archive" "Branch")" ]; then
+        _ledger_add_column "$archive" "Branch" || {
+            echo "❌ [Issue] No table header found in $archive." >&2; return 1; }
+    fi
+    archive_row="$(_ledger_pad_row "$archive" "$archive_row")"
+
+    tmp="$archive.aapp-issue.$$"
+    AAPP_ROW="$archive_row" awk '
+        { print }
+        !done && /^\|[[:space:]]*:---/ { print ENVIRON["AAPP_ROW"]; done = 1 }
+        END { if (!done) exit 3 }
+    ' "$archive" > "$tmp" || {
+        rm -f "$tmp"
+        echo "❌ [Issue] No table header separator found in $archive." >&2
+        return 1
+    }
+    mv "$tmp" "$archive"
+    if [ -n "$branch" ]; then
+        col="$(_ledger_col "$archive" "Branch")"
+        _ledger_write_cell "$archive" "$n" "$col" "$branch" || return 1
+    fi
+
+    tmp="$active.aapp-issue.$$"
+    # grep -v exits 1 when every line matched; an emptied table is still valid.
+    grep -v -E "$re" "$active" > "$tmp" || [ $? -eq 1 ]
+    mv "$tmp" "$active"
+
+    roadmap_prune "$n"
+    return 0
+}
+
+# ledger_relink <old-rel-path> <new-rel-path> (P-50): rewrites the link target
+# `](<old>)` -> `](<new>)` in the active rows' Target Plan / Fix cell (the 7th
+# cell; observation cells never change) and in the road map's lines. Prints the
+# number of links rewritten; non-zero only on a write failure.
+ledger_relink() {
+    local old="$1" new="$2" f tmp count=0 n col
+    f="$(ledger_path issues)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ]; then
+        tmp="$f.aapp-relink.$$"
+        col="$(_ledger_col "$f" "Target Plan")"
+        AAPP_COL="${col:-8}" AAPP_OLD="]($old)" AAPP_NEW="]($new)" AAPP_ROW_RE="$LEDGER_ROW_RE" awk '
+            function swap(s,    out, i, o) {
+                o = ENVIRON["AAPP_OLD"]; out = ""
+                while ((i = index(s, o)) > 0) { out = out substr(s, 1, i - 1) ENVIRON["AAPP_NEW"]; s = substr(s, i + length(o)); n++ }
+                return out s
+            }
+            $0 ~ ENVIRON["AAPP_ROW_RE"] {
+                line = $0; gsub(/\\\|/, "\001", line)
+                k = split(line, c, "|")
+                p = ENVIRON["AAPP_COL"] + 0
+                if (k > p) {
+                    c[p] = swap(c[p]); out = c[1]
+                    for (j = 2; j <= k; j++) out = out "|" c[j]
+                    gsub(/\001/, "\\|", out); print out; next
+                }
+            }
+            { print }
+            END { print n + 0 > "/dev/stderr" }
+        ' "$f" > "$tmp" 2> "$tmp.n" || { rm -f "$tmp" "$tmp.n"; return 1; }
+        n="$(cat "$tmp.n")"; rm -f "$tmp.n"
+        mv "$tmp" "$f" || return 1
+        count=$((count + n))
+    fi
+    f="$(ledger_path roadmap)" || f=""
+    if [ -n "$f" ] && [ -f "$f" ]; then
+        n="$(grep -oF "]($old)" "$f" | wc -l | tr -d ' ')"
+        if [ "$n" -gt 0 ]; then
+            tmp="$f.aapp-relink.$$"
+            AAPP_OLD="]($old)" AAPP_NEW="]($new)" awk '
+                { s = $0; out = ""; o = ENVIRON["AAPP_OLD"]
+                  while ((i = index(s, o)) > 0) { out = out substr(s, 1, i - 1) ENVIRON["AAPP_NEW"]; s = substr(s, i + length(o)) }
+                  print out s }
+            ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+            count=$((count + n))
+        fi
+    fi
+    echo "$count"
+}
+
+# roadmap_entries [<cap>] -> the road map's open lines, in file order (the
+# template's placeholder and resolved lines left out); at most <cap> of them.
+roadmap_entries() {
+    local f
+    f="$(ledger_path roadmap)" || return 0
+    [ -f "$f" ] || return 0
+    grep -E "$LEDGER_ROADMAP_OPEN_RE" "$f" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '✅|[Rr]esolved|DONE' |
+        if [ -n "${1:-}" ]; then head -n "$1"; else cat; fi
+    return 0
+}
+
+# roadmap_entries_by_branch <current> <dev> [<cap>] (P-78) -> the same lines,
+# each with its issue's branch, those of <current> first. While no issue names
+# a branch every issue is on the development branch: the lines are as they are.
+roadmap_entries_by_branch() {
+    local map
+    map="$(ledger_branch_map)"
+    if [ -z "$map" ]; then roadmap_entries "${3:-}"; return 0; fi
+    roadmap_entries | AAPP_MAP="$map" AAPP_CUR="$1" AAPP_DEV="$2" AAPP_RE="$AAPP_ISSUE_REF_RE" awk '
+        BEGIN { n = split(ENVIRON["AAPP_MAP"], m, "\n"); for (i = 1; i <= n; i++) { split(m[i], kv, "\t"); br[kv[1]] = kv[2] } }
+        {
+            id = ""; if (match($0, ENVIRON["AAPP_RE"])) id = substr($0, RSTART, RLENGTH)
+            b = (id in br) ? br[id] : ENVIRON["AAPP_DEV"]
+            line = $0 ((b != "") ? "  (branch: " b ")" : "")
+            if (b == ENVIRON["AAPP_CUR"]) print line; else rest[++r] = line
+        }
+        END { for (i = 1; i <= r; i++) print rest[i] }' |
+        if [ -n "${3:-}" ]; then head -n "$3"; else cat; fi
+    return 0
+}
+
+# roadmap_blockers -> the issue numbers queued under 🧱 Plan Blockers, in order.
+roadmap_blockers() {
+    local f
+    f="$(ledger_path roadmap)" || return 0
+    [ -f "$f" ] || return 0
+    awk '/^## 🧱 Plan Blockers/ { q = 1; next } /^## / { q = 0 } q' "$f" |
+        sed -nE "s/^[[:space:]]*-[[:space:]]*\[[ ]?\][[:space:]]*#(${AAPP_ISSUE_ID_BODY_RE}).*/\1/p"
+}
+
+# roadmap_add_blocker <n> <text> <plan-id>: appends to 🧱 Plan Blockers, creating
+# the subheader at the top of the board (before the first `## `).
+roadmap_add_blocker() {
+    local rm line tmp
+    rm="$(ledger_path roadmap)" || return 1
+    [ -f "$rm" ] || return 1
+    line="- [ ] #$1 -> $2 (blocks $3)"
+    tmp="$rm.aapp-queue.$$"
+    if grep -q '^## 🧱 Plan Blockers' "$rm"; then
+        AAPP_LINE="$line" awk '
+            function flush() { for (i = 1; i <= nb; i++) print blank[i]; nb = 0 }
+            in_q && /^## / { print ENVIRON["AAPP_LINE"]; flush(); in_q = 0; done = 1 }
+            in_q && /^[[:space:]]*$/ { blank[++nb] = $0; next }
+            in_q { flush() }
+            /^## 🧱 Plan Blockers/ { in_q = 1 }
+            { print }
+            END { if (in_q && !done) print ENVIRON["AAPP_LINE"]; flush() }
+        ' "$rm" > "$tmp"
+    else
+        AAPP_LINE="$line" awk '
+            !done && /^## / { print "## 🧱 Plan Blockers"; print ENVIRON["AAPP_LINE"]; print ""; done = 1 }
+            { print }
+            END { if (!done) { print ""; print "## 🧱 Plan Blockers"; print ENVIRON["AAPP_LINE"] } }
+        ' "$rm" > "$tmp"
+    fi
+    mv "$tmp" "$rm"
+}
+
+# roadmap_prune <n>|resolved: removes #<n>'s line, or every line marked
+# resolved. An emptied board is still valid.
+roadmap_prune() {
+    local f tmp re
+    f="$(ledger_path roadmap)" || return 0
+    [ -f "$f" ] || return 0
+    if [ "$1" = "resolved" ]; then
+        re="$LEDGER_ROADMAP_RESOLVED_RE"
+    else
+        re="^[[:space:]]*([0-9]+\.|[-*][[:space:]]*\[[ xX]?\]|\*)[[:space:]]*\`?#$1([^0-9]|\$)"
+    fi
+    tmp="$f.aapp-prune.$$"
+    # grep -v exits 1 when every line matched.
+    grep -v -E "$re" "$f" > "$tmp" || [ $? -eq 1 ]
+    mv "$tmp" "$f"
+}
+# ---- end issue ledgers ----
