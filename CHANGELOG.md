@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status auto-sync (`P-30`): `aapp status` re-derives `state_matrix.md` before reading it, so the Roadmap line and Next Action footer report the real board instead of a stale cache.
 
 ### Changed
+- `done` squashes on the plan branch before the archive (squash setup, and any plan made for an issue), so recorded commits are on the parent (P-84) (`P-84`)
 - `aapp help <verb>` is short and answers `aapp <verb> help`; `/aapp` start skill; the rules file drops its per-verb walkthroughs (`P-87`)
 - one answer contract for the plugins the kit calls (P-77) (`P-77`)
 - every issue ledger read and write goes through one ledger section in `lib/aapp-lib.sh` (P-73) (`P-73`)
