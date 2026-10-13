@@ -21,6 +21,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-70**: [`P70-help.md`](current/P70-help.md) — Help
 - 🟣 **P-82**: [`P82-issue-fix-safeguards.md`](current/P82-issue-fix-safeguards.md) — Issue Fix Safeguards
 - 🟣 **P-84**: [`P84-squash-on-the-plan-branch.md`](current/P84-squash-on-the-plan-branch.md) — Squash On The Plan Branch
+- 🟣 **P-85**: [`P85-one-commit-per-fix.md`](current/P85-one-commit-per-fix.md) — One Commit Per Fix
 
 ---
 
