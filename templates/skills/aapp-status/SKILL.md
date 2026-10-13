@@ -22,7 +22,7 @@ aapp status
 If `aapp status` exits non-zero, report any repository corruption or missing toolchain configuration to the user.
 
 ### Step 3: Present Context Recovery Briefing
-Report what `aapp status` printed, pillar by pillar and item by item. Keep every field of every item (a plan's id, name and status; an issue's id and symptom): do not drop, abbreviate, merge or reorder them. Your own remarks come after the report, not in place of it. The **four pillars**:
+Show the user the output of `aapp status` as it was printed, in a code block: every line, in its order. Do not summarise, shorten, reword, merge or drop anything, and do not replace items with a count ("and 5 more"). The command's output is the briefing; the user may not see it unless you show it. Your own remarks come after it, in a few lines, not in place of it. The output covers the **four pillars**:
 1. **Shipped Pillar**: Recently landed features, bugfixes, or unreleased changes from `CHANGELOG.md`.
 2. **Issue Lane**: Active bugs and backlog items from `ISSUES.md` strictly in the priority order established by `issues_road_map.md`. The briefing shows the top 5; `aapp issue list` (or `aapp issue list all`) prints the rest in the same order.
 3. **Plan Lane**: Active blueprints in development, frozen specifications, or incubator drafts from `state_matrix.md`.
