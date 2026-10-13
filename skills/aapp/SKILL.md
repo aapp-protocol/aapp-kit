@@ -20,7 +20,7 @@ aapp status
 ```
 
 ### Step 3: Report
-Give a short briefing: what shipped, the open issues at the top of the board, the active plans, and the pickup queue. Then wait for the user's direction.
+Show the user the output of `aapp status` as it was printed, in a code block: every line, in its order. Do not summarise, shorten, reword, merge or drop anything, and do not replace items with a count ("and 5 more"). The command's output is the briefing; the user may not see it unless you show it. Your own remarks and suggested next actions come after it, in a few lines, not in place of it. Then wait for the user's direction.
 
 ## During the session
 - Before using a verb for the first time in a session, run `aapp help <verb>`: it prints the verb's arguments. `aapp help <verb> full` adds its refusals and effects.
