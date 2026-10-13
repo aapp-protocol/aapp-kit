@@ -51,6 +51,7 @@ It builds on group P-72 (the unblocking rule of P-78, the provider step of P-74)
   1. every plan, where the setup is squash (`aapp.integrate squash`, or `done <id> integrate squash`);
   2. **a plan made for an issue, whatever the setup** (`ff` included): one issue, one commit, one SHA in the archive.
 - **Telling a plan made for an issue apart.** Both sides must agree: the plan's `Target Issue` names `#<n>`, and the ledger's row of `#<n>` is `Planned` and links this plan (`[P-<id>](current/<file>)`, the same plan id). When only one side says so, the plan is not a plan for the issue: it happens to supersede the issue, or to sort it out with its own work. It is treated as any other plan, and the setup decides.
+- **A plan made for an issue always has a branch of its own.** `aapp start` (and `freeze-start`) gives it its own branch and worktree whatever `aapp.planWorktrees` says, and prints where to work, so it can be squashed to one commit. On a repository with one branch too: the history stays smooth and each issue traceable to one commit. Other plans follow `aapp.planWorktrees` as before.
 - **How the squash is made:** at `done`, once the checks have passed and before anything is archived, the plan's commits are turned into one commit on the plan branch. The plan branch already contains its parent (`done` refuses otherwise), so this is the same tree as today's squash merge, with the same message (`feat: <title> (<plan>)`, the changelog line, `Plan-ID`, `Plan-Parent`, `Base-Branch`).
 - **That commit is what is recorded:** the plan's `* **Commits:**` (the one commit replaces the list; the commits it replaces no longer exist on any branch), the plan's line in the archive ledger, the row of the issue the plan closes, and the `commit` the provider is told (`issue.close`).
 - **Integration is then a fast-forward** wherever the kit integrates (squash and `ff` setups): the parent moves to the recorded commit. The plan branch is merged, so it is deleted without force. Under `manual` and `hook` a plan made for an issue is squashed all the same; its one commit stays on the plan branch for the person or the handler to integrate.
@@ -58,7 +59,7 @@ It builds on group P-72 (the unblocking rule of P-78, the provider step of P-74)
 - **Attribution: the plan's last commit before the squash.** The squashed commit carries the `AI-Agent`, `AI-Vendor` and `AI-Model` trailers of the plan's last commit, not the identity of whoever runs `done`: the work was done by the agents that committed it, also when a person archives it. One set of trailers, never a list. A last commit without trailers gives a squashed commit without them.
 - **A plan waiting on the closed issue** is unblocked by the rule that already exists: the recorded commit is in its parent branch once the fast-forward is done. `aapp refine <plan> unblocked <num>` stays for a squash made by hand.
 - **Failure:** when the squashed commit cannot be made, the plan branch is put back exactly as it was and `done` refuses; nothing is archived.
-- **Unchanged:** a plan that closes no issue under `ff`, `hook` or `manual` (every commit and its SHA are kept), and any plan without its own branch (its commits are on the shared branch and cannot be squashed).
+- **Unchanged:** a plan that closes no issue under `ff`, `hook` or `manual` (every commit and its SHA are kept), and a plan that closes no issue and has no branch of its own (its commits are on the shared branch).
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Backwards Compatible`
@@ -82,6 +83,7 @@ It builds on group P-72 (the unblocking rule of P-78, the provider step of P-74)
 - [ ] `tests/verbs/done.squash.sh::test_issue_plan_squashed_in_ff_mode` -> asserts in `ff` mode a plan made for an issue lands as one commit, which the issue's archive row names
 - [ ] `tests/verbs/done.squash.sh::test_issue_plan_needs_both_sides` -> asserts a plan whose `Target Issue` names an issue the ledger does not link to it (not `Planned`, or linked to another plan) is not squashed in `ff` mode: it is a plan like any other
 - [ ] `tests/verbs/done.squash.sh::test_issue_plan_squashed_under_manual` -> asserts under `manual` a plan made for an issue is archived with one commit on its kept branch, which the records name
+- [ ] `tests/verbs/done.squash.sh::test_issue_plan_gets_its_own_branch` -> asserts with `aapp.planWorktrees off` `start` of a plan made for an issue creates its branch and worktree and names the path, and `start` of another plan does not
 - [ ] `tests/verbs/done.squash.sh::test_later_integration_corrects_records` -> asserts `done <id> integrate squash` on an archived plan squashes, fast-forwards, and corrects the plan's ledger line and the issue's archive row in one commit on the plans branch
 
 ### ♻️ Existing Tests Changed or Retired
@@ -97,6 +99,7 @@ It builds on group P-72 (the unblocking rule of P-78, the provider step of P-74)
 - [ ] Task 2.2: The one commit recorded (plan file, archive ledger, issue row, provider); integration by fast-forward.
 - [ ] Task 2.3: A plan made for an issue is recognised (plan and ledger agree) and squashed whatever the setup.
 - [ ] Task 2.4: Later integration of an archived plan corrects the records.
+- [ ] Task 2.5: `start` gives a plan made for an issue its own branch and worktree whatever the setting.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -113,6 +116,8 @@ It builds on group P-72 (the unblocking rule of P-78, the provider step of P-74)
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/cmd_plan.sh` -> The squash on the plan branch before the archive; the recorded commit; fast-forward in squash mode.
 - [ ] `lib/docs/verbs/done.md` -> Contract.
+- [ ] `lib/docs/verbs/start.md` -> Contract: a plan made for an issue gets its own branch.
+- [ ] `templates/AGENTS.md` -> Agent rules: a plan made for an issue is worked in its own worktree and lands as one commit.
 - [ ] `lib/docs/verbs/issue.md` -> Contract: the kit's own squash is recognised.
 - [ ] `MANUAL.md` -> Squash integration; what the records name; attribution of the squashed commit.
 - [ ] `tests/integrate_test.sh` -> Existing test changed (§3).
@@ -131,7 +136,7 @@ It builds on group P-72 (the unblocking rule of P-78, the provider step of P-74)
 *Do NOT populate with already-decided choices or answer questions yourself.*
 * [x] **Question 1 — Whose attribution does the squashed commit carry? → RESOLVED (developer, 2026-10-13):** the plan's last commit before the squash. The work was done by agents, also when a person runs `done`; nobody stops an agent mid-work to let another make the last commit; and one set of trailers keeps the commit short.
 * [x] **Question 2 — `aapp done <id> integrate squash` on a plan archived earlier? → RESOLVED (developer, 2026-10-13):** the squash is made then, and the plan's ledger line and the issue's archive row are corrected to the new commit in one commit on the plans branch.
-* [ ] **Question 4 — A plan made for an issue that has no branch of its own** (plan worktrees off: its commits go on the shared branch and cannot be squashed; the issue's row gets the plan's last commit only). Options: (a) leave it: the last commit is a real commit on that branch; (b) `start` gives every plan made for an issue its own branch and worktree, whatever `aapp.planWorktrees` says, so it can be squashed to one SHA.
+* [x] **Question 4 — A plan made for an issue that has no branch of its own? → RESOLVED (developer, 2026-10-13):** `start` gives every plan made for an issue its own branch and worktree, whatever `aapp.planWorktrees` says: one unified system for issues. On a one-branch repository it may look odd, but the history stays smooth and traceable. Small fixes (`aapp issue fix`) follow the same rule in P-85.
 * [x] **Question 3 — Is a plan made for an issue squashed only in squash mode? → RESOLVED (developer, 2026-10-13):** no: any plan made for an issue is a squashed plan. It is recognised by both sides agreeing: the issue declared in the plan, and the ledger's row of that issue being planned and naming the same plan.
 
 ---
@@ -141,3 +146,4 @@ It builds on group P-72 (the unblocking rule of P-78, the provider step of P-74)
 * **2026-10-13:** Drafted. Follows group P-72.
 * **2026-10-13:** A plan made for an issue is always squashed; later integration corrects the records.
 * **2026-10-13:** A plan that names an issue the ledger does not link to it is a plan like any other; Question 4 opened.
+* **2026-10-13:** Question 4 resolved: a plan made for an issue always has its own branch.
