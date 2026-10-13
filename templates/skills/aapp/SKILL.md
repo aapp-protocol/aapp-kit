@@ -20,7 +20,7 @@ aapp status
 ```
 
 ### Step 3: Report
-Give a short briefing: what shipped, the open issues at the top of the board, the active plans, and the pickup queue. Then wait for the user's direction.
+Report what `aapp status` printed, pillar by pillar and item by item: what shipped, the open issues, the plans, and the pickup queue. Keep every field of every item (a plan's id, name and status; an issue's id and symptom): do not drop, abbreviate, merge or reorder them. Your own remarks and suggested next actions come after the report, not in place of it. Then wait for the user's direction.
 
 ## During the session
 - Before using a verb for the first time in a session, run `aapp help <verb>`: it prints the verb's arguments. `aapp help <verb> full` adds its refusals and effects.
