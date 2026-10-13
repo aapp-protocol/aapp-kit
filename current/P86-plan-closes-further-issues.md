@@ -47,7 +47,7 @@ It completes the tracing of issues to commits begun by P-84 (plans made for an i
 ---
 
 ## 2. Technical Blueprint
-- **Saying so:** `aapp refine <plan> closes <num>` adds `#<num>` to the plan's header line `* **Also Closes:** #<n>, #<m>` (a list, in the order given), in one commit on the plans branch. The issue must be active and must not be the plan's own `Target Issue`; an issue already listed changes nothing.
+- **Saying so:** `aapp refine <plan> closes <num>` adds `#<num>` to the plan's header line `* **Also Closes:** #<n>, #<m>` (a list, in the order given), in one commit on the plans branch. The issue must be active and must not be the plan's own `Target Issue`; an issue already listed changes nothing. `aapp refine <plan> closes <num> remove` takes it off again; the line goes when the list is empty.
 - **The issue's row is not touched.** The plan is not a plan for that issue: the row stays as it is, is not marked `Planned` and does not link the plan, and the issue can still be fixed or planned on its own. Whoever closes it first wins; the other finds it archived.
 - **At `done`,** after the plan's own archive is settled, each listed issue that is still active is archived as the plan's `Target Issue` is: with **the commit the plan is recorded with** (its one squashed commit, or its last commit when it was not squashed) and the summary `[<plan>](<file>) - <title>`. Plans blocked on it resume under the usual rule, and the provider is told (`issue.close`), once per issue. All of it is in the plan's archive commit.
 - **A plan is never squashed because of a listed issue.** Only a plan made for an issue is (P-84). Several issues may share one commit; an issue has exactly one.
@@ -66,6 +66,7 @@ It completes the tracing of issues to commits begun by P-84 (plans made for an i
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
 - [ ] `tests/verbs/done.closes.sh::test_refine_closes_lists_the_issue` -> asserts `refine <plan> closes <num>` writes `* **Also Closes:** #<num>` in one commit holding only the plan, and a second issue is appended to the same line
 - [ ] `tests/verbs/done.closes.sh::test_refine_closes_refusals` -> asserts an unknown or archived issue and the plan's own `Target Issue` are refused with the plan unchanged, and an issue already listed commits nothing
+- [ ] `tests/verbs/done.closes.sh::test_refine_closes_remove` -> asserts `refine <plan> closes <num> remove` takes the issue off the line, removes the line when it was the last, and refuses an issue that is not listed
 - [ ] `tests/verbs/done.closes.sh::test_listed_row_is_untouched` -> asserts the listed issue's row keeps its status and link
 - [ ] `tests/verbs/done.closes.sh::test_done_archives_listed_issues` -> asserts `done` archives each listed issue with the commit the plan is recorded with and a summary linking the plan, in the plan's archive commit
 - [ ] `tests/verbs/done.closes.sh::test_done_unblocks_and_notifies` -> asserts a plan blocked on a listed issue resumes, and the provider gets one `issue.close` per listed issue with that commit
@@ -112,7 +113,7 @@ It completes the tracing of issues to commits begun by P-84 (plans made for an i
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — Taking an issue off the list.** A plan that turns out not to sort a listed issue: (a) no form for it, the line is edited by hand and committed with `aapp refine <plan> "<msg>"`; (b) a form of its own, `aapp refine <plan> closes <num> remove`.
+* [x] **Question 1 — Taking an issue off the list? → RESOLVED (developer, 2026-10-13):** a form of its own, `aapp refine <plan> closes <num> remove`: header lines are written by verbs.
 
 ---
 
