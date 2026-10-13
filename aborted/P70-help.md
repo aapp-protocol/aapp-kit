@@ -8,7 +8,8 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
+* **Status:** ❌ Aborted
+* **Aborted:** 2026-10-13 | **Reason:** drafted by mistake (#120)
 * **Base:** none
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
@@ -102,6 +103,7 @@
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-13:** Plan aborted: drafted by mistake (#120)
 *Tracks how the plan evolved across sessions.*
 * **2026-10-11:** Plan initialized from `pickup.md`.
 * **2026-10-11:** Refined blast radius and locked module boundaries.

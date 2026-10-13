@@ -18,7 +18,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-56**: [`P56-modular-cookbook-and-docs-architecture.md`](current/P56-modular-cookbook-and-docs-architecture.md) — Modular Cookbook And Docs Architecture
 - 🟣 **P-57**: [`P57-modular-manual-specification.md`](current/P57-modular-manual-specification.md) — Modular Manual Specification
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
-- 🟣 **P-70**: [`P70-help.md`](current/P70-help.md) — Help
 - 🟣 **P-82**: [`P82-issue-fix-safeguards.md`](current/P82-issue-fix-safeguards.md) — Issue Fix Safeguards
 - 🟣 **P-84**: [`P84-squash-on-the-plan-branch.md`](current/P84-squash-on-the-plan-branch.md) — Squash On The Plan Branch
 - 🟣 **P-85**: [`P85-one-commit-per-fix.md`](current/P85-one-commit-per-fix.md) — One Commit Per Fix
