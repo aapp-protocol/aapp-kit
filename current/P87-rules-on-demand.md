@@ -11,7 +11,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `6424d2f` (develop)
 * **Worktree:** .workspace/P87 (plan/P87-rules-on-demand)
-* **Commits:** `4d7ee97` (plan/P87-rules-on-demand)
+* **Commits:** `4d7ee97` (plan/P87-rules-on-demand), `a8e297f` (plan/P87-rules-on-demand)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
