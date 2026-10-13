@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 📝 Refining
+* **Status:** ⚡ In Development
 * **Base:** `6424d2f` (develop)
 * **Worktree:** .workspace/P87 (plan/P87-rules-on-demand)
 * **Commits:** `4d7ee97` (plan/P87-rules-on-demand), `a8e297f` (plan/P87-rules-on-demand)
@@ -195,6 +195,7 @@ The seeded `Onboarding` item carries what the removed section said about the wor
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-13:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-13:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-13:** Plan initialized from `pickup.md`.
