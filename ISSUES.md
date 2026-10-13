@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #145 | `Low` | `DOCS` | 2026-10-13 | `templates/skills/aapp/SKILL.md`, `templates/skills/aapp-status/SKILL.md` | The `/aapp` and `/aapp-status` skills let an agent restate `aapp status`: pickup ideas were cut to titles and "5 more", plans to bare ids. The output must be shown as printed. |  | 🟡 `Incubated` |
 | #143 | `Low` | `CORE` | 2026-10-13 | `templates/blast-radius-guard.sh`, `lib/planning_health.sh` | Guard self-protection covers `.agents/skills/aapp-*` only: the `aapp` start skill (P-87) in `.agents/skills/aapp/` and `.claude/skills/aapp/` is not protected. |  | 🟡 `Incubated` |
 | #130 | `Low` | `CORE` | 2026-10-12 | `lib/adoption.sh:333-341`, `lib/cmd_init.sh:358` | Two setup advisories read `.plans/ISSUES.md` directly to tell whether it still holds a table, outside the ledger functions of `lib/aapp-lib.sh`. |  | 🟡 `Incubated` |
 | #129 | `Medium` | `CLI` | 2026-10-12 | `lib/cmd_init.sh` | `aapp init` has no guard for a repository rooted at the home directory: where `$HOME` is itself a git repository, `init` run from any folder under it that is not in another repository mounts `.plans`, `.agents` and `.githooks` in `$HOME`, writes `ARCHITECTURE.md` and `CHANGELOG.md` there and sets `core.hooksPath`. |  | 🟡 `Incubated` |
