@@ -2,7 +2,7 @@
 * **Created:** 2026-10-13 | **Last Refined:** 2026-10-13
 * **Target Issue / Milestone:** #122
 * **Plan ID:** P-86
-* **Changelog:** Changed: Plan Closes Further Issues
+* **Changelog:** Added: a plan lists the further issues it sorts (`aapp refine <plan> closes <num>`); `done` closes them with the plan's commit (P-86)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,17 +38,24 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+A plan names one issue, in `Target Issue`, and only when it is drafted from it. A plan whose work also sorts another issue, by design or by coincidence, has no way to say so: the other issue is closed by hand afterwards, with a commit and a summary someone has to look up.
+
+This plan lets a plan list the further issues it sorts. At `done` each is archived with the commit the plan was recorded with and a link to the plan: one SHA per issue, traceable from the issue to the commit and to the plan.
+
+It completes the tracing of issues to commits begun by P-84 (plans made for an issue) and P-85 (small fixes), and follows them.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+- **Saying so:** `aapp refine <plan> closes <num>` adds `#<num>` to the plan's header line `* **Also Closes:** #<n>, #<m>` (a list, in the order given), in one commit on the plans branch. The issue must be active and must not be the plan's own `Target Issue`; an issue already listed changes nothing.
+- **The issue's row is not touched.** The plan is not a plan for that issue: the row stays as it is, is not marked `Planned` and does not link the plan, and the issue can still be fixed or planned on its own. Whoever closes it first wins; the other finds it archived.
+- **At `done`,** after the plan's own archive is settled, each listed issue that is still active is archived as the plan's `Target Issue` is: with **the commit the plan is recorded with** (its one squashed commit, or its last commit when it was not squashed) and the summary `[<plan>](<file>) - <title>`. Plans blocked on it resume under the usual rule, and the provider is told (`issue.close`), once per issue. All of it is in the plan's archive commit.
+- **A plan is never squashed because of a listed issue.** Only a plan made for an issue is (P-84). Several issues may share one commit; an issue has exactly one.
+- **What does not stop the `done`:** a listed issue that is already archived is skipped, with a line. A listed issue whose branch does not hold the plan's commit (P-78) is left open, with a line naming the branch: it is closed by hand once the commit is there.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Backwards Compatible`
+- **Fallback Inventory**: `None`. A plan without the line behaves as today.
 
 ---
 
@@ -57,21 +64,28 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/done.closes.sh::test_refine_closes_lists_the_issue` -> asserts `refine <plan> closes <num>` writes `* **Also Closes:** #<num>` in one commit holding only the plan, and a second issue is appended to the same line
+- [ ] `tests/verbs/done.closes.sh::test_refine_closes_refusals` -> asserts an unknown or archived issue and the plan's own `Target Issue` are refused with the plan unchanged, and an issue already listed commits nothing
+- [ ] `tests/verbs/done.closes.sh::test_listed_row_is_untouched` -> asserts the listed issue's row keeps its status and link
+- [ ] `tests/verbs/done.closes.sh::test_done_archives_listed_issues` -> asserts `done` archives each listed issue with the commit the plan is recorded with and a summary linking the plan, in the plan's archive commit
+- [ ] `tests/verbs/done.closes.sh::test_done_unblocks_and_notifies` -> asserts a plan blocked on a listed issue resumes, and the provider gets one `issue.close` per listed issue with that commit
+- [ ] `tests/verbs/done.closes.sh::test_already_archived_is_skipped` -> asserts a listed issue closed meanwhile is skipped with a line, and `done` completes
+- [ ] `tests/verbs/done.closes.sh::test_issue_on_another_branch_stays_open` -> asserts a listed issue whose branch does not hold the plan's commit is left open with a line naming the branch, and `done` completes
+- [ ] `tests/verbs/done.closes.sh::test_plan_not_squashed_for_listed_issue` -> asserts under `ff` a plan with a listed issue reaches the parent with every commit and its SHA
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Write `tests/verbs/done.closes.sh`; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: The `closes <num>` token of `refine` and the `Also Closes` header line.
+- [ ] Task 2.2: `done` archives each listed issue with the plan's recorded commit; the two cases that are skipped.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [ ] Task 3.2: Update `MANUAL.md`, the `refine` and `done` contracts, the plan template and the agent rules.
 - [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.5: Log every finding outside the Target Files as an issue; none stays in chat only.
 
 ---
 
@@ -79,29 +93,29 @@
 *Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_plan.sh` -> `refine <plan> closes <num>`; `done` archives the listed issues.
+- [ ] `lib/docs/verbs/refine.md` -> Contract: the `closes` token.
+- [ ] `lib/docs/verbs/done.md` -> Contract: listed issues are closed with the plan's commit.
+- [ ] `templates/plan-template.md` -> The `Also Closes` line, as a commented example in the header.
+- [ ] `templates/AGENTS.md` -> Agent rules: say which further issues a plan sorts; never close them by hand afterwards.
+- [ ] `MANUAL.md` -> A plan that sorts further issues.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `NEW FILE` -> `tests/verbs/done.closes.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/aapp-pre-commit` -> No hook rule changes.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — Taking an issue off the list.** A plan that turns out not to sort a listed issue: (a) no form for it, the line is edited by hand and committed with `aapp refine <plan> "<msg>"`; (b) a form of its own, `aapp refine <plan> closes <num> remove`.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-13:** Plan initialized from `pickup.md`.
-* **2026-10-13:** Refined blast radius and locked module boundaries.
+* **2026-10-13:** Drafted from #122. Follows P-84 and P-85.
