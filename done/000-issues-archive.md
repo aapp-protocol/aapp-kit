@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #133 | `Low` | `CLI` | 2026-10-13 | 2026-10-13 | `6424d2f` | a fix's first commit, refused by a hook, can be retried with its `changelog` token |  |
 | #142 | `Medium` | `CORE` | 2026-10-13 | 2026-10-13 | `8024e43` | an issue closed on the tracker is closed here at once; a plan waiting on it resumes when the fix commit is in its branch |
 | #141 | `High` | `CORE` | 2026-10-13 | 2026-10-13 | `a69884d` | the agent CLI reference has a line for aapp offline; unblocks P-75 |
 | #140 | `High` | `CORE` | 2026-10-12 | 2026-10-12 | `1ec09ee` | the issue and provider suites set aapp.offlineEnabled false: a failing provider is a failure there; unblocks P-75 | `feature/issue-tracker` |
