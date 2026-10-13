@@ -49,7 +49,7 @@ pbranch() { git branch --list "plan/P${1#P-}-*" --format='%(refname:short)' | he
 # ledger_sha <id>: the commit the plan's archive ledger line names.
 ledger_sha() { grep -F "| \`$1\` |" .plans/done/000-archive-ledger.md | head -n 1 | awk -F'|' '{ gsub(/[` ]/, "", $6); print $6 }'; }
 # row_sha <n>: the commit the issue's archive row names.
-row_sha() { grep -E "^\| #$1 \|" .plans/done/000-issues-archive.md | tail -n 1 | awk -F'|' '{ gsub(/[` ]/, "", $7); print $7 }'; }
+row_sha() { grep -E "^\| #$1 \|" .plans/done/000-issues-archive.md | head -n 1 | awk -F'|' '{ gsub(/[` ]/, "", $7); print $7 }'; }
 plan_commits() { sed -nE 's/^\* \*\*Commits:\*\*[[:space:]]*//p' "$(pfile "$1")" | head -n 1; }
 on_branch() { [ -n "$1" ] && git merge-base --is-ancestor "$1" "$2" 2>/dev/null; }
 short() { git rev-parse --short "$1"; }
@@ -104,6 +104,7 @@ else
 fi
 
 echo "== attribution: the plan's last commit =="
+git config aapp.aiAttribution lax
 c="$(mk_plan gamma)"; work "$c" gamma 1 agent "First Bot" vendor Acme model one
 work "$c" gamma 2 agent "Last Bot" vendor Acme model two
 out="$(AAPP_AGENT_NAME=Runner AAPP_AGENT_VENDOR=Other AAPP_AGENT_MODEL=zero aapp done "$c" 2>&1)"; rc=$?
@@ -119,6 +120,7 @@ if [ "$rc" -eq 0 ] && echo "$msg" | grep -qx "AI-Agent: Last Bot" && echo "$msg"
 else
   bad "test_attribution_is_the_last_commit" "rc=$rc/$rc2 msg=$(echo "$msg" | tr '\n' '/') msg2=$(echo "$msg2" | tr '\n' '/') out=$out$out2"
 fi
+git config --unset aapp.aiAttribution
 
 echo "== a squash that cannot be made =="
 e="$(mk_plan epsilon)"; work "$e" epsilon 1; work "$e" epsilon 2

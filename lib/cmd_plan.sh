@@ -888,10 +888,10 @@ _ig_preflight() {
     done
 }
 
-# _ig_message <plan_file> <plan_id> <file>: the squash commit message, with
-# lineage and attribution trailers.
+# _ig_message <plan_file> <plan_id> <file> <last_commit>: the squash commit
+# message, with lineage trailers and the attribution of the plan's last commit.
 _ig_message() {
-    local pf="$1" pid="$2" out="$3" title decl max subject identity
+    local pf="$1" pid="$2" out="$3" title decl max subject
     title="$(grep -m 1 -E '^# ' "$pf" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*|🧩[[:space:]]*Group[[:space:]]+)?Plan[^:]*:[[:space:]]*//')"
     max="$(git config --int aapp.subjectMaxLen 2>/dev/null)" || max=72
     subject="feat: $title ($pid)"
@@ -905,10 +905,99 @@ _ig_message() {
         echo "Plan-Parent: $IG_TARGET_BR"
         echo "Base-Branch: $(aapp_dev_branch)"
     } > "$out"
-    if declare -f resolve_ai_identity >/dev/null && declare -f attribution_decorate >/dev/null; then
-        identity="$(resolve_ai_identity "${AAPP_AGENT_NAME:-}" "${AAPP_AGENT_VENDOR:-}" "${AAPP_AGENT_MODEL:-}")"
-        attribution_decorate "$out" "$identity" || return 1
+    # The plan's last commit names who did the work, also when a person archives it.
+    git log -1 --format=%B "$4" 2>/dev/null | git interpret-trailers --parse 2>/dev/null | \
+        grep -E '^AI-(Agent|Vendor|Model):' >> "$out" || true
+}
+
+# ------------------------------------------------------------------------------
+# The squash on the plan branch (P-84): the plan's commits become one commit
+# before the archive, so the commit that is recorded is the one the parent
+# branch is fast-forwarded to.
+# ------------------------------------------------------------------------------
+# plan_made_for_issue <plan_file>: prints the issue a plan was made for. Both
+# sides agree: the plan's Target Issue names it, and its ledger row is Planned
+# and links this plan. One side alone is a plan like any other.
+plan_made_for_issue() {
+    local pf="$1" n link
+    n="$(issue_id_at_start "$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*//p' "$pf" | head -n 1)")" || return 1
+    [ -n "$n" ] || return 1
+    case "$(ledger_cell "$n" status issues)" in *Planned*) ;; *) return 1 ;; esac
+    link="$(ledger_cell "$n" link issues)"
+    case "$link" in *"(current/$(basename "$pf"))"*) ;; *) return 1 ;; esac
+    echo "$n"
+}
+
+# _sq_decide <plan_file> <plan_id> <is_group> <is_issue_plan>: whether this plan
+# is squashed now (SQ_DO): every plan where the setup is squash, and a plan made
+# for an issue whatever the setup. Sets SQ_BR, SQ_WT, SQ_TARGET, SQ_BASE.
+_sq_decide() {
+    local pf="$1" pid="$2" rec
+    SQ_DO=0; SQ_BR=""; SQ_WT=""; SQ_TARGET=""; SQ_BASE=""; SQ_OLD=""; SQ_NEW=""
+    [ "$3" -eq 0 ] || return 0
+    rec="$(parse_plan_worktree "$pf")"
+    [ -n "$rec" ] || return 0
+    SQ_BR="${rec#*$'\t'}"; SQ_WT="$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")"
+    git show-ref --verify --quiet "refs/heads/$SQ_BR" || return 0
+    if [ "$4" -eq 0 ]; then
+        [ "$IG_DO" -eq 1 ] && [ "$IG_MODE" = "squash" ] || return 0
     fi
+    [ "${IG_ALREADY:-0}" -eq 0 ] || return 0
+    SQ_TARGET="${IG_TARGET_BR:-}"
+    if [ -z "$SQ_TARGET" ]; then SQ_TARGET="$(resolve_plan_integrate_target "$pf")" || return 0; fi
+    git show-ref --verify --quiet "refs/heads/$SQ_TARGET" || return 0
+    SQ_BASE="$(git merge-base "$SQ_TARGET" "$SQ_BR" 2>/dev/null)" || return 0
+    [ "$(git rev-parse "$SQ_BR")" != "$SQ_BASE" ] || return 0
+    # Already one commit of this plan (a retry): nothing to squash.
+    if [ "$(git rev-list --count "$SQ_BASE..$SQ_BR")" = "1" ] && \
+       git log -1 --format=%B "$SQ_BR" | grep -qx "Plan-ID: $pid"; then
+        return 0
+    fi
+    SQ_DO=1
+}
+
+# _sq_move <commit>: the plan branch points at <commit>; its worktree, whose
+# files are the same in both, follows without a change.
+_sq_move() {
+    if [ -d "$SQ_WT" ] && [ "$(git -C "$SQ_WT" symbolic-ref -q --short HEAD 2>/dev/null)" = "$SQ_BR" ]; then
+        git -C "$SQ_WT" reset -q --soft "$1"
+    else
+        git update-ref "refs/heads/$SQ_BR" "$1"
+    fi
+}
+
+# _sq_run <plan_file> <plan_id>: makes the one commit (the plan's tree on its
+# base, the squash message, the last commit's attribution) and moves the branch
+# to it. Sets SQ_OLD (the former tip) and SQ_NEW. A commit that cannot be made
+# leaves the branch where it was.
+_sq_run() {
+    local pf="$1" pid="$2" msg new="" sign=""
+    SQ_OLD="$(git rev-parse "refs/heads/$SQ_BR")" || return 1
+    msg="$(mktemp)" || return 1
+    IG_TARGET_BR="$SQ_TARGET"
+    _ig_message "$pf" "$pid" "$msg" "$SQ_OLD" || { rm -f "$msg"; return 1; }
+    [ "$(git config --type=bool --get commit.gpgsign 2>/dev/null)" = "true" ] && sign="-S"
+    new="$(git commit-tree $sign "$SQ_OLD^{tree}" -p "$SQ_BASE" -F "$msg" 2>/dev/null)" || new=""
+    rm -f "$msg"
+    if [ -z "$new" ] || ! _sq_move "$new"; then
+        _sq_move "$SQ_OLD" 2>/dev/null || true
+        echo "❌ [Done Refusal] The plan's commits could not be squashed into one on '$SQ_BR'; the branch is as it was and nothing is archived." >&2
+        return 1
+    fi
+    SQ_NEW="$(git rev-parse --short "$new")"
+    echo "🗜️  [Squash] $SQ_BR is one commit now ($SQ_NEW, on $(git rev-parse --short "$SQ_BASE"))."
+}
+
+# _sq_restore: the plan branch back at its former tip (the archive failed).
+_sq_restore() {
+    [ -n "${SQ_OLD:-}" ] || return 0
+    _sq_move "$SQ_OLD" || echo "⚠️  [Done] Could not put '$SQ_BR' back at $SQ_OLD; do it with 'git branch -f $SQ_BR $SQ_OLD'." >&2
+}
+
+# _sq_label: the branch the recorded commit is named with: the parent where the
+# kit integrates, the plan branch where a person or a handler does.
+_sq_label() {
+    if [ "$IG_DO" -eq 1 ] && [ "$IG_MODE" != "hook" ]; then echo "$SQ_TARGET"; else echo "$SQ_BR"; fi
 }
 
 # _wt_quarantine <worktree> <plan_id> <files>: copies a worktree's sensitive
@@ -944,23 +1033,18 @@ _ig_cleanup() {
         fi
         git worktree remove "$IG_WT" || { echo "⚠️  [Cleanup] 'git worktree remove $rel' failed; the worktree is kept." >&2; return 0; }
     fi
-    if [ "$IG_MODE" = "ff" ]; then
-        # `git branch -d` checks against the current HEAD, not the target: check here.
-        if ! git merge-base --is-ancestor "$IG_PLAN_BR" "$IG_TARGET_BR"; then
-            echo "⚠️  [Cleanup] '$IG_PLAN_BR' is not in '$IG_TARGET_BR'; the branch is kept." >&2; return 0
-        fi
-        git branch -D "$IG_PLAN_BR" >/dev/null || { echo "⚠️  [Cleanup] Could not delete '$IG_PLAN_BR'." >&2; return 0; }
-    else
-        # A squashed plan branch is not an ancestor of the target: -d would refuse.
-        git branch -D "$IG_PLAN_BR" >/dev/null || { echo "⚠️  [Cleanup] Could not delete '$IG_PLAN_BR'." >&2; return 0; }
+    # `git branch -d` checks against the current HEAD, not the target: check here.
+    if ! git merge-base --is-ancestor "$IG_PLAN_BR" "$IG_TARGET_BR"; then
+        echo "⚠️  [Cleanup] '$IG_PLAN_BR' is not in '$IG_TARGET_BR'; the branch is kept." >&2; return 0
     fi
+    git branch -D "$IG_PLAN_BR" >/dev/null || { echo "⚠️  [Cleanup] Could not delete '$IG_PLAN_BR'." >&2; return 0; }
     echo "🧹 [Cleanup] Removed worktree $rel and branch $IG_PLAN_BR."
     _issues_follow_branch "$IG_PLAN_BR" "$IG_TARGET_BR"
 }
 
 # _ig_run <plan_file> <plan_id>: integrates after the archive, then cleans up.
 _ig_run() {
-    local pf="$1" pid="$2" orig msg data rc=0
+    local pf="$1" pid="$2" orig data rc=0
     if [ "$IG_MODE" = "hook" ]; then
         # shellcheck source=/dev/null
         source "$AAPP_HOOK_DISPATCHER"
@@ -980,19 +1064,9 @@ _ig_run() {
             git -C "$PRIMARY_ROOT" checkout -q "$IG_TARGET_BR" || {
                 echo "❌ [Integrate] Could not switch the main checkout to '$IG_TARGET_BR'; $pid stays archived. Retry: aapp done $pid integrate" >&2; return 1; }
         fi
-        if [ "$IG_MODE" = "ff" ]; then
-            git -C "$PRIMARY_ROOT" merge -q --ff-only "$IG_PLAN_BR" || rc=$?
-        else
-            msg="$(mktemp)"
-            # The plan's commits passed the hooks on the plan branch; the squash
-            # is their mechanical sum, so it is committed without re-running them.
-            if git -C "$PRIMARY_ROOT" merge -q --squash "$IG_PLAN_BR" >/dev/null && _ig_message "$pf" "$pid" "$msg"; then
-                git -C "$PRIMARY_ROOT" commit -q --no-verify -F "$msg" || rc=$?
-            else
-                rc=1; git -C "$PRIMARY_ROOT" reset -q --merge
-            fi
-            rm -f "$msg"
-        fi
+        # P-84: a squashed plan is one commit on its branch already, so every
+        # mode moves the parent to the plan branch by fast-forward.
+        git -C "$PRIMARY_ROOT" merge -q --ff-only "$IG_PLAN_BR" || rc=$?
         if [ "$orig" != "$IG_TARGET_BR" ]; then
             git -C "$PRIMARY_ROOT" checkout -q "$orig" || echo "⚠️  [Integrate] Could not switch the main checkout back to '$orig'." >&2
         fi
@@ -1419,6 +1493,9 @@ cmd_freeze_start() {
         fi
     fi
 
+    # P-84: a plan made for an issue always has a branch of its own, so it can
+    # land as one commit.
+    if [ "$WT_MODE" -eq 0 ] && plan_made_for_issue "$plan_file" >/dev/null; then WT_MODE=1; fi
     # P-54: a fresh start may get its own branch and worktree (a re-scoped plan,
     # started before, keeps where it lives).
     if [ "$WT_MODE" -eq 1 ] && [ -n "$(parse_plan_base "$plan_file")" ]; then
@@ -1741,6 +1818,9 @@ cmd_start() {
         fi
     fi
 
+    # P-84: a plan made for an issue always has a branch of its own, so it can
+    # land as one commit.
+    if [ "$WT_MODE" -eq 0 ] && plan_made_for_issue "$plan_file" >/dev/null; then WT_MODE=1; fi
     # P-54: a fresh start may get its own branch and worktree. A plan started
     # before keeps where it lives (its Base is recorded).
     if [ "$WT_MODE" -eq 1 ] && [ -n "$(parse_plan_base "$plan_file")" ]; then
@@ -2053,6 +2133,18 @@ cmd_done() {
         fi
     fi
 
+    # P-84: the checks have passed; the plan's commits become one commit on its
+    # branch, and that commit is what the archive records.
+    local squashed=0 issue_plan=0
+    if plan_made_for_issue "$plan_file" >/dev/null; then issue_plan=1; fi
+    _sq_decide "$plan_file" "$plan_id" "$is_group" "$issue_plan"
+    if [ "$SQ_DO" -eq 1 ]; then
+        _sq_run "$plan_file" "$plan_id" || exit 1
+        squashed=1
+        recorded_commits=("\`$SQ_NEW\` ($(_sq_label))")
+        commit_sha="$SQ_NEW"; commits_json="\"$SQ_NEW\""
+    fi
+
     # #121: what the archive changes, kept until its commit lands; a failed commit puts it back.
     local snap f
     snap="$(mktemp -d)" || exit 1
@@ -2066,6 +2158,8 @@ cmd_done() {
 
     # Update plan status to Done
     sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* ✅ Done/' "$done_file"
+    # P-84: the one commit replaces the list; the commits it replaces are on no branch.
+    if [ "$squashed" -eq 1 ]; then write_plan_commits "$done_file" "${recorded_commits[0]}"; fi
 
     local today commit_sha
     today="$(date +%Y-%m-%d)"
@@ -2160,6 +2254,7 @@ cmd_done() {
             rm -f "$done_file"
             (cd "$snap" && find . -type f) | while IFS= read -r f; do cp -a "$snap/$f" "$PLANS_DIR/$f"; done
             rm -rf "$snap"
+            if [ "$squashed" -eq 1 ]; then _sq_restore; fi
             echo "❌ [Done] The archive commit failed; the plan, ledgers and matrix are restored. Run 'aapp done $plan_id' again." >&2
             exit 1
         fi
