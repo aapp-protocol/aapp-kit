@@ -99,25 +99,24 @@
 * **Allocation Warning:** Plan IDs are **stored, not derived**. Never reconstruct an ID by scanning filenames or the archive ledger — that approach was removed (issue `#69`). Use `allocate_plan_id` to claim, `get_next_plan_id` to display.
 
 ### 🐛 Issue Lifecycle Verb (`lib/cmd_issue.sh`)
-* **Purpose:** `aapp issue [next | allocate | hotfix | fix | close <id> | list]` (P-32, P-52); contract in `lib/docs/verbs/issue.md`.
+* **Purpose:** `aapp issue [log | hotfix | fix | close <id> | abort <id> | list]` (P-32, P-52, P-74, P-76); contract in `lib/docs/verbs/issue.md`.
 * **Key Functions:**
-  * `issue_locate(n)` -> `active`, `archive`, or empty.
+  * `cmd_issue_log` -> the one creator of a row (P-74): takes severity, type, symptom, `file`, `branch`, `note`; sends the `log` step; writes the row through `ledger_add_row` with the id the provider returned, or the counter's without a provider; commits. `refine issues` refuses a commit that adds a row. `cmd_issue_hotfix` logs through it.
+  * `issue_provider(step, members)` -> the one wrapper for provider calls (P-74), steps `log`, `refine`, `fix`, `fix-abort`, `abort`, `close`, `list`, `next-blocker`: sends event `issue.<step>` with the members as `data` through `plugin_step` and leaves the answer in `PLUGIN_*`; without a provider it does nothing and the caller does the kit's part. It lives here, not in `lib/aapp-lib.sh`, so the hooks never receive it. `_issue_step(step, n, members)` is the form for a step already done locally: a failing provider only warns. `log` and `next-blocker` refuse on failure. `issue_payload(n)` -> the whole issue as members. P-75 hooks in here: `log` returns `ISSUE_GO_OFFLINE` when the provider fails or is not to be asked, and any other step is kept in `.offline/outbox` (`_issue_outbox_add`, sent by `issue_outbox_flush`); `_issue_enter_offline(n)` points the rest of a command at the offline ledgers for an issue staged there.
+  * `_issue_log_row(sev, type, symptom, location, link, branch, description, board)` -> the one writer of new rows, behind `cmd_issue_log` and `cmd_issue_hotfix`: the id is the provider's (`issue.log` is sent with none) or the kit's counter's; staged in `.offline` when the provider is unreachable. `_issue_symptom` holds the one-line, 250-character rule.
+  * `issue_sync([force] [confirm])` -> brings the ledgers up to date from a provider that lists issues: the outbox first; the window (`aapp.issueSyncWindow`); the request (`open`, `limit`, `since`, `ids` from `_issue_dependent_ids`); `_issue_record_switch` the first time (one commit stops tracking the ledgers); `_issue_sync_apply` row by row (added, updated, archived when reported closed, cut to `aapp.issueCacheMax`, plan link and `Planned` derived from the plans); then the `do` list and `issue_unblock_landed`. Called by `cmd_issue_list` and `lib/cmd_status.sh`; never inside a plugin step.
+  * `issue_show_text(n, [provider's text], [url])` -> the hand-over of an issue's description and notes at `fix` (`_issue_fix_handover`) and `issue list note <num>`: a labelled block, at most 100 lines, never copied anywhere. `_issue_filter_note(n, text)` runs the team's `aapp-issue-note-filter` first (P-80): its text is shown, `declined` shows the text unchanged, a failure withholds it. `issue_refine_step(n, notes…)` sends a row's change and its new notes; `_issue_keep_text` puts what no provider took into the kit's store.
   * `cmd_issue_hotfix` / `cmd_issue_fix` / `_issue_fix_abort` -> P-52 hotfix (row, 🧱 Plan Blockers queue, `Emergency Hotfixes:`, block via `plan_block_on`, one commit) and temporary mini plans `current/fix-<num>.md` (one at a time; verbose wait up to `aapp.issueFixWait`, also for files with uncommitted changes, via `_issue_roll`; the timeout message `_issue_busy_refusal` names `hotfix` when the bound plan owns the file, P-58).
   * `issue_location_paths(row)` -> the path tokens of a row's Location cell (exists, or has `/` or an extension; `:lines` stripped); `issue_queued_blockers(plans)` -> 🧱 Plan Blockers that are active and not Planned. Shared with the start gate (P-58).
   * `_issue_notice_listing_plans(plans, files…)` -> at close, `<plan> also lists <file>` for other ⚡/BLOCKED plans; output only (P-58).
   * `_issue_reapply_stash(n)` -> single-checkout hotfix stash (recorded by SHA in `aapp_hotfix_stash`) re-applied at close; a conflict keeps it (P-52).
   * `_issue_lock_acquire` / `_issue_lock_release` -> the shared issue lock `$(git rev-parse --git-common-dir)/aapp_issue.lock` (PID-based stale takeover).
-  * `issue_unblock_plans(n)` -> drops `#n` from every plan's `Blocked On:`; restores the recorded status when the list empties and the block is not permanent; used by `issue close` and `cmd_done` (P-52).
-  * `issue_close_local(n, sha, summary)` -> Moves the active row to the top of the archive and prunes the road map; does not commit.
-  * `issue_relink(old, new)` -> Rewrites links to a plan file in *Target Plan / Fix* cells and road-map lines (observation cells untouched); prints the count; does not commit (P-50).
-  * `_issue_refuse_off_dev(n)` / `_issue_dev_branch` / `_issue_group_hint(plans, files…)` -> fixes on the development branch only, with a hint when an active group changes the files; `_issue_group_worktree(n, group)` / `_issue_land_group_fix(n, mini)` -> `fix … group`: `.workspace/fix-<n>` on `fix/<n>` from the feature branch, landed by fast-forward at `close` (P-64).
-  * `issue_mark_planned(n, link)` -> Promotion's row edit: Target Plan / Fix → link, Status → 🔵 `Planned` (P-50). `issue_mark_incubated(n, link)` -> a plan abort's row edit: link to the archived plan, Status → 🟡 `Incubated` (P-69). Both through `_issue_mark_row`.
-  * `cmd_issue_abort(n, …)` -> withdraws an active issue (P-76): its promoted plan through `cmd_plan_abort` (subshell), its open mini plan through `_issue_fix_abort`, then the row through `_issue_archive_active(n, cell, summary, subject, [mini, entry])`, the one archive commit `issue close` also uses (unblock, `issue_close_local`, stash re-apply, matrix); `_issue_report_unblocked` prints which plans resumed.
+  * `issue_unblock_plans(n, [sha])` -> drops `#n` from a plan's `Blocked On:` (`plan_unblock` in `cmd_plan.sh`) when the fix commit is reachable from that plan's parent branch (`_issue_fix_in_parent`; always for a withdrawn issue, which has no sha); used by `issue close` and `cmd_done`. `issue_unblock_landed([quiet])` -> the later sweep, in one commit: plans still blocked on an archived issue resume once its commit is in their parent branch; run by `aapp status` and by `done` after it integrates (P-52, P-78).
+  * `issue_branch(n)` / `_issue_branch_state(n)` / `_issue_fix_worktree(n, branch)` / `_issue_land_fix(n, mini)` -> a fix opens on the issue's branch: in the main checkout when it is on that branch, otherwise in `.workspace/fix-<id>` cut from it (the mini plan's `Base` names the branch) and landed by fast-forward at `close`; a group's feature branch is one such branch; a branch that is gone falls back to the development branch (`_issue_clear_gone_branch`). `issue_view_branch` -> the branch issues are seen from, for the views (a plan's or fix's worktree: the plan's parent, `issue_plan_parent`); it never decides an issue's branch: a row names one only when given, and a hotfix names the blocked plan's parent branch only when every file it names is one of that plan's Target Files; `_issue_ask_branch(plans, n, files…)` -> for a row that names no branch, `fix` and a direct `close` put the issue and its files to the team's `aapp-issue-branch` plugin (event `issue.branch`): the answered branch is taken and written to the cell, `declined` or no plugin is the development branch, any failure refuses; `issue_bring_fix_to_groups(n, sha)` -> at `close` and after a plan's `done` integrates, a group's parent is merged into its feature branch (`group_merge_parent` in `cmd_plan.sh`, the merge the group's `done` makes) when a member waits for a fix that landed on that parent (P-83); `issue_move_branch(old, new)` retargets the issues of a branch the kit removed (P-64, P-78).
+  * `cmd_issue_abort(n, …)` -> withdraws an active issue (P-76): its promoted plan through `cmd_plan_abort` (subshell), its open mini plan through `_issue_fix_abort`, then the row through `_issue_archive_active(n, cell, summary, subject, [mini, entry])`, the one archive commit `issue close` also uses (unblock, `ledger_archive_row`, stash re-apply, matrix); `_issue_report_unblocked` prints which plans resumed.
   * `issue_drop_stash_records(root, n…)` -> removes an aborted plan's lines from `aapp_hotfix_stash`; the stashes stay (P-69).
-  * `issue_notify_close(n, sha, summary, [plan])` -> Fire-and-forget `issue.close` to `aapp-issue-tracker` (§5 Plugin Payload Standard); prints the returned status; failure only warns.
-* **Consumers:** `aapp issue`, and `lib/cmd_plan.sh`: `cmd_done` closes a plan's Target Issue and repairs links inside its archive commit; `refine … slug` repairs links; `draft … issue` marks the row Planned.
-* **Anti-Wrapper Warning:** Never hand-edit rows between `ISSUES.md` and the archive; use `aapp issue close` or `aapp done`.
-
+* **Consumers:** `aapp issue`, and `lib/cmd_plan.sh`: `cmd_done` closes a plan's Target Issue and repairs links inside its archive commit; `refine … slug` repairs links; `draft … issue` and `plan abort` change the row's status and send the `refine` step.
+* **Anti-Wrapper Warning:** Never hand-write or hand-move a row; use `aapp issue log`, `aapp issue close`, `aapp issue abort` or `aapp done`. Never call a provider outside `issue_provider`.
 ### 📚 Shared Hook Library (`lib/aapp-lib.sh`)
 * **Purpose:** Single owner of plan-section parsing, glob matching and platform detection, sourced by the CLI and both hook engines (P-37).
 * **Public Interface:**
@@ -141,9 +140,10 @@
   * `glob_to_regex(pattern)` / `match_pattern_list(target, patterns…)` -> Exact, directory-prefix and glob matching.
   * `aapp_os([uname_s] [proc_version])` -> `linux|darwin|windows|wsl|bsd|unknown`; `wsl` is a GNU userland.
   * `aapp_lib_loaded()` -> Load sentinel every consumer asserts.
+  * **Issue ids (P-79), the one definition:** `issue_id_valid(text)`, `issue_id_normalize(text)` (`46`, `#46`, `PROJ-101` -> `#…`), `issue_id_refs(text)` (the ids named in a line), `issue_id_is_numeric(id)` (the counter looks at these only), `issue_fix_name(id)` / `issue_fix_id(name)` (the mini plan's file name and back).
+  * **Issue ledgers (P-73), the one accessor:** `ledger_path(issues|archive|roadmap)` (the plans worktree when inside one, then `.plans/`, then the repository root), `ledger_commit_paths`, `ledger_row(n)`, `ledger_rows([status])` (tab-separated cells by column name, with `Branch`; link and `Planned` status derived from the plans when the ledgers are untracked), `ledger_ids(which)`, `ledger_locate(n)`, `ledger_add_row(row)`, `ledger_cell(n, link|status|branch|commit, [issues|archive])`, `ledger_set_cell(n, link|status|branch, value)` (cells found by the header's column names; the `Branch` column is added by the first write that names a branch), `ledger_branch(n)`, `ledger_branch_map`, `ledger_move_branch(old, new-cell)`, `ledger_archive_row(n, sha|aborted, summary)`, `ledger_relink(old, new)`, `roadmap_entries([cap])`, `roadmap_entries_by_branch(current, dev, [cap])`, `roadmap_blockers`, `roadmap_add_blocker(n, text, plan)`, `roadmap_prune(n|resolved)`; the description and notes store under `~/.local/state/aapp/<key>/` is read and written here too (P-74). The record and its text (P-74): `ledger_rel`, `ledger_record_external` (the ledgers are ignored: a tracker keeps the record, and `ledger_commit_paths` names none), `ledger_ensure_files`, `ledger_replace_row`, `ledger_drop_row`, `roadmap_add_entry`, and the text store `issue_text_file` / `issue_text_add` / `issue_text_get` / `issue_text_rename`. The offline ledgers, a second source (P-75): `offline_dir`, `offline_mounted`, `ledger_in_offline`, `ledger_use_offline`, `ledger_offline_rows`, `ledger_offline_ids`, and former ids `ledger_alias` / `ledger_alias_add`; `ledger_row` and `ledger_locate` look in the offline ledgers and resolve a former id.
 * **Consumers:** `lib/cmd_plan.sh`, `lib/cmd_commit.sh`, `lib/planning_health.sh` (Pair 7), `.githooks/aapp-pre-commit`, `.githooks/blast-radius-guard`.
-* **Anti-Wrapper Warning:** Never add an inline section parser elsewhere; extend this library and `tests/aapp_lib_test.sh`. Edit `lib/aapp-lib.sh`, never `templates/aapp-lib.sh` (a symlink) or `.githooks/aapp-lib.sh` (installed by `aapp init`).
-
+* **Anti-Wrapper Warning:** Never add an inline section parser, an issue id pattern or a ledger read elsewhere; extend this library and its tests (`tests/aapp_lib_test.sh`, `tests/issue_id_test.sh`, `tests/issue_ledger_test.sh`). Edit `lib/aapp-lib.sh`, never `templates/aapp-lib.sh` (a symlink) or `.githooks/aapp-lib.sh` (installed by `aapp init`).
 ### 📝 Plan-Bound Commit Helper (`lib/cmd_commit.sh`)
 * **Commit mode (P-51):** `aapp_commit_mode` / `aapp_changelog_mode` / `aapp_plan_stamp_modes` (`lib/aapp-lib.sh`): `atomic` refuses a second standard commit (helper) and a raw code commit (pre-commit hook); every commit and `draft` stamp `Commit Mode:` / `Changelog Mode:` in the plan header, logging a switch in §6.
 * **Purpose:** Single source of truth for committing staged implementation code, attaching attribution via P-40, and recording commit SHAs in the active plan.
@@ -170,8 +170,8 @@
   * **Pair 6:** Recorded hexadecimal commit SHA existence in git object database.
   * **Pair 7:** Concurrent boundary collision detection for multiple `⚡ In Development` plans.
   * **Pair 8:** Issue ID repeated within `ISSUES.md` or within the archive (cross-ledger collisions are Pair 1).
+* **Ledger checks** read rows through the ledger functions of `lib/aapp-lib.sh` (P-73): `check_fix_cells` (the fix cell holds verb-written links only, P-66), `check_issues_table_shape`, and `check_ledger_issues`, which `aapp refine issues` runs and which refuses a commit that adds a row (P-74). `check_issues_added_rows` refuses a row added by hand (rows come from `aapp issue log`, P-74).
 * **Anti-Wrapper Warning:** Keep health checks mechanical, fast, and free of external runtime dependencies.
-
 ### 🏷️ AI Attribution Switchboard & Identity Layer (`lib/cmd_ai.sh`, `lib/attribution.sh`)
 * **Purpose:** Governs AI attribution modes (`none`, `lax`, `strict`, `notes`), single identity resolution layer, commit decoration, and credits roster generation.
 * **Key Commands & Behaviors:**
@@ -206,14 +206,14 @@
 * **Purpose:** Zero-dependency lifecycle hook dispatch, SHA-256 cryptographic integrity verification, process watchdog timeout gating, and dynamic action plugin discovery.
 * **Key Functions:**
   * `dispatch_hook(event, data_json, repo_root)` -> Dual Delivery dispatcher streaming JSON on `stdin` alongside exported `AAPP_*` environment variables with process watchdog timeout enforcement (exit 124 on timeout).
-  * `execute_with_watchdog(cmd, timeout)` -> Process watchdog isolating execution with configurable timeout (`aapp.hookTimeout`, default 30s) and terminating runaway handlers.
-  * `build_event_envelope(event, data_json)` / `run_action_plugin(entry, root, action, event, data_json)` / `json_field(json, key)` / `json_escape(text)` -> The shared envelope (with `repository.remote` and reserved `extra`), the plugin call, and flat-response parsing: see §5 **Plugin Payload Standard**.
+  * `execute_with_watchdog(cmd, timeout)` -> Process watchdog isolating execution with configurable timeout (`aapp.hookTimeout`, default 10s) and terminating runaway handlers; every plugin call runs under it too, with its own limit `aapp.pluginTimeout` (default 10s, P-77).
+  * `build_event_envelope(event, data_json)` / `run_action_plugin(entry, root, action, event, data_json)` / `json_field(json, key)` / `json_escape(text)` -> The shared envelope (with `repository.remote` and reserved `extra`), the plugin call, and flat-answer parsing: see §5 **Plugin Payload Standard**.
+  * Answer handling (P-77): reads `status`, `message`, `handled` and `version`; delivers each line of the list file; runs the `do` list after the plugin exits and the step has released its lock (whitelist `lib/plugin_do.tsv`, in order, each command under its own lock, each result reported, the asking plugin not called again); marks the plugin's environment so a writing verb run during a step refuses.
   * `resolve_plugin_entrypoint(pdir, name)` -> Extension-agnostic plugin resolution (`run`, `$name`, `scripts/run`, `scripts/$name`, pattern match) with `.sample` exclusion filtering.
   * `cmd_plugins_status()` -> `aapp plugins`: **Kit Plugins** (every row of `lib/plugins.tsv`, installed or not, incl. `RESERVED (planned, …)`), a `==========================` delimiter, then **Your Plugins** (any other executable plugin in `.agents/skills/`, with a warning for unregistered `aapp-*` names). Fails closed when the registry is missing (P-46).
   * `cmd_hooks_status()` / `cmd_hook_hash()` -> Validates executable bits and live SHA-256 integrity against `.agents/skills/aapp-hooks/registry.tsv`. Refuses execution on hash mismatches in `mode=gate`.
 * **Test gate (P-60):** `examples/hooks/test-gate.sh.sample`, a `pre-done` gate running the handler's `TEST_CMD` in the payload's `worktree` (else the repository root); dogfooded as `.agents/hooks/test-gate.sh`.
 * **Anti-Wrapper Warning:** Never bypass `registry.tsv` hash verification or run unhashed handlers in `mode=gate`.
-
 ### 🧩 Group Documentation Sections (`lib/group_docs.sh`)
 * **Purpose:** A group plan's `## Architecture & Codemap` holds whole sections of `ARCHITECTURE.md` and `.agents/CODEMAP.md` (one ```` fence each, under `### <file>`), applied at the group's `done` (P-64 §2.6).
 * **Key Functions:** `group_docs_stamp(plan, file, doc)` -> base line `<!-- aapp-base: <sha256> | new -->` above each fence without one; `group_docs_apply(plan, file, doc)` -> checks every section against its base line (all or nothing), then replaces the section with the same heading (up to the next heading of the same or a higher level) or adds it at the end; prints `replaced:` / `added:` / `unchanged:`.
@@ -306,49 +306,51 @@ To prevent naming drift across development, blueprint authoring, and runtime too
 
 | Plugin Name | Namespace / Role | Invocation Trigger | Input / Output Contract | Shipped Sample Source | Installed Target |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`aapp-planid`** | Core Identity | `allocate_plan_id` (`lib/plan_resolver.sh`) | Payload Standard: `plan.allocate` → `{"id": "P-<int>"}` | `examples/plugins/aapp-planid/run.sample` | `.agents/skills/aapp-planid/run` |
-| **`aapp-issue-tracker`** | Core Identity | `allocate_issue_id` (`lib/plan_resolver.sh`), `issue_notify_close` (`lib/cmd_issue.sh`) | Payload Standard: `issue.allocate` → `{"id": "#<int>"}`; `issue.close` → `{"status": …}`, fire-and-forget | `examples/plugins/aapp-issue-tracker/run.sample` | `.agents/skills/aapp-issue-tracker/run` |
+| **`aapp-issue-tracker`** | Issues | `issue_provider` (`lib/cmd_issue.sh`) | Payload Standard: `issue.log`, `issue.refine`, `issue.fix`, `issue.fix-abort`, `issue.abort`, `issue.close`, `issue.list`, `issue.next-blocker`; reference `docs/reference/07-issue-protocol.md` | `examples/plugins/aapp-issue-tracker/run.sample` | `.agents/skills/aapp-issue-tracker/run` |
+| **`aapp-issue-note-filter`** *(P-80)* | Issues | The note hand-over of `issue fix` and `issue list note <num>` (`lib/cmd_issue.sh`) | Payload Standard: `issue.note-show` → `{"status": "ok", "note": "<text to show>"}`; a failure withholds the note; the stored note is untouched | `examples/plugins/aapp-issue-note-filter/run.sample` | `.agents/skills/aapp-issue-note-filter/run` |
+| **`aapp-issue-branch`** *(P-83)* | Issues | `_issue_ask_branch` at `issue fix` and a direct `issue close`, for a row that names no branch (`lib/cmd_issue.sh`) | Payload Standard: `issue.branch` (the issue and its `files`) → `{"status": "ok", "branch": "<name>"}`; `declined` is the development branch; a failure refuses the fix | `examples/plugins/aapp-issue-branch/run.sample` | `.agents/skills/aapp-issue-branch/run` |
 | **`aapp-review`** *(P-15)* | Code Quality | `/aapp-review` / CLI dispatch | Review Packet JSON on `stdin` → Markdown findings on `stdout` | `examples/plugins/aapp-review/run.sample` | `.agents/skills/aapp-review/run` |
 | **`kit-on-release`** *(P-59)* | Kit Lifecycle | `on-release` hook (`scripts/kit-on-release.sh`) | Triggered during `aapp release` -> synchronizes `templates/` delimiters with `.agents/AGENTS.md` and verifies test suite | In-repo script | `scripts/kit-on-release.sh` |
 | **`hello-tool`** | Showcase / Demo | `aapp hello-tool` | CLI arguments → stdout greeting | `examples/plugins/hello-tool/run.sample` | `.agents/skills/hello-tool/run` |
+### 📨 Plugin Payload Standard (P-32, P-77)
+The issue plugins the kit calls (`aapp-issue-tracker`, `aapp-issue-note-filter`) speak one exchange; `aapp-planid` keeps its present contract (`plan.allocate` → `{"id": "P-<int>"}` or a bare number) until plans get their own chapter. Built by `build_event_envelope`, sent by `run_action_plugin`, answers read by `json_field` (all in `lib/hook_dispatcher.sh`). The full reference, kept equal to the code by a test, is `docs/reference/06-plugin-protocol.md` and `docs/reference/07-issue-protocol.md`.
 
-### 📨 Plugin Payload Standard (Dual Delivery, P-32)
-Every action plugin the kit calls (`aapp-planid`, `aapp-issue-tracker`) speaks one contract, the same envelope lifecycle hooks receive. Built by `build_event_envelope`, sent by `run_action_plugin`, read by `json_field` (all in `lib/hook_dispatcher.sh`).
-
-**stdin: JSON envelope**
+**The kit asks: JSON envelope on stdin**
 ```json
 {
   "version": "1.0",
-  "event": "issue.close",
-  "timestamp": "2026-09-29T14:02:11Z",
+  "event": "issue.log",
+  "timestamp": "2026-10-12T09:14:03Z",
   "actor": "lorand",
   "repository": {
     "root": "/path/to/project",
     "branch": "develop",
     "remote": { "name": "origin", "url": "git@github.com:acme/app.git" }
   },
-  "data": { "id": "#79", "commit": "e07811f", "summary": "…", "plan": "P-32" },
+  "data": { "severity": "High", "type": "CORE", "date": "2026-10-12", "location": "lib/auth.sh",
+            "symptom": "login fails on Safari", "branch": "develop", "status": "Incubated", "link": "", "description": "seen by QA on Safari 17" },
   "extra": {}
 }
 ```
-* **`event`:** `plan.allocate`, `issue.allocate`, `issue.close` (hooks keep their lifecycle names).
-* **`repository.remote`:** `aapp.remote` (default `origin`) via `git remote get-url`; credentials stripped (`user:secret@`, any userinfo on http/https); `null` without a remote. Identifies the team project to a remote authority.
+* **`event`:** the step. `data` carries the whole subject; `issue.log` has no `id`, every later issue step has one.
+* **`repository.remote`:** `aapp.remote` (default `origin`) via `git remote get-url`; credentials stripped; `null` without a remote. The envelope carries no secret; credentials are the plugin's responsibility.
 * **`extra`:** reserved for arbitrary data, `{}` by default; the kit never interprets it.
-* **env (shell plugins):** `AAPP_ACTION` (`allocate` / `close`), `AAPP_REPO_ROOT`; on close `AAPP_ISSUE_ID`, `AAPP_COMMIT_SHA`, `AAPP_SUMMARY`.
+* **env:** `AAPP_ACTION`, `AAPP_REPO_ROOT`, the step's ids, and the two answer files `AAPP_PLUGIN_LIST` and `AAPP_PLUGIN_DO`.
 
-**stdout: one flat JSON object; the exit code decides**
-
-| Event | stdout | Exit |
-| :--- | :--- | :--- |
-| `*.allocate` | `{"id": "P-42"}` / `{"id": "#97"}` (or a bare integer) | 0 issued; non-zero refuses, **no local fallback** |
-| `issue.close` | `{"status": "accepted"}` / `{"status": "queued"}` | status printed; non-zero **only warns** (fire-and-forget) |
-| any failure | optional `{"error": "<text>"}` | non-zero; the text is shown |
-
-* A response may add `"extra": {…}`; the kit ignores it. Plain-text output is rejected.
-* Plugin **absence** falls back to the local counter; a present plugin that fails is fatal for `allocate`.
+**The plugin answers: one flat JSON object on stdout; the exit code decides**
+```json
+{ "status": "ok", "message": "Created PROJ-101 on the tracker", "handled": "description, notes", "id": "PROJ-101", "tracker": "jira" }
+```
+* **`status`:** `ok`, `declined` (the kit does everything) or `failed`. **`message`:** one sentence shown to the user.
+* **`handled`:** what the plugin took care of; whatever it does not name, the kit does.
+* **`id`:** required on `ok` for `issue.log`: the plugin's own key or number becomes the id. `tracker` and `url` are informational and never interpreted.
+* **`AAPP_PLUGIN_LIST`:** one flat object per line in the shape of `data` (the issues of `issue.list`).
+* **`AAPP_PLUGIN_DO`:** aapp commands as a person types them, one per line, run after the step from the whitelist `lib/plugin_do.tsv`; a refused line is reported and the rest still run.
+* A plugin running a writing `aapp` verb during a step is refused and pointed to `do`; reading verbs work. An answer echoing a newer `version` is refused. Plain-text output is rejected.
+* Plugin **absence** means the kit does everything. A failing plugin: each step defines the outcome (`issue.log` and `issue.next-blocker` refuse; the others fall back to the kit with a warning).
 
 ### 📋 Extension Point Rules
 1. **Verbatim Naming Invariant:** Shipped sample directories in `examples/plugins/<name>/` match the canonical installed plugin directory in `.agents/skills/<name>/` **verbatim**. No rename translation mapping is permitted.
 2. **The `.sample` Inactive Suffix:** Reference examples carry the `.sample` suffix (`run.sample`, `.sample/` directories). The execution engine and resolver strictly ignore `.sample` assets until an adopter explicitly activates them.
 3. **Runtime Source of Truth:** `lib/plugins.tsv` (P-46) is the shipped registry of kit-reserved names (`name`, `role`, `state` = `shipped` | `planned:<plan-id>`, `events`, `counter`, `sample`); this table documents it. It is kit-owned and replaced on every install/upgrade — adopters never edit it, and their own plugins need no row. A new kit plugin is one registry row; a test fails when a sample directory or a plugin-name literal in `lib/` has no row.
-
+4. **Supported and ad hoc:** the exchange above binds the plugins the kit calls by reserved name. Any other plugin or script is a CLI user: the CLI's locks and checks are its only safeguard.
