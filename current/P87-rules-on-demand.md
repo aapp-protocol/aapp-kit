@@ -2,7 +2,7 @@
 * **Created:** 2026-10-13 | **Last Refined:** 2026-10-13
 * **Target Issue / Milestone:** #120
 * **Plan ID:** P-87
-* **Changelog:** Changed: Rules On Demand
+* **Changelog:** Changed: `aapp help <verb>` is short and answers `aapp <verb> help`; `/aapp` start skill; the rules file drops its per-verb walkthroughs
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,12 +38,74 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+An agent gets the kit's rules from `.agents/AGENTS.md`, which its IDE loads at session start. The file is 51 KB, and some agents cut what they load at session start, so the end of the rules may never reach the agent. About 170 of its 397 lines are per-verb material that exists elsewhere: the skills carry each verb's procedure, and the contracts in `lib/docs/verbs/` carry its syntax. Two of the walkthroughs (`done`, `status`) describe doing by hand what the skills forbid.
+
+Syntax is also not at hand when it is needed: `aapp help <verb>` prints the whole contract (253 lines for `issue`), and `help` typed after a verb is taken as an argument (#120: `aapp tdd help` drafted and committed a plan named `help`).
+
+Three changes, one aim: the rules file holds rules, and the rest is read when needed.
+
+1. **`/aapp`, a start skill.** It tells the agent to read `.agents/AGENTS.md` in full with its own file tool, which the session-start cut does not apply to, then to run `aapp status` and give a briefing.
+2. **Help at the moment of use.** `aapp help <verb>` prints the synopsis and the arguments; `full` prints the whole contract; `aapp <verb> help` is the same command.
+3. **A shorter rules file.** The per-verb walkthroughs and the onboarding section leave `templates/AGENTS.md`; the CLI Reference stays as the index of verbs and points at `aapp help <verb>`.
+
+The size of the file is not capped: a project's own rules, `PROJECT.MD` and the code map may be larger than any limit. What matters is that they are read by the agent, not injected by the IDE.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+### 2.1 `aapp help` (`lib/cmd_help.sh`)
+
+| Command | Prints |
+| :--- | :--- |
+| `aapp help` | the catalog, as today |
+| `aapp help <verb>` | the contract's first line (the synopsis, written as `aapp <verb> …`) and its `## Ingress` section; a last line names `aapp help <verb> full` |
+| `aapp help <verb> full` | the whole contract, as `aapp help <verb>` prints today |
+| `aapp <verb> help` | the same as `aapp help <verb>` |
+
+- A verb without a contract prints its description from `lib/verbs.tsv`, as today.
+- An unknown verb exits 1, as today.
+- `help` gets its own contract, `lib/docs/verbs/help.md`, named in `lib/verbs.tsv`.
+
+### 2.2 `help` after a verb (`aapp`)
+
+The dispatcher answers `aapp <verb> help` before the verb runs: when the first argument after a known verb is exactly `help`, it runs `aapp help <verb>` and exits 0. No verb sees the word, so none can take it as a slug, an id or a reason. One place, every verb. A plan can no longer be drafted under the slug `help`; that is intended.
+
+### 2.3 The start skill (`templates/skills/aapp/SKILL.md`)
+
+Name `aapp`, invoked as `/aapp`. Its text, in substance:
+
+1. Read `.agents/AGENTS.md` in full with the file tool, to its last line.
+2. Run `aapp status`.
+3. Give a short briefing.
+4. Before using a verb for the first time in a session, run `aapp help <verb>`.
+5. Read `.agents/PROJECT.MD` and `.agents/CODEMAP.md` when the task touches the code they describe.
+6. Run `/aapp` again after the conversation was summarised.
+
+Paths are relative to the repository root. The text names no agent's tools (`view_file`, `run_command`, `Read`), so one file serves every agent.
+
+`sync_skills` in `lib/cmd_init.sh` installs `aapp-*` and `plan`; it also installs `aapp`, to `.agents/skills/aapp/` and the Claude Code bridge.
+
+### 2.4 The rules file (`templates/AGENTS.md`)
+
+Removed from "Asymmetric Planning Protocol (AAPP) & Universal Skills":
+- the step-by-step entries for `status`, `digest`, `freeze-start`, `freeze`, `start`, `plan`, `active`, `done`, `release`, `pause`, `resume`;
+- "First-Run Repository Onboarding (Day 1 Experience)".
+
+Kept there:
+- the Canonical Planning Invariant, unchanged: it must reach an agent asked to plan in plain words;
+- one paragraph: the lifecycle verbs are skills in `.agents/skills/`, `/aapp` starts a session, a verb's syntax comes from `aapp help <verb>`.
+
+"CLI Reference" stays the index of verbs, one row per verb with its purpose. A rule that a removed walkthrough was the only place for moves to the section it belongs to; none is dropped (Task 2.4 lists them before removing).
+
+### 2.5 Onboarding (`templates/pickup.md`)
+
+The seeded `Onboarding` item carries what the removed section said about the work: inspect the layout, build manifests, dependencies and entry points, and replace the template placeholders in `.agents/CODEMAP.md`, `ARCHITECTURE.md` and `.agents/PROJECT.MD`. The instruction lives with the task and goes when the task is done. `aapp init` and the adoption checklist already name `/aapp-digest Onboarding`.
+
+### 2.6 Not in this plan
+
+- Contracts for the verbs that have none (`pause`, `resume`, `init`, `push`, `pull`, `sync`, the hook verbs).
+- A gate that makes an agent run `/aapp`: nothing can.
+- P-70, drafted by the bug in #120: abandoned with `aapp plan abort P-70`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -58,13 +120,27 @@
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+- [ ] `tests/verbs/help.sh::test_help_verb_is_short` -> asserts `aapp help commit` prints the contract's first line and its Ingress section, and no `## Failure modes` or `## Tests`
+- [ ] `tests/verbs/help.sh::test_help_verb_full` -> asserts `aapp help commit full` prints the whole contract
+- [ ] `tests/verbs/help.sh::test_help_names_full` -> asserts the short form's last line names `aapp help commit full`
+- [ ] `tests/verbs/help.sh::test_help_after_verb` -> asserts `aapp tdd help`, `aapp draft help` and `aapp issue help` print the same as `aapp help <verb>`, exit 0, and leave `.plans` without a new plan or commit
+- [ ] `tests/verbs/help.sh::test_help_after_verb_without_contract` -> asserts `aapp pause help` prints the verb's description and does not pause
+- [ ] `tests/verbs/help.sh::test_help_unknown_verb` -> asserts `aapp help nosuch` exits 1 naming `aapp help`
+- [ ] `tests/template_sync_test.sh::test_start_skill_text` -> asserts `templates/skills/aapp/SKILL.md` is named `aapp`, names `.agents/AGENTS.md`, `aapp status` and `aapp help`, and holds no absolute path and no agent's tool name
+- [ ] `tests/template_sync_test.sh::test_init_installs_start_skill` -> asserts `aapp init` leaves `.agents/skills/aapp/SKILL.md` and `.claude/skills/aapp`
+- [ ] `tests/template_sync_test.sh::test_onboarding_item_carries_instruction` -> asserts the seeded `Onboarding` item names the three files and the placeholders to replace
+- [ ] `tests/verb_contracts_test.sh::test_rules_file_has_no_walkthroughs` -> asserts `templates/AGENTS.md` holds no onboarding section and no hand-made archive steps (`mv .plans/current`), and keeps the Canonical Planning Invariant
+- [ ] `tests/verb_contracts_test.sh::test_rules_file_points_to_help` -> asserts the rules file names `/aapp` and `aapp help <verb>`
+
+### Phase 1: Failing tests
+- [ ] Task 1.1: Write the tests above; `tests/verbs/help.sh` is new. Commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: `lib/cmd_help.sh`: short form, `full` token; `lib/docs/verbs/help.md` and its `lib/verbs.tsv` cell.
+- [ ] Task 2.2: `aapp`: `help` after a known verb runs `aapp help <verb>`.
+- [ ] Task 2.3: `templates/skills/aapp/SKILL.md`; `sync_skills` installs it.
+- [ ] Task 2.4: `templates/AGENTS.md`: list every rule the removed entries alone state, move each to its section, then remove the entries and the onboarding section; trim the CLI Reference to one row per verb.
+- [ ] Task 2.5: `templates/pickup.md`: the `Onboarding` item's text.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -82,22 +158,38 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_help.sh` -> short form and `full`.
+- [ ] `aapp` -> `help` after a verb.
+- [ ] `lib/cmd_init.sh` -> `sync_skills` installs the `aapp` skill.
+- [ ] `lib/verbs.tsv` -> the `help` row names its contract.
+- [ ] `NEW FILE` -> `lib/docs/verbs/help.md` -> the `help` contract.
+- [ ] `NEW FILE` -> `templates/skills/aapp/SKILL.md` -> the start skill.
+- [ ] `templates/AGENTS.md` -> walkthroughs and onboarding removed; CLI Reference trimmed.
+- [ ] `templates/pickup.md` -> the `Onboarding` item's text.
+- [ ] `MANUAL.md` -> `aapp help`, the start skill.
+- [ ] `CHEATSHEET.md` -> `aapp help <verb> [full]`, `aapp <verb> help`.
+- [ ] `NEW FILE` -> `tests/verbs/help.sh` -> the help tests.
+- [ ] `tests/template_sync_test.sh` -> skill and onboarding tests.
+- [ ] `tests/verb_contracts_test.sh` -> rules file tests.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/verbs/help.sh`
+- [ ] `tests/template_sync_test.sh`
+- [ ] `tests/verb_contracts_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/skills/aapp-status/SKILL.md` -> stays the status alone.
+- [ ] `lib/docs/verbs/` -> the other contracts are read, not changed.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** Should `aapp help <verb> <word>` narrow the answer to one form (`aapp help issue log` prints only the `log` form and its arguments)? `issue` has nine forms on one synopsis line. Narrowing needs the contracts' Ingress lines to be attributable to a form, which they are not today.
+* [ ] **Question 2:** Is the skill named exactly `aapp`? No agent was tested with a skill that has the command's own name. The alternative is a name such as `aapp-session`, longer to type.
+* [ ] **Question 3:** Does the CLI Reference keep each verb's syntax, or only its name and purpose? With the syntax it repeats what `aapp help <verb>` prints; without it an agent must ask before every first use.
 
 ---
 
