@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-13 | `P-72` | [`P72-issue-tracker.md`](P72-issue-tracker.md) | None | `e07b01c` | Issue Tracker |
 | 2026-10-13 | `P-75` | [`P75-offline-worktree.md`](P75-offline-worktree.md) | none | `9fb9b1b` | Offline Worktree & Local Lifecycle (tdd (23/23)) |
 | 2026-10-12 | `P-80` | [`P80-issue-note-filter.md`](P80-issue-note-filter.md) | none | `b4f94e8` | Issue Note Filter (tdd (7/7)) |
 | 2026-10-12 | `P-74` | [`P74-issue-provider-wrapper.md`](P74-issue-provider-wrapper.md) | none | `13cb6f1` | Issue Provider Wrapper (tdd (38/38)) |
