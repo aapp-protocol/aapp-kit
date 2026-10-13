@@ -255,7 +255,7 @@
 * `lib/cmd_develop.sh`: Symlinks local development checkout to global bin/share for live editing.
 * `lib/cmd_upgrade.sh`: Upgrades global installation in-place from upstream repository.
 * `lib/cmd_uninstall.sh`: Uninstalls binary and share data, cleaning dangling symlinks safely.
-* `lib/cmd_help.sh`: Command catalog and usage instructions; `aapp help <verb>` prints that verb's contract from the installed kit (the agents' reference for verbs no skill covers, P-47).
+* `lib/cmd_help.sh`: Command catalog and usage instructions; `aapp help <verb>` prints that verb's synopsis and `## Ingress` lines from its contract in the installed kit, `aapp help <verb> full` the whole contract (the agents' syntax reference, P-47, P-87). `aapp <verb> help` is routed here by the dispatcher (`aapp`) before the verb runs.
 
 ---
 
