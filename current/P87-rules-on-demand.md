@@ -122,35 +122,35 @@ The seeded `Onboarding` item carries what the removed section said about the wor
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
 
-- [ ] `tests/verbs/help.sh::test_help_verb_is_short` -> asserts `aapp help commit` prints the contract's first line and its Ingress section, and no `## Failure modes` or `## Tests`
-- [ ] `tests/verbs/help.sh::test_help_verb_full` -> asserts `aapp help commit full` prints the whole contract
-- [ ] `tests/verbs/help.sh::test_help_names_full` -> asserts the short form's last line names `aapp help commit full`
-- [ ] `tests/verbs/help.sh::test_help_after_verb` -> asserts `aapp tdd help`, `aapp draft help` and `aapp issue help` print the same as `aapp help <verb>`, exit 0, and leave `.plans` without a new plan or commit
-- [ ] `tests/verbs/help.sh::test_help_after_verb_without_contract` -> asserts `aapp pause help` prints the verb's description and does not pause
-- [ ] `tests/verbs/help.sh::test_help_unknown_verb` -> asserts `aapp help nosuch` exits 1 naming `aapp help`
-- [ ] `tests/template_sync_test.sh::test_start_skill_text` -> asserts `templates/skills/aapp/SKILL.md` is named `aapp`, names `.agents/AGENTS.md`, `aapp status` and `aapp help`, and holds no absolute path and no agent's tool name
-- [ ] `tests/template_sync_test.sh::test_init_installs_start_skill` -> asserts `aapp init` leaves `.agents/skills/aapp/SKILL.md` and `.claude/skills/aapp`
-- [ ] `tests/template_sync_test.sh::test_onboarding_item_carries_instruction` -> asserts the seeded `Onboarding` item names the three files and the placeholders to replace
-- [ ] `tests/verb_contracts_test.sh::test_rules_file_has_no_walkthroughs` -> asserts `templates/AGENTS.md` holds no onboarding section and no hand-made archive steps (`mv .plans/current`), and keeps the Canonical Planning Invariant
-- [ ] `tests/verb_contracts_test.sh::test_rules_file_points_to_help` -> asserts the rules file names `/aapp` and `aapp help <verb>`
-- [ ] `tests/verb_contracts_test.sh::test_every_skill_in_rules_index` -> asserts every directory of `templates/skills/` that holds a `SKILL.md` has a row in the rules file's skill index, and the index names `.agents/skills/<name>/SKILL.md`
+- [x] `tests/verbs/help.sh::test_help_verb_is_short` -> asserts `aapp help commit` prints the contract's first line and its Ingress section, and no `## Failure modes` or `## Tests`
+- [x] `tests/verbs/help.sh::test_help_verb_full` -> asserts `aapp help commit full` prints the whole contract
+- [x] `tests/verbs/help.sh::test_help_names_full` -> asserts the short form's last line names `aapp help commit full`
+- [x] `tests/verbs/help.sh::test_help_after_verb` -> asserts `aapp tdd help`, `aapp draft help` and `aapp issue help` print the same as `aapp help <verb>`, exit 0, and leave `.plans` without a new plan or commit
+- [x] `tests/verbs/help.sh::test_help_after_verb_without_contract` -> asserts `aapp pause help` prints the verb's description and does not pause
+- [x] `tests/verbs/help.sh::test_help_unknown_verb` -> asserts `aapp help nosuch` exits 1 naming `aapp help`
+- [x] `tests/template_sync_test.sh::test_start_skill_text` -> asserts `templates/skills/aapp/SKILL.md` is named `aapp`, names `.agents/AGENTS.md`, `aapp status` and `aapp help`, and holds no absolute path and no agent's tool name
+- [x] `tests/template_sync_test.sh::test_init_installs_start_skill` -> asserts `aapp init` leaves `.agents/skills/aapp/SKILL.md` and `.claude/skills/aapp`
+- [x] `tests/template_sync_test.sh::test_onboarding_item_carries_instruction` -> asserts the seeded `Onboarding` item names the three files and the placeholders to replace
+- [x] `tests/verb_contracts_test.sh::test_rules_file_has_no_walkthroughs` -> asserts `templates/AGENTS.md` holds no onboarding section and no hand-made archive steps (`mv .plans/current`), and keeps the Canonical Planning Invariant
+- [x] `tests/verb_contracts_test.sh::test_rules_file_points_to_help` -> asserts the rules file names `/aapp` and `aapp help <verb>`
+- [x] `tests/verb_contracts_test.sh::test_every_skill_in_rules_index` -> asserts every directory of `templates/skills/` that holds a `SKILL.md` has a row in the rules file's skill index, and the index names `.agents/skills/<name>/SKILL.md`
 
 ### Phase 1: Failing tests
-- [ ] Task 1.1: Write the tests above; `tests/verbs/help.sh` is new. Commit them red.
+- [x] Task 1.1: Write the tests above; `tests/verbs/help.sh` is new. Commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/cmd_help.sh`: short form, `full` token; `lib/docs/verbs/help.md` and its `lib/verbs.tsv` cell.
-- [ ] Task 2.2: `aapp`: `help` after a known verb runs `aapp help <verb>`.
-- [ ] Task 2.3: `templates/skills/aapp/SKILL.md`; `sync_skills` installs it.
-- [ ] Task 2.4: `templates/AGENTS.md`: list every rule the removed entries alone state, move each to its section, then remove the entries and the onboarding section; add the skill index; trim the CLI Reference to one row per verb.
-- [ ] Task 2.5: `templates/pickup.md`: the `Onboarding` item's text.
+- [x] Task 2.1: `lib/cmd_help.sh`: short form, `full` token; `lib/docs/verbs/help.md` and its `lib/verbs.tsv` cell.
+- [x] Task 2.2: `aapp`: `help` after a known verb runs `aapp help <verb>`.
+- [x] Task 2.3: `templates/skills/aapp/SKILL.md`; `sync_skills` installs it.
+- [x] Task 2.4: `templates/AGENTS.md`: list every rule the removed entries alone state, move each to its section, then remove the entries and the onboarding section; add the skill index; trim the CLI Reference to one row per verb.
+- [x] Task 2.5: `templates/pickup.md`: the `Onboarding` item's text.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
