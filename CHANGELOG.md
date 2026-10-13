@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- issue ledger behind one module, and the `aapp-issue-tracker` provider at every issue step (P-72) (`P-72`)
 - on-demand .offline worktree for air-gapped issues, local archive, and draft plans (P-75) (`P-75`)
 - `aapp-issue-note-filter`, a team-written text filter the kit runs on a note before showing it (P-80) (`P-80`)
 - `aapp issue log`; the `aapp-issue-tracker` provider gets the whole issue at every step and can keep the record; issue descriptions and notes outside the repository (P-74) (`P-74`)
