@@ -32,8 +32,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-87**: [`P87-rules-on-demand.md`](current/P87-rules-on-demand.md) — Rules On Demand
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
