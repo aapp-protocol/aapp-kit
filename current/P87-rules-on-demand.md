@@ -93,9 +93,10 @@ Removed from "Asymmetric Planning Protocol (AAPP) & Universal Skills":
 
 Kept there:
 - the Canonical Planning Invariant, unchanged: it must reach an agent asked to plan in plain words;
-- one paragraph: the lifecycle verbs are skills in `.agents/skills/`, `/aapp` starts a session, a verb's syntax comes from `aapp help <verb>`.
+- one paragraph: `/aapp` starts a session, and a verb's syntax comes from `aapp help <verb>`;
+- a skill index: one sentence (each skill's instructions are in `.agents/skills/<name>/SKILL.md`; follow that file when running the workflow) and a two-column table, the slash command and when to use it, with a row for every skill the kit ships with a `SKILL.md`: `/aapp`, `/aapp-status`, `/aapp-digest`, `/aapp-plan`, `/plan`, `/aapp-tdd`, `/aapp-freeze`, `/aapp-start`, `/aapp-done`, `/aapp-fix`, `/aapp-pause`, `/aapp-release`. It serves an agent without skill support, which reaches a skill only by opening its file.
 
-"CLI Reference" stays the index of verbs, one row per verb with its purpose. A rule that a removed walkthrough was the only place for moves to the section it belongs to; none is dropped (Task 2.4 lists them before removing).
+"CLI Reference" stays the index of verbs, one row per verb with its name and purpose, without the syntax. The two tables are all the rules file says about commands. A rule that a removed walkthrough was the only place for moves to the section it belongs to; none is dropped (Task 2.4 lists them before removing).
 
 ### 2.5 Onboarding (`templates/pickup.md`)
 
@@ -131,6 +132,7 @@ The seeded `Onboarding` item carries what the removed section said about the wor
 - [ ] `tests/template_sync_test.sh::test_onboarding_item_carries_instruction` -> asserts the seeded `Onboarding` item names the three files and the placeholders to replace
 - [ ] `tests/verb_contracts_test.sh::test_rules_file_has_no_walkthroughs` -> asserts `templates/AGENTS.md` holds no onboarding section and no hand-made archive steps (`mv .plans/current`), and keeps the Canonical Planning Invariant
 - [ ] `tests/verb_contracts_test.sh::test_rules_file_points_to_help` -> asserts the rules file names `/aapp` and `aapp help <verb>`
+- [ ] `tests/verb_contracts_test.sh::test_every_skill_in_rules_index` -> asserts every directory of `templates/skills/` that holds a `SKILL.md` has a row in the rules file's skill index, and the index names `.agents/skills/<name>/SKILL.md`
 
 ### Phase 1: Failing tests
 - [ ] Task 1.1: Write the tests above; `tests/verbs/help.sh` is new. Commit them red.
@@ -139,7 +141,7 @@ The seeded `Onboarding` item carries what the removed section said about the wor
 - [ ] Task 2.1: `lib/cmd_help.sh`: short form, `full` token; `lib/docs/verbs/help.md` and its `lib/verbs.tsv` cell.
 - [ ] Task 2.2: `aapp`: `help` after a known verb runs `aapp help <verb>`.
 - [ ] Task 2.3: `templates/skills/aapp/SKILL.md`; `sync_skills` installs it.
-- [ ] Task 2.4: `templates/AGENTS.md`: list every rule the removed entries alone state, move each to its section, then remove the entries and the onboarding section; trim the CLI Reference to one row per verb.
+- [ ] Task 2.4: `templates/AGENTS.md`: list every rule the removed entries alone state, move each to its section, then remove the entries and the onboarding section; add the skill index; trim the CLI Reference to one row per verb.
 - [ ] Task 2.5: `templates/pickup.md`: the `Onboarding` item's text.
 
 ### Phase 3: Verification & Documentation
@@ -187,9 +189,9 @@ The seeded `Onboarding` item carries what the removed section said about the wor
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** Should `aapp help <verb> <word>` narrow the answer to one form (`aapp help issue log` prints only the `log` form and its arguments)? `issue` has nine forms on one synopsis line. Narrowing needs the contracts' Ingress lines to be attributable to a form, which they are not today.
-* [ ] **Question 2:** Is the skill named exactly `aapp`? No agent was tested with a skill that has the command's own name. The alternative is a name such as `aapp-session`, longer to type.
-* [ ] **Question 3:** Does the CLI Reference keep each verb's syntax, or only its name and purpose? With the syntax it repeats what `aapp help <verb>` prints; without it an agent must ask before every first use.
+* [x] **Question 1 — Does `aapp help <verb> <word>` narrow the answer to one form? → RESOLVED (developer, 2026-10-13):** not in this plan. The contracts' Ingress lines are not tied to a form.
+* [x] **Question 2 — Is the skill named exactly `aapp`? → RESOLVED (developer, 2026-10-13):** yes. It is tried in Claude Code and Antigravity during implementation; a clash with the command is reported before the plan is done.
+* [x] **Question 3 — Does the CLI Reference keep each verb's syntax? → RESOLVED (developer, 2026-10-13):** name and purpose only; the syntax comes from `aapp help <verb>`.
 
 ---
 
