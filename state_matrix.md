@@ -20,6 +20,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
 - 🟣 **P-70**: [`P70-help.md`](current/P70-help.md) — Help
 - 🟣 **P-82**: [`P82-issue-fix-safeguards.md`](current/P82-issue-fix-safeguards.md) — Issue Fix Safeguards
+- 🟣 **P-84**: [`P84-squash-on-the-plan-branch.md`](current/P84-squash-on-the-plan-branch.md) — Squash On The Plan Branch
 
 ---
 
