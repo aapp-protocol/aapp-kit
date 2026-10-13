@@ -10,3 +10,6 @@ pickup/*
 
 # Template drift buffers (safe sync)
 *.new
+
+# Adoption checklist (local setup guide)
+adoption.md
