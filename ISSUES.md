@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #147 | `Low` | `CLI` | 2026-10-13 | `lib/cmd_status.sh` | `aapp status` Shipped prints the first five lines under `[Unreleased]`: the `### Added` header and four entries. `Changed` and `Fixed` never appear, and the order is the section's, not the order of landing. |  | 🟡 `Incubated` |
 | #146 | `Low` | `CLI` | 2026-10-13 | `lib/cmd_init.sh` | `aapp init` deletes and recreates every skill directory and its `.claude/skills` link, even when unchanged: an open IDE drops the skills from its prompt until it is reloaded. |  | 🟡 `Incubated` |
 | #143 | `Low` | `CORE` | 2026-10-13 | `templates/blast-radius-guard.sh`, `lib/planning_health.sh` | Guard self-protection covers `.agents/skills/aapp-*` only: the `aapp` start skill (P-87) in `.agents/skills/aapp/` and `.claude/skills/aapp/` is not protected. |  | 🟡 `Incubated` |
 | #130 | `Low` | `CORE` | 2026-10-12 | `lib/adoption.sh:333-341`, `lib/cmd_init.sh:358` | Two setup advisories read `.plans/ISSUES.md` directly to tell whether it still holds a table, outside the ledger functions of `lib/aapp-lib.sh`. |  | 🟡 `Incubated` |
