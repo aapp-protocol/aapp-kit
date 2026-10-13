@@ -108,6 +108,14 @@ export AAPP_VERSION AAPP_BASE AAPP_LIB AAPP_TEMPLATES AAPP_RUNTIME AAPP_SCRIPT_D
 CMD="${1:-help}"
 shift || true
 
+# `aapp <verb> help` is `aapp help <verb>` (P-87): answered here, so no verb
+# takes the word as a slug, an id or a reason.
+if [ "${1:-}" = "help" ] && [ "$#" -eq 1 ] && [ "$CMD" != "help" ] && \
+   grep -q "^$CMD$(printf '\t')" "$AAPP_LIB/verbs.tsv" 2>/dev/null; then
+    source "$AAPP_LIB/cmd_help.sh" "$CMD"
+    exit 0
+fi
+
 # ------------------------------------------------------------------------------
 # 2a. Repository Root Assertion (P-33)
 #

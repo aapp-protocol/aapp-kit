@@ -121,12 +121,39 @@ while IFS="$TAB" read -r verb tier standalone desc contract rest || [ -n "$verb"
   printf '%s\n' "$reference" | grep -qE "aapp $verb([^a-z-]|\$)" || errors="$errors
 '$verb' is missing from the AGENTS.md CLI Reference"
   if [ -n "$contract" ] && [ -f "$KIT/$contract" ]; then
-    want="$(head -n 1 "$KIT/$contract")"
-    "$KIT/aapp" help "$verb" 2>/dev/null | grep -qxF "$want" || errors="$errors
-'aapp help $verb' does not print $contract"
+    want="aapp $(head -n 1 "$KIT/$contract" | sed 's/^# //')"
+    "$KIT/aapp" help "$verb" 2>/dev/null | grep -qxF -- "$want" || errors="$errors
+'aapp help $verb' does not print $contract's synopsis"
   fi
 done < "$MANIFEST"
 if [ -z "$errors" ]; then ok "test_daily_verbs_in_agent_reference"; else bad "test_daily_verbs_in_agent_reference" "${errors#
+}"; fi
+
+echo "== rules file (P-87) =="
+# The rules file holds rules: a verb's procedure is its skill's, its syntax is
+# `aapp help <verb>`'s.
+if ! grep -qF 'First-Run Repository Onboarding' "$AGENTS_TEMPLATE" && \
+   ! grep -qF 'mv .plans/current' "$AGENTS_TEMPLATE" && \
+   grep -qF 'Canonical Planning Invariant' "$AGENTS_TEMPLATE"; then
+  ok "test_rules_file_has_no_walkthroughs"
+else
+  bad "test_rules_file_has_no_walkthroughs" "templates/AGENTS.md still walks through verbs, or lost the planning invariant"
+fi
+if grep -qF '`/aapp`' "$AGENTS_TEMPLATE" && grep -qF 'aapp help <verb>' "$AGENTS_TEMPLATE"; then
+  ok "test_rules_file_points_to_help"
+else
+  bad "test_rules_file_points_to_help" "templates/AGENTS.md names no '/aapp' or no 'aapp help <verb>'"
+fi
+errors=""
+grep -qF '.agents/skills/<name>/SKILL.md' "$AGENTS_TEMPLATE" || errors="
+the skill index does not name .agents/skills/<name>/SKILL.md"
+for d in "$KIT"/templates/skills/*/; do
+  [ -f "${d}SKILL.md" ] || continue
+  s="${d%/}"; s="${s##*/}"
+  grep -qE "^\| \`/$s\` \|" "$AGENTS_TEMPLATE" || errors="$errors
+skill '$s' has no row in the rules file's skill index"
+done
+if [ -z "$errors" ]; then ok "test_every_skill_in_rules_index"; else bad "test_every_skill_in_rules_index" "${errors#
 }"; fi
 
 "$KIT/aapp" help no-such-verb >/dev/null 2>&1; rc=$?

@@ -18,10 +18,11 @@ elif [ -f "${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/lib/verbs.tsv" ]; then
     VERBS_TSV="${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/lib/verbs.tsv"
 fi
 
-# `aapp help <verb>` (P-47): print that verb's contract from the installed kit,
-# so agents reach it in any repository without a repo-relative path.
+# `aapp help <verb> [full]` (P-47, P-87): from the verb's contract in the
+# installed kit, its synopsis and arguments; `full` prints the whole contract.
 if [ -n "${1:-}" ]; then
     HELP_VERB="$1"
+    HELP_FULL="${2:-}"
     if [ -z "$VERBS_TSV" ]; then
         echo "❌ [Help] lib/verbs.tsv not found; reinstall the kit ('aapp install')." >&2
         exit 1
@@ -35,7 +36,17 @@ if [ -n "${1:-}" ]; then
                 echo "❌ [Help] Contract for '$HELP_VERB' missing: $contract" >&2
                 exit 1
             fi
-            cat "$HELP_CONTRACT"
+            if [ "$HELP_FULL" = "full" ]; then
+                cat "$HELP_CONTRACT"
+            else
+                awk -v verb="$HELP_VERB" '
+                    NR == 1 { sub(/^# /, ""); print "aapp " $0; next }
+                    /^## Ingress/ { r = 1; print ""; next }
+                    /^## / { r = 0 }
+                    r && NF
+                    END { print ""; print "Refusals, effects and tests: aapp help " verb " full" }
+                ' "$HELP_CONTRACT"
+            fi
         else
             echo "aapp $HELP_VERB — $desc"
         fi

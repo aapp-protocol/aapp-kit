@@ -247,6 +247,33 @@ else
 fi
 report "status_drift: reports drift advisory directing developer to 'aapp init'" "PASS" "$got" "$status_out_11"
 
+# The start skill (P-87): one text for every agent, installed by init.
+SKILL="$KIT/templates/skills/aapp/SKILL.md"
+if grep -qx 'name: aapp' "$SKILL" 2>/dev/null && grep -qF '.agents/AGENTS.md' "$SKILL" && \
+   grep -qF 'aapp status' "$SKILL" && grep -qF 'aapp help' "$SKILL" && \
+   ! grep -qE '(^|[^.A-Za-z])/(home|Users)/|view_file|run_command|CommandLine' "$SKILL"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_start_skill_text" "PASS" "$got"
+
+PROJ_12="$R/proj12"; make_dummy_project "$PROJ_12"
+(cd "$PROJ_12" && aapp init >/dev/null 2>&1)
+if [ -f "$PROJ_12/.agents/skills/aapp/SKILL.md" ] && [ -e "$PROJ_12/.claude/skills/aapp/SKILL.md" ]; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "test_init_installs_start_skill" "PASS" "$got"
+
+item="$(grep -F 'Onboarding:' "$PROJ_12/.plans/pickup.md")"
+got="PASS"
+for want in '.agents/CODEMAP.md' 'ARCHITECTURE.md' '.agents/PROJECT.MD' 'placeholder' 'entry point'; do
+  printf '%s\n' "$item" | grep -qiF -- "$want" || got="FAIL"
+done
+report "test_onboarding_item_carries_instruction" "PASS" "$got" "$item"
+
 echo ""
 echo "============================================================"
 echo "  Results: $PASS passed, $FAIL failed"

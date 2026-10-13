@@ -192,119 +192,27 @@ All planning and architectural tracking operates in the isolated `.plans/` workt
 - **Single Source of Truth**: All implementation plans MUST be authored as canonical AAPP blueprints in `.plans/current/P<num>-<slug>.md` using `templates/plan-template.md` and registered in `.plans/state_matrix.md`.
 - **Visible Artifact Standard**: Canonical planning always leaves a committed or staged file in `.plans/current/' that is visible in 'aapp status'.
 
-Lifecycle verbs are authored as **Universal AAPP Skills** in `.agents/skills/` (`skills/<name>/SKILL.md`) and bridged to Claude Code (`.claude/skills/`). They are exposed as slash commands (`/aapp-status`, `/aapp-digest`, `/aapp-freeze`, `/aapp-done`, `/aapp-release`, `/aapp-active`, `/aapp-plan`, `/plan`) in Claude Code and indexed natively via progressive disclosure in Google Antigravity, Cursor, and OpenAI Codex.
+`/aapp` starts a session: it reads this file in full and runs the status briefing; run it again after the conversation was summarised. A verb's syntax comes from `aapp help <verb>`, at the moment of use.
 
-The agent must support and execute these shorthand workflow triggers immediately without requiring manual prompt setup:
+### 🧭 Skill Index
+Each workflow below is a skill. Its instructions are in `.agents/skills/<name>/SKILL.md`; when running the workflow, follow that file, whether or not your tool lists skills.
 
-- **`status` (or `/aapp-status`, `/aapp:status`, `/aapp status`, `/status`)**: Act as a Context Recovery agent upon desk return.
-  1. Inspect `CHANGELOG.md` (or `.plans/CHANGELOG.md`) to identify recently shipped code.
-  2. **Issue lane:** Inspect `.plans/ISSUES.md` (or root `ISSUES.md`) and `.plans/issues_road_map.md` (the human's fix ordering over it). Report the top open issues **in the order the board gives them**.
-  3. **Plan lane:** Inspect `.plans/state_matrix.md` (future implementations only) for active incubator plans, blockers, and greenlit tasks. Keep this separate from the issue lane in your briefing — never blend the two into one list.
-  4. **Pickup queue:** Inspect `.plans/pickup.md` and **list the unprocessed ideas by name, with a count**. These are live and unworked — often the most valuable thing on the board when the user has just returned to the desk. Surface them so the user can pick one; do **not** digest them, and do not compress them away into a single "you have some notes" line.
-  5. Print a concise, structured briefing across all **four pillars — Shipped, Issues, Plans, Pickup** — with immediate next actions. **Never omit a pillar**, even when it is empty: write `Pickup: empty` rather than silently dropping the section. Where the Pickup queue is non-empty, offer `/aapp-digest <idea>` on a named entry as a next action.
+| Slash Command | When to use it |
+| :--- | :--- |
+| `/aapp` | At the start of a session: full rules and status briefing |
+| `/aapp-status` | Later in a session: the four-pillar briefing alone |
+| `/aapp-digest` | Work one idea or issue toward a blueprint |
+| `/aapp-plan` | Plan a feature or change as a canonical blueprint; inspect a plan |
+| `/plan` | The same as `/aapp-plan` |
+| `/aapp-tdd` | Declare a plan's failing tests before freeze |
+| `/aapp-freeze` | Lock a plan's design and Blast Radius |
+| `/aapp-start` | Activate a frozen plan and begin its §3 |
+| `/aapp-done` | Archive an implemented plan |
+| `/aapp-fix` | Fix one logged issue through a mini plan |
+| `/aapp-pause` | Emergency brake, and resume |
+| `/aapp-release` | Release pre-flight verification |
 
-- **`digest <idea>` (or `/aapp-digest <idea>`, `/aapp:digest <idea>`, `/aapp digest <idea>`, `/digest <idea>`)**: Take **one** idea and work it toward a plan. This is a targeted operation — never a bulk sweep of `pickup.md`.
-
-  **Step 1 — Resolve the idea.** `<idea>` may be raw text typed inline, or a reference to an entry in `.plans/pickup.md` (or a reference file in `.plans/pickup/`). If `<idea>` is omitted, list the open entries in `pickup.md` and **ask the user which one to digest**. Never choose for them, and never process the whole file at once.
-
-  **Step 2 — Route it to a lane.** If the idea describes wrong behaviour in code that already ships, it is an issue: **log it first — always — with `aapp issue log <sev> <type> "<symptom>" [file <path>]…`, which numbers it, records it in `ISSUES.md` and places it on `issues_road_map.md`.** Then judge the size of the fix:
-  - **Small / obvious fix** → stop there. The issue record is enough; no blueprint.
-  - **Large fix** (several modules, needs a Blast Radius, real design decisions, spans sessions, or is a refactor) → **promote it and continue to Step 3.** Draft the blueprint, then state plainly that you promoted it and why. Do not stop to ask first — the draft is unfrozen and costs nothing. **Unless it is blocking work already in flight** — then stop and ask (see *Issue Escape Triage*).
-  - **`<idea>` is itself an issue ID** (e.g. `digest ISSUE-004`) → the user has already chosen promotion. Go straight to Step 3 and carry the issue ID into the plan.
-
-  (See *Promotion: an Issue may become a Plan*.)
-
-  **Step 3 — Decide NEW or AMEND.** Scan `.plans/current/*.md` before writing anything:
-  - **AMEND** — the idea refines, extends, or corrects a plan already in flight.
-  - **NEW** — no active plan covers it.
-  - If the match is ambiguous, **ask**. Never silently fold an idea into an unrelated blueprint. State which path you chose, and for AMEND name the plan you matched and why.
-
-  **Step 4a — NEW plan (from scratch):**
-  1. Cross-reference `.agents/CODEMAP.md` (or `CODEMAP.md`) and `ARCHITECTURE.md` so the design extends existing modules instead of adding duplicate helpers or wrappers.
-  2. Run `aapp draft <slug>`: it claims the next Plan ID, scaffolds `.plans/current/P<num>-<slug>.md` from the template, registers it in the Incubator and commits it. Never allocate IDs or copy the template by hand.
-  3. Fill in *Context & Architectural Goal*, *Technical Blueprint*, and *Implementation Steps & Execution Checklist*.
-  4. Propose a Blast Radius. Mark it **PROPOSED** — it is not locked and confers no execution rights. Never declare files matching Guard Section 2 self-protection in Target Files (enforced by Pair 5).
-  5. Write every unresolved decision into *Open Questions*. A first draft with no open questions is usually an under-examined draft.
-  6. Commit the authored content with `aapp refine P-<num> "<what changed>"`.
-
-  **Step 4b — AMEND an existing plan:**
-  1. Fold the new detail into the section it belongs to — *Technical Blueprint*, *Implementation Steps*, *Open Questions*, or *Blast Radius*.
-  2. Append a dated line to that plan's `## 📦 6. Change Log & Refinement History` recording what changed and why.
-  3. **If the plan is already frozen / greenlit:** changing its Blast Radius changes what the pre-commit hook will permit. Stop and get explicit approval. Then set its Status to `📝 Refining` with §2/§4 untouched, commit that alone with `aapp refine`, make the change, and re-freeze.
-  4. Commit it with `aapp refine <plan-id> "<what changed>"`; the state matrix re-derives itself.
-
-  **Step 5 — Clean up.** Remove **only** the digested entry from `pickup.md`. Leave every other note in place.
-
-  **Step 6 — Report.** State which path you took (NEW / AMEND / routed to `ISSUES.md`), name the file you wrote, and list the Open Questions the user must answer next.
-
-  > **`digest` produces a draft, never a green light.** The output is an Incubator entry to be refined. Only `freeze` makes a plan executable.
-
-### 🗺️ First-Run Repository Onboarding (Day 1 Experience)
-When a repository is freshly initialized via `aapp init`, `.plans/pickup.md` contains an initial `Onboarding` queue item:
-1. **Trigger**: The user runs `/aapp-status` (or `status`) and sees `Onboarding` in Pillar 4 (Pickup), then runs `/aapp-digest Onboarding`.
-2. **Target Files**: The onboarding blueprint confines modifications strictly to `.agents/CODEMAP.md`, `ARCHITECTURE.md`, and `.agents/PROJECT.MD`.
-3. **Execution**: The agent inspects the codebase (directory layout, build manifests, dependencies, primary entrypoints) and replaces generic template placeholders (`[Module 1: Name & Path]`, `[What the application does]`, `[Project Name]`) with actual module ownership, exported APIs, runtime rules, and active milestone tracks.
-4. **Completion**: Running `/aapp-done <plan>` archives the blueprint and establishes the canonical codemap and architecture foundation for all subsequent agent work.
-
-- **`freeze-start <plan>` (or `/aapp-freeze-start <plan>`, `aapp freeze-start <plan>`)**: The atomic workflow accelerator.
-  1. Validates open questions (`[x]`) and explicit Target Files.
-  2. Runs the Disjointness Activation Gate: verifies zero overlapping Target Files with other in-flight (`⚡ In Development`) blueprints in the same workspace.
-  3. Transitions blueprint directly to `⚡ In Development`, sets the lock marker, updates the change log, and binds the local worktree buffer (`$(git rev-parse --git-path aapp_active_plan)`).
-  4. Continuous Execution Ingress: Immediately greenlights code execution in the working tree. Do NOT pause to ask for redundant confirmation; immediately proceed to execute Section 3 of the blueprint.
-
-- **`freeze <plan>` (or `/aapp-freeze <plan>`, `/aapp:freeze <plan>`, `/aapp freeze <plan>`, `/freeze <plan>`)**: Lock and greenlight a blueprint for the backlog.
-  1. Resolve `<plan>` using shorthand resolution (Plan ID `P-9`, `9`, slug, or filename). Target must be explicitly named — empty queries are strictly refused.
-  2. Scan `.plans/current/<plan>.md` to verify all Open Questions are resolved and Blast Radius (`Target Files` / `Out of Bounds`) is explicitly defined.
-  3. Move the plan in `.plans/state_matrix.md` from the Incubator into `## 🔷 2b. Frozen Backlog (Approved Specifications)`.
-  4. Locks the technical blueprint and blast radius into the backlog. (To begin implementation, run `aapp start <plan>` or use `aapp freeze-start <plan>`).
-
-- **`start <plan>` (or `/aapp-start <plan>`, `aapp start <plan>`)**: Activate a frozen backlog blueprint into development.
-  1. Verifies plan is in `🔷 Frozen` status.
-  2. Runs the Disjointness Activation Gate against other in-flight plans.
-  3. Transitions status to `⚡ In Development` and binds local worktree pointer buffer (`$(git rev-parse --git-path aapp_active_plan)`).
-  4. Activates enforcement of the plan's locked Blast Radius for tool writes and commits.
-  5. Continuous Execution Ingress: Do NOT pause to ask for redundant confirmation. Immediately proceed to execute Section 3 of the blueprint (verifying / authoring failure tests first if TDD sections are declared).
-
-- **`plan <idea>` (or `/plan <idea>`, `/aapp-plan <idea>`)**: Canonical blueprint planning and lane routing.
-  1. Enforces the Canonical Planning Invariant: author blueprints in `.plans/current/P<num>-<slug>.md`, never in ephemeral IDE scratchpads (`implementation_plan.md`).
-  2. Routes defects to `.plans/ISSUES.md` first; features and refactors to `.plans/current/`.
-  3. Scaffolds using `templates/plan-template.md` and registers in `.plans/state_matrix.md`.
-  4. In the shell: bare `aapp plan` acts as an educational switchboard; `aapp plan-status [id]` acts as the deterministic read-only inspector.
-
-- **`active [plan-id]` (or `/aapp-active`, `aapp active`, `aapp active swap`, `aapp active clear`)**: Manage local worktree active execution buffer (`$(git rev-parse --git-path aapp_active_plan)`).
-  1. `aapp active <id>`: Set active plan buffer to `<id>` (stashing previous in `.prev`).
-  2. `aapp active`: Display currently designated active plan, status, and declared Target Files.
-  3. `aapp active swap`: Toggle between current and previous active plan buffer.
-  4. `aapp active clear`: Clear active buffer, reverting to auto-discovery mode.
-
-- **`done <plan>` (or `/aapp-done <plan>`, `/aapp:done <plan>`, `/aapp done <plan>`, `/done <plan>`)**: Complete lifecycle and archive implemented blueprint.
-  1. Resolve `<plan>` using shorthand resolution (Plan ID `P-9`, `9`, slug, or filename). Target must be explicitly named — empty queries are strictly refused.
-  2. Move the plan file: `mv .plans/current/<plan>.md .plans/done/<plan>.md`.
-  3. Rewrite the blueprint header status line to `* **Status:** ✅ Done` and append an archival completion line to `## 📦 6. Change Log`.
-  4. Clear or update active plan buffer if it matched the completed plan.
-  5. Append a 1-line completion record to `.plans/done/000-archive-ledger.md` with `Plan ID`, plan file link, target issue, verification commit, and repo-relative impact summary.
-  6. Remove the plan entry from `.plans/state_matrix.md` (keeping `state_matrix.md` strictly focused on active roadmap & incubator items). If the plan resolved a target issue, `aapp done` relocates it from `ISSUES.md` to `.plans/done/000-issues-archive.md` and prunes `issues_road_map.md` (Relocation Invariant); a Target Issue in neither ledger refuses `done`.
-  7. Commit the transition to the `plans` worktree.
-
-- **`release <version>` (or `/aapp-release <version>`, `/aapp:release <version>`, `/aapp release <version>`, `/release <version>`, `/preflight`)**: Execute release pre-flight verification runbook.
-  1. Inspect `.plans/release/release_checklist.md` (the canonical release runbook for the project).
-  2. Enforce the Stable vs. Edge convention (Section 0 of checklist): `main` is strictly STABLE (clean tag `vX.Y.Z`), `develop` is EDGE (`-dev`). `develop` must fast-forward cleanly into `main` before tagging.
-  3. Step through the defined test suites, linters, and security audit checks.
-  4. Verify `CHANGELOG.md` (or `.plans/CHANGELOG.md`) has version entries staged and ready for tagging.
-  5. Report a structured release posture assessment (Tests, Linters, Docs, Rollback readiness) to the user.
-
-- **`pause [reason]` (or `/aapp-pause [reason]`, `aapp pause [reason]`, `aapp pause shared [reason]`)**: Engage the Master Emergency Brake & Multi-Worktree State Preserver ("Hibernate & Wake").
-  1. Idempotently inspects active pause state if already paused.
-  2. Runs In-Flight Operation Guard across all worktrees (`git worktree list --porcelain`), verifying zero active merges, rebases, or cherry-picks via canonical gitdir plumbing (`git rev-parse --git-path MERGE_HEAD`, `rebase-merge`, `CHERRY_PICK_HEAD`).
-  3. Quarantines uncommitted in-flight code per-worktree into SHA-addressed stashes (`aapp-pause-<timestamp>:<branch>`) using `--include-untracked` (strictly forbidding `--all` to respect `.gitignore` air-gaps).
-  4. Enforces the Atomic Rollback Invariant: validates 40-character hexadecimal commit SHAs; rolls back all stashes if any worktree fails.
-  5. Engages Circuit Breaker: locks all codebase and control-plane (`.agents/*`) writes and commits across worktrees while keeping reflection strictly within `.plans/` (pickup, issues, current) operational.
-
-- **`resume` (or `/aapp-pause resume`, `aapp resume`, `aapp unpause`)**: Disengage the emergency brake and wake workspace.
-  1. Detects forensic drift by comparing current HEAD SHAs against the pause snapshot (reporting foreign commits without auto-rebasing).
-  2. Restores quarantined stashes safely by 40-character commit SHA (never fragile indices).
-  3. Enforces the Pause Buffer Survival & No-Loss Conflict Invariant: on conflict, the stash entry is permanently preserved in `git stash list` and the project remains PAUSED until resolved.
-  4. Runs planning health integrity checks, deactivates pause buffer, and restores full developer velocity.
+After `aapp start` or `aapp freeze-start` succeeds, begin the plan's §3 at once, failing tests first when the plan declares them; do not ask for a second confirmation.
 
 ---
 
@@ -313,37 +221,27 @@ Every chore has a verb; use it instead of editing ledgers or running git on `.pl
 
 | Verb | Purpose |
 | :--- | :--- |
-| `aapp status [short]` | Four-pillar briefing (Shipped, Issues, Plans, Pickup) |
-| `aapp draft <slug> [issue <num>]` | Claim a Plan ID, scaffold the blueprint, register and commit it; `issue <num>` promotes that issue |
-| `aapp refine <id> slug <new-slug>` | Rename a plan file; issue links and the matrix follow |
-| `aapp refine pickup\|issues "<msg>"` | Commit a hand-made edit of `pickup.md`, or `ISSUES.md` + road map, after validation |
-| `aapp refine <id> "<what changed>"` | Commit an edit to an active plan |
-| `aapp refine <id> blocked <num>` | Block a plan on active issue `#<num>` (then `aapp matrix`) |
-| `aapp refine <id> unblocked <num>` | Remove closed issue `#<num>` from a plan's `Blocked On:` by hand, when the human confirms its fix reached the plan's parent branch as another commit |
-| `aapp refine issues "<msg>" branch <num> <name>` | Name the branch issue `#<num>`'s fix must land on |
-| `aapp tdd <id>` | Inject failure-test sections into a plan before freeze |
-| `aapp plan [query]` | Planning switchboard |
-| `aapp plan-status [id]` | Read-only plan matrix or one plan's details |
-| `aapp matrix [check]` | Re-derive (or audit) `state_matrix.md` from plan Status lines |
-| `aapp freeze <id>` | Lock design and Blast Radius |
-| `aapp start <id> [worktree <path> [branch <name>]]` | Activate a frozen plan for implementation; with `aapp.planWorktrees = on` (or `worktree`), in its own branch and worktree |
-| `aapp freeze-start <id> [worktree <path> [branch <name>]]` | Freeze and start in one step |
-| `aapp done <id>` | Archive an implemented plan; closes its Target Issue |
-| `aapp plan abort <id> [reason "<text>"]` | Abandon a plan: archived to `aborted/`, its worktree and branch removed, its issue stays open (🟡 `Incubated`). Run it from the main checkout; only when the human asks |
-| `aapp issue abort <num> [reason "<text>"]` | Withdraw an issue that is wrong or unwanted: archived as `aborted`, and its plan or open mini plan goes with it. Never use `issue close` for this (it records a fix); only when the human asks |
-| `aapp commit "<msg>" …` | Plan-bound code commit with attribution; records the SHA in the plan and writes its declared changelog entry |
-| `aapp active [id \| swap \| clear]` | Show or set the active plan buffer |
-| `aapp note …` | Stage, inspect, push or pull git notes |
-| `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]` | Log an issue: the id, the row and its road-map line, in one commit |
-| `aapp issue close <num>` \| `aapp issue list [<n> \| all]` \| `aapp issue list note <num>` | Close an issue; list the open ones; show one with its description and notes |
-| `aapp refine issues "<msg>" note <num> "<text>"` | Add a note to an issue (kept outside Git) |
-| `aapp offline [status \| sync \| mount \| unmount \| on \| off]` | What is staged in `.offline` while the team's provider is unreachable (issues and draft plans under temporary ids); `sync` publishes it. When `aapp issue log` or `aapp draft` says an item was staged offline, carry on with the temporary id and report it; never edit files under `.offline/` by hand |
-| `aapp issue hotfix "<text>" [file <path>]… [branch <name>] [plan]` | From a plan's worktree: log a blocking bug, queue it and block the plan, in one commit; the fix lands on the plan's parent branch, or on `<name>` |
-| `aapp issue fix next-blocker \| <num> [file <path>…] \| <num> abort` | In the main checkout: open (or drop) a temporary mini plan for one fix, one at a time (skill: `/aapp-fix [#<num>]`) |
-| `aapp test …` | Run the kit's test suites |
-| `aapp ai …` | Inspect or switch the attribution mode |
+| `aapp help` | The catalog of verbs. `aapp help <verb>` prints one verb's arguments; run it before a verb's first use in a session |
+| `aapp status` | Four-pillar briefing (Shipped, Issues, Plans, Pickup) |
+| `aapp draft` | Claim a Plan ID, scaffold the blueprint, register and commit it; can promote an issue |
+| `aapp refine` | Commit an edit to an active plan. Also: rename a plan (`slug`), block it on an issue or unblock it by hand (`blocked`, `unblocked`), move it into a group (`group`), commit a hand-made edit of `pickup.md` (`aapp refine pickup`) or of existing issue rows (`aapp refine issues`), and with `aapp refine issues` name an issue's branch (`branch`) or add a note kept outside Git (`note`) |
+| `aapp tdd` | Inject failure-test sections into a plan before freeze |
+| `aapp plan` | Planning switchboard. `aapp plan abort` abandons a plan: archived to `aborted/`, its worktree and branch removed, its issue stays open (🟡 `Incubated`); run it from the main checkout, only when the human asks |
+| `aapp plan-status` | Read-only plan matrix or one plan's details |
+| `aapp matrix` | Re-derive (or audit) `state_matrix.md` from plan Status lines |
+| `aapp freeze` | Lock design and Blast Radius |
+| `aapp start` | Activate a frozen plan for implementation; with `aapp.planWorktrees = on`, in its own branch and worktree |
+| `aapp freeze-start` | Freeze and start in one step |
+| `aapp done` | Archive an implemented plan; closes its Target Issue |
+| `aapp commit` | Plan-bound code commit with attribution; records the SHA in the plan and writes its declared changelog entry |
+| `aapp active` | Show or set the active plan buffer |
+| `aapp note` | Stage, inspect, push or pull git notes |
+| `aapp issue` | The issue lane. `aapp issue log` logs an issue: the id, the row and its road-map line, in one commit. `aapp issue list` lists the open ones; `aapp issue list note` shows one with its description and notes. `aapp issue hotfix`, from a plan's worktree, logs a blocking bug, queues it and blocks the plan. `aapp issue fix`, in the main checkout, opens (or drops) a temporary mini plan for one fix, one at a time (skill: `/aapp-fix`). `aapp issue close` closes a fixed issue. `aapp issue abort` withdraws an issue that is wrong or unwanted, with its plan or open mini plan: never use `issue close` for this (it records a fix); only when the human asks |
+| `aapp offline` | What is staged in `.offline` while the team's provider is unreachable (issues and draft plans under temporary ids); `aapp offline sync` publishes it. When `aapp issue log` or `aapp draft` says an item was staged offline, carry on with the temporary id and report it; never edit files under `.offline/` by hand |
+| `aapp test` | Run the kit's test suites |
+| `aapp ai` | Inspect or switch the attribution mode |
 
-Full catalog: `aapp help`. A verb's complete contract (arguments, refusals, effects): `aapp help <verb>`.
+Arguments of a verb: `aapp help <verb>` (the same as `aapp <verb> help`). Its refusals and effects too: `aapp help <verb> full`. Full catalog: `aapp help`.
 
 ---
 

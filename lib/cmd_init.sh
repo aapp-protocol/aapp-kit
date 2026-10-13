@@ -908,7 +908,7 @@ sync_skills() {
     rm -f ".agents/skills/aapp-hooks/SKILL.md"
     rm -rf ".claude/skills/aapp-hooks"
 
-    for skill_dir in "$templates_skills"/aapp-* "$templates_skills"/plan; do
+    for skill_dir in "$templates_skills"/aapp "$templates_skills"/aapp-* "$templates_skills"/plan; do
         [ ! -d "$skill_dir" ] && continue
         local skill_name
         skill_name="$(basename "$skill_dir")"

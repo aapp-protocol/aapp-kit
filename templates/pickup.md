@@ -7,4 +7,4 @@
 <!-- AAPP-PROTOCOL:END -->
 
 ## 🆕 New Ideas / Prompt Inputs
-- [ ] Onboarding: Inspect repository codebase to populate .agents/CODEMAP.md, ARCHITECTURE.md, and .agents/PROJECT.MD
+- [ ] Onboarding: Inspect repository codebase to populate .agents/CODEMAP.md, ARCHITECTURE.md, and .agents/PROJECT.MD: read the directory layout, build manifests, dependencies and entry points, and replace the template placeholders with the real modules, exported interfaces, runtime rules and milestones. The plan's Target Files are those three files only.

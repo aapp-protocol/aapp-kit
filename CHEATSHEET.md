@@ -80,7 +80,8 @@ Plans are `P-[num]`, issues are `#[num]`. `aapp freeze P-9`, `aapp freeze 9`, an
 | `aapp uninstall` | Remove global AAPP binaries and shared directories |
 | `aapp version` | Show installed AAPP version (`-v`, `--version`) |
 | `aapp help` | Show grouped command catalog (`-h`, `--help`) |
-| `aapp help <verb>` | Print that verb's installed contract (arguments, refusals, effects) |
+| `aapp help <verb>` | Print that verb's synopsis and arguments, from its installed contract; `aapp <verb> help` is the same |
+| `aapp help <verb> full` | Print the verb's whole contract (arguments, refusals, effects, tests) |
 
 `aapp init` is idempotent — re-run it after any template change to propagate engines into `.githooks/` and `.agents/`. It never overwrites your own content and updates `.plans/adoption.md` verification ticks.
 

@@ -22,7 +22,7 @@ upgrade	setup	yes	Upgrade global AAPP binaries & templates from upstream
 develop	setup	yes	Link local development clone globally via symlinks
 uninstall	setup	yes	Remove global AAPP binaries and shared directories
 version	setup	yes	Show installed AAPP version (-v, --version)
-help	setup	yes	Show grouped command catalog (-h, --help)
+help	daily	yes	Catalog of verbs; 'help <verb>' prints one verb's arguments (-h, --help)	lib/docs/verbs/help.md
 push	sync	yes	Push active worktrees (.plans, .agents, .githooks) to remote
 pull	sync	yes	Pull remote updates for active worktrees with non-negotiable --ff-only
 sync	sync	yes	Bi-directional sync: pull updates followed by push

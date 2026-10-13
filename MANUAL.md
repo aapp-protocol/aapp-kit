@@ -582,6 +582,9 @@ AAPP lifecycle verbs are authored as **Universal AAPP Skills** in `.agents/skill
 - **Candidate Menu Ceiling**: To prevent chat window bloat and token waste, candidate lists displayed by skills are strictly capped at **10 items** (maximum 15), followed by a single concise overflow summary line (`... and N more [items] (inspect via ...)`).
 - **IDE Autocomplete Parity**: All retained skills declare `disable-model-invocation: false` in their frontmatter, ensuring complete visibility in AI IDE slash-command autocompletion (such as Antigravity IDE and Claude Code).
 
+#### `/aapp` — Session Start
+Run first in every session, and again after the agent's conversation was summarised. An agent's IDE may cut the rules file it loads at session start; the skill tells the agent to read `.agents/AGENTS.md` in full with its own file tool, run `aapp status`, and give a briefing. It names no agent's tools, so the same file serves every agent. The rules file's Skill Index lists every skill with the path of its instructions, for agents that do not list skills themselves.
+
 #### `/aapp-status` (or `status`, `aapp status`, `/status`) — Context Recovery
 Executed when returning to a project or starting a session. Inspects the workspace and reports across the **Four Pillars**:
 1. **Shipped**: Recent entries in `CHANGELOG.md` (`## [Unreleased]`).
@@ -1972,7 +1975,7 @@ To eliminate cognitive overload, the AAPP CLI organizes its commands into 5 visu
 
 Command metadata is centralized in `lib/verbs.tsv`, a zero-dependency, tab-separated catalog defining command names, tiers, standalone CLI readiness, and descriptions. It acts as the single source of truth for:
 - Grouped help generation in `aapp help` and invalid command suggestions (`lib/cmd_help.sh`).
-- `aapp help <verb>`: prints the contract named in that verb's row, read from the installed kit, so it works in any repository and with any install method. Agents use it for verbs no skill covers.
+- `aapp help <verb>`: prints the verb's synopsis and arguments, from the contract named in that verb's row, read from the installed kit, so it works in any repository and with any install method. `aapp help <verb> full` prints the whole contract. `aapp <verb> help` is the same command: the dispatcher answers it before the verb runs, so no verb takes the word as an argument. Agents run it before a verb's first use in a session; the rules file (`.agents/AGENTS.md`) holds no verb syntax.
 - Mechanical test assertions verifying parity between the dispatcher, the manifest, and `CHEATSHEET.md` (Tests 58 & 59 in `tests/install_test.sh`), and that every daily verb appears in the `AGENTS.md` CLI Reference (`tests/verb_contracts_test.sh`).
 
 ### Deterministic Blueprint Scaffolding (`aapp draft [slug]`)
