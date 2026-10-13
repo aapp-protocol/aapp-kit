@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `13f174f` (develop)
+* **Worktree:** .workspace/P84 (plan/P84-squash-on-the-plan-branch)
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
@@ -142,6 +143,7 @@ It builds on group P-72 (the unblocking rule of P-78, the provider step of P-74)
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-13:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-13:** Drafted. Follows group P-72.
 * **2026-10-13:** A plan made for an issue is always squashed; later integration corrects the records.
