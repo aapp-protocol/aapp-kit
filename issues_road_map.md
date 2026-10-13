@@ -50,4 +50,5 @@
 - [ ] #110 -> MANUAL still registers hooks on `on-done` (renamed `post-done` by P-23).
 - [ ] #122 -> A plan can't take a second issue after drafting; `done` closes only the first.
 - [ ] #143 -> Guard self-protection covers `.agents/skills/aapp-*` only: the `aapp` start skill (P-87) in `.agents/skills/aapp/` and `.claude/skills/aapp/` is not protected.
+- [ ] #146 -> `aapp init` deletes and recreates every skill directory and its `.claude/skills` link, even when unchanged: an open IDE drops the skills from its prompt until it is reloaded.
 
