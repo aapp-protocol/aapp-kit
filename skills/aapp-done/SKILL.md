@@ -12,7 +12,7 @@ Complete the implementation lifecycle and archive a finished blueprint via the a
 ## Execution Procedure
 
 ### Step 1: Execute Authoritative CLI Verb
-**Plan in a worktree?** Rebase it onto the development branch first: `git rebase --autostash <devBranch>`. Fixes to its files may have landed since it started; resolve any conflict in its own lines, re-run its tests, then archive.
+**Plan in a worktree?** Rebase it onto its parent branch first (the branch in its `* **Base:**`; the development branch unless the plan is a group's member): `git rebase --autostash <parent branch>`. Fixes to its files may have landed since it started; resolve any conflict in its own lines, re-run its tests, then archive.
 
 Invoke the deterministic archival verb:
 ```bash
