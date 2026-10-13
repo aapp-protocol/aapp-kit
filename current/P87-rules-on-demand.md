@@ -183,8 +183,6 @@ The seeded `Onboarding` item carries what the removed section said about the wor
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `templates/skills/aapp-status/SKILL.md` -> stays the status alone.
-- [ ] `lib/docs/verbs/` -> the other contracts are read, not changed.
-
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
