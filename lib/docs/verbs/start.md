@@ -21,6 +21,7 @@
 - No other worktree holds this plan in its active buffer
 - No other `⚡ In Development` plan declares an identical Target File
 - No queued Plan Blocker (active, not `Planned`) names a Target File in its Location; shared docs excepted (P-48)
+- A plan made for an issue (its `Target Issue` names `#<n>`, and `#<n>`'s ledger row is `Planned` and links the plan) gets its own branch and worktree at its first start whatever `aapp.planWorktrees` says, so `done` can land it as one commit (P-84); `freeze-start` likewise
 - Plan worktree (P-54): the rendered branch and path do not exist; a base branch resolves (the first `aapp.devBranch` candidate present locally or on a remote, else the default branch: `origin/HEAD`, `main` or `master`)
 
 ## Failure modes

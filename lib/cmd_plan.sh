@@ -1106,7 +1106,47 @@ _ig_standalone() {
     pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
     _ig_decide "$pf" || exit 1
     _ig_preflight "$pf" "$pid" || exit 1
-    _ig_run "$pf" "$pid" || exit 1
+    # P-84: squashed now, on the plan branch; the records follow the new commit.
+    local grp=0
+    if aapp_is_group_plan "$pf"; then grp=1; fi
+    _sq_decide "$pf" "$pid" "$grp" 0
+    if [ "$SQ_DO" -eq 1 ]; then _sq_run "$pf" "$pid" || exit 1; fi
+    if ! _ig_run "$pf" "$pid"; then
+        if [ "$SQ_DO" -eq 1 ]; then _sq_restore; fi
+        exit 1
+    fi
+    if [ "$SQ_DO" -eq 1 ]; then _sq_correct_records "$pf" "$pid" || exit 1; fi
+    _load_issue_module
+    issue_unblock_landed quiet || echo "⚠️  [Done] Could not check the plans waiting for a fix; 'aapp status' does it." >&2
+}
+
+# _sq_correct_records <done_file> <plan_id>: an archived plan squashed later
+# names its new commit: its `Commits:`, its line in the archive ledger and the
+# archived row of the issue it closed, in one commit on the plans branch.
+_sq_correct_records() {
+    local pf="$1" pid="$2" old n bname ledger="$PLANS_DIR/done/000-archive-ledger.md" tmp
+    local paths=()
+    bname="$(basename "$pf")"
+    old="$(parse_plan_commits "$pf" | tail -n 1 | awk '{print $1}')"
+    write_plan_commits "$pf" "\`$SQ_NEW\` ($SQ_TARGET)" || return 1
+    paths+=("done/$bname")
+    if [ -n "$old" ] && [ -f "$ledger" ]; then
+        tmp="$ledger.aapp-record.$$"
+        AAPP_PID="| \`$pid\` |" AAPP_OLD="\`$old\`" AAPP_NEW="\`$SQ_NEW\`" awk '
+            !d && index($0, ENVIRON["AAPP_PID"]) && (i = index($0, ENVIRON["AAPP_OLD"])) {
+                $0 = substr($0, 1, i - 1) ENVIRON["AAPP_NEW"] substr($0, i + length(ENVIRON["AAPP_OLD"])); d = 1 }
+            { print }' "$ledger" > "$tmp" && mv "$tmp" "$ledger" || { rm -f "$tmp"; return 1; }
+        paths+=("done/000-archive-ledger.md")
+    fi
+    n="$(issue_id_at_start "$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*//p' "$pf" | head -n 1)")" || n=""
+    if [ -n "$n" ] && [ -n "$old" ]; then
+        case "$(ledger_cell "$n" commit archive)" in
+            *"$old"*) ledger_set_archive_commit "$n" "$SQ_NEW" || return 1
+                      paths+=($(ledger_commit_paths archive)) ;;
+        esac
+    fi
+    plans_commit "plan(record): record $SQ_NEW for $pid" "${paths[@]}" || return 1
+    echo "   Records      : $pid and its issue name $SQ_NEW."
 }
 
 cmd_draft() {
