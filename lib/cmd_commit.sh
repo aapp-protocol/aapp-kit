@@ -258,7 +258,10 @@ cmd_commit() {
             return 1
         fi
     elif aapp_plan_changelog_decl "$plan_file" >/dev/null; then
-        if [ -n "$changelog_text" ]; then
+        # A fix with no commit yet takes the token again: its first commit was refused.
+        if [ -n "$changelog_text" ] && [ -z "$(parse_plan_commits "$plan_file")" ]; then
+            write_plan_field "$plan_file" Changelog "Fixed: $changelog_text" || return 1
+        elif [ -n "$changelog_text" ]; then
             echo "❌ [Commit Refusal] $plan_id already has its changelog entry; reword its '* **Changelog:**' line with 'aapp refine'." >&2
             return 1
         fi

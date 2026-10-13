@@ -410,13 +410,31 @@ if [ "$rc" -ne 0 ] && echo "$out" | grep -qF 'changelog "' && [ "$(git rev-parse
 else
   bad "test_mini_plan_commit_refuses_empty_changelog" "rc=$rc out=$out"
 fi
+long="fix: the mc helper counts from two and this subject runs well past the limit (#2)"
+out1="$(aapp commit "$long" changelog "first wording" 2>&1)"; rc1=$?
 out="$(aapp commit "fix: mc (#2)" changelog "the mc helper counts from two" 2>&1)"; rc=$?
+if [ "$rc1" -ne 0 ] && [ "$rc" -eq 0 ] && [ "$(git rev-parse HEAD~1)" = "$head0" ] && \
+   [ "$(grep -c '(`#2`)' CHANGELOG.md)" -eq 1 ] && ! grep -qF 'first wording' CHANGELOG.md .plans/current/fix-2.md; then
+  ok "test_mini_plan_commit_retry_after_refusal_takes_changelog"
+else
+  bad "test_mini_plan_commit_retry_after_refusal_takes_changelog" "rc1=$rc1 out1=$out1 rc=$rc out=$out"
+fi
 if [ "$rc" -eq 0 ] && grep -qxF -- "- the mc helper counts from two (\`#2\`)" CHANGELOG.md && \
    grep -qxF '* **Changelog:** Fixed: the mc helper counts from two' .plans/current/fix-2.md && \
    git show --name-only --format= HEAD | grep -qx CHANGELOG.md; then
   ok "test_mini_plan_commit_writes_supplied_entry"
 else
   bad "test_mini_plan_commit_writes_supplied_entry" "rc=$rc out=$out cl=$(grep '#2' CHANGELOG.md)"
+fi
+echo "m=3" > src/mc.sh; git add src/mc.sh
+head1="$(git rev-parse HEAD)"
+git config aapp.commitMode microcommits
+out="$(aapp commit "fix: mc again (#2)" changelog "another wording" 2>&1)"; rc=$?
+git config aapp.commitMode atomic
+if [ "$rc" -ne 0 ] && echo "$out" | grep -qF 'aapp refine' && [ "$(git rev-parse HEAD)" = "$head1" ]; then
+  ok "test_mini_plan_commit_refuses_changelog_after_first_commit"
+else
+  bad "test_mini_plan_commit_refuses_changelog_after_first_commit" "rc=$rc out=$out"
 fi
 
 print_test_summary "$PASS" "$FAIL"

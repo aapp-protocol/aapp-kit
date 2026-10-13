@@ -38,7 +38,7 @@
 - `plan` mode, `CHANGELOG.md` has no `## [Unreleased]` heading, or has unstaged edits -> exit 1 before committing
 - `plan` mode, the plan declares no `**Changelog:**` entry (or there is no `CHANGELOG.md`) -> no failure: a notice, `CHANGELOG.md` left to the author (P-48)
 - an issue fix (`#<n>`) with no entry yet and no `changelog` -> exit 1 before committing, stderr names `aapp commit "<msg>" changelog "<what the fix changed>"` (P-66)
-- `changelog` on a plan (not a fix), or on a fix that already has its entry -> exit 1 before committing, pointing at `aapp refine` (P-66)
+- `changelog` on a plan (not a fix), or on a fix that already has a commit -> exit 1 before committing, pointing at `aapp refine` (P-66)
 
 ## Effects (happy path)
 - the plan header records the modes in effect, `* **Commit Mode:** <atomic|microcommits>` and `* **Changelog Mode:** <plan|commit>` (inserted when absent); a value that changed since the plan's previous record adds a dated §6 line `<Field> switched to <value> (config) for <sha>.` The record is data only (P-51)
@@ -87,5 +87,7 @@ Run: `aapp test verb commit`
 - `tests/verbs/commit.sh::test_microcommits_allows_and_switch_is_logged` -> `microcommits` allows another commit; the switch is logged in §6 (P-51)
 - `tests/verbs/commit.sh::test_mini_plan_commit_refuses_empty_changelog` -> a fix's first commit without `changelog`: exit 1 naming the token, nothing committed (P-66)
 - `tests/verbs/commit.sh::test_mini_plan_commit_writes_supplied_entry` -> `changelog "<text>"` lands in the mini plan and as the fix's `CHANGELOG.md` bullet (P-66)
+- `tests/verbs/commit.sh::test_mini_plan_commit_retry_after_refusal_takes_changelog` -> after a refused first commit, the retry's `changelog "<text>"` replaces the entry: one bullet, one commit
+- `tests/verbs/commit.sh::test_mini_plan_commit_refuses_changelog_after_first_commit` -> `changelog` on a fix that has a commit: exit 1 pointing at `aapp refine`, nothing committed
 - `tests/verbs/commit.sh::test_note_token_attached_in_none_mode` -> `note "<text>"` in `none` mode: no trailer, the text in `refs/notes/commits`
 - `tests/verbs/commit.sh::test_note_token_attached_in_strict_mode` -> `note "<text>"` in `strict` mode: trailers kept, the text in `refs/notes/ai`
