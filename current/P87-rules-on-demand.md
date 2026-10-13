@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** 📝 Refining
 * **Base:** `6424d2f` (develop)
 * **Worktree:** .workspace/P87 (plan/P87-rules-on-demand)
 * **Commits:** `4d7ee97` (plan/P87-rules-on-demand), `a8e297f` (plan/P87-rules-on-demand)
