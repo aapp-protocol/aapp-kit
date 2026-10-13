@@ -1,8 +1,8 @@
 # 🗺️ Plan P-85: One Commit Per Fix
 * **Created:** 2026-10-13 | **Last Refined:** 2026-10-13
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-85
-* **Changelog:** Changed: One Commit Per Fix
+* **Changelog:** Changed: every issue fix is made in its own worktree and lands as one commit, the SHA its archive row names (P-85)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,17 +38,26 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+An issue is closed in one of two ways: by a plan made for it, or by a small fix (`aapp issue fix`). P-84 gives the first way one commit per issue: the plan has its own branch, is squashed there, and its one commit is what the archive names. A small fix does not have that yet. It is made on the issue's branch directly when the main checkout is on it, between whatever else lands there, and when it takes several commits the issue's row records only the last.
+
+This plan makes small fixes follow the same rule, so there is one system for issues: every fix is made in its own worktree, lands as one commit, and that commit is the SHA in the archive. On a repository with one branch it may look more than is needed, but the history stays smooth and each issue is traceable to one commit.
+
+It follows P-84 and group P-72.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+- **Every fix has its own worktree.** `aapp issue fix <n>` (and `fix next-blocker`) always opens `.workspace/fix-<n>` on `fix/<n>`, cut from the issue's branch (P-78, P-83). The form that worked in the main checkout when it was on the issue's branch goes: the main checkout is never bound to a fix, and its buffer and files are left alone.
+- **One commit per fix.** At `aapp issue close <n>`, when the fix has more than one commit they are squashed into one on `fix/<n>`: subject `fix: <the fix's changelog entry> (#<n>)`, the replaced subjects in the body. A fix with one commit is left exactly as it is: its SHA is already the one to record.
+- **Attribution: the fix's last commit,** as in P-84: one set of trailers, from the agent that finished the fix.
+- **Landing is unchanged** (P-78): `fix/<n>` is rebased onto the issue's branch when that branch moved, the branch is fast-forwarded to it, and the fix worktree and branch are removed. The archive row, and what the provider is told, name that one commit.
+- **What is no longer needed at `fix`:** waiting for uncommitted work in the fix's files in the main checkout (P-58). The fix has its own working copy, so `fix` opens at once. The wait for another open fix, and the issue lock, stay: one fix at a time.
+- **Where uncommitted work still matters:** at `close`, when the issue's branch is checked out somewhere with uncommitted changes in the fixed files, the fast-forward cannot be made there. `close` refuses, the fix stays as it is, and the message names the files; commit or set that work aside, then close again. A hotfix raised from a plan in a single checkout still sets that plan's work in the fixed files aside, and `close` still re-applies it on top of the fix.
+- **Unchanged:** `fix <n> abort` (it removes the worktree and branch), `fix <n> file <path>`, `fix <n> group <group>`, the refusal inside a plan's worktree, the group hint.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Clean Break`
+- **Fallback Inventory**: `None (Clean Break)`. A fix open in the main checkout when this lands is closed, or dropped with `fix <n> abort`, by the code it was opened with.
 
 ---
 
@@ -57,21 +66,36 @@
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/issue.onecommit.sh::test_fix_always_opens_in_its_worktree` -> asserts `issue fix` opens `.workspace/fix-<n>` cut from the issue's branch also when the main checkout is on that branch
+- [ ] `tests/verbs/issue.onecommit.sh::test_main_checkout_left_alone` -> asserts the main checkout's active buffer and files are unchanged by `fix`, by the fix's commits and by `fix abort`
+- [ ] `tests/verbs/issue.onecommit.sh::test_close_squashes_to_one_commit` -> asserts a fix of several commits lands on the issue's branch as one commit whose subject is `fix: <changelog entry> (#<n>)`
+- [ ] `tests/verbs/issue.onecommit.sh::test_single_commit_fix_keeps_its_sha` -> asserts a fix of one commit lands with the SHA it had
+- [ ] `tests/verbs/issue.onecommit.sh::test_row_and_provider_name_the_commit` -> asserts the archive row and `issue.close` name the commit that is on the issue's branch
+- [ ] `tests/verbs/issue.onecommit.sh::test_attribution_is_the_last_commit` -> asserts the squashed commit carries the trailers of the fix's last commit
+- [ ] `tests/verbs/issue.onecommit.sh::test_fix_does_not_wait_for_dirty_files` -> asserts `fix` opens at once while the main checkout has uncommitted changes in the fix's files
+- [ ] `tests/verbs/issue.onecommit.sh::test_close_refuses_over_uncommitted_work` -> asserts `close` refuses, naming the files, while the checkout of the issue's branch has uncommitted changes in the fixed files; the fix worktree, its commits and the issue are unchanged
+- [ ] `tests/verbs/issue.onecommit.sh::test_hotfix_stash_reapplied` -> asserts work a hotfix set aside in a single checkout is re-applied on top of the landed fix
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### ♻️ Existing Tests Changed or Retired
+> Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
+- Tests that open or expect a fix in the main checkout (`tests/verbs/issue.sh`, `issue.fixes.sh`, `issue.branch.sh`, `issue.branchplugin.sh`, `issue.keyid.sh`, `issue.abort.sh`, `issue.provider.sh`, `issue.notefilter.sh`, `commit.sh`): rewritten to work in `.workspace/fix-<n>`.
+- `tests/verbs/issue.fixes.sh`: the tests of waiting for uncommitted files at `fix` (`test_fix_wait_zero_refuses_at_once`, `test_fix_waits_for_dirty_file_then_proceeds`, `test_next_blocker_waits_when_every_blocker_is_dirty`, `test_fix_timeout_on_bound_plan_file_hints_hotfix`) and `tests/verbs/issue.sh::test_fix_refuses_dirty_file`, `test_next_blocker_skips_untakeable`: retired with the wait; `test_close_refuses_over_uncommitted_work` covers what remains.
+- `tests/verbs/issue.branch.sh::test_fix_opens_on_issue_branch`, `test_no_branch_means_dev_branch`: rewritten: the fix is always in its worktree.
+
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Write `tests/verbs/issue.onecommit.sh`; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: `issue fix` always in `.workspace/fix-<n>`; the main-checkout form and the wait for uncommitted files removed.
+- [ ] Task 2.2: The squash at `close`, with the changelog entry as subject and the last commit's trailers.
+- [ ] Task 2.3: `close` refuses over uncommitted work where the issue's branch is checked out.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [ ] Task 3.2: Update `MANUAL.md`, the `issue` contract, the agent rules and the fix skill.
 - [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.5: Log every finding outside the Target Files as an issue; none stays in chat only.
 
 ---
 
@@ -79,29 +103,39 @@
 *Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_issue.sh` -> `fix` always in its worktree; the squash at `close`; the refusal over uncommitted work.
+- [ ] `lib/docs/verbs/issue.md` -> Contract.
+- [ ] `MANUAL.md` -> Small fixes: always in their own worktree, one commit per issue.
+- [ ] `templates/AGENTS.md` -> Agent rules: a fix is worked in `.workspace/fix-<n>`.
+- [ ] `templates/skills/aapp-fix/SKILL.md` -> The fixer works and commits in `.workspace/fix-<n>`, closes from the main checkout.
+- [ ] `templates/skills/aapp-start/SKILL.md` -> Where issue fixes are made.
+- [ ] `tests/verbs/issue.sh` -> Existing tests changed or retired (§3).
+- [ ] `tests/verbs/issue.fixes.sh` -> Existing tests changed or retired (§3).
+- [ ] `tests/verbs/issue.branch.sh` -> Existing tests changed (§3).
+- [ ] `tests/verbs/issue.branchplugin.sh` -> Existing tests changed (§3).
+- [ ] `tests/verbs/issue.keyid.sh` -> Existing tests changed (§3).
+- [ ] `tests/verbs/issue.abort.sh` -> Existing tests changed (§3).
+- [ ] `tests/verbs/issue.provider.sh` -> Existing tests changed (§3).
+- [ ] `tests/verbs/issue.notefilter.sh` -> Existing tests changed (§3).
+- [ ] `tests/verbs/commit.sh` -> Existing tests changed (§3).
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `NEW FILE` -> `tests/verbs/issue.onecommit.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/aapp-pre-commit` -> No hook rule changes.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [x] **Question 1 — Do small fixes follow the rule of P-84? → RESOLVED (developer, 2026-10-13):** yes, all the same: one unified system for issues. Even on a one-branch repository, where it looks odd, the history stays smooth and well traceable.
+* [ ] **Question 2 — The squashed fix's message.** Proposed: subject `fix: <the fix's changelog entry> (#<n>)`, the replaced commits' subjects in the body; a fix of one commit is left as it is. Or: keep the last commit's own message.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-13:** Plan initialized from `pickup.md`.
-* **2026-10-13:** Refined blast radius and locked module boundaries.
+* **2026-10-13:** Drafted. Follows P-84 and group P-72.
