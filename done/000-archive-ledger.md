@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-14 | `P-84` | [`P84-squash-on-the-plan-branch.md`](P84-squash-on-the-plan-branch.md) | none | `b5e5157` | Squash On The Plan Branch (tdd (13/13)) |
 | 2026-10-13 | `P-87` | [`P87-rules-on-demand.md`](P87-rules-on-demand.md) | #120 | `f9e1388` | Rules On Demand (tdd (12/12)) |
 | 2026-10-13 | `P-72` | [`P72-issue-tracker.md`](P72-issue-tracker.md) | None | `e07b01c` | Issue Tracker |
 | 2026-10-13 | `P-75` | [`P75-offline-worktree.md`](P75-offline-worktree.md) | none | `9fb9b1b` | Offline Worktree & Local Lifecycle (tdd (23/23)) |
