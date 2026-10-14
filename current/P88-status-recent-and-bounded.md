@@ -1,8 +1,8 @@
 # 🗺️ Plan P-88: Status Recent And Bounded
-* **Created:** 2026-10-13 | **Last Refined:** 2026-10-13
+* **Created:** 2026-10-13 | **Last Refined:** 2026-10-15
 * **Target Issue / Milestone:** #147
 * **Plan ID:** P-88
-* **Changelog:** Changed: `aapp status` shows what landed last, and one bounded line per pickup idea
+* **Changelog:** Changed: `aapp status` shows recently landed changelog entries and wrapped pickup ideas
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -41,36 +41,40 @@
 `aapp status` is the briefing an agent shows unchanged at session start (`/aapp`, `/aapp-status`). Two of its four pillars do not show what their titles say.
 
 - **Shipped (#147).** It prints the first five lines under `[Unreleased]` of `CHANGELOG.md`: the `### Added` heading and four entries. `Changed` and `Fixed` are never reached, and the order is the section's, not the order of landing. What landed today does not appear.
-- **Pickup.** Each idea is printed whole, on one line of up to 900 characters. Shown in a code block it cannot wrap, so the briefing scrolls far sideways. Only five ideas are listed; the rest are "... and N more".
+- **Pickup.** Each idea is printed whole on one line of up to 900 characters. Shown in a markdown code block, preformatted text cannot soft-wrap in Claude or standard terminals, forcing severe horizontal scrolling. Only five ideas are listed; the rest are "... and N more".
 
-The pillars should give an idea of what is there; the detail is read where it lives (`CHANGELOG.md`, `.plans/pickup.md`).
+The pillars should give a clear, instantly readable idea of what is there without horizontal scrolling in narrow/split viewports; full details live where they belong (`CHANGELOG.md`, `.plans/pickup.md`).
 
 ---
 
 ## 2. Technical Blueprint
 ### 2.1 Shipped: the last entries that landed
 
-The order of landing is in Git, not in the changelog's layout: every plan and fix adds its entry to `CHANGELOG.md` in a commit. The pillar reads the entries added by the latest commits of the current branch that touched the file:
+The order of landing is in Git, not in the changelog's layout: every plan and fix adds its entry to `CHANGELOG.md` in a commit. The pillar reads the entries added by the latest commits of the current branch that touched the file, bounded by `-n 15` to ensure fast, O(1) execution:
 
 ```
-git log --first-parent -m -p --unified=0 -- <changelog>     # added lines starting "- "
+git log -n 15 --first-parent -m -p --unified=0 -- <changelog>     # added lines starting "- "
 ```
 
-- Newest first, five entries, from any section (`Added`, `Changed`, `Fixed`).
-- An entry that is no longer in the file (reworded or removed later) is skipped; an entry is printed once.
-- Each entry is one bounded line (2.3).
-- The section headings are not printed. A last line names the file: `(more in CHANGELOG.md)`, when the file holds more entries than shown.
-- Fallback, when the history gives nothing (no commits yet, a shallow clone, a changelog outside Git): the first five entries under `[Unreleased]`, as today, without the heading.
+- Newest first, up to five unique entries, from any section (`Added`, `Changed`, `Fixed`).
+- An entry that is no longer in the file (reworded or removed later) is skipped; each entry is printed once.
+- Each entry is one bounded line (cut at the last space before 100 characters, ending in `…`; overridable via `aapp.statusLineMax`).
+- Section headings (`### Added`, etc.) are not printed. A footer line names the file: `  (more in CHANGELOG.md)`, when the file holds more entries than shown.
+- Fallback, when history gives nothing (no commits yet, shallow clone, changelog outside Git): the first five entries under `[Unreleased]` without section headings.
 - `.plans/CHANGELOG.md` is read from the plans worktree's history when that is where the changelog is.
 
-### 2.2 Pickup: every idea, one line each
+### 2.2 Pickup: bounded ideas with hanging indent and cap
 
-- Every unworked idea is listed; the cap of five and "... and N more" go.
-- Each idea is one bounded line (2.3). The full text stays in `.plans/pickup.md`; `/aapp-digest <idea>` reads it there.
+- Keep the sensible cap of 5 ideas (configurable via `aapp.statusPickupMax`, default 5), followed by `  ... and N more (see .plans/pickup.md)`.
+- Each unworked idea is bounded to at most 220 characters (`aapp.statusPickupMaxLen`, default 220).
+- If an idea exceeds a single line (~80–85 characters), it is formatted across lines using a clean hanging indent (8 spaces for continuation lines) so that no single line exceeds 85 characters, completely eliminating horizontal scrolling in Claude and split terminal panes.
+- Full unworked text remains in `.plans/pickup.md`; `/aapp-digest <idea>` reads it there.
 
-### 2.3 One bounded line (`status_line_cut`)
+### 2.3 Formatting Helpers (`status_line_cut` & `status_format_pickup`)
 
-One function in `lib/cmd_status.sh`, used by both pillars: a line longer than the limit is cut at the last space before the limit and ends in `…`; a shorter line is unchanged. The limit is 160 characters, counted without the two-space indent; `aapp.statusLineMax` overrides it.
+In `lib/cmd_status.sh`:
+- `status_line_cut <limit>`: cuts a line at the last space before `<limit>` (default 100) and appends `…` if truncated; leaves shorter lines untouched. Used by Shipped entries.
+- `status_format_pickup <max_len> <wrap_width>`: bounds total idea text to `<max_len>` (default 220, cut at word boundary with `…`), and soft-wraps continuation lines with an 8-space hanging indent at `<wrap_width>` (default 85 cols).
 
 ### 2.4 Not in this plan
 
@@ -94,18 +98,18 @@ One function in `lib/cmd_status.sh`, used by both pillars: a line longer than th
 - [ ] `tests/verbs/status.sh::test_shipped_skips_removed_entry` -> asserts an entry later removed from the file is not printed, and a reworded one prints once, in its current wording
 - [ ] `tests/verbs/status.sh::test_shipped_fallback_without_history` -> asserts an uncommitted `CHANGELOG.md` prints its first entries under `[Unreleased]`, without a heading line
 - [ ] `tests/verbs/status.sh::test_shipped_points_to_changelog` -> asserts more than five entries end the pillar with a line naming `CHANGELOG.md`
-- [ ] `tests/verbs/status.sh::test_pickup_lists_every_idea` -> asserts eight unworked ideas print eight lines and no "more" line
-- [ ] `tests/verbs/status.sh::test_pickup_line_is_bounded` -> asserts a 900-character idea prints as one line of at most 160 characters, cut at a space, ending in `…`, starting with its title
-- [ ] `tests/verbs/status.sh::test_short_line_unchanged` -> asserts an idea and a changelog entry under the limit print whole, without `…`
-- [ ] `tests/verbs/status.sh::test_status_line_max_setting` -> asserts `aapp.statusLineMax 80` bounds both pillars' lines at 80
+- [ ] `tests/verbs/status.sh::test_shipped_line_is_bounded` -> asserts a changelog entry over 100 characters is cut at space before 100 and ends in `…`
+- [ ] `tests/verbs/status.sh::test_pickup_capped_with_more` -> asserts pickup queue keeps a cap of 5 ideas and prints `... and N more`
+- [ ] `tests/verbs/status.sh::test_pickup_bounded_and_wrapped` -> asserts a 900-character idea is bounded to <= 220 chars and wrapped across lines with an 8-space hanging indent under 85 columns
+- [ ] `tests/verbs/status.sh::test_status_line_max_setting` -> asserts `aapp.statusLineMax` overrides the single-line limit
 
 ### Phase 1: Foundation & Setup
 - [ ] Task 1.1: Write the tests of this section in `tests/verbs/status.sh`; commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/cmd_status.sh`: `status_line_cut`; the Shipped pillar from the changelog's history, with its fallback.
-- [ ] Task 2.2: `lib/cmd_status.sh`: the Pickup pillar lists every idea, one bounded line each.
-- [ ] Task 2.3: `lib/docs/verbs/status.md`: the two pillars, `aapp.statusLineMax`, the new tests.
+- [ ] Task 2.1: `lib/cmd_status.sh`: `status_line_cut` and bounded `git log -n 15` extraction for the Shipped pillar, with its fallback.
+- [ ] Task 2.2: `lib/cmd_status.sh`: `status_format_pickup` for the Pickup pillar (bounded at 220 chars, hanging indent wrap at 85 cols, 5-idea cap with `... and N more`).
+- [ ] Task 2.3: `lib/docs/verbs/status.md`: document the two pillars, configuration options (`aapp.statusLineMax`, `aapp.statusPickupMax`), and contracts.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -123,11 +127,11 @@ One function in `lib/cmd_status.sh`, used by both pillars: a line longer than th
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `lib/cmd_status.sh` -> the Shipped and Pickup pillars; `status_line_cut`.
+- [ ] `lib/cmd_status.sh` -> the Shipped and Pickup pillars; `status_line_cut` and `status_format_pickup`.
 - [ ] `lib/docs/verbs/status.md` -> the contract of the two pillars and the new tests.
 - [ ] `tests/verbs/status.sh` -> the tests of §3.
-- [ ] `MANUAL.md` -> the briefing's pillars; `aapp.statusLineMax`.
-- [ ] `CHEATSHEET.md` -> `aapp.statusLineMax`.
+- [ ] `MANUAL.md` -> the briefing's pillars; `aapp.statusLineMax`, `aapp.statusPickupMax`.
+- [ ] `CHEATSHEET.md` -> `aapp.statusLineMax`, `aapp.statusPickupMax`.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
@@ -140,10 +144,7 @@ One function in `lib/cmd_status.sh`, used by both pillars: a line longer than th
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** Is the limit 160 characters? The issue lines of the same briefing run 100 to 150.
-* [ ] **Question 2:** Does the Pickup pillar list every idea, or keep a cap (five today)? With bounded lines, ten ideas are ten lines.
-* [ ] **Question 3:** Is the changelog's Git history the source of "what landed last"? The alternative is the two archive ledgers (`done/000-archive-ledger.md`, `done/000-issues-archive.md`), which name plans and fixes but not changes committed without either.
+*(None — design is fully specified)*
 
 ---
 
@@ -151,3 +152,5 @@ One function in `lib/cmd_status.sh`, used by both pillars: a line longer than th
 *Tracks how the plan evolved across sessions.*
 * **2026-10-13:** Plan initialized from `pickup.md`.
 * **2026-10-13:** Refined blast radius and locked module boundaries.
+* **2026-10-15:** Refined blueprint: bounded git log history (-n 15) for Shipped; bounded Pickup to 220 chars with 8-space hanging indent line wrapping and 5-idea cap; resolved open questions.
+
