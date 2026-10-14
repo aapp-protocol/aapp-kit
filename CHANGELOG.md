@@ -71,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- the manual names the git notes the squash at `aapp done` does not carry (`#151`)
 - the squash at `aapp done` carries the last commit's AI note and every replaced commit's note (`#149`)
 - `ARCHITECTURE.md` describes the squash on the plan branch (P-84) (`#150`)
 - `ledger_set_archive_commit` corrects the commit an archived issue row names (`#148`)
