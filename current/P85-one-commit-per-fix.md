@@ -119,6 +119,8 @@ It follows P-84 and group P-72.
 - [ ] `tests/verbs/issue.provider.sh` -> Existing tests changed (§3).
 - [ ] `tests/verbs/issue.notefilter.sh` -> Existing tests changed (§3).
 - [ ] `tests/verbs/commit.sh` -> Existing tests changed (§3).
+- [ ] `ARCHITECTURE.md` -> One commit per fix: every fix in its own worktree, squashed at `close`.
+- [ ] `CHEATSHEET.md` -> `aapp issue fix` in its worktree; `aapp.issueFixWait` waits for an open fix only.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
