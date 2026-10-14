@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #153 | `Low` | `DOCS` | 2026-10-15 | `ARCHITECTURE.md` | `ARCHITECTURE.md` does not describe one commit per fix (P-85): every fix in its own worktree, squashed at `close`. |  | 🟡 `Incubated` |
 | #152 | `Low` | `DOCS` | 2026-10-15 | `CHEATSHEET.md` | `CHEATSHEET.md` still describes a fix made in the main checkout and a wait for uncommitted work (`aapp.issueFixWait`), which P-85 removes. |  | 🟡 `Incubated` |
 | #147 | `Low` | `CLI` | 2026-10-13 | `lib/cmd_status.sh` | `aapp status` Shipped prints the first five lines under `[Unreleased]`: the `### Added` header and four entries. `Changed` and `Fixed` never appear, and the order is the section's, not the order of landing. | [P-88](current/P88-status-recent-and-bounded.md) | 🔵 `Planned` |
 | #146 | `Low` | `CLI` | 2026-10-13 | `lib/cmd_init.sh` | `aapp init` deletes and recreates every skill directory and its `.claude/skills` link, even when unchanged: an open IDE drops the skills from its prompt until it is reloaded. |  | 🟡 `Incubated` |
