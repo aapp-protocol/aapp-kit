@@ -25,12 +25,13 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-85**: [`P85-one-commit-per-fix.md`](current/P85-one-commit-per-fix.md) — One Commit Per Fix
 - 🔷 **P-86**: [`P86-plan-closes-further-issues.md`](current/P86-plan-closes-further-issues.md) — Plan Closes Further Issues
 
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-85**: [`P85-one-commit-per-fix.md`](current/P85-one-commit-per-fix.md) — One Commit Per Fix
 
 ---
 

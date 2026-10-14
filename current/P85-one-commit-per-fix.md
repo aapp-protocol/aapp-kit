@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🔷 Frozen
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `a245881` (develop)
+* **Worktree:** .workspace/P85 (plan/P85-one-commit-per-fix)
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
@@ -137,6 +138,7 @@ It follows P-84 and group P-72.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-14:** Plan activated into ⚡ In Development via start.
 * **2026-10-14:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-13:** Drafted. Follows P-84 and group P-72.
