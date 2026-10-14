@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #149 | `Medium` | `CORE` | 2026-10-14 | `lib/cmd_plan.sh`, `tests/verbs/done.squash.sh`, `lib/docs/verbs/done.md`, `MANUAL.md` | The squash at `aapp done` (P-84) drops git notes: the last commit's `refs/notes/ai` attribution and the replaced commits' `refs/notes/commits` notes are not on the squashed commit. |  | 🟡 `Incubated` |
 | #147 | `Low` | `CLI` | 2026-10-13 | `lib/cmd_status.sh` | `aapp status` Shipped prints the first five lines under `[Unreleased]`: the `### Added` header and four entries. `Changed` and `Fixed` never appear, and the order is the section's, not the order of landing. | [P-88](current/P88-status-recent-and-bounded.md) | 🔵 `Planned` |
 | #146 | `Low` | `CLI` | 2026-10-13 | `lib/cmd_init.sh` | `aapp init` deletes and recreates every skill directory and its `.claude/skills` link, even when unchanged: an open IDE drops the skills from its prompt until it is reloaded. |  | 🟡 `Incubated` |
 | #143 | `Low` | `CORE` | 2026-10-13 | `templates/blast-radius-guard.sh`, `lib/planning_health.sh` | Guard self-protection covers `.agents/skills/aapp-*` only: the `aapp` start skill (P-87) in `.agents/skills/aapp/` and `.claude/skills/aapp/` is not protected. |  | 🟡 `Incubated` |
