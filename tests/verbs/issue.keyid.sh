@@ -15,7 +15,7 @@ cd "$R/p" || exit 1
 git config aapp.issueFixWait 0
 git config aapp.planWorktrees off
 mkdir -p src; echo "k=1" > src/k.sh; echo "o=1" > src/other.sh; echo "p=1" > src/promo.py
-git add src; git commit -qm "sources" --no-verify >/dev/null 2>&1
+git add src CHANGELOG.md; git commit -qm "sources" --no-verify >/dev/null 2>&1
 git checkout -q -b develop 2>/dev/null || git checkout -q develop
 
 cat > .plans/ISSUES.md <<'EOF'
@@ -42,12 +42,14 @@ echo "== fix, commit, close =="
 out="$(aapp issue fix proj-101 2>&1)"; rc=$?
 mp=".plans/current/fix-PROJ-101.md"
 opened=0; [ "$rc" -eq 0 ] && [ -f "$mp" ] && grep -qxF '* **Plan ID:** #PROJ-101' "$mp" && opened=1
+cd "$R/p/.workspace/fix-PROJ-101" || exit 1
 echo "k=2" > src/k.sh; git add src/k.sh
 cout="$(aapp commit "fix: k keeps its value (#PROJ-101)" changelog "the k helper keeps its value" 2>&1)"; crc=$?
 guard_other="$(bash .githooks/blast-radius-guard src/other.sh 2>&1)"; g1=$?
 guard_k="$(bash .githooks/blast-radius-guard src/k.sh 2>&1)"; g2=$?
+cd "$R/p" || exit 1
 clout="$(aapp issue close PROJ-101 2>&1)"; clrc=$?
-if [ "$opened" -eq 1 ] && [ "$crc" -eq 0 ] && git log -1 --format=%s | grep -qF '(#PROJ-101)' && [ "$clrc" -eq 0 ] && \
+if [ "$opened" -eq 1 ] && [ "$crc" -eq 0 ] && git log -1 --format=%s develop | grep -qF '(#PROJ-101)' && [ "$clrc" -eq 0 ] && \
    grep -qE '^\| #PROJ-101 \|' .plans/done/000-issues-archive.md && ! grep -q '#PROJ-101' .plans/ISSUES.md && \
    ! grep -q '#PROJ-101 ' .plans/issues_road_map.md && [ ! -f "$mp" ]; then
   ok "test_fix_and_close_with_key_id"

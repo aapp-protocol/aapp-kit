@@ -67,7 +67,7 @@ plugin() {
 answer() { plugin "echo '$1'"; }
 calls() { wc -l < "$R/calls" 2>/dev/null | tr -d ' ' || echo 0; }
 reset_calls() { : > "$R/calls"; }
-opened_in_main() { [ -f ".plans/current/fix-$1.md" ] && ! grep -q '^\* \*\*Worktree:\*\*' ".plans/current/fix-$1.md" && [ ! -e ".workspace/fix-$1" ]; }
+opened_on_dev() { [ -f ".plans/current/fix-$1.md" ] && opened_from "$1" develop; }
 opened_from() { [ -d ".workspace/fix-$1" ] && [ "$(git -C ".workspace/fix-$1" rev-parse HEAD)" = "$(git rev-parse "$2")" ]; }
 nothing_opened() { [ ! -f ".plans/current/fix-$1.md" ] && [ ! -e ".workspace/fix-$1" ]; }
 
@@ -91,11 +91,11 @@ aapp issue fix 1 abort >/dev/null 2>&1
 
 answer '{"status": "declined"}'
 out="$(aapp issue fix 2 2>&1)"; rc=$?
-d1=0; [ "$rc" -eq 0 ] && opened_in_main 2 && [ -z "$(cell 2)" ] && d1=1
+d1=0; [ "$rc" -eq 0 ] && opened_on_dev 2 && [ -z "$(cell 2)" ] && d1=1
 aapp issue fix 2 abort >/dev/null 2>&1
 answer '{"status": "ok", "branch": "develop"}'
 out2="$(aapp issue fix 2 2>&1)"; rc2=$?
-d2=0; [ "$rc2" -eq 0 ] && opened_in_main 2 && [ -z "$(cell 2)" ] && d2=1
+d2=0; [ "$rc2" -eq 0 ] && opened_on_dev 2 && [ -z "$(cell 2)" ] && d2=1
 aapp issue fix 2 abort >/dev/null 2>&1
 if [ "$d1" -eq 1 ] && [ "$d2" -eq 1 ]; then
   ok "test_declined_is_dev_branch"
@@ -105,7 +105,7 @@ fi
 
 rm -rf "$PDIR"
 out="$(aapp issue fix 3 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && opened_in_main 3 && [ -z "$(cell 3)" ]; then
+if [ "$rc" -eq 0 ] && opened_on_dev 3 && [ -z "$(cell 3)" ]; then
   ok "test_no_plugin_is_dev_branch"
 else
   bad "test_no_plugin_is_dev_branch" "rc=$rc out=$out"
@@ -220,7 +220,7 @@ out="$(aapp issue fix 10 2>&1)"; rc=$?
 s1=0; [ "$rc" -eq 0 ] && opened_from 10 core && [ "$(cell 10)" = "core" ] && s1=1
 aapp issue fix 10 abort >/dev/null 2>&1
 out2="$(aapp issue fix 11 2>&1)"; rc2=$?
-s2=0; [ "$rc2" -eq 0 ] && opened_in_main 11 && [ -z "$(cell 11)" ] && s2=1
+s2=0; [ "$rc2" -eq 0 ] && opened_on_dev 11 && [ -z "$(cell 11)" ] && s2=1
 aapp issue fix 11 abort >/dev/null 2>&1
 out3="$(aapp issue fix 12 2>&1)"; rc3=$?
 s3=0; [ "$rc3" -ne 0 ] && nothing_opened 12 && echo "$out3" | grep -F "core" | grep -qF "modx" && s3=1
@@ -238,7 +238,7 @@ M="$(plan mem-m m "$G")"; aapp freeze-start "$M" >/dev/null 2>&1
 # fix_on_develop <n> <file>: a fix made and committed in the main checkout, left open.
 fix_on_develop() {
   aapp issue fix "$1" >/dev/null 2>&1
-  echo "$2=fixed" > "src/$2.sh"; git add "src/$2.sh"; aapp commit "fix: $2 (#$1)" changelog "$2 fixed" >/dev/null 2>&1
+  ( cd ".workspace/fix-$1" && echo "$2=fixed" > "src/$2.sh" && git add "src/$2.sh" && aapp commit "fix: $2 (#$1)" changelog "$2 fixed" >/dev/null 2>&1 )
 }
 
 # The feature branch has work of its own, so taking develop in is a real merge.

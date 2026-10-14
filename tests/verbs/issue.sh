@@ -262,6 +262,7 @@ fi
 echo "== hotfix and mini-plan fixes (P-52) =="
 init_sandbox_project "$R/hf"
 cd "$R/hf" || exit 1
+git add CHANGELOG.md && git commit -qm "track the changelog" --no-verify >/dev/null 2>&1
 cat > .plans/ISSUES.md <<'EOF'
 # Issues
 
@@ -319,8 +320,8 @@ fi
 out="$(aapp issue fix next-blocker 2>&1)"; rc=$?
 mp=".plans/current/fix-20.md"
 if [ "$rc" -eq 0 ] && [ -f "$mp" ] && grep -qxF "* **Plan ID:** #20" "$mp" && grep -q '⚡ In Development' "$mp" && \
-   grep -qF '`lib/x.sh`' "$mp" && [ "$(cat "$BUF")" = "#20" ] && \
-   [ "$(cat "$(git rev-parse --git-path aapp_active_plan.prev)")" = "$hid" ] && \
+   grep -qF '`lib/x.sh`' "$mp" && [ "$(cat "$(git -C .workspace/fix-20 rev-parse --git-path aapp_active_plan)")" = "#20" ] && \
+   [ "$(cat "$BUF")" = "$hid" ] && \
    git -C .plans log -1 --format=%s | grep -qxF "fix(start): #20"; then
   ok "test_fix_next_blocker_opens_mini_plan"
 else
@@ -338,9 +339,9 @@ else
 fi
 
 aapp issue close 20 >/dev/null 2>&1; rc_nocommit=$?
-mkdir -p lib; echo "fixed=1" > lib/x.sh; git add lib/x.sh
-aapp commit "fix: parser crash (#20)" changelog "the parser no longer crashes" >/dev/null 2>&1; rc_c=$?
-fsha="$(git rev-parse --short HEAD)"
+( cd .workspace/fix-20 && mkdir -p lib && echo "fixed=1" > lib/x.sh && git add lib/x.sh && \
+  aapp commit "fix: parser crash (#20)" changelog "the parser no longer crashes" >/dev/null 2>&1 ); rc_c=$?
+fsha="$(git rev-parse --short fix/20)"
 out="$(aapp issue close 20 2>&1)"; rc=$?
 if [ "$rc_nocommit" -ne 0 ] && [ "$rc_c" -eq 0 ] && [ "$rc" -eq 0 ] && [ ! -f "$mp" ] && \
    grep -qF "| #20 |" .plans/done/000-issues-archive.md && grep -qF "\`$fsha\`" .plans/done/000-issues-archive.md && \
@@ -372,7 +373,8 @@ else
 fi
 
 aapp issue fix next-blocker >/dev/null 2>&1
-echo "fixed=1" > lib/y.sh; git add lib/y.sh; aapp commit "fix: second (#21)" changelog "the second defect is fixed" >/dev/null 2>&1
+( cd .workspace/fix-21 && mkdir -p lib && echo "fixed=1" > lib/y.sh && git add lib/y.sh && \
+  aapp commit "fix: second (#21)" changelog "the second defect is fixed" >/dev/null 2>&1 )
 aapp issue close 21 >/dev/null 2>&1
 if grep -qxF "* **Status:** 🟥 BLOCKED" "$hf" && grep -q '^\* \*\*Blocked On:\*\* #22 (was ⚡ In Development); hotfix limit reached' "$hf"; then
   ok "test_permanent_block_survives_close"
@@ -472,7 +474,7 @@ sf="$(ls .plans/current/P"${sid#P-}"-*.md)"
 sed -i -E "s|src/path/to/file\.ext|src/host.py|g; s|src/path/to/new_file\.ext|src/other.py|g" "$sf"
 sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$sf"; git -C .plans commit -qam prep >/dev/null 2>&1
 mkdir -p src; printf 'a1 = 1\na2 = 2\na3 = 3\na4 = 4\na5 = 5\n' > src/host.py; echo "o=1" > src/other.py; echo "d=1" > src/dirty.py
-git add src && git commit -qm "base files" --no-verify >/dev/null 2>&1
+git add src CHANGELOG.md && git commit -qm "base files" --no-verify >/dev/null 2>&1
 aapp freeze-start "$sid" >/dev/null 2>&1
 sed -i 's/^a5 = 5$/a5 = 50/' src/host.py; echo "o=2" > src/other.py
 out="$(aapp issue hotfix "Bug in host" file src/host.py 2>&1)"; rc=$?
@@ -484,13 +486,13 @@ else
   bad "test_hotfix_own_file_stashes_only_its_files" "rc=$rc out=$out status=$(git status --porcelain | tr '\n' ' ')"
 fi
 aapp issue fix next-blocker >/dev/null 2>&1
-if .githooks/blast-radius-guard src/host.py >/dev/null 2>&1; then
+if ( cd .workspace/fix-20 && .githooks/blast-radius-guard src/host.py >/dev/null 2>&1 ); then
   ok "test_mini_plan_edits_file_listed_by_blocked_plan"
 else
   bad "test_mini_plan_edits_file_listed_by_blocked_plan" "guard refused src/host.py"
 fi
-sed -i 's/^a1 = 1$/a1 = 10/' src/host.py; git add src/host.py
-cout="$(aapp commit "fix: host bug (#20)" changelog "the host bug is fixed" 2>&1)"; rc_c=$?
+cout="$(cd .workspace/fix-20 && sed -i 's/^a1 = 1$/a1 = 10/' src/host.py && git add src/host.py && \
+        aapp commit "fix: host bug (#20)" changelog "the host bug is fixed" 2>&1)"; rc_c=$?
 out="$(aapp issue close 20 2>&1)"; rc=$?
 [ "$rc_c" -eq 0 ] || echo "       commit: $(echo "$cout" | grep -E '❌|Staged|plan' | head -3 | tr '\n' ' ')"
 if [ "$rc_c" -eq 0 ] && [ "$rc" -eq 0 ] && grep -qx 'a1 = 10' src/host.py && grep -qx 'a5 = 50' src/host.py && \
@@ -499,27 +501,11 @@ if [ "$rc_c" -eq 0 ] && [ "$rc" -eq 0 ] && grep -qx 'a1 = 10' src/host.py && gre
 else
   bad "test_close_reapplies_stash_on_top_of_fix" "rc=$rc_c/$rc out=$out host=$(tr '\n' '|' < src/host.py)"
 fi
-head0="$(git -C .plans rev-parse HEAD)"
-echo "d=2" > src/dirty.py
-out="$(aapp issue fix 10 file src/dirty.py 2>&1)"; rc=$?
-if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "has uncommitted changes" && [ "$(git -C .plans rev-parse HEAD)" = "$head0" ]; then
-  ok "test_fix_refuses_dirty_file"
-else
-  bad "test_fix_refuses_dirty_file" "rc=$rc out=$out"
-fi
-aapp issue hotfix "Clean blocker" file src/clean.py >/dev/null 2>&1
-sed -i '/^## 🧱 Plan Blockers/a - [ ] #10 -> Old defect (dirty here).' .plans/issues_road_map.md
-out="$(aapp issue fix next-blocker 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && [ -f .plans/current/fix-21.md ] && [ ! -f .plans/current/fix-10.md ]; then
-  ok "test_next_blocker_skips_untakeable"
-else
-  bad "test_next_blocker_skips_untakeable" "rc=$rc out=$out"
-fi
 
 echo "== the fix writes its own changelog entry (P-66) =="
 init_sandbox_project "$R/ce"
 cd "$R/ce" || exit 1
-mkdir -p src && echo "c=1" > src/ce.sh && git add src && git commit -qm "base" --no-verify >/dev/null 2>&1
+mkdir -p src && echo "c=1" > src/ce.sh && git add src CHANGELOG.md && git commit -qm "base" --no-verify >/dev/null 2>&1
 printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
   '| #3 | `Low` | `CORE` | 2026-10-11 | `src/ce.sh` | The symptom, not a changelog line. |  | 🟡 `Incubated` |' > .plans/ISSUES.md
 printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #3 -> Symptom.' > .plans/issues_road_map.md
@@ -538,8 +524,8 @@ if [ "$rc" -ne 0 ] && grep -qE '^\| #3 \|' .plans/ISSUES.md && [ -f .plans/curre
 else
   bad "test_close_refuses_without_fix_entry" "rc=$rc out=$out"
 fi
-echo "c=2" > src/ce.sh; git add src/ce.sh
-aapp commit "fix: ce (#3)" changelog "the ce helper keeps its value" >/dev/null 2>&1
+( cd .workspace/fix-3 && echo "c=2" > src/ce.sh && git add src/ce.sh && \
+  aapp commit "fix: ce (#3)" changelog "the ce helper keeps its value" >/dev/null 2>&1 )
 out="$(aapp issue close 3 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && grep -E '^\| #3 \|' .plans/done/000-issues-archive.md | grep -qF "| the ce helper keeps its value |"; then
   ok "test_close_resolution_is_changelog_entry"

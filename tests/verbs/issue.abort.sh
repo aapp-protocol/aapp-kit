@@ -40,6 +40,7 @@ ARCH=".plans/done/000-issues-archive.md"
 echo "== withdrawing an issue =="
 init_sandbox_project "$R/s"
 cd "$R/s" || exit 1
+git add CHANGELOG.md && git commit -qm "track the changelog" --no-verify >/dev/null 2>&1
 fixture_ledgers 10 11 12 13 14
 
 out="$(aapp issue abort 10 reason "Not a bug" 2>&1)"; rc=$?
@@ -92,9 +93,9 @@ else
 fi
 
 aapp issue fix 12 file lib/f12.sh >/dev/null 2>&1
-opened=0; [ -f .plans/current/fix-12.md ] && [ "$(cat "$BUF" 2>/dev/null)" = "#12" ] && opened=1
+opened=0; [ -f .plans/current/fix-12.md ] && [ "$(cat "$(git -C .workspace/fix-12 rev-parse --git-path aapp_active_plan)" 2>/dev/null)" = "#12" ] && opened=1
 out="$(aapp issue abort 12 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && [ "$opened" -eq 1 ] && [ ! -f .plans/current/fix-12.md ] && [ "$(cat "$BUF" 2>/dev/null)" != "#12" ] && \
+if [ "$rc" -eq 0 ] && [ "$opened" -eq 1 ] && [ ! -f .plans/current/fix-12.md ] && [ ! -d .workspace/fix-12 ] && \
    ! active 12 && archived 12 | grep -qF '`aborted`' && [ -z "$(git -C .plans status --porcelain)" ]; then
   ok "test_abort_drops_mini_plan"
 else
@@ -102,8 +103,8 @@ else
 fi
 
 aapp issue fix 13 file lib/f13.sh >/dev/null 2>&1
-mkdir -p lib; echo "fixed=1" > lib/f13.sh; git add lib/f13.sh
-aapp commit "fix: f13 (#13)" changelog "f13 no longer fails" >/dev/null 2>&1
+( cd .workspace/fix-13 && mkdir -p lib && echo "fixed=1" > lib/f13.sh && git add lib/f13.sh && \
+  aapp commit "fix: f13 (#13)" changelog "f13 no longer fails" >/dev/null 2>&1 )
 head0="$(git -C .plans rev-parse HEAD)"
 out="$(aapp issue abort 13 2>&1)"; rc=$?
 if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "aapp issue close 13" && [ -f .plans/current/fix-13.md ] && active 13 && \

@@ -54,17 +54,17 @@ issue_branch_of() { ( cd "$R/p" && REPO_ROOT="$R/p" PLANS_DIR="$R/p/.plans" bash
 echo "== no branch named =="
 b1="$(issue_branch_of 1)"
 out="$(aapp issue fix 1 2>&1)"; rc=$?
-inmain=0; [ "$rc" -eq 0 ] && [ -f .plans/current/fix-1.md ] && ! grep -q '^\* \*\*Worktree:\*\*' .plans/current/fix-1.md && [ ! -e .workspace/fix-1 ] && inmain=1
+indev=0; [ "$rc" -eq 0 ] && [ -f .plans/current/fix-1.md ] && [ -d .workspace/fix-1 ] && [ "$(git rev-parse fix/1)" = "$(git rev-parse develop)" ] && indev=1
 aapp issue fix 1 abort >/dev/null 2>&1
 # The same with the column present and the cell empty.
 cp .plans/ISSUES.md "$R/issues.keep"
 sed -i -E '/^\| # \|/ s/$/ Branch |/; /^\| :---/ s/$/ :--- |/; /^\| #[0-9]/ s/$/  |/' .plans/ISSUES.md
 b2="$(issue_branch_of 2)"
 cp "$R/issues.keep" .plans/ISSUES.md
-if [ "$b1" = "develop" ] && [ "$b2" = "develop" ] && [ "$inmain" -eq 1 ]; then
+if [ "$b1" = "develop" ] && [ "$b2" = "develop" ] && [ "$indev" -eq 1 ]; then
   ok "test_no_branch_means_dev_branch"
 else
-  bad "test_no_branch_means_dev_branch" "no column=[$b1] empty cell=[$b2] inmain=$inmain rc=$rc out=$out"
+  bad "test_no_branch_means_dev_branch" "no column=[$b1] empty cell=[$b2] indev=$indev rc=$rc out=$out"
 fi
 
 echo "== logging =="
@@ -114,8 +114,8 @@ fi
 
 echo "== fixing =="
 out="$(aapp issue fix 2 2>&1)"; rc=$?
-main_ok=0; [ "$rc" -eq 0 ] && ! grep -q '^\* \*\*Worktree:\*\*' .plans/current/fix-2.md && [ ! -e .workspace/fix-2 ] && main_ok=1
-echo "b=2" > src/b.sh; git add src/b.sh; aapp commit "fix: b (#2)" changelog "b fixed" >/dev/null 2>&1
+main_ok=0; [ "$rc" -eq 0 ] && [ -d .workspace/fix-2 ] && [ "$(git rev-parse fix/2)" = "$(git rev-parse develop)" ] && main_ok=1
+( cd .workspace/fix-2 && echo "b=2" > src/b.sh && git add src/b.sh && aapp commit "fix: b (#2)" changelog "b fixed" >/dev/null 2>&1 )
 aapp issue close 2 >/dev/null 2>&1; crc=$?
 core0="$(git rev-parse core)"; dev0="$(git rev-parse develop)"
 out2="$(aapp issue fix 24 2>&1)"; rc2=$?
@@ -136,7 +136,7 @@ aapp refine issues "7 on tmp" branch 7 tmp-x >/dev/null 2>&1
 git branch -D tmp-x >/dev/null 2>&1
 out="$(aapp issue fix 7 2>&1)"; rc=$?
 gone_ok=0
-[ "$rc" -eq 0 ] && [ -z "$(cell 7)" ] && ! grep -q '^\* \*\*Worktree:\*\*' .plans/current/fix-7.md && [ ! -e .workspace/fix-7 ] && \
+[ "$rc" -eq 0 ] && [ -z "$(cell 7)" ] && [ -d .workspace/fix-7 ] && [ "$(git rev-parse fix/7)" = "$(git rev-parse develop)" ] && \
   echo "$out" | grep -qF "#7 targeted tmp-x, which no longer exists; it now targets develop" && gone_ok=1
 aapp issue fix 7 abort >/dev/null 2>&1
 git init -q --bare "$R/remote.git"; git remote add origin "$R/remote.git"
@@ -169,7 +169,7 @@ echo "== unblocking follows the code =="
 # develop, which is not that group's parent, so the kit merges nothing (P-83).
 aapp refine "$A" blocked 3 >/dev/null 2>&1; aapp refine "$M2" blocked 3 >/dev/null 2>&1
 aapp issue fix 3 >/dev/null 2>&1
-echo "c=2" > src/c.sh; git add src/c.sh; aapp commit "fix: c (#3)" changelog "c fixed" >/dev/null 2>&1
+( cd .workspace/fix-3 && echo "c=2" > src/c.sh && git add src/c.sh && aapp commit "fix: c (#3)" changelog "c fixed" >/dev/null 2>&1 )
 g2tip="$(git rev-parse feature/grp-two)"
 out="$(aapp issue close 3 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && ! blocked_on "$(pf "$A")" | grep -qE '#3([^0-9]|$)' && blocked_on "$(pf "$M2")" | grep -qE '#3([^0-9]|$)' && \

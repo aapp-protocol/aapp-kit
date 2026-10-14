@@ -128,7 +128,7 @@ no_plugin
 aapp issue log Low CORE "Token leaks" file src/d.sh note "TOKEN-QZ81 is the value that leaked" >/dev/null 2>&1
 T="$(git config aapp.issueId)"; T=$((T - 1))
 fout="$(aapp issue fix "$T" 2>&1)"; frc=$?
-echo "d=2" > src/d.sh; git add src/d.sh; aapp commit "fix: d (#$T)" changelog "d fixed" >/dev/null 2>&1
+( cd ".workspace/fix-$T" && echo "d=2" > src/d.sh && git add src/d.sh && aapp commit "fix: d (#$T)" changelog "d fixed" >/dev/null 2>&1 )
 lout="$(aapp issue list note "$T" 2>&1)"; lrc=$?
 leaks="$(grep -rlF 'TOKEN-QZ81' . --exclude-dir=.git 2>/dev/null | tr '\n' ' ')$(git log --all --format=%B | grep -cF 'TOKEN-QZ81' | grep -v '^0$')$(git -C .plans log --all --format=%B | grep -cF 'TOKEN-QZ81' | grep -v '^0$')"
 if [ "$frc" -eq 0 ] && [ -f ".plans/current/fix-$T.md" ] && [ -z "$leaks" ]; then

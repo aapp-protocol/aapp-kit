@@ -921,9 +921,7 @@ _issue_archive_active() {
     paths=(); while IFS= read -r p; do [ -n "$p" ] && paths+=("$p"); done < <(ledger_commit_paths)
     for p in $touched; do paths+=("$p"); done
     if [ -n "$mp" ]; then
-        _issue_load_plan_lib || return 1
-        # A group fix was bound in its own worktree, removed on landing.
-        [ -n "$(parse_plan_worktree "$mp")" ] || _issue_restore_buffer
+        # The fix was bound in its own worktree, removed on landing (P-85).
         rm -f "$mp"
         paths+=("current/fix-$n.md")
     fi
@@ -1589,17 +1587,6 @@ issue_drop_stash_records() {
     done
 }
 
-# _issue_restore_buffer: back to the plan a fix interrupted (the .prev slot).
-_issue_restore_buffer() {
-    local prev
-    prev="$(head -n 1 "$PREV_FILE" 2>/dev/null | tr -d '[:space:]' || true)"
-    if [ -n "$prev" ]; then
-        echo "$prev" > "$ACTIVE_FILE"; rm -f "$PREV_FILE"
-    else
-        rm -f "$ACTIVE_FILE"
-    fi
-}
-
 # cmd_issue_hotfix "<text>" [file <path>]… [plan] (P-52 2.1)
 cmd_issue_hotfix() {
     local text="${1:-}" files=() want_plan=0 plans buf bound pf prel pid f n loc max count list slug target="" note=""
@@ -2058,15 +2045,10 @@ _issue_fix_abort() {
         return 1
     fi
     _issue_load_plan_lib || return 1
-    # A fix in its own worktree goes with it (nothing was committed there);
-    # one made in this checkout hands the buffer back.
+    # The fix's worktree goes with it (nothing was committed there).
     local rec
     rec="$(parse_plan_worktree "$mp")"
-    if [ -n "$rec" ]; then
-        _issue_drop_fix_worktree "$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")" "${rec#*$'\t'}"
-    else
-        _issue_restore_buffer
-    fi
+    [ -z "$rec" ] || _issue_drop_fix_worktree "$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")" "${rec#*$'\t'}"
     rm -f "$mp"
     plans_commit "fix(abort): #$n" "current/fix-$n.md" || return 1
     echo "↩️  [Issue] #$n's fix abandoned; the issue stays open."
