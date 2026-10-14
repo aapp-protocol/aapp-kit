@@ -122,6 +122,20 @@ else
 fi
 git config --unset aapp.aiAttribution
 
+echo "== attribution kept in git notes =="
+git config aapp.aiAttribution notes
+o="$(mk_plan omicron)"; work "$o" omicron 1 agent "First Bot" vendor Acme model one note "first audit"
+work "$o" omicron 2 agent "Last Bot" vendor Acme model two note "second audit"
+out="$(aapp done "$o" 2>&1)"; rc=$?
+ai="$(git notes --ref=refs/notes/ai show develop 2>/dev/null)"; cn="$(git notes --ref=refs/notes/commits show develop 2>/dev/null)"
+if [ "$rc" -eq 0 ] && git log -1 --format=%B develop | grep -qx "Plan-ID: $o" && echo "$ai" | grep -qF "Last Bot" && \
+   ! echo "$ai" | grep -qF "First Bot" && echo "$cn" | grep -qF "first audit" && echo "$cn" | grep -qF "second audit"; then
+  ok "test_notes_follow_the_squash"
+else
+  bad "test_notes_follow_the_squash" "rc=$rc ai=[$ai] commits=[$cn] out=$out"
+fi
+git config --unset aapp.aiAttribution
+
 echo "== a squash that cannot be made =="
 e="$(mk_plan epsilon)"; work "$e" epsilon 1; work "$e" epsilon 2
 ebr="$(pbranch "$e")"; tip0="$(git rev-parse "$ebr")"; dev0="$(git rev-parse develop)"; ph0="$(git -C .plans rev-parse HEAD)"

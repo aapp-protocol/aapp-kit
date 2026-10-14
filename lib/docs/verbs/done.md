@@ -50,7 +50,7 @@
 - the squash on the plan branch (P-84), after every check and `pre-done`, before the archive, for a plan with a worktree that is not a group:
     - which plans: every plan where the strategy is `squash`; and a plan made for an issue whatever `aapp.integrate` says (`ff`, `hook`, `manual` and `no-integrate` included). A plan is made for an issue when both sides agree: its `Target Issue` names `#<n>`, and `#<n>`'s ledger row is `Planned` and links this plan. One side alone is a plan like any other
     - how: the plan's commits become one commit on the plan branch (the plan's tree, on the point where it left its target), with subject `feat: <title> (<id>)`, the plan's changelog line, and trailers `Plan-ID:`, `Plan-Parent: <target>`, `Base-Branch: <development branch>`; signed when `commit.gpgsign` is set. The plan's commits passed the hooks on their branch, so this commit does not re-run them
-    - attribution: the `AI-Agent`, `AI-Vendor` and `AI-Model` trailers of the plan's last commit, not the identity of whoever runs `done`; none when that commit has none
+    - attribution: the `AI-Agent`, `AI-Vendor` and `AI-Model` trailers of the plan's last commit, not the identity of whoever runs `done`; none when that commit has none. Git notes follow too: the last commit's `refs/notes/ai` note, and the `refs/notes/commits` notes of every replaced commit, in order
     - what is recorded: that one commit, in the plan's `* **Commits:**` (it replaces the list), the plan's line in the archive ledger, the archived row of the issue the plan closes, and the `commit` of `issue.close`; `commit_hash` of `post-done` is that commit (`pre-done` runs before the squash and gets the plan's last commit)
     - the commit cannot be made -> exit 1; the plan branch is at its former tip and nothing is archived. A failed archive commit puts the branch back too
     - a plan blocked on the closed issue is unblocked once the fast-forward is done, by the rule of P-78
@@ -99,6 +99,7 @@ Run: `aapp test verb done`
 - `tests/verbs/done.squash.sh::test_provider_gets_parent_commit` -> `issue.close` carries that same commit (P-84)
 - `tests/verbs/done.squash.sh::test_waiting_plan_is_unblocked` -> a plan blocked on the closed issue is unblocked by the `done` (P-84)
 - `tests/verbs/done.squash.sh::test_attribution_is_the_last_commit` -> the squashed commit carries the trailers of the plan's last commit, not the runner's; none when that commit has none (P-84)
+- `tests/verbs/done.squash.sh::test_notes_follow_the_squash` -> `notes` attribution: the squashed commit has the last commit's `refs/notes/ai` note and every replaced commit's `refs/notes/commits` note (#149)
 - `tests/verbs/done.squash.sh::test_failed_squash_restores_branch` -> a commit that cannot be made: exit 1, the plan branch at its former tip, nothing archived (P-84)
 - `tests/verbs/done.squash.sh::test_ff_mode_keeps_every_commit` -> `ff`: a plan that closes no issue lands with every commit and SHA (P-84)
 - `tests/verbs/done.squash.sh::test_issue_plan_squashed_in_ff_mode` -> `ff`: a plan made for an issue lands as one commit, which the issue's archived row names (P-84)

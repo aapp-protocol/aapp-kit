@@ -985,7 +985,21 @@ _sq_run() {
         return 1
     fi
     SQ_NEW="$(git rev-parse --short "$new")"
+    _sq_carry_notes "$new"
     echo "🗜️  [Squash] $SQ_BR is one commit now ($SQ_NEW, on $(git rev-parse --short "$SQ_BASE"))."
+}
+
+# _sq_carry_notes <commit>: the git notes of the replaced commits on the one
+# commit: the attribution (`refs/notes/ai`) of the plan's last commit, as with
+# the trailers, and every replaced commit's `refs/notes/commits` note, in order.
+_sq_carry_notes() {
+    local c text
+    git notes --ref=refs/notes/ai copy -f "$SQ_OLD" "$1" >/dev/null 2>&1 || true
+    for c in $(git rev-list --reverse "$SQ_BASE..$SQ_OLD"); do
+        text="$(git notes --ref=refs/notes/commits show "$c" 2>/dev/null)" || continue
+        git notes --ref=refs/notes/commits append -m "$text" "$1" >/dev/null 2>&1 || \
+            echo "⚠️  [Squash] Could not carry the note of $(git rev-parse --short "$c") onto $SQ_NEW." >&2
+    done
 }
 
 # _sq_restore: the plan branch back at its former tip (the archive failed).
