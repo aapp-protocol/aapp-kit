@@ -67,15 +67,15 @@ It follows P-84 and group P-72.
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/issue.onecommit.sh::test_fix_always_opens_in_its_worktree` -> asserts `issue fix` opens `.workspace/fix-<n>` cut from the issue's branch also when the main checkout is on that branch
-- [ ] `tests/verbs/issue.onecommit.sh::test_main_checkout_left_alone` -> asserts the main checkout's active buffer and files are unchanged by `fix`, by the fix's commits and by `fix abort`
-- [ ] `tests/verbs/issue.onecommit.sh::test_close_squashes_to_one_commit` -> asserts a fix of several commits lands on the issue's branch as one commit whose subject is `fix: <changelog entry> (#<n>)`, within `aapp.subjectMaxLen` when the entry is longer, with the full entry in the body
-- [ ] `tests/verbs/issue.onecommit.sh::test_single_commit_fix_keeps_its_sha` -> asserts a fix of one commit lands with the SHA it had
-- [ ] `tests/verbs/issue.onecommit.sh::test_row_and_provider_name_the_commit` -> asserts the archive row and `issue.close` name the commit that is on the issue's branch
-- [ ] `tests/verbs/issue.onecommit.sh::test_attribution_is_the_last_commit` -> asserts the squashed commit carries the trailers of the fix's last commit
-- [ ] `tests/verbs/issue.onecommit.sh::test_fix_does_not_wait_for_dirty_files` -> asserts `fix` opens at once while the main checkout has uncommitted changes in the fix's files
-- [ ] `tests/verbs/issue.onecommit.sh::test_close_refuses_over_uncommitted_work` -> asserts `close` refuses, naming the files, while the checkout of the issue's branch has uncommitted changes in the fixed files; the fix worktree, its commits and the issue are unchanged
-- [ ] `tests/verbs/issue.onecommit.sh::test_hotfix_stash_reapplied` -> asserts work a hotfix set aside in a single checkout is re-applied on top of the landed fix
+- [x] `tests/verbs/issue.onecommit.sh::test_fix_always_opens_in_its_worktree` -> asserts `issue fix` opens `.workspace/fix-<n>` cut from the issue's branch also when the main checkout is on that branch
+- [x] `tests/verbs/issue.onecommit.sh::test_main_checkout_left_alone` -> asserts the main checkout's active buffer and files are unchanged by `fix`, by the fix's commits and by `fix abort`
+- [x] `tests/verbs/issue.onecommit.sh::test_close_squashes_to_one_commit` -> asserts a fix of several commits lands on the issue's branch as one commit whose subject is `fix: <changelog entry> (#<n>)`, within `aapp.subjectMaxLen` when the entry is longer, with the full entry in the body
+- [x] `tests/verbs/issue.onecommit.sh::test_single_commit_fix_keeps_its_sha` -> asserts a fix of one commit lands with the SHA it had
+- [x] `tests/verbs/issue.onecommit.sh::test_row_and_provider_name_the_commit` -> asserts the archive row and `issue.close` name the commit that is on the issue's branch
+- [x] `tests/verbs/issue.onecommit.sh::test_attribution_is_the_last_commit` -> asserts the squashed commit carries the trailers of the fix's last commit
+- [x] `tests/verbs/issue.onecommit.sh::test_fix_does_not_wait_for_dirty_files` -> asserts `fix` opens at once while the main checkout has uncommitted changes in the fix's files
+- [x] `tests/verbs/issue.onecommit.sh::test_close_refuses_over_uncommitted_work` -> asserts `close` refuses, naming the files, while the checkout of the issue's branch has uncommitted changes in the fixed files; the fix worktree, its commits and the issue are unchanged
+- [x] `tests/verbs/issue.onecommit.sh::test_hotfix_stash_reapplied` -> asserts work a hotfix set aside in a single checkout is re-applied on top of the landed fix
 
 ### ♻️ Existing Tests Changed or Retired
 > Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
@@ -84,19 +84,19 @@ It follows P-84 and group P-72.
 - `tests/verbs/issue.branch.sh::test_fix_opens_on_issue_branch`, `test_no_branch_means_dev_branch`: rewritten: the fix is always in its worktree.
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/verbs/issue.onecommit.sh`; confirm red.
+- [x] Task 1.1: Write `tests/verbs/issue.onecommit.sh`; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `issue fix` always in `.workspace/fix-<n>`; the main-checkout form and the wait for uncommitted files removed.
-- [ ] Task 2.2: The squash at `close`, with the changelog entry as subject and the last commit's trailers.
-- [ ] Task 2.3: `close` refuses over uncommitted work where the issue's branch is checked out.
+- [x] Task 2.1: `issue fix` always in `.workspace/fix-<n>`; the main-checkout form and the wait for uncommitted files removed.
+- [x] Task 2.2: The squash at `close`, with the changelog entry as subject and the last commit's trailers.
+- [x] Task 2.3: `close` refuses over uncommitted work where the issue's branch is checked out.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update `MANUAL.md`, the `issue` contract, the agent rules and the fix skill.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue; none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update `MANUAL.md`, the `issue` contract, the agent rules and the fix skill.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue; none stays in chat only.
 
 ---
 
