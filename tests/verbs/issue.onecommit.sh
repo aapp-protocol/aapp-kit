@@ -15,7 +15,7 @@ bad() { printf "  \033[31m✘\033[0m %-52s %s\n" "$1" "$2"; FAIL=$((FAIL+1)); }
 
 init_sandbox_project "$R/p"
 cd "$R/p" || exit 1
-mkdir -p src; for f in a b c d e; do printf 'x1 = 1\nx2 = 2\n' > "src/$f.sh"; done
+mkdir -p src; for f in a b c d e; do printf 'x1 = 1\nx2 = 2\nx3 = 3\nx4 = 4\nx5 = 5\n' > "src/$f.sh"; done
 git add -A && git commit -qm "sources" --no-verify
 git branch develop; git checkout -q develop
 git config aapp.commitMode microcommits
@@ -131,14 +131,14 @@ sf="$(ls .plans/current/P"${sid#P-}"-*.md)"
 sed -i -E "s|src/path/to/file\.ext|src/e.sh|g; /src\/path\/to\/new_file\.ext/d; s/^\* \[ \] \*\*Question/* [x] **Question/" "$sf"
 git -C .plans commit -qam prep >/dev/null 2>&1
 aapp freeze-start "$sid" >/dev/null 2>&1
-sed -i 's/^x2 = .*/x2 = 50/' src/e.sh
+sed -i 's/^x5 = .*/x5 = 50/' src/e.sh
 n5="$(aapp issue hotfix "Bug in e" file src/e.sh 2>&1 | sed -nE 's/.*#([0-9]+) logged.*/\1/p' | head -n 1)"
 set_aside=0; [ -z "$(git status --porcelain -- src/e.sh)" ] && set_aside=1
 aapp issue fix "$n5" >/dev/null 2>&1
 fcommit "$n5" e 5 "fix: e" changelog "e is fixed"
 out="$(aapp issue close "$n5" 2>&1)"; rc=$?
 if [ "$set_aside" -eq 1 ] && [ "$rc" -eq 0 ] && [ "$(git show develop:src/e.sh | head -n 1)" = "x1 = 5" ] && \
-   [ "$(sed -n 1p src/e.sh)" = "x1 = 5" ] && [ "$(sed -n 2p src/e.sh)" = "x2 = 50" ] && ! git stash list | grep -qF "aapp-hotfix:"; then
+   [ "$(sed -n 1p src/e.sh)" = "x1 = 5" ] && [ "$(sed -n 5p src/e.sh)" = "x5 = 50" ] && ! git stash list | grep -qF "aapp-hotfix:"; then
   ok "test_hotfix_stash_reapplied"
 else
   bad "test_hotfix_stash_reapplied" "aside=$set_aside rc=$rc e=$(tr '\n' '|' < src/e.sh) out=$out"

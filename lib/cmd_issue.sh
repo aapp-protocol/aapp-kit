@@ -799,6 +799,21 @@ _issue_land_fix() {
         echo "❌ [Issue] .workspace/fix-$n has uncommitted changes; commit them with 'aapp commit' there first." >&2
         return 1
     fi
+    # A branch checked out in a worktree is moved there; any other by its ref.
+    # P-85: uncommitted work there in the fixed files would block the
+    # fast-forward: refuse before anything changes.
+    holder="$(git worktree list --porcelain | awk -v b="refs/heads/$fb" '/^worktree / { w = substr($0, 10) } $1 == "branch" && $2 == b { print w; exit }')"
+    if [ -n "$holder" ]; then
+        local fixed busy
+        fixed="$(git diff --name-only "$(git merge-base "$ref" "$br")" "$br")"
+        # shellcheck disable=SC2086
+        busy="$([ -z "$fixed" ] || git -C "$holder" status --porcelain -- $fixed 2>/dev/null | cut -c4- | paste -sd' ' -)"
+        if [ -n "$busy" ]; then
+            echo "❌ [Issue] $busy has uncommitted changes in $holder, where $fb is checked out; #$n's fix cannot land there." >&2
+            echo "   Commit or set that work aside, then 'aapp issue close $n' again. The fix stays in .workspace/fix-$n." >&2
+            return 1
+        fi
+    fi
     if ! git merge-base --is-ancestor "$ref" "$br"; then
         if ! git -C "$wt" rebase -q "$ref" >/dev/null 2>&1; then
             git -C "$wt" rebase --abort >/dev/null 2>&1
@@ -806,17 +821,76 @@ _issue_land_fix() {
             return 1
         fi
     fi
-    # A branch checked out in a worktree is moved there; any other by its ref.
-    holder="$(git worktree list --porcelain | awk -v b="refs/heads/$fb" '/^worktree / { w = substr($0, 10) } $1 == "branch" && $2 == b { print w; exit }')"
+    # P-85: one commit per fix.
+    _issue_squash_fix "$n" "$mp" "$wt" "$br" "$ref" || return 1
     if [ -n "$holder" ]; then
         git -C "$holder" merge -q --ff-only "$br" >/dev/null 2>&1 || {
-            echo "❌ [Issue] Could not fast-forward $fb to fix/$n in $holder (uncommitted changes in the fix's files there?)." >&2; return 1; }
+            _issue_unsquash_fix
+            echo "❌ [Issue] Could not fast-forward $fb to fix/$n in $holder." >&2; return 1; }
     else
         git fetch -q . "$br:$fb" || {
+            _issue_unsquash_fix
             echo "❌ [Issue] Could not fast-forward $fb to fix/$n." >&2; return 1; }
     fi
+    ISSUE_LANDED="$(git rev-parse --short "$fb")"
     _issue_drop_fix_worktree "$wt" "$br"
-    echo "🔀 [Issue] #$n landed on $fb ($(git rev-parse --short "$fb"))."
+    echo "🔀 [Issue] #$n landed on $fb ($ISSUE_LANDED)."
+}
+
+# _issue_fix_subject <n> <entry>: `fix: <entry> (#<n>)`, the entry cut at a word
+# boundary with `...` to fit aapp.subjectMaxLen.
+_issue_fix_subject() {
+    local n="$1" entry="$2" max room cut
+    max="$(git config --int aapp.subjectMaxLen 2>/dev/null)" || max=72
+    room=$((max - ${#n} - 9))
+    if [ "${#entry}" -gt "$room" ]; then
+        cut="${entry:0:$((room - 3))}"
+        [ "${cut% *}" = "$cut" ] || cut="${cut% *}"
+        entry="${cut%[[:punct:]]}..."
+    fi
+    printf 'fix: %s (#%s)\n' "$entry" "$n"
+}
+
+# _issue_squash_fix <n> <mini-plan> <worktree> <branch> <base-ref> (P-85): a
+# fix of several commits becomes one on its branch: subject from its changelog
+# entry, the entry and the replaced subjects in the body, the attribution and
+# git notes of its last commit (as the squash at `done`, P-84). A fix of one
+# commit is left as it is. Sets ISSUE_SQ_OLD for _issue_unsquash_fix.
+_issue_squash_fix() {
+    local n="$1" mp="$2" wt="$3" br="$4" ref="$5" entry msg new="" sign="" tip
+    ISSUE_SQ_OLD=""
+    [ "$(git rev-list --count "$ref..$br")" -gt 1 ] || return 0
+    entry="$(aapp_plan_changelog_decl "$mp")" || entry="|fixed"; entry="${entry#*|}"
+    tip="$(git rev-parse "$br")"
+    msg="$(mktemp)" || return 1
+    {
+        _issue_fix_subject "$n" "$entry"
+        echo ""
+        echo "$entry"
+        echo ""
+        git log --reverse --format='- %s' "$ref..$br"
+        echo ""
+        git log -1 --format=%B "$br" | git interpret-trailers --parse 2>/dev/null | grep -E '^AI-(Agent|Vendor|Model):' || true
+    } > "$msg"
+    [ "$(git config --type=bool --get commit.gpgsign 2>/dev/null)" = "true" ] && sign="-S"
+    new="$(git commit-tree $sign "$tip^{tree}" -p "$(git rev-parse "$ref")" -F "$msg" 2>/dev/null)" || new=""
+    rm -f "$msg"
+    if [ -z "$new" ] || ! git -C "$wt" reset -q --soft "$new"; then
+        git -C "$wt" reset -q --soft "$tip" 2>/dev/null || true
+        echo "❌ [Issue] #$n's fix could not be squashed into one commit; fix/$n is as it was and #$n stays open." >&2
+        return 1
+    fi
+    ISSUE_SQ_OLD="$tip"; ISSUE_SQ_WT="$wt"
+    # The notes follow as at `done` (P-84): reuse its carrier.
+    SQ_OLD="$tip"; SQ_BASE="$(git rev-parse "$ref")"; SQ_NEW="$(git rev-parse --short "$new")"
+    _sq_carry_notes "$new"
+    echo "🗜️  [Issue] #$n's fix is one commit now ($SQ_NEW)."
+}
+
+# _issue_unsquash_fix: the fix branch back at its tip before the squash.
+_issue_unsquash_fix() {
+    [ -n "${ISSUE_SQ_OLD:-}" ] || return 0
+    git -C "$ISSUE_SQ_WT" reset -q --soft "$ISSUE_SQ_OLD" 2>/dev/null || true
 }
 
 # _issue_archive_active <n> <commit-cell> <summary> <subject> [<mini-plan> [<entry>]]
@@ -1008,7 +1082,8 @@ cmd_issue_close() {
         # P-64, P-78: a fix made in its own worktree lands on its branch first.
         if [ -n "$(parse_plan_worktree "$mp")" ]; then
             _issue_land_fix "$n" "$mp" || return 1
-            last="$(parse_plan_commits "$mp" | tail -n 1 | awk '{print $1}')"
+            # P-85: the one commit the branch now holds.
+            last="$ISSUE_LANDED"
             landed=1
         fi
         if [ -z "$sha" ]; then
@@ -1654,68 +1729,12 @@ issue_queued_blockers() {
     done
 }
 
-# _issue_dirty_files <file>…: those with uncommitted changes in this working copy.
-_issue_dirty_files() {
-    local f
-    for f; do
-        if [ -n "$(git status --porcelain -- "$f" 2>/dev/null)" ]; then echo "$f"; fi
-    done
-}
-
-# _issue_next_blocker <plans>: sets _ISSUE_PICK to the top queued blocker whose
-# files are clean here (P-52's skip). Returns 1 when none is queued, 2 when
-# every queued blocker has uncommitted files (P-58: the caller waits); the
-# busy files are left in _ISSUE_DIRTY.
-_issue_next_blocker() {
-    local plans="$1" id row any=0 busy f
-    _ISSUE_PICK=""; _ISSUE_DIRTY=()
-    for id in $(issue_queued_blockers "$plans"); do
-        any=1
-        row="$(PLANS_DIR="$plans" ledger_row "$id")"
-        busy=0
-        while IFS= read -r f; do
-            [ -n "$f" ] && { busy=1; _ISSUE_DIRTY+=("$f"); }
-        done < <(_issue_dirty_files $(issue_location_paths "$row"))
-        if [ "$busy" -eq 0 ]; then _ISSUE_PICK="$id"; return 0; fi
-    done
-    [ "$any" -eq 1 ] && return 2
-    return 1
-}
-
 # _issue_roll <what>: one step of the wait roller (2 s, 3 s, …, printed), on the
 # caller's `waited`, `step` and `limit`; returns 1 once aapp.issueFixWait is used up.
 _issue_roll() {
     [ "$waited" -lt "$limit" ] || return 1
     echo "⏳ [Issue] $1; waiting ${step}s…" >&2
     sleep "$step"; waited=$((waited + step)); step=$((step + 1))
-}
-
-# _issue_busy_refusal <plans> <file>…: the message when the wait for uncommitted
-# files runs out (P-58). Files the plan bound here lists are that plan's own
-# work: nobody else will clear them, and only a hotfix from it sets them aside.
-# The fixer never commits or stashes another plan's work itself.
-_issue_busy_refusal() {
-    local plans="$1" buf bound pf pid own=() t f
-    shift
-    buf="$(git rev-parse --git-path aapp_active_plan 2>/dev/null)"
-    bound="$(tr -d '[:space:]' < "$buf" 2>/dev/null)" || bound=""
-    case "$bound" in ''|'#'*) ;; *)
-        if pf="$(_issue_plan_file_for "$plans" "$bound")"; then
-            pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
-            while IFS= read -r t; do
-                for f; do
-                    if [ "$t" = "$f" ]; then own+=("$f"); fi
-                done
-            done < <(parse_plan_target_paths "$pf")
-        fi ;;
-    esac
-    if [ ${#own[@]} -gt 0 ]; then
-        echo "❌ [Issue] ${own[*]}: uncommitted work of ${pid:-$bound}, the plan bound in this checkout; nothing else will clear it." >&2
-        echo "   From that plan, set it aside with: aapp issue hotfix \"<text>\" file <path>…" >&2
-    else
-        echo "❌ [Issue] $* has uncommitted changes here; still busy after the wait (aapp.issueFixWait)." >&2
-        echo "   Retry later, or take another blocker ('aapp issue fix next-blocker')." >&2
-    fi
 }
 
 # _issue_notice_listing_plans <plans> <file>…: at close, one line per other
@@ -1846,7 +1865,7 @@ _issue_fix_worktree() {
 }
 
 cmd_issue_fix() {
-    local sub="${1:-}" n="" files=() plans open limit waited step row="" text f pf pid st t grp="" gfile="" gwt="" fixbr="" gbr="" use_wt=0 asked=0 asked_branch=""
+    local sub="${1:-}" n="" files=() plans open limit waited step row="" text f pf pid st t grp="" gfile="" gwt="" fixbr="" gbr="" asked=0 asked_branch=""
     plans="$(_issue_plans_dir)" || return 1
     _issue_refuse_in_plan_worktree "$plans" || return 1
     case "$sub" in
@@ -1898,11 +1917,10 @@ cmd_issue_fix() {
         return 0
     fi
 
-    # One fix at a time, and never over uncommitted work: wait (verbose) while
-    # another mini plan is open or a file is busy, up to aapp.issueFixWait.
-    local root pdir entry pout raw busy=() pick_rc
-    root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
-    pdir="$root/.agents/skills/aapp-issue-tracker"
+    # One fix at a time: wait (verbose) while another mini plan is open, up to
+    # aapp.issueFixWait. A fix has its own working copy (P-85), so uncommitted
+    # work elsewhere is no reason to wait.
+    local pout raw
     limit="$(_issue_wait_limit)"; waited=0; step=2
     while :; do
         if open="$(_issue_open_mini "$plans")"; then
@@ -1926,15 +1944,11 @@ cmd_issue_fix() {
                     _issue_lock_release; echo "❌ [Issue] Provider must print {\"id\": ...} for next-blocker (got: '$pout')." >&2; return 1; }
                 n="$(issue_id_body "$raw")" || { _issue_lock_release; return 1; }
             else
-                _issue_next_blocker "$plans" && pick_rc=0 || pick_rc=$?
-                case "$pick_rc" in
-                    0) n="$_ISSUE_PICK" ;;
-                    2) _issue_lock_release
-                       _issue_roll "every queued blocker has uncommitted changes here (${_ISSUE_DIRTY[*]})" && continue
-                       _issue_busy_refusal "$plans" "${_ISSUE_DIRTY[@]}"; return 1 ;;
-                    *) _issue_lock_release
-                       echo "❌ [Issue] No plan blockers are queued (🧱 Plan Blockers in issues_road_map.md)." >&2; return 1 ;;
-                esac
+                n="$(issue_queued_blockers "$plans" | head -n 1)"
+                if [ -z "$n" ]; then
+                    _issue_lock_release
+                    echo "❌ [Issue] No plan blockers are queued (🧱 Plan Blockers in issues_road_map.md)." >&2; return 1
+                fi
             fi
         fi
         if [ -z "$row" ]; then
@@ -1951,9 +1965,8 @@ cmd_issue_fix() {
                 _issue_lock_release; echo "❌ [Issue] No files known for #$n: give them with 'file <path>'." >&2; return 1
             fi
         fi
-        # P-78: the fix is made on the issue's branch: here when this checkout
-        # is on it, otherwise in its own worktree cut from it (as a group's
-        # fix on its feature branch, P-64, which `group` names).
+        # P-78, P-85: the fix is made in its own worktree, cut from the issue's
+        # branch (a group's feature branch with `group`, P-64).
         if [ -n "$gbr" ]; then
             fixbr="$gbr"; ISSUE_BRANCH_GONE=""
         else
@@ -1966,23 +1979,11 @@ cmd_issue_fix() {
             fi
             fixbr="${asked_branch:-$ISSUE_BRANCH}"
         fi
-        use_wt=0
-        if [ -n "$fixbr" ] && [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" != "$fixbr" ]; then use_wt=1; fi
-        # Uncommitted changes in these files would mix into the fix commit:
-        # wait for their owner to commit them (P-58). A fix in its own worktree
-        # meets none.
-        busy=()
-        [ "$use_wt" -eq 0 ] && while IFS= read -r f; do [ -n "$f" ] && busy+=("$f"); done < <(_issue_dirty_files "${files[@]}")
-        if [ ${#busy[@]} -gt 0 ]; then
-            _issue_lock_release
-            _issue_roll "${busy[*]} has uncommitted changes here" && continue
-            _issue_busy_refusal "$plans" "${busy[@]}"; return 1
-        fi
+        [ -n "$fixbr" ] || fixbr="$(_issue_dev_branch)"
+        [ -n "$fixbr" ] || fixbr="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
         break
     done
-    if [ "$use_wt" -eq 1 ]; then
-        gwt="$(_issue_fix_worktree "$n" "$fixbr")" || { _issue_lock_release; return 1; }
-    fi
+    gwt="$(_issue_fix_worktree "$n" "$fixbr")" || { _issue_lock_release; return 1; }
     # The ledger changes with the fix's start: a branch that is gone leaves the
     # row, a group's fix targets the group's feature branch.
     local start_paths=("current/fix-$n.md") lp owner=""
@@ -1999,32 +2000,25 @@ cmd_issue_fix() {
     done < <(PLANS_DIR="$plans" ledger_commit_paths issues)
     # P-66: the entry is written by the fix's first commit (`changelog "<text>"`), never copied from the row.
     _issue_write_mini "$plans" "$n" "" "${files[@]}"
-    if [ -n "$gwt" ]; then
-        local gbuf mp="$plans/current/fix-$n.md"
-        # Base names the branch the fix lands on; `close` reads it.
-        write_plan_field "$mp" Base "\`$(git rev-parse --short "fix/$n")\` ($fixbr)" Status
-        write_plan_field "$mp" Worktree ".workspace/fix-$n (fix/$n)" Base
-        if [ -n "$gfile" ]; then
-            owner="$(parse_plan_field "$gfile" "Plan ID")"
-        elif owner="$(PLANS_DIR="$plans" _group_owning_branch "$fixbr")"; then
-            owner="$(parse_plan_field "$plans/current/$owner.md" "Plan ID")"
-        fi
-        [ -z "$owner" ] || write_plan_field "$mp" Group "$owner" Worktree
-        gbuf="$(git -C "$gwt" rev-parse --git-path aapp_active_plan)"
-        case "$gbuf" in /*) ;; *) gbuf="$gwt/$gbuf" ;; esac
-        write_active_buffer "#$n" "$gbuf"
-    else
-        write_active_buffer "#$n"
+    local gbuf mp="$plans/current/fix-$n.md"
+    # Base names the branch the fix lands on; `close` reads it.
+    write_plan_field "$mp" Base "\`$(git rev-parse --short "fix/$n")\` ($fixbr)" Status
+    write_plan_field "$mp" Worktree ".workspace/fix-$n (fix/$n)" Base
+    if [ -n "$gfile" ]; then
+        owner="$(parse_plan_field "$gfile" "Plan ID")"
+    elif owner="$(PLANS_DIR="$plans" _group_owning_branch "$fixbr")"; then
+        owner="$(parse_plan_field "$plans/current/$owner.md" "Plan ID")"
     fi
+    [ -z "$owner" ] || write_plan_field "$mp" Group "$owner" Worktree
+    # The fix is bound in its worktree only; the main checkout is left alone.
+    gbuf="$(git -C "$gwt" rev-parse --git-path aapp_active_plan)"
+    case "$gbuf" in /*) ;; *) gbuf="$gwt/$gbuf" ;; esac
+    write_active_buffer "#$n" "$gbuf"
     plans_commit "fix(start): #$n" "${start_paths[@]}" || { _issue_lock_release; return 1; }
     _issue_lock_release
-    if [ -n "$gwt" ]; then
-        echo "🩹 [Issue] Fixing #$n${owner:+ for group $owner} in .workspace/fix-$n (fix/$n from $fixbr, files: ${files[*]})."
-        echo "   Work and 'aapp commit' there; 'aapp issue close $n' lands it on $fixbr."
-    else
-        echo "🩹 [Issue] Fixing #$n in current/fix-$n.md (files: ${files[*]}). Commit with 'aapp commit', then 'aapp issue close $n'."
-        _issue_group_hint "$plans" "${files[@]}"
-    fi
+    echo "🩹 [Issue] Fixing #$n${owner:+ for group $owner} in .workspace/fix-$n (fix/$n from $fixbr, files: ${files[*]})."
+    echo "   Work and 'aapp commit' there; 'aapp issue close $n' lands it on $fixbr as one commit."
+    [ -n "$owner" ] || _issue_group_hint "$plans" "${files[@]}"
     _issue_fix_handover "$plans" "$n"
 }
 
