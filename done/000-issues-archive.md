@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #152 | `Low` | `DOCS` | 2026-10-15 | 2026-10-15 | `aborted` | Aborted: Done in P-85 |  |
 | #151 | `Low` | `DOCS` | 2026-10-14 | 2026-10-14 | `a245881` | the manual names the git notes the squash at `aapp done` does not carry |  |
 | #149 | `Medium` | `CORE` | 2026-10-14 | 2026-10-14 | `ab469ca` | the squash at `aapp done` carries the last commit's AI note and every replaced commit's note |  |
 | #150 | `Low` | `DOCS` | 2026-10-14 | 2026-10-14 | `7515287` | `ARCHITECTURE.md` describes the squash on the plan branch (P-84) |  |
