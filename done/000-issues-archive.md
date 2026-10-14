@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #149 | `Medium` | `CORE` | 2026-10-14 | 2026-10-14 | `ab469ca` | the squash at `aapp done` carries the last commit's AI note and every replaced commit's note |  |
 | #150 | `Low` | `DOCS` | 2026-10-14 | 2026-10-14 | `7515287` | `ARCHITECTURE.md` describes the squash on the plan branch (P-84) |  |
 | #148 | `High` | `CORE` | 2026-10-13 | 2026-10-13 | `3251ca5` | `ledger_set_archive_commit` corrects the commit an archived issue row names; unblocks P-84 |  |
 | #145 | `Low` | `DOCS` | 2026-10-13 | 2026-10-13 | `13f174f` | `/aapp` and `/aapp-status` show the output of `aapp status` unchanged, with remarks after it |  |

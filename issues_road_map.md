@@ -52,5 +52,4 @@
 - [ ] #143 -> Guard self-protection covers `.agents/skills/aapp-*` only: the `aapp` start skill (P-87) in `.agents/skills/aapp/` and `.claude/skills/aapp/` is not protected.
 - [ ] #146 -> `aapp init` deletes and recreates every skill directory and its `.claude/skills` link, even when unchanged: an open IDE drops the skills from its prompt until it is reloaded.
 - [ ] #147 -> `aapp status` Shipped prints the first five lines under `[Unreleased]`: the `### Added` header and four entries. `Changed` and `Fixed` never appear, and the order is the section's, not the order of landing.
-- [ ] #149 -> The squash at `aapp done` (P-84) drops git notes: the last commit's `refs/notes/ai` attribution and the replaced commits' `refs/notes/commits` notes are not on the squashed commit.
 
