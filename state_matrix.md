@@ -19,13 +19,13 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-57**: [`P57-modular-manual-specification.md`](current/P57-modular-manual-specification.md) — Modular Manual Specification
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
 - 🟣 **P-82**: [`P82-issue-fix-safeguards.md`](current/P82-issue-fix-safeguards.md) — Issue Fix Safeguards
-- 🟣 **P-85**: [`P85-one-commit-per-fix.md`](current/P85-one-commit-per-fix.md) — One Commit Per Fix
 - 🟣 **P-88**: [`P88-status-recent-and-bounded.md`](current/P88-status-recent-and-bounded.md) — Status Recent And Bounded
 
 ---
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
+- 🔷 **P-85**: [`P85-one-commit-per-fix.md`](current/P85-one-commit-per-fix.md) — One Commit Per Fix
 - 🔷 **P-86**: [`P86-plan-closes-further-issues.md`](current/P86-plan-closes-further-issues.md) — Plan Closes Further Issues
 
 ---
