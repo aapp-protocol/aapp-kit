@@ -38,7 +38,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp done [id]` | **✅ Yes** | Archive implemented blueprint to done/ and update archival ledger; repairs issue links to the plan; with `aapp.integrate` squash/ff/hook, also integrates a worktree plan into its parent branch and cleans up |
 | `aapp done <id> integrate [squash\|ff\|hook] [target <b>] [no-cleanup] [force-cleanup] [override-hotfix-cap]` / `no-integrate` | **✅ Yes** | Integrate a worktree plan now (also an archived one, as a retry), or archive only (P-55) |
 | `aapp issue hotfix "<text>" [file <path>]… [branch <name>] [plan]` | **✅ Yes** | Log a blocking bug, queue it, block the plan (one commit; >`aapp.maxEmergencyHotfixes` blocks for good); its fix lands on the plan's parent branch when every file is one of the plan's Target Files, otherwise where the team's `aapp-issue-branch` plugin says (or the development branch), or on `<name>` |
-| `aapp issue fix next-blocker \| <num> [file <path>…] \| <num> abort` | **✅ Yes** | Temporary mini plan for one fix, files from the issue's Location, on the issue's branch (here when this checkout is on it, else in `.workspace/fix-<num>` cut from it); waits up to `aapp.issueFixWait` for an open fix or uncommitted work (skill: `/aapp-fix [#<num>]`) |
+| `aapp issue fix next-blocker \| <num> [file <path>…] \| <num> abort` | **✅ Yes** | Temporary mini plan for one fix, files from the issue's Location, made in `.workspace/fix-<num>` cut from the issue's branch; `close` lands it as one commit; waits up to `aapp.issueFixWait` for an open fix (skill: `/aapp-fix [#<num>]`) |
 | `aapp issue fix <num> group <id>` | **✅ Yes** | A group-caused bug: the issue is retargeted to the group's feature branch, the fix opens in `.workspace/fix-<num>` cut from it; `close` lands it there |
 | `aapp active [id]` | **✅ Yes** | Inspect, swap, or clear active plan execution buffer |
 | `aapp test [filter]` | **✅ Yes** | Run test suites across repository or audit adopter environment |
@@ -136,7 +136,7 @@ AAPP controls repository behavior via standard Git configuration:
 | `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
 | `aapp.changelogMode` | `plan` / `commit` | `plan` | Git Hooks | `plan`: one entry per plan from its `**Changelog:**` line, written by `aapp commit`. `commit`: every code commit changes `CHANGELOG.md`. |
 | `aapp.commitMode` | `atomic` / `microcommits` | `atomic` | `aapp commit`, Git Hooks | `atomic`: one commit per plan (`aapp commit amend` for more). `microcommits`: any number. |
-| `aapp.issueFixWait` | minutes | `5` | `aapp issue fix` | How long `fix` and the issue lock wait for an open fix or uncommitted work; `0` fails at once (P-52, P-58). |
+| `aapp.issueFixWait` | minutes | `5` | `aapp issue fix` | How long `fix` and the issue lock wait for an open fix; `0` fails at once (P-52). |
 | `aapp.maxEmergencyHotfixes` | integer | `2` | `aapp issue hotfix` | Hotfixes a plan may take; the next one blocks it permanently. P-55 reads it at integration (P-52). |
 | `aapp.planWorktrees` | `on` / `off` | `off` | `aapp start`, `freeze-start` | A plan's first start creates its own branch and worktree (P-54). |
 | `aapp.planBranch` | template | `plan/{id}-{slug}` | `aapp start` | Plan branch name; `{id}` (`P51`), `{num}`, `{slug}`, `{repo}` (P-54). |
