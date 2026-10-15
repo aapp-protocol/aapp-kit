@@ -50,6 +50,7 @@ It completes the tracing of issues to commits begun by P-84 (plans made for an i
 - **Saying so:** `aapp refine <plan> closes <num>` adds `#<num>` to the plan's header line `* **Also Closes:** #<n>, #<m>` (a list, in the order given), in one commit on the plans branch. The issue must be active and must not be the plan's own `Target Issue`; an issue already listed changes nothing. `aapp refine <plan> closes <num> remove` takes it off again; the line goes when the list is empty.
 - **The issue's row is not touched.** The plan is not a plan for that issue: the row stays as it is, is not marked `Planned` and does not link the plan, and the issue can still be fixed or planned on its own. Whoever closes it first wins; the other finds it archived.
 - **At `done`,** after the plan's own archive is settled, each listed issue that is still active is archived as the plan's `Target Issue` is: with **the commit the plan is recorded with** (its one squashed commit, or its last commit when it was not squashed) and the summary `[<plan>](<file>) - <title>`. Plans blocked on it resume under the usual rule, and the provider is told (`issue.close`), once per issue. All of it is in the plan's archive commit.
+- **A listed issue is one the plans depend on.** Where a tracker keeps the record, the sync asks it for the issues the plans name (`_issue_dependent_ids`: `Blocked On`, `Target Issue`, open fixes); a listed issue joins them, so its row stays current until `done` closes it.
 - **A plan is never squashed because of a listed issue.** Only a plan made for an issue is (P-84). Several issues may share one commit; an issue has exactly one.
 - **What does not stop the `done`:** a listed issue that is already archived is skipped, with a line. A listed issue whose branch does not hold the plan's commit (P-78) is left open, with a line naming the branch: it is closed by hand once the commit is there.
 
@@ -72,6 +73,7 @@ It completes the tracing of issues to commits begun by P-84 (plans made for an i
 - [ ] `tests/verbs/done.closes.sh::test_done_unblocks_and_notifies` -> asserts a plan blocked on a listed issue resumes, and the provider gets one `issue.close` per listed issue with that commit
 - [ ] `tests/verbs/done.closes.sh::test_already_archived_is_skipped` -> asserts a listed issue closed meanwhile is skipped with a line, and `done` completes
 - [ ] `tests/verbs/done.closes.sh::test_issue_on_another_branch_stays_open` -> asserts a listed issue whose branch does not hold the plan's commit is left open with a line naming the branch, and `done` completes
+- [ ] `tests/verbs/done.closes.sh::test_listed_issue_is_a_dependent` -> asserts the ids the sync asks the tracker for include a plan's listed issues
 - [ ] `tests/verbs/done.closes.sh::test_plan_not_squashed_for_listed_issue` -> asserts under `ff` a plan with a listed issue reaches the parent with every commit and its SHA
 
 ### Phase 1: Tests First (red)
@@ -80,10 +82,11 @@ It completes the tracing of issues to commits begun by P-84 (plans made for an i
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: The `closes <num>` token of `refine` and the `Also Closes` header line.
 - [ ] Task 2.2: `done` archives each listed issue with the plan's recorded commit; the two cases that are skipped.
+- [ ] Task 2.3: `_issue_dependent_ids` includes the listed issues.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update `MANUAL.md`, the `refine` and `done` contracts, the plan template and the agent rules.
+- [ ] Task 3.2: Update `MANUAL.md`, `CHEATSHEET.md`, the `refine`, `done` and `issue` contracts, the plan template and the agent rules.
 - [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
 - [ ] Task 3.5: Log every finding outside the Target Files as an issue; none stays in chat only.
@@ -100,6 +103,10 @@ It completes the tracing of issues to commits begun by P-84 (plans made for an i
 - [ ] `templates/plan-template.md` -> The `Also Closes` line, as a commented example in the header.
 - [ ] `templates/AGENTS.md` -> Agent rules: say which further issues a plan sorts; never close them by hand afterwards.
 - [ ] `MANUAL.md` -> A plan that sorts further issues.
+- [ ] `lib/cmd_issue.sh` -> `_issue_dependent_ids` includes a plan's listed issues.
+- [ ] `lib/docs/verbs/issue.md` -> Contract: the ids the sync asks for include listed issues.
+- [ ] `ARCHITECTURE.md` -> A plan may close further issues with its recorded commit.
+- [ ] `CHEATSHEET.md` -> `aapp refine <plan> closes <num> [remove]`.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
