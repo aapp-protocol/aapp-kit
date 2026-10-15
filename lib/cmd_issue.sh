@@ -624,7 +624,7 @@ _issue_plans_commit() {
     plans_commit "$@"
 }
 
-# _issue_log_row <sev> <type> <symptom> <location-cell> <link-cell> <branch> <description> <board: triage|none>
+# _issue_log_row <sev> <type> <symptom> <location-cell> <link-cell> <branch> <description>
 # The one writer of new rows. The id is the tracker's when a provider answers
 # `ok` (its own key or number, sent with no id and returned in the answer); the
 # kit's counter's without a provider, or when it answers `declined` and the
@@ -633,7 +633,7 @@ _issue_plans_commit() {
 # ISSUE_LOGGED (the id's body). The caller holds the issue lock, commits, and
 # runs the `do` list.
 _issue_log_row() {
-    local sev="$1" type="$2" symptom="$3" loc="$4" link="$5" branch="$6" desc="$7" board="${8:-triage}"
+    local sev="$1" type="$2" symptom="$3" loc="$4" link="$5" branch="$6" desc="$7"
     local today members n="" raw row kept=0
     ISSUE_LOGGED=""
     today="$(date +%Y-%m-%d)"
@@ -650,8 +650,8 @@ _issue_log_row() {
         row="| #$n | \`$sev\` | \`$type\` | $today | $loc | ${symptom//|/\\|} | $link | 🟡 \`Incubated\` |"
         ( ledger_use_offline || exit 1
           ledger_add_row "$row" || exit 1
-          [ -z "$branch" ] || ledger_set_cell "$n" branch "$(issue_branch_cell "$branch")" || exit 1
-          roadmap_add_entry "$n" "$symptom" ) || { echo "❌ [Issue] Could not stage the issue in .offline." >&2; return 1; }
+          [ -z "$branch" ] || ledger_set_cell "$n" branch "$(issue_branch_cell "$branch")" ) || {
+            echo "❌ [Issue] Could not stage the issue in .offline." >&2; return 1; }
         [ -z "$desc" ] || _issue_keep_text "$n" description "$desc"
         offline_commit "issue(log): #$n staged offline" >/dev/null
         if [ "$(offline_mode)" = "only" ]; then
@@ -698,9 +698,6 @@ _issue_log_row() {
     ledger_add_row "$row" || { echo "❌ [Issue] No table header separator in ISSUES.md." >&2; return 1; }
     if [ -n "$branch" ]; then
         ledger_set_cell "$n" branch "$(issue_branch_cell "$branch")" || { echo "❌ [Issue] Could not record the branch of #$n in ISSUES.md." >&2; return 1; }
-    fi
-    if [ "$board" = "triage" ]; then
-        roadmap_add_entry "$n" "$symptom" || echo "⚠️  [Issue] #$n is logged; its line could not be added to issues_road_map.md." >&2
     fi
     if [ -n "$desc" ] && [ "$kept" -eq 0 ]; then _issue_keep_text "$n" description "$desc"; fi
     ISSUE_LOGGED="$n"
@@ -755,7 +752,7 @@ cmd_issue_log() {
         loc=""; for f in "${files[@]}"; do loc="${loc:+$loc, }\`$f\`"; done
     fi
     _issue_lock_acquire || return 1
-    PLANS_DIR="$plans" _issue_log_row "$sev" "$type" "$symptom" "$loc" "" "$target" "$note" triage || { _issue_lock_release; return 1; }
+    PLANS_DIR="$plans" _issue_log_row "$sev" "$type" "$symptom" "$loc" "" "$target" "$note" || { _issue_lock_release; return 1; }
     n="$ISSUE_LOGGED"
     # An issue staged offline is in `.offline`: nothing changed on the plans branch.
     if [ "$ISSUE_LOGGED_OFFLINE" -eq 1 ]; then _issue_lock_release; echo "🐛 [Issue] #$n logged (offline): $symptom"; return 0; fi
@@ -1210,7 +1207,7 @@ _issue_record_switch() {
 # updated by id; one reported closed moves to the archive; the issues asked by
 # id are kept whatever the limit; of the others at most <limit> stay.
 _issue_sync_apply() {
-    local plans="$1" lines="$2" ids="$3" limit="$4" line id n st kept=0 over=0 returned="" cur new f v pf t link hasb=1
+    local plans="$1" lines="$2" ids="$3" limit="$4" line id n st kept=0 over=0 returned="" cur new f v pf t link hasb=1 queue=""
     while IFS= read -r line; do
         [ -n "$line" ] || continue
         id="$(json_field "$line" id 2>/dev/null)" || continue
@@ -1239,6 +1236,11 @@ _issue_sync_apply() {
         fi
         returned="$returned
 #$n"
+        # P-89: the tracker's queue is the queue.
+        if [ "$(json_field "$line" queued 2>/dev/null)" = "true" ]; then
+            queue="${queue:+$queue
+}- [ ] #$n -> $(json_field "$line" symptom 2>/dev/null || echo "#$n")"
+        fi
         _issue_meta_from_answer "$n" "$line"
         new=""
         for f in sev type date location symptom; do
@@ -1257,11 +1259,11 @@ _issue_sync_apply() {
             ledger_replace_row "$n" "| #$n | $(printf '%s' "$new" | cut -f1) | $(printf '%s' "$new" | cut -f2) | $(printf '%s' "$new" | cut -f3) | $(printf '%s' "$new" | cut -f4) | $(printf '%s' "$new" | cut -f5) | $(ledger_cell "$n" link) | $(ledger_cell "$n" status) |" || continue
         else
             ledger_add_row "| #$n | $(printf '%s' "$new" | cut -f1) | $(printf '%s' "$new" | cut -f2) | $(printf '%s' "$new" | cut -f3) | $(printf '%s' "$new" | cut -f4) | $(printf '%s' "$new" | cut -f5) |  | 🟡 \`Incubated\` |" || continue
-            roadmap_add_entry "$n" "$(json_field "$line" symptom 2>/dev/null || echo "#$n")"
         fi
         v="$(printf '%s' "$new" | cut -f6)"
         ledger_set_cell "$n" branch "$(issue_branch_cell "$v")"
     done <<< "$lines"
+    printf '%s' "$queue" | roadmap_queue_replace || echo "⚠️  [Issue] Could not bring 📋 Queued up to date from the tracker." >&2
     # The cache is bounded: the rows this listing did not bring go first.
     kept="$(ledger_ids active | while IFS= read -r n; do printf '%s\n' "$ids" | grep -qxF "#$n" || echo "$n"; done | grep -c . || true)"
     if [ "$kept" -gt "$limit" ]; then
@@ -1393,16 +1395,12 @@ cmd_issue_list() {
         return 0
     fi
     if [ "$confirm" -eq 1 ]; then issue_sync force confirm || return 1; else issue_sync force || return 1; fi
-    roadmap="$(PLANS_DIR="$plans" ledger_path roadmap)"
-    if [ ! -f "$roadmap" ]; then
-        echo "❌ [Issue] Road map not found: $roadmap" >&2
-        return 1
-    fi
-    # The same lines, in the same order, as the status briefing's Issues pillar:
-    # with their branch, this branch's issues first, once any issue names one (P-78).
-    lines="$(PLANS_DIR="$plans" roadmap_entries_by_branch "$(issue_view_branch)" "$(_issue_dev_branch)")"
+    # Every active issue in the order the ledger records it (P-89; a sorting
+    # plugin may order it otherwise), with its branch, this branch's issues
+    # first, once any issue names one (P-78).
+    lines="$(PLANS_DIR="$plans" ledger_issue_lines_by_branch "$(issue_view_branch)" "$(_issue_dev_branch)")"
     if [ -z "$lines" ]; then
-        echo "  (No open issues in issues_road_map.md)"
+        echo "  (No open issues in ISSUES.md)"
         _issue_offline_lines
         return 0
     fi
@@ -1649,7 +1647,7 @@ cmd_issue_hotfix() {
     fi
     # P-74: logged through the one handler (the id, the row, the description).
     _issue_lock_acquire || return 1
-    PLANS_DIR="$plans" _issue_log_row High CORE "$text" "$loc" "blocks [$pid]($prel)" "$target" "$note" none || { _issue_lock_release; return 1; }
+    PLANS_DIR="$plans" _issue_log_row High CORE "$text" "$loc" "blocks [$pid]($prel)" "$target" "$note" || { _issue_lock_release; return 1; }
     n="$ISSUE_LOGGED"
     # Single-checkout mode: the fix will share this working copy, so the plan's
     # uncommitted work in the listed files is set aside (only those files).
@@ -1717,6 +1715,79 @@ issue_queued_blockers() {
         printf '%s' "$row" | grep -q 'Planned' && continue
         echo "$id"
     done
+}
+
+# issue_queued_work <plans> (P-89): the 📋 Queued issues in queue order whose
+# row is active and not Planned (a promoted issue is its plan's to fix).
+issue_queued_work() {
+    local plans="$1" id row
+    for id in $(PLANS_DIR="$plans" roadmap_queued); do
+        row="$(PLANS_DIR="$plans" ledger_row "$id")" || continue
+        printf '%s' "$row" | grep -q 'Planned' && continue
+        echo "$id"
+    done
+}
+
+# cmd_issue_queue <num> [remove] (P-89): a person queues an issue for work, or
+# takes it off the queue. Where a tracker keeps the record its queue is the
+# queue: the step must succeed there, and the sync brings the section back.
+cmd_issue_queue() {
+    local usage='aapp issue queue <num> [remove]' n plans remove=0 row sym issue step subject external=0
+    if [ -z "${1:-}" ]; then echo "❌ [Issue] Usage: $usage" >&2; return 1; fi
+    n="$(issue_id_body "$1")" || return 1; shift
+    case "${1:-}" in
+        '') ;;
+        remove) remove=1; shift ;;
+        *) echo "❌ [Issue] Unknown token '$1'. Usage: $usage" >&2; return 1 ;;
+    esac
+    if [ $# -gt 0 ]; then echo "❌ [Issue] Usage: $usage" >&2; return 1; fi
+    _issue_enter_offline "$n" || return 1
+    plans="$(_issue_plans_dir)" || return 1
+    row="$(PLANS_DIR="$plans" ledger_row "$n")" || { echo "❌ [Issue] #$n is not an active issue in ISSUES.md." >&2; return 1; }
+    case "$row" in
+        *Incubated*|*Planned*) ;;
+        *) echo "❌ [Issue] #$n is neither Incubated nor Planned; it cannot be queued." >&2; return 1 ;;
+    esac
+    if [ "$remove" -eq 1 ]; then
+        if ! PLANS_DIR="$plans" roadmap_queued | grep -qxF -- "$n"; then
+            echo "❌ [Issue] #$n is not queued." >&2; return 1
+        fi
+        step=unqueue; subject="issue(queue): #$n unqueued"
+    else
+        if PLANS_DIR="$plans" roadmap_queued | grep -qxF -- "$n"; then
+            echo "❌ [Issue] #$n is already queued." >&2; return 1
+        fi
+        if PLANS_DIR="$plans" roadmap_blockers | grep -qxF -- "$n"; then
+            echo "❌ [Issue] #$n is a plan blocker already; 'aapp issue fix next-blocker' takes it." >&2; return 1
+        fi
+        step=queue; subject="issue(queue): #$n queued"
+    fi
+    issue="$(PLANS_DIR="$plans" issue_payload "$n")" || issue="\"id\": \"#$n\""
+    if [ -z "${AAPP_LEDGER_OFFLINE:-}" ] && PLANS_DIR="$plans" ledger_record_external; then
+        external=1
+        if ! AAPP_ISSUE_ID="#$n" issue_provider "$step" "$issue" || [ "$PLUGIN_STATUS" != "ok" ]; then
+            echo "❌ [Issue] The tracker keeps the record and did not take '$step' for #$n (${PLUGIN_MESSAGE:-${PLUGIN_STATUS:-no answer}}); nothing changed." >&2
+            return 1
+        fi
+    fi
+    if [ "$remove" -eq 1 ]; then
+        PLANS_DIR="$plans" roadmap_prune "$n" || return 1
+    else
+        sym="$(PLANS_DIR="$plans" ledger_rows | awk -F'\t' -v id="#$n" '$1 == id { print $6; exit }')"
+        PLANS_DIR="$plans" roadmap_queue_add "$n" "$sym" || { echo "❌ [Issue] Could not write 📋 Queued in issues_road_map.md." >&2; return 1; }
+    fi
+    if [ -n "${AAPP_LEDGER_OFFLINE:-}" ]; then
+        offline_commit "$subject, offline" >/dev/null
+    elif [ "$external" -eq 0 ]; then
+        # shellcheck disable=SC2046
+        _issue_plans_commit "$subject" $(PLANS_DIR="$plans" ledger_commit_paths roadmap) || return 1
+        _issue_step "$step" "$n" "$issue"
+    fi
+    if [ "$remove" -eq 1 ]; then
+        echo "📋 [Issue] #$n is off the work queue."
+    else
+        echo "📋 [Issue] #$n is queued for work: 'aapp issue fix $n' (or 'next-blocker') may take it."
+    fi
 }
 
 # _issue_roll <what>: one step of the wait roller (2 s, 3 s, …, printed), on the
@@ -1907,6 +1978,13 @@ cmd_issue_fix() {
         return 0
     fi
 
+    # P-89: a fix opens only for an issue that is queued for work: a plan
+    # blocker, or one a person queued with `aapp issue queue`.
+    if [ -n "$n" ] && ! { PLANS_DIR="$plans" roadmap_blockers; PLANS_DIR="$plans" roadmap_queued; } | grep -qxF -- "$n"; then
+        echo "❌ [Issue] #$n is not queued for work. A person queues it with 'aapp issue queue $n'." >&2
+        return 1
+    fi
+
     # One fix at a time: wait (verbose) while another mini plan is open, up to
     # aapp.issueFixWait. A fix has its own working copy (P-85), so uncommitted
     # work elsewhere is no reason to wait.
@@ -1934,10 +2012,12 @@ cmd_issue_fix() {
                     _issue_lock_release; echo "❌ [Issue] Provider must print {\"id\": ...} for next-blocker (got: '$pout')." >&2; return 1; }
                 n="$(issue_id_body "$raw")" || { _issue_lock_release; return 1; }
             else
+                # P-89: the blockers first, then what a person queued.
                 n="$(issue_queued_blockers "$plans" | head -n 1)"
+                [ -n "$n" ] || n="$(issue_queued_work "$plans" | head -n 1)"
                 if [ -z "$n" ]; then
                     _issue_lock_release
-                    echo "❌ [Issue] No plan blockers are queued (🧱 Plan Blockers in issues_road_map.md)." >&2; return 1
+                    echo "❌ [Issue] Nothing is queued for work (🧱 Plan Blockers and 📋 Queued in issues_road_map.md are empty)." >&2; return 1
                 fi
             fi
         fi
@@ -2070,10 +2150,11 @@ cmd_issue() {
         fix)      cmd_issue_fix "$@" ;;
         close)    cmd_issue_close "$@" ;;
         abort)    cmd_issue_abort "$@" ;;
+        queue)    cmd_issue_queue "$@" ;;
         list)     cmd_issue_list "$@" ;;
         *)
             echo "❌ [Issue] Unknown subcommand '$sub'." >&2
-            echo "Usage: aapp issue log <sev> <type> \"<symptom>\" [file <path>]… [branch <name>] [note \"<text>\"] | hotfix \"<text>\" [file <path>]… [branch <name>] [note \"<text>\"] [plan] | fix next-blocker | fix <num> [file <path>…] | fix <num> abort | close <id> [sha <sha>] [summary \"<text>\"] | abort <num> [reason \"<text>\"] | list [<n> | all] [confirm] | list note <num>" >&2
+            echo "Usage: aapp issue log <sev> <type> \"<symptom>\" [file <path>]… [branch <name>] [note \"<text>\"] | hotfix \"<text>\" [file <path>]… [branch <name>] [note \"<text>\"] [plan] | fix next-blocker | fix <num> [file <path>…] | fix <num> abort | close <id> [sha <sha>] [summary \"<text>\"] | abort <num> [reason \"<text>\"] | queue <num> [remove] | list [<n> | all] [confirm] | list note <num>" >&2
             return 1
             ;;
     esac

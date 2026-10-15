@@ -8,7 +8,7 @@
 #    - Relocation Invariant: Active ISSUES.md must contain zero resolved rows.
 # 2. Pair 2 (roadmap <-> ISSUES):
 #    - Referential Integrity: Every issue on the priority board must exist in ISSUES.md.
-#    - Drift & Unsequenced Detection: Flags phantom entries and unsequenced active issues.
+#    - Drift Detection: flags work-queue entries missing from ISSUES.md; the work queue holds only its two sections (P-89).
 # 3. Pair 3 (pickup <-> ISSUES):
 #    - Routing Cleanliness: Prevents stale unpruned pickup notes for logged issues.
 # 4. Pair 4 (Plan IDs & Reference Integrity):
@@ -153,7 +153,7 @@ check_pair2_referential_integrity() {
     # 1. Check for roadmap drift (ID on roadmap but not in active ISSUES.md)
     for rid in $roadmap_ids; do
         if ! echo "$active_ids" | grep -qx "$rid"; then
-            echo "⚠️  [Roadmap Drift] #$rid is on the priority board but missing from $issues_file."
+            echo "⚠️  [Roadmap Drift] #$rid is on the work queue but missing from $issues_file."
             errors=$((errors + 1))
         fi
     done
@@ -161,28 +161,20 @@ check_pair2_referential_integrity() {
     return $errors
 }
 
-# Get unsequenced active issues (in ISSUES.md but not on roadmap)
-get_unsequenced_issues() {
-    local roadmap_file="$1"
-    local issues_file="$2"
-
-    [ ! -f "$roadmap_file" ] || [ ! -f "$issues_file" ] && return 0
-
-    local roadmap_ids
-    roadmap_ids=$(get_roadmap_issue_ids "$roadmap_file" | issue_id_sort)
-    local active_ids
-    active_ids=$(get_active_issue_ids "$issues_file" | issue_id_sort)
-
-    local unsequenced=()
-    for aid in $active_ids; do
-        if ! echo "$roadmap_ids" | grep -qx "$aid"; then
-            unsequenced+=("#$aid")
-        fi
-    done
-
-    if [ ${#unsequenced[@]} -gt 0 ]; then
-        echo "${unsequenced[*]}"
-    fi
+# check_roadmap_sections <roadmap> (P-89): the work queue has two sections,
+# `## 🧱 Plan Blockers` and `## 📋 Queued`; any other `## ` heading is refused.
+check_roadmap_sections() {
+    local roadmap_file="$1" errors=0 h
+    [ -f "$roadmap_file" ] || return 0
+    while IFS= read -r h; do
+        [ -n "$h" ] || continue
+        case "$h" in
+            "## 🧱 Plan Blockers"*|"## 📋 Queued"*) ;;
+            *) echo "❌ [Work Queue] '$h' is not a section of $(basename "$roadmap_file"): it holds only '## 🧱 Plan Blockers' and '## 📋 Queued'. Issues stay in ISSUES.md; queue one with 'aapp issue queue <num>'."
+               errors=$((errors + 1)) ;;
+        esac
+    done < <(AAPP_LEDGER_ROADMAP="$roadmap_file" roadmap_sections)
+    return $errors
 }
 
 # Check Pair 3: pickup.md <-> ISSUES.md
@@ -669,17 +661,13 @@ check_fix_cells() {
 
 # check_ledger_issues <issues> <archive> <roadmap>: everything `aapp refine issues` requires.
 check_ledger_issues() {
-    local issues_file="$1" archive_file="$2" roadmap_file="$3" errors=0 missing
+    local issues_file="$1" archive_file="$2" roadmap_file="$3" errors=0
     check_issues_table_shape "$issues_file" || errors=$((errors + 1))
     check_fix_cells "$issues_file" || errors=$((errors + 1))
     check_pair1_disjointness "$issues_file" "$archive_file" || errors=$((errors + 1))
     check_pair8_issue_id_integrity "$issues_file" "$archive_file" || errors=$((errors + 1))
     check_pair2_referential_integrity "$roadmap_file" "$issues_file" || errors=$((errors + 1))
-    missing="$(get_unsequenced_issues "$roadmap_file" "$issues_file")"
-    if [ -n "$missing" ]; then
-        echo "❌ [Road Map] Active issue(s) missing from $(basename "$roadmap_file"): $missing; add a line for each."
-        errors=$((errors + 1))
-    fi
+    check_roadmap_sections "$roadmap_file" || errors=$((errors + 1))
     return $errors
 }
 
@@ -704,8 +692,9 @@ check_planning_health() {
     # Pair 1
     check_pair1_disjointness "$issues_file" "$archive_file" || total_errors=$((total_errors + $?))
 
-    # Pair 2
+    # Pair 2, and the work queue's two sections (P-89)
     check_pair2_referential_integrity "$roadmap_file" "$issues_file" || total_errors=$((total_errors + $?))
+    check_roadmap_sections "$roadmap_file" || total_errors=$((total_errors + $?))
 
     # Pair 3
     check_pair3_pickup_routing "$pickup_file" "$issues_file" "$archive_file" || true

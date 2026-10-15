@@ -230,7 +230,11 @@ _offline_sync_issue() {
     if [ "$where" = "active" ]; then
         row="$(grep -m 1 -E "$(_ledger_row_regex "$n")" "$oi" | sed -E "s/^([[:space:]]*\|[[:space:]]*\`?)#$n(\`?[[:space:]]*\|)/\1#$real\2/")"
         PLANS_DIR="$plans" ledger_add_row "$row" || return 1
-        PLANS_DIR="$plans" roadmap_add_entry "$real" "$(printf '%s' "$cells" | cut -f6)"
+        # P-89: an issue queued while offline stays queued, under its real id.
+        if ( ledger_use_offline; roadmap_queued ) | grep -qxF -- "$n"; then
+            PLANS_DIR="$plans" roadmap_queue_add "$real" "$(printf '%s' "$cells" | cut -f6)"
+            _issue_step queue "$real" "\"id\": \"#$real\""
+        fi
         ( ledger_use_offline; ledger_drop_row "$n" )
     else
         row="| #$real | $(printf '%s' "$cells" | cut -f2) | $(printf '%s' "$cells" | cut -f3) | $(printf '%s' "$cells" | cut -f4) | $(printf '%s' "$cells" | cut -f5) | \`$commit\` | $summary; logged offline as #$n |"

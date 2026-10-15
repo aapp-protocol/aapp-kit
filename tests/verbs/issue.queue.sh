@@ -104,7 +104,8 @@ good="$(health)"; g=$?
 printf '%s\n' '' '## Other' '- [ ] #1 -> Defect 1 shows.' >> .plans/issues_road_map.md
 badout="$(health)"; b=$?
 cp "$R/rm.before" .plans/issues_road_map.md
-if [ "$g" -eq 0 ] && [ "$b" -ne 0 ] && echo "$badout" | grep -qF '## Other' && echo "$badout" | grep -qF '📋 Queued'; then
+if ! echo "$good" | grep -qF '[Work Queue]' && [ "$b" -ne 0 ] && echo "$badout" | grep -F '[Work Queue]' | grep -qF '## Other' && \
+   echo "$badout" | grep -F '[Work Queue]' | grep -qF '📋 Queued'; then
   ok "test_planning_health_validates_queue_format"
 else
   bad "test_planning_health_validates_queue_format" "good=$g bad=$b out=$good | $badout"

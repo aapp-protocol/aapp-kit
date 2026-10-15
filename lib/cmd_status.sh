@@ -309,7 +309,7 @@ fi
 
 # 2. Issues
 echo ""
-echo "🐛 [2/4] ISSUES (Canonical Bugs & Road Map)"
+echo "🐛 [2/4] ISSUES (Work Queue & Ledger)"
 HAS_ISSUES=0
 
 # P-78: the branch issues are seen from (a plan worktree: its parent branch) and
@@ -325,9 +325,10 @@ if [ -n "$ISSUES_FILE" ] && [ -n "$(ledger_branch_map)" ] && [ -n "${AAPP_LIB:-}
     STATUS_DEV_BRANCH="$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 2p)"
 fi
 
+# P-89: the work queue (plan blockers, then what a person queued), each with
+# its branch, this branch's issues first, once any issue names one.
 if [ -n "$ROADMAP_FILE" ]; then
-    # With their branch, this branch's issues first, once any issue names one.
-    TOP_ISSUES=$(roadmap_entries_by_branch "$STATUS_BRANCH" "$STATUS_DEV_BRANCH" 5 || true)
+    TOP_ISSUES=$(roadmap_entries_by_branch "$STATUS_BRANCH" "$STATUS_DEV_BRANCH" || true)
     if [ -n "$TOP_ISSUES" ]; then
         echo "$TOP_ISSUES" | sed 's/^/  /'
         HAS_ISSUES=1
@@ -344,17 +345,19 @@ if [ -n "$OFFLINE_ROWS" ]; then
     HAS_ISSUES=1
 fi
 
-if [ -n "$ISSUES_FILE" ] && [ "$HAS_ISSUES" -eq 0 ]; then
-    # The active ledger holds only active rows
-    OPEN_ISSUES=$(ledger_row_lines | head -n 5 || true)
-    if [ -n "$OPEN_ISSUES" ]; then
-        echo "$OPEN_ISSUES" | sed 's/^/  /'
-        HAS_ISSUES=1
-    fi
+# The rest of the ledger is counted, not listed: `aapp issue list` shows it.
+UNQUEUED=0
+if [ -n "$ISSUES_FILE" ]; then
+    QUEUE_IDS="$( { roadmap_blockers; roadmap_queued; } 2>/dev/null | sed 's/^/#/')"
+    UNQUEUED="$(ledger_rows | cut -f1 | while IFS= read -r QID; do printf '%s\n' "$QUEUE_IDS" | grep -qxF -- "$QID" || echo "$QID"; done | grep -c . || true)"
 fi
-
-if [ "$HAS_ISSUES" -eq 0 ]; then
-    echo "  (No open issues in issues_road_map.md or ISSUES.md)"
+if [ "$HAS_ISSUES" -eq 0 ] && [ "${UNQUEUED:-0}" -eq 0 ]; then
+    echo "  (No open issues)"
+elif [ "$HAS_ISSUES" -eq 0 ]; then
+    echo "  (Nothing queued for work: a person queues an issue with 'aapp issue queue <num>')"
+fi
+if [ "${UNQUEUED:-0}" -gt 0 ]; then
+    echo "  ℹ️  $UNQUEUED more issue(s) logged, not queued for work: aapp issue list"
 fi
 
 # P-74: what the sync said. An issue the tracker closed is closed here at once;
@@ -373,18 +376,12 @@ if [ -n "$ISSUES_FILE" ]; then
     done < <(ledger_branch_map)
 fi
 
-# Non-destructive drift and unsequenced reporting
+# Non-destructive drift reporting
 if [ -n "$ROADMAP_FILE" ] && [ -n "$ISSUES_FILE" ]; then
     if command -v check_pair2_referential_integrity >/dev/null 2>&1; then
         DRIFT_OUT=$(check_pair2_referential_integrity "$ROADMAP_FILE" "$ISSUES_FILE" 2>/dev/null || true)
         if [ -n "$DRIFT_OUT" ]; then
             echo "$DRIFT_OUT" | sed 's/^/  /'
-        fi
-    fi
-    if command -v get_unsequenced_issues >/dev/null 2>&1; then
-        UNSEQ=$(get_unsequenced_issues "$ROADMAP_FILE" "$ISSUES_FILE" 2>/dev/null || true)
-        if [ -n "$UNSEQ" ]; then
-            echo "  ℹ️  [Unsequenced] Active issues ($UNSEQ) are not yet on the priority board."
         fi
     fi
 fi
