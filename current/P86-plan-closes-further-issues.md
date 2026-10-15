@@ -66,31 +66,31 @@ It completes the tracing of issues to commits begun by P-84 (plans made for an i
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/done.closes.sh::test_refine_closes_lists_the_issue` -> asserts `refine <plan> closes <num>` writes `* **Also Closes:** #<num>` in one commit holding only the plan, and a second issue is appended to the same line
-- [ ] `tests/verbs/done.closes.sh::test_refine_closes_refusals` -> asserts an unknown or archived issue and the plan's own `Target Issue` are refused with the plan unchanged, and an issue already listed commits nothing
-- [ ] `tests/verbs/done.closes.sh::test_refine_closes_remove` -> asserts `refine <plan> closes <num> remove` takes the issue off the line, removes the line when it was the last, and refuses an issue that is not listed
-- [ ] `tests/verbs/done.closes.sh::test_listed_row_is_untouched` -> asserts the listed issue's row keeps its status and link
-- [ ] `tests/verbs/done.closes.sh::test_done_archives_listed_issues` -> asserts `done` archives each listed issue with the commit the plan is recorded with and a summary linking the plan, in the plan's archive commit
-- [ ] `tests/verbs/done.closes.sh::test_done_unblocks_and_notifies` -> asserts a plan blocked on a listed issue resumes, and the provider gets one `issue.close` per listed issue with that commit
-- [ ] `tests/verbs/done.closes.sh::test_already_archived_is_skipped` -> asserts a listed issue closed meanwhile is skipped with a line, and `done` completes
-- [ ] `tests/verbs/done.closes.sh::test_issue_on_another_branch_stays_open` -> asserts a listed issue whose branch does not hold the plan's commit is left open with a line naming the branch, and `done` completes
-- [ ] `tests/verbs/done.closes.sh::test_listed_issue_is_a_dependent` -> asserts the ids the sync asks the tracker for include a plan's listed issues
-- [ ] `tests/verbs/done.closes.sh::test_plan_not_squashed_for_listed_issue` -> asserts under `ff` a plan with a listed issue reaches the parent with every commit and its SHA
+- [x] `tests/verbs/done.closes.sh::test_refine_closes_lists_the_issue` -> asserts `refine <plan> closes <num>` writes `* **Also Closes:** #<num>` in one commit holding only the plan, and a second issue is appended to the same line
+- [x] `tests/verbs/done.closes.sh::test_refine_closes_refusals` -> asserts an unknown or archived issue and the plan's own `Target Issue` are refused with the plan unchanged, and an issue already listed commits nothing
+- [x] `tests/verbs/done.closes.sh::test_refine_closes_remove` -> asserts `refine <plan> closes <num> remove` takes the issue off the line, removes the line when it was the last, and refuses an issue that is not listed
+- [x] `tests/verbs/done.closes.sh::test_listed_row_is_untouched` -> asserts the listed issue's row keeps its status and link
+- [x] `tests/verbs/done.closes.sh::test_done_archives_listed_issues` -> asserts `done` archives each listed issue with the commit the plan is recorded with and a summary linking the plan, in the plan's archive commit
+- [x] `tests/verbs/done.closes.sh::test_done_unblocks_and_notifies` -> asserts a plan blocked on a listed issue resumes, and the provider gets one `issue.close` per listed issue with that commit
+- [x] `tests/verbs/done.closes.sh::test_already_archived_is_skipped` -> asserts a listed issue closed meanwhile is skipped with a line, and `done` completes
+- [x] `tests/verbs/done.closes.sh::test_issue_on_another_branch_stays_open` -> asserts a listed issue whose branch does not hold the plan's commit is left open with a line naming the branch, and `done` completes
+- [x] `tests/verbs/done.closes.sh::test_listed_issue_is_a_dependent` -> asserts the ids the sync asks the tracker for include a plan's listed issues
+- [x] `tests/verbs/done.closes.sh::test_plan_not_squashed_for_listed_issue` -> asserts under `ff` a plan with a listed issue reaches the parent with every commit and its SHA
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/verbs/done.closes.sh`; confirm red.
+- [x] Task 1.1: Write `tests/verbs/done.closes.sh`; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: The `closes <num>` token of `refine` and the `Also Closes` header line.
-- [ ] Task 2.2: `done` archives each listed issue with the plan's recorded commit; the two cases that are skipped.
-- [ ] Task 2.3: `_issue_dependent_ids` includes the listed issues.
+- [x] Task 2.1: The `closes <num>` token of `refine` and the `Also Closes` header line.
+- [x] Task 2.2: `done` archives each listed issue with the plan's recorded commit; the two cases that are skipped.
+- [x] Task 2.3: `_issue_dependent_ids` includes the listed issues.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update `MANUAL.md`, `CHEATSHEET.md`, the `refine`, `done` and `issue` contracts, the plan template and the agent rules.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue; none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update `MANUAL.md`, `CHEATSHEET.md`, the `refine`, `done` and `issue` contracts, the plan template and the agent rules.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue; none stays in chat only.
 
 ---
 
