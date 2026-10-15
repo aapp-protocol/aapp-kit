@@ -71,6 +71,7 @@ This plan transforms `issues_road_map.md` into a lean **Active Work Queue** and 
 
 - When an issue is logged (`aapp issue log`), it is recorded solely in `ISSUES.md`. It no longer appends a line to `issues_road_map.md`.
 - Legacy priority bands (`User Priority`, `High Priority`, `Medium Priority`, `Low Priority`, `Triage`) are eliminated as a clean break.
+- `ISSUES.md` keeps its format: every column stays, the `Sev` cell included.
 
 ### 2.2 CLI Verb: `aapp issue queue <num> [remove]`
 A dedicated verb under `aapp issue` allows humans to manage the work queue:
@@ -237,7 +238,7 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 * [x] **Question 1 — A tracker that keeps the record. → RESOLVED (developer, 2026-10-15):** the tracker has priority; `aapp issue queue` and its `remove` send provider steps on adding and on removing (2.6).
-* [ ] **Question 2 — Legacy bands at the health check.** Proposed: refuse them (a clean break; every fixture is rewritten, listed in §3). Or: ignore sections other than the two, which keeps the change smaller but leaves old bands silently in place.
+* [x] **Question 2 — Legacy bands at the health check. → RESOLVED (developer, 2026-10-15):** refused: a clean break. The refusal names the way on: issues stay in `ISSUES.md`; queue them with `aapp issue queue <num>`.
 
 ---
 
