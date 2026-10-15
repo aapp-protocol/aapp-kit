@@ -132,6 +132,9 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 - The start gate in `lib/cmd_plan.sh` reads the blockers through `issue_queued_blockers`, which stays; `lib/cmd_plan.sh` is not changed.
 - The digest and status skills stop telling agents to read the board's priority order; the order of `aapp issue list` is the recorded order, and a plugin may sort it.
 
+### 2.8 The Clean Break Invariant, stated in full
+`templates/AGENTS.md`, *Clean Break Invariant & Fallback Governance*, gains one bullet: **No trace of the old form.** After a clean break nothing in the codebase detects, names, refuses by name, converts or explains the old form: no migration message, no list of former names, no test that mentions them. The new code knows only the new form; anything else is invalid because it is unknown. The old form lives on only in Git history and in the plan that replaced it.
+
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
@@ -170,6 +173,7 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 - [ ] Task 2.5: The provider steps `issue.queue` / `issue.unqueue`, the listing's `queued` field and the rebuild of `## 📋 Queued` at sync (`lib/cmd_issue.sh`, `lib/plugins.tsv`, `docs/reference/07-issue-protocol.md`, the sample provider).
 - [ ] Task 2.6: `lib/cmd_offline.sh`: the offline road map in the two sections; `aapp offline sync` rewrites ids in both.
 - [ ] Task 2.7: Rewrite the existing tests listed above.
+- [ ] Task 2.8: `templates/AGENTS.md`: the *No trace of the old form* bullet of the Clean Break Invariant.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites across all verbs.
@@ -199,7 +203,7 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 - [ ] `lib/planning_health.sh` -> Validate two-section road map structure.
 - [ ] `lib/docs/verbs/issue.md` -> Document `aapp issue queue` and queue gate.
 - [ ] `templates/issues_road_map.md` -> Two-section template (`Blockers`, `Queued`).
-- [ ] `templates/AGENTS.md` -> Human queue gate invariant; agents cannot self-queue.
+- [ ] `templates/AGENTS.md` -> Human queue gate invariant; agents cannot self-queue; the Clean Break Invariant states that no trace of the old form remains.
 - [ ] `templates/skills/aapp-fix/SKILL.md` -> Updated fix skill reflecting queue gate.
 - [ ] `MANUAL.md` -> Issue lifecycle, work queue specification, `aapp issue queue`.
 - [ ] `CHEATSHEET.md` -> `aapp issue queue <num> [remove]` CLI reference.
