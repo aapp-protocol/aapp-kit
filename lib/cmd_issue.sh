@@ -1134,7 +1134,8 @@ cmd_issue_close() {
 # ------------------------------------------------------------------------------
 
 # _issue_dependent_ids <plans>: the issues this repository depends on (named in
-# a plan's `Blocked On` or `Target Issue`, or with an open fix), one id per line.
+# a plan's `Blocked On`, `Target Issue` or `Also Closes`, or with an open fix),
+# one id per line.
 _issue_dependent_ids() {
     local plans="$1" pf t
     for pf in "$plans"/current/*.md; do
@@ -1144,6 +1145,8 @@ _issue_dependent_ids() {
             fix-*) issue_fix_id "$pf"; continue ;;
         esac
         sed -nE 's/^\* \*\*Blocked On:\*\*[[:space:]]*//p' "$pf" | head -n 1 | sed -E 's/\(was [^)]*\)//; s/hotfix limit reached.*//' | issue_id_refs
+        # P-86: the further issues a plan closes.
+        parse_plan_field "$pf" "Also Closes" | issue_id_refs
         t="$(issue_id_at_start "$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Target Issue \/ Milestone:\*\*[[:space:]]*//p' "$pf" | head -n 1)" 2>/dev/null)" && echo "#$t"
     done | awk 'NF && !seen[$0]++'
 }

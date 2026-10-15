@@ -62,6 +62,7 @@
     - a plan already contained in the target (a retry) is not merged again
     - cleanup (unless `no-cleanup` or `aapp.integrateCleanup = false`): `git worktree remove`, then the plan branch is deleted. Sensitive ignored files in the worktree (`.env*`, `*.pem`, `*.key`, `*secret*`) refuse the cleanup with a warning listing them (exit 0: the integration stands); `aapp.quarantineIgnored = true` copies them to `$(git rev-parse --git-common-dir)/aapp_quarantine/<id>/` first, and `force-cleanup` removes them
 - a Target Issue `#<n>` still active is closed as by `aapp issue close`: its row moves to the top of `done/000-issues-archive.md` with summary `[<id>](<file>) - <title>`, and it leaves `issues_road_map.md`; an already-archived one is left alone (P-32)
+- the further issues in `* **Also Closes:**` (P-86), each still active, are archived the same way in the same commit, with the commit the plan is recorded with (its squashed commit, or its last) and summary `[<id>](<file>) - <title>`; plans blocked on them resume by the commit rule; `issue.close` is sent once per issue. One already archived is skipped with a line; one whose branch is neither the plan's parent nor holds the commit stays open with a line naming the branch. A listed issue never makes the plan squashed
 - other open issues whose *Target Plan / Fix* cell (or road-map line) links `current/<file>` now link `done/<file>`; observation cells and the archive are untouched (P-50)
 - one commit in the plans worktree, `plan(done): archive <id> to done/ and update state matrix`, holds the move, the ledger, the matrix, any issue close and any repaired links
 - the `post-done` observer lifecycle event is dispatched after commit (P-23)
@@ -107,6 +108,16 @@ Run: `aapp test verb done`
 - `tests/verbs/done.squash.sh::test_issue_plan_squashed_under_manual` -> `manual`: a plan made for an issue is archived with one commit on its kept branch, which the records name (P-84)
 - `tests/verbs/done.squash.sh::test_later_integration_corrects_records` -> `done <id> integrate squash` on an archived plan squashes, fast-forwards and corrects the plan's ledger line, its `Commits:` and the issue's archived row in one commit on the plans branch (P-84)
 - `tests/verbs/done.squash.sh::test_issue_plan_gets_its_own_branch` -> `aapp.planWorktrees off`: `freeze-start` of a plan made for an issue creates its branch and worktree and names the path; another plan gets none (P-84)
+- `tests/verbs/done.closes.sh::test_refine_closes_lists_the_issue` -> `refine <plan> closes <num>` writes `Also Closes: #<num>` in a commit holding only the plan; a second issue is appended (P-86)
+- `tests/verbs/done.closes.sh::test_refine_closes_refusals` -> an unknown or archived issue and the plan's own Target Issue are refused, the plan unchanged; an issue already listed commits nothing (P-86)
+- `tests/verbs/done.closes.sh::test_refine_closes_remove` -> `remove` takes the issue off, the line goes with the last one; an issue not listed is refused (P-86)
+- `tests/verbs/done.closes.sh::test_listed_row_is_untouched` -> the listed issue's row keeps its status and link (P-86)
+- `tests/verbs/done.closes.sh::test_listed_issue_is_a_dependent` -> the ids the sync asks the tracker for include a plan's listed issues (P-86)
+- `tests/verbs/done.closes.sh::test_done_archives_listed_issues` -> `done` archives each listed issue with the plan's recorded commit and a summary linking the plan, in the plan's archive commit (P-86)
+- `tests/verbs/done.closes.sh::test_done_unblocks_and_notifies` -> a plan blocked on a listed issue resumes; `issue.close` is sent for each listed issue with that commit (P-86)
+- `tests/verbs/done.closes.sh::test_plan_not_squashed_for_listed_issue` -> `ff`: a plan with listed issues lands with every commit and SHA (P-86)
+- `tests/verbs/done.closes.sh::test_already_archived_is_skipped` -> a listed issue closed meanwhile is skipped with a line; `done` completes (P-86)
+- `tests/verbs/done.closes.sh::test_issue_on_another_branch_stays_open` -> a listed issue whose branch does not get the commit stays open with a line naming the branch (P-86)
 - `tests/integrate_test.sh::test_manual_default_archives_without_integrating` -> seeded `manual`: archive only, the `integrate` advice printed (P-55 Q1)
 - `tests/integrate_test.sh::test_squash_integrates_with_trailers_and_cleans_up` -> squash into the parent with lineage trailers; worktree and branch removed; main checkout back on its branch (P-55)
 - `tests/integrate_test.sh::test_integrates_into_module_parent_not_develop` -> a plan from `module/auth` lands there, not on develop (P-55)

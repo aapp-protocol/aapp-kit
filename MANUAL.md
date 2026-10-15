@@ -530,6 +530,8 @@ When a bug requires architectural decisions, spans multiple modules, or requires
 4. **Links Follow the Plan**: Renaming the plan (`aapp refine <id> slug <new-slug>`) and archiving it (`aapp done`) rewrite every *Target Plan / Fix* and road-map link pointing at the plan file, inside that command's own commit.
 5. **Relocate upon Archive**: Relocate the issue row from `ISSUES.md` to `.plans/done/000-issues-archive.md` only when the plan is implemented, verified, and archived via `/done`. Prune the issue from `issues_road_map.md` (the pre-commit hook automatically purges any resolved items).
 
+**A plan that sorts further issues (P-86).** A plan sometimes fixes issues it was not made for. Say so with `aapp refine <plan-id> closes <num>` (repeatable; `remove` takes one off): the plan's header gets `* **Also Closes:** #<n>, #<m>`, and the issues' rows are not touched, so each can still be fixed or planned on its own; whoever closes it first wins. At `aapp done` each listed issue still open is archived with **the commit the plan is recorded with** (its squashed commit, or its last), the summary `[<plan>](<file>) - <title>`, in the plan's archive commit; plans blocked on it resume and the tracker is told. A listed issue already archived is skipped; one whose branch is neither the plan's parent nor holds that commit stays open, with a line naming the branch. Several issues may share one commit; a plan is never squashed because of a listed issue, only because it was made for one (P-84). Where a tracker keeps the record, listed issues are among those the sync asks for.
+
 ---
 
 ### Mid-Execution Issue Escape Triage

@@ -20,6 +20,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp refine <id> "<msg>"` | **✅ Yes** | Commit an edit to an active plan's content through the plans commit engine |
 | `aapp refine <id> slug <new-slug>` | **✅ Yes** | Rename a plan file; issue links and the matrix follow |
 | `aapp refine pickup\|issues "<msg>"` | **✅ Yes** | Commit a validated hand edit of `pickup.md`, or a change to existing rows of `ISSUES.md` + road map (new rows: `aapp issue log`) |
+| `aapp refine <id> closes <num> [remove]` | **✅ Yes** | List a further issue the plan sorts (`Also Closes:`), or take it off; `aapp done` closes it with the plan's commit (P-86) |
 | `aapp refine <id> blocked <num>` | **✅ Yes** | Block a plan on active issue `#<num>` (Status + `Blocked On:`); chain `&& aapp matrix` |
 | `aapp refine <id> unblocked <num>` | **✅ Yes** | Remove closed issue `#<num>` from a plan's `Blocked On:` by hand: for a fix that reached the plan's parent branch as another commit (squash, cherry-pick, rebase) |
 | `aapp refine issues "<msg>" branch <num> <name>` | **✅ Yes** | Name the branch issue `#<num>`'s fix must land on (the development branch clears it) |

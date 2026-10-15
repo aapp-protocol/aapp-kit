@@ -2265,6 +2265,31 @@ cmd_done() {
         unblocked_paths="$(issue_unblock_plans "$close_issue" "$commit_sha")" || exit 1
     fi
 
+    # P-86: the further issues the plan closes go with the same commit. One
+    # already archived is skipped; one whose branch will not hold the commit
+    # (neither the plan's parent nor a branch that has it) stays open.
+    local also_ids=() also_closed=() also_payloads=() also_notes=() also_summary="" an ab aparent
+    while IFS= read -r an; do [ -n "$an" ] && also_ids+=("$an"); done < <(plan_also_closes "$done_file")
+    if [ ${#also_ids[@]} -gt 0 ]; then
+        _load_issue_module
+        aparent="$(plan_base_branch "$done_file")"
+        also_summary="[$plan_id]($bname) - $(grep -m 1 -E '^# ' "$done_file" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*|🧩[[:space:]]*Group[[:space:]]+)?Plan[^:]*:[[:space:]]*//')"
+        for an in "${also_ids[@]}"; do
+            if ! ledger_row "$an" >/dev/null 2>&1; then
+                also_notes+=("   Also closes : #$an is already archived; skipped."); continue
+            fi
+            ab="$(issue_branch "$an")"
+            if [ -n "$ab" ] && [ "$ab" != "$aparent" ] && ! git merge-base --is-ancestor "$commit_sha" "$ab" 2>/dev/null; then
+                also_notes+=("   Also closes : #$an stays open: its branch '$ab' does not hold \`$commit_sha\`; 'aapp issue close $an' once it does.")
+                continue
+            fi
+            also_payloads+=("$(issue_payload "$an" 2>/dev/null || true)")
+            ledger_archive_row "$an" "$commit_sha" "$also_summary" || exit 1
+            unblocked_paths="$unblocked_paths $(issue_unblock_plans "$an" "$commit_sha")" || exit 1
+            also_closed+=("$an")
+        done
+    fi
+
     # P-50: other open issues that link this plan now point at done/.
     _load_issue_module
     local relinked
@@ -2296,7 +2321,7 @@ cmd_done() {
         local done_targets=("current/$bname" "done/$bname")
         [ -f "$ledger_file" ] && done_targets+=("done/000-archive-ledger.md")
         [ -f "$sm_file" ] && done_targets+=("state_matrix.md")
-        if [ "$close_where" = "active" ]; then
+        if [ "$close_where" = "active" ] || [ ${#also_closed[@]} -gt 0 ]; then
             done_targets+=($(ledger_commit_paths))
             local up
             for up in $unblocked_paths; do done_targets+=("$up"); done
@@ -2318,6 +2343,12 @@ cmd_done() {
         issue_notify_close "$close_issue" "$commit_sha" "$close_summary" "$plan_id" "$close_payload"
         echo "   Issue closed : #$close_issue -> done/000-issues-archive.md"
     fi
+    local ai
+    for ai in "${!also_closed[@]}"; do
+        issue_notify_close "${also_closed[$ai]}" "$commit_sha" "$also_summary" "$plan_id" "${also_payloads[$ai]}"
+        echo "   Also closes : #${also_closed[$ai]} -> done/000-issues-archive.md"
+    done
+    for ai in "${also_notes[@]}"; do echo "$ai"; done
 
     # Dispatch post-done observer lifecycle event
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
@@ -3622,10 +3653,55 @@ _refine_unblocked() {
     fi
 }
 
+# plan_also_closes <plan_file> (P-86): the further issues a plan closes, from
+# its `* **Also Closes:**` line, one id (without `#`) per line.
+plan_also_closes() {
+    parse_plan_field "$1" "Also Closes" | issue_id_refs | sed 's/^#//'
+}
+
+# _refine_closes <plan> <num> [remove] (P-86): adds an active issue to the
+# plan's `Also Closes` list, or takes it off; the issue's row is not touched.
+_refine_closes() {
+    local usage="aapp refine <plan-id> closes <num> [remove] (an issue's id without the '#')"
+    local pf rel pid num list new sha t what
+    num="$(issue_id_body "$2" 2>/dev/null)" || { echo "❌ [Refine] Usage: $usage" >&2; exit 1; }
+    case "${3:-}" in ''|remove) ;; *) echo "❌ [Refine] Unknown token '$3'. Usage: $usage" >&2; exit 1 ;; esac
+    pf="$(resolve_plan_file "$1" "refine")" || exit 1
+    rel="current/$(basename "$pf")"
+    pid="$(parse_plan_field "$pf" "Plan ID")"; [ -n "$pid" ] || pid="$1"
+    list="$(plan_also_closes "$pf")"
+    if [ "${3:-}" = "remove" ]; then
+        if ! printf '%s\n' "$list" | grep -qxF -- "$num"; then
+            echo "❌ [Refine] $pid does not list #$num in its Also Closes." >&2; exit 1
+        fi
+        list="$(printf '%s\n' "$list" | grep -vxF -- "$num" || true)"
+        what="no longer closes #$num"
+    else
+        if printf '%s\n' "$list" | grep -qxF -- "$num"; then
+            echo "ℹ️  [Refine] $pid already closes #$num; nothing changed."
+            return 0
+        fi
+        if ! ledger_row "$num" >/dev/null 2>&1; then
+            echo "❌ [Refine] #$num is not an active issue in ISSUES.md." >&2; exit 1
+        fi
+        t="$(issue_id_at_start "$(parse_plan_field "$pf" "Target Issue / Milestone")" 2>/dev/null)" || t=""
+        if [ "$t" = "$num" ]; then
+            echo "❌ [Refine] #$num is $pid's own Target Issue: 'aapp done' closes it already." >&2; exit 1
+        fi
+        list="$(printf '%s\n%s\n' "$list" "$num" | awk 'NF')"
+        what="closes #$num"
+    fi
+    new="$(printf '%s\n' "$list" | awk 'NF { printf "%s#%s", (n++ ? ", " : ""), $0 }')"
+    write_plan_field "$pf" "Also Closes" "$new" "Target Issue / Milestone" || exit 1
+    plans_commit "plan(refine): $pid $what" "$rel" || exit 1
+    sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
+    echo "📝 [Refine] $pid committed ($sha): $what"
+}
+
 cmd_refine() {
     local query="${1:-}" msg="${2:-}" plan_file rel plan_id sha num="" subject rc
     if [ -z "$query" ] || [ -z "$msg" ]; then
-        echo "❌ [Refine] Usage: aapp refine <plan-id> \"<what changed>\" | <plan-id> blocked <num> | <plan-id> unblocked <num> | <plan-id> slug <new-slug> | pickup \"<msg>\" | issues \"<msg>\" [branch <num> <name>]" >&2
+        echo "❌ [Refine] Usage: aapp refine <plan-id> \"<what changed>\" | <plan-id> blocked <num> | <plan-id> unblocked <num> | <plan-id> slug <new-slug> | <plan-id> closes <num> [remove] | pickup \"<msg>\" | issues \"<msg>\" [branch <num> <name>]" >&2
         exit 1
     fi
     # P-50: ledger targets are reserved words, checked before plan resolution
@@ -3635,6 +3711,10 @@ cmd_refine() {
     esac
     if [ "$msg" = "unblocked" ] && [ $# -ge 3 ]; then
         _refine_unblocked "$query" "$3"
+        return
+    fi
+    if [ "$msg" = "closes" ] && [ $# -ge 3 ]; then
+        _refine_closes "$query" "$3" "${4:-}"
         return
     fi
     if [ "$msg" = "slug" ] && [ $# -ge 3 ]; then

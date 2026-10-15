@@ -1,10 +1,11 @@
-# refine <id> "<what changed>" | refine <id> blocked <num> | refine <id> unblocked <num> | refine <id> slug <new-slug> | refine <id> group <group>|none | refine pickup "<msg>" | refine issues "<msg>" [branch <num> <name>] [note <num> "<text>"]…
+# refine <id> "<what changed>" | refine <id> blocked <num> | refine <id> unblocked <num> | refine <id> slug <new-slug> | refine <id> closes <num> [remove] | refine <id> group <group>|none | refine pickup "<msg>" | refine issues "<msg>" [branch <num> <name>] [note <num> "<text>"]…
 
 ## Ingress
 - `id` (positional, required): an active plan in `.plans/current/` (`P-47`, `47`, slug or filename)
 - `"<what changed>"` (positional, required): one line; becomes the commit subject `plan(refine): <id> <what changed>`
 - `blocked <num>` (tokens, in place of the message): block the plan on active issue `#<num>` (the issue's id without the `#`: a number or a tracker's key, e.g. `101`, `PROJ-101`)
 - `unblocked <num>` (tokens, in place of the message): remove closed issue `#<num>` from the plan's `Blocked On:` (P-78). The manual unblock, for a fix that reached the plan's parent branch as another commit (a squash merge, a cherry-pick, a rebase), which `aapp issue close` and `aapp status` do not recognise
+- `closes <num> [remove]` (tokens, in place of the message, P-86): add active issue `#<num>` to the plan's `* **Also Closes:** #<n>, #<m>` header line (written after `Target Issue / Milestone`), or take it off with `remove`; the line goes when the list is empty. `aapp done` closes the listed issues with the plan's recorded commit
 - `slug <new-slug>` (tokens, in place of the message): rename the plan file to `current/P<N>-<new-slug>.md`; normalised like `aapp draft` (P-50)
 - `group <group>` / `group none` (tokens, in place of the message): the plan joins group plan `<group>`, or leaves its group (P-64)
 - `pickup` / `issues` (in place of `id`, reserved words checked before plan resolution): commit a hand-made edit of `pickup.md`, or a change to existing rows of `ISSUES.md` + `issues_road_map.md` (P-50); a row is never added here: `aapp issue log` is the one writer of new rows (P-74). A plan whose file name contains them stays reachable by its ID
@@ -28,6 +29,7 @@
 - the subject `plan(refine): <id> <msg>` is longer than `aapp.subjectMaxLen` -> exit 1, stderr `Commit subject is <n> characters; the limit is <max> (aapp.subjectMaxLen).` and `Shorten the message by <n-max> characters: "<msg>"`; nothing staged or committed
 - `blocked <num>` with `#<num>` not active in `ISSUES.md` (unknown or archived) -> exit 1, stderr `#<num> is not an active issue in ISSUES.md.`; the plan file is unchanged
 - `unblocked <num>` with `#<num>` still an active row -> exit 1, stderr `#<num> is still open`; with `#<num>` not in the plan's `Blocked On:` -> exit 1, `<id> is not blocked on #<num>`; the plan file is unchanged (P-78)
+- `closes <num>` with `#<num>` not an active row, or the plan's own `Target Issue` -> exit 1, nothing changed; already listed -> exit 0, `already closes`, nothing committed; `remove` of an issue not listed -> exit 1; an unknown token after it -> exit 1 (P-86)
 - `issues … branch`: tokens other than `branch <num> <name>` -> exit 1, usage; `#<num>` not an active row, or `<name>` a branch that exists neither here nor on a remote -> exit 1; nothing written (P-78)
 - `issues` where a tracker keeps the record (the ledgers are not tracked) with neither `branch` nor `note` -> exit 1: the issues are changed on the tracker, or here with those tokens (P-74)
 - message form, the plan file has no changes -> exit 1, stderr `Nothing to commit`
@@ -40,6 +42,7 @@
 - `blocked <num>`: the Status line becomes `🟥 BLOCKED` and `#<num>` is appended to `* **Blocked On:**` (a list); the first block records the previous status, `* **Blocked On:** #<num> (was <status>)`; the commit subject is `plan(refine): <id> blocked on #<num>`
 - `blocked <num>` with `#<num>` already listed -> exit 0, stdout `already blocked on #<num>; nothing changed`; no commit
 - `unblocked <num>`: `#<num>` leaves `* **Blocked On:**`; when it was the last and the block is not permanent, the line goes and the recorded status returns; one commit `plan(refine): <id> unblocked from #<num>` with the plan only; stdout names what still blocks it (P-78)
+- `closes <num> [remove]`: one commit `plan(refine): <id> closes #<num>` (or `no longer closes #<num>`) holding only the plan; the issue's row is not touched (P-86)
 - `issues`: a new row's `Branch` cell is left as written, whichever checkout the command is run from; a row names a branch only through `branch <num> <name>` (or `aapp issue hotfix`), and none named means the development branch (#136)
 - `issues … branch <num> <name>`: the row's `Branch` cell names `<name>` (the column is added, last, when the ledger lacks it; empty for the development branch); already so and nothing else changed -> exit 0, `already targets`, no commit (P-78)
 - `slug`: the file is renamed, its change log gains `File renamed from <old> to <new>`, issue and road-map links to it are repaired (observation cells untouched), the matrix is re-derived and the active buffer follows; one commit `plan(refine): <id> renamed to <new>`; stdout `📝 [Refine] <id> renamed to <new> (<sha>); <n> issue links repaired`

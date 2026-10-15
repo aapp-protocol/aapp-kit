@@ -171,6 +171,7 @@ The lanes are separate, **not sealed**. A fix too large to simply *do* deserves 
 3. **Leave the issue on `issues_road_map.md`** — it is still an open issue until the fix ships.
 4. `aapp draft` registers the plan in `state_matrix.md` like any other. Renaming a plan later (`aapp refine <id> slug <new-slug>`) and archiving it (`aapp done`) repair the issue links that point at it.
 5. Close the issue only when the fix is verified and the plan is archived via `done`. `aapp done` relocates the Target Issue row to `.plans/done/000-issues-archive.md` and prunes `issues_road_map.md` in the same commit. For a direct fix with no plan, run `aapp issue close <num> [sha <sha>] [summary "<text>"]` instead of editing the tables by hand.
+6. **A plan that also sorts other issues says so before `done`:** `aapp refine <plan-id> closes <num>` for each one (`remove` takes it off). `aapp done` then closes them with the plan's commit. Never close such an issue by hand after the plan lands, and never make it the plan's `Target Issue`: that is for the issue the plan was made for.
 
 **Visibility, not permission.** Promote when it fits, then **say plainly what you did and why** — "ISSUE-004 touches four modules and the parser contract, so I promoted it to a draft blueprint." The human can refine, abort, or ignore it; a draft costs nothing. What you must never do is promote *silently*.
 
