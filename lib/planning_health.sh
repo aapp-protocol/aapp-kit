@@ -164,13 +164,14 @@ check_pair2_referential_integrity() {
 # check_roadmap_sections <roadmap> (P-89): the work queue has two sections,
 # `## 🧱 Plan Blockers` and `## 📋 Queued`; any other `## ` heading is refused.
 check_roadmap_sections() {
-    local roadmap_file="$1" errors=0 h
+    local roadmap_file="$1" errors=0 h name
     [ -f "$roadmap_file" ] || return 0
+    name="${roadmap_file##*/}"
     while IFS= read -r h; do
         [ -n "$h" ] || continue
         case "$h" in
             "## 🧱 Plan Blockers"*|"## 📋 Queued"*) ;;
-            *) echo "❌ [Work Queue] '$h' is not a section of $(basename "$roadmap_file"): it holds only '## 🧱 Plan Blockers' and '## 📋 Queued'. Issues stay in ISSUES.md; queue one with 'aapp issue queue <num>'."
+            *) echo "❌ [Work Queue] '$h' is not a section of $name: it holds only '## 🧱 Plan Blockers' and '## 📋 Queued'. Issues stay in ISSUES.md; queue one with 'aapp issue queue <num>'."
                errors=$((errors + 1)) ;;
         esac
     done < <(AAPP_LEDGER_ROADMAP="$roadmap_file" roadmap_sections)

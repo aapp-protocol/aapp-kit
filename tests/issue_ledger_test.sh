@@ -40,7 +40,7 @@ EOF
 ## 🧱 Plan Blockers
 - [ ] #10 -> Third problem. (blocks P-8)
 
-## 🔴 High Priority
+## 📋 Queued
 - [ ] #11 -> Second problem. See [P-7](current/P7-fix-it.md).
 - [x] #8 -> Old one. ✅ Resolved
 - [ ] #12 -> First problem.

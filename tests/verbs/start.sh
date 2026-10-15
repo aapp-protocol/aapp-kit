@@ -147,7 +147,7 @@ cd "$R/pb" || exit 1
 printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
   '| #20 | `High` | `CORE` | 2026-10-01 | `src/q.py` | Q breaks. | blocks [P-1](current/P1-x.md) | 🟡 `Incubated` |' \
   '| #21 | `High` | `CORE` | 2026-10-01 | `CHANGELOG.md` | Log breaks. | blocks [P-1](current/P1-x.md) | 🟡 `Incubated` |' > .plans/ISSUES.md
-printf '%s\n' '# Issue Priority Board' '' '## 🧱 Plan Blockers' '- [ ] #20 -> Q breaks. (blocks P-1)' '- [ ] #21 -> Log breaks. (blocks P-1)' '' '## 🔴 High Priority (Technical Urgency)' > .plans/issues_road_map.md
+printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 🧱 Plan Blockers' '- [ ] #20 -> Q breaks. (blocks P-1)' '- [ ] #21 -> Log breaks. (blocks P-1)' '' '## 📋 Queued' > .plans/issues_road_map.md
 git -C .plans add ISSUES.md issues_road_map.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
 qa="$(draft_plan queued-a)"; targets_only "$qa" "src/q.py"; freeze_plan "$qa"
 before="$(cksum < "$(plan_file "$qa")")"; head0="$(git -C .plans rev-parse HEAD)"

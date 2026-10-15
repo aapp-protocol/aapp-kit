@@ -398,7 +398,7 @@ cd "$R/mc" || exit 1
 mkdir -p src && echo "m=1" > src/mc.sh && git add src CHANGELOG.md && git commit -qm "base" --no-verify >/dev/null 2>&1
 printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
   '| #2 | `Low` | `CORE` | 2026-10-11 | `src/mc.sh` | Broken. |  | 🟡 `Incubated` |' > .plans/ISSUES.md
-printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #2 -> Broken.' > .plans/issues_road_map.md
+printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued' '- [ ] #2 -> Broken.' > .plans/issues_road_map.md
 git -C .plans add ISSUES.md issues_road_map.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
 git config aapp.issueFixWait 0
 aapp issue fix 2 >/dev/null 2>&1

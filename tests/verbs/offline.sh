@@ -37,7 +37,7 @@ sandbox() {
   git branch develop; git checkout -q develop
   git config aapp.planWorktrees off; git config aapp.issueFixWait 0; git config aapp.pluginTimeout 2
   { printf '%s\n' '# Issues' '' "$HDR" "$SEP"; row 1 a; row 2 b; row 3 c; } > .plans/ISSUES.md
-  printf '%s\n' '# Issue Priority Board' '' '## 📥 Triage (Incoming / Unsequenced)' '- [ ] #1 -> Defect 1.' '- [ ] #2 -> Defect 2.' '- [ ] #3 -> Defect 3.' > .plans/issues_road_map.md
+  printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued' '- [ ] #1 -> Defect 1.' '- [ ] #2 -> Defect 2.' '- [ ] #3 -> Defect 3.' > .plans/issues_road_map.md
   printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
     '| #7 | `Low` | `CLI` | 2026-08-01 | 2026-08-02 | `0000000` | Closed long ago. |' > .plans/done/000-issues-archive.md
   git -C .plans add -A >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
@@ -166,7 +166,7 @@ printf '%s\n' '#501' '#502' '#503' > "$S/ids"
 : > "$S/log"; plans0="$(git -C .plans rev-parse HEAD)"; subj0="$(git log -1 --format=%s)"
 out="$(aapp offline sync 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && main_row 503 && grep -E '^\| #503 \|' .plans/ISSUES.md | grep -qF 'The third one' && blocked_on "$(pf "$P")" | grep -qF '#503' && \
-   ! blocked_on "$(pf "$P")" | grep -qF '#1009' && ! off_row 1009 && grep -qE '#503 -> ' .plans/issues_road_map.md; then
+   ! blocked_on "$(pf "$P")" | grep -qF '#1009' && ! off_row 1009 && ! grep -qE '#(503|1009) -> ' .plans/issues_road_map.md; then
   ok "test_offline_sync_promotes_and_relinks"
 else
   bad "test_offline_sync_promotes_and_relinks" "rc=$rc plan=[$(blocked_on "$(pf "$P")")] main=$(grep -oE '^\| #[0-9]+' .plans/ISSUES.md | tr '\n' ' ') out=$out"

@@ -377,7 +377,7 @@ echo "== 11. issue roadmap hygiene (auto-prune resolved items) =="
 setup
 mkdir -p .plans
 cat > .plans/issues_road_map.md <<'EOF'
-# 🗺️ Issue Priority Board
+# 🗺️ Issue Work Queue
 1. `ISSUE-001` -> Still open
 2. `ISSUE-002` -> All done ✅ `Resolved`
 - [ ] `ISSUE-003` -> Open edge case
@@ -403,9 +403,9 @@ echo "== 11b. POSIX ID-anchored roadmap auto-pruning preserves prose =="
 setup
 mkdir -p .plans
 cat > .plans/issues_road_map.md <<'EOF'
-# 🗺️ Issue Priority Board
+# 🗺️ Issue Work Queue
 > **Role:** Resolved issues are auto-pruned.
-## 🔴 High Priority
+## 📋 Queued
 1. #1 -> Still open
 2. #2 -> All done ✅ Resolved
 - [ ] #3 -> Done Resolved
@@ -473,7 +473,7 @@ cat > .plans/done/000-issues-archive.md <<'EOF'
 | #2 | `High` | `CLI` | 2026-09-09 | 2026-09-09 | `commit` | Resolved description. |
 EOF
 cat > .plans/issues_road_map.md <<'EOF'
-# 🗺️ Issue Priority Board
+# 🗺️ Issue Work Queue
 1. #1 -> Active issue
 EOF
 

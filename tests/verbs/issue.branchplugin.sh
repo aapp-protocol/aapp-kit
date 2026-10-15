@@ -47,7 +47,7 @@ sandbox() {
   git config aapp.planWorktrees on; git config aapp.commitMode microcommits; git config aapp.integrate ff
   git config aapp.issueFixWait 0; git config aapp.pluginTimeout 2; git config aapp.maxEmergencyHotfixes 9
   { printf '%s\n' '# Issues' '' "$HDR" "$SEP"; printf '%s\n' "$@"; } > .plans/ISSUES.md
-  { printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)'
+  { printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued'
     printf '%s\n' "$@" | sed -nE 's/^\| (#[0-9]+) .*/- [ ] \1 -> Defect./p'; } > .plans/issues_road_map.md
   printf '%s\n' '# Archive' '' "$ARCH" "$ASEP" > .plans/done/000-issues-archive.md
   git -C .plans add -A >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
@@ -182,7 +182,7 @@ aapp issue fix 7 abort >/dev/null 2>&1
 git remote remove origin
 
 echo "== next-blocker and a direct close =="
-sed -i '/^## 🔴/i ## 🧱 Plan Blockers\n- [ ] #8 -> Defect (blocks X)\n' .plans/issues_road_map.md
+sed -i '/^## 📋/i ## 🧱 Plan Blockers\n- [ ] #8 -> Defect (blocks X)\n' .plans/issues_road_map.md
 git -C .plans commit -qam "queue #8" >/dev/null 2>&1
 reset_calls; answer '{"status": "ok", "branch": "modx"}'
 out="$(aapp issue fix next-blocker 2>&1)"; rc=$?

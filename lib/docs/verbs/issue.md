@@ -1,15 +1,16 @@
-# issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"] | hotfix "<text>" [file <path>]… [branch <name>] [note "<text>"] [plan] | fix next-blocker | fix <num> [file <path>…] [group <group>] | fix <num> abort | close <id> [sha <sha>] [summary "<text>"] | abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm] | list [<n> | all] [confirm] | list note <num>
+# issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"] | hotfix "<text>" [file <path>]… [branch <name>] [note "<text>"] [plan] | fix next-blocker | fix <num> [file <path>…] [group <group>] | fix <num> abort | queue <num> [remove] | close <id> [sha <sha>] [summary "<text>"] | abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm] | list [<n> | all] [confirm] | list note <num>
 
 ## Ingress
 - positional forms:
-    - `log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]` (P-74): the handler, and the one writer of new rows. It takes the id, writes the row and its road-map line and commits; nobody writes a row or picks an id by hand. `<sev>`: `Critical`, `High`, `Medium` or `Low`; `<type>`: an uppercase token; `<symptom>`: one line, at most 250 characters, newlines collapsed to spaces; `file` fills the Location; `branch` names the branch the fix must land on (optional: none named is the development branch, and none is ever taken from the checkout the command runs in); `note` is the issue's description
+    - `log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]` (P-74): the handler, and the one writer of new rows. It takes the id, writes the row (no work-queue line, P-89) and commits; nobody writes a row or picks an id by hand. `<sev>`: `Critical`, `High`, `Medium` or `Low`; `<type>`: an uppercase token; `<symptom>`: one line, at most 250 characters, newlines collapsed to spaces; `file` fills the Location; `branch` names the branch the fix must land on (optional: none named is the development branch, and none is ever taken from the checkout the command runs in); `note` is the issue's description
     - `hotfix "<text>" [file <path>]… [branch <name>] [note "<text>"] [plan]` (P-52): from a plan's worktree, logs the blocking bug as a new issue, queues it under 🧱 Plan Blockers, records it in the plan's `Emergency Hotfixes:` and blocks the plan, in one commit; `plan` drafts a plan from it instead of queueing; `branch <name>` names the branch the fix must land on (P-78); without it, the plan's parent branch when every file named is one of the plan's Target Files, otherwise none (P-83); logged through the same handler as `log`, with `note` as its description (P-74)
     - `fix next-blocker` | `fix <num> [file <path>…]` (P-52): opens a temporary mini plan `current/fix-<num>.md` for one issue, one fix at a time; the files come from the row's Location (only its path tokens: present in the working tree, or containing `/` or a file extension, `:lines` stripped, P-58), `file` adds one the log does not name; `next-blocker` claims the top Plan Blocker; with a mini plan of `#<num>` open, `file` adds files to it
     - `fix <num> group <group>` (P-64): a bug caused by a group's work; the issue's branch becomes the group's feature branch, so the fix is made in `.workspace/fix-<num>` on `fix/<num>` cut from it, and `close` lands it there
     - `fix <num> abort` (P-52): drops an uncommitted mini plan; the issue stays open
+    - `queue <num> [remove]` (P-89): a person's decision that an active issue (`Incubated` or `Planned`) may be worked on: `- [ ] #<num> -> <symptom>` is appended to `## 📋 Queued` of `.plans/issues_road_map.md` in one commit `issue(queue): #<num> queued`; `remove` takes the line off (`issue(queue): #<num> unqueued`). Never run by an agent on its own
     - `close <id>`: relocates an active issue row to the archive
     - `abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` (P-76): withdraws an active issue with what was opened for it, its promoted plan (`[P-<id>](current/…)` in its *Target Plan / Fix* cell) or its open mini plan; `reason` is one line (default `Withdrawn`); the other tokens go to `aapp plan abort` unchanged
-    - `list [<n> | all] [confirm]`: prints active issues in road-map order; with a provider that lists issues it first brings them up to date (P-74); `confirm` answers the question the first such listing asks
+    - `list [<n> | all] [confirm]`: prints every active issue in the order `ISSUES.md` records it (a sorting plugin may order it otherwise, P-89); with a provider that lists issues it first brings them up to date (P-74); `confirm` answers the question the first such listing asks
     - `list note <num>` (P-74): prints one issue's row with its description and notes, as `fix` hands them over
 - `<id>`: a number (`79`, `#79`, `ISSUE-79`) or a tracker's key (`PROJ-101`, `#PROJ-101`; lowercase is uppercased). Quote the `#` forms: an unquoted `#79` is a shell comment. One definition, in `lib/aapp-lib.sh` (P-79)
 - the branch of an issue (P-78): where its fix must land, the `Branch` cell of its row. No branch named (an empty cell, a ledger without the column) means the development branch (`aapp.devBranch`; the default branch when none exists). The cell is found by the header's column name; the column is added, last, by the first write that names another branch. A branch that exists only on a remote counts as existing
@@ -49,6 +50,9 @@
 - `hotfix` with no plan bound in this worktree, or a mini plan bound -> exit 1; nothing written, no ID spent (a file of the plan's own targets is accepted: plan work vs hotfix is decided by scope)
 - `fix` while another mini plan is open -> waits, printing each wait (2 s, 3 s, …), up to `aapp.issueFixWait`; then exit 1, stderr `#<n> is still being fixed; retry later.`
 - `fix` on an inactive issue, `next-blocker` with an empty queue, or no files known -> exit 1; nothing written
+- `fix <num>` of an issue that is neither under `## 🧱 Plan Blockers` nor under `## 📋 Queued` -> exit 1, stderr `#<num> is not queued for work`, naming `aapp issue queue <num>`; nothing written (P-89)
+- `queue` of an issue that is not active, not `Incubated` or `Planned`, already queued, or a plan blocker; `queue … remove` of an issue that is not queued; an unknown token -> exit 1, nothing written (P-89)
+- `queue` where a tracker keeps the record (P-74) and `issue.queue` / `issue.unqueue` fails or is not answered `ok` -> exit 1, nothing changes locally (P-89)
 - `close` while the issue's branch is checked out somewhere with uncommitted changes in the fixed files -> exit 1, stderr names the files and the checkout; the fix worktree, its commits, both branches and the issue are unchanged (P-85). Uncommitted work at `fix` time is no reason to wait: the fix has its own working copy
 - `hotfix … branch <name>` with a branch that exists neither here nor on a remote -> exit 1; nothing written, no ID spent (P-78)
 - `fix`, or `close` with no open fix, of an issue whose row names no branch, when the installed `aapp-issue-branch` plugin fails, times out (`aapp.pluginTimeout`), says `failed`, answers `ok` without `branch`, or names a branch that exists neither here nor on a remote -> exit 1: no mini plan, no worktree, nothing closed, nothing written; the plugin's `message` is shown and stderr names `aapp refine issues "<msg>" branch <num> <name>`. The development branch is never taken because the plugin broke (P-83)
@@ -97,7 +101,8 @@
     - the provider is not notified: `issue.close` reports a fix
     - a withdrawn issue has no commit: the branch rules do not apply, and every plan blocked on it resumes whatever its parent branch (P-78)
     - the other direction never withdraws an issue: `aapp plan abort` and `fix <num> abort` leave it open
-- `list`: road-map entries in board order, the same selection as the `aapp status` Issues pillar; once an open issue names a branch, each line ends with `(branch: <name>)` and the issues of the current branch (in a plan's worktree: of the plan's parent branch) come first (P-78); a truncated list ends with `… <k> more (aapp issue list all)`
+- the work queue (P-89): `.plans/issues_road_map.md` has two sections, `## 🧱 Plan Blockers` (written by `hotfix`) and `## 📋 Queued` (written by `queue`); `fix next-blocker` takes the top blocker, then the top queued issue (a `Planned` one is skipped: its plan fixes it). `queue` sends `issue.queue`, `queue … remove` sends `issue.unqueue`, with the whole issue. Where a tracker keeps the record its queue is the queue: the listing's `queued` field (true or false) rebuilds `## 📋 Queued` at every sync, in the listing's order; without one, a failing step only warns
+- `list`: every active issue in the order `ISSUES.md` records it; once an open issue names a branch, each line ends with `(branch: <name>)` and the issues of the current branch (in a plan's worktree: of the plan's parent branch) come first (P-78); a truncated list ends with `… <k> more (aapp issue list all)`
 - `aapp done` on a plan whose Target Issue is `#<n>` performs the same `close` in its own archive commit; a Target Issue in neither ledger refuses `done` before anything moves. Other plans blocked on `#<n>` resume under the same rule (P-78): at once when the plan's commit is already in their parent branch, otherwise after `done` integrates the plan branch, or at the next `aapp status` once the commit is there
 
 ## Exit
@@ -111,13 +116,24 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.sh::test_non_integer_counter_fails_closed` -> a corrupt counter refuses `log`; nothing written
 - `tests/verbs/issue.sh::test_provider_allocate_ratchets_counter` -> a provider's id on `issue.log` is the row's id and the counter moves past it
 - `tests/verbs/issue.sh::test_failing_provider_refuses_allocation` -> a failing provider is fatal, no local fallback
+- `tests/verbs/issue.queue.sh::test_queue_appends_to_road_map` -> `queue <num>` adds the issue to `## 📋 Queued` in one `issue(queue)` commit (P-89)
+- `tests/verbs/issue.queue.sh::test_queue_remove` -> `queue <num> remove` takes it off in one commit; the row stays (P-89)
+- `tests/verbs/issue.queue.sh::test_queue_refuses_invalid_or_resolved` -> an unknown, an archived or an already queued issue is refused; nothing committed (P-89)
+- `tests/verbs/issue.queue.sh::test_fix_refuses_unqueued_issue` -> `fix` of an issue not queued is refused naming `aapp issue queue <num>`; nothing written (P-89)
+- `tests/verbs/issue.queue.sh::test_fix_accepts_queued_issue` -> `fix` of a queued issue opens it (P-89)
+- `tests/verbs/issue.queue.sh::test_fix_next_blocker_falls_back_to_queued` -> with no blocker, `fix next-blocker` takes the top queued issue (P-89)
+- `tests/verbs/issue.queue.sh::test_log_does_not_append_to_road_map` -> `log` writes the row only; the work queue is unchanged (P-89)
+- `tests/verbs/issue.queue.sh::test_planning_health_validates_queue_format` -> the health check passes the two sections and refuses any other (P-89)
+- `tests/verbs/issue.queue.sh::test_queue_sends_provider_steps` -> `queue` and `queue remove` send `issue.queue` / `issue.unqueue` with the issue (P-89)
+- `tests/verbs/issue.queue.sh::test_listing_provider_owns_the_queue` -> with a tracker that keeps the record, a refused `issue.queue` changes nothing, and the sync rebuilds `## 📋 Queued` from the listing's `queued` field (P-89)
+- `tests/verbs/issue.queue.sh::test_offline_sync_rewrites_queued_id` -> an issue queued while offline is queued under its real id after `aapp offline sync`; one not queued is not (P-89)
 - `tests/verbs/issue.sh::test_close_relocates_prunes_and_commits` -> row archived at the top, road map pruned, one clean commit
 - `tests/verbs/issue.sh::test_close_plugin_failure_only_warns` -> a failing provider on `close` warns, exit 0
 - `tests/verbs/issue.sh::test_close_summary_escapes_pipes` -> `|` in the summary is escaped in the archive row
 - `tests/verbs/issue.sh::test_close_sends_envelope_and_reports_status` -> `issue.close` envelope carries data, the credential-free remote and `extra`; the returned status is printed
 - `tests/verbs/issue.sh::test_close_archived_is_idempotent` -> closing an archived issue changes nothing, exit 0
 - `tests/verbs/issue.sh::test_close_refuses_unknown_id_and_tokens` -> unknown id, unknown token and missing id exit non-zero
-- `tests/verbs/issue.sh::test_list_default_cap_in_roadmap_order` -> 20 entries in board order plus the overflow line
+- `tests/verbs/issue.sh::test_list_default_cap_in_ledger_order` -> 20 entries in the order `ISSUES.md` records them plus the overflow line (P-89)
 - `tests/verbs/issue.sh::test_list_cap_tokens` -> `<n>` and `all` set the cap; `-n` is refused
 - `tests/verbs/issue.sh::test_done_closes_target_issue` -> `aapp done` archives its Target Issue in the same commit
 - `tests/verbs/issue.sh::test_done_refuses_dangling_target_issue` -> a Target Issue in neither ledger refuses `done`
@@ -201,7 +217,7 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.branchplugin.sh::test_team_branch_is_not_merged` -> a plan whose parent is not a group's feature branch gets no merge; it waits and is named (P-83)
 - `tests/verbs/issue.branchplugin.sh::test_fix_on_third_branch_is_not_merged` -> a fix that is not in the group's parent is not merged into the feature branch (P-83)
 - `tests/verbs/issue.branchplugin.sh::test_merge_conflict_changes_nothing` -> a conflicting merge leaves the feature branch as it was and the member blocked, and says so (P-83)
-- `tests/verbs/issue.provider.sh::test_log_writes_row_with_kit_id` -> no provider: `log` writes the row and its road-map line under the counter's next id, one commit (P-74)
+- `tests/verbs/issue.provider.sh::test_log_writes_row_with_kit_id` -> no provider: `log` writes the row under the counter's next id, and no work-queue line, one commit (P-74, P-89)
 - `tests/verbs/issue.provider.sh::test_log_refuses_long_symptom` -> a symptom over 250 characters is refused, naming the note; a newline is stored as a space (P-74)
 - `tests/verbs/issue.provider.sh::test_refine_refuses_added_row` -> `refine issues` refuses a row added by hand and names `aapp issue log` (P-74)
 - `tests/verbs/issue.provider.sh::test_no_counter_check` -> `refine issues` no longer compares ids with `aapp.issueId` (P-74)
@@ -234,7 +250,7 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.tracker.sh::test_rows_cut_to_limit` -> more open issues than `aapp.issueCacheMax`: that many stay, plus those asked by id; a notice (P-74)
 - `tests/verbs/issue.tracker.sh::test_sync_window_counts_attempts` -> `aapp status` inside the window calls no provider, also after a failed attempt; `list` always does (P-74)
 - `tests/verbs/issue.tracker.sh::test_link_and_planned_derived_from_plans` -> with the ledger files gone, a sync rebuilds them; an issue a plan targets is `Planned` with the plan's link (P-74)
-- `tests/verbs/issue.tracker.sh::test_tracker_issue_blocks_plan` -> an issue a plan is blocked on is fetched by id beyond the limit and shows in `status` (P-74)
+- `tests/verbs/issue.tracker.sh::test_tracker_issue_blocks_plan` -> an issue a plan is blocked on is fetched by id beyond the limit and shows in `issue list` (P-74)
 - `tests/verbs/issue.tracker.sh::test_list_inside_step_does_not_sync` -> `list` run inside a plugin step asks no provider and writes no ledger; it shows the issues already here (#139)
 - `tests/verbs/issue.tracker.sh::test_do_close_follows_the_code` -> a `do` line `issue close <n> sha <sha>` archives the issue even when the commit is not here; a plan blocked on it stays blocked and `status` names the commit it waits for (#142)
 - `tests/verbs/issue.tracker.sh::test_listed_closure_reaches_the_ledger` -> an issue the listing reports closed is archived though a plan depends on it; the plan waits for a named commit and resumes at once for a closure with none (#142)

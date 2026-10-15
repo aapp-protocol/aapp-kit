@@ -36,10 +36,10 @@ EOF
 cat > .plans/issues_road_map.md <<'EOF'
 # Board
 
-## High
-1. #11 -> Second defect.
+## 🧱 Plan Blockers
 
-## Triage
+## 📋 Queued
+- [ ] #11 -> Second defect.
 - [ ] #10 -> Pipe breaks.
 - [ ] #12 -> Third defect.
 EOF
@@ -149,13 +149,13 @@ else
 fi
 
 echo "== list =="
-for n in $(seq 20 44); do echo "- [ ] #$n -> Filler $n." >> .plans/issues_road_map.md; done
+for n in $(seq 20 44); do printf '| #%s | `Low` | `CORE` | 2026-10-01 | `a.sh` | Filler %s. |  | 🟡 `Incubated` |\n' "$n" "$n" >> .plans/ISSUES.md; done
 out="$(aapp issue list 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && [ "$(echo "$out" | grep -c ' -> ')" -eq 20 ] && echo "$out" | tail -n 1 | grep -q '6 more (aapp issue list all)' && \
    echo "$out" | head -n 1 | grep -q '#12 ->'; then
-  ok "test_list_default_cap_in_roadmap_order"
+  ok "test_list_default_cap_in_ledger_order"
 else
-  bad "test_list_default_cap_in_roadmap_order" "rc=$rc out=$out"
+  bad "test_list_default_cap_in_ledger_order" "rc=$rc out=$out"
 fi
 out1="$(aapp issue list 3 2>&1)"; out2="$(aapp issue list all 2>&1)"
 aapp issue list -n >/dev/null 2>&1; rc=$?
@@ -271,9 +271,9 @@ cat > .plans/ISSUES.md <<'EOF'
 | #10 | `Low` | `CORE` | 2026-10-01 | `a.sh` | Old defect. |  | 🟡 `Incubated` |
 EOF
 cat > .plans/issues_road_map.md <<'EOF'
-# Issue Priority Board
+# 🗺️ Issue Work Queue
 
-## 🔴 High Priority (Technical Urgency)
+## 📋 Queued
 - [ ] #10 -> Old defect.
 EOF
 cat > .plans/done/000-issues-archive.md <<'EOF'
@@ -405,7 +405,7 @@ echo "== hotfix plan token and provider next-blocker (P-52) =="
 init_sandbox_project "$R/hp"
 cd "$R/hp" || exit 1
 printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/ISSUES.md
-printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' > .plans/issues_road_map.md
+printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued' > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
 git config aapp.issueId 30
@@ -422,7 +422,7 @@ if [ "$rc" -eq 0 ] && grep -qF '| #30 |' .plans/ISSUES.md && grep -F '| #30 |' .
 else
   bad "test_hotfix_plan_token_promotes" "rc=$rc out=$out row=$(grep '#30' .plans/ISSUES.md)"
 fi
-sed -i '/^## 🔴/i ## 🧱 Plan Blockers\n- [ ] #31 -> Provider pick (blocks X)\n' .plans/issues_road_map.md
+sed -i '/^## 📋/i ## 🧱 Plan Blockers\n- [ ] #31 -> Provider pick (blocks X)\n' .plans/issues_road_map.md
 mkdir -p .agents/skills/aapp-issue-tracker
 printf '%s\n' '#!/bin/sh' 'if [ "$AAPP_ACTION" = next-blocker ]; then echo "{\"id\": \"#30\"}"; exit 0; fi' 'exit 1' > .agents/skills/aapp-issue-tracker/run
 chmod +x .agents/skills/aapp-issue-tracker/run
@@ -465,7 +465,7 @@ echo "== hotfix by scope, stash, no stall (P-52, single checkout) =="
 init_sandbox_project "$R/st"
 cd "$R/st" || exit 1
 printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' '| #10 | `Low` | `CORE` | 2026-10-01 | `src/dirty.py` | Old defect. | Fix it. | 🟡 `Incubated` |' > .plans/ISSUES.md
-printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #10 -> Old defect.' > .plans/issues_road_map.md
+printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued' '- [ ] #10 -> Old defect.' > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
 git config aapp.issueId 20; git config aapp.issueFixWait 0
@@ -508,7 +508,7 @@ cd "$R/ce" || exit 1
 mkdir -p src && echo "c=1" > src/ce.sh && git add src CHANGELOG.md && git commit -qm "base" --no-verify >/dev/null 2>&1
 printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
   '| #3 | `Low` | `CORE` | 2026-10-11 | `src/ce.sh` | The symptom, not a changelog line. |  | 🟡 `Incubated` |' > .plans/ISSUES.md
-printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #3 -> Symptom.' > .plans/issues_road_map.md
+printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued' '- [ ] #3 -> Symptom.' > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
 git config aapp.issueId 4; git config aapp.issueFixWait 0

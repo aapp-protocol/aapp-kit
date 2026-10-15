@@ -26,7 +26,7 @@ git config aapp.offlineEnabled false
 row() { printf '| #%s | `Low` | `CORE` | 2026-10-01 | `src/%s.sh` | Defect %s shows. |  | 🟡 `Incubated` |\n' "$1" "$2" "$1"; }
 { printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |'
   row 1 a; row 2 b; row 3 c; row 4 d; row 5 e; row 6 f; row 7 g; } > .plans/ISSUES.md
-{ printf '%s\n' '# Issue Priority Board' '' '## 📥 Triage (Incoming / Unsequenced)'; for n in 1 2 3 4 5 6 7; do echo "- [ ] #$n -> Defect $n."; done; } > .plans/issues_road_map.md
+{ printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued'; for n in 1 2 3 4 5 6 7; do echo "- [ ] #$n -> Defect $n."; done; } > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add -A >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
 git config aapp.issueId 10
@@ -55,7 +55,7 @@ echo "== the handler =="
 head0="$(git -C .plans rev-parse HEAD)"
 out="$(aapp issue log Low CLI "The parser drops its last line" file src/a.sh 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && grep -qF '| #10 | `Low` | `CLI` |' .plans/ISSUES.md && grep -E '^\| #10 \|' .plans/ISSUES.md | grep -qF '| `src/a.sh` | The parser drops its last line |' && \
-   grep -qE '#10 -> ' .plans/issues_road_map.md && [ "$(git config aapp.issueId)" = "11" ] && \
+   ! grep -qE '#10 -> ' .plans/issues_road_map.md && [ "$(git config aapp.issueId)" = "11" ] && \
    [ "$(git -C .plans log -1 --format=%s)" = "issue(log): #10" ] && [ "$(git -C .plans rev-list --count "$head0"..HEAD)" = "1" ] && \
    [ -z "$(git -C .plans status --porcelain)" ] && echo "$out" | grep -qF "#10"; then
   ok "test_log_writes_row_with_kit_id"
@@ -127,6 +127,7 @@ fi
 no_plugin
 aapp issue log Low CORE "Token leaks" file src/d.sh note "TOKEN-QZ81 is the value that leaked" >/dev/null 2>&1
 T="$(git config aapp.issueId)"; T=$((T - 1))
+aapp issue queue "$T" >/dev/null 2>&1
 fout="$(aapp issue fix "$T" 2>&1)"; frc=$?
 ( cd ".workspace/fix-$T" && echo "d=2" > src/d.sh && git add src/d.sh && aapp commit "fix: d (#$T)" changelog "d fixed" >/dev/null 2>&1 )
 lout="$(aapp issue list note "$T" 2>&1)"; lrc=$?
@@ -144,6 +145,7 @@ aapp issue close "$T" >/dev/null 2>&1
 aapp issue log Low CORE "Long story" file src/e.sh note "$(seq 1 150 | sed 's/^/clue line /')" >/dev/null 2>&1
 L="$(git config aapp.issueId)"; L=$((L - 1))
 answer '{"status": "ok", "url": "https://tracker.example/issue/77"}'
+aapp issue queue "$L" >/dev/null 2>&1
 fout2="$(aapp issue fix "$L" 2>&1)"
 shown="$(echo "$fout2" | grep -c '^clue line ')"
 h2=0; [ "$shown" -le 100 ] && [ "$shown" -ge 90 ] && ! echo "$fout2" | grep -qx 'clue line 150' && echo "$fout2" | grep -qF 'https://tracker.example/issue/77' && h2=1

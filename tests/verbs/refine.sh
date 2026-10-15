@@ -152,12 +152,10 @@ cat > .plans/ISSUES.md <<EOF
 | #21 | \`Low\` | \`CORE\` | 2026-10-07 | \`b.sh\` | Second. |  | 🟡 \`Incubated\` |
 EOF
 cat > .plans/issues_road_map.md <<EOF
-# Issue Priority Board
+# 🗺️ Issue Work Queue
 
-## 🔴 High Priority (Technical Urgency)
+## 📋 Queued
 - [ ] #20 -> See [$id2](current/$b2).
-
-## 📥 Triage (Incoming / Unsequenced)
 - [ ] #21 -> Second.
 EOF
 git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1
@@ -227,7 +225,7 @@ if refused_issues blank sed -i '/^| #20 |/G' .plans/ISSUES.md && \
    refused_issues cells sed -i 's/^| #21 | `Low` |/| #21 |/' .plans/ISSUES.md && \
    refused_issues dup sed -i '/^| #21 |/p' .plans/ISSUES.md && \
    refused_issues high sed -i 's/^| #21 |/| #30 |/; s/#21 ->/#30 ->/' .plans/ISSUES.md .plans/issues_road_map.md && \
-   refused_issues board sed -i '/#21 ->/d' .plans/issues_road_map.md; then
+   refused_issues board sed -i '$a ## Other' .plans/issues_road_map.md; then
   ok "test_refine_issues_validation_refuses"
 else
   bad "test_refine_issues_validation_refuses" "a malformed ledger was committed or not refused"

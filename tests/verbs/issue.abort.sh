@@ -15,7 +15,7 @@ fixture_ledgers() {
   local n
   { printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |'
     for n in "$@"; do printf '| #%s | `Low` | `CORE` | 2026-10-01 | `lib/f%s.sh` | Defect %s. |  | 🟡 `Incubated` |\n' "$n" "$n" "$n"; done; } > .plans/ISSUES.md
-  { printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)'
+  { printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued'
     for n in "$@"; do printf -- '- [ ] #%s -> Defect %s.\n' "$n" "$n"; done; } > .plans/issues_road_map.md
   printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
     '| #5 | `Low` | `CLI` | 2026-08-01 | 2026-08-02 | `0000000` | Old. |' > .plans/done/000-issues-archive.md

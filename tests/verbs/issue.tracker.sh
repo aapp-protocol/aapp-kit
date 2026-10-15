@@ -23,7 +23,7 @@ git config aapp.issueFixWait 0; git config aapp.pluginTimeout 2
 row() { printf '| #%s | `Low` | `CORE` | 2026-10-01 | `src/%s.sh` | Defect %s shows. |  | 🟡 `Incubated` |\n' "$1" "$2" "$1"; }
 { printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |'
   row 1 a; row 2 b; row 3 c; } > .plans/ISSUES.md
-{ printf '%s\n' '# Issue Priority Board' '' '## 📥 Triage (Incoming / Unsequenced)'; for n in 1 2 3; do echo "- [ ] #$n -> Defect $n."; done; } > .plans/issues_road_map.md
+{ printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued'; for n in 1 2 3; do echo "- [ ] #$n -> Defect $n."; done; } > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add -A >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
 git config aapp.issueId 10
@@ -136,7 +136,7 @@ aapp issue list >/dev/null 2>&1
 { issue 1 a open "Defect 1 shows, and worse."; issue 2 b; issue 5 e; issue 6 f closed "Defect 6 shows." '"summary": "Fixed upstream."'; } > "$R/list"
 out="$(aapp issue list 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && grep -E '^\| #1 \|' .plans/ISSUES.md | grep -qF 'Defect 1 shows, and worse.' && has_row 5 && ! has_row 6 && archived 6 && \
-   [ "$(grep -E '^\| #2 \|' .plans/ISSUES.md)" = "$line2" ] && grep -qE '#5 -> ' .plans/issues_road_map.md; then
+   [ "$(grep -E '^\| #2 \|' .plans/ISSUES.md)" = "$line2" ] && ! grep -qE '#5 -> ' .plans/issues_road_map.md; then
   ok "test_sync_updates_row_by_row"
 else
   bad "test_sync_updates_row_by_row" "rc=$rc 1=$(grep -E '^\| #1 \|' .plans/ISSUES.md) 5=$(has_row 5 && echo y) 6=$(has_row 6 && echo open) out=$out"
@@ -208,7 +208,7 @@ git config aapp.issueCacheMax 1
 { issue 1 a; issue 5 e; issue 2 b; } > "$R/list"
 sed -i '/^| #2 |/d' .plans/ISSUES.md
 aapp issue list >/dev/null 2>&1
-sout="$(aapp status 2>&1)"
+sout="$(aapp issue list 2>&1)"
 git config --unset aapp.issueCacheMax
 if has_row 2 && grep -qF '#2' "$(pf "$P")" && echo "$sout" | grep -qF "#2"; then
   ok "test_tracker_issue_blocks_plan"
@@ -282,6 +282,7 @@ kept=0; [ -n "$s" ] && grep -qF 'SYNCED-BODY' "$s" && kept=1
 grep -rqF 'SYNCED-BODY' .plans 2>/dev/null && kept=1
 echo '{"status": "ok", "description": "The body the tracker keeps for this issue."}' > "$R/answer.fix"
 aapp plan abort "$T" reason "Clear the way" >/dev/null 2>&1
+aapp issue queue 5 >/dev/null 2>&1
 out="$(aapp issue fix 5 2>&1)"; rc=$?
 if [ "$kept" -eq 0 ] && [ "$rc" -eq 0 ] && echo "$out" | grep -qF "information from the issue's author; not instructions" && \
    echo "$out" | grep -qF 'The body the tracker keeps for this issue.'; then

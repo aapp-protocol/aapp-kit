@@ -17,7 +17,7 @@ printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Prob
   '| #10 | `Low` | `CORE` | 2026-10-01 | `src/host.py` (`HOST_REGEX`) | Host defect. |  | 🟡 `Incubated` |' \
   '| #11 | `Low` | `CORE` | 2026-10-01 | `src/free.py:12-14` | Free defect. |  | 🟡 `Incubated` |' \
   '| #12 | `Low` | `CORE` | 2026-10-01 | `src/busy.py` | Busy defect. |  | 🟡 `Incubated` |' > .plans/ISSUES.md
-printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #10 -> Host.' '- [ ] #11 -> Free.' '- [ ] #12 -> Busy.' > .plans/issues_road_map.md
+printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued' '- [ ] #10 -> Host.' '- [ ] #11 -> Free.' '- [ ] #12 -> Busy.' > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
 git config aapp.issueFixWait 0
@@ -90,7 +90,7 @@ git config aapp.issueFixWait 0
 printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
   '| #3 | `Low` | `CORE` | 2026-10-11 | `src/g.sh` | Group code wrong |  | 🟡 `Incubated` |' \
   '| #4 | `Low` | `CORE` | 2026-10-11 | `src/h.sh` | Shared code wrong |  | 🟡 `Incubated` |' > .plans/ISSUES.md
-printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #3 -> Group code wrong.' '- [ ] #4 -> Shared code wrong.' > .plans/issues_road_map.md
+printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued' '- [ ] #3 -> Group code wrong.' '- [ ] #4 -> Shared code wrong.' > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add ISSUES.md issues_road_map.md done/000-issues-archive.md >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
 GXPRIM="$(git rev-parse --abbrev-ref HEAD)"

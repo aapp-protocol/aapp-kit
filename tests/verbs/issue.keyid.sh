@@ -30,7 +30,7 @@ EOF
 cat > .plans/issues_road_map.md <<'EOF'
 # Board
 
-## Triage
+## 📋 Queued
 - [ ] #PROJ-101 -> The k helper loses its value.
 - [ ] #PROJ-102 -> Second defect.
 - [ ] #PROJ-103 -> Third defect.

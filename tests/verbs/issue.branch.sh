@@ -26,7 +26,7 @@ HDR='| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix 
 SEP='| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |'
 row() { printf '| #%s | `Low` | `CORE` | 2026-10-01 | `src/%s.sh` | Defect %s. |  | 🟡 `Incubated` |%s\n' "$1" "$2" "$1" "${3:-}"; }
 { printf '%s\n' '# Issues' '' "$HDR" "$SEP"; for p in "1 a" "2 b" "3 c" "4 d" "5 e" "6 f" "7 g" "8 h" "9 i"; do row $p; done; } > .plans/ISSUES.md
-{ printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)'; for n in 1 2 3 4 5 6 7 8 9; do echo "- [ ] #$n -> Defect $n."; done; } > .plans/issues_road_map.md
+{ printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued'; for n in 1 2 3 4 5 6 7 8 9; do echo "- [ ] #$n -> Defect $n."; done; } > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add -A >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
 git config aapp.issueId 20
@@ -267,7 +267,7 @@ git config aapp.commitMode microcommits
 git config aapp.integrate ff
 git config aapp.issueFixWait 0
 { printf '%s\n' '# Issues' '' "$HDR" "$SEP"; row 1 a; row 2 a; } > .plans/ISSUES.md
-printf '%s\n' '# Issue Priority Board' '' '## 🔴 High Priority (Technical Urgency)' '- [ ] #1 -> Defect 1.' '- [ ] #2 -> Defect 2.' > .plans/issues_road_map.md
+printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued' '- [ ] #1 -> Defect 1.' '- [ ] #2 -> Defect 2.' > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add -A >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
 git config aapp.issueId 5

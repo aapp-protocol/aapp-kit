@@ -22,7 +22,7 @@ git config aapp.issueFixWait 0; git config aapp.pluginTimeout 2
 row() { printf '| #%s | `Low` | `CORE` | 2026-10-01 | `src/%s.sh` | Defect %s shows. |  | 🟡 `Incubated` |\n' "$1" "$2" "$1"; }
 { printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |'
   row 1 a; row 2 b; } > .plans/ISSUES.md
-printf '%s\n' '# Issue Priority Board' '' '## 📥 Triage (Incoming / Unsequenced)' '- [ ] #1 -> Defect 1.' '- [ ] #2 -> Defect 2.' > .plans/issues_road_map.md
+printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 📋 Queued' '- [ ] #1 -> Defect 1.' '- [ ] #2 -> Defect 2.' > .plans/issues_road_map.md
 printf '%s\n' '# Archive' '' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' > .plans/done/000-issues-archive.md
 git -C .plans add -A >/dev/null 2>&1; git -C .plans commit -qm fixture >/dev/null 2>&1
 git config aapp.issueId 10

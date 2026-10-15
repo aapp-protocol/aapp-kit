@@ -29,7 +29,7 @@ EOF
 cat > .plans/issues_road_map.md <<'EOF'
 # Board
 
-## Triage
+## 📋 Queued
 - [ ] #10 -> First defect.
 - [ ] #11 -> Second defect.
 - [ ] #12 -> Third defect.
