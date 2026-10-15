@@ -178,7 +178,7 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites across all verbs.
 - [ ] Task 3.2: Update `templates/issues_road_map.md`, `templates/issues.md`, `templates/state_matrix.md`, `templates/architecture.md`, `templates/AGENTS.md`, the fix, digest and status skills.
-- [ ] Task 3.3: Update `MANUAL.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, `lib/docs/verbs/issue.md`.
+- [ ] Task 3.3: Update `MANUAL.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, `README.md`, `lib/docs/verbs/issue.md`, `lib/docs/verbs/status.md`.
 - [ ] Task 3.4: Migrate active `.plans/issues_road_map.md`.
 - [ ] Task 3.5: Run syntax, build, and test verification before plan completion.
 
@@ -208,6 +208,8 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 - [ ] `MANUAL.md` -> Issue lifecycle, work queue specification, `aapp issue queue`.
 - [ ] `CHEATSHEET.md` -> `aapp issue queue <num> [remove]` CLI reference.
 - [ ] `ARCHITECTURE.md` -> Two-lane queue architecture and human-in-the-loop gate.
+- [ ] `README.md` -> The road map's line in the layout and in the hook's hygiene.
+- [ ] `lib/docs/verbs/status.md` -> Contract: the Issues pillar shows blockers, queued issues and a count of the rest.
 - [ ] `NEW FILE` -> `tests/verbs/issue.queue.sh` -> Failure and boundary tests.
 - [ ] `tests/issue_ledger_test.sh` -> Existing tests (§3).
 - [ ] `tests/plugin_protocol_test.sh` -> Existing tests (§3).
