@@ -2,7 +2,7 @@
 * **Created:** 2026-10-12 | **Last Refined:** 2026-10-12
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-82
-* **Changelog:** Changed: an issue fix opens only when no plan in development lists its files, and a file outside the issue's row needs a person's confirmation (P-82)
+* **Changelog:** Changed: an issue fix is held to 3 files and 25 lines (configurable) and to its declared files; plans in development are named (P-82)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -38,24 +38,30 @@
 ---
 
 ## 1. Context & Architectural Goal
-A plan's files are fixed by a person at freeze. An issue fix has no such gate, and it does not look at the plans in development:
+An issue fix is a small, separate change: one issue, one commit (P-85). Nothing measures "small" today, and nothing holds a fix to the files its issue names:
 
-- **No collision check when a fix opens.** `aapp issue fix <n>` waits for uncommitted changes in its files in this checkout; the `group` form skips even that. Neither form looks at whether a plan in development lists one of the fix's files. A fix landed on a group's feature branch while a member edits the same file leaves that member unable to fast-forward. The only signal today is a line at `close`: "P-xx also lists <file>".
-- **The file list widens without approval.** A fix's files come from the issue row's Location; `aapp issue fix <n> file <path>` adds any file to an open fix. An agent can name files nobody intended to change.
+- **No size limit.** A fix may grow to any number of files and lines. An issue then becomes a way around a plan: an agent can carry a refactor, or cover its own mistakes, through `aapp issue fix` without a frozen design or a locked Blast Radius.
+- **The scope widens silently.** A fix's files come from the issue row's Location; `aapp issue fix <n> file <path>` adds any file, with no reason recorded.
+- **No signal when a fix touches a plan's files.** A plan in development that lists a fixed file learns of it at `close` ("P-xx also lists <file>") or at its next rebase.
+- **The agent rules send a plan's own fallout to the issue lane.** "Non-blocking (a bug, gap or stale text, including one outside your Target Files): log it" covers what the plan's own change caused. That work belongs to the plan.
 
-This plan makes a fix start only when it cannot collide, and puts a person in front of a widened file list.
+This plan makes an issue fix small by measure, declared before it is touched, and visible to the plans it meets, and makes the agent rules tell plan work from issues.
 
 ---
 
 ## 2. Technical Blueprint
-**To be settled when the plan is taken up; the two rules below are the starting point.**
-
-1. **Collision check at open, both forms.** When a plan in development lists one of the fix's files in its Target Files, `issue fix` waits and then refuses, as it does for uncommitted changes, naming the plan and the file. For the `group` form the plans looked at are that group's members; for a fix on the development branch, the plans branched from it.
-2. **A person approves a widened file list.** The files named in the issue's row are the fix's scope. `file <path>` naming a file outside it asks `[y/N]` on a terminal and needs the bare token `confirm` without one.
+1. **Limits, checked at `close` before anything lands.** The fix's diff against the point where it started (its merge base with the issue's branch) gives the number of files changed and the lines changed (added plus deleted, tests included). Above `aapp.fixMaxFiles` (default 3) or `aapp.fixMaxLines` (default 25), `close` refuses, nothing lands, and the message names both numbers and the way on: `aapp issue fix <n> abort`, then `aapp draft <slug> issue <n>`. A value of `0` turns that limit off.
+2. **Every file declared before it is touched.** The row's Location is the scope known before the fix starts. A file beyond it is declared with a reason: `aapp issue fix <n> file <path> "<why>"` (the reason is required for a file outside the row), recorded in the mini plan as `- [ ] \`<path>\` -> <why>` in one commit `fix(files): #<n>`, and sent to the issue as a note (`file <path>: <why>`). At `close`, a changed file that is neither in the row's Location nor declared refuses the landing, naming it. The guard and the pre-commit hook already confine the fix's commits to the mini plan's files; this is the check of record.
+3. **Collision notice.** At `fix`, and at `fix <n> file`, for each plan ⚡ In Development whose Target Files list one of the fix's files: `ℹ️  P-xx in development also lists <file>; it rebases over this fix.` Not counted: a plan that is BLOCKED (the plan a hotfix blocks among them: its own hotfix is always allowed). `aapp.fixCollision refuse` turns the notice into a refusal, nothing written; the bare token `force` lets one fix through.
+4. **Protected files.** A file the guard protects (Guard Section 2: `.githooks/*`, `.agents/skills/aapp-*`, `.claude/settings*`, …) is never a fix's file. Pair 5 of the planning health already checks mini plans' Target Files; a test pins that `fix … file` of such a path is refused with nothing written.
+5. **Agent rules: plan work and issues apart** (`templates/AGENTS.md` Issue Escape Triage, the start skill):
+   - caused by the plan's change, or left undone by it, even outside its Target Files: plan work. Stop, tell the human, amend the plan with their OK;
+   - unrelated to the plan's change: log it as an issue; if it blocks the plan, `aapp issue hotfix`, also when it is in the plan's own files: the fix gets its own commit, apart from the plan's work;
+   - a fix stays within its limits; a fix that outgrows them is promoted to a plan, never split across issues.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
-- **Fallback Inventory**: `None (Clean Break)`
+- **Fallback Inventory**: `None (Clean Break)`. A fix open when this lands is closed under the new checks.
 
 ---
 
@@ -64,23 +70,35 @@ This plan makes a fix start only when it cannot collide, and puts a person in fr
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/issue.fixes.sh::test_fix_refuses_file_of_plan_in_development` -> asserts a fix whose file a plan in development lists waits, then refuses, naming the plan and the file
-- [ ] `tests/verbs/issue.fixes.sh::test_group_fix_refuses_file_of_member_in_development` -> asserts the same for `fix … group` against the group's member in development
-- [ ] `tests/verbs/issue.fixes.sh::test_added_file_needs_confirm` -> asserts `fix <n> file <path>` outside the row's Location refuses without `confirm` when there is no terminal, and adds the file with it
+- [ ] `tests/verbs/issue.limits.sh::test_close_refuses_over_file_limit` -> asserts a fix of 4 changed files is refused at `close` with both numbers and the promotion commands; nothing lands, the issue stays open
+- [ ] `tests/verbs/issue.limits.sh::test_close_refuses_over_line_limit` -> asserts a fix of 30 changed lines in one file is refused the same way
+- [ ] `tests/verbs/issue.limits.sh::test_limits_are_configurable` -> asserts `aapp.fixMaxFiles` and `aapp.fixMaxLines` move the limits, and `0` turns one off
+- [ ] `tests/verbs/issue.limits.sh::test_added_file_needs_a_reason` -> asserts `fix <n> file <path>` outside the row is refused without a reason, nothing written; with one, the mini plan records the file and its reason in one commit and the issue gets the note
+- [ ] `tests/verbs/issue.limits.sh::test_close_refuses_undeclared_file` -> asserts a changed file neither in the row nor declared refuses `close`, naming it
+- [ ] `tests/verbs/issue.limits.sh::test_collision_notice` -> asserts `fix` names a plan in development that lists one of its files, and opens
+- [ ] `tests/verbs/issue.limits.sh::test_collision_refuse_setting` -> asserts `aapp.fixCollision refuse` refuses with nothing written, and `force` opens the fix
+- [ ] `tests/verbs/issue.limits.sh::test_blocked_plan_is_no_collision` -> asserts the plan a hotfix blocks, listing the hotfix's file, neither warns nor refuses
+- [ ] `tests/verbs/issue.limits.sh::test_protected_file_refused` -> asserts `fix <n> file .githooks/pre-commit "<why>"` is refused with nothing written
+
+### ♻️ Existing Tests Changed or Retired
+> Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
+- Tests that add a file outside the row with `fix <n> file <path>` (`tests/verbs/issue.sh`, `tests/verbs/issue.branchplugin.sh`, `tests/verbs/issue.fixes.sh`): given a reason.
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write the three tests; confirm red.
+- [ ] Task 1.1: Write `tests/verbs/issue.limits.sh`; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: The collision check when a fix opens.
-- [ ] Task 2.2: The confirmation for a file outside the issue's row.
+- [ ] Task 2.1: The limits at `close`, with the two settings.
+- [ ] Task 2.2: Declared files: the reason at `fix <n> file`, the note, the check at `close`.
+- [ ] Task 2.3: The collision notice, `aapp.fixCollision` and `force`.
+- [ ] Task 2.4: The agent rules and the skills.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update `MANUAL.md`, the issue contract, `templates/AGENTS.md` and the fix skill.
-- [ ] Task 3.3: Update `.agents/CODEMAP.md`.
+- [ ] Task 3.2: Update `MANUAL.md` (fix flow, settings table), `CHEATSHEET.md`, the issue contract, `templates/AGENTS.md`, the fix and start skills.
+- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
 - [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.5: Fallout of this plan outside its Target Files: stop and amend the plan with the human's OK; an unrelated finding is logged as an issue.
 
 ---
 
@@ -88,26 +106,38 @@ This plan makes a fix start only when it cannot collide, and puts a person in fr
 *Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `lib/cmd_issue.sh` -> The collision check and the confirmation in `cmd_issue_fix`.
+- [ ] `lib/cmd_issue.sh` -> Limits and the undeclared-file check at `close`; the reason and note at `fix <n> file`; the collision notice and setting.
 - [ ] `lib/docs/verbs/issue.md` -> Contract.
-- [ ] `templates/AGENTS.md` -> A fix's files are the issue's; widening needs a person.
-- [ ] `templates/skills/aapp-fix/SKILL.md` -> The same.
-- [ ] `MANUAL.md` -> Issue fix flow.
+- [ ] `templates/AGENTS.md` -> Plan work vs issues; a fix's limits and declared files.
+- [ ] `templates/skills/aapp-fix/SKILL.md` -> Limits, declaring a file with its reason, promoting a fix that outgrows them.
+- [ ] `templates/skills/aapp-start/SKILL.md` -> A plan's own fallout is plan work.
+- [ ] `MANUAL.md` -> Issue fix flow; settings `aapp.fixMaxFiles`, `aapp.fixMaxLines`, `aapp.fixCollision`.
+- [ ] `CHEATSHEET.md` -> `fix <n> file <path> "<why>"`, `force`, the three settings.
+- [ ] `ARCHITECTURE.md` -> An issue fix is small by measure.
+- [ ] `tests/verbs/issue.sh` -> Existing tests given a reason (§3).
+- [ ] `tests/verbs/issue.branchplugin.sh` -> Existing tests given a reason (§3).
+- [ ] `tests/verbs/issue.fixes.sh` -> Existing tests given a reason (§3).
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
-- [ ] `tests/verbs/issue.fixes.sh`
+- [ ] `NEW FILE` -> `tests/verbs/issue.limits.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `templates/blast-radius-guard.sh` -> The guard already confines a fix to its mini plan's files.
+- [ ] `lib/planning_health.sh` -> Pair 5 already refuses protected files in a mini plan.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** Are the two rules of §2 the ones wanted, and does the confirmation apply to every added file or only to the `group` form?
-* [ ] **Question 2:** This plan changes `lib/cmd_issue.sh`, which group P-72 rewrites: start it after the group lands?
+* [x] **Question 1 — Collision at `fix`: refuse or warn? → RESOLVED (developer, 2026-10-15):** a notice by default; a setting turns it into a refusal, with an override.
+* [x] **Question 2 — Start after group P-72? → RESOLVED (developer, 2026-10-15):** P-72 has landed.
+* [x] **Question 3 — The size of a fix. → RESOLVED (developer, 2026-10-15):** at most 3 files and 25 changed lines in all, both configurable; above, a plan.
+* [x] **Question 4 — A plan's own fallout. → RESOLVED (developer, 2026-10-15):** what the plan's change caused or left undone is plan work, amended into the plan with the human's OK; an unrelated bug is logged, and a blocking one is a hotfix even in the plan's own files, because the fix gets its own commit.
+* [ ] **Question 5 — Where a declared file is recorded.** Proposed: in the committed mini plan, with its reason, and mirrored to the issue as a note. Notes are kept outside Git and are untrusted text, so the check at `close` reads the mini plan. Or: the note alone.
+* [ ] **Question 6 — What counts toward the line limit.** Proposed: added plus deleted lines, tests and contract lines included. Or: added lines only, or code without tests.
+* [ ] **Question 7 — Does a declared file still need a person's `[y/N]`?** Proposed: no; the required reason, the note and the limits replace it.
 
 ---
 
