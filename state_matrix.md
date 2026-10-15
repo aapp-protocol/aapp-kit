@@ -25,11 +25,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-86**: [`P86-plan-closes-further-issues.md`](current/P86-plan-closes-further-issues.md) — Plan Closes Further Issues
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-86**: [`P86-plan-closes-further-issues.md`](current/P86-plan-closes-further-issues.md) — Plan Closes Further Issues
 
 ---
 
