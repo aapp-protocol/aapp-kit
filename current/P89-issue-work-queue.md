@@ -75,14 +75,15 @@ This plan transforms `issues_road_map.md` into a lean **Active Work Queue** and 
 ### 2.2 CLI Verb: `aapp issue queue <num> [remove]`
 A dedicated verb under `aapp issue` allows humans to manage the work queue:
 - `aapp issue queue <num>`:
-  - Verifies `#<num>` is an active issue in `ISSUES.md` (`🟠 Incubated` or `🔵 Planned`).
+  - Verifies `#<num>` is an active issue in `ISSUES.md` (its status cell holds `Incubated` or `Planned`; matched on the word, not the emoji).
   - Refuses if `#<num>` is already in `📋 Queued` or `🧱 Plan Blockers`.
   - Appends `- [ ] #<num> -> <symptom>` under `## 📋 Queued` in `issues_road_map.md`.
   - Commits the change in the `.plans` worktree as `issue(queue): #<num> queued`.
-  - Emits plugin hook if `aapp-issue-tracker` is configured.
+  - Sends the provider step `issue.queue` (see 2.6).
 - `aapp issue queue <num> remove`:
   - Removes `#<num>` from `## 📋 Queued`.
   - Commits in `.plans` as `issue(queue): #<num> unqueued`.
+  - Sends the provider step `issue.unqueue` (see 2.6).
 - **Agent Rule Invariant**: Only a person may run `aapp issue queue`. Autonomous agents are strictly forbidden from self-queueing issues.
 
 ### 2.3 Enforcement Gate on `aapp issue fix`
@@ -98,6 +99,7 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
   - Claims the first available issue from `## 🧱 Plan Blockers`.
   - If no blockers exist, claims the first available issue from `## 📋 Queued`.
   - If neither exists, refuses closed with diagnostic.
+- `next-blocker` keeps its name; the contract, the fix skill and the agent rules say it takes a queued issue once no blocker is left.
 
 ### 2.4 Promotion & Lifecycle Integration
 - When an issue is promoted to a plan (`aapp draft <slug> issue <num>`):
@@ -116,6 +118,18 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
   - Validates `issues_road_map.md` against the two-section specification.
   - Refuses legacy section headings.
   - Validates that every entry in `issues_road_map.md` exists as an active issue in `ISSUES.md`.
+
+### 2.6 The tracker has priority (P-74)
+- `aapp issue queue <num>` and `queue <num> remove` are provider steps, `issue.queue` and `issue.unqueue`, sent through `issue_provider` with the whole issue as data, like every other step.
+- **Where a provider keeps the record** (it lists issues, P-74): the tracker's queue is the queue. A failing or refusing `issue.queue` / `issue.unqueue` refuses the command and nothing changes locally. The listing reports each issue's `queued` field (true or false), and the sync rebuilds `## 📋 Queued` from it, in the listing's order; the fix gate reads the rebuilt section, so every clone sees the same queue.
+- **Without a provider, or one that does not list:** the local `## 📋 Queued` is the record, committed to the plans branch; a failing step only warns.
+- The steps join `aapp-issue-tracker` in `lib/plugins.tsv`, `docs/reference/07-issue-protocol.md` and the sample provider.
+
+### 2.7 Every reader of the road map
+- The road map is read and written only through the ledger functions in `lib/aapp-lib.sh` (P-73): `roadmap_add_entry` and the Triage section go; `roadmap_queue_add` / `roadmap_queue_remove` / `roadmap_queued` are added; `roadmap_blockers` and `roadmap_prune` keep working on the two sections.
+- `aapp issue log` adds no line; the tracker sync adds none for a row it brings; `aapp offline sync` (P-75) rewrites a former id in both sections.
+- The start gate in `lib/cmd_plan.sh` reads the blockers through `issue_queued_blockers`, which stays; `lib/cmd_plan.sh` is not changed.
+- The digest and status skills stop telling agents to read the board's priority order; the order of `aapp issue list` is the recorded order, and a plugin may sort it.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
@@ -136,19 +150,29 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 - [ ] `tests/verbs/issue.queue.sh::test_fix_next_blocker_falls_back_to_queued` -> asserts `aapp issue fix` with no blockers claims the top queued issue
 - [ ] `tests/verbs/issue.queue.sh::test_log_does_not_append_to_road_map` -> asserts `aapp issue log` writes solely to `ISSUES.md` without touching `issues_road_map.md`
 - [ ] `tests/verbs/issue.queue.sh::test_planning_health_validates_queue_format` -> asserts health check passes on two-section road map and refuses legacy bands
+- [ ] `tests/verbs/issue.queue.sh::test_queue_sends_provider_steps` -> asserts `queue` and `queue remove` send `issue.queue` / `issue.unqueue` with the issue
+- [ ] `tests/verbs/issue.queue.sh::test_listing_provider_owns_the_queue` -> asserts with a listing provider a refused `issue.queue` changes nothing locally, and the sync rebuilds `## 📋 Queued` from the listing's `queued` field
+- [ ] `tests/verbs/issue.queue.sh::test_offline_sync_rewrites_queued_id` -> asserts `aapp offline sync` rewrites a former id in `## 📋 Queued`
+
+### ♻️ Existing Tests Changed or Retired
+> Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
+- Fixtures writing road maps with the legacy bands, and assertions that `aapp issue log` or the sync adds a road-map line: `tests/issue_ledger_test.sh`, `tests/plugin_protocol_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, and in `tests/verbs/`: `issue.sh`, `issue.provider.sh`, `issue.tracker.sh`, `issue.keyid.sh`, `issue.branch.sh`, `issue.branchplugin.sh`, `issue.fixes.sh`, `issue.abort.sh`, `issue.notefilter.sh`, `offline.sh`, `commit.sh`, `draft.sh`, `refine.sh`, `start.sh`, `freeze-start.sh`, `plan.abort.sh`: rewritten to the two sections.
 
 ### Phase 1: Tests First (red)
 - [ ] Task 1.1: Author `tests/verbs/issue.queue.sh` covering queue verb and fix gate assertions; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/ledger.sh`: Implement `roadmap_queue_add`, `roadmap_queue_remove`, update roadmap querying helpers for two-section layout.
+- [ ] Task 2.1: `lib/aapp-lib.sh` (ledger section): `roadmap_queue_add`, `roadmap_queue_remove`, `roadmap_queued`; the road map helpers on the two-section layout; `roadmap_add_entry` and Triage retired.
 - [ ] Task 2.2: `lib/cmd_issue.sh`: Implement `aapp issue queue <num> [remove]`; enforce queue check in `cmd_issue_fix`; decouple `cmd_issue_log` from road map appending.
 - [ ] Task 2.3: `lib/cmd_status.sh`: Update Issues pillar of briefing to show blockers, queued issues, and count of unqueued issues.
 - [ ] Task 2.4: `lib/planning_health.sh`: Update roadmap verification rules for the two-section queue format.
+- [ ] Task 2.5: The provider steps `issue.queue` / `issue.unqueue`, the listing's `queued` field and the rebuild of `## 📋 Queued` at sync (`lib/cmd_issue.sh`, `lib/plugins.tsv`, `docs/reference/07-issue-protocol.md`, the sample provider).
+- [ ] Task 2.6: `lib/cmd_offline.sh`: the offline road map in the two sections; `aapp offline sync` rewrites ids in both.
+- [ ] Task 2.7: Rewrite the existing tests listed above.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites across all verbs.
-- [ ] Task 3.2: Update `templates/issues_road_map.md`, `templates/AGENTS.md`, `templates/skills/aapp-fix/SKILL.md`.
+- [ ] Task 3.2: Update `templates/issues_road_map.md`, `templates/issues.md`, `templates/state_matrix.md`, `templates/architecture.md`, `templates/AGENTS.md`, the fix, digest and status skills.
 - [ ] Task 3.3: Update `MANUAL.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, `lib/docs/verbs/issue.md`.
 - [ ] Task 3.4: Migrate active `.plans/issues_road_map.md`.
 - [ ] Task 3.5: Run syntax, build, and test verification before plan completion.
@@ -159,7 +183,17 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/cmd_issue.sh` -> `aapp issue queue` command, `cmd_issue_fix` queue gate, decouple `cmd_issue_log`.
-- [ ] `lib/ledger.sh` -> Road map queue helpers, two-section parsing.
+- [ ] `lib/aapp-lib.sh` -> Road map queue helpers, two-section parsing (ledger section).
+- [ ] `lib/cmd_offline.sh` -> The offline road map in two sections; id rewrite in both.
+- [ ] `lib/plugins.tsv` -> `issue.queue`, `issue.unqueue` in the provider's events.
+- [ ] `lib/docs/verbs/offline.md` -> Contract: the offline road map.
+- [ ] `docs/reference/07-issue-protocol.md` -> The two steps and the listing's `queued` field.
+- [ ] `examples/plugins/aapp-issue-tracker/run.sample` -> The sample answers the two steps.
+- [ ] `templates/issues.md` -> The ledger's note on the road map.
+- [ ] `templates/state_matrix.md` -> The note on where issues are sequenced.
+- [ ] `templates/architecture.md` -> The road map's line in the layout.
+- [ ] `templates/skills/aapp-digest/SKILL.md` -> No board order to follow.
+- [ ] `templates/skills/aapp-status/SKILL.md` -> The Issues pillar: blockers, queued, count of the rest.
 - [ ] `lib/cmd_status.sh` -> Update briefing Issues pillar for queued layout.
 - [ ] `lib/planning_health.sh` -> Validate two-section road map structure.
 - [ ] `lib/docs/verbs/issue.md` -> Document `aapp issue queue` and queue gate.
@@ -170,22 +204,44 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 - [ ] `CHEATSHEET.md` -> `aapp issue queue <num> [remove]` CLI reference.
 - [ ] `ARCHITECTURE.md` -> Two-lane queue architecture and human-in-the-loop gate.
 - [ ] `NEW FILE` -> `tests/verbs/issue.queue.sh` -> Failure and boundary tests.
+- [ ] `tests/issue_ledger_test.sh` -> Existing tests (§3).
+- [ ] `tests/plugin_protocol_test.sh` -> Existing tests (§3).
+- [ ] `tests/pre-commit_test.sh` -> Existing tests (§3).
+- [ ] `tests/write-guard_test.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/issue.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/issue.provider.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/issue.tracker.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/issue.keyid.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/issue.branch.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/issue.branchplugin.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/issue.fixes.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/issue.abort.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/issue.notefilter.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/offline.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/commit.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/draft.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/refine.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/start.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/freeze-start.sh` -> Existing tests (§3).
+- [ ] `tests/verbs/plan.abort.sh` -> Existing tests (§3).
 
 ### 🧪 Required Test Files
 - [ ] `tests/verbs/issue.queue.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `templates/blast-radius-guard.sh` -> Write guard operates on active mini plans; does not touch road map parsing.
-- [ ] `lib/cmd_plan.sh` -> Plan lifecycle is unaffected except for issue link maintenance.
+- [ ] `lib/cmd_plan.sh` -> The start gate reads blockers through `issue_queued_blockers`, which stays; issue links are kept by the ledger functions.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*(None — design is fully specified)*
+* [x] **Question 1 — A tracker that keeps the record. → RESOLVED (developer, 2026-10-15):** the tracker has priority; `aapp issue queue` and its `remove` send provider steps on adding and on removing (2.6).
+* [ ] **Question 2 — Legacy bands at the health check.** Proposed: refuse them (a clean break; every fixture is rewritten, listed in §3). Or: ignore sections other than the two, which keeps the change smaller but leaves old bands silently in place.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
+* **2026-10-15:** Review: the ledger functions live in `lib/aapp-lib.sh`; offline road map, provider steps for the queue, every road-map reader and the existing tests added; the tracker has priority.
 * **2026-10-15:** Drafted blueprint: transformed `issues_road_map.md` into an active work queue (`🧱 Plan Blockers` + `📋 Queued`), introduced `aapp issue queue <num>`, and gated `aapp issue fix` against unqueued execution.
