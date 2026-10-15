@@ -31,8 +31,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-85**: [`P85-one-commit-per-fix.md`](current/P85-one-commit-per-fix.md) — One Commit Per Fix
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
