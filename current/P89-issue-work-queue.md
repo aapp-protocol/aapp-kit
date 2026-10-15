@@ -117,7 +117,7 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
   - A summary count of unqueued issues remaining in `ISSUES.md`.
 - **Planning Health (`lib/planning_health.sh`)**:
   - Validates `issues_road_map.md` against the two-section specification.
-  - Refuses legacy section headings.
+  - Knows only the two sections: any other `##` heading is refused as not part of the work queue, naming `## 🧱 Plan Blockers` and `## 📋 Queued`. No code, template, document or test of the kit names the former bands; after this plan they exist only in history.
   - Validates that every entry in `issues_road_map.md` exists as an active issue in `ISSUES.md`.
 
 ### 2.6 The tracker has priority (P-74)
@@ -150,7 +150,7 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 - [ ] `tests/verbs/issue.queue.sh::test_fix_accepts_queued_issue` -> asserts `aapp issue fix <num>` opens cleanly when issue is in `## 📋 Queued`
 - [ ] `tests/verbs/issue.queue.sh::test_fix_next_blocker_falls_back_to_queued` -> asserts `aapp issue fix` with no blockers claims the top queued issue
 - [ ] `tests/verbs/issue.queue.sh::test_log_does_not_append_to_road_map` -> asserts `aapp issue log` writes solely to `ISSUES.md` without touching `issues_road_map.md`
-- [ ] `tests/verbs/issue.queue.sh::test_planning_health_validates_queue_format` -> asserts health check passes on two-section road map and refuses legacy bands
+- [ ] `tests/verbs/issue.queue.sh::test_planning_health_validates_queue_format` -> asserts health check passes on the two-section road map and refuses any other section (a fixture heading such as `## Other`)
 - [ ] `tests/verbs/issue.queue.sh::test_queue_sends_provider_steps` -> asserts `queue` and `queue remove` send `issue.queue` / `issue.unqueue` with the issue
 - [ ] `tests/verbs/issue.queue.sh::test_listing_provider_owns_the_queue` -> asserts with a listing provider a refused `issue.queue` changes nothing locally, and the sync rebuilds `## 📋 Queued` from the listing's `queued` field
 - [ ] `tests/verbs/issue.queue.sh::test_offline_sync_rewrites_queued_id` -> asserts `aapp offline sync` rewrites a former id in `## 📋 Queued`
@@ -238,7 +238,7 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 * [x] **Question 1 — A tracker that keeps the record. → RESOLVED (developer, 2026-10-15):** the tracker has priority; `aapp issue queue` and its `remove` send provider steps on adding and on removing (2.6).
-* [x] **Question 2 — Legacy bands at the health check. → RESOLVED (developer, 2026-10-15):** refused: a clean break. The refusal names the way on: issues stay in `ISSUES.md`; queue them with `aapp issue queue <num>`.
+* [x] **Question 2 — Legacy bands at the health check. → RESOLVED (developer, 2026-10-15):** a clean break. The health check knows only the two sections and refuses any other heading; the kit keeps no list of the former bands. The refusal names the way on: issues stay in `ISSUES.md`; queue them with `aapp issue queue <num>`.
 
 ---
 
