@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #122 | `Low` | `CLI` | 2026-10-11 | 2026-10-15 | `6cf5dba` | [P-86](P86-plan-closes-further-issues.md) - Plan Closes Further Issues |  |
 | #153 | `Low` | `DOCS` | 2026-10-15 | 2026-10-15 | `aborted` | Aborted: Done in P-85 |  |
 | #152 | `Low` | `DOCS` | 2026-10-15 | 2026-10-15 | `aborted` | Aborted: Done in P-85 |  |
 | #151 | `Low` | `DOCS` | 2026-10-14 | 2026-10-14 | `a245881` | the manual names the git notes the squash at `aapp done` does not carry |  |

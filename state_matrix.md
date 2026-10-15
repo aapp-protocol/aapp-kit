@@ -29,8 +29,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-86**: [`P86-plan-closes-further-issues.md`](current/P86-plan-closes-further-issues.md) — Plan Closes Further Issues
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

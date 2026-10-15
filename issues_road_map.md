@@ -48,7 +48,6 @@
 - [ ] #95 -> "Small" fix is undefined in invariant 5; default <10 changed lines, adopter override in `PROJECT.MD`.
 - [ ] #108 -> `ARCHITECTURE.md` prematurely lists unbuilt features (P-38, P-59, non-existent `archive-plan.sh`) and cites 30s watchdog default instead of 10s.
 - [ ] #110 -> MANUAL still registers hooks on `on-done` (renamed `post-done` by P-23).
-- [ ] #122 -> A plan can't take a second issue after drafting; `done` closes only the first.
 - [ ] #143 -> Guard self-protection covers `.agents/skills/aapp-*` only: the `aapp` start skill (P-87) in `.agents/skills/aapp/` and `.claude/skills/aapp/` is not protected.
 - [ ] #146 -> `aapp init` deletes and recreates every skill directory and its `.claude/skills` link, even when unchanged: an open IDE drops the skills from its prompt until it is reloaded.
 - [ ] #147 -> `aapp status` Shipped prints the first five lines under `[Unreleased]`: the `### Added` header and four entries. `Changed` and `Fixed` never appear, and the order is the section's, not the order of landing.

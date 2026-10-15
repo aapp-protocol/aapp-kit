@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-15 | `P-86` | [`P86-plan-closes-further-issues.md`](P86-plan-closes-further-issues.md) | #122 | `6cf5dba` | Plan Closes Further Issues (tdd (10/10)) |
 | 2026-10-15 | `P-85` | [`P85-one-commit-per-fix.md`](P85-one-commit-per-fix.md) | none | `53a254f` | One Commit Per Fix (tdd (9/9)) |
 | 2026-10-14 | `P-84` | [`P84-squash-on-the-plan-branch.md`](P84-squash-on-the-plan-branch.md) | none | `b5e5157` | Squash On The Plan Branch (tdd (13/13)) |
 | 2026-10-13 | `P-87` | [`P87-rules-on-demand.md`](P87-rules-on-demand.md) | #120 | `f9e1388` | Rules On Demand (tdd (12/12)) |
