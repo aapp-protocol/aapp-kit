@@ -1,8 +1,8 @@
 # 🗺️ Plan P-89: Issue Work Queue
 * **Created:** 2026-10-15 | **Last Refined:** 2026-10-15
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-89
-* **Changelog:** Changed: Issue Work Queue
+* **Changelog:** Changed: issues road map becomes a lean work queue; fixes require human queueing via `aapp issue queue` (P-89)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,64 +39,153 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+`ISSUES.md` is the single flat ledger holding every active issue; `aapp issue list` lists them in recorded sequence (with sorting/filtering the domain of plugins). 
+
+Currently, `issues_road_map.md` duplicates the entire issue ledger across hand-curated bands (`User Priority`, `High`, `Medium`, `Low`, `Triage`), adding redundant ledger-maintenance overhead without providing an execution gate.
+
+Crucially, **the lack of an execution gate creates a severe governance flaw**: autonomous agents can log an issue and immediately start implementing it (`aapp issue fix <num>`), opening an un-gated back-door to cover mistakes or perform un-reviewed refactoring. While plans must pass human review into the Greenlight Zone (`aapp freeze`) before execution, issues currently have no equivalent gate.
+
+This plan transforms `issues_road_map.md` into a lean **Active Work Queue** and establishes human-in-the-loop queueing:
+1. `issues_road_map.md` retains only two sections:
+   - `## 🧱 Plan Blockers`: emergency hotfixes from active plans (`aapp issue hotfix`), capped by `aapp.maxEmergencyHotfixes`.
+   - `## 📋 Queued`: issues explicitly approved and queued for agent work by a human via `aapp issue queue <num>`.
+2. All other issues exist solely in `ISSUES.md` (and display via `aapp issue list`). The legacy priority bands (`User Priority`, `High`, `Medium`, `Low`, `Triage`) are removed cleanly.
+3. `aapp issue fix <num>` enforces the gate: it **refuses closed** unless `#<num>` is in `🧱 Plan Blockers` or `📋 Queued`.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 The Active Work Queue Structure (`issues_road_map.md`)
+`issues_road_map.md` is reduced to two execution sections:
+
+```markdown
+# 🗺️ Issue Work Queue
+
+## 🧱 Plan Blockers
+<!-- Written automatically by 'aapp issue hotfix'. Capped per plan by aapp.maxEmergencyHotfixes. -->
+
+## 📋 Queued
+<!-- Queued explicitly by a person via 'aapp issue queue <num>'. Only queued issues may be fixed. -->
+```
+
+- When an issue is logged (`aapp issue log`), it is recorded solely in `ISSUES.md`. It no longer appends a line to `issues_road_map.md`.
+- Legacy priority bands (`User Priority`, `High Priority`, `Medium Priority`, `Low Priority`, `Triage`) are eliminated as a clean break.
+
+### 2.2 CLI Verb: `aapp issue queue <num> [remove]`
+A dedicated verb under `aapp issue` allows humans to manage the work queue:
+- `aapp issue queue <num>`:
+  - Verifies `#<num>` is an active issue in `ISSUES.md` (`🟠 Incubated` or `🔵 Planned`).
+  - Refuses if `#<num>` is already in `📋 Queued` or `🧱 Plan Blockers`.
+  - Appends `- [ ] #<num> -> <symptom>` under `## 📋 Queued` in `issues_road_map.md`.
+  - Commits the change in the `.plans` worktree as `issue(queue): #<num> queued`.
+  - Emits plugin hook if `aapp-issue-tracker` is configured.
+- `aapp issue queue <num> remove`:
+  - Removes `#<num>` from `## 📋 Queued`.
+  - Commits in `.plans` as `issue(queue): #<num> unqueued`.
+- **Agent Rule Invariant**: Only a person may run `aapp issue queue`. Autonomous agents are strictly forbidden from self-queueing issues.
+
+### 2.3 Enforcement Gate on `aapp issue fix`
+`aapp issue fix [next-blocker | <num>]` validates the queue status before opening any fix:
+- If `<num>` is provided:
+  - Checks if `#<num>` is present in `## 🧱 Plan Blockers` or `## 📋 Queued` of `issues_road_map.md`.
+  - If NOT present: **refuses closed**:
+    ```text
+    ❌ [Issue] #<num> is not queued for work.
+       A human must queue it first: 'aapp issue queue <num>'.
+    ```
+- If invoked without arguments or as `next-blocker`:
+  - Claims the first available issue from `## 🧱 Plan Blockers`.
+  - If no blockers exist, claims the first available issue from `## 📋 Queued`.
+  - If neither exists, refuses closed with diagnostic.
+
+### 2.4 Promotion & Lifecycle Integration
+- When an issue is promoted to a plan (`aapp draft <slug> issue <num>`):
+  - Its entry in `## 📋 Queued` is updated to reflect its plan link: `- [ ] #<num> -> <symptom> [P-XX](...)`.
+  - It remains in `## 📋 Queued` until the plan ships.
+  - When the plan is archived (`aapp done`), the issue row is relocated to `000-issues-archive.md` and pruned from `issues_road_map.md`.
+- When an issue is aborted (`aapp issue abort <num>`):
+  - Pruned from `issues_road_map.md` (blocker or queued) and archived as aborted.
+
+### 2.5 Briefing & Planning Health
+- **Briefing (`aapp status`)**: The `🐛 [2/4] ISSUES` pillar displays:
+  - Active `🧱 Plan Blockers`.
+  - Active `📋 Queued` issues ready for work.
+  - A summary count of unqueued issues remaining in `ISSUES.md`.
+- **Planning Health (`lib/planning_health.sh`)**:
+  - Validates `issues_road_map.md` against the two-section specification.
+  - Refuses legacy section headings.
+  - Validates that every entry in `issues_road_map.md` exists as an active issue in `ISSUES.md`.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- Existing `.plans/issues_road_map.md` in this repository and template `templates/issues_road_map.md` are migrated directly to the two-section layout.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### 🧪 Required Tests (Failure & Boundary Assertions)
+> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/issue.queue.sh::test_queue_appends_to_road_map` -> asserts `aapp issue queue <num>` adds issue to `## 📋 Queued` in `issues_road_map.md` and commits in `.plans`
+- [ ] `tests/verbs/issue.queue.sh::test_queue_remove` -> asserts `aapp issue queue <num> remove` removes the entry and commits
+- [ ] `tests/verbs/issue.queue.sh::test_queue_refuses_invalid_or_resolved` -> asserts queueing a non-existent or resolved issue fails closed
+- [ ] `tests/verbs/issue.queue.sh::test_fix_refuses_unqueued_issue` -> asserts `aapp issue fix <num>` fails closed with error when issue is not in blockers or queued
+- [ ] `tests/verbs/issue.queue.sh::test_fix_accepts_queued_issue` -> asserts `aapp issue fix <num>` opens cleanly when issue is in `## 📋 Queued`
+- [ ] `tests/verbs/issue.queue.sh::test_fix_next_blocker_falls_back_to_queued` -> asserts `aapp issue fix` with no blockers claims the top queued issue
+- [ ] `tests/verbs/issue.queue.sh::test_log_does_not_append_to_road_map` -> asserts `aapp issue log` writes solely to `ISSUES.md` without touching `issues_road_map.md`
+- [ ] `tests/verbs/issue.queue.sh::test_planning_health_validates_queue_format` -> asserts health check passes on two-section road map and refuses legacy bands
+
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: Author `tests/verbs/issue.queue.sh` covering queue verb and fix gate assertions; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: `lib/ledger.sh`: Implement `roadmap_queue_add`, `roadmap_queue_remove`, update roadmap querying helpers for two-section layout.
+- [ ] Task 2.2: `lib/cmd_issue.sh`: Implement `aapp issue queue <num> [remove]`; enforce queue check in `cmd_issue_fix`; decouple `cmd_issue_log` from road map appending.
+- [ ] Task 2.3: `lib/cmd_status.sh`: Update Issues pillar of briefing to show blockers, queued issues, and count of unqueued issues.
+- [ ] Task 2.4: `lib/planning_health.sh`: Update roadmap verification rules for the two-section queue format.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.1: Run automated test suites across all verbs.
+- [ ] Task 3.2: Update `templates/issues_road_map.md`, `templates/AGENTS.md`, `templates/skills/aapp-fix/SKILL.md`.
+- [ ] Task 3.3: Update `MANUAL.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, `lib/docs/verbs/issue.md`.
+- [ ] Task 3.4: Migrate active `.plans/issues_road_map.md`.
+- [ ] Task 3.5: Run syntax, build, and test verification before plan completion.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_issue.sh` -> `aapp issue queue` command, `cmd_issue_fix` queue gate, decouple `cmd_issue_log`.
+- [ ] `lib/ledger.sh` -> Road map queue helpers, two-section parsing.
+- [ ] `lib/cmd_status.sh` -> Update briefing Issues pillar for queued layout.
+- [ ] `lib/planning_health.sh` -> Validate two-section road map structure.
+- [ ] `lib/docs/verbs/issue.md` -> Document `aapp issue queue` and queue gate.
+- [ ] `templates/issues_road_map.md` -> Two-section template (`Blockers`, `Queued`).
+- [ ] `templates/AGENTS.md` -> Human queue gate invariant; agents cannot self-queue.
+- [ ] `templates/skills/aapp-fix/SKILL.md` -> Updated fix skill reflecting queue gate.
+- [ ] `MANUAL.md` -> Issue lifecycle, work queue specification, `aapp issue queue`.
+- [ ] `CHEATSHEET.md` -> `aapp issue queue <num> [remove]` CLI reference.
+- [ ] `ARCHITECTURE.md` -> Two-lane queue architecture and human-in-the-loop gate.
+- [ ] `NEW FILE` -> `tests/verbs/issue.queue.sh` -> Failure and boundary tests.
+
+### 🧪 Required Test Files
+- [ ] `tests/verbs/issue.queue.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/blast-radius-guard.sh` -> Write guard operates on active mini plans; does not touch road map parsing.
+- [ ] `lib/cmd_plan.sh` -> Plan lifecycle is unaffected except for issue link maintenance.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-15:** Plan initialized from `pickup.md`.
-* **2026-10-15:** Refined blast radius and locked module boundaries.
+* **2026-10-15:** Drafted blueprint: transformed `issues_road_map.md` into an active work queue (`🧱 Plan Blockers` + `📋 Queued`), introduced `aapp issue queue <num>`, and gated `aapp issue fix` against unqueued execution.
