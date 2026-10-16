@@ -12,7 +12,7 @@
 * **Base:** `13a2cae` (feature/readable-and-parsable-output)
 * **Worktree:** .workspace/P92 (plan/P92-output-records-and-wrapping)
 * **Group:** P-91
-* **Commits:** none
+* **Commits:** `27accba` (plan/P92-output-records-and-wrapping)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
