@@ -2,7 +2,7 @@
 * **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-96
-* **Changelog:** Changed: a pickup entry is `- [ ] <title>: <text>`, its title at most 72 characters; `aapp refine pickup` refuses any other form (P-96)
+* **Changelog:** Changed: a pickup entry is `- [ ] <title>: <text>`, its title no longer than `aapp.subjectMaxLen`; `aapp refine pickup` refuses any other form (P-96)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -53,7 +53,7 @@ One line per entry:
 ```
 - [ ] <title>: <text>
 ```
-- **Title:** everything before the first `: ` outside backticks; required; at most 72 characters (the commit subject limit: the title stays one line after `  - [ ] ` within the briefing's 85 columns). Not configurable.
+- **Title:** everything before the first `: ` outside backticks; required; at most `aapp.subjectMaxLen` characters (the commit subject limit, default 72), read through `aapp_subject_max_len` (`lib/aapp-lib.sh`, new: the setting, or 72 when unset or not a number).
 - **Text:** everything after it; required, not empty.
 - **Files:** every path under `.plans/pickup/` the entry names exists.
 - A digested entry (`- [x] `) is not checked: it is history.
@@ -62,7 +62,7 @@ One line per entry:
 - Refuses, per line, naming the line number and the line, and showing the form:
   - a list line that is not `- [ ] ` / `- [x] ` (as today);
   - an entry with no `: ` outside backticks: `no title`;
-  - a title longer than 72 characters: `title is <n> characters; at most 72`;
+  - a title longer than the limit: `title is <n> characters; at most <max> (aapp.subjectMaxLen)`;
   - an empty text: `no text after the title`;
   - a named `.plans/pickup/` path that does not exist: `names <path>, which does not exist`.
 - One title rule for gate and reader: the split is one function, `pickup_entry_split` (`lib/aapp-lib.sh`), used by the gate and by P-92's `status_records_pickup`.
@@ -73,7 +73,7 @@ One line per entry:
 - `templates/AGENTS.md`: the line that says ideas are committed with `aapp refine pickup` states the form.
 
 ### 2.4 Existing entries
-Four titles in this repository's `pickup.md` are longer than 72 characters. Before this member lands they are rewritten with `aapp refine pickup`, the bracketed part moved into the text, and nothing else changed:
+Four titles in this repository's `pickup.md` are longer than 72 characters (this repository's `aapp.subjectMaxLen`). Before this member lands they are rewritten with `aapp refine pickup`, the bracketed part moved into the text, and nothing else changed:
 
 | Today | Title after |
 | :--- | :--- |
@@ -100,7 +100,7 @@ The text of each starts with the moved part, e.g. `- [ ] Cookbook recipe "Planni
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
 - [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_untitled_entry` -> asserts an entry with no `: ` outside backticks is refused naming its line, and nothing is committed
-- [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_long_title` -> asserts a 73-character title is refused with its length, and a 72-character one is accepted
+- [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_long_title` -> asserts a title one character over `aapp.subjectMaxLen` is refused with its length and the limit, one at the limit is accepted, under the default 72 and under a set value of 50
 - [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_empty_text` -> asserts `- [ ] Title:` with nothing after it is refused
 - [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_missing_file` -> asserts an entry naming a `.plans/pickup/` file that does not exist is refused naming the path, and one naming an existing file is accepted
 - [ ] `tests/verbs/refine.sh::test_refine_pickup_skips_digested` -> asserts a `- [x] ` entry without a title is not refused
@@ -111,7 +111,7 @@ The text of each starts with the moved part, e.g. `- [ ] Cookbook recipe "Planni
 - [ ] Task 1.2: Rewrite the four titles of §2.4 in `.plans/pickup.md` with `aapp refine pickup`.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/aapp-lib.sh`: `pickup_entry_split`.
+- [ ] Task 2.1: `lib/aapp-lib.sh`: `pickup_entry_split`; `aapp_subject_max_len`.
 - [ ] Task 2.2: `lib/planning_health.sh`: `check_pickup_entries` with the refusals of §2.2.
 - [ ] Task 2.3: `templates/pickup.md`, `templates/AGENTS.md`: the form.
 - [ ] Task 2.4: `lib/docs/verbs/refine.md`: the refusals and the tests.
@@ -132,7 +132,7 @@ The text of each starts with the moved part, e.g. `- [ ] Cookbook recipe "Planni
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `lib/aapp-lib.sh` -> `pickup_entry_split`.
+- [ ] `lib/aapp-lib.sh` -> `pickup_entry_split`; `aapp_subject_max_len`.
 - [ ] `lib/planning_health.sh` -> `check_pickup_entries`: the form.
 - [ ] `templates/pickup.md` -> the form in the protocol block.
 - [ ] `templates/AGENTS.md` -> the form where pickup commits are named.
@@ -161,3 +161,4 @@ The text of each starts with the moved part, e.g. `- [ ] Cookbook recipe "Planni
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted as the first member of group P-91.
+* **2026-10-16:** Title limit is `aapp.subjectMaxLen`, not a fixed 72.
