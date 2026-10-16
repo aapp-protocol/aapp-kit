@@ -108,28 +108,28 @@ This member, the sixth of group P-91, puts both in the JSON: stdout always holds
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/output_json_test.sh::test_failure_is_error_document` -> asserts a failing `status json` exits non-zero with one JSON object on stdout holding the envelope and `error`, and the message also on stderr
-- [ ] `tests/output_json_test.sh::test_error_codes` -> asserts `usage` for `issue list sideways json`, `invalid-setting` with `aapp_config` `aapp.statusItemsMax` for a bad value, `confirm-needed` for a first tracker listing without `confirm`, `failed` otherwise; `aapp_config` is `null` where no setting is at fault
-- [ ] `tests/output_json_test.sh::test_notices_grouped_by_level` -> asserts `notices` is `{ "warning": [...], "info": [...] }`, both keys present, items `{ section, text }` without emoji
-- [ ] `tests/output_json_test.sh::test_sync_warning_in_notices` -> asserts a failing tracker sync in `issue list json` is a `warning` notice of section `issues`, and nothing is printed on stderr
-- [ ] `tests/output_json_test.sh::test_fields_match_reference` -> asserts the keys of every object, the error document's included, equal the tables of the reference
+- [x] `tests/output_json_test.sh::test_failure_is_error_document` -> asserts a failing `status json` exits non-zero with one JSON object on stdout holding the envelope and `error`, and the message also on stderr
+- [x] `tests/output_json_test.sh::test_error_codes` -> asserts `usage` for `issue list sideways json`, `invalid-setting` with `aapp_config` `aapp.statusItemsMax` for a bad value, `confirm-needed` for a first tracker listing without `confirm`, `failed` otherwise; `aapp_config` is `null` where no setting is at fault
+- [x] `tests/output_json_test.sh::test_notices_grouped_by_level` -> asserts `notices` is `{ "warning": [...], "info": [...] }`, both keys present, items `{ section, text }` without emoji
+- [x] `tests/output_json_test.sh::test_sync_warning_in_notices` -> asserts a failing tracker sync in `issue list json` is a `warning` notice of section `issues`, and nothing is printed on stderr
+- [x] `tests/output_json_test.sh::test_fields_match_reference` -> asserts the keys of every object, the error document's included, equal the tables of the reference
 
 ### Phase 1: Foundation & Setup
-- [ ] Task 1.1: Write the tests of this section; update `test_failure_prints_nothing` and the fixtures that read `notices` as a list; commit them red.
+- [x] Task 1.1: Write the tests of this section; update `test_failure_prints_nothing` and the fixtures that read `notices` as a list; commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/output.sh`: `out_json_notices` as the grouped object; `out_json_error`.
-- [ ] Task 2.2: `lib/cmd_status.sh`: the JSON path with stderr captured; notices and the error document.
-- [ ] Task 2.3: `lib/cmd_issue.sh`: `list … json` with the sync's output captured; `confirm-needed`.
-- [ ] Task 2.4: `docs/reference/08-output-json.md`, `lib/docs/verbs/status.md`, `lib/docs/verbs/issue.md`: the stream, `notices`, `error`, the codes, the tests.
-- [ ] Task 2.5: group P-91 §2.4 and §2.5 amended (the group's commit).
+- [x] Task 2.1: `lib/output.sh`: `out_json_notices` as the grouped object; `out_json_error`.
+- [x] Task 2.2: `lib/cmd_status.sh`: the JSON path with stderr captured; notices and the error document.
+- [x] Task 2.3: `lib/cmd_issue.sh`: `list … json` with the sync's output captured; `confirm-needed`.
+- [x] Task 2.4: `docs/reference/08-output-json.md`, `lib/docs/verbs/status.md`, `lib/docs/verbs/issue.md`: the stream, `notices`, `error`, the codes, the tests.
+- [x] Task 2.5: group P-91 records the change (its §6 and its Architecture & Codemap sections, the group's commit); its §2 is locked while it is in development.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
@@ -173,3 +173,4 @@ This member, the sixth of group P-91, puts both in the JSON: stdout always holds
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted as the sixth member of group P-91: errors as a JSON document, warnings and remarks grouped in `notices`; `aapp_config` names the setting at fault.
 * **2026-10-16:** Back to refining with the developer's OK: `tests/verbs/status.sh` added to the Target Files (`status short json` is refused with the error document).
+* **2026-10-16:** Implementation: the JSON path runs with stderr kept; an exit trap (`status`) or the refusal paths (`issue list`) print the error document. The sync runs without input. A started group cannot be restarted (its branch exists), so group P-91's §2 cannot be unlocked: P-100 is recorded in its §6 and Architecture & Codemap, and the contract in `docs/reference/08-output-json.md`. Suite green (1163).
