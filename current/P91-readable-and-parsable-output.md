@@ -97,7 +97,7 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 | `overview` | `{ "issues", "next_issues": [id], "plans", "roadmap_plans": [id], "pickup", "adoption" }`: the counts of `status short` |
 | `templates` | `{ "synced": bool, "version", "drifted": [{ "file", "reason" }] }` |
 | `pause` | `null`, or `{ "scope": "local" \| "team", "reason", "paused_at", "stashes": [{ "worktree", "branch" }] }` |
-| `shipped` | `{ "source", "entries": [{ "section": "added" \| "changed" \| "fixed" \| …, "text", "plan", "commit", "date" }], "more" }` |
+| `shipped` | `{ "source", "entries": [{ "section": "added" \| "changed" \| "fixed" \| …, "text", "plan", "issue", "commit", "date" }], "more" }`: `text` is the bullet as written; `plan` / `issue` the id it is tagged with, or `null`; `commit` and `date` where it landed, `null` from the fallback |
 | `issues` | `{ "queue": [issue], "unqueued" }`: the work queue in queue order, offline issues included (`offline: true`); the count of the others |
 | `plans` | `{ "items": [{ "id", "file", "title", "status", "status_label", "group", "members": [id], "target_issue", "blocked_on": [id], "worktree", "branch" }] }`: flat, in briefing order; a group lists its `members`, a member names its `group` |
 | `pickup` | `{ "source", "items": [{ "text" }], "total" }` |
