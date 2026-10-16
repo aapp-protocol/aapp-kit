@@ -150,7 +150,7 @@ The Issues records are one function for both commands, beside the ledger functio
 * **Purpose:** Shared rendering for commands that print records (P-91): terminal width, wrapping and cutting, and the JSON writer.
 * **Key Functions:**
   * `out_width` -> `aapp.statusOutputWidth` (default 85; refused, naming the key, below 40). `out_wrap <first-indent> <hang-indent> [<width>]` -> text on stdin wrapped at spaces, runs of spaces kept, a word longer than the width whole on its own line; `out_cut <limit>` -> text cut at the last space before `<limit>`, ending in `…`. Both count characters as `aapp_char_len` does (UTF-8 continuation bytes not counted).
-  * `out_json_open` / `out_json_field <key> <type> <value>` / `out_json_close` -> one JSON object, 2-space indent, keys in call order; strings through `json_escape`; `null` for an empty value of a nullable field.
+  * The JSON writer (P-94): `out_json_str` / `out_json_strn`, `out_json_num` / `out_json_numn`, `out_json_bool`, `out_json_strlist <a,b>`, `out_json_list <json>…`, `out_json_obj <key> <json>…` build a compact document, keys in call order, `null` for an empty nullable value, strings through `json_escape`; `out_json_pretty` prints it with a 2-space indent. `out_json_envelope <command> <notices>` -> the envelope's pairs; `out_json_repository` -> the remote (`_envelope_remote_json`), the branch, the path unless `aapp.jsonLocalPath false` (`out_json_local_path`); `out_json_notices` -> the `notices` list. The contract: `docs/reference/08-output-json.md`.
 * **Consumers:** `lib/cmd_status.sh`, `lib/cmd_issue.sh` (`issue list`).
 * **Anti-Wrapper Warning:** Never print JSON by hand elsewhere: field order, `null` and escaping are decided here.
 ````
@@ -174,6 +174,7 @@ The Issues records are one function for both commands, beside the ledger functio
   * `ledger_issue_records [<n>…]` -> tab-separated `id severity type status logged location symptom plan blocks queue_section queue_level queued branch offline tracker_name tracker_url tracker_release notes`; the active ledger in recorded order, then the issues staged offline; or the ids given, in order. Severity and status are lowercase slugs; location and symptom as written.
   * `issue_records_by_branch <current> <dev> [fill]` -> records reordered, this branch's first, once an issue names a branch; `fill` shows `<dev>` for an issue that names none, for the terminal (the records keep it empty).
   * `issue_render_terminal <width> <cut>` -> records on stdin, each issue as the views show it (P-93): the facts line, the tracker's names on a `· ` line, the symptom wrapped at 8 spaces, cut at `<cut>` when above 0. Needs `lib/output.sh`, which the commands load and the hooks do not.
+  * `issue_render_json` -> records on stdin as the JSON list of `issue` objects (P-94), for both commands.
   * `issue_text_counts` -> `#<n>\t<count>` from the kit's store of descriptions and notes, no text; `issue_notes_counted` -> false where an `aapp-issue-tracker` provider is installed (the count is then unknown).
   * `aapp_state_file <name>` -> a per-machine state file beside the repository's Git data (the tracker's names for issues, the sync stamp).
 * **Anti-Wrapper Warning:** A view never reads a ledger row or the note store itself: it reads records. No text of a description or note goes into a record.
@@ -213,4 +214,5 @@ The Issues records are one function for both commands, beside the ledger functio
 * **2026-10-16:** CODEMAP section for issue records; output.sh entry as built (P-92).
 * **2026-10-16:** CODEMAP: the Shipped source and the two limits (P-88).
 * **2026-10-16:** CODEMAP: the issue layout renderer and branch order on records (P-93).
+* **2026-10-16:** CODEMAP: the JSON writer and `issue_render_json` as built (P-94).
 * **2026-10-16:** Issues carry a `notes` count: a facts-line hint and a JSON field, never the text.
