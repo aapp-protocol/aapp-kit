@@ -28,11 +28,12 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
+- 🔷 **P-100**: [`P100-json-errors-and-warnings.md`](current/P100-json-errors-and-warnings.md) — Json Errors And Warnings
+
 ---
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-100**: [`P100-json-errors-and-warnings.md`](current/P100-json-errors-and-warnings.md) — Json Errors And Warnings
 - ⚡ **P-91**: [`P91-readable-and-parsable-output.md`](current/P91-readable-and-parsable-output.md) — 🧩 Group Plan P-91: Readable And Parsable Output
 
 ---

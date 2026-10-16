@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 📝 Refining
+* **Status:** 🔷 Frozen
 * **Base:** `5a6f3c7` (feature/readable-and-parsable-output)
 * **Worktree:** .workspace/P100 (plan/P100-json-errors-and-warnings)
 * **Group:** P-91
@@ -167,6 +167,7 @@ This member, the sixth of group P-91, puts both in the JSON: stdout always holds
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-16:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-16:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted as the sixth member of group P-91: errors as a JSON document, warnings and remarks grouped in `notices`; `aapp_config` names the setting at fault.
