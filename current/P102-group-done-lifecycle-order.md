@@ -2,7 +2,7 @@
 * **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
 * **Target Issue / Milestone:** #165
 * **Plan ID:** P-102
-* **Changelog:** Changed: Group Done Lifecycle Order
+* **Changelog:** Fixed: group done verifies tests before committing docs and commits codemap before worktree cleanup (P-102)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,64 +39,80 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+In the current implementation of group plan completion (`cmd_done` in `lib/cmd_plan.sh` under Plan P-64), `_group_done_prepare` mutates `ARCHITECTURE.md` and immediately creates a commit (`docs: group <gid> architecture and changelog`) on the group's feature branch **before** the test gate runs.
+
+This causes severe lifecycle defects:
+1. **Premature Commit**: If tests fail (or pre-commit hooks fail), the feature branch is permanently polluted with a documentation commit claiming that the feature is delivered. Fixing tests afterward inverts git history, putting bug fixes *after* the delivery documentation commit.
+2. **Inconsistent Documentation Split**: `ARCHITECTURE.md` is committed on the feature branch *before* tests run, while `.agents/CODEMAP.md` is committed on `.agents` *after* integration.
+3. **Out-of-Order Terminal Output**: In `cmd_done`, `_group_done_codemap` runs *after* `_ig_run`, emitting `.agents/CODEMAP.md` replacement lines *after* the `🧹 [Cleanup] Removed worktree...` message. In any clean CLI tool, worktree cleanup must be the final operation.
+
+The goal of P-102 is to rationalize the group plan `done` lifecycle into a clean, test-first, properly ordered execution pipeline.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Reordered Lifecycle Sequence for Group Plans
+The group plan `aapp done <group-id>` pipeline is restructured into four distinct phases:
+
+1. **Pre-Flight Validation (Read-Only & Dry-Runs)**:
+   - Verify all group members are archived (`group_members`).
+   - Merge parent branch into feature branch (`_group_merge_parent_in`).
+   - Run dry-run checks for both `ARCHITECTURE.md` and `.agents/CODEMAP.md` (`group_docs_apply ... >/dev/null`). If either fails to apply cleanly, abort with 0 commits made.
+2. **Test Gate First**:
+   - Run the pre-done test gate on the clean, merged feature branch *before* generating doc commits.
+   - If tests fail, abort immediately: the branch remains clean, with no premature doc commits.
+3. **Atomic Documentation Generation**:
+   - Once tests are proven green, apply `ARCHITECTURE.md` and umbrella changelog entry and commit them to the feature branch.
+   - Archive the group plan to `.plans/done/` and record in archive ledger.
+4. **Integration & Codemap Application Before Cleanup**:
+   - Fast-forward integrate the feature branch into the parent branch (`develop`).
+   - Apply and commit `.agents/CODEMAP.md` on the `.agents` worktree.
+   - **Cleanup Last**: Delete the group worktree and delete the feature branch as the final step.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Lifecycle Analysis & Refactoring
+- [ ] Task 1.1: Refactor `_group_done_prepare` in `lib/cmd_plan.sh` so that it handles dry-run validation and parent merging, without committing docs before test gates.
+- [ ] Task 1.2: Move the `ARCHITECTURE.md` application and commit step to execute only after the pre-done test gate succeeds.
+- [ ] Task 1.3: Reorder `_group_done_codemap` and worktree cleanup in `_ig_run` so that all document commits land before `🧹 [Cleanup]` is printed.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Verification & Test Suites
+- [ ] Task 2.1: Run `tests/group_docs_test.sh` to ensure all group doc transformations remain compliant.
+- [ ] Task 2.2: Add regression test verifying that a failing test gate in a group plan leaves the feature branch free of premature doc commits.
+- [ ] Task 2.3: Verify terminal output order matches: `Test Gate` -> `Docs Commit` -> `Archive` -> `Integrate` -> `Codemap` -> `Cleanup`.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Documentation & Polish
+- [ ] Task 3.1: Update `ARCHITECTURE.md` and `MANUAL.md` section on Group Plans to reflect the verified lifecycle order.
+- [ ] Task 3.2: Verify full test suite passes (`./aapp test quiet`).
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/cmd_plan.sh` -> Reorder group plan done preparation, test gate, codemap commit, and cleanup.
+- [ ] `lib/group_docs.sh` -> Helper adjustments for pre-test dry-run and post-gate application if needed.
+- [ ] `tests/group_docs_test.sh` -> Regression tests for group done lifecycle order.
+- [ ] `tests/verbs/done.sh` -> Add test assertions verifying output ordering and cleanup sequence.
+- [ ] `MANUAL.md` -> Update Group Plan completion lifecycle documentation.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/aapp-lib.sh` -> Core ledger and resolution logic is out of scope.
+- [ ] `templates/blast-radius-guard.sh` -> Guard engine is untouched.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** Should the `ARCHITECTURE.md` doc commit be folded directly into the group integration commit (making group integration a single commit containing code + docs), or kept as a distinct commit on the feature branch before fast-forward?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-16:** Plan initialized from `pickup.md`.
-* **2026-10-16:** Refined blast radius and locked module boundaries.
+* **2026-10-16:** Plan initialized from issue #165. Authored technical blueprint, reordered lifecycle sequence, and defined target files.
