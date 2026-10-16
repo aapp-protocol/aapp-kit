@@ -58,6 +58,7 @@ What a person sees changes only where a line is too wide: the frame, the Plans p
 Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an absent value is an empty field; a list inside a field is comma-separated.
 
 - `ledger_issue_records [<n>…]` (`lib/aapp-lib.sh`) -> `id`, `severity`, `type`, `status`, `logged`, `location`, `symptom`, `plan`, `blocks`, `queue_section`, `queue_level`, `queued`, `branch`, `offline`, `tracker_name`, `tracker_url`, `tracker_release`, `notes`. One record per active issue (offline ones included, `offline` = `1`), in ledger order, or the ids given, in that order. `ledger_issue_lines` becomes a renderer over these records, printing what it prints today.
+- An empty work queue gives no record (#154): `status_records_issues` calls `ledger_issue_records` only when the queue holds ids, since with no ids it lists every issue. `tests/verbs/issue.queue.sh::test_status_empty_queue_lists_no_issue` keeps guarding it.
 - `notes`: how many entries (the description and each note) the kit's store holds for the issue, from `issue_text_counts` (`lib/aapp-lib.sh`, new, beside `issue_text_get`: one pass over the store, `<id>\t<count>` per issue). Empty when a provider keeps the notes (it names `notes` in `handled`), since the kit cannot count them then. The count is the only thing taken from the store; no text of it reaches a record.
 - In `lib/cmd_status.sh`, one function per section: `status_records_overview`, `_templates`, `_pause`, `_shipped`, `_issues`, `_plans`, `_pickup`, `_adoption`, `_offline`, `_next`; and `status_notices` -> `level`, `section`, `text` for every remark a section makes today (sync output, unblocking, matrix re-derived, gone branch, drift).
 - `status_records_pickup` -> `title`, `text`, `files` per unworked entry, split by P-96's `pickup_entry_split`, as group P-91 §2.5 says (first `: ` outside backticks; the existing files under `.plans/pickup/` the text names). A named file that is missing gives a `warning` notice. The terminal still prints the entry as today until P-88.
@@ -155,3 +156,4 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 * **2026-10-16:** Pickup records: title, text, files.
 * **2026-10-16:** Pickup records split by P-96's `pickup_entry_split`.
 * **2026-10-16:** Issue records carry `notes`, counted by `issue_text_counts`.
+* **2026-10-16:** The empty-queue guard of #154 stated for the Issues records.
