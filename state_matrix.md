@@ -23,6 +23,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-90**: [`P90-companion-worktree-bridge.md`](current/P90-companion-worktree-bridge.md) — Companion Worktree Bridge
 - 🟣 **P-91**: [`P91-readable-and-parsable-output.md`](current/P91-readable-and-parsable-output.md) — 🧩 Group Plan P-91: Readable And Parsable Output
 - 🟣 **P-92**: [`P92-output-records-and-wrapping.md`](current/P92-output-records-and-wrapping.md) — Output Records And Wrapping
+- 🟣 **P-93**: [`P93-issue-list-layout.md`](current/P93-issue-list-layout.md) — Issue List Layout
 
 ---
 
