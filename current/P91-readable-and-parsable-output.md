@@ -111,13 +111,14 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 The JSON lists the items the terminal lists (the same caps, `aapp.statusItemsMax`, §2.3) with their text whole; `more`, `unqueued` and `total` count the rest. `aapp issue list json` keeps the verb's own cap (`<n>`, `all`, default 20): each command sets its own limits.
 
 ## 3. Members & Order
-All five members change `lib/aapp-lib.sh` or `lib/cmd_status.sh`: one runs at a time, in this order.
+All six members change `lib/aapp-lib.sh`, `lib/cmd_status.sh` or `lib/output.sh`: one runs at a time, in this order.
 
 1. **P-96 Pickup Entry Form:** a pickup entry is `- [ ] <title>: <text>`, checked by `aapp refine pickup`; `pickup_entry_split` is the one split, which P-92's pickup records reuse.
 2. **P-92 Output Records And Wrapping:** the records of every section, `lib/output.sh` (wrap, cut, width), the terminal renderer on the records. Shipped, Issues and Pickup print as today; the frame, Plans pillar, notices, offline block and next action keep to the width.
 3. **P-88 Status Recent And Bounded (#147):** Shipped from the changelog's Git history, newest first, with `commit` and `date`; Shipped and Pickup bounded and wrapped (§2.3).
 4. **P-93 Issue List Layout (#155):** the issue facts line and wrapped symptom in `aapp issue list` and the Issues pillar, offline issues included.
 5. **P-94 JSON Output:** the `json` token on both commands, the JSON writer, `docs/reference/08-output-json.md` and its test.
+6. **P-100 JSON Errors And Warnings:** after P-94: a failing JSON run prints an error document (`error.code`, `message`, `aapp_config`); the run's warnings and remarks are in `notices`, grouped `{ "warning": [], "info": [] }`.
 
 ## Architecture & Codemap
 *Every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written out whole in a ```` fence, under the exact heading it has (or will have) in the file. Members do not edit these files; read the sections here as the target architecture. At the group's `done` a section replaces the file's section with the same heading, or is added at the end. `aapp refine` records a base line above each fence: `done` refuses a section the file changed meanwhile. Write `No changes.` under a file that keeps its content.*
@@ -215,4 +216,5 @@ The Issues records are one function for both commands, beside the ledger functio
 * **2026-10-16:** CODEMAP: the Shipped source and the two limits (P-88).
 * **2026-10-16:** CODEMAP: the issue layout renderer and branch order on records (P-93).
 * **2026-10-16:** CODEMAP: the JSON writer and `issue_render_json` as built (P-94).
+* **2026-10-16:** P-100 (JSON errors and warnings) joins, sixth, with the developer's OK.
 * **2026-10-16:** Issues carry a `notes` count: a facts-line hint and a JSON field, never the text.
