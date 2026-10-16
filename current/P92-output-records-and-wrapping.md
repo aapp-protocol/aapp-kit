@@ -57,7 +57,8 @@ What a person sees changes only where a line is too wide: the frame, the Plans p
 ### 2.2 Records
 Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an absent value is an empty field; a list inside a field is comma-separated.
 
-- `ledger_issue_records [<n>…]` (`lib/aapp-lib.sh`) -> `id`, `severity`, `type`, `status`, `logged`, `location`, `symptom`, `plan`, `blocks`, `queue_section`, `queue_level`, `queued`, `branch`, `offline`, `tracker_name`, `tracker_url`, `tracker_release`. One record per active issue (offline ones included, `offline` = `1`), in ledger order, or the ids given, in that order. `ledger_issue_lines` becomes a renderer over these records, printing what it prints today.
+- `ledger_issue_records [<n>…]` (`lib/aapp-lib.sh`) -> `id`, `severity`, `type`, `status`, `logged`, `location`, `symptom`, `plan`, `blocks`, `queue_section`, `queue_level`, `queued`, `branch`, `offline`, `tracker_name`, `tracker_url`, `tracker_release`, `notes`. One record per active issue (offline ones included, `offline` = `1`), in ledger order, or the ids given, in that order. `ledger_issue_lines` becomes a renderer over these records, printing what it prints today.
+- `notes`: how many entries (the description and each note) the kit's store holds for the issue, from `issue_text_counts` (`lib/aapp-lib.sh`, new, beside `issue_text_get`: one pass over the store, `<id>\t<count>` per issue). Empty when a provider keeps the notes (it names `notes` in `handled`), since the kit cannot count them then. The count is the only thing taken from the store; no text of it reaches a record.
 - In `lib/cmd_status.sh`, one function per section: `status_records_overview`, `_templates`, `_pause`, `_shipped`, `_issues`, `_plans`, `_pickup`, `_adoption`, `_offline`, `_next`; and `status_notices` -> `level`, `section`, `text` for every remark a section makes today (sync output, unblocking, matrix re-derived, gone branch, drift).
 - `status_records_pickup` -> `title`, `text`, `files` per unworked entry, split by P-96's `pickup_entry_split`, as group P-91 §2.5 says (first `: ` outside backticks; the existing files under `.plans/pickup/` the text names). A named file that is missing gives a `warning` notice. The terminal still prints the entry as today until P-88.
 - Records are collected once per run, before anything is printed; side effects (sync, unblock, matrix) run where they run today, and their output becomes notices.
@@ -89,7 +90,8 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 - [ ] `tests/verbs/status.sh::test_briefing_unchanged_for_pillars` -> asserts Shipped, Issues and Pickup of a fixture's briefing are byte-identical to the briefing before this member
 - [ ] `tests/verbs/status.sh::test_briefing_lines_within_width` -> asserts with a long plan worktree path, a long notice and a 60-column width no frame, plan, notice or next-action line exceeds 60 characters
 - [ ] `tests/verbs/status.sh::test_pickup_records` -> asserts entries split into title and text at the first `: ` outside backticks, an entry without one has an empty title, `files` holds the named `.plans/pickup/` files that exist, and a missing one gives a warning notice
-- [ ] `tests/issue_ledger_test.sh::test_issue_records_fields` -> asserts `ledger_issue_records` gives every field of P-91 §2.5 for a queued, a planned, a blocking, a branched and an offline issue
+- [ ] `tests/issue_ledger_test.sh::test_issue_records_fields` -> asserts `ledger_issue_records` gives every field of P-91 §2.5 for a queued, a planned, a blocking, a branched and an offline issue, and `notes` as 2 for an issue with a description and one note, 0 for one with none, empty where a provider keeps the notes
+- [ ] `tests/issue_ledger_test.sh::test_note_count_holds_no_text` -> asserts no record field holds any text of a description or note
 - [ ] `tests/verbs/issue.sh::test_list_unchanged` -> asserts `aapp issue list` prints what it printed before this member
 
 ### Phase 1: Foundation & Setup
@@ -152,3 +154,4 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 * **2026-10-16:** Drafted as the first member of group P-91.
 * **2026-10-16:** Pickup records: title, text, files.
 * **2026-10-16:** Pickup records split by P-96's `pickup_entry_split`.
+* **2026-10-16:** Issue records carry `notes`, counted by `issue_text_counts`.
