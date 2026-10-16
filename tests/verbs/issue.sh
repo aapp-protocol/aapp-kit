@@ -151,15 +151,15 @@ fi
 echo "== list =="
 for n in $(seq 20 44); do printf '| #%s | `Low` | `CORE` | 2026-10-01 | `a.sh` | Filler %s. |  | 🟡 `Incubated` |\n' "$n" "$n" >> .plans/ISSUES.md; done
 out="$(aapp issue list 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && [ "$(echo "$out" | grep -c ' -> ')" -eq 20 ] && echo "$out" | tail -n 1 | grep -q '6 more (aapp issue list all)' && \
-   echo "$out" | head -n 1 | grep -q '#12 ->'; then
+if [ "$rc" -eq 0 ] && [ "$(echo "$out" | grep -cE '^  #[0-9]+ ')" -eq 20 ] && echo "$out" | tail -n 1 | grep -q '6 more (aapp issue list all)' && \
+   echo "$out" | head -n 1 | grep -qE '^  #12 '; then
   ok "test_list_default_cap_in_ledger_order"
 else
   bad "test_list_default_cap_in_ledger_order" "rc=$rc out=$out"
 fi
 out1="$(aapp issue list 3 2>&1)"; out2="$(aapp issue list all 2>&1)"
 aapp issue list -n >/dev/null 2>&1; rc=$?
-if [ "$(echo "$out1" | grep -c ' -> ')" -eq 3 ] && [ "$(echo "$out2" | grep -c ' -> ')" -eq 26 ] && [ "$rc" -ne 0 ]; then
+if [ "$(echo "$out1" | grep -cE '^  #[0-9]+ ')" -eq 3 ] && [ "$(echo "$out2" | grep -cE '^  #[0-9]+ ')" -eq 26 ] && [ "$rc" -ne 0 ]; then
   ok "test_list_cap_tokens"
 else
   bad "test_list_cap_tokens" "rc=$rc"

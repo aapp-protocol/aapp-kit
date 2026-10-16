@@ -76,7 +76,7 @@ Run: `aapp test verb refine`
 - `tests/verbs/refine.sh::test_refine_pickup_commits_only_pickup` -> the reserved word wins over a plan named *pickup*; only `pickup.md` committed (P-50)
 - `tests/verbs/refine.sh::test_refine_pickup_refuses_malformed_entry` -> a non-checkbox entry is refused with its line (P-50)
 - `tests/verbs/refine.sh::test_refine_issues_commits_ledgers` -> `issue(triage): <msg>`, ledger files only (P-50)
-- `tests/verbs/refine.sh::test_refine_issues_validation_refuses` -> blank line, cell count, duplicate, a row renumbered by hand, missing road-map line: each refused, nothing committed (P-50)
+- `tests/verbs/refine.sh::test_refine_issues_validation_refuses` -> blank line, cell count, duplicate, a row renumbered by hand, a heading that is not one of the work queue's: each refused, nothing committed (P-50, P-89)
 - `tests/verbs/refine.sh::test_refine_joins_and_leaves_group` -> join and leave each in one commit; refused once the plan is started (P-64)
 - `tests/verbs/refine.sh::test_issues_refuses_text_in_fix_cell` -> notes in a fix cell: refused, naming the row, nothing committed (P-66)
 - `tests/verbs/refine.sh::test_issues_accepts_plan_and_blocks_links` -> an empty cell and a `blocks [P-xx](…)` link pass (P-66)

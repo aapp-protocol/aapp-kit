@@ -1868,7 +1868,7 @@ ledger_issue_lines() {
             if (match($7, /\[P-[0-9]+\]/)) plan = substr($7, RSTART + 1, RLENGTH - 2)
             if (plan != "" && $7 ~ /^blocks /) plan = "blocks " plan
             qs = ""
-            if ($1 in lv) qs = "queued " qd[$1] " (" (lv[$1] == "urgent" ? "Urgent" : (lv[$1] == "low" ? "Low" : "Normal")) ")"
+            if ($1 in lv) qs = "queued " (qd[$1] != "" ? qd[$1] " " : "") "(" (lv[$1] == "urgent" ? "Urgent" : (lv[$1] == "low" ? "Low" : "Normal")) ")"
             line[$1] = sprintf("%-6s %-8s %-10s logged %s  %-27s  %s%s", $1, sev, st, $4, qs, $6, (plan != "" ? "  [" plan "]" : ""))
             order[++o] = $1
         }

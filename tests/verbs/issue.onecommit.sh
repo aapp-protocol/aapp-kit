@@ -24,7 +24,13 @@ git config aapp.offlineEnabled false
 git config aapp.pluginTimeout 2
 git config aapp.aiAttribution lax
 
-mk_issue() { aapp issue log Low CORE "Defect in $1 shows." file "src/$1.sh" 2>&1 | sed -nE 's/.*#([0-9]+) logged.*/\1/p' | head -n 1; }
+# mk_issue <name>: logs an issue on src/<name>.sh and queues it for work (P-89); prints its number.
+mk_issue() {
+  local n
+  n="$(aapp issue log Low CORE "Defect in $1 shows." file "src/$1.sh" 2>&1 | sed -nE 's/.*#([0-9]+) logged.*/\1/p' | head -n 1)"
+  aapp issue queue "$n" >/dev/null 2>&1
+  echo "$n"
+}
 wt() { echo "$R/p/.workspace/fix-$1"; }
 # fcommit <n> <file> <value> <msg> [tokens…]: one commit in the fix's worktree.
 fcommit() {
