@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-16 | `P-96` | [`P96-pickup-entry-form.md`](P96-pickup-entry-form.md) | none | `13a2cae` | Pickup Entry Form (tdd (8/8)) |
 | 2026-10-16 | `P-95` | [`P95-plugin-runtime-and-dx-fixes.md`](P95-plugin-runtime-and-dx-fixes.md) | #156 | `751b9da` | Plugin Runtime And Dx Fixes |
 | 2026-10-16 | `P-89` | [`P89-issue-work-queue.md`](P89-issue-work-queue.md) | none | `6a258a9` | Issue Work Queue (tdd (18/18)) |
 | 2026-10-15 | `P-86` | [`P86-plan-closes-further-issues.md`](P86-plan-closes-further-issues.md) | #122 | `6cf5dba` | Plan Closes Further Issues (tdd (10/10)) |

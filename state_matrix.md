@@ -35,7 +35,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ## ⚡ In Development (Active Implementation Context)
 
 - ⚡ **P-91**: [`P91-readable-and-parsable-output.md`](current/P91-readable-and-parsable-output.md) — 🧩 Group Plan P-91: Readable And Parsable Output
-- ⚡ **P-96**: [`P96-pickup-entry-form.md`](current/P96-pickup-entry-form.md) — Pickup Entry Form
 
 ---
 
