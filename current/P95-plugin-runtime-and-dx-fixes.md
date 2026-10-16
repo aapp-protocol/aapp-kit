@@ -3,7 +3,7 @@
 * **Target Issue / Milestone:** #156
 * **Also Closes:** #157, #158
 * **Plan ID:** P-95
-* **Changelog:** Changed: Plugin Runtime And Dx Fixes
+* **Changelog:** Fixed: Action plugin help fallthrough, dispatcher AAPP_REPO_ROOT export, and sample plugin queue handling
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,64 +40,88 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+During the action plugin and issue-tracker lifecycle audit, three closely related gaps were identified in plugin runtime ergonomics, discovery, and sample handling:
+1. **Issue #156 (`lib/cmd_help.sh`)**: Running `aapp help <custom-tool>` or `aapp <custom-tool> help` currently fails with `❌ Unknown command: '<custom-tool>'` for valid action plugins installed in `.agents/skills/<custom-tool>/`. The `cmd_help.sh` dispatch loop strictly queries `lib/verbs.tsv` and has no fallthrough to check project skills.
+2. **Issue #157 (`aapp` entrypoint)**: Primary dispatcher `aapp` resolves `REPO_ROOT` for non-exempt commands, but does not export `AAPP_REPO_ROOT` before executing discovered action plugins (`exec "$CANDIDATE" "$@"`). Custom plugins must redundantly invoke `git rev-parse --show-toplevel`.
+3. **Issue #158 (`examples/plugins/aapp-issue-tracker/run.sample`)**: The reference sample issue tracker plugin documents `issue.queue` and `issue.unqueue` in comments, but lacks explicit branches in its `case` statement, allowing them to fall into the unhandled wildcard (`*) echo '{"status": "ok"}'`).
+
+This plan resolves all three issues together, ensuring seamless developer experience (DX) and robust runtime contracts for both action plugins and lifecycle provider plugins.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### A. Action Plugin Help Fallthrough (`lib/cmd_help.sh` and `aapp`)
+1. In `lib/cmd_help.sh`:
+   - If `$HELP_VERB` is not matched in `lib/verbs.tsv`, before outputting `❌ Unknown command`:
+   - Determine `REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"`.
+   - If `[ -n "$REPO_ROOT" ] && [ -d "$REPO_ROOT/.agents/skills/$HELP_VERB" ]`:
+     - Resolve candidate entrypoint via `resolve_plugin_entrypoint "$REPO_ROOT/.agents/skills/$HELP_VERB" "$HELP_VERB"`.
+     - If candidate exists and is executable:
+       - If `"$HELP_FULL"` = "full" and `"$REPO_ROOT/.agents/skills/$HELP_VERB/SKILL.md"` exists, print `cat "$REPO_ROOT/.agents/skills/$HELP_VERB/SKILL.md"`.
+       - Else if `"$REPO_ROOT/.agents/skills/$HELP_VERB/SKILL.md"` exists, extract description or run `"$CANDIDATE" --help` (or `"$CANDIDATE" help`). If `--help` exits 0, display its output; otherwise extract and display the skill description from `SKILL.md`.
+       - Exit 0.
+     - If `SKILL.md` exists even without an executable entrypoint (a pure prompt/instruction skill):
+       - If `"$HELP_FULL"` = "full", print `cat "$REPO_ROOT/.agents/skills/$HELP_VERB/SKILL.md"`.
+       - Otherwise print synopsis from frontmatter `description` or title, with note "Refusals, effects and tests: aapp help $HELP_VERB full".
+       - Exit 0.
+2. In `aapp`:
+   - Line 114: Expand the `aapp <verb> help` check so it recognizes action plugins in `.agents/skills/$CMD` in addition to `verbs.tsv`.
+
+### B. Standardize `AAPP_REPO_ROOT` Export (`aapp`)
+1. In `aapp` (Section 2a):
+   - When asserting `REPO_ROOT` in a Git repository, export both `REPO_ROOT` and `AAPP_REPO_ROOT="$REPO_ROOT"`.
+   - In Section 2c (Action Plugin Fallthrough), ensure `export AAPP_REPO_ROOT="$CWD_GIT_ROOT"` is set before `exec "$CANDIDATE" "$@"`.
+
+### C. Reference Sample Issue Tracker Queue Handling (`examples/plugins/aapp-issue-tracker/run.sample`)
+1. In `run.sample`:
+   - Add explicit case branch for `issue.queue|issue.unqueue`:
+     - When `issue.queue`: update issue record or status in `$store` to mark queued state (e.g. updating column or logging queue status), returning `{"status": "ok", "message": "sample tracker marked #<id> queued"}`.
+     - When `issue.unqueue`: revert queued state, returning `{"status": "ok", "message": "sample tracker marked #<id> unqueued"}`.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Help Fallthrough & Dispatcher Exports
+- [ ] Task 1.1: Update `aapp` to export `AAPP_REPO_ROOT` alongside `REPO_ROOT`, and allow `aapp <custom-plugin> help` to route to `cmd_help.sh`.
+- [ ] Task 1.2: Update `lib/cmd_help.sh` to inspect `.agents/skills/$HELP_VERB` for action plugins and `SKILL.md` before failing with unknown command.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Sample Issue Tracker Updates
+- [ ] Task 2.1: Add explicit `issue.queue` and `issue.unqueue` event handling to `examples/plugins/aapp-issue-tracker/run.sample`.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Verification & Test Coverage
+- [ ] Task 3.1: Add automated tests in `tests/hooks_test.sh` asserting `aapp help <action-plugin>`, `aapp <action-plugin> help`, and `AAPP_REPO_ROOT` export.
+- [ ] Task 3.2: Verify `run.sample` handles `issue.queue` and `issue.unqueue` in `tests/plugin_protocol_test.sh`.
+- [ ] Task 3.3: Run the full test suite (`./aapp test`) to guarantee zero regressions.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `aapp` -> Export AAPP_REPO_ROOT and enable <plugin> help routing.
+- [ ] `lib/cmd_help.sh` -> Add action plugin and skill discovery fallthrough before unknown command error.
+- [ ] `examples/plugins/aapp-issue-tracker/run.sample` -> Add explicit issue.queue and issue.unqueue event handling.
+- [ ] `tests/hooks_test.sh` -> Add tests for action plugin help fallthrough and AAPP_REPO_ROOT propagation.
+- [ ] `tests/plugin_protocol_test.sh` -> Test sample issue tracker queue/unqueue handling.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/cmd_issue.sh` -> Issue lifecycle commands are tested and working; do not modify.
+- [ ] `lib/verbs.tsv` -> Standard built-in verbs registry remains unchanged.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+- 2026-10-16: Scaffolded blueprint P-95 from issue #156, attached issues #157 and #158.
+- 2026-10-16: Fully specified technical blueprint, target files, and execution checklist for help fallthrough, environment propagation, and sample tracker queue events.
 *Tracks how the plan evolved across sessions.*
-* **2026-10-16:** Plan initialized from `pickup.md`.
-* **2026-10-16:** Refined blast radius and locked module boundaries.
