@@ -11,7 +11,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `59e5399` (develop)
 * **Worktree:** .workspace/P97 (plan/P97-draft-from-pickup-title)
-* **Commits:** `fbef91a` (plan/P97-draft-from-pickup-title)
+* **Commits:** `cd0dd85` (plan/P97-draft-from-pickup-title)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
