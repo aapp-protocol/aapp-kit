@@ -1,8 +1,8 @@
 # 🗺️ Plan P-98: Status Plan Progress
 * **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-98
-* **Changelog:** Changed: Status Plan Progress
+* **Changelog:** Added: the briefing and its JSON show a plan's task progress and a group's members done (P-98)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,12 +39,39 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+The briefing's Plans pillar shows a status label only. Two facts are missing:
+- **A plan's progress.** `⚡ In Development` reads the same at the first task and at the last.
+- **A group's progress.** Archived members drop off the list; nothing says how many are done.
+
+Both derive from what the plans already record: ticked §3 boxes, and the group's `* **Members:**`
+against the members archived. The JSON plan record (P-91 §2, shipped by P-94) carries the same facts
+for a web interface. Independent of group P-91: it starts after the group lands, because every
+member changes `lib/cmd_status.sh` and P-94 adds the JSON renderer this plan extends.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 One accessor
+`plan_progress <plan-file>` (`lib/aapp-lib.sh`) -> `<done>\t<total>\t<unit>`, empty when nothing
+counts. The briefing line and the JSON record both read it.
+- **Plan** (`unit` = `tasks`): the `- [ ]` and `- [x]` boxes in `## 🔨 3.`, up to the next `## `
+  heading; `[x]` and `[X]` count as done. §4 and §5 boxes do not count.
+- **Group** (`unit` = `members`): `total` = the IDs in `* **Members:**` (`group_members`); `done` =
+  those with a plan in `.plans/done/` and none in `.plans/current/`.
+
+### 2.2 Briefing
+The count joins the status label, after the worktree:
+```
+  • P-91: P91-readable-and-parsable-output.md  (⚡ In Development · members 3/5)
+      ↳ P-93: P93-issue-list-layout.md  (⚡ In Development → .workspace/P93 · tasks 4/34)
+```
+Shown for a plan in `⚡ In Development` or `🟥 BLOCKED` with a non-zero total (Q2), and for a group
+in any status.
+
+### 2.3 JSON
+The plan record gains `"progress": { "done", "total", "unit" }`, `null` when the accessor is empty
+(Q1). Added to `docs/reference/08-output-json.md`; an added key, no change to existing fields.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -56,13 +83,13 @@
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First (red)
+- [ ] Task 1.1: `tests/verbs/status.sh`: plan task counts, group member counts, the shown/hidden cases (§2.2), the JSON `progress` record; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: `lib/aapp-lib.sh`: `plan_progress` (§2.1).
+- [ ] Task 2.2: `lib/cmd_status.sh`: the count in `plan_line` and `progress` in the JSON plan record.
+- [ ] Task 2.3: `lib/docs/verbs/status.md`, `docs/reference/08-output-json.md`: the count, the field, the tests.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -80,23 +107,27 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/aapp-lib.sh` -> `plan_progress`.
+- [ ] `lib/cmd_status.sh` -> the count in the briefing line; `progress` in the JSON plan record.
+- [ ] `lib/docs/verbs/status.md` -> the count and its tests.
+- [ ] `docs/reference/08-output-json.md` -> the `progress` field.
+- [ ] `tests/verbs/status.sh` -> the tests.
+- [ ] `ARCHITECTURE.md` -> the accessor.
+- [ ] `.agents/CODEMAP.md` -> the accessor.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `.plans/current/P91-readable-and-parsable-output.md` -> group P-91 and its members are not amended by this plan.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — One `progress` shape or two?** Proposed: one object with `unit` (`tasks` | `members`), so a consumer reads plans and groups alike. Alternative: `tasks` on a plan, `members` on a group, as separate fields.
+* [ ] **Question 2 — When is a plan's task count shown?** Proposed: in development or blocked only; a draft's `0/9` says nothing. Alternative: whenever the total is non-zero. The JSON carries it in every status either way.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-16:** Plan initialized from `pickup.md`.
-* **2026-10-16:** Refined blast radius and locked module boundaries.
+* **2026-10-16:** Drafted: plan and group progress in the briefing and its JSON.
