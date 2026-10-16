@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #157 | `Low` | `CLI` | 2026-10-16 | `aapp` | aapp primary dispatcher does not export AAPP_REPO_ROOT to action plugins |  | 🟡 `Incubated` |
 | #156 | `Low` | `CLI` | 2026-10-16 | `lib/cmd_help.sh` | aapp help <custom-tool> fails with unknown command for valid action plugins |  | 🟡 `Incubated` |
 | #155 | `Low` | `CLI` | 2026-10-16 | `lib/aapp-lib.sh` | `aapp issue list` prints each issue as one line of up to ~350 characters: in a terminal the symptom wraps under the id and severity columns, and an unqueued issue pads a blank 27-character column. | [P-93](current/P93-issue-list-layout.md) | 🔵 `Planned` |
 | #147 | `Low` | `CLI` | 2026-10-13 | `lib/cmd_status.sh` | `aapp status` Shipped prints the first five lines under `[Unreleased]`: the `### Added` header and four entries. `Changed` and `Fixed` never appear, and the order is the section's, not the order of landing. | [P-88](current/P88-status-recent-and-bounded.md) | 🔵 `Planned` |
