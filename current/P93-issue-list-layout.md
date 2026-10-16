@@ -12,7 +12,7 @@
 * **Base:** `2c165e6` (feature/readable-and-parsable-output)
 * **Worktree:** .workspace/P93 (plan/P93-issue-list-layout)
 * **Group:** P-91
-* **Commits:** `fdca17b` (plan/P93-issue-list-layout), `3679d59` (plan/P93-issue-list-layout)
+* **Commits:** `fdca17b` (plan/P93-issue-list-layout), `3679d59` (plan/P93-issue-list-layout), `0a14336` (plan/P93-issue-list-layout)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
