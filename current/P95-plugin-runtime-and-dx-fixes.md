@@ -89,16 +89,16 @@ This plan resolves all three issues together, ensuring seamless developer experi
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Help Fallthrough & Dispatcher Exports
-- [ ] Task 1.1: Update `aapp` to export `AAPP_REPO_ROOT` alongside `REPO_ROOT`, and allow `aapp <custom-plugin> help` to route to `cmd_help.sh`.
-- [ ] Task 1.2: Update `lib/cmd_help.sh` to inspect `.agents/skills/$HELP_VERB` for action plugins and `SKILL.md` before failing with unknown command.
+- [x] Task 1.1: Update `aapp` to export `AAPP_REPO_ROOT` alongside `REPO_ROOT`, and allow `aapp <custom-plugin> help` to route to `cmd_help.sh`.
+- [x] Task 1.2: Update `lib/cmd_help.sh` to inspect `.agents/skills/$HELP_VERB` for action plugins and `SKILL.md` before failing with unknown command.
 
 ### Phase 2: Sample Issue Tracker Updates
-- [ ] Task 2.1: Add explicit `issue.queue` and `issue.unqueue` event handling to `examples/plugins/aapp-issue-tracker/run.sample`.
+- [x] Task 2.1: Add explicit `issue.queue` and `issue.unqueue` event handling to `examples/plugins/aapp-issue-tracker/run.sample`.
 
 ### Phase 3: Verification & Test Coverage
-- [ ] Task 3.1: Add automated tests in `tests/hooks_test.sh` asserting `aapp help <action-plugin>`, `aapp <action-plugin> help`, and `AAPP_REPO_ROOT` export.
-- [ ] Task 3.2: Verify `run.sample` handles `issue.queue` and `issue.unqueue` in `tests/plugin_protocol_test.sh`.
-- [ ] Task 3.3: Run the full test suite (`./aapp test`) to guarantee zero regressions.
+- [x] Task 3.1: Add automated tests in `tests/hooks_test.sh` asserting `aapp help <action-plugin>`, `aapp <action-plugin> help`, and `AAPP_REPO_ROOT` export.
+- [x] Task 3.2: Verify `run.sample` handles `issue.queue` and `issue.unqueue` in `tests/plugin_protocol_test.sh`.
+- [x] Task 3.3: Run the full test suite (`./aapp test`) to guarantee zero regressions.
 
 ---
 
