@@ -49,7 +49,7 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 - **Cutting:** `aapp status` cuts an item's text at the last space before `aapp.statusTextMax` characters (default `220`) and ends it with `…`; `aapp issue list` never cuts. The full text stays in its file.
 - **Item caps** in `aapp status`: `aapp.statusItemsMax` (default `5`) for Shipped and Pickup, followed by a line naming where the rest is. The Issues pillar lists the work queue whole, as today.
 - Section headings, the frame and the `➡️  Next Action:` line keep their wording.
-- Settings: `aapp.statusOutputWidth`, `aapp.statusTextMax`, `aapp.statusItemsMax`. No other output setting.
+- Settings: `aapp.statusOutputWidth`, `aapp.statusTextMax`, `aapp.statusItemsMax`; for the JSON, `aapp.jsonLocalPath` (§2.5). No other output setting.
 
 ### 2.4 JSON output
 - **Ingress:** a bare token, `aapp status json` and `aapp issue list [<n> | all] json`. No new verb.
@@ -67,7 +67,7 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 | `version` | `"1.0"` |
 | `command` | `"status"` or `"issue list"` |
 | `generated_at` | UTC time of the run |
-| `repository` | `{ "remote": { "name", "url" } \| null, "branch", "root" }`. `remote` identifies the project on every machine: the remote `aapp.remote` names (default `origin`), its URL with any credentials removed, as the plugin envelope builds it (`_envelope_remote_json`); `null` without a remote. `branch` is the checkout's branch; `root` the local checkout, which differs per machine |
+| `repository` | `{ "remote": { "name", "url" } \| null, "branch", "root" }`. `remote` identifies the project on every machine: the remote `aapp.remote` names (default `origin`), its URL with any credentials removed, as the plugin envelope builds it (`_envelope_remote_json`); `null` without a remote. `branch` is the checkout's branch; `root` the local checkout, which differs per machine, or `null` with `aapp.jsonLocalPath false` (default `true`). Every other path in the JSON is relative to the repository root, so `root` is the only local path a document can hold |
 | `notices` | `[{ "level": "info" \| "warning", "section", "text" }]`: every line the terminal prints as a remark (sync results, unblocking, matrix re-derived, a gone branch, drift), `section` naming where it belongs (`issues`, `plans`, …) |
 
 **Issue** (one object, the same in both commands):
@@ -96,7 +96,7 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 | :--- | :--- |
 | `overview` | `{ "issues", "next_issues": [id], "plans", "roadmap_plans": [id], "pickup", "adoption" }`: the counts of `status short` |
 | `templates` | `{ "synced": bool, "version", "drifted": [{ "file", "reason" }] }` |
-| `pause` | `null`, or `{ "scope": "local" \| "team", "reason", "paused_at", "stashes": [{ "worktree", "branch" }] }` |
+| `pause` | `null`, or `{ "scope": "local" \| "team", "reason", "paused_at", "stashes": [{ "worktree", "branch" }] }`; `worktree` relative to the repository root (`.` for the main checkout) |
 | `shipped` | `{ "source", "entries": [{ "section": "added" \| "changed" \| "fixed" \| …, "text", "plan", "issue", "commit", "date" }], "more" }`: `text` is the bullet as written; `plan` / `issue` the id it is tagged with, or `null`; `commit` and `date` where it landed, `null` from the fallback |
 | `issues` | `{ "queue": [issue], "unqueued" }`: the work queue in queue order, offline issues included (`offline: true`); the count of the others |
 | `plans` | `{ "items": [plan] }`, in briefing order. A plan: `{ "id", "file", "title", "kind": "plan" \| "group", "status", "status_label", "group", "target_issue", "blocked_on": [id], "worktree", "branch", "feature_branch", "members": [plan] }`. A group's `members` holds its member plans, nested in the group's order, as the briefing shows them under it; a member names its `group` and is not repeated at the top level. A member whose group is archived stands at the top level. `feature_branch` is a group's, `null` otherwise; `members` is `[]` for a plan |
@@ -168,10 +168,11 @@ The Issues records are one function for both commands, beside the ledger functio
 * [x] **Question 1 — A blank line between issues? → RESOLVED (developer, 2026-10-16):** no blank line (§2.3).
 * [x] **Question 2 — P-88's settings and cut. → RESOLVED (developer, 2026-10-16):** one set of settings for the briefing, named for the command: `aapp.statusOutputWidth`, `aapp.statusTextMax`, `aapp.statusItemsMax`; Shipped wraps like Pickup, through `lib/output.sh`.
 * [x] **Question 3 — How many items in the JSON? → RESOLVED (developer, 2026-10-16):** each command keeps its own limits: the briefing's JSON follows `aapp.statusItemsMax`, `issue list json` its `<n>` / `all` cap.
-* [ ] **Question 4 — The local path in the JSON.** `repository.root` is the checkout's absolute path, which differs per machine and names the user's home directory. A setting could leave it out (`null`) for output that is published, such as a CMS page; for now it is always written.
+* [x] **Question 4 — The local path in the JSON. → RESOLVED (developer, 2026-10-16):** `aapp.jsonLocalPath` (`true` by default; `false` writes `repository.root` as `null`), one setting for the JSON of every command; built in P-94.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-16:** Group drafted: shared records, terminal layout and JSON contract; members P-92, P-88, P-93, P-94.
 * **2026-10-16:** Q1–Q3 resolved; `repository.remote` in every document; groups nest their members in `plans`; settings named `aapp.status…`.
+* **2026-10-16:** Q4 resolved: `aapp.jsonLocalPath`; the JSON holds no other local path.
