@@ -9,8 +9,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🔷 Frozen
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `ca752a1` (develop)
+* **Worktree:** .workspace/P95 (plan/P95-plugin-runtime-and-dx-fixes)
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
@@ -122,6 +123,7 @@ This plan resolves all three issues together, ensuring seamless developer experi
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-16:** Plan activated into ⚡ In Development via start.
 * **2026-10-16:** Plan locked and frozen into 🔷 Frozen via freeze.
 - 2026-10-16: Scaffolded blueprint P-95 from issue #156, attached issues #157 and #158.
 - 2026-10-16: Fully specified technical blueprint, target files, and execution checklist for help fallthrough, environment propagation, and sample tracker queue events.

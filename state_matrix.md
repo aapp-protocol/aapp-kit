@@ -30,11 +30,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-95**: [`P95-plugin-runtime-and-dx-fixes.md`](current/P95-plugin-runtime-and-dx-fixes.md) — Plugin Runtime And Dx Fixes
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-95**: [`P95-plugin-runtime-and-dx-fixes.md`](current/P95-plugin-runtime-and-dx-fixes.md) — Plugin Runtime And Dx Fixes
 
 ---
 
