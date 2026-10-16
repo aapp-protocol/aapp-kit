@@ -12,7 +12,7 @@
 * **Base:** `ca75504` (feature/readable-and-parsable-output)
 * **Worktree:** .workspace/P94 (plan/P94-json-output)
 * **Group:** P-91
-* **Commits:** none
+* **Commits:** `7a2d3e4` (plan/P94-json-output)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
