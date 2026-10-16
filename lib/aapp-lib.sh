@@ -1964,7 +1964,7 @@ ledger_issue_records() {
 # lib/output.sh (`out_wrap`, `out_cut`), which the commands load and the hooks do not.
 issue_render_terminal() {
     local w="$1" cut="$2" id sev typ st logged loc sym plan blocks qs ql qd br off tn tu tr notes facts trk
-    while IFS=$'\037' read -r id sev typ st logged loc sym plan blocks qs ql qd br off tn tu tr notes; do
+    while IFS=$'\037' read -r id sev typ st logged loc sym plan blocks qs ql qd br off tn tu tr notes || [ -n "$id" ]; do
         [ -n "$id" ] || continue
         facts="$id  $(_issue_word "$sev")  $(_issue_word "$st")  logged $logged"
         [ "$qs" = "queued" ] && facts="$facts  queued ${qd:+$qd }($(_issue_word "$ql"))"
@@ -1979,6 +1979,26 @@ issue_render_terminal() {
         if [ "${cut:-0}" -gt 0 ]; then sym="$(printf '%s' "$sym" | out_cut "$cut")"; fi
         printf '%s\n' "$sym" | out_wrap 8 8 "$w"
     done < <(tr '\t' '\037')
+}
+
+# issue_render_json (P-94): `ledger_issue_records` records on stdin, as the JSON
+# list of `issue` objects (docs/reference/08-output-json.md). Needs
+# lib/output.sh, as `issue_render_terminal` does.
+issue_render_json() {
+    local id sev typ st logged loc sym plan blocks qs ql qd br off tn tu tr notes queue tracker out=""
+    while IFS=$'\037' read -r id sev typ st logged loc sym plan blocks qs ql qd br off tn tu tr notes || [ -n "$id" ]; do
+        [ -n "$id" ] || continue
+        queue=null
+        [ -z "$qs" ] || queue="$(out_json_obj section "$(out_json_str "$qs")" level "$(out_json_strn "$ql")" queued "$(out_json_strn "$qd")")"
+        tracker=null
+        [ -z "$tn$tu$tr" ] || tracker="$(out_json_obj name "$(out_json_strn "$tn")" url "$(out_json_strn "$tu")" release "$(out_json_strn "$tr")")"
+        out="${out:+$out,}$(out_json_obj id "$(out_json_str "$id")" severity "$(out_json_str "$sev")" type "$(out_json_str "$typ")" \
+            status "$(out_json_str "$st")" logged "$(out_json_strn "$logged")" location "$(out_json_str "$loc")" \
+            symptom "$(out_json_str "$sym")" plan "$(out_json_strn "$plan")" blocks "$(out_json_strn "$blocks")" \
+            queue "$queue" branch "$(out_json_strn "$br")" offline "$(out_json_bool "$off")" tracker "$tracker" \
+            notes "$(out_json_numn "$notes")")"
+    done < <(tr '\t' '\037')
+    printf '[%s]' "$out"
 }
 
 # _issue_word <slug>: a record's slug as the views print it (`in-progress` ->

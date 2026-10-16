@@ -1,11 +1,12 @@
-# status [short]
+# status [short | json]
 
 ## Ingress
 - `short` (positional, optional; alias `summary`): print the one-line pulse instead of the briefing
+- `json` (bare token, optional, P-94): print the briefing's records as one JSON document instead of the terminal layout; its fields: `docs/reference/08-output-json.md`. With `short` -> refused
     constraints: any other value is refused
     ⚠️ Divergence: any other argument is ignored silently and the full briefing prints.
 - reads: `.plans/ISSUES.md`, `.plans/issues_road_map.md`, `.plans/current/`, `.plans/state_matrix.md`, `.plans/pickup.md`, `.plans/adoption.md`, `CHANGELOG.md` (or `.plans/CHANGELOG.md`), `.plans/PAUSED.md`, the active buffer
-- reads config: `aapp.planState.*` (plan lane bucketing), `aapp.devBranch` (the branch of an issue that names none), `aapp.issueSyncWindow`, `aapp.issueCacheMax`, `aapp.statusOutputWidth` (the briefing's width, default 85, P-92), `aapp.statusItemsMax` (Shipped entries and pickup ideas listed, default 5, P-88), `aapp.statusTextMax` (the characters of an item's text shown, default 220, P-88)
+- reads config: `aapp.planState.*` (plan lane bucketing), `aapp.devBranch` (the branch of an issue that names none), `aapp.issueSyncWindow`, `aapp.issueCacheMax`, `aapp.statusOutputWidth` (the briefing's width, default 85, P-92), `aapp.statusItemsMax` (Shipped entries and pickup ideas listed, default 5, P-88), `aapp.statusTextMax` (the characters of an item's text shown, default 220, P-88), `aapp.jsonLocalPath` (`json`: write the checkout's path, default `true`, P-94)
 - reads: the Git history of the changelog (`git log -n 15 --first-parent -m -p --unified=0`; of the plans worktree for `.plans/CHANGELOG.md`, P-88)
 - reads: the branches, here and on the remotes, and whether a fix commit is reachable from a plan's parent branch (P-78)
 
@@ -17,6 +18,8 @@
 - a missing pillar file -> no failure: the pillar reports it as absent
 - `aapp.statusOutputWidth` not a whole number of at least 40 -> exit 1, stderr names the key; `short` is not affected (P-92)
 - `aapp.statusItemsMax` or `aapp.statusTextMax` not a whole number of at least 1 -> exit 1, stderr names the key; `short` is not affected (P-88)
+- `short json` -> exit 1, usage on stderr, nothing on stdout (P-94)
+- `json`: any failure -> exit non-zero, stdout empty (the document is built whole before it is printed); `aapp.jsonLocalPath` other than `true` or `false` -> exit 1 naming the key. `aapp.statusOutputWidth` and `aapp.statusTextMax` are the terminal's and are not read (P-94)
 
 ## Effects (happy path)
 - `.plans/state_matrix.md` is re-derived from the plans before it is read, so the briefing reports the real board; the write is not committed
@@ -32,6 +35,7 @@
 - a plan with its own worktree shows it next to its status, from the header's `* **Worktree:**`: `• P-51: P51-….md  (⚡ In Development → ../repo-P51)` (P-54)
 - records first (P-92): every section is collected into records (tab-separated lines, raw values) before anything is printed, and the terminal renderer prints them; side effects (sync, unblock, matrix) run first, and what they said is printed as notices of their section
 - width (P-92): the `=` frame is `aapp.statusOutputWidth` characters wide; the header lines, the Plans pillar, the notices, the state lines, the adoption and offline lines and `➡️  Next Action:` keep to it, wrapped at spaces with the continuation indented under the text (counted in characters, not bytes; a word longer than the width stands on a line of its own). The issues keep to it in the issue layout (P-93)
+- `json` (P-94): stdout holds one JSON object, indented by 2 spaces: the envelope (`version` `1.0`, `command` `status`, `generated_at`, `repository` with the remote, credentials removed, the branch and, unless `aapp.jsonLocalPath false`, the checkout's path; `notices`), then `overview`, `templates`, `pause`, `shipped`, `issues`, `plans` (a group's members nested), `pickup`, `adoption`, `offline`, `next_action`. The same side effects as the briefing; the same items (`aapp.statusItemsMax`), text whole. Fields: `docs/reference/08-output-json.md`
 - the template advisory names the action first: `📑 Templates:  1 template drifted -> run 'aapp init' (<file> <reason>)`
 - no other file changes
 
@@ -42,6 +46,7 @@
 Run: `aapp test verb status`
 
 - `tests/verbs/status.sh::test_short_is_one_line` -> `status short` prints exactly one `📊 Overview:` line
+- `tests/verbs/status.sh::test_short_json_refused` -> `status short json` exits 1 with usage on stderr and nothing on stdout (P-94)
 - `tests/verbs/status.sh::test_briefing_has_next_action` -> the full briefing ends with a `Next Action` line and exits 0
 - `tests/verbs/status.sh::test_plan_worktree_shown_next_to_plan` -> a plan's worktree path follows its status (P-54)
 - `tests/verbs/status.sh::test_overview_counts_open_adoption_tasks` -> open adoption tasks show in overview and briefing (P-63)

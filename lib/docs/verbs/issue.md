@@ -1,4 +1,4 @@
-# issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"] | hotfix "<text>" [file <path>]… [branch <name>] [note "<text>"] [plan] | fix next-blocker | fix <num> [file <path>…] [group <group>] | fix <num> abort | queue <num> [urgent | low | remove] | close <id> [sha <sha>] [summary "<text>"] | abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm] | list [<n> | all] [confirm] | list note <num>
+# issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"] | hotfix "<text>" [file <path>]… [branch <name>] [note "<text>"] [plan] | fix next-blocker | fix <num> [file <path>…] [group <group>] | fix <num> abort | queue <num> [urgent | low | remove] | close <id> [sha <sha>] [summary "<text>"] | abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm] | list [<n> | all] [confirm] [json] | list note <num>
 
 ## Ingress
 - positional forms:
@@ -10,7 +10,7 @@
     - `queue <num> [urgent | low | remove]` (P-89): a person's decision that an active issue (`Incubated` or `Planned`) may be worked on: `- [ ] #<num> -> <symptom> (queued <today>)` is appended to a level of `## 📋 Queued` in `.plans/issues_road_map.md` (`### Normal` by default, `### 🔺 Urgent` with `urgent`, `### Low` with `low`) in one commit `issue(queue): #<num> queued (<level>)`; an issue queued at another level moves there with its queue date (`issue(queue): #<num> moved to <level>`); `remove` takes the line off (`issue(queue): #<num> unqueued`). Never run by an agent on its own
     - `close <id>`: relocates an active issue row to the archive
     - `abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` (P-76): withdraws an active issue with what was opened for it, its promoted plan (`[P-<id>](current/…)` in its *Target Plan / Fix* cell) or its open mini plan; `reason` is one line (default `Withdrawn`); the other tokens go to `aapp plan abort` unchanged
-    - `list [<n> | all] [confirm]`: prints every active issue in the order `ISSUES.md` records it (a sorting plugin may order it otherwise, P-89); with a provider that lists issues it first brings them up to date (P-74); `confirm` answers the question the first such listing asks
+    - `list [<n> | all] [confirm] [json]`: prints every active issue in the order `ISSUES.md` records it (a sorting plugin may order it otherwise, P-89); with a provider that lists issues it first brings them up to date (P-74); `confirm` answers the question the first such listing asks; `json` (P-94) prints one JSON document instead: the envelope, then `issues` (the `issue` objects listed, the cap applied), `shown`, `total`; what the sync says goes to stderr; fields: `docs/reference/08-output-json.md`
     - `list note <num>` (P-74): prints one issue's row with its description and notes, as `fix` hands them over
 - `<id>`: a number (`79`, `#79`, `ISSUE-79`) or a tracker's key (`PROJ-101`, `#PROJ-101`; lowercase is uppercased). Quote the `#` forms: an unquoted `#79` is a shell comment. One definition, in `lib/aapp-lib.sh` (P-79)
 - the branch of an issue (P-78): where its fix must land, the `Branch` cell of its row. No branch named (an empty cell, a ledger without the column) means the development branch (`aapp.devBranch`; the default branch when none exists). The cell is found by the header's column name; the column is added, last, by the first write that names another branch. A branch that exists only on a remote counts as existing
@@ -46,6 +46,7 @@
 - `close` id in neither ledger -> exit 1, stderr `not found in ISSUES.md or done/000-issues-archive.md`
 - `close` id already archived -> no failure: exit 0, ledgers untouched, the provider is notified again
 - provider exits non-zero on `close` -> no failure: exit 0, stderr warning naming its `error` text; delivery and retry are the provider's responsibility
+- `list … json` that fails (a refused token, a failing sync, `aapp.jsonLocalPath` other than `true` or `false`) -> exit non-zero, nothing on stdout (P-94)
 - `list` with a cap that is neither a number nor `all` -> exit 1, usage on stderr
 - `hotfix` with no plan bound in this worktree, or a mini plan bound -> exit 1; nothing written, no ID spent (a file of the plan's own targets is accepted: plan work vs hotfix is decided by scope)
 - `fix` while another mini plan is open -> waits, printing each wait (2 s, 3 s, …), up to `aapp.issueFixWait`; then exit 1, stderr `#<n> is still being fixed; retry later.`

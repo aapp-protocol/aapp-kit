@@ -633,20 +633,131 @@ status_render_terminal() {
     status_line 0 4 "➡️  Next Action: $(printf '%s\n' "$STATUS_NEXT" | cut -f2)"
 }
 
+# ------------------------------------------------------------------------------
+# The JSON renderer (P-94): the records as one document, the fields of
+# docs/reference/08-output-json.md; computes nothing the records do not hold.
+# ------------------------------------------------------------------------------
+
+# status_json_plan <record fields…> <members json>: one `plan` object.
+status_json_plan() {
+    out_json_obj id "$(out_json_strn "$1")" file "$(out_json_str "$2")" title "$(out_json_str "$3")" \
+        kind "$(out_json_str "$6")" status "$(out_json_strn "$4")" \
+        status_label "$(out_json_str "$(printf '%s' "$5" | LC_ALL=C sed -E 's/^[^A-Za-z]+//')")" \
+        group "$(out_json_strn "$7")" target_issue "$(out_json_strn "$9")" blocked_on "$(out_json_strlist "${10}")" \
+        worktree "$(out_json_strn "${11}")" branch "$(out_json_strn "${12}")" feature_branch "$(out_json_strn "${13}")" \
+        members "${15}"
+}
+
+status_render_json() {
+    local env issues next plans roadmap pickup adoption overview templates pause shipped items more
+    local file reason sname preason pat label stashes initiator buffer parsed error s wt br list kind sec text plan iss commit date
+    local id base title slug lbl k g m tg bl w wb fb depth cur="" curm="" pl="" title_ txt files cnt
+    local active archived oplans steps offline nk ntext ncmd
+    env="$(out_json_envelope status "$(printf '%s\n' "$STATUS_NOTICES" | awk -F'\t' 'NF { print $1 "\t" $2 "\t" $4 }' | out_json_notices)")" || return 1
+
+    IFS=$'\037' read -r issues next plans roadmap pickup adoption < <(status_rows "$STATUS_OVERVIEW")
+    overview="$(out_json_obj issues "$(out_json_num "$issues")" next_issues "$(out_json_strlist "$next")" plans "$(out_json_num "$plans")" \
+        roadmap_plans "$(out_json_strlist "$roadmap")" pickup "$(out_json_num "$pickup")" adoption "$(out_json_num "$adoption")")"
+
+    list=""
+    while IFS=$'\037' read -r file reason; do
+        [ -n "$file" ] && list="${list:+$list,}$(out_json_obj file "$(out_json_str "$file")" reason "$(out_json_str "$reason")")"
+    done < <(status_rows "$STATUS_TEMPLATES")
+    templates="$(out_json_obj synced "$(out_json_bool "$([ -z "$list" ] && echo 1)")" version "$(out_json_str "${AAPP_VERSION:-1.0.0}")" drifted "[$list]")"
+
+    pause=null
+    if [ -n "$STATUS_PAUSE" ]; then
+        IFS=$'\037' read -r sname preason pat label stashes initiator buffer parsed error < <(status_rows "$STATUS_PAUSE")
+        list=""
+        if [ -n "$stashes" ]; then
+            IFS=',' read -r -a s <<< "$stashes"
+            for m in "${s[@]}"; do
+                wt="${m%%|*}"; br="${m#*|}"
+                list="${list:+$list,}$(out_json_obj worktree "$(out_json_str "${wt:-.}")" branch "$(out_json_strn "$br")")"
+            done
+        fi
+        pause="$(out_json_obj scope "$(out_json_str "$sname")" reason "$(out_json_strn "$preason")" paused_at "$(out_json_strn "$pat")" stashes "[$list]")"
+    fi
+
+    list=""; more=0
+    while IFS=$'\037' read -r kind sec text plan iss commit date; do
+        case "$kind" in
+            entry) list="${list:+$list,}$(out_json_obj section "$(out_json_strn "$sec")" text "$(out_json_str "$text")" plan "$(out_json_strn "$plan")" \
+                       issue "$(out_json_strn "$iss")" commit "$(out_json_strn "$commit")" date "$(out_json_strn "$date")")" ;;
+            more)  more="$text" ;;
+        esac
+    done < <(status_rows "$STATUS_SHIPPED")
+    shipped="$(out_json_obj source "$(out_json_strn "$(status_changelog_path)")" entries "[$list]" more "$(out_json_num "$more")")"
+
+    items="$(printf '%s' "$STATUS_ISSUES" | issue_render_json)"
+    issues="$(out_json_obj queue "$items" unqueued "$(out_json_num "$STATUS_UNQUEUED")")"
+
+    # A group's members follow it with depth 1: they go into its `members`.
+    while IFS=$'\037' read -r id base title slug lbl k g m tg bl w wb fb depth; do
+        [ -n "$base" ] || continue
+        if [ "$depth" = "1" ] && [ -n "$cur" ]; then
+            curm="${curm:+$curm,}$(status_json_plan "$id" "$base" "$title" "$slug" "$lbl" "$k" "$g" "$m" "$tg" "$bl" "$w" "$wb" "$fb" "$depth" "[]")"
+            continue
+        fi
+        [ -z "$cur" ] || pl="${pl:+$pl,}$(eval "status_json_plan $cur \"[\$curm]\"")"
+        cur="$(printf '%q ' "$id" "$base" "$title" "$slug" "$lbl" "$k" "$g" "$m" "$tg" "$bl" "$w" "$wb" "$fb" "$depth")"; curm=""
+    done < <(status_rows "$STATUS_PLANS")
+    [ -z "$cur" ] || pl="${pl:+$pl,}$(eval "status_json_plan $cur \"[\$curm]\"")"
+    plans="$(out_json_obj items "[$pl]")"
+
+    list=""; cnt=0
+    while IFS=$'\037' read -r title_ txt files; do
+        [ -n "$title_$txt" ] || continue
+        list="${list:+$list,}$(out_json_obj title "$(out_json_strn "$title_")" text "$(out_json_str "$txt")" files "$(out_json_strlist "$files")")"
+    done < <(status_rows "$STATUS_PICKUP" | head -n "$STATUS_ITEMS")
+    [ -z "$STATUS_PICKUP" ] || cnt="$(printf '%s\n' "$STATUS_PICKUP" | grep -c . || true)"
+    pickup="$(out_json_obj source "$(out_json_strn "$([ -f .plans/pickup.md ] && echo .plans/pickup.md)")" items "[$list]" total "$(out_json_num "$cnt")")"
+
+    adoption="$(out_json_obj source "$(out_json_str "$(printf '%s\n' "$STATUS_ADOPTION" | cut -f1)")" open "$(out_json_num "$(printf '%s\n' "$STATUS_ADOPTION" | cut -f2)")")"
+
+    offline=null
+    if [ -n "$STATUS_OFFLINE" ]; then
+        IFS=$'\037' read -r active archived oplans steps < <(status_rows "$STATUS_OFFLINE")
+        offline="$(out_json_obj issues "$(out_json_strlist "$active")" archived "$(out_json_strlist "$archived")" plans "$(out_json_strlist "$oplans")" outbox "$(out_json_num "$steps")")"
+    fi
+
+    IFS=$'\037' read -r nk ntext ncmd < <(status_rows "$STATUS_NEXT")
+    printf '{%s,"overview":%s,"templates":%s,"pause":%s,"shipped":%s,"issues":%s,"plans":%s,"pickup":%s,"adoption":%s,"offline":%s,"next_action":%s}' \
+        "$env" "$overview" "$templates" "$pause" "$shipped" "$issues" "$plans" "$pickup" "$adoption" "$offline" \
+        "$(out_json_obj kind "$(out_json_str "$nk")" text "$(out_json_str "$ntext")" command "$(out_json_str "$ncmd")")" | out_json_pretty
+}
+
 # Library use (P-92): the records and renderers without running the briefing.
 if [ -n "${AAPP_STATUS_LIB_ONLY:-}" ]; then
     return 0 2>/dev/null || exit 0
 fi
 
+# The tokens: `short` (alias `summary`) for the one-line pulse, `json` for the
+# JSON document (P-94); the two do not combine.
+STATUS_SHORT=0; STATUS_JSON=0
+for STATUS_ARG in "$@"; do
+    case "$STATUS_ARG" in
+        short|summary) STATUS_SHORT=1 ;;
+        json) STATUS_JSON=1 ;;
+    esac
+done
+if [ "$STATUS_SHORT" -eq 1 ] && [ "$STATUS_JSON" -eq 1 ]; then
+    echo "❌ [Status] Usage: aapp status [short | json]; the overview is the JSON's \`overview\`." >&2
+    return 1 2>/dev/null || exit 1
+fi
+
 STATUS_OVERVIEW="$(status_records_overview)"
-if [ "${1:-}" = "short" ] || [ "${1:-}" = "summary" ]; then
+if [ "$STATUS_SHORT" -eq 1 ]; then
     status_overview_line
     return 0 2>/dev/null || exit 0
 fi
 
-STATUS_WIDTH="$(out_width)" || { return 1 2>/dev/null || exit 1; }
+# The width and the text limit are the terminal's; the item cap is both outputs'.
+if [ "$STATUS_JSON" -eq 0 ]; then
+    STATUS_WIDTH="$(out_width)" || { return 1 2>/dev/null || exit 1; }
+    STATUS_TEXT_MAX="$(status_text_max)" || { return 1 2>/dev/null || exit 1; }
+fi
 STATUS_ITEMS="$(status_items_max)" || { return 1 2>/dev/null || exit 1; }
-STATUS_TEXT_MAX="$(status_text_max)" || { return 1 2>/dev/null || exit 1; }
 
 # P-74: where a tracker keeps the issues, the briefing brings them up to date
 # first, at most once per aapp.issueSyncWindow minutes (counted from the last
@@ -705,4 +816,10 @@ STATUS_OFFLINE="$(status_records_offline)"
 STATUS_NEXT="$(status_records_next)"
 STATUS_NOTICES="$(status_notices)"
 
-status_render_terminal
+if [ "$STATUS_JSON" -eq 1 ]; then
+    # Built whole first: a failure on the way prints nothing on stdout.
+    STATUS_DOC="$(status_render_json)" || { return 1 2>/dev/null || exit 1; }
+    printf '%s\n' "$STATUS_DOC"
+else
+    status_render_terminal
+fi

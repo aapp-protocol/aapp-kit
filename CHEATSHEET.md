@@ -14,6 +14,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | Command | CLI? | Role & Purpose |
 | :--- | :---: | :--- |
 | `aapp status [short]` | **✅ Yes** | 4-pillar context recovery briefing (or 'short' for 1-line remote pulse; counts open adoption tasks); unblocks a plan once its blocker's fix commit is in the plan's parent branch |
+| `aapp status json` \| `aapp issue list [<n> \| all] json` | **✅ Yes** | The briefing, or the issue list, as one JSON document for scripts (P-94); fields in `docs/reference/08-output-json.md` |
 | `aapp draft [slug]` | **✅ Yes** | Scaffold blueprint from template, stamp ID & date, register in matrix |
 | `aapp draft <slug> issue <num>` | **✅ Yes** | Promote issue `#<num>`: Target Issue, Planned row and link in the draft commit |
 | `aapp draft <slug> group [<id>]` | **✅ Yes** | A group plan (`🧩 Group Plan`), or a member of group `<id>`; `aapp refine <id> group <gid>\|none` joins or leaves before start |
@@ -153,6 +154,7 @@ AAPP controls repository behavior via standard Git configuration:
 | `aapp.issueCacheMax` | integer | `200` | `aapp issue list`, `aapp status` | Open issues kept from a tracker's listing (P-74). |
 | `aapp.statusOutputWidth` | integer (≥ 40) | `85` | `aapp status`, `aapp issue list` | The most characters on a line of the briefing; long lines wrap at spaces (P-92). |
 | `aapp.statusItemsMax` | integer (≥ 1) | `5` | `aapp status` | How many Shipped entries and pickup ideas the briefing lists (P-88). |
+| `aapp.jsonLocalPath` | `true` / `false` | `true` | `aapp status json`, `aapp issue list json` | `false` writes `repository.root` as `null`: the document names no local path (P-94). |
 | `aapp.statusTextMax` | integer (≥ 1) | `220` | `aapp status` | The most characters of an entry's or idea's text the briefing shows (P-88). |
 | `aapp.offlineEnabled` | boolean | `true` | Offline (P-75) | `false`: a failing provider refuses and nothing is staged in `.offline`. |
 | `aapp.offlineOnly` | boolean | `false` | Offline (P-75) | `true` (`aapp offline on`): the provider is not asked; issues and draft plans are staged at once. |

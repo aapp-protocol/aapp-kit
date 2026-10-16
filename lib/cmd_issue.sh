@@ -1369,12 +1369,13 @@ _issue_line_notes() {
 }
 
 cmd_issue_list() {
-    local usage='aapp issue list [<n> | all] [confirm] | list note <num>'
-    local cap="$ISSUE_LIST_DEFAULT_CAP" confirm=0 note="" plans recs total line width
+    local usage='aapp issue list [<n> | all] [confirm] [json] | list note <num>'
+    local cap="$ISSUE_LIST_DEFAULT_CAP" confirm=0 note="" json=0 plans recs total line width doc env
     while [ $# -gt 0 ]; do
         case "$1" in
             all)      cap=0; shift ;;
             confirm)  confirm=1; shift ;;
+            json)     json=1; shift ;;
             note)     [ $# -ge 2 ] || { echo "❌ [Issue] 'note' needs an issue. Usage: $usage" >&2; return 1; }
                       note="$(issue_id_body "$2")" || return 1; shift 2 ;;
             *[!0-9]*|'') echo "❌ [Issue] Usage: $usage" >&2; return 1 ;;
@@ -1387,6 +1388,17 @@ cmd_issue_list() {
         line="$(PLANS_DIR="$plans" ledger_row "$note")" || { echo "❌ [Issue] #$note is not an active issue in ISSUES.md." >&2; return 1; }
         printf '%s%s\n' "$line" "$(_issue_line_notes "$note")"
         issue_show_text "$note" "" "$(_issue_state_get aapp_issue_meta "$note" | cut -f2 | grep -vx -- '-' || true)"
+        return 0
+    fi
+    if [ "$json" -eq 1 ]; then
+        # P-94: one JSON document on stdout; what the sync says goes to stderr.
+        if [ "$confirm" -eq 1 ]; then issue_sync force confirm >&2 || return 1; else issue_sync force >&2 || return 1; fi
+        recs="$(PLANS_DIR="$plans" ledger_issue_records | PLANS_DIR="$plans" issue_records_by_branch "$(issue_view_branch)" "$(_issue_dev_branch)")"
+        total=0; [ -z "$recs" ] || total="$(printf '%s\n' "$recs" | wc -l | tr -d ' ')"
+        if [ "$cap" -ne 0 ] && [ "$total" -gt "$cap" ]; then recs="$(printf '%s\n' "$recs" | head -n "$cap")"; fi
+        env="$(out_json_envelope "issue list" "[]")" || return 1
+        doc="{$env,\"issues\":$(printf '%s' "$recs" | issue_render_json),\"shown\":$(printf '%s' "$recs" | grep -c . || true),\"total\":$total}"
+        printf '%s' "$doc" | out_json_pretty
         return 0
     fi
     width="$(out_width)" || return 1

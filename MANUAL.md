@@ -607,6 +607,8 @@ Executed when returning to a project or starting a session. Inspects the workspa
 
 The briefing keeps to `aapp.statusOutputWidth` characters (default 85), so it reads in a narrow or split pane and in an agent's code block without scrolling sideways: the frame is that wide, and the header, the Plans pillar, the notices and the next action wrap at spaces, the continuation indented under the text. A path or other long word stays whole on a line of its own. Shipped and Pickup list `aapp.statusItemsMax` items (default 5) and show at most `aapp.statusTextMax` characters of each (default 220); the whole text stays in `CHANGELOG.md` and `.plans/pickup.md`.
 
+**JSON for scripts.** `aapp status json` and `aapp issue list [<n> | all] json` print the same records as one JSON document: nothing else on standard output, every message on standard error, nothing at all when the run fails. The document starts with the project's remote (credentials removed), so a web page or a dashboard can tell projects apart on any machine; `aapp.jsonLocalPath false` leaves out the checkout's local path. Every field is always present (`null` when absent), text is verbatim, the items are the briefing's. The fields and their versioning: [docs/reference/08-output-json.md](docs/reference/08-output-json.md).
+
 #### `/aapp-digest [idea]` (or `digest [idea]`, `/digest`) — Targeted Idea Ingestion
 Ingests a single idea from `pickup.md`, open issues, or raw text:
 - **3-Tier Fallback (Bare Invocations)**:
@@ -2084,6 +2086,7 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | The kit's issue counter (`aapp issue log` takes the next id when no tracker numbers the issue; seeded from both issue ledgers on first use). |
 | `aapp.statusOutputWidth` | integer (≥ 40) | `85` | `aapp status`, `aapp issue list` | The most characters on a line of the briefing (P-92). |
 | `aapp.statusItemsMax` | integer (≥ 1) | `5` | `aapp status` | How many Shipped entries and pickup ideas the briefing lists (P-88). |
+| `aapp.jsonLocalPath` | `true` / `false` | `true` | `aapp status json`, `aapp issue list json` | `false` writes `repository.root` as `null`, so a published document names no local path (P-94). |
 | `aapp.statusTextMax` | integer (≥ 1) | `220` | `aapp status` | The most characters of an entry's or idea's text the briefing shows, cut at a word with `…` (P-88). |
 | `aapp.issueSyncWindow` | minutes | `15` | `aapp status` | Least time between two syncs with a provider that lists issues, counted from the last attempt (P-74). |
 | `aapp.issueCacheMax` | integer | `200` | `aapp issue list`, `aapp status` | Open issues kept from a tracker's listing; issues the plans depend on are kept beyond it (P-74). |
