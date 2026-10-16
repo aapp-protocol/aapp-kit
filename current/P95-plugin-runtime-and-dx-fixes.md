@@ -1,7 +1,7 @@
 # 🗺️ Plan P-95: Plugin Runtime And Dx Fixes
 * **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
 * **Target Issue / Milestone:** #156
-* **Also Closes:** #157
+* **Also Closes:** #157, #158
 * **Plan ID:** P-95
 * **Changelog:** Changed: Plugin Runtime And Dx Fixes
 * **Commit Mode:** microcommits
