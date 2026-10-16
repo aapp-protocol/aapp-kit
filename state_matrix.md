@@ -24,7 +24,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-92**: [`P92-output-records-and-wrapping.md`](current/P92-output-records-and-wrapping.md) — Output Records And Wrapping
 - 🟣 **P-93**: [`P93-issue-list-layout.md`](current/P93-issue-list-layout.md) — Issue List Layout
 - 🟣 **P-94**: [`P94-json-output.md`](current/P94-json-output.md) — Json Output
-- 🟣 **P-96**: [`P96-pickup-entry-form.md`](current/P96-pickup-entry-form.md) — Pickup Entry Form
 - 🟣 **P-97**: [`P97-draft-from-pickup-title.md`](current/P97-draft-from-pickup-title.md) — Draft From Pickup Title
 
 ---
@@ -36,6 +35,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ## ⚡ In Development (Active Implementation Context)
 
 - ⚡ **P-91**: [`P91-readable-and-parsable-output.md`](current/P91-readable-and-parsable-output.md) — 🧩 Group Plan P-91: Readable And Parsable Output
+- ⚡ **P-96**: [`P96-pickup-entry-form.md`](current/P96-pickup-entry-form.md) — Pickup Entry Form
 
 ---
 
