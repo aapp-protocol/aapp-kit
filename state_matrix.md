@@ -12,7 +12,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🧠 Human Thought & Refinement (The Incubator)
 
-- 🟣 **P-100**: [`P100-json-errors-and-warnings.md`](current/P100-json-errors-and-warnings.md) — Json Errors And Warnings
 - 🟣 **P-11**: [`P11-airgapped-pickup.md`](current/P11-airgapped-pickup.md) — Air-Gapped Reference Store (`.plans/pickup/`) & 5-Layer Leak Protection Architecture.
 - 🟣 **P-15**: [`P15-adversarial-review-plugin.md`](current/P15-adversarial-review-plugin.md) — ✏️ **SKETCH — do not refine** — Adversarial Review Packet, Layer 6 Agent Egress Boundary & reference review plugin. Settled ground only; blocked on `#64`, `#57`, `#56`.
 - 🟣 **P-38**: [`P38-milestone-release-bundling-and-tag-ledgers.md`](current/P38-milestone-release-bundling-and-tag-ledgers.md) — Milestone Release Bundling & Tag Ledgers
@@ -33,6 +32,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
+- ⚡ **P-100**: [`P100-json-errors-and-warnings.md`](current/P100-json-errors-and-warnings.md) — Json Errors And Warnings
 - ⚡ **P-91**: [`P91-readable-and-parsable-output.md`](current/P91-readable-and-parsable-output.md) — 🧩 Group Plan P-91: Readable And Parsable Output
 
 ---
