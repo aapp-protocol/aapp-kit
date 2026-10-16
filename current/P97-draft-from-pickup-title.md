@@ -127,7 +127,7 @@ P-96 (group P-91) defines the entry form `- [ ] <title>: <text>` and the one fun
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — The entry's text in the drafted plan.** A bare `aapp draft` takes the title (§2.1). The text can be written into the new plan's §1 Context, so the idea is not lost when the entry is digested, or be left out, the plan being written from scratch.
+* [x] **Question 1 — The entry's text in the drafted plan. → RESOLVED (developer, 2026-10-16):** copied, verbatim, into the new plan's §1, with the `.plans/pickup/` files it names (§2.4).
 
 ---
 
