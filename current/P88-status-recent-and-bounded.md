@@ -57,30 +57,29 @@ The order of landing is in Git, not in the changelog's layout: every plan and fi
 git log -n 15 --first-parent -m -p --unified=0 -- <changelog>     # added lines starting "- "
 ```
 
-- Newest first, up to five unique entries, from any section (`Added`, `Changed`, `Fixed`).
+- Newest first, up to `aapp.statusItemsMax` unique entries (default 5), from any section (`Added`, `Changed`, `Fixed`).
 - An entry that is no longer in the file (reworded or removed later) is skipped; each entry is printed once.
-- Each entry is one bounded line (cut at the last space before 100 characters, ending in `…`; overridable via `aapp.statusLineMax`).
+- Each entry is cut with `out_cut` at `aapp.statusTextMax` (default 220) and wrapped with `out_wrap 2 4` (`  - ` and continuation under the text), within `aapp.statusOutputWidth` (group P-91 §2.3).
+- The record (P-92) carries the entry's section, its text as written, the plan or issue it is tagged with, and the commit and date it landed with (empty from the fallback), for P-94's `shipped.entries`.
 - Section headings (`### Added`, etc.) are not printed. A footer line names the file: `  (more in CHANGELOG.md)`, when the file holds more entries than shown.
 - Fallback, when history gives nothing (no commits yet, shallow clone, changelog outside Git): the first five entries under `[Unreleased]` without section headings.
 - `.plans/CHANGELOG.md` is read from the plans worktree's history when that is where the changelog is.
 
 ### 2.2 Pickup: bounded ideas with hanging indent and cap
 
-- Keep the sensible cap of 5 ideas (configurable via `aapp.statusPickupMax`, default 5), followed by `  ... and N more (see .plans/pickup.md)`.
-- Each unworked idea is bounded to at most 220 characters (`aapp.statusPickupMaxLen`, default 220).
-- If an idea exceeds a single line (~80–85 characters), it is formatted across lines using a clean hanging indent (8 spaces for continuation lines) so that no single line exceeds 85 characters, completely eliminating horizontal scrolling in Claude and split terminal panes.
+- Up to `aapp.statusItemsMax` ideas (default 5), followed by `  ... and N more (see .plans/pickup.md)`.
+- Each idea is cut with `out_cut` at `aapp.statusTextMax` (default 220) and wrapped with `out_wrap 2 8` (`  - [ ] ` and continuation under the text), within `aapp.statusOutputWidth`.
 - Full unworked text remains in `.plans/pickup.md`; `/aapp-digest <idea>` reads it there.
 
-### 2.3 Formatting Helpers (`status_line_cut` & `status_format_pickup`)
+### 2.3 Formatting helpers
 
-In `lib/cmd_status.sh`:
-- `status_line_cut <limit>`: cuts a line at the last space before `<limit>` (default 100) and appends `…` if truncated; leaves shorter lines untouched. Used by Shipped entries.
-- `status_format_pickup <max_len> <wrap_width>`: bounds total idea text to `<max_len>` (default 220, cut at word boundary with `…`), and soft-wraps continuation lines with an 8-space hanging indent at `<wrap_width>` (default 85 cols).
+The helpers are group P-91's, in `lib/output.sh` (P-92): `out_cut`, `out_wrap`, `out_width`. This plan adds none of its own.
 
 ### 2.4 Not in this plan
 
-- The Issues and Plans pillars.
+- The Issues pillar (P-93) and the Plans pillar (P-92).
 - `aapp status short`.
+- The JSON output (P-94).
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -99,18 +98,19 @@ In `lib/cmd_status.sh`:
 - [ ] `tests/verbs/status.sh::test_shipped_skips_removed_entry` -> asserts an entry later removed from the file is not printed, and a reworded one prints once, in its current wording
 - [ ] `tests/verbs/status.sh::test_shipped_fallback_without_history` -> asserts an uncommitted `CHANGELOG.md` prints its first entries under `[Unreleased]`, without a heading line
 - [ ] `tests/verbs/status.sh::test_shipped_points_to_changelog` -> asserts more than five entries end the pillar with a line naming `CHANGELOG.md`
-- [ ] `tests/verbs/status.sh::test_shipped_line_is_bounded` -> asserts a changelog entry over 100 characters is cut at space before 100 and ends in `…`
+- [ ] `tests/verbs/status.sh::test_shipped_entry_wrapped` -> asserts a 300-character changelog entry is cut at `aapp.statusTextMax` with `…` and wrapped under its text, no line over `aapp.statusOutputWidth`
+- [ ] `tests/verbs/status.sh::test_shipped_record_fields` -> asserts the Shipped records carry section, text, plan or issue, commit and date, and empty commit and date from the fallback
 - [ ] `tests/verbs/status.sh::test_pickup_capped_with_more` -> asserts pickup queue keeps a cap of 5 ideas and prints `... and N more`
 - [ ] `tests/verbs/status.sh::test_pickup_bounded_and_wrapped` -> asserts a 900-character idea is bounded to <= 220 chars and wrapped across lines with an 8-space hanging indent under 85 columns
-- [ ] `tests/verbs/status.sh::test_status_line_max_setting` -> asserts `aapp.statusLineMax` overrides the single-line limit
+- [ ] `tests/verbs/status.sh::test_status_limit_settings` -> asserts `aapp.statusItemsMax` and `aapp.statusTextMax` change the caps of Shipped and Pickup, and a value that is not a positive number is refused naming the key
 
 ### Phase 1: Foundation & Setup
 - [ ] Task 1.1: Write the tests of this section in `tests/verbs/status.sh`; commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/cmd_status.sh`: `status_line_cut` and bounded `git log -n 15` extraction for the Shipped pillar, with its fallback.
-- [ ] Task 2.2: `lib/cmd_status.sh`: `status_format_pickup` for the Pickup pillar (bounded at 220 chars, hanging indent wrap at 85 cols, 5-idea cap with `... and N more`).
-- [ ] Task 2.3: `lib/docs/verbs/status.md`: document the two pillars, configuration options (`aapp.statusLineMax`, `aapp.statusPickupMax`), and contracts.
+- [ ] Task 2.1: `lib/cmd_status.sh`: the Shipped records from a bounded `git log -n 15`, with their fallback; rendered through `out_cut` and `out_wrap`.
+- [ ] Task 2.2: `lib/cmd_status.sh`: the Pickup pillar through `out_cut` and `out_wrap`, capped at `aapp.statusItemsMax` with `... and N more`.
+- [ ] Task 2.3: `lib/docs/verbs/status.md`: document the two pillars, `aapp.statusTextMax`, `aapp.statusItemsMax`, and contracts.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -128,11 +128,11 @@ In `lib/cmd_status.sh`:
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `lib/cmd_status.sh` -> the Shipped and Pickup pillars; `status_line_cut` and `status_format_pickup`.
+- [ ] `lib/cmd_status.sh` -> the Shipped records and the Shipped and Pickup pillars.
 - [ ] `lib/docs/verbs/status.md` -> the contract of the two pillars and the new tests.
 - [ ] `tests/verbs/status.sh` -> the tests of §3.
-- [ ] `MANUAL.md` -> the briefing's pillars; `aapp.statusLineMax`, `aapp.statusPickupMax`.
-- [ ] `CHEATSHEET.md` -> `aapp.statusLineMax`, `aapp.statusPickupMax`.
+- [ ] `MANUAL.md` -> the briefing's pillars; `aapp.statusTextMax`, `aapp.statusItemsMax`.
+- [ ] `CHEATSHEET.md` -> `aapp.statusTextMax`, `aapp.statusItemsMax`.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
@@ -140,6 +140,9 @@ In `lib/cmd_status.sh`:
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `templates/skills/` -> the skills show the output as printed; they do not change.
+- [ ] `lib/output.sh` -> group P-91's helpers, written by P-92.
+- [ ] `ARCHITECTURE.md` -> written from group P-91's sections at the group's `done`.
+- [ ] `.agents/CODEMAP.md` -> written from group P-91's sections at the group's `done`.
 
 ---
 
@@ -154,4 +157,5 @@ In `lib/cmd_status.sh`:
 * **2026-10-13:** Plan initialized from `pickup.md`.
 * **2026-10-13:** Refined blast radius and locked module boundaries.
 * **2026-10-15:** Refined blueprint: bounded git log history (-n 15) for Shipped; bounded Pickup to 220 chars with 8-space hanging indent line wrapping and 5-idea cap; resolved open questions.
+* **2026-10-16:** Member of group P-91: the group's settings (`aapp.statusOutputWidth`, `aapp.statusTextMax`, `aapp.statusItemsMax`) and `lib/output.sh` helpers; Shipped wraps like Pickup; Shipped records carry commit and date.
 
