@@ -12,7 +12,7 @@
 * **Base:** `5a6f3c7` (feature/readable-and-parsable-output)
 * **Worktree:** .workspace/P100 (plan/P100-json-errors-and-warnings)
 * **Group:** P-91
-* **Commits:** none
+* **Commits:** `c388e16` (plan/P100-json-errors-and-warnings)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
