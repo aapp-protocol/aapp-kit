@@ -76,7 +76,9 @@ agent-planning-kit/
 │       │   └── github-actions-ci.md
 │       ├── plugins-and-hooks/
 │       │   ├── 01-deploy-on-done-hook.md
-│       │   └── 02-custom-pre-gate-hooks.md
+│       │   ├── 02-custom-pre-gate-hooks.md
+│       │   ├── 03-github-issues-tracker-plugin.md
+│       │   └── 04-authoring-custom-action-plugins.md
 │       ├── workflows/
 │       │   ├── tdd-failure-assertions.md
 │       │   ├── emergency-hotfixes.md
@@ -163,6 +165,23 @@ Two dedicated recipes document these production patterns:
      - `2`: **Advisory Warning** $\rightarrow$ Log diagnostic notice to terminal, but allow the command to proceed.
    - **Working Demonstration**: A script demonstrating JSON input handling, running compliance assertions, emitting clear advisory vs fatal diagnostics, and returning exit code 1 to veto or exit code 2 to warn.
 
+3. **External Issue Tracker Provider: GitHub Issues Sync (`docs/recipes/plugins-and-hooks/03-github-issues-tracker-plugin.md`)**:
+   - **Scenario**: Synchronize AAPP issue management with an external issue tracker (GitHub Issues via GitHub CLI `gh`, or Jira/Linear).
+   - **Mechanism**: Implement a provider plugin in `.agents/skills/aapp-issue-tracker/run` handling lifecycle events (`issue.log`, `issue.queue`, `issue.close`, `issue.list`).
+   - **Key Invariants**:
+     - Kit sends clean JSON on STDIN with zero credentials; plugin leverages user's local `gh` auth or `$GITHUB_TOKEN`.
+     - Output is flat JSON on STDOUT (`{"status": "ok", "id": "#42", "url": "..."}`).
+     - Graceful fallback: unhandled events return `{"status": "declined"}` for local AAPP ledger handling.
+   - **Working Demonstration**: A complete, copy-pasteable bash script implementing issue creation on `issue.log`, status labeling on `issue.queue`, closing on `issue.close`, and multi-item listings via `$AAPP_PLUGIN_LIST`.
+
+4. **Custom Action Plugins & Kit Internals (`docs/recipes/plugins-and-hooks/04-authoring-custom-action-plugins.md`)**:
+   - **Scenario**: Create an arbitrary custom CLI command (e.g. `aapp release-check`, `aapp deploy`, `aapp audit`) that extends the kit without modifying kit code, while tapping into the kit's internal state.
+   - **Mechanism**:
+     - Action Plugin Discovery: Drop an executable into `.agents/skills/<command>/run`; `aapp` dispatches `aapp <command>` directly via the action plugin fallthrough.
+     - Sourcing Kit Internals: Source `$AAPP_LIB/aapp-lib.sh` to reuse canonical helpers (`read_active_buffer`, `parse_plan_target_paths`, `ledger_row`, `issue_queued_blockers`).
+     - Calling Governed Actions: Invoke standard CLI verbs (`aapp commit`, `aapp issue queue`) to respect all Blast Radius and attribution rules.
+   - **Working Demonstration**: A complete script for `aapp release-check` verifying repository readiness, checking for in-flight plans, and auditing unresolved plan blockers before deployment.
+
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
@@ -187,6 +206,8 @@ Two dedicated recipes document these production patterns:
 - [ ] Task 1.6: Author Custom Lifecycle Hooks & Deployment recipes:
   - `docs/recipes/plugins-and-hooks/01-deploy-on-done-hook.md`
   - `docs/recipes/plugins-and-hooks/02-custom-pre-gate-hooks.md`
+  - `docs/recipes/plugins-and-hooks/03-github-issues-tracker-plugin.md`
+  - `docs/recipes/plugins-and-hooks/04-authoring-custom-action-plugins.md`
 
 ### Phase 2: Root Catalog & Recipe Extraction
 - [ ] Task 2.1: Author root [`COOKBOOK.md`](COOKBOOK.md) with categorized index, difficulty badges, and cross-references.
@@ -213,6 +234,8 @@ Two dedicated recipes document these production patterns:
 - [ ] `NEW FILE` -> `docs/recipes/integrations/github-actions-ci.md` -> Recipe for CI blast-radius gates.
 - [ ] `NEW FILE` -> `docs/recipes/plugins-and-hooks/01-deploy-on-done-hook.md` -> Recipe for live deployment via post-done hook.
 - [ ] `NEW FILE` -> `docs/recipes/plugins-and-hooks/02-custom-pre-gate-hooks.md` -> Recipe for custom validation pre-gates.
+- [ ] `NEW FILE` -> `docs/recipes/plugins-and-hooks/03-github-issues-tracker-plugin.md` -> Recipe for connecting GitHub Issues via provider plugin.
+- [ ] `NEW FILE` -> `docs/recipes/plugins-and-hooks/04-authoring-custom-action-plugins.md` -> Recipe for custom CLI action plugins tapping kit internals.
 - [ ] `NEW FILE` -> `docs/recipes/workflows/tdd-failure-assertions.md` -> Recipe for failure-first TDD loop.
 - [ ] `NEW FILE` -> `docs/recipes/workflows/emergency-hotfixes.md` -> Recipe for emergency hotfixes & mini-plans (P-52).
 - [ ] `NEW FILE` -> `docs/recipes/workflows/multi-agent-worktrees.md` -> Recipe for concurrent multi-agent worktrees.
@@ -236,6 +259,7 @@ Two dedicated recipes document these production patterns:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-16:** Refined blueprint: added GitHub Issues tracker provider plugin (`03-github-issues-tracker-plugin.md`) and custom action plugin (`04-authoring-custom-action-plugins.md`) recipes to Section 2.5, Task 1.6, and Target Files.
 * **2026-10-07:** Refined blueprint: added Continuous Navigation Invariant requiring standard back-links to `COOKBOOK.md`, `MANUAL.md`, and `README.md` across every recipe file.
 * **2026-10-07:** Refined blueprint: scoped P-56 strictly to cookbook & recipes (leaving portal architecture & README to P-57), corrected hook pre-gate return code semantics (exit 1 abort, exit 2 advisory) per P-23, and aligned hotfix recipe with P-52 mini-plans.
 * **2026-10-07:** Refined blueprint to include custom lifecycle hooks and deployment recipes (`docs/recipes/plugins-and-hooks/`) covering real-world continuous deployment on `post-done` and custom pre-gate validation on `pre-freeze`/`pre-done`.
