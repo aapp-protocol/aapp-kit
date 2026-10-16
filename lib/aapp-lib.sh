@@ -1111,49 +1111,82 @@ ledger_drop_row() {
     roadmap_prune "$1"
 }
 
-# roadmap_queue_add <n> <text> (P-89): `- [ ] #<n> -> <text>` at the end of
-# 📋 Queued; the section is added at the end of the work queue when missing.
-roadmap_queue_add() {
-    _roadmap_section_append "## 📋 Queued" "- [ ] #$1 -> $2"
+# The work queue's 📋 Queued holds three levels, in this order (P-89); inside
+# a level the oldest entry comes first. A queued line is
+# `- [ ] #<n> -> <symptom> (queued <YYYY-MM-DD>)`.
+AAPP_QUEUE_LEVELS="urgent normal low"
+
+# roadmap_level_heading <urgent|normal|low> -> the level's heading.
+roadmap_level_heading() {
+    case "$1" in
+        urgent) echo "### 🔺 Urgent" ;;
+        normal) echo "### Normal" ;;
+        low)    echo "### Low" ;;
+        *)      return 1 ;;
+    esac
 }
 
-# roadmap_queue_replace (P-89): 📋 Queued holds the lines read from stdin, in
-# that order (the tracker's queue, when the tracker keeps the record).
-roadmap_queue_replace() {
-    local f tmp lines
+# roadmap_queue_entries -> every queued line, `<level>\t<line>`, in order.
+roadmap_queue_entries() {
+    local f
+    f="$(ledger_path roadmap)" || return 0
+    [ -f "$f" ] || return 0
+    awk '
+        /^## 📋 Queued/ { q = 1; lv = "normal"; next }
+        /^## / { q = 0 }
+        !q { next }
+        /^### 🔺 Urgent/ { lv = "urgent"; next }
+        /^### Normal/ { lv = "normal"; next }
+        /^### Low/ { lv = "low"; next }
+        /^[[:space:]]*-[[:space:]]*\[[ ]?\]/ { print lv "\t" $0 }
+    ' "$f"
+}
+
+# roadmap_queue_set: 📋 Queued becomes the `<level>\t<line>` entries read from
+# stdin, written under the three level headings in their order.
+roadmap_queue_set() {
+    local f tmp entries body lv
     f="$(ledger_path roadmap)" || return 1
     [ -f "$f" ] || return 1
-    lines="$(cat)"
-    grep -q '^## 📋 Queued' "$f" || printf '\n%s\n' "## 📋 Queued" >> "$f"
+    entries="$(cat)"
+    body="## 📋 Queued"
+    for lv in $AAPP_QUEUE_LEVELS; do
+        body="$body
+$(roadmap_level_heading "$lv")"
+        body="$body$(printf '%s\n' "$entries" | awk -F'\t' -v lv="$lv" '$1 == lv { printf "\n%s", substr($0, length($1) + 2) }')"
+    done
     tmp="$f.aapp-queue.$$"
-    AAPP_LINES="$lines" awk '
-        /^## 📋 Queued/ { print; if (ENVIRON["AAPP_LINES"] != "") print ENVIRON["AAPP_LINES"]; q = 1; next }
+    AAPP_BODY="$body" awk '
+        /^## 📋 Queued/ { print ENVIRON["AAPP_BODY"]; q = 1; done = 1; next }
         q && /^## / { print ""; q = 0 }
         q { next }
         { print }
+        END { if (!done) { print ""; print ENVIRON["AAPP_BODY"] } }
     ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
 }
 
-# _roadmap_section_append <heading> <line>: <line> at the end of the section
-# <heading>; the section is added at the end of the file when missing.
-_roadmap_section_append() {
-    local f tmp
-    f="$(ledger_path roadmap)" || return 1
-    [ -f "$f" ] || return 1
-    tmp="$f.aapp-entry.$$"
-    AAPP_HEAD="$1" AAPP_LINE="$2" awk '
-        function flush() { for (i = 1; i <= nb; i++) print blank[i]; nb = 0 }
-        in_s && /^## / { print ENVIRON["AAPP_LINE"]; flush(); in_s = 0; done = 1 }
-        in_s && /^[[:space:]]*$/ { blank[++nb] = $0; next }
-        in_s { flush() }
-        index($0, ENVIRON["AAPP_HEAD"]) == 1 && !done { in_s = 1; seen = 1 }
-        { print }
-        END {
-            if (in_s) { print ENVIRON["AAPP_LINE"]; done = 1 }
-            flush()
-            if (!seen) { print ""; print ENVIRON["AAPP_HEAD"]; print ENVIRON["AAPP_LINE"] }
-        }
-    ' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+# roadmap_queue_add <n> <text> [<level> [<date>]] (P-89): queues #<n> at the end
+# of <level> (normal by default) with the queue date (today by default); an
+# issue already queued moves there with its own date.
+roadmap_queue_add() {
+    local n="$1" text="$2" lv="${3:-normal}" day="${4:-$(date +%Y-%m-%d)}" entries old
+    roadmap_level_heading "$lv" >/dev/null || return 1
+    entries="$(roadmap_queue_entries)"
+    old="$(printf '%s\n' "$entries" | AAPP_RE="#$n" awk -F'\t' '{ s = $2; sub(/^[[:space:]]*-[[:space:]]*\[[ ]?\][[:space:]]*/, "", s); split(s, w, " "); if (w[1] == ENVIRON["AAPP_RE"]) { print $2; exit } }')"
+    {
+        printf '%s\n' "$entries" | AAPP_OLD="$old" awk -F'\t' 'NF && substr($0, length($1) + 2) != ENVIRON["AAPP_OLD"]'
+        if [ -n "$old" ]; then printf '%s\t%s\n' "$lv" "$old"; else printf '%s\t- [ ] #%s -> %s (queued %s)\n' "$lv" "$n" "$text" "$day"; fi
+    } | roadmap_queue_set
+}
+
+# roadmap_queue_level <n> -> the level #<n> is queued at; nothing when it is not queued.
+roadmap_queue_level() {
+    roadmap_queue_entries | AAPP_RE="#$1" awk -F'\t' '{ s = $2; sub(/^[[:space:]]*-[[:space:]]*\[[ ]?\][[:space:]]*/, "", s); split(s, w, " "); if (w[1] == ENVIRON["AAPP_RE"]) { print $1; exit } }'
+}
+
+# roadmap_queue_date <n> -> the date #<n> was queued; nothing when it is not queued.
+roadmap_queue_date() {
+    roadmap_queue_entries | AAPP_RE="#$1" awk -F'\t' '{ s = $2; sub(/^[[:space:]]*-[[:space:]]*\[[ ]?\][[:space:]]*/, "", s); split(s, w, " "); if (w[1] == ENVIRON["AAPP_RE"] && match($2, /\(queued [0-9-]+\)/)) { print substr($2, RSTART + 8, RLENGTH - 9); exit } }'
 }
 
 # ---- Issue text: description and notes (P-74) ----
@@ -1752,11 +1785,11 @@ roadmap_entries() {
     return 0
 }
 
-# roadmap_entries_by_branch <current> <dev> [<cap>] (P-78) -> the same lines,
-# each with its issue's branch, those of <current> first. While no issue names
-# a branch every issue is on the development branch: the lines are as they are.
+# roadmap_entries_by_branch <current> <dev> [<cap>] (P-78, P-89) -> the work
+# queue in the display form, each line with its issue's branch, those of
+# <current> first. While no issue names a branch the lines are as they are.
 roadmap_entries_by_branch() {
-    roadmap_entries | _issue_lines_by_branch "$@"
+    roadmap_issue_lines | _issue_lines_by_branch "$@"
 }
 
 # ledger_issue_lines_by_branch <current> <dev> [<cap>] (P-89) -> the ledger's
@@ -1792,7 +1825,7 @@ _issue_lines_by_branch() {
 roadmap_blockers() { _roadmap_section_ids "## 🧱 Plan Blockers"; }
 
 # roadmap_queued -> the issue numbers under 📋 Queued, in order (P-89).
-roadmap_queued() { _roadmap_section_ids "## 📋 Queued"; }
+roadmap_queued() { roadmap_queue_entries | cut -f2 | sed -nE "s/^[[:space:]]*-[[:space:]]*\\[[ ]?\\][[:space:]]*#(${AAPP_ISSUE_ID_BODY_RE}).*/\\1/p"; }
 
 # _roadmap_section_ids <heading> -> the open issue ids of one section, in order.
 _roadmap_section_ids() {
@@ -1803,18 +1836,54 @@ _roadmap_section_ids() {
         sed -nE "s/^[[:space:]]*-[[:space:]]*\[[ ]?\][[:space:]]*#(${AAPP_ISSUE_ID_BODY_RE}).*/\1/p"
 }
 
-# roadmap_sections -> the `## ` headings of the work queue, as written (P-89).
+# roadmap_sections -> the `## ` and `### ` headings of the work queue, as written (P-89).
 roadmap_sections() {
     local f
     f="$(ledger_path roadmap)" || return 0
     [ -f "$f" ] || return 0
-    grep -E '^## ' "$f" || true
+    grep -E '^###? ' "$f" || true
 }
 
-# ledger_issue_lines -> every active issue as a line `- [ ] #<n> -> <symptom>`,
-# in the order the ledger records them (P-89: what `aapp issue list` shows).
+# ledger_issue_lines [<n>…] (P-89) -> active issues as the lists show them, one
+# line each: id, severity, status and logged date (from the row), the queue
+# date and level when queued, the symptom, and the plan. All rows in recorded
+# order, or the ids given, in that order.
 ledger_issue_lines() {
-    ledger_rows | awk -F'\t' '{ printf "- [ ] %s -> %s\n", $1, $6 }'
+    local qmap
+    qmap="$(roadmap_queue_entries | awk -F'\t' '{
+        s = $2; id = ""; d = ""
+        if (match(s, /#[A-Za-z0-9-]+/)) id = substr(s, RSTART, RLENGTH)
+        if (match(s, /\(queued [0-9-]+\)/)) d = substr(s, RSTART + 8, RLENGTH - 9)
+        print id "\t" $1 "\t" d }')"
+    ledger_rows | AAPP_QMAP="$qmap" AAPP_IDS="$*" awk -F'\t' '
+        BEGIN {
+            n = split(ENVIRON["AAPP_QMAP"], m, "\n")
+            for (i = 1; i <= n; i++) { split(m[i], q, "\t"); lv[q[1]] = q[2]; qd[q[1]] = q[3] }
+            k = split(ENVIRON["AAPP_IDS"], want, " ")
+        }
+        {
+            sev = $2; gsub(/`/, "", sev)
+            st = $8; gsub(/`/, "", st); sub(/^.* /, "", st)
+            plan = ""
+            if (match($7, /\[P-[0-9]+\]/)) plan = substr($7, RSTART + 1, RLENGTH - 2)
+            if (plan != "" && $7 ~ /^blocks /) plan = "blocks " plan
+            qs = ""
+            if ($1 in lv) qs = "queued " qd[$1] " (" (lv[$1] == "urgent" ? "Urgent" : (lv[$1] == "low" ? "Low" : "Normal")) ")"
+            line[$1] = sprintf("%-6s %-8s %-10s logged %s  %-27s  %s%s", $1, sev, st, $4, qs, $6, (plan != "" ? "  [" plan "]" : ""))
+            order[++o] = $1
+        }
+        END {
+            if (k) { for (i = 1; i <= k; i++) { id = (want[i] ~ /^#/) ? want[i] : "#" want[i]; if (id in line) print line[id] } }
+            else for (i = 1; i <= o; i++) print line[order[i]]
+        }'
+}
+
+# roadmap_issue_lines -> the work queue as the lists show it: the plan
+# blockers, then the queued issues by level, in the display form of
+# `ledger_issue_lines` (P-89).
+roadmap_issue_lines() {
+    # shellcheck disable=SC2046
+    ledger_issue_lines $( { roadmap_blockers; roadmap_queued; } | awk '!seen[$0]++')
 }
 
 # roadmap_add_blocker <n> <text> <plan-id>: appends to 🧱 Plan Blockers, creating

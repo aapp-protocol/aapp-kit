@@ -1238,8 +1238,11 @@ _issue_sync_apply() {
 #$n"
         # P-89: the tracker's queue is the queue.
         if [ "$(json_field "$line" queued 2>/dev/null)" = "true" ]; then
+            v="$(json_field "$line" priority 2>/dev/null)" || v=normal
+            case "$v" in urgent|normal|low) ;; *) v=normal ;; esac
+            f="$(json_field "$line" queued_at 2>/dev/null)" || f="$(date +%Y-%m-%d)"
             queue="${queue:+$queue
-}- [ ] #$n -> $(json_field "$line" symptom 2>/dev/null || echo "#$n")"
+}$v	- [ ] #$n -> $(json_field "$line" symptom 2>/dev/null || echo "#$n") (queued ${f%%T*})"
         fi
         _issue_meta_from_answer "$n" "$line"
         new=""
@@ -1263,7 +1266,7 @@ _issue_sync_apply() {
         v="$(printf '%s' "$new" | cut -f6)"
         ledger_set_cell "$n" branch "$(issue_branch_cell "$v")"
     done <<< "$lines"
-    printf '%s' "$queue" | roadmap_queue_replace || echo "⚠️  [Issue] Could not bring 📋 Queued up to date from the tracker." >&2
+    printf '%s' "$queue" | roadmap_queue_set || echo "⚠️  [Issue] Could not bring 📋 Queued up to date from the tracker." >&2
     # The cache is bounded: the rows this listing did not bring go first.
     kept="$(ledger_ids active | while IFS= read -r n; do printf '%s\n' "$ids" | grep -qxF "#$n" || echo "$n"; done | grep -c . || true)"
     if [ "$kept" -gt "$limit" ]; then
@@ -1732,12 +1735,13 @@ issue_queued_work() {
 # takes it off the queue. Where a tracker keeps the record its queue is the
 # queue: the step must succeed there, and the sync brings the section back.
 cmd_issue_queue() {
-    local usage='aapp issue queue <num> [remove]' n plans remove=0 row sym issue step subject external=0
+    local usage='aapp issue queue <num> [urgent | low | remove]' n plans remove=0 row sym issue step subject external=0 lv=normal cur
     if [ -z "${1:-}" ]; then echo "❌ [Issue] Usage: $usage" >&2; return 1; fi
     n="$(issue_id_body "$1")" || return 1; shift
     case "${1:-}" in
         '') ;;
         remove) remove=1; shift ;;
+        urgent|normal|low) lv="$1"; shift ;;
         *) echo "❌ [Issue] Unknown token '$1'. Usage: $usage" >&2; return 1 ;;
     esac
     if [ $# -gt 0 ]; then echo "❌ [Issue] Usage: $usage" >&2; return 1; fi
@@ -1754,15 +1758,18 @@ cmd_issue_queue() {
         fi
         step=unqueue; subject="issue(queue): #$n unqueued"
     else
-        if PLANS_DIR="$plans" roadmap_queued | grep -qxF -- "$n"; then
-            echo "❌ [Issue] #$n is already queued." >&2; return 1
+        cur="$(PLANS_DIR="$plans" roadmap_queue_level "$n")"
+        if [ "$cur" = "$lv" ]; then
+            echo "❌ [Issue] #$n is already queued ($lv)." >&2; return 1
         fi
         if PLANS_DIR="$plans" roadmap_blockers | grep -qxF -- "$n"; then
             echo "❌ [Issue] #$n is a plan blocker already; 'aapp issue fix next-blocker' takes it." >&2; return 1
         fi
-        step=queue; subject="issue(queue): #$n queued"
+        step=queue
+        if [ -n "$cur" ]; then subject="issue(queue): #$n moved to $lv"; else subject="issue(queue): #$n queued ($lv)"; fi
     fi
     issue="$(PLANS_DIR="$plans" issue_payload "$n")" || issue="\"id\": \"#$n\""
+    [ "$remove" -eq 1 ] || issue="$issue, \"priority\": \"$lv\""
     if [ -z "${AAPP_LEDGER_OFFLINE:-}" ] && PLANS_DIR="$plans" ledger_record_external; then
         external=1
         if ! AAPP_ISSUE_ID="#$n" issue_provider "$step" "$issue" || [ "$PLUGIN_STATUS" != "ok" ]; then
@@ -1774,7 +1781,7 @@ cmd_issue_queue() {
         PLANS_DIR="$plans" roadmap_prune "$n" || return 1
     else
         sym="$(PLANS_DIR="$plans" ledger_rows | awk -F'\t' -v id="#$n" '$1 == id { print $6; exit }')"
-        PLANS_DIR="$plans" roadmap_queue_add "$n" "$sym" || { echo "❌ [Issue] Could not write 📋 Queued in issues_road_map.md." >&2; return 1; }
+        PLANS_DIR="$plans" roadmap_queue_add "$n" "$sym" "$lv" || { echo "❌ [Issue] Could not write 📋 Queued in issues_road_map.md." >&2; return 1; }
     fi
     if [ -n "${AAPP_LEDGER_OFFLINE:-}" ]; then
         offline_commit "$subject, offline" >/dev/null
@@ -1786,7 +1793,7 @@ cmd_issue_queue() {
     if [ "$remove" -eq 1 ]; then
         echo "📋 [Issue] #$n is off the work queue."
     else
-        echo "📋 [Issue] #$n is queued for work: 'aapp issue fix $n' (or 'next-blocker') may take it."
+        echo "📋 [Issue] #$n is queued for work ($lv): 'aapp issue fix $n' (or 'next-blocker') may take it."
     fi
 }
 

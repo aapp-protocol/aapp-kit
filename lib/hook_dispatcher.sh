@@ -107,12 +107,13 @@ json_escape() {
     printf '%s' "$s"
 }
 
-# json_field <json> <key> -> value of a flat string or number key; fails when absent.
-# Plugin responses are one flat object ({"id": ...}, {"status": ...}, {"error": ...});
-# nested objects such as "extra" are never read.
+# json_field <json> <key> -> value of a flat string, number or boolean key
+# (`true`, `false`); fails when absent. Plugin responses are one flat object
+# ({"id": ...}, {"status": ...}, {"error": ...}); nested objects such as
+# "extra" are never read.
 json_field() {
     local json="$1" key="$2" val
-    val="$(printf '%s' "$json" | tr -d '\n' | sed -nE "s/.*\"$key\"[[:space:]]*:[[:space:]]*(\"([^\"\\\\]|\\\\.)*\"|-?[0-9]+).*/\\1/p")"
+    val="$(printf '%s' "$json" | tr -d '\n' | sed -nE "s/.*\"$key\"[[:space:]]*:[[:space:]]*(\"([^\"\\\\]|\\\\.)*\"|-?[0-9]+|true|false).*/\\1/p")"
     [ -n "$val" ] || return 1
     val="${val#\"}"; val="${val%\"}"
     printf '%s\n' "$val"

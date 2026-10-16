@@ -231,9 +231,12 @@ _offline_sync_issue() {
         row="$(grep -m 1 -E "$(_ledger_row_regex "$n")" "$oi" | sed -E "s/^([[:space:]]*\|[[:space:]]*\`?)#$n(\`?[[:space:]]*\|)/\1#$real\2/")"
         PLANS_DIR="$plans" ledger_add_row "$row" || return 1
         # P-89: an issue queued while offline stays queued, under its real id.
-        if ( ledger_use_offline; roadmap_queued ) | grep -qxF -- "$n"; then
-            PLANS_DIR="$plans" roadmap_queue_add "$real" "$(printf '%s' "$cells" | cut -f6)"
-            _issue_step queue "$real" "\"id\": \"#$real\""
+        local qlv qday
+        qlv="$( ledger_use_offline; roadmap_queue_level "$n" )"
+        if [ -n "$qlv" ]; then
+            qday="$( ledger_use_offline; roadmap_queue_date "$n" )"
+            PLANS_DIR="$plans" roadmap_queue_add "$real" "$(printf '%s' "$cells" | cut -f6)" "$qlv" "$qday"
+            _issue_step queue "$real" "\"id\": \"#$real\", \"priority\": \"$qlv\""
         fi
         ( ledger_use_offline; ledger_drop_row "$n" )
     else
