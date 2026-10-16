@@ -55,7 +55,7 @@ This member, the third of group P-91, gives every issue view one layout from the
         in a terminal the symptom wraps under the id and severity columns, and an
         unqueued issue pads a blank 27-character column.
 ```
-- Facts line at 2 spaces: `#<id>  <Severity>  <Status>  logged <date>`, then, only when present: `queued <date> (<Level>)`, `[<plan>]` (`[blocks <plan>]` for a hotfix), `(branch: <name>)`, `offline`. Two spaces between facts, no padding. A facts line wider than `aapp.statusOutputWidth` wraps at 8 spaces.
+- Facts line at 2 spaces: `#<id>  <Severity>  <Status>  logged <date>`, then, only when present: `queued <date> (<Level>)`, `[<plan>]` (`[blocks <plan>]` for a hotfix), `(branch: <name>)`, `offline`, `<n> notes` (`1 note`; from the record's `notes`, shown when it is 1 or more: a hint that `aapp issue list note <num>` and `aapp issue fix` have text to show). Two spaces between facts, no padding. A facts line wider than `aapp.statusOutputWidth` wraps at 8 spaces.
 - Tracker: when a provider named it, a line of its own at 8 spaces before the symptom: `· <name> <url> (<release>)`, parts that are absent left out.
 - Symptom: `out_wrap 8 8`, never longer than `aapp.statusOutputWidth`.
 - `aapp issue list` shows the symptom whole; the Issues pillar cuts it with `out_cut` at `aapp.statusTextMax`.
@@ -83,6 +83,7 @@ This member, the third of group P-91, gives every issue view one layout from the
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
 - [ ] `tests/verbs/issue.queue.sh::test_list_facts_line` -> asserts each issue's first line holds id, severity, status and logged date, and the queue date and level, plan and branch only when the issue has them, with no run of more than two spaces
+- [ ] `tests/verbs/issue.queue.sh::test_list_notes_hint` -> asserts an issue with a description and a note shows `2 notes` on its facts line in `issue list` and the Issues pillar, one with a single entry `1 note`, one with none no such fact, and no text of a note is printed
 - [ ] `tests/verbs/issue.queue.sh::test_list_symptom_wrapped` -> asserts a 250-character symptom is printed whole on lines indented by 8 spaces, none longer than `aapp.statusOutputWidth`
 - [ ] `tests/verbs/issue.queue.sh::test_status_pillar_same_layout` -> asserts the Issues pillar shows a queued issue in the same layout, its symptom cut at `aapp.statusTextMax` with `…`
 - [ ] `tests/verbs/offline.sh::test_offline_issue_same_layout` -> asserts an issue staged in `.offline` is shown in `issue list` and the Issues pillar in the same layout, with the `offline` fact
@@ -146,3 +147,4 @@ This member, the third of group P-91, gives every issue view one layout from the
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted from #155 as the third member of group P-91.
+* **2026-10-16:** `<n> notes` fact on the facts line.
