@@ -149,7 +149,7 @@ The Issues records are one function for both commands, beside the ledger functio
 ### 🖨️ Output Renderers (`lib/output.sh`)
 * **Purpose:** Shared rendering for commands that print records (P-91): terminal width, wrapping and cutting, and the JSON writer.
 * **Key Functions:**
-  * `out_width` -> `aapp.statusOutputWidth` (default 85). `out_wrap <first-indent> <hang-indent>` -> text on stdin wrapped at the width, counted in characters; `out_cut <limit>` -> text cut at the last space before `<limit>`, ending in `…`.
+  * `out_width` -> `aapp.statusOutputWidth` (default 85; refused, naming the key, below 40). `out_wrap <first-indent> <hang-indent> [<width>]` -> text on stdin wrapped at spaces, runs of spaces kept, a word longer than the width whole on its own line; `out_cut <limit>` -> text cut at the last space before `<limit>`, ending in `…`. Both count characters as `aapp_char_len` does (UTF-8 continuation bytes not counted).
   * `out_json_open` / `out_json_field <key> <type> <value>` / `out_json_close` -> one JSON object, 2-space indent, keys in call order; strings through `json_escape`; `null` for an empty value of a nullable field.
 * **Consumers:** `lib/cmd_status.sh`, `lib/cmd_issue.sh` (`issue list`).
 * **Anti-Wrapper Warning:** Never print JSON by hand elsewhere: field order, `null` and escaping are decided here.
@@ -164,6 +164,18 @@ The Issues records are one function for both commands, beside the ledger functio
   * `pickup_title_max` -> `aapp.pickupTitleMax` (default 72); fails naming the key below 10 or when not a number. `pickup_entry_files <text>` -> the `.plans/pickup/` paths an entry names. `aapp_char_len <text>` -> characters, not bytes, whatever the locale; the one length every width or limit check uses.
   * `check_pickup_entries <pickup_file>` (`lib/planning_health.sh`) -> refuses, line by line, a non-checkbox entry, and an unworked one without a title, with a title over the limit, without text, or naming a `.plans/pickup/` file that does not exist; files are checked for the entries the commit adds or changes only (`.plans/pickup/` is gitignored).
 * **Consumers:** `aapp refine pickup` (`lib/cmd_plan.sh`); the Pickup records of `lib/cmd_status.sh`.
+````
+
+<!-- aapp-base: new -->
+````markdown
+### 🧾 Issue Records (`lib/aapp-lib.sh`)
+* **Purpose:** One record per active issue for every issue view (P-92): `aapp issue list`, the Issues pillar of `aapp status`, and their JSON.
+* **Key Functions:**
+  * `ledger_issue_records [<n>…]` -> tab-separated `id severity type status logged location symptom plan blocks queue_section queue_level queued branch offline tracker_name tracker_url tracker_release notes`; the active ledger in recorded order, then the issues staged offline; or the ids given, in order. Severity and status are lowercase slugs; location and symptom as written.
+  * `issue_render_lines` -> records on stdin, the lists' line per issue of the active ledger; `ledger_issue_lines [<n>…]` is records piped through it.
+  * `issue_text_counts` -> `#<n>\t<count>` from the kit's store of descriptions and notes, no text; `issue_notes_counted` -> false where an `aapp-issue-tracker` provider is installed (the count is then unknown).
+  * `aapp_state_file <name>` -> a per-machine state file beside the repository's Git data (the tracker's names for issues, the sync stamp).
+* **Anti-Wrapper Warning:** A view never reads a ledger row or the note store itself: it reads records. No text of a description or note goes into a record.
 ````
 
 ---
@@ -197,4 +209,5 @@ The Issues records are one function for both commands, beside the ledger functio
 * **2026-10-16:** P-96 (pickup entry form) joins, first in order.
 * **2026-10-16:** A pickup title wider than the line wraps.
 * **2026-10-16:** CODEMAP section for pickup entries (P-96).
+* **2026-10-16:** CODEMAP section for issue records; output.sh entry as built (P-92).
 * **2026-10-16:** Issues carry a `notes` count: a facts-line hint and a JSON field, never the text.
