@@ -13,5 +13,4 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
-- [ ] #163 -> aapp <verb> help is handled in dispatcher, but -h and --help are not intercepted, causing verbs to treat them as positional arguments (queued 2026-10-16)
 ### Low

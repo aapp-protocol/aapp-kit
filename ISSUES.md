@@ -4,7 +4,6 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #163 | `Low` | `CLI` | 2026-10-16 | `aapp` | aapp <verb> help is handled in dispatcher, but -h and --help are not intercepted, causing verbs to treat them as positional arguments |  | 🟡 `Incubated` |
 | #162 | `Low` | `CLI` | 2026-10-16 | `lib/cmd_plan.sh` | `aapp start <id>` and `freeze-start` for a plan re-frozen while its worktree still holds it refuse from the main checkout ("already bound in worktree") without saying that `aapp start` run in that worktree resumes it. |  | 🟡 `Incubated` |
 | #161 | `Low` | `TEST` | 2026-10-16 | `tests/issue_ledger_test.sh` | `tests/issue_ledger_test.sh` (test_no_direct_ledger_access) passes its name pattern with `\.` through `awk -v`: every run prints 26 "escape sequence `\.' treated as plain `.'" warnings. |  | 🟡 `Incubated` |
 | #160 | `Low` | `CLI` | 2026-10-16 | `lib/cmd_plan.sh` | A bare `aapp draft` takes a whole pickup entry (hundreds of characters) as the plan's title and slug, giving over-long file names and a draft commit subject over `aapp.subjectMaxLen`. | [P-97](current/P97-draft-from-pickup-title.md) | 🔵 `Planned` |
