@@ -12,7 +12,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `ca752a1` (develop)
 * **Worktree:** .workspace/P95 (plan/P95-plugin-runtime-and-dx-fixes)
-* **Commits:** none
+* **Commits:** `f578fa5` (plan/P95-plugin-runtime-and-dx-fixes)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
