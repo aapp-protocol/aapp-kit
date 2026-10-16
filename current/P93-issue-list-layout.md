@@ -55,12 +55,12 @@ This member, the third of group P-91, gives every issue view one layout from the
         in a terminal the symptom wraps under the id and severity columns, and an
         unqueued issue pads a blank 27-character column.
 ```
-- Facts line at 2 spaces: `#<id>  <Severity>  <Status>  logged <date>`, then, only when present: `queued <date> (<Level>)`, `[<plan>]` (`[blocks <plan>]` for a hotfix), `(branch: <name>)`, `offline`. Two spaces between facts, no padding. A facts line wider than `aapp.outputWidth` wraps at 8 spaces.
+- Facts line at 2 spaces: `#<id>  <Severity>  <Status>  logged <date>`, then, only when present: `queued <date> (<Level>)`, `[<plan>]` (`[blocks <plan>]` for a hotfix), `(branch: <name>)`, `offline`. Two spaces between facts, no padding. A facts line wider than `aapp.statusOutputWidth` wraps at 8 spaces.
 - Tracker: when a provider named it, a line of its own at 8 spaces before the symptom: `· <name> <url> (<release>)`, parts that are absent left out.
-- Symptom: `out_wrap 8 8`, never longer than `aapp.outputWidth`.
+- Symptom: `out_wrap 8 8`, never longer than `aapp.statusOutputWidth`.
 - `aapp issue list` shows the symptom whole; the Issues pillar cuts it with `out_cut` at `aapp.statusTextMax`.
 - An offline issue is an issue like any other: same layout, the `offline` fact.
-- Between issues: a blank line, or none, as group P-91 Question 1 decides.
+- No blank line between issues (group P-91 §2.3).
 
 ### 2.2 Unchanged
 - What is listed and in which order: ledger order (a sorting plugin's otherwise), this branch's issues first once any names a branch, the cap and `… <k> more (aapp issue list all)`; the Issues pillar lists the work queue, then the count of the others.
@@ -83,7 +83,7 @@ This member, the third of group P-91, gives every issue view one layout from the
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
 - [ ] `tests/verbs/issue.queue.sh::test_list_facts_line` -> asserts each issue's first line holds id, severity, status and logged date, and the queue date and level, plan and branch only when the issue has them, with no run of more than two spaces
-- [ ] `tests/verbs/issue.queue.sh::test_list_symptom_wrapped` -> asserts a 250-character symptom is printed whole on lines indented by 8 spaces, none longer than `aapp.outputWidth`
+- [ ] `tests/verbs/issue.queue.sh::test_list_symptom_wrapped` -> asserts a 250-character symptom is printed whole on lines indented by 8 spaces, none longer than `aapp.statusOutputWidth`
 - [ ] `tests/verbs/issue.queue.sh::test_status_pillar_same_layout` -> asserts the Issues pillar shows a queued issue in the same layout, its symptom cut at `aapp.statusTextMax` with `…`
 - [ ] `tests/verbs/offline.sh::test_offline_issue_same_layout` -> asserts an issue staged in `.offline` is shown in `issue list` and the Issues pillar in the same layout, with the `offline` fact
 - [ ] `tests/verbs/issue.branch.sh::test_list_branch_fact` -> asserts an issue that names a branch shows `(branch: <name>)` on its facts line, and this branch's issues come first
@@ -139,7 +139,7 @@ This member, the third of group P-91, gives every issue view one layout from the
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-*(None — design is fully specified; group P-91 Question 1 decides the blank line.)*
+*(None — design is fully specified.)*
 
 ---
 
