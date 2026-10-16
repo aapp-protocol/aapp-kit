@@ -4,6 +4,9 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #158 | `Low` | `DOCS` | 2026-10-16 | 2026-10-16 | `751b9da` | [P-95](P95-plugin-runtime-and-dx-fixes.md) - Plugin Runtime And Dx Fixes |  |
+| #157 | `Low` | `CLI` | 2026-10-16 | 2026-10-16 | `751b9da` | [P-95](P95-plugin-runtime-and-dx-fixes.md) - Plugin Runtime And Dx Fixes |  |
+| #156 | `Low` | `CLI` | 2026-10-16 | 2026-10-16 | `751b9da` | [P-95](P95-plugin-runtime-and-dx-fixes.md) - Plugin Runtime And Dx Fixes |  |
 | #154 | `Medium` | `CLI` | 2026-10-16 | 2026-10-16 | `ca752a1` | an empty work queue shows no issue in the status briefing |  |
 | #122 | `Low` | `CLI` | 2026-10-11 | 2026-10-15 | `6cf5dba` | [P-86](P86-plan-closes-further-issues.md) - Plan Closes Further Issues |  |
 | #153 | `Low` | `DOCS` | 2026-10-15 | 2026-10-15 | `aborted` | Aborted: Done in P-85 |  |

@@ -34,8 +34,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-95**: [`P95-plugin-runtime-and-dx-fixes.md`](current/P95-plugin-runtime-and-dx-fixes.md) — Plugin Runtime And Dx Fixes
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
