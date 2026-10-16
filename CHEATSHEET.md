@@ -49,7 +49,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp note [cmd]` | **✅ Yes** | Inspect, stage, push, or pull general and AI Git notes |
 | `aapp issue queue <num> [urgent \| low \| remove]` | **✅ Yes** | A person clears an issue for work in a level of `## 📋 Queued` (Normal by default; another level moves it), or takes it off; `aapp issue fix` opens only queued issues and plan blockers (P-89) |
 | `aapp issue abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` | **✅ Yes** | Withdraw an issue (wrong, invalid, unwanted): archived as `aborted`; its plan (through `plan abort`) or open mini plan goes with it; plans it blocked resume |
-| `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]` | **✅ Yes** | Log an issue: the id (the tracker's, or the kit's counter), the row and its road-map line, one commit; `note` is its description, kept outside Git |
+| `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]` | **✅ Yes** | Log an issue: the id (the tracker's, or the kit's counter) and the row in `ISSUES.md`, one commit (no road-map line; queue with `aapp issue queue`); `note` is kept outside Git |
 | `aapp issue close <id>` \| `list [<n> \| all] [confirm]` \| `list note <num>` | **✅ Yes** | Close an issue; list the open ones (syncing with a provider that lists); show one with its description and notes |
 | `aapp refine issues "<msg>" note <num> "<text>"` | **✅ Yes** | Add a note to an issue (never committed) |
 

@@ -1,6 +1,6 @@
 # 🐛 Issues: Active Technical Backlog
 
-> **Rows are written by `aapp issue log`, never by hand:** `aapp issue log <sev> <type> "<symptom>" [file <path>]… [note "<text>"]` takes the id and writes the row and its road-map line.
+> **Rows are written by `aapp issue log`, never by hand:** `aapp issue log <sev> <type> "<symptom>" [file <path>]… [note "<text>"]` takes the id and writes the row (queueing for work is a person's step with `aapp issue queue`).
 >
 > **Active Backlog Only:** Every row below is an unresolved defect or gap. When resolved, issues are relocated to `.plans/done/000-issues-archive.md` and their line, if they were on the work queue (`issues_road_map.md`), goes.
 
