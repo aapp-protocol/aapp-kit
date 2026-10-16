@@ -22,6 +22,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-90**: [`P90-companion-worktree-bridge.md`](current/P90-companion-worktree-bridge.md) — Companion Worktree Bridge
 - 🟣 **P-94**: [`P94-json-output.md`](current/P94-json-output.md) — Json Output
 - 🟣 **P-97**: [`P97-draft-from-pickup-title.md`](current/P97-draft-from-pickup-title.md) — Draft From Pickup Title
+- 🟣 **P-98**: [`P98-status-plan-progress.md`](current/P98-status-plan-progress.md) — Status Plan Progress
 
 ---
 
