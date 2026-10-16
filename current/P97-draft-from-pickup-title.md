@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `59e5399` (develop)
+* **Worktree:** .workspace/P97 (plan/P97-draft-from-pickup-title)
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
@@ -132,6 +133,7 @@ P-96 (group P-91) defines the entry form `- [ ] <title>: <text>` and the one fun
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-16:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted from #160; the `aapp draft` part taken out of P-96. Starts after P-96 lands.
 * **2026-10-16:** Q1 resolved: the entry's text goes into §1 of the drafted plan.
