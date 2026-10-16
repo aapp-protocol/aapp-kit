@@ -84,33 +84,33 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/output_test.sh::test_wrap_hanging_indent` -> asserts a 300-character text wraps with the given first and hanging indents and no line exceeds the width
-- [ ] `tests/output_test.sh::test_wrap_counts_characters` -> asserts a line of `…`, emoji and accented letters is measured in characters, not bytes
-- [ ] `tests/output_test.sh::test_wrap_long_word_uncut` -> asserts a word longer than the width stands on its own line, whole
-- [ ] `tests/output_test.sh::test_cut_at_word` -> asserts `out_cut 220` cuts at the last space before 220 characters and ends in `…`, and leaves shorter text unchanged
-- [ ] `tests/output_test.sh::test_width_setting` -> asserts `aapp.statusOutputWidth` sets the width and a value below 40 or not a number is refused naming the key
-- [ ] `tests/verbs/status.sh::test_briefing_unchanged_for_pillars` -> asserts Shipped, Issues and Pickup of a fixture's briefing are byte-identical to the briefing before this member
-- [ ] `tests/verbs/status.sh::test_briefing_lines_within_width` -> asserts with a long plan worktree path, a long notice and a 60-column width no frame, plan, notice or next-action line exceeds 60 characters
-- [ ] `tests/verbs/status.sh::test_pickup_records` -> asserts entries split into title and text at the first `: ` outside backticks, an entry without one has an empty title, `files` holds the named `.plans/pickup/` files that exist, and a missing one gives a warning notice
-- [ ] `tests/issue_ledger_test.sh::test_issue_records_fields` -> asserts `ledger_issue_records` gives every field of P-91 §2.5 for a queued, a planned, a blocking, a branched and an offline issue, and `notes` as 2 for an issue with a description and one note, 0 for one with none, empty where a provider keeps the notes
-- [ ] `tests/issue_ledger_test.sh::test_note_count_holds_no_text` -> asserts no record field holds any text of a description or note
-- [ ] `tests/verbs/issue.sh::test_list_unchanged` -> asserts `aapp issue list` prints what it printed before this member
+- [x] `tests/output_test.sh::test_wrap_hanging_indent` -> asserts a 300-character text wraps with the given first and hanging indents and no line exceeds the width
+- [x] `tests/output_test.sh::test_wrap_counts_characters` -> asserts a line of `…`, emoji and accented letters is measured in characters, not bytes
+- [x] `tests/output_test.sh::test_wrap_long_word_uncut` -> asserts a word longer than the width stands on its own line, whole
+- [x] `tests/output_test.sh::test_cut_at_word` -> asserts `out_cut 220` cuts at the last space before 220 characters and ends in `…`, and leaves shorter text unchanged
+- [x] `tests/output_test.sh::test_width_setting` -> asserts `aapp.statusOutputWidth` sets the width and a value below 40 or not a number is refused naming the key
+- [x] `tests/verbs/status.sh::test_briefing_unchanged_for_pillars` -> asserts Shipped, Issues and Pickup of a fixture's briefing are byte-identical to the briefing before this member
+- [x] `tests/verbs/status.sh::test_briefing_lines_within_width` -> asserts with a long plan worktree path, a long notice and a 60-column width no frame, plan, notice or next-action line exceeds 60 characters
+- [x] `tests/verbs/status.sh::test_pickup_records` -> asserts entries split into title and text at the first `: ` outside backticks, an entry without one has an empty title, `files` holds the named `.plans/pickup/` files that exist, and a missing one gives a warning notice
+- [x] `tests/issue_ledger_test.sh::test_issue_records_fields` -> asserts `ledger_issue_records` gives every field of P-91 §2.5 for a queued, a planned, a blocking, a branched and an offline issue, and `notes` as 2 for an issue with a description and one note, 0 for one with none, empty where a provider keeps the notes
+- [x] `tests/issue_ledger_test.sh::test_note_count_holds_no_text` -> asserts no record field holds any text of a description or note
+- [x] `tests/verbs/issue.sh::test_list_unchanged` -> asserts `aapp issue list` prints what it printed before this member
 
 ### Phase 1: Foundation & Setup
-- [ ] Task 1.1: Write the tests of this section; commit them red.
+- [x] Task 1.1: Write the tests of this section; commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/output.sh`: `out_width`, `out_wrap`, `out_cut`.
-- [ ] Task 2.2: `lib/aapp-lib.sh`: `ledger_issue_records`; `ledger_issue_lines` renders them.
-- [ ] Task 2.3: `lib/cmd_status.sh`: the section records and notices, collected before printing; `status_render_terminal`.
-- [ ] Task 2.4: `lib/docs/verbs/status.md` and `lib/docs/verbs/issue.md`: `aapp.statusOutputWidth`, the width rule, the new tests.
+- [x] Task 2.1: `lib/output.sh`: `out_width`, `out_wrap`, `out_cut`.
+- [x] Task 2.2: `lib/aapp-lib.sh`: `ledger_issue_records`; `ledger_issue_lines` renders them.
+- [x] Task 2.3: `lib/cmd_status.sh`: the section records and notices, collected before printing; `status_render_terminal`.
+- [x] Task 2.4: `lib/docs/verbs/status.md` and `lib/docs/verbs/issue.md`: `aapp.statusOutputWidth`, the width rule, the new tests.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
@@ -159,3 +159,4 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 * **2026-10-16:** Pickup records split by P-96's `pickup_entry_split`.
 * **2026-10-16:** Issue records carry `notes`, counted by `issue_text_counts`.
 * **2026-10-16:** The empty-queue guard of #154 stated for the Issues records.
+* **2026-10-16:** Implementation: a provider's notes leave no lasting mark, so `notes` is empty whenever an `aapp-issue-tracker` provider is installed (`issue_notes_counted`). The tracker-state path moved into `aapp_state_file` (`lib/aapp-lib.sh`), used by `lib/cmd_issue.sh`. `out_wrap` keeps runs of spaces. The template advisory names the action first (`1 template drifted -> run 'aapp init' (<file> <reason>)`) so it reads on its first line once wrapped. `test_overview_counts_open_adoption_tasks` reads the wrapped Overview line. The issue line keeps the last word of a status (P-93 replaces it). #161 logged (awk warnings in `tests/issue_ledger_test.sh`).
