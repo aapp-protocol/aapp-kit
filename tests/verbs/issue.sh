@@ -533,4 +533,27 @@ else
   bad "test_close_resolution_is_changelog_entry" "rc=$rc out=$out row=$(grep -E '^\| #3 \|' .plans/done/000-issues-archive.md)"
 fi
 
+echo "== list over the records (P-92) =="
+init_sandbox_project "$R/rec"
+cd "$R/rec" || exit 1
+git config aapp.offlineEnabled false
+{ printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |'
+  printf '%s\n' '| #1 | `Medium` | `CLI` | 2026-10-01 | `src/a.sh` | First symptom, queued urgently, with a long text that runs well past the width of a narrow terminal pane to show wrapping. |  | 🟡 `Incubated` |'
+  printf '%s\n' '| #2 | `Low` | `CORE` | 2026-10-02 | `src/b.sh` | Second symptom, queued. |  | 🟡 `Incubated` |'
+  printf '%s\n' '| #3 | `High` | `HOOK` | 2026-10-03 | `src/c.sh` | Third symptom, not queued. |  | 🟡 `Incubated` |'
+} > .plans/ISSUES.md
+printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 🧱 Plan Blockers' '' '## 📋 Queued' '' '### 🔺 Urgent' \
+  '- [ ] #1 -> First symptom, queued urgently, with a long text that runs well past the width of a narrow terminal pane to show wrapping. (queued 2026-10-04)' \
+  '' '### Normal' '- [ ] #2 -> Second symptom, queued. (queued 2026-10-05)' '' '### Low' > .plans/issues_road_map.md
+git -C .plans add -A >/dev/null 2>&1; git -C .plans commit -qm fixture --no-verify >/dev/null 2>&1
+out="$(aapp issue list 2>&1)"
+want='  #1     Medium   Incubated  logged 2026-10-01  queued 2026-10-04 (Urgent)   First symptom, queued urgently, with a long text that runs well past the width of a narrow terminal pane to show wrapping.
+  #2     Low      Incubated  logged 2026-10-02  queued 2026-10-05 (Normal)   Second symptom, queued.
+  #3     High     Incubated  logged 2026-10-03                               Third symptom, not queued.'
+if [ "$out" = "$want" ]; then
+  ok "test_list_unchanged"
+else
+  bad "test_list_unchanged" "$(diff <(printf '%s\n' "$want") <(printf '%s\n' "$out"))"
+fi
+
 print_test_summary "$PASS" "$FAIL"

@@ -206,6 +206,61 @@ else
 fi
 
 echo "== one accessor =="
+echo "== issue records (P-92) =="
+fixture records
+git init -q "$R/rec-repo"
+if have ledger_issue_records; then
+  # #12 has a branch; #10 blocks P-8; #11 is planned and named by a tracker;
+  # #13 is staged offline. Run inside a repository: the tracker names and the
+  # store of descriptions and notes are kept per repository.
+  recs="$(
+    cd "$R/rec-repo" || exit 1
+    export AAPP_STATE_DIR="$R/rec-state" REPO_ROOT="$R/rec-repo"
+    sed -i 's/^| # | Sev | Type | Date | Location | Symptom \/ Problem | Target Plan \/ Fix | Status |$/& Branch |/; s/^| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |$/& :--- |/' "$PLANS_DIR/ISSUES.md"
+    sed -i -E 's/^(\| #12 .*\|)$/\1 fix\/x |/; s/^(\| #1[01] .*\|)$/\1  |/' "$PLANS_DIR/ISSUES.md"
+    printf '#11\tjira\thttps://t.example/11\t2.1\n' > .git/aapp_issue_meta
+    mkdir -p "$R/off"; printf '%s\n' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' \
+      '| #13 | `Low` | `CLI` | 2026-10-04 | `lib/c.sh` | Staged offline. |  | 🟡 `Incubated` |' > "$R/off/ISSUES.md"
+    _ledger_offline_path() { [ "$1" = issues ] && echo "$R/off/ISSUES.md"; }
+    issue_text_add 12 description "secret description of twelve" tester
+    issue_text_add 12 note "secret note of twelve" tester
+    ledger_issue_records
+    echo "--provider--"
+    mkdir -p .agents/skills/aapp-issue-tracker
+    ledger_issue_records 12
+  )"
+  r12="$(printf '%s\n' "$recs" | sed -n '1,/--provider--/p' | awk -F'\t' '$1 == "#12"')"
+  r11="$(printf '%s\n' "$recs" | awk -F'\t' '$1 == "#11"')"
+  r10="$(printf '%s\n' "$recs" | awk -F'\t' '$1 == "#10"')"
+  r13="$(printf '%s\n' "$recs" | awk -F'\t' '$1 == "#13"')"
+  rp="$(printf '%s\n' "$recs" | sed -n '/--provider--/,$p' | awk -F'\t' '$1 == "#12"')"
+  w12="$(printf '#12\tlow\tCLI\tincubated\t2026-10-01\t`lib/a.sh`\tLists `🟠\\|🔵` rows only; skips `NEW\\|OLD`.\t\t\tqueued\tnormal\t\tfix/x\t0\t\t\t\t2')"
+  w11="$(printf '#11\thigh\tCORE\tplanned\t2026-09-30\t`lib/b.sh`\tSecond problem.\tP-7\t\tqueued\tnormal\t\t\t0\tjira\thttps://t.example/11\t2.1\t0')"
+  w10="$(printf '#10\tmedium\tDOCS\tincubated\t2026-09-29\t`MANUAL.md`\tThird problem.\t\tP-8\tblockers\t\t\t\t0\t\t\t\t0')"
+  if [ "$r12" = "$w12" ] && [ "$r11" = "$w11" ] && [ "$r10" = "$w10" ] && \
+     [ "$(printf '%s\n' "$r13" | cut -f14)" = "1" ] && [ "$(printf '%s\n' "$r13" | awk -F'\t' '{ print NF }')" = "18" ] && \
+     [ "$(printf '%s\n' "$rp" | cut -f18)" = "" ] && [ "$(printf '%s\n' "$rp" | awk -F'\t' '{ print NF }')" = "18" ]; then
+    ok "test_issue_records_fields"
+  else
+    bad "test_issue_records_fields" "
+12=[$r12]
+w =[$w12]
+11=[$r11]
+w =[$w11]
+10=[$r10]
+w =[$w10]
+13=[$r13] provider=[$rp]"
+  fi
+  if ! printf '%s\n' "$recs" | grep -qi "secret"; then
+    ok "test_note_count_holds_no_text"
+  else
+    bad "test_note_count_holds_no_text" "$(printf '%s\n' "$recs" | grep -i secret)"
+  fi
+else
+  bad "test_issue_records_fields" "ledger_issue_records not implemented"
+  bad "test_note_count_holds_no_text" "ledger_issue_records not implemented"
+fi
+
 # No code outside the ledger section of lib/aapp-lib.sh reads or writes a ledger.
 # Not access, and left out: comments, messages (echo/printf), the permission
 # lists of the hooks, and the files that only seed or name the ledgers.
