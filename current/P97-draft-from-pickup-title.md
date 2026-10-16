@@ -2,7 +2,7 @@
 * **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
 * **Target Issue / Milestone:** #160
 * **Plan ID:** P-97
-* **Changelog:** Changed: Draft From Pickup Title
+* **Changelog:** Fixed: a bare `aapp draft` names the plan after the pickup entry's title, with a bounded slug and a draft subject within `aapp.subjectMaxLen` (P-97)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,12 +39,28 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+#160: a bare `aapp draft` (no slug) takes the first unworked pickup entry, or the one chosen from the list, and uses the **whole line** as the plan's title and slug (`lib/cmd_plan.sh:1240`). An entry runs to hundreds of characters, so the plan file name and title are as long, and the draft commit subject `plan(draft): scaffold P-<N> <slug>` goes far over `aapp.subjectMaxLen`.
+
+P-96 (group P-91) defines the entry form `- [ ] <title>: <text>` and the one function that splits it, `pickup_entry_split`. This plan uses that split: it starts after P-96 has landed, and is not part of the group.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 The title
+- A bare `aapp draft` takes the plan's title and slug from the entry's **title** only (`pickup_entry_split`); the text is not part of either.
+- The interactive list shows each entry by its title.
+
+### 2.2 The slug
+- A slug made from a title is cut at its last `-` before 60 characters (the longest plan file name today is 60), so a high `aapp.pickupTitleMax` never makes a file name too long for the file system or for Windows paths. The plan's title keeps the whole title.
+- A slug the user gives (`aapp draft <slug>`) is taken as given.
+
+### 2.3 The draft commit subject
+- `plan(draft): scaffold P-<N> <slug>` is fitted to `aapp.subjectMaxLen`: the slug in the subject is cut at its last `-` before the limit; the file name keeps the whole slug.
+- The limit is read through `aapp_subject_max_len` (`lib/aapp-lib.sh`, new: the setting, or 72 when unset or not a number), the one reader the other subject builders move to under #99.
+
+### 2.4 The entry's text
+- Question 1.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -56,13 +72,20 @@
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
+### 🧪 Required Tests (Failure & Boundary Assertions)
+> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/draft.sh::test_bare_draft_takes_title_only` -> asserts a bare `aapp draft` from `- [ ] Short Title: a long text …` names the plan `Short Title` with slug `short-title`, no word of the text in either
+- [ ] `tests/verbs/draft.sh::test_bare_draft_slug_bounded` -> asserts a 150-character title gives a slug of at most 60 characters cut at a `-`, and the plan's title line holds the whole title
+- [ ] `tests/verbs/draft.sh::test_draft_subject_fits_limit` -> asserts a draft whose slug would make `plan(draft): scaffold P-<N> <slug>` longer than `aapp.subjectMaxLen` commits with the subject cut at a `-` to fit, the file name keeping the whole slug
+- [ ] `tests/aapp_lib_test.sh::test_subject_max_len` -> asserts `aapp_subject_max_len` gives the setting, and 72 when it is unset or not a number
+
 ### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+- [ ] Task 1.1: Write the tests of this section; commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: `lib/aapp-lib.sh`: `aapp_subject_max_len`.
+- [ ] Task 2.2: `lib/cmd_plan.sh`: bare `aapp draft` takes the title through `pickup_entry_split`; the slug bounded; the draft subject fitted.
+- [ ] Task 2.3: `lib/docs/verbs/draft.md`: the bare draft's title, slug and subject; the tests.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -80,23 +103,31 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/aapp-lib.sh` -> `aapp_subject_max_len`.
+- [ ] `lib/cmd_plan.sh` -> bare `aapp draft`: the title only, the slug bounded, the subject fitted.
+- [ ] `lib/docs/verbs/draft.md` -> the bare draft's behaviour and its tests.
+- [ ] `CHEATSHEET.md` -> the `aapp.subjectMaxLen` row also bounds the draft subject.
+
+### 🧪 Required Test Files
+> Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/verbs/draft.sh`
+- [ ] `tests/aapp_lib_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/planning_health.sh` -> the pickup gate is P-96's.
+- [ ] `lib/cmd_ai.sh` -> its subject limit read moves under #99.
+- [ ] `lib/cmd_issue.sh` -> its subject limit read moves under #99.
+- [ ] `templates/aapp-commit-msg` -> its subject limit read moves under #99.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — The entry's text in the drafted plan.** A bare `aapp draft` takes the title (§2.1). The text can be written into the new plan's §1 Context, so the idea is not lost when the entry is digested, or be left out, the plan being written from scratch.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-16:** Plan initialized from `pickup.md`.
-* **2026-10-16:** Refined blast radius and locked module boundaries.
+* **2026-10-16:** Drafted from #160; the `aapp draft` part taken out of P-96. Starts after P-96 lands.
