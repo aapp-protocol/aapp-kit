@@ -41,15 +41,15 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 - `aapp status` keeps its side effects (tracker sync, unblocking, matrix re-derivation) in both renderers; what they did is reported as notices.
 
 ### 2.3 Terminal layout
-- **Width:** no line longer than `aapp.outputWidth` characters (default `85`), counted in characters, not bytes (`…`, emoji, accented letters).
+- **Width:** no line longer than `aapp.statusOutputWidth` characters (default `85`), counted in characters, not bytes (`…`, emoji, accented letters). It governs the briefing and `aapp issue list`, which shows the Issues pillar's layout: one width keeps the two identical.
 - **Items** start at 2 spaces. A continuation line of an item's text aligns under the first character of that text.
 - **Issues:** a facts line, then the symptom wrapped at 8 spaces:
   `#<id>  <Severity>  <Status>  logged <date>[  queued <date> (<Level>)][  [<plan>]][  (branch: <name>)][  offline]`
-  Facts that are absent are left out, never padded.
+  Facts that are absent are left out, never padded. No blank line between issues: each facts line, starting with `#`, marks the next issue.
 - **Cutting:** `aapp status` cuts an item's text at the last space before `aapp.statusTextMax` characters (default `220`) and ends it with `…`; `aapp issue list` never cuts. The full text stays in its file.
 - **Item caps** in `aapp status`: `aapp.statusItemsMax` (default `5`) for Shipped and Pickup, followed by a line naming where the rest is. The Issues pillar lists the work queue whole, as today.
 - Section headings, the frame and the `➡️  Next Action:` line keep their wording.
-- Settings: `aapp.outputWidth`, `aapp.statusTextMax`, `aapp.statusItemsMax`. No other output setting.
+- Settings: `aapp.statusOutputWidth`, `aapp.statusTextMax`, `aapp.statusItemsMax`. No other output setting.
 
 ### 2.4 JSON output
 - **Ingress:** a bare token, `aapp status json` and `aapp issue list [<n> | all] json`. No new verb.
@@ -67,7 +67,7 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 | `version` | `"1.0"` |
 | `command` | `"status"` or `"issue list"` |
 | `generated_at` | UTC time of the run |
-| `repository` | `{ "root", "branch" }`: the checkout and its branch |
+| `repository` | `{ "remote": { "name", "url" } \| null, "branch", "root" }`. `remote` identifies the project on every machine: the remote `aapp.remote` names (default `origin`), its URL with any credentials removed, as the plugin envelope builds it (`_envelope_remote_json`); `null` without a remote. `branch` is the checkout's branch; `root` the local checkout, which differs per machine |
 | `notices` | `[{ "level": "info" \| "warning", "section", "text" }]`: every line the terminal prints as a remark (sync results, unblocking, matrix re-derived, a gone branch, drift), `section` naming where it belongs (`issues`, `plans`, …) |
 
 **Issue** (one object, the same in both commands):
@@ -99,13 +99,13 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 | `pause` | `null`, or `{ "scope": "local" \| "team", "reason", "paused_at", "stashes": [{ "worktree", "branch" }] }` |
 | `shipped` | `{ "source", "entries": [{ "section": "added" \| "changed" \| "fixed" \| …, "text", "plan", "issue", "commit", "date" }], "more" }`: `text` is the bullet as written; `plan` / `issue` the id it is tagged with, or `null`; `commit` and `date` where it landed, `null` from the fallback |
 | `issues` | `{ "queue": [issue], "unqueued" }`: the work queue in queue order, offline issues included (`offline: true`); the count of the others |
-| `plans` | `{ "items": [{ "id", "file", "title", "status", "status_label", "group", "members": [id], "target_issue", "blocked_on": [id], "worktree", "branch" }] }`: flat, in briefing order; a group lists its `members`, a member names its `group` |
+| `plans` | `{ "items": [plan] }`, in briefing order. A plan: `{ "id", "file", "title", "kind": "plan" \| "group", "status", "status_label", "group", "target_issue", "blocked_on": [id], "worktree", "branch", "feature_branch", "members": [plan] }`. A group's `members` holds its member plans, nested in the group's order, as the briefing shows them under it; a member names its `group` and is not repeated at the top level. A member whose group is archived stands at the top level. `feature_branch` is a group's, `null` otherwise; `members` is `[]` for a plan |
 | `pickup` | `{ "source", "items": [{ "text" }], "total" }` |
 | `adoption` | `{ "source", "open" }` |
 | `offline` | `null`, or `{ "issues": [id], "archived": [id], "plans": [file], "outbox" }` |
 | `next_action` | `{ "kind", "text", "command" }`; `kind` one of `paused`, `init`, `digest`, `in-development`, `start`, `issue`, `freeze`, `plan` |
 
-The JSON lists the items the terminal lists (the same caps, §2.3) with their text whole; `more`, `unqueued` and `total` count the rest.
+The JSON lists the items the terminal lists (the same caps, `aapp.statusItemsMax`, §2.3) with their text whole; `more`, `unqueued` and `total` count the rest. `aapp issue list json` keeps the verb's own cap (`<n>`, `all`, default 20): each command sets its own limits.
 
 ## 3. Members & Order
 All four members change `lib/cmd_status.sh` or `lib/aapp-lib.sh`: one runs at a time, in this order.
@@ -125,7 +125,7 @@ All four members change `lib/cmd_status.sh` or `lib/aapp-lib.sh`: one runs at a 
 
 `aapp status` and `aapp issue list` collect what they show into records first: tab-separated lines, one per item, holding raw values (slugs, ids, dates, full text). Two renderers print the records and compute nothing, so the outputs cannot disagree.
 
-* **Terminal.** Every line within `aapp.outputWidth` characters (default 85). An item's long text wraps with a hanging indent; an issue's facts stand on a line of their own, the symptom below it. The briefing cuts long text (`aapp.statusTextMax`) and caps long lists (`aapp.statusItemsMax`); `issue list` never cuts. The full text stays in its file.
+* **Terminal.** Every line within `aapp.statusOutputWidth` characters (default 85). An item's long text wraps with a hanging indent; an issue's facts stand on a line of their own, the symptom below it. The briefing cuts long text (`aapp.statusTextMax`) and caps long lists (`aapp.statusItemsMax`); `issue list` never cuts. The full text stays in its file.
 * **JSON.** A bare `json` token prints one JSON object on stdout and nothing else. Its fields are a contract, versioned and documented in `docs/reference/08-output-json.md`; adding a field keeps the version, renaming or removing one raises it. Text is verbatim (inline Markdown as written), absent values are `null`, enums are lowercase slugs.
 
 The Issues records are one function for both commands, beside the ledger functions. Shared rendering (wrapping, cutting, the JSON writer) lives in `lib/output.sh`; `json_escape` stays the one string escaper.
@@ -145,7 +145,7 @@ The Issues records are one function for both commands, beside the ledger functio
 ### 🖨️ Output Renderers (`lib/output.sh`)
 * **Purpose:** Shared rendering for commands that print records (P-91): terminal width, wrapping and cutting, and the JSON writer.
 * **Key Functions:**
-  * `out_width` -> `aapp.outputWidth` (default 85). `out_wrap <first-indent> <hang-indent>` -> text on stdin wrapped at the width, counted in characters; `out_cut <limit>` -> text cut at the last space before `<limit>`, ending in `…`.
+  * `out_width` -> `aapp.statusOutputWidth` (default 85). `out_wrap <first-indent> <hang-indent>` -> text on stdin wrapped at the width, counted in characters; `out_cut <limit>` -> text cut at the last space before `<limit>`, ending in `…`.
   * `out_json_open` / `out_json_field <key> <type> <value>` / `out_json_close` -> one JSON object, 2-space indent, keys in call order; strings through `json_escape`; `null` for an empty value of a nullable field.
 * **Consumers:** `lib/cmd_status.sh`, `lib/cmd_issue.sh` (`issue list`).
 * **Anti-Wrapper Warning:** Never print JSON by hand elsewhere: field order, `null` and escaping are decided here.
@@ -165,11 +165,13 @@ The Issues records are one function for both commands, beside the ledger functio
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 — A blank line between issues?** In `aapp issue list` an issue takes two to four lines. A blank line between issues makes each one stand apart; without it the list is half as tall and the facts line (starting with `#`) still marks each issue. The same choice applies to the Issues pillar.
-* [ ] **Question 2 — P-88's settings and cut.** P-88 cuts a Shipped entry at 100 characters onto one line (`aapp.statusLineMax`) and has `aapp.statusPickupMax` / `aapp.statusPickupMaxLen`. §2.3 replaces them with the three shared settings, and Shipped wraps like Pickup instead of being cut at 100. P-88 §2 and its tests change accordingly, and P-88 uses `lib/output.sh` instead of its own `status_line_cut` / `status_format_pickup`.
-* [ ] **Question 3 — How many items in the JSON?** §2.4 lists the items the terminal lists (5 Shipped, 5 Pickup) with `more` / `total`. A CMS that wants every pickup idea would then need a command of its own; the alternative is no caps in the JSON at all.
+* [x] **Question 1 — A blank line between issues? → RESOLVED (developer, 2026-10-16):** no blank line (§2.3).
+* [x] **Question 2 — P-88's settings and cut. → RESOLVED (developer, 2026-10-16):** one set of settings for the briefing, named for the command: `aapp.statusOutputWidth`, `aapp.statusTextMax`, `aapp.statusItemsMax`; Shipped wraps like Pickup, through `lib/output.sh`.
+* [x] **Question 3 — How many items in the JSON? → RESOLVED (developer, 2026-10-16):** each command keeps its own limits: the briefing's JSON follows `aapp.statusItemsMax`, `issue list json` its `<n>` / `all` cap.
+* [ ] **Question 4 — The local path in the JSON.** `repository.root` is the checkout's absolute path, which differs per machine and names the user's home directory. A setting could leave it out (`null`) for output that is published, such as a CMS page; for now it is always written.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-16:** Group drafted: shared records, terminal layout and JSON contract; members P-92, P-88, P-93, P-94.
+* **2026-10-16:** Q1–Q3 resolved; `repository.remote` in every document; groups nest their members in `plans`; settings named `aapp.status…`.
