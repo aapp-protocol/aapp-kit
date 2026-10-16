@@ -2,7 +2,7 @@
 * **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
 * **Target Issue / Milestone:** #155
 * **Plan ID:** P-93
-* **Changelog:** Changed: Issue List Layout
+* **Changelog:** Changed: `aapp issue list` and the Issues pillar show each issue's facts on one line and its symptom wrapped below (P-93)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,12 +40,34 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+#155: `aapp issue list` prints each issue as one line of up to ~350 characters. In a terminal the symptom wraps under the id and severity columns, and an issue that is not queued pads a blank 27-character column. The Issues pillar of `aapp status` uses the same line, and offline issues are shown in an older form of their own (`- [ ] #<n> -> <symptom>  (offline: staged in .offline)`).
+
+This member, the third of group P-91, gives every issue view one layout from the records of P-92: the facts on a line of their own, the symptom wrapped below.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 The layout (group P-91 §2.3)
+```
+  #155  Low  Planned  logged 2026-10-16  [P-93]
+        `aapp issue list` prints each issue as one line of up to ~350 characters:
+        in a terminal the symptom wraps under the id and severity columns, and an
+        unqueued issue pads a blank 27-character column.
+```
+- Facts line at 2 spaces: `#<id>  <Severity>  <Status>  logged <date>`, then, only when present: `queued <date> (<Level>)`, `[<plan>]` (`[blocks <plan>]` for a hotfix), `(branch: <name>)`, `offline`, and the tracker's `· <name> <url> (<release>)`. Two spaces between facts, no padding.
+- Symptom: `out_wrap 8 8`, never longer than `aapp.outputWidth`.
+- `aapp issue list` shows the symptom whole; the Issues pillar cuts it with `out_cut` at `aapp.statusTextMax`.
+- An offline issue is an issue like any other: same layout, the `offline` fact.
+- Between issues: a blank line, or none, as group P-91 Question 1 decides.
+
+### 2.2 Unchanged
+- What is listed and in which order: ledger order (a sorting plugin's otherwise), this branch's issues first once any names a branch, the cap and `… <k> more (aapp issue list all)`; the Issues pillar lists the work queue, then the count of the others.
+- `aapp issue list note <num>` keeps its hand-over block.
+
+### 2.3 Implementation
+- One renderer, `issue_render_terminal [cut]` in `lib/aapp-lib.sh`, over `ledger_issue_records`; `ledger_issue_lines` and `_issue_offline_lines` are removed, their callers (`cmd_issue_list`, `roadmap_issue_lines`, `lib/cmd_status.sh`) use the renderer.
+- The branch grouping (`_issue_lines_by_branch`) sorts records, not printed lines.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -57,13 +79,23 @@
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
+### 🧪 Required Tests (Failure & Boundary Assertions)
+> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/issue.queue.sh::test_list_facts_line` -> asserts each issue's first line holds id, severity, status and logged date, and the queue date and level, plan and branch only when the issue has them, with no run of more than two spaces
+- [ ] `tests/verbs/issue.queue.sh::test_list_symptom_wrapped` -> asserts a 250-character symptom is printed whole on lines indented by 8 spaces, none longer than `aapp.outputWidth`
+- [ ] `tests/verbs/issue.queue.sh::test_status_pillar_same_layout` -> asserts the Issues pillar shows a queued issue in the same layout, its symptom cut at `aapp.statusTextMax` with `…`
+- [ ] `tests/verbs/offline.sh::test_offline_issue_same_layout` -> asserts an issue staged in `.offline` is shown in `issue list` and the Issues pillar in the same layout, with the `offline` fact
+- [ ] `tests/verbs/issue.branch.sh::test_list_branch_fact` -> asserts an issue that names a branch shows `(branch: <name>)` on its facts line, and this branch's issues come first
+- [ ] `tests/verbs/issue.tracker.sh::test_list_tracker_fact` -> asserts a provider's `tracker`, `url` and `release` appear on the facts line
+
 ### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+- [ ] Task 1.1: Write the tests of this section; update the tests that assert the one-line form; commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: `lib/aapp-lib.sh`: `issue_render_terminal`; the branch grouping on records; `ledger_issue_lines` removed.
+- [ ] Task 2.2: `lib/cmd_issue.sh`: `cmd_issue_list` on the renderer; `_issue_offline_lines` removed.
+- [ ] Task 2.3: `lib/cmd_status.sh`: the Issues pillar on the renderer, cut.
+- [ ] Task 2.4: `lib/docs/verbs/issue.md`, `lib/docs/verbs/status.md`: the layout and the tests.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -81,23 +113,35 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/aapp-lib.sh` -> `issue_render_terminal`; branch grouping on records.
+- [ ] `lib/cmd_issue.sh` -> `cmd_issue_list` on the renderer.
+- [ ] `lib/cmd_status.sh` -> the Issues pillar on the renderer.
+- [ ] `lib/docs/verbs/issue.md` -> the layout and the tests.
+- [ ] `lib/docs/verbs/status.md` -> the Issues pillar layout.
+- [ ] `MANUAL.md` -> how an issue is shown.
+
+### 🧪 Required Test Files
+> Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/verbs/issue.queue.sh`
+- [ ] `tests/verbs/offline.sh`
+- [ ] `tests/verbs/issue.branch.sh`
+- [ ] `tests/verbs/issue.tracker.sh`
+- [ ] `tests/verbs/issue.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `ARCHITECTURE.md` -> written from group P-91's sections at the group's `done`.
+- [ ] `.agents/CODEMAP.md` -> written from group P-91's sections at the group's `done`.
+- [ ] `templates/skills/` -> the skills show the output as printed.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified; group P-91 Question 1 decides the blank line.)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-16:** Plan initialized from `pickup.md`.
-* **2026-10-16:** Refined blast radius and locked module boundaries.
+* **2026-10-16:** Drafted from #155 as the third member of group P-91.
