@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #161 | `Low` | `TEST` | 2026-10-16 | `tests/issue_ledger_test.sh` | `tests/issue_ledger_test.sh` (test_no_direct_ledger_access) passes its name pattern with `\.` through `awk -v`: every run prints 26 "escape sequence `\.' treated as plain `.'" warnings. |  | 🟡 `Incubated` |
 | #160 | `Low` | `CLI` | 2026-10-16 | `lib/cmd_plan.sh` | A bare `aapp draft` takes a whole pickup entry (hundreds of characters) as the plan's title and slug, giving over-long file names and a draft commit subject over `aapp.subjectMaxLen`. | [P-97](current/P97-draft-from-pickup-title.md) | 🔵 `Planned` |
 | #159 | `Medium` | `HOOK` | 2026-10-16 | `templates/aapp-pre-commit` | The pre-commit hook blocks commits on an adopter's own files with language checks (`bash -n`, Python syntax, `php -l`, JSON under `schema/`); adopter checks belong in the local hook (`templates/pre-commit`). |  | 🟡 `Incubated` |
 | #155 | `Low` | `CLI` | 2026-10-16 | `lib/aapp-lib.sh` | `aapp issue list` prints each issue as one line of up to ~350 characters: in a terminal the symptom wraps under the id and severity columns, and an unqueued issue pads a blank 27-character column. | [P-93](current/P93-issue-list-layout.md) | 🔵 `Planned` |
