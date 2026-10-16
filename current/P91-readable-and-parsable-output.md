@@ -155,6 +155,17 @@ The Issues records are one function for both commands, beside the ledger functio
 * **Anti-Wrapper Warning:** Never print JSON by hand elsewhere: field order, `null` and escaping are decided here.
 ````
 
+<!-- aapp-base: new -->
+````markdown
+### 📥 Pickup Entries (`lib/aapp-lib.sh`, `lib/planning_health.sh`)
+* **Purpose:** The one form of a pickup idea, `- [ ] <title>: <text>` (P-96), and its gate at `aapp refine pickup`.
+* **Key Functions:**
+  * `pickup_entry_split <line>` -> `<title>\t<text>`: the title ends at the first `: ` outside backticks (or a `:` ending the line); empty when there is none. The one split: the gate and the briefing's pickup records read it.
+  * `pickup_title_max` -> `aapp.pickupTitleMax` (default 72); fails naming the key below 10 or when not a number. `pickup_entry_files <text>` -> the `.plans/pickup/` paths an entry names. `aapp_char_len <text>` -> characters, not bytes, whatever the locale; the one length every width or limit check uses.
+  * `check_pickup_entries <pickup_file>` (`lib/planning_health.sh`) -> refuses, line by line, a non-checkbox entry, and an unworked one without a title, with a title over the limit, without text, or naming a `.plans/pickup/` file that does not exist; files are checked for the entries the commit adds or changes only (`.plans/pickup/` is gitignored).
+* **Consumers:** `aapp refine pickup` (`lib/cmd_plan.sh`); the Pickup records of `lib/cmd_status.sh`.
+````
+
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
@@ -185,4 +196,5 @@ The Issues records are one function for both commands, beside the ledger functio
 * **2026-10-16:** Pickup ideas carry `title`, `text` and `files`; the briefing shows the title on its own line.
 * **2026-10-16:** P-96 (pickup entry form) joins, first in order.
 * **2026-10-16:** A pickup title wider than the line wraps.
+* **2026-10-16:** CODEMAP section for pickup entries (P-96).
 * **2026-10-16:** Issues carry a `notes` count: a facts-line hint and a JSON field, never the text.
