@@ -59,7 +59,7 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 
 - `ledger_issue_records [<n>…]` (`lib/aapp-lib.sh`) -> `id`, `severity`, `type`, `status`, `logged`, `location`, `symptom`, `plan`, `blocks`, `queue_section`, `queue_level`, `queued`, `branch`, `offline`, `tracker_name`, `tracker_url`, `tracker_release`. One record per active issue (offline ones included, `offline` = `1`), in ledger order, or the ids given, in that order. `ledger_issue_lines` becomes a renderer over these records, printing what it prints today.
 - In `lib/cmd_status.sh`, one function per section: `status_records_overview`, `_templates`, `_pause`, `_shipped`, `_issues`, `_plans`, `_pickup`, `_adoption`, `_offline`, `_next`; and `status_notices` -> `level`, `section`, `text` for every remark a section makes today (sync output, unblocking, matrix re-derived, gone branch, drift).
-- `status_records_pickup` -> `title`, `text`, `files` per unworked entry, split as group P-91 §2.5 says (first `: ` outside backticks; the existing files under `.plans/pickup/` the text names). A named file that is missing gives a `warning` notice. The terminal still prints the entry as today until P-88.
+- `status_records_pickup` -> `title`, `text`, `files` per unworked entry, split by P-96's `pickup_entry_split`, as group P-91 §2.5 says (first `: ` outside backticks; the existing files under `.plans/pickup/` the text names). A named file that is missing gives a `warning` notice. The terminal still prints the entry as today until P-88.
 - Records are collected once per run, before anything is printed; side effects (sync, unblock, matrix) run where they run today, and their output becomes notices.
 
 ### 2.3 The terminal renderer
@@ -151,3 +151,4 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted as the first member of group P-91.
 * **2026-10-16:** Pickup records: title, text, files.
+* **2026-10-16:** Pickup records split by P-96's `pickup_entry_split`.
