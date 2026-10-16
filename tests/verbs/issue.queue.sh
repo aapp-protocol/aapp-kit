@@ -161,6 +161,85 @@ else
 fi
 rm -rf "$PDIR" "$R/t.lists"
 
+echo "== levels =="
+project "$R/l"
+today="$(date +%Y-%m-%d)"
+# level <name>: the ids under that level of 📋 Queued, in order.
+level() { AAPP_L="$1" awk 'index($0, "### " ENVIRON["AAPP_L"]) == 1 { q = 1; next } /^##/ { q = 0 } q' .plans/issues_road_map.md | grep -oE '#[0-9]+' | tr '\n' ' '; }
+aapp issue queue 1 >/dev/null 2>&1; aapp issue queue 2 urgent >/dev/null 2>&1; aapp issue queue 3 low >/dev/null 2>&1
+if [ "$(level Normal)" = "#1 " ] && [ "$(level '🔺 Urgent')" = "#2 " ] && [ "$(level Low)" = "#3 " ] && \
+   grep -qF -- "- [ ] #1 -> Defect 1 shows. (queued $today)" .plans/issues_road_map.md; then
+  ok "test_queue_levels"
+else
+  bad "test_queue_levels" "normal=$(level Normal) urgent=$(level '🔺 Urgent') low=$(level Low) file=$(tr '\n' '|' < .plans/issues_road_map.md)"
+fi
+
+sed -i "s/#1 -> Defect 1 shows. (queued $today)/#1 -> Defect 1 shows. (queued 2026-01-01)/" .plans/issues_road_map.md
+git -C .plans commit -qam "older queue date" --no-verify >/dev/null 2>&1
+h5="$(git -C .plans rev-parse HEAD)"
+out="$(aapp issue queue 1 urgent 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && [ "$(level '🔺 Urgent')" = "#2 #1 " ] && [ -z "$(level Normal)" ] && grep -qF -- '#1 -> Defect 1 shows. (queued 2026-01-01)' .plans/issues_road_map.md && \
+   [ "$(git -C .plans rev-list --count "$h5"..HEAD)" = "1" ]; then
+  ok "test_queue_moves_between_levels"
+else
+  bad "test_queue_moves_between_levels" "rc=$rc urgent=$(level '🔺 Urgent') normal=$(level Normal) out=$out"
+fi
+
+aapp issue queue 4 >/dev/null 2>&1
+out="$(aapp issue fix next-blocker 2>&1)"; t1=$?; f1="$(ls .plans/current/fix-*.md 2>/dev/null | tr '\n' ' ')"
+aapp issue fix 2 abort >/dev/null 2>&1
+aapp issue queue 2 remove >/dev/null 2>&1; aapp issue queue 1 remove >/dev/null 2>&1
+aapp issue fix next-blocker >/dev/null 2>&1; f2="$(ls .plans/current/fix-*.md 2>/dev/null | tr '\n' ' ')"
+aapp issue fix 4 abort >/dev/null 2>&1
+if [ "$t1" -eq 0 ] && [ "$f1" = ".plans/current/fix-2.md " ] && [ "$f2" = ".plans/current/fix-4.md " ]; then
+  ok "test_next_blocker_takes_levels_in_order"
+else
+  bad "test_next_blocker_takes_levels_in_order" "first=$f1 second=$f2 out=$out"
+fi
+
+good="$(health)"
+cp .plans/issues_road_map.md "$R/rm.levels"
+sed -i '/^### Low/i ### Other' .plans/issues_road_map.md
+badout="$(health)"; b=$?
+cp "$R/rm.levels" .plans/issues_road_map.md
+if ! echo "$good" | grep -qF '[Work Queue]' && [ "$b" -ne 0 ] && echo "$badout" | grep -F '[Work Queue]' | grep -qF '### Other'; then
+  ok "test_health_knows_the_levels"
+else
+  bad "test_health_knows_the_levels" "good=$(echo "$good" | grep 'Work Queue') bad=$(echo "$badout" | grep 'Work Queue')"
+fi
+
+aapp issue log High CORE "Login fails on Safari" file src/a.sh >/dev/null 2>&1
+aapp issue queue 10 urgent >/dev/null 2>&1
+out="$(aapp issue list 2>&1)"
+l10="$(echo "$out" | grep -F '#10 ')"; l3="$(echo "$out" | grep -F '#3 ')"
+if echo "$l10" | grep -qF 'High' && echo "$l10" | grep -qF 'Incubated' && echo "$l10" | grep -qF "logged $today" && \
+   echo "$l10" | grep -qF "queued $today (Urgent)" && echo "$l10" | grep -qF 'Login fails on Safari' && \
+   echo "$l3" | grep -qF 'logged 2026-10-01' && echo "$l3" | grep -qF '(Low)' && echo "$out" | grep -F '#2 ' | grep -qvF 'queued'; then
+  ok "test_list_shows_severity_dates_status"
+else
+  bad "test_list_shows_severity_dates_status" "out=$out"
+fi
+
+sout="$(aapp status 2>&1 | sed -n '/ISSUES/,/PLANS/p')"
+if echo "$sout" | grep -F '#10 ' | grep -qF 'High' && echo "$sout" | grep -F '#10 ' | grep -qF '(Urgent)' && \
+   echo "$sout" | grep -F '#3 ' | grep -qF 'logged 2026-10-01' && ! echo "$sout" | grep -qF '#2 '; then
+  ok "test_status_shows_queue_with_facts"
+else
+  bad "test_status_shows_queue_with_facts" "status=$sout"
+fi
+
+project "$R/u"
+tracker
+issue2() { printf '{"id": "#%s", "sev": "Low", "type": "CORE", "date": "2026-10-01", "location": "`src/%s.sh`", "symptom": "Defect %s shows.", "status": "open"%s}\n' "$1" "$2" "$1" "${3:+, $3}"; }
+{ issue2 1 a; issue2 2 b '"queued": true, "priority": "urgent", "queued_at": "2026-10-05"'; issue2 3 c; issue2 4 d '"queued": true'; } > "$R/u.list"; touch "$R/u.lists"
+aapp issue list confirm >/dev/null 2>&1
+if [ "$(level '🔺 Urgent')" = "#2 " ] && [ "$(level Normal)" = "#4 " ] && grep -qF -- '#2 -> Defect 2 shows. (queued 2026-10-05)' .plans/issues_road_map.md; then
+  ok "test_listing_priority_rebuilds_levels"
+else
+  bad "test_listing_priority_rebuilds_levels" "urgent=$(level '🔺 Urgent') normal=$(level Normal) file=$(tr '\n' '|' < .plans/issues_road_map.md)"
+fi
+rm -rf "$PDIR" "$R/u.lists"
+
 echo "== offline =="
 project "$R/o"
 git config --unset aapp.offlineEnabled
