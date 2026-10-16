@@ -16,10 +16,12 @@ Fix one logged issue via the authoritative CLI engine. Every fix is made in its 
   ```bash
   aapp issue fix <num>
   ```
-- `/aapp-fix` alone takes the top of the 🧱 Plan Blockers queue:
+- `/aapp-fix` alone takes the top of the work queue: the first 🧱 Plan Blocker, or, when there is none, the first 📋 Queued issue:
   ```bash
   aapp issue fix next-blocker
   ```
+
+**Only a queued issue.** `fix` opens an issue only when it is on the work queue: a plan blocker, or queued by a person with `aapp issue queue <num>`. When it says the issue is not queued, **STOP** and report it; never queue an issue yourself.
 
 **The files come from the issue log** (the row's Location). Add `file <path>` only for a file the log does not name.
 

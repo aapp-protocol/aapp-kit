@@ -4,7 +4,7 @@ This document is the central dashboard for all active ideas, drafts, ready plans
 
 > **Role:** This is the ordering lane for **future implementations** — features, refactors, new capabilities. Every entry links a blueprint in `.plans/current/`, and every blueprint carries a Blast Radius.
 >
-> **Not for raw issues.** Bugs, regressions, and edge-case gaps are recorded in root `ISSUES.md` and sequenced in `.plans/issues_road_map.md` — never dropped here as bare entries. What *may* appear here is a **fix plan promoted from an issue**: a blueprint for a fix too large to simply make. Such an entry carries its issue ID, and the issue itself stays open on the issue board until the fix ships.
+> **Not for raw issues.** Bugs, regressions, and edge-case gaps are recorded in root `ISSUES.md`, and those cleared for work are on the work queue, `.plans/issues_road_map.md` — never dropped here as bare entries. What *may* appear here is a **fix plan promoted from an issue**: a blueprint for a fix too large to simply make. Such an entry carries its issue ID, and the issue itself stays open in `ISSUES.md` until the fix ships.
 >
 > **Rule for Agents:** The Roadmap order below is set by the human. Follow it. Do **not** re-sequence it to match your own estimate of effort, risk, or severity.
 

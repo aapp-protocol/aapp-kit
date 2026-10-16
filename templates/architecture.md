@@ -26,7 +26,7 @@
 │   ├── done/          # Completed blueprints & master ledger (000-archive-ledger.md)
 │   ├── pickup.md      # Fast agent scratchpad for active context
 │   ├── ISSUES.md      # Canonical defect audit trail & triage ledger
-│   ├── issues_road_map.md # Defect priority roadmap & triage queue
+│   ├── issues_road_map.md # Work queue: plan blockers and issues queued for work
 │   └── state_matrix.md # State matrix & active incubator brain
 ├── .agents/            # Agent behavioral contracts & codemap worktree
 │   ├── AGENTS.md      # Agent behavioral contracts & protocol rules

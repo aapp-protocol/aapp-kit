@@ -2,7 +2,7 @@
 
 > **Rows are written by `aapp issue log`, never by hand:** `aapp issue log <sev> <type> "<symptom>" [file <path>]… [note "<text>"]` takes the id and writes the row and its road-map line.
 >
-> **Active Backlog Only:** Every row below is an unresolved defect or gap. When resolved, issues are relocated to `.plans/done/000-issues-archive.md` and pruned from `issues_road_map.md`.
+> **Active Backlog Only:** Every row below is an unresolved defect or gap. When resolved, issues are relocated to `.plans/done/000-issues-archive.md` and their line, if they were on the work queue (`issues_road_map.md`), goes.
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |

@@ -7,7 +7,7 @@
 #    - Disjointness: Active issues and archive ledger must share zero IDs.
 #    - Relocation Invariant: Active ISSUES.md must contain zero resolved rows.
 # 2. Pair 2 (roadmap <-> ISSUES):
-#    - Referential Integrity: Every issue on the priority board must exist in ISSUES.md.
+#    - Referential Integrity: Every issue on the work queue must exist in ISSUES.md.
 #    - Drift Detection: flags work-queue entries missing from ISSUES.md; the work queue holds only its two sections (P-89).
 # 3. Pair 3 (pickup <-> ISSUES):
 #    - Routing Cleanliness: Prevents stale unpruned pickup notes for logged issues.

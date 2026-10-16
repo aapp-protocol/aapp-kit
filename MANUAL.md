@@ -24,7 +24,7 @@
   * [Strict Lane Separation](#strict-lane-separation)
   * [Flat Issue Ledger Schema (`ISSUES.md`)](#flat-issue-ledger-schema-issuesmd)
   * [The Relocation Invariant & Archival Protocol](#the-relocation-invariant--archival-protocol)
-  * [Priority Board (`issues_road_map.md`) & User Priority](#priority-board-issues_road_mapmd--user-priority)
+  * [Work Queue (`issues_road_map.md`)](#work-queue-issues_road_mapmd)
   * [Issue Conciseness Invariant (2–3 Lines Maximum)](#issue-conciseness-invariant-23-lines-maximum)
   * [Issue Promotion Protocol](#issue-promotion-protocol)
   * [Mid-Execution Issue Escape Triage](#mid-execution-issue-escape-triage)
@@ -141,7 +141,7 @@ By decoupling these concerns into independent Git worktrees:
 | `.claude/` | Gitignored Bridge | Granular symlinks to canonical settings and skills in `.agents/`. |
 | `.plans/ISSUES.md` | `plans` worktree *(or root)* | Active flat technical backlog & defect ledger (Relocation Invariant). |
 | `.plans/done/000-issues-archive.md` | `plans` worktree | Master historical archive ledger of verified and resolved issues. |
-| `.plans/` | `plans` worktree | Active blueprints (`current/`), historical archives (`done/000-archive-ledger.md` & `done/000-issues-archive.md`), scratchpad (`pickup.md`), priority board with ⭐ User Priority (`issues_road_map.md`), and state matrix (`state_matrix.md`). |
+| `.plans/` | `plans` worktree | Active blueprints (`current/`), historical archives (`done/000-archive-ledger.md` & `done/000-issues-archive.md`), scratchpad (`pickup.md`), the work queue (`issues_road_map.md`), and state matrix (`state_matrix.md`). |
 | `.githooks/` | `githooks` worktree | Dual-layer blast radius enforcement scripts (`aapp-pre-commit`, `pre-commit`, `blast-radius-guard`). |
 
 ---
@@ -302,7 +302,7 @@ Located at `.githooks/aapp-pre-commit` (invoked directly or via `.githooks/pre-c
 5. **Concurrent Plan Support**: If two developers or agents work on separate active plans (`plan-a.md` and `plan-b.md`), files declared in *either* plan are permitted.
 6. **Blocked Plan Refusal**: If a plan's status is `🚫 BLOCKED`, commits targeting its files are rejected until the human unblocks the plan.
 7. **Syntax Validation**: Automatically runs syntax verification on staged files (e.g., Python `python3 -m py_compile`, PHP `php -l`, JSON syntax).
-8. **Roadmap Hygiene**: Automatically prunes resolved issues (`✅` or `Resolved`) from `issues_road_map.md` (<5ms), keeping the priority queue strictly focused on active items while permanent records remain in `ISSUES.md`.
+8. **Roadmap Hygiene**: Automatically prunes resolved issues (`✅` or `Resolved`) from `issues_road_map.md` (<5ms), keeping the work queue strictly focused on active items while permanent records remain in `ISSUES.md`.
 
 ---
 
@@ -433,7 +433,7 @@ AAPP enforces a strict conceptual separation between **fixing what exists** and 
 | :--- | :--- | :--- |
 | **Describes** | Something that exists and behaves wrongly | Something that does not exist yet |
 | **Canonical Record** | `ISSUES.md` (repo root or `.plans/`) | `.plans/current/<plan>.md` |
-| **Priority Ordering** | `.plans/issues_road_map.md` | `.plans/state_matrix.md` |
+| **Cleared for work** | `.plans/issues_road_map.md` (the work queue) | `.plans/state_matrix.md` (frozen plans) |
 | **Contents** | Bugs, regressions, edge-case gaps | Features, refactors, new capabilities |
 | **Blast Radius?** | No — fixed in place | Yes — locked before execution |
 
@@ -499,14 +499,13 @@ Active tables hold **ONLY** active items. Resolution is a **physical row relocat
 
 ---
 
-### Priority Board (`issues_road_map.md`) & User Priority
+### Work Queue (`issues_road_map.md`)
 
-`issues_road_map.md` puts active issues into the order you intend to fix them based on human judgement. It includes:
-- **`## ⭐ User Priority (Pinned / Immediate Human Focus)`**: Developer overrides for immediate appetite.
-- **`## 🔴 High Priority (Technical Urgency)`**: Architecturally critical items.
-- **`## 🟡 Medium Priority (Upcoming Iteration)`**: Feature gaps and CLI ergonomics.
-- **`## 🟢 Low Priority (Edge Cases & Tooling)`**: Cosmetic and minor tooling items.
-- **`## 📥 Triage (Incoming / Unsequenced)`**: Freshly triaged issues awaiting sequencing.
+`issues_road_map.md` holds the issues cleared for work, and nothing else (P-89). Every issue is recorded in `ISSUES.md` and listed by `aapp issue list` in the order it was recorded; ordering it otherwise is a plugin's job. The work queue has two sections:
+- **`## 🧱 Plan Blockers`**: written by `aapp issue hotfix`, one line per bug that blocks a plan; capped per plan by `aapp.maxEmergencyHotfixes`.
+- **`## 📋 Queued`**: written by `aapp issue queue <num>`, a person's decision that an issue may be worked on; `aapp issue queue <num> remove` takes it off.
+
+`aapp issue fix <num>` opens only an issue listed in one of the two sections, and `aapp issue fix next-blocker` takes the first blocker, then the first queued issue. An agent may log as many issues as it finds; it cannot fix one that no person has queued, so an issue is never a way around a plan. Any other `##` section is refused by the health check. Where a tracker keeps the record (P-74), its queue is the queue: `aapp issue queue` must succeed there (`issue.queue`, `issue.unqueue`), and every sync rebuilds `## 📋 Queued` from the listing's `queued` field.
 
 **POSIX ID-Anchored Auto-Pruning**: The pre-commit hook auto-prunes any resolved list item using the POSIX ID-anchored regex `^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)`, preserving prose headers and explanatory text.
 
@@ -526,7 +525,7 @@ When a bug requires architectural decisions, spans multiple modules, or requires
 
 1. **Keep `ISSUES.md` intact**: The issue is never deleted; it remains the record of *what is wrong*.
 2. **Draft and Link in One Command**: `aapp draft <slug> issue <num>` (the id without the `#`: a number or a tracker's key) scaffolds `.plans/current/P<N>-<slug>.md` and, in the same commit, sets the plan's `**Target Issue / Milestone:** #<num>`, links the blueprint in the issue row's *Target Plan / Fix* cell (`[P-<N>](current/P<N>-<slug>.md)`) and sets the row's Status to 🔵 `Planned`. An archived or unknown issue is refused before any Plan ID is spent; observation cells are never touched.
-3. **Keep It on the Board**: The issue stays on `issues_road_map.md` until the fix ships; the plan is registered in the matrix like any draft.
+3. **Keep It Open**: The issue stays in `ISSUES.md` until the fix ships (and on the work queue, if it was queued); the plan is registered in the matrix like any draft.
 4. **Links Follow the Plan**: Renaming the plan (`aapp refine <id> slug <new-slug>`) and archiving it (`aapp done`) rewrite every *Target Plan / Fix* and road-map link pointing at the plan file, inside that command's own commit.
 5. **Relocate upon Archive**: Relocate the issue row from `ISSUES.md` to `.plans/done/000-issues-archive.md` only when the plan is implemented, verified, and archived via `/done`. Prune the issue from `issues_road_map.md` (the pre-commit hook automatically purges any resolved items).
 
@@ -590,7 +589,7 @@ Run first in every session, and again after the agent's conversation was summari
 #### `/aapp-status` (or `status`, `aapp status`, `/status`) — Context Recovery
 Executed when returning to a project or starting a session. Inspects the workspace and reports across the **Four Pillars**:
 1. **Shipped**: Recent entries in `CHANGELOG.md` (`## [Unreleased]`).
-2. **Issues**: Top open issues from `ISSUES.md` and `.plans/issues_road_map.md`.
+2. **Issues**: The work queue (plan blockers, then queued issues) and a count of the other open issues in `ISSUES.md`.
 3. **Plans**: Active incubator plans and greenlit tasks in `.plans/state_matrix.md`.
 4. **Pickup**: Unprocessed ideas in `.plans/pickup.md` with count.
 5. **Next Action**: State-aware next step evaluator dynamically pointing to in-development work, frozen backlog, unprocessed pickup ideas, or top issues.
@@ -833,7 +832,7 @@ Disengages the emergency brake and restores developer velocity:
 When developers work across multiple IDE windows or companion terminals:
 - **Layer 1 (Local Session)**: For sessions rooted in this repository, `blast-radius-guard` intercepts write tools before touching disk.
 - **Layer 2 (Cross-Repo / External Session)**: For sessions rooted in other directories or plain terminals, Layer 2 (`pre-commit`) serves as the strict, inescapable gate that rejects any commit touching codebase files.
-- **Permitted Reflection**: Code reading, Q&A, capturing notes in `.plans/pickup*`, logging defects in `.plans/ISSUES.md` (and `issues_road_map.md`), and drafting blueprints in `.plans/current/` remain 100% operational while paused. All modifications to codebase files, the `.agents/` control plane, templates, and hooks are strictly blocked.
+- **Permitted Reflection**: Code reading, Q&A, capturing notes in `.plans/pickup*`, logging defects in `.plans/ISSUES.md`, and drafting blueprints in `.plans/current/` remain 100% operational while paused. All modifications to codebase files, the `.agents/` control plane, templates, and hooks are strictly blocked.
 - **Emergency Escape Hatches**: `SKIP_BLAST_RADIUS=1` bypasses Layer 1 and Layer 2; `git commit --no-verify` bypasses Layer 2.
 
 ---
@@ -1362,7 +1361,7 @@ aapp issue list               # active issues in road-map order (top 20; 'list 5
 
 **What an issue id is.** `#` followed by a number (`#46`: the kit's counter, or a tracker that numbers) or by a tracker's own key (`#PROJ-101`: a capital letter, then capitals or digits, a dash, digits). The same id is used everywhere: the ledger row, a plan's `Target Issue` and `Blocked On`, the mini plan `fix-PROJ-101.md`, the commit subject `(#PROJ-101)`. On the command line it is typed without the `#`, and a key typed in lowercase is uppercased (`aapp issue fix proj-101`). The counter `aapp.issueId` only ever looks at numbers. A project without a tracker never sees the second form.
 
-**Logging an issue (`aapp issue log`, P-74).** Nobody writes a row or picks an id by hand: `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]` takes the id, writes the row and its road-map line (at the end of 📥 Triage), and commits. `aapp issue hotfix` logs through the same handler. `aapp refine issues "<msg>"` commits changes to existing rows and refuses a row added by hand.
+**Logging an issue (`aapp issue log`, P-74).** Nobody writes a row or picks an id by hand: `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]` takes the id, writes the row, and commits. It adds no line to the work queue: queueing is a person's decision (`aapp issue queue <num>`). `aapp issue hotfix` logs through the same handler. `aapp refine issues "<msg>"` commits changes to existing rows and refuses a row added by hand.
 
 **The three parts of an issue's text.**
 

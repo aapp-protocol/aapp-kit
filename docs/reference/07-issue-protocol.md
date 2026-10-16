@@ -18,6 +18,8 @@ Every issue step goes to the provider with the **whole issue**. The provider dec
 | `issue.refine` | `aapp refine issues` for each row it changed; a note added (`note <num> "<text>"`); a status change by `aapp draft … issue` (Planned) and `aapp plan abort` (back to Incubated); after the local write | The issue; `notes`: the notes just added | `handled` | A warning; the change stays made here |
 | `issue.fix` | `aapp issue fix`, once the fix is open | The issue | `description`, and the issue's notes in the list file, when the provider keeps them; `url` | A warning; the fix stays open |
 | `issue.fix-abort` | `aapp issue fix <num> abort`; the issue stays open | The issue | `status`, `message` | A warning |
+| `issue.queue` | `aapp issue queue <num>`: a person queues the issue for work (P-89) | The issue | `status`, `message` | Where the tracker keeps the record: refused, nothing changes. Otherwise a warning |
+| `issue.unqueue` | `aapp issue queue <num> remove`: the issue leaves the work queue (P-89) | The issue | `status`, `message` | Where the tracker keeps the record: refused, nothing changes. Otherwise a warning |
 | `issue.abort` | `aapp issue abort`; the issue is withdrawn | The issue; `reason` | `status`, `message` | A warning; the issue stays withdrawn here |
 | `issue.close` | `aapp issue close`, and `aapp done` for a plan's issue; once, after the local close | The issue; `commit`, `summary`, `plan` | `status` (shown), `message` | A warning; the issue stays closed locally |
 | `issue.list` | `aapp issue list`, and `aapp status` at most once per `aapp.issueSyncWindow` minutes | `open`, `limit`, `since`, `ids` | `handled`: `list` when it keeps the record; the open issues in the list file, one object per line | A warning; the ledgers are left exactly as they were |
@@ -76,7 +78,7 @@ Beside `status`, `message` and `handled` (the [plugin protocol](06-plugin-protoc
 | `tracker`, `url`, `release` | What the tracker calls the issue: its name, the issue's address, the release it belongs to. Shown beside the issue in `aapp issue list`, never interpreted. (`version` is the protocol's own field.) |
 | `description` | On `issue.fix`: the description the provider keeps, shown to whoever fixes the issue |
 
-A line of the list file on `issue.list` is one issue: `id`, `sev`, `type`, `date`, `location`, `symptom`, `status` (`open`, or `closed`), and optionally `branch`, `commit`, `summary`, `tracker`, `url`, `release`. No description and no notes: text is fetched when a fix opens. A line of the list file on `issue.fix` is one note: `note`, `date`, `author`.
+A line of the list file on `issue.list` is one issue: `id`, `sev`, `type`, `date`, `location`, `symptom`, `status` (`open`, or `closed`), and optionally `queued` (`true` or `false`: whether the issue is on the work queue, P-89), `branch`, `commit`, `summary`, `tracker`, `url`, `release`. No description and no notes: text is fetched when a fix opens. A line of the list file on `issue.fix` is one note: `note`, `date`, `author`.
 
 ## The three parts of an issue's text
 

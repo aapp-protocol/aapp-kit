@@ -119,6 +119,7 @@ Once a blueprint is frozen (`🔷 Ready for Execution`), its **design** is locke
 In refactors, schema migrations, and API updates, **clean breaks are the mandatory default**:
 - **Zero Un-named Fallbacks**: Autonomous coding agents must NEVER unilaterally introduce backwards-compatibility fallbacks, legacy shim wrappers, duplicate aliases, or dual-syntax parser regexes.
 - **Explicit Declaration in Section 2**: If an adopter or project constraint genuinely requires backwards compatibility, every preserved fallback, alias, or legacy schema MUST be explicitly itemized in the plan's `## 2. Technical Blueprint` under `### 🔄 Migration & Compatibility Strategy`, accompanied by a clear justification and retirement/deprecation date.
+- **No trace of the old form**: After a clean break nothing in the codebase detects, names, refuses by name, converts or explains the old form: no migration message, no list of former names, no test that mentions them. The new code knows only the new form; anything else is invalid because it is unknown. The old form lives on only in Git history and in the plan that replaced it.
 - **Unlisted Fallbacks Prohibited**: Any fallback, legacy alias, or dual-syntax regex introduced into the codebase that is not explicitly registered in Section 2 is considered architectural debt and a protocol violation.
 
 ---
@@ -130,12 +131,13 @@ The workspace tracks two separate phases. Routing an item into the wrong lane co
 | :--- | :--- | :--- |
 | **Describes** | Something that exists and behaves wrongly | Something that does not exist yet |
 | **Canonical record** | `.plans/ISSUES.md` (or repo root) | `.plans/current/<plan>.md` |
-| **Priority ordering** | `.plans/issues_road_map.md` | `.plans/state_matrix.md` |
+| **Cleared for work** | `.plans/issues_road_map.md` (the work queue) | `.plans/state_matrix.md` (frozen plans) |
 | **Holds** | Bugs, regressions, edge-case gaps | Features, refactors, new capabilities |
 | **Blast Radius?** | No — fixed in place | Yes — locked before execution |
 
 - **Routing rule:** If it is wrong behaviour in code that already ships, it is an **issue** — and it is recorded in `.plans/ISSUES.md` (or root `ISSUES.md`) first, always. If it is something not yet built, it is a **plan**. Never file a raw feature request in `issues_road_map.md`, and never drop a raw bug into `state_matrix.md` — what legitimately appears there is a *fix plan* carrying the issue's ID (see **Promotion** below).
-- **Ordering rule:** Both priority files are ordered by **human judgement** — appetite, dependency, and available context, not a severity calculation. Read the order as given, report it as given, and append new items into the correct priority band. Do **not** re-sort, re-rank, or "optimize" either list unless the user explicitly asks you to.
+- **Work queue rule:** `.plans/issues_road_map.md` holds only the issues cleared for work: `## 🧱 Plan Blockers` (written by `aapp issue hotfix`) and `## 📋 Queued` (written by `aapp issue queue <num>`). `aapp issue fix` opens only an issue listed there. **Queueing is a person's decision: never run `aapp issue queue` yourself**, and never edit the file by hand. Every other issue stays in `ISSUES.md`, listed by `aapp issue list` in the order it was recorded.
+- **Ordering rule:** `state_matrix.md` and the work queue are ordered by **human judgement** — appetite, dependency, and available context, not a severity calculation. Read the order as given and report it as given. Do **not** re-sort, re-rank, or "optimize" either unless the user explicitly asks you to.
 
 ### 📏 Issue Conciseness Invariant (2–3 Lines Maximum)
 - **Table entries in `ISSUES.md` must never be long transcripts or essays.** State the location, the exact symptom, and the 1-line fix direction in **2–3 concise sentences maximum**.
@@ -168,14 +170,14 @@ The lanes are separate, **not sealed**. A fix too large to simply *do* deserves 
 **How promotion works:**
 1. The issue is **never deleted or moved out of `.plans/ISSUES.md`**. It stays the record of *what is wrong*; the plan becomes the record of *how it will be fixed*.
 2. Run `aapp draft <slug> issue <num>` (the id without the `#`: a number or a tracker's key). In its one commit it scaffolds the blueprint, puts `#<num>` in the plan's `**Target Issue / Milestone:**` field, links the blueprint in the issue's *Target Plan / Fix* cell and sets the issue's status to 🔵 `Planned`. Never make these edits by hand.
-3. **Leave the issue on `issues_road_map.md`** — it is still an open issue until the fix ships.
+3. **The issue stays open** in `ISSUES.md` until the fix ships; if it was queued, its line stays on the work queue.
 4. `aapp draft` registers the plan in `state_matrix.md` like any other. Renaming a plan later (`aapp refine <id> slug <new-slug>`) and archiving it (`aapp done`) repair the issue links that point at it.
 5. Close the issue only when the fix is verified and the plan is archived via `done`. `aapp done` relocates the Target Issue row to `.plans/done/000-issues-archive.md` and prunes `issues_road_map.md` in the same commit. For a direct fix with no plan, run `aapp issue close <num> [sha <sha>] [summary "<text>"]` instead of editing the tables by hand.
 6. **A plan that also sorts other issues says so before `done`:** `aapp refine <plan-id> closes <num>` for each one (`remove` takes it off). `aapp done` then closes them with the plan's commit. Never close such an issue by hand after the plan lands, and never make it the plan's `Target Issue`: that is for the issue the plan was made for.
 
 **Visibility, not permission.** Promote when it fits, then **say plainly what you did and why** — "ISSUE-004 touches four modules and the parser contract, so I promoted it to a draft blueprint." The human can refine, abort, or ignore it; a draft costs nothing. What you must never do is promote *silently*.
 
-**Promotion does not touch priority.** The issue keeps the exact band the human put it in on `issues_road_map.md`. Promoting changes *how* it gets fixed, never *when* — the ordering rule still holds absolutely.
+**Promotion does not touch the queue.** Promoting changes *how* an issue gets fixed, never *whether* it is cleared for work: that stays the human's call.
 
 **Ask only when the size is genuinely ambiguous** — a fix that could reasonably go either way. Default to proceeding.
 
@@ -237,7 +239,7 @@ Every chore has a verb; use it instead of editing ledgers or running git on `.pl
 | `aapp commit` | Plan-bound code commit with attribution; records the SHA in the plan and writes its declared changelog entry |
 | `aapp active` | Show or set the active plan buffer |
 | `aapp note` | Stage, inspect, push or pull git notes |
-| `aapp issue` | The issue lane. `aapp issue log` logs an issue: the id, the row and its road-map line, in one commit. `aapp issue list` lists the open ones; `aapp issue list note` shows one with its description and notes. `aapp issue hotfix`, from a plan's worktree, logs a blocking bug, queues it and blocks the plan. `aapp issue fix`, run from the main checkout, opens (or drops) a temporary mini plan for one fix, one at a time, in its own worktree `.workspace/fix-<num>` (skill: `/aapp-fix`). `aapp issue close` closes a fixed issue. `aapp issue abort` withdraws an issue that is wrong or unwanted, with its plan or open mini plan: never use `issue close` for this (it records a fix); only when the human asks |
+| `aapp issue` | The issue lane. `aapp issue log` logs an issue: the id, the row and its road-map line, in one commit. `aapp issue list` lists the open ones; `aapp issue list note` shows one with its description and notes. `aapp issue queue` clears an issue for work: a person's command, never run it yourself. `aapp issue hotfix`, from a plan's worktree, logs a blocking bug, queues it and blocks the plan. `aapp issue fix`, run from the main checkout, opens (or drops), for a queued issue or a plan blocker only, a temporary mini plan for one fix, one at a time, in its own worktree `.workspace/fix-<num>` (skill: `/aapp-fix`). `aapp issue close` closes a fixed issue. `aapp issue abort` withdraws an issue that is wrong or unwanted, with its plan or open mini plan: never use `issue close` for this (it records a fix); only when the human asks |
 | `aapp offline` | What is staged in `.offline` while the team's provider is unreachable (issues and draft plans under temporary ids); `aapp offline sync` publishes it. When `aapp issue log` or `aapp draft` says an item was staged offline, carry on with the temporary id and report it; never edit files under `.offline/` by hand |
 | `aapp test` | Run the kit's test suites |
 | `aapp ai` | Inspect or switch the attribution mode |
@@ -260,7 +262,8 @@ When switching focus across projects, stepping away from the desk, or preventing
 ## 🐛 Issue Escape Triage (Mid-Execution Bugs)
 If you discover an unexpected bug while executing a plan inside a locked Blast Radius, take one of these paths. **Plan work vs hotfix is decided by scope, not by file:** a bug the plan's change causes, or code the plan must rewrite anyway, is plan work: fix it in the plan. A bug **unrelated to the plan's change** is a hotfix, even when it sits in one of your own Target Files. Everything below is about bugs that are not plan work. In single-checkout mode `hotfix` sets aside your uncommitted work in the files it names (a stash) and `aapp issue close` re-applies it; in a plan worktree your work stays put and you resume with `git rebase --autostash <devBranch>`.
 
-- **Non-blocking** (a bug, gap or stale text, including one outside your Target Files)**:** Do not fix it, and do not leave it in chat only. Log it with `aapp issue log <sev> <type> "<symptom>" file <path>…` (it numbers the issue, writes the row and the road-map line, and commits), and continue the assigned plan. Do not add it to `state_matrix.md`, and do not re-prioritize `issues_road_map.md` on your own — append it and let the human place it.
+- **Caused by your plan's change, or left undone by it** (even outside your Target Files)**:** this is plan work, not an issue. Stop, tell the human, and amend the plan with their OK; then do the work inside the plan.
+- **Non-blocking and unrelated to your change** (a bug, gap or stale text)**:** Do not fix it, and do not leave it in chat only. Log it with `aapp issue log <sev> <type> "<symptom>" file <path>…` (it numbers the issue, writes the row, and commits), and continue the assigned plan. Do not add it to `state_matrix.md`, and do not queue it: the human decides whether it is worked on.
 
 - **Blocking:** The bug halts the plan. Run **one command** and stop: `aapp issue hotfix "<text>" file <path>…`. It allocates the issue number, logs the row, queues it under 🧱 Plan Blockers, records it in the plan's `* **Emergency Hotfixes:**` and blocks the plan (`🟥 BLOCKED`, `* **Blocked On:** #<num>`), in one commit. **A blocked plan is not executable** — the guard and hook refuse its work until the fix is closed. The fix is started from the main checkout and made in its own worktree (`aapp issue fix next-blocker` → `aapp commit` in `.workspace/fix-<num>` → `aapp issue close <num>`); closing it unblocks the plan. A plan that takes more than `aapp.maxEmergencyHotfixes` hotfixes (default 2) stays blocked until the human re-scopes it.
 

@@ -64,7 +64,7 @@ your-project/ (main/dev branch - contains application source code & public docs)
 │   ├── aborted/         --> Discarded plans
 │   ├── pickup.md        --> Fast agent scratchpad for active context
 │   ├── ISSUES.md        --> Active flat technical backlog & defect ledger (Relocation Invariant)
-│   ├── issues_road_map.md --> Defect priority board with ⭐ User Priority (auto-pruned by hook)
+│   ├── issues_road_map.md --> Work queue: plan blockers and issues queued for work (auto-pruned by hook)
 │   └── state_matrix.md  --> State matrix & active incubator brain
 ├── .agents/             --> Worktree mounted on orphan branch 'agents'
 │   ├── AGENTS.md        --> Agent behavioral contracts & slash commands
@@ -118,7 +118,7 @@ graph TD
    - Supports concurrent active plans without cross-blocking.
    - Performs syntax checking on modified files.
    - **Adaptive Branch Protection**: Prevents accidental direct commits to `main` when active development branches exist.
-   - **Roadmap Hygiene**: Automatically prunes resolved issues (`✅` or `Resolved`) from `issues_road_map.md` (<5ms), keeping the priority queue active-only.
+   - **Roadmap Hygiene**: Automatically prunes resolved issues (`✅` or `Resolved`) from `issues_road_map.md` (<5ms), keeping the work queue active-only.
    - Escape hatches available when needed: `SKIP_BLAST_RADIUS=1` (for blast radius/changelog; cannot bypass reachability) or `ALLOW_MAIN_COMMIT=1`.
 
 ---

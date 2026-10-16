@@ -40,6 +40,8 @@
 #   issue.close      the issue; commit, summary, plan      carries on, warns
 #   issue.list       open, limit, since, ids               shows what it has
 #   issue.next-blocker  {}                                 refuses: nothing is claimed
+#   issue.queue      the issue (queued for work)           refuses where the tracker keeps the record, else warns
+#   issue.unqueue    the issue (off the work queue)        refuses where the tracker keeps the record, else warns
 #
 #   During a step this plugin cannot run a writing `aapp` verb itself; it has at
 #   most aapp.pluginTimeout seconds (default 10). A tracker may have created a
