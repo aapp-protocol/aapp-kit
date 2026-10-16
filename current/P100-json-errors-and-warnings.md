@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** 📝 Refining
 * **Base:** `5a6f3c7` (feature/readable-and-parsable-output)
 * **Worktree:** .workspace/P100 (plan/P100-json-errors-and-warnings)
 * **Group:** P-91
