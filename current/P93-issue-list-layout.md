@@ -10,6 +10,7 @@
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
 * **Status:** 🟣 Under Review
 * **Base:** none
+* **Group:** P-91
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
