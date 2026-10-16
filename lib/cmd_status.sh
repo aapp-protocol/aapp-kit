@@ -69,6 +69,20 @@ status_state_matrix() {
     return 0
 }
 
+# status_number_setting <key> <default>: a briefing setting that is a whole
+# number of at least 1; fails, naming the key, otherwise.
+status_number_setting() {
+    local v
+    v="$(git config --get "$1" 2>/dev/null)" || v="$2"
+    case "$v" in ''|*[!0-9]*) ;; *) [ "$v" -ge 1 ] && { echo "$v"; return 0; } ;; esac
+    echo "❌ [Status] $1 is '$v'; it must be a whole number of at least 1." >&2
+    return 1
+}
+# status_items_max -> `aapp.statusItemsMax` (default 5): how many Shipped entries and pickup ideas the briefing lists.
+status_items_max() { status_number_setting aapp.statusItemsMax 5; }
+# status_text_max -> `aapp.statusTextMax` (default 220): the most characters of an item's text the briefing shows.
+status_text_max() { status_number_setting aapp.statusTextMax 220; }
+
 # status_changelog_path -> the changelog the briefing reads, when present.
 status_changelog_path() {
     if [ -f "CHANGELOG.md" ]; then echo "CHANGELOG.md"
@@ -179,28 +193,47 @@ except Exception as e:
     return 0
 }
 
-# status_records_shipped -> kind (heading, entry, text), section, text, plan,
-# issue, commit, date: the first five lines under `## [Unreleased]` (or under
-# the first version heading), as written. plan / issue: the id an entry is
-# tagged with.
+# status_records_shipped -> kind (entry, more), section, text, plan, issue,
+# commit, date (P-88): the entries the latest commits of this branch added to
+# the changelog, newest first, each once, in its current wording, up to
+# `aapp.statusItemsMax`; an entry no longer in the file is skipped. With no
+# history (no commits, a shallow clone, a changelog outside Git): the first
+# entries under `## [Unreleased]`, without commit and date. plan / issue: the
+# id an entry is tagged with. A last `more` record counts the entries under
+# `## [Unreleased]` not shown.
 status_records_shipped() {
-    local cl lines
+    local cl dir file max hist
     cl="$(status_changelog_path)"
     [ -n "$cl" ] || return 0
-    lines="$(awk '/## \[Unreleased\]/ {flag=1; next} /^## / {flag=0} flag' "$cl" | sed '/^[[:space:]]*$/d' | head -n 5)"
-    if [ -z "$lines" ]; then
-        lines="$(awk '/^## / {if (count++) exit} count {print}' "$cl" | sed '/^[[:space:]]*$/d' | head -n 5)"
-    fi
-    [ -n "$lines" ] || return 0
-    printf '%s\n' "$lines" | awk '
-        /^###[[:space:]]+/ { s = $0; sub(/^###[[:space:]]+/, "", s); sec = tolower(s); printf "heading\t%s\t%s\t\t\t\t\n", sec, s; next }
-        /^-[[:space:]]+/ {
-            t = $0; sub(/^-[[:space:]]+/, "", t); plan = ""; iss = ""
+    max="$(status_items_max)" || return 1
+    if [ "$cl" = ".plans/CHANGELOG.md" ]; then dir=".plans"; file="CHANGELOG.md"; else dir="."; file="$cl"; fi
+    hist="$(git -C "$dir" log -n 15 --first-parent -m -p --unified=0 --format='commit %h %ad' --date=short -- "$file" 2>/dev/null || true)"
+    printf '%s\n' "$hist" | awk -v max="$max" -v cl="$cl" '
+        function tags(t) {
+            plan = ""; iss = ""
             if (match(t, /\(`?P-[0-9]+`?\)[[:space:]]*$/)) { plan = substr(t, RSTART, RLENGTH); gsub(/[^P0-9-]/, "", plan) }
             else if (match(t, /\(`?#[A-Za-z0-9-]+`?\)[[:space:]]*$/)) { iss = substr(t, RSTART, RLENGTH); gsub(/[()` ]/, "", iss) }
-            printf "entry\t%s\t%s\t%s\t%s\t\t\n", sec, t, plan, iss; next
         }
-        { printf "text\t%s\t%s\t\t\t\t\n", sec, $0 }'
+        function emit(t, c, d) { tags(t); printf "entry\t%s\t%s\t%s\t%s\t%s\t%s\n", sec[t], t, plan, iss, c, d; shown++; if (t in unrel) shownu++ }
+        BEGIN {
+            # The changelog as it is now: each entry with its section, and the
+            # entries under [Unreleased] in order.
+            while ((getline l < cl) > 0) {
+                if (l ~ /^## /) { u = (l ~ /^## \[Unreleased\]/); s = ""; continue }
+                if (l ~ /^###[[:space:]]+/) { s = l; sub(/^###[[:space:]]+/, "", s); s = tolower(s); continue }
+                if (l ~ /^-[[:space:]]+/) { t = l; sub(/^-[[:space:]]+/, "", t); if (!(t in sec)) sec[t] = s; if (u) { unrel[t] = 1; order[++nu] = t } }
+            }
+        }
+        /^commit / { c = $2; d = $3; next }
+        /^\+-[[:space:]]+/ {
+            t = substr($0, 2); sub(/^-[[:space:]]+/, "", t)
+            if (!(t in sec) || (t in seen) || shown >= max) next
+            seen[t] = 1; emit(t, c, d)
+        }
+        END {
+            if (!shown) for (i = 1; i <= nu && shown < max; i++) emit(order[i], "", "")
+            if (nu - shownu > 0) printf "more\t\t%d\t\t\t\t\n", nu - shownu
+        }'
 }
 
 # status_records_issues -> the work queue as `ledger_issue_records` records, the
@@ -442,7 +475,7 @@ status_overview_line() {
 
 status_render_terminal() {
     local frame version count first files sname reason label stashes initiator buffer parsed error names s wt br
-    local kind sec text cnt title t id base st lbl k g m tg bl w wb fb depth line active archived plans steps
+    local kind sec text cnt title t id base st lbl k g m tg bl w wb fb depth line active archived plans steps fl f
     frame="$(printf '%*s' "$STATUS_WIDTH" '' | tr ' ' '=')"
     version="${AAPP_VERSION:-1.0.0}"
 
@@ -503,9 +536,8 @@ status_render_terminal() {
     else
         while IFS=$'\037' read -r kind sec text _; do
             case "$kind" in
-                heading) echo "  ### $text" ;;
-                entry)   echo "  - $text" ;;
-                *)       echo "  $text" ;;
+                entry) printf -- '- %s\n' "$(printf '%s' "$text" | out_cut "$STATUS_TEXT_MAX")" | out_wrap 2 4 "$STATUS_WIDTH" ;;
+                more)  status_line 2 3 "(more in $(status_changelog_path))" ;;
             esac
         done < <(status_rows "$STATUS_SHIPPED")
     fi
@@ -556,9 +588,18 @@ status_render_terminal() {
             cnt="$(printf '%s\n' "$STATUS_PICKUP" | grep -c . || true)"
             echo "  ($cnt unworked ideas found in pickup.md):"
             while IFS=$'\037' read -r title text files; do
-                if [ -n "$title" ]; then echo "  - [ ] $title: $text"; else echo "  - [ ] $text"; fi
-            done < <(status_rows "$STATUS_PICKUP" | head -n 5)
-            [ "$cnt" -gt 5 ] && echo "  ... and $((cnt - 5)) more"
+                if [ -n "$title" ]; then
+                    status_line 2 8 "- [ ] $title"
+                    [ -z "$text" ] || printf '%s' "$text" | out_cut "$STATUS_TEXT_MAX" | out_wrap 8 8 "$STATUS_WIDTH"
+                else
+                    printf -- '- [ ] %s\n' "$(printf '%s' "$text" | out_cut "$STATUS_TEXT_MAX")" | out_wrap 2 8 "$STATUS_WIDTH"
+                fi
+                if [ -n "$files" ]; then
+                    IFS=',' read -r -a fl <<< "$files"
+                    for f in "${fl[@]}"; do echo "        files: $f"; done
+                fi
+            done < <(status_rows "$STATUS_PICKUP" | head -n "$STATUS_ITEMS")
+            [ "$cnt" -gt "$STATUS_ITEMS" ] && echo "  ... and $((cnt - STATUS_ITEMS)) more (see .plans/pickup.md)"
         else
             status_line 2 4 "Pickup: empty (All ideas digested!)"
         fi
@@ -603,6 +644,8 @@ if [ "${1:-}" = "short" ] || [ "${1:-}" = "summary" ]; then
 fi
 
 STATUS_WIDTH="$(out_width)" || { return 1 2>/dev/null || exit 1; }
+STATUS_ITEMS="$(status_items_max)" || { return 1 2>/dev/null || exit 1; }
+STATUS_TEXT_MAX="$(status_text_max)" || { return 1 2>/dev/null || exit 1; }
 
 # P-74: where a tracker keeps the issues, the briefing brings them up to date
 # first, at most once per aapp.issueSyncWindow minutes (counted from the last

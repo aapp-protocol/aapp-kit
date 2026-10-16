@@ -598,14 +598,14 @@ Run first in every session, and again after the agent's conversation was summari
 
 #### `/aapp-status` (or `status`, `aapp status`, `/status`) — Context Recovery
 Executed when returning to a project or starting a session. Inspects the workspace and reports across the **Four Pillars**:
-1. **Shipped**: Recent entries in `CHANGELOG.md` (`## [Unreleased]`).
+1. **Shipped**: What landed last: the entries the latest commits added to `CHANGELOG.md`, newest first, from any section (the first entries under `## [Unreleased]` when there is no history).
 2. **Issues**: The work queue (plan blockers, then queued issues) and a count of the other open issues in `ISSUES.md`.
 3. **Plans**: Active incubator plans and greenlit tasks in `.plans/state_matrix.md`.
-4. **Pickup**: Unprocessed ideas in `.plans/pickup.md` with count.
+4. **Pickup**: Unprocessed ideas in `.plans/pickup.md` with count: each idea's title, its text below it, cut and wrapped, and the `.plans/pickup/` files it names.
 5. **Next Action**: State-aware next step evaluator dynamically pointing to in-development work, frozen backlog, unprocessed pickup ideas, or top issues.
 *Runs inline to preserve full conversation context.*
 
-The briefing keeps to `aapp.statusOutputWidth` characters (default 85), so it reads in a narrow or split pane and in an agent's code block without scrolling sideways: the frame is that wide, and the header, the Plans pillar, the notices and the next action wrap at spaces, the continuation indented under the text. A path or other long word stays whole on a line of its own.
+The briefing keeps to `aapp.statusOutputWidth` characters (default 85), so it reads in a narrow or split pane and in an agent's code block without scrolling sideways: the frame is that wide, and the header, the Plans pillar, the notices and the next action wrap at spaces, the continuation indented under the text. A path or other long word stays whole on a line of its own. Shipped and Pickup list `aapp.statusItemsMax` items (default 5) and show at most `aapp.statusTextMax` characters of each (default 220); the whole text stays in `CHANGELOG.md` and `.plans/pickup.md`.
 
 #### `/aapp-digest [idea]` (or `digest [idea]`, `/digest`) — Targeted Idea Ingestion
 Ingests a single idea from `pickup.md`, open issues, or raw text:
@@ -2083,6 +2083,8 @@ AAPP controls repository policies, attribution modes, hook behaviors, and worktr
 | `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
 | `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | The kit's issue counter (`aapp issue log` takes the next id when no tracker numbers the issue; seeded from both issue ledgers on first use). |
 | `aapp.statusOutputWidth` | integer (≥ 40) | `85` | `aapp status`, `aapp issue list` | The most characters on a line of the briefing (P-92). |
+| `aapp.statusItemsMax` | integer (≥ 1) | `5` | `aapp status` | How many Shipped entries and pickup ideas the briefing lists (P-88). |
+| `aapp.statusTextMax` | integer (≥ 1) | `220` | `aapp status` | The most characters of an entry's or idea's text the briefing shows, cut at a word with `…` (P-88). |
 | `aapp.issueSyncWindow` | minutes | `15` | `aapp status` | Least time between two syncs with a provider that lists issues, counted from the last attempt (P-74). |
 | `aapp.issueCacheMax` | integer | `200` | `aapp issue list`, `aapp status` | Open issues kept from a tracker's listing; issues the plans depend on are kept beyond it (P-74). |
 | `aapp.offlineEnabled` | boolean | `true` | Offline (P-75) | `false`: a failing provider refuses and nothing is staged in `.offline`. |
