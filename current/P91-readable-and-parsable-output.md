@@ -9,8 +9,9 @@
 * **Status:** ⚡ In Development
 * **Base:** `751b9da` (develop)
 * **Feature Branch:** feature/readable-and-parsable-output
+* **Worktree:** .workspace/P91 (feature/readable-and-parsable-output)
 * **Members:** P-92, P-94, P-93, P-88, P-96, P-100
-* **Commits:** none
+* **Commits:** `59e5399` (feature/readable-and-parsable-output)
 <!-- A group plan writes no code. `aapp start <group> [base <branch>]` cuts `feature/<slug>` from the parent
      branch; members are planned with `aapp draft <slug> group P-91` (or `aapp refine <id> group P-91`) and
      start from the feature branch. `aapp done <group>` refuses while a member is open, applies the sections
