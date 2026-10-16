@@ -76,36 +76,36 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/output_json_test.sh::test_status_json_parses` -> asserts `aapp status json` prints one object that a JSON parser accepts, and nothing else on stdout
-- [ ] `tests/output_json_test.sh::test_issue_list_json_parses` -> asserts `aapp issue list json` prints one object with `issues`, `shown` and `total`, honouring `<n>` and `all`
-- [ ] `tests/output_json_test.sh::test_fields_match_reference` -> asserts the keys of every object equal the tables of `docs/reference/08-output-json.md`
-- [ ] `tests/output_json_test.sh::test_issue_notes_count` -> asserts an issue's `notes` is the number of its description and notes, `0` with none, `null` where a provider keeps them, and no text of a note appears anywhere in either document
-- [ ] `tests/output_json_test.sh::test_absent_values_are_null` -> asserts an issue with no plan, queue, branch or tracker carries those fields as `null`, and empty lists as `[]`
-- [ ] `tests/output_json_test.sh::test_text_verbatim` -> asserts a symptom with backticks, quotes, a backslash and `…` comes back unchanged after parsing, uncut and unwrapped
-- [ ] `tests/output_json_test.sh::test_failure_prints_nothing` -> asserts a failing run exits non-zero with stdout empty
-- [ ] `tests/output_json_test.sh::test_pickup_objects` -> asserts each `pickup.items` object has `title`, `text` and `files`, `title` `null` for an entry without one, the text whole and verbatim, and `files` the existing `.plans/pickup/` paths the entry names
-- [ ] `tests/output_json_test.sh::test_same_items_as_terminal` -> asserts the ids in `issues.queue`, `plans.items` and `pickup.items` are those the terminal briefing lists, in the same order
-- [ ] `tests/output_json_test.sh::test_repository_remote` -> asserts `repository.remote` names the remote and its URL with credentials removed, and is `null` in a repository without a remote, in both documents
-- [ ] `tests/output_json_test.sh::test_local_path_setting` -> asserts `repository.root` is the checkout by default and `null` with `aapp.jsonLocalPath false`, in both documents, and that no other value holds the checkout's absolute path
-- [ ] `tests/output_json_test.sh::test_group_nests_members` -> asserts a group's `members` holds its member plans as objects, with `kind` `group` and `feature_branch`, and no member appears at the top level of `plans.items`
-- [ ] `tests/verbs/status.sh::test_short_json_refused` -> asserts `aapp status short json` exits 1 with usage on stderr
+- [x] `tests/output_json_test.sh::test_status_json_parses` -> asserts `aapp status json` prints one object that a JSON parser accepts, and nothing else on stdout
+- [x] `tests/output_json_test.sh::test_issue_list_json_parses` -> asserts `aapp issue list json` prints one object with `issues`, `shown` and `total`, honouring `<n>` and `all`
+- [x] `tests/output_json_test.sh::test_fields_match_reference` -> asserts the keys of every object equal the tables of `docs/reference/08-output-json.md`
+- [x] `tests/output_json_test.sh::test_issue_notes_count` -> asserts an issue's `notes` is the number of its description and notes, `0` with none, `null` where a provider keeps them, and no text of a note appears anywhere in either document
+- [x] `tests/output_json_test.sh::test_absent_values_are_null` -> asserts an issue with no plan, queue, branch or tracker carries those fields as `null`, and empty lists as `[]`
+- [x] `tests/output_json_test.sh::test_text_verbatim` -> asserts a symptom with backticks, quotes, a backslash and `…` comes back unchanged after parsing, uncut and unwrapped
+- [x] `tests/output_json_test.sh::test_failure_prints_nothing` -> asserts a failing run exits non-zero with stdout empty
+- [x] `tests/output_json_test.sh::test_pickup_objects` -> asserts each `pickup.items` object has `title`, `text` and `files`, `title` `null` for an entry without one, the text whole and verbatim, and `files` the existing `.plans/pickup/` paths the entry names
+- [x] `tests/output_json_test.sh::test_same_items_as_terminal` -> asserts the ids in `issues.queue`, `plans.items` and `pickup.items` are those the terminal briefing lists, in the same order
+- [x] `tests/output_json_test.sh::test_repository_remote` -> asserts `repository.remote` names the remote and its URL with credentials removed, and is `null` in a repository without a remote, in both documents
+- [x] `tests/output_json_test.sh::test_local_path_setting` -> asserts `repository.root` is the checkout by default and `null` with `aapp.jsonLocalPath false`, in both documents, and that no other value holds the checkout's absolute path
+- [x] `tests/output_json_test.sh::test_group_nests_members` -> asserts a group's `members` holds its member plans as objects, with `kind` `group` and `feature_branch`, and no member appears at the top level of `plans.items`
+- [x] `tests/verbs/status.sh::test_short_json_refused` -> asserts `aapp status short json` exits 1 with usage on stderr
 
 ### Phase 1: Foundation & Setup
-- [ ] Task 1.1: Write the tests of this section; commit them red.
+- [x] Task 1.1: Write the tests of this section; commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/output.sh`: the JSON writer; `repository` with `remote` and `root` (`aapp.jsonLocalPath`).
-- [ ] Task 2.2: `lib/aapp-lib.sh`: `issue_render_json`.
-- [ ] Task 2.3: `lib/cmd_status.sh`: `status_render_json`, the `json` token.
-- [ ] Task 2.4: `lib/cmd_issue.sh`: `issue list … json`.
-- [ ] Task 2.5: `docs/reference/08-output-json.md`; `lib/docs/verbs/status.md` and `issue.md`: the token and the tests.
+- [x] Task 2.1: `lib/output.sh`: the JSON writer; `repository` with `remote` and `root` (`aapp.jsonLocalPath`).
+- [x] Task 2.2: `lib/aapp-lib.sh`: `issue_render_json`.
+- [x] Task 2.3: `lib/cmd_status.sh`: `status_render_json`, the `json` token.
+- [x] Task 2.4: `lib/cmd_issue.sh`: `issue list … json`.
+- [x] Task 2.5: `docs/reference/08-output-json.md`; `lib/docs/verbs/status.md` and `issue.md`: the token and the tests.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
@@ -153,3 +153,4 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 * **2026-10-16:** `aapp.jsonLocalPath` leaves `repository.root` out (group P-91 Q4).
 * **2026-10-16:** Pickup objects: `title`, `text`, `files`.
 * **2026-10-16:** Test for the issue `notes` count.
+* **2026-10-16:** Implementation: the writer builds a compact document from typed pieces (`out_json_obj`, `out_json_list`, `out_json_str`…) and `out_json_pretty` indents it, in place of an open/field/close API; `json_escape` stays the one escaper. Notice texts lose the emoji the terminal gives them. `issue list json` sends the sync's messages to stderr, so its `notices` are `[]`. In `json` the terminal settings `aapp.statusOutputWidth` and `aapp.statusTextMax` are not read. `status_label` is the status as named, without its emoji. Suite green (1160). CODEMAP in group P-91.
