@@ -12,7 +12,7 @@
 * **Base:** `751b9da` (feature/readable-and-parsable-output)
 * **Worktree:** .workspace/P96 (plan/P96-pickup-entry-form)
 * **Group:** P-91
-* **Commits:** none
+* **Commits:** `646aeeb` (plan/P96-pickup-entry-form)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
