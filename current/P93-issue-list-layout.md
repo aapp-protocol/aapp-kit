@@ -88,6 +88,7 @@ This member, the third of group P-91, gives every issue view one layout from the
 - [ ] `tests/verbs/issue.queue.sh::test_status_pillar_same_layout` -> asserts the Issues pillar shows a queued issue in the same layout, its symptom cut at `aapp.statusTextMax` with `…`
 - [ ] `tests/verbs/offline.sh::test_offline_issue_same_layout` -> asserts an issue staged in `.offline` is shown in `issue list` and the Issues pillar in the same layout, with the `offline` fact
 - [ ] `tests/verbs/issue.branch.sh::test_list_branch_fact` -> asserts an issue that names a branch shows `(branch: <name>)` on its facts line, and this branch's issues come first
+- [ ] `tests/verbs/issue.sh::test_list_layout` -> asserts the P-92 fixture's `aapp issue list` in the new layout, symptoms whole, replacing `test_list_unchanged`
 - [ ] `tests/verbs/status.sh::test_issues_pillar_layout` -> asserts the P-92 fixture's Issues pillar in the new layout (facts line, symptom wrapped at 8 spaces), replacing `test_briefing_unchanged_for_pillars`
 - [ ] `tests/verbs/issue.tracker.sh::test_list_tracker_fact` -> asserts a provider's `tracker`, `url` and `release` appear on a `· ` line of their own between the facts line and the symptom
 
@@ -151,3 +152,4 @@ This member, the third of group P-91, gives every issue view one layout from the
 * **2026-10-16:** Drafted from #155 as the third member of group P-91.
 * **2026-10-16:** `<n> notes` fact on the facts line.
 * **2026-10-16:** `tests/verbs/status.sh` added: its P-92 comparison of the Issues pillar becomes `test_issues_pillar_layout`.
+* **2026-10-16:** `test_list_layout` in `tests/verbs/issue.sh` replaces P-92's `test_list_unchanged`.
