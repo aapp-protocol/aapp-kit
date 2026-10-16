@@ -74,6 +74,7 @@ One line per entry:
 
 ### 2.4 `aapp draft` from a pickup entry
 - A bare `aapp draft` takes the plan's title and slug from the entry's **title** only (`pickup_entry_split`); today it takes the whole line (`lib/cmd_plan.sh:1240`), giving titles and file names of hundreds of characters.
+- A slug made from a title is cut at its last `-` before 60 characters (the longest plan file name today is 60), so a high `aapp.pickupTitleMax` never makes a file name too long for the file system or for Windows paths. The plan's title keeps the whole title. A slug the user types is taken as given.
 - The draft commit subject `plan(draft): scaffold P-<N> <slug>` is fitted to `aapp.subjectMaxLen`: the slug is cut at its last `-` before the limit, the file name keeping the whole slug. The limit is read through `aapp_subject_max_len` (`lib/aapp-lib.sh`, new: the setting, or 72), the one reader the other subject builders move to under #99.
 - Whether the entry's text goes into the new plan is Question 2.
 
@@ -108,6 +109,7 @@ The text of each starts with the moved part, e.g. `- [ ] Cookbook recipe "Planni
 - [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_long_title` -> asserts a title one character over `aapp.pickupTitleMax` is refused with its length and the limit, one at the limit is accepted, under the default 72 and under a set value of 50
 - [ ] `tests/verbs/refine.sh::test_refine_pickup_title_max_invalid` -> asserts an `aapp.pickupTitleMax` that is not a whole number of at least 10 is refused naming the key, and nothing is committed
 - [ ] `tests/verbs/draft.sh::test_bare_draft_takes_title_only` -> asserts a bare `aapp draft` from `- [ ] Short Title: a long text …` names the plan `Short Title` with slug `short-title`, no word of the text in either
+- [ ] `tests/verbs/draft.sh::test_bare_draft_slug_bounded` -> asserts a 150-character title gives a slug of at most 60 characters cut at a `-`, and the plan's title line holds the whole title
 - [ ] `tests/verbs/draft.sh::test_draft_subject_fits_limit` -> asserts a draft whose slug would make `plan(draft): scaffold P-<N> <slug>` longer than `aapp.subjectMaxLen` commits with the subject cut at a `-` to fit, the file name keeping the whole slug
 - [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_empty_text` -> asserts `- [ ] Title:` with nothing after it is refused
 - [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_missing_file` -> asserts an entry naming a `.plans/pickup/` file that does not exist is refused naming the path, and one naming an existing file is accepted
@@ -116,7 +118,7 @@ The text of each starts with the moved part, e.g. `- [ ] Cookbook recipe "Planni
 
 ### Phase 1: Foundation & Setup
 - [ ] Task 1.1: Write the tests of this section; commit them red.
-- [ ] Task 1.2: Rewrite the four titles of §2.5 in `.plans/pickup.md` with `aapp refine pickup`.
+- [x] Task 1.2: Rewrite the four titles of §2.5 in `.plans/pickup.md` with `aapp refine pickup`.
 
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: `lib/aapp-lib.sh`: `pickup_entry_split`, `pickup_title_max`, `aapp_subject_max_len`.
@@ -167,7 +169,7 @@ The text of each starts with the moved part, e.g. `- [ ] Cookbook recipe "Planni
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — The four new titles (§2.5).** They are the developer's notes: confirm the titles, or give others, before Task 1.2.
+* [x] **Question 1 — The four new titles (§2.5). → RESOLVED (developer, 2026-10-16):** the titles of §2.5, committed to `pickup.md` (Task 1.2).
 * [ ] **Question 2 — The entry's text in the drafted plan.** A bare `aapp draft` takes the title (§2.4). The text can be written into the new plan's §1 Context, so the idea is not lost when the entry is digested, or be left out, the plan being written from scratch.
 
 ---
@@ -177,3 +179,4 @@ The text of each starts with the moved part, e.g. `- [ ] Cookbook recipe "Planni
 * **2026-10-16:** Drafted as the first member of group P-91.
 * **2026-10-16:** Title limit is `aapp.subjectMaxLen`, not a fixed 72.
 * **2026-10-16:** Title limit is its own setting, `aapp.pickupTitleMax` (72); bare `aapp draft` takes the title only and fits its subject.
+* **2026-10-16:** Q1 resolved, four titles rewritten; a slug made from a title is cut before 60 characters.
