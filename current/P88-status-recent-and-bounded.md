@@ -94,33 +94,33 @@ The helpers are group P-91's, in `lib/output.sh` (P-92): `out_cut`, `out_wrap`, 
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/status.sh::test_shipped_shows_latest_landed` -> asserts an entry committed last under `### Fixed`, below thirty `Added` entries, is the first line of the Shipped pillar
-- [ ] `tests/verbs/status.sh::test_shipped_newest_first_across_sections` -> asserts three entries committed in turn to `Added`, `Fixed`, `Changed` print in reverse order of their commits
-- [ ] `tests/verbs/status.sh::test_shipped_skips_removed_entry` -> asserts an entry later removed from the file is not printed, and a reworded one prints once, in its current wording
-- [ ] `tests/verbs/status.sh::test_shipped_fallback_without_history` -> asserts an uncommitted `CHANGELOG.md` prints its first entries under `[Unreleased]`, without a heading line
-- [ ] `tests/verbs/status.sh::test_shipped_points_to_changelog` -> asserts more than five entries end the pillar with a line naming `CHANGELOG.md`
-- [ ] `tests/verbs/status.sh::test_shipped_entry_wrapped` -> asserts a 300-character changelog entry is cut at `aapp.statusTextMax` with `…` and wrapped under its text, no line over `aapp.statusOutputWidth`
-- [ ] `tests/verbs/status.sh::test_shipped_record_fields` -> asserts the Shipped records carry section, text, plan or issue, commit and date, and empty commit and date from the fallback
-- [ ] `tests/verbs/status.sh::test_pickup_capped_with_more` -> asserts pickup queue keeps a cap of 5 ideas and prints `... and N more`
-- [ ] `tests/verbs/status.sh::test_pickup_bounded_and_wrapped` -> asserts a 900-character idea shows its title on the `- [ ] ` line and its text bounded to <= 220 chars, wrapped at 8 spaces under 85 columns
-- [ ] `tests/verbs/status.sh::test_pickup_long_title_wraps` -> asserts with `aapp.pickupTitleMax` 150 a 140-character title wraps at 8 spaces, no line over `aapp.statusOutputWidth`
-- [ ] `tests/verbs/status.sh::test_pickup_files_line` -> asserts an idea naming an existing `.plans/pickup/` file ends with a `files: <path>` line, and an idea without a title starts its text on the `- [ ] ` line
-- [ ] `tests/verbs/status.sh::test_status_limit_settings` -> asserts `aapp.statusItemsMax` and `aapp.statusTextMax` change the caps of Shipped and Pickup, and a value that is not a positive number is refused naming the key
+- [x] `tests/verbs/status.sh::test_shipped_shows_latest_landed` -> asserts an entry committed last under `### Fixed`, below thirty `Added` entries, is the first line of the Shipped pillar
+- [x] `tests/verbs/status.sh::test_shipped_newest_first_across_sections` -> asserts three entries committed in turn to `Added`, `Fixed`, `Changed` print in reverse order of their commits
+- [x] `tests/verbs/status.sh::test_shipped_skips_removed_entry` -> asserts an entry later removed from the file is not printed, and a reworded one prints once, in its current wording
+- [x] `tests/verbs/status.sh::test_shipped_fallback_without_history` -> asserts an uncommitted `CHANGELOG.md` prints its first entries under `[Unreleased]`, without a heading line
+- [x] `tests/verbs/status.sh::test_shipped_points_to_changelog` -> asserts more than five entries end the pillar with a line naming `CHANGELOG.md`
+- [x] `tests/verbs/status.sh::test_shipped_entry_wrapped` -> asserts a 300-character changelog entry is cut at `aapp.statusTextMax` with `…` and wrapped under its text, no line over `aapp.statusOutputWidth`
+- [x] `tests/verbs/status.sh::test_shipped_record_fields` -> asserts the Shipped records carry section, text, plan or issue, commit and date, and empty commit and date from the fallback
+- [x] `tests/verbs/status.sh::test_pickup_capped_with_more` -> asserts pickup queue keeps a cap of 5 ideas and prints `... and N more`
+- [x] `tests/verbs/status.sh::test_pickup_bounded_and_wrapped` -> asserts a 900-character idea shows its title on the `- [ ] ` line and its text bounded to <= 220 chars, wrapped at 8 spaces under 85 columns
+- [x] `tests/verbs/status.sh::test_pickup_long_title_wraps` -> asserts with `aapp.pickupTitleMax` 150 a 140-character title wraps at 8 spaces, no line over `aapp.statusOutputWidth`
+- [x] `tests/verbs/status.sh::test_pickup_files_line` -> asserts an idea naming an existing `.plans/pickup/` file ends with a `files: <path>` line, and an idea without a title starts its text on the `- [ ] ` line
+- [x] `tests/verbs/status.sh::test_status_limit_settings` -> asserts `aapp.statusItemsMax` and `aapp.statusTextMax` change the caps of Shipped and Pickup, and a value that is not a positive number is refused naming the key
 
 ### Phase 1: Foundation & Setup
-- [ ] Task 1.1: Write the tests of this section in `tests/verbs/status.sh`; commit them red.
+- [x] Task 1.1: Write the tests of this section in `tests/verbs/status.sh`; commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/cmd_status.sh`: the Shipped records from a bounded `git log -n 15`, with their fallback; rendered through `out_cut` and `out_wrap`.
-- [ ] Task 2.2: `lib/cmd_status.sh`: the Pickup pillar through `out_cut` and `out_wrap`, capped at `aapp.statusItemsMax` with `... and N more`.
-- [ ] Task 2.3: `lib/docs/verbs/status.md`: document the two pillars, `aapp.statusTextMax`, `aapp.statusItemsMax`, and contracts.
+- [x] Task 2.1: `lib/cmd_status.sh`: the Shipped records from a bounded `git log -n 15`, with their fallback; rendered through `out_cut` and `out_wrap`.
+- [x] Task 2.2: `lib/cmd_status.sh`: the Pickup pillar through `out_cut` and `out_wrap`, capped at `aapp.statusItemsMax` with `... and N more`.
+- [x] Task 2.3: `lib/docs/verbs/status.md`: document the two pillars, `aapp.statusTextMax`, `aapp.statusItemsMax`, and contracts.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
@@ -164,4 +164,5 @@ The helpers are group P-91's, in `lib/output.sh` (P-92): `out_cut`, `out_wrap`, 
 * **2026-10-16:** Member of group P-91: the group's settings (`aapp.statusOutputWidth`, `aapp.statusTextMax`, `aapp.statusItemsMax`) and `lib/output.sh` helpers; Shipped wraps like Pickup; Shipped records carry commit and date.
 * **2026-10-16:** Pickup ideas: title line, wrapped text, `files:` lines.
 * **2026-10-16:** A long title wraps at 8 spaces.
+* **2026-10-16:** Implementation: the readers `status_items_max` and `status_text_max` are in `lib/cmd_status.sh` (`lib/output.sh` is out of bounds); a value below 1 is refused naming the key. `more` counts the entries under `## [Unreleased]` not shown. P-92's `test_briefing_unchanged_for_pillars` now compares the Issues pillar only. CODEMAP in group P-91.
 
