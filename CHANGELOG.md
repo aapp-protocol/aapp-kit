@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status auto-sync (`P-30`): `aapp status` re-derives `state_matrix.md` before reading it, so the Roadmap line and Next Action footer report the real board instead of a stale cache.
 
 ### Changed
+- a JSON run that fails prints an error document; warnings and remarks of the run are in its `notices` (P-100) (`P-100`)
 - `aapp issue list` and the Issues pillar show each issue's facts on one line and its symptom wrapped below (P-93) (`P-93`)
 - `aapp status` shows recently landed changelog entries and wrapped pickup ideas (`P-88`)
 - `aapp status` collects each section into records; every line of the briefing keeps to `aapp.statusOutputWidth` (P-92) (`P-92`)

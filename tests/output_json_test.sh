@@ -57,6 +57,10 @@ buf="$(git rev-parse --git-common-dir)/aapp_paused"
 printf '{"reason": "Away", "timestamp": "2026-10-16T10:00:00Z", "snapshot": {"stashes": [{"worktree": "%s", "branch": "develop"}]}}\n' "$(pwd)" > "$buf"
 aapp status json > "$R/paused.json" 2>/dev/null
 rm -f "$buf"
+# A failing run, for the error document (P-100).
+git config aapp.statusItemsMax none
+aapp status json > "$R/error.json" 2> "$R/error.err"; erc=$?
+git config --unset aapp.statusItemsMax
 
 echo "== the documents =="
 if [ "$src" -eq 0 ] && parses "$R/status.json" && [ "$(jq_ "$R/status.json" 'd["command"]')" = '"status"' ] && \
@@ -103,7 +107,9 @@ for d, t, w in ((st, "status", "status"), (ls, "issue list", "issue list")):
     seen.update(("envelope", t))
     check("repository", d["repository"], w + ".repository")
     check("repository.remote", d["repository"]["remote"], w + ".repository.remote")
-    for n in d["notices"]: check("notices[]", n, w + ".notices[]")
+    check("notices", d["notices"], w + ".notices")
+    for lv in ("warning", "info"):
+        for n in d["notices"][lv]: check("notices.*[]", n, w + ".notices." + lv + "[]")
 def issue(i, w):
     check("issue", i, w); check("issue.queue", i["queue"], w + ".queue"); check("issue.tracker", i["tracker"], w + ".tracker")
 for i in ls["issues"]: issue(i, "issue list.issues[]")
@@ -119,11 +125,17 @@ def plan(p, w):
     for m in p["members"]: plan(m, w + ".members[]")
 for p in st["plans"]["items"]: plan(p, "plans.items[]")
 for x in st["pickup"]["items"]: check("status.pickup.items[]", x, "pickup.items[]")
+if len(sys.argv) > 4:
+    e = json.load(open(sys.argv[4], encoding="utf-8")); keys = list(e.keys())
+    if keys[:len(env)] != env: errors.append(f"error document: envelope {keys[:len(env)]} != {env}")
+    if keys[len(env):] != tables.get("error document"): errors.append(f"error document: {keys[len(env):]} != {tables.get('error document')}")
+    seen.add("error document"); check("error", e.get("error"), "error")
+    check("notices", e["notices"], "error.notices")
 unseen = set(tables) - seen - {"status.offline", "status.templates.drifted[]"}
 if unseen: errors.append(f"tables with no object in the fixture: {sorted(unseen)}")
 print("\n".join(errors)); sys.exit(1 if errors else 0)
 PY
-cout="$(python3 "$R/check.py" "$KIT/docs/reference/08-output-json.md" "$R/paused.json" "$R/list.json" 2>&1)"; crc=$?
+cout="$(python3 "$R/check.py" "$KIT/docs/reference/08-output-json.md" "$R/paused.json" "$R/list.json" "$R/error.json" 2>&1)"; crc=$?
 if [ "$crc" -eq 0 ]; then ok "test_fields_match_reference"; else bad "test_fields_match_reference" "$cout"; fi
 
 echo "== the values =="
@@ -209,15 +221,75 @@ else
   bad "test_same_items_as_terminal" "queue=[$tq|$jqq] plans=[$tp|$jqp] pickup=[$ti|$jqi]"
 fi
 
-# A run that fails prints nothing on stdout.
-git config aapp.statusItemsMax none
-out="$(aapp status json 2>/dev/null)"; frc=$?
-git config --unset aapp.statusItemsMax
-out2="$(aapp issue list sideways json 2>/dev/null)"; frc2=$?
-if [ "$frc" -ne 0 ] && [ -z "$out" ] && [ "$frc2" -ne 0 ] && [ -z "$out2" ]; then
-  ok "test_failure_prints_nothing"
+echo "== errors and warnings (P-100) =="
+# A run that fails prints the error document, and its message on stderr too.
+if [ "$erc" -ne 0 ] && parses "$R/error.json" && [ "$(jq_ "$R/error.json" '[d["command"], "error" in d, "overview" in d]')" = '["status", true, false]' ] && \
+   grep -qF 'aapp.statusItemsMax' "$R/error.err"; then
+  ok "test_failure_is_error_document"
 else
-  bad "test_failure_prints_nothing" "status=$frc [$out] list=$frc2 [$out2]"
+  bad "test_failure_is_error_document" "rc=$erc out=$(head -c 300 "$R/error.json") err=$(cat "$R/error.err")"
 fi
+
+# code <file> -> the error document's [code, aapp_config].
+code() { jq_ "$1" '[d["error"]["code"], d["error"]["aapp_config"]]'; }
+aapp issue list sideways json > "$R/e-usage.json" 2>/dev/null; ru=$?
+aapp status short json > "$R/e-usage2.json" 2>/dev/null; ru2=$?
+git init -q "$R/plain" && (cd "$R/plain" && aapp issue list json > "$R/e-failed.json" 2>/dev/null); rf=$?
+if [ "$ru" -ne 0 ] && [ "$(code "$R/e-usage.json")" = '["usage", null]' ] && [ "$ru2" -ne 0 ] && [ "$(code "$R/e-usage2.json")" = '["usage", null]' ] && \
+   [ "$(code "$R/error.json")" = '["invalid-setting", "aapp.statusItemsMax"]' ] && \
+   [ "$rf" -ne 0 ] && [ "$(code "$R/e-failed.json")" = '["failed", null]' ]; then
+  codes_ok=1
+else
+  codes_ok=0; codes_msg="usage=$(code "$R/e-usage.json")/$(code "$R/e-usage2.json") setting=$(code "$R/error.json") failed=$(code "$R/e-failed.json" 2>&1)"
+fi
+
+if [ "$(jq_ "$R/status.json" 'sorted(d["notices"].keys())')" = '["info", "warning"]' ] && \
+   [ "$(jq_ "$R/status.json" 'list(d["notices"].keys())')" = '["warning", "info"]' ] && \
+   [ "$(jq_ "$R/list.json" 'd["notices"]')" = '{"warning": [], "info": []}' ] && \
+   python3 -c 'import json,re,sys; d=json.load(open(sys.argv[1])); n=d["notices"]["warning"]+d["notices"]["info"]; sys.exit(0 if n and all(list(x)==["section","text"] and re.match(r"[\[A-Za-z0-9(#`.]", x["text"]) for x in n) else 1)' "$R/status.json"; then
+  ok "test_notices_grouped_by_level"
+else
+  bad "test_notices_grouped_by_level" "$(jq_ "$R/status.json" 'd["notices"]')"
+fi
+
+# The tracker: a provider that lists issues ($R/t/list), fails on list
+# ($R/t/fail.list), and is asked for the switch on its first listing.
+init_sandbox_project "$R/tr"
+cd "$R/tr" || exit 1
+git config aapp.offlineEnabled false; git config aapp.pluginTimeout 5
+{ printf '%s\n' '# Issues' '' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |'
+  printf '%s\n' '| #1 | `Low` | `CLI` | 2026-10-01 | `src/a.sh` | Defect one. |  | 🟡 `Incubated` |'
+} > .plans/ISSUES.md
+printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 🧱 Plan Blockers' '' '## 📋 Queued' > .plans/issues_road_map.md
+git -C .plans add -A >/dev/null 2>&1; git -C .plans commit -qm fixture --no-verify >/dev/null 2>&1
+mkdir -p "$R/t" .agents/skills/aapp-issue-tracker
+cat > .agents/skills/aapp-issue-tracker/run <<EOF
+#!/bin/sh
+cat > /dev/null
+step="\${AAPP_PLUGIN_STEP#issue.}"
+[ -f "$R/t/fail.\$step" ] && exit 3
+if [ "\$step" = "list" ]; then [ -f "$R/t/list" ] && cat "$R/t/list" > "\$AAPP_PLUGIN_LIST"; echo '{"status": "ok", "handled": "list"}'
+else echo '{"status": "ok"}'; fi
+EOF
+chmod +x .agents/skills/aapp-issue-tracker/run
+: > "$R/t/fail.list"
+aapp issue list json > "$R/sync.json" 2> "$R/sync.err"; rs=$?
+rm -f "$R/t/fail.list"
+if [ "$rs" -eq 0 ] && [ ! -s "$R/sync.err" ] && \
+   python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); w=d["notices"]["warning"]; sys.exit(0 if any(x["section"]=="issues" and "aapp-issue-tracker" in x["text"] for x in w) else 1)' "$R/sync.json"; then
+  ok "test_sync_warning_in_notices"
+else
+  bad "test_sync_warning_in_notices" "rc=$rs out=$(head -c 400 "$R/sync.json") err=$(cat "$R/sync.err")"
+fi
+
+# The first listing asks for the switch: a JSON run never waits for an answer.
+printf '%s\n' '{"id": "#1", "sev": "Low", "type": "CLI", "date": "2026-10-01", "location": "`src/a.sh`", "symptom": "Defect one.", "status": "open"}' > "$R/t/list"
+aapp issue list json > "$R/e-confirm.json" 2>/dev/null; rc1=$?
+if [ "$codes_ok" -eq 1 ] && [ "$rc1" -ne 0 ] && [ "$(code "$R/e-confirm.json")" = '["confirm-needed", null]' ]; then
+  ok "test_error_codes"
+else
+  bad "test_error_codes" "${codes_msg:-} confirm=$rc1 $(code "$R/e-confirm.json" 2>&1)"
+fi
+cd "$R/j" || exit 1
 
 print_test_summary "$PASS" "$FAIL"
