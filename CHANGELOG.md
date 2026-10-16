@@ -81,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- route -h and --help after verbs to help dispatcher (`#163`)
 - Action plugin help fallthrough, dispatcher AAPP_REPO_ROOT export, and sample plugin queue handling (`P-95`)
 - an empty work queue shows no issue in the status briefing (`#154`)
 - the manual names the git notes the squash at `aapp done` does not carry (`#151`)

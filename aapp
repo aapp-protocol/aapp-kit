@@ -110,14 +110,25 @@ shift || true
 
 # `aapp <verb> help` is `aapp help <verb>` (P-87): answered here, so no verb
 # takes the word as a slug, an id or a reason. Also routes action plugins (P-95).
-if [ "${1:-}" = "help" ] && [ "$#" -eq 1 ] && [ "$CMD" != "help" ]; then
-    CWD_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-    if grep -q "^$CMD$(printf '\t')" "$AAPP_LIB/verbs.tsv" 2>/dev/null || \
-       { [ -n "$CWD_GIT_ROOT" ] && [ -d "$CWD_GIT_ROOT/.agents/skills/$CMD" ]; }; then
-        source "$AAPP_LIB/cmd_help.sh" "$CMD"
-        exit 0
-    fi
-fi
+# While AAPP verbs strictly reject dash-flags, catching -h and --help here
+# routes to help before verbs consume them as positional data (e.g. commit messages).
+case "${1:-}" in
+    help|-h|--help)
+        HELP_FULL=""
+        if [ "$#" -eq 2 ] && [ "${2:-}" = "full" ]; then
+            HELP_FULL="full"
+        fi
+        if { [ "$#" -eq 1 ] || [ -n "$HELP_FULL" ]; } && \
+           [ "$CMD" != "help" ] && [ "$CMD" != "-h" ] && [ "$CMD" != "--help" ]; then
+            CWD_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+            if grep -q "^$CMD$(printf '\t')" "$AAPP_LIB/verbs.tsv" 2>/dev/null || \
+               { [ -n "$CWD_GIT_ROOT" ] && [ -d "$CWD_GIT_ROOT/.agents/skills/$CMD" ]; }; then
+                source "$AAPP_LIB/cmd_help.sh" "$CMD" ${HELP_FULL:+"$HELP_FULL"}
+                exit 0
+            fi
+        fi
+        ;;
+esac
 
 # ------------------------------------------------------------------------------
 # 2a. Repository Root Assertion (P-33)

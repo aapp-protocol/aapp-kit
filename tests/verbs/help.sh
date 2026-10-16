@@ -38,17 +38,26 @@ else
   bad "test_help_verb_full" "rc=$rc lines=$(printf '%s\n' "$out" | wc -l)"
 fi
 
-echo "== <verb> help =="
+echo "== <verb> help / -h / --help =="
 plans0="$(ls .plans/current | wc -l)"; head0="$(git -C .plans rev-parse HEAD)"
 errors=""
-for v in tdd draft issue; do
-  out="$(aapp "$v" help 2>&1)"; rc=$?
-  [ "$rc" -eq 0 ] && [ "$out" = "$(aapp help "$v" 2>&1)" ] || errors="$errors $v(rc=$rc)"
+for v in tdd draft issue commit; do
+  for flag in help -h --help; do
+    out="$(aapp "$v" "$flag" 2>&1)"; rc=$?
+    [ "$rc" -eq 0 ] && [ "$out" = "$(aapp help "$v" 2>&1)" ] || errors="$errors $v($flag,rc=$rc)"
+  done
 done
 if [ -z "$errors" ] && [ "$(ls .plans/current | wc -l)" = "$plans0" ] && [ "$(git -C .plans rev-parse HEAD)" = "$head0" ]; then
   ok "test_help_after_verb"
 else
   bad "test_help_after_verb" "errors=$errors plans=$(ls .plans/current | tr '\n' ' ')"
+fi
+
+out_full="$(aapp commit --help full 2>&1)"; rc_full=$?
+if [ "$rc_full" -eq 0 ] && [ "$out_full" = "$(cat "$contract")" ]; then
+  ok "test_help_flag_full"
+else
+  bad "test_help_flag_full" "rc=$rc_full"
 fi
 
 out="$(aapp pause help 2>&1)"; rc=$?

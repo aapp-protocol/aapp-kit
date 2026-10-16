@@ -4,7 +4,7 @@
 - no argument: the catalog of verbs, grouped by tier, from `lib/verbs.tsv`
 - `<verb>` (positional): a verb of the catalog; prints its synopsis and its arguments, from its contract in `lib/docs/verbs/`
 - `full` (bare token, after a verb): prints the verb's whole contract (refusals, effects, exit codes, tests)
-- `aapp <verb> help` is the same command as `aapp help <verb>`: the dispatcher answers it before the verb runs
+- `aapp <verb> help` is the same command as `aapp help <verb>`: the dispatcher answers it before the verb runs (convenience forms `-h` and `--help` route here as well, so verbs never consume them as positional data)
 - reads: `lib/verbs.tsv` and the contracts of the installed kit
 - reads config: none
 - reads env: none
@@ -20,7 +20,7 @@
 ## Effects (happy path)
 - `aapp help <verb>`: first line `aapp <verb> <arguments>` (the contract's first line), then the contract's `## Ingress` lines, then a last line naming `aapp help <verb> full`
 - a verb without a contract: one line, `aapp <verb> — <description>`
-- `aapp <verb> help`: the verb does not run; nothing is written, drafted or committed
+- `aapp <verb> help` (or `-h` / `--help`): the verb does not run; nothing is written, drafted or committed
 - writes nothing
 
 ## Exit
@@ -33,6 +33,7 @@ Run: `aapp test verb help`
 - `tests/verbs/help.sh::test_help_verb_is_short` -> `aapp help commit` prints the synopsis and the Ingress lines, and no `## Failure modes` or `## Tests`
 - `tests/verbs/help.sh::test_help_names_full` -> the short form's last line names `aapp help commit full`
 - `tests/verbs/help.sh::test_help_verb_full` -> `aapp help commit full` prints the whole contract
-- `tests/verbs/help.sh::test_help_after_verb` -> `aapp tdd help`, `aapp draft help` and `aapp issue help` print the verb's help, exit 0, and leave `.plans` without a new plan or commit
+- `tests/verbs/help.sh::test_help_flag_full` -> `aapp commit --help full` prints the whole contract
+- `tests/verbs/help.sh::test_help_after_verb` -> `aapp tdd help`, `aapp draft help`, `aapp commit -h` and `aapp issue --help` print the verb's help, exit 0, and leave `.plans` without a new plan or commit
 - `tests/verbs/help.sh::test_help_after_verb_without_contract` -> `aapp pause help` prints the verb's description and does not pause
 - `tests/verbs/help.sh::test_help_unknown_verb` -> `aapp help nosuch` exits 1 naming `aapp help`
