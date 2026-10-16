@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #147 | `Low` | `CLI` | 2026-10-13 | 2026-10-16 | `2c165e6` | [P-88](P88-status-recent-and-bounded.md) - Status Recent And Bounded |  |
 | #158 | `Low` | `DOCS` | 2026-10-16 | 2026-10-16 | `751b9da` | [P-95](P95-plugin-runtime-and-dx-fixes.md) - Plugin Runtime And Dx Fixes |  |
 | #157 | `Low` | `CLI` | 2026-10-16 | 2026-10-16 | `751b9da` | [P-95](P95-plugin-runtime-and-dx-fixes.md) - Plugin Runtime And Dx Fixes |  |
 | #156 | `Low` | `CLI` | 2026-10-16 | 2026-10-16 | `751b9da` | [P-95](P95-plugin-runtime-and-dx-fixes.md) - Plugin Runtime And Dx Fixes |  |
