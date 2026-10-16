@@ -44,7 +44,7 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 - **Width:** no line longer than `aapp.statusOutputWidth` characters (default `85`), counted in characters, not bytes (`…`, emoji, accented letters). It governs the briefing and `aapp issue list`, which shows the Issues pillar's layout: one width keeps the two identical.
 - **Items** start at 2 spaces. A continuation line of an item's text aligns under the first character of that text.
 - **Issues:** a facts line, then the symptom wrapped at 8 spaces:
-  `#<id>  <Severity>  <Status>  logged <date>[  queued <date> (<Level>)][  [<plan>]][  (branch: <name>)][  offline]`
+  `#<id>  <Severity>  <Status>  logged <date>[  queued <date> (<Level>)][  [<plan>]][  (branch: <name>)][  offline][  <n> notes]`
   Facts that are absent are left out, never padded. No blank line between issues: each facts line, starting with `#`, marks the next issue.
 - **Pickup ideas:** the title on the item's line, the text wrapped at 8 spaces below it, then one `files: <path>` line at 8 spaces per file:
   `  - [ ] <title>` / `        <text>` / `        files: .plans/pickup/<file>`. An idea with no title shows its text on the item's line, wrapped at 8 spaces.
@@ -89,6 +89,7 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 | `branch` | the branch its fix lands on, or `null` (the development branch) |
 | `offline` | `true` when staged in `.offline` |
 | `tracker` | `null`, or `{ "name", "url", "release" }` as the provider named them |
+| `notes` | how many entries (the description and each note) the issue has: `0` when none; `null` when a provider keeps them, as the kit cannot count them. The count only: no text of a description or note is ever in any output but the hand-over (`issue fix`, `issue list note <num>`) |
 
 **`aapp issue list json`:** envelope, then `issues` (the issues listed, in the order listed), `shown`, `total`.
 
@@ -181,3 +182,4 @@ The Issues records are one function for both commands, beside the ledger functio
 * **2026-10-16:** Q4 resolved: `aapp.jsonLocalPath`; the JSON holds no other local path.
 * **2026-10-16:** Pickup ideas carry `title`, `text` and `files`; the briefing shows the title on its own line.
 * **2026-10-16:** P-96 (pickup entry form) joins, first in order.
+* **2026-10-16:** Issues carry a `notes` count: a facts-line hint and a JSON field, never the text.
