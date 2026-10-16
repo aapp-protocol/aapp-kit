@@ -59,6 +59,7 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 
 - `ledger_issue_records [<n>…]` (`lib/aapp-lib.sh`) -> `id`, `severity`, `type`, `status`, `logged`, `location`, `symptom`, `plan`, `blocks`, `queue_section`, `queue_level`, `queued`, `branch`, `offline`, `tracker_name`, `tracker_url`, `tracker_release`. One record per active issue (offline ones included, `offline` = `1`), in ledger order, or the ids given, in that order. `ledger_issue_lines` becomes a renderer over these records, printing what it prints today.
 - In `lib/cmd_status.sh`, one function per section: `status_records_overview`, `_templates`, `_pause`, `_shipped`, `_issues`, `_plans`, `_pickup`, `_adoption`, `_offline`, `_next`; and `status_notices` -> `level`, `section`, `text` for every remark a section makes today (sync output, unblocking, matrix re-derived, gone branch, drift).
+- `status_records_pickup` -> `title`, `text`, `files` per unworked entry, split as group P-91 §2.5 says (first `: ` outside backticks; the existing files under `.plans/pickup/` the text names). A named file that is missing gives a `warning` notice. The terminal still prints the entry as today until P-88.
 - Records are collected once per run, before anything is printed; side effects (sync, unblock, matrix) run where they run today, and their output becomes notices.
 
 ### 2.3 The terminal renderer
@@ -87,6 +88,7 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 - [ ] `tests/output_test.sh::test_width_setting` -> asserts `aapp.statusOutputWidth` sets the width and a value below 40 or not a number is refused naming the key
 - [ ] `tests/verbs/status.sh::test_briefing_unchanged_for_pillars` -> asserts Shipped, Issues and Pickup of a fixture's briefing are byte-identical to the briefing before this member
 - [ ] `tests/verbs/status.sh::test_briefing_lines_within_width` -> asserts with a long plan worktree path, a long notice and a 60-column width no frame, plan, notice or next-action line exceeds 60 characters
+- [ ] `tests/verbs/status.sh::test_pickup_records` -> asserts entries split into title and text at the first `: ` outside backticks, an entry without one has an empty title, `files` holds the named `.plans/pickup/` files that exist, and a missing one gives a warning notice
 - [ ] `tests/issue_ledger_test.sh::test_issue_records_fields` -> asserts `ledger_issue_records` gives every field of P-91 §2.5 for a queued, a planned, a blocking, a branched and an offline issue
 - [ ] `tests/verbs/issue.sh::test_list_unchanged` -> asserts `aapp issue list` prints what it printed before this member
 
@@ -148,3 +150,4 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted as the first member of group P-91.
+* **2026-10-16:** Pickup records: title, text, files.
