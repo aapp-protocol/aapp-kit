@@ -52,6 +52,58 @@ if [ -n "${1:-}" ]; then
         fi
         exit 0
     done < "$VERBS_TSV"
+
+    # Fallback: Action plugin or skill discovery in .agents/skills/$HELP_VERB (P-95)
+    HELP_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -n "$HELP_GIT_ROOT" ] && [ -d "$HELP_GIT_ROOT/.agents/skills/$HELP_VERB" ]; then
+        HELP_PLUGIN_DIR="$HELP_GIT_ROOT/.agents/skills/$HELP_VERB"
+        HELP_CANDIDATE=""
+        if command -v resolve_plugin_entrypoint >/dev/null 2>&1; then
+            HELP_CANDIDATE="$(resolve_plugin_entrypoint "$HELP_PLUGIN_DIR" "$HELP_VERB" || true)"
+        elif [ -f "${AAPP_LIB:-$AAPP_SCRIPT_DIR/lib}/hook_dispatcher.sh" ]; then
+            # shellcheck source=/dev/null
+            source "${AAPP_LIB:-$AAPP_SCRIPT_DIR/lib}/hook_dispatcher.sh"
+            HELP_CANDIDATE="$(resolve_plugin_entrypoint "$HELP_PLUGIN_DIR" "$HELP_VERB" || true)"
+        fi
+
+        if [ "$HELP_FULL" = "full" ] && [ -f "$HELP_PLUGIN_DIR/SKILL.md" ]; then
+            cat "$HELP_PLUGIN_DIR/SKILL.md"
+            exit 0
+        fi
+
+        # Try executable help first
+        if [ -n "$HELP_CANDIDATE" ] && [ -x "$HELP_CANDIDATE" ]; then
+            PLUGIN_HELP_OUT="$("$HELP_CANDIDATE" --help 2>&1 || "$HELP_CANDIDATE" help 2>&1 || true)"
+            if [ -n "$PLUGIN_HELP_OUT" ]; then
+                printf "%s\n" "$PLUGIN_HELP_OUT"
+                if [ -f "$HELP_PLUGIN_DIR/SKILL.md" ]; then
+                    echo ""
+                    echo "Full skill documentation: aapp help $HELP_VERB full"
+                fi
+                exit 0
+            fi
+        fi
+
+        # Fallback to SKILL.md metadata if present
+        if [ -f "$HELP_PLUGIN_DIR/SKILL.md" ]; then
+            SKILL_DESC="$(sed -nE 's/^description: *(.*)/\1/p' "$HELP_PLUGIN_DIR/SKILL.md" | head -n 1)"
+            if [ -n "$SKILL_DESC" ]; then
+                echo "aapp $HELP_VERB — $SKILL_DESC"
+            else
+                SKILL_NAME="$(sed -nE 's/^# *(.*)/\1/p' "$HELP_PLUGIN_DIR/SKILL.md" | head -n 1)"
+                echo "aapp $HELP_VERB — ${SKILL_NAME:-Action plugin $HELP_VERB}"
+            fi
+            echo ""
+            echo "Full skill documentation: aapp help $HELP_VERB full"
+            exit 0
+        fi
+
+        if [ -n "$HELP_CANDIDATE" ] && [ -x "$HELP_CANDIDATE" ]; then
+            echo "aapp $HELP_VERB — Custom action plugin ($HELP_CANDIDATE)"
+            exit 0
+        fi
+    fi
+
     echo "❌ Unknown command: '$HELP_VERB'. Run 'aapp help' for the catalog." >&2
     exit 1
 fi

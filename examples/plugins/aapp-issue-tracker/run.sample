@@ -81,6 +81,16 @@ case "${AAPP_PLUGIN_STEP:-}" in
         awk -F'\t' -v OFS='\t' -v id="$id" '$1 == id { $2 = "closed" } { print }' "$store" > "$tmp" && mv "$tmp" "$store"
         echo '{"status": "ok"}'
         ;;
+    issue.queue)
+        tmp="$store.tmp.$$"
+        awk -F'\t' -v OFS='\t' -v id="$id" '$1 == id { $2 = "queued" } { print }' "$store" > "$tmp" && mv "$tmp" "$store"
+        echo '{"status": "ok", "message": "sample tracker marked issue queued"}'
+        ;;
+    issue.unqueue)
+        tmp="$store.tmp.$$"
+        awk -F'\t' -v OFS='\t' -v id="$id" '$1 == id { $2 = "open" } { print }' "$store" > "$tmp" && mv "$tmp" "$store"
+        echo '{"status": "ok", "message": "sample tracker marked issue unqueued"}'
+        ;;
     issue.list)
         if [ "${AAPP_SAMPLE_TRACKER_LISTS:-0}" != "1" ]; then echo '{"status": "declined"}'; exit 0; fi
         awk -F'\t' '{ printf "{\"id\": \"%s\", \"status\": \"%s\", \"sev\": \"%s\", \"type\": \"%s\", \"date\": \"%s\", \"location\": \"%s\", \"symptom\": \"%s\"}\n", $1, $2, $3, $4, $5, $6, $7 }' "$store" > "${AAPP_PLUGIN_LIST:-/dev/null}"

@@ -189,4 +189,26 @@ else
   bad "test_reference_matches_code" "docs/reference/06, 07 or lib/plugin_do.tsv not written"
 fi
 
+echo "== sample issue tracker queue events =="
+SAMPLE_RUN="$KIT/examples/plugins/aapp-issue-tracker/run.sample"
+if [ -f "$SAMPLE_RUN" ]; then
+  SAMPLE_STORE="$R/sample_tracker.tsv"
+  export AAPP_SAMPLE_TRACKER_FILE="$SAMPLE_STORE"
+  # 1. issue.log
+  out="$(export AAPP_PLUGIN_STEP=issue.log; printf '{"data":{"sev":"Low","type":"CLI","date":"2026-10-16","location":"foo.sh","symptom":"bar"}}\n' | sh "$SAMPLE_RUN")"
+  id="$(echo "$out" | grep -oE '"id": *"[^"]+"' | cut -d'"' -f4)"
+  # 2. issue.queue
+  q_out="$(export AAPP_PLUGIN_STEP=issue.queue; printf '{"data":{"id":"%s"}}\n' "$id" | sh "$SAMPLE_RUN")"
+  is_queued="$(grep "^$id" "$SAMPLE_STORE" | cut -f2)"
+  # 3. issue.unqueue
+  uq_out="$(export AAPP_PLUGIN_STEP=issue.unqueue; printf '{"data":{"id":"%s"}}\n' "$id" | sh "$SAMPLE_RUN")"
+  is_unqueued="$(grep "^$id" "$SAMPLE_STORE" | cut -f2)"
+  if [ "$is_queued" = "queued" ] && [ "$is_unqueued" = "open" ] && \
+     echo "$q_out" | grep -q '"status": *"ok"' && echo "$uq_out" | grep -q '"status": *"ok"'; then
+    ok "test_sample_issue_tracker_queue_events"
+  else
+    bad "test_sample_issue_tracker_queue_events" "q=$is_queued uq=$is_unqueued q_out=$q_out uq_out=$uq_out"
+  fi
+fi
+
 print_test_summary "$PASS" "$FAIL"

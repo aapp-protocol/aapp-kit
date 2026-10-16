@@ -109,11 +109,14 @@ CMD="${1:-help}"
 shift || true
 
 # `aapp <verb> help` is `aapp help <verb>` (P-87): answered here, so no verb
-# takes the word as a slug, an id or a reason.
-if [ "${1:-}" = "help" ] && [ "$#" -eq 1 ] && [ "$CMD" != "help" ] && \
-   grep -q "^$CMD$(printf '\t')" "$AAPP_LIB/verbs.tsv" 2>/dev/null; then
-    source "$AAPP_LIB/cmd_help.sh" "$CMD"
-    exit 0
+# takes the word as a slug, an id or a reason. Also routes action plugins (P-95).
+if [ "${1:-}" = "help" ] && [ "$#" -eq 1 ] && [ "$CMD" != "help" ]; then
+    CWD_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if grep -q "^$CMD$(printf '\t')" "$AAPP_LIB/verbs.tsv" 2>/dev/null || \
+       { [ -n "$CWD_GIT_ROOT" ] && [ -d "$CWD_GIT_ROOT/.agents/skills/$CMD" ]; }; then
+        source "$AAPP_LIB/cmd_help.sh" "$CMD"
+        exit 0
+    fi
 fi
 
 # ------------------------------------------------------------------------------
@@ -133,7 +136,8 @@ case "$CMD" in
             echo "❌ Error: 'aapp $CMD' must be run inside a Git repository." >&2
             exit 1
         fi
-        export REPO_ROOT
+        AAPP_REPO_ROOT="$REPO_ROOT"
+        export REPO_ROOT AAPP_REPO_ROOT
         ;;
 esac
 
@@ -241,6 +245,8 @@ case "$CMD" in
                 CANDIDATE="$(resolve_plugin_entrypoint "$PLUGIN_DIR" "$CMD" || true)"
             fi
             if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then
+                export AAPP_REPO_ROOT="$CWD_GIT_ROOT"
+                export REPO_ROOT="$CWD_GIT_ROOT"
                 exec "$CANDIDATE" "$@"
             fi
         fi

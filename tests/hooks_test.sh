@@ -348,10 +348,22 @@ report "aapp hooks inspects registered hooks and audits SHA256 integrity" "PASS"
 mkdir -p "$PROJ_DIR/.agents/skills/tool-bin"
 cat << 'EOF' > "$PROJ_DIR/.agents/skills/tool-bin/run"
 #!/bin/sh
-echo "EXEC_TOOL_BIN: args=$*"
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "help" ]; then
+  echo "Usage: aapp tool-bin [options]"
+  exit 0
+fi
+echo "EXEC_TOOL_BIN: args=$* root=${AAPP_REPO_ROOT:-missing}"
 exit 0
 EOF
 chmod +x "$PROJ_DIR/.agents/skills/tool-bin/run"
+cat << 'EOF' > "$PROJ_DIR/.agents/skills/tool-bin/SKILL.md"
+---
+name: tool-bin
+description: Binary execution tool for unit tests.
+---
+# Tool Bin
+Full documentation for tool-bin.
+EOF
 
 # 2. Arbitrary extension (.py): .agents/skills/tool-py/scripts/tool-py.py
 mkdir -p "$PROJ_DIR/.agents/skills/tool-py/scripts"
@@ -375,12 +387,40 @@ report "aapp plugins discovers extensionless and polyglot action plugins" "PASS"
 # ------------------------------------------------------------------------------
 # Execute extensionless plugin: aapp tool-bin foo bar
 fallthrough_bin_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" tool-bin foo bar 2>&1)"
-if echo "$fallthrough_bin_out" | grep -q "EXEC_TOOL_BIN: args=foo bar"; then
+if echo "$fallthrough_bin_out" | grep -q "EXEC_TOOL_BIN: args=foo bar root=$PROJ_DIR"; then
   got="PASS"
 else
   got="FAIL"
 fi
-report "aapp <plugin> executes extensionless action plugin transparently" "PASS" "$got" "$fallthrough_bin_out"
+report "aapp <plugin> executes extensionless action plugin transparently with AAPP_REPO_ROOT" "PASS" "$got" "$fallthrough_bin_out"
+
+# aapp help <plugin> executes action plugin help fallthrough
+help_plugin_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" help tool-bin 2>&1)"
+if echo "$help_plugin_out" | grep -q "Usage: aapp tool-bin \[options\]" && \
+   echo "$help_plugin_out" | grep -q "Full skill documentation: aapp help tool-bin full"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp help <plugin> provides action plugin help fallthrough" "PASS" "$got" "$help_plugin_out"
+
+# aapp <plugin> help executes action plugin help fallthrough
+plugin_help_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" tool-bin help 2>&1)"
+if echo "$plugin_help_out" | grep -q "Usage: aapp tool-bin \[options\]"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp <plugin> help routes to action plugin help fallthrough" "PASS" "$got" "$plugin_help_out"
+
+# aapp help <plugin> full prints SKILL.md
+help_full_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" help tool-bin full 2>&1)"
+if echo "$help_full_out" | grep -q "Full documentation for tool-bin"; then
+  got="PASS"
+else
+  got="FAIL"
+fi
+report "aapp help <plugin> full renders complete SKILL.md documentation" "PASS" "$got" "$help_full_out"
 
 # Execute arbitrary extension plugin: aapp tool-py alpha beta
 fallthrough_py_out="$(cd "$PROJ_DIR" && "$KIT_DIR/aapp" tool-py alpha beta 2>&1)"
