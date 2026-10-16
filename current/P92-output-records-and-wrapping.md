@@ -2,7 +2,7 @@
 * **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-92
-* **Changelog:** Changed: `aapp status` collects each section into records; every line of the briefing keeps to `aapp.outputWidth` (P-92)
+* **Changelog:** Changed: `aapp status` collects each section into records; every line of the briefing keeps to `aapp.statusOutputWidth` (P-92)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -42,14 +42,14 @@
 ## 1. Context & Architectural Goal
 `lib/cmd_status.sh` prints each section as it computes it, so nothing it knows can be printed another way, and `aapp issue list` builds its line in `ledger_issue_lines` with the layout baked in. This member lays the foundation of group P-91 (§2.2): every section is collected into records, `lib/output.sh` provides width, wrapping and cutting, and a terminal renderer prints the records.
 
-What a person sees changes only where a line is too wide: the frame, the Plans pillar, the notices, the offline block and the next action keep to `aapp.outputWidth`. Shipped, Issues and Pickup print as today; P-88 and P-93 restyle them, P-94 adds JSON.
+What a person sees changes only where a line is too wide: the frame, the Plans pillar, the notices, the offline block and the next action keep to `aapp.statusOutputWidth`. Shipped, Issues and Pickup print as today; P-88 and P-93 restyle them, P-94 adds JSON.
 
 ---
 
 ## 2. Technical Blueprint
 
 ### 2.1 `lib/output.sh` (new)
-- `out_width` -> `aapp.outputWidth`, default `85`; a value that is not a number of at least `40` is refused with a message naming the key.
+- `out_width` -> `aapp.statusOutputWidth`, default `85`; a value that is not a number of at least `40` is refused with a message naming the key.
 - `out_wrap <first-indent> <hang-indent>` -> stdin wrapped: the first line indented by `<first-indent>` spaces, continuation lines by `<hang-indent>`, no line longer than `out_width`, broken at spaces. A word longer than the room left stands on its own line, uncut. Width is counted in characters: under a UTF-8 locale where available, otherwise by counting UTF-8 lead bytes, so `…`, emoji and accented letters count one each.
 - `out_cut <limit>` -> stdin cut at the last space before `<limit>` characters, ending in `…`; shorter text is unchanged.
 - Sourced by `lib/cmd_status.sh` and `lib/cmd_issue.sh`; the hooks never load it.
@@ -84,7 +84,7 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 - [ ] `tests/output_test.sh::test_wrap_counts_characters` -> asserts a line of `…`, emoji and accented letters is measured in characters, not bytes
 - [ ] `tests/output_test.sh::test_wrap_long_word_uncut` -> asserts a word longer than the width stands on its own line, whole
 - [ ] `tests/output_test.sh::test_cut_at_word` -> asserts `out_cut 220` cuts at the last space before 220 characters and ends in `…`, and leaves shorter text unchanged
-- [ ] `tests/output_test.sh::test_width_setting` -> asserts `aapp.outputWidth` sets the width and a value below 40 or not a number is refused naming the key
+- [ ] `tests/output_test.sh::test_width_setting` -> asserts `aapp.statusOutputWidth` sets the width and a value below 40 or not a number is refused naming the key
 - [ ] `tests/verbs/status.sh::test_briefing_unchanged_for_pillars` -> asserts Shipped, Issues and Pickup of a fixture's briefing are byte-identical to the briefing before this member
 - [ ] `tests/verbs/status.sh::test_briefing_lines_within_width` -> asserts with a long plan worktree path, a long notice and a 60-column width no frame, plan, notice or next-action line exceeds 60 characters
 - [ ] `tests/issue_ledger_test.sh::test_issue_records_fields` -> asserts `ledger_issue_records` gives every field of P-91 §2.5 for a queued, a planned, a blocking, a branched and an offline issue
@@ -97,7 +97,7 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 - [ ] Task 2.1: `lib/output.sh`: `out_width`, `out_wrap`, `out_cut`.
 - [ ] Task 2.2: `lib/aapp-lib.sh`: `ledger_issue_records`; `ledger_issue_lines` renders them.
 - [ ] Task 2.3: `lib/cmd_status.sh`: the section records and notices, collected before printing; `status_render_terminal`.
-- [ ] Task 2.4: `lib/docs/verbs/status.md` and `lib/docs/verbs/issue.md`: `aapp.outputWidth`, the width rule, the new tests.
+- [ ] Task 2.4: `lib/docs/verbs/status.md` and `lib/docs/verbs/issue.md`: `aapp.statusOutputWidth`, the width rule, the new tests.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -121,8 +121,8 @@ Tab-separated lines, one per item, fields in the order of group P-91 §2.5; an a
 - [ ] `lib/cmd_issue.sh` -> sources `lib/output.sh`.
 - [ ] `lib/docs/verbs/status.md` -> the width rule and the new tests.
 - [ ] `lib/docs/verbs/issue.md` -> the records and the new tests.
-- [ ] `MANUAL.md` -> `aapp.outputWidth`.
-- [ ] `CHEATSHEET.md` -> the `aapp.outputWidth` row.
+- [ ] `MANUAL.md` -> `aapp.statusOutputWidth`.
+- [ ] `CHEATSHEET.md` -> the `aapp.statusOutputWidth` row.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
