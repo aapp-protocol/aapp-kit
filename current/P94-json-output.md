@@ -78,6 +78,7 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 - [ ] `tests/output_json_test.sh::test_status_json_parses` -> asserts `aapp status json` prints one object that a JSON parser accepts, and nothing else on stdout
 - [ ] `tests/output_json_test.sh::test_issue_list_json_parses` -> asserts `aapp issue list json` prints one object with `issues`, `shown` and `total`, honouring `<n>` and `all`
 - [ ] `tests/output_json_test.sh::test_fields_match_reference` -> asserts the keys of every object equal the tables of `docs/reference/08-output-json.md`
+- [ ] `tests/output_json_test.sh::test_issue_notes_count` -> asserts an issue's `notes` is the number of its description and notes, `0` with none, `null` where a provider keeps them, and no text of a note appears anywhere in either document
 - [ ] `tests/output_json_test.sh::test_absent_values_are_null` -> asserts an issue with no plan, queue, branch or tracker carries those fields as `null`, and empty lists as `[]`
 - [ ] `tests/output_json_test.sh::test_text_verbatim` -> asserts a symptom with backticks, quotes, a backslash and `…` comes back unchanged after parsing, uncut and unwrapped
 - [ ] `tests/output_json_test.sh::test_failure_prints_nothing` -> asserts a failing run exits non-zero with stdout empty
@@ -149,3 +150,4 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 * **2026-10-16:** Tests for `repository.remote` and nested group members.
 * **2026-10-16:** `aapp.jsonLocalPath` leaves `repository.root` out (group P-91 Q4).
 * **2026-10-16:** Pickup objects: `title`, `text`, `files`.
+* **2026-10-16:** Test for the issue `notes` count.
