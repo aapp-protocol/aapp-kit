@@ -68,7 +68,7 @@ git log -n 15 --first-parent -m -p --unified=0 -- <changelog>     # added lines 
 ### 2.2 Pickup: bounded ideas with hanging indent and cap
 
 - Up to `aapp.statusItemsMax` ideas (default 5), followed by `  ... and N more (see .plans/pickup.md)`.
-- Each idea from its record (P-92: `title`, `text`, `files`), laid out as group P-91 §2.3 says: `  - [ ] <title>`, then the text cut with `out_cut` at `aapp.statusTextMax` (default 220) and wrapped with `out_wrap 8 8`, then `        files: <path>` per file; all within `aapp.statusOutputWidth`. An idea with no title starts its text on the `- [ ] ` line, wrapped at 8 spaces.
+- Each idea from its record (P-92: `title`, `text`, `files`), laid out as group P-91 §2.3 says: `  - [ ] <title>`, then the text cut with `out_cut` at `aapp.statusTextMax` (default 220) and wrapped with `out_wrap 8 8`, then `        files: <path>` per file; all within `aapp.statusOutputWidth`. An idea with no title starts its text on the `- [ ] ` line, wrapped at 8 spaces. A title wider than the line wraps with `out_wrap 2 8`.
 - Full unworked text remains in `.plans/pickup.md`; `/aapp-digest <idea>` reads it there.
 
 ### 2.3 Formatting helpers
@@ -102,6 +102,7 @@ The helpers are group P-91's, in `lib/output.sh` (P-92): `out_cut`, `out_wrap`, 
 - [ ] `tests/verbs/status.sh::test_shipped_record_fields` -> asserts the Shipped records carry section, text, plan or issue, commit and date, and empty commit and date from the fallback
 - [ ] `tests/verbs/status.sh::test_pickup_capped_with_more` -> asserts pickup queue keeps a cap of 5 ideas and prints `... and N more`
 - [ ] `tests/verbs/status.sh::test_pickup_bounded_and_wrapped` -> asserts a 900-character idea shows its title on the `- [ ] ` line and its text bounded to <= 220 chars, wrapped at 8 spaces under 85 columns
+- [ ] `tests/verbs/status.sh::test_pickup_long_title_wraps` -> asserts with `aapp.pickupTitleMax` 150 a 140-character title wraps at 8 spaces, no line over `aapp.statusOutputWidth`
 - [ ] `tests/verbs/status.sh::test_pickup_files_line` -> asserts an idea naming an existing `.plans/pickup/` file ends with a `files: <path>` line, and an idea without a title starts its text on the `- [ ] ` line
 - [ ] `tests/verbs/status.sh::test_status_limit_settings` -> asserts `aapp.statusItemsMax` and `aapp.statusTextMax` change the caps of Shipped and Pickup, and a value that is not a positive number is refused naming the key
 
@@ -160,4 +161,5 @@ The helpers are group P-91's, in `lib/output.sh` (P-92): `out_cut`, `out_wrap`, 
 * **2026-10-15:** Refined blueprint: bounded git log history (-n 15) for Shipped; bounded Pickup to 220 chars with 8-space hanging indent line wrapping and 5-idea cap; resolved open questions.
 * **2026-10-16:** Member of group P-91: the group's settings (`aapp.statusOutputWidth`, `aapp.statusTextMax`, `aapp.statusItemsMax`) and `lib/output.sh` helpers; Shipped wraps like Pickup; Shipped records carry commit and date.
 * **2026-10-16:** Pickup ideas: title line, wrapped text, `files:` lines.
+* **2026-10-16:** A long title wraps at 8 spaces.
 
