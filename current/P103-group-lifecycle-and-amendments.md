@@ -1,7 +1,7 @@
 # 🧩 Group Plan P-103: Group Lifecycle And Amendments
 * **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
 * **Plan ID:** P-103
-* **Changelog:** Added: Group Lifecycle And Amendments
+* **Changelog:** Added: Group Plan P-103 coordinating in-flight group amendments and clean completion lifecycle (P-103)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
@@ -19,16 +19,31 @@
 ---
 
 ## 1. Goal
-*What the group delivers as a whole, and the merge criterion (by default: every member archived and the pre-done gate green on the feature branch).*
+Provide end-to-end resilience and rigorous lifecycle governance for Group Plans across both execution phases:
+1. **In-Flight Phase (P-101)**: Provide a dedicated amendments member for the group to safely accommodate missing files, unexpected cross-cutting dependencies, and small adjustments discovered during member implementation, without breaking frozen Blast Radii or requiring manual unfreezes.
+2. **Completion & Finalization Phase (P-102)**: Reorder `aapp done` for group plans so that pre-done test gates execute *first* against clean committed code before any umbrella doc commits are made, with `.agents/CODEMAP.md` committed atomically and worktree cleanup executed strictly as the final operation.
+
+---
 
 ## 2. Shared Decisions
-*Decisions every member follows: interfaces, naming, data formats, order constraints.*
+- **Feature Branch**: All members collaborate on `feature/group-lifecycle-and-amendments` cut from `develop`.
+- **Member Synergy**:
+  - P-101 introduces the protocol and mechanisms for in-flight requests, preventing agents from getting trapped by locked member boundaries.
+  - P-102 guarantees that when all members finish, the group's integration into `develop` leaves no premature doc commits if tests fail, and preserves logical terminal output order.
+- **Fail-Closed Contract**: Both members preserve fail-closed invariants: zero un-named fallbacks, strict validation before mutations, and clean breaks.
+
+---
 
 ## 3. Members & Order
-*Which members can run in parallel and which wait for others. Membership itself is the `* **Members:**` line, written by the verbs.*
+- **Member 1: P-102 (`P102-group-done-lifecycle-order.md`)**:
+  - Reorders `cmd_done`, `_group_done_prepare`, and `_group_done_codemap`.
+  - Can be implemented first or in parallel, ensuring the group itself benefits from the clean `done` lifecycle when landing.
+- **Member 2: P-101 (`P101-group-amendments-member.md`)**:
+  - Specifies and implements the Group Amendments Member workflow, allowing in-flight accommodations and missing file requests.
+
+---
 
 ## Architecture & Codemap
-*Every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written out whole in a ```` fence, under the exact heading it has (or will have) in the file. Members do not edit these files; read the sections here as the target architecture. At the group's `done` a section replaces the file's section with the same heading, or is added at the end. `aapp refine` records a base line above each fence: `done` refuses a section the file changed meanwhile. Write `No changes.` under a file that keeps its content.*
 
 ### ARCHITECTURE.md
 No changes.
@@ -49,9 +64,9 @@ No changes.
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** Settle during RFC review: Should P-102 land first so that P-101's landing on the group feature branch exercises the reordered done lifecycle?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-* **2026-10-16:** Group drafted.
+* **2026-10-16:** Group drafted. Added member P-101 and P-102. Authored group goals, shared decisions, and execution order.
