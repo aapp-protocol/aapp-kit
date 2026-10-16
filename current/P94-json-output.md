@@ -82,6 +82,8 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 - [ ] `tests/output_json_test.sh::test_text_verbatim` -> asserts a symptom with backticks, quotes, a backslash and `…` comes back unchanged after parsing, uncut and unwrapped
 - [ ] `tests/output_json_test.sh::test_failure_prints_nothing` -> asserts a failing run exits non-zero with stdout empty
 - [ ] `tests/output_json_test.sh::test_same_items_as_terminal` -> asserts the ids in `issues.queue`, `plans.items` and `pickup.items` are those the terminal briefing lists, in the same order
+- [ ] `tests/output_json_test.sh::test_repository_remote` -> asserts `repository.remote` names the remote and its URL with credentials removed, and is `null` in a repository without a remote, in both documents
+- [ ] `tests/output_json_test.sh::test_group_nests_members` -> asserts a group's `members` holds its member plans as objects, with `kind` `group` and `feature_branch`, and no member appears at the top level of `plans.items`
 - [ ] `tests/verbs/status.sh::test_short_json_refused` -> asserts `aapp status short json` exits 1 with usage on stderr
 
 ### Phase 1: Foundation & Setup
@@ -135,10 +137,11 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — A JSON parser in the tests.** The tests must parse the output. `python3` is already used by `aapp status` (the pause banner); `jq` is not a kit dependency. Use `python3 -c 'import json'` in the tests, skipping with a notice where it is missing?
+* [ ] **Question 1 — A JSON parser in the tests.** The output is written by the kit's bash and needs no parser; only the tests must parse it. Perl with `JSON::PP` (core since 5.14; perl ships with Git for Windows and macOS, but Fedora/RHEL package `JSON::PP` apart and Debian's `perl-base` lacks it) or `python3` (its `json` module is in the standard library, but `python3` itself is absent on macOS without the developer tools and in minimal images; the kit already calls it in `aapp pause`, `aapp status` and `aapp init`). `jq` is not a kit dependency. Whichever is chosen, a test skips with a notice where it is missing.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted as the fourth member of group P-91.
+* **2026-10-16:** Tests for `repository.remote` and nested group members.
