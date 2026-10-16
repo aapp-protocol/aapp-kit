@@ -20,6 +20,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
 - 🟣 **P-82**: [`P82-issue-fix-safeguards.md`](current/P82-issue-fix-safeguards.md) — Issue Fix Safeguards
 - 🟣 **P-88**: [`P88-status-recent-and-bounded.md`](current/P88-status-recent-and-bounded.md) — Status Recent And Bounded
+- 🟣 **P-90**: [`P90-companion-worktree-bridge.md`](current/P90-companion-worktree-bridge.md) — Companion Worktree Bridge
 
 ---
 
