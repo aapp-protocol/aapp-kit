@@ -243,6 +243,13 @@ if [ "$lrc" -eq 0 ] && [ "$src" -eq 0 ] && echo "$lout" | grep -F '#20 ' | grep 
 else
   bad "test_views_show_branch" "rc=$lrc/$src dev line=$first_dev core line=$first_core list=$lout"
 fi
+# P-93: the branch is a fact of the facts line, in both views.
+if echo "$lout" | grep -E '^  #20  ' | grep -qE '  \(branch: core\)' && echo "$lout" | grep -E '^  #9  ' | grep -qE '  \(branch: develop\)' && \
+   echo "$sout" | grep -E '^  #9  ' | grep -qE '  \(branch: develop\)' && [ -n "$first_dev" ] && [ -n "$first_core" ] && [ "$first_dev" -lt "$first_core" ]; then
+  ok "test_list_branch_fact"
+else
+  bad "test_list_branch_fact" "list=$(echo "$lout" | grep -E '^  #(9|20)  ') status=$(echo "$sout" | grep -E '^  #9  ')"
+fi
 
 echo "== a hotfix outside the plan's files =="
 n1="$(git config aapp.issueId)"

@@ -291,4 +291,15 @@ else
   bad "test_text_fetched_at_fix_not_sync" "stored=$kept rc=$rc out=$out"
 fi
 
+echo "== what the tracker calls an issue (P-93) =="
+{ issue 2 b; issue 5 e open "Defect 5 shows." '"tracker": "jira", "url": "https://t.example/5", "release": "2.1"'; issue 8 h; } > "$R/list"
+out="$(aapp issue list 2>&1)"
+b5="$(printf '%s\n' "$out" | awk 'index($0, "  #5  ") == 1 { on = 1; print; next } on && /^        / { print; next } on { exit }')"
+if [ "$(printf '%s\n' "$b5" | sed -n 2p)" = "        · jira https://t.example/5 (2.1)" ] && \
+   [ "$(printf '%s\n' "$b5" | sed -n 3p)" = "        Defect 5 shows." ] && ! printf '%s\n' "$b5" | head -1 | grep -qF 'jira'; then
+  ok "test_list_tracker_fact"
+else
+  bad "test_list_tracker_fact" "block=$b5 out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"

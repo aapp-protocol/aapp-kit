@@ -16,6 +16,11 @@ HDR='| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix 
 SEP='| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |'
 row() { printf '| #%s | `Low` | `CORE` | 2026-10-01 | `src/%s.sh` | Defect %s shows. |  | 🟡 `Incubated` |\n' "$1" "$2" "$1"; }
 queued() { awk '/^## 📋 Queued/ { q = 1; next } /^## / { q = 0 } q' .plans/issues_road_map.md | grep -oE '#[0-9A-Z-]+' | tr '\n' ' '; }
+# block <n> <output>: issue #<n>'s lines in a listing, its facts line and the
+# lines indented under it (P-93).
+block() { printf '%s\n' "$2" | awk -v id="  #$1 " 'index($0, id) == 1 { on = 1; print; next } on && /^        / { print; next } on { exit }'; }
+# longest <text>: the most characters on one of its lines.
+longest() { local l m=0 n; while IFS= read -r l; do n="$(printf '%s' "$l" | LC_ALL=C tr -d '\200-\277' | wc -c)"; [ "$n" -gt "$m" ] && m="$n"; done <<< "$1"; echo "$m"; }
 # project <dir>: develop checked out, issues #1..#4, an empty work queue.
 project() {
   init_sandbox_project "$1"
@@ -213,7 +218,7 @@ aapp issue queue 10 urgent >/dev/null 2>&1
 out="$(aapp issue list 2>&1)"
 l10="$(echo "$out" | grep -F '#10 ')"; l3="$(echo "$out" | grep -F '#3 ')"
 if echo "$l10" | grep -qF 'High' && echo "$l10" | grep -qF 'Incubated' && echo "$l10" | grep -qF "logged $today" && \
-   echo "$l10" | grep -qF "queued $today (Urgent)" && echo "$l10" | grep -qF 'Login fails on Safari' && \
+   echo "$l10" | grep -qF "queued $today (Urgent)" && block 10 "$out" | grep -qF 'Login fails on Safari' && \
    echo "$l3" | grep -qF 'logged 2026-10-01' && echo "$l3" | grep -qF '(Low)' && echo "$out" | grep -F '#2 ' | grep -qvF 'queued'; then
   ok "test_list_shows_severity_dates_status"
 else
@@ -272,6 +277,58 @@ if [ -n "$tmp" ] && [ "$rc" -eq 0 ] && [ "$(queued)" = "#50 " ] && ! grep -qF "#
   ok "test_offline_sync_rewrites_queued_id"
 else
   bad "test_offline_sync_rewrites_queued_id" "tmp=$tmp rc=$rc queued=$(queued) out=$out"
+fi
+
+echo "== the issue layout (P-93) =="
+project "$R/lay"
+pid="P-$(git config aapp.planId)"
+aapp issue queue 2 urgent >/dev/null 2>&1
+aapp draft fix-three issue 3 >/dev/null 2>&1
+out="$(aapp issue list 2>&1)"
+f1="$(block 1 "$out" | head -1)"; f2="$(block 2 "$out" | head -1)"; f3="$(block 3 "$out" | head -1)"
+if [ "$f1" = "  #1  Low  Incubated  logged 2026-10-01" ] && [ "$f2" = "  #2  Low  Incubated  logged 2026-10-01  queued $today (Urgent)" ] && \
+   [ "$f3" = "  #3  Low  Planned  logged 2026-10-01  [$pid]" ] && [ "$(block 1 "$out" | sed -n 2p)" = "        Defect 1 shows." ] && \
+   ! printf '%s\n' "$out" | grep -E '^  #' | grep -qE '[^ ]   +[^ ]'; then
+  ok "test_list_facts_line"
+else
+  bad "test_list_facts_line" "f1=[$f1] f2=[$f2] f3=[$f3] out=$out"
+fi
+
+aapp issue log Low CLI "Has a description and a note" file src/a.sh note "secret description text" >/dev/null 2>&1
+n2="$(git config aapp.issueId)"; n2=$((n2 - 1))
+aapp refine issues "add notes" note "$n2" "secret note text" note 4 "secret single note" >/dev/null 2>&1
+aapp issue queue "$n2" >/dev/null 2>&1
+out="$(aapp issue list 2>&1)"; sout="$(aapp status 2>&1 | sed -n '/ISSUES/,/PLANS/p')"
+if block "$n2" "$out" | head -1 | grep -qE '  2 notes$' && block 4 "$out" | head -1 | grep -qE '  1 note$' && \
+   ! block 1 "$out" | head -1 | grep -q 'note' && block "$n2" "$sout" | head -1 | grep -qE '  2 notes$' && \
+   ! printf '%s\n%s\n' "$out" "$sout" | grep -qi 'secret'; then
+  ok "test_list_notes_hint"
+else
+  bad "test_list_notes_hint" "list=$(block "$n2" "$out"; block 4 "$out") status=$(block "$n2" "$sout")"
+fi
+
+sym="$(for i in $(seq 1 25); do printf 'symptom%02d ' "$i"; done)"; sym="${sym% }"
+aapp issue log Medium CLI "$sym" file src/b.sh >/dev/null 2>&1
+nl="$(git config aapp.issueId)"; nl=$((nl - 1))
+out="$(aapp issue list all 2>&1)"
+body="$(block "$nl" "$out" | tail -n +2)"
+if [ "$(printf '%s\n' "$body" | wc -l)" -ge 3 ] && ! printf '%s\n' "$body" | grep -qvE '^        [^ ]' && \
+   [ "$(longest "$(block "$nl" "$out")")" -le 85 ] && [ "$(printf '%s\n' "$body" | sed -E 's/^ +//' | tr '\n' ' ' | sed 's/ $//')" = "$sym" ]; then
+  ok "test_list_symptom_wrapped"
+else
+  bad "test_list_symptom_wrapped" "longest=$(longest "$(block "$nl" "$out")") $(block "$nl" "$out")"
+fi
+
+aapp issue queue "$nl" >/dev/null 2>&1
+git config aapp.statusTextMax 60
+sout="$(aapp status 2>&1 | sed -n '/ISSUES/,/PLANS/p')"
+git config --unset aapp.statusTextMax
+sbody="$(block "$nl" "$sout" | tail -n +2 | sed -E 's/^ +//' | tr '\n' ' ' | sed 's/ $//')"
+if [ "$(block "$nl" "$sout" | head -1)" = "$(block "$nl" "$(aapp issue list all 2>&1)" | head -1)" ] && \
+   [[ "$sbody" == "symptom01"*"…" ]] && [ "$(longest "$sbody")" -le 60 ] && ! block "$nl" "$sout" | tail -n +2 | grep -qvE '^        [^ ]'; then
+  ok "test_status_pillar_same_layout"
+else
+  bad "test_status_pillar_same_layout" "status=$(block "$nl" "$sout")"
 fi
 
 print_test_summary "$PASS" "$FAIL"

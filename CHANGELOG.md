@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status auto-sync (`P-30`): `aapp status` re-derives `state_matrix.md` before reading it, so the Roadmap line and Next Action footer report the real board instead of a stale cache.
 
 ### Changed
+- `aapp issue list` and the Issues pillar show each issue's facts on one line and its symptom wrapped below (P-93) (`P-93`)
 - `aapp status` shows recently landed changelog entries and wrapped pickup ideas (`P-88`)
 - `aapp status` collects each section into records; every line of the briefing keeps to `aapp.statusOutputWidth` (P-92) (`P-92`)
 - a pickup entry is `- [ ] <title>: <text>`, its title no longer than `aapp.pickupTitleMax` (72); `aapp refine pickup` refuses any other form (P-96) (`P-96`)

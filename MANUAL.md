@@ -599,7 +599,7 @@ Run first in every session, and again after the agent's conversation was summari
 #### `/aapp-status` (or `status`, `aapp status`, `/status`) — Context Recovery
 Executed when returning to a project or starting a session. Inspects the workspace and reports across the **Four Pillars**:
 1. **Shipped**: What landed last: the entries the latest commits added to `CHANGELOG.md`, newest first, from any section (the first entries under `## [Unreleased]` when there is no history).
-2. **Issues**: The work queue (plan blockers, then queued issues) and a count of the other open issues in `ISSUES.md`.
+2. **Issues**: The work queue (plan blockers, then queued issues) and a count of the other open issues in `ISSUES.md`. Each issue as in `aapp issue list`: a facts line (`#155  Low  Planned  logged 2026-10-16  [P-93]`, then the queue, branch, `offline` and `<n> notes` facts it has), the tracker's names when a provider gave them, and the symptom wrapped below it.
 3. **Plans**: Active incubator plans and greenlit tasks in `.plans/state_matrix.md`.
 4. **Pickup**: Unprocessed ideas in `.plans/pickup.md` with count: each idea's title, its text below it, cut and wrapped, and the `.plans/pickup/` files it names.
 5. **Next Action**: State-aware next step evaluator dynamically pointing to in-development work, frozen backlog, unprocessed pickup ideas, or top issues.

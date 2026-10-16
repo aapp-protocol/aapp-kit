@@ -1858,40 +1858,21 @@ roadmap_entries() {
     return 0
 }
 
-# roadmap_entries_by_branch <current> <dev> [<cap>] (P-78, P-89) -> the work
-# queue in the display form, each line with its issue's branch, those of
-# <current> first. While no issue names a branch the lines are as they are.
-roadmap_entries_by_branch() {
-    roadmap_issue_lines | _issue_lines_by_branch "$@"
-}
-
-# ledger_issue_lines_by_branch <current> <dev> [<cap>] (P-89) -> the ledger's
-# issue lines (`ledger_issue_lines`), grouped by branch the same way.
-ledger_issue_lines_by_branch() {
-    ledger_issue_lines | _issue_lines_by_branch "$@"
-}
-
-# _issue_lines_by_branch <current> <dev> [<cap>]: issue lines on stdin, each
-# with its issue's branch, those of <current> first; unchanged while no issue
-# names a branch.
-_issue_lines_by_branch() {
-    local map
-    map="$(ledger_branch_map)"
-    if [ -z "$map" ]; then
-        if [ -n "${3:-}" ]; then head -n "$3"; else cat; fi
-        return 0
-    fi
-    AAPP_MAP="$map" AAPP_CUR="$1" AAPP_DEV="$2" AAPP_RE="$AAPP_ISSUE_REF_RE" awk '
-        BEGIN { n = split(ENVIRON["AAPP_MAP"], m, "\n"); for (i = 1; i <= n; i++) { split(m[i], kv, "\t"); br[kv[1]] = kv[2] } }
+# issue_records_by_branch <current> <dev> [fill] (P-78, P-93):
+# `ledger_issue_records` records on stdin; once an issue names a branch, those
+# whose branch (their own, or <dev> when they name none) is <current> come
+# first. With `fill`, a record that names no branch shows <dev> as its branch,
+# as the terminal views print it; the records themselves keep it empty. While
+# no issue names a branch the records pass unchanged.
+issue_records_by_branch() {
+    [ -n "$(ledger_branch_map)" ] || { cat; return 0; }
+    AAPP_CUR="$1" AAPP_DEV="$2" AAPP_FILL="${3:-}" awk -F'\t' -v OFS='\t' '
         {
-            id = ""; if (match($0, ENVIRON["AAPP_RE"])) id = substr($0, RSTART, RLENGTH)
-            b = (id in br) ? br[id] : ENVIRON["AAPP_DEV"]
-            line = $0 ((b != "") ? "  (branch: " b ")" : "")
-            if (b == ENVIRON["AAPP_CUR"]) print line; else rest[++r] = line
+            b = ($13 == "") ? ENVIRON["AAPP_DEV"] : $13
+            if (ENVIRON["AAPP_FILL"] == "fill") $13 = b
+            if (b == ENVIRON["AAPP_CUR"]) print; else rest[++r] = $0
         }
-        END { for (i = 1; i <= r; i++) print rest[i] }' |
-        if [ -n "${3:-}" ]; then head -n "$3"; else cat; fi
-    return 0
+        END { for (i = 1; i <= r; i++) print rest[i] }'
 }
 
 # roadmap_blockers -> the issue numbers queued under 🧱 Plan Blockers, in order.
@@ -1974,40 +1955,36 @@ ledger_issue_records() {
         }'
 }
 
-# ledger_issue_lines [<n>…] (P-89) -> active issues as the lists show them, one
-# line each: id, severity, status and logged date, the queue date and level
-# when queued, the symptom, and the plan; a renderer over `ledger_issue_records`
-# for the issues of the active ledger. All in recorded order, or the ids
-# given, in that order.
-ledger_issue_lines() {
-    ledger_issue_records "$@" | issue_render_lines
+# issue_render_terminal <width> <cut> (P-93): `ledger_issue_records` records on
+# stdin, each issue as the views show it: a facts line at 2 spaces (id,
+# severity, status, logged date, then the queue, plan, branch, `offline` and
+# notes facts it has), the tracker's names on a line of their own at 8 spaces
+# when a provider gave them, and the symptom wrapped at 8 spaces; no line wider
+# than <width>. <cut> above 0 cuts the symptom at that many characters. Needs
+# lib/output.sh (`out_wrap`, `out_cut`), which the commands load and the hooks do not.
+issue_render_terminal() {
+    local w="$1" cut="$2" id sev typ st logged loc sym plan blocks qs ql qd br off tn tu tr notes facts trk
+    while IFS=$'\037' read -r id sev typ st logged loc sym plan blocks qs ql qd br off tn tu tr notes; do
+        [ -n "$id" ] || continue
+        facts="$id  $(_issue_word "$sev")  $(_issue_word "$st")  logged $logged"
+        [ "$qs" = "queued" ] && facts="$facts  queued ${qd:+$qd }($(_issue_word "$ql"))"
+        [ -n "$plan" ] && facts="$facts  [$plan]"
+        [ -n "$blocks" ] && facts="$facts  [blocks $blocks]"
+        [ -n "$br" ] && facts="$facts  (branch: $br)"
+        [ "$off" = "1" ] && facts="$facts  offline"
+        case "$notes" in ''|0) ;; 1) facts="$facts  1 note" ;; *) facts="$facts  $notes notes" ;; esac
+        printf '%s\n' "$facts" | out_wrap 2 8 "$w"
+        trk="$tn${tu:+${tn:+ }$tu}${tr:+ ($tr)}"
+        [ -z "$trk" ] || printf '· %s\n' "$trk" | out_wrap 8 10 "$w"
+        if [ "${cut:-0}" -gt 0 ]; then sym="$(printf '%s' "$sym" | out_cut "$cut")"; fi
+        printf '%s\n' "$sym" | out_wrap 8 8 "$w"
+    done < <(tr '\t' '\037')
 }
 
-# issue_render_lines: `ledger_issue_records` records on stdin, the lists' line
-# for each issue of the active ledger (the staged ones are shown apart).
-issue_render_lines() {
-    awk -F'\t' '
-        function cap(s) { return toupper(substr(s, 1, 1)) substr(s, 2) }
-        $14 == 1 { next }
-        {
-            st = $4; sub(/^.*-/, "", st)
-            plan = ($8 != "") ? $8 : (($9 != "") ? "blocks " $9 : "")
-            qs = ""
-            if ($10 == "queued") qs = "queued " ($12 != "" ? $12 " " : "") "(" cap($11) ")"
-            printf "%-6s %-8s %-10s logged %s  %-27s  %s%s\n", $1, cap($2), cap(st), $5, qs, $7, (plan != "" ? "  [" plan "]" : "")
-        }'
-}
-
-# roadmap_issue_lines -> the work queue as the lists show it: the plan
-# blockers, then the queued issues by level, in the display form of
-# `ledger_issue_lines` (P-89).
-roadmap_issue_lines() {
-    local ids
-    ids="$( { roadmap_blockers; roadmap_queued; } | awk '!seen[$0]++')"
-    # An empty queue shows no issue (ledger_issue_lines with no id lists all rows).
-    [ -n "$ids" ] || return 0
-    # shellcheck disable=SC2086
-    ledger_issue_lines $ids
+# _issue_word <slug>: a record's slug as the views print it (`in-progress` ->
+# `In Progress`).
+_issue_word() {
+    printf '%s\n' "$1" | awk -F'-' '{ for (i = 1; i <= NF; i++) $i = toupper(substr($i, 1, 1)) substr($i, 2); print }' OFS=' '
 }
 
 # roadmap_add_blocker <n> <text> <plan-id>: appends to 🧱 Plan Blockers, creating

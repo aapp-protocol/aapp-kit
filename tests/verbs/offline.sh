@@ -116,11 +116,16 @@ echo "== offline issues are issues =="
 P="P-$(git config aapp.planId)"; aapp draft waits >/dev/null 2>&1
 out="$(aapp refine "$P" blocked 1008 2>&1)"; rc=$?
 lout="$(aapp issue list all 2>&1)"; sout="$(aapp status 2>&1)"
-if [ "$rc" -eq 0 ] && blocked_on "$(pf "$P")" | grep -qF '#1008' && echo "$lout" | grep -F '#1007' | grep -qiF 'offline' && \
-   echo "$sout" | grep -F '#1008' | grep -qiF 'offline'; then
+# Marked in both views: the issue layout (P-93), the `offline` fact on the
+# facts line, the symptom on the line below.
+lfacts="$(echo "$lout" | grep -E '^  #1007  ')"; sfacts="$(echo "$sout" | grep -E '^  #1008  ')"
+lnext="$(echo "$lout" | grep -A1 -E '^  #1007  ' | sed -n 2p)"; snext="$(echo "$sout" | grep -A1 -E '^  #1008  ' | sed -n 2p)"
+if [ "$rc" -eq 0 ] && blocked_on "$(pf "$P")" | grep -qF '#1008' && \
+   echo "$lfacts" | grep -qE '  offline($|  )' && echo "$sfacts" | grep -qE '  offline($|  )' && \
+   echo "$lnext" | grep -qE '^        [^ ]' && echo "$snext" | grep -qE '^        [^ ]' && ! echo "$lout$sout" | grep -qF 'staged in .offline)'; then
   ok "test_offline_issue_in_every_view"
 else
-  bad "test_offline_issue_in_every_view" "rc=$rc plan=[$(blocked_on "$(pf "$P")")] list=$(echo "$lout" | grep -F '#100') out=$out"
+  bad "test_offline_issue_in_every_view" "rc=$rc plan=[$(blocked_on "$(pf "$P")")] list=[$lfacts|$lnext] status=[$sfacts|$snext] out=$out"
 fi
 if echo "$sout" | grep -qF 'Staged Offline Work' && echo "$sout" | grep -F 'staged' | grep -qF '#1007' && echo "$sout" | grep -qF 'aapp offline sync'; then
   ok "test_status_reports_staged_offline_work"

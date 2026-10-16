@@ -112,15 +112,16 @@ export AAPP_STATE_DIR="$R/state"
 pillar_fixture >/dev/null 2>&1
 out="$(aapp status 2>&1)"
 want_issues='🐛 [2/4] ISSUES (Work Queue & Ledger)
-  #1     Medium   Incubated  logged 2026-10-01  queued 2026-10-04 (Urgent)   First symptom, queued urgently, with a long text that runs well past the width of a narrow terminal pane to show wrapping.
-  #2     Low      Incubated  logged 2026-10-02  queued 2026-10-05 (Normal)   Second symptom, queued.
+  #1  Medium  Incubated  logged 2026-10-01  queued 2026-10-04 (Urgent)
+        First symptom, queued urgently, with a long text that runs well past the
+        width of a narrow terminal pane to show wrapping.
+  #2  Low  Incubated  logged 2026-10-02  queued 2026-10-05 (Normal)
+        Second symptom, queued.
   ℹ️  1 more issue(s) logged, not queued for work: aapp issue list'
-# Shipped and Pickup have their own layout since P-88 (tests below); the
-# Issues pillar prints as before the records.
 if [ "$(pillar '🐛 [2/4]' "$out")" = "$want_issues" ]; then
-  ok "test_briefing_unchanged_for_pillars"
+  ok "test_issues_pillar_layout"
 else
-  bad "test_briefing_unchanged_for_pillars" "$(diff <(printf '%s\n' "$want_issues") <(pillar '🐛 [2/4]' "$out"))"
+  bad "test_issues_pillar_layout" "$(diff <(printf '%s\n' "$want_issues") <(pillar '🐛 [2/4]' "$out"))"
 fi
 
 # 60 columns; a plan in a worktree under a long path; the notices and the next

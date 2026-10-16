@@ -192,7 +192,8 @@ fi
 answer '{"status": "ok", "id": "PROJ-101", "tracker": "jira", "url": "https://jira.example/PROJ-101", "release": "2.4"}'
 out="$(aapp issue log Low CLI "A key from the tracker" file src/a.sh 2>&1)"; rc=$?
 lout="$(aapp issue list all 2>&1)"
-if [ "$rc" -eq 0 ] && has_row PROJ-101 && echo "$lout" | grep -F '#PROJ-101' | grep -F 'jira' | grep -F 'https://jira.example/PROJ-101' | grep -qF '2.4'; then
+# The tracker's names are on their own line, under the facts line (P-93).
+if [ "$rc" -eq 0 ] && has_row PROJ-101 && echo "$lout" | grep -A1 -E '^  #PROJ-101  ' | grep -qxF '        · jira https://jira.example/PROJ-101 (2.4)'; then
   ok "test_log_takes_provider_id"
 else
   bad "test_log_takes_provider_id" "rc=$rc out=$out list=$(echo "$lout" | grep -F PROJ-101)"

@@ -1368,19 +1368,9 @@ _issue_line_notes() {
     printf '%s' "$out"
 }
 
-# _issue_offline_lines (P-75): the issues staged in `.offline`, as the views
-# show them: like any other issue, marked as offline.
-_issue_offline_lines() {
-    local id symptom
-    while IFS="$(printf '\t')" read -r id _ _ _ _ symptom _; do
-        [ -n "$id" ] && echo "  - [ ] $id -> $symptom  (offline: staged in .offline)"
-    done < <(ledger_offline_rows)
-    return 0
-}
-
 cmd_issue_list() {
     local usage='aapp issue list [<n> | all] [confirm] | list note <num>'
-    local cap="$ISSUE_LIST_DEFAULT_CAP" confirm=0 note="" plans roadmap lines total line id n
+    local cap="$ISSUE_LIST_DEFAULT_CAP" confirm=0 note="" plans recs total line width
     while [ $# -gt 0 ]; do
         case "$1" in
             all)      cap=0; shift ;;
@@ -1399,25 +1389,21 @@ cmd_issue_list() {
         issue_show_text "$note" "" "$(_issue_state_get aapp_issue_meta "$note" | cut -f2 | grep -vx -- '-' || true)"
         return 0
     fi
+    width="$(out_width)" || return 1
     if [ "$confirm" -eq 1 ]; then issue_sync force confirm || return 1; else issue_sync force || return 1; fi
-    # Every active issue in the order the ledger records it (P-89; a sorting
-    # plugin may order it otherwise), with its branch, this branch's issues
-    # first, once any issue names one (P-78).
-    lines="$(PLANS_DIR="$plans" ledger_issue_lines_by_branch "$(issue_view_branch)" "$(_issue_dev_branch)")"
-    if [ -z "$lines" ]; then
+    # Every active issue in the order the ledger records it (P-89), then those
+    # staged in `.offline` (P-75), with its branch, this branch's issues first,
+    # once any issue names one (P-78); in the issue layout (P-93).
+    recs="$(PLANS_DIR="$plans" ledger_issue_records | PLANS_DIR="$plans" issue_records_by_branch "$(issue_view_branch)" "$(_issue_dev_branch)" fill)"
+    if [ -z "$recs" ]; then
         echo "  (No open issues in ISSUES.md)"
-        _issue_offline_lines
         return 0
     fi
-    total="$(printf '%s\n' "$lines" | wc -l | tr -d ' ')"
-    if [ "$cap" -ne 0 ] && [ "$total" -gt "$cap" ]; then lines="$(printf '%s\n' "$lines" | head -n "$cap")"; fi
-    while IFS= read -r line; do
-        id="$(issue_id_refs "$line" | head -n 1)"
-        n="${id#\#}"
-        printf '  %s%s\n' "$line" "$([ -z "$n" ] || _issue_line_notes "$n")"
-    done <<< "$lines"
+    total="$(printf '%s\n' "$recs" | wc -l | tr -d ' ')"
+    if [ "$cap" -ne 0 ] && [ "$total" -gt "$cap" ]; then recs="$(printf '%s\n' "$recs" | head -n "$cap")"; fi
+    printf '%s\n' "$recs" | issue_render_terminal "$width" 0
     if [ "$cap" -ne 0 ] && [ "$total" -gt "$cap" ]; then echo "  … $((total - cap)) more (aapp issue list all)"; fi
-    _issue_offline_lines
+    return 0
 }
 
 # ------------------------------------------------------------------------------

@@ -246,7 +246,8 @@ status_records_issues() {
         ids="$( { roadmap_blockers; roadmap_queued; } | awk '!seen[$0]++')"
         if [ -n "$ids" ]; then
             # shellcheck disable=SC2086
-            ledger_issue_records $ids | awk -F'\t' '$14 == 0'
+            ledger_issue_records $ids | awk -F'\t' '$14 == 0' |
+                issue_records_by_branch "$(status_issue_branches | sed -n 1p)" "$(status_issue_branches | sed -n 2p)"
         fi
     fi
     if command -v ledger_offline_rows >/dev/null 2>&1 && [ -n "$(ledger_offline_rows 2>/dev/null || true)" ]; then
@@ -546,9 +547,9 @@ status_render_terminal() {
     echo ""
     echo "🐛 [2/4] ISSUES (Work Queue & Ledger)"
     if [ -n "$STATUS_ISSUES" ]; then
-        printf '%s\n' "$STATUS_ISSUES" | awk -F'\t' '$14 == 0' | issue_render_lines |
-            _issue_lines_by_branch "$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 1p)" "$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 2p)" | sed 's/^/  /'
-        printf '%s\n' "$STATUS_ISSUES" | awk -F'\t' '$14 == 1 { print "  - [ ] " $1 " -> " $7 "  (offline: staged in .offline)" }'
+        printf '%s\n' "$STATUS_ISSUES" |
+            issue_records_by_branch "$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 1p)" "$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 2p)" fill |
+            issue_render_terminal "$STATUS_WIDTH" "$STATUS_TEXT_MAX"
     fi
     if [ -z "$STATUS_ISSUES" ] && [ "${STATUS_UNQUEUED:-0}" -eq 0 ]; then
         status_line 2 3 "(No open issues)"

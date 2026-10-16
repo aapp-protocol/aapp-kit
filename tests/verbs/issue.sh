@@ -547,13 +547,17 @@ printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 🧱 Plan Blockers' '' '## �
   '' '### Normal' '- [ ] #2 -> Second symptom, queued. (queued 2026-10-05)' '' '### Low' > .plans/issues_road_map.md
 git -C .plans add -A >/dev/null 2>&1; git -C .plans commit -qm fixture --no-verify >/dev/null 2>&1
 out="$(aapp issue list 2>&1)"
-want='  #1     Medium   Incubated  logged 2026-10-01  queued 2026-10-04 (Urgent)   First symptom, queued urgently, with a long text that runs well past the width of a narrow terminal pane to show wrapping.
-  #2     Low      Incubated  logged 2026-10-02  queued 2026-10-05 (Normal)   Second symptom, queued.
-  #3     High     Incubated  logged 2026-10-03                               Third symptom, not queued.'
+want='  #1  Medium  Incubated  logged 2026-10-01  queued 2026-10-04 (Urgent)
+        First symptom, queued urgently, with a long text that runs well past the
+        width of a narrow terminal pane to show wrapping.
+  #2  Low  Incubated  logged 2026-10-02  queued 2026-10-05 (Normal)
+        Second symptom, queued.
+  #3  High  Incubated  logged 2026-10-03
+        Third symptom, not queued.'
 if [ "$out" = "$want" ]; then
-  ok "test_list_unchanged"
+  ok "test_list_layout"
 else
-  bad "test_list_unchanged" "$(diff <(printf '%s\n' "$want") <(printf '%s\n' "$out"))"
+  bad "test_list_layout" "$(diff <(printf '%s\n' "$want") <(printf '%s\n' "$out"))"
 fi
 
 print_test_summary "$PASS" "$FAIL"
