@@ -12,5 +12,6 @@
 
 ## 📋 Queued
 ### 🔺 Urgent
+- [ ] #154 -> With an empty work queue, the Issues pillar of `aapp status` lists every open issue: `roadmap_issue_lines` passes no ids and `ledger_issue_lines` reads that as all rows (P-89). (queued 2026-10-16)
 ### Normal
 ### Low
