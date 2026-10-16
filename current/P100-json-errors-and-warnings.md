@@ -147,6 +147,7 @@ This member, the sixth of group P-91, puts both in the JSON: stdout always holds
 - [ ] `lib/docs/verbs/status.md` -> the error document; the tests.
 - [ ] `lib/docs/verbs/issue.md` -> the error document; the tests.
 - [ ] `MANUAL.md` -> JSON errors and warnings.
+- [ ] `tests/verbs/status.sh` -> `test_short_json_refused` reads the error document (`code` `usage`) on stdout (added with the developer's OK, 2026-10-16).
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
@@ -169,3 +170,4 @@ This member, the sixth of group P-91, puts both in the JSON: stdout always holds
 * **2026-10-16:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted as the sixth member of group P-91: errors as a JSON document, warnings and remarks grouped in `notices`; `aapp_config` names the setting at fault.
+* **2026-10-16:** Back to refining with the developer's OK: `tests/verbs/status.sh` added to the Target Files (`status short json` is refused with the error document).
