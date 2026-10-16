@@ -13,5 +13,4 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
-- [ ] #164 -> Docs and rules state aapp issue log writes a road-map line, but since P-89 it only writes the ledger row; a person queues it with aapp issue queue (queued 2026-10-16)
 ### Low

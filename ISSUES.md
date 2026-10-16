@@ -4,7 +4,6 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #164 | `Low` | `DOCS` | 2026-10-16 | `AGENTS.md`, `MANUAL.md`, `CHEATSHEET.md` | Docs and rules state aapp issue log writes a road-map line, but since P-89 it only writes the ledger row; a person queues it with aapp issue queue |  | 🟡 `Incubated` |
 | #162 | `Low` | `CLI` | 2026-10-16 | `lib/cmd_plan.sh` | `aapp start <id>` and `freeze-start` for a plan re-frozen while its worktree still holds it refuse from the main checkout ("already bound in worktree") without saying that `aapp start` run in that worktree resumes it. |  | 🟡 `Incubated` |
 | #161 | `Low` | `TEST` | 2026-10-16 | `tests/issue_ledger_test.sh` | `tests/issue_ledger_test.sh` (test_no_direct_ledger_access) passes its name pattern with `\.` through `awk -v`: every run prints 26 "escape sequence `\.' treated as plain `.'" warnings. |  | 🟡 `Incubated` |
 | #160 | `Low` | `CLI` | 2026-10-16 | `lib/cmd_plan.sh` | A bare `aapp draft` takes a whole pickup entry (hundreds of characters) as the plan's title and slug, giving over-long file names and a draft commit subject over `aapp.subjectMaxLen`. | [P-97](current/P97-draft-from-pickup-title.md) | 🔵 `Planned` |
