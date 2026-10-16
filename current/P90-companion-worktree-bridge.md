@@ -1,8 +1,8 @@
-# 🗺️ Plan P-90: Companion Worktree Bridge
+# 🗺️ Plan P-90: Companion Repository Bridge
 * **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-90
-* **Changelog:** Added: `aapp companion` manages isolated companion-repo worktrees for cross-repo co-development (P-90)
+* **Changelog:** Added: `aapp companion` manages companion repositories for cross-repo co-development (P-90)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -43,19 +43,22 @@
 When developing a companion repository (e.g. a downstream web dashboard, consumer SDK, client adapter, or companion service) alongside a core repository:
 - **Both repositories advance concurrently**: The core repository (`repo-a`) introduces new contracts, schemas, and engine capabilities; the companion repository (`repo-b`) introduces consumer logic, UI components, and state management.
 - **The Context Dilemma**: Developing new capabilities in `repo-b` requires deep access to `repo-a`'s architecture, codemap, test suites, and plans. Developing inside `repo-b` in isolation deprives autonomous agents of `repo-a`'s rich context. Conversely, copying `repo-b`'s code directly into `repo-a` pollutes `repo-a`'s Git history and violates repository portability.
+- **Sound Topology Consensus**: Per `.plans/pickup/p90-companion-repos-rfc.md`, creating a Git worktree of `repo-a` for `repo-b` is mathematically unsound (shares `repo-a`'s common dir, causing `IS_SAME_REPO=1`, failing the write-guard closed and polluting `repo-a`'s object store). Instead, `repo-b` must retain its own Git directory (`IS_SAME_REPO=0`), governed by its own Git lineage and hooks.
 
 ### The Architectural Goal:
-This plan introduces **`aapp companion`**, a formal CLI suite for cross-repository co-development via **Git-Linked Companion Worktrees**:
-1. Mounts an external companion repository's genuine Git branch inside `.workspace/companion/<name>/` within the primary repository.
-2. Gives developers and autonomous agents simultaneous access to both worlds: full read access to the primary repository's architectural context, while authoring and committing code directly to the companion repository's native Git lineage.
-3. Provides one-command synchronization (`mount`, `status`, `push`, `unmount`), preserving clean repository boundaries and strict Git hygiene.
+This plan introduces **`aapp companion`**, a core CLI suite (`lib/cmd_companion.sh`) for cross-repository co-development supporting three clean topologies:
+1. **Existing local checkout (`checkout`)**: Registers an already existing checkout of `repo-b` on the local machine.
+2. **Dedicated companion worktree (`worktree`)**: For non-AAPP repositories, creates a dedicated worktree via `git -C <repo-b> worktree add` placed under `.workspace/companion/<name>`. (Refused for AAPP repositories per G2, directing the user to run `aapp start` inside `repo-b` and register that worktree as a checkout).
+3. **Dedicated clone (`clone`)**: Clones a remote repository URL into `.workspace/companion/<name>`.
+
+Provides uniform, predictable lifecycle commands (`add`, `status`, `push`, `remove`, `list`) with offline-first status reporting and seamless write-guard authorization.
 
 ---
 
 ## 2. Technical Blueprint
 
-### 2.1 The Companion Architecture
-Git's content-addressable object database allows any local repository to register an external repository as a remote and check out its branches into a dedicated worktree:
+### 2.1 The Companion Topology & Registry
+Every companion retains its own Git common dir (`repo-b/.git`), isolating object databases, refs, and hooks:
 
 ```
 /home/user/repo-a/                            <── PRIMARY REPO (Full Context & Engine)
@@ -64,123 +67,129 @@ Git's content-addressable object database allows any local repository to registe
 ├── CODEMAP.md                                <── Canonical boundary map
 ├── .plans/                                   <── Planning ledgers
 │
-└── .workspace/companion/<name>/              <── LINKED COMPANION WORKTREE
+└── .workspace/companion/<name>/              <── COMPANION REPO (Mode: worktree or clone)
     ├── package.json                          <── Companion repo files
     ├── src/                                  <── Consumer code & UI
-    └── (Commits made here advance Repo-B's genuine Git history!)
+    └── .git                                  <── Points strictly to Repo-B's object store!
 ```
 
-- **Remote registration**: Stored strictly in local `.git/config` (`remote.<name>.url`). No machine-specific paths leak into tracked files (preserving Portability Invariant).
-- **Worktree path**: Standardized at `.workspace/companion/<name>`.
+- **Local Registry**: Machine-specific paths are stored strictly in local `.git/config` via dedicated config keys:
+  - `aapp.companion.<name>.path`: Canonical absolute path to companion checkout/worktree.
+  - `aapp.companion.<name>.mode`: One of `checkout`, `worktree`, `clone`.
+  - No machine-specific paths leak into tracked files (preserving the Portability Invariant).
+- **Write-Guard Authorization**: Every companion path is also registered in `aapp.allowPath` in `.git/config` so Layer 1 permits tool-time writes.
 
 ---
 
 ### 2.2 CLI Verb Specification: `aapp companion`
 
-A dedicated verb `aapp companion` provides full lifecycle management:
+Core verb in `lib/cmd_companion.sh`:
 
 ```bash
-aapp companion add <name> <repo-path>
-aapp companion mount <name> [branch]
+aapp companion add <name> <path> [worktree]
+aapp companion add <name> <url>
 aapp companion status [name]
-aapp companion push <name> [target-branch]
-aapp companion unmount <name> [force]
+aapp companion push <name>
+aapp companion remove <name> [force]
 aapp companion list
 ```
 
 #### Detailed Subcommand Behaviors:
 
-1. **`aapp companion add <name> <repo-path>`**:
-   - Validates that `<repo-path>` is an existing Git repository (`git -C <repo-path> rev-parse --git-dir`).
-   - Normalizes `<name>` to lowercase alphanumeric (`[a-z0-9_-]+`).
-   - Registers the companion as a Git remote: `git remote add <name> <repo-path>`.
-   - Fetches companion references: `git fetch <name>`.
-   - Refuses duplicate names or invalid paths.
+1. **`aapp companion add <name> <path> [worktree]` / `aapp companion add <name> <url>`**:
+   - Normalizes `<name>` to lowercase alphanumeric (`[a-z0-9_-]+`). Refuses duplicate names.
+   - **Mode `checkout`** (`add <name> <path>`):
+     - Validates `<path>` is a valid Git repository (`git -C <path> rev-parse --git-dir`).
+     - Stores `aapp.companion.<name>.path` and `mode = checkout`.
+     - Adds `<path>` to `aapp.allowPath`.
+   - **Mode `worktree`** (`add <name> <path> worktree`):
+     - Validates `<path>` is a valid Git repository.
+     - **G2 Refusal Rule**: If `<path>` is detected as an AAPP repository (`[ -f "$path/aapp" ] || [ -d "$path/.agents" ] || [ -d "$path/.plans" ]`), **refuses closed**:
+       `❌ [Companion] <path> uses AAPP. Raw worktrees lack linked kit hooks. Start the plan in <path> ('aapp start <id>') and register its worktree here: 'aapp companion add <name> <path-to-worktree>'.`
+     - For non-AAPP repositories: creates `.workspace/companion/<name>` via `git -C <path> worktree add .workspace/companion/<name> HEAD`.
+     - Stores `aapp.companion.<name>.path` and `mode = worktree`.
+     - Adds `.workspace/companion/<name>` to `aapp.allowPath`.
+   - **Mode `clone`** (`add <name> <url>`):
+     - Validates `<url>` is a URL/remote spec.
+     - Runs `git clone <url> .workspace/companion/<name>`.
+     - Stores `aapp.companion.<name>.path` and `mode = clone`.
+     - Adds `.workspace/companion/<name>` to `aapp.allowPath`.
 
-2. **`aapp companion mount <name> [branch]`**:
-   - Refuses if `.workspace/companion/<name>` is already mounted.
-   - Fetches latest updates from `<name>`: `git fetch <name>`.
-   - Resolves `<branch>` (defaults to the remote's `HEAD`, e.g. `develop` or `main`).
-   - Cuts a dedicated tracking branch: `companion/<name>/<branch>`.
-   - Creates the linked worktree:
-     ```bash
-     git worktree add .workspace/companion/<name> -b companion/<name>/<branch> <name>/<branch>
-     ```
-   - Sets up write-guard authorization: registers path in local `.git/config` under `aapp.allowPath` so write-guard permits agent edits within `.workspace/companion/<name>`.
-   - Emits a diagnostic summary with instructions and target paths.
+2. **`aapp companion status [name]`**:
+   - Offline-first: strictly zero network calls.
+   - For each companion (or designated `<name>`):
+     - Resolves checked-out branch: `git -C <path> rev-parse --abbrev-ref HEAD`.
+     - Computes `dirty`: integer count of modified/untracked files via `git -C <path> status --porcelain | wc -l`.
+     - Computes `ahead` and `behind` vs. upstream tracking branch (`@{u}`) via `git -C <path> rev-list --left-right --count HEAD...@{u}` (or 0 if no upstream).
+     - Resolves `fetched_at`: timestamp of last fetch on upstream ref, or empty/null if un-fetched.
+   - Formats human-readable table in CLI; emits companion array in `aapp status json` (per RFC C14).
 
-3. **`aapp companion status [name]`**:
-   - Inspects mounted companion worktrees.
-   - Displays:
-     - Companion name, local worktree path, and target branch.
-     - Uncommitted working copy changes in the worktree.
-     - Ahead/behind commit counts relative to the companion remote branch (`git rev-list --left-right --count`).
-     - List of outgoing commits ready to be pushed.
+3. **`aapp companion push <name>`**:
+   - Strictly bounded per RFC §3 C11:
+     - Refuses if the companion has uncommitted changes (`dirty > 0`).
+     - Refuses if the companion branch has no configured upstream tracking branch (`git -C <path> rev-parse --abbrev-ref --symbolic-full-name @{u}`).
+     - Executes delegated push: `git -C <path> push`.
+     - Runs Repo-B's native `pre-push` hooks and uses Repo-B's credentials.
+     - **No force push, no target branch argument, no further Git wrappers** (`pull`, `fetch`, `commit`).
 
-4. **`aapp companion push <name> [target-branch]`**:
-   - Refuses if `.workspace/companion/<name>` has uncommitted working tree changes.
-   - Pushes the local tracking branch directly to the companion remote:
-     ```bash
-     git push <name> companion/<name>/<branch>:<target-branch>
-     ```
-   - Updates the tracking reference.
+4. **`aapp companion remove <name> [force]`**:
+   - Resolves companion from registry.
+   - If `mode == checkout`:
+     - Strictly **unlinks configuration only** (removes `aapp.companion.<name>.*` and `aapp.allowPath`). **Never deletes directory contents**.
+   - If `mode == worktree` or `mode == clone`:
+     - Checks for uncommitted changes or unpushed commits (`ahead > 0`).
+     - If uncommitted/unpushed exist and `force` is not passed: **refuses closed**, reporting unpushed commits / dirty files.
+     - If clean or `force` passed: removes directory (`git -C <base> worktree remove` or `rm -rf`), removes local branch if created, and cleans config / allowlist.
 
-5. **`aapp companion unmount <name> [force]`**:
-   - Checks for uncommitted changes or unpushed commits in `.workspace/companion/<name>`.
-   - If unpushed commits exist and `force` is not passed: **refuses closed**, reporting unpushed commit SHAs.
-   - Safely removes the linked worktree: `git worktree remove .workspace/companion/<name>`.
-   - Deletes the local tracking branch `companion/<name>/<branch>`.
-   - Cleans up `aapp.allowPath` entry.
-
-6. **`aapp companion list`**:
-   - Lists all configured companion remotes, their filesystem targets, and whether they are currently mounted.
+5. **`aapp companion list`**:
+   - Lists all registered companions, modes, paths, and active branches.
 
 ---
 
 ### 2.3 Layer 1 & Layer 2 Guard Integration
-- **Layer 1 (`blast-radius-guard`)**:
-  - The guard already checks `git config --get-all aapp.allowPath`.
-  - When `aapp companion mount` runs, it automatically adds `.workspace/companion/<name>` to `aapp.allowPath`.
-  - Agents operating in companion worktrees are permitted to write code within `.workspace/companion/<name>`.
+- **Layer 1 (`blast-radius-guard.sh`)**:
+  - The guard reads companion paths via registry accessor (`git config --get-regexp '^aapp\.companion\..*\.path$'`).
+  - **G1 Guard Delegation**: When an edit targets a file under a companion path:
+    - If the companion is an AAPP repository (`[ -x "$companion_path/.githooks/blast-radius-guard" ]`): Repo-A's guard delegates the check by invoking `(cd "$companion_path" && .githooks/blast-radius-guard)` passing the canonical absolute path (`$CANONICAL_TARGET`) on stdin. Repo-B's active plan's blast radius is enforced at tool-write time!
+    - If the companion is a non-AAPP repository (or has no active plan): the file is recognized as an authorized external path and permitted (`exit 0`).
 - **Layer 2 (`pre-commit`)**:
-  - Commits in `.workspace/companion/<name>` are commits on the companion's Git lineage, completely isolated from `repo-a`'s `pre-commit` plan validation.
-  - Commits in `repo-a` cannot accidentally include files from `.workspace/companion/<name>` because `.workspace/` is ignored.
+  - Repo-A's `pre-commit` only inspects files staged in Repo-A. Files under `.workspace/companion/` are ignored by `/.workspace` in `.git/info/exclude`; external checkouts are outside Repo-A. Repo-A commits cannot stage companion files.
+  - Repo-B's `pre-commit` governs all commits made in Repo-B.
 
 ---
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
 - **Fallback Inventory**: `None (Clean Break)`
-- Purely additive new capability; does not alter existing plan or issue verbs.
+- Additive core verb; does not alter existing plan or issue semantics.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
-> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/companion.sh::test_companion_add_validates_repo` -> asserts `aapp companion add` succeeds for a valid Git repo and fails closed for a non-git directory
-- [ ] `tests/verbs/companion.sh::test_companion_add_refuses_duplicate` -> asserts adding an already existing companion name fails closed
-- [ ] `tests/verbs/companion.sh::test_companion_mount_creates_worktree` -> asserts `aapp companion mount` fetches remote and creates `.workspace/companion/<name>` on correct branch
-- [ ] `tests/verbs/companion.sh::test_companion_status_reports_outgoing_commits` -> asserts `aapp companion status` lists uncommitted changes and unpushed commits
-- [ ] `tests/verbs/companion.sh::test_companion_push_syncs_to_companion_repo` -> asserts `aapp companion push` updates the companion repository's branch
-- [ ] `tests/verbs/companion.sh::test_companion_unmount_refuses_unpushed_without_force` -> asserts `aapp companion unmount` blocks removal when unpushed commits exist unless `force` is specified
-- [ ] `tests/verbs/companion.sh::test_companion_unmount_cleans_worktree_and_branch` -> asserts clean unmount removes worktree directory and local tracking branch
-- [ ] `tests/verbs/companion.sh::test_guard_authorizes_companion_writes` -> asserts blast-radius-guard permits file writes inside mounted companion worktree
+- [ ] `tests/verbs/companion.sh::test_companion_add_checkout_validates_repo` -> asserts `aapp companion add` registers existing repo and adds to allowlist
+- [ ] `tests/verbs/companion.sh::test_companion_add_worktree_non_aapp` -> asserts worktree mode creates worktree for non-AAPP repo
+- [ ] `tests/verbs/companion.sh::test_companion_add_worktree_refuses_aapp_repo` -> asserts worktree mode refuses AAPP repos per G2 with helpful guidance
+- [ ] `tests/verbs/companion.sh::test_companion_status_offline_metrics` -> asserts status reports dirty count, ahead/behind without network access
+- [ ] `tests/verbs/companion.sh::test_companion_push_bounded` -> asserts push delegates to git -C push, refusing dirty copy or unconfigured upstream
+- [ ] `tests/verbs/companion.sh::test_companion_remove_checkout_unlinks_only` -> asserts remove on checkout preserves directory and unregisters config
+- [ ] `tests/verbs/companion.sh::test_companion_remove_worktree_guards_unpushed` -> asserts remove on worktree refuses unpushed commits unless force specified
+- [ ] `tests/verbs/companion.sh::test_companion_guard_delegation_aapp` -> asserts blast-radius-guard delegates check to companion AAPP guard per G1
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Author `tests/verbs/companion.sh` with full fixture scaffolding (creating dummy companion repo); confirm red.
+- [ ] Task 1.1: Author `tests/verbs/companion.sh` with full fixture scaffolding; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/cmd_companion.sh`: Implement `aapp companion add`, `mount`, `status`, `push`, `unmount`, `list`.
+- [ ] Task 2.1: `lib/cmd_companion.sh`: Implement `add`, `status`, `push`, `remove`, `list`.
 - [ ] Task 2.2: `lib/aapp-lib.sh`: Register `companion` in CLI dispatcher and verb catalog.
-- [ ] Task 2.3: `templates/blast-radius-guard.sh`: Verify companion worktree path resolution in `aapp.allowPath`.
+- [ ] Task 2.3: `templates/blast-radius-guard.sh`: Implement companion registry lookup and G1 guard delegation with `$CANONICAL_TARGET`.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites across all verbs.
-- [ ] Task 3.2: Update `MANUAL.md` (§ Companion Development & Worktree Bridge).
+- [ ] Task 3.2: Update `MANUAL.md` (§ Companion Development & Multi-Repository Co-Development).
 - [ ] Task 3.3: Update `CHEATSHEET.md` with `aapp companion` command summary.
-- [ ] Task 3.4: Update `ARCHITECTURE.md` (§ Cross-Repository Companion Development).
+- [ ] Task 3.4: Update `ARCHITECTURE.md` (§ Cross-Repository Companion Architecture).
 - [ ] Task 3.5: Update `lib/docs/verbs/companion.md` with full verb specification and contracts.
 - [ ] Task 3.6: Verify `CHANGELOG.md` updates and run syntax/build checks.
 
@@ -191,11 +200,11 @@ aapp companion list
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/cmd_companion.sh` -> Implementation of `aapp companion` verb.
 - [ ] `lib/aapp-lib.sh` -> CLI dispatcher and helper functions.
+- [ ] `templates/blast-radius-guard.sh` -> Companion registry resolution and G1 guard delegation.
 - [ ] `lib/docs/verbs/companion.md` -> Command reference documentation.
-- [ ] `templates/blast-radius-guard.sh` -> Companion worktree authorization in guard.
 - [ ] `MANUAL.md` -> User manual section on companion development.
 - [ ] `CHEATSHEET.md` -> CLI quick reference.
-- [ ] `ARCHITECTURE.md` -> Architecture reference for companion worktrees.
+- [ ] `ARCHITECTURE.md` -> Architecture reference for companion repositories.
 - [ ] `NEW FILE` -> `tests/verbs/companion.sh` -> Test suite.
 
 ### 🧪 Required Test Files
@@ -208,11 +217,10 @@ aapp companion list
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*(None — design is fully specified)*
+*(None — design is fully specified per .plans/pickup/p90-companion-repos-rfc.md)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-16:** Plan drafted: authored blueprint for `aapp companion` verb, linked companion worktrees, remote tracking, and cross-repo push/unmount lifecycle.
+* **2026-10-16:** Plan drafted: initial linked worktree proposal.
+* **2026-10-16:** Comprehensive architectural redesign via `.plans/pickup/p90-companion-repos-rfc.md`: settled 3 topologies (`checkout`, `worktree`, `clone`) preserving Repo-B's Git directory; bounded `push` (C11); offline status telemetry (C14); G1 guard delegation; and G2 refusal of AAPP worktrees.
