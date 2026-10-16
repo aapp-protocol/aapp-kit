@@ -46,6 +46,8 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 - **Issues:** a facts line, then the symptom wrapped at 8 spaces:
   `#<id>  <Severity>  <Status>  logged <date>[  queued <date> (<Level>)][  [<plan>]][  (branch: <name>)][  offline]`
   Facts that are absent are left out, never padded. No blank line between issues: each facts line, starting with `#`, marks the next issue.
+- **Pickup ideas:** the title on the item's line, the text wrapped at 8 spaces below it, then one `files: <path>` line at 8 spaces per file:
+  `  - [ ] <title>` / `        <text>` / `        files: .plans/pickup/<file>`. An idea with no title shows its text on the item's line, wrapped at 8 spaces.
 - **Cutting:** `aapp status` cuts an item's text at the last space before `aapp.statusTextMax` characters (default `220`) and ends it with `…`; `aapp issue list` never cuts. The full text stays in its file.
 - **Item caps** in `aapp status`: `aapp.statusItemsMax` (default `5`) for Shipped and Pickup, followed by a line naming where the rest is. The Issues pillar lists the work queue whole, as today.
 - Section headings, the frame and the `➡️  Next Action:` line keep their wording.
@@ -100,7 +102,7 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 | `shipped` | `{ "source", "entries": [{ "section": "added" \| "changed" \| "fixed" \| …, "text", "plan", "issue", "commit", "date" }], "more" }`: `text` is the bullet as written; `plan` / `issue` the id it is tagged with, or `null`; `commit` and `date` where it landed, `null` from the fallback |
 | `issues` | `{ "queue": [issue], "unqueued" }`: the work queue in queue order, offline issues included (`offline: true`); the count of the others |
 | `plans` | `{ "items": [plan] }`, in briefing order. A plan: `{ "id", "file", "title", "kind": "plan" \| "group", "status", "status_label", "group", "target_issue", "blocked_on": [id], "worktree", "branch", "feature_branch", "members": [plan] }`. A group's `members` holds its member plans, nested in the group's order, as the briefing shows them under it; a member names its `group` and is not repeated at the top level. A member whose group is archived stands at the top level. `feature_branch` is a group's, `null` otherwise; `members` is `[]` for a plan |
-| `pickup` | `{ "source", "items": [{ "text" }], "total" }` |
+| `pickup` | `{ "source", "items": [{ "title", "text", "files": [path] }], "total" }`. An entry is `- [ ] <title>: <text>`: `title` is what stands before the first `: ` outside backticks, `text` the rest, verbatim; an entry with no such separator has `title` `null` and its whole text in `text`. `files` lists, in the order named, the paths under `.plans/pickup/` the entry names that exist (repository-relative); a named file that does not exist is left out and reported as a `warning` notice |
 | `adoption` | `{ "source", "open" }` |
 | `offline` | `null`, or `{ "issues": [id], "archived": [id], "plans": [file], "outbox" }` |
 | `next_action` | `{ "kind", "text", "command" }`; `kind` one of `paused`, `init`, `digest`, `in-development`, `start`, `issue`, `freeze`, `plan` |
@@ -176,3 +178,4 @@ The Issues records are one function for both commands, beside the ledger functio
 * **2026-10-16:** Group drafted: shared records, terminal layout and JSON contract; members P-92, P-88, P-93, P-94.
 * **2026-10-16:** Q1–Q3 resolved; `repository.remote` in every document; groups nest their members in `plans`; settings named `aapp.status…`.
 * **2026-10-16:** Q4 resolved: `aapp.jsonLocalPath`; the JSON holds no other local path.
+* **2026-10-16:** Pickup ideas carry `title`, `text` and `files`; the briefing shows the title on its own line.
