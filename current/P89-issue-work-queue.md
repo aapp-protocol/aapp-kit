@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 📝 Refining
+* **Status:** ⚡ In Development
 * **Base:** `6cf5dba` (develop)
 * **Worktree:** .workspace/P89 (plan/P89-issue-work-queue)
 * **Commits:** `f450ec8` (plan/P89-issue-work-queue), `a8ece7e` (plan/P89-issue-work-queue), `048c0a2` (plan/P89-issue-work-queue), `2d0feb8` (plan/P89-issue-work-queue)
@@ -288,6 +288,7 @@ Deciding what to queue, at which level, needs the issue's facts in front of whoe
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-16:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-15:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Levels Urgent/Normal/Low with queue dates; displays show severity, status and dates; `hook_dispatcher.sh`, `refine.md` and `issue.onecommit.sh` added to the targets.
