@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #160 | `Low` | `CLI` | 2026-10-16 | 2026-10-16 | `4a7da2f` | [P-97](P97-draft-from-pickup-title.md) - Draft From Pickup Title |  |
 | #164 | `Low` | `DOCS` | 2026-10-16 | 2026-10-16 | `7733a2f` | clarify issue log writes ISSUES.md only without a road-map line |  |
 | #163 | `Low` | `CLI` | 2026-10-16 | 2026-10-16 | `076b601` | route -h and --help after verbs to help dispatcher |  |
 | #155 | `Low` | `CLI` | 2026-10-16 | 2026-10-16 | `ca75504` | [P-93](P93-issue-list-layout.md) - Issue List Layout |  |

@@ -32,8 +32,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-97**: [`P97-draft-from-pickup-title.md`](current/P97-draft-from-pickup-title.md) — Draft From Pickup Title
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

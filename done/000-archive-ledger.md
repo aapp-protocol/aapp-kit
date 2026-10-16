@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-16 | `P-97` | [`P97-draft-from-pickup-title.md`](P97-draft-from-pickup-title.md) | #160 | `4a7da2f` | Draft From Pickup Title (tdd (5/5)) |
 | 2026-10-16 | `P-91` | [`P91-readable-and-parsable-output.md`](P91-readable-and-parsable-output.md) | None | `59e5399` | Readable And Parsable Output |
 | 2026-10-16 | `P-100` | [`P100-json-errors-and-warnings.md`](P100-json-errors-and-warnings.md) | none | `2128d63` | JSON Errors And Warnings (tdd (5/5)) |
 | 2026-10-16 | `P-94` | [`P94-json-output.md`](P94-json-output.md) | none | `5a6f3c7` | JSON Output (tdd (13/13)) |
