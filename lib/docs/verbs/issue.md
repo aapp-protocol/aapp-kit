@@ -132,6 +132,7 @@ Run: `aapp test verb issue`
 - `tests/verbs/issue.queue.sh::test_next_blocker_takes_levels_in_order` -> with no blocker `fix next-blocker` takes Urgent before Normal before Low, oldest first (P-89)
 - `tests/verbs/issue.queue.sh::test_health_knows_the_levels` -> the three levels pass the health check; another `###` heading is refused (P-89)
 - `tests/verbs/issue.queue.sh::test_list_shows_severity_dates_status` -> `list` shows each issue's severity, status and logged date, and a queued one's queue date and level (P-89)
+- `tests/verbs/issue.queue.sh::test_status_empty_queue_lists_no_issue` -> with an empty work queue the Issues pillar lists no issue, says nothing is queued, and counts the others (#154)
 - `tests/verbs/issue.queue.sh::test_status_shows_queue_with_facts` -> the Issues pillar shows the work queue with severity and dates, and not the unqueued issues (P-89)
 - `tests/verbs/issue.queue.sh::test_listing_priority_rebuilds_levels` -> a tracker listing's `priority` and `queued_at` place the issues in their levels (P-89)
 - `tests/verbs/issue.queue.sh::test_offline_sync_rewrites_queued_id` -> an issue queued while offline is queued under its real id after `aapp offline sync`; one not queued is not (P-89)

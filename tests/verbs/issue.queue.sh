@@ -228,6 +228,14 @@ else
   bad "test_status_shows_queue_with_facts" "status=$sout"
 fi
 
+for q in $(sed -nE 's/^- \[ \] #([0-9]+) .*/\1/p' .plans/issues_road_map.md); do aapp issue queue "$q" remove >/dev/null 2>&1; done
+sout="$(aapp status 2>&1 | sed -n '/ISSUES/,/PLANS/p')"
+if [ -z "$(echo "$sout" | grep -E '^  #[0-9]+ ')" ] && echo "$sout" | grep -qF 'Nothing queued for work' && echo "$sout" | grep -qF 'more issue(s) logged, not queued'; then
+  ok "test_status_empty_queue_lists_no_issue"
+else
+  bad "test_status_empty_queue_lists_no_issue" "status=$sout"
+fi
+
 project "$R/u"
 tracker
 issue2() { printf '{"id": "#%s", "sev": "Low", "type": "CORE", "date": "2026-10-01", "location": "`src/%s.sh`", "symptom": "Defect %s shows.", "status": "open"%s}\n' "$1" "$2" "$1" "${3:+, $3}"; }

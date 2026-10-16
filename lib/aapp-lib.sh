@@ -1882,8 +1882,12 @@ ledger_issue_lines() {
 # blockers, then the queued issues by level, in the display form of
 # `ledger_issue_lines` (P-89).
 roadmap_issue_lines() {
-    # shellcheck disable=SC2046
-    ledger_issue_lines $( { roadmap_blockers; roadmap_queued; } | awk '!seen[$0]++')
+    local ids
+    ids="$( { roadmap_blockers; roadmap_queued; } | awk '!seen[$0]++')"
+    # An empty queue shows no issue (ledger_issue_lines with no id lists all rows).
+    [ -n "$ids" ] || return 0
+    # shellcheck disable=SC2086
+    ledger_issue_lines $ids
 }
 
 # roadmap_add_blocker <n> <text> <plan-id>: appends to 🧱 Plan Blockers, creating
