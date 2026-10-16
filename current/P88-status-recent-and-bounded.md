@@ -12,7 +12,7 @@
 * **Base:** `9dc184e` (feature/readable-and-parsable-output)
 * **Worktree:** .workspace/P88 (plan/P88-status-recent-and-bounded)
 * **Group:** P-91
-* **Commits:** none
+* **Commits:** `e754635` (plan/P88-status-recent-and-bounded)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
