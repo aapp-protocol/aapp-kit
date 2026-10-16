@@ -169,52 +169,52 @@ Deciding what to queue, at which level, needs the issue's facts in front of whoe
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/issue.queue.sh::test_queue_appends_to_road_map` -> asserts `aapp issue queue <num>` adds issue to `## 📋 Queued` in `issues_road_map.md` and commits in `.plans`
-- [ ] `tests/verbs/issue.queue.sh::test_queue_remove` -> asserts `aapp issue queue <num> remove` removes the entry and commits
-- [ ] `tests/verbs/issue.queue.sh::test_queue_refuses_invalid_or_resolved` -> asserts queueing a non-existent or resolved issue fails closed
-- [ ] `tests/verbs/issue.queue.sh::test_fix_refuses_unqueued_issue` -> asserts `aapp issue fix <num>` fails closed with error when issue is not in blockers or queued
-- [ ] `tests/verbs/issue.queue.sh::test_fix_accepts_queued_issue` -> asserts `aapp issue fix <num>` opens cleanly when issue is in `## 📋 Queued`
-- [ ] `tests/verbs/issue.queue.sh::test_fix_next_blocker_falls_back_to_queued` -> asserts `aapp issue fix` with no blockers claims the top queued issue
-- [ ] `tests/verbs/issue.queue.sh::test_log_does_not_append_to_road_map` -> asserts `aapp issue log` writes solely to `ISSUES.md` without touching `issues_road_map.md`
-- [ ] `tests/verbs/issue.queue.sh::test_planning_health_validates_queue_format` -> asserts health check passes on the two-section road map and refuses any other section (a fixture heading such as `## Other`)
-- [ ] `tests/verbs/issue.queue.sh::test_queue_sends_provider_steps` -> asserts `queue` and `queue remove` send `issue.queue` / `issue.unqueue` with the issue
-- [ ] `tests/verbs/issue.queue.sh::test_listing_provider_owns_the_queue` -> asserts with a listing provider a refused `issue.queue` changes nothing locally, and the sync rebuilds `## 📋 Queued` from the listing's `queued` field
-- [ ] `tests/verbs/issue.queue.sh::test_queue_levels` -> asserts `queue <num>` lands in `### Normal`, `urgent` in `### 🔺 Urgent`, `low` in `### Low`, each line ending `(queued <today>)`
-- [ ] `tests/verbs/issue.queue.sh::test_queue_moves_between_levels` -> asserts queueing a queued issue at another level moves it with its queue date, one commit
-- [ ] `tests/verbs/issue.queue.sh::test_next_blocker_takes_levels_in_order` -> asserts with no blocker `fix next-blocker` takes Urgent before Normal before Low, oldest first in a level
-- [ ] `tests/verbs/issue.queue.sh::test_health_knows_the_levels` -> asserts the three levels pass and another `###` heading under the work queue is refused
-- [ ] `tests/verbs/issue.queue.sh::test_list_shows_severity_dates_status` -> asserts `aapp issue list` shows each issue's severity, status, logged date, and for a queued one its queue date and level
-- [ ] `tests/verbs/issue.queue.sh::test_status_shows_queue_with_facts` -> asserts the Issues pillar shows the queue by level with severity and dates
-- [ ] `tests/verbs/issue.queue.sh::test_listing_priority_rebuilds_levels` -> asserts a listing's `priority` and `queued_at` place the issues in their levels
-- [ ] `tests/verbs/issue.queue.sh::test_offline_sync_rewrites_queued_id` -> asserts `aapp offline sync` rewrites a former id in `## 📋 Queued`
+- [x] `tests/verbs/issue.queue.sh::test_queue_appends_to_road_map` -> asserts `aapp issue queue <num>` adds issue to `## 📋 Queued` in `issues_road_map.md` and commits in `.plans`
+- [x] `tests/verbs/issue.queue.sh::test_queue_remove` -> asserts `aapp issue queue <num> remove` removes the entry and commits
+- [x] `tests/verbs/issue.queue.sh::test_queue_refuses_invalid_or_resolved` -> asserts queueing a non-existent or resolved issue fails closed
+- [x] `tests/verbs/issue.queue.sh::test_fix_refuses_unqueued_issue` -> asserts `aapp issue fix <num>` fails closed with error when issue is not in blockers or queued
+- [x] `tests/verbs/issue.queue.sh::test_fix_accepts_queued_issue` -> asserts `aapp issue fix <num>` opens cleanly when issue is in `## 📋 Queued`
+- [x] `tests/verbs/issue.queue.sh::test_fix_next_blocker_falls_back_to_queued` -> asserts `aapp issue fix` with no blockers claims the top queued issue
+- [x] `tests/verbs/issue.queue.sh::test_log_does_not_append_to_road_map` -> asserts `aapp issue log` writes solely to `ISSUES.md` without touching `issues_road_map.md`
+- [x] `tests/verbs/issue.queue.sh::test_planning_health_validates_queue_format` -> asserts health check passes on the two-section road map and refuses any other section (a fixture heading such as `## Other`)
+- [x] `tests/verbs/issue.queue.sh::test_queue_sends_provider_steps` -> asserts `queue` and `queue remove` send `issue.queue` / `issue.unqueue` with the issue
+- [x] `tests/verbs/issue.queue.sh::test_listing_provider_owns_the_queue` -> asserts with a listing provider a refused `issue.queue` changes nothing locally, and the sync rebuilds `## 📋 Queued` from the listing's `queued` field
+- [x] `tests/verbs/issue.queue.sh::test_queue_levels` -> asserts `queue <num>` lands in `### Normal`, `urgent` in `### 🔺 Urgent`, `low` in `### Low`, each line ending `(queued <today>)`
+- [x] `tests/verbs/issue.queue.sh::test_queue_moves_between_levels` -> asserts queueing a queued issue at another level moves it with its queue date, one commit
+- [x] `tests/verbs/issue.queue.sh::test_next_blocker_takes_levels_in_order` -> asserts with no blocker `fix next-blocker` takes Urgent before Normal before Low, oldest first in a level
+- [x] `tests/verbs/issue.queue.sh::test_health_knows_the_levels` -> asserts the three levels pass and another `###` heading under the work queue is refused
+- [x] `tests/verbs/issue.queue.sh::test_list_shows_severity_dates_status` -> asserts `aapp issue list` shows each issue's severity, status, logged date, and for a queued one its queue date and level
+- [x] `tests/verbs/issue.queue.sh::test_status_shows_queue_with_facts` -> asserts the Issues pillar shows the queue by level with severity and dates
+- [x] `tests/verbs/issue.queue.sh::test_listing_priority_rebuilds_levels` -> asserts a listing's `priority` and `queued_at` place the issues in their levels
+- [x] `tests/verbs/issue.queue.sh::test_offline_sync_rewrites_queued_id` -> asserts `aapp offline sync` rewrites a former id in `## 📋 Queued`
 
 ### ♻️ Existing Tests Changed or Retired
 > Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
 - Fixtures writing road maps with the legacy bands, and assertions that `aapp issue log` or the sync adds a road-map line: `tests/issue_ledger_test.sh`, `tests/plugin_protocol_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, and in `tests/verbs/`: `issue.sh`, `issue.provider.sh`, `issue.tracker.sh`, `issue.keyid.sh`, `issue.branch.sh`, `issue.branchplugin.sh`, `issue.fixes.sh`, `issue.abort.sh`, `issue.notefilter.sh`, `offline.sh`, `commit.sh`, `draft.sh`, `refine.sh`, `start.sh`, `freeze-start.sh`, `plan.abort.sh`: rewritten to the two sections.
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Author `tests/verbs/issue.queue.sh` covering queue verb and fix gate assertions; confirm red.
+- [x] Task 1.1: Author `tests/verbs/issue.queue.sh` covering queue verb and fix gate assertions; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/aapp-lib.sh` (ledger section): `roadmap_queue_add`, `roadmap_queue_remove`, `roadmap_queued`; the road map helpers on the two-section layout; `roadmap_add_entry` and Triage retired.
-- [ ] Task 2.2: `lib/cmd_issue.sh`: Implement `aapp issue queue <num> [remove]`; enforce queue check in `cmd_issue_fix`; decouple `cmd_issue_log` from road map appending.
-- [ ] Task 2.3: `lib/cmd_status.sh`: Update Issues pillar of briefing to show blockers, queued issues, and count of unqueued issues.
-- [ ] Task 2.4: `lib/planning_health.sh`: Update roadmap verification rules for the two-section queue format.
-- [ ] Task 2.5: The provider steps `issue.queue` / `issue.unqueue`, the listing's `queued` field and the rebuild of `## 📋 Queued` at sync (`lib/cmd_issue.sh`, `lib/plugins.tsv`, `docs/reference/07-issue-protocol.md`, the sample provider).
-- [ ] Task 2.6: `lib/cmd_offline.sh`: the offline road map in the two sections; `aapp offline sync` rewrites ids in both.
-- [ ] Task 2.7: Rewrite the existing tests listed above.
-- [ ] Task 2.8: `templates/AGENTS.md`: the *No trace of the old form* bullet of the Clean Break Invariant.
-- [ ] Task 2.9: The three levels: `queue <num> [urgent | low]`, moving between levels, the queue date, `next-blocker`'s order, the health check, the tracker's `priority` and `queued_at`.
-- [ ] Task 2.10: The display form of 2.9 in `aapp issue list` and the Issues pillar.
-- [ ] Task 2.11: `lib/hook_dispatcher.sh`: `json_field` also reads `true` and `false`.
-- [ ] Task 2.12: `tests/verbs/issue.onecommit.sh`: its issues are queued before they are fixed.
+- [x] Task 2.1: `lib/aapp-lib.sh` (ledger section): `roadmap_queue_add`, `roadmap_queue_remove`, `roadmap_queued`; the road map helpers on the two-section layout; `roadmap_add_entry` and Triage retired.
+- [x] Task 2.2: `lib/cmd_issue.sh`: Implement `aapp issue queue <num> [remove]`; enforce queue check in `cmd_issue_fix`; decouple `cmd_issue_log` from road map appending.
+- [x] Task 2.3: `lib/cmd_status.sh`: Update Issues pillar of briefing to show blockers, queued issues, and count of unqueued issues.
+- [x] Task 2.4: `lib/planning_health.sh`: Update roadmap verification rules for the two-section queue format.
+- [x] Task 2.5: The provider steps `issue.queue` / `issue.unqueue`, the listing's `queued` field and the rebuild of `## 📋 Queued` at sync (`lib/cmd_issue.sh`, `lib/plugins.tsv`, `docs/reference/07-issue-protocol.md`, the sample provider).
+- [x] Task 2.6: `lib/cmd_offline.sh`: the offline road map in the two sections; `aapp offline sync` rewrites ids in both.
+- [x] Task 2.7: Rewrite the existing tests listed above.
+- [x] Task 2.8: `templates/AGENTS.md`: the *No trace of the old form* bullet of the Clean Break Invariant.
+- [x] Task 2.9: The three levels: `queue <num> [urgent | low]`, moving between levels, the queue date, `next-blocker`'s order, the health check, the tracker's `priority` and `queued_at`.
+- [x] Task 2.10: The display form of 2.9 in `aapp issue list` and the Issues pillar.
+- [x] Task 2.11: `lib/hook_dispatcher.sh`: `json_field` also reads `true` and `false`.
+- [x] Task 2.12: `tests/verbs/issue.onecommit.sh`: its issues are queued before they are fixed.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites across all verbs.
-- [ ] Task 3.2: Update `templates/issues_road_map.md`, `templates/issues.md`, `templates/state_matrix.md`, `templates/architecture.md`, `templates/AGENTS.md`, the fix, digest and status skills.
-- [ ] Task 3.3: Update `MANUAL.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, `README.md`, `lib/docs/verbs/issue.md`, `lib/docs/verbs/status.md`.
-- [ ] Task 3.4: Migrate active `.plans/issues_road_map.md`.
-- [ ] Task 3.5: Run syntax, build, and test verification before plan completion.
+- [x] Task 3.1: Run automated test suites across all verbs.
+- [x] Task 3.2: Update `templates/issues_road_map.md`, `templates/issues.md`, `templates/state_matrix.md`, `templates/architecture.md`, `templates/AGENTS.md`, the fix, digest and status skills.
+- [x] Task 3.3: Update `MANUAL.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, `README.md`, `lib/docs/verbs/issue.md`, `lib/docs/verbs/status.md`.
+- [ ] Task 3.4: Migrate active `.plans/issues_road_map.md`. (Runs after the plan lands: the installed hooks still check the old layout until `aapp init`.)
+- [x] Task 3.5: Run syntax, build, and test verification before plan completion.
 
 ---
 
