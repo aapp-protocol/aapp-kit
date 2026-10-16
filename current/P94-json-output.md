@@ -138,7 +138,7 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — A JSON parser in the tests.** The output is written by the kit's bash and needs no parser; only the tests must parse it. Perl with `JSON::PP` (core since 5.14; perl ships with Git for Windows and macOS, but Fedora/RHEL package `JSON::PP` apart and Debian's `perl-base` lacks it) or `python3` (its `json` module is in the standard library, but `python3` itself is absent on macOS without the developer tools and in minimal images; the kit already calls it in `aapp pause`, `aapp status` and `aapp init`). `jq` is not a kit dependency. Whichever is chosen, a test skips with a notice where it is missing.
+* [x] **Question 1 — A JSON parser in the tests. → RESOLVED (developer, 2026-10-16):** `python3` (`json`), as the kit's other JSON handling; a test skips with a notice where it is missing.
 
 ---
 
