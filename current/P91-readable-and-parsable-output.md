@@ -47,7 +47,7 @@ Merge criterion: every member archived and the pre-done gate green on the featur
   `#<id>  <Severity>  <Status>  logged <date>[  queued <date> (<Level>)][  [<plan>]][  (branch: <name>)][  offline][  <n> notes]`
   Facts that are absent are left out, never padded. No blank line between issues: each facts line, starting with `#`, marks the next issue.
 - **Pickup ideas:** the title on the item's line, the text wrapped at 8 spaces below it, then one `files: <path>` line at 8 spaces per file:
-  `  - [ ] <title>` / `        <text>` / `        files: .plans/pickup/<file>`. An idea with no title shows its text on the item's line, wrapped at 8 spaces.
+  `  - [ ] <title>` / `        <text>` / `        files: .plans/pickup/<file>`. An idea with no title shows its text on the item's line, wrapped at 8 spaces. A title wider than the line (a high `aapp.pickupTitleMax`, a narrow width) wraps at 8 spaces too.
 - **Cutting:** `aapp status` cuts an item's text at the last space before `aapp.statusTextMax` characters (default `220`) and ends it with `…`; `aapp issue list` never cuts. The full text stays in its file.
 - **Item caps** in `aapp status`: `aapp.statusItemsMax` (default `5`) for Shipped and Pickup, followed by a line naming where the rest is. The Issues pillar lists the work queue whole, as today.
 - Section headings, the frame and the `➡️  Next Action:` line keep their wording.
@@ -182,4 +182,5 @@ The Issues records are one function for both commands, beside the ledger functio
 * **2026-10-16:** Q4 resolved: `aapp.jsonLocalPath`; the JSON holds no other local path.
 * **2026-10-16:** Pickup ideas carry `title`, `text` and `files`; the briefing shows the title on its own line.
 * **2026-10-16:** P-96 (pickup entry form) joins, first in order.
+* **2026-10-16:** A pickup title wider than the line wraps.
 * **2026-10-16:** Issues carry a `notes` count: a facts-line hint and a JSON field, never the text.
