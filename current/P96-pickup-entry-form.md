@@ -1,8 +1,8 @@
 # 🗺️ Plan P-96: Pickup Entry Form
 * **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-96
-* **Changelog:** Changed: Pickup Entry Form
+* **Changelog:** Changed: a pickup entry is `- [ ] <title>: <text>`, its title at most 72 characters; `aapp refine pickup` refuses any other form (P-96)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,12 +40,52 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+Group P-91 reads each pickup entry as a title, a text and the files it names (§2.5), for the briefing and for `aapp status json`. Nothing defines how an entry is written: `check_pickup_entries` (`lib/planning_health.sh`), the gate of `aapp refine pickup`, only checks that it starts with `- [ ] `. An agent writing a note from a prompt may use one form today and another tomorrow, and the title cannot then be read reliably.
+
+This member, the first of the group, makes the form a rule: stated where entries are written, checked by the gate every pickup commit passes. `pickup.md` stays a file people edit by hand; only the commit insists on the form.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 The form
+One line per entry:
+```
+- [ ] <title>: <text>
+```
+- **Title:** everything before the first `: ` outside backticks; required; at most 72 characters (the commit subject limit: the title stays one line after `  - [ ] ` within the briefing's 85 columns). Not configurable.
+- **Text:** everything after it; required, not empty.
+- **Files:** every path under `.plans/pickup/` the entry names exists.
+- A digested entry (`- [x] `) is not checked: it is history.
+
+### 2.2 The gate (`check_pickup_entries`)
+- Refuses, per line, naming the line number and the line, and showing the form:
+  - a list line that is not `- [ ] ` / `- [x] ` (as today);
+  - an entry with no `: ` outside backticks: `no title`;
+  - a title longer than 72 characters: `title is <n> characters; at most 72`;
+  - an empty text: `no text after the title`;
+  - a named `.plans/pickup/` path that does not exist: `names <path>, which does not exist`.
+- One title rule for gate and reader: the split is one function, `pickup_entry_split` (`lib/aapp-lib.sh`), used by the gate and by P-92's `status_records_pickup`.
+- Runs where it runs today: `aapp refine pickup`, nothing committed on a refusal.
+
+### 2.3 Where the form is stated
+- `templates/pickup.md`: the protocol block (kept current by `aapp init`) states the form with one example.
+- `templates/AGENTS.md`: the line that says ideas are committed with `aapp refine pickup` states the form.
+
+### 2.4 Existing entries
+Four titles in this repository's `pickup.md` are longer than 72 characters. Before this member lands they are rewritten with `aapp refine pickup`, the bracketed part moved into the text, and nothing else changed:
+
+| Today | Title after |
+| :--- | :--- |
+| `Work Dispatch Queue for Multi-Agent Execution (\`aapp dispatch\` / \`aapp queue\`)` (78) | `Work Dispatch Queue for Multi-Agent Execution` |
+| `Layer-0 Enforcement Practice & Unsupervised Agent Security Manual (docs only, not kit code)` (91) | `Layer-0 Enforcement Practice & Unsupervised Agent Security Manual` |
+| `AI Attribution Integrity & Model Introspection Enforcement (Bare-Word & Placeholder Refusal)` (92) | `AI Attribution Integrity & Model Introspection Enforcement` |
+| `Cookbook recipe "Planning a Plan Group" (\`docs/recipes/workflows/planning-a-plan-group.md\`, listed in P-56 Task 1.4)` (116) | `Cookbook recipe "Planning a Plan Group"` |
+
+The text of each starts with the moved part, e.g. `- [ ] Cookbook recipe "Planning a Plan Group": (\`docs/recipes/workflows/planning-a-plan-group.md\`, listed in P-56 Task 1.4) how related plans …`.
+
+### 2.5 Not in this member
+- A writer token (`aapp refine pickup add "<title>" "<text>" [file <path>]`): the gate makes the form reliable, and the file stays easy to edit by hand. It can follow if agents keep being refused.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -57,13 +97,24 @@
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
+### 🧪 Required Tests (Failure & Boundary Assertions)
+> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_untitled_entry` -> asserts an entry with no `: ` outside backticks is refused naming its line, and nothing is committed
+- [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_long_title` -> asserts a 73-character title is refused with its length, and a 72-character one is accepted
+- [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_empty_text` -> asserts `- [ ] Title:` with nothing after it is refused
+- [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_missing_file` -> asserts an entry naming a `.plans/pickup/` file that does not exist is refused naming the path, and one naming an existing file is accepted
+- [ ] `tests/verbs/refine.sh::test_refine_pickup_skips_digested` -> asserts a `- [x] ` entry without a title is not refused
+- [ ] `tests/aapp_lib_test.sh::test_pickup_entry_split` -> asserts the split at the first `: ` outside backticks (a `: ` inside backticks in the title stays in it), and an empty title for a line without one
+
 ### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+- [ ] Task 1.1: Write the tests of this section; commit them red.
+- [ ] Task 1.2: Rewrite the four titles of §2.4 in `.plans/pickup.md` with `aapp refine pickup`.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: `lib/aapp-lib.sh`: `pickup_entry_split`.
+- [ ] Task 2.2: `lib/planning_health.sh`: `check_pickup_entries` with the refusals of §2.2.
+- [ ] Task 2.3: `templates/pickup.md`, `templates/AGENTS.md`: the form.
+- [ ] Task 2.4: `lib/docs/verbs/refine.md`: the refusals and the tests.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -81,23 +132,32 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/aapp-lib.sh` -> `pickup_entry_split`.
+- [ ] `lib/planning_health.sh` -> `check_pickup_entries`: the form.
+- [ ] `templates/pickup.md` -> the form in the protocol block.
+- [ ] `templates/AGENTS.md` -> the form where pickup commits are named.
+- [ ] `lib/docs/verbs/refine.md` -> the refusals and the tests.
+- [ ] `MANUAL.md` -> how a pickup idea is written.
+
+### 🧪 Required Test Files
+> Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `tests/verbs/refine.sh`
+- [ ] `tests/aapp_lib_test.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `ARCHITECTURE.md` -> written from group P-91's sections at the group's `done`.
+- [ ] `.agents/CODEMAP.md` -> written from group P-91's sections at the group's `done`.
+- [ ] `lib/cmd_status.sh` -> the briefing reads entries in P-92 and P-88.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — The four new titles (§2.4).** They are the developer's notes: confirm the titles, or give others, before Task 1.2.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-16:** Plan initialized from `pickup.md`.
-* **2026-10-16:** Refined blast radius and locked module boundaries.
+* **2026-10-16:** Drafted as the first member of group P-91.
