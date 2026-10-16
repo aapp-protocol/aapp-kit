@@ -158,6 +158,7 @@ AAPP controls repository behavior via standard Git configuration:
 | `aapp.aiAttribution` | `none` / `lax` / `strict` / `notes` | `none` | AI Attribution | Attribution mode: none (default; human-only), lax (mixed human/AI), strict (mandatory trailers), notes (private git notes). |
 | `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
 | `aapp.subjectMaxLen` | integer | `72` | Git Hooks | Numeric conciseness limit for commit subject lines (enforced in `aapp-commit-msg`). |
+| `aapp.pickupTitleMax` | integer (≥ 10) | `72` | `aapp refine pickup` | The most characters a pickup title (`- [ ] <title>: <text>`) may have (P-96). |
 | `aapp.protectStable` | `true` / `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |
 | `aapp.devBranch` | string (list) | `develop dev development` | Branch Guard, `aapp start` | Candidate development branches, first present (local or remote) wins; plan worktrees branch from it, else the default branch (P-54). |
 | `aapp.allowPath` | string (multi) | *(empty)* | Write Guard | External filesystem paths authorized for AI file writes (`blast-radius-guard`). |

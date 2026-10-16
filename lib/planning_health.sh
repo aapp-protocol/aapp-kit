@@ -614,16 +614,43 @@ check_issues_table_shape() {
     '
 }
 
-# check_pickup_entries <pickup_file>: every list entry is a `- [ ] ` (or `- [x] `) line.
+# check_pickup_entries <pickup_file>: every list entry is a `- [ ] ` (or
+# `- [x] `) line, and an unworked one has the form `- [ ] <title>: <text>`
+# (P-96): a title of at most `aapp.pickupTitleMax` characters, a text, and
+# every `.plans/pickup/` file it names present. Digested entries are history.
+# `.plans/pickup/` is gitignored, so its files are on the writer's machine
+# only: the files are checked for the entries this commit adds or changes.
 check_pickup_entries() {
-    local pickup_file="$1"
+    local pickup_file="$1" max line n=0 bad=0 split title text path committed form='"- [ ] <title>: <text>"'
     [ -f "$pickup_file" ] || return 0
-    awk '
-        /^([*+-]|[0-9]+\.)[[:space:]]/ && !/^- \[[ xX]\] / {
-            printf "❌ [Pickup] Line %d is not a \"- [ ] \" entry: %s\n", NR, $0; bad++
-        }
-        END { exit (bad > 0) }
-    ' "$pickup_file"
+    max="$(pickup_title_max)" || return 1
+    committed="$(git -C "$(dirname "$pickup_file")" show "HEAD:./$(basename "$pickup_file")" 2>/dev/null)" || committed=""
+    while IFS= read -r line || [ -n "$line" ]; do
+        n=$((n + 1))
+        printf '%s\n' "$line" | grep -qE '^([*+-]|[0-9]+\.)[[:space:]]' || continue
+        if ! printf '%s\n' "$line" | grep -qE '^- \[[ xX]\] '; then
+            echo "❌ [Pickup] Line $n is not a \"- [ ] \" entry: $line"; bad=$((bad + 1)); continue
+        fi
+        printf '%s\n' "$line" | grep -qE '^- \[ \] ' || continue
+        split="$(pickup_entry_split "$line")"
+        title="${split%%$'\t'*}"; text="${split#*$'\t'}"
+        if [ -z "$title" ]; then
+            echo "❌ [Pickup] Line $n has no title; write it as $form: $line"; bad=$((bad + 1)); continue
+        fi
+        if [ "$(aapp_char_len "$title")" -gt "$max" ]; then
+            echo "❌ [Pickup] Line $n: title is $(aapp_char_len "$title") characters; at most $max (aapp.pickupTitleMax): $title"; bad=$((bad + 1))
+        fi
+        if [ -z "$text" ]; then
+            echo "❌ [Pickup] Line $n: no text after the title; write it as $form"; bad=$((bad + 1))
+        fi
+        printf '%s\n' "$committed" | grep -qxF -- "$line" && continue
+        while IFS= read -r path; do
+            [ -n "$path" ] || continue
+            [ -e "$(dirname "$pickup_file")/${path#.plans/}" ] && continue
+            echo "❌ [Pickup] Line $n names $path, which does not exist"; bad=$((bad + 1))
+        done < <(pickup_entry_files "$text")
+    done < "$pickup_file"
+    [ "$bad" -eq 0 ]
 }
 
 # check_issues_added_rows <issues_file> <committed_issues_file> (P-74): no row

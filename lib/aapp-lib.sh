@@ -1247,6 +1247,54 @@ issue_text_get() {
 }
 # ---- end issue text ----
 
+# ---- pickup entries (P-96) ----
+# A pickup entry is one line, `- [ ] <title>: <text>`. The title is what stands
+# before the first `: ` outside backticks; a `:` ending the line also ends the
+# title (an entry with no text).
+
+# aapp_char_len <text> -> its length in characters, whatever the locale:
+# UTF-8 continuation bytes are not counted.
+aapp_char_len() {
+    printf '%s' "$1" | LC_ALL=C tr -d '\200-\277' | wc -c | tr -d ' '
+}
+
+# pickup_entry_split <line> -> `<title>\t<text>`; the title is empty when the
+# entry has none. A leading `- [ ] ` / `- [x] ` marker is dropped.
+pickup_entry_split() {
+    printf '%s\n' "$1" | LC_ALL=C awk '{
+        sub(/^[[:space:]]*[-*+][[:space:]]+\[[ xX]?\][[:space:]]*/, "")
+        sub(/[[:space:]]+$/, "")
+        n = length($0); tick = 0; cut = 0
+        for (i = 1; i <= n; i++) {
+            c = substr($0, i, 1)
+            if (c == "`") { tick = !tick; continue }
+            if (!tick && c == ":" && (i == n || substr($0, i + 1, 1) == " ")) { cut = i; break }
+        }
+        if (!cut) { printf "\t%s\n", $0; exit }
+        t = substr($0, 1, cut - 1); x = substr($0, cut + 1)
+        sub(/[[:space:]]+$/, "", t); sub(/^[[:space:]]+/, "", x)
+        printf "%s\t%s\n", t, x
+    }'
+}
+
+# pickup_title_max -> `aapp.pickupTitleMax` (default 72), the most characters a
+# title may have. Fails, naming the key, when it is not a whole number of at
+# least 10.
+pickup_title_max() {
+    local v
+    v="$(git config --get aapp.pickupTitleMax 2>/dev/null)" || v=72
+    case "$v" in ''|*[!0-9]*) ;; *) [ "$v" -ge 10 ] && { echo "$v"; return 0; } ;; esac
+    echo "❌ [Pickup] aapp.pickupTitleMax is '$v'; it must be a whole number of at least 10." >&2
+    return 1
+}
+
+# pickup_entry_files <text> -> the `.plans/pickup/` paths the text names, in
+# order, one per line (a sentence's closing `.` or `:` is not part of a path).
+pickup_entry_files() {
+    printf '%s\n' "$1" | grep -oE '\.plans/pickup/[^][:space:]`'"'"'"(),;<>]+' | sed -E 's/[.:]+$//' || true
+}
+# ---- end pickup entries ----
+
 # ledger_row <n> -> the active row of #<n>, as written; fails when there is none.
 ledger_row() {
     local f re real

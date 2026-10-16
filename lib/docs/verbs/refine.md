@@ -12,7 +12,7 @@
 - `issues "<msg>" branch <num> <name>` (P-78): names the branch active issue `#<num>`'s fix must land on, then commits the ledgers as `issues "<msg>"` does; the development branch clears the cell
 - `issues "<msg>" note <num> "<text>"` (P-74, repeatable): adds a note to active issue `#<num>`, dated, with its author. Notes are never in the ledger or in Git: a provider that names `notes` in `handled` keeps them, otherwise the kit's store on this machine does. With no other change nothing is committed
 - reads: the plan file and the `plans` worktree status; with `blocked`, `.plans/ISSUES.md`
-- reads config: `aapp.subjectMaxLen` (default 72, the `commit-msg` gate's limit); `aapp.aiAttribution` and the `AAPP_AGENT_*` identity, applied by the plans commit engine (`plans_commit`)
+- reads config: `aapp.pickupTitleMax` (default 72: the longest pickup title, `refine pickup`, P-96); `aapp.subjectMaxLen` (default 72, the `commit-msg` gate's limit); `aapp.aiAttribution` and the `AAPP_AGENT_*` identity, applied by the plans commit engine (`plans_commit`)
 
 ## Preconditions
 - Inside a Git repository whose `.plans/` worktree exists
@@ -24,7 +24,7 @@
 - `blocked` with a non-numeric issue -> exit 1, stderr `Usage: aapp refine <plan-id> blocked <num>`
 - `id` resolves to no active plan -> exit 1, stderr `Plan '<id>' not found`
 - `slug`: new slug empty after normalisation, target file exists, same name, or the plan file has uncommitted edits -> exit 1 naming the cause; nothing moves
-- `pickup` / `issues`: ledger unchanged -> exit 1, `Nothing to commit`; a validation failure -> exit 1, each failing line named, `Nothing committed`. Issues: an empty line inside the table, a row without as many cells as the header (8, or 9 with `Branch`), a *Target Plan / Fix* cell holding anything but empty or a verb-written link (`[P-xx](…)`, `blocks [P-xx](…)`, P-66), a repeated ID (Pairs 8, 1), a row added by hand (each named, with `aapp issue log`, P-74), a road-map line without a row (Pair 2), an active issue missing from the road map. Pickup: an entry that is not a `- [ ] ` line
+- `pickup` / `issues`: ledger unchanged -> exit 1, `Nothing to commit`; a validation failure -> exit 1, each failing line named, `Nothing committed`. Issues: an empty line inside the table, a row without as many cells as the header (8, or 9 with `Branch`), a *Target Plan / Fix* cell holding anything but empty or a verb-written link (`[P-xx](…)`, `blocks [P-xx](…)`, P-66), a repeated ID (Pairs 8, 1), a row added by hand (each named, with `aapp issue log`, P-74), a road-map line without a row (Pair 2), an active issue missing from the road map. Pickup: an entry that is not a `- [ ] ` line; an unworked entry not in the form `- [ ] <title>: <text>` (P-96): no title (no `: ` outside backticks), a title longer than `aapp.pickupTitleMax` characters (`title is <n> characters; at most <max> (aapp.pickupTitleMax)`), no text after the title, or a named `.plans/pickup/` path that does not exist, checked for the entries the commit adds or changes only (`.plans/pickup/` is gitignored: its files are on the writer's machine); a digested `- [x] ` entry is not checked. An `aapp.pickupTitleMax` that is not a whole number of at least 10 -> exit 1 naming the key, nothing committed
 - the message contains a line break -> exit 1, stderr `The message must be a single line (it becomes the commit subject).`; nothing staged or committed
 - the subject `plan(refine): <id> <msg>` is longer than `aapp.subjectMaxLen` -> exit 1, stderr `Commit subject is <n> characters; the limit is <max> (aapp.subjectMaxLen).` and `Shorten the message by <n-max> characters: "<msg>"`; nothing staged or committed
 - `blocked <num>` with `#<num>` not active in `ISSUES.md` (unknown or archived) -> exit 1, stderr `#<num> is not an active issue in ISSUES.md.`; the plan file is unchanged
@@ -75,6 +75,13 @@ Run: `aapp test verb refine`
 - `tests/verbs/refine.sh::test_refine_slug_refusals` -> empty slug, existing target, dirty plan, unknown plan: nothing moves (P-50)
 - `tests/verbs/refine.sh::test_refine_pickup_commits_only_pickup` -> the reserved word wins over a plan named *pickup*; only `pickup.md` committed (P-50)
 - `tests/verbs/refine.sh::test_refine_pickup_refuses_malformed_entry` -> a non-checkbox entry is refused with its line (P-50)
+- `tests/verbs/refine.sh::test_refine_pickup_refuses_untitled_entry` -> an entry with no `: ` outside backticks is refused naming its line; nothing committed (P-96)
+- `tests/verbs/refine.sh::test_refine_pickup_refuses_long_title` -> a title one character over `aapp.pickupTitleMax` is refused with its length and the limit, one at the limit accepted, under 72 and 50 (P-96)
+- `tests/verbs/refine.sh::test_refine_pickup_title_max_invalid` -> an `aapp.pickupTitleMax` that is not a whole number of at least 10 is refused naming the key (P-96)
+- `tests/verbs/refine.sh::test_refine_pickup_refuses_empty_text` -> `- [ ] Title:` with no text is refused (P-96)
+- `tests/verbs/refine.sh::test_refine_pickup_refuses_missing_file` -> a named `.plans/pickup/` file that does not exist is refused naming the path; an existing one accepted (P-96)
+- `tests/verbs/refine.sh::test_refine_pickup_committed_file_elsewhere` -> a committed entry whose `.plans/pickup/` file this machine lacks does not block a commit of another entry (P-96)
+- `tests/verbs/refine.sh::test_refine_pickup_skips_digested` -> a `- [x] ` entry without a title is not refused (P-96)
 - `tests/verbs/refine.sh::test_refine_issues_commits_ledgers` -> `issue(triage): <msg>`, ledger files only (P-50)
 - `tests/verbs/refine.sh::test_refine_issues_validation_refuses` -> blank line, cell count, duplicate, a row renumbered by hand, a heading that is not one of the work queue's: each refused, nothing committed (P-50, P-89)
 - `tests/verbs/refine.sh::test_refine_joins_and_leaves_group` -> join and leave each in one commit; refused once the plan is started (P-64)

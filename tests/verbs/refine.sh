@@ -236,6 +236,8 @@ fi
 
 out="$(pickup_refused "- [ ] $(title_of 73): text")"; r1=$?
 pickup_accepted "- [ ] $(title_of 72): text"; r2=$?
+# The gate reads the whole file: the 72-character entry goes before the limit drops.
+sed -i "/^- \[ \] $(title_of 72): text$/d" .plans/pickup.md && aapp refine pickup "drop entry" >/dev/null 2>&1
 git config aapp.pickupTitleMax 50
 out50="$(pickup_refused "- [ ] $(title_of 51): text")"; r3=$?
 pickup_accepted "- [ ] $(title_of 50): text"; r4=$?
@@ -273,6 +275,15 @@ if [ "$r1" -eq 0 ] && echo "$out" | grep -qF ".plans/pickup/missing-notes.md" &&
   ok "test_refine_pickup_refuses_missing_file"
 else
   bad "test_refine_pickup_refuses_missing_file" "missing=$r1 real=$r2 out=$out"
+fi
+# Another clone: the committed entry names a file this machine does not have
+# (`.plans/pickup/` is gitignored); a commit of another entry still passes.
+rm -f .plans/pickup/real-notes.md
+pickup_accepted "- [ ] Unrelated Idea: written on another machine"; r1=$?
+if [ "$r1" -eq 0 ] && git -C .plans log -1 --format=%s | grep -qxF "pickup: add entry"; then
+  ok "test_refine_pickup_committed_file_elsewhere"
+else
+  bad "test_refine_pickup_committed_file_elsewhere" "rc=$r1"
 fi
 
 pickup_accepted "- [x] a digested note written before titles"; r1=$?
