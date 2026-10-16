@@ -16,7 +16,7 @@ Fix one logged issue via the authoritative CLI engine. Every fix is made in its 
   ```bash
   aapp issue fix <num>
   ```
-- `/aapp-fix` alone takes the top of the work queue: the first 🧱 Plan Blocker, or, when there is none, the first 📋 Queued issue:
+- `/aapp-fix` alone takes the top of the work queue: the first 🧱 Plan Blocker, or, when there is none, the first 📋 Queued issue (Urgent, then Normal, then Low):
   ```bash
   aapp issue fix next-blocker
   ```

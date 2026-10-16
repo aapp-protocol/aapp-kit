@@ -503,9 +503,19 @@ Active tables hold **ONLY** active items. Resolution is a **physical row relocat
 
 `issues_road_map.md` holds the issues cleared for work, and nothing else (P-89). Every issue is recorded in `ISSUES.md` and listed by `aapp issue list` in the order it was recorded; ordering it otherwise is a plugin's job. The work queue has two sections:
 - **`## 🧱 Plan Blockers`**: written by `aapp issue hotfix`, one line per bug that blocks a plan; capped per plan by `aapp.maxEmergencyHotfixes`.
-- **`## 📋 Queued`**: written by `aapp issue queue <num>`, a person's decision that an issue may be worked on; `aapp issue queue <num> remove` takes it off.
+- **`## 📋 Queued`**: written by `aapp issue queue <num> [urgent | low]`, a person's decision that an issue may be worked on, in three levels: `### 🔺 Urgent` (a bottleneck, a security risk), `### Normal` (the default) and `### Low`. Inside a level the oldest comes first, so a waiting issue rises as the ones above it are done. Queueing an issue at another level moves it there, keeping its queue date; `aapp issue queue <num> remove` takes it off. Each line carries its queue date: `- [ ] #12 -> Login fails on Safari (queued 2026-10-16)`.
 
-`aapp issue fix <num>` opens only an issue listed in one of the two sections, and `aapp issue fix next-blocker` takes the first blocker, then the first queued issue. An agent may log as many issues as it finds; it cannot fix one that no person has queued, so an issue is never a way around a plan. Any other `##` section is refused by the health check. Where a tracker keeps the record (P-74), its queue is the queue: `aapp issue queue` must succeed there (`issue.queue`, `issue.unqueue`), and every sync rebuilds `## 📋 Queued` from the listing's `queued` field.
+`aapp issue fix <num>` opens only an issue listed in one of the two sections, and `aapp issue fix next-blocker` takes the first blocker, then Urgent, Normal and Low in turn. An agent may log as many issues as it finds; it cannot fix one that no person has queued, so an issue is never a way around a plan. Any other `##` section is refused by the health check. Where a tracker keeps the record (P-74), its queue is the queue: `aapp issue queue` must succeed there (`issue.queue`, `issue.unqueue`), and every sync rebuilds the levels from the listing's `queued`, `priority` and `queued_at` fields.
+
+**What the lists show.** `aapp issue list` and the Issues pillar of `aapp status` give each issue its facts on one line, so a person, an orchestrating agent or an agent can decide from the list itself:
+
+```
+  #12    High     Incubated  logged 2026-10-01  queued 2026-10-16 (Urgent)   Login fails on Safari
+  #7     Medium   Planned    logged 2026-09-28  queued 2026-10-02 (Normal)   Slow export  [P-91]
+  #33    Low      Incubated  logged 2026-10-14                               Typo in the manual
+```
+
+Severity, status, the logged date and the plan come from the issue's row; the queue date and level from the work queue. Severity is shown, never used to order.
 
 **POSIX ID-Anchored Auto-Pruning**: The pre-commit hook auto-prunes any resolved list item using the POSIX ID-anchored regex `^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*`?(#|ISSUE-)?[0-9]+`?.*(✅|[Rr]esolved)`, preserving prose headers and explanatory text.
 

@@ -1082,7 +1082,7 @@ ledger_ensure_files() {
     fi
     f="$(ledger_path roadmap)" || return 1
     if [ ! -f "$f" ]; then
-        printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 🧱 Plan Blockers' '' '## 📋 Queued' > "$f" || return 1
+        printf '%s\n' '# 🗺️ Issue Work Queue' '' '## 🧱 Plan Blockers' '' '## 📋 Queued' '### 🔺 Urgent' '### Normal' '### Low' > "$f" || return 1
     fi
 }
 

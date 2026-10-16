@@ -24,7 +24,7 @@ If `aapp status` exits non-zero, report any repository corruption or missing too
 ### Step 3: Present Context Recovery Briefing
 Show the user the output of `aapp status` as it was printed, in a code block: every line, in its order. Do not summarise, shorten, reword, merge or drop anything, and do not replace items with a count ("and 5 more"). The command's output is the briefing; the user may not see it unless you show it. Your own remarks come after it, in a few lines, not in place of it. The output covers the **four pillars**:
 1. **Shipped Pillar**: Recently landed features, bugfixes, or unreleased changes from `CHANGELOG.md`.
-2. **Issue Lane**: The work queue (`issues_road_map.md`): plan blockers, then the issues a person queued for work, in that order; then a count of the other open issues, which `aapp issue list` (or `aapp issue list all`) prints.
+2. **Issue Lane**: The work queue (`issues_road_map.md`): plan blockers, then the issues a person queued for work, level by level (Urgent, Normal, Low), each with its severity and dates; then a count of the other open issues, which `aapp issue list` (or `aapp issue list all`) prints.
 3. **Plan Lane**: Active blueprints in development, frozen specifications, or incubator drafts from `state_matrix.md`.
 4. **Pickup Queue**: Unprocessed ideas and raw notes from `pickup.md`. List ideas with a count; never omit this pillar.
 
