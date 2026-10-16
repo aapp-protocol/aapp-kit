@@ -2,7 +2,7 @@
 * **Created:** 2026-10-15 | **Last Refined:** 2026-10-15
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-89
-* **Changelog:** Changed: issues road map becomes a lean work queue; fixes require human queueing via `aapp issue queue` (P-89)
+* **Changelog:** Changed: the road map is a work queue in three levels; `aapp issue queue`; fixes only for queued issues; lists show severity and dates (P-89)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -67,8 +67,17 @@ This plan transforms `issues_road_map.md` into a lean **Active Work Queue** and 
 <!-- Written automatically by 'aapp issue hotfix'. Capped per plan by aapp.maxEmergencyHotfixes. -->
 
 ## 📋 Queued
-<!-- Queued explicitly by a person via 'aapp issue queue <num>'. Only queued issues may be fixed. -->
+### 🔺 Urgent
+- [ ] #12 -> Login fails on Safari (queued 2026-10-16)
+### Normal
+- [ ] #7 -> Slow export (queued 2026-10-02)
+- [ ] #19 -> Wrong rounding (queued 2026-10-11)
+### Low
+- [ ] #4 -> Typo in help (queued 2026-09-20)
 ```
+
+- `## 📋 Queued` holds three levels, `### 🔺 Urgent`, `### Normal` and `### Low`, always in that order. Inside a level the oldest entry comes first (an entry is appended), so an issue that waits rises as the ones above it are done.
+- A queued line carries the date it was queued: `- [ ] #<num> -> <symptom> (queued <YYYY-MM-DD>)`; the work queue is the only place that date is known. Severity and the date an issue was logged stay in its row and are read from there for display (2.9), never copied.
 
 - When an issue is logged (`aapp issue log`), it is recorded solely in `ISSUES.md`. It no longer appends a line to `issues_road_map.md`.
 - Legacy priority bands (`User Priority`, `High Priority`, `Medium Priority`, `Low Priority`, `Triage`) are eliminated as a clean break.
@@ -76,11 +85,12 @@ This plan transforms `issues_road_map.md` into a lean **Active Work Queue** and 
 
 ### 2.2 CLI Verb: `aapp issue queue <num> [remove]`
 A dedicated verb under `aapp issue` allows humans to manage the work queue:
-- `aapp issue queue <num>`:
+- `aapp issue queue <num> [urgent | low]`:
   - Verifies `#<num>` is an active issue in `ISSUES.md` (its status cell holds `Incubated` or `Planned`; matched on the word, not the emoji).
-  - Refuses if `#<num>` is already in `📋 Queued` or `🧱 Plan Blockers`.
-  - Appends `- [ ] #<num> -> <symptom>` under `## 📋 Queued` in `issues_road_map.md`.
-  - Commits the change in the `.plans` worktree as `issue(queue): #<num> queued`.
+  - Refuses if `#<num>` is a plan blocker, or already queued at that level.
+  - Appends `- [ ] #<num> -> <symptom> (queued <today>)` at the end of the level: `### Normal` by default, `### 🔺 Urgent` with `urgent`, `### Low` with `low`.
+  - An issue already queued at another level moves there, keeping its queue date, at the end of its new level: `issue(queue): #<num> moved to <level>`.
+  - Commits the change in the `.plans` worktree as `issue(queue): #<num> queued (<level>)`.
   - Sends the provider step `issue.queue` (see 2.6).
 - `aapp issue queue <num> remove`:
   - Removes `#<num>` from `## 📋 Queued`.
@@ -99,7 +109,7 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
     ```
 - If invoked without arguments or as `next-blocker`:
   - Claims the first available issue from `## 🧱 Plan Blockers`.
-  - If no blockers exist, claims the first available issue from `## 📋 Queued`.
+  - If no blockers exist, claims the first available issue from `## 📋 Queued`: Urgent, then Normal, then Low, oldest first in each.
   - If neither exists, refuses closed with diagnostic.
 - `next-blocker` keeps its name; the contract, the fix skill and the agent rules say it takes a queued issue once no blocker is left.
 
@@ -114,16 +124,28 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 ### 2.5 Briefing & Planning Health
 - **Briefing (`aapp status`)**: The `🐛 [2/4] ISSUES` pillar displays:
   - Active `🧱 Plan Blockers`.
-  - Active `📋 Queued` issues ready for work.
+  - Active `📋 Queued` issues ready for work, by level.
   - A summary count of unqueued issues remaining in `ISSUES.md`.
+  - Each issue in the display form of 2.9.
 - **Planning Health (`lib/planning_health.sh`)**:
   - Validates `issues_road_map.md` against the two-section specification.
-  - Knows only the two sections: any other `##` heading is refused as not part of the work queue, naming `## 🧱 Plan Blockers` and `## 📋 Queued`. No code, template, document or test of the kit names the former bands; after this plan they exist only in history.
+  - Knows only the two sections and the three levels under `## 📋 Queued` (`### 🔺 Urgent`, `### Normal`, `### Low`): any other `##` or `###` heading is refused as not part of the work queue, naming the valid ones. No code, template, document or test of the kit names the former bands; after this plan they exist only in history.
   - Validates that every entry in `issues_road_map.md` exists as an active issue in `ISSUES.md`.
+
+### 2.9 What the displays show
+Deciding what to queue, at which level, needs the issue's facts in front of whoever decides: a person, an orchestrating agent, an agent. `aapp issue list` and the Issues pillar of `aapp status` show one line per issue:
+```
+  #12  High    Incubated  logged 2026-10-01  queued 2026-10-16 (Urgent)  Login fails on Safari
+  #7   Medium  Planned    logged 2026-09-28  queued 2026-10-02 (Normal)  Slow export  [P-91]
+  #33  Low     Incubated  logged 2026-10-14                              Typo in the manual
+```
+- Severity, status and the logged date come from the issue's row; the queue date and level from the work queue; a `Planned` issue names its plan.
+- `aapp issue list` keeps the recorded order and its caps; once issues name branches each line ends with `(branch: <name>)`, as now.
+- Severity is shown, never used to order: ordering is the queue's levels, and anything else a sorting plugin's.
 
 ### 2.6 The tracker has priority (P-74)
 - `aapp issue queue <num>` and `queue <num> remove` are provider steps, `issue.queue` and `issue.unqueue`, sent through `issue_provider` with the whole issue as data, like every other step.
-- **Where a provider keeps the record** (it lists issues, P-74): the tracker's queue is the queue. A failing or refusing `issue.queue` / `issue.unqueue` refuses the command and nothing changes locally. The listing reports each issue's `queued` field (true or false), and the sync rebuilds `## 📋 Queued` from it, in the listing's order; the fix gate reads the rebuilt section, so every clone sees the same queue.
+- **Where a provider keeps the record** (it lists issues, P-74): the tracker's queue is the queue. A failing or refusing `issue.queue` / `issue.unqueue` refuses the command and nothing changes locally. The listing reports each issue's `queued` field (`true` or `false`) and, for a queued issue, `priority` (`urgent`, `normal` or `low`; `normal` when absent) and `queued_at` (a date), and the sync rebuilds the three levels from them, in the listing's order inside each level; `issue.queue` carries the level as `priority`; the fix gate reads the rebuilt section, so every clone sees the same queue.
 - **Without a provider, or one that does not list:** the local `## 📋 Queued` is the record, committed to the plans branch; a failing step only warns.
 - The steps join `aapp-issue-tracker` in `lib/plugins.tsv`, `docs/reference/07-issue-protocol.md` and the sample provider.
 
@@ -157,6 +179,13 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 - [ ] `tests/verbs/issue.queue.sh::test_planning_health_validates_queue_format` -> asserts health check passes on the two-section road map and refuses any other section (a fixture heading such as `## Other`)
 - [ ] `tests/verbs/issue.queue.sh::test_queue_sends_provider_steps` -> asserts `queue` and `queue remove` send `issue.queue` / `issue.unqueue` with the issue
 - [ ] `tests/verbs/issue.queue.sh::test_listing_provider_owns_the_queue` -> asserts with a listing provider a refused `issue.queue` changes nothing locally, and the sync rebuilds `## 📋 Queued` from the listing's `queued` field
+- [ ] `tests/verbs/issue.queue.sh::test_queue_levels` -> asserts `queue <num>` lands in `### Normal`, `urgent` in `### 🔺 Urgent`, `low` in `### Low`, each line ending `(queued <today>)`
+- [ ] `tests/verbs/issue.queue.sh::test_queue_moves_between_levels` -> asserts queueing a queued issue at another level moves it with its queue date, one commit
+- [ ] `tests/verbs/issue.queue.sh::test_next_blocker_takes_levels_in_order` -> asserts with no blocker `fix next-blocker` takes Urgent before Normal before Low, oldest first in a level
+- [ ] `tests/verbs/issue.queue.sh::test_health_knows_the_levels` -> asserts the three levels pass and another `###` heading under the work queue is refused
+- [ ] `tests/verbs/issue.queue.sh::test_list_shows_severity_dates_status` -> asserts `aapp issue list` shows each issue's severity, status, logged date, and for a queued one its queue date and level
+- [ ] `tests/verbs/issue.queue.sh::test_status_shows_queue_with_facts` -> asserts the Issues pillar shows the queue by level with severity and dates
+- [ ] `tests/verbs/issue.queue.sh::test_listing_priority_rebuilds_levels` -> asserts a listing's `priority` and `queued_at` place the issues in their levels
 - [ ] `tests/verbs/issue.queue.sh::test_offline_sync_rewrites_queued_id` -> asserts `aapp offline sync` rewrites a former id in `## 📋 Queued`
 
 ### ♻️ Existing Tests Changed or Retired
@@ -175,6 +204,10 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 - [ ] Task 2.6: `lib/cmd_offline.sh`: the offline road map in the two sections; `aapp offline sync` rewrites ids in both.
 - [ ] Task 2.7: Rewrite the existing tests listed above.
 - [ ] Task 2.8: `templates/AGENTS.md`: the *No trace of the old form* bullet of the Clean Break Invariant.
+- [ ] Task 2.9: The three levels: `queue <num> [urgent | low]`, moving between levels, the queue date, `next-blocker`'s order, the health check, the tracker's `priority` and `queued_at`.
+- [ ] Task 2.10: The display form of 2.9 in `aapp issue list` and the Issues pillar.
+- [ ] Task 2.11: `lib/hook_dispatcher.sh`: `json_field` also reads `true` and `false`.
+- [ ] Task 2.12: `tests/verbs/issue.onecommit.sh`: its issues are queued before they are fixed.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites across all verbs.
@@ -210,6 +243,9 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 - [ ] `CHEATSHEET.md` -> `aapp issue queue <num> [remove]` CLI reference.
 - [ ] `ARCHITECTURE.md` -> Two-lane queue architecture and human-in-the-loop gate.
 - [ ] `README.md` -> The road map's line in the layout and in the hook's hygiene.
+- [ ] `lib/hook_dispatcher.sh` -> `json_field` reads `true` and `false` (the listing's `queued`).
+- [ ] `lib/docs/verbs/refine.md` -> Contract: the ledger validation names a work-queue section other than the known ones.
+- [ ] `tests/verbs/issue.onecommit.sh` -> Existing tests: issues queued before they are fixed.
 - [ ] `lib/docs/verbs/status.md` -> Contract: the Issues pillar shows blockers, queued issues and a count of the rest.
 - [ ] `NEW FILE` -> `tests/verbs/issue.queue.sh` -> Failure and boundary tests.
 - [ ] `tests/issue_ledger_test.sh` -> Existing tests (§3).
@@ -245,6 +281,8 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 * [x] **Question 1 — A tracker that keeps the record. → RESOLVED (developer, 2026-10-15):** the tracker has priority; `aapp issue queue` and its `remove` send provider steps on adding and on removing (2.6).
+* [x] **Question 3 — Priority inside the queue. → RESOLVED (developer, 2026-10-16):** three levels under `## 📋 Queued`, Urgent, Normal and Low, oldest first in each, so an issue waits its way up; `aapp issue queue <num> urgent` puts a pressing one on top easily. Issues need it (a bottleneck, a security risk); plans keep their own order and may get priorities later, in a plan of their own.
+* [x] **Question 4 — What the displays show. → RESOLVED (developer, 2026-10-16):** `aapp issue list` and the Issues pillar show severity, status, the logged date, and for a queued issue its queue date and level, so a person, an orchestrator or an agent can decide from the list itself (2.9).
 * [x] **Question 2 — Legacy bands at the health check. → RESOLVED (developer, 2026-10-15):** a clean break. The health check knows only the two sections and refuses any other heading; the kit keeps no list of the former bands. The refusal names the way on: issues stay in `ISSUES.md`; queue them with `aapp issue queue <num>`.
 
 ---
@@ -252,5 +290,6 @@ A dedicated verb under `aapp issue` allows humans to manage the work queue:
 ## 📦 6. Change Log & Refinement History
 * **2026-10-15:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
+* **2026-10-16:** Levels Urgent/Normal/Low with queue dates; displays show severity, status and dates; `hook_dispatcher.sh`, `refine.md` and `issue.onecommit.sh` added to the targets.
 * **2026-10-15:** Review: the ledger functions live in `lib/aapp-lib.sh`; offline road map, provider steps for the queue, every road-map reader and the existing tests added; the tracker has priority.
 * **2026-10-15:** Drafted blueprint: transformed `issues_road_map.md` into an active work queue (`🧱 Plan Blockers` + `📋 Queued`), introduced `aapp issue queue <num>`, and gated `aapp issue fix` against unqueued execution.
