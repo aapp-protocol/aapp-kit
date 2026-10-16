@@ -55,7 +55,8 @@ This member, the third of group P-91, gives every issue view one layout from the
         in a terminal the symptom wraps under the id and severity columns, and an
         unqueued issue pads a blank 27-character column.
 ```
-- Facts line at 2 spaces: `#<id>  <Severity>  <Status>  logged <date>`, then, only when present: `queued <date> (<Level>)`, `[<plan>]` (`[blocks <plan>]` for a hotfix), `(branch: <name>)`, `offline`, and the tracker's `· <name> <url> (<release>)`. Two spaces between facts, no padding.
+- Facts line at 2 spaces: `#<id>  <Severity>  <Status>  logged <date>`, then, only when present: `queued <date> (<Level>)`, `[<plan>]` (`[blocks <plan>]` for a hotfix), `(branch: <name>)`, `offline`. Two spaces between facts, no padding. A facts line wider than `aapp.outputWidth` wraps at 8 spaces.
+- Tracker: when a provider named it, a line of its own at 8 spaces before the symptom: `· <name> <url> (<release>)`, parts that are absent left out.
 - Symptom: `out_wrap 8 8`, never longer than `aapp.outputWidth`.
 - `aapp issue list` shows the symptom whole; the Issues pillar cuts it with `out_cut` at `aapp.statusTextMax`.
 - An offline issue is an issue like any other: same layout, the `offline` fact.
@@ -86,7 +87,7 @@ This member, the third of group P-91, gives every issue view one layout from the
 - [ ] `tests/verbs/issue.queue.sh::test_status_pillar_same_layout` -> asserts the Issues pillar shows a queued issue in the same layout, its symptom cut at `aapp.statusTextMax` with `…`
 - [ ] `tests/verbs/offline.sh::test_offline_issue_same_layout` -> asserts an issue staged in `.offline` is shown in `issue list` and the Issues pillar in the same layout, with the `offline` fact
 - [ ] `tests/verbs/issue.branch.sh::test_list_branch_fact` -> asserts an issue that names a branch shows `(branch: <name>)` on its facts line, and this branch's issues come first
-- [ ] `tests/verbs/issue.tracker.sh::test_list_tracker_fact` -> asserts a provider's `tracker`, `url` and `release` appear on the facts line
+- [ ] `tests/verbs/issue.tracker.sh::test_list_tracker_fact` -> asserts a provider's `tracker`, `url` and `release` appear on a `· ` line of their own between the facts line and the symptom
 
 ### Phase 1: Foundation & Setup
 - [ ] Task 1.1: Write the tests of this section; update the tests that assert the one-line form; commit them red.
