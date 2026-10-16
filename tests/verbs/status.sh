@@ -20,9 +20,11 @@ else
 fi
 
 # P-94: the overview is the JSON's `overview`; the two tokens do not combine.
+# P-100: the refusal is the error document on stdout, the message on stderr.
 sout="$(aapp status short json 2>/dev/null)"; src=$?
 serr="$(aapp status short json 2>&1 >/dev/null)"
-if [ "$src" -ne 0 ] && [ -z "$sout" ] && echo "$serr" | grep -qi 'usage'; then
+if [ "$src" -ne 0 ] && printf '%s\n' "$sout" | grep -q '"error": {' && printf '%s\n' "$sout" | grep -qF '"code": "usage"' && \
+   ! printf '%s\n' "$sout" | grep -qF '"overview"' && echo "$serr" | grep -qi 'usage'; then
   ok "test_short_json_refused"
 else
   bad "test_short_json_refused" "rc=$src out=$sout err=$serr"

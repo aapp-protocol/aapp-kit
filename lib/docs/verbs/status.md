@@ -46,7 +46,7 @@
 Run: `aapp test verb status`
 
 - `tests/verbs/status.sh::test_short_is_one_line` -> `status short` prints exactly one `📊 Overview:` line
-- `tests/verbs/status.sh::test_short_json_refused` -> `status short json` exits 1 with usage on stderr and nothing on stdout (P-94)
+- `tests/verbs/status.sh::test_short_json_refused` -> `status short json` exits 1 with usage on stderr and the error document (`code` `usage`) on stdout (P-94, P-100)
 - `tests/verbs/status.sh::test_briefing_has_next_action` -> the full briefing ends with a `Next Action` line and exits 0
 - `tests/verbs/status.sh::test_plan_worktree_shown_next_to_plan` -> a plan's worktree path follows its status (P-54)
 - `tests/verbs/status.sh::test_overview_counts_open_adoption_tasks` -> open adoption tasks show in overview and briefing (P-63)
