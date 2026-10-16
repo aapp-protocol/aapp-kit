@@ -6,9 +6,9 @@
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
      The group's `done` writes it with the ARCHITECTURE.md commit. -->
-* **Status:** 🔷 Frozen
-* **Base:** none
-* **Feature Branch:** none
+* **Status:** ⚡ In Development
+* **Base:** `751b9da` (develop)
+* **Feature Branch:** feature/readable-and-parsable-output
 * **Members:** P-92, P-94, P-93, P-88, P-96
 * **Commits:** none
 <!-- A group plan writes no code. `aapp start <group> [base <branch>]` cuts `feature/<slug>` from the parent
@@ -177,6 +177,7 @@ The Issues records are one function for both commands, beside the ledger functio
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-16:** Group started: `feature/readable-and-parsable-output` from `develop`.
 * **2026-10-16:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-16:** Group drafted: shared records, terminal layout and JSON contract; members P-92, P-88, P-93, P-94.
 * **2026-10-16:** Q1–Q3 resolved; `repository.remote` in every document; groups nest their members in `plans`; settings named `aapp.status…`.
