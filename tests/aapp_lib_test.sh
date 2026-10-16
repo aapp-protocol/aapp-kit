@@ -330,4 +330,22 @@ else
   bad "test_pickup_entry_split" "pickup_entry_split function not implemented"
 fi
 
+echo "== subject max len (P-97) =="
+if declare -f aapp_subject_max_len >/dev/null; then
+  git config --unset aapp.subjectMaxLen 2>/dev/null || true
+  v_default="$(aapp_subject_max_len)"
+  git config aapp.subjectMaxLen 50
+  v_custom="$(aapp_subject_max_len)"
+  git config aapp.subjectMaxLen "not-a-number"
+  v_invalid="$(aapp_subject_max_len)"
+  git config --unset aapp.subjectMaxLen 2>/dev/null || true
+  if [ "$v_default" = "72" ] && [ "$v_custom" = "50" ] && [ "$v_invalid" = "72" ]; then
+    ok "test_subject_max_len"
+  else
+    bad "test_subject_max_len" "default=[$v_default] custom=[$v_custom] invalid=[$v_invalid]"
+  fi
+else
+  bad "test_subject_max_len" "aapp_subject_max_len function not implemented"
+fi
+
 print_test_summary "$PASS" "$FAIL"

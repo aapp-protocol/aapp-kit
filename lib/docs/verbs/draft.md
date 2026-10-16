@@ -4,13 +4,13 @@
 - `slug` (positional, optional): the plan's slug and title source
     normalised: lowercased, spaces and `_` become `-`, anything outside `[a-z0-9-]` dropped, runs of `-` collapsed
     title: the argument's words capitalised (`fix-the-parser` -> `Fix The Parser`)
-    source when omitted: the first unchecked note in `.plans/pickup.md`; interactive terminals choose from a list (max 10) or type a title; with no notes, open `🟠`/`🔵` issues in `.plans/ISSUES.md` (interactive only); otherwise a typed title (interactive only)
-    constraints: the normalised slug must be non-empty; the title is free text and may contain `/`, `&`, `\`, `[`
+    source when omitted: the title of the first unchecked note in `.plans/pickup.md` (via `pickup_entry_split`, P-97); interactive terminals choose from a list (max 10, displayed by title); with no notes, open `🟠`/`🔵` issues in `.plans/ISSUES.md` (interactive only); otherwise a typed title (interactive only)
+    constraints: the normalised slug must be non-empty; an auto-derived slug from a pickup title is cut at its last `-` before 60 characters (P-97); an explicit slug argument is taken as given; the title is free text and may contain `/`, `&`, `\`, `[`
 - `issue <num>` (tokens, optional, after the slug): promote active issue `#<num>` (its id without the `#`: a number or a tracker's key) to this plan (P-50)
 - `group` (token, optional, after the slug): draft a group plan from `group-template.md` (P-64)
 - `group <id>` (tokens, optional, after the slug): draft a member of group plan `<id>` (P-64)
 - reads: `.plans/pickup.md`, `.plans/ISSUES.md`, `.plans/current/`, the plan template (`$AAPP_TEMPLATES/plan-template.md`, then `templates/plan-template.md` in the repository)
-- reads config: `aapp.planId` (read and advanced by one); an installed `aapp-planid` provider plugin replaces the local counter
+- reads config: `aapp.planId` (read and advanced by one); an installed `aapp-planid` provider plugin replaces the local counter; `aapp.subjectMaxLen` (bounds the draft commit subject, P-97)
 - reads env: `$EDITOR` (interactive terminals only: offers to open the new plan)
 
 ## Preconditions
@@ -28,12 +28,13 @@
 - plans-worktree commit refused by a hook -> exit non-zero via `plans_commit` (loud failure, no `|| true`)
 
 ## Effects (happy path)
-- `.plans/current/P<N>-<slug>.md` is created from the template
+- `.plans/current/P<N>-<slug>.md` is created from the template (with slug bounded to at most 60 chars when drafted from pickup, P-97)
 - its title line reads `Plan P-<N>: <Title>`, with the title literal
 - every `[YYYY-MM-DD]` reads today's date and every `P-XX` reads `P-<N>`; no template placeholder remains
+- bare draft: the pickup entry's text is written verbatim into `## 1. Context & Architectural Goal` in place of the template placeholder, followed by any referenced `.plans/pickup/` paths under `Notes from pickup:` (P-97)
 - `aapp.planId` is advanced past `<N>`
 - `.plans/state_matrix.md` is re-derived and lists the plan in the incubator
-- one commit in the plans worktree, `plan(draft): scaffold P-<N> <slug>`, holds the plan and the matrix via `plans_commit`
+- one commit in the plans worktree, `plan(draft): scaffold P-<N> <slug>`, holds the plan and the matrix via `plans_commit`; the subject is fitted to `aapp.subjectMaxLen` by cutting the slug at a `-` (P-97)
 - `issue <num>`: the header reads `* **Target Issue / Milestone:** #<num>`; the issue row's *Target Plan / Fix* becomes `[P-<N>](current/P<N>-<slug>.md)` and its Status `🔵 \`Planned\``; observation cells and the road map are untouched; `ISSUES.md` is in the draft commit
 - `group`: the title line reads `# 🧩 Group Plan P-<N>: <Title>` (the marker every verb reads); the header carries `* **Feature Branch:** none` and `* **Members:** none`
 - `group <id>`: the plan carries `* **Group:** <id>`, and the group's `* **Members:**` lists `P-<N>`; both files are in the draft commit; the group need not be started
@@ -60,3 +61,9 @@ Run: `aapp test verb draft`
 - `tests/verbs/draft.sh::test_draft_records_modes` -> the drafted plan records both modes from config (P-51)
 - `tests/verbs/draft.sh::test_draft_group_scaffolds_group_plan` -> `group`: next Plan ID, group heading, group fields, no placeholder, committed (P-64)
 - `tests/verbs/draft.sh::test_draft_member_joins_group` -> `group <id>`: `Group:` in the member, listed in the unstarted group, committed (P-64)
+- `tests/verbs/draft.sh::test_bare_draft_takes_title_only` -> bare draft takes title only, no text in title or slug (P-97)
+- `tests/verbs/draft.sh::test_bare_draft_slug_bounded` -> slug from title bounded to 60 characters cut at '-' (P-97)
+- `tests/verbs/draft.sh::test_bare_draft_copies_text` -> bare draft writes text into §1 and references pickup files (P-97)
+- `tests/verbs/draft.sh::test_draft_subject_fits_limit` -> draft commit subject fits aapp.subjectMaxLen (P-97)
+- `tests/aapp_lib_test.sh::test_subject_max_len` -> aapp_subject_max_len returns setting or default 72 (P-97)
+

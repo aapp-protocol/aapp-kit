@@ -186,4 +186,68 @@ else
   bad "test_draft_member_joins_group" "rc=$rc out=$out members=$(grep 'Members:' "$gf")"
 fi
 
+echo "== draft from pickup title & bounding (P-97) =="
+cd "$(fresh p97_bare_title)" || exit 1
+printf -- '- [ ] Short Title: a long text describing why we build this and how it should work\n' > .plans/pickup.md
+git -C .plans add pickup.md >/dev/null 2>&1; git -C .plans commit -qm "pickup entry" >/dev/null 2>&1
+id="$(git config --get aapp.planId)"
+aapp draft </dev/null >/dev/null 2>&1; rc=$?
+f=".plans/current/P${id}-short-title.md"
+if [ "$rc" -eq 0 ] && [ -f "$f" ] && grep -q "^# 🗺️ Plan P-${id}: Short Title$" "$f" && \
+   ! grep -q "a long text" <(basename "$f") && ! grep -q "a long text" <(grep -m1 '^# 🗺️ Plan' "$f"); then
+  ok "test_bare_draft_takes_title_only"
+else
+  bad "test_bare_draft_takes_title_only" "rc=$rc f=${f:-none}"
+fi
+
+cd "$(fresh p97_slug_bound)" || exit 1
+long_title="This Is A Truly Extremely Substantially Very Long Title That Exceeds Normal Lengths Considerably For Testing The Slug Bounding Feature Thoroughly"
+printf -- "- [ ] %s: some details here\n" "$long_title" > .plans/pickup.md
+git -C .plans add pickup.md >/dev/null 2>&1; git -C .plans commit -qm "long title pickup" >/dev/null 2>&1
+id="$(git config --get aapp.planId)"
+aapp draft </dev/null >/dev/null 2>&1; rc=$?
+f="$(ls .plans/current/P"${id}"-*.md 2>/dev/null | head -1)"
+f_slug="$(basename "$f" .md | sed -E "s/^P${id}-//")"
+if [ "$rc" -eq 0 ] && [ -n "$f" ] && [ "${#f_slug}" -le 60 ] && \
+   grep -q "^# 🗺️ Plan P-${id}: ${long_title}$" "$f"; then
+  ok "test_bare_draft_slug_bounded"
+else
+  bad "test_bare_draft_slug_bounded" "rc=$rc slug_len=${#f_slug} slug=$f_slug"
+fi
+
+cd "$(fresh p97_copies_text)" || exit 1
+mkdir -p .plans/pickup
+touch .plans/pickup/x.md
+git -C .plans add pickup/x.md >/dev/null 2>&1
+printf -- '- [ ] Architecture Overhaul: a text naming `.plans/pickup/x.md` for background context.\n' > .plans/pickup.md
+git -C .plans add pickup.md >/dev/null 2>&1; git -C .plans commit -qm "pickup entry with file" >/dev/null 2>&1
+id="$(git config --get aapp.planId)"
+aapp draft </dev/null >/dev/null 2>&1; rc=$?
+f=".plans/current/P${id}-architecture-overhaul.md"
+if [ "$rc" -eq 0 ] && [ -f "$f" ] && \
+   grep -q "a text naming \`.plans/pickup/x.md\` for background context." "$f" && \
+   ! grep -q "\*Provide a concise summary of WHAT is being built" "$f" && \
+   grep -q "Notes from pickup:" "$f" && \
+   grep -q "\- \`.plans/pickup/x.md\`" "$f"; then
+  ok "test_bare_draft_copies_text"
+else
+  bad "test_bare_draft_copies_text" "rc=$rc"
+fi
+
+cd "$(fresh p97_subject_fit)" || exit 1
+git config aapp.subjectMaxLen 50
+long_sub_title="A Moderate Title That Produces Enough Words In Slug"
+printf -- "- [ ] %s: text\n" "$long_sub_title" > .plans/pickup.md
+git -C .plans add pickup.md >/dev/null 2>&1; git -C .plans commit -qm "pickup entry" >/dev/null 2>&1
+id="$(git config --get aapp.planId)"
+aapp draft </dev/null >/dev/null 2>&1; rc=$?
+subj="$(git -C .plans log -1 --format=%s)"
+f="$(ls .plans/current/P"${id}"-*.md 2>/dev/null | head -1)"
+if [ "$rc" -eq 0 ] && [ "${#subj}" -le 50 ] && \
+   [ -f "$f" ] && [[ "$subj" =~ ^plan\(draft\):\ scaffold\ P-${id}\  ]]; then
+  ok "test_draft_subject_fits_limit"
+else
+  bad "test_draft_subject_fits_limit" "rc=$rc subj_len=${#subj} subj=[$subj]"
+fi
+
 print_test_summary "$PASS" "$FAIL"

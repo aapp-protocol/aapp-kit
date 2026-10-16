@@ -1167,6 +1167,7 @@ cmd_draft() {
     local raw_slug="$1"
     local slug=""
     local title=""
+    local entry_text=""
     local promote_issue=""
     local tpl_name="plan-template.md" join_group="" join_gfile=""
 
@@ -1223,32 +1224,64 @@ cmd_draft() {
             [ $count -lt $limit ] && limit=$count
             for i in $(seq 1 $limit); do
                 local item="${pickup_items[$((i-1))]}"
-                local clean_item
-                clean_item="$(echo "$item" | sed -E 's/^[0-9]+\.[[:space:]]*|^[\*-][[:space:]]*(\[[[:space:]]\])?[[:space:]]*//')"
-                echo "  $i) $clean_item"
+                local split t_item
+                split="$(pickup_entry_split "$item")"
+                t_item="${split%%$'\t'*}"
+                [ -z "$t_item" ] && t_item="$(echo "$item" | sed -E 's/^[0-9]+\.[[:space:]]*|^[\*-][[:space:]]*(\[[[:space:]]\])?[[:space:]]*//')"
+                echo "  $i) $t_item"
             done
             if [ $count -gt 10 ]; then
                 echo "  ... and $((count - 10)) more unprocessed notes"
             fi
             echo ""
+            local chosen=""
             if [ -t 0 ]; then
                 printf "Select a note [1-%s], enter a custom title/slug, or Ctrl+C to abort: " "$limit"
                 read -r user_choice
                 if [ -n "$user_choice" ]; then
                     if [[ "$user_choice" =~ ^[0-9]+$ ]] && [ "$user_choice" -ge 1 ] && [ "$user_choice" -le $limit ]; then
-                        local chosen="${pickup_items[$((user_choice-1))]}"
-                        title="$(echo "$chosen" | sed -E 's/^[0-9]+\.[[:space:]]*|^[\*-][[:space:]]*(\[[[:space:]]\])?[[:space:]]*//')"
-                        slug="$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' _' '--' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
+                        chosen="${pickup_items[$((user_choice-1))]}"
                     else
                         title="$user_choice"
                         slug="$(echo "$user_choice" | tr '[:upper:]' '[:lower:]' | tr ' _' '--' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
                     fi
                 fi
             else
-                local chosen="${pickup_items[0]}"
-                title="$(echo "$chosen" | sed -E 's/^[0-9]+\.[[:space:]]*|^[\*-][[:space:]]*(\[[[:space:]]\])?[[:space:]]*//')"
+                chosen="${pickup_items[0]}"
+            fi
+
+            if [ -n "$chosen" ]; then
+                local split
+                split="$(pickup_entry_split "$chosen")"
+                title="${split%%$'\t'*}"
+                entry_text="${split#*$'\t'}"
+                if [ -z "$title" ]; then
+                    title="$(echo "$chosen" | sed -E 's/^[0-9]+\.[[:space:]]*|^[\*-][[:space:]]*(\[[[:space:]]\])?[[:space:]]*//')"
+                    entry_text=""
+                fi
                 slug="$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' _' '--' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
-                echo "ℹ️  Non-interactive terminal: auto-selected first note: $title"
+                # P-97 §2.2: Cut slug at its last '-' before 60 characters
+                if [ "${#slug}" -gt 60 ]; then
+                    slug="${slug:0:60}"
+                    case "$slug" in
+                        *-*) slug="${slug%-*}" ;;
+                    esac
+                fi
+                if [ -n "$entry_text" ]; then
+                    local p_files=""
+                    while IFS= read -r pf; do
+                        [ -n "$pf" ] && p_files="${p_files}
+- \`${pf}\`"
+                    done < <(pickup_entry_files "$entry_text")
+                    if [ -n "$p_files" ]; then
+                        entry_text="${entry_text}
+
+Notes from pickup:${p_files}"
+                    fi
+                fi
+                if [ ! -t 0 ]; then
+                    echo "ℹ️  Non-interactive terminal: auto-selected first note: $title"
+                fi
             fi
         elif [ ${#issue_items[@]} -gt 0 ]; then
             echo "🐛 Open issues in .plans/ISSUES.md available for promotion:"
@@ -1364,7 +1397,7 @@ cmd_draft() {
     # expands `&`. It travels via ENVIRON and is spliced with index/substr. The
     # title goes in last, so a title containing `P-XX` is not rewritten.
     local tmp_file="$target_file.aapp-draft.$$"
-    if ! AAPP_DRAFT_NUM="$num" AAPP_DRAFT_TODAY="$today" AAPP_DRAFT_TITLE="$title" awk '
+    if ! AAPP_DRAFT_NUM="$num" AAPP_DRAFT_TODAY="$today" AAPP_DRAFT_TITLE="$title" AAPP_DRAFT_TEXT="$entry_text" awk '
         function replace_all(s, pat, rep,    out, i) {
             out = ""
             while ((i = index(s, pat)) > 0) {
@@ -1382,6 +1415,9 @@ cmd_draft() {
             line = replace_all(line, "**Changelog:** Changed: [Feature or Refactor Name]", \
                                "**Changelog:** Changed: " ENVIRON["AAPP_DRAFT_TITLE"])
             line = replace_all(line, "[Group Name]", ENVIRON["AAPP_DRAFT_TITLE"])
+            if (ENVIRON["AAPP_DRAFT_TEXT"] != "" && $0 ~ /^\*Provide a concise summary of WHAT is being built/) {
+                line = ENVIRON["AAPP_DRAFT_TEXT"]
+            }
             print line
         }
     ' "$template_file" > "$tmp_file"; then
@@ -1434,7 +1470,21 @@ cmd_draft() {
         [ -f "$sm_file" ] && draft_paths+=("state_matrix.md")
         [ -n "$promote_issue" ] && draft_paths+=($(ledger_commit_paths issues))
         [ -n "$join_group" ] && draft_paths+=("current/$(basename "$join_gfile")")
-        plans_commit "plan(draft): scaffold P-${num} ${slug}" "${draft_paths[@]}" || exit 1
+        local max_subject_len
+        max_subject_len="$(aapp_subject_max_len)"
+        local prefix="plan(draft): scaffold P-${num} "
+        local subject="${prefix}${slug}"
+        if [ "${#subject}" -gt "$max_subject_len" ]; then
+            local max_slug_len=$((max_subject_len - ${#prefix}))
+            if [ "$max_slug_len" -gt 0 ]; then
+                local fitted_slug="${slug:0:$max_slug_len}"
+                case "$fitted_slug" in
+                    *-*) fitted_slug="${fitted_slug%-*}" ;;
+                esac
+                subject="${prefix}${fitted_slug}"
+            fi
+        fi
+        plans_commit "$subject" "${draft_paths[@]}" || exit 1
     fi
     # P-74: the provider is told the issue is now planned.
     if [ -n "$promote_issue" ]; then issue_send_refine "$promote_issue"; fi

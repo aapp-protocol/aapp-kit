@@ -1320,6 +1320,23 @@ pickup_entry_files() {
 }
 # ---- end pickup entries ----
 
+# aapp_subject_max_len -> `aapp.subjectMaxLen` (default 72), the most characters
+# a commit subject may have. Returns 72 when unset, empty, or not a positive integer.
+aapp_subject_max_len() {
+    local v
+    v="$(git config --get aapp.subjectMaxLen 2>/dev/null)" || v=72
+    case "$v" in
+        ''|*[!0-9]*) echo 72 ;;
+        *)
+            if [ "$v" -gt 0 ]; then
+                echo "$v"
+            else
+                echo 72
+            fi
+            ;;
+    esac
+}
+
 # ledger_row <n> -> the active row of #<n>, as written; fails when there is none.
 ledger_row() {
     local f re real

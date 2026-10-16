@@ -2004,7 +2004,7 @@ Command metadata is centralized in `lib/verbs.tsv`, a zero-dependency, tab-separ
 
 `aapp draft` automates blueprint creation directly from the command line:
 - Allocates the next monotonic Plan ID (`aapp.planId`) via `allocate_plan_id`.
-- Sanitizes the provided slug to alphanumeric lowercase (`^[a-z0-9-]+$`).
+- Sanitizes the provided slug to alphanumeric lowercase (`^[a-z0-9-]+$`). When `slug` is omitted, `aapp draft` derives the title and slug from the first unchecked note in `.plans/pickup.md` (via `pickup_entry_split`, cutting the generated slug at its last `-` before 60 characters), writes its text into `## 1. Context & Architectural Goal`, and fits the draft commit subject to `aapp.subjectMaxLen`.
 - Copies `templates/plan-template.md` to `.plans/current/P[num]-[slug].md`, stamping humanized titles, monotonic IDs, and current dates.
 - Registers the new blueprint in `.plans/state_matrix.md` under the Incubator (`🟣 Under Review`).
 - Automatically commits the scaffolded plan to the `.plans` worktree.

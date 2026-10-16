@@ -83,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - clarify issue log writes ISSUES.md only without a road-map line (`#164`)
 - route -h and --help after verbs to help dispatcher (`#163`)
+- a bare `aapp draft` names the plan after the pickup entry's title and writes its text into §1, with a bounded slug and a draft subject within `aapp.subjectMaxLen` (P-97) (`P-97`)
 - Action plugin help fallthrough, dispatcher AAPP_REPO_ROOT export, and sample plugin queue handling (`P-95`)
 - an empty work queue shows no issue in the status briefing (`#154`)
 - the manual names the git notes the squash at `aapp done` does not carry (`#151`)
