@@ -138,6 +138,7 @@ The text of each starts with the moved part, e.g. `- [ ] Cookbook recipe "Planni
 - [ ] `templates/AGENTS.md` -> the form where pickup commits are named.
 - [ ] `lib/docs/verbs/refine.md` -> the refusals and the tests.
 - [ ] `MANUAL.md` -> how a pickup idea is written.
+- [ ] `CHEATSHEET.md` -> the `aapp.subjectMaxLen` row also limits pickup titles.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
