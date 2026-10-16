@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** 📝 Refining
 * **Base:** `6cf5dba` (develop)
 * **Worktree:** .workspace/P89 (plan/P89-issue-work-queue)
 * **Commits:** `f450ec8` (plan/P89-issue-work-queue), `a8ece7e` (plan/P89-issue-work-queue), `048c0a2` (plan/P89-issue-work-queue), `2d0feb8` (plan/P89-issue-work-queue)
