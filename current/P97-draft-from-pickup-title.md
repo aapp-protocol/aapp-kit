@@ -2,7 +2,7 @@
 * **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
 * **Target Issue / Milestone:** #160
 * **Plan ID:** P-97
-* **Changelog:** Fixed: a bare `aapp draft` names the plan after the pickup entry's title, with a bounded slug and a draft subject within `aapp.subjectMaxLen` (P-97)
+* **Changelog:** Fixed: a bare `aapp draft` names the plan after the pickup entry's title and writes its text into §1, with a bounded slug and a draft subject within `aapp.subjectMaxLen` (P-97)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -60,7 +60,9 @@ P-96 (group P-91) defines the entry form `- [ ] <title>: <text>` and the one fun
 - The limit is read through `aapp_subject_max_len` (`lib/aapp-lib.sh`, new: the setting, or 72 when unset or not a number), the one reader the other subject builders move to under #99.
 
 ### 2.4 The entry's text
-- Question 1.
+- A bare `aapp draft` writes the entry's text, verbatim, into the new plan's `## 1. Context & Architectural Goal`, in place of the template's placeholder line, so the idea is not lost when the entry is digested. The `.plans/pickup/` files the entry names (`pickup_entry_files`) follow it, one `- \`<path>\`` line each, under `Notes from pickup:`.
+- An entry without text (a title only, refused by the pickup gate but possible in an uncommitted edit) leaves the placeholder as it is.
+- A draft with a slug the user gives (`aapp draft <slug>`) takes nothing from pickup, as today.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -76,6 +78,7 @@ P-96 (group P-91) defines the entry form `- [ ] <title>: <text>` and the one fun
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
 - [ ] `tests/verbs/draft.sh::test_bare_draft_takes_title_only` -> asserts a bare `aapp draft` from `- [ ] Short Title: a long text …` names the plan `Short Title` with slug `short-title`, no word of the text in either
 - [ ] `tests/verbs/draft.sh::test_bare_draft_slug_bounded` -> asserts a 150-character title gives a slug of at most 60 characters cut at a `-`, and the plan's title line holds the whole title
+- [ ] `tests/verbs/draft.sh::test_bare_draft_copies_text` -> asserts a bare `aapp draft` from `- [ ] Short Title: a text naming \`.plans/pickup/x.md\`` writes the text, verbatim, as §1 of the new plan with the placeholder gone, and the named file on a `Notes from pickup:` line
 - [ ] `tests/verbs/draft.sh::test_draft_subject_fits_limit` -> asserts a draft whose slug would make `plan(draft): scaffold P-<N> <slug>` longer than `aapp.subjectMaxLen` commits with the subject cut at a `-` to fit, the file name keeping the whole slug
 - [ ] `tests/aapp_lib_test.sh::test_subject_max_len` -> asserts `aapp_subject_max_len` gives the setting, and 72 when it is unset or not a number
 
@@ -84,7 +87,7 @@ P-96 (group P-91) defines the entry form `- [ ] <title>: <text>` and the one fun
 
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: `lib/aapp-lib.sh`: `aapp_subject_max_len`.
-- [ ] Task 2.2: `lib/cmd_plan.sh`: bare `aapp draft` takes the title through `pickup_entry_split`; the slug bounded; the draft subject fitted.
+- [ ] Task 2.2: `lib/cmd_plan.sh`: bare `aapp draft` takes the title through `pickup_entry_split` and writes the text into §1; the slug bounded; the draft subject fitted.
 - [ ] Task 2.3: `lib/docs/verbs/draft.md`: the bare draft's title, slug and subject; the tests.
 
 ### Phase 3: Verification & Documentation
@@ -131,3 +134,4 @@ P-96 (group P-91) defines the entry form `- [ ] <title>: <text>` and the one fun
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted from #160; the `aapp draft` part taken out of P-96. Starts after P-96 lands.
+* **2026-10-16:** Q1 resolved: the entry's text goes into §1 of the drafted plan.
