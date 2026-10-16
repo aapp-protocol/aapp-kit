@@ -312,4 +312,22 @@ else
   bad "test_parse_plan_commits" "parse_plan_commits function not implemented"
 fi
 
+echo "== pickup entry split (P-96) =="
+if declare -f pickup_entry_split >/dev/null; then
+  s1="$(pickup_entry_split '- [ ] Verbosity Budget: keep agents to the essence: always.')"
+  s2="$(pickup_entry_split '- [ ] Configuration Manager CLI (`aapp config: set`): add a manifest')"
+  s3="$(pickup_entry_split '- [ ] an idea with no title at all')"
+  s4="$(pickup_entry_split 'Plain Title: text without the marker')"
+  if [ "$s1" = "$(printf 'Verbosity Budget\tkeep agents to the essence: always.')" ] && \
+     [ "$s2" = "$(printf 'Configuration Manager CLI (`aapp config: set`)\tadd a manifest')" ] && \
+     [ "$s3" = "$(printf '\tan idea with no title at all')" ] && \
+     [ "$s4" = "$(printf 'Plain Title\ttext without the marker')" ]; then
+    ok "test_pickup_entry_split"
+  else
+    bad "test_pickup_entry_split" "s1=[$s1] s2=[$s2] s3=[$s3] s4=[$s4]"
+  fi
+else
+  bad "test_pickup_entry_split" "pickup_entry_split function not implemented"
+fi
+
 print_test_summary "$PASS" "$FAIL"

@@ -187,7 +187,7 @@ fi
 echo "== ledger commits (P-50) =="
 aapp draft pickup-stuff >/dev/null 2>&1
 pf="$(ls .plans/current/*-pickup-stuff.md)"; echo "* **2026-10-07:** pending." >> "$pf"
-echo "- [ ] A new idea" >> .plans/pickup.md
+echo "- [ ] A new idea: worth a plan one day" >> .plans/pickup.md
 out="$(aapp refine pickup "add idea" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && git -C .plans log -1 --format=%s | grep -qxF "pickup: add idea" && \
    [ "$(git -C .plans show --name-only --format= HEAD)" = "pickup.md" ]; then
@@ -205,6 +205,82 @@ else
   bad "test_refine_pickup_refuses_malformed_entry" "rc=$rc out=$out"
 fi
 git -C .plans checkout -q -- pickup.md
+
+echo "== pickup entry form (P-96) =="
+# pickup_refused <entry>: appends the entry, runs the gate; prints the output,
+# returns 0 when the gate refused it and nothing was committed. The entry is
+# taken out again.
+pickup_refused() {
+  local before out rc
+  before="$(git -C .plans rev-parse HEAD)"
+  printf '%s\n' "$1" >> .plans/pickup.md
+  out="$(aapp refine pickup "try entry" 2>&1)"; rc=$?
+  git -C .plans checkout -q -- pickup.md
+  printf '%s\n' "$out"
+  [ "$rc" -ne 0 ] && [ "$(git -C .plans rev-parse HEAD)" = "$before" ]
+}
+# pickup_accepted <entry>: appends the entry and commits it through the gate.
+pickup_accepted() {
+  printf '%s\n' "$1" >> .plans/pickup.md
+  aapp refine pickup "add entry" >/dev/null 2>&1
+}
+title_of() { printf '%*s' "$1" '' | tr ' ' 'T'; }
+
+out="$(pickup_refused "- [ ] An idea written without a title")"; r1=$?
+lineno="$(( $(wc -l < .plans/pickup.md) + 1 ))"
+if [ "$r1" -eq 0 ] && echo "$out" | grep -q "Line $lineno" && echo "$out" | grep -qi "no title"; then
+  ok "test_refine_pickup_refuses_untitled_entry"
+else
+  bad "test_refine_pickup_refuses_untitled_entry" "rc=$r1 out=$out"
+fi
+
+out="$(pickup_refused "- [ ] $(title_of 73): text")"; r1=$?
+pickup_accepted "- [ ] $(title_of 72): text"; r2=$?
+git config aapp.pickupTitleMax 50
+out50="$(pickup_refused "- [ ] $(title_of 51): text")"; r3=$?
+pickup_accepted "- [ ] $(title_of 50): text"; r4=$?
+git config --unset aapp.pickupTitleMax
+if [ "$r1" -eq 0 ] && echo "$out" | grep -q "73 characters" && echo "$out" | grep -q "at most 72 (aapp.pickupTitleMax)" && \
+   [ "$r2" -eq 0 ] && [ "$r3" -eq 0 ] && echo "$out50" | grep -q "at most 50 (aapp.pickupTitleMax)" && [ "$r4" -eq 0 ]; then
+  ok "test_refine_pickup_refuses_long_title"
+else
+  bad "test_refine_pickup_refuses_long_title" "73=$r1 72=$r2 51=$r3 50=$r4 out=$out out50=$out50"
+fi
+
+git config aapp.pickupTitleMax many
+outa="$(pickup_refused "- [ ] Fine Title: text")"; r1=$?
+git config aapp.pickupTitleMax 9
+outb="$(pickup_refused "- [ ] Fine Title: text")"; r2=$?
+git config --unset aapp.pickupTitleMax
+if [ "$r1" -eq 0 ] && echo "$outa" | grep -q "aapp.pickupTitleMax" && [ "$r2" -eq 0 ] && echo "$outb" | grep -q "aapp.pickupTitleMax"; then
+  ok "test_refine_pickup_title_max_invalid"
+else
+  bad "test_refine_pickup_title_max_invalid" "many=$r1 nine=$r2 outa=$outa outb=$outb"
+fi
+
+out="$(pickup_refused "- [ ] Title:")"; r1=$?
+out2="$(pickup_refused "- [ ] Title:   ")"; r2=$?
+if [ "$r1" -eq 0 ] && [ "$r2" -eq 0 ] && echo "$out$out2" | grep -qi "no text after the title"; then
+  ok "test_refine_pickup_refuses_empty_text"
+else
+  bad "test_refine_pickup_refuses_empty_text" "rc=$r1/$r2 out=$out $out2"
+fi
+
+mkdir -p .plans/pickup && echo "notes" > .plans/pickup/real-notes.md
+out="$(pickup_refused "- [ ] Idea With Notes: details in \`.plans/pickup/missing-notes.md\`.")"; r1=$?
+pickup_accepted "- [ ] Idea With Notes: details in \`.plans/pickup/real-notes.md\`."; r2=$?
+if [ "$r1" -eq 0 ] && echo "$out" | grep -qF ".plans/pickup/missing-notes.md" && echo "$out" | grep -qi "does not exist" && [ "$r2" -eq 0 ]; then
+  ok "test_refine_pickup_refuses_missing_file"
+else
+  bad "test_refine_pickup_refuses_missing_file" "missing=$r1 real=$r2 out=$out"
+fi
+
+pickup_accepted "- [x] a digested note written before titles"; r1=$?
+if [ "$r1" -eq 0 ] && git -C .plans log -1 --format=%s | grep -qxF "pickup: add entry"; then
+  ok "test_refine_pickup_skips_digested"
+else
+  bad "test_refine_pickup_skips_digested" "rc=$r1 last=$(git -C .plans log -1 --format=%s)"
+fi
 sed -i 's/| Second. |/| Second, reworded. |/' .plans/ISSUES.md
 out="$(aapp refine issues "reword 21" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && git -C .plans log -1 --format=%s | grep -qxF "issue(triage): reword 21" && \
