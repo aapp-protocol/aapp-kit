@@ -25,11 +25,12 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-92**: [`P92-output-records-and-wrapping.md`](current/P92-output-records-and-wrapping.md) — Output Records And Wrapping
 - 🟣 **P-93**: [`P93-issue-list-layout.md`](current/P93-issue-list-layout.md) — Issue List Layout
 - 🟣 **P-94**: [`P94-json-output.md`](current/P94-json-output.md) — Json Output
-- 🟣 **P-95**: [`P95-plugin-runtime-and-dx-fixes.md`](current/P95-plugin-runtime-and-dx-fixes.md) — Plugin Runtime And Dx Fixes
 
 ---
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
+
+- 🔷 **P-95**: [`P95-plugin-runtime-and-dx-fixes.md`](current/P95-plugin-runtime-and-dx-fixes.md) — Plugin Runtime And Dx Fixes
 
 ---
 
