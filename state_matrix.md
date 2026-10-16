@@ -23,6 +23,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-94**: [`P94-json-output.md`](current/P94-json-output.md) — Json Output
 - 🟣 **P-97**: [`P97-draft-from-pickup-title.md`](current/P97-draft-from-pickup-title.md) — Draft From Pickup Title
 - 🟣 **P-98**: [`P98-status-plan-progress.md`](current/P98-status-plan-progress.md) — Status Plan Progress
+- 🟣 **P-99**: [`P99-amending-plans-in-development.md`](current/P99-amending-plans-in-development.md) — Amending Plans In Development
 
 ---
 
