@@ -19,7 +19,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-57**: [`P57-modular-manual-specification.md`](current/P57-modular-manual-specification.md) — Modular Manual Specification
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
 - 🟣 **P-82**: [`P82-issue-fix-safeguards.md`](current/P82-issue-fix-safeguards.md) — Issue Fix Safeguards
-- 🟣 **P-88**: [`P88-status-recent-and-bounded.md`](current/P88-status-recent-and-bounded.md) — Status Recent And Bounded
 - 🟣 **P-90**: [`P90-companion-worktree-bridge.md`](current/P90-companion-worktree-bridge.md) — Companion Worktree Bridge
 - 🟣 **P-93**: [`P93-issue-list-layout.md`](current/P93-issue-list-layout.md) — Issue List Layout
 - 🟣 **P-94**: [`P94-json-output.md`](current/P94-json-output.md) — Json Output
@@ -33,6 +32,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
+- ⚡ **P-88**: [`P88-status-recent-and-bounded.md`](current/P88-status-recent-and-bounded.md) — Status Recent And Bounded
 - ⚡ **P-91**: [`P91-readable-and-parsable-output.md`](current/P91-readable-and-parsable-output.md) — 🧩 Group Plan P-91: Readable And Parsable Output
 
 ---
