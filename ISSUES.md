@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #159 | `Medium` | `HOOK` | 2026-10-16 | `templates/aapp-pre-commit` | The pre-commit hook blocks commits on an adopter's own files with language checks (`bash -n`, Python syntax, `php -l`, JSON under `schema/`); adopter checks belong in the local hook (`templates/pre-commit`). |  | 🟡 `Incubated` |
 | #158 | `Low` | `DOCS` | 2026-10-16 | `examples/plugins/aapp-issue-tracker/run.sample` | sample issue tracker plugin lacks issue.queue and issue.unqueue event handling | [P-95](current/P95-plugin-runtime-and-dx-fixes.md) | 🔵 `Planned` |
 | #157 | `Low` | `CLI` | 2026-10-16 | `aapp` | aapp primary dispatcher does not export AAPP_REPO_ROOT to action plugins | [P-95](current/P95-plugin-runtime-and-dx-fixes.md) | 🔵 `Planned` |
 | #156 | `Low` | `CLI` | 2026-10-16 | `lib/cmd_help.sh` | aapp help <custom-tool> fails with unknown command for valid action plugins | [P-95](current/P95-plugin-runtime-and-dx-fixes.md) | 🔵 `Planned` |
