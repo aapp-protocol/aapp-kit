@@ -1,8 +1,8 @@
-# 🗺️ Plan P-94: Json Output
+# 🗺️ Plan P-94: JSON Output
 * **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-94
-* **Changelog:** Changed: Json Output
+* **Changelog:** Added: `aapp status json` and `aapp issue list json` print one JSON document, its fields documented in `docs/reference/08-output-json.md` (P-94)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,12 +40,28 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+A script that wants what `aapp status` or `aapp issue list` shows (a web CMS building its pages, a dashboard, a bot) can today only scrape terminal text, which breaks at every change of layout. This member, the last of group P-91, prints the records of P-92 as one JSON document whose fields are a versioned contract (group P-91 §2.4, §2.5).
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Ingress
+- `aapp status json`, `aapp issue list [<n> | all] [confirm] json`: a bare token, in any position among the verb's tokens.
+- `aapp status short json` -> exit 1, usage on stderr: the overview is the `overview` field.
+
+### 2.2 The writer (`lib/output.sh`)
+- `out_json_open`, `out_json_field <key> <type> <value>`, `out_json_list_open` / `_close`, `out_json_close`: one object, 2-space indent, keys in call order. Types: `string`, `number`, `bool`, `date`, `time`, and `?` forms that write `null` for an empty value. Strings through `json_escape`.
+- The document is built in a buffer and printed whole at the end: a failure on the way prints nothing on stdout and exits non-zero.
+
+### 2.3 The documents
+- Exactly the fields of group P-91 §2.5, in that order, from the records; the issue object is one function (`issue_render_json`) used by both commands.
+- `aapp status json` runs the briefing's side effects as the terminal briefing does; what they did is in `notices`. The terminal text never reaches stdout.
+- `aapp issue list json`: the provider sync's messages go to stderr.
+
+### 2.4 The reference (`docs/reference/08-output-json.md`, new)
+- Front matter like `06-plugin-protocol.md`; the stream rule, the value rules, the versioning rule, one table per object, and a full example of each document.
+- `tests/output_json_test.sh` runs both commands on a fixture and compares the keys of every object with the doc's tables: a field in the code and not in the doc, or the reverse, fails.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -57,13 +73,26 @@
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
+### 🧪 Required Tests (Failure & Boundary Assertions)
+> Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
+- [ ] `tests/output_json_test.sh::test_status_json_parses` -> asserts `aapp status json` prints one object that a JSON parser accepts, and nothing else on stdout
+- [ ] `tests/output_json_test.sh::test_issue_list_json_parses` -> asserts `aapp issue list json` prints one object with `issues`, `shown` and `total`, honouring `<n>` and `all`
+- [ ] `tests/output_json_test.sh::test_fields_match_reference` -> asserts the keys of every object equal the tables of `docs/reference/08-output-json.md`
+- [ ] `tests/output_json_test.sh::test_absent_values_are_null` -> asserts an issue with no plan, queue, branch or tracker carries those fields as `null`, and empty lists as `[]`
+- [ ] `tests/output_json_test.sh::test_text_verbatim` -> asserts a symptom with backticks, quotes, a backslash and `…` comes back unchanged after parsing, uncut and unwrapped
+- [ ] `tests/output_json_test.sh::test_failure_prints_nothing` -> asserts a failing run exits non-zero with stdout empty
+- [ ] `tests/output_json_test.sh::test_same_items_as_terminal` -> asserts the ids in `issues.queue`, `plans.items` and `pickup.items` are those the terminal briefing lists, in the same order
+- [ ] `tests/verbs/status.sh::test_short_json_refused` -> asserts `aapp status short json` exits 1 with usage on stderr
+
 ### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+- [ ] Task 1.1: Write the tests of this section; commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+- [ ] Task 2.1: `lib/output.sh`: the JSON writer.
+- [ ] Task 2.2: `lib/aapp-lib.sh`: `issue_render_json`.
+- [ ] Task 2.3: `lib/cmd_status.sh`: `status_render_json`, the `json` token.
+- [ ] Task 2.4: `lib/cmd_issue.sh`: `issue list … json`.
+- [ ] Task 2.5: `docs/reference/08-output-json.md`; `lib/docs/verbs/status.md` and `issue.md`: the token and the tests.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run automated test suites and verify edge cases.
@@ -81,23 +110,35 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/output.sh` -> the JSON writer.
+- [ ] `lib/aapp-lib.sh` -> `issue_render_json`.
+- [ ] `lib/cmd_status.sh` -> `status_render_json`, the `json` token.
+- [ ] `lib/cmd_issue.sh` -> the `json` token of `issue list`.
+- [ ] `NEW FILE` -> `docs/reference/08-output-json.md` -> the JSON contract.
+- [ ] `lib/docs/verbs/status.md` -> the `json` token and its tests.
+- [ ] `lib/docs/verbs/issue.md` -> the `json` token of `list`.
+- [ ] `MANUAL.md` -> JSON output, pointing to the reference.
+- [ ] `CHEATSHEET.md` -> `aapp status json`, `aapp issue list json`.
+
+### 🧪 Required Test Files
+> Test files that must prove this plan's failure cases. Frozen with the blast radius.
+- [ ] `NEW FILE` -> `tests/output_json_test.sh`
+- [ ] `tests/verbs/status.sh`
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `ARCHITECTURE.md` -> written from group P-91's sections at the group's `done`.
+- [ ] `.agents/CODEMAP.md` -> written from group P-91's sections at the group's `done`.
+- [ ] `docs/reference/06-plugin-protocol.md` -> the plugin exchange is a different contract.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — A JSON parser in the tests.** The tests must parse the output. `python3` is already used by `aapp status` (the pause banner); `jq` is not a kit dependency. Use `python3 -c 'import json'` in the tests, skipping with a notice where it is missing?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-16:** Plan initialized from `pickup.md`.
-* **2026-10-16:** Refined blast radius and locked module boundaries.
+* **2026-10-16:** Drafted as the fourth member of group P-91.
