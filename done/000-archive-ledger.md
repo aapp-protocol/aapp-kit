@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-16 | `P-94` | [`P94-json-output.md`](P94-json-output.md) | none | `5a6f3c7` | JSON Output (tdd (13/13)) |
 | 2026-10-16 | `P-93` | [`P93-issue-list-layout.md`](P93-issue-list-layout.md) | #155 | `ca75504` | Issue List Layout (tdd (9/9)) |
 | 2026-10-16 | `P-88` | [`P88-status-recent-and-bounded.md`](P88-status-recent-and-bounded.md) | #147 | `2c165e6` | Status Recent And Bounded (tdd (12/12)) |
 | 2026-10-16 | `P-92` | [`P92-output-records-and-wrapping.md`](P92-output-records-and-wrapping.md) | none | `9dc184e` | Output Records And Wrapping (tdd (11/11)) |

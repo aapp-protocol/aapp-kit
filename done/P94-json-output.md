@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `ca75504` (feature/readable-and-parsable-output)
 * **Worktree:** .workspace/P94 (plan/P94-json-output)
 * **Group:** P-91
@@ -146,6 +146,7 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-16:** Plan implementation completed and archived to done/.
 * **2026-10-16:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted as the fourth member of group P-91.
