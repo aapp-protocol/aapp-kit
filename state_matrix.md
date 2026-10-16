@@ -29,8 +29,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-89**: [`P89-issue-work-queue.md`](current/P89-issue-work-queue.md) — Issue Work Queue
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
