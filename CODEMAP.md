@@ -194,9 +194,9 @@
 * **Anti-Wrapper Warning:** Never address stashes by index (`stash@{0}`); use 40-character commit SHAs exclusively. Never use `--all` (preserves `.gitignore` air-gaps).
 
 ### 📊 Context Recovery Briefing (`lib/cmd_status.sh`)
-* **Purpose:** Read-only four-pillar context recovery agent inspecting Shipped (`CHANGELOG.md`), Issues (`ISSUES.md`), Plans (`state_matrix.md`), and Pickup (`pickup.md`). Surfaces prominent pause banner and quarantined worktrees when paused, and reports open adoption tasks (`.plans/adoption.md`, P-63) in overview and briefing.
-* **Anti-Wrapper Warning:** Must remain strictly non-destructive and idempotent.
-
+* **Purpose:** The four-pillar context recovery briefing: Shipped (`CHANGELOG.md` and its Git history), Issues (the work queue), Plans (`.plans/current/`), and Pickup (`pickup.md`), with the pause banner, adoption tasks, staged offline work and the next action. Collects every section into records first; the terminal renderer and the JSON renderer (`aapp status json`) print them (P-91).
+* **Key Functions:** `status_records_<section>` (`overview`, `templates`, `pause`, `shipped`, `issues`, `plans`, `pickup`, `adoption`, `offline`, `next`) and `status_notices` -> the records (Shipped from the changelog's Git history, `git log -n 15`, the file's first entries without history); `status_items_max` / `status_text_max` -> `aapp.statusItemsMax` (5) and `aapp.statusTextMax` (220), refused naming the key below 1; `status_render_terminal` / `status_render_json` -> the two renderers.
+* **Anti-Wrapper Warning:** Must remain strictly non-destructive and idempotent. A renderer computes nothing: a value both renderers need is a record field.
 ### 📋 Adoption Advisories & Setup Checklist (`lib/adoption.sh`)
 * **Purpose:** Single source of truth for repository adoption rules catalogue, sync engine, and open task inspection for `.plans/adoption.md` (P-63).
 * **Key Functions:**
@@ -357,3 +357,27 @@ The issue plugins the kit calls (`aapp-issue-tracker`, `aapp-issue-note-filter`)
 2. **The `.sample` Inactive Suffix:** Reference examples carry the `.sample` suffix (`run.sample`, `.sample/` directories). The execution engine and resolver strictly ignore `.sample` assets until an adopter explicitly activates them.
 3. **Runtime Source of Truth:** `lib/plugins.tsv` (P-46) is the shipped registry of kit-reserved names (`name`, `role`, `state` = `shipped` | `planned:<plan-id>`, `events`, `counter`, `sample`); this table documents it. It is kit-owned and replaced on every install/upgrade — adopters never edit it, and their own plugins need no row. A new kit plugin is one registry row; a test fails when a sample directory or a plugin-name literal in `lib/` has no row.
 4. **Supported and ad hoc:** the exchange above binds the plugins the kit calls by reserved name. Any other plugin or script is a CLI user: the CLI's locks and checks are its only safeguard.
+### 🖨️ Output Renderers (`lib/output.sh`)
+* **Purpose:** Shared rendering for commands that print records (P-91): terminal width, wrapping and cutting, and the JSON writer.
+* **Key Functions:**
+  * `out_width` -> `aapp.statusOutputWidth` (default 85; refused, naming the key, below 40). `out_wrap <first-indent> <hang-indent> [<width>]` -> text on stdin wrapped at spaces, runs of spaces kept, a word longer than the width whole on its own line; `out_cut <limit>` -> text cut at the last space before `<limit>`, ending in `…`. Both count characters as `aapp_char_len` does (UTF-8 continuation bytes not counted).
+  * The JSON writer (P-94): `out_json_str` / `out_json_strn`, `out_json_num` / `out_json_numn`, `out_json_bool`, `out_json_strlist <a,b>`, `out_json_list <json>…`, `out_json_obj <key> <json>…` build a compact document, keys in call order, `null` for an empty nullable value, strings through `json_escape`; `out_json_pretty` prints it with a 2-space indent. `out_json_envelope <command> <notices>` -> the envelope's pairs; `out_json_repository` -> the remote (`_envelope_remote_json`), the branch, the path unless `aapp.jsonLocalPath false` (`out_json_local_path`); `out_json_notices` -> the `notices` object, `{ "warning": [], "info": [] }`; `out_json_remarks <section>` -> what a command printed, as notice lines (⚠️/❌ a warning, indented lines continuing the one before); `out_json_error <command> <message>` -> the error document, its `code` and `aapp_config` read from the message, and the message on stderr (P-100). The contract: `docs/reference/08-output-json.md`.
+* **Consumers:** `lib/cmd_status.sh`, `lib/cmd_issue.sh` (`issue list`).
+* **Anti-Wrapper Warning:** Never print JSON by hand elsewhere: field order, `null` and escaping are decided here.
+### 📥 Pickup Entries (`lib/aapp-lib.sh`, `lib/planning_health.sh`)
+* **Purpose:** The one form of a pickup idea, `- [ ] <title>: <text>` (P-96), and its gate at `aapp refine pickup`.
+* **Key Functions:**
+  * `pickup_entry_split <line>` -> `<title>\t<text>`: the title ends at the first `: ` outside backticks (or a `:` ending the line); empty when there is none. The one split: the gate and the briefing's pickup records read it.
+  * `pickup_title_max` -> `aapp.pickupTitleMax` (default 72); fails naming the key below 10 or when not a number. `pickup_entry_files <text>` -> the `.plans/pickup/` paths an entry names. `aapp_char_len <text>` -> characters, not bytes, whatever the locale; the one length every width or limit check uses.
+  * `check_pickup_entries <pickup_file>` (`lib/planning_health.sh`) -> refuses, line by line, a non-checkbox entry, and an unworked one without a title, with a title over the limit, without text, or naming a `.plans/pickup/` file that does not exist; files are checked for the entries the commit adds or changes only (`.plans/pickup/` is gitignored).
+* **Consumers:** `aapp refine pickup` (`lib/cmd_plan.sh`); the Pickup records of `lib/cmd_status.sh`.
+### 🧾 Issue Records (`lib/aapp-lib.sh`)
+* **Purpose:** One record per active issue for every issue view (P-92): `aapp issue list`, the Issues pillar of `aapp status`, and their JSON.
+* **Key Functions:**
+  * `ledger_issue_records [<n>…]` -> tab-separated `id severity type status logged location symptom plan blocks queue_section queue_level queued branch offline tracker_name tracker_url tracker_release notes`; the active ledger in recorded order, then the issues staged offline; or the ids given, in order. Severity and status are lowercase slugs; location and symptom as written.
+  * `issue_records_by_branch <current> <dev> [fill]` -> records reordered, this branch's first, once an issue names a branch; `fill` shows `<dev>` for an issue that names none, for the terminal (the records keep it empty).
+  * `issue_render_terminal <width> <cut>` -> records on stdin, each issue as the views show it (P-93): the facts line, the tracker's names on a `· ` line, the symptom wrapped at 8 spaces, cut at `<cut>` when above 0. Needs `lib/output.sh`, which the commands load and the hooks do not.
+  * `issue_render_json` -> records on stdin as the JSON list of `issue` objects (P-94), for both commands.
+  * `issue_text_counts` -> `#<n>\t<count>` from the kit's store of descriptions and notes, no text; `issue_notes_counted` -> false where an `aapp-issue-tracker` provider is installed (the count is then unknown).
+  * `aapp_state_file <name>` -> a per-machine state file beside the repository's Git data (the tracker's names for issues, the sync stamp).
+* **Anti-Wrapper Warning:** A view never reads a ledger row or the note store itself: it reads records. No text of a description or note goes into a record.
