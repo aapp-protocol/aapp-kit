@@ -110,12 +110,13 @@ Merge criterion: every member archived and the pre-done gate green on the featur
 The JSON lists the items the terminal lists (the same caps, `aapp.statusItemsMax`, §2.3) with their text whole; `more`, `unqueued` and `total` count the rest. `aapp issue list json` keeps the verb's own cap (`<n>`, `all`, default 20): each command sets its own limits.
 
 ## 3. Members & Order
-All four members change `lib/cmd_status.sh` or `lib/aapp-lib.sh`: one runs at a time, in this order.
+All five members change `lib/aapp-lib.sh` or `lib/cmd_status.sh`: one runs at a time, in this order.
 
-1. **P-92 Output Records And Wrapping:** the records of every section, `lib/output.sh` (wrap, cut, width), the terminal renderer on the records. Shipped, Issues and Pickup print as today; the frame, Plans pillar, notices, offline block and next action keep to the width.
-2. **P-88 Status Recent And Bounded (#147):** Shipped from the changelog's Git history, newest first, with `commit` and `date`; Shipped and Pickup bounded and wrapped (§2.3).
-3. **P-93 Issue List Layout (#155):** the issue facts line and wrapped symptom in `aapp issue list` and the Issues pillar, offline issues included.
-4. **P-94 JSON Output:** the `json` token on both commands, the JSON writer, `docs/reference/08-output-json.md` and its test.
+1. **P-96 Pickup Entry Form:** a pickup entry is `- [ ] <title>: <text>`, checked by `aapp refine pickup`; `pickup_entry_split` is the one split, which P-92's pickup records reuse.
+2. **P-92 Output Records And Wrapping:** the records of every section, `lib/output.sh` (wrap, cut, width), the terminal renderer on the records. Shipped, Issues and Pickup print as today; the frame, Plans pillar, notices, offline block and next action keep to the width.
+3. **P-88 Status Recent And Bounded (#147):** Shipped from the changelog's Git history, newest first, with `commit` and `date`; Shipped and Pickup bounded and wrapped (§2.3).
+4. **P-93 Issue List Layout (#155):** the issue facts line and wrapped symptom in `aapp issue list` and the Issues pillar, offline issues included.
+5. **P-94 JSON Output:** the `json` token on both commands, the JSON writer, `docs/reference/08-output-json.md` and its test.
 
 ## Architecture & Codemap
 *Every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written out whole in a ```` fence, under the exact heading it has (or will have) in the file. Members do not edit these files; read the sections here as the target architecture. At the group's `done` a section replaces the file's section with the same heading, or is added at the end. `aapp refine` records a base line above each fence: `done` refuses a section the file changed meanwhile. Write `No changes.` under a file that keeps its content.*
@@ -179,3 +180,4 @@ The Issues records are one function for both commands, beside the ledger functio
 * **2026-10-16:** Q1–Q3 resolved; `repository.remote` in every document; groups nest their members in `plans`; settings named `aapp.status…`.
 * **2026-10-16:** Q4 resolved: `aapp.jsonLocalPath`; the JSON holds no other local path.
 * **2026-10-16:** Pickup ideas carry `title`, `text` and `files`; the briefing shows the title on its own line.
+* **2026-10-16:** P-96 (pickup entry form) joins, first in order.
