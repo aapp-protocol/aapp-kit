@@ -81,6 +81,7 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 - [ ] `tests/output_json_test.sh::test_absent_values_are_null` -> asserts an issue with no plan, queue, branch or tracker carries those fields as `null`, and empty lists as `[]`
 - [ ] `tests/output_json_test.sh::test_text_verbatim` -> asserts a symptom with backticks, quotes, a backslash and `…` comes back unchanged after parsing, uncut and unwrapped
 - [ ] `tests/output_json_test.sh::test_failure_prints_nothing` -> asserts a failing run exits non-zero with stdout empty
+- [ ] `tests/output_json_test.sh::test_pickup_objects` -> asserts each `pickup.items` object has `title`, `text` and `files`, `title` `null` for an entry without one, the text whole and verbatim, and `files` the existing `.plans/pickup/` paths the entry names
 - [ ] `tests/output_json_test.sh::test_same_items_as_terminal` -> asserts the ids in `issues.queue`, `plans.items` and `pickup.items` are those the terminal briefing lists, in the same order
 - [ ] `tests/output_json_test.sh::test_repository_remote` -> asserts `repository.remote` names the remote and its URL with credentials removed, and is `null` in a repository without a remote, in both documents
 - [ ] `tests/output_json_test.sh::test_local_path_setting` -> asserts `repository.root` is the checkout by default and `null` with `aapp.jsonLocalPath false`, in both documents, and that no other value holds the checkout's absolute path
@@ -147,3 +148,4 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 * **2026-10-16:** Drafted as the fourth member of group P-91.
 * **2026-10-16:** Tests for `repository.remote` and nested group members.
 * **2026-10-16:** `aapp.jsonLocalPath` leaves `repository.root` out (group P-91 Q4).
+* **2026-10-16:** Pickup objects: `title`, `text`, `files`.
