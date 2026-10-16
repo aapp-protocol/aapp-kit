@@ -31,6 +31,13 @@ if ! declare -f aapp_lib_loaded >/dev/null; then
         exit 1
     }
 fi
+# shellcheck source=lib/output.sh
+if ! declare -f out_wrap >/dev/null; then
+    . "$AAPP_ISSUE_LIB_DIR/output.sh" || {
+        echo "❌ [Issue] Cannot load $AAPP_ISSUE_LIB_DIR/output.sh" >&2
+        exit 1
+    }
+fi
 # shellcheck source=lib/commit_engine.sh
 if ! declare -f plans_commit >/dev/null; then
     . "$AAPP_ISSUE_LIB_DIR/commit_engine.sh" || {
@@ -577,20 +584,15 @@ issue_show_text() {
     echo "──── end of #$n's text ────"
 }
 
-# Per-machine notes about tracker issues, beside the repository's Git data:
-# what the tracker calls an issue (never interpreted, only shown), and which
-# issues it reports closed while their commit is not in their branch yet.
-_issue_state_file() {
-    local common
-    common="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
-    case "$common" in /*) ;; *) common="$(cd "$common" && pwd)" ;; esac
-    printf '%s/%s\n' "$common" "$1"
-}
+# Per-machine notes about tracker issues, beside the repository's Git data
+# (`aapp_state_file`): what the tracker calls an issue (never interpreted,
+# only shown), and which issues it reports closed while their commit is not in
+# their branch yet.
 
 # _issue_state_set <file> <n> [<field>…]: replaces #<n>'s line; no field removes it.
 _issue_state_set() {
     local f n tmp
-    f="$(_issue_state_file "$1")" || return 0
+    f="$(aapp_state_file "$1")" || return 0
     n="$2"; shift 2
     tmp="$f.tmp.$$"
     { [ -f "$f" ] && awk -F'\t' -v id="#$n" '$1 != id' "$f"
@@ -601,7 +603,7 @@ _issue_state_set() {
 # _issue_state_get <file> <n> -> the fields of #<n>'s line, tab-separated.
 _issue_state_get() {
     local f
-    f="$(_issue_state_file "$1")" || return 0
+    f="$(aapp_state_file "$1")" || return 0
     [ -f "$f" ] || return 0
     awk -F'\t' -v id="#$2" '$1 == id { sub(/^[^\t]*\t/, ""); print; exit }' "$f"
 }
@@ -1317,7 +1319,7 @@ issue_sync() {
     PLANS_DIR="$plans" ledger_record_external && external=1
     # Before the switch only a listing asks; afterwards the window paces it.
     [ "$force" -eq 1 ] || [ "$external" -eq 1 ] || return 0
-    stamp="$(_issue_state_file aapp_issue_sync)" || return 0
+    stamp="$(aapp_state_file aapp_issue_sync)" || return 0
     if [ -f "$stamp" ]; then last="$(sed -n 1p "$stamp")"; since="$(sed -n 2p "$stamp")"; fi
     case "$last" in ''|*[!0-9]*) last=0 ;; esac
     now="$(date +%s)"

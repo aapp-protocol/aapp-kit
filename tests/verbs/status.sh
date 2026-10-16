@@ -61,7 +61,8 @@ cat <<'EOF' > .plans/adoption.md
 - [x] `[DONE-TASK]` Done task → MANUAL: Overview
 EOF
 out="$(aapp status 2>&1)"
-if echo "$out" | grep -qE '^[[:space:]]*📊 Overview:.*\| 1 adoption' && \
+# The Overview line keeps to the width (P-92): read it with its wrapped part.
+if echo "$out" | tr '\n' ' ' | tr -s ' ' | grep -qE '📊 Overview:[^=]*\| 1 adoption' && \
    echo "$out" | grep -qF '📋 Adoption: 1 open task(s) in .plans/adoption.md'; then
   ok "test_overview_counts_open_adoption_tasks"
 else
@@ -136,7 +137,8 @@ fi
 # action are long. Only Shipped, the issue lines and Pickup keep their form.
 git branch develop >/dev/null 2>&1
 git config aapp.planWorktrees on
-git config aapp.planWorktreePath ".workspace/a-rather-long-folder-name-for-every-plan-worktree-{id}"
+# A path is one word: it moves to a line of its own, it is never cut.
+git config aapp.planWorktreePath ".workspace/a-long-plan-folder-{id}"
 wid="P-$(git config aapp.planId)"; aapp draft wide-plan >/dev/null 2>&1
 wf="$(ls .plans/current/P"${wid#P-}"-*.md)"
 sed -i -E "s|src/path/to/file\.ext|src/wide.py|g; /src\/path\/to\/new_file\.ext/d" "$wf"

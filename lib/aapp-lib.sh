@@ -1245,7 +1245,32 @@ issue_text_get() {
         { for (; held > 0; held--) print ""; if ($0 ~ /^ ###? /) $0 = substr($0, 2); print }
     ' "$f"
 }
+
+# issue_text_counts -> `#<n>\t<count>` per issue with entries in the store: how
+# many (the description and each note). No text of the store is printed.
+issue_text_counts() {
+    local f
+    f="$(issue_text_file)"
+    [ -r "$f" ] || return 0
+    awk '/^## #/ { id = substr($0, 4); next } /^### / && id != "" { c[id]++ } END { for (i in c) print i "\t" c[i] }' "$f"
+}
+
+# issue_notes_counted -> true when the kit's store holds every description and
+# note: no `aapp-issue-tracker` provider is installed, which could keep them.
+issue_notes_counted() {
+    local root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+    [ ! -d "$root/.agents/skills/aapp-issue-tracker" ]
+}
 # ---- end issue text ----
+
+# aapp_state_file <name> -> the path of a per-machine state file, beside the
+# repository's Git data (shared by every worktree).
+aapp_state_file() {
+    local common
+    common="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
+    case "$common" in /*) ;; *) common="$(cd "$common" && pwd)" ;; esac
+    printf '%s/%s\n' "$common" "$1"
+}
 
 # ---- pickup entries (P-96) ----
 # A pickup entry is one line, `- [ ] <title>: <text>`. The title is what stands
@@ -1892,37 +1917,84 @@ roadmap_sections() {
     grep -E '^###? ' "$f" || true
 }
 
-# ledger_issue_lines [<n>…] (P-89) -> active issues as the lists show them, one
-# line each: id, severity, status and logged date (from the row), the queue
-# date and level when queued, the symptom, and the plan. All rows in recorded
-# order, or the ids given, in that order.
-ledger_issue_lines() {
-    local qmap
+# ledger_issue_records [<n>…] (P-92) -> one record per active issue, the
+# active ledger's in recorded order, then those staged offline; or the ids
+# given, in that order. Tab-separated, an absent value empty:
+#   id severity type status logged location symptom plan blocks
+#   queue_section queue_level queued branch offline tracker_name tracker_url
+#   tracker_release notes
+# severity and status are lowercase slugs; location and symptom as written;
+# queue_section is `blockers` or `queued`; offline is 1 or 0; notes counts the
+# description and notes the kit keeps (empty where a provider may keep them).
+ledger_issue_records() {
+    local qmap blockers branches meta="" counts="" mf
     qmap="$(roadmap_queue_entries | awk -F'\t' '{
         s = $2; id = ""; d = ""
         if (match(s, /#[A-Za-z0-9-]+/)) id = substr(s, RSTART, RLENGTH)
         if (match(s, /\(queued [0-9-]+\)/)) d = substr(s, RSTART + 8, RLENGTH - 9)
         print id "\t" $1 "\t" d }')"
-    ledger_rows | AAPP_QMAP="$qmap" AAPP_IDS="$*" awk -F'\t' '
+    blockers="$(roadmap_blockers | sed 's/^/#/')"
+    branches="$(ledger_branch_map)"
+    mf="$(aapp_state_file aapp_issue_meta 2>/dev/null)" && [ -f "$mf" ] && meta="$(cat "$mf")"
+    if issue_notes_counted; then counts="$(issue_text_counts)"; else counts="-"; fi
+    { ledger_rows; ledger_offline_rows; } | AAPP_QMAP="$qmap" AAPP_BLOCKERS="$blockers" AAPP_BRANCHES="$branches" \
+        AAPP_META="$meta" AAPP_COUNTS="$counts" AAPP_IDS="$*" awk -F'\t' '
+        function table(name, dst,   n, m, i, kv) {
+            n = split(ENVIRON[name], m, "\n")
+            for (i = 1; i <= n; i++) { if (m[i] == "") continue; split(m[i], kv, "\t"); dst[kv[1]] = m[i] }
+        }
+        function field(rec, k,   p) { split(rec, p, "\t"); return (p[k] == "-" ? "" : p[k]) }
         BEGIN {
-            n = split(ENVIRON["AAPP_QMAP"], m, "\n")
-            for (i = 1; i <= n; i++) { split(m[i], q, "\t"); lv[q[1]] = q[2]; qd[q[1]] = q[3] }
+            table("AAPP_QMAP", q); table("AAPP_BRANCHES", br); table("AAPP_META", mt); table("AAPP_COUNTS", cnt)
+            nb = split(ENVIRON["AAPP_BLOCKERS"], b, "\n"); for (i = 1; i <= nb; i++) if (b[i] != "") blk[b[i]] = 1
+            counted = (ENVIRON["AAPP_COUNTS"] != "-")
             k = split(ENVIRON["AAPP_IDS"], want, " ")
         }
+        $1 in rec { next }
         {
-            sev = $2; gsub(/`/, "", sev)
-            st = $8; gsub(/`/, "", st); sub(/^.* /, "", st)
-            plan = ""
+            sev = tolower($2); gsub(/`/, "", sev)
+            typ = $3; gsub(/`/, "", typ)
+            st = $8; gsub(/`/, "", st); sub(/^[^A-Za-z]*/, "", st); st = tolower(st); gsub(/ /, "-", st)
+            plan = ""; blocks = ""
             if (match($7, /\[P-[0-9]+\]/)) plan = substr($7, RSTART + 1, RLENGTH - 2)
-            if (plan != "" && $7 ~ /^blocks /) plan = "blocks " plan
-            qs = ""
-            if ($1 in lv) qs = "queued " (qd[$1] != "" ? qd[$1] " " : "") "(" (lv[$1] == "urgent" ? "Urgent" : (lv[$1] == "low" ? "Low" : "Normal")) ")"
-            line[$1] = sprintf("%-6s %-8s %-10s logged %s  %-27s  %s%s", $1, sev, st, $4, qs, $6, (plan != "" ? "  [" plan "]" : ""))
+            if (plan != "" && $7 ~ /^blocks /) { blocks = plan; plan = "" }
+            qsec = ""; qlv = ""; qd = ""
+            if ($1 in blk) qsec = "blockers"
+            else if ($1 in q) { qsec = "queued"; qlv = field(q[$1], 2); qd = field(q[$1], 3) }
+            bn = ($1 in br) ? field(br[$1], 2) : ""
+            tn = ""; tu = ""; tr = ""
+            if ($1 in mt) { tn = field(mt[$1], 2); tu = field(mt[$1], 3); tr = field(mt[$1], 4) }
+            notes = counted ? (($1 in cnt) ? field(cnt[$1], 2) : 0) : ""
+            rec[$1] = $1 "\t" sev "\t" typ "\t" st "\t" $4 "\t" $5 "\t" $6 "\t" plan "\t" blocks "\t" qsec "\t" qlv "\t" qd "\t" bn "\t" ($9 == "offline" ? 1 : 0) "\t" tn "\t" tu "\t" tr "\t" notes
             order[++o] = $1
         }
         END {
-            if (k) { for (i = 1; i <= k; i++) { id = (want[i] ~ /^#/) ? want[i] : "#" want[i]; if (id in line) print line[id] } }
-            else for (i = 1; i <= o; i++) print line[order[i]]
+            if (k) { for (i = 1; i <= k; i++) { id = (want[i] ~ /^#/) ? want[i] : "#" want[i]; if (id in rec) print rec[id] } }
+            else for (i = 1; i <= o; i++) print rec[order[i]]
+        }'
+}
+
+# ledger_issue_lines [<n>…] (P-89) -> active issues as the lists show them, one
+# line each: id, severity, status and logged date, the queue date and level
+# when queued, the symptom, and the plan; a renderer over `ledger_issue_records`
+# for the issues of the active ledger. All in recorded order, or the ids
+# given, in that order.
+ledger_issue_lines() {
+    ledger_issue_records "$@" | issue_render_lines
+}
+
+# issue_render_lines: `ledger_issue_records` records on stdin, the lists' line
+# for each issue of the active ledger (the staged ones are shown apart).
+issue_render_lines() {
+    awk -F'\t' '
+        function cap(s) { return toupper(substr(s, 1, 1)) substr(s, 2) }
+        $14 == 1 { next }
+        {
+            st = $4; sub(/^.*-/, "", st)
+            plan = ($8 != "") ? $8 : (($9 != "") ? "blocks " $9 : "")
+            qs = ""
+            if ($10 == "queued") qs = "queued " ($12 != "" ? $12 " " : "") "(" cap($11) ")"
+            printf "%-6s %-8s %-10s logged %s  %-27s  %s%s\n", $1, cap($2), cap(st), $5, qs, $7, (plan != "" ? "  [" plan "]" : "")
         }'
 }
 

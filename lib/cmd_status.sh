@@ -8,6 +8,9 @@
 # 3. Plans     (.plans/state_matrix.md active plans)
 # 4. Pickup    (.plans/pickup.md unprocessed ideas)
 #
+# Every section is collected into records first (tab-separated lines, raw
+# values); a renderer prints them and computes nothing (P-91, P-92).
+#
 # An observer of the code: it never touches a working tree. On the plans branch
 # it re-derives the state matrix and unblocks the plans whose fix has reached
 # their parent branch (P-78).
@@ -22,107 +25,25 @@ fi
 
 cd "$REPO_ROOT"
 
-# Source planning_health and plan_resolver engines if available
+# Source planning_health, plan_resolver and the output renderers.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/planning_health.sh" ]; then
-    source "$SCRIPT_DIR/planning_health.sh"
-elif [ -f "$REPO_ROOT/lib/planning_health.sh" ]; then
-    source "$REPO_ROOT/lib/planning_health.sh"
-fi
-if [ -f "$SCRIPT_DIR/plan_resolver.sh" ]; then
-    source "$SCRIPT_DIR/plan_resolver.sh"
-elif [ -f "$REPO_ROOT/lib/plan_resolver.sh" ]; then
-    source "$REPO_ROOT/lib/plan_resolver.sh"
+for STATUS_LIB_FILE in planning_health.sh plan_resolver.sh output.sh; do
+    if [ -f "$SCRIPT_DIR/$STATUS_LIB_FILE" ]; then
+        source "$SCRIPT_DIR/$STATUS_LIB_FILE"
+    elif [ -f "$REPO_ROOT/lib/$STATUS_LIB_FILE" ]; then
+        source "$REPO_ROOT/lib/$STATUS_LIB_FILE"
+    fi
+done
+
+# The status registry names each plan's status as a slug (P-30).
+if [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/plan_states.sh" ]; then
+    # shellcheck source=/dev/null
+    . "$AAPP_LIB/plan_states.sh" && { plan_states_load 2>/dev/null || true; }
 fi
 
-# Compute Overview Metrics
-# The issue ledgers are read through the ledger functions of lib/aapp-lib.sh (P-73).
-ISSUES_FILE="$(ledger_path issues)" || ISSUES_FILE=""
-[ -f "$ISSUES_FILE" ] || ISSUES_FILE=""
-TOTAL_ISSUES=0
-if [ -n "$ISSUES_FILE" ]; then
-    TOTAL_ISSUES=$(ledger_row_lines | wc -l | tr -d ' ')
-fi
-
-ROADMAP_FILE="$(ledger_path roadmap)" || ROADMAP_FILE=""
-[ -f "$ROADMAP_FILE" ] || ROADMAP_FILE=""
-TOP_ROADMAP_ISSUES=""
-if [ -n "$ROADMAP_FILE" ]; then
-    TOP_ROADMAP_ISSUES=$(roadmap_entries | issue_id_refs | head -n 3 | tr '\n' ',' | sed 's/,$//; s/,/, /g')
-fi
-
-TOTAL_PLANS=0
-if [ -d ".plans/current" ]; then
-    TOTAL_PLANS=$(find .plans/current -maxdepth 1 -name "*.md" ! -name "000-*" 2>/dev/null | wc -l | tr -d ' ')
-fi
-
-# P-78: a plan left blocked on a closed issue resumes once the fix commit is in
-# its parent branch. The briefing is where that is noticed: the plan is
-# unblocked (one commit on the plans branch) and the lines are shown under
-# Plans. Not while a plugin step runs, nor for the one-line overview.
-# P-74: where a tracker keeps the issues, the briefing brings them up to date
-# first, at most once per aapp.issueSyncWindow minutes (counted from the last
-# attempt, so an unreachable tracker does not slow every briefing). Not for the
-# one-line overview, nor while a plugin step runs.
-SYNC_OUT=""
-if [ -z "${AAPP_PLUGIN_STEP:-}" ] && [ "${1:-}" != "short" ] && [ "${1:-}" != "summary" ] && \
-   [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_issue.sh" ] && [ -d ".agents/skills/aapp-issue-tracker" ]; then
-    SYNC_OUT="$(
-        # shellcheck source=/dev/null
-        . "$AAPP_LIB/cmd_issue.sh" 2>/dev/null || exit 0
-        issue_sync 2>&1 || true
-    )"
-fi
-
-UNBLOCK_OUT=""
-if [ -z "${AAPP_PLUGIN_STEP:-}" ] && [ "${1:-}" != "short" ] && [ "${1:-}" != "summary" ] && \
-   [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_issue.sh" ] && \
-   grep -qs '^\* \*\*Blocked On:\*\*' .plans/current/*.md; then
-    UNBLOCK_OUT="$(
-        # shellcheck source=/dev/null
-        . "$AAPP_LIB/cmd_issue.sh" 2>/dev/null || exit 0
-        issue_unblock_landed 2>&1 || true
-    )"
-fi
-
-# Re-derive the matrix before anything reads it, so the briefing reports the
-# real board rather than a stale cache (P-30 §2.10). While paused this still
-# writes: the uncommittable diff is the visible record of what reflection
-# changed, and the advisory below says the commit waits for 'aapp resume'.
-MATRIX_SYNCED=0
-MATRIX_PAUSED_DEFER=0
-if [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_matrix.sh" ] && [ -d ".plans/current" ]; then
-    MATRIX_OUT="$(
-        AAPP_MATRIX_LIB_ONLY=1
-        export AAPP_MATRIX_LIB_ONLY
-        # shellcheck source=/dev/null
-        . "$AAPP_LIB/cmd_matrix.sh" 2>/dev/null || exit 0
-        cmd_matrix 2>/dev/null || true
-    )"
-    case "$MATRIX_OUT" in
-        *"Re-derived"*) MATRIX_SYNCED=1 ;;
-    esac
-    case "$MATRIX_OUT" in
-        *"PAUSED"*) MATRIX_PAUSED_DEFER=1 ;;
-    esac
-fi
-
-STATE_MATRIX=""
-if [ -f ".plans/state_matrix.md" ]; then
-    STATE_MATRIX=".plans/state_matrix.md"
-elif [ -f "state_matrix.md" ]; then
-    STATE_MATRIX="state_matrix.md"
-fi
-ROADMAP_PLANS=""
-if [ -n "$STATE_MATRIX" ]; then
-    ROADMAP_PLANS=$(awk '/## 🚦 Recommended Implementation Roadmap/ {flag=1; next} /^## / {flag=0} flag' "$STATE_MATRIX" 2>/dev/null | grep -o -E 'P-[0-9]+' | head -n 3 | tr '\n' ',' | sed 's/,$//; s/,/, /g')
-fi
-[ -z "$ROADMAP_PLANS" ] && ROADMAP_PLANS="none"
-
-PICKUP_COUNT=0
-if [ -f ".plans/pickup.md" ]; then
-    PICKUP_COUNT=$(grep -E '^[0-9]+\.|^[\*-] ' ".plans/pickup.md" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '\[x\]|\[X\]' | wc -l | tr -d ' ')
-fi
+# status_rows <records>: the records with their tabs as \037, so that `read`
+# keeps empty fields (a tab is whitespace to IFS, and runs of it would merge).
+status_rows() { printf '%s\n' "$1" | tr '\t' '\037'; }
 
 ADOPTION_LIB="${AAPP_BASE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/lib/adoption.sh"
 if [ -f "$ADOPTION_LIB" ]; then
@@ -133,424 +54,611 @@ elif [ -f "$(dirname "${BASH_SOURCE[0]}")/adoption.sh" ]; then
     source "$(dirname "${BASH_SOURCE[0]}")/adoption.sh"
 fi
 
-ADOPTION_COUNT=0
-if command -v adoption_open_count >/dev/null 2>&1; then
-    ADOPTION_COUNT="$(adoption_open_count ".plans/adoption.md")"
-elif [ -f ".plans/adoption.md" ]; then
-    ADOPTION_COUNT="$(grep -cE '^- \[ \] `\[' ".plans/adoption.md" 2>/dev/null || echo 0)"
-fi
+# ------------------------------------------------------------------------------
+# Records: one function per section, tab-separated lines, raw values.
+# ------------------------------------------------------------------------------
 
-OVERVIEW_LINE="📊 Overview: $TOTAL_ISSUES issues (Next: ${TOP_ROADMAP_ISSUES:-none}) | $TOTAL_PLANS plans (Roadmap: $ROADMAP_PLANS) | $PICKUP_COUNT pickup"
-if [ "$ADOPTION_COUNT" -gt 0 ]; then
-    OVERVIEW_LINE="$OVERVIEW_LINE | $ADOPTION_COUNT adoption"
-fi
+# status_issues_file / status_roadmap_file -> the ledger files, when present.
+status_issues_file() { local f; f="$(ledger_path issues)" || return 0; [ -f "$f" ] && echo "$f"; return 0; }
+status_roadmap_file() { local f; f="$(ledger_path roadmap)" || return 0; [ -f "$f" ] && echo "$f"; return 0; }
 
-if [ "$1" = "short" ] || [ "$1" = "summary" ]; then
-    echo "$OVERVIEW_LINE"
-    return 0 2>/dev/null || exit 0
-fi
-
-probe_templates_drift() {
-    local version="${AAPP_VERSION:-1.0.0}"
-    local drifted=()
-    local reasons=()
-
-    # Check .plans/plan-template.md
-    if [ -f ".plans/plan-template.md" ]; then
-        if grep -q -E "Draft|Ready for Execution" ".plans/plan-template.md" 2>/dev/null && ! grep -q "🔷 Frozen" ".plans/plan-template.md" 2>/dev/null; then
-            drifted+=(".plans/plan-template.md")
-            reasons+=(".plans/plan-template.md carries retired enum")
-        elif ! grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:START v$version -->" ".plans/plan-template.md" 2>/dev/null; then
-            drifted+=(".plans/plan-template.md")
-            reasons+=(".plans/plan-template.md carries drifted protocol block")
-        fi
-    fi
-
-    # Check .agents/AGENTS.md
-    if [ -f ".agents/AGENTS.md" ]; then
-        if ! grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:START v$version -->" ".agents/AGENTS.md" 2>/dev/null; then
-            drifted+=(".agents/AGENTS.md")
-            reasons+=(".agents/AGENTS.md carries drifted protocol block")
-        fi
-    fi
-
-    local count="${#drifted[@]}"
-    if [ "$count" -eq 0 ]; then
-        echo "All worktree templates synced (v$version)"
-    elif [ "$count" -eq 1 ]; then
-        echo "1 template drifted (${reasons[0]}) -> run 'aapp init'"
-    else
-        echo "$count templates drifted (${reasons[0]}, ...) -> run 'aapp init'"
-    fi
+# status_state_matrix -> the state matrix, when present.
+status_state_matrix() {
+    if [ -f ".plans/state_matrix.md" ]; then echo ".plans/state_matrix.md"
+    elif [ -f "state_matrix.md" ]; then echo "state_matrix.md"; fi
+    return 0
 }
 
-TEMPLATES_STATUS="$(probe_templates_drift)"
+# status_changelog_path -> the changelog the briefing reads, when present.
+status_changelog_path() {
+    if [ -f "CHANGELOG.md" ]; then echo "CHANGELOG.md"
+    elif [ -f ".plans/CHANGELOG.md" ]; then echo ".plans/CHANGELOG.md"; fi
+    return 0
+}
 
-echo "============================================================"
-echo "  🧭 AAPP Context Recovery Briefing"
-echo "  📍 Repo: $REPO_ROOT"
-echo "  $OVERVIEW_LINE"
-echo "  📑 Templates:  $TEMPLATES_STATUS"
-echo "============================================================"
+# status_pickup_lines -> the unworked pickup entries, as written.
+status_pickup_lines() {
+    [ -f ".plans/pickup.md" ] || return 0
+    grep -E '^[0-9]+\.|^[\*-] ' ".plans/pickup.md" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '\[x\]|\[X\]' || true
+}
 
-# 0. Master Emergency Brake / Pause Banner
-GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
-if [ -d "$GIT_COMMON_DIR" ]; then
-    PRIMARY_ROOT="$(cd "$GIT_COMMON_DIR/.." 2>/dev/null && pwd)"
-else
-    PRIMARY_ROOT="$REPO_ROOT"
-fi
+# status_records_overview -> issues, next_issues, plans, roadmap_plans, pickup,
+# adoption: the counts of `status short`; the id lists comma-separated.
+status_records_overview() {
+    local issues=0 next="" plans=0 roadmap="" pickup adoption=0 matrix
+    if [ -n "$(status_issues_file)" ]; then issues="$(ledger_row_lines | wc -l | tr -d ' ')"; fi
+    if [ -n "$(status_roadmap_file)" ]; then next="$(roadmap_entries | issue_id_refs | head -n 3 | paste -sd, - || true)"; fi
+    if [ -d ".plans/current" ]; then
+        plans="$(find .plans/current -maxdepth 1 -name "*.md" ! -name "000-*" 2>/dev/null | wc -l | tr -d ' ')"
+    fi
+    matrix="$(status_state_matrix)"
+    if [ -n "$matrix" ]; then
+        roadmap="$(awk '/## 🚦 Recommended Implementation Roadmap/ {flag=1; next} /^## / {flag=0} flag' "$matrix" 2>/dev/null | grep -o -E 'P-[0-9]+' | head -n 3 | paste -sd, - || true)"
+    fi
+    pickup="$(status_pickup_lines | grep -c . || true)"
+    if command -v adoption_open_count >/dev/null 2>&1; then
+        adoption="$(adoption_open_count ".plans/adoption.md")"
+    elif [ -f ".plans/adoption.md" ]; then
+        adoption="$(grep -cE '^- \[ \] `\[' ".plans/adoption.md" 2>/dev/null || echo 0)"
+    fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$issues" "$next" "$plans" "$roadmap" "${pickup:-0}" "${adoption:-0}"
+}
 
-PAUSED_FILE="$GIT_COMMON_DIR/aapp_paused"
-SHARED_PAUSED_FILE=""
-if [ -d "$REPO_ROOT/.plans" ]; then
-    SHARED_PAUSED_FILE="$REPO_ROOT/.plans/PAUSED.md"
-elif [ -n "$PRIMARY_ROOT" ] && [ -d "$PRIMARY_ROOT/.plans" ]; then
-    SHARED_PAUSED_FILE="$PRIMARY_ROOT/.plans/PAUSED.md"
-fi
+# status_records_templates -> file, reason: one per template that drifted.
+status_records_templates() {
+    local version="${AAPP_VERSION:-1.0.0}"
+    if [ -f ".plans/plan-template.md" ]; then
+        if grep -q -E "Draft|Ready for Execution" ".plans/plan-template.md" 2>/dev/null && ! grep -q "🔷 Frozen" ".plans/plan-template.md" 2>/dev/null; then
+            printf '%s\t%s\n' ".plans/plan-template.md" "carries retired enum"
+        elif ! grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:START v$version -->" ".plans/plan-template.md" 2>/dev/null; then
+            printf '%s\t%s\n' ".plans/plan-template.md" "carries drifted protocol block"
+        fi
+    fi
+    if [ -f ".agents/AGENTS.md" ] && ! grep -q -E "^[[:space:]]*<!-- AAPP-PROTOCOL:START v$version -->" ".agents/AGENTS.md" 2>/dev/null; then
+        printf '%s\t%s\n' ".agents/AGENTS.md" "carries drifted protocol block"
+    fi
+    return 0
+}
 
-if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; }; then
-    echo ""
-    if [ -f "$PAUSED_FILE" ] && command -v python3 >/dev/null 2>&1; then
-        python3 -c '
+# status_pause_files -> the local pause buffer and the team's PAUSED.md, one per line.
+status_pause_files() {
+    local common primary shared=""
+    common="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
+    if [ -d "$common" ]; then primary="$(cd "$common/.." 2>/dev/null && pwd)"; else primary="$REPO_ROOT"; fi
+    if [ -d "$REPO_ROOT/.plans" ]; then shared="$REPO_ROOT/.plans/PAUSED.md"
+    elif [ -n "$primary" ] && [ -d "$primary/.plans" ]; then shared="$primary/.plans/PAUSED.md"; fi
+    printf '%s\n%s\n' "$common/aapp_paused" "$shared"
+}
+
+# status_records_pause -> nothing when not paused; otherwise one record:
+# scope (local, team), reason, paused_at, paused_label, stashes
+# (`<worktree>|<branch>` comma-separated, the worktree relative to the
+# repository), initiator, buffer, parsed (1 when the buffer was read), error.
+status_records_pause() {
+    local files local_f shared_f out
+    files="$(status_pause_files)"; local_f="$(printf '%s\n' "$files" | sed -n 1p)"; shared_f="$(printf '%s\n' "$files" | sed -n 2p)"
+    if [ -f "$local_f" ] && command -v python3 >/dev/null 2>&1; then
+        out="$(python3 -c '
 import json, sys, datetime, os
-
+root = sys.argv[2]
 try:
     with open(sys.argv[1]) as f:
         d = json.load(f)
     reason = d.get("reason", "unspecified")
-    ts_str = d.get("timestamp", "")
-    time_info = ts_str
-    if ts_str:
+    ts = d.get("timestamp", "")
+    label = ts
+    if ts:
         try:
-            clean_ts = ts_str.replace("Z", "+00:00")
-            dt = datetime.datetime.fromisoformat(clean_ts)
-            now = datetime.datetime.now(datetime.timezone.utc)
-            diff = now - dt
-            mins = int(diff.total_seconds() // 60)
-            if mins < 1:
-                rel = "just now"
-            elif mins == 1:
-                rel = "1 minute ago"
-            elif mins < 60:
-                rel = f"{mins} minutes ago"
-            elif mins < 1440:
-                rel = f"{mins // 60} hour(s) ago"
-            else:
-                rel = f"{mins // 1440} day(s) ago"
-            formatted_date = dt.strftime("%Y-%m-%d %H:%M:%S")
-            time_info = f"{formatted_date} ({rel})"
+            dt = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            mins = int((datetime.datetime.now(datetime.timezone.utc) - dt).total_seconds() // 60)
+            if mins < 1: rel = "just now"
+            elif mins == 1: rel = "1 minute ago"
+            elif mins < 60: rel = f"{mins} minutes ago"
+            elif mins < 1440: rel = f"{mins // 60} hour(s) ago"
+            else: rel = f"{mins // 1440} day(s) ago"
+            label = dt.strftime("%Y-%m-%d %H:%M:%S") + " (" + rel + ")"
         except Exception:
-            time_info = ts_str
-
-    stashes = d.get("snapshot", {}).get("stashes", [])
-    stashes_count = len(stashes)
-    stash_names = []
-    for s in stashes:
+            label = ts
+    stashes = []
+    for s in d.get("snapshot", {}).get("stashes", []):
         wt = s.get("worktree", "")
-        name = os.path.basename(wt)
-        branch = s.get("branch")
-        if branch:
-            name = f"{name} ({branch})"
-        stash_names.append(name)
-
-    print("🛑 PROJECT STATUS: PAUSED")
-    print(f"   Reason : {reason}")
-    print(f"   Paused : {time_info}")
-    if stashes_count > 0:
-        names_str = ", ".join(stash_names)
-        print(f"   Stashes: {stashes_count} worktree(s) quarantined ({names_str})")
-    else:
-        print("   Stashes: 0 worktrees quarantined (clean on pause)")
-    print("   Notice : All codebase modifications and commits are strictly refused.")
-    print("   To resume: aapp resume")
+        rel_wt = os.path.relpath(wt, root) if wt else ""
+        stashes.append(rel_wt + "|" + (s.get("branch") or ""))
+    clean = lambda v: str(v).replace("\t", " ").replace("\n", " ")
+    print("\t".join(["local", clean(reason), clean(ts), clean(label), ",".join(stashes), "", "", "1", ""]))
 except Exception as e:
-    print("🛑 PROJECT STATUS: PAUSED")
-    print(f"   (Failed to parse pause buffer: {e})")
-' "$PAUSED_FILE"
-    elif [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; then
-        echo "🛑 PROJECT STATUS: PAUSED"
-        echo "   Scope  : Team-Wide (.plans/PAUSED.md)"
-        grep -E '^\*[[:space:]]+\*\*(Reason|Timestamp|Initiator):\*\*' "$SHARED_PAUSED_FILE" | sed 's/^\*[[:space:]]*\*\*/   /; s/\*\*:[[:space:]]*/ : /' || true
-        echo "   Notice : All codebase modifications and commits are strictly refused."
-        echo "   To resume: aapp resume"
-    else
-        echo "🛑 PROJECT STATUS: PAUSED"
-        echo "   Buffer : $PAUSED_FILE"
-        echo "   Notice : All codebase modifications and commits are strictly refused."
-        echo "   To resume: aapp resume"
+    print("\t".join(["local", "", "", "", "", "", "", "0", str(e).replace("\t", " ").replace("\n", " ")]))
+' "$local_f" "$REPO_ROOT")"
+        printf '%s\n' "$out"
+    elif [ -n "$shared_f" ] && [ -f "$shared_f" ]; then
+        field() { grep -m 1 -E "^\*[[:space:]]+\*\*$1:\*\*" "$shared_f" | sed -E "s/^\*[[:space:]]*\*\*$1:\*\*[[:space:]]*//" || true; }
+        printf 'team\t%s\t%s\t\t\t%s\t%s\t1\t\n' "$(field Reason)" "$(field Timestamp)" "$(field Initiator)" ".plans/PAUSED.md"
+    elif [ -f "$local_f" ]; then
+        printf 'local\t\t\t\t\t\t%s\t0\t\n' "$local_f"
     fi
-fi
+    return 0
+}
 
-# 1. Shipped
-echo ""
-echo "📦 [1/4] SHIPPED (Recently Landed / Unreleased)"
-CHANGELOG_PATH=""
-if [ -f "CHANGELOG.md" ]; then
-    CHANGELOG_PATH="CHANGELOG.md"
-elif [ -f ".plans/CHANGELOG.md" ]; then
-    CHANGELOG_PATH=".plans/CHANGELOG.md"
-fi
-
-if [ -n "$CHANGELOG_PATH" ]; then
-    UNRELEASED=$(awk '/## \[Unreleased\]/ {flag=1; next} /^## / {flag=0} flag' "$CHANGELOG_PATH" | sed '/^[[:space:]]*$/d' | head -n 5)
-    if [ -z "$UNRELEASED" ]; then
-        # Fallback: display entries under the first header section
-        UNRELEASED=$(awk '/^## / {if (count++) exit} count {print}' "$CHANGELOG_PATH" | sed '/^[[:space:]]*$/d' | head -n 5)
+# status_records_shipped -> kind (heading, entry, text), section, text, plan,
+# issue, commit, date: the first five lines under `## [Unreleased]` (or under
+# the first version heading), as written. plan / issue: the id an entry is
+# tagged with.
+status_records_shipped() {
+    local cl lines
+    cl="$(status_changelog_path)"
+    [ -n "$cl" ] || return 0
+    lines="$(awk '/## \[Unreleased\]/ {flag=1; next} /^## / {flag=0} flag' "$cl" | sed '/^[[:space:]]*$/d' | head -n 5)"
+    if [ -z "$lines" ]; then
+        lines="$(awk '/^## / {if (count++) exit} count {print}' "$cl" | sed '/^[[:space:]]*$/d' | head -n 5)"
     fi
-    if [ -n "$UNRELEASED" ]; then
-        echo "$UNRELEASED" | sed 's/^/  /'
-    else
-        echo "  (No unreleased changelog entries yet)"
+    [ -n "$lines" ] || return 0
+    printf '%s\n' "$lines" | awk '
+        /^###[[:space:]]+/ { s = $0; sub(/^###[[:space:]]+/, "", s); sec = tolower(s); printf "heading\t%s\t%s\t\t\t\t\n", sec, s; next }
+        /^-[[:space:]]+/ {
+            t = $0; sub(/^-[[:space:]]+/, "", t); plan = ""; iss = ""
+            if (match(t, /\(`?P-[0-9]+`?\)[[:space:]]*$/)) { plan = substr(t, RSTART, RLENGTH); gsub(/[^P0-9-]/, "", plan) }
+            else if (match(t, /\(`?#[A-Za-z0-9-]+`?\)[[:space:]]*$/)) { iss = substr(t, RSTART, RLENGTH); gsub(/[()` ]/, "", iss) }
+            printf "entry\t%s\t%s\t%s\t%s\t\t\n", sec, t, plan, iss; next
+        }
+        { printf "text\t%s\t%s\t\t\t\t\n", sec, $0 }'
+}
+
+# status_records_issues -> the work queue as `ledger_issue_records` records, the
+# plan blockers then the queued issues by level, this branch's first once an
+# issue names a branch; then the issues staged offline. An empty queue gives
+# no queue record (#154).
+status_records_issues() {
+    local ids
+    if [ -n "$(status_roadmap_file)" ]; then
+        ids="$( { roadmap_blockers; roadmap_queued; } | awk '!seen[$0]++')"
+        if [ -n "$ids" ]; then
+            # shellcheck disable=SC2086
+            ledger_issue_records $ids | awk -F'\t' '$14 == 0'
+        fi
     fi
-else
-    echo "  (CHANGELOG.md not found)"
-fi
+    if command -v ledger_offline_rows >/dev/null 2>&1 && [ -n "$(ledger_offline_rows 2>/dev/null || true)" ]; then
+        # shellcheck disable=SC2046
+        ledger_issue_records $(ledger_offline_rows | cut -f1) | awk -F'\t' '$14 == 1'
+    fi
+    return 0
+}
 
-# 2. Issues
-echo ""
-echo "🐛 [2/4] ISSUES (Work Queue & Ledger)"
-HAS_ISSUES=0
+# status_unqueued_count -> how many active issues are not on the work queue.
+status_unqueued_count() {
+    local queue
+    [ -n "$(status_issues_file)" ] || { echo 0; return 0; }
+    queue="$( { roadmap_blockers; roadmap_queued; } 2>/dev/null | sed 's/^/#/')"
+    ledger_rows | cut -f1 | while IFS= read -r QID; do printf '%s\n' "$queue" | grep -qxF -- "$QID" || echo "$QID"; done | grep -c . || true
+}
 
-# P-78: the branch issues are seen from (a plan worktree: its parent branch) and
-# the development branch, as `aapp issue list` takes them.
-STATUS_BRANCH=""; STATUS_DEV_BRANCH=""
-if [ -n "$ISSUES_FILE" ] && [ -n "$(ledger_branch_map)" ] && [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_issue.sh" ]; then
-    STATUS_BRANCHES="$(
+# status_issue_branches -> the branch issues are seen from and the development
+# branch (P-78), one per line, once an issue names a branch.
+status_issue_branches() {
+    [ -n "$(status_issues_file)" ] && [ -n "$(ledger_branch_map)" ] && [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_issue.sh" ] || return 0
+    (
         # shellcheck source=/dev/null
         . "$AAPP_LIB/cmd_issue.sh" 2>/dev/null || exit 0
         echo "$(issue_view_branch)"; echo "$(_issue_dev_branch)"
-    )"
-    STATUS_BRANCH="$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 1p)"
-    STATUS_DEV_BRANCH="$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 2p)"
-fi
-
-# P-89: the work queue (plan blockers, then what a person queued), each with
-# its branch, this branch's issues first, once any issue names one.
-if [ -n "$ROADMAP_FILE" ]; then
-    TOP_ISSUES=$(roadmap_entries_by_branch "$STATUS_BRANCH" "$STATUS_DEV_BRANCH" || true)
-    if [ -n "$TOP_ISSUES" ]; then
-        echo "$TOP_ISSUES" | sed 's/^/  /'
-        HAS_ISSUES=1
-    fi
-fi
-
-# P-75: issues staged in `.offline` are issues like any other, marked as offline.
-OFFLINE_ROWS=""
-if command -v ledger_offline_rows >/dev/null 2>&1; then
-    OFFLINE_ROWS="$(ledger_offline_rows 2>/dev/null || true)"
-fi
-if [ -n "$OFFLINE_ROWS" ]; then
-    echo "$OFFLINE_ROWS" | awk -F'\t' '{ print "  - [ ] " $1 " -> " $6 "  (offline: staged in .offline)" }'
-    HAS_ISSUES=1
-fi
-
-# The rest of the ledger is counted, not listed: `aapp issue list` shows it.
-UNQUEUED=0
-if [ -n "$ISSUES_FILE" ]; then
-    QUEUE_IDS="$( { roadmap_blockers; roadmap_queued; } 2>/dev/null | sed 's/^/#/')"
-    UNQUEUED="$(ledger_rows | cut -f1 | while IFS= read -r QID; do printf '%s\n' "$QUEUE_IDS" | grep -qxF -- "$QID" || echo "$QID"; done | grep -c . || true)"
-fi
-if [ "$HAS_ISSUES" -eq 0 ] && [ "${UNQUEUED:-0}" -eq 0 ]; then
-    echo "  (No open issues)"
-elif [ "$HAS_ISSUES" -eq 0 ]; then
-    echo "  (Nothing queued for work: a person queues an issue with 'aapp issue queue <num>')"
-fi
-if [ "${UNQUEUED:-0}" -gt 0 ]; then
-    echo "  ℹ️  $UNQUEUED more issue(s) logged, not queued for work: aapp issue list"
-fi
-
-# P-74: what the sync said. An issue the tracker closed is closed here at once;
-# a plan that waited on it is named under Plans until the fix is in its branch.
-if [ -n "$SYNC_OUT" ]; then
-    echo "$SYNC_OUT" | sed 's/^/  /'
-fi
-
-# P-78: an issue whose branch is gone is fixed on the development branch;
-# said here before `issue fix` or `issue close` meets it.
-if [ -n "$ISSUES_FILE" ]; then
-    while IFS="$(printf '\t')" read -r GONE_ID GONE_BRANCH; do
-        [ -n "$GONE_BRANCH" ] || continue
-        aapp_branch_ref "$GONE_BRANCH" >/dev/null && continue
-        echo "  ⚠️  $GONE_ID targets '$GONE_BRANCH', which no longer exists: its fix will land on '${STATUS_DEV_BRANCH:-the development branch}' (another target: aapp refine issues \"<msg>\" branch ${GONE_ID#\#} <name>)."
-    done < <(ledger_branch_map)
-fi
-
-# Non-destructive drift reporting
-if [ -n "$ROADMAP_FILE" ] && [ -n "$ISSUES_FILE" ]; then
-    if command -v check_pair2_referential_integrity >/dev/null 2>&1; then
-        DRIFT_OUT=$(check_pair2_referential_integrity "$ROADMAP_FILE" "$ISSUES_FILE" 2>/dev/null || true)
-        if [ -n "$DRIFT_OUT" ]; then
-            echo "$DRIFT_OUT" | sed 's/^/  /'
-        fi
-    fi
-fi
-
-# 3. Plans
-echo ""
-echo "🗺️  [3/4] PLANS (State Matrix / Active Blueprints)"
-if [ -n "$UNBLOCK_OUT" ]; then
-    echo "$UNBLOCK_OUT" | sed 's/^/  /'
-fi
-# plan_line <file> <prefix>: one plan's line in the briefing.
-plan_line() {
-    local P="$1" BASENAME STATUS STATUS_CLEAN PLAN_ID="" WT_REC
-    BASENAME="$(basename "$P")"
-    STATUS="$(grep -m 1 -E '^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*' "$P" 2>/dev/null || echo "* **Status:** 🟣 Active")"
-    STATUS_CLEAN="$(echo "$STATUS" | sed -E 's/^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*[[:space:]]*//')"
-    if command -v get_plan_id >/dev/null 2>&1; then
-        PLAN_ID="$(get_plan_id "$P" 2>/dev/null || true)"
-    fi
-    # P-54: a plan with its own worktree shows where it lives.
-    WT_REC="$(parse_plan_worktree "$P")"
-    [ -n "$WT_REC" ] && STATUS_CLEAN="$STATUS_CLEAN → ${WT_REC%%$'\t'*}"
-    if [ -n "$PLAN_ID" ]; then
-        echo "$2$PLAN_ID: $BASENAME  ($STATUS_CLEAN)"
-    else
-        echo "$2$BASENAME  ($STATUS_CLEAN)"
-    fi
+    )
 }
-if [ -d ".plans/current" ]; then
-    HAS_PLANS=0
+
+# status_records_plans -> id, file, title, status, status_label, kind (plan,
+# group), group, members (comma-separated), target_issue, blocked_on
+# (comma-separated), worktree, branch, feature_branch, depth (0, or 1 for a
+# member listed under its group), in briefing order.
+status_records_plans() {
+    local P GRP M MF
+    [ -d ".plans/current" ] || return 0
     while IFS= read -r -d '' P; do
-        # P-64: a member is listed under its group when the group is active.
         GRP="$(parse_plan_field "$P" Group)"
-        if [ -n "$GRP" ] && ls .plans/current/P"${GRP#P-}"-*.md >/dev/null 2>&1; then
-            continue
-        fi
-        plan_line "$P" "  • "
+        if [ -n "$GRP" ] && ls .plans/current/P"${GRP#P-}"-*.md >/dev/null 2>&1; then continue; fi
+        status_plan_record "$P" 0
         if aapp_is_group_plan "$P"; then
             for M in $(group_members "$P"); do
                 for MF in .plans/current/P"${M#P-}"-*.md; do
-                    [ -f "$MF" ] && plan_line "$MF" "      ↳ "
+                    [ -f "$MF" ] && status_plan_record "$MF" 1
                 done
             done
         fi
-        HAS_PLANS=1
     done < <(find .plans/current -maxdepth 1 -name "*.md" -print0 2>/dev/null | sort -z)
-    
-    if [ "$HAS_PLANS" -eq 0 ]; then
-        echo "  (No active plans in .plans/current/)"
-    fi
+    return 0
+}
 
-    # Report what the pre-read sync did (P-30 §2.10). Silent when the matrix was
-    # already in sync, so a correct board adds no noise to the briefing.
-    if [ "$MATRIX_SYNCED" -eq 1 ]; then
-        if [ "$MATRIX_PAUSED_DEFER" -eq 1 ]; then
-            echo "  🔄 [Matrix] state_matrix.md re-derived from .plans/current/ (uncommittable until 'aapp resume')"
+# status_plan_record <file> <depth>: one plan's record.
+status_plan_record() {
+    local P="$1" base sline label id="" slug="" title kind=plan grp members="" target blocked wt="" wtb="" fb rec
+    base="$(basename "$P")"
+    sline="$(grep -m 1 -E '^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*' "$P" 2>/dev/null || echo "* **Status:** 🟣 Active")"
+    label="$(echo "$sline" | sed -E 's/^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*[[:space:]]*//')"
+    if command -v get_plan_id >/dev/null 2>&1; then id="$(get_plan_id "$P" 2>/dev/null || true)"; fi
+    if command -v plan_state_for_status_line >/dev/null 2>&1; then slug="$(plan_state_for_status_line "$sline" 2>/dev/null || true)"; fi
+    title="$(grep -m 1 -E '^# ' "$P" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*|🧩[[:space:]]*Group[[:space:]]+)?Plan[^:]*:[[:space:]]*//')"
+    if aapp_is_group_plan "$P"; then kind=group; members="$(group_members "$P" | paste -sd, - || true)"; fi
+    grp="$(parse_plan_field "$P" Group)"
+    target="$(parse_plan_field "$P" "Target Issue / Milestone" | grep -oE '^#[A-Za-z0-9-]+' || true)"
+    blocked="$(parse_plan_field "$P" "Blocked On" | grep -oE '#[A-Za-z0-9-]+' | paste -sd, - || true)"
+    rec="$(parse_plan_worktree "$P")"
+    if [ -n "$rec" ]; then wt="${rec%%$'\t'*}"; wtb="${rec#*$'\t'}"; fi
+    fb="$(parse_plan_field "$P" "Feature Branch")"; [ "$fb" = "none" ] && fb=""
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$base" "$title" "$slug" "$label" "$kind" "$grp" "$members" "$target" "$blocked" "$wt" "$wtb" "$fb" "$2"
+}
+
+# status_records_pickup -> title, text, files: one per unworked entry, split by
+# `pickup_entry_split`; files are the `.plans/pickup/` paths the entry names
+# that exist, comma-separated.
+status_records_pickup() {
+    local line split title text files path
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        split="$(pickup_entry_split "$line")"
+        title="${split%%$'\t'*}"; text="${split#*$'\t'}"
+        files=""
+        while IFS= read -r path; do
+            [ -n "$path" ] && [ -e "$path" ] && files="${files:+$files,}$path"
+        done < <(pickup_entry_files "$text")
+        printf '%s\t%s\t%s\n' "$title" "$text" "$files"
+    done < <(status_pickup_lines)
+    return 0
+}
+
+# status_records_adoption -> source, open: the adoption checklist and its open tasks.
+status_records_adoption() {
+    printf '%s\t%s\n' ".plans/adoption.md" "$(status_records_overview | cut -f6)"
+}
+
+# status_records_offline -> nothing unless `.offline` holds work; otherwise one
+# record: issues, archived (ids), plans (files), each comma-separated, outbox.
+status_records_offline() {
+    local d active archived plans steps
+    command -v offline_mounted >/dev/null 2>&1 && offline_mounted || return 0
+    d="$(offline_dir)"
+    active="$(ledger_offline_ids active | sed 's/^/#/' | paste -sd, - || true)"
+    archived="$(ledger_offline_ids archive | sed 's/^/#/' | paste -sd, - || true)"
+    plans="$(ls "$d"/current/P*.md 2>/dev/null | sed 's|.*/|current/|' | paste -sd, - || true)"
+    steps="$(grep -c . "$d/outbox" 2>/dev/null || true)"
+    if [ -n "$active$archived$plans" ] || [ "${steps:-0}" -gt 0 ]; then
+        printf '%s\t%s\t%s\t%s\n' "$active" "$archived" "$plans" "${steps:-0}"
+    fi
+    return 0
+}
+
+# status_records_next -> kind, text, command: the next action.
+status_records_next() {
+    local files local_f shared_f buffer active="" lane frozen="" incubator="" first ov pickup
+    files="$(status_pause_files)"; local_f="$(printf '%s\n' "$files" | sed -n 1p)"; shared_f="$(printf '%s\n' "$files" | sed -n 2p)"
+    buffer="$(git rev-parse --git-path aapp_active_plan 2>/dev/null || true)"
+    [ -f "$buffer" ] && active="$(tr -d '[:space:]' < "$buffer" 2>/dev/null || true)"
+    # Resolved from each plan's own Status line via the status registry (P-30
+    # §2.6), not by matching matrix headings.
+    if [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/plan_states.sh" ] && [ -d ".plans/current" ]; then
+        lane="$(
+            # shellcheck source=/dev/null
+            . "$AAPP_LIB/plan_states.sh" 2>/dev/null || exit 0
+            plan_states_load 2>/dev/null || exit 0
+            heading="$(plan_state_field under-review heading 2>/dev/null || true)"
+            for PF in .plans/current/*.md; do
+                [ -f "$PF" ] || continue
+                case "$(basename "$PF")" in 000-*|plan-template.md) continue ;; esac
+                PID="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$PF" 2>/dev/null | head -n 1)"
+                [ -z "$PID" ] && continue
+                SLINE="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$PF" 2>/dev/null | head -n 1)"
+                SLUG="$(plan_state_for_status_line "$SLINE" 2>/dev/null || true)"
+                [ -z "$SLUG" ] && continue
+                if [ "$SLUG" = "frozen" ]; then echo "frozen $PID"
+                elif [ -n "$heading" ] && [ "$(plan_state_field "$SLUG" heading 2>/dev/null || true)" = "$heading" ]; then echo "incubator $PID"; fi
+            done
+        )"
+        frozen="$(echo "$lane" | awk '$1=="frozen"{print $2; exit}')"
+        incubator="$(echo "$lane" | awk '$1=="incubator"{print $2; exit}')"
+    fi
+    ov="$(status_records_overview)"
+    first="$(printf '%s\n' "$ov" | cut -f2 | cut -d, -f1)"
+    pickup="$(printf '%s\n' "$ov" | cut -f5)"
+    if [ -f "$local_f" ] || { [ -n "$shared_f" ] && [ -f "$shared_f" ]; }; then
+        printf 'paused\t%s\t%s\n' "Project is PAUSED. Run 'aapp resume' to wake, or refine notes in .plans/ (pickup, issues, current)." "aapp resume"
+    elif ! { [ -d ".plans" ] && [ -d ".agents" ] && [ -d ".githooks" ]; }; then
+        printf 'init\t%s\t%s\n' "Run 'aapp init' to complete AAPP worktree setup." "aapp init"
+    elif [ "${pickup:-0}" -gt 0 ]; then
+        printf 'digest\t%s\t%s\n' "Run '/aapp-digest <idea>' (or 'aapp digest <idea>') to work a queued pickup idea." "aapp digest <idea>"
+    elif [ -n "$active" ]; then
+        printf 'in-development\t%s\t%s\n' "In development on $active. Run 'aapp active' to inspect boundaries." "aapp active"
+    elif [ -n "$frozen" ]; then
+        printf 'start\t%s\t%s\n' "Activate frozen plan $frozen: run '/aapp-start $frozen' (or 'aapp start $frozen')." "aapp start $frozen"
+    elif [ -n "$first" ]; then
+        printf 'issue\t%s\t%s\n' "Promote or resolve next open issue $first, or inspect .plans/issues_road_map.md." "aapp issue fix ${first#\#}"
+    elif [ -n "$incubator" ]; then
+        printf 'freeze\t%s\t%s\n' "Review incubator plan $incubator, or run '/aapp-freeze $incubator' when ready." "aapp freeze $incubator"
+    else
+        printf 'plan\t%s\t%s\n' "Run '/aapp-plan' to draft a new blueprint, or 'aapp help' to browse available commands." "aapp draft <slug>"
+    fi
+}
+
+# status_notices -> level (info, warning), section, place (before, after: the
+# side of the section's items it is printed on), text: every remark a section
+# makes. Reads what the briefing's own steps said (STATUS_SYNC_OUT,
+# STATUS_UNBLOCK_OUT, STATUS_MATRIX_OUT).
+status_notices() {
+    local line level gone_id gone_branch dev drift text path
+    notice() { case "$3" in ⚠️*|❌*) level=warning ;; *) level=info ;; esac; printf '%s\t%s\t%s\t%s\n' "$level" "$1" "$2" "$3"; }
+    while IFS= read -r line; do [ -n "$line" ] && notice issues after "$line"; done <<< "${STATUS_SYNC_OUT:-}"
+    # P-78: an issue whose branch is gone is fixed on the development branch.
+    if [ -n "$(status_issues_file)" ]; then
+        dev="$(status_issue_branches | sed -n 2p)"
+        while IFS="$(printf '\t')" read -r gone_id gone_branch; do
+            [ -n "$gone_branch" ] || continue
+            aapp_branch_ref "$gone_branch" >/dev/null && continue
+            notice issues after "⚠️  $gone_id targets '$gone_branch', which no longer exists: its fix will land on '${dev:-the development branch}' (another target: aapp refine issues \"<msg>\" branch ${gone_id#\#} <name>)."
+        done < <(ledger_branch_map)
+    fi
+    if [ -n "$(status_roadmap_file)" ] && [ -n "$(status_issues_file)" ] && command -v check_pair2_referential_integrity >/dev/null 2>&1; then
+        drift="$(check_pair2_referential_integrity "$(status_roadmap_file)" "$(status_issues_file)" 2>/dev/null || true)"
+        while IFS= read -r line; do [ -n "$line" ] && notice issues after "$line"; done <<< "$drift"
+    fi
+    while IFS= read -r line; do [ -n "$line" ] && notice plans before "$line"; done <<< "${STATUS_UNBLOCK_OUT:-}"
+    case "${STATUS_MATRIX_OUT:-}" in
+        *"Re-derived"*)
+            case "${STATUS_MATRIX_OUT:-}" in
+                *"PAUSED"*) notice plans after "🔄 [Matrix] state_matrix.md re-derived from .plans/current/ (uncommittable until 'aapp resume')" ;;
+                *) notice plans after "🔄 [Matrix] state_matrix.md re-derived from .plans/current/ (review and commit the diff)" ;;
+            esac ;;
+    esac
+    # A pickup entry that names a `.plans/pickup/` file this machine lacks.
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        text="$(pickup_entry_split "$line" | cut -f2-)"
+        while IFS= read -r path; do
+            [ -n "$path" ] && [ ! -e "$path" ] && notice pickup after "⚠️  $(pickup_entry_split "$line" | cut -f1): names $path, which is not on this machine."
+        done < <(pickup_entry_files "$text")
+    done < <(status_pickup_lines)
+    return 0
+}
+
+# ------------------------------------------------------------------------------
+# The terminal renderer: prints the records, computes nothing.
+# ------------------------------------------------------------------------------
+
+# status_line <first-indent> <hang-indent> <text>: one line of the briefing,
+# wrapped at the width.
+status_line() { printf '%s\n' "$3" | out_wrap "$1" "$2" "$STATUS_WIDTH"; }
+
+# status_notice_lines <section> <place>: the notices of a section, as lines.
+status_notice_lines() {
+    local level sec place text
+    while IFS=$'\037' read -r level sec place text; do
+        [ "$sec" = "$1" ] && [ "$place" = "$2" ] && status_line 2 4 "$text"
+    done < <(status_rows "$STATUS_NOTICES")
+    return 0
+}
+
+# status_overview_line -> the `📊 Overview:` line.
+status_overview_line() {
+    local issues next plans roadmap pickup adoption line
+    IFS=$'\037' read -r issues next plans roadmap pickup adoption < <(status_rows "$STATUS_OVERVIEW")
+    next="${next//,/, }"; roadmap="${roadmap//,/, }"
+    line="📊 Overview: $issues issues (Next: ${next:-none}) | $plans plans (Roadmap: ${roadmap:-none}) | $pickup pickup"
+    [ "${adoption:-0}" -gt 0 ] && line="$line | $adoption adoption"
+    printf '%s\n' "$line"
+}
+
+status_render_terminal() {
+    local frame version count first files sname reason label stashes initiator buffer parsed error names s wt br
+    local kind sec text cnt title t id base st lbl k g m tg bl w wb fb depth line active archived plans steps
+    frame="$(printf '%*s' "$STATUS_WIDTH" '' | tr ' ' '=')"
+    version="${AAPP_VERSION:-1.0.0}"
+
+    echo "$frame"
+    status_line 2 4 "🧭 AAPP Context Recovery Briefing"
+    status_line 2 4 "📍 Repo: $REPO_ROOT"
+    status_line 2 4 "$(status_overview_line)"
+    count="$(printf '%s' "$STATUS_TEMPLATES" | grep -c . || true)"
+    first="$(printf '%s\n' "$STATUS_TEMPLATES" | head -n 1 | tr '\t' ' ')"
+    if [ "$count" -eq 0 ]; then status_line 2 4 "📑 Templates:  All worktree templates synced (v$version)"
+    elif [ "$count" -eq 1 ]; then status_line 2 4 "📑 Templates:  1 template drifted -> run 'aapp init' ($first)"
+    else status_line 2 4 "📑 Templates:  $count templates drifted -> run 'aapp init' ($first, ...)"; fi
+    echo "$frame"
+
+    # 0. Master Emergency Brake / Pause Banner
+    if [ -n "$STATUS_PAUSE" ]; then
+        IFS=$'\037' read -r sname reason t label stashes initiator buffer parsed error < <(status_rows "$STATUS_PAUSE")
+        echo ""
+        echo "🛑 PROJECT STATUS: PAUSED"
+        if [ "$sname" = "team" ]; then
+            echo "   Scope  : Team-Wide (.plans/PAUSED.md)"
+            [ -z "$reason" ] || echo "   Reason : $reason"
+            [ -z "$t" ] || echo "   Timestamp : $t"
+            [ -z "$initiator" ] || echo "   Initiator : $initiator"
+        elif [ "$parsed" = "1" ]; then
+            echo "   Reason : $reason"
+            echo "   Paused : $label"
+            if [ -n "$stashes" ]; then
+                names=""
+                IFS=',' read -r -a s <<< "$stashes"
+                for line in "${s[@]}"; do
+                    wt="${line%%|*}"; br="${line#*|}"
+                    wt="$(basename "$wt")"; [ -n "$br" ] && wt="$wt ($br)"
+                    names="${names:+$names, }$wt"
+                done
+                echo "   Stashes: ${#s[@]} worktree(s) quarantined ($names)"
+            else
+                echo "   Stashes: 0 worktrees quarantined (clean on pause)"
+            fi
+        elif [ -n "$error" ]; then
+            echo "   (Failed to parse pause buffer: $error)"
         else
-            echo "  🔄 [Matrix] state_matrix.md re-derived from .plans/current/ (review and commit the diff)"
+            echo "   Buffer : $buffer"
+        fi
+        if [ "$parsed" = "1" ] || [ -z "$error" ]; then
+            echo "   Notice : All codebase modifications and commits are strictly refused."
+            echo "   To resume: aapp resume"
         fi
     fi
-else
-    echo "  (.plans/ worktree not mounted. Run 'aapp init' to mount)"
-fi
 
-# 4. Pickup
-echo ""
-echo "💡 [4/4] PICKUP QUEUE (Unprocessed Ideas)"
-if [ -f ".plans/pickup.md" ]; then
-    IDEAS=$(grep -E '^[0-9]+\.|^[\*-] ' ".plans/pickup.md" 2>/dev/null | grep -v '\[Feature or Problem Title\]' | grep -v -E '\[x\]|\[X\]' || true)
-    if [ -n "$IDEAS" ]; then
-        COUNT=$(echo "$IDEAS" | wc -l | tr -d ' ')
-        echo "  ($COUNT unworked ideas found in pickup.md):"
-        echo "$IDEAS" | head -n 5 | sed 's/^/  /'
-        [ "$COUNT" -gt 5 ] && echo "  ... and $((COUNT - 5)) more"
-    else
-        echo "  Pickup: empty (All ideas digested!)"
-    fi
-else
-    echo "  Pickup: empty (.plans/pickup.md not found)"
-fi
-
-if [ "$ADOPTION_COUNT" -gt 0 ]; then
+    # 1. Shipped
     echo ""
-    echo "📋 Adoption: $ADOPTION_COUNT open task(s) in .plans/adoption.md"
-fi
+    echo "📦 [1/4] SHIPPED (Recently Landed / Unreleased)"
+    if [ -z "$(status_changelog_path)" ]; then
+        echo "  (CHANGELOG.md not found)"
+    elif [ -z "$STATUS_SHIPPED" ]; then
+        echo "  (No unreleased changelog entries yet)"
+    else
+        while IFS=$'\037' read -r kind sec text _; do
+            case "$kind" in
+                heading) echo "  ### $text" ;;
+                entry)   echo "  - $text" ;;
+                *)       echo "  $text" ;;
+            esac
+        done < <(status_rows "$STATUS_SHIPPED")
+    fi
 
-echo ""
-echo "============================================================"
-# P-75: what is staged in `.offline`, waiting for the provider.
-if command -v offline_mounted >/dev/null 2>&1 && offline_mounted; then
-    OFF_DIR="$(offline_dir)"
-    OFF_ACTIVE="$(ledger_offline_ids active | sed 's/^/#/' | paste -sd, - | sed 's/,/, /g')"
-    OFF_CLOSED="$(ledger_offline_ids archive | sed 's/^/#/' | paste -sd, - | sed 's/,/, /g')"
-    OFF_PLANS="$(ls "$OFF_DIR"/current/P*.md 2>/dev/null | sed 's|.*/|current/|' | paste -sd, - | sed 's/,/, /g')"
-    OFF_STEPS="$(grep -c . "$OFF_DIR/outbox" 2>/dev/null || true)"
-    if [ -n "$OFF_ACTIVE$OFF_CLOSED$OFF_PLANS" ] || [ "${OFF_STEPS:-0}" -gt 0 ]; then
+    # 2. Issues
+    echo ""
+    echo "🐛 [2/4] ISSUES (Work Queue & Ledger)"
+    if [ -n "$STATUS_ISSUES" ]; then
+        printf '%s\n' "$STATUS_ISSUES" | awk -F'\t' '$14 == 0' | issue_render_lines |
+            _issue_lines_by_branch "$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 1p)" "$(printf '%s\n' "$STATUS_BRANCHES" | sed -n 2p)" | sed 's/^/  /'
+        printf '%s\n' "$STATUS_ISSUES" | awk -F'\t' '$14 == 1 { print "  - [ ] " $1 " -> " $7 "  (offline: staged in .offline)" }'
+    fi
+    if [ -z "$STATUS_ISSUES" ] && [ "${STATUS_UNQUEUED:-0}" -eq 0 ]; then
+        status_line 2 3 "(No open issues)"
+    elif [ -z "$STATUS_ISSUES" ]; then
+        status_line 2 3 "(Nothing queued for work: a person queues an issue with 'aapp issue queue <num>')"
+    fi
+    if [ "${STATUS_UNQUEUED:-0}" -gt 0 ]; then
+        status_line 2 4 "ℹ️  $STATUS_UNQUEUED more issue(s) logged, not queued for work: aapp issue list"
+    fi
+    status_notice_lines issues after
+
+    # 3. Plans
+    echo ""
+    echo "🗺️  [3/4] PLANS (State Matrix / Active Blueprints)"
+    status_notice_lines plans before
+    if [ -d ".plans/current" ]; then
+        if [ -z "$STATUS_PLANS" ]; then
+            status_line 2 3 "(No active plans in .plans/current/)"
+        else
+            while IFS=$'\037' read -r id base title st lbl k g m tg bl w wb fb depth; do
+                [ -n "$base" ] || continue
+                [ -n "$w" ] && lbl="$lbl → $w"
+                line="$base  ($lbl)"; [ -n "$id" ] && line="$id: $line"
+                if [ "$depth" = "1" ]; then status_line 6 8 "↳ $line"; else status_line 2 4 "• $line"; fi
+            done < <(status_rows "$STATUS_PLANS")
+        fi
+        status_notice_lines plans after
+    else
+        status_line 2 3 "(.plans/ worktree not mounted. Run 'aapp init' to mount)"
+    fi
+
+    # 4. Pickup
+    echo ""
+    echo "💡 [4/4] PICKUP QUEUE (Unprocessed Ideas)"
+    if [ -f ".plans/pickup.md" ]; then
+        if [ -n "$STATUS_PICKUP" ]; then
+            cnt="$(printf '%s\n' "$STATUS_PICKUP" | grep -c . || true)"
+            echo "  ($cnt unworked ideas found in pickup.md):"
+            while IFS=$'\037' read -r title text files; do
+                if [ -n "$title" ]; then echo "  - [ ] $title: $text"; else echo "  - [ ] $text"; fi
+            done < <(status_rows "$STATUS_PICKUP" | head -n 5)
+            [ "$cnt" -gt 5 ] && echo "  ... and $((cnt - 5)) more"
+        else
+            status_line 2 4 "Pickup: empty (All ideas digested!)"
+        fi
+        status_notice_lines pickup after
+    else
+        status_line 2 4 "Pickup: empty (.plans/pickup.md not found)"
+    fi
+
+    if [ "$(printf '%s\n' "$STATUS_ADOPTION" | cut -f2)" -gt 0 ]; then
+        echo ""
+        status_line 0 4 "📋 Adoption: $(printf '%s\n' "$STATUS_ADOPTION" | cut -f2) open task(s) in $(printf '%s\n' "$STATUS_ADOPTION" | cut -f1)"
+    fi
+
+    echo ""
+    echo "$frame"
+    # P-75: what is staged in `.offline`, waiting for the provider.
+    if [ -n "$STATUS_OFFLINE" ]; then
+        IFS=$'\037' read -r active archived plans steps < <(status_rows "$STATUS_OFFLINE")
         echo ""
         echo "📡 Staged Offline Work (.offline):"
-        if [ -n "$OFF_ACTIVE$OFF_CLOSED" ]; then
-            echo "   - Issues: $(printf '%s' "$OFF_ACTIVE" | awk -F', ' '{ print (NF ? NF : 0) }') staged${OFF_ACTIVE:+ ($OFF_ACTIVE)}${OFF_CLOSED:+ | $(printf '%s' "$OFF_CLOSED" | awk -F', ' '{ print NF }') staged in the local archive ($OFF_CLOSED)}"
+        if [ -n "$active$archived" ]; then
+            line="- Issues: $(printf '%s' "$active" | awk -F',' '{ print (NF ? NF : 0) }') staged${active:+ (${active//,/, })}"
+            [ -z "$archived" ] || line="$line | $(printf '%s' "$archived" | awk -F',' '{ print NF }') staged in the local archive (${archived//,/, })"
+            status_line 3 5 "$line"
         fi
-        [ -z "$OFF_PLANS" ] || echo "   - Draft Plans: $(printf '%s' "$OFF_PLANS" | awk -F', ' '{ print NF }') offline blueprint(s) ($OFF_PLANS)"
-        [ "${OFF_STEPS:-0}" -eq 0 ] || echo "   - Outbox: $OFF_STEPS step(s) not yet sent to the provider"
-        echo "   Action: Run 'aapp offline sync' when online to publish."
+        [ -z "$plans" ] || status_line 3 5 "- Draft Plans: $(printf '%s' "$plans" | awk -F',' '{ print NF }') offline blueprint(s) (${plans//,/, })"
+        [ "${steps:-0}" -eq 0 ] || status_line 3 5 "- Outbox: $steps step(s) not yet sent to the provider"
+        status_line 3 5 "Action: Run 'aapp offline sync' when online to publish."
     fi
+    status_line 0 4 "➡️  Next Action: $(printf '%s\n' "$STATUS_NEXT" | cut -f2)"
+}
+
+# Library use (P-92): the records and renderers without running the briefing.
+if [ -n "${AAPP_STATUS_LIB_ONLY:-}" ]; then
+    return 0 2>/dev/null || exit 0
 fi
 
-# Evaluate Next Action Dynamically
-WORKTREES_SYNCED=0
-if [ -d ".plans" ] && [ -d ".agents" ] && [ -d ".githooks" ]; then
-    WORKTREES_SYNCED=1
+STATUS_OVERVIEW="$(status_records_overview)"
+if [ "${1:-}" = "short" ] || [ "${1:-}" = "summary" ]; then
+    status_overview_line
+    return 0 2>/dev/null || exit 0
 fi
 
-ACTIVE_PLAN_BUFFER="$(git rev-parse --git-path aapp_active_plan 2>/dev/null || true)"
-ACTIVE_PLAN_ID=""
-if [ -f "$ACTIVE_PLAN_BUFFER" ]; then
-    ACTIVE_PLAN_ID="$(cat "$ACTIVE_PLAN_BUFFER" 2>/dev/null | tr -d '[:space:]' || true)"
-fi
+STATUS_WIDTH="$(out_width)" || { return 1 2>/dev/null || exit 1; }
 
-# Resolved from each plan's own Status line via the status registry (P-30
-# §2.6), not by matching matrix headings. Headings are generated and vary by
-# adopter, so anchoring on them silently returned nothing when they changed.
-FROZEN_PLAN=""
-INCUBATOR_PLAN=""
-if [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/plan_states.sh" ] && [ -d ".plans/current" ]; then
-    PLAN_LANE="$(
+# P-74: where a tracker keeps the issues, the briefing brings them up to date
+# first, at most once per aapp.issueSyncWindow minutes (counted from the last
+# attempt, so an unreachable tracker does not slow every briefing). Not while a
+# plugin step runs.
+STATUS_SYNC_OUT=""
+if [ -z "${AAPP_PLUGIN_STEP:-}" ] && [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_issue.sh" ] && [ -d ".agents/skills/aapp-issue-tracker" ]; then
+    STATUS_SYNC_OUT="$(
         # shellcheck source=/dev/null
-        . "$AAPP_LIB/plan_states.sh" 2>/dev/null || exit 0
-        plan_states_load 2>/dev/null || exit 0
-        INCUBATOR_HEADING="$(plan_state_field under-review heading 2>/dev/null || true)"
-        for PF in .plans/current/*.md; do
-            [ -f "$PF" ] || continue
-            case "$(basename "$PF")" in 000-*|plan-template.md) continue ;; esac
-            PID="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$PF" 2>/dev/null | head -n 1)"
-            [ -z "$PID" ] && continue
-            SLINE="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$PF" 2>/dev/null | head -n 1)"
-            SLUG="$(plan_state_for_status_line "$SLINE" 2>/dev/null || true)"
-            [ -z "$SLUG" ] && continue
-            if [ "$SLUG" = "frozen" ]; then
-                echo "frozen $PID"
-            elif [ -n "$INCUBATOR_HEADING" ] && \
-                 [ "$(plan_state_field "$SLUG" heading 2>/dev/null || true)" = "$INCUBATOR_HEADING" ]; then
-                echo "incubator $PID"
-            fi
-        done
+        . "$AAPP_LIB/cmd_issue.sh" 2>/dev/null || exit 0
+        issue_sync 2>&1 || true
     )"
-    FROZEN_PLAN="$(echo "$PLAN_LANE" | awk '$1=="frozen"{print $2; exit}')"
-    INCUBATOR_PLAN="$(echo "$PLAN_LANE" | awk '$1=="incubator"{print $2; exit}')"
 fi
 
-FIRST_ISSUE=""
-if [ -n "$TOP_ROADMAP_ISSUES" ] && [ "$TOP_ROADMAP_ISSUES" != "none" ]; then
-    FIRST_ISSUE="$(echo "$TOP_ROADMAP_ISSUES" | cut -d',' -f1 | tr -d '[:space:]')"
+# P-78: a plan left blocked on a closed issue resumes once the fix commit is in
+# its parent branch. The briefing is where that is noticed: the plan is
+# unblocked (one commit on the plans branch) and the lines are shown under
+# Plans. Not while a plugin step runs.
+STATUS_UNBLOCK_OUT=""
+if [ -z "${AAPP_PLUGIN_STEP:-}" ] && [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_issue.sh" ] && \
+   grep -qs '^\* \*\*Blocked On:\*\*' .plans/current/*.md; then
+    STATUS_UNBLOCK_OUT="$(
+        # shellcheck source=/dev/null
+        . "$AAPP_LIB/cmd_issue.sh" 2>/dev/null || exit 0
+        issue_unblock_landed 2>&1 || true
+    )"
 fi
 
-if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; }; then
-    echo "➡️  Next Action: Project is PAUSED. Run 'aapp resume' to wake, or refine notes in .plans/ (pickup, issues, current)."
-elif [ "$WORKTREES_SYNCED" -ne 1 ]; then
-    echo "➡️  Next Action: Run 'aapp init' to complete AAPP worktree setup."
-elif [ "$PICKUP_COUNT" -gt 0 ]; then
-    echo "➡️  Next Action: Run '/aapp-digest <idea>' (or 'aapp digest <idea>') to work a queued pickup idea."
-elif [ -n "$ACTIVE_PLAN_ID" ]; then
-    echo "➡️  Next Action: In development on $ACTIVE_PLAN_ID. Run 'aapp active' to inspect boundaries."
-elif [ -n "$FROZEN_PLAN" ]; then
-    echo "➡️  Next Action: Activate frozen plan $FROZEN_PLAN: run '/aapp-start $FROZEN_PLAN' (or 'aapp start $FROZEN_PLAN')."
-elif [ -n "$FIRST_ISSUE" ]; then
-    echo "➡️  Next Action: Promote or resolve next open issue $FIRST_ISSUE, or inspect .plans/issues_road_map.md."
-elif [ -n "$INCUBATOR_PLAN" ]; then
-    echo "➡️  Next Action: Review incubator plan $INCUBATOR_PLAN, or run '/aapp-freeze $INCUBATOR_PLAN' when ready."
-else
-    echo "➡️  Next Action: Run '/aapp-plan' to draft a new blueprint, or 'aapp help' to browse available commands."
+# Re-derive the matrix before anything reads it, so the briefing reports the
+# real board rather than a stale cache (P-30 §2.10). While paused this still
+# writes: the uncommittable diff is the visible record of what reflection
+# changed, and the notice says the commit waits for 'aapp resume'.
+STATUS_MATRIX_OUT=""
+if [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/cmd_matrix.sh" ] && [ -d ".plans/current" ]; then
+    STATUS_MATRIX_OUT="$(
+        AAPP_MATRIX_LIB_ONLY=1
+        export AAPP_MATRIX_LIB_ONLY
+        # shellcheck source=/dev/null
+        . "$AAPP_LIB/cmd_matrix.sh" 2>/dev/null || exit 0
+        cmd_matrix 2>/dev/null || true
+    )"
 fi
+
+# The records, collected once, after the steps above changed what they read.
+STATUS_OVERVIEW="$(status_records_overview)"
+STATUS_TEMPLATES="$(status_records_templates)"
+STATUS_PAUSE="$(status_records_pause)"
+STATUS_SHIPPED="$(status_records_shipped)"
+STATUS_ISSUES="$(status_records_issues)"
+STATUS_UNQUEUED="$(status_unqueued_count)"
+STATUS_BRANCHES="$(status_issue_branches)"
+STATUS_PLANS="$(status_records_plans)"
+STATUS_PICKUP="$(status_records_pickup)"
+STATUS_ADOPTION="$(status_records_adoption)"
+STATUS_OFFLINE="$(status_records_offline)"
+STATUS_NEXT="$(status_records_next)"
+STATUS_NOTICES="$(status_notices)"
+
+status_render_terminal
