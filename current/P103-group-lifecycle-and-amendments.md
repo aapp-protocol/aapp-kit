@@ -9,7 +9,7 @@
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Feature Branch:** none
-* **Members:** P-101
+* **Members:** P-101, P-102
 * **Commits:** none
 <!-- A group plan writes no code. `aapp start <group> [base <branch>]` cuts `feature/<slug>` from the parent
      branch; members are planned with `aapp draft <slug> group P-103` (or `aapp refine <id> group P-103`) and
