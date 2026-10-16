@@ -20,7 +20,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
 - 🟣 **P-82**: [`P82-issue-fix-safeguards.md`](current/P82-issue-fix-safeguards.md) — Issue Fix Safeguards
 - 🟣 **P-90**: [`P90-companion-worktree-bridge.md`](current/P90-companion-worktree-bridge.md) — Companion Worktree Bridge
-- 🟣 **P-93**: [`P93-issue-list-layout.md`](current/P93-issue-list-layout.md) — Issue List Layout
 - 🟣 **P-94**: [`P94-json-output.md`](current/P94-json-output.md) — Json Output
 - 🟣 **P-97**: [`P97-draft-from-pickup-title.md`](current/P97-draft-from-pickup-title.md) — Draft From Pickup Title
 
@@ -33,6 +32,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ## ⚡ In Development (Active Implementation Context)
 
 - ⚡ **P-91**: [`P91-readable-and-parsable-output.md`](current/P91-readable-and-parsable-output.md) — 🧩 Group Plan P-91: Readable And Parsable Output
+- ⚡ **P-93**: [`P93-issue-list-layout.md`](current/P93-issue-list-layout.md) — Issue List Layout
 
 ---
 
