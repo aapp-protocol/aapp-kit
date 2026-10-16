@@ -100,30 +100,31 @@ The text of each starts with the moved part, e.g. `- [ ] Cookbook recipe "Planni
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_untitled_entry` -> asserts an entry with no `: ` outside backticks is refused naming its line, and nothing is committed
-- [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_long_title` -> asserts a title one character over `aapp.pickupTitleMax` is refused with its length and the limit, one at the limit is accepted, under the default 72 and under a set value of 50
-- [ ] `tests/verbs/refine.sh::test_refine_pickup_title_max_invalid` -> asserts an `aapp.pickupTitleMax` that is not a whole number of at least 10 is refused naming the key, and nothing is committed
-- [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_empty_text` -> asserts `- [ ] Title:` with nothing after it is refused
-- [ ] `tests/verbs/refine.sh::test_refine_pickup_refuses_missing_file` -> asserts an entry naming a `.plans/pickup/` file that does not exist is refused naming the path, and one naming an existing file is accepted
-- [ ] `tests/verbs/refine.sh::test_refine_pickup_skips_digested` -> asserts a `- [x] ` entry without a title is not refused
-- [ ] `tests/aapp_lib_test.sh::test_pickup_entry_split` -> asserts the split at the first `: ` outside backticks (a `: ` inside backticks in the title stays in it), and an empty title for a line without one
+- [x] `tests/verbs/refine.sh::test_refine_pickup_refuses_untitled_entry` -> asserts an entry with no `: ` outside backticks is refused naming its line, and nothing is committed
+- [x] `tests/verbs/refine.sh::test_refine_pickup_refuses_long_title` -> asserts a title one character over `aapp.pickupTitleMax` is refused with its length and the limit, one at the limit is accepted, under the default 72 and under a set value of 50
+- [x] `tests/verbs/refine.sh::test_refine_pickup_title_max_invalid` -> asserts an `aapp.pickupTitleMax` that is not a whole number of at least 10 is refused naming the key, and nothing is committed
+- [x] `tests/verbs/refine.sh::test_refine_pickup_refuses_empty_text` -> asserts `- [ ] Title:` with nothing after it is refused
+- [x] `tests/verbs/refine.sh::test_refine_pickup_refuses_missing_file` -> asserts an entry naming a `.plans/pickup/` file that does not exist is refused naming the path, and one naming an existing file is accepted
+- [x] `tests/verbs/refine.sh::test_refine_pickup_committed_file_elsewhere` -> asserts a committed entry whose `.plans/pickup/` file this machine lacks does not block a commit of another entry
+- [x] `tests/verbs/refine.sh::test_refine_pickup_skips_digested` -> asserts a `- [x] ` entry without a title is not refused
+- [x] `tests/aapp_lib_test.sh::test_pickup_entry_split` -> asserts the split at the first `: ` outside backticks (a `: ` inside backticks in the title stays in it), and an empty title for a line without one
 
 ### Phase 1: Foundation & Setup
-- [ ] Task 1.1: Write the tests of this section; commit them red.
+- [x] Task 1.1: Write the tests of this section; commit them red.
 - [x] Task 1.2: Rewrite the four titles of §2.4 in `.plans/pickup.md` with `aapp refine pickup`.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/aapp-lib.sh`: `pickup_entry_split`, `pickup_title_max`.
-- [ ] Task 2.2: `lib/planning_health.sh`: `check_pickup_entries` with the refusals of §2.2.
-- [ ] Task 2.3: `templates/pickup.md`, `templates/AGENTS.md`: the form.
-- [ ] Task 2.4: `lib/docs/verbs/refine.md`: the refusals and the tests.
+- [x] Task 2.1: `lib/aapp-lib.sh`: `pickup_entry_split`, `pickup_title_max`.
+- [x] Task 2.2: `lib/planning_health.sh`: `check_pickup_entries` with the refusals of §2.2.
+- [x] Task 2.3: `templates/pickup.md`, `templates/AGENTS.md`: the form.
+- [x] Task 2.4: `lib/docs/verbs/refine.md`: the refusals and the tests.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
@@ -169,3 +170,4 @@ The text of each starts with the moved part, e.g. `- [ ] Cookbook recipe "Planni
 * **2026-10-16:** Title limit is its own setting, `aapp.pickupTitleMax` (72); bare `aapp draft` takes the title only and fits its subject.
 * **2026-10-16:** Q1 resolved, four titles rewritten; a slug made from a title is cut before 60 characters.
 * **2026-10-16:** `aapp draft` changes moved out to a plan of their own: P-96 keeps the pickup form, its gate and `aapp.pickupTitleMax`.
+* **2026-10-16:** Implementation: `.plans/pickup/` is gitignored, so its files exist on the writer's machine only; the gate checks named files for the entries a commit adds or changes, not for entries already committed (test `test_refine_pickup_committed_file_elsewhere`). `aapp_char_len` added for character counts. CODEMAP section in group P-91.
