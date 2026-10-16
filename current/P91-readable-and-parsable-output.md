@@ -140,7 +140,7 @@ The Issues records are one function for both commands, beside the ledger functio
 ````markdown
 ### 📊 Context Recovery Briefing (`lib/cmd_status.sh`)
 * **Purpose:** The four-pillar context recovery briefing: Shipped (`CHANGELOG.md` and its Git history), Issues (the work queue), Plans (`.plans/current/`), and Pickup (`pickup.md`), with the pause banner, adoption tasks, staged offline work and the next action. Collects every section into records first; the terminal renderer and the JSON renderer (`aapp status json`) print them (P-91).
-* **Key Functions:** `status_records_<section>` (`overview`, `templates`, `pause`, `shipped`, `issues`, `plans`, `pickup`, `adoption`, `offline`, `next`) and `status_notices` -> the records; `status_render_terminal` / `status_render_json` -> the two renderers.
+* **Key Functions:** `status_records_<section>` (`overview`, `templates`, `pause`, `shipped`, `issues`, `plans`, `pickup`, `adoption`, `offline`, `next`) and `status_notices` -> the records (Shipped from the changelog's Git history, `git log -n 15`, the file's first entries without history); `status_items_max` / `status_text_max` -> `aapp.statusItemsMax` (5) and `aapp.statusTextMax` (220), refused naming the key below 1; `status_render_terminal` / `status_render_json` -> the two renderers.
 * **Anti-Wrapper Warning:** Must remain strictly non-destructive and idempotent. A renderer computes nothing: a value both renderers need is a record field.
 ````
 
@@ -210,4 +210,5 @@ The Issues records are one function for both commands, beside the ledger functio
 * **2026-10-16:** A pickup title wider than the line wraps.
 * **2026-10-16:** CODEMAP section for pickup entries (P-96).
 * **2026-10-16:** CODEMAP section for issue records; output.sh entry as built (P-92).
+* **2026-10-16:** CODEMAP: the Shipped source and the two limits (P-88).
 * **2026-10-16:** Issues carry a `notes` count: a facts-line hint and a JSON field, never the text.
