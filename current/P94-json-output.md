@@ -83,6 +83,7 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 - [ ] `tests/output_json_test.sh::test_failure_prints_nothing` -> asserts a failing run exits non-zero with stdout empty
 - [ ] `tests/output_json_test.sh::test_same_items_as_terminal` -> asserts the ids in `issues.queue`, `plans.items` and `pickup.items` are those the terminal briefing lists, in the same order
 - [ ] `tests/output_json_test.sh::test_repository_remote` -> asserts `repository.remote` names the remote and its URL with credentials removed, and is `null` in a repository without a remote, in both documents
+- [ ] `tests/output_json_test.sh::test_local_path_setting` -> asserts `repository.root` is the checkout by default and `null` with `aapp.jsonLocalPath false`, in both documents, and that no other value holds the checkout's absolute path
 - [ ] `tests/output_json_test.sh::test_group_nests_members` -> asserts a group's `members` holds its member plans as objects, with `kind` `group` and `feature_branch`, and no member appears at the top level of `plans.items`
 - [ ] `tests/verbs/status.sh::test_short_json_refused` -> asserts `aapp status short json` exits 1 with usage on stderr
 
@@ -90,7 +91,7 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 - [ ] Task 1.1: Write the tests of this section; commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/output.sh`: the JSON writer.
+- [ ] Task 2.1: `lib/output.sh`: the JSON writer; `repository` with `remote` and `root` (`aapp.jsonLocalPath`).
 - [ ] Task 2.2: `lib/aapp-lib.sh`: `issue_render_json`.
 - [ ] Task 2.3: `lib/cmd_status.sh`: `status_render_json`, the `json` token.
 - [ ] Task 2.4: `lib/cmd_issue.sh`: `issue list … json`.
@@ -119,8 +120,8 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 - [ ] `NEW FILE` -> `docs/reference/08-output-json.md` -> the JSON contract.
 - [ ] `lib/docs/verbs/status.md` -> the `json` token and its tests.
 - [ ] `lib/docs/verbs/issue.md` -> the `json` token of `list`.
-- [ ] `MANUAL.md` -> JSON output, pointing to the reference.
-- [ ] `CHEATSHEET.md` -> `aapp status json`, `aapp issue list json`.
+- [ ] `MANUAL.md` -> JSON output, pointing to the reference; `aapp.jsonLocalPath`.
+- [ ] `CHEATSHEET.md` -> `aapp status json`, `aapp issue list json`; the `aapp.jsonLocalPath` row.
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
@@ -145,3 +146,4 @@ A script that wants what `aapp status` or `aapp issue list` shows (a web CMS bui
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted as the fourth member of group P-91.
 * **2026-10-16:** Tests for `repository.remote` and nested group members.
+* **2026-10-16:** `aapp.jsonLocalPath` leaves `repository.root` out (group P-91 Q4).
