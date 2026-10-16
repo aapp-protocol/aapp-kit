@@ -172,7 +172,8 @@ The Issues records are one function for both commands, beside the ledger functio
 * **Purpose:** One record per active issue for every issue view (P-92): `aapp issue list`, the Issues pillar of `aapp status`, and their JSON.
 * **Key Functions:**
   * `ledger_issue_records [<n>…]` -> tab-separated `id severity type status logged location symptom plan blocks queue_section queue_level queued branch offline tracker_name tracker_url tracker_release notes`; the active ledger in recorded order, then the issues staged offline; or the ids given, in order. Severity and status are lowercase slugs; location and symptom as written.
-  * `issue_render_lines` -> records on stdin, the lists' line per issue of the active ledger; `ledger_issue_lines [<n>…]` is records piped through it.
+  * `issue_records_by_branch <current> <dev> [fill]` -> records reordered, this branch's first, once an issue names a branch; `fill` shows `<dev>` for an issue that names none, for the terminal (the records keep it empty).
+  * `issue_render_terminal <width> <cut>` -> records on stdin, each issue as the views show it (P-93): the facts line, the tracker's names on a `· ` line, the symptom wrapped at 8 spaces, cut at `<cut>` when above 0. Needs `lib/output.sh`, which the commands load and the hooks do not.
   * `issue_text_counts` -> `#<n>\t<count>` from the kit's store of descriptions and notes, no text; `issue_notes_counted` -> false where an `aapp-issue-tracker` provider is installed (the count is then unknown).
   * `aapp_state_file <name>` -> a per-machine state file beside the repository's Git data (the tracker's names for issues, the sync stamp).
 * **Anti-Wrapper Warning:** A view never reads a ledger row or the note store itself: it reads records. No text of a description or note goes into a record.
@@ -211,4 +212,5 @@ The Issues records are one function for both commands, beside the ledger functio
 * **2026-10-16:** CODEMAP section for pickup entries (P-96).
 * **2026-10-16:** CODEMAP section for issue records; output.sh entry as built (P-92).
 * **2026-10-16:** CODEMAP: the Shipped source and the two limits (P-88).
+* **2026-10-16:** CODEMAP: the issue layout renderer and branch order on records (P-93).
 * **2026-10-16:** Issues carry a `notes` count: a facts-line hint and a JSON field, never the text.
