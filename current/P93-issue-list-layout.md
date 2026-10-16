@@ -124,6 +124,7 @@ This member, the third of group P-91, gives every issue view one layout from the
 - [ ] `lib/docs/verbs/issue.md` -> the layout and the tests.
 - [ ] `lib/docs/verbs/status.md` -> the Issues pillar layout.
 - [ ] `MANUAL.md` -> how an issue is shown.
+- [ ] `tests/verbs/issue.provider.sh` -> `test_log_takes_provider_id` reads the tracker's names on their own line (added with the developer's OK, 2026-10-16).
 
 ### 🧪 Required Test Files
 > Test files that must prove this plan's failure cases. Frozen with the blast radius.
@@ -156,3 +157,4 @@ This member, the third of group P-91, gives every issue view one layout from the
 * **2026-10-16:** `tests/verbs/status.sh` added: its P-92 comparison of the Issues pillar becomes `test_issues_pillar_layout`.
 * **2026-10-16:** `test_list_layout` in `tests/verbs/issue.sh` replaces P-92's `test_list_unchanged`.
 * **2026-10-16:** Implementation: `lib/docs/verbs/offline.md` is not a target, so the offline layout is asserted in `test_offline_issue_in_every_view` (named there already) instead of a new `test_offline_issue_same_layout`. `issue_records_by_branch` orders records and fills the development branch only for the terminal (`fill`), the records keep it empty. Open: `tests/verbs/issue.provider.sh::test_log_takes_provider_id` looks for the tracker's names on the id's line; that file is not a target, so P-93 waits for the developer to add it.
+* **2026-10-16:** Back to refining with the developer's OK: `tests/verbs/issue.provider.sh` added to the Target Files.
