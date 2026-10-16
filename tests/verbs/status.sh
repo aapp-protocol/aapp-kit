@@ -19,6 +19,15 @@ else
   bad "test_short_is_one_line" "rc=$rc lines=$(printf '%s\n' "$out" | wc -l)"
 fi
 
+# P-94: the overview is the JSON's `overview`; the two tokens do not combine.
+sout="$(aapp status short json 2>/dev/null)"; src=$?
+serr="$(aapp status short json 2>&1 >/dev/null)"
+if [ "$src" -ne 0 ] && [ -z "$sout" ] && echo "$serr" | grep -qi 'usage'; then
+  ok "test_short_json_refused"
+else
+  bad "test_short_json_refused" "rc=$src out=$sout err=$serr"
+fi
+
 out="$(aapp status 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | grep -c 'Next Action:')" -eq 1 ]; then
   ok "test_briefing_has_next_action"
