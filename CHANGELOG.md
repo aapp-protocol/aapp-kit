@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `aapp status` and `aapp issue list` read cleanly in a narrow terminal, and print one JSON document with `json` (P-91) (`P-91`)
 - `aapp status json` and `aapp issue list json` print one JSON document, its fields documented in `docs/reference/08-output-json.md` (P-94) (`P-94`)
 - a plan lists the further issues it sorts (`aapp refine <plan> closes <num>`); `done` closes them with the plan's commit (P-86) (`P-86`)
 - issue ledger behind one module, and the `aapp-issue-tracker` provider at every issue step (P-72) (`P-72`)
