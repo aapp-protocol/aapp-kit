@@ -1370,19 +1370,24 @@ _issue_line_notes() {
 
 cmd_issue_list() {
     local usage='aapp issue list [<n> | all] [confirm] [json] | list note <num>'
-    local cap="$ISSUE_LIST_DEFAULT_CAP" confirm=0 note="" json=0 plans recs total line width doc env
+    local cap="$ISSUE_LIST_DEFAULT_CAP" confirm=0 note="" json=0 plans recs total line width doc env errf
+    # P-100: with `json`, every refusal is the error document.
+    case " $* " in *" json "*) json=1 ;; esac
+    _list_refuse() { if [ "$json" -eq 1 ]; then out_json_error "issue list" "$1"; else printf '%s\n' "$1" >&2; fi; return 1; }
     while [ $# -gt 0 ]; do
         case "$1" in
             all)      cap=0; shift ;;
             confirm)  confirm=1; shift ;;
-            json)     json=1; shift ;;
-            note)     [ $# -ge 2 ] || { echo "❌ [Issue] 'note' needs an issue. Usage: $usage" >&2; return 1; }
+            json)     shift ;;
+            note)     [ $# -ge 2 ] || { _list_refuse "❌ [Issue] 'note' needs an issue. Usage: $usage"; return 1; }
                       note="$(issue_id_body "$2")" || return 1; shift 2 ;;
-            *[!0-9]*|'') echo "❌ [Issue] Usage: $usage" >&2; return 1 ;;
+            *[!0-9]*|'') _list_refuse "❌ [Issue] Usage: $usage"; return 1 ;;
             *)        cap="$1"; shift ;;
         esac
     done
-    plans="$(_issue_plans_dir)" || return 1
+    errf="$(mktemp)"
+    plans="$(_issue_plans_dir 2>"$errf")" || { _list_refuse "$(cat "$errf")"; rm -f "$errf"; return 1; }
+    rm -f "$errf"
     if [ -n "$note" ]; then
         # One issue with its description and notes, as `issue fix` hands them over.
         line="$(PLANS_DIR="$plans" ledger_row "$note")" || { echo "❌ [Issue] #$note is not an active issue in ISSUES.md." >&2; return 1; }
@@ -1391,12 +1396,18 @@ cmd_issue_list() {
         return 0
     fi
     if [ "$json" -eq 1 ]; then
-        # P-94: one JSON document on stdout; what the sync says goes to stderr.
-        if [ "$confirm" -eq 1 ]; then issue_sync force confirm >&2 || return 1; else issue_sync force >&2 || return 1; fi
+        # P-94, P-100: one JSON document on stdout. The sync runs without
+        # input (a JSON run never waits for an answer); what it says becomes
+        # notices, or the error document when it refuses.
+        local said notices envmsg
+        if [ "$confirm" -eq 1 ]; then said="$(issue_sync force confirm </dev/null 2>&1)"; else said="$(issue_sync force </dev/null 2>&1)"; fi || {
+            out_json_error "issue list" "$said"; return 1; }
+        notices="$(printf '%s\n' "$said" | out_json_remarks issues | out_json_notices)"
         recs="$(PLANS_DIR="$plans" ledger_issue_records | PLANS_DIR="$plans" issue_records_by_branch "$(issue_view_branch)" "$(_issue_dev_branch)")"
         total=0; [ -z "$recs" ] || total="$(printf '%s\n' "$recs" | wc -l | tr -d ' ')"
         if [ "$cap" -ne 0 ] && [ "$total" -gt "$cap" ]; then recs="$(printf '%s\n' "$recs" | head -n "$cap")"; fi
-        env="$(out_json_envelope "issue list" "[]")" || return 1
+        env="$(out_json_envelope "issue list" "$notices" 2>/dev/null)" || {
+            envmsg="$(out_json_envelope "issue list" "$notices" 2>&1 >/dev/null)"; out_json_error "issue list" "$envmsg"; return 1; }
         doc="{$env,\"issues\":$(printf '%s' "$recs" | issue_render_json),\"shown\":$(printf '%s' "$recs" | grep -c . || true),\"total\":$total}"
         printf '%s' "$doc" | out_json_pretty
         return 0

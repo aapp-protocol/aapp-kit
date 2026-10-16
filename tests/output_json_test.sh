@@ -89,7 +89,7 @@ tables, name = {}, None
 for line in open(doc, encoding="utf-8"):
     m = re.match(r"^### `([^`]+)`", line)
     if m: name = m.group(1); tables[name] = []; continue
-    if line.startswith("## "): name = None; continue
+    if line.startswith("## ") or line.startswith("### "): name = None; continue
     m = re.match(r"^\| `([a-z_]+)` \|", line)
     if name and m: tables[name].append(m.group(1))
 st, ls = json.load(open(status_f, encoding="utf-8")), json.load(open(list_f, encoding="utf-8"))

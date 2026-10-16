@@ -741,6 +741,25 @@ for STATUS_ARG in "$@"; do
         json) STATUS_JSON=1 ;;
     esac
 done
+# P-100: a JSON run prints one JSON object whatever happens. Its stderr is
+# kept; at the exit, a run that did not print its document prints the error
+# document from what it said instead.
+STATUS_JSON_DONE=0
+if [ "$STATUS_JSON" -eq 1 ]; then
+    STATUS_ERRF="$(mktemp)"
+    exec 3>&2 2>"$STATUS_ERRF"
+    status_json_exit() {
+        local rc="$1"
+        exec 2>&3
+        if [ "$STATUS_JSON_DONE" -ne 1 ]; then
+            out_json_error status "$(cat "$STATUS_ERRF" 2>/dev/null)"
+            [ "$rc" -ne 0 ] || rc=1
+        fi
+        rm -f "$STATUS_ERRF"
+        exit "$rc"
+    }
+    trap 'status_json_exit $?' EXIT
+fi
 if [ "$STATUS_SHORT" -eq 1 ] && [ "$STATUS_JSON" -eq 1 ]; then
     echo "❌ [Status] Usage: aapp status [short | json]; the overview is the JSON's \`overview\`." >&2
     return 1 2>/dev/null || exit 1
@@ -768,7 +787,8 @@ if [ -z "${AAPP_PLUGIN_STEP:-}" ] && [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/c
     STATUS_SYNC_OUT="$(
         # shellcheck source=/dev/null
         . "$AAPP_LIB/cmd_issue.sh" 2>/dev/null || exit 0
-        issue_sync 2>&1 || true
+        # A JSON run never waits for an answer (P-100).
+        if [ "$STATUS_JSON" -eq 1 ]; then issue_sync </dev/null 2>&1 || true; else issue_sync 2>&1 || true; fi
     )"
 fi
 
@@ -817,9 +837,14 @@ STATUS_NEXT="$(status_records_next)"
 STATUS_NOTICES="$(status_notices)"
 
 if [ "$STATUS_JSON" -eq 1 ]; then
-    # Built whole first: a failure on the way prints nothing on stdout.
+    # What the run said on stderr on the way, not a pillar's notice, is a
+    # notice of the run itself (P-100).
+    STATUS_NOTICES="$(printf '%s\n' "$STATUS_NOTICES"; out_json_remarks status < "$STATUS_ERRF" | awk -F'\t' -v OFS='\t' '{ print $1, $2, "after", $3 }')"
+    : > "$STATUS_ERRF"
+    # Built whole first: a failure on the way prints the error document instead.
     STATUS_DOC="$(status_render_json)" || { return 1 2>/dev/null || exit 1; }
     printf '%s\n' "$STATUS_DOC"
+    STATUS_JSON_DONE=1
 else
     status_render_terminal
 fi

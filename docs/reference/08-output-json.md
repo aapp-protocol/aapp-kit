@@ -16,7 +16,8 @@ aapp issue list all json      # every open issue
 
 ## The rules
 
-- **Stream.** Standard output holds exactly one JSON object and nothing else; every message goes to standard error. A run that fails exits non-zero and prints nothing on standard output.
+- **Stream.** Standard output always holds exactly one JSON object and nothing else: the document, or, when the run fails, the [error document](#error-document). The exit code says which: 0, or non-zero. The run never waits for input. A successful run prints nothing on standard error; a failed one prints its message there too, for a person at a terminal.
+- **Warnings.** Whatever a run says on the way, a tracker that did not answer, a matrix re-derived, a file a pickup idea names that is not here, is in `notices`, grouped by level: `warning` first, then `info`.
 - **Shape.** UTF-8, indented by 2 spaces, the keys in the order of the tables below. Every field listed is always present: an unknown or absent value is `null`, an empty list `[]`.
 - **Values.** Field names are `snake_case`. Enumerations are lowercase slugs (`under-review`, `medium`, `urgent`). Dates are `YYYY-MM-DD`; times are UTC ISO 8601 (`2026-10-16T12:04:11Z`). Ids keep their prefix (`#155`, `P-88`). Text fields hold the source text verbatim: inline Markdown as written, never wrapped or cut, no emoji added by the kit.
 - **Paths.** Every path is relative to the repository root, except `repository.root`. Set `aapp.jsonLocalPath false` to write `repository.root` as `null`, so that a published document names no local path.
@@ -36,7 +37,7 @@ The top of both documents.
 | `command` | string | `"status"` or `"issue list"` |
 | `generated_at` | time | when the document was made |
 | `repository` | object | the project, below |
-| `notices` | list | the remarks the terminal prints beside the items, below |
+| `notices` | object | the run's warnings and remarks, by level, below |
 
 ### `repository`
 
@@ -54,13 +55,21 @@ What identifies the project on every machine.
 | `name` | string | the remote's name |
 | `url` | string | its URL, any credentials removed |
 
-### `notices[]`
+### `notices`
+Both keys are always present; a level with nothing to say is `[]`.
 
 | Field | Type | Holds |
 | :--- | :--- | :--- |
-| `level` | string | `info` or `warning` |
-| `section` | string | where it belongs: `issues`, `plans`, `pickup` |
-| `text` | string | the remark |
+| `warning` | list | what may make the document incomplete or stale, as items below |
+| `info` | list | the other remarks, as items below |
+
+### `notices.*[]`
+An item of `notices.warning` or `notices.info`.
+
+| Field | Type | Holds |
+| :--- | :--- | :--- |
+| `section` | string | where it belongs: `issues`, `plans`, `pickup`, or the command itself (`status`) |
+| `text` | string | the remark, without the terminal's emoji |
 
 ### `issue`
 One issue, the same in both documents.
@@ -256,6 +265,32 @@ A plan in `status.plans.items`, or a member in a group's `members`.
 | `text` | string | the suggestion |
 | `command` | string | the command it suggests |
 
+### `error document`
+What a failed run prints: the envelope (its `repository` is `null` when the project cannot be read), then:
+
+| Field | Type | Holds |
+| :--- | :--- | :--- |
+| `error` | object | what went wrong, below |
+
+### `error`
+
+| Field | Type | Holds |
+| :--- | :--- | :--- |
+| `code` | string | what kind of failure, from the list below |
+| `message` | string | the kit's message, without its emoji, on one line |
+| `aapp_config` | string or `null` | the `aapp.*` setting at fault (`"aapp.statusItemsMax"`), when one is |
+
+### Error codes
+The values of `error.code`:
+
+| Code | When |
+| :--- | :--- |
+| `usage` | a token, or a combination of tokens, the command refuses (`aapp status short json`) |
+| `invalid-setting` | an `aapp.*` setting holds a value it cannot have; `aapp_config` names it |
+| `confirm-needed` | the tracker's sync asks a question (letting the tracker keep the record): run again with `confirm` |
+| `sync-failed` | the tracker's sync refuses (it does not know issues open here) |
+| `failed` | any other failure; `message` says what |
+
 ## Examples
 
 `aapp issue list 1 json`:
@@ -273,7 +308,10 @@ A plan in `status.plans.items`, or a member in a group's `members`.
     "branch": "develop",
     "root": null
   },
-  "notices": [],
+  "notices": {
+    "warning": [],
+    "info": []
+  },
   "issues": [
     {
       "id": "#155",
@@ -294,6 +332,30 @@ A plan in `status.plans.items`, or a member in a group's `members`.
   ],
   "shown": 1,
   "total": 24
+}
+```
+
+`aapp status json` with `aapp.statusItemsMax` set to `none`, a failed run:
+
+```json
+{
+  "version": "1.0",
+  "command": "status",
+  "generated_at": "2026-10-16T17:40:02Z",
+  "repository": {
+    "remote": null,
+    "branch": "develop",
+    "root": null
+  },
+  "notices": {
+    "warning": [],
+    "info": []
+  },
+  "error": {
+    "code": "invalid-setting",
+    "message": "[Status] aapp.statusItemsMax is 'none'; it must be a whole number of at least 1.",
+    "aapp_config": "aapp.statusItemsMax"
+  }
 }
 ```
 

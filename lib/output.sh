@@ -107,16 +107,59 @@ out_json_envelope() {
         "$(out_json_str "$1")" "$(out_json_str "$(date -u +%Y-%m-%dT%H:%M:%SZ)")" "$repo" "$2"
 }
 
+# out_json_plain <text> -> the text without the emoji and spaces the terminal
+# puts before it.
+out_json_plain() { printf '%s' "$1" | LC_ALL=C sed -E 's/^[^][A-Za-z0-9(#`.]+//'; }
+
 # out_json_notices -> `level\tsection\ttext` lines on stdin as the `notices`
-# list; the text without the emoji the terminal gives it.
+# object (P-100): `{ "warning": [...], "info": [...] }`, both always present,
+# each item `{ "section", "text" }`, the text without the terminal's emoji.
 out_json_notices() {
-    local level sec text out=""
-    while IFS=$'\t' read -r level sec text; do
+    local level sec text item warn="" info=""
+    while IFS=$'\t' read -r level sec text || [ -n "$level" ]; do
         [ -n "$level" ] || continue
-        text="$(printf '%s' "$text" | LC_ALL=C sed -E 's/^[^][A-Za-z0-9(#`]+//')"
-        out="${out:+$out,}$(out_json_obj level "$(out_json_str "$level")" section "$(out_json_str "$sec")" text "$(out_json_str "$text")")"
+        item="$(out_json_obj section "$(out_json_str "$sec")" text "$(out_json_str "$(out_json_plain "$text")")")"
+        if [ "$level" = "warning" ]; then warn="${warn:+$warn,}$item"; else info="${info:+$info,}$item"; fi
     done
-    printf '[%s]' "$out"
+    printf '{"warning":[%s],"info":[%s]}' "$warn" "$info"
+}
+
+# out_json_remarks <section>: what a command printed (stdin) as notice lines,
+# `level\tsection\ttext`: a line marked ⚠️ or ❌ is a warning, any other info;
+# an indented line continues the remark before it.
+out_json_remarks() {
+    awk -v sec="$1" '
+        function flush() { if (t != "") print lv "\t" sec "\t" t; t = "" }
+        /^[[:space:]]*$/ { next }
+        /^[[:space:]]/ && t != "" { s = $0; sub(/^[[:space:]]+/, "", s); t = t " " s; next }
+        { flush(); s = $0; sub(/^[[:space:]]+/, "", s); t = s; lv = (s ~ /^(⚠|❌)/) ? "warning" : "info" }
+        END { flush() }'
+}
+
+# out_json_error <command> <message> (P-100): the error document for a failed
+# run of <command>, on stdout, and the message on stderr. `error.code` from the
+# message: a usage line -> usage; `aapp.<name> is '…'` -> invalid-setting (and
+# `aapp_config`); a confirmation the run cannot ask -> confirm-needed; the
+# sync's refusal -> sync-failed; anything else -> failed. When the envelope
+# cannot be built, `repository` is null.
+out_json_error() {
+    local cmd="$1" msg="$2" code=failed cfg="" plain env
+    [ -n "$msg" ] || msg="The command failed."
+    printf '%s\n' "$msg" >&2
+    plain="$(printf '%s\n' "$msg" | while IFS= read -r l; do [ -n "${l// /}" ] && out_json_plain "$(printf '%s' "$l" | sed -E 's/^[[:space:]]+//')" && printf ' '; done | sed 's/ $//')"
+    case "$msg" in
+        *[Uu]sage:*) code=usage ;;
+        *"needs a confirmation"*|*"issue list confirm"*) code=confirm-needed ;;
+        *"does not know these open ones"*) code=sync-failed ;;
+    esac
+    if [ "$code" = failed ]; then
+        cfg="$(printf '%s\n' "$msg" | grep -oE "aapp\.[A-Za-z0-9]+ is '" | head -n 1 | sed "s/ is '\$//")"
+        [ -z "$cfg" ] || code=invalid-setting
+    fi
+    env="$(out_json_envelope "$cmd" '{"warning":[],"info":[]}' 2>/dev/null)" || \
+        env="$(printf '"version":"1.0","command":%s,"generated_at":%s,"repository":null,"notices":{"warning":[],"info":[]}' \
+            "$(out_json_str "$cmd")" "$(out_json_str "$(date -u +%Y-%m-%dT%H:%M:%SZ)")")"
+    printf '{%s,"error":%s}' "$env" "$(out_json_obj code "$(out_json_str "$code")" message "$(out_json_str "$plain")" aapp_config "$(out_json_strn "$cfg")")" | out_json_pretty
 }
 
 # out_json_pretty: one compact JSON document on stdin, printed with a 2-space

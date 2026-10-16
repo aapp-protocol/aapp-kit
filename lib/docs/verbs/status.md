@@ -18,8 +18,8 @@
 - a missing pillar file -> no failure: the pillar reports it as absent
 - `aapp.statusOutputWidth` not a whole number of at least 40 -> exit 1, stderr names the key; `short` is not affected (P-92)
 - `aapp.statusItemsMax` or `aapp.statusTextMax` not a whole number of at least 1 -> exit 1, stderr names the key; `short` is not affected (P-88)
-- `short json` -> exit 1, usage on stderr, nothing on stdout (P-94)
-- `json`: any failure -> exit non-zero, stdout empty (the document is built whole before it is printed); `aapp.jsonLocalPath` other than `true` or `false` -> exit 1 naming the key. `aapp.statusOutputWidth` and `aapp.statusTextMax` are the terminal's and are not read (P-94)
+- `short json` -> exit 1, usage on stderr, and on stdout the error document with `error.code` `usage` (P-94, P-100)
+- `json`: any failure -> exit non-zero; stdout holds the error document (`error.code`: `usage`, `invalid-setting` with `aapp_config`, `confirm-needed`, `sync-failed`, `failed`) and stderr the message (P-100); `aapp.jsonLocalPath` other than `true` or `false` -> `invalid-setting`, `repository` `null`. `aapp.statusOutputWidth` and `aapp.statusTextMax` are the terminal's and are not read (P-94)
 
 ## Effects (happy path)
 - `.plans/state_matrix.md` is re-derived from the plans before it is read, so the briefing reports the real board; the write is not committed
@@ -35,7 +35,7 @@
 - a plan with its own worktree shows it next to its status, from the header's `* **Worktree:**`: `• P-51: P51-….md  (⚡ In Development → ../repo-P51)` (P-54)
 - records first (P-92): every section is collected into records (tab-separated lines, raw values) before anything is printed, and the terminal renderer prints them; side effects (sync, unblock, matrix) run first, and what they said is printed as notices of their section
 - width (P-92): the `=` frame is `aapp.statusOutputWidth` characters wide; the header lines, the Plans pillar, the notices, the state lines, the adoption and offline lines and `➡️  Next Action:` keep to it, wrapped at spaces with the continuation indented under the text (counted in characters, not bytes; a word longer than the width stands on a line of its own). The issues keep to it in the issue layout (P-93)
-- `json` (P-94): stdout holds one JSON object, indented by 2 spaces: the envelope (`version` `1.0`, `command` `status`, `generated_at`, `repository` with the remote, credentials removed, the branch and, unless `aapp.jsonLocalPath false`, the checkout's path; `notices`), then `overview`, `templates`, `pause`, `shipped`, `issues`, `plans` (a group's members nested), `pickup`, `adoption`, `offline`, `next_action`. The same side effects as the briefing; the same items (`aapp.statusItemsMax`), text whole. Fields: `docs/reference/08-output-json.md`
+- `json` (P-94): stdout holds one JSON object, indented by 2 spaces: the envelope (`version` `1.0`, `command` `status`, `generated_at`, `repository` with the remote, credentials removed, the branch and, unless `aapp.jsonLocalPath false`, the checkout's path; `notices`: `{ "warning": [...], "info": [...] }`, every remark of the run, P-100), then `overview`, `templates`, `pause`, `shipped`, `issues`, `plans` (a group's members nested), `pickup`, `adoption`, `offline`, `next_action`. The same side effects as the briefing, the tracker's sync without input; the same items (`aapp.statusItemsMax`), text whole; nothing on stderr. Fields: `docs/reference/08-output-json.md`
 - the template advisory names the action first: `📑 Templates:  1 template drifted -> run 'aapp init' (<file> <reason>)`
 - no other file changes
 
