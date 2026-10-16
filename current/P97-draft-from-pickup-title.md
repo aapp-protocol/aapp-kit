@@ -11,7 +11,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `59e5399` (develop)
 * **Worktree:** .workspace/P97 (plan/P97-draft-from-pickup-title)
-* **Commits:** none
+* **Commits:** `eb3bb21` (plan/P97-draft-from-pickup-title)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -77,26 +77,26 @@ P-96 (group P-91) defines the entry form `- [ ] <title>: <text>` and the one fun
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/draft.sh::test_bare_draft_takes_title_only` -> asserts a bare `aapp draft` from `- [ ] Short Title: a long text …` names the plan `Short Title` with slug `short-title`, no word of the text in either
-- [ ] `tests/verbs/draft.sh::test_bare_draft_slug_bounded` -> asserts a 150-character title gives a slug of at most 60 characters cut at a `-`, and the plan's title line holds the whole title
-- [ ] `tests/verbs/draft.sh::test_bare_draft_copies_text` -> asserts a bare `aapp draft` from `- [ ] Short Title: a text naming \`.plans/pickup/x.md\`` writes the text, verbatim, as §1 of the new plan with the placeholder gone, and the named file on a `Notes from pickup:` line
-- [ ] `tests/verbs/draft.sh::test_draft_subject_fits_limit` -> asserts a draft whose slug would make `plan(draft): scaffold P-<N> <slug>` longer than `aapp.subjectMaxLen` commits with the subject cut at a `-` to fit, the file name keeping the whole slug
-- [ ] `tests/aapp_lib_test.sh::test_subject_max_len` -> asserts `aapp_subject_max_len` gives the setting, and 72 when it is unset or not a number
+- [x] `tests/verbs/draft.sh::test_bare_draft_takes_title_only` -> asserts a bare `aapp draft` from `- [ ] Short Title: a long text …` names the plan `Short Title` with slug `short-title`, no word of the text in either
+- [x] `tests/verbs/draft.sh::test_bare_draft_slug_bounded` -> asserts a 150-character title gives a slug of at most 60 characters cut at a `-`, and the plan's title line holds the whole title
+- [x] `tests/verbs/draft.sh::test_bare_draft_copies_text` -> asserts a bare `aapp draft` from `- [ ] Short Title: a text naming \`.plans/pickup/x.md\`` writes the text, verbatim, as §1 of the new plan with the placeholder gone, and the named file on a `Notes from pickup:` line
+- [x] `tests/verbs/draft.sh::test_draft_subject_fits_limit` -> asserts a draft whose slug would make `plan(draft): scaffold P-<N> <slug>` longer than `aapp.subjectMaxLen` commits with the subject cut at a `-` to fit, the file name keeping the whole slug
+- [x] `tests/aapp_lib_test.sh::test_subject_max_len` -> asserts `aapp_subject_max_len` gives the setting, and 72 when it is unset or not a number
 
 ### Phase 1: Foundation & Setup
-- [ ] Task 1.1: Write the tests of this section; commit them red.
+- [x] Task 1.1: Write the tests of this section; commit them red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/aapp-lib.sh`: `aapp_subject_max_len`.
-- [ ] Task 2.2: `lib/cmd_plan.sh`: bare `aapp draft` takes the title through `pickup_entry_split` and writes the text into §1; the slug bounded; the draft subject fitted.
-- [ ] Task 2.3: `lib/docs/verbs/draft.md`: the bare draft's title, slug and subject; the tests.
+- [x] Task 2.1: `lib/aapp-lib.sh`: `aapp_subject_max_len`.
+- [x] Task 2.2: `lib/cmd_plan.sh`: bare `aapp draft` takes the title through `pickup_entry_split` and writes the text into §1; the slug bounded; the draft subject fitted.
+- [x] Task 2.3: `lib/docs/verbs/draft.md`: the bare draft's title, slug and subject; the tests.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
