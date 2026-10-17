@@ -11,7 +11,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `9def1ad` (develop)
 * **Worktree:** .workspace/P104 (plan/P104-lifecycle-event-logger-hook)
-* **Commits:** none
+* **Commits:** `2e34c4d` (plan/P104-lifecycle-event-logger-hook)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -330,21 +330,21 @@ To make event logging a first-class, visible recommendation during project onboa
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Showcase Hook Sample & Adoption Rule
-- [ ] Task 1.1: Author extensionless `examples/hooks/event-logger.sample` conforming to observer mode, out-of-repo path resolution, and atomic POSIX single-line JSONL append.
-- [ ] Task 1.2: Add `EVENT-LOG` adoption rule, manual heading, and check helper in `lib/adoption.sh`.
-- [ ] Task 1.3: Add unit tests in `tests/hooks_test.sh` verifying registration, SHA-256 verification, payload ingestion, and single-line file output.
+- [x] Task 1.1: Author extensionless `examples/hooks/event-logger.sample` conforming to observer mode, out-of-repo path resolution, and atomic POSIX single-line JSONL append.
+- [x] Task 1.2: Add `EVENT-LOG` adoption rule, manual heading, and check helper in `lib/adoption.sh`.
+- [x] Task 1.3: Add unit tests in `tests/hooks_test.sh` verifying registration, SHA-256 verification, payload ingestion, and single-line file output.
 
 ### Phase 2: Completing Core Lifecycle Dispatches Across All Domains
-- [ ] Task 2.1: Add `post-draft`, `post-active`, and `post-tdd` dispatches in `lib/cmd_plan.sh`.
-- [ ] Task 2.2: Add `post-commit` dispatch in `lib/cmd_commit.sh`.
-- [ ] Task 2.3: Add unified `post-issue` dispatch in `lib/cmd_issue.sh` with plugin-style payloads (`{"command": "issue", "event": ...}`) across log, queue, unqueue, fix, close, hotfix, and withdraw.
+- [x] Task 2.1: Add `post-draft`, `post-active`, and `post-tdd` dispatches in `lib/cmd_plan.sh`.
+- [x] Task 2.2: Add `post-commit` dispatch in `lib/cmd_commit.sh`.
+- [x] Task 2.3: Add unified `post-issue` dispatch in `lib/cmd_issue.sh` with plugin-style payloads (`{"command": "issue", "event": ...}`) across log, queue, unqueue, fix, close, hotfix, and withdraw.
 
 ### Phase 3: Contract Reference, Automated Contract Tests & Documentation
-- [ ] Task 3.1: Author `docs/reference/09-event-telemetry.md` documenting the envelope, repository object, 14 lifecycle events, and unified `post-issue` payload schemas in markdown tables.
-- [ ] Task 3.2: Author `tests/event_telemetry_test.sh` verifying that runtime dispatches and payload fixtures match `docs/reference/09-event-telemetry.md`.
-- [ ] Task 3.3: Update `lib/cmd_hook.sh` and `lib/docs/verbs/hooks.md` with all 14 events in help/docs.
-- [ ] Task 3.4: Update `MANUAL.md` with the Event Logger showcase, out-of-repo setup, and telemetry reference link.
-- [ ] Task 3.5: Verify all kit test suites pass (`./aapp test quiet`).
+- [x] Task 3.1: Author `docs/reference/09-event-telemetry.md` documenting the envelope, repository object, 14 lifecycle events, and unified `post-issue` payload schemas in markdown tables.
+- [x] Task 3.2: Author `tests/event_telemetry_test.sh` verifying that runtime dispatches and payload fixtures match `docs/reference/09-event-telemetry.md`.
+- [x] Task 3.3: Update `lib/cmd_hook.sh` and `lib/docs/verbs/hooks.md` with all 14 events in help/docs.
+- [x] Task 3.4: Update `MANUAL.md` with the Event Logger showcase, out-of-repo setup, and telemetry reference link.
+- [x] Task 3.5: Verify all kit test suites pass (`./aapp test quiet`).
 
 ---
 
