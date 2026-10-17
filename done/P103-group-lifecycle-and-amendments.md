@@ -6,7 +6,7 @@
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
      The group's `done` writes it with the ARCHITECTURE.md commit. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `4a7da2f` (develop)
 * **Feature Branch:** feature/group-lifecycle-and-amendments
 * **Worktree:** .workspace/P103 (feature/group-lifecycle-and-amendments)
@@ -164,6 +164,7 @@ This group has no amendments member of its own: P-101 introduces it.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-17:** Plan implementation completed and archived to done/.
 * **2026-10-17:** Group started: `feature/group-lifecycle-and-amendments` from `develop`.
 * **2026-10-17:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-16:** Group drafted with members P-101 and P-102.
