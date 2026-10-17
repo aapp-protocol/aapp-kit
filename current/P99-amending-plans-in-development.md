@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `f50a0f0` (feature/group-lifecycle-and-amendments)
+* **Worktree:** .workspace/P99 (plan/P99-amending-plans-in-development)
 * **Group:** P-103
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
@@ -114,6 +115,7 @@ Goal: a plan in development is amended only from its own checkout, and a refusal
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-17:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted with initial findings F1–F5; design open.
 * **2026-10-17:** Refined from the settled review (`.plans/pickup/p103-group-lifecycle-rfc.md`): protection only (members are never widened; the narrow add moves to P-101's amendments member), the redirecting refusal, the group section lock, the amendments lock rule, `pre-refine` / `on-refine` / `post-refine`. Questions 1, 3, 4 answered by the review; Question 2 answered by the developer: no session outside the group refines its plans, started or not; the developer instructs the group's session (D1). Question 5 answered by the developer: a plan in development takes no amendments from other sessions; a second session in the same checkout is the agent rule's to cover (D1). The group section's lock accepts a correction carried with a `Decisions` line (D4).
