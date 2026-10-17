@@ -4,7 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #166 | `Low` | `DOCS` | 2026-10-17 | `ARCHITECTURE.md` | ARCHITECTURE.md rule 23 (Plan Groups, P-64) still describes the group done order of docs commit before the gate; the section Group Lifecycle (P-103) describes the current order. | [P-105](current/P105-architecture-rule-23-pointer.md) | 🔵 `Planned` |
+| #166 | `Low` | `DOCS` | 2026-10-17 | `ARCHITECTURE.md` | ARCHITECTURE.md rule 23 (Plan Groups, P-64) still describes the group done order of docs commit before the gate; the section Group Lifecycle (P-103) describes the current order. | [P-105](current/P105-architecture-rules-as-headings.md) | 🔵 `Planned` |
 | #162 | `Low` | `CLI` | 2026-10-16 | `lib/cmd_plan.sh` | `aapp start <id>` and `freeze-start` for a plan re-frozen while its worktree still holds it refuse from the main checkout ("already bound in worktree") without saying that `aapp start` run in that worktree resumes it. |  | 🟡 `Incubated` |
 | #161 | `Low` | `TEST` | 2026-10-16 | `tests/issue_ledger_test.sh` | `tests/issue_ledger_test.sh` (test_no_direct_ledger_access) passes its name pattern with `\.` through `awk -v`: every run prints 26 "escape sequence `\.' treated as plain `.'" warnings. |  | 🟡 `Incubated` |
 | #159 | `Medium` | `HOOK` | 2026-10-16 | `templates/aapp-pre-commit` | The pre-commit hook blocks commits on an adopter's own files with language checks (`bash -n`, Python syntax, `php -l`, JSON under `schema/`); adopter checks belong in the local hook (`templates/pre-commit`). |  | 🟡 `Incubated` |

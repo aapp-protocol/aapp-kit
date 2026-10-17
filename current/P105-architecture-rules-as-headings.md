@@ -88,5 +88,6 @@ No other rule changes; the P-103 section stays as it is.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-17:** File renamed from P105-architecture-rule-23-pointer.md to P105-architecture-rules-as-headings.md.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-17:** Drafted from #166 (P-103 Q2, option b).
