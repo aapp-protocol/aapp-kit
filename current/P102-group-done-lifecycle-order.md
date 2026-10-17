@@ -12,7 +12,7 @@
 * **Base:** `4a7da2f` (feature/group-lifecycle-and-amendments)
 * **Worktree:** .workspace/P102 (plan/P102-group-done-lifecycle-order)
 * **Group:** P-103
-* **Commits:** `6849fe5` (plan/P102-group-done-lifecycle-order)
+* **Commits:** `6849fe5` (plan/P102-group-done-lifecycle-order), `8638d11` (plan/P102-group-done-lifecycle-order)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
