@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #108 | `Low` | `DOCS` | 2026-10-08 | 2026-10-18 | `3ca2f64` | ARCHITECTURE.md lists only the scripts that exist and gives the hook watchdog default as 10s (aapp.hookTimeout) |  |
 | #110 | `Low` | `DOCS` | 2026-10-08 | 2026-10-18 | `0d054bf` | the MANUAL names the post-done event where it still said on-done |  |
 | #162 | `Low` | `CLI` | 2026-10-16 | 2026-10-18 | `0726230` | start and freeze-start refused for a plan bound in another worktree name the command that resumes it there |  |
 | #161 | `Low` | `TEST` | 2026-10-16 | 2026-10-17 | `cb7879b` | the ledger-access test passes its name pattern through the environment, so awk prints no escape warnings and matches a literal dot |  |

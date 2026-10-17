@@ -13,6 +13,5 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
-- [ ] #108 -> ARCHITECTURE.md prematurely lists unbuilt features (P-38, P-59, non-existent `archive-plan.sh`) and cites 30s watchdog default where code uses 10s. (queued 2026-10-17)
 - [ ] #124 -> `done` clears the active plan buffers before its archive commit; when that commit fails the plan is restored but the buffers stay cleared. (queued 2026-10-17)
 ### Low
