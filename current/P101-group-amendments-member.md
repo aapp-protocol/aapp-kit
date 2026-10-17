@@ -150,6 +150,8 @@ A file or a change of the group's text outside your member goes to the group's a
 - [ ] `tests/verbs/status.sh` -> the amendments lines and the JSON field.
 - [ ] `tests/verbs/start.group.sh` -> the member line at start.
 - [ ] `tests/integrate_test.sh` -> the group's `done` applying a corrected section.
+- [ ] `tests/output_json_test.sh` -> a group's `members` include its amendments member; `plan.requests` in the fixture.
+- [ ] `tests/verbs/issue.branch.sh` -> the group's amendments member archived before the group's `done`.
 - [ ] `MANUAL.md` -> groups: the amendments member, `aapp.amendmentApprovalRequired`, refining the group plan after `start` (from a member's worktree, or after `aapp active <group>`).
 - [ ] `CHEATSHEET.md` -> the tokens.
 
@@ -175,3 +177,4 @@ A file or a change of the group's text outside your member goes to the group's a
 * **2026-10-16:** Drafted from groups P-72 and P-91: an amendments member per group; early draft for review between agents.
 * **2026-10-17:** Refined from the settled review (`.plans/pickup/p103-group-lifecycle-rfc.md`): members never amended; requests, approval (`aapp.amendmentApprovalRequired`), landing on P-55's fast-forward path, members rebase; the end rules; status and JSON. Questions 1–9 answered by the review. One guide (developer): corrections are written into the group plan's `## Architecture & Codemap` with a `Decisions` line, never copied into the amendments member; members read the group plan at start and at every session start or resume.
 * **2026-10-17:** Unfrozen to add `lib/aapp-lib.sh` (developer's OK): the amendments member is always `microcommits` (`aapp_plan_commit_mode`); it is started by the group's `start`, never frozen (`freeze` refuses a plan without Target Files, and there is nothing to review); a group drafted offline is refused; the MANUAL says where the group plan is refined after `start`.
+* **2026-10-17:** Unfrozen to add `tests/output_json_test.sh` and `tests/verbs/issue.branch.sh` (developer's OK): their group fixtures now get an amendments member; plan work, not a hotfix. This group has no amendments member to take it (P-101 creates it).
