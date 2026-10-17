@@ -81,7 +81,7 @@ Every hook dispatched via `dispatch_hook "$event" "$data_json"` receives the sta
 
 ### 2.3 Complete Post-* Event Catalog & JSON Output Payloads
 
-The kit standardizes 19 `post-*` observer events spanning all system lifecycles. Below are the exact `data` payloads pumped out to registered hooks:
+The kit standardizes 14 `post-*` observer events spanning all system lifecycles, consolidating all issue operations into a unified `post-issue` event with plugin-aligned `{"command": "issue", "event": ...}` payloads. Below are the exact `data` payloads pumped out to registered hooks:
 
 #### A. Blueprint & Planning Lifecycle
 1. **`post-draft`** (`cmd_draft` in `lib/cmd_plan.sh`):
@@ -178,72 +178,86 @@ The kit standardizes 19 `post-*` observer events spanning all system lifecycles.
     ```
 
 #### C. Issue Lifecycle (`lib/cmd_issue.sh`)
-11. **`post-issue-log`** (`cmd_issue_log`):
-    ```json
-    {
-      "issue_id": "166",
-      "sev": "MED",
-      "type": "CLI",
-      "symptom": "parser fails on trailing newline",
-      "files": ["lib/cmd_issue.sh"]
-    }
-    ```
-12. **`post-issue-queue`** (`cmd_issue_queue` / `cmd_issue_unqueue`):
-    ```json
-    {
-      "issue_id": "166",
-      "action": "queue|unqueue",
-      "level": "urgent|normal|low"
-    }
-    ```
-13. **`post-issue-fix`** (`cmd_issue_fix`):
-    ```json
-    {
-      "issue_id": "166",
-      "worktree": "/path/to/repo/.workspace/fix-166",
-      "branch": "fix/166"
-    }
-    ```
-14. **`post-issue-close`** (`cmd_issue_close`):
-    ```json
-    {
-      "issue_id": "166",
-      "commit_sha": "b2c3d4e",
-      "summary": "Fix trailing newline in parser"
-    }
-    ```
-15. **`post-issue-hotfix`** (`cmd_issue_hotfix`):
-    ```json
-    {
-      "issue_id": "167",
-      "blocked_plan": "P-102",
-      "files": ["lib/cmd_plan.sh"]
-    }
-    ```
-16. **`post-issue-withdraw`** (`cmd_issue_withdraw`):
-    ```json
-    {
-      "issue_id": "166",
-      "reason": "Not reproducible on latest develop"
-    }
-    ```
+11. **`post-issue`** (unified observer hook across all issue operations):
+    Dispatched after every issue state transition, adopting the exact command/event model used by kit plugins (`{"command": "issue", "event": "<action>", ...}`).
+
+    - **`log`** (`cmd_issue_log`):
+      ```json
+      {
+        "command": "issue",
+        "event": "log",
+        "issue_id": "#166",
+        "sev": "MED",
+        "type": "CLI",
+        "symptom": "parser fails on trailing newline",
+        "files": ["lib/cmd_issue.sh"]
+      }
+      ```
+    - **`queue`** / **`unqueue`** (`cmd_issue_queue` / `cmd_issue_unqueue`):
+      ```json
+      {
+        "command": "issue",
+        "event": "queue",
+        "issue_id": "#166",
+        "level": "urgent"
+      }
+      ```
+    - **`fix`** (`cmd_issue_fix`):
+      ```json
+      {
+        "command": "issue",
+        "event": "fix",
+        "issue_id": "#166",
+        "worktree": "/path/to/repo/.workspace/fix-166",
+        "branch": "fix/166"
+      }
+      ```
+    - **`close`** (`cmd_issue_close`):
+      ```json
+      {
+        "command": "issue",
+        "event": "close",
+        "issue_id": "#166",
+        "commit_sha": "b2c3d4e",
+        "summary": "Fix trailing newline in parser"
+      }
+      ```
+    - **`hotfix`** (`cmd_issue_hotfix`):
+      ```json
+      {
+        "command": "issue",
+        "event": "hotfix",
+        "issue_id": "#167",
+        "blocked_plan": "P-102",
+        "files": ["lib/cmd_plan.sh"]
+      }
+      ```
+    - **`withdraw`** (`cmd_issue_withdraw`):
+      ```json
+      {
+        "command": "issue",
+        "event": "withdraw",
+        "issue_id": "#166",
+        "reason": "Not reproducible on latest develop"
+      }
+      ```
 
 #### D. Operational & Emergency Lifecycle
-17. **`post-pause`** (`cmd_pause` in `lib/cmd_pause.sh`):
+12. **`post-pause`** (`cmd_pause` in `lib/cmd_pause.sh`):
     ```json
     {
       "reason": "switching tasks",
       "shared": false
     }
     ```
-18. **`post-resume`** (`cmd_resume` in `lib/cmd_pause.sh`):
+13. **`post-resume`** (`cmd_resume` in `lib/cmd_pause.sh`):
     ```json
     {
       "restored_count": 2,
       "drift_found": 0
     }
     ```
-19. **`post-sync`** (`cmd_sync` in `lib/cmd_sync.sh`):
+14. **`post-sync`** (`cmd_sync` in `lib/cmd_sync.sh`):
     ```json
     {
       "action": "pull_push",
@@ -287,12 +301,12 @@ To help teams and solo developers discover and configure lifecycle telemetry, P-
 ### Phase 2: Completing Core Lifecycle Dispatches Across All Domains
 - [ ] Task 2.1: Add `post-draft`, `post-active`, and `post-tdd` dispatches in `lib/cmd_plan.sh`.
 - [ ] Task 2.2: Add `post-commit` dispatch in `lib/cmd_commit.sh`.
-- [ ] Task 2.3: Add `post-issue-log`, `post-issue-queue`, `post-issue-fix`, `post-issue-close`, `post-issue-hotfix`, and `post-issue-withdraw` dispatches in `lib/cmd_issue.sh`.
+- [ ] Task 2.3: Add unified `post-issue` dispatch in `lib/cmd_issue.sh` with plugin-style payloads (`{"command": "issue", "event": ...}`) across log, queue, unqueue, fix, close, hotfix, and withdraw.
 
 ### Phase 3: Contract Reference, Automated Contract Tests & Documentation
-- [ ] Task 3.1: Author `docs/reference/09-event-telemetry.md` documenting the envelope, repository object, and all 19 event payload schemas in markdown tables.
+- [ ] Task 3.1: Author `docs/reference/09-event-telemetry.md` documenting the envelope, repository object, 14 lifecycle events, and unified `post-issue` payload schemas in markdown tables.
 - [ ] Task 3.2: Author `tests/event_telemetry_test.sh` verifying that runtime dispatches and payload fixtures match `docs/reference/09-event-telemetry.md`.
-- [ ] Task 3.3: Update `lib/cmd_hook.sh` and `lib/docs/verbs/hooks.md` with all 19 events in help/docs.
+- [ ] Task 3.3: Update `lib/cmd_hook.sh` and `lib/docs/verbs/hooks.md` with all 14 events in help/docs.
 - [ ] Task 3.4: Update `MANUAL.md` with the Event Logger showcase, out-of-repo setup, and telemetry reference link.
 - [ ] Task 3.5: Verify all kit test suites pass (`./aapp test quiet`).
 
@@ -306,9 +320,9 @@ To help teams and solo developers discover and configure lifecycle telemetry, P-
 - [ ] `NEW FILE` -> `tests/event_telemetry_test.sh` -> Automated contract verification test suite for event telemetry schemas.
 - [ ] `lib/adoption.sh` -> Add `EVENT-LOG` advisory rule and heading under `🛡️ Hooks & Gates`.
 - [ ] `lib/cmd_commit.sh` -> Emit `post-commit` lifecycle event after plan commit recording.
-- [ ] `lib/cmd_issue.sh` -> Emit `post-issue-*` lifecycle events (log, queue, fix, close, hotfix, withdraw).
+- [ ] `lib/cmd_issue.sh` -> Emit unified `post-issue` lifecycle event across all issue operations with `{"command": "issue", "event": ...}` payloads.
 - [ ] `lib/cmd_plan.sh` -> Emit `post-draft`, `post-active`, and `post-tdd` lifecycle events.
-- [ ] `lib/cmd_hook.sh` -> Add all 19 events to available events list in `help hooks`.
+- [ ] `lib/cmd_hook.sh` -> Add all 14 lifecycle events to available events list in `help hooks`.
 - [ ] `lib/docs/verbs/hooks.md` -> Update event documentation and payload schemas.
 - [ ] `MANUAL.md` -> Add Event Logger showcase section and telemetry guide.
 - [ ] `tests/hooks_test.sh` -> Add automated tests for event-logger hook and new dispatches.
@@ -329,3 +343,4 @@ To help teams and solo developers discover and configure lifecycle telemetry, P-
 * **2026-10-17:** Plan scaffolded and authored from user requirement for decoupled, out-of-repo lifecycle event logging.
 * **2026-10-17:** Expanded Technical Blueprint with complete 19-event catalog and explicit JSON output schemas.
 * **2026-10-17:** Detailed the formal Event Telemetry Contract (`docs/reference/09-event-telemetry.md`), adoption tracking (`lib/adoption.sh`), extensionless hook standard (`examples/hooks/event-logger.sample`), and automated telemetry verification suite (`tests/event_telemetry_test.sh`).
+* **2026-10-17:** Unified issue lifecycle telemetry into a single `post-issue` observer event with plugin-aligned payload structure (`{"command": "issue", "event": "<step>", ...}`).
