@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- automated clean rebase on integrate ff and configurable documentation governance (P-106) (`P-106`)
 - sample observer event logger hook and post-* lifecycle telemetry (P-104) (`P-104`)
 - groups take what development finds through an amendments member with approval, plans in development are amended only from their own checkout, and a group's `done` gates before its docs commit (P-103) (`P-103`)
 - every group has an amendments member that takes the files and decisions development finds, with approval, landing and status, so members stay as frozen (P-101) (`P-101`)

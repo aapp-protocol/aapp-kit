@@ -180,6 +180,8 @@ EOF
         # ⚙️ Settings to Review
         "SET-WORKTREES|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|One worktree and branch per plan? Group plans need on: \`git config aapp.planWorktrees <on|off>\`."
         "SET-INTEGRATE|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|How done integrates a plan branch: \`git config aapp.integrate <manual|squash|ff|hook>\`."
+        "SET-AUTO-REBASE|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Automated clean rebase on integrate ff: \`git config aapp.autoRebase <true|false>\` (default: false)."
+        "SET-DOCS|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Documentation governance for manuals and rules: \`git config aapp.docs <true|false>\` (default: true)."
         "SET-COMMIT-MODE|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|One commit per plan or many: \`git config aapp.commitMode <atomic|microcommits>\`, \`git config aapp.changelogMode <plan|commit>\`."
         "SET-ATTRIBUTION|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Record which agent wrote a commit: \`git config aapp.aiAttribution <none|lax|strict|notes>\`."
     )
@@ -285,6 +287,7 @@ EOF
     }
 
     _trig_project_rules() {
+        [ "$(git config --bool aapp.docs 2>/dev/null || echo "true")" = "false" ] && return 1
         if [ -f "$root/.agents/PROJECT.MD" ]; then
             if grep -qE '\[Project Name\]|\[one or two sentences\]|\[languages' "$root/.agents/PROJECT.MD" 2>/dev/null; then
                 return 0
@@ -302,6 +305,7 @@ EOF
     }
 
     _trig_project_map() {
+        [ "$(git config --bool aapp.docs 2>/dev/null || echo "true")" = "false" ] && return 1
         local templ_dir="$root/templates"
         [ -d "$templ_dir" ] || templ_dir="${AAPP_TEMPLATES:-}"
         if [ -f "$root/.agents/CODEMAP.md" ] && [ -f "$templ_dir/codemap.md" ]; then

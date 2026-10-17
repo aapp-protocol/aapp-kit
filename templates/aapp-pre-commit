@@ -870,11 +870,14 @@ if [ "$DOCS_UPDATED" -eq 0 ] && [ -d ".agents" ] && git -C .agents rev-parse --i
         DOCS_UPDATED=1
     fi
 fi
-if [ "$STAGED_CORE_COUNT" -gt 0 ] && [ -n "$MEMBER_GROUP" ]; then
-    echo "ℹ️  [Pre-Commit Reminder] ARCHITECTURE.md and CODEMAP.md changes for this work go into $MEMBER_GROUP's '## Architecture & Codemap' section."
-elif [ "$STAGED_CORE_COUNT" -gt 0 ] && [ "$DOCS_UPDATED" -eq 0 ]; then
-    echo "⚠️  [Pre-Commit Reminder] Documentation (README.md, ARCHITECTURE.md, or .agents/CODEMAP.md) was not updated."
-    echo "   If this commit introduces new interfaces, routes, or behaviors, ensure documentation stays in sync."
+DOCS_GOVERNANCE="$(git config --bool aapp.docs 2>/dev/null || echo "true")"
+if [ "$DOCS_GOVERNANCE" != "false" ]; then
+    if [ "$STAGED_CORE_COUNT" -gt 0 ] && [ -n "$MEMBER_GROUP" ]; then
+        echo "ℹ️  [Pre-Commit Reminder] ARCHITECTURE.md and CODEMAP.md changes for this work go into $MEMBER_GROUP's '## Architecture & Codemap' section."
+    elif [ "$STAGED_CORE_COUNT" -gt 0 ] && [ "$DOCS_UPDATED" -eq 0 ]; then
+        echo "⚠️  [Pre-Commit Reminder] Documentation (README.md, ARCHITECTURE.md, or .agents/CODEMAP.md) was not updated."
+        echo "   If this commit introduces new interfaces, routes, or behaviors, ensure documentation stays in sync."
+    fi
 fi
 
 # ------------------------------------------------------------------------------

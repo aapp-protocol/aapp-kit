@@ -30,7 +30,7 @@ wt_plan() {
   sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$f"
   git -C .plans commit -qam "prep $id" >/dev/null 2>&1
   aapp freeze-start "$id" >/dev/null 2>&1
-  wt="$R/ig/.workspace/P$n"
+  wt="$(pwd)/.workspace/P$n"
   ( cd "$wt" && mkdir -p src && echo "v=1" > "src/$name.sh" && git add "src/$name.sh" && aapp commit "feat: $name" >/dev/null 2>&1 )
   echo "$id"
 }
@@ -352,6 +352,41 @@ if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "Could not commit the group's ARCHI
   ok "test_group_done_precommit_refusal_restores_worktree"
 else
   bad "test_group_done_precommit_refusal_restores_worktree" "rc=$rc dirty=$dirty rc2=$rc2 out=$out | $out2"
+fi
+
+echo "== automated clean rebase on integrate (P-106) =="
+cur_prim="$(git rev-parse --abbrev-ref HEAD)"
+git config aapp.autoRebase false
+git config aapp.integrate ff
+ar1="$(wt_plan arb_optout)"
+git checkout -q develop && echo "dev_adv=1" > dev_adv.txt && git add dev_adv.txt && git commit -qm "dev advances" --no-verify && git checkout -q "$cur_prim"
+out="$(aapp done "$ar1" 2>&1)"; rc=$?
+if [ "$rc" -ne 0 ] && echo "$out" | grep -qi "rebase it first" && [ -d "$(pwd)/.workspace/P${ar1#P-}" ]; then
+  ok "test_auto_rebase_opt_out_refuses_manual_rebase"
+else
+  bad "test_auto_rebase_opt_out_refuses_manual_rebase" "rc=$rc out=$out"
+fi
+
+git config aapp.autoRebase true
+out="$(aapp done "$ar1" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && [ ! -d "$(pwd)/.workspace/P${ar1#P-}" ] && \
+   git show develop:src/arb_optout.sh >/dev/null 2>&1 && \
+   echo "$out" | grep -qF "Successfully rebased"; then
+  ok "test_auto_rebase_clean_succeeds_and_integrates"
+else
+  bad "test_auto_rebase_clean_succeeds_and_integrates" "rc=$rc out=$out"
+fi
+
+ar2="$(wt_plan arb_conflict)"
+ar2_wt="$(pwd)/.workspace/P${ar2#P-}"
+git checkout -q develop && echo "conflict=1" > src/arb_conflict.sh && git add src/arb_conflict.sh && git commit -qm "conflict advance" --no-verify && git checkout -q "$cur_prim"
+out="$(aapp done "$ar2" 2>&1)"; rc=$?
+if [ "$rc" -ne 0 ] && echo "$out" | grep -qi "Automated rebase encountered merge conflicts" && \
+   [ -d "$ar2_wt" ] && [ -z "$(git -C "$ar2_wt" status --porcelain 2>/dev/null)" ] && \
+   [ -f ".plans/current/$(basename "$(pfile "$ar2")")" ]; then
+  ok "test_auto_rebase_conflict_aborts_cleanly"
+else
+  bad "test_auto_rebase_conflict_aborts_cleanly" "rc=$rc out=$out dirty=$(git -C "$ar2_wt" status --porcelain 2>/dev/null)"
 fi
 
 print_test_summary "$PASS" "$FAIL"

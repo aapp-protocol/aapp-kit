@@ -879,7 +879,7 @@ _ig_hook_registered() {
 _ig_preflight() {
     local pf="$1" pid="$2" rec max count open limit waited step
     rec="$(parse_plan_worktree "$pf")"
-    IG_PLAN_BR="${rec#*$'\t'}"; IG_WT="$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")"; IG_ALREADY=0
+    IG_PLAN_BR="${rec#*$'\t'}"; IG_WT="$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")"; IG_ALREADY=0; IG_AUTO_REBASED=0
     if ! git show-ref --verify --quiet "refs/heads/$IG_PLAN_BR"; then
         echo "❌ [Done Refusal] Plan branch '$IG_PLAN_BR' not found; integrate it by hand or archive with 'no-integrate'." >&2; return 1
     fi
@@ -912,9 +912,37 @@ _ig_preflight() {
        git diff --quiet "$IG_TARGET_BR" "$IG_PLAN_BR" -- 2>/dev/null; then
         IG_ALREADY=1
     elif ! git merge-base --is-ancestor "$IG_TARGET_BR" "$IG_PLAN_BR"; then
-        echo "❌ [Done Refusal] '$IG_PLAN_BR' does not contain '$IG_TARGET_BR'; rebase it first:" >&2
-        echo "   git -C ${IG_WT} rebase --autostash $IG_TARGET_BR" >&2
-        return 1
+        local auto_rebase
+        auto_rebase="$(git config --get aapp.autoRebase 2>/dev/null || echo "false")"
+        if [ "$auto_rebase" = "true" ] && [ -d "$IG_WT" ]; then
+            echo "🔄 [Integrate] '$IG_PLAN_BR' diverged from '$IG_TARGET_BR'; attempting automated clean rebase..."
+            if git -C "$IG_WT" rebase --autostash "$IG_TARGET_BR" >/dev/null 2>&1; then
+                echo "✨ [Integrate] Successfully rebased '$IG_PLAN_BR' onto '$IG_TARGET_BR' (0 conflicts)."
+                IG_AUTO_REBASED=1
+                local new_commits=""
+                while IFS= read -r c_sha; do
+                    [ -n "$c_sha" ] || continue
+                    if [ -z "$new_commits" ]; then
+                        new_commits="\`$c_sha\` ($IG_PLAN_BR)"
+                    else
+                        new_commits="$new_commits, \`$c_sha\` ($IG_PLAN_BR)"
+                    fi
+                done < <(git -C "$IG_WT" log --reverse --format="%h" "$IG_TARGET_BR..$IG_PLAN_BR")
+                if [ -n "$new_commits" ]; then
+                    write_plan_commits "$pf" "$new_commits"
+                    (cd "$PLANS_DIR" && git add "$(basename "$pf")" && git commit -qm "plan(rebase): update commit sha after auto-rebase" --no-verify) 2>/dev/null || true
+                fi
+            else
+                git -C "$IG_WT" rebase --abort >/dev/null 2>&1 || true
+                echo "❌ [Done Refusal] Automated rebase encountered merge conflicts; resolve manually:" >&2
+                echo "   git -C ${IG_WT} rebase --autostash $IG_TARGET_BR" >&2
+                return 1
+            fi
+        else
+            echo "❌ [Done Refusal] '$IG_PLAN_BR' does not contain '$IG_TARGET_BR'; rebase it first:" >&2
+            echo "   git -C ${IG_WT} rebase --autostash $IG_TARGET_BR" >&2
+            return 1
+        fi
     fi
     if [ -n "$(git -C "$PRIMARY_ROOT" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
         echo "❌ [Done Refusal] The main checkout has uncommitted changes; integration switches it to '$IG_TARGET_BR'." >&2; return 1
@@ -2328,6 +2356,34 @@ cmd_done() {
     if [ "$is_group" -eq 1 ]; then IG_DO=1; IG_MODE=ff; fi
     if [ "$IG_DO" -eq 1 ]; then
         _ig_preflight "$plan_file" "$plan_id" || exit 1
+        if [ "${IG_AUTO_REBASED:-0}" -eq 1 ]; then
+            recorded_commits=()
+            while IFS= read -r c_entry; do
+                [ -n "$c_entry" ] && recorded_commits+=("$c_entry")
+            done < <(parse_plan_commits "$plan_file")
+            commits_json=""
+            for c_entry in "${recorded_commits[@]}"; do
+                local c_sha=""
+                if [[ "$c_entry" =~ \`([0-9a-fA-F]+)\` ]]; then
+                    c_sha="${BASH_REMATCH[1]}"
+                else
+                    c_sha="$(echo "$c_entry" | awk '{print $1}' | tr -d '\`')"
+                fi
+                if [ -z "$commits_json" ]; then
+                    commits_json="\"$c_sha\""
+                else
+                    commits_json="$commits_json, \"$c_sha\""
+                fi
+            done
+            if [ ${#recorded_commits[@]} -gt 0 ]; then
+                local last_commit_entry="${recorded_commits[${#recorded_commits[@]}-1]}"
+                if [[ "$last_commit_entry" =~ \`([0-9a-fA-F]+)\` ]]; then
+                    commit_sha="${BASH_REMATCH[1]}"
+                else
+                    commit_sha="$(echo "$last_commit_entry" | awk '{print $1}' | tr -d '\`')"
+                fi
+            fi
+        fi
     fi
 
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then

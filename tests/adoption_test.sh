@@ -69,6 +69,8 @@ test_fresh_install_tasks() {
        grep -qF '`[GATE-TEST]`' "$f" && \
        grep -qF '`[SET-WORKTREES]`' "$f" && \
        grep -qF '`[SET-INTEGRATE]`' "$f" && \
+       grep -qF '`[SET-AUTO-REBASE]`' "$f" && \
+       grep -qF '`[SET-DOCS]`' "$f" && \
        grep -qF '`[SET-COMMIT-MODE]`' "$f" && \
        grep -qF '`[SET-ATTRIBUTION]`' "$f"; then
       ok "test_fresh_install_tasks"
@@ -266,6 +268,29 @@ test_manual_headings_exist() {
   fi
 }
 
+# Test 13: test_docs_governance_disabled
+# Asserts aapp.docs=false suppresses [PROJECT-RULES] and [PROJECT-MAP] adoption triggers.
+test_docs_governance_disabled() {
+  local p="$R/p13"
+  init_sandbox_project "$p"
+  (
+    cd "$p" || exit 1
+    git config aapp.docs false
+    rm -f ".plans/adoption.md"
+    aapp init >/dev/null 2>&1
+    local f=".plans/adoption.md"
+    if [ -f "$f" ] && \
+       ! grep -qF '`[PROJECT-RULES]`' "$f" && \
+       ! grep -qF '`[PROJECT-MAP]`' "$f" && \
+       grep -qF '`[SET-DOCS]`' "$f" && \
+       grep -qF '`[SET-AUTO-REBASE]`' "$f"; then
+      ok "test_docs_governance_disabled"
+    else
+      bad "test_docs_governance_disabled" "docs tasks triggered despite aapp.docs=false"
+    fi
+  )
+}
+
 test_seeded_and_untracked
 test_gitignore_line_added_on_rerun
 test_fresh_install_tasks
@@ -278,5 +303,7 @@ test_review_tasks_only_user_ticks
 test_rerun_is_quiet
 test_user_edits_survive
 test_manual_headings_exist
+test_docs_governance_disabled
 
 print_test_summary "$PASS" "$FAIL"
+
