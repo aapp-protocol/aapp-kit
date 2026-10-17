@@ -49,7 +49,7 @@ Goal: every group has one more member, its **amendments member**, the one place 
 ## 2. Technical Blueprint
 
 ### 2.1 The member
-- **Created with the group.** `aapp draft <slug> group` drafts the group and `<slug>-amendments` in one commit, from `templates/amendments-template.md`: header `* **Kind:** amendments`, `* **Commit Mode:** microcommits`, `* **Group:** <id>`; no Target Files; sections `## Scope Requests`, `## Decisions`, `## Follow-ups`, all outside §2 and §4. It has no `## Architecture & Codemap`: the group plan is the one guide (2.4). The group's `* **Members:**` lists it last.
+- **Created with the group.** `aapp draft <slug> group` drafts the group and `<slug>-amendments` in one commit, from `templates/amendments-template.md`: header `* **Kind:** amendments`, `* **Commit Mode:** microcommits`, `* **Group:** <id>`; no Target Files; sections `## Scope Requests`, `## Decisions`, `## Follow-ups`, after §6 (the design lock reads §4 up to the next numbered section, so they must not sit inside §2–§5). It has no `## Architecture & Codemap`: the group plan is the one guide (2.4). The group's `* **Members:**` lists it last.
 - **Started after the group**, on the feature branch, in its own worktree, like any member (groups need worktrees: `_member_group_check`). It stays ⚡ In Development until every other member is archived. A session working in its worktree is its owner (P-99 D1).
 - `templates/group-template.md` §3 names it as the last member.
 
