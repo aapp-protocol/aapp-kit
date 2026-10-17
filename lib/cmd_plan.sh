@@ -3499,7 +3499,7 @@ _refine_ledger() {
     . "$health" || { echo "❌ [Refine] Cannot load $health" >&2; exit 1; }
     check_pickup_entries "$PLANS_DIR/pickup.md" >&2 || {
         echo "   Nothing committed: fix pickup.md and run 'aapp refine pickup' again." >&2; exit 1; }
-    plans_commit "$subject" "${files[@]}" || exit 1
+    _refine_commit "$subject" "${files[@]}"
     sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
     echo "📝 [Refine] $target committed ($sha): $msg"
 }
@@ -3591,7 +3591,7 @@ _refine_issues() {
         rm -f "$old"
     fi
     if [ -n "$changed" ]; then
-        plans_commit "$subject" "${files[@]}" || exit 1
+        _refine_commit "$subject" "${files[@]}"
         sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
         echo "📝 [Refine] issues committed ($sha): $msg"
         said=1
@@ -3657,7 +3657,7 @@ _refine_slug() {
     if [ "$count" -gt 0 ]; then
         paths+=($(ledger_commit_paths issues roadmap))
     fi
-    plans_commit "$subject" "${paths[@]}" || exit 1
+    _refine_commit "$subject" "${paths[@]}"
     sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
     links="links"; [ "$count" -eq 1 ] && links="link"
     echo "📝 [Refine] $plan_id renamed to $new ($sha); $count issue $links repaired"
@@ -3708,7 +3708,7 @@ _refine_group() {
     else
         subject="plan(refine): $pid leaves group $cur"
     fi
-    plans_commit "$subject" "${paths[@]}" || exit 1
+    _refine_commit "$subject" "${paths[@]}"
     echo "📝 [Refine] ${subject#plan(refine): }."
 }
 
@@ -3737,7 +3737,7 @@ _refine_unblocked() {
         echo "❌ [Refine] Could not update $rel." >&2
         exit 1
     fi
-    plans_commit "plan(refine): $pid unblocked from #$num" "$rel" || exit 1
+    _refine_commit "plan(refine): $pid unblocked from #$num" "$rel"
     sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
     echo "📝 [Refine] $pid committed ($sha): unblocked from #$num"
     if grep -q '^\* \*\*Blocked On:\*\*' "$pf"; then
@@ -3785,9 +3785,80 @@ _refine_closes() {
     fi
     new="$(printf '%s\n' "$list" | awk 'NF { printf "%s#%s", (n++ ? ", " : ""), $0 }')"
     write_plan_field "$pf" "Also Closes" "$new" "Target Issue / Milestone" || exit 1
-    plans_commit "plan(refine): $pid $what" "$rel" || exit 1
+    _refine_commit "plan(refine): $pid $what" "$rel"
     sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
     echo "📝 [Refine] $pid committed ($sha): $what"
+}
+
+# _refine_owner_check <plan_file> <plan_id>: a plan in development, and every
+# plan of a group in development, started or not, is refined only from its
+# owning checkout (P-99): the plan's recorded worktree, else the checkout whose
+# active-plan buffer holds it; for a group, a checkout bound to one of its plans.
+# The refusal says what to do instead. Verb-written fields do not come here.
+_refine_owner_check() {
+    local pf="$1" pid="$2" here bound grp="" gf="" wt_rec wt_abs owner
+    here="$(cd "$REPO_ROOT" 2>/dev/null && pwd -P)"
+    bound="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
+    if aapp_is_group_plan "$pf"; then
+        gf="$pf"; grp="$pid"
+    else
+        grp="$(parse_plan_field "$pf" Group)"
+        if [ -n "$grp" ]; then gf="$(resolve_plan_file "$grp" "refine" 2>/dev/null)" || gf=""; fi
+    fi
+    if [ "$(plan_status_slug "$pf")" = "in-development" ] && [ "$gf" != "$pf" ]; then
+        wt_rec="$(parse_plan_worktree "$pf")"
+        if [ -n "$wt_rec" ]; then
+            wt_abs="$(cd "$(aapp_abs_path "${wt_rec%%$'\t'*}" "$PRIMARY_ROOT")" 2>/dev/null && pwd -P)"
+            [ -n "$wt_abs" ] && [ "$here" = "$wt_abs" ] && return 0
+            owner="its worktree ${wt_rec%%$'\t'*}"
+        else
+            [ "$bound" = "$pid" ] && return 0
+            owner="the checkout whose active plan is $pid"
+        fi
+    elif [ -n "$gf" ] && [ "$(plan_status_slug "$gf")" = "in-development" ]; then
+        if [ -n "$bound" ] && { [ "$bound" = "$grp" ] || group_members "$gf" | grep -qxF "$bound"; }; then return 0; fi
+        owner="a checkout bound to a plan of group $grp (a member's worktree, or 'aapp active $grp')"
+    else
+        return 0
+    fi
+    echo "❌ [Refine] $pid is in development; only $owner amends it." >&2
+    echo "   Do not change it from here: tell the developer, log what you found ('aapp issue log'), or add a line to pickup.md ('aapp refine pickup')." >&2
+    exit 1
+}
+
+# _refine_event <event> <kind> <plan_id> <files> [commit] [args…]: `pre-refine`
+# (gate), `on-refine` (in the transaction) or `post-refine` (observer) for every
+# refine (P-99). A gate or an in-transaction failure refuses the refine.
+_refine_event() {
+    local ev="$1" rc=0
+    [ -f "$AAPP_HOOK_DISPATCHER" ] || return 0
+    # A subshell: the dispatcher sets errexit, which must not reach the rest of refine.
+    (
+        local kind="$2" pid="$3" files="$4" commit="${5:-}" a args="" fl="" f data
+        shift 5 2>/dev/null || shift $#
+        # shellcheck source=/dev/null
+        source "$AAPP_HOOK_DISPATCHER"
+        for a in "$@"; do args="${args:+$args, }\"$(json_escape "$a")\""; done
+        for f in $files; do fl="${fl:+$fl, }\"$(json_escape "$f")\""; done
+        data="{\"plan_id\": \"$(json_escape "$pid")\", \"kind\": \"$kind\", \"args\": [$args], \"files\": [$fl]"
+        if [ "$ev" = "post-refine" ]; then data="$data, \"commit\": \"$commit\""; fi
+        dispatch_hook "$ev" "$data}"
+    ) || rc=$?
+    [ "$ev" = "post-refine" ] && return 0
+    if [ "$rc" -ne 0 ]; then
+        echo "❌ [Refine] The $ev hook refused; nothing committed." >&2
+        exit 1
+    fi
+}
+
+# _refine_commit <subject> <path>…: the plans commit of every refine, between
+# `on-refine` and `post-refine` (P-99); REFINE_KIND, REFINE_PID, REFINE_ARGS
+# are set by cmd_refine.
+_refine_commit() {
+    local subject="$1"; shift
+    _refine_event on-refine "$REFINE_KIND" "$REFINE_PID" "$*" "" "${REFINE_ARGS[@]}"
+    plans_commit "$subject" "$@" || exit 1
+    _refine_event post-refine "$REFINE_KIND" "$REFINE_PID" "$*" "$(git -C "$PLANS_DIR" rev-parse --short HEAD)" "${REFINE_ARGS[@]}"
 }
 
 cmd_refine() {
@@ -3796,6 +3867,20 @@ cmd_refine() {
         echo "❌ [Refine] Usage: aapp refine <plan-id> \"<what changed>\" | <plan-id> blocked <num> | <plan-id> unblocked <num> | <plan-id> slug <new-slug> | <plan-id> closes <num> [remove] | pickup \"<msg>\" | issues \"<msg>\" [branch <num> <name>]" >&2
         exit 1
     fi
+    # P-99: the kind of refine, for the owner check and the `refine` events.
+    REFINE_ARGS=("${@:2}"); REFINE_PID=""
+    case "$query" in
+        pickup|issues) REFINE_KIND="$query" ;;
+        *)
+            REFINE_KIND=message
+            case "$msg" in unblocked|closes|slug|group|blocked) [ $# -ge 3 ] && REFINE_KIND="$msg" ;; esac
+            plan_file="$(resolve_plan_file "$query" "refine")" || exit 1
+            REFINE_PID="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" | head -n 1)"
+            [ -n "$REFINE_PID" ] || REFINE_PID="$query"
+            case "$REFINE_KIND" in message|slug) _refine_owner_check "$plan_file" "$REFINE_PID" ;; esac
+            ;;
+    esac
+    _refine_event pre-refine "$REFINE_KIND" "$REFINE_PID" "" "" "${REFINE_ARGS[@]}"
     # P-50: ledger targets are reserved words, checked before plan resolution
     # (the resolver's file-name match would send `pickup` to a plan named *pickup*).
     case "$query" in
@@ -3851,7 +3936,7 @@ cmd_refine() {
     if aapp_is_group_plan "$plan_file"; then
         _group_stamp_sections "$plan_file" || exit 1
     fi
-    plans_commit "$subject" "$rel" || exit 1
+    _refine_commit "$subject" "$rel"
     sha="$(git -C "$PLANS_DIR" rev-parse --short HEAD)" || exit 1
     echo "📝 [Refine] $plan_id committed ($sha): $msg"
 }

@@ -763,6 +763,39 @@ got=FAIL; [ "$rc" -ne 0 ] && ! archived "$id" && got=PASS
 report "test gate: watchdog timeout refuses" "PASS" "$got" "$out"
 cd "$R" || exit 1
 
+echo "== refine events (P-99) =="
+RF="$R/rf"
+init_sandbox_project "$RF"
+cd "$RF" || exit 1
+git add -A && git commit -qm "track init files" --no-verify
+mkdir -p .agents/hooks .agents/skills/aapp-hooks
+printf '#!/usr/bin/env bash\ncat > /dev/null\n[ ! -f "%s/rf-veto" ]\n' "$R" > .agents/hooks/rf-pre.sh
+printf '#!/usr/bin/env bash\ncat > /dev/null\n[ ! -f "%s/rf-fail" ]\n' "$R" > .agents/hooks/rf-on.sh
+printf '#!/usr/bin/env bash\ncat > "%s/rf-post.json"\n' "$R" > .agents/hooks/rf-post.sh
+chmod +x .agents/hooks/rf-*.sh
+{ aapp hook-hash .agents/hooks/rf-pre.sh pre-refine 10 gate 2>/dev/null | grep "^pre-refine"
+  aapp hook-hash .agents/hooks/rf-on.sh on-refine 10 gate 2>/dev/null | grep "^on-refine"
+  aapp hook-hash .agents/hooks/rf-post.sh post-refine 10 notify 2>/dev/null | grep "^post-refine"; } > .agents/skills/aapp-hooks/registry.tsv
+rid="P-$(git config aapp.planId)"; aapp draft rf-plan >/dev/null 2>&1
+rpf="$(ls .plans/current/P"${rid#P-}"-*.md)"
+head0="$(git -C .plans rev-parse HEAD)"
+echo "* note one" >> "$rpf"; touch "$R/rf-veto"
+rc=0; out="$(aapp refine "$rid" "note one" 2>&1)" || rc=$?; rm -f "$R/rf-veto"
+got=FAIL; [ "$rc" -ne 0 ] && [ "$(git -C .plans rev-parse HEAD)" = "$head0" ] && echo "$out" | grep -qF "pre-refine" && got=PASS
+report "test_pre_refine_gate_vetoes_the_refine" "PASS" "$got" "$out"
+touch "$R/rf-fail"
+rc=0; out="$(aapp refine "$rid" "note one" 2>&1)" || rc=$?; rm -f "$R/rf-fail"
+got=FAIL; [ "$rc" -ne 0 ] && [ "$(git -C .plans rev-parse HEAD)" = "$head0" ] && echo "$out" | grep -qF "on-refine" && got=PASS
+report "test_on_refine_failure_commits_nothing" "PASS" "$got" "$out"
+rm -f "$R/rf-post.json"
+rc=0; out="$(aapp refine "$rid" "note one" 2>&1)" || rc=$?
+sha="$(git -C .plans rev-parse --short HEAD)"; pj="$(cat "$R/rf-post.json" 2>/dev/null)"
+got=FAIL
+if [ "$rc" -eq 0 ] && echo "$pj" | grep -qF "\"plan_id\": \"$rid\"" && echo "$pj" | grep -qF '"kind": "message"' && \
+   echo "$pj" | grep -qF "\"commit\": \"$sha\"" && echo "$pj" | grep -qF '"note one"'; then got=PASS; fi
+report "test_post_refine_receives_kind_and_commit" "PASS" "$got" "rc=$rc out=$out json=$pj"
+cd "$R" || exit 1
+
 echo "============================================================"
 echo "📊 Results: $PASS passed, $FAIL failed"
 echo "============================================================"

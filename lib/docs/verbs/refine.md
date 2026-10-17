@@ -12,7 +12,8 @@
 - `issues "<msg>" branch <num> <name>` (P-78): names the branch active issue `#<num>`'s fix must land on, then commits the ledgers as `issues "<msg>"` does; the development branch clears the cell
 - `issues "<msg>" note <num> "<text>"` (P-74, repeatable): adds a note to active issue `#<num>`, dated, with its author. Notes are never in the ledger or in Git: a provider that names `notes` in `handled` keeps them, otherwise the kit's store on this machine does. With no other change nothing is committed
 - reads: the plan file and the `plans` worktree status; with `blocked`, `.plans/ISSUES.md`
-- reads config: `aapp.pickupTitleMax` (default 72: the longest pickup title, `refine pickup`, P-96); `aapp.subjectMaxLen` (default 72, the `commit-msg` gate's limit); `aapp.aiAttribution` and the `AAPP_AGENT_*` identity, applied by the plans commit engine (`plans_commit`)
+- reads: the caller's checkout and its active-plan buffer, the plan's `* **Worktree:**`, its group plan's Status and `* **Members:**` (the owner check, P-99)
+- reads config: the lifecycle hook registry for `pre-refine`, `on-refine`, `post-refine` (P-99); `aapp.pickupTitleMax` (default 72: the longest pickup title, `refine pickup`, P-96); `aapp.subjectMaxLen` (default 72, the `commit-msg` gate's limit); `aapp.aiAttribution` and the `AAPP_AGENT_*` identity, applied by the plans commit engine (`plans_commit`)
 
 ## Preconditions
 - Inside a Git repository whose `.plans/` worktree exists
@@ -21,6 +22,8 @@
 
 ## Failure modes
 - missing `id` or message -> exit 1, stderr `Usage: aapp refine <plan-id> "<what changed>" | aapp refine <plan-id> blocked <num>`
+- message or `slug` form on a plan in development from another checkout than its own (P-99) -> exit 1, stderr `<id> is in development; only <owner> amends it.` and what to do instead (tell the developer, `aapp issue log`, a pickup line); nothing committed. The owner is the plan's recorded worktree, else the checkout whose active-plan buffer holds it. In a group in development every plan of the group, started or not, and the group plan itself are refined only from a checkout bound to a plan of that group (a member's worktree, or `aapp active <group>`). The verb-written forms (`blocked`, `unblocked`, `closes`, `group`) are not owner-checked
+- a `pre-refine` gate or an `on-refine` handler refusing -> exit 1, stderr `The <event> hook refused; nothing committed.` (P-99)
 - `blocked` with a non-numeric issue -> exit 1, stderr `Usage: aapp refine <plan-id> blocked <num>`
 - `id` resolves to no active plan -> exit 1, stderr `Plan '<id>' not found`
 - `slug`: new slug empty after normalisation, target file exists, same name, or the plan file has uncommitted edits -> exit 1 naming the cause; nothing moves
@@ -51,6 +54,7 @@
 - `pickup` / `issues`: one commit of only the ledger files, `pickup: <msg>` or `issue(triage): <msg>`, subject checked like any refine
 - `state_matrix.md` is not touched by the message, `blocked` and `unblocked` forms: `aapp matrix` re-derives it (`aapp refine <id> blocked <num> && aapp matrix`)
 - the configured attribution is applied to the commit
+- every form fires `pre-refine` before anything is committed (gate), `on-refine` just before the plans commit (in-transaction) and `post-refine` after it (observer), payload `plan_id` (empty for `pickup` / `issues`), `kind` (`message`, `blocked`, `unblocked`, `closes`, `slug`, `group`, `pickup`, `issues`), `args` (the arguments after the target), `files` (the plans paths of the commit; empty for `pre-refine`) and, for `post-refine`, `commit` (P-99)
 - stdout ends with `📝 [Refine] <id> committed (<sha>): <what changed>`
 - sourcing `lib/cmd_plan.sh` with `AAPP_PLAN_LIB_ONLY=1` defines `plan_block_on <plan_file> <num>` (write-only: no commit, no matrix) without running a command
 
@@ -87,3 +91,10 @@ Run: `aapp test verb refine`
 - `tests/verbs/refine.sh::test_refine_joins_and_leaves_group` -> join and leave each in one commit; refused once the plan is started (P-64)
 - `tests/verbs/refine.sh::test_issues_refuses_text_in_fix_cell` -> notes in a fix cell: refused, naming the row, nothing committed (P-66)
 - `tests/verbs/refine.sh::test_issues_accepts_plan_and_blocks_links` -> an empty cell and a `blocks [P-xx](…)` link pass (P-66)
+- `tests/verbs/refine.sh::test_refine_plan_in_development_refused_elsewhere` -> from the main checkout: exit 1 naming the worktree and `aapp issue log`; the edit stays uncommitted (P-99)
+- `tests/verbs/refine.sh::test_refine_plan_in_development_from_its_worktree` -> from the plan's worktree the refine commits (P-99)
+- `tests/verbs/refine.sh::test_refine_verb_written_kind_not_owner_checked` -> `closes` is not refused by the owner check (P-99)
+- `tests/verbs/refine.sh::test_refine_group_plans_only_from_the_group` -> an unstarted member of a group in development: refused from the main checkout, committed from another member's worktree (P-99)
+- `tests/hooks_test.sh::test_pre_refine_gate_vetoes_the_refine` -> a `pre-refine` gate exiting 1: exit 1, nothing committed (P-99)
+- `tests/hooks_test.sh::test_on_refine_failure_commits_nothing` -> an `on-refine` handler exiting 1: exit 1, nothing committed (P-99)
+- `tests/hooks_test.sh::test_post_refine_receives_kind_and_commit` -> `post-refine` gets the plan, `kind`, `args` and the plans commit (P-99)

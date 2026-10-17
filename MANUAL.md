@@ -629,7 +629,8 @@ Transitions a refined blueprint into the Greenlight Backlog:
 - Verifies all Open Questions are answered.
 - Validates explicit `### 📂 Target Files` and `### 🛑 Out of Bounds` (enforcing Pair 5 self-protection).
 - Changes status to `🔷 Frozen` (or `🔷 Ready for Execution`) and marks Blast Radius `LOCKED`.
-- **Design-Lock Immutability**: Once frozen, the plan's specification (`## 2. Technical Blueprint`) and allowlist (`## 4. Blast Radius`) become immutable. Pre-commit strictly refuses commits altering these sections. Execution progress (`## 3.` task checkboxes, `## 5.` open questions, and `## 6.` change log) remains writable.
+- **Design-Lock Immutability**: Once frozen, the plan's specification (`## 2. Technical Blueprint`) and allowlist (`## 4. Blast Radius`) become immutable. Pre-commit strictly refuses commits altering these sections. Execution progress (`## 3.` task checkboxes, `## 5.` open questions, and `## 6.` change log) remains writable. A frozen group plan's `## Architecture & Codemap` is locked too; a correction is accepted only together with a line in its amendments member's `## Decisions` naming each changed heading, and an amendments member (`* **Kind:** amendments`) may add `### 📂 Target Files` lines, nothing else in §2 or §4 (P-99).
+- **A plan in development belongs to its checkout (P-99)**: `aapp refine` (the message and `slug` forms) changes a plan in development only from its own worktree, or, for a plan without one, from the checkout whose active plan it is. In a group in development, every plan of the group, started or not, and the group plan are refined only from a checkout bound to one of the group's plans. Anywhere else the refine is refused and says what to do instead: tell the developer (who instructs the session working the plan), log an issue, or add a pickup line. The guard is against a helpful session amending someone else's plan by accident; a second session in the same checkout cannot be told apart and is covered by the agent rules. Verb-written fields (`blocked`, `unblocked`, `closes`, `group`, commit SHAs) are not owner-checked.
 - **Unfreezing**: To revise a frozen design, revert the plan's status back to `📝 Refining` in an explicit commit before amending the blueprint.
 
 #### `/aapp-start [plan]` (or `start [plan]`) — Implementation Activation
@@ -1240,6 +1241,9 @@ AAPP wires symmetric pre-mutation quality gates, in-transaction action delegates
 | `post-done` | Observer | Post-commit | `notify` | No | Plan ID, destination archive path in `.plans/done/`, commit SHA, recorded commits array. |
 | `post-abort` | Observer | Post-commit | `notify` | No | Plan ID, archive path in `.plans/aborted/`, reason, worktree, branch, recorded commits array (P-69). |
 | `on-integrate` | Action Delegate | In-transaction | `gate` | **YES** | Action delegate (P-55): replaces built-in squash / fast-forward; `plan_id`, `plan_file`, `plan_branch`, `target_branch`, `worktree`. A refusal leaves plan archived; `aapp done <id> integrate` retries. |
+| `pre-refine` | Gate | Pre-commit | `gate` | **YES** | Every `aapp refine` (P-99): `plan_id` (empty for `pickup` / `issues`), `kind`, `args`, `files` (empty). A refusal commits nothing. |
+| `on-refine` | Action Delegate | In-transaction | `gate` | **YES** | Just before the plans commit of a refine (P-99): `plan_id`, `kind`, `args`, `files`. A refusal commits nothing (a remote record that must succeed). |
+| `post-refine` | Observer | Post-commit | `notify` | No | After the plans commit of a refine (P-99): `plan_id`, `kind`, `args`, `files`, `commit`. Logging, notifications, remote records. |
 | `post-pause` | Observer | Post-stash | `notify` | No | Pause reason, dirty worktree inventory, pause buffer path. |
 | `post-resume` | Observer | Post-restore | `notify` | No | Restored plan ID, restored worktree count, drift detected. |
 | `pre-sync` | Gate | Pre-network | `gate` | **YES** | Action (`push`/`pull`/`sync`), remote, worktrees. |

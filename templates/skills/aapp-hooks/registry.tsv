@@ -14,6 +14,9 @@
 #   post-done   - Observer after plan archival commit lands
 #   post-abort  - Observer after a plan is archived to .plans/aborted/
 #   on-integrate - Delegated plan branch integration on done (aapp.integrate = hook)
+#   pre-refine  - Quality gate before any refine commits (aborts on exit != 0)
+#   on-refine   - In-transaction action of a refine (a failure commits nothing)
+#   post-refine - Observer after a refine commit lands
 #   post-pause  - Observer after emergency pause stashes land
 #   post-resume - Observer after emergency resume restore completes
 #   pre-sync    - Quality gate before worktree sync transport runs

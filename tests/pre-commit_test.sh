@@ -650,6 +650,88 @@ check_plan_commit "editing blueprint on draft plan is permitted" PASS
 sed -i 's/src\/a\.py/src\/draft\.py/' .plans/current/p.md
 check_plan_commit "editing blast radius on draft plan is permitted" PASS
 
+# 3. P-99: a group's Architecture & Codemap, an amendments member's Target Files.
+git rm -q .plans/current/p.md && git commit -qm "drop p" >/dev/null 2>&1
+mkdir -p .plans/current
+cat > .plans/current/g.md <<'EOF'
+# 🧩 Group Plan P-2: Grp
+* **Plan ID:** P-2
+* **Status:** ⚡ In Development
+
+## 1. Goal
+Group goal.
+
+## Architecture & Codemap
+### ARCHITECTURE.md
+<!-- aapp-base: new -->
+````markdown
+## Sec One
+text one
+````
+
+## 💥 4. Blast Radius & System Boundaries
+### 📂 Target Files
+- [ ] `ARCHITECTURE.md`
+### 🛑 Out of Bounds
+
+## 📦 6. Change Log & Refinement History
+* 2026-10-17: Initial entry.
+EOF
+cat > .plans/current/a.md <<'EOF'
+# 🗺️ Plan P-3: Grp Amendments
+* **Plan ID:** P-3
+* **Kind:** amendments
+* **Group:** P-2
+* **Status:** ⚡ In Development
+
+## 2. Technical Blueprint
+Amendments.
+
+## 💥 4. Blast Radius & System Boundaries
+### 📂 Target Files
+- [ ] `src/x.py` -> approved R1
+### 🛑 Out of Bounds
+
+## 📦 6. Change Log & Refinement History
+* 2026-10-17: Initial entry.
+
+## Decisions
+EOF
+git add .plans/current/g.md .plans/current/a.md && git commit -qm "group and amendments" >/dev/null 2>&1
+BASE_COMMIT=$(git rev-parse HEAD)
+# check_plans_commit <name> <expect> <file>…: commits the given plan files.
+check_plans_commit() {
+  local name="$1" expect="$2"; shift 2
+  local f; for f in "$@"; do git add ".plans/current/$f"; done
+  local out; out=$(git commit -m "update plans" 2>&1); local rc=$?
+  local got=BLOCK; [ $rc -eq 0 ] && got=PASS
+  if [ "$got" = "$expect" ]; then
+    printf "  \033[32m✔\033[0m %-52s %s\n" "$name" "$got"; PASS=$((PASS+1))
+  else
+    printf "  \033[31m✘\033[0m %-52s want %s got %s\n" "$name" "$expect" "$got"; FAIL=$((FAIL+1))
+    echo "$out" | grep -E "❌|Violation" | head -2 | sed 's/^/       /'
+  fi
+  git reset -q --hard "$BASE_COMMIT" 2>/dev/null
+}
+sed -i 's/^text one$/text two/' .plans/current/g.md
+check_plans_commit "test_lock_group_section_change_alone_blocked" BLOCK g.md
+sed -i 's/^text one$/text two/' .plans/current/g.md
+echo "- **D1** 2026-10-17 · § Sec One · R1 · reason" >> .plans/current/a.md
+check_plans_commit "test_lock_group_section_change_with_decision_passes" PASS g.md a.md
+sed -i 's/^text one$/text two/' .plans/current/g.md
+echo "- **D1** 2026-10-17 · § Other Sec · R1 · reason" >> .plans/current/a.md
+check_plans_commit "test_lock_group_section_decision_for_other_heading_blocked" BLOCK g.md a.md
+sed -i 's/^Group goal\.$/Group goal, reworded./' .plans/current/g.md
+check_plans_commit "test_lock_group_outside_section_permitted" PASS g.md
+sed -i 's/^### 🛑 Out of Bounds$/- [ ] `src\/y.py` -> approved R2\n### 🛑 Out of Bounds/' .plans/current/a.md
+check_plans_commit "test_lock_amendments_added_target_passes" PASS a.md
+sed -i 's/src\/x\.py/src\/z.py/' .plans/current/a.md
+check_plans_commit "test_lock_amendments_changed_target_blocked" BLOCK a.md
+sed -i 's/^Amendments\.$/Amendments, reworded./' .plans/current/a.md
+check_plans_commit "test_lock_amendments_blueprint_blocked" BLOCK a.md
+sed -i 's/^### 🛑 Out of Bounds$/- [ ] `ARCHITECTURE2.md`\n### 🛑 Out of Bounds/' .plans/current/g.md
+check_plans_commit "test_lock_added_target_on_other_plan_blocked" BLOCK g.md
+
 echo "== 16. multi-agent worktree isolation & fail-closed quarantine =="
 setup
 # Mark as AAPP repo

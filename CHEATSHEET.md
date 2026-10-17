@@ -96,9 +96,9 @@ Centralizes hook triggers and plugin contracts structured around execution timin
 
 | Timing Tier | Prefix | Role & Semantics | Canonical Events |
 | :--- | :---: | :--- | :--- |
-| **Pre-Mutation Gates** | `pre-*` | **Gating**: Runs *before* disk mutation or Git commit. Exit code `0` = pass; non-zero = **hard abort** with zero state change. | `pre-freeze`, `pre-start`, `pre-done`, `pre-sync` |
-| **Action Delegates** | `on-*` | **Delegating**: Executes or replaces the core operation (e.g. custom transport). | `on-sync`, `on-pickup`, `on-digest` |
-| **Post-Mutation Observers** | `post-*` | **Observing**: Runs *after* state is securely recorded. Broadcasts telemetry or triggers downstream sync. | `post-freeze`, `post-start`, `post-done`, `post-abort`, `post-sync`, `post-pause`, `post-resume` |
+| **Pre-Mutation Gates** | `pre-*` | **Gating**: Runs *before* disk mutation or Git commit. Exit code `0` = pass; non-zero = **hard abort** with zero state change. | `pre-freeze`, `pre-start`, `pre-done`, `pre-refine`, `pre-sync` |
+| **Action Delegates** | `on-*` | **Delegating**: Executes or replaces the core operation (e.g. custom transport). | `on-start`, `on-refine`, `on-sync`, `on-pickup`, `on-digest` |
+| **Post-Mutation Observers** | `post-*` | **Observing**: Runs *after* state is securely recorded. Broadcasts telemetry or triggers downstream sync. | `post-freeze`, `post-start`, `post-done`, `post-abort`, `post-refine`, `post-sync`, `post-pause`, `post-resume` |
 
 ### Extension Management Commands
 

@@ -361,4 +361,53 @@ else
   bad "test_refine_joins_and_leaves_group" "join=$r1/$joined leave=$r2/$left started=$r3"
 fi
 
+echo "== owner of a plan in development (P-99) =="
+git add -A >/dev/null 2>&1; git commit -qm "track before worktrees" --no-verify >/dev/null 2>&1
+git config aapp.planWorktrees on; git config aapp.commitMode microcommits
+# own_plan <slug> [group]: a plan (or group member) freeze-started into its worktree.
+own_plan() {
+  local id f; id="P-$(git config aapp.planId)"
+  if [ -n "${2:-}" ]; then aapp draft "$1" group "$2" >/dev/null 2>&1; else aapp draft "$1" >/dev/null 2>&1; fi
+  f="$(ls .plans/current/P"${id#P-}"-*.md)"
+  sed -i -E "s|src/path/to/file\.ext|src/$1.sh|g; /src\/path\/to\/new_file\.ext/d; s/^\* \[ \] \*\*Question/* [x] **Question/" "$f"
+  git -C .plans commit -qam "prep $id" >/dev/null 2>&1
+  echo "$id"
+}
+o="$(own_plan owned)"; aapp freeze-start "$o" >/dev/null 2>&1
+of="$(ls .plans/current/P"${o#P-}"-*.md)"; owt="$PWD/.workspace/P${o#P-}"
+echo "* **2026-10-17:** foreign note." >> "$of"
+out="$(aapp refine "$o" "foreign note" 2>&1)"; rc=$?
+if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "only its worktree .workspace/P${o#P-} amends it" && \
+   echo "$out" | grep -qF "aapp issue log" && [ -n "$(git -C .plans status --porcelain -- "current/$(basename "$of")")" ]; then
+  ok "test_refine_plan_in_development_refused_elsewhere"
+else
+  bad "test_refine_plan_in_development_refused_elsewhere" "rc=$rc out=$out"
+fi
+out="$(cd "$owt" && aapp refine "$o" "owner note" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && git -C .plans log -1 --format=%s | grep -qF "$o owner note"; then
+  ok "test_refine_plan_in_development_from_its_worktree"
+else
+  bad "test_refine_plan_in_development_from_its_worktree" "rc=$rc out=$out"
+fi
+out="$(aapp refine "$o" closes 9999 2>&1)"; rc=$?
+if ! echo "$out" | grep -qF "amends it"; then
+  ok "test_refine_verb_written_kind_not_owner_checked"
+else
+  bad "test_refine_verb_written_kind_not_owner_checked" "rc=$rc out=$out"
+fi
+gid="P-$(git config aapp.planId)"; aapp draft owners group >/dev/null 2>&1
+gfile="$(ls .plans/current/P"${gid#P-}"-*.md)"; sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$gfile"
+git -C .plans commit -qam "prep $gid" >/dev/null 2>&1
+aapp freeze "$gid" >/dev/null 2>&1 && aapp start "$gid" base "$(git rev-parse --abbrev-ref HEAD)" >/dev/null 2>&1
+m1="$(own_plan mem-one "$gid")"; aapp freeze-start "$m1" >/dev/null 2>&1
+m2="$(own_plan mem-two "$gid")"; m2f="$(ls .plans/current/P"${m2#P-}"-*.md)"
+echo "* **2026-10-17:** note on an unstarted member." >> "$m2f"
+r1=0; out1="$(aapp refine "$m2" "unstarted note" 2>&1)" || r1=$?
+r2=0; out2="$(cd "$PWD/.workspace/P${m1#P-}" 2>&1 && aapp refine "$m2" "unstarted note" 2>&1)" || r2=$?
+if [ "$r1" -ne 0 ] && echo "$out1" | grep -qF "group $gid" && [ "$r2" -eq 0 ]; then
+  ok "test_refine_group_plans_only_from_the_group"
+else
+  bad "test_refine_group_plans_only_from_the_group" "r1=$r1 out1=$out1 r2=$r2 out2=$out2"
+fi
+
 print_test_summary "$PASS" "$FAIL"

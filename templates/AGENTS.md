@@ -114,6 +114,7 @@ Once a blueprint is frozen (`🔷 Ready for Execution`), its **design** is locke
 - **Locked Regions**: `## 2. Technical Blueprint` and `## 4. Blast Radius & System Boundaries`. Attempting to modify these sections while a plan is frozen is strictly blocked by `pre-commit`.
 - **Permitted Regions**: Task checkboxes in `## 3.` (`- [ ]` → `- [x]`), `## 5. Open Questions`, and `## 6. Change Log` remain freely editable to record execution progress and verification history.
 - **Unfreezing**: To modify a frozen blueprint or blast radius, the plan must be explicitly unfrozen first by reverting status to `📝 Refining` (with §2 and §4 untouched in that unfreeze commit).
+- **Never amend a plan in development from another checkout**: a plan in development, and every plan of a group in development, started or not, is amended only by the session working it, in its own checkout. If you see something it should change, do not change it: tell the developer, who instructs that session, or log an issue (`aapp issue log`) or add a pickup line. `aapp refine` refuses such an edit, and two sessions sharing one checkout are on their honour.
 
 ### 🔄 Clean Break Invariant & Fallback Governance
 In refactors, schema migrations, and API updates, **clean breaks are the mandatory default**:

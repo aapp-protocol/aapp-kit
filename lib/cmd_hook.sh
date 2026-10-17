@@ -31,14 +31,17 @@ print_lifecycle_events_catalog() {
     echo "     • pre-freeze    Runs before locking plan into frozen backlog spec"
     echo "     • pre-start     Runs before activating plan into ⚡ In Development"
     echo "     • pre-done      Runs before archiving plan to .plans/done/"
+    echo "     • pre-refine    Runs before any refine commits (every kind)"
     echo "     • pre-sync      Runs before synchronizing remote worktrees"
     echo ""
     echo "  2. Action Delegates (In-transaction execution, may abort or execute):"
     echo "     • on-start      Action delegate for plan start (rolls back on failure)"
+    echo "     • on-refine     In-transaction action of a refine (a failure commits nothing)"
     echo "     • on-sync       Custom transport delegate when aapp.syncStrategy = hook"
     echo ""
     echo "  3. Post-Mutation Observers (Non-blocking background or reporting):"
     echo "     • post-freeze   Runs after plan freeze commits land"
+    echo "     • post-refine   Runs after a refine commit lands"
     echo "     • post-start    Runs after plan start commits land"
     echo "     • post-done     Runs after plan done commits land"
     echo "     • post-abort    Runs after a plan is archived to .plans/aborted/"
@@ -283,7 +286,7 @@ cmd_hook_test() {
     if [ -z "$event" ]; then
         echo "❌ Error: Missing event name for hook-test." >&2
         echo "Usage: aapp hook-test <event> [plan-id]" >&2
-        echo "Available events: pre-freeze, post-freeze, pre-start, on-start, post-start, pre-done, post-done, post-abort, pre-sync, on-sync, post-sync, post-pause, post-resume" >&2
+        echo "Available events: pre-freeze, post-freeze, pre-start, on-start, post-start, pre-done, post-done, post-abort, pre-refine, on-refine, post-refine, pre-sync, on-sync, post-sync, post-pause, post-resume" >&2
         return 1
     fi
 
