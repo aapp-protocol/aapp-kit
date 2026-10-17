@@ -305,12 +305,20 @@ To provide the same architectural durability and machine-readable certainty as `
   - Ensures documentation and code cannot drift apart during future kit development.
 
 ### 2.5 Adoption Tracking Integration (`lib/adoption.sh`)
-To help teams and solo developers discover and configure lifecycle telemetry, P-104 adds an adoption checklist entry to `.plans/adoption.md`:
+To make event logging a first-class, visible recommendation during project onboarding and `aapp status`, P-104 adds an adoption checklist rule to `lib/adoption.sh` and syncs `.plans/adoption.md`:
 - **Rule ID**: `EVENT-LOG`
 - **Section**: `🛡️ Hooks & Gates`
 - **Manual Heading**: `Lifecycle Event Telemetry & Logging`
 - **Trigger**: `_trig_always`
-- **Check (`_chk_event_log`)**: Passes if any observer hook is registered under `aapp.hook.*`; otherwise remains an unticked setup task (`- [ ]`) until configured or dismissed by the user.
+- **Check (`_chk_event_log`)**: Passes (`0`) if any observer hook is configured in `git config --get-regexp '^aapp\.hook\.'`; otherwise returns `1` to keep the task open until configured or ticked by the user.
+- **Rule Array Specification (`lib/adoption.sh`)**:
+  ```bash
+  "EVENT-LOG|🛡️ Hooks & Gates|Lifecycle Event Telemetry & Logging|_trig_always|_chk_event_log|Register an observer event logger hook from examples/hooks/event-logger.sample with aapp hook-hash; tick it when you do not want one."
+  ```
+- **Rendered Onboarding Task (`.plans/adoption.md`)**:
+  ```markdown
+  - [ ] `[EVENT-LOG]` Register an observer event logger hook from examples/hooks/event-logger.sample with aapp hook-hash; tick it when you do not want one. → MANUAL: Lifecycle Event Telemetry & Logging
+  ```
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
@@ -374,3 +382,4 @@ To help teams and solo developers discover and configure lifecycle telemetry, P-
 * **2026-10-17:** Detailed the formal Event Telemetry Contract (`docs/reference/09-event-telemetry.md`), adoption tracking (`lib/adoption.sh`), extensionless hook standard (`examples/hooks/event-logger.sample`), and automated telemetry verification suite (`tests/event_telemetry_test.sh`).
 * **2026-10-17:** Unified issue lifecycle telemetry into a single `post-issue` observer event with plugin-aligned payload structure (`{"command": "issue", "event": "<step>", ...}`).
 * **2026-10-17:** Standardized the universal 2-key invariant (`command` and `event`) across all 14 kit lifecycle telemetry payloads (plan, commit, issue, pause, sync) for seamless downstream log parsing.
+* **2026-10-17:** Detailed the rendered `[EVENT-LOG]` onboarding adoption task line and check helper specification in Section 2.5.
