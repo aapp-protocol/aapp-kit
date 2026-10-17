@@ -46,18 +46,19 @@ Today, while the kit provides robust lifecycle hooks for quality gates (`mode=ga
 2. **Out-of-Repo Storage Guarantee**: Adopters lack a canonical, battle-tested sample hook that logs structured JSON Lines (`.jsonl`) strictly outside the tracked repository (e.g. in `.git/` or `~/.local/share/aapp/logs/`), ensuring that logging cannot trigger pre-commit blast radius violations or dirty the Git index.
 3. **Decoupled Architecture**: Logging must remain entirely decoupled from core kit logic. The kit's role is strictly to pump clean, uniform JSON data to `stdin` of registered hooks; the end user or team configures downstream wrappers, log shippers, or query plugins as they see fit.
 
-The goal of P-104 is to provide the canonical showcase observer hook (`examples/hooks/event-logger.sample`) and complete the kit's `post-*` lifecycle event dispatches.
+The goal of P-104 is to provide the canonical showcase observer hook (`examples/hooks/event-logger.sample`), establish the formal Event Telemetry Contract in `docs/reference/09-event-telemetry.md` (mirroring `docs/reference/08-output-json.md` and pinned by automated tests), wire in adoption tracking, and complete the kit's `post-*` lifecycle event dispatches across all domains.
 
 ---
 
 ## 2. Technical Blueprint
 
 ### 2.1 The Event Logger Showcase Hook (`examples/hooks/event-logger.sample`)
+- **Extensionless Executable**: The hook sample is named `examples/hooks/event-logger.sample` and deployed as `.agents/hooks/event-logger`. Hooks can be written in any scripting language or binary and must never mandate a `.sh` file extension.
 - **Mode**: Registered as `mode=observer` across any desired `post-*` events via `aapp hook-hash`.
 - **Zero-Pollution Storage**: Resolves destination strictly outside Git-tracked workspace:
   1. Primary default: `$(git rev-parse --git-path aapp_events.jsonl)` (resides in `.git/` or worktree gitdir; completely invisible to Git status).
   2. Override via config/env: `aapp.logFile` or `AAPP_LOG_FILE` (e.g. `~/.local/share/aapp/logs/events.jsonl`).
-- **Data Contract**: Reads JSON envelope from `stdin`, decorates with ISO-8601 UTC timestamp and PID if absent, and appends a single-line JSON (`.jsonl`) string using atomic file redirection (`>>`).
+- **Single-Line JSONL Invariant**: While `build_event_envelope` emits pretty-printed multi-line JSON, `event-logger.sample` normalizes standard input into a single unbroken line per event (compact JSONL) using pure POSIX shell constructs (e.g. `tr` or `awk`, avoiding external dependencies on `jq` or `python3`) and appends atomically via `>>`.
 - **Fail-Safe Invariant**: Exits `0` on success and logs advisory diagnostics on write failure without interrupting kit operations.
 
 ### 2.2 Standard Dispatch Envelope (`build_event_envelope`)
@@ -251,6 +252,25 @@ The kit standardizes 19 `post-*` observer events spanning all system lifecycles.
     }
     ```
 
+### 2.4 The Event Telemetry Contract (`docs/reference/09-event-telemetry.md`)
+To provide the same architectural durability and machine-readable certainty as `docs/reference/08-output-json.md`, P-104 establishes `docs/reference/09-event-telemetry.md` as the formal reference contract for all kit telemetry events.
+
+- **Contract Equality**: `09-event-telemetry.md` mirrors the format and rigor of `08-output-json.md`:
+  - Top-level YAML frontmatter (`title: Event Telemetry`, `category: reference`).
+  - Core rules governing envelope guarantees, timestamps (ISO-8601 UTC), string encoding (UTF-8), and error handling.
+  - Field-by-field specification tables (`Field | Type | Holds`) for the outer envelope, `repository` object, and all 19 event payload schemas.
+- **Contract Enforcement Test (`tests/event_telemetry_test.sh`)**:
+  - Mirroring `tests/output_json_test.sh`, an automated test suite verifies that sample payloads generated during real or simulated kit lifecycle executions match the tables defined in `docs/reference/09-event-telemetry.md`.
+  - Ensures documentation and code cannot drift apart during future kit development.
+
+### 2.5 Adoption Tracking Integration (`lib/adoption.sh`)
+To help teams and solo developers discover and configure lifecycle telemetry, P-104 adds an adoption checklist entry to `.plans/adoption.md`:
+- **Rule ID**: `EVENT-LOG`
+- **Section**: `🛡️ Hooks & Gates`
+- **Manual Heading**: `Lifecycle Event Telemetry & Logging`
+- **Trigger**: `_trig_always`
+- **Check (`_chk_event_log`)**: Passes if any observer hook is registered under `aapp.hook.*`; otherwise remains an unticked setup task (`- [ ]`) until configured or dismissed by the user.
+
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`. All new dispatches are additive observer events; existing handlers receive enriched telemetry without breaking contracts.
@@ -259,26 +279,32 @@ The kit standardizes 19 `post-*` observer events spanning all system lifecycles.
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Showcase Hook Sample
-- [ ] Task 1.1: Author `examples/hooks/event-logger.sample` conforming to observer mode, out-of-repo path resolution, and atomic JSONL append.
-- [ ] Task 1.2: Add unit tests in `tests/hooks_test.sh` verifying registration, SHA-256 verification, and payload ingestion.
+### Phase 1: Showcase Hook Sample & Adoption Rule
+- [ ] Task 1.1: Author extensionless `examples/hooks/event-logger.sample` conforming to observer mode, out-of-repo path resolution, and atomic POSIX single-line JSONL append.
+- [ ] Task 1.2: Add `EVENT-LOG` adoption rule, manual heading, and check helper in `lib/adoption.sh`.
+- [ ] Task 1.3: Add unit tests in `tests/hooks_test.sh` verifying registration, SHA-256 verification, payload ingestion, and single-line file output.
 
-### Phase 2: Completing Core Lifecycle Dispatches
+### Phase 2: Completing Core Lifecycle Dispatches Across All Domains
 - [ ] Task 2.1: Add `post-draft`, `post-active`, and `post-tdd` dispatches in `lib/cmd_plan.sh`.
 - [ ] Task 2.2: Add `post-commit` dispatch in `lib/cmd_commit.sh`.
 - [ ] Task 2.3: Add `post-issue-log`, `post-issue-queue`, `post-issue-fix`, `post-issue-close`, `post-issue-hotfix`, and `post-issue-withdraw` dispatches in `lib/cmd_issue.sh`.
 
-### Phase 3: Documentation & Verification
-- [ ] Task 3.1: Update `lib/cmd_hook.sh` and `lib/docs/verbs/hooks.md` with the full 19-event catalog and JSON payloads.
-- [ ] Task 3.2: Update `MANUAL.md` with instructions on setting up out-of-repo lifecycle event logging.
-- [ ] Task 3.3: Verify all kit test suites pass (`./aapp test quiet`).
+### Phase 3: Contract Reference, Automated Contract Tests & Documentation
+- [ ] Task 3.1: Author `docs/reference/09-event-telemetry.md` documenting the envelope, repository object, and all 19 event payload schemas in markdown tables.
+- [ ] Task 3.2: Author `tests/event_telemetry_test.sh` verifying that runtime dispatches and payload fixtures match `docs/reference/09-event-telemetry.md`.
+- [ ] Task 3.3: Update `lib/cmd_hook.sh` and `lib/docs/verbs/hooks.md` with all 19 events in help/docs.
+- [ ] Task 3.4: Update `MANUAL.md` with the Event Logger showcase, out-of-repo setup, and telemetry reference link.
+- [ ] Task 3.5: Verify all kit test suites pass (`./aapp test quiet`).
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `examples/hooks/event-logger.sample` -> Sample observer hook script for out-of-repo JSONL event logging.
+- [ ] `NEW FILE` -> `examples/hooks/event-logger.sample` -> Sample observer hook script for out-of-repo JSONL event logging (extensionless).
+- [ ] `NEW FILE` -> `docs/reference/09-event-telemetry.md` -> Reference specification documenting the event telemetry contract and schemas (mirrors `08-output-json.md`).
+- [ ] `NEW FILE` -> `tests/event_telemetry_test.sh` -> Automated contract verification test suite for event telemetry schemas.
+- [ ] `lib/adoption.sh` -> Add `EVENT-LOG` advisory rule and heading under `🛡️ Hooks & Gates`.
 - [ ] `lib/cmd_commit.sh` -> Emit `post-commit` lifecycle event after plan commit recording.
 - [ ] `lib/cmd_issue.sh` -> Emit `post-issue-*` lifecycle events (log, queue, fix, close, hotfix, withdraw).
 - [ ] `lib/cmd_plan.sh` -> Emit `post-draft`, `post-active`, and `post-tdd` lifecycle events.
@@ -295,10 +321,11 @@ The kit standardizes 19 `post-*` observer events spanning all system lifecycles.
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 — Default Out-of-Repo Path.** Should the sample default to `$(git rev-parse --git-path aapp_events.jsonl)` (repository git directory) or `~/.local/share/aapp/logs/events.jsonl` (centralized user log)? (Proposed: gitdir default with env/config override).
+* [x] **Question 1 — Default Out-of-Repo Path.** Should the sample default to `$(git rev-parse --git-path aapp_events.jsonl)` (repository git directory) or `~/.local/share/aapp/logs/events.jsonl` (centralized user log)? -> **Resolved**: Default to gitdir `$(git rev-parse --git-path aapp_events.jsonl)` (immune to workspace pollution and blast-radius guards), with configurable override via `aapp.logFile` or `AAPP_LOG_FILE`.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-17:** Plan scaffolded and authored from user requirement for decoupled, out-of-repo lifecycle event logging.
 * **2026-10-17:** Expanded Technical Blueprint with complete 19-event catalog and explicit JSON output schemas.
+* **2026-10-17:** Detailed the formal Event Telemetry Contract (`docs/reference/09-event-telemetry.md`), adoption tracking (`lib/adoption.sh`), extensionless hook standard (`examples/hooks/event-logger.sample`), and automated telemetry verification suite (`tests/event_telemetry_test.sh`).
