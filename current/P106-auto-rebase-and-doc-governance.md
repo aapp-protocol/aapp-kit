@@ -172,19 +172,19 @@ P-106 formalizes the boundary for Git's `merge=union` driver:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Automated Clean Rebase Engine
-- [ ] Task 1.1: Implement automated rebase with fail-closed abort in `_ig_check` in `lib/cmd_plan.sh` reading `aapp.autoRebase` (default `false`).
-- [ ] Task 1.2: Refresh plan header commit SHA after clean rebase before done archival.
-- [ ] Task 1.3: Add unit and integration tests in `tests/integrate_test.sh` verifying clean auto-rebase, conflict abort rollback, and default `aapp.autoRebase=false` behavior.
+- [x] Task 1.1: Implement automated rebase with fail-closed abort in `_ig_check` in `lib/cmd_plan.sh` reading `aapp.autoRebase` (default `false`).
+- [x] Task 1.2: Refresh plan header commit SHA after clean rebase before done archival.
+- [x] Task 1.3: Add unit and integration tests in `tests/integrate_test.sh` verifying clean auto-rebase, conflict abort rollback, and default `aapp.autoRebase=false` behavior.
 
 ### Phase 2: Documentation Governance Opt-Out & Onboarding Tasks
-- [ ] Task 2.1: Add `aapp.docs` check in `templates/aapp-pre-commit` to suppress documentation reminders when disabled.
-- [ ] Task 2.2: Add `SET-AUTO-REBASE` and `SET-DOCS` tasks to `lib/adoption.sh` under `⚙️ Settings to Review`, and honor `aapp.docs` config to suppress manual heading tasks when disabled.
-- [ ] Task 2.3: Add unit tests in `tests/adoption_test.sh` (checking onboarding tasks and docs bypass) and `tests/pre-commit_test.sh`.
+- [x] Task 2.1: Add `aapp.docs` check in `templates/aapp-pre-commit` to suppress documentation reminders when disabled.
+- [x] Task 2.2: Add `SET-AUTO-REBASE` and `SET-DOCS` tasks to `lib/adoption.sh` under `⚙️ Settings to Review`, and honor `aapp.docs` config to suppress manual heading tasks when disabled.
+- [x] Task 2.3: Add unit tests in `tests/adoption_test.sh` (checking onboarding tasks and docs bypass) and `tests/pre-commit_test.sh`.
 
 ### Phase 3: Reference Documentation & Manual Updates
-- [ ] Task 3.1: Author `docs/reference/10-integration-and-rebase.md` documenting integration flow, auto-rebase contract, and conflict abort mechanics.
-- [ ] Task 3.2: Update `MANUAL.md` with auto-rebase documentation, onboarding settings, and `aapp.docs` configuration guide.
-- [ ] Task 3.3: Verify all test suites pass cleanly (`./aapp test quiet`).
+- [x] Task 3.1: Author `docs/reference/10-integration-and-rebase.md` documenting integration flow, auto-rebase contract, and conflict abort mechanics.
+- [x] Task 3.2: Update `MANUAL.md` with auto-rebase documentation, onboarding settings, and `aapp.docs` configuration guide.
+- [x] Task 3.3: Verify all test suites pass cleanly (`./aapp test quiet`).
 
 ---
 
