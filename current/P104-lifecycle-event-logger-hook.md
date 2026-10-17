@@ -83,10 +83,12 @@ Every hook dispatched via `dispatch_hook "$event" "$data_json"` receives the sta
 
 The kit standardizes 14 `post-*` observer events spanning all system lifecycles, consolidating all issue operations into a unified `post-issue` event with plugin-aligned `{"command": "issue", "event": ...}` payloads. Below are the exact `data` payloads pumped out to registered hooks:
 
-#### A. Blueprint & Planning Lifecycle
+#### A. Blueprint & Planning Lifecycle (`command: "plan"`)
 1. **`post-draft`** (`cmd_draft` in `lib/cmd_plan.sh`):
    ```json
    {
+     "command": "plan",
+     "event": "draft",
      "plan_id": "P-104",
      "slug": "lifecycle-event-logger-hook",
      "plan_file": "current/P104-lifecycle-event-logger-hook.md",
@@ -96,6 +98,8 @@ The kit standardizes 14 `post-*` observer events spanning all system lifecycles,
 2. **`post-freeze`** (`cmd_freeze` / `cmd_freeze_start` in `lib/cmd_plan.sh`):
    ```json
    {
+     "command": "plan",
+     "event": "freeze",
      "plan_id": "P-102",
      "plan_file": "current/P102-group-done-lifecycle-order.md"
    }
@@ -103,6 +107,8 @@ The kit standardizes 14 `post-*` observer events spanning all system lifecycles,
 3. **`post-start`** (`cmd_start` / `cmd_freeze_start` in `lib/cmd_plan.sh`):
    ```json
    {
+     "command": "plan",
+     "event": "start",
      "plan_id": "P-102",
      "plan_file": "current/P102-group-done-lifecycle-order.md",
      "worktree": "/path/to/repo/.workspace/P102",
@@ -112,6 +118,8 @@ The kit standardizes 14 `post-*` observer events spanning all system lifecycles,
 4. **`post-refine`** (`cmd_refine` in `lib/cmd_plan.sh`, delivered by P-99):
    ```json
    {
+     "command": "plan",
+     "event": "refine",
      "plan_id": "P-101",
      "plan_file": "current/P101-group-amendments-member.md",
      "refine_kind": "request|approve|refuse|file|message|group|slug|closes|blocked",
@@ -122,6 +130,8 @@ The kit standardizes 14 `post-*` observer events spanning all system lifecycles,
 5. **`post-done`** (`cmd_done` in `lib/cmd_plan.sh`):
    ```json
    {
+     "command": "plan",
+     "event": "done",
      "plan_id": "P-97",
      "plan_file": "done/P97-pickup-metadata-split.md",
      "commit_hash": "4a7da2f",
@@ -132,6 +142,8 @@ The kit standardizes 14 `post-*` observer events spanning all system lifecycles,
 6. **`post-abort`** (`cmd_plan_abort` in `lib/cmd_plan.sh`):
    ```json
    {
+     "command": "plan",
+     "event": "abort",
      "plan_id": "P-80",
      "plan_file": "aborted/P80-experimental-feature.md",
      "target_issue": "none"
@@ -140,6 +152,8 @@ The kit standardizes 14 `post-*` observer events spanning all system lifecycles,
 7. **`post-active`** (`cmd_active` in `lib/cmd_plan.sh`):
    ```json
    {
+     "command": "plan",
+     "event": "active",
      "action": "set|swap|clear",
      "active_plan": "P-102",
      "previous_plan": "P-104"
@@ -148,16 +162,20 @@ The kit standardizes 14 `post-*` observer events spanning all system lifecycles,
 8. **`post-tdd`** (`cmd_tdd` in `lib/cmd_plan.sh`):
    ```json
    {
+     "command": "plan",
+     "event": "tdd",
      "plan_id": "P-102",
      "test_files": ["tests/verbs/done.sh"],
      "assertions_count": 4
    }
    ```
 
-#### B. Implementation & Group Landing Lifecycle
+#### B. Implementation & Group Landing Lifecycle (`command: "commit"`)
 9. **`post-commit`** (`cmd_commit` in `lib/cmd_commit.sh`):
    ```json
    {
+     "command": "commit",
+     "event": "record",
      "plan_id": "P-102",
      "commit_sha": "59e5399",
      "subject": "fix: reorder group done lifecycle to verify gate first",
@@ -170,6 +188,8 @@ The kit standardizes 14 `post-*` observer events spanning all system lifecycles,
 10. **`post-land`** (`aapp commit land` in `lib/cmd_commit.sh`, delivered by P-101):
     ```json
     {
+      "command": "commit",
+      "event": "land",
       "group_id": "P-103",
       "amendment_id": "P-101",
       "feature_branch": "feature/group-lifecycle-and-amendments",
@@ -246,6 +266,8 @@ The kit standardizes 14 `post-*` observer events spanning all system lifecycles,
 12. **`post-pause`** (`cmd_pause` in `lib/cmd_pause.sh`):
     ```json
     {
+      "command": "pause",
+      "event": "pause",
       "reason": "switching tasks",
       "shared": false
     }
@@ -253,6 +275,8 @@ The kit standardizes 14 `post-*` observer events spanning all system lifecycles,
 13. **`post-resume`** (`cmd_resume` in `lib/cmd_pause.sh`):
     ```json
     {
+      "command": "pause",
+      "event": "resume",
       "restored_count": 2,
       "drift_found": 0
     }
@@ -260,6 +284,8 @@ The kit standardizes 14 `post-*` observer events spanning all system lifecycles,
 14. **`post-sync`** (`cmd_sync` in `lib/cmd_sync.sh`):
     ```json
     {
+      "command": "sync",
+      "event": "sync",
       "action": "pull_push",
       "remote": "origin",
       "worktrees": [".plans", ".agents", ".githooks"]
@@ -272,7 +298,8 @@ To provide the same architectural durability and machine-readable certainty as `
 - **Contract Equality**: `09-event-telemetry.md` mirrors the format and rigor of `08-output-json.md`:
   - Top-level YAML frontmatter (`title: Event Telemetry`, `category: reference`).
   - Core rules governing envelope guarantees, timestamps (ISO-8601 UTC), string encoding (UTF-8), and error handling.
-  - Field-by-field specification tables (`Field | Type | Holds`) for the outer envelope, `repository` object, and all 19 event payload schemas.
+  - Field-by-field specification tables (`Field | Type | Holds`) for the outer envelope, `repository` object, and all 14 lifecycle event payload schemas.
+  - **Universal 2-Key Invariant**: Every event payload in `data` consistently carries `command` (the kit subsystem) and `event` (the lifecycle action), enabling uniform ingestion by any downstream log parser or broker.
 - **Contract Enforcement Test (`tests/event_telemetry_test.sh`)**:
   - Mirroring `tests/output_json_test.sh`, an automated test suite verifies that sample payloads generated during real or simulated kit lifecycle executions match the tables defined in `docs/reference/09-event-telemetry.md`.
   - Ensures documentation and code cannot drift apart during future kit development.
@@ -319,9 +346,11 @@ To help teams and solo developers discover and configure lifecycle telemetry, P-
 - [ ] `NEW FILE` -> `docs/reference/09-event-telemetry.md` -> Reference specification documenting the event telemetry contract and schemas (mirrors `08-output-json.md`).
 - [ ] `NEW FILE` -> `tests/event_telemetry_test.sh` -> Automated contract verification test suite for event telemetry schemas.
 - [ ] `lib/adoption.sh` -> Add `EVENT-LOG` advisory rule and heading under `🛡️ Hooks & Gates`.
-- [ ] `lib/cmd_commit.sh` -> Emit `post-commit` lifecycle event after plan commit recording.
+- [ ] `lib/cmd_commit.sh` -> Emit `post-commit` lifecycle event with `command: "commit"` and `event: "record"`.
 - [ ] `lib/cmd_issue.sh` -> Emit unified `post-issue` lifecycle event across all issue operations with `{"command": "issue", "event": ...}` payloads.
-- [ ] `lib/cmd_plan.sh` -> Emit `post-draft`, `post-active`, and `post-tdd` lifecycle events.
+- [ ] `lib/cmd_plan.sh` -> Emit planning lifecycle events with `command: "plan"` and specific `event` action.
+- [ ] `lib/cmd_pause.sh` -> Emit `post-pause` and `post-resume` lifecycle events with `command: "pause"` and specific `event` action.
+- [ ] `lib/cmd_sync.sh` -> Emit `post-sync` lifecycle event with `command: "sync"` and `event: "sync"`.
 - [ ] `lib/cmd_hook.sh` -> Add all 14 lifecycle events to available events list in `help hooks`.
 - [ ] `lib/docs/verbs/hooks.md` -> Update event documentation and payload schemas.
 - [ ] `MANUAL.md` -> Add Event Logger showcase section and telemetry guide.
@@ -344,3 +373,4 @@ To help teams and solo developers discover and configure lifecycle telemetry, P-
 * **2026-10-17:** Expanded Technical Blueprint with complete 19-event catalog and explicit JSON output schemas.
 * **2026-10-17:** Detailed the formal Event Telemetry Contract (`docs/reference/09-event-telemetry.md`), adoption tracking (`lib/adoption.sh`), extensionless hook standard (`examples/hooks/event-logger.sample`), and automated telemetry verification suite (`tests/event_telemetry_test.sh`).
 * **2026-10-17:** Unified issue lifecycle telemetry into a single `post-issue` observer event with plugin-aligned payload structure (`{"command": "issue", "event": "<step>", ...}`).
+* **2026-10-17:** Standardized the universal 2-key invariant (`command` and `event`) across all 14 kit lifecycle telemetry payloads (plan, commit, issue, pause, sync) for seamless downstream log parsing.
