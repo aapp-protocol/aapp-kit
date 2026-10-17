@@ -9,8 +9,9 @@
 * **Status:** ⚡ In Development
 * **Base:** `4a7da2f` (develop)
 * **Feature Branch:** feature/group-lifecycle-and-amendments
+* **Worktree:** .workspace/P103 (feature/group-lifecycle-and-amendments)
 * **Members:** P-101, P-102, P-99
-* **Commits:** none
+* **Commits:** `9def1ad` (feature/group-lifecycle-and-amendments)
 <!-- A group plan writes no code. `aapp start <group> [base <branch>]` cuts `feature/<slug>` from the parent
      branch; members are planned with `aapp draft <slug> group P-103` (or `aapp refine <id> group P-103`) and
      start from the feature branch. `aapp done <group>` refuses while a member is open, applies the sections
