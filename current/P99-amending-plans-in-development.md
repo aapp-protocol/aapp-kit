@@ -12,7 +12,7 @@
 * **Base:** `f50a0f0` (feature/group-lifecycle-and-amendments)
 * **Worktree:** .workspace/P99 (plan/P99-amending-plans-in-development)
 * **Group:** P-103
-* **Commits:** none
+* **Commits:** `11ab9bc` (plan/P99-amending-plans-in-development)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
