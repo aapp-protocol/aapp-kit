@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #110 | `Low` | `DOCS` | 2026-10-08 | 2026-10-18 | `0d054bf` | the MANUAL names the post-done event where it still said on-done |  |
 | #162 | `Low` | `CLI` | 2026-10-16 | 2026-10-18 | `0726230` | start and freeze-start refused for a plan bound in another worktree name the command that resumes it there |  |
 | #161 | `Low` | `TEST` | 2026-10-16 | 2026-10-17 | `cb7879b` | the ledger-access test passes its name pattern through the environment, so awk prints no escape warnings and matches a literal dot |  |
 | #167 | `Low` | `HOOK` | 2026-10-17 | 2026-10-17 | `05bc893` | the pre-done test gate sample prints one line before the tests run, naming the command and the plan it waits for |  |
