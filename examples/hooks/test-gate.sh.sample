@@ -41,6 +41,7 @@ fi
 
 log="$(mktemp)"
 trap 'rm -f "$log"' EXIT
+echo "🧪 [Test Gate] Running '$TEST_CMD' for ${plan_id} in $dir; waiting for the tests to finish…"
 bash -c "$TEST_CMD" >"$log" 2>&1
 rc=$?
 if [ "$rc" -eq 0 ]; then
