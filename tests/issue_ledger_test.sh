@@ -271,7 +271,8 @@ for f in "$KIT"/lib/*.sh "$KIT/templates/aapp-pre-commit" "$KIT/aapp"; do
   # cmd_init.sh seeds the ledgers; adoption.sh asks only whether a seeded
   # ledger is still the template; cmd_matrix.sh's road map is the matrix's.
   case "${f##*/}" in cmd_init.sh|adoption.sh|cmd_matrix.sh) continue ;; esac
-  hits="$(awk -v names="$names" -v lib="$LIB" -v f="$f" '
+  # The pattern travels by ENVIRON: `awk -v` would expand its `\.` escapes.
+  hits="$(AAPP_NAMES="$names" awk -v lib="$LIB" -v f="$f" 'BEGIN { names = ENVIRON["AAPP_NAMES"] }
       f == lib && /^# ---- Issue ledgers \(P-73\)/ { s = 1 }
       f == lib && /^# ---- end issue ledgers/ { s = 0; next }
       s { next }
