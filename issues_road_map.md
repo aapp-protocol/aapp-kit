@@ -15,4 +15,5 @@
 ### Normal
 - [ ] #162 -> `aapp start <id>` and `freeze-start` for a plan re-frozen while its worktree still holds it refuse from the main checkout ("already bound in worktree") without saying that `aapp start` run in that worktree resumes it. (queued 2026-10-17)
 - [ ] #110 -> A hook registration example still uses `on-done`, which P-23 renamed to `post-done` with no alias: a handler registered as shown never fires. Seen while drafting P-60. (queued 2026-10-17)
+- [ ] #108 -> ARCHITECTURE.md prematurely lists unbuilt features (P-38, P-59, non-existent `archive-plan.sh`) and cites 30s watchdog default where code uses 10s. (queued 2026-10-17)
 ### Low
