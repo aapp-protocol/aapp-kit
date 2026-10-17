@@ -78,12 +78,12 @@ elif ! git merge-base --is-ancestor "$IG_TARGET_BR" "$IG_PLAN_BR"; then
 fi
 ```
 
-P-106 transforms this into an **Automated Clean Rebase** with fail-closed conflict abort:
+P-106 transforms this into an **Automated Clean Rebase** governed by configuration `aapp.autoRebase` (`true` | `false`, defaulting to `false` initially for safety):
 
 ```bash
 elif ! git merge-base --is-ancestor "$IG_TARGET_BR" "$IG_PLAN_BR"; then
     local auto_rebase
-    auto_rebase="$(git config --get aapp.autoRebase 2>/dev/null || echo "true")"
+    auto_rebase="$(git config --get aapp.autoRebase 2>/dev/null || echo "false")"
     if [ "$auto_rebase" = "true" ] && [ -d "$IG_WT" ]; then
         echo "🔄 [Integrate] '$IG_PLAN_BR' diverged from '$IG_TARGET_BR'; attempting automated clean rebase..."
         if git -C "$IG_WT" rebase --autostash "$IG_TARGET_BR" >/dev/null 2>&1; then
@@ -109,9 +109,10 @@ fi
 ```
 
 #### Invariants:
-1. **P-65 Disjointness Precondition**: Because code targets are guaranteed disjoint before `start`, automated rebases succeed cleanly across independent plans without human intervention.
-2. **Atomic Abort on Conflict**: If any conflict is encountered, `git rebase --abort` runs instantly, ensuring no dirty rebase state is left behind.
-3. **Commit Metadata Refresh**: When rebase rewrites commits, the new HEAD SHA is automatically refreshed in the plan's header before archival.
+1. **Configurable Opt-In / Safe Default**: Defaults to `false` to maintain strict backwards-compatible safety. Users can activate with `git config aapp.autoRebase true`.
+2. **P-65 Disjointness Precondition**: Because code targets are guaranteed disjoint before `start`, automated rebases succeed cleanly across independent plans without human intervention.
+3. **Atomic Abort on Conflict**: If any conflict is encountered, `git rebase --abort` runs instantly, ensuring no dirty rebase state is left behind.
+4. **Commit Metadata Refresh**: When rebase rewrites commits, the new HEAD SHA is automatically refreshed in the plan's header before archival.
 
 ---
 
@@ -132,7 +133,22 @@ To support brownfield adopters and repositories using external documentation too
 
 ---
 
-### 2.3 Ledger Merge Attributes Contract (`.gitattributes`)
+### 2.3 Onboarding Checklist Tasks (`lib/adoption.sh`)
+
+To ensure adopters discover and review these settings during clone onboarding (`.plans/adoption.md`), `lib/adoption.sh` adds two review items under `⚙️ Settings to Review`:
+
+1. **Auto Rebase Setting (`SET-AUTO-REBASE`)**:
+   ```bash
+   "SET-AUTO-REBASE|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Automated clean rebase on integrate ff: \`git config aapp.autoRebase <true|false>\` (default: false)."
+   ```
+2. **Manuals & Documentation Governance Setting (`SET-DOCS`)**:
+   ```bash
+   "SET-DOCS|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Documentation governance for manuals and rules: \`git config aapp.docs <true|false>\` (default: true)."
+   ```
+
+---
+
+### 2.4 Ledger Merge Attributes Contract (`.gitattributes`)
 
 P-106 formalizes the boundary for Git's `merge=union` driver:
 
@@ -148,25 +164,25 @@ P-106 formalizes the boundary for Git's `merge=union` driver:
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Backwards Compatible`
-- **Fallback Inventory**: `aapp.autoRebase` defaults to `true` but can be set to `false` to restore legacy manual refusal behavior. `aapp.docs` defaults to `true` to preserve standard kit invariants for existing adopters.
+- **Fallback Inventory**: `aapp.autoRebase` defaults to `false` (safe-by-default, can be enabled with `git config aapp.autoRebase true`). `aapp.docs` defaults to `true` to preserve standard kit invariants for existing adopters.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Automated Clean Rebase Engine
-- [ ] Task 1.1: Implement automated rebase with fail-closed abort in `_ig_check` in `lib/cmd_plan.sh`.
+- [ ] Task 1.1: Implement automated rebase with fail-closed abort in `_ig_check` in `lib/cmd_plan.sh` reading `aapp.autoRebase` (default `false`).
 - [ ] Task 1.2: Refresh plan header commit SHA after clean rebase before done archival.
-- [ ] Task 1.3: Add unit and integration tests in `tests/integrate_test.sh` verifying clean auto-rebase, conflict abort rollback, and `aapp.autoRebase=false` opt-out.
+- [ ] Task 1.3: Add unit and integration tests in `tests/integrate_test.sh` verifying clean auto-rebase, conflict abort rollback, and default `aapp.autoRebase=false` behavior.
 
-### Phase 2: Documentation Governance Opt-Out
+### Phase 2: Documentation Governance Opt-Out & Onboarding Tasks
 - [ ] Task 2.1: Add `aapp.docs` check in `templates/aapp-pre-commit` to suppress documentation reminders when disabled.
-- [ ] Task 2.2: Add `aapp.docs` check in `lib/adoption.sh` to bypass manual heading tasks when docs governance is disabled.
-- [ ] Task 2.3: Add unit tests in `tests/adoption_test.sh` and `tests/pre-commit_test.sh` covering `aapp.docs=false`.
+- [ ] Task 2.2: Add `SET-AUTO-REBASE` and `SET-DOCS` tasks to `lib/adoption.sh` under `⚙️ Settings to Review`, and honor `aapp.docs` config to suppress manual heading tasks when disabled.
+- [ ] Task 2.3: Add unit tests in `tests/adoption_test.sh` (checking onboarding tasks and docs bypass) and `tests/pre-commit_test.sh`.
 
 ### Phase 3: Reference Documentation & Manual Updates
 - [ ] Task 3.1: Author `docs/reference/10-integration-and-rebase.md` documenting integration flow, auto-rebase contract, and conflict abort mechanics.
-- [ ] Task 3.2: Update `MANUAL.md` with auto-rebase documentation and `aapp.docs` configuration guide.
+- [ ] Task 3.2: Update `MANUAL.md` with auto-rebase documentation, onboarding settings, and `aapp.docs` configuration guide.
 - [ ] Task 3.3: Verify all test suites pass cleanly (`./aapp test quiet`).
 
 ---
@@ -176,11 +192,11 @@ P-106 formalizes the boundary for Git's `merge=union` driver:
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `NEW FILE` -> `docs/reference/10-integration-and-rebase.md` -> Reference specification documenting the automated integration and rebase contract.
 - [ ] `lib/cmd_plan.sh` -> Add automated clean rebase with conflict abort in `_ig_check`.
-- [ ] `lib/adoption.sh` -> Honor `aapp.docs` config to suppress manual heading warnings when documentation governance is disabled.
+- [ ] `lib/adoption.sh` -> Add onboarding settings tasks (`SET-AUTO-REBASE`, `SET-DOCS`) and honor `aapp.docs` config to suppress manual heading warnings when documentation governance is disabled.
 - [ ] `templates/aapp-pre-commit` -> Honor `aapp.docs` config to suppress documentation reminders.
-- [ ] `MANUAL.md` -> Document automated rebase on integrate, `aapp.docs` configuration, and ledger merge rules.
+- [ ] `MANUAL.md` -> Document automated rebase on integrate, onboarding review settings, and `aapp.docs` configuration.
 - [ ] `tests/integrate_test.sh` -> Add automated test fixtures for clean auto-rebase and conflict abort rollback.
-- [ ] `tests/adoption_test.sh` -> Add automated test fixtures verifying `aapp.docs=false` behavior.
+- [ ] `tests/adoption_test.sh` -> Add automated test fixtures verifying onboarding tasks and `aapp.docs=false` behavior.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `templates/blast-radius-guard.sh` -> Tool write guard is untouched.
@@ -190,10 +206,12 @@ P-106 formalizes the boundary for Git's `merge=union` driver:
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [x] **Question 1 — Default Behavior for Auto-Rebase.** Should `aapp.autoRebase` default to `true` (enabling seamless integration) or `false` (requiring explicit opt-in)? -> **Resolved**: Default to `true` because the P-65 disjointness invariant already guarantees non-collision of code targets; if an unforeseen conflict occurs, the engine immediately aborts (`git rebase --abort`) and reverts to the existing refusal message without data loss.
+* [x] **Question 1 — Default Behavior for Auto-Rebase.** Should `aapp.autoRebase` default to `true` (enabling seamless integration) or `false` (requiring explicit opt-in)? -> **Resolved**: Default to `false` to stay strictly on the safe side initially. Teams and adopters can enable automated rebasing via `git config aapp.autoRebase true` once comfortable with the workflow.
 * [x] **Question 2 — Union Merge Scope.** Should `ISSUES.md` ever use `merge=union`? -> **Resolved**: No. Active `ISSUES.md` has stateful mutations and relocations; `merge=union` causes ghost resurrection of closed issues. Only append-only archives (`000-archive-ledger.md`, `000-issues-archive.md`, and `CHANGELOG.md`) may use `merge=union`.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-17:** Plan initialized and scaffolded to address automated integration rebasing and brownfield documentation governance.
+* **2026-10-17:** Refined blueprint: set `aapp.autoRebase` default to `false` (safe-by-default) and added onboarding review tasks for auto-rebase and manuals in `lib/adoption.sh`.
+
