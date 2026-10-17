@@ -29,11 +29,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-103**: [`P103-group-lifecycle-and-amendments.md`](current/P103-group-lifecycle-and-amendments.md) — 🧩 Group Plan P-103: Group Lifecycle And Amendments
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-103**: [`P103-group-lifecycle-and-amendments.md`](current/P103-group-lifecycle-and-amendments.md) — 🧩 Group Plan P-103: Group Lifecycle And Amendments
 
 ---
 

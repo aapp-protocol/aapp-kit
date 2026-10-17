@@ -6,9 +6,9 @@
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
      The group's `done` writes it with the ARCHITECTURE.md commit. -->
-* **Status:** 🔷 Frozen
-* **Base:** none
-* **Feature Branch:** none
+* **Status:** ⚡ In Development
+* **Base:** `4a7da2f` (develop)
+* **Feature Branch:** feature/group-lifecycle-and-amendments
 * **Members:** P-101, P-102, P-99
 * **Commits:** none
 <!-- A group plan writes no code. `aapp start <group> [base <branch>]` cuts `feature/<slug>` from the parent
@@ -163,6 +163,7 @@ This group has no amendments member of its own: P-101 introduces it.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-17:** Group started: `feature/group-lifecycle-and-amendments` from `develop`.
 * **2026-10-17:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-16:** Group drafted with members P-101 and P-102.
 * **2026-10-17:** P-99 joined. Refined from the settled review (`.plans/pickup/p103-group-lifecycle-rfc.md`): goal, shared decisions, order P-102 → P-99 → P-101, the ARCHITECTURE.md section; Question 1 (order) answered by the review. One guide (developer): corrections go into the group plan through the amendments member. The `.agents/CODEMAP.md` sections written (plan switchboard, commit helper, briefing, hooks engine, pre-commit gate). Question 2 answered by the developer: the new ARCHITECTURE.md section is added; rule 23 of `## 🚦 4.` (the old `done` order) is shortened to a pointer by an issue logged when the group lands.
