@@ -13,4 +13,5 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
+- [ ] #167 -> The pre-done test gate prints nothing until the suite finishes, so done shows a blank pause; it should print one line first saying the tests are running and what it waits for. (queued 2026-10-17)
 ### Low
