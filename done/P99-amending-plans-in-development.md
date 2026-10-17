@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `f50a0f0` (feature/group-lifecycle-and-amendments)
 * **Worktree:** .workspace/P99 (plan/P99-amending-plans-in-development)
 * **Group:** P-103
@@ -115,6 +115,7 @@ Goal: a plan in development is amended only from its own checkout, and a refusal
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-17:** Plan implementation completed and archived to done/.
 * **2026-10-17:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted with initial findings F1–F5; design open.

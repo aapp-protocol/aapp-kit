@@ -33,7 +33,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ## ⚡ In Development (Active Implementation Context)
 
 - ⚡ **P-103**: [`P103-group-lifecycle-and-amendments.md`](current/P103-group-lifecycle-and-amendments.md) — 🧩 Group Plan P-103: Group Lifecycle And Amendments
-- ⚡ **P-99**: [`P99-amending-plans-in-development.md`](current/P99-amending-plans-in-development.md) — Amending Plans In Development
 
 ---
 
