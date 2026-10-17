@@ -30,8 +30,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-106**: [`P106-auto-rebase-and-doc-governance.md`](current/P106-auto-rebase-and-doc-governance.md) — Auto Rebase And Doc Governance
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

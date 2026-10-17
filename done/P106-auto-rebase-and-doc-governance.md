@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `0726230` (develop)
 * **Worktree:** .workspace/P106 (plan/P106-auto-rebase-and-doc-governance)
 * **Commits:** `6b37021` (plan/P106-auto-rebase-and-doc-governance)
@@ -213,6 +213,7 @@ P-106 formalizes the boundary for Git's `merge=union` driver:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-18:** Plan implementation completed and archived to done/.
 * **2026-10-18:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-17:** Plan initialized and scaffolded to address automated integration rebasing and brownfield documentation governance.
 * **2026-10-17:** Refined blueprint: set `aapp.autoRebase` default to `false` (safe-by-default) and added onboarding review tasks for auto-rebase and manuals in `lib/adoption.sh`.
