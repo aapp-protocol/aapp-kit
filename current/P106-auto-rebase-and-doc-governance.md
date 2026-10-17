@@ -1,8 +1,8 @@
 # 🗺️ Plan P-106: Auto Rebase And Doc Governance
 * **Created:** 2026-10-17 | **Last Refined:** 2026-10-17
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-106
-* **Changelog:** Changed: Auto Rebase And Doc Governance
+* **Changelog:** Added: automated clean rebase on integrate ff and configurable documentation governance (P-106)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,64 +39,161 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+During parallel plan development, worktrees (`.workspace/<plan-id>`) are isolated from one another. Under Plan P-65 (Plan Conflict Check), the kit strictly enforces that no two in-development plans may declare overlapping non-shared target files. Consequently, concurrent plan codebases are **mathematically guaranteed to be disjoint**.
+
+However, two points of friction occur at integration time and documentation governance:
+
+1. **Integration Friction on Parallel Completion (`integrate ff`)**:
+   When Plan A lands on `develop`, `develop`'s tip advances. When Plan B completes and runs `aapp done <id> integrate ff`, the kit currently halts with an error:
+   ```text
+   ❌ [Done Refusal] 'plan/P-B' does not contain 'develop'; rebase it first:
+      git -C .workspace/P-B rebase --autostash develop
+   ```
+   Because Plan B and Plan A modified disjoint code files, a `git rebase` against `develop` is guaranteed to succeed cleanly without code conflicts. Forcing human intervention or stalling autonomous agent loops on a mathematically safe operation is an unnecessary workflow bottleneck.
+
+2. **Rigid Documentation Governance for Brownfield Adopters**:
+   The kit currently mandates that code changes update `MANUAL.md`, `README.md`, or `ARCHITECTURE.md` with specific headings that match `lib/adoption.sh` rules. Mature projects and brownfield adopters often have their own documentation systems (e.g. `docs/`, VitePress, Docusaurus) or prefer modular topic files (as envisioned in P-56/P-57). Adopters need an opt-out configuration (`aapp.docsCheck` or `aapp.docs`) to disable rigid formatting enforcement without losing blast-radius protection.
+
+3. **Ledger Merge Invariant Clarification**:
+   While true append-only files (`CHANGELOG.md` under `## [Unreleased]`, `.plans/done/000-archive-ledger.md`, `.plans/done/000-issues-archive.md`) safely utilize `merge=union`, active `ISSUES.md` is **stateful** (rows update status in place and are physically relocated/deleted on archival). Active `ISSUES.md` must never use `merge=union` to prevent ghost resurrection of closed issues.
+
+### Architectural Goals:
+1. **Automated Clean Rebase on `integrate ff`**: When a plan branch does not contain the integration target, `aapp done` automatically attempts a non-interactive `git rebase --autostash`. If rebase succeeds cleanly with 0 conflicts, integration proceeds to fast-forward. If conflicts occur, it immediately aborts cleanly (`git rebase --abort`) and yields to human review with the exact diagnostic.
+2. **Configurable Documentation Enforcement (`aapp.docs`)**: Provide an explicit configuration escape hatch (`git config aapp.docs false`) to suppress pre-commit documentation reminders and adoption checklist nags for projects with external or custom documentation frameworks.
+3. **Formal Ledger Merge Attributes**: Explicitly define and test which repository files are safe for Git's `merge=union` driver and which must remain under 3-way semantic merge.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Automated Clean Rebase Engine (`lib/cmd_plan.sh` - `_ig_check`)
+
+In `_ig_check()` within `lib/cmd_plan.sh`, the current check enforces:
+```bash
+elif ! git merge-base --is-ancestor "$IG_TARGET_BR" "$IG_PLAN_BR"; then
+    echo "❌ [Done Refusal] '$IG_PLAN_BR' does not contain '$IG_TARGET_BR'; rebase it first:" >&2
+    echo "   git -C ${IG_WT} rebase --autostash $IG_TARGET_BR" >&2
+    return 1
+fi
+```
+
+P-106 transforms this into an **Automated Clean Rebase** with fail-closed conflict abort:
+
+```bash
+elif ! git merge-base --is-ancestor "$IG_TARGET_BR" "$IG_PLAN_BR"; then
+    local auto_rebase
+    auto_rebase="$(git config --get aapp.autoRebase 2>/dev/null || echo "true")"
+    if [ "$auto_rebase" = "true" ] && [ -d "$IG_WT" ]; then
+        echo "🔄 [Integrate] '$IG_PLAN_BR' diverged from '$IG_TARGET_BR'; attempting automated clean rebase..."
+        if git -C "$IG_WT" rebase --autostash "$IG_TARGET_BR" >/dev/null 2>&1; then
+            echo "✨ [Integrate] Successfully rebased '$IG_PLAN_BR' onto '$IG_TARGET_BR' (0 conflicts)."
+            # Update last commit SHA recorded in plan file after rewrite
+            local new_sha
+            new_sha="$(git -C "$IG_WT" rev-parse --short HEAD)"
+            plan_set_field "$plan_file" "Commits" "$new_sha ($IG_PLAN_BR)"
+            (cd "$PLANS_DIR" && git add "$(basename "$plan_file")" && git commit -qm "plan(rebase): update commit sha after auto-rebase" --no-verify) 2>/dev/null || true
+        else
+            # Fail-closed circuit breaker: abort immediately to leave worktree completely untouched
+            git -C "$IG_WT" rebase --abort >/dev/null 2>&1 || true
+            echo "❌ [Done Refusal] Automated rebase encountered merge conflicts; resolve manually:" >&2
+            echo "   git -C ${IG_WT} rebase --autostash $IG_TARGET_BR" >&2
+            return 1
+        fi
+    else
+        echo "❌ [Done Refusal] '$IG_PLAN_BR' does not contain '$IG_TARGET_BR'; rebase it first:" >&2
+        echo "   git -C ${IG_WT} rebase --autostash $IG_TARGET_BR" >&2
+        return 1
+    fi
+fi
+```
+
+#### Invariants:
+1. **P-65 Disjointness Precondition**: Because code targets are guaranteed disjoint before `start`, automated rebases succeed cleanly across independent plans without human intervention.
+2. **Atomic Abort on Conflict**: If any conflict is encountered, `git rebase --abort` runs instantly, ensuring no dirty rebase state is left behind.
+3. **Commit Metadata Refresh**: When rebase rewrites commits, the new HEAD SHA is automatically refreshed in the plan's header before archival.
+
+---
+
+### 2.2 Configurable Documentation Enforcement (`aapp.docs`)
+
+To support brownfield adopters and repositories using external documentation tools (VitePress, Docusaurus, MkDocs, AsciiDoc):
+
+- **Config Key**: `aapp.docs` (`true` | `false`, defaults to `true`).
+- **Pre-Commit Enforcement (`templates/aapp-pre-commit`)**:
+  When `aapp.docs=false`, the hook bypasses the reminder:
+  ```text
+  ⚠️  [Pre-Commit Reminder] Documentation (README.md, ARCHITECTURE.md, or .agents/CODEMAP.md) was not updated.
+  ```
+- **Adoption Checklist (`lib/adoption.sh`)**:
+  When `aapp.docs=false`, adoption rules targeting manual headings (e.g. `PROJECT-RULES`, `PROJECT-MAP`, `EVENT-LOG`) do not flag open tasks or require specific `MANUAL: <heading>` targets.
+- **Custom Docs Directory (`aapp.docsDir`)**:
+  Allows adopters to declare their documentation root (e.g. `git config aapp.docsDir docs`).
+
+---
+
+### 2.3 Ledger Merge Attributes Contract (`.gitattributes`)
+
+P-106 formalizes the boundary for Git's `merge=union` driver:
+
+1. **Permitted for `merge=union` (Append-Only Ledgers)**:
+   - `CHANGELOG.md` (lines appended under `## [Unreleased]`)
+   - `.plans/done/000-archive-ledger.md` (completed plan rows appended at the bottom)
+   - `.plans/done/000-issues-archive.md` (archived issue rows appended at the bottom)
+2. **Strictly Prohibited from `merge=union` (Stateful Documents)**:
+   - `ISSUES.md` (active issues are modified in-place and deleted upon archival; union merge causes ghost resurrection).
+   - `MANUAL.md`, `README.md`, `ARCHITECTURE.md` (prose structure; union merge blindly duplicates paragraphs).
+
+---
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Backwards Compatible`
+- **Fallback Inventory**: `aapp.autoRebase` defaults to `true` but can be set to `false` to restore legacy manual refusal behavior. `aapp.docs` defaults to `true` to preserve standard kit invariants for existing adopters.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Automated Clean Rebase Engine
+- [ ] Task 1.1: Implement automated rebase with fail-closed abort in `_ig_check` in `lib/cmd_plan.sh`.
+- [ ] Task 1.2: Refresh plan header commit SHA after clean rebase before done archival.
+- [ ] Task 1.3: Add unit and integration tests in `tests/integrate_test.sh` verifying clean auto-rebase, conflict abort rollback, and `aapp.autoRebase=false` opt-out.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Documentation Governance Opt-Out
+- [ ] Task 2.1: Add `aapp.docs` check in `templates/aapp-pre-commit` to suppress documentation reminders when disabled.
+- [ ] Task 2.2: Add `aapp.docs` check in `lib/adoption.sh` to bypass manual heading tasks when docs governance is disabled.
+- [ ] Task 2.3: Add unit tests in `tests/adoption_test.sh` and `tests/pre-commit_test.sh` covering `aapp.docs=false`.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Reference Documentation & Manual Updates
+- [ ] Task 3.1: Author `docs/reference/10-integration-and-rebase.md` documenting integration flow, auto-rebase contract, and conflict abort mechanics.
+- [ ] Task 3.2: Update `MANUAL.md` with auto-rebase documentation and `aapp.docs` configuration guide.
+- [ ] Task 3.3: Verify all test suites pass cleanly (`./aapp test quiet`).
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `docs/reference/10-integration-and-rebase.md` -> Reference specification documenting the automated integration and rebase contract.
+- [ ] `lib/cmd_plan.sh` -> Add automated clean rebase with conflict abort in `_ig_check`.
+- [ ] `lib/adoption.sh` -> Honor `aapp.docs` config to suppress manual heading warnings when documentation governance is disabled.
+- [ ] `templates/aapp-pre-commit` -> Honor `aapp.docs` config to suppress documentation reminders.
+- [ ] `MANUAL.md` -> Document automated rebase on integrate, `aapp.docs` configuration, and ledger merge rules.
+- [ ] `tests/integrate_test.sh` -> Add automated test fixtures for clean auto-rebase and conflict abort rollback.
+- [ ] `tests/adoption_test.sh` -> Add automated test fixtures verifying `aapp.docs=false` behavior.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/blast-radius-guard.sh` -> Tool write guard is untouched.
+- [ ] `lib/aapp-lib.sh` -> Core path resolver and parser functions untouched.
+- [ ] `lib/cmd_issue.sh` -> Active issue workflow is untouched.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [x] **Question 1 — Default Behavior for Auto-Rebase.** Should `aapp.autoRebase` default to `true` (enabling seamless integration) or `false` (requiring explicit opt-in)? -> **Resolved**: Default to `true` because the P-65 disjointness invariant already guarantees non-collision of code targets; if an unforeseen conflict occurs, the engine immediately aborts (`git rebase --abort`) and reverts to the existing refusal message without data loss.
+* [x] **Question 2 — Union Merge Scope.** Should `ISSUES.md` ever use `merge=union`? -> **Resolved**: No. Active `ISSUES.md` has stateful mutations and relocations; `merge=union` causes ghost resurrection of closed issues. Only append-only archives (`000-archive-ledger.md`, `000-issues-archive.md`, and `CHANGELOG.md`) may use `merge=union`.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-17:** Plan initialized from `pickup.md`.
-* **2026-10-17:** Refined blast radius and locked module boundaries.
+* **2026-10-17:** Plan initialized and scaffolded to address automated integration rebasing and brownfield documentation governance.
