@@ -73,9 +73,7 @@
 │   ├── sync_test.sh       # Remote worktree synchronization & transport tests
 │   ├── plan_resolver_test.sh # Plan ID resolution, pairs 4, 5, 6
 │   └── ai_attribution_test.sh # Switchboard, trailers, Option C notes, credits
-├── scripts/               # Migration, maintenance, and release automation utilities
-│   ├── archive-plan.sh    # Plan lifecycle archival helper
-│   ├── kit-on-release.sh  # Kit self-release hook automating template delimiter sync (P-59)
+├── scripts/               # Migration and maintenance utilities
 │   └── scrub-attribution.sh # Attribution migration & SHA repair utility
 ├── .plans/                # Isolated planning worktree (mounted on branch 'plans')
 │   ├── current/           # Active blueprints (P<N>-<slug>.md)
@@ -137,7 +135,7 @@ Autonomous agent execution of lifecycle hooks is governed by a strict 5-layer de
 - **Layer 1 (PreToolUse Write Interception):** `.githooks/blast-radius-guard` blocks agent edits to hook engine components and `.agents/skills/*` out-of-bounds.
 - **Layer 2 (Authoritative Pre-Commit Boundary):** `.githooks/aapp-pre-commit` rejects unauthorized changes staged outside active plan blast radius.
 - **Layer 3 (Cryptographic SHA-256 Pinning):** `.agents/skills/aapp-hooks/registry.tsv` pins handler SHAs. In `mode=gate`, any unpinned, missing, or altered handler causes immediate execution refusal with exit code 1.
-- **Layer 4 (Watchdog Timeout & Sandboxed Execution):** All hooks run under a deterministic process watchdog timeout (default 30s, terminating with exit code 124) with isolated environments (`stdin` JSON envelope + exported `AAPP_*` metadata).
+- **Layer 4 (Watchdog Timeout & Sandboxed Execution):** All hooks run under a deterministic process watchdog timeout (`aapp.hookTimeout`, default 10s, terminating with exit code 124) with isolated environments (`stdin` JSON envelope + exported `AAPP_*` metadata).
 
 ### Documentation & Contracts
 

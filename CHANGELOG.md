@@ -86,6 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- ARCHITECTURE.md lists only the scripts that exist and gives the hook watchdog default as 10s (aapp.hookTimeout) (`#108`)
 - the MANUAL names the post-done event where it still said on-done (`#110`)
 - start and freeze-start refused for a plan bound in another worktree name the command that resumes it there (`#162`)
 - the ledger-access test passes its name pattern through the environment, so awk prints no escape warnings and matches a literal dot (`#161`)
