@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #167 | `Low` | `HOOK` | 2026-10-17 | 2026-10-17 | `05bc893` | the pre-done test gate sample prints one line before the tests run, naming the command and the plan it waits for |  |
 | #166 | `Low` | `DOCS` | 2026-10-17 | 2026-10-17 | `414e5f9` | [P-105](P105-architecture-rules-as-headings.md) - Architecture Rules As Headings |  |
 | #165 | `Medium` | `CORE` | 2026-10-16 | 2026-10-17 | `f50a0f0` | [P-102](P102-group-done-lifecycle-order.md) - Group Done Lifecycle Order |  |
 | #160 | `Low` | `CLI` | 2026-10-16 | 2026-10-16 | `4a7da2f` | [P-97](P97-draft-from-pickup-title.md) - Draft From Pickup Title |  |
