@@ -4,7 +4,6 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #162 | `Low` | `CLI` | 2026-10-16 | `lib/cmd_plan.sh` | `aapp start <id>` and `freeze-start` for a plan re-frozen while its worktree still holds it refuse from the main checkout ("already bound in worktree") without saying that `aapp start` run in that worktree resumes it. |  | 🟡 `Incubated` |
 | #159 | `Medium` | `HOOK` | 2026-10-16 | `templates/aapp-pre-commit` | The pre-commit hook blocks commits on an adopter's own files with language checks (`bash -n`, Python syntax, `php -l`, JSON under `schema/`); adopter checks belong in the local hook (`templates/pre-commit`). |  | 🟡 `Incubated` |
 | #146 | `Low` | `CLI` | 2026-10-13 | `lib/cmd_init.sh` | `aapp init` deletes and recreates every skill directory and its `.claude/skills` link, even when unchanged: an open IDE drops the skills from its prompt until it is reloaded. |  | 🟡 `Incubated` |
 | #143 | `Low` | `CORE` | 2026-10-13 | `templates/blast-radius-guard.sh`, `lib/planning_health.sh` | Guard self-protection covers `.agents/skills/aapp-*` only: the `aapp` start skill (P-87) in `.agents/skills/aapp/` and `.claude/skills/aapp/` is not protected. |  | 🟡 `Incubated` |
