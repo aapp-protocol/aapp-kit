@@ -1663,6 +1663,7 @@ cmd_freeze_start() {
     holding_wt="$(find_worktree_holding_plan "$plan_id")" || true
     if [ -n "$holding_wt" ]; then
         echo "❌ [Freeze-Start Refusal] Plan '$plan_id' is already bound in worktree '$holding_wt'." >&2
+        echo "   Resume it there: cd $holding_wt && aapp freeze-start $plan_id" >&2
         exit 1
     fi
 
@@ -2004,6 +2005,7 @@ cmd_start() {
     holding_wt="$(find_worktree_holding_plan "$plan_id")" || true
     if [ -n "$holding_wt" ]; then
         echo "❌ [Start Refusal] Plan '$plan_id' is already bound in worktree '$holding_wt'." >&2
+        echo "   Resume it there: cd $holding_wt && aapp start $plan_id" >&2
         exit 1
     fi
 
