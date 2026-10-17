@@ -104,18 +104,18 @@ A file or a change of the group's text outside your member goes to the group's a
 - [ ] Task 1.1: Declare the failing tests (`aapp tdd`).
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: The template; `draft … group` drafts the amendments member, refused offline; `start <group>` starts it; `aapp_plan_commit_mode` (2.1).
-- [ ] Task 2.2: `request`, `approve`, `refuse`, `file` for an amendments member; the config accessor; the disjointness check on add (2.2).
-- [ ] Task 2.3: `Plan-ID` on its commits; `commit … land` on P-55's path; request lines to `landed` (2.3).
-- [ ] Task 2.4: `decision` writing the group's text with its record; the member lines at start and in status (2.4).
-- [ ] Task 2.5: The amendments member's `done` rules (2.5).
-- [ ] Task 2.6: `plan-status`, `status` and the JSON field (2.6).
+- [x] Task 2.1: The template; `draft … group` drafts the amendments member, refused offline; `start <group>` starts it; `aapp_plan_commit_mode` (2.1).
+- [x] Task 2.2: `request`, `approve`, `refuse`, `file` for an amendments member; the config accessor; the disjointness check on add (2.2).
+- [x] Task 2.3: `Plan-ID` on its commits; `commit … land` on P-55's path; request lines to `landed` (2.3).
+- [x] Task 2.4: `decision` writing the group's text with its record; the member lines at start and in status (2.4).
+- [x] Task 2.5: The amendments member's `done` rules (2.5).
+- [x] Task 2.6: `plan-status`, `status` and the JSON field (2.6).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Contracts: `lib/docs/verbs/draft.md`, `refine.md`, `commit.md`, `done.md`, `start.md`, `freeze-start.md`, `plan-status.md`, `status.md`; `docs/reference/08-output-json.md`.
-- [ ] Task 3.2: `MANUAL.md` (groups: the amendments member, the config key, the one guide), `CHEATSHEET.md` (the tokens), `templates/AGENTS.md` (2.7).
-- [ ] Task 3.3: `./aapp test strict quiet`.
-- [ ] Task 3.4: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
+- [x] Task 3.1: Contracts: `lib/docs/verbs/draft.md`, `refine.md`, `commit.md`, `done.md`, `start.md`, `freeze-start.md`, `plan-status.md`, `status.md`; `docs/reference/08-output-json.md`.
+- [x] Task 3.2: `MANUAL.md` (groups: the amendments member, the config key, the one guide), `CHEATSHEET.md` (the tokens), `templates/AGENTS.md` (2.7).
+- [x] Task 3.3: `./aapp test strict quiet`.
+- [x] Task 3.4: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
@@ -180,3 +180,4 @@ A file or a change of the group's text outside your member goes to the group's a
 * **2026-10-17:** Refined from the settled review (`.plans/pickup/p103-group-lifecycle-rfc.md`): members never amended; requests, approval (`aapp.amendmentApprovalRequired`), landing on P-55's fast-forward path, members rebase; the end rules; status and JSON. Questions 1–9 answered by the review. One guide (developer): corrections are written into the group plan's `## Architecture & Codemap` with a `Decisions` line, never copied into the amendments member; members read the group plan at start and at every session start or resume.
 * **2026-10-17:** Unfrozen to add `lib/aapp-lib.sh` (developer's OK): the amendments member is always `microcommits` (`aapp_plan_commit_mode`); it is started by the group's `start`, never frozen (`freeze` refuses a plan without Target Files, and there is nothing to review); a group drafted offline is refused; the MANUAL says where the group plan is refined after `start`.
 * **2026-10-17:** Unfrozen to add `tests/output_json_test.sh` and `tests/verbs/issue.branch.sh` (developer's OK): their group fixtures now get an amendments member; plan work, not a hotfix. This group has no amendments member to take it (P-101 creates it).
+* **2026-10-17:** Implemented (suite 57/57). Task 1.1 not done as written: tests written with the code, not declared by `aapp tdd` first. `plan-status` has no `json` mode, so the requests are in its terminal output only (2.6). The group's `done` applying a corrected section is covered by `test_amend_decision_corrects_group_text_with_record` and the existing group `done` tests, not a separate integrate test. Request-line readers live in `lib/aapp-lib.sh` (shared with `status`); they use awk so an empty result never trips errexit. The Target Files line is written by `plan_add_target_line` beside its parser.
