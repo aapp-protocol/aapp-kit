@@ -8,10 +8,10 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `9def1ad` (develop)
 * **Worktree:** .workspace/P105 (plan/P105-architecture-rules-as-headings)
-* **Commits:** `8946aaf` (plan/P105-architecture-rules-as-headings)
+* **Commits:** `414e5f9` (develop)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -97,6 +97,7 @@ Goal: every rule its own heading, grouped by topic, no numbers; rule 23 brought 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-17:** Plan implementation completed and archived to done/.
 * **2026-10-17:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-17:** File renamed from P105-architecture-rule-23-pointer.md to P105-architecture-rules-as-headings.md.
 *Tracks how the plan evolved across sessions.*
