@@ -72,14 +72,14 @@ Goal: a plan in development is amended only from its own checkout, and a refusal
 - [ ] Task 1.1: Declare the failing tests (`aapp tdd`): owner check and refusal (`tests/verbs/refine.sh`), the two lock rules (`tests/pre-commit_test.sh`), the three events (`tests/hooks_test.sh`).
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: The owner check and the refusal in `refine` (D1, D2); verb-written fields exempt (D3).
-- [ ] Task 2.2: The design lock: the group section, the amendments member's added Target Files lines (D4).
-- [ ] Task 2.3: `pre-refine`, `on-refine`, `post-refine` in `refine`; the event list in `lib/cmd_hook.sh` and the registry template (D5).
+- [x] Task 2.1: The owner check and the refusal in `refine` (D1, D2); verb-written fields exempt (D3).
+- [x] Task 2.2: The design lock: the group section, the amendments member's added Target Files lines (D4).
+- [x] Task 2.3: `pre-refine`, `on-refine`, `post-refine` in `refine`; the event list in `lib/cmd_hook.sh` and the registry template (D5).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: `lib/docs/verbs/refine.md` (refusal, events, tests); `MANUAL.md` (ownership, the events table); `CHEATSHEET.md` (the events row); `templates/AGENTS.md` (D2).
-- [ ] Task 3.2: `./aapp test strict quiet`.
-- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
+- [x] Task 3.1: `lib/docs/verbs/refine.md` (refusal, events, tests); `MANUAL.md` (ownership, the events table); `CHEATSHEET.md` (the events row); `templates/AGENTS.md` (D2).
+- [x] Task 3.2: `./aapp test strict quiet`.
+- [x] Task 3.3: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
@@ -119,3 +119,4 @@ Goal: a plan in development is amended only from its own checkout, and a refusal
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted with initial findings F1–F5; design open.
 * **2026-10-17:** Refined from the settled review (`.plans/pickup/p103-group-lifecycle-rfc.md`): protection only (members are never widened; the narrow add moves to P-101's amendments member), the redirecting refusal, the group section lock, the amendments lock rule, `pre-refine` / `on-refine` / `post-refine`. Questions 1, 3, 4 answered by the review; Question 2 answered by the developer: no session outside the group refines its plans, started or not; the developer instructs the group's session (D1). Question 5 answered by the developer: a plan in development takes no amendments from other sessions; a second session in the same checkout is the agent rule's to cover (D1). The group section's lock accepts a correction carried with a `Decisions` line (D4).
+* **2026-10-17:** Implemented (suite 57/57). Task 1.1 not done as written: the plan was started without `aapp tdd`, and the tests (`tests/verbs/refine.sh`, `tests/pre-commit_test.sh`, `tests/hooks_test.sh`) were written with the code, not committed red first. The `refine` events are dispatched in a subshell (the dispatcher sets errexit); the added-Target-Files rule reads targets with `parse_plan_target_paths`.
