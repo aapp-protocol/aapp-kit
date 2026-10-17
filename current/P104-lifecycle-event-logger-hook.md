@@ -46,13 +46,13 @@ Today, while the kit provides robust lifecycle hooks for quality gates (`mode=ga
 2. **Out-of-Repo Storage Guarantee**: Adopters lack a canonical, battle-tested sample hook that logs structured JSON Lines (`.jsonl`) strictly outside the tracked repository (e.g. in `.git/` or `~/.local/share/aapp/logs/`), ensuring that logging cannot trigger pre-commit blast radius violations or dirty the Git index.
 3. **Decoupled Architecture**: Logging must remain entirely decoupled from core kit logic. The kit's role is strictly to pump clean, uniform JSON data to `stdin` of registered hooks; the end user or team configures downstream wrappers, log shippers, or query plugins as they see fit.
 
-The goal of P-104 is to provide the canonical showcase observer hook (`examples/hooks/event-logger.sh.sample`) and complete the kit's `post-*` lifecycle event dispatches.
+The goal of P-104 is to provide the canonical showcase observer hook (`examples/hooks/event-logger.sample`) and complete the kit's `post-*` lifecycle event dispatches.
 
 ---
 
 ## 2. Technical Blueprint
 
-### 2.1 The Event Logger Showcase Hook (`examples/hooks/event-logger.sh.sample`)
+### 2.1 The Event Logger Showcase Hook (`examples/hooks/event-logger.sample`)
 - **Mode**: Registered as `mode=observer` across any desired `post-*` events via `aapp hook-hash`.
 - **Zero-Pollution Storage**: Resolves destination strictly outside Git-tracked workspace:
   1. Primary default: `$(git rev-parse --git-path aapp_events.jsonl)` (resides in `.git/` or worktree gitdir; completely invisible to Git status).
@@ -80,7 +80,7 @@ The kit's verb modules are updated to dispatch observer hooks on state mutations
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Showcase Hook Sample
-- [ ] Task 1.1: Author `examples/hooks/event-logger.sh.sample` conforming to observer mode, out-of-repo path resolution, and atomic JSONL append.
+- [ ] Task 1.1: Author `examples/hooks/event-logger.sample` conforming to observer mode, out-of-repo path resolution, and atomic JSONL append.
 - [ ] Task 1.2: Add unit tests in `tests/hooks_test.sh` verifying registration, SHA-256 verification, and payload ingestion.
 
 ### Phase 2: Completing Core Lifecycle Dispatches
@@ -98,7 +98,7 @@ The kit's verb modules are updated to dispatch observer hooks on state mutations
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `examples/hooks/event-logger.sh.sample` -> Sample observer hook script for out-of-repo JSONL event logging.
+- [ ] `NEW FILE` -> `examples/hooks/event-logger.sample` -> Sample observer hook script for out-of-repo JSONL event logging.
 - [ ] `lib/cmd_commit.sh` -> Emit `post-commit` lifecycle event after plan commit recording.
 - [ ] `lib/cmd_issue.sh` -> Emit `post-issue-log`, `post-issue-fix`, and `post-issue-close` lifecycle events.
 - [ ] `lib/cmd_plan.sh` -> Emit `post-draft` lifecycle event in `cmd_draft`.
