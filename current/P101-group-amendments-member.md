@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** 📝 Refining
 * **Base:** `11ab9bc` (feature/group-lifecycle-and-amendments)
 * **Worktree:** .workspace/P101 (plan/P101-group-amendments-member)
 * **Group:** P-103
