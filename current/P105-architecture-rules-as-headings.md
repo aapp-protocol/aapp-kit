@@ -70,9 +70,9 @@ Goal: every rule its own heading, grouped by topic, no numbers; rule 23 brought 
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-- [ ] Task 1: Rewrite `## 🚦 4.` as topic and rule headings (§2); update Plan Groups and the one cross-reference.
-- [ ] Task 2: Check: 30 rules before and after, each rule's text unchanged except the two in §2 (diff of the rule bodies).
-- [ ] Task 3: `./aapp test strict quiet`.
+- [x] Task 1: Rewrite `## 🚦 4.` as topic and rule headings (§2); update Plan Groups and the one cross-reference.
+- [x] Task 2: Check: 30 rules before and after, each rule's text unchanged except the two in §2 (diff of the rule bodies).
+- [x] Task 3: `./aapp test strict quiet`.
 
 ---
 
