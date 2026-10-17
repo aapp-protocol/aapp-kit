@@ -72,21 +72,21 @@ The docs commit stays its own commit on the feature branch: a group integrates b
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Failing tests
-- [ ] Task 1.1: In `tests/integrate_test.sh`, replace `test_group_done_commits_architecture_before_gate_codemap_after_merge` with:
+- [x] Task 1.1: In `tests/integrate_test.sh`, replace `test_group_done_commits_architecture_before_gate_codemap_after_merge` with:
   - `test_group_done_gate_veto_leaves_no_docs_commit` -> a `pre-done` veto: exit 1, the feature branch tip unchanged, nothing archived.
   - `test_group_done_commits_docs_after_gate` -> the `ARCHITECTURE.md` sections and umbrella entry are absent at `pre-done` and committed after it; `pre-done`'s `commit_hash` is the feature branch tip.
   - `test_group_done_precommit_refusal_restores_worktree` -> a pre-commit refusing the docs commit: exit 1, the worktree clean (a new `ARCHITECTURE.md` removed), nothing archived; a retry succeeds.
   - `test_group_done_codemap_before_cleanup` -> the CODEMAP lines are printed before `🧹 [Cleanup]`, and the `.agents` commit exists when cleanup runs.
 
 ### Phase 2: Implementation
-- [ ] Task 2.1: `_group_done_prepare` keeps the checks and the parent merge; the section application and docs commit move to a step after `pre-done` (2.1.3), with the restore.
-- [ ] Task 2.2: The recorded-commits check and the `pre-done` payload for a group (2.1.2); the P-54 clean check before any section is applied.
-- [ ] Task 2.3: `_ig_run` applies CODEMAP for a group between the integration and `_ig_cleanup` (2.1.4).
+- [x] Task 2.1: `_group_done_prepare` keeps the checks and the parent merge; the section application and docs commit move to a step after `pre-done` (2.1.3), with the restore.
+- [x] Task 2.2: The recorded-commits check and the `pre-done` payload for a group (2.1.2); the P-54 clean check before any section is applied.
+- [x] Task 2.3: `_ig_run` applies CODEMAP for a group between the integration and `_ig_cleanup` (2.1.4).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: `lib/docs/verbs/done.md`: the group line, the replaced test names.
-- [ ] Task 3.2: `MANUAL.md`: the group's `done` order.
-- [ ] Task 3.3: `./aapp test strict quiet`.
+- [x] Task 3.1: `lib/docs/verbs/done.md`: the group line, the replaced test names.
+- [x] Task 3.2: `MANUAL.md`: the group's `done` order.
+- [x] Task 3.3: `./aapp test strict quiet`.
 
 ---
 
