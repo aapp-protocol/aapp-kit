@@ -1,8 +1,8 @@
 # 🗺️ Plan P-101: Group Amendments Member
-* **Created:** 2026-10-16 | **Last Refined:** 2026-10-16
+* **Created:** 2026-10-16 | **Last Refined:** 2026-10-17
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-101
-* **Changelog:** Added: every group has an amendments member that takes the changes found during development, so the other members stay as frozen (P-101)
+* **Changelog:** Added: every group has an amendments member that takes the files and decisions development finds, with approval, landing and status, so members stay as frozen (P-101)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,43 +40,58 @@
 ---
 
 ## 1. Context & Architectural Goal
-> **Early draft, for review between agents.** §2 holds findings and options as starting points, not decisions. The aim of the review is the safest design that changes the least of the kit; anything here may be replaced.
+A group's members meet, during development, what their frozen plans did not foresee: a file outside the member (a test elsewhere asserting the behaviour the member changes), a decision that replaces group text, late scope. Today each means unfreezing the member, editing it and starting it again, and any session can do it.
 
-Groups P-72 and P-91 showed that a group's members meet unknowns during development that their frozen plans did not foresee:
-- **A file outside the member.** P-93 broke `tests/verbs/issue.provider.sh`, P-100 broke `tests/verbs/status.sh`: tests outside the member's Target Files that assert behaviour the member changes. Each time the member went back to Refining, the file was added, the member was frozen and started again, with the developer's OK.
-- **Decisions that replace the group's text.** The group's §2 is design-locked while it is in development, and a started group cannot be restarted (`start` refuses to reuse the feature branch). P-100's change of the JSON stream rule was recorded in the group's §6 instead of §2.
-- **Late scope.** P-100 itself: work that became visible only once P-94 existed.
-
-Today each of these reaches into a plan in development. That is the risk P-99 addresses from the other side: a plan in development belongs to its owner, and other sessions must not change it.
-
-Goal: every group has one more member, its **amendments member**, which takes what development finds: files outside a member, decisions that replace group text, late follow-ups. The other members are never amended after freeze. The amendments member is the one place a scope change is asked for, approved by the developer, recorded and made.
+Goal: every group has one more member, its **amendments member**, the one place where what development finds is requested, approved, recorded and made. Members are never amended after start (P-99 protects them); their sessions request, the amendments member implements and lands on the feature branch, members rebase. The group gets one ordered record of what its planning missed. Review: `.plans/pickup/p103-group-lifecycle-rfc.md` (C12–C14, C16, C17, C20–C28, A6, A7, A9–A11; user decisions in its §4; settled 2026-10-17). Builds on P-99 (owner-only refine, the lock rule for `Kind: amendments`, the `refine` events).
 
 ---
 
 ## 2. Technical Blueprint
 
-### 2.1 Findings (starting points)
-- **A1 — The member.** A group's amendments member is an ordinary member plan (`* **Group:** <id>`), marked `* **Kind:** amendments` in its header. It starts with no Target Files and these sections, kept apart from the plan template's: `Scope requests` (one line per request: date, the member that needs it, the file, why, the developer's OK), `Decisions` (what replaces group text, naming the group section), `Follow-ups` (work found late that no member needs to land). The rest is the plan template.
-- **A2 — Created with the group.** `aapp draft <slug> group` drafts the group and its amendments member (`<slug>-amendments`) in one commit. The group's `Members:` lists it last. Whether this is automatic or asked for with a token is Question 1.
-- **A3 — Runs beside the members.** It starts after the group, on the feature branch, like a member, and stays ⚡ In Development until the last other member is archived. The existing disjointness gate keeps it apart: a file it takes on cannot be one an active member lists, since a request is by definition for a file outside the member.
-- **A4 — A file is added only by request.** An agent that needs a file outside its member writes the request in the amendments member's `Scope requests` and asks the developer. With the OK the file is added to the amendments member's Target Files, never to the member's. The add is P-99's narrow, owner-only step (`refine <id> file <path> "<reason>"`, F1/F2), from the amendments member's own checkout. Without P-99 it is the unfreeze route; see Question 7.
-- **A5 — The change lands before the member needs it.** The amendments member commits the change and lands it where the member picks it up; then the member's suite passes and its `done` goes through. Where it lands is Question 2: on the feature branch (the member rebases, as members already do) or on the member's branch.
-- **A6 — Order is already enforced.** A member's `done … integrate ff` needs its branch to hold the feature branch's tip: a member that did not rebase after an amendment landed is refused by the existing fast-forward. Only the message may need to name the amendment (Question 5).
-- **A7 — The group's end.** The group's `done` refuses while a member is open, as today. The amendments member is archived last, after the others; one that collected nothing is dropped instead of archived (Question 4).
-- **A8 — Architecture & Codemap stay in the group plan.** That section is not locked, and the group's `done` applies it. Moving it into the amendments member would change `done`; left for later (Question 8).
-- **A9 — What it does not change.** Members' plans, the design lock, the pre-commit hook and the write guard stay as they are: the amendments member is a plan like any other, with its own Target Files. Single checkout (`aapp.planWorktrees off`): Question 6.
+### 2.1 The member
+- **Created with the group.** `aapp draft <slug> group` drafts the group and `<slug>-amendments` in one commit, from `templates/amendments-template.md`: header `* **Kind:** amendments`, `* **Commit Mode:** microcommits`, `* **Group:** <id>`; no Target Files; sections `## Scope Requests`, `## Decisions`, `## Follow-ups`, all outside §2 and §4. It has no `## Architecture & Codemap`: the group plan is the one guide (2.4). The group's `* **Members:**` lists it last.
+- **Started after the group**, on the feature branch, in its own worktree, like any member (groups need worktrees: `_member_group_check`). It stays ⚡ In Development until every other member is archived. A session working in its worktree is its owner (P-99 D1).
+- `templates/group-template.md` §3 names it as the last member.
 
-### 2.2 Kit changes, as few as possible
-- `lib/cmd_plan.sh`: `draft … group` drafts the amendments member too; the group's `done` drops an empty amendments member; the landing step of A5 (its shape is Question 3).
-- `templates/amendments-template.md` (new): the three sections of A1 over the plan template's header, or a block appended to the plan template when the member is drafted (Question 1).
-- `templates/group-template.md`: §3 names the amendments member as the last.
-- `templates/AGENTS.md`: the rule for agents: a file outside your member is a scope request in the group's amendments member, asked of the developer; never amend a member in development.
-- Docs: `lib/docs/verbs/draft.md`, `lib/docs/verbs/done.md`, the contract of the landing step, `MANUAL.md` (groups), `CHEATSHEET.md`, `ARCHITECTURE.md`.
+### 2.2 Requests and approval
+- **A request.** `aapp refine <amend-id> request "<summary>" [file <path> | heading "<heading>"]`, run from the checkout of a member of the same group: the kit appends one line to `## Scope Requests`, the requester taken from that checkout's bound plan; refused from anywhere else, and for a requester outside the group. A member asks for itself, never for another. The member's plan is never touched.
+- **Line and states.** `- **R<n>** <date> · P-<requester> · <target> · <summary> — <state>`; `<target>` is `` `<path>` `` or `§ <heading>`; `<state>` is `pending`, `approved (<approver>)`, `refused: <reason>`, `landed \`<sha>\`` (a file) or `applied` (a heading, 2.4). Only verbs move a state.
+- **`aapp.amendmentApprovalRequired`** (`true` | `false`, default `true`; one accessor, refused naming the key on any other value).
+  - `true`: `refine <amend-id> approve <n>` approves `R<n>`, records the approver (the `agent`/`vendor`/`model` tokens when given, else `git config user.name`) and adds the request's file to the amendments member's `### 📂 Target Files`, the change P-99's lock accepts. A person or a managing agent approves; the kit does not check which. `refine <amend-id> refuse <n> "<reason>"` refuses it. `refine <amend-id> file …` is refused, naming `approve`.
+  - `false`: the owner adds a file with `refine <amend-id> file <path> "<reason>"`; requests remain a record.
+  - Both: an added file is refused when an active member lists it (the disjointness gate otherwise runs only at `start`).
+- **No new gate.** A file without an approved request is not in the Target Files: the write guard refuses the edit, pre-commit the commit.
+- **What the verbs print.** `request` with approval required: "R<n> recorded, waiting for approval. Do not implement `<path>`; continue with your own Target Files, or stop." `approve`: "`<path>` added to <amend-id>'s Target Files; implement it in `<worktree>`." `refuse`: the reason. Each kind fires P-99's `refine` events.
+
+### 2.3 Landing
+- `aapp commit` in an amendments member adds the trailer `Plan-ID: <amend-id>` to its commits.
+- `aapp commit "<msg>" land` commits and lands; `aapp commit land` lands what is committed. Run in the amendments member's worktree only. Landing moves the feature branch to the amendments member's tip by P-55's path: `_ig_preflight` (refuses "rebase first" when the branch lacks the feature branch tip) and the `merge --ff-only` of `_ig_run`, without archive or cleanup; never `git branch -f`. No test gate: an amendment may expect a member's work (a test landed ahead, turned green by that member).
+- An approved request whose file the landed commits touch becomes `landed` with the last such commit.
+- The output names the members whose branch lacks the new tip: they rebase (`git rebase --autostash <feature branch>`); a member's `done … integrate ff` already refuses until they do.
+- A landed test that asserts a member's behaviour makes other members' gates wait for that member: the order is visible in status (2.6), not prevented.
+
+### 2.4 One guide: correcting the group's text
+- The group plan's `## Architecture & Codemap` is the one guide members code from. A correction is written into it, never copied into the amendments member.
+- In the amendments member's worktree, the corrected section is edited in the group plan; then `aapp refine <amend-id> decision <n> "<reason>"` (approval required: `R<n>` is an approved `heading` request) or `aapp refine <amend-id> decision "<heading>" "<reason>"` (approval not required) commits, in one plans commit, the group plan and a line in `## Decisions`: `- **D<k>** <date> · § <heading> · R<n> · <reason>`. `R<n>` becomes `applied`.
+- Refused when the group plan's change touches anything but that heading's section, when the request is not approved, and outside the amendments member's worktree. P-99's lock accepts the group section change only with that `Decisions` line.
+- A corrected section keeps its base line, so the group's `done` applies it as any other. The group plan is current throughout, and its archived copy shows what was implemented; `git -C .plans log -p` on it shows each change, the `Decisions` line why.
+- Members read it at the two moments an agent reads: `aapp start` / `freeze-start` of a member prints "Member of group <id>: read its `## Architecture & Codemap` in `<group plan>` before coding."; `aapp status` in a checkout bound to a member prints "Bound to <id>, member of group <gid>: re-read the group's `## Architecture & Codemap` before continuing." (the `/aapp` skill runs it at every session start and resume). A correction made while an agent is mid-session reaches it at its next start or resume.
+
+### 2.5 The end
+- The amendments member's `done` refuses while another member of the group is open, and while a request is `pending`, or `approved` but not landed or applied, listing them.
+- With no recorded commit it is archived when every request was refused or applied, or none was made; the ledger's commit column is `none`, never the repository's `HEAD` (`cmd_done`'s fallback).
+
+### 2.6 Status and plan-status
+- `aapp plan-status <amend-id>` (and its `json`) lists the requests with their states.
+- `aapp status` shows the amendments member under its group: "<k> requests wait for approval: aapp plan-status <amend-id>" (only when approval is required) and "<m> landed; P-<x> must rebase onto <feature branch>". Next Action names waiting requests first.
+- JSON: the amendments member's object gets `requests` (`pending`, `approved`, `refused`, `landed`, `applied` counts) and `must_rebase` (member ids); documented in `docs/reference/08-output-json.md` (an added field keeps the version).
+
+### 2.7 Agent rule (`templates/AGENTS.md`)
+A file or a change of the group's text outside your member goes to the group's amendments member as a request; after a request, do not touch its file until `aapp plan-status` shows it approved; continue with your own Target Files, or stop. Rebase when a landing names your member. The group plan's `## Architecture & Codemap` is your guide: read it when your member starts and at every session start or resume.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
@@ -84,20 +99,21 @@ Goal: every group has one more member, its **amendments member**, which takes wh
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Foundation & Setup
-- [ ] Task 1.1: Settle the open questions in the review; then declare the failing tests (`aapp tdd`).
+- [ ] Task 1.1: Declare the failing tests (`aapp tdd`).
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `draft … group` drafts the amendments member; the template.
-- [ ] Task 2.2: The landing step (Question 2, 3).
-- [ ] Task 2.3: The group's `done` and the empty amendments member.
-- [ ] Task 2.4: The agent rule; the contracts and docs.
+- [ ] Task 2.1: The template; `draft … group` drafts the amendments member (2.1).
+- [ ] Task 2.2: `request`, `approve`, `refuse`, `file` for an amendments member; the config accessor; the disjointness check on add (2.2).
+- [ ] Task 2.3: `Plan-ID` on its commits; `commit … land` on P-55's path; request lines to `landed` (2.3).
+- [ ] Task 2.4: `decision` writing the group's text with its record; the member lines at start and in status (2.4).
+- [ ] Task 2.5: The amendments member's `done` rules (2.5).
+- [ ] Task 2.6: `plan-status`, `status` and the JSON field (2.6).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.1: Contracts: `lib/docs/verbs/draft.md`, `refine.md`, `commit.md`, `done.md`, `start.md`, `freeze-start.md`, `plan-status.md`, `status.md`; `docs/reference/08-output-json.md`.
+- [ ] Task 3.2: `MANUAL.md` (groups: the amendments member, the config key, the one guide), `CHEATSHEET.md` (the tokens), `templates/AGENTS.md` (2.7).
+- [ ] Task 3.3: `./aapp test strict quiet`.
+- [ ] Task 3.4: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
@@ -108,38 +124,47 @@ Goal: every group has one more member, its **amendments member**, which takes wh
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-*(Proposed, to be settled with the questions.)*
-- [ ] `lib/cmd_plan.sh` -> `draft … group` with the amendments member; the group's `done`; the landing step.
-- [ ] `NEW FILE` -> `templates/amendments-template.md` -> the amendments member's sections.
+- [ ] `lib/cmd_plan.sh` -> `draft … group`; `request`/`approve`/`refuse`/`file`/`decision`; the member line at start; the amendments member's `done`; `plan-status`.
+- [ ] `lib/cmd_commit.sh` -> `Plan-ID` on its commits; `land`.
+- [ ] `lib/cmd_status.sh` -> the amendments lines, Next Action, the JSON field.
+- [ ] `NEW FILE` -> `templates/amendments-template.md` -> the amendments member.
 - [ ] `templates/group-template.md` -> §3 names the amendments member.
-- [ ] `templates/AGENTS.md` -> the scope-request rule.
+- [ ] `templates/AGENTS.md` -> the agent rule (2.7).
 - [ ] `lib/docs/verbs/draft.md` -> `draft … group` and the amendments member.
-- [ ] `lib/docs/verbs/done.md` -> the group's `done` and the empty amendments member.
-- [ ] `MANUAL.md` -> groups: the amendments member.
-- [ ] `CHEATSHEET.md` -> the landing step.
-- [ ] `ARCHITECTURE.md` -> groups: the amendments member.
+- [ ] `lib/docs/verbs/refine.md` -> `request`, `approve`, `refuse`, `file`, `decision`.
+- [ ] `lib/docs/verbs/commit.md` -> `land`, the trailer.
+- [ ] `lib/docs/verbs/done.md` -> the amendments member's `done`.
+- [ ] `lib/docs/verbs/start.md` -> the member line at start.
+- [ ] `lib/docs/verbs/freeze-start.md` -> the member line at start.
+- [ ] `lib/docs/verbs/plan-status.md` -> the requests.
+- [ ] `lib/docs/verbs/status.md` -> the amendments lines.
+- [ ] `docs/reference/08-output-json.md` -> `requests`, `must_rebase`.
+- [ ] `tests/verbs/draft.sh` -> the amendments member drafted with the group.
+- [ ] `tests/verbs/refine.sh` -> requests, approval, refusal, the config key, `decision` (the group plan and its `Decisions` line in one commit; refused outside the heading's section).
+- [ ] `tests/verbs/commit.sh` -> the trailer, `land` (fast-forward only, refusal without the tip).
+- [ ] `tests/verbs/done.sh` -> pending requests refused, the empty member archived with `none`.
+- [ ] `tests/verbs/plan-status.sh` -> the requests.
+- [ ] `tests/verbs/status.sh` -> the amendments lines and the JSON field.
+- [ ] `tests/verbs/start.group.sh` -> the member line at start.
+- [ ] `tests/integrate_test.sh` -> the group's `done` applying a corrected section.
+- [ ] `MANUAL.md` -> groups: the amendments member, `aapp.amendmentApprovalRequired`.
+- [ ] `CHEATSHEET.md` -> the tokens.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `templates/aapp-pre-commit` -> the design lock stays as it is.
+- [ ] `templates/aapp-pre-commit` -> its lock rule for `Kind: amendments` is P-99's.
 - [ ] `templates/blast-radius-guard.sh` -> the write guard stays as it is.
+- [ ] `lib/group_docs.sh` -> reused as it is.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — Always, or asked for?** (a) every `draft … group` drafts the amendments member; (b) a bare token asks for it (`draft <slug> group amendments`); (c) the first scope request drafts it. And: its own template file, or a block appended to the plan template?
-* [ ] **Question 2 — Where an amendment lands.** (a) On the feature branch: the member rebases, as members already do; between landing and the member's `done` the feature branch may carry a test that expects the member's work (red for that window, harmless with one member at a time, checked at the group's `done`). (b) On the member's branch: the feature branch is never red, but the amendment travels inside the member's integration, and a member made for an issue is squashed at `done`, folding the amendment into the member's commit and losing its own record.
-* [ ] **Question 3 — The landing step's shape.** No new verb. Candidates: a token on `aapp commit` (`commit "<msg>" land`), a token on `aapp done` (`done <id> integrate keep-open`), or reusing the issue-fix landing (`issue close` lands one commit and keeps nothing open). Which existing mechanism it mirrors, and whether it runs the test gate (with Question 2 (a) the gate would fail by design).
-* [ ] **Question 4 — The empty amendments member.** Dropped by the group's `done` without a trace, archived as empty, or aborted (`plan abort`) by the group's `done`?
-* [ ] **Question 5 — Messages.** Does a member's refused `done` (not rebased onto a landed amendment) need a message naming the amendment, or is the fast-forward refusal enough?
-* [ ] **Question 6 — Single checkout.** With `aapp.planWorktrees off` two plans in development share one checkout: does the amendments member work there at all (the active-plan buffer holds one plan), or does a group always use worktrees?
-* [ ] **Question 7 — Order with P-99.** A4 relies on P-99's narrow, owner-only `refine <id> file`. Does this plan wait for P-99, or carry its own narrow step (which P-99 would then reuse)?
-* [ ] **Question 8 — Architecture & Codemap.** Keep them in the group plan (A8), or move them into the amendments member later?
-* [ ] **Question 9 — Who may write a request.** Any session writes into the amendments member's `Scope requests` (it is the one place for them), or only its owner, with requests passed to it another way? This is where P-99's ownership rule meets this plan.
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-16:** Drafted from groups P-72 and P-91: an amendments member per group; early draft for review between agents. Related: P-99 (who may amend a plan in development).
+* **2026-10-16:** Drafted from groups P-72 and P-91: an amendments member per group; early draft for review between agents.
+* **2026-10-17:** Refined from the settled review (`.plans/pickup/p103-group-lifecycle-rfc.md`): members never amended; requests, approval (`aapp.amendmentApprovalRequired`), landing on P-55's fast-forward path, members rebase; the end rules; status and JSON. Questions 1–9 answered by the review. One guide (developer): corrections are written into the group plan's `## Architecture & Codemap` with a `Decisions` line, never copied into the amendments member; members read the group plan at start and at every session start or resume.
