@@ -686,6 +686,68 @@ fi
 # ------------------------------------------------------------------------------
 # 2b. FROZEN PLAN IMMUTABILITY & DESIGN-LOCK ENFORCEMENT (#68)
 # ------------------------------------------------------------------------------
+# lock_only_added_targets <head-sec4> <index-sec4> <index-plan>: true when the
+# index only adds Target Files lines to §4 (P-99, an amendments member's approved
+# file); the targets are read by the one parser, parse_plan_target_paths.
+lock_only_added_targets() {
+    local d removed added targets l p tmp
+    d="$(diff <(printf '%s\n' "$1") <(printf '%s\n' "$2"))"
+    removed="$(printf '%s\n' "$d" | grep '^< ')"
+    added="$(printf '%s\n' "$d" | sed -n 's/^> //p')"
+    [ -z "$removed" ] && [ -n "$added" ] || return 1
+    tmp="$(mktemp)" || return 1
+    printf '%s\n' "$3" > "$tmp"
+    targets="$(parse_plan_target_paths "$tmp")"
+    rm -f "$tmp"
+    while IFS= read -r l; do
+        printf '%s\n' "$l" | grep -qE '^- \[[ x]\] `' || return 1
+        p="$(printf '%s\n' "$l" | sed -nE 's/^- \[[ x]\] `([^`]+)`.*/\1/p')"
+        [ -n "$p" ] && printf '%s\n' "$targets" | grep -qxF -- "$p" || return 1
+    done <<< "$added"
+}
+
+# _lock_group_fences: a group plan on stdin -> one line per fenced section of
+# its `## Architecture & Codemap` (`<heading>\t<body>`), and `@outside\t<text>`
+# for the lines outside the fences; base lines are left out (P-99).
+_lock_group_fences() {
+    awk '
+        /^## Architecture & Codemap/ { sec = 1; next }
+        sec && /^## / && !infence { sec = 0 }
+        !sec { next }
+        /^<!-- aapp-base: / && !infence { next }
+        /^````/ { if (infence) { print key "\t" body; infence = 0 } else { infence = 1; key = ""; body = "" } next }
+        infence { if (key == "" && $0 != "") key = $0; body = body "\037" $0; next }
+        $0 != "" { out = out "\037" $0 }
+        END { print "@outside\t" out }
+    '
+}
+
+# lock_group_section_violation <staged> <head> <index>: empty when the group's
+# `## Architecture & Codemap` is unchanged, or each changed section's heading is
+# named by a line added to `## Decisions` of the group's amendments member,
+# staged in the same commit; otherwise what was changed.
+lock_group_section_violation() {
+    local staged="$1" gid changed h f ic added="" missing=""
+    changed="$(comm -3 <(printf '%s\n' "$2" | _lock_group_fences | sort -u) <(printf '%s\n' "$3" | _lock_group_fences | sort -u) | sed "s/^$(printf '\t')//" | cut -f1 | sort -u)"
+    [ -n "$changed" ] || return 0
+    if printf '%s\n' "$changed" | grep -qx '@outside'; then
+        echo "the group's ## Architecture & Codemap (text outside its sections)"; return 0
+    fi
+    gid="$(printf '%s\n' "$2" | sed -nE 's/^\* \*\*Plan ID:\*\*[[:space:]]*(P-[0-9]+).*/\1/p' | head -n 1)"
+    for f in "${STAGED_FILES[@]}"; do
+        [ "$(dirname "$f")" = "$(dirname "$staged")" ] && [ "$f" != "$staged" ] || continue
+        ic="$(git show ":$f" 2>/dev/null)" || continue
+        printf '%s\n' "$ic" | grep -qE '^\* \*\*Kind:\*\*[[:space:]]*amendments[[:space:]]*$' || continue
+        printf '%s\n' "$ic" | grep -qE "^\* \*\*Group:\*\*[[:space:]]*$gid[[:space:]]*$" || continue
+        added="$(diff <(git show "HEAD:$f" 2>/dev/null) <(printf '%s\n' "$ic") | sed -n 's/^> //p' | grep -E '^- \*\*D[0-9]+\*\*')"
+    done
+    while IFS= read -r h; do
+        h="$(printf '%s' "$h" | sed -E 's/^#+[[:space:]]*//')"
+        printf '%s\n' "$added" | grep -qF -- "$h" || missing="${missing:+$missing, }$h"
+    done <<< "$changed"
+    [ -z "$missing" ] || echo "the group's ## Architecture & Codemap (no Decisions line in its amendments member for: $missing)"
+}
+
 for STAGED in "${STAGED_FILES[@]}"; do
     case "$STAGED" in
         .plans/current/*.md|current/*.md)
@@ -731,6 +793,21 @@ for STAGED in "${STAGED_FILES[@]}"; do
             DESIGN_VIOLATION="$DESIGN_VIOLATION and Section 4 (Blast Radius & System Boundaries)"
         else
             DESIGN_VIOLATION="Section 4 (Blast Radius & System Boundaries)"
+        fi
+    fi
+
+    # P-99: an amendments member may add Target Files lines, nothing else in §4.
+    if [ "$HEAD_SEC4" != "$INDEX_SEC4" ] && [ "$HEAD_SEC2" = "$INDEX_SEC2" ] && \
+       printf '%s\n' "$INDEX_CONTENT" | grep -qE '^\* \*\*Kind:\*\*[[:space:]]*amendments[[:space:]]*$' && \
+       lock_only_added_targets "$HEAD_SEC4" "$INDEX_SEC4" "$INDEX_CONTENT"; then
+        DESIGN_VIOLATION=""
+    fi
+    # P-99: a group's `## Architecture & Codemap` is locked like §2 and §4; a
+    # correction is accepted with its line in the amendments member's Decisions.
+    if printf '%s\n' "$HEAD_CONTENT" | grep -q '^# 🧩 Group Plan'; then
+        GROUP_VIOLATION="$(lock_group_section_violation "$STAGED" "$HEAD_CONTENT" "$INDEX_CONTENT")"
+        if [ -n "$GROUP_VIOLATION" ]; then
+            DESIGN_VIOLATION="${DESIGN_VIOLATION:+$DESIGN_VIOLATION and }$GROUP_VIOLATION"
         fi
     fi
 
