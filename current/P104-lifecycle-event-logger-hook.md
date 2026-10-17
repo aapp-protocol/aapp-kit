@@ -1,8 +1,8 @@
 # 🗺️ Plan P-104: Lifecycle Event Logger Hook
 * **Created:** 2026-10-17 | **Last Refined:** 2026-10-17
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-104
-* **Changelog:** Changed: Lifecycle Event Logger Hook
+* **Changelog:** Added: sample observer event logger hook and post-* lifecycle telemetry (P-104)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,64 +39,86 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+Autonomous agents and multi-session teams require comprehensive visibility into development and planning lifecycles (plan transitions, code commits, issue progression) without violating repository portability or corrupting Git history.
+
+Today, while the kit provides robust lifecycle hooks for quality gates (`mode=gate`), telemetry across observer events (`mode=observer`) has notable gaps:
+1. **Missing Observer Dispatches**: While `freeze`, `start`, `done`, `abort`, `pause`, and `sync` emit `post-*` events, key actions like `draft`, `commit`, and `issue` transitions (`log`, `queue`, `fix`, `close`) emit no generic lifecycle events.
+2. **Out-of-Repo Storage Guarantee**: Adopters lack a canonical, battle-tested sample hook that logs structured JSON Lines (`.jsonl`) strictly outside the tracked repository (e.g. in `.git/` or `~/.local/share/aapp/logs/`), ensuring that logging cannot trigger pre-commit blast radius violations or dirty the Git index.
+3. **Decoupled Architecture**: Logging must remain entirely decoupled from core kit logic. The kit's role is strictly to pump clean, uniform JSON data to `stdin` of registered hooks; the end user or team configures downstream wrappers, log shippers, or query plugins as they see fit.
+
+The goal of P-104 is to provide the canonical showcase observer hook (`examples/hooks/event-logger.sh.sample`) and complete the kit's `post-*` lifecycle event dispatches.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 The Event Logger Showcase Hook (`examples/hooks/event-logger.sh.sample`)
+- **Mode**: Registered as `mode=observer` across any desired `post-*` events via `aapp hook-hash`.
+- **Zero-Pollution Storage**: Resolves destination strictly outside Git-tracked workspace:
+  1. Primary default: `$(git rev-parse --git-path aapp_events.jsonl)` (resides in `.git/` or worktree gitdir; completely invisible to Git status).
+  2. Override via config/env: `aapp.logFile` or `AAPP_LOG_FILE` (e.g. `~/.local/share/aapp/logs/events.jsonl`).
+- **Data Contract**: Reads JSON envelope from `stdin`, decorates with ISO-8601 UTC timestamp and PID if absent, and appends a single-line JSON (`.jsonl`) string using atomic file redirection (`>>`).
+- **Fail-Safe Invariant**: Exits `0` on success and logs advisory diagnostics on write failure without interrupting kit operations.
+
+### 2.2 Completing Kit Lifecycle Event Dispatches
+The kit's verb modules are updated to dispatch observer hooks on state mutations:
+1. **Plan Scaffolding (`lib/cmd_plan.sh`)**:
+   - `post-draft`: Dispatches `{ "plan_id": "$plan_id", "slug": "$slug", "plan_file": "$plan_file" }`.
+2. **Plan Implementation Commits (`lib/cmd_commit.sh`)**:
+   - `post-commit`: Dispatches `{ "plan_id": "$plan_id", "commit_sha": "$commit_sha", "subject": "$commit_msg", "worktree": "$wt" }` after successful `plans_commit` recording.
+3. **Issue Transitions (`lib/cmd_issue.sh`)**:
+   - `post-issue-log`: Dispatches `{ "issue_id": "$num", "sev": "$sev", "type": "$type", "symptom": "$symptom" }`.
+   - `post-issue-fix`: Dispatches `{ "issue_id": "$num", "worktree": "$wt", "branch": "$br" }`.
+   - `post-issue-close`: Dispatches `{ "issue_id": "$num", "commit_sha": "$commit_sha", "summary": "$summary" }`.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Clean Break` (Default)
+- **Fallback Inventory**: `None (Clean Break)`. All new events are additive; existing hooks are unaffected.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Showcase Hook Sample
+- [ ] Task 1.1: Author `examples/hooks/event-logger.sh.sample` conforming to observer mode, out-of-repo path resolution, and atomic JSONL append.
+- [ ] Task 1.2: Add unit tests in `tests/hooks_test.sh` verifying registration, SHA-256 verification, and payload ingestion.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Completing Core Lifecycle Dispatches
+- [ ] Task 2.1: Add `post-draft` dispatch in `lib/cmd_plan.sh` (`cmd_draft`).
+- [ ] Task 2.2: Add `post-commit` dispatch in `lib/cmd_commit.sh` (`cmd_commit`).
+- [ ] Task 2.3: Add `post-issue-log`, `post-issue-fix`, and `post-issue-close` dispatches in `lib/cmd_issue.sh`.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Documentation & Verification
+- [ ] Task 3.1: Update `lib/cmd_hook.sh` and `lib/docs/verbs/hooks.md` with the new event catalog.
+- [ ] Task 3.2: Update `MANUAL.md` with instructions on setting up out-of-repo lifecycle event logging.
+- [ ] Task 3.3: Verify all kit test suites pass (`./aapp test quiet`).
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `examples/hooks/event-logger.sh.sample` -> Sample observer hook script for out-of-repo JSONL event logging.
+- [ ] `lib/cmd_commit.sh` -> Emit `post-commit` lifecycle event after plan commit recording.
+- [ ] `lib/cmd_issue.sh` -> Emit `post-issue-log`, `post-issue-fix`, and `post-issue-close` lifecycle events.
+- [ ] `lib/cmd_plan.sh` -> Emit `post-draft` lifecycle event in `cmd_draft`.
+- [ ] `lib/cmd_hook.sh` -> Add new events to available events list in `help hooks`.
+- [ ] `lib/docs/verbs/hooks.md` -> Update event documentation and payload schemas.
+- [ ] `MANUAL.md` -> Add Event Logger showcase section.
+- [ ] `tests/hooks_test.sh` -> Add automated tests for event-logger hook and new dispatches.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/blast-radius-guard.sh` -> Write guard is untouched.
+- [ ] `templates/aapp-pre-commit` -> Pre-commit gate is untouched (P-99 handles design lock).
+- [ ] `lib/aapp-lib.sh` -> Core resolver untouched.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — Default Out-of-Repo Path.** Should the sample default to `$(git rev-parse --git-path aapp_events.jsonl)` (repository git directory) or `~/.local/share/aapp/logs/events.jsonl` (centralized user log)? (Proposed: gitdir default with env/config override).
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-17:** Plan initialized from `pickup.md`.
-* **2026-10-17:** Refined blast radius and locked module boundaries.
+* **2026-10-17:** Plan scaffolded and authored from user requirement for decoupled, out-of-repo lifecycle event logging.
+
