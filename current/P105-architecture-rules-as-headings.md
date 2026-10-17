@@ -2,7 +2,7 @@
 * **Created:** 2026-10-17 | **Last Refined:** 2026-10-17
 * **Target Issue / Milestone:** #166
 * **Plan ID:** P-105
-* **Changelog:** Changed: `ARCHITECTURE.md`'s invariant rules are headings grouped by topic, without numbers, and Plan Groups points to the group lifecycle (P-105)
+* **Changelog:** Changed: `ARCHITECTURE.md`'s invariant rules are headings grouped by topic, without numbers; Plan Groups points to the group lifecycle; history wording removed (P-105)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -101,3 +101,4 @@ Goal: every rule its own heading, grouped by topic, no numbers; rule 23 brought 
 * **2026-10-17:** File renamed from P105-architecture-rule-23-pointer.md to P105-architecture-rules-as-headings.md.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-17:** Drafted from #166. Widened (developer): every rule its own heading, grouped by topic, numbers removed.
+* **2026-10-17:** Widened (developer): history wording removed from the whole file (Plan State, Plan Identity, Concurrent Plans, Adoption); the architecture describes the present, Git and the archived plans hold the history. Blank lines before three headings.
