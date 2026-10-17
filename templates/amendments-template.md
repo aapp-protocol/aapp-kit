@@ -42,7 +42,7 @@
 ---
 
 ## 1. Context & Architectural Goal
-The group's amendments member: the one place where what the group's development finds is requested, approved, recorded and made. Members are never amended after start.
+The group's amendments member: the one place where what the group's development finds is requested, approved, recorded and made. Members are never amended after start. Typical requests: a test outside a member that asserts the behaviour the member changes (landed here, the member rebases and turns it green); a file two members need; a correction of the group's text.
 
 ---
 

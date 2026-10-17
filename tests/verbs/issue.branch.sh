@@ -284,6 +284,7 @@ aapp freeze "$G2" >/dev/null 2>&1 && aapp start "$G2" base module/m >/dev/null 2
 M2="$(plan mem-n n "$G2")"; aapp freeze-start "$M2" >/dev/null 2>&1
 ( cd "$R/g/.workspace/P${M2#P-}" && echo "n=1" > src/n.sh && git add src/n.sh && aapp commit "feat: n" >/dev/null 2>&1 )
 aapp done "$M2" >/dev/null 2>&1
+aapp done "P-$(( ${G2#P-} + 1 ))" integrate ff >/dev/null 2>&1   # the group's amendments member, archived last (P-101)
 aapp refine issues "1 on the feature branch" branch 1 feature/grp >/dev/null 2>&1
 before="$(cell 1)"
 out="$(aapp done "$G2" 2>&1)"; rc=$?

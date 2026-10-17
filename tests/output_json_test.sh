@@ -121,7 +121,7 @@ if st["pause"]:
     for x in st["pause"]["stashes"]: check("status.pause.stashes[]", x, "stashes[]")
 for x in st["shipped"]["entries"]: check("status.shipped.entries[]", x, "entries[]")
 def plan(p, w):
-    check("plan", p, w)
+    check("plan", p, w); check("plan.requests", p["requests"], w + ".requests")
     for m in p["members"]: plan(m, w + ".members[]")
 for p in st["plans"]["items"]: plan(p, "plans.items[]")
 for x in st["pickup"]["items"]: check("status.pickup.items[]", x, "pickup.items[]")
@@ -192,7 +192,8 @@ fi
 
 g="$(jq_ "$R/status.json" '[p for p in d["plans"]["items"] if p["id"] == "'"$gid"'"][0]')"
 top="$(jq_ "$R/status.json" '[p["id"] for p in d["plans"]["items"]]')"
-if printf '%s' "$g" | python3 -c 'import json,sys; g=json.load(sys.stdin); sys.exit(0 if g["kind"] == "group" and [m["id"] for m in g["members"]] == [sys.argv[1]] and g["members"][0]["group"] == sys.argv[2] else 1)' "$mid" "$gid" && \
+aid="P-$(( ${gid#P-} + 1 ))"   # the group's amendments member, drafted with it and listed last (P-101)
+if printf '%s' "$g" | python3 -c 'import json,sys; g=json.load(sys.stdin); sys.exit(0 if g["kind"] == "group" and [m["id"] for m in g["members"]] == [sys.argv[1], sys.argv[3]] and g["members"][0]["group"] == sys.argv[2] and g["members"][1]["kind"] == "amendments" else 1)' "$mid" "$gid" "$aid" && \
    ! printf '%s' "$top" | grep -qF "\"$mid\""; then
   ok "test_group_nests_members"
 else
