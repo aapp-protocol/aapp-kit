@@ -11,7 +11,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `9def1ad` (develop)
 * **Worktree:** .workspace/P105 (plan/P105-architecture-rules-as-headings)
-* **Commits:** none
+* **Commits:** `8946aaf` (plan/P105-architecture-rules-as-headings)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
