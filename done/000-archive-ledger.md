@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-17 | `P-101` | [`P101-group-amendments-member.md`](P101-group-amendments-member.md) | none | `db8133b` | Group Amendments Member |
 | 2026-10-17 | `P-99` | [`P99-amending-plans-in-development.md`](P99-amending-plans-in-development.md) | none | `11ab9bc` | Amending Plans In Development |
 | 2026-10-17 | `P-102` | [`P102-group-done-lifecycle-order.md`](P102-group-done-lifecycle-order.md) | #165 | `f50a0f0` | Group Done Lifecycle Order |
 | 2026-10-16 | `P-97` | [`P97-draft-from-pickup-title.md`](P97-draft-from-pickup-title.md) | #160 | `4a7da2f` | Draft From Pickup Title (tdd (5/5)) |
