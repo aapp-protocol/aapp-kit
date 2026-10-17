@@ -50,8 +50,9 @@ Goal: every group has one more member, its **amendments member**, the one place 
 ## 2. Technical Blueprint
 
 ### 2.1 The member
-- **Created with the group.** `aapp draft <slug> group` drafts the group and `<slug>-amendments` in one commit, from `templates/amendments-template.md`: header `* **Kind:** amendments`, `* **Commit Mode:** microcommits`, `* **Group:** <id>`; no Target Files; sections `## Scope Requests`, `## Decisions`, `## Follow-ups`, after §6 (the design lock reads §4 up to the next numbered section, so they must not sit inside §2–§5). It has no `## Architecture & Codemap`: the group plan is the one guide (2.4). The group's `* **Members:**` lists it last.
-- **Started after the group**, on the feature branch, in its own worktree, like any member (groups need worktrees: `_member_group_check`). It stays ⚡ In Development until every other member is archived. A session working in its worktree is its owner (P-99 D1).
+- **Created with the group.** `aapp draft <slug> group` drafts the group and `<slug>-amendments` in one commit, from `templates/amendments-template.md`: header `* **Kind:** amendments`, `* **Commit Mode:** microcommits`, `* **Group:** <id>`; no Target Files; sections `## Scope Requests`, `## Decisions`, `## Follow-ups`, after §6 (the design lock reads §4 up to the next numbered section, so they must not sit inside §2–§5). It has no `## Architecture & Codemap`: the group plan is the one guide (2.4). The group's `* **Members:**` lists it last. A group drafted while the plan-id provider is unreachable is refused: its amendments member could not be linked offline (offline sync does not know groups, as joining one offline is refused already).
+- **Started with the group, never frozen.** It has no design to review and no files to lock: `aapp start <group>` also starts it, ⚡ In Development, on the feature branch in its own worktree whatever `aapp.planWorktrees` says (as a plan made for an issue). `freeze` stays as it is. It stays ⚡ In Development until every other member is archived. A session working in its worktree is its owner (P-99 D1).
+- **Always `microcommits`.** `aapp_plan_commit_mode <plan>` (`lib/aapp-lib.sh`, beside `aapp_commit_mode`) is `microcommits` for `Kind: amendments`, otherwise the repository's mode; `aapp_plan_stamp_modes` and the atomic refusal of `aapp commit` read it, so a repository on `atomic` lands amendments in phases.
 - `templates/group-template.md` §3 names it as the last member.
 
 ### 2.2 Requests and approval
@@ -103,7 +104,7 @@ A file or a change of the group's text outside your member goes to the group's a
 - [ ] Task 1.1: Declare the failing tests (`aapp tdd`).
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: The template; `draft … group` drafts the amendments member (2.1).
+- [ ] Task 2.1: The template; `draft … group` drafts the amendments member, refused offline; `start <group>` starts it; `aapp_plan_commit_mode` (2.1).
 - [ ] Task 2.2: `request`, `approve`, `refuse`, `file` for an amendments member; the config accessor; the disjointness check on add (2.2).
 - [ ] Task 2.3: `Plan-ID` on its commits; `commit … land` on P-55's path; request lines to `landed` (2.3).
 - [ ] Task 2.4: `decision` writing the group's text with its record; the member lines at start and in status (2.4).
@@ -127,6 +128,7 @@ A file or a change of the group's text outside your member goes to the group's a
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `lib/cmd_plan.sh` -> `draft … group`; `request`/`approve`/`refuse`/`file`/`decision`; the member line at start; the amendments member's `done`; `plan-status`.
 - [ ] `lib/cmd_commit.sh` -> `Plan-ID` on its commits; `land`.
+- [ ] `lib/aapp-lib.sh` -> `aapp_plan_commit_mode`; `aapp_plan_stamp_modes` reads it.
 - [ ] `lib/cmd_status.sh` -> the amendments lines, Next Action, the JSON field.
 - [ ] `NEW FILE` -> `templates/amendments-template.md` -> the amendments member.
 - [ ] `templates/group-template.md` -> §3 names the amendments member.
@@ -148,7 +150,7 @@ A file or a change of the group's text outside your member goes to the group's a
 - [ ] `tests/verbs/status.sh` -> the amendments lines and the JSON field.
 - [ ] `tests/verbs/start.group.sh` -> the member line at start.
 - [ ] `tests/integrate_test.sh` -> the group's `done` applying a corrected section.
-- [ ] `MANUAL.md` -> groups: the amendments member, `aapp.amendmentApprovalRequired`.
+- [ ] `MANUAL.md` -> groups: the amendments member, `aapp.amendmentApprovalRequired`, refining the group plan after `start` (from a member's worktree, or after `aapp active <group>`).
 - [ ] `CHEATSHEET.md` -> the tokens.
 
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -170,3 +172,4 @@ A file or a change of the group's text outside your member goes to the group's a
 *Tracks how the plan evolved across sessions.*
 * **2026-10-16:** Drafted from groups P-72 and P-91: an amendments member per group; early draft for review between agents.
 * **2026-10-17:** Refined from the settled review (`.plans/pickup/p103-group-lifecycle-rfc.md`): members never amended; requests, approval (`aapp.amendmentApprovalRequired`), landing on P-55's fast-forward path, members rebase; the end rules; status and JSON. Questions 1–9 answered by the review. One guide (developer): corrections are written into the group plan's `## Architecture & Codemap` with a `Decisions` line, never copied into the amendments member; members read the group plan at start and at every session start or resume.
+* **2026-10-17:** Unfrozen to add `lib/aapp-lib.sh` (developer's OK): the amendments member is always `microcommits` (`aapp_plan_commit_mode`); it is started by the group's `start`, never frozen (`freeze` refuses a plan without Target Files, and there is nothing to review); a group drafted offline is refused; the MANUAL says where the group plan is refined after `start`.
