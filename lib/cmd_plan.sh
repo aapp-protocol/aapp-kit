@@ -348,14 +348,14 @@ _group_stamp_sections() {
     fi
 }
 
-# _group_done_prepare <group-plan> <group-id>: everything before the normal `done`
-# path. Refuses (feature branch and parent unchanged) while a member is open, a
-# section changed under its base line, or the parent cannot merge. Then: the
-# feature branch in `.workspace/P<n>` (recorded as the group's Worktree, so the
-# gate runs there and P-55 fast-forwards the parent), the moved parent merged in,
-# the ARCHITECTURE.md sections and the umbrella changelog entry committed.
+# _group_done_prepare <group-plan> <group-id>: the checks before the normal `done`
+# path, no delivery claim (P-102). Refuses (feature branch and parent unchanged)
+# while a member is open, a section changed under its base line, or the parent
+# cannot merge. Then: the feature branch in `.workspace/P<n>` (recorded as the
+# group's Worktree, so the gate runs there and P-55 fast-forwards the parent) and
+# the moved parent merged in. The docs follow the gate (_group_done_docs).
 _group_done_prepare() {
-    local gf="$1" gid="$2" m open="" fb parent pref wt wt_rel tmp out
+    local gf="$1" gid="$2" m open="" fb parent pref wt wt_rel tmp
     # shellcheck source=/dev/null
     . "$(dirname "${BASH_SOURCE[0]}")/group_docs.sh"
     for m in $(group_members "$gf"); do
@@ -406,9 +406,20 @@ _group_done_prepare() {
     buf="$(git -C "$wt" rev-parse --git-path aapp_active_plan)" || exit 1
     case "$buf" in /*) ;; *) buf="$wt/$buf" ;; esac
     write_active_buffer "$gid" "$buf"
-    out="$(group_docs_apply "$gf" ARCHITECTURE.md "$wt/ARCHITECTURE.md")" || exit 1
-    if [ -n "$out" ]; then printf '%s\n' "$out" | sed 's/^/   ARCHITECTURE.md /'; fi
-    (
+}
+
+# _group_done_docs <group-plan> <group-id>: after the gate (P-102), the
+# ARCHITECTURE.md sections and the umbrella changelog entry, committed in the
+# group's worktree as the group's recorded commit. A refusal (a hook, the
+# changelog) restores the worktree, which `done` checked clean before the gate,
+# and exits with nothing archived; a retry applies everything again.
+_group_done_docs() {
+    local gf="$1" gid="$2" wt_rel wt out
+    # shellcheck source=/dev/null
+    . "$(dirname "${BASH_SOURCE[0]}")/group_docs.sh"
+    wt_rel=".workspace/P${gid#P-}"; wt="$PRIMARY_ROOT/$wt_rel"
+    if ! out="$(group_docs_apply "$gf" ARCHITECTURE.md "$wt/ARCHITECTURE.md")" || ! (
+        if [ -n "$out" ]; then printf '%s\n' "$out" | sed 's/^/   ARCHITECTURE.md /'; fi
         cd "$wt" || exit 1
         # shellcheck source=/dev/null
         . "$(dirname "${BASH_SOURCE[0]}")/cmd_commit.sh"
@@ -418,7 +429,11 @@ _group_done_prepare() {
         if ! git diff --cached --quiet; then
             "$AAPP_SCRIPT_DIR/aapp" commit "docs: group $gid architecture and changelog" || exit 1
         fi
-    ) || { echo "❌ [Done Refusal] Could not commit the group's ARCHITECTURE.md and changelog in $wt_rel." >&2; exit 1; }
+    ); then
+        git -C "$wt" reset -q --hard HEAD || echo "⚠️  [Done] Could not restore $wt_rel; run 'git -C $wt_rel reset --hard HEAD'." >&2
+        echo "❌ [Done Refusal] Could not commit the group's ARCHITECTURE.md and changelog in $wt_rel; nothing archived. Run 'aapp done $gid' again once the cause is fixed." >&2
+        exit 1
+    fi
 }
 
 # _group_merge_parent_in <worktree> <parent-ref>: merges the group's parent
@@ -1090,6 +1105,10 @@ _ig_run() {
         fi
         echo "🔀 [Integrate] $IG_PLAN_BR integrated into $IG_TARGET_BR ($IG_MODE, $(git rev-parse --short "$IG_TARGET_BR"))."
     fi
+    # P-102: a group's CODEMAP sections land once its code is in the parent and
+    # before the cleanup, which stays last; a failure is reported, `done` exits 1.
+    IG_CODEMAP_FAILED=0
+    if aapp_is_group_plan "$pf" && ! _group_done_codemap "$pf" "$pid"; then IG_CODEMAP_FAILED=1; fi
     if [ "$IG_NOCLEAN" -eq 1 ] || [ "$(git config --get aapp.integrateCleanup 2>/dev/null)" = "false" ]; then
         echo "   Worktree and branch kept (cleanup off)."
         return 0
@@ -1132,6 +1151,7 @@ _ig_standalone() {
     if [ "$SQ_DO" -eq 1 ]; then _sq_correct_records "$pf" "$pid" || exit 1; fi
     _load_issue_module
     issue_unblock_landed quiet || echo "⚠️  [Done] Could not check the plans waiting for a fix; 'aapp status' does it." >&2
+    if [ "${IG_CODEMAP_FAILED:-0}" -eq 1 ]; then exit 1; fi
 }
 
 # _sq_correct_records <done_file> <plan_id>: an archived plan squashed later
@@ -2123,7 +2143,9 @@ cmd_done() {
         [ -n "$c_entry" ] && recorded_commits+=("$c_entry")
     done < <(parse_plan_commits "$plan_file")
 
-    if [ ${#recorded_commits[@]} -eq 0 ]; then
+    # P-102: a group has no commit of its own before the gate; its check is
+    # "every member archived" (_group_done_prepare), its docs commit follows the gate.
+    if [ ${#recorded_commits[@]} -eq 0 ] && [ "$is_group" -eq 0 ]; then
         echo "❌ [Done Refusal] Plan '$plan_id' has no recorded commits under '* **Commits:**'." >&2
         local base_val base_sha=""
         base_val="$(grep -m 1 -E '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Base:\*\*' "$plan_file" 2>/dev/null | sed -E 's/^.*\*\*Base:\*\*[[:space:]]*//' | tr -d '[:space:]')"
@@ -2188,7 +2210,8 @@ cmd_done() {
         fi
     done
 
-    local last_commit_entry="${recorded_commits[${#recorded_commits[@]}-1]}"
+    local last_commit_entry=""
+    [ ${#recorded_commits[@]} -gt 0 ] && last_commit_entry="${recorded_commits[${#recorded_commits[@]}-1]}"
     local commit_sha=""
     if [[ "$last_commit_entry" =~ \`([0-9a-fA-F]+)\` ]]; then
         commit_sha="${BASH_REMATCH[1]}"
@@ -2196,6 +2219,12 @@ cmd_done() {
         commit_sha="$(echo "$last_commit_entry" | awk '{print $1}' | tr -d '\`')"
     fi
     [ -z "$commit_sha" ] && commit_sha="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "0000000")"
+    # P-102: the gate of a group sees the feature branch tip it tests.
+    local group_tip=""
+    if [ "$is_group" -eq 1 ]; then
+        group_tip="$(git -C "$wt_abs" rev-parse --short=7 HEAD)" || exit 1
+        commit_sha="$group_tip"; commits_json="\"$group_tip\""
+    fi
 
     # P-55: decide on integration and run every integration check now, before
     # pre-done and the archive commit: a refusal leaves nothing archived.
@@ -2214,6 +2243,17 @@ cmd_done() {
             echo "❌ [Done Refusal] pre-done hook vetoed archiving of plan '$plan_id'." >&2
             exit 1
         fi
+    fi
+
+    # P-102: only now, with every check passed, the group's docs are committed.
+    if [ "$is_group" -eq 1 ]; then
+        _group_done_docs "$plan_file" "$plan_id"
+        recorded_commits=()
+        while IFS= read -r c_entry; do
+            [ -n "$c_entry" ] && recorded_commits+=("$c_entry")
+        done < <(parse_plan_commits "$plan_file")
+        group_tip="$(git -C "$wt_abs" rev-parse --short=7 HEAD)" || exit 1
+        commit_sha="$group_tip"; commits_json="\"$group_tip\""
     fi
 
     local bname
@@ -2268,13 +2308,15 @@ cmd_done() {
     local today commit_sha
     today="$(date +%Y-%m-%d)"
     # Extract last recorded commit SHA for ledger and reporting
-    local last_commit_entry="${recorded_commits[${#recorded_commits[@]}-1]}"
+    last_commit_entry=""
+    [ ${#recorded_commits[@]} -gt 0 ] && last_commit_entry="${recorded_commits[${#recorded_commits[@]}-1]}"
     if [[ "$last_commit_entry" =~ \`([0-9a-fA-F]+)\` ]]; then
         commit_sha="${BASH_REMATCH[1]}"
     else
         commit_sha="$(echo "$last_commit_entry" | awk '{print $1}' | tr -d '\`')"
     fi
-    [ -z "$commit_sha" ] && commit_sha="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "0000000")"
+    # A group without a docs commit of its own is recorded with the tip it merged.
+    [ -z "$commit_sha" ] && commit_sha="${group_tip:-$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "0000000")}"
 
     if grep -q '^## 📦 6\. Change Log' "$done_file"; then
         sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* Plan implementation completed and archived to done/." "$done_file"
@@ -2419,7 +2461,7 @@ cmd_done() {
         _load_issue_module
         if [ "$close_where" = "active" ]; then issue_bring_fix_to_groups "$close_issue" "$commit_sha"; fi
         issue_unblock_landed quiet || echo "⚠️  [Done] Could not check the plans waiting for a fix; 'aapp status' does it." >&2
-        if [ "$is_group" -eq 1 ]; then _group_done_codemap "$done_file" "$plan_id" || exit 1; fi
+        if [ "${IG_CODEMAP_FAILED:-0}" -eq 1 ]; then exit 1; fi
     elif [ -n "$wt_rec" ]; then
         # P-54 / aapp.integrate = manual: the developer integrates.
         echo "   Worktree     : $wt_rel ($wt_br) is kept. Integrate with: aapp done $plan_id integrate"

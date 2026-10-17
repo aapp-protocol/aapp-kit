@@ -215,11 +215,14 @@ cat > "$hd/rec.sh" <<EOF
 p="\$(cat)"
 id="\$(printf '%s' "\$p" | sed -nE 's/.*"plan_id": *"([^"]*)".*/\1/p' | head -1)"
 wt="\$(printf '%s' "\$p" | sed -nE 's/.*"worktree": *"([^"]*)".*/\1/p' | head -1)"
+ch="\$(printf '%s' "\$p" | sed -nE 's/.*"commit_hash": *"([^"]*)".*/\1/p' | head -1)"
 [ "\$id" = "\$(cat "$R/gi-group" 2>/dev/null)" ] || exit 0
 { echo "wt=\$wt"
   grep -q GROUP-ARCH "\$wt/ARCHITECTURE.md" 2>/dev/null && echo arch=yes || echo arch=no
   grep -q GROUP-MAP "$R/gi/.agents/CODEMAP.md" && echo map=yes || echo map=no
-  [ -f "\$wt/src/moved.sh" ] && echo moved=yes || echo moved=no; } > "$R/gi-gate"
+  [ -f "\$wt/src/moved.sh" ] && echo moved=yes || echo moved=no
+  echo "ch=\$ch"; echo "head=\$(git -C "\$wt" rev-parse HEAD 2>/dev/null)"; } > "$R/gi-gate"
+[ ! -f "$R/gi-veto" ]
 EOF
 chmod +x "$hd/rec.sh"
 aapp hook-hash "$hd/rec.sh" pre-done 30 gate 2>/dev/null | grep "^pre-done" > "$hd/registry.tsv"
@@ -283,12 +286,22 @@ if echo "$gate" | grep -qx moved=yes && git show module/m:src/moved.sh >/dev/nul
 else
   bad "test_group_done_merges_moved_parent_before_gate" "gate=$gate"
 fi
-if echo "$gate" | grep -qx arch=yes && echo "$gate" | grep -qx map=no && \
+gch="$(echo "$gate" | sed -n 's/^ch=//p')"; ghead="$(echo "$gate" | sed -n 's/^head=//p')"
+if echo "$gate" | grep -qx arch=no && echo "$gate" | grep -qx map=no && [ -n "$gch" ] && \
+   case "$ghead" in "$gch"*) true ;; *) false ;; esac && \
    git show module/m:ARCHITECTURE.md | grep -q GROUP-ARCH && grep -q GROUP-MAP .agents/CODEMAP.md && \
    [ -z "$(git -C .agents status --porcelain CODEMAP.md)" ]; then
-  ok "test_group_done_commits_architecture_before_gate_codemap_after_merge"
+  ok "test_group_done_commits_docs_after_gate"
 else
-  bad "test_group_done_commits_architecture_before_gate_codemap_after_merge" "gate=$gate"
+  bad "test_group_done_commits_docs_after_gate" "gate=$gate"
+fi
+mapl="$(echo "$out" | grep -n 'CODEMAP.md' | head -1 | cut -d: -f1)"
+cleanl="$(echo "$out" | grep -n '\[Cleanup\]' | head -1 | cut -d: -f1)"
+if [ -n "$mapl" ] && [ -n "$cleanl" ] && [ "$mapl" -lt "$cleanl" ] && \
+   [ "$(echo "$out" | tail -n 1 | grep -c '\[Cleanup\]')" -eq 1 ]; then
+  ok "test_group_done_codemap_before_cleanup"
+else
+  bad "test_group_done_codemap_before_cleanup" "codemap=$mapl cleanup=$cleanl out=$out"
 fi
 if git show module/m:CHANGELOG.md | grep -qF "umbrella grp (\`$g\`)" && git show module/m:CHANGELOG.md | grep -qF "(\`$a\`)"; then
   ok "test_group_done_writes_umbrella_changelog"
@@ -308,6 +321,33 @@ if [ "$rc" -ne 0 ] && [ "$(git rev-parse develop)" = "$dev0" ] && [ "$(git rev-p
   ok "test_group_done_conflict_refuses_unchanged"
 else
   bad "test_group_done_conflict_refuses_unchanged" "rc=$rc out=$out"
+fi
+
+# P-102: nothing claiming delivery is committed before every check has passed.
+g3="$(g_plan grp-three module/m)"; echo "$g3" > "$R/gi-group"
+d="$(g_member mem-d "$g3")"; aapp done "$d" >/dev/null 2>&1
+g3wt="$R/gi/.workspace/P${g3#P-}"
+touch "$R/gi-veto"; fb0="$(git rev-parse feature/grp-three)"
+out="$(aapp done "$g3" 2>&1)"; rc=$?
+rm -f "$R/gi-veto"
+if [ "$rc" -ne 0 ] && [ "$(git rev-parse feature/grp-three)" = "$fb0" ] && \
+   [ -f ".plans/current/$(basename "$(gpf "$g3")")" ] && [ -z "$(git -C "$g3wt" status --porcelain 2>/dev/null)" ]; then
+  ok "test_group_done_gate_veto_leaves_no_docs_commit"
+else
+  bad "test_group_done_gate_veto_leaves_no_docs_commit" "rc=$rc fb=$(git rev-parse feature/grp-three) out=$out"
+fi
+cp .githooks/pre-commit "$R/pre-commit.bak"
+printf '#!/usr/bin/env bash\nexit 1\n' > .githooks/pre-commit
+out="$(aapp done "$g3" 2>&1)"; rc=$?
+cp "$R/pre-commit.bak" .githooks/pre-commit
+dirty="$(git -C "$g3wt" status --porcelain 2>/dev/null)"
+out2="$(aapp done "$g3" 2>&1)"; rc2=$?
+if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "Could not commit the group's ARCHITECTURE.md" && \
+   [ -z "$dirty" ] && [ "$rc2" -eq 0 ] && \
+   git show module/m:ARCHITECTURE.md | grep -q "Group Arch grp-three"; then
+  ok "test_group_done_precommit_refusal_restores_worktree"
+else
+  bad "test_group_done_precommit_refusal_restores_worktree" "rc=$rc dirty=$dirty rc2=$rc2 out=$out | $out2"
 fi
 
 print_test_summary "$PASS" "$FAIL"
