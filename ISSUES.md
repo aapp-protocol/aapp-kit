@@ -4,7 +4,6 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #165 | `Medium` | `CORE` | 2026-10-16 | `lib/cmd_plan.sh` | Group plan done commits ARCHITECTURE.md before test gate runs, polluting history if tests fail, and updates CODEMAP.md after worktree cleanup | [P-102](current/P102-group-done-lifecycle-order.md) | 🔵 `Planned` |
 | #162 | `Low` | `CLI` | 2026-10-16 | `lib/cmd_plan.sh` | `aapp start <id>` and `freeze-start` for a plan re-frozen while its worktree still holds it refuse from the main checkout ("already bound in worktree") without saying that `aapp start` run in that worktree resumes it. |  | 🟡 `Incubated` |
 | #161 | `Low` | `TEST` | 2026-10-16 | `tests/issue_ledger_test.sh` | `tests/issue_ledger_test.sh` (test_no_direct_ledger_access) passes its name pattern with `\.` through `awk -v`: every run prints 26 "escape sequence `\.' treated as plain `.'" warnings. |  | 🟡 `Incubated` |
 | #159 | `Medium` | `HOOK` | 2026-10-16 | `templates/aapp-pre-commit` | The pre-commit hook blocks commits on an adopter's own files with language checks (`bash -n`, Python syntax, `php -l`, JSON under `schema/`); adopter checks belong in the local hook (`templates/pre-commit`). |  | 🟡 `Incubated` |

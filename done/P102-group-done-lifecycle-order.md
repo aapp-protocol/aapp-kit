@@ -8,11 +8,11 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `4a7da2f` (feature/group-lifecycle-and-amendments)
 * **Worktree:** .workspace/P102 (plan/P102-group-done-lifecycle-order)
 * **Group:** P-103
-* **Commits:** `6849fe5` (plan/P102-group-done-lifecycle-order), `8638d11` (plan/P102-group-done-lifecycle-order)
+* **Commits:** `f50a0f0` (feature/group-lifecycle-and-amendments)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -110,6 +110,7 @@ The docs commit stays its own commit on the feature branch: a group integrates b
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-17:** Plan implementation completed and archived to done/.
 * **2026-10-17:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-16:** Plan initialized from issue #165.
 * **2026-10-17:** Refined from the settled review (`.plans/pickup/p103-group-lifecycle-rfc.md`): gate first, the docs commit after it with a restore, recorded commits and payload for a group, CODEMAP before cleanup, a distinct docs commit; Target Files corrected.

@@ -33,7 +33,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-102**: [`P102-group-done-lifecycle-order.md`](current/P102-group-done-lifecycle-order.md) — Group Done Lifecycle Order
 - ⚡ **P-103**: [`P103-group-lifecycle-and-amendments.md`](current/P103-group-lifecycle-and-amendments.md) — 🧩 Group Plan P-103: Group Lifecycle And Amendments
 
 ---
