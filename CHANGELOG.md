@@ -86,6 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- the MANUAL names the post-done event where it still said on-done (`#110`)
 - start and freeze-start refused for a plan bound in another worktree name the command that resumes it there (`#162`)
 - the ledger-access test passes its name pattern through the environment, so awk prints no escape warnings and matches a literal dot (`#161`)
 - the pre-done test gate sample prints one line before the tests run, naming the command and the plan it waits for (`#167`)

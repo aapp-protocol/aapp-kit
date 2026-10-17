@@ -652,7 +652,7 @@ Completes the lifecycle and archives the plan:
 - **Deterministic Archival**: Archives blueprint to `.plans/done/` via deterministic CLI execution (`aapp done`).
 - Appends a 1-line completion record to `.plans/done/000-archive-ledger.md` (recording Plan ID, plan link, target issue, verification commit from the last recorded commit, and repo-relative impact summary).
 - Removes the plan entry from `.plans/state_matrix.md`.
-- Dispatches `on-done` lifecycle event with recorded commits and verifies `CHANGELOG.md` entry.
+- Dispatches `post-done` lifecycle event with recorded commits and verifies `CHANGELOG.md` entry.
 
 #### `aapp plan abort <id>` — Abandoning a Plan
 A plan whose approach failed or is no longer wanted leaves through `aapp plan abort <id> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]`. It works for any plan in `.plans/current/`, whatever its status, and is run from the main checkout.
@@ -1181,7 +1181,7 @@ To accommodate both zero-dependency shell scripts and rich polyglot webhook inte
 Handlers receive a structured JSON payload on standard input containing metadata and event-specific context:
 ```json
 {
-  "event": "on-done",
+  "event": "post-done",
   "timestamp": "2026-09-19T21:30:00Z",
   "pid": 12345,
   "actor": "lorand",
