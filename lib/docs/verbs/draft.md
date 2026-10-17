@@ -36,7 +36,7 @@
 - `.plans/state_matrix.md` is re-derived and lists the plan in the incubator
 - one commit in the plans worktree, `plan(draft): scaffold P-<N> <slug>`, holds the plan and the matrix via `plans_commit`; the subject is fitted to `aapp.subjectMaxLen` by cutting the slug at a `-` (P-97)
 - `issue <num>`: the header reads `* **Target Issue / Milestone:** #<num>`; the issue row's *Target Plan / Fix* becomes `[P-<N>](current/P<N>-<slug>.md)` and its Status `🔵 \`Planned\``; observation cells and the road map are untouched; `ISSUES.md` is in the draft commit
-- `group`: the title line reads `# 🧩 Group Plan P-<N>: <Title>` (the marker every verb reads); the header carries `* **Feature Branch:** none` and `* **Members:** none`
+- `group`: the title line reads `# 🧩 Group Plan P-<N>: <Title>` (the marker every verb reads); the header carries `* **Feature Branch:** none` and `* **Members:** P-<N+1>`, its amendments member (P-101): `current/P<N+1>-<slug>-amendments.md` from `amendments-template.md` (`* **Kind:** amendments`, `* **Group:** P-<N>`, `* **Commit Mode:** microcommits`, no Target Files, `## Scope Requests` / `## Decisions` / `## Follow-ups` after §6), in the same commit; a member drafted later is listed before it, so it stays last. A group is refused while the plan-id provider is unreachable (its amendments member could not be linked offline)
 - `group <id>`: the plan carries `* **Group:** <id>`, and the group's `* **Members:**` lists `P-<N>`; both files are in the draft commit; the group need not be started
 - stdout names the new file, the Plan ID and the `🟣 Under Review` status
 - the header carries `* **Changelog:** Changed: <Title>`, the plan's changelog declaration pre-filled from the title (P-48)
@@ -60,7 +60,8 @@ Run: `aapp test verb draft`
 - `tests/verbs/draft.sh::test_draft_issue_refuses_archived_or_unknown` -> archived or unknown issue: exit non-zero, no file, no Plan ID spent (P-50)
 - `tests/verbs/draft.sh::test_draft_records_modes` -> the drafted plan records both modes from config (P-51)
 - `tests/verbs/draft.sh::test_draft_group_scaffolds_group_plan` -> `group`: next Plan ID, group heading, group fields, no placeholder, committed (P-64)
-- `tests/verbs/draft.sh::test_draft_member_joins_group` -> `group <id>`: `Group:` in the member, listed in the unstarted group, committed (P-64)
+- `tests/verbs/draft.sh::test_draft_group_drafts_amendments_member` -> the group's amendments member: kind, group, `microcommits`, no Target Files, its sections after §6, in the draft commit (P-101)
+- `tests/verbs/draft.sh::test_draft_member_joins_group` -> `group <id>`: `Group:` in the member, listed in the unstarted group before its amendments member, committed (P-64, P-101)
 - `tests/verbs/draft.sh::test_bare_draft_takes_title_only` -> bare draft takes title only, no text in title or slug (P-97)
 - `tests/verbs/draft.sh::test_bare_draft_slug_bounded` -> slug from title bounded to 60 characters cut at '-' (P-97)
 - `tests/verbs/draft.sh::test_bare_draft_copies_text` -> bare draft writes text into §1 and references pickup files (P-97)

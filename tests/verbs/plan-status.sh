@@ -43,4 +43,16 @@ fi
 aapp plan-status P-999 >/dev/null 2>&1; rc=$?
 if [ "$rc" -eq 1 ]; then ok "test_refuses_unknown_plan"; else bad "test_refuses_unknown_plan" "rc=$rc"; fi
 
+# P-101: an amendments member's requests and decisions (a fixture: the lines as the verbs write them).
+ap="$(draft_plan amend-fixture)"; apf="$(plan_file "$ap")"
+sed -i -E 's/^\* \*\*Plan ID:\*\*.*/&\n* **Kind:** amendments/' "$apf"
+printf '\n## Scope Requests\n- **R1** 2026-10-17 · P-9 · `src/a.sh` · needs a · b — pending\n- **R2** 2026-10-17 · P-9 · § Lifecycle · text — applied\n\n## Decisions\n- **D1** 2026-10-17 · § Lifecycle · R2 · landing changed\n' >> "$apf"
+out="$(aapp plan-status "$ap" 2>&1)"
+if echo "$out" | grep -qF "Requests:" && echo "$out" | grep -qF "• R1 2026-10-17 · P-9 · \`src/a.sh\` · needs a · b — pending" && \
+   echo "$out" | grep -qF "• R2 " && echo "$out" | grep -qF "Decisions:" && echo "$out" | grep -qF "• D1 2026-10-17 · § Lifecycle"; then
+  ok "test_plan_status_lists_requests"
+else
+  bad "test_plan_status_lists_requests" "out=$out"
+fi
+
 print_test_summary "$PASS" "$FAIL"

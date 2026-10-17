@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- every group has an amendments member that takes the files and decisions development finds, with approval, landing and status, so members stay as frozen (P-101) (`P-101`)
 - a plan in development is amended only from its own checkout; `refine` fires `pre-refine`, `on-refine` and `post-refine` (P-99) (`P-99`)
 - `aapp status` and `aapp issue list` read cleanly in a narrow terminal, and print one JSON document with `json` (P-91) (`P-91`)
 - `aapp status json` and `aapp issue list json` print one JSON document, its fields documented in `docs/reference/08-output-json.md` (P-94) (`P-94`)

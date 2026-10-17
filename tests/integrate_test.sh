@@ -238,6 +238,9 @@ g_plan() {
   aapp freeze "$id" >/dev/null 2>&1 && aapp start "$id" base "$2" >/dev/null 2>&1
   echo "$id"
 }
+# g_amend_done <group>: archives the group's amendments member (drafted and
+# started with the group; empty here), which goes last (P-101).
+g_amend_done() { aapp done "P-$(( ${1#P-} + 1 ))" integrate ff >/dev/null 2>&1; }
 # g_member <slug> <group>: a member started into the group with one commit; prints its id.
 g_member() {
   local id f; id="P-$(git config aapp.planId)"; aapp draft "$1" group "$2" >/dev/null 2>&1; f="$(gpf "$id")"
@@ -272,6 +275,7 @@ git worktree add -q "$R/gi-mod" module/m && echo "m=1" > "$R/gi-mod/src-moved.tm
   git -C "$R/gi-mod" commit -qm "parent moved" --no-verify && git worktree remove "$R/gi-mod"
 asha="$(sed -nE 's/^- `([0-9a-f]+)`.*/\1/p' "$(gpf "$a")" | head -1)"
 [ -n "$asha" ] || asha="$(sed -nE 's/.*Commits:\*\* `([0-9a-f]+)`.*/\1/p' "$(gpf "$a")" | head -1)"
+g_amend_done "$g"
 out="$(aapp done "$g" 2>&1)"; rc=$?
 gate="$(cat "$R/gi-gate" 2>/dev/null)"
 if [ "$rc" -eq 0 ] && git show module/m:src/mem-a.sh >/dev/null 2>&1 && git show module/m:src/mem-b.sh >/dev/null 2>&1 && \
@@ -310,7 +314,7 @@ else
 fi
 
 g2="$(g_plan grp-two develop)"; echo "$g2" > "$R/gi-group"
-c="$(g_member mem-c "$g2")"; aapp done "$c" >/dev/null 2>&1
+c="$(g_member mem-c "$g2")"; aapp done "$c" >/dev/null 2>&1; g_amend_done "$g2"
 git worktree add -q "$R/gi-dev" develop && mkdir -p "$R/gi-dev/src" && echo "conflict=1" > "$R/gi-dev/src/mem-c.sh" && \
   git -C "$R/gi-dev" add src/mem-c.sh && git -C "$R/gi-dev" commit -qm "conflicting" --no-verify && git worktree remove "$R/gi-dev"
 dev0="$(git rev-parse develop)"; fb0="$(git rev-parse feature/grp-two)"
@@ -325,7 +329,7 @@ fi
 
 # P-102: nothing claiming delivery is committed before every check has passed.
 g3="$(g_plan grp-three module/m)"; echo "$g3" > "$R/gi-group"
-d="$(g_member mem-d "$g3")"; aapp done "$d" >/dev/null 2>&1
+d="$(g_member mem-d "$g3")"; aapp done "$d" >/dev/null 2>&1; g_amend_done "$g3"
 g3wt="$R/gi/.workspace/P${g3#P-}"
 touch "$R/gi-veto"; fb0="$(git rev-parse feature/grp-three)"
 out="$(aapp done "$g3" 2>&1)"; rc=$?

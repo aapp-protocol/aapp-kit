@@ -45,11 +45,19 @@ g2="$(draft_group g-two)"; g2f="$(plan_file "$g2")"; mod="$(git rev-parse --shor
 out2="$(aapp start "$g2" base module/x 2>&1)"; rc2=$?
 if [ "$rc" -eq 0 ] && [ "$(fb_of "$g1")" = "feature/g-one" ] && [ "$(git rev-parse --short feature/g-one)" = "$dev" ] && \
    grep -qxF "* **Base:** \`$dev\` (develop)" "$g1f" && status_of "$g1f" | grep -q '⚡ In Development' && \
-   [ "$(git worktree list | wc -l)" = "$nwt" ] && [ -z "$(buffer)" ] && \
+   [ "$(git worktree list | wc -l)" = "$((nwt + 2))" ] && [ -z "$(buffer)" ] && \
    [ "$rc2" -eq 0 ] && [ "$(git rev-parse --short feature/g-two)" = "$mod" ] && grep -qxF "* **Base:** \`$mod\` (module/x)" "$g2f"; then
   ok "test_group_start_cuts_feature_branch_from_parent"
 else
   bad "test_group_start_cuts_feature_branch_from_parent" "rc=$rc/$rc2 out=$out | $out2"
+fi
+# P-101: the group's start greenlights and starts its amendments member, in its own worktree.
+a1f="$(ls .plans/current/P*-g-one-amendments.md 2>/dev/null | head -n 1)"
+if [ -n "$a1f" ] && status_of "$a1f" | grep -q '⚡ In Development' && grep -q '^\* \*\*Worktree:\*\* ' "$a1f" && \
+   git worktree list | grep -q "g-one-amendments" && echo "$out" | grep -qF "in its own worktree"; then
+  ok "test_group_start_starts_amendments_member"
+else
+  bad "test_group_start_starts_amendments_member" "a1f=$a1f out=$out"
 fi
 
 g3="$(draft_group g-three)"; g3f="$(plan_file "$g3")"; before="$(cksum < "$g3f")"
@@ -68,6 +76,11 @@ if [ "$rc" -eq 0 ] && [ "$(git -C "$mwt" rev-parse --short HEAD)" = "$fsha" ] &&
   ok "test_member_start_branches_from_feature_branch"
 else
   bad "test_member_start_branches_from_feature_branch" "rc=$rc out=$out $(grep -E 'Base|Group' "$m1f" | tr '\n' ' ')"
+fi
+if echo "$out" | grep -qF "Guide        : member of group $g1: read its ## Architecture & Codemap in .plans/current/$(basename "$g1f") before coding."; then
+  ok "test_member_start_points_at_group_guide"
+else
+  bad "test_member_start_points_at_group_guide" "out=$out"
 fi
 
 m3="$(draft_member m-three "$g3")"; m3f="$(plan_file "$m3")"; before="$(cksum < "$m3f")"

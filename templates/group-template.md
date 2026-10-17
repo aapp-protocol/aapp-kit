@@ -25,7 +25,7 @@
 *Decisions every member follows: interfaces, naming, data formats, order constraints.*
 
 ## 3. Members & Order
-*Which members can run in parallel and which wait for others. Membership itself is the `* **Members:**` line, written by the verbs.*
+*Which members can run in parallel and which wait for others. Membership itself is the `* **Members:**` line, written by the verbs. The group's amendments member (`<slug>-amendments`, drafted with the group, started by its `start`) is always last: it takes what development finds and is archived after every other member.*
 
 ## Architecture & Codemap
 *Every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written out whole in a ```` fence, under the exact heading it has (or will have) in the file. Members do not edit these files; read the sections here as the target architecture. At the group's `done` a section replaces the file's section with the same heading, or is added at the end. `aapp refine` records a base line above each fence: `done` refuses a section the file changed meanwhile. Write `No changes.` under a file that keeps its content.*

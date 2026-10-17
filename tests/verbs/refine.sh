@@ -342,13 +342,13 @@ echo "== group membership (P-64) =="
 init_sandbox_project "$R/g"
 cd "$R/g" || exit 1
 gid="P-$(git config aapp.planId)"; aapp draft grp group >/dev/null 2>&1
-gf="$(ls .plans/current/P"${gid#P-}"-*.md)"
+gf="$(ls .plans/current/P"${gid#P-}"-grp.md)"; aid="P-$(( ${gid#P-} + 1 ))"
 pid="P-$(git config aapp.planId)"; aapp draft member-a >/dev/null 2>&1
 pf="$(ls .plans/current/P"${pid#P-}"-*.md)"
 aapp refine "$pid" group "$gid" >/dev/null 2>&1; r1=$?
-joined=0; grep -qx "\* \*\*Group:\*\* $gid" "$pf" && grep -qx "\* \*\*Members:\*\* $pid" "$gf" && joined=1
+joined=0; grep -qx "\* \*\*Group:\*\* $gid" "$pf" && grep -qx "\* \*\*Members:\*\* $pid, $aid" "$gf" && joined=1
 aapp refine "$pid" group none >/dev/null 2>&1; r2=$?
-left=0; ! grep -q '^\* \*\*Group:\*\*' "$pf" && grep -qx '\* \*\*Members:\*\* none' "$gf" && left=1
+left=0; ! grep -q '^\* \*\*Group:\*\*' "$pf" && grep -qx "\* \*\*Members:\*\* $aid" "$gf" && left=1
 aapp refine "$pid" group "$gid" >/dev/null 2>&1
 # Fixture: the member as started (the status the verbs would have written).
 sed -i -E 's/^\* \*\*Status:\*\*.*/* **Status:** ⚡ In Development/' "$pf"
@@ -408,6 +408,82 @@ if [ "$r1" -ne 0 ] && echo "$out1" | grep -qF "group $gid" && [ "$r2" -eq 0 ]; t
   ok "test_refine_group_plans_only_from_the_group"
 else
   bad "test_refine_group_plans_only_from_the_group" "r1=$r1 out1=$out1 r2=$r2 out2=$out2"
+fi
+
+echo "== the amendments member (P-101) =="
+# amend_group <slug>: a started group (with its amendments member) and one member
+# freeze-started into its worktree; prints "<group> <amendments> <member>".
+amend_group() {
+  local gid aid mid g m
+  gid="P-$(git config aapp.planId)"; aapp draft "$1" group >/dev/null 2>&1; aid="P-$(( ${gid#P-} + 1 ))"
+  g="$(ls .plans/current/P"${gid#P-}"-"$1".md)"
+  sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$g"; git -C .plans commit -qam "prep $gid" >/dev/null 2>&1
+  aapp freeze "$gid" >/dev/null 2>&1; aapp start "$gid" base "$(git rev-parse --abbrev-ref HEAD)" >/dev/null 2>&1
+  mid="P-$(git config aapp.planId)"; aapp draft "$1-m" group "$gid" >/dev/null 2>&1
+  m="$(ls .plans/current/P"${mid#P-}"-"$1"-m.md)"
+  sed -i -E "s|src/path/to/file\.ext|src/$1-m.sh|g; /src\/path\/to\/new_file\.ext/d; s/^\* \[ \] \*\*Question/* [x] **Question/" "$m"
+  git -C .plans commit -qam "prep $mid" >/dev/null 2>&1
+  aapp freeze-start "$mid" worktree ".workspace/P${mid#P-}" >/dev/null 2>&1
+  echo "$gid $aid $mid"
+}
+read -r ag aa am <<< "$(amend_group amg)"
+af="$(ls .plans/current/P"${aa#P-}"-*.md)"; mwt="$PWD/.workspace/P${am#P-}"; awt="$PWD/.workspace/P${aa#P-}"
+r1=0; out1="$(cd "$mwt" && aapp refine "$aa" request "needs a helper" file src/helper.sh 2>&1)" || r1=$?
+r2=0; out2="$(aapp refine "$aa" request "from outside" file src/x.sh 2>&1)" || r2=$?
+if [ "$r1" -eq 0 ] && echo "$out1" | grep -qF "R1 recorded" && echo "$out1" | grep -qF "Do not implement" && \
+   grep -qF -- "- **R1** $(date +%Y-%m-%d) · $am · \`src/helper.sh\` · needs a helper — pending" "$af" && \
+   [ "$r2" -ne 0 ] && echo "$out2" | grep -qF "for itself"; then
+  ok "test_amend_request_from_member_only"
+else
+  bad "test_amend_request_from_member_only" "r1=$r1 out1=$out1 r2=$r2 out2=$out2"
+fi
+out="$(aapp refine "$aa" approve 1 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -qF -- '- [ ] `src/helper.sh` -> R1' "$af" && grep -q '· needs a helper — approved (' "$af" && \
+   echo "$out" | grep -qF "added to $aa's Target Files"; then
+  ok "test_amend_approve_adds_target_file"
+else
+  bad "test_amend_approve_adds_target_file" "rc=$rc out=$out"
+fi
+( cd "$mwt" && aapp refine "$aa" request "taken" file "src/amg-m.sh" >/dev/null 2>&1 )
+r3=0; out3="$(aapp refine "$aa" approve 2 2>&1)" || r3=$?
+r4=0; out4="$(aapp refine "$aa" refuse 2 "a member's own file" 2>&1)" || r4=$?
+if [ "$r3" -ne 0 ] && echo "$out3" | grep -qF "Target File of $am" && [ "$r4" -eq 0 ] && \
+   grep -q "— refused: a member's own file$" "$af"; then
+  ok "test_amend_approve_refuses_active_member_file_and_refuse"
+else
+  bad "test_amend_approve_refuses_active_member_file_and_refuse" "r3=$r3 out3=$out3 r4=$r4 out4=$out4"
+fi
+r5=0; out5="$(cd "$awt" && aapp refine "$aa" file src/z.sh "direct" 2>&1)" || r5=$?
+git config aapp.amendmentApprovalRequired false
+r6=0; out6="$(cd "$awt" && aapp refine "$aa" file src/z.sh "direct" 2>&1)" || r6=$?
+r7=0; out7="$(aapp refine "$aa" file src/w.sh "elsewhere" 2>&1)" || r7=$?
+git config aapp.amendmentApprovalRequired maybe
+r8=0; out8="$(cd "$mwt" && aapp refine "$aa" request "any" 2>&1)" || r8=$?
+git config --unset aapp.amendmentApprovalRequired
+if [ "$r5" -ne 0 ] && echo "$out5" | grep -qF "Approval is required" && [ "$r6" -eq 0 ] && grep -qF -- '- [ ] `src/z.sh` -> direct' "$af" && \
+   [ "$r7" -ne 0 ] && echo "$out7" | grep -qF "amends it" && [ "$r8" -ne 0 ] && echo "$out8" | grep -qF "aapp.amendmentApprovalRequired"; then
+  ok "test_amend_file_follows_the_approval_setting"
+else
+  bad "test_amend_file_follows_the_approval_setting" "r5=$r5 r6=$r6 out6=$out6 r7=$r7 out7=$out7 r8=$r8 out8=$out8"
+fi
+# A correction of the group's text: requested by heading, approved, written into the group plan.
+gfa="$(ls .plans/current/P"${ag#P-}"-amg.md)"
+awk '/^### ARCHITECTURE.md/ { print; print "````markdown"; print "## Amg Lifecycle"; print "first text"; print "````"; next } { print }' "$gfa" > "$gfa.t" && mv "$gfa.t" "$gfa"
+git -C .plans commit -qam "fixture: group section" --no-verify >/dev/null 2>&1
+( cd "$mwt" && aapp refine "$aa" request "landing changed" heading "Amg Lifecycle" >/dev/null 2>&1 )
+aapp refine "$aa" approve 3 >/dev/null 2>&1
+sed -i 's/^first text$/corrected text/' "$gfa"
+r9=0; out9="$(cd "$awt" && aapp refine "$aa" decision 3 "landing changed" 2>&1)" || r9=$?
+files9="$(git -C .plans show --name-only --format= HEAD)"
+sed -i 's/^Group goal.*$//' "$gfa"; echo "* stray" >> "$gfa"
+r10=0; out10="$(cd "$awt" && aapp refine "$aa" decision 3 "again" 2>&1)" || r10=$?
+git -C .plans checkout -q -- "current/$(basename "$gfa")"
+if [ "$r9" -eq 0 ] && grep -qx "corrected text" "$gfa" && grep -qF -- "· § Amg Lifecycle · R3 · landing changed" "$af" && \
+   grep -q "· landing changed — applied$" "$af" && echo "$files9" | grep -qx "current/$(basename "$gfa")" && \
+   echo "$files9" | grep -qx "current/$(basename "$af")" && [ "$r10" -ne 0 ]; then
+  ok "test_amend_decision_corrects_group_text_with_record"
+else
+  bad "test_amend_decision_corrects_group_text_with_record" "r9=$r9 out9=$out9 files=$files9 r10=$r10 out10=$out10"
 fi
 
 print_test_summary "$PASS" "$FAIL"

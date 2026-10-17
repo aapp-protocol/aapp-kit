@@ -81,11 +81,16 @@ cmd_commit() {
     local model_override=""
     local note_text=""
     local changelog_text=""
+    local is_land=0
 
     while [ $# -gt 0 ]; do
         case "$1" in
             amend)
                 is_amend=1
+                shift
+                ;;
+            land)
+                is_land=1
                 shift
                 ;;
             adopt)
@@ -239,9 +244,22 @@ cmd_commit() {
         return 1
     fi
 
+    # P-101: `land` belongs to a group's amendments member; with nothing staged
+    # and no message it lands what is committed.
+    if [ "$is_land" -eq 1 ]; then
+        if [ "$(parse_plan_field "$plan_file" Kind)" != "amendments" ]; then
+            echo "❌ [Commit Refusal] 'land' is for a group's amendments member; $plan_id lands with 'aapp done'." >&2
+            return 1
+        fi
+        if [ -z "$commit_msg" ] && [ "$is_amend" -eq 0 ] && git diff --cached --quiet; then
+            _commit_land "$plan_file" "$plan_id"
+            return
+        fi
+    fi
+
     # P-51: in atomic mode a plan is one commit; further changes fold in with
     # `aapp commit amend`.
-    if [ "$is_amend" -eq 0 ] && [ "$is_adopt" -eq 0 ] && [ "$(aapp_commit_mode)" = "atomic" ]; then
+    if [ "$is_amend" -eq 0 ] && [ "$is_adopt" -eq 0 ] && [ "$(aapp_plan_commit_mode "$plan_file")" = "atomic" ]; then
         local first_recorded
         first_recorded="$(parse_plan_commits "$plan_file" | head -n 1 | awk '{print $1}')"
         if [ -n "$first_recorded" ]; then
@@ -400,6 +418,13 @@ cmd_commit() {
         }
     fi
 
+    # P-101: an amendments member's commits land on the feature branch one by
+    # one; each carries its plan, as a squashed plan's commit does.
+    if [ "$(parse_plan_field "$plan_file" Kind)" = "amendments" ] && ! grep -qx "Plan-ID: $plan_id" "$tmp_msg"; then
+        git interpret-trailers --in-place --trailer "Plan-ID: $plan_id" "$tmp_msg" || {
+            rm -f "$tmp_msg"; echo "❌ [Commit Refusal] Could not add the Plan-ID trailer." >&2; return 1; }
+    fi
+
     # 6. Execute Code Commit
     local code_rc=0
     if [ "$is_amend" -eq 1 ]; then
@@ -472,5 +497,51 @@ cmd_commit() {
         return "$plan_commit_rc"
     fi
 
+    if [ "$is_land" -eq 1 ]; then _commit_land "$plan_file" "$plan_id" || return 1; fi
     return 0
+}
+
+# _commit_land <plan_file> <plan_id> (P-101): an amendments member's commits onto
+# its group's feature branch by P-55's path: _ig_preflight (the branch must hold
+# the feature branch tip: "rebase it first"; worktree and main checkout clean),
+# then _ig_run's fast-forward. Nothing archived, nothing removed, no test gate.
+_commit_land() {
+    local pf="$1" pid="$2" before after
+    # shellcheck source=/dev/null
+    AAPP_PLAN_LIB_ONLY=1 . "$(dirname "${BASH_SOURCE[0]}")/cmd_plan.sh" || return 1
+    IG_TARGET=""; IG_OVERRIDE_CAP=0; IG_MODE=ff; IG_NOCLEAN=1; IG_FORCECLEAN=0; IG_LAND=1
+    _ig_preflight "$pf" "$pid" || return 1
+    if [ "$IG_ALREADY" -eq 1 ]; then
+        echo "ℹ️  [Land] Nothing to land: $IG_TARGET_BR already holds $IG_PLAN_BR."
+        return 0
+    fi
+    before="$(git rev-parse "$IG_TARGET_BR")"
+    _ig_run "$pf" "$pid" || return 1
+    after="$(git rev-parse "$IG_TARGET_BR")"
+    _land_record_requests "$pf" "$pid" "$before" "$after" || return 1
+    _land_name_members "$pf" "$IG_TARGET_BR"
+}
+
+# _land_record_requests <plan_file> <plan_id> <before> <after>: each approved
+# request whose file the landed commits touch becomes `landed` with the last
+# commit touching it, in one plans commit.
+_land_record_requests() {
+    local pf="$1" pid="$2" before="$3" after="$4" f sha n changed=0
+    while IFS= read -r f; do
+        n="$(amend_request_for_file "$pf" "$f" approved)" || continue
+        sha="$(git log -1 --format=%h "$before..$after" -- "$f")"
+        amend_request_set_state "$pf" "$n" "landed \`$sha\`" && changed=1
+    done < <(git diff --name-only "$before" "$after")
+    [ "$changed" -eq 1 ] || return 0
+    plans_commit "plan(record): land $(git rev-parse --short "$after") for $pid" "current/$(basename "$pf")"
+}
+
+# _land_name_members <plan_file> <feature-branch>: the members in development
+# whose branch lacks the new tip; they rebase.
+_land_name_members() {
+    local m mf
+    for m in $(amend_must_rebase "$1"); do
+        mf="$(resolve_plan_file "$m" "commit" 2>/dev/null)" || continue
+        echo "   $m must rebase: git -C $(parse_plan_worktree "$mf" | cut -f1) rebase --autostash $2"
+    done
 }

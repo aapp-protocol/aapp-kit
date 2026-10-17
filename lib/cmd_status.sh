@@ -277,9 +277,12 @@ status_issue_branches() {
 }
 
 # status_records_plans -> id, file, title, status, status_label, kind (plan,
-# group), group, members (comma-separated), target_issue, blocked_on
+# group, amendments), group, members (comma-separated), target_issue, blocked_on
 # (comma-separated), worktree, branch, feature_branch, depth (0, or 1 for a
-# member listed under its group), in briefing order.
+# member listed under its group), requests (an amendments member's
+# `pending,approved,refused,landed,applied`), must_rebase (comma-separated),
+# approval_required (`true`/`false`, an amendments member's), rebase_onto (its
+# group's feature branch), in briefing order.
 status_records_plans() {
     local P GRP M MF
     [ -d ".plans/current" ] || return 0
@@ -308,13 +311,21 @@ status_plan_record() {
     if command -v plan_state_for_status_line >/dev/null 2>&1; then slug="$(plan_state_for_status_line "$sline" 2>/dev/null || true)"; fi
     title="$(grep -m 1 -E '^# ' "$P" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*|🧩[[:space:]]*Group[[:space:]]+)?Plan[^:]*:[[:space:]]*//')"
     if aapp_is_group_plan "$P"; then kind=group; members="$(group_members "$P" | paste -sd, - || true)"; fi
+    # P-101: an amendments member carries its request counts and the members that must rebase.
+    local requests="" rebase="" approval="" onto="" gfile
+    if [ "$(parse_plan_field "$P" Kind)" = "amendments" ]; then
+        kind=amendments; requests="$(amend_request_counts "$P")"; rebase="$(amend_must_rebase "$P" | paste -sd, - || true)"
+        approval="$(aapp_amendment_approval_required 2>/dev/null)" || approval=""
+        gfile="$(ls "$(dirname "$P")"/P"$(parse_plan_field "$P" Group | sed 's/^P-//')"-*.md 2>/dev/null | head -n 1)"
+        [ -n "$gfile" ] && onto="$(parse_plan_field "$gfile" "Feature Branch")"
+    fi
     grp="$(parse_plan_field "$P" Group)"
     target="$(parse_plan_field "$P" "Target Issue / Milestone" | grep -oE '^#[A-Za-z0-9-]+' || true)"
     blocked="$(parse_plan_field "$P" "Blocked On" | grep -oE '#[A-Za-z0-9-]+' | paste -sd, - || true)"
     rec="$(parse_plan_worktree "$P")"
     if [ -n "$rec" ]; then wt="${rec%%$'\t'*}"; wtb="${rec#*$'\t'}"; fi
     fb="$(parse_plan_field "$P" "Feature Branch")"; [ "$fb" = "none" ] && fb=""
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$base" "$title" "$slug" "$label" "$kind" "$grp" "$members" "$target" "$blocked" "$wt" "$wtb" "$fb" "$2"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$base" "$title" "$slug" "$label" "$kind" "$grp" "$members" "$target" "$blocked" "$wt" "$wtb" "$fb" "$2" "$requests" "$rebase" "$approval" "$onto"
 }
 
 # status_records_pickup -> title, text, files: one per unworked entry, split by
@@ -356,9 +367,26 @@ status_records_offline() {
     return 0
 }
 
+# status_waiting_requests -> `<count>\t<group>\t<amend-id>` for the first
+# amendments member with requests waiting for approval (P-101); nothing when none
+# waits or approval is not required.
+status_waiting_requests() {
+    local pf p
+    [ "$(aapp_amendment_approval_required 2>/dev/null)" = "true" ] || return 0
+    for pf in .plans/current/*.md; do
+        [ -f "$pf" ] && [ "$(parse_plan_field "$pf" Kind)" = "amendments" ] || continue
+        p="$(amend_request_counts "$pf" | cut -d, -f1)"
+        if [ "${p:-0}" -gt 0 ]; then
+            printf '%s\t%s\t%s\n' "$p" "$(parse_plan_field "$pf" Group)" "$(parse_plan_field "$pf" "Plan ID")"
+            return 0
+        fi
+    done
+    return 0
+}
+
 # status_records_next -> kind, text, command: the next action.
 status_records_next() {
-    local files local_f shared_f buffer active="" lane frozen="" incubator="" first ov pickup
+    local files local_f shared_f buffer active="" lane frozen="" incubator="" first ov pickup waiting wn wg wa
     files="$(status_pause_files)"; local_f="$(printf '%s\n' "$files" | sed -n 1p)"; shared_f="$(printf '%s\n' "$files" | sed -n 2p)"
     buffer="$(git rev-parse --git-path aapp_active_plan 2>/dev/null || true)"
     [ -f "$buffer" ] && active="$(tr -d '[:space:]' < "$buffer" 2>/dev/null || true)"
@@ -392,6 +420,10 @@ status_records_next() {
         printf 'paused\t%s\t%s\n' "Project is PAUSED. Run 'aapp resume' to wake, or refine notes in .plans/ (pickup, issues, current)." "aapp resume"
     elif ! { [ -d ".plans" ] && [ -d ".agents" ] && [ -d ".githooks" ]; }; then
         printf 'init\t%s\t%s\n' "Run 'aapp init' to complete AAPP worktree setup." "aapp init"
+    elif waiting="$(status_waiting_requests)" && [ -n "$waiting" ]; then
+        # P-101: requests waiting for approval block a member's work.
+        IFS=$'\t' read -r wn wg wa <<< "$waiting"
+        printf 'approve\t%s\t%s\n' "$wn amendment request(s) wait for approval in group $wg: review them with 'aapp plan-status $wa', then 'aapp refine $wa approve <n>' or 'refuse <n> \"<reason>\"'." "aapp plan-status $wa"
     elif [ "${pickup:-0}" -gt 0 ]; then
         printf 'digest\t%s\t%s\n' "Run '/aapp-digest <idea>' (or 'aapp digest <idea>') to work a queued pickup idea." "aapp digest <idea>"
     elif [ -n "$active" ]; then
@@ -429,6 +461,16 @@ status_notices() {
         while IFS= read -r line; do [ -n "$line" ] && notice issues after "$line"; done <<< "$drift"
     fi
     while IFS= read -r line; do [ -n "$line" ] && notice plans before "$line"; done <<< "${STATUS_UNBLOCK_OUT:-}"
+    # P-101: a group member's agent re-reads its guide at every session start.
+    local bound bf bg gfile
+    bound="$(head -n 1 "$(git rev-parse --git-path aapp_active_plan 2>/dev/null)" 2>/dev/null | tr -d '[:space:]')"
+    if [ -n "$bound" ] && bf="$(ls .plans/current/P"${bound#P-}"-*.md 2>/dev/null | head -n 1)" && [ -n "$bf" ]; then
+        bg="$(parse_plan_field "$bf" Group)"
+        gfile="$(ls .plans/current/P"${bg#P-}"-*.md 2>/dev/null | head -n 1)"
+        if [ -n "$bg" ] && [ -n "$gfile" ]; then
+            notice plans after "📖 Bound to $bound, member of group $bg: re-read the group's ## Architecture & Codemap in $gfile before continuing."
+        fi
+    fi
     case "${STATUS_MATRIX_OUT:-}" in
         *"Re-derived"*)
             case "${STATUS_MATRIX_OUT:-}" in
@@ -476,7 +518,7 @@ status_overview_line() {
 
 status_render_terminal() {
     local frame version count first files sname reason label stashes initiator buffer parsed error names s wt br
-    local kind sec text cnt title t id base st lbl k g m tg bl w wb fb depth line active archived plans steps fl f
+    local kind sec text cnt title t id base st lbl k g m tg bl w wb fb depth rq rb ap onto rp rl line active archived plans steps fl f
     frame="$(printf '%*s' "$STATUS_WIDTH" '' | tr ' ' '=')"
     version="${AAPP_VERSION:-1.0.0}"
 
@@ -569,11 +611,19 @@ status_render_terminal() {
         if [ -z "$STATUS_PLANS" ]; then
             status_line 2 3 "(No active plans in .plans/current/)"
         else
-            while IFS=$'\037' read -r id base title st lbl k g m tg bl w wb fb depth; do
+            while IFS=$'\037' read -r id base title st lbl k g m tg bl w wb fb depth rq rb ap onto; do
                 [ -n "$base" ] || continue
                 [ -n "$w" ] && lbl="$lbl → $w"
                 line="$base  ($lbl)"; [ -n "$id" ] && line="$id: $line"
                 if [ "$depth" = "1" ]; then status_line 6 8 "↳ $line"; else status_line 2 4 "• $line"; fi
+                # P-101: what waits on the group's amendments member.
+                if [ "$k" = "amendments" ]; then
+                    IFS=, read -r rp _ _ rl _ <<< "$rq"
+                    if [ "${rp:-0}" -gt 0 ] && [ "$ap" = "true" ]; then
+                        status_line 10 12 "$rp request(s) wait for approval: aapp plan-status $id"
+                    fi
+                    if [ -n "$rb" ]; then status_line 10 12 "${rl:-0} landed; ${rb//,/, } must rebase onto $onto"; fi
+                fi
             done < <(status_rows "$STATUS_PLANS")
         fi
         status_notice_lines plans after
@@ -645,13 +695,24 @@ status_json_plan() {
         status_label "$(out_json_str "$(printf '%s' "$5" | LC_ALL=C sed -E 's/^[^A-Za-z]+//')")" \
         group "$(out_json_strn "$7")" target_issue "$(out_json_strn "$9")" blocked_on "$(out_json_strlist "${10}")" \
         worktree "$(out_json_strn "${11}")" branch "$(out_json_strn "${12}")" feature_branch "$(out_json_strn "${13}")" \
-        members "${15}"
+        members "${15}" requests "$(status_json_requests "${16:-}")" \
+        must_rebase "$([ "$6" = amendments ] && out_json_strlist "${17:-}" || echo null)"
+}
+
+# status_json_requests <pending,approved,refused,landed,applied>: an amendments
+# member's request counts (P-101), or null.
+status_json_requests() {
+    local p a r l ap
+    [ -n "$1" ] || { echo null; return 0; }
+    IFS=, read -r p a r l ap <<< "$1"
+    out_json_obj pending "$(out_json_num "$p")" approved "$(out_json_num "$a")" refused "$(out_json_num "$r")" \
+        landed "$(out_json_num "$l")" applied "$(out_json_num "$ap")"
 }
 
 status_render_json() {
     local env issues next plans roadmap pickup adoption overview templates pause shipped items more
     local file reason sname preason pat label stashes initiator buffer parsed error s wt br list kind sec text plan iss commit date
-    local id base title slug lbl k g m tg bl w wb fb depth cur="" curm="" pl="" title_ txt files cnt
+    local id base title slug lbl k g m tg bl w wb fb depth rq rb cur="" curm="" curx="" pl="" title_ txt files cnt
     local active archived oplans steps offline nk ntext ncmd
     env="$(out_json_envelope status "$(printf '%s\n' "$STATUS_NOTICES" | awk -F'\t' 'NF { print $1 "\t" $2 "\t" $4 }' | out_json_notices)")" || return 1
 
@@ -693,16 +754,17 @@ status_render_json() {
     issues="$(out_json_obj queue "$items" unqueued "$(out_json_num "$STATUS_UNQUEUED")")"
 
     # A group's members follow it with depth 1: they go into its `members`.
-    while IFS=$'\037' read -r id base title slug lbl k g m tg bl w wb fb depth; do
+    while IFS=$'\037' read -r id base title slug lbl k g m tg bl w wb fb depth rq rb _ _; do
         [ -n "$base" ] || continue
         if [ "$depth" = "1" ] && [ -n "$cur" ]; then
-            curm="${curm:+$curm,}$(status_json_plan "$id" "$base" "$title" "$slug" "$lbl" "$k" "$g" "$m" "$tg" "$bl" "$w" "$wb" "$fb" "$depth" "[]")"
+            curm="${curm:+$curm,}$(status_json_plan "$id" "$base" "$title" "$slug" "$lbl" "$k" "$g" "$m" "$tg" "$bl" "$w" "$wb" "$fb" "$depth" "[]" "$rq" "$rb")"
             continue
         fi
-        [ -z "$cur" ] || pl="${pl:+$pl,}$(eval "status_json_plan $cur \"[\$curm]\"")"
+        [ -z "$cur" ] || pl="${pl:+$pl,}$(eval "status_json_plan $cur \"[\$curm]\" $curx")"
         cur="$(printf '%q ' "$id" "$base" "$title" "$slug" "$lbl" "$k" "$g" "$m" "$tg" "$bl" "$w" "$wb" "$fb" "$depth")"; curm=""
+        curx="$(printf '%q ' "$rq" "$rb")"
     done < <(status_rows "$STATUS_PLANS")
-    [ -z "$cur" ] || pl="${pl:+$pl,}$(eval "status_json_plan $cur \"[\$curm]\"")"
+    [ -z "$cur" ] || pl="${pl:+$pl,}$(eval "status_json_plan $cur \"[\$curm]\" $curx")"
     plans="$(out_json_obj items "[$pl]")"
 
     list=""; cnt=0

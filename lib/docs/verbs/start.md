@@ -41,7 +41,8 @@
 - group member (P-64): its group not `⚡ In Development`, or no plan worktree -> exit 1, stderr names the group; nothing changed
 
 ## Effects (happy path)
-- group plan (P-64): `feature/<slug>` is created (no upstream) at the parent; the header records `Base: \`<sha>\` (<parent>)` and `* **Feature Branch:** feature/<slug>`; Status `⚡ In Development`; no worktree, no buffer, no hooks; one commit `plan(start): start group <id> on feature/<slug>`
+- group plan (P-64): `feature/<slug>` is created (no upstream) at the parent; the header records `Base: \`<sha>\` (<parent>)` and `* **Feature Branch:** feature/<slug>`; Status `⚡ In Development`; no worktree, no buffer, no hooks; one commit `plan(start): start group <id> on feature/<slug>`. The group's amendments member (P-101), never frozen by hand, is set `🔷 Frozen` in that commit and then started like a member, in its own worktree whatever `aapp.planWorktrees` says (`worktree .workspace/P<n>` when it is off); a failure to start it is reported with the command, the group stays started
+- group member (P-64, P-101): the start output adds `Guide        : member of group <id>: read its ## Architecture & Codemap in .plans/current/<file> before coding.`
 - group member (P-64): the plan worktree branches from the group's feature branch and `Base:` names it; otherwise as a plan worktree below
 - the `pre-start` gating hook executes before any mutation (payload carries plan ID, plan file, and Target Files)
 - the plan's Status line reads `⚡ In Development`
@@ -93,8 +94,10 @@ Run: `aapp test verb start`
 - `tests/verbs/start.worktree.sh::test_worktree_base_remote_only_no_track` -> a remote-only development branch is the base; the plan branch tracks nothing (P-54)
 - `tests/verbs/start.worktree.sh::test_worktree_base_falls_back_to_default_branch` -> no `aapp.devBranch` candidate: the default branch is the base (P-54)
 - `tests/verbs/start.worktree.sh::test_worktree_refuses_without_base_branch` -> no candidate and no default branch: exit 1, plan unchanged (P-54)
-- `tests/verbs/start.group.sh::test_group_start_cuts_feature_branch_from_parent` -> the feature branch at the development branch, or at `base <branch>`; Base names the parent; no worktree, no buffer (P-64)
+- `tests/verbs/start.group.sh::test_group_start_cuts_feature_branch_from_parent` -> the feature branch at the development branch, or at `base <branch>`; Base names the parent; no worktree for the group, none bound in the main checkout; one worktree per group for its amendments member (P-64, P-101)
 - `tests/verbs/start.group.sh::test_group_start_refuses_missing_branch` -> `base` naming no branch: exit 1, nothing created (P-64)
 - `tests/verbs/start.group.sh::test_member_start_branches_from_feature_branch` -> a member's plain `start` branches from the group's feature branch (P-64)
 - `tests/verbs/start.group.sh::test_member_start_refuses_unstarted_group` -> a member of an unstarted group: exit 1, nothing changed (P-64)
 - `tests/verbs/start.group.sh::test_groups_do_not_nest` -> a group started from another group's feature branch, or a group plan joining a group: refused (P-64)
+- `tests/verbs/start.group.sh::test_group_start_starts_amendments_member` -> the group's start puts its amendments member ⚡ In Development in its own worktree (P-101)
+- `tests/verbs/start.group.sh::test_member_start_points_at_group_guide` -> a member's start names the group plan's `## Architecture & Codemap` to read (P-101)

@@ -1,10 +1,12 @@
-# commit ["<msg>"] [amend] [adopt <sha>...] [agent <A> vendor <V> model <M>] [note "<text>"] [changelog "<text>"]
+# commit ["<msg>"] [amend] [adopt <sha>...] [land] [agent <A> vendor <V> model <M>] [note "<text>"] [changelog "<text>"]
 
 ## Ingress
 - positional forms:
     - `"<message>"`: commits staged files in current worktree, attributes commit, and records `sha (branch)` in active plan
     - `amend ["<message>"]`: amends last commit (message kept when omitted), updates recorded SHA in active plan
     - `adopt <sha>...`: records existing commit(s) in active plan without code commit (repair path)
+    - `land` (P-101, a group's amendments member only): after the commit, or alone with nothing staged and no message, lands the amendments member's commits on its group's feature branch by P-55's path (`_ig_preflight`, then `_ig_run`'s fast-forward): no archive, no cleanup, no test gate
+- an amendments member (`* **Kind:** amendments`) is always `microcommits` (`aapp_plan_commit_mode`), and each of its commits carries `Plan-ID: <id>` (P-101)
 - optional attribution tokens:
     - `agent <Agent>`: AI agent name override
     - `vendor <Vendor>`: AI vendor name override
@@ -29,7 +31,8 @@
 - no active plan in development -> exit 1, stderr `[Commit Refusal] No plan is currently ⚡ In Development` (or names choices with `aapp active <id>`)
 - plan bound in another worktree -> exit 1, stderr naming the holding worktree
 - standard commit with nothing staged -> exit 1, stderr `Nothing staged to commit`
-- `aapp.commitMode=atomic` (default) and the active plan already records a commit -> a standard commit exits 1, stderr `aapp.commitMode=atomic: <id> already has commit <sha>. Fold changes in with 'aapp commit amend', or set aapp.commitMode=microcommits.`; `amend` and `adopt` are not affected (P-51)
+- `land` on a plan that is not an amendments member -> exit 1 naming `aapp done`; its branch lacking the feature branch's tip -> exit 1, `does not contain '<feature branch>'; rebase it first` with the command; the main checkout or the worktree dirty -> exit 1 (P-55's checks); nothing to land -> exit 0, `Nothing to land` (P-101)
+- the plan's commit mode (`aapp_plan_commit_mode`: `microcommits` for an amendments member, else `aapp.commitMode`) is `atomic` (default) and the active plan already records a commit -> a standard commit exits 1, stderr `aapp.commitMode=atomic: <id> already has commit <sha>. Fold changes in with 'aapp commit amend', or set aapp.commitMode=microcommits.`; `amend` and `adopt` are not affected (P-51)
 - code commit hook refusal -> exit non-zero with hook output; active plan header remains untouched
 - plan commit index lock timeout -> retry up to 5 times; if exhausted, exit non-zero and print `aapp commit adopt <sha>` repair command
 - `strict` mode without identity -> exit 1 during pre-flight before code commit
@@ -54,6 +57,10 @@
     - old recorded SHA is replaced with new SHA in `* **Commits:**` header line
 - for `adopt`:
     - existing SHAs not already in header are appended with their containing branch; prints a warning that commits did not pass through helper
+- for `land` (P-101):
+    - the feature branch is fast-forwarded to the amendments member's branch (`🔀 [Integrate] … integrated into <feature branch> (ff, <sha>)`); the worktree and branch stay
+    - each approved request whose file the landed commits touch becomes `landed \`<sha>\`` (the last commit touching it), in one plans commit `plan(record): land <sha> for <id>`
+    - stdout names each member in development whose branch lacks the new tip: `<id> must rebase: git -C <worktree> rebase --autostash <feature branch>`
 
 ## Exit
 - 0 on success
@@ -91,3 +98,9 @@ Run: `aapp test verb commit`
 - `tests/verbs/commit.sh::test_mini_plan_commit_refuses_changelog_after_first_commit` -> `changelog` on a fix that has a commit: exit 1 pointing at `aapp refine`, nothing committed
 - `tests/verbs/commit.sh::test_note_token_attached_in_none_mode` -> `note "<text>"` in `none` mode: no trailer, the text in `refs/notes/commits`
 - `tests/verbs/commit.sh::test_note_token_attached_in_strict_mode` -> `note "<text>"` in `strict` mode: trailers kept, the text in `refs/notes/ai`
+- `tests/verbs/commit.sh::test_amend_commits_carry_plan_id_and_microcommits` -> under `aapp.commitMode=atomic` an amendments member makes a second commit; each carries `Plan-ID` (P-101)
+- `tests/verbs/commit.sh::test_amend_land_fast_forwards_and_records` -> `land` fast-forwards the feature branch, the request becomes `landed`, the member to rebase is named (P-101)
+- `tests/verbs/commit.sh::test_amend_land_refuses_without_feature_tip` -> after a member landed, `land` without rebasing is refused (`rebase it first`); `land` outside an amendments member is refused (P-101)
+- `tests/verbs/commit.sh::test_amend_done_refuses_open_members` -> the amendments member's `done` is refused while another member is open, naming it (P-101)
+- `tests/verbs/commit.sh::test_amend_done_archives_last` -> archived once the members are and its requests are landed (P-101)
+- `tests/verbs/commit.sh::test_amend_done_refuses_open_requests_and_archives_empty_with_none` -> a pending request refuses `done`, listed; with every request refused it is archived with `none` in the ledger (P-101)

@@ -321,6 +321,37 @@ if [ "$(printf '%s\n' "$s" | grep -c '^  - ')" = "2" ] && [ "$(printf '%s\n' "$p
 else
   bad "test_status_limit_settings" "shipped=$(printf '%s\n' "$s" | grep -c '^  - ') ideas=$(printf '%s\n' "$p" | grep -c '^  - \[ \] ') t1=[$t1] many=$brc zero=$crc"
 fi
+
+echo "== a group's amendments member (P-101) =="
+init_sandbox_project "$R/am"
+cd "$R/am" || exit 1
+printf '%s\n' '.env' >> .gitignore; git add -A && git commit -qm "track init files" --no-verify
+git config aapp.planWorktrees on; git config aapp.commitMode microcommits
+gid="P-$(git config aapp.planId)"; aapp draft amg group >/dev/null 2>&1; aid="P-$(( ${gid#P-} + 1 ))"
+g="$(ls .plans/current/P"${gid#P-}"-amg.md)"; sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$g"
+git -C .plans commit -qam "prep $gid" >/dev/null 2>&1
+aapp freeze "$gid" >/dev/null 2>&1; aapp start "$gid" base "$(git rev-parse --abbrev-ref HEAD)" >/dev/null 2>&1
+mid="P-$(git config aapp.planId)"; aapp draft amg-m group "$gid" >/dev/null 2>&1
+m="$(ls .plans/current/P"${mid#P-}"-amg-m.md)"
+sed -i -E "s|src/path/to/file\.ext|src/amg-m.sh|g; /src\/path\/to\/new_file\.ext/d; s/^\* \[ \] \*\*Question/* [x] **Question/" "$m"
+git -C .plans commit -qam "prep $mid" >/dev/null 2>&1; aapp freeze-start "$mid" >/dev/null 2>&1
+mwt="$R/am/.workspace/P${mid#P-}"
+( cd "$mwt" && aapp refine "$aid" request "helper" file src/helper.sh >/dev/null 2>&1 )
+out="$(aapp status 2>&1)"; js="$(aapp status json 2>/dev/null)"
+if echo "$out" | grep -qF "1 request(s) wait for approval: aapp plan-status $aid" && \
+   echo "$out" | grep -qF "amendment request(s) wait for approval in group $gid" && \
+   printf '%s' "$js" | python3 -c 'import json,sys; d=json.load(sys.stdin); a=[m for p in d["plans"]["items"] for m in p["members"] if m["id"]==sys.argv[1]][0]; sys.exit(0 if a["kind"]=="amendments" and a["requests"]["pending"]==1 and a["must_rebase"]==[] and d["next_action"]["kind"]=="approve" else 1)' "$aid"; then
+  ok "test_status_shows_requests_waiting_for_approval"
+else
+  bad "test_status_shows_requests_waiting_for_approval" "out=$(echo "$out" | sed -n '/PLANS/,/PICKUP/p') js=$(printf '%s' "$js" | head -c 400)"
+fi
+mout="$(cd "$mwt" && aapp status 2>&1)"
+if echo "$mout" | grep -qF "Bound to $mid, member of group $gid: re-read the group's ## Architecture & Codemap" && \
+   ! echo "$out" | grep -qF "Bound to"; then
+  ok "test_status_member_rereads_group_guide"
+else
+  bad "test_status_member_rereads_group_guide" "mout=$mout"
+fi
 cd "$R/p" || exit 1
 
 print_test_summary "$PASS" "$FAIL"

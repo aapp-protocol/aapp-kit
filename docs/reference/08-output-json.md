@@ -214,7 +214,7 @@ A plan in `status.plans.items`, or a member in a group's `members`.
 | `id` | string or `null` | `"P-88"` |
 | `file` | string | its file in `.plans/current/` |
 | `title` | string | its title |
-| `kind` | string | `plan` or `group` |
+| `kind` | string | `plan`, `group`, or `amendments` (a group's amendments member) |
 | `status` | string or `null` | `under-review`, `refining`, `frozen`, `in-development`, `blocked`, … |
 | `status_label` | string | the status as named, without its emoji (`"In Development"`) |
 | `group` | string or `null` | the group it belongs to |
@@ -224,6 +224,18 @@ A plan in `status.plans.items`, or a member in a group's `members`.
 | `branch` | string or `null` | its worktree's branch |
 | `feature_branch` | string or `null` | a group's feature branch |
 | `members` | list | a group's member plans, as `plan` objects, in the group's order; `[]` for a plan |
+| `requests` | object or `null` | an amendments member's requests by state, below; `null` for any other plan |
+| `must_rebase` | list or `null` | an amendments member's: the group's members in development whose branch lacks the feature branch's tip; `null` for any other plan |
+
+### `plan.requests`
+
+| Field | Type | Holds |
+| :--- | :--- | :--- |
+| `pending` | number | requests waiting for approval (or for the owner, when approval is not required) |
+| `approved` | number | approved, not yet landed or applied |
+| `refused` | number | refused |
+| `landed` | number | files landed on the feature branch |
+| `applied` | number | corrections written into the group plan |
 
 ### `status.pickup`
 
@@ -261,7 +273,7 @@ A plan in `status.plans.items`, or a member in a group's `members`.
 
 | Field | Type | Holds |
 | :--- | :--- | :--- |
-| `kind` | string | `paused`, `init`, `digest`, `in-development`, `start`, `issue`, `freeze`, `plan` |
+| `kind` | string | `paused`, `init`, `approve`, `digest`, `in-development`, `start`, `issue`, `freeze`, `plan` |
 | `text` | string | the suggestion |
 | `command` | string | the command it suggests |
 

@@ -315,13 +315,30 @@ _group_start() {
     today="$(date +%Y-%m-%d)"
     grep -q '^## 📦 6\. Change Log' "$gf" && \
         sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* Group started: \`$fb\` from \`$parent\`." "$gf"
+    # P-101: the amendments member has no design to review and no files to lock:
+    # the group's start greenlights it here and starts it below.
+    local af aid paths=("current/$(basename "$gf")" "state_matrix.md")
+    if af="$(group_amendments_member "$gf")"; then
+        aid="$(parse_plan_field "$af" "Plan ID")"
+        sed -i -E 's/^\* \*\*Status:\*\*.*/* **Status:** 🔷 Frozen/' "$af"
+        paths+=("current/$(basename "$af")")
+    fi
     sync_state_matrix
-    if ! plans_commit "plan(start): start group $gid on $fb" "current/$(basename "$gf")" "state_matrix.md"; then
+    if ! plans_commit "plan(start): start group $gid on $fb" "${paths[@]}"; then
         git branch -D "$fb" >/dev/null
         exit 1
     fi
     echo "🧩 [Start] Group $gid started: $fb from $parent ($sha)."
     echo "   Members start from $fb; 'aapp done $gid' merges it into $parent."
+    if [ -n "${aid:-}" ]; then
+        # Its own worktree whatever aapp.planWorktrees says, as a plan made for an issue.
+        local wt_tok=()
+        [ "$(git config --get aapp.planWorktrees 2>/dev/null)" = "on" ] || wt_tok=(worktree ".workspace/P${aid#P-}")
+        if ! "$AAPP_SCRIPT_DIR/aapp" start "$aid" "${wt_tok[@]}" </dev/null; then
+            echo "❌ [Start] Group $gid is started, but its amendments member $aid is not; start it with 'aapp start $aid ${wt_tok[*]}'." >&2
+            exit 1
+        fi
+    fi
 }
 
 # _group_stamp_sections <group-plan>: base lines for sections without one, from
@@ -779,7 +796,19 @@ _wt_start() {
     echo "⚡ [$label] Plan '$pid' activated into ⚡ In Development in its own worktree."
     echo "   Worktree     : $wt_p"
     echo "   Branch       : $WT_BRANCH (from $WT_BASE_NAME \`$WT_BASE_SHA\`, no upstream)"
+    _member_guide_line "$pf"
     _wt_session "$pf" "$pid" "$wt_p"
+}
+
+# _member_guide_line <plan_file>: a group member's start points its agent at the
+# group plan's `## Architecture & Codemap`, the one guide (P-101).
+_member_guide_line() {
+    local grp gfile
+    grp="$(parse_plan_field "$1" Group)"
+    [ -n "$grp" ] || return 0
+    gfile="$(ls "$PLANS_DIR"/current/P"${grp#P-}"-*.md 2>/dev/null | head -n 1)"
+    [ -n "$gfile" ] || return 0
+    echo "   Guide        : member of group $grp: read its ## Architecture & Codemap in .plans/current/$(basename "$gfile") before coding."
 }
 
 # ------------------------------------------------------------------------------
@@ -1110,7 +1139,7 @@ _ig_run() {
     IG_CODEMAP_FAILED=0
     if aapp_is_group_plan "$pf" && ! _group_done_codemap "$pf" "$pid"; then IG_CODEMAP_FAILED=1; fi
     if [ "$IG_NOCLEAN" -eq 1 ] || [ "$(git config --get aapp.integrateCleanup 2>/dev/null)" = "false" ]; then
-        echo "   Worktree and branch kept (cleanup off)."
+        [ "${IG_LAND:-0}" -eq 1 ] || echo "   Worktree and branch kept (cleanup off)."
         return 0
     fi
     _ig_cleanup "$pid"
@@ -1181,6 +1210,77 @@ _sq_correct_records() {
     fi
     plans_commit "plan(record): record $SQ_NEW for $pid" "${paths[@]}" || return 1
     echo "   Records      : $pid and its issue name $SQ_NEW."
+}
+
+# _draft_template <name>: the path of templates/<name> (AAPP_TEMPLATES, this
+# checkout, the primary checkout); refuses when there is none.
+_draft_template() {
+    local t
+    for t in "${AAPP_TEMPLATES:+$AAPP_TEMPLATES/$1}" "$REPO_ROOT/templates/$1" "${PRIMARY_ROOT:+$PRIMARY_ROOT/templates/$1}"; do
+        [ -n "$t" ] && [ -f "$t" ] && { echo "$t"; return 0; }
+    done
+    echo "❌ [Draft Refusal] templates/$1 not found." >&2
+    return 1
+}
+
+# _draft_render <template> <target> <num> <today> <title> <entry-text>: the plan
+# file from its template, with the modes stamped. Placeholder substitution
+# (P-34 D1): the title is free text, so it never passes through a pattern
+# language: sed treats `/`, `&` and `\` in it as syntax, `awk -v` expands its
+# backslash escapes, and gsub's replacement expands `&`. It travels via ENVIRON
+# and is spliced with index/substr. The title goes in last, so a title
+# containing `P-XX` is not rewritten.
+_draft_render() {
+    local template_file="$1" target_file="$2" tmp_file="$2.aapp-draft.$$"
+    if ! AAPP_DRAFT_NUM="$3" AAPP_DRAFT_TODAY="$4" AAPP_DRAFT_TITLE="$5" AAPP_DRAFT_TEXT="$6" awk '
+        function replace_all(s, pat, rep,    out, i) {
+            out = ""
+            while ((i = index(s, pat)) > 0) {
+                out = out substr(s, 1, i - 1) rep
+                s = substr(s, i + length(pat))
+            }
+            return out s
+        }
+        {
+            line = replace_all($0, "[YYYY-MM-DD]", ENVIRON["AAPP_DRAFT_TODAY"])
+            line = replace_all(line, "P-XX", "P-" ENVIRON["AAPP_DRAFT_NUM"])
+            line = replace_all(line, "Plan P-" ENVIRON["AAPP_DRAFT_NUM"] ": [Feature or Refactor Name]", \
+                               "Plan P-" ENVIRON["AAPP_DRAFT_NUM"] ": " ENVIRON["AAPP_DRAFT_TITLE"])
+            # P-48: the changelog declaration starts as the title.
+            line = replace_all(line, "**Changelog:** Changed: [Feature or Refactor Name]", \
+                               "**Changelog:** Changed: " ENVIRON["AAPP_DRAFT_TITLE"])
+            line = replace_all(line, "[Group Name]", ENVIRON["AAPP_DRAFT_TITLE"])
+            if (ENVIRON["AAPP_DRAFT_TEXT"] != "" && $0 ~ /^\*Provide a concise summary of WHAT is being built/) {
+                line = ENVIRON["AAPP_DRAFT_TEXT"]
+            }
+            print line
+        }
+    ' "$template_file" > "$tmp_file"; then
+        rm -f "$tmp_file"
+        echo "❌ [Draft Refusal] Failed to render the plan template." >&2
+        return 1
+    fi
+    mv "$tmp_file" "$target_file"
+    # P-51: the modes this plan will be built under, from the current config.
+    aapp_plan_stamp_modes "$target_file" || {
+        echo "❌ [Draft Refusal] Could not record the commit and changelog modes." >&2
+        return 1
+    }
+}
+
+# _draft_amendments_member <group-plan> <group-id> <slug> <title> <today> <dir>
+# (P-101): drafts `<slug>-amendments` from templates/amendments-template.md as
+# the group's last member; prints its path relative to the plans worktree.
+_draft_amendments_member() {
+    local gf="$1" gid="$2" aid anum aslug af tpl
+    tpl="$(_draft_template amendments-template.md)" || return 1
+    aid="$(allocate_plan_id)" || { echo "❌ [Draft Refusal] Failed to allocate the amendments member's Plan ID." >&2; return 1; }
+    anum="${aid#P-}"; aslug="$3-amendments"
+    af="$6/current/P${anum}-${aslug}.md"
+    _draft_render "$tpl" "$af" "$anum" "$5" "$4 Amendments" "" || return 1
+    write_plan_field "$af" Group "$gid" Base && group_set_member "$gf" "$aid" add || {
+        echo "❌ [Draft Refusal] Could not record $aid in group $gid." >&2; return 1; }
+    echo "current/P${anum}-${aslug}.md"
 }
 
 cmd_draft() {
@@ -1385,6 +1485,10 @@ Notes from pickup:${p_files}"
             echo "❌ [Draft Refusal] The plan-id provider is unreachable: a plan drafted offline cannot be linked to an issue or a group until 'aapp offline sync' has published it." >&2
             return 1
         fi
+        if [ "$tpl_name" = "group-template.md" ]; then
+            echo "❌ [Draft Refusal] The plan-id provider is unreachable: a group drafted offline could not get its amendments member; draft the group once the provider answers." >&2
+            return 1
+        fi
         offline_mount quiet || return 1
         plan_id="P-$(offline_next_plan_id)"
         draft_dir="$(offline_dir)"
@@ -1392,65 +1496,21 @@ Notes from pickup:${p_files}"
     fi
     local num="${plan_id#P-}"
 
-    local template_file=""
-    if [ -n "$AAPP_TEMPLATES" ] && [ -f "$AAPP_TEMPLATES/$tpl_name" ]; then
-        template_file="$AAPP_TEMPLATES/$tpl_name"
-    elif [ -f "$REPO_ROOT/templates/$tpl_name" ]; then
-        template_file="$REPO_ROOT/templates/$tpl_name"
-    elif [ -n "$PRIMARY_ROOT" ] && [ -f "$PRIMARY_ROOT/templates/$tpl_name" ]; then
-        template_file="$PRIMARY_ROOT/templates/$tpl_name"
-    fi
-
-    if [ -z "$template_file" ] || [ ! -f "$template_file" ]; then
-        echo "❌ [Draft Refusal] templates/$tpl_name not found." >&2
-        return 1
-    fi
+    local template_file
+    template_file="$(_draft_template "$tpl_name")" || return 1
 
     local target_file="$draft_dir/current/P${num}-${slug}.md"
     local today
     today="$(date +%Y-%m-%d)"
     [ -z "$title" ] && title="$(echo "$slug" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')"
 
-    # Placeholder substitution (P-34 D1). The title is free text, so it never
-    # passes through a pattern language: sed treats `/`, `&` and `\` in it as
-    # syntax, `awk -v` expands its backslash escapes, and gsub's replacement
-    # expands `&`. It travels via ENVIRON and is spliced with index/substr. The
-    # title goes in last, so a title containing `P-XX` is not rewritten.
-    local tmp_file="$target_file.aapp-draft.$$"
-    if ! AAPP_DRAFT_NUM="$num" AAPP_DRAFT_TODAY="$today" AAPP_DRAFT_TITLE="$title" AAPP_DRAFT_TEXT="$entry_text" awk '
-        function replace_all(s, pat, rep,    out, i) {
-            out = ""
-            while ((i = index(s, pat)) > 0) {
-                out = out substr(s, 1, i - 1) rep
-                s = substr(s, i + length(pat))
-            }
-            return out s
-        }
-        {
-            line = replace_all($0, "[YYYY-MM-DD]", ENVIRON["AAPP_DRAFT_TODAY"])
-            line = replace_all(line, "P-XX", "P-" ENVIRON["AAPP_DRAFT_NUM"])
-            line = replace_all(line, "Plan P-" ENVIRON["AAPP_DRAFT_NUM"] ": [Feature or Refactor Name]", \
-                               "Plan P-" ENVIRON["AAPP_DRAFT_NUM"] ": " ENVIRON["AAPP_DRAFT_TITLE"])
-            # P-48: the changelog declaration starts as the title.
-            line = replace_all(line, "**Changelog:** Changed: [Feature or Refactor Name]", \
-                               "**Changelog:** Changed: " ENVIRON["AAPP_DRAFT_TITLE"])
-            line = replace_all(line, "[Group Name]", ENVIRON["AAPP_DRAFT_TITLE"])
-            if (ENVIRON["AAPP_DRAFT_TEXT"] != "" && $0 ~ /^\*Provide a concise summary of WHAT is being built/) {
-                line = ENVIRON["AAPP_DRAFT_TEXT"]
-            }
-            print line
-        }
-    ' "$template_file" > "$tmp_file"; then
-        rm -f "$tmp_file"
-        echo "❌ [Draft Refusal] Failed to render the plan template." >&2
-        return 1
+    _draft_render "$template_file" "$target_file" "$num" "$today" "$title" "$entry_text" || return 1
+
+    # P-101: a new group gets its amendments member in the same commit.
+    local amend_rel=""
+    if [ "$tpl_name" = "group-template.md" ]; then
+        amend_rel="$(_draft_amendments_member "$target_file" "P-$num" "$slug" "$title" "$today" "$draft_dir")" || return 1
     fi
-    mv "$tmp_file" "$target_file"
-    # P-51: the modes this plan will be built under, from the current config.
-    aapp_plan_stamp_modes "$target_file" || {
-        echo "❌ [Draft Refusal] Could not record the commit and changelog modes." >&2
-        return 1
-    }
 
     # P-50 promotion: the plan names the issue; the row gets Planned + link.
     if [ -n "$promote_issue" ]; then
@@ -1490,6 +1550,7 @@ Notes from pickup:${p_files}"
         [ -f "$sm_file" ] && draft_paths+=("state_matrix.md")
         [ -n "$promote_issue" ] && draft_paths+=($(ledger_commit_paths issues))
         [ -n "$join_group" ] && draft_paths+=("current/$(basename "$join_gfile")")
+        [ -n "$amend_rel" ] && draft_paths+=("$amend_rel")
         local max_subject_len
         max_subject_len="$(aapp_subject_max_len)"
         local prefix="plan(draft): scaffold P-${num} "
@@ -1512,6 +1573,9 @@ Notes from pickup:${p_files}"
     echo "🚀 Blueprint scaffolded: .plans/current/P${num}-${slug}.md"
     echo "   Plan ID: P-${num}"
     echo "   Status : 🟣 Under Review (Incubator)"
+    if [ -n "$amend_rel" ]; then
+        echo "   Amendments member: .plans/$amend_rel (started with the group; takes what development finds)"
+    fi
 
     # Conditional editor launch
     if [ -t 0 ] && [ -n "$EDITOR" ]; then
@@ -1695,6 +1759,7 @@ cmd_freeze_start() {
     echo "⚡ [Freeze-Start] Plan '$plan_id' frozen and activated into ⚡ In Development."
     echo "   Blueprint    : $plan_file"
     echo "   Active Buffer: $ACTIVE_FILE"
+    _member_guide_line "$plan_file"
 }
 
 cmd_tdd() {
@@ -2015,6 +2080,7 @@ cmd_start() {
 
     echo "⚡ [Start] Plan '$plan_id' activated into ⚡ In Development."
     echo "   Active Buffer: $ACTIVE_FILE"
+    _member_guide_line "$plan_file"
 }
 
 cmd_done() {
@@ -2039,10 +2105,13 @@ cmd_done() {
 
     # P-64: a group plan's `done` prepares its feature branch, then follows the
     # normal path: the gate runs on the feature branch, P-55 fast-forwards the parent.
-    local is_group=0
+    local is_group=0 is_amend=0
     if aapp_is_group_plan "$plan_file"; then
         is_group=1
         _group_done_prepare "$plan_file" "$(sed -nE 's/^\* \*\*Plan ID:\*\*[[:space:]]*(P-[0-9]+).*/\1/p' "$plan_file" | head -n 1)"
+    elif [ "$(parse_plan_field "$plan_file" Kind)" = "amendments" ]; then
+        is_amend=1
+        _amend_done_check "$plan_file"
     fi
 
     # P-54: a plan with its own worktree is archived only from a clean worktree.
@@ -2145,7 +2214,8 @@ cmd_done() {
 
     # P-102: a group has no commit of its own before the gate; its check is
     # "every member archived" (_group_done_prepare), its docs commit follows the gate.
-    if [ ${#recorded_commits[@]} -eq 0 ] && [ "$is_group" -eq 0 ]; then
+    # P-101: an amendments member with nothing to land is archived without a commit.
+    if [ ${#recorded_commits[@]} -eq 0 ] && [ "$is_group" -eq 0 ] && [ "$is_amend" -eq 0 ]; then
         echo "❌ [Done Refusal] Plan '$plan_id' has no recorded commits under '* **Commits:**'." >&2
         local base_val base_sha=""
         base_val="$(grep -m 1 -E '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Base:\*\*' "$plan_file" 2>/dev/null | sed -E 's/^.*\*\*Base:\*\*[[:space:]]*//' | tr -d '[:space:]')"
@@ -2218,6 +2288,7 @@ cmd_done() {
     else
         commit_sha="$(echo "$last_commit_entry" | awk '{print $1}' | tr -d '\`')"
     fi
+    if [ -z "$commit_sha" ] && [ "$is_amend" -eq 1 ]; then commit_sha="none"; fi
     [ -z "$commit_sha" ] && commit_sha="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "0000000")"
     # P-102: the gate of a group sees the feature branch tip it tests.
     local group_tip=""
@@ -2316,6 +2387,8 @@ cmd_done() {
         commit_sha="$(echo "$last_commit_entry" | awk '{print $1}' | tr -d '\`')"
     fi
     # A group without a docs commit of its own is recorded with the tip it merged.
+    # An amendments member that landed nothing records `none`, never an unrelated HEAD (P-101).
+    if [ -z "$commit_sha" ] && [ "$is_amend" -eq 1 ]; then commit_sha="none"; fi
     [ -z "$commit_sha" ] && commit_sha="${group_tip:-$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "0000000")}"
 
     if grep -q '^## 📦 6\. Change Log' "$done_file"; then
@@ -2637,6 +2710,18 @@ cmd_plan_status() {
             echo "$targets" | sed 's/^/     • /'
         else
             echo "     (none declared)"
+        fi
+        # P-101: an amendments member's requests and decisions, as recorded.
+        if [ "$(parse_plan_field "$plan_file" Kind)" = "amendments" ]; then
+            local reqs decs
+            reqs="$(amend_request_lines "$plan_file")"
+            decs="$(amend_section_lines "$plan_file" "Decisions" D)"
+            echo "   Requests:"
+            if [ -n "$reqs" ]; then printf '%s\n' "$reqs" | sed -E 's/^- \*\*(R[0-9]+)\*\* /     • \1 /'; else echo "     (none)"; fi
+            if [ -n "$decs" ]; then
+                echo "   Decisions:"
+                printf '%s\n' "$decs" | sed -E 's/^- \*\*(D[0-9]+)\*\* /     • \1 /'
+            fi
         fi
         return 0
     fi
@@ -3790,6 +3875,213 @@ _refine_closes() {
     echo "📝 [Refine] $pid committed ($sha): $what"
 }
 
+# ------------------------------------------------------------------------------
+# The amendments member (P-101): the refine kinds that write request lines. The
+# line format and its readers are in lib/aapp-lib.sh (amend_*); these are the writers.
+# ------------------------------------------------------------------------------
+
+# amend_request_set_state <plan_file> <n> <state>: rewrites R<n>'s state.
+amend_request_set_state() {
+    local tmp="$1.aapp-req.$$"
+    AAPP_RN="$2" AAPP_RS="$3" awk '
+        /^## Scope Requests$/ { f = 1 } /^## / && !/^## Scope Requests$/ { f = 0 }
+        f && index($0, "- **R" ENVIRON["AAPP_RN"] "** ") == 1 { sub(/ — .*$/, ""); $0 = $0 " — " ENVIRON["AAPP_RS"] }
+        { print }' "$1" > "$tmp" && mv "$tmp" "$1"
+}
+
+# _amend_append <plan_file> <section> <line>: the line at the end of `## <section>`.
+_amend_append() {
+    local tmp="$1.aapp-req.$$"
+    AAPP_SEC="## $2" AAPP_LINE="$3" awk '
+        function flush() { print ENVIRON["AAPP_LINE"]; for (i = 0; i < nb; i++) print ""; nb = 0; done = 1 }
+        $0 == ENVIRON["AAPP_SEC"] { print; f = 1; next }
+        f && /^## / { flush(); f = 0; print; next }
+        f && $0 == "" { nb++; next }
+        f { for (i = 0; i < nb; i++) print ""; nb = 0; print; next }
+        { print }
+        END { if (f && !done) flush() }' "$1" > "$tmp" && mv "$tmp" "$1"
+}
+
+# _amend_next <plan_file> <section> <letter>: the next number of R or D lines.
+_amend_next() {
+    local n
+    n="$(amend_section_lines "$1" "$2" | sed -nE "s/^- \*\*$3([0-9]+)\*\* .*/\1/p" | sort -n | tail -n 1)"
+    echo $(( ${n:-0} + 1 ))
+}
+
+# _amend_add_target <plan_file> <path> <note>: one Target Files line, after the
+# file is checked against every other plan in development.
+_amend_add_target() {
+    local pf="$1" p="$2" note="$3" other
+    if parse_plan_target_paths "$pf" | grep -qxF -- "$p"; then
+        echo "❌ [Refine] \`$p\` is already in $(basename "$pf" .md)'s Target Files." >&2; return 1
+    fi
+    for other in "$PLANS_DIR"/current/*.md; do
+        [ "$other" = "$pf" ] && continue
+        [ "$(plan_status_slug "$other")" = "in-development" ] || continue
+        if parse_plan_target_paths "$other" | grep -qxF -- "$p"; then
+            echo "❌ [Refine] \`$p\` is a Target File of $(parse_plan_field "$other" "Plan ID"), which is in development; it cannot be added." >&2
+            return 1
+        fi
+    done
+    plan_add_target_line "$pf" "- [ ] \`$p\` -> $note"
+}
+
+# _amend_outside_group_section: a group plan on stdin without its
+# `## Architecture & Codemap` (fenced headings inside it do not end it).
+_amend_outside_group_section() {
+    awk '
+        /^````/ && sec { infence = !infence; next }
+        infence { next }
+        /^## Architecture & Codemap/ { sec = 1; next }
+        /^## / { sec = 0 }
+        !sec'
+}
+
+# _amend_approver: who approves: the agent identity when given, else git's user.
+_amend_approver() {
+    if [ -n "${AAPP_AGENT_NAME:-}" ]; then echo "$AAPP_AGENT_NAME"; else git config --get user.name 2>/dev/null || echo "unknown"; fi
+}
+
+# _refine_amend <kind> <query> <args…>: request | approve | refuse | file | decision
+# on a group's amendments member (P-101). Each is one plans commit.
+_refine_amend() {
+    local kind="$1" query="$2" pf aid gid gf rel n l req bound target summary p reason heading k today af_rel gf_rel
+    shift 2
+    pf="$(resolve_plan_file "$query" "refine")" || exit 1
+    aid="$(parse_plan_field "$pf" "Plan ID")"; rel="current/$(basename "$pf")"
+    if [ "$(parse_plan_field "$pf" Kind)" != "amendments" ]; then
+        echo "❌ [Refine] '$kind' is for a group's amendments member; $aid is not one." >&2; exit 1
+    fi
+    if [ "$(plan_status_slug "$pf")" != "in-development" ]; then
+        echo "❌ [Refine] $aid is not ⚡ In Development; its group's 'aapp start' starts it." >&2; exit 1
+    fi
+    gid="$(parse_plan_field "$pf" Group)"; gf="$(resolve_plan_file "$gid" "refine")" || exit 1
+    today="$(date +%Y-%m-%d)"
+    case "$kind" in
+        request)
+            summary="${1:-}"; shift || true
+            [ -n "$summary" ] || { echo "❌ [Refine] Usage: aapp refine <amend-id> request \"<summary>\" [file <path> | heading \"<heading>\"]" >&2; exit 1; }
+            case "${1:-}" in
+                file)    [ -n "${2:-}" ] || { echo "❌ [Refine] 'file' needs a path." >&2; exit 1; }; target="\`$2\`" ;;
+                heading) [ -n "${2:-}" ] || { echo "❌ [Refine] 'heading' needs the heading's text." >&2; exit 1; }; target="§ $2" ;;
+                "")      target="—" ;;
+                *)       echo "❌ [Refine] Unknown token '$1'; use file <path> or heading \"<heading>\"." >&2; exit 1 ;;
+            esac
+            bound="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
+            if [ -z "$bound" ] || [ "$bound" = "$aid" ] || ! group_members "$gf" | grep -qxF "$bound"; then
+                echo "❌ [Refine] A request comes from the checkout of a member of group $gid, for itself; this checkout is bound to ${bound:-no plan}." >&2; exit 1
+            fi
+            aapp_amendment_approval_required >/dev/null || exit 1
+            n="$(_amend_next "$pf" "Scope Requests" R)"
+            _amend_append "$pf" "Scope Requests" "- **R$n** $today · $bound · $target · $summary — pending"
+            _refine_commit "plan(refine): $aid request R$n from $bound" "$rel"
+            if [ "$(aapp_amendment_approval_required)" = "true" ] && [ "$target" != "—" ]; then
+                echo "📝 [Refine] R$n recorded in $aid, waiting for approval. Do not implement ${target#§ }; continue with your own Target Files, or stop. Check: aapp plan-status $aid"
+            else
+                echo "📝 [Refine] R$n recorded in $aid."
+            fi
+            ;;
+        approve|refuse)
+            n="${1:-}"; reason="${2:-}"
+            [[ "$n" =~ ^[0-9]+$ ]] || { echo "❌ [Refine] Usage: aapp refine <amend-id> $kind <n>$([ "$kind" = refuse ] && echo ' "<reason>"')" >&2; exit 1; }
+            l="$(amend_request_line "$pf" "$n")" || { echo "❌ [Refine] $aid has no request R$n." >&2; exit 1; }
+            [ "$(amend_request_state "$l")" = "pending" ] || { echo "❌ [Refine] R$n is not pending ($(amend_request_state "$l"))." >&2; exit 1; }
+            if [ "$kind" = refuse ]; then
+                [ -n "$reason" ] || { echo "❌ [Refine] Usage: aapp refine <amend-id> refuse <n> \"<reason>\"" >&2; exit 1; }
+                amend_request_set_state "$pf" "$n" "refused: $reason"
+                _refine_commit "plan(refine): $aid refuse R$n" "$rel"
+                echo "📝 [Refine] R$n refused: $reason"
+                return 0
+            fi
+            if [ "$(aapp_amendment_approval_required)" != "true" ]; then
+                echo "❌ [Refine] aapp.amendmentApprovalRequired is false: $aid's owner adds a file with 'aapp refine $aid file <path> \"<reason>\"'." >&2; exit 1
+            fi
+            p="$(amend_request_path "$l")"
+            if [ -n "$p" ]; then
+                _amend_add_target "$pf" "$p" "R$n $(printf '%s\n' "$l" | sed -E 's/^.* · //; s/ — .*$//')" || exit 1
+            fi
+            amend_request_set_state "$pf" "$n" "approved ($(_amend_approver))"
+            _refine_commit "plan(refine): $aid approve R$n" "$rel"
+            if [ -n "$p" ]; then
+                echo "📝 [Refine] R$n approved: \`$p\` added to $aid's Target Files; implement it in $(parse_plan_worktree "$pf" | cut -f1)."
+            else
+                echo "📝 [Refine] R$n approved; $aid's owner applies it ('decision $n')."
+            fi
+            ;;
+        file)
+            p="${1:-}"; reason="${2:-}"
+            [ -n "$p" ] && [ -n "$reason" ] || { echo "❌ [Refine] Usage: aapp refine <amend-id> file <path> \"<reason>\"" >&2; exit 1; }
+            if [ "$(aapp_amendment_approval_required)" != "false" ]; then
+                echo "❌ [Refine] Approval is required (aapp.amendmentApprovalRequired): a file comes in by 'request', then 'aapp refine $aid approve <n>'." >&2; exit 1
+            fi
+            _refine_owner_check "$pf" "$aid"
+            _amend_add_target "$pf" "$p" "$reason" || exit 1
+            _refine_commit "plan(refine): $aid file $(basename "$p")" "$rel"
+            echo "📝 [Refine] \`$p\` added to $aid's Target Files."
+            ;;
+        decision)
+            _refine_owner_check "$pf" "$aid"
+            if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
+                n="$1"; reason="${2:-}"
+                l="$(amend_request_line "$pf" "$n")" || { echo "❌ [Refine] $aid has no request R$n." >&2; exit 1; }
+                heading="$(amend_request_heading "$l")"
+                [ -n "$heading" ] || { echo "❌ [Refine] R$n names no heading of the group's text." >&2; exit 1; }
+                case "$(amend_request_state "$l")" in approved*) ;; *)
+                    echo "❌ [Refine] R$n is not approved ($(amend_request_state "$l"))." >&2; exit 1 ;; esac
+            else
+                heading="${1:-}"; reason="${2:-}"; n=""
+                if [ "$(aapp_amendment_approval_required)" = "true" ]; then
+                    echo "❌ [Refine] Approval is required: request it with 'heading', approve it, then 'aapp refine $aid decision <n> \"<reason>\"'." >&2; exit 1
+                fi
+            fi
+            [ -n "$heading" ] && [ -n "$reason" ] || { echo "❌ [Refine] Usage: aapp refine <amend-id> decision <n> \"<reason>\" | decision \"<heading>\" \"<reason>\"" >&2; exit 1; }
+            gf_rel="current/$(basename "$gf")"; af_rel="$rel"
+            if [ -z "$(git -C "$PLANS_DIR" status --porcelain -- "$gf_rel")" ]; then
+                echo "❌ [Refine] Write the corrected section into $gf_rel first; it has no changes." >&2; exit 1
+            fi
+            # Only the group's `## Architecture & Codemap` may change; the pre-commit
+            # lock checks that each changed section is the one named (P-99).
+            if ! diff -q <(git -C "$PLANS_DIR" show "HEAD:$gf_rel" | _amend_outside_group_section) \
+                         <(_amend_outside_group_section < "$gf") >/dev/null; then
+                echo "❌ [Refine] $gf_rel changed outside its ## Architecture & Codemap; a decision changes that section only." >&2; exit 1
+            fi
+            k="$(_amend_next "$pf" "Decisions" D)"
+            _amend_append "$pf" "Decisions" "- **D$k** $today · § $heading · ${n:+R$n · }$reason"
+            [ -n "$n" ] && amend_request_set_state "$pf" "$n" "applied"
+            if ! ( _refine_commit "plan(refine): $aid decision D$k on group $gid" "$gf_rel" "$af_rel" ); then
+                git -C "$PLANS_DIR" reset -q -- "$gf_rel" "$af_rel" 2>/dev/null
+                git -C "$PLANS_DIR" checkout -q -- "$af_rel" 2>/dev/null
+                echo "❌ [Refine] Nothing committed; the group plan keeps your edit. The lock accepts a change to the section named '$heading' only." >&2
+                exit 1
+            fi
+            echo "📝 [Refine] D$k: group $gid's section '$heading' corrected; members re-read it at their next start or session start."
+            ;;
+    esac
+}
+
+# _amend_done_check <plan_file>: an amendments member is archived last, with no
+# request left pending or approved and not landed (P-101).
+_amend_done_check() {
+    local pf="$1" gid gf m open="" req
+    gid="$(parse_plan_field "$pf" Group)"
+    if gf="$(resolve_plan_file "$gid" "done" 2>/dev/null)"; then
+        for m in $(group_members "$gf"); do
+            [ "$m" = "$(parse_plan_field "$pf" "Plan ID")" ] && continue
+            [ -n "$(ls "$PLANS_DIR"/current/P"${m#P-}"-*.md 2>/dev/null)" ] && open="$open $m"
+        done
+    fi
+    if [ -n "$open" ]; then
+        echo "❌ [Done Refusal] The amendments member is archived last; group $gid has members not archived:$open." >&2; exit 1
+    fi
+    req="$(amend_open_requests "$pf")"
+    if [ -n "$req" ]; then
+        echo "❌ [Done Refusal] Requests still open; approve or refuse each, and land what was approved:" >&2
+        printf '%s\n' "$req" | sed 's/^/   /' >&2
+        exit 1
+    fi
+}
+
 # _refine_owner_check <plan_file> <plan_id>: a plan in development, and every
 # plan of a group in development, started or not, is refined only from its
 # owning checkout (P-99): the plan's recorded worktree, else the checkout whose
@@ -3873,7 +4165,7 @@ cmd_refine() {
         pickup|issues) REFINE_KIND="$query" ;;
         *)
             REFINE_KIND=message
-            case "$msg" in unblocked|closes|slug|group|blocked) [ $# -ge 3 ] && REFINE_KIND="$msg" ;; esac
+            case "$msg" in unblocked|closes|slug|group|blocked|request|approve|refuse|file|decision) [ $# -ge 3 ] && REFINE_KIND="$msg" ;; esac
             plan_file="$(resolve_plan_file "$query" "refine")" || exit 1
             REFINE_PID="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" | head -n 1)"
             [ -n "$REFINE_PID" ] || REFINE_PID="$query"
@@ -3885,6 +4177,9 @@ cmd_refine() {
     # (the resolver's file-name match would send `pickup` to a plan named *pickup*).
     case "$query" in
         pickup|issues) _refine_ledger "$query" "$msg" "${@:3}"; return ;;
+    esac
+    case "$msg" in request|approve|refuse|file|decision)
+        if [ $# -ge 3 ]; then _refine_amend "$msg" "$query" "${@:3}"; return; fi ;;
     esac
     if [ "$msg" = "unblocked" ] && [ $# -ge 3 ]; then
         _refine_unblocked "$query" "$3"

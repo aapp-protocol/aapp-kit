@@ -167,19 +167,29 @@ cd "$(fresh groups)" || exit 1
 gid="$(git config --get aapp.planId)"
 out="$(aapp draft auth-rework group 2>&1)"; rc=$?
 gf=".plans/current/P${gid}-auth-rework.md"
+aid=$((gid + 1)); af=".plans/current/P${aid}-auth-rework-amendments.md"
 if [ "$rc" -eq 0 ] && [ -f "$gf" ] && grep -q "^# 🧩 Group Plan P-${gid}: Auth Rework$" "$gf" && \
-   grep -qx '\* \*\*Feature Branch:\*\* none' "$gf" && grep -qx '\* \*\*Members:\*\* none' "$gf" && \
+   grep -qx '\* \*\*Feature Branch:\*\* none' "$gf" && grep -qx "\* \*\*Members:\*\* P-$aid" "$gf" && \
    grep -q '^## Architecture & Codemap' "$gf" && [ -z "$(placeholders_left "$gf")" ] && \
-   [ "$(git config --get aapp.planId)" -gt "$gid" ] && [ -z "$(git -C .plans status --porcelain)" ]; then
+   [ "$(git config --get aapp.planId)" -gt "$aid" ] && [ -z "$(git -C .plans status --porcelain)" ]; then
   ok "test_draft_group_scaffolds_group_plan"
 else
   bad "test_draft_group_scaffolds_group_plan" "rc=$rc out=$out"
+fi
+if [ -f "$af" ] && grep -qx '\* \*\*Kind:\*\* amendments' "$af" && grep -qx "\* \*\*Group:\*\* P-$gid" "$af" && \
+   grep -qx '\* \*\*Commit Mode:\*\* microcommits' "$af" && \
+   ! sed -n '/^### 📂 Target Files/,/^### 🛑/p' "$af" | grep -q '^- \[' && \
+   git -C .plans show --name-only --format= HEAD | grep -qx "current/$(basename "$af")" && \
+   awk '/^## 📦 6\./ { s = 1 } s && /^## Scope Requests$/ { r = 1 } END { exit !r }' "$af"; then
+  ok "test_draft_group_drafts_amendments_member"
+else
+  bad "test_draft_group_drafts_amendments_member" "af=$af out=$out"
 fi
 mid="$(git config --get aapp.planId)"
 out="$(aapp draft login-form group "P-$gid" 2>&1)"; rc=$?
 mf=".plans/current/P${mid}-login-form.md"
 if [ "$rc" -eq 0 ] && grep -qx "\* \*\*Group:\*\* P-$gid" "$mf" && \
-   grep -qx "\* \*\*Members:\*\* P-$mid" "$gf" && grep -q '🟣 Under Review' "$gf" && \
+   grep -qx "\* \*\*Members:\*\* P-$mid, P-$aid" "$gf" && grep -q '🟣 Under Review' "$gf" && \
    [ -z "$(git -C .plans status --porcelain)" ]; then
   ok "test_draft_member_joins_group"
 else

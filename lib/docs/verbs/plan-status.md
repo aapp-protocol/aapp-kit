@@ -16,7 +16,7 @@
 - `.plans/current/` missing, no `id` -> exit 0, stdout `(no .plans/current directory found)`
 
 ## Effects (happy path)
-- with `id`: stdout names the plan, title, Status, blueprint path, unresolved Open Questions (or `All resolved`) and the declared Target Files, one per line
+- with `id`: stdout names the plan, title, Status, blueprint path, unresolved Open Questions (or `All resolved`) and the declared Target Files, one per line; for a group's amendments member also `Requests:` (each `R<n>` line with its state, or `(none)`) and, when any, `Decisions:` (P-101)
 - without `id`: stdout counts and lists plans per lane — `⚡ In Development`, `🔷 Frozen Backlog`, `🟣 Incubator`, and `❓ Unrecognized` for a Status no registry entry matches — then the active buffer when one is set
 - read-only: no file changes, no commit
 
@@ -29,3 +29,4 @@ Run: `aapp test verb plan-status`
 - `tests/verbs/plan-status.sh::test_overview_buckets_by_status` -> each lane counts the plans carrying its Status
 - `tests/verbs/plan-status.sh::test_single_plan_lists_targets` -> a plan's detail lists its Target Files and no blockquote prose
 - `tests/verbs/plan-status.sh::test_refuses_unknown_plan` -> an unresolvable `id`: exit 1
+- `tests/verbs/plan-status.sh::test_plan_status_lists_requests` -> an amendments member's detail lists its requests with their states, and its decisions (P-101)

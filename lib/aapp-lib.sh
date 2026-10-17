@@ -80,6 +80,26 @@ parse_plan_target_paths() {
     _aapp_plan_section_paths "$1" targets
 }
 
+# plan_add_target_line <plan_file> <line>: appends <line> to §4's
+# `### 📂 Target Files`, after its last entry (P-101, an amendments member's
+# approved file). The one writer of that section, beside its reader.
+plan_add_target_line() {
+    local tmp="$1.aapp-target.$$"
+    AAPP_TL="$2" awk '
+        /^#+[[:space:]]/ {
+            if (region && !done) { print ENVIRON["AAPP_TL"]; print ""; done = 1 }
+            region = 0
+            if ($0 ~ /^#[[:space:]]/ || $0 ~ /^##[[:space:]]/) in4 = ($0 ~ /^## ([^0-9]*[[:space:]])?4\./)
+            else if (in4 && $0 ~ /^###[[:space:]]*📂[[:space:]]*Target Files[[:space:]]*(\(.*)?$/) region = 1
+            print; next
+        }
+        region && /^[[:space:]]*$/ { blank++; next }
+        region { while (blank > 0) { print ""; blank-- } print; next }
+        { print }
+        END { if (region && !done) print ENVIRON["AAPP_TL"] }
+    ' "$1" > "$tmp" && mv "$tmp" "$1"
+}
+
 # Vetoed paths: `### 🛑 Out of Bounds` inside §4.
 parse_plan_oob_paths() {
     _aapp_plan_section_paths "$1" oob
@@ -581,6 +601,17 @@ aapp_commit_mode() {
     case "$m" in microcommits) echo microcommits ;; *) echo atomic ;; esac
 }
 
+# aapp_plan_commit_mode <plan_file>: the commit mode a plan is built under:
+# `microcommits` for a group's amendments member (`* **Kind:** amendments`,
+# P-101: it lands in phases), otherwise aapp_commit_mode.
+aapp_plan_commit_mode() {
+    if [ "$(parse_plan_field "$1" Kind)" = "amendments" ]; then
+        echo microcommits
+    else
+        aapp_commit_mode
+    fi
+}
+
 # aapp_changelog_mode: `plan` (default) or `commit`, from aapp.changelogMode.
 aapp_changelog_mode() {
     local m
@@ -597,7 +628,7 @@ aapp_changelog_mode() {
 aapp_plan_stamp_modes() {
     local pf="$1" sha="${2:-}" cm clm prev_cm prev_clm today log="" tmp
     [ -f "$pf" ] || return 1
-    cm="$(aapp_commit_mode)"; clm="$(aapp_changelog_mode)"
+    cm="$(aapp_plan_commit_mode "$pf")"; clm="$(aapp_changelog_mode)"
     prev_cm="$(sed -nE 's/^\* \*\*Commit Mode:\*\*[[:space:]]*//p' "$pf" | head -n 1)"
     prev_clm="$(sed -nE 's/^\* \*\*Changelog Mode:\*\*[[:space:]]*//p' "$pf" | head -n 1)"
     today="$(date +%Y-%m-%d)"
@@ -798,10 +829,113 @@ group_members() {
 }
 
 # group_set_member <group-plan> <id> add|remove: updates the `* **Members:**` list.
+# ------------------------------------------------------------------------------
+# A group's amendments member (P-101): its request lines, read here only; the
+# verbs that write them are in lib/cmd_plan.sh (`refine request|approve|refuse|
+# file|decision`) and lib/cmd_commit.sh (`land`). A line under `## Scope Requests`:
+#   - **R<n>** <date> · P-<requester> · <target> · <summary> — <state>
+# <target> is `<path>` (backticked), `§ <heading>` or `—`; <state> is `pending`,
+# `approved (<approver>)`, `refused: <reason>`, `landed `<sha>``, or `applied`.
+# ------------------------------------------------------------------------------
+
+# aapp_amendment_approval_required: aapp.amendmentApprovalRequired (true | false,
+# default true); any other value fails, naming the key.
+aapp_amendment_approval_required() {
+    local v
+    v="$(git config --get aapp.amendmentApprovalRequired 2>/dev/null)" || v=true
+    case "$v" in true|false) echo "$v" ;; *)
+        echo "❌ aapp.amendmentApprovalRequired is '$v'; use true or false." >&2; return 1 ;;
+    esac
+}
+
+# amend_section_lines <plan_file> <section> [<letter>]: the lines of
+# `## <section>`; with <letter> (R, D) only its numbered entries. Empty output,
+# never a failure, when there are none (callers run under errexit).
+amend_section_lines() {
+    awk -v h="## $2" -v k="${3:-}" '
+        $0 == h { f = 1; next } /^## / { f = 0 }
+        f && (k == "" || $0 ~ ("^- \\*\\*" k "[0-9]+\\*\\* "))' "$1"
+}
+
+# amend_request_lines <plan_file>: every request line, in order.
+amend_request_lines() {
+    amend_section_lines "$1" "Scope Requests" R
+}
+
+# amend_request_line <plan_file> <n>: request R<n>'s line; fails when absent.
+amend_request_line() {
+    local l
+    l="$(amend_request_lines "$1" | awk -v p="- **R$2** " 'index($0, p) == 1 { print; exit }')"
+    [ -n "$l" ] && echo "$l"
+}
+
+# amend_request_state <line> / amend_request_path <line> / amend_request_heading <line>
+amend_request_state() { printf '%s\n' "$1" | sed -E 's/.* — //'; }
+amend_request_path() { printf '%s\n' "$1" | sed -nE 's/^- \*\*R[0-9]+\*\* [^·]* · [^·]* · `([^`]+)` · .*/\1/p'; }
+amend_request_heading() { printf '%s\n' "$1" | sed -nE 's/^- \*\*R[0-9]+\*\* [^·]* · [^·]* · § ([^·]+) · .*/\1/p'; }
+
+# amend_request_for_file <plan_file> <path> <state-prefix>: the n of a request
+# for <path> whose state starts with <state-prefix>; fails when none.
+amend_request_for_file() {
+    local l
+    while IFS= read -r l; do
+        [ "$(amend_request_path "$l")" = "$2" ] || continue
+        case "$(amend_request_state "$l")" in "$3"*) printf '%s\n' "$l" | sed -E 's/^- \*\*R([0-9]+)\*\*.*/\1/'; return 0 ;; esac
+    done < <(amend_request_lines "$1")
+    return 1
+}
+
+# amend_open_requests <plan_file>: the lines still pending, or approved and not
+# landed or applied.
+amend_open_requests() {
+    amend_request_lines "$1" | awk '/ — (pending|approved)/'
+}
+
+# amend_request_counts <plan_file>: `<pending>,<approved>,<refused>,<landed>,<applied>`.
+amend_request_counts() {
+    amend_request_lines "$1" | awk '
+        / — pending$/ { p++ } / — approved/ { a++ } / — refused/ { r++ } / — landed/ { l++ } / — applied$/ { ap++ }
+        END { printf "%d,%d,%d,%d,%d\n", p, a, r, l, ap }'
+}
+
+# amend_must_rebase <plan_file>: the ids of the group's members in development
+# (the amendments member aside) whose branch lacks the feature branch's tip.
+amend_must_rebase() {
+    local gf fb m mf rec br
+    gf="$(ls "$(dirname "$1")"/P"$(parse_plan_field "$1" Group | sed 's/^P-//')"-*.md 2>/dev/null | head -n 1)"
+    [ -n "$gf" ] || return 0
+    fb="$(parse_plan_field "$gf" "Feature Branch")"
+    git show-ref --verify --quiet "refs/heads/$fb" || return 0
+    for m in $(group_members "$gf"); do
+        mf="$(ls "$(dirname "$1")"/P"${m#P-}"-*.md 2>/dev/null | head -n 1)"
+        [ -n "$mf" ] && [ "$mf" != "$1" ] || continue
+        grep -qE '^\* \*\*Status:\*\*[[:space:]]*⚡' "$mf" || continue
+        rec="$(parse_plan_worktree "$mf")"; br="${rec#*$'\t'}"
+        [ -n "$rec" ] && ! git merge-base --is-ancestor "$fb" "$br" 2>/dev/null && echo "$m"
+    done
+    return 0
+}
+
+# group_amendments_member <group-plan>: the plan file of the group's amendments
+# member (`* **Kind:** amendments`, P-101), from `current/`; fails when it has none.
+group_amendments_member() {
+    local m mf
+    for m in $(group_members "$1"); do
+        mf="$(ls "$(dirname "$1")"/P"${m#P-}"-*.md 2>/dev/null | head -n 1)"
+        [ -n "$mf" ] && [ "$(parse_plan_field "$mf" Kind)" = "amendments" ] && { echo "$mf"; return 0; }
+    done
+    return 1
+}
+
 group_set_member() {
-    local list
+    local list af last=""
     list="$(group_members "$1" | awk -v id="$2" '$0 != id')"
+    # P-101: the group's amendments member stays listed last.
+    if af="$(group_amendments_member "$1")"; then last="$(parse_plan_field "$af" "Plan ID")"; fi
+    [ "$last" = "$2" ] && last=""
+    if [ -n "$last" ]; then list="$(printf '%s\n' "$list" | awk -v id="$last" '$0 != id')"; fi
     [ "$3" = add ] && list="$(printf '%s\n%s\n' "$list" "$2")"
+    if [ -n "$last" ]; then list="$(printf '%s\n%s\n' "$list" "$last")"; fi
     list="$(printf '%s\n' "$list" | awk 'NF' | paste -sd, - | sed 's/,/, /g')"
     write_plan_field "$1" Members "${list:-none}"
 }
