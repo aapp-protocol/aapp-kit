@@ -48,6 +48,16 @@ fi
 
 ISSUE_LIST_DEFAULT_CAP=20
 
+_issue_dispatch_hook() {
+    local data="$1"
+    local hook_lib="$AAPP_ISSUE_LIB_DIR/hook_dispatcher.sh"
+    if [ -f "$hook_lib" ]; then
+        # shellcheck source=/dev/null
+        source "$hook_lib"
+        dispatch_hook "post-issue" "$data" || true
+    fi
+}
+
 _issue_plans_dir() {
     if [ -n "${PLANS_DIR:-}" ] && [ -d "$PLANS_DIR" ]; then
         printf '%s\n' "$PLANS_DIR"
@@ -309,14 +319,16 @@ issue_notify_close() {
     [ -n "$issue" ] || issue="\"id\": \"#$n\""
     if AAPP_ISSUE_ID="#$n" AAPP_COMMIT_SHA="$sha" AAPP_SUMMARY="$summary" \
        issue_provider close "$issue, \"commit\": \"$(json_escape "$sha")\", \"summary\": \"$(json_escape "$summary")\", \"plan\": $plan_json"; then
-        [ "$ISSUE_PROVIDER_SEEN" -eq 1 ] || return 0
-        status="$(json_field "$PLUGIN_OUT" status)" || status="accepted"
-        echo "📨 [Issue] #$n handed to aapp-issue-tracker: $status"
+        if [ "$ISSUE_PROVIDER_SEEN" -eq 1 ]; then
+            status="$(json_field "$PLUGIN_OUT" status)" || status="accepted"
+            echo "📨 [Issue] #$n handed to aapp-issue-tracker: $status"
+        fi
     else
         status="$(json_field "$PLUGIN_OUT" error)" || status="${PLUGIN_MESSAGE:-no error text}"
         echo "⚠️  [Issue] #$n closed locally; aapp-issue-tracker failed ($status). Delivery is the plugin's responsibility." >&2
     fi
     plugin_run_do issue aapp-issue-tracker
+    _issue_dispatch_hook "{\"command\": \"issue\", \"event\": \"close\", \"issue_id\": \"#$n\", \"commit_sha\": \"$(json_escape "$sha")\", \"summary\": \"$(json_escape "$summary")\"}"
     return 0
 }
 
@@ -762,6 +774,11 @@ cmd_issue_log() {
     PLANS_DIR="$plans" _issue_plans_commit "issue(log): #$n" "${paths[@]}" || { _issue_lock_release; return 1; }
     _issue_lock_release
     echo "🐛 [Issue] #$n logged: $symptom"
+    local files_json=""
+    for f in "${files[@]}"; do
+        files_json="${files_json:+$files_json, }\"$(json_escape "$f")\""
+    done
+    _issue_dispatch_hook "{\"command\": \"issue\", \"event\": \"log\", \"issue_id\": \"#$n\", \"sev\": \"$sev\", \"type\": \"$type\", \"symptom\": \"$(json_escape "$symptom")\", \"files\": [$files_json]}"
     [ "$ISSUE_PROVIDER_SEEN" -eq 0 ] || plugin_run_do issue aapp-issue-tracker
 }
 
@@ -1009,6 +1026,7 @@ cmd_issue_abort() {
     _issue_report_unblocked "$plans" $IA_TOUCHED
     # P-74: the provider is told the issue was withdrawn, with the reason.
     _issue_step abort "$n" "$issue, \"reason\": \"$(json_escape "$reason")\""
+    _issue_dispatch_hook "{\"command\": \"issue\", \"event\": \"withdraw\", \"issue_id\": \"#$n\", \"reason\": \"$(json_escape "$reason")\"}"
 }
 
 cmd_issue_close() {
@@ -1698,6 +1716,11 @@ cmd_issue_hotfix() {
     _issue_lock_release
     [ "$ISSUE_PROVIDER_SEEN" -eq 0 ] || plugin_run_do issue aapp-issue-tracker
     echo "🧯 [Issue] #$n logged; $pid is blocked on it. Stop here: the fix runs in the main checkout ('aapp issue fix next-blocker')."
+    local hotfix_files_json=""
+    for f in "${files[@]}"; do
+        hotfix_files_json="${hotfix_files_json:+$hotfix_files_json, }\"$(json_escape "$f")\""
+    done
+    _issue_dispatch_hook "{\"command\": \"issue\", \"event\": \"hotfix\", \"issue_id\": \"#$n\", \"blocked_plan\": \"$pid\", \"files\": [$hotfix_files_json]}"
     if [ "$want_plan" -eq 1 ]; then
         slug="$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]' | sed 's/[ _]/-/g' | tr -cd 'a-z0-9-' | sed -E 's/-+/-/g; s/^-//; s/-$//' | cut -c1-40)"
         cmd_draft "${slug:-issue-$n}" issue "$n" || return 1
@@ -1803,8 +1826,10 @@ cmd_issue_queue() {
     fi
     if [ "$remove" -eq 1 ]; then
         echo "📋 [Issue] #$n is off the work queue."
+        _issue_dispatch_hook "{\"command\": \"issue\", \"event\": \"unqueue\", \"issue_id\": \"#$n\"}"
     else
         echo "📋 [Issue] #$n is queued for work ($lv): 'aapp issue fix $n' (or 'next-blocker') may take it."
+        _issue_dispatch_hook "{\"command\": \"issue\", \"event\": \"queue\", \"issue_id\": \"#$n\", \"level\": \"$lv\"}"
     fi
 }
 
@@ -2107,6 +2132,7 @@ cmd_issue_fix() {
     echo "🩹 [Issue] Fixing #$n${owner:+ for group $owner} in .workspace/fix-$n (fix/$n from $fixbr, files: ${files[*]})."
     echo "   Work and 'aapp commit' there; 'aapp issue close $n' lands it on $fixbr as one commit."
     [ -n "$owner" ] || _issue_group_hint "$plans" "${files[@]}"
+    _issue_dispatch_hook "{\"command\": \"issue\", \"event\": \"fix\", \"issue_id\": \"#$n\", \"worktree\": \"$gwt\", \"branch\": \"fix/$n\"}"
     _issue_fix_handover "$plans" "$n"
 }
 

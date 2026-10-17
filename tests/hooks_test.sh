@@ -793,7 +793,62 @@ sha="$(git -C .plans rev-parse --short HEAD)"; pj="$(cat "$R/rf-post.json" 2>/de
 got=FAIL
 if [ "$rc" -eq 0 ] && echo "$pj" | grep -qF "\"plan_id\": \"$rid\"" && echo "$pj" | grep -qF '"kind": "message"' && \
    echo "$pj" | grep -qF "\"commit\": \"$sha\"" && echo "$pj" | grep -qF '"note one"'; then got=PASS; fi
-report "test_post_refine_receives_kind_and_commit" "PASS" "$got" "rc=$rc out=$out json=$pj"
+report "test_post_refine_receives_kind_and_commit" "PASS" "$got" "$out"
+cd "$R" || exit 1
+
+echo "== event-logger showcase hook (P-104) =="
+EL="$R/el"
+init_sandbox_project "$EL"
+cd "$EL" || exit 1
+git add -A && git commit -qm "init project" --no-verify
+
+# Test 1: Deploy sample hook and register with hook-hash
+mkdir -p .agents/hooks .agents/skills/aapp-hooks
+cp "$KIT/examples/hooks/event-logger.sample" .agents/hooks/event-logger
+chmod +x .agents/hooks/event-logger
+line="$(aapp hook-hash .agents/hooks/event-logger post-freeze 10 notify 2>/dev/null | grep '^post-freeze')"
+got=FAIL
+if echo "$line" | grep -qE '^post-freeze[[:space:]]+\.agents/hooks/event-logger[[:space:]]+sha256:[0-9a-f]{64}[[:space:]]+10[[:space:]]+notify$'; then
+    got=PASS
+fi
+report "test_event_logger_registration_hash" "PASS" "$got" "$line"
+
+# Register in registry.tsv
+echo "$line" > .agents/skills/aapp-hooks/registry.tsv
+
+# Test 2: Trigger hook-test and verify out-of-repo default log in git-dir
+expected_log="$(git rev-parse --git-path aapp_events.jsonl)"
+rm -f "$expected_log"
+aapp hook-test post-freeze P-999 >/dev/null 2>&1
+got=FAIL
+if [ -f "$expected_log" ] && [ "$(wc -l < "$expected_log" | tr -d ' ')" -eq 1 ]; then
+    got=PASS
+fi
+report "test_event_logger_default_gitdir_jsonl" "PASS" "$got" "log=$expected_log"
+
+# Test 3: Single-line format and JSON parsing of written event
+first_line="$(cat "$expected_log" 2>/dev/null)"
+got=FAIL
+if [ -n "$first_line" ] && echo "$first_line" | grep -qF '"event": "post-freeze"' && echo "$first_line" | grep -qF '"plan_id": "P-999"'; then
+    if command -v python3 >/dev/null 2>&1; then
+        if python3 -c 'import json, sys; d=json.loads(sys.stdin.read()); sys.exit(0 if d.get("event")=="post-freeze" else 1)' <<< "$first_line" 2>/dev/null; then
+            got=PASS
+        fi
+    else
+        got=PASS
+    fi
+fi
+report "test_event_logger_single_line_json_envelope" "PASS" "$got" "$first_line"
+
+# Test 4: Custom log destination via AAPP_LOG_FILE or aapp.logFile
+custom_log="$R/custom_events.jsonl"
+git config aapp.logFile "$custom_log"
+aapp hook-test post-freeze P-888 >/dev/null 2>&1
+got=FAIL
+if [ -f "$custom_log" ] && grep -qF '"plan_id": "P-888"' "$custom_log"; then
+    got=PASS
+fi
+report "test_event_logger_custom_destination_override" "PASS" "$got" "custom_log=$custom_log"
 cd "$R" || exit 1
 
 echo "============================================================"

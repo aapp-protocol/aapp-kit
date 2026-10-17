@@ -45,6 +45,12 @@ print_lifecycle_events_catalog() {
     echo "     • post-start    Runs after plan start commits land"
     echo "     • post-done     Runs after plan done commits land"
     echo "     • post-abort    Runs after a plan is archived to .plans/aborted/"
+    echo "     • post-draft    Runs after a blueprint is drafted and registered"
+    echo "     • post-active   Runs after the active plan buffer changes"
+    echo "     • post-tdd      Runs after failure tests are declared in a plan"
+    echo "     • post-commit   Runs after a plan-bound code commit lands"
+    echo "     • post-land     Runs after group member commits land on feature branch"
+    echo "     • post-issue    Runs after issue state transitions (log, queue, fix, close, hotfix, withdraw)"
     echo "     • post-sync     Runs after worktree sync completes"
     echo "     • post-pause    Runs after emergency pause stashes land"
     echo "     • post-resume   Runs after emergency resume restore completes"
@@ -286,7 +292,7 @@ cmd_hook_test() {
     if [ -z "$event" ]; then
         echo "❌ Error: Missing event name for hook-test." >&2
         echo "Usage: aapp hook-test <event> [plan-id]" >&2
-        echo "Available events: pre-freeze, post-freeze, pre-start, on-start, post-start, pre-done, post-done, post-abort, pre-refine, on-refine, post-refine, pre-sync, on-sync, post-sync, post-pause, post-resume" >&2
+        echo "Available events: pre-freeze, post-freeze, pre-start, on-start, post-start, pre-done, post-done, post-abort, pre-refine, on-refine, post-refine, post-draft, post-active, post-tdd, post-commit, post-land, post-issue, pre-sync, on-sync, post-sync, post-pause, post-resume" >&2
         return 1
     fi
 

@@ -395,7 +395,7 @@ EOF
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
         source "$AAPP_HOOK_DISPATCHER"
-        dispatch_hook "post-pause" "{\"reason\": \"$reason\", \"shared\": $( [ "$shared" -eq 1 ] && echo "true" || echo "false" )}" || true
+        dispatch_hook "post-pause" "{\"command\": \"pause\", \"event\": \"pause\", \"reason\": \"$reason\", \"shared\": $( [ "$shared" -eq 1 ] && echo "true" || echo "false" )}" || true
     fi
 }
 
@@ -552,7 +552,7 @@ except Exception as e:
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
         source "$AAPP_HOOK_DISPATCHER"
-        dispatch_hook "post-resume" "{\"restored_count\": $restored_count, \"drift_found\": $drift_found}" || true
+        dispatch_hook "post-resume" "{\"command\": \"pause\", \"event\": \"resume\", \"restored_count\": $restored_count, \"drift_found\": $drift_found}" || true
     fi
 }
 

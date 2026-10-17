@@ -23,6 +23,7 @@ Claude Code Write-Time Interception (Layer 1)
 Foreign Hook Managers & Framework Integration
 Test Gates & Pre-Done Verification
 Monorepo & Build Tool Isolation
+Lifecycle Event Telemetry & Logging
 EOF
 }
 
@@ -170,6 +171,7 @@ EOF
         "WRITE-GUARD|🛡️ Hooks & Gates|Claude Code Write-Time Interception (Layer 1)|_trig_write_guard|_chk_write_guard|Install python3 and re-run aapp init, or add the guard hook by hand."
         "HOOK-WIRING|🛡️ Hooks & Gates|Foreign Hook Managers & Framework Integration|_trig_hook_wiring|_chk_hook_wiring|Call \`.githooks/aapp-pre-commit\` from your pre-commit hook."
         "GATE-TEST|🛡️ Hooks & Gates|Test Gates & Pre-Done Verification|_trig_always|_chk_gate_test|Register a pre-done test gate from examples/hooks/test-gate.sh.sample with aapp hook-hash; tick it when you do not want one."
+        "EVENT-LOG|🛡️ Hooks & Gates|Lifecycle Event Telemetry & Logging|_trig_always|_chk_event_log|Register an observer event logger hook from examples/hooks/event-logger.sample with aapp hook-hash; tick it when you do not want one."
 
         # 🛠️ Build Tools
         "MONO-NX|🛠️ Build Tools|Monorepo & Build Tool Isolation|_trig_mono_nx|_chk_mono_nx|Add /${wt_dir:-.workspace} to .nxignore."
@@ -428,6 +430,14 @@ EOF
     _chk_gate_test() {
         local reg="$root/.agents/skills/aapp-hooks/registry.tsv"
         [ -f "$reg" ] && grep -qE '^pre-done[[:space:]]' "$reg" 2>/dev/null
+    }
+
+    _chk_event_log() {
+        local reg="$root/.agents/skills/aapp-hooks/registry.tsv"
+        if [ -f "$reg" ] && grep -qE '^[[:alnum:]_-]+[[:space:]]+.*[[:space:]]+(notify|observer)' "$reg" 2>/dev/null; then
+            return 0
+        fi
+        git config --get-regexp '^aapp\.hook\.' 2>/dev/null | grep -q .
     }
 
     _trig_mono_nx() {

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- sample observer event logger hook and post-* lifecycle telemetry (P-104) (`P-104`)
 - groups take what development finds through an amendments member with approval, plans in development are amended only from their own checkout, and a group's `done` gates before its docs commit (P-103) (`P-103`)
 - every group has an amendments member that takes the files and decisions development finds, with approval, landing and status, so members stay as frozen (P-101) (`P-101`)
 - a plan in development is amended only from its own checkout; `refine` fires `pre-refine`, `on-refine` and `post-refine` (P-99) (`P-99`)

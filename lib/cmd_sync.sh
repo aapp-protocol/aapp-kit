@@ -222,7 +222,7 @@ dispatch_observer_hook() {
             bname="${bname#.}"
             if [ -z "$obs_wts" ]; then obs_wts="\"$bname\""; else obs_wts="$obs_wts, \"$bname\""; fi
         done
-        dispatch_hook "$event_name" "{\"action\": \"$ACTION\", \"remote\": \"$TARGET_REMOTE\", \"worktrees\": [$obs_wts]}" || true
+        dispatch_hook "$event_name" "{\"command\": \"sync\", \"event\": \"sync\", \"action\": \"$ACTION\", \"remote\": \"$TARGET_REMOTE\", \"worktrees\": [$obs_wts]}" || true
     fi
 }
 

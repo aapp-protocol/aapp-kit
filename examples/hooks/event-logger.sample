@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Observer Showcase Hook: `event-logger`
+#
+# Observer Hook (mode: notify / observer) triggered across `post-*` lifecycle events.
+# Appends uniform, single-line JSONL event records to an out-of-repo destination.
+#
+# Registration (example across post-freeze, post-commit, post-issue):
+#   cp examples/hooks/event-logger.sample .agents/hooks/event-logger
+#   chmod +x .agents/hooks/event-logger
+#   aapp hook-hash .agents/hooks/event-logger post-freeze 10 notify
+#   aapp hook-hash .agents/hooks/event-logger post-commit 10 notify
+#   aapp hook-hash .agents/hooks/event-logger post-issue 10 notify
+#
+# Out-of-Repo Storage Resolution:
+#   1. Environment variable: AAPP_LOG_FILE
+#   2. Repository configuration: git config aapp.logFile
+#   3. Primary default: $(git rev-parse --git-path aapp_events.jsonl)
+# ==============================================================================
+
+# Fail-safe wrapper
+log_event() {
+    local target_log="${AAPP_LOG_FILE:-}"
+    if [ -z "$target_log" ]; then
+        target_log="$(git config --get aapp.logFile 2>/dev/null || true)"
+    fi
+    if [ -z "$target_log" ]; then
+        if git rev-parse --git-dir >/dev/null 2>&1; then
+            target_log="$(git rev-parse --git-path aapp_events.jsonl 2>/dev/null || true)"
+        fi
+    fi
+    if [ -z "$target_log" ]; then
+        target_log="${TMPDIR:-/tmp}/aapp_events.jsonl"
+    fi
+
+    # Expand tilde if present in configured target path
+    case "$target_log" in
+        "~"/*) target_log="$HOME/${target_log#"~"/}" ;;
+    esac
+
+    local log_dir
+    log_dir="$(dirname "$target_log")"
+    if [ ! -d "$log_dir" ]; then
+        mkdir -p "$log_dir" 2>/dev/null || {
+            echo "⚠️  [Event Logger] Could not create log directory '$log_dir'." >&2
+            return 0
+        }
+    fi
+
+    # Read standard input and normalize multi-line formatted JSON into a single line
+    local line
+    line="$(awk '
+        {
+            sub(/^[[:space:]]+/, "")
+            sub(/[[:space:]]+$/, "")
+            if (length($0) > 0) {
+                printf "%s%s", (NR > 1 ? " " : ""), $0
+            }
+        }
+        END { print "" }
+    ')"
+
+    if [ -n "$line" ]; then
+        printf '%s\n' "$line" >> "$target_log" 2>/dev/null || {
+            echo "⚠️  [Event Logger] Failed to append event to '$target_log'." >&2
+            return 0
+        }
+    fi
+    return 0
+}
+
+log_event
+exit 0

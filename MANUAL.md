@@ -55,6 +55,7 @@
   * [Hook Security, Integrity & Trust Model](#hook-security-integrity--trust-model)
   * [CLI Management Suite (`aapp hooks`, `plugins`, `hook-test`, `hook-hash`)](#cli-management-suite-aapp-hooks-plugins-hook-test-hook-hash)
   * [Transparent Command Fallthrough & Polyglot Plugins](#transparent-command-fallthrough--polyglot-plugins)
+  * [Lifecycle Event Telemetry & Logging](#6-lifecycle-event-telemetry--logging)
 * [9. AI Attribution Suite & Multi-Vendor Benchmarking](#9-ai-attribution-suite--multi-vendor-benchmarking)
   * [Attribution Models: Trailers vs. Notes Asymmetry](#attribution-models-trailers-vs-notes-asymmetry)
   * [The Switchboard Command Family](#the-switchboard-command-family)
@@ -1295,6 +1296,27 @@ aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate >> .agents/skills/aa
 - **Where it runs:** in the plan's worktree when it has one (the payload's `worktree`), else in the repository root. A single checkout with uncommitted tracked changes is refused: the tests must run on committed code.
 - **Refusals:** a failing command (its exit status and last 20 lines are shown), an empty `TEST_CMD`, or the registry timeout (set it above your suite's run time).
 - **Changing the command** changes the script's SHA-256: update the registry line in the same commit.
+
+#### 6. Lifecycle Event Telemetry & Logging
+
+`examples/hooks/event-logger.sample` provides a zero-dependency reference observer hook that logs structured JSON envelopes across all kit lifecycle events to an out-of-repo append-only JSONL file.
+
+```bash
+cp ~/.local/share/aapp-kit/examples/hooks/event-logger.sample .agents/hooks/event-logger
+chmod +x .agents/hooks/event-logger
+
+# Register event-logger as an observer hook (notify mode)
+aapp hook-hash .agents/hooks/event-logger post-done 10 notify >> .agents/skills/aapp-hooks/registry.tsv
+```
+
+- **Extensionless Convention**: Placed in `.agents/hooks/event-logger` without a shell extension, following kit convention.
+- **Out-of-Repo Storage Guarantee**: By default, logs write to `$(git rev-parse --git-path aapp_events.jsonl)` (the Git directory), remaining completely out of the working tree so file writes never dirty the workspace or trip blast-radius guards.
+- **Configurable Destination**: Override the log file destination via `aapp.logFile` configuration or the `AAPP_LOG_FILE` environment variable:
+  ```bash
+  git config aapp.logFile /var/log/aapp/events.jsonl
+  ```
+- **Universal 2-Key Invariant**: Every event payload under `data` consistently carries `command` and `event` keys.
+- **Contract Reference**: For the formal envelope schema, field definitions, and payloads across all 14 lifecycle events, see [`docs/reference/09-event-telemetry.md`](docs/reference/09-event-telemetry.md).
 
 ---
 

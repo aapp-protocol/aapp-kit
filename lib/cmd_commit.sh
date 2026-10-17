@@ -497,6 +497,17 @@ cmd_commit() {
         return "$plan_commit_rc"
     fi
 
+    # Dispatch post-commit observer lifecycle event
+    local hook_lib="$_LIB_DIR/hook_dispatcher.sh"
+    if [ -f "$hook_lib" ]; then
+        # shellcheck source=/dev/null
+        source "$hook_lib"
+        local wt_p
+        wt_p="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+        local commit_data="{\"command\": \"commit\", \"event\": \"record\", \"plan_id\": \"$plan_id\", \"commit_sha\": \"$new_sha\", \"subject\": \"$(json_escape "$commit_msg")\", \"worktree\": \"$(json_escape "$wt_p")\", \"agent\": \"$(json_escape "$agent_name")\", \"vendor\": \"$(json_escape "$agent_vendor")\", \"model\": \"$(json_escape "$agent_model")\"}"
+        dispatch_hook "post-commit" "$commit_data" || true
+    fi
+
     if [ "$is_land" -eq 1 ]; then _commit_land "$plan_file" "$plan_id" || return 1; fi
     return 0
 }
@@ -520,6 +531,15 @@ _commit_land() {
     after="$(git rev-parse "$IG_TARGET_BR")"
     _land_record_requests "$pf" "$pid" "$before" "$after" || return 1
     _land_name_members "$pf" "$IG_TARGET_BR"
+
+    if [ -f "$_LIB_DIR/hook_dispatcher.sh" ]; then
+        # shellcheck source=/dev/null
+        source "$_LIB_DIR/hook_dispatcher.sh"
+        local gid
+        gid="$(parse_plan_field "$pf" Group)"
+        local land_data="{\"command\": \"commit\", \"event\": \"land\", \"group_id\": \"$gid\", \"amendment_id\": \"$pid\", \"feature_branch\": \"$IG_TARGET_BR\", \"commit_sha\": \"$(git rev-parse --short "$after")\"}"
+        dispatch_hook "post-land" "$land_data" || true
+    fi
 }
 
 # _land_record_requests <plan_file> <plan_id> <before> <after>: each approved

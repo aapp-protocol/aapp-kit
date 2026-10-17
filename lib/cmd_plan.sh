@@ -788,9 +788,11 @@ _wt_start() {
     # Dispatch post-mutation observers after commit
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         if [ "$freeze" = "1" ]; then
-            dispatch_hook "post-freeze" "$data" || true
+            local freeze_data="{\"command\": \"plan\", \"event\": \"freeze\", \"plan_id\": \"$pid\", \"plan_file\": \"current/$(basename "$pf")\"}"
+            dispatch_hook "post-freeze" "$freeze_data" || true
         fi
-        dispatch_hook "post-start" "$data" || true
+        local start_data="{\"command\": \"plan\", \"event\": \"start\", \"plan_id\": \"$pid\", \"plan_file\": \"current/$(basename "$pf")\", \"worktree\": \"$wt_p\", \"branch\": \"$WT_BRANCH\"}"
+        dispatch_hook "post-start" "$start_data" || true
     fi
 
     echo "⚡ [$label] Plan '$pid' activated into ⚡ In Development in its own worktree."
@@ -1570,6 +1572,14 @@ Notes from pickup:${p_files}"
     # P-74: the provider is told the issue is now planned.
     if [ -n "$promote_issue" ]; then issue_send_refine "$promote_issue"; fi
 
+    # Dispatch post-draft observer lifecycle event
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+        # shellcheck source=/dev/null
+        source "$AAPP_HOOK_DISPATCHER"
+        local draft_data="{\"command\": \"plan\", \"event\": \"draft\", \"plan_id\": \"P-${num}\", \"slug\": \"$slug\", \"plan_file\": \"$plan_rel\", \"group\": \"${join_group:-none}\"}"
+        dispatch_hook "post-draft" "$draft_data" || true
+    fi
+
     echo "🚀 Blueprint scaffolded: .plans/current/P${num}-${slug}.md"
     echo "   Plan ID: P-${num}"
     echo "   Status : 🟣 Under Review (Incubator)"
@@ -1752,8 +1762,10 @@ cmd_freeze_start() {
 
     # Dispatch post-freeze and post-start observers
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
-        dispatch_hook "post-freeze" "$fs_data" || true
-        dispatch_hook "post-start" "$fs_data" || true
+        local post_freeze_data="{\"command\": \"plan\", \"event\": \"freeze\", \"plan_id\": \"$plan_id\", \"plan_file\": \"current/$(basename "$plan_file")\"}"
+        local post_start_data="{\"command\": \"plan\", \"event\": \"start\", \"plan_id\": \"$plan_id\", \"plan_file\": \"current/$(basename "$plan_file")\", \"worktree\": \"none\", \"branch\": \"none\"}"
+        dispatch_hook "post-freeze" "$post_freeze_data" || true
+        dispatch_hook "post-start" "$post_start_data" || true
     fi
 
     echo "⚡ [Freeze-Start] Plan '$plan_id' frozen and activated into ⚡ In Development."
@@ -1838,6 +1850,14 @@ cmd_tdd() {
     # Commit the injection in the plans worktree; a failed commit is fatal (P-47).
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
         plans_commit "plan(refine): declare failure tests for $plan_id" "current/$(basename "$plan_file")" || exit 1
+    fi
+
+    # Dispatch post-tdd observer lifecycle event
+    if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+        # shellcheck source=/dev/null
+        source "$AAPP_HOOK_DISPATCHER"
+        local tdd_data="{\"command\": \"plan\", \"event\": \"tdd\", \"plan_id\": \"$plan_id\", \"plan_file\": \"current/$(basename "$plan_file")\"}"
+        dispatch_hook "post-tdd" "$tdd_data" || true
     fi
 
     echo "🧪 [TDD] Declared failure test sections in $(basename "$plan_file")."
@@ -1930,7 +1950,8 @@ cmd_freeze() {
 
     # Dispatch post-freeze observer lifecycle event
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
-        dispatch_hook "post-freeze" "$freeze_data" || true
+        local post_freeze_data="{\"command\": \"plan\", \"event\": \"freeze\", \"plan_id\": \"$plan_id\", \"plan_file\": \"current/$(basename "$plan_file")\"}"
+        dispatch_hook "post-freeze" "$post_freeze_data" || true
     fi
 
     echo "🔷 [Freeze] Plan '$plan_id' locked and transitioned to 🔷 Frozen."
@@ -2075,7 +2096,8 @@ cmd_start() {
 
     # Dispatch post-start observer lifecycle event
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
-        dispatch_hook "post-start" "$start_data" || true
+        local post_start_data="{\"command\": \"plan\", \"event\": \"start\", \"plan_id\": \"$plan_id\", \"plan_file\": \"current/$(basename "$plan_file")\", \"worktree\": \"none\", \"branch\": \"none\"}"
+        dispatch_hook "post-start" "$post_start_data" || true
     fi
 
     echo "⚡ [Start] Plan '$plan_id' activated into ⚡ In Development."
@@ -2519,7 +2541,7 @@ cmd_done() {
     if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
         # shellcheck source=/dev/null
         source "$AAPP_HOOK_DISPATCHER"
-        local done_data="{\"plan_id\": \"$plan_id\", \"plan_file\": \"done/$bname\", \"commit_hash\": \"$commit_sha\", \"commits\": [$commits_json]}"
+        local done_data="{\"command\": \"plan\", \"event\": \"done\", \"plan_id\": \"$plan_id\", \"plan_file\": \"done/$bname\", \"commit_hash\": \"$commit_sha\", \"commits\": [$commits_json], \"worktree\": \"${wt_rel:-none}\"}"
         dispatch_hook "post-done" "$done_data" || true
     fi
 
@@ -2568,6 +2590,11 @@ cmd_active() {
                 rm -f "$PREV_FILE"
             fi
             echo "$prev_val" > "$ACTIVE_FILE"
+            if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+                # shellcheck source=/dev/null
+                source "$AAPP_HOOK_DISPATCHER"
+                dispatch_hook "post-active" "{\"command\": \"plan\", \"event\": \"active\", \"action\": \"swap\", \"active_plan\": \"$prev_val\", \"previous_plan\": \"${cur_val:-none}\"}" || true
+            fi
 
             echo "🔄 [Active Buffer] Swapped active execution plan to '$prev_val' (previous: '${cur_val:-none}')."
             ;;
@@ -2577,6 +2604,11 @@ cmd_active() {
                 cur_val="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
                 [ -n "$cur_val" ] && echo "$cur_val" > "$PREV_FILE"
                 rm -f "$ACTIVE_FILE"
+                if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+                    # shellcheck source=/dev/null
+                    source "$AAPP_HOOK_DISPATCHER"
+                    dispatch_hook "post-active" "{\"command\": \"plan\", \"event\": \"active\", \"action\": \"clear\", \"active_plan\": \"none\", \"previous_plan\": \"${cur_val:-none}\"}" || true
+                fi
                 echo "🧹 [Active Buffer] Active plan buffer cleared. Reverted to auto-discovery mode."
             else
                 echo "ℹ️  Active plan buffer is already empty."
@@ -2665,6 +2697,11 @@ cmd_active() {
             fi
 
             write_active_buffer "$plan_id"
+            if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+                # shellcheck source=/dev/null
+                source "$AAPP_HOOK_DISPATCHER"
+                dispatch_hook "post-active" "{\"command\": \"plan\", \"event\": \"active\", \"action\": \"set\", \"active_plan\": \"$plan_id\", \"previous_plan\": \"none\"}" || true
+            fi
             echo "🎯 [Active Buffer] Active execution plan set to '$plan_id'."
             echo "   Blueprint: $plan_file"
             echo "   Buffer   : $ACTIVE_FILE"
@@ -3246,7 +3283,7 @@ _ab_hook() {
     rec="$(parse_plan_worktree "$1")"
     if [ -n "$rec" ]; then wt="$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")"; br="${rec#*$'\t'}"; fi
     commits="$(parse_plan_commits "$1" | awk '{ printf "%s\"%s\"", (NR > 1 ? ", " : ""), $1 }')"
-    data="{\"plan_id\": \"$2\", \"plan_file\": \"aborted/$(basename "$1")\", \"reason\": \"$(json_escape "$3")\", \"worktree\": \"$(json_escape "$wt")\", \"branch\": \"$(json_escape "$br")\", \"commits\": [$commits]}"
+    data="{\"command\": \"plan\", \"event\": \"abort\", \"plan_id\": \"$2\", \"plan_file\": \"aborted/$(basename "$1")\", \"reason\": \"$(json_escape "$3")\", \"worktree\": \"$(json_escape "$wt")\", \"branch\": \"$(json_escape "$br")\", \"commits\": [$commits]}"
     dispatch_hook "post-abort" "$data" || echo "⚠️  [Abort] A post-abort hook failed; the abort stands." >&2
 }
 
@@ -4132,7 +4169,7 @@ _refine_event() {
         source "$AAPP_HOOK_DISPATCHER"
         for a in "$@"; do args="${args:+$args, }\"$(json_escape "$a")\""; done
         for f in $files; do fl="${fl:+$fl, }\"$(json_escape "$f")\""; done
-        data="{\"plan_id\": \"$(json_escape "$pid")\", \"kind\": \"$kind\", \"args\": [$args], \"files\": [$fl]"
+        data="{\"command\": \"plan\", \"event\": \"refine\", \"plan_id\": \"$(json_escape "$pid")\", \"kind\": \"$kind\", \"args\": [$args], \"files\": [$fl]"
         if [ "$ev" = "post-refine" ]; then data="$data, \"commit\": \"$commit\""; fi
         dispatch_hook "$ev" "$data}"
     ) || rc=$?
