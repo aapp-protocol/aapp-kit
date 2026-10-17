@@ -2,7 +2,7 @@
 * **Created:** 2026-10-17 | **Last Refined:** 2026-10-17
 * **Target Issue / Milestone:** #166
 * **Plan ID:** P-105
-* **Changelog:** Changed: Architecture Rule 23 Pointer
+* **Changelog:** Changed: `ARCHITECTURE.md` rule 23 points to the group lifecycle section instead of restating the old group `done` order (P-105)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,12 +39,18 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+Rule 23 of `ARCHITECTURE.md` (`## 🚦 4. Invariant Architectural Rules`, "Plan Groups (P-64)") describes the group `done` order of docs commit before the gate. The section `## Group Lifecycle: Ownership, Amendments, Done (P-103)` describes the current order, ownership and the amendments member. Rule 23 sits inside a numbered list, so a group cannot replace it by heading (P-103 Q2, option b: shortened to a pointer by this plan).
+
+Goal: rule 23 keeps what is true and stated nowhere else, and points to the P-103 section for the lifecycle.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+Rule 23 becomes:
+
+> 23. **Plan Groups (P-64):** A group plan (`# 🧩 Group Plan P-<n>:`, the one marker verbs read) is a planning container for several member plans (`* **Group:**`, listed in its `* **Members:**`, its amendments member last). `ARCHITECTURE.md` and `CODEMAP.md` changes live whole in the group plan and are applied by heading (`lib/group_docs.sh`), guarded by checksum base lines; members never edit them. Groups do not nest. Fixes stay on the development branch, except group-caused ones (`issue fix … group`), which land on the feature branch. Its lifecycle (feature branch, members, ownership, the amendments member, `done`) is *Group Lifecycle: Ownership, Amendments, Done (P-103)* below.
+
+No other rule changes; the P-103 section stays as it is.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -56,20 +62,8 @@
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
-
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
-
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 1: Replace rule 23 with the text in §2.
+- [ ] Task 2: `./aapp test strict quiet`.
 
 ---
 
@@ -80,23 +74,19 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `ARCHITECTURE.md` -> rule 23 of `## 🚦 4. Invariant Architectural Rules`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-17:** Plan initialized from `pickup.md`.
-* **2026-10-17:** Refined blast radius and locked module boundaries.
+* **2026-10-17:** Drafted from #166 (P-103 Q2, option b).
