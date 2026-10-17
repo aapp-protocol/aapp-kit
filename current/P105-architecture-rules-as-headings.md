@@ -1,8 +1,8 @@
-# 🗺️ Plan P-105: Architecture Rule 23 Pointer
+# 🗺️ Plan P-105: Architecture Rules As Headings
 * **Created:** 2026-10-17 | **Last Refined:** 2026-10-17
 * **Target Issue / Milestone:** #166
 * **Plan ID:** P-105
-* **Changelog:** Changed: `ARCHITECTURE.md` rule 23 points to the group lifecycle section instead of restating the old group `done` order (P-105)
+* **Changelog:** Changed: `ARCHITECTURE.md`'s invariant rules are headings grouped by topic, without numbers, and Plan Groups points to the group lifecycle (P-105)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,18 +39,25 @@
 ---
 
 ## 1. Context & Architectural Goal
-Rule 23 of `ARCHITECTURE.md` (`## 🚦 4. Invariant Architectural Rules`, "Plan Groups (P-64)") describes the group `done` order of docs commit before the gate. The section `## Group Lifecycle: Ownership, Amendments, Done (P-103)` describes the current order, ownership and the amendments member. Rule 23 sits inside a numbered list, so a group cannot replace it by heading (P-103 Q2, option b: shortened to a pointer by this plan).
+`ARCHITECTURE.md`'s `## 🚦 4. Invariant Architectural Rules` is one numbered list of 30 rules. A group's `done` replaces sections by heading, so it cannot change one rule: rule 23 ("Plan Groups (P-64)") still describes the group `done` order of docs commit before the gate, which `## Group Lifecycle: Ownership, Amendments, Done (P-103)` replaced. Numbers also get in the way of removing a rule in the middle.
 
-Goal: rule 23 keeps what is true and stated nowhere else, and points to the P-103 section for the lifecycle.
+Goal: every rule its own heading, grouped by topic, no numbers; rule 23 brought up to date.
 
 ---
 
 ## 2. Technical Blueprint
-Rule 23 becomes:
-
-> 23. **Plan Groups (P-64):** A group plan (`# 🧩 Group Plan P-<n>:`, the one marker verbs read) is a planning container for several member plans (`* **Group:**`, listed in its `* **Members:**`, its amendments member last). `ARCHITECTURE.md` and `CODEMAP.md` changes live whole in the group plan and are applied by heading (`lib/group_docs.sh`), guarded by checksum base lines; members never edit them. Groups do not nest. Fixes stay on the development branch, except group-caused ones (`issue fix … group`), which land on the feature branch. Its lifecycle (feature branch, members, ownership, the amendments member, `done`) is *Group Lifecycle: Ownership, Amendments, Done (P-103)* below.
-
-No other rule changes; the P-103 section stays as it is.
+- **Shape.** `## 🚦 4. Invariant Architectural Rules` keeps its heading; under it a `###` heading per topic and a `####` heading per rule (its bold title without the number and colon, e.g. `#### Plan Groups (P-64)`), the rule's text below as a paragraph, unchanged. A group's `done` can then replace one rule: a section runs up to the next heading of the same or a higher level.
+- **Topics**, in this order:
+  - `### Code & Paths`: Zero Reinvention; Path Resolution Single Source of Truth; Front-Door Repository Assertion & Fail-Closed Roots; Runtime Reachability & Inspection-Only Invariant; Shared Hook Library & Parser Boundaries (P-37)
+  - `### Hooks & Enforcement`: Never Edit Hook Targets Directly; Linked Worktree Hook Defense-in-Depth; Hook Security, Integrity & Trust Model
+  - `### Documentation & Contracts`: Documentation Synchronization; Verb Behaviour Contracts (P-34); Three-Tier Document Governance & Delimited Template Sync (P-25); Continuous Documentation Navigation Invariant
+  - `### Testing`: Test Harness Sandbox Confinement; Opt-In Failure Test Declaration & TDD Gate (P-35)
+  - `### Plans`: Frozen Plan Immutability; Plan Worktrees (P-54); Plan Groups (P-64); Plan Conflict Audit (P-65); Plan Abort (P-69); A Plan Closes Further Issues (P-86)
+  - `### Commits & Integration`: Attribution Policy Tiers & Single Identity Layer (P-40); Plan-Bound Commit Helper & Unified Lifecycle Commit Engine (P-39); General-Purpose Git Notes Subsystem (P-44); The Squash on the Plan Branch (P-84); Milestone Release Bundling & Tag Ledgers (P-38)
+  - `### Issues`: Two-Lane Boundary; Issue Fixes, Hotfixes & Plans Held Elsewhere (P-52); Issue Abort (P-76); One Commit per Fix (P-85); The Issue Work Queue (P-89)
+- **Cross-references.** The one in-file reference, "(Rule 2)" in Front-Door Repository Assertion, names the rule instead: "(*Path Resolution Single Source of Truth*)". `CHANGELOG.md` lines citing rule numbers are released history and stay.
+- **Plan Groups (P-64)** becomes: A group plan (`# 🧩 Group Plan P-<n>:`, the one marker verbs read) is a planning container for several member plans (`* **Group:**`, listed in its `* **Members:**`, its amendments member last). `ARCHITECTURE.md` and `CODEMAP.md` changes live whole in the group plan and are applied by heading (`lib/group_docs.sh`), guarded by checksum base lines; members never edit them. Groups do not nest. Fixes stay on the development branch, except group-caused ones (`issue fix … group`), which land on the feature branch. Its lifecycle (feature branch, members, ownership, the amendments member, `done`) is *Group Lifecycle: Ownership, Amendments, Done (P-103)*.
+- No rule's text changes otherwise; no rule is added or dropped (30 before, 30 after).
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -62,8 +69,9 @@ No other rule changes; the P-103 section stays as it is.
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-- [ ] Task 1: Replace rule 23 with the text in §2.
-- [ ] Task 2: `./aapp test strict quiet`.
+- [ ] Task 1: Rewrite `## 🚦 4.` as topic and rule headings (§2); update Plan Groups and the one cross-reference.
+- [ ] Task 2: Check: 30 rules before and after, each rule's text unchanged except the two in §2 (diff of the rule bodies).
+- [ ] Task 3: `./aapp test strict quiet`.
 
 ---
 
@@ -74,7 +82,7 @@ No other rule changes; the P-103 section stays as it is.
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `ARCHITECTURE.md` -> rule 23 of `## 🚦 4. Invariant Architectural Rules`.
+- [ ] `ARCHITECTURE.md` -> `## 🚦 4. Invariant Architectural Rules` as topic and rule headings.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 
@@ -90,4 +98,4 @@ No other rule changes; the P-103 section stays as it is.
 ## 📦 6. Change Log & Refinement History
 * **2026-10-17:** File renamed from P105-architecture-rule-23-pointer.md to P105-architecture-rules-as-headings.md.
 *Tracks how the plan evolved across sessions.*
-* **2026-10-17:** Drafted from #166 (P-103 Q2, option b).
+* **2026-10-17:** Drafted from #166. Widened (developer): every rule its own heading, grouped by topic, numbers removed.
