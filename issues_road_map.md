@@ -13,4 +13,5 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
+- [ ] #162 -> `aapp start <id>` and `freeze-start` for a plan re-frozen while its worktree still holds it refuse from the main checkout ("already bound in worktree") without saying that `aapp start` run in that worktree resumes it. (queued 2026-10-17)
 ### Low
