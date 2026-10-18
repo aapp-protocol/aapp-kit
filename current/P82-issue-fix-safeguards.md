@@ -135,9 +135,9 @@ This plan makes an issue fix small by measure, declared before it is touched, an
 * [x] **Question 2 — Start after group P-72? → RESOLVED (developer, 2026-10-15):** P-72 has landed.
 * [x] **Question 3 — The size of a fix. → RESOLVED (developer, 2026-10-15):** at most 3 files and 25 changed lines in all, both configurable; above, a plan.
 * [x] **Question 4 — A plan's own fallout. → RESOLVED (developer, 2026-10-15):** what the plan's change caused or left undone is plan work, amended into the plan with the human's OK; an unrelated bug is logged, and a blocking one is a hotfix even in the plan's own files, because the fix gets its own commit.
-* [ ] **Question 5 — Where a declared file is recorded.** Proposed: in the committed mini plan, with its reason, and mirrored to the issue as a note. Notes are kept outside Git and are untrusted text, so the check at `close` reads the mini plan. Or: the note alone.
-* [ ] **Question 6 — What counts toward the line limit.** Proposed: added plus deleted lines, tests and contract lines included. Or: added lines only, or code without tests.
-* [ ] **Question 7 — Does a declared file still need a person's `[y/N]`?** Proposed: no; the required reason, the note and the limits replace it.
+* [x] **Question 5 — Where a declared file is recorded. → RESOLVED (developer, 2026-10-18):** in the committed mini plan with its reason, and mirrored to the issue as a note (mini plan is the trusted Git record checked at `close`).
+* [x] **Question 6 — What counts toward the line limit. → RESOLVED (developer, 2026-10-18):** added plus deleted lines, tests included, without contract lines (standard git diff additions + deletions across the fix files).
+* [x] **Question 7 — Does a declared file still need a person's `[y/N]`? → RESOLVED (developer, 2026-10-18):** no interactive `[y/N]` prompt; the mandatory reason, issue note, and file/line limits replace it.
 
 ---
 
