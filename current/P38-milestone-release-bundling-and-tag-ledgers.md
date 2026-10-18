@@ -487,6 +487,7 @@ CLI invocations with the `json` token output this exact schema directly to stdou
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-19:** Plan activated into ⚡ In Development via start.
 * **2026-10-19:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-09:** Refined blueprint following RFC review settlement: aligned with `microcommits` mode, formalized strict 2-tier commit reachability ladder (ancestry or exact `Plan-ID` trailer) with `unverified` bare token override and `Commits: none` exemption; implemented fail-closed per-branch `git update-ref` rollback; upgraded `seed_plan_id`, `seed_issue_id`, `issue_locate`, `_ig_resolve_done`, and `planning_health.sh` across `.plans/release/*/`; standardized on bare token modifiers (`unverified`, `yes`, `check`, `push`, `json`, `no-archive`, `no-changelog`); pruned redundant Git config keys (`aapp.signTags`, `aapp.releasePush`, `aapp.changelogPath`); delegated test quality gate to project test runners; and scoped worktree cleanliness checks to primary and kit checkouts.
 * **2026-10-08:** Refined blueprint for universal adopter projects: added tag prefix customization (`aapp.tagPrefix`), dual release manifests (`manifest.md` and `manifest.json`), publication guidance banner, and Phase B transactional rollback handler.
