@@ -218,6 +218,10 @@ Each workflow below is a skill. Its instructions are in `.agents/skills/<name>/S
 
 After `aapp start` or `aapp freeze-start` succeeds, begin the plan's §3 at once, failing tests first when the plan declares them; do not ask for a second confirmation.
 
+### 🏁 Execution Scope & Archival Boundary (`aapp done`)
+- **Interactive Pair Programming (Default)**: When working interactively with a developer, an agent's implementation scope ends upon committing verified code via `aapp commit` and passing test suites. The agent MUST NOT run `aapp done` autonomously; it pauses and hands off to the developer. This pause gives space for reflection, review, and any questions or small improvements to the plan/group before branch integration and worktree teardown. The developer (or an orchestrating agent) runs `aapp done`, or explicitly instructs the agent to run it.
+- **Autonomous & Orchestrated Mode**: When operating headlessly or under the direction of an orchestrating agent, the agent has full clearance to execute `aapp done` to complete the plan lifecycle.
+
 ---
 
 ## 🧰 CLI Reference
