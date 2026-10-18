@@ -362,14 +362,14 @@ CLI invocations with the `json` token output this exact schema directly to stdou
 
 ### Phase 1: Reader, Seeder & Health Engine Upgrades
 > **Builds on group P-72.** After P-73, the issue ledgers are reached only through the ledger functions of `lib/aapp-lib.sh` (`ledger_path`, `ledger_ids`, `ledger_locate`, `ledger_relink`, `ledger_archive_row`), which replace `seed_issue_id`'s scan, `issue_locate` and `issue_relink`. The issue-side upgrades of Tasks 1.2 to 1.4 are made there, once, and this plan starts after P-72 ships.
-- [ ] Task 1.1: Update `lib/plan_resolver.sh` to search `.plans/done/` and `.plans/release/*/plans/` recursively without depth restrictions across all scopes (`done`, `all`).
-- [ ] Task 1.2: Upgrade Plan ID and Issue ID seeders:
+- [x] Task 1.1: Update `lib/plan_resolver.sh` to search `.plans/done/` and `.plans/release/*/plans/` recursively without depth restrictions across all scopes (`done`, `all`).
+- [x] Task 1.2: Upgrade Plan ID and Issue ID seeders:
   - Update `seed_plan_id` in `lib/cmd_init.sh` to scan `.plans/release/*/plans/` alongside tag ledgers and `done/`.
   - Update `seed_issue_id` in `lib/plan_resolver.sh` to scan `.plans/release/*/000-issues-archive.md` alongside `done/000-issues-archive.md` and `ISSUES.md`.
-- [ ] Task 1.3: Update `issue_locate` in `lib/cmd_issue.sh` and `_ig_resolve_done` in `lib/cmd_plan.sh` to resolve historical defects and plans inside `.plans/release/*/`.
-- [ ] Task 1.4: Update `lib/planning_health.sh` to validate Plan IDs and Recorded SHAs across tag ledgers in `.plans/release/*/000-archive-ledger.md` and check archived issues across `.plans/release/*/000-issues-archive.md` (Pairs 1, 6, 8).
-- [ ] Task 1.5: Add regression tests in `tests/plan_resolver_test.sh` asserting resolution of plans and seeding of IDs from release bundles.
-- [ ] Task 1.6: Live archive bound: past `aapp.issueArchiveMax` rows, `ledger_archive_row` rolls the oldest into an overflow file in `done/`; readers include it; the release bundles it. Test in `tests/issue_ledger_test.sh`.
+- [x] Task 1.3: Update `issue_locate` in `lib/cmd_issue.sh` and `_ig_resolve_done` in `lib/cmd_plan.sh` to resolve historical defects and plans inside `.plans/release/*/`.
+- [x] Task 1.4: Update `lib/planning_health.sh` to validate Plan IDs and Recorded SHAs across tag ledgers in `.plans/release/*/000-archive-ledger.md` and check archived issues across `.plans/release/*/000-issues-archive.md` (Pairs 1, 6, 8).
+- [x] Task 1.5: Add regression tests in `tests/plan_resolver_test.sh` asserting resolution of plans and seeding of IDs from release bundles.
+- [x] Task 1.6: Live archive bound: past `aapp.issueArchiveMax` rows, `ledger_archive_row` rolls the oldest into an overflow file in `done/`; readers include it; the release bundles it. Test in `tests/issue_ledger_test.sh`.
 
 ### Phase 2: Core Release CLI & Pre-Flight Gate (`lib/cmd_release.sh`)
 - [ ] Task 2.1: Author `lib/cmd_release.sh` implementing:
