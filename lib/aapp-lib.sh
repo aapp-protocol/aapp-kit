@@ -43,7 +43,6 @@ _aapp_plan_section_paths() {
             if (!in4) next
             if (mode == "targets") {
                 if ($0 ~ /^###[[:space:]]*📂[[:space:]]*Target Files[[:space:]]*(\(.*)?$/ ||
-                    $0 ~ /^###[[:space:]]*🚨[[:space:]]*Emergency Hotfix Extensions[[:space:]]*(\(.*)?$/ ||
                     $0 ~ /^###[[:space:]]*🧪[[:space:]]*Required Test Files[[:space:]]*(\(.*)?$/) {
                     region = 1
                 }
@@ -74,8 +73,8 @@ _aapp_plan_section_paths() {
     ' "$file"
 }
 
-# Write targets: `### 📂 Target Files`, `### 🚨 Emergency Hotfix Extensions`,
-# `### 🧪 Required Test Files` (Option A), all inside §4.
+# Write targets: `### 📂 Target Files` and `### 🧪 Required Test Files`
+# (Option A), both inside §4.
 parse_plan_target_paths() {
     _aapp_plan_section_paths "$1" targets
 }

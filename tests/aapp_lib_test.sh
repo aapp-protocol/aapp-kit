@@ -51,30 +51,17 @@ EOF
 )
 expect_paths "test_foreign_subsection_ends_region" parse_plan_target_paths "$F" "src/a.py"
 
-F=$(plan4 hotfix.md <<'EOF'
-### 📂 Target Files (Modifications & Additions)
-- [ ] `src/a.py` -> real target
-### 🚨 Emergency Hotfix Extensions
-- [ ] `src/hotfix.py` -> blocking fix
-### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/secret.py` -> vetoed
-EOF
-)
-expect_paths "test_emergency_hotfix_is_parsed" parse_plan_target_paths "$F" "src/a.py
-src/hotfix.py"
-
-F=$(plan4 hotfix_after_oob.md <<'EOF'
+F=$(plan4 heading_after_oob.md <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/a.py` -> real target
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `src/secret.py` -> vetoed
-### 🚨 Emergency Hotfix Extensions
-- [ ] `src/hotfix.py` -> blocking fix
+### 📝 Notes
+- [ ] `src/notes.py` -> neither
 EOF
 )
-expect_paths "test_emergency_hotfix_after_oob" parse_plan_target_paths "$F" "src/a.py
-src/hotfix.py"
-expect_paths "oob region ends at a later hotfix heading" parse_plan_oob_paths "$F" "src/secret.py"
+expect_paths "test_foreign_heading_after_oob" parse_plan_target_paths "$F" "src/a.py"
+expect_paths "oob region ends at a later heading" parse_plan_oob_paths "$F" "src/secret.py"
 
 F=$(plan4 required_files.md <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
