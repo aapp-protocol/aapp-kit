@@ -2,7 +2,7 @@
 * **Created:** 2026-10-18 | **Last Refined:** 2026-10-18
 * **Target Issue / Milestone:** #85
 * **Plan ID:** P-108
-* **Changelog:** Changed: every verb and hook reads and writes a plan's Status line through one registry-backed accessor; the retired 🚫 BLOCKED glyph is no longer recognised
+* **Changelog:** Changed: every verb and hook reads and writes a plan's Status line through one registry-backed accessor, recognising a status by its name, so the hooks honour adopter statuses as the verbs do
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -134,3 +134,4 @@ Goal: one accessor that reads a plan's status, and one that writes it, both back
 * **2026-10-18:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-18:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-18:** Drafted from #85.
+* **2026-10-18:** Developer decision: a status is recognised by its name only, never by its glyph, so `🚫 BLOCKED` reads as blocked by its name; the kit no longer writes or names `🚫` (§2 Fallback Inventory read accordingly).
