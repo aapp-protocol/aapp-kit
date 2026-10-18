@@ -141,6 +141,7 @@
   * `aapp_dev_branch` / `aapp_branch_ref(name)` -> first `aapp.devBranch` candidate present locally or on a remote, and the ref to branch from; `aapp_render_plan_template`, `aapp_abs_path`, `aapp_rel_path` -> name templates and lexical path math for plan worktrees (P-54).
   * `aapp_held_plans` / `aapp_plan_held_by(plan_file, held)` -> one-pass list of plans held by other worktrees' buffers, and the match used by the five single-plan discovery sites (guard, hook plan and changelog checks, `aapp commit`, `aapp active`) so an unbound checkout neither adopts a held plan nor edits its files (P-52).
   * `extract_plan_section(n)` -> Stdin filter printing numbered section `## … n.` (design lock).
+  * `plan_progress(file)` -> Computes `<done>\t<total>\t<unit>` for a plan (§3 tasks) or group (archived members) (P-98).
   * `glob_to_regex(pattern)` / `match_pattern_list(target, patterns…)` -> Exact, directory-prefix and glob matching.
   * `aapp_os([uname_s] [proc_version])` -> `linux|darwin|windows|wsl|bsd|unknown`; `wsl` is a GNU userland.
   * `aapp_lib_loaded()` -> Load sentinel every consumer asserts.
