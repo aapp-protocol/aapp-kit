@@ -75,19 +75,19 @@ Goal: one accessor that reads a plan's status, and one that writes it, both back
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Consolidate
-- [ ] Task 1.1: Add the four accessors to `lib/plan_states.sh`; tests for each, including an adopter status from `aapp.planState.<slug>`.
-- [ ] Task 1.2: Move every reader in `lib/` onto them, with behaviour unchanged.
-- [ ] Task 1.3: Move every writer onto `plan_set_status`.
+- [x] Task 1.1: Add the four accessors to `lib/plan_states.sh`; tests for each, including an adopter status from `aapp.planState.<slug>`.
+- [x] Task 1.2: Move every reader in `lib/` onto them, with behaviour unchanged.
+- [x] Task 1.3: Move every writer onto `plan_set_status`.
 
 ### Phase 2: Hooks and clean break
-- [ ] Task 2.1: `aapp init` ships `plan_states.sh` into `.githooks/`; the hooks source it and move the hooks' Status checks onto `plan_status_is`.
-- [ ] Task 2.2: Remove `🚫` from the hooks, their messages and `templates/AGENTS.md`.
-- [ ] Task 2.3: Test that the hooks treat an adopter-defined blocked or in-development status as the verbs do.
-- [ ] Task 2.4: Test that no `**Status:**` regex remains outside the accessors (a source scan in `tests/plan_states_test.sh`).
+- [x] Task 2.1: `aapp init` ships `plan_states.sh` into `.githooks/`; the hooks source it and move the hooks' Status checks onto `plan_status_is`.
+- [x] Task 2.2: Remove `🚫` from the hooks, their messages and `templates/AGENTS.md`.
+- [x] Task 2.3: Test that the hooks treat an adopter-defined blocked or in-development status as the verbs do.
+- [x] Task 2.4: Test that no `**Status:**` regex remains outside the accessors (a source scan in `tests/plan_states_test.sh`).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: `./aapp test quiet` passes.
-- [ ] Task 3.2: `ARCHITECTURE.md` and `.agents/CODEMAP.md` name the accessors as the one owner of the Status line.
+- [x] Task 3.1: `./aapp test quiet` passes.
+- [x] Task 3.2: `ARCHITECTURE.md` and `.agents/CODEMAP.md` name the accessors as the one owner of the Status line.
 - [ ] Task 3.3: Log every finding outside the Target Files as an issue; none stays in chat only.
 
 ---
