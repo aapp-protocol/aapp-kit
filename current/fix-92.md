@@ -1,11 +1,13 @@
 # 🩹 Issue Fix #92
 * **Plan ID:** #92
 * **Target Issue / Milestone:** #92
-* **Changelog:** Fixed:
+* **Changelog:** Fixed: aapp test runs only the suites of the kit it runs from, never the current repository's tests, aapp.testCommand or a detected project runner; the health audit fallback is gone
+* **Commit Mode:** microcommits
+* **Changelog Mode:** plan
 * **Status:** ⚡ In Development
 * **Base:** `5ee8f8b` (develop)
 * **Worktree:** .workspace/fix-92 (fix/92)
-* **Commits:** none
+* **Commits:** `3f5912d` (fix/92)
 
 Temporary mini plan (P-52): deleted by `aapp issue close 92`; the issue row is the record.
 
