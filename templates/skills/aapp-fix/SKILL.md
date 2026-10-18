@@ -53,7 +53,7 @@ It squashes a fix of several commits into one, lands it on the issue's branch an
 ### Rules
 - Never commit or stash another plan's work.
 - After a timeout (another fix is open), retry later.
-- If the fix is more than small, drop it and promote the issue to a plan:
+- If the fix meets a promotion criterion (several modules, a locked Blast Radius, real design decisions, more than one session, a refactor: AGENTS.md *Promotion*), drop it and promote the issue to a plan; the line count alone does not decide:
   ```bash
   aapp issue fix <num> abort
   aapp draft <slug> issue <num>
