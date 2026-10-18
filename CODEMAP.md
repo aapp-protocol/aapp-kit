@@ -64,12 +64,14 @@
 * **Purpose:** Single source of truth for which plan statuses exist and how each one renders. Pure module with no top-level side effects; safe to source anywhere.
 * **Key Functions:**
   * `plan_states_load()` -> Loads kit defaults, then merges adopter overrides from `git config aapp.planState.*`. Idempotent.
-  * `plan_state_for_status_line(line)` -> Resolves a raw `**Status:**` line to a slug, or empty if unrecognized. Matches by **canonical name, not emoji**.
+  * `plan_state_for_status_line(line)` -> Resolves a raw `**Status:**` line to a slug, or empty if unrecognized. Matches by **canonical name, not emoji**: no reader depends on telling glyphs apart.
+  * The Status line's one reader and one writer, used by every verb and both hooks: `plan_status_line([file])` (the header's line, outside fences and before the first `## `; stdin without a file), `plan_status_text([file])` (the status as written, for messages), `plan_status_slug([file])` (empty when unrecognized), `plan_status_is(file|-, slug…)`, `plan_status_render(slug)` (`<emoji> <name>`), `plan_set_status(file, slug)` (rewrites the header line; registry slugs only, so `✅ Done` and `❌ Aborted` are literals of `done` and `plan abort`).
+  * Loaded by `lib/aapp-lib.sh` from its own directory; `aapp init` ships it into `.githooks/` beside the library.
   * `plan_state_field(slug, field)` -> Accessor for `emoji` / `name` / `heading` / `rank`.
   * `plan_state_sections()` -> Unique matrix headings in rank order, deduplicated (`under-review` and `refining` deliberately share one).
   * `plan_state_emoji_class()` -> Alternation of live status glyphs, for callers that must match any status.
 * **Adopter Extension:** `git config aapp.planState.<slug> "<emoji>|<name>|<heading>|<rank>"`. A slug matching a kit default overrides it in place; a new slug is appended. Malformed tuples warn to stderr and are skipped — never fatal.
-* **Accessibility Invariant:** The shipped glyph set (`🟣 📝 🔷 ⚡ 🟥`) is colour-blind friendly and is a hard design constraint. The retired `🔴`/`🟡` pair is the red/green-family combination that fails common colour-vision deficiency and carries **no alias**; a plan still using one resolves as unrecognized so it gets cleaned up. Adopter-defined glyphs should be shape- or symbol-distinct rather than hue-distinct.
+* **Accessibility Invariant:** The shipped glyph set (`🟣 📝 🔷 ⚡ 🟥`) is colour-blind friendly and is a hard design constraint. The retired `🔴`/`🟡` pair is the red/green-family combination that fails common colour-vision deficiency and is never written by the kit. A glyph never decides a status: readers match the name, since no glyph set suits every colour-vision deficiency. Adopter-defined glyphs should be shape- or symbol-distinct rather than hue-distinct.
 * **Anti-Wrapper Warning:** Never hardcode a status emoji alternation (`🟣|🔷|📝`) or an `In Development` / `Frozen` regex. Source this module and use the accessors.
 
 ### 🔄 State Matrix Derivation Engine (`lib/cmd_matrix.sh`)
@@ -237,7 +239,7 @@
   * Parallel scheduling (P-67): up to N suites at once, N from `jobs <n>` or the CPU count rounded down to a multiple of 4; each suite's output captured in its own file and flushed in one write when it finishes; summary rows in selection order; one `trap` stops running suites and removes the files on exit or interrupt.
   * Suite parts (P-68): `tests/verbs/<verb>.<part>.sh` belongs to `<verb>`; `verb <verb>` runs it with all its parts, each scheduled as its own suite.
   * Fail-closed sandbox propagation (`AAPP_TEST_SANDBOX_STRICT=1`).
-  * Kit suites only (#92): suites come from `$AAPP_BASE/tests` (the kit clone or installed copy) and run from the kit's root; a kit without `tests/` fails closed.
+  * Kit suites only: suites come from `$AAPP_BASE/tests` (the kit clone or installed copy) and run from the kit's root; a kit without `tests/` fails closed.
 * **Anti-Wrapper Warning:** Never bypass subshell sandboxing or alter suite exit codes.
 ### 📝 Dedicated Git Notes Engine (`lib/cmd_note.sh`)
 * **Purpose:** First-class developer CLI handler and lifecycle manager for git notes (`aapp note [status | stage | push | pull]`, P-44).
