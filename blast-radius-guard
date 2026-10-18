@@ -60,6 +60,16 @@ except Exception:
         TARGET_FILE=$(echo "$RAW_INPUT" | grep -oE '"(file_path|path|target_file)"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')
         TOOL_NAME=$(echo "$RAW_INPUT" | grep -oE '"tool_name"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')
     fi
+    # If not JSON, check if RAW_INPUT is a single-line path
+    if [ -z "$TARGET_FILE" ] && [ -n "$RAW_INPUT" ]; then
+        case "$RAW_INPUT" in
+            *"{"*|*"}"*) ;;
+            *)
+                first_line=$(printf '%s' "$RAW_INPUT" | head -n 1 | tr -d '\r\n')
+                [ -n "$first_line" ] && TARGET_FILE="$first_line"
+                ;;
+        esac
+    fi
 fi
 
 if [ -z "$TARGET_FILE" ]; then
@@ -190,7 +200,7 @@ print(json.dumps(out))
 AAPP_LIB_FILE="$AAPP_HOOK_DIR/aapp-lib.sh"
 # shellcheck source=lib/aapp-lib.sh
 if ! . "$AAPP_LIB_FILE" 2>/dev/null || ! declare -f aapp_lib_loaded >/dev/null; then
-    deny_action "Shared library missing or unreadable: $AAPP_LIB_FILE. Run 'aapp init' to reinstall the hook engine."
+    deny_action "Shared library or status registry missing or unreadable: $AAPP_LIB_FILE, $AAPP_HOOK_DIR/plan_states.sh. Run 'aapp init' to reinstall the hook engine."
 fi
 
 # ------------------------------------------------------------------------------
@@ -285,6 +295,35 @@ if [ "$IS_SAME_REPO" -eq 1 ]; then
     # Inside repository or linked worktree, proceed to Section 3 and Section 4 blast radius checks
     :
 else
+    # External path: check registered companion repositories first (G1 delegation)
+    c_entry="" c_path="" canon_c_path=""
+    while IFS= read -r c_entry; do
+        [ -z "$c_entry" ] && continue
+        c_path="${c_entry#* }"
+        [ -z "$c_path" ] && continue
+        canon_c_path="$(canonicalize_path "$c_path")"
+        case "$CANONICAL_TARGET" in
+            "$canon_c_path"|"$canon_c_path"/*)
+                if [ -x "$canon_c_path/.githooks/blast-radius-guard" ]; then
+                    if [ -n "$RAW_INPUT" ]; then
+                        if printf '%s' "$RAW_INPUT" | (cd "$canon_c_path" && .githooks/blast-radius-guard); then
+                            exit 0
+                        else
+                            exit 2
+                        fi
+                    else
+                        if (cd "$canon_c_path" && .githooks/blast-radius-guard "$CANONICAL_TARGET"); then
+                            exit 0
+                        else
+                            exit 2
+                        fi
+                    fi
+                fi
+                exit 0
+                ;;
+        esac
+    done < <(git config --get-regexp '^aapp\.companion\..*\.path$' 2>/dev/null || true)
+
     # External path: check against authorized allowlist
     while IFS= read -r allowed_prefix; do
         [ -z "$allowed_prefix" ] && continue
@@ -425,7 +464,7 @@ for pf in "$PLANS_DIR"/current/*.md; do
     fi
     [ ! -f "$pf" ] && continue
     case "$(basename "$pf")" in 000-*) continue ;; esac
-    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|🟥|BLOCKED)' "$pf" 2>/dev/null; then
+    if plan_status_is "$pf" blocked; then
         BLOCKED_TARGETS=()
         while IFS= read -r ITEM; do
             [ -n "$ITEM" ] && BLOCKED_TARGETS+=("$ITEM")
@@ -467,8 +506,7 @@ else
     for pf in "$PLANS_DIR"/current/*.md; do
         [ ! -f "$pf" ] && continue
         case "$(basename "$pf")" in 000-*) continue ;; esac
-        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null || \
-           ! grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*' "$pf" 2>/dev/null; then
+        if plan_status_is "$pf" in-development || [ -z "$(plan_status_line "$pf")" ]; then
             if HOLDER="$(aapp_plan_held_by "$pf" "$HELD_PLANS")"; then
                 if ! aapp_is_shared_doc "$TARGET_FILE"; then
                     HELD_TARGETS=()
@@ -502,7 +540,7 @@ else
 fi
 
 # 4. Enforce Boundaries for Active Plan
-if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|🟥|BLOCKED)' "$ACTIVE_PLAN_PATH"; then
+if plan_status_is "$ACTIVE_PLAN_PATH" blocked; then
     deny_action "Active plan '$(basename "$ACTIVE_PLAN_PATH")' is BLOCKED. All modifications are refused."
 fi
 

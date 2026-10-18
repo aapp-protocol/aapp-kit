@@ -7,11 +7,31 @@
 #
 # Purity rule: arguments or stdin in, stdout out. No top-level side effects, no
 # `set` options, no reads of the aapp environment, no repository-root
-# resolution. Sourcing this file only defines functions.
+# resolution. Sourcing this file only defines functions, its own and those of
+# the status registry beside it.
 #
 # Layout: lib/aapp-lib.sh is the only authored copy. templates/aapp-lib.sh is a
-# tracked symlink to it; `aapp init` installs a real copy into .githooks/.
+# tracked symlink to it; `aapp init` installs a real copy into .githooks/, with
+# plan_states.sh beside it.
 # ==============================================================================
+
+# The status registry and the Status-line accessors (#85) sit beside this file
+# (beside its target, when sourced through the templates/ symlink); without
+# them the library does not load, and its consumers refuse to run.
+_AAPP_LIB_SRC="${BASH_SOURCE[0]}"
+if [ -L "$_AAPP_LIB_SRC" ]; then
+    _AAPP_LIB_LINK="$(readlink "$_AAPP_LIB_SRC")" || return 1
+    case "$_AAPP_LIB_LINK" in
+        /*) _AAPP_LIB_SRC="$_AAPP_LIB_LINK" ;;
+        *)  case "$_AAPP_LIB_SRC" in */*) _AAPP_LIB_SRC="${_AAPP_LIB_SRC%/*}/$_AAPP_LIB_LINK" ;; *) _AAPP_LIB_SRC="$_AAPP_LIB_LINK" ;; esac ;;
+    esac
+fi
+case "$_AAPP_LIB_SRC" in
+    */*) _AAPP_LIB_DIR="${_AAPP_LIB_SRC%/*}" ;;
+    *)   _AAPP_LIB_DIR="." ;;
+esac
+# shellcheck source=lib/plan_states.sh
+. "$_AAPP_LIB_DIR/plan_states.sh" || return 1
 
 # Load sentinel. Consumers assert it after sourcing and fail closed without it.
 aapp_lib_loaded() {
@@ -43,7 +63,6 @@ _aapp_plan_section_paths() {
             if (!in4) next
             if (mode == "targets") {
                 if ($0 ~ /^###[[:space:]]*📂[[:space:]]*Target Files[[:space:]]*(\(.*)?$/ ||
-                    $0 ~ /^###[[:space:]]*🚨[[:space:]]*Emergency Hotfix Extensions[[:space:]]*(\(.*)?$/ ||
                     $0 ~ /^###[[:space:]]*🧪[[:space:]]*Required Test Files[[:space:]]*(\(.*)?$/) {
                     region = 1
                 }
@@ -74,8 +93,8 @@ _aapp_plan_section_paths() {
     ' "$file"
 }
 
-# Write targets: `### 📂 Target Files`, `### 🚨 Emergency Hotfix Extensions`,
-# `### 🧪 Required Test Files` (Option A), all inside §4.
+# Write targets: `### 📂 Target Files` and `### 🧪 Required Test Files`
+# (Option A), both inside §4.
 parse_plan_target_paths() {
     _aapp_plan_section_paths "$1" targets
 }
@@ -828,6 +847,57 @@ group_members() {
     parse_plan_field "$1" Members | tr ',' '\n' | awk '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "") } /^P-[0-9]+$/'
 }
 
+# plan_progress <plan-file> (P-98): `<done>\t<total>\t<unit>`, empty when nothing counts.
+# For plans: §3 checkboxes (`tasks`). For groups: member plans archived (`members`).
+plan_progress() {
+    local pf="$1"
+    [ -f "$pf" ] || return 0
+    if aapp_is_group_plan "$pf"; then
+        local members m num total=0 done=0 pdir done_dir curr_dir in_done in_curr f
+        members="$(group_members "$pf")"
+        [ -n "$members" ] || return 0
+        pdir="$(dirname "$pf")"
+        if [ -d "$pdir/../done" ]; then
+            done_dir="$pdir/../done"; curr_dir="$pdir"
+        elif [ -d ".plans/done" ]; then
+            done_dir=".plans/done"; curr_dir=".plans/current"
+        else
+            done_dir="done"; curr_dir="current"
+        fi
+        while IFS= read -r m; do
+            [ -n "$m" ] || continue
+            total=$((total + 1))
+            num="${m#P-}"
+            in_done=0; in_curr=0
+            for f in "$done_dir"/P"$num"-*.md "$done_dir"/P"$num".md; do
+                [ -f "$f" ] && in_done=1 && break
+            done
+            for f in "$curr_dir"/P"$num"-*.md "$curr_dir"/P"$num".md; do
+                [ -f "$f" ] && in_curr=1 && break
+            done
+            if [ "$in_done" -eq 1 ] && [ "$in_curr" -eq 0 ]; then
+                done=$((done + 1))
+            fi
+        done <<< "$members"
+        [ "$total" -gt 0 ] || return 0
+        printf '%s\t%s\tmembers\n' "$done" "$total"
+        return 0
+    fi
+
+    awk '
+        /^```/ { in_code = !in_code; next }
+        !in_code && /^## [^#0-9]*3\./ { in_s3 = 1; next }
+        !in_code && in_s3 && /^## / { in_s3 = 0 }
+        !in_code && in_s3 && /^[[:space:]]*- \[[ xX]\]/ {
+            total++
+            if ($0 ~ /^[[:space:]]*- \[[xX]\]/) done++
+        }
+        END {
+            if (total > 0) printf "%d\t%d\ttasks\n", done, total
+        }
+    ' "$pf" 2>/dev/null
+}
+
 # group_set_member <group-plan> <id> add|remove: updates the `* **Members:**` list.
 # ------------------------------------------------------------------------------
 # A group's amendments member (P-101): its request lines, read here only; the
@@ -909,7 +979,7 @@ amend_must_rebase() {
     for m in $(group_members "$gf"); do
         mf="$(ls "$(dirname "$1")"/P"${m#P-}"-*.md 2>/dev/null | head -n 1)"
         [ -n "$mf" ] && [ "$mf" != "$1" ] || continue
-        grep -qE '^\* \*\*Status:\*\*[[:space:]]*⚡' "$mf" || continue
+        plan_status_is "$mf" in-development || continue
         rec="$(parse_plan_worktree "$mf")"; br="${rec#*$'\t'}"
         [ -n "$rec" ] && ! git merge-base --is-ancestor "$fb" "$br" 2>/dev/null && echo "$m"
     done
@@ -2203,3 +2273,115 @@ roadmap_prune() {
     mv "$tmp" "$f"
 }
 # ---- end issue ledgers ----
+
+# ==============================================================================
+# Unified Named Lock Engine (Plan P-107)
+# ==============================================================================
+# Sanitizes lock name into safe path in git common dir
+# aapp_lock_path <name>
+aapp_lock_path() {
+    local name="$1"
+    local safe_name
+    safe_name="$(printf '%s' "$name" | sed 's|/|%2F|g; s|:|%3A|g')"
+    local common
+    common="$(git rev-parse --git-common-dir 2>/dev/null || git rev-parse --git-dir 2>/dev/null)" || return 1
+    case "$common" in /*) ;; *) common="$(cd "$common" && pwd)" ;; esac
+    echo "$common/aapp_${safe_name}.lock"
+}
+
+_AAPP_HELD_LOCKS=()
+
+_aapp_locks_cleanup_trap() {
+    if [ "${_IG_ROLLBACK_NEEDED:-0}" -eq 1 ] && declare -f _ig_rollback_ref >/dev/null; then
+        _ig_rollback_ref 2>/dev/null || true
+    fi
+    for _lk in "${_AAPP_HELD_LOCKS[@]}"; do
+        [ -n "$_lk" ] && rm -rf "$_lk" 2>/dev/null || true
+    done
+    _AAPP_HELD_LOCKS=()
+}
+
+# aapp_lock_acquire <name> [limit_seconds] [diagnostic_label]
+aapp_lock_acquire() {
+    local name="$1" limit="${2:-15}" label="${3:-$name}"
+    local lock waited=0 step=2 pid mtime age
+    lock="$(aapp_lock_path "$name")" || return 1
+
+    # Re-entrancy check: if already held by this process, return success
+    for held in "${_AAPP_HELD_LOCKS[@]}"; do
+        if [ "$held" = "$lock" ]; then
+            return 0
+        fi
+    done
+
+    while ! mkdir "$lock" 2>/dev/null; do
+        pid="$(cat "$lock/pid" 2>/dev/null || true)"
+        if [ -z "$pid" ]; then
+            mtime="$(stat -c %Y "$lock" 2>/dev/null || stat -f %m "$lock" 2>/dev/null || date +%s)"
+            age=$(( $(date +%s) - mtime ))
+            if [ "$age" -ge 5 ]; then
+                echo "⚠️  [Lock] Taking over stale $label lock (no holder PID)." >&2
+                rm -rf "$lock" 2>/dev/null || true
+                continue
+            fi
+        elif ! kill -0 "$pid" 2>/dev/null; then
+            echo "⚠️  [Lock] Taking over stale $label lock (holder PID $pid is gone)." >&2
+            rm -rf "$lock" 2>/dev/null || true
+            continue
+        fi
+        if [ "$waited" -ge "$limit" ]; then
+            local holder_info=""
+            [ -f "$lock/info" ] && holder_info=" ($(cat "$lock/info" 2>/dev/null || true))"
+            echo "⏳ [Lock Refusal] $label lock is still held${pid:+ by process $pid}${holder_info}; waited ${waited}s (limit ${limit}s)." >&2
+            echo "   Retry when the holder finishes, or raise limit with 'git config aapp.integrateWait <seconds>'." >&2
+            return 1
+        fi
+        echo "⏳ [Lock] $label lock held${pid:+ by PID $pid}; waiting ${step}s (elapsed ${waited}s)..." >&2
+        sleep "$step"; waited=$((waited + step)); step=$((step + 1))
+    done
+
+    echo "$$" > "$lock/pid"
+    _AAPP_HELD_LOCKS+=("$lock")
+    trap '_aapp_locks_cleanup_trap' EXIT INT TERM
+}
+
+# aapp_lock_release <name>
+aapp_lock_release() {
+    local name="$1"
+    local lock
+    lock="$(aapp_lock_path "$name")" || return 1
+    rm -rf "$lock" 2>/dev/null || true
+    local remaining=()
+    for held in "${_AAPP_HELD_LOCKS[@]}"; do
+        [ "$held" != "$lock" ] && remaining+=("$held")
+    done
+    _AAPP_HELD_LOCKS=("${remaining[@]}")
+}
+
+# aapp_lock_held <name>
+# Returns 0 if lock is currently held by a live process
+aapp_lock_held() {
+    local name="$1"
+    local lock pid
+    lock="$(aapp_lock_path "$name")" || return 1
+    [ -d "$lock" ] || return 1
+    pid="$(cat "$lock/pid" 2>/dev/null || true)"
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+# ------------------------------------------------------------------------------
+# Companion Registry Helpers (P-90)
+# ------------------------------------------------------------------------------
+
+# aapp_companion_paths: list canonical paths of all registered companions
+aapp_companion_paths() {
+    git config --get-regexp '^aapp\.companion\..*\.path$' 2>/dev/null | \
+        awk '{$1=""; print substr($0,2)}' || true
+}
+
+# aapp_companion_path <name>: return path for named companion
+aapp_companion_path() {
+    local name="$1"
+    git config "aapp.companion.$name.path" 2>/dev/null || true
+}
+
