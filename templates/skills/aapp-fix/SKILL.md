@@ -23,7 +23,7 @@ Fix one logged issue via the authoritative CLI engine. Every fix is made in its 
 
 **Only a queued issue.** `fix` opens an issue only when it is on the work queue: a plan blocker, or queued by a person with `aapp issue queue <num>`. When it says the issue is not queued, **STOP** and report it; never queue an issue yourself.
 
-**The files come from the issue log** (the row's Location). Add `file <path>` only for a file the log does not name.
+**The files come from the issue log** (the row's Location). Add `file <path> "<why>"` only for a file the log does not name; the reason is required for any file outside the row's Location. Protected files (Guard Section 2: `.githooks/*`, `.agents/skills/aapp-*`, etc.) cannot be added to a fix.
 
 Run it from the main checkout, with a tool timeout longer than `aapp.issueFixWait` (default 5 minutes): it waits, printing each step, while another fix is open.
 
@@ -45,7 +45,15 @@ From the main checkout:
 ```bash
 aapp issue close <num>
 ```
-It squashes a fix of several commits into one, lands it on the issue's branch and removes `.workspace/fix-<num>`. When it refuses because the issue's branch is checked out somewhere with uncommitted changes in the fixed files, **STOP** and report the files: that work is someone else's to commit. Read its output and report it:
+It squashes a fix of several commits into one, lands it on the issue's branch and removes `.workspace/fix-<num>`.
+`close` enforces safeguards before landing:
+- **Undeclared files**: changing any file neither in the issue's Location nor declared via `file <path> "<why>"` is refused.
+- **Size limits**: held to at most 3 files (`aapp.fixMaxFiles`, default 3) and at most 25 changed lines (`aapp.fixMaxLines`, default 25; added + deleted lines across fix files, excluding CHANGELOG.md). If limits are exceeded, `close` refuses and directs to abort and promote:
+  ```bash
+  aapp issue fix <num> abort
+  aapp draft <slug> issue <num>
+  ```
+When it refuses because the issue's branch is checked out somewhere with uncommitted changes in the fixed files, **STOP** and report the files: that work is someone else's to commit. Read its output and report it:
 - which plans are unblocked, and which stay blocked because the fix commit is not in their parent branch yet (`aapp status` unblocks them once it is; do not merge branches yourself);
 - whether stashed plan work was re-applied, or is in conflict;
 - `P-xx also lists <file>`: another active plan lists a fixed file. That plan picks the fix up at its next rebase.
@@ -53,7 +61,7 @@ It squashes a fix of several commits into one, lands it on the issue's branch an
 ### Rules
 - Never commit or stash another plan's work.
 - After a timeout (another fix is open), retry later.
-- If the fix meets a promotion criterion (several modules, a locked Blast Radius, real design decisions, more than one session, a refactor: AGENTS.md *Promotion*), drop it and promote the issue to a plan; the line count alone does not decide:
+- If the fix meets a promotion criterion (several modules, a locked Blast Radius, real design decisions, more than one session, a refactor: AGENTS.md *Promotion*, or exceeding file/line limits), drop it and promote the issue to a plan; never split a large fix across multiple issues:
   ```bash
   aapp issue fix <num> abort
   aapp draft <slug> issue <num>

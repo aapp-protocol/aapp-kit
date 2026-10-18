@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status auto-sync (`P-30`): `aapp status` re-derives `state_matrix.md` before reading it, so the Roadmap line and Next Action footer report the real board instead of a stale cache.
 
 ### Changed
+- an issue fix is held to 3 files and 25 lines (configurable) and to its declared files; plans in development are named (P-82) (`P-82`)
 - every verb and hook reads and writes a plan's Status line through one registry-backed accessor, recognising a status by its name, so the hooks honour adopter statuses as the verbs do (`P-108`)
 - `ARCHITECTURE.md`'s invariant rules are headings grouped by topic, without numbers; Plan Groups points to the group lifecycle; history wording removed (P-105) (`P-105`)
 - a JSON run that fails prints an error document; warnings and remarks of the run are in its `notices` (P-100) (`P-100`)

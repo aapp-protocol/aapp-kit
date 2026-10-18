@@ -170,7 +170,7 @@ fi
 echo "== what it is sent =="
 git remote add origin "https://someone:s3cr3t@example.com/team/project.git"
 answer '{"status": "declined"}'
-out="$(aapp issue fix 7 file src/extra.sh 2>&1)"; rc=$?
+out="$(aapp issue fix 7 file src/extra.sh "extra plugin file" 2>&1)"; rc=$?
 p="$(cat "$R/payload" 2>/dev/null)"
 if [ "$rc" -eq 0 ] && echo "$p" | grep -qF '"issue.branch"' && echo "$p" | grep -qF '"#7"' && echo "$p" | grep -qF 'Defect 7 shows.' && \
    echo "$p" | grep -qE '"files": *\[ *"src/g\.sh", *"src/extra\.sh" *\]' && echo "$p" | grep -qF '"sev"' && ! echo "$p" | grep -qF 's3cr3t'; then

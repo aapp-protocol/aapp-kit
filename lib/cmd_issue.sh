@@ -1115,6 +1115,50 @@ cmd_issue_close() {
         entry="${entry#*|}"
         # P-64, P-78: a fix made in its own worktree lands on its branch first.
         if [ -n "$(parse_plan_worktree "$mp")" ]; then
+            local rec wt br fb bref mb changed_files file_count line_count max_files max_lines declared_targets loc_paths
+            rec="$(parse_plan_worktree "$mp")"
+            wt="$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")"; br="${rec#*$'\t'}"
+            fb="$(plan_base_branch "$mp")"
+            if [ -z "$fb" ]; then
+                gid="$(parse_plan_field "$mp" Group)"
+                gf="$(resolve_plan_file "$gid" "close" 2>/dev/null)" || gf=""
+                [ -n "$gf" ] && fb="$(parse_plan_field "$gf" "Feature Branch")"
+            fi
+            [ -n "$fb" ] || fb="$(_issue_dev_branch)"
+            [ -n "$fb" ] || fb="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+            bref="$(aapp_branch_ref "$fb")" || bref=""
+            if [ -n "$bref" ] && [ -d "$wt" ]; then
+                mb="$(git merge-base "$bref" "$br" 2>/dev/null)" || mb=""
+                if [ -n "$mb" ]; then
+                    changed_files="$(git diff --name-only "$mb" "$br" | grep -vE '(^|/)CHANGELOG\.md$' || true)"
+                    declared_targets="$(parse_plan_target_paths "$mp")"
+                    loc_paths="$(issue_location_paths "$(PLANS_DIR="$plans" ledger_row "$n")")"
+                    while IFS= read -r f; do
+                        [ -n "$f" ] || continue
+                        if ! printf '%s\n' "$declared_targets" | grep -qxF "$f" && \
+                           ! printf '%s\n' "$loc_paths" | grep -qxF "$f"; then
+                            echo "❌ [Issue] #$n changed undeclared file '$f'; #$n stays open." >&2
+                            echo "   Declare it first: 'aapp issue fix $n file $f \"<why>\"'." >&2
+                            return 1
+                        fi
+                    done <<< "$changed_files"
+
+                    file_count="$(printf '%s\n' "$changed_files" | grep -c . || echo 0)"
+                    line_count="$(git diff --numstat "$mb" "$br" -- . ':(exclude)CHANGELOG.md' ':(exclude)*CHANGELOG.md' | awk '{ if ($1 != "-") a += $1; if ($2 != "-") d += $2 } END { print a + d + 0 }')"
+                    max_files="$(git config --int aapp.fixMaxFiles 2>/dev/null || true)"
+                    [ -z "$max_files" ] && max_files=3
+                    max_lines="$(git config --int aapp.fixMaxLines 2>/dev/null || true)"
+                    [ -z "$max_lines" ] && max_lines=25
+
+                    if { [ "$max_files" -gt 0 ] && [ "$file_count" -gt "$max_files" ]; } || \
+                       { [ "$max_lines" -gt 0 ] && [ "$line_count" -gt "$max_lines" ]; }; then
+                        echo "❌ [Issue] #$n changed $file_count files (limit: $max_files) and $line_count lines (limit: $max_lines); #$n stays open." >&2
+                        echo "   Abort it and promote to a plan: 'aapp issue fix $n abort', then 'aapp draft <slug> issue $n'." >&2
+                        return 1
+                    fi
+                fi
+            fi
+
             _issue_land_fix "$n" "$mp" || return 1
             # P-85: the one commit the branch now holds.
             last="$ISSUE_LANDED"
@@ -1862,10 +1906,154 @@ _issue_write_mini() {
         echo "## 💥 4. Blast Radius & System Boundaries"
         echo ""
         echo "### 📂 Target Files (Modifications & Additions)"
-        for f in "$@"; do echo "- [ ] \`$f\`"; done
+        for f in "$@"; do
+            if [[ "$f" == *$'\t'* ]]; then
+                echo "- [ ] \`${f%%$'\t'*}\` -> ${f#*$'\t'}"
+            else
+                echo "- [ ] \`$f\`"
+            fi
+        done
         echo ""
         echo "### 🛑 Out of Bounds (Do Not Touch)"
     } > "$mp"
+}
+
+# _issue_check_protected <files…>: refuse if any path is in Guard Section 2 self-protection.
+_issue_check_protected() {
+    local f
+    for f in "$@"; do
+        case "$f" in
+            .claude/settings.json|.claude/settings.local.json|*/.claude/settings.json|*/.claude/settings.local.json|\
+            .agents/claude/*|*/.agents/claude/*|\
+            .agents/skills/aapp-*|*/.agents/skills/aapp-*|\
+            .claude/skills/aapp-*|*/.claude/skills/aapp-*)
+                echo "❌ [Issue] '$f' is a protected file (Guard Section 2 self-protection) and cannot be added to an issue fix." >&2
+                return 1
+                ;;
+            .githooks/*|*/.githooks/*|.git/hooks/*|*/.git/hooks/*)
+                echo "❌ [Issue] '$f' is a protected file (Guard Section 2 self-protection) and cannot be added to an issue fix." >&2
+                return 1
+                ;;
+            .cursor/rules/*|*/.cursor/rules/*)
+                echo "❌ [Issue] '$f' is a protected file (Guard Section 2 self-protection) and cannot be added to an issue fix." >&2
+                return 1
+                ;;
+        esac
+    done
+    return 0
+}
+
+# _issue_check_collisions <plans> <issue_num> <force> <files…>:
+# notice or refuse if any file is listed in Target Files of another plan in development.
+_issue_check_collisions() {
+    local plans="$1" n="$2" force="$3" pf bname st pid target_paths col setting="notice"
+    shift 3
+    local check_files=("$@")
+    [ ${#check_files[@]} -gt 0 ] || return 0
+    setting="$(git config aapp.fixCollision 2>/dev/null || echo notice)"
+    local collisions=()
+    for pf in "$plans"/current/*.md; do
+        [ -f "$pf" ] || continue
+        bname="$(basename "$pf")"
+        case "$bname" in 000-*|fix-*) continue ;; esac
+        st="$(plan_status_slug "$pf")"
+        [ "$st" = "in-development" ] || continue
+        if plan_status_is "$pf" blocked || \
+           grep -qsE '^\*[[:space:]]*\*\*Blocked On:\*\*[[:space:]]*.*#0*'"$n"'\b' "$pf"; then
+            continue
+        fi
+        pid="$(get_plan_id "$pf" 2>/dev/null)" || pid="${bname%.md}"
+        target_paths="$(parse_plan_target_paths "$pf")"
+        for f in "${check_files[@]}"; do
+            if printf '%s\n' "$target_paths" | grep -qxF "$f"; then
+                collisions+=("$pid|$f")
+            fi
+        done
+    done
+    if [ ${#collisions[@]} -gt 0 ]; then
+        if [ "$setting" = "refuse" ] && [ "$force" -ne 1 ]; then
+            for col in "${collisions[@]}"; do
+                pid="${col%%|*}"; f="${col#*|}"
+                echo "❌ [Issue] Collision: $pid in development also lists $f." >&2
+            done
+            echo "   To fix anyway, run 'aapp issue fix $n force' (or set 'git config aapp.fixCollision notice')." >&2
+            return 1
+        fi
+        for col in "${collisions[@]}"; do
+            pid="${col%%|*}"; f="${col#*|}"
+            echo "ℹ️  $pid in development also lists $f; it rebases over this fix."
+        done
+    fi
+    return 0
+}
+
+# _issue_fix_over_limits <mini-plan>: true (0) when a fix exceeds file or line limits.
+_issue_fix_over_limits() {
+    local mp="$1"
+    [ -f "$mp" ] || return 1
+    local rec wt br fb bref mb changed_files file_count line_count max_files max_lines gid gf
+    rec="$(parse_plan_worktree "$mp")"
+    [ -n "$rec" ] || return 1
+    wt="$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")"; br="${rec#*$'\t'}"
+    fb="$(plan_base_branch "$mp")"
+    if [ -z "$fb" ]; then
+        gid="$(parse_plan_field "$mp" Group)"
+        gf="$(resolve_plan_file "$gid" "close" 2>/dev/null)" || gf=""
+        [ -n "$gf" ] && fb="$(parse_plan_field "$gf" "Feature Branch")"
+    fi
+    [ -n "$fb" ] || fb="$(_issue_dev_branch)"
+    [ -n "$fb" ] || fb="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    bref="$(aapp_branch_ref "$fb")" || return 1
+    [ -d "$wt" ] || return 1
+    mb="$(git merge-base "$bref" "$br" 2>/dev/null)" || return 1
+    changed_files="$(git diff --name-only "$mb" "$br" | grep -vE '(^|/)CHANGELOG\.md$' || true)"
+    file_count="$(printf '%s\n' "$changed_files" | grep -c . || echo 0)"
+    line_count="$(git diff --numstat "$mb" "$br" -- . ':(exclude)CHANGELOG.md' ':(exclude)*CHANGELOG.md' | awk '{ if ($1 != "-") a += $1; if ($2 != "-") d += $2 } END { print a + d + 0 }')"
+    max_files="$(git config --int aapp.fixMaxFiles 2>/dev/null || true)"
+    [ -z "$max_files" ] && max_files=3
+    max_lines="$(git config --int aapp.fixMaxLines 2>/dev/null || true)"
+    [ -z "$max_lines" ] && max_lines=25
+
+    if { [ "$max_files" -gt 0 ] && [ "$file_count" -gt "$max_files" ]; } || \
+       { [ "$max_lines" -gt 0 ] && [ "$line_count" -gt "$max_lines" ]; }; then
+        return 0
+    fi
+    return 1
+}
+
+# _issue_fix_has_undeclared <mini-plan>: true (0) when a fix touches undeclared files.
+_issue_fix_has_undeclared() {
+    local mp="$1"
+    [ -f "$mp" ] || return 1
+    local rec wt br fb bref mb changed_files declared_targets loc_paths gid gf n row plans
+    rec="$(parse_plan_worktree "$mp")"
+    [ -n "$rec" ] || return 1
+    wt="$(aapp_abs_path "${rec%%$'\t'*}" "$PRIMARY_ROOT")"; br="${rec#*$'\t'}"
+    fb="$(plan_base_branch "$mp")"
+    if [ -z "$fb" ]; then
+        gid="$(parse_plan_field "$mp" Group)"
+        gf="$(resolve_plan_file "$gid" "close" 2>/dev/null)" || gf=""
+        [ -n "$gf" ] && fb="$(parse_plan_field "$gf" "Feature Branch")"
+    fi
+    [ -n "$fb" ] || fb="$(_issue_dev_branch)"
+    [ -n "$fb" ] || fb="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    bref="$(aapp_branch_ref "$fb")" || return 1
+    [ -d "$wt" ] || return 1
+    mb="$(git merge-base "$bref" "$br" 2>/dev/null)" || return 1
+    changed_files="$(git diff --name-only "$mb" "$br" | grep -vE '(^|/)CHANGELOG\.md$' || true)"
+    declared_targets="$(parse_plan_target_paths "$mp")"
+    n="$(parse_plan_field "$mp" "Plan ID" | tr -d '#')"
+    plans="$(_issue_plans_dir 2>/dev/null)" || return 1
+    row="$(PLANS_DIR="$plans" ledger_row "$n" 2>/dev/null)" || row=""
+    loc_paths="$(issue_location_paths "$row")"
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        if ! printf '%s\n' "$declared_targets" | grep -qxF "$f" && \
+           ! printf '%s\n' "$loc_paths" | grep -qxF "$f"; then
+            return 0
+        fi
+    done <<< "$changed_files"
+    return 1
 }
 
 # _issue_refuse_in_plan_worktree <plans>: issue fixes are made in the main
@@ -1959,14 +2147,31 @@ cmd_issue_fix() {
         next-blocker) shift ;;
         *) n="$(issue_id_body "$sub")" || return 1; shift
            _issue_enter_offline "$n" || return 1
-           if [ "${1:-}" = "abort" ]; then _issue_fix_abort "$plans" "$n"; return; fi ;;
+           if [ "${1:-}" = "abort" ]; then
+               local aforce=0
+               [ "${2:-}" = "force" ] && aforce=1
+               _issue_fix_abort "$plans" "$n" "$aforce"
+               return
+           fi ;;
     esac
+    local declared_paths=() declared_reasons=() force=0
     while [ $# -gt 0 ]; do
         case "$1" in
             file) [ $# -ge 2 ] || { echo "❌ [Issue] 'file' needs a path." >&2; return 1; }
-                  files+=("$2"); shift 2 ;;
+                  local fpath="$2" freason=""
+                  shift 2
+                  if [ $# -gt 0 ]; then
+                      case "$1" in
+                          file|group|force) ;;
+                          *) freason="$1"; shift ;;
+                      esac
+                  fi
+                  declared_paths+=("$fpath")
+                  declared_reasons+=("$freason")
+                  ;;
             group) [ $# -ge 2 ] || { echo "❌ [Issue] 'group' needs a group plan." >&2; return 1; }
                    grp="$2"; shift 2 ;;
+            force) force=1; shift ;;
             *)    echo "❌ [Issue] Unknown token '$1'." >&2; return 1 ;;
         esac
     done
@@ -1979,27 +2184,75 @@ cmd_issue_fix() {
 
     # Adding files to the open mini plan of #<num>.
     if [ -n "$n" ] && [ -f "$plans/current/fix-$n.md" ]; then
-        [ ${#files[@]} -gt 0 ] || { echo "❌ [Issue] #$n is already being fixed; add files with 'file <path>'." >&2; return 1; }
-        # Re-render with the combined list (the §4 parser stays in aapp-lib.sh),
-        # keeping the changelog text, the recorded commits and, for a group's
-        # fix, its worktree and group (#132: `close` lands the fix by them).
-        local mp="$plans/current/fix-$n.md" all=() cl commits wtline grp base
-        while IFS= read -r f; do [ -n "$f" ] && all+=("$f"); done < <(parse_plan_target_paths "$mp")
-        for f in "${files[@]}"; do
-            printf '%s\n' "${all[@]}" | grep -qxF "$f" || all+=("$f")
+        [ ${#declared_paths[@]} -gt 0 ] || { echo "❌ [Issue] #$n is already being fixed; add files with 'file <path>'." >&2; return 1; }
+        _issue_check_protected "${declared_paths[@]}" || return 1
+        row="$(PLANS_DIR="$plans" ledger_row "$n")" || return 1
+        local loc_paths=()
+        while IFS= read -r f; do [ -n "$f" ] && loc_paths+=("$f"); done < <(issue_location_paths "$row")
+        local idx f r
+        for idx in "${!declared_paths[@]}"; do
+            f="${declared_paths[$idx]}"
+            r="${declared_reasons[$idx]}"
+            if ! printf '%s\n' "${loc_paths[@]}" | grep -qxF "$f"; then
+                if [ -z "$r" ]; then
+                    echo "❌ [Issue] Declaring '$f' outside #$n's Location requires a reason: aapp issue fix $n file $f \"<why>\"." >&2
+                    return 1
+                fi
+            fi
         done
+        _issue_check_collisions "$plans" "$n" "$force" "${declared_paths[@]}" || return 1
+
+        # Re-render with the combined list, keeping existing reasons and entries
+        local mp="$plans/current/fix-$n.md" all_entries=() existing_paths=() cl commits wtline grp base
+        local in_target=0 line p res
+        while IFS= read -r line; do
+            if [[ "$line" =~ ^###[[:space:]]*📂[[:space:]]*Target[[:space:]]*Files ]]; then
+                in_target=1; continue
+            elif [[ "$line" =~ ^###[[:space:]]*🛑[[:space:]]*Out ]]; then
+                in_target=0; continue
+            fi
+            if [ "$in_target" -eq 1 ]; then
+                if [[ "$line" =~ ^-[[:space:]]*\[[[:space:]]*\][[:space:]]*\`([^\`]+)\`([[:space:]]*-\>[[:space:]]*(.*))? ]]; then
+                    p="${BASH_REMATCH[1]}"
+                    res="${BASH_REMATCH[3]}"
+                    existing_paths+=("$p")
+                    if [ -n "$res" ]; then
+                        all_entries+=("$p"$'\t'"$res")
+                    else
+                        all_entries+=("$p")
+                    fi
+                fi
+            fi
+        done < "$mp"
+
+        for idx in "${!declared_paths[@]}"; do
+            f="${declared_paths[$idx]}"
+            r="${declared_reasons[$idx]}"
+            if ! printf '%s\n' "${existing_paths[@]}" | grep -qxF "$f"; then
+                existing_paths+=("$f")
+                if [ -n "$r" ]; then
+                    all_entries+=("$f"$'\t'"$r")
+                else
+                    all_entries+=("$f")
+                fi
+            fi
+            if [ -n "$r" ]; then
+                _issue_keep_text "$n" note "file $f: $r"
+            fi
+        done
+
         cl="$(sed -nE 's/^\* \*\*Changelog:\*\* Fixed: //p' "$mp" | head -n 1)"
         commits="$(grep -m 1 -E '^\* \*\*Commits:\*\*' "$mp")"
         base="$(sed -nE 's/^\* \*\*Base:\*\* //p' "$mp" | head -n 1)"
         wtline="$(sed -nE 's/^\* \*\*Worktree:\*\* //p' "$mp" | head -n 1)"
         grp="$(sed -nE 's/^\* \*\*Group:\*\* //p' "$mp" | head -n 1)"
-        _issue_write_mini "$plans" "$n" "$cl" "${all[@]}"
+        _issue_write_mini "$plans" "$n" "$cl" "${all_entries[@]}"
         AAPP_LINE="$commits" awk '/^\* \*\*Commits:\*\*/ && !d { print ENVIRON["AAPP_LINE"]; d = 1; next } { print }' "$mp" > "$mp.tmp" && mv "$mp.tmp" "$mp"
         if [ -n "$base" ]; then write_plan_field "$mp" Base "$base" Status || return 1; fi
         if [ -n "$wtline" ]; then write_plan_field "$mp" Worktree "$wtline" "${base:+Base}" || return 1; fi
         if [ -n "$grp" ]; then write_plan_field "$mp" Group "$grp" Worktree || return 1; fi
         plans_commit "fix(files): #$n" "current/fix-$n.md" || return 1
-        echo "🩹 [Issue] #$n: files added (${files[*]})."
+        echo "🩹 [Issue] #$n: files added (${declared_paths[*]})."
         return 0
     fi
 
@@ -2013,7 +2266,7 @@ cmd_issue_fix() {
     # One fix at a time: wait (verbose) while another mini plan is open, up to
     # aapp.issueFixWait. A fix has its own working copy (P-85), so uncommitted
     # work elsewhere is no reason to wait.
-    local pout raw
+    local pout raw bare_paths=()
     limit="$(_issue_wait_limit)"; waited=0; step=2
     while :; do
         if open="$(_issue_open_mini "$plans")"; then
@@ -2049,16 +2302,45 @@ cmd_issue_fix() {
         if [ -z "$row" ]; then
             row="$(PLANS_DIR="$plans" ledger_row "$n")" || {
                 aapp_lock_release "issue"; echo "❌ [Issue] #$n is not an active issue in ISSUES.md." >&2; return 1; }
-            # The files come from the issue log; `file` only adds one it does not name.
-            local all_files=()
-            while IFS= read -r f; do [ -n "$f" ] && all_files+=("$f"); done < <(issue_location_paths "$row")
-            for f in "${files[@]}"; do
-                printf '%s\n' "${all_files[@]}" | grep -qxF "$f" || all_files+=("$f")
+            local loc_paths=() all_entries=() idx f r
+            bare_paths=()
+            while IFS= read -r f; do [ -n "$f" ] && loc_paths+=("$f"); done < <(issue_location_paths "$row")
+            for f in "${loc_paths[@]}"; do
+                bare_paths+=("$f")
+                all_entries+=("$f")
             done
-            files=("${all_files[@]}")
-            if [ ${#files[@]} -eq 0 ]; then
+            for idx in "${!declared_paths[@]}"; do
+                f="${declared_paths[$idx]}"
+                r="${declared_reasons[$idx]}"
+                _issue_check_protected "$f" || { aapp_lock_release "issue"; return 1; }
+                if ! printf '%s\n' "${loc_paths[@]}" | grep -qxF "$f"; then
+                    if [ -z "$r" ]; then
+                        aapp_lock_release "issue"
+                        echo "❌ [Issue] Declaring '$f' outside #$n's Location requires a reason: aapp issue fix $n file $f \"<why>\"." >&2
+                        return 1
+                    fi
+                fi
+                if ! printf '%s\n' "${bare_paths[@]}" | grep -qxF "$f"; then
+                    bare_paths+=("$f")
+                    if [ -n "$r" ]; then
+                        all_entries+=("$f"$'\t'"$r")
+                    else
+                        all_entries+=("$f")
+                    fi
+                fi
+            done
+            if [ ${#bare_paths[@]} -eq 0 ]; then
                 aapp_lock_release "issue"; echo "❌ [Issue] No files known for #$n: give them with 'file <path>'." >&2; return 1
             fi
+            _issue_check_collisions "$plans" "$n" "$force" "${bare_paths[@]}" || { aapp_lock_release "issue"; return 1; }
+            for idx in "${!declared_paths[@]}"; do
+                f="${declared_paths[$idx]}"
+                r="${declared_reasons[$idx]}"
+                if [ -n "$r" ]; then
+                    _issue_keep_text "$n" note "file $f: $r"
+                fi
+            done
+            files=("${all_entries[@]}")
         fi
         # P-78, P-85: the fix is made in its own worktree, cut from the issue's
         # branch (a group's feature branch with `group`, P-64).
@@ -2069,7 +2351,7 @@ cmd_issue_fix() {
             # P-83: a row that names no branch: the team's plugin says where
             # these files belong (asked once, however long the wait below).
             if [ "$asked" -eq 0 ] && { [ -z "$(PLANS_DIR="$plans" ledger_cell "$n" branch)" ] || [ -n "$ISSUE_BRANCH_GONE" ]; }; then
-                _issue_ask_branch "$plans" "$n" "${files[@]}" || { aapp_lock_release "issue"; return 1; }
+                _issue_ask_branch "$plans" "$n" "${bare_paths[@]}" || { aapp_lock_release "issue"; return 1; }
                 asked=1; asked_branch="$ISSUE_ASKED_BRANCH"
             fi
             fixbr="${asked_branch:-$ISSUE_BRANCH}"
@@ -2111,9 +2393,9 @@ cmd_issue_fix() {
     write_active_buffer "#$n" "$gbuf"
     plans_commit "fix(start): #$n" "${start_paths[@]}" || { aapp_lock_release "issue"; return 1; }
     aapp_lock_release "issue"
-    echo "🩹 [Issue] Fixing #$n${owner:+ for group $owner} in .workspace/fix-$n (fix/$n from $fixbr, files: ${files[*]})."
+    echo "🩹 [Issue] Fixing #$n${owner:+ for group $owner} in .workspace/fix-$n (fix/$n from $fixbr, files: ${bare_paths[*]})."
     echo "   Work and 'aapp commit' there; 'aapp issue close $n' lands it on $fixbr as one commit."
-    [ -n "$owner" ] || _issue_group_hint "$plans" "${files[@]}"
+    [ -n "$owner" ] || _issue_group_hint "$plans" "${bare_paths[@]}"
     _issue_dispatch_hook "{\"command\": \"issue\", \"event\": \"fix\", \"issue_id\": \"#$n\", \"worktree\": \"$gwt\", \"branch\": \"fix/$n\"}"
     _issue_fix_handover "$plans" "$n"
 }
@@ -2146,12 +2428,14 @@ _issue_fix_handover() {
 
 # _issue_fix_abort <plans> <n>: drop an uncommitted mini plan; the issue stays.
 _issue_fix_abort() {
-    local plans="$1" n="$2" mp
+    local plans="$1" n="$2" aforce="${3:-0}" mp
     mp="$plans/current/fix-$n.md"
     [ -f "$mp" ] || { echo "❌ [Issue] #$n has no open fix." >&2; return 1; }
     if [ -n "$(parse_plan_commits "$mp" 2>/dev/null)" ]; then
-        echo "❌ [Issue] #$n's fix has recorded commits; close it with 'aapp issue close $n'." >&2
-        return 1
+        if ! _issue_fix_over_limits "$mp" && ! _issue_fix_has_undeclared "$mp" && [ "$aforce" -ne 1 ]; then
+            echo "❌ [Issue] #$n's fix has recorded commits; close it with 'aapp issue close $n'." >&2
+            return 1
+        fi
     fi
     _issue_load_plan_lib || return 1
     # The fix's worktree goes with it (nothing was committed there).

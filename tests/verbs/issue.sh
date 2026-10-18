@@ -330,7 +330,7 @@ fi
 
 git config aapp.issueFixWait 0
 head1="$(git -C .plans rev-parse HEAD)"
-out="$(aapp issue fix 10 file a.sh 2>&1)"; rc=$?
+out="$(aapp issue fix 10 file a.sh "dependency a" 2>&1)"; rc=$?
 if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "#20 is still being fixed" && [ ! -f .plans/current/fix-10.md ] && \
    [ "$(git -C .plans rev-parse HEAD)" = "$head1" ]; then
   ok "test_fix_one_at_a_time"
@@ -426,14 +426,14 @@ sed -i '/^## 📋/i ## 🧱 Plan Blockers\n- [ ] #31 -> Provider pick (blocks X)
 mkdir -p .agents/skills/aapp-issue-tracker
 printf '%s\n' '#!/bin/sh' 'if [ "$AAPP_ACTION" = next-blocker ]; then echo "{\"id\": \"#30\"}"; exit 0; fi' 'exit 1' > .agents/skills/aapp-issue-tracker/run
 chmod +x .agents/skills/aapp-issue-tracker/run
-out="$(aapp issue fix next-blocker file lib/big.sh 2>&1)"; rc=$?
+out="$(aapp issue fix next-blocker file lib/big.sh "big dependency" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && [ -f .plans/current/fix-30.md ]; then
   ok "test_provider_next_blocker_claims"
 else
   bad "test_provider_next_blocker_claims" "rc=$rc out=$out"
 fi
 
-out="$(aapp issue fix 30 file lib/extra.sh 2>&1)"; rc=$?
+out="$(aapp issue fix 30 file lib/extra.sh "extra dependency" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && grep -qF '`lib/big.sh`' .plans/current/fix-30.md && grep -qF '`lib/extra.sh`' .plans/current/fix-30.md && \
    grep -qxF '* **Commits:** none' .plans/current/fix-30.md && git -C .plans log -1 --format=%s | grep -qxF "fix(files): #30"; then
   ok "test_fix_adds_files_to_open_mini_plan"
