@@ -13,5 +13,4 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
-- [ ] #124 -> `done` clears the active plan buffers before its archive commit; when that commit fails the plan is restored but the buffers stay cleared. (queued 2026-10-17)
 ### Low

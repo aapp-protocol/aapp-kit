@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #124 | `Low` | `CORE` | 2026-10-11 | 2026-10-18 | `6202e50` | done clears the active plan buffers only after its archive commit lands, so a failed commit leaves them bound |  |
 | #108 | `Low` | `DOCS` | 2026-10-08 | 2026-10-18 | `3ca2f64` | ARCHITECTURE.md lists only the scripts that exist and gives the hook watchdog default as 10s (aapp.hookTimeout) |  |
 | #110 | `Low` | `DOCS` | 2026-10-08 | 2026-10-18 | `0d054bf` | the MANUAL names the post-done event where it still said on-done |  |
 | #162 | `Low` | `CLI` | 2026-10-16 | 2026-10-18 | `0726230` | start and freeze-start refused for a plan bound in another worktree name the command that resumes it there |  |
