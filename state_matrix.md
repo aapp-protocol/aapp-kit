@@ -30,8 +30,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-107**: [`P107-integration-parent-lock-and-queue.md`](current/P107-integration-parent-lock-and-queue.md) — Integration Parent Lock And Queue
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
