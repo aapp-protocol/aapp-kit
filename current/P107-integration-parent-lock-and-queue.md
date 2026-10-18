@@ -242,33 +242,33 @@ fi
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Unified Named Lock Subsystem (`lib/aapp-lib.sh`)
-- [ ] Task 1.1: Implement `aapp_lock_path`, `aapp_lock_acquire`, `aapp_lock_release`, multi-lock tracking array, and trap handler in `lib/aapp-lib.sh`.
-- [ ] Task 1.2: Refactor `lib/cmd_issue.sh` to use `aapp_lock_acquire "issue"` / `aapp_lock_release "issue"`, removing legacy `_issue_lock_*` functions.
-- [ ] Task 1.3: Add unit tests in `tests/integrate_test.sh` verifying lock acquisition, re-entrancy, stale takeover, and timeout diagnostics.
+- [x] Task 1.1: Implement `aapp_lock_path`, `aapp_lock_acquire`, `aapp_lock_release`, multi-lock tracking array, and trap handler in `lib/aapp-lib.sh`.
+- [x] Task 1.2: Refactor `lib/cmd_issue.sh` to use `aapp_lock_acquire "issue"` / `aapp_lock_release "issue"`, removing legacy `_issue_lock_*` functions.
+- [x] Task 1.3: Add unit tests in `tests/integrate_test.sh` verifying lock acquisition, re-entrancy, stale takeover, and timeout diagnostics.
 
 ### Phase 2: Per-Parent Integration Lock & Preflight Sequencing (`lib/cmd_plan.sh`)
-- [ ] Task 2.1: Acquire `integrate/<parent>` lock before ancestry checks and auto-rebase in `cmd_plan.sh`.
-- [ ] Task 2.2: Remove global issue lock acquisition from `_ig_preflight`.
-- [ ] Task 2.3: Implement headless fast-forward via Compare-and-Swap (`git update-ref`) in `_ig_run`, eliminating main checkout switching.
-- [ ] Task 2.4: Implement Option i atomic landing order: CAS parent ref first, then archive plan; rollback CAS if archive fails (fixing #124 buffer restoration).
-- [ ] Task 2.5: Ensure `_ig_standalone` executes `pre-done` test gate whenever an automated rebase occurs.
+- [x] Task 2.1: Acquire `integrate/<parent>` lock before ancestry checks and auto-rebase in `cmd_plan.sh`.
+- [x] Task 2.2: Remove global issue lock acquisition from `_ig_preflight`.
+- [x] Task 2.3: Implement headless fast-forward via Compare-and-Swap (`git update-ref`) in `_ig_run`, eliminating main checkout switching.
+- [x] Task 2.4: Implement Option i atomic landing order: CAS parent ref first, then archive plan; rollback CAS if archive fails (fixing #124 buffer restoration).
+- [x] Task 2.5: Ensure `_ig_standalone` executes `pre-done` test gate whenever an automated rebase occurs.
 
 ### Phase 3: Issue Fix Locking & Pre-Commit Protection
-- [ ] Task 3.1: Wrap `_issue_land_fix` in `lib/cmd_issue.sh` with `integrate/<parent>` lock.
-- [ ] Task 3.2: Add integration lock detection in `templates/aapp-pre-commit` to reject raw commits on locked parent branches.
-- [ ] Task 3.3: Add `SET-INTEGRATE-WAIT` review task in `lib/adoption.sh` under `⚙️ Settings to Review`.
+- [x] Task 3.1: Wrap `_issue_land_fix` in `lib/cmd_issue.sh` with `integrate/<parent>` lock.
+- [x] Task 3.2: Add integration lock detection in `templates/aapp-pre-commit` to reject raw commits on locked parent branches.
+- [x] Task 3.3: Add `SET-INTEGRATE-WAIT` review task in `lib/adoption.sh` under `⚙️ Settings to Review`.
 
 ### Phase 4: Reference Documentation & Test Suite
-- [ ] Task 4.1: Update `docs/reference/10-integration-and-rebase.md` with parent-branch locking, CAS fast-forward, and concurrency mechanics.
-- [ ] Task 4.2: Update `MANUAL.md` with integration locking, `aapp.integrateWait`, and race prevention.
-- [ ] Task 4.3: Update `ARCHITECTURE.md` with named lock architecture, CAS landing, and headless integration.
-- [ ] Task 4.4: Add comprehensive test suites in `tests/integrate_test.sh`:
+- [x] Task 4.1: Update `docs/reference/10-integration-and-rebase.md` with parent-branch locking, CAS fast-forward, and concurrency mechanics.
+- [x] Task 4.2: Update `MANUAL.md` with integration locking, `aapp.integrateWait`, and race prevention.
+- [x] Task 4.3: Update `ARCHITECTURE.md` with named lock architecture, CAS landing, and headless integration.
+- [x] Task 4.4: Add comprehensive test suites in `tests/integrate_test.sh`:
   - Contended parent wait and rebase under lock.
   - Concurrent integrations targeting different parent branches proceeding without contention.
   - `issue close` contention against concurrent plan integration.
   - CAS rejection on external raw commit.
   - Archive failure rollback restoring parent ref and active plan buffers (#124).
-- [ ] Task 4.5: Run full test runner (`./aapp test quiet`) and verify 100% pass rate.
+- [x] Task 4.5: Run full test runner (`./aapp test quiet`) and verify 100% pass rate.
 
 ---
 
