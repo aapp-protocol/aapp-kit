@@ -88,7 +88,7 @@ Goal: one accessor that reads a plan's status, and one that writes it, both back
 ### Phase 3: Verification & Documentation
 - [x] Task 3.1: `./aapp test quiet` passes.
 - [x] Task 3.2: `ARCHITECTURE.md` and `.agents/CODEMAP.md` name the accessors as the one owner of the Status line.
-- [ ] Task 3.3: Log every finding outside the Target Files as an issue; none stays in chat only.
+- [x] Task 3.3: Log every finding outside the Target Files as an issue; none stays in chat only.
 
 ---
 
