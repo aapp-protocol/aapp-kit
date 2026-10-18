@@ -13,4 +13,5 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
+- [ ] #95 -> "Blocking & small" routes to a hotfix extension, but "small" is undefined; each agent sizes it differently (a 60-80 line change was called small). (queued 2026-10-18)
 ### Low
