@@ -11,7 +11,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `14c321e` (develop)
 * **Worktree:** .workspace/P98 (plan/P98-status-plan-progress)
-* **Commits:** none
+* **Commits:** `2947af4` (plan/P98-status-plan-progress)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -85,19 +85,19 @@ The plan record gains `"progress": { "done", "total", "unit" }`, `null` when the
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: `tests/verbs/status.sh`: plan task counts, group member counts, the shown/hidden cases (§2.2), the JSON `progress` record; confirm red.
+- [x] Task 1.1: `tests/verbs/status.sh`: plan task counts, group member counts, the shown/hidden cases (§2.2), the JSON `progress` record; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/aapp-lib.sh`: `plan_progress` (§2.1).
-- [ ] Task 2.2: `lib/cmd_status.sh`: the count in `plan_line` and `progress` in the JSON plan record.
-- [ ] Task 2.3: `lib/docs/verbs/status.md`, `docs/reference/08-output-json.md`: the count, the field, the tests.
+- [x] Task 2.1: `lib/aapp-lib.sh`: `plan_progress` (§2.1).
+- [x] Task 2.2: `lib/cmd_status.sh`: the count in `plan_line` and `progress` in the JSON plan record.
+- [x] Task 2.3: `lib/docs/verbs/status.md`, `docs/reference/08-output-json.md`: the count, the field, the tests.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
