@@ -114,6 +114,8 @@ Goal: one accessor that reads a plan's status, and one that writes it, both back
 - [ ] `templates/AGENTS.md` -> `🚫 BLOCKED` becomes `🟥 BLOCKED` (:110).
 - [ ] `tests/plan_states_test.sh` -> Accessor tests, adopter-status hook parity, the source scan.
 - [ ] `tests/aapp_lib_test.sh` -> Readers that move with the accessors.
+- [ ] `tests/pre-commit_test.sh` -> The fixture copies `plan_states.sh` beside `aapp-lib.sh` into the hook directory.
+- [ ] `tests/write-guard_test.sh` -> The fixture copies `plan_states.sh` beside `aapp-lib.sh` into `.githooks/`.
 - [ ] `ARCHITECTURE.md` -> The one owner of the Status line.
 - [ ] `.agents/CODEMAP.md` -> The accessors.
 
