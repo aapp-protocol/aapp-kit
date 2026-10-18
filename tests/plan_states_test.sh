@@ -230,5 +230,83 @@ t_unknown() {
 got="$(in_scratch_repo unknown t_unknown)"
 report "unknown status returns unrecognized, not a default" "unrecognized" "$got"
 
+# --- 12. The Status-line accessors (#85) ---------------------------------------
+# hdr <file> <status>: a plan whose header carries <status>, with a decoy
+# Status line in a fence and one after the first `## `.
+hdr() {
+  printf '# Plan\n* **Plan ID:** P-1\n* **Status:** %s\n```\n* **Status:** 🔷 Frozen\n```\n## 1. Context\n* **Status:** 🔷 Frozen\n' "$2" > "$1"
+}
+
+t_slug_reads_header_only() {
+  hdr p.md "⚡ In Development"
+  echo "$(plan_status_slug p.md),$(plan_status_slug < p.md),$(plan_status_text p.md)"
+}
+got="$(in_scratch_repo acc1 t_slug_reads_header_only)"
+report "test_status_slug_reads_the_header_line_only" "in-development,in-development,⚡ In Development" "$got"
+
+t_name_alone_decides() {
+  hdr a.md "🛑 BLOCKED"; hdr b.md "BLOCKED"; hdr c.md "🟥 BLOCKED"
+  printf '# Plan\n## 1. Context\n' > d.md
+  echo "[$(plan_status_slug a.md)][$(plan_status_slug b.md)][$(plan_status_slug c.md)][$(plan_status_slug d.md)]"
+}
+got="$(in_scratch_repo acc2 t_name_alone_decides)"
+report "test_status_matched_by_name_whatever_the_glyph" "[blocked][blocked][blocked][]" "$got"
+
+t_status_is() {
+  hdr p.md "🟥 BLOCKED"
+  local r=""
+  plan_status_is p.md in-development blocked && r="${r}y" || r="${r}n"
+  plan_status_is p.md frozen && r="${r}y" || r="${r}n"
+  printf '# Plan\n' > none.md
+  plan_status_is none.md blocked && r="${r}y" || r="${r}n"
+  echo "$r"
+}
+got="$(in_scratch_repo acc3 t_status_is)"
+report "test_status_is_matches_any_given_slug" "ynn" "$got"
+
+t_set_status() {
+  hdr p.md "🔷 Frozen"
+  plan_set_status p.md in-development || { echo "refused"; return; }
+  local fence after
+  fence="$(sed -n 5p p.md)"; after="$(sed -n 8p p.md)"
+  echo "$(plan_status_text p.md)|$fence|$after"
+}
+got="$(in_scratch_repo acc4 t_set_status)"
+report "test_set_status_rewrites_the_header_line_only" "⚡ In Development|* **Status:** 🔷 Frozen|* **Status:** 🔷 Frozen" "$got"
+
+t_set_status_refusals() {
+  hdr p.md "🔷 Frozen"; cp p.md before.md
+  local r=""
+  plan_set_status p.md done 2>/dev/null && r="${r}w" || r="${r}r"
+  printf '# Plan\n' > none.md
+  plan_set_status none.md frozen 2>/dev/null && r="${r}w" || r="${r}r"
+  cmp -s p.md before.md && r="${r}=" || r="${r}!"
+  echo "$r"
+}
+got="$(in_scratch_repo acc5 t_set_status_refusals)"
+report "test_set_status_refuses_unknown_slug_or_missing_line" "rr=" "$got"
+
+t_adopter_status() {
+  git config aapp.planState.in-development "🚧|Under Construction|🚧 Building|30"
+  git config aapp.planState.awaiting-review "👀|Awaiting Review|👀 Awaiting External Review|25"
+  plan_states_load
+  hdr p.md "📝 Refining"
+  plan_set_status p.md in-development
+  local a b
+  a="$(plan_status_text p.md):$(plan_status_slug p.md)"
+  plan_set_status p.md awaiting-review
+  b="$(plan_status_render awaiting-review):$(plan_status_slug p.md)"
+  echo "$a|$b"
+}
+got="$(in_scratch_repo acc6 t_adopter_status)"
+report "test_accessors_follow_adopter_statuses" "🚧 Under Construction:in-development|👀 Awaiting Review:awaiting-review" "$got"
+
+# Only the accessors interpret a Status line: no verb or hook matches a status
+# glyph or name of its own (#85). Comment lines are prose.
+stray="$(cd "$KIT" && grep -nE 'Status:.*(⚡|🔷|🟥|🟣|📝|In Development|Frozen|BLOCKED|Refining|Under Review)' \
+  lib/*.sh templates/aapp-pre-commit templates/blast-radius-guard.sh 2>/dev/null | \
+  grep -v '^lib/plan_states.sh:' | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#')"
+report "test_no_status_match_outside_the_accessors" "" "$stray"
+
 print_test_summary "$PASS" "$FAIL"
 

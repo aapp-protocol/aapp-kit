@@ -535,7 +535,7 @@ check_pair7_inflight_boundary_collision() {
         bname="$(basename "$plan_path")"
         case "$bname" in 000-*) continue ;; esac
 
-        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$plan_path" 2>/dev/null; then
+        if plan_status_is "$plan_path" in-development; then
             dev_plans+=("$plan_path")
         fi
     done < <(find "$current_dir" -maxdepth 1 -name "*.md" ! -name "000-*" -print0 2>/dev/null | sort -z)

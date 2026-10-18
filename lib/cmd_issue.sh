@@ -976,7 +976,7 @@ _issue_report_unblocked() {
     local plans="$1" p wt
     shift
     for p in "$@"; do
-        if grep -q '^\* \*\*Status:\*\* 🟥' "$plans/$p"; then
+        if plan_status_is "$plans/$p" blocked; then
             echo "   $(basename "$p" .md) is still blocked: $(sed -nE 's/^\* \*\*Blocked On:\*\*[[:space:]]*//p' "$plans/$p" | head -n 1)"
         else
             wt="$(sed -nE 's/^\* \*\*Worktree:\*\*[[:space:]]*//p' "$plans/$p" | head -n 1)"
@@ -1832,7 +1832,7 @@ _issue_notice_listing_plans() {
     for pf in "$plans"/current/*.md; do
         [ -f "$pf" ] || continue
         case "$(basename "$pf")" in 000-*|fix-*) continue ;; esac
-        grep -qE '^\* \*\*Status:\*\*.*(⚡|🟥)' "$pf" || continue
+        plan_status_is "$pf" in-development blocked || continue
         pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
         while IFS= read -r t; do
             for f; do
@@ -1854,7 +1854,7 @@ _issue_write_mini() {
         echo "* **Plan ID:** #$n"
         echo "* **Target Issue / Milestone:** #$n"
         echo "* **Changelog:** Fixed:${text:+ $text}"
-        echo "* **Status:** ⚡ In Development"
+        echo "* **Status:** $(plan_status_render in-development)"
         echo "* **Commits:** none"
         echo ""
         echo "Temporary mini plan (P-52): deleted by \`aapp issue close $n\`; the issue row is the record."

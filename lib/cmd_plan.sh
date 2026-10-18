@@ -6,21 +6,13 @@
 # ==============================================================================
 set -e
 
-# Shared plan parsing (P-37). Resolved relative to this file, not $AAPP_LIB,
-# which is unset when this module is sourced outside the dispatcher.
+# Shared plan parsing (P-37) and, through it, the status registry (P-30, #85).
+# Resolved relative to this file, not $AAPP_LIB, which is unset when this
+# module is sourced outside the dispatcher.
 AAPP_LIB_FILE="$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh"
 # shellcheck source=lib/aapp-lib.sh
 if ! . "$AAPP_LIB_FILE" 2>/dev/null || ! declare -f aapp_lib_loaded >/dev/null; then
-    echo "❌ [AAPP] Shared library missing or unreadable: $AAPP_LIB_FILE" >&2
-    echo "   Reinstall the kit: ./aapp-kit/aapp install" >&2
-    exit 1
-fi
-
-# Status registry (P-30): lifecycle verbs gate on a plan's status slug (#89).
-AAPP_STATES_FILE="$(dirname "${BASH_SOURCE[0]}")/plan_states.sh"
-# shellcheck source=lib/plan_states.sh
-if ! . "$AAPP_STATES_FILE" 2>/dev/null || ! declare -f plan_state_for_status_line >/dev/null; then
-    echo "❌ [AAPP] Status registry missing or unreadable: $AAPP_STATES_FILE" >&2
+    echo "❌ [AAPP] Shared library or status registry missing or unreadable: $AAPP_LIB_FILE, $(dirname "${BASH_SOURCE[0]}")/plan_states.sh" >&2
     echo "   Reinstall the kit: ./aapp-kit/aapp install" >&2
     exit 1
 fi
@@ -169,7 +161,7 @@ check_disjointness_activation_gate() {
         [ "$(basename "$pf")" = "$target_bname" ] && continue
         case "$(basename "$pf")" in 000-*) continue ;; esac
 
-        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null; then
+        if plan_status_is "$pf" in-development; then
             local other_targets=()
             while IFS= read -r ot; do
                 [ -n "$ot" ] && other_targets+=("$ot")
@@ -215,15 +207,6 @@ check_disjointness_activation_gate() {
     return 0
 }
 
-# plan_status_slug <file>: the registry slug of the plan's Status line, or
-# empty when it matches no registry entry (including `✅ Done`, which only
-# archived plans carry).
-plan_status_slug() {
-    local line
-    line="$(grep -m 1 -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$1" || true)"
-    plan_state_for_status_line "$line" || true
-}
-
 # refuse_unless_incubator <file> <verb-label>: freeze and freeze-start start
 # from the incubator. Frozen, in-development, blocked and unrecognised plans
 # (including archived ones) are refused; custom statuses count as incubator.
@@ -232,7 +215,7 @@ refuse_unless_incubator() {
     slug="$(plan_status_slug "$1")"
     case "$slug" in
         frozen|in-development|blocked|"")
-            echo "❌ [$2 Refusal] Plan is not in the incubator (current status: $(grep -m 1 -E '\*\*Status:\*\*' "$1" | sed -E 's/^.*\*\*Status:\*\*[[:space:]]*//'))." >&2
+            echo "❌ [$2 Refusal] Plan is not in the incubator (current status: $(plan_status_text "$1"))." >&2
             echo "   Only 🟣 Under Review or 📝 Refining plans can be frozen." >&2
             exit 1
             ;;
@@ -311,7 +294,7 @@ _group_start() {
     git branch --no-track "$fb" "$ref" >/dev/null || exit 1
     write_plan_base "$gf" "\`$sha\` ($parent)"
     write_plan_field "$gf" "Feature Branch" "$fb" Base
-    sed -i -E 's/^\* \*\*Status:\*\*.*/* **Status:** ⚡ In Development/' "$gf"
+    plan_set_status "$gf" in-development || exit 1
     today="$(date +%Y-%m-%d)"
     grep -q '^## 📦 6\. Change Log' "$gf" && \
         sed -i -E "/^## 📦 6\. Change Log.*/a \* \*\*$today:\*\* Group started: \`$fb\` from \`$parent\`." "$gf"
@@ -320,7 +303,7 @@ _group_start() {
     local af aid paths=("current/$(basename "$gf")" "state_matrix.md")
     if af="$(group_amendments_member "$gf")"; then
         aid="$(parse_plan_field "$af" "Plan ID")"
-        sed -i -E 's/^\* \*\*Status:\*\*.*/* **Status:** 🔷 Frozen/' "$af"
+        plan_set_status "$af" frozen || exit 1
         paths+=("current/$(basename "$af")")
     fi
     sync_state_matrix
@@ -773,7 +756,7 @@ _wt_start() {
     rel="$(aapp_rel_path "$prim_p" "$wt_p")"
     write_plan_base "$pf" "\`$WT_BASE_SHA\` ($WT_BASE_NAME)" || _wt_fail "$label" "Base could not be recorded"
     write_plan_worktree "$pf" "$rel ($WT_BRANCH)" || _wt_fail "$label" "Worktree could not be recorded"
-    sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* ⚡ In Development/' "$pf"
+    plan_set_status "$pf" in-development || _wt_fail "$label" "Status could not be recorded"
     sed -i -E 's/\*\(Marked:[[:space:]]*\*\*PROPOSED\*\*.*\)/\*(Marked: **LOCKED** — Greenlit for implementation)*/' "$pf"
     today="$(date +%Y-%m-%d)"
     if grep -q '^## 📦 6\. Change Log' "$pf"; then
@@ -1822,7 +1805,7 @@ cmd_freeze_start() {
     write_plan_base "$plan_file" "\`$head_sha\` ($head_br)"
 
     # Update plan header & lock status
-    sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* ⚡ In Development/' "$plan_file"
+    plan_set_status "$plan_file" in-development || exit 1
     sed -i -E 's/\*\(Marked:[[:space:]]*\*\*PROPOSED\*\*.*\)/\*(Marked: **LOCKED** — Greenlit for implementation)*/' "$plan_file"
 
     local today
@@ -2026,7 +2009,7 @@ cmd_freeze() {
     fi
 
     # Update plan header & lock status
-    sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* 🔷 Frozen/' "$plan_file"
+    plan_set_status "$plan_file" frozen || exit 1
     sed -i -E 's/\*\(Marked:[[:space:]]*\*\*PROPOSED\*\*.*\)/\*(Marked: **LOCKED** — Greenlit for implementation)*/' "$plan_file"
 
     local today
@@ -2082,10 +2065,8 @@ cmd_start() {
     esac
 
     # Verify status is 🔷 Frozen or already ⚡ In Development
-    local cur_status
-    cur_status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$plan_file" | head -n 1 || true)"
-    if ! echo "$cur_status" | grep -qE '🔷[[:space:]]*Frozen|⚡[[:space:]]*In Development'; then
-        echo "❌ [Start Refusal] Plan is not frozen (current status: $cur_status)." >&2
+    if ! plan_status_is "$plan_file" frozen in-development; then
+        echo "❌ [Start Refusal] Plan is not frozen (current status: $(plan_status_text "$plan_file"))." >&2
         echo "   Freeze the plan first with 'aapp freeze $query' or run 'aapp freeze-start $query'." >&2
         exit 1
     fi
@@ -2160,7 +2141,7 @@ cmd_start() {
     write_plan_base "$plan_file" "\`$head_sha\` ($head_br)"
 
     # Update status
-    sed -i -E 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*/\* \*\*Status:\*\* ⚡ In Development/' "$plan_file"
+    plan_set_status "$plan_file" in-development || exit 1
     sed -i -E 's/\*\(Marked:[[:space:]]*\*\*PROPOSED\*\*.*\)/\*(Marked: **LOCKED** — Greenlit for implementation)*/' "$plan_file"
 
     local today
@@ -2222,7 +2203,7 @@ cmd_done() {
 
     # Only an implemented plan is archived (#89).
     if [ "$(plan_status_slug "$plan_file")" != "in-development" ]; then
-        echo "❌ [Done Refusal] Plan is not ⚡ In Development (current status: $(grep -m 1 -E '\*\*Status:\*\*' "$plan_file" | sed -E 's/^.*\*\*Status:\*\*[[:space:]]*//'))." >&2
+        echo "❌ [Done Refusal] Plan is not ⚡ In Development (current status: $(plan_status_text "$plan_file"))." >&2
         echo "   Start it with 'aapp start $query' and implement it before archiving." >&2
         exit 1
     fi
@@ -2808,7 +2789,7 @@ cmd_active() {
                            [[ "$bname" == "$active_id-"* ]] || [[ "$bname" == "P$active_id-"* ]]; then
                             echo "   Blueprint File    : $pf"
                             local status
-                            status="$(grep -E '^\* \*\*Status:\*\*' "$pf" | head -n 1 | sed 's/^\* \*\*Status:\*\*[[:space:]]*//')"
+                            status="$(plan_status_text "$pf")"
                             echo "   Status            : $status"
                             echo "   Declared Targets  :"
                             parse_plan_target_paths "$pf" | sed 's/^/     • /'
@@ -2826,7 +2807,7 @@ cmd_active() {
                 for pf in "$PLANS_DIR"/current/*.md; do
                     [ ! -f "$pf" ] && continue
                     case "$(basename "$pf")" in 000-*) continue ;; esac
-                    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null; then
+                    if plan_status_is "$pf" in-development; then
                         aapp_plan_held_by "$pf" "$held_plans" >/dev/null && continue
                         dev_plans+=("$pf")
                     fi
@@ -2894,7 +2875,7 @@ cmd_plan_status() {
         local plan_id status title
         plan_id="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" 2>/dev/null || true)"
         [ -z "$plan_id" ] && plan_id="$(basename "$plan_file" .md)"
-        status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$plan_file" | head -n 1 | sed 's/^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*[[:space:]]*//')"
+        status="$(plan_status_text "$plan_file")"
         title="$(grep -E '^# ' "$plan_file" | head -n 1 | sed 's/^# [[:space:]]*//')"
 
         echo "📄 Plan: $plan_id — $title"
@@ -2947,18 +2928,6 @@ cmd_plan_status() {
     # Bucketing is registry-driven (P-30 §2.7): a status matching no registry
     # entry is reported as unrecognized rather than folded into the Incubator,
     # where a typo'd status would otherwise hide.
-    local states_lib=""
-    for cand in "$AAPP_LIB" "$PRIMARY_ROOT/lib" "$REPO_ROOT/lib"; do
-        if [ -n "${cand:-}" ] && [ -f "$cand/plan_states.sh" ]; then
-            states_lib="$cand/plan_states.sh"
-            break
-        fi
-    done
-    if [ -n "$states_lib" ]; then
-        # shellcheck source=/dev/null
-        . "$states_lib" 2>/dev/null || true
-        plan_states_load 2>/dev/null || true
-    fi
 
     local in_dev=()
     local frozen=()
@@ -2969,16 +2938,11 @@ cmd_plan_status() {
         [ ! -f "$pf" ] && continue
         # P-52: mini plans (fix-<num>.md) are not P-xx plans.
         case "$(basename "$pf")" in 000-*|plan-template.md|fix-*) continue ;; esac
-        local pid status slug entry
+        local pid slug entry
         pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" 2>/dev/null || true)"
         [ -z "$pid" ] && pid="$(basename "$pf" .md)"
-        status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$pf" | head -n 1 || true)"
         entry="$pid ($(basename "$pf"))"
-
-        slug=""
-        if declare -f plan_state_for_status_line >/dev/null 2>&1; then
-            slug="$(plan_state_for_status_line "$status" 2>/dev/null || true)"
-        fi
+        slug="$(plan_status_slug "$pf")"
 
         case "$slug" in
             in-development) in_dev+=("$entry") ;;
@@ -3021,7 +2985,7 @@ _pc_id() { parse_plan_field "$1" "Plan ID"; }
 # _pc_state <plan>: done (archived or ✅), else the registry slug.
 _pc_state() {
     case "$1" in */done/*) echo done; return ;; esac
-    if grep -qE '^\* \*\*Status:\*\*.*✅' "$1"; then echo done; else plan_status_slug "$1"; fi
+    case "$(plan_status_text "$1")" in ✅*) echo done ;; *) plan_status_slug "$1" ;; esac
 }
 
 # _pc_targets <plan> code|shared: its non-shared (or shared-doc) Target Files.
@@ -3671,9 +3635,9 @@ plan_block_on() {
     local pf="$1" num="${2#\#}" status_line prev line list was perm fields tmp
     [ -f "$pf" ] || return 1
     issue_id_valid "$num" || return 1
-    status_line="$(grep -m 1 -E '^\* \*\*Status:\*\*' "$pf" || true)"
+    status_line="$(plan_status_line "$pf")"
     [ -n "$status_line" ] || return 1
-    prev="${status_line#\* \*\*Status:\*\* }"
+    prev="${status_line#*\*\*Status:\*\* }"
     line="$(grep -m 1 -E '^\* \*\*Blocked On:\*\*' "$pf" || true)"
     if [ -n "$line" ]; then
         fields="$(plan_blocked_on_parse "${line#\* \*\*Blocked On:\*\* }")"
@@ -3682,16 +3646,18 @@ plan_block_on() {
             return 3
         fi
         line="$(plan_blocked_on_line "${list:+$list, }#$num" "$was" "$perm")"
-    elif printf '%s' "$prev" | grep -qE '🟥|BLOCKED'; then
+    elif plan_status_is "$pf" blocked; then
         line="$(plan_blocked_on_line "#$num" "" "")"
     else
         line="$(plan_blocked_on_line "#$num" "$prev" "")"
     fi
+    plan_set_status "$pf" blocked || return 1
     tmp="$(mktemp)" || return 1
-    AAPP_BLOCKED_LINE="$line" awk '
-        /^\* \*\*Status:\*\*/ && !s { print "* **Status:** 🟥 BLOCKED"; s = 1; if (!b) { print ENVIRON["AAPP_BLOCKED_LINE"]; b = 1 } ; next }
-        /^\* \*\*Blocked On:\*\*/ { if (!b) { print ENVIRON["AAPP_BLOCKED_LINE"]; b = 1 } ; next }
+    # The Blocked On line follows the Status line.
+    AAPP_LINE="$line" awk '
+        /^\* \*\*Blocked On:\*\*/ { next }
         { print }
+        /^\* \*\*Status:\*\*/ && !s { print ENVIRON["AAPP_LINE"]; s = 1 }
     ' "$pf" > "$tmp" && mv "$tmp" "$pf" || { rm -f "$tmp"; return 1; }
 }
 
@@ -3701,7 +3667,7 @@ plan_block_on() {
 # status. No commit and no matrix: callers commit.
 # Returns 0 when written, 3 when #<num> is not listed (nothing written).
 plan_unblock() {
-    local pf="$1" n="${2#\#}" line fields list was perm newlist tmp
+    local pf="$1" n="${2#\#}" line fields list was perm newlist tmp was_slug=""
     [ -f "$pf" ] || return 1
     line="$(grep -m 1 -E '^\* \*\*Blocked On:\*\*' "$pf" || true)"
     [ -n "$line" ] || return 3
@@ -3712,16 +3678,16 @@ plan_unblock() {
     tmp="$pf.aapp-unblock.$$"
     if [ -n "$newlist" ] || [ -n "$perm" ]; then
         AAPP_LINE="$(plan_blocked_on_line "$newlist" "$was" "$perm")" awk '/^\* \*\*Blocked On:\*\*/ && !d { print ENVIRON["AAPP_LINE"]; d = 1; next } { print }' "$pf" > "$tmp"
-    elif [ -n "$was" ]; then
-        AAPP_STATUS="* **Status:** $was" awk '
-            /^\* \*\*Blocked On:\*\*/ { next }
-            /^\* \*\*Status:\*\*/ && !d { print ENVIRON["AAPP_STATUS"]; d = 1; next }
-            { print }' "$pf" > "$tmp"
+        mv "$tmp" "$pf"
+        return 0
+    fi
+    awk '/^\* \*\*Blocked On:\*\*/ { next } { print }' "$pf" > "$tmp" && mv "$tmp" "$pf" || { rm -f "$tmp"; return 1; }
+    [ -n "$was" ] && was_slug="$(plan_state_for_status_line "* **Status:** $was" || true)"
+    if [ -n "$was_slug" ]; then
+        plan_set_status "$pf" "$was_slug"
     else
-        awk '/^\* \*\*Blocked On:\*\*/ { next } { print }' "$pf" > "$tmp"
         echo "ℹ️  [Issue] $(basename "$pf" .md) has no blockers left but no recorded previous status; set it with 'aapp refine'." >&2
     fi
-    mv "$tmp" "$pf"
 }
 
 # _issues_follow_branch <removed-branch> <parent> (P-78): the open issues that

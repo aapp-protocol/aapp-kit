@@ -206,7 +206,7 @@ cmd_commit() {
         for pf in "$plans_dir"/current/*.md; do
             [ ! -f "$pf" ] && continue
             case "$(basename "$pf")" in 000-*) continue ;; esac
-            if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null; then
+            if plan_status_is "$pf" in-development; then
                 aapp_plan_held_by "$pf" "$held_plans" >/dev/null && continue
                 dev_plans+=("$pf")
             fi
@@ -231,8 +231,8 @@ cmd_commit() {
     fi
 
     # Verify plan status is ⚡ In Development
-    if ! grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$plan_file" 2>/dev/null; then
-        echo "❌ [Commit Refusal] Plan '$(basename "$plan_file")' is not ⚡ In Development." >&2
+    if ! plan_status_is "$plan_file" in-development; then
+        echo "❌ [Commit Refusal] Plan '$(basename "$plan_file")' is not $(plan_status_render in-development)." >&2
         return 1
     fi
 

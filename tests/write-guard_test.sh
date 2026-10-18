@@ -18,12 +18,18 @@ setup() {
   echo "x=1" > src/a.py; echo "# CL" > CHANGELOG.md; echo "# CM" > CODEMAP.md; echo "# AR" > ARCHITECTURE.md
   git add -A >/dev/null; git commit -qm init
   cp "$GUARD" .githooks/blast-radius-guard; chmod +x .githooks/blast-radius-guard
-  # The guard sources aapp-lib.sh from its own directory (P-37 §2.7).
+  # The guard sources aapp-lib.sh, and it plan_states.sh, from its own directory (P-37 §2.7, #85).
   cp "$(dirname "$GUARD")/aapp-lib.sh" .githooks/aapp-lib.sh
+  cp "$KIT/lib/plan_states.sh" .githooks/plan_states.sh
 }
 
 # Fixtures are §4 bodies: target headings count only inside `## 💥 4.` (P-37).
-plan() { mkdir -p .plans/current; { echo "## 💥 4. Blast Radius & System Boundaries"; cat; } > ".plans/current/$1"; }
+# A fixture's leading `* **Field:**` lines are its header: they go above §4, as in a real plan (#85).
+plan() {
+  mkdir -p .plans/current
+  awk '!b && /^\* \*\*[^*]+:\*\*/ { print; next } { b = 1; body = body $0 "\n" }
+       END { print "## 💥 4. Blast Radius & System Boundaries"; printf "%s", body }' > ".plans/current/$1"
+}
 
 call_guard_cli() {
   local path="$1"
@@ -132,7 +138,7 @@ check_decision "multiple in-development plans without buffer denied" DENY "src/b
 echo "== BLOCKED plan grants nothing =="
 setup
 plan blocked.md <<'EOF'
-* **Status:** 🚫 BLOCKED
+* **Status:** 🟥 BLOCKED
 * **Blocked On:** BUG-042
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/blocked_target.py` -> would be allowed if not blocked
@@ -140,6 +146,30 @@ plan blocked.md <<'EOF'
 ## end
 EOF
 check_decision "own target refused while BLOCKED" DENY "src/blocked_target.py"
+
+echo "== adopter statuses: the guard reads them as the verbs do (#85) =="
+setup
+git config aapp.planState.blocked "⛔|Halted|⛔ Halted|40"
+git config aapp.planState.in-development "🚧|Building|🚧 Building|30"
+plan halted.md <<'EOF'
+* **Status:** ⛔ Halted
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/halted_target.py` -> would be allowed if not halted
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+check_decision "test_guard_refuses_adopter_blocked_status" DENY "src/halted_target.py"
+rm -f .plans/current/halted.md
+plan building.md <<'EOF'
+* **Plan ID:** P-40
+* **Status:** 🚧 Building
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/building_target.py` -> the plan in development
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+check_decision "test_guard_adopts_adopter_in_development_plan" ALLOW "src/building_target.py"
+check_decision "test_guard_confines_adopter_in_development_plan" DENY "src/elsewhere.py"
 
 echo "== fail-open (a guard must never brick the agent) =="
 setup
@@ -418,7 +448,7 @@ setup
 plan draft.md <<'EOF'
 * **Plan ID:** P-30
 * **Changelog:** Added: Fast feature
-* **Status:** 🟡 Refining
+* **Status:** 📝 Refining
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/fast_feature.py` -> feature target
 ### 🛑 Out of Bounds (Do Not Touch)

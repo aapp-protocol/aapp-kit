@@ -190,7 +190,7 @@ print(json.dumps(out))
 AAPP_LIB_FILE="$AAPP_HOOK_DIR/aapp-lib.sh"
 # shellcheck source=lib/aapp-lib.sh
 if ! . "$AAPP_LIB_FILE" 2>/dev/null || ! declare -f aapp_lib_loaded >/dev/null; then
-    deny_action "Shared library missing or unreadable: $AAPP_LIB_FILE. Run 'aapp init' to reinstall the hook engine."
+    deny_action "Shared library or status registry missing or unreadable: $AAPP_LIB_FILE, $AAPP_HOOK_DIR/plan_states.sh. Run 'aapp init' to reinstall the hook engine."
 fi
 
 # ------------------------------------------------------------------------------
@@ -425,7 +425,7 @@ for pf in "$PLANS_DIR"/current/*.md; do
     fi
     [ ! -f "$pf" ] && continue
     case "$(basename "$pf")" in 000-*) continue ;; esac
-    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|🟥|BLOCKED)' "$pf" 2>/dev/null; then
+    if plan_status_is "$pf" blocked; then
         BLOCKED_TARGETS=()
         while IFS= read -r ITEM; do
             [ -n "$ITEM" ] && BLOCKED_TARGETS+=("$ITEM")
@@ -467,8 +467,7 @@ else
     for pf in "$PLANS_DIR"/current/*.md; do
         [ ! -f "$pf" ] && continue
         case "$(basename "$pf")" in 000-*) continue ;; esac
-        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null || \
-           ! grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*' "$pf" 2>/dev/null; then
+        if plan_status_is "$pf" in-development || [ -z "$(plan_status_line "$pf")" ]; then
             if HOLDER="$(aapp_plan_held_by "$pf" "$HELD_PLANS")"; then
                 if ! aapp_is_shared_doc "$TARGET_FILE"; then
                     HELD_TARGETS=()
@@ -502,7 +501,7 @@ else
 fi
 
 # 4. Enforce Boundaries for Active Plan
-if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|🟥|BLOCKED)' "$ACTIVE_PLAN_PATH"; then
+if plan_status_is "$ACTIVE_PLAN_PATH" blocked; then
     deny_action "Active plan '$(basename "$ACTIVE_PLAN_PATH")' is BLOCKED. All modifications are refused."
 fi
 

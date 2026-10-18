@@ -44,7 +44,7 @@ This document is the central dashboard for all active ideas, drafts, ready plans
 
 ---
 
-## 🚫 2c. Blocked (Halted on an Issue)
+## 🟥 2c. Blocked (Halted on an Issue)
 *Plans that were in flight and hit a blocking bug too substantial to hotfix. **Not executable** — an execution session must not pick these up, even though their Blast Radius is still locked. They return to the Greenlight Zone only when the human unblocks them.*
 
 * [ ] **[Feature: Implementation Blueprint](current/approved-feature.md)**

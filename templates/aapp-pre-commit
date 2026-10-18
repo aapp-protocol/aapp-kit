@@ -50,7 +50,7 @@ esac
 AAPP_LIB_FILE="$AAPP_HOOK_DIR/aapp-lib.sh"
 # shellcheck source=lib/aapp-lib.sh
 if ! . "$AAPP_LIB_FILE" 2>/dev/null || ! declare -f aapp_lib_loaded >/dev/null; then
-    echo "❌ [AAPP Guard] Shared library missing or unreadable: $AAPP_LIB_FILE" >&2
+    echo "❌ [AAPP Guard] Shared library or status registry missing or unreadable: $AAPP_LIB_FILE, $AAPP_HOOK_DIR/plan_states.sh" >&2
     echo "   Run 'aapp init' to reinstall the hook engine." >&2
     exit 1
 fi
@@ -294,7 +294,7 @@ if [ "$STAGED_CORE_COUNT" -gt 0 ]; then
                     pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
                     if [ -n "$CL_WANT" ]; then
                         [ "$pid" = "$CL_WANT" ] && CL_DEV=("$pf") && break
-                    elif grep -qE '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*.*⚡[[:space:]]*In Development' "$pf"; then
+                    elif plan_status_is "$pf" in-development; then
                         aapp_plan_held_by "$pf" "$CL_HELD" >/dev/null && continue
                         CL_DEV+=("$pf")
                     fi
@@ -498,7 +498,7 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
         for pf in "$PLANS_DIR"/current/*.md; do
             [ ! -f "$pf" ] && continue
             case "$(basename "$pf")" in 000-*) continue ;; esac
-            if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|🟥|BLOCKED)' "$pf" 2>/dev/null; then
+            if plan_status_is "$pf" blocked; then
                 BLOCKED_TARGETS=()
                 while IFS= read -r ITEM; do
                     [ -n "$ITEM" ] && BLOCKED_TARGETS+=("$ITEM")
@@ -569,8 +569,7 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
             for pf in "$PLANS_DIR"/current/*.md; do
                 [ ! -f "$pf" ] && continue
                 case "$(basename "$pf")" in 000-*) continue ;; esac
-                if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$pf" 2>/dev/null || \
-                   ! grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*' "$pf" 2>/dev/null; then
+                if plan_status_is "$pf" in-development || [ -z "$(plan_status_line "$pf")" ]; then
                     if HOLDER="$(aapp_plan_held_by "$pf" "$HELD_PLANS")"; then
                         HELD_TARGETS=()
                         while IFS= read -r ITEM; do
@@ -611,30 +610,29 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
 
     # 4. Enforce Blast Radius for Active Plan
     if [ -n "$ACTIVE_PLAN_PATH" ]; then
-        if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🚫|🟥|BLOCKED)' "$ACTIVE_PLAN_PATH"; then
+        if plan_status_is "$ACTIVE_PLAN_PATH" blocked; then
             echo ""
             echo "❌ [Pre-Commit Blast Radius Violation] Active plan '$(basename "$ACTIVE_PLAN_PATH")' is BLOCKED!"
-            echo "   All commits are refused while a plan is marked 🚫 BLOCKED."
+            echo "   All commits are refused while a plan is marked $(plan_status_render blocked)."
             echo ""
             exit 1
         fi
 
         # Opt-in failure test declaration check (P-35)
         if plan_has_required_test_files "$ACTIVE_PLAN_PATH"; then
-            ACTIVE_STATUS="$(grep -m 1 -E '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*' "$ACTIVE_PLAN_PATH" | sed -E 's/^.*\*\*Status:\*\*[[:space:]]*//')"
             # Enforce only when plan is frozen or in development (tolerated while refining / under review)
-            if echo "$ACTIVE_STATUS" | grep -qE '(🔷[[:space:]]*Frozen|⚡[[:space:]]*In Development)'; then
+            if plan_status_is "$ACTIVE_PLAN_PATH" frozen in-development; then
                 validate_plan_tdd_correspondence "$ACTIVE_PLAN_PATH" "Pre-Commit TDD" || exit 1
 
-                # At ⚡ In Development, enforce test file existence on disk
-                if echo "$ACTIVE_STATUS" | grep -qE '(⚡|[Ii]n [Dd]evelopment)'; then
+                # In development, enforce test file existence on disk
+                if plan_status_is "$ACTIVE_PLAN_PATH" in-development; then
                     while IFS= read -r f_path; do
                         [ -z "$f_path" ] && continue
                         if [ ! -f "$REPO_ROOT/$f_path" ] && [ ! -f "$PRIMARY_ROOT/$f_path" ] && [ ! -f "$f_path" ]; then
                             echo ""
                             echo "❌ [Pre-Commit TDD Violation] Required test file '$f_path' is missing from disk!"
                             echo "   Active plan : $(basename "$ACTIVE_PLAN_PATH")"
-                            echo "   Status      : ⚡ In Development"
+                            echo "   Status      : $(plan_status_render in-development)"
                             echo ""
                             exit 1
                         fi
@@ -790,7 +788,7 @@ for STAGED in "${STAGED_FILES[@]}"; do
     [ -z "$HEAD_CONTENT" ] && continue
 
     # Check if HEAD version was frozen / greenlit
-    if ! printf '%s\n' "$HEAD_CONTENT" | grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*(🔷[[:space:]]*Frozen|⚡[[:space:]]*In Development)'; then
+    if ! printf '%s\n' "$HEAD_CONTENT" | plan_status_is - frozen in-development; then
         continue
     fi
 
@@ -834,7 +832,7 @@ for STAGED in "${STAGED_FILES[@]}"; do
         echo "❌ [Pre-Commit Design Lock Violation] Cannot edit locked design sections of a frozen plan!"
         echo "   Staged plan : $STAGED"
         echo "   Violation   : Attempted modifications to $DESIGN_VIOLATION"
-        echo "   Status      : 🔷 Frozen (Design Locked)"
+        echo "   Status      : $(plan_status_render frozen) (Design Locked)"
         echo ""
         echo "   👉 To resolve this:"
         echo "      1. Revert changes to Section 2 and Section 4."
@@ -857,7 +855,7 @@ if [ -z "$MEMBER_PF" ] && [ -n "$PLANS_DIR" ] && [ -d "$PLANS_DIR/current" ]; th
         [ -f "$pf" ] || continue
         if [ -n "$BUF_ID" ]; then
             [ "$(parse_plan_field "$pf" "Plan ID")" = "$BUF_ID" ] && { MEMBER_PF="$pf"; break; }
-        elif grep -qE '^\* \*\*Status:\*\*[[:space:]]*⚡' "$pf"; then
+        elif plan_status_is "$pf" in-development; then
             DEV_COUNT=$((DEV_COUNT + 1)); MEMBER_PF="$pf"
         fi
     done
@@ -937,8 +935,7 @@ fi
 # plan that already records a commit is refused; `aapp commit amend` folds
 # changes in (helper commits skip this: the helper already decided).
 if [ -z "${AAPP_COMMIT_HELPER:-}" ] && [ -n "${ACTIVE_PLAN_PATH:-}" ] && [ -f "$ACTIVE_PLAN_PATH" ] && \
-   [ "$(aapp_commit_mode)" = "atomic" ] && \
-   grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$ACTIVE_PLAN_PATH"; then
+   [ "$(aapp_commit_mode)" = "atomic" ] && plan_status_is "$ACTIVE_PLAN_PATH" in-development; then
     ATOMIC_FIRST="$(parse_plan_commits "$ACTIVE_PLAN_PATH" | head -n 1 | awk '{print $1}')"
     if [ -n "$ATOMIC_FIRST" ]; then
         for STAGED in "${STAGED_FILES[@]}"; do
@@ -955,7 +952,7 @@ if [ -z "${AAPP_COMMIT_HELPER:-}" ] && [ -n "${ACTIVE_PLAN_PATH:-}" ] && [ -f "$
 fi
 
 if [ -z "${AAPP_COMMIT_HELPER:-}" ] && [ -n "${ACTIVE_PLAN_PATH:-}" ] && [ -f "$ACTIVE_PLAN_PATH" ]; then
-    if grep -qE '^[[:space:]]*[\*|-]*[[:space:]]*\*\*Status:\*\*[[:space:]]*.*⚡[[:space:]]*In Development' "$ACTIVE_PLAN_PATH"; then
+    if plan_status_is "$ACTIVE_PLAN_PATH" in-development; then
         ACTIVE_PLAN_ID="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$ACTIVE_PLAN_PATH" 2>/dev/null || true)"
         [ -z "$ACTIVE_PLAN_ID" ] && ACTIVE_PLAN_ID="$(basename "$ACTIVE_PLAN_PATH" .md | cut -d'-' -f1)"
         echo "💡 $ACTIVE_PLAN_ID is active: record this commit with 'aapp commit adopt <sha>' (or commit through 'aapp commit')."

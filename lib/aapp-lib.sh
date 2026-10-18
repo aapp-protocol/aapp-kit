@@ -7,11 +7,31 @@
 #
 # Purity rule: arguments or stdin in, stdout out. No top-level side effects, no
 # `set` options, no reads of the aapp environment, no repository-root
-# resolution. Sourcing this file only defines functions.
+# resolution. Sourcing this file only defines functions, its own and those of
+# the status registry beside it.
 #
 # Layout: lib/aapp-lib.sh is the only authored copy. templates/aapp-lib.sh is a
-# tracked symlink to it; `aapp init` installs a real copy into .githooks/.
+# tracked symlink to it; `aapp init` installs a real copy into .githooks/, with
+# plan_states.sh beside it.
 # ==============================================================================
+
+# The status registry and the Status-line accessors (#85) sit beside this file
+# (beside its target, when sourced through the templates/ symlink); without
+# them the library does not load, and its consumers refuse to run.
+_AAPP_LIB_SRC="${BASH_SOURCE[0]}"
+if [ -L "$_AAPP_LIB_SRC" ]; then
+    _AAPP_LIB_LINK="$(readlink "$_AAPP_LIB_SRC")" || return 1
+    case "$_AAPP_LIB_LINK" in
+        /*) _AAPP_LIB_SRC="$_AAPP_LIB_LINK" ;;
+        *)  case "$_AAPP_LIB_SRC" in */*) _AAPP_LIB_SRC="${_AAPP_LIB_SRC%/*}/$_AAPP_LIB_LINK" ;; *) _AAPP_LIB_SRC="$_AAPP_LIB_LINK" ;; esac ;;
+    esac
+fi
+case "$_AAPP_LIB_SRC" in
+    */*) _AAPP_LIB_DIR="${_AAPP_LIB_SRC%/*}" ;;
+    *)   _AAPP_LIB_DIR="." ;;
+esac
+# shellcheck source=lib/plan_states.sh
+. "$_AAPP_LIB_DIR/plan_states.sh" || return 1
 
 # Load sentinel. Consumers assert it after sourcing and fail closed without it.
 aapp_lib_loaded() {
@@ -908,7 +928,7 @@ amend_must_rebase() {
     for m in $(group_members "$gf"); do
         mf="$(ls "$(dirname "$1")"/P"${m#P-}"-*.md 2>/dev/null | head -n 1)"
         [ -n "$mf" ] && [ "$mf" != "$1" ] || continue
-        grep -qE '^\* \*\*Status:\*\*[[:space:]]*⚡' "$mf" || continue
+        plan_status_is "$mf" in-development || continue
         rec="$(parse_plan_worktree "$mf")"; br="${rec#*$'\t'}"
         [ -n "$rec" ] && ! git merge-base --is-ancestor "$fb" "$br" 2>/dev/null && echo "$m"
     done

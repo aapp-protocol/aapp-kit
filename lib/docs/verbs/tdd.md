@@ -14,7 +14,7 @@
 ## Failure modes
 - `.plans/current` missing -> exit 1, stderr names missing directory
 - target plan ID not found (e.g. `P-999`) -> exit 1, stderr names resolution failure
-- existing plan is not in incubator (`🔷 Frozen`, `⚡ In Development`, `🚫 BLOCKED`) -> exit 1, stderr `[TDD Refusal] Plan is not in the incubator`
+- existing plan is not in incubator (`🔷 Frozen`, `⚡ In Development`, `🟥 BLOCKED`) -> exit 1, stderr `[TDD Refusal] Plan is not in the incubator`
 - existing plan already has `### 🧪 Required Tests` or `### 🧪 Required Test Files` -> exit 1, stderr `[TDD Refusal] Plan already has TDD failure test sections declared.`
 - non-Git repository -> exit 1, stderr names repository assertion failure
 

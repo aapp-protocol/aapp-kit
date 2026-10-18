@@ -232,7 +232,7 @@ matrix_scan() {
     MATRIX_ROWS=""
     plan_states_load
 
-    local pf pid title status slug emoji heading annotation row
+    local pf pid title slug emoji heading annotation row
     for pf in "$PLANS_DIR"/current/*.md; do
         [ -f "$pf" ] || continue
         case "$(basename "$pf")" in
@@ -241,9 +241,8 @@ matrix_scan() {
         esac
 
         pid="$(matrix_plan_id "$pf")"
-        status="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$pf" 2>/dev/null | head -n 1 || true)"
-
-        if slug="$(plan_state_for_status_line "$status" 2>/dev/null)"; then
+        slug="$(plan_status_slug "$pf")"
+        if [ -n "$slug" ]; then
             emoji="$(plan_state_field "$slug" emoji)"
             heading="$(plan_state_field "$slug" heading)"
         else

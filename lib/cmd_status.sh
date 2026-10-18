@@ -35,12 +35,6 @@ for STATUS_LIB_FILE in planning_health.sh plan_resolver.sh output.sh; do
     fi
 done
 
-# The status registry names each plan's status as a slug (P-30).
-if [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/plan_states.sh" ]; then
-    # shellcheck source=/dev/null
-    . "$AAPP_LIB/plan_states.sh" && { plan_states_load 2>/dev/null || true; }
-fi
-
 # status_rows <records>: the records with their tabs as \037, so that `read`
 # keeps empty fields (a tab is whitespace to IFS, and runs of it would merge).
 status_rows() { printf '%s\n' "$1" | tr '\t' '\037'; }
@@ -303,12 +297,12 @@ status_records_plans() {
 
 # status_plan_record <file> <depth>: one plan's record.
 status_plan_record() {
-    local P="$1" base sline label id="" slug="" title kind=plan grp members="" target blocked wt="" wtb="" fb rec
+    local P="$1" base label id="" slug="" title kind=plan grp members="" target blocked wt="" wtb="" fb rec
     base="$(basename "$P")"
-    sline="$(grep -m 1 -E '^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*' "$P" 2>/dev/null || echo "* **Status:** 🟣 Active")"
-    label="$(echo "$sline" | sed -E 's/^[[:space:]]*[\*|-][[:space:]]*\*\*Status:\*\*[[:space:]]*//')"
+    label="$(plan_status_text "$P")"
+    [ -n "$label" ] || label="🟣 Active"
     if command -v get_plan_id >/dev/null 2>&1; then id="$(get_plan_id "$P" 2>/dev/null || true)"; fi
-    if command -v plan_state_for_status_line >/dev/null 2>&1; then slug="$(plan_state_for_status_line "$sline" 2>/dev/null || true)"; fi
+    slug="$(plan_status_slug "$P")"
     title="$(grep -m 1 -E '^# ' "$P" | sed -E 's/^#[[:space:]]*(🗺️[[:space:]]*|🧩[[:space:]]*Group[[:space:]]+)?Plan[^:]*:[[:space:]]*//')"
     if aapp_is_group_plan "$P"; then kind=group; members="$(group_members "$P" | paste -sd, - || true)"; fi
     # P-101: an amendments member carries its request counts and the members that must rebase.
@@ -392,19 +386,15 @@ status_records_next() {
     [ -f "$buffer" ] && active="$(tr -d '[:space:]' < "$buffer" 2>/dev/null || true)"
     # Resolved from each plan's own Status line via the status registry (P-30
     # §2.6), not by matching matrix headings.
-    if [ -n "${AAPP_LIB:-}" ] && [ -f "$AAPP_LIB/plan_states.sh" ] && [ -d ".plans/current" ]; then
+    if [ -d ".plans/current" ]; then
         lane="$(
-            # shellcheck source=/dev/null
-            . "$AAPP_LIB/plan_states.sh" 2>/dev/null || exit 0
-            plan_states_load 2>/dev/null || exit 0
             heading="$(plan_state_field under-review heading 2>/dev/null || true)"
             for PF in .plans/current/*.md; do
                 [ -f "$PF" ] || continue
                 case "$(basename "$PF")" in 000-*|plan-template.md) continue ;; esac
                 PID="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$PF" 2>/dev/null | head -n 1)"
                 [ -z "$PID" ] && continue
-                SLINE="$(grep -E '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*' "$PF" 2>/dev/null | head -n 1)"
-                SLUG="$(plan_state_for_status_line "$SLINE" 2>/dev/null || true)"
+                SLUG="$(plan_status_slug "$PF")"
                 [ -z "$SLUG" ] && continue
                 if [ "$SLUG" = "frozen" ]; then echo "frozen $PID"
                 elif [ -n "$heading" ] && [ "$(plan_state_field "$SLUG" heading 2>/dev/null || true)" = "$heading" ]; then echo "incubator $PID"; fi

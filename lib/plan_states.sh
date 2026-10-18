@@ -250,26 +250,90 @@ _plan_states_ensure_loaded() {
 }
 
 # Resolve a raw `Status:` line to a slug. Matching is by canonical NAME, not
-# emoji: the emoji is display, the name is the semantic key. Tolerates the line
-# shapes already handled at cmd_plan.sh:115 and :808 (leading * or -, bold
-# markers, variable whitespace).
+# emoji: the emoji is display, the name is the semantic key, so no reader ever
+# depends on telling glyphs apart. The name is compared literally. Tolerates a
+# leading * or -, the bold markers, variable whitespace and trailing text.
 plan_state_for_status_line() {
     local line="$1"
     _plan_states_ensure_loaded
+
+    case "$line" in *'**Status:**'*) ;; *) return 1 ;; esac
+    local rest="${line#*\*\*Status:\*\*}"
 
     local i=1 slug name
     while IFS= read -r slug; do
         [ -z "$slug" ] && continue
         name="$(_plan_state_nth "$PLAN_STATE_NAMES" "$i")"
-        if echo "$line" | grep -qE "\*\*Status:\*\*[[:space:]]*.*${name}([[:space:]]|\$)"; then
-            echo "$slug"
-            return 0
-        fi
         i=$((i + 1))
+        case "$rest" in *"$name"|*"$name"[[:space:]]*) echo "$slug"; return 0 ;; esac
     done <<EOF
 $PLAN_STATE_SLUGS
 EOF
     return 1
+}
+
+# ------------------------------------------------------------------------------
+# The Status line of a plan (#85): the one reader and the one writer. Every verb
+# and both hooks go through these; nothing else parses or rewrites the line.
+# ------------------------------------------------------------------------------
+# plan_status_line [file]: the header's Status line, from <file> or stdin: the
+# first `**Status:**` line outside fenced blocks and before the first `## `.
+plan_status_line() {
+    awk '/^[[:space:]]*```/ { f = !f; next } f { next } /^##[[:space:]]/ { exit }
+         /^[[:space:]]*[*-]?[[:space:]]*\*\*Status:\*\*/ { print; exit }' "${1:--}"
+}
+
+# plan_status_text [file]: the status as written after `**Status:**`, for messages.
+plan_status_text() {
+    local line
+    line="$(plan_status_line "$@")"
+    line="${line#*\*\*Status:\*\*}"
+    echo "${line#"${line%%[![:space:]]*}"}"
+}
+
+# plan_status_slug [file]: the registry slug of the plan's status (stdin without
+# a file); empty when the line is missing or unrecognized.
+plan_status_slug() {
+    local line
+    line="$(plan_status_line "$@")"
+    [ -n "$line" ] || return 0
+    plan_state_for_status_line "$line" || return 0
+}
+
+# plan_status_is <file|-> <slug>…: the plan's status is one of the slugs.
+plan_status_is() {
+    local f="$1" s want
+    shift
+    s="$(plan_status_slug "$f")"
+    [ -n "$s" ] || return 1
+    for want in "$@"; do [ "$s" = "$want" ] && return 0; done
+    return 1
+}
+
+# plan_status_render <slug>: `<emoji> <name>`, as a Status line and messages show it.
+plan_status_render() {
+    local emoji name
+    emoji="$(plan_state_field "$1" emoji)" || return 1
+    name="$(plan_state_field "$1" name)" || return 1
+    echo "$emoji $name"
+}
+
+# plan_set_status <file> <slug>: rewrites the header's Status line from the
+# registry. A slug the registry does not carry is refused, and so is a plan
+# without a Status line: nothing is written.
+plan_set_status() {
+    local f="$1" text tmp
+    text="$(plan_status_render "$2")" || {
+        echo "❌ [Plan States] Unknown status '$2'." >&2; return 1; }
+    [ -n "$(plan_status_line "$f")" ] || {
+        echo "❌ [Plan States] $(basename "$f") has no Status line." >&2; return 1; }
+    tmp="$f.aapp-status.$$"
+    AAPP_STATUS="* **Status:** $text" awk '
+        /^[[:space:]]*```/ { f = !f; print; next }
+        f || done || past { print; next }
+        /^##[[:space:]]/ { past = 1; print; next }
+        /^[[:space:]]*[*-]?[[:space:]]*\*\*Status:\*\*/ { print ENVIRON["AAPP_STATUS"]; done = 1; next }
+        { print }' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
 }
 
 plan_state_field() {

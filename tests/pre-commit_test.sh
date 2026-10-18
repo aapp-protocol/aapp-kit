@@ -15,8 +15,9 @@ setup() {
   echo "x=1" > src/a.py; echo "secret=1" > src/secret.py; echo "# CL" > CHANGELOG.md
   git add -A >/dev/null; git commit -qm init
   cp "$HOOK" .git/hooks/pre-commit; chmod +x .git/hooks/pre-commit
-  # The hook sources aapp-lib.sh from its own directory (P-37 §2.7).
+  # The hook sources aapp-lib.sh, and it plan_states.sh, from its own directory (P-37 §2.7, #85).
   cp "$(dirname "$HOOK")/aapp-lib.sh" .git/hooks/aapp-lib.sh
+  cp "$KIT/lib/plan_states.sh" .git/hooks/plan_states.sh
 }
 
 check() {
@@ -40,7 +41,12 @@ check() {
 }
 
 # Fixtures are §4 bodies: target headings count only inside `## 💥 4.` (P-37).
-plan() { mkdir -p .plans/current; { echo "## 💥 4. Blast Radius & System Boundaries"; cat; } > ".plans/current/$1"; }
+# A fixture's leading `* **Field:**` lines are its header: they go above §4, as in a real plan (#85).
+plan() {
+  mkdir -p .plans/current
+  awk '!b && /^\* \*\*[^*]+:\*\*/ { print; next } { b = 1; body = body $0 "\n" }
+       END { print "## 💥 4. Blast Radius & System Boundaries"; printf "%s", body }' > ".plans/current/$1"
+}
 
 echo "== 1. filenames with spaces =="
 setup
@@ -145,7 +151,7 @@ check "unrelated file allowed when no plan claims targets" PASS src/unrelated.py
 echo "== 4. BLOCKED plans are not executable =="
 setup
 plan blocked.md <<'EOF'
-* **Status:** 🚫 BLOCKED
+* **Status:** 🟥 BLOCKED
 * **Blocked On:** BUG-042
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/blocked_target.py` -> would be allowed if not blocked
@@ -154,6 +160,30 @@ plan blocked.md <<'EOF'
 EOF
 echo "bt=1" > src/blocked_target.py
 check "commit against a BLOCKED plan is refused" BLOCK src/blocked_target.py
+
+echo "== 4b. adopter statuses: the hook reads them as the verbs do (#85) =="
+setup
+git config aapp.planState.blocked "⛔|Halted|⛔ Halted|40"
+git config aapp.planState.in-development "🚧|Building|🚧 Building|30"
+plan halted.md <<'EOF'
+* **Status:** ⛔ Halted
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/halted_target.py` -> would be allowed if not halted
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+check "test_hook_refuses_adopter_blocked_status" BLOCK src/halted_target.py
+rm -f .plans/current/halted.md
+plan building.md <<'EOF'
+* **Plan ID:** P-40
+* **Status:** 🚧 Building
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/building_target.py` -> the plan in development
+### 🛑 Out of Bounds (Do Not Touch)
+## end
+EOF
+check "test_hook_adopts_adopter_in_development_plan" PASS src/building_target.py
+check "test_hook_confines_adopter_in_development_plan" BLOCK src/elsewhere.py
 
 echo "== 5. syntax checks survive spaces =="
 setup
@@ -271,7 +301,7 @@ plan p.md <<'EOF'
 EOF
 mkdir -p .githooks
 cp "$KIT/templates/aapp-pre-commit" .githooks/aapp-pre-commit
-cp "$KIT/lib/aapp-lib.sh" .githooks/aapp-lib.sh
+cp "$KIT/lib/aapp-lib.sh" "$KIT/lib/plan_states.sh" .githooks/
 chmod -x .githooks/aapp-pre-commit
 cp "$KIT/templates/pre-commit" .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
@@ -1110,11 +1140,28 @@ plan p.md <<'EOF'
 EOF
 check "test_missing_library_refuses_commit" BLOCK src/a.py
 out_lib=$(git commit --allow-empty -m "t" 2>&1) || true
-if echo "$out_lib" | grep -q "Shared library missing or unreadable"; then
+if echo "$out_lib" | grep -q "Shared library or status registry missing or unreadable"; then
   printf "  \033[32m✔\033[0m %-52s %s\n" "missing library names the diagnostic" "PASS"; PASS=$((PASS+1))
 else
   printf "  \033[31m✘\033[0m %-52s want diagnostic\n" "missing library names the diagnostic"; FAIL=$((FAIL+1))
   echo "$out_lib" | head -3 | sed 's/^/       /'
+fi
+
+# #85: the status registry beside the library is just as required.
+setup
+rm -f .git/hooks/plan_states.sh
+plan p.md <<'EOF'
+### 📂 Target Files (Modifications & Additions)
+- [ ] `src/a.py` -> allowed
+## end
+EOF
+check "test_missing_status_registry_refuses_commit" BLOCK src/a.py
+out_reg=$(git commit --allow-empty -m "t" 2>&1) || true
+if echo "$out_reg" | grep -q "plan_states.sh"; then
+  printf "  \033[32m✔\033[0m %-52s %s\n" "missing registry names plan_states.sh" "PASS"; PASS=$((PASS+1))
+else
+  printf "  \033[31m✘\033[0m %-52s want diagnostic\n" "missing registry names plan_states.sh"; FAIL=$((FAIL+1))
+  echo "$out_reg" | head -3 | sed 's/^/       /'
 fi
 
 echo "== opt-in failure test declaration (P-35) =="

@@ -445,6 +445,12 @@ if [ ! -f "$AAPP_LIB_SRC" ] || [ ! -r "$AAPP_LIB_SRC" ]; then
     exit 1
 fi
 cp "$AAPP_LIB_SRC" .githooks/aapp-lib.sh
+# The status registry the library loads from beside itself (#85).
+AAPP_STATES_SRC="$(dirname "$AAPP_LIB_SRC")/plan_states.sh"
+cp "$AAPP_STATES_SRC" .githooks/plan_states.sh || {
+    echo "❌ [Init Error] Status registry missing or unreadable: $AAPP_STATES_SRC" >&2
+    exit 1
+}
 
 # 1. Always update AAPP core engine files byte-for-byte
 if [ -f "$AAPP_TEMPLATES/aapp-pre-commit" ]; then
