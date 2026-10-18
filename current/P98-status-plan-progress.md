@@ -123,8 +123,8 @@ The plan record gains `"progress": { "done", "total", "unit" }`, `null` when the
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1 — One `progress` shape or two?** Proposed: one object with `unit` (`tasks` | `members`), so a consumer reads plans and groups alike. Alternative: `tasks` on a plan, `members` on a group, as separate fields.
-* [ ] **Question 2 — When is a plan's task count shown?** Proposed: in development or blocked only; a draft's `0/9` says nothing. Alternative: whenever the total is non-zero. The JSON carries it in every status either way.
+* [x] **Question 1 — One `progress` shape or two? → RESOLVED (developer, 2026-10-18):** one object with `unit` (`tasks` | `members`), so a consumer reads plans and groups alike (`{"done": N, "total": M, "unit": "tasks"|"members"}`).
+* [x] **Question 2 — When is a plan's task count shown? → RESOLVED (developer, 2026-10-18):** in development or blocked only (`⚡ In Development` / `🟥 BLOCKED`); the JSON carries it in every status either way.
 
 ---
 
