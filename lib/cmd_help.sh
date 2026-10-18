@@ -160,10 +160,10 @@ Examples:
   aapp pull              # Pull remote changes with --ff-only
   aapp sync              # Pull then push active worktrees
   aapp hooks             # Audit registered lifecycle hooks and verify SHA256 hashes
-  aapp ai-lax            # Enable lax attribution (default; human commits pass freely)
-  aapp ai-strict         # Enable strict attribution (trailers required on every commit)
-  aapp ai-notes          # Enable local git notes attribution
-  aapp ai-off            # Disable AI attribution (pure human commits)
+  aapp ai lax            # Enable lax attribution (recommended when opting in; human commits pass freely)
+  aapp ai strict         # Enable strict attribution (trailers required on every commit)
+  aapp ai notes          # Enable local git notes attribution
+  aapp ai none           # Disable AI attribution (default; pure human commits)
   aapp ai-credits        # Update AI Contributors block in README.md
   aapp ai-note --stage   # Pre-stage customizable note buffer for next commit
   aapp init              # Set up or sync worktrees in current repository

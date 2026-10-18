@@ -39,8 +39,8 @@ Attribution mode is governed by repository configuration (`git config aapp.aiAtt
 
 | Mode | Command | Scope & Behavior |
 | :--- | :--- | :--- |
-| `none` | `aapp ai none` | **Pure human authoring.** No AI trailers in commit messages; trailers are refused. (Notes remain independently usable via `aapp note`). |
-| `lax` | `aapp ai lax` | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely. Notes attach in parallel when provided or when `aapp.aiNotes=true`. |
+| `none` | `aapp ai none` | **Default. Pure human authoring until opted in.** No AI trailers in commit messages; trailers are refused. (Notes remain independently usable via `aapp note`). |
+| `lax` | `aapp ai lax` | **Recommended when opting in. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely. Notes attach in parallel when provided or when `aapp.aiNotes=true`. |
 | `strict` | `aapp ai strict` | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. Notes attach in parallel when provided or when `aapp.aiNotes=true`. |
 | `notes` | `aapp ai notes` | **Private-first attribution.** Leaves commit messages pristine and human-only; records attribution metadata in `refs/notes/ai`. |
 

@@ -398,8 +398,8 @@ aapp ai credits  # Generate or update AI Contributors roster in README.md
 ### Attribution Modes & Security Model
 | Mode | Command | Scope & Behavior |
 | :--- | :--- | :--- |
-| `none` | `aapp ai none` | **Pure human authoring.** Any accidental AI trailers are caught and blocked by `commit-msg`. |
-| `lax` | `aapp ai lax` | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
+| `none` | `aapp ai none` | **Default. Pure human authoring until opted in.** Any accidental AI trailers are caught and blocked by `commit-msg`. |
+| `lax` | `aapp ai lax` | **Recommended when opting in. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
 | `strict` | `aapp ai strict` | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. |
 | `notes` | `aapp ai notes` | **Local-first / private benchmarking.** Keeps commit messages pristine. Attribution metadata attaches to `refs/notes/commits` via `aapp note stage` and `post-commit`. |
 

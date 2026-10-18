@@ -1785,8 +1785,8 @@ AAPP introduces two distinct, purpose-driven attribution channels:
 
 | Mode | Command | Target Ref / Layer | Visibility & Durability |
 | :--- | :--- | :--- | :--- |
-| `none` | `aapp ai none` | Working tree only | **Pure human authoring.** Accidental AI trailers are blocked by `commit-msg`. |
-| `lax` | `aapp ai lax` | Commit object trailers | **Default. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
+| `none` | `aapp ai none` | Working tree only | **Default. Pure human authoring until opted in.** Accidental AI trailers are blocked by `commit-msg`. |
+| `lax` | `aapp ai lax` | Commit object trailers | **Recommended when opting in. Mixed human/AI work.** Validates emailless trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) when present; human commits pass freely without trailers. |
 | `strict` | `aapp ai strict` | Commit object trailers | **Autonomous agent trace.** Every commit must carry valid emailless semantic trailers. Parallel notes attach when provided or when `aapp.aiNotes=true`. |
 | `notes` | `aapp ai notes` | `refs/notes/ai` | **Private-first attribution.** Commit messages remain pristine and human-only. Metadata attaches via Git notes. |
 
