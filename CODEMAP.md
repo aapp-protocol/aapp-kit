@@ -237,7 +237,7 @@
   * Parallel scheduling (P-67): up to N suites at once, N from `jobs <n>` or the CPU count rounded down to a multiple of 4; each suite's output captured in its own file and flushed in one write when it finishes; summary rows in selection order; one `trap` stops running suites and removes the files on exit or interrupt.
   * Suite parts (P-68): `tests/verbs/<verb>.<part>.sh` belongs to `<verb>`; `verb <verb>` runs it with all its parts, each scheduled as its own suite.
   * Fail-closed sandbox propagation (`AAPP_TEST_SANDBOX_STRICT=1`).
-  * Adopter mode fallback: delegates to `aapp.testCommand` / auto-detected project runner (`npm`, `cargo`, etc.) or performs non-destructive AAPP protocol environment health audit.
+  * Kit suites only (#92): suites come from `$AAPP_BASE/tests` (the kit clone or installed copy) and run from the kit's root; a kit without `tests/` fails closed.
 * **Anti-Wrapper Warning:** Never bypass subshell sandboxing or alter suite exit codes.
 ### 📝 Dedicated Git Notes Engine (`lib/cmd_note.sh`)
 * **Purpose:** First-class developer CLI handler and lifecycle manager for git notes (`aapp note [status | stage | push | pull]`, P-44).
