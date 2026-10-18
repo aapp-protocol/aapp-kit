@@ -517,15 +517,29 @@ status_overview_line() {
     printf '%s\n' "$line"
 }
 
+status_upstream_diff() {
+    local d="${1:-.}" b u c a h
+    b="$(git -C "$d" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    [ -z "$b" ] || [ "$b" = "HEAD" ] && return 0
+    u="$(git -C "$d" rev-parse --abbrev-ref '@{u}' 2>/dev/null || true)"
+    [ -z "$u" ] && git -C "$d" rev-parse --verify "origin/$b" >/dev/null 2>&1 && u="origin/$b"
+    [ -z "$u" ] && return 0
+    c="$(git -C "$d" rev-list --left-right --count "HEAD...$u" 2>/dev/null || true)"
+    [ -z "$c" ] && return 0
+    a="${c%%[[:space:]]*}"; h="${c##*[[:space:]]}"
+    [ "$a" -eq 0 ] && [ "$h" -eq 0 ] && printf '%s: in sync' "$b" || printf '%s: +%s/-%s' "$b" "$a" "$h"
+}
+
 status_render_terminal() {
     local frame version count first files sname reason label stashes initiator buffer parsed error names s wt br
-    local kind sec text cnt title t id base st lbl k g m tg bl w wb fb depth rq rb ap onto rp rl line active archived plans steps fl f
+    local kind sec text cnt title t id base st lbl k g m tg bl w wb fb depth rq rb ap onto rp rl line active archived plans steps fl f up_diff p_diff
     frame="$(printf '%*s' "$STATUS_WIDTH" '' | tr ' ' '=')"
     version="${AAPP_VERSION:-1.0.0}"
 
     echo "$frame"
     status_line 2 4 "🧭 AAPP Context Recovery Briefing"
-    status_line 2 4 "📍 Repo: $REPO_ROOT"
+    up_diff="$(status_upstream_diff .)"; p_diff="$(status_upstream_diff .plans)"
+    status_line 2 4 "📍 Repo: $REPO_ROOT${up_diff:+ ($up_diff)}${p_diff:+ · .plans ($p_diff)}"
     status_line 2 4 "$(status_overview_line)"
     count="$(printf '%s' "$STATUS_TEMPLATES" | grep -c . || true)"
     first="$(printf '%s\n' "$STATUS_TEMPLATES" | head -n 1 | tr '\t' ' ')"
