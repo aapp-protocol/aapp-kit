@@ -169,30 +169,30 @@ aapp companion list
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
-- [ ] `tests/verbs/companion.sh::test_companion_add_checkout_validates_repo` -> asserts `aapp companion add` registers existing repo and adds to allowlist
-- [ ] `tests/verbs/companion.sh::test_companion_add_worktree_non_aapp` -> asserts worktree mode creates worktree for non-AAPP repo
-- [ ] `tests/verbs/companion.sh::test_companion_add_worktree_refuses_aapp_repo` -> asserts worktree mode refuses AAPP repos per G2 with helpful guidance
-- [ ] `tests/verbs/companion.sh::test_companion_status_offline_metrics` -> asserts status reports dirty count, ahead/behind without network access
-- [ ] `tests/verbs/companion.sh::test_companion_push_bounded` -> asserts push delegates to git -C push, refusing dirty copy or unconfigured upstream
-- [ ] `tests/verbs/companion.sh::test_companion_remove_checkout_unlinks_only` -> asserts remove on checkout preserves directory and unregisters config
-- [ ] `tests/verbs/companion.sh::test_companion_remove_worktree_guards_unpushed` -> asserts remove on worktree refuses unpushed commits unless force specified
-- [ ] `tests/verbs/companion.sh::test_companion_guard_delegation_aapp` -> asserts blast-radius-guard delegates check to companion AAPP guard per G1
+- [x] `tests/verbs/companion.sh::test_companion_add_checkout_validates_repo` -> asserts `aapp companion add` registers existing repo and adds to allowlist
+- [x] `tests/verbs/companion.sh::test_companion_add_worktree_non_aapp` -> asserts worktree mode creates worktree for non-AAPP repo
+- [x] `tests/verbs/companion.sh::test_companion_add_worktree_refuses_aapp_repo` -> asserts worktree mode refuses AAPP repos per G2 with helpful guidance
+- [x] `tests/verbs/companion.sh::test_companion_status_offline_metrics` -> asserts status reports dirty count, ahead/behind without network access
+- [x] `tests/verbs/companion.sh::test_companion_push_bounded` -> asserts push delegates to git -C push, refusing dirty copy or unconfigured upstream
+- [x] `tests/verbs/companion.sh::test_companion_remove_checkout_unlinks_only` -> asserts remove on checkout preserves directory and unregisters config
+- [x] `tests/verbs/companion.sh::test_companion_remove_worktree_guards_unpushed` -> asserts remove on worktree refuses unpushed commits unless force specified
+- [x] `tests/verbs/companion.sh::test_companion_guard_delegation_aapp` -> asserts blast-radius-guard delegates check to companion AAPP guard per G1
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Author `tests/verbs/companion.sh` with full fixture scaffolding; confirm red.
+- [x] Task 1.1: Author `tests/verbs/companion.sh` with full fixture scaffolding; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: `lib/cmd_companion.sh`: Implement `add`, `status`, `push`, `remove`, `list`.
-- [ ] Task 2.2: `aapp` & `lib/verbs.tsv`: Register `companion` in CLI dispatcher and verb catalog.
-- [ ] Task 2.3: `templates/blast-radius-guard.sh`: Implement companion registry lookup and G1 guard delegation with `$CANONICAL_TARGET`.
+- [x] Task 2.1: `lib/cmd_companion.sh`: Implement `add`, `status`, `push`, `remove`, `list`.
+- [x] Task 2.2: `aapp` & `lib/verbs.tsv`: Register `companion` in CLI dispatcher and verb catalog.
+- [x] Task 2.3: `templates/blast-radius-guard.sh`: Implement companion registry lookup and G1 guard delegation with `$CANONICAL_TARGET`.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites across all verbs.
-- [ ] Task 3.2: Update `MANUAL.md` (§ Companion Development & Multi-Repository Co-Development).
-- [ ] Task 3.3: Update `CHEATSHEET.md` with `aapp companion` command summary.
-- [ ] Task 3.4: Update `ARCHITECTURE.md` (§ Cross-Repository Companion Architecture).
-- [ ] Task 3.5: Update `lib/docs/verbs/companion.md` with full verb specification and contracts.
-- [ ] Task 3.6: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.1: Run automated test suites across all verbs.
+- [x] Task 3.2: Update `MANUAL.md` (§ Companion Development & Multi-Repository Co-Development).
+- [x] Task 3.3: Update `CHEATSHEET.md` with `aapp companion` command summary.
+- [x] Task 3.4: Update `ARCHITECTURE.md` (§ Cross-Repository Companion Architecture).
+- [x] Task 3.5: Update `lib/docs/verbs/companion.md` with full verb specification and contracts.
+- [x] Task 3.6: Verify `CHANGELOG.md` updates and run syntax/build checks.
 
 ---
 
