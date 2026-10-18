@@ -13,5 +13,4 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
-- [ ] #92 -> Outside the kit clone, `aapp test` runs the current repo's `tests/*_test.sh`, or `eval`s `aapp.testCommand` / auto-detects `npm`, `cargo`, `composer`, `go`, `make` — running another project's tests. The kit is in no position to do that. (queued 2026-10-18)
 ### Low
