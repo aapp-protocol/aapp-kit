@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 📝 Refining
+* **Status:** ⚡ In Development
 * **Base:** `d7c2f38` (develop)
 * **Worktree:** .workspace/P108 (plan/P108-status-line-accessor)
 * **Commits:** `1ef1c95` (plan/P108-status-line-accessor), `f42a27e` (plan/P108-status-line-accessor), `17430c2` (plan/P108-status-line-accessor), `a513f22` (plan/P108-status-line-accessor)
@@ -133,6 +133,7 @@ Goal: one accessor that reads a plan's status, and one that writes it, both back
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-18:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-18:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-18:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-18:** Drafted from #85.
