@@ -2544,23 +2544,6 @@ cmd_done() {
     local sm_file="$PLANS_DIR/state_matrix.md"
     sync_state_matrix
 
-    # Clear active buffer if matching
-    if [ -f "$ACTIVE_FILE" ]; then
-        local cur_act
-        cur_act="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
-        if [ "$cur_act" = "$plan_id" ] || [ "$cur_act" = "$bname" ]; then
-            rm -f "$ACTIVE_FILE"
-        fi
-    fi
-    # P-54: and in the worktree that holds it, wherever done runs; otherwise that
-    # worktree stays bound to an archived plan and its guard refuses every edit.
-    local holder holder_buf
-    if holder="$(find_worktree_holding_plan "$plan_id")"; then
-        holder_buf="$(git -C "$holder" rev-parse --git-path aapp_active_plan)"
-        case "$holder_buf" in /*) ;; *) holder_buf="$holder/$holder_buf" ;; esac
-        rm -f "$holder_buf"
-    fi
-
     # Commit transition in plans worktree
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
         local done_targets=("current/$bname" "done/$bname")
@@ -2584,6 +2567,23 @@ cmd_done() {
         fi
     fi
     rm -rf "$snap"
+
+    # Clear active buffer if matching, only once the archive commit has landed (#124)
+    if [ -f "$ACTIVE_FILE" ]; then
+        local cur_act
+        cur_act="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
+        if [ "$cur_act" = "$plan_id" ] || [ "$cur_act" = "$bname" ]; then
+            rm -f "$ACTIVE_FILE"
+        fi
+    fi
+    # P-54: and in the worktree that holds it, wherever done runs; otherwise that
+    # worktree stays bound to an archived plan and its guard refuses every edit.
+    local holder holder_buf
+    if holder="$(find_worktree_holding_plan "$plan_id")"; then
+        holder_buf="$(git -C "$holder" rev-parse --git-path aapp_active_plan)"
+        case "$holder_buf" in /*) ;; *) holder_buf="$holder/$holder_buf" ;; esac
+        rm -f "$holder_buf"
+    fi
     if [ "$close_where" = "active" ]; then
         issue_notify_close "$close_issue" "$commit_sha" "$close_summary" "$plan_id" "$close_payload"
         echo "   Issue closed : #$close_issue -> done/000-issues-archive.md"
