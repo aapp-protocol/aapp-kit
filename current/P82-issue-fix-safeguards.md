@@ -11,7 +11,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `2947af4` (develop)
 * **Worktree:** .workspace/P82 (plan/P82-issue-fix-safeguards)
-* **Commits:** none
+* **Commits:** `7a35a67` (plan/P82-issue-fix-safeguards)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -71,35 +71,35 @@ This plan makes an issue fix small by measure, declared before it is touched, an
 
 ### 🧪 Required Tests (Failure & Boundary Assertions)
 > Test assertions that must fail before implementation and pass upon completion. Format: `path::test_name -> asserts <condition>`
-- [ ] `tests/verbs/issue.limits.sh::test_close_refuses_over_file_limit` -> asserts a fix of 4 changed files is refused at `close` with both numbers and the promotion commands; nothing lands, the issue stays open
-- [ ] `tests/verbs/issue.limits.sh::test_close_refuses_over_line_limit` -> asserts a fix of 30 changed lines in one file is refused the same way
-- [ ] `tests/verbs/issue.limits.sh::test_limits_are_configurable` -> asserts `aapp.fixMaxFiles` and `aapp.fixMaxLines` move the limits, and `0` turns one off
-- [ ] `tests/verbs/issue.limits.sh::test_added_file_needs_a_reason` -> asserts `fix <n> file <path>` outside the row is refused without a reason, nothing written; with one, the mini plan records the file and its reason in one commit and the issue gets the note
-- [ ] `tests/verbs/issue.limits.sh::test_close_refuses_undeclared_file` -> asserts a changed file neither in the row nor declared refuses `close`, naming it
-- [ ] `tests/verbs/issue.limits.sh::test_collision_notice` -> asserts `fix` names a plan in development that lists one of its files, and opens
-- [ ] `tests/verbs/issue.limits.sh::test_collision_refuse_setting` -> asserts `aapp.fixCollision refuse` refuses with nothing written, and `force` opens the fix
-- [ ] `tests/verbs/issue.limits.sh::test_blocked_plan_is_no_collision` -> asserts the plan a hotfix blocks, listing the hotfix's file, neither warns nor refuses
-- [ ] `tests/verbs/issue.limits.sh::test_protected_file_refused` -> asserts `fix <n> file .githooks/pre-commit "<why>"` is refused with nothing written
+- [x] `tests/verbs/issue.limits.sh::test_close_refuses_over_file_limit` -> asserts a fix of 4 changed files is refused at `close` with both numbers and the promotion commands; nothing lands, the issue stays open
+- [x] `tests/verbs/issue.limits.sh::test_close_refuses_over_line_limit` -> asserts a fix of 30 changed lines in one file is refused the same way
+- [x] `tests/verbs/issue.limits.sh::test_limits_are_configurable` -> asserts `aapp.fixMaxFiles` and `aapp.fixMaxLines` move the limits, and `0` turns one off
+- [x] `tests/verbs/issue.limits.sh::test_added_file_needs_a_reason` -> asserts `fix <n> file <path>` outside the row is refused without a reason, nothing written; with one, the mini plan records the file and its reason in one commit and the issue gets the note
+- [x] `tests/verbs/issue.limits.sh::test_close_refuses_undeclared_file` -> asserts a changed file neither in the row nor declared refuses `close`, naming it
+- [x] `tests/verbs/issue.limits.sh::test_collision_notice` -> asserts `fix` names a plan in development that lists one of its files, and opens
+- [x] `tests/verbs/issue.limits.sh::test_collision_refuse_setting` -> asserts `aapp.fixCollision refuse` refuses with nothing written, and `force` opens the fix
+- [x] `tests/verbs/issue.limits.sh::test_blocked_plan_is_no_collision` -> asserts the plan a hotfix blocks, listing the hotfix's file, neither warns nor refuses
+- [x] `tests/verbs/issue.limits.sh::test_protected_file_refused` -> asserts `fix <n> file .githooks/pre-commit "<why>"` is refused with nothing written
 
 ### ♻️ Existing Tests Changed or Retired
 > Tests that exist today and assert behaviour this plan changes. Each is rewritten or removed in the same commit as the change, with its contract line.
 - Tests that add a file outside the row with `fix <n> file <path>` (`tests/verbs/issue.sh`, `tests/verbs/issue.branchplugin.sh`, `tests/verbs/issue.fixes.sh`): given a reason.
 
 ### Phase 1: Tests First (red)
-- [ ] Task 1.1: Write `tests/verbs/issue.limits.sh`; confirm red.
+- [x] Task 1.1: Write `tests/verbs/issue.limits.sh`; confirm red.
 
 ### Phase 2: Core Implementation
-- [ ] Task 2.1: The limits at `close`, with the two settings.
-- [ ] Task 2.2: Declared files: the reason at `fix <n> file`, the note, the check at `close`.
-- [ ] Task 2.3: The collision notice, `aapp.fixCollision` and `force`.
-- [ ] Task 2.4: The agent rules and the skills.
+- [x] Task 2.1: The limits at `close`, with the two settings.
+- [x] Task 2.2: Declared files: the reason at `fix <n> file`, the note, the check at `close`.
+- [x] Task 2.3: The collision notice, `aapp.fixCollision` and `force`.
+- [x] Task 2.4: The agent rules and the skills.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update `MANUAL.md` (fix flow, settings table), `CHEATSHEET.md`, the issue contract, `templates/AGENTS.md`, the fix and start skills.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Fallout of this plan outside its Target Files: stop and amend the plan with the human's OK; an unrelated finding is logged as an issue.
+- [x] Task 3.1: Run automated test suites and verify edge cases.
+- [x] Task 3.2: Update `MANUAL.md` (fix flow, settings table), `CHEATSHEET.md`, the issue contract, `templates/AGENTS.md`, the fix and start skills.
+- [x] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md`.
+- [x] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 3.5: Fallout of this plan outside its Target Files: stop and amend the plan with the human's OK; an unrelated finding is logged as an issue.
 
 ---
 
