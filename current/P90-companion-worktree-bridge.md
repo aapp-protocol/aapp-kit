@@ -183,7 +183,7 @@ aapp companion list
 
 ### Phase 2: Core Implementation
 - [ ] Task 2.1: `lib/cmd_companion.sh`: Implement `add`, `status`, `push`, `remove`, `list`.
-- [ ] Task 2.2: `lib/aapp-lib.sh`: Register `companion` in CLI dispatcher and verb catalog.
+- [ ] Task 2.2: `aapp` & `lib/verbs.tsv`: Register `companion` in CLI dispatcher and verb catalog.
 - [ ] Task 2.3: `templates/blast-radius-guard.sh`: Implement companion registry lookup and G1 guard delegation with `$CANONICAL_TARGET`.
 
 ### Phase 3: Verification & Documentation
@@ -199,8 +199,10 @@ aapp companion list
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
+- [ ] `aapp` -> Wire companion verb into CLI dispatcher.
+- [ ] `lib/verbs.tsv` -> Register companion verb in canonical manifest.
 - [ ] `lib/cmd_companion.sh` -> Implementation of `aapp companion` verb.
-- [ ] `lib/aapp-lib.sh` -> CLI dispatcher and helper functions.
+- [ ] `lib/aapp-lib.sh` -> Helper functions and companion routines.
 - [ ] `templates/blast-radius-guard.sh` -> Companion registry resolution and G1 guard delegation.
 - [ ] `lib/docs/verbs/companion.md` -> Command reference documentation.
 - [ ] `MANUAL.md` -> User manual section on companion development.
