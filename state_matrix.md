@@ -20,11 +20,12 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-59**: [`P59-kit-release-hook.md`](current/P59-kit-release-hook.md) — Kit Release Hook
 - 🟣 **P-82**: [`P82-issue-fix-safeguards.md`](current/P82-issue-fix-safeguards.md) — Issue Fix Safeguards
 - 🟣 **P-90**: [`P90-companion-worktree-bridge.md`](current/P90-companion-worktree-bridge.md) — Companion Worktree Bridge
-- 🟣 **P-98**: [`P98-status-plan-progress.md`](current/P98-status-plan-progress.md) — Status Plan Progress
 
 ---
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
+
+- 🔷 **P-98**: [`P98-status-plan-progress.md`](current/P98-status-plan-progress.md) — Status Plan Progress
 
 ---
 
