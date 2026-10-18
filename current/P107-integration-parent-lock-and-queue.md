@@ -2,7 +2,7 @@
 * **Created:** 2026-10-18 | **Last Refined:** 2026-10-18
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-107
-* **Changelog:** Added: parent-branch integration lock and serialized landing queue (P-107)
+* **Changelog:** Added: parent-branch integration lock, atomic landing CAS, and unified named locks (P-107)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,143 +40,265 @@
 
 ## 1. Context & Architectural Goal
 
-During parallel multi-agent development or concurrent developer workflows, plans are implemented in isolated worktrees (`.workspace/<plan-id>`). While Plan P-65 guarantees code disjointness during development and Plan P-106 introduces automated clean rebasing on `integrate ff`, a critical **Time-of-Check to Time-of-Use (TOCTOU) race condition** exists during integration:
+During parallel multi-agent development or concurrent developer workflows, plans are implemented in isolated worktrees (`.workspace/<plan-id>`). While Plan P-65 guarantees code disjointness during development and Plan P-106 introduces automated clean rebasing on `integrate ff`, a critical **Time-of-Check to Time-of-Use (TOCTOU) race condition** exists during branch integration:
 
+### 1.1 The Vulnerability Surface
 1. **The Concurrency Gap**:
    In `aapp done <id> integrate`:
-   - `_ig_preflight` verifies that the plan contains the parent branch (or auto-rebases onto it).
-   - The `pre-done` test gate hook executes (e.g. `./aapp test quiet`, which may take anywhere from 10 seconds to several minutes).
-   - If another agent or developer lands a commit on the parent branch while `pre-done` is running, the parent branch tip advances.
-   - Once tests pass, `aapp done` moves the plan to `.plans/done/` and records it on the `plans` branch.
-   - Finally, `_ig_run` attempts `git merge --ff-only <plan-branch>`. Because the parent branch moved forward during testing, the fast-forward fails!
-2. **The Inconsistent State (Orphan Archival)**:
-   The plan is archived in `.plans/done/`, but its code never merged into the parent branch. Retrying via `aapp done <id> integrate` runs `_ig_standalone`, which rebases again but skips the test gate, landing untested code on the new parent tip.
+   - `_ig_preflight` currently verifies ancestry and runs auto-rebase *before* acquiring any lock.
+   - At its end, `_ig_preflight` takes the legacy global `aapp_issue.lock` (line 959), holding it through `pre-done`. This has two fatal flaws:
+     a) It unnecessarily serializes integrations globally across different parent branches (e.g. `module/auth` vs `develop`).
+     b) A waiter that queued for the lock evaluated its contains-parent check *stale* before waiting!
+   - `aapp issue close` moves parent branches without taking any integration lock (`_issue_land_fix` in `lib/cmd_issue.sh:842-849`), racing with concurrent `done` runs.
+   - A raw human git commit or push on the parent branch completely ignores the lock.
+2. **Main Checkout Contention**:
+   `_ig_run` currently switches the main checkout (`PRIMARY_ROOT`) to the target parent branch (`git checkout "$IG_TARGET_BR"`), runs `git merge --ff-only`, and switches back. Concurrent parent integrations collide in the main checkout, and any uncommitted developer files in `PRIMARY_ROOT` abort the entire integration.
+3. **Inconsistent State (Orphan Archival)**:
+   `cmd_plan.sh` moves the plan to `.plans/done/` *before* `_ig_run` executes. If `git merge --ff-only` fails (because the parent branch moved), the plan is archived on the `plans` branch, but its code never merged into the parent branch.
+4. **Untested Standalone Retry**:
+   When retrying an archived plan via `aapp done <id> integrate`, `_ig_standalone` rebases diverged code but skips the `pre-done` test gate entirely, landing un-gated code onto the parent branch.
 
-### Architectural Goals:
-1. **Target-Parent-Scoped Integration Lock (`aapp.integrateLock`)**:
-   Key the integration mutex to the **specific parent/target branch** (e.g. `develop`, `module/auth`, `feature/foo`), NOT hardcoded globally to `develop`. Concurrent plans targeting different parent branches integrate simultaneously without contention; plans targeting the *same* parent branch are safely serialized.
-2. **Configurable Wait with Low Starting Minimum (`aapp.integrateWait`)**:
-   The wait timeout must be configurable via `git config aapp.integrateWait <seconds>` (default: 15s; configurable from a minimum of 10s up to 600s), utilizing a fast 2-3s polling roller so short test suites don't incur unnecessary latency.
-3. **Atomic Landing Sequence (Zero Orphan Archival)**:
-   Ensure parent-branch fast-forward succeeds before committing plan archival. If integration fails, the plan remains in `.plans/current/` with its worktree clean and untouched.
+### 1.2 Architectural Goals
+1. **Unified Named Lock Subsystem (`lib/aapp-lib.sh`)**:
+   Consolidate lock mechanics into a single, clean API supporting named locks (`issue` and `integrate/<parent>`), atomic `mkdir` directories, PID ownership, stale-process takeover, multi-lock tracking, and chained `EXIT` signal handlers.
+2. **Per-Parent Integration Lock**:
+   Acquire the parent lock `integrate/<parent>` **before** the contains-parent check and auto-rebase. Integrations into different parent branches run in parallel without contention.
+3. **Headless Fast-Forward via Compare-and-Swap (CAS)**:
+   Fast-forward parent branches directly via `git update-ref refs/heads/<parent> <new_sha> <old_sha>` (or inside the worktree holding the target branch), without touching `PRIMARY_ROOT`. CAS guarantees that if a raw commit advanced the parent branch, the update refuses cleanly.
+4. **Atomic Landing Sequence (Option i)**:
+   Execute parent-branch fast-forward (via CAS) **before** committing plan archival to `.plans/done/`. If archival fails, CAS rolls the parent branch back to `<old_sha>` while the lock is held. Address issue #124 so active plan buffers are preserved on failure.
+5. **Pre-Commit Raw Commit Boundary**:
+   In `templates/aapp-pre-commit`, refuse raw commits directly touching a branch currently held by an `integrate/<branch>` lock.
+6. **Pre-Done Gate on Standalone Rebase**:
+   Ensure `_ig_standalone` invokes `pre-done` whenever an automated rebase is performed.
+7. **Configurable Wait with Low Minimum (`aapp.integrateWait`)**:
+   Default wait of 15 seconds (configurable from 10s to 600s, 2s poll step) with clean diagnostics naming lock holder PID and plan ID. Clean break: drop the redundant `aapp.integrateLock` switch.
 
 ---
 
 ## 2. Technical Blueprint
 
-### 2.1 Parent-Branch Integration Mutex Architecture
+### 2.1 Unified Named Lock Engine (`lib/aapp-lib.sh`)
 
-Instead of a monolithic global lock, the integration lock is scoped to the canonical parent branch name:
+Replace legacy `_issue_lock_*` functions and hardcoded lock paths with a unified named lock subsystem:
 
 ```bash
-# _ig_lock_file <target_branch>: derives safe filesystem path for parent branch lock
-_ig_lock_file() {
-    local target="$1"
-    local safe_target
-    safe_target="$(echo "$target" | tr '/:' '__')"
-    local common_dir
-    common_dir="$(git rev-parse --git-common-dir 2>/dev/null || git rev-parse --git-dir)"
-    echo "$common_dir/aapp_integrate_${safe_target}.lock"
+# Sanitizes lock name into safe path in git common dir
+# aapp_lock_path <name>
+aapp_lock_path() {
+    local name="$1"
+    local safe_name
+    safe_name="$(printf '%s' "$name" | sed 's|/|%2F|g')"
+    local common
+    common="$(git rev-parse --git-common-dir 2>/dev/null || git rev-parse --git-dir)"
+    case "$common" in /*) ;; *) common="$(cd "$common" && pwd)" ;; esac
+    echo "$common/aapp_${safe_name}.lock"
+}
+
+# Global list of locks held by the current process
+_AAPP_HELD_LOCKS=()
+
+_aapp_locks_cleanup_trap() {
+    for lk in "${_AAPP_HELD_LOCKS[@]}"; do
+        [ -n "$lk" ] && rm -rf "$lk" 2>/dev/null || true
+    done
+    _AAPP_HELD_LOCKS=()
+}
+
+# aapp_lock_acquire <name> <limit_seconds> [diagnostic_label]
+aapp_lock_acquire() {
+    local name="$1" limit="${2:-15}" label="${3:-$name}"
+    local lock waited=0 step=2 pid mtime age
+    lock="$(aapp_lock_path "$name")"
+
+    # Re-entrancy: allow if already held by this process
+    for held in "${_AAPP_HELD_LOCKS[@]}"; do
+        [ "$held" = "$lock" ] && return 0
+    done
+
+    while ! mkdir "$lock" 2>/dev/null; do
+        pid="$(cat "$lock/pid" 2>/dev/null || true)"
+        if [ -z "$pid" ]; then
+            mtime="$(stat -c %Y "$lock" 2>/dev/null || stat -f %m "$lock" 2>/dev/null || date +%s)"
+            age=$(( $(date +%s) - mtime ))
+            if [ "$age" -ge 5 ]; then
+                echo "⚠️  [Lock] Taking over stale $label lock (no holder PID)." >&2
+                rm -rf "$lock"; continue
+            fi
+        elif ! kill -0 "$pid" 2>/dev/null; then
+            echo "⚠️  [Lock] Taking over stale $label lock (holder PID $pid is gone)." >&2
+            rm -rf "$lock"; continue
+        fi
+        if [ "$waited" -ge "$limit" ]; then
+            local holder_info=""
+            [ -f "$lock/info" ] && holder_info=" ($(cat "$lock/info" 2>/dev/null))"
+            echo "⏳ [Lock Refusal] $label lock is still held${pid:+ by process $pid}${holder_info}; waited ${waited}s (limit ${limit}s)." >&2
+            echo "   Retry when the holder finishes, or raise limit with 'git config aapp.integrateWait <seconds>'." >&2
+            return 1
+        fi
+        echo "⏳ [Lock] $label lock held${pid:+ by PID $pid}; waiting ${step}s (elapsed ${waited}s)..." >&2
+        sleep "$step"; waited=$((waited + step)); step=$((step + 1))
+    done
+
+    echo "$$" > "$lock/pid"
+    _AAPP_HELD_LOCKS+=("$lock")
+    trap '_aapp_locks_cleanup_trap' EXIT INT TERM
+}
+
+# aapp_lock_release <name>
+aapp_lock_release() {
+    local name="$1"
+    local lock
+    lock="$(aapp_lock_path "$name")"
+    rm -rf "$lock" 2>/dev/null || true
+    local remaining=()
+    for held in "${_AAPP_HELD_LOCKS[@]}"; do
+        [ "$held" != "$lock" ] && remaining+=("$held")
+    done
+    _AAPP_HELD_LOCKS=("${remaining[@]}")
 }
 ```
 
-#### Lock Lifecycle:
-1. **Acquisition**: `_ig_lock_acquire <target_branch> <plan_id>`
-   - Uses atomic directory creation (`mkdir "$lock_file.d"`) or atomic `ln -s` to prevent race conditions.
-   - Writes holding metadata: `{"plan_id": "$pid", "pid": "$$", "target": "$target", "start": "<timestamp>"}`.
-   - If held by another process: enters roller wait loop up to `aapp.integrateWait` seconds (default: 15s).
-   - If holding process died (stale lock detection): verifies PID liveness (`kill -0 <pid>`); removes stale lock if holding process is dead.
-2. **Release**: `_ig_lock_release <target_branch>`
-   - Cleans up the lock on normal exit, error exit, or signal trap (`EXIT INT TERM`).
+---
+
+### 2.2 Integration Flow Sequencing (`lib/cmd_plan.sh`)
+
+1. **Lock Scope & Acquisition**:
+   Before preflight checks, resolve the parent target branch: `IG_TARGET_BR="$(resolve_plan_integrate_target "$pf")"`.
+   Acquire the parent lock immediately:
+   ```bash
+   aapp_lock_acquire "integrate/$IG_TARGET_BR" "$integrate_wait" "Parent branch '$IG_TARGET_BR'" || exit 1
+   echo "Plan $pid (PID $$)" > "$(aapp_lock_path "integrate/$IG_TARGET_BR")/info"
+   ```
+2. **Drop Global Issue Lock from Preflight**:
+   Remove `_issue_lock_acquire` and `_issue_wait_limit` from `_ig_preflight`. Since Plan P-85, issue fixes operate in dedicated worktrees (`.workspace/fix-<num>`) and no longer occupy the main checkout.
+3. **Preflight Under Lock**:
+   With `integrate/$IG_TARGET_BR` held:
+   - Check ancestry. If diverged, automated clean rebase runs.
+   - Capture `PARENT_OLD_SHA="$(git rev-parse "refs/heads/$IG_TARGET_BR")"`.
+4. **Pre-Done Test Gate**:
+   Execute `dispatch_hook "pre-done"`. Because the parent lock is held, no other kit verb or fix can land on `$IG_TARGET_BR` while tests run.
+5. **Headless Fast-Forward via Compare-and-Swap (CAS)**:
+   In `_ig_run`, avoid switching `PRIMARY_ROOT`:
+   ```bash
+   if [ "$IG_WT_HOLDS_TARGET" -eq 1 ]; then
+       git -C "$WT_HOLDING_TARGET" merge -q --ff-only "$IG_PLAN_BR"
+   else
+       git update-ref "refs/heads/$IG_TARGET_BR" "$NEW_PLAN_HEAD" "$PARENT_OLD_SHA" || {
+           echo "❌ [Integrate] Target branch '$IG_TARGET_BR' moved concurrently (CAS mismatch); aborting integration." >&2
+           return 1
+       }
+   fi
+   ```
+   If `PRIMARY_ROOT` happens to be on `$IG_TARGET_BR` and clean, fast-forward or sync its index/worktree.
+6. **Atomic Archive & Rollback**:
+   Execute plan archival commit into `.plans/done/`.
+   If the archive commit fails (snapshot rollback triggered):
+   - Roll back the parent branch: `git update-ref "refs/heads/$IG_TARGET_BR" "$PARENT_OLD_SHA" "$NEW_PLAN_HEAD"`.
+   - Restore active plan buffer (resolving #124).
+7. **Release Lock**:
+   `aapp_lock_release "integrate/$IG_TARGET_BR"` runs on success or via the exit trap.
 
 ---
 
-### 2.2 Integration Flow Sequencing
+### 2.3 Issue Fix Landing Safety (`lib/cmd_issue.sh`)
 
-```text
-aapp done <id> integrate ff
-  │
-  ├── 1. Resolve Target Parent Branch (e.g. develop or module/auth)
-  │
-  ├── 2. Acquire Parent-Branch Lock: _ig_lock_acquire "$target" "$id"
-  │      └── Wait if held (up to aapp.integrateWait seconds, poll every 2s)
-  │
-  ├── 3. Preflight & Clean Rebase: _ig_preflight "$target" "$id"
-  │      └── Rebase onto latest parent tip under lock (guaranteed stable)
-  │
-  ├── 4. Pre-Done Test Gate: dispatch_hook "pre-done"
-  │      └── Parent branch CANNOT move because lock is held!
-  │
-  ├── 5. Fast-Forward Parent: git merge --ff-only
-  │      └── Guaranteed 100% fast-forward success (0 race window)
-  │
-  ├── 6. Archive Plan: move to .plans/done/ and commit to plans branch
-  │
-  └── 7. Release Parent-Branch Lock: _ig_lock_release "$target"
+In `_issue_land_fix`:
+```bash
+local target_br="$fix_parent"
+aapp_lock_acquire "integrate/$target_br" "$wait_limit" "Parent branch '$target_br'" || return 1
+# Execute rebase, squash, and update-ref under lock
+...
+aapp_lock_release "integrate/$target_br"
 ```
 
 ---
 
-### 2.3 Configuration Invariants
+### 2.4 Pre-Commit Raw Commit Boundary (`templates/aapp-pre-commit`)
 
-- **`aapp.integrateWait`**: Maximum time to wait for parent-branch integration lock in seconds.
-  - Default: `15` seconds (allows rapid turnaround for projects with fast test suites).
-  - Minimum allowed: `10` seconds.
-  - Configurable via `git config aapp.integrateWait 60` for repositories with larger test suites.
-- **`aapp.integrateLock`**: Boolean switch (`true` | `false`, defaults to `true`).
-  - When `true`, serializes integrations per parent branch.
-  - When `false`, bypasses locking (for solo manual environments).
+In `templates/aapp-pre-commit`:
+```bash
+# Check if committing to a branch currently locked for integration
+TARGET_LOCK="$(aapp_lock_path "integrate/$CURRENT_BRANCH")"
+if [ -d "$TARGET_LOCK" ]; then
+    HOLDER_PID="$(cat "$TARGET_LOCK/pid" 2>/dev/null || true)"
+    if [ -n "$HOLDER_PID" ] && kill -0 "$HOLDER_PID" 2>/dev/null; then
+        echo "❌ [AAPP Guard] Branch '$CURRENT_BRANCH' is currently locked for integration by PID $HOLDER_PID." >&2
+        echo "   Raw commits to a landing parent branch are prohibited during active integration." >&2
+        exit 1
+    fi
+fi
+```
 
 ---
 
-### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Backwards Compatible`
-- **Fallback Inventory**: `aapp.integrateLock` defaults to `true`. Legacy solo workflows experience zero latency when no contention exists. Lock paths are ephemeral inside `.git/` and require no repository migrations.
+### 2.5 Clean Break Invariants
+- **Legacy Issue Lock**: Completely eliminate `_issue_lock_acquire`, `_issue_lock_release`, and `aapp_issue.lock`. Replace all call sites in `lib/cmd_issue.sh` with `aapp_lock_acquire "issue"`.
+- **IntegrateLock Config**: Drop `aapp.integrateLock`. Locking is mandatory across all repository clones.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Parent-Branch Lock Primitives
-- [ ] Task 1.1: Implement `_ig_lock_file`, `_ig_lock_acquire`, and `_ig_lock_release` in `lib/cmd_plan.sh` with stale lock detection.
-- [ ] Task 1.2: Implement configurable roller wait loop reading `aapp.integrateWait` (default 15s, min 10s, 2s poll step).
-- [ ] Task 1.3: Add unit tests in `tests/integrate_test.sh` verifying lock acquisition, contention waiting, stale lock recovery, and parallel execution on different parent branches.
+### Phase 1: Unified Named Lock Subsystem (`lib/aapp-lib.sh`)
+- [ ] Task 1.1: Implement `aapp_lock_path`, `aapp_lock_acquire`, `aapp_lock_release`, multi-lock tracking array, and trap handler in `lib/aapp-lib.sh`.
+- [ ] Task 1.2: Refactor `lib/cmd_issue.sh` to use `aapp_lock_acquire "issue"` / `aapp_lock_release "issue"`, removing legacy `_issue_lock_*` functions.
+- [ ] Task 1.3: Add unit tests in `tests/integrate_test.sh` verifying lock acquisition, re-entrancy, stale takeover, and timeout diagnostics.
 
-### Phase 2: Atomic Integration Sequencing
-- [ ] Task 2.1: Wrap the entire pre-done through merge sequence in `_ig_lock_acquire` / `_ig_lock_release`.
-- [ ] Task 2.2: Ensure fast-forward succeeds before plan relocation to `.plans/done/`, preventing orphan plan states on merge failure.
-- [ ] Task 2.3: Verify signal trapping (`trap ... EXIT INT TERM`) guarantees lock release on unexpected exit or abort.
+### Phase 2: Per-Parent Integration Lock & Preflight Sequencing (`lib/cmd_plan.sh`)
+- [ ] Task 2.1: Acquire `integrate/<parent>` lock before ancestry checks and auto-rebase in `cmd_plan.sh`.
+- [ ] Task 2.2: Remove global issue lock acquisition from `_ig_preflight`.
+- [ ] Task 2.3: Implement headless fast-forward via Compare-and-Swap (`git update-ref`) in `_ig_run`, eliminating main checkout switching.
+- [ ] Task 2.4: Implement Option i atomic landing order: CAS parent ref first, then archive plan; rollback CAS if archive fails (fixing #124 buffer restoration).
+- [ ] Task 2.5: Ensure `_ig_standalone` executes `pre-done` test gate whenever an automated rebase occurs.
 
-### Phase 3: Adoption & Manual Documentation
-- [ ] Task 3.1: Add `SET-INTEGRATE-WAIT` review task in `lib/adoption.sh` under `⚙️ Settings to Review`.
-- [ ] Task 3.2: Update `MANUAL.md` with integration locking mechanics and parent-branch isolation.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and author reference specification `docs/reference/11-integration-lock-and-queue.md`.
-- [ ] Task 3.4: Verify all test suites pass cleanly (`./aapp test quiet`).
+### Phase 3: Issue Fix Locking & Pre-Commit Protection
+- [ ] Task 3.1: Wrap `_issue_land_fix` in `lib/cmd_issue.sh` with `integrate/<parent>` lock.
+- [ ] Task 3.2: Add integration lock detection in `templates/aapp-pre-commit` to reject raw commits on locked parent branches.
+- [ ] Task 3.3: Add `SET-INTEGRATE-WAIT` review task in `lib/adoption.sh` under `⚙️ Settings to Review`.
+
+### Phase 4: Reference Documentation & Test Suite
+- [ ] Task 4.1: Update `docs/reference/10-integration-and-rebase.md` with parent-branch locking, CAS fast-forward, and concurrency mechanics.
+- [ ] Task 4.2: Update `MANUAL.md` with integration locking, `aapp.integrateWait`, and race prevention.
+- [ ] Task 4.3: Update `ARCHITECTURE.md` with named lock architecture, CAS landing, and headless integration.
+- [ ] Task 4.4: Add comprehensive test suites in `tests/integrate_test.sh`:
+  - Contended parent wait and rebase under lock.
+  - Concurrent integrations targeting different parent branches proceeding without contention.
+  - `issue close` contention against concurrent plan integration.
+  - CAS rejection on external raw commit.
+  - Archive failure rollback restoring parent ref and active plan buffers (#124).
+- [ ] Task 4.5: Run full test runner (`./aapp test quiet`) and verify 100% pass rate.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `docs/reference/11-integration-lock-and-queue.md` -> Reference specification documenting parent-branch integration mutex and locking invariants.
-- [ ] `lib/cmd_plan.sh` -> Implement parent-branch integration lock primitives and re-sequence integration flow.
-- [ ] `lib/adoption.sh` -> Add `SET-INTEGRATE-WAIT` task under `⚙️ Settings to Review`.
-- [ ] `MANUAL.md` -> Document parent-branch lock, `aapp.integrateWait`, and race condition prevention.
-- [ ] `ARCHITECTURE.md` -> Document parent-branch integration mutex and atomic landing sequence.
-- [ ] `tests/integrate_test.sh` -> Add automated test fixtures covering concurrent integration locking and parent-branch isolation.
+- [ ] `lib/aapp-lib.sh` -> Implement unified named lock engine (`aapp_lock_path`, `aapp_lock_acquire`, `aapp_lock_release`).
+- [ ] `lib/cmd_plan.sh` -> Re-sequence integration flow under parent lock, headless CAS fast-forward, and standalone pre-done re-gate.
+- [ ] `lib/cmd_issue.sh` -> Use unified `issue` lock and acquire `integrate/<parent>` in `_issue_land_fix`.
+- [ ] `templates/aapp-pre-commit` -> Reject raw commits on branches currently locked for integration.
+- [ ] `lib/adoption.sh` -> Add `SET-INTEGRATE-WAIT` onboarding review item.
+- [ ] `docs/reference/10-integration-and-rebase.md` -> Document parent locking, CAS invariants, and concurrency boundaries.
+- [ ] `MANUAL.md` -> Document integration lock, `aapp.integrateWait`, and parent-branch isolation.
+- [ ] `ARCHITECTURE.md` -> Document named lock subsystem, CAS fast-forward, and atomic landing order.
+- [ ] `tests/integrate_test.sh` -> Automated test coverage for concurrent parent locks, CAS refusals, and rollbacks.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `templates/blast-radius-guard.sh` -> Tool write guard is untouched.
-- [ ] `lib/cmd_issue.sh` -> Issue workflows untouched.
-- [ ] `templates/aapp-pre-commit` -> Pre-commit hook untouched.
+- [ ] `templates/blast-radius-guard.sh` -> Write-time guard is untouched.
+- [ ] `lib/cmd_pause.sh` -> Pause subsystem is untouched.
+- [ ] `lib/attribution.sh` -> Attribution subsystem is untouched.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [x] **Question 1 — Lock Scope.** Should the integration lock be global or per-parent branch? -> **Resolved**: Per-parent branch (`aapp_integrate_<parent>.lock`). Plans integrating into `develop` serialize against each other, while plans integrating into `module/auth` proceed independently without contention.
-* [x] **Question 2 — Default Wait Timeout.** What should `aapp.integrateWait` default to? -> **Resolved**: Default to `15` seconds (with minimum 10s and 2s poll steps). This accommodates fast test suites without artificial delays, while remaining fully configurable for repositories with multi-minute suites.
+* [x] **Question 1 — Lock Subsystem Location.** Should the unified lock engine live in `lib/aapp-lib.sh` or a separate `lib/locks.sh`? -> **Resolved**: In `lib/aapp-lib.sh`. Sourced by both CLI verbs and `templates/aapp-pre-commit`, allowing the pre-commit hook to verify whether a raw commit targets a locked parent branch.
+* [x] **Question 2 — Archive vs Fast-Forward Order.** Should fast-forward precede archival (Option i) or follow archival (Option ii)? -> **Resolved**: Option i. Fast-forward the parent ref via CAS first, then commit plan archival. If archival fails, CAS rolls the parent branch back to `<old_sha>` while the lock is held, eliminating orphan plan records and resolving #124.
+* [x] **Question 3 — Pre-Done on Standalone Rebase.** Should `_ig_standalone` re-run the `pre-done` test gate if a rebase occurs? -> **Resolved**: Yes. Code rebased onto a moved parent branch must be re-verified before landing.
+* [x] **Question 4 — Toggle Configuration.** Should `aapp.integrateLock` (`true`/`false`) exist? -> **Resolved**: No (Clean Break). Uncontended lock acquisition takes < 1ms; a toggle only reopens concurrency race conditions.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-18:** Plan initialized and scaffolded to address integration TOCTOU race conditions via parent-branch scoped locks and atomic sequencing.
+* **2026-10-18:** Refined with Red Team findings: unified named lock subsystem in `lib/aapp-lib.sh`, headless CAS fast-forward via `git update-ref`, `_issue_land_fix` locking, pre-commit raw commit protection, Option i atomic rollback, standalone pre-done re-gating, and clean break retirement of `_issue_lock_*` and `aapp.integrateLock`.
