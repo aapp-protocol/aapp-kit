@@ -5,8 +5,9 @@
 * **Changelog:** Added: Milestone release bundling, tag ledgers, and hook-based versioning
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `cebc887` (develop)
+* **Worktree:** .workspace/P38 (plan/P38-milestone-release-bundling-and-tag-ledgers)
 * **Commits:** none
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done -->
 
@@ -486,6 +487,7 @@ CLI invocations with the `json` token output this exact schema directly to stdou
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-19:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-09:** Refined blueprint following RFC review settlement: aligned with `microcommits` mode, formalized strict 2-tier commit reachability ladder (ancestry or exact `Plan-ID` trailer) with `unverified` bare token override and `Commits: none` exemption; implemented fail-closed per-branch `git update-ref` rollback; upgraded `seed_plan_id`, `seed_issue_id`, `issue_locate`, `_ig_resolve_done`, and `planning_health.sh` across `.plans/release/*/`; standardized on bare token modifiers (`unverified`, `yes`, `check`, `push`, `json`, `no-archive`, `no-changelog`); pruned redundant Git config keys (`aapp.signTags`, `aapp.releasePush`, `aapp.changelogPath`); delegated test quality gate to project test runners; and scoped worktree cleanliness checks to primary and kit checkouts.
 * **2026-10-08:** Refined blueprint for universal adopter projects: added tag prefix customization (`aapp.tagPrefix`), dual release manifests (`manifest.md` and `manifest.json`), publication guidance banner, and Phase B transactional rollback handler.
 * **2026-10-08:** Refined blueprint: enshrined mandatory pre-flight simulation and verification phase across all release runs, archive commit reachability gating, unmerged branches advisory inspection, and safety confirmation.
