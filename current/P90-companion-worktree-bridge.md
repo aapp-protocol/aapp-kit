@@ -208,6 +208,7 @@ aapp companion list
 - [ ] `MANUAL.md` -> User manual section on companion development.
 - [ ] `CHEATSHEET.md` -> CLI quick reference.
 - [ ] `ARCHITECTURE.md` -> Architecture reference for companion repositories.
+- [ ] `templates/AGENTS.md` -> CLI Reference documentation for daily verbs.
 - [ ] `NEW FILE` -> `tests/verbs/companion.sh` -> Test suite.
 
 ### 🧪 Required Test Files
