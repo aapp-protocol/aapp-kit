@@ -13,5 +13,4 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
-- [ ] #170 -> aapp status lacks upstream tracking telemetry (ahead/behind counts vs @{u}) for active branch and worktrees (queued 2026-10-18)
 ### Low

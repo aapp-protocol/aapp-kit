@@ -4,7 +4,6 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #170 | `Low` | `CLI` | 2026-10-18 | `lib/cmd_status.sh` | aapp status lacks upstream tracking telemetry (ahead/behind counts vs @{u}) for active branch and worktrees |  | 🟡 `Incubated` |
 | #169 | `Medium` | `HOOK` | 2026-10-18 | `templates/blast-radius-guard.sh` | Tool writes via cross-repo symlinks can silently mutate target repository without physical symlink dereference validation |  | 🟡 `Incubated` |
 | #159 | `Medium` | `HOOK` | 2026-10-16 | `templates/aapp-pre-commit` | The pre-commit hook blocks commits on an adopter's own files with language checks (`bash -n`, Python syntax, `php -l`, JSON under `schema/`); adopter checks belong in the local hook (`templates/pre-commit`). |  | 🟡 `Incubated` |
 | #146 | `Low` | `CLI` | 2026-10-13 | `lib/cmd_init.sh` | `aapp init` deletes and recreates every skill directory and its `.claude/skills` link, even when unchanged: an open IDE drops the skills from its prompt until it is reloaded. |  | 🟡 `Incubated` |
