@@ -25,11 +25,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-98**: [`P98-status-plan-progress.md`](current/P98-status-plan-progress.md) — Status Plan Progress
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-98**: [`P98-status-plan-progress.md`](current/P98-status-plan-progress.md) — Status Plan Progress
 
 ---
 
