@@ -13,5 +13,4 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
-- [ ] #87 -> Plan invariant 4 says to add blocking files under `### 🚨 Emergency Hotfix Extensions`, but that heading is in §4, which the design lock freezes; a hotfix extension is refused once a plan is Frozen. (queued 2026-10-18)
 ### Low
