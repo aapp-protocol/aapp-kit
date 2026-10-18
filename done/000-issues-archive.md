@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #168 | `Low` | `DOCS` | 2026-10-18 | 2026-10-18 | `a2cf561` | docs and help name none as the default attribution mode and lax as the recommended mode when opting in; help examples use aapp ai <mode> |  |
 | #85 | `Low` | `CORE` | 2026-09-27 | 2026-10-18 | `14c321e` | [P-108](P108-status-line-accessor.md) - Status Line Accessor |  |
 | #95 | `Medium` | `CORE` | 2026-09-29 | 2026-10-18 | `d7c2f38` | a small fix is defined as one meeting none of the promotion criteria, whatever its line count, in AGENTS.md and the aapp-fix skill |  |
 | #92 | `Medium` | `CLI` | 2026-09-28 | 2026-10-18 | `3f5912d` | aapp test runs only the suites of the kit it runs from, never the current repository's tests, aapp.testCommand or a detected project runner; the health audit fallback is gone |  |

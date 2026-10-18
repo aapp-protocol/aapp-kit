@@ -13,5 +13,4 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
-- [ ] #168 -> Docs call lax the default attribution mode, but init seeds none and every reader falls back to none; none must stay the documented default until the developer opts in (queued 2026-10-18)
 ### Low
