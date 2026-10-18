@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- the briefing and its JSON show a plan's task progress and a group's members done (P-98) (`P-98`)
 - parent-branch integration lock, atomic landing CAS, and unified named locks (P-107) (`P-107`)
 - automated clean rebase on integrate ff and configurable documentation governance (P-106) (`P-106`)
 - sample observer event logger hook and post-* lifecycle telemetry (P-104) (`P-104`)

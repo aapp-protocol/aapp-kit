@@ -46,7 +46,7 @@ sed -i -E "s|src/path/to/file\.ext|src/shown.py|g; /src\/path\/to\/new_file\.ext
 sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$sf"; git -C .plans commit -qam prep >/dev/null 2>&1
 aapp freeze-start "$sid" >/dev/null 2>&1
 out="$(aapp status 2>&1)"
-if echo "$out" | grep -qF "$sid: $(basename "$sf")  (⚡ In Development → .workspace/P${sid#P-})"; then
+if echo "$out" | grep -qF "$sid: $(basename "$sf")  (⚡ In Development → .workspace/P${sid#P-} · tasks 0/9)"; then
   ok "test_plan_worktree_shown_next_to_plan"
 else
   bad "test_plan_worktree_shown_next_to_plan" "$(echo "$out" | grep -F "$sid")"
@@ -351,6 +351,130 @@ if echo "$mout" | grep -qF "Bound to $mid, member of group $gid: re-read the gro
   ok "test_status_member_rereads_group_guide"
 else
   bad "test_status_member_rereads_group_guide" "mout=$mout"
+fi
+cd "$R/p" || exit 1
+
+echo "== plan and group progress (P-98) =="
+init_sandbox_project "$R/prg"
+cd "$R/prg" || exit 1
+printf '%s\n' '.env' >> .gitignore; git add -A && git commit -qm "init" --no-verify
+git config aapp.planWorktrees on
+
+# 1. plan_progress accessor unit tests
+cat <<'EOF' > .plans/current/P1-sample.md
+# 🗺️ Plan P-1: Sample Plan
+* **Plan ID:** P-1
+* **Status:** ⚡ In Development
+
+## 2. Blueprint
+Some text with - [ ] not in section 3.
+
+## 🔨 3. Implementation Steps & Execution Checklist
+- [ ] Task 1
+- [x] Task 2
+- [X] Task 3
+- [ ] Task 4
+- [ ] Task 5
+
+## 💥 4. Blast Radius
+- [x] file1.sh
+- [ ] file2.sh
+
+## ❓ 5. Open Questions
+* [ ] Question 1
+EOF
+
+prg="$(plan_progress ".plans/current/P1-sample.md" 2>/dev/null || true)"
+if [ "$prg" = "$(printf '2\t5\ttasks')" ]; then
+  ok "test_plan_progress_tasks_count"
+else
+  bad "test_plan_progress_tasks_count" "expected '2\t5\ttasks', got '$prg'"
+fi
+
+# 2. plan_progress for group members
+cat <<'EOF' > .plans/current/P2-group.md
+# 🧩 Group Plan P-2: Sample Group
+* **Plan ID:** P-2
+* **Members:** P-10, P-11, P-12
+* **Status:** 🟣 Under Review
+
+## 3. Tasks
+- [ ] should not count for group
+EOF
+
+mkdir -p .plans/done
+touch .plans/done/P10-member-ten.md
+touch .plans/current/P11-member-eleven.md
+touch .plans/done/P12-member-twelve.md
+touch .plans/current/P12-member-twelve.md
+
+gprg="$(plan_progress ".plans/current/P2-group.md" 2>/dev/null || true)"
+if [ "$gprg" = "$(printf '1\t3\tmembers')" ]; then
+  ok "test_plan_progress_group_members_count"
+else
+  bad "test_plan_progress_group_members_count" "expected '1\t3\tmembers', got '$gprg'"
+fi
+
+# 3. Briefing display rules
+cat <<'EOF' > .plans/current/P3-review.md
+# 🗺️ Plan P-3: Under Review Plan
+* **Plan ID:** P-3
+* **Status:** 🟣 Under Review
+
+## 3. Implementation
+- [ ] Task 1
+- [ ] Task 2
+EOF
+
+out="$(aapp status 2>&1)"
+if echo "$out" | grep -qF "P-1: P1-sample.md  (⚡ In Development · tasks 2/5)" && \
+   echo "$out" | grep -qF "P-2: P2-group.md  (🟣 Under Review · members 1/3)" && \
+   echo "$out" | grep -qF "P-3: P3-review.md  (🟣 Under Review)" && \
+   ! echo "$out" | grep -qF "P-3: P3-review.md  (🟣 Under Review ·"; then
+  ok "test_status_briefing_shows_progress_rules"
+else
+  bad "test_status_briefing_shows_progress_rules" "out=$(echo "$out" | sed -n '/PLANS/,/PICKUP/p')"
+fi
+
+# 4. JSON progress record
+js="$(aapp status json 2>/dev/null)"
+if printf '%s' "$js" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+items = {p["id"]: p for p in d["plans"]["items"]}
+p1 = items.get("P-1")
+p2 = items.get("P-2")
+p3 = items.get("P-3")
+assert p1 and p1["progress"] == {"done": 2, "total": 5, "unit": "tasks"}
+assert p2 and p2["progress"] == {"done": 1, "total": 3, "unit": "members"}
+assert p3 and p3["progress"] == {"done": 0, "total": 2, "unit": "tasks"}
+'; then
+  ok "test_status_json_progress_record"
+else
+  bad "test_status_json_progress_record" "json=$(printf '%s' "$js" | head -c 500)"
+fi
+
+# 5. Empty progress when no tasks
+cat <<'EOF' > .plans/current/P4-notasks.md
+# 🗺️ Plan P-4: No Tasks
+* **Plan ID:** P-4
+* **Status:** ⚡ In Development
+
+## 1. Context
+No tasks section.
+EOF
+prg4="$(plan_progress ".plans/current/P4-notasks.md" 2>/dev/null || true)"
+js4="$(aapp status json 2>/dev/null)"
+if [ -z "$prg4" ] && printf '%s' "$js4" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+items = {p["id"]: p for p in d["plans"]["items"]}
+p4 = items.get("P-4")
+assert p4 and p4["progress"] is None
+'; then
+  ok "test_plan_progress_empty_when_no_tasks"
+else
+  bad "test_plan_progress_empty_when_no_tasks" "prg4='$prg4'"
 fi
 cd "$R/p" || exit 1
 

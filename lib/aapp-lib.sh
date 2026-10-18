@@ -847,6 +847,57 @@ group_members() {
     parse_plan_field "$1" Members | tr ',' '\n' | awk '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "") } /^P-[0-9]+$/'
 }
 
+# plan_progress <plan-file> (P-98): `<done>\t<total>\t<unit>`, empty when nothing counts.
+# For plans: §3 checkboxes (`tasks`). For groups: member plans archived (`members`).
+plan_progress() {
+    local pf="$1"
+    [ -f "$pf" ] || return 0
+    if aapp_is_group_plan "$pf"; then
+        local members m num total=0 done=0 pdir done_dir curr_dir in_done in_curr f
+        members="$(group_members "$pf")"
+        [ -n "$members" ] || return 0
+        pdir="$(dirname "$pf")"
+        if [ -d "$pdir/../done" ]; then
+            done_dir="$pdir/../done"; curr_dir="$pdir"
+        elif [ -d ".plans/done" ]; then
+            done_dir=".plans/done"; curr_dir=".plans/current"
+        else
+            done_dir="done"; curr_dir="current"
+        fi
+        while IFS= read -r m; do
+            [ -n "$m" ] || continue
+            total=$((total + 1))
+            num="${m#P-}"
+            in_done=0; in_curr=0
+            for f in "$done_dir"/P"$num"-*.md "$done_dir"/P"$num".md; do
+                [ -f "$f" ] && in_done=1 && break
+            done
+            for f in "$curr_dir"/P"$num"-*.md "$curr_dir"/P"$num".md; do
+                [ -f "$f" ] && in_curr=1 && break
+            done
+            if [ "$in_done" -eq 1 ] && [ "$in_curr" -eq 0 ]; then
+                done=$((done + 1))
+            fi
+        done <<< "$members"
+        [ "$total" -gt 0 ] || return 0
+        printf '%s\t%s\tmembers\n' "$done" "$total"
+        return 0
+    fi
+
+    awk '
+        /^```/ { in_code = !in_code; next }
+        !in_code && /^## [^#0-9]*3\./ { in_s3 = 1; next }
+        !in_code && in_s3 && /^## / { in_s3 = 0 }
+        !in_code && in_s3 && /^[[:space:]]*- \[[ xX]\]/ {
+            total++
+            if ($0 ~ /^[[:space:]]*- \[[xX]\]/) done++
+        }
+        END {
+            if (total > 0) printf "%d\t%d\ttasks\n", done, total
+        }
+    ' "$pf" 2>/dev/null
+}
+
 # group_set_member <group-plan> <id> add|remove: updates the `* **Members:**` list.
 # ------------------------------------------------------------------------------
 # A group's amendments member (P-101): its request lines, read here only; the

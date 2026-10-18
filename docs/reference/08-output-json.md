@@ -226,6 +226,15 @@ A plan in `status.plans.items`, or a member in a group's `members`.
 | `members` | list | a group's member plans, as `plan` objects, in the group's order; `[]` for a plan |
 | `requests` | object or `null` | an amendments member's requests by state, below; `null` for any other plan |
 | `must_rebase` | list or `null` | an amendments member's: the group's members in development whose branch lacks the feature branch's tip; `null` for any other plan |
+| `progress` | object or `null` | task progress for a plan or member progress for a group, below; `null` when no tasks or members (P-98) |
+
+### Plan Progress
+
+| Field | Type | Holds |
+| :--- | :--- | :--- |
+| `done` | number | tasks ticked in §3 (`tasks`), or archived group members (`members`) |
+| `total` | number | total tasks in §3, or total group members |
+| `unit` | string | `"tasks"` for a plan, `"members"` for a group |
 
 ### `plan.requests`
 

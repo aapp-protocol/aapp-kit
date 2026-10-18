@@ -319,7 +319,18 @@ status_plan_record() {
     rec="$(parse_plan_worktree "$P")"
     if [ -n "$rec" ]; then wt="${rec%%$'\t'*}"; wtb="${rec#*$'\t'}"; fi
     fb="$(parse_plan_field "$P" "Feature Branch")"; [ "$fb" = "none" ] && fb=""
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$base" "$title" "$slug" "$label" "$kind" "$grp" "$members" "$target" "$blocked" "$wt" "$wtb" "$fb" "$2" "$requests" "$rebase" "$approval" "$onto"
+    # P-98: plan and group progress
+    local prog prog_done="" prog_total="" prog_unit=""
+    prog="$(plan_progress "$P")"
+    if [ -n "$prog" ]; then
+        prog_done="$(printf '%s' "$prog" | cut -f1)"
+        prog_total="$(printf '%s' "$prog" | cut -f2)"
+        prog_unit="$(printf '%s' "$prog" | cut -f3)"
+    fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$id" "$base" "$title" "$slug" "$label" "$kind" "$grp" "$members" "$target" "$blocked" \
+        "$wt" "$wtb" "$fb" "$2" "$requests" "$rebase" "$approval" "$onto" \
+        "$prog_done" "$prog_total" "$prog_unit"
 }
 
 # status_records_pickup -> title, text, files: one per unworked entry, split by
@@ -601,9 +612,14 @@ status_render_terminal() {
         if [ -z "$STATUS_PLANS" ]; then
             status_line 2 3 "(No active plans in .plans/current/)"
         else
-            while IFS=$'\037' read -r id base title st lbl k g m tg bl w wb fb depth rq rb ap onto; do
+            while IFS=$'\037' read -r id base title st lbl k g m tg bl w wb fb depth rq rb ap onto pd pt pu; do
                 [ -n "$base" ] || continue
                 [ -n "$w" ] && lbl="$lbl → $w"
+                if [ -n "$pt" ] && [ "${pt:-0}" -gt 0 ]; then
+                    if [ "$k" = "group" ] || [ "$st" = "in-development" ] || [ "$st" = "blocked" ]; then
+                        lbl="$lbl · $pu $pd/$pt"
+                    fi
+                fi
                 line="$base  ($lbl)"; [ -n "$id" ] && line="$id: $line"
                 if [ "$depth" = "1" ]; then status_line 6 8 "↳ $line"; else status_line 2 4 "• $line"; fi
                 # P-101: what waits on the group's amendments member.
@@ -680,13 +696,18 @@ status_render_terminal() {
 
 # status_json_plan <record fields…> <members json>: one `plan` object.
 status_json_plan() {
+    local prog="null"
+    if [ -n "${18:-}" ] && [ -n "${19:-}" ] && [ -n "${20:-}" ]; then
+        prog="$(out_json_obj done "$(out_json_num "${18}")" total "$(out_json_num "${19}")" unit "$(out_json_str "${20}")")"
+    fi
     out_json_obj id "$(out_json_strn "$1")" file "$(out_json_str "$2")" title "$(out_json_str "$3")" \
         kind "$(out_json_str "$6")" status "$(out_json_strn "$4")" \
         status_label "$(out_json_str "$(printf '%s' "$5" | LC_ALL=C sed -E 's/^[^A-Za-z]+//')")" \
         group "$(out_json_strn "$7")" target_issue "$(out_json_strn "$9")" blocked_on "$(out_json_strlist "${10}")" \
         worktree "$(out_json_strn "${11}")" branch "$(out_json_strn "${12}")" feature_branch "$(out_json_strn "${13}")" \
         members "${15}" requests "$(status_json_requests "${16:-}")" \
-        must_rebase "$([ "$6" = amendments ] && out_json_strlist "${17:-}" || echo null)"
+        must_rebase "$([ "$6" = amendments ] && out_json_strlist "${17:-}" || echo null)" \
+        progress "$prog"
 }
 
 # status_json_requests <pending,approved,refused,landed,applied>: an amendments
@@ -744,15 +765,15 @@ status_render_json() {
     issues="$(out_json_obj queue "$items" unqueued "$(out_json_num "$STATUS_UNQUEUED")")"
 
     # A group's members follow it with depth 1: they go into its `members`.
-    while IFS=$'\037' read -r id base title slug lbl k g m tg bl w wb fb depth rq rb _ _; do
+    while IFS=$'\037' read -r id base title slug lbl k g m tg bl w wb fb depth rq rb _ _ pd pt pu; do
         [ -n "$base" ] || continue
         if [ "$depth" = "1" ] && [ -n "$cur" ]; then
-            curm="${curm:+$curm,}$(status_json_plan "$id" "$base" "$title" "$slug" "$lbl" "$k" "$g" "$m" "$tg" "$bl" "$w" "$wb" "$fb" "$depth" "[]" "$rq" "$rb")"
+            curm="${curm:+$curm,}$(status_json_plan "$id" "$base" "$title" "$slug" "$lbl" "$k" "$g" "$m" "$tg" "$bl" "$w" "$wb" "$fb" "$depth" "[]" "$rq" "$rb" "$pd" "$pt" "$pu")"
             continue
         fi
         [ -z "$cur" ] || pl="${pl:+$pl,}$(eval "status_json_plan $cur \"[\$curm]\" $curx")"
         cur="$(printf '%q ' "$id" "$base" "$title" "$slug" "$lbl" "$k" "$g" "$m" "$tg" "$bl" "$w" "$wb" "$fb" "$depth")"; curm=""
-        curx="$(printf '%q ' "$rq" "$rb")"
+        curx="$(printf '%q ' "$rq" "$rb" "$pd" "$pt" "$pu")"
     done < <(status_rows "$STATUS_PLANS")
     [ -z "$cur" ] || pl="${pl:+$pl,}$(eval "status_json_plan $cur \"[\$curm]\" $curx")"
     plans="$(out_json_obj items "[$pl]")"
