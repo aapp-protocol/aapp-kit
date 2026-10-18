@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `2947af4` (develop)
 * **Worktree:** .workspace/P82 (plan/P82-issue-fix-safeguards)
 * **Commits:** `bf8f505` (plan/P82-issue-fix-safeguards)
@@ -143,6 +143,7 @@ This plan makes an issue fix small by measure, declared before it is touched, an
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-18:** Plan implementation completed and archived to done/.
 * **2026-10-18:** Plan activated into ⚡ In Development via start.
 * **2026-10-18:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*
