@@ -164,7 +164,7 @@ if [ -n "${AAPP_PLUGIN_STEP:-}" ]; then
     case "$CMD ${1:-}" in
         "status "*|"plan-status "*|"plugins "*|"plugin-status "*|"hooks "*|"hook-status "*) ;;
         "version "*|"-v "*|"--version "*|"help "*|"-h "*|"--help "*) ;;
-        "issue list"|"note show"|"matrix check") ;;
+        "issue list"|"note show"|"matrix check"|"companion list"|"companion status"*) ;;
         *)
             echo "❌ [Plugin] 'aapp $CMD${1:+ $1}' changes the project and cannot run during a plugin step ($AAPP_PLUGIN_STEP)." >&2
             echo "   Write the command to the do list instead; the kit runs it after the step:" >&2
@@ -207,6 +207,10 @@ case "$CMD" in
     issue)
         source "$AAPP_LIB/cmd_issue.sh"
         cmd_issue "$@"
+        ;;
+    companion)
+        source "$AAPP_LIB/cmd_companion.sh"
+        cmd_companion "$@"
         ;;
     offline)
         source "$AAPP_LIB/cmd_offline.sh"

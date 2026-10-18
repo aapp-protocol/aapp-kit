@@ -33,6 +33,7 @@
   * [Repository Onboarding (The Day 1 Loop)](#repository-onboarding-the-day-1-loop)
   * [Command Reference (Universal Skills)](#command-reference-universal-skills)
   * [Master Emergency Brake & State Preserver ("Hibernate & Wake")](#aapp-pause-reason-or-aapp-pause-reason--master-emergency-brake-hibernate)
+  * [Companion Development & Multi-Repository Co-Development](#companion-development--multi-repository-co-development)
   * [Token Management & Context Efficiency](#token-management--context-efficiency)
 * [6. Agent & IDE Integration Guide](#6-agent--ide-integration-guide)
   * [Google Antigravity Integration](#google-antigravity-integration)
@@ -845,6 +846,48 @@ When developers work across multiple IDE windows or companion terminals:
 - **Layer 2 (Cross-Repo / External Session)**: For sessions rooted in other directories or plain terminals, Layer 2 (`pre-commit`) serves as the strict, inescapable gate that rejects any commit touching codebase files.
 - **Permitted Reflection**: Code reading, Q&A, capturing notes in `.plans/pickup*`, logging defects in `.plans/ISSUES.md`, and drafting blueprints in `.plans/current/` remain 100% operational while paused. All modifications to codebase files, the `.agents/` control plane, templates, and hooks are strictly blocked.
 - **Emergency Escape Hatches**: `SKIP_BLAST_RADIUS=1` bypasses Layer 1 and Layer 2; `git commit --no-verify` bypasses Layer 2.
+
+### Companion Development & Multi-Repository Co-Development
+
+Complex applications often span multiple repositories (e.g. an engine or kit repository co-developed with an adapter, SDK, or demo app). AAPP provides first-class cross-repository coordination via the `aapp companion` verb (`lib/cmd_companion.sh`), allowing an agent working in the primary repository to edit and inspect companion repositories while preserving strict blast radius boundaries.
+
+```bash
+aapp companion add <name> <path> [worktree]
+aapp companion add <name> <url>
+aapp companion status [name]
+aapp companion push <name>
+aapp companion remove <name> [force]
+aapp companion list
+```
+
+#### Companion Topologies & Registration
+
+Companions support three topologies, each tailored to different ownership models:
+
+1. **`checkout` (`aapp companion add <name> <path>`)**:
+   - Registers an existing local checkout in place.
+   - Ideal when both repositories are already checked out as peers on disk.
+   - When removed (`aapp companion remove <name>`), only the configuration link is unlinked; directory contents are **never** deleted.
+2. **`worktree` (`aapp companion add <name> <path> worktree`)**:
+   - Creates a dedicated worktree for a non-AAPP companion at `.workspace/companion/<name>`.
+   - **G2 Refusal Rule**: If `<path>` is an AAPP repository (`aapp`, `.agents/`, or `.plans/` detected), `worktree` mode is **strictly refused**. Raw worktrees lack linked kit hooks; instead, start the plan inside the companion (`aapp start <id>`) and register its worktree as a `checkout`.
+   - When removed, requires clean status (`ahead == 0` and `dirty == 0`) unless `force` is passed.
+3. **`clone` (`aapp companion add <name> <url>`)**:
+   - Clones an external repository into `.workspace/companion/<name>`.
+   - When removed, unpushed commits and uncommitted files are guarded unless `force` is supplied.
+
+#### Dual-Layer Guard Delegation (G1 Rule)
+
+- **Layer 1 Delegation (`blast-radius-guard.sh`)**: When a tool write targets a file inside a registered companion:
+  - If the companion is an AAPP repository (`.githooks/blast-radius-guard` is present), the primary guard delegates enforcement to the companion's guard, running with the companion's active plan blast radius.
+  - If the companion is non-AAPP, writes are recognized as authorized external paths (`aapp.allowPath`) and permitted.
+- **Layer 2 Isolation (`pre-commit`)**:
+  - Commits in the primary repository stage only primary files. Companion repositories retain their own Git roots and pre-commit hooks.
+
+#### Bounded Operations & Offline Telemetry
+
+- **Offline Telemetry (`aapp companion status [name]`)**: Reports active branch, dirty file count, ahead/behind commit counts vs upstream, and last fetch timestamp without making network calls. Emits JSON when `json` token is passed.
+- **Bounded Push (`aapp companion push <name>`)**: Executes `git -C <path> push` to the configured upstream branch. Refuses dirty working trees and unconfigured upstreams. No force push or branch switching.
 
 ---
 

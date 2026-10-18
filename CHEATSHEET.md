@@ -54,6 +54,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp issue log <sev> <type> "<symptom>" [file <path>]… [branch <name>] [note "<text>"]` | **✅ Yes** | Log an issue: the id (the tracker's, or the kit's counter) and the row in `ISSUES.md`, one commit (no road-map line; queue with `aapp issue queue`); `note` is kept outside Git |
 | `aapp issue close <id>` \| `list [<n> \| all] [confirm]` \| `list note <num>` | **✅ Yes** | Close an issue; list the open ones (syncing with a provider that lists); show one with its description and notes |
 | `aapp refine issues "<msg>" note <num> "<text>"` | **✅ Yes** | Add a note to an issue (never committed) |
+| `aapp companion [add \| status \| push \| remove \| list]` | **✅ Yes** | Cross-repo bridge across 3 topologies (`checkout`, `worktree`, `clone`); delegates write guards per G1; bounded push & offline status |
 
 AI agent counterparts: `/aapp-status`, `/aapp-digest [idea]`, `/aapp-freeze [plan]`, `/aapp-start [plan]`, `/aapp-done [plan]`, `/aapp-pause [reason]`, `/aapp-release`, `/aapp-plan` (and `/plan`), `/aapp-tdd [plan]`.
 
@@ -71,6 +72,11 @@ Plans are `P-[num]`, issues are `#[num]`. `aapp freeze P-9`, `aapp freeze 9`, an
 | `aapp offline [mount \| unmount [force] \| on \| off \| status \| sync]` | The `.offline` worktree: issues and draft plans staged while a provider is unreachable (or skipped with `on`), under temporary ids; `sync` publishes them and gives them their real ids. Never pushed |
 | `aapp pause` | Emergency brake: quarantine in-flight changes into stashes across worktrees |
 | `aapp resume` | Disengage brake, verify commit drift, and restore stashes by SHA |
+| `aapp companion add <name> <path> [worktree] \| <url>` | Register checkout, dedicated non-AAPP worktree, or clone under `.workspace/companion/` |
+| `aapp companion status [name] [json]` | Offline telemetry: active branch, dirty count, ahead/behind vs upstream, last fetch |
+| `aapp companion push <name>` | Bounded push: delegates to companion's upstream tracking branch (refuses dirty) |
+| `aapp companion remove <name> [force]` | Unlinks checkout, or cleans worktree/clone (guards unpushed commits unless force) |
+| `aapp companion list` | List all registered companion repositories, modes, and paths |
 
 ---
 
@@ -168,6 +174,8 @@ AAPP controls repository behavior via standard Git configuration:
 | `aapp.pickupTitleMax` | integer (≥ 10) | `72` | `aapp refine pickup` | The most characters a pickup title (`- [ ] <title>: <text>`) may have (P-96). |
 | `aapp.protectStable` | `true` / `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |
 | `aapp.devBranch` | string (list) | `develop dev development` | Branch Guard, `aapp start` | Candidate development branches, first present (local or remote) wins; plan worktrees branch from it, else the default branch (P-54). |
+| `aapp.companion.<name>.path` | path | — | Companions | Absolute filesystem path to registered companion checkout/worktree (P-90). |
+| `aapp.companion.<name>.mode` | `checkout` / `worktree` / `clone` | `checkout` | Companions | Companion topology: existing checkout, managed worktree, or managed clone (P-90). |
 | `aapp.allowPath` | string (multi) | *(empty)* | Write Guard | External filesystem paths authorized for AI file writes (`blast-radius-guard`). |
 | `aapp.remote` | string | `origin` | Remote Sync | Git remote targeted by `aapp push`, `aapp pull`, and `aapp sync`. |
 | `aapp.syncStrategy` | `builtin` / `hook` | `builtin` | Remote Sync | Transport engine for worktree sync (`builtin` git plumbing vs custom hook). |

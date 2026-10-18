@@ -60,6 +60,16 @@ except Exception:
         TARGET_FILE=$(echo "$RAW_INPUT" | grep -oE '"(file_path|path|target_file)"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')
         TOOL_NAME=$(echo "$RAW_INPUT" | grep -oE '"tool_name"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')
     fi
+    # If not JSON, check if RAW_INPUT is a single-line path
+    if [ -z "$TARGET_FILE" ] && [ -n "$RAW_INPUT" ]; then
+        case "$RAW_INPUT" in
+            *"{"*|*"}"*) ;;
+            *)
+                first_line=$(printf '%s' "$RAW_INPUT" | head -n 1 | tr -d '\r\n')
+                [ -n "$first_line" ] && TARGET_FILE="$first_line"
+                ;;
+        esac
+    fi
 fi
 
 if [ -z "$TARGET_FILE" ]; then
@@ -285,6 +295,35 @@ if [ "$IS_SAME_REPO" -eq 1 ]; then
     # Inside repository or linked worktree, proceed to Section 3 and Section 4 blast radius checks
     :
 else
+    # External path: check registered companion repositories first (G1 delegation)
+    c_entry="" c_path="" canon_c_path=""
+    while IFS= read -r c_entry; do
+        [ -z "$c_entry" ] && continue
+        c_path="${c_entry#* }"
+        [ -z "$c_path" ] && continue
+        canon_c_path="$(canonicalize_path "$c_path")"
+        case "$CANONICAL_TARGET" in
+            "$canon_c_path"|"$canon_c_path"/*)
+                if [ -x "$canon_c_path/.githooks/blast-radius-guard" ]; then
+                    if [ -n "$RAW_INPUT" ]; then
+                        if printf '%s' "$RAW_INPUT" | (cd "$canon_c_path" && .githooks/blast-radius-guard); then
+                            exit 0
+                        else
+                            exit 2
+                        fi
+                    else
+                        if (cd "$canon_c_path" && .githooks/blast-radius-guard "$CANONICAL_TARGET"); then
+                            exit 0
+                        else
+                            exit 2
+                        fi
+                    fi
+                fi
+                exit 0
+                ;;
+        esac
+    done < <(git config --get-regexp '^aapp\.companion\..*\.path$' 2>/dev/null || true)
+
     # External path: check against authorized allowlist
     while IFS= read -r allowed_prefix; do
         [ -z "$allowed_prefix" ] && continue

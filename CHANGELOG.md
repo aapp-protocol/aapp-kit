@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `aapp companion` manages companion repositories for cross-repo co-development (P-90) (`P-90`)
 - the briefing and its JSON show a plan's task progress and a group's members done (P-98) (`P-98`)
 - parent-branch integration lock, atomic landing CAS, and unified named locks (P-107) (`P-107`)
 - automated clean rebase on integrate ff and configurable documentation governance (P-106) (`P-106`)

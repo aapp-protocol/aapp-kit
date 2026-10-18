@@ -2369,3 +2369,19 @@ aapp_lock_held() {
     [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
 }
 
+# ------------------------------------------------------------------------------
+# Companion Registry Helpers (P-90)
+# ------------------------------------------------------------------------------
+
+# aapp_companion_paths: list canonical paths of all registered companions
+aapp_companion_paths() {
+    git config --get-regexp '^aapp\.companion\..*\.path$' 2>/dev/null | \
+        awk '{$1=""; print substr($0,2)}' || true
+}
+
+# aapp_companion_path <name>: return path for named companion
+aapp_companion_path() {
+    local name="$1"
+    git config "aapp.companion.$name.path" 2>/dev/null || true
+}
+
