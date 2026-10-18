@@ -8,13 +8,14 @@
     `verb` alone: run every `tests/verbs/*.sh`
 - `suite…` (positional, optional): flat suites to run, matched against `tests/<name>_test.sh` by exact name, stem or substring
     source when omitted: every flat suite and every verb suite
-- reads: `tests/*_test.sh`, `tests/verbs/*.sh`
+- reads: the kit's `tests/*_test.sh`, `tests/verbs/*.sh`
 
 ## Preconditions
-- Inside a Git repository that is the kit itself (runs the kit's own suites only)
-    ⚠️ Divergence: in any repository with a `tests/` directory, its `tests/*_test.sh` run; without one, the verb delegates to `aapp.testCommand`, `npm`, `cargo`, `composer`, `go` or `make`, or runs a protocol audit. Delegation is recorded here, not endorsed (P-34 §5 Q2); removing it belongs to its own plan.
+- Inside a Git repository; the suites are always those of the kit `aapp` runs from (its clone or its installed copy, `AAPP_BASE`), never the current repository's (#92)
+- the kit has a `tests/` directory
 
 ## Failure modes
+- the kit has no `tests/` -> exit 1, names the kit directory; nothing runs
 - a filter matching no suite -> exit 1, `[Test Runner] No test suites matched filter`
 - `verb <name>` with no `tests/verbs/<name>.sh` -> exit 1, names the missing suite
 - any selected suite failing -> exit 1 after the summary (with `bail`, no suite starts after it)
@@ -22,7 +23,7 @@
 - interrupted (INT/TERM) -> running suites are stopped with everything they started, the run's temporary files removed, exit non-zero (P-67)
 
 ## Effects (happy path)
-- each selected suite runs as `bash <suite>` in its own subshell from the repository root, up to the job count at once, each in its own process group (P-67); the banner names the job count
+- each selected suite runs as `bash <suite>` in its own subshell from the kit's root, up to the job count at once, each in its own process group (P-67); the banner names the kit's suite directory and the job count
 - a suite's output goes to its own temporary file and is printed whole when it finishes, never interleaved with another's (`quiet`: its row then)
 - a summary row per suite reports passed and failed assertions and duration, in selection order whatever the finish order; verb suites are labelled `verb/<name>`
 - a verb suite may be split into parts, `tests/verbs/<verb>.<part>.sh`, each scheduled as its own suite and labelled `verb/<verb>.<part>`; parts sort right after their verb (P-68)
@@ -38,6 +39,8 @@ Run: `aapp test verb test`
 - `tests/verbs/test.sh::test_list_shows_verb_suites` -> `list` names the flat suites and the verb suites
 - `tests/verbs/test.sh::test_verb_token_selects_one_suite` -> `verb <name>` runs exactly that verb suite
 - `tests/verbs/test.sh::test_refuses_unmatched_filter` -> an unknown suite or verb: exit 1
+- `tests/verbs/test.sh::test_runs_kit_suites_never_the_repos` -> from another repository, the kit's suites run; that repository's `tests/`, `package.json` and `aapp.testCommand` do not
+- `tests/verbs/test.sh::test_kit_without_tests_fails_closed` -> a kit without `tests/`: exit 1, names the kit directory
 - `tests/verbs/test.sh::test_aborted_suite_fails_in_default_mode` -> a suite exiting 1 without a results line: `FAILED (exit 1)` (#115)
 - `tests/verbs/test.sh::test_suites_run_concurrently` -> four 2 s suites with `jobs 4` take under 5 s (P-67)
 - `tests/verbs/test.sh::test_jobs_one_runs_serially` -> three 1 s suites with `jobs 1` take at least 3 s (P-67)

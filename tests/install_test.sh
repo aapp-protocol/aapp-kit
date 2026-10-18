@@ -1186,18 +1186,19 @@ else
 fi
 report "aapp test: selective filtering runs targeted suite with aggregated metrics" "PASS" "$got"
 
-# Test 66: aapp test in adopter repository falls back to protocol health audit
+# Test 66: in an adopter repository, aapp test lists the installed kit's suites, never the repository's own (#92)
 PROJ_66="$R/t66_proj"; make_dummy_project "$PROJ_66"
 (cd "$PROJ_66" && aapp init >/dev/null 2>&1)
-audit_out=$(cd "$PROJ_66" && aapp test 2>&1 || true)
-if echo "$audit_out" | grep -q "Executing AAPP Protocol Environment Health Audit" && \
-   echo "$audit_out" | grep -q "Worktree '.plans' mounted" && \
-   echo "$audit_out" | grep -q "AAPP protocol environment is healthy"; then
+mkdir -p "$PROJ_66/tests" && printf '#!/usr/bin/env bash\nexit 0\n' > "$PROJ_66/tests/adopter_only_test.sh"
+list_66=$(cd "$PROJ_66" && aapp test list 2>&1 || true)
+if echo "$list_66" | grep -q "hooks_test.sh" && \
+   echo "$list_66" | grep -q "aapp-kit/tests" && \
+   ! echo "$list_66" | grep -q "adopter_only_test.sh"; then
   got="PASS"
 else
   got="FAIL"
 fi
-report "aapp test: adopter repository fallback executes protocol health audit" "PASS" "$got"
+report "aapp test: adopter repository lists the kit's suites, never its own" "PASS" "$got"
 
 echo "== 9. Front-Door Git Repository Assertion (P-33) =="
 

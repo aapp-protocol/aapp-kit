@@ -794,11 +794,11 @@ A slug matching a shipped status **overrides** it, letting you reword a section 
 
 > **Accessibility:** the shipped glyphs are chosen to be distinguishable under common colour-vision deficiencies, which is why the retired `🔴`/`🟡` pair was removed outright with no alias. When defining custom statuses, prefer glyphs that differ in **shape or symbol** rather than only in hue.
 
-#### `aapp test` — Unified Test Runner & Adopter Environment Health Check
+#### `aapp test` — Unified Test Runner
 
-`aapp test` is the central automated testing switchboard for the AAPP kit.
+`aapp test` runs the AAPP kit's own test suites, from any repository.
 
-In the kit development repository, it discovers, executes, and aggregates test suites across `tests/*_test.sh` with subshell isolation, execution timing, and assertion metrics. In adopter projects, it delegates to configured or auto-detected test runners, or falls back to an environmental health audit.
+It discovers, executes, and aggregates the suites in the `tests/` of the kit `aapp` runs from (its clone, or its installed copy) with subshell isolation, execution timing, and assertion metrics. It never runs the current repository's tests: a project's own test command belongs in a `pre-done` test gate (`examples/hooks/test-gate.sh.sample`).
 
 ```bash
 aapp test                  # Run all discovered test suites
@@ -820,11 +820,6 @@ aapp test verb             # Run every verb suite
 **Suite Parts (P-68)**: a long verb suite can be split into parts, `tests/verbs/<verb>.<part>.sh` (e.g. `start.worktree.sh`, `start.group.sh`), so the longest one no longer sets the run's floor. Each part builds its own sandbox and runs as its own suite; `aapp test verb <verb>` runs the verb suite with all its parts, `aapp test list` shows the parts under their verb, and the verb's contract names the part file of each test.
 
 **Verb Suites (`verb`)**: Each daily verb has a behaviour contract at `lib/docs/verbs/<verb>.md` (linked from the fifth column of `lib/verbs.tsv`) and a test suite derived from it at `tests/verbs/<verb>.sh`. `aapp test verb <name>` runs one of them in seconds, with its parts; `aapp test verb` runs all; a bare `aapp test` runs flat and verb suites together, and `aapp test list` shows both, verb suites as `verb/<name>`. The `verb` token is required: `matrix` names both a flat suite and a verb suite.
-
-**Adopter Mode Delegation & Audit Fallback**: In an adopter repository where kit test fixtures in `tests/` are absent:
-1. **Configured Command**: If `git config aapp.testCommand` is defined, `aapp test` executes that command.
-2. **Auto-Detection**: If common project manifests exist (`package.json` with test script, `Cargo.toml`, `composer.json`, `go.mod`, `Makefile`), `aapp test` auto-detects and delegates to `npm test`, `cargo test`, etc.
-3. **Protocol Health Audit**: If no project test runner is detected, `aapp test` verifies that `.plans`, `.agents`, and `.githooks` worktrees are properly mounted and Git hooks are configured.
 
 #### `/aapp-pause [reason]` (or `aapp pause [reason]`) — Master Emergency Brake ("Hibernate")
 Freezes codebase modifications and quarantees in-flight uncommitted work across all mounted worktrees into Git stashes:

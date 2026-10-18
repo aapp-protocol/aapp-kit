@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Tests: `aapp test` behaviour contract (lib/docs/verbs/test.md)
-# Runs the runner against a stand-in kit tree of stub suites, so it never
-# recurses into the real suites.
+# Runs the runner against a stand-in kit of stub suites (the real lib and
+# templates, stub tests), installed under XDG_DATA_HOME, so it never recurses
+# into the real suites.
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$KIT/tests/test_helpers.sh"
 R=$(mktemp -d); PASS=0; FAIL=0
@@ -11,15 +12,22 @@ confine_test_runtime "$R"
 ok()  { printf "  \033[32m✔\033[0m %-48s %s\n" "$1" "PASS"; PASS=$((PASS+1)); }
 bad() { printf "  \033[31m✘\033[0m %-48s %s\n" "$1" "$2"; FAIL=$((FAIL+1)); }
 
-P="$R/stub"
-mkdir -p "$P/tests/verbs"
-git -C "$P" init -q . && setup_test_git_identity "$P"
+# proj <name>: a stand-in kit at $R/<name>/aapp-kit, also a repository to run
+# from; prints its path. use <name>: makes it the kit and enters it.
+proj() {
+  local d="$R/$1/aapp-kit"
+  mkdir -p "$d/tests/verbs" && ln -s "$KIT/lib" "$d/lib" && ln -s "$KIT/templates" "$d/templates"
+  git -C "$d" init -q . && setup_test_git_identity "$d"; echo "$d"
+}
+use() { cd "$(proj "$1")" && export XDG_DATA_HOME="$R/$1"; }
+
+use stub || exit 1
+P="$PWD"
 stub() { printf '#!/usr/bin/env bash\necho "ran %s"\necho "Results: 1 passed, 0 failed"\n' "$2" > "$1"; }
 stub "$P/tests/alpha_test.sh" alpha
 stub "$P/tests/matrix_test.sh" flat-matrix
 stub "$P/tests/verbs/draft.sh" verb-draft
 stub "$P/tests/verbs/matrix.sh" verb-matrix
-cd "$P" || exit 1
 
 out="$(aapp test list 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'alpha_test.sh' && \
@@ -76,14 +84,12 @@ else
 fi
 
 echo "== parallel suites (P-67) =="
-# proj <name>: a stand-in kit tree; prints its path.
-proj() { local d="$R/$1"; mkdir -p "$d/tests/verbs"; git -C "$d" init -q . && setup_test_git_identity "$d"; echo "$d"; }
 # st <file> <body>: a stub suite running <body>, then reporting one pass.
 st() { printf '#!/usr/bin/env bash\n%s\necho "Results: 1 passed, 0 failed"\n' "$2" > "$1"; }
 secs() { date +%s.%N; }
 elapsed() { awk -v a="$1" -v b="$2" 'BEGIN { printf "%.1f", b - a }'; }
 
-cd "$(proj par)" || exit 1
+use par || exit 1
 for n in 1 2 3 4; do st "tests/s${n}_test.sh" "sleep 2"; done
 t0="$(secs)"; out="$(aapp test jobs 4 2>&1)"; rc=$?; t1="$(secs)"
 if [ "$rc" -eq 0 ] && awk -v e="$(elapsed "$t0" "$t1")" 'BEGIN { exit !(e < 5) }'; then
@@ -92,7 +98,7 @@ else
   bad "test_suites_run_concurrently" "rc=$rc took=$(elapsed "$t0" "$t1")s"
 fi
 
-cd "$(proj ser)" || exit 1
+use ser || exit 1
 for n in 1 2 3; do st "tests/s${n}_test.sh" "sleep 1"; done
 t0="$(secs)"; out="$(aapp test jobs 1 2>&1)"; rc=$?; t1="$(secs)"
 if [ "$rc" -eq 0 ] && awk -v e="$(elapsed "$t0" "$t1")" 'BEGIN { exit !(e >= 3) }'; then
@@ -101,7 +107,7 @@ else
   bad "test_jobs_one_runs_serially" "rc=$rc took=$(elapsed "$t0" "$t1")s"
 fi
 
-cd "$(proj fail)" || exit 1
+use fail || exit 1
 st tests/good_test.sh "sleep 1"; printf '#!/usr/bin/env bash\necho boom\nexit 1\n' > tests/bad_test.sh
 out="$(aapp test jobs 2 2>&1)"; rc=$?
 if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep 'bad_test' | grep -q 'FAILED (exit 1)' && \
@@ -111,7 +117,7 @@ else
   bad "test_parallel_failure_fails_the_run" "rc=$rc"
 fi
 
-cd "$(proj inter)" || exit 1
+use inter || exit 1
 st tests/a_test.sh 'echo A1; sleep 0.6; echo A2'; st tests/b_test.sh 'sleep 0.3; echo B1; sleep 0.6; echo B2'
 out="$(aapp test jobs 2 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | grep -A1 -x 'A1' | tail -1)" = "A2" ] && \
@@ -121,7 +127,7 @@ else
   bad "test_suite_output_not_interleaved" "rc=$rc out=$out"
 fi
 
-cd "$(proj order)" || exit 1
+use order || exit 1
 st tests/a_test.sh "sleep 1.5"; st tests/b_test.sh ":"
 out="$(aapp test jobs 2 2>&1)"; rc=$?
 rows="$(printf '%s\n' "$out" | sed -n '/Test Summary/,$p' | grep -E '(a|b)_test')"
@@ -132,7 +138,7 @@ else
   bad "test_summary_in_selection_order" "rows=$rows"
 fi
 
-cd "$(proj trap)" || exit 1
+use trap || exit 1
 mkdir -p "$R/traptmp"
 st tests/a_test.sh "touch '$R/trap-a'; bash -c 'sleep 30' aapp-trap-marker"
 st tests/b_test.sh "touch '$R/trap-b'; bash -c 'sleep 30' aapp-trap-marker"
@@ -148,7 +154,7 @@ else
 fi
 pkill -f aapp-trap-marker 2>/dev/null
 
-cd "$(proj cpus)" || exit 1
+use cpus || exit 1
 st tests/a_test.sh ":"
 mkdir -p "$R/fakebin"
 printf '#!/usr/bin/env bash\n[ -n "$FAKE_CPUS" ] || exit 1\necho "$FAKE_CPUS"\n' > "$R/fakebin/getconf"; chmod +x "$R/fakebin/getconf"
@@ -168,6 +174,29 @@ if [ "$r1" -eq 1 ] && [ "$r2" -eq 1 ] && [ "$r3" -eq 1 ]; then
   ok "test_jobs_refuses_non_number"
 else
   bad "test_jobs_refuses_non_number" "rc=$r1/$r2/$r3"
+fi
+
+echo "== kit suites only (#92) =="
+use own || exit 1
+st tests/kit_test.sh 'echo "ran kit"'
+A="$R/adopter"; mkdir -p "$A/tests"; git -C "$A" init -q . && setup_test_git_identity "$A"
+printf '#!/usr/bin/env bash\ntouch "%s/adopter-ran"\n' "$R" > "$A/tests/own_test.sh"
+printf '{"scripts": {"test": "touch %s/npm-ran"}}\n' "$R" > "$A/package.json"
+git -C "$A" config aapp.testCommand "touch '$R/cmd-ran'"
+out="$(cd "$A" && aapp test 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'ran kit' && printf '%s' "$out" | grep -q "$R/own/aapp-kit/tests" && \
+   [ ! -e "$R/adopter-ran" ] && [ ! -e "$R/npm-ran" ] && [ ! -e "$R/cmd-ran" ]; then
+  ok "test_runs_kit_suites_never_the_repos"
+else
+  bad "test_runs_kit_suites_never_the_repos" "rc=$rc out=$out"
+fi
+
+rm -rf "$R/own/aapp-kit/tests"
+out="$(cd "$A" && aapp test 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q "$R/own/aapp-kit" && [ ! -e "$R/adopter-ran" ]; then
+  ok "test_kit_without_tests_fails_closed"
+else
+  bad "test_kit_without_tests_fails_closed" "rc=$rc out=$out"
 fi
 
 print_test_summary "$PASS" "$FAIL"

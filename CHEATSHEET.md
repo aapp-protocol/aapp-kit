@@ -45,7 +45,7 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp issue fix next-blocker \| <num> [file <path>…] \| <num> abort` | **✅ Yes** | Temporary mini plan for one fix, files from the issue's Location, made in `.workspace/fix-<num>` cut from the issue's branch; `close` lands it as one commit; waits up to `aapp.issueFixWait` for an open fix (skill: `/aapp-fix [#<num>]`) |
 | `aapp issue fix <num> group <id>` | **✅ Yes** | A group-caused bug: the issue is retargeted to the group's feature branch, the fix opens in `.workspace/fix-<num>` cut from it; `close` lands it there |
 | `aapp active [id]` | **✅ Yes** | Inspect, swap, or clear active plan execution buffer |
-| `aapp test [filter]` | **✅ Yes** | Run test suites across repository or audit adopter environment |
+| `aapp test [filter]` | **✅ Yes** | Run the kit's own test suites (never the current repository's) |
 | `aapp test verb [name]` | **✅ Yes** | Run contract-derived verb suites (`tests/verbs/<name>.sh`) |
 | `aapp test jobs <n>` | **✅ Yes** | Run up to `<n>` suites at once; default: CPU count rounded down to a multiple of 4; `jobs 1` is serial |
 | `aapp note [cmd]` | **✅ Yes** | Inspect, stage, push, or pull general and AI Git notes |

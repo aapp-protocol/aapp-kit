@@ -59,94 +59,6 @@ Examples:
 EOF
 }
 
-aapp_adopter_test_or_audit() {
-    local repo_root="$1"
-    local custom_cmd
-    custom_cmd="$(git -C "$repo_root" config aapp.testCommand 2>/dev/null || true)"
-
-    if [ -n "$custom_cmd" ]; then
-        echo "🚀 Running project test command from git config (aapp.testCommand):"
-        echo "   $custom_cmd"
-        echo ""
-        ( cd "$repo_root" && eval "$custom_cmd" )
-        return $?
-    fi
-
-    # Auto-detect project test runner
-    if [ -f "$repo_root/package.json" ] && grep -qs '"test"' "$repo_root/package.json"; then
-        echo "🚀 Auto-detected Node.js project: running 'npm test'..."
-        echo ""
-        ( cd "$repo_root" && npm test )
-        return $?
-    elif [ -f "$repo_root/Cargo.toml" ]; then
-        echo "🚀 Auto-detected Rust project: running 'cargo test'..."
-        echo ""
-        ( cd "$repo_root" && cargo test )
-        return $?
-    elif [ -f "$repo_root/composer.json" ] && grep -qs '"test"' "$repo_root/composer.json"; then
-        echo "🚀 Auto-detected PHP project: running 'composer test'..."
-        echo ""
-        ( cd "$repo_root" && composer test )
-        return $?
-    elif [ -f "$repo_root/go.mod" ]; then
-        echo "🚀 Auto-detected Go project: running 'go test ./...'..."
-        echo ""
-        ( cd "$repo_root" && go test ./... )
-        return $?
-    elif [ -f "$repo_root/Makefile" ] && grep -qE '^[[:space:]]*test:' "$repo_root/Makefile" 2>/dev/null; then
-        echo "🚀 Auto-detected Makefile test target: running 'make test'..."
-        echo ""
-        ( cd "$repo_root" && make test )
-        return $?
-    fi
-
-    # Fallback: Protocol environment health audit
-    echo "ℹ️  No project test runner detected and no 'tests/' directory found."
-    echo "   Executing AAPP Protocol Environment Health Audit..."
-    echo ""
-
-    local audit_failed=0
-    for wt in .plans .agents .githooks; do
-        if [ -d "$repo_root/$wt" ]; then
-            printf "  \033[32m✔\033[0m Worktree '%s' mounted\n" "$wt"
-        else
-            printf "  \033[31m✘\033[0m Worktree '%s' missing\n" "$wt"
-            audit_failed=1
-        fi
-    done
-
-    local hooks_path
-    hooks_path="$(git -C "$repo_root" config core.hooksPath 2>/dev/null || true)"
-    if [ "$hooks_path" = ".githooks" ]; then
-        printf "  \033[32m✔\033[0m Git hooks path set to '.githooks'\n"
-    else
-        printf "  \033[33m!\033[0m Git hooks path is '%s' (expected '.githooks')\n" "${hooks_path:-unset}"
-    fi
-
-    local aapp_script_dir
-    aapp_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)"
-    # Run planning health validation if active plans exist and strict mode is on
-    if [ "${AAPP_TEST_SANDBOX_STRICT:-0}" -eq 1 ] && [ -f "$aapp_script_dir/lib/planning_health.sh" ] && [ -d "$repo_root/.plans/current" ]; then
-        local plan_count
-        plan_count="$(find "$repo_root/.plans/current" -maxdepth 1 -name '*.md' ! -name '000-*' 2>/dev/null | wc -l)"
-        if [ "$plan_count" -gt 0 ]; then
-            source "$aapp_script_dir/lib/planning_health.sh"
-            echo ""
-            echo "   Running planning health validation pairs..."
-            check_planning_health "$repo_root" || audit_failed=1
-        fi
-    fi
-
-    echo ""
-    if [ "$audit_failed" -eq 0 ]; then
-        echo "🎉 AAPP protocol environment is healthy!"
-        return 0
-    else
-        echo "⚠️  AAPP protocol audit detected warnings or failures."
-        return 1
-    fi
-}
-
 # _test_default_jobs: the CPU count rounded down to a multiple of 4 (10 -> 8),
 # or the CPU count below 4. An unreadable count runs serially, with a notice.
 _test_default_jobs() {
@@ -170,14 +82,15 @@ _test_stop() {
 }
 
 cmd_test() {
-    # Exported by the `aapp` dispatcher, which asserts repository membership (P-33).
-    local repo_root="$REPO_ROOT"
-    local test_dir="$repo_root/tests"
+    # The kit's own suites only (#92): those of the kit this `aapp` runs from
+    # (its clone or its installed copy), never the current repository's.
+    local kit_root="$AAPP_BASE"
+    local test_dir="$kit_root/tests"
 
-    # 1. Adopter repository mode check
+    # 1. The kit's suites must be there
     if [ ! -d "$test_dir" ]; then
-        aapp_adopter_test_or_audit "$repo_root"
-        return $?
+        echo "❌ [Test Runner] The kit at '$kit_root' has no 'tests/' directory; reinstall it with 'aapp install'." >&2
+        return 1
     fi
 
     # 2. Parse bare-word modifiers (zero double-dash flags)
@@ -342,7 +255,7 @@ cmd_test() {
 
     echo "============================================================"
     echo "  🧪 AAPP Unified Test Runner"
-    echo "  📍 Repository: $repo_root"
+    echo "  📍 Kit suites: $test_dir"
     echo "  🎯 Execution:  ${#selected_suites[@]} suites selected | Jobs: $jobs | Sandbox Strict: $strict_label"
     echo "============================================================"
     echo ""
@@ -369,7 +282,7 @@ cmd_test() {
     set -m
     while [ "$next" -lt "$total" ] || [ ${#run_pids[@]} -gt 0 ]; do
         while [ "$stop" -eq 0 ] && [ "$next" -lt "$total" ] && [ ${#run_pids[@]} -lt "$jobs" ]; do
-            ( cd "$repo_root" && exec bash "${selected_suites[$next]}" ) > "$work/$next.out" 2>&1 &
+            ( cd "$kit_root" && exec bash "${selected_suites[$next]}" ) > "$work/$next.out" 2>&1 &
             run_pids+=("$!"); run_idx+=("$next"); run_start+=("$(date +%s)")
             next=$((next + 1))
         done
