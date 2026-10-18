@@ -55,7 +55,7 @@ Goal: one accessor that reads a plan's status, and one that writes it, both back
 - `plan_status_is <file> <slug>…` -> true when the plan's slug is one of them; the form for hook checks (`blocked`, `in-development`, `frozen`).
 - `plan_status_render <slug>` -> `<emoji> <name>` from the registry, for messages and writers.
 - `plan_set_status <file> <slug>` -> rewrites the header Status line from the registry; the one writer, replacing the `sed -i` / `awk` rewrites in `lib/cmd_plan.sh` and `lib/cmd_issue.sh`.
-- All four live beside the registry, wherever the registry lives (§5 Q1).
+- All four live in `lib/plan_states.sh`, beside the registry. `aapp init` ships `plan_states.sh` into `.githooks/` beside `aapp-lib.sh`, as it ships `commit_engine.sh` and `attribution.sh` (`lib/cmd_init.sh` :475-476), and both hooks source it, refusing to run without it.
 
 ### 2.2 Callers
 - Readers in `lib/` (cmd_plan, cmd_commit, cmd_issue, cmd_matrix, cmd_pause, cmd_status, planning_health, aapp-lib) use `plan_status_slug` / `plan_status_is`.
@@ -63,7 +63,7 @@ Goal: one accessor that reads a plan's status, and one that writes it, both back
 - Writers (block, unblock, freeze, start, done, abort) use `plan_set_status`.
 
 ### 2.3 Archived status
-`✅ Done` is written by `done` but is not in the registry (§5 Q2).
+`✅ Done` stays outside the registry: a literal written by `done` alone. `plan_set_status` takes registry slugs only, so it cannot write it.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
@@ -74,12 +74,12 @@ Goal: one accessor that reads a plan's status, and one that writes it, both back
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Consolidate
-- [ ] Task 1.1: Add the four accessors beside the registry (per §5 Q1); tests for each, including an adopter status from `aapp.planState.<slug>`.
+- [ ] Task 1.1: Add the four accessors to `lib/plan_states.sh`; tests for each, including an adopter status from `aapp.planState.<slug>`.
 - [ ] Task 1.2: Move every reader in `lib/` onto them, with behaviour unchanged.
 - [ ] Task 1.3: Move every writer onto `plan_set_status`.
 
 ### Phase 2: Hooks and clean break
-- [ ] Task 2.1: Make the registry reachable from `.githooks/` (per §5 Q1) and move the hooks' Status checks onto `plan_status_is`.
+- [ ] Task 2.1: `aapp init` ships `plan_states.sh` into `.githooks/`; the hooks source it and move the hooks' Status checks onto `plan_status_is`.
 - [ ] Task 2.2: Remove `🚫` from the hooks, their messages and `templates/AGENTS.md`.
 - [ ] Task 2.3: Test that the hooks treat an adopter-defined blocked or in-development status as the verbs do.
 - [ ] Task 2.4: Test that no `**Status:**` regex remains outside the accessors (a source scan in `tests/plan_states_test.sh`).
@@ -98,8 +98,8 @@ Goal: one accessor that reads a plan's status, and one that writes it, both back
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `lib/plan_states.sh` -> The registry; the accessors (or its move, per §5 Q1).
-- [ ] `lib/aapp-lib.sh` -> Readers; the accessors if the registry moves here (§5 Q1).
+- [ ] `lib/plan_states.sh` -> The registry and the four accessors.
+- [ ] `lib/aapp-lib.sh` -> Readers onto the accessors.
 - [ ] `lib/cmd_plan.sh` -> Readers and writers onto the accessors.
 - [ ] `lib/cmd_issue.sh` -> Readers and writers onto the accessors.
 - [ ] `lib/cmd_commit.sh` -> Readers onto the accessors.
@@ -107,7 +107,7 @@ Goal: one accessor that reads a plan's status, and one that writes it, both back
 - [ ] `lib/cmd_pause.sh` -> Reader onto the accessors.
 - [ ] `lib/cmd_status.sh` -> Readers onto the accessors.
 - [ ] `lib/planning_health.sh` -> Reader onto the accessors.
-- [ ] `lib/cmd_init.sh` -> Ships the registry into `.githooks/` if it stays its own file (§5 Q1).
+- [ ] `lib/cmd_init.sh` -> Ships `plan_states.sh` into `.githooks/`.
 - [ ] `templates/aapp-pre-commit` -> Status checks onto `plan_status_is`; `🚫` removed.
 - [ ] `templates/blast-radius-guard.sh` -> Status checks onto `plan_status_is`; `🚫` removed.
 - [ ] `templates/AGENTS.md` -> `🚫 BLOCKED` becomes `🟥 BLOCKED` (:110).
@@ -122,8 +122,8 @@ Goal: one accessor that reads a plan's status, and one that writes it, both back
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1 — Where the registry lives.** The hooks need it, and `aapp init` ships only `aapp-lib.sh` into `.githooks/`. (a) Move `plan_states.sh`'s registry and the accessors into `aapp-lib.sh`. (b) Keep `plan_states.sh` and have `aapp init` ship it into `.githooks/` beside `aapp-lib.sh`, sourced by both hooks. (c) Something else.
-* [ ] **Question 2 — `✅ Done`.** It is written by `done` and read by archive checks, but is not in the registry. (a) Add it as a terminal registry state, outside the matrix sections. (b) Leave it a literal of `done`, with `plan_set_status` refusing it.
+* [x] **Question 1 — Where the registry lives.** -> **Resolved**: `plan_states.sh` stays its own module; `aapp init` ships it into `.githooks/` beside `aapp-lib.sh`, as it does `commit_engine.sh` and `attribution.sh`.
+* [x] **Question 2 — `✅ Done`.** -> **Resolved**: a literal of `done`, outside the registry; `plan_set_status` takes registry slugs only.
 
 ---
 
