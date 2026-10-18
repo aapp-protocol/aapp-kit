@@ -2,7 +2,7 @@
 * **Created:** 2026-10-18 | **Last Refined:** 2026-10-18
 * **Target Issue / Milestone:** #85
 * **Plan ID:** P-108
-* **Changelog:** Changed: Status Line Accessor
+* **Changelog:** Changed: every verb and hook reads and writes a plan's Status line through one registry-backed accessor; the retired 🚫 BLOCKED glyph is no longer recognised
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,37 +39,55 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+A plan's `* **Status:**` line is parsed by about 64 hand-written regexes across 11 files (#85). Only some go through the registry accessor (`plan_state_for_status_line` in `lib/plan_states.sh`, `plan_status_slug` in `lib/cmd_plan.sh`). The rest disagree:
+- The pre-commit hook and the write guard still accept the retired `🚫` as BLOCKED (`templates/aapp-pre-commit` :501, :614, :617; `templates/blast-radius-guard.sh` :428, :505), and `templates/AGENTS.md` :110 still names it. The registry knows only `🟥`.
+- The hooks hard-code `⚡ In Development`, `🔷 Frozen` and BLOCKED, so an adopter status from `aapp.planState.<slug>` is honoured by the verbs and not by the hooks.
+- The hooks cannot reach the registry: `aapp init` ships only `aapp-lib.sh` into `.githooks/`.
+
+Goal: one accessor that reads a plan's status, and one that writes it, both backed by the registry and available to verbs and hooks alike. Every caller moves onto them first (consolidation), and `🚫` leaves the kit with that change.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Accessors
+- `plan_status_slug <file>` -> the registry slug of the header Status line (outside fenced blocks, before the first `## `), empty when unrecognised. It replaces every reading regex.
+- `plan_status_is <file> <slug>…` -> true when the plan's slug is one of them; the form for hook checks (`blocked`, `in-development`, `frozen`).
+- `plan_status_render <slug>` -> `<emoji> <name>` from the registry, for messages and writers.
+- `plan_set_status <file> <slug>` -> rewrites the header Status line from the registry; the one writer, replacing the `sed -i` / `awk` rewrites in `lib/cmd_plan.sh` and `lib/cmd_issue.sh`.
+- All four live beside the registry, wherever the registry lives (§5 Q1).
+
+### 2.2 Callers
+- Readers in `lib/` (cmd_plan, cmd_commit, cmd_issue, cmd_matrix, cmd_pause, cmd_status, planning_health, aapp-lib) use `plan_status_slug` / `plan_status_is`.
+- Hooks (`templates/aapp-pre-commit`, `templates/blast-radius-guard.sh`) use `plan_status_is`; refusal messages use `plan_status_render`. The design-lock check that reads Status from `HEAD` content (pre-commit :793) gets a content-on-stdin form of the same accessor.
+- Writers (block, unblock, freeze, start, done, abort) use `plan_set_status`.
+
+### 2.3 Archived status
+`✅ Done` is written by `done` but is not in the registry (§5 Q2).
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Clean Break`
+- **Fallback Inventory**: `None (Clean Break)`. `🚫` is not recognised by any reader after this plan; nothing names it.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Consolidate
+- [ ] Task 1.1: Add the four accessors beside the registry (per §5 Q1); tests for each, including an adopter status from `aapp.planState.<slug>`.
+- [ ] Task 1.2: Move every reader in `lib/` onto them, with behaviour unchanged.
+- [ ] Task 1.3: Move every writer onto `plan_set_status`.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Hooks and clean break
+- [ ] Task 2.1: Make the registry reachable from `.githooks/` (per §5 Q1) and move the hooks' Status checks onto `plan_status_is`.
+- [ ] Task 2.2: Remove `🚫` from the hooks, their messages and `templates/AGENTS.md`.
+- [ ] Task 2.3: Test that the hooks treat an adopter-defined blocked or in-development status as the verbs do.
+- [ ] Task 2.4: Test that no `**Status:**` regex remains outside the accessors (a source scan in `tests/plan_states_test.sh`).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.1: `./aapp test quiet` passes.
+- [ ] Task 3.2: `ARCHITECTURE.md` and `.agents/CODEMAP.md` name the accessors as the one owner of the Status line.
+- [ ] Task 3.3: Log every finding outside the Target Files as an issue; none stays in chat only.
 
 ---
 
@@ -80,23 +98,34 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/plan_states.sh` -> The registry; the accessors (or its move, per §5 Q1).
+- [ ] `lib/aapp-lib.sh` -> Readers; the accessors if the registry moves here (§5 Q1).
+- [ ] `lib/cmd_plan.sh` -> Readers and writers onto the accessors.
+- [ ] `lib/cmd_issue.sh` -> Readers and writers onto the accessors.
+- [ ] `lib/cmd_commit.sh` -> Readers onto the accessors.
+- [ ] `lib/cmd_matrix.sh` -> Reader onto the accessors.
+- [ ] `lib/cmd_pause.sh` -> Reader onto the accessors.
+- [ ] `lib/cmd_status.sh` -> Readers onto the accessors.
+- [ ] `lib/planning_health.sh` -> Reader onto the accessors.
+- [ ] `lib/cmd_init.sh` -> Ships the registry into `.githooks/` if it stays its own file (§5 Q1).
+- [ ] `templates/aapp-pre-commit` -> Status checks onto `plan_status_is`; `🚫` removed.
+- [ ] `templates/blast-radius-guard.sh` -> Status checks onto `plan_status_is`; `🚫` removed.
+- [ ] `templates/AGENTS.md` -> `🚫 BLOCKED` becomes `🟥 BLOCKED` (:110).
+- [ ] `tests/plan_states_test.sh` -> Accessor tests, adopter-status hook parity, the source scan.
+- [ ] `tests/aapp_lib_test.sh` -> Readers that move with the accessors.
+- [ ] `ARCHITECTURE.md` -> The one owner of the Status line.
+- [ ] `.agents/CODEMAP.md` -> The accessors.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/plan-template.md` -> The Status comment already lists the registry's glyphs.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1 — Where the registry lives.** The hooks need it, and `aapp init` ships only `aapp-lib.sh` into `.githooks/`. (a) Move `plan_states.sh`'s registry and the accessors into `aapp-lib.sh`. (b) Keep `plan_states.sh` and have `aapp init` ship it into `.githooks/` beside `aapp-lib.sh`, sourced by both hooks. (c) Something else.
+* [ ] **Question 2 — `✅ Done`.** It is written by `done` and read by archive checks, but is not in the registry. (a) Add it as a terminal registry state, outside the matrix sections. (b) Leave it a literal of `done`, with `plan_set_status` refusing it.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-18:** Plan initialized from `pickup.md`.
-* **2026-10-18:** Refined blast radius and locked module boundaries.
+* **2026-10-18:** Drafted from #85.
