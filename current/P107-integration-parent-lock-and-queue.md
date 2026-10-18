@@ -150,7 +150,7 @@ aapp done <id> integrate ff
 ### Phase 3: Adoption & Manual Documentation
 - [ ] Task 3.1: Add `SET-INTEGRATE-WAIT` review task in `lib/adoption.sh` under `⚙️ Settings to Review`.
 - [ ] Task 3.2: Update `MANUAL.md` with integration locking mechanics and parent-branch isolation.
-- [ ] Task 3.3: Author reference specification `docs/reference/11-integration-lock-and-queue.md`.
+- [ ] Task 3.3: Update `ARCHITECTURE.md` and author reference specification `docs/reference/11-integration-lock-and-queue.md`.
 - [ ] Task 3.4: Verify all test suites pass cleanly (`./aapp test quiet`).
 
 ---
@@ -162,6 +162,7 @@ aapp done <id> integrate ff
 - [ ] `lib/cmd_plan.sh` -> Implement parent-branch integration lock primitives and re-sequence integration flow.
 - [ ] `lib/adoption.sh` -> Add `SET-INTEGRATE-WAIT` task under `⚙️ Settings to Review`.
 - [ ] `MANUAL.md` -> Document parent-branch lock, `aapp.integrateWait`, and race condition prevention.
+- [ ] `ARCHITECTURE.md` -> Document parent-branch integration mutex and atomic landing sequence.
 - [ ] `tests/integrate_test.sh` -> Add automated test fixtures covering concurrent integration locking and parent-branch isolation.
 
 ### 🛑 Out of Bounds (Do Not Touch)
