@@ -180,17 +180,16 @@ fi
 
 Because worktrees are attached to regular Git branches, they can be pushed and pulled to any remote (GitHub, GitLab, self-hosted Git server).
 
-#### Pushing Worktrees to Remote
+#### Pushing Worktrees to Remote (Shared or Separate Repository)
 
 ```bash
-# Push planning state to remote
-git -C .plans push origin plans
+# Push to origin (default):
+aapp push origin      # or: git -C .plans push origin plans
 
-# Push agent contracts to remote
-git -C .agents push origin agents
-
-# Push githooks engine to remote
-git -C .githooks push origin githooks
+# Push worktrees to a dedicated separate remote (e.g. private planning repo):
+git remote add plans-remote git@github.com:your-org/private-plans.git
+git -C .plans push -u plans-remote plans:main   # binds upstream tracking
+git config aapp.remote plans-remote             # default target for aapp push/pull
 ```
 
 #### Cloning onto a Second Workstation or CI
