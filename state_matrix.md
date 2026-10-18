@@ -31,8 +31,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-108**: [`P108-status-line-accessor.md`](current/P108-status-line-accessor.md) — Status Line Accessor
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
