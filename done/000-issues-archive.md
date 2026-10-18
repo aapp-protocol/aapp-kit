@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #95 | `Medium` | `CORE` | 2026-09-29 | 2026-10-18 | `d7c2f38` | a small fix is defined as one meeting none of the promotion criteria, whatever its line count, in AGENTS.md and the aapp-fix skill |  |
 | #92 | `Medium` | `CLI` | 2026-09-28 | 2026-10-18 | `3f5912d` | aapp test runs only the suites of the kit it runs from, never the current repository's tests, aapp.testCommand or a detected project runner; the health audit fallback is gone |  |
 | #87 | `Medium` | `CORE` | 2026-09-27 | 2026-10-18 | `1e0a104` | plan parsing no longer grants writes under the retired Emergency Hotfix Extensions heading |  |
 | #124 | `Low` | `CORE` | 2026-10-11 | 2026-10-18 | `6202e50` | done clears the active plan buffers only after its archive commit lands, so a failed commit leaves them bound |  |
