@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `14c321e` (develop)
 * **Worktree:** .workspace/P98 (plan/P98-status-plan-progress)
 * **Commits:** `2947af4` (plan/P98-status-plan-progress)
@@ -130,6 +130,7 @@ The plan record gains `"progress": { "done", "total", "unit" }`, `null` when the
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-18:** Plan implementation completed and archived to done/.
 * **2026-10-18:** Plan activated into ⚡ In Development via start.
 * **2026-10-18:** Plan locked and frozen into 🔷 Frozen via freeze.
 *Tracks how the plan evolved across sessions.*

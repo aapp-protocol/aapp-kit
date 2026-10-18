@@ -29,8 +29,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-98**: [`P98-status-plan-progress.md`](current/P98-status-plan-progress.md) — Status Plan Progress
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
