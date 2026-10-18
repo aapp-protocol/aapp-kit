@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `576d4b5` (develop)
+* **Worktree:** .workspace/P107 (plan/P107-integration-parent-lock-and-queue)
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
@@ -300,5 +301,6 @@ fi
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-18:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-18:** Plan initialized and scaffolded to address integration TOCTOU race conditions via parent-branch scoped locks and atomic sequencing.
 * **2026-10-18:** Refined with Red Team findings: unified named lock subsystem in `lib/aapp-lib.sh`, headless CAS fast-forward via `git update-ref`, `_issue_land_fix` locking, pre-commit raw commit protection, Option i atomic rollback, standalone pre-done re-gating, and clean break retirement of `_issue_lock_*` and `aapp.integrateLock`.
