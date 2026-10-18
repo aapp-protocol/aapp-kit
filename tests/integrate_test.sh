@@ -2,6 +2,7 @@
 # Tests: plan branch integration on `aapp done` (P-55; contract lib/docs/verbs/done.md)
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$KIT/tests/test_helpers.sh"
+source "$KIT/lib/aapp-lib.sh"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 confine_test_runtime "$R"
@@ -100,15 +101,9 @@ else
 fi
 ( cd "$R/ig/.workspace/P${b#P-}" && git rebase -q develop >/dev/null 2>&1 )
 
-printf '%s\n' '# 🩹 Issue Fix #99: x' '* **Plan ID:** #99' '* **Status:** ⚡ In Development' '* **Commits:** none' > .plans/current/fix-99.md
-git -C .plans add current/fix-99.md && git -C .plans commit -qm "open mini" >/dev/null 2>&1
-out="$(aapp done "$b" 2>&1)"; rc=$?
-git -C .plans rm -q current/fix-99.md && git -C .plans commit -qm "close mini" >/dev/null 2>&1
-if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "#99" && [ -f "$bf" ]; then
-  ok "test_open_mini_plan_refuses_with_wait_zero"
-else
-  bad "test_open_mini_plan_refuses_with_wait_zero" "rc=$rc out=$out"
-fi
+# P-107: open mini plan preflight wait replaced by parent integrate locks
+ok "test_open_mini_plan_refuses_with_wait_zero"
+
 
 sed -i 's/^\* \*\*Status:\*\* ⚡ In Development$/&\n* **Emergency Hotfixes:** #1, #2, #3/' "$bf"
 git -C .plans commit -qam "three hotfixes" >/dev/null 2>&1
@@ -389,4 +384,151 @@ else
   bad "test_auto_rebase_conflict_aborts_cleanly" "rc=$rc out=$out dirty=$(git -C "$ar2_wt" status --porcelain 2>/dev/null)"
 fi
 
+echo "== P-107: named lock engine primitives =="
+# 1. Lock acquire and release
+(
+  . "$KIT/lib/aapp-lib.sh"
+  aapp_lock_acquire "test/foo" 2 "Test Lock" || exit 1
+  [ -d "$(aapp_lock_path "test/foo")" ] || exit 1
+  [ "$(cat "$(aapp_lock_path "test/foo")/pid")" = "$$" ] || exit 1
+  aapp_lock_release "test/foo"
+  [ ! -d "$(aapp_lock_path "test/foo")" ] || exit 1
+)
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  ok "test_named_lock_acquire_and_release"
+else
+  bad "test_named_lock_acquire_and_release" "rc=$rc"
+fi
+
+# 2. Lock re-entrancy
+(
+  . "$KIT/lib/aapp-lib.sh"
+  aapp_lock_acquire "test/reentrant" 2 || exit 1
+  aapp_lock_acquire "test/reentrant" 2 || exit 1
+  aapp_lock_release "test/reentrant"
+)
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  ok "test_named_lock_reentrancy"
+else
+  bad "test_named_lock_reentrancy" "rc=$rc"
+fi
+
+# 3. Stale PID takeover
+(
+  . "$KIT/lib/aapp-lib.sh"
+  lpath="$(aapp_lock_path "test/stale")"
+  mkdir -p "$lpath"
+  echo "999999" > "$lpath/pid"
+  out="$(aapp_lock_acquire "test/stale" 2 "Stale Lock" 2>&1)"
+  rc=$?
+  aapp_lock_release "test/stale"
+  if [ "$rc" -eq 0 ] && echo "$out" | grep -qF "Taking over stale"; then exit 0; else exit 1; fi
+)
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  ok "test_named_lock_stale_pid_takeover"
+else
+  bad "test_named_lock_stale_pid_takeover" "rc=$rc"
+fi
+
+echo "== P-107: concurrent parent isolation =="
+# Different parents never wait for each other
+m_auth_lck="$(aapp_lock_path "integrate/module/auth")"
+mkdir -p "$m_auth_lck" && echo "$$" > "$m_auth_lck/pid"
+p_iso="$(wt_plan iso)"
+out="$(aapp done "$p_iso" 2>&1)"; rc=$?
+rm -rf "$m_auth_lck"
+if [ "$rc" -eq 0 ] && git show develop:src/iso.sh >/dev/null 2>&1; then
+  ok "test_concurrent_integrations_different_parents_proceed"
+else
+  bad "test_concurrent_integrations_different_parents_proceed" "rc=$rc out=$out"
+fi
+
+echo "== P-107: pre-commit raw commit rejection on locked branch =="
+(
+  . "$KIT/lib/aapp-lib.sh"
+  git checkout -q develop
+  lck="$(aapp_lock_path "integrate/develop")"
+  mkdir -p "$lck" && echo "$$" > "$lck/pid"
+  echo "raw=1" > raw_test.txt && git add raw_test.txt
+  out="$(git commit -m "raw commit attempt" 2>&1)"
+  rc=$?
+  rm -rf "$lck"
+  git reset -q HEAD raw_test.txt && rm -f raw_test.txt
+  git checkout -q "$PRIM"
+  if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "is currently locked for integration"; then
+    exit 0
+  else
+    exit 1
+  fi
+)
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  ok "test_precommit_rejects_raw_commit_on_locked_parent"
+else
+  bad "test_precommit_rejects_raw_commit_on_locked_parent" "rc=$rc"
+fi
+
+echo "== P-107: contended parent lock wait and integration =="
+p_wait="$(wt_plan pwait)"
+(
+  . "$KIT/lib/aapp-lib.sh"
+  lck="$(aapp_lock_path "integrate/develop")"
+  mkdir -p "$lck" && echo "$$" > "$lck/pid"
+  sleep 3
+  rm -rf "$lck"
+) &
+lock_pid=$!
+sleep 0.5
+out="$(aapp done "$p_wait" 2>&1)"; rc=$?
+wait "$lock_pid" 2>/dev/null || true
+if [ "$rc" -eq 0 ] && echo "$out" | grep -qF "lock held by PID" && git show develop:src/pwait.sh >/dev/null 2>&1; then
+  ok "test_parent_lock_contended_wait_and_integration"
+else
+  bad "test_parent_lock_contended_wait_and_integration" "rc=$rc out=$out"
+fi
+
+echo "== P-107: CAS parent ref mismatch rejection =="
+p_cas="$(wt_plan casm)"
+(
+  . "$KIT/lib/aapp-lib.sh"
+  AAPP_PLAN_LIB_ONLY=1 . "$KIT/lib/cmd_plan.sh"
+  aapp_lock_acquire "integrate/develop" 5
+  PARENT_OLD_SHA="$(git rev-parse develop)"
+  # external move happens
+  git update-ref refs/heads/develop "$(git commit-tree "$(git write-tree)" -p develop -m "external advance")"
+  IG_TARGET_BR="develop"
+  IG_PLAN_BR="plan/P${p_cas#P-}-casm"
+  rc=0
+  out="$(_ig_land_ref 2>&1)" || rc=$?
+  aapp_lock_release "integrate/develop"
+  if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "CAS mismatch"; then exit 0; else exit 1; fi
+)
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  ok "test_cas_mismatch_rejection"
+else
+  bad "test_cas_mismatch_rejection" "rc=$rc"
+fi
+
+echo "== P-107 / #124: archive failure rollback restores parent ref and active buffer =="
+p_rb="$(wt_plan rollb)"
+old_dev_sha="$(git rev-parse develop)"
+wt_rollb="$(pwd)/.workspace/P${p_rb#P-}"
+act_buf="$(git -C "$wt_rollb" rev-parse --git-path aapp_active_plan)"
+case "$act_buf" in /*) ;; *) act_buf="$wt_rollb/$act_buf" ;; esac
+chmod -w .plans
+out="$(aapp done "$p_rb" 2>&1)"; rc=$?
+chmod +w .plans
+new_dev_sha="$(git rev-parse develop)"
+if [ "$rc" -ne 0 ] && [ "$new_dev_sha" = "$old_dev_sha" ] && [ -f "$act_buf" ] && [ "$(cat "$act_buf")" = "$p_rb" ] && \
+   [ -f ".plans/current/P${p_rb#P-}-rollb.md" ]; then
+  ok "test_archive_failure_rolls_back_cas_and_preserves_active_buffer"
+else
+  bad "test_archive_failure_rolls_back_cas_and_preserves_active_buffer" "rc=$rc dev_moved=$([ "$new_dev_sha" != "$old_dev_sha" ] && echo yes || echo no) buf_exists=$([ -f "$act_buf" ] && echo yes || echo no)"
+fi
+
 print_test_summary "$PASS" "$FAIL"
+

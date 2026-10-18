@@ -765,14 +765,14 @@ cmd_issue_log() {
     if [ ${#files[@]} -gt 0 ]; then
         loc=""; for f in "${files[@]}"; do loc="${loc:+$loc, }\`$f\`"; done
     fi
-    _issue_lock_acquire || return 1
-    PLANS_DIR="$plans" _issue_log_row "$sev" "$type" "$symptom" "$loc" "" "$target" "$note" || { _issue_lock_release; return 1; }
+    aapp_lock_acquire "issue" "$(_issue_wait_limit)" "issue" || return 1
+    PLANS_DIR="$plans" _issue_log_row "$sev" "$type" "$symptom" "$loc" "" "$target" "$note" || { aapp_lock_release "issue"; return 1; }
     n="$ISSUE_LOGGED"
     # An issue staged offline is in `.offline`: nothing changed on the plans branch.
-    if [ "$ISSUE_LOGGED_OFFLINE" -eq 1 ]; then _issue_lock_release; echo "🐛 [Issue] #$n logged (offline): $symptom"; return 0; fi
+    if [ "$ISSUE_LOGGED_OFFLINE" -eq 1 ]; then aapp_lock_release "issue"; echo "🐛 [Issue] #$n logged (offline): $symptom"; return 0; fi
     while IFS= read -r lp; do [ -n "$lp" ] && paths+=("$lp"); done < <(PLANS_DIR="$plans" ledger_commit_paths issues roadmap)
-    PLANS_DIR="$plans" _issue_plans_commit "issue(log): #$n" "${paths[@]}" || { _issue_lock_release; return 1; }
-    _issue_lock_release
+    PLANS_DIR="$plans" _issue_plans_commit "issue(log): #$n" "${paths[@]}" || { aapp_lock_release "issue"; return 1; }
+    aapp_lock_release "issue"
     echo "🐛 [Issue] #$n logged: $symptom"
     local files_json=""
     for f in "${files[@]}"; do
@@ -815,6 +815,13 @@ _issue_land_fix() {
         echo "❌ [Issue] .workspace/fix-$n has uncommitted changes; commit them with 'aapp commit' there first." >&2
         return 1
     fi
+    # Acquire integration lock on the parent branch before rebase, squash, or fast-forward
+    local wait_limit
+    wait_limit="$(git config --int aapp.integrateWait 2>/dev/null || echo 15)"
+    [ "$wait_limit" -lt 10 ] && wait_limit=10
+    [ "$wait_limit" -gt 600 ] && wait_limit=600
+    aapp_lock_acquire "integrate/$fb" "$wait_limit" "Parent branch '$fb'" || return 1
+
     # A branch checked out in a worktree is moved there; any other by its ref.
     # P-85: uncommitted work there in the fixed files would block the
     # fast-forward: refuse before anything changes.
@@ -827,6 +834,7 @@ _issue_land_fix() {
         if [ -n "$busy" ]; then
             echo "❌ [Issue] $busy has uncommitted changes in $holder, where $fb is checked out; #$n's fix cannot land there." >&2
             echo "   Commit or set that work aside, then 'aapp issue close $n' again. The fix stays in .workspace/fix-$n." >&2
+            aapp_lock_release "integrate/$fb"
             return 1
         fi
     fi
@@ -834,22 +842,33 @@ _issue_land_fix() {
         if ! git -C "$wt" rebase -q "$ref" >/dev/null 2>&1; then
             git -C "$wt" rebase --abort >/dev/null 2>&1
             echo "❌ [Issue] fix/$n does not rebase cleanly onto $fb; resolve it in .workspace/fix-$n, then close again." >&2
+            aapp_lock_release "integrate/$fb"
             return 1
         fi
     fi
     # P-85: one commit per fix.
-    _issue_squash_fix "$n" "$mp" "$wt" "$br" "$ref" || return 1
+    if ! _issue_squash_fix "$n" "$mp" "$wt" "$br" "$ref"; then
+        aapp_lock_release "integrate/$fb"
+        return 1
+    fi
     if [ -n "$holder" ]; then
         git -C "$holder" merge -q --ff-only "$br" >/dev/null 2>&1 || {
             _issue_unsquash_fix
-            echo "❌ [Issue] Could not fast-forward $fb to fix/$n in $holder." >&2; return 1; }
+            echo "❌ [Issue] Could not fast-forward $fb to fix/$n in $holder." >&2
+            aapp_lock_release "integrate/$fb"
+            return 1
+        }
     else
         git fetch -q . "$br:$fb" || {
             _issue_unsquash_fix
-            echo "❌ [Issue] Could not fast-forward $fb to fix/$n." >&2; return 1; }
+            echo "❌ [Issue] Could not fast-forward $fb to fix/$n." >&2
+            aapp_lock_release "integrate/$fb"
+            return 1
+        }
     fi
     ISSUE_LANDED="$(git rev-parse --short "$fb")"
     _issue_drop_fix_worktree "$wt" "$br"
+    aapp_lock_release "integrate/$fb"
     echo "🔀 [Issue] #$n landed on $fb ($ISSUE_LANDED)."
 }
 
@@ -1480,44 +1499,7 @@ _issue_open_mini() {
     return 1
 }
 
-_issue_lock_release() {
-    [ -n "${_ISSUE_LOCK:-}" ] && rm -rf "$_ISSUE_LOCK"
-    _ISSUE_LOCK=""
-}
-
-# _issue_lock_acquire: the one issue lock, shared by every worktree (P-52 2.6).
-# Waits with the roller; a lock whose holder PID is gone, or that never got a
-# PID within a few seconds, is stale and taken over with a notice.
-_issue_lock_acquire() {
-    local lock common limit waited=0 step=2 pid mtime age
-    common="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
-    case "$common" in /*) ;; *) common="$(cd "$common" && pwd)" ;; esac
-    lock="$common/aapp_issue.lock"
-    limit="$(_issue_wait_limit)"
-    while ! mkdir "$lock" 2>/dev/null; do
-        pid="$(cat "$lock/pid" 2>/dev/null || true)"
-        if [ -z "$pid" ]; then
-            mtime="$(stat -c %Y "$lock" 2>/dev/null || stat -f %m "$lock" 2>/dev/null || date +%s)"
-            age=$(( $(date +%s) - mtime ))
-            if [ "$age" -ge 5 ]; then
-                echo "⚠️  [Issue] Taking over a stale issue lock (no holder PID)." >&2
-                rm -rf "$lock"; continue
-            fi
-        elif ! kill -0 "$pid" 2>/dev/null; then
-            echo "⚠️  [Issue] Taking over a stale issue lock (holder $pid is gone)." >&2
-            rm -rf "$lock"; continue
-        fi
-        if [ "$waited" -ge "$limit" ]; then
-            echo "⏳ [Issue] The issue lock is still held${pid:+ by $pid}; retry later." >&2
-            return 1
-        fi
-        echo "⏳ [Issue] Issue lock held${pid:+ by $pid}; waiting ${step}s…" >&2
-        sleep "$step"; waited=$((waited + step)); step=$((step + 1))
-    done
-    echo "$$" > "$lock/pid"
-    _ISSUE_LOCK="$lock"
-    trap '_issue_lock_release' EXIT
-}
+# (legacy _issue_lock_* replaced by unified aapp_lock_* in lib/aapp-lib.sh)
 
 # _issue_plan_file_for <plans> <id>: the plan in current/ for a buffer id.
 _issue_plan_file_for() {
@@ -1678,15 +1660,15 @@ cmd_issue_hotfix() {
         [ "$own" -eq 0 ] || target="$(issue_plan_parent "$pf")"
     fi
     # P-74: logged through the one handler (the id, the row, the description).
-    _issue_lock_acquire || return 1
-    PLANS_DIR="$plans" _issue_log_row High CORE "$text" "$loc" "blocks [$pid]($prel)" "$target" "$note" || { _issue_lock_release; return 1; }
+    aapp_lock_acquire "issue" "$(_issue_wait_limit)" "issue" || return 1
+    PLANS_DIR="$plans" _issue_log_row High CORE "$text" "$loc" "blocks [$pid]($prel)" "$target" "$note" || { aapp_lock_release "issue"; return 1; }
     n="$ISSUE_LOGGED"
     # Single-checkout mode: the fix will share this working copy, so the plan's
     # uncommitted work in the listed files is set aside (only those files).
     if [ ${#files[@]} -gt 0 ] && ! grep -q '^\* \*\*Worktree:\*\*' "$pf" && \
        [ -n "$(git status --porcelain -- "${files[@]}" 2>/dev/null)" ]; then
         if ! git stash push --include-untracked -q -m "aapp-hotfix:$pid:#$n" -- "${files[@]}"; then
-            _issue_lock_release; echo "❌ [Issue] Could not stash the uncommitted work in ${files[*]}." >&2; return 1
+            aapp_lock_release "issue"; echo "❌ [Issue] Could not stash the uncommitted work in ${files[*]}." >&2; return 1
         fi
         printf '%s #%s\n' "$(git rev-parse stash@{0})" "$n" >> "$(git rev-parse --git-path aapp_hotfix_stash)"
         echo "📦 [Issue] Set aside $pid's uncommitted work in ${files[*]}; 'aapp issue close $n' re-applies it." >&2
@@ -1712,8 +1694,8 @@ cmd_issue_hotfix() {
     local paths=("$prel") lp
     while IFS= read -r lp; do [ -n "$lp" ] && paths+=("$lp"); done < <(PLANS_DIR="$plans" ledger_commit_paths issues roadmap)
     [ -f "$plans/state_matrix.md" ] && paths+=("state_matrix.md")
-    plans_commit "issue(hotfix): #$n blocks $pid" "${paths[@]}" || { _issue_lock_release; return 1; }
-    _issue_lock_release
+    plans_commit "issue(hotfix): #$n blocks $pid" "${paths[@]}" || { aapp_lock_release "issue"; return 1; }
+    aapp_lock_release "issue"
     [ "$ISSUE_PROVIDER_SEEN" -eq 0 ] || plugin_run_do issue aapp-issue-tracker
     echo "🧯 [Issue] #$n logged; $pid is blocked on it. Stop here: the fix runs in the main checkout ('aapp issue fix next-blocker')."
     local hotfix_files_json=""
@@ -2039,8 +2021,8 @@ cmd_issue_fix() {
             echo "⏳ [Issue] #$open is still being fixed; retry later." >&2
             return 1
         fi
-        _issue_lock_acquire || return 1
-        if _issue_open_mini "$plans" >/dev/null; then _issue_lock_release; continue; fi
+        aapp_lock_acquire "issue" "$(_issue_wait_limit)" "issue" || return 1
+        if _issue_open_mini "$plans" >/dev/null; then aapp_lock_release "issue"; continue; fi
 
         if [ -z "$n" ]; then
             # With the aapp-issue-tracker provider installed, it is the authority
@@ -2048,25 +2030,25 @@ cmd_issue_fix() {
             # A provider that answers `declined` leaves the pick to the local queue.
             if _issue_provider_entry >/dev/null && {
                    issue_provider next-blocker "" || {
-                       _issue_lock_release; echo "❌ [Issue] The aapp-issue-tracker provider refused next-blocker; not claiming locally." >&2; return 1; }
+                       aapp_lock_release "issue"; echo "❌ [Issue] The aapp-issue-tracker provider refused next-blocker; not claiming locally." >&2; return 1; }
                } && [ "$PLUGIN_STATUS" != "declined" ]; then
                 pout="$PLUGIN_OUT"; _plugin_files_drop
                 raw="$(json_field "$pout" id)" || {
-                    _issue_lock_release; echo "❌ [Issue] Provider must print {\"id\": ...} for next-blocker (got: '$pout')." >&2; return 1; }
-                n="$(issue_id_body "$raw")" || { _issue_lock_release; return 1; }
+                    aapp_lock_release "issue"; echo "❌ [Issue] Provider must print {\"id\": ...} for next-blocker (got: '$pout')." >&2; return 1; }
+                n="$(issue_id_body "$raw")" || { aapp_lock_release "issue"; return 1; }
             else
                 # P-89: the blockers first, then what a person queued.
                 n="$(issue_queued_blockers "$plans" | head -n 1)"
                 [ -n "$n" ] || n="$(issue_queued_work "$plans" | head -n 1)"
                 if [ -z "$n" ]; then
-                    _issue_lock_release
+                    aapp_lock_release "issue"
                     echo "❌ [Issue] Nothing is queued for work (🧱 Plan Blockers and 📋 Queued in issues_road_map.md are empty)." >&2; return 1
                 fi
             fi
         fi
         if [ -z "$row" ]; then
             row="$(PLANS_DIR="$plans" ledger_row "$n")" || {
-                _issue_lock_release; echo "❌ [Issue] #$n is not an active issue in ISSUES.md." >&2; return 1; }
+                aapp_lock_release "issue"; echo "❌ [Issue] #$n is not an active issue in ISSUES.md." >&2; return 1; }
             # The files come from the issue log; `file` only adds one it does not name.
             local all_files=()
             while IFS= read -r f; do [ -n "$f" ] && all_files+=("$f"); done < <(issue_location_paths "$row")
@@ -2075,7 +2057,7 @@ cmd_issue_fix() {
             done
             files=("${all_files[@]}")
             if [ ${#files[@]} -eq 0 ]; then
-                _issue_lock_release; echo "❌ [Issue] No files known for #$n: give them with 'file <path>'." >&2; return 1
+                aapp_lock_release "issue"; echo "❌ [Issue] No files known for #$n: give them with 'file <path>'." >&2; return 1
             fi
         fi
         # P-78, P-85: the fix is made in its own worktree, cut from the issue's
@@ -2087,7 +2069,7 @@ cmd_issue_fix() {
             # P-83: a row that names no branch: the team's plugin says where
             # these files belong (asked once, however long the wait below).
             if [ "$asked" -eq 0 ] && { [ -z "$(PLANS_DIR="$plans" ledger_cell "$n" branch)" ] || [ -n "$ISSUE_BRANCH_GONE" ]; }; then
-                _issue_ask_branch "$plans" "$n" "${files[@]}" || { _issue_lock_release; return 1; }
+                _issue_ask_branch "$plans" "$n" "${files[@]}" || { aapp_lock_release "issue"; return 1; }
                 asked=1; asked_branch="$ISSUE_ASKED_BRANCH"
             fi
             fixbr="${asked_branch:-$ISSUE_BRANCH}"
@@ -2096,17 +2078,17 @@ cmd_issue_fix() {
         [ -n "$fixbr" ] || fixbr="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
         break
     done
-    gwt="$(_issue_fix_worktree "$n" "$fixbr")" || { _issue_lock_release; return 1; }
+    gwt="$(_issue_fix_worktree "$n" "$fixbr")" || { aapp_lock_release "issue"; return 1; }
     # The ledger changes with the fix's start: a branch that is gone leaves the
     # row, a group's fix targets the group's feature branch.
     local start_paths=("current/fix-$n.md") lp owner=""
     [ -z "$asked_branch" ] || ISSUE_BRANCH="$asked_branch"
-    PLANS_DIR="$plans" _issue_clear_gone_branch "$n" || { _issue_lock_release; return 1; }
+    PLANS_DIR="$plans" _issue_clear_gone_branch "$n" || { aapp_lock_release "issue"; return 1; }
     if [ -n "$gbr" ]; then
-        PLANS_DIR="$plans" ledger_set_cell "$n" branch "$(issue_branch_cell "$gbr")" || { _issue_lock_release; return 1; }
+        PLANS_DIR="$plans" ledger_set_cell "$n" branch "$(issue_branch_cell "$gbr")" || { aapp_lock_release "issue"; return 1; }
     elif [ -n "$asked_branch" ]; then
         # The plugin's answer is recorded: it is not asked again for this issue.
-        PLANS_DIR="$plans" ledger_set_cell "$n" branch "$(issue_branch_cell "$asked_branch")" || { _issue_lock_release; return 1; }
+        PLANS_DIR="$plans" ledger_set_cell "$n" branch "$(issue_branch_cell "$asked_branch")" || { aapp_lock_release "issue"; return 1; }
     fi
     while IFS= read -r lp; do
         if [ -n "$lp" ] && [ -n "$(git -C "$plans" status --porcelain -- "$lp")" ]; then start_paths+=("$lp"); fi
@@ -2127,8 +2109,8 @@ cmd_issue_fix() {
     gbuf="$(git -C "$gwt" rev-parse --git-path aapp_active_plan)"
     case "$gbuf" in /*) ;; *) gbuf="$gwt/$gbuf" ;; esac
     write_active_buffer "#$n" "$gbuf"
-    plans_commit "fix(start): #$n" "${start_paths[@]}" || { _issue_lock_release; return 1; }
-    _issue_lock_release
+    plans_commit "fix(start): #$n" "${start_paths[@]}" || { aapp_lock_release "issue"; return 1; }
+    aapp_lock_release "issue"
     echo "🩹 [Issue] Fixing #$n${owner:+ for group $owner} in .workspace/fix-$n (fix/$n from $fixbr, files: ${files[*]})."
     echo "   Work and 'aapp commit' there; 'aapp issue close $n' lands it on $fixbr as one commit."
     [ -n "$owner" ] || _issue_group_hint "$plans" "${files[@]}"

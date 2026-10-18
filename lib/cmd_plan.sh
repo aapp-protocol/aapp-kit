@@ -890,6 +890,15 @@ _ig_preflight() {
     if ! git show-ref --verify --quiet "refs/heads/$IG_TARGET_BR"; then
         echo "❌ [Done Refusal] Integration target '$IG_TARGET_BR' is not a local branch; create or fetch it first." >&2; return 1
     fi
+
+    # P-107: Acquire parent integration lock BEFORE any ancestry checks, auto-rebase, or mutations
+    local integrate_wait
+    integrate_wait="$(git config --int aapp.integrateWait 2>/dev/null || echo 15)"
+    [ "$integrate_wait" -lt 10 ] && integrate_wait=10
+    [ "$integrate_wait" -gt 600 ] && integrate_wait=600
+    aapp_lock_acquire "integrate/$IG_TARGET_BR" "$integrate_wait" "Parent branch '$IG_TARGET_BR'" || return 1
+    echo "Plan $pid (PID $$)" > "$(aapp_lock_path "integrate/$IG_TARGET_BR")/info" 2>/dev/null || true
+
     max="$(git config --get aapp.maxEmergencyHotfixes 2>/dev/null)" || max=2
     case "$max" in ''|*[!0-9]*) max=2 ;; esac
     count="$(count_plan_emergency_hotfixes "$pf")"
@@ -897,14 +906,20 @@ _ig_preflight() {
         echo "❌ [Integration Block] Plan '$pid' accumulated $count emergency fixes (limit $max)." >&2
         echo "   Daisy-chaining hotfixes is prohibited without formal re-scoping." >&2
         echo "   Requires human sign-off: run 'aapp done $pid integrate override-hotfix-cap'." >&2
+        aapp_lock_release "integrate/$IG_TARGET_BR"
         return 1
     fi
     if [ -d "$IG_WT" ] && [ -n "$(git -C "$IG_WT" status --porcelain 2>/dev/null)" ]; then
-        echo "❌ [Done Refusal] The plan's worktree has uncommitted changes; commit or discard them first." >&2; return 1
+        echo "❌ [Done Refusal] The plan's worktree has uncommitted changes; commit or discard them first." >&2
+        aapp_lock_release "integrate/$IG_TARGET_BR"
+        return 1
     fi
     if [ "$IG_MODE" = "hook" ]; then
-        _ig_hook_registered || {
-            echo "❌ [Done Refusal] aapp.integrate = hook, but no on-integrate handler is registered." >&2; return 1; }
+        if ! _ig_hook_registered; then
+            echo "❌ [Done Refusal] aapp.integrate = hook, but no on-integrate handler is registered." >&2
+            aapp_lock_release "integrate/$IG_TARGET_BR"
+            return 1
+        fi
         return 0
     fi
     # Already integrated (a retry after a refused cleanup): nothing to merge.
@@ -936,30 +951,30 @@ _ig_preflight() {
                 git -C "$IG_WT" rebase --abort >/dev/null 2>&1 || true
                 echo "❌ [Done Refusal] Automated rebase encountered merge conflicts; resolve manually:" >&2
                 echo "   git -C ${IG_WT} rebase --autostash $IG_TARGET_BR" >&2
+                aapp_lock_release "integrate/$IG_TARGET_BR"
                 return 1
             fi
         else
             echo "❌ [Done Refusal] '$IG_PLAN_BR' does not contain '$IG_TARGET_BR'; rebase it first:" >&2
             echo "   git -C ${IG_WT} rebase --autostash $IG_TARGET_BR" >&2
+            aapp_lock_release "integrate/$IG_TARGET_BR"
             return 1
         fi
     fi
-    if [ -n "$(git -C "$PRIMARY_ROOT" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
-        echo "❌ [Done Refusal] The main checkout has uncommitted changes; integration switches it to '$IG_TARGET_BR'." >&2; return 1
-    fi
-    # An open mini plan owns the main checkout: wait for it (P-52 roller), under the issue lock.
-    _load_issue_module
-    limit="$(_issue_wait_limit)"; waited=0; step=2
-    while :; do
-        if open="$(_issue_open_mini "$PLANS_DIR")"; then
-            _issue_roll "#$open is being fixed in the main checkout" && continue
-            echo "❌ [Done Refusal] #$open is being fixed in the main checkout; integrate after 'aapp issue close $open'." >&2
+
+    # P-107: Capture parent tip for CAS fast-forward
+    PARENT_OLD_SHA="$(git rev-parse "refs/heads/$IG_TARGET_BR")"
+
+    # P-107: Check if target branch is checked out in any worktree and has uncommitted changes
+    local holder
+    holder="$(git worktree list --porcelain | awk -v b="refs/heads/$IG_TARGET_BR" '/^worktree / { w = substr($0, 10) } $1 == "branch" && $2 == b { print w; exit }')"
+    if [ -n "$holder" ]; then
+        if [ -n "$(git -C "$holder" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+            echo "❌ [Done Refusal] The checkout in $holder has uncommitted changes; integration fast-forwards '$IG_TARGET_BR' there." >&2
+            aapp_lock_release "integrate/$IG_TARGET_BR"
             return 1
         fi
-        _issue_lock_acquire || return 1
-        _issue_open_mini "$PLANS_DIR" >/dev/null && { _issue_lock_release; continue; }
-        break
-    done
+    fi
 }
 
 # _ig_message <plan_file> <plan_id> <file> <last_commit>: the squash commit
@@ -1130,9 +1145,50 @@ _ig_cleanup() {
     _issues_follow_branch "$IG_PLAN_BR" "$IG_TARGET_BR"
 }
 
+# _ig_land_ref: fast-forwards IG_TARGET_BR to IG_PLAN_BR via CAS (headless)
+_ig_land_ref() {
+    local holder new_plan_head
+    new_plan_head="$(git rev-parse "refs/heads/$IG_PLAN_BR")"
+    holder="$(git worktree list --porcelain | awk -v b="refs/heads/$IG_TARGET_BR" '/^worktree / { w = substr($0, 10) } $1 == "branch" && $2 == b { print w; exit }')"
+    if [ -n "$holder" ]; then
+        local cur_holder_sha
+        cur_holder_sha="$(git -C "$holder" rev-parse HEAD)"
+        if [ "$cur_holder_sha" != "$PARENT_OLD_SHA" ]; then
+            echo "❌ [Integrate] Target branch '$IG_TARGET_BR' moved concurrently (CAS mismatch); aborting integration." >&2
+            return 1
+        fi
+        if ! git -C "$holder" merge -q --ff-only "$IG_PLAN_BR" >/dev/null 2>&1; then
+            echo "❌ [Integrate] Could not fast-forward '$IG_TARGET_BR' to '$IG_PLAN_BR' in $holder; aborting integration." >&2
+            return 1
+        fi
+    else
+        if ! git update-ref "refs/heads/$IG_TARGET_BR" "$new_plan_head" "$PARENT_OLD_SHA" 2>/dev/null; then
+            echo "❌ [Integrate] Target branch '$IG_TARGET_BR' moved concurrently (CAS mismatch); aborting integration." >&2
+            return 1
+        fi
+    fi
+    IG_ALREADY=1
+    return 0
+}
+
+# _ig_rollback_ref: rolls IG_TARGET_BR back to PARENT_OLD_SHA
+_ig_rollback_ref() {
+    [ -n "${IG_TARGET_BR:-}" ] && [ -n "${PARENT_OLD_SHA:-}" ] || return 0
+    local holder
+    holder="$(git worktree list --porcelain 2>/dev/null | awk -v b="refs/heads/$IG_TARGET_BR" '/^worktree / { w = substr($0, 10) } $1 == "branch" && $2 == b { print w; exit }')"
+    if [ -n "$holder" ]; then
+        git -C "$holder" reset --hard -q "$PARENT_OLD_SHA" >/dev/null 2>&1 || true
+    else
+        local cur
+        cur="$(git rev-parse "refs/heads/$IG_TARGET_BR" 2>/dev/null || true)"
+        [ -n "$cur" ] && git update-ref "refs/heads/$IG_TARGET_BR" "$PARENT_OLD_SHA" "$cur" 2>/dev/null || true
+    fi
+    _IG_ROLLBACK_NEEDED=0
+}
+
 # _ig_run <plan_file> <plan_id>: integrates after the archive, then cleans up.
 _ig_run() {
-    local pf="$1" pid="$2" orig data rc=0
+    local pf="$1" pid="$2" data rc=0
     if [ "$IG_MODE" = "hook" ]; then
         # shellcheck source=/dev/null
         source "$AAPP_HOOK_DISPATCHER"
@@ -1144,21 +1200,10 @@ _ig_run() {
         echo "🔀 [Integrate] $IG_PLAN_BR handed to the on-integrate handler (target $IG_TARGET_BR); the branch and worktree are its to manage."
         return 0
     fi
-    if [ "$IG_ALREADY" -eq 1 ]; then
-        echo "🔀 [Integrate] $IG_PLAN_BR is already in $IG_TARGET_BR."
+    if [ "$IG_ALREADY" -eq 1 ] || git merge-base --is-ancestor "$IG_PLAN_BR" "$IG_TARGET_BR" 2>/dev/null; then
+        echo "🔀 [Integrate] $IG_PLAN_BR integrated into $IG_TARGET_BR ($IG_MODE, $(git rev-parse --short "$IG_TARGET_BR"))."
     else
-        orig="$(git -C "$PRIMARY_ROOT" rev-parse --abbrev-ref HEAD)"
-        if [ "$orig" != "$IG_TARGET_BR" ]; then
-            git -C "$PRIMARY_ROOT" checkout -q "$IG_TARGET_BR" || {
-                echo "❌ [Integrate] Could not switch the main checkout to '$IG_TARGET_BR'; $pid stays archived. Retry: aapp done $pid integrate" >&2; return 1; }
-        fi
-        # P-84: a squashed plan is one commit on its branch already, so every
-        # mode moves the parent to the plan branch by fast-forward.
-        git -C "$PRIMARY_ROOT" merge -q --ff-only "$IG_PLAN_BR" || rc=$?
-        if [ "$orig" != "$IG_TARGET_BR" ]; then
-            git -C "$PRIMARY_ROOT" checkout -q "$orig" || echo "⚠️  [Integrate] Could not switch the main checkout back to '$orig'." >&2
-        fi
-        if [ "$rc" -ne 0 ]; then
+        if ! _ig_land_ref; then
             echo "❌ [Integrate] The $IG_MODE into '$IG_TARGET_BR' failed; $pid stays archived. Retry: aapp done $pid integrate" >&2
             return 1
         fi
@@ -1170,6 +1215,9 @@ _ig_run() {
     if aapp_is_group_plan "$pf" && ! _group_done_codemap "$pf" "$pid"; then IG_CODEMAP_FAILED=1; fi
     if [ "$IG_NOCLEAN" -eq 1 ] || [ "$(git config --get aapp.integrateCleanup 2>/dev/null)" = "false" ]; then
         [ "${IG_LAND:-0}" -eq 1 ] || echo "   Worktree and branch kept (cleanup off)."
+        if [ "${IG_LAND:-0}" -eq 1 ]; then
+            aapp_lock_release "integrate/$IG_TARGET_BR"
+        fi
         return 0
     fi
     _ig_cleanup "$pid"
@@ -1198,18 +1246,42 @@ _ig_standalone() {
     pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
     _ig_decide "$pf" || exit 1
     _ig_preflight "$pf" "$pid" || exit 1
+    if [ "${IG_AUTO_REBASED:-0}" -eq 1 ]; then
+        if [ -f "$AAPP_HOOK_DISPATCHER" ]; then
+            # shellcheck source=/dev/null
+            source "$AAPP_HOOK_DISPATCHER"
+            local pre_done_data="{\"plan_id\": \"$pid\", \"plan_file\": \"$pf\", \"commit_hash\": \"$(git rev-parse --short=7 "$IG_PLAN_BR")\", \"commits\": [], \"worktree\": \"$(json_escape "$IG_WT")\"}"
+            if ! dispatch_hook "pre-done" "$pre_done_data"; then
+                echo "❌ [Integrate] pre-done hook vetoed integration after rebase." >&2
+                aapp_lock_release "integrate/$IG_TARGET_BR"
+                exit 1
+            fi
+        fi
+    fi
     # P-84: squashed now, on the plan branch; the records follow the new commit.
     local grp=0
     if aapp_is_group_plan "$pf"; then grp=1; fi
     _sq_decide "$pf" "$pid" "$grp" 0
-    if [ "$SQ_DO" -eq 1 ]; then _sq_run "$pf" "$pid" || exit 1; fi
+    if [ "$SQ_DO" -eq 1 ]; then
+        if ! _sq_run "$pf" "$pid"; then
+            aapp_lock_release "integrate/$IG_TARGET_BR"
+            exit 1
+        fi
+    fi
     if ! _ig_run "$pf" "$pid"; then
         if [ "$SQ_DO" -eq 1 ]; then _sq_restore; fi
+        aapp_lock_release "integrate/$IG_TARGET_BR"
         exit 1
     fi
-    if [ "$SQ_DO" -eq 1 ]; then _sq_correct_records "$pf" "$pid" || exit 1; fi
+    if [ "$SQ_DO" -eq 1 ]; then
+        if ! _sq_correct_records "$pf" "$pid"; then
+            aapp_lock_release "integrate/$IG_TARGET_BR"
+            exit 1
+        fi
+    fi
     _load_issue_module
     issue_unblock_landed quiet || echo "⚠️  [Done] Could not check the plans waiting for a fix; 'aapp status' does it." >&2
+    aapp_lock_release "integrate/$IG_TARGET_BR"
     if [ "${IG_CODEMAP_FAILED:-0}" -eq 1 ]; then exit 1; fi
 }
 
@@ -2440,13 +2512,45 @@ cmd_done() {
         commit_sha="$SQ_NEW"; commits_json="\"$SQ_NEW\""
     fi
 
+    # P-107 Option i: Fast-forward parent branch via CAS before archival commit
+    local ig_landed_ref=0
+    if [ "$IG_DO" -eq 1 ] && [ "$IG_ALREADY" -eq 0 ] && [ "$IG_MODE" != "hook" ]; then
+        if ! _ig_land_ref; then
+            if [ "$squashed" -eq 1 ]; then _sq_restore; fi
+            aapp_lock_release "integrate/$IG_TARGET_BR"
+            exit 1
+        fi
+        ig_landed_ref=1
+        _IG_ROLLBACK_NEEDED=1
+    fi
+
     # #121: what the archive changes, kept until its commit lands; a failed commit puts it back.
     local snap f
-    snap="$(mktemp -d)" || exit 1
+    snap="$(mktemp -d)" || {
+        if [ "$squashed" -eq 1 ]; then _sq_restore; fi
+        if [ "$ig_landed_ref" -eq 1 ]; then _ig_rollback_ref; fi
+        if [ "$IG_DO" -eq 1 ]; then aapp_lock_release "integrate/$IG_TARGET_BR"; fi
+        exit 1
+    }
     cp -a "$PLANS_DIR/current" "$snap/current" || exit 1
     for f in done/000-archive-ledger.md state_matrix.md $(ledger_commit_paths); do
         if [ -f "$PLANS_DIR/$f" ]; then mkdir -p "$(dirname "$snap/$f")" && cp -a "$PLANS_DIR/$f" "$snap/$f" || exit 1; fi
     done
+
+    _DONE_SNAP="$snap"
+    _done_restore_on_fail() {
+        if [ -n "${_DONE_SNAP:-}" ] && [ -d "$_DONE_SNAP" ]; then
+            git -C "$PLANS_DIR" reset -q 2>/dev/null || true
+            [ -n "${done_file:-}" ] && rm -f "$done_file" 2>/dev/null || true
+            (cd "$_DONE_SNAP" && find . -type f) | while IFS= read -r f; do cp -a "$_DONE_SNAP/$f" "$PLANS_DIR/$f" 2>/dev/null || true; done
+            rm -rf "$_DONE_SNAP"
+            _DONE_SNAP=""
+        fi
+        if [ "${squashed:-0}" -eq 1 ]; then _sq_restore 2>/dev/null || true; fi
+        if [ "${ig_landed_ref:-0}" -eq 1 ]; then _ig_rollback_ref 2>/dev/null || true; fi
+        _aapp_locks_cleanup_trap
+    }
+    trap '_done_restore_on_fail' EXIT INT TERM
 
     # Move to done/
     mv "$plan_file" "$done_file"
@@ -2562,13 +2666,21 @@ cmd_done() {
             (cd "$snap" && find . -type f) | while IFS= read -r f; do cp -a "$snap/$f" "$PLANS_DIR/$f"; done
             rm -rf "$snap"
             if [ "$squashed" -eq 1 ]; then _sq_restore; fi
+            if [ "$ig_landed_ref" -eq 1 ]; then
+                _ig_rollback_ref
+            fi
+            if [ "$IG_DO" -eq 1 ]; then
+                aapp_lock_release "integrate/$IG_TARGET_BR"
+            fi
             echo "❌ [Done] The archive commit failed; the plan, ledgers and matrix are restored. Run 'aapp done $plan_id' again." >&2
             exit 1
         fi
     fi
+    _DONE_SNAP=""
     rm -rf "$snap"
+    _IG_ROLLBACK_NEEDED=0
 
-    # Clear active buffer if matching, only once the archive commit has landed (#124)
+    # #124: Clear active buffer only AFTER archive commit succeeds
     if [ -f "$ACTIVE_FILE" ]; then
         local cur_act
         cur_act="$(head -n 1 "$ACTIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
@@ -2608,12 +2720,16 @@ cmd_done() {
     echo "   Ledger       : $ledger_file"
     # P-55: integrate and clean up after the archive (the checks ran before it).
     if [ "$IG_DO" -eq 1 ]; then
-        _ig_run "$done_file" "$plan_id" || exit 1
+        _ig_run "$done_file" "$plan_id" || {
+            aapp_lock_release "integrate/$IG_TARGET_BR"
+            exit 1
+        }
         # P-78: the integration moved commits; plans that waited for them resume.
         # P-83: first into a group's feature branch whose member waits for this one.
         _load_issue_module
         if [ "$close_where" = "active" ]; then issue_bring_fix_to_groups "$close_issue" "$commit_sha"; fi
         issue_unblock_landed quiet || echo "⚠️  [Done] Could not check the plans waiting for a fix; 'aapp status' does it." >&2
+        aapp_lock_release "integrate/$IG_TARGET_BR"
         if [ "${IG_CODEMAP_FAILED:-0}" -eq 1 ]; then exit 1; fi
     elif [ -n "$wt_rec" ]; then
         # P-54 / aapp.integrate = manual: the developer integrates.

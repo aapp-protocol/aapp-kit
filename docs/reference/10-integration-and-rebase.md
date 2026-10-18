@@ -95,3 +95,27 @@ Repository ledgers operate under strict merge safety boundaries:
 | `.plans/done/000-issues-archive.md` | `merge=union` | Purely append-only resolved issue records. |
 | `.plans/ISSUES.md` | 3-way semantic merge (**never** union) | **Stateful**: rows are edited in-place (status transitions) and physically removed upon resolution. Union merge causes ghost resurrection. |
 | `MANUAL.md`, `README.md`, `ARCHITECTURE.md` | 3-way semantic merge (**never** union) | Prose documents with hierarchical sections. Union merge causes duplicate paragraphs. |
+
+---
+
+## 5. Parent-Branch Integration Lock & CAS Landing (P-107)
+
+During parallel development across multiple worktrees, concurrent integrations into the same parent branch could previously encounter Time-of-Check to Time-of-Use (TOCTOU) race conditions if the parent branch advanced between preflight checks and landing. Plan P-107 eliminates this concurrency window through per-parent locking and Compare-and-Swap (CAS) landing:
+
+### 5.1 Per-Parent Lock Scoping
+- **Scoped by Target**: Integration locks are keyed specifically to the target parent branch (`integrate/<parent>`), resolving to `aapp_integrate_<parent>.lock` in the git common dir.
+- **Concurrent Isolation**: Integrations targeting distinct parent branches (e.g. `module/auth` vs `develop`) proceed concurrently with zero contention.
+- **Configurable Wait (`aapp.integrateWait`)**: Wait duration is configurable via `git config aapp.integrateWait <seconds>` (default `15` seconds, bounded between 10s and 600s, stepping in 2s increments).
+- **Stale Takeover**: Locks carry PID metadata (`pid` and `info`). If the holding process exits or crashes, stale locks are automatically detected and taken over after a 5s grace window.
+
+### 5.2 Headless Fast-Forward via Compare-and-Swap (CAS)
+- **Zero Primary Worktree Switching**: Integration fast-forwards the parent ref headlessly via `git update-ref refs/heads/<parent> <new_sha> <old_sha>` (or `git merge --ff-only` within the specific worktree checking out the parent, if any). The main repository root (`PRIMARY_ROOT`) is never switched or dirtied.
+- **CAS Mismatch Protection**: If an external process moves the parent ref during execution, `git update-ref` atomically rejects the update, preventing silent overwrites or divergent histories.
+
+### 5.3 Option i Atomic Landing & Rollback
+- **Landing Order**: The parent branch is fast-forwarded via CAS **before** committing the plan archival to `.plans/done/`.
+- **Fail-Closed Rollback**: If the plan archive commit in `.plans` fails, the parent branch is automatically rolled back to its previous SHA (`<old_sha>`) while the parent lock remains held. Active plan buffers in `.workspace/` are preserved (resolving #124).
+- **Issue Fix Protection**: `aapp issue close` acquires `integrate/<parent>` when landing fixes via `_issue_land_fix`.
+- **Pre-Commit Raw Commit Boundary**: The pre-commit hook verifies `aapp_lock_path "integrate/<branch>"`. Direct raw commits to a parent branch currently undergoing active integration are rejected.
+- **Standalone Re-Gate**: Retrying integration on an archived plan (`aapp done <id> integrate`) re-executes the `pre-done` test gate whenever an automated rebase takes place.
+

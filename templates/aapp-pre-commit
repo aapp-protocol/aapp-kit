@@ -139,6 +139,24 @@ if [ "${ALLOW_MAIN_COMMIT:-0}" != "1" ]; then
 fi
 
 # ------------------------------------------------------------------------------
+# 0a. INTEGRATION LOCK CHECK (PREVENT RAW COMMITS TO PARENT BEING INTEGRATED)
+# ------------------------------------------------------------------------------
+CURRENT_BRANCH="${CURRENT_BRANCH:-$(git branch --show-current 2>/dev/null || true)}"
+if [ -n "$CURRENT_BRANCH" ]; then
+    TARGET_LOCK="$(aapp_lock_path "integrate/$CURRENT_BRANCH")"
+    if [ -d "$TARGET_LOCK" ]; then
+        HOLDER_PID="$(cat "$TARGET_LOCK/pid" 2>/dev/null || true)"
+        if [ -n "$HOLDER_PID" ] && kill -0 "$HOLDER_PID" 2>/dev/null; then
+            echo "" >&2
+            echo "❌ [AAPP Guard] Branch '$CURRENT_BRANCH' is currently locked for integration by PID $HOLDER_PID." >&2
+            echo "   Raw commits to a landing parent branch are prohibited during active integration." >&2
+            echo "" >&2
+            exit 1
+        fi
+    fi
+fi
+
+# ------------------------------------------------------------------------------
 # 0b. PROJECT CIRCUIT BREAKER (EMERGENCY PAUSE CHECK)
 # ------------------------------------------------------------------------------
 GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"

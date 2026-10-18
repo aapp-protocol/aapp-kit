@@ -181,6 +181,7 @@ EOF
         "SET-WORKTREES|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|One worktree and branch per plan? Group plans need on: \`git config aapp.planWorktrees <on|off>\`."
         "SET-INTEGRATE|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|How done integrates a plan branch: \`git config aapp.integrate <manual|squash|ff|hook>\`."
         "SET-AUTO-REBASE|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Automated clean rebase on integrate ff: \`git config aapp.autoRebase <true|false>\` (default: false)."
+        "SET-INTEGRATE-WAIT|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Integration parent lock wait timeout in seconds: \`git config aapp.integrateWait <seconds>\` (default: 15)."
         "SET-DOCS|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Documentation governance for manuals and rules: \`git config aapp.docs <true|false>\` (default: true)."
         "SET-COMMIT-MODE|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|One commit per plan or many: \`git config aapp.commitMode <atomic|microcommits>\`, \`git config aapp.changelogMode <plan|commit>\`."
         "SET-ATTRIBUTION|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Record which agent wrote a commit: \`git config aapp.aiAttribution <none|lax|strict|notes>\`."
