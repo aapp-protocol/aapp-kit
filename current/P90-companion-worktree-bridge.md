@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 📝 Refining
+* **Status:** ⚡ In Development
 * **Base:** `bf8f505` (develop)
 * **Worktree:** .workspace/P90 (plan/P90-companion-worktree-bridge)
 * **Commits:** none
@@ -225,6 +225,7 @@ aapp companion list
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-18:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-18:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-16:** Plan drafted: initial linked worktree proposal.
 * **2026-10-16:** Comprehensive architectural redesign via `.plans/pickup/p90-companion-repos-rfc.md`: settled 3 topologies (`checkout`, `worktree`, `clone`) preserving Repo-B's Git directory; bounded `push` (C11); offline status telemetry (C14); G1 guard delegation; and G2 refusal of AAPP worktrees.
