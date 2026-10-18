@@ -112,6 +112,8 @@ Goal: one accessor that reads a plan's status, and one that writes it, both back
 - [ ] `templates/aapp-pre-commit` -> Status checks onto `plan_status_is`; `🚫` removed.
 - [ ] `templates/blast-radius-guard.sh` -> Status checks onto `plan_status_is`; `🚫` removed.
 - [ ] `templates/AGENTS.md` -> `🚫 BLOCKED` becomes `🟥 BLOCKED` (:110).
+- [ ] `lib/docs/verbs/tdd.md` -> The refusal list names `🟥 BLOCKED`.
+- [ ] `templates/state_matrix.md` -> The blocked section heading is the registry's, `🟥 Blocked (Halted on an Issue)`.
 - [ ] `tests/plan_states_test.sh` -> Accessor tests, adopter-status hook parity, the source scan.
 - [ ] `tests/aapp_lib_test.sh` -> Readers that move with the accessors.
 - [ ] `tests/pre-commit_test.sh` -> The fixture copies `plan_states.sh` beside `aapp-lib.sh` into the hook directory.
