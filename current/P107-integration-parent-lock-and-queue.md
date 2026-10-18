@@ -1,8 +1,8 @@
 # 🗺️ Plan P-107: Integration Parent Lock And Queue
 * **Created:** 2026-10-18 | **Last Refined:** 2026-10-18
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-107
-* **Changelog:** Changed: Integration Parent Lock And Queue
+* **Changelog:** Added: parent-branch integration lock and serialized landing queue (P-107)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,64 +39,143 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+During parallel multi-agent development or concurrent developer workflows, plans are implemented in isolated worktrees (`.workspace/<plan-id>`). While Plan P-65 guarantees code disjointness during development and Plan P-106 introduces automated clean rebasing on `integrate ff`, a critical **Time-of-Check to Time-of-Use (TOCTOU) race condition** exists during integration:
+
+1. **The Concurrency Gap**:
+   In `aapp done <id> integrate`:
+   - `_ig_preflight` verifies that the plan contains the parent branch (or auto-rebases onto it).
+   - The `pre-done` test gate hook executes (e.g. `./aapp test quiet`, which may take anywhere from 10 seconds to several minutes).
+   - If another agent or developer lands a commit on the parent branch while `pre-done` is running, the parent branch tip advances.
+   - Once tests pass, `aapp done` moves the plan to `.plans/done/` and records it on the `plans` branch.
+   - Finally, `_ig_run` attempts `git merge --ff-only <plan-branch>`. Because the parent branch moved forward during testing, the fast-forward fails!
+2. **The Inconsistent State (Orphan Archival)**:
+   The plan is archived in `.plans/done/`, but its code never merged into the parent branch. Retrying via `aapp done <id> integrate` runs `_ig_standalone`, which rebases again but skips the test gate, landing untested code on the new parent tip.
+
+### Architectural Goals:
+1. **Target-Parent-Scoped Integration Lock (`aapp.integrateLock`)**:
+   Key the integration mutex to the **specific parent/target branch** (e.g. `develop`, `module/auth`, `feature/foo`), NOT hardcoded globally to `develop`. Concurrent plans targeting different parent branches integrate simultaneously without contention; plans targeting the *same* parent branch are safely serialized.
+2. **Configurable Wait with Low Starting Minimum (`aapp.integrateWait`)**:
+   The wait timeout must be configurable via `git config aapp.integrateWait <seconds>` (default: 15s; configurable from a minimum of 10s up to 600s), utilizing a fast 2-3s polling roller so short test suites don't incur unnecessary latency.
+3. **Atomic Landing Sequence (Zero Orphan Archival)**:
+   Ensure parent-branch fast-forward succeeds before committing plan archival. If integration fails, the plan remains in `.plans/current/` with its worktree clean and untouched.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Parent-Branch Integration Mutex Architecture
+
+Instead of a monolithic global lock, the integration lock is scoped to the canonical parent branch name:
+
+```bash
+# _ig_lock_file <target_branch>: derives safe filesystem path for parent branch lock
+_ig_lock_file() {
+    local target="$1"
+    local safe_target
+    safe_target="$(echo "$target" | tr '/:' '__')"
+    local common_dir
+    common_dir="$(git rev-parse --git-common-dir 2>/dev/null || git rev-parse --git-dir)"
+    echo "$common_dir/aapp_integrate_${safe_target}.lock"
+}
+```
+
+#### Lock Lifecycle:
+1. **Acquisition**: `_ig_lock_acquire <target_branch> <plan_id>`
+   - Uses atomic directory creation (`mkdir "$lock_file.d"`) or atomic `ln -s` to prevent race conditions.
+   - Writes holding metadata: `{"plan_id": "$pid", "pid": "$$", "target": "$target", "start": "<timestamp>"}`.
+   - If held by another process: enters roller wait loop up to `aapp.integrateWait` seconds (default: 15s).
+   - If holding process died (stale lock detection): verifies PID liveness (`kill -0 <pid>`); removes stale lock if holding process is dead.
+2. **Release**: `_ig_lock_release <target_branch>`
+   - Cleans up the lock on normal exit, error exit, or signal trap (`EXIT INT TERM`).
+
+---
+
+### 2.2 Integration Flow Sequencing
+
+```text
+aapp done <id> integrate ff
+  │
+  ├── 1. Resolve Target Parent Branch (e.g. develop or module/auth)
+  │
+  ├── 2. Acquire Parent-Branch Lock: _ig_lock_acquire "$target" "$id"
+  │      └── Wait if held (up to aapp.integrateWait seconds, poll every 2s)
+  │
+  ├── 3. Preflight & Clean Rebase: _ig_preflight "$target" "$id"
+  │      └── Rebase onto latest parent tip under lock (guaranteed stable)
+  │
+  ├── 4. Pre-Done Test Gate: dispatch_hook "pre-done"
+  │      └── Parent branch CANNOT move because lock is held!
+  │
+  ├── 5. Fast-Forward Parent: git merge --ff-only
+  │      └── Guaranteed 100% fast-forward success (0 race window)
+  │
+  ├── 6. Archive Plan: move to .plans/done/ and commit to plans branch
+  │
+  └── 7. Release Parent-Branch Lock: _ig_lock_release "$target"
+```
+
+---
+
+### 2.3 Configuration Invariants
+
+- **`aapp.integrateWait`**: Maximum time to wait for parent-branch integration lock in seconds.
+  - Default: `15` seconds (allows rapid turnaround for projects with fast test suites).
+  - Minimum allowed: `10` seconds.
+  - Configurable via `git config aapp.integrateWait 60` for repositories with larger test suites.
+- **`aapp.integrateLock`**: Boolean switch (`true` | `false`, defaults to `true`).
+  - When `true`, serializes integrations per parent branch.
+  - When `false`, bypasses locking (for solo manual environments).
+
+---
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Backwards Compatible`
+- **Fallback Inventory**: `aapp.integrateLock` defaults to `true`. Legacy solo workflows experience zero latency when no contention exists. Lock paths are ephemeral inside `.git/` and require no repository migrations.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Parent-Branch Lock Primitives
+- [ ] Task 1.1: Implement `_ig_lock_file`, `_ig_lock_acquire`, and `_ig_lock_release` in `lib/cmd_plan.sh` with stale lock detection.
+- [ ] Task 1.2: Implement configurable roller wait loop reading `aapp.integrateWait` (default 15s, min 10s, 2s poll step).
+- [ ] Task 1.3: Add unit tests in `tests/integrate_test.sh` verifying lock acquisition, contention waiting, stale lock recovery, and parallel execution on different parent branches.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Atomic Integration Sequencing
+- [ ] Task 2.1: Wrap the entire pre-done through merge sequence in `_ig_lock_acquire` / `_ig_lock_release`.
+- [ ] Task 2.2: Ensure fast-forward succeeds before plan relocation to `.plans/done/`, preventing orphan plan states on merge failure.
+- [ ] Task 2.3: Verify signal trapping (`trap ... EXIT INT TERM`) guarantees lock release on unexpected exit or abort.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Adoption & Manual Documentation
+- [ ] Task 3.1: Add `SET-INTEGRATE-WAIT` review task in `lib/adoption.sh` under `⚙️ Settings to Review`.
+- [ ] Task 3.2: Update `MANUAL.md` with integration locking mechanics and parent-branch isolation.
+- [ ] Task 3.3: Author reference specification `docs/reference/11-integration-lock-and-queue.md`.
+- [ ] Task 3.4: Verify all test suites pass cleanly (`./aapp test quiet`).
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `docs/reference/11-integration-lock-and-queue.md` -> Reference specification documenting parent-branch integration mutex and locking invariants.
+- [ ] `lib/cmd_plan.sh` -> Implement parent-branch integration lock primitives and re-sequence integration flow.
+- [ ] `lib/adoption.sh` -> Add `SET-INTEGRATE-WAIT` task under `⚙️ Settings to Review`.
+- [ ] `MANUAL.md` -> Document parent-branch lock, `aapp.integrateWait`, and race condition prevention.
+- [ ] `tests/integrate_test.sh` -> Add automated test fixtures covering concurrent integration locking and parent-branch isolation.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `templates/blast-radius-guard.sh` -> Tool write guard is untouched.
+- [ ] `lib/cmd_issue.sh` -> Issue workflows untouched.
+- [ ] `templates/aapp-pre-commit` -> Pre-commit hook untouched.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [x] **Question 1 — Lock Scope.** Should the integration lock be global or per-parent branch? -> **Resolved**: Per-parent branch (`aapp_integrate_<parent>.lock`). Plans integrating into `develop` serialize against each other, while plans integrating into `module/auth` proceed independently without contention.
+* [x] **Question 2 — Default Wait Timeout.** What should `aapp.integrateWait` default to? -> **Resolved**: Default to `15` seconds (with minimum 10s and 2s poll steps). This accommodates fast test suites without artificial delays, while remaining fully configurable for repositories with multi-minute suites.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-18:** Plan initialized from `pickup.md`.
-* **2026-10-18:** Refined blast radius and locked module boundaries.
+* **2026-10-18:** Plan initialized and scaffolded to address integration TOCTOU race conditions via parent-branch scoped locks and atomic sequencing.
