@@ -4,7 +4,6 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #171 | `Low` | `DOCS` | 2026-10-18 | `MANUAL.md` | MANUAL.md lacks recipe for split-repository topology pushing worktrees to a dedicated private remote |  | 🟡 `Incubated` |
 | #170 | `Low` | `CLI` | 2026-10-18 | `lib/cmd_status.sh` | aapp status lacks upstream tracking telemetry (ahead/behind counts vs @{u}) for active branch and worktrees |  | 🟡 `Incubated` |
 | #169 | `Medium` | `HOOK` | 2026-10-18 | `templates/blast-radius-guard.sh` | Tool writes via cross-repo symlinks can silently mutate target repository without physical symlink dereference validation |  | 🟡 `Incubated` |
 | #159 | `Medium` | `HOOK` | 2026-10-16 | `templates/aapp-pre-commit` | The pre-commit hook blocks commits on an adopter's own files with language checks (`bash -n`, Python syntax, `php -l`, JSON under `schema/`); adopter checks belong in the local hook (`templates/pre-commit`). |  | 🟡 `Incubated` |
