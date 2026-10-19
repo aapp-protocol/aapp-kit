@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-116
-* **Changelog:** Changed: Perl Hooks And Write Guard
+* **Changelog:** Changed: port `aapp-pre-commit`, `aapp-commit-msg`, `aapp-post-commit`, `aapp-post-rewrite`, `blast-radius-guard` and `AAPP::HookDispatcher` to Perl 5.26+ over `AAPP::State` (P-116)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,64 +40,75 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+`pre-commit` alone accounts for ~25% of all process spawns (~130 processes per commit), reading the active-plan buffer 4×, looping `.plans/current/*.md` 4×, and spawning multiple `awk`/`sed`/`grep` pipelines per plan and ledger. Porting the Git hooks (`templates/aapp-pre-commit`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`), `templates/blast-radius-guard.sh`, and `lib/AAPP/HookDispatcher.pm` to Perl 5.26+ as thin layers over `AAPP::State` (`P-115`) collapses ~130 process spawns per commit to 2–3 `git` queries.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Hook Modules & Templates
+1. **`lib/AAPP/HookDispatcher.pm`:** Ports `lib/hook_dispatcher.sh` to Perl using `Digest::SHA::sha256_hex` (in-process SHA-256 verification of `.agents/skills/aapp-hooks/registry.tsv`), `alarm` watchdog per handler, and `AAPP::JSON` envelope/response handling. `lib/hook_dispatcher.sh` remains available for unported bash verbs until `P-122`.
+2. **`templates/aapp-pre-commit` (`lib/AAPP/Hooks/PreCommit.pm`):**
+   - Loads `AAPP::State` once.
+   - Evaluates circuit breaker (pause state), changelog rule (`plan` and `commit` modes), blocked/held/active plan resolution, TDD correspondence & test file existence, Target Files / Out of Bounds blast radius, frozen §2/§4/group-section design lock, portability (`file://` / home path) check, changelog bullet length check, group member `ARCHITECTURE.md` rule, roadmap auto-prune, active `ISSUES.md` resolved-row check, and atomic commit mode check in memory.
+3. **`templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite` (`lib/AAPP/Hooks/CommitMsg.pm`, `PostCommit.pm`, `PostRewrite.pm`):**
+   - Subject/line/body limits, `AI-*` trailer validation (`none`, `lax`, `strict`, `notes`), staged note attachment (`aapp_pending_note`), and rewrite preservation in Perl.
+4. **`templates/blast-radius-guard.sh` (`lib/AAPP/Hooks/WriteGuard.pm`):**
+   - Parses `PreToolUse` JSON stdin via `AAPP::JSON`, checks self-protection, external allowlist/companion delegation, pause circuit breaker, always-allowed paths, and active/blocked/held plan Target Files via `AAPP::State`.
+5. **Self-contained `.githooks/`:** Hook entrypoints load `AAPP::*` relative to their own directory (`.githooks/AAPP/`, populated by `aapp init` from `lib/AAPP/`).
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Hook Modules (`lib/AAPP/HookDispatcher.pm`, `lib/AAPP/Hooks/*.pm`)
+- [ ] Task 1.1: Implement `lib/AAPP/HookDispatcher.pm` and `lib/AAPP/Attribution.pm` (trailer validation and note staging).
+- [ ] Task 1.2: Implement `lib/AAPP/Hooks/PreCommit.pm`, `lib/AAPP/Hooks/CommitMsg.pm`, `lib/AAPP/Hooks/PostCommit.pm`, `lib/AAPP/Hooks/PostRewrite.pm`, and `lib/AAPP/Hooks/WriteGuard.pm` over `AAPP::State`.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Hook Entrypoint Templates
+- [ ] Task 2.1: Update `templates/aapp-pre-commit`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`, `templates/blast-radius-guard.sh`, `templates/pre-commit`, `templates/commit-msg`, `templates/post-commit`, and `templates/post-rewrite` to invoke Perl.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Verification
+- [ ] Task 3.1: Run `./aapp test strict quiet` and verify all hook, pre-commit, write-guard, attribution, and note tests pass without modifying any test files.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `lib/AAPP/HookDispatcher.pm` -> Lifecycle hook & plugin dispatcher in Perl (`Digest::SHA`, `alarm`, `AAPP::JSON`).
+- [ ] `NEW FILE` -> `lib/AAPP/Attribution.pm` -> AI attribution trailer validation and staged note helpers in Perl.
+- [ ] `NEW FILE` -> `lib/AAPP/Hooks/PreCommit.pm` -> Single-pass pre-commit enforcement over `AAPP::State`.
+- [ ] `NEW FILE` -> `lib/AAPP/Hooks/CommitMsg.pm` -> Commit message conciseness and attribution gate in Perl.
+- [ ] `NEW FILE` -> `lib/AAPP/Hooks/PostCommit.pm` -> Post-commit note attachment and event telemetry in Perl.
+- [ ] `NEW FILE` -> `lib/AAPP/Hooks/PostRewrite.pm` -> Post-rewrite note preservation in Perl.
+- [ ] `NEW FILE` -> `lib/AAPP/Hooks/WriteGuard.pm` -> Write-time `PreToolUse` blast-radius guard over `AAPP::State` and `AAPP::JSON`.
+- [ ] `templates/aapp-pre-commit` -> Thin Perl entrypoint invoking `AAPP::Hooks::PreCommit`.
+- [ ] `templates/aapp-commit-msg` -> Thin Perl entrypoint invoking `AAPP::Hooks::CommitMsg`.
+- [ ] `templates/aapp-post-commit` -> Thin Perl entrypoint invoking `AAPP::Hooks::PostCommit`.
+- [ ] `templates/aapp-post-rewrite` -> Thin Perl entrypoint invoking `AAPP::Hooks::PostRewrite`.
+- [ ] `templates/blast-radius-guard.sh` -> Thin Perl entrypoint invoking `AAPP::Hooks::WriteGuard`.
+- [ ] `templates/pre-commit` -> Execute `aapp-pre-commit` directly.
+- [ ] `templates/commit-msg` -> Execute `aapp-commit-msg` directly.
+- [ ] `templates/post-commit` -> Execute `aapp-post-commit` directly.
+- [ ] `templates/post-rewrite` -> Execute `aapp-post-rewrite` directly.
+- [ ] `lib/cmd_init.sh` -> Copy `lib/AAPP/Hooks/*.pm`, `lib/AAPP/HookDispatcher.pm`, and `lib/AAPP/Attribution.pm` into `.githooks/AAPP/`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/AAPP/Tests.pm` -> Test harness is untouched.
+- [ ] `lib/AAPP/Tests/Core/*.pm` -> Core test modules are untouched.
+- [ ] `lib/AAPP/Tests/Verb/*.pm` -> Verb test modules are untouched.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified in `.plans/pickup/perl-port-rfc.md`)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-19:** Plan initialized from `pickup.md`.
-* **2026-10-19:** Refined blast radius and locked module boundaries.
+* **2026-10-19:** Plan drafted as member 4 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
