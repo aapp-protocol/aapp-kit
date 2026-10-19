@@ -712,6 +712,8 @@ aapp release <version-or-bump> [unverified] [yes] [check] [push] [json] [no-arch
 - **Simulation Preview**: Use `check` bare token to preview the complete simulation and exit 0 without mutating. In headless CI/CD runs, `json` emits machine-readable JSON output.
 - **Phase B (Atomic Release Mutation)**: Installs fail-closed `_release_rollback()` trap, dispatches `on-release` action delegate with Dual Delivery, rolls up `CHANGELOG.md`, moves completed blueprints from `.plans/done/` to `.plans/release/<tag>/plans/`, relocates defects, updates plan links, generates tag ledger `000-archive-ledger.md`, `manifest.md`, and `manifest.json`, truncates master ledger with 1-line summary row under `## 🏷️ Shipped Releases`, commits `.plans`, merges to release branch, and tags release.
 - **Publication & Remote Push**: Prints copy-paste publication banner by default, or automatically pushes release branch, tag, and `.plans` branch when `push` bare token is passed. Dispatches `post-release` notification hook.
+- **Dogfooding Reference (`scripts/kit-on-release.sh`)**: The AAPP Kit repository itself dogfoods the `on-release` action delegate via `scripts/kit-on-release.sh`. During `aapp release`, it extracts `AAPP_RAW_VERSION` and synchronizes `AAPP_VERSION` in `aapp` and protocol delimiter headers (`<!-- AAPP-PROTOCOL:START v<version> -->`) across starter templates in `templates/`.
+
 
 #### `aapp commit` — Plan-Bound Commit Helper
 

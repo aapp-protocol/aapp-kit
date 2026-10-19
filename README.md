@@ -378,6 +378,7 @@ on-sync	.agents/skills/team-transport/sync.sh	sha256:4d8a1c3...	45	gate
 * **Dual Delivery Contract**: Handlers receive full event context via standard input JSON envelopes while standard POSIX environment variables (`AAPP_EVENT`, `AAPP_PLAN_ID`, `AAPP_ACTION`, `AAPP_REMOTE`, `AAPP_MODE`, `AAPP_TIMEOUT`) are exported for zero-dependency shell scripts.
 * **Exit Code Semantics**: `0` = pass; `1` = fatal failure (aborts lifecycle in `gate` mode; logs warning in `notify` mode); `2` = non-fatal advisory warning; `124` = watchdog timeout.
 * **Transparent Action Plugins (`aapp <plugin>`)**: Extension-agnostic command fallthrough. Drop an executable script or binary into `.agents/skills/<plugin>/run` (or `.py`, `.sh`, etc.) and invoke it directly via `aapp <plugin> [args...]`.
+* **Self-Release Dogfooding (`scripts/kit-on-release.sh`)**: The AAPP Kit repository dogfoods the `on-release` action delegate via `scripts/kit-on-release.sh`. During `aapp release`, it synchronizes `AAPP_VERSION` in the CLI and advances protocol delimiters across all managed starter templates in `templates/`.
 * **Management CLI**: `aapp hooks` audits registered hooks; `aapp plugins` discovers installed action plugins; `aapp hook-test <event>` tests handlers safely; `aapp hook-hash <file>` generates ready-to-paste TSV lines.
 
 ---

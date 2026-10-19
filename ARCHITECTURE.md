@@ -75,7 +75,8 @@
 │   ├── plan_resolver_test.sh # Plan ID resolution, pairs 4, 5, 6
 │   └── ai_attribution_test.sh # Switchboard, trailers, Option C notes, credits
 ├── scripts/               # Migration and maintenance utilities
-│   └── scrub-attribution.sh # Attribution migration & SHA repair utility
+│   ├── scrub-attribution.sh # Attribution migration & SHA repair utility
+│   └── kit-on-release.sh  # Kit self-release on-release action delegate hook (P-59)
 ├── .plans/                # Isolated planning worktree (mounted on branch 'plans')
 │   ├── current/           # Active blueprints (P<N>-<slug>.md)
 │   ├── done/              # Archived blueprints & 000-archive-ledger.md
@@ -157,6 +158,10 @@ Template drift is probed by `aapp status` directing maintainers to `aapp init`.
 
 #### Continuous Documentation Navigation Invariant
 All high-level architectural documentation assets (`ARCHITECTURE.md`, `MANUAL.md`, `CHEATSHEET.md`, `CODEMAP.md`) and workflow cookbooks must maintain continuous bidirectional navigation links without dead-ends.
+
+#### Kit Release Lifecycle Hook & Version Synchronizer (P-59)
+The AAPP Kit dogfoods its lifecycle hook engine by implementing `scripts/kit-on-release.sh` as an `on-release` action delegate. During `aapp release`, it extracts `AAPP_RAW_VERSION` via Dual Delivery (env + STDIN JSON) and atomically synchronizes `AAPP_VERSION` in the `aapp` CLI executable and advances `<!-- AAPP-PROTOCOL:START v<version> -->` delimiter blocks across all starter templates in `templates/` (`templates/AGENTS.md`, `templates/plan-template.md`, `templates/pickup.md`, `templates/release_checklist.md`, `templates/amendments-template.md`).
+
 
 ### Testing
 
