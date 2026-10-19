@@ -27,6 +27,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-124**: [`P124-perl-lifecycle-verb-test-modules.md`](current/P124-perl-lifecycle-verb-test-modules.md) — Perl Lifecycle Verb Test Modules
 - 🟣 **P-125**: [`P125-perl-remaining-verb-tests-and-switch.md`](current/P125-perl-remaining-verb-tests-and-switch.md) — Perl Remaining Verb Tests And Switch
 - 🟣 **P-126**: [`P126-perl-test-runner.md`](current/P126-perl-test-runner.md) — Perl Test Runner
+- 🟣 **P-127**: [`P127-perl-foundation.md`](current/P127-perl-foundation.md) — Perl Foundation
 - 🟣 **P-15**: [`P15-adversarial-review-plugin.md`](current/P15-adversarial-review-plugin.md) — ✏️ **SKETCH — do not refine** — Adversarial Review Packet, Layer 6 Agent Egress Boundary & reference review plugin. Settled ground only; blocked on `#64`, `#57`, `#56`.
 
 ---

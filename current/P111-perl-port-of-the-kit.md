@@ -9,7 +9,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `fa3a42e` (port/perl)
 * **Feature Branch:** feature/perl-port-of-the-kit
-* **Members:** P-113, P-114, P-115, P-116, P-117, P-118, P-119, P-120, P-121, P-122, P-123, P-124, P-125, P-126, P-112
+* **Members:** P-113, P-114, P-115, P-116, P-117, P-118, P-119, P-120, P-121, P-122, P-123, P-124, P-125, P-126, P-127, P-112
 * **Commits:** none
 <!-- A group plan writes no code. `aapp start <group> [base <branch>]` cuts `feature/<slug>` from the parent
      branch; members are planned with `aapp draft <slug> group P-111` (or `aapp refine <id> group P-111`) and
