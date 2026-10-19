@@ -3,6 +3,7 @@
 ## 🏷️ Shipped Releases
 | Release | Release Date | Tag Ledger | Plans | Issues | Verification Commit | Impact Summary |
 | :--- | :--- | :--- | :---: | :---: | :--- | :--- |
+| 2026-10-19 | `P-113` | [`P113-slim-the-test-suites.md`](P113-slim-the-test-suites.md) | None | `6cd81b1` | Slim The Test Suites |
 | `v0.9.0` | 2026-10-19 | [`v0.9.0 Ledger`](../release/v0.9.0/000-archive-ledger.md) | 105 | 156 | `9319ea3` | Release milestone v0.9.0 |
 
 ## ⚡ Current Unreleased Cycle

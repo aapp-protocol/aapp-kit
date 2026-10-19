@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `fa3a42e` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P113 (plan/P113-slim-the-test-suites)
 * **Group:** P-111
@@ -100,6 +100,7 @@ Each non-verb suite (`tests/*_test.sh`) gets a contract file in `lib/docs/core/<
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-19:** Plan implementation completed and archived to done/.
 * **2026-10-19:** Baseline for P-114–P-122: 856 tests, 63/63 suites, 163 s wall, 1,477 s CPU (user 501 + sys 976). Before: 1,749 assertions, 142 s wall, 1,400 s CPU.
 * **2026-10-19:** `tests/verbs/issue.fixes.sh` holds `issue fix` behaviour tests, not standalone regressions: kept as a part of the issue suite, its fix-then-close chains merged.
 * **2026-10-19:** Verb suites keep one shared fixture per file, run in order; P-114 decides per-test fixtures there.
