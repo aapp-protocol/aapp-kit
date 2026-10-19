@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-114
-* **Changelog:** Changed: Perl Test Harness
+* **Changelog:** Added: modular Perl 5.26+ test harness (`AAPP::Tests`) with per-test fixture cloning, contract-driven discovery, parallel module workers and end-of-run failure recap (P-114)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,64 +40,72 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+Replaces the bash test scripts (`tests/*.sh`, `tests/verbs/*.sh`) with a modular Perl 5.26+ test harness (`AAPP::Tests`, modeled on `Logsniffer::Tests`), keeping the exact scenarios from `P-113` while leaving kit runtime code untouched. Every module (`AAPP::Tests::Verb::*`, `AAPP::Tests::Core::*`), verb, or individual test runs standalone via `aapp test`.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 `AAPP::Tests` Architecture (`.plans/pickup/perl-port-rfc.md` §2.6, A4, A6, A7)
+1. **Zero-boilerplate test modules:** Each module (`lib/AAPP/Tests/Verb/<Verb>.pm`, `lib/AAPP/Tests/Core/<Module>.pm`) is a plain package of `sub test_<name> { my ($self) = @_; ... }` functions. `AAPP::Tests` invokes each test as `$code->($self)` inside `eval` with an `alarm` watchdog (`timeout` default `10 s`, overridable per test).
+2. **Contract-driven test list & order:** `AAPP::Tests` reads `lib/docs/verbs/<verb>.md` and `lib/docs/core/<module>.md` (`## Tests` lines `` `<module>::test_<name>` -> <description> ``) for both execution order and TAP description strings, and verifies 1-to-1 correspondence against each module's `test_*` subs.
+3. **Diagnostic assertions & skip protocol:**
+   - Helpers on `$self` (`run_aapp`, `ok_cmd`, `fail_cmd`, `eq_or_die`, `match_or_die`, `file_exists_or_die`) `die` with `caller` `file:line`, exit code, and command output so failed tests always populate `$@` in `not ok N - <message> (Error: <$@>)`.
+   - Returning a scalar ref `\"reason"` emits `ok N - <message> # SKIP <reason>`.
+4. **Run-wide sandbox & per-test fixture cloning:**
+   - One sandboxed kit install (`$HOME/.local/bin/aapp`, `$HOME/.local/share/aapp-kit`) is created once per run in `/tmp` and shared by non-installer modules.
+   - Each module builds its initialized Git fixture template once; before each `test_*` sub runs, `$self` copies that template into a fresh per-test directory, rewrites the root prefix in the 6 worktree pointer files (`.git/worktrees/{-plans,-agents,-githooks}/gitdir` and `.{plans,agents,githooks}/.git`) in-process in Perl, and `chdir`s into it. Every test can run alone.
+5. **Selection & parallel execution:**
+   - `aapp test` supports selection by area/module, `verb <name...>`, numeric index, or test name / description substring, plus `strict`, `quiet`, `bail`, `list`, and `jobs <n>` (forking one worker per module). No forced baseline module on filtered runs.
+6. **End-of-run failure recap:**
+   - All failed `not ok` lines (with module, test name, message, and error) are repeated after the summary banner.
+   - `.agents/hooks/test-gate.sh` and `examples/hooks/test-gate.sh.sample` print from the summary banner to the end of the output instead of `tail -n 20`.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: `AAPP::Tests` Runner & Fixture Engine
+- [ ] Task 1.1: Implement `lib/AAPP/Tests.pm` (sandbox confinement, contract-driven test discovery, per-test fixture cloner + 6-file `gitdir` rewriter, `alarm` watchdog, `die`-based assertion helpers, TAP output, parallel module worker pool, and end-of-run failure recap).
+- [ ] Task 1.2: Update `lib/cmd_test.sh`, `.agents/hooks/test-gate.sh`, and `examples/hooks/test-gate.sh.sample` to invoke `lib/AAPP/Tests.pm` and print from the summary banner to the end on failure.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Port Core & Verb Suites to `AAPP::Tests::*`
+- [ ] Task 2.1: Port core suites from `tests/*_test.sh` to `lib/AAPP/Tests/Core/*.pm` and update `lib/docs/core/*.md` paths.
+- [ ] Task 2.2: Port verb suites from `tests/verbs/*.sh` to `lib/AAPP/Tests/Verb/*.pm` and update `lib/docs/verbs/*.md` paths; remove legacy `tests/*.sh` and `tests/verbs/*.sh`.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Verification
+- [ ] Task 3.1: Verify single-test, single-verb, and full parallel (`./aapp test strict quiet`) execution.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `lib/AAPP/Tests.pm` -> Modular Perl test harness, sandbox/fixture cloner, assertion helpers, and parallel runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Tests/Core/*.pm` -> Core test modules ported from `tests/*_test.sh`.
+- [ ] `NEW FILE` -> `lib/AAPP/Tests/Verb/*.pm` -> Verb test modules ported from `tests/verbs/*.sh`.
+- [ ] `lib/cmd_test.sh` -> Route `aapp test` to `lib/AAPP/Tests.pm`.
+- [ ] `lib/docs/verbs/*.md` -> Update test module identifiers in `## Tests`.
+- [ ] `lib/docs/core/*.md` -> Update test module identifiers in `## Tests`.
+- [ ] `.agents/hooks/test-gate.sh` -> Print from summary line to end (including failure recap) instead of `tail -n 20`.
+- [ ] `examples/hooks/test-gate.sh.sample` -> Print from summary line to end (including failure recap) instead of `tail -n 20`.
+- [ ] `DELETE` -> `tests/*.sh` -> Replaced by `lib/AAPP/Tests/Core/*.pm`.
+- [ ] `DELETE` -> `tests/verbs/*.sh` -> Replaced by `lib/AAPP/Tests/Verb/*.pm`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/aapp-lib.sh` -> Kit runtime libraries remain untouched in Plan 2.
+- [ ] `templates/*` -> Hook templates remain untouched in Plan 2.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified in `.plans/pickup/perl-port-rfc.md`)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-19:** Plan initialized from `pickup.md`.
-* **2026-10-19:** Refined blast radius and locked module boundaries.
+* **2026-10-19:** Plan drafted as member 2 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
