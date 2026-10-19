@@ -11,8 +11,9 @@
      rebase. Its Target Files grow only by approved requests. Corrections of the group's text go into the
      group plan with a line under `## Decisions` (`aapp refine <id> decision`). Only verbs write the three
      sections at the end. -->
-* **Status:** 🔷 Frozen
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `fa3a42e` (feature/perl-port-of-the-kit)
+* **Worktree:** .workspace/P112 (plan/P112-perl-port-of-the-kit-amendments)
 * **Group:** P-111
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
@@ -77,6 +78,7 @@ Each request is implemented as its approval describes; corrections of the group'
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-19:** Plan activated into ⚡ In Development via start.
 * **2026-10-19:** Drafted with its group.
 
 ---
