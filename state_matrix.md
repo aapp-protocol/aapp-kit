@@ -20,6 +20,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-115**: [`P115-perl-core-and-state-model.md`](current/P115-perl-core-and-state-model.md) — Perl Core And State Model
 - 🟣 **P-116**: [`P116-perl-hooks-and-write-guard.md`](current/P116-perl-hooks-and-write-guard.md) — Perl Hooks And Write Guard
 - 🟣 **P-117**: [`P117-perl-issue-and-offline-lane.md`](current/P117-perl-issue-and-offline-lane.md) — Perl Issue And Offline Lane
+- 🟣 **P-118**: [`P118-perl-readonly-verbs.md`](current/P118-perl-readonly-verbs.md) — Perl Readonly Verbs
 - 🟣 **P-11**: [`P11-airgapped-pickup.md`](current/P11-airgapped-pickup.md) — Air-Gapped Reference Store (`.plans/pickup/`) & 5-Layer Leak Protection Architecture.
 - 🟣 **P-15**: [`P15-adversarial-review-plugin.md`](current/P15-adversarial-review-plugin.md) — ✏️ **SKETCH — do not refine** — Adversarial Review Packet, Layer 6 Agent Egress Boundary & reference review plugin. Settled ground only; blocked on `#64`, `#57`, `#56`.
 
