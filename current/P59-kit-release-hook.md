@@ -3,12 +3,12 @@
 * **Target Issue / Milestone:** #58
 * **Plan ID:** P-59
 * **Changelog:** Added: Kit release lifecycle hook and template version synchronizer
-* **Commit Mode:** atomic
+* **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 * **Status:** ⚡ In Development
 * **Base:** `65959e4` (develop)
 * **Worktree:** .workspace/P59 (plan/P59-kit-release-hook)
-* **Commits:** none
+* **Commits:** `f27e2d5` (plan/P59-kit-release-hook)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done -->
@@ -151,3 +151,4 @@ The hook consumes the payload from Dual Delivery:
 ## 📦 6. Change Log & Refinement History
 * **2026-10-19:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-07:** Drafted blueprint promoting Issue #58 into a dedicated personalisation plan for `agent-planning-kit`'s own `on-release` hook and template protocol synchronizer.
+* **2026-10-19:** Commit Mode switched to microcommits (config) for f27e2d5.
