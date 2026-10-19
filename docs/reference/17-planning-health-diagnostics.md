@@ -62,5 +62,6 @@ aapp refine state --sync
 
 ## 🧭 Continuous Navigation
 - 📖 [Technical Manual](../../MANUAL.md)
-- ⚙️ [Configuration Options](04-configuration-options.md)
+- ⚙️ [Configuration Options](16-configuration-options.md)
 - 💻 [CLI Verb Reference](02-cli-commands-and-verbs.md)
+- 🏠 [Repository Overview](../../README.md)

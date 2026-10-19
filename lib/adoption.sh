@@ -6,25 +6,23 @@
 # .plans/adoption.md (local, untracked per-clone setup guide).
 # ==============================================================================
 
-# Returns all unique manual headings referenced in the adoption rules catalogue.
-get_all_adoption_manual_headings() {
+# Returns all unique documentation targets referenced in the adoption rules catalogue.
+get_all_adoption_doc_targets() {
     cat <<'EOF'
-Adaptive Branch Protection & Repository Topologies
-Remote Sync & Worktree Transport
-Plan IDs & Sequence Counters
-Repository Settings Matrix
-Project Files & Protocol Upgrade
-Project Rules & Customizations
-Codebase Mapping & Architecture
-Template Synchronization & Drift
-Issue IDs & Lifecycle
-Delimited Template Synchronization
-Claude Code Write-Time Interception (Layer 1)
-Foreign Hook Managers & Framework Integration
-Test Gates & Pre-Done Verification
-Monorepo & Build Tool Isolation
-Lifecycle Event Telemetry & Logging
+docs/concepts/01-worktree-architecture.md
+docs/concepts/02-blast-radius-engine.md
+docs/concepts/03-two-lane-governance.md
+docs/reference/01-lifecycle-state-machine.md
+docs/reference/03-configuration-matrix.md
+docs/reference/04-plugin-and-hook-engine.md
+docs/reference/09-event-telemetry.md
+docs/reference/11-document-governance.md
 EOF
+}
+
+# Compatibility alias for get_all_adoption_doc_targets
+get_all_adoption_manual_headings() {
+    get_all_adoption_doc_targets
 }
 
 # Returns the number of open (- [ ]) tasks in .plans/adoption.md.
@@ -150,41 +148,41 @@ EOF
 
     local -a RULES=(
         # 🌿 Branches & Remote
-        "DEV-BRANCH|🌿 Branches & Remote|Adaptive Branch Protection & Repository Topologies|_trig_dev_branch|_chk_dev_branch|Name your development branch: \`git config aapp.devBranch <name>\`. Tick it when the kit's defaults (develop dev development) are yours or you work on one branch."
-        "STABLE-BRANCH|🌿 Branches & Remote|Adaptive Branch Protection & Repository Topologies|_trig_stable_branch|_chk_stable_branch|Name your protected branches: \`git config aapp.protectedBranches <names>\`."
-        "REMOTE|🌿 Branches & Remote|Remote Sync & Worktree Transport|_trig_remote|_chk_remote|Add a remote or set \`aapp.remote\`: \`git remote add <name> <url>\` or \`git config aapp.remote <name>\`."
-        "FIRST-PUSH|🌿 Branches & Remote|Remote Sync & Worktree Transport|_trig_first_push|_chk_first_push|Run \`aapp push\`, so teammates can get the plans, rules and hooks."
+        "DEV-BRANCH|🌿 Branches & Remote|docs/concepts/02-blast-radius-engine.md|_trig_dev_branch|_chk_dev_branch|Name your development branch: \`git config aapp.devBranch <name>\`. Tick it when the kit's defaults (develop dev development) are yours or you work on one branch."
+        "STABLE-BRANCH|🌿 Branches & Remote|docs/concepts/02-blast-radius-engine.md|_trig_stable_branch|_chk_stable_branch|Name your protected branches: \`git config aapp.protectedBranches <names>\`."
+        "REMOTE|🌿 Branches & Remote|docs/concepts/01-worktree-architecture.md|_trig_remote|_chk_remote|Add a remote or set \`aapp.remote\`: \`git remote add <name> <url>\` or \`git config aapp.remote <name>\`."
+        "FIRST-PUSH|🌿 Branches & Remote|docs/concepts/01-worktree-architecture.md|_trig_first_push|_chk_first_push|Run \`aapp push\`, so teammates can get the plans, rules and hooks."
 
         # 👥 Team
-        "PLAN-ID-PROVIDER|👥 Team|Plan IDs & Sequence Counters|_trig_always|_chk_plan_id_provider|More than one contributor needs an aapp-planid provider, or two people allocate the same Plan ID; tick it when you work alone."
-        "TEAM-SETTINGS|👥 Team|Repository Settings Matrix|_trig_always|none|Settings are local to this clone: agree the project's values and set them on every clone (#126)."
+        "PLAN-ID-PROVIDER|👥 Team|docs/reference/01-lifecycle-state-machine.md|_trig_always|_chk_plan_id_provider|More than one contributor needs an aapp-planid provider, or two people allocate the same Plan ID; tick it when you work alone."
+        "TEAM-SETTINGS|👥 Team|docs/reference/03-configuration-matrix.md|_trig_always|none|Settings are local to this clone: agree the project's values and set them on every clone (#126)."
 
         # 📁 Project Files
-        "INIT-FILES|📁 Project Files|Project Files & Protocol Upgrade|_trig_init_files|_chk_init_files|Commit the files init wrote on the code branch; plan worktrees are cut from it."
-        "PROJECT-RULES|📁 Project Files|Project Rules & Customizations|_trig_project_rules|_chk_project_rules|Fill the project rules, or run \`/aapp-digest Onboarding\`."
-        "PROJECT-MAP|📁 Project Files|Codebase Mapping & Architecture|_trig_project_map|_chk_project_map|Map the codebase, or run \`/aapp-digest Onboarding\`."
-        "TEMPLATE-DRIFT|📁 Project Files|Template Synchronization & Drift|_trig_template_drift|_chk_template_drift|Merge each *.new file into its original and delete it."
-        "ISSUES-SCHEMA|📁 Project Files|Issue IDs & Lifecycle|_trig_issues_schema|_chk_issues_schema|Adapt the file to the flat issue ledger."
-        "PROTOCOL-BLOCK|📁 Project Files|Delimited Template Synchronization|_trig_protocol_block|_chk_protocol_block|Close the marker so the block syncs again."
+        "INIT-FILES|📁 Project Files|docs/reference/11-document-governance.md|_trig_init_files|_chk_init_files|Commit the files init wrote on the code branch; plan worktrees are cut from it."
+        "PROJECT-RULES|📁 Project Files|docs/reference/11-document-governance.md|_trig_project_rules|_chk_project_rules|Fill the project rules, or run \`/aapp-digest Onboarding\`."
+        "PROJECT-MAP|📁 Project Files|docs/reference/11-document-governance.md|_trig_project_map|_chk_project_map|Map the codebase, or run \`/aapp-digest Onboarding\`."
+        "TEMPLATE-DRIFT|📁 Project Files|docs/reference/11-document-governance.md|_trig_template_drift|_chk_template_drift|Merge each *.new file into its original and delete it."
+        "ISSUES-SCHEMA|📁 Project Files|docs/concepts/03-two-lane-governance.md|_trig_issues_schema|_chk_issues_schema|Adapt the file to the flat issue ledger."
+        "PROTOCOL-BLOCK|📁 Project Files|docs/reference/11-document-governance.md|_trig_protocol_block|_chk_protocol_block|Close the marker so the block syncs again."
 
         # 🛡️ Hooks & Gates
-        "WRITE-GUARD|🛡️ Hooks & Gates|Claude Code Write-Time Interception (Layer 1)|_trig_write_guard|_chk_write_guard|Install python3 and re-run aapp init, or add the guard hook by hand."
-        "HOOK-WIRING|🛡️ Hooks & Gates|Foreign Hook Managers & Framework Integration|_trig_hook_wiring|_chk_hook_wiring|Call \`.githooks/aapp-pre-commit\` from your pre-commit hook."
-        "GATE-TEST|🛡️ Hooks & Gates|Test Gates & Pre-Done Verification|_trig_always|_chk_gate_test|Register a pre-done test gate from examples/hooks/test-gate.sh.sample with aapp hook-hash; tick it when you do not want one."
-        "EVENT-LOG|🛡️ Hooks & Gates|Lifecycle Event Telemetry & Logging|_trig_always|_chk_event_log|Register an observer event logger hook from examples/hooks/event-logger.sample with aapp hook-hash; tick it when you do not want one."
+        "WRITE-GUARD|🛡️ Hooks & Gates|docs/concepts/02-blast-radius-engine.md|_trig_write_guard|_chk_write_guard|Install python3 and re-run aapp init, or add the guard hook by hand."
+        "HOOK-WIRING|🛡️ Hooks & Gates|docs/reference/04-plugin-and-hook-engine.md|_trig_hook_wiring|_chk_hook_wiring|Call \`.githooks/aapp-pre-commit\` from your pre-commit hook."
+        "GATE-TEST|🛡️ Hooks & Gates|docs/reference/04-plugin-and-hook-engine.md|_trig_always|_chk_gate_test|Register a pre-done test gate from examples/hooks/test-gate.sh.sample with aapp hook-hash; tick it when you do not want one."
+        "EVENT-LOG|🛡️ Hooks & Gates|docs/reference/09-event-telemetry.md|_trig_always|_chk_event_log|Register an observer event logger hook from examples/hooks/event-logger.sample with aapp hook-hash; tick it when you do not want one."
 
         # 🛠️ Build Tools
-        "MONO-NX|🛠️ Build Tools|Monorepo & Build Tool Isolation|_trig_mono_nx|_chk_mono_nx|Add /${wt_dir:-.workspace} to .nxignore."
-        "MONO-BAZEL|🛠️ Build Tools|Monorepo & Build Tool Isolation|_trig_mono_bazel|_chk_mono_bazel|Add ${wt_dir:-.workspace} to .bazelignore."
+        "MONO-NX|🛠️ Build Tools|docs/concepts/01-worktree-architecture.md|_trig_mono_nx|_chk_mono_nx|Add /${wt_dir:-.workspace} to .nxignore."
+        "MONO-BAZEL|🛠️ Build Tools|docs/concepts/01-worktree-architecture.md|_trig_mono_bazel|_chk_mono_bazel|Add ${wt_dir:-.workspace} to .bazelignore."
 
         # ⚙️ Settings to Review
-        "SET-WORKTREES|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|One worktree and branch per plan? Group plans need on: \`git config aapp.planWorktrees <on|off>\`."
-        "SET-INTEGRATE|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|How done integrates a plan branch: \`git config aapp.integrate <manual|squash|ff|hook>\`."
-        "SET-AUTO-REBASE|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Automated clean rebase on integrate ff: \`git config aapp.autoRebase <true|false>\` (default: false)."
-        "SET-INTEGRATE-WAIT|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Integration parent lock wait timeout in seconds: \`git config aapp.integrateWait <seconds>\` (default: 15)."
-        "SET-DOCS|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Documentation governance for manuals and rules: \`git config aapp.docs <true|false>\` (default: true)."
-        "SET-COMMIT-MODE|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|One commit per plan or many: \`git config aapp.commitMode <atomic|microcommits>\`, \`git config aapp.changelogMode <plan|commit>\`."
-        "SET-ATTRIBUTION|⚙️ Settings to Review|Repository Settings Matrix|_trig_always|none|Record which agent wrote a commit: \`git config aapp.aiAttribution <none|lax|strict|notes>\`."
+        "SET-WORKTREES|⚙️ Settings to Review|docs/reference/03-configuration-matrix.md|_trig_always|none|One worktree and branch per plan? Group plans need on: \`git config aapp.planWorktrees <on|off>\`."
+        "SET-INTEGRATE|⚙️ Settings to Review|docs/reference/03-configuration-matrix.md|_trig_always|none|How done integrates a plan branch: \`git config aapp.integrate <manual|squash|ff|hook>\`."
+        "SET-AUTO-REBASE|⚙️ Settings to Review|docs/reference/03-configuration-matrix.md|_trig_always|none|Automated clean rebase on integrate ff: \`git config aapp.autoRebase <true|false>\` (default: false)."
+        "SET-INTEGRATE-WAIT|⚙️ Settings to Review|docs/reference/03-configuration-matrix.md|_trig_always|none|Integration parent lock wait timeout in seconds: \`git config aapp.integrateWait <seconds>\` (default: 15)."
+        "SET-DOCS|⚙️ Settings to Review|docs/reference/03-configuration-matrix.md|_trig_always|none|Documentation governance for manuals and rules: \`git config aapp.docs <true|false>\` (default: true)."
+        "SET-COMMIT-MODE|⚙️ Settings to Review|docs/reference/03-configuration-matrix.md|_trig_always|none|One commit per plan or many: \`git config aapp.commitMode <atomic|microcommits>\`, \`git config aapp.changelogMode <plan|commit>\`."
+        "SET-ATTRIBUTION|⚙️ Settings to Review|docs/reference/03-configuration-matrix.md|_trig_always|none|Record which agent wrote a commit: \`git config aapp.aiAttribution <none|lax|strict|notes>\`."
     )
 
     # --------------------------------------------------------------------------
@@ -490,7 +488,7 @@ EOF
                     fi
                 fi
                 if [ "$passes" -eq 0 ]; then
-                    local new_task_line="- [ ] \`[${tag}]\` ${text} → MANUAL: ${mhead}"
+                    local new_task_line="- [ ] \`[${tag}]\` ${text} → ${mhead}"
                     _adoption_insert_task "$tmp_file" "$sec" "$new_task_line"
                 fi
             fi

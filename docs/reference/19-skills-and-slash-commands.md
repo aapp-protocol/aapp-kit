@@ -65,5 +65,6 @@ Custom skills should be placed in `.agents/skills/<skill-name>/SKILL.md` to be a
 
 ## 🧭 Continuous Navigation
 - 📖 [Technical Manual](../../MANUAL.md)
-- ⚙️ [Configuration Options](04-configuration-options.md)
-- 🩺 [Planning Health Engine](05-planning-health-engine.md)
+- ⚙️ [Configuration Options](16-configuration-options.md)
+- 🩺 [Planning Health Engine](13-planning-health-engine.md)
+- 🏠 [Repository Overview](../../README.md)

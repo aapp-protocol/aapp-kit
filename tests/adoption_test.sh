@@ -246,26 +246,29 @@ test_user_edits_survive() {
   )
 }
 
-# Test 12: test_manual_headings_exist
-# Asserts every catalogue entry's manual heading is an actual heading in MANUAL.md.
-test_manual_headings_exist() {
-  if [ ! -f "$KIT/lib/adoption.sh" ] || [ ! -f "$KIT/MANUAL.md" ]; then
-    bad "test_manual_headings_exist" "lib/adoption.sh or MANUAL.md missing"
+# Test 12: test_docs_targets_exist
+# Asserts every catalogue entry's documentation target is an actual file in docs/.
+test_docs_targets_exist() {
+  if [ ! -f "$KIT/lib/adoption.sh" ]; then
+    bad "test_docs_targets_exist" "lib/adoption.sh missing"
     return 1
   fi
   source "$KIT/lib/adoption.sh"
-  local bad_headings=0
-  while IFS= read -r heading; do
-    [ -z "$heading" ] && continue
-    if ! grep -E "^#+" "$KIT/MANUAL.md" | grep -qF "$heading"; then
-      bad_headings=$((bad_headings + 1))
+  local bad_targets=0
+  while IFS= read -r target; do
+    [ -z "$target" ] && continue
+    if [ ! -f "$KIT/$target" ]; then
+      bad_targets=$((bad_targets + 1))
     fi
-  done < <(get_all_adoption_manual_headings)
-  if [ "$bad_headings" -eq 0 ]; then
-    ok "test_manual_headings_exist"
+  done < <(get_all_adoption_doc_targets)
+  if [ "$bad_targets" -eq 0 ]; then
+    ok "test_docs_targets_exist"
   else
-    bad "test_manual_headings_exist" "$bad_headings manual headings not found in MANUAL.md"
+    bad "test_docs_targets_exist" "$bad_targets doc targets not found in docs/"
   fi
+}
+test_manual_headings_exist() {
+  test_docs_targets_exist
 }
 
 # Test 13: test_docs_governance_disabled
