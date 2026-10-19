@@ -11,7 +11,7 @@
      rebase. Its Target Files grow only by approved requests. Corrections of the group's text go into the
      group plan with a line under `## Decisions` (`aapp refine <id> decision`). Only verbs write the three
      sections at the end. -->
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Group:** P-111
 * **Commits:** none

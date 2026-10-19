@@ -6,9 +6,9 @@
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
      The group's `done` writes it with the ARCHITECTURE.md commit. -->
-* **Status:** 🔷 Frozen
-* **Base:** none
-* **Feature Branch:** none
+* **Status:** ⚡ In Development
+* **Base:** `fa3a42e` (port/perl)
+* **Feature Branch:** feature/perl-port-of-the-kit
 * **Members:** P-113, P-114, P-115, P-116, P-117, P-118, P-119, P-120, P-121, P-122, P-112
 * **Commits:** none
 <!-- A group plan writes no code. `aapp start <group> [base <branch>]` cuts `feature/<slug>` from the parent
@@ -250,6 +250,7 @@ All test suites run under `tests/AAPP/Tests.pm` (`AAPP::Tests`), which confines 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-19:** Group started: `feature/perl-port-of-the-kit` from `port/perl`.
 * **2026-10-19:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-19:** Group drafted and refined from settled RFC (`.plans/pickup/perl-port-rfc.md`).
 * **2026-10-19:** Added transitional bash/Perl coexistence inventory, core wrapper test rule, and complete `ARCHITECTURE.md` and `.agents/CODEMAP.md` replacement sections per RFC §5.1 review.
