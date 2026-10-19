@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #176 | `Medium` | `CLI` | 2026-10-19 | `lib/cmd_note.sh` | aapp note pull fetches nothing yet reports success when the remote holds only one of refs/notes/commits and refs/notes/ai: one fetch names both refspecs and its failure is hidden by \|\| true. |  | 🟡 `Incubated` |
 | #175 | `Low` | `CORE` | 2026-10-19 | `lib/cmd_status.sh`, `lib/cmd_help.sh` | cmd_status.sh (3 places) and cmd_help.sh fall back to a hard-coded 1.0.0 when AAPP_VERSION is unset; the template drift check then compares against the wrong version. One accessor, failing closed. |  | 🟡 `Incubated` |
 | #174 | `Low` | `CLI` | 2026-10-19 | `lib/cmd_release.sh` | aapp release checks out the release branch for the parity merge and never returns, leaving the checkout on main after a successful release; it should switch back to the branch it started on. |  | 🟡 `Incubated` |
 | #169 | `Medium` | `HOOK` | 2026-10-18 | `templates/blast-radius-guard.sh` | Tool writes via cross-repo symlinks can silently mutate target repository without physical symlink dereference validation |  | 🟡 `Incubated` |
