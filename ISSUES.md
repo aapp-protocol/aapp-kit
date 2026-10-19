@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #175 | `Low` | `CORE` | 2026-10-19 | `lib/cmd_status.sh`, `lib/cmd_help.sh` | cmd_status.sh (3 places) and cmd_help.sh fall back to a hard-coded 1.0.0 when AAPP_VERSION is unset; the template drift check then compares against the wrong version. One accessor, failing closed. |  | 🟡 `Incubated` |
 | #174 | `Low` | `CLI` | 2026-10-19 | `lib/cmd_release.sh` | aapp release checks out the release branch for the parity merge and never returns, leaving the checkout on main after a successful release; it should switch back to the branch it started on. |  | 🟡 `Incubated` |
 | #169 | `Medium` | `HOOK` | 2026-10-18 | `templates/blast-radius-guard.sh` | Tool writes via cross-repo symlinks can silently mutate target repository without physical symlink dereference validation |  | 🟡 `Incubated` |
 | #159 | `Medium` | `HOOK` | 2026-10-16 | `templates/aapp-pre-commit` | The pre-commit hook blocks commits on an adopter's own files with language checks (`bash -n`, Python syntax, `php -l`, JSON under `schema/`); adopter checks belong in the local hook (`templates/pre-commit`). |  | 🟡 `Incubated` |
