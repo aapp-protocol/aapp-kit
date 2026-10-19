@@ -40,67 +40,60 @@
 ---
 
 ## 1. Context & Architectural Goal
-Plan `P-117` is the fifth member of group `P-111` (*Perl Port Of The Kit*). It ports the entire issue lane (`lib/cmd_issue.sh`, 1,701 lines across 33 functions) and offline queue (`lib/cmd_offline.sh`, 512 lines across 6 functions) into `lib/AAPP/Issue.pm`, `lib/AAPP/Cmd/Issue.pm`, and `lib/AAPP/Cmd/Offline.pm`, and routes `aapp issue` and `aapp offline` through Perl CLI dispatch.
+Plan `P-117` is the fifth member of group `P-111` (*Perl Port Of The Kit*). It ports the entire issue lane (`lib/cmd_issue.sh`, 2,471 lines) and offline worktree sync (`lib/cmd_offline.sh`, 352 lines) into `lib/AAPP/Issue.pm`, `lib/AAPP/Cmd/Issue.pm`, and `lib/AAPP/Cmd/Offline.pm`, and routes `aapp issue` and `aapp offline` through Perl CLI dispatch.
 
-In bash, `cmd_issue_list` and `cmd_issue_close` spawn multiple `awk` passes and per-issue `git notes` subprocesses across `ISSUES.md`, `issues_road_map.md`, and `000-issues-archive.md`. In Perl, `AAPP::State` (built in `P-115`) loads the issue ledger, work queue, archive, and `refs/notes/issues` in one pass, and `AAPP::Issue` / `AAPP::Cmd::Issue` manipulate rows in memory before committing atomically via `AAPP::Repo`.
+In bash, `cmd_issue` spawns multiple `awk`/`sed` passes across `.plans/ISSUES.md`, `.plans/issues_road_map.md`, `.plans/done/000-issues-archive.md`, `.plans/aborted/000-aborted-ledger.md`, and `${AAPP_STATE_DIR:-~/.local/state}/aapp/<key>/issues-data.md`. In Perl, `AAPP::State` (`P-115`) and `AAPP::Issue` load and manipulate the issue ledger, work queue, archive, and external `issues-data.md` store in memory before committing atomically via `AAPP::CommitEngine`.
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/*.pm`, `lib/cmd_issue.sh`, `lib/cmd_offline.sh`, `aapp`). `lib/AAPP/Tests*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Issue.pm`, `lib/AAPP/Cmd/Issue.pm`, `lib/AAPP/Cmd/Offline.pm`, `lib/cmd_issue.sh`, `lib/cmd_offline.sh`, `aapp`). `tests/AAPP/*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
 ---
 
 ## 2. Technical Blueprint
 
 ### 2.1 `AAPP::Issue` (`lib/AAPP/Issue.pm`) — Shared Issue Domain & Fix-Worktree Helpers
-Provides reusable issue domain primitives shared by `AAPP::Cmd::Issue`, `AAPP::Cmd::Done`, `AAPP::Cmd::Refine`, and `AAPP::Cmd::Commit`:
-- **Counter & ID allocation**: `next_issue_id($state)` reads/increments `.plans/.issue-counter` (or delegates to the configured external tracker backend when online) and formats `#<num>` or `#<KEY>`.
-- **Row construction & validation**: `build_issue_row(%args)`, `validate_symptom($text)`, `parse_location_files($loc_cell)`, and `format_archive_row($row, $resolution_summary)`.
-- **Road-map queue manipulation**: `add_roadmap_blocker($state, $id, $blocking_plans, $summary)`, `add_roadmap_queued($state, $id, $tier, $summary)`, and `prune_roadmap_entry($state, $id)` preserving human ordering in `.plans/issues_road_map.md`.
-- **Issue notes (`refs/notes/issues`)**: `read_issue_notes($state, $id)` and `append_issue_note($state, $id, $kind, $text)` storing descriptions and notes on the anchor commit of `#<id>` in `refs/notes/issues` without leaking note content into tracked files. Uses a single `git log --format="%H %B" refs/notes/issues` bulk load for `issue list`.
-- **Fix-worktree lifecycle helpers**:
-  - `active_fix_plan($state)`: detects `.plans/current/.fix-<num>.md` mini-plan in a `.workspace/fix-<num>` worktree or main checkout.
-  - `wait_for_active_fix($state)`: implements the `aapp.issueFixWait` polling/lock loop when another fix is open.
-  - `create_fix_worktree_and_miniplan($state, $id, \@extra_files)`: creates `.workspace/fix-<num>` on branch `fix/issue-<num>`, writes the temporary mini-plan `.plans/current/.fix-<num>.md` whose `### 📂 Target Files` come from the issue's `Location` cell plus `file <path>` extras, and binds `.git/aapp-active-plan`.
-  - `relocate_issue_to_archive($state, $id, $resolution_summary)`: removes `#<id>` from `ISSUES.md`, appends to `.plans/done/000-issues-archive.md` (preserving historical Location and Symptom verbatim), and prunes `.plans/issues_road_map.md`.
+Provides reusable issue domain primitives shared by `AAPP::Cmd::Issue`, `AAPP::Cmd::Plan` (`draft`, `refine`, `done`, `abort`), and `AAPP::Cmd::Status`:
+- **Counter & ID allocation**: `next_issue_id()` queries the `aapp-issue-tracker` plugin (`create`) when enabled, or reads/increments `git config aapp.issueId` seeded on first use from the highest `#<num>` across `.plans/ISSUES.md` and `.plans/done/000-issues-archive.md`.
+- **Row construction & validation**: `build_issue_row(%args)`, `validate_symptom($text)`, `parse_location_files($loc_cell)`, and `format_archive_row($row, $resolution_summary)` for `.plans/ISSUES.md` (`| #<id> | <Sev> | <Type> | <YYYY-MM-DD> | <Location> | <Symptom> | <Target Plan / Fix> | <Status> |`), with severities `Critical`, `High`, `Medium`, `Low`, uppercase `Type` (`^[A-Z0-9_-]+$`), single-line symptom `<= 250` chars, and statuses `` 🟡 `Incubated` ``, `` 🔵 `Planned` ``, `` 🟠 `In Progress` ``.
+- **Road-map queue manipulation**: `add_roadmap_blocker`, `add_roadmap_queued`, and `prune_roadmap_entry` over `.plans/issues_road_map.md` (`## 🧱 Plan Blockers` and `## 📋 Queued` with `### 🔺 Urgent`, `### Normal`, `### Low`), preserving human ordering.
+- **External description & notes store (`issues-data.md`)**: `issue_data_path()`, `issue_note_append($id, $kind, $text)`, and `issue_notes_print($id)` storing descriptions and notes outside Git in `${AAPP_STATE_DIR:-~/.local/state}/aapp/<key>/issues-data.md`, running optional `aapp-issue-note-filter` plugin inspection (`log` / `note` / `show`), and printing the non-instruction framing banner.
+- **External tracker bridge**: `issue_provider()`, `issue_sync()`, `aapp-issue-tracker` plugin (`get`, `create`, `status`, `close`), and `.plans/.tracker-sync` cache TTL (`aapp.issueSyncTtl`).
+- **Cross-lane plan-unblocking & fix helpers**:
+  - `issue_unblock_plans($id, $fix_sha, $plans_wt)` and `issue_unblock_landed($plans_wt)`: scan `.plans/current/P*.md` for `* **Blocked By:**` containing `#<id>`, remove `#<id>`, restore pre-block status when no blockers remain, and clear `.plans/state_matrix.md` blocker annotations.
+  - `issue_bring_fix_to_groups($fix_sha)`: cherry-pick or merge the landed fix commit into active group integration branches waiting on the blocker.
 
-### 2.2 `AAPP::Cmd::Issue` (`lib/AAPP/Cmd/Issue.pm`) — `aapp issue` Subverbs
-Implements all `aapp issue` subverbs with identical CLI flags, exit codes, human output, and `--json` output (`AAPP::Output` + `AAPP::JSON`):
-- `log <sev> <type> "<symptom>" [file <path>]... [note "<text>"]`: validates severity (`HIGH|MED|LOW` or `P0..P4`), type token (`^[A-Z0-9_-]+$`), and single-line symptom (`<= 250` chars); when an external tracker is configured and reachable (or falls back to offline queue when unreachable and offline fallback applies), allocates ID, appends to `ISSUES.md`, commits `issue(triage): log #<id> in .plans/ISSUES.md` in `.plans`, and attaches optional `description` note to `refs/notes/issues`.
-- `queue <num> [urgent | normal | low | remove]`: adds, moves, or removes `#<num>` under `## 📋 Queued` (`### 🔴 Urgent`, `### 🟡 Normal`, `### 🟢 Low`) in `.plans/issues_road_map.md` and commits in `.plans`.
-- `hotfix ["<symptom>"] [sev <sev>] [type <type>] [file <path>...] [issue <num>] [plan] [note "<text>"]`: logs a new issue or promotes an existing `#<num>` into `## 🧱 Plan Blockers` in `issues_road_map.md`, records `* **Blocked On:** #<num>` and appends `* **Emergency Hotfixes:** #<num>` on the active plan (transitioning to `🟥 BLOCKED` when exceeding `aapp.maxEmergencyHotfixes`), and in single-checkout mode stashes uncommitted overlapping target files.
-- `fix [<num> | next-blocker] [file <path>...]`: verifies `#<num>` is cleared in `issues_road_map.md` (`Plan Blockers` or `Queued`), waits up to `aapp.issueFixWait` if another fix is open, creates `.workspace/fix-<num>` and the `.fix-<num>.md` mini-plan, marks the issue `🟠 In Progress`, and prints any author description/notes block with the non-instruction safety banner.
-- `close <num> [sha <sha>] [summary "<text>"]`: verifies the fix commit and changelog entry, integrates `.workspace/fix-<num>` onto the base branch as one commit (and removes the worktree and mini-plan), relocates `#<num>` to `.plans/done/000-issues-archive.md`, prunes `issues_road_map.md`, and unblocks any plans waiting on `* **Blocked On:** #<num>`.
-- `abort [<num>]`: aborts an in-progress fix worktree, removes `.workspace/fix-<num>` and `.fix-<num>.md`, and restores the issue status to `🟠 Incubated`.
-- `reopen <num> [reason "<text>"]`: moves `#<num>` back from `000-issues-archive.md` to `ISSUES.md` as `🟠 Incubated` without altering original historical prose.
-- `list [open | planned | in-progress | queued | blockers | done | all] [sev <sev>] [type <type>] [note <num>] [--json]`: renders filtered issue tables or single-issue note block, or structured JSON via `AAPP::Output`.
-- `tracker [status | set <kind> ... | clear]` and `import` / `sync`: ports external tracker configuration and synchronization helpers.
+### 2.2 `AAPP::Cmd::Issue` (`lib/AAPP/Cmd/Issue.pm`) — `aapp issue` Subverbs (`lib/docs/verbs/issue.md`)
+Implements all `aapp issue` subverbs with identical CLI tokens, exit codes, human output, and bare `json` token output (`AAPP::Output` + `AAPP::JSON`):
+- `aapp issue log <sev> <type> "<symptom>" [file <path>]… [note "<text>"]` (also accepting `severity`/`category`/`description`/`location` keyword aliases): validates severity (`Critical`, `High`, `Medium`, `Low`), uppercase `Type`, and single-line symptom (`<= 250` chars); allocates `#<id>`; appends row to `.plans/ISSUES.md`; writes optional description to `issues-data.md`; commits `issue(triage): log #<id> in .plans/ISSUES.md`.
+- `aapp issue hotfix [<id> | <sev> <type> "<symptom>" [file <path>]… [note "<text>"]] [plan <P-num>]`: logs a new issue or claims an existing `#<id>`, adds `#<id>` under `## 🧱 Plan Blockers` in `.plans/issues_road_map.md`, records `* **Blocked By:** #<id>` and `* **Emergency Hotfixes:**` on the active plan (transitioning to `🟥 BLOCKED`), and stashes dirty overlapping target files in `aapp_hotfix_stash`.
+- `aapp issue fix next-blocker | fix <num> [file <path> ["<why>"]]… [group <group>] [force] | fix <num> abort`:
+  - Verifies `#<num>` is cleared in `.plans/issues_road_map.md` (`## 🧱 Plan Blockers` or `## 📋 Queued`), acquires the shared single-fix lock `$(git rev-parse --git-common-dir)/aapp_issue.lock` (waiting up to `aapp.issueFixWait` minutes while another fix is open), creates `.workspace/fix-<num>` on branch `fix/<num>` (or `aapp-issue-branch` plugin name), scaffolds the temporary mini-plan `.plans/current/fix-<num>.md`, sets status to `` 🟠 `In Progress` ``, binds `$(git rev-parse --git-path aapp_active_plan)` inside `.workspace/fix-<num>`, and prints any author description/notes from `issues-data.md`.
+- `aapp issue queue <num> [urgent | low | remove]`: adds, moves, or removes `#<num>` under `## 📋 Queued` (`### 🔺 Urgent`, `### Normal`, `### Low`) in `.plans/issues_road_map.md` and commits.
+- `aapp issue close <id> [sha <sha>] [summary "<text>"]`: squashes (`_issue_squash_fix`) and lands (`_issue_land_fix`) the fix branch from `.workspace/fix-<id>` onto the target branch as one commit, removes `.plans/current/fix-<id>.md` and `.workspace/fix-<id>`, relocates `#<id>` to `.plans/done/000-issues-archive.md` (`✅ Resolved (<sha>)`), prunes `.plans/issues_road_map.md`, unblocks waiting plans via `issue_unblock_plans` and `issue_bring_fix_to_groups`, pops `aapp_hotfix_stash` if recorded, and notifies `aapp-issue-tracker` / offline outbox.
+- `aapp issue abort <num> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]`: tears down `.workspace/fix-<num>` and `.plans/current/fix-<num>.md`, relocates the issue row to `.plans/aborted/000-aborted-ledger.md` when confirmed (or reverts in-progress fix state via `fix <num> abort`), and prunes `.plans/issues_road_map.md`.
+- `aapp issue list [<n> | all] [confirm] [json]` and `aapp issue list note <num>`: lists active rows from `.plans/ISSUES.md` (with bare `json` token output or interactive `confirm` pagination) or prints external notes for `#<num>` from `issues-data.md`.
 
-### 2.3 `AAPP::Cmd::Offline` (`lib/AAPP/Cmd/Offline.pm`) — `aapp offline` Subverbs
-Ports `lib/cmd_offline.sh` into `lib/AAPP/Cmd/Offline.pm`:
-- Manages `.plans/.offline-queue` (or `.git/aapp-offline-queue` per state model) for queued tracker operations when offline.
-- Implements `aapp offline status`, `aapp offline list`, `aapp offline replay` / `flush`, and `aapp offline drop` / `clear`, preserving `--json` output and exact error diagnostics.
-
-### 2.4 CLI Dispatch & Transitional Bash Shim (`aapp`, `lib/cmd_issue.sh`, `lib/cmd_offline.sh`)
-- Wire `issue` -> `AAPP::Cmd::Issue::run` and `offline` -> `AAPP::Cmd::Offline::run` in `./aapp`.
-- Replace any cross-calls from unported bash scripts (`cmd_done.sh`, `cmd_refine.sh`) into `cmd_issue.sh` with thin delegates invoking `perl -I"$SCRIPT_DIR/lib" -MAAPP::Issue ...` until `P-119` and `P-122` complete.
+### 2.3 `AAPP::Cmd::Offline` (`lib/AAPP/Cmd/Offline.pm`) — `aapp offline` Subverbs (`lib/docs/verbs/offline.md`)
+Ports `lib/cmd_offline.sh` (352 lines) into `lib/AAPP/Cmd/Offline.pm`:
+- Manages the `.offline/` worktree on orphan branch `offline`: `aapp offline mount`, `aapp offline unmount [force]`, `aapp offline on`, `aapp offline off`, `aapp offline status`, and `aapp offline sync`.
+- Records offline tracker operations in `.offline/outbox` and closed issue rows in `.offline/closed.rows` when `aapp.offline=true`, replaying them against `aapp-issue-tracker` on `aapp offline sync`.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default)
-- **Fallback Inventory**: `None (Clean Break)`
+- **Transitional Coexistence (`P-117` → `P-122`):** While `aapp issue` and `aapp offline` dispatch to `AAPP::Cmd::Issue` and `AAPP::Cmd::Offline`, `lib/cmd_plan.sh` (`aapp done` and `aapp refine issues`, ported in `P-119`) and `lib/cmd_status.sh` (`aapp status`, ported in `P-118`) still call bash helpers in `lib/cmd_issue.sh` (`issue_unblock_plans`, `issue_unblock_landed`, `issue_sync`, `issue_provider`, `issue_data_path`, `issue_note_append`) and `lib/cmd_offline.sh` (`offline_enabled`, `offline_record_close`). Either `lib/cmd_issue.sh` and `lib/cmd_offline.sh` remain intact for bash callers until `P-119` completes, or their shared functions delegate to `perl -I"$AAPP_DIR/lib" -MAAPP::Issue` until `P-122` deletes both `.sh` files.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Issue Domain Module (`AAPP::Issue`)
-- [ ] Task 1.1: Implement `lib/AAPP/Issue.pm` with ID allocation, `ISSUES.md` / `000-issues-archive.md` / `issues_road_map.md` manipulation, bulk `refs/notes/issues` reader/writer, and `.workspace/fix-<num>` mini-plan lifecycle helpers.
+- [ ] Task 1.1: Implement `lib/AAPP/Issue.pm` with `aapp.issueId` / `aapp-issue-tracker` ID allocation, `.plans/ISSUES.md` / `.plans/done/000-issues-archive.md` / `.plans/aborted/000-aborted-ledger.md` / `.plans/issues_road_map.md` manipulation, external `issues-data.md` reader/writer, and `issue_unblock_plans` / `issue_unblock_landed` / `issue_bring_fix_to_groups`.
 
 ### Phase 2: `AAPP::Cmd::Issue` & `AAPP::Cmd::Offline`
-- [ ] Task 2.1: Implement `lib/AAPP/Cmd/Issue.pm` covering `log`, `queue`, `hotfix`, `fix`, `close`, `abort`, `reopen`, `list`, `tracker`, `import`, and `sync` with full `--json` support via `AAPP::Output` and `AAPP::JSON`.
-- [ ] Task 2.2: Implement `lib/AAPP/Cmd/Offline.pm` covering all `aapp offline` subverbs and queue replay mechanics.
-- [ ] Task 2.3: Route `issue` and `offline` in `./aapp` to `AAPP::Cmd::Issue` and `AAPP::Cmd::Offline`, and slim `lib/cmd_issue.sh` / `lib/cmd_offline.sh` to thin transitional shims for any remaining bash callers.
+- [ ] Task 2.1: Implement `lib/AAPP/Cmd/Issue.pm` covering `log`, `hotfix`, `fix` (`next-blocker`, `<num>`, `abort`), `queue`, `close`, `abort`, `list`, and `list note`.
+- [ ] Task 2.2: Implement `lib/AAPP/Cmd/Offline.pm` covering `mount`, `unmount`, `on`, `off`, `status`, and `sync` over the `.offline/` worktree.
+- [ ] Task 2.3: Route `issue` and `offline` in `./aapp` to `AAPP::Cmd::Issue` and `AAPP::Cmd::Offline`, preserving bash helper availability in `lib/cmd_issue.sh` and `lib/cmd_offline.sh` until `P-119`/`P-122`.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run `./aapp test issue offline` and full `./aapp test` to verify 100% pass rate against the locked `lib/AAPP/Tests/Verb/Issue.pm` and `lib/AAPP/Tests/Verb/Offline.pm` suites.
+- [ ] Task 3.1: Run `./aapp test issue` and full `./aapp test` (`tests/verb_issue_test.sh`) to verify 100% pass rate against the locked test suites.
 - [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
 - [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
@@ -112,15 +105,15 @@ Ports `lib/cmd_offline.sh` into `lib/AAPP/Cmd/Offline.pm`:
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `NEW FILE` -> `lib/AAPP/Issue.pm` -> Shared issue domain logic, ledger/roadmap/archive mutation, `refs/notes/issues` bulk reader/writer, and fix-worktree helpers.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Issue.pm` -> `aapp issue` subverb implementations (`log`, `queue`, `hotfix`, `fix`, `close`, `abort`, `reopen`, `list`, `tracker`, `import`, `sync`).
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Offline.pm` -> `aapp offline` subverb implementations and offline tracker queue management.
+- [ ] `NEW FILE` -> `lib/AAPP/Issue.pm` -> Shared issue domain logic, ledger/roadmap/archive mutation, `issues-data.md` store, tracker bridge, and plan-unblocking helpers.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Issue.pm` -> `aapp issue` subverb implementations (`log`, `hotfix`, `fix`, `queue`, `close`, `abort`, `list`, `list note`).
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Offline.pm` -> `aapp offline` subverb implementations (`mount`, `unmount`, `on`, `off`, `status`, `sync`).
 - [ ] `aapp` -> Dispatch `issue` and `offline` verbs directly to `AAPP::Cmd::Issue` and `AAPP::Cmd::Offline`.
-- [ ] `lib/cmd_issue.sh` -> Transitional shim delegating remaining bash helper calls to `AAPP::Issue` / `AAPP::Cmd::Issue` until `P-122` deletes `lib/*.sh`.
+- [ ] `lib/cmd_issue.sh` -> Transitional shim delegating remaining bash helper calls to `AAPP::Issue` until `P-122` deletes `lib/*.sh`.
 - [ ] `lib/cmd_offline.sh` -> Transitional shim delegating remaining bash helper calls to `AAPP::Cmd::Offline` until `P-122` deletes `lib/*.sh`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/AAPP/Tests.pm` -> Test harness and all `lib/AAPP/Tests/*` modules are locked in `P-114` and strictly out of bounds during code plans.
+- [ ] `tests/AAPP/Tests.pm` -> Test harness and all `tests/AAPP/*` modules are locked in `P-114` and strictly out of bounds during code plans.
 - [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
 
 ---
@@ -132,5 +125,5 @@ Ports `lib/cmd_offline.sh` into `lib/AAPP/Cmd/Offline.pm`:
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-19:** Plan initialized from `pickup.md` and `.plans/pickup/perl-port-rfc.md`.
-* **2026-10-19:** Authored technical blueprint and locked blast radius for `P-117`.
+* **2026-10-19:** Refined technical blueprint and blast radius per `§5.1.4` to match `lib/cmd_issue.sh` and `lib/cmd_offline.sh` contracts.
 
