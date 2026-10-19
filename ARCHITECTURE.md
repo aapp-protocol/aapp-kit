@@ -45,6 +45,7 @@
 │   ├── cmd_upgrade.sh     # Upstream release fetch and in-place upgrade
 │   ├── cmd_uninstall.sh   # Global installation cleanup
 │   ├── cmd_test.sh        # Unified test runner orchestrator & assertion aggregator
+│   ├── cmd_release.sh     # Milestone release bundling, tag ledgers & hook-based versioning (P-38)
 │   ├── plan_resolver.sh   # Plan ID standard (P-<num>) & shorthand resolver
 │   ├── plan_states.sh     # Status registry (emoji, name, matrix heading & rank) & Status-line accessors
 │   └── planning_health.sh # 7-pair mechanical integrity validation engine
@@ -310,4 +311,15 @@ AAPP supports multi-repository co-development where a primary project coordinate
 * **G2 Refusal of AAPP Worktrees**: Creating a raw git worktree for an AAPP repository is prohibited (`G2 Refusal Rule`) because raw worktrees lack linked kit hooks. Adopters start a plan in the companion and register its active worktree as a checkout.
 * **G1 Guard Delegation**: Write-time interception (`blast-radius-guard.sh`) delegates tool write checks to the companion's own `.githooks/blast-radius-guard` when targeting an AAPP companion, ensuring both repositories' blast radiuses are strictly enforced. Non-AAPP companions are authorized via `aapp.allowPath`.
 * **Bounded Push & Offline Telemetry**: `aapp companion push` delegates strictly to `git -C <path> push` with no force pushes or uncommitted changes allowed. `aapp companion status` queries local tracking refs (`@{u}`) with zero network overhead.
+
+## Milestone Release Bundling, Tag Ledgers & Hook Versioning (P-38)
+
+AAPP structures project completion and releases into immutable milestone bundles:
+
+* **Snapshot-Agnostic Milestone Bundles**: At release time, completed architecture blueprints in `.plans/done/` and defect records in `done/000-issues-archive.md` are moved into `.plans/release/<tag>/` (`plans/`, `000-archive-ledger.md`, `000-issues-archive.md`, `manifest.md`, `manifest.json`).
+* **Hierarchical Master Ledger Rollup**: Master archive `.plans/done/000-archive-ledger.md` is structured into `## 🏷️ Shipped Releases` (1-line summary row per release linking to `../release/<tag>/000-archive-ledger.md` with dynamic plan/issue counts) and `## ⚡ Current Unreleased Cycle`.
+* **Recursive Resolution & Seeding**: `plan_resolver.sh`, `seed_plan_id`, and `seed_issue_id` traverse `.plans/release/*/` recursively across `done` and `all` scopes, ensuring historical blueprints remain searchable and ID seeding never collides.
+* **Dual-Phase Architecture**: Releases execute Phase A (Read-Only Pre-Flight Gate & Simulation) before Phase B (Atomic Mutation Pipeline with fail-closed transactional rollback trap `_release_rollback()`).
+* **Hook-Delegated Versioning**: Language-agnostic version bumping dispatches `on-release` action delegate with Dual Delivery (`stdin` JSON + POSIX environment variables) rather than hardcoding application manifest files.
+
 

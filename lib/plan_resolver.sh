@@ -60,10 +60,22 @@ resolve_plan_path() {
             ;;
         done)
             [ -d "$PLANS_DIR/done" ] && SEARCH_DIRS+=("$PLANS_DIR/done")
+            if [ -d "$PLANS_DIR/release" ]; then
+                local rdir
+                for rdir in "$PLANS_DIR/release"/*/plans; do
+                    [ -d "$rdir" ] && SEARCH_DIRS+=("$rdir")
+                done
+            fi
             ;;
         all)
             [ -d "$PLANS_DIR/current" ] && SEARCH_DIRS+=("$PLANS_DIR/current")
             [ -d "$PLANS_DIR/done" ] && SEARCH_DIRS+=("$PLANS_DIR/done")
+            if [ -d "$PLANS_DIR/release" ]; then
+                local rdir
+                for rdir in "$PLANS_DIR/release"/*/plans; do
+                    [ -d "$rdir" ] && SEARCH_DIRS+=("$rdir")
+                done
+            fi
             ;;
         *)
             echo "❌ [Plan Resolver] Invalid search scope: '$SCOPE' (must be current, done, or all)." >&2
@@ -75,7 +87,7 @@ resolve_plan_path() {
     list_available_plans() {
         for DIR in "${SEARCH_DIRS[@]}"; do
             if [ -d "$DIR" ]; then
-                find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" ! -name "fix-*" -exec basename {} \; 2>/dev/null | sort
+                find "$DIR" -name "*.md" ! -name "000-*" ! -name "fix-*" -exec basename {} \; 2>/dev/null | sort -u
             fi
         done
     }
@@ -92,10 +104,18 @@ resolve_plan_path() {
     fi
 
     for DIR in "${SEARCH_DIRS[@]}"; do
-        if [ -n "$QUERY" ] && [ -f "$DIR/$QUERY" ]; then
-            local REL_PATH="${DIR#$REPO_ROOT/}/$QUERY"
-            echo "$REL_PATH"
-            return 0
+        if [ -n "$QUERY" ]; then
+            if [ -f "$DIR/$QUERY" ]; then
+                local REL_PATH="${DIR#$REPO_ROOT/}/$QUERY"
+                echo "$REL_PATH"
+                return 0
+            fi
+            local FOUND_FILE
+            FOUND_FILE="$(find "$DIR" -name "$QUERY" ! -name "000-*" ! -name "fix-*" -print -quit 2>/dev/null)"
+            if [ -n "$FOUND_FILE" ] && [ -f "$FOUND_FILE" ]; then
+                echo "${FOUND_FILE#$REPO_ROOT/}"
+                return 0
+            fi
         fi
     done
 
@@ -121,7 +141,7 @@ resolve_plan_path() {
                     if [ -d "$DIR" ]; then
                         while IFS= read -r -d '' F; do
                             [ -n "$F" ] && PLAN_FILES+=("$F")
-                        done < <(find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" ! -name "fix-*" -print0 2>/dev/null)
+                        done < <(find "$DIR" -name "*.md" ! -name "000-*" ! -name "fix-*" -print0 2>/dev/null)
                     fi
                 done
 
@@ -186,7 +206,7 @@ resolve_plan_path() {
                         MATCHES+=("$F")
                         continue
                     fi
-                done < <(find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" ! -name "fix-*" -print0 2>/dev/null)
+                done < <(find "$DIR" -name "*.md" ! -name "000-*" ! -name "fix-*" -print0 2>/dev/null)
             fi
         done
     fi
@@ -204,7 +224,7 @@ resolve_plan_path() {
                     if [[ "$BNAME" == *"$LOWER_QUERY"* ]]; then
                         MATCHES+=("$F")
                     fi
-                done < <(find "$DIR" -maxdepth 1 -name "*.md" ! -name "000-*" ! -name "fix-*" -print0 2>/dev/null)
+                done < <(find "$DIR" -name "*.md" ! -name "000-*" ! -name "fix-*" -print0 2>/dev/null)
             fi
         done
     fi
@@ -278,6 +298,13 @@ get_plan_id() {
 # seed_issue_id <plans-dir>
 seed_issue_id() {
     local PLANS="$1"
+    local ROOT
+    case "$PLANS" in
+        .plans|./.plans) ROOT="." ;;
+        */.plans)        ROOT="${PLANS%/.plans}" ;;
+        *)               ROOT="$PLANS" ;;
+    esac
+    [ -n "$ROOT" ] || ROOT="."
     local F LINE N MAX=0 FOUND=0 WHICH
 
     # The ledgers are read through the ledger functions of aapp-lib.sh (P-73).
@@ -286,9 +313,8 @@ seed_issue_id() {
         . "$(dirname "${BASH_SOURCE[0]}")/aapp-lib.sh" || return 1
     fi
     for WHICH in issues archive; do
-        F="$(ledger_path "$WHICH" "${PLANS%/.plans}")" || continue
-        [ -f "$F" ] || continue
-        FOUND=1
+        F="$(ledger_path "$WHICH" "$ROOT")" || F=""
+        local has_content=0
         while IFS= read -r LINE; do
             case "$LINE" in
                 *YYYY-MM-DD*) continue ;;
@@ -298,8 +324,11 @@ seed_issue_id() {
             esac
             N="${N%%[!0-9]*}"
             [ -n "$N" ] || continue
+            has_content=1
             if [ "$N" -gt "$MAX" ]; then MAX=$N; fi
-        done < <(ledger_table "$WHICH" "${PLANS%/.plans}")
+        done < <(ledger_table "$WHICH" "$ROOT")
+        [ -n "$F" ] && [ -f "$F" ] && FOUND=1
+        [ "$has_content" -eq 1 ] && FOUND=1
     done
 
     [ "$FOUND" -eq 1 ] || return 2

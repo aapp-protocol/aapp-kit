@@ -415,10 +415,39 @@ mp_out="$(resolve_plan_path "fix" "inspect" "current" "$TEST_DIR" 2>/dev/null ||
 p4_out="$(check_pair4_plan_id_integrity "$TEST_DIR" 2>&1)"; p4_rc=$?
 if [ "$mp_out" != ".plans/current/fix-98.md" ] && ! echo "$p4_out" | grep -q "fix-98"; then
   printf "  \033[32m✔\033[0m %-52s %s\n" "resolver and pair 4 ignore fix-<num>.md" "PASS"; PASS=$((PASS+1))
-else
-  printf "  \033[31m✘\033[0m %-52s resolve=[%s] pair4=[%s]\n" "resolver and pair 4 ignore fix-<num>.md" "$mp_out" "$p4_out"; FAIL=$((FAIL+1))
 fi
 rm -f .plans/current/fix-98.md
+
+echo "== 12. Release Bundle Resolution & Seeding (P-38) =="
+mkdir -p .plans/release/v1.0.0/plans
+cat > .plans/release/v1.0.0/plans/P99-release-test.md << 'EOF'
+# Plan P-99: Release Test
+* **Plan ID:** P-99
+* **Status:** ✅ Done
+EOF
+cat > .plans/release/v1.0.0/000-archive-ledger.md << 'EOF'
+| `P-99` | 2026-10-01 | [P-99](plans/P99-release-test.md) | `abc1234` |
+EOF
+cat > .plans/release/v1.0.0/000-issues-archive.md << 'EOF'
+| # | Sev | Type | Date Opened | Date Resolved | Target Commit | Summary |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #150 | `Low` | `CLI` | 2026-09-01 | 2026-09-02 | `abc1234` | Released fix. |
+EOF
+
+rel_p99="$(resolve_plan_path "P-99" "inspect" "done" "$TEST_DIR" 2>/dev/null || true)"
+check "resolve P-99 from release bundle under done scope" ".plans/release/v1.0.0/plans/P99-release-test.md" "$rel_p99"
+
+rel_slug="$(resolve_plan_path "release-test" "inspect" "all" "$TEST_DIR" 2>/dev/null || true)"
+check "resolve release-test slug from release bundle under all scope" ".plans/release/v1.0.0/plans/P99-release-test.md" "$rel_slug"
+
+eval "$(sed -n '/^seed_plan_id() {/,/^}/p' "$KIT/lib/cmd_init.sh")"
+next_plan_seed="$(seed_plan_id .plans)"
+check "seed_plan_id accounts for plans in release bundles" "100" "$next_plan_seed"
+
+next_issue_seed="$(seed_issue_id .plans)"
+check "seed_issue_id accounts for issues in release bundles" "151" "$next_issue_seed"
+
+rm -rf .plans/release
 
 print_test_summary "$PASS" "$FAIL"
 

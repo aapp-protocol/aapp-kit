@@ -116,20 +116,53 @@ check_pair1_disjointness() {
     fi
 
     # 2. Check for numeric ID collisions between active and archive
-    if [ -f "$issues_file" ] && [ -f "$archive_file" ]; then
+    if [ -f "$issues_file" ]; then
         local active_ids
         active_ids=$(get_active_issue_ids "$issues_file" | sort -u)
-        local archive_ids
-        archive_ids=$(get_archived_issue_ids "$archive_file" | sort -u)
 
-        local collisions
-        collisions=$(comm -12 <(echo "$active_ids") <(echo "$archive_ids"))
-        if [ -n "$collisions" ]; then
-            for cid in $collisions; do
-                echo "❌ [Pair 1 Collision] Issue #$cid exists in both active $issues_file and $archive_file!"
-                errors=$((errors + 1))
-            done
+        local archive_files=()
+        [ -f "$archive_file" ] && archive_files+=("$archive_file")
+
+        local rroot=""
+        if [[ "$archive_file" == */.plans/* ]]; then
+            rroot="${archive_file%/.plans/*}"
+        elif [[ "$archive_file" == .plans/* ]]; then
+            rroot="."
+        elif [[ "$issues_file" == */.plans/* ]]; then
+            rroot="${issues_file%/.plans/*}"
+        elif [[ "$issues_file" == .plans/* ]]; then
+            rroot="."
+        else
+            rroot="$(resolve_health_repo_root)" 2>/dev/null || rroot=""
         fi
+
+        if [ -n "$rroot" ]; then
+            while IFS= read -r af; do
+                [ -n "$af" ] && [ -f "$af" ] || continue
+                local already=0
+                for existing in "${archive_files[@]}"; do
+                    if [ "$existing" = "$af" ]; then
+                        already=1
+                        break
+                    fi
+                done
+                [ "$already" -eq 0 ] && archive_files+=("$af")
+            done < <(ledger_archive_files "$rroot")
+        fi
+
+        for af in "${archive_files[@]}"; do
+            local archive_ids
+            archive_ids=$(get_archived_issue_ids "$af" | sort -u)
+
+            local collisions
+            collisions=$(comm -12 <(echo "$active_ids") <(echo "$archive_ids"))
+            if [ -n "$collisions" ]; then
+                for cid in $collisions; do
+                    echo "❌ [Pair 1 Collision] Issue #$cid exists in both active $issues_file and $af!"
+                    errors=$((errors + 1))
+                done
+            fi
+        done
     fi
 
     return $errors
@@ -339,12 +372,43 @@ check_pair8_issue_id_integrity() {
             errors=$((errors + 1))
         done
     fi
-    if [ -f "$archive_file" ]; then
-        for dup in $(get_archived_issue_ids "$archive_file" | sort | uniq -d | issue_id_sort); do
-            echo "❌ [Pair 8 Violation] Issue #$dup appears more than once in archive $archive_file!"
+
+    local archive_files=()
+    [ -f "$archive_file" ] && archive_files+=("$archive_file")
+
+    local rroot=""
+    if [[ "$archive_file" == */.plans/* ]]; then
+        rroot="${archive_file%/.plans/*}"
+    elif [[ "$archive_file" == .plans/* ]]; then
+        rroot="."
+    elif [[ "$issues_file" == */.plans/* ]]; then
+        rroot="${issues_file%/.plans/*}"
+    elif [[ "$issues_file" == .plans/* ]]; then
+        rroot="."
+    else
+        rroot="$(resolve_health_repo_root)" 2>/dev/null || rroot=""
+    fi
+
+    if [ -n "$rroot" ]; then
+        while IFS= read -r af; do
+            [ -n "$af" ] && [ -f "$af" ] || continue
+            local already=0
+            for existing in "${archive_files[@]}"; do
+                if [ "$existing" = "$af" ]; then
+                    already=1
+                    break
+                fi
+            done
+            [ "$already" -eq 0 ] && archive_files+=("$af")
+        done < <(ledger_archive_files "$rroot")
+    fi
+
+    for af in "${archive_files[@]}"; do
+        for dup in $(get_archived_issue_ids "$af" | sort | uniq -d | issue_id_sort); do
+            echo "❌ [Pair 8 Violation] Issue #$dup appears more than once in archive $af!"
             errors=$((errors + 1))
         done
-    fi
+    done
 
     return $errors
 }
@@ -471,6 +535,20 @@ check_pair6_recorded_sha_integrity() {
     local archive_file
     archive_file=$(find_aapp_file archive "$repo_root")
     [ -n "$archive_file" ] && scan_files+=("$archive_file")
+
+    # Release archives and overflow ledgers via ledger_archive_files
+    local af
+    while IFS= read -r af; do
+        [ -n "$af" ] && [ -f "$af" ] && scan_files+=("$af")
+    done < <(ledger_archive_files "$repo_root")
+
+    # Release bundles tag ledgers
+    if [ -d "$repo_root/.plans/release" ]; then
+        local rf
+        for rf in "$repo_root/.plans/release"/*/000-archive-ledger.md; do
+            [ -f "$rf" ] && scan_files+=("$rf")
+        done
+    fi
 
     local issues_file
     issues_file=$(find_aapp_file issues "$repo_root")

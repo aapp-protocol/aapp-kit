@@ -73,6 +73,20 @@ if have ledger_locate; then
   else
     bad "test_locate_active_archive_unknown" "11=[$a] 9=[$b] 99=[$c] 1=[$d]"
   fi
+
+  mkdir -p "$PLANS_DIR/release/v1.0.0"
+  cat > "$PLANS_DIR/release/v1.0.0/000-issues-archive.md" <<'EOF'
+| # | Sev | Type | Date Opened | Date Resolved | Target Commit | Summary |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #42 | `Low` | `CLI` | 2026-09-01 | 2026-09-02 | `abc1234` | Bundled. |
+EOF
+  rel_loc="$(ledger_locate 42)"
+  if [ "$rel_loc" = "archive" ]; then
+    ok "test_locate_finds_release_bundles"
+  else
+    bad "test_locate_finds_release_bundles" "want archive got [$rel_loc]"
+  fi
+  rm -rf "$PLANS_DIR/release"
 else
   bad "test_locate_active_archive_unknown" "ledger_locate not implemented"
 fi
@@ -132,6 +146,25 @@ if have ledger_archive_row; then
     fi
   else
     bad "test_archive_commit_corrected" "ledger_set_archive_commit not implemented"
+  fi
+
+  # Test live archive bounding (P-38)
+  fixture archive_overflow
+  git config aapp.issueArchiveMax 2
+  ledger_archive_row 12 def5678 "Archive 12"
+  ledger_archive_row 11 def5678 "Archive 11"
+  arc_count="$(grep -c -E '^[[:space:]]*\|[[:space:]]*`?#[0-9]+' "$PLANS_DIR/done/000-issues-archive.md")"
+  of_file="$PLANS_DIR/done/000-issues-archive-overflow.md"
+  loc9="$(ledger_locate 9)"
+  loc11="$(ledger_locate 11)"
+  all_arc_ids="$(ledger_ids archive | tr '\n' ' ')"
+  git config --unset aapp.issueArchiveMax
+  if [ "$arc_count" -eq 2 ] && [ -f "$of_file" ] && grep -q '#9' "$of_file" && \
+     [ "$loc9" = "archive" ] && [ "$loc11" = "archive" ] && \
+     [[ "$all_arc_ids" == *"9"* ]] && [[ "$all_arc_ids" == *"11"* ]] && [[ "$all_arc_ids" == *"12"* ]]; then
+    ok "test_archive_overflow_bound"
+  else
+    bad "test_archive_overflow_bound" "count=$arc_count of_exists=$([ -f "$of_file" ] && echo 1 || echo 0) loc9=$loc9 ids=[$all_arc_ids]"
   fi
 else
   bad "test_archive_row_moves_and_prunes" "ledger_archive_row not implemented"
@@ -269,8 +302,9 @@ section="$(awk '/^# ---- Issue ledgers \(P-73\)/ { s = 1 } /^# ---- end issue le
 outside=""
 for f in "$KIT"/lib/*.sh "$KIT/templates/aapp-pre-commit" "$KIT/aapp"; do
   # cmd_init.sh seeds the ledgers; adoption.sh asks only whether a seeded
-  # ledger is still the template; cmd_matrix.sh's road map is the matrix's.
-  case "${f##*/}" in cmd_init.sh|adoption.sh|cmd_matrix.sh) continue ;; esac
+  # ledger is still the template; cmd_matrix.sh's road map is the matrix's;
+  # cmd_release.sh bundles the milestone archive.
+  case "${f##*/}" in cmd_init.sh|adoption.sh|cmd_matrix.sh|cmd_release.sh) continue ;; esac
   # The pattern travels by ENVIRON: `awk -v` would expand its `\.` escapes.
   hits="$(AAPP_NAMES="$names" awk -v lib="$LIB" -v f="$f" 'BEGIN { names = ENVIRON["AAPP_NAMES"] }
       f == lib && /^# ---- Issue ledgers \(P-73\)/ { s = 1 }

@@ -636,6 +636,29 @@ seed_plan_id() {
         done < "$LEDGER"
     fi
 
+    # Release bundles and tag ledgers
+    if [ -d "$PLANS/release" ]; then
+        for F in "$PLANS/release"/*/plans/[Pp][0-9]*.md; do
+            [ -e "$F" ] || continue
+            BNAME=${F##*/}
+            N=${BNAME#[Pp]}
+            N=${N%%[!0-9]*}
+            [ -n "$N" ] || continue
+            if [ "$N" -gt "$MAX" ]; then MAX=$N; fi
+        done
+        for F in "$PLANS/release"/*/000-archive-ledger.md; do
+            [ -f "$F" ] || continue
+            while IFS= read -r LINE; do
+                case $LINE in
+                    *'`P-'*) N=${LINE#*\`P-}; N=${N%%[!0-9]*} ;;
+                    *) continue ;;
+                esac
+                [ -n "$N" ] || continue
+                if [ "$N" -gt "$MAX" ]; then MAX=$N; fi
+            done < "$F"
+        done
+    fi
+
     printf '%s\n' "$((MAX + 1))"
 }
 

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Sample AAPP on-release Action Delegate Hook
+#
+# Invoked during Phase B of `aapp release` to mutate project version files.
+# Receives Dual Delivery payload:
+#   - POSIX Environment Variables:
+#       AAPP_RELEASE_VERSION   (e.g. "v1.2.0")
+#       AAPP_RAW_VERSION       (e.g. "1.2.0")
+#       AAPP_PREVIOUS_VERSION  (e.g. "1.1.0")
+#       AAPP_VERSION_BUMP      (e.g. "minor", "patch", "major", "explicit")
+#   - STDIN JSON:
+#       {"event":"on-release","tag":"...","version":"...","previousVersion":"...","bump":"..."}
+#
+# Return code protocol:
+#   - 0: Success. Mutations accepted; release continues.
+#   - non-zero: Refusal/Failure. Triggers transactional rollback.
+# ==============================================================================
+set -e
+
+# Example 1: Node.js project (package.json)
+if [ -f "package.json" ]; then
+    echo "📦 [on-release] Bumping package.json to $AAPP_RAW_VERSION..."
+    # npm version --no-git-tag-version "$AAPP_RAW_VERSION"
+fi
+
+# Example 2: Python project (pyproject.toml)
+if [ -f "pyproject.toml" ]; then
+    echo "🐍 [on-release] Bumping pyproject.toml to $AAPP_RAW_VERSION..."
+    # sed -i -E "s/^version = .*/version = \"$AAPP_RAW_VERSION\"/" pyproject.toml
+fi
+
+# Example 3: Rust project (Cargo.toml)
+if [ -f "Cargo.toml" ]; then
+    echo "🦀 [on-release] Bumping Cargo.toml to $AAPP_RAW_VERSION..."
+    # sed -i -E "0,/^version = .*/s//version = \"$AAPP_RAW_VERSION\"/" Cargo.toml
+fi
+
+# Example 4: AAPP Kit itself
+if [ -f "aapp" ]; then
+    echo "⚡ [on-release] Updating AAPP_VERSION in aapp..."
+    # sed -i -E "s/AAPP_VERSION=\".*\"/AAPP_VERSION=\"$AAPP_RAW_VERSION\"/" aapp
+fi
+
+exit 0

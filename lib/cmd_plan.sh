@@ -1218,6 +1218,17 @@ _ig_resolve_done() {
             echo "$pf"; return 0
         fi
     done
+    if [ -d "$PLANS_DIR/release" ]; then
+        for pf in "$PLANS_DIR"/release/*/plans/*.md; do
+            [ -f "$pf" ] || continue
+            b="$(basename "$pf" .md)"
+            case "$b" in 000-*) continue ;; esac
+            pid="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" | head -n 1)"
+            if [ "$q" = "$pid" ] || [ "P-$q" = "$pid" ] || [ "$q" = "$b" ] || [[ "$b" == "$q-"* ]] || [[ "$b" == "P${q#P-}-"* ]]; then
+                echo "$pf"; return 0
+            fi
+        done
+    fi
     echo "❌ [Done Refusal] Plan '$q' found in neither current/ nor done/." >&2
     return 1
 }

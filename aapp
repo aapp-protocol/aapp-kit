@@ -235,6 +235,10 @@ case "$CMD" in
     hooks|hook-status|plugins|plugin-status|hook-test|hook-run|hook-hash)
         source "$AAPP_LIB/cmd_hook.sh" "$CMD" "$@"
         ;;
+    release)
+        source "$AAPP_LIB/cmd_release.sh"
+        cmd_release "$@"
+        ;;
     version|-v|--version)
         echo "aapp version $AAPP_VERSION"
         exit 0

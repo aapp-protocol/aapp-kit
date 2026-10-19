@@ -675,13 +675,12 @@ Pauses active implementation or quarantines in-flight uncommitted work across mo
 - **Two-Lane Routing**: Evaluates whether an idea is a bug (routes to `.plans/ISSUES.md` first) or a new capability (scaffolds blueprint).
 - **Bare Fallback**: When called without an idea, prompts the developer for the architectural goal or feature requirements.
 
-#### `/aapp-release <version>` (or `release <version>`, `/preflight`) — Release Runbook
-Executes `.plans/release/release_checklist.md`:
-- Runs full test suites, static analysis, and security checks.
-- Enforces Stable vs. Edge branch convention (`develop` cleanly fast-forwards into `main`).
-- Validates `CHANGELOG.md` release staging.
-- Reports release posture assessment to the developer.
-*Execution: Runs in an isolated subagent/fork context (`context: fork`) to keep test logs out of primary chat.*
+#### `/aapp-release <version-or-bump>` (or `aapp release <version-or-bump>`) — Milestone Release Bundling
+Executes milestone release bundling, changelog rollup, and hook-based versioning:
+- **Mandatory Pre-Flight Gate (Phase A)**: Verifies clean primary and kit worktrees, runs test suites, checks `pre-release` hook, audits tag signing, verifies `CHANGELOG.md`, and enforces 2-tier commit reachability and branch parity.
+- **Atomic Mutation Pipeline (Phase B)**: Dispatches `on-release` action delegate with Dual Delivery, rolls up `CHANGELOG.md`, moves completed plans from `.plans/done/` into `.plans/release/<tag>/plans/`, relocates defects, updates links, generates tag ledger and release manifests (`manifest.md` and `manifest.json`), truncates master ledger with 1-line summary row, merges to release branch, and creates release tag.
+- **Fail-Closed Rollback**: Mid-mutation failures trigger `_release_rollback()` restoring branch refs, deleting partial tags, and restoring working trees.
+*Execution: In agent chat, `/aapp-release` executes the runbook; terminal users invoke `aapp release <version-or-bump> [check] [yes] [push] [unverified] [json]` directly.*
 
 ---
 
@@ -696,7 +695,23 @@ Repetitive terminal operations and administrative switchboards are maintained as
 - **`aapp plan-status [id]`**: Read-only inspection of the plan lane matrix or a specific blueprint.
 - **`aapp matrix [check]`**: Re-derives `.plans/state_matrix.md` from the plan files. `check` audits without writing.
 - **`aapp test [filter]`**: Discovers and runs automated test suites with subshell isolation and assertion metrics.
+- **`aapp release <version-or-bump>`**: Executes milestone release bundling, changelog rollup, and hook-based versioning.
 - **`aapp hooks`**: Lifecycle hook diagnostic inspector and dispatcher.
+
+#### `aapp release` — Milestone Release Bundling & Hook-Based Versioning
+
+`aapp release` coordinates production milestone releases:
+
+```bash
+aapp release <version-or-bump> [unverified] [yes] [check] [push] [json] [no-archive] [no-changelog]
+```
+
+- **Version Validation & Bump Flexibility**: Accepts explicit SemVer strings (`1.2.0`, `v1.2`, `1.0.1.alpha` up to 30 character suffixes) or SemVer bump tokens (`patch`, `minor`, `major`). Configurable tag prefix via `git config aapp.tagPrefix` (default `"v"`).
+- **Precedence Ladder for Baseline Versions**: For adopter projects without tags, resolves version via: CLI argument -> `git describe --tags` -> `git config aapp.initialVersion` -> interactive prompt fallback.
+- **Phase A (Mandatory Read-Only Pre-Flight Gate)**: Runs clean worktree verification (exempting in-flight plan worktrees), test suite (`aapp.testCommand`), `pre-release` hook, signing capability inspection (`tag.gpgSign`), changelog existence gate, 2-tier commit reachability (Tier 1 ancestry or Tier 2 `Plan-ID:` trailer, bypassable with `unverified`), and branch parity fast-forward verification.
+- **Simulation Preview**: Use `check` bare token to preview the complete simulation and exit 0 without mutating. In headless CI/CD runs, `json` emits machine-readable JSON output.
+- **Phase B (Atomic Release Mutation)**: Installs fail-closed `_release_rollback()` trap, dispatches `on-release` action delegate with Dual Delivery, rolls up `CHANGELOG.md`, moves completed blueprints from `.plans/done/` to `.plans/release/<tag>/plans/`, relocates defects, updates plan links, generates tag ledger `000-archive-ledger.md`, `manifest.md`, and `manifest.json`, truncates master ledger with 1-line summary row under `## 🏷️ Shipped Releases`, commits `.plans`, merges to release branch, and tags release.
+- **Publication & Remote Push**: Prints copy-paste publication banner by default, or automatically pushes release branch, tag, and `.plans` branch when `push` bare token is passed. Dispatches `post-release` notification hook.
 
 #### `aapp commit` — Plan-Bound Commit Helper
 

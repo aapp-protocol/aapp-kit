@@ -327,7 +327,7 @@ AAPP ships core lifecycle verbs as **Universal AAPP Skills** (`skills/<name>/SKI
 | `/aapp-active <plan>` | `aapp active [id]`, `active` | **Switch** | Manage active execution plan buffer (`.git/aapp_active_plan`). |
 | `/aapp-freeze <plan>` | `freeze <plan>`, `/freeze` | **Lock** | Lock Blast Radius boundaries and greenlight blueprint for execution. |
 | `/aapp-done <plan>` | `done <plan>`, `/done` | **Archive** | Move plan to `done/`, append to `000-archive-ledger.md`, and clean `state_matrix.md`; with `aapp.integrate` set, also squash or fast-forward a plan worktree into its parent branch and clean it up. |
-| `/aapp-release <ver>` | `release <ver>`, `/preflight` | **Preflight** | Execute release verification runbook and check changelog staging. |
+| `/aapp-release <ver>` | `aapp release <ver>`, `release` | **Release** | Milestone release bundling, tag ledgers, changelog rollup & hook-based versioning. |
 | `/aapp-pause [reason]` | `pause`, `aapp pause`, `/aapp-pause` | **Hibernate** | Emergency brake: quarantine in-flight work into SHA stashes, freeze edits. |
 | `/aapp-pause resume` | `resume`, `aapp resume`, `unpause` | **Wake** | Verify drift, restore stashes by SHA, run health checks, and wake workspace. |
 
