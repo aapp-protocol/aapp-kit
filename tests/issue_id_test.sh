@@ -45,27 +45,6 @@ else
   bad "test_refs_ignore_headings_and_hex" "issue_id_refs not implemented"
 fi
 
-echo "== one definition =="
-# No code outside the id section spells out what an issue id looks like.
-start="$(grep -n '^# ---- Issue ids (P-79)' "$LIB" | cut -d: -f1)"
-outside=""
-for f in "$KIT"/lib/*.sh "$KIT/templates/aapp-pre-commit" "$KIT/templates/blast-radius-guard.sh" "$KIT/templates/aapp-commit-msg" "$KIT/aapp"; do
-  [ -f "$f" ] || continue
-  hits="$(awk -v lib="$LIB" -v f="$f" '
-      f == lib && /^# ---- Issue ids \(P-79\)/ { s = 1 }
-      f == lib && /^# ---- end issue ids/ { s = 0; next }
-      s { next }
-      /^[[:space:]]*#/ { next }
-      /#`?\??\(?\[0-9\]/ || /\(#\|ISSUE-\)/ || /fix-\[0-9\]/ || /ISSUE-\*/ { print FILENAME ":" FNR ": " $0 }' "$f")"
-  [ -n "$hits" ] && outside="$outside
-$hits"
-done
-if [ -n "$start" ] && [ -z "$outside" ]; then
-  ok "test_no_id_pattern_outside"
-else
-  bad "test_no_id_pattern_outside" "section at line [${start:-none}]$(printf '%s\n' "$outside" | head -40 | cut -c1-150)"
-fi
-
 echo "== tracker keys =="
 if have issue_id_normalize; then
   a="$(norm PROJ-101)"; b="$(norm '#PROJ-101')"; c="$(norm proj-101)"; d="$(norm 'A1-7')"

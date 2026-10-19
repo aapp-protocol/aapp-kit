@@ -159,6 +159,22 @@ init_sandbox_project() {
     )
 }
 
+# One result line per test (P-113): a test's checks collect with t_fail and
+# t_expect, and t_done prints its verdict under the test's name.
+T_ERR=""
+t_fail() { T_ERR="${T_ERR}${T_ERR:+
+}$*"; }
+t_expect() { [ "$2" = "$3" ] || t_fail "$1: want [$2] got [$3]"; }
+t_done() {
+  if [ -z "$T_ERR" ]; then
+    printf "  \033[32m✔\033[0m %-60s %s\n" "$1" "PASS"; PASS=$((PASS+1))
+  else
+    printf "  \033[31m✘\033[0m %-60s %s\n" "$1" "FAIL"; FAIL=$((FAIL+1))
+    printf '%s\n' "$T_ERR" | head -20 | sed 's/^/       /'
+  fi
+  T_ERR=""
+}
+
 print_test_summary() {
     local pass="${1:-$PASS}"
     local fail="${2:-$FAIL}"

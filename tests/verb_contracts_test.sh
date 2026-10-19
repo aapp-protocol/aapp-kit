@@ -60,7 +60,7 @@ ${f##*/}: first line is not '# <verb> [args]'"
   grep -q "^Run: \`aapp test verb " "$f" || errors="$errors
 ${f##*/}: ## Tests has no 'Run: \`aapp test verb <verb>\`' line"
 done
-if [ -z "$errors" ]; then ok "contracts follow the §2.1 shape"; else bad "contracts follow the §2.1 shape" "${errors#
+if [ -z "$errors" ]; then ok "test_contracts_follow_the_shape"; else bad "test_contracts_follow_the_shape" "${errors#
 }"; fi
 
 echo "== declared tests =="
@@ -104,6 +104,59 @@ tests/verbs/$base::$name is named by no contract (lib/docs/verbs/$verb.md)"
   done < <(grep -oE 'ok "test_[A-Za-z0-9_]+' "$s" | sed 's/^ok "//' | sort -u)
 done
 if [ -z "$unnamed" ]; then ok "test_every_verb_test_named_by_contract"; else bad "test_every_verb_test_named_by_contract" "${unnamed#
+}"; fi
+
+echo "== core contracts (P-113) =="
+# Every flat suite tests/<suite>_test.sh has lib/docs/core/<suite>.md, and the
+# other way round; its ## Tests names exactly the tests the suite reports.
+CORE="$KIT/lib/docs/core"
+errors=""
+for s in "$KIT"/tests/*_test.sh; do
+  [ -f "$s" ] || continue
+  base="${s##*/}"; stem="${base%_test.sh}"
+  [ -f "$CORE/$stem.md" ] || errors="$errors
+tests/$base has no contract lib/docs/core/$stem.md"
+done
+for f in "$CORE"/*.md; do
+  [ -f "$f" ] || continue
+  stem="${f##*/}"; stem="${stem%.md}"
+  [ -f "$KIT/tests/${stem}_test.sh" ] || errors="$errors
+lib/docs/core/$stem.md names no suite tests/${stem}_test.sh"
+  head -n 1 "$f" | grep -qx "# $stem" || errors="$errors
+lib/docs/core/$stem.md: first line is not '# $stem'"
+  [ "$(grep -E '^## ' "$f")" = "## Tests" ] || errors="$errors
+lib/docs/core/$stem.md: its only heading is not '## Tests'"
+  grep -qx "Run: \`aapp test $stem\`" "$f" || errors="$errors
+lib/docs/core/$stem.md: ## Tests has no 'Run: \`aapp test $stem\`' line"
+done
+if [ -z "$errors" ]; then ok "test_core_contract_per_suite"; else bad "test_core_contract_per_suite" "${errors#
+}"; fi
+
+errors=""
+for f in "$CORE"/*.md; do
+  [ -f "$f" ] || continue
+  stem="${f##*/}"; stem="${stem%.md}"; suite="tests/${stem}_test.sh"
+  [ -f "$KIT/$suite" ] || continue
+  listed="$(awk '/^## Tests/{t=1; next} /^## /{t=0} t && /^- `/ { s=$0; sub(/^- `/, "", s); sub(/`.*/, "", s); print s }' "$f")"
+  while IFS= read -r ident; do
+    [ -n "$ident" ] || continue
+    case "$ident" in "$suite::test_"*) ;; *) errors="$errors
+lib/docs/core/$stem.md: '$ident' is not a test of $suite"; continue ;; esac
+    grep -qE "(ok \"|t_done \"?)${ident#*::}\b" "$KIT/$suite" || errors="$errors
+lib/docs/core/$stem.md: '${ident#*::}' is not reported by $suite"
+  done <<< "$listed"
+  # A core suite reports only test_<name> results, each named by its contract.
+  while IFS= read -r label; do
+    [ -n "$label" ] || continue
+    case "$label" in
+      test_*) printf '%s\n' "$listed" | grep -qxF "$suite::$label" || errors="$errors
+$suite::$label is named by no contract (lib/docs/core/$stem.md)" ;;
+      *) errors="$errors
+$suite reports '$label', not a test_<name>" ;;
+    esac
+  done < <(grep -oE '(\bok "|\bt_done "?)[^" ]+' "$KIT/$suite" | sed -E 's/^(ok "|t_done "?)//' | grep -E '^[A-Za-z_][A-Za-z0-9_]*$' | sort -u)
+done
+if [ -z "$errors" ]; then ok "test_every_core_test_named_by_contract"; else bad "test_every_core_test_named_by_contract" "${errors#
 }"; fi
 
 echo "== agent CLI reference (P-47) =="

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Unit suite for lib/aapp-lib.sh (P-37): plan-section parsing, section
-# extraction, platform detection, structural single-ownership and inertness.
+# Core suite for lib/aapp-lib.sh (P-37): plan-section parsing, section
+# extraction, platform detection, plan commits, pickup entries, subject limit.
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$KIT/tests/test_helpers.sh"
 LIB="$KIT/lib/aapp-lib.sh"
@@ -10,15 +10,8 @@ trap 'rm -rf "$R"' EXIT
 # shellcheck source=/dev/null
 . "$LIB"
 
-ok()  { printf "  \033[32m✔\033[0m %-52s %s\n" "$1" "PASS"; PASS=$((PASS+1)); }
-bad() { printf "  \033[31m✘\033[0m %-52s %s\n" "$1" "$2"; FAIL=$((FAIL+1)); }
-
-# expect_paths <name> <function> <file> <expected newline-separated paths>
-expect_paths() {
-  local name="$1" fn="$2" file="$3" want="$4" got
-  got="$("$fn" "$file")"
-  if [ "$got" = "$want" ]; then ok "$name"; else bad "$name" "want [$(echo $want)] got [$(echo $got)]"; fi
-}
+# expect_paths <label> <function> <file> <expected newline-separated paths>
+expect_paths() { t_expect "$1" "$4" "$("$2" "$3")"; }
 
 # Fixture: a plan whose §4 holds the given body.
 plan4() {
@@ -36,7 +29,8 @@ F=$(plan4 blockquote.md <<'EOF'
 - [ ] `src/a.py` -> real target
 EOF
 )
-expect_paths "test_blockquote_not_parsed" parse_plan_target_paths "$F" "src/a.py"
+expect_paths targets parse_plan_target_paths "$F" "src/a.py"
+t_done test_blockquote_not_parsed
 
 F=$(plan4 foreign.md <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
@@ -49,7 +43,8 @@ F=$(plan4 foreign.md <<'EOF'
 - [ ] `src/secret.py` -> vetoed
 EOF
 )
-expect_paths "test_foreign_subsection_ends_region" parse_plan_target_paths "$F" "src/a.py"
+expect_paths targets parse_plan_target_paths "$F" "src/a.py"
+t_done test_foreign_subsection_ends_region
 
 F=$(plan4 heading_after_oob.md <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
@@ -60,8 +55,9 @@ F=$(plan4 heading_after_oob.md <<'EOF'
 - [ ] `src/notes.py` -> neither
 EOF
 )
-expect_paths "test_foreign_heading_after_oob" parse_plan_target_paths "$F" "src/a.py"
-expect_paths "oob region ends at a later heading" parse_plan_oob_paths "$F" "src/secret.py"
+expect_paths targets parse_plan_target_paths "$F" "src/a.py"
+expect_paths "out of bounds" parse_plan_oob_paths "$F" "src/secret.py"
+t_done test_foreign_heading_after_oob
 
 F=$(plan4 required_files.md <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
@@ -73,9 +69,10 @@ F=$(plan4 required_files.md <<'EOF'
 ### 🛑 Out of Bounds (Do Not Touch)
 EOF
 )
-expect_paths "test_required_test_files_is_parsed" parse_plan_target_paths "$F" "src/a.py
+expect_paths targets parse_plan_target_paths "$F" "src/a.py
 tests/a_test.sh
 tests/b_test.sh"
+t_done test_required_test_files_is_parsed
 
 F=$(plan4 required_tests.md <<'EOF'
 ### 🧪 Required Tests (Failure & Boundary Assertions)
@@ -86,7 +83,8 @@ F=$(plan4 required_tests.md <<'EOF'
 - [ ] `src/a.py` -> real target
 EOF
 )
-expect_paths "test_required_tests_checklist_not_parsed" parse_plan_target_paths "$F" "src/a.py"
+expect_paths targets parse_plan_target_paths "$F" "src/a.py"
+t_done test_required_tests_checklist_not_parsed
 
 F=$(plan4 markers.md <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
@@ -98,12 +96,13 @@ F=$(plan4 markers.md <<'EOF'
 - [X] `src/plain.py` -> ticked plain target
 EOF
 )
-expect_paths "test_new_file_marker_skipped" parse_plan_target_paths "$F" "src/new.py
+expect_paths targets parse_plan_target_paths "$F" "src/new.py
 src/mod.py
 src/gone.py
 src/add.py
 src/rep.py
 src/plain.py"
+t_done test_new_file_marker_skipped
 
 F=$(plan4 fenced.md <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
@@ -115,7 +114,8 @@ F=$(plan4 fenced.md <<'EOF'
 ```
 EOF
 )
-expect_paths "test_fenced_example_not_parsed" parse_plan_target_paths "$F" "src/a.py"
+expect_paths targets parse_plan_target_paths "$F" "src/a.py"
+t_done test_fenced_example_not_parsed
 
 F="$R/outside4.md"
 cat > "$F" <<'EOF'
@@ -131,7 +131,8 @@ cat > "$F" <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/after_s4.py`
 EOF
-expect_paths "test_heading_outside_section4_not_parsed" parse_plan_target_paths "$F" "src/a.py"
+expect_paths targets parse_plan_target_paths "$F" "src/a.py"
+t_done test_heading_outside_section4_not_parsed
 
 F=$(plan4 oob.md <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
@@ -144,8 +145,9 @@ F=$(plan4 oob.md <<'EOF'
 - `src/not_oob.py`
 EOF
 )
-expect_paths "test_oob_paths_parsed" parse_plan_oob_paths "$F" "src/secret.py
+expect_paths "out of bounds" parse_plan_oob_paths "$F" "src/secret.py
 .githooks/*"
+t_done test_oob_paths_parsed
 
 echo "== required test files parsing =="
 F_REQ=$(plan4 req_tests.md <<'EOF'
@@ -159,8 +161,9 @@ F_REQ=$(plan4 req_tests.md <<'EOF'
 - [ ] `tests/secret_test.py`
 EOF
 )
-expect_paths "test_parse_required_test_files" parse_plan_required_test_files "$F_REQ" "tests/a_test.py
+expect_paths "required test files" parse_plan_required_test_files "$F_REQ" "tests/a_test.py
 tests/b_test.py"
+t_done test_parse_required_test_files
 
 echo "== required tests parsing =="
 F_TESTS="$R/plan_tests.md"
@@ -174,9 +177,10 @@ cat > "$F_TESTS" <<'EOF'
 - [ ] Task 1.1: Do something
 ## 💥 4. Blast Radius & System Boundaries
 EOF
-expect_paths "test_parse_required_tests" parse_plan_required_tests "$F_TESTS" "tests/a_test.py
+expect_paths "required tests" parse_plan_required_tests "$F_TESTS" "tests/a_test.py
 tests/b_test.py
 tests/c_test.py"
+t_done test_parse_required_tests
 
 echo "== tdd correspondence validation =="
 F_VALID="$R/tdd_valid.md"
@@ -192,17 +196,9 @@ cat > "$F_VALID" <<'EOF'
 - `tests/a_test.py`
 - `tests/b_test.py`
 EOF
-if validate_plan_tdd_correspondence "$F_VALID" "Test"; then
-  ok "test_validate_tdd_correspondence_matches"
-else
-  bad "test_validate_tdd_correspondence_matches" "unexpected failure"
-fi
-
-if plan_has_required_test_files "$F_VALID"; then
-  ok "test_plan_has_required_test_files_true"
-else
-  bad "test_plan_has_required_test_files_true" "expected true"
-fi
+validate_plan_tdd_correspondence "$F_VALID" "Test" || t_fail "matching §3/§4 refused"
+plan_has_required_test_files "$F_VALID" || t_fail "plan_has_required_test_files: want true"
+t_done test_validate_tdd_correspondence_matches
 
 F_OPT_OUT="$R/tdd_opt_out.md"
 cat > "$F_OPT_OUT" <<'EOF'
@@ -211,24 +207,21 @@ cat > "$F_OPT_OUT" <<'EOF'
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `src/a.py`
 EOF
-if validate_plan_tdd_correspondence "$F_OPT_OUT" "Test" && ! plan_has_required_test_files "$F_OPT_OUT"; then
-  ok "test_validate_tdd_correspondence_opted_out"
-else
-  bad "test_validate_tdd_correspondence_opted_out" "failed on opted-out plan"
-fi
+validate_plan_tdd_correspondence "$F_OPT_OUT" "Test" || t_fail "opted-out plan refused"
+plan_has_required_test_files "$F_OPT_OUT" && t_fail "plan_has_required_test_files: want false"
+t_done test_validate_tdd_correspondence_opted_out
 
 echo "== section extraction =="
 got=$(printf '%s\n' "## 🔨 3. Steps" "- s3" "## 💥 4. Blast Radius" "### 📂 Target Files" "- [ ] \`src/a.py\`" "## ❓ 5. Questions" "- s5" | extract_plan_section 4)
 want=$(printf '%s\n' "## 💥 4. Blast Radius" "### 📂 Target Files" "- [ ] \`src/a.py\`")
-if [ "$got" = "$want" ]; then ok "test_extract_plan_section"; else bad "test_extract_plan_section" "got [$got]"; fi
+t_expect "section 4" "$want" "$got"
+t_done test_extract_plan_section
 
 echo "== platform detection =="
 PV_LINUX="$R/proc_linux"; echo "Linux version 6.8.0 (gcc) #1 SMP" > "$PV_LINUX"
 PV_WSL="$R/proc_wsl"; echo "Linux version 5.15.153.1-microsoft-standard-WSL2" > "$PV_WSL"
-os_ok=1
 while IFS='|' read -r uname_s proc want; do
-  got="$(aapp_os "$uname_s" "$proc")"
-  if [ "$got" != "$want" ]; then os_ok=0; echo "       aapp_os '$uname_s' -> $got (want $want)"; fi
+  t_expect "aapp_os '$uname_s'" "$want" "$(aapp_os "$uname_s" "$proc")"
 done <<EOF
 Linux|$PV_LINUX|linux
 Linux|$PV_WSL|wsl
@@ -242,97 +235,39 @@ OpenBSD|$PV_LINUX|bsd
 NetBSD|$PV_LINUX|bsd
 SunOS|$PV_LINUX|unknown
 EOF
-case "$(aapp_os)" in linux|darwin|windows|wsl|bsd|unknown) ;; *) os_ok=0; echo "       live aapp_os -> $(aapp_os)";; esac
-if [ "$os_ok" -eq 1 ]; then ok "test_aapp_os_branches"; else bad "test_aapp_os_branches" "branch mismatch"; fi
-
-echo "== single ownership & inertness =="
-# Parser forms that must exist only in lib/aapp-lib.sh. Pair 5's bash parser is
-# tracked separately (#86) and does not use these forms.
-foreign=$(cd "$KIT" && grep -rnF \
-  -e "/^### 📂 Target Files" -e "'^### 📂 Target Files" \
-  -e "/^### 🛑 Out of Bounds" -e "'^### 🛑 Out of Bounds" \
-  -e "^### 🚨 Emergency Hotfix" -e "Required Test Files/" \
-  -e '"^## ([^0-9]*[[:space:]])?"' \
-  lib templates aapp 2>/dev/null | grep -v -e "^lib/aapp-lib.sh:" -e "^templates/aapp-lib.sh:")
-if [ -z "$foreign" ]; then ok "test_no_foreign_target_parsers_in_repo"; else bad "test_no_foreign_target_parsers_in_repo" "found copies"; echo "$foreign" | sed 's/^/       /'; fi
-
-inert=$(bash -c '
-  before="$(set +o; shopt -p)"
-  out="$(. "$1")"
-  . "$1"
-  after="$(set +o; shopt -p)"
-  [ -z "$out" ] && [ "$before" = "$after" ] && declare -f aapp_lib_loaded >/dev/null && echo INERT
-' _ "$LIB")
-if [ "$inert" = "INERT" ]; then ok "test_source_is_inert"; else bad "test_source_is_inert" "output or option change on source"; fi
+case "$(aapp_os)" in linux|darwin|windows|wsl|bsd|unknown) ;; *) t_fail "live aapp_os -> $(aapp_os)";; esac
+t_done test_aapp_os_branches
 
 echo "== plan commits parsing =="
-# parse_plan_commits: extracts sha and branch pairs from * **Commits:** header line
 F_COMMITS="$R/commits_test.md"
-cat << 'EOF' > "$F_COMMITS"
+cat > "$F_COMMITS" <<'EOF'
 # Plan P-99: Test
 * **Status:** ⚡ In Development
 * **Commits:** `bca7d9a` (develop), `8c0c103` (feat/parser), `1a2b3c4` (detached)
 EOF
-
-if declare -f parse_plan_commits >/dev/null; then
-  got="$(parse_plan_commits "$F_COMMITS")"
-  want="$(printf "bca7d9a develop\n8c0c103 feat/parser\n1a2b3c4 detached")"
-  if [ "$got" = "$want" ]; then
-    # Test invalid / empty formats
-    cat << 'EOF' > "$F_COMMITS"
-* **Commits:** none
-EOF
-    [ -z "$(parse_plan_commits "$F_COMMITS")" ] || got="fail_none"
-    cat << 'EOF' > "$F_COMMITS"
-* **Commits:** bca7d9a (develop), `8c0c103`, just prose
-EOF
-    [ -z "$(parse_plan_commits "$F_COMMITS")" ] || got="fail_unbackticked"
-    if [ "$got" != "fail_none" ] && [ "$got" != "fail_unbackticked" ]; then
-      ok "test_parse_plan_commits"
-    else
-      bad "test_parse_plan_commits" "failed edge cases"
-    fi
-  else
-    bad "test_parse_plan_commits" "want [$want] got [$got]"
-  fi
-else
-  bad "test_parse_plan_commits" "parse_plan_commits function not implemented"
-fi
+t_expect "three commits" "$(printf "bca7d9a develop\n8c0c103 feat/parser\n1a2b3c4 detached")" "$(parse_plan_commits "$F_COMMITS")"
+echo '* **Commits:** none' > "$F_COMMITS"
+t_expect "none" "" "$(parse_plan_commits "$F_COMMITS")"
+echo '* **Commits:** bca7d9a (develop), `8c0c103`, just prose' > "$F_COMMITS"
+t_expect "unbackticked or branchless" "" "$(parse_plan_commits "$F_COMMITS")"
+t_done test_parse_plan_commits
 
 echo "== pickup entry split (P-96) =="
-if declare -f pickup_entry_split >/dev/null; then
-  s1="$(pickup_entry_split '- [ ] Verbosity Budget: keep agents to the essence: always.')"
-  s2="$(pickup_entry_split '- [ ] Configuration Manager CLI (`aapp config: set`): add a manifest')"
-  s3="$(pickup_entry_split '- [ ] an idea with no title at all')"
-  s4="$(pickup_entry_split 'Plain Title: text without the marker')"
-  if [ "$s1" = "$(printf 'Verbosity Budget\tkeep agents to the essence: always.')" ] && \
-     [ "$s2" = "$(printf 'Configuration Manager CLI (`aapp config: set`)\tadd a manifest')" ] && \
-     [ "$s3" = "$(printf '\tan idea with no title at all')" ] && \
-     [ "$s4" = "$(printf 'Plain Title\ttext without the marker')" ]; then
-    ok "test_pickup_entry_split"
-  else
-    bad "test_pickup_entry_split" "s1=[$s1] s2=[$s2] s3=[$s3] s4=[$s4]"
-  fi
-else
-  bad "test_pickup_entry_split" "pickup_entry_split function not implemented"
-fi
+t_expect "title and text" "$(printf 'Verbosity Budget\tkeep agents to the essence: always.')" \
+  "$(pickup_entry_split '- [ ] Verbosity Budget: keep agents to the essence: always.')"
+t_expect "colon inside backticks" "$(printf 'Configuration Manager CLI (`aapp config: set`)\tadd a manifest')" \
+  "$(pickup_entry_split '- [ ] Configuration Manager CLI (`aapp config: set`): add a manifest')"
+t_expect "no title" "$(printf '\tan idea with no title at all')" "$(pickup_entry_split '- [ ] an idea with no title at all')"
+t_expect "no marker" "$(printf 'Plain Title\ttext without the marker')" "$(pickup_entry_split 'Plain Title: text without the marker')"
+t_done test_pickup_entry_split
 
 echo "== subject max len (P-97) =="
-if declare -f aapp_subject_max_len >/dev/null; then
-  git config --unset aapp.subjectMaxLen 2>/dev/null || true
-  v_default="$(aapp_subject_max_len)"
-  git config aapp.subjectMaxLen 50
-  v_custom="$(aapp_subject_max_len)"
-  git config aapp.subjectMaxLen "not-a-number"
-  v_invalid="$(aapp_subject_max_len)"
-  git config --unset aapp.subjectMaxLen 2>/dev/null || true
-  if [ "$v_default" = "72" ] && [ "$v_custom" = "50" ] && [ "$v_invalid" = "72" ]; then
-    ok "test_subject_max_len"
-  else
-    bad "test_subject_max_len" "default=[$v_default] custom=[$v_custom] invalid=[$v_invalid]"
-  fi
-else
-  bad "test_subject_max_len" "aapp_subject_max_len function not implemented"
-fi
+S="$R/subj"; git init -q "$S"
+t_expect "default" 72 "$(cd "$S" && aapp_subject_max_len)"
+git -C "$S" config aapp.subjectMaxLen 50
+t_expect "custom" 50 "$(cd "$S" && aapp_subject_max_len)"
+git -C "$S" config aapp.subjectMaxLen "not-a-number"
+t_expect "invalid" 72 "$(cd "$S" && aapp_subject_max_len)"
+t_done test_subject_max_len
 
 print_test_summary "$PASS" "$FAIL"

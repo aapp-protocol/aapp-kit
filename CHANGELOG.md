@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- slim the test suites to verb behaviour and core wrappers, fold `#nnn` regressions into behaviour tests, and add `lib/docs/core/` contracts (P-113) (`P-113`)
+
 ## [0.9.0] - 2026-10-19
 
 ### Added

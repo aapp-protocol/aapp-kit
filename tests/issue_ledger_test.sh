@@ -66,6 +66,7 @@ else
 fi
 
 echo "== locate =="
+fixture locate
 if have ledger_locate; then
   a="$(ledger_locate 11)"; b="$(ledger_locate 9)"; c="$(ledger_locate 99)"; d="$(ledger_locate 1)"
   if [ "$a" = "active" ] && [ "$b" = "archive" ] && [ -z "$c" ] && [ -z "$d" ]; then
@@ -135,6 +136,9 @@ if have ledger_archive_row; then
     bad "test_archive_row_aborted" "rc=$rc top=[$top]"
   fi
   if have ledger_set_archive_commit; then
+    fixture archcommit
+    ledger_archive_row 12 def5678 "Offers by \`a|b\` name"
+    ledger_archive_row 10 aborted "Aborted: not a bug"
     ledger_set_archive_commit 12 abc1234; rc=$?
     ledger_set_archive_commit 99 abc1234 2>/dev/null; rmiss=$?
     row="$(grep -m 1 '^| #12 ' "$PLANS_DIR/done/000-issues-archive.md")"
@@ -150,15 +154,13 @@ if have ledger_archive_row; then
 
   # Test live archive bounding (P-38)
   fixture archive_overflow
-  git config aapp.issueArchiveMax 2
-  ledger_archive_row 12 def5678 "Archive 12"
-  ledger_archive_row 11 def5678 "Archive 11"
+  git init -q "$R/overflow-repo"; git -C "$R/overflow-repo" config aapp.issueArchiveMax 2
+  ( cd "$R/overflow-repo" && ledger_archive_row 12 def5678 "Archive 12" && ledger_archive_row 11 def5678 "Archive 11" )
   arc_count="$(grep -c -E '^[[:space:]]*\|[[:space:]]*`?#[0-9]+' "$PLANS_DIR/done/000-issues-archive.md")"
   of_file="$PLANS_DIR/done/000-issues-archive-overflow.md"
   loc9="$(ledger_locate 9)"
   loc11="$(ledger_locate 11)"
   all_arc_ids="$(ledger_ids archive | tr '\n' ' ')"
-  git config --unset aapp.issueArchiveMax
   if [ "$arc_count" -eq 2 ] && [ -f "$of_file" ] && grep -q '#9' "$of_file" && \
      [ "$loc9" = "archive" ] && [ "$loc11" = "archive" ] && \
      [[ "$all_arc_ids" == *"9"* ]] && [[ "$all_arc_ids" == *"11"* ]] && [[ "$all_arc_ids" == *"12"* ]]; then
@@ -225,6 +227,7 @@ else
   bad "test_roadmap_entries_and_blockers" "roadmap_entries / roadmap_blockers not implemented"
 fi
 if have roadmap_prune; then
+  fixture prune
   roadmap_prune 11; r1=$?
   one="$(grep -c '#11 ' "$PLANS_DIR/issues_road_map.md")"
   roadmap_prune resolved; r2=$?
@@ -238,7 +241,6 @@ else
   bad "test_roadmap_prune" "roadmap_prune not implemented"
 fi
 
-echo "== one accessor =="
 echo "== issue records (P-92) =="
 fixture records
 git init -q "$R/rec-repo"
@@ -292,37 +294,6 @@ w =[$w10]
 else
   bad "test_issue_records_fields" "ledger_issue_records not implemented"
   bad "test_note_count_holds_no_text" "ledger_issue_records not implemented"
-fi
-
-# No code outside the ledger section of lib/aapp-lib.sh reads or writes a ledger.
-# Not access, and left out: comments, messages (echo/printf), the permission
-# lists of the hooks, and the files that only seed or name the ledgers.
-names='ISSUES\.md|000-issues-archive\.md|issues_road_map\.md'
-section="$(awk '/^# ---- Issue ledgers \(P-73\)/ { s = 1 } /^# ---- end issue ledgers/ { s = 0 } s' "$LIB" | wc -l | tr -d ' ')"
-outside=""
-for f in "$KIT"/lib/*.sh "$KIT/templates/aapp-pre-commit" "$KIT/aapp"; do
-  # cmd_init.sh seeds the ledgers; adoption.sh asks only whether a seeded
-  # ledger is still the template; cmd_matrix.sh's road map is the matrix's;
-  # cmd_release.sh bundles the milestone archive.
-  case "${f##*/}" in cmd_init.sh|adoption.sh|cmd_matrix.sh|cmd_release.sh) continue ;; esac
-  # The pattern travels by ENVIRON: `awk -v` would expand its `\.` escapes.
-  hits="$(AAPP_NAMES="$names" awk -v lib="$LIB" -v f="$f" 'BEGIN { names = ENVIRON["AAPP_NAMES"] }
-      f == lib && /^# ---- Issue ledgers \(P-73\)/ { s = 1 }
-      f == lib && /^# ---- end issue ledgers/ { s = 0; next }
-      s { next }
-      /^[[:space:]]*#/ { next }
-      $0 !~ names { next }
-      /^[[:space:]]*(echo|printf)[[:space:]]/ { next }
-      /(echo|printf)[[:space:]]+"[^"]*(ISSUES\.md|000-issues-archive\.md|issues_road_map\.md)/ { next }
-      /^[[:space:]]*[^ ]*(pickup\*|ISSUES\.md)[^ ]*\)[[:space:]]*$/ { next }
-      { print FILENAME ":" FNR ": " $0 }' "$f")"
-  [ -n "$hits" ] && outside="$outside
-$hits"
-done
-if [ "$section" -gt 0 ] && [ -z "$outside" ]; then
-  ok "test_no_direct_ledger_access"
-else
-  bad "test_no_direct_ledger_access" "section lines=$section$(printf '%s\n' "$outside" | head -40 | cut -c1-160)"
 fi
 
 print_test_summary "$PASS" "$FAIL"

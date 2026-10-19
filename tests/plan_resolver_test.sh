@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Tests: Plan Shorthand Resolver Engine & Health Invariants (Pairs 4, 5 & 6)
-# ==============================================================================
-set -e
-
+# Core suite for lib/plan_resolver.sh and lib/planning_health.sh: plan
+# resolution, plan and issue id counters, and the planning health pairs.
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PASS=0
-FAIL=0
+PASS=0; FAIL=0
 
 source "$KIT/lib/plan_resolver.sh"
 source "$KIT/lib/planning_health.sh"
@@ -15,23 +11,20 @@ source "$KIT/tests/test_helpers.sh"
 TEST_DIR=$(mktemp -d /tmp/aapp-plan-resolver-test-XXXXXX)
 trap 'rm -rf "$TEST_DIR"' EXIT
 
-cd "$TEST_DIR"
+cd "$TEST_DIR" || exit 1
 git init -q
 setup_test_git_identity "$TEST_DIR"
 git branch -M main
-
 mkdir -p .plans/current .plans/done
 
-# Setup test fixtures
 cat > .plans/current/P9-guard-path-authorization.md << 'EOF'
 # 🗺️ Plan P-9: Guard Path Authorization
 * **Plan ID:** P-9
-* **Status:** 🔴 Under Review
+* **Status:** 🟣 Under Review
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/guard.sh` -> Guard updates.
 EOF
-
 cat > .plans/current/P13-plan-ids-and-shorthand-resolution.md << 'EOF'
 # 🗺️ Plan P-13: Plan IDs and Shorthand Resolution
 * **Plan ID:** P-13
@@ -40,119 +33,93 @@ cat > .plans/current/P13-plan-ids-and-shorthand-resolution.md << 'EOF'
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/plan_resolver.sh` -> Resolver engine.
 EOF
-
 cat > .plans/done/plan-feature-aapp-slash-commands.md << 'EOF'
 # 🗺️ Plan: Universal Slash Commands
 * **Plan ID:** P-7
-* **Status:** 🟢 Completed
+* **Status:** ✅ Done
 EOF
+P13=".plans/current/P13-plan-ids-and-shorthand-resolution.md"
 
-echo "== 1. Exact Path & Filename Resolution =="
-RES=$(resolve_plan_path ".plans/current/P13-plan-ids-and-shorthand-resolution.md" "inspect" "current" "$PWD")
-if [ "$RES" = ".plans/current/P13-plan-ids-and-shorthand-resolution.md" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "exact relative path resolves directly" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want exact path got '%s'\n" "exact relative path resolves directly" "$RES"; FAIL=$((FAIL+1))
-fi
-
-RES=$(resolve_plan_path "P13-plan-ids-and-shorthand-resolution.md" "inspect" "current" "$PWD")
-if [ "$RES" = ".plans/current/P13-plan-ids-and-shorthand-resolution.md" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "bare filename in current/ resolves directly" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want path got '%s'\n" "bare filename in current/ resolves directly" "$RES"; FAIL=$((FAIL+1))
-fi
-
-echo "== 2. Numeric Plan ID Resolution (P-13, p-13, P13, 13) =="
-for QUERY in "P-13" "p-13" "P13" "p13" "13" "P013" "P-013"; do
-    RES=$(resolve_plan_path "$QUERY" "inspect" "current" "$PWD")
-    if [ "$RES" = ".plans/current/P13-plan-ids-and-shorthand-resolution.md" ]; then
-        printf "  \033[32m✔\033[0m %-52s %s\n" "query '$QUERY' resolves to P-13" "PASS"; PASS=$((PASS+1))
-    else
-        printf "  \033[31m✘\033[0m %-52s want P13 got '%s'\n" "query '$QUERY' resolves to P-13" "$RES"; FAIL=$((FAIL+1))
-    fi
-done
-
-echo "== 3. Slug Substring Resolution =="
-RES=$(resolve_plan_path "guard-path" "inspect" "current" "$PWD")
-if [ "$RES" = ".plans/current/P9-guard-path-authorization.md" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "slug 'guard-path' resolves to P-9" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want P9 got '%s'\n" "slug 'guard-path' resolves to P-9" "$RES"; FAIL=$((FAIL+1))
-fi
-
-echo "== 4. Issue Namespace Collision Guard (#-prefixed rejection) =="
-OUT=$(resolve_plan_path "#13" "freeze" "current" "$PWD" 2>&1 || true)
-if echo "$OUT" | grep -q "is an Issue reference" && echo "$OUT" | grep -q "Did you mean 'P-13'"; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "#13 rejected with P-13 suggestion" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want rejection with suggestion got '%s'\n" "#13 rejected with P-13 suggestion" "$OUT"; FAIL=$((FAIL+1))
-fi
-
-echo "== 5. Empty Query Guard on State Transitions (freeze, done) =="
-OUT_FREEZE=$(resolve_plan_path "" "freeze" "current" "$PWD" 2>&1 || true)
-if echo "$OUT_FREEZE" | grep -q "You must explicitly specify a target plan for 'freeze'"; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "empty query on freeze refused" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want refusal got '%s'\n" "empty query on freeze refused" "$OUT_FREEZE"; FAIL=$((FAIL+1))
-fi
-
-OUT_DONE=$(resolve_plan_path "" "done" "current" "$PWD" 2>&1 || true)
-if echo "$OUT_DONE" | grep -q "You must explicitly specify a target plan for 'done'"; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "empty query on done refused" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want refusal got '%s'\n" "empty query on done refused" "$OUT_DONE"; FAIL=$((FAIL+1))
-fi
-
-echo "== 6. Plan ID Helpers (get_plan_id, get_next_plan_id) =="
-ID9=$(get_plan_id ".plans/current/P9-guard-path-authorization.md")
-if [ "$ID9" = "P-9" ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "get_plan_id extracts P-9" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want P-9 got '%s'\n" "get_plan_id extracts P-9" "$ID9"; FAIL=$((FAIL+1))
-fi
-
-# --- Config-backed Plan ID allocation (P-22) -------------------------------
-# aapp.planId stores the NEXT id to hand out. These tests touch the real repo
-# config, so the developer's value is saved and restored at the end.
-PLANID_SAVED="$(git config --get aapp.planId 2>/dev/null || true)"
-
-check() {  # check <label> <expected> <actual>
-    if [ "$2" = "$3" ]; then
-        printf "  \033[32m✔\033[0m %-52s %s\n" "$1" "PASS"; PASS=$((PASS+1))
-    else
-        printf "  \033[31m✘\033[0m %-52s want '%s' got '%s'\n" "$1" "$2" "$3"; FAIL=$((FAIL+1))
-    fi
+# rc <command…>: prints the command's exit code, its output discarded.
+rc() { "$@" >/dev/null 2>&1; echo $?; }
+# verdict <command…>: prints `passed` or `refused`, its output discarded.
+verdict() { "$@" >/dev/null 2>&1 && echo passed || echo refused; }
+# issue_ledgers: active ids #93 and #76, archived #91 and #97.
+issue_ledgers() {
+  cat > .plans/ISSUES.md << 'EOF'
+| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #93 | `Low` | `CLI` | 2026-09-28 | `a` | top by priority |  | 🟡 `Incubated` |
+| #76 | `Low` | `CLI` | 2026-09-21 | `b` | bottom row, lower id |  | 🟡 `Incubated` |
+EOF
+  cat > .plans/done/000-issues-archive.md << 'EOF'
+| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #91 | `Low` | `CORE` | 2026-09-28 | 2026-09-28 | `0000000` | archived |
+| #97 | `Low` | `CORE` | 2026-09-28 | 2026-09-28 | `0000000` | highest id is archived |
+EOF
 }
 
-git config --unset aapp.planId 2>/dev/null || true
-check "unset counter yields P-1" "P-1" "$(get_next_plan_id)"
+echo "== plan resolution =="
+t_expect "relative path" "$P13" "$(resolve_plan_path "$P13" inspect current "$PWD")"
+t_expect "bare filename" "$P13" "$(resolve_plan_path P13-plan-ids-and-shorthand-resolution.md inspect current "$PWD")"
+t_done test_resolve_exact_path_and_filename
 
+for q in P-13 p-13 P13 p13 13 P013 P-013; do
+  t_expect "query $q" "$P13" "$(resolve_plan_path "$q" inspect current "$PWD")"
+done
+t_done test_resolve_numeric_id_forms
+
+t_expect "slug" ".plans/current/P9-guard-path-authorization.md" "$(resolve_plan_path guard-path inspect current "$PWD")"
+t_done test_resolve_slug_substring
+
+out="$(resolve_plan_path "#13" freeze current "$PWD" 2>&1)"
+echo "$out" | grep -q "is an Issue reference" && echo "$out" | grep -q "Did you mean 'P-13'" || t_fail "out=$out"
+t_done test_resolve_refuses_issue_reference
+
+for verb in freeze done; do
+  out="$(resolve_plan_path "" "$verb" current "$PWD" 2>&1)"
+  echo "$out" | grep -q "You must explicitly specify a target plan for '$verb'" || t_fail "$verb: $out"
+done
+t_done test_resolve_refuses_empty_query_on_transitions
+
+t_expect "plan id" P-9 "$(get_plan_id .plans/current/P9-guard-path-authorization.md)"
+t_done test_get_plan_id
+
+cat > .plans/current/fix-98.md << 'EOF'
+* **Plan ID:** #98
+* **Target Issue / Milestone:** #98
+* **Status:** ⚡ In Development
+EOF
+[ "$(resolve_plan_path fix inspect current "$PWD" 2>/dev/null)" = ".plans/current/fix-98.md" ] && t_fail "resolver picked fix-98.md"
+check_pair4_plan_id_integrity "$PWD" 2>&1 | grep -q "fix-98" && t_fail "pair 4 named fix-98.md"
+rm -f .plans/current/fix-98.md
+t_done test_mini_plans_are_not_plans
+
+echo "== plan id counter (P-22) =="
+git config --unset aapp.planId
+t_expect "unset" P-1 "$(get_next_plan_id)"
 git config aapp.planId 25
-PEEK1="$(get_next_plan_id)"; PEEK2="$(get_next_plan_id)"
-check "peek is non-mutating" "P-25 P-25 25" "$PEEK1 $PEEK2 $(git config --get aapp.planId)"
-check "peek emits nothing on stderr" "" "$(get_next_plan_id 2>&1 >/dev/null)"
+t_expect "peek twice, counter" "P-25 P-25 25" "$(get_next_plan_id) $(get_next_plan_id) $(git config --get aapp.planId)"
+t_expect "peek stderr" "" "$(get_next_plan_id 2>&1 >/dev/null)"
+t_expect "allocate" P-25 "$(allocate_plan_id)"
+t_expect "counter after allocate" 26 "$(git config --get aapp.planId)"
+t_expect "allocate again" P-26 "$(allocate_plan_id)"
+git config aapp.planId corrupt
+t_expect "allocate corrupt" refused "$(verdict allocate_plan_id)"
+t_expect "corrupt untouched" corrupt "$(git config --get aapp.planId)"
+t_expect "peek corrupt" refused "$(verdict get_next_plan_id)"
+git config --unset aapp.planId
+t_done test_plan_counter_peek_and_allocate
 
-check "allocate issues current value" "P-25" "$(allocate_plan_id)"
-check "allocate advances counter by 1" "26" "$(git config --get aapp.planId)"
-check "allocate is monotonic" "P-26" "$(allocate_plan_id)"
-
-git config aapp.planId "corrupt"
-ALLOC_RC=0; allocate_plan_id >/dev/null 2>&1 || ALLOC_RC=$?
-check "allocate refuses corrupt counter" "1" "$ALLOC_RC"
-check "corrupt counter left untouched" "corrupt" "$(git config --get aapp.planId)"
-PEEK_RC=0; get_next_plan_id >/dev/null 2>&1 || PEEK_RC=$?
-check "peek refuses corrupt counter" "1" "$PEEK_RC"
-
-check "normalize accepts P-42" "P-42" "$(normalize_plan_id 'P-42')"
-check "normalize accepts bare 42" "P-42" "$(normalize_plan_id '42')"
-NRC=0; normalize_plan_id 'not-an-int' >/dev/null 2>&1 || NRC=$?
-check "normalize rejects non-integer" "1" "$NRC"
-NRC=0; normalize_plan_id '' >/dev/null 2>&1 || NRC=$?
-check "normalize rejects empty" "1" "$NRC"
+t_expect "P-42" P-42 "$(normalize_plan_id P-42)"
+t_expect "42" P-42 "$(normalize_plan_id 42)"
+t_expect "non-integer" refused "$(verdict normalize_plan_id not-an-int)"
+t_expect "empty" refused "$(verdict normalize_plan_id '')"
+t_done test_normalize_plan_id
 
 git config aapp.planId 30
-check "no provider uses local counter" "P-30" "$(allocate_plan_id)"
-
+t_expect "no provider" P-30 "$(allocate_plan_id)"
 PROVIDER_DIR="$PWD/.agents/skills/aapp-planid"
 mkdir -p "$PROVIDER_DIR"
 cat > "$PROVIDER_DIR/run" <<EOF
@@ -161,221 +128,85 @@ cat > "$TEST_DIR/planid.stdin"
 echo '{"id": "P-88", "extra": {"k": 1}}'
 EOF
 chmod +x "$PROVIDER_DIR/run"
-check "provider id is used" "P-88" "$(allocate_plan_id)"
-check "counter ratchets past provider id" "89" "$(git config --get aapp.planId)"
-check "provider receives plan.allocate envelope" "1" "$(grep -c '"event": "plan.allocate"' "$TEST_DIR/planid.stdin")"
-check "envelope carries reserved extra object" "1" "$(grep -c '"extra": {}' "$TEST_DIR/planid.stdin")"
-
-cat > "$PROVIDER_DIR/run" <<'EOF'
-#!/bin/sh
-echo '{"id": 90}'
-EOF
-check "provider bare integer id accepted" "P-90" "$(allocate_plan_id)"
-
-cat > "$PROVIDER_DIR/run" <<'EOF'
-#!/bin/sh
-echo P-91
-EOF
-MRC=0; allocate_plan_id >/dev/null 2>&1 || MRC=$?
-check "provider plain-text output rejected" "1" "$MRC"
-
-cat > "$PROVIDER_DIR/run" <<'EOF'
-#!/bin/sh
-echo '{"error": "authority offline"}'
-exit 1
-EOF
-check "provider error text is shown" "1" "$(allocate_plan_id 2>&1 | grep -c 'authority offline')"
-
+t_expect "provider id" P-88 "$(allocate_plan_id)"
+t_expect "counter ratchets" 89 "$(git config --get aapp.planId)"
+t_expect "event" 1 "$(grep -c '"event": "plan.allocate"' "$TEST_DIR/planid.stdin")"
+t_expect "reserved extra" 1 "$(grep -c '"extra": {}' "$TEST_DIR/planid.stdin")"
+printf '#!/bin/sh\necho %s\n' "'{\"id\": 90}'" > "$PROVIDER_DIR/run"
+t_expect "bare integer" P-90 "$(allocate_plan_id)"
+printf '#!/bin/sh\necho P-91\n' > "$PROVIDER_DIR/run"
+t_expect "plain text" refused "$(verdict allocate_plan_id)"
+printf '#!/bin/sh\necho %s\nexit 1\n' "'{\"error\": \"authority offline\"}'" > "$PROVIDER_DIR/run"
+t_expect "error text shown" 1 "$(allocate_plan_id 2>&1 | grep -c 'authority offline')"
 printf '#!/bin/sh\nexit 3\n' > "$PROVIDER_DIR/run"
-PROV_RC=0; allocate_plan_id >/dev/null 2>&1 || PROV_RC=$?
-check "failing provider is fatal" "1" "$PROV_RC"
-check "no local fallback on provider failure" "91" "$(git config --get aapp.planId)"
-
+t_expect "failing provider" refused "$(verdict allocate_plan_id)"
+t_expect "no local fallback" 91 "$(git config --get aapp.planId)"
 printf '#!/bin/sh\necho garbage\n' > "$PROVIDER_DIR/run"
-MRC=0; allocate_plan_id >/dev/null 2>&1 || MRC=$?
-check "malformed provider id rejected" "1" "$MRC"
+t_expect "malformed id" refused "$(verdict allocate_plan_id)"
+rm -rf "$PWD/.agents"
+git config --unset aapp.planId
+t_done test_plan_id_provider
 
-rm -rf "$PROVIDER_DIR"
-rmdir "$PWD/.agents/skills" 2>/dev/null || true
+echo "== issue id counter (P-32) =="
+git config aapp.issueId 7
+git config aapp.planId 3
+t_expect "peek" "#7" "$(get_next_issue_id)"
+t_expect "allocate" "#7" "$(allocate_issue_id)"
+t_expect "issue counter, plan counter" "8 3" "$(git config --get aapp.issueId) $(git config --get aapp.planId)"
+git config --unset aapp.issueId; git config --unset aapp.planId
+t_done test_issue_counter_peek_and_allocate
 
-if [ -n "$PLANID_SAVED" ]; then git config aapp.planId "$PLANID_SAVED"
-else git config --unset aapp.planId 2>/dev/null || true; fi
+t_expect "no ledgers rc" 2 "$(rc seed_issue_id .plans)"
+cp "$KIT/templates/issues.md" .plans/ISSUES.md
+cp "$KIT/templates/done-issues-archive.md" .plans/done/000-issues-archive.md
+t_expect "template rows" 1 "$(seed_issue_id .plans)"
+issue_ledgers
+t_expect "numeric max across ledgers" 98 "$(seed_issue_id .plans)"
+rm -f .plans/ISSUES.md .plans/done/000-issues-archive.md
+t_done test_seed_issue_id
 
-echo "== 7. Planning Health Pair 4: Plan ID Integrity =="
-if check_pair4_plan_id_integrity "$PWD" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 4 passes on unique Plan IDs" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "pair 4 passes on unique Plan IDs"; FAIL=$((FAIL+1))
-fi
-
-# Duplicate Plan ID fixture
+echo "== planning health =="
+t_expect "unique ids" passed "$(verdict check_pair4_plan_id_integrity "$PWD")"
 cat > .plans/current/P9-duplicate.md << 'EOF'
 # 🗺️ Plan: Duplicate Test
 * **Plan ID:** P-9
-* **Status:** 🔴 Under Review
+* **Status:** 🟣 Under Review
 EOF
-
-if ! check_pair4_plan_id_integrity "$PWD" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 4 catches duplicate Plan ID" "BLOCK"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "pair 4 catches duplicate Plan ID"; FAIL=$((FAIL+1))
-fi
+t_expect "duplicate" refused "$(verdict check_pair4_plan_id_integrity "$PWD")"
 rm -f .plans/current/P9-duplicate.md
+t_done test_pair4_plan_id_integrity
 
-echo "== 8. Planning Health Pair 5: Target Files vs Section 2 =="
-if check_pair5_target_files_self_protection "$PWD" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 5 passes when target files are safe" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "pair 5 passes when target files are safe"; FAIL=$((FAIL+1))
-fi
-
-# Violation fixture: blueprint declaring .agents/skills/aapp-freeze/SKILL.md as target
+t_expect "safe targets" passed "$(verdict check_pair5_target_files_self_protection "$PWD")"
 cat > .plans/current/P99-bad-target.md << 'EOF'
 # 🗺️ Plan P-99: Bad Target Test
 * **Plan ID:** P-99
-* **Status:** 🔴 Under Review
+* **Status:** 🟣 Under Review
 
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `.agents/skills/aapp-freeze/SKILL.md` -> Attempted direct skill edit.
 EOF
-
-if ! check_pair5_target_files_self_protection "$PWD" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 5 catches Section 2 violation in Target Files" "BLOCK"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "pair 5 catches Section 2 violation in Target Files"; FAIL=$((FAIL+1))
-fi
+t_expect "self-protected target" refused "$(verdict check_pair5_target_files_self_protection "$PWD")"
 rm -f .plans/current/P99-bad-target.md
+t_done test_pair5_self_protection
 
-echo "== 9. Planning Health Pair 6: Recorded SHA Integrity =="
-setup_test_git_identity "$TEST_DIR"
-git add .
-git commit -m "fixture commit" -q
-TEST_SHA=$(git rev-parse --short HEAD)
-
-# 1. Valid commit SHA in 000-archive-ledger.md passes
-cat > .plans/done/000-archive-ledger.md << EOF
-# 🏛️ Archival Ledger
-| Date Completed | Plan ID | Plan File | Target Issue | Verification Commit | Impact Summary |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| 2026-09-15 | \`P-7\` | [\`plan.md\`](plan.md) | \`#61\` | \`$TEST_SHA\` | Completed feature. |
-EOF
-
-if check_pair6_recorded_sha_integrity "$PWD" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 6 passes on valid recorded commit SHA" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "pair 6 passes on valid recorded commit SHA"; FAIL=$((FAIL+1))
-fi
-
-# 2. Dangling commit SHA in 000-archive-ledger.md is blocked
-cat > .plans/done/000-archive-ledger.md << 'EOF'
-# 🏛️ Archival Ledger
-| Date Completed | Plan ID | Plan File | Target Issue | Verification Commit | Impact Summary |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| 2026-09-15 | `P-7` | [`plan.md`](plan.md) | `#61` | `deadbeef12` | Completed feature. |
-EOF
-
-if ! check_pair6_recorded_sha_integrity "$PWD" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 6 catches dangling SHA in archive ledger" "BLOCK"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "pair 6 catches dangling SHA in archive ledger"; FAIL=$((FAIL+1))
-fi
-
-# 3. Restore valid archive ledger, add dangling commit SHA to CHANGELOG.md
-cat > .plans/done/000-archive-ledger.md << EOF
-# 🏛️ Archival Ledger
-| Date Completed | Plan ID | Plan File | Target Issue | Verification Commit | Impact Summary |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| 2026-09-15 | \`P-7\` | [\`plan.md\`](plan.md) | \`#61\` | \`$TEST_SHA\` | Completed feature. |
-EOF
-
-cat > CHANGELOG.md << 'EOF'
-# Changelog
-## [Unreleased]
-- Bugfix recorded in commit `cafebabe99`.
-EOF
-
-if ! check_pair6_recorded_sha_integrity "$PWD" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 6 catches dangling SHA in CHANGELOG.md" "BLOCK"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "pair 6 catches dangling SHA in CHANGELOG.md"; FAIL=$((FAIL+1))
-fi
-
-# 4. Valid commit SHA in CHANGELOG.md passes
-cat > CHANGELOG.md << EOF
-# Changelog
-## [Unreleased]
-- Bugfix recorded in commit \`$TEST_SHA\`.
-EOF
-
-if check_pair6_recorded_sha_integrity "$PWD" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 6 passes on valid SHA in CHANGELOG.md" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "pair 6 passes on valid SHA in CHANGELOG.md"; FAIL=$((FAIL+1))
-fi
-
-# 5. Alias check_recorded_sha_integrity functions identically
-if check_recorded_sha_integrity "$PWD" >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "check_recorded_sha_integrity alias functions" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "check_recorded_sha_integrity alias functions"; FAIL=$((FAIL+1))
-fi
-
+git add -A >/dev/null && git commit -qm "fixture commit"
+SHA=$(git rev-parse --short HEAD)
+ledger() {
+  printf '%s\n' '# 🏛️ Archival Ledger' '| Date Completed | Plan ID | Plan File | Target Issue | Verification Commit | Impact Summary |' \
+    '| :--- | :--- | :--- | :--- | :--- | :--- |' "| 2026-09-15 | \`P-7\` | [\`plan.md\`](plan.md) | \`#61\` | \`$1\` | Completed feature. |" > .plans/done/000-archive-ledger.md
+}
+ledger "$SHA"
+t_expect "valid ledger SHA" passed "$(verdict check_pair6_recorded_sha_integrity "$PWD")"
+ledger deadbeef12
+t_expect "dangling ledger SHA" refused "$(verdict check_pair6_recorded_sha_integrity "$PWD")"
+ledger "$SHA"
+printf '# Changelog\n## [Unreleased]\n- Bugfix recorded in commit `cafebabe99`.\n' > CHANGELOG.md
+t_expect "dangling changelog SHA" refused "$(verdict check_pair6_recorded_sha_integrity "$PWD")"
+printf '# Changelog\n## [Unreleased]\n- Bugfix recorded in commit `%s`.\n' "$SHA" > CHANGELOG.md
+t_expect "valid changelog SHA" passed "$(verdict check_pair6_recorded_sha_integrity "$PWD")"
 rm -f .plans/done/000-archive-ledger.md CHANGELOG.md
+t_done test_pair6_recorded_sha_integrity
 
-echo "== 10. Issue ID Allocation, Seeding & Pair 8 (P-32) =="
-git config aapp.issueId 7
-check "issue peek uses # prefix" "#7" "$(get_next_issue_id)"
-check "issue allocate issues current value" "#7" "$(allocate_issue_id)"
-check "issue counter independent of plan counter" "8 " "$(git config --get aapp.issueId) $(git config --get aapp.planId)"
-
-git config --unset aapp.issueId
-
-SEED_RC=0; seed_issue_id .plans >/dev/null 2>&1 || SEED_RC=$?
-check "seed with no ledger files returns 2" "2" "$SEED_RC"
-
-cp "$KIT/templates/issues.md" .plans/ISSUES.md
-cp "$KIT/templates/done-issues-archive.md" .plans/done/000-issues-archive.md
-check "seed ignores template example rows" "1" "$(seed_issue_id .plans)"
-
-cat > .plans/ISSUES.md << 'EOF'
-| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #93 | `Low` | `CLI` | 2026-09-28 | `a` | top by priority |  | 🟡 `Incubated` |
-| #76 | `Low` | `CLI` | 2026-09-21 | `b` | bottom row, lower id |  | 🟡 `Incubated` |
-EOF
-cat > .plans/done/000-issues-archive.md << 'EOF'
-| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #91 | `Low` | `CORE` | 2026-09-28 | 2026-09-28 | `0000000` | archived |
-| #97 | `Low` | `CORE` | 2026-09-28 | 2026-09-28 | `0000000` | highest id is archived |
-EOF
-check "seed takes numeric max across both ledgers" "98" "$(seed_issue_id .plans)"
-
-if check_pair8_issue_id_integrity .plans/ISSUES.md .plans/done/000-issues-archive.md >/dev/null 2>&1; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 8 passes on unique issue IDs" "PASS"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want PASS got FAIL\n" "pair 8 passes on unique issue IDs"; FAIL=$((FAIL+1))
-fi
-
-echo '| #93 | `Low` | `CLI` | 2026-09-29 | `c` | reused id | fix | 🟡 `Incubated` |' >> .plans/ISSUES.md
-P8_OUT="$(check_pair8_issue_id_integrity .plans/ISSUES.md .plans/done/000-issues-archive.md 2>&1)" && P8_RC=0 || P8_RC=$?
-if [ "$P8_RC" -ne 0 ] && echo "$P8_OUT" | grep -q 'Issue #93 appears more than once in active'; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 8 catches duplicate within active ledger" "BLOCK"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want BLOCK got rc=%s\n" "pair 8 catches duplicate within active ledger" "$P8_RC"; FAIL=$((FAIL+1))
-fi
-
-echo '| #91 | `Low` | `CORE` | 2026-09-29 | 2026-09-29 | `0000000` | reused archived id |' >> .plans/done/000-issues-archive.md
-P8_OUT="$(check_pair8_issue_id_integrity .plans/ISSUES.md .plans/done/000-issues-archive.md 2>&1)" && P8_RC=0 || P8_RC=$?
-if [ "$P8_RC" -ne 0 ] && echo "$P8_OUT" | grep -q 'Issue #91 appears more than once in archive'; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 8 catches duplicate within archive" "BLOCK"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want BLOCK got rc=%s\n" "pair 8 catches duplicate within archive" "$P8_RC"; FAIL=$((FAIL+1))
-fi
-
-rm -f .plans/ISSUES.md .plans/done/000-issues-archive.md
-
-echo "== 11. Pair 7 shared docs exemption (P-48) =="
 p7_plan() {  # p7_plan <num> <code-file>
   cat > ".plans/current/P$1-p7.md" << EOF
 # 🗺️ Plan P-$1: Pair 7 fixture
@@ -389,65 +220,46 @@ p7_plan() {  # p7_plan <num> <code-file>
 - [ ] \`.agents/CODEMAP.md\` -> Map.
 EOF
 }
-p7_plan 90 "lib/a.sh"; p7_plan 91 "lib/b.sh"
-P7_OUT="$(check_pair7_inflight_boundary_collision "$PWD" 2>&1)" && P7_RC=0 || P7_RC=$?
-check "pair 7 passes when plans share only shared docs" "0" "$P7_RC"
-check "pair 7 prints a shared-doc notice" "1" "$(printf '%s\n' "$P7_OUT" | grep -c 'Shared Doc.*CHANGELOG.md')"
-check "aapp_is_shared_doc matches a nested shared doc" "0" "$(aapp_is_shared_doc .agents/CODEMAP.md && echo 0 || echo 1)"
-check "aapp_is_shared_doc rejects code and manifests" "1 1" "$(aapp_is_shared_doc lib/a.sh && echo 0 || echo 1) $(aapp_is_shared_doc package.json && echo 0 || echo 1)"
+p7_plan 90 lib/a.sh; p7_plan 91 lib/b.sh
+out="$(check_pair7_inflight_boundary_collision "$PWD" 2>&1)"; p7rc=$?
+t_expect "shared docs only rc" 0 "$p7rc"
+t_expect "shared-doc notice" 1 "$(printf '%s\n' "$out" | grep -c 'Shared Doc.*CHANGELOG.md')"
+t_expect "nested shared doc" 0 "$(rc aapp_is_shared_doc .agents/CODEMAP.md)"
+t_expect "code and manifests" "1 1" "$(rc aapp_is_shared_doc lib/a.sh) $(rc aapp_is_shared_doc package.json)"
+p7_plan 92 lib/a.sh
+t_expect "shared code file" refused "$(verdict check_pair7_inflight_boundary_collision "$PWD")"
+rm -f .plans/current/P9[012]-p7.md
+t_done test_pair7_shared_docs_exempt
 
-p7_plan 92 "lib/a.sh"
-P7_RC=0; check_pair7_inflight_boundary_collision "$PWD" >/dev/null 2>&1 || P7_RC=$?
-if [ "$P7_RC" -ne 0 ]; then
-    printf "  \033[32m✔\033[0m %-52s %s\n" "pair 7 still blocks a shared code file" "BLOCK"; PASS=$((PASS+1))
-else
-    printf "  \033[31m✘\033[0m %-52s want BLOCK got PASS\n" "pair 7 still blocks a shared code file"; FAIL=$((FAIL+1))
-fi
-rm -f .plans/current/P90-p7.md .plans/current/P91-p7.md .plans/current/P92-p7.md
+issue_ledgers
+t_expect "unique issue ids" passed "$(verdict check_pair8_issue_id_integrity .plans/ISSUES.md .plans/done/000-issues-archive.md)"
+echo '| #93 | `Low` | `CLI` | 2026-09-29 | `c` | reused id | fix | 🟡 `Incubated` |' >> .plans/ISSUES.md
+out="$(check_pair8_issue_id_integrity .plans/ISSUES.md .plans/done/000-issues-archive.md 2>&1)" && t_fail "active duplicate passed"
+echo "$out" | grep -q 'Issue #93 appears more than once in active' || t_fail "active: $out"
+sed -i '/reused id/d' .plans/ISSUES.md
+echo '| #91 | `Low` | `CORE` | 2026-09-29 | 2026-09-29 | `0000000` | reused archived id |' >> .plans/done/000-issues-archive.md
+out="$(check_pair8_issue_id_integrity .plans/ISSUES.md .plans/done/000-issues-archive.md 2>&1)" && t_fail "archive duplicate passed"
+echo "$out" | grep -q 'Issue #91 appears more than once in archive' || t_fail "archive: $out"
+rm -f .plans/ISSUES.md .plans/done/000-issues-archive.md
+t_done test_pair8_issue_id_integrity
 
-echo "== mini plans are not P-xx plans (P-52) =="
-cat > .plans/current/fix-98.md << 'EOF'
-* **Plan ID:** #98
-* **Target Issue / Milestone:** #98
-* **Status:** ⚡ In Development
-EOF
-mp_out="$(resolve_plan_path "fix" "inspect" "current" "$TEST_DIR" 2>/dev/null || true)"
-p4_out="$(check_pair4_plan_id_integrity "$TEST_DIR" 2>&1)"; p4_rc=$?
-if [ "$mp_out" != ".plans/current/fix-98.md" ] && ! echo "$p4_out" | grep -q "fix-98"; then
-  printf "  \033[32m✔\033[0m %-52s %s\n" "resolver and pair 4 ignore fix-<num>.md" "PASS"; PASS=$((PASS+1))
-fi
-rm -f .plans/current/fix-98.md
-
-echo "== 12. Release Bundle Resolution & Seeding (P-38) =="
+echo "== release bundles (P-38) =="
 mkdir -p .plans/release/v1.0.0/plans
 cat > .plans/release/v1.0.0/plans/P99-release-test.md << 'EOF'
 # Plan P-99: Release Test
 * **Plan ID:** P-99
 * **Status:** ✅ Done
 EOF
-cat > .plans/release/v1.0.0/000-archive-ledger.md << 'EOF'
-| `P-99` | 2026-10-01 | [P-99](plans/P99-release-test.md) | `abc1234` |
-EOF
 cat > .plans/release/v1.0.0/000-issues-archive.md << 'EOF'
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit | Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | #150 | `Low` | `CLI` | 2026-09-01 | 2026-09-02 | `abc1234` | Released fix. |
 EOF
-
-rel_p99="$(resolve_plan_path "P-99" "inspect" "done" "$TEST_DIR" 2>/dev/null || true)"
-check "resolve P-99 from release bundle under done scope" ".plans/release/v1.0.0/plans/P99-release-test.md" "$rel_p99"
-
-rel_slug="$(resolve_plan_path "release-test" "inspect" "all" "$TEST_DIR" 2>/dev/null || true)"
-check "resolve release-test slug from release bundle under all scope" ".plans/release/v1.0.0/plans/P99-release-test.md" "$rel_slug"
-
-eval "$(sed -n '/^seed_plan_id() {/,/^}/p' "$KIT/lib/cmd_init.sh")"
-next_plan_seed="$(seed_plan_id .plans)"
-check "seed_plan_id accounts for plans in release bundles" "100" "$next_plan_seed"
-
-next_issue_seed="$(seed_issue_id .plans)"
-check "seed_issue_id accounts for issues in release bundles" "151" "$next_issue_seed"
-
+REL=".plans/release/v1.0.0/plans/P99-release-test.md"
+t_expect "id, done scope" "$REL" "$(resolve_plan_path P-99 inspect done "$TEST_DIR" 2>/dev/null)"
+t_expect "slug, all scope" "$REL" "$(resolve_plan_path release-test inspect all "$TEST_DIR" 2>/dev/null)"
+t_expect "issue seed" 151 "$(seed_issue_id .plans)"
 rm -rf .plans/release
+t_done test_release_bundles_resolved_and_seeded
 
 print_test_summary "$PASS" "$FAIL"
-

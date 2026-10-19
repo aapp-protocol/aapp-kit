@@ -59,33 +59,22 @@ else
 fi
 
 echo "== apply =="
+fixture
+group_docs_stamp "$R/group.md" ARCHITECTURE.md "$R/ARCH.md" >/dev/null 2>&1
 out="$(group_docs_apply "$R/group.md" ARCHITECTURE.md "$R/ARCH.md" 2>&1)"; rc=$?
 want="$(printf '# Arch\n## Intro\nintro\n## Modules\nnew modules\n### New Sub\nnew sub\n## Tail\ntail\n## Brand New\nadded\n')"
-if [ "$rc" -eq 0 ] && [ "$(cat "$R/ARCH.md")" = "$want" ]; then
-  ok "test_existing_heading_replaces_whole_section"
-else
-  bad "test_existing_heading_replaces_whole_section" "rc=$rc got=$(cat "$R/ARCH.md" | tr '\n' '|')"
-fi
-if tail -2 "$R/ARCH.md" | head -1 | grep -qx '## Brand New'; then
-  ok "test_new_heading_is_added_at_the_end"
-else
-  bad "test_new_heading_is_added_at_the_end" "tail=$(tail -2 "$R/ARCH.md" | tr '\n' '|')"
-fi
-if echo "$out" | grep -qx 'replaced: ## Modules' && echo "$out" | grep -qx 'added: ## Brand New'; then
-  ok "test_report_names_replaced_and_added"
-else
-  bad "test_report_names_replaced_and_added" "out=$out"
-fi
-
+t_expect "apply rc" 0 "$rc"
+t_expect "applied file" "$want" "$(cat "$R/ARCH.md")"
+tail -2 "$R/ARCH.md" | head -1 | grep -qx '## Brand New' || t_fail "new heading not at the end: $(tail -2 "$R/ARCH.md" | tr '\n' '|')"
+echo "$out" | grep -qx 'replaced: ## Modules' && echo "$out" | grep -qx 'added: ## Brand New' || t_fail "report: $out"
 out="$(group_docs_apply "$R/group.md" ARCHITECTURE.md "$R/ARCH.md" 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && [ "$(cat "$R/ARCH.md")" = "$want" ] && echo "$out" | grep -qx 'unchanged: ## Modules' && \
-   echo "$out" | grep -qx 'unchanged: ## Brand New'; then
-  ok "test_reapply_reports_unchanged"
-else
-  bad "test_reapply_reports_unchanged" "rc=$rc out=$out"
-fi
+t_expect "reapply rc" 0 "$rc"
+t_expect "reapplied file" "$want" "$(cat "$R/ARCH.md")"
+echo "$out" | grep -qx 'unchanged: ## Modules' && echo "$out" | grep -qx 'unchanged: ## Brand New' || t_fail "reapply report: $out"
+t_done test_apply_replaces_adds_and_reports
 
 echo "== no changes =="
+fixture
 printf '# Map\n## A\na\n' > "$R/MAP.md"; cp "$R/MAP.md" "$R/MAP.orig"
 out="$(group_docs_apply "$R/group.md" .agents/CODEMAP.md "$R/MAP.md" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && cmp -s "$R/MAP.md" "$R/MAP.orig" && [ -z "$out" ]; then
