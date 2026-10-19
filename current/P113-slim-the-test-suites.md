@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-113
-* **Changelog:** Changed: Slim The Test Suites
+* **Changelog:** Changed: slim the test suites to verb behaviour and core wrappers, fold `#nnn` regressions into behaviour tests, and add `lib/docs/core/` contracts (P-113)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,64 +40,63 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+The test suite has grown from 899 assertions (`64 s` wall) at P-68 to 1,764 assertions (`261 s` wall, `1,494 s` CPU), testing internal bash helpers, grepping source files, and running standalone regression setups for single `#nnn` fixes alongside verb behaviour tests. Before porting the harness to Perl (`P-114`), this plan slims the existing bash suites under the user's test rule (`.plans/pickup/perl-port-rfc.md` §2.5, §4) and creates `lib/docs/core/<module>.md` contract files so every core and verb test has one canonical `## Tests` list. Kit runtime code (`lib/`, `templates/`, `aapp`) is untouched.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 The Test Rule (`.plans/pickup/perl-port-rfc.md` §2.5, §4)
+1. **Verb behaviour & core wrappers stay:** every daily/setup verb's observable CLI contract (`stdout`, `stderr`, exit code, committed files, worktree/branch state, JSON output) and core functions with a real effect (tested by running the wrapper against a mock/sandbox path and checking the result) are kept.
+2. **Helper-only & source-grep tests go:** tests that source internal bash helpers (`_plan_state_nth`, `_plan_state_index_of`, internal `_ig_*`/`_wt_*` helpers) or `grep` bash source files for implementation strings are removed; their observable effect is verified through the wrapper or verb that calls them.
+3. **Fold `#nnn` regressions into behaviour tests first:** standalone tests added solely for a `#nnn` regression (e.g. `tests/verbs/issue.fixes.sh` and one-off `#nnn` checks in `pre-commit_test.sh`, `write-guard_test.sh`, `aapp_lib_test.sh`) are folded as assertions into the corresponding behaviour test before their standalone setup is removed.
+4. **Independence:** a real step chain (`draft` → `freeze` → `start` → `done`) is one test function with several checks, not separate `test_*` functions that depend on the previous test's state.
+
+### 2.2 Core Contract Files (`lib/docs/core/<module>.md`)
+Each non-verb suite (`tests/*_test.sh`) gets a contract file in `lib/docs/core/<module>.md` using the same `## Tests` line format as `lib/docs/verbs/<verb>.md`:
+- `` `tests/<suite>_test.sh::test_<name>` -> <description> ``
+- `tests/verb_contracts_test.sh` is extended to check both `lib/docs/verbs/*.md` and `lib/docs/core/*.md` in both directions (every listed test exists in the suite, and every test the suite reports is listed in its contract).
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Fold Regressions & Slim Core Suites
+- [ ] Task 1.1: Audit and slim `tests/aapp_lib_test.sh`, `tests/plan_states_test.sh`, `tests/plan_resolver_test.sh`, `tests/issue_id_test.sh`, `tests/issue_ledger_test.sh`, `tests/output_test.sh`, `tests/output_json_test.sh`, `tests/group_docs_test.sh`, and `tests/adoption_test.sh` — keep core wrapper effect tests, fold `#nnn` checks, drop internal helper unit tests.
+- [ ] Task 1.2: Audit and slim `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, `tests/hooks_test.sh`, `tests/worktree_hooks_test.sh`, `tests/plugin_protocol_test.sh`, `tests/event_telemetry_test.sh`, `tests/ai_attribution_test.sh`, `tests/notes_test.sh`, `tests/integrate_test.sh`, `tests/install_test.sh`, `tests/sync_test.sh`, `tests/release_test.sh`, `tests/kit_release_hook_test.sh`, `tests/matrix_test.sh`, `tests/template_sync_test.sh`, and `tests/doc_links_test.sh`.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Slim Verb Suites & Sync Contracts
+- [ ] Task 2.1: Fold `tests/verbs/issue.fixes.sh` and helper-only checks in `tests/verbs/*.sh` into behaviour tests; update `lib/docs/verbs/*.md` (`## Tests`) to match.
+- [ ] Task 2.2: Author `lib/docs/core/*.md` contract files for the kept core suites and extend `tests/verb_contracts_test.sh` to verify `lib/docs/core/*.md` <-> `tests/*_test.sh` in both directions.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Verification
+- [ ] Task 3.1: Run `./aapp test strict quiet` and record the new assertion count and CPU/wall time.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `tests/*.sh` -> Slim core test suites to wrapper/behaviour tests and fold `#nnn` regressions.
+- [ ] `tests/verbs/*.sh` -> Fold standalone `#nnn` regression setups into verb behaviour tests and drop helper-only checks.
+- [ ] `lib/docs/verbs/*.md` -> Sync `## Tests` lists with the slimmed verb suites.
+- [ ] `NEW FILE` -> `lib/docs/core/*.md` -> Contract files (`## Tests`) for non-verb core test suites.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/*.sh` -> Kit runtime and verb libraries are untouched in this plan.
+- [ ] `templates/*` -> Hook and markdown templates are untouched in this plan.
+- [ ] `aapp` -> CLI entrypoint is untouched in this plan.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified in `.plans/pickup/perl-port-rfc.md`)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-19:** Plan initialized from `pickup.md`.
-* **2026-10-19:** Refined blast radius and locked module boundaries.
+* **2026-10-19:** Plan drafted as member 1 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
