@@ -40,54 +40,60 @@
 ---
 
 ## 1. Context & Architectural Goal
-`pre-commit` alone accounts for ~25% of all process spawns (~130 processes per commit), reading the active-plan buffer 4×, looping `.plans/current/*.md` 4×, and spawning multiple `awk`/`sed`/`grep` pipelines per plan and ledger. Porting the Git hooks (`templates/aapp-pre-commit`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`), `templates/blast-radius-guard.sh`, and `lib/AAPP/HookDispatcher.pm` to Perl 5.26+ as thin layers over `AAPP::State` (`P-115`) collapses ~130 process spawns per commit to 2–3 `git` queries.
+`pre-commit` alone accounts for ~25% of all process spawns (~130 processes per commit), reading the active-plan buffer 4×, looping `.plans/current/*.md` 4×, and spawning multiple `awk`/`sed`/`grep` pipelines per plan and ledger. Porting the Git hooks (`templates/aapp-pre-commit`, `templates/aapp-pre-commit-develop`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`), `templates/blast-radius-guard.sh`, `lib/AAPP/HookDispatcher.pm` (`lib/hook_dispatcher.sh`, 509 lines), and `lib/AAPP/Attribution.pm` (`lib/attribution.sh`, 271 lines) to Perl 5.26+ as thin layers over `AAPP::State` (`P-115`) collapses ~130 process spawns per commit to 2–3 `git` queries.
 
 ---
 
 ## 2. Technical Blueprint
 
 ### 2.1 Hook Modules & Templates
-1. **`lib/AAPP/HookDispatcher.pm`:** Ports `lib/hook_dispatcher.sh` to Perl using `Digest::SHA::sha256_hex` (in-process SHA-256 verification of `.agents/skills/aapp-hooks/registry.tsv`), `alarm` watchdog per handler, and `AAPP::JSON` envelope/response handling. `lib/hook_dispatcher.sh` remains available for unported bash verbs until `P-122`.
-2. **`templates/aapp-pre-commit` (`lib/AAPP/Hooks/PreCommit.pm`):**
-   - Loads `AAPP::State` once.
-   - Evaluates circuit breaker (pause state), changelog rule (`plan` and `commit` modes), blocked/held/active plan resolution, TDD correspondence & test file existence, Target Files / Out of Bounds blast radius, frozen §2/§4/group-section design lock, portability (`file://` / home path) check, changelog bullet length check, group member `ARCHITECTURE.md` rule, roadmap auto-prune, active `ISSUES.md` resolved-row check, and atomic commit mode check in memory.
+1. **`lib/AAPP/HookDispatcher.pm` & `lib/AAPP/Attribution.pm`:**
+   - `AAPP::HookDispatcher` ports `lib/hook_dispatcher.sh` (509 lines) to Perl using `Digest::SHA::sha256_hex` (in-process SHA-256 verification of `.agents/skills/aapp-hooks/registry.tsv`), process-group watchdog timeout (`aapp.hookTimeout` / `aapp.pluginTimeout`, exit 124 on timeout), and `AAPP::JSON` envelope/response handling (`build_event_envelope`, `run_action_plugin`, `AAPP_PLUGIN_LIST`, `AAPP_PLUGIN_DO` execution from `lib/plugin_do.tsv`).
+   - `AAPP::Attribution` ports `lib/attribution.sh` (271 lines): `resolve_ai_identity`, `attribution_decorate`, `attribution_note`, `apply_agent_aliases`, `normalize_agent_identity`.
+2. **`templates/aapp-pre-commit` & `templates/aapp-pre-commit-develop` (`lib/AAPP/Hooks/PreCommit.pm`, `PreCommitDevelop.pm`):**
+   - `PreCommit` loads `AAPP::State` once and evaluates circuit breaker (`aapp_paused` / `PAUSED.md`), runtime reachability, parent integration lock check (`integrate/<parent>`), changelog rule (`plan` and `commit` modes), blocked/held/active plan resolution, TDD correspondence & test file existence, Target Files / Out of Bounds blast radius, frozen §2/§4/group-section design lock, portability (`file://` / home path) check, changelog bullet length check, group member `ARCHITECTURE.md` rule, roadmap auto-prune, active `ISSUES.md` resolved-row check, and atomic commit mode check in memory.
+   - `PreCommitDevelop` ports `templates/aapp-pre-commit-develop` (seeded by `aapp develop` to run bidirectional contract correspondence when commits touch `lib/verbs.tsv`, `lib/docs/{verbs,core}/*.md`, or `tests/AAPP/{Verb,Core}/*.pm`).
 3. **`templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite` (`lib/AAPP/Hooks/CommitMsg.pm`, `PostCommit.pm`, `PostRewrite.pm`):**
-   - Subject/line/body limits, `AI-*` trailer validation (`none`, `lax`, `strict`, `notes`), staged note attachment (`aapp_pending_note`), and rewrite preservation in Perl.
+   - Subject/line/body limits, `AI-*` trailer validation (`none`, `lax`, `strict`, `notes`, refusing retired `commit`), staged note attachment (`aapp_pending_note.<sha256>`), and post-rewrite `* **Commits:**` SHA mapping + `AAPP::CommitEngine::plans_commit`.
 4. **`templates/blast-radius-guard.sh` (`lib/AAPP/Hooks/WriteGuard.pm`):**
-   - Parses `PreToolUse` JSON stdin via `AAPP::JSON`, checks self-protection, external allowlist/companion delegation, pause circuit breaker, always-allowed paths, and active/blocked/held plan Target Files via `AAPP::State`.
+   - Parses `PreToolUse` JSON stdin via `AAPP::JSON`, checks Section 1–5 (canonicalization, self-protection, external hard-deny/allowlist, G1 companion delegation, pause circuit breaker, always-allowed paths, and active/blocked/held plan Target Files) via `AAPP::State`.
 5. **Self-contained `.githooks/`:** Hook entrypoints load `AAPP::*` relative to their own directory (`.githooks/AAPP/`, populated by `aapp init` from `lib/AAPP/`).
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default)
-- **Fallback Inventory**: `None (Clean Break)`
+- **Compatibility Mode**: `Backwards Compatible` (Transitional bash/Perl coexistence within group `P-111` until `P-122`)
+- **Fallback Inventory**:
+  - `lib/hook_dispatcher.sh` and `lib/attribution.sh` are retained unchanged for unported bash verbs (`P-117`–`P-121`) and deleted in `P-122`.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Hook Modules (`lib/AAPP/HookDispatcher.pm`, `lib/AAPP/Hooks/*.pm`)
-- [ ] Task 1.1: Implement `lib/AAPP/HookDispatcher.pm` and `lib/AAPP/Attribution.pm` (trailer validation and note staging).
-- [ ] Task 1.2: Implement `lib/AAPP/Hooks/PreCommit.pm`, `lib/AAPP/Hooks/CommitMsg.pm`, `lib/AAPP/Hooks/PostCommit.pm`, `lib/AAPP/Hooks/PostRewrite.pm`, and `lib/AAPP/Hooks/WriteGuard.pm` over `AAPP::State`.
+### Phase 1: Hook Modules (`lib/AAPP/HookDispatcher.pm`, `lib/AAPP/Attribution.pm`, `lib/AAPP/Hooks/*.pm`)
+- [ ] Task 1.1: Implement `lib/AAPP/HookDispatcher.pm` and `lib/AAPP/Attribution.pm` (trailer validation, identity resolution, and note staging).
+- [ ] Task 1.2: Implement `lib/AAPP/Hooks/PreCommit.pm`, `lib/AAPP/Hooks/PreCommitDevelop.pm`, `lib/AAPP/Hooks/CommitMsg.pm`, `lib/AAPP/Hooks/PostCommit.pm`, `lib/AAPP/Hooks/PostRewrite.pm`, and `lib/AAPP/Hooks/WriteGuard.pm` over `AAPP::State`.
 
-### Phase 2: Hook Entrypoint Templates
-- [ ] Task 2.1: Update `templates/aapp-pre-commit`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`, `templates/blast-radius-guard.sh`, `templates/pre-commit`, `templates/commit-msg`, `templates/post-commit`, and `templates/post-rewrite` to invoke Perl.
+### Phase 2: Hook Entrypoint Templates & Core Wrapper Tests
+- [ ] Task 2.1: Update `templates/aapp-pre-commit`, `templates/aapp-pre-commit-develop`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`, `templates/blast-radius-guard.sh`, `templates/pre-commit`, `templates/commit-msg`, `templates/post-commit`, and `templates/post-rewrite` to invoke Perl, and update `lib/cmd_init.sh` to copy `lib/AAPP/Hooks/*.pm` into `.githooks/AAPP/Hooks/`.
+- [ ] Task 2.2: Switch any direct core wrapper calls in `tests/AAPP/Core/*.pm` for `hook_dispatcher` and `attribution` to `AAPP::HookDispatcher` and `AAPP::Attribution`.
 
 ### Phase 3: Verification
-- [ ] Task 3.1: Run `./aapp test strict quiet` and verify all hook, pre-commit, write-guard, attribution, and note tests pass without modifying any test files.
+- [ ] Task 3.1: Run `./aapp test strict quiet` and verify all hook, pre-commit, write-guard, attribution, and note tests pass.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `lib/AAPP/HookDispatcher.pm` -> Lifecycle hook & plugin dispatcher in Perl (`Digest::SHA`, `alarm`, `AAPP::JSON`).
-- [ ] `NEW FILE` -> `lib/AAPP/Attribution.pm` -> AI attribution trailer validation and staged note helpers in Perl.
+- [ ] `NEW FILE` -> `lib/AAPP/HookDispatcher.pm` -> Lifecycle hook & plugin dispatcher in Perl (`Digest::SHA`, watchdog, `AAPP::JSON`).
+- [ ] `NEW FILE` -> `lib/AAPP/Attribution.pm` -> AI attribution identity resolution, trailer validation, and staged note helpers in Perl.
 - [ ] `NEW FILE` -> `lib/AAPP/Hooks/PreCommit.pm` -> Single-pass pre-commit enforcement over `AAPP::State`.
+- [ ] `NEW FILE` -> `lib/AAPP/Hooks/PreCommitDevelop.pm` -> Develop-only contract correspondence pre-commit gate in Perl.
 - [ ] `NEW FILE` -> `lib/AAPP/Hooks/CommitMsg.pm` -> Commit message conciseness and attribution gate in Perl.
 - [ ] `NEW FILE` -> `lib/AAPP/Hooks/PostCommit.pm` -> Post-commit note attachment and event telemetry in Perl.
-- [ ] `NEW FILE` -> `lib/AAPP/Hooks/PostRewrite.pm` -> Post-rewrite note preservation in Perl.
+- [ ] `NEW FILE` -> `lib/AAPP/Hooks/PostRewrite.pm` -> Post-rewrite plan `Commits:` SHA mapping and `plans_commit` in Perl.
 - [ ] `NEW FILE` -> `lib/AAPP/Hooks/WriteGuard.pm` -> Write-time `PreToolUse` blast-radius guard over `AAPP::State` and `AAPP::JSON`.
 - [ ] `templates/aapp-pre-commit` -> Thin Perl entrypoint invoking `AAPP::Hooks::PreCommit`.
+- [ ] `templates/aapp-pre-commit-develop` -> Thin Perl entrypoint invoking `AAPP::Hooks::PreCommitDevelop`.
 - [ ] `templates/aapp-commit-msg` -> Thin Perl entrypoint invoking `AAPP::Hooks::CommitMsg`.
 - [ ] `templates/aapp-post-commit` -> Thin Perl entrypoint invoking `AAPP::Hooks::PostCommit`.
 - [ ] `templates/aapp-post-rewrite` -> Thin Perl entrypoint invoking `AAPP::Hooks::PostRewrite`.
@@ -97,11 +103,11 @@
 - [ ] `templates/post-commit` -> Execute `aapp-post-commit` directly.
 - [ ] `templates/post-rewrite` -> Execute `aapp-post-rewrite` directly.
 - [ ] `lib/cmd_init.sh` -> Copy `lib/AAPP/Hooks/*.pm`, `lib/AAPP/HookDispatcher.pm`, and `lib/AAPP/Attribution.pm` into `.githooks/AAPP/`.
+- [ ] `tests/AAPP/Core/*.pm` -> Switch core wrapper tests for `hook_dispatcher` and `attribution` to `AAPP::HookDispatcher` and `AAPP::Attribution`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/AAPP/Tests.pm` -> Test harness is untouched.
-- [ ] `lib/AAPP/Tests/Core/*.pm` -> Core test modules are untouched.
-- [ ] `lib/AAPP/Tests/Verb/*.pm` -> Verb test modules are untouched.
+- [ ] `tests/AAPP/Tests.pm` -> Test harness runner is untouched.
+- [ ] `tests/AAPP/Verb/*.pm` -> Verb test modules are untouched.
 
 ---
 
@@ -112,3 +118,5 @@
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-19:** Plan drafted as member 4 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
+* **2026-10-19:** Added `templates/aapp-pre-commit-develop` (`AAPP::Hooks::PreCommitDevelop`), registered `hook_dispatcher.sh`/`attribution.sh` coexistence in §2, and updated test paths to `tests/AAPP/*` per RFC §5.1.3 & §5.1.5.
+
