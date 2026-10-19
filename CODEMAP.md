@@ -74,6 +74,19 @@
 * **Accessibility Invariant:** The shipped glyph set (`🟣 📝 🔷 ⚡ 🟥`) is colour-blind friendly and is a hard design constraint. The retired `🔴`/`🟡` pair is the red/green-family combination that fails common colour-vision deficiency and is never written by the kit. A glyph never decides a status: readers match the name, since no glyph set suits every colour-vision deficiency. Adopter-defined glyphs should be shape- or symbol-distinct rather than hue-distinct.
 * **Anti-Wrapper Warning:** Never hardcode a status emoji alternation (`🟣|🔷|📝`) or an `In Development` / `Frozen` regex. Source this module and use the accessors.
 
+### 🚀 Milestone Release & Versioning Engine (`lib/cmd_release.sh`)
+* **Purpose:** Canonical implementation of milestone release bundling, changelog rollup, and hook-based versioning (P-38).
+* **Key Commands:**
+  * `aapp release <version-or-bump> [unverified] [yes] [check] [push] [json] [no-archive] [no-changelog]`
+* **Key Functions:**
+  * `cmd_release` -> Master entry point orchestrating Phase A pre-flight simulation and Phase B atomic release mutations.
+  * `_release_validate_version` -> Strictly validates SemVer (`1.0.0`, `v1.2`, `1.0.1.alpha` with suffix up to 30 chars).
+  * `_release_calc_bump` -> Computes SemVer increment for `patch`, `minor`, and `major` bumps.
+  * `_release_rollback` -> Fail-closed transactional rollback trap resetting branch refs (`git update-ref`), deleting partial tags, and cleaning working trees on mid-mutation abort.
+* **Phase A Gates:** Clean primary and kit worktrees, automated test runner (`aapp.testCommand`), `pre-release` hook, native signing (`tag.gpgSign`), changelog existence, 2-tier commit reachability (`merge-base` or `Plan-ID:` trailer, bypassable with `unverified`), and branch parity fast-forward verification.
+* **Phase B Pipeline:** Dual Delivery `on-release` action delegate (`AAPP_RELEASE_VERSION`, `AAPP_RAW_VERSION`), changelog rollup, milestone bundling to `.plans/release/<tag>/` (`plans/`, `000-archive-ledger.md`, `000-issues-archive.md`, `manifest.md`, `manifest.json`), master ledger rollup under `## 🏷️ Shipped Releases`, worktree commit, parity merge, signed/annotated tagging, optional push, and `post-release` notification hook.
+
+
 ### 🔄 State Matrix Derivation Engine (`lib/cmd_matrix.sh`)
 * **Purpose:** Derives `.plans/state_matrix.md` from the `**Status:**` lines in `.plans/current/*.md`. The matrix is a generated view, never a record.
 * **Key Commands:**
