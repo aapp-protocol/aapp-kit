@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #173 | `Medium` | `CLI` | 2026-10-19 | 2026-10-19 | `9319ea3` | aapp release reads a done plan's Plan ID and Commits header through parse_plan_field/parse_plan_commits, ignoring example lines in the plan body (#173) |  |
 | #172 | `Medium` | `DOCS` | 2026-10-19 | 2026-10-19 | `156739a` | [P-110](P110-docs-reference-renumber.md) - Docs Reference Renumber & Modular Adoption Links |  |
 | #58 | `Low` | `CLI` | 2026-09-10 | 2026-10-19 | `38ac2b4` | [P-59](P59-kit-release-hook.md) - Kit Release Lifecycle Hook & Version Synchronizer |  |
 | #63 | `Medium` | `TEST` | 2026-09-10 | 2026-10-19 | `e55c552` | [P-38](P38-milestone-release-bundling-and-tag-ledgers.md) - Milestone Release Bundling, Tag Ledgers & Hook-Based Versioning |  |

@@ -13,5 +13,4 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
-- [ ] #173 -> aapp release reachability reads every Commits: and Plan ID: line in a done plan (also examples in its body), joins them into one SHA and refuses; reuse parse_plan_commits/parse_plan_field. (queued 2026-10-19)
 ### Low
