@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #178 | `Medium` | `TEST` | 2026-10-19 | `tests/aapp_lib_test.sh`, `tests/issue_ledger_test.sh` | Two core suites run git config in the kit checkout itself (aapp test runs suites from the kit root): they set and unset aapp.subjectMaxLen and aapp.issueArchiveMax, wiping a developer's own value. |  | 🟡 `Incubated` |
 | #177 | `Medium` | `TEST` | 2026-10-19 | `tests/install_test.sh` | install_test.sh hard-codes kit version 1.0.0 and uses v0.9.0 as the 'old' protocol block; since the v0.9.0 release the suite fails 4 assertions on develop. |  | 🟡 `Incubated` |
 | #176 | `Medium` | `CLI` | 2026-10-19 | `lib/cmd_note.sh` | aapp note pull fetches nothing yet reports success when the remote holds only one of refs/notes/commits and refs/notes/ai: one fetch names both refspecs and its failure is hidden by \|\| true. |  | 🟡 `Incubated` |
 | #175 | `Low` | `CORE` | 2026-10-19 | `lib/cmd_status.sh`, `lib/cmd_help.sh` | cmd_status.sh (3 places) and cmd_help.sh fall back to a hard-coded 1.0.0 when AAPP_VERSION is unset; the template drift check then compares against the wrong version. One accessor, failing closed. |  | 🟡 `Incubated` |
