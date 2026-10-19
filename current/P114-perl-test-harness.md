@@ -40,26 +40,28 @@
 ---
 
 ## 1. Context & Architectural Goal
-Replaces the bash test scripts (`tests/*.sh`, `tests/verbs/*.sh`) with a modular Perl 5.26+ test harness (`AAPP::Tests`, modeled on `Logsniffer::Tests`), keeping the exact scenarios from `P-113` while leaving kit runtime code untouched. Every module (`AAPP::Tests::Verb::*`, `AAPP::Tests::Core::*`), verb, or individual test runs standalone via `aapp test`.
+Replaces the bash test scripts (`tests/*.sh`, `tests/verbs/*.sh`) with a modular Perl 5.26+ test harness (`tests/AAPP/Tests.pm`, modeled on `Logsniffer::Tests`), keeping the exact scenarios from `P-113` while leaving kit runtime code untouched. Placing the test runner and suites under `tests/AAPP/` (`tests/AAPP/Tests.pm`, `tests/AAPP/Core/*.pm`, `tests/AAPP/Verb/*.pm`) keeps `lib/AAPP/` strictly for runtime code copied into adopters' `.githooks/AAPP/`, while `aapp install` ships `tests/` into `$AAPP_BASE/tests` for `aapp test`.
 
 ---
 
 ## 2. Technical Blueprint
 
-### 2.1 `AAPP::Tests` Architecture (`.plans/pickup/perl-port-rfc.md` §2.6, A4, A6, A7)
-1. **Zero-boilerplate test modules:** Each module (`lib/AAPP/Tests/Verb/<Verb>.pm`, `lib/AAPP/Tests/Core/<Module>.pm`) is a plain package of `sub test_<name> { my ($self) = @_; ... }` functions. `AAPP::Tests` invokes each test as `$code->($self)` inside `eval` with an `alarm` watchdog (`timeout` default `10 s`, overridable per test).
-2. **Contract-driven test list & order:** `AAPP::Tests` reads `lib/docs/verbs/<verb>.md` and `lib/docs/core/<module>.md` (`## Tests` lines `` `<module>::test_<name>` -> <description> ``) for both execution order and TAP description strings, and verifies 1-to-1 correspondence against each module's `test_*` subs.
-3. **Diagnostic assertions & skip protocol:**
+### 2.1 `AAPP::Tests` Architecture (`.plans/pickup/perl-port-rfc.md` §2.6, A4, A6, A7, §5.1.3)
+1. **Zero-boilerplate test modules in `tests/AAPP/`:** Each module (`tests/AAPP/Verb/<Verb>.pm`, `tests/AAPP/Core/<Module>.pm`) is a plain package of `sub test_<name> { my ($self) = @_; ... }` functions.
+2. **60 s watchdog & process-group termination:** `AAPP::Tests` runs each test in its own process group (`POSIX::setpgid(0, 0)`) under a `60 s` default watchdog (overridable per test, since a test averages ~3.4 s alone and ~3× that in a full parallel run). On timeout (`SIGALRM`) or interrupt (`SIGINT`/`SIGTERM`), the runner kills the entire process group (`kill 'TERM', -$pgid` followed by `kill 'KILL', -$pgid`), matching `_test_stop` in `lib/cmd_test.sh` so no `git` or `aapp` child processes survive.
+3. **Contract-driven test list & order:** `AAPP::Tests` reads `lib/docs/verbs/<verb>.md` and `lib/docs/core/<module>.md` (`## Tests` lines `` `tests/AAPP/{Verb,Core}/<Module>.pm::test_<name>` -> <description> ``) for both execution order and TAP description strings, and verifies 1-to-1 correspondence against each module's `test_*` subs.
+4. **Diagnostic assertions & skip protocol:**
    - Helpers on `$self` (`run_aapp`, `ok_cmd`, `fail_cmd`, `eq_or_die`, `match_or_die`, `file_exists_or_die`) `die` with `caller` `file:line`, exit code, and command output so failed tests always populate `$@` in `not ok N - <message> (Error: <$@>)`.
    - Returning a scalar ref `\"reason"` emits `ok N - <message> # SKIP <reason>`.
-4. **Run-wide sandbox & per-test fixture cloning:**
+5. **Run-wide sandbox & per-test fixture cloning:**
    - One sandboxed kit install (`$HOME/.local/bin/aapp`, `$HOME/.local/share/aapp-kit`) is created once per run in `/tmp` and shared by non-installer modules.
    - Each module builds its initialized Git fixture template once; before each `test_*` sub runs, `$self` copies that template into a fresh per-test directory, rewrites the root prefix in the 6 worktree pointer files (`.git/worktrees/{-plans,-agents,-githooks}/gitdir` and `.{plans,agents,githooks}/.git`) in-process in Perl, and `chdir`s into it. Every test can run alone.
-5. **Selection & parallel execution:**
-   - `aapp test` supports selection by area/module, `verb <name...>`, numeric index, or test name / description substring, plus `strict`, `quiet`, `bail`, `list`, and `jobs <n>` (forking one worker per module). No forced baseline module on filtered runs.
-6. **End-of-run failure recap:**
+6. **Selection & parallel execution (`CHEATSHEET.md`, `lib/docs/verbs/test.md`):**
+   - `aapp test` supports selection by area/module, `verb [<name>]`, numeric index, or test name / description substring, plus `strict`, `quiet`, `bail`, `list`, and `jobs <n>` (forking one worker per module in its own process group). No forced baseline module on filtered runs.
+7. **End-of-run failure recap & `test-gate.sh` SHA pin:**
    - All failed `not ok` lines (with module, test name, message, and error) are repeated after the summary banner.
    - `.agents/hooks/test-gate.sh` and `examples/hooks/test-gate.sh.sample` print from the summary banner to the end of the output instead of `tail -n 20`.
+   - Because `.agents/skills/aapp-hooks/registry.tsv` is Guard Section 2 self-protected (never a Target File), after `.agents/hooks/test-gate.sh` is updated, the developer re-registers its SHA-256 pin via `./aapp hook-hash .agents/hooks/test-gate.sh` before `aapp done`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
@@ -70,31 +72,33 @@ Replaces the bash test scripts (`tests/*.sh`, `tests/verbs/*.sh`) with a modular
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: `AAPP::Tests` Runner & Fixture Engine
-- [ ] Task 1.1: Implement `lib/AAPP/Tests.pm` (sandbox confinement, contract-driven test discovery, per-test fixture cloner + 6-file `gitdir` rewriter, `alarm` watchdog, `die`-based assertion helpers, TAP output, parallel module worker pool, and end-of-run failure recap).
-- [ ] Task 1.2: Update `lib/cmd_test.sh`, `.agents/hooks/test-gate.sh`, and `examples/hooks/test-gate.sh.sample` to invoke `lib/AAPP/Tests.pm` and print from the summary banner to the end on failure.
+- [ ] Task 1.1: Implement `tests/AAPP/Tests.pm` (sandbox confinement, contract-driven test discovery, per-test fixture cloner + 6-file `gitdir` rewriter, `60 s` process-group watchdog killing `-PGID`, `die`-based assertion helpers, TAP output, parallel module worker pool, and end-of-run failure recap).
+- [ ] Task 1.2: Update `lib/cmd_test.sh`, `.agents/hooks/test-gate.sh`, `examples/hooks/test-gate.sh.sample`, and `CHEATSHEET.md` to invoke `tests/AAPP/Tests.pm`, document the new selection forms, and print from the summary banner to the end on failure (then ask the user to update the `test-gate.sh` SHA in `.agents/skills/aapp-hooks/registry.tsv` via `aapp hook-hash`).
 
-### Phase 2: Port Core & Verb Suites to `AAPP::Tests::*`
-- [ ] Task 2.1: Port core suites from `tests/*_test.sh` to `lib/AAPP/Tests/Core/*.pm` and update `lib/docs/core/*.md` paths.
-- [ ] Task 2.2: Port verb suites from `tests/verbs/*.sh` to `lib/AAPP/Tests/Verb/*.pm` and update `lib/docs/verbs/*.md` paths; remove legacy `tests/*.sh` and `tests/verbs/*.sh`.
+### Phase 2: Port Core & Verb Suites to `tests/AAPP/` (in Batches)
+- [ ] Task 2.1: Port core suites (`tests/*_test.sh`) to `tests/AAPP/Core/*.pm` and update `lib/docs/core/*.md` paths.
+- [ ] Task 2.2: Port daily read-only and lifecycle verb suites (`status`, `matrix`, `plan-status`, `help`, `draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `plan`) to `tests/AAPP/Verb/*.pm`.
+- [ ] Task 2.3: Port issue, offline, commit, note, ai, companion, and test verb suites to `tests/AAPP/Verb/*.pm`, update `lib/docs/verbs/*.md`, and remove legacy `tests/*.sh` and `tests/verbs/*.sh`.
 
 ### Phase 3: Verification
-- [ ] Task 3.1: Verify single-test, single-verb, and full parallel (`./aapp test strict quiet`) execution.
+- [ ] Task 3.1: Verify single-test, single-verb, and full parallel (`./aapp test strict quiet`) execution and record CPU/wall time.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `lib/AAPP/Tests.pm` -> Modular Perl test harness, sandbox/fixture cloner, assertion helpers, and parallel runner.
-- [ ] `NEW FILE` -> `lib/AAPP/Tests/Core/*.pm` -> Core test modules ported from `tests/*_test.sh`.
-- [ ] `NEW FILE` -> `lib/AAPP/Tests/Verb/*.pm` -> Verb test modules ported from `tests/verbs/*.sh`.
-- [ ] `lib/cmd_test.sh` -> Route `aapp test` to `lib/AAPP/Tests.pm`.
-- [ ] `lib/docs/verbs/*.md` -> Update test module identifiers in `## Tests`.
+- [ ] `NEW FILE` -> `tests/AAPP/Tests.pm` -> Modular Perl test harness, sandbox/fixture cloner, 60s process-group watchdog, assertion helpers, and parallel runner.
+- [ ] `NEW FILE` -> `tests/AAPP/Core/*.pm` -> Core test modules ported from `tests/*_test.sh`.
+- [ ] `NEW FILE` -> `tests/AAPP/Verb/*.pm` -> Verb test modules ported from `tests/verbs/*.sh`.
+- [ ] `lib/cmd_test.sh` -> Route `aapp test` to `tests/AAPP/Tests.pm`.
+- [ ] `lib/docs/verbs/*.md` -> Update test module identifiers and `test.md` selection forms in `## Tests` / `## Ingress`.
 - [ ] `lib/docs/core/*.md` -> Update test module identifiers in `## Tests`.
+- [ ] `CHEATSHEET.md` -> Document `aapp test` module, verb, numeric index, and substring selection forms.
 - [ ] `.agents/hooks/test-gate.sh` -> Print from summary line to end (including failure recap) instead of `tail -n 20`.
 - [ ] `examples/hooks/test-gate.sh.sample` -> Print from summary line to end (including failure recap) instead of `tail -n 20`.
-- [ ] `DELETE` -> `tests/*.sh` -> Replaced by `lib/AAPP/Tests/Core/*.pm`.
-- [ ] `DELETE` -> `tests/verbs/*.sh` -> Replaced by `lib/AAPP/Tests/Verb/*.pm`.
+- [ ] `DELETE` -> `tests/*.sh` -> Replaced by `tests/AAPP/Core/*.pm`.
+- [ ] `DELETE` -> `tests/verbs/*.sh` -> Replaced by `tests/AAPP/Verb/*.pm`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/aapp-lib.sh` -> Kit runtime libraries remain untouched in Plan 2.
@@ -109,3 +113,5 @@ Replaces the bash test scripts (`tests/*.sh`, `tests/verbs/*.sh`) with a modular
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-19:** Plan drafted as member 2 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
+* **2026-10-19:** Moved test modules to `tests/AAPP/`, set 60 s process-group watchdog (`-PGID`), noted `test-gate.sh` `aapp hook-hash` re-registration, batched Phase 2 suite migration, and added `CHEATSHEET.md` per RFC §5.1.3.
+
