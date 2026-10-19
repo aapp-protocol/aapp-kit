@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-19
+
 ### Added
 - Modular Cookbook (`COOKBOOK.md`) and topic-based recipe architecture (`docs/recipes/`) (`P-56`)
 - Kit release lifecycle hook and template version synchronizer (`P-59`)

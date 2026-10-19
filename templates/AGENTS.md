@@ -11,7 +11,7 @@ See `.agents/CODEMAP.md` (or `CODEMAP.md` at the repo root) before assuming wher
 - Enforce canonical planning: implementation blueprints belong in `.plans/current/` under Git-level Blast Radius protection, never in proprietary ephemeral IDE scratchpads (`implementation_plan.md`).
 - Enforce clean breaks: in refactors and migrations, clean breaks are the mandatory default; backwards-compatibility fallbacks, duplicate aliases, or dual-syntax parser regexes are strictly forbidden unless explicitly itemized and justified in Section 2 (Technical Blueprint).
 
-<!-- AAPP-PROTOCOL:START v1.0.0 -->
+<!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOM RULES OUTSIDE. -->
 
 ## 🚦 Code Verification & Changelog Rule
