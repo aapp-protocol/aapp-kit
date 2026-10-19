@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0.0",
+  "tag": "v0.9.0",
+  "version": "0.9.0",
+  "rawVersion": "0.9.0",
+  "previousVersion": "none",
+  "bump": "explicit",
+  "releaseDate": "2026-10-19T16:00:42Z",
+  "devBranch": "develop",
+  "releaseBranch": "main",
+  "commitSha": "9319ea3",
+  "signedTag": true,
+  "unverified": false,
+  "metrics": {
+    "plansCount": 105,
+    "issuesCount": 156
+  },
+  "plans": [
+    
+  ],
+  "issues": [
+    
+  ]
+}
