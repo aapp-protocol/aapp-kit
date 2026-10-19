@@ -3,13 +3,15 @@
 * **Target Issue / Milestone:** Milestone v1.1.0 (Documentation & Adopter UX Architecture)
 * **Plan ID:** P-56
 * **Changelog:** Added: Modular Cookbook (`COOKBOOK.md`) and topic-based recipe architecture (`docs/recipes/`)
+* **Commit Mode:** microcommits
+* **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
 * **Status:** ⚡ In Development
 * **Base:** `65959e4` (develop)
 * **Worktree:** .workspace/P56 (plan/P56-modular-cookbook-and-docs-architecture)
-* **Commits:** none
+* **Commits:** `2d81571` (plan/P56-modular-cookbook-and-docs-architecture)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
