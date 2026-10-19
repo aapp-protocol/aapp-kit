@@ -13,7 +13,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ## 🧠 Human Thought & Refinement (The Incubator)
 
 - 🟣 **P-109**: [`P109-lifecycle-event-coverage.md`](current/P109-lifecycle-event-coverage.md) — Issue Note Companion Lifecycle Events
-- 🟣 **P-113**: [`P113-slim-the-test-suites.md`](current/P113-slim-the-test-suites.md) — Slim The Test Suites
 - 🟣 **P-114**: [`P114-perl-test-harness.md`](current/P114-perl-test-harness.md) — Perl Test Harness
 - 🟣 **P-115**: [`P115-perl-core-and-state-model.md`](current/P115-perl-core-and-state-model.md) — Perl Core And State Model
 - 🟣 **P-116**: [`P116-perl-hooks-and-write-guard.md`](current/P116-perl-hooks-and-write-guard.md) — Perl Hooks And Write Guard
@@ -36,6 +35,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 - ⚡ **P-111**: [`P111-perl-port-of-the-kit.md`](current/P111-perl-port-of-the-kit.md) — 🧩 Group Plan P-111: Perl Port Of The Kit
 - ⚡ **P-112**: [`P112-perl-port-of-the-kit-amendments.md`](current/P112-perl-port-of-the-kit-amendments.md) — Perl Port Of The Kit Amendments
+- ⚡ **P-113**: [`P113-slim-the-test-suites.md`](current/P113-slim-the-test-suites.md) — Slim The Test Suites
 
 ---
 

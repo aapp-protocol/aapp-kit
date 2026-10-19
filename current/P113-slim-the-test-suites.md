@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `fa3a42e` (feature/perl-port-of-the-kit)
+* **Worktree:** .workspace/P113 (plan/P113-slim-the-test-suites)
 * **Group:** P-111
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
@@ -99,6 +100,7 @@ Each non-verb suite (`tests/*_test.sh`) gets a contract file in `lib/docs/core/<
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-19:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-19:** Plan drafted as member 1 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
 * **2026-10-19:** Updated Task 3.1 to explicitly record CPU (`user + sys`) and wall-clock baseline per RFC §5.1.3.
 
