@@ -372,7 +372,7 @@ CLI invocations with the `json` token output this exact schema directly to stdou
 - [x] Task 1.6: Live archive bound: past `aapp.issueArchiveMax` rows, `ledger_archive_row` rolls the oldest into an overflow file in `done/`; readers include it; the release bundles it. Test in `tests/issue_ledger_test.sh`.
 
 ### Phase 2: Core Release CLI & Pre-Flight Gate (`lib/cmd_release.sh`)
-- [ ] Task 2.1: Author `lib/cmd_release.sh` implementing:
+- [x] Task 2.1: Author `lib/cmd_release.sh` implementing:
   - Version validation supporting `1.0.0` (preferred) and `1.n` (valid) with suffixes up to 30 characters (`^v?[0-9]+\.[0-9]+(\.[0-9]+)?([.-][a-zA-Z0-9_.-]{1,30})?$`), plus tag prefix customization via `git config aapp.tagPrefix`.
   - Baseline resolution ladder for third-party adopters (CLI arg $\rightarrow$ git tag $\rightarrow$ `git config aapp.initialVersion` $\rightarrow$ interactive prompt fallback).
   - Mandatory Phase A (Read-Only Pre-Flight Gate & Simulation):
@@ -385,10 +385,10 @@ CLI invocations with the `json` token output this exact schema directly to stdou
     - Branch parity fast-forward verification and unmerged branches advisory inspection.
     - Simulation preview output with `check` bare token exit contract and interactive `[y/N]` / `yes` token safety gate.
   - Fail-closed transactional rollback coordinator (`_release_rollback()`) with per-branch `git update-ref` unwinding.
-- [ ] Task 2.2: Register `release` in `lib/verbs.tsv`, author `lib/docs/verbs/release.md`, and wire into `aapp` dispatcher.
+- [x] Task 2.2: Register `release` in `lib/verbs.tsv`, author `lib/docs/verbs/release.md`, and wire into `aapp` dispatcher.
 
 ### Phase 3: Milestone Bundling & Manifest Generation Engine
-- [ ] Task 3.1: Author Phase B (Atomic Release Mutation) in `lib/cmd_release.sh`:
+- [x] Task 3.1: Author Phase B (Atomic Release Mutation) in `lib/cmd_release.sh`:
   - `on-release` action delegate hook dispatch with Dual Delivery payload.
   - Changelog rollup in root `CHANGELOG.md` (rolling `## [Unreleased]` into `## [<version>] - <YYYY-MM-DD>`).
   - Snapshot-driven milestone bundle generation under `.plans/release/<tag>/` including `plans/`, `000-archive-ledger.md`, `000-issues-archive.md`, `manifest.md`, and `manifest.json` (recording `unverified` status).
@@ -398,10 +398,10 @@ CLI invocations with the `json` token output this exact schema directly to stdou
   - Tag creation with `-s` or `-a` according to `tag.gpgSign`.
   - Remote publishing guidance banner and optional automated push (`push` bare token).
   - `post-release` observer hook notification trigger.
-- [ ] Task 3.2: Author `examples/hooks/on-release.sh.sample` demonstrating multi-ecosystem version bumping.
+- [x] Task 3.2: Author `examples/hooks/on-release.sh.sample` demonstrating multi-ecosystem version bumping.
 
 ### Phase 4: Test Suite & Documentation Sync
-- [ ] Task 4.1: Author `tests/release_test.sh` covering:
+- [x] Task 4.1: Author `tests/release_test.sh` covering:
   - Explicit version parameter parsing (`1.0.0`, `1.n`, suffixes up to 30 chars) vs SemVer bump calculation.
   - Bare token modifiers (`unverified`, `yes`, `check`, `push`, `json`, `no-archive`, `no-changelog`).
   - Tag prefix customization (`aapp.tagPrefix`) and native tag signing (`tag.gpgSign`).
@@ -410,9 +410,9 @@ CLI invocations with the `json` token output this exact schema directly to stdou
   - Worktree cleanliness scoping (in-flight plan worktrees exempt).
   - Snapshot-driven bundle creation, `manifest.json` schema validation, and 1-line master ledger truncation.
   - Fail-closed transactional rollback restoring refs upon simulated hook failure.
-- [ ] Task 4.2: Update `templates/skills/aapp-release/SKILL.md` to delegate directly to `aapp release`.
-- [ ] Task 4.3: Update `MANUAL.md`, `README.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, `.agents/ARCHITECTURE.md`, and `.agents/CODEMAP.md`.
-- [ ] Task 4.4: Run full regression test suite (`./aapp test strict quiet`) and update `CHANGELOG.md`.
+- [x] Task 4.2: Update `templates/skills/aapp-release/SKILL.md` to delegate directly to `aapp release`.
+- [x] Task 4.3: Update `MANUAL.md`, `README.md`, `CHEATSHEET.md`, `ARCHITECTURE.md`, `.agents/ARCHITECTURE.md`, and `.agents/CODEMAP.md`.
+- [x] Task 4.4: Run full regression test suite (`./aapp test strict quiet`) and update `CHANGELOG.md`.
 
 ---
 
