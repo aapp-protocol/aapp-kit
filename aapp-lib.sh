@@ -1020,12 +1020,16 @@ group_set_member() {
 
 # aapp_shared_docs_regex -> ERE alternation of shared doc basenames.
 aapp_shared_docs_regex() {
-    printf '%s\n' 'CHANGELOG\.md|README\.md|MANUAL\.md|CHEATSHEET\.md|CODEMAP\.md|ARCHITECTURE\.md|ISSUES\.md'
+    printf '%s\n' 'CHANGELOG\.md|README\.md|MANUAL\.md|CHEATSHEET\.md|COOKBOOK\.md|CODEMAP\.md|ARCHITECTURE\.md|ISSUES\.md'
 }
 
-# aapp_is_shared_doc <path> -> 0 when the path's basename is a shared doc.
+# aapp_is_shared_doc <path> -> 0 when the path is a shared doc or under docs/.
 aapp_is_shared_doc() {
-    local base="${1##*/}"
+    local p="$1"
+    case "$p" in
+        docs/*|*/docs/*) return 0 ;;
+    esac
+    local base="${p##*/}"
     printf '%s\n' "$base" | grep -qE "^($(aapp_shared_docs_regex))$"
 }
 
@@ -1234,6 +1238,29 @@ ledger_path() {
     return 1
 }
 
+# ledger_archive_files [repo-root] -> all archive ledgers (live archive, overflow files, release bundles)
+ledger_archive_files() {
+    local f
+    f="$(ledger_path archive "${1:-}")" || return 0
+    [ -f "$f" ] && echo "$f"
+    if [ -n "$f" ]; then
+        local pdir="${f%/*}"
+        if [ -d "$pdir" ]; then
+            local of
+            for of in "$pdir"/000-issues-archive-*.md; do
+                [ -f "$of" ] && echo "$of"
+            done
+        fi
+        local plans_root="${pdir%/*}"
+        if [ -d "$plans_root/release" ]; then
+            local rf
+            for rf in "$plans_root/release"/*/000-issues-archive.md; do
+                [ -f "$rf" ] && echo "$rf"
+            done
+        fi
+    fi
+}
+
 # ledger_commit_paths [issues|archive|roadmap]… -> the named ledgers (all three
 # by default) that exist, relative to the plans worktree: for plans_commit and
 # the done/abort snapshots.
@@ -1250,6 +1277,13 @@ ledger_commit_paths() {
         rel="$(_ledger_rel "$which")"
         git -C "${f%/"$rel"}" check-ignore -q "$rel" 2>/dev/null && continue
         echo "$rel"
+        if [ "$which" = "archive" ]; then
+            local of
+            for of in "${f%/*}"/000-issues-archive-*.md; do
+                [ -f "$of" ] || continue
+                echo "done/${of##*/}"
+            done
+        fi
     done
     return 0
 }
@@ -1560,9 +1594,26 @@ ledger_row() {
 # is, for the checks that need its line numbers and layout.
 ledger_table() {
     local f
-    f="$(ledger_path "$1" "${2:-}")" || return 0
-    [ -f "$f" ] || return 0
-    cat "$f"
+    f="$(ledger_path "$1" "${2:-}")" || f=""
+    [ -n "$f" ] && [ -f "$f" ] && cat "$f"
+    if [ "$1" = "archive" ] && [ -n "$f" ]; then
+        local pdir="${f%/*}"
+        if [ -d "$pdir" ]; then
+            local of
+            for of in "$pdir"/000-issues-archive-*.md; do
+                [ -f "$of" ] || continue
+                grep -E "$LEDGER_ROW_RE" "$of" 2>/dev/null || true
+            done
+        fi
+        local plans_root="${pdir%/*}"
+        if [ -d "$plans_root/release" ]; then
+            local rf
+            for rf in "$plans_root/release"/*/000-issues-archive.md; do
+                [ -f "$rf" ] || continue
+                grep -E "$LEDGER_ROW_RE" "$rf" 2>/dev/null || true
+            done
+        fi
+    fi
 }
 
 # ledger_row_lines [<status>] -> every active row, as written, in file order;
@@ -1622,12 +1673,29 @@ ledger_ids() {
         roadmap) f="$(ledger_path roadmap)" || return 0 ;;
         *)       return 2 ;;
     esac
-    [ -f "$f" ] || return 0
-    # The first cell of a table row, or what follows a road-map line's marker.
+    local files_to_scan=()
+    [ -f "$f" ] && files_to_scan+=("$f")
+    if [ "$1" = "archive" ] && [ -n "$f" ]; then
+        local adir="${f%/*}"
+        if [ -d "$adir" ]; then
+            local of
+            for of in "$adir"/000-issues-archive-*.md; do
+                [ -f "$of" ] && files_to_scan+=("$of")
+            done
+        fi
+        local plans_root="${adir%/*}"
+        if [ -d "$plans_root/release" ]; then
+            local rf
+            for rf in "$plans_root/release"/*/000-issues-archive.md; do
+                [ -f "$rf" ] && files_to_scan+=("$rf")
+            done
+        fi
+    fi
+    [ ${#files_to_scan[@]} -gt 0 ] || return 0
     if [ "$1" = "roadmap" ]; then
-        awk '{ if (sub(/^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*/, "")) print }' "$f"
+        awk '{ if (sub(/^[[:space:]]*([0-9]+\.|-[[:space:]]*\[[ xX]?\]|\*)[[:space:]]*/, "")) print }' "${files_to_scan[@]}"
     else
-        awk -F'|' '/^[[:space:]]*\|/ { print $2 }' "$f"
+        awk -F'|' '/^[[:space:]]*\|/ { print $2 }' "${files_to_scan[@]}"
     fi | AAPP_RE="^\`?${AAPP_ISSUE_REF_LOOSE_RE}" awk '
         {
             t = $0; gsub(/^[ \t]+/, "", t)
@@ -1647,6 +1715,20 @@ ledger_locate() {
     if [ -n "$f" ] && [ -f "$f" ] && grep -qE "$re" "$f"; then echo "active"; return 0; fi
     f="$(ledger_path archive)" || f=""
     if [ -n "$f" ] && [ -f "$f" ] && grep -qE "$re" "$f"; then echo "archive"; return 0; fi
+    # Overflow archives in done/
+    if [ -n "$f" ]; then
+        local of
+        for of in "${f%/*}"/000-issues-archive-*.md; do
+            if [ -f "$of" ] && grep -qE "$re" "$of"; then echo "archive"; return 0; fi
+        done
+        local plans_root="${f%/*/*}"
+        if [ -d "$plans_root/release" ]; then
+            local rf
+            for rf in "$plans_root/release"/*/000-issues-archive.md; do
+                if [ -f "$rf" ] && grep -qE "$re" "$rf"; then echo "archive"; return 0; fi
+            done
+        fi
+    fi
     # P-75: an issue staged offline, then one known here by a former offline id.
     [ -z "${AAPP_LEDGER_OFFLINE:-}" ] || return 0
     case "$(ledger_in_offline "$1")" in
@@ -2016,6 +2098,30 @@ ledger_archive_row() {
     mv "$tmp" "$active"
 
     roadmap_prune "$n"
+
+    # Live archive bound (P-38): past aapp.issueArchiveMax rows, roll oldest into overflow
+    local max_archive
+    max_archive="$(git config --get aapp.issueArchiveMax 2>/dev/null || true)"
+    if [ -n "$max_archive" ] && [ "$max_archive" -gt 0 ] 2>/dev/null; then
+        local current_count
+        current_count="$(grep -c -E "$LEDGER_ROW_RE" "$archive" 2>/dev/null || true)"
+        if [ "$current_count" -gt "$max_archive" ]; then
+            local excess=$((current_count - max_archive))
+            local overflow_file="${archive%/*}/000-issues-archive-overflow.md"
+            if [ ! -f "$overflow_file" ]; then
+                awk '/^[[:space:]]*\|[[:space:]]*:---/ { print; exit } { print }' "$archive" > "$overflow_file"
+            fi
+            local overflow_rows
+            overflow_rows="$(grep -E "$LEDGER_ROW_RE" "$archive" | tail -n "$excess")"
+            printf '%s\n' "$overflow_rows" >> "$overflow_file"
+            local tmp_trim="$archive.aapp-overflow.$$"
+            AAPP_ROW_RE="$LEDGER_ROW_RE" awk -v keep="$max_archive" '
+                $0 !~ ENVIRON["AAPP_ROW_RE"] { print; next }
+                count < keep { print; count++; next }
+            ' "$archive" > "$tmp_trim" && mv "$tmp_trim" "$archive" || rm -f "$tmp_trim"
+        fi
+    fi
+
     return 0
 }
 

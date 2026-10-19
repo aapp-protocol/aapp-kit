@@ -404,7 +404,7 @@ case "$TARGET_FILE" in
     .plans/*|.agents/*|.offline/*)
         exit 0
         ;;
-    CHANGELOG.md|README.md|MANUAL.md|CHEATSHEET.md|CODEMAP.md|ARCHITECTURE.md|ISSUES.md|.gitignore)
+    CHANGELOG.md|README.md|MANUAL.md|CHEATSHEET.md|COOKBOOK.md|CODEMAP.md|ARCHITECTURE.md|ISSUES.md|.gitignore|docs/*)
         exit 0
         ;;
     package.json|package-lock.json|composer.json|composer.lock|go.mod|go.sum|Cargo.toml|Cargo.lock|pyproject.toml|requirements.txt)

@@ -229,7 +229,7 @@ fi
 
 # Shared docs come from aapp-lib.sh (one definition, P-48); dependency manifests
 # are always allowed to commit but are not shared docs.
-ALWAYS_ALLOWED_REGEX="^($(aapp_shared_docs_regex)|\.gitignore|\.gitattributes|package\.json|package-lock\.json|composer\.json|composer\.lock|go\.mod|go\.sum|Cargo\.toml|Cargo\.lock|pyproject\.toml|requirements\.txt)\$"
+ALWAYS_ALLOWED_REGEX="^($(aapp_shared_docs_regex)|docs/.*|\.gitignore|\.gitattributes|package\.json|package-lock\.json|composer\.json|composer\.lock|go\.mod|go\.sum|Cargo\.toml|Cargo\.lock|pyproject\.toml|requirements\.txt)\$"
 
 CORE_CODE_REGEX='\.(php|js|jsx|ts|tsx|py|go|rs|c|cpp|h|hpp|java|rb|css|scss|sql|html|sh|bash|zsh)$|^schema/.*\.json$|^aapp$'
 
@@ -876,7 +876,7 @@ fi
 
 DOCS_UPDATED=0
 for F in "${STAGED_FILES[@]}"; do
-    if echo "$F" | grep -qE '^(README\.md|MANUAL\.md|CODEMAP\.md|ARCHITECTURE\.md|\.agents/CODEMAP\.md|\.agents/ARCHITECTURE\.md)$'; then
+    if echo "$F" | grep -qE '^(README\.md|MANUAL\.md|COOKBOOK\.md|docs/.*|CODEMAP\.md|ARCHITECTURE\.md|\.agents/CODEMAP\.md|\.agents/ARCHITECTURE\.md)$'; then
         DOCS_UPDATED=1
         break
     fi
