@@ -74,7 +74,7 @@ Each non-verb suite (`tests/*_test.sh`) gets a contract file in `lib/docs/core/<
 - [ ] Task 2.2: Author `lib/docs/core/*.md` contract files for the kept core suites and extend `tests/verb_contracts_test.sh` to verify `lib/docs/core/*.md` <-> `tests/*_test.sh` in both directions.
 
 ### Phase 3: Verification
-- [ ] Task 3.1: Run `./aapp test strict quiet` and record the new assertion count and CPU/wall time.
+- [ ] Task 3.1: Run `/usr/bin/time -p ./aapp test strict quiet` and record the new assertion count, wall-clock time, and total CPU time (`user + sys`) as the baseline for `P-114`–`P-122`.
 
 ---
 
@@ -100,3 +100,5 @@ Each non-verb suite (`tests/*_test.sh`) gets a contract file in `lib/docs/core/<
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-19:** Plan drafted as member 1 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
+* **2026-10-19:** Updated Task 3.1 to explicitly record CPU (`user + sys`) and wall-clock baseline per RFC §5.1.3.
+
