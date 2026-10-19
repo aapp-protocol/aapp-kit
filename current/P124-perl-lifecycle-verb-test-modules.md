@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-124
-* **Changelog:** Changed: Perl Lifecycle Verb Test Modules
+* **Changelog:** Changed: the read-only and plan lifecycle verb suites run as Perl modules (`tests/AAPP/Verb/*.pm`) under `AAPP::Tests` (P-124)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,64 +40,67 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+Part 3 of 4 of the test migration split from P-114 (kept as the reference until all four parts are drafted). Ports the read-only and plan lifecycle verb suites (`tests/verbs/<verb>.sh` and their parts) to `tests/AAPP/Verb/*.pm` under the harness P-126 built, keeping every scenario and test name, and deletes each bash suite once its module passes. Needs P-126 done; independent of P-123. Kit runtime code stays untouched.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+1. **Scope:** `status`, `matrix`, `plan-status`, `help`, `draft`, `refine`, `tdd`, `freeze`, `start` (with `start.group`, `start.worktree`), `freeze-start`, `done` (with `done.closes`, `done.squash`, `done.worktree`), `active`, `plan` (with `plan.abort`).
+2. **One module per verb:** a verb and its parts become `tests/AAPP/Verb/<Verb>.pm` (`freeze-start` -> `FreezeStart.pm`, `plan-status` -> `PlanStatus.pm`); every `test_<name>` keeps its name and its contract description; contract identifiers change to `tests/AAPP/Verb/<Verb>.pm::test_<name>`. The `Run:` line stays `aapp test verb <verb>` (true again after P-125).
+3. **Independent tests:** a verb suite's shared repository becomes the module's fixture, built once and copied per test (P-126 §2.1.5). A test that leaned on an earlier test's state builds what it needs itself; P-113 left the verb suites in file order (P-113 §6).
+4. **Batches:** one verb (with its parts) per commit (microcommits); the gate runs both runners throughout (P-126 §2.1.8).
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Read-Only Verbs
+- [ ] Task 1.1: Port `status`, `matrix`, `plan-status`, `help`.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Plan Lifecycle Verbs
+- [ ] Task 2.1: Port `draft`, `refine`, `tdd`, `freeze`, `freeze-start`, `active`.
+- [ ] Task 2.2: Port `start` (and parts), `done` (and parts), `plan` (and parts).
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Verification
+- [ ] Task 3.1: `tests/test-run strict quiet` and `./aapp test strict quiet` both green; none of these verbs' `.sh` suites left; record each runner's wall and CPU time.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `tests/AAPP/Verb/*.pm` -> Verb test modules for the verbs in §2.1.
+- [ ] `DELETE` -> `tests/verbs/status.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/matrix.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/plan-status.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/help.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/draft.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/refine.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/tdd.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/freeze.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/freeze-start.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/start*.sh` -> Ported with its parts.
+- [ ] `DELETE` -> `tests/verbs/done*.sh` -> Ported with its parts.
+- [ ] `DELETE` -> `tests/verbs/active.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/plan.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/plan.abort.sh` -> Ported.
+- [ ] `lib/docs/verbs/*.md` -> Test identifiers of these verbs point at `tests/AAPP/Verb/*.pm`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `tests/verb_contracts_test.sh` -> The bash contract checker stays until P-125.
+- [ ] `tests/test_helpers.sh` -> Still used by the remaining verb suites.
+- [ ] `lib/cmd_test.sh` -> `aapp test` switches in P-125 only.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-19:** Plan initialized from `pickup.md`.
-* **2026-10-19:** Refined blast radius and locked module boundaries.
+* **2026-10-19:** Drafted as part 3 of 4 split from P-114 (read-only and lifecycle verb suites).
