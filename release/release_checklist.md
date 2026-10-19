@@ -7,7 +7,7 @@
 
 ---
 
-<!-- AAPP-PROTOCOL:START v1.0.0 -->
+<!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 ## 🏷️ 0. Versioning & Release Conventions (Stable vs. Edge)
 
