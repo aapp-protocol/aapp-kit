@@ -110,18 +110,18 @@ The hook consumes the payload from Dual Delivery:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Script Authoring & Test Suite
-- [ ] Task 1.1: Author `scripts/kit-on-release.sh` with robust input validation, dual-delivery payload parsing, atomic file updates, and fail-closed exit codes.
-- [ ] Task 1.2: Ensure `scripts/kit-on-release.sh` is executable (`chmod +x`).
-- [ ] Task 1.3: Author `tests/kit_release_hook_test.sh` simulating `on-release` dispatch in an isolated copy of the kit repo, verifying version updates in `aapp` and `templates/`.
+- [x] Task 1.1: Author `scripts/kit-on-release.sh` with robust input validation, dual-delivery payload parsing, atomic file updates, and fail-closed exit codes.
+- [x] Task 1.2: Ensure `scripts/kit-on-release.sh` is executable (`chmod +x`).
+- [x] Task 1.3: Author `tests/kit_release_hook_test.sh` simulating `on-release` dispatch in an isolated copy of the kit repo, verifying version updates in `aapp` and `templates/`.
 
 ### Phase 2: Hook Registration & Verification
-- [ ] Task 2.1: Register `scripts/kit-on-release.sh` in `.agents/skills/aapp-hooks/registry.tsv` (or project config `git config aapp.hook.on-release scripts/kit-on-release.sh`) with `mode=gate` and `timeout=30`.
-- [ ] Task 2.2: Test hook execution via `./aapp hook-test on-release` (or mock payload) verifying zero errors and clean output.
+- [x] Task 2.1: Register `scripts/kit-on-release.sh` in `.agents/skills/aapp-hooks/registry.tsv` (or project config `git config aapp.hook.on-release scripts/kit-on-release.sh`) with `mode=gate` and `timeout=30`.
+- [x] Task 2.2: Test hook execution via `./aapp hook-test on-release` (or mock payload) verifying zero errors and clean output.
 
 ### Phase 3: Documentation & Issue Resolution
-- [ ] Task 3.1: Document the kit self-release hook architecture in `MANUAL.md` and `.agents/CODEMAP.md`.
-- [ ] Task 3.2: Verify resolution of Issue #58.
-- [ ] Task 3.3: Update `CHANGELOG.md` and run regression test suite (`./aapp test strict quiet`).
+- [x] Task 3.1: Document the kit self-release hook architecture in `MANUAL.md` and `.agents/CODEMAP.md`.
+- [x] Task 3.2: Verify resolution of Issue #58.
+- [x] Task 3.3: Update `CHANGELOG.md` and run regression test suite (`./aapp test strict quiet`).
 
 ---
 
