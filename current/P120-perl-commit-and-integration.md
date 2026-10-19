@@ -50,40 +50,18 @@ In bash, `aapp commit` and `aapp note stage` shell out to `shasum`/`sha256sum` a
 
 ## 2. Technical Blueprint
 
-### 2.1 `AAPP::Cmd::Commit` (`lib/AAPP/Cmd/Commit.pm`) — `aapp commit` (`lib/cmd_commit.sh`, 567 lines; `lib/docs/verbs/commit.md`)
-Ports `lib/cmd_commit.sh`:
-- Syntax: `aapp commit ["<msg>"] [amend] [adopt <sha>...] [land] [agent <A> vendor <V> model <M>] [note "<text>"] [changelog "<text>"]`
-- Subverbs and modes:
-  - **Standard plan-bound commit (`aapp commit "<msg>" ...`):**
-    - Resolves the active plan (`⚡ In Development`) or active fix mini-plan (`.plans/current/fix-<num>.md`) via `$(git rev-parse --git-path aapp_active_plan)`.
-    - Enforces `Commit Mode`: `atomic` refuses a second commit and instructs the caller to use `aapp commit amend`; `microcommits` allows multiple commits.
-    - Enforces `Changelog Mode`: on the first commit of a `plan`-mode plan (or when `changelog "<text>"` is passed on a fix mini-plan or `commit`-mode commit), inserts the `- <bullet>` entry under `## [Unreleased]` (`### <Section>`) in `CHANGELOG.md` and stages `CHANGELOG.md`.
-    - Completes semantic AI attribution trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) from CLI args or `AAPP_AI_*` env vars when `aapp.aiAttribution` is `lax` or `strict`, and pre-stages the pending note buffer `$(git rev-parse --git-path aapp_pending_note).<sha256>` using `Digest::SHA::sha256_hex` when `note "<text>"` is given or `aapp.aiNotes=true` / `notes` mode is active.
-    - Runs `git commit` (which invokes the Perl `AAPP::Hooks::PreCommit`, `AAPP::Hooks::CommitMsg`, and `AAPP::Hooks::PostCommit` engines built in `P-116`).
-    - Appends `<short-sha> (<branch>)` to `* **Commits:**` in the active plan header and commits the plan file in `.plans` via `AAPP::CommitEngine`.
-  - **`aapp commit amend ["<msg>"] [agent <A> vendor <V> model <M>] [note "<text>"]`:**
-    - Amends the latest plan commit (`git commit --amend`), replaces the previous SHA in `* **Commits:**` with the new SHA, and commits `.plans`.
-  - **`aapp commit adopt <sha>...`:**
-    - Validates that each `<sha>` on the branch touched only the active plan's `### 📂 Target Files`, checks changelog satisfaction, and records `<sha> (<branch>)` in `* **Commits:**`.
-  - **`aapp commit land`:**
-    - Lands already-committed plan work onto the parent branch using `AAPP::Plan`'s `_ig_preflight`, `_ig_lock_acquire`, and fast-forward integration (`P-119`).
+### 2.1 `AAPP::Cmd::Commit` (`lib/AAPP/Cmd/Commit.pm`) — `aapp commit` (`lib/cmd_commit.sh`, 567 lines)
+Ports `cmd_commit` from `lib/cmd_commit.sh`:
+- Authoritative syntax, flags, failure modes, and effects: `aapp help commit full` and `lib/docs/verbs/commit.md` (standard plan-bound commit, `amend`, `adopt`, `land`, trailers, staged notes, and changelog splicing), verified under unchanged `tests/AAPP/Verb/Commit.pm`.
+- Uses `AAPP::State` (`P-115`), `AAPP::Attribution` (`P-116`), `AAPP::CommitEngine` (`P-115`), `Digest::SHA::sha256_hex` (for `$(git rev-parse --git-path aapp_pending_note).<sha256>`), and `AAPP::Plan`'s `_ig_*` engine (`P-119`) for `land`.
 
-### 2.2 `AAPP::Cmd::Note` (`lib/AAPP/Cmd/Note.pm`) — `aapp note` (`lib/cmd_note.sh`, 386 lines; `lib/docs/verbs/note.md`)
-Ports `lib/cmd_note.sh`:
-- Syntax: `aapp note [status | stage "<text>" [agent <A> vendor <V> model <M>] [msg "<msg>"] [msg-file <path>] | push [remote] | pull [remote]]`
-- Subverbs:
-  - `aapp note` / `aapp note status`: Displays current Git notes configuration (`notes.rewriteRef`, `refs/notes/ai` and `refs/notes/commits` counts, and any pending staged note buffers).
-  - `aapp note stage "<text>" [agent <A> vendor <V> model <M>] [msg "<msg>"] [msg-file <path>]`: Computes the SHA-256 hash of the stripped commit body (`Digest::SHA::sha256_hex`) and writes `$(git rev-parse --git-path aapp_pending_note).<sha256>` for `aapp-post-commit` pickup.
-  - `aapp note push [remote]` and `aapp note pull [remote]`: Pushes or fetches/merges (`cat_sort_uniq`) `refs/notes/ai` and `refs/notes/commits` against `<remote>` (default `origin`).
+### 2.2 `AAPP::Cmd::Note` (`lib/AAPP/Cmd/Note.pm`) — `aapp note` (`lib/cmd_note.sh`, 386 lines)
+Ports `cmd_note` from `lib/cmd_note.sh`:
+- Authoritative syntax, flags, failure modes, and effects: `aapp help note full` and `lib/docs/verbs/note.md` (`status`, `stage`, `push`, `pull`), verified under unchanged `tests/AAPP/Verb/Note.pm`.
 
-### 2.3 `AAPP::Cmd::Ai` (`lib/AAPP/Cmd/Ai.pm`) — `aapp ai` (`lib/cmd_ai.sh`, 374 lines; `lib/docs/verbs/ai.md`)
-Ports `lib/cmd_ai.sh`:
-- Syntax: `aapp ai [status | none | lax | strict | notes [on|off] | credits]`
-- Subverbs:
-  - `aapp ai` / `aapp ai status`: Displays current `aapp.aiAttribution` mode (`none`, `lax`, `strict`, `notes`) and `aapp.aiNotes` parallel notes setting.
-  - `aapp ai none | lax | strict | notes`: Sets `git config aapp.aiAttribution <mode>` and configures `notes.rewriteRef` when `notes` is selected.
-  - `aapp ai notes [on | off]`: Toggles `git config aapp.aiNotes true|false` for parallel `refs/notes/ai` audit traces alongside `none`, `lax`, or `strict`.
-  - `aapp ai credits`: Scans commit history (`AI-Agent:`, `AI-Vendor:`, `AI-Model:` trailers and `refs/notes/ai`) and prints an attribution summary table across agents and models.
+### 2.3 `AAPP::Cmd::Ai` (`lib/AAPP/Cmd/Ai.pm`) — `aapp ai` (`lib/cmd_ai.sh`, 374 lines)
+Ports `cmd_ai` from `lib/cmd_ai.sh`:
+- Authoritative syntax, flags, failure modes, and effects: `aapp help ai full` and `lib/docs/verbs/ai.md` (`status`, `none`, `lax`, `strict`, `notes`, `credits`), verified under unchanged `tests/AAPP/Verb/Ai.pm`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Transitional Coexistence (`P-120` → `P-122`):** While `commit`, `note`, and `ai` route directly to `AAPP::Cmd::Commit`, `AAPP::Cmd::Note`, and `AAPP::Cmd::Ai` from `aapp`, `lib/cmd_commit.sh`, `lib/cmd_note.sh`, and `lib/cmd_ai.sh` remain as thin shims until `P-122` removes all `lib/*.sh` files.
