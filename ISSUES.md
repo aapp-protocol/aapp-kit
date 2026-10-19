@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #180 | `Low` | `TEST` | 2026-10-19 | `tests/integrate_test.sh`, `lib/docs/verbs/done.md` | integrate_test.sh reports test_open_mini_plan_refuses_with_wait_zero as passed unconditionally (a bare ok with no check), and the done contract still lists it as covered behaviour. |  | 🟡 `Incubated` |
 | #179 | `High` | `TEST` | 2026-10-19 | `tests/adoption_test.sh`, `tests/verbs/freeze.sh`, `tests/verbs/commit.sh` | Three suites report tests from inside ( ... ) subshells, so their PASS/FAIL counts are lost: a failing test there never fails the suite (adoption_test.sh counts 1 of 13 tests). |  | 🟡 `Incubated` |
 | #178 | `Medium` | `TEST` | 2026-10-19 | `tests/aapp_lib_test.sh`, `tests/issue_ledger_test.sh` | Two core suites run git config in the kit checkout itself (aapp test runs suites from the kit root): they set and unset aapp.subjectMaxLen and aapp.issueArchiveMax, wiping a developer's own value. |  | 🟡 `Incubated` |
 | #177 | `Medium` | `TEST` | 2026-10-19 | `tests/install_test.sh` | install_test.sh hard-codes kit version 1.0.0 and uses v0.9.0 as the 'old' protocol block; since the v0.9.0 release the suite fails 4 assertions on develop. |  | 🟡 `Incubated` |
