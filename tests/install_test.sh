@@ -1140,7 +1140,7 @@ if [ -d "$HOME_61/.local/share/aapp-kit/examples" ] && \
    [ -d "$HOME_61/.local/share/aapp-kit/docs/concepts" ] && \
    [ -f "$HOME_61/.local/share/aapp-kit/docs/concepts/01-worktree-architecture.md" ] && \
    [ -d "$HOME_61/.local/share/aapp-kit/docs/reference" ] && \
-   [ -f "$HOME_61/.local/share/aapp-kit/docs/reference/git-plumbing.md" ] && \
+   [ -f "$HOME_61/.local/share/aapp-kit/docs/reference/12-git-plumbing.md" ] && \
    [ ! -d "$HOME_61/.local/share/aapp-kit/examples/stale" ]; then
   got="PASS"
 else
