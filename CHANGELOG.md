@@ -97,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI-First Universal Skills Alignment (`P-41`): Realigned universal lifecycle skills to invoke authoritative CLI commands first and fail closed with diagnostics rather than executing manual hacks.
 
 ### Fixed
+- aapp release reads a done plan's Plan ID and Commits header through parse_plan_field/parse_plan_commits, ignoring example lines in the plan body (#173) (`#173`)
 - add upstream tracking telemetry (ahead/behind vs remote) to status briefing (`#170`)
 - document pushing worktrees to a dedicated separate remote repository in MANUAL.md (`#171`)
 - docs and help name none as the default attribution mode and lax as the recommended mode when opting in; help examples use aapp ai <mode> (`#168`)

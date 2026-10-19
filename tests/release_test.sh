@@ -156,12 +156,17 @@ make_test_repo "$REPO_B"
   cd "$REPO_B" || exit 1
   export AAPP_LIB="$KIT/lib"
 
-  # Create a completed plan in .plans/done/ with valid ancestry
+  # Create a completed plan in .plans/done/ with valid ancestry; the body's example
+  # header lines are prose and never read (#173)
   cat << 'EOF' > .plans/done/P10-feature.md
 # 🗺️ Plan P-10: Feature Plan
 * **Plan ID:** P-10
 * **Commits:** `HEAD` (main)
 * **Status:** ✅ Done
+
+## 2. Technical Blueprint
+* **Plan ID:** P-X
+* **Commits:** `cafe123` (feat/example)
 EOF
   # Replace HEAD with actual commit SHA
   CURRENT_SHA="$(git rev-parse --short HEAD)"

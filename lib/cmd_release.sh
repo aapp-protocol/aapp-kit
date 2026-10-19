@@ -397,16 +397,12 @@ cmd_release() {
             done_plans+=("$pf")
 
             local pid psha pslug
-            pid="$(sed -nE 's/^[[:space:]]*[\*|-][[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$pf" 2>/dev/null || true)"
+            pid="$(parse_plan_field "$pf" "Plan ID")"
+            pid="${pid%% *}"
             [ -z "$pid" ] && pid="$(basename "$pf" .md)"
             done_plan_ids+=("$pid")
 
-            psha="$(sed -nE 's/^[[:space:]]*[\*|-][[:space:]]*\*\*Commits:\*\*[[:space:]]*`?([0-9a-fA-F]{7,40})`?.*/\1/p' "$pf" 2>/dev/null || true)"
-            if [ -z "$psha" ]; then
-                if grep -qE '^[[:space:]]*[\*|-][[:space:]]*\*\*Commits:\*\*[[:space:]]*none' "$pf" 2>/dev/null; then
-                    psha="none"
-                fi
-            fi
+            psha="$(parse_plan_commits "$pf" | head -n 1 | awk '{print $1}')"
             done_plan_shas+=("${psha:-none}")
 
             pslug="${bname%.md}"
