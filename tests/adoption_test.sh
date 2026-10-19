@@ -9,8 +9,9 @@ R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 confine_test_runtime "$R"
 
-ok()  { printf "  \033[32m✔\033[0m %-65s %s\n" "$1" "PASS"; PASS=$((PASS+1)); }
-bad() { printf "  \033[31m✘\033[0m %-65s %s\n" "$1" "$2"; FAIL=$((FAIL+1)); }
+# Tests run in subshells: results go to a file, counted at the end.
+ok()  { printf "  \033[32m✔\033[0m %-65s %s\n" "$1" "PASS"; echo pass >> "$R/results"; }
+bad() { printf "  \033[31m✘\033[0m %-65s %s\n" "$1" "$2"; echo fail >> "$R/results"; }
 
 # Test 1: test_seeded_and_untracked
 # Asserts `init` creates `.plans/adoption.md` with its sections, lists it in
@@ -267,9 +268,6 @@ test_docs_targets_exist() {
     bad "test_docs_targets_exist" "$bad_targets doc targets not found in docs/"
   fi
 }
-test_manual_headings_exist() {
-  test_docs_targets_exist
-}
 
 # Test 13: test_docs_governance_disabled
 # Asserts aapp.docs=false suppresses [PROJECT-RULES] and [PROJECT-MAP] adoption triggers.
@@ -305,8 +303,9 @@ test_build_tool_rules_follow_worktree_path
 test_review_tasks_only_user_ticks
 test_rerun_is_quiet
 test_user_edits_survive
-test_manual_headings_exist
+test_docs_targets_exist
 test_docs_governance_disabled
 
+PASS="$(grep -c '^pass$' "$R/results")"; FAIL="$(grep -c '^fail$' "$R/results")"
 print_test_summary "$PASS" "$FAIL"
 
