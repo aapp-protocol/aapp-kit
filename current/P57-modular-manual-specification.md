@@ -252,33 +252,33 @@ In addition:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 0: Prerequisite Shared Documentation Invariant (Layer 1 & Layer 2)
-- [ ] Task 0.1: Update `lib/aapp-lib.sh` (`aapp_shared_docs_regex` and `aapp_is_shared_doc`), `templates/blast-radius-guard.sh`, and `templates/aapp-pre-commit` (`ALWAYS_ALLOWED_REGEX`) to include `COOKBOOK.md` and `docs/*`.
-- [ ] Task 0.2: Add regression tests in `tests/write-guard_test.sh` and `tests/pre-commit_test.sh` verifying that modifying and committing `docs/**/*.md` and `COOKBOOK.md` passes freely without active plan target declarations.
+- [x] Task 0.1: Update `lib/aapp-lib.sh` (`aapp_shared_docs_regex` and `aapp_is_shared_doc`), `templates/blast-radius-guard.sh`, and `templates/aapp-pre-commit` (`ALWAYS_ALLOWED_REGEX`) to include `COOKBOOK.md` and `docs/*`.
+- [x] Task 0.2: Add regression tests in `tests/write-guard_test.sh` and `tests/pre-commit_test.sh` verifying that modifying and committing `docs/**/*.md` and `COOKBOOK.md` passes freely without active plan target declarations.
 
 ### Phase 1: Conceptual Architecture Modularization (`docs/concepts/`)
-- [ ] Task 1.1: Author `docs/concepts/01-worktree-architecture.md` with continuous navigation back-links (extracting from `MANUAL.md` §1 & §2).
-- [ ] Task 1.2: Author `docs/concepts/02-blast-radius-engine.md` with continuous navigation back-links (extracting from `MANUAL.md` §3).
-- [ ] Task 1.3: Author `docs/concepts/03-two-lane-governance.md` with continuous navigation back-links (extracting from `MANUAL.md` §4).
-- [ ] Task 1.4: Author `docs/concepts/04-security-and-threat-model.md` with continuous navigation back-links (extracting from `MANUAL.md` §10).
+- [x] Task 1.1: Author `docs/concepts/01-worktree-architecture.md` with continuous navigation back-links (extracting from `MANUAL.md` §1 & §2).
+- [x] Task 1.2: Author `docs/concepts/02-blast-radius-engine.md` with continuous navigation back-links (extracting from `MANUAL.md` §3).
+- [x] Task 1.3: Author `docs/concepts/03-two-lane-governance.md` with continuous navigation back-links (extracting from `MANUAL.md` §4).
+- [x] Task 1.4: Author `docs/concepts/04-security-and-threat-model.md` with continuous navigation back-links (extracting from `MANUAL.md` §10).
 
 ### Phase 2: Technical Reference Modularization (`docs/reference/`)
-- [ ] Task 2.1: Author `docs/reference/01-lifecycle-state-machine.md` with continuous navigation back-links (extracting from `MANUAL.md` §5).
-- [ ] Task 2.2: Author `docs/reference/02-cli-commands-and-verbs.md` covering all 35 verbs with continuous navigation back-links, strictly aligned with `lib/verbs.tsv` and `lib/docs/verbs/*.md` contracts.
-- [ ] Task 2.3: Author `docs/reference/03-configuration-matrix.md` covering all 22+ `git config aapp.*` settings with continuous navigation back-links, aligned with Pickup #99 manifest schema.
-- [ ] Task 2.4: Author `docs/reference/04-plugin-and-hook-engine.md` with continuous navigation back-links (extracting from `MANUAL.md` §8).
-- [ ] Task 2.5: Author `docs/reference/05-ai-attribution-and-notes.md` with continuous navigation back-links (extracting from `MANUAL.md` §9).
-- [ ] Task 2.6: `docs/reference/06-plugin-protocol.md` and `07-issue-protocol.md` are authored by P-77 and P-74; link them from the portal and from `04-plugin-and-hook-engine.md`, which keeps the registry and triggers and does not repeat the protocol; include them in the link audit.
+- [x] Task 2.1: Author `docs/reference/01-lifecycle-state-machine.md` with continuous navigation back-links (extracting from `MANUAL.md` §5).
+- [x] Task 2.2: Author `docs/reference/02-cli-commands-and-verbs.md` covering all 35 verbs with continuous navigation back-links, strictly aligned with `lib/verbs.tsv` and `lib/docs/verbs/*.md` contracts.
+- [x] Task 2.3: Author `docs/reference/03-configuration-matrix.md` covering all 22+ `git config aapp.*` settings with continuous navigation back-links, aligned with Pickup #99 manifest schema.
+- [x] Task 2.4: Author `docs/reference/04-plugin-and-hook-engine.md` with continuous navigation back-links (extracting from `MANUAL.md` §8).
+- [x] Task 2.5: Author `docs/reference/05-ai-attribution-and-notes.md` with continuous navigation back-links (extracting from `MANUAL.md` §9).
+- [x] Task 2.6: `docs/reference/06-plugin-protocol.md` and `07-issue-protocol.md` are authored by P-77 and P-74; link them from the portal and from `04-plugin-and-hook-engine.md`, which keeps the registry and triggers and does not repeat the protocol; include them in the link audit.
 
 ### Phase 3: Portal Transformation, Storefront Cleanup & Link Audit
-- [ ] Task 3.1: Rewrite root `MANUAL.md` into the concise executive portal (~150 lines) with complete relative links into `docs/` and `COOKBOOK.md`.
-- [ ] Task 3.2: Slim down root `README.md` to ~120 lines, adopting `.plans/pickup/readme-draft.md` enriched with `COOKBOOK.md` and `MANUAL.md` navigation links.
-- [ ] Task 3.3: Perform repository-wide anchor and link audit across `templates/`, `lib/`, `tests/`, and `.agents/` updating old `MANUAL.md` anchor references.
+- [x] Task 3.1: Rewrite root `MANUAL.md` into the concise executive portal (~150 lines) with complete relative links into `docs/` and `COOKBOOK.md`.
+- [x] Task 3.2: Slim down root `README.md` to ~120 lines, adopting `.plans/pickup/readme-draft.md` enriched with `COOKBOOK.md` and `MANUAL.md` navigation links.
+- [x] Task 3.3: Perform repository-wide anchor and link audit across `templates/`, `lib/`, `tests/`, and `.agents/` updating old `MANUAL.md` anchor references.
 
 ### Phase 4: Installer Sync & Regression Verification
-- [ ] Task 4.1: Update `lib/cmd_install.sh` to package `docs/concepts/` and `docs/reference/`.
-- [ ] Task 4.2: Update `tests/install_test.sh` to verify full `docs/` tree installation in `$SHARE_DIR`.
-- [ ] Task 4.3: Author automated dead-link test `tests/doc_links_test.sh` verifying that 100% of cross-links between `README.md`, `MANUAL.md`, `COOKBOOK.md`, and `docs/**/*.md` resolve to valid files, and asserting bidirectional back-links.
-- [ ] Task 4.4: Execute all automated test suites (`tests/install_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, `tests/doc_links_test.sh`) to ensure 100% compliance.
+- [x] Task 4.1: Update `lib/cmd_install.sh` to package `docs/concepts/` and `docs/reference/`.
+- [x] Task 4.2: Update `tests/install_test.sh` to verify full `docs/` tree installation in `$SHARE_DIR`.
+- [x] Task 4.3: Author automated dead-link test `tests/doc_links_test.sh` verifying that 100% of cross-links between `README.md`, `MANUAL.md`, `COOKBOOK.md`, and `docs/**/*.md` resolve to valid files, and asserting bidirectional back-links.
+- [x] Task 4.4: Execute all automated test suites (`tests/install_test.sh`, `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, `tests/doc_links_test.sh`) to ensure 100% compliance.
 
 ---
 
