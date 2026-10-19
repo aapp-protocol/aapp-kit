@@ -13,7 +13,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ## 🧠 Human Thought & Refinement (The Incubator)
 
 - 🟣 **P-109**: [`P109-lifecycle-event-coverage.md`](current/P109-lifecycle-event-coverage.md) — Issue Note Companion Lifecycle Events
-- 🟣 **P-114**: [`P114-perl-test-harness.md`](current/P114-perl-test-harness.md) — Perl Test Harness
 - 🟣 **P-115**: [`P115-perl-core-and-state-model.md`](current/P115-perl-core-and-state-model.md) — Perl Core And State Model
 - 🟣 **P-116**: [`P116-perl-hooks-and-write-guard.md`](current/P116-perl-hooks-and-write-guard.md) — Perl Hooks And Write Guard
 - 🟣 **P-117**: [`P117-perl-issue-and-offline-lane.md`](current/P117-perl-issue-and-offline-lane.md) — Perl Issue And Offline Lane

@@ -8,7 +8,8 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
+* **Status:** ❌ Aborted
+* **Aborted:** 2026-10-20 | **Reason:** split into P-127, P-126, P-123, P-124 and P-125
 * **Base:** none
 * **Group:** P-111
 * **Commits:** none
@@ -112,6 +113,7 @@ Replaces the bash test scripts (`tests/*.sh`, `tests/verbs/*.sh`) with a modular
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-20:** Plan aborted: split into P-127, P-126, P-123, P-124 and P-125
 * **2026-10-19:** Plan drafted as member 2 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
 * **2026-10-19:** Moved test modules to `tests/AAPP/`, set 60 s process-group watchdog (`-PGID`), noted `test-gate.sh` `aapp hook-hash` re-registration, batched Phase 2 suite migration, and added `CHEATSHEET.md` per RFC §5.1.3.
 
