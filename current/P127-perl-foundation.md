@@ -2,7 +2,7 @@
 * **Created:** 2026-10-20 | **Last Refined:** 2026-10-20
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-127
-* **Changelog:** Added: Perl 5.26+ foundation modules (`AAPP::Constants`, `AAPP::Paths`, `AAPP::Config`, `AAPP::Logger`, `AAPP::Runner`) with declared return numbers, signal and crash handling, and an optional log file (`aapp.logFile`) (P-127)
+* **Changelog:** Added: Perl 5.26+ foundation modules (`AAPP::Constants`, `AAPP::Paths`, `AAPP::Config`, `AAPP::Logger`, `AAPP::Runner`) with declared return numbers, signal and crash handling, and an optional log file (`aapp.perlLogFile`) (P-127)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -44,7 +44,7 @@ The first member of the Perl port, before any test harness or verb: the core eve
 
 - **No sub dies on purpose.** Subs return declared numbers; the exit code is derived from them. `die` happens only on a crash, and the crash handler reports it.
 - **Agents are never left in the dark.** Everything shown to an agent goes through one `printf` format; warnings and crashes print to STDERR when no log file is configured.
-- **Logging is independent of hooks.** `AAPP::Logger` writes its own file (`aapp.logFile`, optional); it never dispatches a hook.
+- **Logging is independent of hooks.** `AAPP::Logger` writes its own file (`aapp.perlLogFile`, optional); it never dispatches a hook. The key is `aapp.perlLogFile` while the port runs, apart from the event logger's `aapp.logFile`; P-122 renames it to `aapp.logFile` when the kit logs per event.
 - **Config and paths are read once per process** and are used by the code and by the tests alike.
 
 Nothing in the bash kit is switched here: the modules exist and are tested by the harness member (P-126); P-115 onward use them. Verbosity levels (a debug setting) are out of scope: `DEBUG_LEVEL` is a fixed constant for now.
@@ -80,7 +80,7 @@ use constant NAME => 'AAPP';
 
 use constant {
     DEBUG_LEVEL      => 0,
-    LOG_KEY          => 'aapp.logFile',
+    LOG_KEY          => 'aapp.perlLogFile',
     CONFIG_PREFIX    => 'aapp.',
 
     RETURN_OK        => 1,     # exit 0
@@ -165,7 +165,7 @@ sub load
     return RETURN_OK;
 }
 
-# Usage     : my $v = AAPP::Config::get('aapp.logFile')
+# Usage     : my $v = AAPP::Config::get('aapp.perlLogFile')
 # Purpose   : Returns the last value of a key, as git does for single-valued keys.
 # Returns   : The value, or undef when unset.
 sub get
@@ -248,7 +248,7 @@ sub say
 }
 
 # Usage     : AAPP::Logger::log_output($min_debug, $tag, $message)
-# Purpose   : Appends a timestamped line to the log file when aapp.logFile is set and DEBUG_LEVEL >= $min_debug.
+# Purpose   : Appends a timestamped line to the log file when aapp.perlLogFile is set and DEBUG_LEVEL >= $min_debug.
 # Returns   : 1, or 0 when the log file cannot be written.
 sub log_output
 {
@@ -262,7 +262,7 @@ sub log_output
 }
 
 # Usage     : my $file = AAPP::Logger::log_file()
-# Purpose   : Resolves aapp.logFile; a relative path is taken from the repository's common git dir.
+# Purpose   : Resolves aapp.perlLogFile; a relative path is taken from the repository's common git dir.
 # Returns   : Absolute path, or undef when no log file is configured.
 sub log_file
 {
@@ -480,7 +480,7 @@ Notes:
 - [ ] Task 2.1: Add the comment rule (§2.1) to `.agents/PROJECT.MD`.
 
 ### Phase 3: Verification
-- [ ] Task 3.1: `perl -c` every module; a scratch script calling `AAPP::Runner::run` shows: an unknown verb (exit 1, `[ ERROR  ]` line), a crash without a log file (exit 1, `[ FATAL  ]` on STDERR), a crash with `aapp.logFile` set (logged and printed), an undeclared return number (crash), TERM running a registered cleanup. Automated tests come with the harness (P-126).
+- [ ] Task 3.1: `perl -c` every module; a scratch script calling `AAPP::Runner::run` shows: an unknown verb (exit 1, `[ ERROR  ]` line), a crash without a log file (exit 1, `[ FATAL  ]` on STDERR), a crash with `aapp.perlLogFile` set (logged and printed), an undeclared return number (crash), TERM running a registered cleanup. Automated tests come with the harness (P-126).
 
 ---
 
@@ -503,7 +503,7 @@ Notes:
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1:** `aapp.logFile` is already read by `examples/hooks/event-logger.sample` (P-104) as its JSONL destination. If both use it, the kit's log lines and the event logger's JSON lines land in one file. Keep `aapp.logFile` for the kit and give the sample another key (e.g. `aapp.eventLogFile`, a change to the sample and its docs), or keep both on one file?
+* [x] **Question 1:** `aapp.logFile` is already read by `examples/hooks/event-logger.sample` (P-104). **Answer (user, 2026-10-20):** the Perl logger uses `aapp.perlLogFile` while the port runs; the clean-break member (P-122) swaps it to `aapp.logFile`, when the kit logs per event and both keys mean the same.
 
 ---
 
