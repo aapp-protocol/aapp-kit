@@ -190,37 +190,37 @@ Two dedicated recipes document these production patterns:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Directory Scaffold & Initial Recipe Suite
-- [ ] Task 1.1: Create directory tree `docs/recipes/{getting-started,integrations,plugins-and-hooks,workflows,troubleshooting}/`.
-- [ ] Task 1.2: Author Getting Started recipes:
+- [x] Task 1.1: Create directory tree `docs/recipes/{getting-started,integrations,plugins-and-hooks,workflows,troubleshooting}/`.
+- [x] Task 1.2: Author Getting Started recipes:
   - `docs/recipes/getting-started/adopt-existing-repo.md`
   - `docs/recipes/getting-started/solo-developer-workflow.md`
-- [ ] Task 1.3: Author Tooling Integration recipes (extracting and expanding from `MANUAL.md` §7):
+- [x] Task 1.3: Author Tooling Integration recipes (extracting and expanding from `MANUAL.md` §7):
   - `docs/recipes/integrations/husky-git-hooks.md`
   - `docs/recipes/integrations/lefthook-git-hooks.md`
   - `docs/recipes/integrations/github-actions-ci.md`
-- [ ] Task 1.4: Author Advanced Workflow recipes:
+- [x] Task 1.4: Author Advanced Workflow recipes:
   - `docs/recipes/workflows/tdd-failure-assertions.md`
   - `docs/recipes/workflows/emergency-hotfixes.md` (mini-plan workflow, `aapp issue hotfix`, stash handling per P-52)
   - `docs/recipes/workflows/multi-agent-worktrees.md`
   - `docs/recipes/workflows/planning-a-plan-group.md` (growing and aligning related plans; worked example: group P-72; outline in `pickup.md`, "Planning a Plan Group"; written after P-72 ships)
-- [ ] Task 1.5: Author Troubleshooting recipes (extracting from `MANUAL.md` §11):
+- [x] Task 1.5: Author Troubleshooting recipes (extracting from `MANUAL.md` §11):
   - `docs/recipes/troubleshooting/blast-radius-recovery.md`
   - `docs/recipes/troubleshooting/worktree-collision-recovery.md`
-- [ ] Task 1.6: Author Custom Lifecycle Hooks & Deployment recipes:
+- [x] Task 1.6: Author Custom Lifecycle Hooks & Deployment recipes:
   - `docs/recipes/plugins-and-hooks/01-deploy-on-done-hook.md`
   - `docs/recipes/plugins-and-hooks/02-custom-pre-gate-hooks.md`
   - `docs/recipes/plugins-and-hooks/03-github-issues-tracker-plugin.md`
   - `docs/recipes/plugins-and-hooks/04-authoring-custom-action-plugins.md`
 
 ### Phase 2: Root Catalog & Recipe Extraction
-- [ ] Task 2.1: Author root [`COOKBOOK.md`](COOKBOOK.md) with categorized index, difficulty badges, and cross-references.
-- [ ] Task 2.2: Refactor [`MANUAL.md`](MANUAL.md) to replace procedural scripts in §7 and §11 with links to corresponding recipes in `docs/recipes/` (leaving structural portal rewrite to P-57).
-- [ ] Task 2.3: Update [`CHEATSHEET.md`](CHEATSHEET.md) to link to [`COOKBOOK.md`](COOKBOOK.md).
+- [x] Task 2.1: Author root [`COOKBOOK.md`](COOKBOOK.md) with categorized index, difficulty badges, and cross-references.
+- [x] Task 2.2: Refactor [`MANUAL.md`](MANUAL.md) to replace procedural scripts in §7 and §11 with links to corresponding recipes in `docs/recipes/` (leaving structural portal rewrite to P-57).
+- [x] Task 2.3: Update [`CHEATSHEET.md`](CHEATSHEET.md) to link to [`COOKBOOK.md`](COOKBOOK.md).
 
 ### Phase 3: Packaging Sync & Test Coverage
-- [ ] Task 3.1: Update `lib/cmd_install.sh` to install `COOKBOOK.md` and `docs/` into `$SHARE_DIR`.
-- [ ] Task 3.2: Add regression tests in `tests/install_test.sh` verifying `COOKBOOK.md` and `docs/recipes/` distribution.
-- [ ] Task 3.3: Verify all markdown links are strictly repository-relative and pass `tests/pre-commit_test.sh`.
+- [x] Task 3.1: Update `lib/cmd_install.sh` to install `COOKBOOK.md` and `docs/` into `$SHARE_DIR`.
+- [x] Task 3.2: Add regression tests in `tests/install_test.sh` verifying `COOKBOOK.md` and `docs/recipes/` distribution.
+- [x] Task 3.3: Verify all markdown links are strictly repository-relative and pass `tests/pre-commit_test.sh`.
 
 ---
 
