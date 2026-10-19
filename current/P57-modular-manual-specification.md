@@ -6,8 +6,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `18beeb6` (develop)
+* **Worktree:** .workspace/P57 (plan/P57-modular-manual-specification)
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
@@ -317,6 +318,7 @@ In addition:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-19:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-07:** Refined blueprint: added Continuous Navigation Invariant (§2.7) requiring standard back-links to `MANUAL.md` and `COOKBOOK.md` across all conceptual and reference documents, verified by `tests/doc_links_test.sh`.
 * **2026-10-07:** Refined blueprint: added Phase 0 prerequisite for shared-doc engine (`docs/*` and `COOKBOOK.md` always-allowed in guard and hook), aligned CLI verbs reference with all 35 verbs in `lib/verbs.tsv`, aligned configuration dictionary with all 22+ keys from codebase, and added anchor audit and `tests/doc_links_test.sh` dead-link test.
 * **2026-10-07:** Refined blueprint to establish dedicated, exhaustive reference specifications for CLI Verbs with all parameter variations (`docs/reference/02-cli-commands-and-verbs.md`) and the complete Configuration Matrix dictionary (`docs/reference/03-configuration-matrix.md`).
