@@ -1,21 +1,18 @@
 #!/usr/bin/env bash
-# Regression harness for unified aapp CLI workflow (v1.0.0)
+# Core suite for setting up the kit: version and help, `aapp init` (protocol
+# blocks, hooks, settings, skills, seeded settings), `install`, `develop`,
+# `uninstall`, the shipped templates and the front-door repository check.
 set -u
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$KIT/tests/test_helpers.sh"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 confine_test_runtime "$R"
+KIT_VERSION="$(sed -n 's/^AAPP_VERSION="\(.*\)"$/\1/p' "$KIT/aapp")"
 
-report() {
-  local name="$1" expect="$2" got="$3" details="${4:-}"
-  if [ "$got" = "$expect" ]; then
-    printf "  \033[32m✔\033[0m %-65s %s\n" "$name" "$got"; PASS=$((PASS+1))
-  else
-    printf "  \033[31m✘\033[0m %-65s want %s got %s\n" "$name" "$expect" "$got"; FAIL=$((FAIL+1))
-    [ -n "$details" ] && echo "$details" | sed 's/^/       /'
-  fi
-}
+# report <check> <expect> <got> [details]: one check of the current test.
+report() { [ "$2" = "$3" ] || t_fail "$1: want [$2] got [$3]${4:+
+$4}"; }
 
 make_kit_clone() {
   local target_dir="$1"
@@ -56,12 +53,7 @@ echo "== 1. Version & Help Verbs =="
 out_v=$("$KIT/aapp" version)
 out_short=$("$KIT/aapp" -v)
 out_long=$("$KIT/aapp" --version)
-if [ "$out_v" = "aapp version 1.0.0" ] && [ "$out_short" = "aapp version 1.0.0" ] && [ "$out_long" = "aapp version 1.0.0" ]; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "aapp version / -v / --version outputs version 1.0.0" "PASS" "$got" "$out_v"
+for o in "$out_v" "$out_short" "$out_long"; do report "version line" "aapp version $KIT_VERSION" "$o"; done
 
 # Test 2: aapp help / -h / --help
 out_help=$("$KIT/aapp" help)
@@ -71,6 +63,7 @@ else
   got="FAIL"
 fi
 report "aapp help displays full command catalog" "PASS" "$got" "$out_help"
+t_done test_version_and_help
 
 echo "== 2. Canonical Self-Init & Uninstalled Clone Confinement =="
 
@@ -116,6 +109,7 @@ else
   got="FAIL"
 fi
 report "aapp init outside git repository fails closed at front door" "PASS" "$got" "$out_non_git"
+t_done test_init_confinement
 
 echo "== 3. Delimited Block Sync, Adoption, and Upgrades =="
 
@@ -132,7 +126,7 @@ PROJ="$R/t7_proj"; make_dummy_project "$PROJ"
   git checkout main -q
 )
 (cd "$PROJ" && aapp init >/dev/null 2>&1)
-if grep -q "<!-- AAPP-PROTOCOL:START v1.0.0 -->" "$PROJ/.agents/AGENTS.md" && \
+if grep -q "<!-- AAPP-PROTOCOL:START v$KIT_VERSION -->" "$PROJ/.agents/AGENTS.md" && \
    grep -q "# Custom Project Rules (No Markers)" "$PROJ/.agents/AGENTS.md"; then
   got="PASS"
 else
@@ -150,23 +144,23 @@ PROJ="$R/t8_proj"; make_dummy_project "$PROJ"
 # Project Custom Rules
 Custom rule: always use snake_case for functions.
 
-<!-- AAPP-PROTOCOL:START v0.9.0 -->
-Old protocol block v0.9.0 content that should be replaced.
+<!-- AAPP-PROTOCOL:START v0.0.1 -->
+Old protocol block v0.0.1 content that should be replaced.
 <!-- AAPP-PROTOCOL:END -->
 
 # Post-Protocol Custom Rules
 Custom rule: enforce 80 chars max line length.
 EOF
   git add AGENTS.md
-  git commit -qm "v0.9.0 agents branch"
+  git commit -qm "v0.0.1 agents branch"
   git checkout main -q
 )
 (cd "$PROJ" && aapp init >/dev/null 2>&1)
 agents_content=$(cat "$PROJ/.agents/AGENTS.md")
-if echo "$agents_content" | grep -q "<!-- AAPP-PROTOCOL:START v1.0.0 -->" && \
+if echo "$agents_content" | grep -q "<!-- AAPP-PROTOCOL:START v$KIT_VERSION -->" && \
    echo "$agents_content" | grep -q "Custom rule: always use snake_case for functions." && \
    echo "$agents_content" | grep -q "Custom rule: enforce 80 chars max line length." && \
-   ! echo "$agents_content" | grep -q "Old protocol block v0.9.0 content"; then
+   ! echo "$agents_content" | grep -q "Old protocol block v0.0.1 content"; then
   got="PASS"
 else
   got="FAIL"
@@ -180,7 +174,7 @@ echo "# Legacy Root AGENTS File" > "$PROJ/AGENTS.md"
 if [ ! -f "$PROJ/AGENTS.md" ] && \
    [ -f "$PROJ/.agents/AGENTS.md" ] && \
    grep -q "# Legacy Root AGENTS File" "$PROJ/.agents/AGENTS.md" && \
-   grep -q "<!-- AAPP-PROTOCOL:START v1.0.0 -->" "$PROJ/.agents/AGENTS.md"; then
+   grep -q "<!-- AAPP-PROTOCOL:START v$KIT_VERSION -->" "$PROJ/.agents/AGENTS.md"; then
   got="PASS"
 else
   got="FAIL"
@@ -199,6 +193,7 @@ else
   got="FAIL"
 fi
 report "project root anchors (CODEMAP, ARCHITECTURE) preserved/migrated" "PASS" "$got"
+t_done test_agents_protocol_block_adopt_upgrade_migrate
 
 echo "== 4. Core Infrastructure & Claude Settings =="
 
@@ -237,7 +232,7 @@ if [ -f "$PROJ/.githooks/aapp-lib.sh" ] && [ ! -L "$PROJ/.githooks/aapp-lib.sh" 
 else
   got="FAIL"
 fi
-report "test_init_installs_library_as_real_file" "PASS" "$got"
+report "library installed as a real file" "PASS" "$got"
 
 # P-37: aapp init fails loudly when the installed kit has no shared library
 PROJ_LIB="$R/t11b_proj"; make_dummy_project "$PROJ_LIB"
@@ -256,7 +251,8 @@ if [ "$rc_lib" -ne 0 ] && echo "$out_lib" | grep -q "aapp-lib.sh" && echo "$out_
 else
   got="FAIL"
 fi
-report "test_init_fails_loudly_when_lib_missing" "PASS" "$got" "rc=$rc_lib"
+report "init fails loudly without the library" "PASS" "$got" "rc=$rc_lib"
+t_done test_init_installs_hook_engines
 
 # Test 12: Fresh install writes .claude/settings.json
 PROJ="$R/t12_proj"; make_dummy_project "$PROJ"
@@ -303,6 +299,7 @@ else
   got="FAIL"
 fi
 report "idempotent .claude/settings.json merge: no duplicate entries" "PASS" "$got"
+t_done test_claude_settings_merged
 
 echo "== 5. Git Hooks & Hook Manager Interoperability =="
 
@@ -385,6 +382,7 @@ else
   got="FAIL"
 fi
 report "wiring line in custom hook catches blast-radius violation" "PASS" "$got"
+t_done test_hooks_path_interop
 
 echo "== 6. Error Cases & Collision Protections =="
 
@@ -434,6 +432,7 @@ else
   got="FAIL"
 fi
 report "multi-machine restore: mounts origin tracking branch without conflict" "PASS" "$got" "$out_t23"
+t_done test_init_collisions_and_restore
 
 echo "== 7. Global Installer & Commands (install, uninstall, status) =="
 
@@ -460,7 +459,7 @@ if [ -L "$TPL_LIB" ] && [ "$(readlink "$TPL_LIB")" = "../lib/aapp-lib.sh" ] && \
 else
   got="FAIL"
 fi
-report "test_install_preserves_template_symlink" "PASS" "$got"
+report "template library link kept" "PASS" "$got"
 
 # Test 25: aapp install consumes installer clone folder on success
 if [ ! -d "$INSTALLER_DIR" ]; then
@@ -469,6 +468,7 @@ else
   got="FAIL"
 fi
 report "aapp install consumes installer clone folder on success" "PASS" "$got"
+t_done test_install_creates_and_consumes
 
 # Test 25b: aapp install rejects unknown flag --keep (#51)
 GLOBAL_HOME_25B="$R/t25b_home"; mkdir -p "$GLOBAL_HOME_25B"
@@ -535,6 +535,7 @@ else
   got="FAIL"
 fi
 report "aapp install preserves linked worktree folder (#113)" "PASS" "$got"
+t_done test_install_keeps_folders_it_must_not_consume
 
 # Test 26: tests/ and lib/ reachable from installed share dir
 if [ -d "$GLOBAL_HOME/.local/share/aapp-kit/tests" ] && [ -f "$GLOBAL_HOME/.local/share/aapp-kit/lib/cmd_status.sh" ]; then
@@ -571,6 +572,7 @@ else
   got="FAIL"
 fi
 report "PATH detection: already present -> no edit, report ok" "PASS" "$got" "$out_path"
+t_done test_installed_kit_runs_from_path
 
 # Test 29: freshly-created ~/.local/bin advises re-login
 NEW_HOME="$R/t29_home"; mkdir -p "$NEW_HOME"
@@ -585,6 +587,7 @@ else
   got="FAIL"
 fi
 report "freshly-created ~/.local/bin -> advises re-login, edits nothing" "PASS" "$got" "$out_fresh"
+t_done test_install_fresh_bin_advises_relogin
 
 # Test 30: aapp uninstall removes binary and share data, leaves user rc intact
 UNINSTALL_HOME="$R/t30_home"; mkdir -p "$UNINSTALL_HOME"
@@ -611,6 +614,7 @@ else
   got="FAIL"
 fi
 report "aapp uninstall leaves no trace of kit but preserves shared dirs and rc" "PASS" "$got" "$out_uninst"
+t_done test_uninstall_leaves_no_trace
 
 # Test 31: aapp status prints 4-pillar context recovery briefing
 PROJ_31="$R/t31_proj"; make_dummy_project "$PROJ_31"
@@ -625,6 +629,7 @@ else
   got="FAIL"
 fi
 report "aapp status prints all 4 pillars of context recovery" "PASS" "$got" "$out_status"
+t_done test_status_prints_four_pillars
 
 # Test 32: aapp-develop-kit directory is preserved on install
 DEV_KIT_DIR="$R/aapp-develop-kit"; make_kit_clone "$DEV_KIT_DIR"
@@ -639,6 +644,7 @@ else
   got="FAIL"
 fi
 report "aapp install preserves aapp-develop-kit folder without self-consuming" "PASS" "$got"
+t_done test_install_keeps_develop_kit_folder
 
 # Test 33: unclosed <!-- AAPP-PROTOCOL:START --> marker skips replacement to prevent data loss
 PROJ_33="$R/t33_proj"; make_dummy_project "$PROJ_33"
@@ -659,6 +665,7 @@ else
   got="FAIL"
 fi
 report "unclosed START marker logs warning and preserves file untouched" "PASS" "$got" "$out_corrupt"
+t_done test_unclosed_protocol_marker_preserves_file
 
 # Test 34: aapp develop creates symlinks and live changes propagate
 DEV_HOME_34="$R/t34_home"; mkdir -p "$DEV_HOME_34"
@@ -683,6 +690,7 @@ else
   got="FAIL"
 fi
 report "aapp develop links live clone globally without copying or consuming" "PASS" "$got" "$out_dev"
+t_done test_develop_links_live_clone
 
 # P-34: develop-only pre-commit engine — absent after init, seeded by develop,
 # idempotent on re-run, removed by uninstall inside the repository
@@ -703,7 +711,7 @@ if [ "$absent_after_init" -eq 1 ] && [ "$seeded" -eq 1 ] && [ "$sum_first" = "$s
 else
   got="FAIL"
 fi
-report "test_develop_hook_seeding" "PASS" "$got" "absent_after_init=$absent_after_init seeded=$seeded"
+report "develop seeds the develop-only engine" "PASS" "$got" "absent_after_init=$absent_after_init seeded=$seeded"
 
 (cd "$DEV_KIT_34B" && PATH="/usr/bin:/bin" HOME="$DEV_HOME_34B" XDG_DATA_HOME="$DEV_HOME_34B/.local/share" ./aapp uninstall >/dev/null 2>&1)
 if [ ! -e "$DEV_KIT_34B/.githooks/aapp-pre-commit-develop" ] && \
@@ -713,6 +721,7 @@ else
   got="FAIL"
 fi
 report "uninstall removes the develop-only engine and its wrapper block" "PASS" "$got"
+t_done test_develop_hook_seeding
 
 # Test 35: aapp install after aapp develop safely unlinks symlink and preserves source files
 DEV_HOME_35="$R/t35_home"; mkdir -p "$DEV_HOME_35"
@@ -736,6 +745,7 @@ else
   got="FAIL"
 fi
 report "install after develop unlinks safely without deleting repo source" "PASS" "$got"
+t_done test_install_after_develop
 
 # Test 36: aapp uninstall cleans up broken/dangling symlinks
 DEV_HOME_36="$R/t36_home"; mkdir -p "$DEV_HOME_36"
@@ -760,6 +770,7 @@ else
   got="FAIL"
 fi
 report "uninstall removes broken/dangling symlinks cleanly" "PASS" "$got" "$out_uninst_broken"
+t_done test_uninstall_cleans_dangling_links
 
 echo "== 8. Universal Skills, Claude Bridge, and Settings Decoupling =="
 
@@ -783,6 +794,7 @@ else
   got="FAIL"
 fi
 report "clean codebase: .claude/ added to .gitignore on code branch" "PASS" "$got"
+t_done test_claude_settings_decoupled
 
 # Test 39: Fresh install synchronizes canonical .agents/skills/ and bridges .claude/skills/ via granular relative symlinks
 skills_ok=1
@@ -828,6 +840,7 @@ else
   got="FAIL"
 fi
 report "clean upgrade: drops stale files on skill re-sync" "PASS" "$got"
+t_done test_skills_installed_and_bridged
 
 # Test 42: Drift control: all governance skills declare valid frontmatter, flags, and inline/fork contracts
 drift_ok=1
@@ -857,6 +870,7 @@ else
   got="FAIL"
 fi
 report "drift control: all governance skills declare valid frontmatter, flags, and inline/fork contracts" "PASS" "$got"
+t_done test_skill_frontmatter
 
 # Test 43: aapp init provisions .plans/done/000-issues-archive.md from template
 PROJ_43="$R/t43_proj"; make_dummy_project "$PROJ_43"
@@ -890,6 +904,7 @@ else
   got="FAIL"
 fi
 report "non-destructive init: preserves custom ISSUES.md with advisory notice" "PASS" "$got"
+t_done test_init_issue_ledgers
 
 # Test 45: templates/issues.md conforms to flat single-table schema (zero subheadings)
 template_issues="$KIT/templates/issues.md"
@@ -931,6 +946,7 @@ else
   got="FAIL"
 fi
 report "pickup template: templates/pickup.md pre-seeds Onboarding task" "PASS" "$got"
+t_done test_template_shapes
 
 # Test 49: aapp init outputs First AAPP Loop onboarding next steps
 PROJ="$R/t49_proj"; make_dummy_project "$PROJ"
@@ -942,6 +958,7 @@ else
   got="FAIL"
 fi
 report "init banner: aapp init outputs First AAPP Loop onboarding guidance" "PASS" "$got"
+t_done test_init_banner
 
 # Test 50: aapp init syncs aapp-pause skill into .agents/skills and .claude/skills
 PROJ="$R/t50_proj"; make_dummy_project "$PROJ"
@@ -992,6 +1009,7 @@ else
   got="FAIL"
 fi
 report "skill pruning: aapp init removes retired skills and bridges while preserving registry.tsv" "PASS" "$got"
+t_done test_skill_sync_and_pruning
 
 # Test 53: Canonical Verb Manifest (lib/verbs.tsv) exists and conforms to schema
 manifest="$KIT/lib/verbs.tsv"
@@ -1004,31 +1022,6 @@ else
   got="FAIL"
 fi
 report "canonical manifest: lib/verbs.tsv defines verbs across 5 visual tiers" "PASS" "$got"
-
-# Test 54: aapp draft scaffolds blueprint, stamps monotonic ID, registers in matrix
-PROJ_54="$R/t54_proj"; make_dummy_project "$PROJ_54"
-(cd "$PROJ_54" && aapp init >/dev/null 2>&1)
-(cd "$PROJ_54" && aapp draft test-feature >/dev/null 2>&1)
-if compgen -G "$PROJ_54/.plans/current/P*-test-feature.md" >/dev/null && \
-   grep -q "Plan P-.*: Test Feature" "$PROJ_54"/.plans/current/P*-test-feature.md && \
-   grep -q "test-feature.md" "$PROJ_54/.plans/state_matrix.md"; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "aapp draft: scaffolds blueprint, stamps ID & date, registers in matrix" "PASS" "$got"
-
-# Test 55: aapp draft no-dead-end fallback auto-selects pickup note in non-interactive mode
-PROJ_55="$R/t55_proj"; make_dummy_project "$PROJ_55"
-(cd "$PROJ_55" && aapp init >/dev/null 2>&1)
-echo "1. Automatic Backup System: Implement automated local backup" > "$PROJ_55/.plans/pickup.md"
-(cd "$PROJ_55" && aapp draft </dev/null >/dev/null 2>&1)
-if compgen -G "$PROJ_55/.plans/current/P*-automatic-backup-system*.md" >/dev/null; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "aapp draft: bare non-interactive fallback targets candidate pickup note" "PASS" "$got"
 
 # Test 56: Tiered help generation (lib/cmd_help.sh) matches lib/verbs.tsv
 help_out="$("$KIT/aapp" help 2>&1)"
@@ -1050,7 +1043,8 @@ if [ -n "$help_out" ] && ! echo "$help_out" | grep -q "lib/docs/verbs/" && \
 else
   got="FAIL"
 fi
-report "test_help_ignores_contract_column" "PASS" "$got"
+report "help leaves out the contract column" "PASS" "$got"
+t_done test_manifest_and_help_tiers
 
 # Test 57: aapp hooks events prints lifecycle event catalog
 events_out="$("$KIT/aapp" hooks events 2>&1)"
@@ -1063,23 +1057,7 @@ else
   got="FAIL"
 fi
 report "hooks catalog: aapp hooks events displays Pre/On/Post timing taxonomy" "PASS" "$got"
-
-# Test 58: Dispatcher-to-Manifest Parity: all verbs in lib/verbs.tsv handled in aapp
-manifest="$KIT/lib/verbs.tsv"
-missing_verbs=""
-while IFS="$(printf '\t')" read -r v tier stand desc || [ -n "$v" ]; do
-  [ -z "$v" ] && continue
-  [ "${v#\#}" != "$v" ] && continue
-  if ! grep -qE "([|[:space:]]|^)$v([|)][[:space:]]*|$)" "$KIT/aapp"; then
-    missing_verbs="$missing_verbs $v"
-  fi
-done < "$manifest"
-if [ -z "$missing_verbs" ]; then
-  got="PASS"
-else
-  got="FAIL ($missing_verbs)"
-fi
-report "dispatcher parity: all verbs in lib/verbs.tsv are wired into aapp dispatcher" "PASS" "$got"
+t_done test_hooks_events_catalog
 
 # Test 59: Manifest-to-Cheatsheet Parity: all verbs in lib/verbs.tsv appear in CHEATSHEET.md
 cheatsheet="$KIT/CHEATSHEET.md"
@@ -1097,31 +1075,7 @@ else
   got="FAIL ($missing_cheat)"
 fi
 report "cheatsheet parity: all verbs in lib/verbs.tsv appear in CHEATSHEET.md" "PASS" "$got"
-
-# Test 60: aapp done moves plan to done/ and updates status to Done
-PROJ_60="$R/t60_proj"; make_dummy_project "$PROJ_60"
-(cd "$PROJ_60" && aapp init >/dev/null 2>&1)
-(cd "$PROJ_60" && aapp draft archive-test >/dev/null 2>&1)
-plan_60="$(compgen -G "$PROJ_60/.plans/current/P*-archive-test.md" | head -n 1)"
-bname_60="$(basename "$plan_60")"
-sed -i 's/^### 📂 Target Files/### 📂 Target Files\n* `dummy.txt` - test file/' "$plan_60"
-# Resolve the template's §5 question: freeze refuses it, and done archives only
-# an in-development plan (#89), so every step must genuinely succeed.
-sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$plan_60"
-git -C "$PROJ_60/.plans" commit -qam "prepare $bname_60" >/dev/null 2>&1   # freeze refuses uncommitted plan edits (#107)
-(cd "$PROJ_60" && aapp freeze "$bname_60" >/dev/null 2>&1)
-(cd "$PROJ_60" && aapp start "$bname_60" >/dev/null 2>&1)
-(cd "$PROJ_60" && echo "data" > dummy.txt && echo "- dummy" >> CHANGELOG.md && git add dummy.txt CHANGELOG.md && aapp commit "feat: dummy commit" >/dev/null 2>&1)
-(cd "$PROJ_60" && aapp done "$bname_60" >/dev/null 2>&1)
-done_60="$PROJ_60/.plans/done/$bname_60"
-if [ -f "$done_60" ] && \
-   grep -qE '^[[:space:]]*\*[[:space:]]*\*\*Status:\*\*[[:space:]]*✅[[:space:]]*Done' "$done_60" && \
-   grep -q "Plan implementation completed and archived to done/" "$done_60"; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "aapp done: updates plan header status to Done and records archival in changelog" "PASS" "$got"
+t_done test_cheatsheet_lists_every_verb
 
 # Test 61: aapp install copies examples/, docs/ (recipes, concepts, reference), and COOKBOOK.md to $SHARE_DIR
 PROJ_61="$R/t61_proj"; make_dummy_project "$PROJ_61"
@@ -1147,6 +1101,7 @@ else
   got="FAIL"
 fi
 report "aapp install: preserves examples/, docs/, and COOKBOOK.md in SHARE_DIR" "PASS" "$got"
+t_done test_install_copies_examples_and_docs
 
 # Test 62: aapp init preserves zero-footprint isolation without .sample files
 PROJ_62="$R/t62_proj"; make_dummy_project "$PROJ_62"
@@ -1159,32 +1114,7 @@ else
   got="FAIL"
 fi
 report "drop-in zero-footprint: aapp init leaves .agents/skills/ free of sample files" "PASS" "$got"
-
-# Test 63: aapp init wires .githooks symlinks in .plans and .agents worktrees
-PROJ_63="$R/t63_proj"; make_dummy_project "$PROJ_63"
-(cd "$PROJ_63" && aapp init >/dev/null 2>&1)
-if [ -L "$PROJ_63/.plans/.githooks" ] && \
-   [ "$(readlink "$PROJ_63/.plans/.githooks")" = "../.githooks" ] && \
-   [ -L "$PROJ_63/.agents/.githooks" ] && \
-   [ "$(readlink "$PROJ_63/.agents/.githooks")" = "../.githooks" ] && \
-   grep -qE '^\.githooks' "$PROJ_63/.plans/.gitignore" && \
-   grep -qE '^\.githooks' "$PROJ_63/.agents/.gitignore"; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "worktree hooks: aapp init wires .githooks symlinks and ignores them in .plans/.agents" "PASS" "$got"
-
-# Test 64: aapp test list lists discovered test suites without executing them
-list_out=$("$KIT/aapp" test list 2>&1 || true)
-if echo "$list_out" | grep -q "Available AAPP Test Suites" && \
-   echo "$list_out" | grep -q "hooks_test.sh" && \
-   echo "$list_out" | grep -q "install_test.sh"; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "aapp test: list mode discovers all suites without executing them" "PASS" "$got"
+t_done test_init_installs_no_samples
 
 # Test 65: aapp test quiet [filter] runs targeted suite and aggregates assertions
 filter_out=$("$KIT/aapp" test quiet matrix 2>&1 || true)
@@ -1196,20 +1126,7 @@ else
   got="FAIL"
 fi
 report "aapp test: selective filtering runs targeted suite with aggregated metrics" "PASS" "$got"
-
-# Test 66: in an adopter repository, aapp test lists the installed kit's suites, never the repository's own (#92)
-PROJ_66="$R/t66_proj"; make_dummy_project "$PROJ_66"
-(cd "$PROJ_66" && aapp init >/dev/null 2>&1)
-mkdir -p "$PROJ_66/tests" && printf '#!/usr/bin/env bash\nexit 0\n' > "$PROJ_66/tests/adopter_only_test.sh"
-list_66=$(cd "$PROJ_66" && aapp test list 2>&1 || true)
-if echo "$list_66" | grep -q "hooks_test.sh" && \
-   echo "$list_66" | grep -q "aapp-kit/tests" && \
-   ! echo "$list_66" | grep -q "adopter_only_test.sh"; then
-  got="PASS"
-else
-  got="FAIL"
-fi
-report "aapp test: adopter repository lists the kit's suites, never its own" "PASS" "$got"
+t_done test_test_verb_runs_a_named_suite
 
 echo "== 9. Front-Door Git Repository Assertion (P-33) =="
 
@@ -1228,7 +1145,7 @@ for verb in status plan test freeze ai-status init; do
   fi
 done
 [ "$nonrepo_fail" -eq 0 ] && got="PASS" || got="FAIL"
-report "test_non_repo_failure: operational verbs exit 1 with diagnostic outside a repo" "PASS" "$got" "$(printf '%b' "$nonrepo_details")"
+report "operational verbs exit 1 with diagnostic outside a repo" "PASS" "$got" "$(printf '%b' "$nonrepo_details")"
 
 # Test 68 (test_exempt_verbs_succeed): exempt verbs must still work outside a git repository.
 NONGIT_68="$R/t68_nongit"; mkdir -p "$NONGIT_68"
@@ -1246,7 +1163,8 @@ if [ "$install_rc" -ne 0 ]; then
   exempt_fail=1; exempt_details="$exempt_details\n  'install' exit $install_rc (want 0)"
 fi
 [ "$exempt_fail" -eq 0 ] && got="PASS" || got="FAIL"
-report "test_exempt_verbs_succeed: exempt verbs exit 0 outside a repo" "PASS" "$got" "$(printf '%b' "$exempt_details")"
+report "exempt verbs exit 0 outside a repo" "PASS" "$got" "$(printf '%b' "$exempt_details")"
+t_done test_front_door_repository_check
 
 # Test 69 (test_init_defaults_to_none): fresh aapp init seeds none; an existing value is kept
 PROJ_69="$R/t69_proj"; make_dummy_project "$PROJ_69"
@@ -1263,7 +1181,7 @@ if [ "$seeded_mode" = "none" ] && [ "$preserved_mode" = "notes" ]; then
 else
   got="FAIL"
 fi
-report "test_init_defaults_to_none: fresh aapp init seeds none and keeps existing value" "PASS" "$got" "seeded=$seeded_mode (want none), preserved=$preserved_mode (want notes)"
+report "attribution seeded none, existing value kept" "PASS" "$got" "seeded=$seeded_mode (want none), preserved=$preserved_mode (want notes)"
 
 # Test 69c (P-48): init adds the CHANGELOG union-merge line once, keeps existing
 # .gitattributes lines, and seeds aapp.changelogMode=plan only when absent.
@@ -1282,7 +1200,7 @@ if [ "$union_lines" = "1" ] && [ "$kept_line" = "1" ] && [ "$kept_mode" = "commi
 else
   got="FAIL"
 fi
-report "test_init_changelog_union_and_mode: union line once, lines kept, mode seeded only when absent" "PASS" "$got" "union=$union_lines kept=$kept_line kept_mode=$kept_mode seeded=$seeded_cl_mode"
+report "changelog union line once, lines kept, mode seeded only when absent" "PASS" "$got" "union=$union_lines kept=$kept_line kept_mode=$kept_mode seeded=$seeded_cl_mode"
 
 # Test 69e (P-52): init seeds aapp.issueFixWait=5 and aapp.maxEmergencyHotfixes=2
 # only when absent.
@@ -1293,7 +1211,7 @@ kept_wait=$(git -C "$PROJ_69E" config aapp.issueFixWait)
 seeded_max=$(git -C "$PROJ_69E" config aapp.maxEmergencyHotfixes)
 seeded_wait=$(git -C "$PROJ_69D" config aapp.issueFixWait)
 if [ "$kept_wait" = "0" ] && [ "$seeded_max" = "2" ] && [ "$seeded_wait" = "5" ]; then got="PASS"; else got="FAIL"; fi
-report "test_init_seeds_issue_fix_keys: issueFixWait and maxEmergencyHotfixes seeded only when absent" "PASS" "$got" "kept_wait=$kept_wait seeded_max=$seeded_max seeded_wait=$seeded_wait"
+report "issueFixWait and maxEmergencyHotfixes seeded only when absent" "PASS" "$got" "kept_wait=$kept_wait seeded_max=$seeded_max seeded_wait=$seeded_wait"
 
 # Test 69f (P-51): init seeds aapp.commitMode=atomic only when absent.
 PROJ_69F="$R/t69f_proj"; make_dummy_project "$PROJ_69F"
@@ -1302,7 +1220,7 @@ git -C "$PROJ_69F" config aapp.commitMode microcommits
 kept_cm=$(git -C "$PROJ_69F" config aapp.commitMode)
 seeded_cm=$(git -C "$PROJ_69D" config aapp.commitMode)
 if [ "$kept_cm" = "microcommits" ] && [ "$seeded_cm" = "atomic" ]; then got="PASS"; else got="FAIL"; fi
-report "test_init_seeds_commit_mode: aapp.commitMode=atomic seeded only when absent" "PASS" "$got" "kept=$kept_cm seeded=$seeded_cm"
+report "commitMode atomic seeded only when absent" "PASS" "$got" "kept=$kept_cm seeded=$seeded_cm"
 
 # Test 69g (P-54): init seeds the plan-worktree keys only when absent;
 # aapp.planSession is personal and never seeded.
@@ -1316,7 +1234,8 @@ d_pb=$(git -C "$PROJ_69D" config aapp.planBranch)
 g_ps=$(git -C "$PROJ_69G" config aapp.planSession || true)
 if [ "$g_pw" = "off" ] && [ "$g_pb" = "feature/{num}" ] && [ "$d_pb" = "plan/{id}-{slug}" ] && \
    [ "$g_pp" = ".workspace/{id}" ] && [ -z "$g_ps" ]; then got="PASS"; else got="FAIL"; fi
-report "test_init_seeds_plan_worktree_keys: seeded only when absent, planSession never" "PASS" "$got" "pw=$g_pw pb=$g_pb pp=$g_pp d_pb=$d_pb ps=$g_ps"
+report "plan worktree keys seeded only when absent, planSession never" "PASS" "$got" "pw=$g_pw pb=$g_pb pp=$g_pp d_pb=$d_pb ps=$g_ps"
+t_done test_init_seeds_settings_only_when_absent
 
 # Test 69h (P-54): post-rewrite installed (master + engine + commit engine);
 # an existing shell hook is wired, not overwritten.
@@ -1331,7 +1250,18 @@ if [ -x "$PROJ_69D/.githooks/post-rewrite" ] && grep -q "aapp-post-rewrite" "$PR
 else
   got="FAIL"
 fi
-report "test_init_installs_and_wires_post_rewrite" "PASS" "$got"
+report "post-rewrite installed and wired" "PASS" "$got"
+t_done test_init_installs_and_wires_post_rewrite
+
+# The plan counter `aapp init` seeds counts plans in release bundles (P-38).
+PROJ_SEED="$R/tseed_proj"; make_dummy_project "$PROJ_SEED"
+(cd "$PROJ_SEED" && aapp init >/dev/null 2>&1)
+mkdir -p "$PROJ_SEED/.plans/release/v1.0.0/plans"
+printf '%s\n' '# Plan P-99: Release Test' '* **Plan ID:** P-99' '* **Status:** ✅ Done' > "$PROJ_SEED/.plans/release/v1.0.0/plans/P99-release-test.md"
+git -C "$PROJ_SEED" config --unset aapp.planId
+(cd "$PROJ_SEED" && aapp init >/dev/null 2>&1)
+report "plan counter" 100 "$(git -C "$PROJ_SEED" config aapp.planId)"
+t_done test_init_seeds_plan_counter_past_release_bundles
 
 # Test 70: CLI-First Universal Skills Alignment (TDD Failure & Boundary Assertions)
 # Assert that templates/skills/{aapp-done, aapp-freeze, aapp-start, aapp-status, aapp-digest} follow CLI-first execution
@@ -1347,7 +1277,7 @@ if grep -q "aapp done" "$done_skill" && \
 else
   got="FAIL"
 fi
-report "test_skills_cli_first_done: aapp-done executes 'aapp done' without manual git surgery or sed" "PASS" "$got"
+report "aapp-done executes 'aapp done' without manual git surgery or sed" "PASS" "$got"
 
 # 70.2 test_skills_cli_first_freeze
 freeze_skill="$KIT/templates/skills/aapp-freeze/SKILL.md"
@@ -1358,7 +1288,7 @@ if grep -q "aapp freeze" "$freeze_skill" && \
 else
   got="FAIL"
 fi
-report "test_skills_cli_first_freeze: aapp-freeze executes 'aapp freeze' without manual git surgery or sed" "PASS" "$got"
+report "aapp-freeze executes 'aapp freeze' without manual git surgery or sed" "PASS" "$got"
 
 # 70.3 test_skills_cli_first_start
 start_skill="$KIT/templates/skills/aapp-start/SKILL.md"
@@ -1369,7 +1299,7 @@ if grep -q "aapp start" "$start_skill" && \
 else
   got="FAIL"
 fi
-report "test_skills_cli_first_start: aapp-start executes 'aapp start' without direct buffer writes or git surgery" "PASS" "$got"
+report "aapp-start executes 'aapp start' without direct buffer writes or git surgery" "PASS" "$got"
 
 # 70.4 test_skills_cli_first_status
 status_skill="$KIT/templates/skills/aapp-status/SKILL.md"
@@ -1378,7 +1308,7 @@ if grep -q "aapp status" "$status_skill"; then
 else
   got="FAIL"
 fi
-report "test_skills_cli_first_status: aapp-status delegates to 'aapp status'" "PASS" "$got"
+report "aapp-status delegates to 'aapp status'" "PASS" "$got"
 
 # 70.5 test_skills_cli_first_digest
 digest_skill="$KIT/templates/skills/aapp-digest/SKILL.md"
@@ -1387,13 +1317,10 @@ if grep -q "aapp draft" "$digest_skill"; then
 else
   got="FAIL"
 fi
-report "test_skills_cli_first_digest: aapp-digest delegates scaffolding to 'aapp draft'" "PASS" "$got"
+report "aapp-digest delegates scaffolding to 'aapp draft'" "PASS" "$got"
+t_done test_skills_drive_the_verbs
 
-echo ""
-echo "============================================================"
-echo "  Results: $PASS passed, $FAIL failed"
-echo "============================================================"
-[ $FAIL -eq 0 ] || exit 1
+print_test_summary "$PASS" "$FAIL"
 
 
 
