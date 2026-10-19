@@ -5,8 +5,9 @@
 * **Changelog:** Added: Kit release lifecycle hook and template version synchronizer
 * **Commit Mode:** atomic
 * **Changelog Mode:** plan
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `65959e4` (develop)
+* **Worktree:** .workspace/P59 (plan/P59-kit-release-hook)
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
@@ -148,4 +149,5 @@ The hook consumes the payload from Dual Delivery:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-19:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-07:** Drafted blueprint promoting Issue #58 into a dedicated personalisation plan for `agent-planning-kit`'s own `on-release` hook and template protocol synchronizer.
