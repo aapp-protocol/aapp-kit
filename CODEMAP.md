@@ -85,6 +85,8 @@
   * `_release_rollback` -> Fail-closed transactional rollback trap resetting branch refs (`git update-ref`), deleting partial tags, and cleaning working trees on mid-mutation abort.
 * **Phase A Gates:** Clean primary and kit worktrees, automated test runner (`aapp.testCommand`), `pre-release` hook, native signing (`tag.gpgSign`), changelog existence, 2-tier commit reachability (`merge-base` or `Plan-ID:` trailer, bypassable with `unverified`), and branch parity fast-forward verification.
 * **Phase B Pipeline:** Dual Delivery `on-release` action delegate (`AAPP_RELEASE_VERSION`, `AAPP_RAW_VERSION`), changelog rollup, milestone bundling to `.plans/release/<tag>/` (`plans/`, `000-archive-ledger.md`, `000-issues-archive.md`, `manifest.md`, `manifest.json`), master ledger rollup under `## 🏷️ Shipped Releases`, worktree commit, parity merge, signed/annotated tagging, optional push, and `post-release` notification hook.
+* **Kit Dogfooding Delegate (`scripts/kit-on-release.sh`):** Concrete implementation of `on-release` for the AAPP Kit itself (P-59). Extracts `AAPP_RAW_VERSION` via Dual Delivery (env + STDIN JSON) and atomically synchronizes `AAPP_VERSION` in `aapp` and `<!-- AAPP-PROTOCOL:START v<version> -->` across managed starter templates (`templates/AGENTS.md`, `templates/plan-template.md`, `templates/pickup.md`, `templates/release_checklist.md`, `templates/amendments-template.md`).
+
 
 
 ### 🔄 State Matrix Derivation Engine (`lib/cmd_matrix.sh`)
