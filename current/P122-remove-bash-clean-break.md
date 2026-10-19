@@ -43,9 +43,9 @@
 Plan `P-122` is the tenth and final member of group `P-111` (*Perl Port Of The Kit*). Once `P-115` through `P-121` have ported every core module, hook, and CLI verb into `lib/AAPP/`, `P-122` executes the clean-break cutover:
 1. Converts `./aapp` into a pure `#!/usr/bin/env perl` dispatcher (~80 lines) with zero bash sourcing, preserving the `AAPP_PLUGIN_STEP` re-entrancy guard and `.agents/skills/$CMD` action-plugin fallthrough.
 2. Deletes all **30** legacy `lib/*.sh` files (`git rm lib/*.sh`) and the `templates/aapp-lib.sh` symlink.
-3. Removes obsolete `.githooks/{aapp-lib.sh,plan_states.sh,attribution.sh,commit_engine.sh}` copies during `aapp init` / `aapp upgrade` (`lib/AAPP/Cmd/Init.pm`) and updates user documentation (`README.md`, `MANUAL.md`), while leaving `ARCHITECTURE.md` and `.agents/CODEMAP.md` to the group plan `P-111`'s `## Architecture & Codemap` section applied on group `done`.
+3. Updates user documentation (`README.md`, `MANUAL.md`) to state the Perl 5.26+ runtime requirement, while leaving `ARCHITECTURE.md` and `.agents/CODEMAP.md` to the group plan `P-111`'s `## Architecture & Codemap` section applied on group `done`.
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** `./aapp`, the 30 `lib/*.sh` files, `templates/aapp-lib.sh`, `lib/AAPP/Cmd/Init.pm`, and user-facing docs (`README.md`, `MANUAL.md`). `tests/AAPP/*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
+**Strict Tests-vs-Code Boundary:** This plan touches **only** `./aapp`, the 30 `lib/*.sh` files, `templates/aapp-lib.sh`, and user-facing docs (`README.md`, `MANUAL.md`). `tests/AAPP/*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
 ---
 
@@ -55,16 +55,15 @@ Plan `P-122` is the tenth and final member of group `P-111` (*Perl Port Of The K
 Replaces the transitional hybrid dispatcher in `./aapp` with the final `#!/usr/bin/env perl` entry point (`use v5.26; use strict; use warnings;`):
 - Resolves its own symlink/real path via `Cwd::abs_path(__FILE__)` and `File::Basename::dirname` to locate `<kit-root>/lib` (`use lib ...`) and `$ENV{AAPP_DIR}` / `$AAPP_VERSION`.
 - Dispatches all built-in CLI verbs (`status`, `matrix`, `plan-status`, `help`, `draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `plan`, `issue`, `offline`, `commit`, `note`, `ai`, `init`, `install`, `upgrade`, `uninstall`, `develop`, `push`, `pull`, `sync`, `release`, `companion`, `hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`, `pause`, `resume`, `unpause`, `test`) directly to `AAPP::Cmd::*`.
-- Preserves the action-plugin fallthrough (`aapp` lines 225–245): when an unknown `$verb` matches `^[a-z0-9][a-z0-9_-]*$` and `.agents/skills/$verb` exists in the target repository (and `$ENV{AAPP_PLUGIN_STEP}` is not set), sets `$ENV{AAPP_PLUGIN_STEP} = 1` and dispatches via `AAPP::Hooks::Dispatcher::plugin_run($verb, @ARGV)`.
+- Preserves the action-plugin fallthrough (`aapp` lines 225–245): when an unknown `$verb` matches `^[a-z0-9][a-z0-9_-]*$` and `.agents/skills/$verb` exists in the target repository (and `$ENV{AAPP_PLUGIN_STEP}` is not set), sets `$ENV{AAPP_PLUGIN_STEP} = 1` and dispatches via `AAPP::HookDispatcher::plugin_run($verb, @ARGV)`.
 
 ### 2.2 Deletion of All 30 Legacy `lib/*.sh` Files and `templates/aapp-lib.sh`
-Removes every bash library file from `lib/` and `templates/` via `git rm`:
+Removes every bash library file from `lib/` and `templates/` via `git rm` with zero code naming or migrating the former `.sh` files (any leftover copies in local `.githooks/` checkouts are removed once by hand):
 - Core & shared libraries (9 files): `lib/aapp-lib.sh`, `lib/output.sh`, `lib/plan_states.sh`, `lib/plan_resolver.sh`, `lib/planning_health.sh`, `lib/commit_engine.sh`, `lib/hook_dispatcher.sh`, `lib/attribution.sh`, `lib/group_docs.sh`
 - Adoption & verb modules (21 files): `lib/adoption.sh`, `lib/cmd_ai.sh`, `lib/cmd_commit.sh`, `lib/cmd_companion.sh`, `lib/cmd_develop.sh`, `lib/cmd_help.sh`, `lib/cmd_hook.sh`, `lib/cmd_init.sh`, `lib/cmd_install.sh`, `lib/cmd_issue.sh`, `lib/cmd_matrix.sh`, `lib/cmd_note.sh`, `lib/cmd_offline.sh`, `lib/cmd_pause.sh`, `lib/cmd_plan.sh`, `lib/cmd_release.sh`, `lib/cmd_status.sh`, `lib/cmd_sync.sh`, `lib/cmd_test.sh`, `lib/cmd_uninstall.sh`, `lib/cmd_upgrade.sh`
 - Symlink (1 file): `templates/aapp-lib.sh`
 
-### 2.3 Cleanup of Legacy `.githooks/*.sh` Copies & User Documentation Sync
-- In `lib/AAPP/Cmd/Init.pm`: on `aapp init` / `aapp upgrade`, unlinks obsolete `.githooks/aapp-lib.sh`, `.githooks/plan_states.sh`, `.githooks/attribution.sh`, and `.githooks/commit_engine.sh` if present in an upgraded repository.
+### 2.3 User Documentation Sync (`README.md`, `MANUAL.md`)
 - Updates system requirements in `README.md` and `MANUAL.md` to state that AAPP requires `git` and `perl` (`>= 5.26`, core modules only).
 - Note: `ARCHITECTURE.md` and `.agents/CODEMAP.md` are updated by the group plan `P-111` (`## Architecture & Codemap`) when `aapp done P-111` runs.
 
@@ -80,9 +79,8 @@ Removes every bash library file from `lib/` and `templates/` via `git rm`:
 - [ ] Task 1.1: Convert `./aapp` to a pure `#!/usr/bin/env perl` script dispatching all built-in verbs to `AAPP::Cmd::*` and preserving the `.agents/skills/$CMD` action-plugin fallthrough.
 - [ ] Task 1.2: Delete all 30 `lib/*.sh` files and `templates/aapp-lib.sh` via `git rm`.
 
-### Phase 2: Hook Cleanup & Documentation Sync
-- [ ] Task 2.1: Update `lib/AAPP/Cmd/Init.pm` to unlink obsolete `.githooks/{aapp-lib.sh,plan_states.sh,attribution.sh,commit_engine.sh}` on `init`/`upgrade`, and run `./aapp init` in the self-hosted repository.
-- [ ] Task 2.2: Update `README.md` and `MANUAL.md` where runtime dependencies (`perl >= 5.26`) are documented.
+### Phase 2: Documentation Sync
+- [ ] Task 2.1: Update `README.md` and `MANUAL.md` where runtime dependencies (`perl >= 5.26`) are documented.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run the complete `./aapp test` suite and verify 100% pass rate with zero `lib/*.sh` files present.
@@ -98,7 +96,6 @@ Removes every bash library file from `lib/` and `templates/` via `git rm`:
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `aapp` -> Final pure-Perl CLI entry point (`#!/usr/bin/env perl`) with action-plugin fallthrough and zero bash sourcing.
-- [ ] `lib/AAPP/Cmd/Init.pm` -> Unlink obsolete `.githooks/{aapp-lib.sh,plan_states.sh,attribution.sh,commit_engine.sh}` on `init`/`upgrade`.
 - [ ] `templates/aapp-lib.sh` -> Delete legacy symlink to `lib/aapp-lib.sh`.
 - [ ] `lib/aapp-lib.sh` -> Delete legacy bash core library.
 - [ ] `lib/adoption.sh` -> Delete legacy bash adoption module.
