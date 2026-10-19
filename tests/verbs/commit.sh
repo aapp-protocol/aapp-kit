@@ -6,8 +6,10 @@ R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 confine_test_runtime "$R"
 
-ok()  { printf "  \033[32m✔\033[0m %-52s %s\n" "$1" "PASS"; PASS=$((PASS+1)); }
-bad() { printf "  \033[31m✘\033[0m %-52s %s\n" "$1" "$2"; FAIL=$((FAIL+1)); }
+# Some tests run in subshells: results go to a file, counted at the end.
+RES="$R/results"
+ok()  { printf "  \033[32m✔\033[0m %-52s %s\n" "$1" "PASS"; echo pass >> "$RES"; }
+bad() { printf "  \033[31m✘\033[0m %-52s %s\n" "$1" "$2"; echo fail >> "$RES"; }
 
 init_sandbox_project "$R/p"
 cd "$R/p" || exit 1
@@ -518,4 +520,5 @@ else
 fi
 cd "$R/p" || exit 1
 
+PASS="$(grep -c '^pass$' "$RES")"; FAIL="$(grep -c '^fail$' "$RES")"
 print_test_summary "$PASS" "$FAIL"

@@ -6,8 +6,10 @@ R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 confine_test_runtime "$R"
 
-ok()  { printf "  \033[32m✔\033[0m %-48s %s\n" "$1" "PASS"; PASS=$((PASS+1)); }
-bad() { printf "  \033[31m✘\033[0m %-48s %s\n" "$1" "$2"; FAIL=$((FAIL+1)); }
+# Some tests run in subshells: results go to a file, counted at the end.
+RES="$R/results"
+ok()  { printf "  \033[32m✔\033[0m %-48s %s\n" "$1" "PASS"; echo pass >> "$RES"; }
+bad() { printf "  \033[31m✘\033[0m %-48s %s\n" "$1" "$2"; echo fail >> "$RES"; }
 
 # A project holding one drafted plan; prints the plan's ID. The template ships
 # one unchecked §5 question and example Target Files.
@@ -158,4 +160,5 @@ else
   bad "test_group_freeze_refuses_missing_architecture_section" "r1=$r1 r2=$r2 out1=$out1 out2=$out2"
 fi
 
+PASS="$(grep -c '^pass$' "$RES")"; FAIL="$(grep -c '^fail$' "$RES")"
 print_test_summary "$PASS" "$FAIL"
