@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-126
-* **Changelog:** Changed: Perl Test Runner
+* **Changelog:** Added: Perl 5.26+ test harness (`AAPP::Tests`) with per-test fixture copies, a process-group watchdog, parallel module workers and an end-of-run failure recap, run through `tests/test-run` (P-126)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,64 +40,67 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+Part 1 of 4 of the test migration split from P-114 (kept as the reference until all four parts are drafted). Builds the modular Perl 5.26+ test harness (`tests/AAPP/Tests.pm`, modeled on `Logsniffer::Tests`) and its temporary entry point `tests/test-run`, and proves both by porting one core suite (`output`). The other suites move in P-123 (core), P-124 (lifecycle verbs) and P-125 (remaining verbs, then `aapp test` switches to the harness). Kit runtime code stays untouched. Test modules live under `tests/AAPP/`, so `lib/AAPP/` stays runtime code only (copied into adopters' `.githooks/AAPP/`), while `aapp install` ships `tests/`.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 `AAPP::Tests` (`.plans/pickup/perl-port-rfc.md` §2.6, A4, A6, A7, §5.1.3; P-114 §2.1)
+1. **Zero-boilerplate test modules:** each module (`tests/AAPP/Verb/<Verb>.pm`, `tests/AAPP/Core/<Module>.pm`) is a plain package of `sub test_<name> { my ($self) = @_; ... }` functions.
+2. **60 s watchdog & process-group termination:** each test runs in its own process group (`POSIX::setpgid(0, 0)`) under a `60 s` default watchdog, overridable per test (a test averages ~3.4 s alone, ~3× that in a full parallel run). On timeout (`SIGALRM`) or interrupt (`SIGINT`/`SIGTERM`) the runner kills the whole group (`kill 'TERM', -$pgid`, then `kill 'KILL', -$pgid`), as `_test_stop` in `lib/cmd_test.sh` does, so no `git` or `aapp` child survives.
+3. **Contract-driven list & order:** the runner reads `lib/docs/verbs/<verb>.md` and `lib/docs/core/<module>.md` (`## Tests` lines `` `tests/AAPP/{Verb,Core}/<Module>.pm::test_<name>` -> <description> ``) for execution order and TAP descriptions, and checks them against each module's `test_*` subs both ways.
+4. **Diagnostic assertions & skips:** helpers on `$self` (`run_aapp`, `ok_cmd`, `fail_cmd`, `eq_or_die`, `match_or_die`, `file_exists_or_die`) `die` with `caller` `file:line`, exit code and command output, so a failure prints `not ok N - <message> (Error: <$@>)`. Returning `\"reason"` prints `ok N - <message> # SKIP <reason>`.
+5. **Run-wide sandbox & per-test fixture copies:** one sandboxed kit install (`$HOME/.local/bin/aapp`, `$HOME/.local/share/aapp-kit`) per run in `/tmp`, shared by non-installer modules. Each module builds its initialized Git fixture once; before each `test_*` sub, `$self` copies it into a fresh directory, rewrites the root prefix in the 6 worktree pointer files (`.git/worktrees/{-plans,-agents,-githooks}/gitdir` and `.{plans,agents,githooks}/.git`) in Perl, and `chdir`s into it. Every test can run alone.
+6. **`tests/test-run`:** an executable, extensionless Perl entry point loading `AAPP::Tests`. Selection by area/module, `verb [<name>]`, numeric index, or test name / description substring, with `strict`, `quiet`, `bail`, `list` and `jobs <n>` (one worker per module in its own process group). No forced baseline module on filtered runs. Temporary name: P-125 routes `aapp test` to the harness and replaces it.
+7. **End-of-run failure recap:** every `not ok` line (module, test, message, error) is repeated after the summary banner. `.agents/hooks/test-gate.sh` and `examples/hooks/test-gate.sh.sample` print from the summary banner to the end instead of `tail -n 20`.
+8. **Bridge until P-125 (configuration, not kit code):** `aapp test` keeps running the bash suites. The gate's `TEST_CMD` in `.agents/hooks/test-gate.sh` runs both: `./aapp test strict quiet && tests/test-run strict quiet`. Because `.agents/skills/aapp-hooks/registry.tsv` is self-protected, the developer re-registers the gate's SHA-256 with `./aapp hook-hash .agents/hooks/test-gate.sh` before `aapp done`. `tests/verb_contracts_test.sh` skips contract lines naming a `tests/AAPP/*.pm` file; `tests/test-run` checks those both ways.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Harness & Runner
+- [ ] Task 1.1: Implement `tests/AAPP/Tests.pm` per §2.1.1–5 and 7.
+- [ ] Task 1.2: Add `tests/test-run` per §2.1.6.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Proof Suite & Bridge
+- [ ] Task 2.1: Port `tests/output_test.sh` to `tests/AAPP/Core/Output.pm`, point `lib/docs/core/output.md` at it, delete the `.sh` suite.
+- [ ] Task 2.2: `tests/verb_contracts_test.sh` skips contract lines naming `tests/AAPP/*.pm`.
+- [ ] Task 2.3: Set the gate's `TEST_CMD` and summary-to-end print in `.agents/hooks/test-gate.sh`, and the print in `examples/hooks/test-gate.sh.sample`; ask the user to re-register the gate with `aapp hook-hash`.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Verification
+- [ ] Task 3.1: Verify a single test, a single module and a full parallel run of `tests/test-run`, a failing test's recap, a watchdog timeout, and `./aapp test strict quiet` still green.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `tests/AAPP/Tests.pm` -> Harness: sandbox, fixture copies, watchdog, assertion helpers, parallel runner, recap.
+- [ ] `NEW FILE` -> `tests/test-run` -> Temporary executable entry point loading `AAPP::Tests`.
+- [ ] `NEW FILE` -> `tests/AAPP/Core/Output.pm` -> Proof module ported from `tests/output_test.sh`.
+- [ ] `DELETE` -> `tests/output_test.sh` -> Replaced by `tests/AAPP/Core/Output.pm`.
+- [ ] `lib/docs/core/output.md` -> Test identifiers point at `tests/AAPP/Core/Output.pm`.
+- [ ] `tests/verb_contracts_test.sh` -> Skip contract lines naming `tests/AAPP/*.pm`.
+- [ ] `.agents/hooks/test-gate.sh` -> `TEST_CMD` runs both suites; print from the summary line to the end.
+- [ ] `examples/hooks/test-gate.sh.sample` -> Print from the summary line to the end.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/cmd_test.sh` -> `aapp test` switches to the harness in P-125 only.
+- [ ] `lib/aapp-lib.sh` -> Kit runtime stays untouched.
+- [ ] `templates/*` -> Hook templates stay untouched.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-19:** Plan initialized from `pickup.md`.
-* **2026-10-19:** Refined blast radius and locked module boundaries.
+* **2026-10-19:** Drafted as part 1 of 4 split from P-114 (harness, `tests/test-run`, proof suite, gate bridge).
