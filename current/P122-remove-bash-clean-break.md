@@ -78,6 +78,7 @@ Removes every bash library file from `lib/` and `templates/` via `git rm` with z
 ### Phase 1: Pure-Perl `./aapp` & Legacy Bash Removal
 - [ ] Task 1.1: Convert `./aapp` to a pure `#!/usr/bin/env perl` script dispatching all built-in verbs to `AAPP::Cmd::*` and preserving the `.agents/skills/$CMD` action-plugin fallthrough.
 - [ ] Task 1.2: Delete all 30 `lib/*.sh` files and `templates/aapp-lib.sh` via `git rm`.
+- [ ] Task 1.3: Rename the Perl logger's key `aapp.perlLogFile` to `aapp.logFile` (`LOG_KEY` in `lib/AAPP/Constants.pm`, P-127 §5): the kit logs per event, with the event logger's meaning.
 
 ### Phase 2: Documentation Sync
 - [ ] Task 2.1: Update `README.md` and `MANUAL.md` where runtime dependencies (`perl >= 5.26`) are documented.
@@ -97,6 +98,7 @@ Removes every bash library file from `lib/` and `templates/` via `git rm` with z
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `aapp` -> Final pure-Perl CLI entry point (`#!/usr/bin/env perl`) with action-plugin fallthrough and zero bash sourcing.
 - [ ] `templates/aapp-lib.sh` -> Delete legacy symlink to `lib/aapp-lib.sh`.
+- [ ] `lib/AAPP/Constants.pm` -> `LOG_KEY` becomes `aapp.logFile`.
 - [ ] `lib/aapp-lib.sh` -> Delete legacy bash core library.
 - [ ] `lib/adoption.sh` -> Delete legacy bash adoption module.
 - [ ] `lib/attribution.sh` -> Delete legacy bash attribution module.
