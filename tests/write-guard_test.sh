@@ -6,9 +6,8 @@ GUARD="${AAPP_GUARD:-$KIT/templates/blast-radius-guard.sh}"
 R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 
-green() { printf "  \033[32m✔\033[0m %-48s %s\n" "$1" "$2"; }
-red()   { printf "  \033[31m✘\033[0m %-48s want %s got %s\n" "$1" "$2" "$3"; }
-assert_rc() { [ $? -eq 0 ] && green "$1" "ALLOW" && PASS=$((PASS+1)) || { red "$1" "ALLOW" "FAIL"; FAIL=$((FAIL+1)); }; }
+# assert_rc <label>: the last command exited 0.
+assert_rc() { [ $? -eq 0 ] || t_fail "$1: want ALLOW"; }
 
 setup() {
   rm -rf "$R"/repo; mkdir -p "$R"/repo; cd "$R"/repo
@@ -45,25 +44,15 @@ call_guard_json() {
   return $?
 }
 
+# check_decision <label> <ALLOW|DENY> <path>: the guard's decision for <path>,
+# by command line and by a Claude Code JSON payload with the absolute path.
 check_decision() {
   local name="$1" expect="$2" path="$3"
-  local rc_cli rc_json
-  call_guard_cli "$path"
-  rc_cli=$?
-  local got_cli=DENY; [ $rc_cli -eq 0 ] && got_cli=ALLOW
-  
-  # Also test with Claude Code JSON payload and absolute path
-  local abs_path="$path"
+  local got_cli=DENY got_json=DENY abs_path="$path"
+  call_guard_cli "$path" && got_cli=ALLOW
   [[ "$path" != /* ]] && abs_path="$(pwd)/$path"
-  call_guard_json "Edit" "$abs_path"
-  rc_json=$?
-  local got_json=DENY; [ $rc_json -eq 0 ] && got_json=ALLOW
-
-  if [ "$got_cli" = "$expect" ] && [ "$got_json" = "$expect" ]; then
-    green "$name (CLI & JSON payload)" "$got_cli"; PASS=$((PASS+1))
-  else
-    red "$name" "$expect" "cli=$got_cli json=$got_json"; FAIL=$((FAIL+1))
-  fi
+  call_guard_json "Edit" "$abs_path" && got_json=ALLOW
+  [ "$got_cli" = "$expect" ] && [ "$got_json" = "$expect" ] || t_fail "$name: want $expect got cli=$got_cli json=$got_json"
 }
 
 echo "== enforcement =="
@@ -90,6 +79,7 @@ check_decision "invariant anchor COOKBOOK.md" ALLOW "COOKBOOK.md"
 check_decision "shared documentation docs/concepts" ALLOW "docs/concepts/01-test.md"
 check_decision "shared documentation docs/recipes" ALLOW "docs/recipes/workflow.md"
 check_decision "second stray file" DENY "src/other.py"
+t_done test_targets_and_shared_docs_decide
 
 echo "== self-protection: the agent cannot disable the guard =="
 check_decision "settings that wire up the hook" DENY ".claude/settings.json"
@@ -107,6 +97,7 @@ check_decision "raw git hooks dir" DENY ".git/hooks/pre-commit"
 check_decision "another agent's rule file" DENY ".cursor/rules/aapp.mdc"
 check_decision "plans still writable" ALLOW ".plans/state_matrix.md"
 check_decision "agent rules still writable" ALLOW ".agents/PROJECT.MD"
+t_done test_self_protection
 
 echo "== concurrent plans do not cross-block via active buffer =="
 setup
@@ -137,6 +128,7 @@ check_decision "plan A active in buffer: Plan A exclusion enforced" DENY "src/b.
 
 rm -f .git/aapp_active_plan
 check_decision "multiple in-development plans without buffer denied" DENY "src/b.py"
+t_done test_active_buffer_picks_the_plan
 
 echo "== BLOCKED plan grants nothing =="
 setup
@@ -149,6 +141,7 @@ plan blocked.md <<'EOF'
 ## end
 EOF
 check_decision "own target refused while BLOCKED" DENY "src/blocked_target.py"
+t_done test_blocked_plan_grants_nothing
 
 echo "== adopter statuses: the guard reads them as the verbs do (#85) =="
 setup
@@ -161,7 +154,7 @@ plan halted.md <<'EOF'
 ### 🛑 Out of Bounds (Do Not Touch)
 ## end
 EOF
-check_decision "test_guard_refuses_adopter_blocked_status" DENY "src/halted_target.py"
+check_decision "adopter blocked status" DENY "src/halted_target.py"
 rm -f .plans/current/halted.md
 plan building.md <<'EOF'
 * **Plan ID:** P-40
@@ -171,8 +164,9 @@ plan building.md <<'EOF'
 ### 🛑 Out of Bounds (Do Not Touch)
 ## end
 EOF
-check_decision "test_guard_adopts_adopter_in_development_plan" ALLOW "src/building_target.py"
-check_decision "test_guard_confines_adopter_in_development_plan" DENY "src/elsewhere.py"
+check_decision "adopter in-development plan's target" ALLOW "src/building_target.py"
+check_decision "adopter in-development plan confines" DENY "src/elsewhere.py"
+t_done test_guard_follows_adopter_statuses
 
 echo "== fail-open (a guard must never brick the agent) =="
 setup
@@ -185,8 +179,8 @@ echo "{}" | "$GUARD" >/dev/null 2>&1; assert_rc "empty object"
 echo '{"tool_name":"Read","tool_input":{"file_path":"a.py"}}' | "$GUARD" >/dev/null 2>&1; assert_rc "non-file tool"
 printf "" | "$GUARD" >/dev/null 2>&1; assert_rc "empty stdin"
 
-SKIP_BLAST_RADIUS=1 call_guard_cli "src/forbidden.py"
-[ $? -eq 0 ] && green "SKIP_BLAST_RADIUS=1 escape hatch" "ALLOW" && PASS=$((PASS+1)) || { red "SKIP_BLAST_RADIUS=1 escape hatch" "ALLOW" "FAIL"; FAIL=$((FAIL+1)); }
+SKIP_BLAST_RADIUS=1 call_guard_cli "src/forbidden.py"; assert_rc "SKIP_BLAST_RADIUS=1 escape hatch"
+t_done test_fails_open_on_bad_input
 
 echo "== decision payload is valid JSON Claude Code can read =="
 setup
@@ -214,12 +208,10 @@ try:
 except Exception as e:
     print('INVALID_JSON')
 " "$PAYLOAD" 2>/dev/null || echo "INVALID")
-if [ "$VALID_JSON" = "OK" ] && grep -q "Blast Radius Guard Violation" "$ERR_LOG"; then
-  green "deny payload schema includes hookSpecificOutput" "OK"; PASS=$((PASS+1))
-else
-  red "deny payload schema includes hookSpecificOutput" "OK" "$VALID_JSON"; FAIL=$((FAIL+1))
-fi
+t_expect "payload schema" OK "$VALID_JSON"
+grep -q "Blast Radius Guard Violation" "$ERR_LOG" || t_fail "stderr names no violation"
 rm -f "$ERR_LOG"
+t_done test_deny_payload_schema
 
 echo "== POSIX fallback JSON output without python3 =="
 setup
@@ -240,14 +232,11 @@ done
 POSIX_OUTPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/repo/src/forbidden.py"}}\n' "$R" | PATH="$NO_PY_DIR/bin" "$GUARD" 2>&1 || true)
 rm -rf "$NO_PY_DIR"
 
-if echo "$POSIX_OUTPUT" | grep -q '"decision"[[:space:]]*:[[:space:]]*"deny"' && \
-   echo "$POSIX_OUTPUT" | grep -q '"hookEventName"[[:space:]]*:[[:space:]]*"PreToolUse"' && \
-   echo "$POSIX_OUTPUT" | grep -q '"permissionDecision"[[:space:]]*:[[:space:]]*"deny"' && \
-   echo "$POSIX_OUTPUT" | grep -q '"permissionDecisionReason"[[:space:]]*:'; then
-  green "deny payload valid JSON via POSIX fallback" "OK"; PASS=$((PASS+1))
-else
-  red "deny payload valid JSON via POSIX fallback" "OK" "$POSIX_OUTPUT"; FAIL=$((FAIL+1))
-fi
+echo "$POSIX_OUTPUT" | grep -q '"decision"[[:space:]]*:[[:space:]]*"deny"' && \
+  echo "$POSIX_OUTPUT" | grep -q '"hookEventName"[[:space:]]*:[[:space:]]*"PreToolUse"' && \
+  echo "$POSIX_OUTPUT" | grep -q '"permissionDecision"[[:space:]]*:[[:space:]]*"deny"' && \
+  echo "$POSIX_OUTPUT" | grep -q '"permissionDecisionReason"[[:space:]]*:' || t_fail "payload: $POSIX_OUTPUT"
+t_done test_deny_payload_without_python
 
 echo "== large JSON payload (>300KB) does not fail-open via ARG_MAX =="
 setup
@@ -260,11 +249,8 @@ EOF
 LARGE_PAYLOAD=$(python3 -c "import json; print(json.dumps({'tool_name': 'Write', 'tool_input': {'file_path': '$R/repo/src/forbidden.py', 'content': 'x' * 350000}}))")
 rc_large=0
 echo "$LARGE_PAYLOAD" | "$GUARD" >/dev/null 2>&1 || rc_large=$?
-if [ $rc_large -eq 2 ]; then
-  green "large payload (>300KB) blocked with exit code 2" "DENY"; PASS=$((PASS+1))
-else
-  red "large payload (>300KB) blocked with exit code 2" "DENY" "rc=$rc_large"; FAIL=$((FAIL+1))
-fi
+t_expect "large payload rc" 2 "$rc_large"
+t_done test_large_payload_denied
 
 echo "== external path authorization & precedence =="
 setup
@@ -305,21 +291,9 @@ check_decision "section 2b local bin denied despite HOME in allowlist" DENY "$HO
 check_decision "canonicalization closes traversal into repo" DENY "/tmp/..$R/repo/src/forbidden.py"
 
 # 7. Matcher coverage: MultiEdit tool support
-call_guard_json "MultiEdit" "$R/repo/src/forbidden.py"
-rc_multiedit=$?
-if [ $rc_multiedit -eq 2 ]; then
-  green "MultiEdit tool intercepted and enforced" "DENY"; PASS=$((PASS+1))
-else
-  red "MultiEdit tool intercepted and enforced" "DENY" "rc=$rc_multiedit"; FAIL=$((FAIL+1))
-fi
-
-call_guard_json "MultiEdit" "$R/repo/src/a.py"
-rc_multiedit_allow=$?
-if [ $rc_multiedit_allow -eq 0 ]; then
-  green "MultiEdit tool allowed for target file" "ALLOW"; PASS=$((PASS+1))
-else
-  red "MultiEdit tool allowed for target file" "ALLOW" "rc=$rc_multiedit_allow"; FAIL=$((FAIL+1))
-fi
+call_guard_json "MultiEdit" "$R/repo/src/forbidden.py"; t_expect "MultiEdit out of bounds rc" 2 "$?"
+call_guard_json "MultiEdit" "$R/repo/src/a.py"; t_expect "MultiEdit target rc" 0 "$?"
+t_done test_external_paths_and_precedence
 
 echo "== glob path traversal precision & bracket safety =="
 setup
@@ -345,6 +319,7 @@ check_decision "bracket class range rejects non-digit" DENY "migrations/test.sql
 check_decision "directory prefix matches subfiles" ALLOW "docs/guide.md"
 check_decision "directory prefix matches nested subfiles" ALLOW "docs/api/v1/spec.md"
 check_decision "single segment oob wildcard blocks match" DENY "src/forbidden_test.py"
+t_done test_glob_targets
 
 echo "== parser boundaries: blockquotes, foreign subsections, Required Test Files (#82, P-37) =="
 setup
@@ -361,10 +336,11 @@ plan p.md <<'EOF'
 - [ ] `src/secret.py` -> excluded
 ## end
 EOF
-check_decision "test_blockquote_path_denied" DENY "src/quoted.py"
-check_decision "test_foreign_subsection_path_denied" DENY "src/notes.py"
-check_decision "test_required_test_files_path_allowed" ALLOW "tests/boundary_test.sh"
+check_decision "blockquote path" DENY "src/quoted.py"
+check_decision "foreign subsection path" DENY "src/notes.py"
+check_decision "Required Test Files path" ALLOW "tests/boundary_test.sh"
 check_decision "declared target still allowed beside them" ALLOW "src/a.py"
+t_done test_parser_boundaries
 
 echo "== plan lifecycle enforcement (🔷 Frozen grants zero rights, ⚡ In Development enforces targets) =="
 setup
@@ -409,6 +385,7 @@ plan dev.md <<'EOF'
 EOF
 check_decision "legacy 🟠 grants no rights (not in development)" DENY "src/legacy_target.py"
 rm -f .plans/current/dev.md
+t_done test_only_in_development_plans_grant
 
 echo "== active plan buffer switchboard (aapp active, active swap, active clear) =="
 setup
@@ -445,6 +422,7 @@ check_decision "active swap returns to P-20: p2 target denied" DENY "src/p2_targ
 
 "$AAPP_CLI" active clear >/dev/null 2>&1
 check_decision "active clear reverts to auto-discovery (multiple dev plans denied)" DENY "src/p1_target.py"
+t_done test_active_verb_switches_plan
 
 echo "== atomic workflow accelerator (aapp freeze-start) =="
 setup
@@ -462,6 +440,7 @@ EOF
 "$AAPP_CLI" freeze-start P-30 >/dev/null 2>&1
 check_decision "freeze-start activates plan: target allowed immediately" ALLOW "src/fast_feature.py"
 check_decision "freeze-start activates plan: undeclared file denied" DENY "src/other.py"
+t_done test_freeze_start_grants_at_once
 
 echo "== linked worktree resolution & fail-closed quarantine =="
 setup
@@ -489,6 +468,7 @@ check_decision "unbound checkout refuses a plan held elsewhere (P-52)" DENY "src
 check_decision "unbound checkout does not adopt a held plan (P-52)" ALLOW "src/free_main.py"
 rm -rf "$R/wt-agent2"
 git worktree prune >/dev/null 2>&1
+t_done test_linked_worktree_and_held_plans
 
 echo "== .workspace worktree: buffer read for subdirectory targets (#114) =="
 setup
@@ -530,6 +510,7 @@ cd "$R/repo"
 check_decision "primary: own subdirectory target allowed" ALLOW "src/deep/ws_two.py"
 check_decision "primary: other plan's target denied" DENY "src/deep/ws_one.py"
 git worktree remove --force .workspace/P41 >/dev/null 2>&1; git worktree prune >/dev/null 2>&1
+t_done test_workspace_worktree_reads_its_buffer
 
 echo "== .plans as a linked worktree (#84) =="
 setup
@@ -551,6 +532,7 @@ check_decision "inside .plans worktree: ISSUES write allowed (#84)" ALLOW "ISSUE
 cd "$R/repo"
 check_decision "primary checkout: non-target code still denied (#84)" DENY "src/other.py"
 cd "$R/repo"; git worktree remove --force .plans >/dev/null 2>&1; git worktree prune >/dev/null 2>&1
+t_done test_plans_as_linked_worktree
 
 echo "== project circuit breaker (aapp pause & resume) =="
 setup
@@ -583,6 +565,7 @@ check_decision "while paused: external scratchpad allowed" ALLOW "/tmp/scratch.t
 # Resume
 "$AAPP_CLI" resume >/dev/null 2>&1
 check_decision "after resume: declared target allowed again" ALLOW "src/paused_target.py"
+t_done test_pause_blocks_code_writes
 
 print_test_summary "$PASS" "$FAIL"
 
