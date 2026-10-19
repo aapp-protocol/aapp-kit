@@ -54,33 +54,25 @@ In bash, `aapp status` re-parses `state_matrix.md`, `ISSUES.md`, `issues_road_ma
 Ports `lib/adoption.sh` into `lib/AAPP/Adoption.pm`:
 - Implements adoption detection and drift warnings (`detect_existing_project`, `detect_legacy_artifacts`, `adoption_status_summary`, `adoption_drift_warnings`) called by `aapp status`, plus the seed/sync helpers (`adoption_seed_changelog`, `adoption_seed_codemap`, `adoption_sync_version`) called by `aapp init` (`P-121`).
 
-### 2.2 `AAPP::Cmd::Status` (`lib/AAPP/Cmd/Status.pm`) — `aapp status [short | json]` (`lib/cmd_status.sh`, 937 lines; `lib/docs/verbs/status.md`)
+### 2.2 `AAPP::Cmd::Status` (`lib/AAPP/Cmd/Status.pm`) — `aapp status` (`lib/cmd_status.sh`, 937 lines)
 Ports `cmd_status` from `lib/cmd_status.sh`:
-- Syntax: `aapp status [short | json]` (bare positional tokens `short` and `json`, never `--short` or `--json`):
-  - **Default full 4-pillar dashboard**:
-    1. **Shipped**: latest release and `[Unreleased]` entries from `CHANGELOG.md`, plus recent commits.
-    2. **Issues**: `## 🧱 Plan Blockers` and `## 📋 Queued` (`### 🔺 Urgent`, `### Normal`, `### Low`) from `.plans/issues_road_map.md`, total active counts from `.plans/ISSUES.md`, and tracker/offline status (`AAPP::Issue`, `AAPP::Cmd::Offline`).
-    3. **Plans**: active/greenlight/incubator/blocked plans from `.plans/state_matrix.md`, active plan pointer `$(git rev-parse --git-path aapp_active_plan)`, pause state (`aapp.paused`), worktree drift (`.workspace/*`), planning-health warnings (`AAPP::Health`), adoption warnings (`AAPP::Adoption`), and companion notices.
-    4. **Pickup**: unchecked `- [ ]` ideas in `.plans/pickup.md` and companion files in `.plans/pickup/`.
-  - **`aapp status short`**: compact summary view.
-  - **`aapp status json`**: machine-readable JSON output encoded via `AAPP::JSON::json_obj(...)`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help status full` and `lib/docs/verbs/status.md`, verified under unchanged `tests/AAPP/Verb/Status.pm`.
+- Scans the 4 workspace pillars (Shipped, Issues, Plans, Pickup) from `AAPP::State`, `AAPP::Health`, `AAPP::Adoption`, `AAPP::Issue`, and `AAPP::Cmd::Offline`, and renders terminal (`AAPP::Output`) and `json` (`AAPP::JSON`) output.
 
-### 2.3 `AAPP::Cmd::Matrix` (`lib/AAPP/Cmd/Matrix.pm`) — `aapp matrix [check]` (`lib/cmd_matrix.sh`, 332 lines; `lib/docs/verbs/matrix.md`)
+### 2.3 `AAPP::Cmd::Matrix` (`lib/AAPP/Cmd/Matrix.pm`) — `aapp matrix` (`lib/cmd_matrix.sh`, 332 lines)
 Ports `cmd_matrix` from `lib/cmd_matrix.sh`:
-- Syntax: `aapp matrix [check]`:
-  - `aapp matrix`: rebuilds `.plans/state_matrix.md` (Greenlight Zone, Incubator, and Group tables) from `.plans/current/P*.md` headers using `AAPP::State` while preserving human row ordering.
-  - `aapp matrix check`: read-only drift check between `.plans/current/P*.md` and `.plans/state_matrix.md`, exiting non-zero on discrepancy.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help matrix full` and `lib/docs/verbs/matrix.md`, verified under `tests/AAPP/Core/Matrix.pm`.
+- Rebuilds `.plans/state_matrix.md` from `.plans/current/P*.md` headers via `AAPP::State` while preserving human row ordering, and verifies matrix sync on `check`.
 
-### 2.4 `AAPP::Cmd::PlanStatus` (`lib/AAPP/Cmd/PlanStatus.pm`) — `aapp plan-status [id]` (`cmd_plan_status` in `lib/cmd_plan.sh`; `lib/docs/verbs/plan-status.md`)
+### 2.4 `AAPP::Cmd::PlanStatus` (`lib/AAPP/Cmd/PlanStatus.pm`) — `aapp plan-status` (`cmd_plan_status` in `lib/cmd_plan.sh`)
 Ports `cmd_plan_status` from `lib/cmd_plan.sh`:
-- Syntax: `aapp plan-status [id]`:
-  - Inspects `<id>` (or the active plan via `$(git rev-parse --git-path aapp_active_plan)` when omitted).
-  - Reports header metadata (`Plan ID`, `Status`, `Commit Mode`, `Changelog Mode`, `Base`, `Group`, `Commits`, `Blocked By`, `Emergency Hotfixes`, `Target Issue / Milestone`), task checklist progress (`checked / total` in `## 3.`), declared `### 📂 Target Files` (`## 4.`), TDD phase, open questions count (`## 5.`), and worktree/branch state.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help plan-status full` and `lib/docs/verbs/plan-status.md`.
+- Inspects the specified plan or active plan (`$(git rev-parse --git-path aapp_active_plan)`) over `AAPP::State`.
 
-### 2.5 `AAPP::Cmd::Help` (`lib/AAPP/Cmd/Help.pm`) — `aapp help [<verb> [full]]` (`lib/cmd_help.sh`, 176 lines; `lib/docs/verbs/help.md`)
-Ports `lib/cmd_help.sh`:
-- Syntax: `aapp help [<verb> [full]]`, `--help`, `-h`, `--version`, `-v`:
-  - Parses `lib/verbs.tsv` for top-level command overview and `lib/docs/verbs/<verb>.md` (`<!-- FULL -->` marker split: concise summary by default, full reference when bare `full` token is passed).
+### 2.5 `AAPP::Cmd::Help` (`lib/AAPP/Cmd/Help.pm`) — `aapp help` (`lib/cmd_help.sh`, 176 lines)
+Ports `cmd_help` from `lib/cmd_help.sh`:
+- Authoritative syntax, flags, failure modes, and effects: `aapp help help full` and `lib/docs/verbs/help.md`.
+- Renders top-level and per-verb help from `lib/verbs.tsv` and `lib/docs/verbs/<verb>.md` (`<!-- FULL -->` split), plus version output.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Transitional Coexistence (`P-118` → `P-122`):** While `status`, `matrix`, `plan-status`, and `help` dispatch directly to Perl from `aapp`, `lib/cmd_plan.sh` (ported in `P-119`) and `lib/cmd_init.sh` (ported in `P-121`) still call `cmd_matrix` (`lib/cmd_matrix.sh`) and `adoption_*` (`lib/adoption.sh`) from bash. During `P-118`–`P-121`, `lib/cmd_matrix.sh` and `lib/adoption.sh` delegate to `AAPP::Cmd::Matrix` and `AAPP::Adoption` (or remain intact alongside them) until `P-122` deletes all `lib/*.sh` files.
