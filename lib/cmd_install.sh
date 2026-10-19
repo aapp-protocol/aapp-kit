@@ -57,8 +57,8 @@ is_safe_to_consume_kit_dir() {
         base="$(basename "$item")"
         case "$base" in
             .|..) continue ;;
-            aapp|lib|templates|tests|examples|scripts) continue ;;
-            README*|MANUAL*|CHEATSHEET*|CHANGELOG*|LICENSE*|COPYING*|CODEMAP*|ARCHITECTURE*) continue ;;
+            aapp|lib|templates|tests|examples|scripts|docs) continue ;;
+            README*|MANUAL*|CHEATSHEET*|COOKBOOK*|CHANGELOG*|LICENSE*|COPYING*|CODEMAP*|ARCHITECTURE*) continue ;;
             .git*|.agents|.plans|.githooks|.claude|.cursor|.gemini|.github|.workspace) continue ;;
             *) return 1 ;;
         esac
@@ -89,11 +89,13 @@ BIN_CREATED=0
 mkdir -p "$SHARE_DIR" "$BIN_DIR"
 
 echo "📦 Copying libraries, templates, and test suites to $SHARE_DIR..."
-rm -rf "${SHARE_DIR:?}/lib" "${SHARE_DIR:?}/templates" "${SHARE_DIR:?}/tests" "${SHARE_DIR:?}/examples"
+rm -rf "${SHARE_DIR:?}/lib" "${SHARE_DIR:?}/templates" "${SHARE_DIR:?}/tests" "${SHARE_DIR:?}/examples" "${SHARE_DIR:?}/docs"
 [ -d "$AAPP_SCRIPT_DIR/lib" ] && cp -r "$AAPP_SCRIPT_DIR/lib" "$SHARE_DIR/"
 cp -r "$AAPP_SCRIPT_DIR/templates" "$SHARE_DIR/"
 [ -d "$AAPP_SCRIPT_DIR/tests" ] && cp -r "$AAPP_SCRIPT_DIR/tests" "$SHARE_DIR/"
 [ -d "$AAPP_SCRIPT_DIR/examples" ] && cp -r "$AAPP_SCRIPT_DIR/examples" "$SHARE_DIR/"
+[ -d "$AAPP_SCRIPT_DIR/docs" ] && cp -r "$AAPP_SCRIPT_DIR/docs" "$SHARE_DIR/"
+[ -f "$AAPP_SCRIPT_DIR/COOKBOOK.md" ] && cp "$AAPP_SCRIPT_DIR/COOKBOOK.md" "$SHARE_DIR/"
 chmod +x "$SHARE_DIR"/templates/* "$SHARE_DIR"/lib/*.sh 2>/dev/null || true
 
 echo "🔧 Installing binary into $BIN_DIR..."

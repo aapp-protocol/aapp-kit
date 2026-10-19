@@ -1,6 +1,6 @@
 # AAPP Cheat Sheet
 
-One page. For the full story see [README.md](README.md) and [MANUAL.md](MANUAL.md).
+One page. For the full story see [README.md](README.md), [MANUAL.md](MANUAL.md), and [COOKBOOK.md](COOKBOOK.md).
 
 AAPP keeps **planning, agent rules, and git hooks out of your source tree** — in separate
 git worktrees — and stops an AI agent from editing files your plan never declared.

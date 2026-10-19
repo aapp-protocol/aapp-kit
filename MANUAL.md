@@ -1086,41 +1086,14 @@ system("#{repo_root}/.githooks/aapp-pre-commit") || exit(1)
 
 ---
 
-### Hook Manager Integration Recipes
+### Hook Manager Integration
 
-#### Husky (`.husky/pre-commit`)
-```sh
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+AAPP runs seamlessly alongside standard third-party Git hook managers. Instead of replacing them, chain AAPP's authoritative pre-commit engine (`.githooks/aapp-pre-commit`) into your existing hook pipeline.
 
-# Run AAPP Blast Radius Engine
-"$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit" || exit 1
-
-# Run project linting
-npm run lint-staged
-```
-
-#### Lefthook (`lefthook.yml`)
-```yaml
-pre-commit:
-  commands:
-    aapp-blast-radius:
-      run: "$(git rev-parse --show-toplevel)/.githooks/aapp-pre-commit"
-    lint:
-      run: npm run lint
-```
-
-#### Pre-Commit Framework (`.pre-commit-config.yaml`)
-```yaml
-repos:
-  - repo: local
-    hooks:
-      - id: aapp-blast-radius
-        name: AAPP Blast Radius Engine
-        entry: .githooks/aapp-pre-commit
-        language: script
-        pass_filenames: false
-```
+For complete step-by-step integration guides and copy-paste configurations, see:
+- 🍳 [Pairing AAPP with Husky](docs/recipes/integrations/husky-git-hooks.md)
+- 🍳 [Pairing AAPP with Lefthook](docs/recipes/integrations/lefthook-git-hooks.md)
+- 🍳 [CI Blast Radius Gates with GitHub Actions](docs/recipes/integrations/github-actions-ci.md)
 
 ---
 
@@ -2024,25 +1997,12 @@ This removes `aapp` from `$HOME/.local/bin/` and deletes `${XDG_DATA_HOME:-$HOME
 ---
 
 ### Q: What if an agent gets trapped in a refusal loop?
-If an agent repeatedly attempts to write to an undeclared file:
-1. Stop the agent.
-2. Check if the file should genuinely be part of the task.
-3. If yes, add the file to `### 📂 Target Files` in `.plans/current/<plan>.md`.
-4. If no, instruct the agent to achieve the goal using only declared targets.
+If an agent repeatedly attempts to write to an undeclared file, stop the agent and evaluate if the file belongs in scope. For a complete guide on diagnosing Layer 1 vs. Layer 2 refusals and safely expanding target boundaries, see the [Blast Radius Refusal Recovery Recipe](docs/recipes/troubleshooting/blast-radius-recovery.md).
 
 ---
 
 ### Q: How do I handle merge conflicts in `.plans/` or `.agents/`?
-Because worktrees operate on separate branches, you resolve conflicts using standard Git commands inside the worktree directory:
-```bash
-cd .plans
-git pull origin plans
-# Resolve any conflict markers in pickup.md or state_matrix.md
-git add -A
-git commit -m "chore: resolve planning merge conflicts"
-git push origin plans
-```
-Your main application working tree remains completely unaffected.
+Because worktrees operate on separate branches, you resolve conflicts using standard Git commands inside the worktree directory without endangering your main application code. For step-by-step instructions on cleaning stale worktrees and resolving branch collisions, see the [Worktree Collision & Conflict Recovery Recipe](docs/recipes/troubleshooting/worktree-collision-recovery.md).
 
 ---
 

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Modular Cookbook (`COOKBOOK.md`) and topic-based recipe architecture (`docs/recipes/`) (`P-56`)
 - Milestone release bundling, tag ledgers, and hook-based versioning (`P-38`)
 - `aapp companion` manages companion repositories for cross-repo co-development (P-90) (`P-90`)
 - the briefing and its JSON show a plan's task progress and a group's members done (P-98) (`P-98`)
