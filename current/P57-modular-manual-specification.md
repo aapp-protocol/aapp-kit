@@ -3,13 +3,15 @@
 * **Target Issue / Milestone:** Milestone v1.1.0 (Documentation & Technical Reference Architecture)
 * **Plan ID:** P-57
 * **Changelog:** Changed: Modular technical specification (`docs/`) and executive portal `MANUAL.md` architecture
+* **Commit Mode:** microcommits
+* **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
 * **Status:** ⚡ In Development
 * **Base:** `18beeb6` (develop)
 * **Worktree:** .workspace/P57 (plan/P57-modular-manual-specification)
-* **Commits:** none
+* **Commits:** `9a15d0c` (plan/P57-modular-manual-specification)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
