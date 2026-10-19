@@ -47,8 +47,8 @@ Builds the shared Perl 5.26+ core and single-pass workspace state model (`lib/AA
 ## 2. Technical Blueprint
 
 ### 2.1 Core Modules (`lib/AAPP/`)
-1. **`lib/AAPP/Config.pm` (`lib/plan_states.sh`):** Reads all repository settings once per process via `git config --list -z`, providing typed accessors (`get`, `get_int`, `get_bool`, `get_regexp`) and the Plan Status Registry (`aapp.planState.<slug>`, `plan_status_line`, `plan_status_text`, `plan_status_slug`, `plan_status_is`, `plan_status_render`, `plan_set_status`, `plan_state_sections`).
-2. **`lib/AAPP/Paths.pm` (`lib/aapp-lib.sh`):** Resolves `REPO_ROOT`, `GIT_COMMON_DIR`, `GIT_DIR`, `PRIMARY_ROOT`, `PLANS_DIR`, `AGENTS_DIR`, `HOOKS_DIR`, and `OFFLINE_DIR` once per process via a single `git rev-parse --show-toplevel --git-common-dir --git-dir` call, plus pure-Perl glob matching (`glob_to_regex`, `match_pattern_list`), platform detection (`aapp_os`), and the unified named lock engine (`aapp_lock_acquire`, `aapp_lock_release`, `aapp_lock_held`).
+1. **`lib/AAPP/Config.pm` (`lib/plan_states.sh`), extending P-127's module:** P-127 already reads all repository settings once per process (`git config --list -z`) with `get`, `get_all`, `get_int`, `keys_with_prefix`; this member adds `get_bool` and the Plan Status Registry (`aapp.planState.<slug>`, `plan_status_line`, `plan_status_text`, `plan_status_slug`, `plan_status_is`, `plan_status_render`, `plan_set_status`, `plan_state_sections`).
+2. **`lib/AAPP/Paths.pm` (`lib/aapp-lib.sh`), extending P-127's module:** P-127 already resolves the root, git dir and common dir with one `git rev-parse`; this member adds `PRIMARY_ROOT`, `PLANS_DIR`, `AGENTS_DIR`, `HOOKS_DIR`, and `OFFLINE_DIR` once per process via a single `git rev-parse --show-toplevel --git-common-dir --git-dir` call, plus pure-Perl glob matching (`glob_to_regex`, `match_pattern_list`), platform detection (`aapp_os`), and the unified named lock engine (`aapp_lock_acquire`, `aapp_lock_release`, `aapp_lock_held`).
 3. **`lib/AAPP/Text.pm` (`lib/aapp-lib.sh`, `lib/output.sh`):**
    - Decorative-only emoji normalizer: `s/^(?:(?=[^\x00-\x7F])[\p{S}\p{Me}\x{2139}]|[\x{200D}\x{FE0E}\x{FE0F}\s]+)+//` for heading levels/names, plan statuses, kind headers, and table cells.
    - UTF-8 character counter (`aapp_char_len`), wrapping (`out_wrap`), truncation (`out_cut`), and pickup line splitter (`pickup_entry_split`, `pickup_title_max`, `pickup_entry_files`).
@@ -78,7 +78,7 @@ Builds the shared Perl 5.26+ core and single-pass workspace state model (`lib/AA
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Core Modules (`lib/AAPP/*.pm`)
-- [ ] Task 1.1: Implement `lib/AAPP/Config.pm`, `lib/AAPP/Paths.pm`, `lib/AAPP/Text.pm`, `lib/AAPP/JSON.pm`, and `lib/AAPP/Output.pm`.
+- [ ] Task 1.1: Extend P-127's `lib/AAPP/Config.pm` and `lib/AAPP/Paths.pm` (§2.1–2.2); implement `lib/AAPP/Text.pm`, `lib/AAPP/JSON.pm`, and `lib/AAPP/Output.pm`.
 - [ ] Task 1.2: Implement `lib/AAPP/State.pm`, `lib/AAPP/CommitEngine.pm`, and `lib/AAPP/Health.pm`.
 
 ### Phase 2: Dispatcher, `python3` Retirement & Core Wrapper Tests
@@ -94,8 +94,8 @@ Builds the shared Perl 5.26+ core and single-pass workspace state model (`lib/AA
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `lib/AAPP/Config.pm` -> Single-pass `git config --list -z` reader and plan-state registry (`plan_states.sh`).
-- [ ] `NEW FILE` -> `lib/AAPP/Paths.pm` -> Single-pass repository/worktree path resolver, glob matcher, OS detector, and named locks.
+- [ ] `lib/AAPP/Config.pm` -> Extend P-127's reader: `get_bool` and the plan-state registry (`plan_states.sh`).
+- [ ] `lib/AAPP/Paths.pm` -> Extend P-127's resolver: worktree and plans paths, glob matcher, OS detector, named locks.
 - [ ] `NEW FILE` -> `lib/AAPP/Text.pm` -> Emoji-stripping heading/value normalizer, UTF-8 char length, wrap/cut, and pickup splitter.
 - [ ] `NEW FILE` -> `lib/AAPP/JSON.pm` -> Deterministic ordered JSON writer, pretty-printer, envelope builder, and reader.
 - [ ] `NEW FILE` -> `lib/AAPP/Output.pm` -> Shared terminal and JSON record renderers (`output.sh`).
