@@ -222,6 +222,7 @@ Goal:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-19:** File renamed from P109-issue-note-companion-lifecycle-events.md to P109-lifecycle-event-coverage.md.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-19:** Drafted.
 * **2026-10-19:** Per-action events for issue, note, companion; all review proposals added.
