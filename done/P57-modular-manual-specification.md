@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `18beeb6` (develop)
 * **Worktree:** .workspace/P57 (plan/P57-modular-manual-specification)
 * **Commits:** `b886b3c` (plan/P57-modular-manual-specification), `f737a91` (plan/P57-modular-manual-specification), `d0da4fa` (plan/P57-modular-manual-specification), `f9f0de4` (plan/P57-modular-manual-specification), `7213771` (plan/P57-modular-manual-specification)
@@ -320,6 +320,7 @@ In addition:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-19:** Plan implementation completed and archived to done/.
 * **2026-10-19:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-07:** Refined blueprint: added Continuous Navigation Invariant (§2.7) requiring standard back-links to `MANUAL.md` and `COOKBOOK.md` across all conceptual and reference documents, verified by `tests/doc_links_test.sh`.
 * **2026-10-07:** Refined blueprint: added Phase 0 prerequisite for shared-doc engine (`docs/*` and `COOKBOOK.md` always-allowed in guard and hook), aligned CLI verbs reference with all 35 verbs in `lib/verbs.tsv`, aligned configuration dictionary with all 22+ keys from codebase, and added anchor audit and `tests/doc_links_test.sh` dead-link test.

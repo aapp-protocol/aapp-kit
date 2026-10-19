@@ -24,8 +24,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-57**: [`P57-modular-manual-specification.md`](current/P57-modular-manual-specification.md) — Modular Manual Specification
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
