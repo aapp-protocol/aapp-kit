@@ -67,15 +67,15 @@ Each non-verb suite (`tests/*_test.sh`) gets a contract file in `lib/docs/core/<
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Fold Regressions & Slim Core Suites
-- [ ] Task 1.1: Audit and slim `tests/aapp_lib_test.sh`, `tests/plan_states_test.sh`, `tests/plan_resolver_test.sh`, `tests/issue_id_test.sh`, `tests/issue_ledger_test.sh`, `tests/output_test.sh`, `tests/output_json_test.sh`, `tests/group_docs_test.sh`, and `tests/adoption_test.sh` — keep core wrapper effect tests, fold `#nnn` checks, drop internal helper unit tests.
-- [ ] Task 1.2: Audit and slim `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, `tests/hooks_test.sh`, `tests/worktree_hooks_test.sh`, `tests/plugin_protocol_test.sh`, `tests/event_telemetry_test.sh`, `tests/ai_attribution_test.sh`, `tests/notes_test.sh`, `tests/integrate_test.sh`, `tests/install_test.sh`, `tests/sync_test.sh`, `tests/release_test.sh`, `tests/kit_release_hook_test.sh`, `tests/matrix_test.sh`, `tests/template_sync_test.sh`, and `tests/doc_links_test.sh`.
+- [x] Task 1.1: Audit and slim `tests/aapp_lib_test.sh`, `tests/plan_states_test.sh`, `tests/plan_resolver_test.sh`, `tests/issue_id_test.sh`, `tests/issue_ledger_test.sh`, `tests/output_test.sh`, `tests/output_json_test.sh`, `tests/group_docs_test.sh`, and `tests/adoption_test.sh` — keep core wrapper effect tests, fold `#nnn` checks, drop internal helper unit tests.
+- [x] Task 1.2: Audit and slim `tests/pre-commit_test.sh`, `tests/write-guard_test.sh`, `tests/hooks_test.sh`, `tests/worktree_hooks_test.sh`, `tests/plugin_protocol_test.sh`, `tests/event_telemetry_test.sh`, `tests/ai_attribution_test.sh`, `tests/notes_test.sh`, `tests/integrate_test.sh`, `tests/install_test.sh`, `tests/sync_test.sh`, `tests/release_test.sh`, `tests/kit_release_hook_test.sh`, `tests/matrix_test.sh`, `tests/template_sync_test.sh`, and `tests/doc_links_test.sh`.
 
 ### Phase 2: Slim Verb Suites & Sync Contracts
-- [ ] Task 2.1: Fold `tests/verbs/issue.fixes.sh` and helper-only checks in `tests/verbs/*.sh` into behaviour tests; update `lib/docs/verbs/*.md` (`## Tests`) to match.
-- [ ] Task 2.2: Author `lib/docs/core/*.md` contract files for the kept core suites and extend `tests/verb_contracts_test.sh` to verify `lib/docs/core/*.md` <-> `tests/*_test.sh` in both directions.
+- [x] Task 2.1: Fold `tests/verbs/issue.fixes.sh` and helper-only checks in `tests/verbs/*.sh` into behaviour tests; update `lib/docs/verbs/*.md` (`## Tests`) to match.
+- [x] Task 2.2: Author `lib/docs/core/*.md` contract files for the kept core suites and extend `tests/verb_contracts_test.sh` to verify `lib/docs/core/*.md` <-> `tests/*_test.sh` in both directions.
 
 ### Phase 3: Verification
-- [ ] Task 3.1: Run `/usr/bin/time -p ./aapp test strict quiet` and record the new assertion count, wall-clock time, and total CPU time (`user + sys`) as the baseline for `P-114`–`P-122`.
+- [x] Task 3.1: Run `/usr/bin/time -p ./aapp test strict quiet` and record the new assertion count, wall-clock time, and total CPU time (`user + sys`) as the baseline for `P-114`–`P-122`.
 
 ---
 
@@ -100,6 +100,9 @@ Each non-verb suite (`tests/*_test.sh`) gets a contract file in `lib/docs/core/<
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-19:** Baseline for P-114–P-122: 856 tests, 63/63 suites, 163 s wall, 1,477 s CPU (user 501 + sys 976). Before: 1,749 assertions, 142 s wall, 1,400 s CPU.
+* **2026-10-19:** `tests/verbs/issue.fixes.sh` holds `issue fix` behaviour tests, not standalone regressions: kept as a part of the issue suite, its fix-then-close chains merged.
+* **2026-10-19:** Verb suites keep one shared fixture per file, run in order; P-114 decides per-test fixtures there.
 * **2026-10-19:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-19:** Plan drafted as member 1 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
 * **2026-10-19:** Updated Task 3.1 to explicitly record CPU (`user + sys`) and wall-clock baseline per RFC §5.1.3.
