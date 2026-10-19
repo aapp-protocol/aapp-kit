@@ -40,70 +40,84 @@
 ---
 
 ## 1. Context & Architectural Goal
-Plan `P-121` is the ninth member of group `P-111` (*Perl Port Of The Kit*). It ports the remaining setup, lifecycle, and operational verbs — `init`, `install`, `upgrade`, `uninstall`, `develop`, `sync`, `release`, `companion`, `hook`, `pause`/`resume`, and `test` — from `lib/cmd_init.sh` (1,517 lines), `lib/cmd_release.sh` (715 lines), `lib/cmd_companion.sh` (387 lines), `lib/cmd_hook.sh` (340 lines), `lib/cmd_pause.sh` (509 lines), and `lib/cmd_test.sh` into `lib/AAPP/Cmd/*.pm`.
+Plan `P-121` is the ninth member of group `P-111` (*Perl Port Of The Kit*). It ports all 11 remaining setup, sync, release, hook, pause, companion, and test bash modules into `lib/AAPP/Cmd/*.pm`:
+- `lib/cmd_init.sh` (1,072 lines) -> `lib/AAPP/Cmd/Init.pm` (`aapp init`)
+- `lib/cmd_install.sh` (187 lines) -> `lib/AAPP/Cmd/Install.pm` (`aapp install`)
+- `lib/cmd_upgrade.sh` (44 lines) -> `lib/AAPP/Cmd/Upgrade.pm` (`aapp upgrade`)
+- `lib/cmd_uninstall.sh` (55 lines) -> `lib/AAPP/Cmd/Uninstall.pm` (`aapp uninstall`)
+- `lib/cmd_develop.sh` (123 lines) -> `lib/AAPP/Cmd/Develop.pm` (`aapp develop`)
+- `lib/cmd_sync.sh` (429 lines) -> `lib/AAPP/Cmd/Sync.pm` (`aapp push`, `aapp pull`, `aapp sync`)
+- `lib/cmd_release.sh` (896 lines) -> `lib/AAPP/Cmd/Release.pm` (`aapp release`)
+- `lib/cmd_companion.sh` (337 lines) -> `lib/AAPP/Cmd/Companion.pm` (`aapp companion`)
+- `lib/cmd_hook.sh` (402 lines) -> `lib/AAPP/Cmd/Hook.pm` (`aapp hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`)
+- `lib/cmd_pause.sh` (584 lines) -> `lib/AAPP/Cmd/Pause.pm` (`aapp pause`, `aapp resume`, `aapp unpause`)
+- `lib/cmd_test.sh` (397 lines) -> `lib/AAPP/Cmd/Test.pm` (`aapp test`)
 
-This plan also eliminates the last two `python3` invocations in the codebase:
+This plan also eliminates the remaining `python3` invocations in the kit's own CLI:
 1. `lib/cmd_init.sh` (`.claude/settings.json` hook merger) is replaced by `AAPP::JSON::decode_json` + ordered key-preserving merge + 2-space pretty-print (`AAPP::JSON::encode_json_pretty`).
 2. `lib/cmd_pause.sh` (pause snapshot serializer/reader) is replaced by `AAPP::JSON`.
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_*.sh`, `aapp`). `lib/AAPP/Tests*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_*.sh`, `aapp`). `tests/AAPP/*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
 ---
 
 ## 2. Technical Blueprint
 
-### 2.1 `AAPP::Cmd::Init` (`lib/AAPP/Cmd/Init.pm`) — `init`, `install`, `upgrade`, `uninstall`, `develop`, `sync`
-Ports `lib/cmd_init.sh`:
-- `init` / `upgrade` / `sync`:
-  - Scaffolds or upgrades `.plans` (`orphan` worktree or directory), `.agents` (`AGENTS.md` managed `<!-- AAPP-PROTOCOL:START -->` block, `PROJECT.MD`, `CODEMAP.md`, `.agents/skills/aapp*`), and `.githooks/` (`pre-commit`, `commit-msg`, `post-commit`, `blast-radius-guard`, `test-gate.sh`).
-  - Copies `lib/AAPP/*.pm` (including subdirectories `lib/AAPP/Cmd/*.pm` and `lib/AAPP/Hook/*.pm` as needed by hooks) into `.githooks/AAPP/` so adopter repositories execute all hooks stand-alone with zero external runtime dependencies.
-  - Merges `PreToolUse` (`blast-radius-guard`) into `.claude/settings.json` using `AAPP::JSON` (`decode_json` + `encode_json_pretty`), preserving existing user settings and key ordering with zero `python3` dependency.
-  - Configures `core.hooksPath`, `notes.rewriteRef`, and `aapp.*` defaults.
-- `install` / `uninstall`: installs or removes the global `aapp` launcher symlink/copy in `~/.local/bin` (or target prefix).
-- `develop`: configures the self-hosting kit repository worktrees and symlinks.
+### 2.1 Setup & Lifecycle Modules (`Init`, `Install`, `Upgrade`, `Uninstall`, `Develop`)
+- **`lib/AAPP/Cmd/Init.pm` (`lib/cmd_init.sh`, 1,072 lines; `lib/docs/verbs/init.md`):**
+  - `aapp init [path] [shared | flat | stealth] [upgrade | check | force | adopt]`:
+    - Scaffolds or upgrades `.plans` (`shared` orphan worktree, `flat` tracked directory, or `stealth` local worktree), `.agents` (`AGENTS.md` managed `<!-- AAPP-PROTOCOL:START -->` block, `PROJECT.MD`, `CODEMAP.md`, `.agents/skills/aapp*`, `.agents/hooks/`), and `.githooks/`.
+    - Copies `lib/AAPP/` (`*.pm`, `Hooks/*.pm`, `Cmd/*.pm`) into `.githooks/AAPP/` and stops copying legacy `.sh` libraries (`aapp-lib.sh`, `plan_states.sh`, `attribution.sh`, `commit_engine.sh`) into `.githooks/`.
+    - Merges `PreToolUse` (`blast-radius-guard`) into `.claude/settings.json` using `AAPP::JSON` (`decode_json` + `encode_json_pretty`) with zero `python3` dependency.
+    - Runs adoption seeding/sync (`AAPP::Adoption` from `P-118`) when `adopt` or existing project artifacts are detected.
+- **`lib/AAPP/Cmd/Install.pm` (`lib/cmd_install.sh`, 187 lines; `lib/docs/verbs/install.md`):**
+  - `aapp install [target_dir] [shared | flat | stealth]`: Installs AAPP into a target repository and links global launcher if requested.
+- **`lib/AAPP/Cmd/Upgrade.pm` (`lib/cmd_upgrade.sh`, 44 lines; `lib/docs/verbs/upgrade.md`):**
+  - `aapp upgrade [path]`: Upgrades an initialized repository's hooks, protocol block, and skills via `AAPP::Cmd::Init`.
+- **`lib/AAPP/Cmd/Uninstall.pm` (`lib/cmd_uninstall.sh`, 55 lines; `lib/docs/verbs/uninstall.md`):**
+  - `aapp uninstall [path] [purge]`: Unhooks `core.hooksPath`, removes `.githooks/` and Claude settings hook entries, and optionally purges `.plans`/`.agents`.
+- **`lib/AAPP/Cmd/Develop.pm` (`lib/cmd_develop.sh`, 123 lines; `lib/docs/verbs/develop.md`):**
+  - `aapp develop [status]`: Sets up or inspects the self-hosting kit repository (`pre-commit-develop` hook, worktrees, and developer config).
 
-### 2.2 `AAPP::Cmd::Release` (`lib/AAPP/Cmd/Release.pm`) — `aapp release`
-Ports `lib/cmd_release.sh`:
-- Implements pre-flight release verification (`preflight` / `check`) and release execution (`<version>` / `patch` / `minor` / `major`):
-  - Verifies clean working tree, branch parity (`main`), zero active `⚡ In Development` or `🟥 BLOCKED` plans, zero `Plan Blockers` in `issues_road_map.md`, passing test suite, and non-empty `## [Unreleased]` in `CHANGELOG.md`.
-  - Condenses/rolls `## [Unreleased]` into `## [<version>] - <YYYY-MM-DD>`, updates version strings, commits the release, and creates the annotated Git tag `v<version>`.
+### 2.2 Synchronization & Release Modules (`Sync`, `Release`, `Companion`)
+- **`lib/AAPP/Cmd/Sync.pm` (`lib/cmd_sync.sh`, 429 lines; `lib/docs/verbs/sync.md`, `push.md`, `pull.md`):**
+  - `aapp push [remote] [check | dry-run | include-notes]`, `aapp pull [remote]`, `aapp sync [remote] [check | dry-run | include-notes]`: Coordinates pushing and pulling the code branch, `.plans` orphan branch, `.agents` branch (if separate), and `refs/notes/*`.
+- **`lib/AAPP/Cmd/Release.pm` (`lib/cmd_release.sh`, 896 lines; `lib/docs/verbs/release.md`):**
+  - `aapp release [preflight | <version> [tag] [push] [condense [apply | check]] | condense [apply | check]]`:
+    - Runs pre-flight release verification (branch parity, clean worktree, zero active/blocked plans, zero Plan Blockers, passing test suite, changelog readiness), condenses `## [Unreleased]` bullets (`condense [apply | check]`), rolls `## [Unreleased]` into `## [<version>] - <YYYY-MM-DD>`, updates version strings, tags, and optionally pushes.
+- **`lib/AAPP/Cmd/Companion.pm` (`lib/AAPP/Cmd/Companion.pm`, `lib/cmd_companion.sh`, 337 lines; `lib/docs/verbs/companion.md`):**
+  - `aapp companion [<name>] [check | install | upgrade]`: Inspects, installs, or upgrades registered companion tools (`companions.tsv`).
 
-### 2.3 `AAPP::Cmd::Companion` (`lib/AAPP/Cmd/Companion.pm`) — `aapp companion`
-Ports `lib/cmd_companion.sh`:
-- Manages companion skills, IDE rules, and agent customization targets (`status`, `sync`, `enable`, `disable`, `list`) across supported agent directories (`.claude/`, `.cursor/`, `.agents/`).
-
-### 2.4 `AAPP::Cmd::Hook` (`lib/AAPP/Cmd/Hook.pm`) — `aapp hook`
-Ports `lib/cmd_hook.sh`:
-- Manages repository hook inspection, installation, repair, and test-gate configuration (`status`, `install`, `repair`, `test-gate`).
-
-### 2.5 `AAPP::Cmd::Pause` (`lib/AAPP/Cmd/Pause.pm`) — `aapp pause` and `aapp resume`
-Ports `lib/cmd_pause.sh`:
-- `pause ["<reason>"]`: sets `git config aapp.paused true`, stashes uncommitted work per active worktree, and writes the pause state snapshot using `AAPP::JSON` (replacing `python3`).
-- `resume`: reads the pause snapshot via `AAPP::JSON::decode_json`, restores per-worktree stashes, clears `aapp.paused`, and reports restored worktrees.
-- `pause status [--json]`: reports pause state and quarantined worktrees.
-
-### 2.6 `AAPP::Cmd::Test` (`lib/AAPP/Cmd/Test.pm`) — `aapp test`
-Ports `lib/cmd_test.sh`:
-- Invokes `AAPP::Tests::run(@ARGV)` in-process (when running kit self-tests) or runs the adopter repository's configured test command / `test-gate.sh`, supporting `--list`, `--check-docs`, suite/test filters, and `--jobs N`.
+### 2.3 Hook, Pause & Test Modules (`Hook`, `Pause`, `Test`)
+- **`lib/AAPP/Cmd/Hook.pm` (`lib/cmd_hook.sh`, 402 lines; `lib/docs/verbs/hooks.md`, `plugins.md`):**
+  - Implements all 7 hook/plugin verbs routed in `aapp`:
+    - `aapp hooks` / `aapp hook-status`: Display hook table and `registry.tsv` integrity status (`AAPP::Hooks::Dispatcher`).
+    - `aapp plugins` / `aapp plugin-status`: Display plugin table and status.
+    - `aapp hook-test <event>`: Dry-run `<event>` hooks through `AAPP::Hooks::Dispatcher`.
+    - `aapp hook-run <event> [args...]`: Execute `<event>` hooks through `AAPP::Hooks::Dispatcher`.
+    - `aapp hook-hash <script-path>`: Compute SHA-256 of `<script-path>` via `Digest::SHA` and update `.agents/hooks/registry.tsv`.
+- **`lib/AAPP/Cmd/Pause.pm` (`lib/cmd_pause.sh`, 584 lines; `lib/docs/verbs/pause.md`, `resume.md`):**
+  - `aapp pause [status | "<reason>"]` and `aapp resume [force]` (plus `unpause` alias): Engage emergency brake, quarantine dirty worktrees into stashes, serialize/deserialize pause state JSON via `AAPP::JSON` (zero `python3`), and restore worktrees on `resume`.
+- **`lib/AAPP/Cmd/Test.pm` (`lib/cmd_test.sh`, 397 lines; `lib/docs/verbs/test.md`):**
+  - `aapp test [strict] [quiet] [suite...] [--list] [--check-docs] [--jobs N]`: Delegate directly to `tests/AAPP/Tests.pm` (`P-114`) or run adopter test suites.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default)
-- **Fallback Inventory**: `None (Clean Break)`
+- **Transitional Coexistence (`P-121` → `P-122`):** All 11 `lib/cmd_*.sh` files are slimmed to thin shims (or retained unused once `aapp` routes every verb to `AAPP::Cmd::*`) until `P-122` deletes all 30 `lib/*.sh` files in one clean break.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Init, Pause & JSON Settings Merger (`AAPP::Cmd::Init`, `AAPP::Cmd::Pause`)
-- [ ] Task 1.1: Implement `lib/AAPP/Cmd/Init.pm` covering `init`, `upgrade`, `sync`, `install`, `uninstall`, `develop`, `.githooks/AAPP/` module installation, and `.claude/settings.json` merging via `AAPP::JSON`.
-- [ ] Task 1.2: Implement `lib/AAPP/Cmd/Pause.pm` covering `pause`, `resume`, and `pause status` using `AAPP::JSON` for snapshot serialization.
+### Phase 1: Setup & Lifecycle (`Init`, `Install`, `Upgrade`, `Uninstall`, `Develop`)
+- [ ] Task 1.1: Implement `lib/AAPP/Cmd/Init.pm`, `lib/AAPP/Cmd/Install.pm`, `lib/AAPP/Cmd/Upgrade.pm`, `lib/AAPP/Cmd/Uninstall.pm`, and `lib/AAPP/Cmd/Develop.pm`, using `AAPP::JSON` for `.claude/settings.json` merging and installing `.githooks/AAPP/` without legacy `.sh` copies.
 
-### Phase 2: Release, Companion, Hook & Test (`AAPP::Cmd::Release`, `Companion`, `Hook`, `Test`)
-- [ ] Task 2.1: Implement `lib/AAPP/Cmd/Release.pm`, `lib/AAPP/Cmd/Companion.pm`, `lib/AAPP/Cmd/Hook.pm`, and `lib/AAPP/Cmd/Test.pm`.
-- [ ] Task 2.2: Wire `init`, `install`, `upgrade`, `uninstall`, `develop`, `sync`, `release`, `companion`, `hook`, `pause`, `resume`, and `test` in `./aapp` to their `AAPP::Cmd::*` modules, and slim the corresponding `lib/cmd_*.sh` files to thin shims.
+### Phase 2: Sync, Release, Companion, Hook, Pause & Test (`Sync`, `Release`, `Companion`, `Hook`, `Pause`, `Test`)
+- [ ] Task 2.1: Implement `lib/AAPP/Cmd/Sync.pm` (`push`, `pull`, `sync`), `lib/AAPP/Cmd/Release.pm`, and `lib/AAPP/Cmd/Companion.pm`.
+- [ ] Task 2.2: Implement `lib/AAPP/Cmd/Hook.pm` (`hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`), `lib/AAPP/Cmd/Pause.pm` (`pause`, `resume`, `unpause` via `AAPP::JSON`), and `lib/AAPP/Cmd/Test.pm`.
+- [ ] Task 2.3: Route all remaining verbs in `./aapp` to `AAPP::Cmd::*`.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run `./aapp test init release companion hook pause test` and full `./aapp test` to verify 100% pass rate against the locked test suites.
+- [ ] Task 3.1: Run `./aapp test` across `verb_init_test.sh`, `verb_sync_test.sh`, `verb_release_test.sh`, `verb_companion_test.sh`, `verb_hooks_test.sh`, `verb_pause_test.sh`, and `verb_test_test.sh` to verify 100% pass rate.
 - [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
 - [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
@@ -115,14 +129,24 @@ Ports `lib/cmd_test.sh`:
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Init.pm` -> `init`, `install`, `upgrade`, `uninstall`, `develop`, and `sync` implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Release.pm` -> `aapp release` pre-flight and release tagging implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Companion.pm` -> `aapp companion` skill and IDE rule management implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Hook.pm` -> `aapp hook` status, installation, and repair implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Pause.pm` -> `aapp pause` and `aapp resume` emergency brake implementation using `AAPP::JSON`.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Test.pm` -> `aapp test` CLI entry delegating to `AAPP::Tests`.
-- [ ] `aapp` -> Dispatch `init`, `install`, `upgrade`, `uninstall`, `develop`, `sync`, `release`, `companion`, `hook`, `pause`, `resume`, and `test` to `AAPP::Cmd::*`.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Init.pm` -> `aapp init` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Install.pm` -> `aapp install` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Upgrade.pm` -> `aapp upgrade` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Uninstall.pm` -> `aapp uninstall` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Develop.pm` -> `aapp develop` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Sync.pm` -> `aapp push`, `aapp pull`, and `aapp sync` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Release.pm` -> `aapp release` pre-flight, condense, and release tagging implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Companion.pm` -> `aapp companion` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Hook.pm` -> `aapp hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, and `hook-hash` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Pause.pm` -> `aapp pause`, `aapp resume`, and `aapp unpause` implementation using `AAPP::JSON`.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Test.pm` -> `aapp test` CLI entry delegating to `tests/AAPP/Tests.pm`.
+- [ ] `aapp` -> Dispatch `init`, `install`, `upgrade`, `uninstall`, `develop`, `push`, `pull`, `sync`, `release`, `companion`, `hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`, `pause`, `resume`, `unpause`, and `test` to `AAPP::Cmd::*`.
 - [ ] `lib/cmd_init.sh` -> Transitional shim delegating to `AAPP::Cmd::Init` until `P-122`.
+- [ ] `lib/cmd_install.sh` -> Transitional shim delegating to `AAPP::Cmd::Install` until `P-122`.
+- [ ] `lib/cmd_upgrade.sh` -> Transitional shim delegating to `AAPP::Cmd::Upgrade` until `P-122`.
+- [ ] `lib/cmd_uninstall.sh` -> Transitional shim delegating to `AAPP::Cmd::Uninstall` until `P-122`.
+- [ ] `lib/cmd_develop.sh` -> Transitional shim delegating to `AAPP::Cmd::Develop` until `P-122`.
+- [ ] `lib/cmd_sync.sh` -> Transitional shim delegating to `AAPP::Cmd::Sync` until `P-122`.
 - [ ] `lib/cmd_release.sh` -> Transitional shim delegating to `AAPP::Cmd::Release` until `P-122`.
 - [ ] `lib/cmd_companion.sh` -> Transitional shim delegating to `AAPP::Cmd::Companion` until `P-122`.
 - [ ] `lib/cmd_hook.sh` -> Transitional shim delegating to `AAPP::Cmd::Hook` until `P-122`.
@@ -130,7 +154,7 @@ Ports `lib/cmd_test.sh`:
 - [ ] `lib/cmd_test.sh` -> Transitional shim delegating to `AAPP::Cmd::Test` until `P-122`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/AAPP/Tests.pm` -> Test harness and all `lib/AAPP/Tests/*` modules are locked in `P-114` and strictly out of bounds during code plans.
+- [ ] `tests/AAPP/Tests.pm` -> Test harness and all `tests/AAPP/*` modules are locked in `P-114` and strictly out of bounds during code plans.
 - [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
 
 ---
@@ -142,5 +166,5 @@ Ports `lib/cmd_test.sh`:
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-19:** Plan initialized from `pickup.md` and `.plans/pickup/perl-port-rfc.md`.
-* **2026-10-19:** Authored technical blueprint and locked blast radius for `P-121`.
+* **2026-10-19:** Refined technical blueprint and blast radius per `§5.1.4` to include all 11 setup/sync/hook/release bash modules and exact subverbs.
 
