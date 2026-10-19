@@ -24,8 +24,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-110**: [`P110-docs-reference-renumber.md`](current/P110-docs-reference-renumber.md) — Docs Reference Renumber
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)

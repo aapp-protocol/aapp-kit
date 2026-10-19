@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-19 | `P-110` | [`P110-docs-reference-renumber.md`](P110-docs-reference-renumber.md) | #172 | `156739a` | Docs Reference Renumber & Modular Adoption Links |
 | 2026-10-19 | `P-57` | [`P57-modular-manual-specification.md`](P57-modular-manual-specification.md) | Milestone v1.1.0 (Documentation & Technical Reference Architecture) | `7213771` | Modular Manual Specification |
 | 2026-10-19 | `P-56` | [`P56-modular-cookbook-and-docs-architecture.md`](P56-modular-cookbook-and-docs-architecture.md) | Milestone v1.1.0 (Documentation & Adopter UX Architecture) | `18beeb6` | Modular Cookbook And Docs Architecture |
 | 2026-10-19 | `P-59` | [`P59-kit-release-hook.md`](P59-kit-release-hook.md) | #58 | `38ac2b4` | Kit Release Lifecycle Hook & Version Synchronizer |
