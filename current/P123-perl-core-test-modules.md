@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-123
-* **Changelog:** Changed: Perl Core Test Modules
+* **Changelog:** Changed: the core test suites run as Perl modules (`tests/AAPP/Core/*.pm`) under `AAPP::Tests` (P-123)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,64 +40,55 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+Part 2 of 4 of the test migration split from P-114 (kept as the reference until all four parts are drafted). Ports the core suites (`tests/*_test.sh`, slimmed by P-113) to `tests/AAPP/Core/*.pm` under the harness P-126 built, keeping every scenario and test name, and deletes each bash suite once its module passes. Needs P-126 done. Kit runtime code stays untouched.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+1. **Scope:** every `tests/*_test.sh` except `tests/verb_contracts_test.sh` (the bash contract checker, replaced by the runner's check in P-125) and `tests/output_test.sh` (ported in P-126). `tests/test_helpers.sh` stays: the verb suites still use it.
+2. **Same tests, same names:** each `test_<name>` reported by a bash suite becomes `sub test_<name>` in `tests/AAPP/Core/<Module>.pm` (module named after the suite: `pre-commit_test.sh` -> `PreCommit.pm`, `aapp_lib_test.sh` -> `AappLib.pm`). The contract's description stays; its identifier changes to `tests/AAPP/Core/<Module>.pm::test_<name>`. Shared setup becomes the module's fixture, built once and copied per test (P-126 §2.1.5); a test that leaned on an earlier test's state builds what it needs itself.
+3. **Core wrappers:** suites that source `lib/*.sh` functions keep calling the bash library through a shell (`bash -c '. lib/x.sh; fn ...'`) until P-115/P-116/P-118/P-119 switch them to `AAPP::<Module>` (P-111 §2, tests vs code boundary).
+4. **Batches:** port, run under `tests/test-run`, delete the `.sh`, update the contract, commit, one suite or a few small ones at a time (microcommits). The gate runs both runners throughout (P-126 §2.1.8).
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Library & Ledger Suites
+- [ ] Task 1.1: Port `aapp_lib`, `plan_states`, `plan_resolver`, `issue_id`, `issue_ledger`, `output_json`, `group_docs`, `adoption`, `doc_links`.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Hook & Engine Suites
+- [ ] Task 2.1: Port `pre-commit`, `write-guard`, `hooks`, `worktree_hooks`, `plugin_protocol`, `event_telemetry`, `ai_attribution`, `notes`.
+- [ ] Task 2.2: Port `integrate`, `install`, `sync`, `release`, `kit_release_hook`, `matrix`, `template_sync`.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Verification
+- [ ] Task 3.1: `tests/test-run strict quiet` and `./aapp test strict quiet` both green; no `tests/*_test.sh` left but `verb_contracts_test.sh`; record each runner's wall and CPU time.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `tests/AAPP/Core/*.pm` -> Core test modules ported from `tests/*_test.sh`.
+- [ ] `DELETE` -> `tests/*_test.sh` -> Each suite once its module passes (not `verb_contracts_test.sh`).
+- [ ] `lib/docs/core/*.md` -> Test identifiers point at `tests/AAPP/Core/*.pm`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `tests/verb_contracts_test.sh` -> The bash contract checker stays until P-125.
+- [ ] `tests/test_helpers.sh` -> Still used by the verb suites.
+- [ ] `tests/verbs/*.sh` -> Ported in P-124 and P-125.
+- [ ] `lib/cmd_test.sh` -> `aapp test` switches in P-125 only.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-19:** Plan initialized from `pickup.md`.
-* **2026-10-19:** Refined blast radius and locked module boundaries.
+* **2026-10-19:** Drafted as part 2 of 4 split from P-114 (core suites).
