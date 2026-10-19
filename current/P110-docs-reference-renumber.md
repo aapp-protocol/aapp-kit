@@ -1,13 +1,10 @@
-# 🗺️ Plan P-110: Docs Reference Renumber
+# 🗺️ Plan P-110: Docs Reference Renumber & Modular Adoption Links
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** #172
 * **Plan ID:** P-110
-* **Changelog:** Changed: Docs Reference Renumber
+* **Changelog:** Changed: Reference documentation sequence renumbered and adoption links modernized
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
-<!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
-     from the title; reword it and pick the section while refining. `aapp commit` writes it into
-     CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Commits:** none
@@ -18,85 +15,121 @@
      specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
      A plan whose Status says BLOCKED grants no commit rights at all. A ✅ Done plan is archived in
      .plans/done/ and records terminal completion in the archive ledger. -->
-<!-- * **Blocked On:** #<num>        <- written by verbs: 'aapp issue hotfix' or 'aapp refine <id> blocked <num>' adds it; 'aapp issue close' removes it -->
-<!-- * **Emergency Hotfixes:** #<num> <- append-only, written by 'aapp issue hotfix'; more than aapp.maxEmergencyHotfixes blocks the plan for good -->
-<!-- * **Also Closes:** #<n>, #<m>  <- written by 'aapp refine <id> closes <num> [remove]': further issues this plan sorts; 'aapp done' closes them with the plan's commit -->
-
-> ### ⚡ Critical Execution Invariants (Read Before Writing Code)
-> 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
-> 2. **Changelog Requirement**: Every commit touching source code **must** update `CHANGELOG.md` (or `.plans/CHANGELOG.md`). Run syntax checks and automated tests *before* updating the changelog.
-> 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
-> 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
-> 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
->    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
->    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
-> 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
-> 7. **Architecture & Codemap Sync**: If your implementation introduces new files, functions, CLI verbs, or alters architectural boundaries, you **must** update `ARCHITECTURE.md` and `.agents/CODEMAP.md` (or repo-root `CODEMAP.md`). Both files are always-allowed workspace invariants. A group member (`* **Group:**`) leaves both to its group plan's `## Architecture & Codemap` section, which the group's `done` applies.
-> 8. **Fail-Closed Invariant**: Silent fallbacks (`|| true`, `|| pwd`, unchecked defaults, empty catch blocks) are strictly prohibited. Every operation must fail closed with a clear diagnostic unless a fallback is explicitly justified in code comments and registered under §2's Fallback Inventory.
 <!-- AAPP-PROTOCOL:END -->
 
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+
+During the execution of Plan P-57 (Modular Manual Specification), documentation was decomposed into `docs/concepts/` and `docs/reference/`. However, two integration gaps remained:
+
+1. **Prefix Collisions in `docs/reference/`**:
+   Multiple files in `docs/reference/` share identical numeric prefixes (`03-`, `04-`, `05-`, `06-`):
+   - Two files prefixed `03-` (`03-agent-skills-and-slash-commands.md`, `03-configuration-matrix.md`)
+   - Two files prefixed `04-` (`04-configuration-options.md`, `04-plugin-and-hook-engine.md`)
+   - Two files prefixed `05-` (`05-ai-attribution-and-notes.md`, `05-planning-health-engine.md`)
+   - Two files prefixed `06-` (`06-plugin-protocol.md`, `06-skills-and-slash-commands.md`)
+   Each file contains valuable, distinct reference documentation (e.g., config options catalog vs tabular matrix, agent skills vs interactive slash command flows), but their non-unique prefixes create ambiguity in visual ordering and navigation.
+
+2. **Monolithic Legacy Assumptions in Adoption Engine**:
+   `lib/adoption.sh` and `tests/adoption_test.sh` were designed under Plan P-63 assuming a single monolithic `MANUAL.md`. They assert headings strictly against `MANUAL.md` and generate tasks in `.plans/adoption.md` with pointers formatted as `→ MANUAL: <heading>`, forcing `MANUAL.md` to host a synthetic lookup directory rather than pointing users directly to the authoritative modular files in `docs/`.
+
+**Architectural Goal**:
+1. Assign every reference document in `docs/reference/` a distinct, sequential number (01 through 19) preserving all content.
+2. Update all internal cross-links and `MANUAL.md`'s Diátaxis reference index to reflect the clean sequence.
+3. Modernize `lib/adoption.sh` rules catalogue so adoption tasks point directly to modular documentation targets (e.g. `→ docs/concepts/...` or `→ docs/reference/...`).
+4. Update `tests/adoption_test.sh` to verify heading/target existence across `docs/` rather than requiring `MANUAL.md` proxies.
+5. Verify 100% compliance with `tests/doc_links_test.sh` and full test suites.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- All references across `MANUAL.md`, `README.md`, `CHEATSHEET.md`, and `docs/**/*.md` will be updated to the new canonical file paths.
+
+### 2.1 Canonical Numbering Sequence for `docs/reference/` (01–19)
+
+| New Slot | Canonical File Name | Topic / Scope | Former Name / Collision |
+| :--- | :--- | :--- | :--- |
+| **01** | `01-lifecycle-state-machine.md` | Plan statuses, state transitions, execution gates | *(unchanged)* |
+| **02** | `02-cli-commands-and-verbs.md` | Complete reference for all 35 CLI verbs | *(unchanged)* |
+| **03** | `03-configuration-matrix.md` | Tabular settings dictionary (`git config aapp.*`) | *(was 03)* |
+| **04** | `04-configuration-options.md` | Configuration options, scopes, and resolution hierarchy | *(was 04)* |
+| **05** | `05-configuration-hierarchy.md` | Precedence order, Git config inheritance, and CI env | *(was 15)* |
+| **06** | `06-plugin-and-hook-engine.md` | Lifecycle hook triggers, `registry.tsv` contract | *(was 04)* |
+| **07** | `07-action-plugin-protocol.md` | JSON envelope exchange contract for action plugins | *(was 06-plugin-protocol.md)* |
+| **08** | `08-issue-tracker-protocol.md` | External issue tracker integration contract & sync | *(was 07-issue-protocol.md)* |
+| **09** | `09-ai-attribution-and-notes.md` | Emailless semantic trailers, Git notes switchboard | *(was 05)* |
+| **10** | `10-planning-health-engine.md` | 8-pair invariant integrity engine and `aapp doctor` | *(was 05/13)* |
+| **11** | `11-agent-skills-reference.md` | Catalog of 13 Universal Skills, tool bindings, custom skills | *(was 03/14)* |
+| **12** | `12-slash-commands-and-dispatch.md`| Interactive slash commands and chat dispatch flows | *(was 06)* |
+| **13** | `13-output-json-schemas.md` | Programmatic JSON telemetry schemas for CLI consumers | *(was 08-output-json.md)* |
+| **14** | `14-event-telemetry.md` | Append-only out-of-tree event audit logging contracts | *(was 09)* |
+| **15** | `15-integration-and-rebase.md` | Integration mechanics, automated rebase, and cleanup | *(was 10)* |
+| **16** | `16-document-governance.md` | Three-tier document governance model | *(was 11)* |
+| **17** | `17-git-plumbing.md` | Detached orphan commits, remote sync, worktree repairs | *(was 12)* |
+
+*(Note: Content from duplicates will be cleanly structured so no operational text or diagrams are lost).*
+
+### 2.2 Modernizing Adoption Rules Catalogue (`lib/adoption.sh`)
+
+Update `RULES` in `lib/adoption.sh` to associate each rule directly with its modular documentation file:
+- Instead of generating `→ MANUAL: <heading>`, generate `→ docs/concepts/<file>#<anchor>` or `→ docs/reference/<file>#<anchor>`.
+- Update `get_all_adoption_manual_headings()` and `test_manual_headings_exist()` in `tests/adoption_test.sh` to assert that every referenced heading exists in its declared target file in `docs/`.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Sequential Renaming & Content Consolidation
+- [ ] Task 1.1: Rename files in `docs/reference/` to the non-colliding 01–17 sequence using `git mv`.
+- [ ] Task 1.2: Merge and verify that all unique content from colliding pairs (`03-`/`14-`, `04-`/`15-`, `05-`/`13-`, `06-`/`14-`) is fully preserved in their target files.
+- [ ] Task 1.3: Update frontmatter `title:` and continuous navigation footers across all renamed files.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Index & Cross-Link Synchronization
+- [ ] Task 2.1: Update `MANUAL.md` Section 2 Diátaxis directory to list the unified 01–17 reference files.
+- [ ] Task 2.2: Update cross-links across `docs/concepts/*.md`, `docs/recipes/**/*.md`, `README.md`, and `CHEATSHEET.md`.
+- [ ] Task 2.3: Update `lib/cmd_install.sh` and `tests/install_test.sh` to package and verify the new reference file list.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Adoption Engine Modernization
+- [ ] Task 3.1: Update `lib/adoption.sh` rules catalogue to format task guidance with direct modular document links.
+- [ ] Task 3.2: Update `tests/adoption_test.sh` to verify heading presence in the corresponding modular documentation files.
+- [ ] Task 3.3: Prune the temporary Section 4 directory from `MANUAL.md` once adoption rules link directly to `docs/`.
+
+### Phase 4: Verification & Gate Enforcement
+- [ ] Task 4.1: Run `tests/doc_links_test.sh` and ensure 100% link resolution.
+- [ ] Task 4.2: Run `bash tests/adoption_test.sh` and verify all adoption tests pass.
+- [ ] Task 4.3: Execute `./aapp test strict quiet jobs 4` to confirm all 63 test suites are green.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `docs/reference/` -> Renamed and consolidated sequential reference files (01–17).
+- [ ] `MANUAL.md` -> Updated Diátaxis directory links and pruned proxy directory.
+- [ ] `lib/adoption.sh` -> Modernized adoption rules catalogue linking directly to modular docs.
+- [ ] `tests/adoption_test.sh` -> Verification test updated to check headings in modular docs.
+- [ ] `tests/doc_links_test.sh` -> Dead link test assertions updated for new paths.
+- [ ] `tests/install_test.sh` -> Installation distribution assertions updated for new paths.
+- [ ] `lib/cmd_install.sh` -> Packaging file list synchronized if applicable.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/cmd_plan.sh` -> Core planning lifecycle engine remains untouched.
+- [ ] `templates/blast-radius-guard.sh` -> Guard engine remains untouched.
+- [ ] `templates/aapp-pre-commit` -> Pre-commit hook remains untouched.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
+* **2026-10-19:** Blueprint drafted from Issue #172. Specified non-colliding sequential numbering (01–17) for `docs/reference/`, modernization of `lib/adoption.sh` links, and test assertions in `tests/adoption_test.sh`.
 * **2026-10-19:** Plan initialized from `pickup.md`.
 * **2026-10-19:** Refined blast radius and locked module boundaries.
