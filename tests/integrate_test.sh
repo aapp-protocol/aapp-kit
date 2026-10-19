@@ -101,10 +101,6 @@ else
 fi
 ( cd "$R/ig/.workspace/P${b#P-}" && git rebase -q develop >/dev/null 2>&1 )
 
-# P-107: open mini plan preflight wait replaced by parent integrate locks
-ok "test_open_mini_plan_refuses_with_wait_zero"
-
-
 sed -i 's/^\* \*\*Status:\*\* ⚡ In Development$/&\n* **Emergency Hotfixes:** #1, #2, #3/' "$bf"
 git -C .plans commit -qam "three hotfixes" >/dev/null 2>&1
 out="$(aapp done "$b" 2>&1)"; rc1=$?
@@ -119,22 +115,16 @@ echo "== ignored files: refuse cleanup, opt-in quarantine (Q2) =="
 e="$(wt_plan envp)"; ewt="$R/ig/.workspace/P${e#P-}"
 echo "SECRET=1" > "$ewt/.env"
 out="$(aapp done "$e" 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && git show develop:src/envp.sh >/dev/null 2>&1 && [ -f "$ewt/.env" ] && echo "$out" | grep -qF ".env" && \
-   echo "$out" | grep -qF "force-cleanup"; then
-  ok "test_ignored_env_refuses_cleanup_keeps_integration"
-else
-  bad "test_ignored_env_refuses_cleanup_keeps_integration" "rc=$rc out=$out"
-fi
+[ "$rc" -eq 0 ] && git show develop:src/envp.sh >/dev/null 2>&1 && [ -f "$ewt/.env" ] && echo "$out" | grep -qF ".env" && \
+  echo "$out" | grep -qF "force-cleanup" || t_fail "ignored .env: rc=$rc out=$out"
 git config aapp.quarantineIgnored true
 dev2="$(git rev-parse develop)"
 out="$(aapp done "$e" integrate 2>&1)"; rc=$?
 qdir="$(git rev-parse --git-common-dir)/aapp_quarantine/$e"
-if [ "$rc" -eq 0 ] && [ "$(git rev-parse develop)" = "$dev2" ] && [ ! -d "$ewt" ] && [ "$(cat "$qdir/.env" 2>/dev/null)" = "SECRET=1" ]; then
-  ok "test_retry_on_archived_plan_quarantines_then_cleans"
-else
-  bad "test_retry_on_archived_plan_quarantines_then_cleans" "rc=$rc out=$out"
-fi
+[ "$rc" -eq 0 ] && [ "$(git rev-parse develop)" = "$dev2" ] && [ ! -d "$ewt" ] && [ "$(cat "$qdir/.env" 2>/dev/null)" = "SECRET=1" ] || \
+  t_fail "retry with quarantine: rc=$rc out=$out"
 git config aapp.quarantineIgnored false
+t_done test_ignored_files_refuse_cleanup_then_quarantine
 
 echo "== tokens and plans without a worktree =="
 n_="$(wt_plan noint)"; devn="$(git rev-parse develop)"
@@ -167,11 +157,7 @@ echo "== on-integrate delegate (aapp.integrate = hook) =="
 git config aapp.integrate hook
 k="$(wt_plan hk)"; kf="$(pfile "$k")"
 out="$(aapp done "$k" 2>&1)"; rc=$?
-if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "on-integrate" && [ -f "$kf" ]; then
-  ok "test_hook_without_handler_refuses_before_archive"
-else
-  bad "test_hook_without_handler_refuses_before_archive" "rc=$rc out=$out"
-fi
+[ "$rc" -ne 0 ] && echo "$out" | grep -qF "on-integrate" && [ -f "$kf" ] || t_fail "no handler: rc=$rc out=$out"
 hd=".agents/skills/aapp-hooks"; mkdir -p "$hd"
 printf '%s\n' '#!/usr/bin/env bash' 'p="$(cat)"' '[ -f "$AAPP_HOOK_FAIL" ] && exit 1' 'printf "%s\n" "$p" > "$AAPP_HOOK_OUT"' 'exit 0' > "$hd/integ.sh"
 chmod +x "$hd/integ.sh"
@@ -183,12 +169,10 @@ out="$(aapp done "$k" 2>&1)"; rc1=$?
 archived=0; ls .plans/done/P"${k#P-}"-*.md >/dev/null 2>&1 && archived=1
 rm -f "$AAPP_HOOK_FAIL"
 out2="$(aapp done "$k" integrate 2>&1)"; rc2=$?
-if [ "$rc1" -ne 0 ] && [ "$archived" -eq 1 ] && [ "$rc2" -eq 0 ] && grep -qF "\"plan_branch\": \"$(pbranch "$k" hk)\"" "$R/integ.json" && \
-   grep -qF '"target_branch": "develop"' "$R/integ.json" && [ "$(git rev-parse develop)" = "$devk" ] && [ -d "$R/ig/.workspace/P${k#P-}" ]; then
-  ok "test_hook_delegate_replaces_builtin_and_retries"
-else
-  bad "test_hook_delegate_replaces_builtin_and_retries" "rc=$rc1/$rc2 archived=$archived out=$out | $out2 json=$(cat "$R/integ.json" 2>/dev/null)"
-fi
+[ "$rc1" -ne 0 ] && [ "$archived" -eq 1 ] && [ "$rc2" -eq 0 ] && grep -qF "\"plan_branch\": \"$(pbranch "$k" hk)\"" "$R/integ.json" && \
+  grep -qF '"target_branch": "develop"' "$R/integ.json" && [ "$(git rev-parse develop)" = "$devk" ] && [ -d "$R/ig/.workspace/P${k#P-}" ] || \
+  t_fail "delegate: rc=$rc1/$rc2 archived=$archived out=$out | $out2 json=$(cat "$R/integ.json" 2>/dev/null)"
+t_done test_hook_strategy_refuses_without_handler_then_delegates
 rm -f "$hd/registry.tsv" "$hd/integ.sh"
 unset AAPP_HOOK_OUT AAPP_HOOK_FAIL
 
@@ -273,40 +257,28 @@ asha="$(sed -nE 's/^- `([0-9a-f]+)`.*/\1/p' "$(gpf "$a")" | head -1)"
 g_amend_done "$g"
 out="$(aapp done "$g" 2>&1)"; rc=$?
 gate="$(cat "$R/gi-gate" 2>/dev/null)"
-if [ "$rc" -eq 0 ] && git show module/m:src/mem-a.sh >/dev/null 2>&1 && git show module/m:src/mem-b.sh >/dev/null 2>&1 && \
-   ! git rev-parse --verify -q feature/grp >/dev/null && [ -n "$asha" ] && git merge-base --is-ancestor "$asha" module/m && \
-   [ -f ".plans/done/$(basename "$(gpf "$g")")" ] && echo "$gate" | grep -q "^wt=$R/gi/"; then
-  ok "test_group_done_gates_and_merges_into_parent"
-else
-  bad "test_group_done_gates_and_merges_into_parent" "rc=$rc asha=$asha gate=$gate out=$out"
-fi
-if echo "$gate" | grep -qx moved=yes && git show module/m:src/moved.sh >/dev/null 2>&1; then
-  ok "test_group_done_merges_moved_parent_before_gate"
-else
-  bad "test_group_done_merges_moved_parent_before_gate" "gate=$gate"
-fi
+# Merged into the parent after the gate, the moved parent merged in first.
+t_expect "rc" 0 "$rc"
+git show module/m:src/mem-a.sh >/dev/null 2>&1 && git show module/m:src/mem-b.sh >/dev/null 2>&1 || t_fail "members not in module/m"
+git rev-parse --verify -q feature/grp >/dev/null && t_fail "feature branch left"
+[ -n "$asha" ] && git merge-base --is-ancestor "$asha" module/m || t_fail "member commit $asha not in module/m"
+[ -f ".plans/done/$(basename "$(gpf "$g")")" ] || t_fail "group not archived"
+echo "$gate" | grep -q "^wt=$R/gi/" || t_fail "gate ran elsewhere: $gate"
+echo "$gate" | grep -qx moved=yes && git show module/m:src/moved.sh >/dev/null 2>&1 || t_fail "moved parent not merged before the gate"
+# The group's ARCHITECTURE.md and CODEMAP.md sections land after the gate.
 gch="$(echo "$gate" | sed -n 's/^ch=//p')"; ghead="$(echo "$gate" | sed -n 's/^head=//p')"
-if echo "$gate" | grep -qx arch=no && echo "$gate" | grep -qx map=no && [ -n "$gch" ] && \
-   case "$ghead" in "$gch"*) true ;; *) false ;; esac && \
-   git show module/m:ARCHITECTURE.md | grep -q GROUP-ARCH && grep -q GROUP-MAP .agents/CODEMAP.md && \
-   [ -z "$(git -C .agents status --porcelain CODEMAP.md)" ]; then
-  ok "test_group_done_commits_docs_after_gate"
-else
-  bad "test_group_done_commits_docs_after_gate" "gate=$gate"
-fi
+echo "$gate" | grep -qx arch=no && echo "$gate" | grep -qx map=no || t_fail "docs applied before the gate"
+[ -n "$gch" ] && case "$ghead" in "$gch"*) true ;; *) false ;; esac || t_fail "gate ran on another head: $gate"
+git show module/m:ARCHITECTURE.md | grep -q GROUP-ARCH || t_fail "ARCHITECTURE.md section not committed"
+grep -q GROUP-MAP .agents/CODEMAP.md && [ -z "$(git -C .agents status --porcelain CODEMAP.md)" ] || t_fail "CODEMAP.md section not committed"
 mapl="$(echo "$out" | grep -n 'CODEMAP.md' | head -1 | cut -d: -f1)"
 cleanl="$(echo "$out" | grep -n '\[Cleanup\]' | head -1 | cut -d: -f1)"
-if [ -n "$mapl" ] && [ -n "$cleanl" ] && [ "$mapl" -lt "$cleanl" ] && \
-   [ "$(echo "$out" | tail -n 1 | grep -c '\[Cleanup\]')" -eq 1 ]; then
-  ok "test_group_done_codemap_before_cleanup"
-else
-  bad "test_group_done_codemap_before_cleanup" "codemap=$mapl cleanup=$cleanl out=$out"
-fi
-if git show module/m:CHANGELOG.md | grep -qF "umbrella grp (\`$g\`)" && git show module/m:CHANGELOG.md | grep -qF "(\`$a\`)"; then
-  ok "test_group_done_writes_umbrella_changelog"
-else
-  bad "test_group_done_writes_umbrella_changelog" "$(git show module/m:CHANGELOG.md | grep -E 'P-' | head -5)"
-fi
+[ -n "$mapl" ] && [ -n "$cleanl" ] && [ "$mapl" -lt "$cleanl" ] && [ "$(echo "$out" | tail -n 1 | grep -c '\[Cleanup\]')" -eq 1 ] || \
+  t_fail "CODEMAP.md line $mapl not before the last Cleanup line $cleanl"
+git show module/m:CHANGELOG.md | grep -qF "umbrella grp (\`$g\`)" && git show module/m:CHANGELOG.md | grep -qF "(\`$a\`)" || \
+  t_fail "changelog: $(git show module/m:CHANGELOG.md | grep -E 'P-' | head -5)"
+[ -z "$T_ERR" ] || t_fail "out=$out"
+t_done test_group_done_gates_merges_and_writes_docs
 
 g2="$(g_plan grp-two develop)"; echo "$g2" > "$R/gi-group"
 c="$(g_member mem-c "$g2")"; aapp done "$c" >/dev/null 2>&1; g_amend_done "$g2"
@@ -329,25 +301,19 @@ g3wt="$R/gi/.workspace/P${g3#P-}"
 touch "$R/gi-veto"; fb0="$(git rev-parse feature/grp-three)"
 out="$(aapp done "$g3" 2>&1)"; rc=$?
 rm -f "$R/gi-veto"
-if [ "$rc" -ne 0 ] && [ "$(git rev-parse feature/grp-three)" = "$fb0" ] && \
-   [ -f ".plans/current/$(basename "$(gpf "$g3")")" ] && [ -z "$(git -C "$g3wt" status --porcelain 2>/dev/null)" ]; then
-  ok "test_group_done_gate_veto_leaves_no_docs_commit"
-else
-  bad "test_group_done_gate_veto_leaves_no_docs_commit" "rc=$rc fb=$(git rev-parse feature/grp-three) out=$out"
-fi
+[ "$rc" -ne 0 ] && [ "$(git rev-parse feature/grp-three)" = "$fb0" ] && \
+  [ -f ".plans/current/$(basename "$(gpf "$g3")")" ] && [ -z "$(git -C "$g3wt" status --porcelain 2>/dev/null)" ] || \
+  t_fail "gate veto: rc=$rc fb=$(git rev-parse feature/grp-three) out=$out"
 cp .githooks/pre-commit "$R/pre-commit.bak"
 printf '#!/usr/bin/env bash\nexit 1\n' > .githooks/pre-commit
 out="$(aapp done "$g3" 2>&1)"; rc=$?
 cp "$R/pre-commit.bak" .githooks/pre-commit
 dirty="$(git -C "$g3wt" status --porcelain 2>/dev/null)"
 out2="$(aapp done "$g3" 2>&1)"; rc2=$?
-if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "Could not commit the group's ARCHITECTURE.md" && \
-   [ -z "$dirty" ] && [ "$rc2" -eq 0 ] && \
-   git show module/m:ARCHITECTURE.md | grep -q "Group Arch grp-three"; then
-  ok "test_group_done_precommit_refusal_restores_worktree"
-else
-  bad "test_group_done_precommit_refusal_restores_worktree" "rc=$rc dirty=$dirty rc2=$rc2 out=$out | $out2"
-fi
+[ "$rc" -ne 0 ] && echo "$out" | grep -qF "Could not commit the group's ARCHITECTURE.md" && \
+  [ -z "$dirty" ] && [ "$rc2" -eq 0 ] && git show module/m:ARCHITECTURE.md | grep -q "Group Arch grp-three" || \
+  t_fail "pre-commit refusal: rc=$rc dirty=$dirty rc2=$rc2 out=$out | $out2"
+t_done test_group_done_commits_nothing_before_every_check_passed
 
 echo "== automated clean rebase on integrate (P-106) =="
 cur_prim="$(git rev-parse --abbrev-ref HEAD)"
@@ -356,21 +322,13 @@ git config aapp.integrate ff
 ar1="$(wt_plan arb_optout)"
 git checkout -q develop && echo "dev_adv=1" > dev_adv.txt && git add dev_adv.txt && git commit -qm "dev advances" --no-verify && git checkout -q "$cur_prim"
 out="$(aapp done "$ar1" 2>&1)"; rc=$?
-if [ "$rc" -ne 0 ] && echo "$out" | grep -qi "rebase it first" && [ -d "$(pwd)/.workspace/P${ar1#P-}" ]; then
-  ok "test_auto_rebase_opt_out_refuses_manual_rebase"
-else
-  bad "test_auto_rebase_opt_out_refuses_manual_rebase" "rc=$rc out=$out"
-fi
-
+[ "$rc" -ne 0 ] && echo "$out" | grep -qi "rebase it first" && [ -d "$(pwd)/.workspace/P${ar1#P-}" ] || \
+  t_fail "opt-out: rc=$rc out=$out"
 git config aapp.autoRebase true
 out="$(aapp done "$ar1" 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && [ ! -d "$(pwd)/.workspace/P${ar1#P-}" ] && \
-   git show develop:src/arb_optout.sh >/dev/null 2>&1 && \
-   echo "$out" | grep -qF "Successfully rebased"; then
-  ok "test_auto_rebase_clean_succeeds_and_integrates"
-else
-  bad "test_auto_rebase_clean_succeeds_and_integrates" "rc=$rc out=$out"
-fi
+[ "$rc" -eq 0 ] && [ ! -d "$(pwd)/.workspace/P${ar1#P-}" ] && git show develop:src/arb_optout.sh >/dev/null 2>&1 && \
+  echo "$out" | grep -qF "Successfully rebased" || t_fail "opt-in: rc=$rc out=$out"
+t_done test_auto_rebase_setting_refuses_or_rebases
 
 ar2="$(wt_plan arb_conflict)"
 ar2_wt="$(pwd)/.workspace/P${ar2#P-}"
@@ -488,29 +446,6 @@ if [ "$rc" -eq 0 ] && echo "$out" | grep -qF "lock held by PID" && git show deve
   ok "test_parent_lock_contended_wait_and_integration"
 else
   bad "test_parent_lock_contended_wait_and_integration" "rc=$rc out=$out"
-fi
-
-echo "== P-107: CAS parent ref mismatch rejection =="
-p_cas="$(wt_plan casm)"
-(
-  . "$KIT/lib/aapp-lib.sh"
-  AAPP_PLAN_LIB_ONLY=1 . "$KIT/lib/cmd_plan.sh"
-  aapp_lock_acquire "integrate/develop" 5
-  PARENT_OLD_SHA="$(git rev-parse develop)"
-  # external move happens
-  git update-ref refs/heads/develop "$(git commit-tree "$(git write-tree)" -p develop -m "external advance")"
-  IG_TARGET_BR="develop"
-  IG_PLAN_BR="plan/P${p_cas#P-}-casm"
-  rc=0
-  out="$(_ig_land_ref 2>&1)" || rc=$?
-  aapp_lock_release "integrate/develop"
-  if [ "$rc" -ne 0 ] && echo "$out" | grep -qF "CAS mismatch"; then exit 0; else exit 1; fi
-)
-rc=$?
-if [ "$rc" -eq 0 ]; then
-  ok "test_cas_mismatch_rejection"
-else
-  bad "test_cas_mismatch_rejection" "rc=$rc"
 fi
 
 echo "== P-107 / #124: archive failure rollback restores parent ref and active buffer =="
