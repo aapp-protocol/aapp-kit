@@ -243,6 +243,18 @@ echo "$out" | grep -q 'Issue #91 appears more than once in archive' || t_fail "a
 rm -f .plans/ISSUES.md .plans/done/000-issues-archive.md
 t_done test_pair8_issue_id_integrity
 
+mkdir -p .plans/done
+printf '%s\n' '# 🐛 Issues: Active Technical Backlog' '| # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status |' \
+  '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |' '| #1 | `Critical` | `CORE` | 2026-09-10 | `src/a.py:1` | Issue symptom. |  | 🟡 `Incubated` |' > .plans/ISSUES.md
+printf '%s\n' '# 🏛️ Master Issue Archive Ledger' '| # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary |' \
+  '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |' "| #2 | \`High\` | \`CLI\` | 2026-09-09 | 2026-09-09 | \`$SHA\` | Resolved description. |" > .plans/done/000-issues-archive.md
+printf '%s\n' '# 🗺️ Issue Work Queue' '1. #1 -> Active issue' > .plans/issues_road_map.md
+t_expect "valid state" passed "$(verdict check_planning_health "$PWD")"
+echo "| #1 | \`High\` | \`CLI\` | 2026-09-09 | 2026-09-09 | \`$SHA\` | Collision summary. |" >> .plans/done/000-issues-archive.md
+t_expect "id in both ledgers" refused "$(verdict check_planning_health "$PWD")"
+rm -f .plans/ISSUES.md .plans/done/000-issues-archive.md .plans/issues_road_map.md
+t_done test_planning_health_overall
+
 echo "== release bundles (P-38) =="
 mkdir -p .plans/release/v1.0.0/plans
 cat > .plans/release/v1.0.0/plans/P99-release-test.md << 'EOF'

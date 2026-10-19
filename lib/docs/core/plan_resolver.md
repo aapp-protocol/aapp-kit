@@ -20,4 +20,5 @@ Run: `aapp test plan_resolver`
 - `tests/plan_resolver_test.sh::test_pair6_recorded_sha_integrity` -> pair 6 refuses a commit in the archive ledger or the changelog that the repository does not hold
 - `tests/plan_resolver_test.sh::test_pair7_shared_docs_exempt` -> pair 7 lets plans share shared docs with a notice and refuses a shared code file; `aapp_is_shared_doc` tells them apart
 - `tests/plan_resolver_test.sh::test_pair8_issue_id_integrity` -> pair 8 refuses an issue id used twice in the active ledger or in the archive, naming it
+- `tests/plan_resolver_test.sh::test_planning_health_overall` -> `check_planning_health` passes consistent ledgers and refuses an issue id found in both the active ledger and the archive
 - `tests/plan_resolver_test.sh::test_release_bundles_resolved_and_seeded` -> a plan in a release bundle resolves by id and slug, and its archived issues count for the issue seed
