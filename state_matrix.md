@@ -25,6 +25,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-122**: [`P122-remove-bash-clean-break.md`](current/P122-remove-bash-clean-break.md) — Remove Bash Clean Break
 - 🟣 **P-123**: [`P123-perl-core-test-modules.md`](current/P123-perl-core-test-modules.md) — Perl Core Test Modules
 - 🟣 **P-124**: [`P124-perl-lifecycle-verb-test-modules.md`](current/P124-perl-lifecycle-verb-test-modules.md) — Perl Lifecycle Verb Test Modules
+- 🟣 **P-125**: [`P125-perl-remaining-verb-tests-and-switch.md`](current/P125-perl-remaining-verb-tests-and-switch.md) — Perl Remaining Verb Tests And Switch
 - 🟣 **P-15**: [`P15-adversarial-review-plugin.md`](current/P15-adversarial-review-plugin.md) — ✏️ **SKETCH — do not refine** — Adversarial Review Packet, Layer 6 Agent Egress Boundary & reference review plugin. Settled ground only; blocked on `#64`, `#57`, `#56`.
 
 ---
