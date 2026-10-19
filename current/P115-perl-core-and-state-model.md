@@ -40,42 +40,51 @@
 ---
 
 ## 1. Context & Architectural Goal
-Builds the shared Perl 5.26+ core and single-pass workspace state model (`lib/AAPP/*.pm`) that all hooks (`P-116`) and verbs (`P-117`–`P-121`) consume, folds in the "Perl in place of python3" JSON migration, and updates `aapp` so ported verbs dispatch directly to `AAPP::Cmd::<Verb>` while unported verbs continue running in bash.
+Builds the shared Perl 5.26+ core and single-pass workspace state model (`lib/AAPP/*.pm`) porting `lib/aapp-lib.sh` (2,493 lines), `lib/output.sh` (219 lines), `lib/plan_states.sh` (394 lines), `lib/plan_resolver.sh` (450 lines), `lib/planning_health.sh` (842 lines), and `lib/commit_engine.sh` (109 lines). This plan also folds in the "Perl in place of python3" JSON migration (`AAPP::JSON`) and updates `aapp` so ported verbs dispatch directly to `AAPP::Cmd::<Verb>` while unported verbs continue running in bash.
 
 ---
 
 ## 2. Technical Blueprint
 
 ### 2.1 Core Modules (`lib/AAPP/`)
-1. **`lib/AAPP/Config.pm`:** Reads all repository settings once per process via `git config --list -z`, providing typed accessors (`get`, `get_int`, `get_bool`, `get_regexp`) and plan-state registry resolution (`aapp.planState.<slug>`).
-2. **`lib/AAPP/Paths.pm`:** Resolves `REPO_ROOT`, `GIT_COMMON_DIR`, `GIT_DIR`, `PRIMARY_ROOT`, `PLANS_DIR`, `AGENTS_DIR`, `HOOKS_DIR`, and `OFFLINE_DIR` once per process via a single `git rev-parse --show-toplevel --git-common-dir --git-dir` call, plus pure-Perl glob matching (`match_pattern_list`).
-3. **`lib/AAPP/Text.pm`:**
+1. **`lib/AAPP/Config.pm` (`lib/plan_states.sh`):** Reads all repository settings once per process via `git config --list -z`, providing typed accessors (`get`, `get_int`, `get_bool`, `get_regexp`) and the Plan Status Registry (`aapp.planState.<slug>`, `plan_status_line`, `plan_status_text`, `plan_status_slug`, `plan_status_is`, `plan_status_render`, `plan_set_status`, `plan_state_sections`).
+2. **`lib/AAPP/Paths.pm` (`lib/aapp-lib.sh`):** Resolves `REPO_ROOT`, `GIT_COMMON_DIR`, `GIT_DIR`, `PRIMARY_ROOT`, `PLANS_DIR`, `AGENTS_DIR`, `HOOKS_DIR`, and `OFFLINE_DIR` once per process via a single `git rev-parse --show-toplevel --git-common-dir --git-dir` call, plus pure-Perl glob matching (`glob_to_regex`, `match_pattern_list`), platform detection (`aapp_os`), and the unified named lock engine (`aapp_lock_acquire`, `aapp_lock_release`, `aapp_lock_held`).
+3. **`lib/AAPP/Text.pm` (`lib/aapp-lib.sh`, `lib/output.sh`):**
    - Decorative-only emoji normalizer: `s/^(?:(?=[^\x00-\x7F])[\p{S}\p{Me}\x{2139}]|[\x{200D}\x{FE0E}\x{FE0F}\s]+)+//` for heading levels/names, plan statuses, kind headers, and table cells.
-   - UTF-8 character-width wrapping (`out_wrap`) and truncation (`out_cut`) matching `lib/output.sh`.
-4. **`lib/AAPP/JSON.pm`:**
+   - UTF-8 character counter (`aapp_char_len`), wrapping (`out_wrap`), truncation (`out_cut`), and pickup line splitter (`pickup_entry_split`, `pickup_title_max`, `pickup_entry_files`).
+4. **`lib/AAPP/JSON.pm` (`lib/output.sh`, `lib/hook_dispatcher.sh`):**
    - Ordered `@_` key-value builder (`json_obj`, `json_list`, `json_str`, `json_strn`, `json_num`, `json_numn`, `json_bool`), 2-space pretty-printer, envelope/notices/error builders (`docs/reference/08-output-json.md`), and JSON reader for `blast-radius-guard` tool payloads, `.claude/settings.json` merging, and pause snapshots. Never uses `JSON::PP` or `python3`.
-5. **`lib/AAPP/State.pm`:**
-   - Single-pass workspace state loader: reads `aapp_active_plan`, held plans across worktrees (`.git/worktrees/*/aapp_active_plan`), every `.plans/current/*.md` (header fields, Status slug, §3 required tests, §4 Target Files / Required Test Files / Out of Bounds), and the issue/roadmap/pickup ledgers once per process.
+5. **`lib/AAPP/Output.pm` (`lib/output.sh`, `lib/aapp-lib.sh`):**
+   - Shared terminal and JSON record renderers (`out_width`, `issue_render_terminal`, `issue_render_json`).
+6. **`lib/AAPP/State.pm` (`lib/aapp-lib.sh`, `lib/plan_resolver.sh`):**
+   - Single-pass workspace state loader: reads `$(git rev-parse --git-path aapp_active_plan)`, held plans across worktrees (`aapp_held_plans`, `aapp_plan_held_by`), every `.plans/current/*.md` (header fields, Status slug, `Commits:`, `Base:`, `Worktree:`, `Also Closes:`, §3 required tests, §4 `Target Files` / `Emergency Hotfix Extensions` / `Required Test Files` / `Out of Bounds`), Plan ID & Issue ID resolvers/allocators (`resolve_plan_path`, `allocate_plan_id`, `allocate_issue_id`, `issue_id_normalize`), and the issue/archive/roadmap/offline ledgers (`ledger_row`, `ledger_rows`, `ledger_issue_records`, `roadmap_queue_entries`, and the external description/note store under `${AAPP_STATE_DIR:-~/.local/state}/aapp/<key>/issues-data.md`).
+7. **`lib/AAPP/CommitEngine.pm` (`lib/commit_engine.sh`):**
+   - Ports `plans_commit($subject, @paths)` with explicit pathspec staging (`git commit -- <paths>`), lock-retry resilience, and attribution decoration.
+8. **`lib/AAPP/Health.pm` (`lib/planning_health.sh`):**
+   - Ports all 8 mechanical verification pairs (Pairs 1–8) plus `check_fix_cells`, `check_issues_table_shape`, `check_ledger_issues`, `check_issues_added_rows`, and `check_pickup_entries` over `AAPP::State`.
 
 ### 2.2 Hybrid `aapp` Dispatcher & `python3` Retirement
-- `aapp` checks if `lib/AAPP/Cmd/<Verb>.pm` exists: if so, invokes Perl (`perl -I"$AAPP_LIB" -MAAPP::Cmd::<Verb> -e 'AAPP::Cmd::<Verb>::run(@ARGV)' -- "$@"`); otherwise sources `lib/cmd_<verb>.sh`.
-- Replaces all remaining `python3` calls in `lib/cmd_pause.sh`, `lib/cmd_status.sh`, `lib/cmd_init.sh`, `templates/blast-radius-guard.sh`, and `templates/aapp-pre-commit` with `AAPP::JSON`.
+- `aapp` checks if `lib/AAPP/Cmd/<Verb>.pm` exists: if so, invokes Perl (`perl -I"$AAPP_LIB" -MAAPP::Cmd::<Verb> -e 'exit AAPP::Cmd::<Verb>::run(@ARGV)' -- "$CMD" "$@"`); otherwise sources `lib/cmd_<verb>.sh`.
+- Replaces the kit's own `python3` JSON calls in `lib/cmd_pause.sh`, `lib/cmd_status.sh`, `lib/cmd_init.sh`, `templates/blast-radius-guard.sh`, and the pause-reason reader in `templates/aapp-pre-commit` with `AAPP::JSON`. (The adopter Python syntax check in `templates/aapp-pre-commit` is left untouched for `#159`.)
+- Updates the core wrapper test modules (`tests/AAPP/Core/*.pm` for `aapp-lib`, `plan_states`, `plan_resolver`, `issue_id`, `issue_ledger`, `output`, `output_json`) to invoke `AAPP::*` instead of sourcing `lib/*.sh`.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default)
-- **Fallback Inventory**: `None (Clean Break)`
+- **Compatibility Mode**: `Backwards Compatible` (Transitional bash/Perl coexistence within group `P-111` until `P-122`)
+- **Fallback Inventory**:
+  - `lib/aapp-lib.sh`, `lib/output.sh`, `lib/plan_states.sh`, `lib/plan_resolver.sh`, `lib/planning_health.sh`, and `lib/commit_engine.sh` are retained unchanged for unported bash verbs (`P-117`–`P-121`) and deleted in `P-122`.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Core Modules (`lib/AAPP/*.pm`)
-- [ ] Task 1.1: Implement `lib/AAPP/Config.pm`, `lib/AAPP/Paths.pm`, `lib/AAPP/Text.pm`, and `lib/AAPP/JSON.pm`.
-- [ ] Task 1.2: Implement `lib/AAPP/State.pm` (single-pass plan, worktree buffer, status registry, and ledger state reader/writer).
+- [ ] Task 1.1: Implement `lib/AAPP/Config.pm`, `lib/AAPP/Paths.pm`, `lib/AAPP/Text.pm`, `lib/AAPP/JSON.pm`, and `lib/AAPP/Output.pm`.
+- [ ] Task 1.2: Implement `lib/AAPP/State.pm`, `lib/AAPP/CommitEngine.pm`, and `lib/AAPP/Health.pm`.
 
-### Phase 2: Dispatcher & `python3` Retirement
+### Phase 2: Dispatcher, `python3` Retirement & Core Wrapper Tests
 - [ ] Task 2.1: Update `aapp` to route ported verbs to `lib/AAPP/Cmd/*.pm` and unported verbs to `lib/cmd_*.sh`.
-- [ ] Task 2.2: Replace `python3` JSON calls in `lib/cmd_init.sh`, `lib/cmd_pause.sh`, `lib/cmd_status.sh`, `templates/blast-radius-guard.sh`, and `templates/aapp-pre-commit` with `AAPP::JSON`, and update `lib/cmd_init.sh` to copy `lib/AAPP/*.pm` into `.githooks/AAPP/`.
+- [ ] Task 2.2: Replace `python3` JSON calls in `lib/cmd_init.sh`, `lib/cmd_pause.sh`, `lib/cmd_status.sh`, `templates/blast-radius-guard.sh`, and `templates/aapp-pre-commit` (pause reason) with `AAPP::JSON`, and update `lib/cmd_init.sh` to copy `lib/AAPP/*.pm` into `.githooks/AAPP/`.
+- [ ] Task 2.3: Switch the core wrapper test modules (`tests/AAPP/Core/*.pm` for the modules ported in this plan) to call `AAPP::*`.
 
 ### Phase 3: Verification
 - [ ] Task 3.1: Run `./aapp test strict quiet` to verify all core, JSON, state, and verb contracts pass.
@@ -85,22 +94,25 @@ Builds the shared Perl 5.26+ core and single-pass workspace state model (`lib/AA
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `lib/AAPP/Config.pm` -> Single-pass `git config --list -z` reader and plan-state registry.
-- [ ] `NEW FILE` -> `lib/AAPP/Paths.pm` -> Single-pass repository/worktree path resolver and glob matcher.
-- [ ] `NEW FILE` -> `lib/AAPP/Text.pm` -> Emoji-stripping heading/value normalizer and UTF-8 character wrap/cut.
-- [ ] `NEW FILE` -> `lib/AAPP/JSON.pm` -> Deterministic ordered JSON writer, pretty-printer, and reader.
-- [ ] `NEW FILE` -> `lib/AAPP/State.pm` -> Single-pass workspace, active-plan, blueprint, and ledger state model.
+- [ ] `NEW FILE` -> `lib/AAPP/Config.pm` -> Single-pass `git config --list -z` reader and plan-state registry (`plan_states.sh`).
+- [ ] `NEW FILE` -> `lib/AAPP/Paths.pm` -> Single-pass repository/worktree path resolver, glob matcher, OS detector, and named locks.
+- [ ] `NEW FILE` -> `lib/AAPP/Text.pm` -> Emoji-stripping heading/value normalizer, UTF-8 char length, wrap/cut, and pickup splitter.
+- [ ] `NEW FILE` -> `lib/AAPP/JSON.pm` -> Deterministic ordered JSON writer, pretty-printer, envelope builder, and reader.
+- [ ] `NEW FILE` -> `lib/AAPP/Output.pm` -> Shared terminal and JSON record renderers (`output.sh`).
+- [ ] `NEW FILE` -> `lib/AAPP/State.pm` -> Single-pass workspace, active-plan, blueprint, resolver, and ledger state model (`aapp-lib.sh`, `plan_resolver.sh`).
+- [ ] `NEW FILE` -> `lib/AAPP/CommitEngine.pm` -> Unified `.plans` worktree commit engine (`commit_engine.sh`).
+- [ ] `NEW FILE` -> `lib/AAPP/Health.pm` -> 8-pair mechanical planning health validator (`planning_health.sh`).
 - [ ] `aapp` -> Hybrid Perl/bash verb dispatcher.
 - [ ] `lib/cmd_init.sh` -> Sync `lib/AAPP/*.pm` into `.githooks/AAPP/` and replace `python3` in `.claude/settings.json` merge.
 - [ ] `lib/cmd_pause.sh` -> Replace `python3` pause snapshot read/write with `AAPP::JSON`.
 - [ ] `lib/cmd_status.sh` -> Replace `python3` pause banner read with `AAPP::JSON`.
 - [ ] `templates/blast-radius-guard.sh` -> Replace `python3` JSON parsing/output with `AAPP::JSON`.
-- [ ] `templates/aapp-pre-commit` -> Replace `python3` pause reason read and adopter Python check with `AAPP::JSON`.
+- [ ] `templates/aapp-pre-commit` -> Replace `python3` pause reason read with `AAPP::JSON` (leaving adopter Python check untouched for `#159`).
+- [ ] `tests/AAPP/Core/*.pm` -> Switch core wrapper tests for `aapp-lib`, `plan_states`, `plan_resolver`, `issue_id`, `issue_ledger`, `output`, and `output_json` from `lib/*.sh` to `AAPP::*`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/AAPP/Tests.pm` -> Test harness is locked (tests or code change in a plan, never both).
-- [ ] `lib/AAPP/Tests/Core/*.pm` -> Core test modules are untouched in this plan.
-- [ ] `lib/AAPP/Tests/Verb/*.pm` -> Verb test modules are untouched in this plan.
+- [ ] `tests/AAPP/Tests.pm` -> Test harness runner is locked.
+- [ ] `tests/AAPP/Verb/*.pm` -> Verb test modules are untouched in this plan.
 
 ---
 
@@ -111,3 +123,5 @@ Builds the shared Perl 5.26+ core and single-pass workspace state model (`lib/AA
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-19:** Plan drafted as member 3 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
+* **2026-10-19:** Added `AAPP::Output`, `AAPP::CommitEngine`, and `AAPP::Health`, kept `#159` adopter check untouched, registered transitional bash/Perl coexistence in §2, and added `tests/AAPP/Core/*.pm` per RFC §5.1.3 & §5.1.5.
+
