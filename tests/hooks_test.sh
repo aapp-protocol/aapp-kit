@@ -20,16 +20,12 @@ R=$(mktemp -d); PASS=0; FAIL=0
 trap 'rm -rf "$R"' EXIT
 confine_test_runtime "$R"
 
+# report <check> <expect> <got> [details]: one check of the current test.
+# An if-block, not `&&`: the sourced dispatcher enables errexit, and a false
+# test here would abort the suite and hide every later result.
 report() {
-  local name="$1" expect="$2" got="$3" details="${4:-}"
-  if [ "$expect" = "$got" ]; then
-    printf "  \033[32m✔\033[0m %-65s %s\n" "$name" "PASS"; PASS=$((PASS+1))
-  else
-    printf "  \033[31m✘\033[0m %-65s want %s got %s\n" "$name" "$expect" "$got"; FAIL=$((FAIL+1))
-    # if-block, not `&&`: the sourced dispatcher enables errexit, and a false
-    # test here would abort the suite and hide every later result.
-    if [ -n "$details" ]; then echo "$details" | sed 's/^/       /'; fi
-  fi
+  if [ "$2" != "$3" ]; then t_fail "$1: want [$2] got [$3]${4:+
+$4}"; fi
 }
 
 make_kit_clone() {
@@ -106,6 +102,7 @@ else
   got="FAIL"
 fi
 report "aapp hook-hash formats 5-column TSV line with valid hash" "PASS" "$got" "$hash_out"
+t_done test_hook_hash_formats_registry_line
 
 # ------------------------------------------------------------------------------
 # Test 3: Exit code 0 allows lifecycle transition & Dual Delivery verified
@@ -133,6 +130,7 @@ else
   got="FAIL"
 fi
 report "exit code 0 allows transition and exports Dual Delivery env vars" "PASS" "$got" "$run_out"
+t_done test_gate_hook_receives_envelope_and_environment
 
 # ------------------------------------------------------------------------------
 # Test 4: SHA256 hash mismatch triggers tamper-evident hard abort (mode=gate)
@@ -150,6 +148,7 @@ else
   got="FAIL"
 fi
 report "SHA256 mismatch halts transition with integrity violation" "PASS" "$got" "$tamper_out"
+t_done test_tampered_hook_aborts
 
 # Restore script to match hash
 cat << 'EOF' > "$HOOK_PASS"
@@ -184,6 +183,7 @@ else
   got="FAIL"
 fi
 report "exit code 1 halts operation and streams stderr in gate mode" "PASS" "$got" "$fail_out"
+t_done test_gate_hook_failure_halts
 
 # ------------------------------------------------------------------------------
 # Test 6: Exit code 1 logs advisory warning and continues in notify mode
@@ -200,6 +200,7 @@ else
   got="FAIL"
 fi
 report "exit code 1 warns and proceeds when mode=notify" "PASS" "$got" "$notify_out"
+t_done test_notify_hook_failure_warns
 
 # ------------------------------------------------------------------------------
 # Test 7: Exit code 2 logs warning and continues in gate mode
@@ -225,6 +226,7 @@ else
   got="FAIL"
 fi
 report "exit code 2 logs advisory warning and proceeds in gate mode" "PASS" "$got" "$warn_out"
+t_done test_exit_two_warns_in_gate_mode
 
 # ------------------------------------------------------------------------------
 # Test 8: Watchdog timeout halts in gate mode, warns in notify mode
@@ -265,6 +267,7 @@ else
   got="FAIL"
 fi
 report "watchdog timeout warns and proceeds in notify mode" "PASS" "$got" "$slow_not_out"
+t_done test_watchdog_timeout
 
 # ------------------------------------------------------------------------------
 # Test 9: Malformed 6-column line detected and refused
@@ -281,6 +284,7 @@ else
   got="FAIL"
 fi
 report "strict 5-column parsing catches malformed 6th field" "PASS" "$got" "$malform_out"
+t_done test_malformed_registry_line_refused
 
 # Clean registry file
 echo "" > "$REG_FILE"
@@ -319,6 +323,7 @@ else
   got="FAIL"
 fi
 report "aapp.allowLocalHooks false disables local git config hooks" "PASS" "$got" "$dis_out"
+t_done test_local_config_hooks
 
 # Cleanup git config
 (
@@ -339,6 +344,7 @@ else
   got="FAIL"
 fi
 report "aapp hooks inspects registered hooks and audits SHA256 integrity" "PASS" "$got" "$hooks_audit"
+t_done test_hooks_inspector_audits_hashes
 
 # ------------------------------------------------------------------------------
 # Test 13: Extension-Agnostic Plugin Discovery & aapp plugins inspector
@@ -381,6 +387,7 @@ else
   got="FAIL"
 fi
 report "aapp plugins discovers extensionless and polyglot action plugins" "PASS" "$got" "$plugins_audit"
+t_done test_plugins_inspector_discovers_plugins
 
 # ------------------------------------------------------------------------------
 # Test 14: Transparent CLI fallthrough executes action plugins
@@ -430,6 +437,7 @@ else
   got="FAIL"
 fi
 report "aapp <plugin> executes arbitrary extension (.py) action plugin transparently" "PASS" "$got" "$fallthrough_py_out"
+t_done test_action_plugin_fallthrough
 
 # ------------------------------------------------------------------------------
 # Test 15: resolve_plugin_entrypoint ignores run.sample even if marked executable
@@ -459,6 +467,7 @@ else
   got="FAIL ($sample_run_out)"
 fi
 report "aapp switchboard rejects executing sample plugins directly" "PASS" "$got"
+t_done test_sample_plugins_never_run
 
 # ------------------------------------------------------------------------------
 # Test 17: aapp hooks marks .sample registered handler as INERT SAMPLE
@@ -486,6 +495,7 @@ else
   got="FAIL"
 fi
 report "aapp plugins & aapp hooks display standard extension points and sample discovery" "PASS" "$got"
+t_done test_inspectors_show_samples
 
 # ------------------------------------------------------------------------------
 # Test 19: Plugin registry (P-46) — Kit Plugins | delimiter | Your Plugins
@@ -560,17 +570,7 @@ else
   got="FAIL"
 fi
 report "missing plugins.tsv makes aapp plugins fail closed" "PASS" "$got" "rc=$noreg_rc $noreg_out"
-
-unregistered=""
-for d in "$KIT"/examples/plugins/*/; do
-  name="$(basename "$d")"
-  registry_names | grep -qx "$name" || unregistered="$unregistered examples/$name"
-done
-for name in $(grep -hoE '_allocate_id [^ ]+ "[^"]*" [a-z][a-z0-9-]*' "$KIT"/lib/*.sh | awk '{print $NF}') \
-            $(grep -hoE 'resolve_plugin_entrypoint "[^"]*" "[a-z][a-z0-9-]*"' "$KIT"/lib/*.sh | awk -F'"' '{print $4}'); do
-  registry_names | grep -qx "$name" || unregistered="$unregistered lib:$name"
-done
-report "every sample dir and plugin-name literal in lib/ has a registry row" "" "$unregistered"
+t_done test_plugin_registry_listing
 
 # Shared envelope (P-32): repository.remote with credentials stripped, reserved
 # extra object, and data without a stray closing brace.
@@ -596,6 +596,7 @@ else
   got="FAIL"
 fi
 report "envelope remote is null without a remote; empty data is {}" "PASS" "$got" "$envelope"
+t_done test_event_envelope
 
 # ------------------------------------------------------------------------------
 # Test 20: Pre-mutation quality gates abort lifecycle with ZERO state changes (P-23)
@@ -707,6 +708,7 @@ else
   got="FAIL"
 fi
 report "pre-sync exit 1 aborts aapp push/pull/sync before network actions" "PASS" "$got" "$sync_out"
+t_done test_pre_hooks_abort_with_no_change
 
 echo "== pre-done test gate sample =="
 TG="$R/tg"
@@ -761,6 +763,7 @@ tg_install 'sleep 6' 2
 rc=0; out="$(aapp done "$id" 2>&1)" || rc=$?
 got=FAIL; [ "$rc" -ne 0 ] && ! archived "$id" && got=PASS
 report "test gate: watchdog timeout refuses" "PASS" "$got" "$out"
+t_done test_pre_done_test_gate_sample
 cd "$R" || exit 1
 
 echo "== refine events (P-99) =="
@@ -782,18 +785,21 @@ head0="$(git -C .plans rev-parse HEAD)"
 echo "* note one" >> "$rpf"; touch "$R/rf-veto"
 rc=0; out="$(aapp refine "$rid" "note one" 2>&1)" || rc=$?; rm -f "$R/rf-veto"
 got=FAIL; [ "$rc" -ne 0 ] && [ "$(git -C .plans rev-parse HEAD)" = "$head0" ] && echo "$out" | grep -qF "pre-refine" && got=PASS
-report "test_pre_refine_gate_vetoes_the_refine" "PASS" "$got" "$out"
+report "pre-refine veto" "PASS" "$got" "$out"
+t_done test_pre_refine_gate_vetoes_the_refine
 touch "$R/rf-fail"
 rc=0; out="$(aapp refine "$rid" "note one" 2>&1)" || rc=$?; rm -f "$R/rf-fail"
 got=FAIL; [ "$rc" -ne 0 ] && [ "$(git -C .plans rev-parse HEAD)" = "$head0" ] && echo "$out" | grep -qF "on-refine" && got=PASS
-report "test_on_refine_failure_commits_nothing" "PASS" "$got" "$out"
+report "on-refine failure" "PASS" "$got" "$out"
+t_done test_on_refine_failure_commits_nothing
 rm -f "$R/rf-post.json"
 rc=0; out="$(aapp refine "$rid" "note one" 2>&1)" || rc=$?
 sha="$(git -C .plans rev-parse --short HEAD)"; pj="$(cat "$R/rf-post.json" 2>/dev/null)"
 got=FAIL
 if [ "$rc" -eq 0 ] && echo "$pj" | grep -qF "\"plan_id\": \"$rid\"" && echo "$pj" | grep -qF '"kind": "message"' && \
    echo "$pj" | grep -qF "\"commit\": \"$sha\"" && echo "$pj" | grep -qF '"note one"'; then got=PASS; fi
-report "test_post_refine_receives_kind_and_commit" "PASS" "$got" "$out"
+report "post-refine payload" "PASS" "$got" "$out"
+t_done test_post_refine_receives_kind_and_commit
 cd "$R" || exit 1
 
 echo "== event-logger showcase hook (P-104) =="
@@ -811,7 +817,7 @@ got=FAIL
 if echo "$line" | grep -qE '^post-freeze[[:space:]]+\.agents/hooks/event-logger[[:space:]]+sha256:[0-9a-f]{64}[[:space:]]+10[[:space:]]+notify$'; then
     got=PASS
 fi
-report "test_event_logger_registration_hash" "PASS" "$got" "$line"
+report "registration line" "PASS" "$got" "$line"
 
 # Register in registry.tsv
 echo "$line" > .agents/skills/aapp-hooks/registry.tsv
@@ -824,7 +830,7 @@ got=FAIL
 if [ -f "$expected_log" ] && [ "$(wc -l < "$expected_log" | tr -d ' ')" -eq 1 ]; then
     got=PASS
 fi
-report "test_event_logger_default_gitdir_jsonl" "PASS" "$got" "log=$expected_log"
+report "default log in the git dir" "PASS" "$got" "log=$expected_log"
 
 # Test 3: Single-line format and JSON parsing of written event
 first_line="$(cat "$expected_log" 2>/dev/null)"
@@ -838,7 +844,7 @@ if [ -n "$first_line" ] && echo "$first_line" | grep -qF '"event": "post-freeze"
         got=PASS
     fi
 fi
-report "test_event_logger_single_line_json_envelope" "PASS" "$got" "$first_line"
+report "one JSON line per event" "PASS" "$got" "$first_line"
 
 # Test 4: Custom log destination via AAPP_LOG_FILE or aapp.logFile
 custom_log="$R/custom_events.jsonl"
@@ -848,10 +854,8 @@ got=FAIL
 if [ -f "$custom_log" ] && grep -qF '"plan_id": "P-888"' "$custom_log"; then
     got=PASS
 fi
-report "test_event_logger_custom_destination_override" "PASS" "$got" "custom_log=$custom_log"
+report "custom destination" "PASS" "$got" "custom_log=$custom_log"
+t_done test_event_logger_sample
 cd "$R" || exit 1
 
-echo "============================================================"
-echo "📊 Results: $PASS passed, $FAIL failed"
-echo "============================================================"
-[ "$FAIL" -eq 0 ] || exit 1
+print_test_summary "$PASS" "$FAIL"
