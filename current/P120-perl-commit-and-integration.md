@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-120
-* **Changelog:** Changed: Perl Commit And Integration
+* **Changelog:** Changed: Port commit, branch integration, note, and AI attribution verbs (`commit`, `note`, `ai`) and shared integration engine to `AAPP::Integrate`, `AAPP::Cmd::Commit`, `AAPP::Cmd::Note`, and `AAPP::Cmd::Ai`.
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,64 +40,107 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+Plan `P-120` is the eighth member of group `P-111` (*Perl Port Of The Kit*). It ports the plan-bound commit helper (`lib/cmd_commit.sh`, 570 lines), worktree branch integration engine (`lib/integrate.sh`, 277 lines), developer/AI Git notes manager (`lib/cmd_note.sh`, 243 lines), and AI attribution switchboard (`lib/cmd_ai.sh`, 159 lines) into `lib/AAPP/Integrate.pm`, `lib/AAPP/Cmd/Commit.pm`, `lib/AAPP/Cmd/Note.pm`, and `lib/AAPP/Cmd/Ai.pm`.
+
+In bash, `aapp commit` and `integrate.sh` shell out to `shasum`/`sha256sum` and `awk` to stage pending notes, splice `CHANGELOG.md` under `## [Unreleased]`, and rewrite `* **Commits:**` in the active plan. In Perl, `Digest::SHA::sha256_hex` computes note buffer hashes in-process, `AAPP::State` / `AAPP::Plan` update `CHANGELOG.md` and `* **Commits:**` directly, and `AAPP::Integrate` coordinates rebase/fast-forward merge and worktree teardown across `done` and `issue close`.
+
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Integrate.pm`, `lib/AAPP/Cmd/*.pm`, `lib/integrate.sh`, `lib/cmd_commit.sh`, `lib/cmd_note.sh`, `lib/cmd_ai.sh`, `aapp`). `lib/AAPP/Tests*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 `AAPP::Integrate` (`lib/AAPP/Integrate.pm`) — Shared Branch & Worktree Integration Engine
+Ports `lib/integrate.sh` into `lib/AAPP/Integrate.pm`:
+- Used by `AAPP::Cmd::Done` (`aapp done`) and `AAPP::Cmd::Issue` (`aapp issue close`) when landing a worktree branch (`plan/P<num>-<slug>` or `fix/issue-<num>`) onto the base branch (`main`):
+  - Verifies the worktree and target checkout are clean and resolves the recorded base branch.
+  - Rebases or squash/fast-forward integrates the worktree commits onto the base branch, preserving `refs/notes/ai` and `refs/notes/commits` via `notes.rewriteRef`.
+  - Removes the `.workspace/<name>` worktree (`git worktree remove`) and deletes the temporary topic branch (`git branch -d`) once integrated.
+  - Fails closed with actionable diagnostics if a rebase conflict occurs, leaving the worktree intact for resolution.
+
+### 2.2 `AAPP::Cmd::Commit` (`lib/AAPP/Cmd/Commit.pm`) — `aapp commit`
+Ports `lib/cmd_commit.sh`:
+- Subverbs and modes:
+  - `aapp commit "<msg>" [agent <A> vendor <V> model <M>] [note "<text>"] [changelog "<entry>"]`:
+    - Resolves the active plan (`⚡ In Development`) or active fix mini-plan (`.fix-<num>.md`).
+    - Enforces `Commit Mode` (`atomic` refuses a second commit and instructs the caller to use `aapp commit amend`; `microcommits` allows multiple commits).
+    - Enforces `Changelog Mode`: on the first commit of a `plan`-mode plan (or when `changelog "<entry>"` is passed on a fix mini-plan), inserts the plan's `* **Changelog:** <Section>: <bullet>` entry under `## [Unreleased]` -> `### <Section>` in `CHANGELOG.md` and stages `CHANGELOG.md`.
+    - Completes semantic AI attribution trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`) from CLI args or `AAPP_AGENT_*` env vars when `aapp.aiAttribution` is `lax` or `strict`, and pre-stages the pending note buffer `$(git rev-parse --git-path aapp_pending_note).<sha256>` using `Digest::SHA::sha256_hex` when `note "<text>"` is given or `aapp.aiNotes=true` / `notes` mode is active.
+    - Runs `git commit` (which invokes the Perl `AAPP::Hook::PreCommit` and `AAPP::Hook::PostCommit` engines built in `P-116`).
+    - Appends `<short-sha> (<branch>)` to `* **Commits:**` in the active plan header and commits the plan file in `.plans`.
+  - `aapp commit amend ["<msg>"] [agent <A> vendor <V> model <M>] [note "<text>"]`: amends the latest plan commit (`git commit --amend`), replaces the previous SHA in `* **Commits:**` with the new SHA, and commits `.plans`.
+  - `aapp commit adopt <sha>...`: validates that each `<sha>` on the branch touched only the active plan's `### 📂 Target Files` and records `<sha> (<branch>)` in `* **Commits:**`.
+
+### 2.3 `AAPP::Cmd::Note` (`lib/AAPP/Cmd/Note.pm`) — `aapp note`
+Ports `lib/cmd_note.sh`:
+- Manages developer review notes (`refs/notes/commits`) and AI audit notes (`refs/notes/ai`):
+  - `aapp note add [<ref>] "<text>" [ai | commit]`
+  - `aapp note show [<ref>] [ai | commit | all]`
+  - `aapp note stage "<msg>" "<note-text>"` (writes `aapp_pending_note.<sha256_hex>` for `post-commit` pickup)
+  - `aapp note list` and `aapp note remove [<ref>]`
+- Supports `--json` output via `AAPP::Output`.
+
+### 2.4 `AAPP::Cmd::Ai` (`lib/AAPP/Cmd/Ai.pm`) — `aapp ai`
+Ports `lib/cmd_ai.sh`:
+- Manages the AI Attribution Switchboard (`git config aapp.aiAttribution` and `git config aapp.aiNotes`):
+  - `aapp ai [status] [--json]`
+  - `aapp ai none | lax | strict | notes`
+  - `aapp ai notes [on | off]`
+- Configures `notes.rewriteRef` and merge strategies when notes are enabled.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Branch Integration Engine (`AAPP::Integrate`)
+- [ ] Task 1.1: Implement `lib/AAPP/Integrate.pm` and wire it into `AAPP::Cmd::Done` and `AAPP::Cmd::Issue`.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Commit, Note & AI Verbs (`AAPP::Cmd::Commit`, `Note`, `Ai`)
+- [ ] Task 2.1: Implement `lib/AAPP/Cmd/Commit.pm` covering standard plan-bound commits, `amend`, `adopt`, automatic `CHANGELOG.md` splice, trailer assembly, and `Digest::SHA` staged note buffers.
+- [ ] Task 2.2: Implement `lib/AAPP/Cmd/Note.pm` and `lib/AAPP/Cmd/Ai.pm` with human and `--json` output modes.
+- [ ] Task 2.3: Wire `commit`, `note`, and `ai` in `./aapp` and slim `lib/integrate.sh`, `lib/cmd_commit.sh`, `lib/cmd_note.sh`, and `lib/cmd_ai.sh` to thin transitional shims.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.1: Run `./aapp test commit note ai done issue` and full `./aapp test` to verify 100% pass rate against the locked test suites.
+- [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
+- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `lib/AAPP/Integrate.pm` -> Worktree branch integration, rebase/fast-forward, and cleanup engine.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Commit.pm` -> `aapp commit` (`amend`, `adopt`, changelog splice, trailers, staged notes).
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Note.pm` -> `aapp note` developer and AI Git notes management.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Ai.pm` -> `aapp ai` attribution mode and parallel notes switchboard.
+- [ ] `lib/AAPP/Cmd/Done.pm` -> Delegate worktree branch integration to `AAPP::Integrate`.
+- [ ] `lib/AAPP/Cmd/Issue.pm` -> Delegate fix-worktree integration on `issue close` to `AAPP::Integrate`.
+- [ ] `aapp` -> Dispatch `commit`, `note`, and `ai` directly to `AAPP::Cmd::*`.
+- [ ] `lib/integrate.sh` -> Transitional shim delegating to `AAPP::Integrate` until `P-122`.
+- [ ] `lib/cmd_commit.sh` -> Transitional shim delegating to `AAPP::Cmd::Commit` until `P-122`.
+- [ ] `lib/cmd_note.sh` -> Transitional shim delegating to `AAPP::Cmd::Note` until `P-122`.
+- [ ] `lib/cmd_ai.sh` -> Transitional shim delegating to `AAPP::Cmd::Ai` until `P-122`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/AAPP/Tests.pm` -> Test harness and all `lib/AAPP/Tests/*` modules are locked in `P-114` and strictly out of bounds during code plans.
+- [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-19:** Plan initialized from `pickup.md`.
-* **2026-10-19:** Refined blast radius and locked module boundaries.
+* **2026-10-19:** Plan initialized from `pickup.md` and `.plans/pickup/perl-port-rfc.md`.
+* **2026-10-19:** Authored technical blueprint and locked blast radius for `P-120`.
+
