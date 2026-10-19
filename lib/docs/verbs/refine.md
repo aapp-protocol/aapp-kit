@@ -82,7 +82,6 @@ Run: `aapp test verb refine`
 - `tests/verbs/refine.sh::test_refine_blocked_appends_to_list` -> a second issue is appended to the one `Blocked On:` line
 - `tests/verbs/refine.sh::test_refine_blocked_same_issue_is_noop` -> the same issue again changes nothing and commits nothing
 - `tests/verbs/refine.sh::test_refine_blocked_refuses_unknown_or_closed_issue` -> unknown and archived issues exit non-zero; the plan is unchanged
-- `tests/verbs/refine.sh::test_plan_block_on_is_write_only_and_lib_loadable` -> `AAPP_PLAN_LIB_ONLY=1` loads `plan_block_on`, which writes without committing
 - `tests/verbs/refine.sh::test_refine_slug_renames_and_repairs_links` -> rename, issue and road-map links repaired, observation cell untouched, matrix, change-log line, one clean commit (P-50)
 - `tests/verbs/refine.sh::test_refine_slug_refusals` -> empty slug, existing target, dirty plan, unknown plan: nothing moves (P-50)
 - `tests/verbs/refine.sh::test_refine_pickup_commits_only_pickup` -> the reserved word wins over a plan named *pickup*; only `pickup.md` committed (P-50)

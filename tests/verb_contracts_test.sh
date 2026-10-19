@@ -101,7 +101,7 @@ for s in "$KIT"/tests/verbs/*.sh; do
     [ -n "$name" ] || continue
     grep -qF "tests/verbs/$base::$name" "$DOCS/$verb.md" 2>/dev/null || unnamed="$unnamed
 tests/verbs/$base::$name is named by no contract (lib/docs/verbs/$verb.md)"
-  done < <(grep -oE 'ok "test_[A-Za-z0-9_]+' "$s" | sed 's/^ok "//' | sort -u)
+  done < <(grep -oE '(\bok "|\bt_done "?)test_[A-Za-z0-9_]+' "$s" | sed -E 's/^(ok "|t_done "?)//' | sort -u)
 done
 if [ -z "$unnamed" ]; then ok "test_every_verb_test_named_by_contract"; else bad "test_every_verb_test_named_by_contract" "${unnamed#
 }"; fi

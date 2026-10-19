@@ -113,7 +113,6 @@ Run: `aapp test verb done`
 - `tests/verbs/done.closes.sh::test_refine_closes_refusals` -> an unknown or archived issue and the plan's own Target Issue are refused, the plan unchanged; an issue already listed commits nothing (P-86)
 - `tests/verbs/done.closes.sh::test_refine_closes_remove` -> `remove` takes the issue off, the line goes with the last one; an issue not listed is refused (P-86)
 - `tests/verbs/done.closes.sh::test_listed_row_is_untouched` -> the listed issue's row keeps its status and link (P-86)
-- `tests/verbs/done.closes.sh::test_listed_issue_is_a_dependent` -> the ids the sync asks the tracker for include a plan's listed issues (P-86)
 - `tests/verbs/done.closes.sh::test_done_archives_listed_issues` -> `done` archives each listed issue with the plan's recorded commit and a summary linking the plan, in the plan's archive commit (P-86)
 - `tests/verbs/done.closes.sh::test_done_unblocks_and_notifies` -> a plan blocked on a listed issue resumes; `issue.close` is sent for each listed issue with that commit (P-86)
 - `tests/verbs/done.closes.sh::test_plan_not_squashed_for_listed_issue` -> `ff`: a plan with listed issues lands with every commit and SHA (P-86)

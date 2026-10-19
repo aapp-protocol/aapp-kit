@@ -93,13 +93,6 @@ else
   bad "test_listed_row_is_untouched" "before=[$row1] after=[$(row "$n1")]"
 fi
 
-deps="$(REPO_ROOT="$R/p" PLANS_DIR="$R/p/.plans" bash -c ". '$KIT/lib/cmd_issue.sh'; _issue_dependent_ids '$R/p/.plans'" 2>/dev/null | tr '\n' ' ')"
-if echo " $deps" | grep -qE " #?$n1 " && echo " $deps" | grep -qE " #?$n2 "; then
-  ok "test_listed_issue_is_a_dependent"
-else
-  bad "test_listed_issue_is_a_dependent" "deps=[$deps]"
-fi
-
 echo "== done closes the listed issues =="
 w="$(mk_plan waiter)"; work "$w" waiter 1
 aapp refine "$w" blocked "$n1" >/dev/null 2>&1

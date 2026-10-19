@@ -30,32 +30,19 @@ git add src CHANGELOG.md && git commit -qm "base files" --no-verify >/dev/null 2
 aapp freeze-start "$wid" >/dev/null 2>&1
 
 out="$(aapp issue fix 10 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && grep -qxF -- '- [ ] `src/host.py`' .plans/current/fix-10.md && ! grep -qF 'HOST_REGEX' .plans/current/fix-10.md; then
-  ok "test_fix_takes_only_paths_from_location"
-else
-  bad "test_fix_takes_only_paths_from_location" "rc=$rc out=$out targets=$(grep -F -- '- [ ]' .plans/current/fix-10.md 2>/dev/null | tr '\n' ' ')"
-fi
+[ "$rc" -eq 0 ] && grep -qxF -- '- [ ] `src/host.py`' .plans/current/fix-10.md && ! grep -qF 'HOST_REGEX' .plans/current/fix-10.md || \
+  t_fail "fix: rc=$rc out=$out targets=$(grep -F -- '- [ ]' .plans/current/fix-10.md 2>/dev/null | tr '\n' ' ')"
 ( cd .workspace/fix-10 && echo "h=2" > src/host.py && git add src/host.py && aapp commit "fix: host (#10)" changelog "host fixed" >/dev/null 2>&1 )
 out="$(aapp issue close 10 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && echo "$out" | grep -qF "$wid also lists src/host.py: it picks this fix up at its next rebase."; then
-  ok "test_close_notices_other_plan_listing_fixed_file"
-else
-  bad "test_close_notices_other_plan_listing_fixed_file" "rc=$rc out=$out"
-fi
+[ "$rc" -eq 0 ] && echo "$out" | grep -qF "$wid also lists src/host.py: it picks this fix up at its next rebase." || t_fail "close: rc=$rc out=$out"
+t_done test_fix_takes_location_paths_and_close_names_listing_plan
 
 out="$(aapp issue fix 11 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && grep -qxF -- '- [ ] `src/free.py`' .plans/current/fix-11.md; then
-  ok "test_fix_strips_line_suffix_from_location"
-else
-  bad "test_fix_strips_line_suffix_from_location" "rc=$rc out=$out"
-fi
+[ "$rc" -eq 0 ] && grep -qxF -- '- [ ] `src/free.py`' .plans/current/fix-11.md || t_fail "fix: rc=$rc out=$out"
 ( cd .workspace/fix-11 && echo "f=2" > src/free.py && git add src/free.py && aapp commit "fix: free (#11)" changelog "free fixed" >/dev/null 2>&1 )
 out="$(aapp issue close 11 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && ! echo "$out" | grep -qF "also lists"; then
-  ok "test_close_no_notice_when_unlisted"
-else
-  bad "test_close_no_notice_when_unlisted" "rc=$rc out=$out"
-fi
+[ "$rc" -eq 0 ] && ! echo "$out" | grep -qF "also lists" || t_fail "close: rc=$rc out=$out"
+t_done test_fix_strips_line_suffix_and_close_stays_quiet
 
 echo "== issue fixes are not made in a plan worktree (P-54) =="
 aapp issue fix 12 abort >/dev/null 2>&1

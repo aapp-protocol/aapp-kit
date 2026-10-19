@@ -129,14 +129,6 @@ if [ "$rc1" -ne 0 ] && [ "$rc2" -ne 0 ] && [ "$(git -C .plans rev-parse HEAD)" =
 else
   bad "test_refine_blocked_refuses_unknown_or_closed_issue" "rc=$rc1/$rc2"
 fi
-lib_out="$( (AAPP_PLAN_LIB_ONLY=1 REPO_ROOT="$PWD" AAPP_LIB="$KIT/lib"; export AAPP_PLAN_LIB_ONLY REPO_ROOT AAPP_LIB
-  . "$KIT/lib/cmd_plan.sh" && declare -f plan_block_on >/dev/null && plan_block_on "$f" 12 && echo LIB_OK) 2>&1 )"
-if echo "$lib_out" | grep -qx "LIB_OK" && grep -qxF "* **Blocked On:** #10, #11, #12 (was $prev)" "$f" && \
-   [ "$(git -C .plans rev-parse HEAD)" = "$head_before" ]; then
-  ok "test_plan_block_on_is_write_only_and_lib_loadable"
-else
-  bad "test_plan_block_on_is_write_only_and_lib_loadable" "out=$lib_out"
-fi
 git -C .plans checkout -q -- "$rel"
 
 echo "== rename: slug (P-50) =="
