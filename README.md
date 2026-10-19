@@ -3,7 +3,9 @@
 > **Zero-Drift Autonomous Pair-Programming Architecture for Antigravity, Claude Code, Cursor, Copilot & AI Coding Agents.**  
 > Completely decouples planning, agent rules, and git enforcement from your application source code using isolated Git worktrees mounted on orphan branches.
 >
-> 📚 **Deep Dive**: For the full architecture, Git plumbing, and operational guide, see [MANUAL.md](MANUAL.md).
+> 🍳 **Practical Recipes**: For task-oriented workflows, see the [AAPP Cookbook](COOKBOOK.md).  
+> 📚 **Deep Dive**: For architecture, plumbing, and operational guides, see [MANUAL.md](MANUAL.md).  
+> 🧭 **Documentation Hub**: [Core Concepts](docs/concepts/) · [Reference Manuals](docs/reference/) · [Task Recipes](docs/recipes/)
 
 ---
 
@@ -444,9 +446,14 @@ AAPP includes 321 automated regression test cases verifying hook enforcement, re
 
 ## 13. Architectural Manual & Adopter Examples
  
+* **The AAPP Cookbook**: See [COOKBOOK.md](COOKBOOK.md) for step-by-step recipes covering human and agent quickstarts, multi-agent worktrees, private remotes, CI/CD pipelines, and troubleshooting.
 * **Archived Blueprints & Ledgers**: See [.plans/done/](.plans/done/) (e.g. `P10-remote-sync.md`, `P12-lifecycle-hooks.md`) for real-world, completed AAPP blueprints demonstrating Blast Radius declarations, technical decision logs, and verification matrices.
 * **Adopter Reference Examples**: See [examples/hooks/](examples/hooks/) (e.g. `on-done-sync.sh.sample`, `fallback-ratchet.sh.sample`) and [examples/plugins/](examples/plugins/) (e.g. `hello-tool/run.sample`) for browsable, ready-to-use hooks and action plugins, preserved centrally in `~/.local/share/aapp-kit/examples/` on global install.
 * **Comprehensive Technical Manual**: See [MANUAL.md](MANUAL.md) for low-level Git worktree plumbing, Two Lanes protocol, state machine lifecycle, multi-agent IDE integration, hook manager recipes, and operations.
+* **Documentation Hub**:
+  * [Core Concepts](docs/concepts/): Worktree architecture, blast radius engine, two-lane governance, security & threat model.
+  * [Reference Manuals](docs/reference/): Configuration keys, Git plumbing, document governance, agent switchboard.
+  * [Task Recipes](docs/recipes/): Getting started, daily workflows, advanced patterns, troubleshooting.
 
 ---
 

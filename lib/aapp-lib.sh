@@ -1020,12 +1020,16 @@ group_set_member() {
 
 # aapp_shared_docs_regex -> ERE alternation of shared doc basenames.
 aapp_shared_docs_regex() {
-    printf '%s\n' 'CHANGELOG\.md|README\.md|MANUAL\.md|CHEATSHEET\.md|CODEMAP\.md|ARCHITECTURE\.md|ISSUES\.md'
+    printf '%s\n' 'CHANGELOG\.md|README\.md|MANUAL\.md|CHEATSHEET\.md|COOKBOOK\.md|CODEMAP\.md|ARCHITECTURE\.md|ISSUES\.md'
 }
 
-# aapp_is_shared_doc <path> -> 0 when the path's basename is a shared doc.
+# aapp_is_shared_doc <path> -> 0 when the path is a shared doc or under docs/.
 aapp_is_shared_doc() {
-    local base="${1##*/}"
+    local p="$1"
+    case "$p" in
+        docs/*|*/docs/*) return 0 ;;
+    esac
+    local base="${p##*/}"
     printf '%s\n' "$base" | grep -qE "^($(aapp_shared_docs_regex))$"
 }
 

@@ -27,6 +27,7 @@ make_kit_clone() {
   [ -d "$KIT/examples" ] && cp -r "$KIT/examples" "$target_dir/"
   [ -d "$KIT/docs" ] && cp -r "$KIT/docs" "$target_dir/"
   [ -f "$KIT/COOKBOOK.md" ] && cp "$KIT/COOKBOOK.md" "$target_dir/"
+  [ -f "$KIT/MANUAL.md" ] && cp "$KIT/MANUAL.md" "$target_dir/"
   (
     cd "$target_dir"
     git init -q .
@@ -1122,7 +1123,7 @@ else
 fi
 report "aapp done: updates plan header status to Done and records archival in changelog" "PASS" "$got"
 
-# Test 61: aapp install copies examples/, docs/recipes/, and COOKBOOK.md to $SHARE_DIR
+# Test 61: aapp install copies examples/, docs/ (recipes, concepts, reference), and COOKBOOK.md to $SHARE_DIR
 PROJ_61="$R/t61_proj"; make_dummy_project "$PROJ_61"
 HOME_61="$R/t61_home"; mkdir -p "$HOME_61"
 INSTALLER_61="$R/t61_installer"; make_kit_clone "$INSTALLER_61"
@@ -1133,14 +1134,19 @@ if [ -d "$HOME_61/.local/share/aapp-kit/examples" ] && \
    [ -f "$HOME_61/.local/share/aapp-kit/examples/plugins/hello-tool/run.sample" ] && \
    [ -f "$HOME_61/.local/share/aapp-kit/examples/hooks/registry.tsv.sample" ] && \
    [ -f "$HOME_61/.local/share/aapp-kit/COOKBOOK.md" ] && \
+   [ -f "$HOME_61/.local/share/aapp-kit/MANUAL.md" ] && \
    [ -d "$HOME_61/.local/share/aapp-kit/docs/recipes" ] && \
    [ -f "$HOME_61/.local/share/aapp-kit/docs/recipes/getting-started/adopt-existing-repo.md" ] && \
+   [ -d "$HOME_61/.local/share/aapp-kit/docs/concepts" ] && \
+   [ -f "$HOME_61/.local/share/aapp-kit/docs/concepts/01-worktree-architecture.md" ] && \
+   [ -d "$HOME_61/.local/share/aapp-kit/docs/reference" ] && \
+   [ -f "$HOME_61/.local/share/aapp-kit/docs/reference/git-plumbing.md" ] && \
    [ ! -d "$HOME_61/.local/share/aapp-kit/examples/stale" ]; then
   got="PASS"
 else
   got="FAIL"
 fi
-report "aapp install: preserves examples/, docs/recipes/, and COOKBOOK.md in SHARE_DIR" "PASS" "$got"
+report "aapp install: preserves examples/, docs/, and COOKBOOK.md in SHARE_DIR" "PASS" "$got"
 
 # Test 62: aapp init preserves zero-footprint isolation without .sample files
 PROJ_62="$R/t62_proj"; make_dummy_project "$PROJ_62"

@@ -113,6 +113,11 @@ plan b.md <<'EOF'
 EOF
 echo "# Cheatsheet" > CHEATSHEET.md
 check "invariant anchor CHEATSHEET.md passes without plan targets" PASS CHEATSHEET.md
+echo "# Cookbook" > COOKBOOK.md
+check "invariant anchor COOKBOOK.md passes without plan targets" PASS COOKBOOK.md
+mkdir -p docs/concepts
+echo "# Concept" > docs/concepts/arch.md
+check "shared documentation docs/* passes without plan targets" PASS docs/concepts/arch.md
 echo "b" > .git/aapp_active_plan
 echo "b=1" > src/b.py
 check "plan B's own target not blocked by plan A" PASS src/b.py

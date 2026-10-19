@@ -96,6 +96,7 @@ cp -r "$AAPP_SCRIPT_DIR/templates" "$SHARE_DIR/"
 [ -d "$AAPP_SCRIPT_DIR/examples" ] && cp -r "$AAPP_SCRIPT_DIR/examples" "$SHARE_DIR/"
 [ -d "$AAPP_SCRIPT_DIR/docs" ] && cp -r "$AAPP_SCRIPT_DIR/docs" "$SHARE_DIR/"
 [ -f "$AAPP_SCRIPT_DIR/COOKBOOK.md" ] && cp "$AAPP_SCRIPT_DIR/COOKBOOK.md" "$SHARE_DIR/"
+[ -f "$AAPP_SCRIPT_DIR/MANUAL.md" ] && cp "$AAPP_SCRIPT_DIR/MANUAL.md" "$SHARE_DIR/"
 chmod +x "$SHARE_DIR"/templates/* "$SHARE_DIR"/lib/*.sh 2>/dev/null || true
 
 echo "🔧 Installing binary into $BIN_DIR..."

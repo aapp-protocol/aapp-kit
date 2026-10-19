@@ -119,3 +119,10 @@ During parallel development across multiple worktrees, concurrent integrations i
 - **Pre-Commit Raw Commit Boundary**: The pre-commit hook verifies `aapp_lock_path "integrate/<branch>"`. Direct raw commits to a parent branch currently undergoing active integration are rejected.
 - **Standalone Re-Gate**: Retrying integration on an archived plan (`aapp done <id> integrate`) re-executes the `pre-done` test gate whenever an automated rebase takes place.
 
+---
+
+## 🧭 Continuous Navigation
+- 📖 [Technical Manual](../../MANUAL.md)
+- 🍳 [Cookbook Catalog](../../COOKBOOK.md)
+- 🏠 [Repository Overview](../../README.md)
+

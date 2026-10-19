@@ -219,3 +219,10 @@ Dispatched after worktree synchronization completes with remote.
 | `action` | string | transport action (e.g. `"pull_push"`, `"pull"`, `"push"`) |
 | `remote` | string | remote repository name |
 | `worktrees` | list | list of worktrees synchronized |
+
+---
+
+## 🧭 Continuous Navigation
+- 📖 [Technical Manual](../../MANUAL.md)
+- 🍳 [Cookbook Catalog](../../COOKBOOK.md)
+- 🏠 [Repository Overview](../../README.md)

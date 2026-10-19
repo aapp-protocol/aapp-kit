@@ -381,3 +381,10 @@ The values of `error.code`:
 ```
 
 `aapp status json` holds the same envelope, then `overview`, `templates`, `pause`, `shipped`, `issues`, `plans`, `pickup`, `adoption`, `offline` and `next_action`, as the tables above list them.
+
+---
+
+## 🧭 Continuous Navigation
+- 📖 [Technical Manual](../../MANUAL.md)
+- 🍳 [Cookbook Catalog](../../COOKBOOK.md)
+- 🏠 [Repository Overview](../../README.md)

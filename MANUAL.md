@@ -1,6 +1,9 @@
 # 📖 Asymmetric Agent Planning Protocol (AAPP) — Technical Manual
 
 > **The comprehensive architecture, operational manual, and technical reference for zero-drift autonomous agent workflows.**
+>
+> 🍳 **Hands-on Cookbook**: For task-oriented recipes and workflows, see the [AAPP Cookbook](COOKBOOK.md).
+> 🧭 **Documentation Hub**: [Core Concepts](docs/concepts/) · [Reference Manuals](docs/reference/) · [Practical Recipes](docs/recipes/)
 
 ---
 
@@ -90,6 +93,8 @@
 
 ## 1. System Architecture & Philosophy
 
+> 💡 *For an architectural deep-dive into worktrees and storage primitives, see [Worktree Architecture & Storage Primitives](docs/concepts/01-worktree-architecture.md).*
+
 ### The Problem: Context Pollution and Agent Drift
 
 Modern AI coding assistants (Antigravity, Claude Code, Cursor, Copilot) are exceptionally capable at generating code. However, when pair-programming without deterministic boundaries, three systemic failure modes emerge:
@@ -149,6 +154,8 @@ By decoupling these concerns into independent Git worktrees:
 ---
 
 ## 2. Git Plumbing & Worktree Mechanics
+
+> 💡 *For deep-dive plumbing algorithms, detached commits, and repair procedures, see [Git Plumbing & Worktree Mechanics Reference](docs/reference/12-git-plumbing.md).*
 
 ### Under the Hood: Orphan Branches & Worktrees
 
@@ -221,6 +228,8 @@ git worktree add .plans plans
 ---
 
 ## 3. Dual-Layer Blast Radius Enforcement Engine
+
+> 💡 *For the complete boundary specification and pre-tool interception rules, see [Dual-Layer Blast Radius Enforcement Engine](docs/concepts/02-blast-radius-engine.md). For diagnosis playbooks, see the [Blast Radius Refusal Recovery Recipe](docs/recipes/troubleshooting/blast-radius-recovery.md).*
 
 AAPP provides deterministic safety by enforcing boundaries at two distinct moments in the development lifecycle:
 
@@ -394,6 +403,8 @@ AAPP is designed to assist developers, not trap them.
 ---
 
 ## 4. The Two-Lane Protocol: Issues vs. Plans
+
+> 💡 *For governance theory, ledger schemas, and promotion rules, see [The Two-Lane Protocol](docs/concepts/03-two-lane-governance.md). For emergency hotfix handling, see the [Emergency Hotfixes Recipe](docs/recipes/workflows/emergency-hotfixes.md).*
 
 AAPP enforces a strict conceptual separation between **fixing what exists** and **building what does not exist**.
 
@@ -1808,6 +1819,8 @@ When an entrypoint matches, AAPP immediately delegates execution via `exec "$CAN
 
 ## 9. AI Attribution Suite & Multi-Vendor Benchmarking
 
+> 💡 *For multi-mode AI attribution, semantic trailers, and Git notes architecture, see [AI Attribution Suite & Multi-Vendor Switchboard](docs/reference/05-ai-attribution-and-notes.md).*
+
 AAPP replaces legacy synthetic co-author email trailers (`Co-authored-by: Agent <agent@vendor.com>`) with an explicit, multi-mode AI attribution suite governed by repository configuration (`git config aapp.aiAttribution`).
 
 ### Attribution Models: Trailers vs. Notes Asymmetry
@@ -1913,6 +1926,8 @@ When `aapp ai credits` runs under `lax` or `strict` mode:
 
 ## 10. Security, Threat Model & Trust Boundaries
 
+> 💡 *For the complete threat model, pair-programming trust assumptions, and defense-in-depth layers, see [Security, Threat Model & Trust Boundaries](docs/concepts/04-security-and-threat-model.md).*
+
 Understanding AAPP's threat model and security boundaries is essential for properly deploying AI coding agents in professional engineering environments.
 
 ### The Pair-Programming Trust Model
@@ -1956,6 +1971,8 @@ A critical architectural lesson in AAPP's design is the distinction between **st
 ---
 
 ## 11. Maintenance, Operations & Troubleshooting FAQ
+
+> 💡 *For template sync modes and delimiter block rules, see [Three-Tier Document Governance Model](docs/reference/11-document-governance.md). For worktree troubleshooting, see the [Worktree Collision & Recovery Recipe](docs/recipes/troubleshooting/worktree-collision-recovery.md).*
 
 ### Q: How do I upgrade an existing project to a newer AAPP version?
 Upgrading is completely zero-parameter. In your project root, run:
@@ -2129,6 +2146,8 @@ aapp done P-20         # 5. Archive completed blueprint to done/
 ---
 
 ## 13. Repository Configuration Reference (`git config aapp.*`)
+
+> 💡 *For the complete matrix of Git configuration keys and environment variables, see [Repository Configuration Reference](docs/reference/03-configuration-matrix.md).*
 
 AAPP controls repository policies, attribution modes, hook behaviors, and worktree synchronization via standard Git configuration keys (`git config aapp.<key>`).
 
@@ -2309,4 +2328,12 @@ To ensure automated test suites pass before blueprints are archived, copy `examp
 When using monorepo and build isolation tools (such as Nx or Bazel), configure ignore files so the build engine does not traverse ephemeral plan worktrees:
 - For Nx (`nx.json`): add `/.workspace` (or your configured `aapp.planWorktreePath`) to `.nxignore`.
 - For Bazel (`WORKSPACE` or `MODULE.bazel`): add `.workspace` to `.bazelignore`.
+
+---
+
+## 🧭 Continuous Navigation
+- 🍳 [Cookbook Catalog](COOKBOOK.md) — Step-by-step practical guides & workflow recipes
+- ⚡ [CLI Cheatsheet](CHEATSHEET.md) — Concise terminal command reference
+- 🗺️ [Architecture Map](ARCHITECTURE.md) — Structural design & module boundaries
+- 🏠 [Repository Overview](README.md) — Project homepage and philosophy
 
