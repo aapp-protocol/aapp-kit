@@ -21,11 +21,11 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
 
-- 🔷 **P-56**: [`P56-modular-cookbook-and-docs-architecture.md`](current/P56-modular-cookbook-and-docs-architecture.md) — Modular Cookbook And Docs Architecture
-
 ---
 
 ## ⚡ In Development (Active Implementation Context)
+
+- ⚡ **P-56**: [`P56-modular-cookbook-and-docs-architecture.md`](current/P56-modular-cookbook-and-docs-architecture.md) — Modular Cookbook And Docs Architecture
 
 ---
 
