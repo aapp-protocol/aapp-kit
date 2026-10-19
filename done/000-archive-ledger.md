@@ -4,6 +4,7 @@ Append-only master ledger of verified, shipped, and archived architecture bluepr
 
 | Date Completed | Plan ID | Plan File | Target Issue / Milestone | Verification Commit | Impact Summary (Repo-Relative) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-10-19 | `P-38` | [`P38-milestone-release-bundling-and-tag-ledgers.md`](P38-milestone-release-bundling-and-tag-ledgers.md) | #63 | `e55c552` | Milestone Release Bundling, Tag Ledgers & Hook-Based Versioning |
 | 2026-10-18 | `P-90` | [`P90-companion-worktree-bridge.md`](P90-companion-worktree-bridge.md) | none | `9812ba3` | Companion Repository Bridge (tdd (8/8)) |
 | 2026-10-18 | `P-82` | [`P82-issue-fix-safeguards.md`](P82-issue-fix-safeguards.md) | none | `bf8f505` | Issue Fix Safeguards (tdd (9/9)) |
 | 2026-10-18 | `P-98` | [`P98-status-plan-progress.md`](P98-status-plan-progress.md) | none | `2947af4` | Status Plan Progress |

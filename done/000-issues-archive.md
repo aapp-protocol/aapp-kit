@@ -4,6 +4,7 @@ Append-only historical ledger of verified and resolved issues.
 
 | # | Sev | Type | Date Opened | Date Resolved | Target Commit / Release | Plan / Resolution Summary | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #63 | `Medium` | `TEST` | 2026-09-10 | 2026-10-19 | `e55c552` | [P-38](P38-milestone-release-bundling-and-tag-ledgers.md) - Milestone Release Bundling, Tag Ledgers & Hook-Based Versioning |  |
 | #170 | `Low` | `CLI` | 2026-10-18 | 2026-10-18 | `cebc887` | add upstream tracking telemetry (ahead/behind vs remote) to status briefing |  |
 | #171 | `Low` | `DOCS` | 2026-10-18 | 2026-10-18 | `447d988` | document pushing worktrees to a dedicated separate remote repository in MANUAL.md |  |
 | #168 | `Low` | `DOCS` | 2026-10-18 | 2026-10-18 | `a2cf561` | docs and help name none as the default attribution mode and lax as the recommended mode when opting in; help examples use aapp ai <mode> |  |

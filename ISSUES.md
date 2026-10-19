@@ -19,6 +19,5 @@
 | #58 | `Low` | `CLI` | 2026-09-10 | `aapp:9` | `AAPP_VERSION` stayed 1.0.0 without release tags, so protocol block still stamps `v1.0.0` after upgrade. | [P-59](current/P59-kit-release-hook.md) | 🔵 `Planned` |
 | #59 | `Medium` | `CLI` | 2026-09-10 | `lib/cmd_status.sh:93` | `sort -z` is GNU/newer-BSD only and fails on older macOS `sort`, breaking the Plans pillar of briefing. |  | 🟡 `Incubated` |
 | #60 | `Medium` | `HOOK` | 2026-09-10 | `templates/blast-radius-guard.sh:124` | `ACTIVE_PLANS=$(ls -1 ...)` breaks on plan filenames with newlines; last non-NUL-safe path in engine. |  | 🟡 `Incubated` |
-| #63 | `Medium` | `TEST` | 2026-09-10 | `tests/` | No CI runs test suites (102 test cases) and no release gate blocks publishing `main` trailing `develop`. |  | 🟡 `Incubated` |
 | #67 | `Low` | `CORE` | 2026-09-16 | `lib/cmd_ai.sh:287` | AI credits generator derives roster from commit trailers and cannot mechanically extract agents that contributed review without committing. |  | 🟡 `Incubated` |
 

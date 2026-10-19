@@ -27,8 +27,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 ## ⚡ In Development (Active Implementation Context)
 
-- ⚡ **P-38**: [`P38-milestone-release-bundling-and-tag-ledgers.md`](current/P38-milestone-release-bundling-and-tag-ledgers.md) — Milestone Release Bundling & Tag Ledgers
-
 ---
 
 ## 🟥 Blocked (Halted on an Issue)
