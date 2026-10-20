@@ -2,6 +2,7 @@ package AAPP::Logger;
 
 use strict;
 use warnings;
+use utf8;
 use 5.026;
 
 use POSIX ();
@@ -36,7 +37,7 @@ sub log_output
     my ( $min_debug, $tag, $message ) = @_;
     return 1 if DEBUG_LEVEL < $min_debug;
     my $file = log_file() // return 1;
-    open( my $fh, '>>', $file ) or return 0;
+    open( my $fh, '>>:encoding(UTF-8)', $file ) or return 0;
     printf {$fh} "%s [%s] %s\n", POSIX::strftime( '%Y-%m-%d %H:%M:%S', localtime ), $tag, $message;
     close($fh) or return 0;
     return 1;

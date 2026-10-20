@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Perl Port Of The Kit Amendments (`P-112`)
 - slim the test suites to verb behaviour and core wrappers, fold `#nnn` regressions into behaviour tests, and add `lib/docs/core/` contracts (P-113) (`P-113`)
 
 ### Added
