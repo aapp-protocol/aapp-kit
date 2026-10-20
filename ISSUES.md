@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #183 | `Low` | `CORE` | 2026-10-20 | `lib/plan_resolver.sh` | Plan resolver matches a numeric id by header prefix: P-9 also matches P-90..P-99 (Plan ID: P-0*9 has no end boundary), so 'resolve 9 all' is ambiguous |  | 🟡 `Incubated` |  |
 | #181 | `Medium` | `HOOK` | 2026-10-20 | `templates/blast-radius-guard.sh`, `lib/aapp-lib.sh` | Write guard refuses an always-allowed shared doc (.agents/PROJECT.MD) edited from a bound plan worktree: 'Multiple plans in development' though the worktree's buffer names its plan |  | 🟡 `Incubated` |  |
 | #180 | `Low` | `TEST` | 2026-10-19 | `tests/integrate_test.sh`, `lib/docs/verbs/done.md` | integrate_test.sh reports test_open_mini_plan_refuses_with_wait_zero as passed unconditionally (a bare ok with no check), and the done contract still lists it as covered behaviour. |  | 🟡 `Incubated` |  |
 | #179 | `High` | `TEST` | 2026-10-19 | `tests/adoption_test.sh`, `tests/verbs/freeze.sh`, `tests/verbs/commit.sh` | Three suites report tests from inside ( ... ) subshells, so their PASS/FAIL counts are lost: a failing test there never fails the suite (adoption_test.sh counts 1 of 13 tests). |  | 🟡 `Incubated` |  |
