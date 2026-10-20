@@ -40,14 +40,14 @@
 ---
 
 ## 1. Context & Architectural Goal
-Part 2 of 4 of the test migration split from P-114 (kept as the reference until all four parts are drafted). Ports the core suites (`tests/*_test.sh`, slimmed by P-113) to `tests/AAPP/Core/*.pm` under the harness P-126 built, keeping every scenario and test name, and deletes each bash suite once its module passes. Needs P-126 done. Kit runtime code stays untouched.
+Part 2 of 4 of the test migration split from P-114 (kept as the reference until all four parts are drafted). Ports the core suites (`tests/*_test.sh`, slimmed by P-113) to `tests/AAPP/Core/*.pm` under the harness P-126 built, keeping every scenario and test name, and deletes each bash suite once its module passes. Needs P-115 (core) and P-126 (harness) done. Kit runtime code stays untouched.
 
 ---
 
 ## 2. Technical Blueprint
 1. **Scope:** every `tests/*_test.sh` except `tests/verb_contracts_test.sh` (the bash contract checker, replaced by the runner's check in P-125) and `tests/output_test.sh` (ported in P-126). `tests/test_helpers.sh` stays: the verb suites still use it.
 2. **Same tests, same names:** each `test_<name>` reported by a bash suite becomes `sub test_<name>` in `tests/AAPP/Core/<Module>.pm` (module named after the suite: `pre-commit_test.sh` -> `PreCommit.pm`, `aapp_lib_test.sh` -> `AappLib.pm`). The contract's description stays; its identifier changes to `tests/AAPP/Core/<Module>.pm::test_<name>`. Shared setup becomes the module's fixture, built once and copied per test (P-126 §2.1.5); a test that leaned on an earlier test's state builds what it needs itself.
-3. **Core wrappers:** suites that source `lib/*.sh` functions keep calling the bash library through a shell (`bash -c '. lib/x.sh; fn ...'`) until P-115/P-116/P-118/P-119 switch them to `AAPP::<Module>` (P-111 §2, tests vs code boundary).
+3. **Library calls through one helper (P-126 §2.1.9):** every call into a kit library goes through `$self->lib_call(...)`. P-115 runs before this member, so the seven core-library modules (`AappLib`, `PlanStates`, `PlanResolver`, `IssueId`, `IssueLedger`, `Output` from P-126, `OutputJson`) are written against `AAPP::*` from the start and never rewritten. Libraries ported later (`hook_dispatcher`/`attribution` in P-116, `adoption` in P-118, `group_docs` in P-119) run in bash through the same helper until those members change its map. Tests never verify with the kit's own parsers (P-126 §2.1.10).
 4. **Batches:** port, run under `tests/test-run`, delete the `.sh`, update the contract, commit, one suite or a few small ones at a time (microcommits). The gate runs both runners throughout (P-126 §2.1.8).
 
 ### 🔄 Migration & Compatibility Strategy
