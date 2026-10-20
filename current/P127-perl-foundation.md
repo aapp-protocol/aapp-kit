@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `6cd81b1` (feature/perl-port-of-the-kit)
+* **Worktree:** .workspace/P127 (plan/P127-perl-foundation)
 * **Group:** P-111
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
@@ -508,4 +509,5 @@ Notes:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-20:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-20:** Drafted as the first member of the port: Constants, Paths, Config, Logger, Runner and the comment rule, in logsniffer's style.
