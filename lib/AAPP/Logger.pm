@@ -31,14 +31,18 @@ sub print_msg
 
 # Usage     : AAPP::Logger::log_output($min_debug, $tag, $message)
 # Purpose   : Appends a timestamped line to the log file when aapp.perlLogFile is set and DEBUG_LEVEL >= $min_debug.
+#             The log holds no emoji: symbols and their joiners are dropped, letters of every language kept.
 # Returns   : 1, or 0 when the log file cannot be written.
 sub log_output
 {
     my ( $min_debug, $tag, $message ) = @_;
     return 1 if DEBUG_LEVEL < $min_debug;
     my $file = log_file() // return 1;
+    my $text = $message =~ s/[\p{So}\x{200D}\x{20E3}\x{FE0E}\x{FE0F}]//gr;
+    $text =~ s/ {2,}/ /g;
+    $text =~ s/^ +//;
     open( my $fh, '>>:encoding(UTF-8)', $file ) or return 0;
-    printf {$fh} "%s [%s] %s\n", POSIX::strftime( '%Y-%m-%d %H:%M:%S', localtime ), $tag, $message;
+    printf {$fh} "%s [%s] %s\n", POSIX::strftime( '%Y-%m-%d %H:%M:%S', localtime ), $tag, $text;
     close($fh) or return 0;
     return 1;
 }
