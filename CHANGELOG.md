@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Perl 5.26+ foundation modules (`AAPP::Constants`, `AAPP::Paths`, `AAPP::Config`, `AAPP::Logger`, `AAPP::Runner`) with declared return numbers, signal and crash handling, and an optional log file (`aapp.perlLogFile`) (P-127) (`P-127`)
 
+### Fixed
+- Fixed: AAPP::Logger's print sub is print_msg, no longer the Perl built-in name say (#182) (`#182`)
+
 ## [0.9.0] - 2026-10-19
 
 ### Added

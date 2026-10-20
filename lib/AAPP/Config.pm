@@ -58,7 +58,7 @@ sub get_int
     my $v = get($key);
     return ( RETURN_OK, $default ) if !defined $v;
     if ( $v !~ /^\d+$/ || ( defined $min && $v < $min ) ) {
-        AAPP::Logger::say( 'ERROR', sprintf( "%s is '%s'; it must be a whole number%s.", $key, $v, defined $min ? " of at least $min" : '' ) );
+        AAPP::Logger::print_msg( 'ERROR', sprintf( "%s is '%s'; it must be a whole number%s.", $key, $v, defined $min ? " of at least $min" : '' ) );
         return ( RETURN_ERROR, undef );
     }
     return ( RETURN_OK, $v );

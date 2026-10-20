@@ -162,7 +162,7 @@ sub run
     if ( eval "require $class; 1" ) {
         $return = $class->run(@args);
     } else {
-        AAPP::Logger::say( 'ERROR', "Unknown verb '$verb'. Run 'aapp help'." );
+        AAPP::Logger::print_msg( 'ERROR', "Unknown verb '$verb'. Run 'aapp help'." );
         $return = RETURN_FAIL;
     }
     exit_code();

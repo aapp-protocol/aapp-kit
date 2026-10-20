@@ -11,11 +11,11 @@ use AAPP::Paths ();
 
 our $quiet = 0;
 
-# Usage     : AAPP::Logger::say('NOTICE', $message)
+# Usage     : AAPP::Logger::print_msg('NOTICE', $message)
 # Purpose   : Prints one line for the agent in the standard format, and logs it.
 #             NOTICE and INFO go to STDOUT (not with $quiet); WARN, ERROR and FATAL to STDERR.
 # Returns   : 1
-sub say
+sub print_msg
 {
     my ( $tag, $message ) = @_;
     my $to_err = $tag =~ /^(?:WARN|ERROR|FATAL)$/;
