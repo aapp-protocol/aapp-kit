@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `6cd81b1` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P127 (plan/P127-perl-foundation)
 * **Group:** P-111
@@ -509,6 +509,7 @@ Notes:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-20:** Plan implementation completed and archived to done/.
 * **2026-10-20:** Modules committed (`8e51e53`); every Task 3.1 scenario verified in a scratch repo; kit suites 63/63. Two changes from §2: `Paths` resolves the common dir with `Cwd::abs_path` (git prints it relative to the current directory, not the root); `Config` loads `AAPP::Logger` for `get_int`'s error line. Comment rule added to `.agents/PROJECT.MD`.
 * **2026-10-20:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-20:** Drafted as the first member of the port: Constants, Paths, Config, Logger, Runner and the comment rule, in logsniffer's style.
