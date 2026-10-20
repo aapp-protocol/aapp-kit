@@ -40,7 +40,7 @@
 ---
 
 ## 1. Context & Architectural Goal
-Part 1 of 4 of the test migration split from P-114 (kept as the reference until all four parts are drafted). Builds the modular Perl 5.26+ test harness (`tests/AAPP/Tests.pm`, modeled on `Logsniffer::Tests`) and its temporary entry point `tests/test-run`, and proves both by porting one core suite (`output`). Needs P-127 (foundation) done: the harness runs on `AAPP::Runner`, `AAPP::Logger`, `AAPP::Config` and `AAPP::Constants`, and its first modules test them. The other suites move in P-123 (core), P-124 (lifecycle verbs) and P-125 (remaining verbs, then `aapp test` switches to the harness). Kit runtime code stays untouched. Test modules live under `tests/AAPP/`, so `lib/AAPP/` stays runtime code only (copied into adopters' `.githooks/AAPP/`), while `aapp install` ships `tests/`.
+Part 1 of 4 of the test migration split from P-114 (kept as the reference until all four parts are drafted). Builds the modular Perl 5.26+ test harness (`tests/AAPP/Tests.pm`, modeled on `Logsniffer::Tests`) and its temporary entry point `tests/test-run`, and proves both by porting one core suite (`output`). Needs P-127 (foundation) and P-115 (core) done: the harness runs on `AAPP::Runner`, `AAPP::Logger`, `AAPP::Config` and `AAPP::Constants`, and reads JSON with `AAPP::JSON`. The other suites move in P-123 (core), P-124 (lifecycle verbs) and P-125 (remaining verbs, then `aapp test` switches to the harness). Kit runtime code stays untouched. Test modules live under `tests/AAPP/`, so `lib/AAPP/` stays runtime code only (copied into adopters' `.githooks/AAPP/`), while `aapp install` ships `tests/`.
 
 ---
 
@@ -56,6 +56,9 @@ Part 1 of 4 of the test migration split from P-114 (kept as the reference until 
 7. **End-of-run failure recap:** every `not ok` line (module, test, message, error) is repeated after the summary banner. `.agents/hooks/test-gate.sh` and `examples/hooks/test-gate.sh.sample` print from the summary banner to the end instead of `tail -n 20`.
 8. **Bridge until P-125 (configuration, not kit code):** `aapp test` keeps running the bash suites. The gate's `TEST_CMD` in `.agents/hooks/test-gate.sh` runs both: `./aapp test strict quiet && tests/test-run strict quiet`. Because `.agents/skills/aapp-hooks/registry.tsv` is self-protected, the developer re-registers the gate's SHA-256 with `./aapp hook-hash .agents/hooks/test-gate.sh` before `aapp done`. `tests/verb_contracts_test.sh` skips contract lines naming a `tests/AAPP/*.pm` file; `tests/test-run` checks those both ways.
 
+9. **One helper for library calls:** a test that exercises a kit library calls it through `$self->lib_call($library, $function, @args)` only. A library already ported calls `AAPP::<Module>::<function>` in-process; one still in bash runs `bash -c '. lib/<library>.sh; <function> "$@"'`. When a later member (P-116, P-118, P-119) ports a library, only this helper's map changes; the assertions do not.
+10. **Tests never verify with the kit's own parsers:** assertions read the kit's output, files and git state as literal text (small regexes in the test), never through `AAPP::State`, `AAPP::Text` or other kit parsers, so a parser bug cannot hide itself. `AAPP::JSON` is the exception: it reads JSON documents the test then checks field by field.
+
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
@@ -65,7 +68,7 @@ Part 1 of 4 of the test migration split from P-114 (kept as the reference until 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Harness & Runner
-- [ ] Task 1.1: Implement `tests/AAPP/Tests.pm` per §2.1.1–5 and 7.
+- [ ] Task 1.1: Implement `tests/AAPP/Tests.pm` per §2.1.1–5, 7, 9 and 10.
 - [ ] Task 1.2: Add `tests/test-run` per §2.1.6.
 
 ### Phase 2: Proof Suite & Bridge
