@@ -12,7 +12,7 @@
 * **Base:** `6cd81b1` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P127 (plan/P127-perl-foundation)
 * **Group:** P-111
-* **Commits:** none
+* **Commits:** `8e51e53` (plan/P127-perl-foundation)
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
