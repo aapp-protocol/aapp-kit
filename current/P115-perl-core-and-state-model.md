@@ -80,7 +80,7 @@ Needs P-127 (foundation: Constants, Paths, Config, Logger, Runner) done; runs be
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Core Modules (`lib/AAPP/*.pm`)
-- [ ] Task 1.1: Extend P-127's `lib/AAPP/Config.pm` and `lib/AAPP/Paths.pm` (§2.1–2.2); implement `lib/AAPP/Text.pm`, `lib/AAPP/JSON.pm`, and `lib/AAPP/Output.pm`.
+- [x] Task 1.1: Extend P-127's `lib/AAPP/Config.pm` and `lib/AAPP/Paths.pm` (§2.1–2.2); implement `lib/AAPP/Text.pm`, `lib/AAPP/JSON.pm`, and `lib/AAPP/Output.pm`.
 - [ ] Task 1.2: Implement `lib/AAPP/State.pm`, `lib/AAPP/CommitEngine.pm`, and `lib/AAPP/Health.pm`.
 
 ### Phase 2: Dispatcher, `python3` Retirement & Core Wrapper Tests
@@ -122,6 +122,7 @@ Needs P-127 (foundation: Constants, Paths, Config, Logger, Runner) done; runs be
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-20:** Task 1.1 done: Config, Paths, Text, JSON, Output, each compared with its bash original in scratch runs. Decisions: `use utf8` port-wide, text decoded at reads (plans, ledgers, git config), file paths kept as bytes; statuses, headings and cells matched by name, emoji decorative only (no emoji-class helper); git calls whose failure is an answer go through `Paths::git_capture` (stderr discarded); the JSON reader keeps key order and reports bad input as a return value, never `die`. Amendment R1 (P-112) asks for Logger's log file to be opened as UTF-8.
 * **2026-10-20:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-19:** Plan drafted as member 3 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
 * **2026-10-19:** Added `AAPP::Output`, `AAPP::CommitEngine`, and `AAPP::Health`, kept `#159` adopter check untouched, registered transitional bash/Perl coexistence in §2, and added `tests/AAPP/Core/*.pm` per RFC §5.1.3 & §5.1.5.
