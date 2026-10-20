@@ -472,16 +472,16 @@ Notes:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Modules
-- [ ] Task 1.1: `lib/AAPP/Constants.pm` per §2.2.
-- [ ] Task 1.2: `lib/AAPP/Paths.pm` and `lib/AAPP/Config.pm` per §2.3–2.4.
-- [ ] Task 1.3: `lib/AAPP/Logger.pm` per §2.5.
-- [ ] Task 1.4: `lib/AAPP/Runner.pm` per §2.6.
+- [x] Task 1.1: `lib/AAPP/Constants.pm` per §2.2.
+- [x] Task 1.2: `lib/AAPP/Paths.pm` and `lib/AAPP/Config.pm` per §2.3–2.4.
+- [x] Task 1.3: `lib/AAPP/Logger.pm` per §2.5.
+- [x] Task 1.4: `lib/AAPP/Runner.pm` per §2.6.
 
 ### Phase 2: Rules
-- [ ] Task 2.1: Add the comment rule (§2.1) to `.agents/PROJECT.MD`.
+- [x] Task 2.1: Add the comment rule (§2.1) to `.agents/PROJECT.MD`.
 
 ### Phase 3: Verification
-- [ ] Task 3.1: `perl -c` every module; a scratch script calling `AAPP::Runner::run` shows: an unknown verb (exit 1, `[ ERROR  ]` line), a crash without a log file (exit 1, `[ FATAL  ]` on STDERR), a crash with `aapp.perlLogFile` set (logged and printed), an undeclared return number (crash), TERM running a registered cleanup. Automated tests come with the harness (P-126).
+- [x] Task 3.1: `perl -c` every module; a scratch script calling `AAPP::Runner::run` shows: an unknown verb (exit 1, `[ ERROR  ]` line), a crash without a log file (exit 1, `[ FATAL  ]` on STDERR), a crash with `aapp.perlLogFile` set (logged and printed), an undeclared return number (crash), TERM running a registered cleanup. Automated tests come with the harness (P-126).
 
 ---
 
@@ -509,5 +509,6 @@ Notes:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-20:** Modules committed (`8e51e53`); every Task 3.1 scenario verified in a scratch repo; kit suites 63/63. Two changes from §2: `Paths` resolves the common dir with `Cwd::abs_path` (git prints it relative to the current directory, not the root); `Config` loads `AAPP::Logger` for `get_int`'s error line. Comment rule added to `.agents/PROJECT.MD`.
 * **2026-10-20:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-20:** Drafted as the first member of the port: Constants, Paths, Config, Logger, Runner and the comment rule, in logsniffer's style.
