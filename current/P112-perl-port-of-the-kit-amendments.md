@@ -88,6 +88,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R1** 2026-10-20 · P-115 · `lib/AAPP/Logger.pm` · Logger opens the log file with :encoding(UTF-8) (use utf8 port-wide) — landed `41e579d`
 - **R2** 2026-10-20 · P-115 · `lib/AAPP/Logger.pm` · Logger writes no emoji to the log file (symbols stripped, terminal unchanged) — pending
 - **R3** 2026-10-20 · P-115 · `tests/write-guard_test.sh` · write-guard fixture copies lib/AAPP into .githooks/AAPP; the no-python3 deny test keeps perl and git on PATH — pending
+- **R4** 2026-10-20 · P-115 · `tests/pre-commit_test.sh` · pre-commit fixtures that copy the hook libraries also copy lib/AAPP into the hook folder (pause reason via AAPP::JSON) — pending
 
 ## Decisions
 
