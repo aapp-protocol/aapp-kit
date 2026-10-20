@@ -84,6 +84,7 @@ Each request is implemented as its approval describes; corrections of the group'
 ---
 
 ## Scope Requests
+- **R1** 2026-10-20 · P-115 · `lib/AAPP/Logger.pm` · Logger opens the log file with :encoding(UTF-8) (use utf8 port-wide) — pending
 
 ## Decisions
 
