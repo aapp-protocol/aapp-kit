@@ -145,44 +145,41 @@ status_pause_files() {
 status_records_pause() {
     local files local_f shared_f out
     files="$(status_pause_files)"; local_f="$(printf '%s\n' "$files" | sed -n 1p)"; shared_f="$(printf '%s\n' "$files" | sed -n 2p)"
-    if [ -f "$local_f" ] && command -v python3 >/dev/null 2>&1; then
-        out="$(python3 -c '
-import json, sys, datetime, os
-root = sys.argv[2]
-try:
-    with open(sys.argv[1]) as f:
-        d = json.load(f)
-    reason = d.get("reason", "unspecified")
-    ts = d.get("timestamp", "")
-    label = ts
-    if ts:
-        try:
-            dt = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            mins = int((datetime.datetime.now(datetime.timezone.utc) - dt).total_seconds() // 60)
-            if mins < 1: rel = "just now"
-            elif mins == 1: rel = "1 minute ago"
-            elif mins < 60: rel = f"{mins} minutes ago"
-            elif mins < 1440: rel = f"{mins // 60} hour(s) ago"
-            else: rel = f"{mins // 1440} day(s) ago"
-            label = dt.strftime("%Y-%m-%d %H:%M:%S") + " (" + rel + ")"
-        except Exception:
-            label = ts
-    stashes = []
-    for s in d.get("snapshot", {}).get("stashes", []):
-        wt = s.get("worktree", "")
-        rel_wt = os.path.relpath(wt, root) if wt else ""
-        stashes.append(rel_wt + "|" + (s.get("branch") or ""))
-    clean = lambda v: str(v).replace("\t", " ").replace("\n", " ")
-    print("\t".join(["local", clean(reason), clean(ts), clean(label), ",".join(stashes), "", "", "1", ""]))
-except Exception as e:
-    print("\t".join(["local", "", "", "", "", "", "", "0", str(e).replace("\t", " ").replace("\n", " ")]))
+    if [ -f "$local_f" ]; then
+        out="$(perl -CSA -Mutf8 -I"$AAPP_LIB" -MAAPP::JSON -MAAPP::Paths -MTime::Local -e '
+my ( $file, $root ) = @ARGV;
+my $clean = sub { my ($v) = @_; $v = "" if !defined $v; $v =~ s/[\t\n]/ /g; return $v };
+my ( $rc, $d, $why ) = AAPP::JSON::decode_file($file);
+if ( $rc != 1 || ref($d) ne "HASH" ) {
+    print join( "\t", "local", "", "", "", "", "", "", "0", $clean->( $why // "not a JSON object" ) ), "\n";
+    exit 0;
+}
+my $reason = $d->{reason} // "unspecified";
+my $ts     = $d->{timestamp} // "";
+my $label  = $ts;
+if ( $ts =~ /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.\d+)?(Z|([+-])(\d\d):?(\d\d))$/ ) {
+    my $epoch = Time::Local::timegm( $6, $5, $4, $3, $2 - 1, $1 );
+    if ( $7 ne "Z" ) {
+        $epoch -= ( $8 eq "-" ? -1 : 1 ) * ( $9 * 3600 + $10 * 60 );
+    }
+    my $mins = int( ( time() - $epoch ) / 60 );
+    my $rel  = $mins < 1 ? "just now" : $mins == 1 ? "1 minute ago" : $mins < 60 ? "$mins minutes ago"
+        : $mins < 1440 ? int( $mins / 60 ) . " hour(s) ago" : int( $mins / 1440 ) . " day(s) ago";
+    $label = "$1-$2-$3 $4:$5:$6 ($rel)";
+}
+my $snap = ref( $d->{snapshot} ) eq "HASH" ? $d->{snapshot} : {};
+my @stashes;
+foreach my $s ( ref( $snap->{stashes} ) eq "ARRAY" ? @{ $snap->{stashes} } : () ) {
+    my $wt = $s->{worktree} // "";
+    my $rel_wt = $wt ne "" ? AAPP::Paths::rel_path( $root, $wt ) : "";
+    push @stashes, $rel_wt . "|" . ( $s->{branch} // "" );
+}
+print join( "\t", "local", $clean->($reason), $clean->($ts), $clean->($label), join( ",", @stashes ), "", "", "1", "" ), "\n";
 ' "$local_f" "$REPO_ROOT")"
         printf '%s\n' "$out"
     elif [ -n "$shared_f" ] && [ -f "$shared_f" ]; then
         field() { grep -m 1 -E "^\*[[:space:]]+\*\*$1:\*\*" "$shared_f" | sed -E "s/^\*[[:space:]]*\*\*$1:\*\*[[:space:]]*//" || true; }
         printf 'team\t%s\t%s\t\t\t%s\t%s\t1\t\n' "$(field Reason)" "$(field Timestamp)" "$(field Initiator)" ".plans/PAUSED.md"
-    elif [ -f "$local_f" ]; then
-        printf 'local\t\t\t\t\t\t%s\t0\t\n' "$local_f"
     fi
     return 0
 }

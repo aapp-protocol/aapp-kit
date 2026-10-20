@@ -22,6 +22,13 @@ case "$0" in
     *)   AAPP_HOOK_DIR="$PWD" ;;
 esac
 
+# The Perl core (P-115) reads the payload and writes the decision. Without it
+# the guard cannot tell what is written, so it refuses (exit 2), never allows.
+if ! command -v perl >/dev/null 2>&1 || [ ! -r "$AAPP_HOOK_DIR/AAPP/JSON.pm" ]; then
+    echo "❌ [Blast Radius Guard Violation] Perl core missing: perl and $AAPP_HOOK_DIR/AAPP/JSON.pm are required. Run 'aapp init' to reinstall the hook engine." >&2
+    exit 2
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$REPO_ROOT"
 
@@ -38,27 +45,19 @@ elif [ ! -t 0 ]; then
     if [ -z "$RAW_INPUT" ]; then
         exit 0
     fi
-    # Parse JSON payload via python3
-    if command -v python3 >/dev/null 2>&1; then
-        PARSED=$(printf '%s' "$RAW_INPUT" | python3 -c '
-import json, sys
-try:
-    data = json.load(sys.stdin)
-    tool = data.get("tool_name", "")
-    inp = data.get("tool_input", {})
-    path = inp.get("file_path") or inp.get("path") or inp.get("target_file") or ""
-    print(f"{tool}\t{path}")
-except Exception:
-    sys.exit(0)
-' 2>/dev/null || true)
-        if [ -n "$PARSED" ]; then
-            TOOL_NAME=$(echo "$PARSED" | cut -f1)
-            TARGET_FILE=$(echo "$PARSED" | cut -f2)
-        fi
-    else
-        # POSIX fallback
-        TARGET_FILE=$(echo "$RAW_INPUT" | grep -oE '"(file_path|path|target_file)"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')
-        TOOL_NAME=$(echo "$RAW_INPUT" | grep -oE '"tool_name"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/')
+    # The PreToolUse payload: tool name and the file it writes. Input that is
+    # not a JSON object yields nothing (the single-line path form below).
+    PARSED=$(printf '%s' "$RAW_INPUT" | perl -CS -Mutf8 -I"$AAPP_HOOK_DIR" -MAAPP::JSON -e '
+my $raw = do { local $/; <STDIN> };
+my ( $rc, $d ) = AAPP::JSON::decode($raw);
+exit 0 if $rc != 1 || ref($d) ne "HASH";
+my $in = ref( $d->{tool_input} ) eq "HASH" ? $d->{tool_input} : {};
+my ($path) = grep { defined $_ && !ref($_) && $_ ne "" } @{$in}{qw(file_path path target_file)};
+print $d->{tool_name} // "", "\t", $path // "", "\n";
+') || { echo "❌ [Blast Radius Guard Violation] The Perl core failed reading the tool payload. Run 'aapp init' to reinstall the hook engine." >&2; exit 2; }
+    if [ -n "$PARSED" ]; then
+        TOOL_NAME=$(printf '%s\n' "$PARSED" | cut -f1)
+        TARGET_FILE=$(printf '%s\n' "$PARSED" | cut -f2)
     fi
     # If not JSON, check if RAW_INPUT is a single-line path
     if [ -z "$TARGET_FILE" ] && [ -n "$RAW_INPUT" ]; then
@@ -166,25 +165,18 @@ fi
 deny_action() {
     local reason="$1"
     if [ -n "$TOOL_NAME" ]; then
-        if command -v python3 >/dev/null 2>&1; then
-            python3 -c '
-import json, sys
-out = {
-    "decision": "deny",
-    "reason": sys.argv[1],
-    "hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "permissionDecision": "deny",
-        "permissionDecisionReason": sys.argv[1]
-    }
-}
-print(json.dumps(out))
-' "$reason"
-        else
-            local escaped_reason
-            escaped_reason=$(printf '%s' "$reason" | awk '{printf "%s%s", (NR>1?" ":""), $0}' | sed 's/\\/\\\\/g; s/"/\\"/g')
-            printf '{"decision":"deny","reason":"%s","hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$escaped_reason" "$escaped_reason"
-        fi
+        perl -CSA -Mutf8 -I"$AAPP_HOOK_DIR" -MAAPP::JSON -e '
+my $r = AAPP::JSON::json_str( $ARGV[0] );
+print AAPP::JSON::json_obj(
+    decision           => AAPP::JSON::json_str("deny"),
+    reason             => $r,
+    hookSpecificOutput => AAPP::JSON::json_obj(
+        hookEventName            => AAPP::JSON::json_str("PreToolUse"),
+        permissionDecision       => AAPP::JSON::json_str("deny"),
+        permissionDecisionReason => $r,
+    ),
+), "\n";
+' "$reason" || true
         echo "❌ [Blast Radius Guard Violation] $reason" >&2
     else
         echo "❌ [Blast Radius Guard Violation] $reason" >&2
@@ -367,11 +359,10 @@ if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUS
 
     PAUSE_REASON=""
     if [ -f "$PAUSED_FILE" ]; then
-        if command -v python3 >/dev/null 2>&1; then
-            PAUSE_REASON=$(python3 -c 'import json, sys; d=json.load(open(sys.argv[1])); print(d.get("reason", ""))' "$PAUSED_FILE" 2>/dev/null || true)
-        else
-            PAUSE_REASON=$(grep -oE '"reason"[[:space:]]*:[[:space:]]*"[^"]+"' "$PAUSED_FILE" 2>/dev/null | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/' || true)
-        fi
+        PAUSE_REASON=$(perl -CSA -Mutf8 -I"$AAPP_HOOK_DIR" -MAAPP::JSON -e '
+my ( $rc, $d ) = AAPP::JSON::decode_file( $ARGV[0] );
+print $d->{reason} // "" if $rc == 1 && ref($d) eq "HASH";
+' "$PAUSED_FILE") || PAUSE_REASON=""
     fi
     if [ -z "$PAUSE_REASON" ] && [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; then
         PAUSE_REASON=$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Reason:\*\*[[:space:]]*(.*)/\1/p' "$SHARED_PAUSED_FILE" 2>/dev/null | head -n 1 || true)

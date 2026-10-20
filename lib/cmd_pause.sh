@@ -101,43 +101,34 @@ show_pause_inspection() {
     local stashes_count=0
 
     if [ -f "$PAUSED_FILE" ]; then
-        if command -v python3 >/dev/null 2>&1; then
-            python3 -c '
-import json, sys
-try:
-    with open(sys.argv[1]) as f:
-        d = json.load(f)
-    reason = d.get("reason", "unspecified")
-    print(f"   Reason  : {reason}")
-    ts = d.get("timestamp", "unknown")
-    user = d.get("user", "unknown")
-    print(f"   Paused  : {ts} by {user}")
-    stashes = d.get("snapshot", {}).get("stashes", [])
-    print(f"   Stashes : {len(stashes)} worktree(s) quarantined")
-    for s in stashes:
-        swt = s.get("worktree", "")
-        stag = s.get("tag", "")
-        ssha = s.get("sha", "")[:8]
-        print(f"     • {swt}: {stag} ({ssha})")
-    wts = d.get("snapshot", {}).get("worktrees", {})
-    if wts:
-        print("   Worktrees Monitored:")
-        for name, data in wts.items():
-            staged = data.get("staged_files", [])
-            unstaged = data.get("unstaged_files", [])
-            details = []
-            if staged: details.append(f"{len(staged)} staged")
-            if unstaged: details.append(f"{len(unstaged)} unstaged")
-            summary = f" ({', '.join(details)})" if details else ""
-            hsha = data.get("head_sha", "")[:8]
-            print(f"     • {name} @ {hsha}{summary}")
-except Exception as e:
-    print(f"   (Failed to parse snapshot: {e})")
+        perl -CSA -Mutf8 -I"$AAPP_LIB" -MAAPP::JSON -e '
+my ( $rc, $d, $why ) = AAPP::JSON::decode_file( $ARGV[0] );
+if ( $rc != 1 || ref($d) ne "HASH" ) {
+    print "   (Failed to parse snapshot: ", $why // "not a JSON object", ")\n";
+    exit 0;
+}
+my $snap = ref( $d->{snapshot} ) eq "HASH" ? $d->{snapshot} : {};
+my @stashes = ref( $snap->{stashes} ) eq "ARRAY" ? @{ $snap->{stashes} } : ();
+print "   Reason  : ", $d->{reason} // "unspecified", "\n";
+print "   Paused  : ", $d->{timestamp} // "unknown", " by ", $d->{user} // "unknown", "\n";
+print "   Stashes : ", scalar(@stashes), " worktree(s) quarantined\n";
+foreach my $s (@stashes) {
+    printf "     • %s: %s (%s)\n", $s->{worktree} // "", $s->{tag} // "", substr( $s->{sha} // "", 0, 8 );
+}
+my $wts = ref( $snap->{worktrees} ) eq "HASH" ? $snap->{worktrees} : {};
+my @names = AAPP::JSON::key_order($wts);
+if (@names) {
+    print "   Worktrees Monitored:\n";
+    foreach my $name (@names) {
+        my $w = $wts->{$name};
+        my @details;
+        push @details, scalar( @{ $w->{staged_files} } ) . " staged" if ref( $w->{staged_files} ) eq "ARRAY" && @{ $w->{staged_files} };
+        push @details, scalar( @{ $w->{unstaged_files} } ) . " unstaged" if ref( $w->{unstaged_files} ) eq "ARRAY" && @{ $w->{unstaged_files} };
+        my $summary = @details ? " (" . join( ", ", @details ) . ")" : "";
+        printf "     • %s @ %s%s\n", $name, substr( $w->{head_sha} // "", 0, 8 ), $summary;
+    }
+}
 ' "$PAUSED_FILE"
-        else
-            echo "   Buffer  : $PAUSED_FILE"
-            grep -E '"reason"|"timestamp"|"user"' "$PAUSED_FILE" 2>/dev/null | sed 's/^/   /' || true
-        fi
     elif [ -f "$SHARED_PAUSED_FILE" ]; then
         echo "   Scope   : Team-Wide (Shared in .plans/PAUSED.md)"
         sed 's/^/   /' "$SHARED_PAUSED_FILE"
@@ -278,56 +269,40 @@ EOF
     done
 
     # 3. Assemble Snapshot JSON
-    if command -v python3 >/dev/null 2>&1; then
-        python3 -c '
-import json, sys
-
-paused_file = sys.argv[1]
-reason = sys.argv[2]
-timestamp = sys.argv[3]
-user = sys.argv[4]
-is_shared = sys.argv[5] == "1"
-
-stashes_raw = [x for x in sys.argv[6].splitlines() if x.strip()]
-stashes = []
-for item in stashes_raw:
-    parts = item.split("|")
-    if len(parts) >= 4:
-        stashes.append({
-            "worktree": parts[0],
-            "branch": parts[1],
-            "sha": parts[2],
-            "tag": parts[3]
-        })
-
-worktrees_raw = [x for x in sys.argv[7].splitlines() if x.strip()]
-worktrees = {}
-for item in worktrees_raw:
-    parts = item.split("|")
-    if len(parts) >= 5:
-        staged = [f for f in parts[3].split(",") if f]
-        unstaged = [f for f in parts[4].split(",") if f]
-        worktrees[parts[0]] = {
-            "path": parts[1],
-            "head_sha": parts[2],
-            "staged_files": staged,
-            "unstaged_files": unstaged
-        }
-
-doc = {
-    "paused": True,
-    "timestamp": timestamp,
-    "reason": reason,
-    "user": user,
-    "shared": is_shared,
-    "snapshot": {
-        "worktrees": worktrees,
-        "stashes": stashes
-    }
+    perl -CSA -Mutf8 -I"$AAPP_LIB" -MAAPP::JSON -e '
+my ( $file, $reason, $timestamp, $user, $shared, $stashes_raw, $worktrees_raw ) = @ARGV;
+my @stashes;
+foreach my $item ( grep { /\S/ } split( /\n/, $stashes_raw ) ) {
+    my @p = split( /\|/, $item, -1 );
+    next if @p < 4;
+    push @stashes, AAPP::JSON::json_obj( worktree => AAPP::JSON::json_str( $p[0] ), branch => AAPP::JSON::json_str( $p[1] ),
+        sha => AAPP::JSON::json_str( $p[2] ), tag => AAPP::JSON::json_str( $p[3] ) );
 }
-
-with open(paused_file, "w") as f:
-    json.dump(doc, f, indent=2)
+my @worktrees;
+foreach my $item ( grep { /\S/ } split( /\n/, $worktrees_raw ) ) {
+    my @p = split( /\|/, $item, -1 );
+    next if @p < 5;
+    push @worktrees, $p[0], AAPP::JSON::json_obj( path => AAPP::JSON::json_str( $p[1] ), head_sha => AAPP::JSON::json_str( $p[2] ),
+        staged_files => AAPP::JSON::json_strlist( split( /,/, $p[3] ) ), unstaged_files => AAPP::JSON::json_strlist( split( /,/, $p[4] ) ) );
+}
+my $doc = AAPP::JSON::json_obj(
+    paused    => "true",
+    timestamp => AAPP::JSON::json_str($timestamp),
+    reason    => AAPP::JSON::json_str($reason),
+    user      => AAPP::JSON::json_str($user),
+    shared    => AAPP::JSON::json_bool( $shared eq "1" ),
+    snapshot  => AAPP::JSON::json_obj( worktrees => AAPP::JSON::json_obj(@worktrees), stashes => AAPP::JSON::json_list(@stashes) ),
+);
+my $fh;
+if ( !open( $fh, ">:encoding(UTF-8)", $file ) ) {
+    print STDERR "❌ [Pause] Cannot write $file: $!\n";
+    exit 1;
+}
+print {$fh} AAPP::JSON::pretty($doc);
+if ( !close($fh) ) {
+    print STDERR "❌ [Pause] Cannot write $file: $!\n";
+    exit 1;
+}
 ' "$PAUSED_FILE" "$reason" "$now_iso" "$current_user" "$shared" \
   "$(printf '%s\n' "${created_stashes[@]}")" \
   "$(
@@ -340,21 +315,6 @@ with open(paused_file, "w") as f:
           printf '%s|%s|%s|%s|%s\n' "$wname" "$wt" "$hsha" "$stg" "$unstg"
       done
   )"
-    else
-        # POSIX JSON fallback
-        cat <<EOF > "$PAUSED_FILE"
-{
-  "paused": true,
-  "timestamp": "$now_iso",
-  "reason": "$reason",
-  "user": "$current_user",
-  "shared": $( [ "$shared" -eq 1 ] && echo "true" || echo "false" ),
-  "snapshot": {
-    "stashes_count": ${#created_stashes[@]}
-  }
-}
-EOF
-    fi
 
     # 4. Handle Shared Mode (--shared)
     if [ "$shared" -eq 1 ] && [ -n "$PLANS_DIR" ] && [ -d "$PLANS_DIR" ]; then
@@ -414,30 +374,27 @@ cmd_resume() {
     local worktrees_snapshot=()
     local reason=""
 
-    if [ -f "$PAUSED_FILE" ] && command -v python3 >/dev/null 2>&1; then
+    if [ -f "$PAUSED_FILE" ]; then
         local parse_output
-        parse_output=$(python3 -c '
-import json, sys
-try:
-    with open(sys.argv[1]) as f:
-        d = json.load(f)
-    reason = d.get("reason", "")
-    print(f"REASON={reason}")
-    for s in d.get("snapshot", {}).get("stashes", []):
-        swt = s.get("worktree", "")
-        sbr = s.get("branch", "")
-        ssha = s.get("sha", "")
-        stag = s.get("tag", "")
-        print(f"STASH={swt}|{sbr}|{ssha}|{stag}")
-    for name, data in d.get("snapshot", {}).get("worktrees", {}).items():
-        stg = ",".join(data.get("staged_files", []))
-        unstg = ",".join(data.get("unstaged_files", []))
-        wpath = data.get("path", "")
-        wsha = data.get("head_sha", "")
-        print(f"WORKTREE={name}|{wpath}|{wsha}|{stg}|{unstg}")
-except Exception as e:
-    sys.exit(1)
-' "$PAUSED_FILE" 2>/dev/null || true)
+        parse_output=$(perl -CSA -Mutf8 -I"$AAPP_LIB" -MAAPP::JSON -e '
+my ( $rc, $d, $why ) = AAPP::JSON::decode_file( $ARGV[0] );
+if ( $rc != 1 || ref($d) ne "HASH" ) {
+    print STDERR "❌ [Resume] Cannot read the pause snapshot $ARGV[0]: ", $why // "not a JSON object", ". Nothing was restored; fix or remove the file, then run aapp resume again.\n";
+    exit 1;
+}
+my $snap = ref( $d->{snapshot} ) eq "HASH" ? $d->{snapshot} : {};
+print "REASON=", $d->{reason} // "", "\n";
+foreach my $s ( ref( $snap->{stashes} ) eq "ARRAY" ? @{ $snap->{stashes} } : () ) {
+    print "STASH=", join( "|", map { $s->{$_} // "" } qw(worktree branch sha tag) ), "\n";
+}
+my $wts = ref( $snap->{worktrees} ) eq "HASH" ? $snap->{worktrees} : {};
+foreach my $name ( AAPP::JSON::key_order($wts) ) {
+    my $w   = $wts->{$name};
+    my $stg = ref( $w->{staged_files} ) eq "ARRAY" ? join( ",", @{ $w->{staged_files} } ) : "";
+    my $uns = ref( $w->{unstaged_files} ) eq "ARRAY" ? join( ",", @{ $w->{unstaged_files} } ) : "";
+    print "WORKTREE=", join( "|", $name, $w->{path} // "", $w->{head_sha} // "", $stg, $uns ), "\n";
+}
+' "$PAUSED_FILE") || exit 1
 
         while IFS= read -r line; do
             case "$line" in

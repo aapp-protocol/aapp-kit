@@ -247,6 +247,62 @@ sub key_order
     return @keys;
 }
 
+# Usage     : set_key($hash, 'hooks', {})
+# Purpose   : Sets a key of a hash; a new key is written after the keys already there, as JSON
+#             editors keep a document's order.
+# Returns   : The value set.
+sub set_key
+{
+    my ( $hash, $key, $value ) = @_;
+    my $addr = Scalar::Util::refaddr($hash);
+    if ( !exists $hash->{$key} ) {
+        if ( !exists $key_order{$addr} ) {
+            $key_order{$addr} = [ key_order($hash) ];
+        }
+        push @{ $key_order{$addr} }, $key;
+    }
+    $hash->{$key} = $value;
+    return $value;
+}
+
+# Usage     : if ( same_data($a, $b) ) { ... }
+# Purpose   : Compares two decoded JSON values by content (objects by keys and values, lists in order).
+# Returns   : 1 when equal, 0 otherwise.
+sub same_data
+{
+    my ( $x, $y ) = @_;
+    if ( !defined $x || !defined $y ) {
+        return ( !defined $x && !defined $y ) ? 1 : 0;
+    }
+    my ( $tx, $ty ) = ( ref($x), ref($y) );
+    if ( $tx ne $ty ) {
+        return 0;
+    }
+    if ( $tx eq 'HASH' ) {
+        if ( join( "\0", sort keys %{$x} ) ne join( "\0", sort keys %{$y} ) ) {
+            return 0;
+        }
+        foreach my $key ( keys %{$x} ) {
+            if ( !same_data( $x->{$key}, $y->{$key} ) ) {
+                return 0;
+            }
+        }
+        return 1;
+    }
+    if ( $tx eq 'ARRAY' ) {
+        if ( @{$x} != @{$y} ) {
+            return 0;
+        }
+        for my $i ( 0 .. $#{$x} ) {
+            if ( !same_data( $x->[$i], $y->[$i] ) ) {
+                return 0;
+            }
+        }
+        return 1;
+    }
+    return "$x" eq "$y" ? 1 : 0;
+}
+
 # Usage     : if ( _is_number($value) ) { ... }
 # Purpose   : Tells a number from a string by how Perl holds the value, as JSON writers do.
 # Returns   : 1 for a number, 0 for a string.

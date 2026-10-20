@@ -205,11 +205,10 @@ if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUS
     if [ "$PAUSE_BLOCKED_TOUCHED" -eq 1 ]; then
         PAUSE_REASON=""
         if [ -f "$PAUSED_FILE" ]; then
-            if command -v python3 >/dev/null 2>&1; then
-                PAUSE_REASON=$(python3 -c 'import json, sys; d=json.load(open(sys.argv[1])); print(d.get("reason", ""))' "$PAUSED_FILE" 2>/dev/null || true)
-            else
-                PAUSE_REASON=$(grep -oE '"reason"[[:space:]]*:[[:space:]]*"[^"]+"' "$PAUSED_FILE" 2>/dev/null | head -n 1 | sed -E 's/.*:[[:space:]]*"([^"]+)".*/\1/' || true)
-            fi
+            PAUSE_REASON=$(perl -CSA -Mutf8 -I"$AAPP_HOOK_DIR" -MAAPP::JSON -e '
+my ( $rc, $d ) = AAPP::JSON::decode_file( $ARGV[0] );
+print $d->{reason} // "" if $rc == 1 && ref($d) eq "HASH";
+' "$PAUSED_FILE" 2>/dev/null) || PAUSE_REASON=""
         fi
         if [ -z "$PAUSE_REASON" ] && [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUSED_FILE" ]; then
             PAUSE_REASON=$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Reason:\*\*[[:space:]]*(.*)/\1/p' "$SHARED_PAUSED_FILE" 2>/dev/null | head -n 1 || true)

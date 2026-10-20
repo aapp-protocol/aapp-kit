@@ -451,6 +451,18 @@ cp "$AAPP_STATES_SRC" .githooks/plan_states.sh || {
     echo "❌ [Init Error] Status registry missing or unreadable: $AAPP_STATES_SRC" >&2
     exit 1
 }
+# The Perl core (P-115): the hooks load AAPP::* from beside themselves. Replaced
+# whole, so a module the kit no longer ships does not linger.
+AAPP_PERL_SRC="$(dirname "$AAPP_LIB_SRC")/AAPP"
+if [ ! -r "$AAPP_PERL_SRC/JSON.pm" ]; then
+    echo "❌ [Init Error] Perl core missing or unreadable: $AAPP_PERL_SRC" >&2
+    exit 1
+fi
+rm -rf .githooks/AAPP
+cp -R "$AAPP_PERL_SRC" .githooks/AAPP || {
+    echo "❌ [Init Error] Cannot copy the Perl core into .githooks/AAPP" >&2
+    exit 1
+}
 
 # 1. Always update AAPP core engine files byte-for-byte
 if [ -f "$AAPP_TEMPLATES/aapp-pre-commit" ]; then
@@ -777,77 +789,82 @@ merge_blast_radius_guard() {
     local target_file="$1"
     local source_file="${2:-}"
 
-    if command -v python3 >/dev/null 2>&1; then
-        python3 - "$target_file" "$source_file" <<'PYEOF'
-import json, sys, os
-
-target_path = sys.argv[1]
-source_path = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None
-
-def load_json(p):
-    if not p or not os.path.isfile(p):
-        return {}
-    try:
-        with open(p, "r", encoding="utf-8") as f:
-            d = json.load(f)
-            return d if isinstance(d, dict) else {}
-    except Exception:
-        return {}
-
-target_data = load_json(target_path)
-
-# If source file provided (e.g. migrating existing or diverged .claude/settings.json),
-# merge all top-level keys and union nested permissions/lists
-if source_path and os.path.isfile(source_path):
-    source_data = load_json(source_path)
-    for k, v in source_data.items():
-        if k not in target_data:
-            target_data[k] = v
-        elif isinstance(v, dict) and isinstance(target_data[k], dict):
-            for sub_k, sub_v in v.items():
-                if sub_k not in target_data[k]:
-                    target_data[k][sub_k] = sub_v
-                elif isinstance(sub_v, list) and isinstance(target_data[k][sub_k], list):
-                    for item in sub_v:
-                        if item not in target_data[k][sub_k]:
-                            target_data[k][sub_k].append(item)
-
-# Ensure blast-radius-guard hook is present in PreToolUse
-if "hooks" not in target_data or not isinstance(target_data["hooks"], dict):
-    target_data["hooks"] = {}
-if "PreToolUse" not in target_data["hooks"] or not isinstance(target_data["hooks"]["PreToolUse"], list):
-    target_data["hooks"]["PreToolUse"] = []
-
-hook_cmd = "${CLAUDE_PROJECT_DIR}/.githooks/blast-radius-guard"
-has_hook = False
-for entry in target_data["hooks"]["PreToolUse"]:
-    if isinstance(entry, dict) and "hooks" in entry and isinstance(entry["hooks"], list):
-        for h in entry["hooks"]:
-            if isinstance(h, dict) and h.get("command") == hook_cmd:
-                has_hook = True
-                if "matcher" in entry and isinstance(entry["matcher"], str) and "MultiEdit" not in entry["matcher"]:
-                    entry["matcher"] = "Write|Edit|MultiEdit|NotebookEdit"
-                break
-
-if not has_hook:
-    target_data["hooks"]["PreToolUse"].append({
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
-        "hooks": [
-            {
-                "type": "command",
-                "command": hook_cmd
+    perl -CSA -Mutf8 -I"$AAPP_LIB" -MAAPP::JSON -MFile::Path -MFile::Basename -e '
+my ( $target_path, $source_path ) = @ARGV;
+my $load = sub {
+    my ($p) = @_;
+    if ( !defined $p || $p eq "" || !-f $p ) {
+        return ( 1, {} );
+    }
+    my ( $rc, $d, $why ) = AAPP::JSON::decode_file($p);
+    if ( $rc != 1 ) {
+        print STDERR "❌ [Init] $p is not valid JSON ($why); fix it, then run aapp init again. It was left as it is.\n";
+        return (0);
+    }
+    return ( 1, ref($d) eq "HASH" ? $d : {} );
+};
+my ( $ok, $target ) = $load->($target_path);
+exit 1 if !$ok;
+if ( defined $source_path && $source_path ne "" && -f $source_path ) {
+    my ( $sok, $source ) = $load->($source_path);
+    exit 1 if !$sok;
+    foreach my $k ( AAPP::JSON::key_order($source) ) {
+        my $v = $source->{$k};
+        if ( !exists $target->{$k} ) {
+            AAPP::JSON::set_key( $target, $k, $v );
+            next;
+        }
+        next if ref($v) ne "HASH" || ref( $target->{$k} ) ne "HASH";
+        foreach my $sk ( AAPP::JSON::key_order($v) ) {
+            my $sv = $v->{$sk};
+            if ( !exists $target->{$k}{$sk} ) {
+                AAPP::JSON::set_key( $target->{$k}, $sk, $sv );
+                next;
             }
-        ]
-    })
-
-os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
-with open(target_path, "w", encoding="utf-8") as f:
-    json.dump(target_data, f, indent=2)
-    f.write("\n")
-PYEOF
-    else
-        echo "⚠️  Warning: python3 not found. Could not automatically merge blast-radius-guard into $target_file."
-    fi
+            next if ref($sv) ne "ARRAY" || ref( $target->{$k}{$sk} ) ne "ARRAY";
+            foreach my $item ( @{$sv} ) {
+                push @{ $target->{$k}{$sk} }, $item if !grep { AAPP::JSON::same_data( $_, $item ) } @{ $target->{$k}{$sk} };
+            }
+        }
+    }
+}
+AAPP::JSON::set_key( $target, "hooks", {} ) if ref( $target->{hooks} ) ne "HASH";
+AAPP::JSON::set_key( $target->{hooks}, "PreToolUse", [] ) if ref( $target->{hooks}{PreToolUse} ) ne "ARRAY";
+my $hook_cmd = q(${CLAUDE_PROJECT_DIR}/.githooks/blast-radius-guard);
+my $has_hook = 0;
+ENTRY: foreach my $entry ( @{ $target->{hooks}{PreToolUse} } ) {
+    next if ref($entry) ne "HASH" || ref( $entry->{hooks} ) ne "ARRAY";
+    foreach my $h ( @{ $entry->{hooks} } ) {
+        if ( ref($h) eq "HASH" && ( $h->{command} // "" ) eq $hook_cmd ) {
+            $has_hook = 1;
+            if ( defined $entry->{matcher} && !ref( $entry->{matcher} ) && index( $entry->{matcher}, "MultiEdit" ) < 0 ) {
+                $entry->{matcher} = "Write|Edit|MultiEdit|NotebookEdit";
+            }
+            last ENTRY;
+        }
+    }
+}
+if ( !$has_hook ) {
+    my $entry = {};
+    AAPP::JSON::set_key( $entry, "matcher", "Write|Edit|MultiEdit|NotebookEdit" );
+    my $hook = {};
+    AAPP::JSON::set_key( $hook, "type",    "command" );
+    AAPP::JSON::set_key( $hook, "command", $hook_cmd );
+    AAPP::JSON::set_key( $entry, "hooks", [$hook] );
+    push @{ $target->{hooks}{PreToolUse} }, $entry;
+}
+File::Path::make_path( File::Basename::dirname($target_path) );
+my $fh;
+if ( !open( $fh, ">:encoding(UTF-8)", $target_path ) ) {
+    print STDERR "❌ [Init] Cannot write $target_path: $!\n";
+    exit 1;
+}
+print {$fh} AAPP::JSON::pretty( AAPP::JSON::encode($target) );
+if ( !close($fh) ) {
+    print STDERR "❌ [Init] Cannot write $target_path: $!\n";
+    exit 1;
+}
+' "$target_file" "$source_file"
 }
 
 sync_claude_settings() {
