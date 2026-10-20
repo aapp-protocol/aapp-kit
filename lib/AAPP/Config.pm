@@ -151,6 +151,22 @@ sub get_bool
     return ( RETURN_ERROR, undef );
 }
 
+# Usage     : my $rc = AAPP::Config::set('aapp.planId', 128)
+# Purpose   : Writes a repository setting with git config and updates the values read by load.
+# Returns   : RETURN_OK, or RETURN_ERROR after an [ ERROR ] line when git config refuses.
+sub set
+{
+    my ( $key, $value ) = @_;
+    my $status = system( 'git', 'config', $key, $value );
+    if ( $status != 0 ) {
+        AAPP::Logger::print_msg( 'ERROR', "Cannot write $key with git config." );
+        return RETURN_ERROR;
+    }
+    load();
+    $config{ canonical_key($key) } = [$value];
+    return RETURN_OK;
+}
+
 # Usage     : my @keys = AAPP::Config::keys_with_prefix('aapp.planState.')
 # Purpose   : Lists the keys that start with a prefix, for registries such as aapp.planState.*.
 # Returns   : Sorted list of canonical keys.
