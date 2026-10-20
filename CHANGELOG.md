@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - slim the test suites to verb behaviour and core wrappers, fold `#nnn` regressions into behaviour tests, and add `lib/docs/core/` contracts (P-113) (`P-113`)
 
+### Added
+- Perl 5.26+ foundation modules (`AAPP::Constants`, `AAPP::Paths`, `AAPP::Config`, `AAPP::Logger`, `AAPP::Runner`) with declared return numbers, signal and crash handling, and an optional log file (`aapp.perlLogFile`) (P-127) (`P-127`)
+
 ## [0.9.0] - 2026-10-19
 
 ### Added
