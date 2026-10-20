@@ -4,7 +4,6 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #182 | `Low` | `CORE` | 2026-10-20 | `lib/AAPP/Logger.pm`, `lib/AAPP/Config.pm`, `lib/AAPP/Runner.pm` | AAPP::Logger names its print sub 'say', the name of a Perl built-in enabled by use 5.026; rename it before later modules call it |  | 🟡 `Incubated` | `feature/perl-port-of-the-kit` |
 | #181 | `Medium` | `HOOK` | 2026-10-20 | `templates/blast-radius-guard.sh`, `lib/aapp-lib.sh` | Write guard refuses an always-allowed shared doc (.agents/PROJECT.MD) edited from a bound plan worktree: 'Multiple plans in development' though the worktree's buffer names its plan |  | 🟡 `Incubated` |  |
 | #180 | `Low` | `TEST` | 2026-10-19 | `tests/integrate_test.sh`, `lib/docs/verbs/done.md` | integrate_test.sh reports test_open_mini_plan_refuses_with_wait_zero as passed unconditionally (a bare ok with no check), and the done contract still lists it as covered behaviour. |  | 🟡 `Incubated` |  |
 | #179 | `High` | `TEST` | 2026-10-19 | `tests/adoption_test.sh`, `tests/verbs/freeze.sh`, `tests/verbs/commit.sh` | Three suites report tests from inside ( ... ) subshells, so their PASS/FAIL counts are lost: a failing test there never fails the suite (adoption_test.sh counts 1 of 13 tests). |  | 🟡 `Incubated` |  |
