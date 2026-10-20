@@ -12,7 +12,7 @@
 * **Base:** `3090f15` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P115 (plan/P115-perl-core-and-state-model)
 * **Group:** P-111
-* **Commits:** `562f1e1` (plan/P115-perl-core-and-state-model), `ec35d04` (plan/P115-perl-core-and-state-model), `4bc85a3` (plan/P115-perl-core-and-state-model), `1b58dd9` (plan/P115-perl-core-and-state-model), `4cf40d2` (plan/P115-perl-core-and-state-model)
+* **Commits:** `562f1e1` (plan/P115-perl-core-and-state-model), `ec35d04` (plan/P115-perl-core-and-state-model), `4bc85a3` (plan/P115-perl-core-and-state-model), `1b58dd9` (plan/P115-perl-core-and-state-model), `4cf40d2` (plan/P115-perl-core-and-state-model), `7f57beb` (plan/P115-perl-core-and-state-model)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
