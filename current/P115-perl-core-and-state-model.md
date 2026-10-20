@@ -12,7 +12,7 @@
 * **Base:** `3090f15` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P115 (plan/P115-perl-core-and-state-model)
 * **Group:** P-111
-* **Commits:** `461ba6e` (plan/P115-perl-core-and-state-model), `51328b9` (plan/P115-perl-core-and-state-model), `fde6f95` (plan/P115-perl-core-and-state-model), `04cd729` (plan/P115-perl-core-and-state-model), `36dcb31` (plan/P115-perl-core-and-state-model), `87d53ca` (plan/P115-perl-core-and-state-model), `bd3937f` (plan/P115-perl-core-and-state-model), `dd59972` (plan/P115-perl-core-and-state-model)
+* **Commits:** `461ba6e` (plan/P115-perl-core-and-state-model), `51328b9` (plan/P115-perl-core-and-state-model), `fde6f95` (plan/P115-perl-core-and-state-model), `04cd729` (plan/P115-perl-core-and-state-model), `36dcb31` (plan/P115-perl-core-and-state-model), `87d53ca` (plan/P115-perl-core-and-state-model), `bd3937f` (plan/P115-perl-core-and-state-model), `dd59972` (plan/P115-perl-core-and-state-model), `fd983d2` (plan/P115-perl-core-and-state-model)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
