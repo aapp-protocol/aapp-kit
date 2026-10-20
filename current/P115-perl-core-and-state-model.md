@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `3090f15` (feature/perl-port-of-the-kit)
+* **Worktree:** .workspace/P115 (plan/P115-perl-core-and-state-model)
 * **Group:** P-111
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
@@ -121,6 +122,7 @@ Needs P-127 (foundation: Constants, Paths, Config, Logger, Runner) done; runs be
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-20:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-19:** Plan drafted as member 3 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
 * **2026-10-19:** Added `AAPP::Output`, `AAPP::CommitEngine`, and `AAPP::Health`, kept `#159` adopter check untouched, registered transitional bash/Perl coexistence in §2, and added `tests/AAPP/Core/*.pm` per RFC §5.1.3 & §5.1.5.
 
