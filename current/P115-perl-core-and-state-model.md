@@ -40,7 +40,7 @@
 ---
 
 ## 1. Context & Architectural Goal
-Builds the shared Perl 5.26+ core and single-pass workspace state model (`lib/AAPP/*.pm`) porting `lib/aapp-lib.sh` (2,493 lines), `lib/output.sh` (219 lines), `lib/plan_states.sh` (394 lines), `lib/plan_resolver.sh` (450 lines), `lib/planning_health.sh` (842 lines), and `lib/commit_engine.sh` (109 lines). This plan also folds in the "Perl in place of python3" JSON migration (`AAPP::JSON`) and updates `aapp` so ported verbs dispatch directly to `AAPP::Cmd::<Verb>` while unported verbs continue running in bash.
+Needs P-127 (foundation: Constants, Paths, Config, Logger, Runner) done; runs before the Perl test harness (P-126), which builds on this core and its `AAPP::JSON`. Builds the shared Perl 5.26+ core and single-pass workspace state model (`lib/AAPP/*.pm`) porting `lib/aapp-lib.sh` (2,493 lines), `lib/output.sh` (219 lines), `lib/plan_states.sh` (394 lines), `lib/plan_resolver.sh` (450 lines), `lib/planning_health.sh` (842 lines), and `lib/commit_engine.sh` (109 lines). This plan also folds in the "Perl in place of python3" JSON migration (`AAPP::JSON`) and updates `aapp` so ported verbs dispatch directly to `AAPP::Cmd::<Verb>` while unported verbs continue running in bash.
 
 ---
 
@@ -66,7 +66,8 @@ Builds the shared Perl 5.26+ core and single-pass workspace state model (`lib/AA
 ### 2.2 Hybrid `aapp` Dispatcher & `python3` Retirement
 - `aapp` checks if `lib/AAPP/Cmd/<Verb>.pm` exists: if so, invokes Perl (`perl -I"$AAPP_LIB" -MAAPP::Cmd::<Verb> -e 'exit AAPP::Cmd::<Verb>::run(@ARGV)' -- "$CMD" "$@"`); otherwise sources `lib/cmd_<verb>.sh`.
 - Replaces the kit's own `python3` JSON calls in `lib/cmd_pause.sh`, `lib/cmd_status.sh`, `lib/cmd_init.sh`, `templates/blast-radius-guard.sh`, and the pause-reason reader in `templates/aapp-pre-commit` with `AAPP::JSON`. (The adopter Python syntax check in `templates/aapp-pre-commit` is left untouched for `#159`.)
-- Updates the core wrapper test modules (`tests/AAPP/Core/*.pm` for `aapp-lib`, `plan_states`, `plan_resolver`, `issue_id`, `issue_ledger`, `output`, `output_json`) to invoke `AAPP::*` instead of sourcing `lib/*.sh`.
+- No test changes here. This member runs after P-127 and before the Perl test harness (P-126), so the slimmed bash suites (P-113) are its safety net: they must stay green. The Perl test modules for these libraries are written later, in P-123, directly against `AAPP::*`.
+- `AAPP::JSON` is the kit's one JSON writer and reader, for the code and for the Perl tests alike; nothing else parses or emits JSON.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Backwards Compatible` (Transitional bash/Perl coexistence within group `P-111` until `P-122`)
@@ -84,7 +85,7 @@ Builds the shared Perl 5.26+ core and single-pass workspace state model (`lib/AA
 ### Phase 2: Dispatcher, `python3` Retirement & Core Wrapper Tests
 - [ ] Task 2.1: Update `aapp` to route ported verbs to `lib/AAPP/Cmd/*.pm` and unported verbs to `lib/cmd_*.sh`.
 - [ ] Task 2.2: Replace `python3` JSON calls in `lib/cmd_init.sh`, `lib/cmd_pause.sh`, `lib/cmd_status.sh`, `templates/blast-radius-guard.sh`, and `templates/aapp-pre-commit` (pause reason) with `AAPP::JSON`, and update `lib/cmd_init.sh` to copy `lib/AAPP/*.pm` into `.githooks/AAPP/`.
-- [ ] Task 2.3: Switch the core wrapper test modules (`tests/AAPP/Core/*.pm` for the modules ported in this plan) to call `AAPP::*`.
+- [ ] Task 2.3: Run `./aapp test strict quiet` (the bash suites) green after each module switch.
 
 ### Phase 3: Verification
 - [ ] Task 3.1: Run `./aapp test strict quiet` to verify all core, JSON, state, and verb contracts pass.
@@ -108,11 +109,9 @@ Builds the shared Perl 5.26+ core and single-pass workspace state model (`lib/AA
 - [ ] `lib/cmd_status.sh` -> Replace `python3` pause banner read with `AAPP::JSON`.
 - [ ] `templates/blast-radius-guard.sh` -> Replace `python3` JSON parsing/output with `AAPP::JSON`.
 - [ ] `templates/aapp-pre-commit` -> Replace `python3` pause reason read with `AAPP::JSON` (leaving adopter Python check untouched for `#159`).
-- [ ] `tests/AAPP/Core/*.pm` -> Switch core wrapper tests for `aapp-lib`, `plan_states`, `plan_resolver`, `issue_id`, `issue_ledger`, `output`, and `output_json` from `lib/*.sh` to `AAPP::*`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `tests/AAPP/Tests.pm` -> Test harness runner is locked.
-- [ ] `tests/AAPP/Verb/*.pm` -> Verb test modules are untouched in this plan.
+- [ ] `tests/*` -> Tests change in P-126 and the test migration members only.
 
 ---
 
