@@ -45,11 +45,11 @@ Design & measurements: `.plans/pickup/perl-port-rfc.md` (settled 2026-10-19). Me
 ## 3. Members & Order
 1. **P-113** (`P113-slim-the-test-suites.md`): slim the bash suites to verb behaviour and core wrappers, fold `#nnn` regressions into behaviour tests, and author `lib/docs/core/<module>.md` contracts. Code untouched.
 2. **P-127** (`P127-perl-foundation.md`): `AAPP::Constants` (declared return numbers), `AAPP::Paths`, `AAPP::Config`, `AAPP::Logger` (standard output line, `aapp.perlLogFile`), `AAPP::Runner` (signals, crash handling, exit codes), and the comment rule. Nothing in the bash kit switched.
-3. **P-126** (`P126-perl-test-runner.md`): `tests/AAPP/Tests.pm` on the foundation, the temporary `tests/test-run`, the `output` proof module, and the two-runner gate command. Code untouched.
-4. **P-123** (`P123-perl-core-test-modules.md`): core suites to `tests/AAPP/Core/*.pm`.
-5. **P-124** (`P124-perl-lifecycle-verb-test-modules.md`): read-only and lifecycle verb suites to `tests/AAPP/Verb/*.pm`.
-6. **P-125** (`P125-perl-remaining-verb-tests-and-switch.md`): remaining verb suites and the contract checker; `aapp test` switches to the harness; bash suites and the bridge removed.
-7. **P-115** (`P115-perl-core-and-state-model.md`): `AAPP::Text` (emoji-free normalizer + wrap/cut), `AAPP::JSON` (retiring `python3`), `AAPP::Output`, `AAPP::State`, `AAPP::CommitEngine`, `AAPP::Health`, and `aapp` hybrid verb routing, on P-127's foundation.
+3. **P-115** (`P115-perl-core-and-state-model.md`): `AAPP::Text` (emoji-free normalizer + wrap/cut), `AAPP::JSON` (the one JSON writer and reader, for code and tests; retiring `python3`), `AAPP::Output`, `AAPP::State`, `AAPP::CommitEngine`, `AAPP::Health`, and `aapp` hybrid verb routing, on P-127's foundation. The slimmed bash suites are its safety net.
+4. **P-126** (`P126-perl-test-runner.md`): `tests/AAPP/Tests.pm` on the foundation and core, the temporary `tests/test-run`, the `output` proof module, and the two-runner gate command. Code untouched.
+5. **P-123** (`P123-perl-core-test-modules.md`): core suites to `tests/AAPP/Core/*.pm`; the seven core-library modules call `AAPP::*` directly.
+6. **P-124** (`P124-perl-lifecycle-verb-test-modules.md`): read-only and lifecycle verb suites to `tests/AAPP/Verb/*.pm`.
+7. **P-125** (`P125-perl-remaining-verb-tests-and-switch.md`): remaining verb suites and the contract checker; `aapp test` switches to the harness; bash suites and the bridge removed.
 8. **P-116** (`P116-perl-hooks-and-write-guard.md`): port `aapp-pre-commit`, `aapp-pre-commit-develop`, `aapp-commit-msg`, `aapp-post-commit`, `aapp-post-rewrite`, `blast-radius-guard.sh`, `AAPP::HookDispatcher`, and `AAPP::Attribution` to Perl over `AAPP::State` and `AAPP::JSON`.
 9. **P-117** (`P117-perl-issue-and-offline-lane.md`): port `issue` (`log`, `hotfix`, `fix`, `queue`, `close`, `abort`, `list`, provider & sync helpers) and `offline` (`mount`, `unmount`, `on`, `off`, `status`, `sync`) to Perl.
 10. **P-118** (`P118-perl-readonly-verbs.md`): port `status`, `matrix`, `plan-status`, `help`, and `AAPP::Adoption` to Perl.
