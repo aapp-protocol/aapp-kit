@@ -25,6 +25,9 @@ Try to keep each rule in one place only.
 - **Clean breaks:** no compatibility aliases, shims or dual syntax unless the plan lists them under
   *Migration & Compatibility Strategy*. Before announcement, breaking changes are cheap.
 - **One parser:** plan parsing lives in `lib/aapp-lib.sh`; reuse it, never add another copy.
+- **Perl comments:** every sub has one header and nothing else above it: `# Usage :`, `# Purpose :`
+  (at most 3 lines), `# Returns :`. No history, no issue or bug descriptions, no commented-out code;
+  inside a sub, a one-line comment only where a line cannot say what it does.
 - **Commits:** code goes through `aapp commit` while a plan is started; every code commit adds a
   `CHANGELOG.md` line; subject ≤ 72 characters; AI commits carry emailless `AI-Agent:` /
   `AI-Vendor:` / `AI-Model:` trailers.
