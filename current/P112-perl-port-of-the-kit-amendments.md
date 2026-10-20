@@ -67,6 +67,7 @@ Each request is implemented as its approval describes; corrections of the group'
 
 ### 📂 Target Files (Modifications & Additions)
 <!-- Grows only by approved requests (aapp refine <id> approve <n>; or file, when approval is not required). -->
+- [ ] `lib/AAPP/Logger.pm` -> R1 Logger opens the log file with :encoding(UTF-8) (use utf8 port-wide)
 
 ### 🛑 Out of Bounds (Do Not Touch)
 
@@ -84,7 +85,7 @@ Each request is implemented as its approval describes; corrections of the group'
 ---
 
 ## Scope Requests
-- **R1** 2026-10-20 · P-115 · `lib/AAPP/Logger.pm` · Logger opens the log file with :encoding(UTF-8) (use utf8 port-wide) — pending
+- **R1** 2026-10-20 · P-115 · `lib/AAPP/Logger.pm` · Logger opens the log file with :encoding(UTF-8) (use utf8 port-wide) — approved (Lorand Veres)
 
 ## Decisions
 
