@@ -84,7 +84,7 @@ sub get
     load();
     my $all = $config{ canonical_key($key) };
     if ( !defined $all ) {
-        return undef;
+        return;
     }
     return $all->[-1] // '';
 }
@@ -160,7 +160,8 @@ sub keys_with_prefix
     load();
     my $want = canonical_key( $prefix . 'x' );
     $want = substr( $want, 0, length($want) - 1 );
-    return sort grep { index( $_, $want ) == 0 } keys %config;
+    my @keys = sort grep { index( $_, $want ) == 0 } keys %config;
+    return @keys;
 }
 
 # Usage     : plan_states_load()
@@ -204,16 +205,16 @@ sub _plan_state_from_tuple
     my @fields = split( /\|/, $tuple, -1 );
     if ( @fields != 4 ) {
         AAPP::Logger::print_msg( 'WARN', "Plan state '$key' skipped: expected 4 fields (<emoji>|<name>|<heading>|<rank>), got " . scalar(@fields) . '.' );
-        return undef;
+        return;
     }
     my ( $emoji, $name, $heading, $rank ) = @fields;
     if ( $emoji eq '' || $name eq '' || $heading eq '' ) {
         AAPP::Logger::print_msg( 'WARN', "Plan state '$key' skipped: emoji, name and heading must all be non-empty." );
-        return undef;
+        return;
     }
     if ( $rank !~ /^\d+$/ ) {
         AAPP::Logger::print_msg( 'WARN', "Plan state '$key' skipped: rank '$rank' is not a whole number." );
-        return undef;
+        return;
     }
     return { slug => $slug, emoji => $emoji, name => $name, heading => $heading, rank => $rank };
 }
@@ -227,7 +228,7 @@ sub plan_state_field
     plan_states_load();
     my ($state) = grep { $_->{slug} eq $slug } @PLAN_STATES;
     if ( !defined $state ) {
-        return undef;
+        return;
     }
     return $state->{$field};
 }
@@ -242,7 +243,7 @@ sub plan_state_for_status_line
     plan_states_load();
     my $at = index( $line, '**Status:**' );
     if ( $at < 0 ) {
-        return undef;
+        return;
     }
     my $rest = substr( $line, $at + length('**Status:**') );
     foreach my $state (@PLAN_STATES) {
@@ -250,7 +251,7 @@ sub plan_state_for_status_line
             return $state->{slug};
         }
     }
-    return undef;
+    return;
 }
 
 # Usage     : my $line = status_line_of_lines(@lines)
@@ -270,7 +271,7 @@ sub status_line_of_lines
             next;
         }
         if ( $line =~ /^##\s/ ) {
-            return undef;
+            return;
         }
         if ( $line =~ /^\s*[*-]?\s*\*\*Status:\*\*/ ) {
             my $found = $line;
@@ -278,7 +279,7 @@ sub status_line_of_lines
             return $found;
         }
     }
-    return undef;
+    return;
 }
 
 # Usage     : my @lines = _read_lines($file)
@@ -309,7 +310,7 @@ sub plan_status_line
     my ($file) = @_;
     my ( $rc, @lines ) = _read_lines($file);
     if ( $rc != RETURN_OK ) {
-        return undef;
+        return;
     }
     return status_line_of_lines(@lines);
 }
@@ -337,7 +338,7 @@ sub plan_status_slug
     my ($file) = @_;
     my $line = plan_status_line($file);
     if ( !defined $line ) {
-        return undef;
+        return;
     }
     return plan_state_for_status_line($line);
 }
@@ -369,7 +370,7 @@ sub plan_status_render
     my $emoji = plan_state_field( $slug, 'emoji' );
     my $name  = plan_state_field( $slug, 'name' );
     if ( !defined $emoji || !defined $name ) {
-        return undef;
+        return;
     }
     return "$emoji $name";
 }

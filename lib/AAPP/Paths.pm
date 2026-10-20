@@ -13,6 +13,30 @@ use AAPP::Logger ();
 our %paths;
 our %held_locks;
 
+# Usage     : my ($ok, $out) = git_capture('rev-parse', '--show-toplevel')
+# Purpose   : Runs git with the given arguments, its stderr discarded, and reads its stdout as UTF-8.
+#             For calls whose failure is an answer (outside a repository, no such remote).
+# Returns   : (1, $stdout) when git exits 0; (0, $stdout) otherwise.
+sub git_capture
+{
+    my (@args) = @_;
+    my $fh;
+    my $pid = open( $fh, '-|' );
+    if ( !defined $pid ) {
+        AAPP::Logger::print_msg( 'ERROR', "Cannot start git: $!" );
+        return ( 0, '' );
+    }
+    if ( $pid == 0 ) {
+        open( STDERR, '>', '/dev/null' );
+        { exec( 'git', @args ) };
+        POSIX::_exit(127);
+    }
+    binmode( $fh, ':encoding(UTF-8)' );
+    my $out = do { local $/; <$fh> } // '';
+    my $ok = close($fh) ? 1 : 0;
+    return ( $ok, $out );
+}
+
 # Usage     : my $p = AAPP::Paths::resolve()
 # Purpose   : Reads the repository paths with one git rev-parse, once per process: root, git_dir,
 #             common_dir, primary_root, and plans_dir/agents_dir/hooks_dir/offline_dir.
@@ -22,12 +46,9 @@ sub resolve
     if (%paths) {
         return \%paths;
     }
-    my $fh;
-    if ( !open( $fh, '-|', 'git', 'rev-parse', '--show-toplevel', '--absolute-git-dir', '--git-common-dir' ) ) {
-        return {};
-    }
-    chomp( my @lines = <$fh> );
-    if ( !close($fh) || @lines != 3 ) {
+    my ( $ok, $out ) = git_capture( 'rev-parse', '--show-toplevel', '--absolute-git-dir', '--git-common-dir' );
+    my @lines = split( /\n/, $out );
+    if ( !$ok || @lines != 3 ) {
         return {};
     }
     my ( $root, $git_dir, $common_raw ) = @lines;
@@ -45,9 +66,9 @@ sub resolve
         git_dir      => $git_dir,
         common_dir   => $common,
         primary_root => $primary,
-        plans_dir    => _worktree_dir( $root, $primary, '.plans' ),
-        agents_dir   => _worktree_dir( $root, $primary, '.agents' ),
-        hooks_dir    => _worktree_dir( $root, $primary, '.githooks' ),
+        plans_dir    => scalar( _worktree_dir( $root, $primary, '.plans' ) ),
+        agents_dir   => scalar( _worktree_dir( $root, $primary, '.agents' ) ),
+        hooks_dir    => scalar( _worktree_dir( $root, $primary, '.githooks' ) ),
         offline_dir  => ( $common =~ s{/\.git$}{}r ) . '/.offline',
     );
     return \%paths;
@@ -65,7 +86,7 @@ sub _worktree_dir
     if ( -d "$primary/$name" ) {
         return "$primary/$name";
     }
-    return undef;
+    return;
 }
 
 # Usage     : my $abs = abs_path('a/../b', '/base')
@@ -223,7 +244,7 @@ sub lock_path
     my ($name) = @_;
     my $common = resolve()->{common_dir};
     if ( !defined $common ) {
-        return undef;
+        return;
     }
     my $safe = $name =~ s{/}{%2F}gr;
     $safe =~ s{:}{%3A}g;
@@ -327,12 +348,12 @@ sub _lock_holder
     my ($lock) = @_;
     my $fh;
     if ( !open( $fh, '<', "$lock/pid" ) ) {
-        return undef;
+        return;
     }
     my $pid = <$fh>;
     close($fh);
     if ( !defined $pid || $pid !~ /^(\d+)/ ) {
-        return undef;
+        return;
     }
     return $1;
 }
