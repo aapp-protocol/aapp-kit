@@ -13,4 +13,5 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
+- [ ] #182 -> AAPP::Logger names its print sub 'say', the name of a Perl built-in enabled by use 5.026; rename it before later modules call it (queued 2026-10-20)
 ### Low
