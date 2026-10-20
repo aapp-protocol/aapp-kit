@@ -446,13 +446,4 @@ sub plan_state_sections
     return @headings;
 }
 
-# Usage     : my $class = plan_state_emoji_class()
-# Purpose   : The live status emojis as one alternation (a|b|c) for matrix row rewrites.
-# Returns   : The alternation string.
-sub plan_state_emoji_class
-{
-    plan_states_load();
-    return join( '|', map { $_->{emoji} } @PLAN_STATES );
-}
-
 1;
