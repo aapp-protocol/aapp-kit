@@ -97,9 +97,13 @@ Design & measurements: `.plans/pickup/perl-port-rfc.md` (settled 2026-10-19). Me
 │   ├── plugin_do.tsv      # Whitelist of aapp commands allowed in plugin `do` lists
 │   ├── docs/verbs/        # Per-verb behaviour contracts: ingress, failure modes, effects, tests (P-34)
 │   ├── docs/core/         # Per-module core behaviour contracts: `## Tests` (P-113)
-│   └── AAPP/              # Core Perl 5.26+ runtime & verb modules (copied to .githooks/AAPP/ by init)
+│   └── AAPP/              # Core Perl 5.26+ runtime & verb modules (hooks load them from the installed kit; never copied)
+│       ├── Constants.pm   # Every default, return numbers & their exit codes
+│       ├── Util.pm        # Central reused helpers (plan_number, plan_sort); one implementation each
+│       ├── Logger.pm      # The one agent output line and the optional log file (no emoji in the log)
+│       ├── Runner.pm      # CLI entry, signals, crash handling, exit codes
 │       ├── Config.pm      # Single-pass git config reader & plan status registry (aapp.planState.*)
-│       ├── Paths.pm       # Single-pass repository/worktree path resolver, globs, OS & named locks
+│       ├── Paths.pm       # Single-pass repository/worktree path resolver, kit locator (kit_dir), globs, OS & named locks
 │       ├── Text.pm        # Decorative-only emoji normalizer, UTF-8 char length, wrap & cut
 │       ├── JSON.pm        # Deterministic ordered JSON builder, pretty-printer, envelope & reader
 │       ├── Output.pm      # Shared terminal & JSON record renderers
@@ -139,7 +143,7 @@ Design & measurements: `.plans/pickup/perl-port-rfc.md` (settled 2026-10-19). Me
 ├── .plans/                # Isolated planning worktree (mounted on branch 'plans')
 ├── .agents/               # Behavioral rules & codemap worktree (branch 'agents')
 ├── .claude/               # Gitignored Claude Code bridge (relative symlinks)
-├── .githooks/             # Blast radius enforcement worktree (branch 'githooks', holds AAPP/*.pm)
+├── .githooks/             # Blast radius enforcement worktree (branch 'githooks')
 ├── CHANGELOG.md           # Public release notes & keep-a-changelog ledger
 ├── README.md              # Project overview & quick start guide
 ├── MANUAL.md              # Comprehensive manual & technical reference
