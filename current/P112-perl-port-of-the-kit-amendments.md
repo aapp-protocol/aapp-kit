@@ -102,6 +102,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R10** 2026-10-21 · P-115 · § 📂 3. Global Structural Mapping · Structural map: lib/AAPP/ is loaded from the installed kit, not copied; .githooks/ holds no AAPP/ — approved (Lorand Veres)
 - **R11** 2026-10-21 · P-115 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · Codemap: init merges settings via AAPP::JSON and copies no Perl modules into .githooks/ — approved (Lorand Veres)
 - **R12** 2026-10-21 · P-115 · `lib/AAPP/Constants.pm` · Constants declares every default the Perl modules use (widths, title/subject limits, lock waits, plans-commit retries, remote, dev branches, modes, integrate target, kit dir name, data/state home, JSON format version) — landed `373da77`
+- **R13** 2026-10-21 · P-115 · `lib/AAPP/Runner.pm` · Runner loads a verb module with a block eval: require on AAPP/Cmd/<Verb>.pm, no string eval — pending
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
