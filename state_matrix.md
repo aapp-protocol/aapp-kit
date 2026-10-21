@@ -26,7 +26,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-125**: [`P125-perl-remaining-verb-tests-and-switch.md`](current/P125-perl-remaining-verb-tests-and-switch.md) — Perl Remaining Verb Tests And Switch
 - 🟣 **P-126**: [`P126-perl-test-runner.md`](current/P126-perl-test-runner.md) — Perl Test Runner
 - 🟣 **P-15**: [`P15-adversarial-review-plugin.md`](current/P15-adversarial-review-plugin.md) — ✏️ **SKETCH — do not refine** — Adversarial Review Packet, Layer 6 Agent Egress Boundary & reference review plugin. Settled ground only; blocked on `#64`, `#57`, `#56`.
-- 🟣 **P-900**: [`P900-bash-commits-record-bare-hashes.md`](current/P900-bash-commits-record-bare-hashes.md) — Bash Commits Record Bare Hashes
+- 🟣 **P-128**: [`P128-bash-commits-record-bare-hashes.md`](current/P128-bash-commits-record-bare-hashes.md) — Bash Commits Record Bare Hashes
 
 ---
 
