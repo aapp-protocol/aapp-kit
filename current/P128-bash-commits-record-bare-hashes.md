@@ -1,6 +1,6 @@
 # 🗺️ Plan P-128: Bash Commits Record Bare Hashes
 * **Created:** 2026-10-21 | **Last Refined:** 2026-10-21
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-128
 * **Changelog:** Changed: a plan's `Commits:` line records bare commit hashes, without the branch (P-128)
 * **Commit Mode:** microcommits
