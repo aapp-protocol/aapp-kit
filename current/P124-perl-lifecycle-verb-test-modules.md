@@ -1,6 +1,6 @@
 # 🗺️ Plan P-124: Perl Lifecycle Verb Test Modules
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-124
 * **Changelog:** Changed: the read-only and plan lifecycle verb suites run as Perl modules (`tests/AAPP/Verb/*.pm`) under `AAPP::Tests` (P-124)
 * **Commit Mode:** microcommits
