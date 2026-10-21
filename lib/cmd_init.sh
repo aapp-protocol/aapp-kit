@@ -451,19 +451,6 @@ cp "$AAPP_STATES_SRC" .githooks/plan_states.sh || {
     echo "❌ [Init Error] Status registry missing or unreadable: $AAPP_STATES_SRC" >&2
     exit 1
 }
-# The Perl core (P-115): the hooks load AAPP::* from beside themselves. Replaced
-# whole, so a module the kit no longer ships does not linger.
-AAPP_PERL_SRC="$(dirname "$AAPP_LIB_SRC")/AAPP"
-if [ ! -r "$AAPP_PERL_SRC/JSON.pm" ]; then
-    echo "❌ [Init Error] Perl core missing or unreadable: $AAPP_PERL_SRC" >&2
-    exit 1
-fi
-rm -rf .githooks/AAPP
-cp -R "$AAPP_PERL_SRC" .githooks/AAPP || {
-    echo "❌ [Init Error] Cannot copy the Perl core into .githooks/AAPP" >&2
-    exit 1
-}
-
 # 1. Always update AAPP core engine files byte-for-byte
 if [ -f "$AAPP_TEMPLATES/aapp-pre-commit" ]; then
     cp "$AAPP_TEMPLATES/aapp-pre-commit" .githooks/aapp-pre-commit

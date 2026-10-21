@@ -22,10 +22,13 @@ case "$0" in
     *)   AAPP_HOOK_DIR="$PWD" ;;
 esac
 
-# The Perl core (P-115) reads the payload and writes the decision. Without it
-# the guard cannot tell what is written, so it refuses (exit 2), never allows.
-if ! command -v perl >/dev/null 2>&1 || [ ! -r "$AAPP_HOOK_DIR/AAPP/JSON.pm" ]; then
-    echo "❌ [Blast Radius Guard Violation] Perl core missing: perl and $AAPP_HOOK_DIR/AAPP/JSON.pm are required. Run 'aapp init' to reinstall the hook engine." >&2
+# The Perl core (P-115) reads the payload and writes the decision. It is loaded
+# from the installed kit: $AAPP_LIB when an aapp verb runs the hook, else the
+# install location. Without it the guard cannot tell what is written, so it
+# refuses (exit 2), never allows.
+AAPP_PERL_LIB="${AAPP_LIB:-${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/lib}"
+if ! command -v perl >/dev/null 2>&1 || [ ! -r "$AAPP_PERL_LIB/AAPP/JSON.pm" ]; then
+    echo "❌ [Blast Radius Guard Violation] Perl core missing: perl and $AAPP_PERL_LIB/AAPP/JSON.pm are required. Install the kit: aapp install." >&2
     exit 2
 fi
 
@@ -47,7 +50,7 @@ elif [ ! -t 0 ]; then
     fi
     # The PreToolUse payload: tool name and the file it writes. Input that is
     # not a JSON object yields nothing (the single-line path form below).
-    PARSED=$(printf '%s' "$RAW_INPUT" | perl -CS -Mutf8 -I"$AAPP_HOOK_DIR" -MAAPP::JSON -e '
+    PARSED=$(printf '%s' "$RAW_INPUT" | perl -CS -Mutf8 -I"$AAPP_PERL_LIB" -MAAPP::JSON -e '
 my $raw = do { local $/; <STDIN> };
 my ( $rc, $d ) = AAPP::JSON::decode($raw);
 exit 0 if $rc != 1 || ref($d) ne "HASH";
@@ -165,7 +168,7 @@ fi
 deny_action() {
     local reason="$1"
     if [ -n "$TOOL_NAME" ]; then
-        perl -CSA -Mutf8 -I"$AAPP_HOOK_DIR" -MAAPP::JSON -e '
+        perl -CSA -Mutf8 -I"$AAPP_PERL_LIB" -MAAPP::JSON -e '
 my $r = AAPP::JSON::json_str( $ARGV[0] );
 print AAPP::JSON::json_obj(
     decision           => AAPP::JSON::json_str("deny"),
@@ -359,7 +362,7 @@ if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUS
 
     PAUSE_REASON=""
     if [ -f "$PAUSED_FILE" ]; then
-        PAUSE_REASON=$(perl -CSA -Mutf8 -I"$AAPP_HOOK_DIR" -MAAPP::JSON -e '
+        PAUSE_REASON=$(perl -CSA -Mutf8 -I"$AAPP_PERL_LIB" -MAAPP::JSON -e '
 my ( $rc, $d ) = AAPP::JSON::decode_file( $ARGV[0] );
 print $d->{reason} // "" if $rc == 1 && ref($d) eq "HASH";
 ' "$PAUSED_FILE") || PAUSE_REASON=""

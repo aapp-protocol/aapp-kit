@@ -205,7 +205,8 @@ if [ -f "$PAUSED_FILE" ] || { [ -n "$SHARED_PAUSED_FILE" ] && [ -f "$SHARED_PAUS
     if [ "$PAUSE_BLOCKED_TOUCHED" -eq 1 ]; then
         PAUSE_REASON=""
         if [ -f "$PAUSED_FILE" ]; then
-            PAUSE_REASON=$(perl -CSA -Mutf8 -I"$AAPP_HOOK_DIR" -MAAPP::JSON -e '
+            # The Perl core is loaded from the installed kit ($AAPP_LIB from an aapp verb, else the install location).
+            PAUSE_REASON=$(perl -CSA -Mutf8 -I"${AAPP_LIB:-${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/lib}" -MAAPP::JSON -e '
 my ( $rc, $d ) = AAPP::JSON::decode_file( $ARGV[0] );
 print $d->{reason} // "" if $rc == 1 && ref($d) eq "HASH";
 ' "$PAUSED_FILE" 2>/dev/null) || PAUSE_REASON=""
