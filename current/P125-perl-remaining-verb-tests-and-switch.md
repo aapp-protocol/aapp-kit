@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-125
-* **Changelog:** Changed: `aapp test` runs the Perl harness (`AAPP::Tests`) with module, verb, index and name selection; the bash test suites are gone (P-125)
+* **Changelog:** Changed: `aapp test` runs the Perl harness (`AAPP::Tests`) with module, verb, index and name selection; the bash test suites are gone
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
