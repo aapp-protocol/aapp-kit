@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #186 | `Medium` | `HOOK` | 2026-10-21 | `lib/aapp-lib.sh` | Design lock reads a fenced '## … 2.' heading inside a group plan's Architecture & Codemap as the plan's own §2, so an approved codemap decision is refused as a §2 edit |  | 🟡 `Incubated` |  |
 | #185 | `Medium` | `CLI` | 2026-10-21 | `lib/cmd_pause.sh` | aapp pause on an already paused project crashes with a python SyntaxError (exit 1) instead of showing the pause inspection |  | 🟡 `Incubated` |  |
 | #184 | `Low` | `CLI` | 2026-10-20 | `lib/cmd_plan.sh` | refine approve refuses a file request whose path is already in the amendments member's Target Files, leaving that request pending for good |  | 🟡 `Incubated` |  |
 | #183 | `Low` | `CORE` | 2026-10-20 | `lib/plan_resolver.sh` | Plan resolver matches a numeric id by header prefix: P-9 also matches P-90..P-99 (Plan ID: P-0*9 has no end boundary), so 'resolve 9 all' is ambiguous |  | 🟡 `Incubated` |  |
