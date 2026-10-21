@@ -91,7 +91,7 @@ Each request is implemented as its approval describes; corrections of the group'
 
 ## Scope Requests
 - **R1** 2026-10-20 · P-115 · `lib/AAPP/Logger.pm` · Logger opens the log file with :encoding(UTF-8) (use utf8 port-wide) — landed `41e579d`
-- **R2** 2026-10-20 · P-115 · `lib/AAPP/Logger.pm` · Logger writes no emoji to the log file (symbols stripped, terminal unchanged) — pending
+- **R2** 2026-10-20 · P-115 · `lib/AAPP/Logger.pm` · Logger writes no emoji to the log file (symbols stripped, terminal unchanged) — landed `e0aeb86`
 - **R3** 2026-10-20 · P-115 · `tests/write-guard_test.sh` · write-guard fixture copies lib/AAPP into .githooks/AAPP; the no-python3 deny test keeps perl and git on PATH — landed `373da77`
 - **R4** 2026-10-20 · P-115 · `tests/pre-commit_test.sh` · pre-commit fixtures that copy the hook libraries also copy lib/AAPP into the hook folder (pause reason via AAPP::JSON) — landed `373da77`
 - **R5** 2026-10-21 · P-115 · `lib/AAPP/Util.pm` · AAPP::Util: the central module for reused helpers; first plan_number and plan_sort (plans sorted by number, one implementation) — landed `373da77`
@@ -99,7 +99,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R7** 2026-10-21 · P-115 · § 📂 3. Global Structural Mapping · Add lib/AAPP/Util.pm to the structural map's AAPP/ listing — applied
 - **R8** 2026-10-21 · P-115 · `lib/docs/core/write-guard.md` · Contract drops test_deny_payload_without_python (the python fallback it tested is gone) — landed `373da77`
 - **R9** 2026-10-21 · P-115 · § Shared Hook Library & Parser Boundaries (P-37) · Hooks load AAPP::* from the installed kit ($AAPP_LIB, else the install location); init copies nothing into .githooks/ — applied
-- **R10** 2026-10-21 · P-115 · § 📂 3. Global Structural Mapping · Structural map: lib/AAPP/ is loaded from the installed kit, not copied; .githooks/ holds no AAPP/ — approved (Lorand Veres)
+- **R10** 2026-10-21 · P-115 · § 📂 3. Global Structural Mapping · Structural map: lib/AAPP/ is loaded from the installed kit, not copied; .githooks/ holds no AAPP/ — applied
 - **R11** 2026-10-21 · P-115 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · Codemap: init merges settings via AAPP::JSON and copies no Perl modules into .githooks/ — approved (Lorand Veres)
 - **R12** 2026-10-21 · P-115 · `lib/AAPP/Constants.pm` · Constants declares every default the Perl modules use (widths, title/subject limits, lock waits, plans-commit retries, remote, dev branches, modes, integrate target, kit dir name, data/state home, JSON format version) — landed `373da77`
 - **R13** 2026-10-21 · P-115 · `lib/AAPP/Runner.pm` · Runner loads a verb module with a block eval: require on AAPP/Cmd/<Verb>.pm, no string eval — pending
