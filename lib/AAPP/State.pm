@@ -215,9 +215,10 @@ sub is_group_plan
     return 0;
 }
 
-# Usage     : my @commits = plan_commits($plan_file)
-# Purpose   : The commits the header records: each '`sha` (branch)' of '* **Commits:**'.
-# Returns   : List of [sha, branch]; empty for 'none' or no line.
+# Usage     : my @shas = plan_commits($plan_file)
+# Purpose   : The commits the header records: the backticked hash of each '* **Commits:**' item;
+#             anything after the hash (an old '(branch)') is ignored.
+# Returns   : List of hashes; empty for 'none' or no line.
 sub plan_commits
 {
     my ($file) = @_;
@@ -233,8 +234,8 @@ sub plan_commits
     foreach my $item ( split( /,/, $value ) ) {
         $item =~ s/^\s+//;
         $item =~ s/\s+$//;
-        if ( $item =~ /^`([0-9a-fA-F]+)`\s*\(([^)]+)\)$/ ) {
-            push @commits, [ $1, $2 ];
+        if ( $item =~ /^`([0-9a-fA-F]+)`/ ) {
+            push @commits, $1;
         }
     }
     return @commits;
