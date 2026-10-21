@@ -12,9 +12,28 @@ use AAPP::Logger ();
 use AAPP::Paths ();
 use AAPP::State ();
 use AAPP::Text ();
+use AAPP::Util ();
 
 my $ID_BODY      = qr/(?:[0-9]+|[A-Z][A-Z0-9]*-[0-9]+)/;
 my $REF_PREFIXED = qr/(?:(?:#|ISSUE-)[0-9]+|#$ID_BODY)/;
+
+# Issue severities the schema check accepts, and the shape of an issue type token.
+our @SEVERITIES = qw(Critical High Medium Low);
+our $TYPE_RE    = qr/^[A-Z0-9_-]+$/;
+
+# How long a recorded commit hash may be, in hex digits (Pair 6).
+our $SHA_MIN_LEN = 7;
+our $SHA_MAX_LEN = 40;
+
+# Paths the write guard protects; a plan may not list them as Target Files (Pair 5).
+our @SELF_PROTECTED = (
+    [ qr{(?:^|/)\.claude/settings(?:\.local)?\.json$|(?:^|/)\.agents/claude/|(?:^|/)\.agents/skills/aapp-|(?:^|/)\.claude/skills/aapp-}, 'Tampering with AAPP core configuration or governance skills is strictly prohibited. Move it to Out of Bounds and edit templates/ instead.' ],
+    [ qr{(?:^|/)\.githooks/|(?:^|/)\.git/hooks/}, 'Tampering with the AAPP git hooks engine is strictly prohibited. Move it to Out of Bounds.' ],
+    [ qr{(?:^|/)\.cursor/rules/}, 'Tampering with agent rule files (.cursor/rules/) is strictly prohibited. Move it to Out of Bounds.' ],
+);
+
+my $SEVERITY_RE = join( '|', map { quotemeta } @SEVERITIES );
+my $MARKER_RE   = join( '|', map { quotemeta } @AAPP::State::ACTION_MARKERS );
 
 # Usage     : my $root = repo_root($explicit)
 # Purpose   : The repository the checks look at: the one given, else this checkout.
@@ -158,9 +177,13 @@ sub check_roadmap_sections
     local $ENV{AAPP_LEDGER_ROADMAP} = $roadmap_file;
     foreach my $heading ( AAPP::State::roadmap_sections() ) {
         my ( $level, $text ) = AAPP::Text::heading_name($heading);
-        my $allowed = ( $level == 2 && $text =~ /^(?:Plan Blockers|Queued)\b/ ) || ( $level == 3 && $text =~ /^(?:Urgent|Normal|Low)$/ );
+        my $blockers = $AAPP::State::ROADMAP_BLOCKERS;
+        my $queued   = $AAPP::State::ROADMAP_QUEUED;
+        my @levels   = @AAPP::State::QUEUE_LEVELS;
+        my $allowed  = ( $level == 2 && $text =~ /^(?:\Q$blockers\E|\Q$queued\E)\b/ ) || ( $level == 3 && grep { $text eq $_ } @levels );
         if ( !$allowed ) {
-            AAPP::Logger::print_msg( 'ERROR', "[Work Queue] '$heading' is not a section of $name: it holds only 'Plan Blockers' and 'Queued' with its levels 'Urgent', 'Normal', 'Low'. Issues stay in ISSUES.md; queue one with 'aapp issue queue <num> [urgent | low]'." );
+            my $level_list = join( ', ', map {"'$_'"} @levels );
+            AAPP::Logger::print_msg( 'ERROR', "[Work Queue] '$heading' is not a section of $name: it holds only '$blockers' and '$queued' with its levels $level_list. Issues stay in ISSUES.md; queue one with 'aapp issue queue <num> [urgent | low]'." );
             $errors++;
         }
     }
@@ -217,10 +240,10 @@ sub check_taxonomy_and_schema
         my $id    = ( $parts[1] // '' ) =~ s/ //gr;
         my $sev   = ( $parts[2] // '' ) =~ s/[ `]//gr;
         my $type  = ( $parts[3] // '' ) =~ s/[ `]//gr;
-        if ( $sev ne '' && $sev !~ /^(?:Critical|High|Medium|Low)$/ ) {
-            AAPP::Logger::print_msg( 'WARN', "[Schema Warning] Issue $id has non-standard Severity: '$sev' (expected Critical|High|Medium|Low)" );
+        if ( $sev ne '' && $sev !~ /^(?:$SEVERITY_RE)$/ ) {
+            AAPP::Logger::print_msg( 'WARN', "[Schema Warning] Issue $id has non-standard Severity: '$sev' (expected " . join( '|', @SEVERITIES ) . ')' );
         }
-        if ( $type ne '' && $type !~ /^[A-Z0-9_-]+$/ ) {
+        if ( $type ne '' && $type !~ $TYPE_RE ) {
             AAPP::Logger::print_msg( 'ERROR', "[Schema Error] Issue $id has invalid Type token: '$type' (must match ^[A-Z0-9_-]+\$)" );
             $errors++;
         }
@@ -234,7 +257,7 @@ sub check_taxonomy_and_schema
 sub _plans_in
 {
     my ( $dir, $skip_fix ) = @_;
-    my @plans = sort grep { -f $_ && $_ !~ m{/000-[^/]*$} && !( $skip_fix && $_ =~ m{/fix-[^/]*$} ) } glob("\Q$dir\E/*.md");
+    my @plans = AAPP::Util::plan_sort( grep { -f $_ && $_ !~ m{/000-[^/]*$} && !( $skip_fix && $_ =~ m{/fix-[^/]*$} ) } glob("\Q$dir\E/*.md") );
     return @plans;
 }
 
@@ -314,12 +337,6 @@ sub _repeated
     return AAPP::State::issue_id_sort( grep { $count{$_} > 1 } keys %count );
 }
 
-my @SELF_PROTECTED = (
-    [ qr{(?:^|/)\.claude/settings(?:\.local)?\.json$|(?:^|/)\.agents/claude/|(?:^|/)\.agents/skills/aapp-|(?:^|/)\.claude/skills/aapp-}, 'Tampering with AAPP core configuration or governance skills is strictly prohibited. Move it to Out of Bounds and edit templates/ instead.' ],
-    [ qr{(?:^|/)\.githooks/|(?:^|/)\.git/hooks/}, 'Tampering with the AAPP git hooks engine is strictly prohibited. Move it to Out of Bounds.' ],
-    [ qr{(?:^|/)\.cursor/rules/}, 'Tampering with agent rule files (.cursor/rules/) is strictly prohibited. Move it to Out of Bounds.' ],
-);
-
 # Usage     : my $n = check_pair5_target_files_self_protection($root)
 # Purpose   : Pair 5: no plan in current/ lists a file the write guard protects (kit settings, skills,
 #             hooks, agent rules) under a Target Files heading.
@@ -353,7 +370,7 @@ sub check_pair5_target_files_self_protection
             }
             my @ticked = $line =~ /`([^`]+)`/g;
             my $target = shift @ticked;
-            if ( defined $target && $target =~ /^(?:NEW\s+FILE|MODIFY|DELETE)$/ && @ticked ) {
+            if ( defined $target && $target =~ /^(?:$MARKER_RE)$/ && @ticked ) {
                 $target = shift @ticked;
             }
             if ( !defined $target ) {
@@ -380,15 +397,15 @@ sub file_commit_shas
     my ($file) = @_;
     my %found;
     foreach my $line ( @{ AAPP::State::file_lines($file) // [] } ) {
-        while ( $line =~ /`([0-9a-fA-F]{7,40})`/g ) {
+        while ( $line =~ /`([0-9a-fA-F]{$SHA_MIN_LEN,$SHA_MAX_LEN})`/g ) {
             $found{ lc $1 } = 1;
         }
         foreach my $word ( split( /[^0-9a-zA-Z]/, $line ) ) {
             my $len = length($word);
-            if ( $len < 7 || $len > 40 || $word !~ /^[0-9a-fA-F]+$/ ) {
+            if ( $len < $SHA_MIN_LEN || $len > $SHA_MAX_LEN || $word !~ /^[0-9a-fA-F]+$/ ) {
                 next;
             }
-            if ( $len == 40 || ( $word =~ /[0-9]/ && $word =~ /[a-fA-F]/ ) ) {
+            if ( $len == $SHA_MAX_LEN || ( $word =~ /[0-9]/ && $word =~ /[a-fA-F]/ ) ) {
                 $found{ lc $word } = 1;
             }
         }

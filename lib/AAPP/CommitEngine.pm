@@ -10,11 +10,10 @@ use File::Spec ();
 use File::Temp ();
 use POSIX ();
 use Time::HiRes ();
-use AAPP::Constants qw(RETURN_OK RETURN_FAIL RETURN_ERROR);
+use AAPP::Constants qw(RETURN_OK RETURN_FAIL RETURN_ERROR PLANS_COMMIT_ATTEMPTS PLANS_COMMIT_RETRY_DELAY);
 use AAPP::Logger ();
 use AAPP::State ();
 
-use constant MAX_ATTEMPTS => 5;
 
 # Usage     : my $rc = plans_commit('plan(refine): P-12 tick tasks', 'current/P12-x.md')
 # Purpose   : The one commit engine of the plans worktree: stages exactly the paths given, adds the
@@ -46,7 +45,7 @@ sub plans_commit
         AAPP::Logger::print_msg( 'ERROR', 'Attribution failed: strict mode needs an AI identity (agent, vendor, model).' );
         return RETURN_FAIL;
     }
-    for my $attempt ( 1 .. MAX_ATTEMPTS ) {
+    for my $attempt ( 1 .. PLANS_COMMIT_ATTEMPTS ) {
         my ( $status, $output ) = _git_with_output( '-C', $plans, 'commit', '-F', $msg->filename, '--', @paths );
         if ( $status == 0 ) {
             AAPP::State::forget("$plans/$_") for @paths;
@@ -56,13 +55,13 @@ sub plans_commit
             print STDERR $output;
             return RETURN_ERROR;
         }
-        if ( $attempt == MAX_ATTEMPTS ) {
-            AAPP::Logger::print_msg( 'ERROR', 'The .plans index is still locked after ' . MAX_ATTEMPTS . ' attempts.' );
+        if ( $attempt == PLANS_COMMIT_ATTEMPTS ) {
+            AAPP::Logger::print_msg( 'ERROR', 'The .plans index is still locked after ' . PLANS_COMMIT_ATTEMPTS . ' attempts.' );
             print STDERR $output;
             return RETURN_ERROR;
         }
-        AAPP::Logger::print_msg( 'WARN', "The .plans index is locked; attempt $attempt of " . MAX_ATTEMPTS . ', waiting.' );
-        Time::HiRes::sleep(0.5);
+        AAPP::Logger::print_msg( 'WARN', "The .plans index is locked; attempt $attempt of " . PLANS_COMMIT_ATTEMPTS . ', waiting.' );
+        Time::HiRes::sleep(PLANS_COMMIT_RETRY_DELAY);
     }
     return RETURN_ERROR;
 }

@@ -7,7 +7,8 @@ use 5.026;
 
 use Cwd ();
 use POSIX ();
-use AAPP::Constants qw(RETURN_OK RETURN_FAIL RETURN_ERROR);
+use AAPP::Constants qw(RETURN_OK RETURN_FAIL RETURN_ERROR DEFAULT_LOCK_WAIT LOCK_STALE_SECONDS LOCK_FIRST_STEP
+    KIT_DIR_NAME DATA_HOME_DEFAULT);
 use AAPP::Logger ();
 
 our %paths;
@@ -87,6 +88,50 @@ sub _worktree_dir
         return "$primary/$name";
     }
     return;
+}
+
+# Usage     : my $p = native_path('/c/Users/me/x')
+# Purpose   : Writes a Git Bash path ('/c/...') as this Perl can open it: unchanged everywhere except
+#             under a native Windows Perl, which gets 'C:/...'.
+# Returns   : The path.
+sub native_path
+{
+    my ($path) = @_;
+    if ( $^O eq 'MSWin32' && $path =~ m{^/([a-zA-Z])(/.*)?$} ) {
+        return uc($1) . ':' . ( $2 // '/' );
+    }
+    return $path;
+}
+
+# Usage     : my $dir = kit_dir()
+# Purpose   : The one answer to where the kit is: the kit whose lib/ is $AAPP_LIB (the aapp dispatcher
+#             exports it), else <data home>/aapp-kit, the data home being $XDG_DATA_HOME, else
+#             <home>/.local/share; home is $HOME, else %USERPROFILE% on Windows.
+# Returns   : The kit folder, or undef when no kit with lib/AAPP/JSON.pm is found.
+sub kit_dir
+{
+    if ( defined $ENV{AAPP_LIB} && $ENV{AAPP_LIB} ne '' ) {
+        my $lib = native_path( $ENV{AAPP_LIB} );
+        if ( -r "$lib/AAPP/JSON.pm" ) {
+            return $lib =~ s{/+lib/*$}{}r;
+        }
+    }
+    my $data = $ENV{XDG_DATA_HOME};
+    if ( !defined $data || $data eq '' ) {
+        my $home = $ENV{HOME};
+        if ( ( !defined $home || $home eq '' ) && $^O eq 'MSWin32' ) {
+            $home = $ENV{USERPROFILE};
+        }
+        if ( !defined $home || $home eq '' ) {
+            return;
+        }
+        $data = "$home/" . DATA_HOME_DEFAULT;
+    }
+    my $kit = native_path($data) . '/' . KIT_DIR_NAME;
+    if ( !-r "$kit/lib/AAPP/JSON.pm" ) {
+        return;
+    }
+    return $kit;
 }
 
 # Usage     : my $abs = abs_path('a/../b', '/base')
@@ -258,7 +303,7 @@ sub lock_path
 sub lock_acquire
 {
     my ( $name, $limit, $label ) = @_;
-    $limit //= 15;
+    $limit //= DEFAULT_LOCK_WAIT;
     $label //= $name;
     my $lock = lock_path($name);
     if ( !defined $lock ) {
@@ -269,12 +314,12 @@ sub lock_acquire
         return RETURN_OK;
     }
     my $waited = 0;
-    my $step   = 2;
+    my $step   = LOCK_FIRST_STEP;
     while ( !mkdir($lock) ) {
         my $pid = _lock_holder($lock);
         if ( !defined $pid ) {
             my $mtime = ( stat($lock) )[9] // time();
-            if ( time() - $mtime >= 5 ) {
+            if ( time() - $mtime >= LOCK_STALE_SECONDS ) {
                 AAPP::Logger::print_msg( 'WARN', "Taking over the stale $label lock (no holder PID)." );
                 _remove_lock($lock);
                 next;

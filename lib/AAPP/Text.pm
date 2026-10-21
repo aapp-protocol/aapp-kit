@@ -5,6 +5,7 @@ use warnings;
 use utf8;
 use 5.026;
 
+use AAPP::Constants qw(DEFAULT_PICKUP_TITLE_MAX MIN_PICKUP_TITLE_MAX);
 use AAPP::Config ();
 
 # Usage     : my $name = strip_leading_emoji('📂 Target Files')
@@ -135,11 +136,11 @@ sub pickup_entry_split
 }
 
 # Usage     : my ($rc, $max) = pickup_title_max()
-# Purpose   : The most characters a pickup title may have: aapp.pickupTitleMax, default 72, at least 10.
+# Purpose   : The most characters a pickup title may have: aapp.pickupTitleMax (default and minimum in Constants).
 # Returns   : (RETURN_OK, $max), or (RETURN_ERROR, undef) after an [ ERROR ] line naming the key.
 sub pickup_title_max
 {
-    return AAPP::Config::get_int( 'aapp.pickupTitleMax', 72, 10 );
+    return AAPP::Config::get_int( 'aapp.pickupTitleMax', DEFAULT_PICKUP_TITLE_MAX, MIN_PICKUP_TITLE_MAX );
 }
 
 # Usage     : my @files = pickup_entry_files($text)

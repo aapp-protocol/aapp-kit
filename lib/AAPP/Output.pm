@@ -5,6 +5,7 @@ use warnings;
 use utf8;
 use 5.026;
 
+use AAPP::Constants qw(DEFAULT_OUTPUT_WIDTH MIN_OUTPUT_WIDTH);
 use AAPP::Config ();
 use AAPP::JSON qw();
 use AAPP::Text ();
@@ -13,11 +14,11 @@ our @ISSUE_FIELDS = qw(id severity type status logged location symptom plan bloc
     queue_level queued branch offline tracker_name tracker_url tracker_release notes);
 
 # Usage     : my ($rc, $width) = out_width()
-# Purpose   : The most characters on an output line: aapp.statusOutputWidth, default 85, at least 40.
+# Purpose   : The most characters on an output line: aapp.statusOutputWidth (default and minimum in Constants).
 # Returns   : (RETURN_OK, $width), or (RETURN_ERROR, undef) after an [ ERROR ] line naming the key.
 sub out_width
 {
-    return AAPP::Config::get_int( 'aapp.statusOutputWidth', 85, 40 );
+    return AAPP::Config::get_int( 'aapp.statusOutputWidth', DEFAULT_OUTPUT_WIDTH, MIN_OUTPUT_WIDTH );
 }
 
 # Usage     : my $word = issue_word('in-progress')

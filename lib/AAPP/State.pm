@@ -6,14 +6,37 @@ use utf8;
 use 5.026;
 
 use File::Find ();
-use AAPP::Constants qw(RETURN_OK RETURN_FAIL RETURN_ERROR RETURN_NOT_FOUND);
+use AAPP::Constants qw(RETURN_OK RETURN_FAIL RETURN_ERROR RETURN_NOT_FOUND DEFAULT_COMMIT_MODE
+    DEFAULT_CHANGELOG_MODE DEFAULT_SUBJECT_MAX_LEN MIN_SUBJECT_MAX_LEN DEFAULT_DEV_BRANCHES
+    DEFAULT_INTEGRATE_TARGET DEFAULT_REMOTE STATE_HOME_DEFAULT);
 use AAPP::Config ();
+use AAPP::Util ();
 use AAPP::Logger ();
 use AAPP::Paths ();
 use AAPP::Text ();
 
 our %files;
 our $plans_dir;
+
+# §4 headings that list paths, by what they grant; matched by name, emoji decorative.
+our %SECTION_HEADINGS = (
+    targets   => [ 'Target Files', 'Required Test Files' ],
+    oob       => ['Out of Bounds'],
+    req_files => ['Required Test Files'],
+);
+our $REQUIRED_FILES_HEADING = 'Required Test Files';
+our $REQUIRED_TESTS_HEADING = 'Required Tests';
+
+# Words before a Target Files path that are not the path.
+our @ACTION_MARKERS = ( 'NEW FILE', 'MODIFY', 'DELETE', 'ADD', 'REPLACE' );
+
+# The work queue's sections (issues_road_map.md), matched by name, emoji decorative.
+our $ROADMAP_BLOCKERS = 'Plan Blockers';
+our $ROADMAP_QUEUED   = 'Queued';
+our @QUEUE_LEVELS     = qw(Urgent Normal Low);
+
+my $MARKER_RE = join( '|', map { quotemeta } @ACTION_MARKERS );
+my $LEVEL_RE  = join( '|', map { quotemeta } @QUEUE_LEVELS );
 
 my $ID_BODY      = qr/(?:[0-9]+|[A-Z][A-Z0-9]*-[0-9]+)/;
 my $REF_LOOSE    = qr/(?:(?:#|ISSUE-)?[0-9]+|#$ID_BODY)/;
@@ -338,12 +361,7 @@ sub plan_changelog_decl
 sub _section_paths
 {
     my ( $file, $mode ) = @_;
-    my %wanted = (
-        targets   => [ 'Target Files', 'Required Test Files' ],
-        oob       => ['Out of Bounds'],
-        req_files => ['Required Test Files'],
-    );
-    my @names  = @{ $wanted{$mode} };
+    my @names  = @{ $SECTION_HEADINGS{$mode} };
     my $fenced = 0;
     my $in4    = 0;
     my $region = 0;
@@ -376,8 +394,8 @@ sub _section_paths
         }
         my $item = $line;
         $item =~ s/^\s*-\s*(?:\[[ xX]\]\s*)?//;
-        $item =~ s/^\s*(?:`?(?:NEW FILE|MODIFY|DELETE|ADD|REPLACE)`?)?\s*->\s*//;
-        if ( $item =~ /`([^`]+)`/ && $1 !~ /^(?:NEW FILE|MODIFY|DELETE|ADD|REPLACE)$/ ) {
+        $item =~ s/^\s*(?:`?(?:$MARKER_RE)`?)?\s*->\s*//;
+        if ( $item =~ /`([^`]+)`/ && $1 !~ /^(?:$MARKER_RE)$/ ) {
             push @paths, $1;
         }
     }
@@ -432,7 +450,7 @@ sub plan_has_required_test_files
             next;
         }
         my ( $level, $name ) = AAPP::Text::heading_name($line);
-        if ( $in4 && $level == 3 && $name =~ /^Required Test Files\s*(?:\(.*)?$/ ) {
+        if ( $in4 && $level == 3 && $name =~ /^\Q$REQUIRED_FILES_HEADING\E\s*(?:\(.*)?$/ ) {
             return 1;
         }
     }
@@ -465,7 +483,7 @@ sub plan_required_tests
                 next;
             }
             my ( $level, $name ) = AAPP::Text::heading_name($line);
-            if ( $in3 && $level == 3 && $name =~ /^Required Tests\s*(?:\(.*)?$/ ) {
+            if ( $in3 && $level == 3 && $name =~ /^\Q$REQUIRED_TESTS_HEADING\E\s*(?:\(.*)?$/ ) {
                 $region = 1;
             }
             next;
@@ -527,13 +545,24 @@ sub plan_tdd_correspondence
 
 # Usage     : my @lines = plan_section($plan_file, 4)
 # Purpose   : A numbered section ('## ... <n>.') up to the next numbered section, heading included.
+#             A heading inside a fenced block (a quoted document) neither starts nor ends a section.
 # Returns   : List of lines.
 sub plan_section
 {
     my ( $file, $number ) = @_;
-    my $on = 0;
+    my $on     = 0;
+    my $fenced = 0;
     my @lines;
     foreach my $line ( @{ _plan_lines($file) } ) {
+        if ( $line =~ /^\s*```/ ) {
+            $fenced = !$fenced;
+        }
+        if ( $fenced || $line =~ /^\s*```/ ) {
+            if ($on) {
+                push @lines, $line;
+            }
+            next;
+        }
         if ( $line =~ /^## (?:[^0-9]*\s)?\Q$number\E\./ ) {
             $on = 1;
             push @lines, $line;
@@ -620,7 +649,7 @@ sub current_plans
     if ( !defined $root ) {
         return ();
     }
-    my @plans = sort grep { -f $_ && $_ !~ m{/000-[^/]*$} } glob("\Q$root\E/current/*.md");
+    my @plans = AAPP::Util::plan_sort( grep { -f $_ && $_ !~ m{/000-[^/]*$} } glob("\Q$root\E/current/*.md") );
     return @plans;
 }
 
@@ -633,7 +662,7 @@ sub current_plans
 # Returns   : The mode.
 sub commit_mode
 {
-    my $mode = AAPP::Config::get('aapp.commitMode') // 'atomic';
+    my $mode = AAPP::Config::get('aapp.commitMode') // DEFAULT_COMMIT_MODE;
     return $mode eq 'microcommits' ? 'microcommits' : 'atomic';
 }
 
@@ -655,7 +684,7 @@ sub plan_commit_mode
 # Returns   : The mode.
 sub changelog_mode
 {
-    my $mode = AAPP::Config::get('aapp.changelogMode') // 'plan';
+    my $mode = AAPP::Config::get('aapp.changelogMode') // DEFAULT_CHANGELOG_MODE;
     return $mode eq 'commit' ? 'commit' : 'plan';
 }
 
@@ -664,7 +693,7 @@ sub changelog_mode
 # Returns   : (RETURN_OK, $max), or (RETURN_ERROR, undef) after an [ ERROR ] line naming the key.
 sub subject_max_len
 {
-    return AAPP::Config::get_int( 'aapp.subjectMaxLen', 72, 1 );
+    return AAPP::Config::get_int( 'aapp.subjectMaxLen', DEFAULT_SUBJECT_MAX_LEN, MIN_SUBJECT_MAX_LEN );
 }
 
 # Usage     : my $ref = branch_ref('develop')
@@ -693,7 +722,7 @@ sub branch_ref
 # Returns   : The branch, or undef when none does.
 sub dev_branch
 {
-    my $candidates = AAPP::Config::get('aapp.devBranch') // 'develop dev development';
+    my $candidates = AAPP::Config::get('aapp.devBranch') // DEFAULT_DEV_BRANCHES;
     foreach my $name ( split( ' ', $candidates ) ) {
         if ( defined branch_ref($name) ) {
             return $name;
@@ -709,7 +738,7 @@ sub dev_branch
 sub integrate_target
 {
     my ($file) = @_;
-    my $mode = AAPP::Config::get('aapp.integrateTarget') // 'parent';
+    my $mode = AAPP::Config::get('aapp.integrateTarget') // DEFAULT_INTEGRATE_TARGET;
     my $target;
     if ( $mode eq 'parent' || $mode eq '' ) {
         $target = plan_base_branch($file);
@@ -1515,7 +1544,7 @@ sub roadmap_queue_entries
     foreach my $line ( @{ file_lines($file) // [] } ) {
         my $h2 = _roadmap_heading( $line, 2 );
         if ( defined $h2 ) {
-            $queued = $h2 =~ /^Queued\b/ ? 1 : 0;
+            $queued = $h2 =~ /^\Q$ROADMAP_QUEUED\E\b/ ? 1 : 0;
             $level  = 'normal';
             next;
         }
@@ -1524,7 +1553,7 @@ sub roadmap_queue_entries
         }
         my $h3 = _roadmap_heading( $line, 3 );
         if ( defined $h3 ) {
-            if ( $h3 =~ /^(Urgent|Normal|Low)\b/ ) {
+            if ( $h3 =~ /^($LEVEL_RE)\b/ ) {
                 $level = lc $1;
             }
             next;
@@ -1608,7 +1637,7 @@ sub _roadmap_section_ids
 # Returns   : List of id bodies.
 sub roadmap_blockers
 {
-    return _roadmap_section_ids('Plan Blockers');
+    return _roadmap_section_ids($ROADMAP_BLOCKERS);
 }
 
 # Usage     : my @ids = roadmap_queued()
@@ -1783,8 +1812,8 @@ sub state_file
 # Returns   : The path (it may not exist).
 sub issue_text_file
 {
-    my $base = $ENV{AAPP_STATE_DIR} // $ENV{XDG_STATE_HOME} // ( ( $ENV{HOME} // '' ) . '/.local/state' );
-    my $name = AAPP::Config::get('aapp.remote') // 'origin';
+    my $base = $ENV{AAPP_STATE_DIR} // $ENV{XDG_STATE_HOME} // ( ( $ENV{HOME} // '' ) . '/' . STATE_HOME_DEFAULT );
+    my $name = AAPP::Config::get('aapp.remote') // DEFAULT_REMOTE;
     my ( $ok, $url ) = AAPP::Paths::git_capture( 'remote', 'get-url', $name );
     chomp($url);
     my $key;

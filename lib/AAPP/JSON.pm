@@ -8,14 +8,16 @@ use 5.026;
 use B ();
 use POSIX ();
 use Scalar::Util ();
-use AAPP::Constants qw(RETURN_OK RETURN_FAIL RETURN_ERROR);
+use AAPP::Constants qw(RETURN_OK RETURN_FAIL RETURN_ERROR DEFAULT_REMOTE JSON_FORMAT_VERSION);
 use AAPP::Config ();
 use AAPP::Logger ();
 use AAPP::Paths ();
 
-use constant FORMAT_VERSION => '1.0';
 
 our %key_order;
+
+# The escapes a JSON string may hold (besides \uXXXX), and what each stands for.
+our %UNESCAPE = ( '"' => '"', '\\' => '\\', '/' => '/', b => "\b", f => "\f", n => "\n", r => "\r", t => "\t" );
 
 package AAPP::JSON::Boolean {
     use overload
@@ -518,8 +520,6 @@ sub _parse_array
     return \@list;
 }
 
-my %UNESCAPE = ( '"' => '"', '\\' => '\\', '/' => '/', b => "\b", f => "\f", n => "\n", r => "\r", t => "\t" );
-
 # Usage     : my $s = _parse_string($p)
 # Purpose   : Parses a JSON string, with \uXXXX escapes and surrogate pairs.
 # Returns   : The string; undef with $p->{err} set on bad input.
@@ -600,7 +600,7 @@ sub json_local_path
 # Returns   : The JSON object, or null when the remote does not exist.
 sub remote_json
 {
-    my $name = AAPP::Config::get('aapp.remote') // 'origin';
+    my $name = AAPP::Config::get('aapp.remote') // DEFAULT_REMOTE;
     my $root = AAPP::Paths::resolve()->{root};
     my @at   = defined $root ? ( '-C', $root ) : ();
     my ( $ok, $url ) = AAPP::Paths::git_capture( @at, 'remote', 'get-url', $name );
@@ -658,7 +658,7 @@ sub envelope_pairs
     }
     return (
         RETURN_OK,
-        version      => json_str(FORMAT_VERSION),
+        version      => json_str(JSON_FORMAT_VERSION),
         command      => json_str($command),
         generated_at => json_str( utc_now() ),
         repository   => $repo,
@@ -744,7 +744,7 @@ sub error_document
     my ( $rc, @envelope ) = envelope_pairs( $command, $empty );
     if ( $rc != RETURN_OK ) {
         @envelope = (
-            version      => json_str(FORMAT_VERSION),
+            version      => json_str(JSON_FORMAT_VERSION),
             command      => json_str($command),
             generated_at => json_str( utc_now() ),
             repository   => 'null',
