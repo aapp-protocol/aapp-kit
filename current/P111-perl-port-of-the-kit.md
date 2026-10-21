@@ -195,8 +195,11 @@ All test suites run under `tests/AAPP/Tests.pm` (`AAPP::Tests`), which confines 
 ## ⚙️ 2. Operational Modules & Command Libraries (`lib/`)
 
 ### 🧱 Core State, Config, Paths, Text & JSON (`lib/AAPP/`)
+* **`lib/AAPP/Constants.pm`:** Every default the modules use (widths, limits, waits, retries, remote, branches, modes, kit and state folder names, JSON format version) and the declared return numbers with their exit codes; no module hard-codes a default.
+* **`lib/AAPP/Util.pm`:** Central reused helpers, one implementation each: `plan_number`, `plan_sort` (plans by number, not as text).
+* **`lib/AAPP/Logger.pm` & `lib/AAPP/Runner.pm`:** The one agent output line (`print_msg`, `[ TAG ] text`) and the optional log file (`aapp.perlLogFile`, UTF-8, no emoji); the CLI entry with signal handling, crash reporting and exit codes from return numbers.
 * **`lib/AAPP/Config.pm`:** Single-pass `git config --list -z` loader and Plan Status Registry (`aapp.planState.*`, matching by canonical name after `AAPP::Text` emoji stripping).
-* **`lib/AAPP/Paths.pm`:** Single-pass repository and worktree path resolver (`git rev-parse --show-toplevel --git-common-dir --git-dir`), glob matcher (`glob_to_regex`, `match_pattern_list`), platform detector (`aapp_os`), and named lock engine (`aapp_lock_acquire`, `aapp_lock_release`, `aapp_lock_held`).
+* **`lib/AAPP/Paths.pm`:** Single-pass repository and worktree path resolver (`git rev-parse --show-toplevel --git-common-dir --git-dir`), the one kit locator (`kit_dir`, OS-aware), glob matcher (`glob_to_regex`, `match_pattern_list`), platform detector (`aapp_os`), and named lock engine (`aapp_lock_acquire`, `aapp_lock_release`, `aapp_lock_held`).
 * **`lib/AAPP/Text.pm`:** Decorative-only emoji normalizer (`strip_leading_emoji`), UTF-8 character counter (`aapp_char_len`), line wrapper (`out_wrap`), truncator (`out_cut`), and pickup line splitter (`pickup_entry_split`).
 * **`lib/AAPP/JSON.pm`:** Zero-dependency ordered JSON builder (`json_obj`, `json_list`, `json_str`, `json_strn`, `json_num`, `json_numn`, `json_bool`), 2-space pretty-printer, envelope/notices/error document builders (`docs/reference/08-output-json.md`), and JSON reader for hook/plugin payloads, `.claude/settings.json`, and pause snapshots.
 * **`lib/AAPP/Output.pm`:** Shared terminal and JSON record renderers (`issue_render_terminal`, `issue_render_json`, `out_width`).
@@ -217,7 +220,7 @@ All test suites run under `tests/AAPP/Tests.pm` (`AAPP::Tests`), which confines 
 ### 📊 Read-Only, Commit, Note, AI, Setup & Release Modules (`lib/AAPP/Cmd/*.pm`)
 * **`AAPP::Cmd::Status`, `AAPP::Cmd::Matrix`, `AAPP::Cmd::Help`:** 4-pillar recovery briefing (`aapp status [short | json]`), state matrix derivation (`aapp matrix [check]`), and contract-backed help (`aapp help [<verb> [full]]`).
 * **`AAPP::Cmd::Commit`, `AAPP::Cmd::Note`, `AAPP::Cmd::Ai`:** Plan-bound commit helper (`commit`, `amend`, `adopt`, `land`), Git notes manager (`note [status | stage | push | pull]`), and AI attribution switchboard (`ai [status | none | lax | strict | notes | credits]`).
-* **`AAPP::Cmd::Init`, `Install`, `Upgrade`, `Uninstall`, `Develop`, `Sync`, `Release`, `Companion`, `Hook`, `Pause`, `Test`:** Workspace initializer (copying `lib/AAPP/` into `.githooks/AAPP/` and merging `.claude/settings.json` via `AAPP::JSON`), global installer, worktree sync (`push`, `pull`, `sync`), milestone release engine (`release`), companion repo manager (`companion`), hook/plugin inspector (`hooks`, `plugins`, `hook-test`, `hook-run`, `hook-hash`), emergency brake (`pause`, `resume`), and test runner entry (`test` -> `tests/AAPP/Tests.pm`).
+* **`AAPP::Cmd::Init`, `Install`, `Upgrade`, `Uninstall`, `Develop`, `Sync`, `Release`, `Companion`, `Hook`, `Pause`, `Test`:** Workspace initializer (merging `.claude/settings.json` via `AAPP::JSON`; it copies no Perl modules), global installer, worktree sync (`push`, `pull`, `sync`), milestone release engine (`release`), companion repo manager (`companion`), hook/plugin inspector (`hooks`, `plugins`, `hook-test`, `hook-run`, `hook-hash`), emergency brake (`pause`, `resume`), and test runner entry (`test` -> `tests/AAPP/Tests.pm`).
 
 ---
 ````

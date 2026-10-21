@@ -95,7 +95,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R3** 2026-10-20 · P-115 · `tests/write-guard_test.sh` · write-guard fixture copies lib/AAPP into .githooks/AAPP; the no-python3 deny test keeps perl and git on PATH — landed `373da77`
 - **R4** 2026-10-20 · P-115 · `tests/pre-commit_test.sh` · pre-commit fixtures that copy the hook libraries also copy lib/AAPP into the hook folder (pause reason via AAPP::JSON) — landed `373da77`
 - **R5** 2026-10-21 · P-115 · `lib/AAPP/Util.pm` · AAPP::Util: the central module for reused helpers; first plan_number and plan_sort (plans sorted by number, one implementation) — landed `373da77`
-- **R6** 2026-10-21 · P-115 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · List AAPP::Util (central reused helpers) in the codemap's core modules and in the structural map — approved (Lorand Veres)
+- **R6** 2026-10-21 · P-115 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · List AAPP::Util (central reused helpers) in the codemap's core modules and in the structural map — applied
 - **R7** 2026-10-21 · P-115 · § 📂 3. Global Structural Mapping · Add lib/AAPP/Util.pm to the structural map's AAPP/ listing — applied
 - **R8** 2026-10-21 · P-115 · `lib/docs/core/write-guard.md` · Contract drops test_deny_payload_without_python (the python fallback it tested is gone) — landed `373da77`
 - **R9** 2026-10-21 · P-115 · § Shared Hook Library & Parser Boundaries (P-37) · Hooks load AAPP::* from the installed kit ($AAPP_LIB, else the install location); init copies nothing into .githooks/ — applied
@@ -107,5 +107,6 @@ Each request is implemented as its approval describes; corrections of the group'
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
 - **D2** 2026-10-21 · § Shared Hook Library & Parser Boundaries (P-37) · R9 · Hooks load AAPP::* from the installed kit; init copies no Perl modules
+- **D3** 2026-10-21 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · R6 · Codemap lists AAPP::Util; also Constants, Logger, Runner (done in P-127, missing) and Paths::kit_dir
 
 ## Follow-ups
