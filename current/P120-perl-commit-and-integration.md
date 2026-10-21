@@ -53,6 +53,7 @@ In bash, `aapp commit` and `aapp note stage` shell out to `shasum`/`sha256sum` a
 ### 2.1 `AAPP::Cmd::Commit` (`lib/AAPP/Cmd/Commit.pm`) — `aapp commit` (`lib/cmd_commit.sh`, 567 lines)
 Ports `cmd_commit` from `lib/cmd_commit.sh`:
 - Authoritative syntax, flags, failure modes, and effects: `aapp help commit full` and `lib/docs/verbs/commit.md` (standard plan-bound commit, `amend`, `adopt`, `land`, trailers, staged notes, and changelog splicing), verified under unchanged `tests/AAPP/Verb/Commit.pm`.
+- Changelog entry written through a filter, never a refusal (#189): before `- <text> (`<id>`)` is rendered, a trailing `(<own id>)` and a leading `Added:` / `Changed:` / `Fixed:` are dropped from the text, so a plan field or `changelog "<text>"` that carries them still gives one tag and no section word. Existing `CHANGELOG.md` lines are not rewritten.
 - Uses `AAPP::State` (`P-115`), `AAPP::Attribution` (`P-116`), `AAPP::CommitEngine` (`P-115`), `Digest::SHA::sha256_hex` (for `$(git rev-parse --git-path aapp_pending_note).<sha256>`), and `AAPP::Plan`'s `_ig_*` engine (`P-119`) for `land`.
 
 ### 2.2 `AAPP::Cmd::Note` (`lib/AAPP/Cmd/Note.pm`) — `aapp note` (`lib/cmd_note.sh`, 386 lines)
