@@ -1,6 +1,6 @@
 # 🗺️ Plan P-120: Perl Commit And Integration
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-120
 * **Changelog:** Changed: Port commit, branch integration, note, and AI attribution verbs (`commit`, `note`, `ai`) and shared integration engine to `AAPP::Integrate`, `AAPP::Cmd::Commit`, `AAPP::Cmd::Note`, and `AAPP::Cmd::Ai`.
 * **Commit Mode:** microcommits
