@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #188 | `Medium` | `HOOK` | 2026-10-21 | `lib/aapp-lib.sh` | Bash line: the design lock reads a fenced '## … 2.' heading in a plan as the plan's own §2 (same bug as #186, fixed on the Perl port branch only) |  | 🟡 `Incubated` | `develop` |
 | #187 | `Low` | `CLI` | 2026-10-21 | `lib/cmd_plan.sh` | refine decision cannot close a second approved request for the same section once an earlier decision applied the change: it refuses because the group plan has no changes |  | 🟡 `Incubated` |  |
 | #186 | `Medium` | `HOOK` | 2026-10-21 | `lib/aapp-lib.sh` | Design lock reads a fenced '## … 2.' heading inside a group plan's Architecture & Codemap as the plan's own §2, so an approved codemap decision is refused as a §2 edit |  | 🟡 `Incubated` |  |
 | #185 | `Medium` | `CLI` | 2026-10-21 | `lib/cmd_pause.sh` | aapp pause on an already paused project crashes with a python SyntaxError (exit 1) instead of showing the pause inspection |  | 🟡 `Incubated` |  |
