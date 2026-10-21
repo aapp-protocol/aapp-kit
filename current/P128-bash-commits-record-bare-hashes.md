@@ -2,7 +2,7 @@
 * **Created:** 2026-10-21 | **Last Refined:** 2026-10-21
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-128
-* **Changelog:** Changed: a plan's `Commits:` line records bare commit hashes, without the branch (P-128)
+* **Changelog:** Changed: a plan's `Commits:` line records bare commit hashes, without the branch
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
