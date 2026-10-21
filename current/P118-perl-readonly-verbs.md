@@ -1,6 +1,6 @@
 # 🗺️ Plan P-118: Perl Readonly Verbs
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-118
 * **Changelog:** Changed: Port read-only verbs (`status`, `matrix`, `plan-status`, `help`) to `AAPP::Cmd::Status`, `AAPP::Cmd::Matrix`, `AAPP::Cmd::PlanStatus`, and `AAPP::Cmd::Help` over `AAPP::State` and `AAPP::Output`.
 * **Commit Mode:** microcommits
