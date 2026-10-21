@@ -121,6 +121,8 @@ Run `aapp init` in a fresh clone: it automatically finds the remote `plans`, `ag
 
 The kit is developed and tested on **Linux** with Claude Code and Antigravity. macOS, Windows (Git Bash), WSL, the BSDs and other agents are untested. A test run report, pass or fail, helps: see [MANUAL.md](MANUAL.md).
 
+Known risk on Windows: the kit passes Git Bash paths (`/c/Users/…`) to Perl. Git for Windows' own Perl reads them; a native Perl first on `PATH` (Strawberry, ActiveState) does not, and the write guard then refuses every write ("Perl core missing").
+
 ---
 
 ## 📚 Documentation
