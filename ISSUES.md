@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #185 | `Medium` | `CLI` | 2026-10-21 | `lib/cmd_pause.sh` | aapp pause on an already paused project crashes with a python SyntaxError (exit 1) instead of showing the pause inspection |  | 🟡 `Incubated` |  |
 | #184 | `Low` | `CLI` | 2026-10-20 | `lib/cmd_plan.sh` | refine approve refuses a file request whose path is already in the amendments member's Target Files, leaving that request pending for good |  | 🟡 `Incubated` |  |
 | #183 | `Low` | `CORE` | 2026-10-20 | `lib/plan_resolver.sh` | Plan resolver matches a numeric id by header prefix: P-9 also matches P-90..P-99 (Plan ID: P-0*9 has no end boundary), so 'resolve 9 all' is ambiguous |  | 🟡 `Incubated` |  |
 | #181 | `Medium` | `HOOK` | 2026-10-20 | `templates/blast-radius-guard.sh`, `lib/aapp-lib.sh` | Write guard refuses an always-allowed shared doc (.agents/PROJECT.MD) edited from a bound plan worktree: 'Multiple plans in development' though the worktree's buffer names its plan |  | 🟡 `Incubated` |  |
