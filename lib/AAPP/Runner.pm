@@ -2,9 +2,10 @@ package AAPP::Runner;
 
 use strict;
 use warnings;
+use utf8;
 use 5.026;
 
-use AAPP::Constants qw(DEBUG_LEVEL RETURN_OK RETURN_ERROR RETURN_FAIL %EXIT_FOR);
+use AAPP::Constants qw(DEBUG_LEVEL RETURN_OK RETURN_ERROR RETURN_FAIL %EXIT_FOR DEFAULT_VERB);
 use AAPP::Logger ();
 
 our $return = RETURN_OK;
@@ -142,6 +143,7 @@ sub logger
 # Usage     : AAPP::Runner::run(@run_args)
 # Purpose   : CLI entry point. Takes the global tokens (json, quiet), installs the handlers,
 #             dispatches the verb to AAPP::Cmd::<Verb>->run(@args), and exits with its return number.
+#             A verb with no module is refused; a module that fails to load is a crash.
 # Returns   : Does not return.
 sub run
 {
@@ -156,14 +158,18 @@ sub run
 
     init_signals();
 
-    my $verb = shift(@args) // 'help';
+    my $verb = shift(@args) // DEFAULT_VERB;
     ( my $module = join( '', map { ucfirst } split( /-/, $verb ) ) ) =~ s/[^A-Za-z]//g;
     my $class = "AAPP::Cmd::$module";
-    if ( eval "require $class; 1" ) {
+    my $file  = "AAPP/Cmd/$module.pm";
+    my $found = $module ne '' && eval { require $file; 1 };
+    if ($found) {
         $return = $class->run(@args);
-    } else {
+    } elsif ( $module eq '' || $@ =~ /^Can't locate \Q$file\E in \@INC/ ) {
         AAPP::Logger::print_msg( 'ERROR', "Unknown verb '$verb'. Run 'aapp help'." );
         $return = RETURN_FAIL;
+    } else {
+        die $@;
     }
     exit_code();
     return;
