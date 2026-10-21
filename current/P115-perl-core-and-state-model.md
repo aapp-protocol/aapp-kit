@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-115
-* **Changelog:** Added: Perl 5.26+ core (`AAPP::Config`, `AAPP::Paths`, `AAPP::Text`, `AAPP::JSON`, `AAPP::State`), decorative-only emoji normalizer, and hybrid `aapp` verb dispatcher retiring `python3` (P-115)
+* **Changelog:** Added: Perl 5.26+ core (`AAPP::Config`, `AAPP::Paths`, `AAPP::Text`, `AAPP::JSON`, `AAPP::State`), decorative-only emoji normalizer, and hybrid `aapp` verb dispatcher retiring `python3`
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
