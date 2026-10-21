@@ -57,7 +57,7 @@
    - Subject/line/body limits, `AI-*` trailer validation (`none`, `lax`, `strict`, `notes`, refusing retired `commit`), staged note attachment (`aapp_pending_note.<sha256>`), and post-rewrite `* **Commits:**` SHA mapping + `AAPP::CommitEngine::plans_commit`.
 4. **`templates/blast-radius-guard.sh` (`lib/AAPP/Hooks/WriteGuard.pm`):**
    - Parses `PreToolUse` JSON stdin via `AAPP::JSON`, checks Section 1–5 (canonicalization, self-protection, external hard-deny/allowlist, G1 companion delegation, pause circuit breaker, always-allowed paths, and active/blocked/held plan Target Files) via `AAPP::State`.
-5. **Self-contained `.githooks/`:** Hook entrypoints load `AAPP::*` relative to their own directory (`.githooks/AAPP/`, populated by `aapp init` from `lib/AAPP/`).
+5. **Modules from the installed kit:** Hook entrypoints load `AAPP::*` from the kit's `lib/`: `$AAPP_LIB` when an `aapp` verb runs the hook, else `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/lib`. Nothing is copied into `.githooks/`. A guard that finds no `AAPP/JSON.pm` there refuses (exit 2). (Decided in P-115, 2026-10-21.)
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Backwards Compatible` (Transitional bash/Perl coexistence within group `P-111` until `P-122`)
