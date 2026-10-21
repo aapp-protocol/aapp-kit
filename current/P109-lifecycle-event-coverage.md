@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-109
-* **Changelog:** Added: a hook event per action for issue, note and companion; post events on every writing verb; pre/on gates for abort, commit, freeze, done, land (P-109)
+* **Changelog:** Added: a hook event per action for issue, note and companion; post events on every writing verb; pre/on gates for abort, commit, freeze, done, land
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
