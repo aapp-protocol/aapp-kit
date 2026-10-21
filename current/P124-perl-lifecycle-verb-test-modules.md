@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-124
-* **Changelog:** Changed: the read-only and plan lifecycle verb suites run as Perl modules (`tests/AAPP/Verb/*.pm`) under `AAPP::Tests` (P-124)
+* **Changelog:** Changed: the read-only and plan lifecycle verb suites run as Perl modules (`tests/AAPP/Verb/*.pm`) under `AAPP::Tests`
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
