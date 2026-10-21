@@ -599,10 +599,10 @@ git reset -q .agents/AGENTS.md >/dev/null 2>&1; rm -rf .agents
 mkdir -p .plans/done; echo "done plan" > .plans/done/P01.md; git add .plans/done/P01.md
 commit_says ".plans/done while paused" BLOCK "chore(plans): archive while paused" "Project Circuit Breaker"
 git reset -q .plans/done/P01.md >/dev/null 2>&1; rm -rf .plans/done
+"$KIT/aapp" resume >/dev/null 2>&1
 touch "$(git rev-parse --git-path MERGE_HEAD)"
 "$KIT/aapp" pause "in-flight test" >/dev/null 2>&1 && t_fail "pause ran during a merge"
 rm -f "$(git rev-parse --git-path MERGE_HEAD)"
-"$KIT/aapp" resume >/dev/null 2>&1
 echo "def f3(): pass" >> src/pause_code.py; echo "- bump resume" >> CHANGELOG.md
 git add src/pause_code.py CHANGELOG.md
 commit_says "after resume" PASS "feat: commit after resume"

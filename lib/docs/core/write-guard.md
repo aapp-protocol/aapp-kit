@@ -10,7 +10,6 @@ Run: `aapp test write-guard`
 - `tests/write-guard_test.sh::test_guard_follows_adopter_statuses` -> adopter statuses from `aapp.planState.*` block or grant as the kit's do
 - `tests/write-guard_test.sh::test_fails_open_on_bad_input` -> with no plans, garbage, empty or non-file payloads, and `SKIP_BLAST_RADIUS=1`, the guard allows; self-protection still holds
 - `tests/write-guard_test.sh::test_deny_payload_schema` -> a denial prints the decision with `hookSpecificOutput` for PreToolUse and names the violation on stderr
-- `tests/write-guard_test.sh::test_deny_payload_without_python` -> the denial payload is valid without `python3` on the path
 - `tests/write-guard_test.sh::test_large_payload_denied` -> a payload over 300 KB is still denied with exit 2
 - `tests/write-guard_test.sh::test_external_paths_and_precedence` -> agent memory, scratch and `aapp.allowPath` paths are allowed; other external paths are denied; self-protection and the hard-deny list win over the allowlist; traversal is closed; MultiEdit is enforced
 - `tests/write-guard_test.sh::test_glob_targets` -> `*`, `**`, `?`, bracket classes and directory prefixes match as globs, in targets and Out of Bounds

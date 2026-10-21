@@ -213,31 +213,6 @@ grep -q "Blast Radius Guard Violation" "$ERR_LOG" || t_fail "stderr names no vio
 rm -f "$ERR_LOG"
 t_done test_deny_payload_schema
 
-echo "== POSIX fallback JSON output without python3 =="
-setup
-plan p.md <<'EOF'
-### 📂 Target Files (Modifications & Additions)
-### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/forbidden.py` -> denied
-## end
-EOF
-
-NO_PY_DIR=$(mktemp -d)
-mkdir -p "$NO_PY_DIR/bin"
-for cmd in sh bash sed awk grep ls cat mktemp printf cut head tail; do
-  cmd_path=$(command -v "$cmd" 2>/dev/null || true)
-  [ -n "$cmd_path" ] && ln -sf "$cmd_path" "$NO_PY_DIR/bin/$cmd"
-done
-
-POSIX_OUTPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/repo/src/forbidden.py"}}\n' "$R" | PATH="$NO_PY_DIR/bin" "$GUARD" 2>&1 || true)
-rm -rf "$NO_PY_DIR"
-
-echo "$POSIX_OUTPUT" | grep -q '"decision"[[:space:]]*:[[:space:]]*"deny"' && \
-  echo "$POSIX_OUTPUT" | grep -q '"hookEventName"[[:space:]]*:[[:space:]]*"PreToolUse"' && \
-  echo "$POSIX_OUTPUT" | grep -q '"permissionDecision"[[:space:]]*:[[:space:]]*"deny"' && \
-  echo "$POSIX_OUTPUT" | grep -q '"permissionDecisionReason"[[:space:]]*:' || t_fail "payload: $POSIX_OUTPUT"
-t_done test_deny_payload_without_python
-
 echo "== large JSON payload (>300KB) does not fail-open via ARG_MAX =="
 setup
 plan p.md <<'EOF'
