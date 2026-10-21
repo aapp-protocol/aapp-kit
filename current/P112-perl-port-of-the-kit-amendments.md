@@ -69,6 +69,7 @@ Each request is implemented as its approval describes; corrections of the group'
 <!-- Grows only by approved requests (aapp refine <id> approve <n>; or file, when approval is not required). -->
 - [ ] `lib/AAPP/Logger.pm` -> R1 Logger opens the log file with :encoding(UTF-8) (use utf8 port-wide)
 - [ ] `tests/write-guard_test.sh` -> R3 write-guard fixture copies lib/AAPP into .githooks/AAPP; the no-python3 deny test keeps perl and git on PATH
+- [ ] `tests/pre-commit_test.sh` -> R4 pre-commit fixtures that copy the hook libraries also copy lib/AAPP into the hook folder (pause reason via AAPP::JSON)
 
 ### 🛑 Out of Bounds (Do Not Touch)
 
@@ -89,7 +90,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R1** 2026-10-20 · P-115 · `lib/AAPP/Logger.pm` · Logger opens the log file with :encoding(UTF-8) (use utf8 port-wide) — landed `41e579d`
 - **R2** 2026-10-20 · P-115 · `lib/AAPP/Logger.pm` · Logger writes no emoji to the log file (symbols stripped, terminal unchanged) — pending
 - **R3** 2026-10-20 · P-115 · `tests/write-guard_test.sh` · write-guard fixture copies lib/AAPP into .githooks/AAPP; the no-python3 deny test keeps perl and git on PATH — approved (Lorand Veres)
-- **R4** 2026-10-20 · P-115 · `tests/pre-commit_test.sh` · pre-commit fixtures that copy the hook libraries also copy lib/AAPP into the hook folder (pause reason via AAPP::JSON) — pending
+- **R4** 2026-10-20 · P-115 · `tests/pre-commit_test.sh` · pre-commit fixtures that copy the hook libraries also copy lib/AAPP into the hook folder (pause reason via AAPP::JSON) — approved (Lorand Veres)
 - **R5** 2026-10-21 · P-115 · `lib/AAPP/Util.pm` · AAPP::Util: the central module for reused helpers; first plan_number and plan_sort (plans sorted by number, one implementation) — pending
 - **R6** 2026-10-21 · P-115 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · List AAPP::Util (central reused helpers) in the codemap's core modules and in the structural map — pending
 - **R7** 2026-10-21 · P-115 · § 📂 3. Global Structural Mapping · Add lib/AAPP/Util.pm to the structural map's AAPP/ listing — pending
