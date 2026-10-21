@@ -2,7 +2,7 @@
 * **Created:** 2026-10-21 | **Last Refined:** 2026-10-21
 * **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
 * **Plan ID:** P-900
-* **Changelog:** Changed: Bash Commits Record Bare Hashes
+* **Changelog:** Changed: a plan's `Commits:` line records bare commit hashes, without the branch (P-900)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,37 +39,80 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+A plan for the bash line of the kit (`develop` / `bashdev`); the Perl port reads and writes bare hashes on its own (P-115 `AAPP::State::plan_commits`).
+
+Since P-39 (2026-09-28) the header records each commit as `` `sha` (branch) ``. P-39 meant `done` to check each commit against its recorded branch; that check was never built: `done` asks whether *any* branch or tag contains the commit, and every reader (`done`, the atomic-mode gate, `release`, `abort`, issue fixes, post-rewrite) takes the hash only. Since plan worktrees (P-57 on), the recorded branch is the plan's own `plan/P<n>-…` branch, deleted at `done`: the archive names branches that no longer exist.
+
+The line becomes what it is used for, the hashes:
+```markdown
+* **Commits:** `8e51e53`, `3090f15`
+* **Commits:** none
+```
+`* **Base:**` keeps its branch: integration reads it as the plan's parent (`plan_base_branch`, `resolve_plan_integrate_target`).
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Reader: `parse_plan_commits` (`lib/aapp-lib.sh`)
+One hash per line; an item that is not a backticked hash is not a commit. Callers that did `awk '{print $1}'` keep working unchanged.
+```bash
+# parse_plan_commits <plan_file>
+# Outputs the recorded commit hashes, one per line, in order.
+# Strictly confined to the plan header (before any ## heading); `none` or prose yield nothing.
+parse_plan_commits() {
+    local pf="$1" raw_line val item
+    [ -f "$pf" ] || return 0
+    raw_line="$(awk '/^[[:space:]]*```/ { f = !f; next } f { next } /^##[[:space:]]/ { exit } /^[[:space:]]*[*|-]*[[:space:]]*\*\*Commits:\*\*/ { print; exit }' "$pf" 2>/dev/null || true)"
+    [ -n "$raw_line" ] || return 0
+    val="$(printf '%s\n' "$raw_line" | sed -E 's/^[[:space:]]*[\*|-]*[[:space:]]*\*\*Commits:\*\*[[:space:]]*//')"
+    [ "$val" != "none" ] && [ -n "$val" ] || return 0
+    local IFS=','
+    for item in $val; do
+        item="$(printf '%s' "$item" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+        [[ "$item" =~ ^\`([0-9a-fA-F]+)\`$ ]] && printf '%s\n' "${BASH_REMATCH[1]}"
+    done
+    return 0
+}
+```
+
+### 2.2 Writers: every token is `` `sha` ``
+| Where | Today | After |
+| :--- | :--- | :--- |
+| `lib/cmd_commit.sh` commit / adopt | ``new_token="\`$short_s\` ($target_br)"`` | ``new_token="\`$short_s\`"`` |
+| `lib/cmd_commit.sh` amend | replaces `` `old` (br) `` with `` `new` ($curr_br) `` | ``updated_line="$(printf '%s' "$curr_line" \| sed -E "s\|\`$old_head_sha\`\|\`$new_sha\`\|g")"``; appends `` `new` `` when the old one was not recorded |
+| `lib/cmd_plan.sh` auto-rebase (`_ig_*`) | `` `c_sha` ($IG_PLAN_BR) `` | `` `c_sha` `` |
+| `lib/cmd_plan.sh` squash (`_sq_*`) | ``"\`$SQ_NEW\` ($SQ_TARGET)"`` | ``"\`$SQ_NEW\`"`` |
+| `lib/cmd_plan.sh` done, squashed | `write_plan_commits "$done_file" "${recorded_commits[0]}"` (a parsed `sha branch` pair, unbackticked) | ``write_plan_commits "$done_file" "\`${recorded_commits[0]}\`"`` |
+| `templates/aapp-post-rewrite` | ``TOKENS+=("\`$s\` ($branch)")`` | ``TOKENS+=("\`$s\`")`` |
+
+`done`'s per-commit loop keeps its checks (the commit exists; some branch or tag contains it); it reads the hash from the parsed line directly. A commit made on a detached `HEAD` is recorded like any other; `done` refuses it until a branch or tag contains it, as today.
+
+### 2.3 Open plans and the done folder
+In the same change, the `Commits:` line of every plan in `.plans/current/` and `.plans/done/` is rewritten to bare hashes (one `aapp refine` per plan in `current/`; one plans commit for `done/`, which `aapp release` reads for the first commit of each plan). `.plans/release/` bundles stay as written: history, read by nothing.
+```bash
+sed -E '/^\* \*\*Commits:\*\*/ s/(`[0-9a-fA-F]+`)[[:space:]]*\([^)]*\)/\1/g'
+```
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Clean Break` (Default)
+- **Fallback Inventory**: `None (Clean Break)`: after this plan, `` `sha` (branch) `` is unknown to the reader; the open plans and `done/` are rewritten in the same change (§2.3).
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests First
+- [ ] Task 1.1: Update the tests that assert the old form to the bare form (red): `aapp_lib_test.sh::test_parse_plan_commits` (bare hashes; `` `sha` (branch) ``, prose and unbackticked hashes yield nothing), `verbs/done.sh::test_detached_commit_needs_a_branch` (a bare hash no branch contains is refused), and the fixtures of `pre-commit_test.sh`, `release_test.sh`, `verbs/issue.sh`, `verbs/issue.keyid.sh`, `verbs/commit.sh`, `worktree_hooks_test.sh` that write or check a `Commits:` line.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Reader and Writers
+- [ ] Task 2.1: `parse_plan_commits` per §2.1.
+- [ ] Task 2.2: The writers per §2.2 (`cmd_commit.sh`, `cmd_plan.sh`, `aapp-post-rewrite`).
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Data and Documentation
+- [ ] Task 3.1: Rewrite the `Commits:` lines of `.plans/current/` and `.plans/done/` per §2.3.
+- [ ] Task 3.2: Docs name the bare form: `lib/docs/verbs/commit.md`, `lib/docs/verbs/done.md`, `lib/docs/verbs/plan.md`, `lib/docs/core/aapp_lib.md`, `docs/reference/01-lifecycle-state-machine.md`, `docs/reference/02-cli-commands-and-verbs.md`, `docs/reference/10-integration-and-rebase.md`, `templates/AGENTS.md`, `ARCHITECTURE.md`.
+- [ ] Task 3.3: `./aapp test strict quiet` green.
 
 ---
 
@@ -80,23 +123,38 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/aapp-lib.sh` -> `parse_plan_commits` reads bare hashes.
+- [ ] `lib/cmd_commit.sh` -> Commit, adopt and amend write bare hashes.
+- [ ] `lib/cmd_plan.sh` -> Auto-rebase, squash and done write bare hashes.
+- [ ] `templates/aapp-post-rewrite` -> Rewritten hashes recorded bare.
+- [ ] `tests/aapp_lib_test.sh` -> Parser test on the bare form.
+- [ ] `tests/pre-commit_test.sh` -> Fixture `Commits:` lines.
+- [ ] `tests/release_test.sh` -> Fixture `Commits:` lines.
+- [ ] `tests/verbs/done.sh` -> Fixture lines; a bare hash no branch contains is refused.
+- [ ] `tests/verbs/issue.sh` -> Fixture `Commits:` lines.
+- [ ] `tests/verbs/issue.keyid.sh` -> Fixture `Commits:` lines.
+- [ ] `tests/verbs/commit.sh` -> Recorded form after commit and detached commit.
+- [ ] `tests/worktree_hooks_test.sh` -> Post-rewrite record.
+- [ ] `lib/docs/verbs/commit.md` -> Records the bare hash.
+- [ ] `lib/docs/verbs/done.md` -> Test descriptions on the bare form.
+- [ ] `lib/docs/verbs/plan.md` -> Commits line format.
+- [ ] `lib/docs/core/aapp_lib.md` -> `parse_plan_commits` lists hashes.
+- [ ] `docs/reference/01-lifecycle-state-machine.md` -> Commits line format.
+- [ ] `docs/reference/02-cli-commands-and-verbs.md` -> Commits line format.
+- [ ] `docs/reference/10-integration-and-rebase.md` -> Rewritten hashes recorded bare.
+- [ ] `templates/AGENTS.md` -> The commit helper records the hash.
+- [ ] `ARCHITECTURE.md` -> Commit helper entry.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/AAPP/` -> The Perl port handles its own reader and writers (P-111 group).
+- [ ] `.plans/release/` -> Archived bundles stay as written.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-21:** Plan initialized from `pickup.md`.
-* **2026-10-21:** Refined blast radius and locked module boundaries.
+* **2026-10-21:** Drafted for the bash line: `Commits:` records bare hashes; the P-39 branch record was never read.
