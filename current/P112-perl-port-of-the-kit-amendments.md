@@ -95,6 +95,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R8** 2026-10-21 · P-115 · `lib/docs/core/write-guard.md` · Contract drops test_deny_payload_without_python (the python fallback it tested is gone) — pending
 - **R9** 2026-10-21 · P-115 · § Shared Hook Library & Parser Boundaries (P-37) · Hooks load AAPP::* from the installed kit ($AAPP_LIB, else the install location); init copies nothing into .githooks/ — pending
 - **R10** 2026-10-21 · P-115 · § 📂 3. Global Structural Mapping · Structural map: lib/AAPP/ is loaded from the installed kit, not copied; .githooks/ holds no AAPP/ — pending
+- **R11** 2026-10-21 · P-115 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · Codemap: init merges settings via AAPP::JSON and copies no Perl modules into .githooks/ — pending
 
 ## Decisions
 
