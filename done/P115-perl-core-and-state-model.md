@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `3090f15` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P115 (plan/P115-perl-core-and-state-model)
 * **Group:** P-111
@@ -122,6 +122,7 @@ Needs P-127 (foundation: Constants, Paths, Config, Logger, Runner) done; runs be
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-22:** Plan implementation completed and archived to done/.
 * **2026-10-21:** Phase 2 and 3 done; suites 63/63 (855). Dispatcher routes a verb with `lib/AAPP/Cmd/<Verb>.pm` to `AAPP::Runner`. `python3` replaced by `AAPP::JSON` in pause/resume/status/init and both hook templates; fail-closed where python was silent (unreadable pause snapshot stops resume; invalid `.claude/settings.json` is refused, not overwritten; the guard refuses without the Perl core). Hooks load `AAPP::*` from the installed kit (`$AAPP_LIB`, else `Paths::kit_dir()`), nothing is copied into `.githooks/`. Every default comes from `AAPP::Constants` (R12), allow-lists sit at the top of their module, plans sort with `AAPP::Util::plan_sort` (R5), `State::plan_section` skips fenced blocks (#186 on the Perl side). Bash issues found: #183, #185, #186; kit gaps #184, #187.
 * **2026-10-20:** Task 1.2 done: State (128 plan files, ledgers, ids, records, resolver identical to bash; the resolver's exact id match differs only where bash over-matches, #183), CommitEngine (attribution through a bridge to `attribution.sh` until P-116's `AAPP::Attribution`), Health (all checks find the same violations; checks return their violation count). State reads only; plan-header and ledger writers stay in bash until the verb members. An installed `aapp-planid` provider is refused until P-116 ports the dispatcher. Held plans are judged from the same checkout as the active buffer (the cause of #181).
 * **2026-10-20:** Task 1.1 done: Config, Paths, Text, JSON, Output, each compared with its bash original in scratch runs. Decisions: `use utf8` port-wide, text decoded at reads (plans, ledgers, git config), file paths kept as bytes; statuses, headings and cells matched by name, emoji decorative only (no emoji-class helper); git calls whose failure is an answer go through `Paths::git_capture` (stderr discarded); the JSON reader keeps key order and reports bad input as a return value, never `die`. Amendment R1 (P-112) asks for Logger's log file to be opened as UTF-8.
