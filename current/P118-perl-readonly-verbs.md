@@ -63,6 +63,7 @@ Ports `cmd_status` from `lib/cmd_status.sh`:
 Ports `cmd_matrix` from `lib/cmd_matrix.sh`:
 - Authoritative syntax, flags, failure modes, and effects: `aapp help matrix full` and `lib/docs/verbs/matrix.md`, verified under `tests/AAPP/Core/Matrix.pm`.
 - Rebuilds `.plans/state_matrix.md` from `.plans/current/P*.md` headers via `AAPP::State` while preserving human row ordering, and verifies matrix sync on `check`.
+- Rows within a section sort by plan number as a number: P-15 before P-128. The bash verb sorts the IDs as text, which puts P-128 before P-15; the port does not carry that over.
 
 ### 2.4 `AAPP::Cmd::PlanStatus` (`lib/AAPP/Cmd/PlanStatus.pm`) — `aapp plan-status` (`cmd_plan_status` in `lib/cmd_plan.sh`)
 Ports `cmd_plan_status` from `lib/cmd_plan.sh`:
