@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-126
-* **Changelog:** Added: Perl 5.26+ test harness (`AAPP::Tests`) with per-test fixture copies, a process-group watchdog, parallel module workers and an end-of-run failure recap, run through `tests/test-run` (P-126)
+* **Changelog:** Added: Perl 5.26+ test harness (`AAPP::Tests`) with per-test fixture copies, a process-group watchdog, parallel module workers and an end-of-run failure recap, run through `tests/test-run`
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
