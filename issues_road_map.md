@@ -13,5 +13,4 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
-- [ ] #186 -> Design lock reads a fenced '## … 2.' heading inside a group plan's Architecture & Codemap as the plan's own §2, so an approved codemap decision is refused as a §2 edit (queued 2026-10-21)
 ### Low
