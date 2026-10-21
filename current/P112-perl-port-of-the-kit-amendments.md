@@ -104,6 +104,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R11** 2026-10-21 · P-115 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · Codemap: init merges settings via AAPP::JSON and copies no Perl modules into .githooks/ — applied
 - **R12** 2026-10-21 · P-115 · `lib/AAPP/Constants.pm` · Constants declares every default the Perl modules use (widths, title/subject limits, lock waits, plans-commit retries, remote, dev branches, modes, integrate target, kit dir name, data/state home, JSON format version) — landed `373da77`
 - **R13** 2026-10-21 · P-115 · `lib/AAPP/Runner.pm` · Runner loads a verb module with a block eval: require on AAPP/Cmd/<Verb>.pm, no string eval — landed `6649edb`
+- **R14** 2026-10-22 · P-126 · `lib/AAPP/Constants.pm` · P-126: test harness defaults (watchdog 60 s, jobs step 4, sandbox prefix, fallback git identity, default branch) go into AAPP::Constants — pending
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
