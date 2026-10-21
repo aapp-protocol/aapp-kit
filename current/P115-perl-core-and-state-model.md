@@ -12,7 +12,7 @@
 * **Base:** `3090f15` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P115 (plan/P115-perl-core-and-state-model)
 * **Group:** P-111
-* **Commits:** `e3cc5b4` (plan/P115-perl-core-and-state-model), `afabaab` (plan/P115-perl-core-and-state-model), `a82fce5` (plan/P115-perl-core-and-state-model), `aee2387` (plan/P115-perl-core-and-state-model), `7ad3152` (plan/P115-perl-core-and-state-model), `d33bfc0` (plan/P115-perl-core-and-state-model), `d342b0e` (plan/P115-perl-core-and-state-model), `ed257de` (plan/P115-perl-core-and-state-model), `fe80ad7` (plan/P115-perl-core-and-state-model), `51b5cc4` (plan/P115-perl-core-and-state-model), `85cab11` (plan/P115-perl-core-and-state-model), `d3bbd4e` (plan/P115-perl-core-and-state-model)
+* **Commits:** `e3cc5b4` (plan/P115-perl-core-and-state-model), `afabaab` (plan/P115-perl-core-and-state-model), `a82fce5` (plan/P115-perl-core-and-state-model), `aee2387` (plan/P115-perl-core-and-state-model), `7ad3152` (plan/P115-perl-core-and-state-model), `d33bfc0` (plan/P115-perl-core-and-state-model), `d342b0e` (plan/P115-perl-core-and-state-model), `ed257de` (plan/P115-perl-core-and-state-model), `fe80ad7` (plan/P115-perl-core-and-state-model), `51b5cc4` (plan/P115-perl-core-and-state-model), `85cab11` (plan/P115-perl-core-and-state-model), `d3bbd4e` (plan/P115-perl-core-and-state-model), `ef5eedf` (plan/P115-perl-core-and-state-model)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
