@@ -70,7 +70,7 @@ Each module preserves the exact behavior, arguments, failure modes, and side eff
   - Copies `lib/AAPP/` into `.githooks/AAPP/` alongside the hook entrypoints (no `.sh` library copies).
   - Merges `PreToolUse` (`blast-radius-guard`) into `.claude/settings.json` using `AAPP::JSON` (`decode_json` + `encode_json_pretty`) with zero `python3` dependency.
   - Calls `AAPP::Adoption` (`P-118`) for adoption seeding/sync.
-- **`lib/AAPP/Cmd/Install.pm` (`lib/cmd_install.sh`, 187 lines; `lib/docs/verbs/install.md`):** Ports `cmd_install`.
+- **`lib/AAPP/Cmd/Install.pm` (`lib/cmd_install.sh`, 187 lines; `lib/docs/verbs/install.md`):** Ports `cmd_install`. The install folder comes from `AAPP::Paths::kit_dir()` (the one answer to where the kit is, OS-aware, defaults in `AAPP::Constants`); the bash rule `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit` is not carried over as a copy (decided 2026-10-21 in P-115).
 - **`lib/AAPP/Cmd/Upgrade.pm` (`lib/cmd_upgrade.sh`, 44 lines; `lib/docs/verbs/upgrade.md`):** Ports `cmd_upgrade`.
 - **`lib/AAPP/Cmd/Uninstall.pm` (`lib/cmd_uninstall.sh`, 55 lines; `lib/docs/verbs/uninstall.md`):** Ports `cmd_uninstall`.
 - **`lib/AAPP/Cmd/Develop.pm` (`lib/cmd_develop.sh`, 123 lines; `lib/docs/verbs/develop.md`):** Ports `cmd_develop`.
@@ -93,7 +93,7 @@ Each module preserves the exact behavior, arguments, failure modes, and side eff
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Setup & Lifecycle (`Init`, `Install`, `Upgrade`, `Uninstall`, `Develop`)
-- [ ] Task 1.1: Implement `lib/AAPP/Cmd/Init.pm`, `lib/AAPP/Cmd/Install.pm`, `lib/AAPP/Cmd/Upgrade.pm`, `lib/AAPP/Cmd/Uninstall.pm`, and `lib/AAPP/Cmd/Develop.pm`, using `AAPP::JSON` for `.claude/settings.json` merging and installing `.githooks/AAPP/` without legacy `.sh` copies.
+- [ ] Task 1.1: Implement `lib/AAPP/Cmd/Init.pm`, `lib/AAPP/Cmd/Install.pm`, `lib/AAPP/Cmd/Upgrade.pm`, `lib/AAPP/Cmd/Uninstall.pm`, and `lib/AAPP/Cmd/Develop.pm`, using `AAPP::JSON` for `.claude/settings.json` merging; no Perl modules are copied into `.githooks/` (hooks load them from the installed kit, P-116 item 5), and no legacy `.sh` copies.
 
 ### Phase 2: Sync, Release, Companion, Hook, Pause & Test (`Sync`, `Release`, `Companion`, `Hook`, `Pause`, `Test`)
 - [ ] Task 2.1: Implement `lib/AAPP/Cmd/Sync.pm` (`push`, `pull`, `sync`), `lib/AAPP/Cmd/Release.pm`, and `lib/AAPP/Cmd/Companion.pm`.
