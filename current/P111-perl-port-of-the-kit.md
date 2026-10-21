@@ -1,7 +1,7 @@
 # 🧩 Group Plan P-111: Perl Port Of The Kit
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Plan ID:** P-111
-* **Changelog:** Changed: port the kit runtime, hooks and test harness from bash to Perl 5.26+ with a single-pass workspace state model, decorative-only emojis and a built-in JSON engine (P-111)
+* **Changelog:** Changed: port the kit runtime, hooks and test harness from bash to Perl 5.26+ with a single-pass workspace state model, decorative-only emojis and a built-in JSON engine
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
