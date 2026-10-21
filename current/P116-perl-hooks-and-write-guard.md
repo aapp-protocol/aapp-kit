@@ -1,6 +1,6 @@
 # 🗺️ Plan P-116: Perl Hooks And Write Guard
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-116
 * **Changelog:** Changed: port `aapp-pre-commit`, `aapp-commit-msg`, `aapp-post-commit`, `aapp-post-rewrite`, `blast-radius-guard` and `AAPP::HookDispatcher` to Perl 5.26+ over `AAPP::State` (P-116)
 * **Commit Mode:** microcommits
