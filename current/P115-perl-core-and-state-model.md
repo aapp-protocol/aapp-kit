@@ -84,12 +84,12 @@ Needs P-127 (foundation: Constants, Paths, Config, Logger, Runner) done; runs be
 - [x] Task 1.2: Implement `lib/AAPP/State.pm`, `lib/AAPP/CommitEngine.pm`, and `lib/AAPP/Health.pm`.
 
 ### Phase 2: Dispatcher, `python3` Retirement & Core Wrapper Tests
-- [ ] Task 2.1: Update `aapp` to route ported verbs to `lib/AAPP/Cmd/*.pm` and unported verbs to `lib/cmd_*.sh`.
-- [ ] Task 2.2: Replace `python3` JSON calls in `lib/cmd_init.sh`, `lib/cmd_pause.sh`, `lib/cmd_status.sh`, `templates/blast-radius-guard.sh`, and `templates/aapp-pre-commit` (pause reason) with `AAPP::JSON`, and update `lib/cmd_init.sh` to copy `lib/AAPP/*.pm` into `.githooks/AAPP/`.
-- [ ] Task 2.3: Run `./aapp test strict quiet` (the bash suites) green after each module switch.
+- [x] Task 2.1: Update `aapp` to route ported verbs to `lib/AAPP/Cmd/*.pm` and unported verbs to `lib/cmd_*.sh`.
+- [x] Task 2.2: Replace `python3` JSON calls in `lib/cmd_init.sh`, `lib/cmd_pause.sh`, `lib/cmd_status.sh`, `templates/blast-radius-guard.sh`, and `templates/aapp-pre-commit` (pause reason) with `AAPP::JSON`. Replaced by decision (2026-10-21): `lib/cmd_init.sh` copies no modules; the hooks load `AAPP::*` from the installed kit.
+- [x] Task 2.3: Run `./aapp test strict quiet` (the bash suites) green after each module switch.
 
 ### Phase 3: Verification
-- [ ] Task 3.1: Run `./aapp test strict quiet` to verify all core, JSON, state, and verb contracts pass.
+- [x] Task 3.1: Run `./aapp test strict quiet` to verify all core, JSON, state, and verb contracts pass.
 
 ---
 
@@ -122,6 +122,7 @@ Needs P-127 (foundation: Constants, Paths, Config, Logger, Runner) done; runs be
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-21:** Phase 2 and 3 done; suites 63/63 (855). Dispatcher routes a verb with `lib/AAPP/Cmd/<Verb>.pm` to `AAPP::Runner`. `python3` replaced by `AAPP::JSON` in pause/resume/status/init and both hook templates; fail-closed where python was silent (unreadable pause snapshot stops resume; invalid `.claude/settings.json` is refused, not overwritten; the guard refuses without the Perl core). Hooks load `AAPP::*` from the installed kit (`$AAPP_LIB`, else `Paths::kit_dir()`), nothing is copied into `.githooks/`. Every default comes from `AAPP::Constants` (R12), allow-lists sit at the top of their module, plans sort with `AAPP::Util::plan_sort` (R5), `State::plan_section` skips fenced blocks (#186 on the Perl side). Bash issues found: #183, #185, #186; kit gaps #184, #187.
 * **2026-10-20:** Task 1.2 done: State (128 plan files, ledgers, ids, records, resolver identical to bash; the resolver's exact id match differs only where bash over-matches, #183), CommitEngine (attribution through a bridge to `attribution.sh` until P-116's `AAPP::Attribution`), Health (all checks find the same violations; checks return their violation count). State reads only; plan-header and ledger writers stay in bash until the verb members. An installed `aapp-planid` provider is refused until P-116 ports the dispatcher. Held plans are judged from the same checkout as the active buffer (the cause of #181).
 * **2026-10-20:** Task 1.1 done: Config, Paths, Text, JSON, Output, each compared with its bash original in scratch runs. Decisions: `use utf8` port-wide, text decoded at reads (plans, ledgers, git config), file paths kept as bytes; statuses, headings and cells matched by name, emoji decorative only (no emoji-class helper); git calls whose failure is an answer go through `Paths::git_capture` (stderr discarded); the JSON reader keeps key order and reports bad input as a return value, never `die`. Amendment R1 (P-112) asks for Logger's log file to be opened as UTF-8.
 * **2026-10-20:** Plan frozen and activated into ⚡ In Development via freeze-start.
