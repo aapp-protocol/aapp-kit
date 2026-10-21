@@ -253,10 +253,13 @@ validate_plan_tdd_correspondence() {
 }
 
 # Stdin filter: print numbered section `## ... N.` through the next numbered
-# section. Used by the frozen-plan design lock.
+# section. Used by the frozen-plan design lock. A heading inside a fenced block
+# (a quoted document) neither starts nor ends a section (#186).
 extract_plan_section() {
     local sec="$1"
     awk -v s="$sec" '
+        /^[[:space:]]*```/ { fence = !fence; if (flag) print; next }
+        fence { if (flag) print; next }
         $0 ~ "^## ([^0-9]*[[:space:]])?" s "\\." { flag=1; print; next }
         $0 ~ "^## ([^0-9]*[[:space:]])?[0-9]+\\." && flag { flag=0 }
         flag { print }

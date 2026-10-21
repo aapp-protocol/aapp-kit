@@ -215,6 +215,9 @@ echo "== section extraction =="
 got=$(printf '%s\n' "## 🔨 3. Steps" "- s3" "## 💥 4. Blast Radius" "### 📂 Target Files" "- [ ] \`src/a.py\`" "## ❓ 5. Questions" "- s5" | extract_plan_section 4)
 want=$(printf '%s\n' "## 💥 4. Blast Radius" "### 📂 Target Files" "- [ ] \`src/a.py\`")
 t_expect "section 4" "$want" "$got"
+fenced=$(printf '%s\n' "## 2. Decisions" "- d" "## 4. Docs" '```markdown' "## ⚙️ 2. Codemap" "- c" '```' "## 5. Q")
+t_expect "fenced heading is not section 2" "$(printf '%s\n' "## 2. Decisions" "- d")" "$(printf '%s\n' "$fenced" | extract_plan_section 2)"
+t_expect "fenced heading does not end section 4" "$(printf '%s\n' "## 4. Docs" '```markdown' "## ⚙️ 2. Codemap" "- c" '```')" "$(printf '%s\n' "$fenced" | extract_plan_section 4)"
 t_done test_extract_plan_section
 
 echo "== platform detection =="

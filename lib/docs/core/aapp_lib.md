@@ -16,7 +16,7 @@ Run: `aapp test aapp_lib`
 - `tests/aapp_lib_test.sh::test_parse_required_tests` -> `parse_plan_required_tests` lists the files the §3 Required Tests name, backticked or not
 - `tests/aapp_lib_test.sh::test_validate_tdd_correspondence_matches` -> §3 tests and §4 test files that match pass, and the plan declares test files
 - `tests/aapp_lib_test.sh::test_validate_tdd_correspondence_opted_out` -> a plan with neither section passes and declares no test files
-- `tests/aapp_lib_test.sh::test_extract_plan_section` -> `extract_plan_section 4` prints `## 4.` up to the next `## ` heading
+- `tests/aapp_lib_test.sh::test_extract_plan_section` -> `extract_plan_section 4` prints `## 4.` up to the next `## ` heading; a numbered heading inside a fenced block neither starts nor ends a section
 - `tests/aapp_lib_test.sh::test_aapp_os_branches` -> `aapp_os` maps each `uname -s` (and WSL's `/proc/version`) to linux, wsl, darwin, windows, bsd or unknown
 - `tests/aapp_lib_test.sh::test_parse_plan_commits` -> `parse_plan_commits` lists `sha branch` pairs from the Commits line; `none` and unbackticked entries give nothing
 - `tests/aapp_lib_test.sh::test_pickup_entry_split` -> `pickup_entry_split` splits a pickup line into title and text at the first `: ` outside backticks, with or without the checkbox
