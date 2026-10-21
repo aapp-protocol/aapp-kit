@@ -1,6 +1,6 @@
 # 🗺️ Plan P-121: Perl Setup And Release
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-121
 * **Changelog:** Changed: Port setup, release, companion, hook, pause/resume, and test runner verbs (`init`, `install`, `upgrade`, `uninstall`, `develop`, `sync`, `release`, `companion`, `hook`, `pause`, `resume`, `test`) to `AAPP::Cmd::*` modules, retiring the last `python3` calls in `cmd_init.sh` and `cmd_pause.sh`.
 * **Commit Mode:** microcommits
