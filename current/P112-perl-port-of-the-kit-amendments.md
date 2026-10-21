@@ -91,6 +91,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R4** 2026-10-20 · P-115 · `tests/pre-commit_test.sh` · pre-commit fixtures that copy the hook libraries also copy lib/AAPP into the hook folder (pause reason via AAPP::JSON) — pending
 - **R5** 2026-10-21 · P-115 · `lib/AAPP/Util.pm` · AAPP::Util: the central module for reused helpers; first plan_number and plan_sort (plans sorted by number, one implementation) — pending
 - **R6** 2026-10-21 · P-115 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · List AAPP::Util (central reused helpers) in the codemap's core modules and in the structural map — pending
+- **R7** 2026-10-21 · P-115 · § 📂 3. Global Structural Mapping · Add lib/AAPP/Util.pm to the structural map's AAPP/ listing — pending
 
 ## Decisions
 
