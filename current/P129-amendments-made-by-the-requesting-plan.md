@@ -42,9 +42,9 @@
 Today an approved file request (P-101) is added to the group's amendments member's Target Files: the change is made in that member's worktree, landed on the feature branch with `aapp commit … land`, and the requesting member rebases onto it. For a file only the requester needs (P-126 needing defaults in `AAPP::Constants`), that is two worktrees, a separate landing and a rebase, and the change is recorded in the amendments member instead of the plan whose work it is.
 
 This plan keeps the amendments member as the log and the approval point, and moves the work and its record to where they belong:
-- the **requester** (the member in development that asked) makes the approved change in its own worktree, in one commit, and lands it with its own `done`;
-- the **owner** (the plan the logic belongs to: the requester by default, or another plan of the same group, current or archived) receives the file, the work description and the commit at that `done`, so its logic stays together;
-- the request line stays in the amendments member as the history.
+- the **requester** (the member in development that asked) makes the approved change from its own worktree, in one commit;
+- the **owner** (the plan the logic belongs to: the requester by default, or another plan of the same group, current or archived) receives the file, the work description and the commit, so its logic stays together. An amendment for another plan lands on the parent branch at once; the requester's own lands with its `done`;
+- the request line stays in the amendments member as the history, and the requester's `done` closes it.
 
 Corrections of the group's text (`heading` requests, `decision`) stay as they are.
 
@@ -59,27 +59,25 @@ Corrections of the group's text (`heading` requests, `decision`) stay as they ar
 
 ### 2.2 Approve: the requester may write the file
 1. `approve <n>` checks the file against every other plan in development (as today), sets `approved (<approver>)`, and no longer adds the file to the amendments member's Target Files.
-2. The write guard (`templates/blast-radius-guard.sh`) and the pre-commit hook (`templates/aapp-pre-commit`) treat the files of the approved requests naming the bound plan as its requester as targets of that plan, next to its §4. One reader in `lib/aapp-lib.sh` (`amend_approved_files <plan-id>`) serves both. The requester's §4 is never edited, so its design lock stays as it is.
-3. With `aapp.amendmentApprovalRequired = false` a file request is approved when it is made (`approved (auto)`); `refine <amend-id> file <path> "<reason>"` leaves the kit (clean break).
+2. The write guard (`templates/blast-radius-guard.sh`) and the pre-commit hook (`templates/aapp-pre-commit`) treat the file of each approved request naming the bound plan as its requester, with no commit yet, as a target of that plan, next to its §4. One reader in `lib/aapp-lib.sh` (`amend_approved_files <plan-id>`) serves both. The requester's §4 is never edited, so its design lock stays as it is.
+3. Once R<n>'s commit is made the file is no longer writable through R<n>: a further change to it is a new request, which keeps changes to one file apart.
+4. With `aapp.amendmentApprovalRequired = false` a file request is approved when it is made (`approved (auto)`); `refine <amend-id> file <path> "<reason>"` leaves the kit (clean break).
 
 ### 2.3 Commit: one commit per amendment
-1. `aapp commit "<msg>" amendment <n>` from the requester's worktree commits R<n>'s change: refused unless R<n> is approved, names the bound plan as requester, has no commit yet, and the staged files are exactly R<n>'s file.
-2. It does not count against the requester's `atomic` commit mode, and it is not recorded in the requester's `* **Commits:**`. Its short hash goes on the request line: `committed \`<sha>\``. The post-rewrite hook (`templates/aapp-post-rewrite`) keeps that hash current through rebases and amends.
-3. `aapp commit "<msg>" amendment <n> land` (optional) lands it on the feature branch at once (as `land` does today); members on that branch rebase. The default is landing with the requester's `done`.
+1. `aapp commit "<msg>" amendment <n>` from the requester's worktree commits R<n>'s change: refused unless R<n> is approved, names the bound plan as requester, has no commit yet, and the staged files are exactly R<n>'s file. The commit carries the trailer `Amendment: R<n>`. It does not count against the requester's `atomic` commit mode and is not recorded in the requester's `* **Commits:**`.
+2. **Owner is another plan: lands at once.** The commit is built on the tip of the requester's parent branch (the branch in its `* **Base:**`: the feature branch for a group member), without a visible worktree, and the parent branch moves to it only when it has not moved meanwhile (as `done`'s landing does). The change leaves the requester's index and worktree, and the requester's branch is rebased onto the parent (`git rebase --autostash`). The commit's hash is final: the request line becomes `landed \`<sha>\``, and the owner's record (§2.4.2) is written in the same plans commit. Other members get it with their next rebase. A squash of the requester later covers only its own commits, on top of the amendment.
+3. **Owner is the requester: lands with its `done`.** The commit stays on the requester's branch, and the request line becomes `committed`.
 
-### 2.4 Done: land, then copy the record into the owner
-1. The requester's `done` refuses while one of its approved requests has no commit.
-2. Integration keeps amendment commits as commits of their own: with `ff` they are in the branch history already; with a squash (`aapp.integrate = squash`, or a plan made for an issue) `done` re-creates the amendment commits on the base first, in order, and squashes the rest of the plan on top of them (the squash commit's tree is the plan's final tree, its parent the last amendment commit).
-3. After landing, for each of its requests, in the same plans commit as the archive:
-   - the owner's `### 📂 Target Files` gains `- [x] \`<path>\` -> R<n> (by <requester>)`;
-   - the owner's `### Amendments`, a subsection of §4 after `### 🛑 Out of Bounds` (created on first use), gains `- R<n> <date> · \`<path>\` · <summary> (by <requester>)`;
-   - the owner's `* **Commits:**` gains the landed hash;
-   - the request line becomes `landed \`<sha>\`` and stays in the amendments member.
-4. An archived owner (`done/`) gets the same lines appended. The archived plan stays final: nothing in it is rewritten; its after-care is appended as amendments, so a reader looking back at how its work was done also finds what came later. Only a `done` of the same group appends, and the pre-commit design lock accepts these lines (Target Files line, `### Amendments` line, Commits hash) in the owner and nothing else.
-5. With the owner being the requester itself, its own plan gets the lines before it is archived.
+### 2.4 The record in the owner, and closing at done
+1. The requester's `done` refuses nothing because of amendments. It finds its own amendment commits by their trailer after integration (with `ff` the commit itself; with a squash the squash commit), and then closes every request it made, in the same plans commit as the archive: `landed \`<sha>\`` becomes `closed · landed \`<sha>\``; an approved request never committed becomes `closed · unused`. `aapp plan abort` closes the requester's open requests as `closed · withdrawn`. A closed request's file needs a new request.
+2. The owner's record, written when the commit lands (§2.3.2, or the requester's `done` for its own):
+   - its `### 📂 Target Files` gains `- [x] \`<path>\` -> R<n> (by <requester>)`;
+   - its `### Amendments`, a subsection of §4 after `### 🛑 Out of Bounds` (created on first use), gains `- R<n> <date> · \`<path>\` · <summary> (by <requester>, landed \`<sha>\`)`.
+   Its `* **Commits:**` line stays its own work, so it agrees with `000-archive-ledger.md`.
+3. An archived owner (`done/`) gets the same lines appended. The archived plan stays final: nothing in it is rewritten; its after-care is appended as amendments, so a reader looking back at how its work was done also finds what came later. Only a commit or `done` of the same group appends, and the pre-commit design lock accepts these two lines in the owner and nothing else.
 
 ### 2.5 The amendments member
-Keeps the request log (`## Scope Requests`), approval, refusal, and the group text's decisions (`## Decisions`). It no longer implements files: its template, its §3 and its `done` check (no approved request without a landed commit) follow.
+Keeps the request log (`## Scope Requests`), approval, refusal, and the group text's decisions (`## Decisions`). It no longer implements files: its template, its §3 and its `done` check (no request still pending or approved) follow.
 
 ### 2.6 Rules, docs, Perl port
 `templates/AGENTS.md` (Plan groups: after approval the requester makes the change with `aapp commit … amendment <n>`), the verb contracts (`refine`, `commit`, `done`), `MANUAL.md`, `CHEATSHEET.md` and `ARCHITECTURE.md` describe the new route. The Perl port carries it: the group P-111 members porting `refine`/`done` (P-119), `commit` (P-120) and the hooks (P-116) take this behaviour as the bash one.
@@ -98,15 +96,16 @@ Keeps the request log (`## Scope Requests`), approval, refusal, and the group te
 
 ### Phase 2: Request, approve, write
 - [ ] Task 2.1: `request … for <plan-id>` and the request line (§2.1); `approve` without the amendments member's Target Files, auto-approval, `file` removed (§2.2).
-- [ ] Task 2.2: `amend_approved_files` read by the write guard and the pre-commit hook (§2.2.2).
+- [ ] Task 2.2: `amend_approved_files` read by the write guard and the pre-commit hook; the file locked after its commit (§2.2.2–3).
 
-### Phase 3: Commit and done
-- [ ] Task 3.1: `aapp commit … amendment <n> [land]`, the request line's hash, the post-rewrite update (§2.3).
-- [ ] Task 3.2: `done`: the refusal, amendment commits kept out of the squash, the copy into the owner (current or archived), the lock's acceptance (§2.4).
-- [ ] Task 3.3: The amendments member's template and done check (§2.5).
+### Phase 3: Commit, record and close
+- [ ] Task 3.1: `aapp commit … amendment <n>`: the trailer; landing at once on the parent with the requester's rebase when the owner is another plan (§2.3).
+- [ ] Task 3.2: The owner's record, current or archived, and the lock's acceptance (§2.4.2–3).
+- [ ] Task 3.3: `done` closes the requester's requests and records its own amendments; `plan abort` withdraws them (§2.4.1).
+- [ ] Task 3.4: The amendments member's template and done check (§2.5).
 
 ### Phase 4: Verification & Documentation
-- [ ] Task 4.1: Run automated test suites and verify edge cases (owner archived, squash with amendment commits, rebase before done).
+- [ ] Task 4.1: Run automated test suites and verify edge cases (owner archived, the parent moved meanwhile, the requester squashed after an amendment landed, an unused approval at done).
 - [ ] Task 4.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
 - [ ] Task 4.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
 - [ ] Task 4.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
@@ -121,12 +120,11 @@ Keeps the request log (`## Scope Requests`), approval, refusal, and the group te
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `lib/cmd_plan.sh` -> `request … for`, `approve`, auto-approval, `file` removed; `done`: refusal, squash order, copy into the owner.
-- [ ] `lib/cmd_commit.sh` -> `commit … amendment <n> [land]`.
-- [ ] `lib/aapp-lib.sh` -> Request line readers (owner, hash), `amend_approved_files`.
-- [ ] `templates/blast-radius-guard.sh` -> Approved request files are targets of their requester.
+- [ ] `lib/cmd_plan.sh` -> `request … for`, `approve`, auto-approval, `file` removed; `done` closes requests and records own amendments; `plan abort` withdraws.
+- [ ] `lib/cmd_commit.sh` -> `commit … amendment <n>`: trailer, landing at once on the parent, the requester's rebase, the owner's record.
+- [ ] `lib/aapp-lib.sh` -> Request line readers (owner, state, hash), `amend_approved_files`, the owner's record writer.
+- [ ] `templates/blast-radius-guard.sh` -> Approved request files are targets of their requester until committed.
 - [ ] `templates/aapp-pre-commit` -> The same at commit time; the owner's amendment lines accepted by the design lock.
-- [ ] `templates/aapp-post-rewrite` -> The request line's hash follows rewrites.
 - [ ] `templates/amendments-template.md` -> The member keeps the log and the decisions only.
 - [ ] `templates/AGENTS.md` -> Plan groups: the requester makes the approved change.
 - [ ] `lib/docs/verbs/refine.md` -> Contract.
@@ -135,7 +133,6 @@ Keeps the request log (`## Scope Requests`), approval, refusal, and the group te
 - [ ] `tests/verbs/refine.sh` -> Tests.
 - [ ] `tests/verbs/commit.sh` -> Tests.
 - [ ] `tests/verbs/done.sh` -> Tests.
-- [ ] `tests/verbs/done.squash.sh` -> Tests.
 - [ ] `tests/pre-commit_test.sh` -> Tests.
 - [ ] `tests/write-guard_test.sh` -> Tests.
 - [ ] `lib/verbs.tsv` -> Usage lines of `refine` and `commit`.
@@ -152,11 +149,11 @@ Keeps the request log (`## Scope Requests`), approval, refusal, and the group te
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
 * [ ] **Question 1:** Which line: the port branch (`feature/perl-port-of-the-kit`, so the remaining P-111 members use it, P-119/P-120/P-116 port it), or the bash line with a note in P-119?
-* [ ] **Question 2:** Keep the optional `land` token on `commit … amendment <n>` (§2.3.3), or land amendments only with the requester's `done`?
-* [ ] **Question 3:** A requester aborted (`aapp plan abort`) with an approved request: the request becomes `withdrawn` and a later member requests it again, or it stays approved for another member to take?
+* [ ] **Question 2:** The landed hash in the owner only on its `### Amendments` line (§2.4.2, agrees with the archive ledger), or also in its `* **Commits:**` line?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
 * **2026-10-22:** Drafted from the design settled in chat (requester makes the change, owner keeps the record).
+* **2026-10-22:** Review: an amendment for another plan lands on the parent at once (no squash handling, no hash tracking); the file locks after its commit; `done` refuses nothing and closes the requests.
