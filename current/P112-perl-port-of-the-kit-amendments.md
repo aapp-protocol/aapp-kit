@@ -108,7 +108,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R15** 2026-10-23 · P-126 · § 📂 3. Global Structural Mapping · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — applied
 - **R16** 2026-10-23 · P-126 · § Test Harness Sandbox Confinement · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — applied
 - **R17** 2026-10-23 · P-126 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — applied
-- **R18** 2026-10-23 · P-126 · § 🔒 3. Enforcement Engines & Hook Templates (`templates/`) · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — approved (Lorand Veres)
+- **R18** 2026-10-23 · P-126 · § 🔒 3. Enforcement Engines & Hook Templates (`templates/`) · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — applied
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
@@ -117,5 +117,6 @@ Each request is implemented as its approval describes; corrections of the group'
 - **D4** 2026-10-23 · § 📂 3. Global Structural Mapping · R15 · the test engine is a core module; tests in t/ (P-126)
 - **D5** 2026-10-23 · § Test Harness Sandbox Confinement · R16 · tests in t/, engine lib/AAPP/Tests.pm (P-126)
 - **D6** 2026-10-23 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · R17 · test engine in lib/AAPP/Tests.pm (P-126)
+- **D7** 2026-10-23 · § 🔒 3. Enforcement Engines & Hook Templates (`templates/`) · R18 · the develop gate checks t/ (P-126)
 
 ## Follow-ups

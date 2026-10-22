@@ -236,7 +236,7 @@ All tests are files in `t/` (`t/core/<name>.t`, `t/verb/<verb>.t`, each a packag
 
 ### 🛑 Layer 2 Commit-Time Gate (`templates/aapp-pre-commit`, `lib/AAPP/Hooks/PreCommit.pm`)
 * **Purpose:** Authoritative git pre-commit gate evaluating staged changes in a single pass over `AAPP::State` (circuit breaker, blast radius, frozen §2/§4/group-section design lock, `CHANGELOG.md` rule, roadmap auto-prune, `ISSUES.md` relocation invariant, portability check, and atomic commit mode).
-* **Develop Gate (`templates/aapp-pre-commit-develop`, `lib/AAPP/Hooks/PreCommitDevelop.pm`):** Seeded by `aapp develop` to verify bidirectional correspondence between `lib/verbs.tsv`, `lib/docs/verbs/*.md`, `lib/docs/core/*.md`, and `tests/AAPP/{Verb,Core}/*.pm`.
+* **Develop Gate (`templates/aapp-pre-commit-develop`, `lib/AAPP/Hooks/PreCommitDevelop.pm`):** Seeded by `aapp develop` to verify bidirectional correspondence between `lib/verbs.tsv`, `lib/docs/verbs/*.md`, `lib/docs/core/*.md`, and `t/{verb,core}/*.t`.
 
 ### ✍️ Commit Message, Post-Commit & Post-Rewrite Hooks (`lib/AAPP/Hooks/CommitMsg.pm`, `PostCommit.pm`, `PostRewrite.pm`)
 * `templates/aapp-commit-msg`: Enforces subject/line/body conciseness limits and validates `AI-*` semantic trailers via `AAPP::Attribution`.
