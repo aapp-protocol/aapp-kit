@@ -92,7 +92,7 @@ Keeps the request log (`## Scope Requests`), approval, refusal, and the group te
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Tests first
-- [ ] Task 1.1: Failing tests for §2.1–2.5 in the `refine`, `commit` and `done` verb suites and the pre-commit and write-guard suites.
+- [ ] Task 1.1: Failing tests for §2.1–2.5 in the `refine`, `commit` and `done` verb suites; the write guard is called directly there (as `companion.sh` does), the pre-commit hook runs with each commit. (`tests/pre-commit_test.sh` and `tests/write-guard_test.sh` belong to P-112 while group P-111 runs.)
 
 ### Phase 2: Request, approve, write
 - [ ] Task 2.1: `request … for <plan-id>` and the request line (§2.1); `approve` without the amendments member's Target Files, auto-approval, `file` removed (§2.2).
@@ -133,8 +133,6 @@ Keeps the request log (`## Scope Requests`), approval, refusal, and the group te
 - [ ] `tests/verbs/refine.sh` -> Tests.
 - [ ] `tests/verbs/commit.sh` -> Tests.
 - [ ] `tests/verbs/done.sh` -> Tests.
-- [ ] `tests/pre-commit_test.sh` -> Tests.
-- [ ] `tests/write-guard_test.sh` -> Tests.
 - [ ] `lib/verbs.tsv` -> Usage lines of `refine` and `commit`.
 - [ ] `MANUAL.md` -> Plan groups and amendments.
 - [ ] `CHEATSHEET.md` -> The new tokens.
