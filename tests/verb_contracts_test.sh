@@ -69,6 +69,8 @@ names_missing=""
 for f in "$DOCS"/*.md; do
   [ -f "$f" ] || continue
   while IFS= read -r ident; do
+    # A Perl test module (tests/AAPP/*.pm) is checked both ways by tests/test-run.
+    case "$ident" in tests/AAPP/*) continue ;; esac
     path="${ident%%::*}"
     name="${ident#*::}"
     verb="${f##*/}"; verb="${verb%.md}"
@@ -119,6 +121,8 @@ tests/$base has no contract lib/docs/core/$stem.md"
 done
 for f in "$CORE"/*.md; do
   [ -f "$f" ] || continue
+  # A contract naming Perl test modules (tests/AAPP/*.pm) is checked by tests/test-run.
+  grep -q '^- `tests/AAPP/' "$f" && continue
   stem="${f##*/}"; stem="${stem%.md}"
   [ -f "$KIT/tests/${stem}_test.sh" ] || errors="$errors
 lib/docs/core/$stem.md names no suite tests/${stem}_test.sh"
