@@ -78,7 +78,7 @@ Part 1 of 4 of the test migration split from P-114 (kept as the reference until 
 - [x] Task 2.3: Set the gate's `TEST_CMD` and summary-to-end print in `.agents/hooks/test-gate.sh`, and the print in `examples/hooks/test-gate.sh.sample`; ask the user to re-register the gate with `aapp hook-hash`.
 
 ### Phase 3: Verification
-- [ ] Task 3.2: Re-scoped (2026-10-22): the engine to `lib/AAPP/Tests.pm`, the entry point to `t/test-run`, the proof suite to `t/core/output.t` (with `run_file` for `prove`), contract lines and the gate to `t/`; the sandbox kit without tests; both runners green again.
+- [x] Task 3.2: Re-scoped (2026-10-22): the engine to `lib/AAPP/Tests.pm`, the entry point to `t/test-run`, the proof suite to `t/core/output.t` (with `run_file` for `prove`), contract lines and the gate to `t/`; the sandbox kit without tests; both runners green again.
 - [x] Task 3.1: Verify a single test, a single module and a full parallel run of `tests/test-run`, a failing test's recap, a watchdog timeout, and `./aapp test strict quiet` still green.
 
 ---
