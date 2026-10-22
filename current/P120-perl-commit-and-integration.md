@@ -63,6 +63,7 @@ Ports `cmd_note` from `lib/cmd_note.sh`:
 ### 2.3 `AAPP::Cmd::Ai` (`lib/AAPP/Cmd/Ai.pm`) — `aapp ai` (`lib/cmd_ai.sh`, 374 lines)
 Ports `cmd_ai` from `lib/cmd_ai.sh`:
 - Authoritative syntax, flags, failure modes, and effects: `aapp help ai full` and `lib/docs/verbs/ai.md` (`status`, `none`, `lax`, `strict`, `notes`, `credits`), verified under unchanged `tests/AAPP/Verb/Ai.pm`.
+- **Amendments (P-129):** `aapp commit "<msg>" amendment <n>` ports P-129's bash behaviour: one commit of the request's file with the `Amendment: R<n>` trailer; for an owner other than the requester it lands at once on the parent branch, rebases the requester and writes the owner's record.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Transitional Coexistence (`P-120` → `P-122`):** While `commit`, `note`, and `ai` route directly to `AAPP::Cmd::Commit`, `AAPP::Cmd::Note`, and `AAPP::Cmd::Ai` from `aapp`, `lib/cmd_commit.sh`, `lib/cmd_note.sh`, and `lib/cmd_ai.sh` remain as thin shims until `P-122` removes all `lib/*.sh` files.
