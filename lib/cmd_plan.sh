@@ -1197,10 +1197,7 @@ _ig_run() {
     IG_CODEMAP_FAILED=0
     if aapp_is_group_plan "$pf" && ! _group_done_codemap "$pf" "$pid"; then IG_CODEMAP_FAILED=1; fi
     if [ "$IG_NOCLEAN" -eq 1 ] || [ "$(git config --get aapp.integrateCleanup 2>/dev/null)" = "false" ]; then
-        [ "${IG_LAND:-0}" -eq 1 ] || echo "   Worktree and branch kept (cleanup off)."
-        if [ "${IG_LAND:-0}" -eq 1 ]; then
-            aapp_lock_release "integrate/$IG_TARGET_BR"
-        fi
+        echo "   Worktree and branch kept (cleanup off)."
         return 0
     fi
     _ig_cleanup "$pid"
@@ -2552,6 +2549,12 @@ cmd_done() {
     # P-84: the one commit replaces the list; the commits it replaces are on no branch.
     if [ "$squashed" -eq 1 ]; then write_plan_commits "$done_file" "${recorded_commits[0]}"; fi
 
+    # P-129: the plan's requests are closed and its own amendments recorded, in the archive commit.
+    local amend_rel="" done_br="$wt_br" sq_sha=""
+    [ -n "$done_br" ] || done_br="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    [ "$squashed" -eq 1 ] && sq_sha="$SQ_NEW"
+    amend_rel="$(_amend_close_requests "$done_file" "$plan_id" done "$sq_sha" "$done_br")" || exit 1
+
     local today commit_sha
     today="$(date +%Y-%m-%d)"
     # Extract last recorded commit SHA for ledger and reporting
@@ -2643,6 +2646,7 @@ cmd_done() {
     # Commit transition in plans worktree
     if [ -d "$PLANS_DIR/.git" ] || git -C "$PLANS_DIR" rev-parse --git-dir >/dev/null 2>&1; then
         local done_targets=("current/$bname" "done/$bname")
+        [ -n "$amend_rel" ] && done_targets+=("$amend_rel")
         [ -f "$ledger_file" ] && done_targets+=("done/000-archive-ledger.md")
         [ -f "$sm_file" ] && done_targets+=("state_matrix.md")
         if [ "$close_where" = "active" ] || [ ${#also_closed[@]} -gt 0 ]; then
@@ -3513,6 +3517,11 @@ cmd_plan_abort() {
         if [ -f "$PLANS_DIR/$f" ]; then mkdir -p "$(dirname "$snap/$f")" && cp -a "$PLANS_DIR/$f" "$snap/$f" || exit 1; fi
     done
     AB_PATHS=(); AB_NEW=(); AB_DONE=(); AB_ISSUES=""
+    # P-129: a member's open requests are withdrawn with it (a group abort takes its amendments member along).
+    local ab_amend=""
+    if [ "$is_group" -eq 0 ]; then
+        ab_amend="$(_amend_close_requests "$plan_file" "$pid" abort)" || { _ab_restore "$snap"; exit 1; }
+    fi
     for mf in "${members_open[@]}"; do
         _ab_archive_one "$mf" "Group $pid aborted: $AB_REASON" 1 || { _ab_restore "$snap"; echo "❌ [Abort] Archiving failed; nothing changed." >&2; exit 1; }
     done
@@ -3521,6 +3530,7 @@ cmd_plan_abort() {
     for f in "$led" $(ledger_commit_paths issues roadmap) state_matrix.md; do
         if [ -n "$(git -C "$PLANS_DIR" status --porcelain -- "$f" 2>/dev/null)" ]; then AB_PATHS+=("$f"); fi
     done
+    [ -n "$ab_amend" ] && AB_PATHS+=("$ab_amend")
     local subject="plan(abort): archive $pid to aborted/"
     [ "$is_group" -eq 0 ] || subject="plan(abort): archive group $pid to aborted/"
     if ! plans_commit "$subject" "${AB_PATHS[@]}"; then
@@ -4097,22 +4107,72 @@ _amend_next() {
     echo $(( ${n:-0} + 1 ))
 }
 
-# _amend_add_target <plan_file> <path> <note>: one Target Files line, after the
-# file is checked against every other plan in development.
-_amend_add_target() {
-    local pf="$1" p="$2" note="$3" other
-    if parse_plan_target_paths "$pf" | grep -qxF -- "$p"; then
-        echo "❌ [Refine] \`$p\` is already in $(basename "$pf" .md)'s Target Files." >&2; return 1
-    fi
+# _amend_close_requests <plan_file> <plan_id> done|abort [<squash-sha>] [<branch>]
+# (P-129): closes the file requests the plan made. At `done` its own amendment
+# commits (`committed`) are found by their `Amendment: R<n>` trailer on <branch>
+# since it left its parent (with a squash: <squash-sha>) and recorded in the plan.
+# Prints the amendments member's plans path when it changed; fails, naming the
+# request, when an own commit cannot be found.
+_amend_close_requests() {
+    local pf="$1" pid="$2" how="$3" sq="${4:-}" br="${5:-}" af l n st p sha base today changed=0 lines=()
+    af="$(amend_member_of "$pf" 2>/dev/null)" || return 0
+    today="$(date +%Y-%m-%d)"
+    mapfile -t lines < <(amend_request_lines "$af")
+    for l in "${lines[@]}"; do
+        [ "$(amend_request_requester "$l")" = "$pid" ] || continue
+        p="$(amend_request_path "$l")"; [ -n "$p" ] || continue
+        n="$(amend_request_number "$l")"; st="$(amend_request_state "$l")"
+        case "$st" in
+            "landed "*) amend_request_set_state "$af" "$n" "closed · $st" ;;
+            pending) amend_request_set_state "$af" "$n" "closed · withdrawn" ;;
+            approved*)
+                if [ "$how" = abort ]; then amend_request_set_state "$af" "$n" "closed · withdrawn"
+                else amend_request_set_state "$af" "$n" "closed · unused"; fi ;;
+            committed)
+                if [ "$how" = abort ]; then amend_request_set_state "$af" "$n" "closed · withdrawn"; changed=1; continue; fi
+                sha="$sq"
+                if [ -z "$sha" ]; then
+                    # From the commit the plan started at (`* **Base:**`): the parent may already
+                    # point at the plan's tip here (P-107 lands it before the archive commit).
+                    base="$(awk '/^##[[:space:]]/ { exit } /^\* \*\*Base:\*\*/ { print; exit }' "$pf" | sed -nE 's/^\* \*\*Base:\*\*[[:space:]]*`([0-9a-fA-F]+)`.*/\1/p')"
+                    git cat-file -e "$base^{commit}" 2>/dev/null || base=""
+                    sha="$(git log --format=%h --grep="^Amendment: R$n\$" "${base:+$base..}$br" 2>/dev/null | head -n 1)"
+                fi
+                if [ -z "$sha" ]; then
+                    echo "❌ [Done Refusal] R$n is committed, but no commit with 'Amendment: R$n' is on '$br'." >&2; return 1
+                fi
+                amend_record_in_owner "$pf" "$n" "$p" "$(amend_request_summary "$l")" "$pid" "$sha" "$today" || return 1
+                amend_request_set_state "$af" "$n" "closed · landed \`$sha\`" ;;
+            *) continue ;;
+        esac
+        changed=1
+    done
+    if [ "$changed" -eq 1 ]; then echo "current/$(basename "$af")"; fi
+    return 0
+}
+
+# _amend_check_file <amendments_file> <path> <n>: a file may be approved for R<n>
+# (P-129) when no plan in development lists it and no other approved request not
+# yet committed holds it; the refusal names which.
+_amend_check_file() {
+    local pf="$1" p="$2" n="$3" other l
     for other in "$PLANS_DIR"/current/*.md; do
-        [ "$other" = "$pf" ] && continue
         [ "$(plan_status_slug "$other")" = "in-development" ] || continue
+        # An owner's record of a landed amendment (`-> R<n> (by …)`) is history, not a claim.
+        grep -qF -- "- [x] \`$p\` -> R" "$other" && continue
         if parse_plan_target_paths "$other" | grep -qxF -- "$p"; then
-            echo "❌ [Refine] \`$p\` is a Target File of $(parse_plan_field "$other" "Plan ID"), which is in development; it cannot be added." >&2
+            echo "❌ [Refine] \`$p\` is a Target File of $(parse_plan_field "$other" "Plan ID"), which is in development; it cannot be approved." >&2
             return 1
         fi
     done
-    plan_add_target_line "$pf" "- [ ] \`$p\` -> $note"
+    while IFS= read -r l; do
+        [ "$(amend_request_number "$l")" = "$n" ] && continue
+        [ "$(amend_request_path "$l")" = "$p" ] || continue
+        case "$(amend_request_state "$l")" in approved*)
+            echo "❌ [Refine] \`$p\` is held by R$(amend_request_number "$l"), approved for $(amend_request_requester "$l") and not committed yet." >&2
+            return 1 ;;
+        esac
+    done < <(amend_request_lines "$pf")
 }
 
 # _amend_outside_group_section: a group plan on stdin without its
@@ -4131,7 +4191,7 @@ _amend_approver() {
     if [ -n "${AAPP_AGENT_NAME:-}" ]; then echo "$AAPP_AGENT_NAME"; else git config --get user.name 2>/dev/null || echo "unknown"; fi
 }
 
-# _refine_amend <kind> <query> <args…>: request | approve | refuse | file | decision
+# _refine_amend <kind> <query> <args…>: request | approve | refuse | decision
 # on a group's amendments member (P-101). Each is one plans commit.
 _refine_amend() {
     local kind="$1" query="$2" pf aid gid gf rel n l req bound target summary p reason heading k today af_rel gf_rel
@@ -4148,10 +4208,16 @@ _refine_amend() {
     today="$(date +%Y-%m-%d)"
     case "$kind" in
         request)
+            local owner="" for_txt="" state="pending" path=""
             summary="${1:-}"; shift || true
-            [ -n "$summary" ] || { echo "❌ [Refine] Usage: aapp refine <amend-id> request \"<summary>\" [file <path> | heading \"<heading>\"]" >&2; exit 1; }
+            [ -n "$summary" ] || { echo "❌ [Refine] Usage: aapp refine <amend-id> request \"<summary>\" [file <path> [for <plan-id>] | heading \"<heading>\"]" >&2; exit 1; }
             case "${1:-}" in
-                file)    [ -n "${2:-}" ] || { echo "❌ [Refine] 'file' needs a path." >&2; exit 1; }; target="\`$2\`" ;;
+                file)    [ -n "${2:-}" ] || { echo "❌ [Refine] 'file' needs a path." >&2; exit 1; }; path="$2"; target="\`$2\`"
+                         case "${3:-}" in
+                             for) [ -n "${4:-}" ] || { echo "❌ [Refine] 'for' needs a plan id." >&2; exit 1; }; owner="$4" ;;
+                             "")  ;;
+                             *)   echo "❌ [Refine] Unknown token '$3' after the file; use for <plan-id>." >&2; exit 1 ;;
+                         esac ;;
                 heading) [ -n "${2:-}" ] || { echo "❌ [Refine] 'heading' needs the heading's text." >&2; exit 1; }; target="§ $2" ;;
                 "")      target="—" ;;
                 *)       echo "❌ [Refine] Unknown token '$1'; use file <path> or heading \"<heading>\"." >&2; exit 1 ;;
@@ -4160,11 +4226,25 @@ _refine_amend() {
             if [ -z "$bound" ] || [ "$bound" = "$aid" ] || ! group_members "$gf" | grep -qxF "$bound"; then
                 echo "❌ [Refine] A request comes from the checkout of a member of group $gid, for itself; this checkout is bound to ${bound:-no plan}." >&2; exit 1
             fi
+            # P-129: the owner is the group plan or a plan of the group, current or archived.
+            if [ -n "$owner" ]; then
+                owner="P-${owner#P-}"
+                if [ "$owner" != "$gid" ] && ! group_members "$gf" | grep -qxF "$owner"; then
+                    echo "❌ [Refine] $owner is not a plan of group $gid; the owner is the group plan or one of its members." >&2; exit 1
+                fi
+                [ "$owner" = "$bound" ] || for_txt=" · for $owner"
+            fi
             aapp_amendment_approval_required >/dev/null || exit 1
             n="$(_amend_next "$pf" "Scope Requests" R)"
-            _amend_append "$pf" "Scope Requests" "- **R$n** $today · $bound · $target · $summary — pending"
+            if [ -n "$path" ] && [ "$(aapp_amendment_approval_required)" = "false" ]; then
+                _amend_check_file "$pf" "$path" "" || exit 1
+                state="approved (auto)"
+            fi
+            _amend_append "$pf" "Scope Requests" "- **R$n** $today · $bound · $target · $summary$for_txt — $state"
             _refine_commit "plan(refine): $aid request R$n from $bound" "$rel"
-            if [ "$(aapp_amendment_approval_required)" = "true" ] && [ "$target" != "—" ]; then
+            if [ "$state" != "pending" ]; then
+                echo "📝 [Refine] R$n recorded in $aid and approved: make it from your worktree in one commit, 'aapp commit \"<msg>\" amendment $n'."
+            elif [ "$(aapp_amendment_approval_required)" = "true" ] && [ "$target" != "—" ]; then
                 echo "📝 [Refine] R$n recorded in $aid, waiting for approval. Do not implement ${target#§ }; continue with your own Target Files, or stop. Check: aapp plan-status $aid"
             else
                 echo "📝 [Refine] R$n recorded in $aid."
@@ -4183,30 +4263,22 @@ _refine_amend() {
                 return 0
             fi
             if [ "$(aapp_amendment_approval_required)" != "true" ]; then
-                echo "❌ [Refine] aapp.amendmentApprovalRequired is false: $aid's owner adds a file with 'aapp refine $aid file <path> \"<reason>\"'." >&2; exit 1
+                echo "❌ [Refine] aapp.amendmentApprovalRequired is false: a file request is approved when it is made." >&2; exit 1
             fi
             p="$(amend_request_path "$l")"
             if [ -n "$p" ]; then
-                _amend_add_target "$pf" "$p" "R$n $(printf '%s\n' "$l" | sed -E 's/^.* · //; s/ — .*$//')" || exit 1
+                _amend_check_file "$pf" "$p" "$n" || exit 1
             fi
             amend_request_set_state "$pf" "$n" "approved ($(_amend_approver))"
             _refine_commit "plan(refine): $aid approve R$n" "$rel"
             if [ -n "$p" ]; then
-                echo "📝 [Refine] R$n approved: \`$p\` added to $aid's Target Files; implement it in $(parse_plan_worktree "$pf" | cut -f1)."
+                local req req_wt
+                req="$(amend_request_requester "$l")"
+                req_wt="$(parse_plan_worktree "$(resolve_plan_file "$req" "refine" 2>/dev/null)" 2>/dev/null | cut -f1)"
+                echo "📝 [Refine] R$n approved: $req makes it${req_wt:+ in $req_wt}, in one commit: aapp commit \"<msg>\" amendment $n"
             else
                 echo "📝 [Refine] R$n approved; $aid's owner applies it ('decision $n')."
             fi
-            ;;
-        file)
-            p="${1:-}"; reason="${2:-}"
-            [ -n "$p" ] && [ -n "$reason" ] || { echo "❌ [Refine] Usage: aapp refine <amend-id> file <path> \"<reason>\"" >&2; exit 1; }
-            if [ "$(aapp_amendment_approval_required)" != "false" ]; then
-                echo "❌ [Refine] Approval is required (aapp.amendmentApprovalRequired): a file comes in by 'request', then 'aapp refine $aid approve <n>'." >&2; exit 1
-            fi
-            _refine_owner_check "$pf" "$aid"
-            _amend_add_target "$pf" "$p" "$reason" || exit 1
-            _refine_commit "plan(refine): $aid file $(basename "$p")" "$rel"
-            echo "📝 [Refine] \`$p\` added to $aid's Target Files."
             ;;
         decision)
             _refine_owner_check "$pf" "$aid"
@@ -4249,7 +4321,7 @@ _refine_amend() {
 }
 
 # _amend_done_check <plan_file>: an amendments member is archived last, with no
-# request left pending or approved and not landed (P-101).
+# request left pending, approved or committed (P-101, P-129).
 _amend_done_check() {
     local pf="$1" gid gf m open="" req
     gid="$(parse_plan_field "$pf" Group)"
@@ -4264,7 +4336,7 @@ _amend_done_check() {
     fi
     req="$(amend_open_requests "$pf")"
     if [ -n "$req" ]; then
-        echo "❌ [Done Refusal] Requests still open; approve or refuse each, and land what was approved:" >&2
+        echo "❌ [Done Refusal] Requests still open; refuse each, or let its requester's 'done' close it:" >&2
         printf '%s\n' "$req" | sed 's/^/   /' >&2
         exit 1
     fi
@@ -4353,7 +4425,7 @@ cmd_refine() {
         pickup|issues) REFINE_KIND="$query" ;;
         *)
             REFINE_KIND=message
-            case "$msg" in unblocked|closes|slug|group|blocked|request|approve|refuse|file|decision) [ $# -ge 3 ] && REFINE_KIND="$msg" ;; esac
+            case "$msg" in unblocked|closes|slug|group|blocked|request|approve|refuse|decision) [ $# -ge 3 ] && REFINE_KIND="$msg" ;; esac
             plan_file="$(resolve_plan_file "$query" "refine")" || exit 1
             REFINE_PID="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*\*\*Plan ID:\*\*[[:space:]]*([^[:space:]]+).*/\1/p' "$plan_file" | head -n 1)"
             [ -n "$REFINE_PID" ] || REFINE_PID="$query"
@@ -4366,7 +4438,7 @@ cmd_refine() {
     case "$query" in
         pickup|issues) _refine_ledger "$query" "$msg" "${@:3}"; return ;;
     esac
-    case "$msg" in request|approve|refuse|file|decision)
+    case "$msg" in request|approve|refuse|decision)
         if [ $# -ge 3 ]; then _refine_amend "$msg" "$query" "${@:3}"; return; fi ;;
     esac
     if [ "$msg" = "unblocked" ] && [ $# -ge 3 ]; then

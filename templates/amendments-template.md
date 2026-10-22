@@ -6,11 +6,12 @@
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- A group's amendments member (P-101): drafted with its group, started by the group's `start`, archived
-     last. It takes what development finds: members request (`aapp refine <id> request`), an approver grants
-     (`approve` / `refuse`), it implements and lands on the feature branch (`aapp commit … land`), members
-     rebase. Its Target Files grow only by approved requests. Corrections of the group's text go into the
-     group plan with a line under `## Decisions` (`aapp refine <id> decision`). Only verbs write the three
-     sections at the end. -->
+     last. It is the log of what development finds: members request (`aapp refine <id> request`, a file
+     `for` its owner plan), an approver grants (`approve` / `refuse`), and the requesting member makes the
+     change in one commit (`aapp commit "<msg>" amendment <n>`, P-129): it lands at once when another plan
+     owns it, and that plan records it under `### Amendments`. A member's `done` closes its requests.
+     Corrections of the group's text go into the group plan with a line under `## Decisions`
+     (`aapp refine <id> decision`). Only verbs write the three sections at the end. -->
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Commits:** none
@@ -42,12 +43,12 @@
 ---
 
 ## 1. Context & Architectural Goal
-The group's amendments member: the one place where what the group's development finds is requested, approved, recorded and made. Members are never amended after start. Typical requests: a test outside a member that asserts the behaviour the member changes (landed here, the member rebases and turns it green); a file two members need; a correction of the group's text.
+The group's amendments member: the one place where what the group's development finds is requested, approved and recorded. Members are never amended after start. Typical requests: a test outside a member that asserts the behaviour the member changes; a file of a member already archived; a correction of the group's text.
 
 ---
 
 ## 2. Technical Blueprint
-Each request is implemented as its approval describes; corrections of the group's text are recorded under `## Decisions`.
+Each approved file is changed by its requester in one commit and recorded in the plan that owns it; corrections of the group's text are recorded under `## Decisions`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
@@ -56,15 +57,15 @@ Each request is implemented as its approval describes; corrections of the group'
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-- [ ] Task 1: Implement each approved request; land it (`aapp commit … land`).
-- [ ] Task 2: Leave no request pending or approved without landing before the group's members are archived.
+- [ ] Task 1: Approve or refuse each request; apply each approved correction of the group's text (`decision`).
+- [ ] Task 2: Leave no request open before the group's members are archived (a member's `done` closes its own).
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-<!-- Grows only by approved requests (aapp refine <id> approve <n>; or file, when approval is not required). -->
+<!-- Empty: an approved file is changed by its requester and recorded in the plan that owns it (P-129). -->
 
 ### 🛑 Out of Bounds (Do Not Touch)
 

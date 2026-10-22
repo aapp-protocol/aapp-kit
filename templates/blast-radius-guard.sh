@@ -544,6 +544,10 @@ PLAN_OOB=()
 while IFS= read -r ITEM; do
     [ -n "$ITEM" ] && PLAN_TARGETS+=("$ITEM")
 done < <(parse_plan_target_paths "$ACTIVE_PLAN_PATH")
+# P-129: an approved amendment request's file, until its commit.
+while IFS= read -r ITEM; do
+    [ -n "$ITEM" ] && PLAN_TARGETS+=("$ITEM")
+done < <(amend_approved_files "$ACTIVE_PLAN_PATH")
 
 while IFS= read -r ITEM; do
     [ -n "$ITEM" ] && PLAN_OOB+=("$ITEM")

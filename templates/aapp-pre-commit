@@ -307,6 +307,11 @@ if [ "$STAGED_CORE_COUNT" -gt 0 ]; then
                     CHANGELOG_UPDATED=1
                 fi
             fi
+            # P-129: an amendment commit (`aapp commit … amendment <n>`) is also covered by its owner's entry.
+            if [ "$CHANGELOG_UPDATED" -eq 0 ] && [ -n "${AAPP_AMENDMENT_OWNER:-}" ] && \
+               git show :CHANGELOG.md 2>/dev/null | aapp_changelog_plan_line "$AAPP_AMENDMENT_OWNER" >/dev/null; then
+                CHANGELOG_UPDATED=1
+            fi
         fi
     fi
 
@@ -647,6 +652,10 @@ if [ "$NON_BYPASS_COUNT" -gt 0 ]; then
         while IFS= read -r ITEM; do
             [ -n "$ITEM" ] && PLAN_TARGETS+=("$ITEM")
         done < <(parse_plan_target_paths "$ACTIVE_PLAN_PATH")
+        # P-129: an approved amendment request's file, until its commit.
+        while IFS= read -r ITEM; do
+            [ -n "$ITEM" ] && PLAN_TARGETS+=("$ITEM")
+        done < <(amend_approved_files "$ACTIVE_PLAN_PATH")
 
         while IFS= read -r ITEM; do
             [ -n "$ITEM" ] && PLAN_OOB+=("$ITEM")
@@ -704,7 +713,9 @@ fi
 # ------------------------------------------------------------------------------
 # lock_only_added_targets <head-sec4> <index-sec4> <index-plan>: true when the
 # index only adds Target Files lines to §4 (P-99, an amendments member's approved
-# file); the targets are read by the one parser, parse_plan_target_paths.
+# file); the targets are read by the one parser, parse_plan_target_paths. No verb
+# writes such lines since P-129; tests/pre-commit_test.sh, held by group P-111's
+# amendments member, still asserts the rule.
 lock_only_added_targets() {
     local d removed added targets l p tmp
     d="$(diff <(printf '%s\n' "$1") <(printf '%s\n' "$2"))"
@@ -719,6 +730,40 @@ lock_only_added_targets() {
         printf '%s\n' "$l" | grep -qE '^- \[[ x]\] `' || return 1
         p="$(printf '%s\n' "$l" | sed -nE 's/^- \[[ x]\] `([^`]+)`.*/\1/p')"
         [ -n "$p" ] && printf '%s\n' "$targets" | grep -qxF -- "$p" || return 1
+    done <<< "$added"
+}
+
+# lock_only_amendment_lines <head-sec4> <index-sec4> <staged-plan> <index-plan>
+# (P-129): true when the index only adds a landed amendment's lines to the plan's
+# §4: `- [x] `<path>` -> R<n> (by P-<r>)` in Target Files, and under
+# `### Amendments` (its heading on first use) `- R<n> <date> · `<path>` · … (by
+# P-<r>, landed `<sha>`)`; each R<n> landed for this plan, with that file, in its
+# group's amendments member staged in the same commit.
+lock_only_amendment_lines() {
+    local d removed added pid gid f ic ac="" l nr line
+    d="$(diff <(printf '%s\n' "$1") <(printf '%s\n' "$2"))"
+    removed="$(printf '%s\n' "$d" | grep '^< ')"
+    added="$(printf '%s\n' "$d" | sed -n 's/^> //p')"
+    [ -z "$removed" ] && [ -n "$added" ] || return 1
+    pid="$(printf '%s\n' "$4" | sed -nE 's/^\* \*\*Plan ID:\*\*[[:space:]]*(P-[0-9]+).*/\1/p' | head -n 1)"
+    if printf '%s\n' "$4" | head -n 1 | grep -q '^# 🧩 Group Plan'; then gid="$pid"
+    else gid="$(printf '%s\n' "$4" | sed -nE 's/^\* \*\*Group:\*\*[[:space:]]*(P-[0-9]+).*/\1/p' | head -n 1)"; fi
+    [ -n "$pid" ] && [ -n "$gid" ] || return 1
+    for f in "${STAGED_FILES[@]}"; do
+        [ "$(dirname "$f")" = "$(dirname "$3")" ] && [ "$f" != "$3" ] || continue
+        ic="$(git show ":$f" 2>/dev/null)" || continue
+        printf '%s\n' "$ic" | grep -qE '^\* \*\*Kind:\*\*[[:space:]]*amendments[[:space:]]*$' || continue
+        printf '%s\n' "$ic" | grep -qE "^\* \*\*Group:\*\*[[:space:]]*${gid}[[:space:]]*$" && ac="$ic"
+    done
+    [ -n "$ac" ] || return 1
+    while IFS= read -r l; do
+        case "$l" in ""|"### Amendments") continue ;; esac
+        nr="$(printf '%s\n' "$l" | sed -nE 's/^- \[x\] `([^`]+)` -> R([0-9]+) \(by P-[0-9]+\)$/\2 \1/p')"
+        [ -n "$nr" ] || nr="$(printf '%s\n' "$l" | sed -nE 's/^- R([0-9]+) [0-9-]+ · `([^`]+)` · .* \(by P-[0-9]+, landed `[0-9a-f]+`\)$/\1 \2/p')"
+        [ -n "$nr" ] || return 1
+        line="$(printf '%s\n' "$ac" | grep -m 1 -E "^- \*\*R${nr%% *}\*\* ")" || return 1
+        [ "$(amend_request_path "$line")" = "${nr#* }" ] && [ "$(amend_request_owner "$line")" = "$pid" ] && \
+            [ -n "$(amend_request_sha "$line")" ] || return 1
     done <<< "$added"
 }
 
@@ -816,6 +861,11 @@ for STAGED in "${STAGED_FILES[@]}"; do
     if [ "$HEAD_SEC4" != "$INDEX_SEC4" ] && [ "$HEAD_SEC2" = "$INDEX_SEC2" ] && \
        printf '%s\n' "$INDEX_CONTENT" | grep -qE '^\* \*\*Kind:\*\*[[:space:]]*amendments[[:space:]]*$' && \
        lock_only_added_targets "$HEAD_SEC4" "$INDEX_SEC4" "$INDEX_CONTENT"; then
+        DESIGN_VIOLATION=""
+    fi
+    # P-129: an owner may gain a landed amendment's lines, nothing else in §4.
+    if [ "$HEAD_SEC4" != "$INDEX_SEC4" ] && [ "$HEAD_SEC2" = "$INDEX_SEC2" ] && \
+       lock_only_amendment_lines "$HEAD_SEC4" "$INDEX_SEC4" "$STAGED" "$INDEX_CONTENT"; then
         DESIGN_VIOLATION=""
     fi
     # P-99: a group's `## Architecture & Codemap` is locked like §2 and §4; a

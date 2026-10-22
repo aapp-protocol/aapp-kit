@@ -905,10 +905,14 @@ plan_progress() {
 # ------------------------------------------------------------------------------
 # A group's amendments member (P-101): its request lines, read here only; the
 # verbs that write them are in lib/cmd_plan.sh (`refine request|approve|refuse|
-# file|decision`) and lib/cmd_commit.sh (`land`). A line under `## Scope Requests`:
-#   - **R<n>** <date> · P-<requester> · <target> · <summary> — <state>
-# <target> is `<path>` (backticked), `§ <heading>` or `—`; <state> is `pending`,
-# `approved (<approver>)`, `refused: <reason>`, `landed `<sha>``, or `applied`.
+# decision`, `done`, `plan abort`) and lib/cmd_commit.sh (`amendment <n>`). A line
+# under `## Scope Requests`:
+#   - **R<n>** <date> · P-<requester> · <target> · <summary>[ · for P-<owner>] — <state>
+# <target> is `<path>` (backticked), `§ <heading>` or `—`; the owner (P-129) is
+# named when it is not the requester. <state> is `pending`, `approved (<approver>)`,
+# `refused: <reason>`, `committed`, `landed `<sha>``, `applied`, or, closed by the
+# requester's `done` or `plan abort`, `closed · landed `<sha>``, `closed · unused`,
+# `closed · withdrawn`.
 # ------------------------------------------------------------------------------
 
 # aapp_amendment_approval_required: aapp.amendmentApprovalRequired (true | false,
@@ -947,6 +951,86 @@ amend_request_state() { printf '%s\n' "$1" | sed -E 's/.* — //'; }
 amend_request_path() { printf '%s\n' "$1" | sed -nE 's/^- \*\*R[0-9]+\*\* [^·]* · [^·]* · `([^`]+)` · .*/\1/p'; }
 amend_request_heading() { printf '%s\n' "$1" | sed -nE 's/^- \*\*R[0-9]+\*\* [^·]* · [^·]* · § ([^·]+) · .*/\1/p'; }
 
+# amend_request_number <line> / amend_request_requester <line>: R<n>'s n, and the
+# plan that made the request.
+amend_request_number() { printf '%s\n' "$1" | sed -nE 's/^- \*\*R([0-9]+)\*\* .*/\1/p'; }
+amend_request_requester() { printf '%s\n' "$1" | sed -nE 's/^- \*\*R[0-9]+\*\* [^·]* · ([^ ·]+) · .*/\1/p'; }
+
+# amend_request_owner <line>: the plan the change belongs to (P-129): the one named
+# by ` · for P-<n>` before the state, else the requester.
+amend_request_owner() {
+    local o
+    o="$(printf '%s\n' "$1" | sed -nE 's/.* · for (P-[0-9]+) — .*/\1/p')"
+    if [ -n "$o" ]; then echo "$o"; else amend_request_requester "$1"; fi
+}
+
+# amend_request_summary <line>: the text after the target, without the owner.
+amend_request_summary() {
+    printf '%s\n' "$1" | sed -E 's/^- \*\*R[0-9]+\*\* [^·]* · [^·]* · [^·]* · //; s/ — [^—]*$//; s/ · for P-[0-9]+$//'
+}
+
+# amend_request_sha <line>: the commit of a request that landed (`landed` or
+# `closed · landed`); empty otherwise.
+amend_request_sha() { printf '%s\n' "$1" | sed -nE 's/.* — (closed · )?landed `([0-9a-f]+)`$/\2/p'; }
+
+# amend_member_of <plan_file>: the amendments member of the plan's group (the
+# plan's `* **Group:**`, or the group plan itself), from `current/`; fails when none.
+amend_member_of() {
+    local dir gid gf
+    dir="$(dirname "$1")"; [ "$(basename "$dir")" = "current" ] || dir="$(dirname "$dir")/current"
+    if aapp_is_group_plan "$1"; then gid="$(parse_plan_field "$1" "Plan ID")"; else gid="$(parse_plan_field "$1" Group)"; fi
+    [ -n "$gid" ] || return 1
+    gf="$(ls "$dir"/P"${gid#P-}"-*.md 2>/dev/null | head -n 1)"
+    [ -n "$gf" ] || return 1
+    group_amendments_member "$gf"
+}
+
+# amend_approved_files <plan_file>: the files the plan may write by approved
+# requests it made and has not committed yet (P-129); nothing when none.
+amend_approved_files() {
+    local af pid l
+    af="$(amend_member_of "$1" 2>/dev/null)" || return 0
+    pid="$(parse_plan_field "$1" "Plan ID")"
+    while IFS= read -r l; do
+        [ "$(amend_request_requester "$l")" = "$pid" ] || continue
+        case "$(amend_request_state "$l")" in approved*) amend_request_path "$l" ;; esac
+    done < <(amend_request_lines "$af")
+    return 0
+}
+
+# amend_record_in_owner <owner_file> <n> <path> <summary> <requester> <sha> <date>:
+# the owner's record of a landed amendment (P-129): a Target Files line, and a line
+# under `### Amendments` at the end of its §4 (the subsection created on first use).
+# The plan stays as it was otherwise; an archived plan is appended to the same way.
+amend_record_in_owner() {
+    local f="$1" n="$2" p="$3" s="$4" req="$5" sha="$6" day="$7" tmp
+    plan_add_target_line "$f" "- [x] \`$p\` -> R$n (by $req)" || return 1
+    tmp="$f.aapp-amend.$$"
+    AAPP_AL="- R$n $day · \`$p\` · $s (by $req, landed \`$sha\`)" awk '
+        function emit() {
+            if (!has) { print ""; print "### Amendments" }
+            print ENVIRON["AAPP_AL"]
+            for (i = 0; i < nt; i++) print tail[i]
+            nt = 0; in4 = 0; done = 1
+        }
+        /^[[:space:]]*```/ { fence = !fence }
+        !fence && /^##?[[:space:]]/ {
+            if (in4) emit()
+            if (!done) in4 = ($0 ~ /^## ([^0-9]*[[:space:]])?4\./)
+            print; next
+        }
+        in4 && !fence && (/^[[:space:]]*$/ || /^---[[:space:]]*$/) { tail[nt++] = $0; next }
+        in4 {
+            for (i = 0; i < nt; i++) print tail[i]
+            nt = 0
+            if ($0 ~ /^###[[:space:]]+Amendments[[:space:]]*$/) has = 1
+            print; next
+        }
+        { print }
+        END { if (in4) emit() }
+    ' "$f" > "$tmp" && mv "$tmp" "$f"
+}
+
 # amend_request_for_file <plan_file> <path> <state-prefix>: the n of a request
 # for <path> whose state starts with <state-prefix>; fails when none.
 amend_request_for_file() {
@@ -958,16 +1042,18 @@ amend_request_for_file() {
     return 1
 }
 
-# amend_open_requests <plan_file>: the lines still pending, or approved and not
-# landed or applied.
+# amend_open_requests <plan_file>: the lines still pending, approved, or
+# committed and not landed.
 amend_open_requests() {
-    amend_request_lines "$1" | awk '/ — (pending|approved)/'
+    amend_request_lines "$1" | awk '/ — (pending$|approved|committed$)/'
 }
 
-# amend_request_counts <plan_file>: `<pending>,<approved>,<refused>,<landed>,<applied>`.
+# amend_request_counts <plan_file>: `<pending>,<approved>,<refused>,<landed>,<applied>`;
+# a committed request counts as approved, a closed one that landed as landed.
 amend_request_counts() {
     amend_request_lines "$1" | awk '
-        / — pending$/ { p++ } / — approved/ { a++ } / — refused/ { r++ } / — landed/ { l++ } / — applied$/ { ap++ }
+        / — pending$/ { p++ } / — (approved|committed$)/ { a++ } / — refused/ { r++ }
+        / — (closed · )?landed/ { l++ } / — applied$/ { ap++ }
         END { printf "%d,%d,%d,%d,%d\n", p, a, r, l, ap }'
 }
 

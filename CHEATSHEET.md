@@ -18,8 +18,8 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp draft [slug]` | **✅ Yes** | Scaffold blueprint from template, stamp ID & date, register in matrix |
 | `aapp draft <slug> issue <num>` | **✅ Yes** | Promote issue `#<num>`: Target Issue, Planned row and link in the draft commit |
 | `aapp draft <slug> group [<id>]` | **✅ Yes** | A group plan (`🧩 Group Plan`) with its amendments member, or a member of group `<id>`; `aapp refine <id> group <gid>\|none` joins or leaves before start |
-| `aapp refine <amend-id> request "<summary>" [file <path> \| heading "<h>"]` | **✅ Yes** | A member asks its group's amendments member for a file or a correction of the group's text; then `approve <n>` / `refuse <n> "<reason>"` (`aapp.amendmentApprovalRequired`), `file <path> "<reason>"` when approval is off, `decision <n> "<reason>"` for the group's text |
-| `aapp commit ["<msg>"] land` | **✅ Yes** | In the amendments member's worktree: fast-forward the group's feature branch to it; members rebase |
+| `aapp refine <amend-id> request "<summary>" [file <path> [for <id>] \| heading "<h>"]` | **✅ Yes** | A member asks its group's amendments member for a file (`for` the plan it belongs to) or a correction of the group's text; then `approve <n>` / `refuse <n> "<reason>"` (`aapp.amendmentApprovalRequired`; off: approved at once), `decision <n> "<reason>"` for the group's text |
+| `aapp commit "<msg>" amendment <n>` | **✅ Yes** | In the requester's worktree: approved request R<n>'s one commit; for another plan it lands on the feature branch at once and that plan records it; the requester's `done` closes the request |
 | `aapp refine <id> "<msg>"` | **✅ Yes** | Commit an edit to an active plan's content through the plans commit engine |
 | `aapp refine <id> slug <new-slug>` | **✅ Yes** | Rename a plan file; issue links and the matrix follow |
 | `aapp refine pickup\|issues "<msg>"` | **✅ Yes** | Commit a validated hand edit of `pickup.md`, or a change to existing rows of `ISSUES.md` (new rows: `aapp issue log`; the work queue: `aapp issue queue`) |

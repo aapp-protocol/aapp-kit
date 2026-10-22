@@ -81,7 +81,7 @@ cmd_commit() {
     local model_override=""
     local note_text=""
     local changelog_text=""
-    local is_land=0
+    local amendment_n=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -89,9 +89,11 @@ cmd_commit() {
                 is_amend=1
                 shift
                 ;;
-            land)
-                is_land=1
+            amendment)
                 shift
+                amendment_n="${1:-}"
+                [ $# -gt 0 ] && shift
+                [[ "$amendment_n" =~ ^[0-9]+$ ]] || { echo "❌ [Commit Refusal] 'amendment' needs a request number: aapp commit \"<msg>\" amendment <n>." >&2; return 1; }
                 ;;
             adopt)
                 is_adopt=1
@@ -244,17 +246,14 @@ cmd_commit() {
         return 1
     fi
 
-    # P-101: `land` belongs to a group's amendments member; with nothing staged
-    # and no message it lands what is committed.
-    if [ "$is_land" -eq 1 ]; then
-        if [ "$(parse_plan_field "$plan_file" Kind)" != "amendments" ]; then
-            echo "❌ [Commit Refusal] 'land' is for a group's amendments member; $plan_id lands with 'aapp done'." >&2
+    # P-129: an approved amendment request's one commit, by its requester.
+    if [ -n "$amendment_n" ]; then
+        if [ "$is_amend" -eq 1 ] || [ "$is_adopt" -eq 1 ] || [ -n "$changelog_text" ]; then
+            echo "❌ [Commit Refusal] 'amendment' takes a message and the attribution tokens only; not 'amend', 'adopt' or 'changelog'." >&2
             return 1
         fi
-        if [ -z "$commit_msg" ] && [ "$is_amend" -eq 0 ] && git diff --cached --quiet; then
-            _commit_land "$plan_file" "$plan_id"
-            return
-        fi
+        _commit_amendment "$plan_file" "$plan_id" "$amendment_n" "$commit_msg" "$agent_override" "$vendor_override" "$model_override" "$note_text"
+        return
     fi
 
     # P-51: in atomic mode a plan is one commit; further changes fold in with
@@ -507,53 +506,179 @@ cmd_commit() {
         local commit_data="{\"command\": \"commit\", \"event\": \"record\", \"plan_id\": \"$plan_id\", \"commit_sha\": \"$new_sha\", \"subject\": \"$(json_escape "$commit_msg")\", \"worktree\": \"$(json_escape "$wt_p")\", \"agent\": \"$(json_escape "$agent_name")\", \"vendor\": \"$(json_escape "$agent_vendor")\", \"model\": \"$(json_escape "$agent_model")\"}"
         dispatch_hook "post-commit" "$commit_data" || true
     fi
-
-    if [ "$is_land" -eq 1 ]; then _commit_land "$plan_file" "$plan_id" || return 1; fi
     return 0
 }
 
-# _commit_land <plan_file> <plan_id> (P-101): an amendments member's commits onto
-# its group's feature branch by P-55's path: _ig_preflight (the branch must hold
-# the feature branch tip: "rebase it first"; worktree and main checkout clean),
-# then _ig_run's fast-forward. Nothing archived, nothing removed, no test gate.
-_commit_land() {
-    local pf="$1" pid="$2" before after
+# _commit_amendment <plan_file> <plan_id> <n> <msg> <agent> <vendor> <model> <note>
+# (P-129): the one commit of approved request R<n>, made by its requester (the
+# active plan), holding R<n>'s file only (and CHANGELOG.md when the requester owns
+# it), with the trailer `Amendment: R<n>`; not recorded in the plan's Commits. A
+# request the requester owns becomes `committed`; one another plan owns lands at
+# once on the requester's parent branch (_commit_amendment_land).
+_commit_amendment() {
+    local pf="$1" pid="$2" n="$3" msg="$4" ao="$5" vo="$6" mo="$7" note="$8"
+    local af l p owner state f extra="" parent="" tip="" identity="" attr_mode tmp_msg sha
     # shellcheck source=/dev/null
-    AAPP_PLAN_LIB_ONLY=1 . "$(dirname "${BASH_SOURCE[0]}")/cmd_plan.sh" || return 1
-    IG_TARGET=""; IG_OVERRIDE_CAP=0; IG_MODE=ff; IG_NOCLEAN=1; IG_FORCECLEAN=0; IG_LAND=1
-    _ig_preflight "$pf" "$pid" || return 1
-    if [ "$IG_ALREADY" -eq 1 ]; then
-        echo "ℹ️  [Land] Nothing to land: $IG_TARGET_BR already holds $IG_PLAN_BR."
+    AAPP_PLAN_LIB_ONLY=1 . "$_LIB_DIR/cmd_plan.sh" || return 1
+    if [ -z "$msg" ]; then
+        echo "❌ [Commit Refusal] Commit message cannot be empty." >&2; return 1
+    fi
+    if ! af="$(amend_member_of "$pf")"; then
+        echo "❌ [Commit Refusal] $pid is in no group with an amendments member; there is no request R$n." >&2; return 1
+    fi
+    if ! l="$(amend_request_line "$af" "$n")"; then
+        echo "❌ [Commit Refusal] $(parse_plan_field "$af" "Plan ID") has no request R$n." >&2; return 1
+    fi
+    p="$(amend_request_path "$l")"; state="$(amend_request_state "$l")"; owner="$(amend_request_owner "$l")"
+    if [ -z "$p" ]; then
+        echo "❌ [Commit Refusal] R$n names no file; a correction of the group's text is applied with 'decision'." >&2; return 1
+    fi
+    if [ "$(amend_request_requester "$l")" != "$pid" ]; then
+        echo "❌ [Commit Refusal] R$n was requested by $(amend_request_requester "$l"); only its requester makes its commit." >&2; return 1
+    fi
+    case "$state" in
+        approved*) ;;
+        committed|"landed "*|closed*) echo "❌ [Commit Refusal] R$n already has its commit ($state); a further change to \`$p\` is a new request." >&2; return 1 ;;
+        *) echo "❌ [Commit Refusal] R$n is not approved ($state)." >&2; return 1 ;;
+    esac
+    if git diff --cached --quiet -- "$p"; then
+        echo "❌ [Commit Refusal] Stage R$n's file first: git add $p" >&2; return 1
+    fi
+    while IFS= read -r f; do
+        [ "$f" = "$p" ] && continue
+        [ "$owner" = "$pid" ] && [ "$f" = "CHANGELOG.md" ] && continue
+        extra="$extra $f"
+    done < <(git diff --cached --name-only)
+    if [ -n "$extra" ]; then
+        echo "❌ [Commit Refusal] R$n's commit holds \`$p\` only; also staged:$extra" >&2; return 1
+    fi
+    if [ "$owner" != "$pid" ]; then
+        parent="$(plan_base_branch "$pf")"
+        if [ -z "$parent" ] || ! git show-ref --verify --quiet "refs/heads/$parent"; then
+            echo "❌ [Commit Refusal] $pid has no parent branch to land R$n on (its * **Base:**)." >&2; return 1
+        fi
+        tip="$(git rev-parse "refs/heads/$parent")"
+        if [ "$(git rev-parse -q --verify "$tip:$p" 2>/dev/null)" != "$(git rev-parse -q --verify "HEAD:$p" 2>/dev/null)" ]; then
+            echo "❌ [Commit Refusal] \`$p\` changed on $parent since this branch took it; rebase onto $parent first: git rebase --autostash $parent" >&2
+            return 1
+        fi
+    else
+        changelog_sync_plan_entry "$pf" "$pid" || return 1
+    fi
+
+    if declare -f resolve_ai_identity >/dev/null; then identity="$(resolve_ai_identity "$ao" "$vo" "$mo")"; fi
+    attr_mode="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
+    if [ "$attr_mode" = "strict" ] && [ -z "$identity" ]; then
+        echo "❌ [Commit Refusal] Strict attribution mode requires valid AI identity." >&2; return 1
+    fi
+    tmp_msg="$(mktemp)" || return 1
+    printf '%s\n' "$msg" > "$tmp_msg"
+    if declare -f attribution_decorate >/dev/null && ! attribution_decorate "$tmp_msg" "$identity"; then
+        rm -f "$tmp_msg"; echo "❌ [Commit Refusal] Attribution decoration failed." >&2; return 1
+    fi
+    if ! git interpret-trailers --in-place --trailer "Amendment: R$n" "$tmp_msg"; then
+        rm -f "$tmp_msg"; echo "❌ [Commit Refusal] Could not add the Amendment trailer." >&2; return 1
+    fi
+    if ! AAPP_COMMIT_HELPER=1 AAPP_AMENDMENT_OWNER="$owner" git commit -F "$tmp_msg"; then
+        rm -f "$tmp_msg"; return 1
+    fi
+    rm -f "$tmp_msg"
+    sha="$(git rev-parse --short HEAD)"
+    if [ -n "$note" ] || { [ -n "$identity" ] && { [ "$attr_mode" = "notes" ] || [ "$(git config aapp.aiNotes 2>/dev/null)" = "true" ]; }; }; then
+        if declare -f attribution_note >/dev/null && ! attribution_note "$sha" "$identity" "$note"; then
+            echo "❌ [Commit Refusal] Note attachment failed for $sha." >&2; return 1
+        fi
+    fi
+
+    if [ "$owner" = "$pid" ]; then
+        amend_request_set_state "$af" "$n" "committed"
+        plans_commit "plan(record): R$n committed for $pid" "current/$(basename "$af")" || {
+            echo "❌ [Plan Commit Failure] R$n's commit $sha is made, but the request was not marked; its 'done' still finds it by the trailer." >&2; return 1; }
+        echo "🧩 [Amendment] R$n committed ($sha) on $(git rev-parse --abbrev-ref HEAD); $pid's 'done' records it in its plan."
         return 0
     fi
-    before="$(git rev-parse "$IG_TARGET_BR")"
-    _ig_run "$pf" "$pid" || return 1
-    after="$(git rev-parse "$IG_TARGET_BR")"
-    _land_record_requests "$pf" "$pid" "$before" "$after" || return 1
-    _land_name_members "$pf" "$IG_TARGET_BR"
+    _commit_amendment_land "$pf" "$pid" "$af" "$l" "$n" "$p" "$owner" "$parent"
+}
 
+# _commit_amendment_land <plan_file> <plan_id> <amend_file> <line> <n> <path> <owner>
+# <parent>: lands R<n>'s commit (HEAD) on the parent branch under the lock
+# `integrate/<parent>`: the same change (<path> only, same message and author) on
+# the parent's tip, which moves to it (a worktree holding the parent fast-forwards;
+# otherwise the ref moves only from the tip it was read at). Then the request and
+# the owner's record in one plans commit, and the requester's rebase onto the
+# parent, which drops its own copy. A failed landing undoes the local commit (the
+# change stays staged) and lands nothing.
+_commit_amendment_land() {
+    local pf="$1" pid="$2" af="$3" l="$4" n="$5" p="$6" owner="$7" parent="$8"
+    local tip idx entry tree new short sign="" holder of today ref old wt
+    old="$(git rev-parse HEAD)"
+    _amend_undo() { git reset -q --soft HEAD~1; echo "   Nothing landed; R$n's change is staged again." >&2; }
+    aapp_lock_acquire "integrate/$parent" "" "Parent branch '$parent'" || { _amend_undo; return 1; }
+    tip="$(git rev-parse "refs/heads/$parent")"
+    if [ "$(git rev-parse -q --verify "$tip:$p" 2>/dev/null)" != "$(git rev-parse -q --verify "HEAD~1:$p" 2>/dev/null)" ]; then
+        aapp_lock_release "integrate/$parent"
+        echo "❌ [Commit Refusal] \`$p\` changed on $parent meanwhile; rebase onto $parent first: git rebase --autostash $parent" >&2
+        _amend_undo; return 1
+    fi
+    idx="$(mktemp)" || { aapp_lock_release "integrate/$parent"; _amend_undo; return 1; }
+    entry="$(git ls-tree HEAD -- "$p")"
+    if ! GIT_INDEX_FILE="$idx" git read-tree "$tip" || \
+       { [ -n "$entry" ] && ! GIT_INDEX_FILE="$idx" git update-index --add --cacheinfo "$(printf '%s' "$entry" | awk '{ print $1 "," $3 }'),$p"; } || \
+       { [ -z "$entry" ] && ! GIT_INDEX_FILE="$idx" git update-index --force-remove -- "$p"; } || \
+       ! tree="$(GIT_INDEX_FILE="$idx" git write-tree)"; then
+        rm -f "$idx"; aapp_lock_release "integrate/$parent"
+        echo "❌ [Commit Refusal] Could not build R$n's commit on $parent." >&2; _amend_undo; return 1
+    fi
+    rm -f "$idx"
+    [ "$(git config --type=bool --get commit.gpgsign 2>/dev/null)" = "true" ] && sign="-S"
+    if ! new="$(git log -1 --format=%B HEAD | GIT_AUTHOR_NAME="$(git log -1 --format=%an HEAD)" \
+        GIT_AUTHOR_EMAIL="$(git log -1 --format=%ae HEAD)" GIT_AUTHOR_DATE="$(git log -1 --format=%aD HEAD)" \
+        git commit-tree $sign "$tree" -p "$tip")"; then
+        aapp_lock_release "integrate/$parent"
+        echo "❌ [Commit Refusal] Could not make R$n's commit on $parent." >&2; _amend_undo; return 1
+    fi
+    holder="$(git worktree list --porcelain | awk -v b="refs/heads/$parent" '/^worktree / { w = substr($0, 10) } $1 == "branch" && $2 == b { print w; exit }')"
+    if [ -n "$holder" ]; then
+        if [ "$(git -C "$holder" rev-parse HEAD)" != "$tip" ] || ! git -C "$holder" merge -q --ff-only "$new" >/dev/null 2>&1; then
+            aapp_lock_release "integrate/$parent"
+            echo "❌ [Commit Refusal] $parent could not be fast-forwarded in $holder (moved, or changed there)." >&2; _amend_undo; return 1
+        fi
+    elif ! git update-ref "refs/heads/$parent" "$new" "$tip" 2>/dev/null; then
+        aapp_lock_release "integrate/$parent"
+        echo "❌ [Commit Refusal] $parent moved during the landing; nothing landed." >&2; _amend_undo; return 1
+    fi
+    aapp_lock_release "integrate/$parent"
+    short="$(git rev-parse --short "$new")"
+    for ref in ai commits; do
+        if git notes --ref="$ref" show "$old" >/dev/null 2>&1; then git notes --ref="$ref" copy "$old" "$new" >/dev/null 2>&1 || echo "⚠️  [Amendment] Could not copy the refs/notes/$ref note to $short." >&2; fi
+    done
+    echo "🔀 [Amendment] R$n landed on $parent ($short)."
+
+    # The request and the owner's record, in one plans commit.
+    of="$(ls "$PLANS_DIR"/current/P"${owner#P-}"-*.md 2>/dev/null | head -n 1)"
+    [ -n "$of" ] || of="$(ls "$PLANS_DIR"/done/P"${owner#P-}"-*.md 2>/dev/null | head -n 1)"
+    today="$(date +%Y-%m-%d)"
+    amend_request_set_state "$af" "$n" "landed \`$short\`"
+    if [ -z "$of" ] || ! amend_record_in_owner "$of" "$n" "$p" "$(amend_request_summary "$l")" "$pid" "$short" "$today" || \
+       ! plans_commit "plan(record): land R$n $short for $owner" "current/$(basename "$af")" "${of#"$PLANS_DIR"/}"; then
+        echo "❌ [Plan Commit Failure] R$n landed ($short) on $parent, but its record in $(parse_plan_field "$af" "Plan ID") and $owner was not committed; check 'git -C .plans status'." >&2
+        return 1
+    fi
+
+    # The requester takes the parent: its own copy of the change is dropped.
+    wt="$(git rev-parse --show-toplevel)"
+    if ! git -C "$wt" rebase -q --autostash "$parent" >/dev/null 2>&1; then
+        echo "❌ [Amendment] R$n landed, but the rebase of $pid onto $parent stopped; resolve it in $wt and 'git rebase --continue'." >&2
+        return 1
+    fi
+    _land_name_members "$af" "$parent"
     if [ -f "$_LIB_DIR/hook_dispatcher.sh" ]; then
         # shellcheck source=/dev/null
         source "$_LIB_DIR/hook_dispatcher.sh"
-        local gid
-        gid="$(parse_plan_field "$pf" Group)"
-        local land_data="{\"command\": \"commit\", \"event\": \"land\", \"group_id\": \"$gid\", \"amendment_id\": \"$pid\", \"feature_branch\": \"$IG_TARGET_BR\", \"commit_sha\": \"$(git rev-parse --short "$after")\"}"
+        local land_data="{\"command\": \"commit\", \"event\": \"land\", \"group_id\": \"$(parse_plan_field "$af" Group)\", \"amendment_id\": \"$(parse_plan_field "$af" "Plan ID")\", \"feature_branch\": \"$parent\", \"commit_sha\": \"$short\"}"
         dispatch_hook "post-land" "$land_data" || true
     fi
-}
-
-# _land_record_requests <plan_file> <plan_id> <before> <after>: each approved
-# request whose file the landed commits touch becomes `landed` with the last
-# commit touching it, in one plans commit.
-_land_record_requests() {
-    local pf="$1" pid="$2" before="$3" after="$4" f sha n changed=0
-    while IFS= read -r f; do
-        n="$(amend_request_for_file "$pf" "$f" approved)" || continue
-        sha="$(git log -1 --format=%h "$before..$after" -- "$f")"
-        amend_request_set_state "$pf" "$n" "landed \`$sha\`" && changed=1
-    done < <(git diff --name-only "$before" "$after")
-    [ "$changed" -eq 1 ] || return 0
-    plans_commit "plan(record): land $(git rev-parse --short "$after") for $pid" "current/$(basename "$pf")"
+    echo "   $pid is rebased onto $parent; $owner records R$n."
 }
 
 # _land_name_members <plan_file> <feature-branch>: the members in development
