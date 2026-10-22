@@ -148,7 +148,7 @@ Keeps the request log (`## Scope Requests`), approval, refusal, and the group te
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** Which line: the port branch (`feature/perl-port-of-the-kit`, so the remaining P-111 members use it, P-119/P-120/P-116 port it), or the bash line with a note in P-119?
+* [x] **Question 1:** Bash, so the kit uses it at once; the Perl members port it (notes in P-116, P-119, P-120). Decided 2026-10-22.
 * [x] **Question 2:** The landed hash in the owner only on its `### Amendments` line (§2.4.2), so its `* **Commits:**` line agrees with the archive ledger. Decided 2026-10-22.
 
 ---
