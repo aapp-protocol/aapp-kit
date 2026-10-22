@@ -17,8 +17,8 @@
 # ==============================================================================
 set -u
 
-# Until P-125 both runners run. A branch cut before tests/test-run existed has no Perl modules to run.
-TEST_CMD='./aapp test strict quiet && { [ ! -x tests/test-run ] || tests/test-run strict quiet; }'
+# Until P-125 both runners run. A branch cut before t/test-run existed has no Perl tests to run.
+TEST_CMD='./aapp test strict quiet && { [ ! -x t/test-run ] || t/test-run strict quiet; }'
 
 envelope="$(cat)"
 field() { printf '%s\n' "$envelope" | sed -nE "s/.*\"$1\":[[:space:]]*\"([^\"]*)\".*/\1/p" | head -n 1; }

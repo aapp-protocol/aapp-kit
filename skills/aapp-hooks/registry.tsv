@@ -26,4 +26,4 @@
 # Register hooks using: aapp hook-hash <path> [event] [timeout] [mode]
 # Audit hooks using:    aapp hooks
 # ==============================================================================
-pre-done	.agents/hooks/test-gate.sh	sha256:ef260fe37410bbba4b63a3e4c900411476bb174b868d83829c4956322b06183d	900	gate
+pre-done	.agents/hooks/test-gate.sh	sha256:2d301fc14405347b40a6d662c8aef588dfc7e3906bf9d6c07375a435798ca439	900	gate
