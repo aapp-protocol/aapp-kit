@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Perl 5.26+ foundation modules (`AAPP::Constants`, `AAPP::Paths`, `AAPP::Config`, `AAPP::Logger`, `AAPP::Runner`) with declared return numbers, signal and crash handling, and an optional log file (`aapp.perlLogFile`) (P-127) (`P-127`)
 
 ### Fixed
+- refine approve no longer refuses a file the amendments member's own Target Files list (`#190`)
 - Fixed: the design lock no longer reads a numbered heading inside a fenced block as the plan's own section (#186) (`#186`)
 - Fixed: AAPP::Logger's print sub is print_msg, no longer the Perl built-in name say (#182) (`#182`)
 

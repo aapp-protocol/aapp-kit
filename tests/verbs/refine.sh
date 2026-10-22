@@ -440,6 +440,9 @@ if [ "$r1" -eq 0 ] && grep -qF -- "- **R2** $(date +%Y-%m-%d) · $am · \`src/g.
 else
   bad "test_amend_request_names_its_owner" "r1=$r1 out1=$out1 r2=$r2 out2=$out2 r3=$r3 out3=$out3"
 fi
+# A Target Files line the amendments member kept from before P-129 is no claim (#190).
+awk '/^### 📂 Target Files/ { print; print "- [ ] `src/helper.sh` -> R0 old route"; next } { print }' "$af" > "$af.t" && mv "$af.t" "$af"
+git -C .plans commit -qam "fixture: old-route target" --no-verify >/dev/null 2>&1
 out="$(aapp refine "$aa" approve 1 2>&1)"; rc=$?
 g1=0; ( cd "$mwt" && bash .githooks/blast-radius-guard src/helper.sh >/dev/null 2>&1 ) || g1=$?
 g2=0; ( cd "$mwt" && bash .githooks/blast-radius-guard src/unlisted.sh >/dev/null 2>&1 ) || g2=$?

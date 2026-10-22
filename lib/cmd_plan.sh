@@ -4157,6 +4157,8 @@ _amend_close_requests() {
 _amend_check_file() {
     local pf="$1" p="$2" n="$3" other l
     for other in "$PLANS_DIR"/current/*.md; do
+        # The amendments member's own Target Files predate P-129: no claim.
+        [ "$other" = "$pf" ] && continue
         [ "$(plan_status_slug "$other")" = "in-development" ] || continue
         # An owner's record of a landed amendment (`-> R<n> (by …)`) is history, not a claim.
         grep -qF -- "- [x] \`$p\` -> R" "$other" && continue
