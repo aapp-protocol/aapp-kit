@@ -1,4 +1,4 @@
-package AAPP::Core::Output;
+package AAPP::T::Core::Output;
 
 use strict;
 use warnings;
@@ -6,8 +6,9 @@ use utf8;
 use 5.026;
 
 use AAPP::Constants qw(RETURN_OK);
+use AAPP::Tests ();
 
-# Each test_<name> sub is described by its line in lib/docs/core/output.md.
+# Each test_<name> sub is described by its line in lib/docs/core/output.md. Run alone: prove -l t/core/output.t
 
 # Usage     : fixture($self)
 # Purpose   : An empty git repository: the width is read from its git config.
@@ -108,5 +109,7 @@ sub test_width_setting
     }
     return 1;
 }
+
+AAPP::Tests::run_file(__FILE__) unless caller;
 
 1;

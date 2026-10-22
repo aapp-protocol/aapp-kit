@@ -24,8 +24,11 @@ use AAPP::Logger ();
 use AAPP::Paths  ();
 use AAPP::Runner ();
 
-# Test areas: the selection word, the module folder under tests/AAPP/, and the contracts naming its tests.
-our @AREAS = ( [ 'core', 'Core', 'lib/docs/core' ], [ 'verb', 'Verb', 'lib/docs/verbs' ] );
+# The kit's test folder, as in any Perl project: t/<area>/<name>.t.
+our $TEST_DIR = 't';
+
+# Test areas: the selection word, its folder under t/, and the contracts naming its tests.
+our @AREAS = ( [ 'core', 'core', 'lib/docs/core' ], [ 'verb', 'verb', 'lib/docs/verbs' ] );
 
 # Libraries for lib_call: a Perl module is called in a fork of the test process, a bash library
 # through bash. A member that ports a library changes its line here; the tests stay as they are.
@@ -48,8 +51,8 @@ our %LIBRARIES = (
 # The bash library sourced before any bash library a test calls.
 our $BASH_BASE_LIBRARY = 'lib/aapp-lib.sh';
 
-# Kit parts installed into a sandbox kit, next to the aapp executable.
-our @KIT_PARTS = qw(lib templates tests examples);
+# Kit parts installed into a sandbox kit, next to the aapp executable: what an install ships (no tests).
+our @KIT_PARTS = qw(lib templates examples);
 
 # The worktree pointer files a fixture copy rewrites to its own root.
 our @POINTER_FILES = (
@@ -60,7 +63,7 @@ our @POINTER_FILES = (
 # Environment a test never inherits from its caller (a git hook, an aapp run).
 our @ENV_DROP_PREFIXES = qw(GIT_ AAPP_);
 
-# Bare-word modifiers of tests/test-run.
+# Bare-word modifiers of t/test-run.
 our @MODIFIERS = qw(strict quiet bail list help);
 
 # The summary line's title; the test gate prints from this line to the end.
@@ -69,7 +72,7 @@ our $SUMMARY_TITLE = 'Test Summary';
 my $RULE = '=' x 60;
 
 # Usage     : AAPP::Tests::main(@ARGV)
-# Purpose   : tests/test-run's entry: installs the Runner's handlers, runs the selection, and exits
+# Purpose   : t/test-run's entry: installs the Runner's handlers, runs the selection, and exits
 #             with the run's return number.
 # Returns   : Does not return.
 sub main
@@ -81,6 +84,38 @@ sub main
     STDERR->autoflush(1);
     my $self = __PACKAGE__->new();
     $AAPP::Runner::return = $self->run_cli(@argv);
+    AAPP::Runner::exit_code();
+    return;
+}
+
+# Usage     : AAPP::Tests::run_file(__FILE__) unless caller;   (the last line of a t/<area>/<name>.t)
+# Purpose   : Runs one test file alone, as 'prove -l t/' or 'perl -Ilib t/core/output.t' does: its tests
+#             in contract order, numbered 1..N after a TAP plan, the recap as TAP comments.
+# Returns   : Does not return.
+sub run_file
+{
+    my ($file) = @_;
+    AAPP::Runner::init_signals();
+    binmode( $_, ':encoding(UTF-8)' ) for \*STDOUT, \*STDERR;
+    STDOUT->autoflush(1);
+    STDERR->autoflush(1);
+    my $self = __PACKAGE__->new();
+    $self->{tap} = 1;
+    $AAPP::Runner::return = RETURN_FAIL;
+    # The file runs as the program already: load_tests must not compile it a second time.
+    my $abs = Cwd::abs_path($file);
+    $INC{$abs} = $abs;
+    if ( $self->load_tests() ) {
+        my $n   = 0;
+        my @tests = map { +{ %{$_}, index => ++$n } } grep { Cwd::abs_path( $_->{file} ) eq $abs } @{ $self->{tests} };
+        if (@tests) {
+            $AAPP::Runner::return = $self->run_tests( { jobs => 1 }, @tests );
+        } else {
+            AAPP::Logger::print_msg( 'ERROR', "No contract names a test of $file." );
+        }
+    }
+    # A run stopped before its plan says why in TAP's own words, so prove shows it.
+    print "Bail out! $file: see the [ ERROR ] lines above.\n" if $AAPP::Runner::return != RETURN_OK && !$self->{planned};
     AAPP::Runner::exit_code();
     return;
 }
@@ -103,7 +138,7 @@ sub run_cli
 {
     my ( $self, @argv ) = @_;
     if ( $^O eq 'MSWin32' ) {
-        AAPP::Logger::print_msg( 'ERROR', 'tests/test-run needs a POSIX Perl (fork and process groups): run it from Git Bash, WSL, Linux, macOS or BSD.' );
+        AAPP::Logger::print_msg( 'ERROR', 't/test-run needs a POSIX Perl (fork and process groups): run it from Git Bash, WSL, Linux, macOS or BSD.' );
         return RETURN_FAIL;
     }
     my $opt = parse_args(@argv) // return RETURN_FAIL;
@@ -138,7 +173,7 @@ sub parse_args
         } elsif ( $arg eq 'jobs' ) {
             my $n = shift @argv;
             if ( !defined $n || $n !~ /^[1-9][0-9]*$/ ) {
-                AAPP::Logger::print_msg( 'ERROR', "'jobs' needs a positive number: tests/test-run jobs <n>." );
+                AAPP::Logger::print_msg( 'ERROR', "'jobs' needs a positive number: t/test-run jobs <n>." );
                 return;
             }
             $opt{jobs} = $n;
@@ -151,37 +186,38 @@ sub parse_args
         }
     }
     if ( defined $opt{verbs} && @{ $opt{select} } ) {
-        AAPP::Logger::print_msg( 'ERROR', "'verb' selects verb modules only; other selectors cannot come with it." );
+        AAPP::Logger::print_msg( 'ERROR', "'verb' selects verb files only; other selectors cannot come with it." );
         return;
     }
     return \%opt;
 }
 
 # Usage     : print_help()
-# Purpose   : Prints tests/test-run's usage.
+# Purpose   : Prints t/test-run's usage.
 # Returns   : 1
 sub print_help
 {
     print <<'EOF';
-Usage: tests/test-run [modifier…] [selector…]
-       tests/test-run [modifier…] verb [<verb>…]
+Usage: t/test-run [modifier…] [selector…]
+       t/test-run [modifier…] verb [<verb>…]
 
-Runs the kit's Perl test modules (tests/AAPP/Core, tests/AAPP/Verb) in the order
-their contracts list them (lib/docs/core, lib/docs/verbs).
+Runs the kit's Perl test files (t/core/*.t, t/verb/*.t) in the order their
+contracts list them (lib/docs/core, lib/docs/verbs). One file alone, with a
+TAP plan: prove -l t/core/output.t
 
 Selectors (any number; a test matching one of them runs):
-  core | verb        every module of the area
-  <module>           one module, e.g. output, Output, pre-commit
+  core | verb        every file of the area
+  <file>             one file, e.g. output, pre-commit
   <n>                the n-th test as 'list' numbers it
   <text>             tests whose name or description contains the text
-  verb <verb>…       the verb modules of the named verbs
+  verb <verb>…       the verb files of the named verbs
 
 Modifiers:
   strict             fail-closed sandbox containment (AAPP_TEST_SANDBOX_STRICT=1)
-  quiet              one line per module instead of one per test
+  quiet              one line per file instead of one per test
   bail               start nothing more after the first failure
   list               list the selected tests without running them
-  jobs <n>           run up to <n> modules at once (default: the CPU count
+  jobs <n>           run up to <n> files at once (default: the CPU count
                      rounded down to a multiple of 4)
   help               this text
 EOF
@@ -189,48 +225,52 @@ EOF
 }
 
 # Usage     : $tests->load_tests() or return RETURN_FAIL
-# Purpose   : Reads every contract's '## Tests' lines naming tests/AAPP/<Area>/<Module>.pm::test_<name>,
-#             loads each module, and checks both ways: every listed test is a sub, every test_ sub is listed.
+# Purpose   : Reads every contract's '## Tests' lines naming t/<area>/<name>.t::test_<name>, loads
+#             each test file, and checks both ways: every listed test is a sub, every test_ sub is listed.
 # Returns   : 1, or 0 after an [ ERROR ] line per mismatch.
 sub load_tests
 {
     my ($self) = @_;
-    my ( @tests, @errors, %listed, %module_order );
+    my ( @tests, @errors, %listed, %file_order );
     foreach my $area (@AREAS) {
         my ( $word, $folder, $docs ) = @{$area};
         foreach my $contract ( sort glob("$self->{kit}/$docs/*.md") ) {
             my $rel = "$docs/" . File::Basename::basename($contract);
             foreach my $entry ( contract_tests($contract) ) {
-                my ( $entry_folder, $module, $name, $desc ) = @{$entry};
-                my $ident = "tests/AAPP/$entry_folder/$module.pm::$name";
+                my ( $entry_folder, $stem, $name, $desc ) = @{$entry};
+                my $ident = "$TEST_DIR/$entry_folder/$stem.t::$name";
                 if ( $entry_folder ne $folder ) {
-                    push @errors, "$rel: '$ident' is not a module of tests/AAPP/$folder/";
+                    push @errors, "$rel: '$ident' is not a file of $TEST_DIR/$folder/";
                     next;
                 }
                 if ( $listed{$ident}++ ) {
                     push @errors, "$rel: '$ident' is listed twice";
                     next;
                 }
-                $module_order{"$folder/$module"} //= scalar keys %module_order;
-                push @tests, { area => $word, folder => $folder, module => $module, name => $name, desc => $desc, contract => $rel };
+                $file_order{"$folder/$stem"} //= scalar keys %file_order;
+                push @tests, { area => $word, folder => $folder, module => $stem, name => $name, desc => $desc, contract => $rel };
             }
         }
     }
     my %package_of;
     foreach my $area (@AREAS) {
         my ( $word, $folder, $docs ) = @{$area};
-        foreach my $file ( sort glob("$self->{kit}/tests/AAPP/$folder/*.pm") ) {
-            my $module  = File::Basename::basename( $file, '.pm' );
-            my $package = "AAPP::${folder}::$module";
-            my $loaded  = eval { require "AAPP/$folder/$module.pm"; 1 };
+        foreach my $file ( sort glob("$self->{kit}/$TEST_DIR/$folder/*.t") ) {
+            my $stem    = File::Basename::basename( $file, '.t' );
+            my $rel     = "$TEST_DIR/$folder/$stem.t";
+            my $package = test_package( $folder, $stem );
+            my $loaded  = eval { require $file; 1 };
             if ( !$loaded ) {
-                push @errors, "tests/AAPP/$folder/$module.pm does not load: " . ( $@ =~ s/\s+$//r );
+                push @errors, "$rel does not load: " . ( $@ =~ s/\s+$//r );
                 next;
             }
-            $package_of{"$folder/$module"} = $package;
+            if ( !package_stash($package) ) {
+                push @errors, "$rel does not declare package $package";
+                next;
+            }
+            $package_of{"$folder/$stem"} = $package;
             foreach my $sub ( test_subs($package) ) {
-                my $ident = "tests/AAPP/$folder/$module.pm::$sub";
-                push @errors, "$ident is named by no contract ($docs/)" if !$listed{$ident};
+                push @errors, "${rel}::$sub is named by no contract ($docs/)" if !$listed{"${rel}::$sub"};
             }
         }
     }
@@ -238,31 +278,42 @@ sub load_tests
         my $key     = "$test->{folder}/$test->{module}";
         my $package = $package_of{$key};
         if ( !defined $package ) {
-            push @errors, "$test->{contract}: names tests/AAPP/$key.pm, which does not exist";
+            push @errors, "$test->{contract}: names $TEST_DIR/$key.t, which does not exist";
             next;
         }
         if ( !$package->can( $test->{name} ) ) {
-            push @errors, "$test->{contract}: '$test->{name}' is not a sub of tests/AAPP/$key.pm";
+            push @errors, "$test->{contract}: '$test->{name}' is not a sub of $TEST_DIR/$key.t";
             next;
         }
         $test->{package} = $package;
         $test->{key}     = $key;
+        $test->{file}    = "$self->{kit}/$TEST_DIR/$key.t";
     }
     if (@errors) {
         AAPP::Logger::print_msg( 'ERROR', $_ ) for @errors;
-        AAPP::Logger::print_msg( 'ERROR', 'Contracts and test modules disagree; nothing was run.' );
+        AAPP::Logger::print_msg( 'ERROR', 'Contracts and test files disagree; nothing was run.' );
         return 0;
     }
     my $n = 0;
-    my @ordered = map { $_->[1] } sort { $a->[0] <=> $b->[0] } map { [ $module_order{ $_->{key} }, $_ ] } @tests;
+    my @ordered = map { $_->[1] } sort { $a->[0] <=> $b->[0] } map { [ $file_order{ $_->{key} }, $_ ] } @tests;
     $_->{index} = ++$n for @ordered;
     $self->{tests} = \@ordered;
     return 1;
 }
 
+# Usage     : my $package = test_package('core', 'pre-commit')
+# Purpose   : The package a test file declares: AAPP::T::<Area>::<Name>, each part of the file name
+#             capitalised ('pre-commit' -> 'PreCommit', 'done.worktree' -> 'DoneWorktree').
+# Returns   : The package name.
+sub test_package
+{
+    my ( $folder, $stem ) = @_;
+    return 'AAPP::T::' . ucfirst($folder) . '::' . join( '', map { ucfirst } split( /[^A-Za-z0-9]+/, $stem ) );
+}
+
 # Usage     : my @entries = contract_tests($contract_file)
-# Purpose   : The '## Tests' lines of one contract that name a Perl test module.
-# Returns   : A list of [folder, module, test name, description].
+# Purpose   : The '## Tests' lines of one contract that name a Perl test file in t/.
+# Returns   : A list of [area folder, file name without .t, test name, description].
 sub contract_tests
 {
     my ($file) = @_;
@@ -274,7 +325,7 @@ sub contract_tests
             $in_tests = $line =~ /^## Tests\s*$/;
             next;
         }
-        if ( $in_tests && $line =~ m{^- `tests/AAPP/(\w+)/(\w+)\.pm::(test_\w+)` -> (.+)$} ) {
+        if ( $in_tests && $line =~ m{^- `\Q$TEST_DIR\E/(\w+)/([\w.-]+)\.t::(test_\w+)` -> (.+)$} ) {
             push @entries, [ $1, $2, $3, $4 ];
         }
     }
@@ -324,7 +375,7 @@ sub select_tests
         foreach my $name ( @{ $opt->{verbs} } ) {
             my @match = grep { squash( $_->{module} ) eq squash($name) } @verb;
             if ( !@match ) {
-                AAPP::Logger::print_msg( 'ERROR', "No verb module for '$name' (tests/AAPP/Verb/)." );
+                AAPP::Logger::print_msg( 'ERROR', "No verb file for '$name' ($TEST_DIR/verb/)." );
                 return;
             }
             $picked{ $_->{index} } = 1 for @match;
@@ -345,14 +396,14 @@ sub select_tests
             @match = grep { index( lc( $_->{name} ), lc($token) ) >= 0 || index( lc( $_->{desc} ), lc($token) ) >= 0 } @all;
         }
         if ( !@match ) {
-            AAPP::Logger::print_msg( 'ERROR', "No test matches '$token'. See: tests/test-run list" );
+            AAPP::Logger::print_msg( 'ERROR', "No test matches '$token'. See: t/test-run list" );
             return;
         }
         $picked{ $_->{index} } = 1 for @match;
     }
     my @selected = grep { $picked{ $_->{index} } } @all;
     if ( !@selected ) {
-        AAPP::Logger::print_msg( 'ERROR', 'No tests selected: no contract names a tests/AAPP module of this selection.' );
+        AAPP::Logger::print_msg( 'ERROR', "No tests selected: no contract names a $TEST_DIR/ file of this selection." );
     }
     return @selected;
 }
@@ -380,7 +431,7 @@ sub print_list
         }
         printf "  %5d  %s -> %s\n", $test->{index}, $test->{name}, $test->{desc};
     }
-    printf "  %d test(s) in %d module(s)\n", scalar(@tests), scalar( modules(@tests) );
+    printf "  %d test(s) in %d file(s)\n", scalar(@tests), scalar( modules(@tests) );
     return 1;
 }
 
@@ -420,10 +471,14 @@ sub run_tests
     my $jobs = $opt->{jobs} // $self->default_jobs();
     $jobs = @modules if $jobs > @modules;
 
+    if ( $self->{tap} ) {
+        print '1..' . scalar(@tests) . "\n";
+        $self->{planned} = 1;
+    }
     print "$RULE\n";
-    print "  AAPP Perl Test Harness\n";
-    print "  Kit tests: $self->{kit}/tests\n";
-    printf "  Execution: %d tests in %d modules | Jobs: %d | Sandbox Strict: %s\n", scalar(@tests), scalar(@modules), $jobs,
+    print "  AAPP Perl Test Engine\n";
+    print "  Kit tests: $self->{kit}/$TEST_DIR\n";
+    printf "  Execution: %d tests in %d files | Jobs: %d | Sandbox Strict: %s\n", scalar(@tests), scalar(@modules), $jobs,
         $opt->{strict} ? 'ON' : 'OFF';
     print "$RULE\n";
 
@@ -468,7 +523,7 @@ sub run_tests
             $modules_passed++;
         } elsif ( $opt->{bail} && !$stop ) {
             $stop = 1;
-            AAPP::Logger::print_msg( 'NOTICE', 'Bail: no further module starts after this failure; running ones finish.' );
+            AAPP::Logger::print_msg( 'NOTICE', 'Bail: no further file starts after this failure; running ones finish.' );
         }
     }
 
@@ -478,7 +533,7 @@ sub run_tests
     my $wall = Time::HiRes::time() - $wall0;
 
     print "\n$RULE\n";
-    printf "  %s: %d/%d modules passed (%d passed, %d failed, %d skipped) in %.1fs wall, %.1fs cpu\n", $SUMMARY_TITLE, $modules_passed,
+    printf "  %s: %d/%d files passed (%d passed, %d failed, %d skipped) in %.1fs wall, %.1fs cpu\n", $SUMMARY_TITLE, $modules_passed,
         scalar(@modules), $count{pass}, $count{fail}, $count{skip}, $wall, $cpu;
     print "$RULE\n";
     if ( !$opt->{quiet} ) {
@@ -486,14 +541,17 @@ sub run_tests
     }
     if (@failed) {
         print "  Failed tests:\n";
-        print tap_line($_) for sort { $a->{index} <=> $b->{index} } @failed;
+        foreach my $r ( sort { $a->{index} <=> $b->{index} } @failed ) {
+            # Under a TAP plan the recap is comments: a second 'not ok N' would count twice.
+            print $self->{tap} ? tap_line($r) =~ s/^/# /gmr : tap_line($r);
+        }
     }
     $self->remove_sandbox();
     if ( $modules_passed == @modules ) {
         AAPP::Logger::print_msg( 'INFO', 'All tests passed.' );
         return RETURN_OK;
     }
-    AAPP::Logger::print_msg( 'ERROR', sprintf( '%d test(s) failed in %d module(s).', $count{fail}, @modules - $modules_passed ) );
+    AAPP::Logger::print_msg( 'ERROR', sprintf( '%d test(s) failed in %d file(s).', $count{fail}, @modules - $modules_passed ) );
     return RETURN_FAIL;
 }
 
@@ -829,7 +887,7 @@ sub default_jobs
     my ($self) = @_;
     my $n = $self->cpu_count();
     if ( !$n ) {
-        AAPP::Logger::print_msg( 'NOTICE', "CPU count unreadable; running modules one at a time (set 'jobs <n>' to override)." );
+        AAPP::Logger::print_msg( 'NOTICE', "CPU count unreadable; running files one at a time (set 'jobs <n>' to override)." );
         return 1;
     }
     return $n >= TEST_JOBS_STEP ? int( $n / TEST_JOBS_STEP ) * TEST_JOBS_STEP : $n;
@@ -927,14 +985,14 @@ sub write_text
 # ---------------------------------------------------------
 
 # Usage     : my $where = where()
-# Purpose   : The test module line that called a helper (the first caller outside AAPP::Tests).
-# Returns   : 'tests/AAPP/<Area>/<Module>.pm:<line>'.
+# Purpose   : The test file line that called a helper (the first caller outside AAPP::Tests).
+# Returns   : 't/<area>/<name>.t:<line>'.
 sub where
 {
     my $i = 0;
     while ( my @frame = caller( $i++ ) ) {
         next if $frame[0] eq __PACKAGE__;
-        my $file = $frame[1] =~ s{^.*?/(tests/AAPP/)}{$1}r;
+        my $file = $frame[1] =~ s{^.*/(\Q$TEST_DIR\E/[^/]+/[^/]+\.t)$}{$1}r;
         return "$file:$frame[2]";
     }
     return 'unknown';

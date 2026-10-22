@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+# t/test-run: runs the kit's Perl test files (t/core/*.t, t/verb/*.t) through AAPP::Tests.
+# 't/test-run help' lists the selectors and modifiers.
+use strict;
+use warnings;
+use utf8;
+use 5.026;
+
+use FindBin ();
+use lib "$FindBin::RealBin/../lib";
+
+use AAPP::Tests ();
+
+AAPP::Tests::main(@ARGV);
