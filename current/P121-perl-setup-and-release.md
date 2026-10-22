@@ -57,20 +57,20 @@ This plan also eliminates the remaining `python3` invocations in the kit's own C
 1. `lib/cmd_init.sh` (`.claude/settings.json` hook merger) is replaced by `AAPP::JSON::decode_json` + ordered key-preserving merge + 2-space pretty-print (`AAPP::JSON::encode_json_pretty`).
 2. `lib/cmd_pause.sh` (pause snapshot serializer/reader) is replaced by `AAPP::JSON`.
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_*.sh`, `aapp`). `tests/AAPP/*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_*.sh`, `aapp`). `t/` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
 ---
 
 ## 2. Technical Blueprint
 
 ### 2.1 Setup & Lifecycle Modules (`Init`, `Install`, `Upgrade`, `Uninstall`, `Develop`)
-Each module preserves the exact behavior, arguments, failure modes, and side effects specified in `aapp help <verb> full` and `lib/docs/verbs/<verb>.md` under unchanged `tests/AAPP/Verb/*.pm`:
+Each module preserves the exact behavior, arguments, failure modes, and side effects specified in `aapp help <verb> full` and `lib/docs/verbs/<verb>.md` under unchanged `t/verb/*.t`:
 - **`lib/AAPP/Cmd/Init.pm` (`lib/cmd_init.sh`, 1,072 lines; `lib/docs/verbs/init.md`):**
   - Scaffolds or upgrades `.plans`, `.agents` (`AGENTS.md` managed `<!-- AAPP-PROTOCOL:START -->` block, `PROJECT.MD`, `CODEMAP.md`, `.agents/skills/aapp*`, `.agents/hooks/`), and `.githooks/`.
   - Copies `lib/AAPP/` into `.githooks/AAPP/` alongside the hook entrypoints (no `.sh` library copies).
   - Merges `PreToolUse` (`blast-radius-guard`) into `.claude/settings.json` using `AAPP::JSON` (`decode_json` + `encode_json_pretty`) with zero `python3` dependency.
   - Calls `AAPP::Adoption` (`P-118`) for adoption seeding/sync.
-- **`lib/AAPP/Cmd/Install.pm` (`lib/cmd_install.sh`, 187 lines; `lib/docs/verbs/install.md`):** Ports `cmd_install`. The install folder comes from `AAPP::Paths::kit_dir()` (the one answer to where the kit is, OS-aware, defaults in `AAPP::Constants`); the bash rule `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit` is not carried over as a copy (decided 2026-10-21 in P-115).
+- **`lib/AAPP/Cmd/Install.pm` (`lib/cmd_install.sh`, 187 lines; `lib/docs/verbs/install.md`):** Ports `cmd_install`. The install folder comes from `AAPP::Paths::kit_dir()` (the one answer to where the kit is, OS-aware, defaults in `AAPP::Constants`); the bash rule `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit` is not carried over as a copy (decided 2026-10-21 in P-115). The install ships no tests: neither `tests/` nor `t/` is copied (the bash install copies `tests/`); the kit's tests run from a kit checkout, and `aapp test` (P-125) names the checkout when the kit it runs from has no `t/`. The install contract and its tests change with it, by amendment requests (P-129) when this member runs (decided 2026-10-23 in P-126).
 - **`lib/AAPP/Cmd/Upgrade.pm` (`lib/cmd_upgrade.sh`, 44 lines; `lib/docs/verbs/upgrade.md`):** Ports `cmd_upgrade`.
 - **`lib/AAPP/Cmd/Uninstall.pm` (`lib/cmd_uninstall.sh`, 55 lines; `lib/docs/verbs/uninstall.md`):** Ports `cmd_uninstall`.
 - **`lib/AAPP/Cmd/Develop.pm` (`lib/cmd_develop.sh`, 123 lines; `lib/docs/verbs/develop.md`):** Ports `cmd_develop`.
@@ -83,7 +83,7 @@ Each module preserves the exact behavior, arguments, failure modes, and side eff
 ### 2.3 Hook, Pause & Test Modules (`Hook`, `Pause`, `Test`)
 - **`lib/AAPP/Cmd/Hook.pm` (`lib/cmd_hook.sh`, 402 lines; `lib/docs/verbs/hooks.md`, `plugins.md`):** Ports `hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, and `hook-hash` (`aapp help hooks full`, `aapp help plugins full`) over `AAPP::HookDispatcher` and `Digest::SHA`.
 - **`lib/AAPP/Cmd/Pause.pm` (`lib/cmd_pause.sh`, 584 lines; `lib/docs/verbs/pause.md`, `resume.md`):** Ports `pause`, `resume`, and `unpause` (`aapp help pause full`, `aapp help resume full`), serializing and reading the pause snapshot via `AAPP::JSON` (zero `python3`).
-- **`lib/AAPP/Cmd/Test.pm` (`lib/cmd_test.sh`, 397 lines; `lib/docs/verbs/test.md`):** Ports `test` (`aapp help test full`), delegating kit self-tests to `tests/AAPP/Tests.pm` (`P-114`).
+- **`lib/AAPP/Cmd/Test.pm` (`lib/cmd_test.sh`, 397 lines; `lib/docs/verbs/test.md`):** Ports `test` (`aapp help test full`), delegating kit self-tests to the test engine `lib/AAPP/Tests.pm` (P-126), which P-125 already routes `aapp test` to.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Transitional Coexistence (`P-121` → `P-122`):** All 11 `lib/cmd_*.sh` files are slimmed to thin shims (or retained unused once `aapp` routes every verb to `AAPP::Cmd::*`) until `P-122` deletes all 30 `lib/*.sh` files in one clean break.
@@ -123,7 +123,7 @@ Each module preserves the exact behavior, arguments, failure modes, and side eff
 - [ ] `NEW FILE` -> `lib/AAPP/Cmd/Companion.pm` -> `aapp companion` implementation.
 - [ ] `NEW FILE` -> `lib/AAPP/Cmd/Hook.pm` -> `aapp hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, and `hook-hash` implementation.
 - [ ] `NEW FILE` -> `lib/AAPP/Cmd/Pause.pm` -> `aapp pause`, `aapp resume`, and `aapp unpause` implementation using `AAPP::JSON`.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Test.pm` -> `aapp test` CLI entry delegating to `tests/AAPP/Tests.pm`.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Test.pm` -> `aapp test` CLI entry delegating to `lib/AAPP/Tests.pm`.
 - [ ] `aapp` -> Dispatch `init`, `install`, `upgrade`, `uninstall`, `develop`, `push`, `pull`, `sync`, `release`, `companion`, `hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`, `pause`, `resume`, `unpause`, and `test` to `AAPP::Cmd::*`.
 - [ ] `lib/cmd_init.sh` -> Transitional shim delegating to `AAPP::Cmd::Init` until `P-122`.
 - [ ] `lib/cmd_install.sh` -> Transitional shim delegating to `AAPP::Cmd::Install` until `P-122`.
@@ -138,7 +138,7 @@ Each module preserves the exact behavior, arguments, failure modes, and side eff
 - [ ] `lib/cmd_test.sh` -> Transitional shim delegating to `AAPP::Cmd::Test` until `P-122`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `tests/AAPP/Tests.pm` -> Test harness and all `tests/AAPP/*` modules are locked in `P-114` and strictly out of bounds during code plans.
+- [ ] `lib/AAPP/Tests.pm` -> The test engine (P-126) and every test file in `t/` stay out of bounds during code plans.
 - [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
 
 ---
