@@ -17,7 +17,8 @@
 # ==============================================================================
 set -u
 
-TEST_CMD='./aapp test strict quiet'
+# Until P-125 both runners run. A branch cut before tests/test-run existed has no Perl modules to run.
+TEST_CMD='./aapp test strict quiet && { [ ! -x tests/test-run ] || tests/test-run strict quiet; }'
 
 envelope="$(cat)"
 field() { printf '%s\n' "$envelope" | sed -nE "s/.*\"$1\":[[:space:]]*\"([^\"]*)\".*/\1/p" | head -n 1; }
@@ -47,8 +48,16 @@ if [ "$rc" -eq 0 ]; then
     echo "✅ [Test Gate] tests green for ${plan_id}."
     exit 0
 fi
+# The last test runner's summary line to the end: its counts and the failure recap. Output with no
+# summary line (the command stopped before one) shows its last 20 lines instead.
+summary="$(awk '/Test Summary/ { n = NR } { line[NR] = $0 } END { if (n) for (i = n; i <= NR; i++) print line[i] }' "$log")"
 {
-    echo "❌ [Test Gate] '$TEST_CMD' failed in $dir (exit $rc). Last 20 lines:"
-    tail -n 20 "$log"
+    if [ -n "$summary" ]; then
+        echo "❌ [Test Gate] '$TEST_CMD' failed in $dir (exit $rc). From the test summary:"
+        printf '%s\n' "$summary"
+    else
+        echo "❌ [Test Gate] '$TEST_CMD' failed in $dir (exit $rc). Last 20 lines:"
+        tail -n 20 "$log"
+    fi
 } >&2
 exit 1
