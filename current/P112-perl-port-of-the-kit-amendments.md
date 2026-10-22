@@ -106,7 +106,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R13** 2026-10-21 · P-115 · `lib/AAPP/Runner.pm` · Runner loads a verb module with a block eval: require on AAPP/Cmd/<Verb>.pm, no string eval — landed `6649edb`
 - **R14** 2026-10-22 · P-126 · `lib/AAPP/Constants.pm` · P-126: test harness defaults (watchdog 60 s, jobs step 4, sandbox prefix, fallback git identity, default branch) go into AAPP::Constants — committed
 - **R15** 2026-10-23 · P-126 · § 📂 3. Global Structural Mapping · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — approved (Lorand Veres)
-- **R16** 2026-10-23 · P-126 · § Test Harness Sandbox Confinement · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — pending
+- **R16** 2026-10-23 · P-126 · § Test Harness Sandbox Confinement · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — approved (Lorand Veres)
 - **R17** 2026-10-23 · P-126 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — pending
 - **R18** 2026-10-23 · P-126 · § 🔒 3. Enforcement Engines & Hook Templates (`templates/`) · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — pending
 
