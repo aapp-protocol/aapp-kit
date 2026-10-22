@@ -93,23 +93,23 @@ Keeps the request log (`## Scope Requests`), approval, refusal, and the group te
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Tests first
-- [ ] Task 1.1: Failing tests for §2.1–2.5 in the `refine`, `commit` and `done` verb suites; the write guard is called directly there (as `companion.sh` does), the pre-commit hook runs with each commit. (`tests/pre-commit_test.sh` and `tests/write-guard_test.sh` belong to P-112 while group P-111 runs.)
+- [x] Task 1.1: Failing tests for §2.1–2.5 in the `refine`, `commit` and `done` verb suites; the write guard is called directly there (as `companion.sh` does), the pre-commit hook runs with each commit. (`tests/pre-commit_test.sh` and `tests/write-guard_test.sh` belong to P-112 while group P-111 runs.)
 
 ### Phase 2: Request, approve, write
-- [ ] Task 2.1: `request … for <plan-id>` and the request line (§2.1); `approve` without the amendments member's Target Files, auto-approval, `file` removed (§2.2).
-- [ ] Task 2.2: `amend_approved_files` read by the write guard and the pre-commit hook; the file locked after its commit (§2.2.2–3).
+- [x] Task 2.1: `request … for <plan-id>` and the request line (§2.1); `approve` without the amendments member's Target Files, auto-approval, `file` removed (§2.2).
+- [x] Task 2.2: `amend_approved_files` read by the write guard and the pre-commit hook; the file locked after its commit (§2.2.2–3).
 
 ### Phase 3: Commit, record and close
-- [ ] Task 3.1: `aapp commit … amendment <n>`: the trailer; landing at once on the parent with the requester's rebase when the owner is another plan (§2.3).
-- [ ] Task 3.2: The owner's record, current or archived, and the lock's acceptance (§2.4.2–3).
-- [ ] Task 3.3: `done` closes the requester's requests and records its own amendments; `plan abort` withdraws them (§2.4.1).
-- [ ] Task 3.4: The amendments member's template and done check (§2.5).
+- [x] Task 3.1: `aapp commit … amendment <n>`: the trailer; landing at once on the parent with the requester's rebase when the owner is another plan (§2.3).
+- [x] Task 3.2: The owner's record, current or archived, and the lock's acceptance (§2.4.2–3).
+- [x] Task 3.3: `done` closes the requester's requests and records its own amendments; `plan abort` withdraws them (§2.4.1).
+- [x] Task 3.4: The amendments member's template and done check (§2.5).
 
 ### Phase 4: Verification & Documentation
-- [ ] Task 4.1: Run automated test suites and verify edge cases (owner archived, the parent moved meanwhile, the requester squashed after an amendment landed, an unused approval at done).
-- [ ] Task 4.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 4.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 4.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [x] Task 4.1: Run automated test suites and verify edge cases (owner archived, the parent moved meanwhile, the requester squashed after an amendment landed, an unused approval at done).
+- [x] Task 4.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
+- [x] Task 4.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
+- [x] Task 4.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
 - [ ] Task 4.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
