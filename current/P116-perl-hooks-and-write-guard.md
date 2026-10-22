@@ -59,6 +59,7 @@
 4. **`templates/blast-radius-guard.sh` (`lib/AAPP/Hooks/WriteGuard.pm`):**
    - Parses `PreToolUse` JSON stdin via `AAPP::JSON`, checks Section 1–5 (canonicalization, self-protection, external hard-deny/allowlist, G1 companion delegation, pause circuit breaker, always-allowed paths, and active/blocked/held plan Target Files) via `AAPP::State`.
 5. **Modules from the installed kit:** Hook entrypoints load `AAPP::*` from the kit's `lib/`: `$AAPP_LIB` when an `aapp` verb runs the hook, else `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/lib`. Nothing is copied into `.githooks/`. A guard that finds no `AAPP/JSON.pm` there refuses (exit 2). Once the hooks are Perl, they ask `AAPP::Paths::kit_dir()` (the one answer, OS-aware) instead of repeating the rule the bash templates spell out. (Decided in P-115, 2026-10-21.)
+6. **Amendments (P-129):** the guard and the pre-commit hook port P-129's bash behaviour: the file of an approved amendment request naming the bound plan as requester is a target of that plan until its commit; the design lock accepts an owner's amendment lines (its Target Files line and its `### Amendments` line), in an archived owner too.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Backwards Compatible` (Transitional bash/Perl coexistence within group `P-111` until `P-122`)
