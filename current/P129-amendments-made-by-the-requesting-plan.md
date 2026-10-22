@@ -75,7 +75,7 @@ Corrections of the group's text (`heading` requests, `decision`) stay as they ar
    - the owner's `### Amendments`, a subsection of §4 after `### 🛑 Out of Bounds` (created on first use), gains `- R<n> <date> · \`<path>\` · <summary> (by <requester>)`;
    - the owner's `* **Commits:**` gains the landed hash;
    - the request line becomes `landed \`<sha>\`` and stays in the amendments member.
-4. An archived owner (`done/`) gets the same lines appended. This is the only write to an archived plan, and only from a `done` of the same group. The pre-commit design lock accepts these lines (Target Files line, `### Amendments` line, Commits hash) in the owner and nothing else.
+4. An archived owner (`done/`) gets the same lines appended. The archived plan stays final: nothing in it is rewritten; its after-care is appended as amendments, so a reader looking back at how its work was done also finds what came later. Only a `done` of the same group appends, and the pre-commit design lock accepts these lines (Target Files line, `### Amendments` line, Commits hash) in the owner and nothing else.
 5. With the owner being the requester itself, its own plan gets the lines before it is archived.
 
 ### 2.5 The amendments member
