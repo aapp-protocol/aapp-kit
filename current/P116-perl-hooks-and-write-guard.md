@@ -53,7 +53,7 @@
 2. **`templates/aapp-pre-commit` & `templates/aapp-pre-commit-develop` (`lib/AAPP/Hooks/PreCommit.pm`, `PreCommitDevelop.pm`):**
    - `PreCommit` loads `AAPP::State` once and evaluates circuit breaker (`aapp_paused` / `PAUSED.md`), runtime reachability, parent integration lock check (`integrate/<parent>`), changelog rule (`plan` and `commit` modes), blocked/held/active plan resolution, TDD correspondence & test file existence, Target Files / Out of Bounds blast radius, frozen §2/§4/group-section design lock, portability (`file://` / home path) check, changelog bullet length check, group member `ARCHITECTURE.md` rule, roadmap auto-prune, active `ISSUES.md` resolved-row check, and atomic commit mode check in memory.
    - Missing Perl core: once its checks run in Perl, the pre-commit hook refuses the commit (exit 1, "Perl core missing … install the kit") when `perl` or `AAPP/JSON.pm` cannot be found in the kit's `lib/`, as the write guard refuses writes (exit 2). Until this plan, the bash hook uses Perl only for the pause reason and lets a commit through without the modules; the refusal belongs here, with the checks that need them (decided 2026-10-21 in P-115).
-   - `PreCommitDevelop` ports `templates/aapp-pre-commit-develop` (seeded by `aapp develop` to run bidirectional contract correspondence when commits touch `lib/verbs.tsv`, `lib/docs/{verbs,core}/*.md`, or `tests/AAPP/{Verb,Core}/*.pm`).
+   - `PreCommitDevelop` ports `templates/aapp-pre-commit-develop` (seeded by `aapp develop` to run bidirectional contract correspondence when commits touch `lib/verbs.tsv`, `lib/docs/{verbs,core}/*.md`, or `t/{Verb,Core}/*.pm`).
 3. **`templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite` (`lib/AAPP/Hooks/CommitMsg.pm`, `PostCommit.pm`, `PostRewrite.pm`):**
    - Subject/line/body limits, `AI-*` trailer validation (`none`, `lax`, `strict`, `notes`, refusing retired `commit`), staged note attachment (`aapp_pending_note.<sha256>`), and post-rewrite `* **Commits:**` SHA mapping + `AAPP::CommitEngine::plans_commit`.
 4. **`templates/blast-radius-guard.sh` (`lib/AAPP/Hooks/WriteGuard.pm`):**
@@ -76,7 +76,7 @@
 
 ### Phase 2: Hook Entrypoint Templates & Core Wrapper Tests
 - [ ] Task 2.1: Update `templates/aapp-pre-commit`, `templates/aapp-pre-commit-develop`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`, `templates/blast-radius-guard.sh`, `templates/pre-commit`, `templates/commit-msg`, `templates/post-commit`, and `templates/post-rewrite` to invoke Perl, loading `AAPP::*` from the installed kit (item 5); `lib/cmd_init.sh` copies no Perl modules.
-- [ ] Task 2.2: Switch any direct core wrapper calls in `tests/AAPP/Core/*.pm` for `hook_dispatcher` and `attribution` to `AAPP::HookDispatcher` and `AAPP::Attribution`.
+- [ ] Task 2.2: Switch any direct core wrapper calls in `t/core/*.t` for `hook_dispatcher` and `attribution` to `AAPP::HookDispatcher` and `AAPP::Attribution`.
 
 ### Phase 3: Verification
 - [ ] Task 3.1: Run `./aapp test strict quiet` and verify all hook, pre-commit, write-guard, attribution, and note tests pass.
@@ -105,11 +105,11 @@
 - [ ] `templates/post-commit` -> Execute `aapp-post-commit` directly.
 - [ ] `templates/post-rewrite` -> Execute `aapp-post-rewrite` directly.
 - [ ] `lib/cmd_init.sh` -> Copy `lib/AAPP/Hooks/*.pm`, `lib/AAPP/HookDispatcher.pm`, and `lib/AAPP/Attribution.pm` into `.githooks/AAPP/`.
-- [ ] `tests/AAPP/Core/*.pm` -> Switch core wrapper tests for `hook_dispatcher` and `attribution` to `AAPP::HookDispatcher` and `AAPP::Attribution`.
+- [ ] `t/core/*.t` -> Switch core wrapper tests for `hook_dispatcher` and `attribution` to `AAPP::HookDispatcher` and `AAPP::Attribution`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `tests/AAPP/Tests.pm` -> Test harness runner is untouched.
-- [ ] `tests/AAPP/Verb/*.pm` -> Verb test modules are untouched.
+- [ ] `lib/AAPP/Tests.pm` -> Test harness runner is untouched.
+- [ ] `t/verb/*.t` -> Verb test modules are untouched.
 
 ---
 
@@ -120,5 +120,5 @@
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-19:** Plan drafted as member 4 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
-* **2026-10-19:** Added `templates/aapp-pre-commit-develop` (`AAPP::Hooks::PreCommitDevelop`), registered `hook_dispatcher.sh`/`attribution.sh` coexistence in §2, and updated test paths to `tests/AAPP/*` per RFC §5.1.3 & §5.1.5.
+* **2026-10-19:** Added `templates/aapp-pre-commit-develop` (`AAPP::Hooks::PreCommitDevelop`), registered `hook_dispatcher.sh`/`attribution.sh` coexistence in §2, and updated test paths to `t/*` per RFC §5.1.3 & §5.1.5.
 
