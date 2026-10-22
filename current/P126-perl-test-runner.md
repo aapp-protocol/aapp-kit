@@ -69,16 +69,16 @@ Part 1 of 4 of the test migration split from P-114 (kept as the reference until 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Harness & Runner
-- [ ] Task 1.1: Implement `tests/AAPP/Tests.pm` per §2.1.1–5, 7, 9 and 10.
-- [ ] Task 1.2: Add `tests/test-run` per §2.1.6.
+- [x] Task 1.1: Implement `tests/AAPP/Tests.pm` per §2.1.1–5, 7, 9 and 10.
+- [x] Task 1.2: Add `tests/test-run` per §2.1.6.
 
 ### Phase 2: Proof Suite & Bridge
-- [ ] Task 2.1: Port `tests/output_test.sh` to `tests/AAPP/Core/Output.pm`, point `lib/docs/core/output.md` at it, delete the `.sh` suite.
-- [ ] Task 2.2: `tests/verb_contracts_test.sh` skips contract lines naming `tests/AAPP/*.pm`.
-- [ ] Task 2.3: Set the gate's `TEST_CMD` and summary-to-end print in `.agents/hooks/test-gate.sh`, and the print in `examples/hooks/test-gate.sh.sample`; ask the user to re-register the gate with `aapp hook-hash`.
+- [x] Task 2.1: Port `tests/output_test.sh` to `tests/AAPP/Core/Output.pm`, point `lib/docs/core/output.md` at it, delete the `.sh` suite.
+- [x] Task 2.2: `tests/verb_contracts_test.sh` skips contract lines naming `tests/AAPP/*.pm`.
+- [x] Task 2.3: Set the gate's `TEST_CMD` and summary-to-end print in `.agents/hooks/test-gate.sh`, and the print in `examples/hooks/test-gate.sh.sample`; ask the user to re-register the gate with `aapp hook-hash`.
 
 ### Phase 3: Verification
-- [ ] Task 3.1: Verify a single test, a single module and a full parallel run of `tests/test-run`, a failing test's recap, a watchdog timeout, and `./aapp test strict quiet` still green.
+- [x] Task 3.1: Verify a single test, a single module and a full parallel run of `tests/test-run`, a failing test's recap, a watchdog timeout, and `./aapp test strict quiet` still green.
 
 ---
 
@@ -107,5 +107,6 @@ Part 1 of 4 of the test migration split from P-114 (kept as the reference until 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-22:** Implemented. Harness defaults in `AAPP::Constants` by R14 (P-112), made here as amendment commit `4a47a16` (P-129). `lib_call` runs a Perl function in a fork of the test process, so each call starts with fresh caches as a new `aapp` run does. An interrupt stops worker groups with TERM, up to `TEST_STOP_GRACE_SECONDS` for each worker to stop its test's group, then KILL (TERM and KILL together left a test orphaned). The gate runs `tests/test-run` only where it exists (`.agents/` serves every branch) and prints the last 20 lines when the output has no summary line. Verified: one test, one module, a parallel run, a failure's recap, a watchdog timeout that also kills a background child, an interrupt that leaves no process or sandbox, contract mismatches both ways; bash suites 62/62 (856), `tests/test-run` 5/5.
 * **2026-10-22:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-19:** Drafted as part 1 of 4 split from P-114 (harness, `tests/test-run`, proof suite, gate bridge).
