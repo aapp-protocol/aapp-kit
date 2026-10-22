@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-125
-* **Changelog:** Changed: `aapp test` runs the Perl harness (`AAPP::Tests`) with module, verb, index and name selection; the bash test suites are gone
+* **Changelog:** Changed: `aapp test` runs the Perl test engine (`AAPP::Tests`) over `t/` with file, verb, index and name selection; the bash test suites and `tests/` are gone
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,14 +40,14 @@
 ---
 
 ## 1. Context & Architectural Goal
-Part 4 of 4 of the test migration split from P-114 (kept as the reference until all four parts are drafted). Ports the remaining verb suites to `tests/AAPP/Verb/*.pm`, then switches `aapp test` to the harness and removes everything temporary: the bash suites, `tests/test_helpers.sh`, the bash contract checker, `tests/test-run`, and the two-runner gate command. Needs P-126, P-123 and P-124 done. Kit runtime code stays untouched except the test runner (`lib/cmd_test.sh`).
+Part 4 of 4 of the test migration split from P-114 (kept as the reference until all four parts are drafted). Ports the remaining verb suites to `t/verb/*.t`, then switches `aapp test` to the test engine (`lib/AAPP/Tests.pm`) and removes everything temporary: the bash suites, `tests/test_helpers.sh`, the bash contract checker, `t/test-run`, and the two-runner gate command; the `tests/` folder is gone and every test lives in `t/`. Needs P-126, P-123 and P-124 done. Kit runtime code stays untouched except the test runner (`lib/cmd_test.sh`).
 
 ---
 
 ## 2. Technical Blueprint
 1. **Remaining verbs:** `issue` (with its parts: `abort`, `branchplugin`, `branch`, `fixes`, `keyid`, `limits`, `notefilter`, `onecommit`, `provider`, `queue`, `tracker`), `offline`, `commit`, `note`, `ai`, `companion`, `test`; same naming and fixture rules as P-124 §2.2–3.
-2. **Contract checker in Perl:** the checks of `tests/verb_contracts_test.sh` move to `tests/AAPP/Core/VerbContracts.pm` (registry <-> contracts, contract shape, core contracts per module, every test named both ways, daily verbs in the agent reference, rules-file and skill-index checks, `aapp help` of an unknown verb); its contract `lib/docs/core/verb_contracts.md` follows.
-3. **The switch (clean break):** `lib/cmd_test.sh` routes `aapp test` to `AAPP::Tests` with the runner's selection forms (P-126 §2.1.6) and `strict`, `quiet`, `bail`, `list`, `jobs <n>`; `tests/test-run` is deleted and nothing names it. `lib/docs/verbs/test.md` (Ingress, Effects, Tests) and `CHEATSHEET.md` document the forms. The `test` verb module tests the new runner.
+2. **Contract checker in Perl:** the checks of `tests/verb_contracts_test.sh` move to `t/core/verb_contracts.t` (registry <-> contracts, contract shape, core contracts per test file, every test named both ways, daily verbs in the agent reference, rules-file and skill-index checks, `aapp help` of an unknown verb); its contract `lib/docs/core/verb_contracts.md` follows.
+3. **The switch (clean break):** `lib/cmd_test.sh` routes `aapp test` to `AAPP::Tests` with the runner's selection forms (P-126 §2.1.6) and `strict`, `quiet`, `bail`, `list`, `jobs <n>`; `t/test-run` is deleted and nothing names it. `lib/docs/verbs/test.md` (Ingress, Effects, Tests) and `CHEATSHEET.md` document the forms. The `test` verb module tests the new runner.
 4. **Gate back to one command:** `.agents/hooks/test-gate.sh` `TEST_CMD` returns to `./aapp test strict quiet`; the developer re-registers it with `./aapp hook-hash .agents/hooks/test-gate.sh` before `aapp done`.
 
 ### 🔄 Migration & Compatibility Strategy
@@ -63,29 +63,29 @@ Part 4 of 4 of the test migration split from P-114 (kept as the reference until 
 - [ ] Task 1.2: Port `offline`, `commit`, `note`, `ai`, `companion`.
 
 ### Phase 2: The Switch
-- [ ] Task 2.1: Port `tests/verb_contracts_test.sh` to `tests/AAPP/Core/VerbContracts.pm`.
-- [ ] Task 2.2: Route `aapp test` to the harness in `lib/cmd_test.sh`; port the `test` verb suite against it; update `lib/docs/verbs/test.md` and `CHEATSHEET.md`.
-- [ ] Task 2.3: Delete `tests/test-run`, `tests/test_helpers.sh`, `tests/verb_contracts_test.sh` and the remaining `tests/verbs/*.sh`; reset the gate's `TEST_CMD` and ask the user to re-register it.
+- [ ] Task 2.1: Port `tests/verb_contracts_test.sh` to `t/core/verb_contracts.t`.
+- [ ] Task 2.2: Route `aapp test` to the test engine in `lib/cmd_test.sh`; port the `test` verb suite against it; update `lib/docs/verbs/test.md` and `CHEATSHEET.md`.
+- [ ] Task 2.3: Delete `t/test-run`, `tests/test_helpers.sh`, `tests/verb_contracts_test.sh` and the remaining `tests/verbs/*.sh`; reset the gate's `TEST_CMD` and ask the user to re-register it.
 
 ### Phase 3: Verification
-- [ ] Task 3.1: `./aapp test strict quiet` green with every module; single-test, single-verb and parallel runs; record wall and CPU time against the P-113 baseline (856 tests, 163 s wall, 1,477 s CPU).
+- [ ] Task 3.1: `./aapp test strict quiet` green with every test file; single-test, single-verb and parallel runs; record wall and CPU time against the P-113 baseline (856 tests, 163 s wall, 1,477 s CPU).
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `tests/AAPP/Verb/*.pm` -> Verb test modules for the verbs in §2.1.
-- [ ] `NEW FILE` -> `tests/AAPP/Core/VerbContracts.pm` -> The contract checker in Perl.
-- [ ] `lib/cmd_test.sh` -> `aapp test` runs the harness.
-- [ ] `lib/docs/verbs/*.md` -> Test identifiers point at `tests/AAPP/Verb/*.pm`; `test.md` documents the selection forms.
-- [ ] `lib/docs/core/verb_contracts.md` -> Identifiers point at `tests/AAPP/Core/VerbContracts.pm`.
+- [ ] `NEW FILE` -> `t/verb/*.t` -> Verb test files for the verbs in §2.1.
+- [ ] `NEW FILE` -> `t/core/verb_contracts.t` -> The contract checker in Perl.
+- [ ] `lib/cmd_test.sh` -> `aapp test` runs the test engine over `t/`.
+- [ ] `lib/docs/verbs/*.md` -> Test identifiers point at `t/verb/*.t`; `test.md` documents the selection forms.
+- [ ] `lib/docs/core/verb_contracts.md` -> Identifiers point at `t/core/verb_contracts.t`.
 - [ ] `CHEATSHEET.md` -> `aapp test` selection forms.
 - [ ] `.agents/hooks/test-gate.sh` -> `TEST_CMD` back to `./aapp test strict quiet`.
 - [ ] `DELETE` -> `tests/verbs/*.sh` -> The remaining bash verb suites.
 - [ ] `DELETE` -> `tests/verb_contracts_test.sh` -> Replaced by `VerbContracts.pm`.
 - [ ] `DELETE` -> `tests/test_helpers.sh` -> No bash suite left.
-- [ ] `DELETE` -> `tests/test-run` -> `aapp test` runs the harness.
+- [ ] `DELETE` -> `t/test-run` -> `aapp test` runs the test engine.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/aapp-lib.sh` -> Kit runtime stays untouched.
