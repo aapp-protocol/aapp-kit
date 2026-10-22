@@ -4,7 +4,6 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| #190 | `High` | `CLI` | 2026-10-22 | `lib/cmd_plan.sh`, `tests/verbs/refine.sh` | refine approve refuses a file that the amendments member's own Target Files list (left by the old route); it must skip the amendments member itself |  | 🟡 `Incubated` |  |
 | #189 | `Low` | `CLI` | 2026-10-22 | `lib/aapp-lib.sh` | Changelog entries repeat their own tag or section word when the plan field or fix text carries them: the renderer appends the tag without filtering the text |  | 🟡 `Incubated` |  |
 | #188 | `Medium` | `HOOK` | 2026-10-21 | `lib/aapp-lib.sh` | Bash line: the design lock reads a fenced '## … 2.' heading in a plan as the plan's own §2 (same bug as #186, fixed on the Perl port branch only) |  | 🟡 `Incubated` | `develop` |
 | #187 | `Low` | `CLI` | 2026-10-21 | `lib/cmd_plan.sh` | refine decision cannot close a second approved request for the same section once an earlier decision applied the change: it refuses because the group plan has no changes |  | 🟡 `Incubated` |  |

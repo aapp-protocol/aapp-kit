@@ -12,6 +12,5 @@
 
 ## 📋 Queued
 ### 🔺 Urgent
-- [ ] #190 -> refine approve refuses a file that the amendments member's own Target Files list (left by the old route); it must skip the amendments member itself (queued 2026-10-22)
 ### Normal
 ### Low
