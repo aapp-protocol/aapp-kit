@@ -2,7 +2,7 @@
 * **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-124
-* **Changelog:** Changed: the read-only and plan lifecycle verb suites run as Perl modules (`tests/AAPP/Verb/*.pm`) under `AAPP::Tests`
+* **Changelog:** Changed: the read-only and plan lifecycle verb suites run as Perl test files (`t/verb/*.t`) under `AAPP::Tests`
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,14 +40,14 @@
 ---
 
 ## 1. Context & Architectural Goal
-Part 3 of 4 of the test migration split from P-114 (kept as the reference until all four parts are drafted). Ports the read-only and plan lifecycle verb suites (`tests/verbs/<verb>.sh` and their parts) to `tests/AAPP/Verb/*.pm` under the harness P-126 built, keeping every scenario and test name, and deletes each bash suite once its module passes. Needs P-126 done; independent of P-123. Kit runtime code stays untouched.
+Part 3 of 4 of the test migration split from P-114 (kept as the reference until all four parts are drafted). Ports the read-only and plan lifecycle verb suites (`tests/verbs/<verb>.sh` and their parts) to `t/verb/*.t` under the harness P-126 built, keeping every scenario and test name, and deletes each bash suite once its module passes. Needs P-126 done; independent of P-123. Kit runtime code stays untouched.
 
 ---
 
 ## 2. Technical Blueprint
 1. **Scope:** `status`, `matrix`, `plan-status`, `help`, `draft`, `refine`, `tdd`, `freeze`, `start` (with `start.group`, `start.worktree`), `freeze-start`, `done` (with `done.closes`, `done.squash`, `done.worktree`), `active`, `plan` (with `plan.abort`).
-2. **One module per verb:** a verb and its parts become `tests/AAPP/Verb/<Verb>.pm` (`freeze-start` -> `FreezeStart.pm`, `plan-status` -> `PlanStatus.pm`); every `test_<name>` keeps its name and its contract description; contract identifiers change to `tests/AAPP/Verb/<Verb>.pm::test_<name>`. The `Run:` line stays `aapp test verb <verb>` (true again after P-125).
-3. **Independent tests:** a verb suite's shared repository becomes the module's fixture, built once and copied per test (P-126 §2.1.5). A test that leaned on an earlier test's state builds what it needs itself; P-113 left the verb suites in file order (P-113 §6).
+2. **One test file per verb:** a verb and its parts become `t/verb/<verb>.t`, named after its contract (`freeze-start` -> `t/verb/freeze-start.t`, package `AAPP::T::Verb::FreezeStart`; P-126 §2.1.1); every `test_<name>` keeps its name and its contract description; contract identifiers change to `t/verb/<verb>.t::test_<name>`. The `Run:` line stays `aapp test verb <verb>` (true again after P-125).
+3. **Independent tests:** a verb suite's shared repository becomes the file's fixture, built once and copied per test (P-126 §2.1.5). A test that leaned on an earlier test's state builds what it needs itself; P-113 left the verb suites in file order (P-113 §6).
 4. **Batches:** one verb (with its parts) per commit (microcommits); the gate runs both runners throughout (P-126 §2.1.8).
 
 ### 🔄 Migration & Compatibility Strategy
@@ -66,14 +66,14 @@ Part 3 of 4 of the test migration split from P-114 (kept as the reference until 
 - [ ] Task 2.2: Port `start` (and parts), `done` (and parts), `plan` (and parts).
 
 ### Phase 3: Verification
-- [ ] Task 3.1: `tests/test-run strict quiet` and `./aapp test strict quiet` both green; none of these verbs' `.sh` suites left; record each runner's wall and CPU time.
+- [ ] Task 3.1: `t/test-run strict quiet` and `./aapp test strict quiet` both green; none of these verbs' `.sh` suites left; record each runner's wall and CPU time.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `tests/AAPP/Verb/*.pm` -> Verb test modules for the verbs in §2.1.
+- [ ] `NEW FILE` -> `t/verb/*.t` -> Verb test files for the verbs in §2.1.
 - [ ] `DELETE` -> `tests/verbs/status.sh` -> Ported.
 - [ ] `DELETE` -> `tests/verbs/matrix.sh` -> Ported.
 - [ ] `DELETE` -> `tests/verbs/plan-status.sh` -> Ported.
@@ -88,7 +88,7 @@ Part 3 of 4 of the test migration split from P-114 (kept as the reference until 
 - [ ] `DELETE` -> `tests/verbs/active.sh` -> Ported.
 - [ ] `DELETE` -> `tests/verbs/plan.sh` -> Ported.
 - [ ] `DELETE` -> `tests/verbs/plan.abort.sh` -> Ported.
-- [ ] `lib/docs/verbs/*.md` -> Test identifiers of these verbs point at `tests/AAPP/Verb/*.pm`.
+- [ ] `lib/docs/verbs/*.md` -> Test identifiers of these verbs point at `t/verb/*.t`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `tests/verb_contracts_test.sh` -> The bash contract checker stays until P-125.
