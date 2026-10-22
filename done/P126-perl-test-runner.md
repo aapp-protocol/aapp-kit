@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `a40820d` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P126 (plan/P126-perl-test-runner)
 * **Group:** P-111
@@ -97,11 +97,15 @@ Part 1 of 4 of the test migration split from P-114 (kept as the reference until 
 - [ ] `tests/verb_contracts_test.sh` -> Skip contract lines naming `t/` files.
 - [ ] `.agents/hooks/test-gate.sh` -> `TEST_CMD` runs both suites; print from the summary line to the end.
 - [ ] `examples/hooks/test-gate.sh.sample` -> Print from the summary line to the end.
+- [x] `lib/AAPP/Constants.pm` -> R14 (by P-126)
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/cmd_test.sh` -> `aapp test` switches to the harness in P-125 only.
 - [ ] `lib/aapp-lib.sh` -> Kit runtime stays untouched.
 - [ ] `templates/*` -> Hook templates stay untouched.
+
+### Amendments
+- R14 2026-10-23 · `lib/AAPP/Constants.pm` · P-126: test harness defaults (watchdog 60 s, jobs step 4, sandbox prefix, fallback git identity, default branch) go into AAPP::Constants (by P-126, landed `4a47a16`)
 
 ---
 
@@ -111,6 +115,7 @@ Part 1 of 4 of the test migration split from P-114 (kept as the reference until 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-23:** Plan implementation completed and archived to done/.
 * **2026-10-22:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-22:** Re-scoped at the developer's request: the engine is a core module (`lib/AAPP/Tests.pm`), the tests live in `t/` as `.t` files named after their contracts (`t/core/output.t`), the entry point is `t/test-run`; `aapp install` ships no tests (note in P-121). §2.1.2, 5, 8 and 9 now also say how the first implementation settled the interrupt, the defaults, the gate and `lib_call`.
 * **2026-10-22:** Implemented. Harness defaults in `AAPP::Constants` by R14 (P-112), made here as amendment commit `4a47a16` (P-129). `lib_call` runs a Perl function in a fork of the test process, so each call starts with fresh caches as a new `aapp` run does. An interrupt stops worker groups with TERM, up to `TEST_STOP_GRACE_SECONDS` for each worker to stop its test's group, then KILL (TERM and KILL together left a test orphaned). The gate runs `tests/test-run` only where it exists (`.agents/` serves every branch) and prints the last 20 lines when the output has no summary line. Verified: one test, one module, a parallel run, a failure's recap, a watchdog timeout that also kills a background child, an interrupt that leaves no process or sandbox, contract mismatches both ways; bash suites 62/62 (856), `tests/test-run` 5/5.
