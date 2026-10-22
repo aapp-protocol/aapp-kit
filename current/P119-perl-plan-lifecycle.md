@@ -44,7 +44,7 @@ Plan `P-119` is the seventh member of group `P-111` (*Perl Port Of The Kit*). It
 
 In bash, every lifecycle transition (`draft -> refine -> tdd -> freeze -> start -> done`) re-runs multi-pass `awk` over `state_matrix.md`, `ISSUES.md`, and every `.plans/current/P*.md` file, and `cmd_plan.sh` embeds the entire worktree (`_wt_*`), squash (`_sq_*`), and lock-based parent branch integration (`_ig_*`) engines. In Perl, `AAPP::GroupDocs`, `AAPP::Plan`, and `AAPP::Cmd::Plan` mutate the parsed plan AST and `state_matrix.md` rows in memory via `AAPP::State`, run `AAPP::Health` in-process, and commit `.plans` atomically via `AAPP::CommitEngine`.
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/GroupDocs.pm`, `lib/AAPP/Plan.pm`, `lib/AAPP/Cmd/Plan.pm`, `lib/cmd_plan.sh`, `lib/group_docs.sh`, `aapp`) plus switching `tests/AAPP/Core/GroupDocs.pm` and `tests/AAPP/Core/Integrate.pm` from bash `source` wrappers to direct `AAPP::GroupDocs` and `AAPP::Plan` calls per `P-111`'s core-wrapper rule.
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/GroupDocs.pm`, `lib/AAPP/Plan.pm`, `lib/AAPP/Cmd/Plan.pm`, `lib/cmd_plan.sh`, `lib/group_docs.sh`, `aapp`) plus switching `t/core/group_docs.t` and `t/core/integrate.t` from bash `source` wrappers to direct `AAPP::GroupDocs` and `AAPP::Plan` calls per `P-111`'s core-wrapper rule.
 
 ---
 
@@ -73,7 +73,7 @@ Provides shared engines across plan lifecycle verbs and `aapp commit land` (`P-1
   - Compares `### 📂 Target Files` across concurrent plans in `.plans/current/P*.md` to detect overlapping files and compute conflict-free execution sets.
 
 ### 2.3 `AAPP::Cmd::Plan` (`lib/AAPP/Cmd/Plan.pm`) — Plan Lifecycle Verb Handlers (`lib/cmd_plan.sh`, 4,495 lines)
-Ports all plan lifecycle verbs from `lib/cmd_plan.sh`, keeping exact behavior, arguments, failure modes, and side effects defined in `aapp help <verb> full` and `lib/docs/verbs/<verb>.md` under unchanged `tests/AAPP/Verb/*.pm`:
+Ports all plan lifecycle verbs from `lib/cmd_plan.sh`, keeping exact behavior, arguments, failure modes, and side effects defined in `aapp help <verb> full` and `lib/docs/verbs/<verb>.md` under unchanged `t/verb/*.t`:
 - **`draft`** (`aapp help draft full`, `lib/docs/verbs/draft.md`): normal plan, promoted issue plan, group plan + companion amendments plan, and group member plan scaffolding, `.plans/state_matrix.md` registration, and `plan(draft):` commit.
 - **`refine`** (`aapp help refine full`, `lib/docs/verbs/refine.md`): plan refinement (including `slug`, `blocked`, `unblocked`, `closes`, `group`, and amendments forms `request`, `approve`, `refuse`, `file`, `decision`), cross-checkout ownership check, `AAPP::Health` check, `AAPP::GroupDocs::group_docs_stamp`, plus `refine pickup` and `refine issues` (including `note` and `branch`).
 - **`tdd`** (`aapp help tdd full`, `lib/docs/verbs/tdd.md`): §3 failure-first test identifier and §4 test file validation and `plan(tdd):` commit.
@@ -92,8 +92,8 @@ Ports all plan lifecycle verbs from `lib/cmd_plan.sh`, keeping exact behavior, a
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: GroupDocs & Shared Plan Engine (`AAPP::GroupDocs`, `AAPP::Plan`)
-- [ ] Task 1.1: Implement `lib/AAPP/GroupDocs.pm` (`lib/group_docs.sh`) and switch `tests/AAPP/Core/GroupDocs.pm` to call `AAPP::GroupDocs` directly without bash `source` wrappers.
-- [ ] Task 1.2: Implement `lib/AAPP/Plan.pm` covering counter allocation (`aapp.planId` / `aapp-planid`), template rendering (`plan-template.md`, `group-template.md`, `amendments-template.md`), `_wt_*` worktree management, `_sq_*` branch squashing, `_ig_*` parent-locked integration, and conflict analysis, and switch `tests/AAPP/Core/Integrate.pm` to call `AAPP::Plan` directly.
+- [ ] Task 1.1: Implement `lib/AAPP/GroupDocs.pm` (`lib/group_docs.sh`) and switch `t/core/group_docs.t` to call `AAPP::GroupDocs` directly without bash `source` wrappers.
+- [ ] Task 1.2: Implement `lib/AAPP/Plan.pm` covering counter allocation (`aapp.planId` / `aapp-planid`), template rendering (`plan-template.md`, `group-template.md`, `amendments-template.md`), `_wt_*` worktree management, `_sq_*` branch squashing, `_ig_*` parent-locked integration, and conflict analysis, and switch `t/core/integrate.t` to call `AAPP::Plan` directly.
 
 ### Phase 2: Plan Lifecycle Verb Handlers (`AAPP::Cmd::Plan`)
 - [ ] Task 2.1: Implement `draft`, `refine`, `tdd`, `freeze`, `start`, and `freeze-start` in `lib/AAPP/Cmd/Plan.pm`.
@@ -118,11 +118,11 @@ Ports all plan lifecycle verbs from `lib/cmd_plan.sh`, keeping exact behavior, a
 - [ ] `aapp` -> Dispatch `draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, and `plan` to `AAPP::Cmd::Plan`.
 - [ ] `lib/cmd_plan.sh` -> Retained for `lib/cmd_commit.sh` callers until `P-120` or delegated to `AAPP::Plan` until `P-122`.
 - [ ] `lib/group_docs.sh` -> Transitional shim delegating to `AAPP::GroupDocs` until `P-122`.
-- [ ] `tests/AAPP/Core/GroupDocs.pm` -> Switch from bash `source` wrappers to direct `AAPP::GroupDocs` calls.
-- [ ] `tests/AAPP/Core/Integrate.pm` -> Switch from bash `source` wrappers to direct `AAPP::Plan` calls.
+- [ ] `t/core/group_docs.t` -> Switch from bash `source` wrappers to direct `AAPP::GroupDocs` calls.
+- [ ] `t/core/integrate.t` -> Switch from bash `source` wrappers to direct `AAPP::Plan` calls.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `tests/AAPP/Tests.pm` -> Test harness and all `tests/AAPP/Verb/*` modules are locked in `P-114` and strictly out of bounds during code plans.
+- [ ] `lib/AAPP/Tests.pm` -> The test engine (P-126) and every test file in `t/` stay out of bounds during code plans.
 - [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
 
 ---
