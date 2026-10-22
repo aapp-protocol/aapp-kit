@@ -45,7 +45,7 @@ Plan `P-122` is the tenth and final member of group `P-111` (*Perl Port Of The K
 2. Deletes all **30** legacy `lib/*.sh` files (`git rm lib/*.sh`) and the `templates/aapp-lib.sh` symlink.
 3. Updates user documentation (`README.md`, `MANUAL.md`) to state the Perl 5.26+ runtime requirement, while leaving `ARCHITECTURE.md` and `.agents/CODEMAP.md` to the group plan `P-111`'s `## Architecture & Codemap` section applied on group `done`.
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** `./aapp`, the 30 `lib/*.sh` files, `templates/aapp-lib.sh`, and user-facing docs (`README.md`, `MANUAL.md`). `tests/AAPP/*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
+**Strict Tests-vs-Code Boundary:** This plan touches **only** `./aapp`, the 30 `lib/*.sh` files, `templates/aapp-lib.sh`, and user-facing docs (`README.md`, `MANUAL.md`). `t/*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
 ---
 
@@ -133,7 +133,7 @@ Removes every bash library file from `lib/` and `templates/` via `git rm` with z
 - [ ] `MANUAL.md` -> Update runtime requirements and hook architecture notes.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `tests/AAPP/Tests.pm` -> Test harness and all `tests/AAPP/*` modules are locked in `P-114` and strictly out of bounds during code plans.
+- [ ] `lib/AAPP/Tests.pm` -> The test engine (P-126) and every test file in `t/` stay out of bounds during code plans.
 - [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
 
 ---
