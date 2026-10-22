@@ -109,6 +109,11 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R16** 2026-10-23 · P-126 · § Test Harness Sandbox Confinement · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — applied
 - **R17** 2026-10-23 · P-126 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — applied
 - **R18** 2026-10-23 · P-126 · § 🔒 3. Enforcement Engines & Hook Templates (`templates/`) · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — applied
+- **R19** 2026-10-23 · P-126 · `lib/AAPP/Tests.pm` · was tests/AAPP/Tests.pm: the test engine is a core module, not a test, so it sits with the runtime modules; its sandbox kit is built without tests, as an install ships none (P-121) — closed · landed `cabcde9`
+- **R20** 2026-10-23 · P-126 · `t/core/output.t` · was tests/AAPP/Core/Output.pm: tests live in t/ as in any Perl project, named after their contract (lib/docs/core/output.md), runnable alone with prove -l t/ — closed · landed `cabcde9`
+- **R21** 2026-10-23 · P-126 · `t/test-run` · was tests/test-run: the temporary runner sits with the tests until P-125 routes aapp test to the engine; nothing Perl stays in tests/ — closed · landed `cabcde9`
+- **R22** 2026-10-23 · P-126 · `.agents/hooks/test-gate.sh` · TEST_CMD runs t/test-run instead of tests/test-run, because the runner moved (R21) — closed · landed `5652c1d`
+- **R23** 2026-10-23 · P-126 · — · P-116 to P-125 name t/core/<name>.t, t/verb/<verb>.t and lib/AAPP/Tests.pm instead of tests/AAPP/, because of the P-126 re-scope (R19–R21); P-121 adds that the install ships no tests, as tests run from a kit checkout; P-111 §3 member lines follow (its Architecture & Codemap: D4–D7) — applied
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
