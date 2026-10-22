@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `a40820d` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P129 (plan/P129-amendments-made-by-the-requesting-plan)
 * **Commits:** `543841f` (plan/P129-amendments-made-by-the-requesting-plan), `b8d8f3b` (plan/P129-amendments-made-by-the-requesting-plan)
@@ -153,6 +153,7 @@ Keeps the request log (`## Scope Requests`), approval, refusal, and the group te
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-22:** Plan implementation completed and archived to done/.
 * **2026-10-22:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-22:** Drafted from the design settled in chat (requester makes the change, owner keeps the record).

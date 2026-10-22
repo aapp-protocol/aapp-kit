@@ -3,6 +3,7 @@
 ## 🏷️ Shipped Releases
 | Release | Release Date | Tag Ledger | Plans | Issues | Verification Commit | Impact Summary |
 | :--- | :--- | :--- | :---: | :---: | :--- | :--- |
+| 2026-10-22 | `P-129` | [`P129-amendments-made-by-the-requesting-plan.md`](P129-amendments-made-by-the-requesting-plan.md) | none | `b8d8f3b` | Amendments Made By The Requesting Plan |
 | 2026-10-22 | `P-115` | [`P115-perl-core-and-state-model.md`](P115-perl-core-and-state-model.md) | none | `a40820d` | Perl Core And State Model |
 | 2026-10-20 | `P-127` | [`P127-perl-foundation.md`](P127-perl-foundation.md) | None | `8e51e53` | Perl Foundation |
 | 2026-10-19 | `P-113` | [`P113-slim-the-test-suites.md`](P113-slim-the-test-suites.md) | None | `6cd81b1` | Slim The Test Suites |
