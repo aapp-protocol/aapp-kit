@@ -65,7 +65,7 @@ Corrections of the group's text (`heading` requests, `decision`) stay as they ar
 
 ### 2.3 Commit: one commit per amendment
 1. `aapp commit "<msg>" amendment <n>` from the requester's worktree commits R<n>'s change: refused unless R<n> is approved, names the bound plan as requester, has no commit yet, and the staged files are exactly R<n>'s file. The commit carries the trailer `Amendment: R<n>`. It does not count against the requester's `atomic` commit mode and is not recorded in the requester's `* **Commits:**`.
-2. **Owner is another plan: lands at once.** The commit is built on the tip of the requester's parent branch (the branch in its `* **Base:**`: the feature branch for a group member), without a visible worktree, and the parent branch moves to it only when it has not moved meanwhile (as `done`'s landing does). The change leaves the requester's index and worktree, and the requester's branch is rebased onto the parent (`git rebase --autostash`). The commit's hash is final: the request line becomes `landed \`<sha>\``, and the owner's record (§2.4.2) is written in the same plans commit. Other members get it with their next rebase. A squash of the requester later covers only its own commits, on top of the amendment.
+2. **Owner is another plan: lands at once.** The commit is built on the tip of the requester's parent branch (the branch in its `* **Base:**`: the feature branch for a group member), without a visible worktree, and the parent branch moves to it only when it has not moved meanwhile (as `done`'s landing does). It is refused when R<n>'s file on the parent's tip differs from the requester's copy before the change (another landing changed it): "rebase onto `<parent>` first". A parent that moved in other files is no reason to refuse. The change leaves the requester's index and worktree, and the requester's branch is rebased onto the parent (`git rebase --autostash`). The commit's hash is final: the request line becomes `landed \`<sha>\``, and the owner's record (§2.4.2) is written in the same plans commit. Other members get it with their next rebase. A squash of the requester later covers only its own commits, on top of the amendment.
 3. **Owner is the requester: lands with its `done`.** The commit stays on the requester's branch, and the request line becomes `committed`.
 
 ### 2.4 The record in the owner, and closing at done
@@ -148,7 +148,7 @@ Keeps the request log (`## Scope Requests`), approval, refusal, and the group te
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [x] **Question 1:** Bash, so the kit uses it at once; the Perl members port it (notes in P-116, P-119, P-120). Decided 2026-10-22.
+* [x] **Question 1:** Bash code on `feature/perl-port-of-the-kit`, the branch the installed kit runs, so it is used at once; the Perl members port it (notes in P-116, P-119, P-120). Decided 2026-10-22.
 * [x] **Question 2:** The landed hash in the owner only on its `### Amendments` line (§2.4.2), so its `* **Commits:**` line agrees with the archive ledger. Decided 2026-10-22.
 
 ---
