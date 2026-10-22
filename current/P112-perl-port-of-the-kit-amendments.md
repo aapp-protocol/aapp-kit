@@ -107,7 +107,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R14** 2026-10-22 · P-126 · `lib/AAPP/Constants.pm` · P-126: test harness defaults (watchdog 60 s, jobs step 4, sandbox prefix, fallback git identity, default branch) go into AAPP::Constants — committed
 - **R15** 2026-10-23 · P-126 · § 📂 3. Global Structural Mapping · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — applied
 - **R16** 2026-10-23 · P-126 · § Test Harness Sandbox Confinement · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — applied
-- **R17** 2026-10-23 · P-126 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — approved (Lorand Veres)
+- **R17** 2026-10-23 · P-126 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — applied
 - **R18** 2026-10-23 · P-126 · § 🔒 3. Enforcement Engines & Hook Templates (`templates/`) · P-126: the test engine is lib/AAPP/Tests.pm, the tests are t/core|verb/<name>.t — approved (Lorand Veres)
 
 ## Decisions
@@ -116,5 +116,6 @@ Each request is implemented as its approval describes; corrections of the group'
 - **D3** 2026-10-21 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · R6 · Codemap lists AAPP::Util; also Constants, Logger, Runner (done in P-127, missing) and Paths::kit_dir
 - **D4** 2026-10-23 · § 📂 3. Global Structural Mapping · R15 · the test engine is a core module; tests in t/ (P-126)
 - **D5** 2026-10-23 · § Test Harness Sandbox Confinement · R16 · tests in t/, engine lib/AAPP/Tests.pm (P-126)
+- **D6** 2026-10-23 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · R17 · test engine in lib/AAPP/Tests.pm (P-126)
 
 ## Follow-ups
