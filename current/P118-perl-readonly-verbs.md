@@ -44,7 +44,7 @@ Plan `P-118` is the sixth member of group `P-111` (*Perl Port Of The Kit*). It p
 
 In bash, `aapp status` re-parses `state_matrix.md`, `ISSUES.md`, `issues_road_map.md`, `pickup.md`, and every `.plans/current/P*.md` file through separate `awk` processes and spawns per-worktree `git` invocations. In Perl, all four verbs read from the in-memory `AAPP::State` object in a single process, rendering human output, `short` output, and `json` payloads (`AAPP::Output` + `AAPP::JSON`).
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Adoption.pm`, `lib/AAPP/Cmd/*.pm`, `lib/adoption.sh`, `lib/cmd_status.sh`, `lib/cmd_matrix.sh`, `lib/cmd_help.sh`, `lib/cmd_plan.sh`, `aapp`) plus switching `tests/AAPP/Core/Adoption.pm` and `tests/AAPP/Core/Matrix.pm` from bash `source` wrappers to direct `AAPP::Adoption` and `AAPP::Cmd::Matrix` calls per `P-111`'s core-wrapper rule.
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Adoption.pm`, `lib/AAPP/Cmd/*.pm`, `lib/adoption.sh`, `lib/cmd_status.sh`, `lib/cmd_matrix.sh`, `lib/cmd_help.sh`, `lib/cmd_plan.sh`, `aapp`) plus switching `t/core/adoption.t` and `t/core/matrix.t` from bash `source` wrappers to direct `AAPP::Adoption` and `AAPP::Cmd::Matrix` calls per `P-111`'s core-wrapper rule.
 
 ---
 
@@ -56,12 +56,12 @@ Ports `lib/adoption.sh` into `lib/AAPP/Adoption.pm`:
 
 ### 2.2 `AAPP::Cmd::Status` (`lib/AAPP/Cmd/Status.pm`) — `aapp status` (`lib/cmd_status.sh`, 937 lines)
 Ports `cmd_status` from `lib/cmd_status.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help status full` and `lib/docs/verbs/status.md`, verified under unchanged `tests/AAPP/Verb/Status.pm`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help status full` and `lib/docs/verbs/status.md`, verified under unchanged `t/verb/status.t`.
 - Scans the 4 workspace pillars (Shipped, Issues, Plans, Pickup) from `AAPP::State`, `AAPP::Health`, `AAPP::Adoption`, `AAPP::Issue`, and `AAPP::Cmd::Offline`, and renders terminal (`AAPP::Output`) and `json` (`AAPP::JSON`) output.
 
 ### 2.3 `AAPP::Cmd::Matrix` (`lib/AAPP/Cmd/Matrix.pm`) — `aapp matrix` (`lib/cmd_matrix.sh`, 332 lines)
 Ports `cmd_matrix` from `lib/cmd_matrix.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help matrix full` and `lib/docs/verbs/matrix.md`, verified under `tests/AAPP/Core/Matrix.pm`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help matrix full` and `lib/docs/verbs/matrix.md`, verified under `t/core/matrix.t`.
 - Rebuilds `.plans/state_matrix.md` from `.plans/current/P*.md` headers via `AAPP::State` while preserving human row ordering, and verifies matrix sync on `check`.
 - Rows within a section sort by plan number as a number: P-15 before P-128, through `AAPP::Util::plan_sort` (the one plan sort; `AAPP::State::current_plans` already returns plans in that order). The bash verb sorts the IDs as text, which puts P-128 before P-15; the port does not carry that over.
 
@@ -83,8 +83,8 @@ Ports `cmd_help` from `lib/cmd_help.sh`:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Adoption & Matrix (`AAPP::Adoption`, `AAPP::Cmd::Matrix`)
-- [ ] Task 1.1: Implement `lib/AAPP/Adoption.pm` (`lib/adoption.sh`) and switch `tests/AAPP/Core/Adoption.pm` to call `AAPP::Adoption` directly without bash `source` wrappers.
-- [ ] Task 1.2: Implement `lib/AAPP/Cmd/Matrix.pm` (`aapp matrix [check]`) and switch `tests/AAPP/Core/Matrix.pm` to call `AAPP::Cmd::Matrix` directly without bash `source` wrappers.
+- [ ] Task 1.1: Implement `lib/AAPP/Adoption.pm` (`lib/adoption.sh`) and switch `t/core/adoption.t` to call `AAPP::Adoption` directly without bash `source` wrappers.
+- [ ] Task 1.2: Implement `lib/AAPP/Cmd/Matrix.pm` (`aapp matrix [check]`) and switch `t/core/matrix.t` to call `AAPP::Cmd::Matrix` directly without bash `source` wrappers.
 
 ### Phase 2: Status, PlanStatus & Help (`AAPP::Cmd::Status`, `PlanStatus`, `Help`)
 - [ ] Task 2.1: Implement `lib/AAPP/Cmd/Status.pm` (`aapp status [short | json]`), `lib/AAPP/Cmd/PlanStatus.pm` (`aapp plan-status [id]`), and `lib/AAPP/Cmd/Help.pm` (`aapp help [<verb> [full]]`).
@@ -114,11 +114,11 @@ Ports `cmd_help` from `lib/cmd_help.sh`:
 - [ ] `lib/cmd_status.sh` -> Transitional shim delegating to `AAPP::Cmd::Status` until `P-122`.
 - [ ] `lib/cmd_help.sh` -> Transitional shim delegating to `AAPP::Cmd::Help` until `P-122`.
 - [ ] `lib/cmd_plan.sh` -> Delegate `cmd_plan_status` to `AAPP::Cmd::PlanStatus` until `P-119`.
-- [ ] `tests/AAPP/Core/Adoption.pm` -> Switch from bash `source` wrappers to direct `AAPP::Adoption` calls.
-- [ ] `tests/AAPP/Core/Matrix.pm` -> Switch from bash `source` wrappers to direct `AAPP::Cmd::Matrix` calls.
+- [ ] `t/core/adoption.t` -> Switch from bash `source` wrappers to direct `AAPP::Adoption` calls.
+- [ ] `t/core/matrix.t` -> Switch from bash `source` wrappers to direct `AAPP::Cmd::Matrix` calls.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `tests/AAPP/Tests.pm` -> Test harness and all `tests/AAPP/Verb/*` modules are locked in `P-114` and strictly out of bounds during code plans.
+- [ ] `lib/AAPP/Tests.pm` -> The test engine (P-126) and every test file in `t/` stay out of bounds during code plans.
 - [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
 
 ---
