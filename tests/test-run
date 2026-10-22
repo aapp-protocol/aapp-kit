@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+# tests/test-run: runs the kit's Perl test modules through AAPP::Tests. 'tests/test-run help' lists
+# the selectors and modifiers.
+use strict;
+use warnings;
+use utf8;
+use 5.026;
+
+use FindBin ();
+use lib "$FindBin::RealBin/../lib", $FindBin::RealBin;
+
+use AAPP::Tests ();
+
+AAPP::Tests::main(@ARGV);
