@@ -44,7 +44,7 @@ Plan `P-120` is the eighth member of group `P-111` (*Perl Port Of The Kit*). It 
 
 In bash, `aapp commit` and `aapp note stage` shell out to `shasum`/`sha256sum` and `awk` to stage pending notes, splice `CHANGELOG.md` under `## [Unreleased]`, and rewrite `* **Commits:**` in the active plan. In Perl, `Digest::SHA::sha256_hex` computes note buffer hashes in-process, `AAPP::State` / `AAPP::Plan` update `CHANGELOG.md` and `* **Commits:**` directly, and `aapp commit land` calls `AAPP::Plan`'s `_ig_preflight` and fast-forward integration engine (`P-119`).
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_commit.sh`, `lib/cmd_note.sh`, `lib/cmd_ai.sh`, `aapp`). `tests/AAPP/*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_commit.sh`, `lib/cmd_note.sh`, `lib/cmd_ai.sh`, `aapp`). `t/*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
 ---
 
@@ -52,17 +52,17 @@ In bash, `aapp commit` and `aapp note stage` shell out to `shasum`/`sha256sum` a
 
 ### 2.1 `AAPP::Cmd::Commit` (`lib/AAPP/Cmd/Commit.pm`) — `aapp commit` (`lib/cmd_commit.sh`, 567 lines)
 Ports `cmd_commit` from `lib/cmd_commit.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help commit full` and `lib/docs/verbs/commit.md` (standard plan-bound commit, `amend`, `adopt`, `land`, trailers, staged notes, and changelog splicing), verified under unchanged `tests/AAPP/Verb/Commit.pm`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help commit full` and `lib/docs/verbs/commit.md` (standard plan-bound commit, `amend`, `adopt`, `land`, trailers, staged notes, and changelog splicing), verified under unchanged `t/verb/commit.t`.
 - Changelog entry written through a filter, never a refusal (#189): before `- <text> (`<id>`)` is rendered, a trailing `(<own id>)` and a leading `Added:` / `Changed:` / `Fixed:` are dropped from the text, so a plan field or `changelog "<text>"` that carries them still gives one tag and no section word. Existing `CHANGELOG.md` lines are not rewritten.
 - Uses `AAPP::State` (`P-115`), `AAPP::Attribution` (`P-116`), `AAPP::CommitEngine` (`P-115`), `Digest::SHA::sha256_hex` (for `$(git rev-parse --git-path aapp_pending_note).<sha256>`), and `AAPP::Plan`'s `_ig_*` engine (`P-119`) for `land`.
 
 ### 2.2 `AAPP::Cmd::Note` (`lib/AAPP/Cmd/Note.pm`) — `aapp note` (`lib/cmd_note.sh`, 386 lines)
 Ports `cmd_note` from `lib/cmd_note.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help note full` and `lib/docs/verbs/note.md` (`status`, `stage`, `push`, `pull`), verified under unchanged `tests/AAPP/Verb/Note.pm`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help note full` and `lib/docs/verbs/note.md` (`status`, `stage`, `push`, `pull`), verified under unchanged `t/verb/note.t`.
 
 ### 2.3 `AAPP::Cmd::Ai` (`lib/AAPP/Cmd/Ai.pm`) — `aapp ai` (`lib/cmd_ai.sh`, 374 lines)
 Ports `cmd_ai` from `lib/cmd_ai.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help ai full` and `lib/docs/verbs/ai.md` (`status`, `none`, `lax`, `strict`, `notes`, `credits`), verified under unchanged `tests/AAPP/Verb/Ai.pm`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help ai full` and `lib/docs/verbs/ai.md` (`status`, `none`, `lax`, `strict`, `notes`, `credits`), verified under unchanged `t/verb/ai.t`.
 - **Amendments (P-129):** `aapp commit "<msg>" amendment <n>` ports P-129's bash behaviour: one commit of the request's file with the `Amendment: R<n>` trailer; for an owner other than the requester it lands at once on the parent branch, rebases the requester and writes the owner's record.
 
 ### 🔄 Migration & Compatibility Strategy
@@ -99,7 +99,7 @@ Ports `cmd_ai` from `lib/cmd_ai.sh`:
 - [ ] `lib/cmd_ai.sh` -> Transitional shim delegating to `AAPP::Cmd::Ai` until `P-122`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `tests/AAPP/Tests.pm` -> Test harness and all `tests/AAPP/*` modules are locked in `P-114` and strictly out of bounds during code plans.
+- [ ] `lib/AAPP/Tests.pm` -> The test engine (P-126) and every test file in `t/` stay out of bounds during code plans.
 - [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
 
 ---
