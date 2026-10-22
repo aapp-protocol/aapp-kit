@@ -429,53 +429,75 @@ if [ "$r1" -eq 0 ] && echo "$out1" | grep -qF "R1 recorded" && echo "$out1" | gr
 else
   bad "test_amend_request_from_member_only" "r1=$r1 out1=$out1 r2=$r2 out2=$out2"
 fi
-out="$(aapp refine "$aa" approve 1 2>&1)"; rc=$?
-if [ "$rc" -eq 0 ] && grep -qF -- '- [ ] `src/helper.sh` -> R1' "$af" && grep -q '· needs a helper — approved (' "$af" && \
-   echo "$out" | grep -qF "added to $aa's Target Files"; then
-  ok "test_amend_approve_adds_target_file"
+# P-129: the owner is the group plan or a plan of the group; any other plan is refused.
+op="P-$(git config aapp.planId)"; aapp draft outsider >/dev/null 2>&1
+r1=0; out1="$(cd "$mwt" && aapp refine "$aa" request "for the group" file src/g.sh for "$ag" 2>&1)" || r1=$?
+r2=0; out2="$(cd "$mwt" && aapp refine "$aa" request "unknown" file src/u.sh for P-9999 2>&1)" || r2=$?
+r3=0; out3="$(cd "$mwt" && aapp refine "$aa" request "outside" file src/o.sh for "$op" 2>&1)" || r3=$?
+if [ "$r1" -eq 0 ] && grep -qF -- "- **R2** $(date +%Y-%m-%d) · $am · \`src/g.sh\` · for the group · for $ag — pending" "$af" && \
+   [ "$r2" -ne 0 ] && [ "$r3" -ne 0 ] && echo "$out3" | grep -qF "group $ag" && ! grep -qF "src/u.sh" "$af" && ! grep -qF "src/o.sh" "$af"; then
+  ok "test_amend_request_names_its_owner"
 else
-  bad "test_amend_approve_adds_target_file" "rc=$rc out=$out"
+  bad "test_amend_request_names_its_owner" "r1=$r1 out1=$out1 r2=$r2 out2=$out2 r3=$r3 out3=$out3"
+fi
+out="$(aapp refine "$aa" approve 1 2>&1)"; rc=$?
+g1=0; ( cd "$mwt" && bash .githooks/blast-radius-guard src/helper.sh >/dev/null 2>&1 ) || g1=$?
+g2=0; ( cd "$mwt" && bash .githooks/blast-radius-guard src/unlisted.sh >/dev/null 2>&1 ) || g2=$?
+if [ "$rc" -eq 0 ] && grep -q '· needs a helper — approved (' "$af" && ! grep -qF '`src/helper.sh` -> R1' "$af" && \
+   echo "$out" | grep -qF "amendment 1" && [ "$g1" -eq 0 ] && [ "$g2" -ne 0 ]; then
+  ok "test_amend_approve_lets_the_requester_write"
+else
+  bad "test_amend_approve_lets_the_requester_write" "rc=$rc out=$out guard=$g1/$g2"
 fi
 ( cd "$mwt" && aapp refine "$aa" request "taken" file "src/amg-m.sh" >/dev/null 2>&1 )
-r3=0; out3="$(aapp refine "$aa" approve 2 2>&1)" || r3=$?
-r4=0; out4="$(aapp refine "$aa" refuse 2 "a member's own file" 2>&1)" || r4=$?
+r3=0; out3="$(aapp refine "$aa" approve 3 2>&1)" || r3=$?
+r4=0; out4="$(aapp refine "$aa" refuse 3 "a member's own file" 2>&1)" || r4=$?
+( cd "$mwt" && aapp refine "$aa" request "again" file "src/helper.sh" >/dev/null 2>&1 )
+r5=0; out5="$(aapp refine "$aa" approve 4 2>&1)" || r5=$?
 if [ "$r3" -ne 0 ] && echo "$out3" | grep -qF "Target File of $am" && [ "$r4" -eq 0 ] && \
-   grep -q "— refused: a member's own file$" "$af"; then
+   grep -q "— refused: a member's own file$" "$af" && [ "$r5" -ne 0 ] && echo "$out5" | grep -qF "R1" && grep -q "· again — pending$" "$af"; then
   ok "test_amend_approve_refuses_active_member_file_and_refuse"
 else
-  bad "test_amend_approve_refuses_active_member_file_and_refuse" "r3=$r3 out3=$out3 r4=$r4 out4=$out4"
+  bad "test_amend_approve_refuses_active_member_file_and_refuse" "r3=$r3 out3=$out3 r4=$r4 out4=$out4 r5=$r5 out5=$out5"
 fi
-r5=0; out5="$(cd "$awt" && aapp refine "$aa" file src/z.sh "direct" 2>&1)" || r5=$?
 git config aapp.amendmentApprovalRequired false
-r6=0; out6="$(cd "$awt" && aapp refine "$aa" file src/z.sh "direct" 2>&1)" || r6=$?
-r7=0; out7="$(aapp refine "$aa" file src/w.sh "elsewhere" 2>&1)" || r7=$?
+r6=0; out6="$(cd "$mwt" && aapp refine "$aa" request "auto" file src/auto.sh 2>&1)" || r6=$?
 git config aapp.amendmentApprovalRequired maybe
 r8=0; out8="$(cd "$mwt" && aapp refine "$aa" request "any" 2>&1)" || r8=$?
 git config --unset aapp.amendmentApprovalRequired
-if [ "$r5" -ne 0 ] && echo "$out5" | grep -qF "Approval is required" && [ "$r6" -eq 0 ] && grep -qF -- '- [ ] `src/z.sh` -> direct' "$af" && \
-   [ "$r7" -ne 0 ] && echo "$out7" | grep -qF "amends it" && [ "$r8" -ne 0 ] && echo "$out8" | grep -qF "aapp.amendmentApprovalRequired"; then
-  ok "test_amend_file_follows_the_approval_setting"
+if [ "$r6" -eq 0 ] && grep -qF "· auto — approved (auto)" "$af" && [ "$r8" -ne 0 ] && echo "$out8" | grep -qF "aapp.amendmentApprovalRequired"; then
+  ok "test_amend_auto_approved_when_not_required"
 else
-  bad "test_amend_file_follows_the_approval_setting" "r5=$r5 r6=$r6 out6=$out6 r7=$r7 out7=$out7 r8=$r8 out8=$out8"
+  bad "test_amend_auto_approved_when_not_required" "r6=$r6 out6=$out6 r8=$r8 out8=$out8"
 fi
 # A correction of the group's text: requested by heading, approved, written into the group plan.
 gfa="$(ls .plans/current/P"${ag#P-}"-amg.md)"
 awk '/^### ARCHITECTURE.md/ { print; print "````markdown"; print "## Amg Lifecycle"; print "first text"; print "````"; next } { print }' "$gfa" > "$gfa.t" && mv "$gfa.t" "$gfa"
 git -C .plans commit -qam "fixture: group section" --no-verify >/dev/null 2>&1
 ( cd "$mwt" && aapp refine "$aa" request "landing changed" heading "Amg Lifecycle" >/dev/null 2>&1 )
-aapp refine "$aa" approve 3 >/dev/null 2>&1
+aapp refine "$aa" approve 6 >/dev/null 2>&1
 sed -i 's/^first text$/corrected text/' "$gfa"
-r9=0; out9="$(cd "$awt" && aapp refine "$aa" decision 3 "landing changed" 2>&1)" || r9=$?
+r9=0; out9="$(cd "$awt" && aapp refine "$aa" decision 6 "landing changed" 2>&1)" || r9=$?
 files9="$(git -C .plans show --name-only --format= HEAD)"
 sed -i 's/^Group goal.*$//' "$gfa"; echo "* stray" >> "$gfa"
-r10=0; out10="$(cd "$awt" && aapp refine "$aa" decision 3 "again" 2>&1)" || r10=$?
+r10=0; out10="$(cd "$awt" && aapp refine "$aa" decision 6 "again" 2>&1)" || r10=$?
 git -C .plans checkout -q -- "current/$(basename "$gfa")"
-if [ "$r9" -eq 0 ] && grep -qx "corrected text" "$gfa" && grep -qF -- "· § Amg Lifecycle · R3 · landing changed" "$af" && \
+if [ "$r9" -eq 0 ] && grep -qx "corrected text" "$gfa" && grep -qF -- "· § Amg Lifecycle · R6 · landing changed" "$af" && \
    grep -q "· landing changed — applied$" "$af" && echo "$files9" | grep -qx "current/$(basename "$gfa")" && \
    echo "$files9" | grep -qx "current/$(basename "$af")" && [ "$r10" -ne 0 ]; then
   ok "test_amend_decision_corrects_group_text_with_record"
 else
   bad "test_amend_decision_corrects_group_text_with_record" "r9=$r9 out9=$out9 files=$files9 r10=$r10 out10=$out10"
+fi
+# P-129: an aborted requester's open requests are closed as withdrawn; refused and applied ones stay.
+r11=0; out11="$(aapp plan abort "$am" reason "dropped" 2>&1)" || r11=$?
+if [ "$r11" -eq 0 ] && grep -qF "· needs a helper — closed · withdrawn" "$af" && grep -qF "· for $ag — closed · withdrawn" "$af" && \
+   grep -qF "· again — closed · withdrawn" "$af" && grep -qF "· auto — closed · withdrawn" "$af" && \
+   grep -q "— refused: a member's own file$" "$af" && grep -q "· landing changed — applied$" "$af" && \
+   git -C .plans show --name-only --format= HEAD | grep -qx "current/$(basename "$af")"; then
+  ok "test_amend_abort_withdraws_requests"
+else
+  bad "test_amend_abort_withdraws_requests" "r11=$r11 out11=$out11"
 fi
 
 print_test_summary "$PASS" "$FAIL"

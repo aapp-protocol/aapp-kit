@@ -255,4 +255,61 @@ else
   bad "test_failed_archive_commit_restores_and_retry_archives" "rc=$rc/$rc2 restored=$restored out=$out | $out2 status=$(git -C .plans status --porcelain | tr '\n' ' ')"
 fi
 
+echo "== amendments are closed by the requester's done (P-129) =="
+init_sandbox_project "$R/ga"
+cd "$R/ga" || exit 1
+git add -A && git commit -qm "track init files" --no-verify
+git config aapp.planWorktrees on; git config aapp.commitMode microcommits
+gid="P-$(git config aapp.planId)"; aapp draft ga group >/dev/null 2>&1; aid="P-$(( ${gid#P-} + 1 ))"
+gfile="$(ls .plans/current/P"${gid#P-}"-ga.md)"; sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$gfile"
+git -C .plans commit -qam "prep $gid" >/dev/null 2>&1
+aapp freeze "$gid" >/dev/null 2>&1; aapp start "$gid" base "$(git rev-parse --abbrev-ref HEAD)" >/dev/null 2>&1
+af="$(ls .plans/current/P"${aid#P-}"-*.md)"; fb="feature/ga"
+# ga_member <slug>: a member freeze-started into its worktree, its own file committed; prints its id.
+ga_member() {
+  local id f; id="P-$(git config aapp.planId)"; aapp draft "$1" group "$gid" >/dev/null 2>&1
+  f="$(ls .plans/current/P"${id#P-}"-"$1".md)"
+  sed -i -E "s|src/path/to/file\.ext|src/$1.sh|g; /src\/path\/to\/new_file\.ext/d; s/^\* \[ \] \*\*Question/* [x] **Question/" "$f"
+  git -C .plans commit -qam "prep $id" >/dev/null 2>&1; aapp freeze-start "$id" >/dev/null 2>&1
+  ( cd "$R/ga/.workspace/P${id#P-}" && mkdir -p src && echo "v=1" > "src/$1.sh" && git add "src/$1.sh" && aapp commit "feat: $1" >/dev/null 2>&1 )
+  echo "$id"
+}
+# ga_amend <member> <n> <file> <summary> [for <owner>]: requested, approved; committed as R<n> unless <n> is '-'.
+ga_amend() {
+  local m="$1" n="$2" p="$3" s="$4"; shift 4
+  ( cd "$R/ga/.workspace/P${m#P-}" && aapp refine "$aid" request "$s" file "$p" "$@" >/dev/null 2>&1 )
+  aapp refine "$aid" approve "$(grep -c '^- \*\*R[0-9]' "$af")" >/dev/null 2>&1
+  [ "$n" = "-" ] && return 0
+  ( cd "$R/ga/.workspace/P${m#P-}" && echo "a=$n" > "$p" && git add "$p" && aapp commit "feat: $s" amendment "$n" >/dev/null 2>&1 )
+}
+m1="$(ga_member ga-one)"
+ga_amend "$m1" 1 src/own.sh "own helper"
+ga_amend "$m1" - src/unused.sh "never used"
+ga_amend "$m1" 3 src/shared.sh "shared" for "$gid"
+( cd "$R/ga/.workspace/P${m1#P-}" && aapp refine "$aid" request "still pending" file src/pend.sh >/dev/null 2>&1 \
+  && git rebase -q --autostash "$fb" >/dev/null 2>&1 )
+r1=0; out1="$(aapp done "$m1" integrate ff 2>&1)" || r1=$?
+s1="$(git log --format=%h --grep='^Amendment: R1$' "$fb" | head -n 1)"; s3="$(git log --format=%h --grep='^Amendment: R3$' "$fb" | head -n 1)"
+d1="$(ls .plans/done/P"${m1#P-}"-*.md)"
+if [ "$r1" -eq 0 ] && [ -n "$s1" ] && grep -qF "· own helper — closed · landed \`$s1\`" "$af" && grep -qF "· never used — closed · unused" "$af" && \
+   grep -qF "· for $gid — closed · landed \`$s3\`" "$af" && grep -qF "· still pending — closed · withdrawn" "$af" && \
+   grep -qF -- "- [x] \`src/own.sh\` -> R1 (by $m1)" "$d1" && grep -qF "· \`src/own.sh\` · own helper (by $m1, landed \`$s1\`)" "$d1" && \
+   ! grep -qF "src/shared.sh" "$d1" && ! grep -m1 'Commits:' "$d1" | grep -qF "$s1"; then
+  ok "test_done_closes_the_requests"
+else
+  bad "test_done_closes_the_requests" "r1=$r1 out1=$out1 s1=$s1 s3=$s3"
+fi
+# A squash integration: the requester's own amendment is recorded with the squash commit.
+m2="$(ga_member ga-two)"
+ga_amend "$m2" 5 src/own2.sh "own two"
+r2=0; out2="$(aapp done "$m2" integrate squash 2>&1)" || r2=$?
+d2="$(ls .plans/done/P"${m2#P-}"-*.md)"; s2="$(git log -1 --format=%h "$fb")"
+if [ "$r2" -eq 0 ] && grep -qF "· own two — closed · landed \`$s2\`" "$af" && grep -qF "· own two (by $m2, landed \`$s2\`)" "$d2" && \
+   git show --name-only --format= "$fb" | grep -qx "src/own2.sh"; then
+  ok "test_done_records_own_amendment_in_the_squash"
+else
+  bad "test_done_records_own_amendment_in_the_squash" "r2=$r2 out2=$out2 s2=$s2"
+fi
+cd "$R/p" || exit 1
+
 print_test_summary "$PASS" "$FAIL"

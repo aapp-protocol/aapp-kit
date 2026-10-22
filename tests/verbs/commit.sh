@@ -440,7 +440,7 @@ else
   bad "test_mini_plan_commit_refuses_changelog_after_first_commit" "rc=$rc out=$out"
 fi
 
-echo "== the amendments member: commits and land (P-101) =="
+echo "== amendments: one commit by the requester (P-129) =="
 init_sandbox_project "$R/am"
 cd "$R/am" || exit 1
 printf '%s\n' '.env' >> .gitignore; git add -A && git commit -qm "track init files" --no-verify
@@ -449,47 +449,89 @@ gid="P-$(git config aapp.planId)"; aapp draft amg group >/dev/null 2>&1; aid="P-
 g="$(ls .plans/current/P"${gid#P-}"-amg.md)"; sed -i -E 's/^\* \[ \] \*\*Question/* [x] **Question/' "$g"
 git -C .plans commit -qam "prep $gid" >/dev/null 2>&1
 aapp freeze "$gid" >/dev/null 2>&1; aapp start "$gid" base "$(git rev-parse --abbrev-ref HEAD)" >/dev/null 2>&1
-mid="P-$(git config aapp.planId)"; aapp draft amg-m group "$gid" >/dev/null 2>&1
-m="$(ls .plans/current/P"${mid#P-}"-amg-m.md)"
-sed -i -E "s|src/path/to/file\.ext|src/amg-m.sh|g; /src\/path\/to\/new_file\.ext/d; s/^\* \[ \] \*\*Question/* [x] **Question/" "$m"
-git -C .plans commit -qam "prep $mid" >/dev/null 2>&1; aapp freeze-start "$mid" >/dev/null 2>&1
-af="$(ls .plans/current/P"${aid#P-}"-*.md)"; awt="$R/am/.workspace/P${aid#P-}"; mwt="$R/am/.workspace/P${mid#P-}"; fb="feature/amg"
-( cd "$mwt" && aapp refine "$aid" request "helper" file src/helper.sh >/dev/null 2>&1 )
+# amg_member <slug>: a member of the group, freeze-started into its worktree; prints its id.
+amg_member() {
+  local id f; id="P-$(git config aapp.planId)"; aapp draft "$1" group "$gid" >/dev/null 2>&1
+  f="$(ls .plans/current/P"${id#P-}"-"$1".md)"
+  sed -i -E "s|src/path/to/file\.ext|src/$1.sh|g; /src\/path\/to\/new_file\.ext/d; s/^\* \[ \] \*\*Question/* [x] **Question/" "$f"
+  git -C .plans commit -qam "prep $id" >/dev/null 2>&1; aapp freeze-start "$id" >/dev/null 2>&1
+  echo "$id"
+}
+fb="feature/amg"
+# An archived member: the owner of a later amendment.
+old="$(amg_member amg-old)"
+( cd "$R/am/.workspace/P${old#P-}" && mkdir -p src && echo "o=1" > src/amg-old.sh && git add src/amg-old.sh && aapp commit "feat: old" >/dev/null 2>&1 )
+aapp done "$old" integrate ff >/dev/null 2>&1
+mid="$(amg_member amg-m)"
+af="$(ls .plans/current/P"${aid#P-}"-*.md)"; mf="$(ls .plans/current/P"${mid#P-}"-*.md)"; mwt="$R/am/.workspace/P${mid#P-}"
 r0=0; out0="$(aapp done "$aid" integrate ff 2>&1)" || r0=$?
-aapp refine "$aid" approve 1 >/dev/null 2>&1
-( cd "$awt" && mkdir -p src && echo "h=1" > src/helper.sh && git add src/helper.sh && aapp commit "feat: helper" >/dev/null 2>&1 )
-r1=0; out1="$(cd "$awt" && echo "h=2" > src/helper.sh && git add src/helper.sh && aapp commit "feat: helper two" 2>&1)" || r1=$?
-if [ "$r1" -eq 0 ] && git -C "$awt" log -2 --format=%B | grep -c "^Plan-ID: $aid$" | grep -qx 2 && \
-   grep -qx '\* \*\*Commit Mode:\*\* microcommits' "$af"; then
-  ok "test_amend_commits_carry_plan_id_and_microcommits"
+# R1: for the requester itself; its commit stays on the requester's branch.
+( cd "$mwt" && aapp refine "$aid" request "helper" file src/helper.sh >/dev/null 2>&1 ); aapp refine "$aid" approve 1 >/dev/null 2>&1
+r1=0; out1="$(cd "$mwt" && mkdir -p src && echo "h=1" > src/helper.sh && git add src/helper.sh && aapp commit "feat: helper" amendment 1 2>&1)" || r1=$?
+r1b=0; out1b="$(cd "$mwt" && echo "m=1" > src/amg-m.sh && git add src/amg-m.sh && aapp commit "feat: m" 2>&1)" || r1b=$?
+if [ "$r1" -eq 0 ] && git -C "$mwt" log -1 --format=%B HEAD~1 | grep -qx "Amendment: R1" && \
+   git -C "$mwt" show --name-only --format= HEAD~1 | grep -qx "src/helper.sh" && grep -q "· helper — committed$" "$af" && \
+   [ "$r1b" -eq 0 ] && [ "$(grep -m1 'Commits:' "$mf" | grep -o '`[0-9a-f]*`' | wc -l)" -eq 1 ]; then
+  ok "test_amend_commit_for_itself"
 else
-  bad "test_amend_commits_carry_plan_id_and_microcommits" "r1=$r1 out1=$out1 msg=$(git -C "$awt" log -1 --format=%B)"
+  bad "test_amend_commit_for_itself" "r1=$r1 out1=$out1 r1b=$r1b out1b=$out1b commits=$(grep -m1 'Commits:' "$mf")"
 fi
-fb0="$(git rev-parse "$fb")"; r2=0; out2="$(cd "$awt" && aapp commit land 2>&1)" || r2=$?
-if [ "$r2" -eq 0 ] && [ "$(git rev-parse "$fb")" = "$(git -C "$awt" rev-parse HEAD)" ] && git merge-base --is-ancestor "$fb0" "$fb" && \
-   grep -q "· helper — landed \`[0-9a-f]*\`$" "$af" && echo "$out2" | grep -qF "$mid must rebase"; then
-  ok "test_amend_land_fast_forwards_and_records"
+# R2: only its own file; R1's file is closed to further changes.
+( cd "$mwt" && aapp refine "$aid" request "second" file src/h2.sh >/dev/null 2>&1 ); aapp refine "$aid" approve 2 >/dev/null 2>&1
+r2=0; out2="$(cd "$mwt" && echo "x=1" > src/h2.sh && echo "m=2" > src/amg-m.sh && git add src/h2.sh src/amg-m.sh && aapp commit "feat: both" amendment 2 2>&1)" || r2=$?
+( cd "$mwt" && git reset -q && git checkout -q -- src/amg-m.sh && rm -f src/h2.sh )
+r3=0; out3="$(cd "$mwt" && echo "h=2" > src/helper.sh && git add src/helper.sh && aapp commit "feat: again" amendment 1 2>&1)" || r3=$?
+g3=0; ( cd "$mwt" && bash .githooks/blast-radius-guard src/helper.sh >/dev/null 2>&1 ) || g3=$?
+( cd "$mwt" && git reset -q && git checkout -q -- src/helper.sh )
+if [ "$r2" -ne 0 ] && echo "$out2" | grep -qF "src/amg-m.sh" && [ "$r3" -ne 0 ] && echo "$out3" | grep -qF "R1" && [ "$g3" -ne 0 ] && \
+   grep -q "· second — approved (" "$af"; then
+  ok "test_amend_commit_takes_its_file_once"
 else
-  bad "test_amend_land_fast_forwards_and_records" "r2=$r2 out2=$out2"
+  bad "test_amend_commit_takes_its_file_once" "r2=$r2 out2=$out2 r3=$r3 out3=$out3 guard=$g3"
 fi
-( cd "$mwt" && mkdir -p src && echo "m=1" > src/amg-m.sh && git add src/amg-m.sh && aapp commit "feat: m" >/dev/null 2>&1 )
-aapp done "$mid" integrate ff >/dev/null 2>&1   # refused: it must rebase first
-( cd "$mwt" && git rebase -q --autostash "$fb" >/dev/null 2>&1 ); aapp done "$mid" integrate ff >/dev/null 2>&1
-( cd "$awt" && echo "h=3" > src/helper.sh && git add src/helper.sh && aapp commit "feat: helper three" >/dev/null 2>&1 )
-r3=0; out3="$(cd "$awt" && aapp commit land 2>&1)" || r3=$?
-r4=0; out4="$(cd "$R/am" && aapp commit land 2>&1)" || r4=$?
-if [ "$r3" -ne 0 ] && echo "$out3" | grep -qF "rebase it first" && [ "$r4" -ne 0 ]; then
-  ok "test_amend_land_refuses_without_feature_tip"
+# R3: for the group plan; lands at once on the feature branch, checked out in a worktree.
+git worktree add -q "$R/am-fb" "$fb"
+( cd "$mwt" && aapp refine "$aid" request "shared" file src/shared.sh for "$gid" >/dev/null 2>&1 ); aapp refine "$aid" approve 3 >/dev/null 2>&1
+r4=0; out4="$(cd "$mwt" && echo "s=1" > src/shared.sh && git add src/shared.sh && aapp commit "feat: shared" amendment 3 2>&1)" || r4=$?
+s4="$(git log -1 --format=%h "$fb")"
+if [ "$r4" -eq 0 ] && git log -1 --format=%B "$fb" | grep -qx "Amendment: R3" && [ "$(git show --name-only --format= "$fb")" = "src/shared.sh" ] && \
+   grep -qF "· for $gid — landed \`$s4\`" "$af" && grep -qF -- "- [x] \`src/shared.sh\` -> R3 (by $mid)" "$g" && \
+   grep -qF "· \`src/shared.sh\` · shared (by $mid, landed \`$s4\`)" "$g" && [ "$(git -C "$R/am-fb" rev-parse HEAD)" = "$(git rev-parse "$fb")" ] && \
+   [ -f "$R/am-fb/src/shared.sh" ] && [ -z "$(git -C "$R/am-fb" status --porcelain)" ] && git -C "$mwt" merge-base --is-ancestor "$fb" HEAD && \
+   [ -z "$(git -C "$mwt" log --format=%h "$fb..HEAD" -- src/shared.sh)" ]; then
+  ok "test_amend_commit_for_another_plan_lands_at_once"
 else
-  bad "test_amend_land_refuses_without_feature_tip" "r3=$r3 out3=$out3 r4=$r4 out4=$out4"
+  bad "test_amend_commit_for_another_plan_lands_at_once" "r4=$r4 out4=$out4"
 fi
-( cd "$awt" && git rebase -q --autostash "$fb" >/dev/null 2>&1 && aapp commit land >/dev/null 2>&1 )
+# R4: the file changed on the feature branch meanwhile: refused, nothing landed.
+( cd "$mwt" && aapp refine "$aid" request "shared again" file src/shared.sh for "$gid" >/dev/null 2>&1 ); aapp refine "$aid" approve 4 >/dev/null 2>&1
+( cd "$R/am-fb" && echo "s=2" > src/shared.sh && git add src/shared.sh && git commit -qm "elsewhere" --no-verify )
+fb4="$(git rev-parse "$fb")"; h4="$(git -C "$mwt" rev-parse HEAD)"
+r5=0; out5="$(cd "$mwt" && echo "s=3" > src/shared.sh && git add src/shared.sh && aapp commit "feat: shared two" amendment 4 2>&1)" || r5=$?
+( cd "$mwt" && git reset -q && git checkout -q -- src/shared.sh )
+if [ "$r5" -ne 0 ] && echo "$out5" | grep -qF "rebase onto $fb first" && [ "$(git rev-parse "$fb")" = "$fb4" ] && \
+   [ "$(git -C "$mwt" rev-parse HEAD)" = "$h4" ] && grep -q "· shared again · for $gid — approved (" "$af"; then
+  ok "test_amend_commit_refuses_when_the_file_moved_on_the_parent"
+else
+  bad "test_amend_commit_refuses_when_the_file_moved_on_the_parent" "r5=$r5 out5=$out5"
+fi
+# R5: for the archived member; its plan in done/ gets the record appended.
+( cd "$mwt" && git rebase -q --autostash "$fb" >/dev/null 2>&1 && aapp refine "$aid" request "old fix" file src/amg-old.sh for "$old" >/dev/null 2>&1 )
+aapp refine "$aid" approve 5 >/dev/null 2>&1
+r6=0; out6="$(cd "$mwt" && echo "o=2" > src/amg-old.sh && git add src/amg-old.sh && aapp commit "fix: old" amendment 5 2>&1)" || r6=$?
+s6="$(git log -1 --format=%h "$fb")"; odone="$(ls .plans/done/P"${old#P-}"-*.md)"
+if [ "$r6" -eq 0 ] && grep -qF -- "- [x] \`src/amg-old.sh\` -> R5 (by $mid)" "$odone" && grep -qF "· old fix (by $mid, landed \`$s6\`)" "$odone" && \
+   grep -q '^\* \*\*Status:\*\* ✅ Done' "$odone" && git show "$fb:src/amg-old.sh" | grep -qx "o=2"; then
+  ok "test_amend_commit_for_an_archived_plan"
+else
+  bad "test_amend_commit_for_an_archived_plan" "r6=$r6 out6=$out6"
+fi
 if [ "$r0" -ne 0 ] && echo "$out0" | grep -qF "archived last" && echo "$out0" | grep -qF "$mid"; then
   ok "test_amend_done_refuses_open_members"
 else
   bad "test_amend_done_refuses_open_members" "r0=$r0 out0=$out0"
 fi
-( cd "$awt" && git rebase -q --autostash "$fb" >/dev/null 2>&1 )
+( cd "$mwt" && git rebase -q --autostash "$fb" >/dev/null 2>&1 ); aapp done "$mid" integrate ff >/dev/null 2>&1
 r5=0; out5="$(aapp done "$aid" integrate ff 2>&1)" || r5=$?
 if [ "$r5" -eq 0 ] && ls .plans/done/P"${aid#P-}"-*.md >/dev/null 2>&1; then
   ok "test_amend_done_archives_last"
@@ -508,11 +550,14 @@ git -C .plans commit -qam "prep $mid2" >/dev/null 2>&1; aapp freeze-start "$mid2
 ( cd "$R/am/.workspace/P${mid2#P-}" && aapp refine "$aid2" request "pending one" file src/p.sh >/dev/null 2>&1 \
   && mkdir -p src && echo "e=1" > src/emp-m.sh && git add src/emp-m.sh && aapp commit "feat: e" >/dev/null 2>&1 )
 aapp done "$mid2" integrate ff >/dev/null 2>&1
+# The member's done closed its request; a line left open by hand still refuses.
+af2="$(ls .plans/current/P"${aid2#P-}"-*.md)"; closed2="$(grep -c "· pending one — closed · withdrawn$" "$af2")"
+sed -i 's/· pending one — closed · withdrawn$/· pending one — pending/' "$af2"; git -C .plans commit -qam "fixture: open request" --no-verify >/dev/null 2>&1
 r6=0; out6="$(aapp done "$aid2" integrate ff 2>&1)" || r6=$?
 aapp refine "$aid2" refuse 1 "not needed" >/dev/null 2>&1
 r7=0; out7="$(aapp done "$aid2" integrate ff 2>&1)" || r7=$?
 lline="$(grep -F "\`$aid2\`" .plans/done/000-archive-ledger.md)"
-if [ "$r6" -ne 0 ] && echo "$out6" | grep -qF "Requests still open" && echo "$out6" | grep -qF "pending one" && \
+if [ "$closed2" -eq 1 ] && [ "$r6" -ne 0 ] && echo "$out6" | grep -qF "Requests still open" && echo "$out6" | grep -qF "pending one" && \
    [ "$r7" -eq 0 ] && echo "$lline" | grep -qF '| `none` |'; then
   ok "test_amend_done_refuses_open_requests_and_archives_empty_with_none"
 else
