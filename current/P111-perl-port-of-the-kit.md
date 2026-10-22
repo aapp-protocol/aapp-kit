@@ -116,6 +116,7 @@ Design & measurements: `.plans/pickup/perl-port-rfc.md` (settled 2026-10-19). Me
 │       ├── GroupDocs.pm   # Group plan ARCHITECTURE.md / CODEMAP.md section stamper & applier
 │       ├── Issue.pm       # Issue domain helpers, provider exchange, outbox & fix-worktree engine
 │       ├── Plan.pm        # Plan lifecycle, worktree (_wt_*), squash (_sq_*) & integration (_ig_*)
+│       ├── Tests.pm       # Test engine (`aapp test`): sandbox, fixture copies, watchdog, parallel workers, recap
 │       ├── Hooks/         # Hook implementation modules (PreCommit, CommitMsg, PostCommit, PostRewrite, WriteGuard, PreCommitDevelop)
 │       └── Cmd/           # CLI verb modules (Status, Matrix, PlanStatus, Help, Issue, Offline, Plan, Commit, Note, Ai, Init, Install, Upgrade, Uninstall, Develop, Sync, Release, Companion, Hook, Pause, Test)
 ├── templates/             # Version-controlled hook entrypoints and starter blueprints
@@ -135,8 +136,9 @@ Design & measurements: `.plans/pickup/perl-port-rfc.md` (settled 2026-10-19). Me
 │   ├── done-issues-archive.md # Relocated defect archive template
 │   ├── 000-archive-ledger.md  # Master architectural archive ledger template
 │   └── skills/            # Universal AAPP lifecycle skills
-├── tests/                 # Modular Perl test harness & suites (`AAPP::Tests`)
-│   └── AAPP/              # Test runner (`Tests.pm`), `Core/*.pm`, and `Verb/*.pm` modules
+├── t/                     # Perl test files run by `AAPP::Tests` (`aapp test`, or `prove -l t/`); not installed
+│   ├── core/              # `<name>.t`: the tests of `lib/docs/core/<name>.md`
+│   └── verb/              # `<verb>.t`: the tests of `lib/docs/verbs/<verb>.md`
 ├── scripts/               # Migration and maintenance utilities
 │   ├── scrub-attribution.sh # Attribution migration & SHA repair utility
 │   └── kit-on-release.sh  # Kit self-release on-release action delegate hook (P-59)
