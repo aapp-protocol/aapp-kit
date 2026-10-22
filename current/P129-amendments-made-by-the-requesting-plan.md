@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `a40820d` (feature/perl-port-of-the-kit)
+* **Worktree:** .workspace/P129 (plan/P129-amendments-made-by-the-requesting-plan)
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
@@ -152,6 +153,7 @@ Keeps the request log (`## Scope Requests`), approval, refusal, and the group te
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-22:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-22:** Drafted from the design settled in chat (requester makes the change, owner keeps the record).
 * **2026-10-22:** Review: an amendment for another plan lands on the parent at once (no squash handling, no hash tracking); the file locks after its commit; `done` refuses nothing and closes the requests.

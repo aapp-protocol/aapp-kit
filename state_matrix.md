@@ -25,7 +25,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-124**: [`P124-perl-lifecycle-verb-test-modules.md`](current/P124-perl-lifecycle-verb-test-modules.md) — Perl Lifecycle Verb Test Modules
 - 🟣 **P-125**: [`P125-perl-remaining-verb-tests-and-switch.md`](current/P125-perl-remaining-verb-tests-and-switch.md) — Perl Remaining Verb Tests And Switch
 - 🟣 **P-128**: [`P128-bash-commits-record-bare-hashes.md`](current/P128-bash-commits-record-bare-hashes.md) — Bash Commits Record Bare Hashes
-- 🟣 **P-129**: [`P129-amendments-made-by-the-requesting-plan.md`](current/P129-amendments-made-by-the-requesting-plan.md) — Amendments Made By The Requesting Plan
 - 🟣 **P-15**: [`P15-adversarial-review-plugin.md`](current/P15-adversarial-review-plugin.md) — ✏️ **SKETCH — do not refine** — Adversarial Review Packet, Layer 6 Agent Egress Boundary & reference review plugin. Settled ground only; blocked on `#64`, `#57`, `#56`.
 
 ---
@@ -39,6 +38,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - ⚡ **P-111**: [`P111-perl-port-of-the-kit.md`](current/P111-perl-port-of-the-kit.md) — 🧩 Group Plan P-111: Perl Port Of The Kit
 - ⚡ **P-112**: [`P112-perl-port-of-the-kit-amendments.md`](current/P112-perl-port-of-the-kit-amendments.md) — Perl Port Of The Kit Amendments
 - ⚡ **P-126**: [`P126-perl-test-runner.md`](current/P126-perl-test-runner.md) — Perl Test Runner
+- ⚡ **P-129**: [`P129-amendments-made-by-the-requesting-plan.md`](current/P129-amendments-made-by-the-requesting-plan.md) — Amendments Made By The Requesting Plan
 
 ---
 
