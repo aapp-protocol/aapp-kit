@@ -32,7 +32,9 @@
 Every `aapp.*` setting lives in the repository's git config today. An agent working in the repository can change any of it (`git config aapp.<key> <value>`), so a setting meant to bind the agent (P-131's governance mode and handler, and later others) cannot live there alone.
 
 Decided with the developer (2026-10-23):
-- **Three levels, and a higher level always wins:** System, then User, then the repository's Git config. This reverses the usual program config order on purpose: the kit plans and enforces (gates, blast radius), so authority grows upward. It applies to every key; there is no list of special keys and no lock marker.
+- **Three levels, and a higher level always wins:** System, then User, then the repository's Git config. This reverses the usual program config order on purpose: the kit plans and enforces (gates, blast radius), so authority grows upward.
+- **The upper levels take administrative keys only:** an allow-list (§2.3) names them (governance, attribution, limits, team or user preferences such as the commit message lengths); any other key in a `main.conf` is refused. Repository state (the id counters) and repository settings stay in the repository's git config.
+- **The kit only reads the upper levels:** it never writes a `main.conf`; administering them belongs to a separate tool outside the kit.
 - **Most settings stay in the repository's git config.** The upper levels hold only what must be stricter; a key not set above keeps its repository value, so nothing changes for a project that never uses them.
 - **Single Standard INI File Per Level (`main.conf`):** Instead of sprawling per-repository file directories (`repos/<key>.conf`), each upper level has a single standard INI file (`main.conf`). Global settings sit under `[aapp]`, while per-repository overrides sit in matching subsection blocks (e.g. `[aapp "repo:/path/to/project"]`).
 - **One plan of its own**, so the decision is tracked apart from governance; P-131 reads its keys through this hierarchy.
@@ -83,15 +85,15 @@ Repository Git configuration holds two distinct kinds of data:
 
 Under inverted precedence (`System > User > Repo`), setting a monotonic state counter in `main.conf` would permanently freeze the counter for the local repository, causing subsequent plan and issue allocations to collide.
 
-To guarantee local repository state integrity, `AAPP::Constants` defines an **Upper-Level Policy Allowlist**. Only administrative policy settings may be specified in `main.conf`:
+To guarantee local repository state integrity, an **Upper-Level Policy Allowlist** sits at the top of `lib/AAPP/Config.pm` (allow-lists live at the top of their module). Only administrative policy settings may be specified in `main.conf`:
 - **Governance**: `aapp.governance`, `aapp.governanceHandler`, `aapp.governanceTimeout`
 - **Attribution & Identity**: `aapp.aiAttribution`, `aapp.aiNotes`
 - **Blast Radius & Limits**: `aapp.fixMaxLines`, `aapp.fixMaxFiles`, `aapp.maxEmergencyHotfixes`, `aapp.subjectMaxLen`, `aapp.commitLineMaxLen`, `aapp.bodyMaxLen`
 - **Runtime Environment & Hooks**: `aapp.quarantineIgnored`, `aapp.perlLogFile`, `aapp.allowPath`, and `aapp.hook.*`
 
-**Fail-Closed Counter Guard**: If an unpermitted key or local state counter (such as `planId` or `issueId`) is detected in a system or user `main.conf`, the parser immediately **fails closed**:
+**Fail-Closed Allowlist Guard**: A key not on the allow-list in a system or user `main.conf` makes the parser **fail closed**, naming the file, the line and the key:
 ```text
-❌ [Config Refusal] /etc/aapp/main.conf: line 6: 'aapp.planId' is a local repository state counter and cannot be set in upper-level configuration.
+❌ [Config Refusal] /etc/aapp/main.conf: line 6: 'aapp.planId' is not allowed in upper-level configuration.
 ```
 
 ### 2.4 Evaluation Precedence
@@ -115,7 +117,7 @@ When resolving a configuration key for an active repository at `primary_root` (`
 - **Evaluation Order**: The highest level that defines the key wins.
 - Within a single level's `main.conf`, a matching `[aapp "repo:..."]` block takes precedence over the global `[aapp]` block.
 - **Diagnostics (`AAPP::Config::source($key)`)**: Returns the winning authority level and source (`system:global`, `system:repo`, `user:global`, `user:repo`, `repository`).
-- **Mutation Guard**: `AAPP::Config::set` modifies only the local repository `.git/config`. If a higher authority level currently sets that key, `set` emits a notice explaining that the key is governed from above and names the governing file. Verbs also inspect `source($key)` when reporting configuration state in `aapp status`.
+- **No setter**: `AAPP::Config` has no general setter. The only write is the id counter (`set_id`/`get_id`, repository level only, P-117 Task 0.1 as an amendment for P-115), and counters are never on the allow-list, so nothing the kit writes can be shadowed from above. Verbs may use `source($key)` to say which level a value came from.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
@@ -126,15 +128,14 @@ When resolving a configuration key for an active repository at `primary_root` (`
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Constants and Parser Engine
-- [ ] Task 1.1: Author per-OS `main.conf` paths and `%UPPER_CONFIG_ALLOWLIST` in `lib/AAPP/Constants.pm`.
+- [ ] Task 1.1: Author per-OS `main.conf` paths in `lib/AAPP/Constants.pm`, and the upper-level allow-list at the top of `lib/AAPP/Config.pm`.
 - [ ] Task 1.2: Implement native INI reader in `lib/AAPP/Config.pm` parsing `[section]`, `[section "subsection"]`, and `key = value` lines with line-numbered fail-closed diagnostics.
 - [ ] Task 1.3: Implement repository root matcher for `[aapp "repo:<path>"]` blocks against `primary_root`.
-- [ ] Task 1.4: Implement fail-closed allowlist validation in `lib/AAPP/Config.pm` refusing local state keys (`planId`, `issueId`) in upper `main.conf`.
+- [ ] Task 1.4: Implement fail-closed allow-list validation in `lib/AAPP/Config.pm`: a key not on the list in an upper `main.conf` is refused, naming file, line and key.
 
 ### Phase 2: Precedence & Integration
 - [ ] Task 2.1: Extend `AAPP::Config::load` to evaluate System `main.conf`, User `main.conf`, and Local `.git/config` with inverted precedence (`System > User > Repo`).
 - [ ] Task 2.2: Implement `AAPP::Config::source($key)` tracking the authoritative origin of each configuration key.
-- [ ] Task 2.3: Update config setter diagnostics to warn when a set key is shadowed by an upper-level authority.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Author contract tests `t/core/config.t` validating:
@@ -173,6 +174,9 @@ When resolving a configuration key for an active repository at `primary_root` (`
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-23:** Drafted as a member of group P-111 at the developer's request, from the P-131 review: settings that bind the agent need a place the agent cannot change.
+* **2026-10-23:** One `main.conf` per level with `[aapp "repo:<path>"]` blocks matched on the primary checkout root; dotted keys inside a repository block.
+* **2026-10-23:** Upper levels take allow-listed administrative keys only (commit message lengths included, as team or user preferences); the kit reads them and never writes them, no setter; the allow-list sits at the top of `AAPP::Config`.
 * **2026-10-23:** Plan drafted as dedicated Group P-111 member.
 * **2026-10-23:** Refined to replace multi-file `repos/<key>.conf` with standard INI `[aapp "repo:<path>"]` subsection overrides inside `main.conf`.
 * **2026-10-23:** Refined to use `AAPP::Paths::primary_root` for worktree path coverage, support dotted subsection keys, remove machine paths, and clarify setter diagnostics.
