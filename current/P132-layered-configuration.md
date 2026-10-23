@@ -76,7 +76,25 @@ hook.pre-freeze = /usr/local/bin/custom-freeze-gate
   - No shell includes, no external dependencies, no complex interpolation.
   - A malformed line fails closed: emits an `[ ERROR ]` naming file and line number, and halts execution.
 
-### 2.3 Evaluation Precedence
+### 2.3 Policy vs. Local-State Boundary (Upper-Level Allowlist)
+Repository Git configuration holds two distinct kinds of data:
+1. **Administrative Policies & Safety Limits**: Ceilings, gates, and attribution rules (`aapp.governance*`, `aapp.fixMaxLines`, `aapp.aiAttribution`).
+2. **Local Monotonic State Counters**: Internal Git history progression counters (`aapp.planId`, `aapp.issueId`, `aapp.lastRelease`) mutated directly by verbs like `aapp draft` and `aapp issue log`.
+
+Under inverted precedence (`System > User > Repo`), setting a monotonic state counter in `main.conf` would permanently freeze the counter for the local repository, causing subsequent plan and issue allocations to collide.
+
+To guarantee local repository state integrity, `AAPP::Constants` defines an **Upper-Level Policy Allowlist**. Only administrative policy settings may be specified in `main.conf`:
+- **Governance**: `aapp.governance`, `aapp.governanceHandler`, `aapp.governanceTimeout`
+- **Attribution & Identity**: `aapp.aiAttribution`, `aapp.aiNotes`
+- **Blast Radius & Limits**: `aapp.fixMaxLines`, `aapp.fixMaxFiles`, `aapp.maxEmergencyHotfixes`, `aapp.subjectMaxLen`, `aapp.commitLineMaxLen`, `aapp.bodyMaxLen`
+- **Runtime Environment & Hooks**: `aapp.quarantineIgnored`, `aapp.perlLogFile`, `aapp.allowPath`, and `aapp.hook.*`
+
+**Fail-Closed Counter Guard**: If an unpermitted key or local state counter (such as `planId` or `issueId`) is detected in a system or user `main.conf`, the parser immediately **fails closed**:
+```text
+❌ [Config Refusal] /etc/aapp/main.conf: line 6: 'aapp.planId' is a local repository state counter and cannot be set in upper-level configuration.
+```
+
+### 2.4 Evaluation Precedence
 When resolving a configuration key for an active repository at `primary_root` (`$REPO_ROOT`):
 
 ```text
@@ -108,9 +126,10 @@ When resolving a configuration key for an active repository at `primary_root` (`
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Constants and Parser Engine
-- [ ] Task 1.1: Author per-OS `main.conf` paths in `lib/AAPP/Constants.pm`.
+- [ ] Task 1.1: Author per-OS `main.conf` paths and `%UPPER_CONFIG_ALLOWLIST` in `lib/AAPP/Constants.pm`.
 - [ ] Task 1.2: Implement native INI reader in `lib/AAPP/Config.pm` parsing `[section]`, `[section "subsection"]`, and `key = value` lines with line-numbered fail-closed diagnostics.
-- [ ] Task 1.3: Implement repository root matcher for `[aapp "repo:<path>"]` blocks.
+- [ ] Task 1.3: Implement repository root matcher for `[aapp "repo:<path>"]` blocks against `primary_root`.
+- [ ] Task 1.4: Implement fail-closed allowlist validation in `lib/AAPP/Config.pm` refusing local state keys (`planId`, `issueId`) in upper `main.conf`.
 
 ### Phase 2: Precedence & Integration
 - [ ] Task 2.1: Extend `AAPP::Config::load` to evaluate System `main.conf`, User `main.conf`, and Local `.git/config` with inverted precedence (`System > User > Repo`).
@@ -157,3 +176,4 @@ When resolving a configuration key for an active repository at `primary_root` (`
 * **2026-10-23:** Plan drafted as dedicated Group P-111 member.
 * **2026-10-23:** Refined to replace multi-file `repos/<key>.conf` with standard INI `[aapp "repo:<path>"]` subsection overrides inside `main.conf`.
 * **2026-10-23:** Refined to use `AAPP::Paths::primary_root` for worktree path coverage, support dotted subsection keys, remove machine paths, and clarify setter diagnostics.
+* **2026-10-23:** Added Upper-Level Policy Allowlist refusing local state counters (planId, issueId) in main.conf.
