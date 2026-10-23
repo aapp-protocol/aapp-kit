@@ -42,6 +42,7 @@ our %LIBRARIES = (
     state           => 'AAPP::State',
     commit_engine   => 'AAPP::CommitEngine',
     health          => 'AAPP::Health',
+    aapp_lib        => 'lib/aapp-lib.sh',
     hook_dispatcher => 'lib/hook_dispatcher.sh',
     attribution     => 'lib/attribution.sh',
     adoption        => 'lib/adoption.sh',
