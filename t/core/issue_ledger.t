@@ -99,21 +99,6 @@ sub roadmap_text { return AAPP::Tests::read_text($ROADMAP); }
 # Returns   : 'YYYY-MM-DD'.
 sub today { return POSIX::strftime( '%Y-%m-%d', localtime ); }
 
-# Usage     : in_dir($dir, sub { ... })
-# Purpose   : Runs the code with $dir as the working directory, then returns to where it was.
-# Returns   : What the code returns.
-sub in_dir
-{
-    my ( $dir, $code ) = @_;
-    my $back = Cwd::getcwd();
-    chdir($dir) or die "cannot enter $dir: $!\n";
-    my @r = eval { $code->() };
-    my $error = $@;
-    chdir($back) or die "cannot return to $back: $!\n";
-    die $error if $error;
-    return wantarray ? @r : $r[0];
-}
-
 # Usage     : record_is($self, $record, { id => '#12', ... }, $label)
 # Purpose   : Checks every field of an issue record against the wanted values ('' where none is given).
 # Returns   : 1; dies on the first field that differs.
@@ -255,7 +240,7 @@ sub test_path_resolves_in_each_place
     $self->ok_cmd( 'git', 'init', '-q', $_ ) for $main, $wt, $rootonly;
     AAPP::Tests::write_text( $_, '' ) for "$main/.plans/ISSUES.md", "$main/.plans/done/000-issues-archive.md", "$main/.plans/issues_road_map.md",
         "$wt/ISSUES.md", "$wt/done/000-issues-archive.md", "$rootonly/ISSUES.md";
-    my $path = sub { my ( $dir, @args ) = @_; return in_dir( $dir, sub { state_call( $self, 'ledger_path', @args )->{ret}[0] // '' } ); };
+    my $path = sub { my ( $dir, @args ) = @_; return $self->in_dir( $dir, sub { state_call( $self, 'ledger_path', @args )->{ret}[0] // '' } ); };
     $self->eq_or_die( $path->( "$main/sub", 'issues' ),  "$main/.plans/ISSUES.md",                  'in .plans/, from a subdirectory' );
     $self->eq_or_die( $path->( $main,       'archive' ), "$main/.plans/done/000-issues-archive.md", 'the archive in .plans/' );
     $self->eq_or_die( $path->( $main,       'roadmap' ), "$main/.plans/issues_road_map.md",         'the road map in .plans/' );
