@@ -106,6 +106,10 @@ Part 1 of 4 of the test migration split from P-114 (kept as the reference until 
 
 ### Amendments
 - R14 2026-10-23 · `lib/AAPP/Constants.pm` · P-126: test harness defaults (watchdog 60 s, jobs step 4, sandbox prefix, fallback git identity, default branch) go into AAPP::Constants (by P-126, landed `4a47a16`)
+- R19 2026-10-23 · `lib/AAPP/Tests.pm` · was tests/AAPP/Tests.pm: the test engine is a core module, not a test, so it sits with the runtime modules; its sandbox kit is built without tests, as an install ships none (P-121) (by P-126, landed `cabcde9`)
+- R20 2026-10-23 · `t/core/output.t` · was tests/AAPP/Core/Output.pm: tests live in t/ as in any Perl project, named after their contract (lib/docs/core/output.md), runnable alone with prove -l t/ (by P-126, landed `cabcde9`)
+- R21 2026-10-23 · `t/test-run` · was tests/test-run: the temporary runner sits with the tests until P-125 routes aapp test to the engine; nothing Perl stays in tests/ (by P-126, landed `cabcde9`)
+- R22 2026-10-23 · `.agents/hooks/test-gate.sh` · TEST_CMD runs t/test-run instead of tests/test-run, because the runner moved (R21) (by P-126, landed `5652c1d`)
 
 ---
 
