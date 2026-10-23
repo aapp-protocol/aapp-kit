@@ -78,6 +78,9 @@ Ports `cmd_offline` from `lib/cmd_offline.sh`:
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
+### Phase 0: One ID Counter Writer (amendment for P-115)
+- [ ] Task 0.1: First step after start, before any code: request an amendment for P-115 (`aapp refine P-112 request "<why>" file lib/AAPP/Config.pm for P-115`, and the same for `lib/AAPP/State.pm`). It replaces `AAPP::Config::set` (a general name for what only advances a counter) with `set_id($kind, $value)` and adds `get_id($kind)`: `$kind` is `plan` or `issue`, checked against an allow-list at the top of the module (`plan` → `aapp.planId`, `issue` → `aapp.issueId`); both read and write the repository's own git config only (`--local`), so a counter can never be pinned from a higher config level (P-132). `State::_allocate_id` passes the kind. Once approved, one `aapp commit "<msg>" amendment <n>` per file; they land on the feature branch at once. Task 1.1 and P-119 then allocate ids through `State::_allocate_id`, never a second allocator.
+
 ### Phase 1: Issue Domain Module (`AAPP::Issue`)
 - [ ] Task 1.1: Implement `lib/AAPP/Issue.pm` with `aapp.issueId` / `aapp-issue-tracker` ID allocation, `.plans/ISSUES.md` / `.plans/done/000-issues-archive.md` / `.plans/aborted/000-aborted-ledger.md` / `.plans/issues_road_map.md` manipulation, external `issues-data.md` reader/writer, and `issue_unblock_plans` / `issue_unblock_landed` / `issue_bring_fix_to_groups`.
 
