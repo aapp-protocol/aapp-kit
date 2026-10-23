@@ -59,22 +59,25 @@ governance = hitl
 governanceHandler = /usr/local/bin/review-gate
 
 # 2. Per-repository override section within this level:
-# Matches against repository root path (from git rev-parse --show-toplevel)
-[aapp "repo:/home/lorand/projects/sandbox"]
+# Matches against primary checkout root (AAPP::Paths::primary_root),
+# covering the main repository and all active plan/fix worktrees (.workspace/*).
+[aapp "repo:/path/to/project"]
 governance = autonomous
+hook.pre-freeze = /usr/local/bin/custom-freeze-gate
 ```
 
 - **Section Syntax**:
   - `[aapp]` declares global settings for that level. `governance = hitl` maps to key `aapp.governance`.
-  - `[aapp "repo:<path>"]` declares overrides for a specific repository directory path.
+  - `[aapp "repo:<path>"]` declares overrides for a specific repository. Path matching is evaluated against `AAPP::Paths::primary_root` so that linked worktrees (`.workspace/P123`, `.workspace/fix-<num>`) automatically inherit the project's repository rules.
   - Subsections for other keys follow Git config convention: `[aapp "hook"]` + `test = true` maps to `aapp.hook.test`.
+  - Inside `[aapp "repo:<path>"]`, dotted keys (e.g. `hook.pre-freeze = ...`) map directly to the corresponding subsection key (`aapp.hook.pre-freeze`).
 - **Parsing Rules**:
   - `#` and `;` start comments; blank lines are ignored; values are trimmed.
   - No shell includes, no external dependencies, no complex interpolation.
   - A malformed line fails closed: emits an `[ ERROR ]` naming file and line number, and halts execution.
 
 ### 2.3 Evaluation Precedence
-When resolving a configuration key for an active repository at path `$REPO_ROOT`:
+When resolving a configuration key for an active repository at `primary_root` (`$REPO_ROOT`):
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -94,7 +97,7 @@ When resolving a configuration key for an active repository at path `$REPO_ROOT`
 - **Evaluation Order**: The highest level that defines the key wins.
 - Within a single level's `main.conf`, a matching `[aapp "repo:..."]` block takes precedence over the global `[aapp]` block.
 - **Diagnostics (`AAPP::Config::source($key)`)**: Returns the winning authority level and source (`system:global`, `system:repo`, `user:global`, `user:repo`, `repository`).
-- **Mutation Guard**: `aapp config set` or `git config` modifies only the local repository `.git/config`. If a higher authority level currently sets that key, the CLI emits a notice explaining that the key is governed from above and names the governing file.
+- **Mutation Guard**: `AAPP::Config::set` modifies only the local repository `.git/config`. If a higher authority level currently sets that key, `set` emits a notice explaining that the key is governed from above and names the governing file. Verbs also inspect `source($key)` when reporting configuration state in `aapp status`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
@@ -146,9 +149,11 @@ When resolving a configuration key for an active repository at path `$REPO_ROOT`
 ## ❓ 5. Open Questions (Optional / Gate)
 * [ ] **Question 1:** Multi-valued keys (`aapp.allowPath`, `aapp.aiAlias`, `aapp.hook.<event>`): Does a higher level completely replace the list, or append to it? *(Default proposal: Replace, keeping the authority model strictly deterministic).*
 * [ ] **Question 2:** Git's own user and system config (`~/.gitconfig`, `/etc/gitconfig`): Should `git config --list -z` continue supplying base values for level 3, or should level 3 strictly inspect `--local`? *(Default proposal: `--list -z` as today, with AAPP upper files sitting above it).*
+* [ ] **Question 3:** Placement in Group P-111 execution order: P-132 depends on `AAPP::Config` (P-115, complete) and should execute before P-131 (Lifecycle Governance). Recommended placement is immediately after P-115 / P-123.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-23:** Plan drafted as dedicated Group P-111 member.
 * **2026-10-23:** Refined to replace multi-file `repos/<key>.conf` with standard INI `[aapp "repo:<path>"]` subsection overrides inside `main.conf`.
+* **2026-10-23:** Refined to use `AAPP::Paths::primary_root` for worktree path coverage, support dotted subsection keys, remove machine paths, and clarify setter diagnostics.
