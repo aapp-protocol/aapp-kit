@@ -100,6 +100,7 @@ Part 1 of 4 of the test migration split from P-114 (kept as the reference until 
 - [x] `lib/AAPP/Constants.pm` -> R14 (by P-126)
 - [x] `lib/AAPP/Tests.pm` -> R25 (by P-123)
 - [x] `lib/AAPP/Tests.pm` -> R29 (by P-123)
+- [x] `lib/AAPP/Tests.pm` -> R33 (by P-123)
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/cmd_test.sh` -> `aapp test` switches to the harness in P-125 only.
@@ -114,6 +115,7 @@ Part 1 of 4 of the test migration split from P-114 (kept as the reference until 
 - R22 2026-10-23 · `.agents/hooks/test-gate.sh` · TEST_CMD runs t/test-run instead of tests/test-run, because the runner moved (R21) (by P-126, landed `5652c1d`)
 - R25 2026-10-23 · `lib/AAPP/Tests.pm` · lib_call passes { stdin => text } to a Perl function too (its fork reads /dev/null): plan_states tests read a Status line from stdin ('-'), as the bash suite does (by P-123, landed `0b972a4`)
 - R29 2026-10-23 · `lib/AAPP/Tests.pm` · %LIBRARIES gains aapp_lib => lib/aapp-lib.sh: the issue_ledger writers (ledger_set_cell, ledger_archive_row, ledger_set_archive_commit, ledger_relink, roadmap_prune) are still bash until P-117 ports the issue lane; their tests call them through lib_call's bash route, as P-126 §2.1.9 foresees (by P-123, landed `3330ff2`)
+- R33 2026-10-23 · `lib/AAPP/Tests.pm` · AAPP::Tests gains in_dir($dir, $code): runs test code with another directory as cwd and returns to the test's own, dying with the code's error; Phase 2 suites (notes, integrate, install, sync, release) run aapp and git in a second clone or remote, and issue_ledger.t's private copy moves there (one helper, reused) (by P-123, landed `92293ab`)
 
 ---
 
