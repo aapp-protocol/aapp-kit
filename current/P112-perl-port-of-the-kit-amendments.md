@@ -116,6 +116,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R23** 2026-10-23 · P-126 · — · P-116 to P-125 name t/core/<name>.t, t/verb/<verb>.t and lib/AAPP/Tests.pm instead of tests/AAPP/, because of the P-126 re-scope (R19–R21); P-121 adds that the install ships no tests, as tests run from a kit checkout; P-111 §3 member lines follow (its Architecture & Codemap: D4–D7) — applied
 - **R24** 2026-10-23 · P-111 · — · new member P-130 (amendments ledger in Perl), after P-120: the review of P-129 found the owner of a request unenforced, its why optional, approvals invisible to start and to other groups' ledgers, and the ledger's worktree unneeded; built once in Perl, the bash kit keeps P-129 — applied
 - **R25** 2026-10-23 · P-123 · `lib/AAPP/Tests.pm` · lib_call passes { stdin => text } to a Perl function too (its fork reads /dev/null): plan_states tests read a Status line from stdin ('-'), as the bash suite does · for P-126 — pending
+- **R26** 2026-10-23 · P-123 · — · deviation in P-123: plan_states tests drop their glyph-class checks (plan_state_emoji_class), which P-115 left out of Perl because a status is matched by name only; the three tests keep their names, the rest of their checks and their contract lines without the glyph clause — pending
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
