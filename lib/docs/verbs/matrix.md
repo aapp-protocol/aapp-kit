@@ -35,4 +35,4 @@ Run: `aapp test verb matrix`
 - `tests/verbs/matrix.sh::test_refuses_unknown_option` -> an unknown argument: exit 1
 - `tests/verbs/matrix.sh::test_matrix_ignores_mini_plans` -> a mini plan `current/fix-<num>.md` gets no matrix row (P-52)
 
-Broader coverage (Roadmap preservation, orphans, custom statuses): `tests/matrix_test.sh`.
+Broader coverage (Roadmap preservation, orphans, custom statuses): `t/core/matrix.t`.
