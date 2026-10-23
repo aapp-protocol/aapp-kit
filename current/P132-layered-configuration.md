@@ -5,23 +5,12 @@
 * **Changelog:** Added: settings can be set in system and user config files above the repository; a higher level always wins
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
-<!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
-     from the title; reword it and pick the section while refining. `aapp commit` writes it into
-     CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
 * **Status:** 🟣 Under Review
 * **Base:** none
 * **Group:** P-111
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
-<!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
-     The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
-     specification. A ⚡ In Development plan enforces the locked blast radius during implementation.
-     A plan whose Status says BLOCKED grants no commit rights at all. A ✅ Done plan is archived in
-     .plans/done/ and records terminal completion in the archive ledger. -->
-<!-- * **Blocked On:** #<num>        <- written by verbs: 'aapp issue hotfix' or 'aapp refine <id> blocked <num>' adds it; 'aapp issue close' removes it -->
-<!-- * **Emergency Hotfixes:** #<num> <- append-only, written by 'aapp issue hotfix'; more than aapp.maxEmergencyHotfixes blocks the plan for good -->
-<!-- * **Also Closes:** #<n>, #<m>  <- written by 'aapp refine <id> closes <num> [remove]': further issues this plan sorts; 'aapp done' closes them with the plan's commit -->
 
 > ### ⚡ Critical Execution Invariants (Read Before Writing Code)
 > 1. **Blast Radius Lock**: You are strictly confined to the files listed under `### 📂 Target Files`. If write-guard refuses an edit, **do NOT bypass it** with shell scripts or sed — ask the user to add the file to Target Files first.
@@ -43,9 +32,9 @@
 Every `aapp.*` setting lives in the repository's git config today. An agent working in the repository can change any of it (`git config aapp.<key> <value>`), so a setting meant to bind the agent (P-131's governance mode and handler, and later others) cannot live there alone.
 
 Decided with the developer (2026-10-23):
-- **Three levels, and a higher level always wins:** system, then user, then the repository's git config. This reverses the usual program config order on purpose: the kit plans and also enforces (gates, blast radius), so authority grows upward. It applies to every key; there is no list of special keys and no lock marker.
+- **Three levels, and a higher level always wins:** System, then User, then the repository's Git config. This reverses the usual program config order on purpose: the kit plans and enforces (gates, blast radius), so authority grows upward. It applies to every key; there is no list of special keys and no lock marker.
 - **Most settings stay in the repository's git config.** The upper levels hold only what must be stricter; a key not set above keeps its repository value, so nothing changes for a project that never uses them.
-- **The upper levels are INI files:** at each level one central `main.conf` (every repository) and one file per repository. A `main.conf` may hold one or two lines (for example the governance mode).
+- **Single Standard INI File Per Level (`main.conf`):** Instead of sprawling per-repository file directories (`repos/<key>.conf`), each upper level has a single standard INI file (`main.conf`). Global settings sit under `[aapp]`, while per-repository overrides sit in matching subsection blocks (e.g. `[aapp "repo:/path/to/project"]`).
 - **One plan of its own**, so the decision is tracked apart from governance; P-131 reads its keys through this hierarchy.
 
 ---
@@ -53,82 +42,113 @@ Decided with the developer (2026-10-23):
 ## 2. Technical Blueprint
 
 ### 2.1 Places (in `AAPP::Constants`, per OS)
-| Level | Linux, BSD | macOS | Windows |
-| :--- | :--- | :--- | :--- |
-| System | `/etc/aapp/` | `/Library/Application Support/aapp/` | `%ProgramData%\aapp\` |
-| User | `$XDG_CONFIG_HOME/aapp/` (default `~/.config/aapp/`) | as Linux | `%APPDATA%\aapp\` |
+| Level | Linux, BSD | macOS | Windows | File |
+| :--- | :--- | :--- | :--- | :--- |
+| **System** | `/etc/aapp/` | `/Library/Application Support/aapp/` | `%ProgramData%\aapp\` | `main.conf` |
+| **User** | `$XDG_CONFIG_HOME/aapp/` (default `~/.config/aapp/`) | as Linux | `%APPDATA%\aapp\` | `main.conf` |
 
-At each level: `main.conf`, and `repos/<key>.conf` for one repository. `<key>` is the project key the issue text store already uses (the remote URL without scheme and credentials, else the checkout's folder name, made filesystem-safe); it moves out of `AAPP::State::issue_text_file` into one function both use.
+There are no per-repository multi-files (`repos/<key>.conf`). All machine-wide and user-wide configurations reside cleanly within that level's `main.conf`.
 
-### 2.2 File format
+### 2.2 Standard INI Format with Repository Subsections
 ```ini
-# /etc/aapp/main.conf
-[aapp]
-governance = strict
-governanceHandler = /usr/local/bin/review-gate
-```
-- Section and key spell the git key: `[aapp]` + `governance` is `aapp.governance`; a git subsection is written `[aapp "hook"]`, as in git config files. One name per setting at every level.
-- `#` and `;` start comments; blank lines are ignored; values are trimmed; no includes, no interpolation.
-- A malformed line fails closed: an `[ ERROR ]` naming the file and line number, and the verb stops.
+# Example: /etc/aapp/main.conf or ~/.config/aapp/main.conf
 
-### 2.3 Reading (`AAPP::Config`)
-- `load` reads the repository's git config (as today), then the user files, then the system files; each key keeps the value of the highest level that sets it, and remembers that level.
-- `get`, `get_all`, `get_int`, `get_bool` keep their signatures; callers do not change.
-- New `source($key)`: the level (`system`, `user`, `repository`) and file that gave the value, for diagnostics.
-- `set` still writes only the repository's git config. When a higher level overrides the key, it says so once, naming the level and file; the kit never writes the upper files.
-- Bash readers (`git config --get` in `lib/*.sh`) see only the repository level until their member ports them; the hierarchy applies wherever `AAPP::Config` reads.
+# 1. Global defaults for this level
+[aapp]
+governance = hitl
+governanceHandler = /usr/local/bin/review-gate
+
+# 2. Per-repository override section within this level:
+# Matches against repository root path (from git rev-parse --show-toplevel)
+[aapp "repo:/home/lorand/projects/sandbox"]
+governance = autonomous
+```
+
+- **Section Syntax**:
+  - `[aapp]` declares global settings for that level. `governance = hitl` maps to key `aapp.governance`.
+  - `[aapp "repo:<path>"]` declares overrides for a specific repository directory path.
+  - Subsections for other keys follow Git config convention: `[aapp "hook"]` + `test = true` maps to `aapp.hook.test`.
+- **Parsing Rules**:
+  - `#` and `;` start comments; blank lines are ignored; values are trimmed.
+  - No shell includes, no external dependencies, no complex interpolation.
+  - A malformed line fails closed: emits an `[ ERROR ]` naming file and line number, and halts execution.
+
+### 2.3 Evaluation Precedence
+When resolving a configuration key for an active repository at path `$REPO_ROOT`:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ 1. System Level (/etc/aapp/main.conf)                        │
+│    - Matching [aapp "repo:$REPO_ROOT"] (Highest authority)  │
+│    - Global [aapp]                                          │
+├─────────────────────────────────────────────────────────────┤
+│ 2. User Level (~/.config/aapp/main.conf)                    │
+│    - Matching [aapp "repo:$REPO_ROOT"]                      │
+│    - Global [aapp]                                          │
+├─────────────────────────────────────────────────────────────┤
+│ 3. Repository Level (.git/config)                           │
+│    - Local git config (Lowest authority)                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **Evaluation Order**: The highest level that defines the key wins.
+- Within a single level's `main.conf`, a matching `[aapp "repo:..."]` block takes precedence over the global `[aapp]` block.
+- **Diagnostics (`AAPP::Config::source($key)`)**: Returns the winning authority level and source (`system:global`, `system:repo`, `user:global`, `user:repo`, `repository`).
+- **Mutation Guard**: `aapp config set` or `git config` modifies only the local repository `.git/config`. If a higher authority level currently sets that key, the CLI emits a notice explaining that the key is governed from above and names the governing file.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break`
-- **Fallback Inventory**: `None (Clean Break)`. A repository without upper files reads exactly as before.
+- **Fallback Inventory**: `None (Clean Break)`. Repositories without upper-level `main.conf` files operate completely unchanged.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Places and Format
-- [ ] Task 1.1: The per-OS places and file names in `AAPP::Constants`.
-- [ ] Task 1.2: The project key as one function, used by the issue text store and by the per-repository file name.
-- [ ] Task 1.3: The INI reader with fail-closed errors naming file and line.
+### Phase 1: Constants and Parser Engine
+- [ ] Task 1.1: Author per-OS `main.conf` paths in `lib/AAPP/Constants.pm`.
+- [ ] Task 1.2: Implement native INI reader in `lib/AAPP/Config.pm` parsing `[section]`, `[section "subsection"]`, and `key = value` lines with line-numbered fail-closed diagnostics.
+- [ ] Task 1.3: Implement repository root matcher for `[aapp "repo:<path>"]` blocks.
 
-### Phase 2: Precedence
-- [ ] Task 2.1: `AAPP::Config::load` merges the three levels, the highest level winning per key; `source($key)` names it.
-- [ ] Task 2.2: `set` reports an override from a higher level.
+### Phase 2: Precedence & Integration
+- [ ] Task 2.1: Extend `AAPP::Config::load` to evaluate System `main.conf`, User `main.conf`, and Local `.git/config` with inverted precedence (`System > User > Repo`).
+- [ ] Task 2.2: Implement `AAPP::Config::source($key)` tracking the authoritative origin of each configuration key.
+- [ ] Task 2.3: Update config setter diagnostics to warn when a set key is shadowed by an upper-level authority.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: `t/core/config.t` with its contract `lib/docs/core/config.md`: each level alone, a higher level overriding a lower one, per-repository and `main.conf` files, multi-valued keys, a malformed line, `source`, and a repository with no upper files unchanged.
-- [ ] Task 3.2: `MANUAL.md`: the three levels, the reversed precedence and why, the file format, an example `main.conf`.
-- [ ] Task 3.3: Both runners green.
+- [ ] Task 3.1: Author contract tests `t/core/config.t` validating:
+  - System overrides User and Repo.
+  - User overrides Repo.
+  - Repo-specific block overrides global block within the same `main.conf`.
+  - Absent keys cleanly fall through to local `.git/config`.
+  - Malformed syntax fails closed with file and line diagnostics.
+- [ ] Task 3.2: Author documentation contract in `lib/docs/core/config.md`.
+- [ ] Task 3.3: Update `MANUAL.md` with configuration hierarchy guide and example `main.conf`.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `lib/AAPP/Config.pm` -> Three-level load, highest level wins; `source`; `set` reports an override.
-- [ ] `lib/AAPP/Constants.pm` -> Per-OS places and file names of the upper levels.
-- [ ] `lib/AAPP/Util.pm` -> The project key, one function.
-- [ ] `lib/AAPP/State.pm` -> The issue text store uses the shared project key.
-- [ ] `NEW FILE` -> `t/core/config.t` -> Tests of the hierarchy.
-- [ ] `NEW FILE` -> `lib/docs/core/config.md` -> Its contract.
-- [ ] `MANUAL.md` -> The levels, the precedence and the file format.
+> **Rule for Execution Agent:** You are strictly confined to the files listed under `### 📂 Target Files`.
+- [ ] `lib/AAPP/Config.pm` -> Multi-level INI load, repository subsection resolution, source origin tracking.
+- [ ] `lib/AAPP/Constants.pm` -> Per-OS system and user `main.conf` directory locations.
+- [ ] `NEW FILE` -> `t/core/config.t` -> Unit tests for layered configuration hierarchy.
+- [ ] `NEW FILE` -> `lib/docs/core/config.md` -> Core contract for layered configuration.
+- [ ] `MANUAL.md` -> User documentation for `main.conf` and inverted precedence.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/*.sh` -> Bash readers keep reading git config until their members port them.
+- [ ] `lib/AAPP/State.pm` -> Workspace state remains focused on repository git objects.
+- [ ] `lib/AAPP/Util.pm` -> Unchanged; no extra project hash functions needed.
+- [ ] `lib/*.sh` -> Legacy bash scripts continue reading local git config until ported.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1:** Within one level, does the per-repository file win over `main.conf` (the specific over the general), or `main.conf` (the central one)?
-* [ ] **Question 2:** A multi-valued key (`aapp.allowPath`, `aapp.aiAlias`, `aapp.hook.<event>`) set at more than one level: does the higher level replace the lower list, or add to it?
-* [ ] **Question 3:** Git's own user and system config (`~/.gitconfig`, `/etc/gitconfig`) are merged into the repository level today, the local value winning. Do `aapp.*` keys there keep counting as part of the repository level, or does the repository level read only the repository's own config (`git config --local`, with `--worktree`)?
-* [ ] **Question 4:** Where in the group order: P-132 needs only `AAPP::Config` (P-115, done), and must come before P-131.
+* [ ] **Question 1:** Multi-valued keys (`aapp.allowPath`, `aapp.aiAlias`, `aapp.hook.<event>`): Does a higher level completely replace the list, or append to it? *(Default proposal: Replace, keeping the authority model strictly deterministic).*
+* [ ] **Question 2:** Git's own user and system config (`~/.gitconfig`, `/etc/gitconfig`): Should `git config --list -z` continue supplying base values for level 3, or should level 3 strictly inspect `--local`? *(Default proposal: `--list -z` as today, with AAPP upper files sitting above it).*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-* **2026-10-23:** Drafted as a member of group P-111 at the developer's request, from the P-131 review: settings that bind the agent need a place the agent cannot change.
+* **2026-10-23:** Plan drafted as dedicated Group P-111 member.
+* **2026-10-23:** Refined to replace multi-file `repos/<key>.conf` with standard INI `[aapp "repo:<path>"]` subsection overrides inside `main.conf`.
