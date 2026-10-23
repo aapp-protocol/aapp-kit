@@ -86,6 +86,11 @@ It never commits code: the group's `start` gives it no branch and no worktree; `
 ### 2.5 The ledger is readable as one record
 `aapp plan-status <group-id> amends [json]` lists every entry (request for a file or a heading, deviation, decision) with its requester, owner, why, state and commit, so an orchestrator collects the group's whole picture with one command.
 
+### 2.7 A member joining a group in development is recorded
+1. `aapp draft <slug> group <id>` and `aapp refine <plan-id> group <id>` into a group in development (its amendments member exists) write an R line in the same plans commit: `R<n> <date> · <group-id> · — · new member <plan-id> (<title>): <why> — applied`, its number taken inside the plans lock (§2.1.4).
+2. The why is required there: `why "<text>"` (a bare token); without it the verb is refused, naming the token, and nothing is drafted or moved.
+3. A group not yet started has no ledger: adding a member is drafting, and nothing is written.
+
 ### 2.6 Port notes
 P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Perl code as §2.1–2.5 say. The contracts (`refine`, `commit`, `done`, `start`, `freeze-start`, `plan-status`) and the amendments template follow.
 
@@ -98,7 +103,7 @@ P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Pe
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Tests first
-- [ ] Task 1.1: Failing tests in `t/verb/refine.t`, `t/verb/commit.t`, `t/verb/done.t`, `t/verb/start.t`, `t/verb/plan-status.t` for §2.1–2.5.
+- [ ] Task 1.1: Failing tests in `t/verb/refine.t`, `t/verb/commit.t`, `t/verb/done.t`, `t/verb/start.t`, `t/verb/plan-status.t`, `t/verb/draft.t` for §2.1–2.5 and §2.7.
 
 ### Phase 2: Requests and claims
 - [ ] Task 2.0: `refine amends <group-id> …` and `plan-status <group-id> amends` (§2.0); the `<amend-id>` form removed.
@@ -107,6 +112,7 @@ P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Pe
 
 ### Phase 3: The ledger
 - [ ] Task 3.1: A re-scope through the ledger (§2.3.4); the amendments member without a worktree (§2.4); `plan-status` of the ledger, terminal and JSON (§2.5).
+- [ ] Task 3.2: A member drafted or moved into a group in development writes its R line with its why; a group not yet started writes none (§2.7).
 
 ### Phase 4: Verification & Documentation
 - [ ] Task 4.1: Run both test runners; concurrent requests, a claim across two groups, a start refused by an approval.
@@ -120,13 +126,14 @@ P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Pe
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/AAPP/State.pm` -> The one reader of claims; request line readers (owner, why).
 - [ ] `lib/AAPP/Plan.pm` -> `start`/`freeze-start` disjointness by claims; the amendments member without a worktree.
-- [ ] `lib/AAPP/Cmd/Plan.pm` -> `refine request|approve|decision`, `done`, `plan abort`, `plan-status` of the ledger.
+- [ ] `lib/AAPP/Cmd/Plan.pm` -> `refine request|approve|decision`, `done`, `plan abort`, `plan-status` of the ledger; `draft … group` and `refine … group` record a new member (§2.7).
 - [ ] `lib/AAPP/Cmd/Commit.pm` -> `commit … amendment <n>` over the claims reader.
 - [ ] `lib/AAPP/Hooks/WriteGuard.pm` -> Claims from the one reader.
 - [ ] `lib/AAPP/Hooks/PreCommit.pm` -> Claims from the one reader; the owner's amendment lines accepted by the design lock.
 - [ ] `templates/amendments-template.md` -> The ledger's role; no Target Files, no worktree.
 - [ ] `templates/AGENTS.md` -> Plan groups: the request's why and owner; re-scope through the ledger.
 - [ ] `lib/docs/verbs/refine.md` -> Contract.
+- [ ] `lib/docs/verbs/draft.md` -> Contract: `why` when the group is in development.
 - [ ] `lib/docs/verbs/commit.md` -> Contract.
 - [ ] `lib/docs/verbs/done.md` -> Contract.
 - [ ] `lib/docs/verbs/start.md` -> Contract.
@@ -137,6 +144,7 @@ P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Pe
 - [ ] `t/verb/done.t` -> Tests.
 - [ ] `t/verb/start.t` -> Tests.
 - [ ] `t/verb/plan-status.t` -> Tests.
+- [ ] `t/verb/draft.t` -> Tests.
 - [ ] `CHEATSHEET.md` -> The `refine amends <group-id>` and `plan-status <group-id> amends` forms.
 
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -151,5 +159,6 @@ P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Pe
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** §2.7 added with the developer: a member drafted or moved into a group in development writes its own R line with a required why (P-131 and P-132 were recorded by hand as R39 and R40); before the group starts nothing is written.
 * **2026-10-23:** The ledger is addressed by its group (`refine amends <group-id> …`, `plan-status <group-id> amends`); deviation defined; both questions decided with the developer.
 * **2026-10-23:** Drafted from the review of P-129 with the developer: the owner enforced, the why required, claims checked across plans and ledgers, the ledger without a worktree, built in Perl only.
