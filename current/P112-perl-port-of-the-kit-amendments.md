@@ -124,7 +124,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R31** 2026-10-23 · P-123 · `lib/docs/verbs/draft.md` · lib/docs/verbs/draft.md drops the test_subject_max_len line R30 repointed: a verb contract names t/verb/ files only (the engine refuses t/core/ there), and lib/docs/core/aapp_lib.md already names t/core/aapp_lib.t::test_subject_max_len — committed
 - **R32** 2026-10-23 · P-123 · — approved (Lorand Veres)
 - **R33** 2026-10-23 · P-123 · `lib/AAPP/Tests.pm` · AAPP::Tests gains in_dir($dir, $code): runs test code with another directory as cwd and returns to the test's own, dying with the code's error; Phase 2 suites (notes, integrate, install, sync, release) run aapp and git in a second clone or remote, and issue_ledger.t's private copy moves there (one helper, reused) · for P-126 — approved (Lorand Veres)
-- **R34** 2026-10-23 · P-123 · — · deviation in P-123: hooks test_plugins_inspector_discovers_plugins and test_action_plugin_fallthrough use a Perl script plugin (tool-pl/scripts/tool-pl.pl) instead of the bash suite's Python one: the kit no longer needs python3, perl is always present, and any language still proves the extension-agnostic lookup — pending
+- **R34** 2026-10-23 · P-123 · — approved (Lorand Veres)
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
