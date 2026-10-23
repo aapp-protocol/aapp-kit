@@ -1110,9 +1110,10 @@ sub skip
     return \$text;
 }
 
-# Usage     : my $r = $self->lib_call('text', 'out_wrap', $text, 2, 8, 60)
+# Usage     : my $r = $self->lib_call([{ stdin => $text },] 'text', 'out_wrap', $text, 2, 8, 60)
 # Purpose   : Calls a kit library function the way %LIBRARIES says: a Perl module's function in a fork of
-#             the test process (fresh caches, as in a new aapp run), a bash library's through bash.
+#             the test process (fresh caches, as in a new aapp run), a bash library's through bash; stdin
+#             is empty unless given.
 # Returns   : { exit, out, err, ret }: ret holds a Perl function's return list, or a bash function's
 #             stdout lines. Dies when the library is unknown or the Perl function dies.
 sub lib_call
@@ -1123,7 +1124,7 @@ sub lib_call
     my $target = $LIBRARIES{$library};
     die where() . ": lib_call: unknown library '$library' (see \%AAPP::Tests::LIBRARIES)\n" if !defined $target;
     if ( $target =~ /^AAPP::/ ) {
-        return $self->perl_call( $target, $function, @args );
+        return $self->perl_call( $opt, $target, $function, @args );
     }
     my $r = $self->run_cmd( $opt, 'bash', '-c', '. "$1"; . "$2"; shift 2; "$@"', 'bash', "$self->{kit}/$BASH_BASE_LIBRARY",
         "$self->{kit}/$target", $function, @args );
@@ -1131,20 +1132,22 @@ sub lib_call
     return $r;
 }
 
-# Usage     : my $r = $self->perl_call('AAPP::Text', 'out_wrap', @args)
-# Purpose   : lib_call's Perl side: the function runs in a forked child with its output captured.
+# Usage     : my $r = $self->perl_call({ stdin => $text }, 'AAPP::Text', 'out_wrap', @args)
+# Purpose   : lib_call's Perl side: the function runs in a forked child with its output captured and
+#             its stdin read from the given text as UTF-8 (as 'perl -CSA' gives an aapp run).
 # Returns   : { exit, out, err, ret }; dies when the function does not exist or dies.
 sub perl_call
 {
-    my ( $self, $package, $function, @args ) = @_;
+    my ( $self, $opt, $package, $function, @args ) = @_;
     my $n = ++$self->{counter};
-    my ( $out, $err, $ret ) = map { "$self->{scratch}/call.$$.$n.$_" } qw(out err ret);
+    my ( $in, $out, $err, $ret ) = map { "$self->{scratch}/call.$$.$n.$_" } qw(in out err ret);
+    write_text( $in, $opt->{stdin} // '' );
     my $pid = fork();
     die where() . ": cannot fork for ${package}::$function: $!\n" if !defined $pid;
     if ( $pid == 0 ) {
-        open( STDIN,  '<', File::Spec->devnull() ) or POSIX::_exit(126);
-        open( STDOUT, '>', $out )                  or POSIX::_exit(126);
-        open( STDERR, '>', $err )                  or POSIX::_exit(126);
+        open( STDIN,  '<:encoding(UTF-8)', $in ) or POSIX::_exit(126);
+        open( STDOUT, '>', $out )                or POSIX::_exit(126);
+        open( STDERR, '>', $err )                or POSIX::_exit(126);
         binmode( $_, ':encoding(UTF-8)' ) for \*STDOUT, \*STDERR;
         my %r;
         my $done = eval {
@@ -1163,7 +1166,7 @@ sub perl_call
     my $status = $?;
     my %r = ( exit => $status & 127 ? 128 + ( $status & 127 ) : $status >> 8, out => read_text($out), err => read_text($err), ret => [] );
     my $got = -f $ret ? Storable::retrieve($ret) : {};
-    unlink( $out, $err, $ret );
+    unlink( $in, $out, $err, $ret );
     die where() . ": ${package}::$function died: $got->{died}" if defined $got->{died};
     $r{ret} = $got->{ret} // [];
     return \%r;
