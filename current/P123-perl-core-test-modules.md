@@ -60,7 +60,7 @@ Part 2 of 4 of the test migration split from P-114 (kept as the reference until 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Library & Ledger Suites
-- [ ] Task 1.1: Port `aapp_lib`, `plan_states`, `plan_resolver`, `issue_id`, `issue_ledger`, `output_json`, `group_docs`, `adoption`, `doc_links`.
+- [x] Task 1.1: Port `aapp_lib`, `plan_states`, `plan_resolver`, `issue_id`, `issue_ledger`, `output_json`, `group_docs`, `adoption`, `doc_links`.
 
 ### Phase 2: Hook & Engine Suites
 - [ ] Task 2.1: Port `pre-commit`, `write-guard`, `hooks`, `worktree_hooks`, `plugin_protocol`, `event_telemetry`, `ai_attribution`, `notes`.
