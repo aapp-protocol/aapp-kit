@@ -26,6 +26,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-128**: [`P128-bash-commits-record-bare-hashes.md`](current/P128-bash-commits-record-bare-hashes.md) — Bash Commits Record Bare Hashes
 - 🟣 **P-130**: [`P130-perl-amendments-ledger.md`](current/P130-perl-amendments-ledger.md) — Perl Amendments Ledger
 - 🟣 **P-131**: [`P131-lifecycle-governance-and-review-gates.md`](current/P131-lifecycle-governance-and-review-gates.md) — Lifecycle Governance And Review Gates
+- 🟣 **P-132**: [`P132-layered-configuration.md`](current/P132-layered-configuration.md) — Layered Configuration
 - 🟣 **P-15**: [`P15-adversarial-review-plugin.md`](current/P15-adversarial-review-plugin.md) — ✏️ **SKETCH — do not refine** — Adversarial Review Packet, Layer 6 Agent Egress Boundary & reference review plugin. Settled ground only; blocked on `#64`, `#57`, `#56`.
 
 ---
