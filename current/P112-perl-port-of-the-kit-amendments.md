@@ -122,6 +122,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R29** 2026-10-23 · P-123 · `lib/AAPP/Tests.pm` · %LIBRARIES gains aapp_lib => lib/aapp-lib.sh: the issue_ledger writers (ledger_set_cell, ledger_archive_row, ledger_set_archive_commit, ledger_relink, roadmap_prune) are still bash until P-117 ports the issue lane; their tests call them through lib_call's bash route, as P-126 §2.1.9 foresees · for P-126 — landed `3330ff2`
 - **R30** 2026-10-23 · P-123 · `lib/docs/verbs/draft.md` · lib/docs/verbs/draft.md names tests/aapp_lib_test.sh::test_subject_max_len, which P-123 deleted: the line points at t/core/aapp_lib.t and says a value that is not a number is refused (R27) — committed
 - **R31** 2026-10-23 · P-123 · `lib/docs/verbs/draft.md` · lib/docs/verbs/draft.md drops the test_subject_max_len line R30 repointed: a verb contract names t/verb/ files only (the engine refuses t/core/ there), and lib/docs/core/aapp_lib.md already names t/core/aapp_lib.t::test_subject_max_len — pending
+- **R32** 2026-10-23 · P-123 · — · deviation in P-123: issue_ledger test_path_resolves_in_each_place checks a root the caller names and a file it names (AAPP_LEDGER_*) instead of PLANS_DIR, which the Perl core does not read (its plans directory comes from AAPP::Paths); the contract line says so — pending
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
