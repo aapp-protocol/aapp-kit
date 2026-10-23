@@ -12,7 +12,7 @@
 * **Base:** `cabcde9` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P123 (plan/P123-perl-core-test-modules)
 * **Group:** P-111
-* **Commits:** `28294ef` (plan/P123-perl-core-test-modules), `0178c39` (plan/P123-perl-core-test-modules), `5cc74b4` (plan/P123-perl-core-test-modules), `b93dd8a` (plan/P123-perl-core-test-modules), `ee4df1b` (plan/P123-perl-core-test-modules), `eb4b992` (plan/P123-perl-core-test-modules), `a674dea` (plan/P123-perl-core-test-modules), `8a8c1e0` (plan/P123-perl-core-test-modules), `47d6376` (plan/P123-perl-core-test-modules)
+* **Commits:** `a279fc1` (plan/P123-perl-core-test-modules), `ba4d416` (plan/P123-perl-core-test-modules), `5f62d6a` (plan/P123-perl-core-test-modules), `21622c0` (plan/P123-perl-core-test-modules), `4fd9e81` (plan/P123-perl-core-test-modules), `52f32cc` (plan/P123-perl-core-test-modules), `2df11be` (plan/P123-perl-core-test-modules), `54c2825` (plan/P123-perl-core-test-modules), `0960c66` (plan/P123-perl-core-test-modules)
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
