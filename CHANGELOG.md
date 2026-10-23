@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- the core test suites run as Perl test files (`t/core/*.t`) under `AAPP::Tests` (`P-123`)
 - an approved amendment is made by the member that requested it, in one commit recorded in the plan that owns the logic, archived or not (`P-129`)
 - Perl Port Of The Kit Amendments (`P-112`)
 - slim the test suites to verb behaviour and core wrappers, fold `#nnn` regressions into behaviour tests, and add `lib/docs/core/` contracts (P-113) (`P-113`)
