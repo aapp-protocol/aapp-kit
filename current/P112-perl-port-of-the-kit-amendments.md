@@ -118,6 +118,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R25** 2026-10-23 · P-123 · `lib/AAPP/Tests.pm` · lib_call passes { stdin => text } to a Perl function too (its fork reads /dev/null): plan_states tests read a Status line from stdin ('-'), as the bash suite does · for P-126 — landed `0b972a4`
 - **R26** 2026-10-23 · P-123 · — approved (Lorand Veres)
 - **R27** 2026-10-23 · P-123 · — approved (Lorand Veres)
+- **R28** 2026-10-23 · P-123 · — · deviation in P-123: plan_resolver test_plan_id_provider is written as a skip until P-116 ports the provider exchange (the Perl core refuses an installed aapp-planid provider until then); P-116 removes the skip and writes its checks; seed_issue_id reports not found without ledgers (RETURN_NOT_FOUND) where bash returned 2, the contract line says so — pending
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
