@@ -77,6 +77,7 @@
 ### Phase 2: Hook Entrypoint Templates & Core Wrapper Tests
 - [ ] Task 2.1: Update `templates/aapp-pre-commit`, `templates/aapp-pre-commit-develop`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`, `templates/blast-radius-guard.sh`, `templates/pre-commit`, `templates/commit-msg`, `templates/post-commit`, and `templates/post-rewrite` to invoke Perl, loading `AAPP::*` from the installed kit (item 5); `lib/cmd_init.sh` copies no Perl modules.
 - [ ] Task 2.2: Switch any direct core wrapper calls in `t/core/*.t` for `hook_dispatcher` and `attribution` to `AAPP::HookDispatcher` and `AAPP::Attribution`.
+- [ ] Task 2.3: Once the Perl core asks the `aapp-planid` provider, turn on `t/core/plan_resolver.t::test_plan_id_provider`: remove its skip and write its checks from its contract line (P-123 left it skipped, R28 in P-112).
 
 ### Phase 3: Verification
 - [ ] Task 3.1: Run `./aapp test strict quiet` and verify all hook, pre-commit, write-guard, attribution, and note tests pass.
