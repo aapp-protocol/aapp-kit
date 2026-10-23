@@ -109,6 +109,3 @@ Run: `aapp test verb refine`
 - `tests/verbs/refine.sh::test_amend_auto_approved_when_not_required` -> with approval not required a file request is `approved (auto)`; an invalid setting is refused naming the key (P-129)
 - `tests/verbs/refine.sh::test_amend_decision_corrects_group_text_with_record` -> the corrected group section and its `Decisions` line in one plans commit, the request `applied`; a change outside the section is refused (P-101)
 - `tests/verbs/refine.sh::test_amend_abort_withdraws_requests` -> aborting the requester closes its pending and approved requests as `closed · withdrawn` in the archive commit; refused and applied ones stay (P-129)
-- `tests/hooks_test.sh::test_pre_refine_gate_vetoes_the_refine` -> a `pre-refine` gate exiting 1: exit 1, nothing committed (P-99)
-- `tests/hooks_test.sh::test_on_refine_failure_commits_nothing` -> an `on-refine` handler exiting 1: exit 1, nothing committed (P-99)
-- `tests/hooks_test.sh::test_post_refine_receives_kind_and_commit` -> `post-refine` gets the plan, `kind`, `args` and the plans commit (P-99)
