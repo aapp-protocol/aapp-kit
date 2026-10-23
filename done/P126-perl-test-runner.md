@@ -98,6 +98,7 @@ Part 1 of 4 of the test migration split from P-114 (kept as the reference until 
 - [ ] `.agents/hooks/test-gate.sh` -> `TEST_CMD` runs both suites; print from the summary line to the end.
 - [ ] `examples/hooks/test-gate.sh.sample` -> Print from the summary line to the end.
 - [x] `lib/AAPP/Constants.pm` -> R14 (by P-126)
+- [x] `lib/AAPP/Tests.pm` -> R25 (by P-123)
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/cmd_test.sh` -> `aapp test` switches to the harness in P-125 only.
@@ -110,6 +111,7 @@ Part 1 of 4 of the test migration split from P-114 (kept as the reference until 
 - R20 2026-10-23 · `t/core/output.t` · was tests/AAPP/Core/Output.pm: tests live in t/ as in any Perl project, named after their contract (lib/docs/core/output.md), runnable alone with prove -l t/ (by P-126, landed `cabcde9`)
 - R21 2026-10-23 · `t/test-run` · was tests/test-run: the temporary runner sits with the tests until P-125 routes aapp test to the engine; nothing Perl stays in tests/ (by P-126, landed `cabcde9`)
 - R22 2026-10-23 · `.agents/hooks/test-gate.sh` · TEST_CMD runs t/test-run instead of tests/test-run, because the runner moved (R21) (by P-126, landed `5652c1d`)
+- R25 2026-10-23 · `lib/AAPP/Tests.pm` · lib_call passes { stdin => text } to a Perl function too (its fork reads /dev/null): plan_states tests read a Status line from stdin ('-'), as the bash suite does (by P-123, landed `0b972a4`)
 
 ---
 
