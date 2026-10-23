@@ -127,7 +127,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R34** 2026-10-23 · P-123 · — approved (Lorand Veres)
 - **R35** 2026-10-23 · P-123 · `lib/docs/verbs/refine.md` · lib/docs/verbs/refine.md drops its three tests/hooks_test.sh lines (pre-refine veto, on-refine failure, post-refine payload): P-123 deleted that suite, a verb contract names t/verb/ files only, and lib/docs/core/hooks.md names the same three tests in t/core/hooks.t — committed
 - **R36** 2026-10-23 · P-123 · `lib/docs/verbs/matrix.md` · lib/docs/verbs/matrix.md line 'Broader coverage ... tests/matrix_test.sh' points at t/core/matrix.t: P-123 ported and deleted that suite — approved (Lorand Veres)
-- **R37** 2026-10-23 · P-123 · `lib/docs/verbs/done.md` · lib/docs/verbs/done.md drops its nine tests/integrate_test.sh lines (integration on done): P-123 ported and deleted that suite, a verb contract names t/verb/ files only, and lib/docs/core/integrate.md names the same tests in t/core/integrate.t — pending
+- **R37** 2026-10-23 · P-123 · `lib/docs/verbs/done.md` · lib/docs/verbs/done.md drops its nine tests/integrate_test.sh lines (integration on done): P-123 ported and deleted that suite, a verb contract names t/verb/ files only, and lib/docs/core/integrate.md names the same tests in t/core/integrate.t — approved (Lorand Veres)
 - **R38** 2026-10-23 · P-123 · — · deviation in P-123: install test_test_verb_runs_a_named_suite runs 'aapp test quiet verb_contracts' instead of matrix, because P-123 ported matrix to t/ and verb_contracts stays the one bash suite until P-125 switches aapp test — pending
 
 ## Decisions
