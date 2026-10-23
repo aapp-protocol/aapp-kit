@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `cabcde9` (feature/perl-port-of-the-kit)
+* **Worktree:** .workspace/P123 (plan/P123-perl-core-test-modules)
 * **Group:** P-111
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
@@ -91,4 +92,5 @@ Part 2 of 4 of the test migration split from P-114 (kept as the reference until 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-23:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-19:** Drafted as part 2 of 4 split from P-114 (core suites).

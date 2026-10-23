@@ -21,7 +21,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-120**: [`P120-perl-commit-and-integration.md`](current/P120-perl-commit-and-integration.md) — Perl Commit And Integration
 - 🟣 **P-121**: [`P121-perl-setup-and-release.md`](current/P121-perl-setup-and-release.md) — Perl Setup And Release
 - 🟣 **P-122**: [`P122-remove-bash-clean-break.md`](current/P122-remove-bash-clean-break.md) — Remove Bash Clean Break
-- 🟣 **P-123**: [`P123-perl-core-test-modules.md`](current/P123-perl-core-test-modules.md) — Perl Core Test Modules
 - 🟣 **P-124**: [`P124-perl-lifecycle-verb-test-modules.md`](current/P124-perl-lifecycle-verb-test-modules.md) — Perl Lifecycle Verb Test Modules
 - 🟣 **P-125**: [`P125-perl-remaining-verb-tests-and-switch.md`](current/P125-perl-remaining-verb-tests-and-switch.md) — Perl Remaining Verb Tests And Switch
 - 🟣 **P-128**: [`P128-bash-commits-record-bare-hashes.md`](current/P128-bash-commits-record-bare-hashes.md) — Bash Commits Record Bare Hashes
@@ -38,6 +37,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 - ⚡ **P-111**: [`P111-perl-port-of-the-kit.md`](current/P111-perl-port-of-the-kit.md) — 🧩 Group Plan P-111: Perl Port Of The Kit
 - ⚡ **P-112**: [`P112-perl-port-of-the-kit-amendments.md`](current/P112-perl-port-of-the-kit-amendments.md) — Perl Port Of The Kit Amendments
+- ⚡ **P-123**: [`P123-perl-core-test-modules.md`](current/P123-perl-core-test-modules.md) — Perl Core Test Modules
 
 ---
 
