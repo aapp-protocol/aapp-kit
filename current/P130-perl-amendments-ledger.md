@@ -1,8 +1,8 @@
 # 🗺️ Plan P-130: Perl Amendments Ledger
 * **Created:** 2026-10-23 | **Last Refined:** 2026-10-23
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-130
-* **Changelog:** Changed: Perl Amendments Ledger
+* **Changelog:** Changed: the amendments ledger enforces each request's owner plan and reason, checks every claim on a file across plans and ledgers, and keeps no worktree of its own
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,64 +40,101 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+A group's amendments member is the group's central ledger: every change to the group's planning after it was drafted (a file a member needs, a re-scope, a missing dependency, a shortcoming, a correction of the group's text) is requested, decided and recorded there, in one file an orchestrator (a person, an agent, a web view) reads and acts on. The plan the change belongs to keeps the same record under `### Amendments`, so its logic stays with it, archived or not.
+
+P-129 gave the bash kit the route (the requester makes an approved change in one commit; for another owner it lands at once on the parent and the owner records it; the requester's `done` closes its requests). What it lacks is built here once, in Perl, on the modules P-116 (hooks), P-119 (`refine`, `start`, `done`, `plan abort`) and P-120 (`commit`) port: the owner is enforced from the group's own records, every request says why, every claim on a file is checked across plans and ledgers, and the ledger needs no worktree. The bash kit keeps P-129's behaviour unchanged.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 A request carries its details
+1. `aapp refine <amend-id> request "<why>" file <path> [for <owner-id>]`, from the requester's checkout: the requester and its plan ID come from the checkout's bound plan; the why is required and is the line copied into the owner's `### Amendments`.
+2. The owner is enforced from the group's records, the §4 Target Files of the group plan and every member, in `current/` and `done/`, earlier amendment lines included:
+   - one plan lists the path: that plan is the owner; `for` may be omitted and is filled in; a different `for` is refused, naming the owner;
+   - several plans list it (a shared document): `for` is required and names one of them;
+   - no plan of the group lists it (a new file): the owner is the requester, unless `for` names another plan of the group;
+   - a plan outside the group lists it: refused, naming that plan.
+3. A request without a file or heading records a deviation, a missing dependency or a shortcoming of the planning; it is listed with the others (2.5) and closed like them.
+4. The next R number is taken inside the plans commit's lock, so two agents requesting at once never share a number.
+
+### 2.2 One reader of claims
+`AAPP::State` answers, for a path, every claim on it: the design targets (§4) of every plan in development, and every approved, not yet committed request in every amendments member in `current/`; an owner's amendment record lines (`-> R<n> (by …)`) and an amendments member's own Target Files are no claims. `approve`, `start` / `freeze-start` (the disjointness gate), the write guard and the pre-commit hook all ask it, so an approval holds a file against every plan and every group until its commit.
+
+### 2.3 Who makes the change, and the record
+1. The owner is another plan: the requester's one commit (`aapp commit "<msg>" amendment <n>`) lands at once on its parent branch, built on the tip under the `integrate/<parent>` lock and refused when the file moved there; the requester is rebased; the owner's Target Files line and `### Amendments` line (the why, the requester, the landed commit) are written in the same plans commit.
+2. The requester owns it: the commit stays on its branch and lands with its `done`, which writes its own record.
+3. The amendments member makes no change itself: what it would land would land late for the rest of the group.
+4. A re-scope of a member in development goes through the ledger, one request per file with its why, never through an unfreeze of its §2 and §4.
+
+### 2.4 The amendments member has no worktree
+It never commits code: the group's `start` gives it no branch and no worktree; `decision` runs from a checkout bound to a plan of the group; its `done` integrates nothing and records `none`; its §4 stays empty.
+
+### 2.5 The ledger is readable as one record
+`aapp plan-status <amend-id> [json]` lists every request (file, heading, or deviation) with its requester, owner, why, state and commit, so an orchestrator collects the group's whole picture with one command.
+
+### 2.6 Port notes
+P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Perl code as §2.1–2.5 say. The contracts (`refine`, `commit`, `done`, `start`, `freeze-start`, `plan-status`) and the amendments template follow.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
-- **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
+- **Compatibility Mode**: `Clean Break` (Default)
+- **Fallback Inventory**: `None (Clean Break)`: a request without a why, or with an owner the records contradict, is refused; the amendments member's worktree goes.
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Tests first
+- [ ] Task 1.1: Failing tests in `t/verb/refine.t`, `t/verb/commit.t`, `t/verb/done.t`, `t/verb/start.t`, `t/verb/plan-status.t` for §2.1–2.5.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Requests and claims
+- [ ] Task 2.1: The request's why and the owner's enforcement (§2.1.1–2); deviation requests (§2.1.3); the R number inside the lock (§2.1.4).
+- [ ] Task 2.2: The one reader of claims in `AAPP::State`, asked by `approve`, `start`/`freeze-start`, the write guard and the pre-commit hook (§2.2).
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: The ledger
+- [ ] Task 3.1: A re-scope through the ledger (§2.3.4); the amendments member without a worktree (§2.4); `plan-status` of the ledger, terminal and JSON (§2.5).
+
+### Phase 4: Verification & Documentation
+- [ ] Task 4.1: Run both test runners; concurrent requests, a claim across two groups, a start refused by an approval.
+- [ ] Task 4.2: Contracts, the amendments template and `templates/AGENTS.md`; the group's `## Architecture & Codemap` by a request to P-112.
+- [ ] Task 4.3: Log every finding outside the Target Files as an issue; none stays in chat only.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
-> **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
->
-> **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `lib/AAPP/State.pm` -> The one reader of claims; request line readers (owner, why).
+- [ ] `lib/AAPP/Plan.pm` -> `start`/`freeze-start` disjointness by claims; the amendments member without a worktree.
+- [ ] `lib/AAPP/Cmd/Plan.pm` -> `refine request|approve|decision`, `done`, `plan abort`, `plan-status` of the ledger.
+- [ ] `lib/AAPP/Cmd/Commit.pm` -> `commit … amendment <n>` over the claims reader.
+- [ ] `lib/AAPP/Hooks/WriteGuard.pm` -> Claims from the one reader.
+- [ ] `lib/AAPP/Hooks/PreCommit.pm` -> Claims from the one reader; the owner's amendment lines accepted by the design lock.
+- [ ] `templates/amendments-template.md` -> The ledger's role; no Target Files, no worktree.
+- [ ] `templates/AGENTS.md` -> Plan groups: the request's why and owner; re-scope through the ledger.
+- [ ] `lib/docs/verbs/refine.md` -> Contract.
+- [ ] `lib/docs/verbs/commit.md` -> Contract.
+- [ ] `lib/docs/verbs/done.md` -> Contract.
+- [ ] `lib/docs/verbs/start.md` -> Contract.
+- [ ] `lib/docs/verbs/freeze-start.md` -> Contract.
+- [ ] `lib/docs/verbs/plan-status.md` -> Contract.
+- [ ] `t/verb/refine.t` -> Tests.
+- [ ] `t/verb/commit.t` -> Tests.
+- [ ] `t/verb/done.t` -> Tests.
+- [ ] `t/verb/start.t` -> Tests.
+- [ ] `t/verb/plan-status.t` -> Tests.
+- [ ] `CHEATSHEET.md` -> The request's form.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/*.sh` -> The bash kit keeps P-129's behaviour; P-122 removes it.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** A deviation request (no file, no heading): a request like the others, or its own word (`refine <amend-id> note "<text>"`)?
+* [ ] **Question 2:** Its place in the group's order: after P-120 (this draft's assumption: it changes P-116's, P-119's and P-120's Perl code), before P-121?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-23:** Plan initialized from `pickup.md`.
-* **2026-10-23:** Refined blast radius and locked module boundaries.
+* **2026-10-23:** Drafted from the review of P-129 with the developer: the owner enforced, the why required, claims checked across plans and ledgers, the ledger without a worktree, built in Perl only.
