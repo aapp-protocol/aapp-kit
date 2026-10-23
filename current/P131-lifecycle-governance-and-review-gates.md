@@ -121,7 +121,7 @@ When an agent or script invokes a lifecycle transition (`freeze`, `start`, `done
   "action": "freeze",
   "plan_id": "P-131",
   "plan_title": "Lifecycle Governance And Review Gates",
-  "repo_root": "/home/lorand/000/agent-planning-kit",
+  "repo_root": "/path/to/repo",
   "caller": "agent",
   "governance_mode": "hitl",
   "current_status": "🟣 Under Review",
@@ -209,11 +209,11 @@ Update all lifecycle skills with bold negative constraints:
 - [ ] Task 2.3: Integrate `AAPP::Governance::check_gate` into lifecycle verbs: `freeze`, `start`, `done`, and `abort`.
 
 ### Phase 3: Skill File Invariants & Rule Updates
-- [ ] Task 3.1: Update `.agents/skills/aapp-plan/SKILL.md` and `aapp-digest/SKILL.md` with the post-draft Yield Invariant.
-- [ ] Task 3.2: Update `.agents/skills/aapp-freeze/SKILL.md` with the Delegation Invariant.
-- [ ] Task 3.3: Update `.agents/skills/aapp-start/SKILL.md` adding the completion yield rule after Section 3 commits.
-- [ ] Task 3.4: Update `.agents/skills/aapp-done/SKILL.md` with explicit delegation requirements.
-- [ ] Task 3.5: Synchronize behavioral rules in `.agents/AGENTS.md`.
+- [ ] Task 3.1: Update `templates/skills/aapp-plan/SKILL.md` and `templates/skills/aapp-digest/SKILL.md` with the post-draft Yield Invariant.
+- [ ] Task 3.2: Update `templates/skills/aapp-freeze/SKILL.md` with the Delegation Invariant.
+- [ ] Task 3.3: Update `templates/skills/aapp-start/SKILL.md` adding the completion yield rule after Section 3 commits.
+- [ ] Task 3.4: Update `templates/skills/aapp-done/SKILL.md` with explicit delegation requirements.
+- [ ] Task 3.5: Synchronize behavioral rules in `templates/AGENTS.md`.
 
 ### Phase 4: Verification & Documentation
 - [ ] Task 4.1: Run full test suite (`aapp test`) confirming zero regressions across existing verbs and hooks.
@@ -230,15 +230,15 @@ Update all lifecycle skills with bold negative constraints:
 - [ ] `NEW FILE` -> `t/core/governance.t` -> Unit tests for governance modes and external handler IPC.
 - [ ] `NEW FILE` -> `lib/docs/core/governance.md` -> Core interface contract for external governance handlers.
 - [ ] `lib/AAPP/Output.pm` -> Dynamic governance-aware yield notices and refusal banners.
-- [ ] `lib/AAPP/Config.pm` -> Configuration defaults for `aapp.governance*`.
-- [ ] `lib/AAPP/Cmd/Plan.pm` -> Gate checks in freeze, start, and done verbs.
+- [ ] `lib/AAPP/Constants.pm` -> Configuration defaults for `aapp.governance*`.
+- [ ] `lib/AAPP/Cmd/Plan.pm` -> Gate checks in freeze, start, done, and abort verbs.
 - [ ] `lib/cmd_plan.sh` -> Transitional bash lifecycle gate checks during porting.
-- [ ] `.agents/skills/aapp-plan/SKILL.md` -> Post-draft Yield Invariant.
-- [ ] `.agents/skills/aapp-digest/SKILL.md` -> Post-digest Yield Invariant.
-- [ ] `.agents/skills/aapp-freeze/SKILL.md` -> Freeze Delegation Invariant.
-- [ ] `.agents/skills/aapp-start/SKILL.md` -> Post-implementation Yield Invariant.
-- [ ] `.agents/skills/aapp-done/SKILL.md` -> Archival Delegation Invariant.
-- [ ] `.agents/AGENTS.md` -> Protocol rule updates for governance and HITL gates.
+- [ ] `templates/skills/aapp-plan/SKILL.md` -> Post-draft Yield Invariant template.
+- [ ] `templates/skills/aapp-digest/SKILL.md` -> Post-digest Yield Invariant template.
+- [ ] `templates/skills/aapp-freeze/SKILL.md` -> Freeze Delegation Invariant template.
+- [ ] `templates/skills/aapp-start/SKILL.md` -> Post-implementation Yield Invariant template.
+- [ ] `templates/skills/aapp-done/SKILL.md` -> Archival Delegation Invariant template.
+- [ ] `templates/AGENTS.md` -> Protocol rule updates for governance and HITL gates.
 - [ ] `MANUAL.md` -> Adopter documentation for external governance configuration and web UI integration.
 
 ### 🛑 Out of Bounds (Do Not Touch)
