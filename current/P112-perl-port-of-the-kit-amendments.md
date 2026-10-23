@@ -125,7 +125,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R32** 2026-10-23 · P-123 · — approved (Lorand Veres)
 - **R33** 2026-10-23 · P-123 · `lib/AAPP/Tests.pm` · AAPP::Tests gains in_dir($dir, $code): runs test code with another directory as cwd and returns to the test's own, dying with the code's error; Phase 2 suites (notes, integrate, install, sync, release) run aapp and git in a second clone or remote, and issue_ledger.t's private copy moves there (one helper, reused) · for P-126 — landed `92293ab`
 - **R34** 2026-10-23 · P-123 · — approved (Lorand Veres)
-- **R35** 2026-10-23 · P-123 · `lib/docs/verbs/refine.md` · lib/docs/verbs/refine.md drops its three tests/hooks_test.sh lines (pre-refine veto, on-refine failure, post-refine payload): P-123 deleted that suite, a verb contract names t/verb/ files only, and lib/docs/core/hooks.md names the same three tests in t/core/hooks.t — pending
+- **R35** 2026-10-23 · P-123 · `lib/docs/verbs/refine.md` · lib/docs/verbs/refine.md drops its three tests/hooks_test.sh lines (pre-refine veto, on-refine failure, post-refine payload): P-123 deleted that suite, a verb contract names t/verb/ files only, and lib/docs/core/hooks.md names the same three tests in t/core/hooks.t — approved (Lorand Veres)
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
