@@ -119,6 +119,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R26** 2026-10-23 · P-123 · — approved (Lorand Veres)
 - **R27** 2026-10-23 · P-123 · — approved (Lorand Veres)
 - **R28** 2026-10-23 · P-123 · — · deviation in P-123: plan_resolver test_plan_id_provider is written as a skip until P-116 ports the provider exchange (the Perl core refuses an installed aapp-planid provider until then); P-116 removes the skip and writes its checks; seed_issue_id reports not found without ledgers (RETURN_NOT_FOUND) where bash returned 2, the contract line says so — pending
+- **R29** 2026-10-23 · P-123 · `lib/AAPP/Tests.pm` · %LIBRARIES gains aapp_lib => lib/aapp-lib.sh: the issue_ledger writers (ledger_set_cell, ledger_archive_row, ledger_set_archive_commit, ledger_relink, roadmap_prune) are still bash until P-117 ports the issue lane; their tests call them through lib_call's bash route, as P-126 §2.1.9 foresees · for P-126 — pending
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
