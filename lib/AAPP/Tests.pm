@@ -64,6 +64,9 @@ our @POINTER_FILES = (
 # Environment a test never inherits from its caller (a git hook, an aapp run).
 our @ENV_DROP_PREFIXES = qw(GIT_ AAPP_);
 
+# Kit variables outside those prefixes that the bash libraries read before the current directory.
+our @ENV_DROP_NAMES = qw(REPO_ROOT PLANS_DIR);
+
 # Bare-word modifiers of t/test-run.
 our @MODIFIERS = qw(strict quiet bail list help);
 
@@ -826,6 +829,7 @@ sub make_sandbox
     foreach my $key ( keys %ENV ) {
         delete $ENV{$key} if grep { index( $key, $_ ) == 0 } @ENV_DROP_PREFIXES;
     }
+    delete @ENV{@ENV_DROP_NAMES};
     my @path = grep { $_ ne '' && !-x "$_/aapp" } split( /:/, $ENV{PATH} // '' );
     $ENV{HOME}                = $home;
     $ENV{XDG_DATA_HOME}       = $share;
