@@ -64,10 +64,10 @@ Part 2 of 4 of the test migration split from P-114 (kept as the reference until 
 
 ### Phase 2: Hook & Engine Suites
 - [x] Task 2.1: Port `pre-commit`, `write-guard`, `hooks`, `worktree_hooks`, `plugin_protocol`, `event_telemetry`, `ai_attribution`, `notes`.
-- [ ] Task 2.2: Port `integrate`, `install`, `sync`, `release`, `kit_release_hook`, `matrix`, `template_sync`.
+- [x] Task 2.2: Port `integrate`, `install`, `sync`, `release`, `kit_release_hook`, `matrix`, `template_sync`.
 
 ### Phase 3: Verification
-- [ ] Task 3.1: `t/test-run strict quiet` and `./aapp test strict quiet` both green; no `tests/*_test.sh` left but `verb_contracts_test.sh`; record each runner's wall and CPU time.
+- [x] Task 3.1: `t/test-run strict quiet` and `./aapp test strict quiet` both green; no `tests/*_test.sh` left but `verb_contracts_test.sh`; record each runner's wall and CPU time.
 
 ---
 
@@ -92,5 +92,6 @@ Part 2 of 4 of the test migration split from P-114 (kept as the reference until 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-23:** Verified: `t/test-run strict quiet` 25/25 files (322 passed, 1 skipped) in 111 s wall, 339 s CPU; `./aapp test strict quiet` 38/38 suites (538 passed) in 120 s wall, 1120 s CPU (user + sys); `verb_contracts_test.sh` the one core bash suite left.
 * **2026-10-23:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-19:** Drafted as part 2 of 4 split from P-114 (core suites).
