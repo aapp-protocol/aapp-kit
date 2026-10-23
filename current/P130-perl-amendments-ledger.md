@@ -48,14 +48,27 @@ P-129 gave the bash kit the route (the requester makes an approved change in one
 
 ## 2. Technical Blueprint
 
+### 2.0 The ledger is addressed by its group
+Every group has one amendments member, so the ledger is reached through the group's ID, which people and orchestrators know; with several groups active it names the one meant. `amends` is a reserved word in place of the plan ID (as `pickup` and `issues` are), checked before plan resolution; the group ID is always given, never taken from the checkout, and a plan that is not a group plan is refused:
+```
+aapp refine amends <group-id> request "<why>" file <path> [for <owner-id>]
+aapp refine amends <group-id> request "<why>" heading "<heading>"
+aapp refine amends <group-id> deviation "<why>" file <path>
+aapp refine amends <group-id> approve <n>
+aapp refine amends <group-id> refuse <n> "<reason>"
+aapp refine amends <group-id> decision <n> "<reason>"
+aapp plan-status <group-id> amends [json]
+```
+The form `aapp refine <amend-id> request|approve|refuse|decision …` leaves the Perl kit (clean break); the bash kit keeps it until P-122 removes it.
+
 ### 2.1 A request carries its details
-1. `aapp refine <amend-id> request "<why>" file <path> [for <owner-id>]`, from the requester's checkout: the requester and its plan ID come from the checkout's bound plan; the why is required and is the line copied into the owner's `### Amendments`.
+1. `aapp refine amends <group-id> request "<why>" file <path> [for <owner-id>]`, from the requester's checkout: the requester and its plan ID come from the checkout's bound plan; the why is required and is the line copied into the owner's `### Amendments`.
 2. The owner is enforced from the group's records, the §4 Target Files of the group plan and every member, in `current/` and `done/`, earlier amendment lines included:
    - one plan lists the path: that plan is the owner; `for` may be omitted and is filled in; a different `for` is refused, naming the owner;
    - several plans list it (a shared document): `for` is required and names one of them;
    - no plan of the group lists it (a new file): the owner is the requester, unless `for` names another plan of the group;
    - a plan outside the group lists it: refused, naming that plan.
-3. A request without a file or heading records a deviation, a missing dependency or a shortcoming of the planning; it is listed with the others (2.5) and closed like them.
+3. A deviation, `aapp refine amends <group-id> deviation "<why>" file <path>`, records an implementation change on a file the requesting plan already declares (a changed approach, a missing dependency, a shortcoming of the planning): it is no claim, so it needs no approval; the why is required; it is made only by the plan whose §4 declares the file (any other file is refused, naming its owner: that is a `request`); it is recorded in the ledger as `deviation` and copied at once into the plan's own `### Amendments`.
 4. The next R number is taken inside the plans commit's lock, so two agents requesting at once never share a number.
 
 ### 2.2 One reader of claims
@@ -71,7 +84,7 @@ P-129 gave the bash kit the route (the requester makes an approved change in one
 It never commits code: the group's `start` gives it no branch and no worktree; `decision` runs from a checkout bound to a plan of the group; its `done` integrates nothing and records `none`; its §4 stays empty.
 
 ### 2.5 The ledger is readable as one record
-`aapp plan-status <amend-id> [json]` lists every request (file, heading, or deviation) with its requester, owner, why, state and commit, so an orchestrator collects the group's whole picture with one command.
+`aapp plan-status <group-id> amends [json]` lists every entry (request for a file or a heading, deviation, decision) with its requester, owner, why, state and commit, so an orchestrator collects the group's whole picture with one command.
 
 ### 2.6 Port notes
 P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Perl code as §2.1–2.5 say. The contracts (`refine`, `commit`, `done`, `start`, `freeze-start`, `plan-status`) and the amendments template follow.
@@ -88,7 +101,8 @@ P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Pe
 - [ ] Task 1.1: Failing tests in `t/verb/refine.t`, `t/verb/commit.t`, `t/verb/done.t`, `t/verb/start.t`, `t/verb/plan-status.t` for §2.1–2.5.
 
 ### Phase 2: Requests and claims
-- [ ] Task 2.1: The request's why and the owner's enforcement (§2.1.1–2); deviation requests (§2.1.3); the R number inside the lock (§2.1.4).
+- [ ] Task 2.0: `refine amends <group-id> …` and `plan-status <group-id> amends` (§2.0); the `<amend-id>` form removed.
+- [ ] Task 2.1: The request's why and the owner's enforcement (§2.1.1–2); deviations (§2.1.3); the R number inside the lock (§2.1.4).
 - [ ] Task 2.2: The one reader of claims in `AAPP::State`, asked by `approve`, `start`/`freeze-start`, the write guard and the pre-commit hook (§2.2).
 
 ### Phase 3: The ledger
@@ -123,7 +137,7 @@ P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Pe
 - [ ] `t/verb/done.t` -> Tests.
 - [ ] `t/verb/start.t` -> Tests.
 - [ ] `t/verb/plan-status.t` -> Tests.
-- [ ] `CHEATSHEET.md` -> The request's form.
+- [ ] `CHEATSHEET.md` -> The `refine amends <group-id>` and `plan-status <group-id> amends` forms.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/*.sh` -> The bash kit keeps P-129's behaviour; P-122 removes it.
@@ -131,10 +145,11 @@ P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Pe
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1:** A deviation request (no file, no heading): a request like the others, or its own word (`refine <amend-id> note "<text>"`)?
-* [ ] **Question 2:** Its place in the group's order: after P-120 (this draft's assumption: it changes P-116's, P-119's and P-120's Perl code), before P-121?
+* [x] **Question 1:** A deviation is an implementation change on files the plan already declares: its own word, `deviation`, no approval, why required, copied at once into the plan's `### Amendments` (§2.1.3). Decided 2026-10-23.
+* [x] **Question 2:** After P-120, before P-121. Decided 2026-10-23.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-23:** The ledger is addressed by its group (`refine amends <group-id> …`, `plan-status <group-id> amends`); deviation defined; both questions decided with the developer.
 * **2026-10-23:** Drafted from the review of P-129 with the developer: the owner enforced, the why required, claims checked across plans and ledgers, the ledger without a worktree, built in Perl only.
