@@ -1111,6 +1111,22 @@ sub skip
     return \$text;
 }
 
+# Usage     : $self->in_dir($dir, sub { ... })
+# Purpose   : Runs test code with $dir as the working directory (a second clone, a fix worktree), then
+#             returns to the directory it was in.
+# Returns   : What the code returns; dies with the code's error, after returning.
+sub in_dir
+{
+    my ( $self, $dir, $code ) = @_;
+    my $back = Cwd::getcwd();
+    chdir($dir) or die where() . ": cannot enter $dir: $!\n";
+    my @r     = eval { $code->() };
+    my $error = $@;
+    chdir($back) or die where() . ": cannot return to $back: $!\n";
+    die $error if $error;
+    return wantarray ? @r : $r[0];
+}
+
 # Usage     : my $r = $self->lib_call([{ stdin => $text },] 'text', 'out_wrap', $text, 2, 8, 60)
 # Purpose   : Calls a kit library function the way %LIBRARIES says: a Perl module's function in a fork of
 #             the test process (fresh caches, as in a new aapp run), a bash library's through bash; stdin
