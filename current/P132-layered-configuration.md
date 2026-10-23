@@ -116,6 +116,8 @@ When resolving a configuration key for an active repository at `primary_root` (`
 
 - **Evaluation Order**: The highest level that defines the key wins.
 - Within a single level's `main.conf`, a matching `[aapp "repo:..."]` block takes precedence over the global `[aapp]` block.
+- **Multi-valued keys** (`aapp.allowPath`, `aapp.hook.<event>`): the highest level that sets the key gives the whole list; lower levels add nothing to it, so a repository can never widen what an administrator set.
+- **The repository level is git config as git resolves it today** (`git config --list -z`: the repository's own config over git's user and system files), so a project that uses no `main.conf` reads exactly as before.
 - **Diagnostics (`AAPP::Config::source($key)`)**: Returns the winning authority level and source (`system:global`, `system:repo`, `user:global`, `user:repo`, `repository`).
 - **No setter**: `AAPP::Config` has no general setter. The only write is the id counter (`set_id`/`get_id`, repository level only, P-117 Task 0.1 as an amendment for P-115), and counters are never on the allow-list, so nothing the kit writes can be shadowed from above. Verbs may use `source($key)` to say which level a value came from.
 
@@ -167,9 +169,7 @@ When resolving a configuration key for an active repository at `primary_root` (`
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1:** Multi-valued keys (`aapp.allowPath`, `aapp.aiAlias`, `aapp.hook.<event>`): Does a higher level completely replace the list, or append to it? *(Default proposal: Replace, keeping the authority model strictly deterministic).*
-* [ ] **Question 2:** Git's own user and system config (`~/.gitconfig`, `/etc/gitconfig`): Should `git config --list -z` continue supplying base values for level 3, or should level 3 strictly inspect `--local`? *(Default proposal: `--list -z` as today, with AAPP upper files sitting above it).*
-* [ ] **Question 3:** Placement in Group P-111 execution order: P-132 depends on `AAPP::Config` (P-115, complete) and should execute before P-131 (Lifecycle Governance). Recommended placement is immediately after P-115 / P-123.
+*(None — design is fully specified)*
 
 ---
 
@@ -177,6 +177,7 @@ When resolving a configuration key for an active repository at `primary_root` (`
 * **2026-10-23:** Drafted as a member of group P-111 at the developer's request, from the P-131 review: settings that bind the agent need a place the agent cannot change.
 * **2026-10-23:** One `main.conf` per level with `[aapp "repo:<path>"]` blocks matched on the primary checkout root; dotted keys inside a repository block.
 * **2026-10-23:** Upper levels take allow-listed administrative keys only (commit message lengths included, as team or user preferences); the kit reads them and never writes them, no setter; the allow-list sits at the top of `AAPP::Config`.
+* **2026-10-24:** Open questions closed by the decisions taken: multi-valued keys come whole from the highest level (follows from "a higher level always wins"); the repository level stays git config as git resolves it (follows from "nothing changes without a `main.conf`"); placed 6th in P-111 §3, after P-123 and before P-131.
 * **2026-10-23:** Plan drafted as dedicated Group P-111 member.
 * **2026-10-23:** Refined to replace multi-file `repos/<key>.conf` with standard INI `[aapp "repo:<path>"]` subsection overrides inside `main.conf`.
 * **2026-10-23:** Refined to use `AAPP::Paths::primary_root` for worktree path coverage, support dotted subsection keys, remove machine paths, and clarify setter diagnostics.
