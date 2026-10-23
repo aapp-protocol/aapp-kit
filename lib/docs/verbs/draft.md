@@ -66,5 +66,4 @@ Run: `aapp test verb draft`
 - `tests/verbs/draft.sh::test_bare_draft_slug_bounded` -> slug from title bounded to 60 characters cut at '-' (P-97)
 - `tests/verbs/draft.sh::test_bare_draft_copies_text` -> bare draft writes text into §1 and references pickup files (P-97)
 - `tests/verbs/draft.sh::test_draft_subject_fits_limit` -> draft commit subject fits aapp.subjectMaxLen (P-97)
-- `t/core/aapp_lib.t::test_subject_max_len` -> the subject limit is the setting or default 72; a value that is not a number is refused (P-97)
 
