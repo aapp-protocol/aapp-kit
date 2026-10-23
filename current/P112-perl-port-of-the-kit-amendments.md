@@ -114,6 +114,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R21** 2026-10-23 · P-126 · `t/test-run` · was tests/test-run: the temporary runner sits with the tests until P-125 routes aapp test to the engine; nothing Perl stays in tests/ — closed · landed `cabcde9`
 - **R22** 2026-10-23 · P-126 · `.agents/hooks/test-gate.sh` · TEST_CMD runs t/test-run instead of tests/test-run, because the runner moved (R21) — closed · landed `5652c1d`
 - **R23** 2026-10-23 · P-126 · — · P-116 to P-125 name t/core/<name>.t, t/verb/<verb>.t and lib/AAPP/Tests.pm instead of tests/AAPP/, because of the P-126 re-scope (R19–R21); P-121 adds that the install ships no tests, as tests run from a kit checkout; P-111 §3 member lines follow (its Architecture & Codemap: D4–D7) — applied
+- **R24** 2026-10-23 · P-111 · — · new member P-130 (amendments ledger in Perl), after P-120: the review of P-129 found the owner of a request unenforced, its why optional, approvals invisible to start and to other groups' ledgers, and the ledger's worktree unneeded; built once in Perl, the bash kit keeps P-129 — applied
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
