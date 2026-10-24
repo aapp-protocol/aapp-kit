@@ -225,6 +225,20 @@ When an amendment modifies locked regions (§1–§3) of a group plan in develop
    - **Verification Mismatch / Denial**: The handler exits non-zero, and `PreCommit` refuses the commit with a structured diagnostic.
    - **Manual Fallback**: If no `aapp.governanceHandler` is configured, `PreCommit` verifies that `R<n>` was committed as `approved` by a human author in the ledger.
 
+### 6. User Documentation & Manual Entries (`MANUAL.md`)
+
+`P-131` updates `MANUAL.md` with an authoritative reference section covering the new lifecycle governance subsystem:
+1. **Governance Modes Overview**:
+   - Detailed operational semantics for `aapp.governance`: `hitl` (default), `strict`, `lax`, `autonomous`.
+   - Explains the turn-yield contract and why agents yield control to humans between planning stages (`draft` -> `freeze` -> `start` -> `done`).
+2. **External Authority Contract (`aapp.governanceHandler`)**:
+   - IPC invocation via stdio JSON payload.
+   - Complete JSON schemas for Ingress (lifecycle gate request: `action`, `plan_id`, `current_status`, `target_status`, `target_files`) and Egress (approval: `{"approved": true}`, refusal: `{"approved": false, "reason": "...", "review_url": "...", "prompt_instruction": "..."}`).
+   - Configuration parameters: `aapp.governance`, `aapp.governanceHandler`, `aapp.governanceTimeout`.
+3. **Amendment Verification Protocol (`verify_amendment`)**:
+   - Explains how external scripts, web UIs, and SSH hooks sign off on group plan amendments (`R<n>`), issue authorization tokens, and allow `PreCommit` to pass without `--no-verify`.
+   - Documents the fallback to manual CLI approval (`aapp refine amends <group-id> approve <n>`).
+
 ### 2.6 Structured Logging Telemetry (`perl-port-logging-events-spec.md` §3.5)
 On every lifecycle transition check (`freeze`, `start`, `done`, `abort`, `verify_amendment`), `AAPP::Governance::check_gate` emits structured JSONL telemetry via `AAPP::Logger::log_event`:
 - **`AAPP::Governance` (`governance.check`)**: `command => "governance"`, `event => "check"`. Data payload:
