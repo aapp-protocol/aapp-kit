@@ -40,15 +40,18 @@
 ---
 
 ## 1. Context & Architectural Goal
-Part 4 of 4 of the test migration split from P-114 (kept as the reference until all four parts are drafted). Ports the remaining verb suites to `t/verb/*.t`, then switches `aapp test` to the test engine (`lib/AAPP/Tests.pm`) and removes everything temporary: the bash suites, `tests/test_helpers.sh`, the bash contract checker, `t/test-run`, and the two-runner gate command; the `tests/` folder is gone and every test lives in `t/`. Needs P-126, P-123 and P-124 done. Kit runtime code stays untouched except the test runner (`lib/cmd_test.sh`).
+Part 4 of the test migration split from P-114. Ports the remaining verb suites to `t/verb/*.t`, then switches `aapp test` to the test engine (`lib/AAPP/Tests.pm`) and removes everything temporary: the bash suites, `tests/test_helpers.sh`, the bash contract checker, `t/test-run`, and the two-runner gate command; the `tests/` folder is gone and every test lives in `t/`.
+
+The group exists to cut process starts (P-111 §1: ~45k processes in one verb suite, `sys > user` 2:1); these tests serve that goal as P-134's do. The plan runs after the verbs it tests are ported (P-117 issue and offline, P-120 commit, note and ai, P-121 companion and test) and after P-134, whose design it follows (`.plans/pickup/perl-port-test-salvage-rfc.md`, D2–D3). Kit runtime code stays untouched except the `test` verb (`lib/AAPP/Cmd/Test.pm`).
 
 ---
 
 ## 2. Technical Blueprint
-1. **Remaining verbs:** `issue` (with its parts: `abort`, `branchplugin`, `branch`, `fixes`, `keyid`, `limits`, `notefilter`, `onecommit`, `provider`, `queue`, `tracker`), `offline`, `commit`, `note`, `ai`, `companion`, `test`; same naming and fixture rules as P-124 §2.2–3.
-2. **Contract checker in Perl:** the checks of `tests/verb_contracts_test.sh` move to `t/core/verb_contracts.t` (registry <-> contracts, contract shape, core contracts per test file, every test named both ways, daily verbs in the agent reference, rules-file and skill-index checks, `aapp help` of an unknown verb); its contract `lib/docs/core/verb_contracts.md` follows.
-3. **The switch (clean break):** `lib/cmd_test.sh` routes `aapp test` to `AAPP::Tests` with the runner's selection forms (P-126 §2.1.6) and `strict`, `quiet`, `bail`, `list`, `jobs <n>`; `t/test-run` is deleted and nothing names it. `lib/docs/verbs/test.md` (Ingress, Effects, Tests) and `CHEATSHEET.md` document the forms. The `test` verb module tests the new runner.
-4. **Gate back to one command:** `.agents/hooks/test-gate.sh` `TEST_CMD` returns to `./aapp test strict quiet`; the developer re-registers it with `./aapp hook-hash .agents/hooks/test-gate.sh` before `aapp done`.
+1. **Remaining verbs:** `issue` (with its parts: `abort`, `branchplugin`, `branch`, `fixes`, `keyid`, `limits`, `notefilter`, `onecommit`, `provider`, `queue`, `tracker`), `offline`, `commit`, `note`, `ai`, `companion`, `test`; one file per verb, `t/verb/<verb>.t`, one `test_*` sub per contract line.
+2. **The design of P-134 §2.2–2.6:** verbs called as Perl functions through `lib_call` with a thin CLI layer; each file's repositories built once in the fixture by the kit's own writers, a shared step run once in the fixture when several tests read its outcome; facts read from files, git queries batched, setup commits `--no-verify`; checks carried over from the bash suites as shared `check_*` subs; each file's wall, CPU and process count recorded.
+3. **Contract checker in Perl:** the checks of `tests/verb_contracts_test.sh` move to `t/core/verb_contracts.t` (registry <-> contracts, contract shape, core contracts per test file, every test named both ways, daily verbs in the agent reference, rules-file and skill-index checks, `aapp help` of an unknown verb); its contract `lib/docs/core/verb_contracts.md` follows. Its reads come from files in-process, with no process per check.
+4. **The switch (clean break):** `lib/AAPP/Cmd/Test.pm` (ported by P-121, running the bash suites until here) runs `AAPP::Tests` over `t/` with the runner's selection forms (P-126 §2.1.6) and `strict`, `quiet`, `bail`, `list`, `jobs <n>`; `t/test-run` is deleted and nothing names it. `lib/docs/verbs/test.md` (Ingress, Effects, Tests) and `CHEATSHEET.md` document the forms. The `test` verb file tests the new runner.
+5. **Gate back to one command:** `.agents/hooks/test-gate.sh` `TEST_CMD` returns to `./aapp test strict quiet`; the developer re-registers it with `./aapp hook-hash .agents/hooks/test-gate.sh` before `aapp done`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
@@ -58,45 +61,81 @@ Part 4 of 4 of the test migration split from P-114 (kept as the reference until 
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Remaining Verb Suites
-- [ ] Task 1.1: Port `issue` and its parts.
-- [ ] Task 1.2: Port `offline`, `commit`, `note`, `ai`, `companion`.
+### Phase 1: Salvage inventory
+- [ ] Task 1.1: The inventory per verb of the remaining bash suites (test → state → action → checks, as P-134 §2.5), kept in `.plans/pickup/`, reviewed by the user before any test file.
 
-### Phase 2: The Switch
-- [ ] Task 2.1: Port `tests/verb_contracts_test.sh` to `t/core/verb_contracts.t`.
-- [ ] Task 2.2: Route `aapp test` to the test engine in `lib/cmd_test.sh`; port the `test` verb suite against it; update `lib/docs/verbs/test.md` and `CHEATSHEET.md`.
-- [ ] Task 2.3: Delete `t/test-run`, `tests/test_helpers.sh`, `tests/verb_contracts_test.sh` and the remaining `tests/verbs/*.sh`; reset the gate's `TEST_CMD` and ask the user to re-register it.
+### Phase 2: Remaining Verb Files
+- [ ] Task 2.1: `issue` and its parts; each file measured.
+- [ ] Task 2.2: `offline`, `commit`, `note`, `ai`, `companion`; each file measured.
 
-### Phase 3: Verification
-- [ ] Task 3.1: `./aapp test strict quiet` green with every test file; single-test, single-verb and parallel runs; record wall and CPU time against the P-113 baseline (856 tests, 163 s wall, 1,477 s CPU).
+### Phase 3: The Switch
+- [ ] Task 3.1: `tests/verb_contracts_test.sh` to `t/core/verb_contracts.t`.
+- [ ] Task 3.2: `aapp test` runs the test engine in `lib/AAPP/Cmd/Test.pm`; the `test` verb file against it; `lib/docs/verbs/test.md` and `CHEATSHEET.md`.
+- [ ] Task 3.3: Delete `t/test-run`, `tests/test_helpers.sh`, `tests/verb_contracts_test.sh` and the remaining bash verb suites; reset the gate's `TEST_CMD` and ask the user to re-register it.
+
+### Phase 4: Verification
+- [ ] Task 4.1: `./aapp test strict quiet` green with every test file; single-test, single-verb and parallel runs; wall, CPU and process counts recorded against the P-113 baseline (856 tests, 163 s wall, 1,477 s CPU).
+- [ ] Task 4.2: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-- [ ] `NEW FILE` -> `t/verb/*.t` -> Verb test files for the verbs in §2.1.
+*Every file is named on its own line, no patterns (#194).*
+- [ ] `NEW FILE` -> `t/verb/issue.t` -> Tests of `lib/docs/verbs/issue.md`, with its parts.
+- [ ] `NEW FILE` -> `t/verb/offline.t` -> Tests of `lib/docs/verbs/offline.md`.
+- [ ] `NEW FILE` -> `t/verb/commit.t` -> Tests of `lib/docs/verbs/commit.md`.
+- [ ] `NEW FILE` -> `t/verb/note.t` -> Tests of `lib/docs/verbs/note.md`.
+- [ ] `NEW FILE` -> `t/verb/ai.t` -> Tests of `lib/docs/verbs/ai.md`.
+- [ ] `NEW FILE` -> `t/verb/companion.t` -> Tests of `lib/docs/verbs/companion.md`.
+- [ ] `NEW FILE` -> `t/verb/test.t` -> Tests of `lib/docs/verbs/test.md`.
 - [ ] `NEW FILE` -> `t/core/verb_contracts.t` -> The contract checker in Perl.
-- [ ] `lib/cmd_test.sh` -> `aapp test` runs the test engine over `t/`.
-- [ ] `lib/docs/verbs/*.md` -> Test identifiers point at `t/verb/*.t`; `test.md` documents the selection forms.
+- [ ] `lib/AAPP/Cmd/Test.pm` -> `aapp test` runs the test engine over `t/`.
+- [ ] `lib/docs/verbs/issue.md` -> Test identifiers point at `t/verb/issue.t`.
+- [ ] `lib/docs/verbs/offline.md` -> Test identifiers point at `t/verb/offline.t`.
+- [ ] `lib/docs/verbs/commit.md` -> Test identifiers point at `t/verb/commit.t`.
+- [ ] `lib/docs/verbs/note.md` -> Test identifiers point at `t/verb/note.t`.
+- [ ] `lib/docs/verbs/ai.md` -> Test identifiers point at `t/verb/ai.t`.
+- [ ] `lib/docs/verbs/companion.md` -> Test identifiers point at `t/verb/companion.t`.
+- [ ] `lib/docs/verbs/test.md` -> Test identifiers; the selection forms.
 - [ ] `lib/docs/core/verb_contracts.md` -> Identifiers point at `t/core/verb_contracts.t`.
 - [ ] `CHEATSHEET.md` -> `aapp test` selection forms.
 - [ ] `.agents/hooks/test-gate.sh` -> `TEST_CMD` back to `./aapp test strict quiet`.
-- [ ] `DELETE` -> `tests/verbs/*.sh` -> The remaining bash verb suites.
-- [ ] `DELETE` -> `tests/verb_contracts_test.sh` -> Replaced by `VerbContracts.pm`.
+- [ ] `DELETE` -> `tests/verbs/issue.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/issue.abort.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/issue.branch.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/issue.branchplugin.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/issue.fixes.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/issue.keyid.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/issue.limits.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/issue.notefilter.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/issue.onecommit.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/issue.provider.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/issue.queue.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/issue.tracker.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/offline.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/commit.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/note.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/ai.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/companion.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/test.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verb_contracts_test.sh` -> Replaced by `t/core/verb_contracts.t`.
 - [ ] `DELETE` -> `tests/test_helpers.sh` -> No bash suite left.
 - [ ] `DELETE` -> `t/test-run` -> `aapp test` runs the test engine.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/aapp-lib.sh` -> Kit runtime stays untouched.
-- [ ] `templates/*` -> Hook templates stay untouched.
+- [ ] `lib/AAPP/Tests.pm` -> Engine changes come by amendment (P-134 §2.7).
+- [ ] `templates/aapp-pre-commit` -> Hook templates stay untouched.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*(None — design is fully specified)*
+*(None — P-134 §5 settles the shared choices: the CLI layer's size, copies per test or one live repository.)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** Refined to the RFC (`.plans/pickup/perl-port-test-salvage-rfc.md`, D2–D3): after the verb ports and P-134, verbs tested through Perl functions on fixtures built once, the switch in `lib/AAPP/Cmd/Test.pm` (P-121), every file named.
 * **2026-10-19:** Drafted as part 4 of 4 split from P-114 (remaining verbs, `aapp test` switch, cleanup).
