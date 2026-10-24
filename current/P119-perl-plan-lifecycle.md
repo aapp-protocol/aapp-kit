@@ -136,7 +136,6 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.5, all plan lifecycle a
 - [ ] `lib/cmd_plan.sh` -> Retained for remaining callers until `P-120` or delegated to `AAPP::Plan` until `P-122`.
 - [ ] `lib/group_docs.sh` -> Transitional shim delegating to `AAPP::GroupDocs` until `P-122`.
 - [ ] `t/core/group_docs.t` -> Switch from bash `source` wrappers to direct `AAPP::GroupDocs` calls.
-- [ ] `templates/plan-template.md` -> Update plan template invariants and checklists.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/AAPP/Tests.pm` -> The test engine and test files in `t/` (except declared target `t/core/group_docs.t`; `integrate.t` is redesigned exclusively in `P-135`) stay out of bounds during code plans.
