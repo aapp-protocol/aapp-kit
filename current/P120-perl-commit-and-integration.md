@@ -44,7 +44,7 @@ Plan `P-120` is the eighth member of group `P-111` (*Perl Port Of The Kit*). It 
 
 In bash, `aapp commit` and `aapp note stage` shell out to `shasum`/`sha256sum` and `awk` to stage pending notes, splice `CHANGELOG.md` under `## [Unreleased]`, and rewrite `* **Commits:**` in the active plan. In Perl, `Digest::SHA::sha256_hex` computes note buffer hashes in-process, `AAPP::State` / `AAPP::Plan` update `CHANGELOG.md` and `* **Commits:**` directly, and `aapp commit land` calls `AAPP::Plan`'s `_ig_preflight` and fast-forward integration engine (`P-119`).
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_commit.sh`, `lib/cmd_note.sh`, `lib/cmd_ai.sh`, `aapp`). `t/*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_commit.sh`, `lib/cmd_note.sh`, `lib/cmd_ai.sh`, `aapp`). `tests/`, `t/` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
 ---
 
@@ -52,17 +52,17 @@ In bash, `aapp commit` and `aapp note stage` shell out to `shasum`/`sha256sum` a
 
 ### 2.1 `AAPP::Cmd::Commit` (`lib/AAPP/Cmd/Commit.pm`) — `aapp commit` (`lib/cmd_commit.sh`, 567 lines)
 Ports `cmd_commit` from `lib/cmd_commit.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help commit full` and `lib/docs/verbs/commit.md` (standard plan-bound commit, `amend`, `adopt`, `land`, trailers, staged notes, and changelog splicing), verified under unchanged `t/verb/commit.t`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help commit full` and `lib/docs/verbs/commit.md` (standard plan-bound commit, `amend`, `adopt`, `land`, trailers, staged notes, and changelog splicing), verified under the unchanged bash suite `tests/verbs/commit.sh`.
 - Changelog entry written through a filter, never a refusal (#189): before `- <text> (`<id>`)` is rendered, a trailing `(<own id>)` and a leading `Added:` / `Changed:` / `Fixed:` are dropped from the text, so a plan field or `changelog "<text>"` that carries them still gives one tag and no section word. Existing `CHANGELOG.md` lines are not rewritten.
 - Uses `AAPP::State` (`P-115`), `AAPP::Attribution` (`P-116`), `AAPP::CommitEngine` (`P-115`), `Digest::SHA::sha256_hex` (for `$(git rev-parse --git-path aapp_pending_note).<sha256>`), and `AAPP::Plan`'s `_ig_*` engine (`P-119`) for `land`.
 
 ### 2.2 `AAPP::Cmd::Note` (`lib/AAPP/Cmd/Note.pm`) — `aapp note` (`lib/cmd_note.sh`, 386 lines)
 Ports `cmd_note` from `lib/cmd_note.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help note full` and `lib/docs/verbs/note.md` (`status`, `stage`, `push`, `pull`), verified under unchanged `t/verb/note.t`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help note full` and `lib/docs/verbs/note.md` (`status`, `stage`, `push`, `pull`), verified under the unchanged bash suite `tests/verbs/note.sh`.
 
 ### 2.3 `AAPP::Cmd::Ai` (`lib/AAPP/Cmd/Ai.pm`) — `aapp ai` (`lib/cmd_ai.sh`, 374 lines)
 Ports `cmd_ai` from `lib/cmd_ai.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help ai full` and `lib/docs/verbs/ai.md` (`status`, `none`, `lax`, `strict`, `notes`, `credits`), verified under unchanged `t/verb/ai.t`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help ai full` and `lib/docs/verbs/ai.md` (`status`, `none`, `lax`, `strict`, `notes`, `credits`), verified under the unchanged bash suite `tests/verbs/ai.sh` (the Perl files of these verbs come after the ports, P-125).
 - **Amendments (P-129):** `aapp commit "<msg>" amendment <n>` ports P-129's bash behaviour: one commit of the request's file with the `Amendment: R<n>` trailer; for an owner other than the requester it lands at once on the parent branch, rebases the requester and writes the owner's record.
 
 ### 🔄 Migration & Compatibility Strategy
@@ -78,7 +78,7 @@ Ports `cmd_ai` from `lib/cmd_ai.sh`:
 - [ ] Task 1.3: Wire `commit`, `note`, and `ai` in `./aapp` and slim `lib/cmd_commit.sh`, `lib/cmd_note.sh`, and `lib/cmd_ai.sh` to thin transitional shims.
 
 ### Phase 2: Verification & Documentation
-- [ ] Task 2.1: Run `./aapp test commit note ai` and full `./aapp test` (`tests/verb_commit_test.sh`, `tests/verb_note_test.sh`, `tests/verb_ai_test.sh`) to verify 100% pass rate against the locked test suites.
+- [ ] Task 2.1: `./aapp test strict quiet` (the bash suites, `tests/verbs/commit.sh`, `note.sh`, `ai.sh` among them) and `t/test-run strict quiet` (`t/core`) green.
 - [ ] Task 2.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
 - [ ] Task 2.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
