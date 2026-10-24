@@ -57,20 +57,20 @@ This plan also eliminates the remaining `python3` invocations in the kit's own C
 1. `lib/cmd_init.sh` (`.claude/settings.json` hook merger) is replaced by `AAPP::JSON::decode_json` + ordered key-preserving merge + 2-space pretty-print (`AAPP::JSON::encode_json_pretty`).
 2. `lib/cmd_pause.sh` (pause snapshot serializer/reader) is replaced by `AAPP::JSON`.
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_*.sh`, `aapp`). `t/` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_*.sh`, `aapp`). `tests/`, `t/` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
 ---
 
 ## 2. Technical Blueprint
 
 ### 2.1 Setup & Lifecycle Modules (`Init`, `Install`, `Upgrade`, `Uninstall`, `Develop`)
-Each module preserves the exact behavior, arguments, failure modes, and side effects specified in `aapp help <verb> full` and `lib/docs/verbs/<verb>.md` under unchanged `t/verb/*.t`:
+Each module preserves the exact behavior, arguments, failure modes, and side effects specified in `aapp help <verb> full` and `lib/docs/verbs/<verb>.md` under the unchanged bash verb suites (`tests/verbs/*.sh`; their Perl files come after the ports, P-125):
 - **`lib/AAPP/Cmd/Init.pm` (`lib/cmd_init.sh`, 1,072 lines; `lib/docs/verbs/init.md`):**
   - Scaffolds or upgrades `.plans`, `.agents` (`AGENTS.md` managed `<!-- AAPP-PROTOCOL:START -->` block, `PROJECT.MD`, `CODEMAP.md`, `.agents/skills/aapp*`, `.agents/hooks/`), and `.githooks/`.
   - Copies `lib/AAPP/` into `.githooks/AAPP/` alongside the hook entrypoints (no `.sh` library copies).
   - Merges `PreToolUse` (`blast-radius-guard`) into `.claude/settings.json` using `AAPP::JSON` (`decode_json` + `encode_json_pretty`) with zero `python3` dependency.
   - Calls `AAPP::Adoption` (`P-118`) for adoption seeding/sync.
-- **`lib/AAPP/Cmd/Install.pm` (`lib/cmd_install.sh`, 187 lines; `lib/docs/verbs/install.md`):** Ports `cmd_install`. The install folder comes from `AAPP::Paths::kit_dir()` (the one answer to where the kit is, OS-aware, defaults in `AAPP::Constants`); the bash rule `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit` is not carried over as a copy (decided 2026-10-21 in P-115). The install ships no tests: neither `tests/` nor `t/` is copied (the bash install copies `tests/`); the kit's tests run from a kit checkout, and `aapp test` (P-125) names the checkout when the kit it runs from has no `t/`. The install contract and its tests change with it, by amendment requests (P-129) when this member runs (decided 2026-10-23 in P-126).
+- **`lib/AAPP/Cmd/Install.pm` (`lib/cmd_install.sh`, 187 lines; `lib/docs/verbs/install.md`):** Ports `cmd_install`. The install folder comes from `AAPP::Paths::kit_dir()` (the one answer to where the kit is, OS-aware, defaults in `AAPP::Constants`); the bash rule `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit` is not carried over as a copy (decided 2026-10-21 in P-115). The install ships no tests: neither `tests/` nor `t/` is copied (the bash install copies `tests/`); the kit's tests run from a kit checkout, and `aapp test` names the checkout when the kit it runs from has no `t/` (P-125, which switches `aapp test` to the engine after this plan). The install contract and its tests change with it, by amendment requests (P-129) when this member runs (decided 2026-10-23 in P-126).
 - **`lib/AAPP/Cmd/Upgrade.pm` (`lib/cmd_upgrade.sh`, 44 lines; `lib/docs/verbs/upgrade.md`):** Ports `cmd_upgrade`.
 - **`lib/AAPP/Cmd/Uninstall.pm` (`lib/cmd_uninstall.sh`, 55 lines; `lib/docs/verbs/uninstall.md`):** Ports `cmd_uninstall`.
 - **`lib/AAPP/Cmd/Develop.pm` (`lib/cmd_develop.sh`, 123 lines; `lib/docs/verbs/develop.md`):** Ports `cmd_develop`.
@@ -83,7 +83,7 @@ Each module preserves the exact behavior, arguments, failure modes, and side eff
 ### 2.3 Hook, Pause & Test Modules (`Hook`, `Pause`, `Test`)
 - **`lib/AAPP/Cmd/Hook.pm` (`lib/cmd_hook.sh`, 402 lines; `lib/docs/verbs/hooks.md`, `plugins.md`):** Ports `hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, and `hook-hash` (`aapp help hooks full`, `aapp help plugins full`) over `AAPP::HookDispatcher` and `Digest::SHA`.
 - **`lib/AAPP/Cmd/Pause.pm` (`lib/cmd_pause.sh`, 584 lines; `lib/docs/verbs/pause.md`, `resume.md`):** Ports `pause`, `resume`, and `unpause` (`aapp help pause full`, `aapp help resume full`), serializing and reading the pause snapshot via `AAPP::JSON` (zero `python3`).
-- **`lib/AAPP/Cmd/Test.pm` (`lib/cmd_test.sh`, 397 lines; `lib/docs/verbs/test.md`):** Ports `test` (`aapp help test full`), delegating kit self-tests to the test engine `lib/AAPP/Tests.pm` (P-126), which P-125 already routes `aapp test` to.
+- **`lib/AAPP/Cmd/Test.pm` (`lib/cmd_test.sh`, 397 lines; `lib/docs/verbs/test.md`):** Ports `test` (`aapp help test full`) keeping what it runs today: the bash suites in `tests/`, the safety net of the ports (`t/` runs through `t/test-run` and the gate's second command). P-125, after this plan, switches `aapp test` to the test engine `lib/AAPP/Tests.pm` (P-126) alone.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Transitional Coexistence (`P-121` → `P-122`):** All 11 `lib/cmd_*.sh` files are slimmed to thin shims (or retained unused once `aapp` routes every verb to `AAPP::Cmd::*`) until `P-122` deletes all 30 `lib/*.sh` files in one clean break.
@@ -101,7 +101,7 @@ Each module preserves the exact behavior, arguments, failure modes, and side eff
 - [ ] Task 2.3: Route all remaining verbs in `./aapp` to `AAPP::Cmd::*`.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run `./aapp test` across `verb_init_test.sh`, `verb_sync_test.sh`, `verb_release_test.sh`, `verb_companion_test.sh`, `verb_hooks_test.sh`, `verb_pause_test.sh`, and `verb_test_test.sh` to verify 100% pass rate.
+- [ ] Task 3.1: `./aapp test strict quiet` (the bash suites, `tests/verbs/companion.sh` and `test.sh` among them) and `t/test-run strict quiet` (`t/core`, with `install.t`, `sync.t`, `release.t`, `hooks.t`) green.
 - [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
 - [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
