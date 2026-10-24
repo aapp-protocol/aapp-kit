@@ -1,8 +1,8 @@
 # 🗺️ Plan P-134: Perl Lifecycle Verb Tests
 * **Created:** 2026-10-24 | **Last Refined:** 2026-10-24
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-134
-* **Changelog:** Changed: Perl Lifecycle Verb Tests
+* **Changelog:** Changed: the read-only and plan lifecycle verbs are tested in Perl (`t/verb/*.t`) through their Perl functions, on fixtures built once per file
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,37 +40,42 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+Redraft of P-124 (aborted: `.plans/aborted/P124-perl-lifecycle-verb-test-modules.md`). P-124's test files, all passing against the bash CLI, are kept on the branch `ref/p124-cli-tests`; their checks are salvaged here. The design comes from `.plans/pickup/perl-port-test-salvage-rfc.md`.
+
+The group exists to cut process starts (P-111 §1: ~45k processes in one verb suite, `sys > user` 2:1). These tests serve that goal: the verbs are called as Perl functions, each file builds its repositories once, and a test starts as few processes as its contract line needs. The plan runs after the verbs it tests are ported to `AAPP::Cmd::*` (P-118 read-only, P-119 lifecycle). Kit runtime code stays untouched.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+1. **Scope:** `status`, `matrix`, `plan-status`, `help`, `draft`, `refine`, `tdd`, `freeze`, `freeze-start`, `active`, `start` (with its worktree and group parts), `done` (with its worktree, squash and closes parts), `plan` (with `abort`); one file per verb, `t/verb/<verb>.t`, package `AAPP::T::Verb::<Name>`, one `test_*` sub per contract line, identifiers `t/verb/<verb>.t::test_<name>`.
+2. **Verb calls through Perl functions:** a test calls the verb's `AAPP::Cmd::*` function with `lib_call` (a fork of the test: no new program, fresh state per call) and checks `ret` (the return number first), `out`, `err` and the files. A thin CLI layer per verb (`run_aapp`) covers argument parsing, exit codes, stderr and the JSON error document.
+3. **Repositories built once:** each file's `fixture` builds one repository, or very few (one per scenario, in subfolders), with the kit's own writers through `lib_call` or one CLI build; each test works on a copy. When several tests read the outcome of the same step, the fixture runs that step once and keeps its output; those tests only read.
+4. **Few processes in checks:** facts come from files (`.git/aapp_active_plan`, `.git/config`, plan files, ledgers); the remaining git queries are batched (`git rev-parse A B C`, `git log -1 --format=…`); setup commits that do not test the hooks use `--no-verify`.
+5. **Salvage:** each test of `ref/p124-cli-tests` splits into *state* (→ the fixture), *action* (→ the function call, or `run_aapp` in the CLI layer) and *checks* (→ shared `check_*` subs reading files and the result record). Exit-code checks become return-number checks (`AAPP::Constants`). A salvage inventory per verb (test → state → action → checks), kept in `.plans/pickup/`, decides the fixtures before code is written. `start` and `status` carry P-133's wording.
+6. **Measured:** each file's wall time, CPU time and process count, recorded in §6 against the bash suites it replaces.
+7. **Needs first:** the engine changes of the RFC (R4), made in `lib/AAPP/Tests.pm` by amendment: `copy_fixture` rewrites every worktree pointer it copies; a fixture may hold several scenario projects; #192.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Salvage inventory
+- [ ] Task 1.1: The salvage inventory per verb from `ref/p124-cli-tests` (§2.5), reviewed by the user before any test file.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Read-only verbs
+- [ ] Task 2.1: `status`, `matrix`, `plan-status`, `help`; one verb per commit; each file measured.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+### Phase 3: Plan lifecycle verbs
+- [ ] Task 3.1: `draft`, `refine`, `tdd`, `freeze`, `freeze-start`, `active`.
+- [ ] Task 3.2: `start`, `done`, `plan` with their parts.
+
+### Phase 4: Verification
+- [ ] Task 4.1: `t/test-run strict quiet` and `./aapp test strict quiet` green; none of these verbs' `.sh` suites left; wall, CPU and process counts recorded.
+- [ ] Task 4.2: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
@@ -81,23 +86,68 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+*Every file is named on its own line, no patterns (#194).*
+- [ ] `NEW FILE` -> `t/verb/status.t` -> Tests of `lib/docs/verbs/status.md`.
+- [ ] `NEW FILE` -> `t/verb/matrix.t` -> Tests of `lib/docs/verbs/matrix.md`.
+- [ ] `NEW FILE` -> `t/verb/plan-status.t` -> Tests of `lib/docs/verbs/plan-status.md`.
+- [ ] `NEW FILE` -> `t/verb/help.t` -> Tests of `lib/docs/verbs/help.md`.
+- [ ] `NEW FILE` -> `t/verb/draft.t` -> Tests of `lib/docs/verbs/draft.md`.
+- [ ] `NEW FILE` -> `t/verb/refine.t` -> Tests of `lib/docs/verbs/refine.md`.
+- [ ] `NEW FILE` -> `t/verb/tdd.t` -> Tests of `lib/docs/verbs/tdd.md`.
+- [ ] `NEW FILE` -> `t/verb/freeze.t` -> Tests of `lib/docs/verbs/freeze.md`.
+- [ ] `NEW FILE` -> `t/verb/freeze-start.t` -> Tests of `lib/docs/verbs/freeze-start.md`.
+- [ ] `NEW FILE` -> `t/verb/active.t` -> Tests of `lib/docs/verbs/active.md`.
+- [ ] `NEW FILE` -> `t/verb/start.t` -> Tests of `lib/docs/verbs/start.md`, with its parts.
+- [ ] `NEW FILE` -> `t/verb/done.t` -> Tests of `lib/docs/verbs/done.md`, with its parts.
+- [ ] `NEW FILE` -> `t/verb/plan.t` -> Tests of `lib/docs/verbs/plan.md`, with `abort`.
+- [ ] `lib/docs/verbs/status.md` -> Test identifiers point at `t/verb/status.t`.
+- [ ] `lib/docs/verbs/matrix.md` -> Test identifiers point at `t/verb/matrix.t`.
+- [ ] `lib/docs/verbs/plan-status.md` -> Test identifiers point at `t/verb/plan-status.t`.
+- [ ] `lib/docs/verbs/help.md` -> Test identifiers point at `t/verb/help.t`.
+- [ ] `lib/docs/verbs/draft.md` -> Test identifiers point at `t/verb/draft.t`.
+- [ ] `lib/docs/verbs/refine.md` -> Test identifiers point at `t/verb/refine.t`.
+- [ ] `lib/docs/verbs/tdd.md` -> Test identifiers point at `t/verb/tdd.t`.
+- [ ] `lib/docs/verbs/freeze.md` -> Test identifiers point at `t/verb/freeze.t`.
+- [ ] `lib/docs/verbs/freeze-start.md` -> Test identifiers point at `t/verb/freeze-start.t`.
+- [ ] `lib/docs/verbs/active.md` -> Test identifiers point at `t/verb/active.t`.
+- [ ] `lib/docs/verbs/start.md` -> Test identifiers point at `t/verb/start.t`.
+- [ ] `lib/docs/verbs/done.md` -> Test identifiers point at `t/verb/done.t`.
+- [ ] `lib/docs/verbs/plan.md` -> Test identifiers point at `t/verb/plan.t`.
+- [ ] `DELETE` -> `tests/verbs/status.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/matrix.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/plan-status.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/help.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/draft.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/refine.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/tdd.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/freeze.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/freeze-start.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/active.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/start.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/start.worktree.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/start.group.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/done.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/done.worktree.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/done.squash.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/done.closes.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/plan.sh` -> Ported.
+- [ ] `DELETE` -> `tests/verbs/plan.abort.sh` -> Ported.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/AAPP/Tests.pm` -> The engine changes (§2.7) come by amendment, before this plan starts.
+- [ ] `tests/verb_contracts_test.sh` -> The bash contract checker stays until P-125.
+- [ ] `tests/test_helpers.sh` -> Still used by the remaining bash suites.
+- [ ] `lib/cmd_test.sh` -> `aapp test` switches in P-125 only.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** The CLI layer per verb: how many tests go through `aapp` (for example one success and one refusal per verb), the rest through functions?
+* [ ] **Question 2:** Each file's repositories: built once and copied per test (independent tests), or one live repository the tests change in turn (no copies, order-dependent)?
+* [ ] **Question 3:** Start the read-only verbs (Phase 2) after P-118, or wait for P-119 and do all verbs together?
+* [ ] **Question 4:** Place in the group order, once the RFC's road map is settled.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-24:** Plan initialized from `pickup.md`.
-* **2026-10-24:** Refined blast radius and locked module boundaries.
+* **2026-10-24:** Drafted as the redraft of P-124 (aborted): verb tests through Perl functions on fixtures built once, design from `.plans/pickup/perl-port-test-salvage-rfc.md`, checks salvaged from `ref/p124-cli-tests`.
