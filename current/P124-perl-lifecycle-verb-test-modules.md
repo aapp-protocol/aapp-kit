@@ -67,7 +67,7 @@ Part 3 of 4 of the test migration split from P-114 (kept as the reference until 
 - [x] Task 2.2: Port `start` (and parts), `done` (and parts), `plan` (and parts).
 
 ### Phase 3: Verification
-- [ ] Task 3.1: `t/test-run strict quiet` and `./aapp test strict quiet` both green; none of these verbs' `.sh` suites left; record each runner's wall and CPU time.
+- [x] Task 3.1: `t/test-run strict quiet` and `./aapp test strict quiet` both green; none of these verbs' `.sh` suites left; record each runner's wall and CPU time.
 
 ---
 
@@ -104,5 +104,6 @@ Part 3 of 4 of the test migration split from P-114 (kept as the reference until 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** Implemented: 13 verb files in `t/verb/`, 19 bash suites removed. `t/test-run strict quiet` 38/38 files (570 passed, 1 skipped), 236 s wall, 1063 s CPU; `./aapp test strict quiet` 19/19 suites (290 passed), 79 s wall, 529 s CPU. Found and logged: #192, #193.
 * **2026-10-24:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-19:** Drafted as part 3 of 4 split from P-114 (read-only and lifecycle verb suites).
