@@ -29,7 +29,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -47,14 +47,14 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 **Strict Implementation References (`D7`):**
 - **Test Salvage RFC:** `.plans/pickup/perl-port-test-salvage-rfc.md`
 - **Tabular Verification Matrix (§3 Remaining Verb Suites, 7 files, 278 tests):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
-- **Single Prepared Repository Schema (Pools D, F, I, J):** `.plans/pickup/perl-port-single-repo-schema.md`
+- **Single Prepared Repository Schema (Pool C, Pool I, and Epoch E7):** `.plans/pickup/perl-port-single-repo-schema.md`
 - **Logging Events Spec (§4.6, §4.7 & §3 Layer 1):** `.plans/pickup/perl-port-logging-events-spec.md`
 
 ---
 
 ## 2. Technical Blueprint
 1. **Remaining verbs:** `issue` (with its parts: `abort`, `branchplugin`, `branch`, `fixes`, `keyid`, `limits`, `notefilter`, `onecommit`, `provider`, `queue`, `tracker`), `offline`, `commit`, `note`, `ai`, `companion`, `test`; one file per verb, `t/verb/<verb>.t`, one `test_*` sub per contract line.
-2. **The design of P-134 §2.2–2.6 with Byte-Offset Slicing:** verbs called as Perl functions through `lib_call` with a thin CLI layer. `lib_call` captures `.git/aapp.log` byte slices into `$res->{events}` and `$res->{log_lines}`, asserted via `event_or_die`, `no_event_or_die`, and `log_match_or_die` in `< 0.01ms`; each file's repositories built once in the fixture by the kit's own writers (via Single Prepared Repository Pools D, F, I, J from `perl-port-single-repo-schema.md`), a shared step run once in the fixture when several tests read its outcome; facts read from files (`read_text`, `match_or_die`, `file_exists_or_die`), git queries batched, setup commits `--no-verify`; checks carried over from the bash suites as shared `check_*` subs; each file's wall, CPU and process count recorded.
+2. **The design of P-134 §2.2–2.6 with Byte-Offset Slicing:** verbs called as Perl functions through `lib_call` with a thin CLI layer. `lib_call` captures `.git/aapp.log` byte slices into `$res->{events}` and `$res->{log_lines}`, asserted via `event_or_die`, `no_event_or_die`, and `log_match_or_die` in `< 0.01ms`; suites execute against the single prepared repository (`$sandbox/repo`) provisioned by `P-136` per `perl-port-single-repo-schema.md` (`Pool C` for `commit`, `note`, `ai`; `Pool I` for `issue` and `offline`; Epoch `E7` for `companion`, `test`, and contract checker), with zero per-file repository builds and zero per-test copies; facts read from files (`read_text`, `match_or_die`, `file_exists_or_die`), git queries batched, setup commits `--no-verify`; checks carried over from the bash suites as shared `check_*` subs; each file's wall, CPU and process count recorded.
 3. **P-130's `commit` checks:** `commit … amendment <n>` over the claims reader (P-130 §2.3; P-130 §2.8 writes no tests) is tested in `t/verb/commit.t`, with the contract's `## Tests` lines.
 4. **Contract checker in Perl:** the checks of `tests/verb_contracts_test.sh` move to `t/core/verb_contracts.t` (registry <-> contracts, contract shape, core contracts per test file, every test named both ways, daily verbs in the agent reference, rules-file and skill-index checks, `aapp help` of an unknown verb); its contract `lib/docs/core/verb_contracts.md` follows. Its reads come from files in-process, with no process per check.
 5. **The switch (clean break):** `lib/AAPP/Cmd/Test.pm` (ported by P-121, running the bash suites until here) runs `AAPP::Tests` over `t/` with the runner's selection forms (P-126 §2.1.6) and `strict`, `quiet`, `bail`, `list`, `jobs <n>`; `t/test-run` is deleted and nothing names it. `lib/docs/verbs/test.md` (Ingress, Effects, Tests) and `CHEATSHEET.md` document the forms. The `test` verb file tests the new runner.
@@ -134,13 +134,13 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/aapp-lib.sh` -> Kit runtime stays untouched.
-- [ ] `lib/AAPP/Tests.pm` -> Engine changes come by amendment (P-134 §2.8).
+- [ ] `lib/AAPP/Tests.pm` -> Test engine and mock repo builder are delivered by P-136.
 - [ ] `templates/aapp-pre-commit` -> Hook templates stay untouched.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*(None — P-134 §5 settles the shared choices: the CLI layer's size, copies per test or one live repository.)*
+*(None — shared choices are settled in RFC §5 and single-repo schema: 2 CLI smoke tests per verb, single prepared repository with zero per-test copies, test engine and mock repo delivered by P-136).*
 
 ---
 
