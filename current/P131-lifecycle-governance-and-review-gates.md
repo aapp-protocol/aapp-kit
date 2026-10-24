@@ -59,6 +59,9 @@ Following this diagnostic, the agent aborted the fix, drafted the blueprint (`aa
 > **Directive 4 (Rejection of TTY Assumptions):**
 > *"I cannot rely on a TTY, as I intend to write automated scripts and build a web view so the entire kit can run on a server and be administered remotely. Configuration must govern this, and the CLI must refuse actions if it lacks script or web session confirmation. Skill lines enforcing stops are also invaluable before reaching a hard CLI refusal."*
 
+> **Directive 5 (Group Plan Amendment Governance, Tokens & Pre-Commit Exemption):**
+> *"The group plan is a long-lived coordinator of 20+ members; freezing Section 2 against any automated refinement forces humans/agents into `git commit --no-verify` or manual surgery, which is impractical. We need a way where an agent or script can propose an amendment to any part of a group plan (§1–§3), and based on an approved script (web interface, an arbitrary external script via any method call including SSH), the governance script approves the amendment and issues/updates an authorization token. The pre-commit hook looks up the governance script in config, asks it about the token for decision number `<n>`, compares the two, and if they match, lets the commit pass. If no governance script is configured, it falls back to the manual command `aapp refine amends <group-id> approve <n>`."*
+
 ### 🎯 Architectural Goal
 This plan delivers a unified, comprehensive architecture for **Lifecycle Governance & Review Gates**:
 1. Keep the whole concept consolidated in this single plan within Group P-111 so historical decisions remain visible and unbroken.
@@ -66,6 +69,7 @@ This plan delivers a unified, comprehensive architecture for **Lifecycle Governa
 3. Introduce `aapp.governance` modes (`hitl` [default], `strict`, `lax`, `autonomous`) in the core Perl engine.
 4. Dynamically generate CLI error messages, diagnostics, and steering guidance based on active governance mode.
 5. Embed authoritative **Yield Invariants** in all lifecycle skill files (`aapp-plan`, `aapp-digest`, `aapp-freeze`, `aapp-start`, `aapp-done`).
+6. Provide a token-based verification contract for Group Plan amendments and locked section refinements (`amend`, `verify_amendment`), enabling external authorities or scripts (over web UI, SSH, or automated daemons) to approve amendments and issue tokens that `AAPP::Hooks::PreCommit` verifies against the governance handler—allowing authorized group plan refinements to pass without `git commit --no-verify`, with failover to manual CLI approval (`aapp refine amends <group-id> approve <n>`) when no handler is configured.
 
 **Strict Implementation References (`D7`):**
 - **Logging Events Spec (§3.5 Layer 1 `governance.check` telemetry):** `.plans/pickup/perl-port-logging-events-spec.md`
@@ -196,10 +200,35 @@ Update all lifecycle skills with bold negative constraints:
 - `aapp-start`: Preserve continuous execution for Section 3 implementation, but enforce a hard yield boundary after `aapp commit`, explicitly forbidding unilateral invocation of `aapp done`.
 - `aapp-done`: Require explicit user instruction to archive.
 
-### 2.5 Structured Logging Telemetry (`perl-port-logging-events-spec.md` §3.5)
-On every lifecycle transition check (`freeze`, `start`, `done`, `abort`), `AAPP::Governance::check_gate` emits structured JSONL telemetry via `AAPP::Logger::log_event`:
+### 5. Group Plan Amendment Governance & Token Protocol (`verify_amendment`)
+
+When an amendment modifies locked regions (§1–§3) of a group plan in development, `AAPP::Governance` provides delegated authorization for `AAPP::Hooks::PreCommit` (integrated in `P-130` §2.9):
+1. **Approval & Token Issuance**:
+   - When an external governance authority (web console, SSH script, CI runner) approves an amendment request `R<n>`, it records or yields an authorization `token` string (e.g. SHA-256 HMAC of group ID, request number, and diff hash).
+   - In manual mode (`hitl` with no `aapp.governanceHandler`), approval is granted directly via human CLI verb: `aapp refine amends <group-id> approve <n>`.
+2. **Pre-Commit Verification Call**:
+   - When `git commit` is invoked for decision `<n>`, `AAPP::Hooks::PreCommit` detects changes to locked sections of the group plan.
+   - If `aapp.governanceHandler` is configured, `AAPP::Governance::check_gate` invokes the handler with:
+     ```json
+     {
+       "protocol_version": "1.0",
+       "event": "amendment_gate",
+       "action": "verify_amendment",
+       "group_id": "P-111",
+       "decision_num": 8,
+       "token": "abc1234...",
+       "heading": "## 2. Shared Decisions",
+       "repo_root": "/path/to/repo"
+     }
+     ```
+   - **Verification Match**: The handler returns exit `0` (`{"approved": true}`), and `PreCommit` exempts the staged changes from the Design Lock, recording the commit cleanly **without requiring `--no-verify`**.
+   - **Verification Mismatch / Denial**: The handler exits non-zero, and `PreCommit` refuses the commit with a structured diagnostic.
+   - **Manual Fallback**: If no `aapp.governanceHandler` is configured, `PreCommit` verifies that `R<n>` was committed as `approved` by a human author in the ledger.
+
+### 2.6 Structured Logging Telemetry (`perl-port-logging-events-spec.md` §3.5)
+On every lifecycle transition check (`freeze`, `start`, `done`, `abort`, `verify_amendment`), `AAPP::Governance::check_gate` emits structured JSONL telemetry via `AAPP::Logger::log_event`:
 - **`AAPP::Governance` (`governance.check`)**: `command => "governance"`, `event => "check"`. Data payload:
-  `action` (`"freeze"`|`"start"`|`"done"`|`"abort"`), `mode` (`"none"`|`"hitl"`|`"strict"`|`"lax"`|`"autonomous"`), `decision` (`"allow"`|`"deny"`|`"warn"`), `id`, `reason`.
+  `action` (`"freeze"`|`"start"`|`"done"`|`"abort"`|`"verify_amendment"`), `mode` (`"none"`|`"hitl"`|`"strict"`|`"lax"`|`"autonomous"`), `decision` (`"allow"`|`"deny"`|`"warn"`), `id`, `reason`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default for P-111 Perl port).
