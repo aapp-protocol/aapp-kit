@@ -53,7 +53,8 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 4. **Few processes in checks:** facts come from files (`.git/aapp_active_plan`, `.git/config`, plan files, ledgers); the remaining git queries are batched (`git rev-parse A B C`, `git log -1 --format=…`); setup commits that do not test the hooks use `--no-verify`.
 5. **Salvage:** each test of `ref/p124-cli-tests` splits into *state* (→ the fixture), *action* (→ the function call, or `run_aapp` in the CLI layer) and *checks* (→ shared `check_*` subs reading files and the result record). Exit-code checks become return-number checks (`AAPP::Constants`). A salvage inventory per verb (test → state → action → checks), kept in `.plans/pickup/`, decides the fixtures before code is written. `start` and `status` carry P-133's wording.
 6. **Measured:** each file's wall time, CPU time and process count, recorded in §6 against the bash suites it replaces.
-7. **Needs first:** the engine changes of the RFC (R4), made in `lib/AAPP/Tests.pm` by amendment: `copy_fixture` rewrites every worktree pointer it copies; a fixture may hold several scenario projects; #192.
+7. **P-130's checks:** the amendments ledger (P-130 §2.0–2.5, §2.7; P-130 §2.8 writes no tests) is tested here, in `refine.t`, `done.t`, `start.t`, `freeze-start.t`, `plan-status.t` and `draft.t`, with their contracts' `## Tests` lines; the checks P-130 recorded by hand in its §6 (concurrent requests, a claim across two groups, a start refused by an approval) become tests.
+8. **Needs first:** the engine changes of the RFC (R4), made in `lib/AAPP/Tests.pm` by amendment: `copy_fixture` rewrites every worktree pointer it copies; a fixture may hold several scenario projects; #192.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
@@ -72,6 +73,7 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 ### Phase 3: Plan lifecycle verbs
 - [ ] Task 3.1: `draft`, `refine`, `tdd`, `freeze`, `freeze-start`, `active`.
 - [ ] Task 3.2: `start`, `done`, `plan` with their parts.
+- [ ] Task 3.3: P-130's checks (§2.7) in their verb files, with their contract lines.
 
 ### Phase 4: Verification
 - [ ] Task 4.1: `t/test-run strict quiet` and `./aapp test strict quiet` green; none of these verbs' `.sh` suites left; wall, CPU and process counts recorded.
