@@ -100,7 +100,8 @@ The running group P-111 gets the same introduction through its amendments member
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1:** Place in the group order: the next member to start (before P-116), or elsewhere?
+* [x] **Question 1:** Place in the group order: the next member to start (before P-116), or elsewhere?
+  * **Answer (user, 2026-10-24):** first in line once the salvage and the road map (`.plans/pickup/perl-port-test-salvage-rfc.md`) are settled.
 
 ---
 
