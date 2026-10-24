@@ -94,6 +94,9 @@ It never commits code: the group's `start` gives it no branch and no worktree; `
 ### 2.6 Port notes
 P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Perl code as §2.1–2.5 say. The contracts (`refine`, `commit`, `done`, `start`, `freeze-start`, `plan-status`) and the amendments template follow.
 
+### 2.8 Tests come with the Perl verb tests
+This plan writes no tests: its checks go into the Perl verb files when they are written, P-134 (`refine`, `done`, `start`, `freeze-start`, `plan-status`, `draft`) and P-125 (`commit`), with their contracts' `## Tests` lines (the engine refuses a contract naming a test file that does not exist). Until then the bash suites stay the safety net: they run against the Perl verbs, so an assertion this plan's behaviour contradicts (the `<amend-id>` form, a request without its why, the amendments member's worktree) is adapted to the new behaviour in the same commit as the change; no bash test is added. What no test covers until P-134 and P-125 (concurrent requests, a claim across two groups, a start refused by an approval) is checked by hand and recorded in §6.
+
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`: a request without a why, or with an owner the records contradict, is refused; the amendments member's worktree goes.
@@ -102,8 +105,8 @@ P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Pe
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Tests first
-- [ ] Task 1.1: Failing tests in `t/verb/refine.t`, `t/verb/commit.t`, `t/verb/done.t`, `t/verb/start.t`, `t/verb/plan-status.t`, `t/verb/draft.t` for §2.1–2.5 and §2.7.
+### Phase 1: The safety net
+- [ ] Task 1.1: Run the bash suites against the ported Perl verbs and list the assertions §2.0–2.7 contradict; each is adapted in the commit of the change that contradicts it (§2.8), no test added.
 
 ### Phase 2: Requests and claims
 - [ ] Task 2.0: `refine amends <group-id> …` and `plan-status <group-id> amends` (§2.0); the `<amend-id>` form removed.
@@ -115,7 +118,7 @@ P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Pe
 - [ ] Task 3.2: A member drafted or moved into a group in development writes its R line with its why; a group not yet started writes none (§2.7).
 
 ### Phase 4: Verification & Documentation
-- [ ] Task 4.1: Run both test runners; concurrent requests, a claim across two groups, a start refused by an approval.
+- [ ] Task 4.1: `./aapp test strict quiet` and `t/test-run strict quiet` green; concurrent requests, a claim across two groups and a start refused by an approval checked by hand and recorded in §6 (their tests come with P-134 and P-125).
 - [ ] Task 4.2: Contracts, the amendments template and `templates/AGENTS.md`; the group's `## Architecture & Codemap` by a request to P-112.
 - [ ] Task 4.3: Log every finding outside the Target Files as an issue; none stays in chat only.
 
@@ -139,12 +142,12 @@ P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Pe
 - [ ] `lib/docs/verbs/start.md` -> Contract.
 - [ ] `lib/docs/verbs/freeze-start.md` -> Contract.
 - [ ] `lib/docs/verbs/plan-status.md` -> Contract.
-- [ ] `t/verb/refine.t` -> Tests.
-- [ ] `t/verb/commit.t` -> Tests.
-- [ ] `t/verb/done.t` -> Tests.
-- [ ] `t/verb/start.t` -> Tests.
-- [ ] `t/verb/plan-status.t` -> Tests.
-- [ ] `t/verb/draft.t` -> Tests.
+- [ ] `tests/verbs/refine.sh` -> Assertions §2.0–2.3 contradict, adapted; no test added.
+- [ ] `tests/verbs/done.sh` -> Assertions §2.3 contradicts, adapted; no test added.
+- [ ] `tests/verbs/status.sh` -> Assertions §2.0 contradicts (the request form), adapted; no test added.
+- [ ] `tests/verbs/start.group.sh` -> Assertions §2.4 contradicts (the amendments member's worktree), adapted; no test added.
+- [ ] `tests/verbs/commit.sh` -> Assertions §2.3 contradicts, adapted; no test added.
+- [ ] `tests/verbs/draft.sh` -> Assertions §2.7 contradicts, adapted; no test added.
 - [ ] `CHEATSHEET.md` -> The `refine amends <group-id>` and `plan-status <group-id> amends` forms.
 
 ### 🛑 Out of Bounds (Do Not Touch)
@@ -159,6 +162,7 @@ P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Pe
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** No tests of its own (§2.8, with the developer): its checks go into P-134 and P-125's Perl verb files; the bash assertions it contradicts are adapted; its place stays after P-120, before P-121.
 * **2026-10-24:** §2.7 added with the developer: a member drafted or moved into a group in development writes its own R line with a required why (P-131 and P-132 were recorded by hand as R39 and R40); before the group starts nothing is written.
 * **2026-10-23:** The ledger is addressed by its group (`refine amends <group-id> …`, `plan-status <group-id> amends`); deviation defined; both questions decided with the developer.
 * **2026-10-23:** Drafted from the review of P-129 with the developer: the owner enforced, the why required, claims checked across plans and ledgers, the ledger without a worktree, built in Perl only.
