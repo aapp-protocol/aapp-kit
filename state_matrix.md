@@ -29,6 +29,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-133**: [`P133-read-the-whole-group-plan.md`](current/P133-read-the-whole-group-plan.md) — Read The Whole Group Plan
 - 🟣 **P-134**: [`P134-perl-lifecycle-verb-tests.md`](current/P134-perl-lifecycle-verb-tests.md) — Perl Lifecycle Verb Tests
 - 🟣 **P-135**: [`P135-perl-core-tests-redesign.md`](current/P135-perl-core-tests-redesign.md) — Perl Core Tests Redesign
+- 🟣 **P-136**: [`P136-perl-test-engine-and-mock-repo.md`](current/P136-perl-test-engine-and-mock-repo.md) — Perl Test Engine And Mock Repository Builder
 - 🟣 **P-15**: [`P15-adversarial-review-plugin.md`](current/P15-adversarial-review-plugin.md) — ✏️ **SKETCH — do not refine** — Adversarial Review Packet, Layer 6 Agent Egress Boundary & reference review plugin. Settled ground only; blocked on `#64`, `#57`, `#56`.
 
 ---

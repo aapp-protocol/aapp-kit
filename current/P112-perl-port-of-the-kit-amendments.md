@@ -1,5 +1,5 @@
 # 🗺️ Plan P-112: Perl Port Of The Kit Amendments
-* **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
+* **Created:** 2026-10-19 | **Last Refined:** 2026-10-24
 * **Plan ID:** P-112
 * **Kind:** amendments
 * **Changelog:** Changed: Perl Port Of The Kit Amendments
@@ -136,6 +136,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R43** 2026-10-24 · P-111 · — · new member P-134 (Perl lifecycle verb tests: redraft of aborted P-124, salvaging ref/p124-cli-tests over the single prepared repository and .git/aapp.log event assertions after the verb ports, `D1`–`D3`, `D7`), 17th after P-135 — applied
 - **R44** 2026-10-24 · P-111 · — · new member P-135 (Perl core tests redesign: redesigns the 16 non-pure t/core/*.t suites into Group (b) 3 single-fixture files and Group (c) 13 shared-repository Pool K + .git/aapp.log event-verified files, `D6`, `D7`), 16th after P-121 and before P-134 — applied
 - **R45** 2026-10-24 · P-111 · — · P-111 group introduction, §1 Goal, §2 Shared Decisions, §3 Members & Order and ## Architecture & Codemap aligned with `.plans/pickup/perl-port-test-salvage-rfc.md` (`D1`–`D7`) and strict references `.plans/pickup/perl-port-single-repo-schema.md`, `.plans/pickup/perl-port-logging-events-spec.md`, and `.plans/pickup/perl-port-test-matrix-tabular-check.md` — applied
+- **R46** 2026-10-24 · P-111 · — · new member P-136 (Perl test engine update & AAPP::TestRepo split: update lib/AAPP/Tests.pm with log-event slicing and assertion helpers, and split single prepared mock repo provisioning into lib/AAPP/TestRepo.pm, D8), 16th after P-121 and before P-135; P-111 §3, architecture and codemap updated — applied
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
@@ -148,5 +149,8 @@ Each request is implemented as its approval describes; corrections of the group'
 - **D8** 2026-10-24 · § 📂 3. Global Structural Mapping · R45 · Structural map lists Governance.pm, log_event in Logger.pm, main.conf in Config.pm, claims in State.pm, and setup_shared_repo + log-event slicing in Tests.pm (D1–D7)
 - **D9** 2026-10-24 · § Test Harness Sandbox Confinement · R45 · Single prepared repository (`$sandbox/repo`), `.git/aapp.log` byte-offset event slicing (`event_or_die`, `no_event_or_die`, `log_match_or_die`), and 6-pointer `copy_fixture` rewrite (D2, D3, D6, D7)
 - **D10** 2026-10-24 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · R45 · Codemap lists `log_event` in Logger.pm, `main.conf` in Config.pm, `claims_for_path` in State.pm, `AAPP::Governance`, and `setup_shared_repo` / `event_or_die` in Tests.pm (D1–D7)
+- **D11** 2026-10-24 · § 📂 3. Global Structural Mapping · R46 · Structural map lists TestRepo.pm under lib/AAPP/ as mock repository builder (D8)
+- **D12** 2026-10-24 · § Test Harness Sandbox Confinement · R46 · Test harness AAPP::Tests delegates repository setup to AAPP::TestRepo::setup_shared_repo (D8)
+- **D13** 2026-10-24 · § ⚙️ 2. Operational Modules & Command Libraries (`lib/`) · R46 · Codemap lists lib/AAPP/TestRepo.pm and updates Tests.pm (D8)
 
 ## Follow-ups
