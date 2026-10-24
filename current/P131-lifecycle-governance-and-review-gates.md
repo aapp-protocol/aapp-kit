@@ -18,7 +18,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -60,21 +60,21 @@ Following this diagnostic, the agent aborted the fix, drafted the blueprint (`aa
 > *"I cannot rely on a TTY, as I intend to write automated scripts and build a web view so the entire kit can run on a server and be administered remotely. Configuration must govern this, and the CLI must refuse actions if it lacks script or web session confirmation. Skill lines enforcing stops are also invaluable before reaching a hard CLI refusal."*
 
 > **Directive 5 (Group Plan Amendment Governance, Tokens & Pre-Commit Exemption):**
-> *"The group plan is a long-lived coordinator of 20+ members; freezing Section 2 against any automated refinement forces humans/agents into `git commit --no-verify` or manual surgery, which is impractical. We need a way where an agent or script can propose an amendment to any part of a group plan (§1–§3), and based on an approved script (web interface, an arbitrary external script via any method call including SSH), the governance script approves the amendment and issues/updates an authorization token. The pre-commit hook looks up the governance script in config, asks it about the token for decision number `<n>`, compares the two, and if they match, lets the commit pass. If no governance script is configured, it falls back to the manual command `aapp refine amends <group-id> approve <n>`."*
+> *"The group plan is a long-lived coordinator of 20+ members; freezing design-locked regions (§2 Technical Blueprint, §4 Blast Radius, and Architecture & Codemap) against any automated refinement forces humans/agents into `git commit --no-verify` or manual surgery, which is impractical. We need a way where an agent or script can propose an amendment to locked sections of a group plan, and based on an approved script (web interface, an arbitrary external script via any method call including SSH), the governance script approves the amendment and issues/updates an authorization token. The pre-commit hook looks up the governance script through `AAPP::Config`, asks it about the token for decision number `<n>`, compares the two, and if they match, lets the commit pass. If no governance script is configured, it falls back to the manual command `aapp refine amends <group-id> approve <n>`."*
 
 ### 🎯 Architectural Goal
 This plan delivers a unified, comprehensive architecture for **Lifecycle Governance & Review Gates**:
 1. Keep the whole concept consolidated in this single plan within Group P-111 so historical decisions remain visible and unbroken.
 2. Establish a decoupled, standard **Governance Communication Contract** allowing any external authority (web dashboard, remote API, daemon, orchestrator, script) to govern approval decisions without AAPP needing internal database or network bloat.
-3. Introduce `aapp.governance` modes (`hitl` [default], `strict`, `lax`, `autonomous`) in the core Perl engine.
+3. Introduce `aapp.governance` modes (`hitl` [default], `strict`, `lax`, `autonomous`) in the core Perl engine, evaluated through `AAPP::Config` (`P-132`).
 4. Dynamically generate CLI error messages, diagnostics, and steering guidance based on active governance mode.
 5. Embed authoritative **Yield Invariants** in all lifecycle skill files (`aapp-plan`, `aapp-digest`, `aapp-freeze`, `aapp-start`, `aapp-done`).
 6. Provide a token-based verification contract for Group Plan amendments and locked section refinements (`amend`, `verify_amendment`), enabling external authorities or scripts (over web UI, SSH, or automated daemons) to approve amendments and issue tokens that `AAPP::Hooks::PreCommit` verifies against the governance handler—allowing authorized group plan refinements to pass without `git commit --no-verify`, with failover to manual CLI approval (`aapp refine amends <group-id> approve <n>`) when no handler is configured.
 
 **Strict Implementation References (`D7`):**
 - **Logging Events Spec (§3.5 Layer 1 `governance.check` telemetry):** `.plans/pickup/perl-port-logging-events-spec.md`
-- **Tabular Verification Matrix (§3.5 lifecycle gates):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
-- **Single Prepared Repository Schema (Epoch E5):** `.plans/pickup/perl-port-single-repo-schema.md`
+- **Tabular Verification Matrix (§3.5 lifecycle gates & `t/core/pre-commit.t`):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epoch E4 Group Plan Amendments):** `.plans/pickup/perl-port-single-repo-schema.md`
 
 
 ---
@@ -90,7 +90,7 @@ This plan delivers a unified, comprehensive architecture for **Lifecycle Governa
                                  │ Executes: aapp freeze / start / done
 ┌────────────────────────────────▼────────────────────────────────┐
 │               AAPP Engine (Perl 5.26+ Core)                     │
-│  - Reads git config aapp.governance                             │
+│  - Reads layered settings via AAPP::Config (P-132)              │
 │  - Validates Blast Radius, TDD assertions, open questions       │
 │  - Invokes AAPP::Governance dispatcher                          │
 └────────────────────────────────┬────────────────────────────────┘
@@ -202,7 +202,7 @@ Update all lifecycle skills with bold negative constraints:
 
 ### 5. Group Plan Amendment Governance & Token Protocol (`verify_amendment`)
 
-When an amendment modifies locked regions (§1–§3) of a group plan in development, `AAPP::Governance` provides delegated authorization for `AAPP::Hooks::PreCommit` (integrated in `P-130` §2.9):
+When an amendment modifies design-locked regions (§2 Technical Blueprint, §4 Blast Radius, or Architecture & Codemap) of a group plan in development, `AAPP::Governance` provides delegated authorization for `AAPP::Hooks::PreCommit` (integrated in `P-130` §2.9):
 1. **Approval & Token Issuance**:
    - When an external governance authority (web console, SSH script, CI runner) approves an amendment request `R<n>`, it records or yields an authorization `token` string (e.g. SHA-256 HMAC of group ID, request number, and diff hash).
    - In manual mode (`hitl` with no `aapp.governanceHandler`), approval is granted directly via human CLI verb: `aapp refine amends <group-id> approve <n>`.
@@ -242,7 +242,7 @@ When an amendment modifies locked regions (§1–§3) of a group plan in develop
 ### 2.6 Structured Logging Telemetry (`perl-port-logging-events-spec.md` §3.5)
 On every lifecycle transition check (`freeze`, `start`, `done`, `abort`, `verify_amendment`), `AAPP::Governance::check_gate` emits structured JSONL telemetry via `AAPP::Logger::log_event`:
 - **`AAPP::Governance` (`governance.check`)**: `command => "governance"`, `event => "check"`. Data payload:
-  `action` (`"freeze"`|`"start"`|`"done"`|`"abort"`|`"verify_amendment"`), `mode` (`"none"`|`"hitl"`|`"strict"`|`"lax"`|`"autonomous"`), `decision` (`"allow"`|`"deny"`|`"warn"`), `id`, `reason`.
+  `action` (`"freeze"`|`"start"`|`"done"`|`"abort"`|`"verify_amendment"`), `mode` (`"hitl"`|`"strict"`|`"lax"`|`"autonomous"`), `decision` (`"allow"`|`"deny"`|`"warn"`), `id`, `reason`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default for P-111 Perl port).
@@ -253,13 +253,13 @@ On every lifecycle transition check (`freeze`, `start`, `done`, `abort`, `verify
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Core Governance Architecture & Module (`AAPP::Governance`)
-- [ ] Task 1.1: Author `lib/AAPP/Governance.pm` core module supporting config parsing (`aapp.governance`, `aapp.governanceHandler`, `aapp.governanceTimeout`).
+- [ ] Task 1.1: Author `lib/AAPP/Governance.pm` core module reading configuration via `AAPP::Config` (`P-132`) for `aapp.governance`, `aapp.governanceHandler`, `aapp.governanceTimeout`.
 - [ ] Task 1.2: Implement deterministic IPC execution of external handlers with JSON payload serialization over STDIN, fail-closed timeout guards, and structured telemetry emission (`governance.check`).
-- [ ] Task 1.3: Author unit contract test suite `t/core/governance.t` validating all four modes (`hitl`, `strict`, `lax`, `autonomous`).
+- [ ] Task 1.3: Author governance unit and pre-commit verification tests in `t/core/pre-commit.t` validating all four modes (`hitl`, `strict`, `lax`, `autonomous`).
 
 ### Phase 2: Dynamic CLI Prompt Steering (`AAPP::Output` & Diagnostics)
 - [ ] Task 2.1: Extend `lib/AAPP/Output.pm` with governance-aware message formatting (`yield_notice`, `gate_refusal_banner`).
-- [ ] Task 2.2: Update `lib/AAPP/Cmd/Plan.pm` (and transitional `lib/cmd_plan.sh`) to inject dynamic yield instructions into `draft` and `issue abort/promote` diagnostics.
+- [ ] Task 2.2: Update `lib/AAPP/Cmd/Plan.pm` and `lib/AAPP/Cmd/Issue.pm` (and transitional `lib/cmd_plan.sh`) to inject dynamic yield instructions into `draft` and `issue close` limit abort/promote diagnostics.
 - [ ] Task 2.3: Integrate `AAPP::Governance::check_gate` into lifecycle verbs: `freeze`, `start`, `done`, and `abort`.
 
 ### Phase 3: Skill File Invariants & Rule Updates
@@ -281,12 +281,13 @@ On every lifecycle transition check (`freeze`, `start`, `done`, `abort`, `verify
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly confined to the files listed under `### 📂 Target Files`.
 - [ ] `NEW FILE` -> `lib/AAPP/Governance.pm` -> Core governance protocol, handler executor, and mode switchboard.
-- [ ] `NEW FILE` -> `t/core/governance.t` -> Unit tests for governance modes and external handler IPC.
 - [ ] `NEW FILE` -> `lib/docs/core/governance.md` -> Core interface contract for external governance handlers.
 - [ ] `lib/AAPP/Output.pm` -> Dynamic governance-aware yield notices and refusal banners.
 - [ ] `lib/AAPP/Constants.pm` -> Configuration defaults for `aapp.governance*`.
 - [ ] `lib/AAPP/Cmd/Plan.pm` -> Gate checks in freeze, start, done, and abort verbs.
+- [ ] `lib/AAPP/Cmd/Issue.pm` -> Governance yield guidance in issue close limit refusals.
 - [ ] `lib/cmd_plan.sh` -> Transitional bash lifecycle gate checks during porting.
+- [ ] `t/core/pre-commit.t` -> Pre-commit governance gate and amendment token verification tests.
 - [ ] `templates/skills/aapp-plan/SKILL.md` -> Post-draft Yield Invariant template.
 - [ ] `templates/skills/aapp-digest/SKILL.md` -> Post-digest Yield Invariant template.
 - [ ] `templates/skills/aapp-freeze/SKILL.md` -> Freeze Delegation Invariant template.
