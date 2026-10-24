@@ -64,9 +64,9 @@ As the first member started after `.plans/pickup/perl-port-test-salvage-rfc.md`,
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 0: The group's text (RFC §5), from this plan's worktree
-- [ ] Task 0.1: Request in P-112, `for P-111`, each by heading with its reason: §3 *Members & Order* (the order of RFC D2/D4); the introduction above §1 (§2.1's text); `## Architecture & Codemap` (*Test Harness Sandbox Confinement* and the `Tests.pm` line: every worktree pointer rewritten, scenario projects in one fixture, verb tests through `AAPP::Cmd::*` with a thin CLI layer).
+- [ ] Task 0.1: Request in P-112, `for P-111`, each by heading with its reason: §3 *Members & Order* (the order of RFC D2/D4); the introduction above §1 (§2.1's text); `Shared Decisions` (*Tests vs. code boundary* and *Modular test harness* replaced by RFC D2–D3); `## Architecture & Codemap` (*Test Harness Sandbox Confinement* and the `Tests.pm` line: every worktree pointer rewritten, scenario projects in one fixture, verb tests through `AAPP::Cmd::*` with a thin CLI layer).
 - [ ] Task 0.2: Once approved, make them: the `## Architecture & Codemap` sections through `aapp refine P-112 decision <n> "<reason>"` from P-112's worktree; the introduction and §3 through `aapp refine P-111 "<msg>"` from this worktree.
-- [ ] Task 0.3: §2 *Tests vs. code boundary* and *Modular test harness* only on the user's route (RFC §5): the group's §2 is design-locked.
+- [ ] Task 0.3: §2 stays as written (design-locked, no `decision` reaches it until P-130 §2.9); the introduction carries one line: "§2 *Tests vs. code boundary* and *Modular test harness* are replaced by the decisions of `.plans/pickup/perl-port-test-salvage-rfc.md` (D2, D3), recorded as R<n> in P-112."
 
 ### Phase 1: Failing tests
 - [ ] Task 1.1: Change the two test assertions and the three contract lines to the new wording; both tests fail.
