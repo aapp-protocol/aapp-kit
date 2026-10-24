@@ -29,7 +29,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -50,7 +50,7 @@ Plan `P-122` is the tenth and final member of group `P-111` (*Perl Port Of The K
 **Strict Implementation References (`D7`):**
 - **Logging Events Spec (§2 Unified Telemetry Sink):** `.plans/pickup/perl-port-logging-events-spec.md`
 - **Tabular Verification Matrix:** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
-- **Single Prepared Repository Schema (Epoch E8 Final Switch):** `.plans/pickup/perl-port-single-repo-schema.md`
+- **Single Prepared Repository Schema (Clean Break after Epoch E7):** `.plans/pickup/perl-port-single-repo-schema.md`
 
 ---
 
@@ -60,8 +60,8 @@ Plan `P-122` is the tenth and final member of group `P-111` (*Perl Port Of The K
 Replaces the transitional hybrid dispatcher in `./aapp` with the final `#!/usr/bin/env perl` entry point (`use v5.26; use strict; use warnings;`):
 - Resolves its own symlink/real path via `Cwd::abs_path(__FILE__)` and `File::Basename::dirname` to locate `<kit-root>/lib` (`use lib ...`) and `$ENV{AAPP_DIR}` / `$AAPP_VERSION`. Where the installed kit is comes from `AAPP::Paths::kit_dir()` (the one answer, OS-aware); the bash dispatcher's own lookup (`$XDG_DATA_HOME/aapp-kit`, `$HOME/.local/share/aapp-kit`) is not carried over as a copy (decided 2026-10-21 in P-115).
 - Dispatches all built-in CLI verbs (`status`, `matrix`, `plan-status`, `help`, `draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `plan`, `issue`, `offline`, `commit`, `note`, `ai`, `init`, `install`, `upgrade`, `uninstall`, `develop`, `push`, `pull`, `sync`, `release`, `companion`, `hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`, `pause`, `resume`, `unpause`, `test`) directly to `AAPP::Cmd::*`.
-- Preserves the action-plugin fallthrough (`aapp` lines 225–245): when an unknown `$verb` matches `^[a-z0-9][a-z0-9_-]*$` and `.agents/skills/$verb` exists in the target repository (and `$ENV{AAPP_PLUGIN_STEP}` is not set), sets `$ENV{AAPP_PLUGIN_STEP} = 1` and dispatches via `AAPP::HookDispatcher::plugin_run($verb, @ARGV)`.
-- **Config Key Clean Break:** Formally renames `aapp.perlLogFile` to `aapp.logFile` (defaulting to `.git/aapp.log`). With bash removed, the Perl logging sink is the sole telemetry channel.
+- Preserves the action-plugin fallthrough (`aapp` lines 225–245): when an unknown `$verb` matches `^[a-z0-9][a-z0-9_-]*$` and `.agents/skills/$verb` exists in the target repository (and `$ENV{AAPP_PLUGIN_STEP}` is not set), sets `$ENV{AAPP_PLUGIN_STEP} = 1` and dispatches via `AAPP::HookDispatcher::run_action_plugin($verb, @ARGV)`.
+- **Config Key Clean Break:** Formally renames `aapp.perlLogFile` to `aapp.logFile` (unset by default; logging remains inactive unless explicitly configured in git config). Updates the config allowlist in `lib/AAPP/Config.pm` to permit `aapp.logFile` and drop `aapp.perlLogFile`. With bash removed, the Perl logging sink is the sole telemetry channel.
 
 
 ### 2.2 Deletion of All 30 Legacy `lib/*.sh` Files and `templates/aapp-lib.sh`
@@ -85,7 +85,7 @@ Removes every bash library file from `lib/` and `templates/` via `git rm` with z
 ### Phase 1: Pure-Perl `./aapp` & Legacy Bash Removal
 - [ ] Task 1.1: Convert `./aapp` to a pure `#!/usr/bin/env perl` script dispatching all built-in verbs to `AAPP::Cmd::*` and preserving the `.agents/skills/$CMD` action-plugin fallthrough.
 - [ ] Task 1.2: Delete all 30 `lib/*.sh` files and `templates/aapp-lib.sh` via `git rm`.
-- [ ] Task 1.3: Rename the Perl logger's key `aapp.perlLogFile` to `aapp.logFile` (`LOG_KEY` in `lib/AAPP/Constants.pm`, P-127 §5): the kit logs per event, with the event logger's meaning.
+- [ ] Task 1.3: Rename logger key `aapp.perlLogFile` to `aapp.logFile` in `lib/AAPP/Constants.pm` (`LOG_KEY`) and update the allowlist in `lib/AAPP/Config.pm`; logging remains disabled by default when unset.
 
 ### Phase 2: Documentation Sync
 - [ ] Task 2.1: Update `README.md` and `MANUAL.md` where runtime dependencies (`perl >= 5.26`) are documented.
@@ -93,7 +93,7 @@ Removes every bash library file from `lib/` and `templates/` via `git rm` with z
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run the complete `./aapp test` suite and verify 100% pass rate with zero `lib/*.sh` files present.
 - [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c aapp` and `perl -c` across all `lib/AAPP/**/*.pm` files.
-- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
@@ -106,6 +106,7 @@ Removes every bash library file from `lib/` and `templates/` via `git rm` with z
 - [ ] `aapp` -> Final pure-Perl CLI entry point (`#!/usr/bin/env perl`) with action-plugin fallthrough and zero bash sourcing.
 - [ ] `templates/aapp-lib.sh` -> Delete legacy symlink to `lib/aapp-lib.sh`.
 - [ ] `lib/AAPP/Constants.pm` -> `LOG_KEY` becomes `aapp.logFile`.
+- [ ] `lib/AAPP/Config.pm` -> Update config allowlist from `aapp.perlLogFile` to `aapp.logFile`.
 - [ ] `lib/aapp-lib.sh` -> Delete legacy bash core library.
 - [ ] `lib/adoption.sh` -> Delete legacy bash adoption module.
 - [ ] `lib/attribution.sh` -> Delete legacy bash attribution module.
@@ -141,7 +142,7 @@ Removes every bash library file from `lib/` and `templates/` via `git rm` with z
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/AAPP/Tests.pm` -> The test engine (P-126) and every test file in `t/` stay out of bounds during code plans.
-- [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
+- [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` stay out of bounds during code plans.
 
 ---
 
