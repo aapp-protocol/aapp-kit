@@ -60,7 +60,7 @@ Part 3 of 4 of the test migration split from P-114 (kept as the reference until 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Read-Only Verbs
-- [ ] Task 1.1: Port `status`, `matrix`, `plan-status`, `help`.
+- [x] Task 1.1: Port `status`, `matrix`, `plan-status`, `help`.
 
 ### Phase 2: Plan Lifecycle Verbs
 - [ ] Task 2.1: Port `draft`, `refine`, `tdd`, `freeze`, `freeze-start`, `active`.
