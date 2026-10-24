@@ -110,7 +110,7 @@
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/AAPP/Tests.pm` -> Test harness runner is untouched.
-- [ ] `t/verb/*.t` -> Verb test modules are untouched.
+- [ ] `tests/verbs/` -> The bash verb suites are untouched: they are the check during the ports (their Perl files come after, P-134, P-125).
 
 ---
 
