@@ -3,6 +3,7 @@
 ## 🏷️ Shipped Releases
 | Release | Release Date | Tag Ledger | Plans | Issues | Verification Commit | Impact Summary |
 | :--- | :--- | :--- | :---: | :---: | :--- | :--- |
+| 2026-10-24 | `P-123` | [`P123-perl-core-test-modules.md`](P123-perl-core-test-modules.md) | none | `8da3cde` | Perl Core Test Modules |
 | 2026-10-23 | `P-126` | [`P126-perl-test-runner.md`](P126-perl-test-runner.md) | none | `cabcde9` | Perl Test Runner |
 | 2026-10-22 | `P-129` | [`P129-amendments-made-by-the-requesting-plan.md`](P129-amendments-made-by-the-requesting-plan.md) | none | `b8d8f3b` | Amendments Made By The Requesting Plan |
 | 2026-10-22 | `P-115` | [`P115-perl-core-and-state-model.md`](P115-perl-core-and-state-model.md) | none | `a40820d` | Perl Core And State Model |

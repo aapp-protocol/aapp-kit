@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `cabcde9` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P123 (plan/P123-perl-core-test-modules)
 * **Group:** P-111
@@ -77,12 +77,24 @@ Part 2 of 4 of the test migration split from P-114 (kept as the reference until 
 - [ ] `NEW FILE` -> `t/core/*.t` -> Core test files ported from `tests/*_test.sh`.
 - [ ] `DELETE` -> `tests/*_test.sh` -> Each suite once its test file passes (not `verb_contracts_test.sh`).
 - [ ] `lib/docs/core/*.md` -> Test identifiers point at `t/core/*.t`.
+- [x] `lib/docs/verbs/draft.md` -> R30 (by P-123)
+- [x] `lib/docs/verbs/draft.md` -> R31 (by P-123)
+- [x] `lib/docs/verbs/refine.md` -> R35 (by P-123)
+- [x] `lib/docs/verbs/matrix.md` -> R36 (by P-123)
+- [x] `lib/docs/verbs/done.md` -> R37 (by P-123)
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `tests/verb_contracts_test.sh` -> The bash contract checker stays until P-125.
 - [ ] `tests/test_helpers.sh` -> Still used by the verb suites.
 - [ ] `tests/verbs/*.sh` -> Ported in P-124 and P-125.
 - [ ] `lib/cmd_test.sh` -> `aapp test` switches in P-125 only.
+
+### Amendments
+- R30 2026-10-24 · `lib/docs/verbs/draft.md` · lib/docs/verbs/draft.md names tests/aapp_lib_test.sh::test_subject_max_len, which P-123 deleted: the line points at t/core/aapp_lib.t and says a value that is not a number is refused (R27) (by P-123, landed `c282704`)
+- R31 2026-10-24 · `lib/docs/verbs/draft.md` · lib/docs/verbs/draft.md drops the test_subject_max_len line R30 repointed: a verb contract names t/verb/ files only (the engine refuses t/core/ there), and lib/docs/core/aapp_lib.md already names t/core/aapp_lib.t::test_subject_max_len (by P-123, landed `5fd4f62`)
+- R35 2026-10-24 · `lib/docs/verbs/refine.md` · lib/docs/verbs/refine.md drops its three tests/hooks_test.sh lines (pre-refine veto, on-refine failure, post-refine payload): P-123 deleted that suite, a verb contract names t/verb/ files only, and lib/docs/core/hooks.md names the same three tests in t/core/hooks.t (by P-123, landed `5e2fe63`)
+- R36 2026-10-24 · `lib/docs/verbs/matrix.md` · lib/docs/verbs/matrix.md line 'Broader coverage ... tests/matrix_test.sh' points at t/core/matrix.t: P-123 ported and deleted that suite (by P-123, landed `1984a0a`)
+- R37 2026-10-24 · `lib/docs/verbs/done.md` · lib/docs/verbs/done.md drops its nine tests/integrate_test.sh lines (integration on done): P-123 ported and deleted that suite, a verb contract names t/verb/ files only, and lib/docs/core/integrate.md names the same tests in t/core/integrate.t (by P-123, landed `ec6839d`)
 
 ---
 
@@ -92,6 +104,7 @@ Part 2 of 4 of the test migration split from P-114 (kept as the reference until 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** Plan implementation completed and archived to done/.
 * **2026-10-23:** Verified: `t/test-run strict quiet` 25/25 files (322 passed, 1 skipped) in 111 s wall, 339 s CPU; `./aapp test strict quiet` 38/38 suites (538 passed) in 120 s wall, 1120 s CPU (user + sys); `verb_contracts_test.sh` the one core bash suite left.
 * **2026-10-23:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-19:** Drafted as part 2 of 4 split from P-114 (core suites).

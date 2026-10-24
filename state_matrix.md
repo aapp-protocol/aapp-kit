@@ -39,7 +39,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 - ⚡ **P-111**: [`P111-perl-port-of-the-kit.md`](current/P111-perl-port-of-the-kit.md) — 🧩 Group Plan P-111: Perl Port Of The Kit
 - ⚡ **P-112**: [`P112-perl-port-of-the-kit-amendments.md`](current/P112-perl-port-of-the-kit-amendments.md) — Perl Port Of The Kit Amendments
-- ⚡ **P-123**: [`P123-perl-core-test-modules.md`](current/P123-perl-core-test-modules.md) — Perl Core Test Modules
 
 ---
 
