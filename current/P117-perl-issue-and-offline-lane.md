@@ -44,7 +44,7 @@ Plan `P-117` is the fifth member of group `P-111` (*Perl Port Of The Kit*). It p
 
 In bash, `cmd_issue` spawns multiple `awk`/`sed` passes across `.plans/ISSUES.md`, `.plans/issues_road_map.md`, `.plans/done/000-issues-archive.md`, `.plans/aborted/000-aborted-ledger.md`, and `${AAPP_STATE_DIR:-~/.local/state}/aapp/<key>/issues-data.md`. In Perl, `AAPP::State` (`P-115`) and `AAPP::Issue` load and manipulate the issue ledger, work queue, archive, and external `issues-data.md` store in memory before committing atomically via `AAPP::CommitEngine`.
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Issue.pm`, `lib/AAPP/Cmd/Issue.pm`, `lib/AAPP/Cmd/Offline.pm`, `lib/cmd_issue.sh`, `lib/cmd_offline.sh`, `aapp`). `t/*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Issue.pm`, `lib/AAPP/Cmd/Issue.pm`, `lib/AAPP/Cmd/Offline.pm`, `lib/cmd_issue.sh`, `lib/cmd_offline.sh`, `aapp`). `tests/`, `t/` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
 ---
 
@@ -63,12 +63,12 @@ Provides reusable issue domain primitives shared by `AAPP::Cmd::Issue`, `AAPP::C
 
 ### 2.2 `AAPP::Cmd::Issue` (`lib/AAPP/Cmd/Issue.pm`) — `aapp issue` (`lib/cmd_issue.sh`, 2,471 lines)
 Ports `cmd_issue` from `lib/cmd_issue.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help issue full` and `lib/docs/verbs/issue.md` (`log`, `hotfix`, `fix`, `queue`, `close`, `abort`, `list`, `list note`), verified under unchanged `t/verb/issue.t`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help issue full` and `lib/docs/verbs/issue.md` (`log`, `hotfix`, `fix`, `queue`, `close`, `abort`, `list`, `list note`), verified under the unchanged bash suites `tests/verbs/issue.sh` and its parts.
 - Uses `AAPP::State` (`P-115`), `AAPP::Issue` (`§2.1`), `AAPP::Output`, and `AAPP::JSON` for terminal and `json` output, `.workspace/fix-<num>` worktree lifecycle, `.plans/current/fix-<num>.md` mini-plan confinement, `$(git rev-parse --git-common-dir)/aapp_issue.lock` serialization, `_issue_squash_fix` / `_issue_land_fix` single-commit landing, and `aapp_hotfix_stash` recovery.
 
 ### 2.3 `AAPP::Cmd::Offline` (`lib/AAPP/Cmd/Offline.pm`) — `aapp offline` (`lib/cmd_offline.sh`, 352 lines)
 Ports `cmd_offline` from `lib/cmd_offline.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help offline full` and `lib/docs/verbs/offline.md` (`mount`, `unmount`, `on`, `off`, `status`, `sync`), verified under unchanged `t/verb/issue.t`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help offline full` and `lib/docs/verbs/offline.md` (`mount`, `unmount`, `on`, `off`, `status`, `sync`), verified under the unchanged bash suite `tests/verbs/offline.sh`.
 - Manages the `.offline/` worktree on orphan branch `offline`, recording offline tracker operations in `.offline/outbox` and closed issue rows in `.offline/closed.rows` when `aapp.offline=true`, and replaying them against `aapp-issue-tracker` on `sync`.
 
 ### 🔄 Migration & Compatibility Strategy
@@ -90,7 +90,7 @@ Ports `cmd_offline` from `lib/cmd_offline.sh`:
 - [ ] Task 2.3: Route `issue` and `offline` in `./aapp` to `AAPP::Cmd::Issue` and `AAPP::Cmd::Offline`, preserving bash helper availability in `lib/cmd_issue.sh` and `lib/cmd_offline.sh` until `P-119`/`P-122`.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run `./aapp test issue` and full `./aapp test` (`tests/verb_issue_test.sh`) to verify 100% pass rate against the locked test suites.
+- [ ] Task 3.1: `./aapp test strict quiet` (the bash suites, `tests/verbs/issue*.sh` and `offline.sh` among them) and `t/test-run strict quiet` (`t/core`) green.
 - [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
 - [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
