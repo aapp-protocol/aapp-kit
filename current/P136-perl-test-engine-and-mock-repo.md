@@ -66,7 +66,7 @@ Ports and isolates repository fixture synthesis from `lib/AAPP/Tests.pm`:
   - Pre-seeds issues `#1`..`#8` in `.plans/ISSUES.md` and `.plans/issues_road_map.md` with `aapp.issueId` set to `9` per `perl-port-single-repo-schema.md` §2.4.
   - Provisions branches: `develop`, `module/auth`, `third/other`, `remote-only/dev`.
   - Seeds disposable edge sandboxes in `$sandbox/edges/` for bootstrap edge-cases (missing ledgers or no `.git`).
-  - Runs `AAPP::Cmd::Matrix::cmd_matrix()` at the end of setup so `state_matrix.md` is 100% in sync at `E0`.
+  - Runs `AAPP::Cmd::Matrix->run()` at the end of setup so `state_matrix.md` is 100% in sync at `E0`.
   - Exportable helper methods: `seed_pool_l`, `seed_pool_s`, `seed_pool_c`, `seed_pool_g`, `seed_pool_i`, `seed_pool_d`, `seed_pool_k`, `seed_shared_docs`, `seed_plans`, `seed_issues`.
 
 ### 2.2 `AAPP::Tests` (`lib/AAPP/Tests.pm`) — Test Harness Enhancements
