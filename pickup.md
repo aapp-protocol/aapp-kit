@@ -27,3 +27,4 @@
 > **One line per idea:** `- [ ] <title>: <text>`. The title ends at the first `: ` outside backticks, at most `aapp.pickupTitleMax` characters (default 72); the text follows; a file the idea needs lives in `.plans/pickup/` and is named by its path. `aapp refine pickup` refuses any other form, naming the line.
 <!-- AAPP-PROTOCOL:END -->
 
+- [ ] Plan Shelve And Redesign: after the Perl port, a break point that takes a plan out of development, frees its Target Files and keeps its work (shelve: continue later by rebase; redesign: back to Refining, work kept as a reference); design so far in `.plans/pickup/plan-shelve-and-redesign.md`.
