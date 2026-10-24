@@ -9,7 +9,7 @@
 * **Status:** ⚡ In Development
 * **Base:** `fa3a42e` (port/perl)
 * **Feature Branch:** feature/perl-port-of-the-kit
-* **Members:** P-113, P-115, P-116, P-117, P-118, P-119, P-120, P-121, P-122, P-123, P-125, P-126, P-127, P-130, P-131, P-132, P-133, P-134, P-135, P-136, P-112
+* **Members:** P-113, P-115, P-116, P-117, P-118, P-119, P-120, P-121, P-122, P-123, P-125, P-126, P-127, P-130, P-131, P-132, P-133, P-134, P-135, P-136, P-137, P-112
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- A group plan writes no code. `aapp start <group> [base <branch>]` cuts `feature/<slug>` from the parent
@@ -25,7 +25,7 @@
 The kit's design holds; its cost is ~20.5k lines of bash spawning ~45k processes in a single verb suite (`1,494 s` CPU across 1,764 assertions, `sys > user` 2:1). This group ports the test harness, hooks, and CLI verbs from bash (and `python3` JSON helpers) to Perl 5.26+:
 1. **Slim and modularize the test suite (`P-113`, `P-126`, `P-123`, `P-136`, `P-135`, `P-134`, `P-125`):** keep verb behaviour and core wrapper tests, fold `#nnn` regressions into behaviour tests, add `lib/docs/core/<module>.md` contracts, and move to the `AAPP::Tests` Perl harness (`lib/AAPP/Tests.pm`) and separate mock repo builder (`lib/AAPP/TestRepo.pm`, `D8`) over a single pre-seeded repository (`$sandbox/repo`, `.plans/pickup/perl-port-single-repo-schema.md`) and native `.git/aapp.log` event telemetry (`AAPP::Logger::log_event`, `.plans/pickup/perl-port-logging-events-spec.md`), verified against `.plans/pickup/perl-port-test-matrix-tabular-check.md`.
 2. **Single-pass Perl core and state model (`P-127`, `P-115`, `P-132`):** read `git config` and upper-level `main.conf` files (`AAPP::Config`), paths, active-plan buffer, `.plans/current/*.md`, plan states, and ledgers once per process (`AAPP::State`), with a single deterministic kit JSON module (`AAPP::JSON`, retiring `python3`), structured event logging (`AAPP::Logger`), and decorative-only emoji normalization (`AAPP::Text`).
-3. **Port hooks and verbs by slice (`P-116`–`P-121`, `P-131`, `P-130`), then test engine & mock repo (`P-136`) and core & verb test suites (`P-135`, `P-134`, `P-125`), then remove bash (`P-122`):** hooks first (cutting process spawns on every commit across all suites), then the issue/offline lane, read-only verbs, plan lifecycle, lifecycle governance (`P-131`), commit/integration, amendments ledger (`P-130`), and setup/release (`P-121`), followed by the test engine update and separate mock repository builder (`P-136`), the prepared-repository and log-driven core & verb test suites (`P-135`, `P-134`, `P-125`) and a clean break removing all legacy `.sh` libraries (`P-122`).
+3. **Port hooks and verbs by slice (`P-116`–`P-121`, `P-131`, `P-130`), then test engine & mock repo (`P-136`) and core & verb test suites (`P-135`, `P-134`, `P-125`), then remove bash (`P-122`) and overhaul manuals (`P-137`):** hooks first (cutting process spawns on every commit across all suites), then the issue/offline lane, read-only verbs, plan lifecycle, lifecycle governance (`P-131`), commit/integration, amendments ledger (`P-130`), and setup/release (`P-121`), followed by the test engine update and separate mock repository builder (`P-136`), the prepared-repository and log-driven core & verb test suites (`P-135`, `P-134`, `P-125`), a clean break removing all legacy `.sh` libraries (`P-122`), and a comprehensive documentation and user manual overhaul (`P-137`).
 
 Design & measurements: `.plans/pickup/perl-port-rfc.md` (settled 2026-10-19) and `.plans/pickup/perl-port-test-salvage-rfc.md` (`D1`–`D8`, settled 2026-10-24), with strict implementation references `.plans/pickup/perl-port-single-repo-schema.md`, `.plans/pickup/perl-port-logging-events-spec.md`, and `.plans/pickup/perl-port-test-matrix-tabular-check.md` (`D7`, `D8`). Merge criterion: every member archived and the `pre-done` gate green on `feature/perl-port-of-the-kit`.
 
@@ -66,7 +66,8 @@ Design & measurements: `.plans/pickup/perl-port-rfc.md` (settled 2026-10-19) and
 18. **P-134** (`P134-perl-lifecycle-verb-tests.md`): read-only and lifecycle verb suites (`status`, `matrix`, `plan-status`, `help`, `draft`, `refine`, `tdd`, `freeze`, `freeze-start`, `active`, `start`, `done`, `plan`, plus `P-130`'s 6 amendment tests) to `t/verb/*.t` over `$self->{shared_repo}`, `lib_call`, and `.git/aapp.log` event assertions (`D1`–`D3`, `D7`).
 19. **P-125** (`P125-perl-remaining-verb-tests-and-switch.md`): remaining verb suites (`issue`, `offline`, `commit`, `note`, `ai`, `companion`, `test`) and `t/core/verb_contracts.t` over `$self->{shared_repo}` and `.git/aapp.log` event assertions (`D2`, `D3`, `D7`); `aapp test` switches to `AAPP::Tests`; bash suites and `t/test-run` removed.
 20. **P-122** (`P122-remove-bash-clean-break.md`): convert `aapp` to pure Perl, rename `aapp.perlLogFile` to `aapp.logFile`, and remove all 30 `lib/*.sh` files and `templates/aapp-lib.sh`.
-21. **P-112** (`P112-perl-port-of-the-kit-amendments.md`): group amendments member (started with the group, archived last).
+21. **P-137** (`P137-perl-port-documentation-and-manuals.md`): comprehensive user documentation overhaul (`README.md`, `MANUAL.md`, `CHEATSHEET.md`) documenting the pure Perl 5.26+ runtime, layered configuration, lifecycle governance, and group amendments, serving as the final holistic fact-check across all ported subsystems.
+22. **P-112** (`P112-perl-port-of-the-kit-amendments.md`): group amendments member (started with the group, archived last).
 
 ## Architecture & Codemap
 *Every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written out whole in a ```` fence, under the exact heading it has (or will have) in the file. Members do not edit these files; read the sections here as the target architecture. At the group's `done` a section replaces the file's section with the same heading, or is added at the end. `aapp refine` records a base line above each fence: `done` refuses a section the file changed meanwhile. Write `No changes.` under a file that keeps its content.*
@@ -277,6 +278,7 @@ All tests are files in `t/` (`t/core/<name>.t`, `t/verb/<verb>.t`, each a packag
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** Added P-137 (Perl port documentation and manuals overhaul) as #21 after P-122.
 * **2026-10-24:** Added P-136 (Perl test engine update & AAPP::TestRepo split per Decision D8) before test suite implementations (P-135, P-134, P-125); updated group architecture and codemap.
 * **2026-10-24:** Aligned group introduction, §1 Goal, §2 Shared Decisions, §3 Members & Order (`P-133`, `P-132`, `P-116`–`P-121`, `P-131`, `P-130`, `P-135`, `P-134`, `P-125`, `P-122`, `P-112`), and `## Architecture & Codemap` with `.plans/pickup/perl-port-test-salvage-rfc.md` (`D1`–`D7`) and strict references `.plans/pickup/perl-port-single-repo-schema.md`, `.plans/pickup/perl-port-logging-events-spec.md`, and `.plans/pickup/perl-port-test-matrix-tabular-check.md`.
 * **2026-10-19:** Group started: `feature/perl-port-of-the-kit` from `port/perl`.
