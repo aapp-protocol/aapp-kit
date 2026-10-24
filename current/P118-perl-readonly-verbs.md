@@ -56,7 +56,7 @@ Ports `lib/adoption.sh` into `lib/AAPP/Adoption.pm`:
 
 ### 2.2 `AAPP::Cmd::Status` (`lib/AAPP/Cmd/Status.pm`) — `aapp status` (`lib/cmd_status.sh`, 937 lines)
 Ports `cmd_status` from `lib/cmd_status.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help status full` and `lib/docs/verbs/status.md`, verified under unchanged `t/verb/status.t`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help status full` and `lib/docs/verbs/status.md`, verified under the unchanged bash suite `tests/verbs/status.sh` (its Perl file comes after the ports, P-134).
 - Scans the 4 workspace pillars (Shipped, Issues, Plans, Pickup) from `AAPP::State`, `AAPP::Health`, `AAPP::Adoption`, `AAPP::Issue`, and `AAPP::Cmd::Offline`, and renders terminal (`AAPP::Output`) and `json` (`AAPP::JSON`) output.
 
 ### 2.3 `AAPP::Cmd::Matrix` (`lib/AAPP/Cmd/Matrix.pm`) — `aapp matrix` (`lib/cmd_matrix.sh`, 332 lines)
@@ -91,7 +91,7 @@ Ports `cmd_help` from `lib/cmd_help.sh`:
 - [ ] Task 2.2: Wire `status`, `matrix`, `plan-status`, `help`, `--help`, `-h`, `--version`, and `-v` in `./aapp` to their `AAPP::Cmd::*` modules, and keep transitional bash shims in `lib/adoption.sh`, `lib/cmd_matrix.sh`, `lib/cmd_status.sh`, `lib/cmd_help.sh`, and `lib/cmd_plan.sh` (`cmd_plan_status`).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run `./aapp test` across `verb_status_test.sh`, `matrix_test.sh`, `adoption_test.sh`, and `cli_dispatch_test.sh` to verify 100% pass rate.
+- [ ] Task 3.1: `./aapp test strict quiet` (the bash suites, `tests/verbs/status.sh`, `matrix.sh`, `plan-status.sh`, `help.sh` among them) and `t/test-run strict quiet` (`t/core`, with `adoption.t` and `matrix.t`) green.
 - [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
 - [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
