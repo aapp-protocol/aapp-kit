@@ -29,7 +29,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -54,7 +54,7 @@ Plan `P-121` is the ninth member of group `P-111` (*Perl Port Of The Kit*). It p
 - `lib/cmd_test.sh` (397 lines) -> `lib/AAPP/Cmd/Test.pm` (`aapp test`)
 
 This plan also eliminates the remaining `python3` invocations in the kit's own CLI:
-1. `lib/cmd_init.sh` (`.claude/settings.json` hook merger) is replaced by `AAPP::JSON::decode_json` + ordered key-preserving merge + 2-space pretty-print (`AAPP::JSON::encode_json_pretty`).
+1. `lib/cmd_init.sh` (`.claude/settings.json` hook merger) is replaced by `AAPP::JSON::decode` + ordered key-preserving merge + 2-space pretty-print (`AAPP::JSON::pretty`).
 2. `lib/cmd_pause.sh` (pause snapshot serializer/reader) is replaced by `AAPP::JSON`.
 
 **Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_*.sh`, `aapp`). `tests/`, `t/` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
@@ -62,7 +62,7 @@ This plan also eliminates the remaining `python3` invocations in the kit's own C
 **Strict Implementation References (`D7`):**
 - **Logging Events Spec (§4.7 setup, companion, sync, test, hook, and release verbs, §3 Layer 1 `hook.dispatch`):** `.plans/pickup/perl-port-logging-events-spec.md`
 - **Tabular Verification Matrix (§3.7 setup and release verbs):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
-- **Single Prepared Repository Schema (Epochs E2 & E6):** `.plans/pickup/perl-port-single-repo-schema.md`
+- **Single Prepared Repository Schema (Epoch E7 Companion & Test Runner, and §5.2 Group (b)):** `.plans/pickup/perl-port-single-repo-schema.md`
 
 ---
 
@@ -72,8 +72,8 @@ This plan also eliminates the remaining `python3` invocations in the kit's own C
 Each module preserves the exact behavior, arguments, failure modes, and side effects specified in `aapp help <verb> full` and `lib/docs/verbs/<verb>.md` under the unchanged bash verb suites (`tests/verbs/*.sh`; their Perl files come after the ports, P-125):
 - **`lib/AAPP/Cmd/Init.pm` (`lib/cmd_init.sh`, 1,072 lines; `lib/docs/verbs/init.md`):**
   - Scaffolds or upgrades `.plans`, `.agents` (`AGENTS.md` managed `<!-- AAPP-PROTOCOL:START -->` block, `PROJECT.MD`, `CODEMAP.md`, `.agents/skills/aapp*`, `.agents/hooks/`), and `.githooks/`.
-  - Copies `lib/AAPP/` into `.githooks/AAPP/` alongside the hook entrypoints (no `.sh` library copies).
-  - Merges `PreToolUse` (`blast-radius-guard`) into `.claude/settings.json` using `AAPP::JSON` (`decode_json` + `encode_json_pretty`) with zero `python3` dependency.
+  - Wires hook entrypoints in `.githooks/`; no Perl modules or `.sh` libraries are copied into `.githooks/` (hooks load Perl modules from the installed kit).
+  - Merges `PreToolUse` (`blast-radius-guard`) into `.claude/settings.json` using `AAPP::JSON` (`decode` + `pretty`) with zero `python3` dependency.
   - Calls `AAPP::Adoption` (`P-118`) for adoption seeding/sync.
 - **`lib/AAPP/Cmd/Install.pm` (`lib/cmd_install.sh`, 187 lines; `lib/docs/verbs/install.md`):** Ports `cmd_install`. The install folder comes from `AAPP::Paths::kit_dir()` (the one answer to where the kit is, OS-aware, defaults in `AAPP::Constants`); the bash rule `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit` is not carried over as a copy (decided 2026-10-21 in P-115). The install ships no tests: neither `tests/` nor `t/` is copied (the bash install copies `tests/`); the kit's tests run from a kit checkout, and `aapp test` names the checkout when the kit it runs from has no `t/` (P-125, which switches `aapp test` to the engine after this plan). The install contract and its tests change with it, by amendment requests (P-129) when this member runs (decided 2026-10-23 in P-126).
 - **`lib/AAPP/Cmd/Upgrade.pm` (`lib/cmd_upgrade.sh`, 44 lines; `lib/docs/verbs/upgrade.md`):** Ports `cmd_upgrade`.
@@ -100,7 +100,7 @@ Every verb emits structured JSONL telemetry via `AAPP::Logger::log_event`:
   `mode` (`"all"`|`"verb"`|`"core"`), `jobs`, `total`, `passed`, `failed`, `duration_ms`.
 - **`AAPP::HookDispatcher` (`hook.dispatch`)**: `command => "hook"`, `event => "dispatch"`. Data payload:
   `kind` (`"hook"`|`"plugin"`), `name`, `step`, `called` (`1`|`0`), `skip_reason`, `status`, `payload_keys` (`[...]`), `response` (`{...}`).
-- **`AAPP::Cmd::Release` / `Pause` / `Init`**: Emit structured lifecycle progress and completion events (`post-release`, `post-pause`, `post-resume`, `post-init`).
+- **`AAPP::Cmd::Pause` (`post-pause`, `post-resume`)**: Emits structured pause/resume events. `Release` dispatches `on-release` and `post-release` hooks via `AAPP::HookDispatcher` (`hook.dispatch`).
 
 ### 🔄 Migration & Compatibility Strategy
 - **Transitional Coexistence (`P-121` → `P-122`):** All 11 `lib/cmd_*.sh` files are slimmed to thin shims (or retained unused once `aapp` routes every verb to `AAPP::Cmd::*`) until `P-122` deletes all 30 `lib/*.sh` files in one clean break.
@@ -110,17 +110,17 @@ Every verb emits structured JSONL telemetry via `AAPP::Logger::log_event`:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Setup & Lifecycle (`Init`, `Install`, `Upgrade`, `Uninstall`, `Develop`)
-- [ ] Task 1.1: Implement `lib/AAPP/Cmd/Init.pm`, `lib/AAPP/Cmd/Install.pm`, `lib/AAPP/Cmd/Upgrade.pm`, `lib/AAPP/Cmd/Uninstall.pm`, and `lib/AAPP/Cmd/Develop.pm`, using `AAPP::JSON` for `.claude/settings.json` merging; no Perl modules are copied into `.githooks/` (hooks load them from the installed kit, P-116 item 5), and no legacy `.sh` copies. Include structured telemetry in `Init`.
+- [ ] Task 1.1: Implement `lib/AAPP/Cmd/Init.pm`, `lib/AAPP/Cmd/Install.pm`, `lib/AAPP/Cmd/Upgrade.pm`, `lib/AAPP/Cmd/Uninstall.pm`, and `lib/AAPP/Cmd/Develop.pm`, using `AAPP::JSON` for `.claude/settings.json` merging; no Perl modules are copied into `.githooks/` (hooks load them from the installed kit, P-116 item 5), and no legacy `.sh` copies.
 
 ### Phase 2: Sync, Release, Companion, Hook, Pause & Test (`Sync`, `Release`, `Companion`, `Hook`, `Pause`, `Test`)
-- [ ] Task 2.1: Implement `lib/AAPP/Cmd/Sync.pm` (`push`, `pull`, `sync`, emitting `post-sync`), `lib/AAPP/Cmd/Release.pm` (emitting `post-release`), and `lib/AAPP/Cmd/Companion.pm` (emitting `post-companion-*`).
+- [ ] Task 2.1: Implement `lib/AAPP/Cmd/Sync.pm` (`push`, `pull`, `sync`, emitting `post-sync`), `lib/AAPP/Cmd/Release.pm` (dispatching `on-release` and `post-release` hooks via `AAPP::HookDispatcher`), and `lib/AAPP/Cmd/Companion.pm` (emitting `post-companion-*`).
 - [ ] Task 2.2: Implement `lib/AAPP/Cmd/Hook.pm` (`hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`), `lib/AAPP/Cmd/Pause.pm` (`pause`, `resume`, `unpause` via `AAPP::JSON`, emitting `post-pause`/`post-resume`), and `lib/AAPP/Cmd/Test.pm` (emitting `post-test`).
 - [ ] Task 2.3: Route all remaining verbs in `./aapp` to `AAPP::Cmd::*`.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: `./aapp test strict quiet` (the bash suites, `tests/verbs/companion.sh` and `test.sh` among them) and `t/test-run strict quiet` (`t/core`, with `install.t`, `sync.t`, `release.t`, `hooks.t`) green.
 - [ ] Task 3.2: Verify `CHANGELOG.md` updates, verify structured telemetry in `.git/aapp.log`, and run `perl -c` syntax checks on all new `.pm` files.
-- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
@@ -156,7 +156,7 @@ Every verb emits structured JSONL telemetry via `AAPP::Logger::log_event`:
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/AAPP/Tests.pm` -> The test engine (P-126) and every test file in `t/` stay out of bounds during code plans.
-- [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
+- [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` stay out of bounds during code plans.
 
 ---
 
