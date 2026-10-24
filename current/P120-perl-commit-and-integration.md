@@ -29,7 +29,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -42,14 +42,14 @@
 ## 1. Context & Architectural Goal
 Plan `P-120` is the eighth member of group `P-111` (*Perl Port Of The Kit*). It ports the plan-bound commit helper (`lib/cmd_commit.sh`, 567 lines), developer/AI Git notes manager (`lib/cmd_note.sh`, 386 lines), and AI attribution switchboard (`lib/cmd_ai.sh`, 374 lines) into `lib/AAPP/Cmd/Commit.pm`, `lib/AAPP/Cmd/Note.pm`, and `lib/AAPP/Cmd/Ai.pm`.
 
-In bash, `aapp commit` and `aapp note stage` shell out to `shasum`/`sha256sum` and `awk` to stage pending notes, splice `CHANGELOG.md` under `## [Unreleased]`, and rewrite `* **Commits:**` in the active plan. In Perl, `Digest::SHA::sha256_hex` computes note buffer hashes in-process, `AAPP::State` / `AAPP::Plan` update `CHANGELOG.md` and `* **Commits:**` directly, and `aapp commit land` calls `AAPP::Plan`'s `_ig_preflight` and fast-forward integration engine (`P-119`).
+In bash, `aapp commit` and `aapp note stage` shell out to `shasum`/`sha256sum` and `awk` to stage pending notes, splice `CHANGELOG.md` under `## [Unreleased]`, and rewrite `* **Commits:**` in the active plan. In Perl, `Digest::SHA::sha256_hex` computes note buffer hashes in-process, and `AAPP::State` / `AAPP::Plan` update `CHANGELOG.md` and `* **Commits:**` directly.
 
 **Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_commit.sh`, `lib/cmd_note.sh`, `lib/cmd_ai.sh`, `aapp`). `tests/`, `t/` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
 **Strict Implementation References (`D7`):**
 - **Logging Events Spec (§4.6 `commit`, `note`, `ai` verbs, §3 Layer 1 `commits.plans`, `commits.decorate`, `notes.attach`):** `.plans/pickup/perl-port-logging-events-spec.md`
-- **Tabular Verification Matrix (§3.6 `commit`, `note`, `ai` verbs):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
-- **Single Prepared Repository Schema (Epoch E6, Actions A070–A078):** `.plans/pickup/perl-port-single-repo-schema.md`
+- **Tabular Verification Matrix (Epoch E3 `commit`, `note`, `ai` verbs):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epoch E3, `Pool C` & `Pool S`, Actions A026–A033):** `.plans/pickup/perl-port-single-repo-schema.md`
 
 ---
 
@@ -57,9 +57,9 @@ In bash, `aapp commit` and `aapp note stage` shell out to `shasum`/`sha256sum` a
 
 ### 2.1 `AAPP::Cmd::Commit` (`lib/AAPP/Cmd/Commit.pm`) — `aapp commit` (`lib/cmd_commit.sh`, 567 lines)
 Ports `cmd_commit` from `lib/cmd_commit.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help commit full` and `lib/docs/verbs/commit.md` (standard plan-bound commit, `amend`, `adopt`, `land`, trailers, staged notes, and changelog splicing), verified under the unchanged bash suite `tests/verbs/commit.sh`.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help commit full` and `lib/docs/verbs/commit.md` (standard plan-bound commit, `amend`, `adopt`, trailers, staged notes, and changelog splicing), verified under the unchanged bash suite `tests/verbs/commit.sh`.
 - Changelog entry written through a filter, never a refusal (#189): before `- <text> (`<id>`)` is rendered, a trailing `(<own id>)` and a leading `Added:` / `Changed:` / `Fixed:` are dropped from the text, so a plan field or `changelog "<text>"` that carries them still gives one tag and no section word. Existing `CHANGELOG.md` lines are not rewritten.
-- Uses `AAPP::State` (`P-115`), `AAPP::Attribution` (`P-116`), `AAPP::CommitEngine` (`P-115`), `Digest::SHA::sha256_hex` (for `$(git rev-parse --git-path aapp_pending_note).<sha256>`), and `AAPP::Plan`'s `_ig_*` engine (`P-119`) for `land`.
+- Uses `AAPP::State` (`P-115`), `AAPP::Attribution` (`P-116`), `AAPP::CommitEngine` (`P-115`), and `Digest::SHA::sha256_hex` (for `$(git rev-parse --git-path aapp_pending_note).<sha256>`).
 
 ### 2.2 `AAPP::Cmd::Note` (`lib/AAPP/Cmd/Note.pm`) — `aapp note` (`lib/cmd_note.sh`, 386 lines)
 Ports `cmd_note` from `lib/cmd_note.sh`:
@@ -87,14 +87,14 @@ Every verb emits structured JSONL telemetry via `AAPP::Logger::log_event`:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Commit, Note & AI Verbs (`AAPP::Cmd::Commit`, `Note`, `Ai`)
-- [ ] Task 1.1: Implement `lib/AAPP/Cmd/Commit.pm` covering standard plan-bound commits, `amend`, `adopt`, `land` (via `AAPP::Plan`), automatic `CHANGELOG.md` splice, trailer assembly, `Digest::SHA` staged note buffers, and structured telemetry (`post-commit`).
+- [ ] Task 1.1: Implement `lib/AAPP/Cmd/Commit.pm` covering standard plan-bound commits, `amend`, `adopt`, automatic `CHANGELOG.md` splice, trailer assembly, `Digest::SHA` staged note buffers, and structured telemetry (`post-commit`).
 - [ ] Task 1.2: Implement `lib/AAPP/Cmd/Note.pm` (`status`, `stage`, `push`, `pull`, emitting `post-note-*`) and `lib/AAPP/Cmd/Ai.pm` (`status`, `none`, `lax`, `strict`, `notes [on|off]`, `credits`, emitting `post-ai-mode`).
 - [ ] Task 1.3: Wire `commit`, `note`, and `ai` in `./aapp` and slim `lib/cmd_commit.sh`, `lib/cmd_note.sh`, and `lib/cmd_ai.sh` to thin transitional shims.
 
 ### Phase 2: Verification & Documentation
 - [ ] Task 2.1: `./aapp test strict quiet` (the bash suites, `tests/verbs/commit.sh`, `note.sh`, `ai.sh` among them) and `t/test-run strict quiet` (`t/core`) green.
 - [ ] Task 2.2: Verify `CHANGELOG.md` updates, verify structured telemetry in `.git/aapp.log`, and run `perl -c` syntax checks on all new `.pm` files.
-- [ ] Task 2.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 2.3: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
@@ -104,7 +104,7 @@ Every verb emits structured JSONL telemetry via `AAPP::Logger::log_event`:
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Commit.pm` -> `aapp commit` (`amend`, `adopt`, `land`, changelog splice, trailers, staged notes).
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Commit.pm` -> `aapp commit` (`amend`, `adopt`, changelog splice, trailers, staged notes).
 - [ ] `NEW FILE` -> `lib/AAPP/Cmd/Note.pm` -> `aapp note` (`status`, `stage`, `push`, `pull`) developer and AI Git notes management.
 - [ ] `NEW FILE` -> `lib/AAPP/Cmd/Ai.pm` -> `aapp ai` (`status`, `none`, `lax`, `strict`, `notes`, `credits`) attribution switchboard.
 - [ ] `aapp` -> Dispatch `commit`, `note`, and `ai` directly to `AAPP::Cmd::*`.
@@ -114,7 +114,7 @@ Every verb emits structured JSONL telemetry via `AAPP::Logger::log_event`:
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/AAPP/Tests.pm` -> The test engine (P-126) and every test file in `t/` stay out of bounds during code plans.
-- [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
+- [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` remain out of bounds during code port.
 
 ---
 
