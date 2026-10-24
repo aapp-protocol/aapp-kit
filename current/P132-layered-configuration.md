@@ -18,7 +18,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -39,11 +39,9 @@ Decided with the developer (2026-10-23):
 - **Single Standard INI File Per Level (`main.conf`):** Instead of sprawling per-repository file directories (`repos/<key>.conf`), each upper level has a single standard INI file (`main.conf`). Global settings sit under `[aapp]`, while per-repository overrides sit in matching subsection blocks (e.g. `[aapp "repo:/path/to/project"]`).
 - **One plan of its own**, so the decision is tracked apart from governance; P-131 reads its keys through this hierarchy.
 
-**Strict Implementation References (`D7`):**
-- **Logging Events Spec:** `.plans/pickup/perl-port-logging-events-spec.md`
-- **Tabular Verification Matrix (§4 Core Test Matrix, `t/core/config.t`):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
-- **Single Prepared Repository Schema (Epoch E5 Layered Configuration):** `.plans/pickup/perl-port-single-repo-schema.md`
-
+**Implementation References:**
+- **RFC Parent:** `.plans/pickup/perl-port-test-salvage-rfc.md` (Group (a) Pure Unit Suites)
+- **Specification Contract:** `lib/docs/core/config.md`
 
 ---
 
@@ -56,6 +54,8 @@ Decided with the developer (2026-10-23):
 | **User** | `$XDG_CONFIG_HOME/aapp/` (default `~/.config/aapp/`) | as Linux | `%APPDATA%\aapp\` | `main.conf` |
 
 There are no per-repository multi-files (`repos/<key>.conf`). All machine-wide and user-wide configurations reside cleanly within that level's `main.conf`.
+
+**Test & Sandbox Redirection**: For sandboxed unit tests (`t/core/config.t`) and non-root environments, directory paths can be redirected via environment variables `$ENV{AAPP_SYS_CONF_DIR}` (defaulting to the OS system directory above) and `$ENV{AAPP_USER_CONF_DIR}` (defaulting to the user config directory above). When set, `AAPP::Config` and `AAPP::Constants` read `main.conf` from these directories.
 
 ### 2.2 Standard INI Format with Repository Subsections
 ```ini
