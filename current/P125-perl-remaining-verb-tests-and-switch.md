@@ -49,9 +49,10 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 ## 2. Technical Blueprint
 1. **Remaining verbs:** `issue` (with its parts: `abort`, `branchplugin`, `branch`, `fixes`, `keyid`, `limits`, `notefilter`, `onecommit`, `provider`, `queue`, `tracker`), `offline`, `commit`, `note`, `ai`, `companion`, `test`; one file per verb, `t/verb/<verb>.t`, one `test_*` sub per contract line.
 2. **The design of P-134 §2.2–2.6:** verbs called as Perl functions through `lib_call` with a thin CLI layer; each file's repositories built once in the fixture by the kit's own writers, a shared step run once in the fixture when several tests read its outcome; facts read from files, git queries batched, setup commits `--no-verify`; checks carried over from the bash suites as shared `check_*` subs; each file's wall, CPU and process count recorded.
-3. **Contract checker in Perl:** the checks of `tests/verb_contracts_test.sh` move to `t/core/verb_contracts.t` (registry <-> contracts, contract shape, core contracts per test file, every test named both ways, daily verbs in the agent reference, rules-file and skill-index checks, `aapp help` of an unknown verb); its contract `lib/docs/core/verb_contracts.md` follows. Its reads come from files in-process, with no process per check.
-4. **The switch (clean break):** `lib/AAPP/Cmd/Test.pm` (ported by P-121, running the bash suites until here) runs `AAPP::Tests` over `t/` with the runner's selection forms (P-126 §2.1.6) and `strict`, `quiet`, `bail`, `list`, `jobs <n>`; `t/test-run` is deleted and nothing names it. `lib/docs/verbs/test.md` (Ingress, Effects, Tests) and `CHEATSHEET.md` document the forms. The `test` verb file tests the new runner.
-5. **Gate back to one command:** `.agents/hooks/test-gate.sh` `TEST_CMD` returns to `./aapp test strict quiet`; the developer re-registers it with `./aapp hook-hash .agents/hooks/test-gate.sh` before `aapp done`.
+3. **P-130's `commit` checks:** `commit … amendment <n>` over the claims reader (P-130 §2.3; P-130 §2.8 writes no tests) is tested in `t/verb/commit.t`, with the contract's `## Tests` lines.
+4. **Contract checker in Perl:** the checks of `tests/verb_contracts_test.sh` move to `t/core/verb_contracts.t` (registry <-> contracts, contract shape, core contracts per test file, every test named both ways, daily verbs in the agent reference, rules-file and skill-index checks, `aapp help` of an unknown verb); its contract `lib/docs/core/verb_contracts.md` follows. Its reads come from files in-process, with no process per check.
+5. **The switch (clean break):** `lib/AAPP/Cmd/Test.pm` (ported by P-121, running the bash suites until here) runs `AAPP::Tests` over `t/` with the runner's selection forms (P-126 §2.1.6) and `strict`, `quiet`, `bail`, `list`, `jobs <n>`; `t/test-run` is deleted and nothing names it. `lib/docs/verbs/test.md` (Ingress, Effects, Tests) and `CHEATSHEET.md` document the forms. The `test` verb file tests the new runner.
+6. **Gate back to one command:** `.agents/hooks/test-gate.sh` `TEST_CMD` returns to `./aapp test strict quiet`; the developer re-registers it with `./aapp hook-hash .agents/hooks/test-gate.sh` before `aapp done`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
@@ -66,7 +67,7 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 
 ### Phase 2: Remaining Verb Files
 - [ ] Task 2.1: `issue` and its parts; each file measured.
-- [ ] Task 2.2: `offline`, `commit`, `note`, `ai`, `companion`; each file measured.
+- [ ] Task 2.2: `offline`, `commit` (with P-130's checks, §2.3), `note`, `ai`, `companion`; each file measured.
 
 ### Phase 3: The Switch
 - [ ] Task 3.1: `tests/verb_contracts_test.sh` to `t/core/verb_contracts.t`.
@@ -126,7 +127,7 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/aapp-lib.sh` -> Kit runtime stays untouched.
-- [ ] `lib/AAPP/Tests.pm` -> Engine changes come by amendment (P-134 §2.7).
+- [ ] `lib/AAPP/Tests.pm` -> Engine changes come by amendment (P-134 §2.8).
 - [ ] `templates/aapp-pre-commit` -> Hook templates stay untouched.
 
 ---
