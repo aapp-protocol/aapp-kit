@@ -43,8 +43,8 @@
 Plan `P-136` is the sixteenth member of group `P-111` (*Perl Port Of The Kit*). It executes immediately after `P-121` (once all core modules, hooks, and CLI verbs are in Perl and emitting structured telemetry) and **before** the test suites are implemented (`P-135` core tests redesign, `P-134` lifecycle verb tests, `P-125` remaining verb tests).
 
 Per Decision **`D8`** in `.plans/pickup/perl-port-test-salvage-rfc.md`:
-1. `lib/AAPP/Tests.pm` (currently ~1,240 lines) must be enhanced with the capabilities required by the single prepared repository schema and event telemetry spec: byte-offset event slicing of `.git/aapp.log`, event assertions (`event_or_die`, `no_event_or_die`, `log_match_or_die`), action runner (`run_action` writing `$sandbox/state/A<nnn>.json`), and universal worktree pointer rewriting.
-2. The creation of the mock repository and all that includes creations in it (pre-seeding the 6 pools: disjoint mock source files `src/m*.py`, pre-seeded plans `P-1`..`P-35`, issues `#1`..`#20`, branches `develop`, `module/auth`, `third/other`, and bare remotes `$sandbox/origin.git` and `$sandbox/companion-ui`) is split into a **separate module**: `lib/AAPP/TestRepo.pm` (`AAPP::TestRepo`) to cleanly isolate test repository provisioning logic from test harness orchestration (`lib/AAPP/Tests.pm`).
+1. `lib/AAPP/Tests.pm` (currently ~1,240 lines) must be enhanced with the capabilities required by the single prepared repository schema and event telemetry spec: multi-repo byte-offset event slicing of `.git/aapp.log`, event assertions (`event_or_die`, `no_event_or_die`, `log_match_or_die`), action runner (`run_action` writing `$sandbox/state/A<nnn>.json` and epoch replay), universal worktree pointer rewriting, and switching `%LIBRARIES` off legacy bash onto Perl modules.
+2. The creation of the mock repository and all that includes creations in it (pre-seeding the 7 verb pools: Pools L, S, C, G, I, D, K and Shared Docs with disjoint mock source files `src/l01.py`..`src/d16.py` and `src/k01.py`..`src/k12.py`, pre-seeded plans `P-1`..`P-35`, `P-1L`, `P-2L`, `P-290`, and Pool K's `P-50`..`P-62`, issues `#1`..`#8` with `aapp.issueId` set to 9, branches `develop`, `module/auth`, `third/other`, and bare remotes `$sandbox/origin.git`, `$sandbox/comp-non-aapp`, and `$sandbox/comp-aapp`) is split into a **separate module**: `lib/AAPP/TestRepo.pm` (`AAPP::TestRepo`) to cleanly isolate test repository provisioning logic from test harness orchestration (`lib/AAPP/Tests.pm`).
 
 **Strict Implementation References (`D7`, `D8`):**
 - **Test Salvage RFC (Decisions `D2`, `D3`, `D6`, `D7`, `D8`):** `.plans/pickup/perl-port-test-salvage-rfc.md`
@@ -60,28 +60,32 @@ Per Decision **`D8`** in `.plans/pickup/perl-port-test-salvage-rfc.md`:
 Ports and isolates repository fixture synthesis from `lib/AAPP/Tests.pm`:
 - **`setup_shared_repo($sandbox)`**:
   - Initializes `$sandbox/repo` on branch `develop` (initial commit `C0`), configures `aapp.perlLogFile` to `aapp.log` (`$sandbox/repo/.git/aapp.log`), disables GPG signing, and configures test committer identity.
-  - Provisions bare remotes: `$sandbox/origin.git` and `$sandbox/companion-ui`.
-  - Provisions 6 disjoint source file pools (`Pool L`, `Pool S`, `Pool C`, `Pool G`, `Pool I`, `Pool D`, `Shared Docs`) per `perl-port-single-repo-schema.md` §2.2.
-  - Pre-seeds plans `P-1`..`P-35` across Pools L, S, C, G, I, D with headers, §3 required tests, §4 Target Files, and initial status glyphs per `perl-port-single-repo-schema.md` §2.3.
-  - Pre-seeds issues `#1`..`#20` in `.plans/ISSUES.md` and `.plans/issues_road_map.md` per `perl-port-single-repo-schema.md` §2.4.
+  - Provisions bare remotes: `$sandbox/origin.git`, `$sandbox/comp-non-aapp`, and `$sandbox/comp-aapp`.
+  - Provisions 7 disjoint source file pools (`Pool L`: `src/l01.py`..`src/l08.py`, `Pool S`: `src/s01.py`..`src/s08.py`, `Pool C`: `src/c01.py`..`src/c06.py`, `Pool G`: `src/g01.py`..`src/g08.py`, `Pool I`: `src/i01.py`..`src/i12.py`, `Pool D`: `src/d01.py`..`src/d16.py`, `Pool K`: `src/k01.py`..`src/k12.py`) and `Shared Docs` (`README.md`, `CHANGELOG.md`, `ARCHITECTURE.md`, `.agents/CODEMAP.md`) per `perl-port-single-repo-schema.md` §2.2.
+  - Pre-seeds plans `P-1`..`P-35`, `P-1L`, `P-2L`, `P-290` across Pools L, S, C, G, I, D, and Pool K's `P-50`..`P-62` with headers, §3 required tests, §4 Target Files, and initial status glyphs per `perl-port-single-repo-schema.md` §2.3 and §5.3.
+  - Pre-seeds issues `#1`..`#8` in `.plans/ISSUES.md` and `.plans/issues_road_map.md` with `aapp.issueId` set to `9` per `perl-port-single-repo-schema.md` §2.4.
   - Provisions branches: `develop`, `module/auth`, `third/other`, `remote-only/dev`.
+  - Seeds disposable edge sandboxes in `$sandbox/edges/` for bootstrap edge-cases (missing ledgers or no `.git`).
   - Runs `AAPP::Cmd::Matrix::cmd_matrix()` at the end of setup so `state_matrix.md` is 100% in sync at `E0`.
-  - Exportable helper methods: `seed_pool_l`, `seed_pool_s`, `seed_pool_c`, `seed_pool_g`, `seed_pool_i`, `seed_pool_d`, `seed_shared_docs`, `seed_plans`, `seed_issues`.
+  - Exportable helper methods: `seed_pool_l`, `seed_pool_s`, `seed_pool_c`, `seed_pool_g`, `seed_pool_i`, `seed_pool_d`, `seed_pool_k`, `seed_shared_docs`, `seed_plans`, `seed_issues`.
 
 ### 2.2 `AAPP::Tests` (`lib/AAPP/Tests.pm`) — Test Harness Enhancements
 - **Delegation to `AAPP::TestRepo`**: Calls `AAPP::TestRepo::setup_shared_repo($sandbox)` during `setup_shared_repo` invocation.
-- **Byte-Offset Event Log Slicing**:
-  - In `lib_call` and `run_aapp`, records file size / byte offset of `$sandbox/repo/.git/aapp.log` before execution.
-  - Reads the slice from pre-offset to current EOF post-execution.
-  - Decodes JSONL lines into `$res->{events}` (arrayref of event hashrefs) and `$res->{log_lines}` (arrayref of raw log lines).
+- **Multi-Repo Byte-Offset Event Log Slicing**:
+  - In `lib_call` and `run_aapp`, dynamically resolves the active target repository's log file (from target repository directory `.git/aapp.log`, `$ENV{AAPP_LOG_FILE}`, or `$sandbox/repo/.git/aapp.log`).
+  - Records file size / byte offset before execution, then reads the appended slice post-execution.
+  - Decodes JSONL lines into `$res->{events}` (arrayref of event hashrefs) and `$res->{log_lines}` (arrayref of raw log lines), combined with in-memory events returned from forked `lib_call`. This supports multi-repo test suites like `pre-commit.t` (`$sandbox/core-pre-commit`) and `write-guard.t` (`$sandbox/core-write-guard`).
 - **Test Assertion Helpers**:
   - `event_or_die($r, $command, $event, %expected_data)`: finds matching event by command and event, verifies expected data keys (exact string, qr// regex, or arrayref).
   - `no_event_or_die($r, $command, $event)`: asserts that no event with command/event was emitted.
   - `log_match_or_die($r, $tag, $regex, $desc)`: asserts a line with tag matching regex exists in log lines.
-- **Action Execution & State Capture**:
-  - `run_action($action_id, $code_sub)`: executes action via `lib_call`, captures `{ rc, ret, out, err, events, log_lines }`, writes state snapshot to `$sandbox/state/$action_id.json`.
+- **Action Execution, State Capture & Epoch Replay**:
+  - `run_action($action_id, $code_sub)`: executes action via `lib_call` or `run_aapp`, captures `{ rc, ret, out, err, events, log_lines }`, writes state snapshot to `$sandbox/state/$action_id.json`.
+  - Supports replaying prerequisite action chains (`A001`..`A<nnn>`) across Epochs `E0`..`E7`, enabling partial verb runs (`aapp test verb <name>`) to run against only their pool's prerequisite action DAG.
 - **Universal Worktree Pointer Rewrite in `copy_fixture`**:
-  - Scans `.git/worktrees/*/gitdir` and any file named `.git` containing `gitdir:`, rewriting the source fixture prefix to the destination directory.
+  - Adapts existing `copy_fixture` pointer rewriting by scanning `.git/worktrees/*/gitdir` and any file named `.git` containing `gitdir:`, rewriting the source fixture prefix to the destination directory.
+- **Test Library Map Switch off Bash**:
+  - Switches `%LIBRARIES` in `lib/AAPP/Tests.pm` off legacy bash files to Perl modules (`AAPP::HookDispatcher`, `AAPP::Attribution`, `AAPP::Adoption`, `AAPP::GroupDocs`, `AAPP::Issue`), retiring `$BASH_BASE_LIBRARY`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default).
@@ -92,21 +96,21 @@ Ports and isolates repository fixture synthesis from `lib/AAPP/Tests.pm`:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Separate Mock Repository Builder (`AAPP::TestRepo`)
-- [ ] Task 1.1: Author `lib/AAPP/TestRepo.pm` with `setup_shared_repo($sandbox)` provisioning `$sandbox/repo`, `$sandbox/origin.git`, `$sandbox/companion-ui`, the 6 source pools, plans `P-1`..`P-35`, and issues `#1`..`#20`.
-- [ ] Task 1.2: Author unit contract test `t/core/test_repo.t` verifying that `AAPP::TestRepo` produces a valid, in-sync repository topology.
+- [ ] Task 1.1: Author `lib/AAPP/TestRepo.pm` with `setup_shared_repo($sandbox)` provisioning `$sandbox/repo`, `$sandbox/origin.git`, `$sandbox/comp-non-aapp`, `$sandbox/comp-aapp`, the 7 source pools (L, S, C, G, I, D, K) and Shared Docs, plans `P-1`..`P-35`, `P-1L`, `P-2L`, `P-290`, `P-50`..`P-62`, and issues `#1`..`#8` (`aapp.issueId = 9`).
+- [ ] Task 1.2: Author unit contract test `t/core/test_repo.t` verifying that `AAPP::TestRepo` produces a valid, in-sync repository topology (bringing total core test files to 26).
 - [ ] Task 1.3: Author core contract `lib/docs/core/test_repo.md`.
 
 ### Phase 2: Test Engine Enhancements (`AAPP::Tests`)
-- [ ] Task 2.1: Add byte-offset event log slicing to `lib/AAPP/Tests.pm` in `lib_call` and `run_aapp`.
+- [ ] Task 2.1: Add multi-repo byte-offset event log slicing to `lib/AAPP/Tests.pm` in `lib_call` and `run_aapp`.
 - [ ] Task 2.2: Add assertion helpers `event_or_die`, `no_event_or_die`, and `log_match_or_die` to `lib/AAPP/Tests.pm`.
-- [ ] Task 2.3: Add `run_action` and state snapshot capture to `lib/AAPP/Tests.pm`.
-- [ ] Task 2.4: Add universal worktree pointer rewrite in `copy_fixture`.
+- [ ] Task 2.3: Add `run_action`, state snapshot capture, and epoch replay for partial verb runs to `lib/AAPP/Tests.pm`.
+- [ ] Task 2.4: Generalize worktree pointer rewrite in `copy_fixture` and switch `%LIBRARIES` in `lib/AAPP/Tests.pm` off bash to Perl modules (`AAPP::HookDispatcher`, `AAPP::Attribution`, `AAPP::Adoption`, `AAPP::GroupDocs`, `AAPP::Issue`).
 - [ ] Task 2.5: Update core contract `lib/docs/core/tests.md`.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run `t/test-run strict quiet` and `./aapp test strict quiet` to confirm zero regressions across all existing suites.
 - [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c lib/AAPP/TestRepo.pm` and `perl -c lib/AAPP/Tests.pm`.
-- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
@@ -114,9 +118,9 @@ Ports and isolates repository fixture synthesis from `lib/AAPP/Tests.pm`:
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly confined to the files listed under `### 📂 Target Files`.
-- [ ] `NEW FILE` -> `lib/AAPP/TestRepo.pm` -> Single prepared repository builder (`setup_shared_repo`), provisioning pools L, S, C, G, I, D, mock files, branches, plans, issues.
-- [ ] `lib/AAPP/Tests.pm` -> Add log-event byte-offset slicing, assertion helpers (`event_or_die`, `no_event_or_die`, `log_match_or_die`), `run_action`, state capture.
-- [ ] `NEW FILE` -> `t/core/test_repo.t` -> Unit contract test for `AAPP::TestRepo`.
+- [ ] `NEW FILE` -> `lib/AAPP/TestRepo.pm` -> Single prepared repository builder (`setup_shared_repo`), provisioning pools L, S, C, G, I, D, K, mock files, branches, plans, issues.
+- [ ] `lib/AAPP/Tests.pm` -> Add multi-repo log slicing, assertion helpers (`event_or_die`, `no_event_or_die`, `log_match_or_die`), `run_action`, state capture, epoch replay, and switch `%LIBRARIES` to Perl.
+- [ ] `NEW FILE` -> `t/core/test_repo.t` -> Unit contract test for `AAPP::TestRepo` (26th core test file).
 - [ ] `NEW FILE` -> `lib/docs/core/test_repo.md` -> Core contract for `AAPP::TestRepo`.
 - [ ] `lib/docs/core/tests.md` -> Update contract for `AAPP::Tests` log assertions.
 
@@ -133,3 +137,4 @@ Ports and isolates repository fixture synthesis from `lib/AAPP/Tests.pm`:
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-24:** Drafted per RFC Decision `D8` to update `lib/AAPP/Tests.pm` and create separate mock repository builder `lib/AAPP/TestRepo.pm` before test suite implementation (`P-135`, `P-134`, `P-125`).
+* **2026-10-24:** Refined to align seeded pools (7 pools L, S, C, G, I, D, K + Shared Docs, mock files `l01`..`d16`, `k01`..`k12`, plans `P-1`..`P-35`, `P-1L`, `P-2L`, `P-290`, `P-50`..`P-62`, issues `#1`..`#8`, remotes `comp-*`), multi-repo log slicing, epoch replay, and `%LIBRARIES` switch off bash.
