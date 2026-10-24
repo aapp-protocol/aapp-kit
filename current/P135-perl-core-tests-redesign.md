@@ -42,7 +42,7 @@
 ## 1. Context & Architectural Goal
 Plan `P-123` ported the 25 core test suites (`t/core/*.t`, 323 contract tests in `lib/docs/core/*.md`) to Perl while `P-116`–`P-121` were still bash. Because 16 of those 25 files invoke CLI verbs and Git hooks per test (spawning ~1,200 bash/git subprocesses across `t/core`, with `t/core/integrate.t` alone taking `112.1 s` wall time and `t/core/install.t`, `pre-commit.t`, `write-guard.t`, `worktree_hooks.t`, `hooks.t` taking `25–51 s` each), the core suite became the primary wall-clock bottleneck (~380 s total CPU).
 
-Per Decisions **`D6`** (*Core tests in their own plan*) and **`D7`** (*The matrix is the reference at implementation*) in `.plans/pickup/perl-port-test-salvage-rfc.md`, this plan runs immediately after `P-121` (once every core module, hook, and CLI verb is in Perl and emitting structured events) and before `P-134` and `P-125`. It moves the Group (b) and Group (c) core test suites to the prepared-repository and structured event-logging design while keeping all 323 `lib/docs/core/*.md` contract test names and order unchanged.
+Per Decisions **`D6`** (*Core tests in their own plan*) and **`D7`** (*The matrix is the reference at implementation*) in `.plans/pickup/perl-port-test-salvage-rfc.md`, this plan runs immediately after `P-136` (once the test engine `AAPP::Tests` and mock repository builder `AAPP::TestRepo` are updated and emit/slice structured events) and before `P-134` and `P-125`. It moves the Group (b) and Group (c) core test suites to the prepared-repository and structured event-logging design while keeping all 323 `lib/docs/core/*.md` contract test names and order unchanged.
 
 **Strict Implementation References (`D7`):**
 - **Tabular Verification Matrix (§4 Core Suites):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
@@ -58,7 +58,7 @@ Per `.plans/pickup/perl-port-test-matrix-tabular-check.md` §4 Group (a) and `.p
 
 ### 2.2 Group (b): Setup-Isolated Suites (3 Files, 89 Tests — Built Once Per File + Ordered Actions)
 Per `.plans/pickup/perl-port-test-matrix-tabular-check.md` §4 Group (b) and `.plans/pickup/perl-port-single-repo-schema.md` §5.2:
-1. **`t/core/install.t` (37 tests — `AAPP::Cmd::Init` & `AAPP::Install`, `P-121`):**
+1. **`t/core/install.t` (37 tests — `AAPP::Cmd::Init` & `AAPP::Cmd::Install`, `P-121`):**
    - Provisions one isolated workspace (`$sandbox/core-install`) and `$HOME` (`~/.local/bin/aapp`) once at file startup instead of per test; executes the 37 `init` and `install` contract checks as ordered, self-restoring actions via `lib_call('AAPP::Cmd::Init', ...)` / `lib_call('AAPP::Cmd::Install', ...)` (with a thin CLI layer for `--help`/exit codes), asserting `file_exists_or_die` and `read_text`.
 2. **`t/core/pre-commit.t` (34 tests — `AAPP::Hooks::PreCommit` & `AAPP::Health`, `P-115`/`P-116`/`P-131`):**
    - Provisions one repository (`$sandbox/core-pre-commit`) with `git config aapp.perlLogFile aapp.log` and hooks wired once; each test stages its Pair 1–8 / self-protection / governance / changelog / portability case, invokes `AAPP::Hooks::PreCommit` / `AAPP::Health`, asserts `event_or_die($r, 'health', 'veto', pair => ...)` or `event_or_die($r, 'commits', 'plans', ...)`, and resets the index cleanly before the next action.
@@ -72,13 +72,13 @@ Per `.plans/pickup/perl-port-test-matrix-tabular-check.md` §4 Group (c) and `.p
 3. **`t/core/worktree_hooks.t` (8 tests):** Asserts `post-start` (`worktree`, `branch`), relative symlinks, and per-worktree `guard.check` (`active_plan`).
 4. **`t/core/hooks.t` (22 tests):** Asserts `event_or_die($r, 'hook', 'dispatch', kind => 'hook', name => ..., status => 'ok'|'veto'|'timeout', payload_keys => [...])`.
 5. **`t/core/plugin_protocol.t` (10 tests):** Asserts `event_or_die($r, 'hook', 'dispatch', kind => 'plugin', name => ..., skip_reason => 'in_step'|'sync_window'|'offline_only', response => {...})` with zero external spy files.
-6. **`t/core/event_telemetry.t` (4 tests):** Verifies all 14 `post-*` telemetry payloads against `.plans/pickup/perl-port-logging-events-spec.md` §4.
+6. **`t/core/event_telemetry.t` (4 tests):** Verifies that observer and adopter hooks receive expected event telemetry dispatch and `post-*` payloads across adopter hooks (checking hook dispatch rather than asserting log lines alone).
 7. **`t/core/adoption.t` (13 tests):** Calls `AAPP::Adoption` and `AAPP::Cmd::Status` in-process on prepared states and asserts `read_text` on `.plans/adoption.md` plus `post-status` (`open_adoption_tasks`).
-8. **`t/core/template_sync.t` (14 tests):** Calls `AAPP::Cmd::Init` / `AAPP::Install` in-process and verifies `AAPP-PROTOCOL` block synchronization and `health.veto` via `read_text` and `event_or_die`.
+8. **`t/core/template_sync.t` (14 tests):** Calls `AAPP::Cmd::Init` / `AAPP::Cmd::Install` in-process and verifies `AAPP-PROTOCOL` block synchronization and `health.veto` via `read_text` and `event_or_die`.
 9. **`t/core/notes.t` (5 tests):** Asserts `event_or_die($r, 'notes', 'attach', action => 'add'|'rewrite', ref => 'refs/notes/commits')` and `post-note-stage`.
 10. **`t/core/ai_attribution.t` (16 tests):** Asserts `event_or_die($r, 'commits', 'decorate', mode => 'none'|'lax'|'strict'|'notes', trailers_added => 0|1, status => ...)` and `notes.attach` (`ref => 'refs/notes/ai'`).
 11. **`t/core/release.t` (6 tests) & `t/core/kit_release_hook.t` (4 tests):** Calls `AAPP::Cmd::Release` in-process and asserts `CHANGELOG.md` rollup, `.plans/release/<tag>/` bundles, and `hook.dispatch` (`on-release`, `post-release`).
-12. **`t/core/sync.t` (3 tests):** Calls `AAPP::Cmd::Sync` in-process and asserts `event_or_die($r, 'sync', 'sync', action => 'pull_push'|'pull'|'push', worktrees => [...])`.
+12. **`t/core/sync.t` (3 tests):** Calls `AAPP::Cmd::Sync` in-process and asserts `post-sync` via `event_or_die($r, 'sync', 'sync', action => 'pull_push'|'pull'|'push', worktrees => [...])`.
 
 ### 2.4 Recorded Measurements
 Every redesigned file's wall time, CPU time, and process count are measured and recorded in §6 against the `P-123` baseline (~380 s total CPU, 112.1 s wall for `integrate.t`).
@@ -96,7 +96,7 @@ Every redesigned file's wall time, CPU time, and process count are measured and 
 
 ### Phase 2: Group (c) Primary Lifecycle & Hook Suites (`integrate.t`, `worktree_hooks.t`, `hooks.t`, `plugin_protocol.t`, `event_telemetry.t`)
 - [ ] Task 2.1: Refactor `t/core/integrate.t` (24 tests) and `t/core/worktree_hooks.t` (8 tests) onto `Pool K` with in-process `AAPP::Cmd::Plan` calls and `post-done`, `post-start`, `hook.dispatch`, `group.docs`, and `guard.check` assertions.
-- [ ] Task 2.2: Refactor `t/core/hooks.t` (22 tests), `t/core/plugin_protocol.t` (10 tests), and `t/core/event_telemetry.t` (4 tests) onto `hook.dispatch` and Layer 2 `post-*` event assertions.
+- [ ] Task 2.2: Refactor `t/core/hooks.t` (22 tests), `t/core/plugin_protocol.t` (10 tests), and `t/core/event_telemetry.t` (4 tests) onto `hook.dispatch`, adopter hook invocation, and Layer 2 `post-*` event assertions.
 
 ### Phase 3: Group (c) Remaining Scenario Suites (`output_json.t`, `adoption.t`, `template_sync.t`, `notes.t`, `ai_attribution.t`, `release.t`, `kit_release_hook.t`, `sync.t`)
 - [ ] Task 3.1: Refactor `t/core/output_json.t` (15 tests), `t/core/adoption.t` (13 tests), `t/core/template_sync.t` (14 tests), `t/core/notes.t` (5 tests), `t/core/ai_attribution.t` (16 tests), `t/core/release.t` (6 tests), `t/core/kit_release_hook.t` (4 tests), and `t/core/sync.t` (3 tests) per `.plans/pickup/perl-port-test-matrix-tabular-check.md` §4 Group (c).
@@ -131,7 +131,7 @@ Every redesigned file's wall time, CPU time, and process count are measured and 
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/docs/core/` -> All 323 core contract test names and descriptions remain locked.
-- [ ] `lib/AAPP/` -> Runtime modules are untouched; any test harness helper needed in `lib/AAPP/Tests.pm` lands via `P-112` before this plan starts.
+- [ ] `lib/AAPP/` -> Runtime modules are untouched; test harness helpers and mock repository builder are delivered by `P-136` before this plan starts.
 
 ---
 
@@ -142,3 +142,4 @@ Every redesigned file's wall time, CPU time, and process count are measured and 
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-24:** Drafted as member `P-135` of group `P-111` per Decisions `D6` and `D7` (`.plans/pickup/perl-port-test-salvage-rfc.md`): moves the 16 Group (b) and Group (c) `t/core/*.t` suites to the prepared-repository and structured event-logging design after `P-121`.
+* **2026-10-24:** Refined execution sequencing to run after `P-136`, corrected module reference to `AAPP::Cmd::Install`, and clarified `event_telemetry.t` adopter hook scope and `post-sync` event name.
