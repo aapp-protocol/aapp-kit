@@ -29,7 +29,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -42,7 +42,7 @@
 ## 1. Context & Architectural Goal
 A session that starts or resumes a group member is pointed at one section of the group plan, `## Architecture & Codemap`: by the `start`/`freeze-start` output, by the `aapp status` line in a member's worktree, by the *Plan groups* rule in `AGENTS.md`, and by the `aapp-start` skill. The group's §1 Goal (why the group exists, how success is measured) and §2 Shared Decisions are never named, so a new session can work a member without them. This plan points every one of those places at the whole group plan, and gives the group template an introduction saying so. It lands on the port's feature branch so the remaining members are worked with the group's goal in view.
 
-As the first member started after `.plans/pickup/perl-port-test-salvage-rfc.md`, this plan also carries that RFC's changes to the running group's text (its §5), recorded in the amendments member P-112: the group needs a member in development to request them.
+Phase 0 (the group text updates to P-111 §5 and amendments) has already been applied by hand. As the first member landing before P-116, this plan also delivers the event logging foundation to `lib/AAPP/Logger.pm` (`log_event($command, $event, \%data)` and `@EVENTS` registry) and `commits.plans` telemetry to `lib/AAPP/CommitEngine.pm`, ensuring hook and verb telemetry is in place before P-116 starts emitting events.
 
 ---
 
@@ -54,6 +54,7 @@ As the first member started after `.plans/pickup/perl-port-test-salvage-rfc.md`,
 4. **Rule and skill** (`templates/AGENTS.md` *Plan groups*, `templates/skills/aapp-start/SKILL.md`): the sentence naming `## Architecture & Codemap` as the guide names the whole group plan, the goal and shared decisions first; reading it at every member start, session start and resume stays.
 5. **Contracts and tests**: `lib/docs/verbs/start.md`, `freeze-start.md`, `status.md` carry the new lines; `tests/verbs/start.group.sh::test_member_start_points_at_group_guide` and `tests/verbs/status.sh::test_status_member_rereads_group_guide` assert them. The Perl ports of these verbs (P-118, P-119) keep the wording through the contracts.
 6. **Live after init**: `templates/AGENTS.md` and the skill reach `.agents/` through `aapp init` (and an IDE reload); the change log says so.
+7. **Event logging foundation** (`lib/AAPP/Logger.pm`, `lib/AAPP/CommitEngine.pm`): deliver `log_event($command, $event, \%data)` with 3 arguments and the `@EVENTS` registry in `lib/AAPP/Logger.pm` as specified in `.plans/pickup/perl-port-logging-events-spec.md`. Integrate `commits.plans` telemetry into `lib/AAPP/CommitEngine.pm`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
@@ -64,12 +65,13 @@ As the first member started after `.plans/pickup/perl-port-test-salvage-rfc.md`,
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 0: The group's text (RFC §5), from this plan's worktree
-- [ ] Task 0.1: Request in P-112, `for P-111`, each by heading with its reason: §3 *Members & Order* (the order of RFC D2/D4); the introduction above §1 (§2.1's text); `Shared Decisions` (*Tests vs. code boundary* and *Modular test harness* replaced by RFC D2–D3); `## Architecture & Codemap` (*Test Harness Sandbox Confinement* and the `Tests.pm` line: every worktree pointer rewritten, scenario projects in one fixture, verb tests through `AAPP::Cmd::*` with a thin CLI layer).
-- [ ] Task 0.2: Once approved, make them: the `## Architecture & Codemap` sections through `aapp refine P-112 decision <n> "<reason>"` from P-112's worktree; the introduction and §3 through `aapp refine P-111 "<msg>"` from this worktree.
-- [ ] Task 0.3: §2 stays as written (design-locked, no `decision` reaches it until P-130 §2.9); the introduction carries one line: "§2 *Tests vs. code boundary* and *Modular test harness* are replaced by the decisions of `.plans/pickup/perl-port-test-salvage-rfc.md` (D2, D3), recorded as R<n> in P-112."
+- [x] Task 0.1: Request in P-112, `for P-111`, each by heading with its reason: §3 *Members & Order* (the order of RFC D2/D4); the introduction above §1 (§2.1's text); `Shared Decisions` (*Tests vs. code boundary* and *Modular test harness* replaced by RFC D2–D3); `## Architecture & Codemap` (*Test Harness Sandbox Confinement* and the `Tests.pm` line: every worktree pointer rewritten, scenario projects in one fixture, verb tests through `AAPP::Cmd::*` with a thin CLI layer). (Completed by hand)
+- [x] Task 0.2: Once approved, make them: the `## Architecture & Codemap` sections through `aapp refine P-112 decision <n> "<reason>"` from P-112's worktree; the introduction and §3 through `aapp refine P-111 "<msg>"` from this worktree. (Completed by hand)
+- [x] Task 0.3: §2 stays as written (design-locked, no `decision` reaches it until P-130 §2.9); the introduction carries one line: "§2 *Tests vs. code boundary* and *Modular test harness* are replaced by the decisions of `.plans/pickup/perl-port-test-salvage-rfc.md` (D2, D3), recorded as R<n> in P-112." (Completed by hand)
 
-### Phase 1: Failing tests
+### Phase 1: Failing tests & Logger Telemetry
 - [ ] Task 1.1: Change the two test assertions and the three contract lines to the new wording; both tests fail.
+- [ ] Task 1.2: Implement `AAPP::Logger::log_event($command, $event, \%data)` and `@EVENTS` in `lib/AAPP/Logger.pm`, and `commits.plans` in `lib/AAPP/CommitEngine.pm`.
 
 ### Phase 2: Pointers and introduction
 - [ ] Task 2.1: The Guide line in `lib/cmd_plan.sh` and the status line in `lib/cmd_status.sh`; both tests pass.
@@ -96,6 +98,8 @@ As the first member started after `.plans/pickup/perl-port-test-salvage-rfc.md`,
 - [ ] `lib/docs/verbs/start.md` -> The Guide line.
 - [ ] `lib/docs/verbs/freeze-start.md` -> The Guide line.
 - [ ] `lib/docs/verbs/status.md` -> The bound-member line.
+- [ ] `lib/AAPP/Logger.pm` -> Event logging engine and events registry.
+- [ ] `lib/AAPP/CommitEngine.pm` -> Emits commits.plans event.
 - [ ] `tests/verbs/start.group.sh` -> `test_member_start_points_at_group_guide`.
 - [ ] `tests/verbs/status.sh` -> `test_status_member_rereads_group_guide`.
 
