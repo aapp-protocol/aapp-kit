@@ -29,7 +29,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -47,7 +47,7 @@ P-129 gave the bash kit the route (the requester makes an approved change in one
 **Strict Implementation References (`D7`):**
 - **Logging Events Spec (§4.5 `draft`, `refine`, `start`, `done`, `abort` amendment telemetry):** `.plans/pickup/perl-port-logging-events-spec.md`
 - **Tabular Verification Matrix (§3.5 Lifecycle Verbs & Amendments):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
-- **Single Prepared Repository Schema (Epoch E5 Actions A071–A084):** `.plans/pickup/perl-port-single-repo-schema.md`
+- **Single Prepared Repository Schema (Epoch E4 Actions A072–A081, Pool G):** `.plans/pickup/perl-port-single-repo-schema.md`
 
 ---
 
@@ -140,7 +140,7 @@ Amendments actions emit structured telemetry:
 ### Phase 4: Verification & Documentation
 - [ ] Task 4.1: `./aapp test strict quiet` and `t/test-run strict quiet` green; concurrent requests, a claim across two groups and a start refused by an approval checked by hand and recorded in §6 (their tests come with P-134 and P-125).
 - [ ] Task 4.2: Contracts, the amendments template and `templates/AGENTS.md`; the group's `## Architecture & Codemap` by a request to P-112.
-- [ ] Task 4.3: Log every finding outside the Target Files as an issue; none stays in chat only.
+- [ ] Task 4.3: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
