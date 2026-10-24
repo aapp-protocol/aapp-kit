@@ -1,8 +1,8 @@
 # 🗺️ Plan P-120: Perl Commit And Integration
-* **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
+* **Created:** 2026-10-19 | **Last Refined:** 2026-10-24
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-120
-* **Changelog:** Changed: Port commit, branch integration, note, and AI attribution verbs (`commit`, `note`, `ai`) and shared integration engine to `AAPP::Integrate`, `AAPP::Cmd::Commit`, `AAPP::Cmd::Note`, and `AAPP::Cmd::Ai`.
+* **Changelog:** Changed: Port commit, branch integration, note, and AI attribution verbs (`commit`, `note`, `ai`) to `AAPP::Cmd::Commit`, `AAPP::Cmd::Note`, and `AAPP::Cmd::Ai` with structured telemetry per spec.
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -46,6 +46,11 @@ In bash, `aapp commit` and `aapp note stage` shell out to `shasum`/`sha256sum` a
 
 **Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_commit.sh`, `lib/cmd_note.sh`, `lib/cmd_ai.sh`, `aapp`). `tests/`, `t/` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
+**Strict Implementation References (`D7`):**
+- **Logging Events Spec (§4.6 `commit`, `note`, `ai` verbs, §3 Layer 1 `commits.plans`, `commits.decorate`, `notes.attach`):** `.plans/pickup/perl-port-logging-events-spec.md`
+- **Tabular Verification Matrix (§3.6 `commit`, `note`, `ai` verbs):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epoch E6, Actions A070–A078):** `.plans/pickup/perl-port-single-repo-schema.md`
+
 ---
 
 ## 2. Technical Blueprint
@@ -65,6 +70,15 @@ Ports `cmd_ai` from `lib/cmd_ai.sh`:
 - Authoritative syntax, flags, failure modes, and effects: `aapp help ai full` and `lib/docs/verbs/ai.md` (`status`, `none`, `lax`, `strict`, `notes`, `credits`), verified under the unchanged bash suite `tests/verbs/ai.sh` (the Perl files of these verbs come after the ports, P-125).
 - **Amendments (P-129):** `aapp commit "<msg>" amendment <n>` ports P-129's bash behaviour: one commit of the request's file with the `Amendment: R<n>` trailer; for an owner other than the requester it lands at once on the parent branch, rebases the requester and writes the owner's record.
 
+### 2.4 Structured Logging Telemetry (`perl-port-logging-events-spec.md` §3 & §4.6)
+Every verb emits structured JSONL telemetry via `AAPP::Logger::log_event`:
+- **`AAPP::Cmd::Commit` (`post-commit`)**: `command => "commit"`, `event => "commit"|"amend"|"adopt"|"amendment"`. Data payload:
+  `id`, `code_sha`, `plan_sha`, `branch` (`"..."`|`"(detached)"`), `commit_mode`, `changelog_mode`, `changelog_written` (`1`|`0`), `amendment_num` (`"R<n>"`|`""`), `owner_id`, `landed_on` (`""`|`"feature/..."`), `note_ref`.
+- **`AAPP::Cmd::Ai` (`post-ai-mode`)**: `command => "ai"`, `event => "mode"|"notes"|"credits"|"status"`. Data payload:
+  `mode`, `ai_notes` (`"true"`|`"false"`), `credits_updated` (`1`|`0`).
+- **`AAPP::Cmd::Note` (`post-note-<a>`)**: `command => "note"`, `event => "stage"|"push"|"pull"|"status"`. Data payload:
+  `msg_sha`, `buffer_path`, `ref` (`"refs/notes/commits"`|`"refs/notes/ai"`), `remote`.
+
 ### 🔄 Migration & Compatibility Strategy
 - **Transitional Coexistence (`P-120` → `P-122`):** While `commit`, `note`, and `ai` route directly to `AAPP::Cmd::Commit`, `AAPP::Cmd::Note`, and `AAPP::Cmd::Ai` from `aapp`, `lib/cmd_commit.sh`, `lib/cmd_note.sh`, and `lib/cmd_ai.sh` remain as thin shims until `P-122` removes all `lib/*.sh` files.
 
@@ -73,13 +87,13 @@ Ports `cmd_ai` from `lib/cmd_ai.sh`:
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Commit, Note & AI Verbs (`AAPP::Cmd::Commit`, `Note`, `Ai`)
-- [ ] Task 1.1: Implement `lib/AAPP/Cmd/Commit.pm` covering standard plan-bound commits, `amend`, `adopt`, `land` (via `AAPP::Plan`), automatic `CHANGELOG.md` splice, trailer assembly, and `Digest::SHA` staged note buffers.
-- [ ] Task 1.2: Implement `lib/AAPP/Cmd/Note.pm` (`status`, `stage`, `push`, `pull`) and `lib/AAPP/Cmd/Ai.pm` (`status`, `none`, `lax`, `strict`, `notes [on|off]`, `credits`).
+- [ ] Task 1.1: Implement `lib/AAPP/Cmd/Commit.pm` covering standard plan-bound commits, `amend`, `adopt`, `land` (via `AAPP::Plan`), automatic `CHANGELOG.md` splice, trailer assembly, `Digest::SHA` staged note buffers, and structured telemetry (`post-commit`).
+- [ ] Task 1.2: Implement `lib/AAPP/Cmd/Note.pm` (`status`, `stage`, `push`, `pull`, emitting `post-note-*`) and `lib/AAPP/Cmd/Ai.pm` (`status`, `none`, `lax`, `strict`, `notes [on|off]`, `credits`, emitting `post-ai-mode`).
 - [ ] Task 1.3: Wire `commit`, `note`, and `ai` in `./aapp` and slim `lib/cmd_commit.sh`, `lib/cmd_note.sh`, and `lib/cmd_ai.sh` to thin transitional shims.
 
 ### Phase 2: Verification & Documentation
 - [ ] Task 2.1: `./aapp test strict quiet` (the bash suites, `tests/verbs/commit.sh`, `note.sh`, `ai.sh` among them) and `t/test-run strict quiet` (`t/core`) green.
-- [ ] Task 2.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
+- [ ] Task 2.2: Verify `CHANGELOG.md` updates, verify structured telemetry in `.git/aapp.log`, and run `perl -c` syntax checks on all new `.pm` files.
 - [ ] Task 2.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
@@ -112,4 +126,6 @@ Ports `cmd_ai` from `lib/cmd_ai.sh`:
 ## 📦 6. Change Log & Refinement History
 * **2026-10-19:** Plan initialized from `pickup.md` and `.plans/pickup/perl-port-rfc.md`.
 * **2026-10-19:** Refined technical blueprint and blast radius per `§5.1.4` to match `lib/cmd_commit.sh`, `lib/cmd_note.sh`, and `lib/cmd_ai.sh` contracts.
+* **2026-10-24:** Refined technical blueprint, implementation references (D7), and execution checklist with exact structured logging telemetry per logging events spec (§4.6) and test matrix (§3.6).
+
 

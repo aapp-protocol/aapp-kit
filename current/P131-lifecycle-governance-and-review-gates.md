@@ -1,8 +1,8 @@
 # 🗺️ Plan P-131: Lifecycle Governance And Review Gates
-* **Created:** 2026-10-23 | **Last Refined:** 2026-10-23
+* **Created:** 2026-10-23 | **Last Refined:** 2026-10-24
 * **Target Issue / Milestone:** Milestone: v0.10.0
 * **Plan ID:** P-131
-* **Changelog:** Added: pluggable external governance protocol, configurable HITL lifecycle enforcement, and dynamic CLI prompt steering
+* **Changelog:** Added: pluggable external governance protocol, configurable HITL lifecycle enforcement, and dynamic CLI prompt steering with structured telemetry
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 * **Status:** 🟣 Under Review
@@ -66,6 +66,12 @@ This plan delivers a unified, comprehensive architecture for **Lifecycle Governa
 3. Introduce `aapp.governance` modes (`hitl` [default], `strict`, `lax`, `autonomous`) in the core Perl engine.
 4. Dynamically generate CLI error messages, diagnostics, and steering guidance based on active governance mode.
 5. Embed authoritative **Yield Invariants** in all lifecycle skill files (`aapp-plan`, `aapp-digest`, `aapp-freeze`, `aapp-start`, `aapp-done`).
+
+**Strict Implementation References (`D7`):**
+- **Logging Events Spec (§3.5 Layer 1 `governance.check` telemetry):** `.plans/pickup/perl-port-logging-events-spec.md`
+- **Tabular Verification Matrix (§3.5 lifecycle gates):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epoch E5):** `.plans/pickup/perl-port-single-repo-schema.md`
+
 
 ---
 
@@ -190,6 +196,11 @@ Update all lifecycle skills with bold negative constraints:
 - `aapp-start`: Preserve continuous execution for Section 3 implementation, but enforce a hard yield boundary after `aapp commit`, explicitly forbidding unilateral invocation of `aapp done`.
 - `aapp-done`: Require explicit user instruction to archive.
 
+### 2.5 Structured Logging Telemetry (`perl-port-logging-events-spec.md` §3.5)
+On every lifecycle transition check (`freeze`, `start`, `done`, `abort`), `AAPP::Governance::check_gate` emits structured JSONL telemetry via `AAPP::Logger::log_event`:
+- **`AAPP::Governance` (`governance.check`)**: `command => "governance"`, `event => "check"`. Data payload:
+  `action` (`"freeze"`|`"start"`|`"done"`|`"abort"`), `mode` (`"none"`|`"hitl"`|`"strict"`|`"lax"`|`"autonomous"`), `decision` (`"allow"`|`"deny"`|`"warn"`), `id`, `reason`.
+
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default for P-111 Perl port).
 - **Fallback Inventory**: `None`. If `aapp.governanceHandler` is not configured, AAPP operates in internal `hitl` mode without requiring external binaries.
@@ -200,7 +211,7 @@ Update all lifecycle skills with bold negative constraints:
 
 ### Phase 1: Core Governance Architecture & Module (`AAPP::Governance`)
 - [ ] Task 1.1: Author `lib/AAPP/Governance.pm` core module supporting config parsing (`aapp.governance`, `aapp.governanceHandler`, `aapp.governanceTimeout`).
-- [ ] Task 1.2: Implement deterministic IPC execution of external handlers with JSON payload serialization over STDIN and fail-closed timeout guards.
+- [ ] Task 1.2: Implement deterministic IPC execution of external handlers with JSON payload serialization over STDIN, fail-closed timeout guards, and structured telemetry emission (`governance.check`).
 - [ ] Task 1.3: Author unit contract test suite `t/core/governance.t` validating all four modes (`hitl`, `strict`, `lax`, `autonomous`).
 
 ### Phase 2: Dynamic CLI Prompt Steering (`AAPP::Output` & Diagnostics)
@@ -216,7 +227,7 @@ Update all lifecycle skills with bold negative constraints:
 - [ ] Task 3.5: Synchronize behavioral rules in `templates/AGENTS.md`.
 
 ### Phase 4: Verification & Documentation
-- [ ] Task 4.1: Run full test suite (`aapp test`) confirming zero regressions across existing verbs and hooks.
+- [ ] Task 4.1: Run full test suite (`aapp test`) confirming zero regressions across existing verbs and hooks, and verifying telemetry in `.git/aapp.log`.
 - [ ] Task 4.2: Author documentation contract in `lib/docs/core/governance.md` and user guide in `MANUAL.md`.
 - [ ] Task 4.3: Verify single-pass workspace state compatibility with `AAPP::State`.
 
@@ -256,3 +267,5 @@ Update all lifecycle skills with bold negative constraints:
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-23:** Plan drafted as dedicated Group P-111 member to consolidate external governance, HITL lifecycle enforcement, and dynamic CLI steering into a single historical record.
+* **2026-10-24:** Refined technical blueprint, D7 implementation references, and checklist with exact structured logging telemetry for governance checks per logging events spec (§3.5).
+

@@ -1,8 +1,8 @@
 # 🗺️ Plan P-122: Remove Bash Clean Break
-* **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
+* **Created:** 2026-10-19 | **Last Refined:** 2026-10-24
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-122
-* **Changelog:** Changed: Complete the Perl port clean break by converting `./aapp` to a pure `#!/usr/bin/env perl` entry point and deleting all 23 legacy `lib/*.sh` bash modules.
+* **Changelog:** Changed: Complete the Perl port clean break by converting `./aapp` to a pure `#!/usr/bin/env perl` entry point, migrating config key to `aapp.logFile`, and deleting all 30 legacy `lib/*.sh` bash modules.
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -47,6 +47,11 @@ Plan `P-122` is the tenth and final member of group `P-111` (*Perl Port Of The K
 
 **Strict Tests-vs-Code Boundary:** This plan touches **only** `./aapp`, the 30 `lib/*.sh` files, `templates/aapp-lib.sh`, and user-facing docs (`README.md`, `MANUAL.md`). `t/*` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
+**Strict Implementation References (`D7`):**
+- **Logging Events Spec (§2 Unified Telemetry Sink):** `.plans/pickup/perl-port-logging-events-spec.md`
+- **Tabular Verification Matrix:** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epoch E8 Final Switch):** `.plans/pickup/perl-port-single-repo-schema.md`
+
 ---
 
 ## 2. Technical Blueprint
@@ -56,6 +61,8 @@ Replaces the transitional hybrid dispatcher in `./aapp` with the final `#!/usr/b
 - Resolves its own symlink/real path via `Cwd::abs_path(__FILE__)` and `File::Basename::dirname` to locate `<kit-root>/lib` (`use lib ...`) and `$ENV{AAPP_DIR}` / `$AAPP_VERSION`. Where the installed kit is comes from `AAPP::Paths::kit_dir()` (the one answer, OS-aware); the bash dispatcher's own lookup (`$XDG_DATA_HOME/aapp-kit`, `$HOME/.local/share/aapp-kit`) is not carried over as a copy (decided 2026-10-21 in P-115).
 - Dispatches all built-in CLI verbs (`status`, `matrix`, `plan-status`, `help`, `draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `plan`, `issue`, `offline`, `commit`, `note`, `ai`, `init`, `install`, `upgrade`, `uninstall`, `develop`, `push`, `pull`, `sync`, `release`, `companion`, `hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`, `pause`, `resume`, `unpause`, `test`) directly to `AAPP::Cmd::*`.
 - Preserves the action-plugin fallthrough (`aapp` lines 225–245): when an unknown `$verb` matches `^[a-z0-9][a-z0-9_-]*$` and `.agents/skills/$verb` exists in the target repository (and `$ENV{AAPP_PLUGIN_STEP}` is not set), sets `$ENV{AAPP_PLUGIN_STEP} = 1` and dispatches via `AAPP::HookDispatcher::plugin_run($verb, @ARGV)`.
+- **Config Key Clean Break:** Formally renames `aapp.perlLogFile` to `aapp.logFile` (defaulting to `.git/aapp.log`). With bash removed, the Perl logging sink is the sole telemetry channel.
+
 
 ### 2.2 Deletion of All 30 Legacy `lib/*.sh` Files and `templates/aapp-lib.sh`
 Removes every bash library file from `lib/` and `templates/` via `git rm` with zero code naming or migrating the former `.sh` files (any leftover copies in local `.githooks/` checkouts are removed once by hand):
@@ -146,4 +153,6 @@ Removes every bash library file from `lib/` and `templates/` via `git rm` with z
 ## 📦 6. Change Log & Refinement History
 * **2026-10-19:** Plan initialized from `pickup.md` and `.plans/pickup/perl-port-rfc.md`.
 * **2026-10-19:** Refined technical blueprint and blast radius per `§5.1.4` to list all 30 real `lib/*.sh` files, `templates/aapp-lib.sh`, and action-plugin fallthrough in `aapp`.
+* **2026-10-24:** Refined technical blueprint, D7 references, and checklist with config key migration to aapp.logFile and single-repo schema Epoch E8 final switch.
+
 

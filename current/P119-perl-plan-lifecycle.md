@@ -1,8 +1,8 @@
 # 🗺️ Plan P-119: Perl Plan Lifecycle
-* **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
+* **Created:** 2026-10-19 | **Last Refined:** 2026-10-24
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-119
-* **Changelog:** Changed: Port plan lifecycle verbs (`draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, and `plan` subverbs) to `AAPP::Plan` and `AAPP::Cmd::*` modules.
+* **Changelog:** Changed: Port plan lifecycle verbs (`draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, and `plan` subverbs) to `AAPP::Plan` and `AAPP::Cmd::Plan` with structured log event telemetry
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -46,6 +46,11 @@ In bash, every lifecycle transition (`draft -> refine -> tdd -> freeze -> start 
 
 **Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/GroupDocs.pm`, `lib/AAPP/Plan.pm`, `lib/AAPP/Cmd/Plan.pm`, `lib/cmd_plan.sh`, `lib/group_docs.sh`, `aapp`) plus switching `t/core/group_docs.t` and `t/core/integrate.t` from bash `source` wrappers to direct `AAPP::GroupDocs` and `AAPP::Plan` calls per `P-111`'s core-wrapper rule.
 
+**Strict Implementation References (`D7`):**
+- **Logging Events Spec (§4.5 `plan` lifecycle verbs):** `.plans/pickup/perl-port-logging-events-spec.md`
+- **Tabular Verification Matrix (§3.5 `plan` lifecycle verbs):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epoch E5, Actions A051–A069):** `.plans/pickup/perl-port-single-repo-schema.md`
+
 ---
 
 ## 2. Technical Blueprint
@@ -84,6 +89,21 @@ Ports all plan lifecycle verbs from `lib/cmd_plan.sh`, keeping exact behavior, a
 - **`plan`** (`aapp help plan full`, `lib/docs/verbs/plan.md`): plan resolution/query, `conflict-check`, `conflict-free`, and `abort` (archiving to `.plans/aborted/YYYY/MM/` and `.plans/aborted/000-aborted-ledger.md` and reverting promoted issues).
 - **Amendments (P-129):** `refine` (`request … for <plan-id>`, `approve` without the amendments member's Target Files, auto-approval), `done` (closing the requester's requests, recording its own amendment commits by their `Amendment: R<n>` trailer) and `plan abort` (withdrawing them) port P-129's bash behaviour, with the owner's record written in current and archived plans of the same group.
 
+### 2.4 Logging Telemetry (`AAPP::Logger::log_event`)
+Per `.plans/pickup/perl-port-logging-events-spec.md` §4.5, all plan lifecycle actions emit structured telemetry to `.git/aapp.log`:
+- `post-draft`: `plan_id => $id`, `status => $status`, `group => $grp`.
+- `post-refine`: `plan_id => $id`, `subcommand => $sub`, `status => $status`.
+- `post-tdd`: `plan_id => $id`, `tests_count => $n`.
+- `post-freeze`: `plan_id => $id`, `status => 'frozen'`.
+- `post-start`: `plan_id => $id`, `worktree => $wt`, `branch => $branch`.
+- `post-freeze-start`: `plan_id => $id`, `worktree => $wt`, `branch => $branch`.
+- `post-done`: `plan_id => $id`, `integrate => $mode`, `parent_branch => $parent`, `worktree_removed => 0|1`.
+- `post-active`: `plan_id => $id`, `subcommand => $sub`.
+- `post-plan-conflict-check`: `conflicts_count => $n`.
+- `post-plan-conflict-free`: `conflict_free_plans => \@ids`.
+- `post-plan-abort`: `plan_id => $id`, `action => 'abort'`.
+- `group.docs`: `action => 'stamp'|'apply'`, `key => $key`, `sections => \@sections`.
+
 ### 🔄 Migration & Compatibility Strategy
 - **Transitional Coexistence (`P-119` → `P-122`):** `lib/cmd_commit.sh` (`aapp commit land`, ported in `P-120`) calls integration helpers from `lib/cmd_plan.sh` until `P-120` switches `commit` to `AAPP::Cmd::Commit` and `AAPP::Plan`. Keep `lib/cmd_plan.sh` intact for `cmd_commit.sh` until `P-120` completes, then delete `lib/cmd_plan.sh` and `lib/group_docs.sh` in `P-122`.
 
@@ -92,12 +112,12 @@ Ports all plan lifecycle verbs from `lib/cmd_plan.sh`, keeping exact behavior, a
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: GroupDocs & Shared Plan Engine (`AAPP::GroupDocs`, `AAPP::Plan`)
-- [ ] Task 1.1: Implement `lib/AAPP/GroupDocs.pm` (`lib/group_docs.sh`) and switch `t/core/group_docs.t` to call `AAPP::GroupDocs` directly without bash `source` wrappers.
+- [ ] Task 1.1: Implement `lib/AAPP/GroupDocs.pm` (`lib/group_docs.sh`) with `group.docs` event telemetry, and switch `t/core/group_docs.t` to call `AAPP::GroupDocs` directly without bash `source` wrappers.
 - [ ] Task 1.2: Implement `lib/AAPP/Plan.pm` covering counter allocation (`aapp.planId` / `aapp-planid`), template rendering (`plan-template.md`, `group-template.md`, `amendments-template.md`), `_wt_*` worktree management, `_sq_*` branch squashing, `_ig_*` parent-locked integration, and conflict analysis, and switch `t/core/integrate.t` to call `AAPP::Plan` directly.
 
-### Phase 2: Plan Lifecycle Verb Handlers (`AAPP::Cmd::Plan`)
-- [ ] Task 2.1: Implement `draft`, `refine`, `tdd`, `freeze`, `start`, and `freeze-start` in `lib/AAPP/Cmd/Plan.pm`.
-- [ ] Task 2.2: Implement `done`, `active`, and `plan` (`conflict-check`, `conflict-free`, `abort`) in `lib/AAPP/Cmd/Plan.pm` and wire all nine verbs (`draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `plan`) in `./aapp`.
+### Phase 2: Plan Lifecycle Verb Handlers (`AAPP::Cmd::Plan`) with Event Telemetry
+- [ ] Task 2.1: Implement `draft`, `refine`, `tdd`, `freeze`, `start`, and `freeze-start` in `lib/AAPP/Cmd/Plan.pm` with `post-*` event telemetry.
+- [ ] Task 2.2: Implement `done`, `active`, and `plan` (`conflict-check`, `conflict-free`, `abort`) in `lib/AAPP/Cmd/Plan.pm` with `post-*` event telemetry, and wire all nine verbs (`draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `plan`) in `./aapp`.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: `./aapp test strict quiet` (the bash suites, the lifecycle verbs' `tests/verbs/*.sh` among them) and `t/test-run strict quiet` (`t/core`, with `group_docs.t` and `integrate.t`) green.
@@ -112,9 +132,9 @@ Ports all plan lifecycle verbs from `lib/cmd_plan.sh`, keeping exact behavior, a
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `NEW FILE` -> `lib/AAPP/GroupDocs.pm` -> Group `ARCHITECTURE.md` and `CODEMAP.md` base hash stamping, checking, and replacement.
+- [ ] `NEW FILE` -> `lib/AAPP/GroupDocs.pm` -> Group `ARCHITECTURE.md` and `CODEMAP.md` base hash stamping, checking, and replacement with `group.docs` telemetry.
 - [ ] `NEW FILE` -> `lib/AAPP/Plan.pm` -> Shared plan scaffolding, worktree (`_wt_*`), squash (`_sq_*`), parent-locked integration (`_ig_*`), and conflict analysis engine.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Plan.pm` -> `draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, and `plan` (`conflict-check`, `conflict-free`, `abort`) verb handlers.
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Plan.pm` -> `draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, and `plan` (`conflict-check`, `conflict-free`, `abort`) verb handlers with `post-*` telemetry.
 - [ ] `aapp` -> Dispatch `draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, and `plan` to `AAPP::Cmd::Plan`.
 - [ ] `lib/cmd_plan.sh` -> Retained for `lib/cmd_commit.sh` callers until `P-120` or delegated to `AAPP::Plan` until `P-122`.
 - [ ] `lib/group_docs.sh` -> Transitional shim delegating to `AAPP::GroupDocs` until `P-122`.
@@ -133,6 +153,7 @@ Ports all plan lifecycle verbs from `lib/cmd_plan.sh`, keeping exact behavior, a
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** Aligned technical blueprint, logging telemetry (`post-*` lifecycle events, `group.docs`), and execution checklist with `.plans/pickup/perl-port-logging-events-spec.md` and `.plans/pickup/perl-port-test-matrix-tabular-check.md`.
 * **2026-10-19:** Plan initialized from `pickup.md` and `.plans/pickup/perl-port-rfc.md`.
 * **2026-10-19:** Refined technical blueprint and blast radius per `§5.1.4` to match `lib/cmd_plan.sh` (4,495 lines) and `lib/group_docs.sh` (139 lines) contracts.
 

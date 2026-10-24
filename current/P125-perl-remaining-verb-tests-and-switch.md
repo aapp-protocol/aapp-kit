@@ -1,8 +1,8 @@
 # 🗺️ Plan P-125: Perl Remaining Verb Tests And Switch
-* **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
+* **Created:** 2026-10-19 | **Last Refined:** 2026-10-24
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-125
-* **Changelog:** Changed: `aapp test` runs the Perl test engine (`AAPP::Tests`) over `t/` with file, verb, index and name selection; the bash test suites and `tests/` are gone
+* **Changelog:** Changed: `aapp test` runs the Perl test engine (`AAPP::Tests`) over `t/` with file, verb, index and name selection; remaining verb suites verified via event telemetry and byte-offset slicing; bash test suites and `tests/` removed
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -44,15 +44,22 @@ Part 4 of the test migration split from P-114. Ports the remaining verb suites t
 
 The group exists to cut process starts (P-111 §1: ~45k processes in one verb suite, `sys > user` 2:1); these tests serve that goal as P-134's do. The plan runs after the verbs it tests are ported (P-117 issue and offline, P-120 commit, note and ai, P-121 companion and test) and after P-134, whose design it follows (`.plans/pickup/perl-port-test-salvage-rfc.md`, D2–D3). Kit runtime code stays untouched except the `test` verb (`lib/AAPP/Cmd/Test.pm`).
 
+**Strict Implementation References (`D7`):**
+- **Test Salvage RFC:** `.plans/pickup/perl-port-test-salvage-rfc.md`
+- **Tabular Verification Matrix (§3 Remaining Verb Suites, 7 files, 278 tests):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Pools D, F, I, J):** `.plans/pickup/perl-port-single-repo-schema.md`
+- **Logging Events Spec (§4.6, §4.7 & §3 Layer 1):** `.plans/pickup/perl-port-logging-events-spec.md`
+
 ---
 
 ## 2. Technical Blueprint
 1. **Remaining verbs:** `issue` (with its parts: `abort`, `branchplugin`, `branch`, `fixes`, `keyid`, `limits`, `notefilter`, `onecommit`, `provider`, `queue`, `tracker`), `offline`, `commit`, `note`, `ai`, `companion`, `test`; one file per verb, `t/verb/<verb>.t`, one `test_*` sub per contract line.
-2. **The design of P-134 §2.2–2.6:** verbs called as Perl functions through `lib_call` with a thin CLI layer; each file's repositories built once in the fixture by the kit's own writers, a shared step run once in the fixture when several tests read its outcome; facts read from files, git queries batched, setup commits `--no-verify`; checks carried over from the bash suites as shared `check_*` subs; each file's wall, CPU and process count recorded.
+2. **The design of P-134 §2.2–2.6 with Byte-Offset Slicing:** verbs called as Perl functions through `lib_call` with a thin CLI layer. `lib_call` captures `.git/aapp.log` byte slices into `$res->{events}` and `$res->{log_lines}`, asserted via `event_or_die`, `no_event_or_die`, and `log_match_or_die` in `< 0.01ms`; each file's repositories built once in the fixture by the kit's own writers (via Single Prepared Repository Pools D, F, I, J from `perl-port-single-repo-schema.md`), a shared step run once in the fixture when several tests read its outcome; facts read from files (`read_text`, `match_or_die`, `file_exists_or_die`), git queries batched, setup commits `--no-verify`; checks carried over from the bash suites as shared `check_*` subs; each file's wall, CPU and process count recorded.
 3. **P-130's `commit` checks:** `commit … amendment <n>` over the claims reader (P-130 §2.3; P-130 §2.8 writes no tests) is tested in `t/verb/commit.t`, with the contract's `## Tests` lines.
 4. **Contract checker in Perl:** the checks of `tests/verb_contracts_test.sh` move to `t/core/verb_contracts.t` (registry <-> contracts, contract shape, core contracts per test file, every test named both ways, daily verbs in the agent reference, rules-file and skill-index checks, `aapp help` of an unknown verb); its contract `lib/docs/core/verb_contracts.md` follows. Its reads come from files in-process, with no process per check.
 5. **The switch (clean break):** `lib/AAPP/Cmd/Test.pm` (ported by P-121, running the bash suites until here) runs `AAPP::Tests` over `t/` with the runner's selection forms (P-126 §2.1.6) and `strict`, `quiet`, `bail`, `list`, `jobs <n>`; `t/test-run` is deleted and nothing names it. `lib/docs/verbs/test.md` (Ingress, Effects, Tests) and `CHEATSHEET.md` document the forms. The `test` verb file tests the new runner.
 6. **Gate back to one command:** `.agents/hooks/test-gate.sh` `TEST_CMD` returns to `./aapp test strict quiet`; the developer re-registers it with `./aapp hook-hash .agents/hooks/test-gate.sh` before `aapp done`.
+
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
@@ -138,5 +145,7 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** Refined technical blueprint, D7 references, and checklist with single-repo schema fixture pools (Pools D, F, I, J), byte-offset event slicing, and dual-channel test assertions per salvage RFC and matrix.
 * **2026-10-24:** Refined to the RFC (`.plans/pickup/perl-port-test-salvage-rfc.md`, D2–D3): after the verb ports and P-134, verbs tested through Perl functions on fixtures built once, the switch in `lib/AAPP/Cmd/Test.pm` (P-121), every file named.
 * **2026-10-19:** Drafted as part 4 of 4 split from P-114 (remaining verbs, `aapp test` switch, cleanup).
+

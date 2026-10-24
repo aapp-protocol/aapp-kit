@@ -1,5 +1,5 @@
 # 🗺️ Plan P-132: Layered Configuration
-* **Created:** 2026-10-23 | **Last Refined:** 2026-10-23
+* **Created:** 2026-10-23 | **Last Refined:** 2026-10-24
 * **Target Issue / Milestone:** Group P-111 (Perl port)
 * **Plan ID:** P-132
 * **Changelog:** Added: settings can be set in system and user config files above the repository; a higher level always wins
@@ -38,6 +38,12 @@ Decided with the developer (2026-10-23):
 - **Most settings stay in the repository's git config.** The upper levels hold only what must be stricter; a key not set above keeps its repository value, so nothing changes for a project that never uses them.
 - **Single Standard INI File Per Level (`main.conf`):** Instead of sprawling per-repository file directories (`repos/<key>.conf`), each upper level has a single standard INI file (`main.conf`). Global settings sit under `[aapp]`, while per-repository overrides sit in matching subsection blocks (e.g. `[aapp "repo:/path/to/project"]`).
 - **One plan of its own**, so the decision is tracked apart from governance; P-131 reads its keys through this hierarchy.
+
+**Strict Implementation References (`D7`):**
+- **Logging Events Spec:** `.plans/pickup/perl-port-logging-events-spec.md`
+- **Tabular Verification Matrix (§4 Core Test Matrix, `t/core/config.t`):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epoch E5 Layered Configuration):** `.plans/pickup/perl-port-single-repo-schema.md`
+
 
 ---
 
@@ -174,6 +180,7 @@ When resolving a configuration key for an active repository at `primary_root` (`
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** Refined technical blueprint, D7 references, and checklist with single-repo schema and test matrix references.
 * **2026-10-23:** Drafted as a member of group P-111 at the developer's request, from the P-131 review: settings that bind the agent need a place the agent cannot change.
 * **2026-10-23:** One `main.conf` per level with `[aapp "repo:<path>"]` blocks matched on the primary checkout root; dotted keys inside a repository block.
 * **2026-10-23:** Upper levels take allow-listed administrative keys only (commit message lengths included, as team or user preferences); the kit reads them and never writes them, no setter; the allow-list sits at the top of `AAPP::Config`.

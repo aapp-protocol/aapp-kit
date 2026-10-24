@@ -2,7 +2,7 @@
 * **Created:** 2026-10-24 | **Last Refined:** 2026-10-24
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-134
-* **Changelog:** Changed: the read-only and plan lifecycle verbs are tested in Perl (`t/verb/*.t`) through their Perl functions, on fixtures built once per file
+* **Changelog:** Changed: the read-only and plan lifecycle verbs are tested in Perl (`t/verb/*.t`) through their Perl functions on fixtures built once per file, verified via byte-offset event slicing and dual-channel assertions per test salvage RFC and matrix
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -44,17 +44,25 @@ Redraft of P-124 (aborted: `.plans/aborted/P124-perl-lifecycle-verb-test-modules
 
 The group exists to cut process starts (P-111 §1: ~45k processes in one verb suite, `sys > user` 2:1). These tests serve that goal: the verbs are called as Perl functions, each file builds its repositories once, and a test starts as few processes as its contract line needs. The plan runs after the verbs it tests are ported to `AAPP::Cmd::*` (P-118 read-only, P-119 lifecycle). Kit runtime code stays untouched.
 
+**Strict Implementation References (`D7`):**
+- **Test Salvage RFC:** `.plans/pickup/perl-port-test-salvage-rfc.md`
+- **Tabular Verification Matrix (§3 Lifecycle & Read-Only Verb Suites, 13 files, 248+ tests):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epochs E1, E3, E4, E5):** `.plans/pickup/perl-port-single-repo-schema.md`
+- **Logging Events Spec (§4.4 & §4.5):** `.plans/pickup/perl-port-logging-events-spec.md`
+
 ---
 
 ## 2. Technical Blueprint
 1. **Scope:** `status`, `matrix`, `plan-status`, `help`, `draft`, `refine`, `tdd`, `freeze`, `freeze-start`, `active`, `start` (with its worktree and group parts), `done` (with its worktree, squash and closes parts), `plan` (with `abort`); one file per verb, `t/verb/<verb>.t`, package `AAPP::T::Verb::<Name>`, one `test_*` sub per contract line, identifiers `t/verb/<verb>.t::test_<name>`.
-2. **Verb calls through Perl functions:** a test calls the verb's `AAPP::Cmd::*` function with `lib_call` (a fork of the test: no new program, fresh state per call) and checks `ret` (the return number first), `out`, `err` and the files. A thin CLI layer per verb (`run_aapp`) covers argument parsing, exit codes, stderr and the JSON error document.
-3. **Repositories built once:** each file's `fixture` builds one repository, or very few (one per scenario, in subfolders), with the kit's own writers through `lib_call` or one CLI build; each test works on a copy. When several tests read the outcome of the same step, the fixture runs that step once and keeps its output; those tests only read.
-4. **Few processes in checks:** facts come from files (`.git/aapp_active_plan`, `.git/config`, plan files, ledgers); the remaining git queries are batched (`git rev-parse A B C`, `git log -1 --format=…`); setup commits that do not test the hooks use `--no-verify`.
-5. **Salvage:** each test of `ref/p124-cli-tests` splits into *state* (→ the fixture), *action* (→ the function call, or `run_aapp` in the CLI layer) and *checks* (→ shared `check_*` subs reading files and the result record). Exit-code checks become return-number checks (`AAPP::Constants`). A salvage inventory per verb (test → state → action → checks), kept in `.plans/pickup/`, decides the fixtures before code is written. `start` and `status` carry P-133's wording.
-6. **Measured:** each file's wall time, CPU time and process count, recorded in §6 against the bash suites it replaces.
-7. **P-130's checks:** the amendments ledger (P-130 §2.0–2.5, §2.7, §2.9; P-130 §2.8 writes no tests) is tested here, in `refine.t`, `done.t`, `start.t`, `freeze-start.t`, `plan-status.t` and `draft.t`, with their contracts' `## Tests` lines; the checks P-130 recorded by hand in its §6 (concurrent requests, a claim across two groups, a start refused by an approval) become tests.
-8. **Needs first:** the engine changes of the RFC (R4), made in `lib/AAPP/Tests.pm` by amendment: `copy_fixture` rewrites every worktree pointer it copies; a fixture may hold several scenario projects; #192.
+2. **Verb calls through Perl functions with Byte-Offset Slicing:** a test calls the verb's `AAPP::Cmd::*` function with `lib_call` (a fork of the test: no new program, fresh state per call). `lib_call` records byte offsets into `.git/aapp.log` before and after invocation, parsing the emitted slice into `$res->{events}` (structured JSON objects) and `$res->{log_lines}`. Tests assert results via `event_or_die`, `no_event_or_die`, and `log_match_or_die` in `< 0.01ms`.
+3. **Dual-Channel Verification:** `event_or_die` proves the verb logic, dispatch, and parameters occurred; `read_text` / `match_or_die` / `file_exists_or_die` prove the durable state effect on disk without spawning shell subprocesses.
+4. **Repositories built once:** each file's `fixture` builds one repository, or very few (one per scenario, in subfolders via the Single Prepared Repository pools from `perl-port-single-repo-schema.md`), with the kit's own writers through `lib_call` or one CLI build; each test works on an isolated copy or sandbox. When several tests read the outcome of the same step, the fixture runs that step once and keeps its output; those tests only read.
+5. **Few processes in checks:** facts come from files (`.git/aapp_active_plan`, `.git/config`, plan files, ledgers); the remaining git queries are batched (`git rev-parse A B C`, `git log -1 --format=…`); setup commits that do not test the hooks use `--no-verify`.
+6. **Salvage:** each test of `ref/p124-cli-tests` splits into *state* (→ the fixture), *action* (→ the function call, or `run_aapp` in the CLI layer) and *checks* (→ shared `check_*` subs reading files and the result record). Exit-code checks become return-number checks (`AAPP::Constants`). A salvage inventory per verb (test → state → action → checks), kept in `.plans/pickup/`, decides the fixtures before code is written. `start` and `status` carry P-133's wording.
+7. **Measured:** each file's wall time, CPU time and process count, recorded in §6 against the bash suites it replaces.
+8. **P-130's checks:** the amendments ledger (P-130 §2.0–2.5, §2.7, §2.9; P-130 §2.8 writes no tests) is tested here, in `refine.t`, `done.t`, `start.t`, `freeze-start.t`, `plan-status.t` and `draft.t`, with their contracts' `## Tests` lines; the checks P-130 recorded by hand in its §6 (concurrent requests, a claim across two groups, a start refused by an approval) become tests.
+9. **Needs first:** the engine changes of the RFC (R4), made in `lib/AAPP/Tests.pm` by amendment: `copy_fixture` rewrites every worktree pointer it copies; a fixture may hold several scenario projects; #192.
+
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
@@ -153,3 +161,5 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-24:** Drafted as the redraft of P-124 (aborted): verb tests through Perl functions on fixtures built once, design from `.plans/pickup/perl-port-test-salvage-rfc.md`, checks salvaged from `ref/p124-cli-tests`.
+* **2026-10-24:** Refined technical blueprint, D7 references, and checklist with single-repo schema fixture pools, byte-offset event slicing, and dual-channel test assertion helpers per salvage RFC and matrix.
+

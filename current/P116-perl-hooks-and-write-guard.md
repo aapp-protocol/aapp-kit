@@ -1,8 +1,8 @@
 # 🗺️ Plan P-116: Perl Hooks And Write Guard
-* **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
+* **Created:** 2026-10-19 | **Last Refined:** 2026-10-24
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-116
-* **Changelog:** Changed: port `aapp-pre-commit`, `aapp-commit-msg`, `aapp-post-commit`, `aapp-post-rewrite`, `blast-radius-guard` and `AAPP::HookDispatcher` to Perl 5.26+ over `AAPP::State`
+* **Changelog:** Changed: port `aapp-pre-commit`, `aapp-commit-msg`, `aapp-post-commit`, `aapp-post-rewrite`, `blast-radius-guard` and `AAPP::HookDispatcher` to Perl 5.26+ over `AAPP::State` with structured log event telemetry
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -42,6 +42,11 @@
 ## 1. Context & Architectural Goal
 `pre-commit` alone accounts for ~25% of all process spawns (~130 processes per commit), reading the active-plan buffer 4×, looping `.plans/current/*.md` 4×, and spawning multiple `awk`/`sed`/`grep` pipelines per plan and ledger. Porting the Git hooks (`templates/aapp-pre-commit`, `templates/aapp-pre-commit-develop`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`), `templates/blast-radius-guard.sh`, `lib/AAPP/HookDispatcher.pm` (`lib/hook_dispatcher.sh`, 509 lines), and `lib/AAPP/Attribution.pm` (`lib/attribution.sh`, 271 lines) to Perl 5.26+ as thin layers over `AAPP::State` (`P-115`) collapses ~130 process spawns per commit to 2–3 `git` queries.
 
+**Strict Implementation References (`D7`):**
+- **Logging Events Spec (§2–§4):** `.plans/pickup/perl-port-logging-events-spec.md`
+- **Tabular Verification Matrix (§4 Core Suites):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epoch E2, Actions A022–A031):** `.plans/pickup/perl-port-single-repo-schema.md`
+
 ---
 
 ## 2. Technical Blueprint
@@ -61,6 +66,14 @@
 5. **Modules from the installed kit:** Hook entrypoints load `AAPP::*` from the kit's `lib/`: `$AAPP_LIB` when an `aapp` verb runs the hook, else `${XDG_DATA_HOME:-$HOME/.local/share}/aapp-kit/lib`. Nothing is copied into `.githooks/`. A guard that finds no `AAPP/JSON.pm` there refuses (exit 2). Once the hooks are Perl, they ask `AAPP::Paths::kit_dir()` (the one answer, OS-aware) instead of repeating the rule the bash templates spell out. (Decided in P-115, 2026-10-21.)
 6. **Amendments (P-129):** the guard and the pre-commit hook port P-129's bash behaviour: the file of an approved amendment request naming the bound plan as requester is a target of that plan until its commit; the design lock accepts an owner's amendment lines (its Target Files line and its `### Amendments` line), in an archived owner too.
 
+### 2.2 Logging Telemetry (`AAPP::Logger::log_event`)
+Per `.plans/pickup/perl-port-logging-events-spec.md` §2–§4, all ported hook modules emit structured telemetry into `.git/aapp.log`:
+1. `AAPP::HookDispatcher`: emits `hook.dispatch` (`kind => 'hook'|'plugin'`, `name => $hook`, `status => 'ok'|'veto'|'timeout'`, `payload_keys => \@keys`, `error => $msg`).
+2. `AAPP::Attribution`: emits `commits.decorate` (`mode => $mode`, `trailers_added => 0|1`, `status => $status`) and `notes.attach` (`ref => 'refs/notes/ai'|'refs/notes/commits'`, `action => 'add'|'rewrite'`).
+3. `AAPP::Hooks::WriteGuard`: emits `guard.check` (`tool => $tool`, `path => $path`, `decision => 'allow'|'deny'`, `reason => $reason`).
+4. `AAPP::Hooks::PreCommit`: emits `health.veto` (`pair => $n`, `rule => $rule`, `reason => $reason`) and `commits.plans` (`sha => $sha`, `branch => $branch`, `plan => $plan_id`).
+5. `AAPP::Hooks::PostCommit`: emits `post-commit` (`sha => $sha`, `branch => $branch`, `trailers => \@trailers`, `notes => \@notes`).
+
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Backwards Compatible` (Transitional bash/Perl coexistence within group `P-111` until `P-122`)
 - **Fallback Inventory**:
@@ -71,12 +84,12 @@
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Hook Modules (`lib/AAPP/HookDispatcher.pm`, `lib/AAPP/Attribution.pm`, `lib/AAPP/Hooks/*.pm`)
-- [ ] Task 1.1: Implement `lib/AAPP/HookDispatcher.pm` and `lib/AAPP/Attribution.pm` (trailer validation, identity resolution, and note staging).
-- [ ] Task 1.2: Implement `lib/AAPP/Hooks/PreCommit.pm`, `lib/AAPP/Hooks/PreCommitDevelop.pm`, `lib/AAPP/Hooks/CommitMsg.pm`, `lib/AAPP/Hooks/PostCommit.pm`, `lib/AAPP/Hooks/PostRewrite.pm`, and `lib/AAPP/Hooks/WriteGuard.pm` over `AAPP::State`.
+- [ ] Task 1.1: Implement `lib/AAPP/HookDispatcher.pm` and `lib/AAPP/Attribution.pm` (trailer validation, identity resolution, note staging, and `hook.dispatch` / `commits.decorate` / `notes.attach` event telemetry).
+- [ ] Task 1.2: Implement `lib/AAPP/Hooks/PreCommit.pm`, `lib/AAPP/Hooks/PreCommitDevelop.pm`, `lib/AAPP/Hooks/CommitMsg.pm`, `lib/AAPP/Hooks/PostCommit.pm`, `lib/AAPP/Hooks/PostRewrite.pm`, and `lib/AAPP/Hooks/WriteGuard.pm` over `AAPP::State` with `health.veto`, `commits.plans`, `guard.check`, and `post-commit` telemetry.
 
 ### Phase 2: Hook Entrypoint Templates & Core Wrapper Tests
 - [ ] Task 2.1: Update `templates/aapp-pre-commit`, `templates/aapp-pre-commit-develop`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`, `templates/blast-radius-guard.sh`, `templates/pre-commit`, `templates/commit-msg`, `templates/post-commit`, and `templates/post-rewrite` to invoke Perl, loading `AAPP::*` from the installed kit (item 5); `lib/cmd_init.sh` copies no Perl modules.
-- [ ] Task 2.2: Switch any direct core wrapper calls in `t/core/*.t` for `hook_dispatcher` and `attribution` to `AAPP::HookDispatcher` and `AAPP::Attribution`.
+- [ ] Task 2.2: Switch direct core wrapper calls in `t/core/hooks.t`, `t/core/write-guard.t`, and `t/core/pre-commit.t` to `AAPP::HookDispatcher`, `AAPP::Attribution`, `AAPP::Hooks::WriteGuard`, and `AAPP::Hooks::PreCommit`.
 - [ ] Task 2.3: Once the Perl core asks the `aapp-planid` provider, turn on `t/core/plan_resolver.t::test_plan_id_provider`: remove its skip and write its checks from its contract line (P-123 left it skipped, R28 in P-112).
 
 ### Phase 3: Verification
@@ -105,8 +118,10 @@
 - [ ] `templates/commit-msg` -> Execute `aapp-commit-msg` directly.
 - [ ] `templates/post-commit` -> Execute `aapp-post-commit` directly.
 - [ ] `templates/post-rewrite` -> Execute `aapp-post-rewrite` directly.
-- [ ] `lib/cmd_init.sh` -> Copy `lib/AAPP/Hooks/*.pm`, `lib/AAPP/HookDispatcher.pm`, and `lib/AAPP/Attribution.pm` into `.githooks/AAPP/`.
-- [ ] `t/core/*.t` -> Switch core wrapper tests for `hook_dispatcher` and `attribution` to `AAPP::HookDispatcher` and `AAPP::Attribution`.
+- [ ] `t/core/plan_resolver.t` -> Unskip `test_plan_id_provider` once Perl core asks provider (R28).
+- [ ] `t/core/hooks.t` -> Switch core wrapper calls to `AAPP::HookDispatcher`.
+- [ ] `t/core/write-guard.t` -> Switch core wrapper calls to `AAPP::Hooks::WriteGuard`.
+- [ ] `t/core/pre-commit.t` -> Switch core wrapper calls to `AAPP::Hooks::PreCommit`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/AAPP/Tests.pm` -> Test harness runner is untouched.
@@ -120,6 +135,7 @@
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** Aligned technical blueprint, logging telemetry (`hook.dispatch`, `commits.decorate`, `notes.attach`, `guard.check`, `health.veto`, `commits.plans`, `post-commit`), and target files with `.plans/pickup/perl-port-logging-events-spec.md` and `.plans/pickup/perl-port-test-matrix-tabular-check.md`.
 * **2026-10-19:** Plan drafted as member 4 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
 * **2026-10-19:** Added `templates/aapp-pre-commit-develop` (`AAPP::Hooks::PreCommitDevelop`), registered `hook_dispatcher.sh`/`attribution.sh` coexistence in §2, and updated test paths to `t/*` per RFC §5.1.3 & §5.1.5.
 

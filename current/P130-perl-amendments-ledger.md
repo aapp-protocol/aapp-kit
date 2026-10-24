@@ -1,8 +1,8 @@
 # 🗺️ Plan P-130: Perl Amendments Ledger
-* **Created:** 2026-10-23 | **Last Refined:** 2026-10-23
+* **Created:** 2026-10-23 | **Last Refined:** 2026-10-24
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-130
-* **Changelog:** Changed: the amendments ledger enforces each request's owner plan and reason, checks every claim on a file across plans and ledgers, and keeps no worktree of its own
+* **Changelog:** Changed: the amendments ledger enforces each request's owner plan and reason, checks every claim on a file across plans and ledgers, emits structured telemetry, and keeps no worktree of its own
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -44,9 +44,15 @@ A group's amendments member is the group's central ledger: every change to the g
 
 P-129 gave the bash kit the route (the requester makes an approved change in one commit; for another owner it lands at once on the parent and the owner records it; the requester's `done` closes its requests). What it lacks is built here once, in Perl, on the modules P-116 (hooks), P-119 (`refine`, `start`, `done`, `plan abort`) and P-120 (`commit`) port: the owner is enforced from the group's own records, every request says why, every claim on a file is checked across plans and ledgers, and the ledger needs no worktree. The bash kit keeps P-129's behaviour unchanged.
 
+**Strict Implementation References (`D7`):**
+- **Logging Events Spec (§4.5 `draft`, `refine`, `start`, `done`, `abort` amendment telemetry):** `.plans/pickup/perl-port-logging-events-spec.md`
+- **Tabular Verification Matrix (§3.5 Lifecycle Verbs & Amendments):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epoch E5 Actions A071–A084):** `.plans/pickup/perl-port-single-repo-schema.md`
+
 ---
 
 ## 2. Technical Blueprint
+
 
 ### 2.0 The ledger is addressed by its group
 Every group has one amendments member, so the ledger is reached through the group's ID, which people and orchestrators know; with several groups active it names the one meant. `amends` is a reserved word in place of the plan ID (as `pickup` and `issues` are), checked before plan resolution; the group ID is always given, never taken from the checkout, and a plan that is not a group plan is refused:
@@ -99,6 +105,14 @@ Today a heading `decision` may change only `## Architecture & Codemap`: §1–§
 
 ### 2.8 Tests come with the Perl verb tests
 This plan writes no tests: its checks go into the Perl verb files when they are written, P-134 (`refine`, `done`, `start`, `freeze-start`, `plan-status`, `draft`) and P-125 (`commit`), with their contracts' `## Tests` lines (the engine refuses a contract naming a test file that does not exist). Until then the bash suites stay the safety net: they run against the Perl verbs, so an assertion this plan's behaviour contradicts (the `<amend-id>` form, a request without its why, the amendments member's worktree) is adapted to the new behaviour in the same commit as the change; no bash test is added. What no test covers until P-134 and P-125 (concurrent requests, a claim across two groups, a start refused by an approval) is checked by hand and recorded in §6.
+
+### 2.10 Structured Logging Telemetry (`perl-port-logging-events-spec.md` §4.5)
+Amendments actions emit structured telemetry:
+- `post-draft`: `amend_id`, `r_num`, `why`.
+- `post-refine`: `target => "amends"`, `subaction => "request"|"deviation"|"approve"|"refuse"|"decision"`, `r_num`, `owner`, `why`, `file`.
+- `post-done`: `closed_requests`.
+- `post-abort`: `withdrawn_requests`.
+- `post-commit`: `amendment_num`, `owner_id`, `landed_on`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
@@ -166,7 +180,9 @@ This plan writes no tests: its checks go into the Perl verb files when they are 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** Refined technical blueprint, D7 references, and checklist with exact structured logging telemetry for amendments actions per logging events spec (§4.5).
 * **2026-10-24:** No tests of its own (§2.8, with the developer): its checks go into P-134 and P-125's Perl verb files; the bash assertions it contradicts are adapted; its place stays after P-120, before P-121.
+
 * **2026-10-24:** §2.7 added with the developer: a member drafted or moved into a group in development writes its own R line with a required why (P-131 and P-132 were recorded by hand as R39 and R40); before the group starts nothing is written.
 * **2026-10-23:** The ledger is addressed by its group (`refine amends <group-id> …`, `plan-status <group-id> amends`); deviation defined; both questions decided with the developer.
 * **2026-10-23:** Drafted from the review of P-129 with the developer: the owner enforced, the why required, claims checked across plans and ledgers, the ledger without a worktree, built in Perl only.

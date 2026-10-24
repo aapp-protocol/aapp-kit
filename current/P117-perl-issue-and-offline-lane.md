@@ -1,8 +1,8 @@
 # 🗺️ Plan P-117: Perl Issue And Offline Lane
-* **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
+* **Created:** 2026-10-19 | **Last Refined:** 2026-10-24
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-117
-* **Changelog:** Changed: Port the issue lane (`aapp issue` all subverbs and fix-worktree helpers) and offline queue (`aapp offline`) to `AAPP::Issue`, `AAPP::Cmd::Issue`, and `AAPP::Cmd::Offline`, eliminating multi-pass `awk`/`git notes` subprocess loops.
+* **Changelog:** Changed: port `aapp issue` and `aapp offline` to Perl 5.26+ with structured `post-issue-*` and `post-offline-*` log event telemetry
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -46,6 +46,11 @@ In bash, `cmd_issue` spawns multiple `awk`/`sed` passes across `.plans/ISSUES.md
 
 **Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Issue.pm`, `lib/AAPP/Cmd/Issue.pm`, `lib/AAPP/Cmd/Offline.pm`, `lib/cmd_issue.sh`, `lib/cmd_offline.sh`, `aapp`). `tests/`, `t/` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
+**Strict Implementation References (`D7`):**
+- **Logging Events Spec (§4.2 `issue`, §4.3 `offline`):** `.plans/pickup/perl-port-logging-events-spec.md`
+- **Tabular Verification Matrix (§3.2 `issue`, §3.3 `offline`):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epoch E3, Actions A032–A041):** `.plans/pickup/perl-port-single-repo-schema.md`
+
 ---
 
 ## 2. Technical Blueprint
@@ -71,6 +76,11 @@ Ports `cmd_offline` from `lib/cmd_offline.sh`:
 - Authoritative syntax, flags, failure modes, and effects: `aapp help offline full` and `lib/docs/verbs/offline.md` (`mount`, `unmount`, `on`, `off`, `status`, `sync`), verified under the unchanged bash suite `tests/verbs/offline.sh`.
 - Manages the `.offline/` worktree on orphan branch `offline`, recording offline tracker operations in `.offline/outbox` and closed issue rows in `.offline/closed.rows` when `aapp.offline=true`, and replaying them against `aapp-issue-tracker` on `sync`.
 
+### 2.4 Logging Telemetry (`AAPP::Logger::log_event`)
+Per `.plans/pickup/perl-port-logging-events-spec.md` §4.2 & §4.3, each subverb emits structured telemetry to `.git/aapp.log`:
+- `AAPP::Cmd::Issue`: emits `post-issue-log` (`id => $num`, `severity => $sev`, `type => $type`), `post-issue-hotfix` (`id => $num`, `blocked_plan => $plan_id`), `post-issue-fix` (`id => $num`, `action => 'start'|'abort'`), `post-issue-queue` (`id => $num`, `priority => $pri`), `post-issue-close` (`id => $num`, `sha => $sha`), `post-issue-abort` (`id => $num`, `action => 'abort'`), and `post-issue-list` (`count => $n`, `filter => $filter`).
+- `AAPP::Cmd::Offline`: emits `post-offline-mount` (`dir => $dir`), `post-offline-unmount` (`dir => $dir`), `post-offline-on` (`status => 'on'`), `post-offline-off` (`status => 'off'`), `post-offline-status` (`status => $status`, `outbox_count => $n`), and `post-offline-sync` (`synced_count => $n`).
+
 ### 🔄 Migration & Compatibility Strategy
 - **Transitional Coexistence (`P-117` → `P-122`):** While `aapp issue` and `aapp offline` dispatch to `AAPP::Cmd::Issue` and `AAPP::Cmd::Offline`, `lib/cmd_plan.sh` (`aapp done` and `aapp refine issues`, ported in `P-119`) and `lib/cmd_status.sh` (`aapp status`, ported in `P-118`) still call bash helpers in `lib/cmd_issue.sh` (`issue_unblock_plans`, `issue_unblock_landed`, `issue_sync`, `issue_provider`, `issue_data_path`, `issue_note_append`) and `lib/cmd_offline.sh` (`offline_enabled`, `offline_record_close`). Either `lib/cmd_issue.sh` and `lib/cmd_offline.sh` remain intact for bash callers until `P-119` completes, or their shared functions delegate to `perl -I"$AAPP_DIR/lib" -MAAPP::Issue` until `P-122` deletes both `.sh` files.
 
@@ -84,9 +94,9 @@ Ports `cmd_offline` from `lib/cmd_offline.sh`:
 ### Phase 1: Issue Domain Module (`AAPP::Issue`)
 - [ ] Task 1.1: Implement `lib/AAPP/Issue.pm` with `aapp.issueId` / `aapp-issue-tracker` ID allocation, `.plans/ISSUES.md` / `.plans/done/000-issues-archive.md` / `.plans/aborted/000-aborted-ledger.md` / `.plans/issues_road_map.md` manipulation, external `issues-data.md` reader/writer, and `issue_unblock_plans` / `issue_unblock_landed` / `issue_bring_fix_to_groups`.
 
-### Phase 2: `AAPP::Cmd::Issue` & `AAPP::Cmd::Offline`
-- [ ] Task 2.1: Implement `lib/AAPP/Cmd/Issue.pm` covering `log`, `hotfix`, `fix` (`next-blocker`, `<num>`, `abort`), `queue`, `close`, `abort`, `list`, and `list note`.
-- [ ] Task 2.2: Implement `lib/AAPP/Cmd/Offline.pm` covering `mount`, `unmount`, `on`, `off`, `status`, and `sync` over the `.offline/` worktree.
+### Phase 2: `AAPP::Cmd::Issue` & `AAPP::Cmd::Offline` with Event Telemetry
+- [ ] Task 2.1: Implement `lib/AAPP/Cmd/Issue.pm` covering `log`, `hotfix`, `fix` (`next-blocker`, `<num>`, `abort`), `queue`, `close`, `abort`, `list`, and `list note` with `post-issue-*` event logging.
+- [ ] Task 2.2: Implement `lib/AAPP/Cmd/Offline.pm` covering `mount`, `unmount`, `on`, `off`, `status`, and `sync` over the `.offline/` worktree with `post-offline-*` event logging.
 - [ ] Task 2.3: Route `issue` and `offline` in `./aapp` to `AAPP::Cmd::Issue` and `AAPP::Cmd::Offline`, preserving bash helper availability in `lib/cmd_issue.sh` and `lib/cmd_offline.sh` until `P-119`/`P-122`.
 
 ### Phase 3: Verification & Documentation
@@ -103,8 +113,8 @@ Ports `cmd_offline` from `lib/cmd_offline.sh`:
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `NEW FILE` -> `lib/AAPP/Issue.pm` -> Shared issue domain logic, ledger/roadmap/archive mutation, `issues-data.md` store, tracker bridge, and plan-unblocking helpers.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Issue.pm` -> `aapp issue` subverb implementations (`log`, `hotfix`, `fix`, `queue`, `close`, `abort`, `list`, `list note`).
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Offline.pm` -> `aapp offline` subverb implementations (`mount`, `unmount`, `on`, `off`, `status`, `sync`).
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Issue.pm` -> `aapp issue` subverb implementations with `post-issue-*` telemetry (`log`, `hotfix`, `fix`, `queue`, `close`, `abort`, `list`, `list note`).
+- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Offline.pm` -> `aapp offline` subverb implementations with `post-offline-*` telemetry (`mount`, `unmount`, `on`, `off`, `status`, `sync`).
 - [ ] `aapp` -> Dispatch `issue` and `offline` verbs directly to `AAPP::Cmd::Issue` and `AAPP::Cmd::Offline`.
 - [ ] `lib/cmd_issue.sh` -> Transitional shim delegating remaining bash helper calls to `AAPP::Issue` until `P-122` deletes `lib/*.sh`.
 - [ ] `lib/cmd_offline.sh` -> Transitional shim delegating remaining bash helper calls to `AAPP::Cmd::Offline` until `P-122` deletes `lib/*.sh`.
@@ -121,6 +131,7 @@ Ports `cmd_offline` from `lib/cmd_offline.sh`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** Aligned technical blueprint, logging telemetry (`post-issue-*`, `post-offline-*`), and execution steps with `.plans/pickup/perl-port-logging-events-spec.md` and `.plans/pickup/perl-port-test-matrix-tabular-check.md`.
 * **2026-10-19:** Plan initialized from `pickup.md` and `.plans/pickup/perl-port-rfc.md`.
 * **2026-10-19:** Refined technical blueprint and blast radius per `§5.1.4` to match `lib/cmd_issue.sh` and `lib/cmd_offline.sh` contracts.
 

@@ -1,8 +1,8 @@
 # 🗺️ Plan P-121: Perl Setup And Release
-* **Created:** 2026-10-19 | **Last Refined:** 2026-10-19
+* **Created:** 2026-10-19 | **Last Refined:** 2026-10-24
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-121
-* **Changelog:** Changed: Port setup, release, companion, hook, pause/resume, and test runner verbs (`init`, `install`, `upgrade`, `uninstall`, `develop`, `sync`, `release`, `companion`, `hook`, `pause`, `resume`, `test`) to `AAPP::Cmd::*` modules, retiring the last `python3` calls in `cmd_init.sh` and `cmd_pause.sh`.
+* **Changelog:** Changed: Port setup, release, companion, hook, pause/resume, and test runner verbs (`init`, `install`, `upgrade`, `uninstall`, `develop`, `sync`, `release`, `companion`, `hook`, `pause`, `resume`, `test`) to `AAPP::Cmd::*` modules with structured telemetry per spec, retiring the last `python3` calls in `cmd_init.sh` and `cmd_pause.sh`.
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -59,6 +59,11 @@ This plan also eliminates the remaining `python3` invocations in the kit's own C
 
 **Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Cmd/*.pm`, `lib/cmd_*.sh`, `aapp`). `tests/`, `t/` and `lib/docs/verbs/*.md` are out of bounds and must pass unchanged.
 
+**Strict Implementation References (`D7`):**
+- **Logging Events Spec (§4.7 setup, companion, sync, test, hook, and release verbs, §3 Layer 1 `hook.dispatch`):** `.plans/pickup/perl-port-logging-events-spec.md`
+- **Tabular Verification Matrix (§3.7 setup and release verbs):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epochs E2 & E6):** `.plans/pickup/perl-port-single-repo-schema.md`
+
 ---
 
 ## 2. Technical Blueprint
@@ -85,6 +90,18 @@ Each module preserves the exact behavior, arguments, failure modes, and side eff
 - **`lib/AAPP/Cmd/Pause.pm` (`lib/cmd_pause.sh`, 584 lines; `lib/docs/verbs/pause.md`, `resume.md`):** Ports `pause`, `resume`, and `unpause` (`aapp help pause full`, `aapp help resume full`), serializing and reading the pause snapshot via `AAPP::JSON` (zero `python3`).
 - **`lib/AAPP/Cmd/Test.pm` (`lib/cmd_test.sh`, 397 lines; `lib/docs/verbs/test.md`):** Ports `test` (`aapp help test full`) keeping what it runs today: the bash suites in `tests/`, the safety net of the ports (`t/` runs through `t/test-run` and the gate's second command). P-125, after this plan, switches `aapp test` to the test engine `lib/AAPP/Tests.pm` (P-126) alone.
 
+### 2.4 Structured Logging Telemetry (`perl-port-logging-events-spec.md` §3 & §4.7)
+Every verb emits structured JSONL telemetry via `AAPP::Logger::log_event`:
+- **`AAPP::Cmd::Companion` (`post-companion-<a>`)**: `command => "companion"`, `event => "add"|"push"|"remove"|"status"`. Data payload:
+  `name`, `mode` (`"checkout"`|`"worktree"`), `path`, `dirty`, `ahead`, `behind`.
+- **`AAPP::Cmd::Sync` (`post-sync`)**: `command => "sync"`, `event => "sync"`. Data payload:
+  `action` (`"pull_push"`|`"pull"`|`"push"`), `remote`, `worktrees` (`[...]`), `status` (`"ok"`|`"failed"`).
+- **`AAPP::Runner` / `AAPP::Cmd::Test` (`post-test`)**: `command => "test"`, `event => "suite"`. Data payload:
+  `mode` (`"all"`|`"verb"`|`"core"`), `jobs`, `total`, `passed`, `failed`, `duration_ms`.
+- **`AAPP::HookDispatcher` (`hook.dispatch`)**: `command => "hook"`, `event => "dispatch"`. Data payload:
+  `kind` (`"hook"`|`"plugin"`), `name`, `step`, `called` (`1`|`0`), `skip_reason`, `status`, `payload_keys` (`[...]`), `response` (`{...}`).
+- **`AAPP::Cmd::Release` / `Pause` / `Init`**: Emit structured lifecycle progress and completion events (`post-release`, `post-pause`, `post-resume`, `post-init`).
+
 ### 🔄 Migration & Compatibility Strategy
 - **Transitional Coexistence (`P-121` → `P-122`):** All 11 `lib/cmd_*.sh` files are slimmed to thin shims (or retained unused once `aapp` routes every verb to `AAPP::Cmd::*`) until `P-122` deletes all 30 `lib/*.sh` files in one clean break.
 
@@ -93,16 +110,16 @@ Each module preserves the exact behavior, arguments, failure modes, and side eff
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Setup & Lifecycle (`Init`, `Install`, `Upgrade`, `Uninstall`, `Develop`)
-- [ ] Task 1.1: Implement `lib/AAPP/Cmd/Init.pm`, `lib/AAPP/Cmd/Install.pm`, `lib/AAPP/Cmd/Upgrade.pm`, `lib/AAPP/Cmd/Uninstall.pm`, and `lib/AAPP/Cmd/Develop.pm`, using `AAPP::JSON` for `.claude/settings.json` merging; no Perl modules are copied into `.githooks/` (hooks load them from the installed kit, P-116 item 5), and no legacy `.sh` copies.
+- [ ] Task 1.1: Implement `lib/AAPP/Cmd/Init.pm`, `lib/AAPP/Cmd/Install.pm`, `lib/AAPP/Cmd/Upgrade.pm`, `lib/AAPP/Cmd/Uninstall.pm`, and `lib/AAPP/Cmd/Develop.pm`, using `AAPP::JSON` for `.claude/settings.json` merging; no Perl modules are copied into `.githooks/` (hooks load them from the installed kit, P-116 item 5), and no legacy `.sh` copies. Include structured telemetry in `Init`.
 
 ### Phase 2: Sync, Release, Companion, Hook, Pause & Test (`Sync`, `Release`, `Companion`, `Hook`, `Pause`, `Test`)
-- [ ] Task 2.1: Implement `lib/AAPP/Cmd/Sync.pm` (`push`, `pull`, `sync`), `lib/AAPP/Cmd/Release.pm`, and `lib/AAPP/Cmd/Companion.pm`.
-- [ ] Task 2.2: Implement `lib/AAPP/Cmd/Hook.pm` (`hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`), `lib/AAPP/Cmd/Pause.pm` (`pause`, `resume`, `unpause` via `AAPP::JSON`), and `lib/AAPP/Cmd/Test.pm`.
+- [ ] Task 2.1: Implement `lib/AAPP/Cmd/Sync.pm` (`push`, `pull`, `sync`, emitting `post-sync`), `lib/AAPP/Cmd/Release.pm` (emitting `post-release`), and `lib/AAPP/Cmd/Companion.pm` (emitting `post-companion-*`).
+- [ ] Task 2.2: Implement `lib/AAPP/Cmd/Hook.pm` (`hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`), `lib/AAPP/Cmd/Pause.pm` (`pause`, `resume`, `unpause` via `AAPP::JSON`, emitting `post-pause`/`post-resume`), and `lib/AAPP/Cmd/Test.pm` (emitting `post-test`).
 - [ ] Task 2.3: Route all remaining verbs in `./aapp` to `AAPP::Cmd::*`.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: `./aapp test strict quiet` (the bash suites, `tests/verbs/companion.sh` and `test.sh` among them) and `t/test-run strict quiet` (`t/core`, with `install.t`, `sync.t`, `release.t`, `hooks.t`) green.
-- [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
+- [ ] Task 3.2: Verify `CHANGELOG.md` updates, verify structured telemetry in `.git/aapp.log`, and run `perl -c` syntax checks on all new `.pm` files.
 - [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
 ---
@@ -151,4 +168,6 @@ Each module preserves the exact behavior, arguments, failure modes, and side eff
 ## 📦 6. Change Log & Refinement History
 * **2026-10-19:** Plan initialized from `pickup.md` and `.plans/pickup/perl-port-rfc.md`.
 * **2026-10-19:** Refined technical blueprint and blast radius per `§5.1.4` to include all 11 setup/sync/hook/release bash modules and exact subverbs.
+* **2026-10-24:** Refined technical blueprint, implementation references (D7), and execution checklist with exact structured logging telemetry per logging events spec (§4.7) and test matrix (§3.7).
+
 
