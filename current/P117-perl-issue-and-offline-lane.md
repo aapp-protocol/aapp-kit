@@ -29,7 +29,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -48,8 +48,8 @@ In bash, `cmd_issue` spawns multiple `awk`/`sed` passes across `.plans/ISSUES.md
 
 **Strict Implementation References (`D7`):**
 - **Logging Events Spec (§4.2 `issue`, §4.3 `offline`):** `.plans/pickup/perl-port-logging-events-spec.md`
-- **Tabular Verification Matrix (§3.2 `issue`, §3.3 `offline`):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
-- **Single Prepared Repository Schema (Epoch E3, Actions A032–A041):** `.plans/pickup/perl-port-single-repo-schema.md`
+- **Tabular Verification Matrix (Epoch E5 `issue.t` & `offline.t`):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epoch E5 Issue Lane, `Pool I`):** `.plans/pickup/perl-port-single-repo-schema.md`
 
 ---
 
@@ -63,7 +63,7 @@ Provides reusable issue domain primitives shared by `AAPP::Cmd::Issue`, `AAPP::C
 - **External description & notes store (`issues-data.md`)**: `issue_data_path()`, `issue_note_append($id, $kind, $text)`, and `issue_notes_print($id)` storing descriptions and notes outside Git in `${AAPP_STATE_DIR:-~/.local/state}/aapp/<key>/issues-data.md`, running optional `aapp-issue-note-filter` plugin inspection (`log` / `note` / `show`), and printing the non-instruction framing banner.
 - **External tracker bridge**: `issue_provider()`, `issue_sync()`, `aapp-issue-tracker` plugin (`get`, `create`, `status`, `close`), and `.plans/.tracker-sync` cache TTL (`aapp.issueSyncTtl`).
 - **Cross-lane plan-unblocking & fix helpers**:
-  - `issue_unblock_plans($id, $fix_sha, $plans_wt)` and `issue_unblock_landed($plans_wt)`: scan `.plans/current/P*.md` for `* **Blocked By:**` containing `#<id>`, remove `#<id>`, restore pre-block status when no blockers remain, and clear `.plans/state_matrix.md` blocker annotations.
+  - `issue_unblock_plans($id, $fix_sha, $plans_wt)` and `issue_unblock_landed($plans_wt)`: scan `.plans/current/P*.md` for `* **Blocked On:**` containing `#<id>`, remove `#<id>`, restore pre-block status when no blockers remain, and clear `.plans/state_matrix.md` blocker annotations.
   - `issue_bring_fix_to_groups($fix_sha)`: cherry-pick or merge the landed fix commit into active group integration branches waiting on the blocker.
 
 ### 2.2 `AAPP::Cmd::Issue` (`lib/AAPP/Cmd/Issue.pm`) — `aapp issue` (`lib/cmd_issue.sh`, 2,471 lines)
@@ -77,9 +77,9 @@ Ports `cmd_offline` from `lib/cmd_offline.sh`:
 - Manages the `.offline/` worktree on orphan branch `offline`, recording offline tracker operations in `.offline/outbox` and closed issue rows in `.offline/closed.rows` when `aapp.offline=true`, and replaying them against `aapp-issue-tracker` on `sync`.
 
 ### 2.4 Logging Telemetry (`AAPP::Logger::log_event`)
-Per `.plans/pickup/perl-port-logging-events-spec.md` §4.2 & §4.3, each subverb emits structured telemetry to `.git/aapp.log`:
-- `AAPP::Cmd::Issue`: emits `post-issue-log` (`id => $num`, `severity => $sev`, `type => $type`), `post-issue-hotfix` (`id => $num`, `blocked_plan => $plan_id`), `post-issue-fix` (`id => $num`, `action => 'start'|'abort'`), `post-issue-queue` (`id => $num`, `priority => $pri`), `post-issue-close` (`id => $num`, `sha => $sha`), `post-issue-abort` (`id => $num`, `action => 'abort'`), and `post-issue-list` (`count => $n`, `filter => $filter`).
-- `AAPP::Cmd::Offline`: emits `post-offline-mount` (`dir => $dir`), `post-offline-unmount` (`dir => $dir`), `post-offline-on` (`status => 'on'`), `post-offline-off` (`status => 'off'`), `post-offline-status` (`status => $status`, `outbox_count => $n`), and `post-offline-sync` (`synced_count => $n`).
+Per `.plans/pickup/perl-port-logging-events-spec.md` §4.2 & §4.3, each mutating subverb emits structured telemetry to `.git/aapp.log`:
+- `AAPP::Cmd::Issue`: emits `post-issue-<action>` (for `log`, `hotfix`, `queue`, `unqueue`, `fix`, `fix-abort`, `close`, `abort`, `switch`, `limit-refused`) with payload fields `issue_id`, `sev`, `type`, `branch`, `level`, `worktree`, `fix_sha`, `squashed`, `blocked_plan`, `permanent_block`, `stashed_files`, `reapplied_stash`, `unblocked_plans`, `merged_features`, `collision_plans`, `changed_files`, `changed_lines`. (Read-only `list` emits no lifecycle event).
+- `AAPP::Cmd::Offline`: emits `post-offline-<action>` (for `mount`, `unmount`, `on`, `off`, `sync`, `status`) with payload fields `temp_ids`, `promoted_map`, `failed_ids`, `draft_map`, `record_mode`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Transitional Coexistence (`P-117` → `P-122`):** While `aapp issue` and `aapp offline` dispatch to `AAPP::Cmd::Issue` and `AAPP::Cmd::Offline`, `lib/cmd_plan.sh` (`aapp done` and `aapp refine issues`, ported in `P-119`) and `lib/cmd_status.sh` (`aapp status`, ported in `P-118`) still call bash helpers in `lib/cmd_issue.sh` (`issue_unblock_plans`, `issue_unblock_landed`, `issue_sync`, `issue_provider`, `issue_data_path`, `issue_note_append`) and `lib/cmd_offline.sh` (`offline_enabled`, `offline_record_close`). Either `lib/cmd_issue.sh` and `lib/cmd_offline.sh` remain intact for bash callers until `P-119` completes, or their shared functions delegate to `perl -I"$AAPP_DIR/lib" -MAAPP::Issue` until `P-122` deletes both `.sh` files.
@@ -102,7 +102,7 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.2 & §4.3, each subverb
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: `./aapp test strict quiet` (the bash suites, `tests/verbs/issue*.sh` and `offline.sh` among them) and `t/test-run strict quiet` (`t/core`) green.
 - [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
-- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
@@ -121,7 +121,7 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.2 & §4.3, each subverb
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/AAPP/Tests.pm` -> The test engine (P-126) and every test file in `t/` stay out of bounds during code plans.
-- [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
+- [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` remain out of bounds during code port.
 
 ---
 
