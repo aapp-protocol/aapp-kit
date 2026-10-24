@@ -29,7 +29,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -48,8 +48,8 @@ In bash, `aapp status` re-parses `state_matrix.md`, `ISSUES.md`, `issues_road_ma
 
 **Strict Implementation References (`D7`):**
 - **Logging Events Spec (§4.4 `status`, `matrix`, `help`):** `.plans/pickup/perl-port-logging-events-spec.md`
-- **Tabular Verification Matrix (§3.4 `status`, `matrix`, `help`, `plan-status`):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
-- **Single Prepared Repository Schema (Epoch E4, Actions A042–A050):** `.plans/pickup/perl-port-single-repo-schema.md`
+- **Tabular Verification Matrix (Epochs E0 & E1 `status`, `matrix`, `help`, `plan-status`):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (Epochs E0 & E1, Actions A001–A004, A034):** `.plans/pickup/perl-port-single-repo-schema.md`
 
 ---
 
@@ -57,7 +57,7 @@ In bash, `aapp status` re-parses `state_matrix.md`, `ISSUES.md`, `issues_road_ma
 
 ### 2.1 `AAPP::Adoption` (`lib/AAPP/Adoption.pm`) — `lib/adoption.sh` (503 lines)
 Ports `lib/adoption.sh` into `lib/AAPP/Adoption.pm`:
-- Implements adoption detection and drift warnings (`detect_existing_project`, `detect_legacy_artifacts`, `adoption_status_summary`, `adoption_drift_warnings`) called by `aapp status`, plus the seed/sync helpers (`adoption_seed_changelog`, `adoption_seed_codemap`, `adoption_sync_version`) called by `aapp init` (`P-121`).
+- Implements adoption catalogue target queries (`get_all_adoption_doc_targets`, `get_all_adoption_manual_headings`), open checklist counter (`adoption_open_count`), and adoption checklist synchronization (`sync_adoption_checklist`).
 
 ### 2.2 `AAPP::Cmd::Status` (`lib/AAPP/Cmd/Status.pm`) — `aapp status` (`lib/cmd_status.sh`, 937 lines)
 Ports `cmd_status` from `lib/cmd_status.sh`:
@@ -81,11 +81,11 @@ Ports `cmd_help` from `lib/cmd_help.sh`:
 - Renders top-level and per-verb help from `lib/verbs.tsv` and `lib/docs/verbs/<verb>.md` (`<!-- FULL -->` split), plus version output.
 
 ### 2.6 Logging Telemetry (`AAPP::Logger::log_event`)
-Per `.plans/pickup/perl-port-logging-events-spec.md` §4.4, each reporting subverb emits structured telemetry to `.git/aapp.log`:
-- `AAPP::Cmd::Status`: emits `post-status` (`open_adoption_tasks => $n`, `issues => { ... }`, `plans => { ... }`).
-- `AAPP::Cmd::Matrix`: emits `post-matrix` (`plans_count => $n`, `in_sync => 0|1`).
-- `AAPP::Cmd::Help`: emits `post-help` (`verb => $verb`, `full => 0|1`).
-- `AAPP::Cmd::PlanStatus`: emits `post-plan-status` (`plan_id => $id`, `status => $status`).
+Per `.plans/pickup/perl-port-logging-events-spec.md` §4.4, reporting verbs emit structured telemetry to `.git/aapp.log`:
+- `AAPP::Cmd::Status`: emits `post-status` (`shipped_count`, `queued_issues_count`, `plans_count`, `pickup_count`, `open_adoption_tasks`, `bound_plan`, `group_guide_shown`, `pending_requests`, `unblocked_by_status`, `next_action`).
+- `AAPP::Cmd::Matrix`: emits `post-matrix` (`in_sync => 0|1`, `wrote_file => 0|1`, `plan_ids => \@ids`).
+- `AAPP::Cmd::Help`: emits `post-help` (`topic => $topic`, `status => 'ok'|'unknown_topic'`).
+*(Note: read-only `plan-status` query emits no lifecycle event).*
 
 ### 🔄 Migration & Compatibility Strategy
 - **Transitional Coexistence (`P-118` → `P-122`):** While `status`, `matrix`, `plan-status`, and `help` dispatch directly to Perl from `aapp`, `lib/cmd_plan.sh` (ported in `P-119`) and `lib/cmd_init.sh` (ported in `P-121`) still call `cmd_matrix` (`lib/cmd_matrix.sh`) and `adoption_*` (`lib/adoption.sh`) from bash. During `P-118`–`P-121`, `lib/cmd_matrix.sh` and `lib/adoption.sh` delegate to `AAPP::Cmd::Matrix` and `AAPP::Adoption` (or remain intact alongside them) until `P-122` deletes all `lib/*.sh` files.
@@ -105,7 +105,7 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.4, each reporting subve
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: `./aapp test strict quiet` (the bash suites, `tests/verbs/status.sh`, `matrix.sh`, `plan-status.sh`, `help.sh` among them) and `t/test-run strict quiet` (`t/core`, with `adoption.t` and `matrix.t`) green.
 - [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
-- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
+- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
@@ -130,8 +130,8 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.4, each reporting subve
 - [ ] `t/core/matrix.t` -> Switch from bash `source` wrappers to direct `AAPP::Cmd::Matrix` calls.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/AAPP/Tests.pm` -> The test engine (P-126) and every test file in `t/` stay out of bounds during code plans.
-- [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` are locked in `P-114`.
+- [ ] `lib/AAPP/Tests.pm` -> The test engine and other test files in `t/` (except declared targets `t/core/adoption.t` and `t/core/matrix.t`) stay out of bounds during code plans.
+- [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` remain out of bounds during code port.
 
 ---
 
