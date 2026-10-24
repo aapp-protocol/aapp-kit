@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #192 | `Low` | `TEST` | 2026-10-24 | `lib/AAPP/Tests.pm` | t/test-run reads 'help' as its modifier, so 't/test-run verb help' and 'aapp test verb help' print the usage instead of running t/verb/help.t; select verb names before modifiers or reserve the modifier. |  | 🟡 `Incubated` |  |
 | #191 | `Low` | `CORE` | 2026-10-23 | `templates/state_matrix.md`, `templates/000-archive-ledger.md`, `lib/plan_resolver.sh` | First plan drafted after aapp init gets P-2: the seeded state_matrix.md and 000-archive-ledger.md example lines name P-1 and the next-id scan counts them |  | 🟡 `Incubated` |  |
 | #189 | `Low` | `CLI` | 2026-10-22 | `lib/aapp-lib.sh` | Changelog entries repeat their own tag or section word when the plan field or fix text carries them: the renderer appends the tag without filtering the text |  | 🟡 `Incubated` |  |
 | #188 | `Medium` | `HOOK` | 2026-10-21 | `lib/aapp-lib.sh` | Bash line: the design lock reads a fenced '## … 2.' heading in a plan as the plan's own §2 (same bug as #186, fixed on the Perl port branch only) |  | 🟡 `Incubated` | `develop` |
