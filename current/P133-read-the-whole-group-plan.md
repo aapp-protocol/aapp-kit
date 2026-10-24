@@ -42,7 +42,7 @@
 ## 1. Context & Architectural Goal
 A session that starts or resumes a group member is pointed at one section of the group plan, `## Architecture & Codemap`: by the `start`/`freeze-start` output, by the `aapp status` line in a member's worktree, by the *Plan groups* rule in `AGENTS.md`, and by the `aapp-start` skill. The group's §1 Goal (why the group exists, how success is measured) and §2 Shared Decisions are never named, so a new session can work a member without them. This plan points every one of those places at the whole group plan, and gives the group template an introduction saying so. It lands on the port's feature branch so the remaining members are worked with the group's goal in view.
 
-The running group P-111 gets the same introduction through its amendments member P-112 (a request by heading), outside this plan.
+As the first member started after `.plans/pickup/perl-port-test-salvage-rfc.md`, this plan also carries that RFC's changes to the running group's text (its §5), recorded in the amendments member P-112: the group needs a member in development to request them.
 
 ---
 
@@ -62,6 +62,11 @@ The running group P-111 gets the same introduction through its amendments member
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
+
+### Phase 0: The group's text (RFC §5), from this plan's worktree
+- [ ] Task 0.1: Request in P-112, `for P-111`, each by heading with its reason: §3 *Members & Order* (the order of RFC D2/D4); the introduction above §1 (§2.1's text); `## Architecture & Codemap` (*Test Harness Sandbox Confinement* and the `Tests.pm` line: every worktree pointer rewritten, scenario projects in one fixture, verb tests through `AAPP::Cmd::*` with a thin CLI layer).
+- [ ] Task 0.2: Once approved, make them: the `## Architecture & Codemap` sections through `aapp refine P-112 decision <n> "<reason>"` from P-112's worktree; the introduction and §3 through `aapp refine P-111 "<msg>"` from this worktree.
+- [ ] Task 0.3: §2 *Tests vs. code boundary* and *Modular test harness* only on the user's route (RFC §5): the group's §2 is design-locked.
 
 ### Phase 1: Failing tests
 - [ ] Task 1.1: Change the two test assertions and the three contract lines to the new wording; both tests fail.
@@ -95,7 +100,7 @@ The running group P-111 gets the same introduction through its amendments member
 - [ ] `tests/verbs/status.sh` -> `test_status_member_rereads_group_guide`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `.plans/current/P111-perl-port-of-the-kit.md` -> The running group's introduction goes through P-112.
+- [ ] `.plans/current/P111-perl-port-of-the-kit.md` -> Changed only by Phase 0, recorded in P-112.
 
 ---
 
