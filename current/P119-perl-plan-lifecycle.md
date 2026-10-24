@@ -73,7 +73,7 @@ Provides shared engines across plan lifecycle verbs and `aapp commit land` (`P-1
   - Compares `### 📂 Target Files` across concurrent plans in `.plans/current/P*.md` to detect overlapping files and compute conflict-free execution sets.
 
 ### 2.3 `AAPP::Cmd::Plan` (`lib/AAPP/Cmd/Plan.pm`) — Plan Lifecycle Verb Handlers (`lib/cmd_plan.sh`, 4,495 lines)
-Ports all plan lifecycle verbs from `lib/cmd_plan.sh`, keeping exact behavior, arguments, failure modes, and side effects defined in `aapp help <verb> full` and `lib/docs/verbs/<verb>.md` under unchanged `t/verb/*.t`:
+Ports all plan lifecycle verbs from `lib/cmd_plan.sh`, keeping exact behavior, arguments, failure modes, and side effects defined in `aapp help <verb> full` and `lib/docs/verbs/<verb>.md` under the unchanged bash verb suites (`tests/verbs/*.sh`; their Perl files come after the ports, P-134):
 - **`draft`** (`aapp help draft full`, `lib/docs/verbs/draft.md`): normal plan, promoted issue plan, group plan + companion amendments plan, and group member plan scaffolding, `.plans/state_matrix.md` registration, and `plan(draft):` commit.
 - **`refine`** (`aapp help refine full`, `lib/docs/verbs/refine.md`): plan refinement (including `slug`, `blocked`, `unblocked`, `closes`, `group`, and amendments forms `request`, `approve`, `refuse`, `file`, `decision`), cross-checkout ownership check, `AAPP::Health` check, `AAPP::GroupDocs::group_docs_stamp`, plus `refine pickup` and `refine issues` (including `note` and `branch`).
 - **`tdd`** (`aapp help tdd full`, `lib/docs/verbs/tdd.md`): §3 failure-first test identifier and §4 test file validation and `plan(tdd):` commit.
@@ -100,7 +100,7 @@ Ports all plan lifecycle verbs from `lib/cmd_plan.sh`, keeping exact behavior, a
 - [ ] Task 2.2: Implement `done`, `active`, and `plan` (`conflict-check`, `conflict-free`, `abort`) in `lib/AAPP/Cmd/Plan.pm` and wire all nine verbs (`draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `plan`) in `./aapp`.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run `./aapp test` across `verb_draft_test.sh`, `verb_refine_test.sh`, `verb_tdd_test.sh`, `verb_freeze_start_test.sh`, `verb_done_test.sh`, `verb_plan_abort_test.sh`, `group_docs_test.sh`, and `integrate_test.sh` to verify 100% pass rate.
+- [ ] Task 3.1: `./aapp test strict quiet` (the bash suites, the lifecycle verbs' `tests/verbs/*.sh` among them) and `t/test-run strict quiet` (`t/core`, with `group_docs.t` and `integrate.t`) green.
 - [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
 - [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp refine issues`); none stays in chat only.
 
