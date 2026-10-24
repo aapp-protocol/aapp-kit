@@ -136,7 +136,7 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 - [ ] `DELETE` -> `tests/verbs/plan.abort.sh` -> Ported.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/AAPP/Tests.pm` -> The engine changes (§2.7) come by amendment, before this plan starts.
+- [ ] `lib/AAPP/Tests.pm` -> The engine changes (§2.8) come by amendment, before this plan starts.
 - [ ] `tests/verb_contracts_test.sh` -> The bash contract checker stays until P-125.
 - [ ] `tests/test_helpers.sh` -> Still used by the remaining bash suites.
 - [ ] `lib/cmd_test.sh` -> `aapp test` switches in P-125 only.
