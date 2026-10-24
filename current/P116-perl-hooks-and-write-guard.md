@@ -29,7 +29,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -44,8 +44,8 @@
 
 **Strict Implementation References (`D7`):**
 - **Logging Events Spec (§2–§4):** `.plans/pickup/perl-port-logging-events-spec.md`
-- **Tabular Verification Matrix (§4 Core Suites):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
-- **Single Prepared Repository Schema (Epoch E2, Actions A022–A031):** `.plans/pickup/perl-port-single-repo-schema.md`
+- **Tabular Verification Matrix (§4 Core Suites, Groups (b) & (c)):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Single Prepared Repository Schema (§4 D6 Group (b) Suites & Epoch E1):** `.plans/pickup/perl-port-single-repo-schema.md`
 
 ---
 
@@ -68,11 +68,11 @@
 
 ### 2.2 Logging Telemetry (`AAPP::Logger::log_event`)
 Per `.plans/pickup/perl-port-logging-events-spec.md` §2–§4, all ported hook modules emit structured telemetry into `.git/aapp.log`:
-1. `AAPP::HookDispatcher`: emits `hook.dispatch` (`kind => 'hook'|'plugin'`, `name => $hook`, `status => 'ok'|'veto'|'timeout'`, `payload_keys => \@keys`, `error => $msg`).
-2. `AAPP::Attribution`: emits `commits.decorate` (`mode => $mode`, `trailers_added => 0|1`, `status => $status`) and `notes.attach` (`ref => 'refs/notes/ai'|'refs/notes/commits'`, `action => 'add'|'rewrite'`).
-3. `AAPP::Hooks::WriteGuard`: emits `guard.check` (`tool => $tool`, `path => $path`, `decision => 'allow'|'deny'`, `reason => $reason`).
-4. `AAPP::Hooks::PreCommit`: emits `health.veto` (`pair => $n`, `rule => $rule`, `reason => $reason`) and `commits.plans` (`sha => $sha`, `branch => $branch`, `plan => $plan_id`).
-5. `AAPP::Hooks::PostCommit`: emits `post-commit` (`sha => $sha`, `branch => $branch`, `trailers => \@trailers`, `notes => \@notes`).
+1. `AAPP::HookDispatcher`: emits `hook.dispatch` (`kind => 'hook'|'plugin'`, `name => $name`, `step => $step`, `called => 1|0`, `skip_reason => $skip`, `status => 'ok'|'veto'|'timeout'|'failed'`, `payload_keys => \@keys`, `response => \%resp`).
+2. `AAPP::Attribution`: emits `commits.decorate` (`mode => $mode`, `agent => $agent`, `vendor => $vendor`, `model => $model`, `trailers_added => 0|1`, `status => 'passed'|'refused'`) and `notes.attach` (`sha => $sha`, `ref => 'refs/notes/commits'|'refs/notes/ai'`, `action => 'add'|'rewrite'`, `text => $text`).
+3. `AAPP::Hooks::WriteGuard`: emits `guard.check` (`decision => 'allow'|'deny'`, `path => $path`, `active_plan => $id`, `reason => $reason`).
+4. `AAPP::Hooks::PreCommit`: emits `health.veto` (`pair => $pair`, `file => $file`, `reason => $reason`) and `guard.check` (`decision => 'deny'`, `path => $file`, `reason => 'self_protection'`).
+*(Note: `commits.plans` is emitted by `AAPP::CommitEngine::plans_commit` in `P-115`/`P-133`; `post-commit` is emitted by `AAPP::Cmd::Commit->run` in `P-120`).*
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Backwards Compatible` (Transitional bash/Perl coexistence within group `P-111` until `P-122`)
@@ -85,7 +85,7 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §2–§4, all ported hook 
 
 ### Phase 1: Hook Modules (`lib/AAPP/HookDispatcher.pm`, `lib/AAPP/Attribution.pm`, `lib/AAPP/Hooks/*.pm`)
 - [ ] Task 1.1: Implement `lib/AAPP/HookDispatcher.pm` and `lib/AAPP/Attribution.pm` (trailer validation, identity resolution, note staging, and `hook.dispatch` / `commits.decorate` / `notes.attach` event telemetry).
-- [ ] Task 1.2: Implement `lib/AAPP/Hooks/PreCommit.pm`, `lib/AAPP/Hooks/PreCommitDevelop.pm`, `lib/AAPP/Hooks/CommitMsg.pm`, `lib/AAPP/Hooks/PostCommit.pm`, `lib/AAPP/Hooks/PostRewrite.pm`, and `lib/AAPP/Hooks/WriteGuard.pm` over `AAPP::State` with `health.veto`, `commits.plans`, `guard.check`, and `post-commit` telemetry.
+- [ ] Task 1.2: Implement `lib/AAPP/Hooks/PreCommit.pm`, `lib/AAPP/Hooks/PreCommitDevelop.pm`, `lib/AAPP/Hooks/CommitMsg.pm`, `lib/AAPP/Hooks/PostCommit.pm`, `lib/AAPP/Hooks/PostRewrite.pm`, and `lib/AAPP/Hooks/WriteGuard.pm` over `AAPP::State` with `health.veto`, `guard.check`, and `notes.attach` telemetry.
 
 ### Phase 2: Hook Entrypoint Templates & Core Wrapper Tests
 - [ ] Task 2.1: Update `templates/aapp-pre-commit`, `templates/aapp-pre-commit-develop`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`, `templates/blast-radius-guard.sh`, `templates/pre-commit`, `templates/commit-msg`, `templates/post-commit`, and `templates/post-rewrite` to invoke Perl, loading `AAPP::*` from the installed kit (item 5); `lib/cmd_init.sh` copies no Perl modules.
