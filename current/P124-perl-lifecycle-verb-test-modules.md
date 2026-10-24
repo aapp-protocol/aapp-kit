@@ -64,7 +64,7 @@ Part 3 of 4 of the test migration split from P-114 (kept as the reference until 
 
 ### Phase 2: Plan Lifecycle Verbs
 - [x] Task 2.1: Port `draft`, `refine`, `tdd`, `freeze`, `freeze-start`, `active`.
-- [ ] Task 2.2: Port `start` (and parts), `done` (and parts), `plan` (and parts).
+- [x] Task 2.2: Port `start` (and parts), `done` (and parts), `plan` (and parts).
 
 ### Phase 3: Verification
 - [ ] Task 3.1: `t/test-run strict quiet` and `./aapp test strict quiet` both green; none of these verbs' `.sh` suites left; record each runner's wall and CPU time.
