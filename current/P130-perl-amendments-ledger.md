@@ -94,6 +94,9 @@ It never commits code: the group's `start` gives it no branch and no worktree; `
 ### 2.6 Port notes
 P-116, P-119 and P-120 port P-129's bash behaviour; this member changes their Perl code as §2.1–2.5 say. The contracts (`refine`, `commit`, `done`, `start`, `freeze-start`, `plan-status`) and the amendments template follow.
 
+### 2.9 A decision may correct any section of the group plan except §4
+Today a heading `decision` may change only `## Architecture & Codemap`: §1–§3 of a group in development (§2 design-locked) have no recorded route, and a heading request for them never reaches `applied`. Here `decision <n> "<reason>"` applies an approved heading request to any section of the group plan but §4; the design lock (`AAPP::Hooks::PreCommit`) accepts a change to the named section when its D-line is in the same commit, as it does for `## Architecture & Codemap` today. §4 changes stay file requests (§2.1–2.3).
+
 ### 2.8 Tests come with the Perl verb tests
 This plan writes no tests: its checks go into the Perl verb files when they are written, P-134 (`refine`, `done`, `start`, `freeze-start`, `plan-status`, `draft`) and P-125 (`commit`), with their contracts' `## Tests` lines (the engine refuses a contract naming a test file that does not exist). Until then the bash suites stay the safety net: they run against the Perl verbs, so an assertion this plan's behaviour contradicts (the `<amend-id>` form, a request without its why, the amendments member's worktree) is adapted to the new behaviour in the same commit as the change; no bash test is added. What no test covers until P-134 and P-125 (concurrent requests, a claim across two groups, a start refused by an approval) is checked by hand and recorded in §6.
 
@@ -116,6 +119,7 @@ This plan writes no tests: its checks go into the Perl verb files when they are 
 ### Phase 3: The ledger
 - [ ] Task 3.1: A re-scope through the ledger (§2.3.4); the amendments member without a worktree (§2.4); `plan-status` of the ledger, terminal and JSON (§2.5).
 - [ ] Task 3.2: A member drafted or moved into a group in development writes its R line with its why; a group not yet started writes none (§2.7).
+- [ ] Task 3.3: `decision` corrects any section of the group plan but §4, accepted by the design lock with its D-line (§2.9).
 
 ### Phase 4: Verification & Documentation
 - [ ] Task 4.1: `./aapp test strict quiet` and `t/test-run strict quiet` green; concurrent requests, a claim across two groups and a start refused by an approval checked by hand and recorded in §6 (their tests come with P-134 and P-125).
