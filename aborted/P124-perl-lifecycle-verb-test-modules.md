@@ -8,7 +8,8 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ❌ Aborted
+* **Aborted:** 2026-10-24 | **Reason:** redraft after the port: tests against Perl functions
 * **Base:** `e83d584` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P124 (plan/P124-perl-lifecycle-verb-test-modules)
 * **Group:** P-111
@@ -104,6 +105,7 @@ Part 3 of 4 of the test migration split from P-114 (kept as the reference until 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-24:** Plan aborted: redraft after the port: tests against Perl functions
 * **2026-10-24:** Implemented: 13 verb files in `t/verb/`, 19 bash suites removed. `t/test-run strict quiet` 38/38 files (570 passed, 1 skipped), 236 s wall, 1063 s CPU; `./aapp test strict quiet` 19/19 suites (290 passed), 79 s wall, 529 s CPU. Found and logged: #192, #193.
 * **2026-10-24:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-19:** Drafted as part 3 of 4 split from P-114 (read-only and lifecycle verb suites).
