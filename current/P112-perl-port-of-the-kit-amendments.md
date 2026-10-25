@@ -66,14 +66,7 @@ Each request is implemented as its approval describes; corrections of the group'
 ## 💥 4. Blast Radius & System Boundaries
 
 ### 📂 Target Files (Modifications & Additions)
-<!-- Grows only by approved requests (aapp refine <id> approve <n>; or file, when approval is not required). -->
-- [ ] `lib/AAPP/Logger.pm` -> R1 Logger opens the log file with :encoding(UTF-8) (use utf8 port-wide)
-- [ ] `tests/write-guard_test.sh` -> R3 write-guard fixture copies lib/AAPP into .githooks/AAPP; the no-python3 deny test keeps perl and git on PATH
-- [ ] `tests/pre-commit_test.sh` -> R4 pre-commit fixtures that copy the hook libraries also copy lib/AAPP into the hook folder (pause reason via AAPP::JSON)
-- [ ] `lib/AAPP/Util.pm` -> R5 AAPP::Util: the central module for reused helpers; first plan_number and plan_sort (plans sorted by number, one implementation)
-- [ ] `lib/docs/core/write-guard.md` -> R8 Contract drops test_deny_payload_without_python (the python fallback it tested is gone)
-- [ ] `lib/AAPP/Constants.pm` -> R12 Constants declares every default the Perl modules use (widths, title/subject limits, lock waits, plans-commit retries, remote, dev branches, modes, integrate target, kit dir name, data/state home, JSON format version)
-- [ ] `lib/AAPP/Runner.pm` -> R13 Runner loads a verb module with a block eval: require on AAPP/Cmd/<Verb>.pm, no string eval
+<!-- Empty: an approved file is changed by its requester and recorded in the plan that owns it (P-129). -->
 
 ### 🛑 Out of Bounds (Do Not Touch)
 
