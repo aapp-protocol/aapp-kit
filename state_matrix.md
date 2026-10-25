@@ -42,7 +42,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - ⚡ **P-111**: [`P111-perl-port-of-the-kit.md`](current/P111-perl-port-of-the-kit.md) — 🧩 Group Plan P-111: Perl Port Of The Kit
 - ⚡ **P-112**: [`P112-perl-port-of-the-kit-amendments.md`](current/P112-perl-port-of-the-kit-amendments.md) — Perl Port Of The Kit Amendments
 - ⚡ **P-132**: [`P132-layered-configuration.md`](current/P132-layered-configuration.md) — Layered Configuration
-- ⚡ **P-133**: [`P133-read-the-whole-group-plan.md`](current/P133-read-the-whole-group-plan.md) — Read The Whole Group Plan
 
 ---
 

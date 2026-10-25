@@ -8,11 +8,11 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `c13ee7a` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P133 (plan/P133-read-the-whole-group-plan)
 * **Group:** P-111
-* **Commits:** `3e564c7` (plan/P133-read-the-whole-group-plan)
+* **Commits:** `1fa37f3` (feature/perl-port-of-the-kit)
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -116,6 +116,7 @@ Phase 0 (the group text updates to P-111 §5 and amendments) has already been ap
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-25:** Plan implementation completed and archived to done/.
 * **2026-10-25:** Plan activated into ⚡ In Development via start.
 * **2026-10-25:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-24:** Drafted as a member of P-111: every pointer to a group plan names the whole plan, the goal and shared decisions first.
