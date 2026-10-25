@@ -5,8 +5,9 @@
 * **Changelog:** Added: settings can be set in system and user config files above the repository; a higher level always wins
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
-* **Status:** 🔷 Frozen
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `c13ee7a` (feature/perl-port-of-the-kit)
+* **Worktree:** .workspace/P132 (plan/P132-layered-configuration)
 * **Group:** P-111
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
@@ -180,6 +181,7 @@ When resolving a configuration key for an active repository at `primary_root` (`
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-25:** Plan activated into ⚡ In Development via start.
 * **2026-10-25:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-24:** Refined technical blueprint, D7 references, and checklist with single-repo schema and test matrix references.
 * **2026-10-23:** Drafted as a member of group P-111 at the developer's request, from the P-131 review: settings that bind the agent need a place the agent cannot change.
