@@ -6,7 +6,7 @@
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 * **Status:** ⚡ In Development
-* **Base:** `c13ee7a` (feature/perl-port-of-the-kit)
+* **Base:** `1fa37f3` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P132 (plan/P132-layered-configuration)
 * **Group:** P-111
 * **Commits:** none
