@@ -25,7 +25,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-128**: [`P128-bash-commits-record-bare-hashes.md`](current/P128-bash-commits-record-bare-hashes.md) — Bash Commits Record Bare Hashes
 - 🟣 **P-130**: [`P130-perl-amendments-ledger.md`](current/P130-perl-amendments-ledger.md) — Perl Amendments Ledger
 - 🟣 **P-131**: [`P131-lifecycle-governance-and-review-gates.md`](current/P131-lifecycle-governance-and-review-gates.md) — Lifecycle Governance And Review Gates
-- 🟣 **P-132**: [`P132-layered-configuration.md`](current/P132-layered-configuration.md) — Layered Configuration
 - 🟣 **P-134**: [`P134-perl-lifecycle-verb-tests.md`](current/P134-perl-lifecycle-verb-tests.md) — Perl Lifecycle Verb Tests
 - 🟣 **P-135**: [`P135-perl-core-tests-redesign.md`](current/P135-perl-core-tests-redesign.md) — Perl Core Tests Redesign
 - 🟣 **P-136**: [`P136-perl-test-engine-and-mock-repo.md`](current/P136-perl-test-engine-and-mock-repo.md) — Perl Test Engine And Mock Repository Builder
@@ -35,6 +34,8 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ---
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
+
+- 🔷 **P-132**: [`P132-layered-configuration.md`](current/P132-layered-configuration.md) — Layered Configuration
 
 ---
 
