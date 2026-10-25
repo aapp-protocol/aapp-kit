@@ -5,10 +5,14 @@ use warnings;
 use utf8;
 use 5.026;
 
+BEGIN {
+    $INC{'AAPP/Paths.pm'} = __FILE__;
+}
+
 use Cwd ();
 use POSIX ();
 use AAPP::Constants qw(RETURN_OK RETURN_FAIL RETURN_ERROR DEFAULT_LOCK_WAIT LOCK_STALE_SECONDS LOCK_FIRST_STEP
-    KIT_DIR_NAME DATA_HOME_DEFAULT);
+    KIT_DIR_NAME DATA_HOME_DEFAULT SYS_CONF_DIR_DEFAULT USER_CONF_DIR_DEFAULT);
 use AAPP::Logger ();
 
 our %paths;
@@ -132,6 +136,46 @@ sub kit_dir
         return;
     }
     return $kit;
+}
+
+# Usage     : my $dir = sys_conf_dir([$os])
+# Purpose   : System-level main.conf directory. Redirected by $ENV{AAPP_SYS_CONF_DIR} if set.
+#             Defaults per OS: Linux/BSD: /etc/aapp, Darwin: /Library/Application Support/aapp,
+#             Windows: %ProgramData%\aapp.
+# Returns   : Directory path string.
+sub sys_conf_dir
+{
+    my ($os) = @_;
+    return $ENV{AAPP_SYS_CONF_DIR} if defined $ENV{AAPP_SYS_CONF_DIR} && $ENV{AAPP_SYS_CONF_DIR} ne '';
+    $os //= ( $^O eq 'MSWin32' ) ? 'windows' : aapp_os();
+    if ( $os eq 'darwin' ) {
+        return '/Library/Application Support/aapp';
+    }
+    if ( $os eq 'windows' ) {
+        my $pd = $ENV{ProgramData} // 'C:\\ProgramData';
+        return "$pd\\aapp";
+    }
+    return SYS_CONF_DIR_DEFAULT();
+}
+
+# Usage     : my $dir = user_conf_dir([$os])
+# Purpose   : User-level main.conf directory. Redirected by $ENV{AAPP_USER_CONF_DIR} if set.
+#             Defaults per OS: Linux/BSD/Darwin: $XDG_CONFIG_HOME/aapp (~/.config/aapp),
+#             Windows: %APPDATA%\aapp.
+# Returns   : Directory path string.
+sub user_conf_dir
+{
+    my ($os) = @_;
+    return $ENV{AAPP_USER_CONF_DIR} if defined $ENV{AAPP_USER_CONF_DIR} && $ENV{AAPP_USER_CONF_DIR} ne '';
+    $os //= ( $^O eq 'MSWin32' ) ? 'windows' : aapp_os();
+    if ( $os eq 'windows' ) {
+        my $appdata = $ENV{APPDATA} // '';
+        return $appdata ? "$appdata\\aapp" : '';
+    }
+    my $xdg = $ENV{XDG_CONFIG_HOME};
+    return "$xdg/aapp" if defined $xdg && $xdg ne '';
+    my $home = $ENV{HOME} // '';
+    return "$home/" . USER_CONF_DIR_DEFAULT();
 }
 
 # Usage     : my $abs = abs_path('a/../b', '/base')

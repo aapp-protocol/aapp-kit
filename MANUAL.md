@@ -57,7 +57,7 @@ Authoritative, exhaustive specifications, schemas, tables, and lookup dictionari
 * [12. Git Plumbing & Worktree Mechanics](docs/reference/12-git-plumbing.md): Detached orphan commits, remote synchronization, and worktree repair.
 * [13. Planning Health Integrity Engine](docs/reference/13-planning-health-engine.md): 8 invariant check pairs and `aapp doctor` diagnostics.
 * [14. Agent Skills & Slash Commands](docs/reference/14-agent-skills-and-slash-commands.md): 13 universal skills, slash command bindings, and custom skills.
-* [15. Configuration Hierarchy & Precedence](docs/reference/15-configuration-hierarchy.md): Git config resolution order and CI environment variables.
+* [15. Configuration Hierarchy & Precedence](docs/reference/15-configuration-hierarchy.md): Layered configuration hierarchy (`main.conf`), inverted authority precedence (System > User > Repo), and administrative allowlist.
 * [16. Configuration Options & Catalog](docs/reference/16-configuration-options.md): Complete Git config key catalog and resolution scopes.
 * [17. Planning Health Diagnostics](docs/reference/17-planning-health-diagnostics.md): Automated static analysis, `aapp doctor` tooling, and repair commands.
 * [18. Agent Skills Catalog](docs/reference/18-agent-skills-catalog.md): Universal skills catalog, ASCII dispatch, and execution bounds.

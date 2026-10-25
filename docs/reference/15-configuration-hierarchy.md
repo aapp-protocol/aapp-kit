@@ -43,31 +43,66 @@ All AAPP configuration settings reside under the `aapp.*` namespace:
 
 ---
 
-## 2. Configuration Resolution Hierarchy
+## 2. Layered Configuration Hierarchy & Precedence
 
-AAPP queries Git configuration following standard Git precedence order:
+AAPP enforces an **inverted authority hierarchy** across three tiers: administrative policies defined at higher tiers strictly bind lower tiers and cannot be overridden locally by autonomous agents or repository-level git configuration.
 
 ```text
-Highest Priority:   1. Local Repository Config     (.git/config or worktree config)
-                    2. Global User Config          (~/.gitconfig)
-                    3. System Config               (/etc/gitconfig)
-Lowest Priority:    4. Built-in Protocol Defaults  (hardcoded in lib/aapp-lib.sh)
+┌─────────────────────────────────────────────────────────────┐
+│ 1. System Level (/etc/aapp/main.conf)                        │
+│    - Matching [aapp "repo:$REPO_ROOT"] (Highest authority)  │
+│    - Global [aapp]                                          │
+├─────────────────────────────────────────────────────────────┤
+│ 2. User Level (~/.config/aapp/main.conf)                    │
+│    - Matching [aapp "repo:$REPO_ROOT"]                      │
+│    - Global [aapp]                                          │
+├─────────────────────────────────────────────────────────────┤
+│ 3. Repository Level (.git/config)                           │
+│    - Local git config (Lowest authority)                   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Inspecting & Setting Configuration Values
+### Precedence Rules
+1. **Inverted Authority (`System > User > Repo`)**: The highest tier defining a setting wins.
+2. **Repository Subsections**: Within a given tier's `main.conf`, a subsection matching the project's primary root (`[aapp "repo:/path/to/project"]`) overrides that file's global defaults (`[aapp]`). Linked plan/fix worktrees (`.workspace/*`) automatically match against the primary checkout root.
+3. **Multi-Valued Keys (`aapp.allowPath`, `aapp.hook.*`)**: The highest tier that sets the key supplies the complete set. Lower tiers cannot append or widen administrative allowlists.
+4. **Clean Fallthrough**: Keys absent from upper tiers cleanly fall through to standard Git configuration resolution (`.git/config`, `~/.gitconfig`).
 
+### Upper-Level Policy Allowlist
+To protect monotonic state progression (such as `aapp.planId`, `aapp.issueId`, and `aapp.lastRelease`), upper-level `main.conf` files permit only administrative policies and safety ceilings:
+- **Governance**: `aapp.governance`, `aapp.governanceHandler`, `aapp.governanceTimeout`
+- **Attribution & Identity**: `aapp.aiAttribution`, `aapp.aiNotes`
+- **Limits & Ceilings**: `aapp.fixMaxLines`, `aapp.fixMaxFiles`, `aapp.maxEmergencyHotfixes`, `aapp.subjectMaxLen`, `aapp.commitLineMaxLen`, `aapp.bodyMaxLen`
+- **Runtime Environment & Hooks**: `aapp.quarantineIgnored`, `aapp.perlLogFile`, `aapp.allowPath`, and `aapp.hook.*`
+
+Any unlisted key present in `main.conf` fails closed with diagnostic error:
+`❌ [Config Refusal] /etc/aapp/main.conf: line 6: 'aapp.planId' is not allowed in upper-level configuration.`
+
+### Example `main.conf`
+```ini
+# /etc/aapp/main.conf or ~/.config/aapp/main.conf
+
+# Global administrative defaults for this tier
+[aapp]
+governance = hitl
+aiAttribution = strict
+subjectMaxLen = 72
+
+# Project-specific policy override
+[aapp "repo:/path/to/project"]
+governance = autonomous
+governanceHandler = /usr/local/bin/automated-gate
+hook.pre-freeze = /usr/local/bin/security-audit
+allowPath = /tmp/build-artifacts
+```
+
+### Inspecting Configuration Values & Origins
 ```bash
-# Read a configuration setting
-git config aapp.commitMode
+# Query active configuration value
+git config aapp.governance
 
-# Set repository-local setting
-git config aapp.commitMode microcommits
-
-# Set global user default across all AAPP repos
-git config --global aapp.aiAttribution lax
-
-# List all active AAPP configuration keys
-git config --get-regexp '^aapp\.'
+# Programmatic origin query via AAPP::Config::source($key)
+# returns: 'system:repo', 'system:global', 'user:repo', 'user:global', or 'repository'
 ```
 
 ---

@@ -5,14 +5,53 @@ use warnings;
 use utf8;
 use 5.026;
 
-use AAPP::Constants qw(RETURN_OK RETURN_FAIL RETURN_ERROR);
+BEGIN {
+    $INC{'AAPP/Config.pm'} = __FILE__;
+}
+
+use Cwd ();
+use AAPP::Constants qw(RETURN_OK RETURN_FAIL RETURN_ERROR CONFIG_FILE_NAME);
 use AAPP::Logger ();
+use AAPP::Paths ();
 
 our %config;
+our %config_source;
 our $loaded = 0;
 
 our @PLAN_STATES;
 our $states_loaded = 0;
+
+# Upper-Level Policy Allowlist (administrative policies and safety ceilings allowed in main.conf)
+our %UPPER_ALLOWLIST = map { canonical_key($_) => 1 } (
+    'aapp.governance',
+    'aapp.governanceHandler',
+    'aapp.governanceTimeout',
+    'aapp.aiAttribution',
+    'aapp.aiNotes',
+    'aapp.fixMaxLines',
+    'aapp.fixMaxFiles',
+    'aapp.maxEmergencyHotfixes',
+    'aapp.subjectMaxLen',
+    'aapp.commitLineMaxLen',
+    'aapp.bodyMaxLen',
+    'aapp.quarantineIgnored',
+    'aapp.perlLogFile',
+    'aapp.allowPath',
+);
+
+# Usage     : my $ok = is_allowed_upper_key('aapp.governance')
+# Purpose   : Checks if a key is permitted in upper-level main.conf files.
+#             Administrative policies and safety limits are allowed; local state counters are refused.
+#             Any key starting with 'aapp.hook.' is also allowed.
+# Returns   : 1 if allowed, 0 otherwise.
+sub is_allowed_upper_key
+{
+    my ($key) = @_;
+    my $ckey = canonical_key($key);
+    return 1 if $UPPER_ALLOWLIST{$ckey};
+    return 1 if $ckey =~ /^aapp\.hook\./;
+    return 0;
+}
 
 my @DEFAULT_STATES = (
     [ 'under-review',   '🟣', 'Under Review',   '🧠 Human Thought & Refinement (The Incubator)',      10 ],
@@ -42,37 +81,273 @@ sub canonical_key
     return lc($section) . '.' . $subsection . '.' . lc($name);
 }
 
+# Usage     : my $res = _parse_ini_file($file, $primary_root)
+# Purpose   : Parses a system or user main.conf INI file. Supports comments, [section],
+#             [section "subsection"], [aapp "repo:<path>"], and dotted keys.
+#             Enforces Upper-Level Policy Allowlist.
+# Returns   : Hash ref { global => { key => \@vals }, repo => { key => \@vals } }, or undef on error.
+sub _parse_ini_file
+{
+    my ( $file, $primary_root ) = @_;
+    return if !-f $file;
+
+    my $fh;
+    if ( !open( $fh, '<:encoding(UTF-8)', $file ) ) {
+        printf STDERR "[ %-6s ] Cannot open configuration file '%s': %s\n", 'ERROR', $file, $!;
+        return;
+    }
+
+    my %global;
+    my %repo;
+    my $cur_section    = '';
+    my $cur_subsection = '';
+    my $line_num       = 0;
+
+    my $norm_primary = '';
+    if ( defined $primary_root && $primary_root ne '' ) {
+        $norm_primary = Cwd::abs_path($primary_root) // $primary_root;
+        $norm_primary =~ s{/+$}{};
+    }
+
+    while ( my $raw_line = <$fh> ) {
+        $line_num++;
+        chomp($raw_line);
+        my $line = $raw_line;
+
+        # Strip unquoted comments (# and ;)
+        my $clean = '';
+        my $in_quotes = 0;
+        my $len = length($line);
+        for ( my $i = 0; $i < $len; $i++ ) {
+            my $char = substr( $line, $i, 1 );
+            if ( $char eq '"' && ( $i == 0 || substr( $line, $i - 1, 1 ) ne '\\' ) ) {
+                $in_quotes = !$in_quotes;
+            }
+            if ( !$in_quotes && ( $char eq '#' || $char eq ';' ) ) {
+                last;
+            }
+            $clean .= $char;
+        }
+
+        $clean =~ s/^\s+//;
+        $clean =~ s/\s+$//;
+        next if $clean eq '';
+
+        # Section header
+        if ( $clean =~ /^\[\s*([a-zA-Z0-9_-]+)(?:\s+"([^"]*)")?\s*\]$/ ) {
+            $cur_section    = lc($1);
+            $cur_subsection = $2 // '';
+            next;
+        }
+        elsif ( $clean =~ /^\[/ ) {
+            printf STDERR "[ %-6s ] %s: line %d: malformed section header '%s'\n", 'ERROR', $file, $line_num, $clean;
+            close($fh);
+            return;
+        }
+
+        # Key = Value
+        if ( $clean =~ /^([a-zA-Z0-9_.-]+)\s*=\s*(.*)$/ ) {
+            my $raw_k = $1;
+            my $v     = $2;
+
+            if ( $cur_section eq '' ) {
+                printf STDERR "[ %-6s ] %s: line %d: key '%s' defined before any section\n", 'ERROR', $file, $line_num, $raw_k;
+                close($fh);
+                return;
+            }
+
+            # Trim and unquote value
+            $v =~ s/^\s+//;
+            $v =~ s/\s+$//;
+            if ( $v =~ /^"(.*)"$/ ) {
+                $v = $1;
+            }
+
+            # Map section/subsection/raw_k to full key
+            my $full_key;
+            my $is_repo_scope = 0;
+
+            if ( $cur_section eq 'aapp' && $cur_subsection =~ /^repo:(.+)$/ ) {
+                my $target_path = $1;
+                my $norm_target = Cwd::abs_path($target_path) // $target_path;
+                $norm_target =~ s{/+$}{};
+
+                if ( $norm_primary ne '' && $norm_target eq $norm_primary ) {
+                    $is_repo_scope = 1;
+                    $full_key = canonical_key("aapp.$raw_k");
+                }
+                else {
+                    # Subsection for another repository; skip
+                    next;
+                }
+            }
+            elsif ( $cur_section eq 'aapp' && $cur_subsection eq '' ) {
+                $full_key = canonical_key("aapp.$raw_k");
+            }
+            elsif ( $cur_section eq 'aapp' && $cur_subsection ne '' ) {
+                $full_key = canonical_key("aapp.$cur_subsection.$raw_k");
+            }
+            else {
+                my $sub = $cur_subsection ne '' ? ".$cur_subsection" : '';
+                $full_key = canonical_key("$cur_section$sub.$raw_k");
+            }
+
+            # Enforce Upper-Level Policy Allowlist
+            if ( !is_allowed_upper_key($full_key) ) {
+                binmode( STDERR, ':encoding(UTF-8)' );
+                printf STDERR "❌ [Config Refusal] %s: line %d: '%s' is not allowed in upper-level configuration.\n",
+                    $file, $line_num, $full_key;
+                close($fh);
+                return;
+            }
+
+            if ($is_repo_scope) {
+                push @{ $repo{$full_key} }, $v;
+            }
+            else {
+                push @{ $global{$full_key} }, $v;
+            }
+        }
+        else {
+            printf STDERR "[ %-6s ] %s: line %d: malformed syntax '%s'\n", 'ERROR', $file, $line_num, $clean;
+            close($fh);
+            return;
+        }
+    }
+
+    close($fh);
+    return { global => \%global, repo => \%repo };
+}
+
+our $in_load = 0;
+
 # Usage     : AAPP::Config::load()
-# Purpose   : Reads every git config value once (git config --list -z) into %config, decoded as UTF-8.
-#             A key written without a value is stored as undef, which git reads as true.
-# Returns   : RETURN_OK, or RETURN_ERROR after an [ ERROR ] line when git config cannot be read.
+# Purpose   : Reads configuration cascading with inverted precedence:
+#             System (repo > global) > User (repo > global) > Repository (.git/config).
+#             Tracks authoritative origin in %config_source.
+# Returns   : RETURN_OK, or RETURN_ERROR on failure.
 sub load
 {
     if ( $loaded == 1 ) {
         return RETURN_OK;
     }
-    if ( $loaded == -1 ) {
+    if ( $loaded == -1 || $in_load ) {
         return RETURN_ERROR;
     }
+
+    local $in_load = 1;
+
+    # 1. Resolve repository primary root
+    my $paths = eval { AAPP::Paths::resolve() };
+    my $primary_root = ( $paths && $paths->{primary_root} ) ? $paths->{primary_root} : eval { Cwd::getcwd() };
+
+    # 2. Read System main.conf
+    my $sys_dir  = AAPP::Paths::sys_conf_dir();
+    my $sys_file = ( defined $sys_dir && $sys_dir ne '' ) ? "$sys_dir/" . AAPP::Constants::CONFIG_FILE_NAME() : '';
+    my $sys_data;
+    if ( $sys_file ne '' && -f $sys_file ) {
+        $sys_data = _parse_ini_file( $sys_file, $primary_root );
+        if ( !defined $sys_data ) {
+            $loaded = -1;
+            return RETURN_ERROR;
+        }
+    }
+
+    # 3. Read User main.conf
+    my $user_dir  = AAPP::Paths::user_conf_dir();
+    my $user_file = ( defined $user_dir && $user_dir ne '' ) ? "$user_dir/" . AAPP::Constants::CONFIG_FILE_NAME() : '';
+    my $user_data;
+    if ( $user_file ne '' && -f $user_file ) {
+        $user_data = _parse_ini_file( $user_file, $primary_root );
+        if ( !defined $user_data ) {
+            $loaded = -1;
+            return RETURN_ERROR;
+        }
+    }
+
+    # 4. Read Repository Git config (git config --list -z)
+    my %repo_git;
     my $fh;
-    if ( !open( $fh, '-|:encoding(UTF-8)', 'git', 'config', '--list', '-z' ) ) {
-        AAPP::Logger::print_msg( 'ERROR', "Cannot run git config: $!" );
-        $loaded = -1;
-        return RETURN_ERROR;
+    if ( open( $fh, '-|:encoding(UTF-8)', 'git', 'config', '--list', '-z' ) ) {
+        local $/ = "\0";
+        while ( my $entry = <$fh> ) {
+            chomp($entry);
+            my ( $key, $value ) = split( /\n/, $entry, 2 );
+            push @{ $repo_git{ canonical_key($key) } }, $value;
+        }
+        close($fh);
     }
-    local $/ = "\0";
-    while ( my $entry = <$fh> ) {
-        chomp($entry);
-        my ( $key, $value ) = split( /\n/, $entry, 2 );
-        push @{ $config{ canonical_key($key) } }, $value;
+
+    # 5. Merge with Inverted Precedence:
+    # 1. system:repo
+    # 2. system:global
+    # 3. user:repo
+    # 4. user:global
+    # 5. repository
+    %config = ();
+    %config_source = ();
+
+    my %all_keys;
+    if ($sys_data) {
+        $all_keys{$_} = 1 for keys %{ $sys_data->{repo} };
+        $all_keys{$_} = 1 for keys %{ $sys_data->{global} };
     }
-    if ( !close($fh) ) {
-        AAPP::Logger::print_msg( 'ERROR', 'git config --list failed; settings cannot be read.' );
-        $loaded = -1;
-        return RETURN_ERROR;
+    if ($user_data) {
+        $all_keys{$_} = 1 for keys %{ $user_data->{repo} };
+        $all_keys{$_} = 1 for keys %{ $user_data->{global} };
     }
+    $all_keys{$_} = 1 for keys %repo_git;
+
+    foreach my $k ( keys %all_keys ) {
+        if ( $sys_data && exists $sys_data->{repo}{$k} ) {
+            $config{$k} = $sys_data->{repo}{$k};
+            $config_source{$k} = 'system:repo';
+        }
+        elsif ( $sys_data && exists $sys_data->{global}{$k} ) {
+            $config{$k} = $sys_data->{global}{$k};
+            $config_source{$k} = 'system:global';
+        }
+        elsif ( $user_data && exists $user_data->{repo}{$k} ) {
+            $config{$k} = $user_data->{repo}{$k};
+            $config_source{$k} = 'user:repo';
+        }
+        elsif ( $user_data && exists $user_data->{global}{$k} ) {
+            $config{$k} = $user_data->{global}{$k};
+            $config_source{$k} = 'user:global';
+        }
+        elsif ( exists $repo_git{$k} ) {
+            $config{$k} = $repo_git{$k};
+            $config_source{$k} = 'repository';
+        }
+    }
+
     $loaded = 1;
     return RETURN_OK;
+}
+
+# Usage     : my $src = AAPP::Config::source('aapp.governance')
+# Purpose   : Returns the authoritative origin of a key:
+#             'system:repo', 'system:global', 'user:repo', 'user:global', 'repository',
+#             or undef when the key is unset.
+# Returns   : Source string or undef.
+sub source
+{
+    my ($key) = @_;
+    load();
+    return $config_source{ canonical_key($key) };
+}
+
+# Usage     : AAPP::Config::reset()
+# Purpose   : Clears loaded configuration cache for testing isolation.
+# Returns   : 1
+sub reset
+{
+    %config        = ();
+    %config_source = ();
+    $loaded        = 0;
+    @PLAN_STATES   = ();
+    $states_loaded = 0;
+    return 1;
 }
 
 # Usage     : my $v = AAPP::Config::get('aapp.perlLogFile')
