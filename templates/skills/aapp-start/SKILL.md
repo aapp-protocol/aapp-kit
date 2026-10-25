@@ -35,7 +35,7 @@ On exit 0, `aapp start` has updated the plan status to `⚡ In Development`, rec
 
 **Plan worktree?** With `aapp.planWorktrees = on` (or `worktree <path>`), `aapp start` created the plan's own branch and worktree and bound the plan **there**, printing its path. Continue in that path (`cd <path>`); the primary checkout stays on the development branch, where issue fixes are started. `aapp issue fix` is refused inside a plan worktree.
 
-**Group member?** A plan with `* **Group:** <id>` starts from that group's feature branch (the group must be started first: `aapp start <group>`). It never edits `ARCHITECTURE.md` or `.agents/CODEMAP.md`: read the group plan's `## Architecture & Codemap` as the target architecture, and ask for changes there.
+**Group member?** A plan with `* **Group:** <id>` starts from that group's feature branch (the group must be started first: `aapp start <group>`). It never edits `ARCHITECTURE.md` or `.agents/CODEMAP.md`: read the whole group plan (§1 Goal, §2 Shared Decisions, `## Architecture & Codemap` as the target architecture), and ask for changes there.
 
 **Do NOT pause to ask for redundant confirmation.** Immediately proceed to execute Section 3 of the blueprint:
 0. **Resuming a plan in a worktree?** Rebase first: `git rebase --autostash <devBranch>`. Fixes to its files may have landed; conflicts in its own lines are its to resolve. Take fixes by rebase only, never by merge (the hook refuses a merge's foreign files); the `post-rewrite` hook keeps the plan's recorded commits right.

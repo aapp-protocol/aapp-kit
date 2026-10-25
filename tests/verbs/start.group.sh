@@ -77,7 +77,7 @@ if [ "$rc" -eq 0 ] && [ "$(git -C "$mwt" rev-parse --short HEAD)" = "$fsha" ] &&
 else
   bad "test_member_start_branches_from_feature_branch" "rc=$rc out=$out $(grep -E 'Base|Group' "$m1f" | tr '\n' ' ')"
 fi
-if echo "$out" | grep -qF "Guide        : member of group $g1: read its ## Architecture & Codemap in .plans/current/$(basename "$g1f") before coding."; then
+if echo "$out" | grep -qF "Guide        : member of group $g1: read the whole group plan (§1 Goal, §2 Shared Decisions, ## Architecture & Codemap) in .plans/current/$(basename "$g1f") before coding."; then
   ok "test_member_start_points_at_group_guide"
 else
   bad "test_member_start_points_at_group_guide" "out=$out"

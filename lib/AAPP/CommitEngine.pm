@@ -26,15 +26,36 @@ sub plans_commit
     my ( $subject, @paths ) = @_;
     if ( !@paths ) {
         AAPP::Logger::print_msg( 'ERROR', 'plans_commit needs at least one path.' );
+        AAPP::Logger::log_event( 'commits', 'plans', {
+            status  => 'refused',
+            subject => "$subject",
+            paths   => [],
+            sha     => '',
+            len     => length( $subject // '' ),
+        } );
         return RETURN_FAIL;
     }
     my $plans = AAPP::State::plans_root();
     if ( !defined $plans || !-d $plans ) {
         AAPP::Logger::print_msg( 'ERROR', 'The .plans worktree was not found.' );
+        AAPP::Logger::log_event( 'commits', 'plans', {
+            status  => 'error',
+            subject => "$subject",
+            paths   => [ map { "$_" } @paths ],
+            sha     => '',
+            len     => length( $subject // '' ),
+        } );
         return RETURN_ERROR;
     }
     if ( system( 'git', '-C', $plans, 'add', '--', @paths ) != 0 ) {
         AAPP::Logger::print_msg( 'ERROR', "Cannot stage in $plans: @paths" );
+        AAPP::Logger::log_event( 'commits', 'plans', {
+            status  => 'error',
+            subject => "$subject",
+            paths   => [ map { "$_" } @paths ],
+            sha     => '',
+            len     => length( $subject // '' ),
+        } );
         return RETURN_ERROR;
     }
     my $msg = File::Temp->new( TEMPLATE => 'aapp-msg-XXXXXX', TMPDIR => 1 );
@@ -43,26 +64,63 @@ sub plans_commit
     close($msg);
     if ( decorate_message( $msg->filename ) != RETURN_OK ) {
         AAPP::Logger::print_msg( 'ERROR', 'Attribution failed: strict mode needs an AI identity (agent, vendor, model).' );
+        AAPP::Logger::log_event( 'commits', 'plans', {
+            status  => 'refused',
+            subject => "$subject",
+            paths   => [ map { "$_" } @paths ],
+            sha     => '',
+            len     => length( $subject // '' ),
+        } );
         return RETURN_FAIL;
     }
     for my $attempt ( 1 .. PLANS_COMMIT_ATTEMPTS ) {
         my ( $status, $output ) = _git_with_output( '-C', $plans, 'commit', '-F', $msg->filename, '--', @paths );
         if ( $status == 0 ) {
             AAPP::State::forget("$plans/$_") for @paths;
+            my ( undef, $sha ) = _git_with_output( '-C', $plans, 'rev-parse', '--short', 'HEAD' );
+            $sha =~ s/\s+//g if defined $sha;
+            AAPP::Logger::log_event( 'commits', 'plans', {
+                status  => 'ok',
+                subject => "$subject",
+                paths   => [ map { "$_" } @paths ],
+                sha     => "$sha",
+                len     => length( $subject // '' ),
+            } );
             return RETURN_OK;
         }
         if ( $output !~ /index\.lock|Unable to create.*lock/i ) {
             print STDERR $output;
+            AAPP::Logger::log_event( 'commits', 'plans', {
+                status  => 'error',
+                subject => "$subject",
+                paths   => [ map { "$_" } @paths ],
+                sha     => '',
+                len     => length( $subject // '' ),
+            } );
             return RETURN_ERROR;
         }
         if ( $attempt == PLANS_COMMIT_ATTEMPTS ) {
             AAPP::Logger::print_msg( 'ERROR', 'The .plans index is still locked after ' . PLANS_COMMIT_ATTEMPTS . ' attempts.' );
             print STDERR $output;
+            AAPP::Logger::log_event( 'commits', 'plans', {
+                status  => 'error',
+                subject => "$subject",
+                paths   => [ map { "$_" } @paths ],
+                sha     => '',
+                len     => length( $subject // '' ),
+            } );
             return RETURN_ERROR;
         }
         AAPP::Logger::print_msg( 'WARN', "The .plans index is locked; attempt $attempt of " . PLANS_COMMIT_ATTEMPTS . ', waiting.' );
         Time::HiRes::sleep(PLANS_COMMIT_RETRY_DELAY);
     }
+    AAPP::Logger::log_event( 'commits', 'plans', {
+        status  => 'error',
+        subject => "$subject",
+        paths   => [ map { "$_" } @paths ],
+        sha     => '',
+        len     => length( $subject // '' ),
+    } );
     return RETURN_ERROR;
 }
 

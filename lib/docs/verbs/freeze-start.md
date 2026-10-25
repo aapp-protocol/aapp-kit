@@ -43,7 +43,7 @@
 - `on-start` action delegate runs inside the transaction
 - one commit in the plans worktree, `plan(start): freeze and activate <id> into development`, via `plans_commit`
 - `post-freeze` then `post-start` observers are dispatched after commit (P-23)
-- a group member (P-101): the output adds `Guide        : member of group <id>: read its ## Architecture & Codemap in .plans/current/<file> before coding.`
+- a group member (P-101): the output adds `Guide        : member of group <id>: read the whole group plan (§1 Goal, §2 Shared Decisions, ## Architecture & Codemap) in .plans/current/<file> before coding.`
 
 ## Exit
 - 0 only when every effect above landed

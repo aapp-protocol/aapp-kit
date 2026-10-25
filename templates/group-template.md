@@ -16,6 +16,8 @@
      start from the feature branch. `aapp done <group>` refuses while a member is open, applies the sections
      below, runs the pre-done gate on the feature branch and merges it into the parent. -->
 
+> **Read this whole plan before starting or resuming any member.** §1 says why the group exists and how its success is measured; §2 holds the decisions every member keeps; `## Architecture & Codemap` is the target architecture. A member's own plan is read against them.
+
 ---
 
 ## 1. Goal

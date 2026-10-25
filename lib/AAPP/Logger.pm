@@ -6,11 +6,70 @@ use utf8;
 use 5.026;
 
 use POSIX ();
+use Fcntl qw(:flock);
 use AAPP::Constants qw(DEBUG_LEVEL LOG_KEY);
 use AAPP::Config ();
 use AAPP::Paths ();
 
-our $quiet = 0;
+our $quiet     = 0;
+our @EVENTS    = ();
+our $SEQ       = 0;
+our $HAVE_JSON;
+
+# Usage     : AAPP::Logger::log_event('commits', 'plans', { subject => $subj, paths => \@paths, sha => $sha })
+# Purpose   : Records a structured event with seq, pid, UTC timestamp (AAPP::JSON::utc_now), command,
+#             event, and data in @EVENTS, and appends an [EVENT] JSON line via AAPP::JSON::json_obj + encode
+#             to log_file() when aapp.perlLogFile is configured.
+# Returns   : 1
+sub log_event
+{
+    my ( $command, $event, $data ) = @_;
+    $data //= {};
+    $HAVE_JSON //= do { require AAPP::JSON; 1 };
+    my $stamp    = AAPP::JSON::utc_now();
+    my $seq      = ++$SEQ;
+    my $pid      = $$;
+    my $enc_data = AAPP::JSON::encode( $data );
+    my ( $rc, $decoded ) = AAPP::JSON::decode( $enc_data );
+    my $snapshot = ( $rc && defined $decoded ) ? $decoded : { %$data };
+    my $record   = {
+        timestamp => $stamp,
+        seq       => $seq,
+        pid       => $pid,
+        command   => $command,
+        event     => $event,
+        data      => $snapshot,
+    };
+    push @EVENTS, $record;
+    my $file = log_file() // return 1;
+    my $json = AAPP::JSON::json_obj(
+        timestamp => AAPP::JSON::json_str( $stamp ),
+        seq       => AAPP::JSON::json_num( $seq ),
+        pid       => AAPP::JSON::json_num( $pid ),
+        command   => AAPP::JSON::json_str( $command ),
+        event     => AAPP::JSON::json_str( $event ),
+        data      => $enc_data,
+    );
+    my $fh;
+    if ( !open( $fh, '>>:encoding(UTF-8)', $file ) ) {
+        die "System: Cannot append to '$file': $!\n";
+    }
+    flock( $fh, LOCK_EX );
+    printf {$fh} "%s [EVENT] %s\n", $stamp, $json;
+    flock( $fh, LOCK_UN );
+    close($fh) or die "System: Cannot close '$file': $!\n";
+    return 1;
+}
+
+# Usage     : AAPP::Logger::clear_events()
+# Purpose   : Clears the in-memory event registry.
+# Returns   : 1
+sub clear_events
+{
+    @EVENTS = ();
+    $SEQ    = 0;
+    return 1;
+}
 
 # Usage     : AAPP::Logger::print_msg('NOTICE', $message)
 # Purpose   : Prints one line for the agent in the standard format, and logs it.

@@ -346,7 +346,7 @@ else
   bad "test_status_shows_requests_waiting_for_approval" "out=$(echo "$out" | sed -n '/PLANS/,/PICKUP/p') js=$(printf '%s' "$js" | head -c 400)"
 fi
 mout="$(cd "$mwt" && aapp status 2>&1)"
-if echo "$mout" | grep -qF "Bound to $mid, member of group $gid: re-read the group's ## Architecture & Codemap" && \
+if echo "$mout" | tr '\n' ' ' | sed 's/  */ /g' | grep -qF "Bound to $mid, member of group $gid: re-read the whole group plan (§1 Goal, §2 Shared Decisions, ## Architecture & Codemap)" && \
    ! echo "$out" | grep -qF "Bound to"; then
   ok "test_status_member_rereads_group_guide"
 else

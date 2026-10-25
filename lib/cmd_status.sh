@@ -466,7 +466,7 @@ status_notices() {
         bg="$(parse_plan_field "$bf" Group)"
         gfile="$(ls .plans/current/P"${bg#P-}"-*.md 2>/dev/null | head -n 1)"
         if [ -n "$bg" ] && [ -n "$gfile" ]; then
-            notice plans after "📖 Bound to $bound, member of group $bg: re-read the group's ## Architecture & Codemap in $gfile before continuing."
+            notice plans after "📖 Bound to $bound, member of group $bg: re-read the whole group plan (§1 Goal, §2 Shared Decisions, ## Architecture & Codemap) in $gfile before continuing."
         fi
     fi
     case "${STATUS_MATRIX_OUT:-}" in

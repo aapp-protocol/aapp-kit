@@ -786,14 +786,14 @@ _wt_start() {
 }
 
 # _member_guide_line <plan_file>: a group member's start points its agent at the
-# group plan's `## Architecture & Codemap`, the one guide (P-101).
+# whole group plan (§1 Goal, §2 Shared Decisions, ## Architecture & Codemap) (P-101, P-133).
 _member_guide_line() {
     local grp gfile
     grp="$(parse_plan_field "$1" Group)"
     [ -n "$grp" ] || return 0
     gfile="$(ls "$PLANS_DIR"/current/P"${grp#P-}"-*.md 2>/dev/null | head -n 1)"
     [ -n "$gfile" ] || return 0
-    echo "   Guide        : member of group $grp: read its ## Architecture & Codemap in .plans/current/$(basename "$gfile") before coding."
+    echo "   Guide        : member of group $grp: read the whole group plan (§1 Goal, §2 Shared Decisions, ## Architecture & Codemap) in .plans/current/$(basename "$gfile") before coding."
 }
 
 # ------------------------------------------------------------------------------

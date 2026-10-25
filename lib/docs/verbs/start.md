@@ -42,7 +42,7 @@
 
 ## Effects (happy path)
 - group plan (P-64): `feature/<slug>` is created (no upstream) at the parent; the header records `Base: \`<sha>\` (<parent>)` and `* **Feature Branch:** feature/<slug>`; Status `⚡ In Development`; no worktree, no buffer, no hooks; one commit `plan(start): start group <id> on feature/<slug>`. The group's amendments member (P-101), never frozen by hand, is set `🔷 Frozen` in that commit and then started like a member, in its own worktree whatever `aapp.planWorktrees` says (`worktree .workspace/P<n>` when it is off); a failure to start it is reported with the command, the group stays started
-- group member (P-64, P-101): the start output adds `Guide        : member of group <id>: read its ## Architecture & Codemap in .plans/current/<file> before coding.`
+- group member (P-64, P-101): the start output adds `Guide        : member of group <id>: read the whole group plan (§1 Goal, §2 Shared Decisions, ## Architecture & Codemap) in .plans/current/<file> before coding.`
 - group member (P-64): the plan worktree branches from the group's feature branch and `Base:` names it; otherwise as a plan worktree below
 - the `pre-start` gating hook executes before any mutation (payload carries plan ID, plan file, and Target Files)
 - the plan's Status line reads `⚡ In Development`
@@ -100,4 +100,4 @@ Run: `aapp test verb start`
 - `tests/verbs/start.group.sh::test_member_start_refuses_unstarted_group` -> a member of an unstarted group: exit 1, nothing changed (P-64)
 - `tests/verbs/start.group.sh::test_groups_do_not_nest` -> a group started from another group's feature branch, or a group plan joining a group: refused (P-64)
 - `tests/verbs/start.group.sh::test_group_start_starts_amendments_member` -> the group's start puts its amendments member ⚡ In Development in its own worktree (P-101)
-- `tests/verbs/start.group.sh::test_member_start_points_at_group_guide` -> a member's start names the group plan's `## Architecture & Codemap` to read (P-101)
+- `tests/verbs/start.group.sh::test_member_start_points_at_group_guide` -> a member's start names the whole group plan (§1 Goal, §2 Shared Decisions, ## Architecture & Codemap) to read (P-101, P-133)
