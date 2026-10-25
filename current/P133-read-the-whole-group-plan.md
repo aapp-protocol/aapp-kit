@@ -71,16 +71,16 @@ Phase 0 (the group text updates to P-111 §5 and amendments) has already been ap
 - [x] Task 0.3: §2 stays as written (design-locked, no `decision` reaches it until P-130 §2.9); the introduction carries one line: "§2 *Tests vs. code boundary* and *Modular test harness* are replaced by the decisions of `.plans/pickup/perl-port-test-salvage-rfc.md` (D2, D3), recorded as R<n> in P-112." (Completed by hand)
 
 ### Phase 1: Failing tests & Logger Telemetry
-- [ ] Task 1.1: Change the two test assertions and the three contract lines to the new wording; both tests fail.
-- [ ] Task 1.2: Implement `AAPP::Logger::log_event($command, $event, \%data)` and `@EVENTS` in `lib/AAPP/Logger.pm`, and `commits.plans` in `lib/AAPP/CommitEngine.pm`.
+- [x] Task 1.1: Change the two test assertions and the three contract lines to the new wording; both tests fail.
+- [x] Task 1.2: Implement `AAPP::Logger::log_event($command, $event, \%data)` and `@EVENTS` in `lib/AAPP/Logger.pm`, and `commits.plans` in `lib/AAPP/CommitEngine.pm`.
 
 ### Phase 2: Pointers and introduction
-- [ ] Task 2.1: The Guide line in `lib/cmd_plan.sh` and the status line in `lib/cmd_status.sh`; both tests pass.
-- [ ] Task 2.2: The introduction in `templates/group-template.md`; the *Plan groups* sentence in `templates/AGENTS.md`; the group member paragraph in `templates/skills/aapp-start/SKILL.md`.
+- [x] Task 2.1: The Guide line in `lib/cmd_plan.sh` and the status line in `lib/cmd_status.sh`; both tests pass.
+- [x] Task 2.2: The introduction in `templates/group-template.md`; the *Plan groups* sentence in `templates/AGENTS.md`; the group member paragraph in `templates/skills/aapp-start/SKILL.md`.
 
 ### Phase 3: Verification
-- [ ] Task 3.1: `./aapp test strict quiet` and `t/test-run strict quiet` green; a group drafted from the template carries the introduction.
-- [ ] Task 3.2: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
+- [x] Task 3.1: `./aapp test strict quiet` and `t/test-run strict quiet` green; a group drafted from the template carries the introduction.
+- [x] Task 3.2: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
