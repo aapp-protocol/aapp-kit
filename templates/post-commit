@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Git Post-Commit Hook (Project Master Entrypoint)
-#
-# Dispatches to AAPP post-commit staged note attacher.
 # ==============================================================================
 set -e
 COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
 PRIMARY_ROOT="$(cd "$COMMON_DIR/.." 2>/dev/null && pwd || true)"
 HOOK_DIR="$PRIMARY_ROOT/.githooks"
 
-# 1. AAPP Post-Commit Staged Note Attacher
+AAPP_HOOK=""
 if [ -f "$HOOK_DIR/aapp-post-commit" ]; then
-    bash "$HOOK_DIR/aapp-post-commit" "$@"
+    AAPP_HOOK="$HOOK_DIR/aapp-post-commit"
 elif [ -f "$(git rev-parse --show-toplevel 2>/dev/null)/.githooks/aapp-post-commit" ]; then
-    bash "$(git rev-parse --show-toplevel)/.githooks/aapp-post-commit" "$@"
+    AAPP_HOOK="$(git rev-parse --show-toplevel)/.githooks/aapp-post-commit"
 fi
 
-# 2. Project-Specific Checks (Add custom post-commit notifications below)
+if [ -n "$AAPP_HOOK" ]; then
+    if [ -x "$AAPP_HOOK" ]; then
+        "$AAPP_HOOK" "$@" || exit 0
+    else
+        perl "$AAPP_HOOK" "$@" || exit 0
+    fi
+fi

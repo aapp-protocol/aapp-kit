@@ -1,323 +1,40 @@
-#!/usr/bin/env bash
-# ==============================================================================
-# AAPP Commit-Msg Enforcement Hook
-#
-# Check 1: Subject Length & Shape (G4)
-#   - First non-comment line is evaluated against aapp.subjectMaxLen (default 72).
-# Check 2: Attribution Policy & Revert Safety (G2)
-#   - Revert commits are exempt from attribution enforcement.
-#   - commit mode: requires valid AI-Agent: trailer, blocks synthetic emails.
-#   - none / notes mode: disallows AI-Agent: trailers in commit messages.
-#   - Prohibits synthetic vendor email addresses in Co-authored-by: across all modes.
-# Message-Hash Sync (G1)
-#   - Re-keys pre-staged note buffer if commit message was edited in $EDITOR.
-# ==============================================================================
-set -e
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use utf8;
+use 5.026;
 
-MSG_FILE="$1"
-if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
-    exit 0
-fi
+BEGIN {
+    my $lib = $ENV{AAPP_LIB};
+    if ( !defined $lib || $lib eq '' || !-d $lib ) {
+        my $kd = `git config --get aapp.kitDir 2>/dev/null` =~ s/\s+\z//r;
+        $lib = "$kd/lib" if $kd ne '';
+    }
+    if ( !defined $lib || $lib eq '' || !-d $lib ) {
+        my $file = __FILE__;
+        if ( !-f $file && defined $ENV{PWD} ) {
+            $file = "$ENV{PWD}/$file";
+        }
+        my $parent = $file =~ s{/[^/]+$}{}r;
+        if ( -f "$parent/../lib/AAPP/JSON.pm" ) {
+            require Cwd;
+            $lib = Cwd::abs_path("$parent/../lib");
+        }
+    }
+    if ( !defined $lib || $lib eq '' || !-d $lib ) {
+        my $data = $ENV{XDG_DATA_HOME};
+        if ( !defined $data || $data eq '' ) {
+            my $home = $ENV{HOME} // ( $^O eq 'MSWin32' ? $ENV{USERPROFILE} : undef );
+            $data = "$home/.local/share" if defined $home;
+        }
+        $lib = "$data/aapp-kit/lib" if defined $data;
+    }
+    if ( !defined $lib || !-r "$lib/AAPP/JSON.pm" ) {
+        print STDERR "❌ [Commit-Msg Violation] Perl core missing: perl and " . ( $lib // '' ) . "/AAPP/JSON.pm are required. Install the kit: aapp install.\n";
+        exit 1;
+    }
+    unshift @INC, $lib;
+}
 
-# Ignore empty files
-if [ ! -s "$MSG_FILE" ]; then
-    exit 0
-fi
-
-# ------------------------------------------------------------------------------
-# Revert Exemption: git revert standard commits or quoted revert lines
-# ------------------------------------------------------------------------------
-# Standard git reverts paste prior commit details; exempt from conciseness and trailers
-if grep -qE '^(This reverts commit [0-9a-fA-F]+|> This reverts commit [0-9a-fA-F]+)' "$MSG_FILE" 2>/dev/null; then
-    exit 0
-fi
-
-# Extract non-comment lines
-NON_COMMENT_LINES=()
-while IFS= read -r line || [ -n "$line" ]; do
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    NON_COMMENT_LINES+=("$line")
-done < "$MSG_FILE"
-
-# Extract first non-empty line as subject
-SUBJECT=""
-SUBJECT_LINE_IDX=-1
-for i in "${!NON_COMMENT_LINES[@]}"; do
-    if [ -n "${NON_COMMENT_LINES[$i]}" ]; then
-        SUBJECT="${NON_COMMENT_LINES[$i]}"
-        SUBJECT_LINE_IDX="$i"
-        break
-    fi
-done
-
-if [ -z "$SUBJECT" ]; then
-    exit 0
-fi
-
-if [[ "$SUBJECT" =~ ^Revert[[:space:]]+\" || "$SUBJECT" =~ ^This[[:space:]]+reverts[[:space:]]+commit ]]; then
-    exit 0
-fi
-
-# ------------------------------------------------------------------------------
-# Check 1: Subject Length & Shape (G4)
-# ------------------------------------------------------------------------------
-SUBJECT_MAX_LEN="$(git config --int aapp.subjectMaxLen 2>/dev/null || echo "72")"
-SUBJECT_LEN="${#SUBJECT}"
-
-if [ "$SUBJECT_LEN" -gt "$SUBJECT_MAX_LEN" ]; then
-    echo "" >&2
-    echo "❌ [Commit-Msg Violation] Commit subject exceeds maximum length ($SUBJECT_LEN > $SUBJECT_MAX_LEN chars)!" >&2
-    echo "   Subject: $SUBJECT" >&2
-    echo "" >&2
-    echo "   👉 The Commit Conciseness Invariant requires concise, imperative subject lines (<= $SUBJECT_MAX_LEN chars)." >&2
-    echo "   👉 Move detailed technical analysis and explanations into the commit body." >&2
-    echo "" >&2
-    exit 1
-fi
-
-# ------------------------------------------------------------------------------
-# Check 1b: Blank Separator Line Invariant
-# ------------------------------------------------------------------------------
-NEXT_LINE_IDX=$((SUBJECT_LINE_IDX + 1))
-if [ "$NEXT_LINE_IDX" -lt "${#NON_COMMENT_LINES[@]}" ]; then
-    LINE2="${NON_COMMENT_LINES[$NEXT_LINE_IDX]}"
-    if [ -n "$LINE2" ]; then
-        echo "" >&2
-        echo "❌ [Commit-Msg Violation] Missing blank separator line between subject and body!" >&2
-        echo "   Line 2: $LINE2" >&2
-        echo "" >&2
-        echo "   👉 Git conventions require an empty line separating the subject from the commit body." >&2
-        echo "" >&2
-        exit 1
-    fi
-fi
-
-# ------------------------------------------------------------------------------
-# Check 1c: Body Conciseness & Unwrapped Line Ceiling
-# ------------------------------------------------------------------------------
-BODY_RAW_LINES=()
-if [ "$((NEXT_LINE_IDX + 1))" -lt "${#NON_COMMENT_LINES[@]}" ]; then
-    BODY_RAW_LINES=("${NON_COMMENT_LINES[@]:$((NEXT_LINE_IDX + 1))}")
-fi
-
-# Strip trailing trailers and trailing blank lines from bottom up
-while [ "${#BODY_RAW_LINES[@]}" -gt 0 ]; do
-    last_idx=$((${#BODY_RAW_LINES[@]} - 1))
-    last_line="${BODY_RAW_LINES[$last_idx]}"
-    if [[ -z "${last_line// }" ]] || [[ "$last_line" =~ ^[[:space:]]*[A-Za-z0-9_-]+:[[:space:]] ]]; then
-        unset 'BODY_RAW_LINES[last_idx]'
-    else
-        break
-    fi
-done
-
-# Strip leading blank lines
-while [ "${#BODY_RAW_LINES[@]}" -gt 0 ]; do
-    first_line="${BODY_RAW_LINES[0]}"
-    if [[ -z "${first_line// }" ]]; then
-        BODY_RAW_LINES=("${BODY_RAW_LINES[@]:1}")
-    else
-        break
-    fi
-done
-
-# Check 1c.1: Individual line width
-MAX_LINE_LEN="$(git config --int aapp.commitLineMaxLen 2>/dev/null || echo "100")"
-for bline in "${BODY_RAW_LINES[@]}"; do
-    if [ "${#bline}" -gt "$MAX_LINE_LEN" ]; then
-        if ! echo "$bline" | grep -qE 'https?://'; then
-            echo "" >&2
-            echo "❌ [Commit-Msg Violation] Commit body line exceeds maximum width (${#bline} > $MAX_LINE_LEN chars)!" >&2
-            echo "   Line: $bline" >&2
-            echo "" >&2
-            echo "   👉 Wrap commit body lines at <= $MAX_LINE_LEN characters to preserve git log readability." >&2
-            echo "   👉 (Lines containing URLs are automatically exempt)." >&2
-            echo "" >&2
-            exit 1
-        fi
-    fi
-done
-
-# Check 1c.2: Total volume and line count
-MAX_BODY_LEN="$(git config --int aapp.bodyMaxLen 2>/dev/null || echo "1200")"
-MAX_BODY_LINES="$(git config --int aapp.maxBodyLines 2>/dev/null || echo "20")"
-BODY_LINE_COUNT="${#BODY_RAW_LINES[@]}"
-BODY_CHARS=0
-for bline in "${BODY_RAW_LINES[@]}"; do
-    BODY_CHARS=$((BODY_CHARS + ${#bline} + 1))
-done
-
-if [ "$BODY_CHARS" -gt "$MAX_BODY_LEN" ] || [ "$BODY_LINE_COUNT" -gt "$MAX_BODY_LINES" ]; then
-    echo "" >&2
-    echo "❌ [Commit-Msg Violation] Commit message body exceeds conciseness limit ($BODY_CHARS > $MAX_BODY_LEN chars / $BODY_LINE_COUNT > $MAX_BODY_LINES lines)!" >&2
-    echo "" >&2
-    echo "   👉 Keep commit bodies focused on *why* and *what* concisely." >&2
-    echo "   👉 Detailed technical architecture belongs in canonical blueprints (.plans/current/<plan>.md)." >&2
-    echo "" >&2
-    exit 1
-fi
-
-# ------------------------------------------------------------------------------
-# Check 2: Attribution Policy (G2)
-# ------------------------------------------------------------------------------
-
-ATTR_MODE="$(git config aapp.aiAttribution 2>/dev/null || echo "none")"
-
-# Check for presence of AI trailers
-HAS_AI_TRAILER=0
-if grep -qE '^[[:space:]]*AI-(Agent|Vendor|Model):' "$MSG_FILE" 2>/dev/null; then
-    HAS_AI_TRAILER=1
-fi
-
-# Validate trailers (format and emailless)
-VALID_TRAILERS=1
-if ! grep -qE '^[[:space:]]*AI-Agent:[[:space:]]*[^[:space:]]+' "$MSG_FILE" 2>/dev/null || \
-   ! grep -qE '^[[:space:]]*AI-Vendor:[[:space:]]*[^[:space:]]+' "$MSG_FILE" 2>/dev/null || \
-   ! grep -qE '^[[:space:]]*AI-Model:[[:space:]]*[^[:space:]]+' "$MSG_FILE" 2>/dev/null; then
-    VALID_TRAILERS=0
-fi
-
-# Check for banned emails or angle brackets in AI trailers
-if grep -E '^[[:space:]]*AI-(Agent|Vendor|Model):' "$MSG_FILE" 2>/dev/null | grep -qE '[@<>]'; then
-    VALID_TRAILERS=0
-fi
-
-# Check for banned Co-authored-by trailers with synthetic AI emails or hijacked addresses
-BANNED_COAUTHORS=0
-BANNED_MATCH=""
-while IFS= read -r line; do
-    if [[ "$line" =~ ^[[:space:]]*[Cc]o-[Aa]uthored-[Bb]y:[[:space:]]*(.*) ]]; then
-        coauthor="${BASH_REMATCH[1]}"
-        if echo "$coauthor" | grep -qiE 'Claude|Antigravity|GPT|Copilot|Codex|Cursor|Gemini|noreply\.anthropic\.com|antigravity@google\.com'; then
-            BANNED_COAUTHORS=1
-            BANNED_MATCH="$coauthor"
-            break
-        fi
-    fi
-done < "$MSG_FILE"
-
-if [ "$BANNED_COAUTHORS" -eq 1 ]; then
-    echo "" >&2
-    echo "❌ [Commit-Msg Violation] Prohibited AI co-author trailer detected: '$BANNED_MATCH'" >&2
-    echo "   Synthetic email addresses in Co-authored-by: trailers link commits to unvetted" >&2
-    echo "   or third-party GitHub accounts (e.g. shimonenator)." >&2
-    echo "" >&2
-    echo "   👉 Use email-free semantic trailers:" >&2
-    echo "      AI-Agent: <Agent Name>" >&2
-    echo "      AI-Vendor: <Vendor Name>" >&2
-    echo "      AI-Model: <Model ID>" >&2
-    echo "   👉 Or switch attribution mode via:" >&2
-    echo "      aapp ai lax      (validates trailers when present, human commits pass)" >&2
-    echo "      aapp ai strict   (requires trailers on every commit)" >&2
-    echo "      aapp ai notes    (enable local git notes)" >&2
-    echo "      aapp ai none     (disable AI attribution)" >&2
-    echo "" >&2
-    exit 1
-fi
-
-case "$ATTR_MODE" in
-    lax)
-        if [ "$HAS_AI_TRAILER" -eq 1 ] && [ "$VALID_TRAILERS" -eq 0 ]; then
-            echo "" >&2
-            echo "❌ [Commit-Msg Violation] Malformed or incomplete AI attribution trailers in 'lax' mode!" >&2
-            echo "   Trailers present must include all three emailless fields:" >&2
-            echo "      AI-Agent: <Agent Name>" >&2
-            echo "      AI-Vendor: <Vendor Name>" >&2
-            echo "      AI-Model: <Model ID>" >&2
-            echo "" >&2
-            exit 1
-        fi
-        ;;
-    strict)
-        if [ "$VALID_TRAILERS" -eq 0 ]; then
-            echo "" >&2
-            echo "❌ [Commit-Msg Violation] Missing or malformed AI attribution trailers in 'strict' mode!" >&2
-            echo "   Repository attribution mode is set to 'strict' (aapp.aiAttribution=strict)." >&2
-            echo "   Every commit must carry valid emailless trailers:" >&2
-            echo "      AI-Agent: <Agent Name>" >&2
-            echo "      AI-Vendor: <Vendor Name>" >&2
-            echo "      AI-Model: <Model ID>" >&2
-            echo "" >&2
-            echo "   👉 You can set environment variables for automated tooling:" >&2
-            echo "      AAPP_AGENT_NAME, AAPP_AGENT_VENDOR, AAPP_AGENT_MODEL" >&2
-            echo "   👉 If this is a purely human commit, switch mode:" >&2
-            echo "      aapp ai lax" >&2
-            echo "" >&2
-            exit 1
-        fi
-        ;;
-    commit)
-        echo "" >&2
-        echo "❌ [Commit-Msg Violation] 'aapp.aiAttribution=commit' is retired!" >&2
-        echo "   Repository attribution mode 'commit' has been replaced by 'lax' and 'strict'." >&2
-        echo "" >&2
-        echo "   👉 Run one of the following commands to update your configuration:" >&2
-        echo "      aapp ai lax     (accepts human commits, validates AI trailers when present)" >&2
-        echo "      aapp ai strict  (enforces valid AI trailers on every commit)" >&2
-        echo "" >&2
-        exit 1
-        ;;
-    notes)
-        if [ "$HAS_AI_TRAILER" -eq 1 ]; then
-            echo "" >&2
-            echo "❌ [Commit-Msg Violation] AI attribution trailer detected in 'notes' mode!" >&2
-            echo "   Repository attribution mode is set to 'notes' (aapp.aiAttribution=notes)." >&2
-            echo "   Commit messages in 'notes' mode must remain human-only." >&2
-            echo "" >&2
-            echo "   👉 Remove AI trailers from the commit message and stage notes via:" >&2
-            echo "      aapp note stage \"<content>\" msg \"<commit-msg>\"" >&2
-            echo "   👉 To include public AI trailers alongside notes, switch mode:" >&2
-            echo "      aapp ai lax     (optional trailers + notes)" >&2
-            echo "      aapp ai strict  (mandatory trailers + notes)" >&2
-            echo "" >&2
-            exit 1
-        fi
-        ;;
-    none)
-        if [ "$HAS_AI_TRAILER" -eq 1 ]; then
-            echo "" >&2
-            echo "❌ [Commit-Msg Violation] AI attribution trailer detected in 'none' attribution mode!" >&2
-            echo "   Repository attribution mode is set to 'none' (aapp.aiAttribution=none)." >&2
-            echo "" >&2
-            echo "   👉 Remove the AI trailer, or enable attribution mode:" >&2
-            echo "      aapp ai lax" >&2
-            echo "" >&2
-            exit 1
-        fi
-        ;;
-    *)
-        echo "" >&2
-        echo "❌ [Commit-Msg Violation] Unknown attribution mode '$ATTR_MODE'!" >&2
-        echo "   Valid modes: none, lax, strict, notes." >&2
-        echo "" >&2
-        echo "   👉 Run one of:" >&2
-        echo "      aapp ai lax" >&2
-        echo "      aapp ai strict" >&2
-        echo "      aapp ai notes" >&2
-        echo "      aapp ai none" >&2
-        echo "" >&2
-        exit 1
-        ;;
-esac
-
-# ------------------------------------------------------------------------------
-# Message-Hash Sync (G1)
-# ------------------------------------------------------------------------------
-if command -v git >/dev/null 2>&1; then
-    NOTE_DIR="$(git rev-parse --git-path . 2>/dev/null || echo ".git")"
-    FINAL_HASH="$(git stripspace --strip-comments < "$MSG_FILE" 2>/dev/null | sha256sum | awk '{print $1}')"
-    if [ -d "$NOTE_DIR" ] && [ -n "$FINAL_HASH" ]; then
-        if [ ! -f "$NOTE_DIR/aapp_pending_note.$FINAL_HASH" ]; then
-            pending_files=()
-            while IFS= read -r -d '' pfile; do
-                pending_files+=("$pfile")
-            done < <(find "$NOTE_DIR" -maxdepth 1 -name 'aapp_pending_note.*' -print0 2>/dev/null)
-
-            if [ ${#pending_files[@]} -eq 1 ]; then
-                mv "${pending_files[0]}" "$NOTE_DIR/aapp_pending_note.$FINAL_HASH"
-            fi
-        fi
-    fi
-fi
-
-exit 0
+use AAPP::Hooks::CommitMsg ();
+exit AAPP::Hooks::CommitMsg->run(@ARGV);

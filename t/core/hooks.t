@@ -11,6 +11,7 @@ use File::Copy ();
 use File::Path ();
 use AAPP::JSON ();
 use AAPP::Tests ();
+use AAPP::HookDispatcher ();
 
 # Each test_<name> sub is described by its line in lib/docs/core/hooks.md. Run alone: prove -l t/core/hooks.t
 
@@ -107,7 +108,7 @@ sub test_hook_hash_formats_registry_line
 {
     my ($self) = @_;
     my $file = script( 'test_script.sh', "echo \"hello\"\n" );
-    my $sha  = $self->lib_call( 'hook_dispatcher', 'compute_file_sha256', $file )->{out} =~ s/\s+\z//r;
+    my $sha  = AAPP::HookDispatcher::compute_file_sha256($file) =~ s/\s+\z//r;
     $self->match_or_die( $sha, qr/^[0-9a-f]{64}$/, 'compute_file_sha256 gives a 64-character hash' );
     $self->eq_or_die( $sha, sha_of($file), 'the SHA-256 of the file' );
     my $out = aapp_all( $self, 'hook-hash', 'test_script.sh', 'pre-freeze', '25', 'gate' );
@@ -247,7 +248,7 @@ sub test_sample_plugins_never_run
     File::Path::make_path('.agents/skills/sample-tool');
     my $dir = Cwd::getcwd() . '/.agents/skills/sample-tool';
     script( 'run.sample', "#!/bin/sh\necho \"SAMPLE_TOOL_SHOULD_NOT_RUN\"\n", $dir );
-    $self->eq_or_die( $self->lib_call( 'hook_dispatcher', 'resolve_plugin_entrypoint', $dir, 'sample-tool' )->{out}, '', 'run.sample is no entry point' );
+    $self->eq_or_die( AAPP::HookDispatcher::resolve_plugin_entrypoint( $dir, 'sample-tool' ) // '', '', 'run.sample is no entry point' );
     my $out = aapp_all( $self, 'sample-tool' );
     $self->true_or_die( $out !~ /SAMPLE_TOOL_SHOULD_NOT_RUN/, 'the sample does not run', $out );
     $self->match_or_die( $out, qr/Unknown command/, 'aapp refuses it' );
@@ -328,7 +329,7 @@ sub test_event_envelope
     local $ENV{REPO_ROOT} = $repo;
     my $envelope = sub {
         my @args = @_;
-        return $self->in_dir( $repo, sub { $self->lib_call( 'hook_dispatcher', 'build_event_envelope', @args )->{out} } );
+        return $self->in_dir( $repo, sub { AAPP::HookDispatcher::build_event_envelope(@args) } );
     };
     my $e = $envelope->( 'issue.close', '{"id": "#7"}' );
     $self->true_or_die( index( $e, '"remote": { "name": "origin", "url": "https://example.com/acme/app.git" }' ) >= 0, 'the remote without credentials', $e );

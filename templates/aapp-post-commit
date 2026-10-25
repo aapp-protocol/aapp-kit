@@ -1,50 +1,40 @@
-#!/usr/bin/env bash
-# ==============================================================================
-# AAPP Post-Commit Staged Note Attacher
-#
-# Attaches customizable AI attribution notes pre-staged via Option C:
-# 1. Byte-faithful commit body hash extraction (B1)
-# 2. Keyed note buffer attachment with atomic unlinking on success (B3)
-# 3. Mismatch diagnostic warnings (B5)
-# 4. Portable TTL reaping sweep for abandoned notes (B5)
-# ==============================================================================
-set -e
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use utf8;
+use 5.026;
 
-NOTE_DIR="$(git rev-parse --git-path . 2>/dev/null || echo ".git")"
-if [ ! -d "$NOTE_DIR" ]; then
-    exit 0
-fi
+BEGIN {
+    my $lib = $ENV{AAPP_LIB};
+    if ( !defined $lib || $lib eq "" || !-d $lib ) {
+        my $kd = `git config --get aapp.kitDir 2>/dev/null` =~ s/\s+\z//r;
+        $lib = "$kd/lib" if $kd ne "";
+    }
+    if ( !defined $lib || $lib eq "" || !-d $lib ) {
+        my $file = __FILE__;
+        if ( !-f $file && defined $ENV{PWD} ) {
+            $file = "$ENV{PWD}/$file";
+        }
+        my $parent = $file =~ s{/[^/]+$}{}r;
+        if ( -f "$parent/../lib/AAPP/JSON.pm" ) {
+            require Cwd;
+            $lib = Cwd::abs_path("$parent/../lib");
+        }
+    }
+    if ( !defined $lib || $lib eq "" || !-d $lib ) {
+        my $data = $ENV{XDG_DATA_HOME};
+        if ( !defined $data || $data eq "" ) {
+            my $home = $ENV{HOME} // ( $^O eq "MSWin32" ? $ENV{USERPROFILE} : undef );
+            $data = "$home/.local/share" if defined $home;
+        }
+        $lib = "$data/aapp-kit/lib" if defined $data;
+    }
+    if ( !defined $lib || !-r "$lib/AAPP/JSON.pm" ) {
+        print STDERR "❌ [AAPP Guard] Perl core missing: perl and " . ( $lib // "" ) . "/AAPP/JSON.pm are required. Install the kit: aapp install.\n";
+        exit 1;
+    }
+    unshift @INC, $lib;
+    }
 
-# 1. Count pending notes in buffer directory
-PENDING_COUNT=$(find "$NOTE_DIR" -maxdepth 1 -name 'aapp_pending_note.*' 2>/dev/null | wc -l)
-if [ "$PENDING_COUNT" -eq 0 ]; then
-    # Silent no-op when no pending notes exist
-    exit 0
-fi
-
-# 2. Extract byte-faithful commit body hash (B1)
-HEAD_HASH="$(git cat-file commit HEAD 2>/dev/null | sed '1,/^$/d' | sha256sum | awk '{print $1}')"
-
-# 3. Match and attach staged note
-NOTE_FILE="$NOTE_DIR/aapp_pending_note.$HEAD_HASH"
-if [ -f "$NOTE_FILE" ]; then
-    TARGET_REF="refs/notes/commits"
-    if grep -qE '^X-AAPP-Ref:' "$NOTE_FILE" 2>/dev/null; then
-        TARGET_REF="$(grep -E '^X-AAPP-Ref:' "$NOTE_FILE" | head -1 | sed 's/^X-AAPP-Ref:[[:space:]]*//')"
-        sed -i '/^X-AAPP-Ref:/d' "$NOTE_FILE" 2>/dev/null || true
-    fi
-
-    if git notes --ref="$TARGET_REF" append -F "$NOTE_FILE" HEAD 2>&1; then
-        rm -f "$NOTE_FILE"
-    else
-        echo "⚠️  [Post-Commit Warning] Failed to attach git note to HEAD from $NOTE_FILE" >&2
-    fi
-else
-    echo "⚠️  [Post-Commit Warning] Found $PENDING_COUNT pending AI note buffer(s) in $NOTE_DIR, but none matched commit message hash ($HEAD_HASH)." >&2
-fi
-
-# 4. Reaping sweep for expired notes (B5)
-TTL_MINS="$(git config aapp.noteTTL 2>/dev/null || echo "1440")"
-find "$NOTE_DIR" -maxdepth 1 -name 'aapp_pending_note.*' -mmin "+$TTL_MINS" -exec rm -f {} + 2>/dev/null || true
-
-exit 0
+use AAPP::Hooks::PostCommit ();
+exit AAPP::Hooks::PostCommit->run(@ARGV);

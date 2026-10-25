@@ -1,35 +1,40 @@
-#!/usr/bin/env bash
-# ==============================================================================
-# AAPP Develop-Only Pre-Commit Engine (P-34)
-#
-# Kit-authoring invariant: every daily verb in lib/verbs.tsv has a behaviour
-# contract in lib/docs/verbs/, every contract has exactly one registry row, and
-# every test a contract names exists. Installed by `aapp develop` only; adopter
-# repositories never receive it, because they consume verbs and never add them.
-#
-# Runs only when a commit touches the registry, a contract or a verb suite, and
-# delegates to tests/verb_contracts_test.sh so the check has a single owner.
-# ==============================================================================
-set -e
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use utf8;
+use 5.026;
 
-ROOT="$(git rev-parse --show-toplevel)"
+BEGIN {
+    my $lib = $ENV{AAPP_LIB};
+    if ( !defined $lib || $lib eq "" || !-d $lib ) {
+        my $kd = `git config --get aapp.kitDir 2>/dev/null` =~ s/\s+\z//r;
+        $lib = "$kd/lib" if $kd ne "";
+    }
+    if ( !defined $lib || $lib eq "" || !-d $lib ) {
+        my $file = __FILE__;
+        if ( !-f $file && defined $ENV{PWD} ) {
+            $file = "$ENV{PWD}/$file";
+        }
+        my $parent = $file =~ s{/[^/]+$}{}r;
+        if ( -f "$parent/../lib/AAPP/JSON.pm" ) {
+            require Cwd;
+            $lib = Cwd::abs_path("$parent/../lib");
+        }
+    }
+    if ( !defined $lib || $lib eq "" || !-d $lib ) {
+        my $data = $ENV{XDG_DATA_HOME};
+        if ( !defined $data || $data eq "" ) {
+            my $home = $ENV{HOME} // ( $^O eq "MSWin32" ? $ENV{USERPROFILE} : undef );
+            $data = "$home/.local/share" if defined $home;
+        }
+        $lib = "$data/aapp-kit/lib" if defined $data;
+    }
+    if ( !defined $lib || !-r "$lib/AAPP/JSON.pm" ) {
+        print STDERR "❌ [AAPP Guard] Perl core missing: perl and " . ( $lib // "" ) . "/AAPP/JSON.pm are required. Install the kit: aapp install.\n";
+        exit 1;
+    }
+    unshift @INC, $lib;
+    }
 
-TOUCHED="$(git diff --cached --name-only | grep -E '^(lib/verbs\.tsv|lib/docs/verbs/|tests/verbs/|tests/verb_contracts_test\.sh)' || true)"
-[ -z "$TOUCHED" ] && exit 0
-
-CHECK="$ROOT/tests/verb_contracts_test.sh"
-if [ ! -f "$CHECK" ]; then
-    echo "❌ [AAPP Develop] Contract check missing: $CHECK" >&2
-    echo "   This engine belongs to the kit repository; remove .githooks/aapp-pre-commit-develop elsewhere." >&2
-    exit 1
-fi
-
-if ! OUT="$(bash "$CHECK" 2>&1)"; then
-    echo "" >&2
-    echo "❌ [AAPP Develop] Verb contract correspondence failed (lib/verbs.tsv <-> lib/docs/verbs/):" >&2
-    printf '%s\n' "$OUT" | grep -E "✘|^       " >&2
-    echo "   Every daily verb needs a contract, and every test a contract names must exist." >&2
-    echo "" >&2
-    exit 1
-fi
-exit 0
+use AAPP::Hooks::PreCommitDevelop ();
+exit AAPP::Hooks::PreCommitDevelop->run(@ARGV);
