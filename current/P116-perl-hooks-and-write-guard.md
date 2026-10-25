@@ -85,16 +85,16 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §2–§4, all ported hook 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Hook Modules (`lib/AAPP/HookDispatcher.pm`, `lib/AAPP/Attribution.pm`, `lib/AAPP/Hooks/*.pm`)
-- [ ] Task 1.1: Implement `lib/AAPP/HookDispatcher.pm` and `lib/AAPP/Attribution.pm` (trailer validation, identity resolution, note staging, and `hook.dispatch` / `commits.decorate` / `notes.attach` event telemetry).
-- [ ] Task 1.2: Implement `lib/AAPP/Hooks/PreCommit.pm`, `lib/AAPP/Hooks/PreCommitDevelop.pm`, `lib/AAPP/Hooks/CommitMsg.pm`, `lib/AAPP/Hooks/PostCommit.pm`, `lib/AAPP/Hooks/PostRewrite.pm`, and `lib/AAPP/Hooks/WriteGuard.pm` over `AAPP::State` with `health.veto`, `guard.check`, and `notes.attach` telemetry.
+- [x] Task 1.1: Implement `lib/AAPP/HookDispatcher.pm` and `lib/AAPP/Attribution.pm` (trailer validation, identity resolution, note staging, and `hook.dispatch` / `commits.decorate` / `notes.attach` event telemetry).
+- [x] Task 1.2: Implement `lib/AAPP/Hooks/PreCommit.pm`, `lib/AAPP/Hooks/PreCommitDevelop.pm`, `lib/AAPP/Hooks/CommitMsg.pm`, `lib/AAPP/Hooks/PostCommit.pm`, `lib/AAPP/Hooks/PostRewrite.pm`, and `lib/AAPP/Hooks/WriteGuard.pm` over `AAPP::State` with `health.veto`, `guard.check`, and `notes.attach` telemetry.
 
 ### Phase 2: Hook Entrypoint Templates & Core Wrapper Tests
-- [ ] Task 2.1: Update `templates/aapp-pre-commit`, `templates/aapp-pre-commit-develop`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`, `templates/blast-radius-guard.sh`, `templates/pre-commit`, `templates/commit-msg`, `templates/post-commit`, and `templates/post-rewrite` to invoke Perl, loading `AAPP::*` from the installed kit (item 5); `lib/cmd_init.sh` copies no Perl modules.
-- [ ] Task 2.2: Switch direct core wrapper calls in `t/core/hooks.t`, `t/core/write-guard.t`, and `t/core/pre-commit.t` to `AAPP::HookDispatcher`, `AAPP::Attribution`, `AAPP::Hooks::WriteGuard`, and `AAPP::Hooks::PreCommit`.
-- [ ] Task 2.3: Once the Perl core asks the `aapp-planid` provider, turn on `t/core/plan_resolver.t::test_plan_id_provider`: remove its skip and write its checks from its contract line (P-123 left it skipped, R28 in P-112).
+- [x] Task 2.1: Update `templates/aapp-pre-commit`, `templates/aapp-pre-commit-develop`, `templates/aapp-commit-msg`, `templates/aapp-post-commit`, `templates/aapp-post-rewrite`, `templates/blast-radius-guard.sh`, `templates/pre-commit`, `templates/commit-msg`, `templates/post-commit`, and `templates/post-rewrite` to invoke Perl, loading `AAPP::*` from the installed kit (item 5); `lib/cmd_init.sh` copies no Perl modules.
+- [x] Task 2.2: Switch direct core wrapper calls in `t/core/hooks.t`, `t/core/write-guard.t`, and `t/core/pre-commit.t` to `AAPP::HookDispatcher`, `AAPP::Attribution`, `AAPP::Hooks::WriteGuard`, and `AAPP::Hooks::PreCommit`.
+- [x] Task 2.3: Once the Perl core asks the `aapp-planid` provider, turn on `t/core/plan_resolver.t::test_plan_id_provider`: remove its skip and write its checks from its contract line (P-123 left it skipped, R28 in P-112).
 
 ### Phase 3: Verification
-- [ ] Task 3.1: Run `./aapp test strict quiet` and verify all hook, pre-commit, write-guard, attribution, and note tests pass.
+- [x] Task 3.1: Run `./aapp test strict quiet` and verify all hook, pre-commit, write-guard, attribution, and note tests pass.
 
 ---
 
