@@ -43,6 +43,12 @@ Try to keep each rule in one place only.
   in a code comment and the plan lists it in its Fallback Inventory.
 - **Messages:** to stderr, as `❌ [Context] what went wrong`, followed by a `👉` line with the fix.
   Exit `1` on failure.
+- **Perl fatal errors & stack traces:** Unrecoverable I/O or system errors use `die "System: <message>\n"`;
+  internal protocol or state invariant violations use `die "AAPP: <message>\n"`. `AAPP::Runner`'s
+  `$SIG{__DIE__}` handler intercepts them, formats them as `[FATAL ERROR]:[System|AAPP] <message> (file: <file> line: <line>)`
+  with caller location and full call stack trace (under `DEBUG_LEVEL >= 1`), logs to the configured log file,
+  and exits with `return_on_error()`. Never use untraced string warnings (`warn "..."`) or silent `return 0`
+  fallbacks for unrecoverable errors.
 - **Repository check:** the `aapp` dispatcher asserts a git repository once; commands rely on
   `REPO_ROOT` instead of re-deriving it.
 
