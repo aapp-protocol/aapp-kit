@@ -11,7 +11,7 @@
      rebase. Its Target Files grow only by approved requests. Corrections of the group's text go into the
      group plan with a line under `## Decisions` (`aapp refine <id> decision`). Only verbs write the three
      sections at the end. -->
-* **Status:** 📝 Refining
+* **Status:** ⚡ In Development
 * **Base:** `fa3a42e` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P112 (plan/P112-perl-port-of-the-kit-amendments)
 * **Group:** P-111
