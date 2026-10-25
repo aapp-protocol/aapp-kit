@@ -12,7 +12,7 @@
 * **Base:** `c13ee7a` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P133 (plan/P133-read-the-whole-group-plan)
 * **Group:** P-111
-* **Commits:** none
+* **Commits:** `42b3291` (plan/P133-read-the-whole-group-plan)
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
