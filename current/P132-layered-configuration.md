@@ -137,24 +137,24 @@ When resolving a configuration key for an active repository at `primary_root` (`
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Constants and Parser Engine
-- [ ] Task 1.1: Author per-OS `main.conf` paths in `lib/AAPP/Constants.pm`, and the upper-level allow-list at the top of `lib/AAPP/Config.pm`.
-- [ ] Task 1.2: Implement native INI reader in `lib/AAPP/Config.pm` parsing `[section]`, `[section "subsection"]`, and `key = value` lines with line-numbered fail-closed diagnostics.
-- [ ] Task 1.3: Implement repository root matcher for `[aapp "repo:<path>"]` blocks against `primary_root`.
-- [ ] Task 1.4: Implement fail-closed allow-list validation in `lib/AAPP/Config.pm`: a key not on the list in an upper `main.conf` is refused, naming file, line and key.
+- [x] Task 1.1: Author per-OS `main.conf` paths in `lib/AAPP/Constants.pm`, and the upper-level allow-list at the top of `lib/AAPP/Config.pm`.
+- [x] Task 1.2: Implement native INI reader in `lib/AAPP/Config.pm` parsing `[section]`, `[section "subsection"]`, and `key = value` lines with line-numbered fail-closed diagnostics.
+- [x] Task 1.3: Implement repository root matcher for `[aapp "repo:<path>"]` blocks against `primary_root`.
+- [x] Task 1.4: Implement fail-closed allow-list validation in `lib/AAPP/Config.pm`: a key not on the list in an upper `main.conf` is refused, naming file, line and key.
 
 ### Phase 2: Precedence & Integration
-- [ ] Task 2.1: Extend `AAPP::Config::load` to evaluate System `main.conf`, User `main.conf`, and Local `.git/config` with inverted precedence (`System > User > Repo`).
-- [ ] Task 2.2: Implement `AAPP::Config::source($key)` tracking the authoritative origin of each configuration key.
+- [x] Task 2.1: Extend `AAPP::Config::load` to evaluate System `main.conf`, User `main.conf`, and Local `.git/config` with inverted precedence (`System > User > Repo`).
+- [x] Task 2.2: Implement `AAPP::Config::source($key)` tracking the authoritative origin of each configuration key.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Author contract tests `t/core/config.t` validating:
+- [x] Task 3.1: Author contract tests `t/core/config.t` validating:
   - System overrides User and Repo.
   - User overrides Repo.
   - Repo-specific block overrides global block within the same `main.conf`.
   - Absent keys cleanly fall through to local `.git/config`.
   - Malformed syntax fails closed with file and line diagnostics.
-- [ ] Task 3.2: Author documentation contract in `lib/docs/core/config.md`.
-- [ ] Task 3.3: Update `MANUAL.md` with configuration hierarchy guide and example `main.conf`.
+- [x] Task 3.2: Author documentation contract in `lib/docs/core/config.md`.
+- [x] Task 3.3: Update `MANUAL.md` with configuration hierarchy guide and example `main.conf`.
 
 ---
 
