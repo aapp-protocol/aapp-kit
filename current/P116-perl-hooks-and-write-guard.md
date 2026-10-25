@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
+* **Status:** 🔷 Frozen
 * **Base:** none
 * **Group:** P-111
 * **Commits:** none
@@ -135,6 +135,7 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §2–§4, all ported hook 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-25:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-24:** Aligned technical blueprint, logging telemetry (`hook.dispatch`, `commits.decorate`, `notes.attach`, `guard.check`, `health.veto`, `commits.plans`, `post-commit`), and target files with `.plans/pickup/perl-port-logging-events-spec.md` and `.plans/pickup/perl-port-test-matrix-tabular-check.md`.
 * **2026-10-19:** Plan drafted as member 4 of group P-111 from settled RFC (`.plans/pickup/perl-port-rfc.md`).
 * **2026-10-19:** Added `templates/aapp-pre-commit-develop` (`AAPP::Hooks::PreCommitDevelop`), registered `hook_dispatcher.sh`/`attribution.sh` coexistence in §2, and updated test paths to `t/*` per RFC §5.1.3 & §5.1.5.

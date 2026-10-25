@@ -13,7 +13,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ## 🧠 Human Thought & Refinement (The Incubator)
 
 - 🟣 **P-109**: [`P109-lifecycle-event-coverage.md`](current/P109-lifecycle-event-coverage.md) — Issue Note Companion Lifecycle Events
-- 🟣 **P-116**: [`P116-perl-hooks-and-write-guard.md`](current/P116-perl-hooks-and-write-guard.md) — Perl Hooks And Write Guard
 - 🟣 **P-117**: [`P117-perl-issue-and-offline-lane.md`](current/P117-perl-issue-and-offline-lane.md) — Perl Issue And Offline Lane
 - 🟣 **P-118**: [`P118-perl-readonly-verbs.md`](current/P118-perl-readonly-verbs.md) — Perl Readonly Verbs
 - 🟣 **P-119**: [`P119-perl-plan-lifecycle.md`](current/P119-perl-plan-lifecycle.md) — Perl Plan Lifecycle
@@ -34,6 +33,8 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 ---
 
 ## 🔷 Frozen & Ready for Coding (The Greenlight Zone)
+
+- 🔷 **P-116**: [`P116-perl-hooks-and-write-guard.md`](current/P116-perl-hooks-and-write-guard.md) — Perl Hooks And Write Guard
 
 ---
 
