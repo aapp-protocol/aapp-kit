@@ -13,5 +13,4 @@
 ## 📋 Queued
 ### 🔺 Urgent
 ### Normal
-- [ ] #195 -> plan and amendments templates instruct aapp refine issues instead of aapp issue log for mid-execution bugs (queued 2026-10-25)
 ### Low
