@@ -29,9 +29,7 @@ sub fixture
     AAPP::Tests::write_text( 'ARCHITECTURE.md', "# AR\n" );
     $self->ok_cmd( 'git', 'add', '-A' );
     $self->ok_cmd( 'git', 'commit', '-qm', 'init' );
-    foreach my $copy ( [ 'templates/blast-radius-guard.sh', 'blast-radius-guard' ], [ 'lib/aapp-lib.sh', 'aapp-lib.sh' ], [ 'lib/plan_states.sh', 'plan_states.sh' ] ) {
-        File::Copy::copy( "$self->{kit}/$copy->[0]", ".githooks/$copy->[1]" ) or die "cannot copy $copy->[0]: $!\n";
-    }
+    File::Copy::copy( "$self->{kit}/templates/blast-radius-guard.sh", '.githooks/blast-radius-guard' ) or die "cannot copy the guard: $!\n";
     chmod( 0755, '.githooks/blast-radius-guard' ) or die "cannot chmod the guard: $!\n";
     return 1;
 }

@@ -213,16 +213,24 @@ sub run
         return 0;
     }
 
-    my $repo_root = AAPP::Paths::resolve()->{root} // `git rev-parse --show-toplevel 2>/dev/null` =~ s/\s+\z//r;
+    # Resolve checkout root from path cache, querying git rev-parse only when unset
+    my $repo_root = AAPP::Paths::resolve()->{root};
+    if ( !defined $repo_root || !-d $repo_root ) {
+        my ( $ok, $out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
+        $repo_root = $out =~ s/\s+\z//r if $ok;
+    }
     return 0 unless defined $repo_root && -d $repo_root;
     my $current_wt_name = File::Basename::basename($repo_root);
 
-    # Collect staged files (null-delimited)
-    my $diff_null = `git diff --cached --name-only -z --diff-filter=ACMRD 2>/dev/null` // '';
+    # Collect staged files via git diff-index (safe array exec, null-delimited)
+    my ( $diff_ok, $diff_null ) = AAPP::Paths::git_capture('diff', '--cached', '--name-only', '-z', '--diff-filter=ACMRD');
+    $diff_null //= '';
     my @staged_files = grep { defined $_ && $_ ne '' } split( /\0/, $diff_null );
     return 0 unless @staged_files;
 
-    my $cur_branch = `git rev-parse --abbrev-ref HEAD 2>/dev/null` =~ s/\s+\z//r;
+    # Query current branch via git rev-parse
+    my ( $br_ok, $br_out ) = AAPP::Paths::git_capture('rev-parse', '--abbrev-ref', 'HEAD');
+    my $cur_branch = ( $br_ok && defined $br_out ) ? ( $br_out =~ s/\s+\z//r ) : '';
 
     # P-75: offline worktree protection
     if ( $cur_branch ne 'offline' ) {
@@ -245,9 +253,11 @@ sub run
                 my @dev_candidates = split( /\s+/, AAPP::Config::get('aapp.devBranch') // 'develop dev development' );
                 my $dev_found = '';
                 foreach my $db (@dev_candidates) {
-                    if ( system( 'git', 'show-ref', '--verify', '--quiet', "refs/heads/$db" ) == 0 ||
-                         system( 'git', 'show-ref', '--verify', '--quiet', "refs/remotes/origin/$db" ) == 0 ||
-                         system( 'git', 'show-ref', '--quiet', '--', "refs/remotes/*/$db" ) == 0 ) {
+                    # Verify branch ref existence via git show-ref
+                    my ( $r1 ) = AAPP::Paths::git_capture('show-ref', '--verify', '--quiet', "refs/heads/$db");
+                    my ( $r2 ) = $r1 ? 0 : ( AAPP::Paths::git_capture('show-ref', '--verify', '--quiet', "refs/remotes/origin/$db") )[0];
+                    my ( $r3 ) = ( $r1 || $r2 ) ? 0 : ( AAPP::Paths::git_capture('show-ref', '--quiet', '--', "refs/remotes/*/$db") )[0];
+                    if ( $r1 || $r2 || $r3 ) {
                         $dev_found = $db;
                         last;
                     }
@@ -267,7 +277,25 @@ sub run
         }
     }
 
-    # Integration lock check
+    # 0a. Integration lock check (prevent raw commits to parent being integrated)
+    if ( defined $cur_branch && $cur_branch ne '' ) {
+        my $target_lock_name = "integrate/$cur_branch";
+        if ( AAPP::Paths::lock_held($target_lock_name) ) {
+            my $lock_dir = AAPP::Paths::lock_path($target_lock_name);
+            my $holder_pid = '';
+            if ( defined $lock_dir && open( my $fh, '<', "$lock_dir/pid" ) ) {
+                $holder_pid = <$fh> // '';
+                chomp($holder_pid);
+                close($fh);
+            }
+            my $by_pid = $holder_pid ne '' ? " by PID $holder_pid" : '';
+            print STDERR "\n❌ [AAPP Guard] Branch '$cur_branch' is currently locked for integration$by_pid.\n";
+            print STDERR "   Raw commits to a landing parent branch are prohibited during active integration.\n\n";
+            return 1;
+        }
+    }
+
+    # Integration lock check (general)
     if ( AAPP::Paths::lock_held('integration') ) {
         print STDOUT "\n❌ [Pre-Commit Concurrency Lock] Project integration lock is engaged!\n";
         print STDOUT "   Another autonomous worker or terminal is currently integrating or merging.\n\n";
@@ -318,8 +346,9 @@ sub run
         $non_bypass_count++;
     }
 
-    # Active plan resolution
-    my $active_buf = `git rev-parse --git-path aapp_active_plan 2>/dev/null` =~ s/\s+\z//r // '.git/aapp_active_plan';
+    # Active plan buffer pointer resolution via git rev-parse
+    my ( $buf_ok, $buf_out ) = AAPP::Paths::git_capture('rev-parse', '--git-path', 'aapp_active_plan');
+    my $active_buf = ( $buf_ok && defined $buf_out && $buf_out ne '' ) ? ( $buf_out =~ s/\s+\z//r ) : '.git/aapp_active_plan';
     $active_buf = "$repo_root/$active_buf" unless $active_buf =~ m{^/};
 
     my $designated_id = '';
@@ -352,7 +381,8 @@ sub run
             return 1;
         }
     } elsif ( $plans_dir ne '' ) {
-        my @held = eval { AAPP::State::held_plans() };
+        # Query plans held across other worktrees (fail closed on failure, no eval swallow)
+        my @held = AAPP::State::held_plans();
         opendir( my $dh, "$plans_dir/current" );
         my @pfs = sort grep { /\.md$/ && !/^(?:000-|fix-)/ } readdir($dh);
         closedir($dh);
@@ -415,12 +445,15 @@ sub run
         }
 
         if ( !$changelog_updated && -d '.plans' ) {
-            my $p_status = `git -C .plans status --porcelain 2>/dev/null` // '';
-            if ( $p_status =~ /CHANGELOG\.md/ ) {
+            # Query uncommitted status of CHANGELOG in .plans worktree
+            my ( $pst_ok, $p_status ) = AAPP::Paths::git_capture('-C', '.plans', 'status', '--porcelain');
+            $p_status //= '';
+            if ( $pst_ok && $p_status =~ /CHANGELOG\.md/ ) {
                 $changelog_updated = 1;
             } else {
-                my $p_log = `git -C .plans log -1 --name-only --format="" 2>/dev/null` // '';
-                if ( $p_log =~ /^CHANGELOG\.md$/m ) {
+                # Query last commit in .plans worktree to see if it touched CHANGELOG
+                my ( $plog_ok, $p_log ) = AAPP::Paths::git_capture('-C', '.plans', 'log', '-1', '--name-only', '--format=');
+                if ( $plog_ok && defined $p_log && $p_log =~ /^CHANGELOG\.md$/m ) {
                     $changelog_updated = 1;
                 }
             }
@@ -429,7 +462,12 @@ sub run
         if ( !$changelog_updated ) {
             my $cl_mode = AAPP::Config::get('aapp.changelogMode') // 'plan';
             if ( $cl_mode eq 'plan' ) {
-                my $staged_cl = `git show :CHANGELOG.md 2>/dev/null` // `git show :.plans/CHANGELOG.md 2>/dev/null` // '';
+                # Read staged CHANGELOG.md; fallback to .plans/CHANGELOG.md when not present
+                my ( $cl_ok, $staged_cl ) = AAPP::Paths::git_capture('show', ':CHANGELOG.md');
+                if ( !$cl_ok || !defined $staged_cl || $staged_cl eq '' ) {
+                    ( $cl_ok, $staged_cl ) = AAPP::Paths::git_capture('show', ':.plans/CHANGELOG.md');
+                }
+                $staged_cl //= '';
                 if ( $active_id ne '' && _changelog_plan_matches( $staged_cl, $active_id ) ) {
                     $changelog_updated = 1;
                 }
@@ -459,9 +497,16 @@ sub run
     my ( undef, $max_cl_len ) = AAPP::Config::get_int( 'aapp.changelogMaxLen', 300 );
     $max_cl_len //= 300;
     foreach my $cl_name ( 'CHANGELOG.md', '.plans/CHANGELOG.md' ) {
-        my $cl_diff = `git diff --cached -U0 "$cl_name" 2>/dev/null` // '';
+        # Query cached diff for changelog entry
+        my ( $cd_ok, $cl_diff ) = AAPP::Paths::git_capture('diff', '--cached', '-U0', '--', $cl_name);
+        $cl_diff //= '';
         if ( $cl_diff eq '' && $cl_name eq '.plans/CHANGELOG.md' && -d '.plans' ) {
-            $cl_diff = `git -C .plans diff --cached -U0 "CHANGELOG.md" 2>/dev/null` // `git -C .plans diff -U0 "CHANGELOG.md" 2>/dev/null` // '';
+            # Query diff in .plans worktree checkout
+            my ( $pd_ok, $p_diff ) = AAPP::Paths::git_capture('-C', '.plans', 'diff', '--cached', '-U0', '--', 'CHANGELOG.md');
+            if ( !$pd_ok || !defined $p_diff || $p_diff eq '' ) {
+                ( $pd_ok, $p_diff ) = AAPP::Paths::git_capture('-C', '.plans', 'diff', '-U0', '--', 'CHANGELOG.md');
+            }
+            $cl_diff = $p_diff if $pd_ok && defined $p_diff && $p_diff ne '';
         }
         next if $cl_diff eq '';
 
@@ -500,7 +545,9 @@ sub run
         next if $f =~ m{(?:tests/|test/|spec/|.*/tests/|.*pre[-_]?commit.*|\.githooks/)}i;
         next if $f =~ m{(?:_test\.|\.test\.|test_)};
 
-        my $content = `git show ":$f" 2>/dev/null` // '';
+        # Query staged file content safely via git show without shell interpolation
+        my ( $show_ok, $content ) = AAPP::Paths::git_capture('show', ":$f");
+        next unless $show_ok && defined $content && $content ne '';
         my @match_lines;
         my $ln = 0;
         foreach my $line ( split /\r?\n/, $content ) {
@@ -678,16 +725,18 @@ sub run
         my $stem = $1;
         next if $stem =~ /^(?:000-|fix-)/;
 
-        my $head_content = `git show "HEAD:$staged" 2>/dev/null` // '';
-        next if $head_content eq '';
+        # Query HEAD content of staged plan file safely via git show
+        my ( $h_ok, $head_content ) = AAPP::Paths::git_capture('show', "HEAD:$staged");
+        next unless $h_ok && defined $head_content && $head_content ne '';
         utf8::decode($head_content);
 
         my $head_line = AAPP::Config::status_line_of_lines( split( /\n/, $head_content ) );
         my $head_st   = defined $head_line ? ( AAPP::Config::plan_state_for_status_line($head_line) // '' ) : '';
         next unless $head_st eq 'frozen' || $head_st eq 'in-development';
 
-        my $idx_content = `git show ":$staged" 2>/dev/null` // '';
-        next if $idx_content eq '';
+        # Query staged index content of plan file safely via git show
+        my ( $i_ok, $idx_content ) = AAPP::Paths::git_capture('show', ":$staged");
+        next unless $i_ok && defined $idx_content && $idx_content ne '';
         utf8::decode($idx_content);
 
         my $head_sec2 = _extract_plan_section( $head_content, 2 );
@@ -730,11 +779,14 @@ sub run
                     my $approved_decisions = '';
                     foreach my $other (@staged_files) {
                         next if $other eq $staged;
-                        my $ic = `git show ":$other" 2>/dev/null` // '';
-                        next unless $ic =~ /^\*\s+\*\*Kind:\*\*\s+amendments\b/m;
+                        # Query staged index content of other candidate member
+                        my ( $other_i_ok, $ic ) = AAPP::Paths::git_capture('show', ":$other");
+                        next unless $other_i_ok && defined $ic && $ic =~ /^\*\s+\*\*Kind:\*\*\s+amendments\b/m;
                         my $og = _with_temp_plan( $ic, sub { AAPP::State::plan_field( $_[0], 'Group' ) // '' } );
                         next unless $og eq $gid;
-                        my $head_other = `git show "HEAD:$other" 2>/dev/null` // '';
+                        # Query HEAD content of other candidate member
+                        my ( $other_h_ok, $head_other ) = AAPP::Paths::git_capture('show', "HEAD:$other");
+                        $head_other //= '';
                         my %h_lines    = map { $_ => 1 } split( /\r?\n/, $head_other );
                         my @added      = grep { !$h_lines{$_} } split( /\r?\n/, $ic );
                         $approved_decisions .= join( "\n", @added ) . "\n";
@@ -790,8 +842,10 @@ sub run
         }
     }
     if ( !$docs_updated && -d '.agents' ) {
-        my $ag_status = `git -C .agents status --porcelain 2>/dev/null` // '';
-        if ( $ag_status =~ /(?:CODEMAP|ARCHITECTURE)\.md/ ) {
+        # Query .agents worktree status via safe git_capture
+        my ( $ag_ok, $ag_status ) = AAPP::Paths::git_capture('-C', '.agents', 'status', '--porcelain');
+        $ag_status //= '';
+        if ( $ag_ok && $ag_status =~ /(?:CODEMAP|ARCHITECTURE)\.md/ ) {
             $docs_updated = 1;
         }
     }
@@ -816,7 +870,8 @@ sub run
             open my $fh, '>:encoding(UTF-8)', $roadmap_file;
             print $fh join( "\n", @lines ), "\n";
             close $fh;
-            `git add "$roadmap_file" 2>/dev/null`;
+            # Re-stage pruned roadmap file safely
+            AAPP::Paths::git_capture('add', '--', $roadmap_file);
             print STDOUT "🧹 [Pre-Commit Notice] Auto-pruned resolved issues from " . File::Basename::basename($roadmap_file) . "\n";
         }
     }

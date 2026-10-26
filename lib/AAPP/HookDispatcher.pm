@@ -45,11 +45,11 @@ sub execute_with_watchdog
     $max_time  = 10 unless defined $max_time && $max_time =~ /^[0-9]+$/ && $max_time > 0;
 
     my $scratch = AAPP::Paths::resolve()->{git_dir} // File::Spec->tmpdir();
-    my $prefix  = "$scratch/watchdog.$$.$cmd." . int( rand(100000) );
-    $prefix =~ s{[^\w./-]}{_}g;
-    my $in_f  = "$prefix.in";
-    my $out_f = "$prefix.out";
-    my $err_f = "$prefix.err";
+    my $cmd_name = File::Basename::basename($cmd) =~ s{[^\w.-]}{_}gr;
+    my $file_prefix = "watchdog.$$.${cmd_name}." . int( rand(100000) );
+    my $in_f  = "$scratch/$file_prefix.in";
+    my $out_f = "$scratch/$file_prefix.out";
+    my $err_f = "$scratch/$file_prefix.err";
 
     my $fh;
     if ( !open( $fh, '>:raw', $in_f ) ) {
@@ -121,10 +121,14 @@ sub execute_with_watchdog
 sub _envelope_remote_json
 {
     my ($root) = @_;
-    my $name = `git -C "$root" config --get aapp.remote 2>/dev/null` =~ s/\s+\z//r;
-    $name = 'origin' if !defined $name || $name eq '';
-    my $url = `git -C "$root" remote get-url "$name" 2>/dev/null` =~ s/\s+\z//r;
-    return 'null' if !defined $url || $url eq '';
+    # Read configured remote name in-process via AAPP::Config (default 'origin')
+    my $name = AAPP::Config::get('aapp.remote') // 'origin';
+    $name = 'origin' if $name eq '';
+
+    # Query remote URL safely via array exec git capture
+    my ( $ok, $url ) = AAPP::Paths::git_capture( '-C', $root, 'remote', 'get-url', $name );
+    return 'null' if !$ok || !defined $url || $url eq '';
+    $url =~ s/\s+\z//;
 
     # Strip credentials: http://user:secret@host -> http://host, etc.
     $url =~ s{^(https?://)[^/@]*@}{$1};
@@ -140,13 +144,18 @@ sub _envelope_remote_json
 sub build_event_envelope
 {
     my ( $event, $data_json, $root ) = @_;
-    $root //= AAPP::Paths::resolve()->{root} // `git rev-parse --show-toplevel 2>/dev/null` =~ s/\s+\z//r;
+    $root //= AAPP::Paths::resolve()->{root};
+    if ( !defined $root || $root eq '' ) {
+        my ( $r_ok, $r_out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
+        $root = ( $r_ok && defined $r_out && $r_out ne '' ) ? ( $r_out =~ s/\s+\z//r ) : Cwd::getcwd();
+    }
     $data_json = '{}' if !defined $data_json || $data_json eq '';
 
     my $actor     = $ENV{AAPP_ACTOR} // 'developer';
     my $timestamp = AAPP::JSON::utc_now();
-    my $branch    = `git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null` =~ s/\s+\z//r;
-    $branch = 'unknown' if !defined $branch || $branch eq '';
+    # Query current branch safely via array exec git capture
+    my ( $b_ok, $branch_out ) = AAPP::Paths::git_capture( '-C', $root, 'rev-parse', '--abbrev-ref', 'HEAD' );
+    my $branch = ( $b_ok && defined $branch_out && $branch_out ne '' ) ? ( $branch_out =~ s/\s+\z//r ) : 'unknown';
 
     my $esc_root = $root =~ s/\\/\\\\/gr =~ s/"/\\"/gr;
     my $remote   = _envelope_remote_json($root);
@@ -224,7 +233,11 @@ sub resolve_plugin_entrypoint
 sub dispatch_single_handler
 {
     my ( $event, $handler_rel, $expected_hash, $timeout, $mode, $source_type, $payload, $root ) = @_;
-    $root //= AAPP::Paths::resolve()->{root} // `git rev-parse --show-toplevel 2>/dev/null` =~ s/\s+\z//r;
+    $root //= AAPP::Paths::resolve()->{root};
+    if ( !defined $root || $root eq '' ) {
+        my ( $r_ok, $r_out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
+        $root = ( $r_ok && defined $r_out && $r_out ne '' ) ? ( $r_out =~ s/\s+\z//r ) : Cwd::getcwd();
+    }
 
     my $handler_path = $handler_rel =~ m{^/} ? $handler_rel : "$root/$handler_rel";
 
@@ -304,7 +317,11 @@ sub dispatch_single_handler
 sub dispatch_hook
 {
     my ( $event, $data_json, $root ) = @_;
-    $root //= AAPP::Paths::resolve()->{root} // `git rev-parse --show-toplevel 2>/dev/null` =~ s/\s+\z//r;
+    $root //= AAPP::Paths::resolve()->{root};
+    if ( !defined $root || $root eq '' ) {
+        my ( $r_ok, $r_out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
+        $root = ( $r_ok && defined $r_out && $r_out ne '' ) ? ( $r_out =~ s/\s+\z//r ) : Cwd::getcwd();
+    }
     $data_json = '{}' if !defined $data_json || $data_json eq '';
 
     my $payload  = build_event_envelope( $event, $data_json, $root );
@@ -366,12 +383,14 @@ sub dispatch_hook
     }
 
     # Local overrides via git config aapp.hook.<event>
-    my $allow_local = `git -C "$root" config aapp.allowLocalHooks 2>/dev/null` =~ s/\s+\z//r;
-    $allow_local = 'true' if !defined $allow_local || $allow_local eq '';
+    my $allow_local = AAPP::Config::get('aapp.allowLocalHooks') // 'true';
+    $allow_local = 'true' if $allow_local eq '';
     if ( $allow_local ne 'false' ) {
-        my $local_raw = `git -C "$root" config --get-all "aapp.hook.$event" 2>/dev/null` // '';
-        my $timeout   = `git -C "$root" config aapp.hookTimeout 2>/dev/null` =~ s/\s+\z//r;
-        $timeout = 10 if !defined $timeout || $timeout !~ /^[0-9]+$/;
+        # Query configured local hooks safely via array exec git capture
+        my ( $ok, $local_raw ) = AAPP::Paths::git_capture( '-C', $root, 'config', '--get-all', "aapp.hook.$event" );
+        $local_raw //= '';
+        my $timeout = AAPP::Config::get('aapp.hookTimeout') // 10;
+        $timeout = 10 if $timeout !~ /^[0-9]+$/;
 
         foreach my $hp ( split( /\n/, $local_raw ) ) {
             $hp =~ s/^\s+|\s+$//g;
@@ -412,9 +431,13 @@ sub dispatch_hook
 sub run_action_plugin
 {
     my ( $entry, $root, $action, $event, $data_json, %extra_env ) = @_;
-    $root //= AAPP::Paths::resolve()->{root} // `git rev-parse --show-toplevel 2>/dev/null` =~ s/\s+\z//r;
-    my $timeout = `git -C "$root" config --get aapp.pluginTimeout 2>/dev/null` =~ s/\s+\z//r;
-    $timeout = 10 if !defined $timeout || $timeout !~ /^[0-9]+$/;
+    $root //= AAPP::Paths::resolve()->{root};
+    if ( !defined $root || $root eq '' ) {
+        my ( $r_ok, $r_out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
+        $root = ( $r_ok && defined $r_out && $r_out ne '' ) ? ( $r_out =~ s/\s+\z//r ) : Cwd::getcwd();
+    }
+    my $timeout = AAPP::Config::get('aapp.pluginTimeout') // 10;
+    $timeout = 10 if $timeout !~ /^[0-9]+$/;
 
     my $payload = build_event_envelope( $event, $data_json, $root );
     my %env = (
@@ -432,7 +455,11 @@ sub run_action_plugin
 sub plugin_step
 {
     my ( $entry, $root, $action, $event, $data_json, %extra_env ) = @_;
-    $root //= AAPP::Paths::resolve()->{root} // `git rev-parse --show-toplevel 2>/dev/null` =~ s/\s+\z//r;
+    $root //= AAPP::Paths::resolve()->{root};
+    if ( !defined $root || $root eq '' ) {
+        my ( $r_ok, $r_out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
+        $root = ( $r_ok && defined $r_out && $r_out ne '' ) ? ( $r_out =~ s/\s+\z//r ) : Cwd::getcwd();
+    }
     my $pname = File::Basename::basename( File::Basename::dirname($entry) );
 
     my $scratch = AAPP::Paths::resolve()->{git_dir} // File::Spec->tmpdir();
@@ -456,8 +483,8 @@ sub plugin_step
             $msg = $parsed->{error};
         }
         if ( $rc == 124 ) {
-            my $timeout = `git -C "$root" config --get aapp.pluginTimeout 2>/dev/null` =~ s/\s+\z//r;
-            $timeout = 10 if !defined $timeout || $timeout !~ /^[0-9]+$/;
+            my $timeout = AAPP::Config::get('aapp.pluginTimeout') // 10;
+            $timeout = 10 if $timeout !~ /^[0-9]+$/;
             $msg = "no answer within ${timeout}s";
         }
         unlink( $list_f, $do_f );
@@ -605,6 +632,7 @@ sub plugin_run_do
         print STDOUT "▶️  [Plugin] do: $line\n";
         my $bin = "$root/aapp";
         local $ENV{AAPP_PLUGIN_MUTED} = $name;
+        # Execute plugin action directly via array exec without invoking shell
         my $rc = system( $bin, @args );
         if ( $rc != 0 ) {
             my $code = $rc >> 8;

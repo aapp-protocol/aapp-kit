@@ -6,7 +6,7 @@
 # ==============================================================================
 set -e
 COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
-PRIMARY_ROOT="$(cd "$COMMON_DIR/.." 2>/dev/null && pwd || true)"
+PRIMARY_ROOT="$(cd "$COMMON_DIR/.." 2>/dev/null && pwd)"
 HOOK_DIR="$PRIMARY_ROOT/.githooks"
 
 # 1. AAPP Blast Radius & Changelog Enforcement (must run first)
@@ -27,7 +27,7 @@ fi
 
 # >>> aapp-pre-commit-develop (P-34) >>>
 # Kit-authoring checks; the engine exists only where `aapp develop` seeded it.
-AAPP_DEV_HOOK="$(cd "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/.." && pwd)/.githooks/aapp-pre-commit-develop"
+AAPP_DEV_HOOK="$PRIMARY_ROOT/.githooks/aapp-pre-commit-develop"
 if [ -f "$AAPP_DEV_HOOK" ]; then
     if [ -x "$AAPP_DEV_HOOK" ]; then
         "$AAPP_DEV_HOOK" "$@" || exit 1

@@ -126,7 +126,8 @@ sub resolve_allowlist
     $add_prefix->('/var/folders') if -d '/var/folders';
 
     # User configured additions from git config aapp.allowPath
-    my $custom = `git config --get-all aapp.allowPath 2>/dev/null` // '';
+    my ( $ok, $custom ) = AAPP::Paths::git_capture( 'config', '--get-all', 'aapp.allowPath' );
+    $custom //= '';
     foreach my $c ( split( /\n/, $custom ) ) {
         $c =~ s/^\s+|\s+$//g;
         $add_prefix->($c) if $c ne '';
@@ -179,8 +180,19 @@ sub run
     my $canonical_target = canonicalize_path($target_file);
 
     my $paths_info = AAPP::Paths::resolve();
-    my $repo_root  = canonicalize_path( $paths_info->{root} // `git rev-parse --show-toplevel 2>/dev/null` =~ s/\s+\z//r // Cwd::getcwd() );
-    my $git_common = canonicalize_path( $paths_info->{common_dir} // `git rev-parse --git-common-dir 2>/dev/null` =~ s/\s+\z//r // "$repo_root/.git" );
+    my $repo_root  = $paths_info->{root};
+    if ( !defined $repo_root || $repo_root eq '' ) {
+        my ( $ok, $out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
+        $repo_root = ( $ok && defined $out && $out ne '' ) ? ( $out =~ s/\s+\z//r ) : Cwd::getcwd();
+    }
+    $repo_root = canonicalize_path($repo_root);
+
+    my $git_common = $paths_info->{common_dir};
+    if ( !defined $git_common || $git_common eq '' ) {
+        my ( $ok, $out ) = AAPP::Paths::git_capture('rev-parse', '--git-common-dir');
+        $git_common = ( $ok && defined $out && $out ne '' ) ? ( $out =~ s/\s+\z//r ) : "$repo_root/.git";
+    }
+    $git_common = canonicalize_path($git_common);
     my $primary_root = -d $git_common ? canonicalize_path("$git_common/..") : $repo_root;
 
     # Detect if canonical_target belongs to same repository
@@ -193,8 +205,10 @@ sub run
     my $target_common = '';
     my $target_wt_root = '';
     if ( -d $target_dir ) {
-        my $tc = `git -C "$target_dir" rev-parse --git-common-dir 2>/dev/null` =~ s/\s+\z//r;
-        if ( defined $tc && $tc ne '' ) {
+        # Query target common directory safely via array exec git capture
+        my ( $ok, $tc ) = AAPP::Paths::git_capture( '-C', $target_dir, 'rev-parse', '--git-common-dir' );
+        if ( $ok && defined $tc && $tc ne '' ) {
+            $tc =~ s/\s+\z//;
             $target_common = canonicalize_path( $tc =~ m{^/} ? $tc : "$target_dir/$tc" );
         }
     }
@@ -202,8 +216,12 @@ sub run
     my $is_same_repo = 0;
     if ( $target_common ne '' && $target_common eq $git_common ) {
         $is_same_repo = 1;
-        my $twr = `git -C "$target_dir" rev-parse --show-toplevel 2>/dev/null` =~ s/\s+\z//r;
-        $target_wt_root = canonicalize_path($twr) if defined $twr && $twr ne '';
+        # Query target worktree toplevel safely via array exec git capture
+        my ( $ok, $twr ) = AAPP::Paths::git_capture( '-C', $target_dir, 'rev-parse', '--show-toplevel' );
+        if ( $ok && defined $twr && $twr ne '' ) {
+            $twr =~ s/\s+\z//;
+            $target_wt_root = canonicalize_path($twr);
+        }
     } elsif ( $target_common eq '' ) {
         if ( $canonical_target eq $repo_root || index( $canonical_target, "$repo_root/" ) == 0 ) {
             $is_same_repo   = 1;
@@ -264,7 +282,9 @@ sub run
     # 2c. External Path Allowlist
     if ( !$is_same_repo ) {
         # Check companion repositories (G1 delegation)
-        my $companions = `git config --get-regexp '^aapp\\.companion\\..*\\.path\$' 2>/dev/null` // '';
+        # Query companion repositories safely via array exec git capture
+        my ( $ok_comp, $companions ) = AAPP::Paths::git_capture( 'config', '--get-regexp', '^aapp\\.companion\\..*\\.path$' );
+        $companions //= '';
         foreach my $c_entry ( split( /\n/, $companions ) ) {
             $c_entry =~ s/^\s+|\s+$//g;
             next if $c_entry eq '';
@@ -276,12 +296,30 @@ sub run
                 if ( -x $c_guard ) {
                     my $rc;
                     if ( $raw_input ne '' ) {
-                        open( my $pipe, '|-', "cd \"$canon_c\" && \"$c_guard\"" );
-                        print {$pipe} $raw_input;
-                        close($pipe);
-                        $rc = $? >> 8;
+                        # Stream input to companion guard on stdin in companion working directory
+                        my $pid = open( my $pipe, '|-' );
+                        if ( !defined $pid ) {
+                            $rc = 2;
+                        } elsif ( $pid == 0 ) {
+                            chdir($canon_c) or POSIX::_exit(2);
+                            exec($c_guard) or POSIX::_exit(2);
+                        } else {
+                            print {$pipe} $raw_input;
+                            close($pipe);
+                            $rc = $? >> 8;
+                        }
                     } else {
-                        $rc = system( "cd \"$canon_c\" && \"$c_guard\" \"$canonical_target\"" ) >> 8;
+                        # Execute companion guard directly in companion working directory
+                        my $pid = fork();
+                        if ( !defined $pid ) {
+                            $rc = 2;
+                        } elsif ( $pid == 0 ) {
+                            chdir($canon_c) or POSIX::_exit(2);
+                            exec( $c_guard, $canonical_target ) or POSIX::_exit(2);
+                        } else {
+                            waitpid( $pid, 0 );
+                            $rc = $? >> 8;
+                        }
                     }
                     if ( $rc == 0 ) {
                         allow_action( $target_file, '', 'companion' );
@@ -362,10 +400,15 @@ sub run
         }
     }
 
-    my $active_buf = $target_wt_root ne ''
-        ? ( `git -C "$target_wt_root" rev-parse --git-path aapp_active_plan 2>/dev/null` =~ s/\s+\z//r // "$target_wt_root/.git/aapp_active_plan" )
-        : ( `git rev-parse --git-path aapp_active_plan 2>/dev/null` =~ s/\s+\z//r // ".git/aapp_active_plan" );
-    $active_buf = "$target_wt_root/$active_buf" if $target_wt_root ne '' && $active_buf !~ m{^/};
+    my $active_buf = '';
+    if ( $target_wt_root ne '' ) {
+        my ( $ok, $buf ) = AAPP::Paths::git_capture( '-C', $target_wt_root, 'rev-parse', '--git-path', 'aapp_active_plan' );
+        $active_buf = ( $ok && defined $buf && $buf ne '' ) ? ( $buf =~ s/\s+\z//r ) : "$target_wt_root/.git/aapp_active_plan";
+        $active_buf = "$target_wt_root/$active_buf" if $active_buf !~ m{^/};
+    } else {
+        my ( $ok, $buf ) = AAPP::Paths::git_capture( 'rev-parse', '--git-path', 'aapp_active_plan' );
+        $active_buf = ( $ok && defined $buf && $buf ne '' ) ? ( $buf =~ s/\s+\z//r ) : ".git/aapp_active_plan";
+    }
 
     my $mini_id = '';
     if ( -f $active_buf ) {
@@ -416,8 +459,8 @@ sub run
             deny_action( "Designated active plan '$mini_id' not found in $plans_dir/current/. Run 'aapp plan-clear' or 'aapp plan <id>'.", $tool_name, 'not_found', $target_file );
         }
     } else {
-        # Unbound context: check held plans across other worktrees
-        my @held = eval { AAPP::State::held_plans() };
+        # Unbound context: check held plans across other worktrees (fail closed)
+        my @held = AAPP::State::held_plans();
         my @dev_plans;
         foreach my $pf (@plan_files) {
             my $bname = File::Basename::basename($pf, '.md');
@@ -465,20 +508,27 @@ sub run
 
     # Approved amendments (P-129)
     my $group = AAPP::State::plan_field( $active_plan_path, 'Group' );
-    if ( defined $group && $group ne '' ) {
-        # Check amendments member file
-        my @cand = glob("$plans_dir/current/*-amendments.md");
-        foreach my $af (@cand) {
-            my $af_group = AAPP::State::plan_field( $af, 'Group' ) // '';
-            if ( $af_group eq $group ) {
-                open( my $afh, '<:encoding(UTF-8)', $af );
-                if ($afh) {
+    my $norm_active = $active_id =~ s/^[pP]-?//r;
+    my $is_grp = eval { AAPP::State::plan_is_group($active_plan_path) } // 0;
+    if ( ( defined $group && $group ne '' ) || $is_grp ) {
+        my $target_group = ( defined $group && $group ne '' ) ? $group : $active_id;
+        my $norm_group   = $target_group =~ s/^[pP]-?//r;
+        my @cand = glob("$plans_dir/current/*.md");
+        foreach my $cand_file (@cand) {
+            next if $cand_file =~ m{/000-};
+            my $af_kind = AAPP::State::plan_field( $cand_file, 'Kind' ) // '';
+            next unless $af_kind eq 'amendments' || $cand_file =~ /-amendments\.md$/;
+            my $af_group = AAPP::State::plan_field( $cand_file, 'Group' ) // '';
+            my $norm_afg = $af_group =~ s/^[pP]-?//r;
+            if ( $af_group eq $target_group || ( $norm_afg ne '' && $norm_afg eq $norm_group ) ) {
+                if ( open( my $afh, '<:encoding(UTF-8)', $cand_file ) ) {
                     while ( my $l = <$afh> ) {
                         # - **R<n>** <date> · <req_id> · `<path>` · <summary> — approved ...
                         if ( $l =~ /^\s*-\s*\*\*R[0-9]+\*\*\s+[^·]+·\s*([^·]+)·\s*`([^`]+)`\s*·.*?—\s*approved/i ) {
                             my ( $req, $p ) = ( $1, $2 );
                             $req =~ s/^\s+|\s+$//g;
-                            if ( $req eq $active_id ) {
+                            my $norm_req = $req =~ s/^[pP]-?//r;
+                            if ( $req eq $active_id || ( $norm_req ne '' && $norm_req eq $norm_active ) ) {
                                 push @targets, $p;
                             }
                         }

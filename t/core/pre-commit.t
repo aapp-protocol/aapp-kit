@@ -37,9 +37,7 @@ sub build_repo
     $self->ok_cmd( 'git', 'add', '-A' );
     $self->ok_cmd( 'git', 'commit', '-qm', 'init' );
     $self->ok_cmd( 'git', 'branch', '-M', 'main' );
-    foreach my $copy ( [ 'templates/aapp-pre-commit', 'pre-commit' ], [ 'lib/aapp-lib.sh', 'aapp-lib.sh' ], [ 'lib/plan_states.sh', 'plan_states.sh' ] ) {
-        File::Copy::copy( "$self->{kit}/$copy->[0]", ".git/hooks/$copy->[1]" ) or die "cannot copy $copy->[0]: $!\n";
-    }
+    File::Copy::copy( "$self->{kit}/templates/aapp-pre-commit", '.git/hooks/pre-commit' ) or die "cannot copy the hook: $!\n";
     chmod( 0755, '.git/hooks/pre-commit' ) or die "cannot chmod the hook: $!\n";
     return 1;
 }
@@ -319,7 +317,6 @@ sub test_hook_runs_without_exec_bit
     simple_plan('src/a.py');
     File::Path::make_path('.githooks');
     File::Copy::copy( "$self->{kit}/templates/aapp-pre-commit", '.githooks/aapp-pre-commit' ) or die "cannot copy the hook: $!\n";
-    File::Copy::copy( "$self->{kit}/lib/$_", ".githooks/$_" ) or die "cannot copy $_: $!\n" for qw(aapp-lib.sh plan_states.sh);
     chmod( 0644, '.githooks/aapp-pre-commit' ) or die "cannot chmod: $!\n";
     File::Copy::copy( "$self->{kit}/templates/pre-commit", '.git/hooks/pre-commit' ) or die "cannot copy the dispatcher: $!\n";
     chmod( 0755, '.git/hooks/pre-commit' ) or die "cannot chmod: $!\n";
@@ -775,19 +772,16 @@ EOF
 sub test_missing_library_refuses_commit
 {
     my ($self) = @_;
-    foreach my $case ( [ 'aapp-lib.sh', qr/Shared library or status registry missing or unreadable/ ], [ 'plan_states.sh', qr/plan_states\.sh/ ] ) {
-        my ( $lib, $says ) = @{$case};
-        fresh(
-            $self, "no-$lib",
-            sub {
-                unlink(".git/hooks/$lib") or die "cannot remove $lib: $!\n";
-                plan( 'p.md', "### 📂 Target Files (Modifications & Additions)\n- [ ] `src/a.py` -> allowed\n## end\n" );
-                check( $self, "without $lib", 'BLOCK', 'src/a.py' );
-                my $r = $self->fail_cmd( 'git', 'commit', '--allow-empty', '-m', 't' );
-                $self->match_or_die( $r->{out} . $r->{err}, $says, "without $lib: the refusal names it" );
-            }
-        );
-    }
+    fresh(
+        $self, 'missing-perl-core',
+        sub {
+            local $ENV{AAPP_LIB} = '/tmp/nonexistent_aapp_lib';
+            plan( 'p.md', "### 📂 Target Files (Modifications & Additions)\n- [ ] `src/a.py` -> allowed\n## end\n" );
+            check( $self, 'missing perl core', 'BLOCK', 'src/a.py' );
+            my $r = $self->fail_cmd( 'git', 'commit', '--allow-empty', '-m', 't' );
+            $self->match_or_die( $r->{out} . $r->{err}, qr/Perl core missing/, 'missing perl core: the refusal names it' );
+        }
+    );
     return 1;
 }
 

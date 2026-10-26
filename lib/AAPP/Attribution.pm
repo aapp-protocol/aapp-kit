@@ -17,8 +17,9 @@ sub apply_agent_aliases
     my ($identity) = @_;
     return $identity unless defined $identity && $identity ne '';
 
-    my $raw = `git config --get-all aapp.aiAlias 2>/dev/null` // '';
-    return $identity if $raw eq '';
+    # Read configured AI aliases via array-based git_capture
+    my ( $ok, $raw ) = AAPP::Paths::git_capture( 'config', '--get-all', 'aapp.aiAlias' );
+    return $identity if !$ok || !defined $raw || $raw eq '';
 
     foreach my $rule ( split( /\n/, $raw ) ) {
         $rule =~ s/^\s+|\s+$//g;
@@ -94,16 +95,19 @@ sub resolve_ai_identity
 
     # 3. Per-worktree git config (never plain repo config)
     if ( $agent eq '' ) {
-        my $val = `git config --worktree aapp.aiAgent 2>/dev/null` =~ s/\s+\z//r;
-        $agent = $val if defined $val && $val ne '';
+        # Query worktree aiAgent via safe git_capture
+        my ( $ok, $val ) = AAPP::Paths::git_capture( 'config', '--worktree', 'aapp.aiAgent' );
+        $agent = $val =~ s/^\s+|\s+$//gr if $ok && defined $val && $val ne '';
     }
     if ( $vendor eq '' ) {
-        my $val = `git config --worktree aapp.aiVendor 2>/dev/null` =~ s/\s+\z//r;
-        $vendor = $val if defined $val && $val ne '';
+        # Query worktree aiVendor via safe git_capture
+        my ( $ok, $val ) = AAPP::Paths::git_capture( 'config', '--worktree', 'aapp.aiVendor' );
+        $vendor = $val =~ s/^\s+|\s+$//gr if $ok && defined $val && $val ne '';
     }
     if ( $model eq '' ) {
-        my $val = `git config --worktree aapp.aiModel 2>/dev/null` =~ s/\s+\z//r;
-        $model = $val if defined $val && $val ne '';
+        # Query worktree aiModel via safe git_capture
+        my ( $ok, $val ) = AAPP::Paths::git_capture( 'config', '--worktree', 'aapp.aiModel' );
+        $model = $val =~ s/^\s+|\s+$//gr if $ok && defined $val && $val ne '';
     }
 
     # 4. Vendor Co-Authored-By in commit message file
@@ -183,8 +187,9 @@ sub format_identity_lines
 sub attribution_decorate
 {
     my ( $msg_file, $identity ) = @_;
-    my $mode = `git config aapp.aiAttribution 2>/dev/null` =~ s/\s+\z//r;
-    $mode = 'none' if !defined $mode || $mode eq '';
+    # Read configured attribution mode in-process via AAPP::Config
+    my $mode = AAPP::Config::get('aapp.aiAttribution') // 'none';
+    $mode = 'none' if $mode eq '';
 
     my ( $agent, $vendor, $model ) = ( '', '', '' );
     if ( defined $identity && $identity ne '' ) {
@@ -277,8 +282,9 @@ sub attribution_decorate
 sub attribution_note
 {
     my ( $sha, $identity, $text ) = @_;
-    my $mode = `git config aapp.aiAttribution 2>/dev/null` =~ s/\s+\z//r;
-    $mode = 'none' if !defined $mode || $mode eq '';
+    # Read configured attribution mode in-process via AAPP::Config
+    my $mode = AAPP::Config::get('aapp.aiAttribution') // 'none';
+    $mode = 'none' if $mode eq '';
 
     if ( $mode eq 'notes' && ( !defined $identity || $identity eq '' ) && ( defined $text && $text ne '' ) ) {
         print STDERR "❌ [Error] Note text provided without a resolved AI identity in 'notes' mode.\n";
@@ -305,6 +311,7 @@ sub attribution_note
     return 0 if $note_content eq '' || !defined $sha || $sha eq '';
 
     if ( $mode eq 'notes' ) {
+        # Git notes storage: append note content to refs/notes/commits for commit $sha
         my $rc = system( 'git', 'notes', '--ref=refs/notes/commits', 'append', '-m', $note_content, $sha );
         return $rc >> 8 if $rc != 0;
         AAPP::Logger::log_event( 'notes', 'attach', {
@@ -315,6 +322,7 @@ sub attribution_note
         } );
 
         if ( $id_lines ne '' ) {
+            # Git notes storage: append AI identity trailers to refs/notes/ai for commit $sha
             my $ai_rc = system( 'git', 'notes', '--ref=refs/notes/ai', 'append', '-m', $id_lines, $sha );
             return $ai_rc >> 8 if $ai_rc != 0;
             AAPP::Logger::log_event( 'notes', 'attach', {
@@ -326,6 +334,7 @@ sub attribution_note
         }
     } else {
         if ( defined $identity && $identity ne '' ) {
+            # Git notes storage: append AI identity to refs/notes/ai for commit $sha
             my $rc = system( 'git', 'notes', '--ref=refs/notes/ai', 'append', '-m', $note_content, $sha );
             return $rc >> 8 if $rc != 0;
             AAPP::Logger::log_event( 'notes', 'attach', {
@@ -335,6 +344,7 @@ sub attribution_note
                 text   => $note_content,
             } );
         } else {
+            # Git notes storage: append review note to refs/notes/commits for commit $sha
             my $rc = system( 'git', 'notes', '--ref=refs/notes/commits', 'append', '-m', $note_content, $sha );
             return $rc >> 8 if $rc != 0;
             AAPP::Logger::log_event( 'notes', 'attach', {

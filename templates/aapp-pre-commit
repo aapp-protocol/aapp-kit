@@ -5,43 +5,29 @@ use utf8;
 use 5.026;
 
 BEGIN {
+    # §2.1 item 5: Load AAPP::* from the installed kit ($AAPP_LIB, else kit_dir)
     my $lib = $ENV{AAPP_LIB};
-    if ( !defined $lib || $lib eq '' || !-d $lib ) {
-        my $kd = `git config --get aapp.kitDir 2>/dev/null` =~ s/\s+\z//r;
-        $lib = "$kd/lib" if $kd ne '';
-    }
-    if ( !defined $lib || $lib eq '' || !-d $lib ) {
-        my $file = __FILE__;
-        if ( !-f $file && defined $ENV{PWD} ) {
-            $file = "$ENV{PWD}/$file";
-        }
-        my $parent = $file =~ s{/[^/]+$}{}r;
-        if ( -f "$parent/../lib/AAPP/JSON.pm" ) {
-            require Cwd;
-            $lib = Cwd::abs_path("$parent/../lib");
-        }
-    }
-    if ( !defined $lib || $lib eq '' || !-d $lib ) {
+    if ( !defined $lib || $lib eq '' ) {
         my $data = $ENV{XDG_DATA_HOME};
         if ( !defined $data || $data eq '' ) {
-            my $home = $ENV{HOME} // ( $^O eq 'MSWin32' ? $ENV{USERPROFILE} : undef );
-            $data = "$home/.local/share" if defined $home;
+            my $home = $ENV{HOME};
+            if ( ( !defined $home || $home eq '' ) && $^O eq 'MSWin32' ) {
+                $home = $ENV{USERPROFILE};
+            }
+            $data = "$home/.local/share" if defined $home && $home ne '';
         }
-        $lib = "$data/aapp-kit/lib" if defined $data;
+        $lib = "$data/aapp-kit/lib" if defined $data && $data ne '';
+    }
+    if ( defined $lib && -d $lib && -r "$lib/AAPP/Paths.pm" ) {
+        unshift @INC, $lib;
+        require AAPP::Paths;
+        my $kd = AAPP::Paths::kit_dir();
+        $lib = "$kd/lib" if defined $kd;
     }
     if ( !defined $lib || !-r "$lib/AAPP/JSON.pm" ) {
         print STDERR "❌ [AAPP Guard] Perl core missing: perl and " . ( $lib // '' ) . "/AAPP/JSON.pm are required. Install the kit: aapp install.\n";
         exit 1;
     }
-    my $hook_dir = __FILE__ =~ s{/[^/]+$}{}r;
-    if ( -d $hook_dir && $hook_dir =~ m{\.git/hooks} && -f "$hook_dir/../HEAD" ) {
-        if ( ( -f "$hook_dir/aapp-lib.sh" || -f "$hook_dir/plan_states.sh" ) && ( !-f "$hook_dir/aapp-lib.sh" || !-f "$hook_dir/plan_states.sh" ) ) {
-            print STDERR "❌ [AAPP Guard] Shared library or status registry missing or unreadable: $hook_dir/aapp-lib.sh, $hook_dir/plan_states.sh\n";
-            print STDERR "   Run 'aapp init' to reinstall the hook engine.\n";
-            exit 1;
-        }
-    }
-    unshift @INC, $lib;
 }
 
 use AAPP::Hooks::PreCommit ();

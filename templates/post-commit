@@ -4,7 +4,7 @@
 # ==============================================================================
 set -e
 COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
-PRIMARY_ROOT="$(cd "$COMMON_DIR/.." 2>/dev/null && pwd || true)"
+PRIMARY_ROOT="$(cd "$COMMON_DIR/.." 2>/dev/null && pwd)"
 HOOK_DIR="$PRIMARY_ROOT/.githooks"
 
 AAPP_HOOK=""

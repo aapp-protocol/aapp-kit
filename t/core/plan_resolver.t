@@ -180,8 +180,64 @@ sub test_normalize_plan_id
 sub test_plan_id_provider
 {
     my ($self) = @_;
-    # P-116 ports the provider exchange (hook dispatcher) and removes this line.
-    return $self->skip('the aapp-planid provider exchange arrives with P-116; until then the Perl core refuses an installed provider');
+    $self->ok_cmd( 'git', 'config', 'aapp.planId', '30' );
+    $self->eq_or_die( state_call( $self, 'allocate_plan_id' )->{ret}[1], 'P-30', 'no provider: local counter used' );
+
+    my $prov_dir = '.agents/skills/aapp-planid';
+    File::Path::make_path($prov_dir);
+
+    # 1. Provider returns string ID {"id": "P-88"}
+    my $script = <<"EOF";
+#!/bin/sh
+cat > planid.stdin
+echo '{"id": "P-88", "extra": {"k": 1}}'
+EOF
+    AAPP::Tests::write_text( "$prov_dir/run", $script );
+    chmod( 0755, "$prov_dir/run" );
+
+    $self->eq_or_die( state_call( $self, 'allocate_plan_id' )->{ret}[1], 'P-88', 'provider string id accepted' );
+    $self->eq_or_die( $self->run_cmd( 'git', 'config', '--get', 'aapp.planId' )->{out} =~ s/\s+$//r, '89', 'counter ratchets past issued id' );
+    my $stdin_content = do { open( my $fh, '<', 'planid.stdin' ); local $/; my $c = <$fh>; close($fh); $c // '' };
+    $self->true_or_die( index( $stdin_content, '"event": "plan.allocate"' ) >= 0, 'plan.allocate event in envelope' );
+    $self->true_or_die( index( $stdin_content, '"extra": {}' ) >= 0, 'envelope carries reserved extra' );
+
+    # 2. Bare integer id accepted
+    AAPP::Tests::write_text( "$prov_dir/run", "#!/bin/sh\necho '{\"id\": 90}'\n" );
+    chmod( 0755, "$prov_dir/run" );
+    $self->eq_or_die( state_call( $self, 'allocate_plan_id' )->{ret}[1], 'P-90', 'bare integer id accepted' );
+    $self->eq_or_die( $self->run_cmd( 'git', 'config', '--get', 'aapp.planId' )->{out} =~ s/\s+$//r, '91', 'counter ratchets past 90' );
+
+    # 3. Plain text response rejected
+    AAPP::Tests::write_text( "$prov_dir/run", "#!/bin/sh\necho P-91\n" );
+    chmod( 0755, "$prov_dir/run" );
+    my $r_plain = state_call( $self, 'allocate_plan_id' );
+    $self->true_or_die( $r_plain->{ret}[0] != RETURN_OK, 'plain-text response rejected' );
+    $self->match_or_die( $r_plain->{err}, qr/Provider must print \{"id": \.\.\.\}/, 'plain text diagnostic' );
+
+    # 4. Error text shown on failure
+    AAPP::Tests::write_text( "$prov_dir/run", "#!/bin/sh\necho '{\"error\": \"authority offline\"}'\nexit 1\n" );
+    chmod( 0755, "$prov_dir/run" );
+    my $r_err = state_call( $self, 'allocate_plan_id' );
+    $self->true_or_die( $r_err->{ret}[0] != RETURN_OK, 'failing provider is fatal' );
+    $self->match_or_die( $r_err->{err}, qr/authority offline/, 'provider error text shown' );
+
+    # 5. Failing provider without error text: no local fallback
+    AAPP::Tests::write_text( "$prov_dir/run", "#!/bin/sh\nexit 3\n" );
+    chmod( 0755, "$prov_dir/run" );
+    my $r_fail = state_call( $self, 'allocate_plan_id' );
+    $self->true_or_die( $r_fail->{ret}[0] != RETURN_OK, 'failing provider without json error is fatal' );
+    $self->eq_or_die( $self->run_cmd( 'git', 'config', '--get', 'aapp.planId' )->{out} =~ s/\s+$//r, '91', 'no local fallback on failure' );
+
+    # 6. Malformed id rejected
+    AAPP::Tests::write_text( "$prov_dir/run", "#!/bin/sh\necho garbage\n" );
+    chmod( 0755, "$prov_dir/run" );
+    my $r_mal = state_call( $self, 'allocate_plan_id' );
+    $self->true_or_die( $r_mal->{ret}[0] != RETURN_OK, 'malformed json rejected' );
+
+    File::Path::remove_tree('.agents');
+    unlink('planid.stdin');
+    $self->ok_cmd( 'git', 'config', '--unset', 'aapp.planId' );
+    return 1;
 }
 
 sub test_issue_counter_peek_and_allocate
