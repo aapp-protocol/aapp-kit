@@ -12,7 +12,7 @@
 * **Base:** `9ad7108` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P116 (plan/P116-perl-hooks-and-write-guard)
 * **Group:** P-111
-* **Commits:** `badb8bd` (plan/P116-perl-hooks-and-write-guard), `3218d83` (plan/P116-perl-hooks-and-write-guard), `90eb868` (plan/P116-perl-hooks-and-write-guard)
+* **Commits:** `badb8bd` (plan/P116-perl-hooks-and-write-guard), `515c3c7` (plan/P116-perl-hooks-and-write-guard), `3218d83` (plan/P116-perl-hooks-and-write-guard), `90eb868` (plan/P116-perl-hooks-and-write-guard), `f6c4e70` (plan/P116-perl-hooks-and-write-guard)
 <!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -136,7 +136,7 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §2–§4, all ported hook 
 ---
 
 ## 📦 6. Change Log & Refinement History
-* **2026-10-25:** Plan activated into ⚡ In Development via start.
+* **2026-10-26:** Verification sweeps completed; all core test suites passing (331/331 in t/test-run, 538/538 in ./aapp test); addressed review findings in HookDispatcher, WriteGuard, and PreCommit.
 * **2026-10-25:** Plan activated into ⚡ In Development via start.
 * **2026-10-25:** Plan locked and frozen into 🔷 Frozen via freeze.
 * **2026-10-24:** Aligned technical blueprint, logging telemetry (`hook.dispatch`, `commits.decorate`, `notes.attach`, `guard.check`, `health.veto`, `commits.plans`, `post-commit`), and target files with `.plans/pickup/perl-port-logging-events-spec.md` and `.plans/pickup/perl-port-test-matrix-tabular-check.md`.
