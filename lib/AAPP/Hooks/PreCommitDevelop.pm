@@ -9,9 +9,9 @@ use AAPP::Constants qw(RETURN_OK RETURN_ERROR RETURN_FAIL);
 use AAPP::Paths ();
 
 # Usage     : my $rc = AAPP::Hooks::PreCommitDevelop->run()
-# Purpose   : Master entrypoint for develop-only contract correspondence pre-commit gate.
-#             Verifies correspondence between lib/verbs.tsv and documentation / test suites.
-# Returns   : 0 on success or untouched contracts, 1 on correspondence failure.
+# Purpose   : Master entrypoint for develop-only kit authoring pre-commit gate.
+#             Verifies kit Perl syntax and correspondence between lib/verbs.tsv and documentation / test suites.
+# Returns   : 0 on success, 1 on compilation or correspondence failure.
 sub run
 {
     my ($class) = @_;
@@ -20,8 +20,37 @@ sub run
 
     my ( $ok, $diff ) = AAPP::Paths::git_capture( 'diff', '--cached', '--name-only' );
     $diff //= '';
-    my @touched = grep { m{^(?:lib/verbs\.tsv|lib/docs/verbs/|tests/verbs/|tests/verb_contracts_test\.sh|lib/docs/core/|t/core/|t/verb/)} } split( /\n/, $diff );
-    return 0 unless @touched;
+    my @staged = grep { $_ ne '' && -f "$root/$_" } split( /\n/, $diff );
+    return 0 unless @staged;
+
+    # 1. Kit-specific Perl syntax compilation check
+    my @perl_files = grep {
+        m{\.(?:pm|pl|t)$} ||
+        ( -x "$root/$_" && do {
+            open( my $fh, '<', "$root/$_" );
+            my $first = <$fh> // '';
+            close($fh);
+            $first =~ /^#!\s*\/.*perl/;
+        } )
+    } @staged;
+
+    my $lib_dir = -d "$root/lib" ? "$root/lib" : '';
+    foreach my $pf (@perl_files) {
+        my $full_p = "$root/$pf";
+        my @cmd = ('perl');
+        push @cmd, "-I$lib_dir" if $lib_dir ne '';
+        push @cmd, ( '-c', $full_p );
+        # External perl execution required for kit perl compilation syntax check
+        my $rc = system(@cmd);
+        if ( $rc != 0 ) {
+            print STDERR "❌ [AAPP Develop Error] Perl Compilation Error in staged kit file: $pf\n";
+            return 1;
+        }
+    }
+
+    # 2. Verb contract correspondence check
+    my @touched_contracts = grep { m{^(?:lib/verbs\.tsv|lib/docs/verbs/|tests/verbs/|tests/verb_contracts_test\.sh|lib/docs/core/|t/core/|t/verb/)} } @staged;
+    return 0 unless @touched_contracts;
 
     my $check = "$root/tests/verb_contracts_test.sh";
     if ( !-f $check ) {

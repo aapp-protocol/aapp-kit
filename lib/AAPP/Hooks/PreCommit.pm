@@ -1038,18 +1038,6 @@ sub run
             }
         }
 
-        if ( $f =~ /\.(?:pm|pl|t)$/ || ( -x $f && do { open(my $fh, '<', $f); my $first = <$fh> // ''; close($fh); $first =~ /^#!\s*\/.*perl/; } ) ) {
-            my $lib_arg = -d 'lib' ? '-Ilib' : '';
-            my @cmd = ('perl');
-            push @cmd, $lib_arg if $lib_arg ne '';
-            push @cmd, ( '-c', $f );
-            # External perl execution required for perl syntax check
-            my $rc = system(@cmd);
-            if ( $rc != 0 ) {
-                print STDERR "❌ [Pre-Commit Error] Perl Syntax Error in staged file: $f\n";
-                return 1;
-            }
-        }
 
         if ( $f =~ /\.py$/ ) {
             if ( $check_bin->('python3') ) {
