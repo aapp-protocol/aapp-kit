@@ -8,6 +8,7 @@ use 5.026;
 use Cwd ();
 use File::Spec ();
 use File::Basename ();
+use POSIX ();
 
 use AAPP::Constants qw(RETURN_OK RETURN_ERROR RETURN_FAIL RETURN_NOT_FOUND);
 use AAPP::Paths ();
@@ -133,10 +134,8 @@ sub resolve_allowlist
     $add_prefix->('/tmp');
     $add_prefix->('/var/folders') if -d '/var/folders';
 
-    # User configured additions from git config aapp.allowPath
-    my ( $ok, $custom ) = AAPP::Paths::git_capture( 'config', '--get-all', 'aapp.allowPath' );
-    $custom //= '';
-    foreach my $c ( split( /\n/, $custom ) ) {
+    # Layered configuration additions from aapp.allowPath (P-132)
+    foreach my $c ( AAPP::Config::get_all('aapp.allowPath') ) {
         $c =~ s/^\s+|\s+$//g;
         $add_prefix->($c) if $c ne '';
     }
@@ -193,18 +192,18 @@ sub run
     my $paths_info = AAPP::Paths::resolve();
     my $repo_root  = $paths_info->{root};
     if ( !defined $repo_root || $repo_root eq '' ) {
-        my ( $ok, $out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
-        $repo_root = ( $ok && defined $out && $out ne '' ) ? ( $out =~ s/\s+\z//r ) : Cwd::getcwd();
+        foreach my $allowed ( resolve_allowlist() ) {
+            if ( index( $canonical_target, $allowed ) == 0 ) {
+                allow_action( $target_file, '', 'external_allow' );
+            }
+        }
+        deny_action( "File '$original_target' is outside repository and not in the authorized path allowlist.", $tool_name, 'out_of_bounds', $target_file );
     }
     $repo_root = canonicalize_path($repo_root);
 
-    my $git_common = $paths_info->{common_dir};
-    if ( !defined $git_common || $git_common eq '' ) {
-        my ( $ok, $out ) = AAPP::Paths::git_capture('rev-parse', '--git-common-dir');
-        $git_common = ( $ok && defined $out && $out ne '' ) ? ( $out =~ s/\s+\z//r ) : "$repo_root/.git";
-    }
-    $git_common = canonicalize_path($git_common);
-    my $primary_root = -d $git_common ? canonicalize_path("$git_common/..") : $repo_root;
+    my $git_common   = canonicalize_path( $paths_info->{common_dir} // "$repo_root/.git" );
+    my $primary_root = canonicalize_path( $paths_info->{primary_root} // $repo_root );
+    my $plans_dir    = $paths_info->{plans_dir} // '';
 
     # Detect if canonical_target belongs to same repository
     my $target_dir = -d $canonical_target ? $canonical_target : File::Basename::dirname($canonical_target);
@@ -354,11 +353,12 @@ sub run
 
     # 2d. Circuit Breaker (Emergency Pause Check)
     my $paused_file = "$git_common/aapp_paused";
-    my $shared_paused_file = -d "$repo_root/.plans" ? "$repo_root/.plans/PAUSED.md" : ( -d "$primary_root/.plans" ? "$primary_root/.plans/PAUSED.md" : '' );
+    my $shared_paused_file = ( $plans_dir ne '' && -f "$plans_dir/PAUSED.md" ) ? "$plans_dir/PAUSED.md" : '';
 
     if ( -f $paused_file || ( $shared_paused_file ne '' && -f $shared_paused_file ) ) {
         # While paused, allow reflections strictly within .plans/ (pickup, issues, current)
-        if ( $target_file =~ m{^\.plans/(?:pickup|ISSUES\.md|issues|current/)} ||
+        if ( ( $plans_dir ne '' && index( $canonical_target, "$plans_dir/" ) == 0 && substr( $canonical_target, length($plans_dir) + 1 ) =~ m{^(?:pickup|ISSUES\.md|issues|current/)} ) ||
+             $target_file =~ m{^\.plans/(?:pickup|ISSUES\.md|issues|current/)} ||
              ( File::Basename::basename($repo_root) eq '.plans' && $target_file =~ m{^(?:pickup|ISSUES\.md|issues|current/)} ) ) {
             exit 0;
         }
@@ -385,7 +385,10 @@ sub run
     }
 
     # 3. Always-Allowed Invariants
-    if ( index( $canonical_target, "$primary_root/.plans/" ) == 0 ||
+    if ( ( $plans_dir ne '' && ( $canonical_target eq $plans_dir || index( $canonical_target, "$plans_dir/" ) == 0 ) ) ||
+         ( $paths_info->{agents_dir} && ( $canonical_target eq $paths_info->{agents_dir} || index( $canonical_target, "$paths_info->{agents_dir}/" ) == 0 ) ) ||
+         ( $paths_info->{offline_dir} && ( $canonical_target eq $paths_info->{offline_dir} || index( $canonical_target, "$paths_info->{offline_dir}/" ) == 0 ) ) ||
+         index( $canonical_target, "$primary_root/.plans/" ) == 0 ||
          index( $canonical_target, "$primary_root/.agents/" ) == 0 ||
          index( $canonical_target, "$primary_root/.offline/" ) == 0 ) {
         exit 0;
@@ -397,7 +400,6 @@ sub run
     }
 
     # 4. Blast Radius Validation Against Active Plan
-    my $plans_dir = -d "$repo_root/.plans" ? "$repo_root/.plans" : ( -d "$primary_root/.plans" ? "$primary_root/.plans" : '' );
     if ( $plans_dir eq '' || !-d "$plans_dir/current" ) {
         if ( -f "$repo_root/.githooks/blast-radius-guard" || -f "$primary_root/.githooks/blast-radius-guard" ||
              -f "$repo_root/aapp" || -f "$primary_root/aapp" ) {
@@ -520,7 +522,7 @@ sub run
     # Approved amendments (P-129)
     my $group = AAPP::State::plan_field( $active_plan_path, 'Group' );
     my $norm_active = $active_id =~ s/^[pP]-?//r;
-    my $is_grp = eval { AAPP::State::plan_is_group($active_plan_path) } // 0;
+    my $is_grp = AAPP::State::is_group_plan($active_plan_path);
     if ( ( defined $group && $group ne '' ) || $is_grp ) {
         my $target_group = ( defined $group && $group ne '' ) ? $group : $active_id;
         my $norm_group   = $target_group =~ s/^[pP]-?//r;

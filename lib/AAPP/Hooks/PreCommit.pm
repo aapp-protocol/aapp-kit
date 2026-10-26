@@ -20,7 +20,7 @@ use AAPP::State ();
 use AAPP::Health ();
 
 our $ALWAYS_ALLOWED_REGEX = qr{^(?:README\.md|MANUAL\.md|CHEATSHEET\.md|COOKBOOK\.md|CODEMAP\.md|ARCHITECTURE\.md|CHANGELOG\.md|ISSUES\.md|\.plans/.*|\.agents/.*|\.offline/.*|docs/.*|\.gitignore|\.gitattributes|package\.json|package-lock\.json|composer\.json|composer\.lock|go\.mod|go\.sum|Cargo\.toml|Cargo\.lock|pyproject\.toml|requirements\.txt)$};
-our $CORE_CODE_REGEX     = qr{\.(?:php|js|jsx|ts|tsx|py|go|rs|c|cpp|h|hpp|java|rb|css|scss|sql|html|sh|bash|zsh)$|^schema/.*\.json$|^aapp$};
+our $CORE_CODE_REGEX     = qr{\.(?:pm|pl|t|php|js|jsx|ts|tsx|py|go|rs|c|cpp|h|hpp|java|rb|css|scss|sql|html|sh|bash|zsh)$|^schema/.*\.json$|^aapp$};
 my $_f_uri = "file:" . "///";
 our $PORTABILITY_PATTERN  = qr{(\]\($_f_uri|<$_f_uri|$_f_uri(?:home|Users|root|tmp|var|etc|opt|usr|srv|[a-zA-Z]:)|\]\((?:/home/|/Users/|/root/|[a-zA-Z]:[/\\\\]))};
 
@@ -143,6 +143,84 @@ sub _lock_only_added_targets
     return 0 unless $h_idx == scalar(@h_lines) && @added;
     foreach my $l (@added) {
         return 0 unless $l =~ /^\s*-\s*\[[ xX]\]\s*`([^`]+)`/;
+    }
+    return 1;
+}
+
+# Usage     : my $valid = _lock_only_amendment_lines($head_sec4, $idx_sec4, $staged, $idx_content, \@staged_files)
+# Purpose   : Verifies that Section 4 changes only add landed amendment lines to an owner plan (P-129).
+# Returns   : 1 if all added lines are valid landed amendment records verified against staged amendments member, 0 otherwise.
+sub _lock_only_amendment_lines
+{
+    my ( $head_sec4, $idx_sec4, $staged, $idx_content, $staged_files ) = @_;
+    my @h_lines = split /\r?\n/, $head_sec4;
+    my @i_lines = split /\r?\n/, $idx_sec4;
+    my $h_idx = 0;
+    my @added;
+    foreach my $line (@i_lines) {
+        if ( $h_idx < scalar(@h_lines) && $line eq $h_lines[$h_idx] ) {
+            $h_idx++;
+        } else {
+            push @added, $line;
+        }
+    }
+    return 0 unless $h_idx == scalar(@h_lines) && @added;
+
+    my $pid = '';
+    if ( $idx_content =~ /^\*\s+\*\*Plan ID:\*\*\s*(P-[0-9]+)/m ) {
+        $pid = $1;
+    }
+    my $gid = '';
+    if ( $idx_content =~ /^#\s+.*?Group\s+Plan/m ) {
+        $gid = $pid;
+    } elsif ( $idx_content =~ /^\*\s+\*\*Group:\*\*\s*(P-[0-9]+)/m ) {
+        $gid = $1;
+    }
+    return 0 unless $pid ne '' && $gid ne '';
+
+    my $ac = '';
+    foreach my $f (@$staged_files) {
+        next if $f eq $staged;
+        my ( $ok, $ic ) = AAPP::Paths::git_capture( 'show', ":$f" );
+        next unless $ok && defined $ic && $ic ne '';
+        if ( $ic =~ /^\*\s+\*\*Kind:\*\*\s+amendments\b/m && $ic =~ /^\*\s+\*\*Group:\*\*\s*\Q$gid\E\b/m ) {
+            $ac = $ic;
+            last;
+        }
+    }
+    return 0 unless $ac ne '';
+
+    foreach my $l (@added) {
+        $l =~ s/^\s+|\s+$//g;
+        next if $l eq '' || $l eq '### Amendments';
+        my ( $req_n, $req_path ) = ( '', '' );
+        if ( $l =~ /^-\s*\[x\]\s*`([^`]+)`\s*->\s*R([0-9]+)\s*\(by\s+P-[0-9]+\)$/ ) {
+            ( $req_path, $req_n ) = ( $1, $2 );
+        } elsif ( $l =~ /^-\s*R([0-9]+)\s+[0-9-]+\s*·\s*`([^`]+)`\s*·.*\(by\s+P-[0-9]+,\s*landed\s*`[0-9a-fA-F]+`\)$/ ) {
+            ( $req_n, $req_path ) = ( $1, $2 );
+        } else {
+            return 0;
+        }
+        return 0 unless $req_n ne '' && $req_path ne '';
+
+        my $found = 0;
+        foreach my $aline ( split( /\n/, $ac ) ) {
+            if ( $aline =~ /^-\s*\*\*R\Q$req_n\E\*\*\s+.*?—\s*landed\s*`[0-9a-fA-F]+`/ ) {
+                if ( $aline =~ /`\Q$req_path\E`/ ) {
+                    my $owner = '';
+                    if ( $aline =~ /·\s*for\s*(P-[0-9]+)/ ) {
+                        $owner = $1;
+                    } elsif ( $aline =~ /^-\s*\*\*R[0-9]+\*\*\s+[^·]+·\s*(P-[0-9]+)/ ) {
+                        $owner = $1;
+                    }
+                    if ( $owner eq $pid ) {
+                        $found = 1;
+                        last;
+                    }
+                }
+            }
+        }
+        return 0 unless $found;
     }
     return 1;
 }
@@ -450,7 +528,7 @@ sub run
     # CHANGELOG enforcement
     my $staged_core_count = 0;
     foreach my $f (@staged_files) {
-        if ( $f =~ $CORE_CODE_REGEX ) {
+        if ( $f =~ $CORE_CODE_REGEX || ( -f $f && -x $f && index( $f, '.' ) < 0 && do { open( my $fh, '<', $f ); my $first = <$fh> // ''; close($fh); $first =~ /^#!\s*\/.*(?:perl|bash|sh|python|node|ruby|php)/; } ) ) {
             $staged_core_count++;
         }
     }
@@ -667,7 +745,7 @@ sub run
             # Approved amendments (P-129)
             my $group = AAPP::State::plan_field( $active_plan_path, 'Group' );
             my $norm_active = $active_id =~ s/^[pP]-?//r;
-            my $is_grp = eval { AAPP::State::plan_is_group($active_plan_path) } // 0;
+            my $is_grp = AAPP::State::is_group_plan($active_plan_path);
             if ( ( defined $group && $group ne '' ) || $is_grp ) {
                 my $target_group = ( defined $group && $group ne '' ) ? $group : $active_id;
                 my $norm_group   = $target_group =~ s/^[pP]-?//r;
@@ -741,7 +819,7 @@ sub run
 
     # Frozen plan design lock & group plan Architecture & Codemap check
     foreach my $staged (@staged_files) {
-        next unless $staged =~ m{^\.plans/current/([^/]+)\.md$};
+        next unless $staged =~ m{^\.plans/(?:current|done)/([^/]+)\.md$};
         my $stem = $1;
         next if $stem =~ /^(?:000-|fix-)/;
 
@@ -752,7 +830,7 @@ sub run
 
         my $head_line = AAPP::Config::status_line_of_lines( split( /\n/, $head_content ) );
         my $head_st   = defined $head_line ? ( AAPP::Config::plan_state_for_status_line($head_line) // '' ) : '';
-        next unless $head_st eq 'frozen' || $head_st eq 'in-development';
+        next unless $head_st eq 'frozen' || $head_st eq 'in-development' || $head_st eq 'done';
 
         # Query staged index content of plan file safely via git show
         my ( $i_ok, $idx_content ) = AAPP::Paths::git_capture('show', ":$staged");
@@ -775,6 +853,8 @@ sub run
         # Amendment lines and added targets exemptions
         if ( $head_sec4 ne $idx_sec4 && $head_sec2 eq $idx_sec2 ) {
             if ( $idx_content =~ /^\*\s+\*\*Kind:\*\*\s+amendments\b/m && _lock_only_added_targets( $head_sec4, $idx_sec4 ) ) {
+                $design_violation = '';
+            } elsif ( _lock_only_amendment_lines( $head_sec4, $idx_sec4, $staged, $idx_content, \@staged_files ) ) {
                 $design_violation = '';
             }
         }
@@ -938,39 +1018,66 @@ sub run
     }
 
     # Syntax checks
+    my %has_bin;
+    my $check_bin = sub {
+        my ($bin) = @_;
+        return $has_bin{$bin} if exists $has_bin{$bin};
+        $has_bin{$bin} = ( grep { -x "$_/$bin" } split( /:/, $ENV{PATH} // '' ) ) ? 1 : 0;
+        return $has_bin{$bin};
+    };
+
     foreach my $f (@staged_files) {
         next unless -f $f;
 
         if ( $f =~ /\.(?:sh|bash)$/ ) {
+            # External bash execution required for shell script syntax check
             my $rc = system( 'bash', '-n', $f );
             if ( $rc != 0 ) {
                 print STDERR "❌ [Pre-Commit Error] Bash Syntax Error in staged file: $f\n";
-                system( 'bash', '-n', $f );
+                return 1;
+            }
+        }
+
+        if ( $f =~ /\.(?:pm|pl|t)$/ || ( -x $f && do { open(my $fh, '<', $f); my $first = <$fh> // ''; close($fh); $first =~ /^#!\s*\/.*perl/; } ) ) {
+            my $lib_arg = -d 'lib' ? '-Ilib' : '';
+            my @cmd = ('perl');
+            push @cmd, $lib_arg if $lib_arg ne '';
+            push @cmd, ( '-c', $f );
+            # External perl execution required for perl syntax check
+            my $rc = system(@cmd);
+            if ( $rc != 0 ) {
+                print STDERR "❌ [Pre-Commit Error] Perl Syntax Error in staged file: $f\n";
                 return 1;
             }
         }
 
         if ( $f =~ /\.py$/ ) {
-            my $rc = system( 'python3', '-c', 'import sys; compile(open(sys.argv[1], "rb").read(), sys.argv[1], "exec")', $f );
-            if ( $rc != 0 ) {
-                print STDERR "❌ [Pre-Commit Error] Python Syntax Error in staged file: $f\n";
-                system( 'python3', '-c', 'import sys; compile(open(sys.argv[1], "rb").read(), sys.argv[1], "exec")', $f );
-                return 1;
+            if ( $check_bin->('python3') ) {
+                # External python3 execution required for python script compilation syntax check
+                my $rc = system( 'python3', '-c', 'import sys; compile(open(sys.argv[1], "rb").read(), sys.argv[1], "exec")', $f );
+                if ( $rc != 0 ) {
+                    print STDERR "❌ [Pre-Commit Error] Python Syntax Error in staged file: $f\n";
+                    return 1;
+                }
             }
         }
 
         if ( $f =~ /\.php$/ ) {
-            my $rc = system( 'php', '-l', $f );
-            if ( $rc != 0 ) {
-                print STDERR "❌ [Pre-Commit Error] PHP Syntax Error in staged file: $f\n";
-                system( 'php', '-l', $f );
-                return 1;
+            if ( $check_bin->('php') ) {
+                # External php execution required for PHP linting syntax check
+                my $rc = system( 'php', '-l', $f );
+                if ( $rc != 0 ) {
+                    print STDERR "❌ [Pre-Commit Error] PHP Syntax Error in staged file: $f\n";
+                    return 1;
+                }
             }
         }
 
         if ( $f =~ m{^schema/.*\.json$} ) {
-            my $rc = system( 'python3', '-c', 'import json, sys; json.load(open(sys.argv[1], encoding="utf-8"))', $f );
-            if ( $rc != 0 ) {
+            # In-process JSON schema validation without external python3 process
+            my $txt = _read_text($f);
+            my ( $j_ok, undef ) = defined $txt ? AAPP::JSON::decode($txt) : ( 0, undef );
+            if ( !$j_ok ) {
                 print STDERR "❌ [Pre-Commit Error] Invalid JSON syntax in schema file: $f\n";
                 return 1;
             }

@@ -93,8 +93,9 @@ sub execute_with_watchdog
         local $SIG{ALRM} = sub {
             $timed_out = 1;
             kill( 'TERM', -$pid );
-            sleep(0.1);
+            select( undef, undef, undef, 0.1 );
             kill( 'KILL', -$pid );
+            waitpid( $pid, POSIX::WNOHANG() );
             die "timeout\n";
         };
         alarm($max_time);
@@ -105,6 +106,7 @@ sub execute_with_watchdog
     alarm(0);
 
     if ($timed_out) {
+        waitpid( $pid, POSIX::WNOHANG() );
         $rc = 124 << 8;
     }
 
@@ -135,22 +137,19 @@ sub _envelope_remote_json
     $url =~ s{^(https?://)[^/@]*@}{$1};
     $url =~ s{^([a-z+]+://[^/:@]*):[^/@]*@}{$1@};
 
-    my $esc_name = $name =~ s/\\/\\\\/gr =~ s/"/\\"/gr;
-    my $esc_url  = $url  =~ s/\\/\\\\/gr =~ s/"/\\"/gr;
-    return qq/{ "name": "$esc_name", "url": "$esc_url" }/;
+    my $j_name = AAPP::JSON::json_str($name);
+    my $j_url  = AAPP::JSON::json_str($url);
+    return qq/{ "name": $j_name, "url": $j_url }/;
 }
 
 # Usage     : my $json = build_event_envelope($event, $data_json, $root)
 # Purpose   : Generates the canonical JSON event envelope for lifecycle hooks and plugins.
-# Returns   : Serialized JSON event envelope string.
+# Returns   : Serialized JSON event envelope string, or undef outside a repository.
 sub build_event_envelope
 {
     my ( $event, $data_json, $root ) = @_;
     $root //= AAPP::Paths::resolve()->{root};
-    if ( !defined $root || $root eq '' ) {
-        my ( $r_ok, $r_out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
-        $root = ( $r_ok && defined $r_out && $r_out ne '' ) ? ( $r_out =~ s/\s+\z//r ) : Cwd::getcwd();
-    }
+    return undef if !defined $root || $root eq '';
     $data_json = '{}' if !defined $data_json || $data_json eq '';
 
     my $actor     = $ENV{AAPP_ACTOR} // 'developer';
@@ -159,19 +158,24 @@ sub build_event_envelope
     my ( $b_ok, $branch_out ) = AAPP::Paths::git_capture( '-C', $root, 'rev-parse', '--abbrev-ref', 'HEAD' );
     my $branch = ( $b_ok && defined $branch_out && $branch_out ne '' ) ? ( $branch_out =~ s/\s+\z//r ) : 'unknown';
 
-    my $esc_root = $root =~ s/\\/\\\\/gr =~ s/"/\\"/gr;
-    my $remote   = _envelope_remote_json($root);
+    my $remote_str = _envelope_remote_json($root);
+    my $j_ver      = AAPP::JSON::json_str($PROTOCOL_VERSION);
+    my $j_event    = AAPP::JSON::json_str($event);
+    my $j_time     = AAPP::JSON::json_str($timestamp);
+    my $j_actor    = AAPP::JSON::json_str($actor);
+    my $j_root     = AAPP::JSON::json_str($root);
+    my $j_branch   = AAPP::JSON::json_str($branch);
 
     return <<"EOF";
 {
-  "version": "$PROTOCOL_VERSION",
-  "event": "$event",
-  "timestamp": "$timestamp",
-  "actor": "$actor",
+  "version": $j_ver,
+  "event": $j_event,
+  "timestamp": $j_time,
+  "actor": $j_actor,
   "repository": {
-    "root": "$esc_root",
-    "branch": "$branch",
-    "remote": $remote
+    "root": $j_root,
+    "branch": $j_branch,
+    "remote": $remote_str
   },
   "data": $data_json,
   "extra": {}
@@ -231,27 +235,24 @@ sub resolve_plugin_entrypoint
     return undef;
 }
 
-# Usage     : my ($rc, $handled) = dispatch_single_handler(...)
+# Usage     : my ($rc, $status) = dispatch_single_handler(...)
 # Purpose   : Dispatches a single lifecycle hook handler with integrity verification.
-# Returns   : 0 on success, non-zero on failure or gate refusal.
+# Returns   : ($exit_code, $status) where $exit_code is 0 (pass) or 1 (refusal), and status is ok/veto/timeout/failed.
 sub dispatch_single_handler
 {
     my ( $event, $handler_rel, $expected_hash, $timeout, $mode, $source_type, $payload, $root ) = @_;
     $root //= AAPP::Paths::resolve()->{root};
-    if ( !defined $root || $root eq '' ) {
-        my ( $r_ok, $r_out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
-        $root = ( $r_ok && defined $r_out && $r_out ne '' ) ? ( $r_out =~ s/\s+\z//r ) : Cwd::getcwd();
-    }
+    return ( 1, 'failed' ) if !defined $root || $root eq '';
 
     my $handler_path = $handler_rel =~ m{^/} ? $handler_rel : "$root/$handler_rel";
 
     if ( !-f $handler_path || !-x $handler_path ) {
         if ( $mode eq 'gate' ) {
             print STDERR "❌ [Hook Refusal] Handler '$handler_rel' for event '$event' does not exist or is not executable.\n";
-            return 1;
+            return ( 1, 'failed' );
         } else {
             print STDERR "⚠️  [Hook Warning] Handler '$handler_rel' for event '$event' is missing or not executable (skipping).\n";
-            return 0;
+            return ( 0, 'failed' );
         }
     }
 
@@ -260,14 +261,14 @@ sub dispatch_single_handler
         my $actual_hash    = compute_file_sha256($handler_path);
         if ( !defined $actual_hash ) {
             print STDERR "❌ [Hook Integrity Violation] Failed to compute SHA256 for handler '$handler_rel'.\n";
-            return 1;
+            return ( 1, 'failed' );
         }
         if ( lc($clean_expected) ne lc($actual_hash) ) {
             print STDERR "❌ [Hook Integrity Violation] SHA256 mismatch for handler '$handler_rel' (event: $event)!\n";
             print STDERR "   Expected : sha256:$clean_expected\n";
             print STDERR "   Computed : sha256:$actual_hash\n";
             print STDERR "   Tamper-evident gate: Handler script cannot be altered without updating registry.tsv.\n";
-            return 1;
+            return ( 1, 'failed' );
         }
     }
 
@@ -287,31 +288,31 @@ sub dispatch_single_handler
     if ( $rc == 0 ) {
         print STDERR $err if defined $err && $err ne '';
         print STDOUT $out if defined $out && $out ne '';
-        return 0;
+        return ( 0, 'ok' );
     } elsif ( $rc == 2 ) {
         print STDERR "⚠️  [Hook Notice] Handler '$handler_rel' emitted advisory warning (exit 2):\n";
         print STDERR $err if defined $err && $err ne '';
         print STDOUT $out if defined $out && $out ne '';
-        return 0;
+        return ( 0, 'ok' );
     } elsif ( $rc == 124 ) {
         if ( $mode eq 'gate' ) {
             print STDERR "❌ [Hook Timeout Gate] Handler '$handler_rel' exceeded timeout (${timeout}s) during '$event'.\n";
             print STDERR $err if defined $err && $err ne '';
-            return 1;
+            return ( 1, 'timeout' );
         } else {
             print STDERR "⚠️  [Hook Timeout Warning] Handler '$handler_rel' exceeded timeout (${timeout}s) during '$event' (notify mode).\n";
             print STDERR $err if defined $err && $err ne '';
-            return 0;
+            return ( 0, 'timeout' );
         }
     } else {
         if ( $mode eq 'gate' ) {
             print STDERR "❌ [Hook Gate Refusal] Handler '$handler_rel' rejected event '$event' (exit $rc):\n";
             print STDERR $err if defined $err && $err ne '';
-            return 1;
+            return ( 1, 'veto' );
         } else {
             print STDERR "⚠️  [Hook Warning] Handler '$handler_rel' failed for event '$event' (exit $rc, notify mode):\n";
             print STDERR $err if defined $err && $err ne '';
-            return 0;
+            return ( 0, 'failed' );
         }
     }
 }
@@ -323,10 +324,7 @@ sub dispatch_hook
 {
     my ( $event, $data_json, $root ) = @_;
     $root //= AAPP::Paths::resolve()->{root};
-    if ( !defined $root || $root eq '' ) {
-        my ( $r_ok, $r_out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
-        $root = ( $r_ok && defined $r_out && $r_out ne '' ) ? ( $r_out =~ s/\s+\z//r ) : Cwd::getcwd();
-    }
+    return 1 if !defined $root || $root eq '';
     $data_json = '{}' if !defined $data_json || $data_json eq '';
 
     my $payload  = build_event_envelope( $event, $data_json, $root );
@@ -365,8 +363,7 @@ sub dispatch_hook
                         $md = $ev =~ /^post-/ ? 'notify' : 'gate';
                     }
                     $handlers++;
-                    my $h_rc = dispatch_single_handler( $event, $hp, $expected_hash, $to, $md, 'registry', $payload, $root );
-                    my $status = $h_rc == 0 ? 'ok' : ( $h_rc == 124 ? 'timeout' : 'veto' );
+                    my ( $h_rc, $status ) = dispatch_single_handler( $event, $hp, $expected_hash, $to, $md, 'registry', $payload, $root );
                     AAPP::Logger::log_event( 'hook', 'dispatch', {
                         kind         => 'hook',
                         name         => $hp,
@@ -401,14 +398,14 @@ sub dispatch_hook
             $hp =~ s/^\s+|\s+$//g;
             next if $hp eq '';
             $handlers++;
-            dispatch_single_handler( $event, $hp, '', $timeout, 'notify', 'local_config', $payload, $root );
+            my ( undef, $status ) = dispatch_single_handler( $event, $hp, '', $timeout, 'notify', 'local_config', $payload, $root );
             AAPP::Logger::log_event( 'hook', 'dispatch', {
                 kind         => 'hook',
                 name         => $hp,
                 step         => $event,
                 called       => 1,
                 skip_reason  => '',
-                status       => 'ok',
+                status       => $status,
                 payload_keys => $payload_keys,
                 response     => {},
             } );
@@ -438,10 +435,7 @@ sub run_action_plugin
 {
     my ( $entry, $root, $action, $event, $data_json, %extra_env ) = @_;
     $root //= AAPP::Paths::resolve()->{root};
-    if ( !defined $root || $root eq '' ) {
-        my ( $r_ok, $r_out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
-        $root = ( $r_ok && defined $r_out && $r_out ne '' ) ? ( $r_out =~ s/\s+\z//r ) : Cwd::getcwd();
-    }
+    return ( 1, '', 'Repository root not found' ) if !defined $root || $root eq '';
     my $timeout = AAPP::Config::get('aapp.pluginTimeout') // 10;
     $timeout = 10 if $timeout !~ /^[0-9]+$/;
 
@@ -463,10 +457,7 @@ sub plugin_step
 {
     my ( $entry, $root, $action, $event, $data_json, %extra_env ) = @_;
     $root //= AAPP::Paths::resolve()->{root};
-    if ( !defined $root || $root eq '' ) {
-        my ( $r_ok, $r_out ) = AAPP::Paths::git_capture('rev-parse', '--show-toplevel');
-        $root = ( $r_ok && defined $r_out && $r_out ne '' ) ? ( $r_out =~ s/\s+\z//r ) : Cwd::getcwd();
-    }
+    return ( 1, { status => 'failed', message => 'Repository root not found' } ) if !defined $root || $root eq '';
     my $pname = File::Basename::basename( File::Basename::dirname($entry) );
 
     my $scratch = AAPP::Paths::resolve()->{git_dir} // File::Spec->tmpdir();
@@ -593,7 +584,8 @@ sub plugin_run_do
     my ( $subject, $name, $do_file, $root ) = @_;
     return unless defined $do_file && -s $do_file;
 
-    my $tsv_file = "$root/lib/plugin_do.tsv";
+    my $kit = AAPP::Paths::kit_dir();
+    my $tsv_file = ( defined $kit && -f "$kit/lib/plugin_do.tsv" ) ? "$kit/lib/plugin_do.tsv" : "$root/lib/plugin_do.tsv";
     my %allowed_cmds;
     if ( -f $tsv_file ) {
         open( my $tfh, '<:encoding(UTF-8)', $tsv_file );
@@ -622,7 +614,7 @@ sub plugin_run_do
         foreach my $cand ( keys %allowed_cmds ) {
             if ( $line eq $cand || $line =~ /^\Q$cand\E\s/ ) {
                 $is_allowed = 1;
-                break;
+                last;
             }
         }
 
@@ -640,7 +632,7 @@ sub plugin_run_do
         }
 
         print STDOUT "▶️  [Plugin] do: $line\n";
-        my $bin = "$root/aapp";
+        my $bin = ( defined $kit && -x "$kit/aapp" ) ? "$kit/aapp" : "$root/aapp";
         local $ENV{AAPP_PLUGIN_MUTED} = $name;
         # Execute plugin action directly via array exec without invoking shell
         my $rc = system( $bin, @args );

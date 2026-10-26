@@ -170,10 +170,10 @@ sub run
 
     my $rel = 'current/' . File::Basename::basename($plan_file);
     {
-        local $ENV{GIT_DIR}        = undef;
-        local $ENV{GIT_WORK_TREE}  = undef;
-        local $ENV{GIT_INDEX_FILE} = undef;
-        local $ENV{GIT_PREFIX}     = undef;
+        delete local $ENV{GIT_DIR};
+        delete local $ENV{GIT_WORK_TREE};
+        delete local $ENV{GIT_INDEX_FILE};
+        delete local $ENV{GIT_PREFIX};
 
         my $prc = AAPP::CommitEngine::plans_commit( "plan(record): ${bound} commits after $mode", $rel );
         if ( $prc != RETURN_OK ) {

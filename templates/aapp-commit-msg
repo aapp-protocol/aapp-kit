@@ -22,7 +22,10 @@ BEGIN {
         unshift @INC, $lib;
         require AAPP::Paths;
         my $kd = AAPP::Paths::kit_dir();
-        $lib = "$kd/lib" if defined $kd;
+        if ( defined $kd && -d "$kd/lib" ) {
+            $lib = "$kd/lib";
+            unshift @INC, $lib unless $INC[0] eq $lib;
+        }
     }
     if ( !defined $lib || !-r "$lib/AAPP/JSON.pm" ) {
         print STDERR "❌ [Commit-Msg Violation] Perl core missing: perl and " . ( $lib // '' ) . "/AAPP/JSON.pm are required. Install the kit: aapp install.\n";

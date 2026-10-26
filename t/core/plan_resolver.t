@@ -229,10 +229,11 @@ EOF
     $self->eq_or_die( $self->run_cmd( 'git', 'config', '--get', 'aapp.planId' )->{out} =~ s/\s+$//r, '91', 'no local fallback on failure' );
 
     # 6. Malformed id rejected
-    AAPP::Tests::write_text( "$prov_dir/run", "#!/bin/sh\necho garbage\n" );
+    AAPP::Tests::write_text( "$prov_dir/run", "#!/bin/sh\necho '{\"id\": \"not-a-number\"}'\n" );
     chmod( 0755, "$prov_dir/run" );
     my $r_mal = state_call( $self, 'allocate_plan_id' );
-    $self->true_or_die( $r_mal->{ret}[0] != RETURN_OK, 'malformed json rejected' );
+    $self->true_or_die( $r_mal->{ret}[0] != RETURN_OK, 'malformed id rejected' );
+    $self->match_or_die( $r_mal->{err}, qr/must return an integer id/, 'malformed id diagnostic' );
 
     File::Path::remove_tree('.agents');
     unlink('planid.stdin');

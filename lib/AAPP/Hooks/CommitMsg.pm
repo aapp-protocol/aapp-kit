@@ -177,7 +177,7 @@ sub run
     if ( $banned_coauthor ne '' ) {
         print STDERR "\n❌ [Commit-Msg Violation] Prohibited AI co-author trailer detected: '$banned_coauthor'\n";
         print STDERR "   Synthetic email addresses in Co-authored-by: trailers link commits to unvetted\n";
-        print STDERR "   or third-party GitHub accounts (e.g. shimonenator).\n\n";
+        print STDERR "   or third-party GitHub accounts.\n\n";
         print STDERR "   👉 Use email-free semantic trailers:\n";
         print STDERR "      AI-Agent: <Agent Name>\n";
         print STDERR "      AI-Vendor: <Vendor Name>\n";

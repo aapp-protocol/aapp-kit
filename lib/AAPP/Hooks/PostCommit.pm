@@ -78,7 +78,8 @@ sub run
     }
 
     # Reaping sweep for expired notes (B5)
-    my $ttl_mins = AAPP::Config::get_int( 'aapp.noteTTL', 1440 );
+    my ( undef, $ttl_mins ) = AAPP::Config::get_int( 'aapp.noteTTL', 1440 );
+    $ttl_mins //= 1440;
     my $now = time();
     foreach my $f (@pending) {
         next unless -f $f;
