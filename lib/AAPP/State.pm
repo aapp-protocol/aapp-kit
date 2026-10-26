@@ -2125,21 +2125,58 @@ sub _counter
     return ( RETURN_OK, $cur );
 }
 
-# Usage     : my ($rc, $id) = _allocate_id($key, $prefix, $plugin, $label, $seeder)
-# Purpose   : Claims the next id from a counter and stores the increment. A provider plugin, when
-#             installed, owns allocation: it is refused here until the hook dispatcher is ported (P-116).
+# Usage     : my ($rc, $id) = _allocate_id($key, $prefix, $plugin, $label, $seeder, $event)
+# Purpose   : Claims the next id from a counter and stores the increment. An installed provider
+#             plugin takes precedence via the plugin protocol (action=allocate, event=$event).
 # Returns   : (RETURN_OK, $id), or (RETURN_ERROR) after an [ ERROR ] line.
 sub _allocate_id
 {
-    my ( $key, $prefix, $plugin, $label, $seeder ) = @_;
+    my ( $key, $prefix, $plugin, $label, $seeder, $event ) = @_;
     my $root = AAPP::Paths::resolve()->{root};
     if ( !defined $root ) {
         AAPP::Logger::print_msg( 'ERROR', "$label: not inside a Git repository." );
         return (RETURN_ERROR);
     }
-    if ( defined $plugin && -d "$root/.agents/skills/$plugin" ) {
-        AAPP::Logger::print_msg( 'ERROR', "$label: the $plugin provider is installed; the Perl core cannot ask it yet (hook dispatcher, P-116). Refusing to allocate locally." );
-        return (RETURN_ERROR);
+    if ( defined $plugin && $plugin ne '' && -d "$root/.agents/skills/$plugin" ) {
+        require AAPP::HookDispatcher;
+        my $pdir  = "$root/.agents/skills/$plugin";
+        my $entry = AAPP::HookDispatcher::resolve_plugin_entrypoint( $pdir, $plugin );
+        if ( defined $entry && -f $entry ) {
+            my $ev = $event // 'plan.allocate';
+            my ( $rc, $stdout, $stderr ) = AAPP::HookDispatcher::run_action_plugin( $entry, $root, 'allocate', $ev, '{}' );
+            require AAPP::JSON;
+            if ( $rc != 0 ) {
+                my ( $p_ok, $d ) = AAPP::JSON::decode( $stdout // '' );
+                my $err_msg = ( $p_ok && ref($d) eq 'HASH' && defined $d->{error} && $d->{error} ne '' ) ? $d->{error} : 'no error text';
+                AAPP::Logger::print_msg( 'ERROR', "$label: Provider plugin failed ($err_msg); refusing to allocate locally." );
+                return (RETURN_ERROR);
+            }
+            my ( $j_ok, $res ) = AAPP::JSON::decode( $stdout // '' );
+            if ( !$j_ok || ref($res) ne 'HASH' || !defined $res->{id} || $res->{id} eq '' ) {
+                my $clean_out = ( $stdout // '' ) =~ s/\r?\n\z//r;
+                AAPP::Logger::print_msg( 'ERROR', "$label: Provider must print {\"id\": ...} (got: '$clean_out')" );
+                return (RETURN_ERROR);
+            }
+            my ( $norm_rc, $norm_id );
+            if ( $prefix eq 'P-' ) {
+                ( $norm_rc, $norm_id ) = normalize_plan_id( $res->{id} );
+            } else {
+                ( $norm_rc, $norm_id ) = ( RETURN_OK, "$prefix$res->{id}" );
+            }
+            if ( $norm_rc != RETURN_OK ) {
+                return (RETURN_ERROR);
+            }
+            # Ratchet the local counter past the issued id so the fallback never regresses
+            my $issued = $norm_id =~ s/^\Q$prefix\E//r;
+            if ( $issued =~ /^[0-9]+$/ ) {
+                my $cur = AAPP::Config::get($key);
+                $cur = 0 if !defined $cur || $cur !~ /^[0-9]+$/;
+                if ( $issued >= $cur ) {
+                    AAPP::Config::set( $key, $issued + 1 );
+                }
+            }
+            return ( RETURN_OK, $norm_id );
+        }
     }
     my ( $rc, $cur ) = _counter( $key, $label, $seeder );
     if ( $rc != RETURN_OK ) {
@@ -2168,7 +2205,7 @@ sub next_plan_id
 # Returns   : (RETURN_OK, 'P-<n>'), or (RETURN_ERROR) after an [ ERROR ] line.
 sub allocate_plan_id
 {
-    return _allocate_id( 'aapp.planId', 'P-', 'aapp-planid', 'Plan ID', undef );
+    return _allocate_id( 'aapp.planId', 'P-', 'aapp-planid', 'Plan ID', undef, 'plan.allocate' );
 }
 
 # Usage     : my ($rc, $id) = next_issue_id()
