@@ -117,7 +117,8 @@ sub execute_with_watchdog
 }
 
 # Usage     : my $remote_json = _envelope_remote_json($root)
-# Purpose   : Resolves remote name and url without credentials, or prints 'null'.
+# Purpose   : Resolves remote name and url without credentials, or returns 'null'.
+# Returns   : Serialized JSON object string or 'null'.
 sub _envelope_remote_json
 {
     my ($root) = @_;
@@ -141,6 +142,7 @@ sub _envelope_remote_json
 
 # Usage     : my $json = build_event_envelope($event, $data_json, $root)
 # Purpose   : Generates the canonical JSON event envelope for lifecycle hooks and plugins.
+# Returns   : Serialized JSON event envelope string.
 sub build_event_envelope
 {
     my ( $event, $data_json, $root ) = @_;
@@ -178,7 +180,8 @@ EOF
 }
 
 # Usage     : my $path = resolve_plugin_entrypoint($pdir, $name)
-# Purpose   : Extension-agnostic action plugin resolution.
+# Purpose   : Extension-agnostic action plugin resolution across canonical paths and scripts/.
+# Returns   : Executable file path string on success, undef if not found or muted.
 sub resolve_plugin_entrypoint
 {
     my ( $pdir, $name ) = @_;
@@ -230,6 +233,7 @@ sub resolve_plugin_entrypoint
 
 # Usage     : my ($rc, $handled) = dispatch_single_handler(...)
 # Purpose   : Dispatches a single lifecycle hook handler with integrity verification.
+# Returns   : 0 on success, non-zero on failure or gate refusal.
 sub dispatch_single_handler
 {
     my ( $event, $handler_rel, $expected_hash, $timeout, $mode, $source_type, $payload, $root ) = @_;
@@ -314,6 +318,7 @@ sub dispatch_single_handler
 
 # Usage     : my $rc = dispatch_hook($event, $data_json, $root)
 # Purpose   : Master lifecycle hook dispatcher.
+# Returns   : 0 on success, 1 on gate refusal or error.
 sub dispatch_hook
 {
     my ( $event, $data_json, $root ) = @_;
@@ -428,6 +433,7 @@ sub dispatch_hook
 
 # Usage     : my ($rc, $stdout, $stderr) = run_action_plugin($entry, $root, $action, $event, $data_json, %extra_env)
 # Purpose   : Runs an action plugin streaming the envelope to STDIN with timeout watchdog.
+# Returns   : List of ($exit_code, $stdout, $stderr).
 sub run_action_plugin
 {
     my ( $entry, $root, $action, $event, $data_json, %extra_env ) = @_;
@@ -452,6 +458,7 @@ sub run_action_plugin
 
 # Usage     : my ($rc, $res) = plugin_step($entry, $root, $action, $event, $data_json, %extra_env)
 # Purpose   : Evaluates one step of the plugin protocol (P-77).
+# Returns   : List of ($status_code, $result_hash_ref).
 sub plugin_step
 {
     my ( $entry, $root, $action, $event, $data_json, %extra_env ) = @_;
@@ -568,6 +575,8 @@ sub plugin_step
 }
 
 # Usage     : my $bool = plugin_handled($part, $handled_str)
+# Purpose   : Checks if a comma-separated handled token list contains the specified token.
+# Returns   : 1 if token is handled, 0 otherwise.
 sub plugin_handled
 {
     my ( $part, $handled_str ) = @_;
@@ -577,7 +586,8 @@ sub plugin_handled
 }
 
 # Usage     : plugin_run_do($subject, $plugin_name, $do_file, $root)
-# Purpose   : Runs whitelisted commands from lib/plugin_do.tsv.
+# Purpose   : Runs allowlisted commands from lib/plugin_do.tsv.
+# Returns   : Void (nothing returned).
 sub plugin_run_do
 {
     my ( $subject, $name, $do_file, $root ) = @_;

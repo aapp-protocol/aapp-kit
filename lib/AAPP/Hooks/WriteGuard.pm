@@ -18,6 +18,7 @@ use AAPP::State ();
 
 # Usage     : my $canon = canonicalize_path($path)
 # Purpose   : Lexical path canonicalization (resolves . and .. without expanding symlinks).
+# Returns   : Canonical absolute path string, or empty string on undefined input.
 sub canonicalize_path
 {
     my ($p) = @_;
@@ -36,6 +37,8 @@ sub canonicalize_path
 }
 
 # Usage     : deny_action($reason, $tool_name, $decision_reason, $path, $active_plan)
+# Purpose   : Emits guard.check deny telemetry, prints formatted refusal, and exits 2.
+# Returns   : Never returns (exits process with code 2).
 sub deny_action
 {
     my ( $reason, $tool_name, $decision_reason, $path, $active_plan ) = @_;
@@ -67,6 +70,8 @@ sub deny_action
 }
 
 # Usage     : allow_action($path, $active_plan, $reason)
+# Purpose   : Emits guard.check allow telemetry and exits cleanly with code 0.
+# Returns   : Never returns (exits process with code 0).
 sub allow_action
 {
     my ( $path, $active_plan, $reason ) = @_;
@@ -83,6 +88,9 @@ sub allow_action
     exit 0;
 }
 
+# Usage     : my @prefixes = resolve_allowlist()
+# Purpose   : Collects system scratchpads, agent directories, and user-configured allow paths.
+# Returns   : List of canonical directory prefix strings ending in a slash.
 sub resolve_allowlist
 {
     my @list;
@@ -136,6 +144,9 @@ sub resolve_allowlist
     return @list;
 }
 
+# Usage     : AAPP::Hooks::WriteGuard->run(@args)
+# Purpose   : Intercepts PreToolUse tool execution to guard target files and enforce blast radius.
+# Returns   : Never returns directly (exits 0 on allow, exits 2 on deny).
 sub run
 {
     my ( $class, @args ) = @_;

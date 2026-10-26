@@ -15,8 +15,9 @@ use AAPP::Logger ();
 use AAPP::State ();
 use AAPP::CommitEngine ();
 
-# Usage     : my $rc = run($mode)
-# Purpose   : Master entrypoint for post-rewrite hook.
+# Usage     : my $rc = AAPP::Hooks::PostRewrite->run($mode)
+# Purpose   : Master entrypoint for post-rewrite hook; remaps active plan commit SHAs after rebase/amend.
+# Returns   : 0 on success, non-zero on failure.
 sub run
 {
     my ( $class_or_mode, $maybe_mode ) = @_;
@@ -82,7 +83,8 @@ sub run
     }
     return 0 if $plan_file eq '' || !-f $plan_file;
 
-    my $cur_branch = `git rev-parse --abbrev-ref HEAD 2>/dev/null` =~ s/\s+\z//r;
+    my ( $b_ok, $cur_branch_raw ) = AAPP::Paths::git_capture( 'rev-parse', '--abbrev-ref', 'HEAD' );
+    my $cur_branch = ( $b_ok && defined $cur_branch_raw ) ? ( $cur_branch_raw =~ s/\s+\z//r ) : '';
 
     # Parse current commits line
     my $content = do {
@@ -126,11 +128,13 @@ sub run
 
         my $s = $sha;
         if ( $new_sha ne '' ) {
-            my $short = `git rev-parse --short "$new_sha" 2>/dev/null` =~ s/\s+\z//r;
+            my ( $s_ok, $short_raw ) = AAPP::Paths::git_capture( 'rev-parse', '--short', $new_sha );
+            my $short = ( $s_ok && defined $short_raw ) ? ( $short_raw =~ s/\s+\z//r ) : '';
             $s       = $short ne '' ? $short : $new_sha;
             $changed = 1;
         } else {
             if ( $branch ne '' && $branch eq $cur_branch ) {
+                # External git merge-base query to verify ancestry in post-rewrite history
                 my $rc = system( 'git', 'merge-base', '--is-ancestor', $sha, 'HEAD' );
                 if ( $rc != 0 ) {
                     print STDERR "ℹ️  [AAPP Post-Rewrite] $sha left ${bound}'s Commits: the $mode dropped it (already upstream).\n";

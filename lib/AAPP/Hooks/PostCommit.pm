@@ -14,8 +14,9 @@ use AAPP::Paths ();
 use AAPP::Config ();
 use AAPP::Logger ();
 
-# Usage     : my $rc = run()
-# Purpose   : Master entrypoint for post-commit hook.
+# Usage     : my $rc = AAPP::Hooks::PostCommit->run()
+# Purpose   : Master entrypoint for post-commit hook; attaches pending git notes to HEAD.
+# Returns   : 0 on success, non-zero on failure.
 sub run
 {
     my ($class) = @_;
@@ -26,10 +27,12 @@ sub run
     my $pending_count = scalar(@pending);
     return 0 if $pending_count == 0;
 
-    my $raw_commit = `git cat-file commit HEAD 2>/dev/null` // '';
-    return 0 if $raw_commit eq '';
+    my ( $ok_c, $raw_commit ) = AAPP::Paths::git_capture( 'cat-file', 'commit', 'HEAD' );
+    $raw_commit //= '';
+    return 0 if !$ok_c || $raw_commit eq '';
 
-    my $head_sha = `git rev-parse HEAD 2>/dev/null` =~ s/\s+\z//r;
+    my ( $ok_s, $head_sha_raw ) = AAPP::Paths::git_capture( 'rev-parse', 'HEAD' );
+    my $head_sha = ( $ok_s && defined $head_sha_raw ) ? ( $head_sha_raw =~ s/\s+\z//r ) : '';
 
     # Extract byte-faithful commit body hash (everything after first blank line)
     my $head_hash = '';
@@ -57,6 +60,7 @@ sub run
             close($wfh);
         }
 
+        # External git notes execution required to attach out-of-band note to commit ref
         my $rc = system( 'git', 'notes', "--ref=$target_ref", 'append', '-F', $note_file, 'HEAD' );
         if ( $rc == 0 ) {
             unlink($note_file);

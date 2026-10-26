@@ -12,6 +12,7 @@ use AAPP::Logger ();
 
 # Usage     : my $norm = apply_agent_aliases($identity)
 # Purpose   : Normalizes AI identities through git config aapp.aiAlias.
+# Returns   : Transformed identity string, or original identity if untouched.
 sub apply_agent_aliases
 {
     my ($identity) = @_;
@@ -44,7 +45,8 @@ sub apply_agent_aliases
 }
 
 # Usage     : my $norm = normalize_agent_identity($agent, $vendor)
-# Purpose   : Canonicalizes agent name and vendor string.
+# Purpose   : Canonicalizes agent name and vendor string into standard display representation.
+# Returns   : Canonical identity string (e.g. 'Antigravity (Google)', 'Claude (Anthropic)').
 sub normalize_agent_identity
 {
     my ( $raw_agent, $raw_vendor ) = @_;
@@ -69,7 +71,8 @@ sub normalize_agent_identity
 }
 
 # Usage     : my $lines = resolve_ai_identity($agent, $vendor, $model, $msg_file)
-# Purpose   : Resolves AI identity following the precedence hierarchy.
+# Purpose   : Resolves AI identity following parameter, environment, config, and message precedence.
+# Returns   : Formatted AI trailer lines string, or empty string if unresolved.
 sub resolve_ai_identity
 {
     my ( $agent, $vendor, $model, $msg_file ) = @_;
@@ -165,6 +168,8 @@ sub resolve_ai_identity
 }
 
 # Usage     : my $lines = format_identity_lines($identity)
+# Purpose   : Converts an identity string into canonical AI-Agent, AI-Vendor, AI-Model trailers.
+# Returns   : Trailing newline-terminated trailer string, or empty string.
 sub format_identity_lines
 {
     my ($id) = @_;
@@ -184,6 +189,7 @@ sub format_identity_lines
 
 # Usage     : my $rc = attribution_decorate($msg_file, $identity)
 # Purpose   : Decorates a commit message file with trailers according to configured attribution mode.
+# Returns   : 0 on success, 1 on strict attribution violation or failure.
 sub attribution_decorate
 {
     my ( $msg_file, $identity ) = @_;
@@ -279,6 +285,7 @@ sub attribution_decorate
 
 # Usage     : my $rc = attribution_note($sha, $identity, $text)
 # Purpose   : Attaches git note with identity and optional text.
+# Returns   : 0 on success, 1 on error or missing identity in notes mode.
 sub attribution_note
 {
     my ( $sha, $identity, $text ) = @_;

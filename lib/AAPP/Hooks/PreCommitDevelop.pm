@@ -8,15 +8,18 @@ use 5.026;
 use AAPP::Constants qw(RETURN_OK RETURN_ERROR RETURN_FAIL);
 use AAPP::Paths ();
 
-# Usage     : my $rc = run()
-# Purpose   : Master entrypoint for aapp-pre-commit-develop hook.
+# Usage     : my $rc = AAPP::Hooks::PreCommitDevelop->run()
+# Purpose   : Master entrypoint for develop-only contract correspondence pre-commit gate.
+#             Verifies correspondence between lib/verbs.tsv and documentation / test suites.
+# Returns   : 0 on success or untouched contracts, 1 on correspondence failure.
 sub run
 {
     my ($class) = @_;
     my $root = AAPP::Paths::resolve()->{root};
     return 0 unless defined $root && -d $root;
 
-    my $diff = `git diff --cached --name-only 2>/dev/null` // '';
+    my ( $ok, $diff ) = AAPP::Paths::git_capture( 'diff', '--cached', '--name-only' );
+    $diff //= '';
     my @touched = grep { m{^(?:lib/verbs\.tsv|lib/docs/verbs/|tests/verbs/|tests/verb_contracts_test\.sh|lib/docs/core/|t/core/|t/verb/)} } split( /\n/, $diff );
     return 0 unless @touched;
 
@@ -27,6 +30,7 @@ sub run
         return 1;
     }
 
+    # External bash execution required to execute the kit developer contract test suite
     my $out = `bash "$check" 2>&1`;
     my $rc  = $? >> 8;
     if ( $rc != 0 ) {

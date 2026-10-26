@@ -16,8 +16,10 @@ use AAPP::Text ();
 use AAPP::Logger ();
 use AAPP::Attribution ();
 
-# Usage     : my $rc = run($msg_file)
-# Purpose   : Master entrypoint for commit-msg hook.
+# Usage     : my $rc = AAPP::Hooks::CommitMsg->run($msg_file)
+# Purpose   : Master entrypoint for commit-msg hook enforcing subject and body limits,
+#             blank separator lines, and required semantic AI attribution trailers.
+# Returns   : 0 on valid commit message, 1 on refusal.
 sub run
 {
     my ( $class_or_file, $maybe_file ) = @_;

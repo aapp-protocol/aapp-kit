@@ -24,6 +24,9 @@ our $CORE_CODE_REGEX     = qr{\.(?:php|js|jsx|ts|tsx|py|go|rs|c|cpp|h|hpp|java|r
 my $_f_uri = "file:" . "///";
 our $PORTABILITY_PATTERN  = qr{(\]\($_f_uri|<$_f_uri|$_f_uri(?:home|Users|root|tmp|var|etc|opt|usr|srv|[a-zA-Z]:)|\]\((?:/home/|/Users/|/root/|[a-zA-Z]:[/\\\\]))};
 
+# Usage     : my $text = _read_text($filepath)
+# Purpose   : Reads an entire file as UTF-8 encoded text.
+# Returns   : String content on success, undef if file is missing or unreadable.
 sub _read_text
 {
     my ($file) = @_;
@@ -34,6 +37,10 @@ sub _read_text
     return $content;
 }
 
+# Usage     : my $section_text = _extract_plan_section($content, $section_num)
+# Purpose   : Extracts the markdown content of a numbered plan section (e.g. 2, 4).
+#             Properly handles code block fences so nested headings are preserved.
+# Returns   : String containing the lines belonging to the section.
 sub _extract_plan_section
 {
     my ( $content, $sec ) = @_;
@@ -70,6 +77,9 @@ sub _extract_plan_section
     return join( "\n", @res );
 }
 
+# Usage     : my $res = _with_temp_plan($content, sub { my ($tmp_file) = @_; ... })
+# Purpose   : Writes plan content into a temporary UTF-8 file and executes a callback with its path.
+# Returns   : The return value of the executed callback.
 sub _with_temp_plan
 {
     my ( $content, $code ) = @_;
@@ -80,6 +90,9 @@ sub _with_temp_plan
     return $code->( $tmp->filename );
 }
 
+# Usage     : my $matched = _changelog_plan_matches($changelog_text, $plan_id)
+# Purpose   : Scans ## [Unreleased] in CHANGELOG.md to verify whether the plan's entry exists.
+# Returns   : 1 if the plan ID is referenced in an unreleased bullet, 0 otherwise.
 sub _changelog_plan_matches
 {
     my ( $content, $plan_id ) = @_;
@@ -110,6 +123,9 @@ sub _changelog_plan_matches
     return 0;
 }
 
+# Usage     : my $valid = _lock_only_added_targets($head_sec4, $index_sec4)
+# Purpose   : Verifies that staged Section 4 edits only append target file lines without changing existing ones.
+# Returns   : 1 if edits are append-only target file checkboxes, 0 otherwise.
 sub _lock_only_added_targets
 {
     my ( $head_sec4, $idx_sec4 ) = @_;
@@ -131,6 +147,9 @@ sub _lock_only_added_targets
     return 1;
 }
 
+# Usage     : my ($fences, $outside) = _lock_group_fences($group_plan_text)
+# Purpose   : Parses Architecture & Codemap four-backtick code fences and non-fenced content.
+# Returns   : List of (hash ref of heading => body, string of content outside code fences).
 sub _lock_group_fences
 {
     my ($text) = @_;
@@ -176,8 +195,9 @@ sub _lock_group_fences
     return ( \%fences, $outside );
 }
 
-# Usage     : my $rc = run()
-# Purpose   : Master entrypoint for aapp-pre-commit hook.
+# Usage     : my $rc = AAPP::Hooks::PreCommit->run()
+# Purpose   : Authoritative pre-commit hook enforcing blast radius, circuit breakers, and commit rules.
+# Returns   : 0 on success; non-zero exit code on refusal or failure.
 sub run
 {
     my ($class) = @_;
