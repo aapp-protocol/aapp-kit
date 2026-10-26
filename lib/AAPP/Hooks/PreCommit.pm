@@ -1017,7 +1017,7 @@ sub run
         }
     }
 
-    # Syntax checks
+    # Syntax checks (baseline: bash, python, php, json schema)
     my %has_bin;
     my $check_bin = sub {
         my ($bin) = @_;
@@ -1037,7 +1037,6 @@ sub run
                 return 1;
             }
         }
-
 
         if ( $f =~ /\.py$/ ) {
             if ( $check_bin->('python3') ) {

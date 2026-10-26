@@ -35,6 +35,7 @@ sub compute_file_sha256
 
 # Usage     : my ($rc, $stdout, $stderr) = execute_with_watchdog($max_time, $cmd, \@args, $stdin_str, \%env)
 # Purpose   : Executes an external command in a dedicated process group with a timeout watchdog.
+#             TODO (Post-Port): Replace scratchfile redirection with an IPC::Open3 based general module.
 # Returns   : ($exit_code, $stdout, $stderr). Exit code is 124 on timeout.
 sub execute_with_watchdog
 {
