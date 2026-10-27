@@ -61,7 +61,7 @@ A member of group P-140 (noun-first commands). Pickup ideas have no noun today: 
 |---|---|
 | `aapp pickup list [json]` | every open idea in file order: title, file (`file_missing` when absent), description |
 | `aapp pickup add "<title>" "<file>" "<description>"` | writes the line and commits it; arguments in the line's order; `""` as file: no file |
-| `aapp pickup edit "<title>" "<new title>" "<file>" "<description>"` | changes that line and commits; arguments in the line's order after the key; `""` keeps a field as it is; `none` as file removes the file from the line (the file itself stays) |
+| `aapp pickup edit "<title>" "<new title>" "<file>" "<description>"` | changes that line and commits; arguments in the line's order after the key; `""` keeps a field as it is; `none` as file removes it from the line and deletes it from `.plans/pickup/` as `delete` does (named in the output; kept when another idea names it); a new file name in place of an old one leaves the old file alone |
 | `aapp pickup delete "<title>"` | removes that line and commits, and deletes its file from `.plans/pickup/`, naming it (the folder is not in Git: the file cannot be recovered); a file another idea also names stays, and the output names that idea |
 | `aapp pickup refine "<msg>"` | commits a hand edit of `pickup.md` after checking every line (`aapp refine pickup` leaves the kit) |
 
