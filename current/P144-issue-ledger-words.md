@@ -2,7 +2,7 @@
 * **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-144
-* **Changelog:** Changed: `aapp refine issues` and its `branch` / `note` tokens become three words on the issue noun: `aapp issue commit`, `aapp issue branch`, `aapp issue note`
+* **Changelog:** Changed: `aapp refine issues` and its `branch` / `note` tokens become `aapp issue commit`, `aapp issue branch`, `aapp issue note`; every issue word fires a new `pre-issue` gate and `post-issue`
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -59,8 +59,21 @@ A member of group P-140 (noun-first CLI). `aapp refine issues "<msg>"` carries t
 - The noun: the three words join the `issue` noun's words (`log`, `hotfix`, `fix`, `queue`, `close`, `abort`, `list`) under `lib/AAPP/Runner/Issue.pm`, in the layout of group §2, with one public `run` each. Their shared ledger code stays in the ledger module the port provides; nothing is copied into the word modules.
 - `aapp help issue` lists the three words with the others; the `issue` contract (`lib/docs/verbs/issue.md`) gains them and the `refine` contract loses its `issues` forms.
 
-### 2.2 Events
-The three words fire the issue lane's event, `post-issue`, with `action` `commit`, `branch` or `note`, as `log`, `queue`, `fix` and `close` do; `pre-refine` / `on-refine` / `post-refine` no longer fire for issue-ledger edits. See Open Question 1.
+### 2.2 Events: `pre-issue` and `post-issue`
+The issue noun gets its own event pair, fired by **every** issue word: `log`, `hotfix`, `fix`, `queue`, `close`, `abort`, `list`, and the three of §2.1.
+
+| Event | When | Mode |
+|---|---|---|
+| `pre-issue` (new) | before the word reads or writes anything; for `list`, before the ledger (or the provider) is read | gate: a registered handler that refuses stops the word (exit 1, nothing written); `notify` or a local `aapp.hook.pre-issue` only acts |
+| `post-issue` (exists) | after the word's commit or effect; for `list`, after the listing | observer |
+
+Payload (`data`), the shape `post-issue` already has: `command` `"issue"`, `event` the action, then the action's fields.
+- **Both events:** `event` and `args` (the arguments after the word, as typed).
+- **`post-issue` adds** what the action produced, keeping today's fields: `log` (`issue_id`, `sev`, `type`, `symptom`, `files`), `queue` / `unqueue` (`issue_id`, `level`), `fix` (`issue_id`, `worktree`, `branch`), `close` (`issue_id`, `commit_sha`, `summary`), `hotfix` (`issue_id`, `blocked_plan`, `files`), `abort` (`issue_id`, `reason`); new: `list` (`shown`, `total`), `commit` (`issue_ids` changed, `commit_sha`), `branch` (`issue_id`, `branch`, `commit_sha`), `note` (`issue_id`, `author`, `date`).
+- **Note text is not in the payload.** A note may hold real data from a live system; it reaches only the provider that keeps notes. A handler (an event log, a sync to a server) would otherwise copy it out.
+- The action today called `withdraw` in the payload is `abort`, the word's name (clean break).
+- `pre-refine` / `on-refine` / `post-refine` no longer fire for issue-ledger edits.
+- Handlers may do anything with the payload; the kit ignores their result.
 
 ### 2.3 Clean break
 After this plan, nothing in the kit names `aapp refine issues` or its `branch` / `note` tokens: the rules (`templates/AGENTS.md`), the skills (`templates/skills/`), the templates' comments, the messages the kit prints (hints that say `aapp refine issues …`), `lib/verbs.tsv`, the contracts, and the user docs.
@@ -79,7 +92,7 @@ After this plan, nothing in the kit names `aapp refine issues` or its `branch` /
 
 ### Phase 2: The words
 - [ ] Task 2.1: `Commit.pm`, `Branch.pm`, `Note.pm` under `lib/AAPP/Runner/Issue/`, calling the existing ledger, branch and notes code.
-- [ ] Task 2.2: The events of §2.2.
+- [ ] Task 2.2: `pre-issue` for every issue word, and `post-issue` with the fields of §2.2 (§2.2).
 - [ ] Task 2.3: Remove the `issues` forms from `refine`.
 
 ### Phase 3: Clean break & documentation
@@ -101,6 +114,9 @@ After this plan, nothing in the kit names `aapp refine issues` or its `branch` /
 - [ ] `NEW FILE` -> `lib/AAPP/Runner/Issue/Branch.pm` -> `issue branch`
 - [ ] `NEW FILE` -> `lib/AAPP/Runner/Issue/Note.pm` -> `issue note`
 - [ ] `lib/AAPP/Runner/Issue.pm` -> the three words joined to the noun
+- [ ] `lib/AAPP/Runner/Issue/` -> every issue word fires `pre-issue` and `post-issue` (§2.2)
+- [ ] `docs/reference/04-plugin-and-hook-engine.md` -> `pre-issue` in the event matrix
+- [ ] `docs/reference/09-event-telemetry.md` -> the `pre-issue` / `post-issue` payloads
 - [ ] `lib/docs/verbs/issue.md` -> the words' contract lines
 - [ ] `lib/docs/verbs/refine.md` -> the `issues` forms removed
 - [ ] `lib/verbs.tsv` -> descriptions
@@ -124,7 +140,7 @@ After this plan, nothing in the kit names `aapp refine issues` or its `branch` /
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** Events: the three words fire `post-issue` with an `action`, like the other issue words (§2.2), so hook authors watching issue changes see them in one place; or they keep `pre-refine` / `on-refine` / `post-refine` with `kind` `issues`, which existing handlers already watch (and a `pre-` gate)?
+* [x] **Question 1:** Events: `post-issue` like the other issue words, or keep `pre-refine` / `post-refine`? **Answer:** the issue noun gets its own pair, `pre-issue` and `post-issue`, fired by every issue word with the action in the payload (§2.2).
 
 ---
 
