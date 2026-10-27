@@ -33,43 +33,23 @@ A noun-first CLI, as `aapp issue …` already is: every command that acts on a p
 - **One public sub per command module, `run`:** every other sub in it is private (`_name`). A word with actions branches inside its own `run`.
 - **Shared code is a single module in `lib/AAPP/`, named for what it is, never for a command:** `AAPP::Pickup` (the `pickup.md` line), `AAPP::Rfc` (the RFC file), `AAPP::Review` (a plan's §7/§8); never copied.
 - **Built by P-138** (the first noun in Perl); P-139 adds the `plan` noun.
-- **Reserved words:** after `aapp plan` the subcommand words below are reserved; a plan whose slug equals one is named by its id (`P-<n>`).
-- **One action per word:** every subcommand names exactly what it does, so a cheat sheet reads without descriptions; no subcommand carries a second meaning through tokens. `refine` leaves the kit: its forms become the subcommands below.
+- **Reserved words:** the words of a noun are reserved after it; a plan whose slug equals a `plan` word is named by its id (`P-<n>`). Each noun's member lists its words.
+- **One action per word:** every subcommand names exactly what it does, so a cheat sheet reads without descriptions; no subcommand carries a second meaning through tokens. `refine` leaves the kit: its plan forms become `plan` words (P-139), `refine pickup` becomes `pickup commit` (P-142), `refine issues` becomes the issue words below.
 - **`aapp plan commit` is not `aapp commit`:** `aapp plan commit <id> "<msg>"` commits an edit of the plan's text in `.plans/`; `aapp commit "<msg>"` commits code for the active plan. `aapp help`, the CHEATSHEET, the rules and every skill that names either one say this next to it.
 
-### Verb conversion
+### Issue words (until their member is drafted)
 | Today | After | Module |
 |---|---|---|
-| `aapp draft [slug] [issue <num> \| group [<id>]]` | `aapp plan draft …` | `AAPP::Runner::Plan::Draft` |
-| `aapp refine <id> "<msg>"` | `aapp plan commit <id> "<msg>"` (plan text, not code) | `AAPP::Runner::Plan::Commit` |
-| `aapp refine <id> slug <new>` | `aapp plan rename <id> <new-slug>` | `AAPP::Runner::Plan::Rename` |
-| `aapp refine <id> blocked <num>` / `unblocked <num>` | `aapp plan block <id> <num>` / `aapp plan unblock <id> <num>` | `AAPP::Runner::Plan::Block`, `AAPP::Runner::Plan::Unblock` |
-| `aapp refine <id> closes <num>` / `closes <num> remove` | `aapp plan closes add <id> <num>` / `aapp plan closes remove <id> <num>` | `AAPP::Runner::Plan::Closes` |
-| `aapp refine <id> group <group>` / `group none` | `aapp plan join <id> <group>` / `aapp plan leave <id>` | `AAPP::Runner::Plan::Join`, `AAPP::Runner::Plan::Leave` |
-| `aapp refine <amend-id> request \| approve \| refuse \| decision …` | `aapp plan amend request \| approve \| refuse \| decision …` | `AAPP::Runner::Plan::Amend` |
 | `aapp refine issues "<msg>"` | `aapp issue commit "<msg>"` | `AAPP::Runner::Issue::Commit` |
 | `aapp refine issues … branch <num> <name>` | `aapp issue branch <num> <name>` | `AAPP::Runner::Issue::Branch` |
 | `aapp refine issues … note <num> "<text>"` | `aapp issue note <num> "<text>"` | `AAPP::Runner::Issue::Note` |
-| `aapp refine pickup "<msg>"` | `aapp pickup commit "<msg>"` | `AAPP::Runner::Pickup::Commit` (P-142) |
-| *(none: `status` shows five, the rest by hand)* | `aapp pickup list [json]`, `aapp pickup add …`, `aapp pickup edit "<title>" …`, `aapp pickup delete "<title>"` | `AAPP::Runner::Pickup::List`, `AAPP::Runner::Pickup::Add`, `AAPP::Runner::Pickup::Edit`, `AAPP::Runner::Pickup::Delete` (P-142) |
-| `aapp tdd <id>` | `aapp plan tdd <id>` | `AAPP::Runner::Plan::Tdd` |
-| `aapp freeze <id>` | `aapp plan freeze <id>` | `AAPP::Runner::Plan::Freeze` |
-| `aapp start <id>` | `aapp plan start <id>` | `AAPP::Runner::Plan::Start` |
-| `aapp freeze-start <id>` | `aapp plan freeze-start <id>` | `AAPP::Runner::Plan::FreezeStart` |
-| `aapp done <id>` | `aapp plan done <id>` | `AAPP::Runner::Plan::Done` |
-| `aapp active [<id> \| clear]` | `aapp plan active [<id> \| clear]` | `AAPP::Runner::Plan::Active` |
-| `aapp plan-status [<id>]` | `aapp plan status [<id>]` | `AAPP::Runner::Plan::Status` |
-| `aapp matrix [check]` | `aapp plan matrix [check]` | `AAPP::Runner::Plan::Matrix` |
-| `aapp plan abort <id> …` | unchanged | `AAPP::Runner::Plan::Abort` |
-| `aapp plan conflict-check \| conflict-free …` | unchanged | `AAPP::Runner::Plan::ConflictCheck`, `AAPP::Runner::Plan::ConflictFree` |
-| `aapp plan [query]` | `aapp plan` (bare: the switchboard) | `AAPP::Runner::Plan` (bare; P-139) |
 
-Unchanged: `status` (all four pillars), `commit` (code), `review` (P-138), `issue` (gains `commit`, `branch`, `note`), `pickup` (new noun, P-142), `note`, `ai`, `offline`, `companion`, `test`, the setup, sync and hook verbs.
+The `plan` words are P-139's (§2.2 there), the `pickup` words P-142's. Unchanged by the group: `status` (all four pillars), `commit` (code), `review` (P-138), `note`, `ai`, `offline`, `companion`, `test`, the setup, sync and hook verbs.
 
 ## 3. Members & Order
-1. **P-139** (`P139-plan-noun.md`): the `plan` noun on the central dispatcher (built by P-138): its folder, the bare `aapp plan` switchboard, the reserved words. First; every other `plan` member plugs into it.
+1. **P-139** (`P139-plan-noun.md`): every plan command under `aapp plan`: the noun, all its words (lifecycle, read-only, the plan forms of `refine`, `amend`), the reserved words and the clean break of the old verbs.
 2. **P-142** (`P142-pickup-commands.md`): the `aapp pickup` noun and the three-field pickup line. Independent of P-139; can run in parallel with it.
-3. Further members are drafted per area once P-139's dispatcher is settled; they can run in parallel: lifecycle subcommands (`draft`, `tdd`, `freeze`, `start`, `done`, `active`), plan edits (`commit`, `rename`, `block` / `unblock`, `closes`, `join` / `leave`), read-only subcommands (`status`, `matrix`), `amend`, the issue lane's `commit` / `branch` / `note`, docs/skills/templates/rules.
+3. A member for the issue words (`issue commit`, `branch`, `note`), still to be drafted; independent of P-139 and P-142.
 4. **P-141** (amendments member): last.
 
 ## Architecture & Codemap
@@ -99,4 +79,5 @@ No changes.
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-27:** Group drafted with the verb conversion; P-139 is its first member. Details come in refinement.
-* **2026-10-27:** `pickup` becomes its own noun (P-142); `aapp refine pickup` becomes `aapp pickup refine`.
+* **2026-10-27:** `pickup` becomes its own noun (P-142); `aapp refine pickup` becomes `aapp pickup commit`.
+* **2026-10-27:** The plan words moved to P-139 and the pickup words to P-142: the group keeps the shared rules; the issue words wait here for their member.
