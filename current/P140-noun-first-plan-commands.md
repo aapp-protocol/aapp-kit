@@ -25,7 +25,7 @@ A noun-first CLI, as `aapp issue …` already is: every command that acts on a p
 
 ## 2. Shared Decisions
 - **Clean break:** the old top-level verbs leave the kit; no aliases, nothing names them.
-- **Modules:** one module per subcommand under `lib/AAPP/Plan/`; `AAPP::Cmd::Plan` parses tokens and dispatches only.
+- **Modules: the module is the word after the noun.** `aapp <noun> <word> …` runs `lib/AAPP/<Noun>/<Word>.pm` (`AAPP::<Noun>::<Word>->run(@args)`; `freeze-start` → `FreezeStart.pm`): one file per subcommand, so each is maintained, extended and tested alone. A word with actions (`closes add|remove`, `amend request|approve|refuse|decision`) is one module. Code that several words of a noun share lives in one module named for what it is, never for a verb (e.g. `AAPP::Pickup::Line`), and is never copied. `AAPP::Cmd::<Noun>` parses the word and dispatches only.
 - **Reserved words:** after `aapp plan` the subcommand words below are reserved; a plan whose slug equals one is named by its id (`P-<n>`).
 - **One action per word:** every subcommand names exactly what it does, so a cheat sheet reads without descriptions; no subcommand carries a second meaning through tokens. `refine` leaves the kit: its forms become the subcommands below.
 - **`aapp plan commit` is not `aapp commit`:** `aapp plan commit <id> "<msg>"` commits an edit of the plan's text in `.plans/`; `aapp commit "<msg>"` commits code for the active plan. `aapp help`, the CHEATSHEET, the rules and every skill that names either one say this next to it.
@@ -36,25 +36,25 @@ A noun-first CLI, as `aapp issue …` already is: every command that acts on a p
 | `aapp draft [slug] [issue <num> \| group [<id>]]` | `aapp plan draft …` | `AAPP::Plan::Draft` |
 | `aapp refine <id> "<msg>"` | `aapp plan commit <id> "<msg>"` (plan text, not code) | `AAPP::Plan::Commit` |
 | `aapp refine <id> slug <new>` | `aapp plan rename <id> <new-slug>` | `AAPP::Plan::Rename` |
-| `aapp refine <id> blocked <num>` / `unblocked <num>` | `aapp plan block <id> <num>` / `aapp plan unblock <id> <num>` | `AAPP::Plan::Block` |
+| `aapp refine <id> blocked <num>` / `unblocked <num>` | `aapp plan block <id> <num>` / `aapp plan unblock <id> <num>` | `AAPP::Plan::Block`, `AAPP::Plan::Unblock` |
 | `aapp refine <id> closes <num>` / `closes <num> remove` | `aapp plan closes add <id> <num>` / `aapp plan closes remove <id> <num>` | `AAPP::Plan::Closes` |
-| `aapp refine <id> group <group>` / `group none` | `aapp plan join <id> <group>` / `aapp plan leave <id>` | `AAPP::Plan::Group` |
+| `aapp refine <id> group <group>` / `group none` | `aapp plan join <id> <group>` / `aapp plan leave <id>` | `AAPP::Plan::Join`, `AAPP::Plan::Leave` |
 | `aapp refine <amend-id> request \| approve \| refuse \| decision …` | `aapp plan amend request \| approve \| refuse \| decision …` | `AAPP::Plan::Amend` |
-| `aapp refine issues "<msg>"` | `aapp issue commit "<msg>"` | the issue lane's module |
-| `aapp refine issues … branch <num> <name>` | `aapp issue branch <num> <name>` | the issue lane's module |
-| `aapp refine issues … note <num> "<text>"` | `aapp issue note <num> "<text>"` | the issue lane's module |
-| `aapp refine pickup "<msg>"` | `aapp pickup commit "<msg>"` | `AAPP::Pickup` (P-142) |
-| *(none: `status` shows five, the rest by hand)* | `aapp pickup list [json]`, `aapp pickup add …`, `aapp pickup edit "<title>" …`, `aapp pickup delete "<title>"` | `AAPP::Pickup` (P-142) |
+| `aapp refine issues "<msg>"` | `aapp issue commit "<msg>"` | `AAPP::Issue::Commit` |
+| `aapp refine issues … branch <num> <name>` | `aapp issue branch <num> <name>` | `AAPP::Issue::Branch` |
+| `aapp refine issues … note <num> "<text>"` | `aapp issue note <num> "<text>"` | `AAPP::Issue::Note` |
+| `aapp refine pickup "<msg>"` | `aapp pickup commit "<msg>"` | `AAPP::Pickup::Commit` (P-142) |
+| *(none: `status` shows five, the rest by hand)* | `aapp pickup list [json]`, `aapp pickup add …`, `aapp pickup edit "<title>" …`, `aapp pickup delete "<title>"` | `AAPP::Pickup::List`, `::Add`, `::Edit`, `::Delete` (P-142) |
 | `aapp tdd <id>` | `aapp plan tdd <id>` | `AAPP::Plan::Tdd` |
 | `aapp freeze <id>` | `aapp plan freeze <id>` | `AAPP::Plan::Freeze` |
 | `aapp start <id>` | `aapp plan start <id>` | `AAPP::Plan::Start` |
-| `aapp freeze-start <id>` | `aapp plan freeze-start <id>` | `AAPP::Plan::Freeze` + `AAPP::Plan::Start` |
+| `aapp freeze-start <id>` | `aapp plan freeze-start <id>` | `AAPP::Plan::FreezeStart` |
 | `aapp done <id>` | `aapp plan done <id>` | `AAPP::Plan::Done` |
 | `aapp active [<id> \| clear]` | `aapp plan active [<id> \| clear]` | `AAPP::Plan::Active` |
 | `aapp plan-status [<id>]` | `aapp plan status [<id>]` | `AAPP::Plan::Status` |
 | `aapp matrix [check]` | `aapp plan matrix [check]` | `AAPP::Plan::Matrix` |
 | `aapp plan abort <id> …` | unchanged | `AAPP::Plan::Abort` |
-| `aapp plan conflict-check \| conflict-free …` | unchanged | `AAPP::Plan::Conflict` |
+| `aapp plan conflict-check \| conflict-free …` | unchanged | `AAPP::Plan::ConflictCheck`, `AAPP::Plan::ConflictFree` |
 | `aapp plan [query]` | `aapp plan` (bare: the switchboard) | `AAPP::Cmd::Plan` |
 
 Unchanged: `status` (all four pillars), `commit` (code), `review` (P-138), `issue` (gains `commit`, `branch`, `note`), `pickup` (new noun, P-142), `note`, `ai`, `offline`, `companion`, `test`, the setup, sync and hook verbs.
