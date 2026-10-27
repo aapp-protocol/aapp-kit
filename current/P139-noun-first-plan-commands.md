@@ -1,8 +1,8 @@
 # 🗺️ Plan P-139: Noun First Plan Commands
 * **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-139
-* **Changelog:** Changed: Noun First Plan Commands
+* **Changelog:** Changed: plan lifecycle commands move under `aapp plan` (`aapp plan draft`, `aapp plan refine`, `aapp plan freeze`, …); the old top-level verbs are removed
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,12 +39,34 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+The CLI becomes noun-first, as `aapp issue …` already is: every command that acts on a plan moves under `aapp plan`, so a person or agent finds the plan commands in one place and each subcommand says exactly what it does. The logic lives in one module per subcommand under `lib/AAPP/Plan/`, with `AAPP::Cmd::Plan` parsing tokens only. Starts after the Perl port (group P-111) is done. Clean break: the old top-level verbs leave the kit (no aliases).
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Verb conversion
+| Today | After | Module |
+|---|---|---|
+| `aapp draft [slug] [issue <num> \| group [<id>]]` | `aapp plan draft …` | `AAPP::Plan::Draft` |
+| `aapp refine <id> "<msg>"` and its plan tokens (`blocked`, `unblocked`, `slug`, `closes`, `group`) | `aapp plan refine <id> …` | `AAPP::Plan::Refine` |
+| `aapp refine <amend-id> request \| approve \| refuse \| decision …` | `aapp plan amend request \| approve \| refuse \| decision …` | `AAPP::Plan::Amend` |
+| `aapp tdd <id>` | `aapp plan tdd <id>` | `AAPP::Plan::Tdd` |
+| `aapp freeze <id>` | `aapp plan freeze <id>` | `AAPP::Plan::Freeze` |
+| `aapp start <id>` | `aapp plan start <id>` | `AAPP::Plan::Start` |
+| `aapp freeze-start <id>` | `aapp plan freeze-start <id>` | `AAPP::Plan::Freeze` + `AAPP::Plan::Start` |
+| `aapp done <id>` | `aapp plan done <id>` | `AAPP::Plan::Done` |
+| `aapp active [<id> \| clear]` | `aapp plan active [<id> \| clear]` | `AAPP::Plan::Active` |
+| `aapp plan-status [<id>]` | `aapp plan status [<id>]` | `AAPP::Plan::Status` |
+| `aapp matrix [check]` | `aapp plan matrix [check]` | `AAPP::Plan::Matrix` |
+| `aapp plan abort <id> …` | unchanged | `AAPP::Plan::Abort` |
+| `aapp plan conflict-check \| conflict-free …` | unchanged | `AAPP::Plan::Conflict` |
+| `aapp plan [query]` | `aapp plan` (bare: the switchboard) | `AAPP::Cmd::Plan` |
+
+Unchanged: `status` (all four pillars), `commit` (code), `review` (P-138), `issue`, `note`, `ai`, `offline`, `companion`, `test`, the setup, sync and hook verbs.
+
+### 2.2 Reserved words
+After `aapp plan` the subcommand words above are reserved; a plan whose slug equals one is named by its id (`P-<n>`).
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -92,11 +114,12 @@
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** `aapp refine pickup "<msg>"` and `aapp refine issues "<msg>" …` do not act on a plan: where do they go (`aapp pickup …`, `aapp issue refine …`)?
+* [ ] **Question 2:** `aapp plan [query]` today takes a positional query; does the bare switchboard keep a query, and how is it told apart from a subcommand?
+* [ ] **Question 3:** Blast radius: every doc, skill, template, contract, test and the rules name the old verbs; one plan or a group?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-27:** Plan initialized from `pickup.md`.
-* **2026-10-27:** Refined blast radius and locked module boundaries.
+* **2026-10-27:** Drafted with the verb conversion; details come in refinement.
