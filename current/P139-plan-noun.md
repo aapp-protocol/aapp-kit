@@ -48,7 +48,7 @@ A member of group P-140 (noun-first CLI). Every command that acts on a plan move
 
 ### 2.1 The noun
 - `lib/AAPP/Runner/Plan.pm` (`AAPP::Runner::Plan`): reads one parameter, the word, and calls `AAPP::Runner::Plan::<Word>->run(@rest)` through the delegate step in `AAPP::Runner`; a hyphenated word joins its parts (`freeze-start` → `FreezeStart`).
-- Bare `aapp plan`: the switchboard (Open Question 1).
+- Bare `aapp plan [query]`: the switchboard, keeping its query. The first parameter is a word when it is one of §2.2 (they are reserved, §2.3); anything else is the query.
 - An unknown word is refused, naming every word of §2.2.
 - `aapp help plan` lists the words; `aapp help plan <word>` prints one word's arguments, `full` its refusals and effects.
 
@@ -89,7 +89,7 @@ Every word of §2.2 is reserved after `aapp plan`. The plan resolver refuses a s
 ### 2.4 Everything that names an old form
 Clean break: after this plan, nothing in the kit names `aapp draft`, `aapp tdd`, `aapp freeze`, `aapp start`, `aapp freeze-start`, `aapp done`, `aapp active`, `aapp plan-status`, `aapp matrix`, or the plan forms of `aapp refine`. Changed in this plan:
 - `lib/verbs.tsv`: the old rows go; the `plan` row lists its words.
-- The contracts: today's `lib/docs/verbs/<verb>.md` of each moved verb becomes part of the `plan` contract (Open Question 2).
+- The contracts: one contract for the noun and all its words, `lib/docs/verbs/plan.md`, as P-138 does for `review`; today's `lib/docs/verbs/<verb>.md` of each moved verb is merged into it and removed. One test file, `t/verb/plan.t`, one test per contract line.
 - Messages: every refusal, hint and next action the kit prints that names an old form (`Next Action`, `Run 'aapp freeze …'`, …).
 - The agent rules (`templates/AGENTS.md`), the skills (`templates/skills/`), the templates' comments (`templates/plan-template.md`, `templates/group-template.md`, `templates/amendments-template.md`).
 - The user docs: `README.md`, `MANUAL.md`, `CHEATSHEET.md`, `COOKBOOK.md`, `CONTRIBUTING.md`, `docs/`.
@@ -104,8 +104,8 @@ Clean break: after this plan, nothing in the kit names `aapp draft`, `aapp tdd`,
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: The noun
-- [ ] Task 1.1: The `plan` contract: the noun, its words, `help plan` (§2.1, Open Question 2 decides the layout).
-- [ ] Task 1.2: Tests for the noun and the reserved words, failing first.
+- [ ] Task 1.1: The `plan` contract `lib/docs/verbs/plan.md`: the noun, its words, `help plan` (§2.1, §2.4).
+- [ ] Task 1.2: `t/verb/plan.t`: tests for the noun, the query and the reserved words, failing first.
 - [ ] Task 1.3: `lib/AAPP/Runner/Plan.pm` and the reserved-word refusal in the plan resolver (§2.3).
 
 ### Phase 2: The words
@@ -161,8 +161,8 @@ Clean break: after this plan, nothing in the kit names `aapp draft`, `aapp tdd`,
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** `aapp plan [query]` today takes a positional query; does the bare switchboard keep a query, and how is it told apart from a word?
-* [ ] **Question 2:** Contracts and tests for about twenty words: one `lib/docs/verbs/plan.md` and one `t/verb/plan.t`, as P-138 does for `review`, or one contract and test file per word (`plan/<word>.md`, `plan.<word>.t`)?
+* [x] **Question 1:** `aapp plan [query]` today takes a positional query; does the bare switchboard keep a query, and how is it told apart from a word? **Answer:** yes, it keeps the query; a word of §2.2 is a word, anything else is the query (§2.1).
+* [x] **Question 2:** Contracts and tests for about twenty words: one `lib/docs/verbs/plan.md` and one `t/verb/plan.t`, as P-138 does for `review`, or one contract and test file per word (`plan/<word>.md`, `plan.<word>.t`)? **Answer:** one contract, `lib/docs/verbs/plan.md`, and one test file, `t/verb/plan.t` (§2.4).
 
 ---
 
