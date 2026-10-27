@@ -25,7 +25,9 @@ A noun-first CLI, as `aapp issue …` already is: every command that acts on a p
 
 ## 2. Shared Decisions
 - **Clean break:** the old top-level verbs leave the kit; no aliases, nothing names them.
-- **Modules: the module is the word after the noun.** `aapp <noun> <word> …` runs `lib/AAPP/<Noun>/<Word>.pm` (`AAPP::<Noun>::<Word>->run(@args)`; `freeze-start` → `FreezeStart.pm`): one file per subcommand, so each is maintained, extended and tested alone. A word with actions (`closes add|remove`, `amend request|approve|refuse|decision`) is one module. Code that several words of a noun share lives in one module named for what it is, never for a verb (e.g. `AAPP::Pickup::Line`), and is never copied. `AAPP::Cmd::<Noun>` parses the word and dispatches only.
+- **Modules: the module is the word after the noun.** `aapp <noun> <word> …` runs `lib/AAPP/<Noun>/<Word>.pm` (`AAPP::<Noun>::<Word>->run(@args)`; `freeze-start` → `FreezeStart.pm`): one file per subcommand, so each is maintained, extended and tested alone. A word with actions (`closes add|remove`, `amend request|approve|refuse|decision`) is one module. Code that several words of a noun share lives in one module named for what it is, never for a verb (e.g. `AAPP::Pickup::Line`), and is never copied.
+- **One public sub per word module, `run`:** `AAPP::<Noun>::<Word>->run(@args)`; every other sub in it is private (`_name`). A word with actions branches inside its own `run`. Shared modules are not word modules and keep named subs.
+- **One central dispatcher for every noun, `AAPP::Runner`:** `aapp <noun> <word> …` → `AAPP::<Noun>::<Word>->run(@rest)`. A noun's words are the files in `lib/AAPP/<Noun>/`, minus its shared modules, listed once at the top of `AAPP::Runner`; an unknown word is refused, naming the words. There is no per-noun `AAPP::Cmd::<Noun>`. The dispatch is built by P-138 (the first noun in Perl); P-139 adds what is specific to `plan`.
 - **Reserved words:** after `aapp plan` the subcommand words below are reserved; a plan whose slug equals one is named by its id (`P-<n>`).
 - **One action per word:** every subcommand names exactly what it does, so a cheat sheet reads without descriptions; no subcommand carries a second meaning through tokens. `refine` leaves the kit: its forms become the subcommands below.
 - **`aapp plan commit` is not `aapp commit`:** `aapp plan commit <id> "<msg>"` commits an edit of the plan's text in `.plans/`; `aapp commit "<msg>"` commits code for the active plan. `aapp help`, the CHEATSHEET, the rules and every skill that names either one say this next to it.
@@ -55,12 +57,12 @@ A noun-first CLI, as `aapp issue …` already is: every command that acts on a p
 | `aapp matrix [check]` | `aapp plan matrix [check]` | `AAPP::Plan::Matrix` |
 | `aapp plan abort <id> …` | unchanged | `AAPP::Plan::Abort` |
 | `aapp plan conflict-check \| conflict-free …` | unchanged | `AAPP::Plan::ConflictCheck`, `AAPP::Plan::ConflictFree` |
-| `aapp plan [query]` | `aapp plan` (bare: the switchboard) | `AAPP::Cmd::Plan` |
+| `aapp plan [query]` | `aapp plan` (bare: the switchboard) | `AAPP::Plan::Switchboard` (shared; P-139) |
 
 Unchanged: `status` (all four pillars), `commit` (code), `review` (P-138), `issue` (gains `commit`, `branch`, `note`), `pickup` (new noun, P-142), `note`, `ai`, `offline`, `companion`, `test`, the setup, sync and hook verbs.
 
 ## 3. Members & Order
-1. **P-139** (`P139-plan-command-dispatcher.md`): `AAPP::Cmd::Plan` (dispatcher, switchboard, reserved words). First; every other member plugs into it.
+1. **P-139** (`P139-plan-command-dispatcher.md`): the `plan` noun on the central dispatcher (built by P-138): its folder, the bare `aapp plan` switchboard, the reserved words. First; every other `plan` member plugs into it.
 2. **P-142** (`P142-pickup-commands.md`): the `aapp pickup` noun and the three-field pickup line. Independent of P-139; can run in parallel with it.
 3. Further members are drafted per area once P-139's dispatcher is settled; they can run in parallel: lifecycle subcommands (`draft`, `tdd`, `freeze`, `start`, `done`, `active`), plan edits (`commit`, `rename`, `block` / `unblock`, `closes`, `join` / `leave`), read-only subcommands (`status`, `matrix`), `amend`, the issue lane's `commit` / `branch` / `note`, docs/skills/templates/rules.
 4. **P-141** (amendments member): last.
