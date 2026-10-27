@@ -1,8 +1,8 @@
 # 🗺️ Plan P-143: Restore Lost Docs
 * **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-143
-* **Changelog:** Changed: Restore Lost Docs
+* **Changelog:** Fixed: the user docs cover every verb form, every setting the kit reads and the sections lost when MANUAL.md was split; duplicate reference pages are merged and settings that do not exist removed
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -39,12 +39,57 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+P-57 (`f737a91`) cut `MANUAL.md` from 2,312 lines to 92 and moved its content into `docs/`; part of it never arrived. P-57 also committed two drafts of three reference topics, and P-110 renamed the extra copies to 16–19 instead of merging them. Sessions since then edited whichever copy they found, so no settings page is complete and two pages list settings the kit never reads.
+
+The commands and settings behave as documented before the split, so the lost text is still true and is restored now, before the Perl port; the port's docs plan (P-137) then starts from complete docs. Goal: every verb form, every setting and every topic of the old manual is documented once, in one place, and nothing documented is fictional.
+
+Inventory of what is missing (method, counts, page by page): `.plans/pickup/docs-loss-inventory.md`. Old text: `git show f737a91^:MANUAL.md`.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 Merge the duplicates; reuse the freed numbers
+| Page | Becomes |
+|---|---|
+| `13-planning-health-engine.md` + `17-planning-health-diagnostics.md` | 13 (17 freed) |
+| `14-agent-skills-and-slash-commands.md` + `18-agent-skills-catalog.md` + `19-skills-and-slash-commands.md` | 14, with the skills that exist in `.agents/skills/` only (`/aapp-commit` goes) (18, 19 freed) |
+| `03-configuration-matrix.md` + the key tables of `15` and `16` | 03, the one settings catalog (§2.2) |
+| `15-configuration-hierarchy.md` | 15, the hierarchy only (`main.conf`, precedence, allowlist, origins) |
+| `16-configuration-options.md` | removed (16 freed) |
+| `20-group-amendments.md` | 16 |
+
+The freed 17, 18, 19 take the restored pages of §2.3. A page that merges keeps every fact of each copy that is still true; nothing is dropped because it appears only in the copy being removed.
+
+### 2.2 Settings: one catalog, true to the code
+- 03 lists every `aapp.*` key the kit reads (`aapp`, `lib/`, `.githooks`, `templates/`, `scripts/`), each with type, default and effect, the default read from the code, not from older docs. Families with a variable part (`aapp.companion.<name>.*`, `aapp.hook.*`, `aapp.planState.*`, `aapp.docs.*`, `aapp.internal.*`) are one row each, with the part named.
+- Settings no code reads are removed from every page: `aapp.allowVendor`, `aapp.branchParity`, `aapp.changelogFile`, `aapp.copilotReview`, `aapp.lastRelease`, `aapp.logFile`, `aapp.notesScope`, `aapp.plansDir`, `aapp.preReleaseGate`, `aapp.releaseBundling`, `aapp.tagLedgerMax`, `aapp.worktreeRoot`.
+- Keys missing today are added: `aapp.aiAgent`, `aapp.aiVendor`, `aapp.aiModel`, `aapp.releaseBranch`, `aapp.amendmentApprovalRequired`, and any other the sweep finds.
+- Environment variables (`AAPP_*`) the kit reads: one table in 03, the same check.
+- Other pages name a setting and link to 03; they do not keep their own tables.
+
+### 2.3 Restore the lost sections
+Each subsection of the old MANUAL that has no equivalent is restored where it belongs, rewritten only where the behaviour changed since (checked against `lib/docs/verbs/*.md`):
+
+| Old MANUAL subsection | Goes to |
+|---|---|
+| §14 Platform Verification Status (matrix, how to verify, how to report) | `17-platform-verification.md` (new) |
+| §5 Companion Development & Multi-Repository Co-Development | `18-companion-development.md` (new) |
+| §8 Plan ID Allocation (`aapp.planId`) & the `aapp-planid` provider | `19-plan-id-allocation.md` (new) |
+| §8 CLI Management Suite (`hooks`, `plugins`, `hook-test`, `hook-hash`); Transparent Command Fallthrough & Polyglot Plugins | `04-plugin-and-hook-engine.md` |
+| §7 Linked Worktree Hook Architecture; Subprocess vs. Source Rationale; Multi-File Hook Architecture; Test Suite Harness & Sandbox Confinement | `docs/concepts/02-blast-radius-engine.md` (hook dispatch) and `docs/recipes/integrations/` (hook managers) |
+| §12 Committing Plan Edits (`aapp refine`); One Changelog Entry per Plan (`aapp.changelogMode`) | `01-lifecycle-state-machine.md` |
+| §5 Token Management & Context Efficiency | `14-agent-skills-and-slash-commands.md` |
+| §11 Q: aligning several plans that touch the same code | `docs/guides/01-troubleshooting.md` |
+| §15 Project Files & Protocol Upgrade; Project Rules; Template Synchronization & Drift; Test Gates; Monorepo & Build Tool Isolation | `docs/recipes/getting-started/adopt-existing-repo.md` |
+
+An old subsection whose behaviour no longer exists is not restored; it is named in §6 with the plan or commit that removed it.
+
+### 2.4 Commands: every form, explained
+`02-cli-commands-and-verbs.md` covers every form of every verb in `lib/verbs.tsv` as `aapp help <verb>` prints it: what it does, in one or two lines, and a link to the page that explains it in depth. Forms not named today (`issue close … sha`, `plugins action`) are added; the old §5 "Command Reference (CLI Fast Commands)" text is the source for the explanations.
+
+### 2.5 Links
+`MANUAL.md`'s map lists the final 01–19 pages; every link in `docs/`, `MANUAL.md`, `README.md`, `CHEATSHEET.md`, `COOKBOOK.md` and `lib/adoption.sh` points at an existing page; `tests/doc_links_test.sh` passes. `CHEATSHEET.md`'s settings and commands agree with 02 and 03.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -56,19 +101,21 @@
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Merge
+- [ ] Task 1.1: Merge 13 + 17, and 14 + 18 + 19 (§2.1); drop `/aapp-commit`.
+- [ ] Task 1.2: Settings: build 03 from the code sweep (§2.2); cut 15 to the hierarchy; remove 16; remove the fictional keys everywhere.
+- [ ] Task 1.3: Move `20-group-amendments.md` to 16.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Restore
+- [ ] Task 2.1: New pages 17 (platform verification), 18 (companion development), 19 (plan id allocation) from the old MANUAL (§2.3).
+- [ ] Task 2.2: Restore the other subsections of §2.3 into their pages.
+- [ ] Task 2.3: 02 covers every verb form (§2.4).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+- [ ] Task 3.1: Sweep again (the inventory's method): every old MANUAL subsection is restored or named in §6 as removed behaviour; every key the code reads is in 03 and every key in the docs is read by the code; every token of every `aapp help <verb>` usage line is in 02.
+- [ ] Task 3.2: Links (§2.5): `MANUAL.md` map, `README.md`, `CHEATSHEET.md`, `COOKBOOK.md`, `lib/adoption.sh`; `tests/doc_links_test.sh` and `./aapp test` pass.
+- [ ] Task 3.3: `ARCHITECTURE.md` and `.agents/CODEMAP.md`: no change expected (docs only); confirm.
+- [ ] Task 3.4: Verify the `CHANGELOG.md` entry.
 - [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
@@ -80,23 +127,62 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `docs/reference/01-lifecycle-state-machine.md` -> plan edits, one changelog entry per plan
+- [ ] `docs/reference/02-cli-commands-and-verbs.md` -> every verb form
+- [ ] `docs/reference/03-configuration-matrix.md` -> the one settings catalog
+- [ ] `docs/reference/04-plugin-and-hook-engine.md` -> hook and plugin commands, fallthrough
+- [ ] `docs/reference/13-planning-health-engine.md` -> merged with 17
+- [ ] `docs/reference/14-agent-skills-and-slash-commands.md` -> merged with 18 and 19; context efficiency
+- [ ] `docs/reference/15-configuration-hierarchy.md` -> hierarchy only
+- [ ] `docs/reference/16-configuration-options.md` -> removed
+- [ ] `docs/reference/16-group-amendments.md` -> moved from 20
+- [ ] `docs/reference/17-planning-health-diagnostics.md` -> removed
+- [ ] `NEW FILE` -> `docs/reference/17-platform-verification.md` -> restored old §14
+- [ ] `docs/reference/18-agent-skills-catalog.md` -> removed
+- [ ] `NEW FILE` -> `docs/reference/18-companion-development.md` -> restored companion section
+- [ ] `docs/reference/19-skills-and-slash-commands.md` -> removed
+- [ ] `NEW FILE` -> `docs/reference/19-plan-id-allocation.md` -> restored plan id section
+- [ ] `docs/reference/20-group-amendments.md` -> moved to 16
+- [ ] `docs/reference/05-ai-attribution-and-notes.md` -> settings link to 03
+- [ ] `docs/reference/06-plugin-protocol.md` -> links
+- [ ] `docs/reference/07-issue-protocol.md` -> links
+- [ ] `docs/reference/08-output-json.md` -> links
+- [ ] `docs/reference/09-event-telemetry.md` -> links
+- [ ] `docs/reference/10-integration-and-rebase.md` -> links
+- [ ] `docs/reference/11-document-governance.md` -> links
+- [ ] `docs/reference/12-git-plumbing.md` -> links
+- [ ] `docs/concepts/01-worktree-architecture.md` -> links
+- [ ] `docs/concepts/02-blast-radius-engine.md` -> hook dispatch in linked worktrees
+- [ ] `docs/concepts/03-two-lane-governance.md` -> links
+- [ ] `docs/concepts/04-security-and-threat-model.md` -> links
+- [ ] `docs/guides/01-troubleshooting.md` -> aligning plans on the same code
+- [ ] `docs/recipes/getting-started/adopt-existing-repo.md` -> restored adoption topics
+- [ ] `docs/recipes/getting-started/solo-developer-workflow.md` -> links
+- [ ] `docs/recipes/integrations/husky-git-hooks.md` -> hook manager chaining
+- [ ] `docs/recipes/integrations/lefthook-git-hooks.md` -> hook manager chaining
+- [ ] `docs/recipes/integrations/github-actions-ci.md` -> links
+- [ ] `docs/recipes/workflows/planning-a-plan-group.md` -> link to 16
+- [ ] `MANUAL.md` -> map 01–19
+- [ ] `README.md` -> links
+- [ ] `CHEATSHEET.md` -> agrees with 02 and 03
+- [ ] `COOKBOOK.md` -> links
+- [ ] `lib/adoption.sh` -> doc links of the adoption rules
+- [ ] `tests/doc_links_test.sh` -> page list
+- [ ] `CHANGELOG.md` -> the plan's entry
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/docs/` -> verb and core contracts are the source, not a target
+- [ ] `lib/AAPP/` -> no code changes; a wrong default in the code is an issue, not a doc fix
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** Should a test keep the docs complete from now on (every key the code reads is in 03, every key in 03 is read; every verb form is in 02), so the next split or rewrite cannot lose them silently? If yes: a bash suite next to `tests/doc_links_test.sh` now, or a `t/` file after P-136's engine reshape.
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-27:** Plan initialized from `pickup.md`.
-* **2026-10-27:** Refined blast radius and locked module boundaries.
+* **2026-10-27:** Drafted from the docs loss inventory; numbering, settings rule and restore map settled in chat.
