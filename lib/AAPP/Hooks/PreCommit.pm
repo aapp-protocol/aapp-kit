@@ -10,7 +10,7 @@ use File::Spec ();
 use File::Temp ();
 use Cwd ();
 
-use AAPP::Constants qw(RETURN_OK RETURN_ERROR RETURN_FAIL RETURN_NOT_FOUND);
+use AAPP::Constants qw(RETURN_OK RETURN_ERROR RETURN_FAIL RETURN_NOT_FOUND DEFAULT_CHANGELOG_MAX_LEN);
 use AAPP::Paths ();
 use AAPP::Config ();
 use AAPP::Text ();
@@ -592,8 +592,8 @@ sub run
     }
 
     # CHANGELOG conciseness and single-line bullet invariant
-    my ( undef, $max_cl_len ) = AAPP::Config::get_int( 'aapp.changelogMaxLen', 300 );
-    $max_cl_len //= 300;
+    my ( undef, $max_cl_len ) = AAPP::Config::get_int( 'aapp.changelogMaxLen', DEFAULT_CHANGELOG_MAX_LEN );
+    $max_cl_len //= DEFAULT_CHANGELOG_MAX_LEN;
     foreach my $cl_name ( 'CHANGELOG.md', '.plans/CHANGELOG.md' ) {
         # Query cached diff for changelog entry
         my ( $cd_ok, $cl_diff ) = AAPP::Paths::git_capture('diff', '--cached', '-U0', '--', $cl_name);

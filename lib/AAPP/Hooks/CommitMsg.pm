@@ -9,7 +9,7 @@ use Digest::SHA ();
 use File::Spec ();
 use File::Basename ();
 
-use AAPP::Constants qw(RETURN_OK RETURN_ERROR RETURN_FAIL);
+use AAPP::Constants qw(RETURN_OK RETURN_ERROR RETURN_FAIL DEFAULT_SUBJECT_MAX_LEN DEFAULT_COMMIT_LINE_MAX_LEN DEFAULT_BODY_MAX_LEN DEFAULT_MAX_BODY_LINES);
 use AAPP::Paths ();
 use AAPP::Config ();
 use AAPP::Text ();
@@ -64,7 +64,8 @@ sub run
     }
 
     # Check 1: Subject Length & Shape
-    my ( undef, $subject_max_len ) = AAPP::Config::get_int( 'aapp.subjectMaxLen', 72 ); $subject_max_len //= 72;
+    my ( undef, $subject_max_len ) = AAPP::Config::get_int( 'aapp.subjectMaxLen', DEFAULT_SUBJECT_MAX_LEN );
+    $subject_max_len //= DEFAULT_SUBJECT_MAX_LEN;
     my $subject_len     = AAPP::Text::char_len($subject);
 
     if ( $subject_len > $subject_max_len ) {
@@ -109,7 +110,8 @@ sub run
     }
 
     # Check 1c.1: Individual line width
-    my ( undef, $max_line_len ) = AAPP::Config::get_int( 'aapp.commitLineMaxLen', 100 ); $max_line_len //= 100;
+    my ( undef, $max_line_len ) = AAPP::Config::get_int( 'aapp.commitLineMaxLen', DEFAULT_COMMIT_LINE_MAX_LEN );
+    $max_line_len //= DEFAULT_COMMIT_LINE_MAX_LEN;
     foreach my $bline (@body_raw) {
         my $blen = AAPP::Text::char_len($bline);
         if ( $blen > $max_line_len ) {
@@ -124,8 +126,10 @@ sub run
     }
 
     # Check 1c.2: Total volume and line count
-    my ( undef, $max_body_len ) = AAPP::Config::get_int( 'aapp.bodyMaxLen', 1200 ); $max_body_len //= 1200;
-    my ( undef, $max_body_lines ) = AAPP::Config::get_int( 'aapp.maxBodyLines', 20 ); $max_body_lines //= 20;
+    my ( undef, $max_body_len ) = AAPP::Config::get_int( 'aapp.bodyMaxLen', DEFAULT_BODY_MAX_LEN );
+    $max_body_len //= DEFAULT_BODY_MAX_LEN;
+    my ( undef, $max_body_lines ) = AAPP::Config::get_int( 'aapp.maxBodyLines', DEFAULT_MAX_BODY_LINES );
+    $max_body_lines //= DEFAULT_MAX_BODY_LINES;
     my $body_line_cnt  = scalar(@body_raw);
     my $body_chars     = 0;
     foreach my $bline (@body_raw) {

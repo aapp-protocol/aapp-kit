@@ -9,7 +9,7 @@ use Digest::SHA ();
 use File::Spec ();
 use File::Basename ();
 
-use AAPP::Constants qw(RETURN_OK RETURN_ERROR RETURN_FAIL);
+use AAPP::Constants qw(RETURN_OK RETURN_ERROR RETURN_FAIL DEFAULT_NOTE_TTL);
 use AAPP::Paths ();
 use AAPP::Config ();
 use AAPP::Logger ();
@@ -78,8 +78,8 @@ sub run
     }
 
     # Reaping sweep for expired notes (B5)
-    my ( undef, $ttl_mins ) = AAPP::Config::get_int( 'aapp.noteTTL', 1440 );
-    $ttl_mins //= 1440;
+    my ( undef, $ttl_mins ) = AAPP::Config::get_int( 'aapp.noteTTL', DEFAULT_NOTE_TTL );
+    $ttl_mins //= DEFAULT_NOTE_TTL;
     my $now = time();
     foreach my $f (@pending) {
         next unless -f $f;
