@@ -141,11 +141,11 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 - [x] Task 1.3: Move `20-group-amendments.md` to 16.
 
 ### Phase 2: Restore
-- [ ] Task 2.1: New pages 17 (companion development), 18 (plan id allocation), 19 (platform verification, last) from the old MANUAL (§2.3).
-- [ ] Task 2.2: Restore the other subsections of §2.3 into their pages.
+- [x] Task 2.1: New pages 17 (companion development), 18 (plan id allocation), 19 (platform verification, last) from the old MANUAL (§2.3).
+- [x] Task 2.2: Restore the other subsections of §2.3 into their pages.
 - [ ] Task 2.3: 02 covers every verb form (§2.4).
-- [ ] Task 2.4: Adopting: the adopt recipe walks the whole path; README's Quick Start links it (§2.6).
-- [ ] Task 2.5: Developing: `CONTRIBUTING.md`, and README's "Developing the Kit" section linking it (§2.6).
+- [x] Task 2.4: Adopting: the adopt recipe walks the whole path; README's Quick Start links it (§2.6).
+- [x] Task 2.5: Developing: `CONTRIBUTING.md`, and README's "Developing the Kit" section linking it (§2.6).
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Sweep again (the inventory's method): every subsection of the old MANUAL and the old README is restored or named in §6 as removed behaviour; every key the code reads is in 03 and every key in the docs is read by the code; every token of every `aapp help <verb>` usage line is in 02.
@@ -234,3 +234,4 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 *Tracks how the plan evolved across sessions.*
 * **2026-10-27:** Drafted from the docs loss inventory; numbering, settings rule and restore map settled in chat.
 * **2026-10-27:** Tasks 1.1–1.3: page 13 rebuilt from `lib/planning_health.sh` (it described a non-existent `aapp doctor`); 14 lists the 11 skills plus `/plan` (`aapp-hooks` holds only the registry). `aapp.logFile` and `AAPP_LOG_FILE` are real: the event-logger sample reads them, so 03 lists them with the other sample settings. Also gone as fictional: `AAPP_NON_INTERACTIVE`, `AAPP_TEST_ROOT`, `AAPP_TEST_FAIL_AT`; `aapp.governance*` are accepted in `main.conf` only, with no effect yet. The link test is `t/core/doc_links.t` (the plan names the retired `tests/doc_links_test.sh`).
+* **2026-10-27:** Tasks 2.1, 2.2, 2.4, 2.5. Old README §5 (branch topologies) was already in `docs/concepts/02-blast-radius-engine.md`, so page 10 did not change; the hook layout, linked-worktree dispatch and wiring went to concepts/02, the test isolation to `CONTRIBUTING.md`. Corrected while restoring: inspection-only applies to a checkout whose kit was removed, not to a fresh clone (no hooks before `aapp init`); `aapp install` deletes the clone it runs from unless named `aapp-develop-kit`/`agent-planning-kit`; the CI recipe ran the kit's own `./aapp` and tests and used `matrix --check`; troubleshooting named a `--yes` flag (the token is `yes`).
