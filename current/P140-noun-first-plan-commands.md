@@ -62,7 +62,7 @@ A noun-first CLI, as `aapp issue …` already is: every command that acts on a p
 Unchanged: `status` (all four pillars), `commit` (code), `review` (P-138), `issue` (gains `commit`, `branch`, `note`), `pickup` (new noun, P-142), `note`, `ai`, `offline`, `companion`, `test`, the setup, sync and hook verbs.
 
 ## 3. Members & Order
-1. **P-139** (`P139-plan-command-dispatcher.md`): the `plan` noun on the central dispatcher (built by P-138): its folder, the bare `aapp plan` switchboard, the reserved words. First; every other `plan` member plugs into it.
+1. **P-139** (`P139-plan-noun.md`): the `plan` noun on the central dispatcher (built by P-138): its folder, the bare `aapp plan` switchboard, the reserved words. First; every other `plan` member plugs into it.
 2. **P-142** (`P142-pickup-commands.md`): the `aapp pickup` noun and the three-field pickup line. Independent of P-139; can run in parallel with it.
 3. Further members are drafted per area once P-139's dispatcher is settled; they can run in parallel: lifecycle subcommands (`draft`, `tdd`, `freeze`, `start`, `done`, `active`), plan edits (`commit`, `rename`, `block` / `unblock`, `closes`, `join` / `leave`), read-only subcommands (`status`, `matrix`), `amend`, the issue lane's `commit` / `branch` / `note`, docs/skills/templates/rules.
 4. **P-141** (amendments member): last.
