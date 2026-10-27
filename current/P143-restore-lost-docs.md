@@ -39,11 +39,11 @@
 ---
 
 ## 1. Context & Architectural Goal
-P-57 (`f737a91`) cut `MANUAL.md` from 2,312 lines to 92 and moved its content into `docs/`; part of it never arrived. P-57 also committed two drafts of three reference topics, and P-110 renamed the extra copies to 16–19 instead of merging them. Sessions since then edited whichever copy they found, so no settings page is complete and two pages list settings the kit never reads.
+P-57 (`f737a91`) cut `MANUAL.md` from 2,312 lines to 92, and (`d0da4fa`) `README.md` from 474 lines to 76, moving their content into `docs/`; part of it never arrived. How to adopt the kit is left thin, and how to develop the kit itself is gone. P-57 also committed two drafts of three reference topics, and P-110 renamed the extra copies to 16–19 instead of merging them. Sessions since then edited whichever copy they found, so no settings page is complete and two pages list settings the kit never reads.
 
 The commands and settings behave as documented before the split, so the lost text is still true and is restored now, before the Perl port; the port's docs plan (P-137) then starts from complete docs. Goal: every verb form, every setting and every topic of the old manual is documented once, in one place, and nothing documented is fictional.
 
-Inventory of what is missing (method, counts, page by page): `.plans/pickup/docs-loss-inventory.md`. Old text: `git show f737a91^:MANUAL.md`.
+Inventory of what is missing (method, counts, page by page): `.plans/pickup/docs-loss-inventory.md`. Old text: `git show f737a91^:MANUAL.md` and `git show d0da4fa^:README.md`.
 
 ---
 
@@ -99,7 +99,23 @@ Each subsection of the old MANUAL that has no equivalent is restored where it be
 | §11 Q: aligning several plans that touch the same code | `docs/guides/01-troubleshooting.md` |
 | §15 Project Files & Protocol Upgrade; Project Rules; Template Synchronization & Drift; Test Gates; Monorepo & Build Tool Isolation | `docs/recipes/getting-started/adopt-existing-repo.md` |
 
+| Old README §4 Inspection-Only Mode (cloned adopter repositories); First-Run Onboarding Loop | `docs/recipes/getting-started/adopt-existing-repo.md` |
+| Old README §6 Seamless Adoption & In-Place Protocol Upgrades; Existing Hook Managers | `docs/recipes/getting-started/adopt-existing-repo.md`; hook managers in `docs/recipes/integrations/` |
+| Old README §5 Branching Topologies (trunk, stable vs. edge) & Adaptive Branch Protection | `10-integration-and-rebase.md` |
+| Old README §7 Remote Sync & Multi-Machine Workflow (sync, safety checks, restoring on a new machine or CI) | `12-git-plumbing.md` |
+| Old MANUAL Local Developer Overrides & CI Confinement (`aapp.hook.*`, `aapp.allowLocalHooks`) | `04-plugin-and-hook-engine.md`; CI side in `docs/recipes/integrations/github-actions-ci.md` |
+| Old README §4 Contributor / Development Setup; old MANUAL Q: develop or contribute locally; old README §12 Testing & Verification Suites | `CONTRIBUTING.md` (§2.6) |
+
 An old subsection whose behaviour no longer exists is not restored; it is named in §6 with the plan or commit that removed it.
+
+### 2.6 Adopting and developing: two entry points
+- **Adopting** (a project that uses the kit): `README.md`'s Quick Start stays short and links to `docs/recipes/getting-started/adopt-existing-repo.md`, which walks the whole path: install, `aapp init` in an existing repository, cloning a repository that already uses AAPP (inspection-only until installed), the first session, existing hook managers, upgrading the protocol in place (`aapp upgrade`, template sync), and the pages to read next.
+- **Developing the kit** (contributors): a new `CONTRIBUTING.md` at the repository root, where GitHub shows it, linked from `README.md`'s own section "Developing the Kit":
+  - setting up: clone, `./aapp develop` (what it links, how to undo it), running from the clone;
+  - testing: `./aapp test`, `t/test-run`, `prove -l t/`, what each runs;
+  - how the kit is developed with its own protocol: plans in `.plans/`, groups, `aapp commit`, issues; links to the pages that explain them;
+  - where the conventions are: `.agents/PROJECT.MD`, `.agents/CODEMAP.md`, `ARCHITECTURE.md`;
+  - reporting a bug, and reporting a platform result (link to 19).
 
 ### 2.4 Commands: every form, explained
 `02-cli-commands-and-verbs.md` covers every form of every verb in `lib/verbs.tsv` as `aapp help <verb>` prints it: what it does, in one or two lines, and a link to the page that explains it in depth. Forms not named today (`issue close … sha`, `plugins action`) are added; the old §5 "Command Reference (CLI Fast Commands)" text is the source for the explanations.
@@ -127,9 +143,11 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 - [ ] Task 2.1: New pages 17 (companion development), 18 (plan id allocation), 19 (platform verification, last) from the old MANUAL (§2.3).
 - [ ] Task 2.2: Restore the other subsections of §2.3 into their pages.
 - [ ] Task 2.3: 02 covers every verb form (§2.4).
+- [ ] Task 2.4: Adopting: the adopt recipe walks the whole path; README's Quick Start links it (§2.6).
+- [ ] Task 2.5: Developing: `CONTRIBUTING.md`, and README's "Developing the Kit" section linking it (§2.6).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Sweep again (the inventory's method): every old MANUAL subsection is restored or named in §6 as removed behaviour; every key the code reads is in 03 and every key in the docs is read by the code; every token of every `aapp help <verb>` usage line is in 02.
+- [ ] Task 3.1: Sweep again (the inventory's method): every subsection of the old MANUAL and the old README is restored or named in §6 as removed behaviour; every key the code reads is in 03 and every key in the docs is read by the code; every token of every `aapp help <verb>` usage line is in 02.
 - [ ] Task 3.2: Links (§2.5): `MANUAL.md` map, `README.md`, `CHEATSHEET.md`, `COOKBOOK.md`, `lib/adoption.sh`; `tests/doc_links_test.sh` and `./aapp test` pass.
 - [ ] Task 3.3: `ARCHITECTURE.md` and `.agents/CODEMAP.md`: no change expected (docs only); confirm.
 - [ ] Task 3.4: Verify the `CHANGELOG.md` entry.
@@ -165,9 +183,9 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 - [ ] `docs/reference/07-issue-protocol.md` -> links
 - [ ] `docs/reference/08-output-json.md` -> links
 - [ ] `docs/reference/09-event-telemetry.md` -> links
-- [ ] `docs/reference/10-integration-and-rebase.md` -> links
+- [ ] `docs/reference/10-integration-and-rebase.md` -> branching topologies, adaptive branch protection
 - [ ] `docs/reference/11-document-governance.md` -> links
-- [ ] `docs/reference/12-git-plumbing.md` -> links
+- [ ] `docs/reference/12-git-plumbing.md` -> remote sync, multi-machine, restoring on a new machine
 - [ ] `docs/concepts/01-worktree-architecture.md` -> links
 - [ ] `docs/concepts/02-blast-radius-engine.md` -> hook dispatch in linked worktrees
 - [ ] `docs/concepts/03-two-lane-governance.md` -> links
@@ -177,10 +195,11 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 - [ ] `docs/recipes/getting-started/solo-developer-workflow.md` -> links
 - [ ] `docs/recipes/integrations/husky-git-hooks.md` -> hook manager chaining
 - [ ] `docs/recipes/integrations/lefthook-git-hooks.md` -> hook manager chaining
-- [ ] `docs/recipes/integrations/github-actions-ci.md` -> links
+- [ ] `docs/recipes/integrations/github-actions-ci.md` -> CI confinement (`aapp.allowLocalHooks`), restoring in CI
 - [ ] `docs/recipes/workflows/planning-a-plan-group.md` -> link to 16
 - [ ] `MANUAL.md` -> map 01–19
-- [ ] `README.md` -> links
+- [ ] `README.md` -> Quick Start links the adopt recipe; "Developing the Kit" section; links
+- [ ] `NEW FILE` -> `CONTRIBUTING.md` -> developing the kit (§2.6)
 - [ ] `CHEATSHEET.md` -> agrees with 02 and 03
 - [ ] `COOKBOOK.md` -> links
 - [ ] `lib/adoption.sh` -> doc links of the adoption rules
