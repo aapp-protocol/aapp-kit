@@ -36,7 +36,7 @@ A noun-first CLI, as `aapp issue …` already is: every command that acts on a p
 | `aapp refine <amend-id> request \| approve \| refuse \| decision …` | `aapp plan amend request \| approve \| refuse \| decision …` | `AAPP::Plan::Amend` |
 | `aapp refine issues "<msg>" …` | `aapp issue refine "<msg>" …` | the issue lane's module |
 | `aapp refine pickup "<msg>"` | `aapp pickup refine "<msg>"` | `AAPP::Pickup` (P-142) |
-| *(none: `status` shows five, the rest by hand)* | `aapp pickup list [json]`, `aapp pickup add …`, `aapp pickup edit "<title>" …` | `AAPP::Pickup` (P-142) |
+| *(none: `status` shows five, the rest by hand)* | `aapp pickup list [json]`, `aapp pickup add …`, `aapp pickup edit "<title>" …`, `aapp pickup delete "<title>"` | `AAPP::Pickup` (P-142) |
 | `aapp tdd <id>` | `aapp plan tdd <id>` | `AAPP::Plan::Tdd` |
 | `aapp freeze <id>` | `aapp plan freeze <id>` | `AAPP::Plan::Freeze` |
 | `aapp start <id>` | `aapp plan start <id>` | `AAPP::Plan::Start` |
