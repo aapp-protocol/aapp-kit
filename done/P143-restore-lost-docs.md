@@ -8,10 +8,10 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `f6d03e1` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P143 (plan/P143-restore-lost-docs)
-* **Commits:** `7449222` (plan/P143-restore-lost-docs), `e43ace5` (plan/P143-restore-lost-docs), `54dcccc` (plan/P143-restore-lost-docs), `afac784` (plan/P143-restore-lost-docs), `6bebb77` (plan/P143-restore-lost-docs), `2691bf5` (plan/P143-restore-lost-docs), `234b60a` (plan/P143-restore-lost-docs), `13482b7` (plan/P143-restore-lost-docs), `9b40544` (plan/P143-restore-lost-docs)
+* **Commits:** `76a0995` (feature/perl-port-of-the-kit)
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -230,6 +230,7 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-27:** Plan implementation completed and archived to done/.
 * **2026-10-27:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-27:** Drafted from the docs loss inventory; numbering, settings rule and restore map settled in chat.

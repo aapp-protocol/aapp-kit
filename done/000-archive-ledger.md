@@ -3,6 +3,7 @@
 ## 🏷️ Shipped Releases
 | Release | Release Date | Tag Ledger | Plans | Issues | Verification Commit | Impact Summary |
 | :--- | :--- | :--- | :---: | :---: | :--- | :--- |
+| 2026-10-27 | `P-143` | [`P143-restore-lost-docs.md`](P143-restore-lost-docs.md) | none | `76a0995` | Restore Lost Docs |
 | 2026-10-25 | `P-132` | [`P132-layered-configuration.md`](P132-layered-configuration.md) | Group P-111 (Perl port) | `9ad7108` | Layered Configuration |
 | 2026-10-25 | `P-133` | [`P133-read-the-whole-group-plan.md`](P133-read-the-whole-group-plan.md) | none | `1fa37f3` | Read The Whole Group Plan |
 | 2026-10-24 | `P-123` | [`P123-perl-core-test-modules.md`](P123-perl-core-test-modules.md) | none | `8da3cde` | Perl Core Test Modules |
