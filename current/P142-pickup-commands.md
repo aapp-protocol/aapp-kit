@@ -52,7 +52,7 @@ A member of group P-140 (noun-first commands). Pickup ideas have no noun today: 
 ```
 - Three fields, split on the first two colons by position (`index` / `substr`, no regex); spaces around a field are trimmed. Everything after the second colon is the description, kept as written: it may hold colons, URLs and repository paths.
 - **Title:** required, no colon, unique in the file (it is the key for `edit`); at most `aapp.pickupTitleMax` characters.
-- **File:** a plain file name in `.plans/pickup/` (no `/`, no colon) holding more detail, which may link anywhere; empty when there is none (`- [ ] Title :  : description`). `pickup/` is local and ignored: `add` / `edit` check the file exists; `list` shows a missing one as `file_missing`, never refuses.
+- **File:** a plain file name in `.plans/pickup/` (no `/`, no colon) holding more detail, which may link to any further files; at most one per idea and never shared: no two ideas name the same file; empty when there is none (`- [ ] Title :  : description`). `pickup/` is local and ignored: `add` / `edit` check the file exists; `list` shows a missing one as `file_missing`, never refuses.
 - **Description:** free text, required, one line: no line breaks (an idea is exactly one line of `pickup.md`; longer detail goes in its file).
 - One parser (`AAPP::Pickup::Line`) serves every reader: `list`, `status`, `draft`, the health checks.
 
@@ -61,11 +61,11 @@ A member of group P-140 (noun-first commands). Pickup ideas have no noun today: 
 |---|---|
 | `aapp pickup list [json]` | every open idea in file order: title, file (`file_missing` when absent), description |
 | `aapp pickup add "<title>" "<file>" "<description>"` | writes the line and commits it; arguments in the line's order; `""` as file: no file |
-| `aapp pickup edit "<title>" "<new title>" "<file>" "<description>"` | changes that line and commits; arguments in the line's order after the key; `""` keeps a field as it is; `none` as file removes it from the line and deletes it from `.plans/pickup/` as `delete` does (named in the output; kept when another idea names it); a new file name in place of an old one leaves the old file alone |
-| `aapp pickup delete "<title>"` | removes that line and commits, and deletes its file from `.plans/pickup/`, naming it (the folder is not in Git: the file cannot be recovered); a file another idea also names stays, and the output names that idea |
+| `aapp pickup edit "<title>" "<new title>" "<file>" "<description>"` | changes that line and commits; arguments in the line's order after the key; `""` keeps a field as it is; `none` as file removes it from the line and deletes it from `.plans/pickup/`; a new file name in place of an old one deletes the old file; each deleted file is named in the output |
+| `aapp pickup delete "<title>"` | removes that line and commits, and deletes its file from `.plans/pickup/`, naming it (the folder is not in Git: the file cannot be recovered) |
 | `aapp pickup refine "<msg>"` | commits a hand edit of `pickup.md` after checking every line (`aapp refine pickup` leaves the kit) |
 
-Refusals (exit 1, nothing written): `add` with an empty title or an empty description (both mandatory; the file may be `""`); `edit` with every field `""` (at least one field must change); a title with a colon, too long or already used; a file name with `/` or a colon, or not in `.plans/pickup/`; a line break in any field; `edit` or `delete` of a title that is not there; `add` or `edit` without all its arguments; `refine` with a malformed line (each named).
+Refusals (exit 1, nothing written): `add` with an empty title or an empty description (both mandatory; the file may be `""`); `edit` with every field `""` (at least one field must change); a title with a colon, too long or already used; a file name with `/` or a colon, not in `.plans/pickup/`, or already named by another idea; a line break in any field; `edit` or `delete` of a title that is not there; `add` or `edit` without all its arguments; `refine` with a malformed line (each named).
 
 ### 2.3 Conversion
 `.plans/pickup.md` is converted once to the three-field line (title, file named in today's text when it is one in `pickup/`, else empty, description); the old `<title>: <text>` form leaves every parser. `templates/pickup.md`, `templates/AGENTS.md` (the pickup rule) and the digest skill show the new line.
