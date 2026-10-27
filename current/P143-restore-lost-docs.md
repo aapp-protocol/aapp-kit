@@ -135,10 +135,10 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
 ### Phase 1: Merge
-- [ ] Task 1.1: Merge 13 + 17, and 14 + 18 + 19 (§2.1); drop `/aapp-commit`.
-- [ ] Task 1.2: Settings: build 03 from the code sweep, grouped by role with every value explained (§2.2); cut 15 to the hierarchy; remove 16; remove the fictional keys everywhere.
+- [x] Task 1.1: Merge 13 + 17, and 14 + 18 + 19 (§2.1); drop `/aapp-commit`.
+- [x] Task 1.2: Settings: build 03 from the code sweep, grouped by role with every value explained (§2.2); cut 15 to the hierarchy; remove 16; remove the fictional keys everywhere.
 - [ ] Task 1.4: Link every setting a verb description names to its group in 03 (§2.2), across 02, the reference pages, the recipes and `CHEATSHEET.md`.
-- [ ] Task 1.3: Move `20-group-amendments.md` to 16.
+- [x] Task 1.3: Move `20-group-amendments.md` to 16.
 
 ### Phase 2: Restore
 - [ ] Task 2.1: New pages 17 (companion development), 18 (plan id allocation), 19 (platform verification, last) from the old MANUAL (§2.3).
@@ -233,3 +233,4 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 * **2026-10-27:** Plan frozen and activated into ⚡ In Development via freeze-start.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-27:** Drafted from the docs loss inventory; numbering, settings rule and restore map settled in chat.
+* **2026-10-27:** Tasks 1.1–1.3: page 13 rebuilt from `lib/planning_health.sh` (it described a non-existent `aapp doctor`); 14 lists the 11 skills plus `/plan` (`aapp-hooks` holds only the registry). `aapp.logFile` and `AAPP_LOG_FILE` are real: the event-logger sample reads them, so 03 lists them with the other sample settings. Also gone as fictional: `AAPP_NON_INTERACTIVE`, `AAPP_TEST_ROOT`, `AAPP_TEST_FAIL_AT`; `aapp.governance*` are accepted in `main.conf` only, with no effect yet. The link test is `t/core/doc_links.t` (the plan names the retired `tests/doc_links_test.sh`).
