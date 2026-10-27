@@ -55,7 +55,7 @@ One verb per noun keeps the meaning plain for people and agents (no overloading 
 |---|---|---|
 | `aapp review draft <id>` | any checkout | creates `.plans/pickup/p<n>-<slug>-rfc.md` for plan `<id>` from `templates/rfc-template.md`; no commit: `pickup/` is the local, ignored store |
 | `aapp review draft <slug>` | any checkout | creates `.plans/pickup/<slug>-rfc.md` before any plan exists (a topic that may become one plan or a group); its §1 is seeded from the pickup line whose title normalises to `<slug>`, when there is one; no commit |
-| `aapp review add <id> "<finding>" [file <path>]` | any checkout | appends a signed finding `F<n>` to §7 of plan `<id>`; append only |
+| `aapp review flag <id> "<finding>" [file <path>]` | any checkout | appends a signed finding `F<n>` to §7 of plan `<id>`; append only |
 | `aapp review fix <id> F<n> "<task>"` | the plan's own checkout | appends `- [ ] F<n>: <task>` to §8; the finding becomes `planned` |
 | `aapp review fix done <id> F<n>` | the plan's own checkout | ticks the task; the finding becomes `done` |
 | `aapp review fix decline <id> F<n> "<reason>"` | the plan's own checkout | the finding becomes `declined: <reason>`; no task |
@@ -63,13 +63,13 @@ One verb per noun keeps the meaning plain for people and agents (no overloading 
 
 **The `done` gate until the Perl `done` (P-119):** the repository's `pre-done` gate, `.agents/hooks/test-gate.sh`, runs `aapp review check <plan_id>` (the id from the event envelope) before its `TEST_CMD`, so `done` refuses open findings now, with no change to the bash `done`. The edited gate is re-registered with `aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`. P-119 then calls `AAPP::Review::Fixes::gate` from the Perl `done`, and the gate line goes; P-118 shows `fixes x/y` in `status`; P-119's `draft` calls `AAPP::Review::Rfc::link`. Those lines reach P-118 and P-119 through P-112 requests.
 
-Every form refuses with nothing written when its preconditions fail (§2.4). `add` and `fix` commit once through `AAPP::CommitEngine::plans_commit`; `draft` writes a local file only.
+Every form refuses with nothing written when its preconditions fail (§2.4). `flag` and `fix` commit once through `AAPP::CommitEngine::plans_commit`; `draft` writes a local file only.
 
 **An RFC is local.** It lives in the ignored `pickup/` store and never reaches another clone. A plan drafted from a topic that has an RFC names it in its §1 as a local reference, and the RFC's `## 5. Carried Into Plans` gains the plan; every decision the plan relies on is written into the plan itself (§1/§2), never left only in the RFC. RFCs are temporary and may be deleted from `pickup/`: nothing in the kit reads one after the plan is drafted, and a missing RFC is never an error.
 
 ### 2.2 The review kind follows the plan's Status
-- 🟣 Under Review / 📝 Refining: design review. `review draft <id>` applies; `review add` and `review fix` refuse (`design findings go in the plan's RFC`).
-- ⚡ In Development: implementation review: `add` and `fix` apply.
+- 🟣 Under Review / 📝 Refining: design review. `review draft <id>` applies; `review flag` and `review fix` refuse (`design findings go in the plan's RFC`).
+- ⚡ In Development: implementation review: `flag` and `fix` apply.
 - 🔷 Frozen, 🟥 BLOCKED, ✅ Done: every form refuses, naming the Status.
 The skill reads the Status and runs the matching review; the verb enforces it.
 
@@ -97,7 +97,7 @@ The five sections the RFCs in `.plans/pickup/` already share: `## 1. Scope & Que
 - Plan lookup, sections, fields, ownership, commits and paths come from `AAPP::State`, `AAPP::CommitEngine` and `AAPP::Paths`; no module rebuilds them.
 
 ### 2.7 Telemetry
-`AAPP::Logger::log_event('review', <form>, {...})` per `.plans/pickup/perl-port-logging-events-spec.md`: `review.draft` (`target`, `file`), `review.add` (`plan_id`, `finding`, `file`, `outside_targets`), `review.fix` (`plan_id`, `finding`, `action` ∈ `task`/`done`/`decline`). The three events are added to the spec.
+`AAPP::Logger::log_event('review', <form>, {...})` per `.plans/pickup/perl-port-logging-events-spec.md`: `review.draft` (`target`, `file`), `review.flag` (`plan_id`, `finding`, `file`, `outside_targets`), `review.fix` (`plan_id`, `finding`, `action` ∈ `task`/`done`/`decline`). The three events are added to the spec.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -115,14 +115,14 @@ The five sections the RFCs in `.plans/pickup/` already share: `## 1. Scope & Que
 
 ### Phase 2: Modules and verb
 - [ ] Task 2.1: `templates/rfc-template.md` and `AAPP::Review::Rfc` (`review draft <id>` / `<slug>`, and `link` for a plan drafted from the topic).
-- [ ] Task 2.2: `AAPP::Review::Findings` (`review add`).
+- [ ] Task 2.2: `AAPP::Review::Findings` (`review flag`).
 - [ ] Task 2.3: `AAPP::Review::Fixes` (`review fix <id> F<n> "<task>"`, `review fix done <id> F<n>`, `review fix decline <id> F<n> "<reason>"`, the amendment check, `counts`, `gate`).
 - [ ] Task 2.4: `AAPP::Cmd::Review` (token parsing, refusals, `review check`, `log_event`); add the review events to the logging spec.
 - [ ] Task 2.5: `.agents/hooks/test-gate.sh` runs `aapp review check <plan_id>` before `TEST_CMD`; ask the developer to re-register it (`aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`).
 - [ ] Task 2.6: Request through P-112 the lines for P-118 (`fixes x/y` in `status`) and P-119 (`done` calls `AAPP::Review::Fixes::gate` and the gate line in `test-gate.sh` goes; `draft` calls `AAPP::Review::Rfc::link`).
 
 ### Phase 3: Skill, templates and docs
-- [ ] Task 3.1: `templates/skills/aapp-review/SKILL.md`: reads the plan's Status, runs a design review through its RFC or an implementation review through `review add`; never opens amendment requests.
+- [ ] Task 3.1: `templates/skills/aapp-review/SKILL.md`: reads the plan's Status, runs a design review through its RFC or an implementation review through `review flag`; never opens amendment requests.
 - [ ] Task 3.2: `templates/plan-template.md`: a comment naming §7/§8 and the verb that writes them; `templates/AGENTS.md`: the `/aapp-review` skill row and the `aapp review` CLI row.
 - [ ] Task 3.3: `CHEATSHEET.md`, `MANUAL.md`, `docs/reference/02-cli-commands-and-verbs.md`, `docs/reference/19-skills-and-slash-commands.md`.
 - [ ] Task 3.4: Request the group's `## Architecture & Codemap` lines for `lib/AAPP/Cmd/` and `lib/AAPP/Review/` through P-112 (members do not edit `ARCHITECTURE.md` / `.agents/CODEMAP.md`).
