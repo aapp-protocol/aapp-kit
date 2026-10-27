@@ -73,9 +73,9 @@ Each subsection of the old MANUAL that has no equivalent is restored where it be
 
 | Old MANUAL subsection | Goes to |
 |---|---|
-| §14 Platform Verification Status (matrix, how to verify, how to report) | `17-platform-verification.md` (new) |
-| §5 Companion Development & Multi-Repository Co-Development | `18-companion-development.md` (new) |
-| §8 Plan ID Allocation (`aapp.planId`) & the `aapp-planid` provider | `19-plan-id-allocation.md` (new) |
+| §5 Companion Development & Multi-Repository Co-Development | `17-companion-development.md` (new) |
+| §8 Plan ID Allocation (`aapp.planId`) & the `aapp-planid` provider | `18-plan-id-allocation.md` (new) |
+| §14 Platform Verification Status (matrix, how to verify, how to report) | `19-platform-verification.md` (new); always the last reference page, so it stays visible at the end of the map |
 | §8 CLI Management Suite (`hooks`, `plugins`, `hook-test`, `hook-hash`); Transparent Command Fallthrough & Polyglot Plugins | `04-plugin-and-hook-engine.md` |
 | §7 Linked Worktree Hook Architecture; Subprocess vs. Source Rationale; Multi-File Hook Architecture; Test Suite Harness & Sandbox Confinement | `docs/concepts/02-blast-radius-engine.md` (hook dispatch) and `docs/recipes/integrations/` (hook managers) |
 | §12 Committing Plan Edits (`aapp refine`); One Changelog Entry per Plan (`aapp.changelogMode`) | `01-lifecycle-state-machine.md` |
@@ -107,7 +107,7 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 - [ ] Task 1.3: Move `20-group-amendments.md` to 16.
 
 ### Phase 2: Restore
-- [ ] Task 2.1: New pages 17 (platform verification), 18 (companion development), 19 (plan id allocation) from the old MANUAL (§2.3).
+- [ ] Task 2.1: New pages 17 (companion development), 18 (plan id allocation), 19 (platform verification, last) from the old MANUAL (§2.3).
 - [ ] Task 2.2: Restore the other subsections of §2.3 into their pages.
 - [ ] Task 2.3: 02 covers every verb form (§2.4).
 
@@ -137,11 +137,11 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 - [ ] `docs/reference/16-configuration-options.md` -> removed
 - [ ] `docs/reference/16-group-amendments.md` -> moved from 20
 - [ ] `docs/reference/17-planning-health-diagnostics.md` -> removed
-- [ ] `NEW FILE` -> `docs/reference/17-platform-verification.md` -> restored old §14
+- [ ] `NEW FILE` -> `docs/reference/17-companion-development.md` -> restored companion section
 - [ ] `docs/reference/18-agent-skills-catalog.md` -> removed
-- [ ] `NEW FILE` -> `docs/reference/18-companion-development.md` -> restored companion section
+- [ ] `NEW FILE` -> `docs/reference/18-plan-id-allocation.md` -> restored plan id section
 - [ ] `docs/reference/19-skills-and-slash-commands.md` -> removed
-- [ ] `NEW FILE` -> `docs/reference/19-plan-id-allocation.md` -> restored plan id section
+- [ ] `NEW FILE` -> `docs/reference/19-platform-verification.md` -> restored old §14, the last page
 - [ ] `docs/reference/20-group-amendments.md` -> moved to 16
 - [ ] `docs/reference/05-ai-attribution-and-notes.md` -> settings link to 03
 - [ ] `docs/reference/06-plugin-protocol.md` -> links
