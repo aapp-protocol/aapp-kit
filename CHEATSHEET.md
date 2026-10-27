@@ -139,53 +139,28 @@ Attribution mode is governed by repository configuration (`git config aapp.aiAtt
 
 ---
 
-## ⚙️ Repository Configuration Reference (`git config aapp.*`)
+## ⚙️ Settings (`git config aapp.*`)
 
-AAPP controls repository behavior via standard Git configuration:
+Every setting, with its default and every value it accepts, is in the [Configuration Reference](docs/reference/03-configuration-matrix.md); how system and user `main.conf` files layer over it, in the [Configuration Hierarchy](docs/reference/15-configuration-hierarchy.md). By group:
 
-| Setting Key | Type / Enum | Default | Subsystem | Purpose & Behavior |
-| :--- | :--- | :--- | :--- | :--- |
-| `aapp.planId` | integer | `1` | Core / Lifecycle | Monotonic Plan ID allocation counter (claimed via `allocate_plan_id`). |
-| `aapp.changelogMode` | `plan` / `commit` | `plan` | Git Hooks | `plan`: one entry per plan from its `**Changelog:**` line, written by `aapp commit`. `commit`: every code commit changes `CHANGELOG.md`. |
-| `aapp.commitMode` | `atomic` / `microcommits` | `atomic` | `aapp commit`, Git Hooks | `atomic`: one commit per plan (`aapp commit amend` for more). `microcommits`: any number. |
-| `aapp.issueFixWait` | minutes | `5` | `aapp issue fix` | How long `fix` and the issue lock wait for an open fix; `0` fails at once (P-52). |
-| `aapp.maxEmergencyHotfixes` | integer | `2` | `aapp issue hotfix` | Hotfixes a plan may take; the next one blocks it permanently. P-55 reads it at integration (P-52). |
-| `aapp.planWorktrees` | `on` / `off` | `off` | `aapp start`, `freeze-start` | A plan's first start creates its own branch and worktree (P-54). |
-| `aapp.planBranch` | template | `plan/{id}-{slug}` | `aapp start` | Plan branch name; `{id}` (`P51`), `{num}`, `{slug}`, `{repo}` (P-54). |
-| `aapp.planWorktreePath` | template | `.workspace/{id}` | `aapp start` | Plan worktree path, relative to the primary checkout (P-54, P-61). |
-| `aapp.planSession` | command template | *(unset, personal)* | `aapp start` | Opens a session in the new plan worktree, detached; `{path}`, `{id}`, `{branch}`, `{slug}`, `{plan_file}` shell-quoted (P-54). |
-| `aapp.integrate` | `manual` / `squash` / `ff` / `hook` | `manual` | `aapp done` | How `done` integrates a worktree plan into its parent branch; `manual` prints advice only (P-55). |
-| `aapp.integrateTarget` | `parent` / `dev` / `<branch>` | `parent` | `aapp done` | Target: the plan's `Base:` branch, the development branch, or a named branch (P-55). |
-| `aapp.integrateCleanup` | `true` / `false` | `true` | `aapp done` | Remove the plan worktree and branch after integrating (P-55). |
-| `aapp.quarantineIgnored` | `true` / `false` | `false` | `aapp done` | Copy sensitive ignored files (`.env*`, keys) into `.git/aapp_quarantine/<id>/` before removal; otherwise they refuse the cleanup (P-55). |
-| `aapp.issueId` | integer | *(unset)* | Core / Lifecycle | The kit's issue counter (`aapp issue log` takes the next id when no tracker numbers the issue; seeded from both issue ledgers on first use). |
-| `aapp.issueSyncWindow` | minutes | `15` | `aapp status` | Least time between two syncs with a provider that lists issues (P-74). |
-| `aapp.issueCacheMax` | integer | `200` | `aapp issue list`, `aapp status` | Open issues kept from a tracker's listing (P-74). |
-| `aapp.statusOutputWidth` | integer (≥ 40) | `85` | `aapp status`, `aapp issue list` | The most characters on a line of the briefing; long lines wrap at spaces (P-92). |
-| `aapp.statusItemsMax` | integer (≥ 1) | `5` | `aapp status` | How many Shipped entries and pickup ideas the briefing lists (P-88). |
-| `aapp.jsonLocalPath` | `true` / `false` | `true` | `aapp status json`, `aapp issue list json` | `false` writes `repository.root` as `null`: the document names no local path (P-94). |
-| `aapp.statusTextMax` | integer (≥ 1) | `220` | `aapp status` | The most characters of an entry's or idea's text the briefing shows (P-88). |
-| `aapp.offlineEnabled` | boolean | `true` | Offline (P-75) | `false`: a failing provider refuses and nothing is staged in `.offline`. |
-| `aapp.offlineOnly` | boolean | `false` | Offline (P-75) | `true` (`aapp offline on`): the provider is not asked; issues and draft plans are staged at once. |
-| `aapp.offlineIdOffset` | integer | `1000` | Offline (P-75) | Distance between the highest known id and the first temporary offline id. |
-| `aapp.planState.<slug>` | string (multi) | *(kit defaults)* | Core / Lifecycle | Custom plan status as `<emoji>\|<name>\|<heading>\|<rank>`; overrides a shipped status when the slug matches. |
-| `aapp.aiAttribution` | `none` / `lax` / `strict` / `notes` | `none` | AI Attribution | Attribution mode: none (default; human-only), lax (mixed human/AI), strict (mandatory trailers), notes (private git notes). |
-| `aapp.aiCredits` | `true` / `false` | `false` | AI Attribution | Automatically maintains alphabetical `AI Contributors` in `README.md`. |
-| `aapp.subjectMaxLen` | integer | `72` | Git Hooks | Numeric conciseness limit for commit subject lines (enforced in `aapp-commit-msg`; bounds draft subjects, P-97). |
-| `aapp.pickupTitleMax` | integer (≥ 10) | `72` | `aapp refine pickup` | The most characters a pickup title (`- [ ] <title>: <text>`) may have (P-96). |
-| `aapp.protectStable` | `true` / `false` | `true` | Branch Guard | Refuses direct commits on `main` when dual-branch topology (`develop`) is active. |
-| `aapp.devBranch` | string (list) | `develop dev development` | Branch Guard, `aapp start` | Candidate development branches, first present (local or remote) wins; plan worktrees branch from it, else the default branch (P-54). |
-| `aapp.companion.<name>.path` | path | — | Companions | Absolute filesystem path to registered companion checkout/worktree (P-90). |
-| `aapp.companion.<name>.mode` | `checkout` / `worktree` / `clone` | `checkout` | Companions | Companion topology: existing checkout, managed worktree, or managed clone (P-90). |
-| `aapp.allowPath` | string (multi) | *(empty)* | Write Guard | External filesystem paths authorized for AI file writes (`blast-radius-guard`). |
-| `aapp.remote` | string | `origin` | Remote Sync | Git remote targeted by `aapp push`, `aapp pull`, and `aapp sync`. |
-| `aapp.syncStrategy` | `builtin` / `hook` | `builtin` | Remote Sync | Transport engine for worktree sync (`builtin` git plumbing vs custom hook). |
-| `aapp.syncWorktrees` | string (list) | `plans agents githooks` | Remote Sync | Space-delimited worktrees synchronized across remotes. |
-| `aapp.pullStrategy` | `ff-only` | `ff-only` | Remote Sync | Non-negotiable fast-forward safety invariant for worktree updates. |
-| `aapp.allowLocalHooks` | `true` / `false` | `true` | Hook Engine | Enables/disables local clone hook overrides (`git config aapp.hook.[event]`). |
-| `aapp.hookTimeout` | integer (seconds) | `10` | Hook Engine | Execution timeout ceiling for local notify hook handlers. |
-| `aapp.notesRemote` | string | *(unset)* | Git Notes | Git remote for notes push/pull (unset = local-first). |
-| `aapp.aiNotesGuard` | `warn` / `enforce` | `warn` | Git Notes | Audit guard mode: surfaces warnings (default) or enforces lossless settings on refs/notes/ai. |
+| Group | Keys |
+| :--- | :--- |
+| [Attribution & Notes](docs/reference/03-configuration-matrix.md#attribution--notes) | `aiAttribution`, `aiNotes`, `aiNotesGuard`, `aiAlias`, `aiAgent`/`aiVendor`/`aiModel` (per worktree), `aiCredits`, `notesRemote`, `noteTTL` |
+| [Commits & Changelog](docs/reference/03-configuration-matrix.md#commits--changelog) | `commitMode`, `changelogMode`, `subjectMaxLen`, `commitLineMaxLen`, `bodyMaxLen`, `maxBodyLines`, `changelogMaxLen`, `docs` |
+| [Plans & Worktrees](docs/reference/03-configuration-matrix.md#plans--worktrees) | `planWorktrees`, `planBranch`, `planWorktreePath`, `planSession`, `planId`, `planState.<slug>`, `pickupTitleMax` |
+| [Groups & Amendments](docs/reference/03-configuration-matrix.md#groups--amendments) | `amendmentApprovalRequired` |
+| [Issues & Fixes](docs/reference/03-configuration-matrix.md#issues--fixes) | `issueId`, `issueFixWait`, `fixMaxFiles`, `fixMaxLines`, `fixCollision`, `maxEmergencyHotfixes`, `issueArchiveMax`, `issueSyncWindow`, `issueCacheMax` |
+| [Integration](docs/reference/03-configuration-matrix.md#integration) | `integrate`, `integrateTarget`, `integrateCleanup`, `integrateWait`, `autoRebase`, `quarantineIgnored` |
+| [Branches, Remote & Sync](docs/reference/03-configuration-matrix.md#branches-remote--sync) | `devBranch`, `protectedBranches`, `protectStable`, `remote`, `syncWorktrees`, `syncStrategy`, `pullStrategy` |
+| [Write Guard](docs/reference/03-configuration-matrix.md#write-guard) | `allowPath` |
+| [Hooks & Plugins](docs/reference/03-configuration-matrix.md#hooks--plugins) | `hook.<event>`, `allowLocalHooks`, `hookTimeout`, `pluginTimeout` |
+| [Offline](docs/reference/03-configuration-matrix.md#offline) | `offlineEnabled`, `offlineOnly`, `offlineIdOffset` |
+| [Status & Output](docs/reference/03-configuration-matrix.md#status--output) | `statusOutputWidth`, `statusItemsMax`, `statusTextMax`, `jsonLocalPath` |
+| [Release & Templates](docs/reference/03-configuration-matrix.md#release--templates) | `tagPrefix`, `initialVersion`, `releaseBranch`, `testCommand`, `templateSync` |
+| [Companion](docs/reference/03-configuration-matrix.md#companion) | `companion.<name>.path`, `companion.<name>.mode` (written by `aapp companion`) |
+| [Logging](docs/reference/03-configuration-matrix.md#logging) | `perlLogFile` |
+
+All keys take the `aapp.` prefix: `git config aapp.planWorktrees on`.
 
 ---
 

@@ -121,6 +121,8 @@ A filter that breaks never lets unfiltered text through. Without the plugin inst
 
 Any other line of a `do` list is refused and reported; the lines after it still run. A tracker's new issues arrive through the list, never as an `issue log` line.
 
+**Settings on this page:** [Issues & Fixes](03-configuration-matrix.md#issues--fixes)
+
 ## 🧭 Continuous Navigation
 - 📖 [Technical Manual](../../MANUAL.md)
 - 🍳 [Cookbook Catalog](../../COOKBOOK.md)

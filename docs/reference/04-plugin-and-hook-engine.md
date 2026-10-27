@@ -162,6 +162,22 @@ Run `aapp plugins` and `aapp hooks` to discover available samples:
 - `aapp plugins`: Lists kit plugins and local plugins in `.agents/skills/`.
 - `aapp hooks`: Displays registered lifecycle hooks, timing taxonomy, and available reference hook samples.
 
+### The Shipped Samples
+
+| Sample | Kind | What it does |
+| :--- | :--- | :--- |
+| `examples/hooks/test-gate.sh.sample` | `pre-done` gate | Refuses `aapp done` unless your test command passes (§7) |
+| `examples/hooks/fallback-ratchet.sh.sample` | `pre-freeze` gate | Refuses a freeze when the plan's code adds legacy fallbacks (deprecated aliases, dual-syntax patterns) not listed in its §2 Fallback Inventory |
+| `examples/hooks/on-done-sync.sh.sample` | `post-done` observer | Pushes the planning worktrees after a plan is archived |
+| `examples/hooks/on-release.sh.sample` | `on-release` handler | Writes the new version into your project's files during `aapp release`; receives `AAPP_RELEASE_VERSION`, `AAPP_RAW_VERSION`, `AAPP_PREVIOUS_VERSION`, `AAPP_VERSION_BUMP` and the same as JSON |
+| `examples/hooks/event-logger.sample` | observer for any event | Appends every event to a JSON Lines log (§8) |
+| `examples/hooks/registry.tsv.sample` | registry | Example `registry.tsv` lines for the hooks above |
+| `examples/plugins/hello-tool/` | action plugin | The smallest plugin: a command `aapp hello-tool` (§10) |
+| `examples/plugins/aapp-planid/` | provider | Hands Plan ID allocation to a program outside the repository ([18. Plan ID Allocation](18-plan-id-allocation.md)) |
+| `examples/plugins/aapp-issue-tracker/` | provider | A local issue tracker showing the tracker protocol ([07. Issue Protocol](07-issue-protocol.md)) |
+| `examples/plugins/aapp-issue-branch/` | plugin | Says on which branch an issue's fix lands ([07](07-issue-protocol.md)) |
+| `examples/plugins/aapp-issue-note-filter/` | plugin | Filters an issue's description and notes before they are shown ([07](07-issue-protocol.md)) |
+
 ### 4. Adopting a Sample
 To activate a sample, copy it into place and strip the `.sample` suffix:
 ```bash
@@ -212,6 +228,53 @@ aapp hook-hash .agents/hooks/event-logger post-done 10 notify >> .agents/skills/
   ```
 - **Universal 2-Key Invariant**: Every event payload under `data` consistently carries `command` and `event` keys.
 - **Contract Reference**: For the formal envelope schema, field definitions, and payloads across all 14 lifecycle events, see [Event Telemetry Specification](09-event-telemetry.md).
+
+---
+
+## 9. Hook and Plugin Commands
+
+| Command | What it does |
+| :--- | :--- |
+| `aapp hooks` | Audits `registry.tsv`: each handler's event, path, mode and timeout, whether the file exists and is executable, and whether its SHA-256 still matches the registry. Also lists local handlers (§11) and the reference samples. |
+| `aapp hooks events` | The catalog of lifecycle events (§5). |
+| `aapp plugins` | The kit's reserved plugin names (installed or not), then your own plugins in `.agents/skills/` with the entrypoint each one resolves to. |
+| `aapp hook-test <event> [plan-id]` | Runs the handlers registered for `<event>` with a mock payload, showing their output, exit codes and timeouts, without changing the repository. `aapp hook-run` is the same command. |
+| `aapp hook-hash <file> [event] [timeout] [mode]` | Prints the file's SHA-256 as a ready `registry.tsv` line; append it with `>> .agents/skills/aapp-hooks/registry.tsv`. Run it again whenever the handler changes. |
+
+Example audit:
+```text
+🪝 AAPP Lifecycle Hook Registry (.agents/skills/aapp-hooks/registry.tsv)
+  • pre-freeze -> .agents/skills/migration-guard/scripts/check.sh [gate, 30s] (hash: valid)
+  • post-done  -> .agents/skills/archiver/scripts/push.sh [notify, 60s] (hash: valid)
+```
+
+---
+
+## 10. Plugins as Commands
+
+An action plugin in `.agents/skills/<name>/` is also a command: `aapp <name> [args…]` runs it when `<name>` is not one of the kit's verbs. The entrypoint is found in this order, whatever the language:
+1. `run` or `<name>` (an executable without extension)
+2. `scripts/run` or `scripts/<name>`
+3. `<name>.*` or `run.*` (`.py`, `.sh`, `.js`, `.rb`, …)
+4. the same names under `scripts/`
+
+`.sample` files are never run. The kit hands over with `exec`: arguments, input, output and the exit code are the plugin's own. Plugin protocol: [06. Action Plugin Protocol](06-plugin-protocol.md).
+
+---
+
+## 11. Local Handlers and CI Confinement
+
+Besides the committed registry, a person can add handlers for their own clone without changing any tracked file:
+
+```bash
+git config --add aapp.hook.on-done "/path/to/desktop-notify.sh"
+```
+
+- **Observe only:** local handlers always run in `notify` mode. They can log, notify or play a sound, but never refuse a step; only handlers in the committed `registry.tsv` can gate.
+- **Time limit:** `aapp.hookTimeout` seconds (default 10).
+- **CI confinement:** on a build runner, turn them off so only the committed registry runs: `git config aapp.allowLocalHooks false`. `aapp hooks` then says local hooks are disabled.
+
+Settings: [Hooks & Plugins](03-configuration-matrix.md#hooks--plugins).
 
 ---
 

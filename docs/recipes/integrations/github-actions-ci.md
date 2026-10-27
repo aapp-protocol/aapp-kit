@@ -38,14 +38,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Mount Isolated Worktrees (if applicable)
+      - name: Install the Kit
         run: |
-          if git show-ref --quiet refs/heads/plans; then
-            git worktree add .plans plans || true
-          fi
-          if git show-ref --quiet refs/heads/agents; then
-            git worktree add .agents agents || true
-          fi
+          git clone --depth 1 https://github.com/aapp-protocol/aapp-kit.git /tmp/aapp-kit
+          /tmp/aapp-kit/aapp install
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Mount the Planning Worktrees
+        run: |
+          aapp init   # fetch-depth 0 brought origin/plans, origin/agents and origin/githooks
+          git config aapp.allowLocalHooks false   # only the committed hook registry runs here
 
       - name: Verify No Machine-Specific Paths or URIs
         run: |
@@ -57,13 +59,13 @@ jobs:
 
       - name: Run Planning Health Audit
         run: |
-          chmod +x ./aapp
-          ./aapp status
-          ./aapp matrix --check
+          aapp status
+          aapp matrix check
+          bash "$HOME/.local/share/aapp-kit/lib/planning_health.sh"
 
-      - name: Run Shipped Test Suites
+      - name: Run Your Project's Tests
         run: |
-          ./aapp test strict quiet
+          npm test   # your own test command; `aapp test` runs only the kit's suites
 ```
 
 ### 2. Configure PR Protection Rules
@@ -77,11 +79,15 @@ Open a test pull request. Observe that GitHub Actions runs the verification suit
 ## ⚠️ Critical Invariants & Gotchas
 - **Full History Fetch**: `actions/checkout` must specify `fetch-depth: 0` so that `git merge-base` and tag reachability checks have access to full commit history.
 - **Fail-Closed**: Always keep CI checks fail-closed. Never allow PRs with failing planning health to bypass branch protection.
+- **CI confinement**: `aapp.allowLocalHooks false` keeps per-clone `aapp.hook.<event>` handlers from running on the runner; only the committed `registry.tsv` applies ([Local Handlers](../../reference/04-plugin-and-hook-engine.md#11-local-handlers-and-ci-confinement)).
+- **Settings are not cloned**: a fresh runner has none of your `aapp.*` values; set the ones the checks depend on in a step, or in a user `main.conf` ([Configuration Hierarchy](../../reference/15-configuration-hierarchy.md)).
 
 ## 🔗 Related References
-- 📖 [Technical Manual: Planning Health Engine](../../../MANUAL.md#7-pair-planning-health-engine)
+- 📖 [Planning Health Engine](../../reference/13-planning-health-engine.md)
 - 🍳 [Recipe: Pairing AAPP with Husky](husky-git-hooks.md)
 - 🍳 [Recipe: Pairing AAPP with Lefthook](lefthook-git-hooks.md)
+
+**Settings on this page:** [Hooks & Plugins](../../reference/03-configuration-matrix.md#hooks--plugins)
 
 ## 🧭 Continuous Navigation
 - 🍳 [Cookbook Catalog](../../../COOKBOOK.md)

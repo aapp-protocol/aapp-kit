@@ -1,126 +1,86 @@
 ---
-title: Configuration Hierarchy & Resolution Reference
-description: Specification of Git configuration keys, resolution hierarchy, default values, and environment variables in AAPP.
+title: Configuration Hierarchy Reference
+description: Where aapp settings come from, how system and user main.conf files are layered over the repository's git config, and which keys those files may set.
 ---
 
-# ⚙️ Configuration Hierarchy & Resolution Reference
+# 🗂️ Configuration Hierarchy Reference
 
-AAPP relies on Git's native configuration database (`git config`) as its authoritative configuration store. This guarantees zero custom config files, seamless multi-worktree inheritance, and full compatibility with standard Git workflows.
-
----
-
-## 1. Complete Git Config Key Catalog
-
-All AAPP configuration settings reside under the `aapp.*` namespace:
-
-| Config Key | Type | Default Value | Description |
-| :--- | :--- | :--- | :--- |
-| `aapp.aiAttribution` | `enum` | `none` | Attribution policy: `none` (human-only), `lax` (optional trailers), `strict` (mandatory trailers), `notes` (private notes). |
-| `aapp.aiNotes` | `boolean` | `false` | When true, parallel AI audit traces are automatically staged to `refs/notes/ai`. |
-| `aapp.allowPath` | `path` | `""` | Multi-value list of additional paths permitted outside plan target files (e.g. scratch directories). |
-| `aapp.allowVendor` | `string` | `""` | Comma-separated list of approved AI vendors (e.g., `Anthropic,Google,OpenAI`). |
-| `aapp.bodyMaxLen` | `integer` | `1200` | Maximum allowed character count for git commit bodies. |
-| `aapp.branchParity` | `boolean` | `true` | When true, `aapp release` and verification tools enforce `main` and active branch parity. |
-| `aapp.changelogFile` | `path` | `CHANGELOG.md` | Canonical path to the project changelog file. |
-| `aapp.changelogMaxLen` | `integer` | `300` | Maximum character length for an individual changelog bullet line. |
-| `aapp.changelogMode` | `enum` | `plan` | Changelog management strategy: `plan` (one bullet per plan) or `commit` (bullet per commit). |
-| `aapp.commitLineMaxLen` | `integer` | `100` | Maximum character length for lines within a commit body. |
-| `aapp.commitMode` | `enum` | `atomic` | Plan commit policy: `atomic` (single folded commit) or `microcommits` (incremental commits). |
-| `aapp.copilotReview` | `boolean` | `false` | When true, triggers automated GitHub Copilot code review integration upon commit. |
-| `aapp.issueArchiveMax` | `integer` | `100` | Maximum number of closed issue rows stored per archive file before rolling over to numbered ledgers. |
-| `aapp.issueFixWait` | `integer` | `5` | Minutes `aapp issue fix` will wait to acquire worktree lock if another fix is active. |
-| `aapp.maxBodyLines` | `integer` | `20` | Maximum number of lines permitted in a git commit body. |
-| `aapp.notesScope` | `string` | `ai,commits` | Target Git notes namespaces used for attribution and review traces. |
-| `aapp.pickupTitleMax` | `integer` | `72` | Maximum character length for ideation task titles in `pickup.md`. |
-| `aapp.plansDir` | `path` | `.plans` | Canonical root directory containing plans, issues, and matrices. |
-| `aapp.preReleaseGate` | `string` | `""` | Shell test command executed during `aapp release` preflight (e.g. `./aapp test strict quiet`). |
-| `aapp.releaseBundling` | `boolean` | `true` | When true, bundles implemented plans and issue ledgers into `.plans/release/<tag>/` upon release. |
-| `aapp.subjectMaxLen` | `integer` | `72` | Maximum character length for git commit subject lines. |
-| `aapp.tagLedgerMax` | `integer` | `50` | Maximum number of releases cataloged per tag ledger file. |
-| `aapp.worktreeRoot` | `path` | `.workspace` | Directory path where plan and fix worktrees are mounted. |
-
-*Note: For the exhaustive tabular dictionary of all settings, flags, and defaults, see the [Configuration Matrix](03-configuration-matrix.md).*
+Every setting is an `aapp.*` key; what each key does and accepts is [03. Configuration Reference](03-configuration-matrix.md). This page covers where a value comes from.
 
 ---
 
-## 2. Layered Configuration Hierarchy & Precedence
+## 1. Git Configuration
 
-AAPP enforces an **inverted authority hierarchy** across three tiers: administrative policies defined at higher tiers strictly bind lower tiers and cannot be overridden locally by autonomous agents or repository-level git configuration.
+In a repository, settings are ordinary Git configuration:
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ 1. System Level (/etc/aapp/main.conf)                        │
-│    - Matching [aapp "repo:$REPO_ROOT"] (Highest authority)  │
-│    - Global [aapp]                                          │
-├─────────────────────────────────────────────────────────────┤
-│ 2. User Level (~/.config/aapp/main.conf)                    │
-│    - Matching [aapp "repo:$REPO_ROOT"]                      │
-│    - Global [aapp]                                          │
-├─────────────────────────────────────────────────────────────┤
-│ 3. Repository Level (.git/config)                           │
-│    - Local git config (Lowest authority)                   │
-└─────────────────────────────────────────────────────────────┘
+```bash
+git config aapp.commitMode                 # read one setting
+git config aapp.commitMode microcommits    # set it for this repository
+git config --global aapp.aiAttribution lax # set a default for all your repositories
+git config --get-regexp '^aapp\.'          # list every aapp setting in effect
+git config --unset aapp.commitMode         # back to the default
 ```
 
-### Precedence Rules
-1. **Inverted Authority (`System > User > Repo`)**: The highest tier defining a setting wins.
-2. **Repository Subsections**: Within a given tier's `main.conf`, a subsection matching the project's primary root (`[aapp "repo:/path/to/project"]`) overrides that file's global defaults (`[aapp]`). Linked plan/fix worktrees (`.workspace/*`) automatically match against the primary checkout root.
-3. **Multi-Valued Keys (`aapp.allowPath`, `aapp.hook.*`)**: The highest tier that sets the key supplies the complete set. Lower tiers cannot append or widen administrative allowlists.
-4. **Clean Fallthrough**: Keys absent from upper tiers cleanly fall through to standard Git configuration resolution (`.git/config`, `~/.gitconfig`).
+Git's own order applies: the repository's `.git/config` (and worktree config) over your `~/.gitconfig` over the system's `/etc/gitconfig`. A key set nowhere takes the default listed in 03.
 
-### Upper-Level Policy Allowlist
-To protect monotonic state progression (such as `aapp.planId`, `aapp.issueId`, and `aapp.lastRelease`), upper-level `main.conf` files permit only administrative policies and safety ceilings:
-- **Governance**: `aapp.governance`, `aapp.governanceHandler`, `aapp.governanceTimeout`
-- **Attribution & Identity**: `aapp.aiAttribution`, `aapp.aiNotes`
-- **Limits & Ceilings**: `aapp.fixMaxLines`, `aapp.fixMaxFiles`, `aapp.maxEmergencyHotfixes`, `aapp.subjectMaxLen`, `aapp.commitLineMaxLen`, `aapp.bodyMaxLen`
-- **Runtime Environment & Hooks**: `aapp.quarantineIgnored`, `aapp.perlLogFile`, `aapp.allowPath`, and `aapp.hook.*`
+A few keys are per worktree and read only with `git config --worktree` (`aapp.aiAgent`, `aapp.aiVendor`, `aapp.aiModel`), so each plan worktree can carry its own agent identity.
 
-Any unlisted key present in `main.conf` fails closed with diagnostic error:
+---
+
+## 2. System and User Policy Files (`main.conf`)
+
+Above Git configuration, an administrator (system file) or a person (user file) can set policy that a repository, and an agent working in it, cannot override:
+
+| Level | File (Linux, BSD) | macOS | Windows |
+| :--- | :--- | :--- | :--- |
+| System (highest) | `/etc/aapp/main.conf` | `/Library/Application Support/aapp/main.conf` | `%ProgramData%\aapp\main.conf` |
+| User | `$XDG_CONFIG_HOME/aapp/main.conf` (`~/.config/aapp/main.conf`) | as Linux | `%APPDATA%\aapp\main.conf` |
+| Repository (lowest) | Git configuration (§1) | | |
+
+`AAPP_SYS_CONF_DIR` and `AAPP_USER_CONF_DIR` point the kit at other folders (used by the kit's tests).
+
+**Today these files are read by the kit's Perl core only.** The bash verbs read Git configuration directly, so a `main.conf` value reaches only the parts already ported to Perl (for example `aapp.jsonLocalPath` in JSON output, `aapp.perlLogFile`). When the Perl port replaces the bash verbs, the hierarchy applies to every setting.
+
+### Precedence
+1. **Higher level wins:** system over user over repository. The highest level that sets a key decides its value.
+2. **Repository sections:** inside one `main.conf`, a section for this repository, `[aapp "repo:<path>"]`, wins over that file's plain `[aapp]` section. `<path>` is the primary checkout; plan and fix worktrees under `.workspace/` match it too. Sections for other repositories are skipped.
+3. **Multi-valued keys** (`aapp.allowPath`, `aapp.hook.<event>`): the highest level that sets the key supplies the whole list; lower levels cannot add to it.
+4. **Fall-through:** a key no `main.conf` sets is read from Git configuration (§1).
+
+### Keys a `main.conf` may set
+Only policy and safety limits; counters and repository state (`aapp.planId`, `aapp.issueId`, …) stay with the repository:
+
+- **Attribution:** `aapp.aiAttribution`, `aapp.aiNotes`
+- **Limits:** `aapp.fixMaxFiles`, `aapp.fixMaxLines`, `aapp.maxEmergencyHotfixes`, `aapp.subjectMaxLen`, `aapp.commitLineMaxLen`, `aapp.bodyMaxLen`
+- **Runtime:** `aapp.quarantineIgnored`, `aapp.perlLogFile`, `aapp.allowPath`, `aapp.hook.<event>`
+- **Reserved:** `aapp.governance`, `aapp.governanceHandler`, `aapp.governanceTimeout` are accepted for the lifecycle governance being built in the Perl port; they have no effect yet.
+
+Any other key in a `main.conf` stops the kit with the file, line and key:
 `❌ [Config Refusal] /etc/aapp/main.conf: line 6: 'aapp.planId' is not allowed in upper-level configuration.`
+A malformed line stops it the same way, with the file and line.
 
-### Example `main.conf`
+### Example
 ```ini
-# /etc/aapp/main.conf or ~/.config/aapp/main.conf
+# ~/.config/aapp/main.conf
 
-# Global administrative defaults for this tier
+# Defaults for every repository
 [aapp]
-governance = hitl
 aiAttribution = strict
 subjectMaxLen = 72
 
-# Project-specific policy override
-[aapp "repo:/path/to/project"]
-governance = autonomous
-governanceHandler = /usr/local/bin/automated-gate
+# One repository
+[aapp "repo:/srv/projects/shop"]
 hook.pre-freeze = /usr/local/bin/security-audit
 allowPath = /tmp/build-artifacts
 ```
 
-### Inspecting Configuration Values & Origins
-```bash
-# Query active configuration value
-git config aapp.governance
-
-# Programmatic origin query via AAPP::Config::source($key)
-# returns: 'system:repo', 'system:global', 'user:repo', 'user:global', or 'repository'
-```
-
----
-
-## 3. Environment Variable Overrides
-
-In automated environments (CI/CD pipelines, headless testing), specific environment variables take precedence over `git config`:
-
-| Environment Variable | Description |
-| :--- | :--- |
-| `AAPP_TEST_ROOT` | Overrides the root directory for test fixtures and temporary execution. |
-| `AAPP_TEST_FAIL_AT` | Injects synthetic failure traps during test execution to verify rollback logic. |
-| `GIT_AUTHOR_NAME` / `GIT_AUTHOR_EMAIL` | Standard Git identity variables for commit creation. |
+### Where a value came from
+The Perl core records the level each value came from: `system:repo`, `system:global`, `user:repo`, `user:global` or `repository` (`AAPP::Config::source($key)`).
 
 ---
 
 ## 🧭 Continuous Navigation
 - 📖 [Technical Manual](../../MANUAL.md)
-- ⚙️ [Configuration Matrix](03-configuration-matrix.md)
+- ⚙️ [Configuration Reference](03-configuration-matrix.md)
 - 💻 [CLI Verb Reference](02-cli-commands-and-verbs.md)
 - 🏠 [Repository Overview](../../README.md)

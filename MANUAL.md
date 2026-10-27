@@ -45,7 +45,7 @@ High-level architectural deep-dives explaining mechanics, design rationale, and 
 Authoritative, exhaustive specifications, schemas, tables, and lookup dictionaries:
 * [01. Lifecycle State Machine](docs/reference/01-lifecycle-state-machine.md): Plan statuses, state transitions, and execution gates.
 * [02. CLI Commands & Verbs Reference](docs/reference/02-cli-commands-and-verbs.md): All 35 CLI verbs across 4 tested tiers with parameter variations.
-* [03. Configuration Matrix](docs/reference/03-configuration-matrix.md): Exhaustive table of 22+ `git config aapp.*` settings and defaults.
+* [03. Configuration Reference](docs/reference/03-configuration-matrix.md): Every `aapp.*` setting, grouped by role, with its default and every value it accepts; the environment variables the kit reads.
 * [04. Plugin & Hook Engine](docs/reference/04-plugin-and-hook-engine.md): 5-column `registry.tsv` contract, dual delivery, and 17 lifecycle triggers.
 * [05. AI Attribution Suite & Notes](docs/reference/05-ai-attribution-and-notes.md): Emailless semantic trailers, Git notes asymmetry, and switchboard modes.
 * [06. Action Plugin Protocol](docs/reference/06-plugin-protocol.md): JSON envelope exchange contract for external action plugins.
@@ -55,14 +55,13 @@ Authoritative, exhaustive specifications, schemas, tables, and lookup dictionari
 * [10. Worktree Integration & Rebase](docs/reference/10-integration-and-rebase.md): Rebase rules, squash integration, and worktree cleanup.
 * [11. Three-Tier Document Governance](docs/reference/11-document-governance.md): Engine templates, hybrid files, and pure domain data tiers.
 * [12. Git Plumbing & Worktree Mechanics](docs/reference/12-git-plumbing.md): Detached orphan commits, remote synchronization, and worktree repair.
-* [13. Planning Health Integrity Engine](docs/reference/13-planning-health-engine.md): 8 invariant check pairs and `aapp doctor` diagnostics.
-* [14. Agent Skills & Slash Commands](docs/reference/14-agent-skills-and-slash-commands.md): 13 universal skills, slash command bindings, and custom skills.
-* [15. Configuration Hierarchy & Precedence](docs/reference/15-configuration-hierarchy.md): Layered configuration hierarchy (`main.conf`), inverted authority precedence (System > User > Repo), and administrative allowlist.
-* [16. Configuration Options & Catalog](docs/reference/16-configuration-options.md): Complete Git config key catalog and resolution scopes.
-* [17. Planning Health Diagnostics](docs/reference/17-planning-health-diagnostics.md): Automated static analysis, `aapp doctor` tooling, and repair commands.
-* [18. Agent Skills Catalog](docs/reference/18-agent-skills-catalog.md): Universal skills catalog, ASCII dispatch, and execution bounds.
-* [19. Interactive Skills & Slash Commands](docs/reference/19-skills-and-slash-commands.md): Chat UI slash commands, IDE triggers, and custom skill authoring.
-* [20. Group Amendments](docs/reference/20-group-amendments.md): How a group member asks for a file or a correction outside its plan, approval, the amendment commit, and request states.
+* [13. Planning Health Engine](docs/reference/13-planning-health-engine.md): The ledger and plan integrity checks, what each refuses, and which verbs run them.
+* [14. Agent Skills & Slash Commands](docs/reference/14-agent-skills-and-slash-commands.md): The kit's skills, their slash commands and CLI actions, how they reach each agent, custom skills and context efficiency.
+* [15. Configuration Hierarchy](docs/reference/15-configuration-hierarchy.md): Where a setting comes from: Git configuration and the system and user `main.conf` policy files.
+* [16. Group Amendments](docs/reference/16-group-amendments.md): How a group member asks for a file or a correction outside its plan, approval, the amendment commit, and request states.
+* [17. Companion Development](docs/reference/17-companion-development.md): Working on several repositories at once: the three companion topologies, the write guard, status and push.
+* [18. Plan ID Allocation](docs/reference/18-plan-id-allocation.md): The Plan ID counter, the `aapp-planid` provider a team needs, its contract, and what happens when it fails.
+* [19. Platform Verification](docs/reference/19-platform-verification.md): Where the kit is tested, the known risks elsewhere, how to check it on your machine and how to report (always the last page).
 
 ### 🍳 Practical Recipes & Operations
 * [AAPP Cookbook](COOKBOOK.md): Hands-on recipes organized by topic under `docs/recipes/`.

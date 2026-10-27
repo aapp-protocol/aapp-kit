@@ -103,6 +103,8 @@ When `aapp ai credits` runs under `lax` or `strict` mode:
 > [!IMPORTANT]
 > In `notes` mode, `aapp ai credits` exits with an explanatory notice without modifying `README.md`. Choosing private notes keeps AI involvement internal; publishing a distilled roster would defeat that privacy choice.
 
+**Settings on this page:** [Attribution & Notes](03-configuration-matrix.md#attribution--notes) · [Commits & Changelog](03-configuration-matrix.md#commits--changelog)
+
 ## 🧭 Continuous Navigation
 - 📖 [Technical Manual](../../MANUAL.md)
 - 🍳 [Cookbook Catalog](../../COOKBOOK.md)

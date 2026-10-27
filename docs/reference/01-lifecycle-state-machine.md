@@ -75,12 +75,44 @@ Every blueprint in `.plans/current/` records its exact lifecycle state in its he
   - Disjointness Gate: Declared target files must not overlap with another plan currently marked `⚡ In Development` (except registered shared documentation files).
   - Active Plan Buffer: Binds the local execution buffer (`.git/aapp_active_plan`).
 
-### 3.4 In-Flight Refinement (`aapp refine`)
-- **Scope**: Modifying plan contents during development without raw git operations.
-- **Rules**:
-  - Governed by checkout ownership: a plan in development is refined only from its dedicated worktree or bound checkout.
-  - Commit subject must conform to `aapp.subjectMaxLen` (default 72 characters).
-  - Pre-commit design lock continues to protect §2 and §4 for frozen plans.
+### 3.4 Committing Plan Edits (`aapp refine`)
+Lifecycle verbs commit their own changes; `aapp refine` commits the rest. Nobody, agent or person, needs raw `git` in the plans worktree.
+
+- **Content:** `aapp refine <id> "<what changed>"` commits only that plan file, with the configured attribution, as `plan(refine): <id> <what changed>`, and prints `📝 [Refine] <id> committed (<sha>): <what changed>`. It refuses a missing message, an unknown plan and a plan with no changes.
+- **One line, within the limit:** the message becomes the commit subject, so `plan(refine): <id> <msg>` must fit `aapp.subjectMaxLen` (default 72). The overrun is named before any Git work: `Commit subject is 81 characters; the limit is 72 (aapp.subjectMaxLen).` and `Shorten the message by 9 characters`.
+- **Owner only:** a plan in development is refined only from its own worktree, or from the checkout whose active-plan buffer holds it. In a group in development, every plan of the group is refined only from a checkout bound to one of its plans. Elsewhere the refusal names what to do instead: tell the developer, log an issue, or add a pickup line.
+- **Design lock:** on a frozen plan, the pre-commit hook still refuses changes to §2 and §4; ticks in §3, §5 and §6 are allowed.
+- **Blocking:** `aapp refine <id> blocked <num>` sets the Status to `🟥 BLOCKED` and adds `#<num>` to `* **Blocked On:**` (the first block records the previous status, e.g. `#41 (was ⚡ In Development)`); an unknown or archived issue is refused. `aapp refine <id> unblocked <num>` takes a closed issue off, for a fix that reached the plan's parent branch as another commit (squash, cherry-pick, rebase), which `aapp issue close` and `aapp status` cannot recognise. Neither touches `state_matrix.md`: run `aapp matrix` after them.
+- **Renaming:** `aapp refine <id> slug <new-slug>` renames `current/P<N>-<old>.md` (the `P<N>-` prefix and Plan ID never change). In one commit it repairs every issue and work-queue link to the file, re-derives the matrix, follows the active buffer and logs `File renamed from <old> to <new>` in the plan's §6. It refuses an empty slug, an existing target and a plan with uncommitted edits. The title line is content: reword it with a normal refine.
+- **Also closes:** `aapp refine <id> closes <num> [remove]` lists a further issue the plan sorts; `aapp done` closes it with the plan's commit.
+- **Groups:** `aapp refine <id> group <group>|none` moves a plan into a group or out of it before it starts; the amendments member has its own forms ([16. Group Amendments](16-group-amendments.md)).
+- **Ledgers:** `aapp refine pickup "<msg>"` commits a hand edit of `pickup.md`; `aapp refine issues "<msg>"` commits changes to existing rows of `ISSUES.md` and `issues_road_map.md` (new rows come only from `aapp issue log`). `pickup` and `issues` are reserved words, checked before plan names. The edit is checked first and nothing is committed on a failure; each message names the line to fix ([13. Planning Health](13-planning-health-engine.md)).
+
+### 3.4a One Changelog Entry per Plan (`aapp.changelogMode`)
+A tool cannot know which commit completes a plan, but the plan knows what it delivers, so it declares its release note once, in its header:
+
+```markdown
+* **Changelog:** Added: Shared docs never block concurrent plans
+```
+
+- `aapp draft` pre-fills it as `Changed: <Title>`; reword it and pick `Added:`, `Changed:` or `Fixed:` while refining. `aapp freeze` refuses a missing, malformed or over-long declaration (`aapp.changelogMaxLen`).
+- In `plan` mode (the default), `aapp commit` writes `- <text> (\`P-xx\`)` under `## [Unreleased]` on the plan's first commit, and replaces that line if the declaration is reworded later. Every later commit for the plan passes without touching `CHANGELOG.md`: a plan with five commits ships one bullet.
+- A code commit with no active plan (a direct fix) must change `CHANGELOG.md` itself, and so must every code commit in `commit` mode.
+- `aapp init` adds `CHANGELOG.md merge=union` to `.gitattributes`, so entries added on two branches are both kept when they merge.
+
+**The entry lands with the plan's first commit.** No tool can know which commit is a plan's last, so the line is written when the plan starts committing. Its wording follows the plan's current declaration; its position reflects the start:
+
+| Day | Commit | `## [Unreleased]` → `### Fixed` |
+| :--- | :--- | :--- |
+| 1 | P-60's first commit (on `develop`) | `- Parser handles empty input (P-60)` |
+| 2 | a direct fix, no plan | `- Guard no longer crashes on symlinks` ← new line on top<br>`- Parser handles empty input (P-60)` |
+| 3 | P-60's last commit | unchanged: the plan's line stays below the fix |
+
+- Working on the development branch directly, a plan's line sits below anything committed after the plan started, and `git log CHANGELOG.md` shows it in the plan's first commit.
+- A plan worktree integrated with `squash` arrives as one commit carrying its one line, so the question does not arise.
+- To change the wording, edit the `**Changelog:**` line, commit it with `aapp refine`, and the next `aapp commit` updates the bullet in place.
+
+Settings: [Commits & Changelog](03-configuration-matrix.md#commits--changelog).
 
 ### 3.5 Archival (`/aapp-done` or `aapp done`)
 - **Source**: `⚡ In Development`.

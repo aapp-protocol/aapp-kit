@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Perl 5.26+ foundation modules (`AAPP::Constants`, `AAPP::Paths`, `AAPP::Config`, `AAPP::Logger`, `AAPP::Runner`) with declared return numbers, signal and crash handling, and an optional log file (`aapp.perlLogFile`) (P-127) (`P-127`)
 
 ### Fixed
+- the user docs cover every verb form, every setting the kit reads and the sections lost when MANUAL.md was split; duplicate reference pages are merged and settings that do not exist removed (`P-143`)
 - the plan and amendments templates name aapp issue log, not aapp refine issues, for logging non-blocking findings (`#195`)
 - refine approve no longer refuses a file the amendments member's own Target Files list (`#190`)
 - Fixed: the design lock no longer reads a numbered heading inside a fenced block as the plan's own section (#186) (`#186`)

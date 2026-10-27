@@ -90,6 +90,73 @@ Located at `.githooks/aapp-pre-commit` (invoked directly or via `.githooks/pre-c
 
 ---
 
+## Hook Layout and Wiring
+
+### Two tiers
+`.githooks/` holds two kinds of hooks:
+1. **Entry hooks** (`pre-commit`, `commit-msg`, `post-commit`, `post-rewrite`): what Git runs (`core.hooksPath = .githooks`). They find the kit's engines and run them first, then your own checks, which you add below the marked line in `.githooks/pre-commit`.
+2. **Engines** (`aapp-pre-commit`, `aapp-commit-msg`, `aapp-post-commit`, `aapp-post-rewrite`, `blast-radius-guard`): the kit's checks, replaced by `aapp init` / `aapp upgrade`. Do not edit them; they are protected paths.
+
+In the kit's own development clone, `aapp develop` adds a third engine, `aapp-pre-commit-develop`, which checks that every verb has a contract and every contract's tests exist ([CONTRIBUTING.md](../../CONTRIBUTING.md)).
+
+### Hooks in linked worktrees
+The planning worktrees (`.plans/`, `.agents/`) and plan worktrees (`.workspace/<id>`) are linked worktrees of one repository, so one set of hooks serves them all:
+- **One root for all:** inside a linked worktree, `git rev-parse --show-toplevel` names that worktree, which has no `.githooks/`. The hooks find the primary checkout through the shared Git directory instead:
+  ```bash
+  COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")"
+  PRIMARY_ROOT="$(cd "$COMMON_DIR/.." 2>/dev/null && pwd || true)"
+  HOOK_DIR="$PRIMARY_ROOT/.githooks"
+  ```
+- **Links:** `aapp init` links `.plans/.githooks` and `.agents/.githooks` to `../.githooks`, so commits made inside those worktrees run the same hooks; plan worktrees link `.githooks`, `.agents`, `.plans` and `.claude` the same way. The links are listed in each worktree's `.gitignore` and never committed.
+
+### Wiring the engine into your own hook
+If your project keeps its own pre-commit hook (or a hook manager such as Husky or Lefthook), call the engine from it **as a subprocess**:
+```bash
+"$(cd "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/.." && pwd)/.githooks/aapp-pre-commit" || exit 1
+```
+- Not with `source`: the engine would share your shell, and its own `exit 0` would end your hook before your other checks run.
+- Not with `exec`: the engine would replace your hook's process, and nothing after it would run.
+- As a subprocess, exit `0` continues your hook, exit `1` stops the commit, and `SKIP_BLAST_RADIUS=1` reaches the engine.
+
+Run the engine first, so a change outside the plan is refused before slower linters start. With several checks, keep one runner and one file per check:
+```text
+.githooks/
+├── pre-commit           # runner: the engine first, then each check, each with `|| exit 1`
+├── aapp-pre-commit      # the kit's engine
+├── lint-perl.pl         # your checks
+├── check-types.py
+└── format.sh
+```
+
+The same call from a hook written in another language:
+```perl
+# Perl
+my $root = `git rev-parse --show-toplevel`; chomp $root;
+system("$root/.githooks/aapp-pre-commit") == 0 or exit 1;
+```
+```python
+# Python
+import subprocess, sys
+root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+res = subprocess.run([f"{root}/.githooks/aapp-pre-commit"])
+if res.returncode != 0:
+    sys.exit(res.returncode)
+```
+```javascript
+// Node.js
+const { execSync } = require('child_process');
+const root = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
+try { execSync(`"${root}/.githooks/aapp-pre-commit"`, { stdio: 'inherit' }); } catch { process.exit(1); }
+```
+```ruby
+# Ruby
+root = `git rev-parse --show-toplevel`.strip
+system("#{root}/.githooks/aapp-pre-commit") || exit(1)
+```
+These use `--show-toplevel`, which is right for hooks run in the primary checkout; use the `--git-common-dir` form above when commits are also made in linked worktrees. Step by step for hook managers: [Husky](../recipes/integrations/husky-git-hooks.md), [Lefthook](../recipes/integrations/lefthook-git-hooks.md), [CI](../recipes/integrations/github-actions-ci.md).
+
+---
+
 ## Adaptive Branch Protection & Repository Topologies
 
 AAPP supports two primary development models, adapting automatically without requiring manual configuration:
@@ -128,14 +195,8 @@ When committing on a protected branch (`main`, `master`, `production`), the pre-
    -> If no dev branch exists: Allow commit (trunk-based fallback).
 ```
 
-### Configuration Options (`git config`)
-You can fine-tune branch protection per-repository or globally:
-
-| Git Config Key | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `aapp.protectStable` | bool | `true` | Set to `false` to disable branch protection entirely. |
-| `aapp.protectedBranches` | string | `"main master production"` | Space-separated list of protected production branches. |
-| `aapp.devBranch` | string | `"develop dev development"` | Space-separated list of candidate development branches; the first one present locally or on a remote is the development branch. Plan worktrees branch from it too. |
+### Settings
+Branch protection is set with `aapp.protectStable`, `aapp.protectedBranches` and `aapp.devBranch`: values and defaults in [Branches, Remote & Sync](../reference/03-configuration-matrix.md#branches-remote--sync).
 
 ### Bypassing Branch Protection
 - **Intentional Release or Hotfix Commit on `main`**:
@@ -174,6 +235,8 @@ AAPP is designed to assist developers, not trap them.
   ```
   Setting `SKIP_BLAST_RADIUS=1` bypasses both CHANGELOG and Blast Radius validation.
 - **No-Plan Grace Period**: If `.plans/current/` has no active markdown blueprints, the pre-commit hook allows all commits, ensuring bootstrapping and free-form human commits are never blocked.
+
+**Settings on this page:** [Branches, Remote & Sync](../reference/03-configuration-matrix.md#branches-remote--sync)
 
 ## 🧭 Continuous Navigation
 - 📖 [Technical Manual](../../MANUAL.md)

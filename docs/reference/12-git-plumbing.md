@@ -56,6 +56,21 @@ git -C .plans push -u plans-remote plans:main   # binds upstream tracking
 git config aapp.remote plans-remote             # default target for aapp push/pull
 ```
 
+### Push, Pull and Sync
+
+```bash
+aapp push [remote] [strategy]   # push every planning worktree; sets upstream tracking on the first push
+aapp pull [remote] [strategy]   # pull every planning worktree, fast-forward only
+aapp sync [remote] [strategy]   # pull, then push
+```
+
+- **Which worktrees:** those in `aapp.syncWorktrees` (default `plans agents githooks`); `.offline` never travels. Git notes travel too when `aapp.notesRemote` is set.
+- **Clean first:** before `pull` or `sync`, every planning worktree must be clean. One with uncommitted changes stops the whole run before any branch is touched, so drafts are never caught in a merge.
+- **Fast-forward only:** pulls run with `--ff-only` (`aapp.pullStrategy`). A worktree that cannot fast-forward stops the pull for you to inspect it there.
+- **Transport:** `builtin` (the kit runs Git itself) or `hook` (an `on-sync` handler does the transport). The strategy comes from the command's argument, else `aapp.syncStrategy`, which `aapp init` sets to `hook` when the committed registry has an `on-sync` handler and to `builtin` otherwise. `hook` without a registered handler is refused, never skipped.
+
+Settings: [Branches, Remote & Sync](03-configuration-matrix.md#branches-remote--sync).
+
 ### Cloning onto a Second Workstation or CI
 
 When cloning a repository on a new machine:
@@ -92,6 +107,8 @@ With `git config aapp.planWorktrees on`, `aapp start` (and `freeze-start`) creat
 - **Base Branch**: Branches off the first candidate development branch (`aapp.devBranch`, e.g. `develop`), falling back to the default branch.
 - **Detached Session**: Runs an optional session command (`aapp.planSession`, e.g. `tmux new-window -c {path} claude`) without blocking the CLI.
 - **Fail-Closed Isolation**: Symlinks `.githooks`, `.agents`, and `.plans` into the worktree; refuses startup if links fail.
+
+**Settings on this page:** [Attribution & Notes](03-configuration-matrix.md#attribution--notes) · [Plans & Worktrees](03-configuration-matrix.md#plans--worktrees) · [Branches, Remote & Sync](03-configuration-matrix.md#branches-remote--sync)
 
 ## 🧭 Continuous Navigation
 - 📖 [Technical Manual](../../MANUAL.md)

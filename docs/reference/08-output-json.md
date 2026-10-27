@@ -382,6 +382,8 @@ The values of `error.code`:
 
 `aapp status json` holds the same envelope, then `overview`, `templates`, `pause`, `shipped`, `issues`, `plans`, `pickup`, `adoption`, `offline` and `next_action`, as the tables above list them.
 
+**Settings on this page:** [Branches, Remote & Sync](03-configuration-matrix.md#branches-remote--sync) · [Status & Output](03-configuration-matrix.md#status--output)
+
 ---
 
 ## 🧭 Continuous Navigation

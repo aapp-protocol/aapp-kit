@@ -220,6 +220,8 @@ Dispatched after worktree synchronization completes with remote.
 | `remote` | string | remote repository name |
 | `worktrees` | list | list of worktrees synchronized |
 
+**Settings on this page:** [Hooks & Plugins](03-configuration-matrix.md#hooks--plugins)
+
 ---
 
 ## 🧭 Continuous Navigation

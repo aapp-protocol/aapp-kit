@@ -87,6 +87,8 @@ Live database tables, architectural roadmaps, and active ledgers belong exclusiv
 
 **Invariant**: `aapp init` and `aapp upgrade` **NEVER** overwrite Tier 3 files. If they already exist, they are preserved untouched.
 
+**Settings on this page:** [Release & Templates](03-configuration-matrix.md#release--templates)
+
 ## 🧭 Continuous Navigation
 - 📖 [Technical Manual](../../MANUAL.md)
 - 🍳 [Cookbook Catalog](../../COOKBOOK.md)

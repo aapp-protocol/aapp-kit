@@ -103,8 +103,9 @@ Automated test scripts or CI/CD pipelines hang when invoking `aapp release` or i
 Some virtual terminals or CI runners allocate a pseudo-TTY (`[ -t 0 ]` evaluates to true), waiting for interactive user input (`read -r`).
 
 ### Resolution
-Redirect standard input from `/dev/null` or pass the non-interactive `--yes` flag:
+Pass the `yes` token, which answers the confirmation, or redirect standard input from `/dev/null`:
 ```bash
+aapp release v1.2.0 yes
 aapp release v1.2.0 < /dev/null
 ```
 
@@ -131,6 +132,30 @@ Or archive the implementing plan using:
 aapp done <plan-id>
 ```
 This automatically relocates the row to the archive ledger and removes it from active tracking.
+
+---
+
+## 7. Aligning Several Plans That Touch the Same Code
+
+### Symptom
+Two or more plans in the Incubator change the same files or the same behaviour, and reviewing each one alone does not show where they conflict.
+
+### Cause
+The planning health check compares Target Files only once plans are `⚡ In Development` (Pair 7, [13. Planning Health](../reference/13-planning-health-engine.md)), and `aapp start` then refuses the second plan. By then the plans are written.
+
+### Resolution
+Find the overlaps early: `aapp plan conflict-check <id> <id>…` compares the Target Files of any plans, drafts included (exit 1 names each shared file), and `aapp plan conflict-free [<id> | <group>]` lists which pending plans can run side by side, or a group's members in waves ([02. CLI Reference](../reference/02-cli-commands-and-verbs.md#aapp-plan)).
+
+Shared files are only half of it: two plans can also disagree on behaviour. To settle that, a local RFC works well. This is a practice for one developer working with several agents, not a protocol rule:
+1. Create `.plans/pickup/<topic>-alignment.md`. `.plans/pickup/` is gitignored, so the RFC stays on your machine.
+2. Each agent **appends** a dated block signed with its agent, vendor and model, and never edits another block; corrections stay beside the claims they answer.
+3. Decisions are recorded only as `USER DECISION` blocks, written from your own words. Agents tend to present their shared view as yours.
+4. Agreement between agents is not evidence: settle claims against the code (`grep`, tests).
+5. Once settled, amend each plan as usual (`aapp refine`), one commit per plan, then delete the RFC. The plans stay the only source of truth.
+
+Teams that need shared or signed-off RFCs can build that as a plugin.
+
+**Settings on this page:** [Commits & Changelog](../reference/03-configuration-matrix.md#commits--changelog)
 
 ---
 

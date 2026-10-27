@@ -79,6 +79,8 @@ AAPP automatically:
 - 🍳 [Recipe: Solo Developer Workflow](../getting-started/solo-developer-workflow.md)
 - 🍳 [Recipe: Worktree Collision Recovery](../troubleshooting/worktree-collision-recovery.md)
 
+**Settings on this page:** [Issues & Fixes](../../reference/03-configuration-matrix.md#issues--fixes)
+
 ## 🧭 Continuous Navigation
 - 🍳 [Cookbook Catalog](../../../COOKBOOK.md)
 - 📖 [Technical Manual](../../../MANUAL.md)

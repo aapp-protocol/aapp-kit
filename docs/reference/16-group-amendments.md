@@ -94,3 +94,12 @@ States move by verbs only; never edit the request lines by hand.
 - `aapp.amendmentApprovalRequired` (`true` by default): with `false`, a file request is `approved (auto)` when made, and a heading correction is recorded with `decision "<heading>" "<reason>"`.
 - The amendments member is archived last: its `done` is refused while another member is in `current/`, or while a request is `pending`, `approved` or `committed`.
 - The write guard and the pre-commit hook enforce the approval: before it, the file is outside the requester's plan; after the amendment commit, it is again.
+
+**Settings on this page:** [Groups & Amendments](03-configuration-matrix.md#groups--amendments)
+
+---
+
+## 🧭 Continuous Navigation
+- 📖 [Technical Manual](../../MANUAL.md)
+- 🍳 [Planning a Plan Group](../recipes/workflows/planning-a-plan-group.md)
+- 💻 [CLI Verb Reference](02-cli-commands-and-verbs.md)

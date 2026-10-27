@@ -106,6 +106,8 @@ The kit runs them after the plugin has exited and the step is over and has relea
 - **Behind its entry point a plugin is its own business.** The file in `.agents/skills/<name>/` is typically a thin caller of a service that lives elsewhere, where the credentials are. Keeping its own state, recognising a step it has already seen, and avoiding a second record when a step is sent again are the plugin's to do, for example by keeping its own hashes of the payloads it has handled. A tracker may create a record even when the kit saw a timeout; the kit does not try to prevent or detect that.
 - **Ad hoc plugins and scripts** are outside this protocol. To the kit they are command-line users like any other, and the command line's own locks and checks are the only safeguard.
 
+**Settings on this page:** [Branches, Remote & Sync](03-configuration-matrix.md#branches-remote--sync) · [Hooks & Plugins](03-configuration-matrix.md#hooks--plugins)
+
 ## 🧭 Continuous Navigation
 - 📖 [Technical Manual](../../MANUAL.md)
 - 🍳 [Cookbook Catalog](../../COOKBOOK.md)

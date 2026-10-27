@@ -163,6 +163,8 @@ If an agent discovers an unexpected bug while executing a frozen plan:
    - **Path B: Blocking**: `aapp issue hotfix "<text>" file <path>…`, one command, then stop.
    - **Path C: Blocking & Substantial**: `aapp issue hotfix "<text>" file <path>… plan` drafts an empty plan linked to the issue instead of queueing a small fix. Stop, present open questions to the human and wait: the design is theirs.
 
+**Settings on this page:** [Issues & Fixes](../reference/03-configuration-matrix.md#issues--fixes)
+
 ## 🧭 Continuous Navigation
 - 📖 [Technical Manual](../../MANUAL.md)
 - 🍳 [Cookbook Catalog](../../COOKBOOK.md)

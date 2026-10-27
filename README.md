@@ -84,6 +84,8 @@ In your agent's chat (Claude Code, Antigravity):
 ```
 `/aapp` loads the rules and prints the briefing. The Onboarding plan maps your project into `.agents/CODEMAP.md` and `ARCHITECTURE.md`; its Blast Radius covers only those files.
 
+The whole path, for an existing repository, a clone of a repository that already uses AAPP, existing hook managers and upgrades: [Adopting an Existing Repository](docs/recipes/getting-started/adopt-existing-repo.md). Every setting: [Configuration Reference](docs/reference/03-configuration-matrix.md).
+
 ---
 
 ## 🔄 The Plan Lifecycle
@@ -119,9 +121,15 @@ Run `aapp init` in a fresh clone: it automatically finds the remote `plans`, `ag
 
 ## 🧪 Platform Support (Help Wanted)
 
-The kit is developed and tested on **Linux** with Claude Code and Antigravity. macOS, Windows (Git Bash), WSL, the BSDs and other agents are untested. A test run report, pass or fail, helps: see [MANUAL.md](MANUAL.md).
+The kit is developed and tested on **Linux** with Claude Code and Antigravity. macOS, Windows (Git Bash), WSL, the BSDs and other agents are untested. A test run report, pass or fail, helps: see [Platform Verification](docs/reference/19-platform-verification.md).
 
 Known risk on Windows: the kit passes Git Bash paths (`/c/Users/…`) to Perl. Git for Windows' own Perl reads them; a native Perl first on `PATH` (Strawberry, ActiveState) does not, and the write guard then refuses every write ("Perl core missing").
+
+---
+
+## 🛠️ Developing the Kit
+
+The kit is built with its own protocol. To set up a development clone (`./aapp develop`), run the test suites and make a change through a plan or an issue, read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -132,6 +140,7 @@ Known risk on Windows: the kit passes Git Bash paths (`/c/Users/…`) to Perl. G
 * 📖 **[MANUAL.md](MANUAL.md)**: core axioms, architecture, and master Diátaxis specification map.
 * 🏛️ **[ARCHITECTURE.md](ARCHITECTURE.md)**: the kit's design decisions.
 * 🧭 **[Documentation Hub](docs/)**: [Concepts](docs/concepts/), [Reference Manuals](docs/reference/), and [Guides](docs/guides/).
+* 🤝 **[CONTRIBUTING.md](CONTRIBUTING.md)**: developing the kit itself.
 
 ---
 
