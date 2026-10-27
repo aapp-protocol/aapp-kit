@@ -29,6 +29,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-136**: [`P136-perl-test-engine-and-mock-repo.md`](current/P136-perl-test-engine-and-mock-repo.md) — Perl Test Engine And Mock Repository Builder
 - 🟣 **P-137**: [`P137-perl-port-documentation-and-manuals.md`](current/P137-perl-port-documentation-and-manuals.md) — Perl Port Documentation And Manuals Overhaul
 - 🟣 **P-138**: [`P138-review-verb-and-skill.md`](current/P138-review-verb-and-skill.md) — Review Verb And Skill
+- 🟣 **P-139**: [`P139-noun-first-plan-commands.md`](current/P139-noun-first-plan-commands.md) — Noun First Plan Commands
 - 🟣 **P-15**: [`P15-adversarial-review-plugin.md`](current/P15-adversarial-review-plugin.md) — ✏️ **SKETCH — do not refine** — Adversarial Review Packet, Layer 6 Agent Egress Boundary & reference review plugin. Settled ground only; blocked on `#64`, `#57`, `#56`.
 
 ---
