@@ -61,12 +61,28 @@ Inventory of what is missing (method, counts, page by page): `.plans/pickup/docs
 
 The freed 17, 18, 19 take the restored pages of §2.3. A page that merges keeps every fact of each copy that is still true; nothing is dropped because it appears only in the copy being removed.
 
-### 2.2 Settings: one catalog, true to the code
-- 03 lists every `aapp.*` key the kit reads (`aapp`, `lib/`, `.githooks`, `templates/`, `scripts/`), each with type, default and effect, the default read from the code, not from older docs. Families with a variable part (`aapp.companion.<name>.*`, `aapp.hook.*`, `aapp.planState.*`, `aapp.docs.*`, `aapp.internal.*`) are one row each, with the part named.
+### 2.2 Settings: one file, grouped by role, true to the code
+- `03-configuration-matrix.md` is the one file for settings: every `aapp.*` key the kit reads (`aapp`, `lib/`, `.githooks`, `templates/`, `scripts/`) is there and nowhere else is a key described in full. 15 keeps only how settings are resolved (`main.conf`, precedence, allowlist, origins) and links to 03 for the keys.
+- Keys are grouped by role, one `##` header per group, so each group has a stable anchor. Starting grouping (the sweep may move a key; every key sits in exactly one group):
+  - **Attribution & notes:** `aiAttribution`, `aiNotes`, `aiNotesGuard`, `aiCredits`, `aiAlias`, `aiAgent`, `aiVendor`, `aiModel`, `notesRemote`, `noteTTL`
+  - **Commits & changelog:** `commitMode`, `changelogMode`, `subjectMaxLen`, `bodyMaxLen`, `maxBodyLines`, `commitLineMaxLen`, `changelogMaxLen`
+  - **Plans & worktrees:** `planId`, `planBranch`, `planWorktrees`, `planWorktreePath`, `planSession`, `planState.*`, `devBranch`, `syncWorktrees`, `templateSync`, `docs.*`, `pickupTitleMax`
+  - **Groups & amendments:** `amendmentApprovalRequired`
+  - **Issues & fixes:** `issueId`, `issueFixWait`, `fixMaxFiles`, `fixMaxLines`, `fixCollision`, `maxEmergencyHotfixes`, `issueArchiveMax`, `issueCacheMax`, `issueSyncWindow`
+  - **Integration, branches & sync:** `integrate`, `integrateTarget`, `integrateCleanup`, `integrateWait`, `autoRebase`, `protectedBranches`, `protectStable`, `pullStrategy`, `syncStrategy`, `remote`
+  - **Write guard:** `allowPath`, `quarantineIgnored`
+  - **Hooks, plugins & governance:** `hook.*`, `hookTimeout`, `pluginTimeout`, `allowLocalHooks`, `governance`, `governanceHandler`, `governanceTimeout`
+  - **Offline:** `offlineEnabled`, `offlineOnly`, `offlineIdOffset`
+  - **Status & output:** `statusItemsMax`, `statusOutputWidth`, `statusTextMax`, `jsonLocalPath`
+  - **Release:** `tagPrefix`, `releaseBranch`, `initialVersion`
+  - **Companion:** `companion.*`
+  - **Tests & logging:** `testCommand`, `perlLogFile`
+  - **Kit-internal (set by verbs, not by hand):** `internal.*` and any key the kit writes for itself
+- Each key: type, default (read from the code, not from older docs), the verbs that read it, and **every possible value explained**: each value of an enum on its own line with what it does; for numbers the unit, the range and what `0` means; for paths and lists the form and an example. Families with a variable part (`companion.<name>.*`, `hook.*`, `planState.*`, `docs.*`) are one entry, with the part named.
+- Every verb description that depends on a setting links to the setting's group in 03 (`03-configuration-matrix.md#<group-anchor>`): in 02, in the other reference pages, in the recipes and in `CHEATSHEET.md`. They name the key and link; they do not restate its values.
 - Settings no code reads are removed from every page: `aapp.allowVendor`, `aapp.branchParity`, `aapp.changelogFile`, `aapp.copilotReview`, `aapp.lastRelease`, `aapp.logFile`, `aapp.notesScope`, `aapp.plansDir`, `aapp.preReleaseGate`, `aapp.releaseBundling`, `aapp.tagLedgerMax`, `aapp.worktreeRoot`.
 - Keys missing today are added: `aapp.aiAgent`, `aapp.aiVendor`, `aapp.aiModel`, `aapp.releaseBranch`, `aapp.amendmentApprovalRequired`, and any other the sweep finds.
-- Environment variables (`AAPP_*`) the kit reads: one table in 03, the same check.
-- Other pages name a setting and link to 03; they do not keep their own tables.
+- Environment variables (`AAPP_*`) the kit reads: their own group in 03, with the same detail and the same check.
 
 ### 2.3 Restore the lost sections
 Each subsection of the old MANUAL that has no equivalent is restored where it belongs, rewritten only where the behaviour changed since (checked against `lib/docs/verbs/*.md`):
@@ -103,7 +119,8 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 
 ### Phase 1: Merge
 - [ ] Task 1.1: Merge 13 + 17, and 14 + 18 + 19 (§2.1); drop `/aapp-commit`.
-- [ ] Task 1.2: Settings: build 03 from the code sweep (§2.2); cut 15 to the hierarchy; remove 16; remove the fictional keys everywhere.
+- [ ] Task 1.2: Settings: build 03 from the code sweep, grouped by role with every value explained (§2.2); cut 15 to the hierarchy; remove 16; remove the fictional keys everywhere.
+- [ ] Task 1.4: Link every setting a verb description names to its group in 03 (§2.2), across 02, the reference pages, the recipes and `CHEATSHEET.md`.
 - [ ] Task 1.3: Move `20-group-amendments.md` to 16.
 
 ### Phase 2: Restore
@@ -179,7 +196,7 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** Should a test keep the docs complete from now on (every key the code reads is in 03, every key in 03 is read; every verb form is in 02), so the next split or rewrite cannot lose them silently? If yes: a bash suite next to `tests/doc_links_test.sh` now, or a `t/` file after P-136's engine reshape.
+* [x] **Question 1:** Should a test keep the docs complete from now on? **Answer:** not in this plan; a check comes after the Perl port. Until then the sweep of Task 3.1 is the check.
 
 ---
 
