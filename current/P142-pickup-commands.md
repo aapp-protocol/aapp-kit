@@ -57,7 +57,7 @@ A member of group P-140 (noun-first commands). Pickup ideas have no noun today: 
 - One parser (`AAPP::Pickup::Line`) serves every reader: the pickup words, `status`, `draft`, the health checks.
 
 ### 2.1a Modules (one per word, group P-140 §2)
-`lib/AAPP/Cmd/Pickup.pm` dispatches; `lib/AAPP/Pickup/List.pm`, `Add.pm`, `Edit.pm`, `Delete.pm`, `Commit.pm` each run one word; `lib/AAPP/Pickup/Line.pm` holds what they share: parse and write a line, the checks of §2.1, find a line by title, delete an idea's file.
+The central dispatcher (`AAPP::Runner`, built by P-138) runs `aapp pickup <word>`; `lib/AAPP/Pickup/List.pm`, `Add.pm`, `Edit.pm`, `Delete.pm`, `Commit.pm` each run one word through their one public sub, `run`. `lib/AAPP/Pickup/Line.pm` (shared, listed as such at the top of `AAPP::Runner`) holds what they share: parse and write a line, the checks of §2.1, find a line by title, delete an idea's file.
 
 ### 2.2 Commands
 | Command | Effect |
