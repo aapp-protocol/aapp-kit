@@ -2,7 +2,7 @@
 * **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-142
-* **Changelog:** Added: `aapp pickup list | add | edit | refine` and a three-field pickup line (`Title : file : description`) for listing and editing ideas from the CLI or a web view
+* **Changelog:** Added: `aapp pickup list | add | edit | delete | refine` and a three-field pickup line (`Title : file : description`) for listing and editing ideas from the CLI or a web view
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -62,9 +62,10 @@ A member of group P-140 (noun-first commands). Pickup ideas have no noun today: 
 | `aapp pickup list [json]` | every open idea in file order: title, file (`file_missing` when absent), description |
 | `aapp pickup add "<title>" "<description>" [file <name>]` | writes the line and commits it (`refine pickup` is no longer needed for a new idea) |
 | `aapp pickup edit "<title>" [title "<new>"] [file <name> \| file none] [text "<description>"]` | changes the named fields of that line and commits |
+| `aapp pickup delete "<title>"` | removes that line and commits; its file in `.plans/pickup/` stays (local, may be named by other ideas) |
 | `aapp pickup refine "<msg>"` | commits a hand edit of `pickup.md` after checking every line (`aapp refine pickup` leaves the kit) |
 
-Refusals (exit 1, nothing written): a title with a colon, empty, too long or already used; a file name with `/` or a colon, or not in `.plans/pickup/`; an empty description, or one with a line break (in any field); `edit` of a title that is not there; `refine` with a malformed line (each named).
+Refusals (exit 1, nothing written): a title with a colon, empty, too long or already used; a file name with `/` or a colon, or not in `.plans/pickup/`; an empty description, or one with a line break (in any field); `edit` or `delete` of a title that is not there; `refine` with a malformed line (each named).
 
 ### 2.3 Conversion
 `.plans/pickup.md` is converted once to the three-field line (title, file named in today's text when it is one in `pickup/`, else empty, description); the old `<title>: <text>` form leaves every parser. `templates/pickup.md`, `templates/AGENTS.md` (the pickup rule) and the digest skill show the new line.
