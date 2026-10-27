@@ -121,5 +121,6 @@ After `aapp plan` the subcommand words above are reserved; a plan whose slug equ
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-27:** File renamed from P139-noun-first-plan-commands.md to P139-plan-command-dispatcher.md.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-27:** Drafted with the verb conversion; details come in refinement.
