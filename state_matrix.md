@@ -29,7 +29,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-136**: [`P136-perl-test-engine-and-mock-repo.md`](current/P136-perl-test-engine-and-mock-repo.md) — Perl Test Engine And Mock Repository Builder
 - 🟣 **P-137**: [`P137-perl-port-documentation-and-manuals.md`](current/P137-perl-port-documentation-and-manuals.md) — Perl Port Documentation And Manuals Overhaul
 - 🟣 **P-138**: [`P138-review-verb-and-skill.md`](current/P138-review-verb-and-skill.md) — Review Verb And Skill
-- 🟣 **P-139**: [`P139-plan-command-dispatcher.md`](current/P139-plan-command-dispatcher.md) — Noun First Plan Commands
+- 🟣 **P-139**: [`P139-plan-noun.md`](current/P139-plan-noun.md) — Noun First Plan Commands
 - 🟣 **P-140**: [`P140-noun-first-plan-commands.md`](current/P140-noun-first-plan-commands.md) — 🧩 Group Plan P-140: Noun First Plan Commands
 - 🟣 **P-141**: [`P141-noun-first-plan-commands-amendments.md`](current/P141-noun-first-plan-commands-amendments.md) — Noun First Plan Commands Amendments
 - 🟣 **P-142**: [`P142-pickup-commands.md`](current/P142-pickup-commands.md) — Pickup Commands
