@@ -113,6 +113,9 @@ Every CLI command lives under `lib/AAPP/Runner/`, every other module stays a sin
 ## 🔨 3. Implementation Steps & Execution Checklist
 *Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
+### Phase 0: The CLI hierarchy for the whole port
+- [ ] Task 0.1: From this plan's worktree, request the group decision: `aapp refine P-112 request "CLI hierarchy for every ported command: everything that is a CLI command lives under lib/AAPP/Runner/ (top-level verbs Runner/<Verb>.pm; nouns plan, issue, review, pickup as Runner/<Noun>.pm with words in Runner/<Noun>/<Word>.pm), each with one public sub run; AAPP::Runner reads one parameter per layer and maps today's verb names to the new modules until P-140 renames the commands; all other modules stay single modules in lib/AAPP/; no lib/AAPP/Cmd/" heading "2. Shared Decisions"`. Once approved, the P-112 session writes it into P-111 §2 and aligns the members that name `lib/AAPP/Cmd/` (P-117–P-121, P-130, P-131, P-134, P-125, P-135) before any of them starts.
+
 ### Phase 1: Contract and failing tests
 - [ ] Task 1.1: Write `lib/docs/verbs/review.md` (syntax, refusals of §2.4, effects, one test line each) and the `review` row in `lib/verbs.tsv`.
 - [ ] Task 1.2: Write `t/verb/review.t` from the contract lines, failing first.
