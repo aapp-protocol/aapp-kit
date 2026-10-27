@@ -77,8 +77,6 @@ No changes.
 
 ## ❓ 5. Open Questions (Optional / Gate)
 * [ ] **Question 1:** `aapp refine pickup "<msg>"` does not act on a plan: where does it go (`aapp pickup …`, or another noun)?
-* [ ] **Question 2:** `aapp plan [query]` today takes a positional query; does the bare switchboard keep a query, and how is it told apart from a subcommand?
-
 ---
 
 ## 📦 6. Change Log & Refinement History
