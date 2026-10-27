@@ -148,11 +148,11 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 - [x] Task 2.5: Developing: `CONTRIBUTING.md`, and README's "Developing the Kit" section linking it (§2.6).
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Sweep again (the inventory's method): every subsection of the old MANUAL and the old README is restored or named in §6 as removed behaviour; every key the code reads is in 03 and every key in the docs is read by the code; every token of every `aapp help <verb>` usage line is in 02.
-- [ ] Task 3.2: Links (§2.5): `MANUAL.md` map, `README.md`, `CHEATSHEET.md`, `COOKBOOK.md`, `lib/adoption.sh`; `tests/doc_links_test.sh` and `./aapp test` pass.
-- [ ] Task 3.3: `ARCHITECTURE.md` and `.agents/CODEMAP.md`: no change expected (docs only); confirm.
-- [ ] Task 3.4: Verify the `CHANGELOG.md` entry.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
+- [x] Task 3.1: Sweep again (the inventory's method): every subsection of the old MANUAL and the old README is restored or named in §6 as removed behaviour; every key the code reads is in 03 and every key in the docs is read by the code; every token of every `aapp help <verb>` usage line is in 02.
+- [x] Task 3.2: Links (§2.5): `MANUAL.md` map, `README.md`, `CHEATSHEET.md`, `COOKBOOK.md`, `lib/adoption.sh`; `tests/doc_links_test.sh` and `./aapp test` pass.
+- [x] Task 3.3: `ARCHITECTURE.md` and `.agents/CODEMAP.md`: no change expected (docs only); confirm.
+- [x] Task 3.4: Verify the `CHANGELOG.md` entry.
+- [x] Task 3.5: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
@@ -235,3 +235,4 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 * **2026-10-27:** Drafted from the docs loss inventory; numbering, settings rule and restore map settled in chat.
 * **2026-10-27:** Tasks 1.1–1.3: page 13 rebuilt from `lib/planning_health.sh` (it described a non-existent `aapp doctor`); 14 lists the 11 skills plus `/plan` (`aapp-hooks` holds only the registry). `aapp.logFile` and `AAPP_LOG_FILE` are real: the event-logger sample reads them, so 03 lists them with the other sample settings. Also gone as fictional: `AAPP_NON_INTERACTIVE`, `AAPP_TEST_ROOT`, `AAPP_TEST_FAIL_AT`; `aapp.governance*` are accepted in `main.conf` only, with no effect yet. The link test is `t/core/doc_links.t` (the plan names the retired `tests/doc_links_test.sh`).
 * **2026-10-27:** Tasks 2.1, 2.2, 2.4, 2.5. Old README §5 (branch topologies) was already in `docs/concepts/02-blast-radius-engine.md`, so page 10 did not change; the hook layout, linked-worktree dispatch and wiring went to concepts/02, the test isolation to `CONTRIBUTING.md`. Corrected while restoring: inspection-only applies to a checkout whose kit was removed, not to a fresh clone (no hooks before `aapp init`); `aapp install` deletes the clone it runs from unless named `aapp-develop-kit`/`agent-planning-kit`; the CI recipe ran the kit's own `./aapp` and tests and used `matrix --check`; troubleshooting named a `--yes` flag (the token is `yes`).
+* **2026-10-27:** Phase 3. Sweep: every subsection of the old MANUAL and README is restored or rewritten; the old terms still unmatched are reworded text, retired slash aliases and kit internals. Restored late from the old Command Reference: pause safety rules, release phases and hooks, matrix behaviour, test-file write access; all shipped samples listed in 04. Settings match both ways (`aapp.governance*` only in 15, accepted with no effect; `aapp.internal` is a test email domain). Every usage token is in 02. `t/test-run` 26/26 (one planned skip waiting for P-116), `./aapp test` 38/38. ARCHITECTURE.md and CODEMAP.md link only unchanged pages. Logged: #196 (`done` ignores unticked §3), #197 (`init` mounts only from origin), #198 (`help` lists no tokens for verbs without a contract).
