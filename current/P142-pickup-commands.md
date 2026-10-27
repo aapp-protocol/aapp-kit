@@ -62,13 +62,13 @@ The CLI hierarchy (`AAPP::Runner`, built by P-138) reads `pickup` and calls `AAP
 ### 2.2 Commands
 | Command | Effect |
 |---|---|
-| `aapp pickup list [json]` | every open idea in file order: title, file (`file_missing` when absent), description |
+| `aapp pickup list [<n> | all] [json]` | open ideas in file order: title, file (`file_missing` when absent), description. At most 20 by default, as `aapp issue list`, through the same cap reader and default (one implementation, shared): a bare `<n>` sets the cap, `all` removes it; the output ends with how many were shown of how many (`json`: `shown`, `total`) |
 | `aapp pickup add "<title>" "<file>" "<description>"` | writes the line and commits it; arguments in the line's order; `""` as file: no file |
 | `aapp pickup edit "<title>" "<new title>" "<file>" "<description>"` | changes that line and commits; arguments in the line's order after the key; `""` keeps a field as it is; `none` as file removes it from the line and deletes it from `.plans/pickup/`; a new file name in place of an old one deletes the old file; each deleted file is named in the output |
 | `aapp pickup delete "<title>"` | removes that line and commits, and deletes its file from `.plans/pickup/`, naming it (the folder is not in Git: the file cannot be recovered) |
 | `aapp pickup commit "<msg>"` | commits a hand edit of `pickup.md` after checking every line (`aapp refine pickup` leaves the kit) |
 
-Refusals (exit 1, nothing written): `add` with an empty title or an empty description (both mandatory; the file may be `""`); `edit` with every field `""` (at least one field must change); a title with a colon, too long or already used; a file name with `/` or a colon, not in `.plans/pickup/`, or already named by another idea; a line break in any field; `edit` or `delete` of a title that is not there; `add` or `edit` without all its arguments; `commit` with a malformed line (each named).
+Refusals (exit 1, nothing written): `add` with an empty title or an empty description (both mandatory; the file may be `""`); `edit` with every field `""` (at least one field must change); a title with a colon, too long or already used; a file name with `/` or a colon, not in `.plans/pickup/`, or already named by another idea; a line break in any field; `edit` or `delete` of a title that is not there; `add` or `edit` without all its arguments; `commit` with a malformed line (each named); `list` with a cap that is not a whole number of at least 1.
 
 ### 2.3 Conversion
 `.plans/pickup.md` is converted once to the three-field line (title, file named in today's text when it is one in `pickup/`, else empty, description); the old `<title>: <text>` form leaves every parser. `templates/pickup.md`, `templates/AGENTS.md` (the pickup rule) and the digest skill show the new line.
