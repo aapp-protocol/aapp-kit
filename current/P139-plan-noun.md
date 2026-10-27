@@ -2,7 +2,7 @@
 * **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-139
-* **Changelog:** Added: the `plan` noun: `aapp plan <word>` runs `lib/AAPP/Plan/<Word>.pm`, and the bare `aapp plan` is the switchboard
+* **Changelog:** Added: the `plan` noun: `aapp plan <word>` runs `lib/AAPP/Runner/Plan/<Word>.pm`, and the bare `aapp plan` is the switchboard
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,14 +40,14 @@
 ---
 
 ## 1. Context & Architectural Goal
-The foundation member of group P-140 (noun-first plan commands): the `plan` noun on the central dispatcher that P-138 builds in `AAPP::Runner`. Every `aapp plan <word>` then runs `lib/AAPP/Plan/<Word>.pm`. The verb conversion, the module rules and the reserved words are the group's §2 Shared Decisions; this plan adds what is specific to `plan` and moves no verb itself.
+The foundation member of group P-140 (noun-first plan commands): the `plan` noun in the CLI hierarchy that P-138 builds under `AAPP::Runner`. Every `aapp plan <word>` then runs `lib/AAPP/Runner/Plan/<Word>.pm`. The verb conversion, the module rules and the reserved words are the group's §2 Shared Decisions; this plan adds what is specific to `plan` and moves no verb itself.
 
 ---
 
 ## 2. Technical Blueprint
 
-- `lib/AAPP/Plan/`: the noun's folder; each word a module with one public `run` (group P-140 §2). Words land one member at a time; until a word's file exists, the central dispatcher refuses it as unknown, naming the words that exist.
-- The bare `aapp plan` runs the switchboard, `AAPP::Plan::Switchboard` (a shared module, listed as such at the top of `AAPP::Runner`); `AAPP::Runner` runs a noun's `Switchboard` when the noun is given without a word, and lists the noun's words when it has none.
+- `lib/AAPP/Runner/Plan.pm` (`AAPP::Runner::Plan`): the noun's layer. Its `run` reads one parameter, the word, and calls `AAPP::Runner::Plan::<Word>->run(@rest)` through the delegate step in `AAPP::Runner`; with no word it prints the switchboard.
+- `lib/AAPP/Runner/Plan/`: the words, each a module with one public `run` (group P-140 §2). Words land one member at a time; until a word's file exists, the delegate step refuses it as unknown, naming the words that exist.
 - Reserved words: a plan whose slug equals a word of `plan` is named by its id (`P-<n>`); the plan resolver refuses such a slug with that hint.
 - Details come in refinement.
 
