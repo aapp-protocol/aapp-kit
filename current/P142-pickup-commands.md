@@ -1,8 +1,8 @@
 # 🗺️ Plan P-142: Pickup Commands
 * **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-142
-* **Changelog:** Changed: Pickup Commands
+* **Changelog:** Added: `aapp pickup list | add | edit | refine` and a three-field pickup line (`Title : file : description`) for listing and editing ideas from the CLI or a web view
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,12 +40,34 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+A member of group P-140 (noun-first commands). Pickup ideas have no noun today: `aapp status` lists the first five, the rest are read in `.plans/pickup.md`, ideas are added by hand and committed with `aapp refine pickup`. A web view and agents need to list every idea and edit one by a stable key. This plan gives pickup its own noun, `aapp pickup`, and one line format that splits without guessing.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 The line
+```
+- [ ] <Title> : <file> : <description>
+```
+- Three fields, split on the first two colons by position (`index` / `substr`, no regex); spaces around a field are trimmed. Everything after the second colon is the description, kept as written: it may hold colons, URLs and repository paths.
+- **Title:** required, no colon, unique in the file (it is the key for `edit`); at most `aapp.pickupTitleMax` characters.
+- **File:** a plain file name in `.plans/pickup/` (no `/`, no colon) holding more detail, which may link anywhere; empty when there is none (`- [ ] Title :  : description`). `pickup/` is local and ignored: `add` / `edit` check the file exists; `list` shows a missing one as `file_missing`, never refuses.
+- **Description:** free text, required.
+- One parser (`AAPP::Pickup::Line`) serves every reader: `list`, `status`, `draft`, the health checks.
+
+### 2.2 Commands
+| Command | Effect |
+|---|---|
+| `aapp pickup list [json]` | every open idea in file order: title, file (`file_missing` when absent), description |
+| `aapp pickup add "<title>" "<description>" [file <name>]` | writes the line and commits it (`refine pickup` is no longer needed for a new idea) |
+| `aapp pickup edit "<title>" [title "<new>"] [file <name> \| file none] [text "<description>"]` | changes the named fields of that line and commits |
+| `aapp pickup refine "<msg>"` | commits a hand edit of `pickup.md` after checking every line (`aapp refine pickup` leaves the kit) |
+
+Refusals (exit 1, nothing written): a title with a colon, empty, too long or already used; a file name with `/` or a colon, or not in `.plans/pickup/`; an empty description; `edit` of a title that is not there; `refine` with a malformed line (each named).
+
+### 2.3 Conversion
+`.plans/pickup.md` is converted once to the three-field line (title, file named in today's text when it is one in `pickup/`, else empty, description); the old `<title>: <text>` form leaves every parser. `templates/pickup.md`, `templates/AGENTS.md` (the pickup rule) and the digest skill show the new line.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -81,23 +103,19 @@
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+*(Details come in refinement. Today's readers of the line: `lib/AAPP/Text.pm`, `lib/AAPP/Health.pm`, and in bash `lib/aapp-lib.sh`, `lib/cmd_plan.sh`, `lib/cmd_status.sh`, `lib/planning_health.sh`; contracts `lib/docs/verbs/draft.md`, `lib/docs/verbs/refine.md`, `lib/docs/core/aapp_lib.md`; `templates/pickup.md`, `templates/AGENTS.md`.)*
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None yet — details come in refinement.)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-27:** Plan initialized from `pickup.md`.
-* **2026-10-27:** Refined blast radius and locked module boundaries.
+* **2026-10-27:** Drafted as the pickup member of P-140; line format and commands settled in chat.
