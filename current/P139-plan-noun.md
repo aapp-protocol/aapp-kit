@@ -1,8 +1,8 @@
-# 🗺️ Plan P-139: Plan Command Dispatcher
+# 🗺️ Plan P-139: Plan Noun
 * **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-139
-* **Changelog:** Added: `aapp plan` dispatches its subcommands to `lib/AAPP/Plan/` modules; the bare `aapp plan` is the switchboard
+* **Changelog:** Added: the `plan` noun: `aapp plan <word>` runs `lib/AAPP/Plan/<Word>.pm`, and the bare `aapp plan` is the switchboard
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,15 +40,15 @@
 ---
 
 ## 1. Context & Architectural Goal
-The foundation member of group P-140 (noun-first plan commands): `AAPP::Cmd::Plan`, the one entry point every `aapp plan <subcommand>` passes through. It reads the subcommand word, refuses an unknown one, and hands the remaining tokens to that subcommand's module under `lib/AAPP/Plan/`. The verb conversion, the module names and the reserved words are the group's §2 Shared Decisions; this plan builds the dispatch they rely on and moves no verb itself.
+The foundation member of group P-140 (noun-first plan commands): the `plan` noun on the central dispatcher that P-138 builds in `AAPP::Runner`. Every `aapp plan <word>` then runs `lib/AAPP/Plan/<Word>.pm`. The verb conversion, the module rules and the reserved words are the group's §2 Shared Decisions; this plan adds what is specific to `plan` and moves no verb itself.
 
 ---
 
 ## 2. Technical Blueprint
 
-- `lib/AAPP/Cmd/Plan.pm`: reads the first token. A reserved subcommand word (group P-140 §2) dispatches to `lib/AAPP/Plan/<Word>.pm` (`AAPP::Plan::<Word>->run(@rest)`; a hyphenated word joins its parts, `freeze-start` → `FreezeStart`), one module per word; no token prints the switchboard; any other word is refused, listing the subcommands.
-- A subcommand whose module has not landed yet is refused by name (`<subcommand>: not available yet`), so members can land one at a time.
-- The subcommand list is one table at the top of `AAPP::Cmd::Plan`; `aapp help plan` reads it.
+- `lib/AAPP/Plan/`: the noun's folder; each word a module with one public `run` (group P-140 §2). Words land one member at a time; until a word's file exists, the central dispatcher refuses it as unknown, naming the words that exist.
+- The bare `aapp plan` runs the switchboard, `AAPP::Plan::Switchboard` (a shared module, listed as such at the top of `AAPP::Runner`); `AAPP::Runner` runs a noun's `Switchboard` when the noun is given without a word, and lists the noun's words when it has none.
+- Reserved words: a plan whose slug equals a word of `plan` is named by its id (`P-<n>`); the plan resolver refuses such a slug with that hint.
 - Details come in refinement.
 
 ### 🔄 Migration & Compatibility Strategy
