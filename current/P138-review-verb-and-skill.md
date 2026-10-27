@@ -44,7 +44,7 @@ Reviews of important plans run today through hand-made files in `.plans/pickup/`
 - **Design** (plan 🟣/📝): the plan's RFC, drafted from a template with the sections every RFC so far has used.
 - **Implementation** (plan ⚡): signed findings in the plan's §7, answered by the implementer's follow-up fixes in §8, checked before `done`.
 
-One verb per noun keeps the meaning plain for people and agents (no overloading of `refine`). The logic lives in `lib/AAPP/Review/`, one module per concern, so the noun-first CLI planned after the port (`aapp plan …`) does not touch it. A richer review workflow can come later as a plugin (P-15 after the port).
+One verb per noun keeps the meaning plain for people and agents (no overloading of `refine`). The logic lives in `lib/AAPP/Review/`, one module per word, so the noun-first CLI planned after the port (`aapp plan …`) does not touch it. A richer review workflow can come later as a plugin (P-15 after the port).
 
 ---
 
@@ -61,7 +61,7 @@ One verb per noun keeps the meaning plain for people and agents (no overloading 
 | `aapp review fix decline <id> F<n> "<reason>"` | the plan's own checkout | the finding becomes `declined: <reason>`; no task |
 | `aapp review check <id>` | any checkout | read only: exit 0 when the plan has no §7, or every finding is `done` / `declined` and every §8 task is ticked; else exit 1, listing each open finding and unticked task |
 
-**The `done` gate until the Perl `done` (P-119):** the repository's `pre-done` gate, `.agents/hooks/test-gate.sh`, runs `aapp review check <plan_id>` (the id from the event envelope) before its `TEST_CMD`, so `done` refuses open findings now, with no change to the bash `done`. The edited gate is re-registered with `aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`. P-119 then calls `AAPP::Review::Fixes::gate` from the Perl `done`, and the gate line goes; P-118 shows `fixes x/y` in `status`; P-119's `draft` calls `AAPP::Review::Rfc::link`. Those lines reach P-118 and P-119 through P-112 requests.
+**The `done` gate until the Perl `done` (P-119):** the repository's `pre-done` gate, `.agents/hooks/test-gate.sh`, runs `aapp review check <plan_id>` (the id from the event envelope) before its `TEST_CMD`, so `done` refuses open findings now, with no change to the bash `done`. The edited gate is re-registered with `aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`. P-119 then calls `AAPP::Review::Ledger::gate` from the Perl `done`, and the gate line goes; P-118 shows `fixes x/y` in `status`; P-119's `draft` calls `AAPP::Review::Rfc::link`. Those lines reach P-118 and P-119 through P-112 requests.
 
 Every form refuses with nothing written when its preconditions fail (§2.4). `flag` and `fix` commit once through `AAPP::CommitEngine::plans_commit`; `draft` writes a local file only.
 
@@ -90,10 +90,10 @@ The skill reads the Status and runs the matching review; the verb enforces it.
 The five sections the RFCs in `.plans/pickup/` already share: `## 1. Scope & Question`, `## 2. Current State`, `## 3. Findings Log (append-only, signed; never edit another block)`, `## 4. User Decisions (recorded only from the user's own words)`, `## 5. Carried Into Plans`; the header names the plan (or the pickup topic) and the date. Signed block heading: `### <date> — <agent> (<vendor>, <model>) — <subject>`.
 
 ### 2.6 Modules
-- `lib/AAPP/Cmd/Review.pm`: token parsing only, calls the modules below (the first `AAPP::Cmd::*` verb; the dispatcher already routes `aapp review` to it once the file exists).
-- `lib/AAPP/Review/Rfc.pm`: `draft`.
-- `lib/AAPP/Review/Findings.pm`: §7 parse, number, append, state change.
-- `lib/AAPP/Review/Fixes.pm`: §8 parse, append, tick, the amendment check; `counts($plan)` (`fixes <done>/<total>`) and `gate($plan)` (open findings, unticked tasks) for `status` and `done`.
+The module is the word after the noun (as group P-140 decides for every noun): one file per word, shared code in modules named for what they are.
+- `lib/AAPP/Cmd/Review.pm`: reads the word and dispatches only (the first `AAPP::Cmd::*` verb; the dispatcher already routes `aapp review` to it once the file exists).
+- Words: `lib/AAPP/Review/Draft.pm` (`review draft`), `Flag.pm` (`review flag`), `Fix.pm` (`review fix`, `fix done`, `fix decline`), `Check.pm` (`review check`).
+- Shared: `lib/AAPP/Review/Rfc.pm`, the RFC file (create from the template, `link` a plan drafted from it); `lib/AAPP/Review/Ledger.pm`, a plan's §7/§8 (parse, number, append, state change, tick, the amendment check, `counts($plan)` for `fixes <done>/<total>`, `gate($plan)` for open findings and unticked tasks).
 - Plan lookup, sections, fields, ownership, commits and paths come from `AAPP::State`, `AAPP::CommitEngine` and `AAPP::Paths`; no module rebuilds them.
 
 ### 2.7 Telemetry
@@ -114,12 +114,12 @@ The five sections the RFCs in `.plans/pickup/` already share: `## 1. Scope & Que
 - [ ] Task 1.2: Write `t/verb/review.t` from the contract lines, failing first.
 
 ### Phase 2: Modules and verb
-- [ ] Task 2.1: `templates/rfc-template.md` and `AAPP::Review::Rfc` (`review draft <id>` / `<slug>`, and `link` for a plan drafted from the topic).
-- [ ] Task 2.2: `AAPP::Review::Findings` (`review flag`).
-- [ ] Task 2.3: `AAPP::Review::Fixes` (`review fix <id> F<n> "<task>"`, `review fix done <id> F<n>`, `review fix decline <id> F<n> "<reason>"`, the amendment check, `counts`, `gate`).
+- [ ] Task 2.1: `templates/rfc-template.md`, `AAPP::Review::Rfc` (create, `link`) and `AAPP::Review::Draft` (`review draft <id>` / `<slug>`).
+- [ ] Task 2.2: `AAPP::Review::Ledger` (§7/§8, the amendment check, `counts`, `gate`) and `AAPP::Review::Flag` (`review flag`).
+- [ ] Task 2.3: `AAPP::Review::Fix` (`review fix <id> F<n> "<task>"`, `review fix done <id> F<n>`, `review fix decline <id> F<n> "<reason>"`) and `AAPP::Review::Check` (`review check`).
 - [ ] Task 2.4: `AAPP::Cmd::Review` (token parsing, refusals, `review check`, `log_event`); add the review events to the logging spec.
 - [ ] Task 2.5: `.agents/hooks/test-gate.sh` runs `aapp review check <plan_id>` before `TEST_CMD`; ask the developer to re-register it (`aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`).
-- [ ] Task 2.6: Request through P-112 the lines for P-118 (`fixes x/y` in `status`) and P-119 (`done` calls `AAPP::Review::Fixes::gate` and the gate line in `test-gate.sh` goes; `draft` calls `AAPP::Review::Rfc::link`).
+- [ ] Task 2.6: Request through P-112 the lines for P-118 (`fixes x/y` in `status`) and P-119 (`done` calls `AAPP::Review::Ledger::gate` and the gate line in `test-gate.sh` goes; `draft` calls `AAPP::Review::Rfc::link`).
 
 ### Phase 3: Skill, templates and docs
 - [ ] Task 3.1: `templates/skills/aapp-review/SKILL.md`: reads the plan's Status, runs a design review through its RFC or an implementation review through `review flag`; never opens amendment requests.
@@ -141,9 +141,12 @@ The five sections the RFCs in `.plans/pickup/` already share: `## 1. Scope & Que
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `NEW FILE` -> `lib/AAPP/Cmd/Review.pm` -> `aapp review` token parsing and refusals.
-- [ ] `NEW FILE` -> `lib/AAPP/Review/Rfc.pm` -> `review draft`: the RFC from the template; `link` of a plan drafted from it.
-- [ ] `NEW FILE` -> `lib/AAPP/Review/Findings.pm` -> §7 findings.
-- [ ] `NEW FILE` -> `lib/AAPP/Review/Fixes.pm` -> §8 fixes, amendment check, `counts`, `gate`.
+- [ ] `NEW FILE` -> `lib/AAPP/Review/Draft.pm` -> `review draft`.
+- [ ] `NEW FILE` -> `lib/AAPP/Review/Flag.pm` -> `review flag`.
+- [ ] `NEW FILE` -> `lib/AAPP/Review/Fix.pm` -> `review fix`, `fix done`, `fix decline`.
+- [ ] `NEW FILE` -> `lib/AAPP/Review/Check.pm` -> `review check`.
+- [ ] `NEW FILE` -> `lib/AAPP/Review/Rfc.pm` -> Shared: the RFC file from the template; `link` of a plan drafted from it.
+- [ ] `NEW FILE` -> `lib/AAPP/Review/Ledger.pm` -> Shared: §7/§8, amendment check, `counts`, `gate`.
 - [ ] `NEW FILE` -> `templates/rfc-template.md` -> The RFC's five sections and rules.
 - [ ] `NEW FILE` -> `templates/skills/aapp-review/SKILL.md` -> The `/aapp-review <id>` skill.
 - [ ] `NEW FILE` -> `lib/docs/verbs/review.md` -> The verb's contract.
