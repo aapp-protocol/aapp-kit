@@ -1,8 +1,8 @@
-# 🗺️ Plan P-139: Noun First Plan Commands
+# 🗺️ Plan P-139: Plan Command Dispatcher
 * **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-139
-* **Changelog:** Changed: plan lifecycle commands move under `aapp plan` (`aapp plan draft`, `aapp plan refine`, `aapp plan freeze`, …); the old top-level verbs are removed
+* **Changelog:** Added: `aapp plan` dispatches its subcommands to `lib/AAPP/Plan/` modules; the bare `aapp plan` is the switchboard
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -10,6 +10,7 @@
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
 * **Status:** 🟣 Under Review
 * **Base:** none
+* **Group:** P-140
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
@@ -39,34 +40,16 @@
 ---
 
 ## 1. Context & Architectural Goal
-The CLI becomes noun-first, as `aapp issue …` already is: every command that acts on a plan moves under `aapp plan`, so a person or agent finds the plan commands in one place and each subcommand says exactly what it does. The logic lives in one module per subcommand under `lib/AAPP/Plan/`, with `AAPP::Cmd::Plan` parsing tokens only. Starts after the Perl port (group P-111) is done. Clean break: the old top-level verbs leave the kit (no aliases).
+The foundation member of group P-140 (noun-first plan commands): `AAPP::Cmd::Plan`, the one entry point every `aapp plan <subcommand>` passes through. It reads the subcommand word, refuses an unknown one, and hands the remaining tokens to that subcommand's module under `lib/AAPP/Plan/`. The verb conversion, the module names and the reserved words are the group's §2 Shared Decisions; this plan builds the dispatch they rely on and moves no verb itself.
 
 ---
 
 ## 2. Technical Blueprint
 
-### 2.1 Verb conversion
-| Today | After | Module |
-|---|---|---|
-| `aapp draft [slug] [issue <num> \| group [<id>]]` | `aapp plan draft …` | `AAPP::Plan::Draft` |
-| `aapp refine <id> "<msg>"` and its plan tokens (`blocked`, `unblocked`, `slug`, `closes`, `group`) | `aapp plan refine <id> …` | `AAPP::Plan::Refine` |
-| `aapp refine <amend-id> request \| approve \| refuse \| decision …` | `aapp plan amend request \| approve \| refuse \| decision …` | `AAPP::Plan::Amend` |
-| `aapp tdd <id>` | `aapp plan tdd <id>` | `AAPP::Plan::Tdd` |
-| `aapp freeze <id>` | `aapp plan freeze <id>` | `AAPP::Plan::Freeze` |
-| `aapp start <id>` | `aapp plan start <id>` | `AAPP::Plan::Start` |
-| `aapp freeze-start <id>` | `aapp plan freeze-start <id>` | `AAPP::Plan::Freeze` + `AAPP::Plan::Start` |
-| `aapp done <id>` | `aapp plan done <id>` | `AAPP::Plan::Done` |
-| `aapp active [<id> \| clear]` | `aapp plan active [<id> \| clear]` | `AAPP::Plan::Active` |
-| `aapp plan-status [<id>]` | `aapp plan status [<id>]` | `AAPP::Plan::Status` |
-| `aapp matrix [check]` | `aapp plan matrix [check]` | `AAPP::Plan::Matrix` |
-| `aapp plan abort <id> …` | unchanged | `AAPP::Plan::Abort` |
-| `aapp plan conflict-check \| conflict-free …` | unchanged | `AAPP::Plan::Conflict` |
-| `aapp plan [query]` | `aapp plan` (bare: the switchboard) | `AAPP::Cmd::Plan` |
-
-Unchanged: `status` (all four pillars), `commit` (code), `review` (P-138), `issue`, `note`, `ai`, `offline`, `companion`, `test`, the setup, sync and hook verbs.
-
-### 2.2 Reserved words
-After `aapp plan` the subcommand words above are reserved; a plan whose slug equals one is named by its id (`P-<n>`).
+- `lib/AAPP/Cmd/Plan.pm`: reads the first token. A reserved subcommand word (group P-140 §2) dispatches to `AAPP::Plan::<Subcommand>->run(@rest)`; no token prints the switchboard; any other word is refused, listing the subcommands.
+- A subcommand whose module has not landed yet is refused by name (`<subcommand>: not available yet`), so members can land one at a time.
+- The subcommand list is one table at the top of `AAPP::Cmd::Plan`; `aapp help plan` reads it.
+- Details come in refinement.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
@@ -114,9 +97,7 @@ After `aapp plan` the subcommand words above are reserved; a plan whose slug equ
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** `aapp refine pickup "<msg>"` and `aapp refine issues "<msg>" …` do not act on a plan: where do they go (`aapp pickup …`, `aapp issue refine …`)?
-* [ ] **Question 2:** `aapp plan [query]` today takes a positional query; does the bare switchboard keep a query, and how is it told apart from a subcommand?
-* [ ] **Question 3:** Blast radius: every doc, skill, template, contract, test and the rules name the old verbs; one plan or a group?
+* [ ] **Question 1:** `aapp plan [query]` today takes a positional query; does the bare switchboard keep a query, and how is it told apart from a subcommand?
 
 ---
 
@@ -124,3 +105,4 @@ After `aapp plan` the subcommand words above are reserved; a plan whose slug equ
 * **2026-10-27:** File renamed from P139-noun-first-plan-commands.md to P139-plan-command-dispatcher.md.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-27:** Drafted with the verb conversion; details come in refinement.
+* **2026-10-27:** Became the dispatcher member of group P-140; the verb conversion is the group's §2.
