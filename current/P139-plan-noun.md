@@ -2,7 +2,7 @@
 * **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-139
-* **Changelog:** Added: the `plan` noun: `aapp plan <word>` runs `lib/AAPP/Runner/Plan/<Word>.pm`, and the bare `aapp plan` is the switchboard
+* **Changelog:** Changed: every plan command moves under `aapp plan` (`plan draft`, `plan freeze`, `plan start`, `plan done`, `plan status`, …), and `refine`'s plan forms become one word per action (`plan commit`, `plan rename`, `plan block`, …)
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,70 +40,136 @@
 ---
 
 ## 1. Context & Architectural Goal
-The foundation member of group P-140 (noun-first plan commands): the `plan` noun in the CLI hierarchy that P-138 builds under `AAPP::Runner`. Every `aapp plan <word>` then runs `lib/AAPP/Runner/Plan/<Word>.pm`. The verb conversion, the module rules and the reserved words are the group's §2 Shared Decisions; this plan adds what is specific to `plan` and moves no verb itself.
+A member of group P-140 (noun-first CLI). Every command that acts on a plan moves under `aapp plan`: the lifecycle verbs (`draft`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`), the read-only ones (`plan-status`, `matrix`), and the plan forms of `refine`, which split into one word per action. The words that already live under `plan` (`abort`, `conflict-check`, `conflict-free`) move into the same layout. The behaviour of every command stays as it is; what changes is its name, its module and where its contract lives. Runs after the Perl port (P-111): the code moved is the ported Perl code. The group's §2 rules apply (module layout, one parameter per layer, one public `run`, one action per word, clean break).
 
 ---
 
 ## 2. Technical Blueprint
 
-- `lib/AAPP/Runner/Plan.pm` (`AAPP::Runner::Plan`): the noun's layer. Its `run` reads one parameter, the word, and calls `AAPP::Runner::Plan::<Word>->run(@rest)` through the delegate step in `AAPP::Runner`; with no word it prints the switchboard.
-- `lib/AAPP/Runner/Plan/`: the words, each a module with one public `run` (group P-140 §2). Words land one member at a time; until a word's file exists, the delegate step refuses it as unknown, naming the words that exist.
-- Reserved words: a plan whose slug equals a word of `plan` is named by its id (`P-<n>`); the plan resolver refuses such a slug with that hint.
-- Details come in refinement.
+### 2.1 The noun
+- `lib/AAPP/Runner/Plan.pm` (`AAPP::Runner::Plan`): reads one parameter, the word, and calls `AAPP::Runner::Plan::<Word>->run(@rest)` through the delegate step in `AAPP::Runner`; a hyphenated word joins its parts (`freeze-start` → `FreezeStart`).
+- Bare `aapp plan`: the switchboard (Open Question 1).
+- An unknown word is refused, naming every word of §2.2.
+- `aapp help plan` lists the words; `aapp help plan <word>` prints one word's arguments, `full` its refusals and effects.
+
+### 2.2 The words
+Each word does exactly what the command in the first column does today: same arguments, refusals, effects, events and output, except where the second column changes the arguments.
+
+| Today | After | Module (`lib/AAPP/Runner/Plan/…`) |
+|---|---|---|
+| `aapp draft [slug] [issue <num> \| group [<id>]]` | `aapp plan draft [slug] [issue <num> \| group [<id>]]` | `Draft.pm` |
+| `aapp tdd <id>` | `aapp plan tdd <id>` | `Tdd.pm` |
+| `aapp freeze <id>` | `aapp plan freeze <id>` | `Freeze.pm` |
+| `aapp start <id> [worktree <path> [branch <name>]] \| <group> [base <branch>]` | `aapp plan start …` (same tokens) | `Start.pm` |
+| `aapp freeze-start <id> [worktree <path> [branch <name>]]` | `aapp plan freeze-start …` | `FreezeStart.pm` |
+| `aapp done <id> [integrate … \| no-integrate]` | `aapp plan done …` (same tokens) | `Done.pm` |
+| `aapp active [<id> \| swap \| clear]` | `aapp plan active [<id> \| swap \| clear]` | `Active.pm` |
+| `aapp plan-status [<id>]` | `aapp plan status [<id>]` | `Status.pm` |
+| `aapp matrix [check]` | `aapp plan matrix [check]` | `Matrix.pm` |
+| `aapp refine <id> "<what changed>"` | `aapp plan commit <id> "<what changed>"`: commits plan text, not code (group §2) | `Commit.pm` |
+| `aapp refine <id> slug <new-slug>` | `aapp plan rename <id> <new-slug>` | `Rename.pm` |
+| `aapp refine <id> blocked <num>` | `aapp plan block <id> <num>` | `Block.pm` |
+| `aapp refine <id> unblocked <num>` | `aapp plan unblock <id> <num>` | `Unblock.pm` |
+| `aapp refine <id> closes <num>` / `closes <num> remove` | `aapp plan closes add <id> <num>` / `aapp plan closes remove <id> <num>` | `Closes.pm` |
+| `aapp refine <id> group <group>` / `group none` | `aapp plan join <id> <group>` / `aapp plan leave <id>` | `Join.pm`, `Leave.pm` |
+| `aapp refine <amend-id> request "<summary>" [file <path> [for <plan-id>] \| heading "<heading>"]` | `aapp plan amend request <amend-id> …` | `Amend.pm` |
+| `aapp refine <amend-id> approve <n>` / `refuse <n> "<reason>"` | `aapp plan amend approve <amend-id> <n>` / `aapp plan amend refuse <amend-id> <n> "<reason>"` | `Amend.pm` |
+| `aapp refine <amend-id> decision <n> "<reason>"` / `decision "<heading>" "<reason>"` | `aapp plan amend decision <amend-id> …` (same tokens) | `Amend.pm` |
+| `aapp plan abort <id> …` | unchanged | `Abort.pm` |
+| `aapp plan conflict-check <id> <id>… [json]` | unchanged | `ConflictCheck.pm` |
+| `aapp plan conflict-free [<id> \| <group>] [json]` | unchanged | `ConflictFree.pm` |
+
+- Arguments follow the word, then the plan: `aapp plan <word> <id> …`. `closes` and `amend` take their action first (`closes add`, `amend approve`), then the plan.
+- Events keep their names (`pre-freeze`, `post-done`, `pre-refine`, …); the payload's `command` names the new form. `pre-refine` / `on-refine` / `post-refine` keep firing for the words that came from `refine` (`commit`, `rename`, `block`, `unblock`, `closes`, `join`, `leave`, `amend`), with the same `kind` values.
+- The two `refine` forms that are not about a plan (`refine pickup`, `refine issues`) are not this plan's: P-142 and the issue member move them. `refine` leaves the kit when the last of the three lands.
+
+### 2.3 Reserved words
+Every word of §2.2 is reserved after `aapp plan`. The plan resolver refuses a slug equal to one (`a plan named like a plan word is named by its id: P-<n>`), so `aapp plan status` is never read as a plan called `status`. `aapp plan draft <slug>` refuses such a slug, naming the word.
+
+### 2.4 Everything that names an old form
+Clean break: after this plan, nothing in the kit names `aapp draft`, `aapp tdd`, `aapp freeze`, `aapp start`, `aapp freeze-start`, `aapp done`, `aapp active`, `aapp plan-status`, `aapp matrix`, or the plan forms of `aapp refine`. Changed in this plan:
+- `lib/verbs.tsv`: the old rows go; the `plan` row lists its words.
+- The contracts: today's `lib/docs/verbs/<verb>.md` of each moved verb becomes part of the `plan` contract (Open Question 2).
+- Messages: every refusal, hint and next action the kit prints that names an old form (`Next Action`, `Run 'aapp freeze …'`, …).
+- The agent rules (`templates/AGENTS.md`), the skills (`templates/skills/`), the templates' comments (`templates/plan-template.md`, `templates/group-template.md`, `templates/amendments-template.md`).
+- The user docs: `README.md`, `MANUAL.md`, `CHEATSHEET.md`, `COOKBOOK.md`, `CONTRIBUTING.md`, `docs/`.
+- Wherever `aapp plan commit` or `aapp commit` is named, the other is named beside it with the difference (group §2).
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: The noun
+- [ ] Task 1.1: The `plan` contract: the noun, its words, `help plan` (§2.1, Open Question 2 decides the layout).
+- [ ] Task 1.2: Tests for the noun and the reserved words, failing first.
+- [ ] Task 1.3: `lib/AAPP/Runner/Plan.pm` and the reserved-word refusal in the plan resolver (§2.3).
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: The words
+- [ ] Task 2.1: Read-only words first: `status`, `matrix`, `conflict-check`, `conflict-free`.
+- [ ] Task 2.2: Lifecycle words: `draft`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `abort`.
+- [ ] Task 2.3: Plan edits: `commit`, `rename`, `block`, `unblock`, `closes`, `join`, `leave`.
+- [ ] Task 2.4: `amend`.
+- [ ] Task 2.5: Each word's tests carried over from today's verb tests, renamed, green.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
+### Phase 3: Clean break & documentation
+- [ ] Task 3.1: `lib/verbs.tsv`, the old contracts, messages (§2.4).
+- [ ] Task 3.2: Rules, skills, templates (§2.4).
+- [ ] Task 3.3: User docs (§2.4); the `plan commit` / `commit` note wherever either is named.
+- [ ] Task 3.4: `grep` the kit for every old form of §2.4: none left outside `CHANGELOG.md` and the plans archive.
+- [ ] Task 3.5: Run `t/test-run` and the remaining bash suites; both green.
+- [ ] Task 3.6: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan.pm` -> the noun (§2.1)
+- [ ] `lib/AAPP/Runner/Plan/` -> one module per word (§2.2)
+- [ ] `lib/AAPP/Runner/` -> the ported modules of the moved verbs leave their top-level place
+- [ ] `lib/AAPP/State.pm` -> the reserved-word refusal in the plan resolver (§2.3)
+- [ ] `lib/verbs.tsv` -> rows (§2.4)
+- [ ] `lib/docs/verbs/` -> the `plan` contract; the moved verbs' contracts (§2.4)
+- [ ] `t/verb/` -> the `plan` tests
+- [ ] `templates/AGENTS.md` -> rules naming the new forms
+- [ ] `templates/skills/` -> skills naming the new forms
+- [ ] `templates/plan-template.md` -> comments naming the new forms
+- [ ] `templates/group-template.md` -> comments naming the new forms
+- [ ] `templates/amendments-template.md` -> comments naming the new forms
+- [ ] `README.md` -> user docs
+- [ ] `MANUAL.md` -> user docs
+- [ ] `CHEATSHEET.md` -> user docs
+- [ ] `COOKBOOK.md` -> user docs
+- [ ] `CONTRIBUTING.md` -> user docs
+- [ ] `docs/` -> user docs
+- [ ] `CHANGELOG.md` -> the plan's entry
+*(The ported modules' exact files are known once P-111 is done; they are confirmed here before freeze.)*
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/AAPP/Runner/Issue/` -> the issue words belong to the issue member
+- [ ] `lib/AAPP/Runner/Pickup/` -> P-142
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** `aapp plan [query]` today takes a positional query; does the bare switchboard keep a query, and how is it told apart from a subcommand?
+* [ ] **Question 1:** `aapp plan [query]` today takes a positional query; does the bare switchboard keep a query, and how is it told apart from a word?
+* [ ] **Question 2:** Contracts and tests for about twenty words: one `lib/docs/verbs/plan.md` and one `t/verb/plan.t`, as P-138 does for `review`, or one contract and test file per word (`plan/<word>.md`, `plan.<word>.t`)?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-* **2026-10-27:** File renamed from P139-plan-command-dispatcher.md to P139-plan-noun.md.
-* **2026-10-27:** File renamed from P139-noun-first-plan-commands.md to P139-plan-command-dispatcher.md.
 *Tracks how the plan evolved across sessions.*
 * **2026-10-27:** Drafted with the verb conversion; details come in refinement.
 * **2026-10-27:** Became the dispatcher member of group P-140; the verb conversion is the group's §2.
+* **2026-10-27:** File renamed from P139-noun-first-plan-commands.md to P139-plan-command-dispatcher.md.
+* **2026-10-27:** File renamed from P139-plan-command-dispatcher.md to P139-plan-noun.md.
+* **2026-10-27:** Every plan command moved in from the group's §2: the words, their modules, reserved words and the clean break are this plan's; the group keeps only the shared rules.
