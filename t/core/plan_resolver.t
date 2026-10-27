@@ -198,8 +198,9 @@ EOF
     $self->eq_or_die( state_call( $self, 'allocate_plan_id' )->{ret}[1], 'P-88', 'provider string id accepted' );
     $self->eq_or_die( $self->run_cmd( 'git', 'config', '--get', 'aapp.planId' )->{out} =~ s/\s+$//r, '89', 'counter ratchets past issued id' );
     my $stdin_content = do { open( my $fh, '<', 'planid.stdin' ); local $/; my $c = <$fh>; close($fh); $c // '' };
-    $self->true_or_die( index( $stdin_content, '"event": "plan.allocate"' ) >= 0, 'plan.allocate event in envelope' );
-    $self->true_or_die( index( $stdin_content, '"extra": {}' ) >= 0, 'envelope carries reserved extra' );
+    my ( $env_ok, $env_data ) = AAPP::JSON::decode($stdin_content);
+    $self->true_or_die( $env_ok && ref($env_data) eq 'HASH' && $env_data->{event} eq 'plan.allocate', 'plan.allocate event in envelope' );
+    $self->true_or_die( $env_ok && ref($env_data->{extra}) eq 'HASH' && !keys %{$env_data->{extra}}, 'envelope carries reserved extra' );
 
     # 2. Bare integer id accepted
     AAPP::Tests::write_text( "$prov_dir/run", "#!/bin/sh\necho '{\"id\": 90}'\n" );

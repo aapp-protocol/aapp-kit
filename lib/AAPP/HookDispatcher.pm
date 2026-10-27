@@ -119,10 +119,10 @@ sub execute_with_watchdog
     return ( $exit_code, $stdout, $stderr );
 }
 
-# Usage     : my $remote_json = _envelope_remote_json($root)
-# Purpose   : Resolves remote name and url without credentials, or returns 'null'.
-# Returns   : Serialized JSON object string or 'null'.
-sub _envelope_remote_json
+# Usage     : my $remote = _envelope_remote($root)
+# Purpose   : Resolves remote name and url without credentials.
+# Returns   : Hashref with name and url keys, or undef.
+sub _envelope_remote
 {
     my ($root) = @_;
     # Read configured remote name in-process via AAPP::Config (default 'origin')
@@ -131,16 +131,17 @@ sub _envelope_remote_json
 
     # Query remote URL safely via array exec git capture
     my ( $ok, $url ) = AAPP::Paths::git_capture( '-C', $root, 'remote', 'get-url', $name );
-    return 'null' if !$ok || !defined $url || $url eq '';
+    return undef if !$ok || !defined $url || $url eq '';
     $url =~ s/\s+\z//;
 
     # Strip credentials: http://user:secret@host -> http://host, etc.
     $url =~ s{^(https?://)[^/@]*@}{$1};
     $url =~ s{^([a-z+]+://[^/:@]*):[^/@]*@}{$1@};
 
-    my $j_name = AAPP::JSON::json_str($name);
-    my $j_url  = AAPP::JSON::json_str($url);
-    return qq/{ "name": $j_name, "url": $j_url }/;
+    return {
+        name => $name,
+        url  => $url,
+    };
 }
 
 # Usage     : my $json = build_event_envelope($event, $data_json, $root)
@@ -159,29 +160,26 @@ sub build_event_envelope
     my ( $b_ok, $branch_out ) = AAPP::Paths::git_capture( '-C', $root, 'rev-parse', '--abbrev-ref', 'HEAD' );
     my $branch = ( $b_ok && defined $branch_out && $branch_out ne '' ) ? ( $branch_out =~ s/\s+\z//r ) : 'unknown';
 
-    my $remote_str = _envelope_remote_json($root);
-    my $j_ver      = AAPP::JSON::json_str($PROTOCOL_VERSION);
-    my $j_event    = AAPP::JSON::json_str($event);
-    my $j_time     = AAPP::JSON::json_str($timestamp);
-    my $j_actor    = AAPP::JSON::json_str($actor);
-    my $j_root     = AAPP::JSON::json_str($root);
-    my $j_branch   = AAPP::JSON::json_str($branch);
+    my $remote = _envelope_remote($root);
 
-    return <<"EOF";
-{
-  "version": $j_ver,
-  "event": $j_event,
-  "timestamp": $j_time,
-  "actor": $j_actor,
-  "repository": {
-    "root": $j_root,
-    "branch": $j_branch,
-    "remote": $remote_str
-  },
-  "data": $data_json,
-  "extra": {}
-}
-EOF
+    my ( $d_ok, $decoded_data ) = AAPP::JSON::decode($data_json);
+    $decoded_data = {} unless $d_ok && ref($decoded_data) eq 'HASH';
+
+    my %envelope = (
+        version    => $PROTOCOL_VERSION,
+        event      => $event,
+        timestamp  => $timestamp,
+        actor      => $actor,
+        repository => {
+            root   => $root,
+            branch => $branch,
+            remote => $remote,
+        },
+        data       => $decoded_data,
+        extra      => {},
+    );
+
+    return AAPP::JSON::pretty( AAPP::JSON::encode(\%envelope) );
 }
 
 # Usage     : my $path = resolve_plugin_entrypoint($pdir, $name)

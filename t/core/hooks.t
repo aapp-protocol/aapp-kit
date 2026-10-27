@@ -332,14 +332,23 @@ sub test_event_envelope
         return $self->in_dir( $repo, sub { AAPP::HookDispatcher::build_event_envelope(@args) } );
     };
     my $e = $envelope->( 'issue.close', '{"id": "#7"}' );
-    $self->true_or_die( index( $e, '"remote": { "name": "origin", "url": "https://example.com/acme/app.git" }' ) >= 0, 'the remote without credentials', $e );
+    my ( $rc1, $d1 ) = AAPP::JSON::decode($e);
+    $self->true_or_die( $rc1 && ref($d1) eq 'HASH', 'the envelope decodes as valid JSON', $e );
+    $self->eq_or_die( $d1->{version}, '1.0', 'the protocol version' );
+    $self->eq_or_die( $d1->{event}, 'issue.close', 'the event name' );
+    $self->eq_or_die( $d1->{actor}, 'developer', 'the default actor' );
+    $self->eq_or_die( $d1->{repository}{remote}{name}, 'origin', 'the remote name' );
+    $self->eq_or_die( $d1->{repository}{remote}{url}, 'https://example.com/acme/app.git', 'the remote without credentials' );
     $self->true_or_die( index( $e, 's3cret' ) < 0, 'no secret' );
-    $self->match_or_die( $e, qr/^  "data": \{"id": "#7"\},$/m, 'the data as given' );
-    $self->match_or_die( $e, qr/^  "extra": \{\}$/m,           'the reserved extra' );
+    $self->eq_or_die( $d1->{data}{id}, '#7', 'the data as given' );
+    $self->true_or_die( ref($d1->{extra}) eq 'HASH' && !keys %{$d1->{extra}}, 'the reserved extra' );
+
     $self->ok_cmd( 'git', '-C', $repo, 'remote', 'remove', 'origin' );
     $e = $envelope->('post-done');
-    $self->true_or_die( index( $e, '"remote": null' ) >= 0, 'no remote is null', $e );
-    $self->match_or_die( $e, qr/^  "data": \{\},$/m, 'empty data is {}' );
+    my ( $rc2, $d2 ) = AAPP::JSON::decode($e);
+    $self->true_or_die( $rc2 && ref($d2) eq 'HASH', 'the envelope decodes as valid JSON without remote', $e );
+    $self->true_or_die( !defined $d2->{repository}{remote}, 'no remote is null' );
+    $self->true_or_die( ref($d2->{data}) eq 'HASH' && !keys %{$d2->{data}}, 'empty data is {}' );
     return 1;
 }
 
