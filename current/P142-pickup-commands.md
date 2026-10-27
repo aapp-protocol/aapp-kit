@@ -2,7 +2,7 @@
 * **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-142
-* **Changelog:** Added: `aapp pickup list | add | edit | delete | commit` and a three-field pickup line (`Title : file : description`) for listing and editing ideas from the CLI or a web view
+* **Changelog:** Added: `aapp pickup list | add | edit | delete | commit`, a three-field pickup line (`Title : file : description`) and `pre-pickup` / `post-pickup` events, so ideas can be listed, edited and synced from the CLI, a web view or a hook
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -70,6 +70,20 @@ The CLI hierarchy (`AAPP::Runner`, built by P-138) reads `pickup` and calls `AAP
 
 Refusals (exit 1, nothing written): `add` with an empty title or an empty description (both mandatory; the file may be `""`); `edit` with every field `""` (at least one field must change); a title with a colon, too long or already used; a file name with `/` or a colon, not in `.plans/pickup/`, or already named by another idea; a line break in any field; `edit` or `delete` of a title that is not there; `add` or `edit` without all its arguments; `commit` with a malformed line (each named); `list` with a cap that is not a whole number of at least 1.
 
+### 2.2a Events
+Each pickup word fires one event pair, as `refine` does (`pre-refine` / `post-refine` with a `kind`):
+
+| Event | When | Payload (`data`) |
+|---|---|---|
+| `pre-pickup` | before the word reads or writes anything; for `list`, before `pickup.md` is read | `kind` (`list`, `add`, `edit`, `delete`, `commit`), `args` (the arguments after the word) |
+| `post-pickup` | after the plans commit (for `list`, after the listing) | `kind`, `args`, the idea as written (`title`, `file`, `description`; for `edit` also the old title; for `delete` the removed idea), `commit` (empty for `list`) |
+
+- `pre-pickup` registered as a `gate` refuses the word (exit 1, nothing written); registered as `notify`, or as a local `aapp.hook.pre-pickup`, it only acts.
+- Handlers may do anything with the payload: a `pre-pickup` handler can pull ideas from a server and add them with `aapp pickup add` before the listing; a `post-pickup` handler can push the idea and its `.plans/pickup/` file to one. What a handler does, and with which credentials, is its own; the kit only ignores its result.
+- **No loop guard.** The kit cannot see what a handler starts (another process, a pipe, a socket, a server calling back later), so it does not try. The data stops the kit side: a title is unique and `add` refuses one that exists, so an idea pulled back after being pushed is refused, not added twice. What a server does with a push of an idea it already has is the handler's responsibility, and the docs say so.
+- The `.plans/pickup/` air gap stays a kit rule: the kit itself never sends a pickup file to a Git remote; a handler that sends one elsewhere is the adopter's choice.
+- A sample ships as `examples/hooks/pickup-sync.sh.sample`: on `pre-pickup` with `kind` `list` it pulls new ideas from a folder or server set in the script and adds them; on `post-pickup` it pushes the idea and its file.
+
 ### 2.3 Conversion
 `.plans/pickup.md` is converted once to the three-field line (title, file named in today's text when it is one in `pickup/`, else empty, description); the old `<title>: <text>` form leaves every parser. `templates/pickup.md`, `templates/AGENTS.md` (the pickup rule) and the digest skill show the new line.
 
@@ -107,7 +121,7 @@ Refusals (exit 1, nothing written): `add` with an empty title or an empty descri
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-*(Details come in refinement. Today's readers of the line: `lib/AAPP/Text.pm`, `lib/AAPP/Health.pm`, and in bash `lib/aapp-lib.sh`, `lib/cmd_plan.sh`, `lib/cmd_status.sh`, `lib/planning_health.sh`; contracts `lib/docs/verbs/draft.md`, `lib/docs/verbs/refine.md`, `lib/docs/core/aapp_lib.md`; `templates/pickup.md`, `templates/AGENTS.md`.)*
+*(Details come in refinement. Today's readers of the line: `lib/AAPP/Text.pm`, `lib/AAPP/Health.pm`, and in bash `lib/aapp-lib.sh`, `lib/cmd_plan.sh`, `lib/cmd_status.sh`, `lib/planning_health.sh`; contracts `lib/docs/verbs/draft.md`, `lib/docs/verbs/refine.md`, `lib/docs/core/aapp_lib.md`; `templates/pickup.md`, `templates/AGENTS.md`. For the events: the event catalog in `lib/cmd_hook.sh` and its Perl successor, `docs/reference/04-plugin-and-hook-engine.md` §5, `docs/reference/09-event-telemetry.md`, and the new sample `examples/hooks/pickup-sync.sh.sample`.)*
 
 ### 🛑 Out of Bounds (Do Not Touch)
 
