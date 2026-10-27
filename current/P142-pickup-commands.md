@@ -65,7 +65,7 @@ A member of group P-140 (noun-first commands). Pickup ideas have no noun today: 
 | `aapp pickup delete "<title>"` | removes that line and commits, and deletes its file from `.plans/pickup/`, naming it (the folder is not in Git: the file cannot be recovered); a file another idea also names stays, and the output names that idea |
 | `aapp pickup refine "<msg>"` | commits a hand edit of `pickup.md` after checking every line (`aapp refine pickup` leaves the kit) |
 
-Refusals (exit 1, nothing written): a title with a colon, empty, too long or already used; a file name with `/` or a colon, or not in `.plans/pickup/`; an empty description, or one with a line break (in any field); `edit` or `delete` of a title that is not there; `add` or `edit` without all its arguments, or `edit` with every field `""` (nothing to change); `refine` with a malformed line (each named).
+Refusals (exit 1, nothing written): `add` with an empty title or an empty description (both mandatory; the file may be `""`); `edit` with every field `""` (at least one field must change); a title with a colon, too long or already used; a file name with `/` or a colon, or not in `.plans/pickup/`; a line break in any field; `edit` or `delete` of a title that is not there; `add` or `edit` without all its arguments; `refine` with a malformed line (each named).
 
 ### 2.3 Conversion
 `.plans/pickup.md` is converted once to the three-field line (title, file named in today's text when it is one in `pickup/`, else empty, description); the old `<title>: <text>` form leaves every parser. `templates/pickup.md`, `templates/AGENTS.md` (the pickup rule) and the digest skill show the new line.
