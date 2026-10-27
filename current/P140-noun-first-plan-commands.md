@@ -34,22 +34,15 @@ A noun-first CLI, as `aapp issue …` already is: every command that acts on a p
 - **Shared code is a single module in `lib/AAPP/`, named for what it is, never for a command:** `AAPP::Pickup` (the `pickup.md` line), `AAPP::Rfc` (the RFC file), `AAPP::Review` (a plan's §7/§8); never copied.
 - **Built by P-138** (the first noun in Perl); P-139 adds the `plan` noun.
 - **Reserved words:** the words of a noun are reserved after it; a plan whose slug equals a `plan` word is named by its id (`P-<n>`). Each noun's member lists its words.
-- **One action per word:** every subcommand names exactly what it does, so a cheat sheet reads without descriptions; no subcommand carries a second meaning through tokens. `refine` leaves the kit: its plan forms become `plan` words (P-139), `refine pickup` becomes `pickup commit` (P-142), `refine issues` becomes the issue words below.
+- **One action per word:** every subcommand names exactly what it does, so a cheat sheet reads without descriptions; no subcommand carries a second meaning through tokens. `refine` leaves the kit: its plan forms become `plan` words (P-139), `refine pickup` becomes `pickup commit` (P-142), `refine issues` becomes `issue commit`, `issue branch`, `issue note` (P-144).
 - **`aapp plan commit` is not `aapp commit`:** `aapp plan commit <id> "<msg>"` commits an edit of the plan's text in `.plans/`; `aapp commit "<msg>"` commits code for the active plan. `aapp help`, the CHEATSHEET, the rules and every skill that names either one say this next to it.
 
-### Issue words (until their member is drafted)
-| Today | After | Module |
-|---|---|---|
-| `aapp refine issues "<msg>"` | `aapp issue commit "<msg>"` | `AAPP::Runner::Issue::Commit` |
-| `aapp refine issues … branch <num> <name>` | `aapp issue branch <num> <name>` | `AAPP::Runner::Issue::Branch` |
-| `aapp refine issues … note <num> "<text>"` | `aapp issue note <num> "<text>"` | `AAPP::Runner::Issue::Note` |
-
-The `plan` words are P-139's (§2.2 there), the `pickup` words P-142's. Unchanged by the group: `status` (all four pillars), `commit` (code), `review` (P-138), `note`, `ai`, `offline`, `companion`, `test`, the setup, sync and hook verbs.
+The `plan` words are P-139's, the `pickup` words P-142's, the issue-ledger words (`issue commit`, `branch`, `note`) P-144's. Unchanged by the group: `status` (all four pillars), `commit` (code), `review` (P-138), `note`, `ai`, `offline`, `companion`, `test`, the setup, sync and hook verbs.
 
 ## 3. Members & Order
 1. **P-139** (`P139-plan-noun.md`): every plan command under `aapp plan`: the noun, all its words (lifecycle, read-only, the plan forms of `refine`, `amend`), the reserved words and the clean break of the old verbs.
 2. **P-142** (`P142-pickup-commands.md`): the `aapp pickup` noun and the three-field pickup line. Independent of P-139; can run in parallel with it.
-3. A member for the issue words (`issue commit`, `branch`, `note`), still to be drafted; independent of P-139 and P-142.
+3. **P-144** (`P144-issue-ledger-words.md`): `refine issues` and its `branch` / `note` tokens become `issue commit`, `issue branch`, `issue note`. Independent of P-139 and P-142.
 4. **P-141** (amendments member): last.
 
 ## Architecture & Codemap
@@ -81,3 +74,4 @@ No changes.
 * **2026-10-27:** Group drafted with the verb conversion; P-139 is its first member. Details come in refinement.
 * **2026-10-27:** `pickup` becomes its own noun (P-142); `aapp refine pickup` becomes `aapp pickup commit`.
 * **2026-10-27:** The plan words moved to P-139 and the pickup words to P-142: the group keeps the shared rules; the issue words wait here for their member.
+* **2026-10-27:** The issue-ledger words moved to their member, P-144.
