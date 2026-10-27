@@ -197,6 +197,15 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 - [ ] `docs/recipes/integrations/lefthook-git-hooks.md` -> hook manager chaining
 - [ ] `docs/recipes/integrations/github-actions-ci.md` -> CI confinement (`aapp.allowLocalHooks`), restoring in CI
 - [ ] `docs/recipes/workflows/planning-a-plan-group.md` -> link to 16
+- [ ] `docs/recipes/workflows/emergency-hotfixes.md` -> setting links to 03
+- [ ] `docs/recipes/workflows/multi-agent-worktrees.md` -> setting links to 03
+- [ ] `docs/recipes/workflows/tdd-failure-assertions.md` -> setting links to 03
+- [ ] `docs/recipes/plugins-and-hooks/01-deploy-on-done-hook.md` -> setting links to 03
+- [ ] `docs/recipes/plugins-and-hooks/02-custom-pre-gate-hooks.md` -> setting links to 03
+- [ ] `docs/recipes/plugins-and-hooks/03-github-issues-tracker-plugin.md` -> setting links to 03
+- [ ] `docs/recipes/plugins-and-hooks/04-authoring-custom-action-plugins.md` -> setting links to 03
+- [ ] `docs/recipes/troubleshooting/blast-radius-recovery.md` -> setting links to 03
+- [ ] `docs/recipes/troubleshooting/worktree-collision-recovery.md` -> setting links to 03
 - [ ] `MANUAL.md` -> map 01–19
 - [ ] `README.md` -> Quick Start links the adopt recipe; "Developing the Kit" section; links
 - [ ] `NEW FILE` -> `CONTRIBUTING.md` -> developing the kit (§2.6)
