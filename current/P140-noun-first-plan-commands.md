@@ -35,6 +35,8 @@ A noun-first CLI, as `aapp issue …` already is: every command that acts on a p
 | `aapp refine <id> "<msg>"` and its plan tokens (`blocked`, `unblocked`, `slug`, `closes`, `group`) | `aapp plan refine <id> …` | `AAPP::Plan::Refine` |
 | `aapp refine <amend-id> request \| approve \| refuse \| decision …` | `aapp plan amend request \| approve \| refuse \| decision …` | `AAPP::Plan::Amend` |
 | `aapp refine issues "<msg>" …` | `aapp issue refine "<msg>" …` | the issue lane's module |
+| `aapp refine pickup "<msg>"` | `aapp pickup refine "<msg>"` | `AAPP::Pickup` (P-142) |
+| *(none: `status` shows five, the rest by hand)* | `aapp pickup list [json]`, `aapp pickup add …`, `aapp pickup edit "<title>" …` | `AAPP::Pickup` (P-142) |
 | `aapp tdd <id>` | `aapp plan tdd <id>` | `AAPP::Plan::Tdd` |
 | `aapp freeze <id>` | `aapp plan freeze <id>` | `AAPP::Plan::Freeze` |
 | `aapp start <id>` | `aapp plan start <id>` | `AAPP::Plan::Start` |
@@ -47,12 +49,13 @@ A noun-first CLI, as `aapp issue …` already is: every command that acts on a p
 | `aapp plan conflict-check \| conflict-free …` | unchanged | `AAPP::Plan::Conflict` |
 | `aapp plan [query]` | `aapp plan` (bare: the switchboard) | `AAPP::Cmd::Plan` |
 
-Unchanged: `status` (all four pillars), `commit` (code), `review` (P-138), `issue` (gains `refine`), `note`, `ai`, `offline`, `companion`, `test`, the setup, sync and hook verbs.
+Unchanged: `status` (all four pillars), `commit` (code), `review` (P-138), `issue` (gains `refine`), `pickup` (new noun, P-142), `note`, `ai`, `offline`, `companion`, `test`, the setup, sync and hook verbs.
 
 ## 3. Members & Order
 1. **P-139** (`P139-noun-first-plan-commands.md`): `AAPP::Cmd::Plan` (dispatcher, switchboard, reserved words). First; every other member plugs into it.
-2. Further members are drafted per area once P-139's dispatcher is settled; they can run in parallel: lifecycle subcommands (`draft`, `refine`, `tdd`, `freeze`, `start`, `done`, `active`), read-only subcommands (`status`, `matrix`), `amend`, `issue refine` and the pickup edit, docs/skills/templates/rules.
-3. **P-141** (amendments member): last.
+2. **P-142** (`P142-pickup-commands.md`): the `aapp pickup` noun and the three-field pickup line. Independent of P-139; can run in parallel with it.
+3. Further members are drafted per area once P-139's dispatcher is settled; they can run in parallel: lifecycle subcommands (`draft`, `refine`, `tdd`, `freeze`, `start`, `done`, `active`), read-only subcommands (`status`, `matrix`), `amend`, `issue refine`, docs/skills/templates/rules.
+4. **P-141** (amendments member): last.
 
 ## Architecture & Codemap
 *Every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written out whole in a ```` fence, under the exact heading it has (or will have) in the file. Members do not edit these files; read the sections here as the target architecture. At the group's `done` a section replaces the file's section with the same heading, or is added at the end. `aapp refine` records a base line above each fence: `done` refuses a section the file changed meanwhile. Write `No changes.` under a file that keeps its content.*
@@ -76,8 +79,9 @@ No changes.
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-* [ ] **Question 1:** `aapp refine pickup "<msg>"` does not act on a plan: where does it go (`aapp pickup …`, or another noun)?
+*(None yet — details come in refinement.)*
 ---
 
 ## 📦 6. Change Log & Refinement History
 * **2026-10-27:** Group drafted with the verb conversion; P-139 is its first member. Details come in refinement.
+* **2026-10-27:** `pickup` becomes its own noun (P-142); `aapp refine pickup` becomes `aapp pickup refine`.
