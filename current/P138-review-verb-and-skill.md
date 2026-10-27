@@ -57,8 +57,8 @@ One verb per noun keeps the meaning plain for people and agents (no overloading 
 | `aapp review draft <slug>` | any checkout | creates `.plans/pickup/<slug>-rfc.md` before any plan exists (a topic that may become one plan or a group); its §1 is seeded from the pickup line whose title normalises to `<slug>`, when there is one; no commit |
 | `aapp review add <id> "<finding>" [file <path>]` | any checkout | appends a signed finding `F<n>` to §7 of plan `<id>`; append only |
 | `aapp review fix <id> F<n> "<task>"` | the plan's own checkout | appends `- [ ] F<n>: <task>` to §8; the finding becomes `planned` |
-| `aapp review fix <id> F<n> done` | the plan's own checkout | ticks the task; the finding becomes `done` |
-| `aapp review fix <id> F<n> decline "<reason>"` | the plan's own checkout | the finding becomes `declined: <reason>`; no task |
+| `aapp review fix done <id> F<n>` | the plan's own checkout | ticks the task; the finding becomes `done` |
+| `aapp review fix decline <id> F<n> "<reason>"` | the plan's own checkout | the finding becomes `declined: <reason>`; no task |
 | `aapp review check <id>` | any checkout | read only: exit 0 when the plan has no §7, or every finding is `done` / `declined` and every §8 task is ticked; else exit 1, listing each open finding and unticked task |
 
 **The `done` gate until the Perl `done` (P-119):** the repository's `pre-done` gate, `.agents/hooks/test-gate.sh`, runs `aapp review check <plan_id>` (the id from the event envelope) before its `TEST_CMD`, so `done` refuses open findings now, with no change to the bash `done`. The edited gate is re-registered with `aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`. P-119 then calls `AAPP::Review::Fixes::gate` from the Perl `done`, and the gate line goes; P-118 shows `fixes x/y` in `status`; P-119's `draft` calls `AAPP::Review::Rfc::link`. Those lines reach P-118 and P-119 through P-112 requests.
@@ -77,13 +77,13 @@ The skill reads the Status and runs the matching review; the verb enforces it.
 - `## 🔍 7. Implementation Review` and `## 🧩 8. Review Fixes`, after §6, each heading written on first use (as `### Amendments`). Neither is design-locked; §2/§4 stay locked.
 - Finding: `- **F<n>** <date> · <reviewer> · [`<path>` (outside targets: needs an amendment) · ]<finding> — <state>`; `<reviewer>` is the agent identity (`AAPP::Attribution::resolve_ai_identity`), else `user.name`; `<state>` ∈ `open`, `planned`, `done`, `declined: <reason>`. Only `<state>` ever changes.
 - Fix: `- [ ] F<n>: <task>` / `- [x] F<n>: <task>`, one per finding.
-- A finding's `file <path>` outside the plan's Target Files is a hint for the implementer: the reviewer never opens an amendment request. The implementer opens it (`aapp refine <amend-id> request … file <path>`) and names it in the task (`F4: … (R48)`); `fix F<n> done` refuses until that request is approved and its amendment commit has landed.
+- A finding's `file <path>` outside the plan's Target Files is a hint for the implementer: the reviewer never opens an amendment request. The implementer opens it (`aapp refine <amend-id> request … file <path>`) and names it in the task (`F4: … (R48)`); `fix done <id> F<n>` refuses until that request is approved and its amendment commit has landed.
 - Numbering: `F<n>` continues from the highest in §7; a plan's findings are never renumbered.
 
 ### 2.4 Refusals (each exit 1, nothing committed)
 - unknown plan, or a Status the form does not apply to (§2.2);
 - `review draft` when the RFC file exists; `<slug>` empty after normalising;
-- `review fix` from a checkout that does not own the plan (the P-99 owner rule, via `AAPP::State::held_plans` / `plan_held_by`); `F<n>` unknown, or not in the state the form needs (`fix "<task>"` needs `open`; `done` needs `planned`; `decline` needs `open` or `planned`); an empty task or reason;
+- `review fix` from a checkout that does not own the plan (the P-99 owner rule, via `AAPP::State::held_plans` / `plan_held_by`); `F<n>` unknown, or not in the state the form needs (`fix <id> F<n> "<task>"` needs `open`; `fix done` needs `planned`; `fix decline` needs `open` or `planned`); an empty task or reason; a plan whose slug is `done` or `decline` is named by its id (`P-<n>`), as both words are reserved after `fix`;
 - `fix done` with a named or required amendment not landed (§2.3).
 
 ### 2.5 The RFC template (`templates/rfc-template.md`)
@@ -116,7 +116,7 @@ The five sections the RFCs in `.plans/pickup/` already share: `## 1. Scope & Que
 ### Phase 2: Modules and verb
 - [ ] Task 2.1: `templates/rfc-template.md` and `AAPP::Review::Rfc` (`review draft <id>` / `<slug>`, and `link` for a plan drafted from the topic).
 - [ ] Task 2.2: `AAPP::Review::Findings` (`review add`).
-- [ ] Task 2.3: `AAPP::Review::Fixes` (`review fix … "<task>" | done | decline`, the amendment check, `counts`, `gate`).
+- [ ] Task 2.3: `AAPP::Review::Fixes` (`review fix <id> F<n> "<task>"`, `review fix done <id> F<n>`, `review fix decline <id> F<n> "<reason>"`, the amendment check, `counts`, `gate`).
 - [ ] Task 2.4: `AAPP::Cmd::Review` (token parsing, refusals, `review check`, `log_event`); add the review events to the logging spec.
 - [ ] Task 2.5: `.agents/hooks/test-gate.sh` runs `aapp review check <plan_id>` before `TEST_CMD`; ask the developer to re-register it (`aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`).
 - [ ] Task 2.6: Request through P-112 the lines for P-118 (`fixes x/y` in `status`) and P-119 (`done` calls `AAPP::Review::Fixes::gate` and the gate line in `test-gate.sh` goes; `draft` calls `AAPP::Review::Rfc::link`).
