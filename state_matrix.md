@@ -33,6 +33,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-140**: [`P140-noun-first-plan-commands.md`](current/P140-noun-first-plan-commands.md) — 🧩 Group Plan P-140: Noun First Plan Commands
 - 🟣 **P-141**: [`P141-noun-first-plan-commands-amendments.md`](current/P141-noun-first-plan-commands-amendments.md) — Noun First Plan Commands Amendments
 - 🟣 **P-142**: [`P142-pickup-commands.md`](current/P142-pickup-commands.md) — Pickup Commands
+- 🟣 **P-143**: [`P143-restore-lost-docs.md`](current/P143-restore-lost-docs.md) — Restore Lost Docs
 - 🟣 **P-15**: [`P15-adversarial-review-plugin.md`](current/P15-adversarial-review-plugin.md) — ✏️ **SKETCH — do not refine** — Adversarial Review Packet, Layer 6 Agent Egress Boundary & reference review plugin. Settled ground only; blocked on `#64`, `#57`, `#56`.
 
 ---
