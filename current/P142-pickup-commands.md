@@ -2,7 +2,7 @@
 * **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-142
-* **Changelog:** Added: `aapp pickup list | add | edit | delete | refine` and a three-field pickup line (`Title : file : description`) for listing and editing ideas from the CLI or a web view
+* **Changelog:** Added: `aapp pickup list | add | edit | delete | commit` and a three-field pickup line (`Title : file : description`) for listing and editing ideas from the CLI or a web view
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -63,9 +63,9 @@ A member of group P-140 (noun-first commands). Pickup ideas have no noun today: 
 | `aapp pickup add "<title>" "<file>" "<description>"` | writes the line and commits it; arguments in the line's order; `""` as file: no file |
 | `aapp pickup edit "<title>" "<new title>" "<file>" "<description>"` | changes that line and commits; arguments in the line's order after the key; `""` keeps a field as it is; `none` as file removes it from the line and deletes it from `.plans/pickup/`; a new file name in place of an old one deletes the old file; each deleted file is named in the output |
 | `aapp pickup delete "<title>"` | removes that line and commits, and deletes its file from `.plans/pickup/`, naming it (the folder is not in Git: the file cannot be recovered) |
-| `aapp pickup refine "<msg>"` | commits a hand edit of `pickup.md` after checking every line (`aapp refine pickup` leaves the kit) |
+| `aapp pickup commit "<msg>"` | commits a hand edit of `pickup.md` after checking every line (`aapp refine pickup` leaves the kit) |
 
-Refusals (exit 1, nothing written): `add` with an empty title or an empty description (both mandatory; the file may be `""`); `edit` with every field `""` (at least one field must change); a title with a colon, too long or already used; a file name with `/` or a colon, not in `.plans/pickup/`, or already named by another idea; a line break in any field; `edit` or `delete` of a title that is not there; `add` or `edit` without all its arguments; `refine` with a malformed line (each named).
+Refusals (exit 1, nothing written): `add` with an empty title or an empty description (both mandatory; the file may be `""`); `edit` with every field `""` (at least one field must change); a title with a colon, too long or already used; a file name with `/` or a colon, not in `.plans/pickup/`, or already named by another idea; a line break in any field; `edit` or `delete` of a title that is not there; `add` or `edit` without all its arguments; `commit` with a malformed line (each named).
 
 ### 2.3 Conversion
 `.plans/pickup.md` is converted once to the three-field line (title, file named in today's text when it is one in `pickup/`, else empty, description); the old `<title>: <text>` form leaves every parser. `templates/pickup.md`, `templates/AGENTS.md` (the pickup rule) and the digest skill show the new line.
