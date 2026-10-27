@@ -62,6 +62,7 @@ Authoritative, exhaustive specifications, schemas, tables, and lookup dictionari
 * [17. Planning Health Diagnostics](docs/reference/17-planning-health-diagnostics.md): Automated static analysis, `aapp doctor` tooling, and repair commands.
 * [18. Agent Skills Catalog](docs/reference/18-agent-skills-catalog.md): Universal skills catalog, ASCII dispatch, and execution bounds.
 * [19. Interactive Skills & Slash Commands](docs/reference/19-skills-and-slash-commands.md): Chat UI slash commands, IDE triggers, and custom skill authoring.
+* [20. Group Amendments](docs/reference/20-group-amendments.md): How a group member asks for a file or a correction outside its plan, approval, the amendment commit, and request states.
 
 ### 🍳 Practical Recipes & Operations
 * [AAPP Cookbook](COOKBOOK.md): Hands-on recipes organized by topic under `docs/recipes/`.

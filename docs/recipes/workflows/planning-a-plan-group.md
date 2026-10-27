@@ -76,7 +76,7 @@ Planning for the group is done when:
 - `aapp matrix --check` exits with 0.
 
 ## ⚠️ Critical Invariants & Gotchas
-- **Never Cross-Amend in Development**: Once Wave 1 starts (`⚡ In Development`), never edit its blueprint from another session's worktree. Amend it only from within its own checkout.
+- **Never Cross-Amend in Development**: Once Wave 1 starts (`⚡ In Development`), never edit its blueprint from another session's worktree. Amend it only from within its own checkout. A file or correction outside a started member goes through the group's amendments member: see [Group Amendments](../../reference/20-group-amendments.md).
 - **Clean Breaks Over Shims**: If a plan group migrates an API, enforce clean breaks across all member plans. Do not introduce temporary compatibility wrappers between group phases unless explicitly justified in Section 2.
 
 ## 🔗 Related References
