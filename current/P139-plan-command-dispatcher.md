@@ -46,7 +46,7 @@ The foundation member of group P-140 (noun-first plan commands): `AAPP::Cmd::Pla
 
 ## 2. Technical Blueprint
 
-- `lib/AAPP/Cmd/Plan.pm`: reads the first token. A reserved subcommand word (group P-140 §2) dispatches to `AAPP::Plan::<Subcommand>->run(@rest)`; no token prints the switchboard; any other word is refused, listing the subcommands.
+- `lib/AAPP/Cmd/Plan.pm`: reads the first token. A reserved subcommand word (group P-140 §2) dispatches to `lib/AAPP/Plan/<Word>.pm` (`AAPP::Plan::<Word>->run(@rest)`; a hyphenated word joins its parts, `freeze-start` → `FreezeStart`), one module per word; no token prints the switchboard; any other word is refused, listing the subcommands.
 - A subcommand whose module has not landed yet is refused by name (`<subcommand>: not available yet`), so members can land one at a time.
 - The subcommand list is one table at the top of `AAPP::Cmd::Plan`; `aapp help plan` reads it.
 - Details come in refinement.
