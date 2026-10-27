@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #198 | `Low` | `CLI` | 2026-10-27 | `lib/verbs.tsv` | aapp help prints only a one-line description for verbs without a contract (pause, resume, release, push, pull, sync, hooks, init); their tokens are not listed |  | 🟡 `Incubated` |  |
 | #197 | `Low` | `CORE` | 2026-10-27 | `lib/cmd_init.sh` | aapp init mounts the planning worktrees only from origin; with aapp.remote naming another remote it creates new orphan branches instead |  | 🟡 `Incubated` |  |
 | #196 | `Medium` | `CORE` | 2026-10-27 | `lib/cmd_plan.sh` | aapp done archives a plan whose section 3 tasks are all unticked; nothing checks the checklist before archiving |  | 🟡 `Incubated` |  |
 | #194 | `Medium` | `CLI` | 2026-10-24 | `lib/cmd_plan.sh` | plan conflict-check (and the activation gate) compare Target Files as literal paths: a pattern such as tests/verbs/start*.sh or lib/docs/verbs/*.md is never matched against another plan's path, so real overlaps pass as disjoint. |  | 🟡 `Incubated` |  |
