@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #197 | `Low` | `CORE` | 2026-10-27 | `lib/cmd_init.sh` | aapp init mounts the planning worktrees only from origin; with aapp.remote naming another remote it creates new orphan branches instead |  | 🟡 `Incubated` |  |
 | #196 | `Medium` | `CORE` | 2026-10-27 | `lib/cmd_plan.sh` | aapp done archives a plan whose section 3 tasks are all unticked; nothing checks the checklist before archiving |  | 🟡 `Incubated` |  |
 | #194 | `Medium` | `CLI` | 2026-10-24 | `lib/cmd_plan.sh` | plan conflict-check (and the activation gate) compare Target Files as literal paths: a pattern such as tests/verbs/start*.sh or lib/docs/verbs/*.md is never matched against another plan's path, so real overlaps pass as disjoint. |  | 🟡 `Incubated` |  |
 | #193 | `Low` | `CLI` | 2026-10-24 | `templates/issues.md`, `templates/done-issues-archive.md` | In a fresh project the issue counter skips the template's example rows, so the first 'aapp issue log' writes a second #1 and 'aapp refine issues' then refuses the ledger as duplicated. |  | 🟡 `Incubated` |  |
