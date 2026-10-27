@@ -1,8 +1,8 @@
 # 🗺️ Plan P-144: Issue Ledger Words
 * **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-144
-* **Changelog:** Changed: Issue Ledger Words
+* **Changelog:** Changed: `aapp refine issues` and its `branch` / `note` tokens become three words on the issue noun: `aapp issue commit`, `aapp issue branch`, `aapp issue note`
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,64 +40,94 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+A member of group P-140 (noun-first CLI). `aapp refine issues "<msg>"` carries three jobs on one verb: committing a hand edit of the issue ledgers, naming the branch an issue's fix lands on (`branch <num> <name>`), and adding a note kept outside Git (`note <num> "<text>"`). Each becomes its own word on the `issue` noun: `aapp issue commit`, `aapp issue branch`, `aapp issue note`. Their checks, effects and provider calls stay as they are; what changes is that each word does one thing, and `refine issues` leaves the kit. Runs after the Perl port (P-111): the code moved is the ported Perl code. The group's §2 rules apply.
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 The words
+| Today | After | Module (`lib/AAPP/Runner/Issue/…`) |
+|---|---|---|
+| `aapp refine issues "<msg>"` | `aapp issue commit "<msg>"` | `Commit.pm` |
+| `aapp refine issues "<msg>" branch <num> <name>` | `aapp issue branch <num> <name>` | `Branch.pm` |
+| `aapp refine issues "<msg>" note <num> "<text>"` (repeatable) | `aapp issue note <num> "<text>"` | `Note.pm` |
+
+- **`issue commit "<msg>"`:** commits a hand edit of existing rows of `ISSUES.md` and `issues_road_map.md`, after the same checks as today (table shape, cell count, fix cells, repeated ids, rows added by hand, work-queue lines and sections, each failure named, nothing committed); one commit `issue(triage): <msg>` holding only the ledger files. A row is never added here: `aapp issue log` is the one writer of new rows. Where a tracker keeps the record (the ledgers are not tracked), it is refused: issues are changed on the tracker. After the commit the provider receives one `issue.refine` per changed row, as today.
+- **`issue branch <num> <name>`:** names the branch active issue `#<num>`'s fix must land on, in its own commit `issue(triage): #<num> lands on <name>`; the development branch's name clears the cell. Refused: `#<num>` not an active row; `<name>` a branch that exists neither here nor on a remote. Already so: exit 0, `already targets`, no commit. Where a tracker keeps the record, the change goes to the provider and nothing is committed, as today.
+- **`issue note <num> "<text>"`:** adds one dated note with its author to active issue `#<num>`. Notes are never in the ledger or in Git: a provider that names `notes` in `handled` keeps them, otherwise the kit's store on this machine does. Nothing is committed. Several notes: run it several times.
+- The noun: the three words join the `issue` noun's words (`log`, `hotfix`, `fix`, `queue`, `close`, `abort`, `list`) under `lib/AAPP/Runner/Issue.pm`, in the layout of group §2, with one public `run` each. Their shared ledger code stays in the ledger module the port provides; nothing is copied into the word modules.
+- `aapp help issue` lists the three words with the others; the `issue` contract (`lib/docs/verbs/issue.md`) gains them and the `refine` contract loses its `issues` forms.
+
+### 2.2 Events
+The three words fire the issue lane's event, `post-issue`, with `action` `commit`, `branch` or `note`, as `log`, `queue`, `fix` and `close` do; `pre-refine` / `on-refine` / `post-refine` no longer fire for issue-ledger edits. See Open Question 1.
+
+### 2.3 Clean break
+After this plan, nothing in the kit names `aapp refine issues` or its `branch` / `note` tokens: the rules (`templates/AGENTS.md`), the skills (`templates/skills/`), the templates' comments, the messages the kit prints (hints that say `aapp refine issues …`), `lib/verbs.tsv`, the contracts, and the user docs.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Contract & tests
+- [ ] Task 1.1: The three words in `lib/docs/verbs/issue.md` (syntax, refusals, effects, one test line each); the `issues` forms out of `lib/docs/verbs/refine.md`.
+- [ ] Task 1.2: Their tests in the issue verb's test file, carried over from today's `refine issues` tests, failing first under the new names.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: The words
+- [ ] Task 2.1: `Commit.pm`, `Branch.pm`, `Note.pm` under `lib/AAPP/Runner/Issue/`, calling the existing ledger, branch and notes code.
+- [ ] Task 2.2: The events of §2.2.
+- [ ] Task 2.3: Remove the `issues` forms from `refine`.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
+### Phase 3: Clean break & documentation
+- [ ] Task 3.1: Rules, skills, templates, messages, `lib/verbs.tsv` (§2.3).
+- [ ] Task 3.2: User docs (§2.3).
+- [ ] Task 3.3: `grep` the kit for `refine issues`: none left outside `CHANGELOG.md` and the plans archive.
+- [ ] Task 3.4: Run `t/test-run` and the remaining bash suites; both green.
 - [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Issue/Commit.pm` -> `issue commit`
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Issue/Branch.pm` -> `issue branch`
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Issue/Note.pm` -> `issue note`
+- [ ] `lib/AAPP/Runner/Issue.pm` -> the three words joined to the noun
+- [ ] `lib/docs/verbs/issue.md` -> the words' contract lines
+- [ ] `lib/docs/verbs/refine.md` -> the `issues` forms removed
+- [ ] `lib/verbs.tsv` -> descriptions
+- [ ] `t/verb/` -> the words' tests
+- [ ] `templates/AGENTS.md` -> rules naming the new words
+- [ ] `templates/skills/` -> skills naming the new words
+- [ ] `templates/issues.md` -> comments naming the new words
+- [ ] `README.md` -> user docs
+- [ ] `MANUAL.md` -> user docs
+- [ ] `CHEATSHEET.md` -> user docs
+- [ ] `docs/` -> user docs
+- [ ] `CHANGELOG.md` -> the plan's entry
+*(The ported modules this plan calls, and the module that removes the `issues` forms from `refine`, are known once P-111 is done; they are confirmed here before freeze.)*
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/AAPP/Runner/Plan/` -> P-139
+- [ ] `lib/AAPP/Runner/Pickup/` -> P-142
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
 *Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
 *Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+* [ ] **Question 1:** Events: the three words fire `post-issue` with an `action`, like the other issue words (§2.2), so hook authors watching issue changes see them in one place; or they keep `pre-refine` / `on-refine` / `post-refine` with `kind` `issues`, which existing handlers already watch (and a `pre-` gate)?
 
 ---
 
 ## 📦 6. Change Log & Refinement History
 *Tracks how the plan evolved across sessions.*
-* **2026-10-27:** Plan initialized from `pickup.md`.
-* **2026-10-27:** Refined blast radius and locked module boundaries.
+* **2026-10-27:** Drafted as the issue member of P-140: `refine issues` and its `branch` / `note` tokens become `issue commit`, `issue branch`, `issue note`.
