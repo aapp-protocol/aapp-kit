@@ -132,7 +132,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R45** 2026-10-24 · P-111 · — · P-111 group introduction, §1 Goal, §2 Shared Decisions, §3 Members & Order and ## Architecture & Codemap aligned with `.plans/pickup/perl-port-test-salvage-rfc.md` (`D1`–`D7`) and strict references `.plans/pickup/perl-port-single-repo-schema.md`, `.plans/pickup/perl-port-logging-events-spec.md`, and `.plans/pickup/perl-port-test-matrix-tabular-check.md` — applied
 - **R46** 2026-10-24 · P-111 · — · new member P-136 (Perl test engine update & AAPP::TestRepo split: update lib/AAPP/Tests.pm with log-event slicing and assertion helpers, and split single prepared mock repo provisioning into lib/AAPP/TestRepo.pm, D8), 16th after P-121 and before P-135; P-111 §3, architecture and codemap updated — applied
 - **R47** 2026-10-24 · P-111 · — · new member P-137 (Perl port documentation and manuals overhaul: comprehensive rewrite of README.md, MANUAL.md, and CHEATSHEET.md to fact-check and document pure Perl runtime, layered config, lifecycle governance, and group amendments), 21st after P-122 and before P-112 — applied
-- **R48** 2026-10-26 · P-116 · `lib/AAPP/State.pm` · implement provider exchange in State::_allocate_id for aapp-planid provider · for P-115 — approved (Lorand Veres)
+- **R48** 2026-10-26 · P-116 · `lib/AAPP/State.pm` · implement provider exchange in State::_allocate_id for aapp-planid provider · for P-115 — landed `850223a`
 - **R49** 2026-10-27 · P-116 · `lib/AAPP/Constants.pm` · add commit limits and note TTL defaults to Constants · for P-127 — landed `07e14ef`
 
 ## Decisions

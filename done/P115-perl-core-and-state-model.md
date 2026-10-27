@@ -110,9 +110,13 @@ Needs P-127 (foundation: Constants, Paths, Config, Logger, Runner) done; runs be
 - [ ] `lib/cmd_status.sh` -> Replace `python3` pause banner read with `AAPP::JSON`.
 - [ ] `templates/blast-radius-guard.sh` -> Replace `python3` JSON parsing/output with `AAPP::JSON`.
 - [ ] `templates/aapp-pre-commit` -> Replace `python3` pause reason read with `AAPP::JSON` (leaving adopter Python check untouched for `#159`).
+- [x] `lib/AAPP/State.pm` -> R48 (by P-116)
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `tests/*` -> Tests change in P-126 and the test migration members only.
+
+### Amendments
+- R48 2026-10-26 · `lib/AAPP/State.pm` · implement provider exchange in State::_allocate_id for aapp-planid provider (by P-116, landed `850223a`)
 
 ---
 
