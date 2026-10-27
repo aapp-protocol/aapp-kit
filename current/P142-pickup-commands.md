@@ -54,10 +54,10 @@ A member of group P-140 (noun-first commands). Pickup ideas have no noun today: 
 - **Title:** required, no colon, unique in the file (it is the key for `edit`); at most `aapp.pickupTitleMax` characters.
 - **File:** a plain file name in `.plans/pickup/` (no `/`, no colon) holding more detail, which may link to any further files; at most one per idea and never shared: no two ideas name the same file; empty when there is none (`- [ ] Title :  : description`). `pickup/` is local and ignored: `add` / `edit` check the file exists; `list` shows a missing one as `file_missing`, never refuses.
 - **Description:** free text, required, one line: no line breaks (an idea is exactly one line of `pickup.md`; longer detail goes in its file).
-- One parser (`AAPP::Pickup::Line`) serves every reader: the pickup words, `status`, `draft`, the health checks.
+- One parser (`AAPP::Pickup`) serves every reader: the pickup words, `status`, `draft`, the health checks.
 
 ### 2.1a Modules (one per word, group P-140 §2)
-The central dispatcher (`AAPP::Runner`, built by P-138) runs `aapp pickup <word>`; `lib/AAPP/Pickup/List.pm`, `Add.pm`, `Edit.pm`, `Delete.pm`, `Commit.pm` each run one word through their one public sub, `run`. `lib/AAPP/Pickup/Line.pm` (shared, listed as such at the top of `AAPP::Runner`) holds what they share: parse and write a line, the checks of §2.1, find a line by title, delete an idea's file.
+The CLI hierarchy (`AAPP::Runner`, built by P-138) reads `pickup` and calls `AAPP::Runner::Pickup` (`lib/AAPP/Runner/Pickup.pm`), which reads the word and calls `lib/AAPP/Runner/Pickup/List.pm`, `Add.pm`, `Edit.pm`, `Delete.pm` or `Commit.pm`; bare `aapp pickup` lists the words. Each has one public sub, `run`. The single module `lib/AAPP/Pickup.pm` (`AAPP::Pickup`) holds what they share: parse and write a line, the checks of §2.1, find a line by title, delete an idea's file.
 
 ### 2.2 Commands
 | Command | Effect |
