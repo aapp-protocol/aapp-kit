@@ -137,7 +137,7 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 ### Phase 1: Merge
 - [x] Task 1.1: Merge 13 + 17, and 14 + 18 + 19 (§2.1); drop `/aapp-commit`.
 - [x] Task 1.2: Settings: build 03 from the code sweep, grouped by role with every value explained (§2.2); cut 15 to the hierarchy; remove 16; remove the fictional keys everywhere.
-- [ ] Task 1.4: Link every setting a verb description names to its group in 03 (§2.2), across 02, the reference pages, the recipes and `CHEATSHEET.md`.
+- [x] Task 1.4: Link every setting a verb description names to its group in 03 (§2.2), across 02, the reference pages, the recipes and `CHEATSHEET.md`.
 - [x] Task 1.3: Move `20-group-amendments.md` to 16.
 
 ### Phase 2: Restore
