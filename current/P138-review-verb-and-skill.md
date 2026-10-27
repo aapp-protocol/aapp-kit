@@ -44,7 +44,7 @@ Reviews of important plans run today through hand-made files in `.plans/pickup/`
 - **Design** (plan 🟣/📝): the plan's RFC, drafted from a template with the sections every RFC so far has used.
 - **Implementation** (plan ⚡): signed findings in the plan's §7, answered by the implementer's follow-up fixes in §8, checked before `done`.
 
-One verb per noun keeps the meaning plain for people and agents (no overloading of `refine`). The logic lives in `lib/AAPP/Review/`, one module per word, so the noun-first CLI planned after the port (`aapp plan …`) does not touch it. A richer review workflow can come later as a plugin (P-15 after the port).
+One verb per noun keeps the meaning plain for people and agents (no overloading of `refine`). The commands live in `lib/AAPP/Runner/Review/`, one module per word, so the noun-first CLI planned after the port (`aapp plan …`) does not touch it. A richer review workflow can come later as a plugin (P-15 after the port).
 
 ---
 
@@ -61,7 +61,7 @@ One verb per noun keeps the meaning plain for people and agents (no overloading 
 | `aapp review fix decline <id> F<n> "<reason>"` | the plan's own checkout | the finding becomes `declined: <reason>`; no task |
 | `aapp review check <id>` | any checkout | read only: exit 0 when the plan has no §7, or every finding is `done` / `declined` and every §8 task is ticked; else exit 1, listing each open finding and unticked task |
 
-**The `done` gate until the Perl `done` (P-119):** the repository's `pre-done` gate, `.agents/hooks/test-gate.sh`, runs `aapp review check <plan_id>` (the id from the event envelope) before its `TEST_CMD`, so `done` refuses open findings now, with no change to the bash `done`. The edited gate is re-registered with `aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`. P-119 then calls `AAPP::Review::Ledger::gate` from the Perl `done`, and the gate line goes; P-118 shows `fixes x/y` in `status`; P-119's `draft` calls `AAPP::Review::Rfc::link`. Those lines reach P-118 and P-119 through P-112 requests.
+**The `done` gate until the Perl `done` (P-119):** the repository's `pre-done` gate, `.agents/hooks/test-gate.sh`, runs `aapp review check <plan_id>` (the id from the event envelope) before its `TEST_CMD`, so `done` refuses open findings now, with no change to the bash `done`. The edited gate is re-registered with `aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`. P-119 then calls `AAPP::Review::gate` from the Perl `done`, and the gate line goes; P-118 shows `fixes x/y` in `status`; P-119's `draft` calls `AAPP::Rfc::link`. Those lines reach P-118 and P-119 through P-112 requests.
 
 Every form refuses with nothing written when its preconditions fail (§2.4). `flag` and `fix` commit once through `AAPP::CommitEngine::plans_commit`; `draft` writes a local file only.
 
@@ -90,11 +90,14 @@ The skill reads the Status and runs the matching review; the verb enforces it.
 The five sections the RFCs in `.plans/pickup/` already share: `## 1. Scope & Question`, `## 2. Current State`, `## 3. Findings Log (append-only, signed; never edit another block)`, `## 4. User Decisions (recorded only from the user's own words)`, `## 5. Carried Into Plans`; the header names the plan (or the pickup topic) and the date. Signed block heading: `### <date> — <agent> (<vendor>, <model>) — <subject>`.
 
 ### 2.6 Modules
-The module is the word after the noun (as group P-140 decides for every noun): one file per word, shared code in modules named for what they are.
-- Every word module has one public sub, `run` (`AAPP::Review::<Word>->run(@args)`); its other subs are private (`_name`).
-- **The central noun dispatch, built here** (the first noun in Perl, for every noun after it): the `aapp` dispatcher routes a word that names a folder `lib/AAPP/<Noun>/` to `AAPP::Runner`, as it routes a `lib/AAPP/Cmd/<Verb>.pm` today; `AAPP::Runner` maps `aapp <noun> <word> …` to `AAPP::<Noun>::<Word>->run(@rest)`. A noun's words are the files in its folder, minus its shared modules, listed once at the top of `AAPP::Runner` (`Review` → `Rfc`, `Ledger`). An unknown or missing word is refused, naming the noun's words.
-- Words: `lib/AAPP/Review/Draft.pm` (`review draft`), `Flag.pm` (`review flag`), `Fix.pm` (`review fix`, `fix done`, `fix decline`), `Check.pm` (`review check`).
-- Shared: `lib/AAPP/Review/Rfc.pm`, the RFC file (create from the template, `link` a plan drafted from it); `lib/AAPP/Review/Ledger.pm`, a plan's §7/§8 (parse, number, append, state change, tick, the amendment check, `counts($plan)` for `fixes <done>/<total>`, `gate($plan)` for open findings and unticked tasks).
+Every CLI command lives under `lib/AAPP/Runner/`, every other module stays a single module in `lib/AAPP/` (the layout group P-140 decides for every command).
+- **The CLI hierarchy, built here** (the first noun in Perl, for every command after it):
+  - `AAPP::Runner` reads only the first parameter and calls `AAPP::Runner::<Name>->run(@rest)`; a noun module (`AAPP::Runner::Review`) reads only its first parameter, the word, and calls `AAPP::Runner::Review::<Word>->run(@rest)`. The step "read one token, find the module, call its `run` with the rest, refuse an unknown or missing token naming what exists" is written once, in `AAPP::Runner`, and every layer calls it.
+  - The `aapp` dispatcher routes a name with a `lib/AAPP/Runner/<Name>.pm` to `AAPP::Runner`, in place of today's `lib/AAPP/Cmd/<Verb>.pm` check.
+  - Every module under `lib/AAPP/Runner/` has one public sub, `run`; its other subs are private (`_name`).
+- Noun: `lib/AAPP/Runner/Review.pm` (picks the word; bare `aapp review` lists the words).
+- Words: `lib/AAPP/Runner/Review/Draft.pm` (`review draft`), `Flag.pm` (`review flag`), `Fix.pm` (`review fix`, `fix done`, `fix decline`), `Check.pm` (`review check`).
+- Shared, in `lib/AAPP/`: `AAPP::Rfc`, the RFC file (create from the template, `link` a plan drafted from it); `AAPP::Review`, a plan's §7/§8 (parse, number, append, state change, tick, the amendment check, `counts($plan)` for `fixes <done>/<total>`, `gate($plan)` for open findings and unticked tasks).
 - Plan lookup, sections, fields, ownership, commits and paths come from `AAPP::State`, `AAPP::CommitEngine` and `AAPP::Paths`; no module rebuilds them.
 
 ### 2.7 Telemetry
@@ -115,18 +118,18 @@ The module is the word after the noun (as group P-140 decides for every noun): o
 - [ ] Task 1.2: Write `t/verb/review.t` from the contract lines, failing first.
 
 ### Phase 2: Modules and verb
-- [ ] Task 2.1: `templates/rfc-template.md`, `AAPP::Review::Rfc` (create, `link`) and `AAPP::Review::Draft` (`review draft <id>` / `<slug>`).
-- [ ] Task 2.2: `AAPP::Review::Ledger` (§7/§8, the amendment check, `counts`, `gate`) and `AAPP::Review::Flag` (`review flag`).
-- [ ] Task 2.3: `AAPP::Review::Fix` (`review fix <id> F<n> "<task>"`, `review fix done <id> F<n>`, `review fix decline <id> F<n> "<reason>"`) and `AAPP::Review::Check` (`review check`).
-- [ ] Task 2.4: The central noun dispatch: `aapp` routes a `lib/AAPP/<Noun>/` folder to `AAPP::Runner`; `AAPP::Runner` maps the word to its module's `run`, with the shared-module list at its top; add the review events to the logging spec.
+- [ ] Task 2.1: `templates/rfc-template.md`, `AAPP::Rfc` (create, `link`) and `AAPP::Runner::Review::Draft` (`review draft <id>` / `<slug>`).
+- [ ] Task 2.2: `AAPP::Review` (§7/§8, the amendment check, `counts`, `gate`) and `AAPP::Runner::Review::Flag` (`review flag`).
+- [ ] Task 2.3: `AAPP::Runner::Review::Fix` (`review fix <id> F<n> "<task>"`, `review fix done <id> F<n>`, `review fix decline <id> F<n> "<reason>"`) and `AAPP::Runner::Review::Check` (`review check`).
+- [ ] Task 2.4: The CLI hierarchy: `AAPP::Runner` reads one parameter per layer (the one delegate step every layer calls); `aapp` routes a name with a `lib/AAPP/Runner/<Name>.pm`; `AAPP::Runner::Review` picks the word; add the review events to the logging spec.
 - [ ] Task 2.5: `.agents/hooks/test-gate.sh` runs `aapp review check <plan_id>` before `TEST_CMD`; ask the developer to re-register it (`aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`).
-- [ ] Task 2.6: Request through P-112 the lines for P-118 (`fixes x/y` in `status`) and P-119 (`done` calls `AAPP::Review::Ledger::gate` and the gate line in `test-gate.sh` goes; `draft` calls `AAPP::Review::Rfc::link`).
+- [ ] Task 2.6: Request through P-112 the lines for P-118 (`fixes x/y` in `status`) and P-119 (`done` calls `AAPP::Review::gate` and the gate line in `test-gate.sh` goes; `draft` calls `AAPP::Rfc::link`).
 
 ### Phase 3: Skill, templates and docs
 - [ ] Task 3.1: `templates/skills/aapp-review/SKILL.md`: reads the plan's Status, runs a design review through its RFC or an implementation review through `review flag`; never opens amendment requests.
 - [ ] Task 3.2: `templates/plan-template.md`: a comment naming §7/§8 and the verb that writes them; `templates/AGENTS.md`: the `/aapp-review` skill row and the `aapp review` CLI row.
 - [ ] Task 3.3: `CHEATSHEET.md`, `MANUAL.md`, `docs/reference/02-cli-commands-and-verbs.md`, `docs/reference/19-skills-and-slash-commands.md`.
-- [ ] Task 3.4: Request the group's `## Architecture & Codemap` lines for the noun dispatch in `AAPP::Runner` and `lib/AAPP/Review/` through P-112 (members do not edit `ARCHITECTURE.md` / `.agents/CODEMAP.md`).
+- [ ] Task 3.4: Request the group's `## Architecture & Codemap` lines for `lib/AAPP/Runner/` and the shared `AAPP::Rfc` / `AAPP::Review` through P-112 (members do not edit `ARCHITECTURE.md` / `.agents/CODEMAP.md`).
 
 ### Phase 4: Verification
 - [ ] Task 4.1: `t/test-run strict quiet` and `./aapp test strict quiet` pass.
@@ -141,14 +144,15 @@ The module is the word after the noun (as group P-140 decides for every noun): o
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `aapp` -> Routes a word that names a `lib/AAPP/<Noun>/` folder to `AAPP::Runner`.
-- [ ] `lib/AAPP/Runner.pm` -> The central noun dispatch: `<noun> <word>` → `AAPP::<Noun>::<Word>->run`; the shared-module list at its top.
-- [ ] `NEW FILE` -> `lib/AAPP/Review/Draft.pm` -> `review draft`.
-- [ ] `NEW FILE` -> `lib/AAPP/Review/Flag.pm` -> `review flag`.
-- [ ] `NEW FILE` -> `lib/AAPP/Review/Fix.pm` -> `review fix`, `fix done`, `fix decline`.
-- [ ] `NEW FILE` -> `lib/AAPP/Review/Check.pm` -> `review check`.
-- [ ] `NEW FILE` -> `lib/AAPP/Review/Rfc.pm` -> Shared: the RFC file from the template; `link` of a plan drafted from it.
-- [ ] `NEW FILE` -> `lib/AAPP/Review/Ledger.pm` -> Shared: §7/§8, amendment check, `counts`, `gate`.
+- [ ] `aapp` -> Routes a name with a `lib/AAPP/Runner/<Name>.pm` to `AAPP::Runner`.
+- [ ] `lib/AAPP/Runner.pm` -> Reads the first parameter, calls `AAPP::Runner::<Name>->run(@rest)`; the one delegate step every layer calls.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Review.pm` -> The `review` noun: picks the word; bare `aapp review` lists the words.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Review/Draft.pm` -> `review draft`.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Review/Flag.pm` -> `review flag`.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Review/Fix.pm` -> `review fix`, `fix done`, `fix decline`.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Review/Check.pm` -> `review check`.
+- [ ] `NEW FILE` -> `lib/AAPP/Rfc.pm` -> the RFC file from the template; `link` of a plan drafted from it.
+- [ ] `NEW FILE` -> `lib/AAPP/Review.pm` -> A plan's §7/§8, amendment check, `counts`, `gate`.
 - [ ] `NEW FILE` -> `templates/rfc-template.md` -> The RFC's five sections and rules.
 - [ ] `NEW FILE` -> `templates/skills/aapp-review/SKILL.md` -> The `/aapp-review <id>` skill.
 - [ ] `NEW FILE` -> `lib/docs/verbs/review.md` -> The verb's contract.
