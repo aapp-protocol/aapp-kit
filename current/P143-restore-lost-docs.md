@@ -143,7 +143,7 @@ An old subsection whose behaviour no longer exists is not restored; it is named 
 ### Phase 2: Restore
 - [x] Task 2.1: New pages 17 (companion development), 18 (plan id allocation), 19 (platform verification, last) from the old MANUAL (§2.3).
 - [x] Task 2.2: Restore the other subsections of §2.3 into their pages.
-- [ ] Task 2.3: 02 covers every verb form (§2.4).
+- [x] Task 2.3: 02 covers every verb form (§2.4).
 - [x] Task 2.4: Adopting: the adopt recipe walks the whole path; README's Quick Start links it (§2.6).
 - [x] Task 2.5: Developing: `CONTRIBUTING.md`, and README's "Developing the Kit" section linking it (§2.6).
 
