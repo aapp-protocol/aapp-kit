@@ -494,12 +494,16 @@ Notes:
 - [ ] `NEW FILE` -> `lib/AAPP/Logger.pm` -> Standard output line and optional log file.
 - [ ] `NEW FILE` -> `lib/AAPP/Runner.pm` -> Entry, signals, crash handling, exit codes.
 - [ ] `.agents/PROJECT.MD` -> The comment rule.
+- [x] `lib/AAPP/Constants.pm` -> R49 (by P-116)
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `aapp` -> Routing to Perl is P-115's.
 - [ ] `lib/*.sh` -> The bash kit stays as it is.
 - [ ] `templates/*` -> Hooks stay bash until P-116.
 - [ ] `tests/*` -> Tests change in the harness and test members only.
+
+### Amendments
+- R49 2026-10-27 · `lib/AAPP/Constants.pm` · add commit limits and note TTL defaults to Constants (by P-116, landed `07e14ef`)
 
 ---
 
