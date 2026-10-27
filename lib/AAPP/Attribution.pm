@@ -11,18 +11,18 @@ use AAPP::Config ();
 use AAPP::Logger ();
 
 # Usage     : my $norm = apply_agent_aliases($identity)
-# Purpose   : Normalizes AI identities through git config aapp.aiAlias.
+# Purpose   : Normalizes AI identities through aapp.aiAlias configuration.
 # Returns   : Transformed identity string, or original identity if untouched.
 sub apply_agent_aliases
 {
     my ($identity) = @_;
     return $identity unless defined $identity && $identity ne '';
 
-    # Read configured AI aliases via array-based git_capture
-    my ( $ok, $raw ) = AAPP::Paths::git_capture( 'config', '--get-all', 'aapp.aiAlias' );
-    return $identity if !$ok || !defined $raw || $raw eq '';
+    # Read configured AI aliases via AAPP::Config
+    my @rules = AAPP::Config::get_all('aapp.aiAlias');
+    return $identity unless @rules;
 
-    foreach my $rule ( split( /\n/, $raw ) ) {
+    foreach my $rule (@rules) {
         $rule =~ s/^\s+|\s+$//g;
         next if $rule eq '' || index( $rule, '=' ) < 0;
         my ( $from_val, $to_val ) = split( /=/, $rule, 2 );
