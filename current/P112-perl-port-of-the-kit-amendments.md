@@ -144,7 +144,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R57** 2026-10-28 · P-138 · § 3. Members & Order · replaces R55: P-118 status shows 'fixes <done>/<total>' for a plan with review fixes (AAPP::Review::counts); P-119 done refuses open review items through AAPP::Review::gate, and the review line then leaves .agents/hooks/test-gate.sh — approved (Lorand Veres)
 - **R58** 2026-10-28 · P-138 · § Architecture & Codemap · Architecture & Codemap for P-138: CODEMAP lists lib/AAPP/Review.pm (a plan's review §7/§8: findings, fixes, the owner rule, the amendment check, counts, gate) and lib/AAPP/Runner/Review.pm with its words Draft (writes the RFC from templates/rfc-template.md), Flag, Fix, Check; ARCHITECTURE names the review: design through a local RFC, implementation through signed findings in §7 answered in §8, checked before done — approved (Lorand Veres)
 - **R59** 2026-10-28 · P-138 · `lib/plugins.tsv` · P-15's reserved plugin is renamed aapp-adversarial-review: aapp-review is the /aapp-review skill of the review verb (P-138) — committed
-- **R60** 2026-10-28 · P-138 · `t/core/hooks.t` · the reserved-plugin example in test_plugin_registry_listing uses aapp-adversarial-review, the renamed P-15 plugin — approved (Lorand Veres)
+- **R60** 2026-10-28 · P-138 · `t/core/hooks.t` · the reserved-plugin example in test_plugin_registry_listing uses aapp-adversarial-review, the renamed P-15 plugin — committed
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
