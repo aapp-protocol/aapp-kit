@@ -127,7 +127,7 @@ Every CLI command lives under `lib/AAPP/Runner/`, every other module stays a sin
 - [x] Task 2.2: `AAPP::Review` (§7/§8, the amendment check, `counts`, `gate`) and `AAPP::Runner::Review::Flag` (`review flag`).
 - [x] Task 2.3: `AAPP::Runner::Review::Fix` (`review fix <id> F<n> "<task>"`, `review fix done <id> F<n>`, `review fix decline <id> F<n> "<reason>"`) and `AAPP::Runner::Review::Check` (`review check`).
 - [x] Task 2.4: The CLI hierarchy: `AAPP::Runner` reads one parameter per layer (the one delegate step every layer calls); `aapp` routes a name with a `lib/AAPP/Runner/<Name>.pm`; `AAPP::Runner::Review` picks the word; add the review events to the logging spec.
-- [ ] Task 2.5: `.agents/hooks/test-gate.sh` runs `aapp review check <plan_id>` before `TEST_CMD`; ask the developer to re-register it (`aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`).
+- [x] Task 2.5: `.agents/hooks/test-gate.sh` runs `aapp review check <plan_id>` before `TEST_CMD`; ask the developer to re-register it (`aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`).
 - [x] Task 2.6: Request through P-112 the lines for P-118 (`fixes x/y` in `status`) and P-119 (`done` calls `AAPP::Review::gate` and the gate line in `test-gate.sh` goes; `draft` calls `AAPP::Rfc::link`).
 
 ### Phase 3: Skill, templates and docs
