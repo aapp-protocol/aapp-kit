@@ -12,7 +12,7 @@
 * **Base:** `0b6c95b` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P138 (plan/P138-review-verb-and-skill)
 * **Group:** P-111
-* **Commits:** `d098a78` (plan/P138-review-verb-and-skill)
+* **Commits:** `d098a78` (plan/P138-review-verb-and-skill), `c583e36` (plan/P138-review-verb-and-skill)
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
