@@ -1,5 +1,5 @@
 # 🗺️ Plan P-130: Perl Amendments Ledger
-* **Created:** 2026-10-23 | **Last Refined:** 2026-10-24
+* **Created:** 2026-10-23 | **Last Refined:** 2026-10-28
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-130
 * **Changelog:** Changed: the amendments ledger enforces each request's owner plan and reason, checks every claim on a file across plans and ledgers, emits structured telemetry, and keeps no worktree of its own
@@ -55,17 +55,17 @@ P-129 gave the bash kit the route (the requester makes an approved change in one
 
 
 ### 2.0 The ledger is addressed by its group
-Every group has one amendments member, so the ledger is reached through the group's ID, which people and orchestrators know; with several groups active it names the one meant. `amends` is a reserved word in place of the plan ID (as `pickup` and `issues` are), checked before plan resolution; the group ID is always given, never taken from the checkout, and a plan that is not a group plan is refused:
+Every group has one amendments member, so the ledger is reached through the group's ID, which people and orchestrators know; with several groups active it names the one meant. The amendments commands live under `aapp plan amend` (`lib/AAPP/Runner/Plan/Amend.pm`):
 ```
-aapp refine amends <group-id> request "<why>" file <path> [for <owner-id>]
-aapp refine amends <group-id> request "<why>" heading "<heading>"
-aapp refine amends <group-id> deviation "<why>" file <path>
-aapp refine amends <group-id> approve <n>
-aapp refine amends <group-id> refuse <n> "<reason>"
-aapp refine amends <group-id> decision <n> "<reason>"
-aapp plan-status <group-id> amends [json]
+aapp plan amend request <group-id> "<why>" file <path> [for <owner-id>]
+aapp plan amend request <group-id> "<why>" heading "<heading>"
+aapp plan amend deviation <group-id> "<why>" file <path>
+aapp plan amend approve <group-id> <n>
+aapp plan amend refuse <group-id> <n> "<reason>"
+aapp plan amend decision <group-id> <n> "<reason>"
+aapp plan status <group-id> amends [json]
 ```
-The form `aapp refine <amend-id> request|approve|refuse|decision …` leaves the Perl kit (clean break); the bash kit keeps it until P-122 removes it.
+The legacy form `aapp refine <amend-id> request|approve|refuse|decision …` leaves the kit (clean break).
 
 ### 2.1 A request carries its details
 1. `aapp refine amends <group-id> request "<why>" file <path> [for <owner-id>]`, from the requester's checkout: the requester and its plan ID come from the checkout's bound plan; the why is required and is the line copied into the owner's `### Amendments`.
@@ -149,19 +149,17 @@ Amendments actions emit structured telemetry:
 ### 📂 Target Files (Modifications & Additions)
 - [ ] `lib/AAPP/State.pm` -> The one reader of claims; request line readers (owner, why).
 - [ ] `lib/AAPP/Plan.pm` -> `start`/`freeze-start` disjointness by claims; the amendments member without a worktree.
-- [ ] `lib/AAPP/Cmd/Plan.pm` -> `refine request|approve|decision`, `done`, `plan abort`, `plan-status` of the ledger; `draft … group` and `refine … group` record a new member (§2.7).
-- [ ] `lib/AAPP/Cmd/Commit.pm` -> `commit … amendment <n>` over the claims reader.
+- [ ] `lib/AAPP/Runner/Plan/Amend.pm` -> `aapp plan amend request|approve|decision`, `done`, `plan abort`, `plan status` of the ledger; `plan draft … group` and `plan join` record a new member (§2.7).
+- [ ] `lib/AAPP/Runner/Commit.pm` -> `commit … amendment <n>` over the claims reader.
 - [ ] `lib/AAPP/Hooks/WriteGuard.pm` -> Claims from the one reader.
 - [ ] `lib/AAPP/Hooks/PreCommit.pm` -> Claims from the one reader; the owner's amendment lines accepted by the design lock.
 - [ ] `templates/amendments-template.md` -> The ledger's role; no Target Files, no worktree.
 - [ ] `templates/AGENTS.md` -> Plan groups: the request's why and owner; re-scope through the ledger.
-- [ ] `lib/docs/verbs/refine.md` -> Contract.
-- [ ] `lib/docs/verbs/draft.md` -> Contract: `why` when the group is in development.
+- [ ] `lib/docs/verbs/plan.md` -> Contract for plan amend.
 - [ ] `lib/docs/verbs/commit.md` -> Contract.
 - [ ] `lib/docs/verbs/done.md` -> Contract.
 - [ ] `lib/docs/verbs/start.md` -> Contract.
 - [ ] `lib/docs/verbs/freeze-start.md` -> Contract.
-- [ ] `lib/docs/verbs/plan-status.md` -> Contract.
 - [ ] `tests/verbs/refine.sh` -> Assertions §2.0–2.3 contradict, adapted; no test added.
 - [ ] `tests/verbs/done.sh` -> Assertions §2.3 contradicts, adapted; no test added.
 - [ ] `tests/verbs/status.sh` -> Assertions §2.0 contradicts (the request form), adapted; no test added.
@@ -182,6 +180,7 @@ Amendments actions emit structured telemetry:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Aligned syntax and modules with noun-first CLI: `aapp plan amend` under `lib/AAPP/Runner/Plan/Amend.pm`.
 * **2026-10-24:** Refined technical blueprint, D7 references, and checklist with exact structured logging telemetry for amendments actions per logging events spec (§4.5).
 * **2026-10-24:** No tests of its own (§2.8, with the developer): its checks go into P-134 and P-125's Perl verb files; the bash assertions it contradicts are adapted; its place stays after P-120, before P-121.
 
