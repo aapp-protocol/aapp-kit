@@ -1,5 +1,5 @@
 # 🗺️ Plan P-131: Lifecycle Governance And Review Gates
-* **Created:** 2026-10-23 | **Last Refined:** 2026-10-24
+* **Created:** 2026-10-23 | **Last Refined:** 2026-10-28
 * **Target Issue / Milestone:** Milestone: v0.10.0
 * **Plan ID:** P-131
 * **Changelog:** Added: pluggable external governance protocol, configurable HITL lifecycle enforcement, and dynamic CLI prompt steering with structured telemetry
@@ -259,7 +259,7 @@ On every lifecycle transition check (`freeze`, `start`, `done`, `abort`, `verify
 
 ### Phase 2: Dynamic CLI Prompt Steering (`AAPP::Output` & Diagnostics)
 - [ ] Task 2.1: Extend `lib/AAPP/Output.pm` with governance-aware message formatting (`yield_notice`, `gate_refusal_banner`).
-- [ ] Task 2.2: Update `lib/AAPP/Cmd/Plan.pm` and `lib/AAPP/Cmd/Issue.pm` (and transitional `lib/cmd_plan.sh`) to inject dynamic yield instructions into `draft` and `issue close` limit abort/promote diagnostics.
+- [ ] Task 2.2: Update `lib/AAPP/Runner/Plan/` and `lib/AAPP/Runner/Issue/` (and transitional `lib/cmd_plan.sh`) to inject dynamic yield instructions into `draft` and `issue close` limit abort/promote diagnostics.
 - [ ] Task 2.3: Integrate `AAPP::Governance::check_gate` into lifecycle verbs: `freeze`, `start`, `done`, and `abort`.
 
 ### Phase 3: Skill File Invariants & Rule Updates
@@ -284,8 +284,11 @@ On every lifecycle transition check (`freeze`, `start`, `done`, `abort`, `verify
 - [ ] `NEW FILE` -> `lib/docs/core/governance.md` -> Core interface contract for external governance handlers.
 - [ ] `lib/AAPP/Output.pm` -> Dynamic governance-aware yield notices and refusal banners.
 - [ ] `lib/AAPP/Constants.pm` -> Configuration defaults for `aapp.governance*`.
-- [ ] `lib/AAPP/Cmd/Plan.pm` -> Gate checks in freeze, start, done, and abort verbs.
-- [ ] `lib/AAPP/Cmd/Issue.pm` -> Governance yield guidance in issue close limit refusals.
+- [ ] `lib/AAPP/Runner/Plan/Freeze.pm` -> Governance gate check in plan freeze.
+- [ ] `lib/AAPP/Runner/Plan/Start.pm` -> Governance gate check in plan start.
+- [ ] `lib/AAPP/Runner/Plan/Done.pm` -> Governance gate check in plan done.
+- [ ] `lib/AAPP/Runner/Plan/Abort.pm` -> Governance gate check in plan abort.
+- [ ] `lib/AAPP/Runner/Issue/Close.pm` -> Governance yield guidance in issue close limit refusals.
 - [ ] `lib/cmd_plan.sh` -> Transitional bash lifecycle gate checks during porting.
 - [ ] `t/core/pre-commit.t` -> Pre-commit governance gate and amendment token verification tests.
 - [ ] `templates/skills/aapp-plan/SKILL.md` -> Post-draft Yield Invariant template.
@@ -310,6 +313,7 @@ On every lifecycle transition check (`freeze`, `start`, `done`, `abort`, `verify
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Aligned target files and checklist with noun-first CLI: `lib/AAPP/Runner/Plan/{Freeze,Start,Done,Abort}.pm` and `lib/AAPP/Runner/Issue/Close.pm`.
 * **2026-10-23:** Plan drafted as dedicated Group P-111 member to consolidate external governance, HITL lifecycle enforcement, and dynamic CLI steering into a single historical record.
 * **2026-10-24:** Refined technical blueprint, D7 implementation references, and checklist with exact structured logging telemetry for governance checks per logging events spec (§3.5).
 
