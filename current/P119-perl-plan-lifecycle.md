@@ -107,6 +107,9 @@ Each word module implements a single public `sub run`:
 Per `.plans/pickup/perl-port-logging-events-spec.md` §4.5, all plan lifecycle actions emit structured telemetry to `.git/aapp.log`:
 - `post-draft`, `post-refine`, `post-tdd`, `post-freeze`, `post-start`, `post-done`, `post-active`, `post-abort`, `group.docs`.
 
+### 2.6 Contract Consolidation (`lib/docs/verbs/plan.md`)
+One single contract for the noun and all its words, `lib/docs/verbs/plan.md` (as P-138 does for `review`). Today's individual `lib/docs/verbs/<verb>.md` contracts for each moved verb (`draft.md`, `tdd.md`, `freeze.md`, `start.md`, `freeze-start.md`, `done.md`, `active.md`, `plan-status.md`, `matrix.md`, and plan forms of `refine.md`) are consolidated into `lib/docs/verbs/plan.md`.
+
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
@@ -126,10 +129,11 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.5, all plan lifecycle a
 - [ ] Task 2.4: Implement plan-editing words: `Commit.pm`, `Rename.pm`, `Block.pm`, `Unblock.pm`, `Closes.pm`, `Join.pm`, `Leave.pm`, `Amend.pm`.
 - [ ] Task 2.5: Wire `aapp plan` in CLI entrypoint `./aapp`.
 
-### Phase 3: Verification & Clean Break
+### Phase 3: Verification, Contract & Clean Break
 - [ ] Task 3.1: Run `prove -l t/core/group_docs.t` and syntax check `perl -c` across all new `lib/AAPP/Runner/Plan/*.pm` modules.
 - [ ] Task 3.2: Verify `./aapp plan status` and `./aapp plan matrix` report cleanly over current repository state.
-- [ ] Task 3.3: Verify `CHANGELOG.md` updates.
+- [ ] Task 3.3: Consolidate individual lifecycle verb contracts into `lib/docs/verbs/plan.md`.
+- [ ] Task 3.4: Verify `CHANGELOG.md` updates.
 
 ---
 
@@ -165,11 +169,12 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.5, all plan lifecycle a
 - [ ] `aapp` -> Dispatch `plan` and plan lifecycle words directly to `AAPP::Runner::Plan`.
 - [ ] `lib/cmd_plan.sh` -> Retained for remaining callers until `P-120` or delegated to `AAPP::Plan` until `P-122`.
 - [ ] `lib/group_docs.sh` -> Transitional shim delegating to `AAPP::GroupDocs` until `P-122`.
+- [ ] `lib/docs/verbs/plan.md` -> Consolidated specification contract for `aapp plan` and all its lifecycle words.
 - [ ] `t/core/group_docs.t` -> Switch from bash `source` wrappers to direct `AAPP::GroupDocs` calls.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/AAPP/Tests.pm` -> The test engine and test files in `t/` (except declared target `t/core/group_docs.t`) stay out of bounds during code plans.
-- [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` remain out of bounds during code port.
+- [ ] `lib/docs/` -> Other spec contracts in `lib/docs/verbs/*.md` outside declared target `plan.md` remain out of bounds during code port.
 
 ---
 
