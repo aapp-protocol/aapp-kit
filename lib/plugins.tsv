@@ -16,5 +16,5 @@ aapp-planid	Team Plan ID Authority	shipped	plan.allocate	aapp.planId	examples/pl
 aapp-issue-tracker	Team Issue Tracker	shipped	issue.log,issue.refine,issue.fix,issue.fix-abort,issue.abort,issue.close,issue.list,issue.next-blocker,issue.queue,issue.unqueue	aapp.issueId	examples/plugins/aapp-issue-tracker/run.sample
 aapp-issue-branch	Team Branch Directions	shipped	issue.branch	-	examples/plugins/aapp-issue-branch/run.sample
 aapp-issue-note-filter	Team Note Filter	shipped	issue.note-show	-	examples/plugins/aapp-issue-note-filter/run.sample
-aapp-review	Adversarial Review	planned:P-15	-	-	-
+aapp-adversarial-review	Adversarial Review	planned:P-15	-	-	-
 hello-tool	Custom CLI Showcase	shipped	-	-	examples/plugins/hello-tool/run.sample

@@ -11,7 +11,7 @@ AAPP gives coding agents (Claude Code, Antigravity, Cursor, Codex, OpenCode and 
 
 ## 1. Skills Catalog
 
-The kit ships 11 skills and one alias in `templates/skills/`; `aapp init` and `aapp upgrade` copy them into the project's `.agents/skills/`:
+The kit ships 12 skills and one alias in `templates/skills/`; `aapp init` and `aapp upgrade` copy them into the project's `.agents/skills/`:
 
 | Skill | Path | Purpose |
 | :--- | :--- | :--- |
@@ -21,6 +21,7 @@ The kit ships 11 skills and one alias in `templates/skills/`; `aapp init` and `a
 | **`plan`** | `.agents/skills/plan/SKILL.md` | Alias of `aapp-plan`, so an agent's built-in `/plan` lands in the same workflow. |
 | **`aapp-digest`** | `.agents/skills/aapp-digest/SKILL.md` | Takes one idea from `pickup.md` or one issue from `ISSUES.md` and works it toward a blueprint in the Incubator. |
 | **`aapp-tdd`** | `.agents/skills/aapp-tdd/SKILL.md` | Declares a plan's failure-first tests (§3 identifiers, §4 test files) before freeze. |
+| **`aapp-review`** | `.agents/skills/aapp-review/SKILL.md` | Reviews a plan by its Status: in design, through its RFC (`aapp review draft`); in development, through signed findings (`aapp review flag`) the implementer answers with fixes. Never opens amendment requests. |
 | **`aapp-freeze`** | `.agents/skills/aapp-freeze/SKILL.md` | Locks a plan's design and Blast Radius: checks open questions, then `aapp freeze`. |
 | **`aapp-start`** | `.agents/skills/aapp-start/SKILL.md` | Starts a frozen plan (`⚡ In Development`), in its own worktree when `aapp.planWorktrees` is on, and begins its §3. |
 | **`aapp-fix`** | `.agents/skills/aapp-fix/SKILL.md` | Fixes one queued issue (or the next plan blocker) through a temporary mini plan in `.workspace/fix-<num>`. |
@@ -43,6 +44,7 @@ An agent that supports skills exposes each one as a slash command. The skill the
 | `/aapp-plan [slug]`, `/plan` | `aapp-plan` | `aapp draft <slug>` |
 | `/aapp-digest [idea \| #<num>]` | `aapp-digest` | `aapp draft <slug>` or `aapp draft <slug> issue <num>` |
 | `/aapp-tdd <id>` | `aapp-tdd` | `aapp tdd <id>` |
+| `/aapp-review <id \| slug>` | `aapp-review` | `aapp review draft <id>` in design; `aapp review flag <id> "<finding>"` in development |
 | `/aapp-freeze <id>` | `aapp-freeze` | `aapp freeze <id>` |
 | `/aapp-start <id>` | `aapp-start` | `aapp start <id>` |
 | `/aapp-fix [#<num>]` | `aapp-fix` | `aapp issue fix <num>` (or `next-blocker`), `aapp commit`, `aapp issue close <num>` |

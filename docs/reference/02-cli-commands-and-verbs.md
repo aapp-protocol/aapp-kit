@@ -67,6 +67,20 @@ aapp tdd <id_or_slug>
 - It declares tests only: it writes no test code and runs nothing. When the plan starts, the agent writes the declared tests first and confirms they fail (red) before writing the feature.
 - Files listed under `### 🧪 Required Test Files` may be written during development without a second line under `### 📂 Target Files`.
 
+### `aapp review`
+```text
+aapp review draft <id> | draft <slug>
+aapp review flag <id> "<finding>" [file <path>]
+aapp review fix <id> F<n> "<task>" | fix done <id> F<n> | fix decline <id> F<n> "<reason>"
+aapp review check <id>
+```
+The kind of review follows the plan's Status. Skill: `/aapp-review`.
+- `draft <id>`: a design review of a plan `🟣 Under Review` or `📝 Refining`: writes its RFC, `.plans/pickup/p<n>-<slug>-rfc.md`, with five sections (scope, current state, a signed findings log, the user's decisions, the plans it was carried into). `draft <slug>`: the same for a topic with no plan yet, quoting the pickup idea with that title. Local, never committed; an existing RFC is not overwritten.
+- `flag <id> "<finding>"`: an implementation review of a `⚡ In Development` plan, from any checkout: appends a signed finding `F<n>` (date, reviewer, text, state `open`) to the plan's `## 🔍 7. Implementation Review`. `file <path>` names the file; one outside the Target Files is marked as needing an amendment, which the implementer requests, never the reviewer.
+- `fix <id> F<n> "<task>"`, from the plan's own checkout: the answer, a task in `## 🧩 8. Review Fixes`; the finding becomes `planned`. `fix done`: the task ticked, the finding `done` (for a file outside the targets, once its amendment request, named in the task as `(R<n>)`, has landed). `fix decline … "<reason>"`: the finding `declined: <reason>`.
+- `check <id>`: read-only; lists open and planned findings and unticked tasks; exit 1 while any is open, so a `pre-done` gate can refuse `done`.
+- Each `flag` and `fix` is one commit of the plan file. Design findings go in the RFC: `flag` and `fix` refuse a plan in design, and every form refuses `🔷`, `🟥` and `✅` plans.
+
 ### `aapp plan`
 ```text
 aapp plan [query]

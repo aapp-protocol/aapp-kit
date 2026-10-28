@@ -100,3 +100,8 @@
 *Tracks how the plan evolved across sessions.*
 * **[YYYY-MM-DD]:** Plan initialized from `pickup.md`.
 * **[YYYY-MM-DD]:** Refined blast radius and locked module boundaries.
+<!-- An implementation review adds `## 🔍 7. Implementation Review` (findings, `aapp review flag`) and
+     `## 🧩 8. Review Fixes` (the implementer's answers, `aapp review fix`) here, written on first use.
+     Neither is written by hand; `aapp review check <id>` lists what is still open (exit 1), so a
+     `pre-done` gate can refuse a plan with open findings or unticked fixes. -->
+

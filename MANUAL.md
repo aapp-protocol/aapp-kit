@@ -78,6 +78,8 @@ Authoritative, exhaustive specifications, schemas, tables, and lookup dictionari
 | **Declare TDD Tests** | `aapp tdd <id>` | `/aapp-tdd` | Plan in `📝 Refining` |
 | **Freeze Design** | `aapp freeze <id>` | `/aapp-freeze` | Questions resolved |
 | **Activate Execution** | `aapp start <id>` | `/aapp-start` | Plan in `🔷 Frozen` |
+| **Design Review** | `aapp review draft <id>` | `/aapp-review` | Plan in `🟣 Under Review` or `📝 Refining`; the RFC is local |
+| **Implementation Review** | `aapp review flag <id> "<finding>"` | `/aapp-review` | Plan in `⚡ In Development`; the implementer answers with `aapp review fix` |
 | **Plan-Bound Commit** | `aapp commit "<msg>"` | — | Inside Target Files |
 | **Close & Archive** | `aapp done <id>` | `/aapp-done` | Verification complete |
 | **Fix Queued Bug** | `aapp issue fix <num>` | `/aapp-fix` | Cleared on roadmap |

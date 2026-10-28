@@ -57,8 +57,9 @@ for f in "$DOCS"/*.md; do
 ${f##*/}: headings are not the §2.1 shape"
   head -n 1 "$f" | grep -q '^# ' || errors="$errors
 ${f##*/}: first line is not '# <verb> [args]'"
-  grep -q "^Run: \`aapp test verb " "$f" || errors="$errors
-${f##*/}: ## Tests has no 'Run: \`aapp test verb <verb>\`' line"
+  # A verb tested in bash runs with `aapp test verb`; one tested only in t/verb/ with `t/test-run verb`.
+  grep -qE "^Run: \`(aapp test|t/test-run) verb " "$f" || errors="$errors
+${f##*/}: ## Tests has no 'Run: \`aapp test verb <verb>\`' or 'Run: \`t/test-run verb <verb>\`' line"
 done
 if [ -z "$errors" ]; then ok "test_contracts_follow_the_shape"; else bad "test_contracts_follow_the_shape" "${errors#
 }"; fi

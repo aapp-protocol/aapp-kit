@@ -209,6 +209,7 @@ Each workflow below is a skill. Its instructions are in `.agents/skills/<name>/S
 | `/aapp-plan` | Plan a feature or change as a canonical blueprint; inspect a plan |
 | `/plan` | The same as `/aapp-plan` |
 | `/aapp-tdd` | Declare a plan's failing tests before freeze |
+| `/aapp-review` | Review a plan: its RFC in design, signed findings in development |
 | `/aapp-freeze` | Lock a plan's design and Blast Radius |
 | `/aapp-start` | Activate a frozen plan and begin its §3 |
 | `/aapp-done` | Archive an implemented plan |
@@ -232,6 +233,7 @@ Every chore has a verb; use it instead of editing ledgers or running git on `.pl
 | `aapp tdd` | Inject failure-test sections into a plan before freeze |
 | `aapp plan` | Planning switchboard. `aapp plan abort` abandons a plan: archived to `aborted/`, its worktree and branch removed, its issue stays open (🟡 `Incubated`); run it from the main checkout, only when the human asks |
 | `aapp plan-status` | Read-only plan matrix or one plan's details |
+| `aapp review` | A plan's review. In design: `aapp review draft <id>` writes its RFC (local). In development: `aapp review flag` signs a finding into §7; the implementer answers from the plan's checkout with `aapp review fix` (a task in §8), `fix done` or `fix decline "<reason>"`; `aapp review check` lists what is open (exit 1, for a `pre-done` gate) |
 | `aapp matrix` | Re-derive (or audit) `state_matrix.md` from plan Status lines |
 | `aapp freeze` | Lock design and Blast Radius |
 | `aapp start` | Activate a frozen plan for implementation; with `aapp.planWorktrees = on`, in its own branch and worktree |

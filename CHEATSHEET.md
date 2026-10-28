@@ -33,6 +33,10 @@ AAPP supports both conversational AI agent workflows and pure-human standalone t
 | `aapp plan conflict-free [<id>\|<group>] [json]` | **✅ Yes** | Plans free to start now, compatible with `<id>`, or a group's members in waves for parallel agents |
 | `aapp plan abort <id> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` | **✅ Yes** | Abandon a plan: archived to `aborted/`, worktree and branch removed, its issue back to 🟡 `Incubated`; a group plan takes its open members and feature branch after a confirmation |
 | `aapp plan-status [id]` | **✅ Yes** | Inspect plan lane matrix or specific blueprint details |
+| `aapp review draft <id> \| <slug>` | **✅ Yes** | Design review: write a plan's (or a topic's) RFC in `.plans/pickup/`, from the template; local, not committed (`/aapp-review`) |
+| `aapp review flag <id> "<finding>" [file <path>]` | **✅ Yes** | Implementation review: sign a finding into the ⚡ plan's §7, from any checkout |
+| `aapp review fix <id> F<n> "<task>"` / `fix done <id> F<n>` / `fix decline <id> F<n> "<reason>"` | **✅ Yes** | The implementer answers a finding from the plan's own checkout: a task in §8, ticked, or declined with a reason |
+| `aapp review check <id>` | **✅ Yes** | Lists open findings and unticked fixes; exit 1 while any is open |
 | `aapp matrix [check]` | **✅ Yes** | Re-derive state matrix from plan Status lines ('check' to audit) |
 | `aapp freeze [id]` | **✅ Yes** | Lock blueprint blast radius & design into frozen backlog spec |
 | `aapp start [id] [worktree <path> [branch <name>]]` | **✅ Yes** | Bind execution buffer & transition to ⚡ In Development (refused while a queued Plan Blocker names a Target File); with `aapp.planWorktrees on` (or `worktree`), in the plan's own branch and worktree, all or nothing |

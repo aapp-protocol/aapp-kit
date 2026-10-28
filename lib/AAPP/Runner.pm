@@ -142,8 +142,7 @@ sub logger
 
 # Usage     : AAPP::Runner::run(@run_args)
 # Purpose   : CLI entry point. Takes the global tokens (json, quiet), installs the handlers,
-#             dispatches the verb to AAPP::Cmd::<Verb>->run(@args), and exits with its return number.
-#             A verb with no module is refused; a module that fails to load is a crash.
+#             hands the first parameter to delegate() under AAPP::Runner, and exits with the return number.
 # Returns   : Does not return.
 sub run
 {
@@ -158,21 +157,59 @@ sub run
 
     init_signals();
 
-    my $verb = shift(@args) // DEFAULT_VERB;
-    ( my $module = join( '', map { ucfirst } split( /-/, $verb ) ) ) =~ s/[^A-Za-z]//g;
-    my $class = "AAPP::Cmd::$module";
-    my $file  = "AAPP/Cmd/$module.pm";
-    my $found = $module ne '' && eval { require $file; 1 };
-    if ($found) {
-        $return = $class->run(@args);
-    } elsif ( $module eq '' || $@ =~ /^Can't locate \Q$file\E in \@INC/ ) {
-        AAPP::Logger::print_msg( 'ERROR', "Unknown verb '$verb'. Run 'aapp help'." );
-        $return = RETURN_FAIL;
-    } else {
-        die $@;
+    if ( !@args ) {
+        push @args, DEFAULT_VERB;
     }
+    $return = delegate( 'AAPP::Runner', 'command', [], @args );
     exit_code();
     return;
+}
+
+# Usage     : my $rc = AAPP::Runner::delegate('AAPP::Runner::Review', 'review word', \@words, @args)
+# Purpose   : The one dispatch step of every CLI layer: reads one parameter, loads <namespace>::<Name>
+#             ('freeze-start' -> FreezeStart) and calls its run() with the rest. An unknown or missing
+#             word is refused naming the words; a module that fails to load is a crash.
+# Returns   : The module's return number; RETURN_FAIL when the word is unknown or missing.
+sub delegate
+{
+    my ( $namespace, $label, $words, @rest ) = @_;
+    my $word   = shift(@rest);
+    my @known  = @{$words} ? @{$words} : layer_words($namespace);
+    my $module = defined $word && $word =~ /^[a-z][a-z0-9-]*$/ ? join( '', map { ucfirst } split( /-/, $word ) ) : '';
+    my $file   = ( $namespace =~ s{::}{/}gr ) . "/$module.pm";
+    my $found  = $module ne '' && eval { require $file; 1 };
+    if ($found) {
+        return "${namespace}::$module"->run(@rest);
+    }
+    if ( $module ne '' && $@ !~ /^Can't locate \Q$file\E in \@INC/ ) {
+        die $@;
+    }
+    my $named = defined $word ? "Unknown $label '$word'." : "No $label given.";
+    AAPP::Logger::print_msg( 'ERROR', "$named Known: " . join( ', ', @known ) . '.' );
+    return RETURN_FAIL;
+}
+
+# Usage     : my @words = AAPP::Runner::layer_words('AAPP::Runner::Review')
+# Purpose   : The words a layer offers: one per module in its folder ('FreezeStart.pm' -> 'freeze-start').
+# Returns   : The words, sorted.
+sub layer_words
+{
+    my ($namespace) = @_;
+    my $dir = $namespace =~ s{::}{/}gr;
+    my %seen;
+    foreach my $base (@INC) {
+        if ( ref($base) || !opendir( my $dh, "$base/$dir" ) ) {
+            next;
+        } else {
+            foreach my $entry ( readdir($dh) ) {
+                if ( $entry =~ /^([A-Z][A-Za-z0-9]*)\.pm$/ ) {
+                    $seen{ lc( $1 =~ s/(?<=[a-z0-9])([A-Z])/-$1/gr ) } = 1;
+                }
+            }
+            closedir($dh);
+        }
+    }
+    return sort keys %seen;
 }
 
 1;

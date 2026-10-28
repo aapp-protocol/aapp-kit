@@ -289,17 +289,17 @@ sub test_plugin_registry_listing
         $self->true_or_die( index( $kit_part, "• $name " ) >= 0, "$name is listed under Kit Plugins", $out );
         $self->true_or_die( index( $your_part, "• $name " ) < 0, "$name is not listed under Your Plugins", $out );
     }
-    my ($review) = grep { index( $_, '• aapp-review ' ) >= 0 } split( /\n/, $kit_part );
+    my ($review) = grep { index( $_, '• aapp-adversarial-review ' ) >= 0 } split( /\n/, $kit_part );
     $self->match_or_die( $review // '', qr/RESERVED \(planned, P-15\)/, 'a planned row is RESERVED' );
     $self->match_or_die( $your_part, qr/aapp-deploy uses the reserved aapp- prefix/, 'an unregistered aapp-* plugin is warned about' );
     $self->eq_or_die( scalar( () = $out =~ /uses the reserved aapp- prefix/g ), 1, 'kit skills without an entry point are not' );
     File::Path::remove_tree('.agents/skills/aapp-deploy');
 
-    File::Path::make_path('.agents/skills/aapp-review');
-    script( 'run', "#!/bin/sh\nexit 0\n", Cwd::getcwd() . '/.agents/skills/aapp-review' );
-    ($review) = grep { index( $_, '• aapp-review ' ) >= 0 } split( /\n/, aapp_all( $self, 'plugins' ) );
+    File::Path::make_path('.agents/skills/aapp-adversarial-review');
+    script( 'run', "#!/bin/sh\nexit 0\n", Cwd::getcwd() . '/.agents/skills/aapp-adversarial-review' );
+    ($review) = grep { index( $_, '• aapp-adversarial-review ' ) >= 0 } split( /\n/, aapp_all( $self, 'plugins' ) );
     $self->match_or_die( $review // '', qr/ACTIVE.*reserved for P-15/, 'a reserved name installed early shows its state' );
-    File::Path::remove_tree('.agents/skills/aapp-review');
+    File::Path::remove_tree('.agents/skills/aapp-adversarial-review');
 
     my $empty = Cwd::getcwd() . '/proj-no-plugins';
     File::Path::make_path($empty);

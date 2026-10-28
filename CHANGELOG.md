@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - slim the test suites to verb behaviour and core wrappers, fold `#nnn` regressions into behaviour tests, and add `lib/docs/core/` contracts (P-113) (`P-113`)
 
 ### Added
+- `aapp review` verb and `/aapp-review` skill: an RFC drafted from a template, signed implementation findings in a plan's §7 and their follow-up fixes in §8 (`P-138`)
 - a reference page for group amendments: requests, approval, the amendment commit and request states (`docs/reference/20-group-amendments.md`)
 - settings can be set in system and user config files above the repository; a higher level always wins (`P-132`)
 - Perl 5.26+ test engine (`AAPP::Tests`) for the `t/` test files, with per-test fixture copies, a process-group watchdog, parallel workers and an end-of-run failure recap, run through `t/test-run` or `prove -l t/` (`P-126`)
