@@ -1,8 +1,8 @@
 # 🗺️ Plan P-119: Perl Plan Lifecycle
-* **Created:** 2026-10-19 | **Last Refined:** 2026-10-24
+* **Created:** 2026-10-19 | **Last Refined:** 2026-10-28
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-119
-* **Changelog:** Changed: Port plan lifecycle verbs (`draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, and `plan` subverbs) to `AAPP::Plan` and `AAPP::Cmd::Plan` with structured log event telemetry
+* **Changelog:** Changed: Port plan lifecycle and query commands directly under noun-first 'aapp plan' (lib/AAPP/Runner/Plan/) with reserved words, one module per word, and structured log event telemetry, absorbing P-139
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,11 +40,13 @@
 ---
 
 ## 1. Context & Architectural Goal
-Plan `P-119` is the seventh member of group `P-111` (*Perl Port Of The Kit*). It ports the entire Plan Lane (`lib/cmd_plan.sh`, 4,495 lines — the largest file in the repository) and group documentation stamper/applier (`lib/group_docs.sh`, 139 lines) into `lib/AAPP/GroupDocs.pm`, `lib/AAPP/Plan.pm`, and `lib/AAPP/Cmd/Plan.pm`, covering `draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, and `plan` (`conflict-check`, `conflict-free`, `abort`).
+Plan `P-119` is the fourteenth member of group `P-111` (*Perl Port Of The Kit*), absorbing `P-139` (*Plan Noun*). It ports the entire Plan Lane (`lib/cmd_plan.sh`, 4,495 lines — the largest file in the repository) and group documentation stamper/applier (`lib/group_docs.sh`, 139 lines) directly into the noun-first CLI command hierarchy under `lib/AAPP/Runner/Plan.pm` and `lib/AAPP/Runner/Plan/<Word>.pm`, supported by core modules `lib/AAPP/Plan.pm` and `lib/AAPP/GroupDocs.pm`.
 
-In bash, every lifecycle transition (`draft -> refine -> tdd -> freeze -> start -> done`) re-runs multi-pass `awk` over `state_matrix.md`, `ISSUES.md`, and every `.plans/current/P*.md` file, and `cmd_plan.sh` embeds the entire worktree (`_wt_*`), squash (`_sq_*`), and lock-based parent branch integration (`_ig_*`) engines. In Perl, `AAPP::GroupDocs`, `AAPP::Plan`, and `AAPP::Cmd::Plan` mutate the parsed plan AST and `state_matrix.md` rows in memory via `AAPP::State`, run `AAPP::Health` in-process, and commit `.plans` atomically via `AAPP::CommitEngine`.
+In bash, every lifecycle transition (`draft -> refine -> tdd -> freeze -> start -> done`) re-runs multi-pass `awk` over `state_matrix.md`, `ISSUES.md`, and every `.plans/current/P*.md` file, and `cmd_plan.sh` embeds the entire worktree (`_wt_*`), squash (`_sq_*`), and lock-based parent branch integration (`_ig_*`) engines. In Perl, `AAPP::GroupDocs`, `AAPP::Plan`, and `AAPP::Runner::Plan::*` mutate the parsed plan AST and `state_matrix.md` rows in memory via `AAPP::State`, run `AAPP::Health` in-process, and commit `.plans` atomically via `AAPP::CommitEngine`.
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/GroupDocs.pm`, `lib/AAPP/Plan.pm`, `lib/AAPP/Cmd/Plan.pm`, `lib/cmd_plan.sh`, `lib/group_docs.sh`, `aapp`) plus switching `t/core/group_docs.t` from bash `source` wrappers to direct `AAPP::GroupDocs` calls per `P-111`'s core-wrapper rule. (`t/core/integrate.t` redesign is owned exclusively by `P-135`).
+**Strict Noun-First Clean Break:** All legacy top-level verbs (`aapp draft`, `aapp tdd`, `aapp freeze`, `aapp start`, `aapp freeze-start`, `aapp done`, `aapp active`, `aapp plan-status`, `aapp matrix`) and plan-editing forms of `aapp refine` leave the kit; each command is ported directly as `aapp plan <word>` under `lib/AAPP/Runner/Plan/<Word>.pm` with a single public `run` method.
+
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/GroupDocs.pm`, `lib/AAPP/Plan.pm`, `lib/AAPP/Runner/Plan.pm`, `lib/AAPP/Runner/Plan/*.pm`, `lib/cmd_plan.sh`, `lib/group_docs.sh`, `aapp`) plus switching `t/core/group_docs.t` from bash `source` wrappers to direct `AAPP::GroupDocs` calls per `P-111`'s core-wrapper rule. (`t/core/integrate.t` redesign is owned exclusively by `P-135`).
 
 **Strict Implementation References (`D7`):**
 - **Logging Events Spec (§4.5 `plan` lifecycle verbs):** `.plans/pickup/perl-port-logging-events-spec.md`
@@ -55,71 +57,78 @@ In bash, every lifecycle transition (`draft -> refine -> tdd -> freeze -> start 
 
 ## 2. Technical Blueprint
 
-### 2.1 `AAPP::GroupDocs` (`lib/AAPP/GroupDocs.pm`) — `lib/group_docs.sh` (139 lines)
-Ports `lib/group_docs.sh`:
-- Parses `## Architecture & Codemap` (`### ARCHITECTURE.md` and `### CODEMAP.md` fenced with ` ````markdown ` ... ` ```` `).
-- `group_docs_stamp($plan_file)`: computes SHA-256 of each target `## <Heading>` section in `ARCHITECTURE.md` and `.agents/CODEMAP.md` via `Digest::SHA::sha256_hex` and stamps `<!-- aapp-base: <sha256> -->` above each ```` fence on `aapp refine`.
-- `group_docs_check($plan_file)`: verifies recorded `<!-- aapp-base: <sha256> -->` comments against live `ARCHITECTURE.md` and `.agents/CODEMAP.md` on `freeze` and `done`.
-- `group_docs_apply($plan_file)`: replaces matching `## <Heading>` sections in `ARCHITECTURE.md` and `.agents/CODEMAP.md` when closing a group plan via `aapp done`.
+### 2.1 The Noun Runner (`lib/AAPP/Runner/Plan.pm`)
+- `lib/AAPP/Runner/Plan.pm` (`AAPP::Runner::Plan`): reads one parameter, the word, and calls `AAPP::Runner::Plan::<Word>->run(@rest)` through the delegate step in `AAPP::Runner`; a hyphenated word joins its parts (`freeze-start` → `FreezeStart`).
+- Bare `aapp plan [query]`: the planning switchboard, keeping its query. The first parameter is a word when it is one of §2.2 (they are reserved, §2.3); anything else is the query.
+- An unknown word is refused, naming every registered word of §2.2.
+- `aapp help plan` lists the words; `aapp help plan <word>` prints one word's arguments, `full` its refusals and effects.
 
-### 2.2 `AAPP::Plan` (`lib/AAPP/Plan.pm`) — Worktree, Squash, Integration & Conflict Engine (`lib/cmd_plan.sh`)
-Provides shared engines across plan lifecycle verbs:
-- **Plan ID allocation & scaffolding**: uses `AAPP::State::allocate_plan_id('plan')` (the kit's single allocator, no duplicate allocator in `AAPP::Plan`), renders `templates/plan-template.md`, `templates/group-template.md` (`* **Members:**`), and `templates/amendments-template.md` (`P<group+1>-<slug>-amendments.md`).
-- **Worktree Engine (`_wt_*`)**:
-  - Creates, inspects, and removes isolated plan worktrees at `.workspace/P<num>` on branch `plan/P<num>-<slug>` (configurable via `aapp.planWorktreePath` default `.workspace/{id}` and `aapp.planBranch` default `plan/{id}-{slug}`), group integration branches on `feature/<slug>`, and quarantines dirty worktrees on failure (`_wt_quarantine`).
-  - Manages active plan pointer buffer `$(git rev-parse --git-path aapp_active_plan)` and previous pointer `aapp_active_plan.prev`.
-- **Squash Engine (`_sq_*`)**:
-  - Squashes multi-commit plan branches (`_sq_squash_plan_branch`) into a single cohesive commit while preserving semantic AI trailers and `refs/notes/ai` / `refs/notes/commits`.
-- **Parent-Locked Integration Engine (`_ig_*`)**:
-  - `_ig_preflight`: verifies clean worktree, recorded commits, and target branch state.
-  - `_ig_lock_acquire` / `_ig_lock_release`: acquires parent integration lock ref `refs/heads/integrate/<parent>`.
-  - Auto-rebases onto target branch when `aapp.autoRebase` is enabled (`_ig_rebase`), and performs headless CAS fast-forward (`git update-ref` / `git fetch . <src>:<dst>`) or checkout merge when target is checked out.
-- **Blast Radius Overlap & Conflict Matrix (`conflict_check` / `conflict_free`)**:
-  - Compares `### 📂 Target Files` across concurrent plans in `.plans/current/P*.md` to detect overlapping files and compute conflict-free execution sets.
+### 2.2 The Words & Module Layout (`lib/AAPP/Runner/Plan/<Word>.pm`)
+Each word module implements a single public `sub run`:
 
-### 2.3 `AAPP::Cmd::Plan` (`lib/AAPP/Cmd/Plan.pm`) — Plan Lifecycle Verb Handlers (`lib/cmd_plan.sh`, 4,495 lines)
-Ports all plan lifecycle verbs from `lib/cmd_plan.sh`, keeping exact behavior, arguments, failure modes, and side effects defined in `aapp help <verb> full` and `lib/docs/verbs/<verb>.md` under the unchanged bash verb suites (`tests/verbs/*.sh`; their Perl files come after the ports, P-134):
-- **`draft`** (`aapp help draft full`, `lib/docs/verbs/draft.md`): normal plan, promoted issue plan, group plan + companion amendments plan, and group member plan scaffolding, `.plans/state_matrix.md` registration, and `plan(draft):` commit.
-- **`refine`** (`aapp help refine full`, `lib/docs/verbs/refine.md`): plan refinement (including `slug`, `blocked`, `unblocked`, `closes`, `group`, and amendments forms `request`, `approve`, `refuse`, `decision`), cross-checkout ownership check, `AAPP::Health` check, `AAPP::GroupDocs::group_docs_stamp`, plus `refine pickup` and `refine issues` (including `note` and `branch`).
-- **`tdd`** (`aapp help tdd full`, `lib/docs/verbs/tdd.md`): §3 failure-first test identifier and §4 test file validation and `plan(tdd):` commit.
-- **`freeze`** (`aapp help freeze full`, `lib/docs/verbs/freeze.md`): open-questions, `AAPP::Health` Pairs 1–6, `AAPP::GroupDocs::group_docs_check`, and TDD gate verification, Blast Radius lock, Greenlight Zone transition in `.plans/state_matrix.md`, and `plan(freeze):` commit.
-- **`start` and `freeze-start`** (`aapp help start full`, `aapp help freeze-start full`, `lib/docs/verbs/start.md`, `lib/docs/verbs/freeze-start.md`): pause check, `⚡ In Development` transition, mode/base header recording, `.workspace/P<num>` worktree or group feature branch provisioning (`feature/<slug>`), and `aapp_active_plan` binding.
-- **`done`** (`aapp help done full`, `lib/docs/verbs/done.md`): task checkbox, recorded commit, and changelog verification, `_sq_*` squash and `_ig_*` parent-locked integration, `AAPP::GroupDocs::group_docs_apply` on group completion, archival to flat directories `.plans/done/` and `.plans/done/000-archive-ledger.md`, `.plans/state_matrix.md` cleanup, promoted Target Issue closure (`AAPP::Issue`), dependent plan unblocking, and worktree/pointer teardown.
-- **`active`** (`aapp help active full`, `lib/docs/verbs/active.md`): active plan pointer inspection, switching, `swap` (`aapp_active_plan.prev`), and `clear`.
-- **`plan`** (`aapp help plan full`, `lib/docs/verbs/plan.md`): plan resolution/query, `conflict-check`, `conflict-free`, and `abort` (archiving to `.plans/aborted/` and `.plans/aborted/000-aborted-ledger.md` and reverting promoted issues).
-- **Amendments (P-129):** `refine` (`request … for <plan-id>`, `approve` without the amendments member's Target Files, auto-approval), `done` (closing the requester's requests, recording its own amendment commits by their `Amendment: R<n>` trailer) and `plan abort` (withdrawing them) port P-129's bash behaviour, with the owner's record written in current and archived plans of the same group.
+| Word | Syntax | Module (`lib/AAPP/Runner/Plan/…`) | Purpose |
+|---|---|---|---|
+| `draft` | `aapp plan draft [slug] [issue <num> \| group [<id>]]` | `Draft.pm` | Scaffolds plan/group/member, registers in `state_matrix.md`, commits `plan(draft):`. |
+| `tdd` | `aapp plan tdd <id>` | `Tdd.pm` | Failure-first tests validation (§3 IDs, §4 files) and `plan(tdd):` commit. |
+| `freeze` | `aapp plan freeze <id>` | `Freeze.pm` | Locks blast radius, validates §5, moves to Greenlight Zone, commits `plan(freeze):`. |
+| `start` | `aapp plan start <id> [worktree <path> [branch <name>]] \| <group> [base <branch>]` | `Start.pm` | Provisions worktree/branch, binds `aapp_active_plan`, sets `⚡ In Development`. |
+| `freeze-start` | `aapp plan freeze-start <id> [worktree <path> [branch <name>]]` | `FreezeStart.pm` | Atomic freeze and start combination. |
+| `done` | `aapp plan done <id> [integrate … \| no-integrate]` | `Done.pm` | Verifies checklist, squashes, CAS fast-forward merges, archives to `done/`, cleans matrix. |
+| `active` | `aapp plan active [<id> \| swap \| clear]` | `Active.pm` | Inspects, sets, swaps, or clears the active plan buffer. |
+| `status` | `aapp plan status [<id>]` | `Status.pm` | Detailed plan inspection (formerly top-level `plan-status`). |
+| `matrix` | `aapp plan matrix [check]` | `Matrix.pm` | State matrix rendering and integrity check (formerly top-level `matrix`). |
+| `commit` | `aapp plan commit <id> "<what changed>"` | `Commit.pm` | Commits plan text edits with `plan(refine): <id> <what changed>` (distinguished from `aapp commit`). |
+| `rename` | `aapp plan rename <id> <new-slug>` | `Rename.pm` | Renames plan slug and updates all cross-references in ledgers. |
+| `block` | `aapp plan block <id> <num>` | `Block.pm` | Marks plan blocked on issue `#<num>`. |
+| `unblock` | `aapp plan unblock <id> <num>` | `Unblock.pm` | Unblocks plan from issue `#<num>`. |
+| `closes` | `aapp plan closes add <id> <num>` / `closes remove <id> <num>` | `Closes.pm` | Adds or removes secondary closed issues (`* **Also Closes:**`). |
+| `join` | `aapp plan join <id> <group>` | `Join.pm` | Enrolls plan into group's `* **Members:**`. |
+| `leave` | `aapp plan leave <id>` | `Leave.pm` | Removes plan from its group. |
+| `amend` | `aapp plan amend <request\|approve\|refuse\|decision> <amend-id> …` | `Amend.pm` | Group amendment ledger management. |
+| `abort` | `aapp plan abort <id> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` | `Abort.pm` | Abandons plan, moves to `aborted/`, logs to `000-aborted-ledger.md`. |
+| `conflict-check` | `aapp plan conflict-check <id> <id>… [json]` | `ConflictCheck.pm` | Detects pairwise Target Files overlaps across plans. |
+| `conflict-free` | `aapp plan conflict-free [<id> \| <group>] [json]` | `ConflictFree.pm` | Computes conflict-free execution waves. |
 
-### 2.4 Logging Telemetry (`AAPP::Logger::log_event`)
+### 2.3 Reserved Words & Disambiguation
+- Every word listed in §2.2 is reserved following `aapp plan`.
+- The plan resolver refuses a slug matching any reserved word (`a plan named like a plan word is named by its id: P-<n>`), ensuring `aapp plan status` is never parsed as a plan titled `status`.
+- Disambiguation between `aapp plan commit` (plan text commit, prefix `plan(refine):`) and `aapp commit` (workspace code commit) is enforced in command parsing and error messages.
+
+### 2.4 Shared Core Engines in `lib/AAPP/`
+- **`AAPP::Plan` (`lib/AAPP/Plan.pm`):**
+  - Plan ID allocation & scaffolding via `AAPP::State::allocate_plan_id`.
+  - Worktree management (`_wt_*`), squashing (`_sq_*`), CAS headless parent-locked integration (`_ig_*`).
+  - Target files conflict calculation.
+- **`AAPP::GroupDocs` (`lib/AAPP/GroupDocs.pm`):**
+  - Section hashing (`Digest::SHA::sha256_hex`), stamping `<!-- aapp-base: <sha256> -->`, verification on freeze, and section replacement on group completion.
+
+### 2.5 Logging Telemetry (`AAPP::Logger::log_event`)
 Per `.plans/pickup/perl-port-logging-events-spec.md` §4.5, all plan lifecycle actions emit structured telemetry to `.git/aapp.log`:
-- `post-draft`: `id => $id`, `slug => $slug`, `kind => $kind`, `amend_id => $aid`, `group => $grp`, `source => $src`, `issue_id => $iid`, `commit_mode => $cm`, `changelog_mode => $clm`, `why => $why`.
-- `post-refine`: `id => $id`, `target => $target`, `subaction => $sub`, `file => $file`, `note_len => $len`, `branch => $branch`.
-- `post-tdd`: `id => $id`, `auto_drafted => 0|1`, `test_ids => \@ids`, `test_files => \@files`.
-- `post-freeze`: `id => $id`, `target_files => \@files`, `changelog => $cl`.
-- `post-start`: `id => $id`, `worktree => $wt`, `branch => $branch`, `resumed => 0|1`, `bound_plan => $bp`.
-- `post-done`: `id => $id`, `integrate => $mode`, `parent_branch => $parent`, `worktree_removed => 0|1`, `archived_path => $path`, `closed_requests => \@reqs`.
-- `post-active`: `subaction => $sub`, `id => $id`, `prev_id => $prev`.
-- `post-abort`: `id => $id`, `archived_path => $path`, `restored_issue_status => $status`, `worktree_removed => 0|1`.
-- `group.docs`: `group_id => $gid`, `action => 'stamp'|'apply'`, `files => \@files`, `sections => \@sections`.
+- `post-draft`, `post-refine`, `post-tdd`, `post-freeze`, `post-start`, `post-done`, `post-active`, `post-abort`, `group.docs`.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Transitional Coexistence (`P-119` → `P-122`):** Keep `lib/cmd_plan.sh` intact for remaining bash callers until `P-120`/`P-122`, then delete `lib/cmd_plan.sh` and `lib/group_docs.sh` in `P-122`.
+- **Compatibility Mode**: `Clean Break` (Default)
+- **Fallback Inventory**: `None (Clean Break)`
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: GroupDocs & Shared Plan Engine (`AAPP::GroupDocs`, `AAPP::Plan`)
-- [ ] Task 1.1: Implement `lib/AAPP/GroupDocs.pm` (`lib/group_docs.sh`) with `group.docs` event telemetry, and switch `t/core/group_docs.t` to call `AAPP::GroupDocs` directly without bash `source` wrappers.
-- [ ] Task 1.2: Implement `lib/AAPP/Plan.pm` covering template rendering (`plan-template.md`, `group-template.md`, `amendments-template.md`), `_wt_*` worktree management, `_sq_*` branch squashing, `_ig_*` parent-locked integration, and conflict analysis (using `AAPP::State::allocate_plan_id`).
+- [ ] Task 1.1: Implement `lib/AAPP/GroupDocs.pm` (`lib/group_docs.sh`) with `group.docs` event telemetry, and switch `t/core/group_docs.t` to direct `AAPP::GroupDocs` calls.
+- [ ] Task 1.2: Implement `lib/AAPP/Plan.pm` covering template rendering (`plan-template.md`, `group-template.md`, `amendments-template.md`), `_wt_*` worktree management, `_sq_*` branch squashing, `_ig_*` parent-locked integration, and conflict analysis.
 
-### Phase 2: Plan Lifecycle Verb Handlers (`AAPP::Cmd::Plan`) with Event Telemetry
-- [ ] Task 2.1: Implement `draft`, `refine`, `tdd`, `freeze`, `start`, and `freeze-start` in `lib/AAPP/Cmd/Plan.pm` with `post-*` event telemetry.
-- [ ] Task 2.2: Implement `done`, `active`, and `plan` (`conflict-check`, `conflict-free`, `abort`) in `lib/AAPP/Cmd/Plan.pm` with `post-*` event telemetry, and wire all nine verbs (`draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `plan`) in `./aapp`.
+### Phase 2: Noun Runner & Word Modules (`lib/AAPP/Runner/Plan/`)
+- [ ] Task 2.1: Implement `lib/AAPP/Runner/Plan.pm` (bare switchboard, word dispatch, reserved-word guard).
+- [ ] Task 2.2: Implement read-only words: `Status.pm`, `Matrix.pm`, `ConflictCheck.pm`, `ConflictFree.pm`.
+- [ ] Task 2.3: Implement lifecycle words: `Draft.pm`, `Tdd.pm`, `Freeze.pm`, `Start.pm`, `FreezeStart.pm`, `Done.pm`, `Active.pm`, `Abort.pm`.
+- [ ] Task 2.4: Implement plan-editing words: `Commit.pm`, `Rename.pm`, `Block.pm`, `Unblock.pm`, `Closes.pm`, `Join.pm`, `Leave.pm`, `Amend.pm`.
+- [ ] Task 2.5: Wire `aapp plan` in CLI entrypoint `./aapp`.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: `./aapp test strict quiet` (the bash suites, the lifecycle verbs' `tests/verbs/*.sh` among them) and `t/test-run strict quiet` (`t/core`, with `group_docs.t`) green.
-- [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
-- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
+### Phase 3: Verification & Clean Break
+- [ ] Task 3.1: Run `prove -l t/core/group_docs.t` and syntax check `perl -c` across all new `lib/AAPP/Runner/Plan/*.pm` modules.
+- [ ] Task 3.2: Verify `./aapp plan status` and `./aapp plan matrix` report cleanly over current repository state.
+- [ ] Task 3.3: Verify `CHANGELOG.md` updates.
 
 ---
 
@@ -131,14 +140,34 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.5, all plan lifecycle a
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `NEW FILE` -> `lib/AAPP/GroupDocs.pm` -> Group `ARCHITECTURE.md` and `CODEMAP.md` base hash stamping, checking, and replacement with `group.docs` telemetry.
 - [ ] `NEW FILE` -> `lib/AAPP/Plan.pm` -> Shared plan scaffolding, worktree (`_wt_*`), squash (`_sq_*`), parent-locked integration (`_ig_*`), and conflict analysis engine.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Plan.pm` -> `draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, and `plan` (`conflict-check`, `conflict-free`, `abort`) verb handlers with `post-*` telemetry.
-- [ ] `aapp` -> Dispatch `draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, and `plan` to `AAPP::Cmd::Plan`.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan.pm` -> Noun dispatcher, bare switchboard, and reserved words guard.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Draft.pm` -> `aapp plan draft` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Tdd.pm` -> `aapp plan tdd` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Freeze.pm` -> `aapp plan freeze` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Start.pm` -> `aapp plan start` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/FreezeStart.pm` -> `aapp plan freeze-start` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Done.pm` -> `aapp plan done` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Active.pm` -> `aapp plan active` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Status.pm` -> `aapp plan status` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Matrix.pm` -> `aapp plan matrix` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Commit.pm` -> `aapp plan commit` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Rename.pm` -> `aapp plan rename` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Block.pm` -> `aapp plan block` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Unblock.pm` -> `aapp plan unblock` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Closes.pm` -> `aapp plan closes` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Join.pm` -> `aapp plan join` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Leave.pm` -> `aapp plan leave` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Amend.pm` -> `aapp plan amend` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Abort.pm` -> `aapp plan abort` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/ConflictCheck.pm` -> `aapp plan conflict-check` word runner.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/ConflictFree.pm` -> `aapp plan conflict-free` word runner.
+- [ ] `aapp` -> Dispatch `plan` and plan lifecycle words directly to `AAPP::Runner::Plan`.
 - [ ] `lib/cmd_plan.sh` -> Retained for remaining callers until `P-120` or delegated to `AAPP::Plan` until `P-122`.
 - [ ] `lib/group_docs.sh` -> Transitional shim delegating to `AAPP::GroupDocs` until `P-122`.
 - [ ] `t/core/group_docs.t` -> Switch from bash `source` wrappers to direct `AAPP::GroupDocs` calls.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/AAPP/Tests.pm` -> The test engine and test files in `t/` (except declared target `t/core/group_docs.t`; `integrate.t` is redesigned exclusively in `P-135`) stay out of bounds during code plans.
+- [ ] `lib/AAPP/Tests.pm` -> The test engine and test files in `t/` (except declared target `t/core/group_docs.t`) stay out of bounds during code plans.
 - [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` remain out of bounds during code port.
 
 ---
@@ -149,7 +178,7 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.5, all plan lifecycle a
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Absorbed P-139 (Plan Noun) into P-119; restructured CLI implementation directly under `lib/AAPP/Runner/Plan.pm` and `lib/AAPP/Runner/Plan/<Word>.pm` with clean-break noun-first syntax.
 * **2026-10-24:** Aligned technical blueprint, logging telemetry (`post-*` lifecycle events, `group.docs`), and execution checklist with `.plans/pickup/perl-port-logging-events-spec.md` and `.plans/pickup/perl-port-test-matrix-tabular-check.md`.
 * **2026-10-19:** Plan initialized from `pickup.md` and `.plans/pickup/perl-port-rfc.md`.
 * **2026-10-19:** Refined technical blueprint and blast radius per `§5.1.4` to match `lib/cmd_plan.sh` (4,495 lines) and `lib/group_docs.sh` (139 lines) contracts.
-
