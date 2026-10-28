@@ -8,7 +8,7 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `9ad7108` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P116 (plan/P116-perl-hooks-and-write-guard)
 * **Group:** P-111
@@ -136,6 +136,7 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §2–§4, all ported hook 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Plan implementation completed and archived to done/.
 * **2026-10-26:** Verification sweeps completed; all core test suites passing (331/331 in t/test-run, 538/538 in ./aapp test); addressed review findings in HookDispatcher, WriteGuard, and PreCommit.
 * **2026-10-25:** Plan activated into ⚡ In Development via start.
 * **2026-10-25:** Plan locked and frozen into 🔷 Frozen via freeze.

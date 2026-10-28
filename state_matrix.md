@@ -46,7 +46,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 - ⚡ **P-111**: [`P111-perl-port-of-the-kit.md`](current/P111-perl-port-of-the-kit.md) — 🧩 Group Plan P-111: Perl Port Of The Kit
 - ⚡ **P-112**: [`P112-perl-port-of-the-kit-amendments.md`](current/P112-perl-port-of-the-kit-amendments.md) — Perl Port Of The Kit Amendments
-- ⚡ **P-116**: [`P116-perl-hooks-and-write-guard.md`](current/P116-perl-hooks-and-write-guard.md) — Perl Hooks And Write Guard
 
 ---
 
