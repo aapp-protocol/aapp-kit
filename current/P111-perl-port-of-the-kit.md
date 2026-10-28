@@ -64,16 +64,18 @@ Design & measurements: `.plans/pickup/perl-port-rfc.md` (settled 2026-10-19) and
 11. **P-135** (`P135-perl-core-tests-redesign.md`): redesign the 16 non-pure `t/core/*.t` suites (323 contract tests across 25 core files) and sweep existing tests (`t/core/*.t`, `t/verb/review.t`) over the prepared repository.
 12. **P-117** (`P117-perl-issue-and-offline-lane.md`): port `aapp issue` (`log`, `hotfix`, `fix`, `queue`, `close`, `abort`, `list`, plus ledger words `commit`, `branch`, `note`, absorbing P-144) and `offline` under `lib/AAPP/Runner/Issue/` and `Offline.pm`.
 13. **P-118** (`P118-perl-readonly-verbs.md`): port `status`, `help`, and `AAPP::Adoption` under `lib/AAPP/Runner/` (`matrix` and `plan-status` move under `aapp plan` in P-119).
-14. **P-119** (`P119-perl-plan-lifecycle.md`): port all plan lifecycle and query commands directly under the `aapp plan` noun (`lib/AAPP/Runner/Plan/`, absorbing P-139): `draft`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `status`, `matrix`, `commit`, `rename`, `block`, `unblock`, `closes`, `join`, `leave`, `abort`, `conflict-check`, `conflict-free`, and `AAPP::GroupDocs`.
-15. **P-131** (`P131-lifecycle-governance-and-review-gates.md`): lifecycle governance: external gate for `plan freeze`, `plan start`, `plan done`, `plan abort`.
-16. **P-120** (`P120-perl-commit-and-integration.md`): port `commit` (code commit, distinguished from `plan commit`), `note`, and `ai` under `lib/AAPP/Runner/`.
-17. **P-130** (`P130-perl-amendments-ledger.md`): amendments ledger under `aapp plan amend <request|approve|refuse|decision>` (`lib/AAPP/Runner/Plan/Amend.pm`).
-18. **P-121** (`P121-perl-setup-and-release.md`): port `init`, `install`, `upgrade`, `uninstall`, `develop`, `sync`, `release`, `companion`, `hook`, `pause`/`resume`, and `test` under `lib/AAPP/Runner/`.
-19. **P-134** (`P134-perl-lifecycle-verb-tests.md`): lifecycle verb suites in `t/verb/plan.t` testing all `aapp plan <word>` commands over the prepared repository and event assertions.
-20. **P-125** (`P125-perl-remaining-verb-tests-and-switch.md`): remaining verb suites (`issue`, `pickup`, `status`, `commit`, etc.) in `t/verb/*.t`; `aapp test` switches to `AAPP::Tests`; bash suites removed.
-21. **P-122** (`P122-remove-bash-clean-break.md`): convert `aapp` to pure Perl, rename `aapp.perlLogFile` to `aapp.logFile`, clean break removing legacy `.sh` files and top-level verbs.
-22. **P-137** (`P137-perl-port-documentation-and-manuals.md`): comprehensive user documentation overhaul (`README.md`, `MANUAL.md`, `CHEATSHEET.md`) documenting the pure Perl 5.26+ runtime with noun-first CLI.
-23. **P-112** (`P112-perl-port-of-the-kit-amendments.md`): group amendments member (started with the group, archived last).
+14. **P-142** (`P142-pickup-commands.md`): port pickup commands and unworked ideas queue under `lib/AAPP/Runner/Pickup/` (`AAPP::Runner::Pickup::Commit.pm`).
+15. **P-119** (`P119-perl-plan-lifecycle.md`): port all plan lifecycle and query commands directly under the `aapp plan` noun (`lib/AAPP/Runner/Plan/`, absorbing P-139): `draft`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `status`, `matrix`, `commit`, `rename`, `block`, `unblock`, `closes`, `join`, `leave`, `abort`, `conflict-check`, `conflict-free`, and `AAPP::GroupDocs`.
+16. **P-145** (`P145-plan-restore.md`): port `aapp plan restore` (`lib/AAPP/Runner/Plan/Restore.pm` and `AAPP::Plan::plan_restore`) recovering aborted blueprints back to `.plans/current/` with state matrix re-entry and ledger accounting.
+17. **P-131** (`P131-lifecycle-governance-and-review-gates.md`): lifecycle governance: external gate for `plan freeze`, `plan start`, `plan done`, `plan abort`.
+18. **P-120** (`P120-perl-commit-and-integration.md`): port `commit` (code commit, distinguished from `plan commit`), `note`, and `ai` under `lib/AAPP/Runner/`.
+19. **P-130** (`P130-perl-amendments-ledger.md`): amendments ledger under `aapp plan amend <request|approve|refuse|decision>` (`lib/AAPP/Runner/Plan/Amend.pm`).
+20. **P-121** (`P121-perl-setup-and-release.md`): port `init`, `install`, `upgrade`, `uninstall`, `develop`, `sync`, `release`, `companion`, `hook`, `pause`/`resume`, and `test` under `lib/AAPP/Runner/`.
+21. **P-134** (`P134-perl-lifecycle-verb-tests.md`): lifecycle verb suites in `t/verb/plan.t` testing all `aapp plan <word>` commands over the prepared repository and event assertions.
+22. **P-125** (`P125-perl-remaining-verb-tests-and-switch.md`): remaining verb suites (`issue`, `pickup`, `status`, `commit`, etc.) in `t/verb/*.t`; `aapp test` switches to `AAPP::Tests`; bash suites removed.
+23. **P-122** (`P122-remove-bash-clean-break.md`): convert `aapp` to pure Perl, rename `aapp.perlLogFile` to `aapp.logFile`, clean break removing legacy `.sh` files and top-level verbs.
+24. **P-137** (`P137-perl-port-documentation-and-manuals.md`): comprehensive user documentation overhaul (`README.md`, `MANUAL.md`, `CHEATSHEET.md`) documenting the pure Perl 5.26+ runtime with noun-first CLI.
+25. **P-112** (`P112-perl-port-of-the-kit-amendments.md`): group amendments member (started with the group, archived last).
 
 ## Architecture & Codemap
 *Every changed section of `ARCHITECTURE.md` and `.agents/CODEMAP.md`, written out whole in a ```` fence, under the exact heading it has (or will have) in the file. Members do not edit these files; read the sections here as the target architecture. At the group's `done` a section replaces the file's section with the same heading, or is added at the end. `aapp refine` records a base line above each fence: `done` refuses a section the file changed meanwhile. Write `No changes.` under a file that keeps its content.*
