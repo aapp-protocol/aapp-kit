@@ -1,8 +1,8 @@
 # 🗺️ Plan P-121: Perl Setup And Release
-* **Created:** 2026-10-19 | **Last Refined:** 2026-10-24
+* **Created:** 2026-10-19 | **Last Refined:** 2026-10-28
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-121
-* **Changelog:** Changed: Port setup, release, companion, hook, pause/resume, and test runner verbs (`init`, `install`, `upgrade`, `uninstall`, `develop`, `sync`, `release`, `companion`, `hook`, `pause`, `resume`, `test`) to `AAPP::Cmd::*` modules with structured telemetry per spec, retiring the last `python3` calls in `cmd_init.sh` and `cmd_pause.sh`.
+* **Changelog:** Changed: Port setup, release, companion, hook, pause/resume, and test runner verbs (`init`, `install`, `upgrade`, `uninstall`, `develop`, `sync`, `release`, `companion`, `hook`, `pause`, `resume`, `test`) to `lib/AAPP/Runner/` modules with structured telemetry per spec, retiring the last `python3` calls in `cmd_init.sh` and `cmd_pause.sh`
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,18 +40,18 @@
 ---
 
 ## 1. Context & Architectural Goal
-Plan `P-121` is the ninth member of group `P-111` (*Perl Port Of The Kit*). It ports all 11 remaining setup, sync, release, hook, pause, companion, and test bash modules into `lib/AAPP/Cmd/*.pm`:
-- `lib/cmd_init.sh` (1,072 lines) -> `lib/AAPP/Cmd/Init.pm` (`aapp init`)
-- `lib/cmd_install.sh` (187 lines) -> `lib/AAPP/Cmd/Install.pm` (`aapp install`)
-- `lib/cmd_upgrade.sh` (44 lines) -> `lib/AAPP/Cmd/Upgrade.pm` (`aapp upgrade`)
-- `lib/cmd_uninstall.sh` (55 lines) -> `lib/AAPP/Cmd/Uninstall.pm` (`aapp uninstall`)
-- `lib/cmd_develop.sh` (123 lines) -> `lib/AAPP/Cmd/Develop.pm` (`aapp develop`)
-- `lib/cmd_sync.sh` (429 lines) -> `lib/AAPP/Cmd/Sync.pm` (`aapp push`, `aapp pull`, `aapp sync`)
-- `lib/cmd_release.sh` (896 lines) -> `lib/AAPP/Cmd/Release.pm` (`aapp release`)
-- `lib/cmd_companion.sh` (337 lines) -> `lib/AAPP/Cmd/Companion.pm` (`aapp companion`)
-- `lib/cmd_hook.sh` (402 lines) -> `lib/AAPP/Cmd/Hook.pm` (`aapp hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`)
-- `lib/cmd_pause.sh` (584 lines) -> `lib/AAPP/Cmd/Pause.pm` (`aapp pause`, `aapp resume`, `aapp unpause`)
-- `lib/cmd_test.sh` (397 lines) -> `lib/AAPP/Cmd/Test.pm` (`aapp test`)
+Plan `P-121` is the eighteenth member of group `P-111` (*Perl Port Of The Kit*). It ports all 11 remaining setup, sync, release, hook, pause, companion, and test bash modules into `lib/AAPP/Runner/*.pm`:
+- `lib/cmd_init.sh` (1,072 lines) -> `lib/AAPP/Runner/Init.pm` (`aapp init`)
+- `lib/cmd_install.sh` (187 lines) -> `lib/AAPP/Runner/Install.pm` (`aapp install`)
+- `lib/cmd_upgrade.sh` (44 lines) -> `lib/AAPP/Runner/Upgrade.pm` (`aapp upgrade`)
+- `lib/cmd_uninstall.sh` (55 lines) -> `lib/AAPP/Runner/Uninstall.pm` (`aapp uninstall`)
+- `lib/cmd_develop.sh` (123 lines) -> `lib/AAPP/Runner/Develop.pm` (`aapp develop`)
+- `lib/cmd_sync.sh` (429 lines) -> `lib/AAPP/Runner/Sync.pm` (`aapp push`, `aapp pull`, `aapp sync`)
+- `lib/cmd_release.sh` (896 lines) -> `lib/AAPP/Runner/Release.pm` (`aapp release`)
+- `lib/cmd_companion.sh` (337 lines) -> `lib/AAPP/Runner/Companion.pm` (`aapp companion`)
+- `lib/cmd_hook.sh` (402 lines) -> `lib/AAPP/Runner/Hook.pm` (`aapp hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`)
+- `lib/cmd_pause.sh` (584 lines) -> `lib/AAPP/Runner/Pause.pm` (`aapp pause`, `aapp resume`, `aapp unpause`)
+- `lib/cmd_test.sh` (397 lines) -> `lib/AAPP/Runner/Test.pm` (`aapp test`)
 
 This plan also eliminates the remaining `python3` invocations in the kit's own CLI:
 1. `lib/cmd_init.sh` (`.claude/settings.json` hook merger) is replaced by `AAPP::JSON::decode` + ordered key-preserving merge + 2-space pretty-print (`AAPP::JSON::pretty`).
@@ -130,29 +130,29 @@ Every verb emits structured JSONL telemetry via `AAPP::Logger::log_event`:
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Init.pm` -> `aapp init` implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Install.pm` -> `aapp install` implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Upgrade.pm` -> `aapp upgrade` implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Uninstall.pm` -> `aapp uninstall` implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Develop.pm` -> `aapp develop` implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Sync.pm` -> `aapp push`, `aapp pull`, and `aapp sync` implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Release.pm` -> `aapp release` pre-flight, condense, and release tagging implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Companion.pm` -> `aapp companion` implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Hook.pm` -> `aapp hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, and `hook-hash` implementation.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Pause.pm` -> `aapp pause`, `aapp resume`, and `aapp unpause` implementation using `AAPP::JSON`.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Test.pm` -> `aapp test` CLI entry delegating to `lib/AAPP/Tests.pm`.
-- [ ] `aapp` -> Dispatch `init`, `install`, `upgrade`, `uninstall`, `develop`, `push`, `pull`, `sync`, `release`, `companion`, `hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`, `pause`, `resume`, `unpause`, and `test` to `AAPP::Cmd::*`.
-- [ ] `lib/cmd_init.sh` -> Transitional shim delegating to `AAPP::Cmd::Init` until `P-122`.
-- [ ] `lib/cmd_install.sh` -> Transitional shim delegating to `AAPP::Cmd::Install` until `P-122`.
-- [ ] `lib/cmd_upgrade.sh` -> Transitional shim delegating to `AAPP::Cmd::Upgrade` until `P-122`.
-- [ ] `lib/cmd_uninstall.sh` -> Transitional shim delegating to `AAPP::Cmd::Uninstall` until `P-122`.
-- [ ] `lib/cmd_develop.sh` -> Transitional shim delegating to `AAPP::Cmd::Develop` until `P-122`.
-- [ ] `lib/cmd_sync.sh` -> Transitional shim delegating to `AAPP::Cmd::Sync` until `P-122`.
-- [ ] `lib/cmd_release.sh` -> Transitional shim delegating to `AAPP::Cmd::Release` until `P-122`.
-- [ ] `lib/cmd_companion.sh` -> Transitional shim delegating to `AAPP::Cmd::Companion` until `P-122`.
-- [ ] `lib/cmd_hook.sh` -> Transitional shim delegating to `AAPP::Cmd::Hook` until `P-122`.
-- [ ] `lib/cmd_pause.sh` -> Transitional shim delegating to `AAPP::Cmd::Pause` until `P-122`.
-- [ ] `lib/cmd_test.sh` -> Transitional shim delegating to `AAPP::Cmd::Test` until `P-122`.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Init.pm` -> `aapp init` implementation using `AAPP::JSON`.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Install.pm` -> `aapp install` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Upgrade.pm` -> `aapp upgrade` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Uninstall.pm` -> `aapp uninstall` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Develop.pm` -> `aapp develop` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Sync.pm` -> `aapp push`, `aapp pull`, and `aapp sync` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Release.pm` -> `aapp release` pre-flight, condense, and release tagging implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Companion.pm` -> `aapp companion` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Hook.pm` -> `aapp hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, and `hook-hash` implementation.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Pause.pm` -> `aapp pause`, `aapp resume`, and `aapp unpause` implementation using `AAPP::JSON`.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Test.pm` -> `aapp test` CLI entry delegating to `lib/AAPP/Tests.pm`.
+- [ ] `aapp` -> Dispatch `init`, `install`, `upgrade`, `uninstall`, `develop`, `push`, `pull`, `sync`, `release`, `companion`, `hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`, `pause`, `resume`, `unpause`, and `test` to `AAPP::Runner::*`.
+- [ ] `lib/cmd_init.sh` -> Transitional shim delegating to `AAPP::Runner::Init` until `P-122`.
+- [ ] `lib/cmd_install.sh` -> Transitional shim delegating to `AAPP::Runner::Install` until `P-122`.
+- [ ] `lib/cmd_upgrade.sh` -> Transitional shim delegating to `AAPP::Runner::Upgrade` until `P-122`.
+- [ ] `lib/cmd_uninstall.sh` -> Transitional shim delegating to `AAPP::Runner::Uninstall` until `P-122`.
+- [ ] `lib/cmd_develop.sh` -> Transitional shim delegating to `AAPP::Runner::Develop` until `P-122`.
+- [ ] `lib/cmd_sync.sh` -> Transitional shim delegating to `AAPP::Runner::Sync` until `P-122`.
+- [ ] `lib/cmd_release.sh` -> Transitional shim delegating to `AAPP::Runner::Release` until `P-122`.
+- [ ] `lib/cmd_companion.sh` -> Transitional shim delegating to `AAPP::Runner::Companion` until `P-122`.
+- [ ] `lib/cmd_hook.sh` -> Transitional shim delegating to `AAPP::Runner::Hook` until `P-122`.
+- [ ] `lib/cmd_pause.sh` -> Transitional shim delegating to `AAPP::Runner::Pause` until `P-122`.
+- [ ] `lib/cmd_test.sh` -> Transitional shim delegating to `AAPP::Runner::Test` until `P-122`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/AAPP/Tests.pm` -> The test engine (P-126) and every test file in `t/` stay out of bounds during code plans.
@@ -166,6 +166,7 @@ Every verb emits structured JSONL telemetry via `AAPP::Logger::log_event`:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Aligned module layout with noun-first CLI hierarchy under `lib/AAPP/Runner/`.
 * **2026-10-19:** Plan initialized from `pickup.md` and `.plans/pickup/perl-port-rfc.md`.
 * **2026-10-19:** Refined technical blueprint and blast radius per `§5.1.4` to include all 11 setup/sync/hook/release bash modules and exact subverbs.
 * **2026-10-24:** Refined technical blueprint, implementation references (D7), and execution checklist with exact structured logging telemetry per logging events spec (§4.7) and test matrix (§3.7).
