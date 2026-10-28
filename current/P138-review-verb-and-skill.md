@@ -128,13 +128,13 @@ Every CLI command lives under `lib/AAPP/Runner/`, every other module stays a sin
 - [x] Task 2.3: `AAPP::Runner::Review::Fix` (`review fix <id> F<n> "<task>"`, `review fix done <id> F<n>`, `review fix decline <id> F<n> "<reason>"`) and `AAPP::Runner::Review::Check` (`review check`).
 - [x] Task 2.4: The CLI hierarchy: `AAPP::Runner` reads one parameter per layer (the one delegate step every layer calls); `aapp` routes a name with a `lib/AAPP/Runner/<Name>.pm`; `AAPP::Runner::Review` picks the word; add the review events to the logging spec.
 - [ ] Task 2.5: `.agents/hooks/test-gate.sh` runs `aapp review check <plan_id>` before `TEST_CMD`; ask the developer to re-register it (`aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`).
-- [ ] Task 2.6: Request through P-112 the lines for P-118 (`fixes x/y` in `status`) and P-119 (`done` calls `AAPP::Review::gate` and the gate line in `test-gate.sh` goes; `draft` calls `AAPP::Rfc::link`).
+- [x] Task 2.6: Request through P-112 the lines for P-118 (`fixes x/y` in `status`) and P-119 (`done` calls `AAPP::Review::gate` and the gate line in `test-gate.sh` goes; `draft` calls `AAPP::Rfc::link`).
 
 ### Phase 3: Skill, templates and docs
-- [ ] Task 3.1: `templates/skills/aapp-review/SKILL.md`: reads the plan's Status, runs a design review through its RFC or an implementation review through `review flag`; never opens amendment requests.
-- [ ] Task 3.2: `templates/plan-template.md`: a comment naming §7/§8 and the verb that writes them; `templates/AGENTS.md`: the `/aapp-review` skill row and the `aapp review` CLI row.
-- [ ] Task 3.3: `CHEATSHEET.md`, `MANUAL.md`, `docs/reference/02-cli-commands-and-verbs.md`, `docs/reference/19-skills-and-slash-commands.md`.
-- [ ] Task 3.4: Request the group's `## Architecture & Codemap` lines for `lib/AAPP/Runner/` and the shared `AAPP::Rfc` / `AAPP::Review` through P-112 (members do not edit `ARCHITECTURE.md` / `.agents/CODEMAP.md`).
+- [x] Task 3.1: `templates/skills/aapp-review/SKILL.md`: reads the plan's Status, runs a design review through its RFC or an implementation review through `review flag`; never opens amendment requests.
+- [x] Task 3.2: `templates/plan-template.md`: a comment naming §7/§8 and the verb that writes them; `templates/AGENTS.md`: the `/aapp-review` skill row and the `aapp review` CLI row.
+- [x] Task 3.3: `CHEATSHEET.md`, `MANUAL.md`, `docs/reference/02-cli-commands-and-verbs.md`, `docs/reference/19-skills-and-slash-commands.md`.
+- [x] Task 3.4: Request the group's `## Architecture & Codemap` lines for `lib/AAPP/Runner/` and the shared `AAPP::Rfc` / `AAPP::Review` through P-112 (members do not edit `ARCHITECTURE.md` / `.agents/CODEMAP.md`).
 
 ### Phase 4: Verification
 - [ ] Task 4.1: `t/test-run strict quiet` and `./aapp test strict quiet` pass.
