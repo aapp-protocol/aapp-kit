@@ -1,8 +1,8 @@
 # 🗺️ Plan P-118: Perl Readonly Verbs
-* **Created:** 2026-10-19 | **Last Refined:** 2026-10-24
+* **Created:** 2026-10-19 | **Last Refined:** 2026-10-28
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-118
-* **Changelog:** Changed: Port read-only verbs (`status`, `matrix`, `plan-status`, `help`) to `AAPP::Cmd::Status`, `AAPP::Cmd::Matrix`, `AAPP::Cmd::PlanStatus`, and `AAPP::Cmd::Help` over `AAPP::State` with structured log event telemetry
+* **Changelog:** Changed: Port workspace recovery and discovery verbs (`status`, `help`, `pickup commit`) and `AAPP::Adoption` to `lib/AAPP/Runner/` over `AAPP::State` with structured log event telemetry
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -40,15 +40,17 @@
 ---
 
 ## 1. Context & Architectural Goal
-Plan `P-118` is the sixth member of group `P-111` (*Perl Port Of The Kit*). It ports the project adoption scanner (`lib/adoption.sh`, 503 lines) and the four read-only reporting and discovery verbs — `status` (`lib/cmd_status.sh`, 937 lines), `matrix` (`lib/cmd_matrix.sh`, 332 lines), `plan-status` (`cmd_plan_status` in `lib/cmd_plan.sh`), and `help` (`lib/cmd_help.sh`, 176 lines) — into `lib/AAPP/Adoption.pm`, `lib/AAPP/Cmd/Status.pm`, `lib/AAPP/Cmd/Matrix.pm`, `lib/AAPP/Cmd/PlanStatus.pm`, and `lib/AAPP/Cmd/Help.pm`.
+Plan `P-118` is the thirteenth member of group `P-111` (*Perl Port Of The Kit*). It ports the project adoption scanner (`lib/adoption.sh`, 503 lines), workspace status briefing (`status`, `lib/cmd_status.sh`, 937 lines), contract-backed help (`help`, `lib/cmd_help.sh`, 176 lines), and pickup commit (`aapp pickup commit`) into the noun-first command hierarchy under `lib/AAPP/Runner/Status.pm`, `lib/AAPP/Runner/Help.pm`, `lib/AAPP/Runner/Pickup.pm`, and `lib/AAPP/Adoption.pm`.
 
-In bash, `aapp status` re-parses `state_matrix.md`, `ISSUES.md`, `issues_road_map.md`, `pickup.md`, and every `.plans/current/P*.md` file through separate `awk` processes and spawns per-worktree `git` invocations. In Perl, all four verbs read from the in-memory `AAPP::State` object in a single process, rendering human output, `short` output, and `json` payloads (`AAPP::Output` + `AAPP::JSON`).
+Plan-specific queries (`matrix` and `plan-status`) are moved under the `aapp plan` noun (`aapp plan matrix` and `aapp plan status`) owned by `P-119`.
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Adoption.pm`, `lib/AAPP/Cmd/*.pm`, `lib/adoption.sh`, `lib/cmd_status.sh`, `lib/cmd_matrix.sh`, `lib/cmd_help.sh`, `lib/cmd_plan.sh`, `aapp`) plus switching `t/core/adoption.t` and `t/core/matrix.t` from bash `source` wrappers to direct `AAPP::Adoption` and `AAPP::Cmd::Matrix` calls per `P-111`'s core-wrapper rule.
+In bash, `aapp status` re-parses `state_matrix.md`, `ISSUES.md`, `issues_road_map.md`, `pickup.md`, and every `.plans/current/P*.md` file through separate `awk` processes and spawns per-worktree `git` invocations. In Perl, `AAPP::Runner::Status` reads from the in-memory `AAPP::State` object in a single process, rendering human output, `short` output, and `json` payloads (`AAPP::Output` + `AAPP::JSON`).
+
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Adoption.pm`, `lib/AAPP/Runner/Status.pm`, `lib/AAPP/Runner/Help.pm`, `lib/AAPP/Runner/Pickup.pm`, `lib/adoption.sh`, `lib/cmd_status.sh`, `lib/cmd_help.sh`, `aapp`) plus switching `t/core/adoption.t` from bash `source` wrappers to direct `AAPP::Adoption` calls per `P-111`'s core-wrapper rule.
 
 **Strict Implementation References (`D7`):**
-- **Logging Events Spec (§4.4 `status`, `matrix`, `help`):** `.plans/pickup/perl-port-logging-events-spec.md`
-- **Tabular Verification Matrix (Epochs E0 & E1 `status`, `matrix`, `help`, `plan-status`):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
+- **Logging Events Spec (§4.4 `status`, `help`):** `.plans/pickup/perl-port-logging-events-spec.md`
+- **Tabular Verification Matrix (Epochs E0 & E1 `status`, `help`):** `.plans/pickup/perl-port-test-matrix-tabular-check.md`
 - **Single Prepared Repository Schema (Epochs E0 & E1, Actions A001–A004, A034):** `.plans/pickup/perl-port-single-repo-schema.md`
 
 ---
@@ -59,53 +61,46 @@ In bash, `aapp status` re-parses `state_matrix.md`, `ISSUES.md`, `issues_road_ma
 Ports `lib/adoption.sh` into `lib/AAPP/Adoption.pm`:
 - Implements adoption catalogue target queries (`get_all_adoption_doc_targets`, `get_all_adoption_manual_headings`), open checklist counter (`adoption_open_count`), and adoption checklist synchronization (`sync_adoption_checklist`).
 
-### 2.2 `AAPP::Cmd::Status` (`lib/AAPP/Cmd/Status.pm`) — `aapp status` (`lib/cmd_status.sh`, 937 lines)
+### 2.2 `AAPP::Runner::Status` (`lib/AAPP/Runner/Status.pm`) — `aapp status` (`lib/cmd_status.sh`, 937 lines)
 Ports `cmd_status` from `lib/cmd_status.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help status full` and `lib/docs/verbs/status.md`, verified under the unchanged bash suite `tests/verbs/status.sh` (its Perl file comes after the ports, P-134).
-- Scans the 4 workspace pillars (Shipped, Issues, Plans, Pickup) from `AAPP::State`, `AAPP::Health`, `AAPP::Adoption`, `AAPP::Issue`, and `AAPP::Cmd::Offline`, and renders terminal (`AAPP::Output`) and `json` (`AAPP::JSON`) output.
+- Authoritative syntax, flags, failure modes, and effects: `aapp help status full` and `lib/docs/verbs/status.md`.
+- Scans the 4 workspace pillars (Shipped, Issues, Plans, Pickup) from `AAPP::State`, `AAPP::Health`, `AAPP::Adoption`, `AAPP::Issue`, and `AAPP::Runner::Offline`, rendering terminal (`AAPP::Output`) and `json` (`AAPP::JSON`) output.
 
-### 2.3 `AAPP::Cmd::Matrix` (`lib/AAPP/Cmd/Matrix.pm`) — `aapp matrix` (`lib/cmd_matrix.sh`, 332 lines)
-Ports `cmd_matrix` from `lib/cmd_matrix.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help matrix full` and `lib/docs/verbs/matrix.md`, verified under `t/core/matrix.t`.
-- Rebuilds `.plans/state_matrix.md` from `.plans/current/P*.md` headers via `AAPP::State` while preserving human row ordering, and verifies matrix sync on `check`.
-- Rows within a section sort by plan number as a number: P-15 before P-128, through `AAPP::Util::plan_sort` (the one plan sort; `AAPP::State::current_plans` already returns plans in that order). The bash verb sorts the IDs as text, which puts P-128 before P-15; the port does not carry that over.
-
-### 2.4 `AAPP::Cmd::PlanStatus` (`lib/AAPP/Cmd/PlanStatus.pm`) — `aapp plan-status` (`cmd_plan_status` in `lib/cmd_plan.sh`)
-Ports `cmd_plan_status` from `lib/cmd_plan.sh`:
-- Authoritative syntax, flags, failure modes, and effects: `aapp help plan-status full` and `lib/docs/verbs/plan-status.md`.
-- Inspects the specified plan or active plan (`$(git rev-parse --git-path aapp_active_plan)`) over `AAPP::State`.
-
-### 2.5 `AAPP::Cmd::Help` (`lib/AAPP/Cmd/Help.pm`) — `aapp help` (`lib/cmd_help.sh`, 176 lines)
+### 2.3 `AAPP::Runner::Help` (`lib/AAPP/Runner/Help.pm`) — `aapp help` (`lib/cmd_help.sh`, 176 lines)
 Ports `cmd_help` from `lib/cmd_help.sh`:
 - Authoritative syntax, flags, failure modes, and effects: `aapp help help full` and `lib/docs/verbs/help.md`.
 - Renders top-level and per-verb help from `lib/verbs.tsv` and `lib/docs/verbs/<verb>.md` (`<!-- FULL -->` split), plus version output.
 
-### 2.6 Logging Telemetry (`AAPP::Logger::log_event`)
-Per `.plans/pickup/perl-port-logging-events-spec.md` §4.4, reporting verbs emit structured telemetry to `.git/aapp.log`:
-- `AAPP::Cmd::Status`: emits `post-status` (`shipped_count`, `queued_issues_count`, `plans_count`, `pickup_count`, `open_adoption_tasks`, `bound_plan`, `group_guide_shown`, `pending_requests`, `unblocked_by_status`, `next_action`).
-- `AAPP::Cmd::Matrix`: emits `post-matrix` (`in_sync => 0|1`, `wrote_file => 0|1`, `plan_ids => \@ids`).
-- `AAPP::Cmd::Help`: emits `post-help` (`topic => $topic`, `status => 'ok'|'unknown_topic'`).
-*(Note: read-only `plan-status` query emits no lifecycle event).*
+### 2.4 `AAPP::Runner::Pickup` (`lib/AAPP/Runner/Pickup.pm`) — `aapp pickup commit`
+Implements the pickup noun and commit action:
+- `aapp pickup commit "<msg>"`: verifies pickup file shape via `AAPP::Health::check_pickup_entries`, commits `.plans/pickup.md` and referenced files in `.plans/pickup/` with `pickup: <msg>`.
+
+### 2.5 Logging Telemetry (`AAPP::Logger::log_event`)
+Per `.plans/pickup/perl-port-logging-events-spec.md` §4.4:
+- `AAPP::Runner::Status`: emits `post-status` (`shipped_count`, `queued_issues_count`, `plans_count`, `pickup_count`, `open_adoption_tasks`, `bound_plan`, `group_guide_shown`, `pending_requests`, `unblocked_by_status`, `next_action`).
+- `AAPP::Runner::Help`: emits `post-help` (`topic => $topic`, `status => 'ok'|'unknown_topic'`).
 
 ### 🔄 Migration & Compatibility Strategy
-- **Transitional Coexistence (`P-118` → `P-122`):** While `status`, `matrix`, `plan-status`, and `help` dispatch directly to Perl from `aapp`, `lib/cmd_plan.sh` (ported in `P-119`) and `lib/cmd_init.sh` (ported in `P-121`) still call `cmd_matrix` (`lib/cmd_matrix.sh`) and `adoption_*` (`lib/adoption.sh`) from bash. During `P-118`–`P-121`, `lib/cmd_matrix.sh` and `lib/adoption.sh` delegate to `AAPP::Cmd::Matrix` and `AAPP::Adoption` (or remain intact alongside them) until `P-122` deletes all `lib/*.sh` files.
+- **Compatibility Mode**: `Clean Break` (Default)
+- **Fallback Inventory**: `None (Clean Break)`
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
 
-### Phase 1: Adoption & Matrix (`AAPP::Adoption`, `AAPP::Cmd::Matrix`)
+### Phase 1: Adoption (`AAPP::Adoption`)
 - [ ] Task 1.1: Implement `lib/AAPP/Adoption.pm` (`lib/adoption.sh`) and switch `t/core/adoption.t` to call `AAPP::Adoption` directly without bash `source` wrappers.
-- [ ] Task 1.2: Implement `lib/AAPP/Cmd/Matrix.pm` (`aapp matrix [check]`) with `post-matrix` telemetry, and switch `t/core/matrix.t` to call `AAPP::Cmd::Matrix` directly without bash `source` wrappers.
 
-### Phase 2: Status, PlanStatus & Help (`AAPP::Cmd::Status`, `PlanStatus`, `Help`)
-- [ ] Task 2.1: Implement `lib/AAPP/Cmd/Status.pm` (`aapp status [short | json]` with `post-status`), `lib/AAPP/Cmd/PlanStatus.pm` (`aapp plan-status [id]` with `post-plan-status`), and `lib/AAPP/Cmd/Help.pm` (`aapp help [<verb> [full]]` with `post-help`).
-- [ ] Task 2.2: Wire `status`, `matrix`, `plan-status`, `help`, `--help`, `-h`, `--version`, and `-v` in `./aapp` to their `AAPP::Cmd::*` modules, and keep transitional bash shims in `lib/adoption.sh`, `lib/cmd_matrix.sh`, `lib/cmd_status.sh`, `lib/cmd_help.sh`, and `lib/cmd_plan.sh` (`cmd_plan_status`).
+### Phase 2: Status, Help & Pickup (`AAPP::Runner::Status`, `Help`, `Pickup`)
+- [ ] Task 2.1: Implement `lib/AAPP/Runner/Status.pm` (`aapp status [short | json]` with `post-status`).
+- [ ] Task 2.2: Implement `lib/AAPP/Runner/Help.pm` (`aapp help [<verb> [full]]` with `post-help`).
+- [ ] Task 2.3: Implement `lib/AAPP/Runner/Pickup.pm` (`aapp pickup commit "<msg>"`).
+- [ ] Task 2.4: Wire `status`, `help`, `--help`, `-h`, `--version`, `-v`, and `pickup` in `./aapp` to `AAPP::Runner::*`.
 
 ### Phase 3: Verification & Documentation
-- [ ] Task 3.1: `./aapp test strict quiet` (the bash suites, `tests/verbs/status.sh`, `matrix.sh`, `plan-status.sh`, `help.sh` among them) and `t/test-run strict quiet` (`t/core`, with `adoption.t` and `matrix.t`) green.
-- [ ] Task 3.2: Verify `CHANGELOG.md` updates and run `perl -c` syntax checks on all new `.pm` files.
-- [ ] Task 3.3: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
+- [ ] Task 3.1: Run `prove -l t/core/adoption.t` and syntax check `perl -c` across new `lib/AAPP/Runner/*.pm` modules.
+- [ ] Task 3.2: Verify `./aapp status` and `./aapp help` display correctly.
+- [ ] Task 3.3: Verify `CHANGELOG.md` updates.
 
 ---
 
@@ -116,21 +111,17 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.4, reporting verbs emit
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 - [ ] `NEW FILE` -> `lib/AAPP/Adoption.pm` -> Project adoption detection, drift warnings, and seed/sync helpers.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Status.pm` -> `aapp status [short | json]` implementation with `post-status` telemetry over `AAPP::State` and `AAPP::Output`.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Matrix.pm` -> `aapp matrix [check]` implementation with `post-matrix` telemetry over `AAPP::State`.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/PlanStatus.pm` -> `aapp plan-status [id]` implementation with `post-plan-status` telemetry over `AAPP::State`.
-- [ ] `NEW FILE` -> `lib/AAPP/Cmd/Help.pm` -> `aapp help [<verb> [full]]` and version display with `post-help` telemetry over `lib/verbs.tsv` and `lib/docs/verbs/*.md`.
-- [ ] `aapp` -> Dispatch `status`, `matrix`, `plan-status`, `help`, `--help`, `-h`, `--version`, and `-v` directly to `AAPP::Cmd::*`.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Status.pm` -> `aapp status [short | json]` implementation with `post-status` telemetry over `AAPP::State` and `AAPP::Output`.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Help.pm` -> `aapp help [<verb> [full]]` and version display with `post-help` telemetry over `lib/verbs.tsv` and `lib/docs/verbs/*.md`.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Pickup.pm` -> `aapp pickup commit` command runner.
+- [ ] `aapp` -> Dispatch `status`, `help`, `--help`, `-h`, `--version`, `-v`, and `pickup` directly to `AAPP::Runner::*`.
 - [ ] `lib/adoption.sh` -> Transitional shim delegating to `AAPP::Adoption` until `P-121`/`P-122`.
-- [ ] `lib/cmd_matrix.sh` -> Transitional shim delegating to `AAPP::Cmd::Matrix` until `P-119`/`P-122`.
-- [ ] `lib/cmd_status.sh` -> Transitional shim delegating to `AAPP::Cmd::Status` until `P-122`.
-- [ ] `lib/cmd_help.sh` -> Transitional shim delegating to `AAPP::Cmd::Help` until `P-122`.
-- [ ] `lib/cmd_plan.sh` -> Delegate `cmd_plan_status` to `AAPP::Cmd::PlanStatus` until `P-119`.
+- [ ] `lib/cmd_status.sh` -> Transitional shim delegating to `AAPP::Runner::Status` until `P-122`.
+- [ ] `lib/cmd_help.sh` -> Transitional shim delegating to `AAPP::Runner::Help` until `P-122`.
 - [ ] `t/core/adoption.t` -> Switch from bash `source` wrappers to direct `AAPP::Adoption` calls.
-- [ ] `t/core/matrix.t` -> Switch from bash `source` wrappers to direct `AAPP::Cmd::Matrix` calls.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `lib/AAPP/Tests.pm` -> The test engine and other test files in `t/` (except declared targets `t/core/adoption.t` and `t/core/matrix.t`) stay out of bounds during code plans.
+- [ ] `lib/AAPP/Tests.pm` -> The test engine and other test files in `t/` (except declared target `t/core/adoption.t`) stay out of bounds during code plans.
 - [ ] `lib/docs/` -> Spec contracts in `lib/docs/verbs/*.md` remain out of bounds during code port.
 
 ---
@@ -141,7 +132,7 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.4, reporting verbs emit
 ---
 
 ## 📦 6. Change Log & Refinement History
-* **2026-10-24:** Aligned technical blueprint, logging telemetry (`post-status`, `post-matrix`, `post-help`, `post-plan-status`), and execution checklist with `.plans/pickup/perl-port-logging-events-spec.md` and `.plans/pickup/perl-port-test-matrix-tabular-check.md`.
+* **2026-10-28:** Aligned with noun-first CLI architecture (`lib/AAPP/Runner/`); moved `matrix` and `plan-status` to `P-119` (`aapp plan matrix`, `aapp plan status`); added `AAPP::Runner::Pickup`.
+* **2026-10-24:** Aligned technical blueprint, logging telemetry (`post-status`, `post-help`), and execution checklist with `.plans/pickup/perl-port-logging-events-spec.md` and `.plans/pickup/perl-port-test-matrix-tabular-check.md`.
 * **2026-10-19:** Plan initialized from `pickup.md` and `.plans/pickup/perl-port-rfc.md`.
-* **2026-10-19:** Refined technical blueprint and blast radius per `§5.1.4` to match `lib/cmd_status.sh`, `lib/cmd_matrix.sh`, `lib/cmd_help.sh`, and `lib/adoption.sh` contracts.
-
+* **2026-10-19:** Refined technical blueprint and blast radius per `§5.1.4` to match `lib/cmd_status.sh`, `lib/cmd_help.sh`, and `lib/adoption.sh` contracts.
