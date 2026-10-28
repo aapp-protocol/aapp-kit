@@ -40,13 +40,13 @@
 ---
 
 ## 1. Context & Architectural Goal
-Plan `P-118` is the thirteenth member of group `P-111` (*Perl Port Of The Kit*). It ports the project adoption scanner (`lib/adoption.sh`, 503 lines), workspace status briefing (`status`, `lib/cmd_status.sh`, 937 lines), contract-backed help (`help`, `lib/cmd_help.sh`, 176 lines), and pickup commit (`aapp pickup commit`) into the noun-first command hierarchy under `lib/AAPP/Runner/Status.pm`, `lib/AAPP/Runner/Help.pm`, `lib/AAPP/Runner/Pickup.pm`, and `lib/AAPP/Adoption.pm`.
+Plan `P-118` is the thirteenth member of group `P-111` (*Perl Port Of The Kit*). It ports the project adoption scanner (`lib/adoption.sh`, 503 lines), workspace status briefing (`status`, `lib/cmd_status.sh`, 937 lines), and contract-backed help (`help`, `lib/cmd_help.sh`, 176 lines) into the noun-first command hierarchy under `lib/AAPP/Runner/Status.pm`, `lib/AAPP/Runner/Help.pm`, and `lib/AAPP/Adoption.pm`.
 
-Plan-specific queries (`matrix` and `plan-status`) are moved under the `aapp plan` noun (`aapp plan matrix` and `aapp plan status`) owned by `P-119`.
+Plan-specific queries (`matrix` and `plan-status`) are moved under the `aapp plan` noun (`aapp plan matrix` and `aapp plan status`) owned by `P-119`. The `pickup` commands are owned by restored member `P-142`.
 
 In bash, `aapp status` re-parses `state_matrix.md`, `ISSUES.md`, `issues_road_map.md`, `pickup.md`, and every `.plans/current/P*.md` file through separate `awk` processes and spawns per-worktree `git` invocations. In Perl, `AAPP::Runner::Status` reads from the in-memory `AAPP::State` object in a single process, rendering human output, `short` output, and `json` payloads (`AAPP::Output` + `AAPP::JSON`).
 
-**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Adoption.pm`, `lib/AAPP/Runner/Status.pm`, `lib/AAPP/Runner/Help.pm`, `lib/AAPP/Runner/Pickup.pm`, `lib/adoption.sh`, `lib/cmd_status.sh`, `lib/cmd_help.sh`, `aapp`) plus switching `t/core/adoption.t` from bash `source` wrappers to direct `AAPP::Adoption` calls per `P-111`'s core-wrapper rule.
+**Strict Tests-vs-Code Boundary:** This plan touches **only** kit code (`lib/AAPP/Adoption.pm`, `lib/AAPP/Runner/Status.pm`, `lib/AAPP/Runner/Help.pm`, `lib/adoption.sh`, `lib/cmd_status.sh`, `lib/cmd_help.sh`, `aapp`) plus switching `t/core/adoption.t` from bash `source` wrappers to direct `AAPP::Adoption` calls per `P-111`'s core-wrapper rule.
 
 **Strict Implementation References (`D7`):**
 - **Logging Events Spec (§4.4 `status`, `help`):** `.plans/pickup/perl-port-logging-events-spec.md`
@@ -71,11 +71,7 @@ Ports `cmd_help` from `lib/cmd_help.sh`:
 - Authoritative syntax, flags, failure modes, and effects: `aapp help help full` and `lib/docs/verbs/help.md`.
 - Renders top-level and per-verb help from `lib/verbs.tsv` and `lib/docs/verbs/<verb>.md` (`<!-- FULL -->` split), plus version output.
 
-### 2.4 `AAPP::Runner::Pickup` (`lib/AAPP/Runner/Pickup.pm`) — `aapp pickup commit`
-Implements the pickup noun and commit action:
-- `aapp pickup commit "<msg>"`: verifies pickup file shape via `AAPP::Health::check_pickup_entries`, commits `.plans/pickup.md` and referenced files in `.plans/pickup/` with `pickup: <msg>`.
-
-### 2.5 Logging Telemetry (`AAPP::Logger::log_event`)
+### 2.4 Logging Telemetry (`AAPP::Logger::log_event`)
 Per `.plans/pickup/perl-port-logging-events-spec.md` §4.4:
 - `AAPP::Runner::Status`: emits `post-status` (`shipped_count`, `queued_issues_count`, `plans_count`, `pickup_count`, `open_adoption_tasks`, `bound_plan`, `group_guide_shown`, `pending_requests`, `unblocked_by_status`, `next_action`).
 - `AAPP::Runner::Help`: emits `post-help` (`topic => $topic`, `status => 'ok'|'unknown_topic'`).
@@ -91,11 +87,10 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.4:
 ### Phase 1: Adoption (`AAPP::Adoption`)
 - [ ] Task 1.1: Implement `lib/AAPP/Adoption.pm` (`lib/adoption.sh`) and switch `t/core/adoption.t` to call `AAPP::Adoption` directly without bash `source` wrappers.
 
-### Phase 2: Status, Help & Pickup (`AAPP::Runner::Status`, `Help`, `Pickup`)
+### Phase 2: Status & Help (`AAPP::Runner::Status`, `Help`)
 - [ ] Task 2.1: Implement `lib/AAPP/Runner/Status.pm` (`aapp status [short | json]` with `post-status`).
 - [ ] Task 2.2: Implement `lib/AAPP/Runner/Help.pm` (`aapp help [<verb> [full]]` with `post-help`).
-- [ ] Task 2.3: Implement `lib/AAPP/Runner/Pickup.pm` (`aapp pickup commit "<msg>"`).
-- [ ] Task 2.4: Wire `status`, `help`, `--help`, `-h`, `--version`, `-v`, and `pickup` in `./aapp` to `AAPP::Runner::*`.
+- [ ] Task 2.3: Wire `status`, `help`, `--help`, `-h`, `--version`, and `-v` in `./aapp` to `AAPP::Runner::*`.
 
 ### Phase 3: Verification & Documentation
 - [ ] Task 3.1: Run `prove -l t/core/adoption.t` and syntax check `perl -c` across new `lib/AAPP/Runner/*.pm` modules.
@@ -113,8 +108,7 @@ Per `.plans/pickup/perl-port-logging-events-spec.md` §4.4:
 - [ ] `NEW FILE` -> `lib/AAPP/Adoption.pm` -> Project adoption detection, drift warnings, and seed/sync helpers.
 - [ ] `NEW FILE` -> `lib/AAPP/Runner/Status.pm` -> `aapp status [short | json]` implementation with `post-status` telemetry over `AAPP::State` and `AAPP::Output`.
 - [ ] `NEW FILE` -> `lib/AAPP/Runner/Help.pm` -> `aapp help [<verb> [full]]` and version display with `post-help` telemetry over `lib/verbs.tsv` and `lib/docs/verbs/*.md`.
-- [ ] `NEW FILE` -> `lib/AAPP/Runner/Pickup.pm` -> `aapp pickup commit` command runner.
-- [ ] `aapp` -> Dispatch `status`, `help`, `--help`, `-h`, `--version`, `-v`, and `pickup` directly to `AAPP::Runner::*`.
+- [ ] `aapp` -> Dispatch `status`, `help`, `--help`, `-h`, `--version`, and `-v` directly to `AAPP::Runner::*`.
 - [ ] `lib/adoption.sh` -> Transitional shim delegating to `AAPP::Adoption` until `P-121`/`P-122`.
 - [ ] `lib/cmd_status.sh` -> Transitional shim delegating to `AAPP::Runner::Status` until `P-122`.
 - [ ] `lib/cmd_help.sh` -> Transitional shim delegating to `AAPP::Runner::Help` until `P-122`.
