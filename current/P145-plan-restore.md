@@ -1,8 +1,8 @@
 # 🗺️ Plan P-145: Plan Restore
 * **Created:** 2026-10-28 | **Last Refined:** 2026-10-28
-* **Target Issue / Milestone:** #[Issue ID or Milestone] *(`aapp draft <slug> issue <num>` writes the issue ID here and links this plan in the issue's `Target Plan / Fix` cell — the issue stays open until the fix ships)*
+* **Target Issue / Milestone:** none
 * **Plan ID:** P-145
-* **Changelog:** Changed: Plan Restore
+* **Changelog:** Added: `aapp plan restore <id> [reason "<text>"] [group <group-id>]` to recover aborted plans back to `.plans/current/` with state matrix re-entry and ledger accounting
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -12,7 +12,7 @@
 * **Base:** none
 * **Group:** P-111
 * **Commits:** none
-<!-- AAPP-PROTOCOL:START v0.9.0 -->
+<!-- AAPP-PROTOCOL:START v1.0.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
      The pre-commit hook and write-guard read this line. A 🔷 Frozen plan is an approved backlog
@@ -29,7 +29,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log <sev> <type> "<symptom>" file <path>…`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -40,64 +40,95 @@
 ---
 
 ## 1. Context & Architectural Goal
-*Provide a concise summary of WHAT is being built, WHY it is being designed this way, and key technical constraints.*
+A member of group P-111 (*Perl Port Of The Kit*). Today, `aapp plan abort <id>` archives an abandoned plan or group to `.plans/aborted/` and records the abandonment in `000-aborted-ledger.md`. However, the protocol lacks a symmetrical restore procedure. When an aborted blueprint needs to be revived (e.g. premature abandonment, architectural re-evaluation, or reassignment), it currently requires brittle manual file moves, state matrix surgery, and ledger edits.
+
+This plan introduces `aapp plan restore` as a first-class lifecycle word under `lib/AAPP/Runner/Plan/Restore.pm` and `AAPP::Plan::plan_restore`, providing a deterministic, validated recovery pipeline before bash decoupling (`P-122`).
 
 ---
 
 ## 2. Technical Blueprint
-*Detailed technical architecture, interfaces, data models, or algorithms written for both human and agent understanding.*
+
+### 2.1 The Word & Syntax
+```
+aapp plan restore <id> [reason "<text>"] [group <group-id>]
+```
+- `<id>`: Plan identifier (`P-47`, `47`, slug, or filename).
+- `reason "<text>"`: Optional reason for revival (default: `Restored from aborted archive`).
+- `group <group-id>`: Optional group enrollment; when provided, reassigns the restored plan's `* **Group:**` header and enrolls it into `<group-id>`.
+
+### 2.2 Preflight Validation & Refusals
+1. **Not Found in Aborted**: Refused with exit 1 if no matching blueprint exists in `.plans/aborted/P<id>-*.md`.
+2. **Active Collision**: Refused with exit 1 if `<id>` or `<slug>` matches an existing plan in `.plans/current/` or an active entry in `.plans/state_matrix.md`.
+3. **Target Group Inactive**: If `group <group-id>` is given, refused if `<group-id>` is not an active group in `.plans/current/`.
+4. **Dirty Workspace**: Refused if `.plans` worktree has unstaged or uncommitted changes.
+
+### 2.3 Execution Pipeline (`AAPP::Plan::plan_restore`)
+1. **Header Cleanup & Status Reset**:
+   - Strips `* **Status:** ❌ Aborted`.
+   - Strips `* **Aborted:** <date> | **Reason:** <reason>`.
+   - Sets `* **Status:** 🟣 Under Review` (or `📝 Refining`).
+   - Updates `* **Last Refined:** <YYYY-MM-DD>`.
+   - If `group <group-id>` is given, updates `* **Group:** <group-id>`.
+   - Appends entry under `## 6. Change Log & Refinement History`: `* **<date>:** Restored from aborted archive: <reason>`.
+2. **File Relocation**:
+   - Moves file from `.plans/aborted/P<id>-<slug>.md` back to `.plans/current/P<id>-<slug>.md`.
+3. **State Matrix Registration**:
+   - Re-registers the plan entry under `## 🧠 Human Thought & Refinement (The Incubator)` in `.plans/state_matrix.md`:
+     `- 🟣 **P-<id>**: [\`P<id>-<slug>.md\`](current/P<id>-<slug>.md) — <Title>`.
+4. **Aborted Ledger Accounting**:
+   - Updates `.plans/aborted/000-aborted-ledger.md`: removes the row corresponding to `<id>` (or appends a `(Restored <date>: <reason>)` annotation).
+5. **Target Group Enrollment**:
+   - If `group <group-id>` is specified, appends `P-<id>` to the group's `* **Members:**` header line.
+6. **Target Issue Relink**:
+   - If the plan specifies `* **Target Issue / Milestone:** #<num>`, scans `.plans/ISSUES.md`: repoints the fix cell from `aborted/` back to `current/` and updates issue status back to `🔵 Planned`.
+7. **Telemetry**:
+   - Emits structured event `post-restore`: `id => $id`, `slug => $slug`, `restored_from => $path`, `reason => $reason`, `group => $grp`.
+8. **Git Commit**:
+   - Commits the plans worktree with prefix `plan(restore): restore P-<id> from aborted/`.
 
 ### 🔄 Migration & Compatibility Strategy
-- **Compatibility Mode**: `Clean Break` (Default) | `Backwards Compatible`
+- **Compatibility Mode**: `Clean Break` (Default)
 - **Fallback Inventory**: `None (Clean Break)`
-  <!-- If Backwards Compatible, list every legacy alias, schema shim, or fallback retained, along with its explicit deprecation/retirement date. Unlisted fallbacks are forbidden. -->
 
 ---
 
 ## 🔨 3. Implementation Steps & Execution Checklist
-*Phased progression checklist. Mark tasks completed (`[x]`) as you progress so any interrupted or resumed session knows exactly where to pick up.*
 
-### Phase 1: Foundation & Setup
-- [ ] Task 1.1: ...
-- [ ] Task 1.2: ...
+### Phase 1: Core Engine (`AAPP::Plan::plan_restore`)
+- [ ] Task 1.1: Implement `plan_restore` in `lib/AAPP/Plan.pm` with preflight collision checks, header mutation, matrix re-entry, and ledger accounting.
 
-### Phase 2: Core Implementation
-- [ ] Task 2.1: ...
-- [ ] Task 2.2: ...
+### Phase 2: Word Runner (`AAPP::Runner::Plan::Restore`)
+- [ ] Task 2.1: Implement `lib/AAPP/Runner/Plan/Restore.pm` with CLI argument parsing, diagnostics, and structured `post-restore` telemetry.
+- [ ] Task 2.2: Register `restore` in `lib/AAPP/Runner/Plan.pm` reserved words and word dispatch table.
 
-### Phase 3: Verification & Documentation
-- [ ] Task 3.1: Run automated test suites and verify edge cases.
-- [ ] Task 3.2: Update user-facing documentation per `.agents/PROJECT.MD` (`MANUAL.md`, `README.md`, or `docs/`) if CLI verbs, configuration, or workflows were introduced or changed.
-- [ ] Task 3.3: Update `ARCHITECTURE.md` and `.agents/CODEMAP.md` if new modules, commands, or interface contracts were introduced.
-- [ ] Task 3.4: Verify `CHANGELOG.md` updates and run syntax/build checks.
-- [ ] Task 3.5: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
+### Phase 3: Contract & Test Suite
+- [ ] Task 3.1: Update `lib/docs/verbs/plan.md` documenting `aapp plan restore` syntax, preflight refusals, and side effects.
+- [ ] Task 3.2: Add unit and integration tests in `t/verb/plan.t` verifying clean restoration, collision refusals, issue re-linking, and ledger updates.
 
 ---
 
 ## 💥 4. Blast Radius & System Boundaries
-*Defines exactly what files may be modified or created. Serves as a strict boundary wall for execution.*
 
 ### 📂 Target Files (Modifications & Additions)
 > **Rule for Execution Agent:** You are strictly forbidden from modifying any files outside of this explicit list without prior human approval.
 >
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
-- [ ] `src/path/to/file.ext` -> Description of specific modification.
-- [ ] `NEW FILE` -> `src/path/to/new_file.ext` -> Purpose of the new component.
+- [ ] `NEW FILE` -> `lib/AAPP/Runner/Plan/Restore.pm` -> `aapp plan restore` word runner.
+- [ ] `lib/AAPP/Plan.pm` -> Core `plan_restore` engine (preflight collision check, file move, matrix re-entry, ledger sync).
+- [ ] `lib/AAPP/Runner/Plan.pm` -> Word dispatch and reserved words table registration.
+- [ ] `lib/docs/verbs/plan.md` -> Contract specification for `aapp plan restore`.
+- [ ] `t/verb/plan.t` -> Test suite coverage for `aapp plan restore`.
 
 ### 🛑 Out of Bounds (Do Not Touch)
-- [ ] `src/core/critical_module.ext` -> Core module is frozen; do not refactor.
-- [ ] `src/auth/` -> Authentication flow must remain completely isolated.
+- [ ] `lib/AAPP/Tests.pm` -> The test engine remains untouched.
+- [ ] `ARCHITECTURE.md` & `.agents/CODEMAP.md` -> Managed by group plan `P-111`.
 
 ---
 
 ## ❓ 5. Open Questions (Optional / Gate)
-*Use this section ONLY for genuine, unresolved decisions requiring human input. If the design is fully determined, write `*(None — design is fully specified)*`.*
-*Do NOT populate with already-decided choices or answer questions yourself.*
-* [ ] **Question 1:** [Describe genuine ambiguity or fork in the road requiring human decision]
+*(None — design is fully specified)*
 
 ---
 
 ## 📦 6. Change Log & Refinement History
-*Tracks how the plan evolved across sessions.*
-* **2026-10-28:** Plan initialized from `pickup.md`.
-* **2026-10-28:** Refined blast radius and locked module boundaries.
+* **2026-10-28:** Drafted blueprint P-145 for canonical `aapp plan restore` command under `lib/AAPP/Runner/Plan/Restore.pm` in Group P-111.
