@@ -1,5 +1,5 @@
 # 🗺️ Plan P-135: Perl Core Tests Redesign
-* **Created:** 2026-10-24 | **Last Refined:** 2026-10-24
+* **Created:** 2026-10-24 | **Last Refined:** 2026-10-28
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-135
 * **Changelog:** Changed: move the setup-isolated and scenario core test suites (`t/core/*.t`) to the prepared-repository and structured event-logging design
@@ -29,7 +29,7 @@
 > 3. **Attribution Trailer**: Respect configured repo attribution (`git config aapp.aiAttribution`: `none | lax | strict | notes`). When operating in `lax` or `strict` mode, AI commits must carry standard emailless semantic trailers (`AI-Agent:`, `AI-Vendor:`, `AI-Model:`). Synthetic emails are forbidden.
 > 4. **Plan-Bound Commits**: Commit implementation with `aapp commit "<msg>" [agent <Agent> vendor <Vendor> model <Model>] [note "<text>"]` (or set `AAPP_AGENT_*`) so the plan records its commits. Never stage or commit the plan file yourself — the helper commits it alone. `aapp done` archives only recorded work.
 > 5. **Mid-Execution Bugs**:
->    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp refine issues`) and continue your plan.
+>    - *Non-blocking* (a bug, gap or stale text, including outside your Target Files): do not fix it; log it as an issue (`aapp issue log`) and continue your plan.
 >    - *Blocking and unrelated to this plan's change* (even in one of your own Target Files): run `aapp issue hotfix "<text>" file <path>…` (add `plan` when it clearly needs its own plan) and stop; it logs the issue, queues it and blocks this plan (in a single checkout it also stashes your uncommitted work in those files). The fix runs in the main checkout (`aapp issue fix next-blocker`).
 >    - *Caused by this plan's change, or in code it must rewrite anyway*: that is plan work; fix it here.
 > 6. **User Documentation Sync**: If your implementation introduces or alters user-facing behavior, CLI commands/options, configuration flags, or operational workflows, you **must** update documentation in accordance with the locations and conventions defined in `.agents/PROJECT.MD` (e.g. `MANUAL.md`, `README.md`, or `docs/`). End users and adopters must never be left guessing about new or changed system behavior. Documentation files and `.agents/PROJECT.MD` are always-allowed workspace invariants.
@@ -125,7 +125,7 @@ Every redesigned file's wall time, CPU time, and process count are measured and 
 - [ ] `t/core/template_sync.t` -> Group (c) protocol block sync + `health.veto` assertions (14 tests).
 - [ ] `t/core/notes.t` -> Group (c) `notes.attach` + `post-note-stage` assertions (5 tests).
 - [ ] `t/core/ai_attribution.t` -> Group (c) `commits.decorate` + `notes.attach` assertions (16 tests).
-- [ ] `t/core/release.t` -> Group (c) `AAPP::Cmd::Release` + `hook.dispatch` (`on-release`) assertions (6 tests).
+- [ ] `t/core/release.t` -> Group (c) `AAPP::Runner::Release` + `hook.dispatch` (`on-release`) assertions (6 tests).
 - [ ] `t/core/kit_release_hook.t` -> Group (c) `hook.dispatch` (`post-release`) assertions (4 tests).
 - [ ] `t/core/sync.t` -> Group (c) `post-sync` worktree coordination assertions (3 tests).
 
@@ -141,5 +141,6 @@ Every redesigned file's wall time, CPU time, and process count are measured and 
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Aligned module references with `lib/AAPP/Runner/`.
 * **2026-10-24:** Drafted as member `P-135` of group `P-111` per Decisions `D6` and `D7` (`.plans/pickup/perl-port-test-salvage-rfc.md`): moves the 16 Group (b) and Group (c) `t/core/*.t` suites to the prepared-repository and structured event-logging design after `P-121`.
 * **2026-10-24:** Refined execution sequencing to run after `P-136`, corrected module reference to `AAPP::Cmd::Install`, and clarified `event_telemetry.t` adopter hook scope and `post-sync` event name.
