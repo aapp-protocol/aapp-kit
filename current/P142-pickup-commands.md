@@ -1,5 +1,5 @@
 # 🗺️ Plan P-142: Pickup Commands
-* **Created:** 2026-10-27 | **Last Refined:** 2026-10-27
+* **Created:** 2026-10-27 | **Last Refined:** 2026-10-28
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-142
 * **Changelog:** Added: `aapp pickup list | add | edit | delete | commit`, a three-field pickup line (`Title : file : description`) and `pre-pickup` / `post-pickup` events, so ideas can be listed, edited and synced from the CLI, a web view or a hook
@@ -8,10 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ❌ Aborted
-* **Aborted:** 2026-10-28 | **Reason:** Group P-140 aborted: Absorbed into group P-111
+* **Status:** 🟣 Under Review
 * **Base:** none
-* **Group:** P-140
+* **Group:** P-111
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
@@ -41,7 +40,7 @@
 ---
 
 ## 1. Context & Architectural Goal
-A member of group P-140 (noun-first commands). Pickup ideas have no noun today: `aapp status` lists the first five, the rest are read in `.plans/pickup.md`, ideas are added by hand and committed with `aapp refine pickup`. A web view and agents need to list every idea and edit one by a stable key. This plan gives pickup its own noun, `aapp pickup`, and one line format that splits without guessing.
+A member of group P-111 (Perl Port Of The Kit). Pickup ideas have no noun today: `aapp status` lists the first five, the rest are read in `.plans/pickup.md`, ideas are added by hand and committed with `aapp refine pickup`. A web view and agents need to list every idea and edit one by a stable key. This plan gives pickup its own noun, `aapp pickup`, and one line format that splits without guessing.
 
 ---
 
