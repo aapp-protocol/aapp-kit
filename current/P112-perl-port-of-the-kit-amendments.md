@@ -140,6 +140,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R53** 2026-10-28 · P-138 · § Architecture & Codemap · Align ARCHITECTURE.md and .agents/CODEMAP.md with noun-first CLI hierarchy: replace lib/AAPP/Cmd/ with lib/AAPP/Runner/, add noun dispatchers (Plan, Issue, Pickup, Review) and word modules under lib/AAPP/Runner/<Noun>/<Word>.pm, route aapp entrypoint to AAPP::Runner — applied
 - **R54** 2026-10-28 · P-138 · `tests/verb_contracts_test.sh` · verb contract shape check accepts a Perl-tested verb: Run line `t/test-run verb <verb>` as well as `aapp test verb <verb>` (review is the first verb tested only in t/verb/) — pending
 - **R55** 2026-10-28 · P-138 · § 3. Members & Order · member scope lines from P-138: P-118 status shows 'fixes <done>/<total>' for a plan with review fixes (AAPP::Review::counts); P-119 done refuses open review items through AAPP::Review::gate (then the review line leaves .agents/hooks/test-gate.sh) and plan draft records a plan drafted from a topic RFC with AAPP::Rfc::link_plan — pending
+- **R56** 2026-10-28 · P-138 · `docs/reference/14-agent-skills-and-slash-commands.md` · the /aapp-review skill row in the skills page: P-138 names docs/reference/19-skills-and-slash-commands.md, which P-143 merged into page 14 — pending
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
