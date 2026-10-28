@@ -8,11 +8,11 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** ⚡ In Development
+* **Status:** ✅ Done
 * **Base:** `0b6c95b` (feature/perl-port-of-the-kit)
 * **Worktree:** .workspace/P138 (plan/P138-review-verb-and-skill)
 * **Group:** P-111
-* **Commits:** `d098a78` (plan/P138-review-verb-and-skill), `c583e36` (plan/P138-review-verb-and-skill), `395134f` (plan/P138-review-verb-and-skill), `6268b79` (plan/P138-review-verb-and-skill)
+* **Commits:** `1124058` (feature/perl-port-of-the-kit)
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
 <!-- DO NOT EDIT THIS BLOCK DIRECTLY - IT IS MANAGED BY AAPP INIT. PLACE CUSTOMIZATIONS OUTSIDE. -->
 <!-- Status must be exactly ONE of: 🟣 Under Review | 📝 Refining | 🔷 Frozen | ⚡ In Development | 🟥 BLOCKED | ✅ Done
@@ -170,12 +170,22 @@ Every CLI command lives under `lib/AAPP/Runner/`, every other module stays a sin
 - [ ] `MANUAL.md` -> Reviews: RFC, findings, fixes.
 - [ ] `docs/reference/02-cli-commands-and-verbs.md` -> The verb.
 - [ ] `docs/reference/19-skills-and-slash-commands.md` -> The skill.
+- [x] `tests/verb_contracts_test.sh` -> R54 (by P-138)
+- [x] `docs/reference/14-agent-skills-and-slash-commands.md` -> R56 (by P-138)
+- [x] `lib/plugins.tsv` -> R59 (by P-138)
+- [x] `t/core/hooks.t` -> R60 (by P-138)
 
 ### 🛑 Out of Bounds (Do Not Touch)
 - [ ] `lib/AAPP/State.pm` -> Read through its accessors only; a missing accessor is an amendment request.
 - [ ] `lib/AAPP/CommitEngine.pm` -> Commits through `plans_commit` only.
 - [ ] `lib/cmd_status.sh` -> `fixes x/y` in status arrives with the Perl `status` (P-118).
 - [ ] `lib/cmd_plan.sh` -> The bash `done` and `draft` stay as they are; the gate runs through `test-gate.sh` until the Perl `done` (P-119).
+
+### Amendments
+- R54 2026-10-28 · `tests/verb_contracts_test.sh` · verb contract shape check accepts a Perl-tested verb: Run line `t/test-run verb <verb>` as well as `aapp test verb <verb>` (review is the first verb tested only in t/verb/) (by P-138, landed `1124058`)
+- R56 2026-10-28 · `docs/reference/14-agent-skills-and-slash-commands.md` · the /aapp-review skill row in the skills page: P-138 names docs/reference/19-skills-and-slash-commands.md, which P-143 merged into page 14 (by P-138, landed `1124058`)
+- R59 2026-10-28 · `lib/plugins.tsv` · P-15's reserved plugin is renamed aapp-adversarial-review: aapp-review is the /aapp-review skill of the review verb (P-138) (by P-138, landed `1124058`)
+- R60 2026-10-28 · `t/core/hooks.t` · the reserved-plugin example in test_plugin_registry_listing uses aapp-adversarial-review, the renamed P-15 plugin (by P-138, landed `1124058`)
 
 ---
 
@@ -187,6 +197,7 @@ Every CLI command lives under `lib/AAPP/Runner/`, every other module stays a sin
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Plan implementation completed and archived to done/.
 * **2026-10-28:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-26:** Drafted from the review of P-116; design settled in chat (own verb and skill, kind from Status, §7/§8 on first use, `fix` / `decline`, amendments opened by the implementer, RFC template). A plan drafted from an RFC topic links it, and carries the decisions itself because the RFC is local. Until the Perl `done`, the gate runs as `aapp review check` in the `pre-done` test gate; P-118/P-119 take over through P-112. Design-review automation waits for the review plugin contract.
 * **2026-10-28:** Deviation: `AAPP::Rfc::link` is `AAPP::Rfc::link_plan`, as `link` is a Perl built-in. Requested `tests/verb_contracts_test.sh` (R54): its shape check demands an `aapp test verb` Run line, and `review` is tested only in `t/verb/`.

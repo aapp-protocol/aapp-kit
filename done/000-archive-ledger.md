@@ -3,6 +3,7 @@
 ## 🏷️ Shipped Releases
 | Release | Release Date | Tag Ledger | Plans | Issues | Verification Commit | Impact Summary |
 | :--- | :--- | :--- | :---: | :---: | :--- | :--- |
+| 2026-10-28 | `P-138` | [`P138-review-verb-and-skill.md`](P138-review-verb-and-skill.md) | none | `1124058` | Review Verb And Skill |
 | 2026-10-28 | `P-116` | [`P116-perl-hooks-and-write-guard.md`](P116-perl-hooks-and-write-guard.md) | none | `0b6c95b` | Perl Hooks And Write Guard |
 | 2026-10-27 | `P-143` | [`P143-restore-lost-docs.md`](P143-restore-lost-docs.md) | none | `76a0995` | Restore Lost Docs |
 | 2026-10-25 | `P-132` | [`P132-layered-configuration.md`](P132-layered-configuration.md) | Group P-111 (Perl port) | `9ad7108` | Layered Configuration |
