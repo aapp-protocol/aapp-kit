@@ -134,6 +134,7 @@ Each request is implemented as its approval describes; corrections of the group'
 - **R47** 2026-10-24 · P-111 · — · new member P-137 (Perl port documentation and manuals overhaul: comprehensive rewrite of README.md, MANUAL.md, and CHEATSHEET.md to fact-check and document pure Perl runtime, layered config, lifecycle governance, and group amendments), 21st after P-122 and before P-112 — applied
 - **R48** 2026-10-26 · P-116 · `lib/AAPP/State.pm` · implement provider exchange in State::_allocate_id for aapp-planid provider · for P-115 — closed · landed `850223a`
 - **R49** 2026-10-27 · P-116 · `lib/AAPP/Constants.pm` · add commit limits and note TTL defaults to Constants · for P-127 — closed · landed `07e14ef`
+- **R50** 2026-10-28 · P-138 · § 2. Shared Decisions · CLI hierarchy for every ported command: everything that is a CLI command lives under lib/AAPP/Runner/ (top-level verbs Runner/<Verb>.pm; nouns plan, issue, review, pickup as Runner/<Noun>.pm with words in Runner/<Noun>/<Word>.pm), each with one public sub run; AAPP::Runner reads one parameter per layer and maps today's verb names to the new modules until P-140 renames the commands; all other modules stay single modules in lib/AAPP/; no lib/AAPP/Cmd/ — pending
 
 ## Decisions
 - **D1** 2026-10-21 · § 📂 3. Global Structural Mapping · R7 · Structural map lists Util, Constants, Logger, Runner and Paths::kit_dir (the last three done in P-127, missing)
