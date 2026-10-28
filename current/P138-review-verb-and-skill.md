@@ -137,8 +137,8 @@ Every CLI command lives under `lib/AAPP/Runner/`, every other module stays a sin
 - [x] Task 3.4: Request the group's `## Architecture & Codemap` lines for `lib/AAPP/Runner/` and the shared `AAPP::Rfc` / `AAPP::Review` through P-112 (members do not edit `ARCHITECTURE.md` / `.agents/CODEMAP.md`).
 
 ### Phase 4: Verification
-- [ ] Task 4.1: `t/test-run strict quiet` and `./aapp test strict quiet` pass.
-- [ ] Task 4.2: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
+- [x] Task 4.1: `t/test-run strict quiet` and `./aapp test strict quiet` pass.
+- [x] Task 4.2: Log every finding outside the Target Files as an issue (`aapp issue log`); none stays in chat only.
 
 ---
 
@@ -191,3 +191,4 @@ Every CLI command lives under `lib/AAPP/Runner/`, every other module stays a sin
 * **2026-10-26:** Drafted from the review of P-116; design settled in chat (own verb and skill, kind from Status, §7/§8 on first use, `fix` / `decline`, amendments opened by the implementer, RFC template). A plan drafted from an RFC topic links it, and carries the decisions itself because the RFC is local. Until the Perl `done`, the gate runs as `aapp review check` in the `pre-done` test gate; P-118/P-119 take over through P-112. Design-review automation waits for the review plugin contract.
 * **2026-10-28:** Deviation: `AAPP::Rfc::link` is `AAPP::Rfc::link_plan`, as `link` is a Perl built-in. Requested `tests/verb_contracts_test.sh` (R54): its shape check demands an `aapp test verb` Run line, and `review` is tested only in `t/verb/`.
 * **2026-10-28:** Deviation: no `AAPP::Rfc`. Writing the RFC is `review draft`'s whole job, so it lives in `AAPP::Runner::Review::Draft` as private subs; `link_plan` is dropped (no caller until P-119's `draft`, which adds what it needs). The slug normaliser there repeats the bash `draft`'s: when P-119 ports `draft`, both use one, in `AAPP::Util`. R57 replaces R55 (which named `AAPP::Rfc`).
+* **2026-10-28:** Phase 4: `t/test-run strict quiet` 27/27 files (344 tests, no skips), `./aapp test strict quiet` 38/38 suites. Amendments landed: R54, R56, R59 (P-15's reserved plugin renamed `aapp-adversarial-review`), R60; the gate edit in `.agents/hooks/test-gate.sh` was applied by the developer (`3d9ac7e`), as the write guard refused it from the worktree (#199). R57 and R58 wait for the P-112 session.
