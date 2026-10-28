@@ -1,8 +1,8 @@
 # 🗺️ Plan P-137: Perl Port Documentation And Manuals Overhaul
-* **Created:** 2026-10-24 | **Last Refined:** 2026-10-24
+* **Created:** 2026-10-24 | **Last Refined:** 2026-10-28
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-137
-* **Changelog:** Changed: overhaul README.md, MANUAL.md and CHEATSHEET.md to document pure Perl 5.26+ runtime, layered configuration, lifecycle governance, and group amendments
+* **Changelog:** Changed: overhaul README.md, MANUAL.md and CHEATSHEET.md to document pure Perl 5.26+ runtime, noun-first CLI hierarchy, layered configuration, lifecycle governance, and group amendments
 * **Commit Mode:** microcommits
 * **Changelog Mode:** plan
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
@@ -46,9 +46,10 @@ Throughout the Perl port, significant architectural advancements, subsystems, an
 1. **Zero Non-Core Dependencies & Pure Perl 5.26+ Runtime**: Zero bash, zero `python3` helpers, zero CPAN modules, built-in deterministic JSON (`AAPP::JSON`), and decorative-only emojis (`AAPP::Text`).
 2. **Layered Configuration (`P-132`)**: Hierarchical `main.conf` cascading (`System > User > Repo`) with administrative key allowlisting.
 3. **Lifecycle Governance & Review Gates (`P-131`)**: Configurable `aapp.governance` modes (`hitl`, `strict`, `lax`, `autonomous`), standard IPC interface contract for external authorities (`aapp.governanceHandler`), and turn-yielding invariants.
-4. **Group Amendments Ledger & Pre-Commit Verification (`P-130`)**: Group-addressed amendments (`aapp refine amends <group-id>`), deviations, claims reader, and delegated token verification bypassing the Design Lock without `--no-verify`.
-5. **Whole-Group Plan Invariant (`P-133`)**: Mandate that all planning pointers name §1 Goal, §2 Shared Decisions, and target architecture first.
-6. **Unified Telemetry Sink**: Structured JSONL event logging via `AAPP::Logger::log_event` into `aapp.logFile` (`.git/aapp.log`).
+4. **Group Amendments Ledger & Pre-Commit Verification (`P-130`)**: Group-addressed amendments (`aapp plan amend <group-id>`), deviations, claims reader, and delegated token verification bypassing the Design Lock without `--no-verify`.
+5. **Noun-First CLI Hierarchy (`P-117`, `P-118`, `P-119`, `P-138`)**: All commands organized cleanly by noun (`aapp plan`, `aapp issue`, `aapp pickup`, `aapp review`) under `lib/AAPP/Runner/`, eliminating legacy `refine` and standalone verbs.
+6. **Whole-Group Plan Invariant (`P-133`)**: Mandate that all planning pointers name §1 Goal, §2 Shared Decisions, and target architecture first.
+7. **Unified Telemetry Sink**: Structured JSONL event logging via `AAPP::Logger::log_event` into `aapp.logFile` (`.git/aapp.log`).
 
 Existing user manuals and guides (`README.md`, `MANUAL.md`, `CHEATSHEET.md`) still reference legacy bash concepts, outdated installation assumptions, and lack documentation for these new subsystems. Plan `P-137` executes a comprehensive documentation overhaul, serving as the definitive, holistic fact-check across the entire ported kit.
 
@@ -73,8 +74,9 @@ Overhaul `MANUAL.md` into an exhaustive technical reference:
 
 ### 2.3 Cheatsheet Synchronization (`CHEATSHEET.md`)
 Update `CHEATSHEET.md` with modern command syntax:
-- Add `aapp refine amends <group-id> request|approve|decision`.
-- Add `aapp plan-status <group-id> amends [json]`.
+- Document all noun-first commands (`aapp plan ...`, `aapp issue ...`, `aapp pickup ...`, `aapp review ...`).
+- Document `aapp plan amend <group-id> request|approve|decision`.
+- Document `aapp plan status <group-id> amends [json]`.
 - Document governance configuration flags (`git config aapp.governance*`).
 - Clarify pure-Perl test execution via `aapp test` and `prove -l t/`.
 
@@ -127,4 +129,5 @@ Update `CHEATSHEET.md` with modern command syntax:
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Aligned documentation scope with noun-first CLI command hierarchy (`aapp plan`, `aapp issue`, `aapp pickup`, `aapp review`).
 * **2026-10-24:** Drafted as a dedicated documentation and manuals overhaul plan (`P-137`) in Group `P-111`, serving as the comprehensive fact-check of all ported Perl subsystems and kit corrections.
