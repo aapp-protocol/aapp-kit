@@ -89,10 +89,17 @@ Ports `cmd_offline` from `lib/cmd_offline.sh`:
 - Authoritative syntax, flags, failure modes, and effects: `aapp help offline full` and `lib/docs/verbs/offline.md` (`mount`, `unmount`, `on`, `off`, `status`, `sync`).
 - Manages the `.offline/` worktree on orphan branch `offline`, recording offline tracker operations in `.offline/outbox` and closed issue rows in `.offline/closed.rows` when `aapp.offline=true`, and replaying them against `aapp-issue-tracker` on `sync`.
 
-### 2.4 Logging Telemetry (`AAPP::Logger::log_event`)
-Per `.plans/pickup/perl-port-logging-events-spec.md` §4.2 & §4.3, each mutating action emits structured telemetry to `.git/aapp.log`:
-- `post-issue-<action>` (for `log`, `hotfix`, `queue`, `unqueue`, `fix`, `fix-abort`, `close`, `abort`, `switch`, `limit-refused`, `commit`, `branch`, `note`).
-- `post-offline-<action>` (for `mount`, `unmount`, `on`, `off`, `sync`, `status`).
+### 2.4 Events & Logging Telemetry (`pre-issue`, `post-issue`, `AAPP::Logger::log_event`)
+The issue noun fires one event pair across **every** issue word (`log`, `hotfix`, `fix`, `queue`, `close`, `abort`, `list`, `commit`, `branch`, `note`), following Group P-111 §2:
+- **`pre-issue` (gate):** fires before the word reads or writes anything (for `list`, before reading ledger/provider). Registered as a `gate`, a refusing handler stops the word with exit 1; registered as `notify` or local `aapp.hook.pre-issue`, it observes only.
+- **`post-issue` (observer):** fires after the word's commit or effect (for `list`, after listing).
+- **Payload (`data`):**
+  - Both events carry: `command => 'issue'`, `event => $word`, `args => \@args`.
+  - `post-issue` adds produced fields: `log` (`issue_id`, `sev`, `type`, `symptom`, `files`), `queue`/`unqueue` (`issue_id`, `level`), `fix` (`issue_id`, `worktree`, `branch`), `close` (`issue_id`, `commit_sha`, `summary`), `hotfix` (`issue_id`, `blocked_plan`, `files`), `abort` (`issue_id`, `reason`); `list` (`shown`, `total`), `commit` (`issue_ids`, `commit_sha`), `branch` (`issue_id`, `branch`, `commit_sha`), `note` (`issue_id`, `author`, `date`).
+  - **Privacy Invariant:** Note text is strictly excluded from `post-issue` payload so live sensitive data from external systems is never leaked to event logs or observers.
+  - The payload action formerly called `withdraw` is cleanly renamed to `abort`.
+  - `pre-refine` / `on-refine` / `post-refine` no longer fire for issue-ledger edits.
+- Structured logging telemetry (`AAPP::Logger::log_event`) records `post-issue-<action>` and `post-offline-<action>` to `.git/aapp.log`.
 
 ### 🔄 Migration & Compatibility Strategy
 - **Compatibility Mode**: `Clean Break` (Default)
