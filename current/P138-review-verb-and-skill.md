@@ -8,8 +8,9 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
-* **Base:** none
+* **Status:** ⚡ In Development
+* **Base:** `0b6c95b` (feature/perl-port-of-the-kit)
+* **Worktree:** .workspace/P138 (plan/P138-review-verb-and-skill)
 * **Group:** P-111
 * **Commits:** none
 <!-- AAPP-PROTOCOL:START v0.9.0 -->
@@ -186,4 +187,5 @@ Every CLI command lives under `lib/AAPP/Runner/`, every other module stays a sin
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-26:** Drafted from the review of P-116; design settled in chat (own verb and skill, kind from Status, §7/§8 on first use, `fix` / `decline`, amendments opened by the implementer, RFC template). A plan drafted from an RFC topic links it, and carries the decisions itself because the RFC is local. Until the Perl `done`, the gate runs as `aapp review check` in the `pre-done` test gate; P-118/P-119 take over through P-112. Design-review automation waits for the review plugin contract.

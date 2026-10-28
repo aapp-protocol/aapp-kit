@@ -28,7 +28,6 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 - 🟣 **P-135**: [`P135-perl-core-tests-redesign.md`](current/P135-perl-core-tests-redesign.md) — Perl Core Tests Redesign
 - 🟣 **P-136**: [`P136-perl-test-engine-and-mock-repo.md`](current/P136-perl-test-engine-and-mock-repo.md) — Perl Test Engine And Mock Repository Builder
 - 🟣 **P-137**: [`P137-perl-port-documentation-and-manuals.md`](current/P137-perl-port-documentation-and-manuals.md) — Perl Port Documentation And Manuals Overhaul
-- 🟣 **P-138**: [`P138-review-verb-and-skill.md`](current/P138-review-verb-and-skill.md) — Review Verb And Skill
 - 🟣 **P-139**: [`P139-plan-noun.md`](current/P139-plan-noun.md) — Noun First Plan Commands
 - 🟣 **P-140**: [`P140-noun-first-plan-commands.md`](current/P140-noun-first-plan-commands.md) — 🧩 Group Plan P-140: Noun First Plan Commands
 - 🟣 **P-141**: [`P141-noun-first-plan-commands-amendments.md`](current/P141-noun-first-plan-commands-amendments.md) — Noun First Plan Commands Amendments
@@ -46,6 +45,7 @@ This document is the central dashboard for all active blueprints, drafts, ready 
 
 - ⚡ **P-111**: [`P111-perl-port-of-the-kit.md`](current/P111-perl-port-of-the-kit.md) — 🧩 Group Plan P-111: Perl Port Of The Kit
 - ⚡ **P-112**: [`P112-perl-port-of-the-kit-amendments.md`](current/P112-perl-port-of-the-kit-amendments.md) — Perl Port Of The Kit Amendments
+- ⚡ **P-138**: [`P138-review-verb-and-skill.md`](current/P138-review-verb-and-skill.md) — Review Verb And Skill
 
 ---
 
