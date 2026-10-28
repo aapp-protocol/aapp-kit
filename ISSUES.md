@@ -4,6 +4,7 @@
 
 | # | Sev | Type | Date | Location | Symptom / Problem | Target Plan / Fix | Status | Branch |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| #199 | `Medium` | `HOOK` | 2026-10-28 | `templates/blast-radius-guard.sh` | write guard refuses a plan's Target File under .agents/ when edited from its plan worktree: the .agents link resolves outside the worktree and the path is judged out of scope |  | 🟡 `Incubated` |  |
 | #198 | `Low` | `CLI` | 2026-10-27 | `lib/verbs.tsv` | aapp help prints only a one-line description for verbs without a contract (pause, resume, release, push, pull, sync, hooks, init); their tokens are not listed |  | 🟡 `Incubated` |  |
 | #197 | `Low` | `CORE` | 2026-10-27 | `lib/cmd_init.sh` | aapp init mounts the planning worktrees only from origin; with aapp.remote naming another remote it creates new orphan branches instead |  | 🟡 `Incubated` |  |
 | #196 | `Medium` | `CORE` | 2026-10-27 | `lib/cmd_plan.sh` | aapp done archives a plan whose section 3 tasks are all unticked; nothing checks the checklist before archiving |  | 🟡 `Incubated` |  |
