@@ -32,7 +32,10 @@ if [ -z "$TEST_CMD" ]; then
 fi
 
 dir="${worktree:-$root}"
-cd "$dir" || { echo "❌ [Test Gate] Cannot enter $dir." >&2; exit 1; }
+cd "$dir" || {
+    echo "❌ [Test Gate] Cannot enter $dir." >&2
+    exit 1
+}
 
 # Plan worktrees are clean-checked by `done`; a single checkout is checked here.
 if [ -z "$worktree" ] && [ -n "$(git status --porcelain --untracked-files=no)" ]; then
@@ -60,4 +63,17 @@ summary="$(awk '/Test Summary/ { n = NR } { line[NR] = $0 } END { if (n) for (i 
         tail -n 20 "$log"
     fi
 } >&2
+
+# Open review findings and unticked review fixes refuse `done` (P-138), until the Perl `done` checks
+# them itself (P-119). The kit's own checkout runs its own aapp, which knows `review`.
+if [ -n "$plan_id" ]; then
+    aapp_bin="aapp"
+    [ -x ./aapp ] && aapp_bin="./aapp"
+    if ! review_out="$("$aapp_bin" review check "$plan_id" 2>&1)"; then
+        echo "❌ [Test Gate] ${plan_id} has open review items; answer them with 'aapp review fix' first:" >&2
+        printf '%s\n' "$review_out" >&2
+        exit 1
+    fi
+fi
+
 exit 1
