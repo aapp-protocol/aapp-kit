@@ -1,5 +1,5 @@
 # 🗺️ Plan P-122: Remove Bash Clean Break
-* **Created:** 2026-10-19 | **Last Refined:** 2026-10-24
+* **Created:** 2026-10-19 | **Last Refined:** 2026-10-28
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-122
 * **Changelog:** Changed: Complete the Perl port clean break by converting `./aapp` to a pure `#!/usr/bin/env perl` entry point, migrating config key to `aapp.logFile`, and deleting all 30 legacy `lib/*.sh` bash modules.
@@ -40,8 +40,8 @@
 ---
 
 ## 1. Context & Architectural Goal
-Plan `P-122` is the tenth and final member of group `P-111` (*Perl Port Of The Kit*). Once `P-115` through `P-121` have ported every core module, hook, and CLI verb into `lib/AAPP/`, `P-122` executes the clean-break cutover:
-1. Converts `./aapp` into a pure `#!/usr/bin/env perl` dispatcher (~80 lines) with zero bash sourcing, preserving the `AAPP_PLUGIN_STEP` re-entrancy guard and `.agents/skills/$CMD` action-plugin fallthrough.
+Plan `P-122` is the twenty-first member of group `P-111` (*Perl Port Of The Kit*). Once `P-115` through `P-121` have ported every core module, hook, and CLI verb into `lib/AAPP/` and `lib/AAPP/Runner/`, `P-122` executes the clean-break cutover:
+1. Converts `./aapp` into a pure `#!/usr/bin/env perl` dispatcher (~80 lines) with zero bash sourcing, delegating directly to `lib/AAPP/Runner/` and preserving the `AAPP_PLUGIN_STEP` re-entrancy guard and `.agents/skills/$CMD` action-plugin fallthrough.
 2. Deletes all **30** legacy `lib/*.sh` files (`git rm lib/*.sh`) and the `templates/aapp-lib.sh` symlink.
 3. Updates user documentation (`README.md`, `MANUAL.md`) to state the Perl 5.26+ runtime requirement, while leaving `ARCHITECTURE.md` and `.agents/CODEMAP.md` to the group plan `P-111`'s `## Architecture & Codemap` section applied on group `done`.
 
@@ -59,7 +59,7 @@ Plan `P-122` is the tenth and final member of group `P-111` (*Perl Port Of The K
 ### 2.1 Pure-Perl `./aapp` Entry Point (`aapp`)
 Replaces the transitional hybrid dispatcher in `./aapp` with the final `#!/usr/bin/env perl` entry point (`use v5.26; use strict; use warnings;`):
 - Resolves its own symlink/real path via `Cwd::abs_path(__FILE__)` and `File::Basename::dirname` to locate `<kit-root>/lib` (`use lib ...`) and `$ENV{AAPP_DIR}` / `$AAPP_VERSION`. Where the installed kit is comes from `AAPP::Paths::kit_dir()` (the one answer, OS-aware); the bash dispatcher's own lookup (`$XDG_DATA_HOME/aapp-kit`, `$HOME/.local/share/aapp-kit`) is not carried over as a copy (decided 2026-10-21 in P-115).
-- Dispatches all built-in CLI verbs (`status`, `matrix`, `plan-status`, `help`, `draft`, `refine`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `plan`, `issue`, `offline`, `commit`, `note`, `ai`, `init`, `install`, `upgrade`, `uninstall`, `develop`, `push`, `pull`, `sync`, `release`, `companion`, `hooks`, `hook-status`, `plugins`, `plugin-status`, `hook-test`, `hook-run`, `hook-hash`, `pause`, `resume`, `unpause`, `test`) directly to `AAPP::Cmd::*`.
+- Dispatches all commands directly through the noun-first hierarchy in `lib/AAPP/Runner/` (`AAPP::Runner::Plan`, `Issue`, `Pickup`, `Review`, `Status`, `Help`, `Commit`, `Note`, `AI`, `Init`, `Install`, `Upgrade`, `Uninstall`, `Develop`, `Sync`, `Release`, `Companion`, `Hook`, `Pause`, `Test`).
 - Preserves the action-plugin fallthrough (`aapp` lines 225–245): when an unknown `$verb` matches `^[a-z0-9][a-z0-9_-]*$` and `.agents/skills/$verb` exists in the target repository (and `$ENV{AAPP_PLUGIN_STEP}` is not set), sets `$ENV{AAPP_PLUGIN_STEP} = 1` and dispatches via `AAPP::HookDispatcher::run_action_plugin($verb, @ARGV)`.
 - **Config Key Clean Break:** Formally renames `aapp.perlLogFile` to `aapp.logFile` (unset by default; logging remains inactive unless explicitly configured in git config). Updates the config allowlist in `lib/AAPP/Config.pm` to permit `aapp.logFile` and drop `aapp.perlLogFile`. With bash removed, the Perl logging sink is the sole telemetry channel.
 
@@ -83,7 +83,7 @@ Removes every bash library file from `lib/` and `templates/` via `git rm` with z
 ## 🔨 3. Implementation Steps & Execution Checklist
 
 ### Phase 1: Pure-Perl `./aapp` & Legacy Bash Removal
-- [ ] Task 1.1: Convert `./aapp` to a pure `#!/usr/bin/env perl` script dispatching all built-in verbs to `AAPP::Cmd::*` and preserving the `.agents/skills/$CMD` action-plugin fallthrough.
+- [ ] Task 1.1: Convert `./aapp` to a pure `#!/usr/bin/env perl` script dispatching all commands to `AAPP::Runner::*` and preserving the `.agents/skills/$CMD` action-plugin fallthrough.
 - [ ] Task 1.2: Delete all 30 `lib/*.sh` files and `templates/aapp-lib.sh` via `git rm`.
 - [ ] Task 1.3: Rename logger key `aapp.perlLogFile` to `aapp.logFile` in `lib/AAPP/Constants.pm` (`LOG_KEY`) and update the allowlist in `lib/AAPP/Config.pm`; logging remains disabled by default when unset.
 
@@ -154,6 +154,7 @@ Removes every bash library file from `lib/` and `templates/` via `git rm` with z
 ## 📦 6. Change Log & Refinement History
 * **2026-10-19:** Plan initialized from `pickup.md` and `.plans/pickup/perl-port-rfc.md`.
 * **2026-10-19:** Refined technical blueprint and blast radius per `§5.1.4` to list all 30 real `lib/*.sh` files, `templates/aapp-lib.sh`, and action-plugin fallthrough in `aapp`.
+* **2026-10-28:** Aligned CLI dispatcher with noun-first `lib/AAPP/Runner/` hierarchy.
 * **2026-10-24:** Refined technical blueprint, D7 references, and checklist with config key migration to aapp.logFile and single-repo schema Epoch E8 final switch.
 
 
