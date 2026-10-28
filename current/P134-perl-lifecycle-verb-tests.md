@@ -1,5 +1,5 @@
 # 🗺️ Plan P-134: Perl Lifecycle Verb Tests
-* **Created:** 2026-10-24 | **Last Refined:** 2026-10-24
+* **Created:** 2026-10-24 | **Last Refined:** 2026-10-28
 * **Target Issue / Milestone:** none
 * **Plan ID:** P-134
 * **Changelog:** Changed: the read-only and plan lifecycle verbs are tested in Perl (`t/verb/*.t`) through their Perl functions on fixtures built once per file, verified via byte-offset event slicing and dual-channel assertions per test salvage RFC and matrix
@@ -53,8 +53,8 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 ---
 
 ## 2. Technical Blueprint
-1. **Scope:** `status`, `matrix`, `plan-status`, `help`, `draft`, `refine`, `tdd`, `freeze`, `freeze-start`, `active`, `start` (with its worktree and group parts), `done` (with its worktree, squash and closes parts), `plan` (with `abort`); one file per verb, `t/verb/<verb>.t`, package `AAPP::T::Verb::<Name>`, one `test_*` sub per contract line, identifiers `t/verb/<verb>.t::test_<name>`.
-2. **Verb calls through Perl functions with Byte-Offset Slicing:** a test calls the verb's `AAPP::Cmd::*` function with `lib_call` (a fork of the test: no new program, fresh state per call). `lib_call` records byte offsets into `.git/aapp.log` before and after invocation, parsing the emitted slice into `$res->{events}` (structured JSON objects) and `$res->{log_lines}`. Tests assert results via `event_or_die`, `no_event_or_die`, and `log_match_or_die` in `< 0.01ms`.
+1. **Scope:** `status` (`t/verb/status.t`), `help` (`t/verb/help.t`), and the `plan` noun covering all lifecycle and query words (`t/verb/plan.t`: `draft`, `tdd`, `freeze`, `start`, `freeze-start`, `done`, `active`, `status`, `matrix`, `commit`, `rename`, `block`, `unblock`, `closes`, `join`, `leave`, `amend`, `abort`, `conflict-check`, `conflict-free`), package `AAPP::T::Verb::<Name>`, one `test_*` sub per contract line, identifiers `t/verb/<verb>.t::test_<name>`.
+2. **Verb calls through Perl functions with Byte-Offset Slicing:** a test calls the command's `AAPP::Runner::*` function with `lib_call` (a fork of the test: no new program, fresh state per call). `lib_call` records byte offsets into `.git/aapp.log` before and after invocation, parsing the emitted slice into `$res->{events}` (structured JSON objects) and `$res->{log_lines}`. Tests assert results via `event_or_die`, `no_event_or_die`, and `log_match_or_die` in `< 0.01ms`.
 3. **Dual-Channel Verification:** `event_or_die` proves the verb logic, dispatch, and parameters occurred; `read_text` / `match_or_die` / `file_exists_or_die` prove the durable state effect on disk without spawning shell subprocesses.
 4. **Single Prepared Repository Architecture:** suites execute against the single prepared repository (`$sandbox/repo`) provisioned by `P-136` per `perl-port-single-repo-schema.md`. Ordered test actions advance through Pools L, S, C, G, D across Epochs E0–E4 and E6, asserting structured telemetry and disk state with zero per-file repository builds and zero per-test copies.
 5. **Few processes in checks:** facts come from files (`.git/aapp_active_plan`, `.git/config`, plan files, ledgers); the remaining git queries are batched (`git rev-parse A B C`, `git log -1 --format=…`); setup commits that do not test the hooks use `--no-verify`.
@@ -98,30 +98,10 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 > **Authoring rule:** the **first** `backticked path` on a line is the target. Everything after it is prose — the pre-commit hook ignores it, so naming another file in a description does *not* grant access to it. To add a second file, give it its own line. (`NEW FILE` and similar markers are skipped, so the path after them is used.)
 *Every file is named on its own line, no patterns (#194).*
 - [ ] `NEW FILE` -> `t/verb/status.t` -> Tests of `lib/docs/verbs/status.md`.
-- [ ] `NEW FILE` -> `t/verb/matrix.t` -> Tests of `lib/docs/verbs/matrix.md`.
-- [ ] `NEW FILE` -> `t/verb/plan-status.t` -> Tests of `lib/docs/verbs/plan-status.md`.
 - [ ] `NEW FILE` -> `t/verb/help.t` -> Tests of `lib/docs/verbs/help.md`.
-- [ ] `NEW FILE` -> `t/verb/draft.t` -> Tests of `lib/docs/verbs/draft.md`.
-- [ ] `NEW FILE` -> `t/verb/refine.t` -> Tests of `lib/docs/verbs/refine.md`.
-- [ ] `NEW FILE` -> `t/verb/tdd.t` -> Tests of `lib/docs/verbs/tdd.md`.
-- [ ] `NEW FILE` -> `t/verb/freeze.t` -> Tests of `lib/docs/verbs/freeze.md`.
-- [ ] `NEW FILE` -> `t/verb/freeze-start.t` -> Tests of `lib/docs/verbs/freeze-start.md`.
-- [ ] `NEW FILE` -> `t/verb/active.t` -> Tests of `lib/docs/verbs/active.md`.
-- [ ] `NEW FILE` -> `t/verb/start.t` -> Tests of `lib/docs/verbs/start.md`, with its parts.
-- [ ] `NEW FILE` -> `t/verb/done.t` -> Tests of `lib/docs/verbs/done.md`, with its parts.
-- [ ] `NEW FILE` -> `t/verb/plan.t` -> Tests of `lib/docs/verbs/plan.md`, with `abort`.
+- [ ] `NEW FILE` -> `t/verb/plan.t` -> Tests of `lib/docs/verbs/plan.md` covering all `aapp plan <word>` commands.
 - [ ] `lib/docs/verbs/status.md` -> Test identifiers point at `t/verb/status.t`.
-- [ ] `lib/docs/verbs/matrix.md` -> Test identifiers point at `t/verb/matrix.t`.
-- [ ] `lib/docs/verbs/plan-status.md` -> Test identifiers point at `t/verb/plan-status.t`.
 - [ ] `lib/docs/verbs/help.md` -> Test identifiers point at `t/verb/help.t`.
-- [ ] `lib/docs/verbs/draft.md` -> Test identifiers point at `t/verb/draft.t`.
-- [ ] `lib/docs/verbs/refine.md` -> Test identifiers point at `t/verb/refine.t`.
-- [ ] `lib/docs/verbs/tdd.md` -> Test identifiers point at `t/verb/tdd.t`.
-- [ ] `lib/docs/verbs/freeze.md` -> Test identifiers point at `t/verb/freeze.t`.
-- [ ] `lib/docs/verbs/freeze-start.md` -> Test identifiers point at `t/verb/freeze-start.t`.
-- [ ] `lib/docs/verbs/active.md` -> Test identifiers point at `t/verb/active.t`.
-- [ ] `lib/docs/verbs/start.md` -> Test identifiers point at `t/verb/start.t`.
-- [ ] `lib/docs/verbs/done.md` -> Test identifiers point at `t/verb/done.t`.
 - [ ] `lib/docs/verbs/plan.md` -> Test identifiers point at `t/verb/plan.t`.
 - [ ] `DELETE` -> `tests/verbs/status.sh` -> Ported.
 - [ ] `DELETE` -> `tests/verbs/matrix.sh` -> Ported.
@@ -160,6 +140,7 @@ The group exists to cut process starts (P-111 §1: ~45k processes in one verb su
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Aligned tests with noun-first CLI: consolidated plan lifecycle tests under `t/verb/plan.t` executing `AAPP::Runner::Plan::*` over prepared repository.
 * **2026-10-24:** Drafted as the redraft of P-124 (aborted): verb tests through Perl functions on fixtures built once, design from `.plans/pickup/perl-port-test-salvage-rfc.md`, checks salvaged from `ref/p124-cli-tests`.
 * **2026-10-24:** Refined technical blueprint, D7 references, and checklist with single-repo schema fixture pools, byte-offset event slicing, and dual-channel test assertion helpers per salvage RFC and matrix.
 
