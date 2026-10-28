@@ -86,11 +86,12 @@ Each word module implements a single public `sub run`:
 | `leave` | `aapp plan leave <id>` | `Leave.pm` | Removes plan from its group. |
 | `amend` | `aapp plan amend <request\|approve\|refuse\|decision> <amend-id> …` | `Amend.pm` | Group amendment ledger management. |
 | `abort` | `aapp plan abort <id> [reason "<text>"] [keep-branch] [force] [force-cleanup] [confirm]` | `Abort.pm` | Abandons plan, moves to `aborted/`, logs to `000-aborted-ledger.md`. |
+| `restore` | `aapp plan restore <id> [reason "<text>"] [group <group-id>]` | `Restore.pm` | Recovers aborted plan back to `current/` (delivered in `P-145`). |
 | `conflict-check` | `aapp plan conflict-check <id> <id>… [json]` | `ConflictCheck.pm` | Detects pairwise Target Files overlaps across plans. |
 | `conflict-free` | `aapp plan conflict-free [<id> \| <group>] [json]` | `ConflictFree.pm` | Computes conflict-free execution waves. |
 
 ### 2.3 Reserved Words & Disambiguation
-- Every word listed in §2.2 is reserved following `aapp plan`.
+- Every word listed in §2.2 (including `restore` delivered in `P-145`) is reserved following `aapp plan`.
 - The plan resolver refuses a slug matching any reserved word (`a plan named like a plan word is named by its id: P-<n>`), ensuring `aapp plan status` is never parsed as a plan titled `status`.
 - Disambiguation between `aapp plan commit` (plan text commit, prefix `plan(refine):`) and `aapp commit` (workspace code commit) is enforced in command parsing and error messages.
 
