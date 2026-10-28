@@ -119,8 +119,8 @@ Every CLI command lives under `lib/AAPP/Runner/`, every other module stays a sin
 - [x] Task 0.2: From this plan's worktree, request the new member order: `aapp refine P-112 request "member order: P-116, P-138, then P-136 (test engine and mock repo) and P-135 (sweep of every test that exists by then and runs git under the hood: t/core/*.t and t/verb/review.t) before the ports P-117–P-121, P-131, P-130, so each port writes its Perl tests once, on the engine it keeps; the bash verb suites stay the safety net beside it; then P-134, P-125, P-122, P-137, P-112 last" heading "3. Members & Order"`. Once approved, the P-112 session writes the order into P-111 §3 (and the matching line of §2), and adds `t/verb/review.t` to P-135's scope.
 
 ### Phase 1: Contract and failing tests
-- [ ] Task 1.1: Write `lib/docs/verbs/review.md` (syntax, refusals of §2.4, effects, one test line each) and the `review` row in `lib/verbs.tsv`.
-- [ ] Task 1.2: Write `t/verb/review.t` from the contract lines, failing first.
+- [x] Task 1.1: Write `lib/docs/verbs/review.md` (syntax, refusals of §2.4, effects, one test line each) and the `review` row in `lib/verbs.tsv`.
+- [x] Task 1.2: Write `t/verb/review.t` from the contract lines, failing first.
 
 ### Phase 2: Modules and verb
 - [ ] Task 2.1: `templates/rfc-template.md`, `AAPP::Rfc` (create, `link`) and `AAPP::Runner::Review::Draft` (`review draft <id>` / `<slug>`).
