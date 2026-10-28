@@ -6,7 +6,8 @@
 * **Changelog Mode:** plan
 <!-- The umbrella CHANGELOG.md entry for what the whole group delivers; members keep their own entries.
      The group's `done` writes it with the ARCHITECTURE.md commit. -->
-* **Status:** 🟣 Under Review
+* **Status:** ❌ Aborted
+* **Aborted:** 2026-10-28 | **Reason:** Absorbed into group P-111
 * **Base:** none
 * **Feature Branch:** none
 * **Members:** P-139, P-142, P-144, P-141
@@ -72,6 +73,7 @@ No changes.
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Plan aborted: Absorbed into group P-111
 * **2026-10-27:** Group drafted with the verb conversion; P-139 is its first member. Details come in refinement.
 * **2026-10-27:** `pickup` becomes its own noun (P-142); `aapp refine pickup` becomes `aapp pickup commit`.
 * **2026-10-27:** The plan words moved to P-139 and the pickup words to P-142: the group keeps the shared rules; the issue words wait here for their member.

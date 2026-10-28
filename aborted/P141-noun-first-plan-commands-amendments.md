@@ -12,7 +12,8 @@
      owns it, and that plan records it under `### Amendments`. A member's `done` closes its requests.
      Corrections of the group's text go into the group plan with a line under `## Decisions`
      (`aapp refine <id> decision`). Only verbs write the three sections at the end. -->
-* **Status:** 🟣 Under Review
+* **Status:** ❌ Aborted
+* **Aborted:** 2026-10-28 | **Reason:** Group P-140 aborted: Absorbed into group P-111
 * **Base:** none
 * **Group:** P-140
 * **Commits:** none
@@ -78,6 +79,7 @@ Each approved file is changed by its requester in one commit and recorded in the
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Plan aborted: Group P-140 aborted: Absorbed into group P-111
 * **2026-10-27:** Drafted with its group.
 
 ---

@@ -8,7 +8,8 @@
 <!-- The plan's single CHANGELOG.md entry: `<Added|Changed|Fixed>: <one line>`. `aapp draft` pre-fills it
      from the title; reword it and pick the section while refining. `aapp commit` writes it into
      CHANGELOG.md on the plan's first code commit; `aapp freeze` refuses a missing or malformed field. -->
-* **Status:** 🟣 Under Review
+* **Status:** ❌ Aborted
+* **Aborted:** 2026-10-28 | **Reason:** Group P-140 aborted: Absorbed into group P-111
 * **Base:** none
 * **Group:** P-140
 * **Commits:** none
@@ -145,5 +146,6 @@ After this plan, nothing in the kit names `aapp refine issues` or its `branch` /
 ---
 
 ## 📦 6. Change Log & Refinement History
+* **2026-10-28:** Plan aborted: Group P-140 aborted: Absorbed into group P-111
 *Tracks how the plan evolved across sessions.*
 * **2026-10-27:** Drafted as the issue member of P-140: `refine issues` and its `branch` / `note` tokens become `issue commit`, `issue branch`, `issue note`.
