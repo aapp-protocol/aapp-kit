@@ -123,10 +123,10 @@ Every CLI command lives under `lib/AAPP/Runner/`, every other module stays a sin
 - [x] Task 1.2: Write `t/verb/review.t` from the contract lines, failing first.
 
 ### Phase 2: Modules and verb
-- [ ] Task 2.1: `templates/rfc-template.md`, `AAPP::Rfc` (create, `link`) and `AAPP::Runner::Review::Draft` (`review draft <id>` / `<slug>`).
-- [ ] Task 2.2: `AAPP::Review` (§7/§8, the amendment check, `counts`, `gate`) and `AAPP::Runner::Review::Flag` (`review flag`).
-- [ ] Task 2.3: `AAPP::Runner::Review::Fix` (`review fix <id> F<n> "<task>"`, `review fix done <id> F<n>`, `review fix decline <id> F<n> "<reason>"`) and `AAPP::Runner::Review::Check` (`review check`).
-- [ ] Task 2.4: The CLI hierarchy: `AAPP::Runner` reads one parameter per layer (the one delegate step every layer calls); `aapp` routes a name with a `lib/AAPP/Runner/<Name>.pm`; `AAPP::Runner::Review` picks the word; add the review events to the logging spec.
+- [x] Task 2.1: `templates/rfc-template.md`, `AAPP::Rfc` (create, `link`) and `AAPP::Runner::Review::Draft` (`review draft <id>` / `<slug>`).
+- [x] Task 2.2: `AAPP::Review` (§7/§8, the amendment check, `counts`, `gate`) and `AAPP::Runner::Review::Flag` (`review flag`).
+- [x] Task 2.3: `AAPP::Runner::Review::Fix` (`review fix <id> F<n> "<task>"`, `review fix done <id> F<n>`, `review fix decline <id> F<n> "<reason>"`) and `AAPP::Runner::Review::Check` (`review check`).
+- [x] Task 2.4: The CLI hierarchy: `AAPP::Runner` reads one parameter per layer (the one delegate step every layer calls); `aapp` routes a name with a `lib/AAPP/Runner/<Name>.pm`; `AAPP::Runner::Review` picks the word; add the review events to the logging spec.
 - [ ] Task 2.5: `.agents/hooks/test-gate.sh` runs `aapp review check <plan_id>` before `TEST_CMD`; ask the developer to re-register it (`aapp hook-hash .agents/hooks/test-gate.sh pre-done 900 gate`).
 - [ ] Task 2.6: Request through P-112 the lines for P-118 (`fixes x/y` in `status`) and P-119 (`done` calls `AAPP::Review::gate` and the gate line in `test-gate.sh` goes; `draft` calls `AAPP::Rfc::link`).
 
@@ -189,3 +189,4 @@ Every CLI command lives under `lib/AAPP/Runner/`, every other module stays a sin
 ## 📦 6. Change Log & Refinement History
 * **2026-10-28:** Plan frozen and activated into ⚡ In Development via freeze-start.
 * **2026-10-26:** Drafted from the review of P-116; design settled in chat (own verb and skill, kind from Status, §7/§8 on first use, `fix` / `decline`, amendments opened by the implementer, RFC template). A plan drafted from an RFC topic links it, and carries the decisions itself because the RFC is local. Until the Perl `done`, the gate runs as `aapp review check` in the `pre-done` test gate; P-118/P-119 take over through P-112. Design-review automation waits for the review plugin contract.
+* **2026-10-28:** Deviation: `AAPP::Rfc::link` is `AAPP::Rfc::link_plan`, as `link` is a Perl built-in. Requested `tests/verb_contracts_test.sh` (R54): its shape check demands an `aapp test verb` Run line, and `review` is tested only in `t/verb/`.
